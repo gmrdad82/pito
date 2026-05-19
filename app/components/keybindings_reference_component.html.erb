@@ -1,45 +1,34 @@
-<%# Two-section keybindings reference card. Page actions render FIRST
-    (above the hairline) so the user sees context-specific affordances
-    at the top; the always-true navigation map follows below. The
-    page-actions section + hairline are both OMITTED when
-    `page_actions` is empty — see the component class for the
-    deny-list + default-fallback rules.
+<%# Two-section keybindings reference card. "local" page actions
+    render FIRST (above the hairline) so the user sees context-
+    specific affordances at the top; the always-true "global"
+    navigation surface follows below. The "local" section + hairline
+    are both OMITTED when `local_groups` is empty — see the component
+    class for the deny-list + default-fallback rules.
 
-    2026-05-18 — the navigation map is a flat 2-key dispatch list (no
-    submenus). The earlier nested-submenu UX (root row → opens
-    sub-menu) was dropped in favour of direct 2-key resolution
-    (`Cl` channels list, `Gl` games list, `cs` calendar schedule, …).
-    Divider entries (`{ divider: true }`) split the visual list into
-    logical groups; they are non-interactive hairlines only. %>
+    Renamed 2026-05-18 — "page actions" → "local", "navigation" →
+    "global". The "global" surface was also trimmed to /games +
+    /settings + logout only.
+
+    Group layout — `local_groups` and `global_groups` return Group
+    structs (`{ layout:, items: }`). A group with `layout: :grid_2col`
+    renders inside `<div class="keybindings-grid keybindings-grid--two-col">`
+    with an inline `grid-template-rows: repeat(half, auto)` so items
+    fill COLUMN-FIRST (5 left / 3 right for an 8-item group, 1 left /
+    1 right for a 2-item group). A single-column group renders rows
+    in the default `display: block` flow. Visible hairlines render
+    BETWEEN groups (never at the very top or bottom) regardless of
+    which layout each group uses. %>
 <div class="keybindings-reference">
-  <% if page_actions.any? %>
-    <section class="keybindings-section keybindings-page-actions">
-      <h3>page actions</h3>
-      <% page_actions.each do |action| %>
-        <% if action["divider"] %>
-          <hr class="hairline keybindings-divider">
-        <% else %>
-          <div class="keybindings-row">
-            <kbd><%= action["key"] %></kbd>
-            <span><%= action["label"] %></span>
-          </div>
-        <% end %>
-      <% end %>
+  <% if local_groups.any? %>
+    <section class="keybindings-section keybindings-page-actions" data-section="local">
+      <h3><%= t("keybindings.sections.local") %></h3>
+      <%= render_groups(local_groups) %>
     </section>
     <hr class="hairline">
   <% end %>
 
-  <section class="keybindings-section keybindings-navigation">
-    <h3>navigation</h3>
-    <% navigation_items.each do |item| %>
-      <% if item["divider"] %>
-        <hr class="hairline keybindings-divider">
-      <% else %>
-        <div class="keybindings-row">
-          <kbd><%= item["key"] %></kbd>
-          <span><%= item["label"] %></span>
-        </div>
-      <% end %>
-    <% end %>
+  <section class="keybindings-section keybindings-navigation" data-section="global">
+    <h3><%= t("keybindings.sections.global") %></h3>
+    <%= render_groups(global_groups) %>
   </section>
 </div>

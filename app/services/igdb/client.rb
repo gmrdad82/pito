@@ -116,6 +116,8 @@ module Igdb
       involved_companies.company.slug
       version_parent
       version_title
+      alternative_names.id
+      alternative_names.name
     ].freeze
 
     def initialize(token_cache: TokenCache.new, rate_limiter: RateLimiter.shared, http: Net::HTTP)

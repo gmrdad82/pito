@@ -24,7 +24,6 @@ en:
       delete_short: "-"
       help: "help"
       open: "open"
-      revoke: "revoke"
       save: "save"
       see_all: "see all"
       sync: "sync"
@@ -32,14 +31,14 @@ en:
 
   games:
     flash:
-      igdb_only: "games can only be added via the IGDB search modal."
-      invalid_igdb_id: "igdb id must be a positive integer."
-      already_in_library: "already in your library."
-      added: "added; metadata loading in background."
-      create_failed: "could not add game."
+      igdb_only: "use IGDB search."
+      invalid_igdb_id: "invalid igdb id."
+      already_in_library: "already in library."
+      added: "game added."
+      create_failed: "add failed."
       deleted: "game deleted."
-      already_resyncing: "already resyncing."
-      refreshing: "refreshing from igdb…"
+      already_resyncing: "already syncing."
+      refreshing: "syncing…"
 
     search:
       # Placeholder for the `:game_index` omnisearch modal (the [+] on /games).
@@ -55,7 +54,7 @@ en:
       placeholder_default: "type to search."
       section_games: "games"
       section_bundles: "bundles"
-      section_igdb: "on igdb"
+      section_igdb: "on IGDB"
       row_kind_game: "game"
       row_kind_bundle: "bundle"
       igdb_error: "igdb error: %{msg}"
@@ -71,16 +70,16 @@ en:
       flash:
         updated: "ownership updated."
       errors:
-        duplicate: "duplicate platform submitted."
+        duplicate: "duplicate platform."
         unknown_platform: "unknown platform."
 
     ownership_toggle:
       flash:
-        owned_on: "Game owned on %{platform}."
-        no_longer_owned: "Game no longer owned on %{platform}."
-        playing_on: "Playing on %{platform}."
-        no_longer_playing: "No longer playing on %{platform}."
-        played_failed: "could not update played platform."
+        owned_on: "owned on %{platform}."
+        no_longer_owned: "removed %{platform}."
+        playing_on: "playing on %{platform}."
+        no_longer_playing: "stopped %{platform}."
+        played_failed: "update failed."
         unknown_platform: "unknown platform."
 
   deletions:

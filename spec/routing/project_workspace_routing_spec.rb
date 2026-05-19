@@ -20,7 +20,7 @@ RSpec.describe "Project Workspace routes", type: :routing do
       expect(helpers.project_path(42)).to eq("/projects/42")
     end
 
-    %w[collections games footages notes timelines].each do |resource|
+    %w[games footages notes timelines].each do |resource|
       it "exposes #{resource}_path -> /#{resource}" do
         expect(helpers.public_send("#{resource}_path")).to eq("/#{resource}")
       end
@@ -58,7 +58,6 @@ RSpec.describe "Project Workspace routes", type: :routing do
 
     it "registers the rest of the new resources" do
       expect(route_names).to include(
-        "collections", "collection",
         "games", "game",
         "footages", "footage",
         "notes", "note",

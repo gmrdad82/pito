@@ -199,21 +199,21 @@ RSpec.describe "Games index — filter row (01b)", type: :system do
       page.has_no_css?("section.all-games-shelves-by-letter [data-tile-game-id='#{game.id}']")
     end
 
-    it "clicking [ps5] updates the URL and narrows the listing" do
+    it "clicking [ps] updates the URL and narrows the listing" do
       visit games_path
       within "section.games-filter-row" do
-        find("a[data-filter-token='ps5']").click
+        find("a[data-filter-token='ps']").click
       end
-      expect(page).to have_current_path(games_path(filters: "ps5"))
+      expect(page).to have_current_path(games_path(filters: "ps"))
       expect(listing_has_game?(owned_ps5)).to be(true)
       expect(listing_has_game?(another_owned_ps5)).to be(true)
       expect(listing_has_no_game?(unowned_steam)).to be(true)
     end
 
-    it "clicking [ps5] when already active clears it" do
-      visit games_path(filters: "ps5")
+    it "clicking [ps] when already active clears it" do
+      visit games_path(filters: "ps")
       within "section.games-filter-row" do
-        find("a[data-filter-token='ps5']").click
+        find("a[data-filter-token='ps']").click
       end
       # Toggling off the only active chip drops `filters=` entirely.
       expect(page).to have_current_path(games_path)
@@ -223,21 +223,21 @@ RSpec.describe "Games index — filter row (01b)", type: :system do
     it "[clear all] appears when at least one chip is active" do
       visit games_path
       expect(page).not_to have_link("clear all")
-      visit games_path(filters: "ps5")
+      visit games_path(filters: "ps")
       expect(page).to have_link("clear all")
     end
 
     it "[clear all] clears the filter set" do
-      visit games_path(filters: "ps5,owned")
+      visit games_path(filters: "ps,owned")
       click_link "clear all"
       expect(page).to have_current_path(games_path)
       expect(page).not_to have_link("clear all")
     end
 
-    it "composing chips: [ps5] then [owned] narrows to owned-on-ps5" do
+    it "composing chips: [ps] then [owned] narrows to owned-on-ps" do
       visit games_path
       within "section.games-filter-row" do
-        find("a[data-filter-token='ps5']").click
+        find("a[data-filter-token='ps']").click
       end
       within "section.games-filter-row" do
         find("a[data-filter-token='owned']").click
@@ -271,15 +271,15 @@ RSpec.describe "Games index — filter row (01b)", type: :system do
       owned_ps5.genres << action
       visit games_path(genre: "action")
       within "section.games-filter-row" do
-        find("a[data-filter-token='ps5']").click
+        find("a[data-filter-token='ps']").click
       end
-      expect(current_url).to include("filters=ps5")
+      expect(current_url).to include("filters=ps")
       expect(current_url).to include("genre=action")
     end
 
     it "selecting all five platform chips without owned widens to the union" do
       visit games_path
-      %w[ps5 switch2 steam gog epic].each do |t|
+      %w[ps switch steam gog epic].each do |t|
         within "section.games-filter-row" do
           find("a[data-filter-token='#{t}']").click
         end
@@ -294,13 +294,13 @@ RSpec.describe "Games index — filter row (01b)", type: :system do
 
   describe "flaw: defensive surface" do
     it "the filter row contains no <script> tag" do
-      visit games_path(filters: "ps5")
+      visit games_path(filters: "ps")
       row = find("section.games-filter-row")
       expect(row.native.to_html).not_to include("<script")
     end
 
     it "no data-turbo-confirm anywhere on the row" do
-      visit games_path(filters: "ps5")
+      visit games_path(filters: "ps")
       row = find("section.games-filter-row")
       expect(row.native.to_html).not_to include("data-turbo-confirm")
     end

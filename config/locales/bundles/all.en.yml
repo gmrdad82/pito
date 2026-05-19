@@ -45,7 +45,6 @@ en:
 
     omnisearch:
       section_local: "in your library"
-      igdb_only: "in igdb only"
 
   games:
     bundles_shelf:

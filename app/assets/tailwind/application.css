@@ -1298,6 +1298,24 @@ table.kv-table td.kv-table__value {
   max-width: 200px;
 }
 
+/* 2026-05-19 (Bug A3 fix) — `kv-table__row--syncing` modifier on the
+   meta-table sync `<tr>`. Rendered by `Games::MetaTableComponent`
+   while `@game.resyncing?` is true. The whole row dims with
+   `opacity: 0.55` so the "stale, refreshing" signal is unmistakable
+   even when the value cell text is still being morphed by Turbo's
+   refresh polling (the `id="game_meta_sync_row_<id>"` anchor + the
+   `data-resyncing="yes"` attribute give morph a stable target). The
+   opacity dim sits ON TOP of the existing `var(--color-muted)` value
+   color so the row reads even more washed-out than the surrounding
+   date / dev / pub rows — same visual posture as the breadcrumb
+   `[sync]` / `[delete]` muted spans + the ownership-matrix
+   "syncing…" placeholder. No background change (kv-table is
+   transparent-zebra by design). */
+table.kv-table tr.kv-table__row--syncing td.kv-table__label,
+table.kv-table tr.kv-table__row--syncing td.kv-table__value {
+  opacity: 0.55;
+}
+
 /* Sessions-table zebra (2026-05-17 — settings dark polish).
 
    Overrides the global `table:not(.detail-table) tr:nth-child(even)`
@@ -1614,7 +1632,6 @@ input.omnisearch-input::-webkit-search-cancel-button:hover {
   margin: 0 0 6px;
   font-size: 11px;
   font-weight: bold;
-  text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--color-muted);
 }
@@ -3166,6 +3183,13 @@ textarea.note-editor-source {
   border: 1px solid #000000;
   transform: translateX(-2px); /* center the 4px tick on the score position */
   pointer-events: none;
+  /* Wave C reveal (2026-05-19) — while `game.resyncing?` the host
+     renders with `--score: 0` so the tick parks at the bar's left
+     edge; the Turbo morph swap on sync complete bumps `--score` to
+     the real value and the `transition: left 600ms ease-in-out` rule
+     slides the tick rightward. Matched in duration + easing with the
+     TTB component so both visualizations animate as one motion. */
+  transition: left 600ms ease-in-out;
 }
 /* Score bubble floating above the indicator tick. LOCKED dark literals
    for both themes (2026-05-17 user direction item 4): dark indigo-grey
@@ -3192,6 +3216,10 @@ textarea.note-editor-source {
   white-space: nowrap;
   pointer-events: none;
   z-index: 1;
+  /* Wave C reveal (2026-05-19) — bubble slides alongside the
+     indicator tick on Turbo morph. Same duration / easing as the
+     indicator so they read as one unit. */
+  transition: left 600ms ease-in-out;
 }
 .rating-heat-bar--muted {
   opacity: 0.5;
@@ -3442,6 +3470,46 @@ dialog.leader-menu-popup::backdrop {
   gap: 8px;
   align-items: center;
   padding: 2px 0;
+}
+/* 2026-05-18 — 2-col grid layout for grouped keybinding rows.
+   Opened by a YAML divider carrying `layout: grid_2col` and closed
+   at the next divider OR end-of-list. The renderer emits an inline
+   `style="grid-template-rows: repeat(<half>, auto)"` so the
+   `grid-auto-flow: column` rule fills items COLUMN-FIRST (8-item
+   chip group → 5 left / 3 right; 2-item create-row → 1 left / 1
+   right). The 16px column gap mirrors the leader popup's resting
+   row gap so the grid does not feel cramped next to single-column
+   sections above and below. On narrow viewports the popup is
+   already a width-clamped overlay (max ~280px), so the 2-col grid
+   stays usable down to mobile widths without extra breakpoints —
+   if a future overlay narrows below ~220px, add a media-query
+   fallback that collapses the grid to `grid-template-columns: 1fr;
+   grid-auto-flow: row;` so each pair stacks vertically. */
+.keybindings-grid {
+  display: grid;
+}
+.keybindings-grid--two-col {
+  position: relative;
+  grid-template-columns: 1fr 1fr;
+  grid-auto-flow: column;
+  column-gap: 16px;
+}
+/* Vertical hairline sitting in the middle of the 16px column-gap,
+   matching the popup's existing `hr.keybindings-divider` /
+   `--color-border` tone so the 2-col blocks read as a structured
+   pair rather than two unrelated stacks. Pseudo-element technique
+   keeps the markup untouched and is gap-tolerant — the line lives
+   in the gutter, not flush against either column. */
+.keybindings-grid--two-col::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--color-border);
+  transform: translateX(-0.5px);
+  pointer-events: none;
 }
 
 /* Phase 26 §01g — viewer-time heatmap. CSS grid + single-hue
@@ -3899,21 +3967,60 @@ dialog.leader-menu-popup::backdrop {
   flex-shrink: 0;
 }
 
-/* 2026-05-18 — Vertical hairline divider between the two halves of
-   the /games/:id bundles section (`.game-bundles .shelf-row`). LEFT
-   half = bundles the game is a member of; RIGHT half = suggested
-   bundles. Theme-aware border via `--color-border`; sized to match
-   the bare 98×130 covers either side so it reads as a column rule,
-   not a horizontal line. `flex-shrink: 0` keeps it from collapsing
-   when the shelf row is tight. */
-.bundles-section-divider {
-  display: inline-block;
+/* 2026-05-19 — Cover-art-style separator tile between the LEFT half
+   ("bundles this game is in") and the RIGHT half ("suggested
+   bundles") of the /games/:id bundles section
+   (`.game-bundles .shelf-row`). Replaces the old vertical hairline
+   `.bundles-section-divider` so the row reads as one uninterrupted
+   strip of covers, with the chevron tile cueing the transition into
+   recommendations.
+
+   Dimensions match the 150 × 200 `:grid` bundle cover the section
+   renders for both halves; the dashed border + muted text mirror the
+   `.shelf-empty-tile` placeholder style.
+
+   Edge case — newly-added game with zero in-bundles. The separator
+   becomes the FIRST child of `.shelf-row`. Without the `:has()` rule
+   below, the row's `gap: 12px` would push the separator 12px right of
+   the pane edge; the rule zeros the gap when the first child is the
+   separator so the tile butts flush against the pane edge. Modern
+   browsers only — graceful degradation falls back to the 12px gap. */
+.bundles-suggested-separator {
   flex-shrink: 0;
-  align-self: center;
-  width: 1px;
-  height: 130px;
-  background-color: var(--color-border);
-  margin: 0 12px;
+  width: 150px;
+  height: 200px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-around;
+  border: 1px dashed var(--color-border);
+  border-radius: 2px;
+  background-color: transparent;
+  color: var(--color-muted);
+  font-size: 11px;
+  padding: 8px;
+}
+.bundles-suggested-separator__label {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+  line-height: 1.3;
+}
+.bundles-suggested-separator__label-row {
+  display: block;
+}
+.bundles-suggested-separator__chevrons {
+  display: inline-block;
+  font-size: 16px;
+  letter-spacing: -2px;
+  color: var(--color-muted);
+}
+.game-bundles .shelf-row:has(.bundles-suggested-separator:first-child) {
+  padding-left: 0;
+}
+.game-bundles .shelf-row:has(.bundles-suggested-separator:first-child)
+  > .bundles-suggested-separator:first-child {
+  margin-left: 0;
 }
 
 /* 2026-05-18 — Empty-state placeholder tile for the /games/:id
@@ -4425,6 +4532,11 @@ input[type="text"].bundle-title-input:focus-visible {
   font-variant-numeric: tabular-nums;
   line-height: 14px;
   white-space: nowrap;
+  /* Wave C reveal (2026-05-19) — labels slide alongside their ticks
+     when the Turbo morph swaps `left:` from the stubbed 0 % to the
+     real percent. Same easing / duration as the ticks above so the
+     bar reads as a single coordinated reveal. */
+  transition: left 600ms ease-in-out;
 }
 
 .ttb-fuel-gauge__value--pillar {
@@ -4457,15 +4569,58 @@ input[type="text"].bundle-title-input:focus-visible {
   overflow: visible;
 }
 
+/* Wave C reveal (2026-05-19) — stacked gradient layers. The bar's
+   visible color comes from TWO absolutely-positioned children stacked
+   inside `.ttb-fuel-gauge__bar`, not from a single inline
+   `background-image` on the bar itself:
+
+     .ttb-fuel-gauge__bar-layer--stub  — painted always (bottom z),
+       carries the bland STUB_GRADIENT (solid `--color-rating-good`
+       green). Acts as the resting bed.
+     .ttb-fuel-gauge__bar-layer--real  — painted always (top z),
+       carries the per-game adaptive gradient. Opacity is set inline
+       from `real_layer_opacity` (0 while `game.resyncing?`, 1
+       otherwise). When the Turbo morph swaps that inline value the
+       transition rule below crossfades the layer in over 600ms.
+
+   Browsers do not interpolate `background-image` smoothly between two
+   gradient values; an opacity crossfade between stacked layers is the
+   reliable equivalent. Both layers carry `pointer-events: none` so
+   the bar itself stays the hover/click surface (currently none — the
+   bar is pure visualization). */
+.ttb-fuel-gauge__bar-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.ttb-fuel-gauge__bar-layer--stub {
+  z-index: 0;
+}
+
+.ttb-fuel-gauge__bar-layer--real {
+  z-index: 1;
+  transition: opacity 600ms ease-in-out;
+}
+
 /* Pillar ticks. Colored fill with a 1px black border for visibility
    against the gradient (locked 2026-05-17 — user direction). Overshoot
    the bar by 3px top + bottom so the tick reads as a marker, not a fill
-   stripe. Sits on top of the gradient via z-index. */
+   stripe. Sits on top of the gradient via z-index.
+
+   Wave C reveal (2026-05-19) — `transition: left 600ms ease-in-out`
+   animates each tick from its stubbed `left: 0%` position (rendered
+   while `game.resyncing?`) to its real percent on Turbo morph. The
+   `transform: translateX(-50%)` stays static, so the tick centers on
+   the animated `left:` value. Footage tick inherits the transition via
+   its own override that re-declares only the layout properties (see
+   `.ttb-fuel-gauge__tick--footage`). */
 .ttb-fuel-gauge__tick {
   position: absolute;
   transform: translateX(-50%);
   pointer-events: none;
   z-index: 2;
+  transition: left 600ms ease-in-out;
 }
 
 .ttb-fuel-gauge__tick--pillar {

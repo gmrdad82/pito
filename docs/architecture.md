@@ -248,6 +248,92 @@ Reindex is auto-enqueued via the `Searchable` concern on every save/destroy.
 `Searchable` is included by `Video` only (Phase 3 dropped `Channel`). The search
 controller and the `search` MCP tool only query videos.
 
+### Games omnisearch (`/games`)
+
+The `/games` omnisearch modal is a two-tier dispatch with two record-type
+sections rendered top-to-bottom: **local** (games + bundles from the install's
+own Postgres / Meilisearch corpus) above **IGDB** (remote `search_games` hits
+from the IGDB v4 API). The dispatcher is `Games::SearchService` and the local
+half is `Meilisearch::SearchGames`; both ship in Phase 27 alongside the
+`/games` revamp.
+
+**Always-search-both contract (2026-05-19).** `Games::SearchService` calls
+both layers on every dispatch — local first, IGDB second — regardless of
+local hit count. The earlier "lazy IGDB" mode (skip the IGDB call when the
+local pane already had hits) was reversed because the user needs to compare
+local rows against the IGDB-canonical row for the same query: the local row
+may be a slightly different edition, a stale title, or a community-renamed
+import, and the IGDB row is the canonical reference. With both halves always
+present, the dedup post-filter (below) is what keeps the IGDB pane from
+re-listing rows the user already imported.
+
+**Dedup by `igdb_id`.** After both halves return, the dispatcher filters out
+any IGDB row whose `id` matches an `igdb_id` on a local Game in the local
+half of the same response. The local row wins — the user sees the game in
+exactly ONE section, never twice. This rule is what makes the
+always-search-both contract feel coherent rather than noisy: when the local
+import IS the IGDB row, only the local entry renders; when it isn't (no
+local match, or local match has a different `igdb_id`), both entries render
+side-by-side and the user can compare.
+
+**Local-corpus shape.** `Meilisearch::SearchGames` queries the shared
+`games_<env>` Meilisearch index, which holds both Game documents (written by
+`Meilisearch::GameIndexer`) and Bundle documents (written by
+`Meilisearch::BundleIndexer`) discriminated by a `kind` field (`"game"` vs
+`"bundle"`). The same call always falls back to a Postgres ILIKE merge on
+top of the Meilisearch ranking — the fallback guarantees obvious substring
+matches surface even when the index is stale or partially populated, while
+Meilisearch's relevance ordering wins for the leading entries.
+
+**Alt-names search axis (2026-05-19).** `games.alternative_names` is a
+Postgres `text[]` column populated from IGDB's `alternative_names` payload
+on every sync (the IGDB API returns an array of `{id, name, comment}` rows;
+`Igdb::GameMapper.extract_alternative_names` keeps the `name` strings,
+deduplicated, blanks dropped). Three consumers read the column:
+
+1. `Meilisearch::GameIndexer::SEARCHABLE_ATTRIBUTES` includes
+   `alternative_names` immediately after `title` in the searchable list.
+   Meilisearch weights the earlier entries higher — alt names rank above
+   `summary` / developer / publisher / genre text bodies because alt names
+   are effectively title synonyms ("SF6" for Street Fighter 6, "FF7
+   Rebirth" for the canonical title, "TotK" for Tears of the Kingdom).
+2. The Postgres ILIKE fallback in `Meilisearch::SearchGames#fallback_games`
+   OR-matches `alternative_names` alongside `title` and `igdb_slug` via
+   `EXISTS (SELECT 1 FROM unnest(alternative_names) AS alt WHERE LOWER(alt)
+   ILIKE ?)`. A GIN index on the column (`index_games_on_alternative_names`)
+   keeps the lookup cheap when the planner picks it up.
+3. `Games::VoyageIndexer#combined_text` (and its mirror in
+   `BulkVoyageIndexJob#game_text`) joins the alt names between the title
+   and the summary when composing the Voyage embedding input —
+   `"title — alt_names — summary"` (alt slot dropped when the array is
+   empty; entries space-joined inside the slot). Alt names are short
+   tokens, not prose, so the slot is a thin synonym hint that nudges the
+   1024-dim vector toward neighboring titles in the series / locale /
+   marketing-alias cluster. Two consumers of `summary_embedding` benefit
+   from this signal: the `/games/:id` similar-games pgvector lookup, and
+   the recommended-bundles ranking on the same page.
+
+The column carries `default: [], null: false` — the empty-array invariant
+makes the `EXISTS unnest` predicate safe to run unconditionally, and a
+previously-populated row whose alt names were removed upstream stays in
+sync (when IGDB omits the field on resync, the mapper resets to `[]`).
+
+**Modes.** `Games::SearchService` exposes three modes:
+
+- `:game_index` — IGDB-only. The "add from IGDB" flow on `/games`. Local
+  half is empty; dedup is a no-op.
+- `:bundle_add` — local games + IGDB. Used by the bundle edit form to
+  surface candidate games. Already-in-bundle games are filtered out of the
+  local half so a member never re-surfaces as an add candidate.
+- `:games_search` — local games + local bundles + IGDB. The headline
+  `/games` omnisearch surface. Result rows navigate to `/games/:id` or open
+  the bundles modal on `/games`.
+
+IGDB failures (network / auth / rate-limit) surface as a per-pane
+`igdb_error` envelope. The local pane stays usable independent of IGDB
+health; the IGDB pane renders the upstream-unavailable message in place of
+the hit list.
+
 ## Background jobs — Sidekiq
 
 Backed by Redis (`redis:7` Docker volume `pito-redis-data`). See "Sidekiq

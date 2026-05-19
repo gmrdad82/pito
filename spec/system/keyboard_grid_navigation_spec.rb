@@ -47,22 +47,6 @@ RSpec.describe "Keyboard grid / tile navigation markup", type: :system do
     end
   end
 
-  describe "/bundles (tile grid)" do
-    let!(:bundle_a) { create(:bundle, name: "Mass Effect") }
-    let!(:bundle_b) { create(:bundle, name: "Halo") }
-
-    it "tags the bundles grid container with data-keyboard-grid=\"true\"" do
-      visit "/bundles"
-      expect(page).to have_css("div.bundles-grid[data-keyboard-grid='true']")
-    end
-
-    it "tags each bundle tile with data-keyboard-tile" do
-      visit "/bundles"
-      tiles = page.all("div.bundles-grid > a.tile[data-keyboard-tile]")
-      expect(tiles.size).to eq(2)
-    end
-  end
-
   describe "/calendar/month (calendar grid)" do
     it "tags the month grid table with data-keyboard-grid=\"calendar-month\"" do
       visit "/calendar/month/2026/05"

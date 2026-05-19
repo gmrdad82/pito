@@ -1,0 +1,17 @@
+<%# 2026-05-19 — Cover-art-style separator tile between the
+    in-bundles (LEFT) and suggested (RIGHT) halves of the
+    `/games/:id` bundles section. The outer `.bundles-suggested-separator`
+    class is load-bearing for the no-left-gap CSS rule that detects when
+    the separator is the first child of `.game-bundles .shelf-row`
+    (newly-added game with zero in-bundles).
+
+    Two-column inner layout: LEFT column stacks the "suggested" /
+    "bundles" rows; RIGHT column renders a tight chevron cluster
+    cueing the transition into the suggested half. %>
+<div class="bundles-suggested-separator" aria-hidden="true">
+  <span class="bundles-suggested-separator__label">
+    <span class="bundles-suggested-separator__label-row"><%= label_row_1 %></span>
+    <span class="bundles-suggested-separator__label-row"><%= label_row_2 %></span>
+  </span>
+  <span class="bundles-suggested-separator__chevrons">&gt;&gt;&gt;</span>
+</div>

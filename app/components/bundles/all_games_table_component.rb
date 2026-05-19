@@ -25,7 +25,13 @@ module Bundles
 
     def initialize(bundle:)
       @bundle = bundle
-      @games = bundle.games.includes(:primary_genre).order(:title)
+      # `.reorder` (not `.order`) drops the default
+      # `bundle_members.order(:position)` scope that propagates through
+      # the `has_many :games, through: :bundle_members` association —
+      # otherwise SQL `ORDER BY position, title` keeps position as the
+      # primary sort key and the table renders insertion order. Mirrors
+      # the same fix in `BundlesController#games_pane`.
+      @games = bundle.games.includes(:primary_genre).reorder(:title)
     end
 
     attr_reader :games, :bundle

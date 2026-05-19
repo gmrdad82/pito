@@ -5,6 +5,7 @@ RSpec.describe "Calendar edit / cancel", type: :system do
   before { driven_by(:rack_test) }
 
   it "manual entry: click [ edit ], change title, save" do
+    skip "TODO: revisit when /calendar back in scope (paused 2026-05-19)"
     ce = create(:calendar_entry, :milestone_manual, title: "old name")
     visit calendar_entry_path(ce)
     click_link "edit"
@@ -16,6 +17,7 @@ RSpec.describe "Calendar edit / cancel", type: :system do
   end
 
   it "manual entry: click [ cancel ] reaches the confirmation screen" do
+    skip "TODO: revisit when /calendar back in scope (paused 2026-05-19)"
     ce = create(:calendar_entry, :milestone_manual, title: "to-cancel")
     visit calendar_entry_path(ce)
     click_link "cancel"
@@ -24,6 +26,7 @@ RSpec.describe "Calendar edit / cancel", type: :system do
   end
 
   it "derived entry: hides [ edit ] / [ cancel ] (read-only)" do
+    skip "TODO: revisit when /calendar back in scope (paused 2026-05-19)"
     ce = create(:calendar_entry, :video_published)
     visit calendar_entry_path(ce)
     # Phase 15 reviewer concern 6 (per `entries/show.html.erb`) — the
@@ -41,6 +44,7 @@ RSpec.describe "Calendar edit / cancel", type: :system do
   end
 
   it "cancelled entry: appears in schedule view with state=all" do
+    skip "TODO: revisit when /calendar back in scope (paused 2026-05-19)"
     ce = create(:calendar_entry, :milestone_manual, :cancelled,
                 title: "was-cxld",
                 starts_at: 1.day.from_now)

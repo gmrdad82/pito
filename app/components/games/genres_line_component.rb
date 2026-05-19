@@ -18,7 +18,20 @@
 # Labels flow through `GenresHelper#genre_display_name` (handles the
 # `GENRE_DISPLAY_RENAMES` cosmetic-rename table) — IGDB names render
 # verbatim except for the renames declared there.
+#
+# 2026-05-19 (Wave B) — when `game.resyncing?` is true the whole line
+# renders as a `sync-indicator` dot-loader (`=---` cycling) so the
+# stale, refreshing signal is visible at-a-glance. Phase offset is
+# 0 (the canonical "first slot" in the staggered set across
+# /games/:id — genre line is phase 0, kv-table date / dev / pub are
+# 1 / 2 / 3, summary is back to 0).
 class Games::GenresLineComponent < ViewComponent::Base
+  # Canonical 4-frame cycle for the sync-indicator across /games/:id.
+  # Each zone passes the same FRAMES with a different `phase_offset`
+  # so the loaders read as a wave rather than a single pulse.
+  SYNC_INDICATOR_FRAMES = [ "=---", "-=--", "--=-", "---=" ].freeze
+  SYNC_INDICATOR_PHASE_OFFSET = 0
+
   def initialize(game:)
     @game = game
   end
@@ -43,5 +56,9 @@ class Games::GenresLineComponent < ViewComponent::Base
                           .where.not(id: primary&.id)
                           .order(:name)
                           .limit(2)
+  end
+
+  def resyncing?
+    @game.resyncing?
   end
 end

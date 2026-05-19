@@ -89,11 +89,12 @@
   <%# Per-bundle omnisearch modal (`:bundle_add` mode). Mounted as a
       sibling of the table so the [+] trigger's `modal-trigger` lookup
       finds it by id within the same Turbo Frame. %>
-  <%= render "shared/omnisearch_modal",
+  <%= render Search::OmnisearchModalComponent.new(
         mode: :bundle_add,
         dialog_id: omnisearch_dialog_id,
         url: search_bundle_path(bundle),
         placeholder: t("bundles.all_games.search_placeholder"),
         results_frame_id: omnisearch_frame_id,
-        bundle: bundle %>
+        bundle: bundle
+      ) %>
 </section>

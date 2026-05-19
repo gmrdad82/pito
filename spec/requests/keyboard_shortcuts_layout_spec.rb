@@ -7,10 +7,11 @@ require "rails_helper"
 # chips, detail pages, and the confirmation page.
 #
 # 2026-05-16 — the `?` keyboard-shortcuts help modal was retired.
-# The leader-menu popup (SPACE keypress + `[_]` footer link) is the
-# sole keyboard-discovery surface now. This spec was trimmed to
-# match — modal-rendering assertions are gone; the broader keyboard-
-# hook assertions stay.
+# The leader-menu popup (SPACE keypress + `[_]` navbar link, relocated
+# from the footer to the header on 2026-05-18 immediately after
+# `[settings]`) is the sole keyboard-discovery surface now. This spec
+# was trimmed to match — modal-rendering assertions are gone; the
+# broader keyboard-hook assertions stay.
 RSpec.describe "Keyboard shortcuts layout integration", type: :request do
   describe "every page" do
     # `/saved_views` HTML redirects to /channels (CLI-only JSON endpoint),
@@ -23,18 +24,21 @@ RSpec.describe "Keyboard shortcuts layout integration", type: :request do
         expect(response.body).to match(/<body[^>]*data-controller="[^"]*\bkeyboard\b[^"]*"/)
       end
 
-      it "GET #{path} renders the visible [_] bracketed link in page chrome" do
+      it "GET #{path} renders the visible [_] bracketed link inside the navbar" do
         get path
-        # The visible affordance lives in the footer row 1. The
-        # displayed glyph is `_` (representing SPACE = leader per
-        # the locked keybindings unified-schema decision). After
-        # the 2026-05-16 help-modal retirement the link wires ONLY
-        # `click->leader-menu#openRoot` — the legacy
-        # `click->keyboard#openHelp` chained action is gone.
-        # ERB escapes `->` in attribute values to `-&gt;`; matching
-        # the encoded form keeps the assertion grounded in real bytes.
-        expect(response.body).to include("click-&gt;leader-menu#openRoot")
-        expect(response.body).to match(/\[<span class="bl">_<\/span>\]/)
+        # 2026-05-18 — the visible affordance lives in the header
+        # navbar, immediately after `[settings]` (relocated from
+        # the footer). The displayed glyph is `_` (representing
+        # SPACE = leader per the locked keybindings unified-schema
+        # decision). After the 2026-05-16 help-modal retirement the
+        # link wires ONLY `click->leader-menu#openRoot` — the legacy
+        # `click->keyboard#openHelp` chained action is gone. ERB
+        # escapes `->` in attribute values to `-&gt;`; matching the
+        # encoded form keeps the assertion grounded in real bytes.
+        header = response.body.match(%r{<header\b.*?</header>}m)
+        expect(header).not_to be_nil, "expected to find <header>...</header> in the response"
+        expect(header[0]).to include("click-&gt;leader-menu#openRoot")
+        expect(header[0]).to match(/\[<span class="bl">_<\/span>\]/)
       end
 
       it "GET #{path} does NOT wire the retired keyboard#openHelp action anywhere" do

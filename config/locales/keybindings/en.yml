@@ -1,0 +1,78 @@
+# Keybinding labels (i18n) — externalized from `config/keybindings.yml`
+# during the Lane A i18n sweep (2026-05-18). The YAML schema carries
+# `label_i18n: "keybindings.<section>.<key>"` references; the helper
+# (`KeybindingsHelper#keybindings_for_surface`) and the component
+# (`KeybindingsReferenceComponent`) resolve them through `I18n.t(...)`
+# at render time.
+#
+# Values are kept verbatim — preserving the exact copy that previously
+# lived inline in `config/keybindings.yml`. Do not rename copy here
+# without updating the corresponding spec assertions and verifying the
+# rendered popup matches.
+#
+# Brand names (Discord, Slack, Voyage, PS, Switch, Steam) stay
+# capitalized per feedback_brand_names_always_capitalized.md.
+en:
+  keybindings:
+    sections:
+      local: "local"
+      global: "global"
+    menus:
+      root:
+        games: "games"
+        settings: "settings"
+        quit: "quit"
+        logout: "logout"
+    modal_actions:
+      bundle:
+        dark_mode: "dark mode"
+        rename: "rename bundle"
+      bundle_delete_confirm:
+        dark_mode: "dark mode"
+        delete: "delete"
+      webhook_help:
+        dark_mode: "dark mode"
+      revoke_confirm:
+        dark_mode: "dark mode"
+        revoke: "revoke session(s)"
+      reindex_confirm:
+        dark_mode: "dark mode"
+        reindex: "reindex"
+      sync_confirm:
+        dark_mode: "dark mode"
+        sync: "sync"
+    page_actions:
+      games_index:
+        dark_mode_toggle: "dark mode toggle"
+        search: "search"
+        released: "released"
+        scheduled: "scheduled"
+        owned: "owned"
+        wishlist: "wishlist"
+        played: "played"
+        ps: "PS"
+        switch: "Switch"
+        steam: "Steam"
+        add_game: "add game"
+        add_bundle: "add bundle"
+      games_show:
+        dark_mode: "dark mode"
+        search: "search"
+        sync: "sync"
+        delete: "delete"
+      bundles_show:
+        dark_mode: "dark mode"
+        search: "search"
+        sync: "sync"
+        delete: "delete"
+      settings:
+        dark_mode: "dark mode"
+        revoke_unused_sessions: "revoke unused sessions"
+        discord_all: "Discord all"
+        discord_daily_digest: "Discord daily digest"
+        slack_all: "Slack all"
+        slack_daily_digest: "Slack daily digest"
+        voyage_reindex: "Voyage reindex"
+      default:
+        dark_mode: "dark mode"
+        search: "search"

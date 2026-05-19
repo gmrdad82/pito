@@ -49,9 +49,14 @@
       sized to inline-flex so the bracketed button sits flush with
       the count chip without a block-level break. %>
   <% shelf.with_heading_extras do %>
+    <%# 2026-05-18 — `data-page-action="add-bundle"` is the hook the
+        leader-menu's `Gb add bundle` binding (page_add_bundle action)
+        targets. The action handler locates this button and clicks it,
+        same pattern as `page_sync` / `page_delete`. %>
     <%= button_to bundles_path, method: :post,
                   form: { style: "display: inline-flex; margin: 0;" },
                   class: "bracketed",
+                  data: { page_action: "add-bundle" },
                   aria: { label: t("games.bundles_shelf.create_aria") } do %>[<span class="bl"><%= t("common.actions.add_short") %></span>]<% end %>
   <% end %>
   <% bundles.each do |bundle| %>

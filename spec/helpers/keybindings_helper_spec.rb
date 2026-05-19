@@ -9,12 +9,13 @@ require "rails_helper"
 # requested surface and serializes it for embed in the layout's
 # `<script type="application/json" id="pito-keybindings">` tag.
 #
-# 2026-05-18 — the leader menu is now a flat 2-key dispatch (no
-# nested submenus). The earlier per-resource submenu blocks
-# (`channels`, `videos`, `projects`, `games`, `notifications`,
-# `calendar`) were folded into the root menu as multi-char keys
-# (`Cl`, `Vl`, `Pl`, `Gl`, `Nl`, `cs`, …). Only `root` survives in
-# the `menus:` block.
+# 2026-05-18 (revision 2) — the root menu was trimmed to the
+# in-scope beta-3 areas only (/games + /settings + logout). The
+# earlier flat 2-key bindings for calendar / channels / videos /
+# projects / notifications / `G+` games-new and the `h` home direct
+# entry were dropped. `G+` (renamed "add game") moved to
+# `page_actions.games_index` because it is page-local to /games;
+# `Gb add bundle` is the new 2-key sibling there too.
 RSpec.describe KeybindingsHelper, type: :helper do
   describe ".keybindings_for_surface" do
     it "returns a hash with the leader + menus + page_actions + modal_actions keys" do
@@ -34,17 +35,17 @@ RSpec.describe KeybindingsHelper, type: :helper do
       expect(menus.keys).to eq([ "root" ])
     end
 
-    describe "root menu — direct single-key entries" do
+    describe "root menu — trimmed to /games + /settings + logout" do
       let(:items) do
         helper.keybindings_for_surface(:web)
               .fetch("menus").fetch("root").fetch("items")
       end
 
-      it "exposes [h] home with a direct navigate action" do
-        row = items.find { |i| i["key"] == "h" }
+      it "exposes [Gl] games with a direct navigate action" do
+        row = items.find { |i| i["key"] == "Gl" }
         expect(row).not_to be_nil
-        expect(row.fetch("label")).to eq("home")
-        expect(row.fetch("action")).to eq("type" => "navigate", "path" => "/")
+        expect(row.fetch("label")).to eq("games")
+        expect(row.fetch("action")).to eq("type" => "navigate", "path" => "/games")
         expect(row).not_to have_key("submenu")
       end
 
@@ -62,54 +63,25 @@ RSpec.describe KeybindingsHelper, type: :helper do
         expect(row.fetch("label")).to eq("logout")
         expect(row.fetch("action")).to eq("type" => "logout")
       end
-    end
 
-    describe "root menu — flat 2-key bindings (folded submenus)" do
-      # Each formerly-nested submenu collapses to multi-char keys under
-      # a unique prefix letter. The prefix accumulator
-      # (`leader_menu_controller.js#handlePrefixKey`) resolves the
-      # second key the same way it does for `page_actions` 2-key
-      # bindings (`fr`/`fs`/`fo` on /games, `sr`/`vr` on /settings).
-      let(:items) do
-        helper.keybindings_for_surface(:web)
-              .fetch("menus").fetch("root").fetch("items")
-      end
+      # 2026-05-18 — the following keys were intentionally dropped
+      # from the root menu in this revision. Each lock asserts the
+      # absence so a regression that resurrects them fails fast.
+      dropped_keys = %w[
+        h
+        cs cm ct c+
+        Cl C+ C- Cy
+        Vl V+ V-
+        Pl P+ P-
+        Nl Nu Nm
+        G+
+      ].freeze
 
-      flat_bindings = {
-        # Calendar — lowercase `c` prefix.
-        "cs"  => { label: "calendar schedule",           action: { "type" => "navigate", "path" => "/calendar/schedule" } },
-        "cm"  => { label: "calendar month",              action: { "type" => "navigate", "path" => "/calendar/month" } },
-        "ct"  => { label: "calendar today",              action: { "type" => "today" } },
-        "c+"  => { label: "calendar new",                action: { "type" => "open", "target" => "new_calendar_entry" } },
-        # Channels — capital `C` prefix.
-        "Cl"  => { label: "channels list",               action: { "type" => "navigate", "path" => "/channels" } },
-        "C+"  => { label: "channels add",                action: { "type" => "navigate", "path" => "/channels" } },
-        "C-"  => { label: "channels delete",             action: { "type" => "bulk_delete" } },
-        "Cy"  => { label: "channels sync",               action: { "type" => "bulk_sync" } },
-        # Videos — capital `V` prefix.
-        "Vl"  => { label: "videos list",                 action: { "type" => "navigate", "path" => "/videos" } },
-        "V+"  => { label: "videos upload",               action: { "type" => "open", "target" => "video_upload" } },
-        "V-"  => { label: "videos delete",               action: { "type" => "bulk_delete" } },
-        # Projects — capital `P` prefix.
-        "Pl"  => { label: "projects list",               action: { "type" => "navigate", "path" => "/projects" } },
-        "P+"  => { label: "projects new",                action: { "type" => "open", "target" => "new_project" } },
-        "P-"  => { label: "projects delete",             action: { "type" => "bulk_delete" } },
-        # Games — capital `G` prefix.
-        "Gl"  => { label: "games list",                  action: { "type" => "navigate", "path" => "/games" } },
-        "G+"  => { label: "games new",                   action: { "type" => "open", "target" => "igdb_search" } },
-        # Notifications — capital `N` prefix.
-        "Nl"  => { label: "notifications list",          action: { "type" => "open", "target" => "notifications_modal" } },
-        "Nu"  => { label: "notifications filter unread", action: { "type" => "filter_unread" } },
-        "Nm"  => { label: "notifications mark all read", action: { "type" => "mark_all_read" } }
-      }.freeze
-
-      flat_bindings.each do |key, expected|
-        it "ships the [#{key}] #{expected[:label]} binding" do
+      dropped_keys.each do |key|
+        it "no longer ships the [#{key}] root binding (2026-05-18 trim)" do
           row = items.find { |i| i["key"] == key }
-          expect(row).not_to be_nil, "expected a flat binding for #{key.inspect}"
-          expect(row.fetch("label")).to eq(expected[:label])
-          expect(row.fetch("action")).to eq(expected[:action])
-          expect(row).not_to have_key("submenu")
+          expect(row).to be_nil,
+            "expected the [#{key}] binding to be removed from the root menu"
         end
       end
 
@@ -123,6 +95,41 @@ RSpec.describe KeybindingsHelper, type: :helper do
         keys = items.reject { |i| i["divider"] }.map { |i| i["key"] }
         expect(keys.uniq.length).to eq(keys.length),
           "expected every binding key to be unique, got duplicates in #{keys.inspect}"
+      end
+    end
+
+    describe "page_actions.games_index — `G+` and `Gb` create-row bindings" do
+      let(:rows) { helper.keybindings_for_surface(:web).fetch("page_actions").fetch("games_index") }
+
+      it "exposes [G+] add game wired to open_modal_by_id → omnisearch-modal-games-index" do
+        row = rows.find { |r| r.is_a?(Hash) && r["key"] == "G+" }
+        expect(row).not_to be_nil, "expected a `G+` binding in games_index"
+        expect(row.fetch("label")).to eq("add game")
+        expect(row.fetch("action")).to eq(
+          "type" => "open_modal_by_id",
+          "target" => "omnisearch-modal-games-index"
+        )
+      end
+
+      it "exposes [Gb] add bundle wired to the page_add_bundle action" do
+        row = rows.find { |r| r.is_a?(Hash) && r["key"] == "Gb" }
+        expect(row).not_to be_nil, "expected a `Gb` binding in games_index"
+        expect(row.fetch("label")).to eq("add bundle")
+        expect(row.fetch("action")).to eq("type" => "page_add_bundle")
+      end
+
+      it "ships [l] dark mode toggle at the top of the list" do
+        row = rows.find { |r| r.is_a?(Hash) && r["key"] == "l" }
+        expect(row).not_to be_nil
+        expect(row.fetch("label")).to eq("dark mode toggle")
+      end
+
+      it "ships divider entries carrying `layout: grid_2col` to open the grid blocks" do
+        grid_dividers = rows.select do |r|
+          r.is_a?(Hash) && r["divider"] == true && r["layout"] == "grid_2col"
+        end
+        expect(grid_dividers.size).to eq(2),
+          "expected 2 grid_2col dividers (one before the filter chips, one before G+/Gb)"
       end
     end
 

@@ -1,20 +1,14 @@
 require "rails_helper"
 
-# Phase 12 — Video re-declares searchable / filterable fields now
-# that the writable subset (title, description, tags, privacy_status,
-# category_id) is back. Meilisearch indexing is still a follow-up; the
-# concern stays declarative.
+# Phase 34 (2026-05-18) — Video no longer joins the Meilisearch
+# corpus. The unified `/games` index covers Game + Bundle only; the
+# previous `videos_<env>` index is left to drift stale (no writes,
+# no destroy hooks). Video does NOT include Searchable anymore.
+#
+# Channel was removed from the Searchable surface earlier (Phase A → B);
+# the assertions below pin that down so a future "let's index channels
+# again" change has to update this spec deliberately.
 RSpec.describe Searchable do
-  describe "Video searchable configuration" do
-    it "declares title and description as searchable" do
-      expect(Video.searchable_fields).to eq([ :title, :description ])
-    end
-
-    it "declares filterable fields for the new metadata columns" do
-      expect(Video.filterable_fields).to include(:privacy_status, :category_id, :channel_id, :project_id)
-    end
-  end
-
   describe "Channel does not include Searchable (Phase A → B removed it)" do
     it "does not respond to .searchable_fields" do
       expect(Channel).not_to respond_to(:searchable_fields)
@@ -27,25 +21,22 @@ RSpec.describe Searchable do
     end
   end
 
-  describe "Video after_commit callbacks (Searchable concern stays included)" do
-    it "enqueues SearchIndexJob on create" do
+  describe "Video does not include Searchable (Phase 34 removed it)" do
+    it "does not respond to .searchable_fields" do
+      expect(Video).not_to respond_to(:searchable_fields)
+    end
+
+    it "does not enqueue SearchIndexJob on create" do
       expect {
         create(:video)
-      }.to have_enqueued_job(SearchIndexJob)
+      }.not_to have_enqueued_job(SearchIndexJob)
     end
 
-    it "enqueues SearchIndexJob on update" do
-      video = create(:video)
-      expect {
-        video.update!(star: true)
-      }.to have_enqueued_job(SearchIndexJob)
-    end
-
-    it "enqueues SearchRemoveJob on destroy" do
+    it "does not enqueue SearchRemoveJob on destroy" do
       video = create(:video)
       expect {
         video.destroy!
-      }.to have_enqueued_job(SearchRemoveJob)
+      }.not_to have_enqueued_job(SearchRemoveJob)
     end
   end
 end

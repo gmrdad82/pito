@@ -58,7 +58,15 @@
 # or a re-enqueue of `GameVoyageIndexJob`.
 module Meilisearch
   class GameIndexer
-    SEARCHABLE_ATTRIBUTES = %w[title summary developer_name publisher_name genre_names].freeze
+    # 2026-05-19 — `alternative_names` joins the searchable list so
+    # IGDB-provided alt names ("SF6", "FF7 Rebirth", "TotK", ...)
+    # surface their canonical games from a Meilisearch hit. Ordered
+    # right after `title` because alt names are effectively title
+    # synonyms — match weight should be higher than summary / dev /
+    # pub / genre text bodies. Indexer mirrors the same column the
+    # Postgres fallback also reads, so the two halves of the
+    # omnisearch local corpus stay in lockstep.
+    SEARCHABLE_ATTRIBUTES = %w[title alternative_names summary developer_name publisher_name genre_names].freeze
     FILTERABLE_ATTRIBUTES = %w[
       id igdb_id igdb_slug release_year primary_genre_id kind bundle_id game_count
       developer_id publisher_id genre_ids
@@ -130,10 +138,20 @@ module Meilisearch
       publisher_names = @game.publishers.map(&:name).compact
       genre_names     = @game.genres.map(&:name).compact
 
+      # `alternative_names` is an IGDB-sourced text[] column populated
+      # by `Igdb::GameMapper#extract_alternative_names`. `respond_to?`
+      # guards boot in environments where the migration hasn't run yet.
+      alternative_names = if @game.respond_to?(:alternative_names) && @game.alternative_names.present?
+        Array(@game.alternative_names).reject { |name| name.to_s.strip.empty? }
+      else
+        []
+      end
+
       doc = {
         id: @game.id,
         kind: "game",
         title: @game.title.to_s,
+        alternative_names: alternative_names,
         summary: @game.summary.to_s,
         igdb_id: @game.igdb_id,
         igdb_slug: @game.igdb_slug,

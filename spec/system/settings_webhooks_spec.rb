@@ -5,7 +5,7 @@ require "rails_helper"
 # consolidation:
 #
 #   * The Slack + Discord webhook panes still render and still save
-#     exactly as before (URL field + "every notification" /
+#     exactly as before (URL field + "all" /
 #     "daily digest" checkboxes + `[update]` + the "... webhook updated."
 #     confirmation). The storage layer was already correct — Unit A1
 #     only changed the orphaned `AppSetting.*_enabled` gate behind it.
@@ -46,21 +46,25 @@ RSpec.describe "Settings integrations panes (Unit A1)", type: :system do
         check "everything"
         click_button "[update]"
       end
-      expect(page).to have_content("Slack webhook updated.")
+      expect(page).to have_content("Slack updated.")
       expect(NotificationDeliveryChannel.find_by(kind: "slack").webhook_url).to eq(slack_url)
     end
 
     # 2026-05-16 webhook-clear UX tweak.
     # The first checkbox label dropped its "deliver " prefix — the
     # word was redundant against the surrounding pane copy and the
-    # `[update]` button. The bare "every notification" reads as a
-    # routing toggle, matching the sibling "daily digest" label.
-    it "renders the `every notification` label (not the old `deliver every notification`)" do
+    # `[update]` button.
+    # 2026-05-18 — the bare "every notification" label was further
+    # shortened to just "all" to match the leader-popup grid copy
+    # ("Slack all" / "Discord all"), keeping the toggle text identical
+    # to its keybinding label.
+    it "renders the `all` label (not the old `every notification` / `deliver every notification`)" do
       visit settings_path
       within(:xpath, "//fieldset[.//h2[text()='Slack']]") do
-        expect(page).to have_text("every notification")
+        expect(page).to have_css(".md-check-label", text: "all")
+        expect(page).not_to have_text("every notification")
         expect(page).not_to have_text("deliver every notification")
-        expect(page).to have_text("daily digest")
+        expect(page).to have_css(".md-check-label", text: "daily digest")
       end
     end
 
@@ -79,7 +83,7 @@ RSpec.describe "Settings integrations panes (Unit A1)", type: :system do
         fill_in "slack_webhook_url", with: ""
         click_button "[update]"
       end
-      expect(page).to have_content("Slack webhook cleared.")
+      expect(page).to have_content("Slack cleared.")
       record = NotificationDeliveryChannel.find_by(kind: "slack")
       expect(record.webhook_url).to be_nil
       expect(record.everything).to be(false)
@@ -107,17 +111,20 @@ RSpec.describe "Settings integrations panes (Unit A1)", type: :system do
         check "everything"
         click_button "[update]"
       end
-      expect(page).to have_content("Discord webhook updated.")
+      expect(page).to have_content("Discord updated.")
       expect(NotificationDeliveryChannel.find_by(kind: "discord").webhook_url).to eq(discord_url)
     end
 
     # 2026-05-16 webhook-clear UX tweak.
-    it "renders the `every notification` label (not the old `deliver every notification`)" do
+    # 2026-05-18 — label shortened from "every notification" to "all"
+    # to match the leader-popup grid copy ("Discord all").
+    it "renders the `all` label (not the old `every notification` / `deliver every notification`)" do
       visit settings_path
       within(:xpath, "//fieldset[.//h2[text()='Discord']]") do
-        expect(page).to have_text("every notification")
+        expect(page).to have_css(".md-check-label", text: "all")
+        expect(page).not_to have_text("every notification")
         expect(page).not_to have_text("deliver every notification")
-        expect(page).to have_text("daily digest")
+        expect(page).to have_css(".md-check-label", text: "daily digest")
       end
     end
 
@@ -136,7 +143,7 @@ RSpec.describe "Settings integrations panes (Unit A1)", type: :system do
         fill_in "discord_webhook_url", with: ""
         click_button "[update]"
       end
-      expect(page).to have_content("Discord webhook cleared.")
+      expect(page).to have_content("Discord cleared.")
       record = NotificationDeliveryChannel.find_by(kind: "discord")
       expect(record.webhook_url).to be_nil
       expect(record.everything).to be(false)

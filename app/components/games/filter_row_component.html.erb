@@ -29,7 +29,9 @@
   <%# Right — platform chips, in render order. The parent's
       `justify-content: space-between` pushes this group against the
       content container's right edge — aligning with the navbar's
-      [settings] link and the footer's `[_]` leader trigger. %>
+      `[settings]` link and the adjacent `[_]` leader trigger (the
+      `[_]` was relocated from the footer to the navbar on
+      2026-05-18, immediately after `[settings]`). %>
   <div class="games-filter-row__right"
        style="display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline;">
     <% right_tokens.each do |t| %>

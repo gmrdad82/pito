@@ -12,56 +12,56 @@ RSpec.describe Games::FilterChipComponent, type: :component do
 
   describe "happy: rendering" do
     it "renders an unchecked chip with the post-toggle href (universe minus self when self is unchecked)" do
-      # universe minus ps5 ⇒ checked_tokens is the universe currently,
-      # ps5 chip is unchecked; toggling it adds ps5 → universe again → /games.
+      # universe minus ps ⇒ checked_tokens is the universe currently,
+      # ps chip is unchecked; toggling it adds ps → universe again → /games.
       render_inline(described_class.new(
-        token: "ps5", checked: false,
-        checked_tokens: universe - [ "ps5" ]
+        token: "ps", checked: false,
+        checked_tokens: universe - [ "ps" ]
       ))
-      # Toggling ps5 brings the set to the full universe → /games.
+      # Toggling ps brings the set to the full universe → /games.
       expect(page).to have_css("a.filter-chip[href='/games']")
     end
 
     it "renders an unchecked chip whose toggle URL adds the chip when others are checked" do
       render_inline(described_class.new(
-        token: "ps5", checked: false,
+        token: "ps", checked: false,
         checked_tokens: [ "owned" ]
       ))
-      # Toggling ps5 grows the set to [owned, ps5] → in universe order
-      # → owned,ps5. Helper emits the literal CSV (no URL encoding of
+      # Toggling ps grows the set to [owned, ps] → in universe order
+      # → owned,ps. Helper emits the literal CSV (no URL encoding of
       # the comma — `,` is a reserved-but-allowed character).
-      expect(page).to have_css("a.filter-chip[href='/games?filters=owned,ps5']")
+      expect(page).to have_css("a.filter-chip[href='/games?filters=owned,ps']")
     end
 
     it "renders a checked chip whose toggle URL removes the chip" do
       render_inline(described_class.new(
-        token: "ps5", checked: true,
-        checked_tokens: %w[owned ps5]
+        token: "ps", checked: true,
+        checked_tokens: %w[owned ps]
       ))
       expect(page).to have_css("a.filter-chip.chip--active[href='/games?filters=owned']")
     end
 
     it "renders the [ ] indicator for an unchecked chip" do
       render_inline(described_class.new(
-        token: "ps5", checked: false, checked_tokens: []
+        token: "ps", checked: false, checked_tokens: []
       ))
-      expect(page).to have_text("[ ] PS5")
+      expect(page).to have_text("[ ] PS")
     end
 
     it "renders the [x] indicator for a checked chip" do
       render_inline(described_class.new(
-        token: "ps5", checked: true, checked_tokens: %w[ps5]
+        token: "ps", checked: true, checked_tokens: %w[ps]
       ))
-      expect(page).to have_text("[x] PS5")
+      expect(page).to have_text("[x] PS")
     end
 
     # Platform-token chips render the PLATFORM_LABELS short label
-    # (Switch2 with no space, PS5, Steam). GoG + Epic were collapsed
+    # (Switch, PS, Steam). GoG + Epic were collapsed
     # into Steam in the 2026-05-17 PC store collapse.
     {
-      "ps5"     => "PS5",
-      "switch2" => "Switch2",
-      "steam"   => "Steam"
+      "ps"     => "PS",
+      "switch" => "Switch",
+      "steam"  => "Steam"
     }.each do |token, label|
       it "renders the #{token} chip with label #{label.inspect}" do
         rendered = render_inline(described_class.new(
@@ -82,21 +82,21 @@ RSpec.describe Games::FilterChipComponent, type: :component do
 
     it "stamps the canonical token on a data attribute (Stimulus hook)" do
       render_inline(described_class.new(
-        token: "ps5", checked: false, checked_tokens: []
+        token: "ps", checked: false, checked_tokens: []
       ))
-      expect(page).to have_css("a[data-filter-token='ps5']")
+      expect(page).to have_css("a[data-filter-token='ps']")
     end
 
     it "stamps `data-games-filter-target=chip` so the controller can collect chips" do
       render_inline(described_class.new(
-        token: "ps5", checked: false, checked_tokens: []
+        token: "ps", checked: false, checked_tokens: []
       ))
       expect(page).to have_css("a[data-games-filter-target='chip']")
     end
 
     it "stamps `data-action` so Stimulus intercepts clicks" do
       render_inline(described_class.new(
-        token: "ps5", checked: false, checked_tokens: []
+        token: "ps", checked: false, checked_tokens: []
       ))
       action_attr = page.find("a")["data-action"]
       expect(action_attr).to include("click->games-filter#toggle")
@@ -120,7 +120,7 @@ RSpec.describe Games::FilterChipComponent, type: :component do
     end
 
     it "does NOT stamp data-implied on any platform chip" do
-      %w[ps5 switch2 steam].each do |t|
+      %w[ps switch steam].each do |t|
         render_inline(described_class.new(
           token: t, checked: false, checked_tokens: []
         ))
@@ -190,7 +190,7 @@ RSpec.describe Games::FilterChipComponent, type: :component do
     it "raises ArgumentError when request_path is empty" do
       expect {
         described_class.new(
-          token: "ps5", checked: false, checked_tokens: [], request_path: ""
+          token: "ps", checked: false, checked_tokens: [], request_path: ""
         )
       }.to raise_error(ArgumentError, /request_path/)
     end
@@ -199,14 +199,14 @@ RSpec.describe Games::FilterChipComponent, type: :component do
   describe "edge: chip--active class" do
     it "applies chip--active when checked is true" do
       render_inline(described_class.new(
-        token: "ps5", checked: true, checked_tokens: %w[ps5]
+        token: "ps", checked: true, checked_tokens: %w[ps]
       ))
       expect(page).to have_css("a.chip--active")
     end
 
     it "does NOT apply chip--active when checked is false" do
       render_inline(described_class.new(
-        token: "ps5", checked: false, checked_tokens: []
+        token: "ps", checked: false, checked_tokens: []
       ))
       expect(page).to have_no_css("a.chip--active")
     end
@@ -215,7 +215,7 @@ RSpec.describe Games::FilterChipComponent, type: :component do
   describe "edge: shape" do
     it "renders a single <a> (no button, no form, no <script>)" do
       render_inline(described_class.new(
-        token: "ps5", checked: false, checked_tokens: []
+        token: "ps", checked: false, checked_tokens: []
       ))
       expect(page).to have_css("a", count: 1)
       expect(page).to have_no_css("button")
@@ -227,14 +227,14 @@ RSpec.describe Games::FilterChipComponent, type: :component do
   describe "flaw: defensive surface" do
     it "never emits data-turbo-confirm" do
       render_inline(described_class.new(
-        token: "ps5", checked: false, checked_tokens: []
+        token: "ps", checked: false, checked_tokens: []
       ))
       expect(page.native.to_html).not_to include("data-turbo-confirm")
     end
 
     it "never emits onclick / inline script" do
       render_inline(described_class.new(
-        token: "ps5", checked: false, checked_tokens: []
+        token: "ps", checked: false, checked_tokens: []
       ))
       html = page.native.to_html
       expect(html).not_to include("onclick")

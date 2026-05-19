@@ -210,8 +210,15 @@
               <%= render "notifications/badge", unread_count: Notification.unread.count %>
             </span>
             <span class="nav-spacer" style="flex: 1;"></span>
+            <%# 2026-05-18 — `[_]` leader-menu trigger moved here from
+                the footer. Sits immediately after `[settings]` in the
+                same right-anchored `.nav-group`. Same Stimulus action
+                wiring (`click->leader-menu#openRoot`) — DOM position
+                only changed. The `[_]` glyph is the discoverable
+                on-screen affordance for the SPACE leader. %>
             <span class="nav-group">
               <%= nav_link "settings", settings_path, short: "S" %>
+              <%= render(BracketedLinkComponent.new(label: "_", href: "#", data: { action: "click->leader-menu#openRoot" }, active: false)) %>
             </span>
           </nav>
         <% end %>
@@ -241,16 +248,15 @@
       </main>
     </div>
 
-    <%# Footer (2026-05-10 redesign, 2026-05-16 simplified): two rows.
-          Row 1 mirrors the header's left navigation —
+    <%# Footer (2026-05-10 redesign, 2026-05-16 simplified, 2026-05-18
+          `[_]` relocation): two rows. Row 1 mirrors the header's left
+          navigation —
           [home][calendar] · [channels][videos] · [projects][games] · [notifications]
-          — plus a [_] leader-menu trigger on the far right. The bracketed
-          `[_]` is the discoverable on-screen affordance — `_` stands for
-          SPACE = leader, per the locked keybindings unified-schema
-          decision. The legacy `?` keyboard-shortcuts help modal was
-          retired 2026-05-16; the leader-menu popup is now the sole
-          keyboard-discovery surface. Row 2 carries the copyright prose
-          on the left and the version + git-sha on the right. %>
+          The `[_]` leader-menu trigger was moved out of the footer and
+          into the navbar (immediately after `[settings]`) on
+          2026-05-18; the footer no longer carries the affordance.
+          Row 2 carries the copyright prose on the left and the version
+          + git-sha on the right. %>
     <footer style="border-top: 1px solid var(--color-border); padding: 8px 12px; margin-top: 24px; font-size: 11px;">
       <% unless content_for?(:hide_chrome) %>
         <nav class="nav-row" style="display: flex; align-items: center; gap: 4px; margin-bottom: 4px;">
@@ -264,16 +270,6 @@
           <span class="nav-sep" aria-hidden="true">·</span>
           <span class="nav-group"><%= nav_link "notifications", notifications_path, short: "N",
                            data: { action: "click->notifications-modal#open" } %></span>
-          <span class="nav-spacer" style="flex: 1;"></span>
-          <%# The `[_]` link is the visible discoverable affordance
-              for the SPACE leader. Clicking it opens the unified
-              leader-menu popup (Stimulus `leader-menu#openRoot`);
-              the same controller listens for the SPACE keypress.
-              The legacy `keyboard#openHelp` chained action was
-              removed 2026-05-16 alongside the help-modal deletion —
-              the leader-menu is now the canonical keyboard-discovery
-              affordance. %>
-          <%= render(BracketedLinkComponent.new(label: "_", href: "#", data: { action: "click->leader-menu#openRoot" }, active: false)) %>
         </nav>
       <% end %>
       <div style="display: flex; align-items: center; gap: 4px;">
@@ -286,8 +282,9 @@
     <%# 2026-05-16 — the legacy keyboard-shortcuts help modal that
         used to mount here was retired. Keyboard discovery now lives
         exclusively in the leader-menu popup (`[_]` link in the
-        footer + SPACE keypress); the `?` keybinding and the
-        `KeyboardShortcutsModalComponent` are gone. %>
+        navbar, immediately after `[settings]` — relocated from the
+        footer on 2026-05-18 — plus SPACE keypress); the `?`
+        keybinding and the `KeyboardShortcutsModalComponent` are gone. %>
 
     <%# Global search modal — opened by `/` keypress (handled by
         `keyboard_controller#openGlobalSearch`, driven by
@@ -364,7 +361,8 @@
 
     <%# Leader-menu popup root — empty placeholder; the Stimulus
         controller paints the bottom-right card here when SPACE is
-        pressed (or the `[_]` footer link is clicked). Closed by
+        pressed (or the `[_]` navbar link is clicked — relocated
+        from the footer on 2026-05-18). Closed by
         default; the controller calls `.showModal()` / `.close()` to
         open and dismiss.
 

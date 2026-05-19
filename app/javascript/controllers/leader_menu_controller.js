@@ -741,6 +741,10 @@ export default class extends Controller {
       this.pageDelete()
       return
     }
+    if (action.type === "page_add_bundle") {
+      this.pageAddBundle()
+      return
+    }
     if (action.type === "open_modal" && action.modal_id === "search_placeholder") {
       this.openGlobalSearch()
       return
@@ -827,6 +831,21 @@ export default class extends Controller {
   // `modal-trigger` controller. No-op when the hook isn't on the page.
   pageDelete() {
     const el = document.querySelector('[data-page-action="delete"]')
+    if (el && typeof el.click === "function") el.click()
+  }
+
+  // `page_add_bundle` — locate the /games bundles-shelf `[+]` create
+  // button by the `[data-page-action="add-bundle"]` hook and click it.
+  // The button is a `button_to`-generated `<button>` inside a form
+  // (POST /bundles); clicking it submits the form via Turbo, which
+  // lands on `bundles/create.turbo_stream.erb` — that response
+  // appends the new bundle tile to the shelf and auto-opens the
+  // bundle modal so the user can rename inline. Same dispatch
+  // pattern as `pageSync` / `pageDelete`. No-op when the hook isn't
+  // on the page (called from a non-/games surface — though the YAML
+  // only attaches `Gb` to `games_index`).
+  pageAddBundle() {
+    const el = document.querySelector('[data-page-action="add-bundle"]')
     if (el && typeof el.click === "function") el.click()
   }
 
@@ -1123,18 +1142,28 @@ export default class extends Controller {
       if (pageActions.length > 0) {
         const pageSection = document.createElement("section")
         pageSection.className = "leader-menu-section leader-menu-page-actions"
+        pageSection.setAttribute("data-section", "local")
 
         const pageTitle = document.createElement("div")
         pageTitle.className = "leader-menu-title text-muted"
-        pageTitle.textContent = "actions"
+        // Section heading renamed 2026-05-18 — "actions" → "local". The
+        // earlier label confused the per-page actions with the navigation
+        // section labelled "navigation" (now "global"). The Ruby-side
+        // KeybindingsReferenceComponent uses the same labels.
+        pageTitle.textContent = "local"
         pageSection.appendChild(pageTitle)
 
-        const pageList = document.createElement("ul")
-        pageList.className = "leader-menu-list"
-        pageActions.forEach((item) => {
-          pageList.appendChild(this.buildItemRow(item))
-        })
-        pageSection.appendChild(pageList)
+        // Group-aware rendering. A divider entry carrying
+        // `layout: grid_2col` opens a 2-column grid that closes at the
+        // next divider OR end-of-list. The grid wraps its items in a
+        // `<div class="keybindings-grid keybindings-grid--two-col">`
+        // with an inline `grid-template-rows: repeat(<half>, auto)` so
+        // the `grid-auto-flow: column` CSS rule (in application.css)
+        // fills items COLUMN-FIRST (5 left / 3 right for the 8 filter
+        // chips, 1 left / 1 right for the 2 create-row items). Non-grid
+        // groups render as a `<ul class="leader-menu-list">` of rows.
+        // Plain dividers between groups paint as visible hairlines.
+        this.appendGroupedRows(pageSection, pageActions)
 
         card.appendChild(pageSection)
 
@@ -1149,6 +1178,7 @@ export default class extends Controller {
     {
       const navSection = document.createElement("section")
       navSection.className = "leader-menu-section leader-menu-navigation"
+      if (name === "root") navSection.setAttribute("data-section", "global")
 
       const title = document.createElement("div")
       title.className = "leader-menu-title text-muted"
@@ -1156,17 +1186,19 @@ export default class extends Controller {
       // dispatch logic — openMenu("root"), name === "root" guards above —
       // still keys off the internal name), but the SECTION HEADER the
       // user sees gets a friendlier label. Submenu names pass through
-      // unchanged via the `|| name` fallback.
-      const SECTION_LABELS = { root: "navigation" }
+      // unchanged via the `|| name` fallback. Renamed 2026-05-18 —
+      // "navigation" → "global" to match the Ruby-side
+      // KeybindingsReferenceComponent.
+      const SECTION_LABELS = { root: "global" }
       title.textContent = SECTION_LABELS[name] || name
       navSection.appendChild(title)
 
-      const list = document.createElement("ul")
-      list.className = "leader-menu-list"
-      ;(menu.items || []).forEach((item) => {
-        list.appendChild(this.buildItemRow(item))
-      })
-      navSection.appendChild(list)
+      // Same group-aware rendering as the local section so any future
+      // root-menu YAML divider can opt into a 2-col grid. Today the root
+      // menu ships no `layout: grid_2col` divider, so this falls through
+      // as a single-column list — identical visual output to the prior
+      // flat `<ul>` rendering for the global section.
+      this.appendGroupedRows(navSection, menu.items || [])
       card.appendChild(navSection)
     }
 
@@ -1193,6 +1225,106 @@ export default class extends Controller {
     card.appendChild(hint)
 
     this.popupTarget.appendChild(card)
+  }
+
+  // Fold a flat list of `{ key, label, action }` + divider rows into
+  // groups bounded by dividers and append each group to the host
+  // section. A divider carrying `layout: "grid_2col"` opens a 2-col
+  // grid group that closes at the next divider OR end-of-list; any
+  // other divider opens a single-column group; the first run (before
+  // any divider) is always single-column.
+  //
+  // Visual output:
+  //   * single-column group → `<ul class="leader-menu-list">` of rows
+  //     (existing default, preserves prior behavior).
+  //   * 2-col grid group    → `<div class="keybindings-grid
+  //     keybindings-grid--two-col" style="grid-template-rows: repeat(
+  //     <half>, auto)">` whose children are direct `<div
+  //     class="keybindings-row">` cells. The inline `grid-template-rows`
+  //     pairs with the CSS `grid-auto-flow: column` rule to fill items
+  //     COLUMN-FIRST (5 left / 3 right for 8 items, 1 left / 1 right
+  //     for 2). Mirrors the Ruby-side
+  //     `KeybindingsReferenceComponent#render_group` exactly.
+  //   * plain divider between groups → `<hr class="hairline
+  //     keybindings-divider">` between groups (never at top or bottom).
+  appendGroupedRows(host, rows) {
+    const groups = []
+    let currentLayout = "single"
+    let currentItems = []
+    const flush = () => {
+      if (currentItems.length > 0) {
+        groups.push({ layout: currentLayout, items: currentItems })
+      }
+      currentItems = []
+    }
+    rows.forEach((row) => {
+      if (row && row.divider) {
+        flush()
+        currentLayout = row.layout === "grid_2col" ? "grid_2col" : "single"
+      } else {
+        currentItems.push(row)
+      }
+    })
+    flush()
+
+    groups.forEach((group, idx) => {
+      if (idx > 0) {
+        const hr = document.createElement("hr")
+        hr.className = "hairline keybindings-divider"
+        host.appendChild(hr)
+      }
+      if (group.layout === "grid_2col") {
+        const grid = document.createElement("div")
+        grid.className = "keybindings-grid keybindings-grid--two-col"
+        const half = Math.ceil(group.items.length / 2)
+        grid.setAttribute("style", `grid-template-rows: repeat(${half}, auto);`)
+        group.items.forEach((item) => {
+          grid.appendChild(this.buildGridCell(item))
+        })
+        host.appendChild(grid)
+      } else {
+        const list = document.createElement("ul")
+        list.className = "leader-menu-list"
+        group.items.forEach((item) => {
+          list.appendChild(this.buildItemRow(item))
+        })
+        host.appendChild(list)
+      }
+    })
+  }
+
+  // Grid-cell variant of `buildItemRow`. Same dim/highlight pending-
+  // prefix treatment so the 2-col grid items participate in the
+  // accumulator visuals identically to single-column rows. Uses a
+  // `<div class="keybindings-row">` (NOT `<li>`) because the parent
+  // is a `<div class="keybindings-grid">`, not a `<ul>`. The shared
+  // `.keybindings-row` flex rules style the row identically across
+  // both contexts (key gutter + label).
+  buildGridCell(item) {
+    const cell = document.createElement("div")
+    cell.className = "keybindings-row"
+
+    if (this.pendingPrefix && this.pendingPrefix.length > 0) {
+      if (item.key && typeof item.key === "string" && item.key.startsWith(this.pendingPrefix)) {
+        cell.classList.add("leader-menu-row--match")
+      } else {
+        cell.classList.add("leader-menu-row--dim")
+      }
+    }
+
+    const keySpan = document.createElement("span")
+    keySpan.className = "leader-menu-key"
+    keySpan.textContent = this.displayKey(item.key)
+    cell.appendChild(keySpan)
+
+    cell.appendChild(document.createTextNode(" "))
+
+    const labelSpan = document.createElement("span")
+    labelSpan.className = "leader-menu-label"
+    labelSpan.textContent = item.label || ""
+    cell.appendChild(labelSpan)
+
+    return cell
   }
 
   // Build a single `<li>` row for either a page-action item or a

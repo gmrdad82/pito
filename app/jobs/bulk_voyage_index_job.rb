@@ -22,7 +22,9 @@
 # reindex produces byte-identical Voyage inputs (and therefore
 # byte-identical embeddings) to a per-row reindex:
 #
-#   - Game:   "title — summary"  (em-dash, mirrors `Games::VoyageIndexer#combined_text`)
+#   - Game:   "title — alt_names — summary" (em-dash, mirrors
+#             `Games::VoyageIndexer#combined_text`; alt_names slot
+#             omitted when alternative_names is empty)
 #   - Bundle: "name — agg(summaries)" (mirrors `Bundles::VoyageIndexer#combined_text`,
 #             up to 5 member summaries em-dash joined)
 #
@@ -146,9 +148,16 @@ class BulkVoyageIndexJob < ApplicationJob
   end
 
   # Mirrors `Games::VoyageIndexer#combined_text` — keep in sync.
+  # 2026-05-19 — `alternative_names` joins the embedding input so the
+  # similar-games + recommended-bundles clustering picks up alt-name
+  # signal (series identifiers, localized names, marketing aliases).
   def game_text(game)
     parts = []
-    parts << game.title.to_s.strip   if game.title.present?
+    parts << game.title.to_s.strip if game.title.present?
+    if game.respond_to?(:alternative_names) && game.alternative_names.present?
+      alt = Array(game.alternative_names).map { |n| n.to_s.strip }.reject(&:blank?)
+      parts << alt.join(" ") if alt.any?
+    end
     parts << game.summary.to_s.strip if game.summary.present?
     parts.join(" — ")
   end

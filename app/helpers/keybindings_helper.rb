@@ -23,6 +23,14 @@ module KeybindingsHelper
   # Returns the schema as a plain Ruby hash filtered for the given
   # surface (`:web` or `:tui`). Exposed for spec assertions; the
   # layout uses the JSON wrapper above.
+  #
+  # Label resolution (2026-05-18): items in the YAML carry a
+  # `label_i18n:` reference (e.g. `keybindings.page_actions.games_index.search`)
+  # rather than an inline `label:` string. The helper resolves the i18n
+  # key into the actual translated string and injects it as `label` in
+  # the payload so the Stimulus controller (which only reads `item.label`)
+  # keeps working without any JS-side change. Items still carrying a
+  # raw `label:` fall through as-is for safety / back-compat.
   def keybindings_for_surface(surface)
     # In development the initializer stores a Proc that re-parses
     # `config/keybindings.yml` on every call so YAML edits show up on
@@ -33,7 +41,9 @@ module KeybindingsHelper
     schema = raw.respond_to?(:call) ? raw.call : raw
     filtered_menus = schema.fetch("menus").transform_values do |menu|
       {
-        "items" => menu.fetch("items").select { |item| item_visible?(item, surface) }
+        "items" => menu.fetch("items")
+                       .select { |item| item_visible?(item, surface) }
+                       .map { |item| resolve_label(item) }
       }
     end
     {
@@ -45,7 +55,7 @@ module KeybindingsHelper
       # equivalent reads the YAML directly and does not consume this
       # branch. No `surfaces:` filtering applies here — the
       # `page_actions:` block contains no per-surface keys today.
-      "page_actions" => schema.fetch("page_actions", {}),
+      "page_actions" => resolve_section_labels(schema.fetch("page_actions", {})),
       # `modal_actions:` is the modal-as-page parallel to
       # `page_actions:` (A2, 2026-05-17). When a `<dialog open>` on
       # the page carries `data-modal-actions-key="<key>"`, the
@@ -54,7 +64,7 @@ module KeybindingsHelper
       # list (and suppresses navigation + logout entirely). Defaults to
       # an empty hash until Phase B starts populating modal entries.
       # Same "no surfaces filtering" rule applies as page_actions.
-      "modal_actions" => schema.fetch("modal_actions", {}) || {}
+      "modal_actions" => resolve_modal_actions_labels(schema.fetch("modal_actions", {}) || {})
     }
   end
 
@@ -90,5 +100,37 @@ module KeybindingsHelper
     allowed = item["surfaces"]
     return true if allowed.nil?
     Array(allowed).map(&:to_s).include?(surface.to_s)
+  end
+
+  # Resolve `label_i18n` (preferred) into a literal `label` string so
+  # the Stimulus controller can read `item.label` directly. Divider
+  # rows and rows already carrying a literal `label:` are returned
+  # untouched. The original hash is never mutated — a shallow dup is
+  # produced when we need to write back the resolved label.
+  def resolve_label(item)
+    return item unless item.is_a?(Hash)
+    return item if item["divider"]
+    key = item["label_i18n"]
+    return item if key.blank?
+    item.merge("label" => I18n.t(key))
+  end
+
+  # Walk a `page_actions:` block (`{ <page_key> => [rows, ...] }`) and
+  # resolve labels in every row.
+  def resolve_section_labels(section)
+    section.transform_values do |rows|
+      rows.map { |row| resolve_label(row) }
+    end
+  end
+
+  # Walk a `modal_actions:` block (`{ <modal_key> => { items: [rows] } }`)
+  # and resolve labels in every modal's items list.
+  def resolve_modal_actions_labels(modal_actions)
+    modal_actions.transform_values do |entry|
+      next entry unless entry.is_a?(Hash)
+      items = entry["items"]
+      next entry unless items.is_a?(Array)
+      entry.merge("items" => items.map { |row| resolve_label(row) })
+    end
   end
 end

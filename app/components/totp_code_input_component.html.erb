@@ -17,7 +17,7 @@
            aria-label="digit <%= i + 1 %>"
            class="totp-modal-box"
            data-totp-code-input-target="digit"
-           data-action="input->totp-code-input#onInput keydown->totp-code-input#onKeydown paste->totp-code-input#onPaste">
+           data-action="input->totp-code-input#onInput change->totp-code-input#onInput keydown->totp-code-input#onKeydown paste->totp-code-input#onPaste blur->totp-code-input#onCellBlur">
   <% end %>
   <input type="hidden"
          name="<%= @field %>"

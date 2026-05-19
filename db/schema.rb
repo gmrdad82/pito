@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_18_100000) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_18_230421) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -420,6 +420,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_18_100000) do
   create_table "games", force: :cascade do |t|
     t.decimal "aggregated_rating", precision: 5, scale: 2
     t.integer "aggregated_rating_count"
+    t.text "alternative_names", default: [], null: false, array: true
     t.string "cover_image_id"
     t.datetime "created_at", null: false
     t.string "external_steam_app_id"
@@ -453,6 +454,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_18_100000) do
     t.datetime "updated_at", null: false
     t.bigint "version_parent_id"
     t.string "version_title"
+    t.index ["alternative_names"], name: "index_games_on_alternative_names", using: :gin
     t.index ["external_steam_app_id"], name: "index_games_on_external_steam_app_id", where: "(external_steam_app_id IS NOT NULL)"
     t.index ["igdb_id"], name: "index_games_on_igdb_id", unique: true, where: "(igdb_id IS NOT NULL)"
     t.index ["igdb_slug"], name: "index_games_on_igdb_slug", unique: true, where: "(igdb_slug IS NOT NULL)"

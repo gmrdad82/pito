@@ -1,18 +1,24 @@
 require "rails_helper"
 
+# Phase 34 (2026-05-18) — Notes no longer participate in the unified
+# `/games` Meilisearch corpus. `Notes::EmbedJob#perform` is now a
+# no-op: no Voyage AI HTTP call, no Meilisearch upsert, no write to
+# `notes.embedding`. The job class survives only because
+# `NoteSyncJob#enqueue_embed` still enqueues it (in case the corpus
+# design reverts). See the job file's header comment for the full
+# rationale.
+#
+# These specs encode the no-op contract:
+#   - No HTTP to Voyage regardless of credentials state.
+#   - No HTTP to Meilisearch.
+#   - `notes.embedding` stays nil (we never write).
+#   - Missing-note id is a no-op (no raise).
 RSpec.describe Notes::EmbedJob, type: :job do
   let!(:project) { create(:project) }
   let!(:note) { create(:note, project: project, path: "alpha.md") }
 
   let(:tmp_root) { Dir.mktmpdir("pito-notes-embed-spec") }
 
-  # Phase 29 (settings refactor) — the per-target
-  # `voyage_index_project_notes` flag column was dropped along with the
-  # Voyage.ai pane. `voyage_indexing_project_notes?` is now a thin alias
-  # for `voyage_configured?` (credentials key presence is the only
-  # signal). Specs stub the credentials key directly; the dual check in
-  # the job still ANDs the two predicates, which both resolve to the
-  # same boolean today.
   def stub_voyage_credentials_key(value)
     allow(Rails.application.credentials).to receive(:dig).and_call_original
     allow(Rails.application.credentials).to receive(:dig)
@@ -25,8 +31,9 @@ RSpec.describe Notes::EmbedJob, type: :job do
     FileUtils.mkdir_p(NotesFilesystem.root_for(note))
     File.write(NotesFilesystem.absolute_path_for(note), "# alpha\n\nBody.")
 
-    # Allow Meilisearch upsert HTTP traffic to fail silently — most specs
-    # focus on the Voyage gate, not the search path.
+    # If anything DOES leak through to Meilisearch, succeed silently
+    # so the assertion (no request made) is the only signal that
+    # matters.
     stub_request(:post, /127\.0\.0\.1:7727/).to_return(status: 200)
   end
 
@@ -35,78 +42,41 @@ RSpec.describe Notes::EmbedJob, type: :job do
     FileUtils.remove_entry(tmp_root) if File.exist?(tmp_root)
   end
 
-  # No credentials key configured → the job's gate short-circuits and
-  # we never hit Voyage. The note still indexes in Meilisearch (BM25
-  # only) so keyword search keeps working.
-  describe "#perform with no Voyage credentials key" do
-    before { stub_voyage_credentials_key(nil) }
-
-    it "does NOT call the Voyage API" do
+  describe "#perform (Phase 34 no-op)" do
+    it "does NOT call the Voyage API when no credentials key is configured" do
+      stub_voyage_credentials_key(nil)
       described_class.new.perform(note.id)
       expect(WebMock).not_to have_requested(:post, /api\.voyageai\.com/)
     end
 
+    it "does NOT call the Voyage API even when a credentials key is configured" do
+      stub_voyage_credentials_key("vk_from_credentials")
+      described_class.new.perform(note.id)
+      expect(WebMock).not_to have_requested(:post, /api\.voyageai\.com/)
+    end
+
+    it "does NOT call the Voyage API when the credentials key is whitespace-only" do
+      stub_voyage_credentials_key("   ")
+      described_class.new.perform(note.id)
+      expect(WebMock).not_to have_requested(:post, /api\.voyageai\.com/)
+    end
+
+    it "does NOT upsert into the Meilisearch notes index" do
+      stub_voyage_credentials_key("vk_from_credentials")
+      described_class.new.perform(note.id)
+      expect(WebMock).not_to have_requested(:post, %r{notes_test/documents})
+    end
+
     it "leaves notes.embedding NULL" do
+      stub_voyage_credentials_key("vk_from_credentials")
       described_class.new.perform(note.id)
       expect(note.reload.embedding).to be_nil
     end
 
-    it "still indexes the note text in Meilisearch (BM25 only)" do
-      described_class.new.perform(note.id)
-      expect(WebMock).to have_requested(:post, %r{notes_test/documents}).once
+    it "is a no-op when the note is missing" do
+      expect {
+        described_class.new.perform(999_999)
+      }.not_to raise_error
     end
-  end
-
-  describe "#perform with a Voyage credentials key configured" do
-    let(:fake_embedding) { Array.new(1024) { 0.0 } }
-
-    before do
-      stub_voyage_credentials_key("vk_from_credentials")
-
-      stub_request(:post, "https://api.voyageai.com/v1/embeddings")
-        .to_return(
-          status: 200,
-          body: { data: [ { embedding: fake_embedding } ] }.to_json,
-          headers: { "Content-Type" => "application/json" }
-        )
-    end
-
-    it "calls Voyage once and writes the embedding to pgvector" do
-      described_class.new.perform(note.id)
-      expect(WebMock).to have_requested(:post, "https://api.voyageai.com/v1/embeddings").once
-      expect(note.reload.embedding).to be_present
-    end
-
-    it "indexes the note in Meilisearch with the embedding payload" do
-      described_class.new.perform(note.id)
-      expect(WebMock).to(have_requested(:post, %r{notes_test/documents}).with { |req|
-        body = JSON.parse(req.body)
-        body.first.key?("_vectors")
-      })
-    end
-
-    it "uses the credentials key as the bearer token" do
-      described_class.new.perform(note.id)
-      expect(WebMock).to(have_requested(:post, "https://api.voyageai.com/v1/embeddings").with { |req|
-        req.headers["Authorization"] == "Bearer vk_from_credentials"
-      })
-    end
-  end
-
-  # Defensive: blank string (whitespace-only) credentials are treated
-  # the same as nil by the gate.
-  describe "#perform with a whitespace-only credentials key" do
-    before { stub_voyage_credentials_key("   ") }
-
-    it "does NOT call the Voyage API" do
-      described_class.new.perform(note.id)
-      expect(WebMock).not_to have_requested(:post, /api\.voyageai\.com/)
-    end
-  end
-
-  it "is a no-op when the note is missing" do
-    expect {
-      described_class.new.perform(999_999)
-    }.not_to raise_error
   end
 end

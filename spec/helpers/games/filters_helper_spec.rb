@@ -15,7 +15,7 @@ RSpec.describe Games::FiltersHelper, type: :helper do
     it "lists the eight v2 canonical tokens in render order" do
       expect(universe).to eq(%w[
         released scheduled owned wishlist played
-        ps5 switch2 steam
+        ps switch steam
       ])
     end
 
@@ -34,36 +34,36 @@ RSpec.describe Games::FiltersHelper, type: :helper do
     end
 
     it "parses a CSV into the checked-token set" do
-      expect(helper.parse_checked_tokens("ps5,owned")).to match_array(%w[ps5 owned])
+      expect(helper.parse_checked_tokens("ps,owned")).to match_array(%w[ps owned])
     end
 
     it "preserves TOKEN_UNIVERSE order regardless of input order" do
-      expect(helper.parse_checked_tokens("steam,ps5,owned,released"))
-        .to eq(%w[released owned ps5 steam])
+      expect(helper.parse_checked_tokens("steam,ps,owned,released"))
+        .to eq(%w[released owned ps steam])
     end
 
     it "accepts an Array input verbatim" do
-      expect(helper.parse_checked_tokens(%w[ps5 owned])).to match_array(%w[ps5 owned])
+      expect(helper.parse_checked_tokens(%w[ps owned])).to match_array(%w[ps owned])
     end
 
     it "strips whitespace around tokens" do
-      expect(helper.parse_checked_tokens("ps5, owned")).to match_array(%w[ps5 owned])
+      expect(helper.parse_checked_tokens("ps, owned")).to match_array(%w[ps owned])
     end
 
     it "drops unknown tokens silently" do
-      expect(helper.parse_checked_tokens("ps5,bogus,owned")).to match_array(%w[ps5 owned])
+      expect(helper.parse_checked_tokens("ps,bogus,owned")).to match_array(%w[ps owned])
     end
 
     it "drops the legacy xbox token (no chip in v2)" do
-      expect(helper.parse_checked_tokens("ps5,xbox")).to eq([ "ps5" ])
+      expect(helper.parse_checked_tokens("ps,xbox")).to eq([ "ps" ])
     end
 
     it "drops the legacy gog token (collapsed into steam 2026-05-17)" do
-      expect(helper.parse_checked_tokens("ps5,gog")).to eq([ "ps5" ])
+      expect(helper.parse_checked_tokens("ps,gog")).to eq([ "ps" ])
     end
 
     it "drops the legacy epic token (collapsed into steam 2026-05-17)" do
-      expect(helper.parse_checked_tokens("ps5,epic")).to eq([ "ps5" ])
+      expect(helper.parse_checked_tokens("ps,epic")).to eq([ "ps" ])
     end
 
     it "drops the legacy not_owned token (no chip in v2)" do
@@ -75,15 +75,15 @@ RSpec.describe Games::FiltersHelper, type: :helper do
     end
 
     it "de-duplicates tokens" do
-      expect(helper.parse_checked_tokens("ps5,ps5,owned")).to match_array(%w[ps5 owned])
+      expect(helper.parse_checked_tokens("ps,ps,owned")).to match_array(%w[ps owned])
     end
 
     it "normalises case" do
-      expect(helper.parse_checked_tokens("PS5")).to eq([ "ps5" ])
+      expect(helper.parse_checked_tokens("PS")).to eq([ "ps" ])
     end
 
     it "ignores empty segments" do
-      expect(helper.parse_checked_tokens(",ps5,,owned,")).to match_array(%w[ps5 owned])
+      expect(helper.parse_checked_tokens(",ps,,owned,")).to match_array(%w[ps owned])
     end
   end
 
@@ -93,11 +93,11 @@ RSpec.describe Games::FiltersHelper, type: :helper do
     end
 
     it "returns a CSV in TOKEN_UNIVERSE order regardless of input order" do
-      expect(helper.serialize_checked_tokens(%w[steam ps5 owned])).to eq("owned,ps5,steam")
+      expect(helper.serialize_checked_tokens(%w[steam ps owned])).to eq("owned,ps,steam")
     end
 
     it "drops unknown tokens silently" do
-      expect(helper.serialize_checked_tokens(%w[ps5 bogus])).to eq("ps5")
+      expect(helper.serialize_checked_tokens(%w[ps bogus])).to eq("ps")
     end
 
     it "returns every token CSV when given the universe" do
@@ -111,7 +111,7 @@ RSpec.describe Games::FiltersHelper, type: :helper do
     end
 
     it "emits /games?filters=<csv> for a subset" do
-      expect(helper.games_path_with_checked([ "ps5" ])).to eq("/games?filters=ps5")
+      expect(helper.games_path_with_checked([ "ps" ])).to eq("/games?filters=ps")
     end
 
     it "emits /games?filters= (empty CSV) when the set is empty" do
@@ -119,8 +119,8 @@ RSpec.describe Games::FiltersHelper, type: :helper do
     end
 
     it "honors a custom request_path" do
-      expect(helper.games_path_with_checked([ "ps5" ], path: "/games"))
-        .to eq("/games?filters=ps5")
+      expect(helper.games_path_with_checked([ "ps" ], path: "/games"))
+        .to eq("/games?filters=ps")
     end
 
     it "drops unknown tokens before deciding whether to emit /games" do
@@ -131,13 +131,13 @@ RSpec.describe Games::FiltersHelper, type: :helper do
   end
 
   describe "#chip_label" do
-    # Platform tokens render in canonical short form (PS5, Switch2,
+    # Platform tokens render in canonical short form (PS, Switch,
     # Steam). Status / ownership tokens render verbatim. GoG + Epic
     # were collapsed into Steam in the 2026-05-17 PC store collapse.
     {
-      "ps5"     => "PS5",
-      "switch2" => "Switch2",
-      "steam"   => "Steam"
+      "ps"     => "PS",
+      "switch" => "Switch",
+      "steam"  => "Steam"
     }.each do |token, expected_label|
       it "renders #{token.inspect} as #{expected_label.inspect}" do
         expect(helper.chip_label(token)).to eq(expected_label)

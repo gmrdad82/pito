@@ -125,9 +125,13 @@ module PlatformLogosHelper
   private
 
   # Map a collection of `Platform` records to the set of canonical
-  # logo slugs they belong to. A row's `slug` wins when it matches
-  # one of `KNOWN_LOGOS` directly; otherwise the IGDB-id alias map
-  # (`Platform::IGDB_ID_TO_CANONICAL_SLUG`) is consulted.
+  # chip slugs they belong to. A row's `slug` wins when it matches
+  # one of `KNOWN_LOGOS` (chip slug) directly; otherwise the chip-
+  # layer reverse lookup (`CANONICAL_PLATFORM_SLUG_BY_CHIP.invert`)
+  # collapses per-platform canonical slugs (`ps5`, `switch-2`) to
+  # chip slugs (`ps`, `switch`); finally the IGDB-id alias map
+  # (`Platform::IGDB_ID_TO_CANONICAL_SLUG`) is consulted with the
+  # same chip-collapse fallback.
   def canonical_logo_slugs(platforms)
     Array(platforms).each_with_object(Set.new) do |platform, set|
       slug = canonical_slug_for_platform(platform)
@@ -135,9 +139,20 @@ module PlatformLogosHelper
     end
   end
 
+  # Resolve a Platform record to its chip slug (`ps`, `switch`,
+  # `steam`). The chip layer collapses per-platform canonical slugs
+  # (`ps5`, `switch-2`, `steam`) into the family chip slug — see
+  # `Platforms::ChipComponent::CANONICAL_PLATFORM_SLUG_BY_CHIP`.
   def canonical_slug_for_platform(platform)
     return platform.slug if KNOWN_LOGOS.include?(platform.slug)
 
-    Platform::IGDB_ID_TO_CANONICAL_SLUG[platform.igdb_id]
+    chip_by_canonical = Platforms::ChipComponent::CANONICAL_PLATFORM_SLUG_BY_CHIP.invert
+    return chip_by_canonical[platform.slug] if chip_by_canonical.key?(platform.slug)
+
+    canonical = Platform::IGDB_ID_TO_CANONICAL_SLUG[platform.igdb_id]
+    return nil unless canonical
+
+    return canonical if KNOWN_LOGOS.include?(canonical)
+    chip_by_canonical[canonical]
   end
 end

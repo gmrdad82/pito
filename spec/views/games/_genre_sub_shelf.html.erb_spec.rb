@@ -24,9 +24,12 @@ RSpec.describe "games/_genre_sub_shelf.html.erb", type: :view do
     it "renders an <h3> with the genre's short display label (v2 spec 05)" do
       # Phase 27 v2 spec 05 — `Adventure` is the one-to-one canonical
       # mapping in `GenresHelper::SHORT_NAMES`, so the heading renders
-      # as `Adventure` (unchanged).
+      # as `Adventure` (unchanged). The h3 also carries a count chip
+      # (`<span class="status-badge status-badge--neutral">N</span>`)
+      # since Wave F consolidation moved per-shelf count badges into
+      # the shared `Games::ShelfComponent` chrome.
       render_partial(genre)
-      expect(rendered).to match(%r{<h3[^>]*>\s*Adventure\s*</h3>})
+      expect(rendered).to match(%r{<h3[^>]*>\s*Adventure\s+<span class="status-badge[^"]*">\d+</span>\s*</h3>}m)
     end
 
     it "renders one shelf-variant cover tile per game" do
@@ -111,9 +114,9 @@ RSpec.describe "games/_genre_sub_shelf.html.erb", type: :view do
   describe "edge: genre with zero games" do
     it "renders the <h3> heading but no tiles" do
       # Phase 27 v2 spec 05 — `Adventure` short label is the canonical
-      # one-to-one mapping (unchanged).
+      # one-to-one mapping (unchanged). Count chip renders `0` here.
       render_partial(genre)
-      expect(rendered).to match(%r{<h3[^>]*>\s*Adventure\s*</h3>})
+      expect(rendered).to match(%r{<h3[^>]*>\s*Adventure\s+<span class="status-badge[^"]*">0</span>\s*</h3>}m)
       expect(rendered).not_to include('game-cover--shelf')
     end
 

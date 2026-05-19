@@ -101,7 +101,15 @@ class GamesController < ApplicationController
     # always returns false), but the ivar survives for the component's
     # stable signature.
     @checked_tokens        = parse_checked_tokens(params[:filters])
-    @filter_query          = Games::Filter.new(scope: scope, tokens: @checked_tokens)
+    # Phase 28 owned_rollup — when the listing is primaries-only (the
+    # default `?include_editions=no` path), the `owned` filter rolls up
+    # so a primary survives when ANY of its editions has an ownership
+    # row, even if the primary itself has none. The flat
+    # `?include_editions=yes` listing matches on per-row ownership
+    # exactly (no rollup needed because editions are visible).
+    @filter_query          = Games::Filter.new(
+      scope: scope, tokens: @checked_tokens, primaries_only: !@include_editions
+    )
     @dropped_filter_tokens = @filter_query.dropped_tokens
     @filter_contradiction  = @filter_query.contradiction?
     filtered_scope         = @filter_query.results
@@ -309,14 +317,16 @@ class GamesController < ApplicationController
   # 2026-05-18 — omnisearch endpoint for the `/`-keyed search modal on
   # `/games`. Runs the unified `Games::SearchService` in `:games_search`
   # mode so the result envelope carries BOTH local games + bundles
-  # (Meilisearch) AND IGDB hits as separate panes. Rendered through the
-  # shared `_omnisearch_results` dispatcher which fans out to the
-  # combined `_search_results_combined` partial.
+  # (Meilisearch) AND IGDB hits as separate panes. Rendered via the
+  # `Search::OmnisearchResultsComponent` ViewComponent (replaces the
+  # former `shared/_omnisearch_results` + `games/_search_results_combined`
+  # partial chain).
   def omnisearch
     @query = params[:q].to_s.strip[0, MAX_QUERY_LENGTH]
     @result = Games::SearchService.call(query: @query, mode: :games_search)
-    render partial: "shared/omnisearch_results",
-           locals: { mode: :games_search, query: @query, result: @result, bundle: nil }
+    render Search::OmnisearchResultsComponent.new(
+      mode: :games_search, query: @query, result: @result, bundle: nil
+    )
   end
 
   # Phase 27 spec 04 (2026-05-17) — IGDB add-game flow is the SINGLE

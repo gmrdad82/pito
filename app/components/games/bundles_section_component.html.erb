@@ -10,8 +10,15 @@
       <% bundles_in.each do |bundle| %>
         <%= render(Games::BundleTileComponent.new(bundle: bundle)) %>
       <% end %>
-      <% if render_divider? %>
-        <div class="bundles-section-divider" aria-hidden="true"></div>
+      <%# 2026-05-19 — Cover-art-style separator tile replaces the
+          vertical hairline divider. Rendered whenever the RIGHT half
+          has suggestions (which, given `both_empty?` is false above,
+          means whenever `bundles_suggested.any?`). When `bundles_in`
+          is empty, the separator is the FIRST child of the shelf — the
+          CSS rule on `.game-bundles .shelf-row:has(.bundles-suggested-separator:first-child)`
+          zeros the row gap so the tile butts against the pane edge. %>
+      <% if bundles_suggested.any? %>
+        <%= render(Games::BundlesSuggestedSeparatorComponent.new) %>
       <% end %>
       <% bundles_suggested.each do |bundle| %>
         <%= render(Games::BundleTileComponent.new(

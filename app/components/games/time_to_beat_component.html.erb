@@ -23,10 +23,14 @@
   h_completionist = hours[:completionist].to_i
   footage         = footage_hours
 
-  main_pos        = position(h_main)
-  extras_pos      = position(h_extras)
-  compl_pos       = position(h_completionist)
-  footage_pos     = position(footage)
+  # Wave C reveal — every tick's `left:` percent now flows through the
+  # `*_position` helpers so the values stub to 0 while `resyncing?` and
+  # snap to the real geometry on sync complete. CSS `transition: left
+  # 600ms ease-in-out` (see application.css) animates the swap.
+  main_pos        = pillar_position(:main)
+  extras_pos      = pillar_position(:extras)
+  compl_pos       = pillar_position(:completionist)
+  footage_pos     = footage_position
 %>
 
 <div class="ttb-fuel-gauge" data-component="time-to-beat" data-variant="fuel_gauge">
@@ -49,9 +53,29 @@
       `background-image` here so the visible color spread reflects the
       game's actual effort scale — Pragmata stays mostly green/lime,
       Crimson Desert is mostly pink. Zone semantic thresholds (10 / 40
-      / 100 hours) are implicit; no visible vertical guides. %>
-  <div class="ttb-fuel-gauge__bar"
-       style="background-image: linear-gradient(to right, <%= gradient_stops %>);">
+      / 100 hours) are implicit; no visible vertical guides.
+
+      Wave C reveal — TWO stacked background layers, not a single
+      `background-image`:
+
+        - `__bar-layer--stub` carries the bland `STUB_GRADIENT`
+          (solid `--color-rating-good` green), painted always so the
+          gauge has a visible bed at every moment.
+        - `__bar-layer--real` carries the adaptive gradient computed
+          by `real_gradient_stops`. Its `opacity` is set inline (0
+          while `resyncing?`, 1 once the resync completes), and a
+          `transition: opacity 600ms ease-in-out` rule in the CSS
+          crossfades it in when the Turbo morph swaps the value.
+
+      The CSS-native gradient interpolation is brittle (browsers do
+      not animate `background-image` smoothly); the opacity crossfade
+      between two stacked layers is the reliable equivalent. %>
+  <div class="ttb-fuel-gauge__bar">
+    <div class="ttb-fuel-gauge__bar-layer ttb-fuel-gauge__bar-layer--stub"
+         style="background-image: linear-gradient(to right, <%= stub_gradient_stops %>);"></div>
+    <div class="ttb-fuel-gauge__bar-layer ttb-fuel-gauge__bar-layer--real"
+         style="background-image: linear-gradient(to right, <%= real_gradient_stops %>); opacity: <%= real_layer_opacity %>;"></div>
+
     <%# Inline "TTB" watermark, vertically centered inside the bar,
         left-aligned with a few px of padding. Carries the section
         identifier so no standalone heading sits above. %>

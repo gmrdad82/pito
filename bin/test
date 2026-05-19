@@ -47,9 +47,11 @@ case "$cmd" in
   all)
     # Run everything, including system specs. We bypass `.rspec` (which
     # excludes `type:system`) by passing `--options /dev/null` and re-adding
-    # the only flag it carried (`--require spec_helper`).
+    # the only flag it carried (`--require spec_helper`). parallel_tests'
+    # `-o` flag forwards args to each rspec worker; the `--` separator
+    # syntax causes parallel_rspec to treat `--options` as a file path.
     bin/test-prepare
-    exec bundle exec parallel_rspec spec/ -- --options /dev/null --require spec_helper
+    exec bundle exec parallel_rspec -o '--options /dev/null --require spec_helper' spec/
     ;;
 
   failed)

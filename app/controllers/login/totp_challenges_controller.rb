@@ -60,9 +60,22 @@ class Login::TotpChallengesController < ApplicationController
       return
     end
 
+    # Two distinct param names. The web form submits a 6-digit TOTP
+    # as `code` (segmented hidden input) and an 8-char backup code as
+    # `backup_code` (the `<details>` fallback below). Older JSON / spec
+    # callers may pass either kind under `code` alone — preserve that
+    # wire-format by falling back to `params[:code]` when
+    # `params[:backup_code]` is blank. The TOTP attempt always runs
+    # against `params[:code]`; an 8-char backup code submitted as
+    # `code` simply fails the TOTP arm and gets tried by the backup
+    # arm. Splitting the two names defends the web flow against the
+    # Rack last-key-wins regression that an empty backup input would
+    # otherwise inflict on the segmented hidden field.
     code = params[:code].to_s.strip
+    backup_param = params[:backup_code].to_s.strip
+    backup_candidate = backup_param.presence || code
 
-    if try_totp(code) || try_backup_code(code)
+    if try_totp(code) || try_backup_code(backup_candidate)
       # Phase 25 — 01g (LD-11). 2FA success clears the per-account
       # backoff bucket — the user has proven possession of the seed,
       # whatever earlier failures recorded should not gate them out.

@@ -24,10 +24,10 @@ RSpec.describe Games::FilterRowComponent, type: :component do
       expect(left_tokens).to eq(%w[released scheduled owned wishlist played])
     end
 
-    it "renders right side chips in the locked order (PS5, Switch2, Steam — no xbox, no gog, no epic)" do
+    it "renders right side chips in the locked order (PS, Switch, Steam — no xbox, no gog, no epic)" do
       right_tokens = page.all(".games-filter-row__right a.filter-chip")
                          .map { |a| a["data-filter-token"] }
-      expect(right_tokens).to eq(%w[ps5 switch2 steam])
+      expect(right_tokens).to eq(%w[ps switch steam])
     end
 
     it "does NOT render an xbox chip" do
@@ -75,21 +75,21 @@ RSpec.describe Games::FilterRowComponent, type: :component do
 
   describe "happy: partial-checked set rendering" do
     before do
-      render_inline(described_class.new(checked_tokens: %w[ps5 owned released]))
+      render_inline(described_class.new(checked_tokens: %w[ps owned released]))
     end
 
     it "renders only the 3 specified chips as checked" do
       expect(page).to have_css("a.filter-chip.chip--active", count: 3)
     end
 
-    it "marks released, owned, and ps5 as checked" do
-      %w[released owned ps5].each do |t|
+    it "marks released, owned, and ps as checked" do
+      %w[released owned ps].each do |t|
         expect(page).to have_css("a.filter-chip.chip--active[data-filter-token='#{t}']")
       end
     end
 
-    it "marks scheduled, wishlist, played, switch2, steam as unchecked" do
-      %w[scheduled wishlist played switch2 steam].each do |t|
+    it "marks scheduled, wishlist, played, switch, steam as unchecked" do
+      %w[scheduled wishlist played switch steam].each do |t|
         expect(page).to have_css("a.filter-chip[data-filter-token='#{t}']")
         expect(page).to have_no_css("a.filter-chip.chip--active[data-filter-token='#{t}']")
       end
@@ -109,9 +109,9 @@ RSpec.describe Games::FilterRowComponent, type: :component do
     before { render_inline(described_class.new) }
 
     {
-      "ps5"     => "PS5",
-      "switch2" => "Switch2",
-      "steam"   => "Steam"
+      "ps"     => "PS",
+      "switch" => "Switch",
+      "steam"  => "Steam"
     }.each do |token, label|
       it "renders the #{token} chip with short label #{label.inspect}" do
         chip = page.find("a[data-filter-token='#{token}']")
@@ -121,7 +121,7 @@ RSpec.describe Games::FilterRowComponent, type: :component do
   end
 
   describe "flaw: defensive surface" do
-    before { render_inline(described_class.new(checked_tokens: %w[ps5])) }
+    before { render_inline(described_class.new(checked_tokens: %w[ps])) }
 
     it "never emits data-turbo-confirm" do
       expect(page.native.to_html).not_to include("data-turbo-confirm")

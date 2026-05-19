@@ -85,11 +85,6 @@ RSpec.describe Confirmable, type: :request do
       expect(response).to redirect_to(projects_path)
     end
 
-    it "uses collections_path for collection type on empty result" do
-      get deletions_path(type: "collection", ids: "99999")
-      expect(response).to redirect_to(collections_path)
-    end
-
     it "uses games_path for game type on empty result" do
       get deletions_path(type: "game", ids: "99999")
       expect(response).to redirect_to(games_path)

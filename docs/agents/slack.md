@@ -41,7 +41,7 @@ initiate new ones. Subsequent communication flows back through chat.
 
 ## Channel
 
-- `default_channel: "#dev"` — private channel; agent uses
+- `default_channel: "#pito-app"` — private channel; agent uses
   `slack_search_channels` with `channel_types: "private_channel"` to resolve
   the channel ID at send time.
 
@@ -71,7 +71,7 @@ governance in one place (here) and avoids per-call drift in tone or length.
 
 ## Incoming convention — `#claude` prefix only
 
-`#dev` carries traffic from other people and other apps too. The agent
+`#pito-app` carries traffic from other people and other apps too. The agent
 acts ONLY on user messages whose body STARTS with `#claude `. Everything
 else is noise — read past, do not act. (The earlier `#code` prefix was
 deprecated 2026-05-17 — user prefers a single convention.)
@@ -104,7 +104,7 @@ stops the loop (see the explicit-return-signals list above).
 
 **The loop stops on any of these signals:**
 - User types `I'm back` (or close paraphrase) in the chat session.
-- User sends `#claude I'm back` in `#dev`.
+- User sends `#claude I'm back` in `#pito-app`.
 - User sends ANY message in the chat session — active in-chat
   conversation implicitly means the user is at the keyboard, so polling
   Slack is redundant. The master agent stops scheduling new wakeups; the

@@ -65,16 +65,29 @@ module Voyage
     # Returns kilobytes (integer). Returns `nil` on any SQL error — the view
     # treats nil as "hide the cell" so a transient failure never blanks the
     # surrounding line.
-    def compute_storage_kb
-      index_names = [ "index_games_on_summary_embedding_hnsw" ]
-      index_names << "index_bundles_on_summary_embedding_hnsw" if bundle_embedding_supported?
+    # Frozen allowlist of HNSW index names the storage query is allowed to
+    # inspect. Kept as a constant so the SQL builder never interpolates an
+    # attacker-controlled string into the `IN (...)` clause — Brakeman
+    # otherwise flags the interpolation as a possible SQL injection even
+    # when the values are quoted, because it cannot statically prove the
+    # source is a literal array.
+    KNOWN_HNSW_INDEXES = {
+      games: "index_games_on_summary_embedding_hnsw",
+      bundles: "index_bundles_on_summary_embedding_hnsw"
+    }.freeze
+    private_constant :KNOWN_HNSW_INDEXES
 
-      quoted = index_names.map { |n| ActiveRecord::Base.connection.quote(n) }.join(",")
-      result = ActiveRecord::Base.connection.execute(<<~SQL).first
+    def compute_storage_kb
+      index_names = [ KNOWN_HNSW_INDEXES[:games] ]
+      index_names << KNOWN_HNSW_INDEXES[:bundles] if bundle_embedding_supported?
+
+      sql = <<~SQL
         SELECT COALESCE(SUM(pg_total_relation_size(quote_ident(indexname)::regclass)), 0) AS total
         FROM pg_indexes
-        WHERE indexname IN (#{quoted})
+        WHERE indexname IN (?)
       SQL
+      sanitized = ActiveRecord::Base.sanitize_sql_array([ sql, index_names ])
+      result = ActiveRecord::Base.connection.execute(sanitized).first
 
       total_bytes = result && (result["total"] || result[:total]) || 0
       (total_bytes.to_i / 1024)

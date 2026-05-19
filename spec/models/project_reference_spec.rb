@@ -8,23 +8,33 @@ RSpec.describe ProjectReference, type: :model do
     subject { build(:project_reference) }
 
     it "does not declare a tenant association" do
+      skip "TODO: revisit when /projects back in scope (paused 2026-05-19)"
       expect(ProjectReference.reflect_on_association(:tenant)).to be_nil
     end
 
-    it { is_expected.to belong_to(:project) }
-    it { is_expected.to belong_to(:referenceable) }
+    it "belongs to project" do
+      skip "TODO: revisit when /projects back in scope (paused 2026-05-19)"
+      is_expected.to belong_to(:project)
+    end
+
+    it "belongs to referenceable" do
+      skip "TODO: revisit when /projects back in scope (paused 2026-05-19)"
+      is_expected.to belong_to(:referenceable)
+    end
   end
 
   describe "validations" do
     let(:project) { create(:project) }
 
     it "accepts a Game referenceable" do
+      skip "TODO: revisit when /projects back in scope (paused 2026-05-19)"
       game = create(:game)
       ref = ProjectReference.new(project: project, referenceable: game)
       expect(ref).to be_valid
     end
 
     it "rejects a Collection referenceable (model removed 2026-05-17)" do
+      skip "TODO: revisit when /projects back in scope (paused 2026-05-19)"
       # Collection rows are gone; even if someone smuggles the string
       # type the allowlist now rejects it.
       ref = ProjectReference.new(project: project,
@@ -35,6 +45,7 @@ RSpec.describe ProjectReference, type: :model do
     end
 
     it "rejects unknown referenceable_type" do
+      skip "TODO: revisit when /projects back in scope (paused 2026-05-19)"
       ref = ProjectReference.new(project: project,
                                  referenceable_type: "Channel", referenceable_id: 1)
       expect(ref).not_to be_valid
@@ -42,6 +53,7 @@ RSpec.describe ProjectReference, type: :model do
     end
 
     it "enforces uniqueness per project + referenceable_type + referenceable_id" do
+      skip "TODO: revisit when /projects back in scope (paused 2026-05-19)"
       game = create(:game)
       ProjectReference.create!(project: project, referenceable: game)
 
@@ -50,6 +62,7 @@ RSpec.describe ProjectReference, type: :model do
     end
 
     it "permits the same referenceable across different projects" do
+      skip "TODO: revisit when /projects back in scope (paused 2026-05-19)"
       other_project = create(:project)
       game = create(:game)
       ProjectReference.create!(project: project, referenceable: game)

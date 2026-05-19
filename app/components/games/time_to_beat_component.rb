@@ -96,10 +96,35 @@ module Games
       completionist: "#FF4081"
     }.freeze
 
+    # Wave C reveal — stubbed background gradient applied while
+    # `game.resyncing?` is true. Intentionally bland: solid green
+    # (`--color-rating-good`'s low-effort end of the spectrum), no
+    # adaptive hour projection. The DOM stacks this stub layer
+    # underneath the real adaptive layer; when the resync completes the
+    # real layer's opacity transitions 0 → 1 (600ms ease-in-out) and
+    # the bar appears to crossfade from neutral green to its true
+    # adaptive heat ramp. Solid-color (single stop repeated) avoids the
+    # degenerate gradient that would render if we reused
+    # `gradient_stops` with `max_x = 10` and zero hour values.
+    STUB_GRADIENT = "#4CAF50 0%, #4CAF50 100%".freeze
+
     def initialize(game: nil, hours: nil, footage_hours: nil)
       @game           = game
       @hours          = hours
       @footage_hours  = footage_hours
+    end
+
+    # Wave C reveal — true while the upstream game is mid-resync. The
+    # template branches on this to render every tick / pillar / footage
+    # marker at `left: 0%` and to stack the stubbed gradient layer on
+    # top of the real adaptive layer (real layer opacity 0). When the
+    # Turbo morph fires on sync complete the rendered DOM no longer
+    # carries the stub class; CSS `transition: left 600ms ease-in-out`
+    # animates each tick to its real position and the stub-gradient
+    # layer fades out as the real-gradient layer fades in. Falls back
+    # to `false` when no game is attached (preview / spec contexts).
+    def resyncing?
+      @game&.resyncing? == true
     end
 
     # Returns `{ main:, extras:, completionist: }` as Integers (hours).
@@ -319,6 +344,27 @@ module Games
     # Per user direction (2026-05-17), colliding labels PULL APART —
     # the earlier label moves LEFT, the later label moves RIGHT.
     def pillar_label_data
+      if resyncing?
+        # Wave C reveal — stub every pillar at the bar's left edge
+        # (position 0) so the upcoming Turbo morph + CSS transition
+        # slides each pillar to its real position once the resync
+        # completes. Labels stay computed (`label_for(key)` already
+        # returns em-dash for nil/zero hours, which is the natural
+        # mid-resync state); only the geometry is stubbed. The legend
+        # row, watermark, and footage tick all derive their position
+        # from their own helpers and stub independently in the ERB.
+        return PILLAR_KEYS.map do |key|
+          {
+            key:                key,
+            hours:              hours[key].to_i,
+            label:              label_for(key),
+            position:           0.0,
+            nudge:              nil,
+            effective_position: 0.0
+          }
+        end
+      end
+
       ordered = PILLAR_KEYS.map do |key|
         h = hours[key].to_i
         {
@@ -349,6 +395,53 @@ module Games
       end
 
       ordered
+    end
+
+    # Wave C reveal — `left:` percentage for the footage tick. Stubs
+    # to 0 while `resyncing?` so the tick parks at the bar's left edge
+    # and animates rightward on sync complete via the shared CSS
+    # `transition: left 600ms ease-in-out`. Real (post-sync) path
+    # delegates to `position(footage_hours)`.
+    def footage_position
+      return 0.0 if resyncing?
+
+      position(footage_hours)
+    end
+
+    # Wave C reveal — `left:` percentage for an individual pillar tick.
+    # Stubs to 0 during resync (matches `pillar_label_data`'s stubbed
+    # `effective_position`). Real path delegates to
+    # `position(hours[key])`. Used by the ERB so the bar ticks and the
+    # bottom-row labels share the same geometry source.
+    def pillar_position(key)
+      return 0.0 if resyncing?
+
+      position(hours[key].to_i)
+    end
+
+    # Wave C reveal — gradient stop list for the REAL adaptive bar
+    # layer. Identical to `gradient_stops`; named separately so the
+    # ERB reads as a pair (`stub_gradient_stops` / `real_gradient_stops`).
+    def real_gradient_stops
+      gradient_stops
+    end
+
+    # Wave C reveal — gradient stop list for the STUBBED bar layer.
+    # Always returns the constant `STUB_GRADIENT` (solid green); never
+    # collapses to the degenerate adaptive form. Rendered as the lower
+    # `background-image` layer in the ERB, fully visible while
+    # `resyncing?` (real layer opacity 0) and entirely covered once the
+    # resync completes (real layer opacity 1, stub layer hidden behind).
+    def stub_gradient_stops
+      STUB_GRADIENT
+    end
+
+    # Wave C reveal — opacity for the REAL adaptive gradient layer.
+    # 0 while `resyncing?` (stub layer visible underneath); 1 once
+    # the resync completes. The `transition: opacity 600ms ease-in-out`
+    # on `.ttb-fuel-gauge__bar-layer--real` produces the crossfade.
+    def real_layer_opacity
+      resyncing? ? 0 : 1
     end
 
     private

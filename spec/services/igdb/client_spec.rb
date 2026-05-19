@@ -178,6 +178,19 @@ RSpec.describe Igdb::Client do
     end
   end
 
+  describe "GAME_FIELDS constant" do
+    # 2026-05-19 — `alternative_names.id` + `alternative_names.name`
+    # joined the IGDB GAME_FIELDS so the mapper can populate the
+    # local `alternative_names` text[] column.
+    it "requests `alternative_names.id` from IGDB" do
+      expect(Igdb::Client::GAME_FIELDS).to include("alternative_names.id")
+    end
+
+    it "requests `alternative_names.name` from IGDB" do
+      expect(Igdb::Client::GAME_FIELDS).to include("alternative_names.name")
+    end
+  end
+
   describe "#fetch_game" do
     it "returns a one-element array on success" do
       stub_request(:post, "https://api.igdb.com/v4/games")

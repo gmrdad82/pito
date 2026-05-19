@@ -102,6 +102,26 @@ RSpec.describe BulkVoyageIndexJob, type: :job do
 
       described_class.new.perform(corpus: "games")
     end
+
+    # 2026-05-19 — mirrors `Games::VoyageIndexer#combined_text` so a
+    # bulk reindex produces byte-identical Voyage inputs (and therefore
+    # byte-identical embeddings) to a per-row reindex. The alt_names
+    # slot is em-dash-joined between title and summary.
+    it "embeds title — alt_names — summary when alternative_names is present" do
+      create(
+        :game,
+        title: "Hollow Knight",
+        summary: "Indie metroidvania.",
+        alternative_names: [ "HK", "ホロウナイト" ]
+      )
+
+      expect(voyage_client).to receive(:embed_batch) do |inputs:|
+        expect(inputs).to eq([ "Hollow Knight — HK ホロウナイト — Indie metroidvania." ])
+        [ vector ]
+      end
+
+      described_class.new.perform(corpus: "games")
+    end
   end
 
   describe "bundles corpus" do

@@ -21,9 +21,13 @@ RSpec.describe "Leader menu chrome", type: :system do
       expect(page).to have_css("body[data-controller~='leader-menu']", visible: :all)
     end
 
-    it "renders the popup target div as a hidden placeholder" do
+    it "renders the popup target dialog as a closed placeholder" do
+      # 2026-05-17 — the popup migrated from `<div hidden>` to a native
+      # `<dialog>` opened via `.showModal()` so the browser places it in
+      # the top layer above other dialogs. Closed-state contract: the
+      # `<dialog>` element renders without the `open` attribute.
       visit "/"
-      expect(page).to have_css("div#leader-menu-popup[hidden]", visible: :all)
+      expect(page).to have_css("dialog#leader-menu-popup:not([open])", visible: :all)
     end
 
     it "embeds the keybindings schema as a JSON script tag" do
@@ -43,6 +47,17 @@ RSpec.describe "Leader menu chrome", type: :system do
       expect(anchor["data-action"]).to include("click->leader-menu#openRoot")
       expect(anchor[:href]).to eq("#")
       expect(anchor).to have_css("span.bl", text: "_")
+    end
+
+    it "places the [_] affordance inside the navbar, not the footer" do
+      # 2026-05-18 — the `[_]` link was relocated from the footer into
+      # the header navbar (immediately after `[settings]`). Lock the
+      # location at the chrome level so a future regression — moving
+      # the link back, or duplicating it across both regions — is
+      # caught by this spec rather than only by visual review.
+      visit "/"
+      expect(page).to have_css("header a[data-action*='leader-menu#openRoot']", visible: :all)
+      expect(page).not_to have_css("footer a[data-action*='leader-menu#openRoot']", visible: :all)
     end
   end
 
@@ -82,7 +97,6 @@ RSpec.describe "Leader menu chrome", type: :system do
       "/videos",
       "/projects",
       "/games",
-      "/bundles",
       "/notifications",
       "/saved_views",
       "/settings",
@@ -102,9 +116,9 @@ RSpec.describe "Leader menu chrome", type: :system do
           "script#pito-keybindings[type='application/json']", visible: :all
         ), "expected #{path} to embed the keybindings schema"
         expect(page).to have_css(
-          "div#leader-menu-popup[data-leader-menu-target='popup']",
+          "dialog#leader-menu-popup[data-leader-menu-target='popup']",
           visible: :all
-        ), "expected #{path} to render the leader-menu popup target div"
+        ), "expected #{path} to render the leader-menu popup target dialog"
       end
     end
 
@@ -147,32 +161,14 @@ RSpec.describe "Leader menu chrome", type: :system do
       expect(menus.keys).to eq([ "root" ])
     end
 
-    # Locked flat-binding contract — every 2-key combo + the direct
-    # single-key entries. Indexed by key for table-driven assertions
-    # so the visible list of bindings stays trivially scannable.
+    # 2026-05-18 (revision 2) — the root menu was trimmed to the
+    # in-scope beta-3 surfaces only (/games + /settings + logout).
+    # Locked flat-binding contract — the three surviving direct-key
+    # entries + the one surviving 2-key binding (`Gl`).
     flat_bindings = {
-      "h"  => { label: "home",                          action: { "type" => "navigate", "path" => "/" } },
-      "cs" => { label: "calendar schedule",             action: { "type" => "navigate", "path" => "/calendar/schedule" } },
-      "cm" => { label: "calendar month",                action: { "type" => "navigate", "path" => "/calendar/month" } },
-      "ct" => { label: "calendar today",                action: { "type" => "today" } },
-      "c+" => { label: "calendar new",                  action: { "type" => "open", "target" => "new_calendar_entry" } },
-      "Cl" => { label: "channels list",                 action: { "type" => "navigate", "path" => "/channels" } },
-      "C+" => { label: "channels add",                  action: { "type" => "navigate", "path" => "/channels" } },
-      "C-" => { label: "channels delete",               action: { "type" => "bulk_delete" } },
-      "Cy" => { label: "channels sync",                 action: { "type" => "bulk_sync" } },
-      "Vl" => { label: "videos list",                   action: { "type" => "navigate", "path" => "/videos" } },
-      "V+" => { label: "videos upload",                 action: { "type" => "open", "target" => "video_upload" } },
-      "V-" => { label: "videos delete",                 action: { "type" => "bulk_delete" } },
-      "Pl" => { label: "projects list",                 action: { "type" => "navigate", "path" => "/projects" } },
-      "P+" => { label: "projects new",                  action: { "type" => "open", "target" => "new_project" } },
-      "P-" => { label: "projects delete",               action: { "type" => "bulk_delete" } },
-      "Gl" => { label: "games list",                    action: { "type" => "navigate", "path" => "/games" } },
-      "G+" => { label: "games new",                     action: { "type" => "open", "target" => "igdb_search" } },
-      "Nl" => { label: "notifications list",            action: { "type" => "open", "target" => "notifications_modal" } },
-      "Nu" => { label: "notifications filter unread",   action: { "type" => "filter_unread" } },
-      "Nm" => { label: "notifications mark all read",   action: { "type" => "mark_all_read" } },
-      "S"  => { label: "settings",                      action: { "type" => "navigate", "path" => "/settings" } },
-      "Q"  => { label: "logout",                        action: { "type" => "logout" } }
+      "Gl" => { label: "games",   action: { "type" => "navigate", "path" => "/games" } },
+      "S"  => { label: "settings", action: { "type" => "navigate", "path" => "/settings" } },
+      "Q"  => { label: "logout",   action: { "type" => "logout" } }
     }.freeze
 
     flat_bindings.each do |key, expected|
@@ -184,6 +180,29 @@ RSpec.describe "Leader menu chrome", type: :system do
         expect(row.fetch("action")).to eq(expected[:action])
         # Submenus are gone — no row should carry a `submenu` field.
         expect(row).not_to have_key("submenu")
+      end
+    end
+
+    # 2026-05-18 (revision 2) — explicit dropped-key locks. Each
+    # binding below was intentionally removed from the root menu in
+    # this revision. The single test fails fast if any of them gets
+    # resurrected by a stray YAML edit.
+    dropped_keys = %w[
+      h
+      cs cm ct c+
+      Cl C+ C- Cy
+      Vl V+ V-
+      Pl P+ P-
+      Nl Nu Nm
+      G+
+    ].freeze
+
+    dropped_keys.each do |key|
+      it "does NOT ship the [#{key}] root binding (dropped 2026-05-18)" do
+        items = payload_for("/").fetch("menus").fetch("root").fetch("items")
+        row = items.find { |i| i["key"] == key }
+        expect(row).to be_nil,
+          "expected the [#{key}] binding to be absent from the trimmed root menu"
       end
     end
 
@@ -200,17 +219,10 @@ RSpec.describe "Leader menu chrome", type: :system do
       expect(keys).not_to include("q")
     end
 
-    it "ships divider entries between logical groups so the popup paints visual separators" do
+    it "ships at least one divider entry between the navigation group and the logout row" do
       items = payload_for("/").fetch("menus").fetch("root").fetch("items")
-      # The exact divider count is the number of group boundaries
-      # (home | calendar | channels | videos | projects | games |
-      # notifications | settings | quit-filtered | logout) → 8 visible
-      # dividers after the TUI-only `q` row was filtered out (the
-      # divider preceding `q` survives; the one after `q` separates
-      # quit from logout). Lock the count so a regression that
-      # accidentally drops dividers fails fast.
       divider_count = items.count { |i| i.is_a?(Hash) && i["divider"] }
-      expect(divider_count).to be >= 8
+      expect(divider_count).to be >= 1
     end
   end
 
@@ -223,10 +235,10 @@ RSpec.describe "Leader menu chrome", type: :system do
     # the prefix-armed window before the second key resolves. Marking
     # the popup div `data-turbo-permanent` keeps the chrome (and the
     # rehydrate path) consistent across navigations.
-    it "renders the popup div with data-turbo-permanent" do
+    it "renders the popup dialog with data-turbo-permanent" do
       visit "/"
       expect(page).to have_css(
-        "div#leader-menu-popup[data-turbo-permanent]",
+        "dialog#leader-menu-popup[data-turbo-permanent]",
         visible: :all
       )
     end
@@ -365,8 +377,14 @@ RSpec.describe "Leader menu chrome", type: :system do
       # removes the storage key when the stack is empty. Lock the
       # ordering so a refactor that splits close() doesn't break the
       # rehydrate-suppression path.
+      #
+      # 2026-05-17 — `close()` also wipes `this.inlineMenus = {}` between
+      # those two calls, so the gap-matcher must allow `{` / `}` chars
+      # (the legacy `[^}]*` pattern would otherwise fail on the empty
+      # object literal). Anchor on `close(` to bound the search to the
+      # method body and trust the `.persistStack()` callsite ordering.
       expect(controller_source).to match(
-        /close\([^)]*\)\s*\{[^}]*this\.menuStack\s*=\s*\[\][^}]*this\.persistStack\(\)/m
+        /close\([^)]*\)\s*\{[\s\S]*?this\.menuStack\s*=\s*\[\][\s\S]*?this\.persistStack\(\)/m
       )
     end
   end
@@ -442,7 +460,7 @@ RSpec.describe "Leader menu chrome", type: :system do
         "script#pito-keybindings[type='application/json']", visible: :all
       )
       expect(page).to have_css(
-        "div#leader-menu-popup[data-leader-menu-target='popup']", visible: :all
+        "dialog#leader-menu-popup[data-leader-menu-target='popup']", visible: :all
       )
     end
   end

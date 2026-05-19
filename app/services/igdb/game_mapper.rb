@@ -60,9 +60,33 @@ module Igdb
         attrs[:version_title] = json["version_title"]
       end
 
+      # 2026-05-19 — IGDB `alternative_names` is an array of
+      # `{id, name, comment}` hashes. We persist only the `name`
+      # strings (deduplicated, blanks dropped) into the local
+      # `alternative_names` text[] column for omnisearch + Meili.
+      # When IGDB omits the field entirely, the column resets to an
+      # empty array so a previously-populated row whose alt names
+      # were removed upstream stays in sync.
+      if json.key?("alternative_names")
+        attrs[:alternative_names] = extract_alternative_names(json["alternative_names"])
+      end
+
       attrs.merge!(map_time_to_beat(ttb_json))
       attrs.merge!(map_external_games(external_json))
       attrs
+    end
+
+    # Pulls non-blank, deduplicated `name` strings out of the IGDB
+    # `alternative_names` payload (which is an array of
+    # `{id, name, comment}` hashes). Returns `[]` when the payload
+    # is nil / not an array / empty — never nil, so the `null: false`
+    # constraint on the column always holds.
+    def extract_alternative_names(payload)
+      Array(payload)
+        .select { |row| row.is_a?(Hash) }
+        .map { |row| row["name"].to_s.strip }
+        .reject(&:empty?)
+        .uniq
     end
 
     def map_time_to_beat(ttb_json)

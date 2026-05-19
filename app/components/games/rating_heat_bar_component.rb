@@ -91,7 +91,7 @@ module Games
 
       numerator   = contributions.sum { |s, count| s * count }
       denominator = contributions.sum { |_, count| count }
-      (numerator / denominator).round
+      numerator.fdiv(denominator).round
     end
 
     # Instance-form preserved for backwards compatibility with the
@@ -122,6 +122,46 @@ module Games
 
     def tier
       self.class.tier_for(score)
+    end
+
+    # Wave C reveal — true while the upstream game is mid-resync. The
+    # template branches on this to:
+    #
+    #   - paint the bubble text as an em-dash (`—`) instead of the
+    #     numeric score
+    #   - drive `--score: 0` so the indicator tick and the bubble both
+    #     park at the bar's left edge
+    #
+    # When the Turbo morph fires on sync complete the rendered DOM
+    # carries the real `--score` value; the CSS `transition: left
+    # 600ms ease-in-out` rule on `.rating-heat-bar-indicator` /
+    # `.rating-heat-bar-bubble` animates the tick + bubble from left:0
+    # to their final positions. The bar's gradient is fixed (not
+    # adaptive), so no crossfade layer is needed here — only the
+    # indicator / bubble motion. Falls back to false when no game is
+    # attached (preview / spec contexts).
+    def resyncing?
+      @game&.resyncing? == true
+    end
+
+    # Wave C reveal — bubble text. Em-dash while `resyncing?` (matches
+    # the convention used by the meta-table sync row); the rendered
+    # numeric score otherwise.
+    def bubble_text
+      return I18n.t("common.em_dash") if resyncing?
+
+      score
+    end
+
+    # Wave C reveal — `--score` CSS variable value. 0 while `resyncing?`
+    # so the indicator and bubble park at the bar's left edge; the real
+    # score otherwise. The bubble + tick `left:` rules both read this
+    # variable via `calc(var(--score) * 1%)`, so a single inline value
+    # drives both.
+    def score_var
+      return 0 if resyncing?
+
+      score
     end
   end
 end

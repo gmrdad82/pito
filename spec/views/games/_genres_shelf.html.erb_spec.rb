@@ -46,8 +46,9 @@ RSpec.describe "games/_genres_shelf.html.erb", type: :view do
       # Phase 27 v2 spec 05 — short labels follow the locked
       # `GenresHelper::SHORT_NAMES` table. `Adventure` is the
       # canonical one-to-one mapping (preserved); the unmapped lower-
-      # case `"rpg"` factory name falls through unchanged.
-      expect(rendered).to match(%r{<h3[^>]*>\s*Adventure\s*</h3>})
+      # case `"rpg"` factory name falls through unchanged. The h3
+      # also carries a per-shelf count chip (Wave F consolidation).
+      expect(rendered).to match(%r{<h3[^>]*>\s*Adventure\s+<span class="status-badge[^"]*">\d+</span>\s*</h3>}m)
     end
   end
 
@@ -59,8 +60,8 @@ RSpec.describe "games/_genres_shelf.html.erb", type: :view do
       game.genres << genre
       render_shelf(Genre.where(id: genre.id))
 
-      # Sub-shelf <h3> carries the spec's locked short label.
-      expect(rendered).to match(%r{<h3[^>]*>\s*RPG\s*</h3>})
+      # Sub-shelf <h3> carries the spec's locked short label + count chip.
+      expect(rendered).to match(%r{<h3[^>]*>\s*RPG\s+<span class="status-badge[^"]*">\d+</span>\s*</h3>}m)
     end
 
     it "passthrough: returns the IGDB canonical name unchanged for an unmapped genre" do
@@ -68,7 +69,7 @@ RSpec.describe "games/_genres_shelf.html.erb", type: :view do
       game.genres << genre
       render_shelf(Genre.where(id: genre.id))
 
-      expect(rendered).to match(%r{<h3[^>]*>\s*Pumpkin Spice Latte\s*</h3>})
+      expect(rendered).to match(%r{<h3[^>]*>\s*Pumpkin Spice Latte\s+<span class="status-badge[^"]*">\d+</span>\s*</h3>}m)
     end
   end
 

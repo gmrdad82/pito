@@ -13,10 +13,17 @@
 #     never leaks into the suggested row).
 #   - Three render branches:
 #       * both halves empty  → `shelf-empty-tile` "nothing yet" placeholder.
-#       * LEFT only          → only `default`-mode tiles, NO divider.
-#       * RIGHT only         → only `:suggest`-mode tiles, NO divider.
-#       * BOTH               → LEFT tiles + `.bundles-section-divider`
-#                              + RIGHT tiles.
+#       * LEFT only          → only `default`-mode tiles, no separator.
+#       * RIGHT only         → cover-art separator tile FIRST, then
+#                              `:suggest`-mode tiles. The CSS rule on
+#                              `.game-bundles .shelf-row:has(.bundles-suggested-separator:first-child)`
+#                              zeros the row gap so the separator butts
+#                              against the pane edge.
+#       * BOTH               → LEFT tiles + cover-art separator tile
+#                              (`Games::BundlesSuggestedSeparatorComponent`)
+#                              + RIGHT tiles. The old
+#                              `.bundles-section-divider` vertical
+#                              hairline is gone (2026-05-19).
 #   - LEFT tiles render `Games::BundleTileComponent.new(bundle: …)` in
 #     its default mode (anchor → layout-level bundles modal).
 #   - RIGHT tiles render `Games::BundleTileComponent.new(bundle: …,
@@ -57,8 +64,16 @@ module Games
       bundles_in.empty? && bundles_suggested.empty?
     end
 
-    def render_divider?
-      bundles_in.any? && bundles_suggested.any?
+    # 2026-05-19 — The cover-art separator tile renders whenever there
+    # is a RIGHT half to introduce. When there is no LEFT half, the
+    # separator becomes the first child of the shelf (CSS
+    # `.game-bundles .shelf-row:has(.bundles-suggested-separator:first-child)`
+    # zeros the row gap so it butts against the pane edge). When there
+    # is a LEFT half, the separator sits between the two halves —
+    # replacing the old vertical hairline (`.bundles-section-divider`)
+    # that the template used to render.
+    def render_separator?
+      bundles_suggested.any?
     end
 
     private

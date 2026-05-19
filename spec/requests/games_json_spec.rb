@@ -82,9 +82,12 @@ RSpec.describe "Games JSON", type: :request do
 
     it "pins the detail key set (wire-shape snapshot)" do
       get "/games/#{game.igdb_slug}.json"
+      # Phase 27 v2 spec 01 (2026-05-17) — `genres:` (multi) collapsed to
+      # `genre:` (singular string) on the detail wire shape. The decorator
+      # comment in `GameDecorator#as_detail_json` is the contract.
       expect(json["game"].keys).to include(
         "id", "slug", "title", "summary", "release_date", "release_year",
-        "igdb_rating", "manual_date_override", "resyncing", "genres",
+        "igdb_rating", "manual_date_override", "resyncing", "genre",
         "platforms_owning"
       )
     end

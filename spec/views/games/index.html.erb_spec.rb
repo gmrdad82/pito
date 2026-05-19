@@ -25,8 +25,12 @@ RSpec.describe "games/index.html.erb", type: :view do
 
   describe "happy: empty install (no games, no shelves)" do
     it "renders the empty-state copy" do
+      # 2026-05-18 — empty-state copy was unified with the
+      # filter-empty branch; the only string the view emits when
+      # nothing matches is `games.index.no_matches` (`"no games match
+      # this filter."`) — see `games/index.html.erb` last `<p>`.
       render
-      expect(rendered).to include("no games yet.")
+      expect(rendered).to include(I18n.t("games.index.no_matches"))
     end
 
     it "renders the page title and [+] add link" do
@@ -191,13 +195,20 @@ RSpec.describe "games/index.html.erb", type: :view do
     end
 
     it "renders the bundles outer shelf" do
+      # Wave F consolidation — the bundles outer shelf renders via
+      # `Games::ShelfComponent` with `show_count: true` (default), so
+      # the h2 carries `bundles <span class="status-badge...">N</span>`
+      # — match the heading text directly without assuming a trailing
+      # `<` boundary.
       render
-      expect(rendered).to include(">bundles<")
+      expect(rendered).to match(%r{<h2[^>]*>\s*bundles\s+<span class="status-badge})
     end
 
     it "renders the recently-played shelf" do
+      # Recently-played calls the shelf component with `show_count: false`,
+      # so the h2 closes cleanly with `</h2>` directly after the heading.
       render
-      expect(rendered).to include(">recently played<")
+      expect(rendered).to match(%r{<h2[^>]*>\s*recently played\s*</h2>})
     end
 
     it "places recently-played BEFORE bundles outer shelf in document order" do
@@ -206,7 +217,9 @@ RSpec.describe "games/index.html.erb", type: :view do
       # top of the listing partition.
       render
       r_pos = rendered.index(">recently played<")
-      b_pos = rendered.index(">bundles<")
+      b_pos = rendered.index(/<h2[^>]*>\s*bundles\s+<span class="status-badge/)
+      expect(r_pos).not_to be_nil
+      expect(b_pos).not_to be_nil
       expect(r_pos).to be < b_pos
     end
   end

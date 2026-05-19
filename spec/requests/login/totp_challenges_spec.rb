@@ -48,9 +48,35 @@ RSpec.describe "Login::TotpChallenges", type: :request do
       get login_totp_path
       expect(response).to have_http_status(:ok)
       expect(response.body).to include("authenticator")
+      # 2026-05-18 regression guard — the segmented hidden field stays
+      # `name="code"` and the backup-code fallback ships as a DISTINCT
+      # `name="backup_code"`. Re-merging the two names would re-introduce
+      # the Rack last-key-wins bug where the empty backup input clobbers
+      # the filled segmented hidden value at submit time.
+      expect(response.body).to include('name="code"')
+      expect(response.body).to include('name="backup_code"')
       # Bracketed-link inner-padding fix: verify button uses the
       # canonical <span class="bl"> wrap.
       expect(response.body).to include('[<span class="bl">verify</span>]')
+      # 2026-05-18 polish — `[back]` (muted bracketed link to /login)
+      # sits inline next to `[verify]` in the form action row. The
+      # old "not you?" sentence + "back to log in" copy are gone.
+      expect(response.body).not_to include("not you?")
+      expect(response.body).not_to include("back to log in")
+      expect(response.body).to include("bracketed-muted-link")
+      expect(response.body).to include('[<span class="bl">back</span>]')
+      # Inline-row contract: the [back] muted link sits inside the
+      # same flex row as [verify] (the `display: flex` action wrapper
+      # the form opens after the segmented input). The wrapper opens
+      # right before the submit button and closes after [back] — so
+      # the verify button + the muted-link class both appear inside
+      # the same flex container in source order.
+      flex_open = response.body.index('display: flex')
+      verify_pos = response.body.index('>verify<')
+      back_pos = response.body.index('>back<')
+      expect(flex_open).to be_present
+      expect(verify_pos).to be > flex_open
+      expect(back_pos).to be > verify_pos
     end
 
     it "redirects to /login without a pre-auth marker" do
@@ -111,6 +137,52 @@ RSpec.describe "Login::TotpChallenges", type: :request do
       }.not_to change(Session.state_active, :count)
 
       expect(response).to have_http_status(:unprocessable_content)
+    end
+
+    # 2026-05-18 regression — the web form renders TWO inputs sharing
+    # the same form, the segmented 6-digit grid (hidden `code`) and a
+    # backup-code fallback inside a `<details>` block. An earlier
+    # iteration named BOTH inputs `code`; Rack picks the LAST value
+    # for repeated keys, so the (typically empty) backup input
+    # clobbered the filled segmented hidden field and the controller
+    # received `params[:code] == ""`. Splitting the backup-code
+    # input to `name="backup_code"` and giving the controller two
+    # distinct candidates fixes the regression. The next two specs
+    # lock both halves of the fix down.
+    it "accepts a valid backup code submitted as `backup_code`" do
+      expect {
+        post login_totp_path, params: { backup_code: backup_plaintext }
+      }.to change(Session.state_active, :count).by(1)
+
+      expect(response).to redirect_to(root_path)
+      expect(user.totp_backup_codes.first.reload.used_at).to be_present
+    end
+
+    it "does NOT let an empty `backup_code` param clobber a valid TOTP `code`" do
+      code = ROTP::TOTP.new(seed).now
+
+      # Browser submits BOTH inputs — segmented hidden field carries
+      # the TOTP, backup-code text input is empty. With the bug, the
+      # empty `backup_code` would knock out the segmented `code`. With
+      # the fix, the empty `backup_code` is ignored and `code` wins.
+      expect {
+        post login_totp_path, params: { code: code, backup_code: "" }
+      }.to change(Session.state_active, :count).by(1)
+
+      expect(response).to redirect_to(root_path)
+    end
+
+    it "prefers a non-blank `backup_code` over a present `code`" do
+      # Sanity — when both are present and non-blank, the segmented
+      # `code` still authenticates if it is the real TOTP. If `code`
+      # is garbage and `backup_code` is the valid backup, the controller
+      # still succeeds via the backup arm.
+      expect {
+        post login_totp_path,
+             params: { code: "000000", backup_code: backup_plaintext }
+      }.to change(Session.state_active, :count).by(1)
+
+      expect(response).to redirect_to(root_path)
     end
   end
 

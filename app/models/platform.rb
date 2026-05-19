@@ -30,9 +30,9 @@ class Platform < ApplicationRecord
   # Maps the seed `slug` to the canonical short label rendered on the
   # game show page and anywhere else the project renders platform sets.
   #
-  # The `switch` / `ps` / `steam` slugs treat each console + PC
-  # family as a single unit (PS4+PS5 collapse to `ps`, Switch +
-  # Switch 2 collapse to `switch`, PC stores collapse to `steam`).
+  # 2026-05-19 lock: chip / filter / display tokens align with the
+  # canonical Platform slugs (`ps5`, `switch2`, `steam`, `xbox`) —
+  # NOT the prior family-collapsed `ps` / `switch` abstractions.
   #
   # Phase 27 v2 spec 06 (2026-05-17 PC store collapse) — `gog` and
   # `epic` were collapsed into `steam`. The three PC stores share the
@@ -41,10 +41,10 @@ class Platform < ApplicationRecord
   # is kept as a known canonical short label for any future console
   # ownership work, but no chip / logo currently surfaces it.
   CANONICAL_SHORT_NAMES = {
-    "ps"     => "PS",
-    "switch" => "Switch",
-    "steam"  => "Steam",
-    "xbox"   => "Xbox"
+    "ps5"     => "PS5",
+    "switch2" => "Switch2",
+    "steam"   => "Steam",
+    "xbox"    => "Xbox"
   }.freeze
 
   CANONICAL_SLUGS = CANONICAL_SHORT_NAMES.keys.freeze
@@ -64,13 +64,14 @@ class Platform < ApplicationRecord
   # keyed canonical lookup used by the seed rows and `canonical?`.
   #
   # The map carries entries for the three short labels rendered on the
-  # filter row and the detail page: `Switch`, `PS`, `Steam`. GoG +
+  # filter row and the detail page: `Switch2`, `PS5`, `Steam`. GoG +
   # Epic were collapsed into Steam in the 2026-05-17 contract change;
   # any IGDB platform name not in this map falls through to itself per
-  # `display_label`.
+  # `display_label`. 2026-05-19 lock: short labels are slug-direct
+  # (`PS5`, `Switch2`) — NOT family-collapsed (`PS`, `Switch`).
   PLATFORM_LABELS = {
-    "Nintendo Switch 2" => "Switch",
-    "PlayStation 5"     => "PS",
+    "Nintendo Switch 2" => "Switch2",
+    "PlayStation 5"     => "PS5",
     "Steam"             => "Steam"
   }.freeze
 
@@ -91,10 +92,10 @@ class Platform < ApplicationRecord
   # the project does not distinguish console generations at the
   # ownership level.
   IGDB_ID_TO_CANONICAL_SLUG = {
-    167 => "ps",
-    48  => "ps",
-    508 => "switch",
-    130 => "switch",
+    167 => "ps5",
+    48  => "ps4",
+    508 => "switch2",
+    130 => "switch1",
     49  => "xbox",
     169 => "xbox"
   }.freeze

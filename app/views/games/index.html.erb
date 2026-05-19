@@ -182,12 +182,13 @@
     (page_actions.games_index → open_modal_by_id target:
     "omnisearch-modal-games-search"). Hits /games/omnisearch and
     returns local games + bundles + IGDB as separate sections. %>
-<%= render "shared/omnisearch_modal",
+<%= render Search::OmnisearchModalComponent.new(
       mode: :games_search,
       dialog_id: "omnisearch-modal-games-search",
       url: omnisearch_games_path,
       placeholder: t("games.omnisearch.placeholder"),
-      results_frame_id: "omnisearch_results_games_search" %>
+      results_frame_id: "omnisearch_results_games_search"
+    ) %>
 
 <%# 2026-05-18 — `[+]` `:game_index` omnisearch modal. IGDB-only
     add-from-IGDB flow. Hits `/games/search` (the existing endpoint
@@ -198,9 +199,10 @@
     surfaces. The frame id MUST match the partial's own
     `turbo_frame_tag` so the controller-driven `src` swap lands in
     the right frame. %>
-<%= render "shared/omnisearch_modal",
+<%= render Search::OmnisearchModalComponent.new(
       mode: :game_index,
       dialog_id: "omnisearch-modal-games-index",
       url: search_games_path,
       placeholder: t("games.search.placeholder_igdb"),
-      results_frame_id: "igdb_search_results" %>
+      results_frame_id: "igdb_search_results"
+    ) %>

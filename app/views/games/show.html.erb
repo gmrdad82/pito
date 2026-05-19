@@ -84,13 +84,27 @@
         → `- delete` + `leader_menu_controller.js#pageDelete`). The
         leader handler does a `.click()` on this anchor, which fires
         the existing `click->modal-trigger#open` action and opens the
-        same `<dialog>`. %>
-    <a href="#"
-       class="bracketed text-danger"
-       data-controller="modal-trigger"
-       data-action="click->modal-trigger#open"
-       data-page-action="delete"
-       data-modal-trigger-target-id-value="confirm_delete_game_<%= @game.id %>">[<span class="bl"><%= t("common.actions.delete_short") %></span>]</a>
+        same `<dialog>`.
+        2026-05-19 (Bug A1 fix) — `[delete]` mirrors the `[sync]`
+        muted-while-syncing pattern (see lines above). While a resync
+        is in flight we MUST NOT let the user fire a destroy: the
+        Sidekiq job would race against `Game#destroy`'s dependent
+        cascade and the bundle-cover rebuild fan-out. The muted state
+        renders as the same non-interactive `<span class="bracketed-muted">`
+        used for `[sync]` — no click handler, no href, no hover lift,
+        no `data-page-action` so SPACE-- becomes a no-op. The page's
+        `auto-refresh` controller below swaps the `<span>` back to
+        the live `<a>` once `resyncing` clears. %>
+    <% if @game.resyncing? %>
+      <span class="bracketed-muted" aria-disabled="true">[<span class="bl"><%= t("common.actions.delete_short") %></span>]</span>
+    <% else %>
+      <a href="#"
+         class="bracketed text-danger"
+         data-controller="modal-trigger"
+         data-action="click->modal-trigger#open"
+         data-page-action="delete"
+         data-modal-trigger-target-id-value="confirm_delete_game_<%= @game.id %>">[<span class="bl"><%= t("common.actions.delete_short") %></span>]</a>
+    <% end %>
   </div>
 <% end %>
 
@@ -141,14 +155,17 @@
         flow through `genre_display_name` (GenresHelper) — IGDB names
         render verbatim except for the cosmetic renames declared in
         `GENRE_DISPLAY_RENAMES`. %>
-    <% if @game.primary_genre || @game.genres.any? %>
+    <% if @game.primary_genre || @game.genres.any? || @game.resyncing? %>
       <%# Beta-3 Lane B (B2) — extracted to Games::GenresLineComponent.
-          Outer guard preserved verbatim so the WHOLE block is omitted
-          when there is neither a primary genre nor any secondaries
-          (parity with the pre-extraction behavior). The component's
-          internal `<em>—</em>` fallback is therefore unreachable from
-          this call site — it remains in the component for callers /
-          tests that exercise the empty-genres path directly. %>
+          Outer guard kept (parity with the pre-extraction behavior:
+          the WHOLE block was omitted when there were no genres) BUT
+          extended 2026-05-19 (Wave B) with `|| @game.resyncing?` so
+          the component's `sync-indicator` dot-loader (`=---` cycling
+          at phase offset 0) can render during a resync even for a
+          freshly-created game that has no genres yet. The component
+          internally branches on `resyncing?` — when true it renders
+          the dot-loader; when false it renders the static genre
+          tokens (or the `<em>—</em>` fallback for the empty case). %>
       <%= render Games::GenresLineComponent.new(game: @game) %>
     <% end %>
 
@@ -198,9 +215,29 @@
         rating heat-bar and the ownership block. %>
     <hr class="hairline">
 
+    <%# 2026-05-19 (Bug A2 fix) — the ownership matrix is HIDDEN while a
+        resync is in flight. Two reasons:
+          1. UX coherence — the page-level [sync] and [delete] controls
+             go muted-non-interactive during resync (Wave C8 + Bug A1),
+             so the ownership checkboxes were the only remaining
+             interactive surface and felt out of step.
+          2. Race safety — flipping an `[owned]` or `[played]` checkbox
+             posts to `Games::OwnershipTogglesController`, which can
+             race against `GameIgdbSync`'s `igdb_synced_at` write +
+             bundle-cover rebuild fan-out. Suppressing the matrix
+             during resync removes the race entirely.
+        The placeholder is a single muted "syncing…" line where the
+        matrix lived; the page's `auto-refresh` controller restores
+        the matrix once `resyncing` clears (same mechanism that swaps
+        the breadcrumb [sync] / [delete] muted spans back to live
+        anchors). %>
     <section class="ownership">
       <h2><%= t("games.show.ownership_heading") %></h2>
-      <%= render(Games::OwnershipMatrixComponent.new(game: @game)) %>
+      <% if @game.resyncing? %>
+        <p class="text-muted ownership-syncing-placeholder" aria-live="polite" style="margin: 0;"><%= t("games.show.ownership_syncing_placeholder") %></p>
+      <% else %>
+        <%= render(Games::OwnershipMatrixComponent.new(game: @game)) %>
+      <% end %>
     </section>
 
   </div>
@@ -230,7 +267,26 @@
       <p class="text-danger" style="margin: 0 0 8px 0;"><%= t("games.show.igdb_error", msg: @game.last_sync_error) %></p>
     <% end %>
 
-    <% if @game.summary.present? %>
+    <%# 2026-05-19 (Wave B) — during a resync the summary block is
+        force-rendered with a `sync-indicator` dot-loader body (`=---`
+        cycling at phase offset 0) so the RIGHT pane carries the same
+        "stale, refreshing" signal as the LEFT pane's kv-table sync
+        row + the genre line. The static summary text only renders
+        when NOT resyncing AND a summary is present (parity with the
+        prior behavior). %>
+    <% if @game.resyncing? %>
+      <section class="game-summary game-summary--syncing">
+        <h2 style="margin-top: 0;"><%= t("games.show.summary_heading") %></h2>
+        <%# Phase offset 0 — same as genre line. Five zones into four
+            cycle slots means we wrap back to 0 on the fifth zone. %>
+        <p class="summary-body summary-body--syncing"
+           data-controller="sync-indicator"
+           data-sync-indicator-frames-value='["=---","-=--","--=-","---="]'
+           data-sync-indicator-phase-offset-value="0"
+           data-resyncing="yes"
+           aria-live="polite">=---</p>
+      </section>
+    <% elsif @game.summary.present? %>
       <section class="game-summary">
         <h2 style="margin-top: 0;"><%= t("games.show.summary_heading") %></h2>
         <%= simple_format(@game.summary, class: "summary-body") %>

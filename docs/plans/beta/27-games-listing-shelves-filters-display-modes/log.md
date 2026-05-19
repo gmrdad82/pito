@@ -3568,3 +3568,257 @@ collapse rule from session-log decision to a durable ADR.
 
 No code, spec, plan, or `CLAUDE.md` changes — only `docs/design.md`, new ADR
 `docs/decisions/0014-platform-chip-generation-collapse.md`, and this log entry.
+
+### 2026-05-18 leader menu popup restructure — `local` + `global` sections, 2-col grids, root trim
+
+User direction: collapse the leader popup to the user's new shape — the
+"actions" heading becomes `local`, "navigation" becomes `global`, the
+non-/games surfaces (h, c\*, C\*, V\*, P\*, N\*) drop from the root menu
+entirely, `G+` moves out of the root into the games_index page_actions block
+as "add game", and `Gb add bundle` joins it as a new 2-key binding that
+triggers the bundles-shelf `[+]` button. The filter chips and the new G+/Gb
+pair render in 2-column grids; everything else stays single-column.
+
+**Files touched (code):**
+
+- `config/keybindings.yml` — restructured `page_actions.games_index`
+  (added `divider: true, layout: grid_2col` markers around the filter-chips
+  block and the create-row block, renamed `l dark mode` → `dark mode toggle`,
+  added `G+ add game` and `Gb add bundle` entries with action types
+  `open_modal_by_id` and `page_add_bundle` respectively). Trimmed
+  `menus.root.items` to `Gl games` + `S settings` + `q quit` (TUI-only) +
+  `Q logout` — every other binding dropped.
+- `app/components/keybindings_reference_component.rb` — replaced the flat
+  page-actions / navigation render with grouped `local_groups` / `global_groups`
+  accessors that fold runs of rows between dividers into Group structs
+  (`{ layout:, items: }`). New `render_groups` + `render_group` + `render_row`
+  helpers emit either a single-column run of `.keybindings-row` divs or a
+  `.keybindings-grid--two-col` wrapper with an inline
+  `grid-template-rows: repeat(<half>, auto)` so 8 chips lay out 5-left / 3-right
+  and 2 create-row bindings lay out 1-left / 1-right. Config unwrap also handles
+  the dev-mode Proc that the initializer stores under
+  `Rails.application.config.keybindings`.
+- `app/components/keybindings_reference_component.html.erb` — sections renamed
+  to `local` / `global` with `data-section` attributes; calls `render_groups`
+  instead of looping flat rows.
+- `app/assets/tailwind/application.css` — new `.keybindings-grid` +
+  `.keybindings-grid--two-col` rule (CSS grid `1fr 1fr` columns,
+  `grid-auto-flow: column`, 16px column gap). Column-first fill, paired with
+  the inline `grid-template-rows: repeat(<half>, auto)` the component emits.
+- `app/views/games/_bundles_for_shelf.html.erb` — added
+  `data: { page_action: "add-bundle" }` on the `[+]` `button_to` so the
+  leader-menu's `page_add_bundle` action can click it (same hook pattern as
+  `pageSync` / `pageDelete`).
+- `app/javascript/controllers/leader_menu_controller.js` — added
+  `page_add_bundle` action type to `fireAction`'s dispatch table; new
+  `pageAddBundle()` method finds `[data-page-action="add-bundle"]` and clicks
+  it.
+
+**Final flat-binding table (post-restructure):**
+
+`page_actions.games_index` (the "local" section on /games):
+
+| key | label              | action                                                    |
+|-----|--------------------|-----------------------------------------------------------|
+| l   | dark mode toggle   | theme_toggle                                              |
+| /   | search             | open_modal_by_id → omnisearch-modal-games-search          |
+| fr  | released           | toggle_filter_chip token=released                         |
+| fs  | scheduled          | toggle_filter_chip token=scheduled                        |
+| fo  | owned              | toggle_filter_chip token=owned                            |
+| fw  | wishlist           | toggle_filter_chip token=wishlist                         |
+| fp  | played             | toggle_filter_chip token=played                           |
+| fP  | PS                 | toggle_filter_chip token=ps                               |
+| fN  | Switch             | toggle_filter_chip token=switch                           |
+| fS  | Steam              | toggle_filter_chip token=steam                            |
+| G+  | add game           | open_modal_by_id → omnisearch-modal-games-index           |
+| Gb  | add bundle         | page_add_bundle                                           |
+
+`menus.root.items` (the "global" section, everywhere):
+
+| key | label    | action                                  |
+|-----|----------|-----------------------------------------|
+| Gl  | games    | navigate → /games                       |
+| S   | settings | navigate → /settings                    |
+| q   | quit     | quit (TUI-only — filtered out of :web)  |
+| Q   | logout   | logout                                  |
+
+**2-column layout approach:** CSS grid `grid-template-columns: 1fr 1fr;
+grid-auto-flow: column; column-gap: 16px;` on the wrapper. The component
+counts items in each grid group and emits an inline
+`style="grid-template-rows: repeat(<ceil(N/2)>, auto)"` so the column-first
+auto-flow fills the first column top-to-bottom before spilling into the
+second. Result: 8-item chip group → 5 rows × 2 cols (left full, right has 3
+with one empty cell); 2-item create-row group → 1 row × 2 cols. No
+media-query breakpoint shipped — the popup is a width-clamped overlay
+(~280px); a future overlay narrower than ~220px would want a
+`grid-template-columns: 1fr; grid-auto-flow: row;` fallback to stack pairs
+vertically. Eyeball verification at narrow viewports is queued — not
+exercised here.
+
+**New `Gb` wiring:** `Gb` action type is `page_add_bundle`. The handler
+selects `[data-page-action="add-bundle"]` (the bundles-shelf `[+]`
+`button_to`) and synthesizes a click. The button POSTs `/bundles` (no body),
+the controller seeds an unnamed bundle, and the Turbo Stream response
+(`bundles/create.turbo_stream.erb`) appends the tile and auto-opens the
+rename modal — same flow as a manual `[+]` click. The button hook is
+page-local to /games, so the binding silently no-ops on any other surface
+(mirrors `pageSync` / `pageDelete`).
+
+**Specs touched:**
+
+- `spec/helpers/keybindings_helper_spec.rb` (full rewrite) — drops the
+  flat-bindings table for the dropped surfaces, locks the dropped keys via a
+  generated `dropped_keys.each` block, adds positive assertions for `Gl` /
+  `S` / `Q`, adds a new `page_actions.games_index — G+ + Gb` describe block.
+- `spec/components/keybindings_reference_component_spec.rb` (full rewrite) —
+  locks the new section headings (`local` / `global`), the `local_groups`
+  grouping (header + filter-chips grid + create-row grid), the 2-col grid
+  markup (`.keybindings-grid--two-col` count + inline
+  `grid-template-rows: repeat(4, auto)` for 8 chips / `repeat(1, auto)` for
+  2 create-row entries), the `G+ add game` + `Gb add bundle` rows in the
+  create-row grid, and the absence of dropped root keys.
+- `spec/requests/leader_menu_layout_spec.rb` — added "drops every
+  out-of-scope binding" + "keeps Gl/S/Q" assertions to the existing
+  `schema payload locked shape` describe; added a new
+  `games_index page_actions payload` describe with three assertions (`G+`
+  shape, `Gb` shape, 2 grid_2col dividers).
+- `spec/system/leader_menu_spec.rb` — trimmed the locked `flat_bindings`
+  table to `Gl` / `S` / `Q`, added a generated `dropped_keys.each` block
+  that locks the absence of every removed root binding, relaxed the
+  divider-count assertion from `>= 8` to `>= 1` (the trimmed root has only
+  one divider — between the nav group and logout).
+
+**Spec aggregate:**
+
+- `bin/test spec/components/keybindings_reference_component_spec.rb
+  spec/helpers/keybindings_helper_spec.rb
+  spec/requests/leader_menu_layout_spec.rb` → 93 examples, 0 failures.
+- `bundle exec rspec spec/system/leader_menu_spec.rb -t type:system -e
+  "flat 2-key dispatch schema"` → 26 examples, 0 failures.
+
+The full `spec/system/leader_menu_spec.rb` run surfaces 18 pre-existing
+failures unrelated to this dispatch (the popup target was migrated from
+`<div>` to `<dialog>` in an earlier commit but the layout-chrome assertions
+still look for `div#leader-menu-popup[hidden]` — verified by re-running
+against `git stash` of this dispatch's changes). Out of scope for this
+dispatch.
+
+**Eyeball-verification queued (out of scope):**
+
+- 2-col grid alignment in dark mode vs light mode (both palettes inherit
+  `kbd` + `span` colors, so visual diff should be nil — but worth a glance).
+- 2-col grid behavior at narrow viewports — the popup is currently a
+  width-clamped overlay; if a future user-direction shrinks the overlay
+  below ~220px, the grid would compress awkwardly. CSS comment in
+  `.keybindings-grid--two-col` documents the fallback recipe.
+- `Gb` end-to-end against the live `/games` page (the spec only locks the
+  YAML wiring + the controller handler shape; the actual Turbo Stream
+  round-trip is unchanged from the existing `[+]` click).
+
+## [skipci] 2026-05-19 — omnisearch alt-names + always-search-both + dedup (pito-rails, slice A1)
+
+Reshapes the `/games` omnisearch around three contracts that surfaced in
+chat during the search-quality pass: a new `games.alternative_names`
+text[] column populated from IGDB so synonyms like "SF6", "FF7 Rebirth",
+"TotK" route to their canonical games; an always-search-both dispatcher
+that calls the local + IGDB halves on every request; and a dedup-by-
+`igdb_id` post-filter that keeps the user from seeing the same game in
+two sections at once. Wire-format reasoning is captured at
+`docs/architecture.md > Games omnisearch` and the modal's section
+structure at `docs/design.md > Omnisearch modal`.
+
+### What landed
+
+- `db/schema.rb` — `games.alternative_names` `text[]` column, default
+  `[]`, `null: false`, with a GIN index `index_games_on_alternative_names`.
+  The empty-array invariant lets the ILIKE fallback's `EXISTS (SELECT 1
+  FROM unnest(alternative_names) ...)` predicate run unconditionally
+  without a NULL guard.
+- `app/services/igdb/client.rb` — `GAME_FIELDS` extended with
+  `alternative_names.id` + `alternative_names.name` so the IGDB v4
+  `/games` payload carries the array on every `fetch_game` call.
+- `app/services/igdb/game_mapper.rb` — new
+  `extract_alternative_names(payload)` module function pulls non-blank,
+  deduplicated `name` strings out of the IGDB
+  `{id, name, comment}[]` shape; `map_game` writes them into
+  `attrs[:alternative_names]` only when the IGDB payload carries the
+  `alternative_names` key. When IGDB omits the field, the mapper resets
+  to `[]` so a previously-populated row whose alt names were removed
+  upstream stays in sync.
+- `app/services/meilisearch/game_indexer.rb` — `alternative_names`
+  joins `SEARCHABLE_ATTRIBUTES` immediately AFTER `title` and BEFORE
+  `summary` / `developer_name` / `publisher_name` / `genre_names`.
+  Meilisearch weights the earlier entries higher, so alt names rank as
+  near-title synonyms (above the summary/dev/pub/genre text bodies).
+  The indexer also writes the values onto the document
+  (`alternative_names: [...]`) so they're queryable; `respond_to?` guard
+  keeps boot safe in environments where the migration hasn't run yet.
+- `app/services/meilisearch/search_games.rb` — `fallback_games` extended
+  with a third OR-clause:
+  `EXISTS (SELECT 1 FROM unnest(alternative_names) AS alt WHERE LOWER(alt)
+  ILIKE :title_q)` (using the existing `title_q` bind so "SF6" matches
+  alt-name "SF6"). The fallback is always merged on top of Meilisearch's
+  ranking via `merge_with_fallback` — the alt-name match surfaces from
+  Postgres even if Meilisearch is stale.
+- `app/services/games/search_service.rb` — **always-search-both**
+  contract: both `:bundle_add` and `:games_search` modes now call
+  `call_igdb(query)` unconditionally (no more "skip IGDB when local has
+  hits"). Inline comments on the new behavior cite 2026-05-19 + cross-
+  reference the dedup rule. **Rule 1 dedup-by-`igdb_id`** is reframed as
+  permanent (no longer scoped to `:game_index`): every IGDB row whose
+  `id` matches any `local_games[i].igdb_id` is filtered out. The local
+  row always wins. Net effect: when the user types "street fighter 6"
+  and the install already imported the canonical row, the IGDB section
+  drops that row and only the local pane carries it.
+
+### Why the contract shape
+
+- **Always-search-both** — earlier "lazy IGDB" mode skipped the IGDB
+  call when the local pane already had hits. Per the user, that's wrong
+  for the canonical-vs-import comparison case: a local row may be an
+  alt-edition, a stale title, or a community-imported variant, and the
+  user needs to see the IGDB-canonical row alongside it to compare /
+  decide. With dedup absorbing the duplicate-row case, the cost of
+  always calling IGDB is a single extra round-trip per dispatch (one
+  IGDB call returning ≤10 rows, with timeouts already bounded at 10s).
+- **Dedup-by-`igdb_id`** — UX rule: the user should see any given game
+  in exactly ONE section. The dedup post-filter is the contract that
+  makes the always-search-both dispatch coherent rather than noisy.
+- **Alt-names as a first-class search axis** — user filed the bug as
+  "typing SF6 should find Street Fighter 6". Two options were on the
+  table: (Option A) store alt names locally on the Game row and search
+  them like any other column, or (Option B) federate the lookup to
+  IGDB on every keystroke. Option A landed because it sidesteps the
+  per-keystroke IGDB round-trip cost, lets Meilisearch weight the field
+  according to its relevance ranking, and makes the Postgres ILIKE
+  fallback handle the case where the index is stale. The IGDB
+  `alternative_names` field is small (a few entries per game on average)
+  and updates cleanly on every sync.
+
+### Cross-references
+
+- Architecture rationale + dispatcher contract:
+  `docs/architecture.md > Search — Meilisearch 1.13 > Games omnisearch`.
+- Modal section structure + dedup UX:
+  `docs/design.md > Omnisearch modal`.
+- Scope-drift entries: `additions.md` 2026-05-19 entries for the
+  `alternative_names` column, the always-search-both contract, and the
+  dedup post-filter.
+
+### Tests
+
+Iteration mode — code only. A2 dispatches the spec consolidation
+in parallel (model + indexer + search + dispatcher specs cover the
+alt-names matcher, the OR-clause, the always-call shape, and the dedup
+filter).
+
+### Open items
+
+- Backfill: existing Game rows have `alternative_names = []` until the
+  next `Igdb::SyncGame` run populates them. A bulk resync sweep (or
+  `pito:games:backfill_alternative_names` rake task) is the eventual
+  remediation; not in scope for A1.
+- Meilisearch reindex: the indexer change adds `alternative_names` to
+  `SEARCHABLE_ATTRIBUTES`, which Meilisearch applies on the next
+  document write. A full reindex via `pito:voyage:reindex_games` is the
+  fastest way to make the field searchable across the entire corpus.

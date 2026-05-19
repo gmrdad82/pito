@@ -360,6 +360,45 @@ See `docs/design.md` for the full design system. Key rules:
   legend labels
 - **Sidekiq Web** at `/sidekiq` with HTTP basic auth, no link in nav or Settings
 
+## Code organization — ViewComponents, Formatting services, helpers, partials
+
+**HTML structure = ViewComponent.** Every HTML structure that's more than a
+literal one-line fragment is a `ViewComponent` under `app/components/`. No
+partials calling partials with helper-magic spaghetti. Each component owns its
+own ERB template + class + spec. Modes/variants become constructor arguments,
+not template branches. ViewComponents nest cleanly; partials nesting partials
+creates tight coupling and untestable surfaces.
+
+**Data transformation = `Formatting::*` service/module.** Any function that
+takes data and returns formatted-data (numbers, dates, durations, slugs,
+trimming, dasherizing, humanizing, byte-formatting, truncation, em-dash
+fallbacks, etc.) lives in a `Formatting::` namespaced module under
+`app/services/formatting/` (or wherever the project's service convention puts
+it). Single-purpose `.call(input)` pure functions. Stateless. No I/O. Easy to
+test (input → output table).
+
+Examples of `Formatting::*`:
+
+- `Formatting::Filesize.call(bytes)` — KB/MB/GB walk with em-dash for nil
+- `Formatting::Duration.call(seconds)` — humanize seconds to "2h 13m"
+- `Formatting::ShortReleaseDate.call(date)` — "Jan 2024" or em-dash
+- `Formatting::SlugDasherize.call(query)` — "Spider-Man" → "spider-man"
+- `Formatting::WebhookUrlMask.call(url, brand:)` — Discord/Slack URL mask
+- `Formatting::TimeAgoCompact.call(time)` — "5m ago" / "—"
+
+**Helpers = single-purpose pure logic only.** If a helper survives this rule,
+it does ONE thing AND that one thing is pure logic (not formatting).
+Acceptable: `keyboard_navigation_enabled?`, `current_user_admin?`,
+`body_classes_for(controller)`. If a helper file has > 3 methods, it's a smell
+— likely there's a `Formatting::*` service hiding inside.
+
+**Partials = ultra-trivial standalone fragments only.** A partial is acceptable
+ONLY if BOTH: ≤ 5 lines of ERB AND standalone (no `local:` parameter that
+branches behavior, no per-call configuration). Examples of legitimate partials:
+`shared/_version.html.erb` (VERSION + last SHA), `shared/_csrf_meta_tags.html.erb`.
+If a partial takes a parameter that changes its render, it's a ViewComponent in
+disguise — convert.
+
 ## Architecture notes
 
 - pito is **single-install, multi-user** (ADR 0003). The whole database belongs

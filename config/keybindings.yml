@@ -43,7 +43,13 @@ leader:
 # empty `modal_actions` map.
 #
 # Item shape mirrors `page_actions` rows:
-#   { key: <string>, label: <string>, action: { type: ..., ... } }
+#   { key: <string>, label_i18n: <i18n key>, action: { type: ..., ... } }
+#
+# `label_i18n` references an i18n key under
+# `config/locales/keybindings/*.yml`. Helpers and components resolve
+# it via `I18n.t(...)` at render time. Items may still carry a raw
+# `label:` field for back-compat — the resolver prefers `label_i18n`
+# when present.
 #
 # Phase B (2026-05-17) — populated.
 #
@@ -81,11 +87,11 @@ modal_actions:
   bundle:
     items:
       - key: l
-        label: dark mode
+        label_i18n: keybindings.modal_actions.bundle.dark_mode
         action:
           type: theme_toggle
       - key: c
-        label: rename bundle
+        label_i18n: keybindings.modal_actions.bundle.rename
         action:
           type: trigger_inline_edit
           target: bundle-modal-title-edit
@@ -97,47 +103,47 @@ modal_actions:
   bundle_delete_confirm:
     items:
       - key: l
-        label: dark mode
+        label_i18n: keybindings.modal_actions.bundle_delete_confirm.dark_mode
         action:
           type: theme_toggle
       - key: d
-        label: delete
+        label_i18n: keybindings.modal_actions.bundle_delete_confirm.delete
         action:
           type: submit_confirm_modal
   webhook_help:
     items:
       - key: l
-        label: dark mode
+        label_i18n: keybindings.modal_actions.webhook_help.dark_mode
         action:
           type: theme_toggle
   revoke_confirm:
     items:
       - key: l
-        label: dark mode
+        label_i18n: keybindings.modal_actions.revoke_confirm.dark_mode
         action:
           type: theme_toggle
       - key: r
-        label: revoke session(s)
+        label_i18n: keybindings.modal_actions.revoke_confirm.revoke
         action:
           type: submit_confirm_modal
   reindex_confirm:
     items:
       - key: l
-        label: dark mode
+        label_i18n: keybindings.modal_actions.reindex_confirm.dark_mode
         action:
           type: theme_toggle
       - key: r
-        label: reindex
+        label_i18n: keybindings.modal_actions.reindex_confirm.reindex
         action:
           type: submit_confirm_modal
   sync_confirm:
     items:
       - key: l
-        label: dark mode
+        label_i18n: keybindings.modal_actions.sync_confirm.dark_mode
         action:
           type: theme_toggle
       - key: s
-        label: sync
+        label_i18n: keybindings.modal_actions.sync_confirm.sync
         action:
           type: submit_confirm_modal
 
@@ -150,101 +156,123 @@ modal_actions:
 # (e.g. /settings). Per spec 09 in
 # docs/plans/beta/27-games-listing-shelves-filters-display-modes/specs-v2/.
 page_actions:
+  # 2026-05-18 — /games "local" section. The KeybindingsReferenceComponent
+  # renders the page_actions rows under the "local" section heading
+  # top-down. Divider entries split the visual list into logical groups;
+  # a divider carrying `layout: grid_2col` opens a 2-column grid that
+  # closes at the next plain divider OR end-of-list. The grid lays
+  # items out COLUMN-FIRST (CSS `grid-auto-flow: column` + an inline
+  # `grid-template-rows: repeat(<half>, auto)`) so the 8 filter chips
+  # render as `5 left / 3 right` and the 2 create-row bindings render
+  # as `1 left / 1 right`.
+  #
+  # Rendered shape:
+  #   l  dark mode toggle
+  #   /  search
+  #   ───── (plain divider) ─────
+  #   fr  released   |  fP  PS         (2-col grid)
+  #   fs  scheduled  |  fN  Switch
+  #   fo  owned      |  fS  Steam
+  #   fw  wishlist   |
+  #   fp  played     |
+  #   ───── (plain divider) ─────
+  #   G+ add game    |  Gb add bundle  (2-col grid)
   games_index:
     - key: l
-      label: dark mode
+      label_i18n: keybindings.page_actions.games_index.dark_mode_toggle
       action:
         type: theme_toggle
-    # 2026-05-18 — `/` opens the page-scoped omnisearch modal
-    # (`:games_search` mode). Local games + bundles + IGDB. The dialog
-    # is mounted at the bottom of `app/views/games/index.html.erb` with
-    # id `omnisearch-modal-games-search`; the leader-menu's
+    # `/` opens the page-scoped omnisearch modal (`:games_search` mode).
+    # Local games + bundles + IGDB. The dialog is mounted at the bottom
+    # of `app/views/games/index.html.erb` with id
+    # `omnisearch-modal-games-search`; the leader-menu's
     # `open_modal_by_id` resolver wakes it up.
     - key: "/"
-      label: search
+      label_i18n: keybindings.page_actions.games_index.search
       action:
         type: open_modal_by_id
         target: omnisearch-modal-games-search
-    # Filter-chip toggles, flat 2-key bindings (2026-05-18 — the
-    # earlier `f filter` nested submenu was dropped now that the prefix
-    # accumulator supports multi-char page_actions keys, same mechanic
-    # the /settings `sr`/`da`/`dd`/`sa`/`sd`/`vr` bindings use). `f` is
-    # a prefix-only key; pressing `f` alone arms the accumulator and
-    # waits for the second key. Each binding dispatches
-    # `toggle_filter_chip` with the matching `data-filter-token` on the
-    # /games filter row (single source of truth — the leader menu
-    # delegates to the existing chip click handler via `chip.click()`,
-    # no logic duplication). Only attached to `games_index` because
-    # filter chips only exist on /games — adding the bindings to
-    # games_show / bundles_show / settings would be a no-op. User-
-    # locked 2026-05-18.
+    # Open the 2-col grid block for the filter chips.
+    - divider: true
+      layout: grid_2col
     - key: fr
-      label: released
+      label_i18n: keybindings.page_actions.games_index.released
       action: { type: toggle_filter_chip, token: released }
     - key: fs
-      label: scheduled
+      label_i18n: keybindings.page_actions.games_index.scheduled
       action: { type: toggle_filter_chip, token: scheduled }
     - key: fo
-      label: owned
+      label_i18n: keybindings.page_actions.games_index.owned
       action: { type: toggle_filter_chip, token: owned }
     - key: fw
-      label: wishlist
+      label_i18n: keybindings.page_actions.games_index.wishlist
       action: { type: toggle_filter_chip, token: wishlist }
     - key: fp
-      label: played
+      label_i18n: keybindings.page_actions.games_index.played
       action: { type: toggle_filter_chip, token: played }
-    # Hairline separator between lifecycle/ownership/engagement state
-    # chips (top group: released/scheduled/owned/wishlist/played) and
-    # platform chips (bottom group: PS/Switch/Steam). Renderers
-    # (`leader_menu_controller.js` web, the TUI equivalent in
-    # `extras/cli/`) skip divider entries during key dispatch and
-    # paint them as visual separators only. Divider rendering goes
-    # through the shared `buildItemRow` path so dividers in
-    # `page_actions` paint identically to dividers in `menus.root`.
-    - divider: true
     - key: fP
-      label: PS
+      label_i18n: keybindings.page_actions.games_index.ps
       action: { type: toggle_filter_chip, token: ps }
     - key: fN
-      label: Switch
+      label_i18n: keybindings.page_actions.games_index.switch
       action: { type: toggle_filter_chip, token: switch }
     - key: fS
-      label: Steam
+      label_i18n: keybindings.page_actions.games_index.steam
       action: { type: toggle_filter_chip, token: steam }
+    # Open the 2-col grid block for the create-row (`G+` add game,
+    # `Gb` add bundle). `G+` opens the layout-mounted omnisearch modal
+    # (`omnisearch-modal-games-index`) for IGDB search. `Gb` triggers
+    # the bundles-shelf `[+]` button (via the `page_add_bundle` action
+    # type — the leader-menu locates `[data-page-action="add-bundle"]`
+    # and clicks it, same pattern as `page_sync` / `page_delete`). The
+    # button is a `button_to` that POSTs `/bundles`; the Turbo Stream
+    # response appends the new tile and auto-opens the bundle modal so
+    # the user can rename it inline.
+    - divider: true
+      layout: grid_2col
+    - key: "G+"
+      label_i18n: keybindings.page_actions.games_index.add_game
+      action:
+        type: open_modal_by_id
+        target: omnisearch-modal-games-index
+    - key: Gb
+      label_i18n: keybindings.page_actions.games_index.add_bundle
+      action:
+        type: page_add_bundle
   games_show:
     - key: l
-      label: dark mode
+      label_i18n: keybindings.page_actions.games_show.dark_mode
       action:
         type: theme_toggle
     - key: "/"
-      label: search
+      label_i18n: keybindings.page_actions.games_show.search
       action:
         type: open_modal
         modal_id: search_placeholder
     - key: s
-      label: sync
+      label_i18n: keybindings.page_actions.games_show.sync
       action:
         type: page_sync
     - key: "-"
-      label: delete
+      label_i18n: keybindings.page_actions.games_show.delete
       action:
         type: page_delete
   bundles_show:
     - key: l
-      label: dark mode
+      label_i18n: keybindings.page_actions.bundles_show.dark_mode
       action:
         type: theme_toggle
     - key: "/"
-      label: search
+      label_i18n: keybindings.page_actions.bundles_show.search
       action:
         type: open_modal
         modal_id: search_placeholder
     - key: s
-      label: sync
+      label_i18n: keybindings.page_actions.bundles_show.sync
       action:
         type: page_sync
     - key: "-"
-      label: delete
+      label_i18n: keybindings.page_actions.bundles_show.delete
       action:
         type: page_delete
   # /settings ships dark-mode plus a set of 2-key flat bindings for
@@ -274,8 +302,8 @@ page_actions:
   #        `_stack_pane.html.erb` via `ConfirmModalComponent` as
   #        `<dialog id="reindex_meilisearch_modal">`). Once open,
   #        the `reindex_confirm` modal_actions take over.
-  #   da / dd — Discord every notification / daily digest toggles.
-  #   sa / sd — Slack every notification / daily digest toggles.
+  #   da / dd — Discord all / daily digest toggles.
+  #   sa / sd — Slack all / daily digest toggles.
   #
   # Discord + Slack toggles target `[data-leader-toggle="<target>"]`
   # hooks that Phase D will attach to the actual auto-save checkboxes
@@ -293,118 +321,100 @@ page_actions:
   # binding); pressing `s` then `r`/`a`/`d` fires the matching
   # 2-key binding. `l` (dark mode) has no longer-prefix neighbors
   # so it fires immediately on press.
+  # 2026-05-18 — /settings popup layout mirrors /games structure:
+  #   l                              (dark mode)
+  #   ───── (plain divider) ─────
+  #   sr                             (revoke unused sessions)
+  #   ───── (plain divider) ─────
+  #   da  Discord all                | sa  Slack all                  (2-col grid)
+  #   dd  Discord daily digest       | sd  Slack daily digest
+  #   ───── (plain divider) ─────
+  #   vr                             (Voyage reindex)
+  #
+  # YAML order for the 2-col block is `da, dd, sa, sd` so column-first
+  # auto-flow with `grid-template-rows: repeat(2, auto)` renders:
+  #   col1 = [da, dd]    col2 = [sa, sd]
+  # which matches the user's mock exactly.
   settings:
     - key: l
-      label: dark mode
+      label_i18n: keybindings.page_actions.settings.dark_mode
       action:
         type: theme_toggle
+    - divider: true
     - key: sr
-      label: revoke unused sessions
+      label_i18n: keybindings.page_actions.settings.revoke_unused_sessions
       action:
         type: open_revoke_unused_modal
         target: revoke_sessions_modal
+    - divider: true
+      layout: grid_2col
     - key: da
-      label: Discord every notification
+      label_i18n: keybindings.page_actions.settings.discord_all
       action:
         type: toggle_setting
         target: discord_every_notification
     - key: dd
-      label: Discord daily digest
+      label_i18n: keybindings.page_actions.settings.discord_daily_digest
       action:
         type: toggle_setting
         target: discord_daily_digest
     - key: sa
-      label: Slack every notification
+      label_i18n: keybindings.page_actions.settings.slack_all
       action:
         type: toggle_setting
         target: slack_every_notification
     - key: sd
-      label: Slack daily digest
+      label_i18n: keybindings.page_actions.settings.slack_daily_digest
       action:
         type: toggle_setting
         target: slack_daily_digest
+    - divider: true
     - key: vr
-      label: Voyage reindex
+      label_i18n: keybindings.page_actions.settings.voyage_reindex
       action:
         type: open_modal_by_id
         target: reindex_meilisearch_modal
   default:
     - key: l
-      label: dark mode
+      label_i18n: keybindings.page_actions.default.dark_mode
       action:
         type: theme_toggle
     - key: "/"
-      label: search
+      label_i18n: keybindings.page_actions.default.search
       action:
         type: open_modal
         modal_id: search_placeholder
 
 menus:
-  # 2026-05-18 — flat 2-key dispatch. The earlier nested-submenu
-  # architecture (Space → `g` opens the games submenu → user presses
-  # `l` to navigate) was dropped in favour of direct 2-key resolution
-  # (Space → `G` → `l` resolves `Gl games list` via the existing
-  # prefix accumulator). This makes the leader-menu protocol uniform
-  # with the existing `page_actions` 2-key dispatch (filter chips on
-  # /games: `fr`/`fs`/`fo`/`fw`/`fp`/`fP`/`fN`/`fS`, /settings:
-  # `sr`/`vr`/`da`/`dd`/`sa`/`sd`). The intermediate submenu UX is
-  # gone schema-wide.
+  # 2026-05-18 — "global" section. The earlier flat 2-key dispatch
+  # carried bindings for calendar / channels / videos / projects /
+  # games-create / notifications under capital + lowercase prefixes.
+  # On 2026-05-18 the user trimmed the surface to the in-scope beta-3
+  # areas only: `/games` and `/settings`. Everything else (h home,
+  # all of c* / C* / V* / P* / N*, and `G+` games-new which moved to
+  # `page_actions.games_index` as "add game") was dropped from the
+  # root menu entirely. Out-of-scope sections can be re-added later
+  # when those pages return to active work.
   #
-  # Prefix-letter assignments (case-sensitive):
-  #   c → calendar         C → channels       V → videos
-  #   P → projects         G → games          N → notifications
   # Direct-key entries (no prefix continuation):
-  #   h → home             S → settings       Q → logout
-  #   q → quit (TUI-only)
+  #   S → settings       Q → logout       q → quit (TUI-only)
+  # 2-key bindings:
+  #   Gl → games (the only navigation entry; `G+` and `Gb` moved to
+  #               page_actions.games_index — they're page-local
+  #               actions, not global navigation)
   #
-  # No collisions across the flattened bindings — each prefix letter
-  # is unique per case, and the second char namespaces under it.
-  # `c` (calendar prefix) does not conflict with `C` (channels prefix)
-  # because key matching is case-sensitive in
-  # `leader_menu_controller.js#candidatesForPrefix`.
+  # The prefix accumulator (`leader_menu_controller.js#handlePrefixKey`)
+  # still handles multi-char keys natively; `G` is a prefix-only key
+  # waiting for the second char (`l` → games, or in /games context
+  # `+` → add game, `b` → add bundle).
   #
-  # The prefix accumulator handles multi-char keys natively (see
-  # `handlePrefixKey` + `armPrefixTimer`): pressing the first char
-  # arms the timer; the second char resolves the exact match;
-  # 1500 ms inactivity OR a no-match second char resets the prefix.
-  # Direct single-char entries (h/S/Q/q) fire immediately on press
-  # because they have no longer-prefix candidates.
-  #
-  # Divider entries split the visual list into logical groups (home,
-  # navigation prefixes, settings, logout). Renderers skip dividers
-  # during key dispatch — they are visual hairlines only. The same
-  # divider mechanic is used by /games `f*` filter chips today.
+  # Divider entries split the visual list into logical groups
+  # (navigation, logout). Renderers skip dividers during key dispatch.
   root:
     items:
-      - { key: h, label: home, action: { type: navigate, path: "/" } }
+      - { key: Gl, label_i18n: keybindings.menus.root.games,    action: { type: navigate, path: "/games" } }
+      - { key: S,  label_i18n: keybindings.menus.root.settings, action: { type: navigate, path: "/settings" } }
+      - { key: q,  label_i18n: keybindings.menus.root.quit,     action: { type: quit }, surfaces: [tui] }
       - divider: true
-      - { key: cs, label: "calendar schedule",   action: { type: navigate, path: "/calendar/schedule" } }
-      - { key: cm, label: "calendar month",      action: { type: navigate, path: "/calendar/month" } }
-      - { key: ct, label: "calendar today",      action: { type: today } }
-      - { key: "c+", label: "calendar new",      action: { type: open, target: new_calendar_entry } }
-      - divider: true
-      - { key: Cl, label: "channels list",       action: { type: navigate, path: "/channels" } }
-      - { key: "C+", label: "channels add",      action: { type: navigate, path: "/channels" } }
-      - { key: "C-", label: "channels delete",   action: { type: bulk_delete } }
-      - { key: Cy, label: "channels sync",       action: { type: bulk_sync } }
-      - divider: true
-      - { key: Vl, label: "videos list",         action: { type: navigate, path: "/videos" } }
-      - { key: "V+", label: "videos upload",     action: { type: open, target: video_upload } }
-      - { key: "V-", label: "videos delete",     action: { type: bulk_delete } }
-      - divider: true
-      - { key: Pl, label: "projects list",       action: { type: navigate, path: "/projects" } }
-      - { key: "P+", label: "projects new",      action: { type: open, target: new_project } }
-      - { key: "P-", label: "projects delete",   action: { type: bulk_delete } }
-      - divider: true
-      - { key: Gl, label: "games list",          action: { type: navigate, path: "/games" } }
-      - { key: "G+", label: "games new",         action: { type: open, target: igdb_search } }
-      - divider: true
-      - { key: Nl, label: "notifications list",          action: { type: open, target: notifications_modal } }
-      - { key: Nu, label: "notifications filter unread", action: { type: filter_unread } }
-      - { key: Nm, label: "notifications mark all read", action: { type: mark_all_read } }
-      - divider: true
-      - { key: S, label: settings, action: { type: navigate, path: "/settings" } }
-      - { key: q, label: quit,     action: { type: quit }, surfaces: [tui] }
-      - divider: true
-      - { key: Q, label: logout,   action: { type: logout } }
+      - { key: Q,  label_i18n: keybindings.menus.root.logout,   action: { type: logout } }
 

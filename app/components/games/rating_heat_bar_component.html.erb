@@ -4,9 +4,25 @@
     indicator tick encode the score on their own. See
     `rating_heat_bar_component.rb` for the score-synthesis logic and
     the three-zone (solid 0-25 / solid 25-50 / gradient 50-90 /
-    solid 90-100) layout. %>
+    solid 90-100) layout.
+
+    Wave C reveal — when `game.resyncing?` is true we render the FULL
+    bar (not the muted variant) with `--score: 0` and the bubble text
+    forced to em-dash. The indicator tick + bubble both park at the
+    left edge; on Turbo morph after sync complete the rendered DOM
+    carries the real `--score`, and the CSS `transition: left 600ms
+    ease-in-out` rule animates the tick + bubble rightward to their
+    final position. %>
 <% s = score %>
-<% if s %>
+<% if resyncing? %>
+  <div class="rating-heat-bar"
+       data-resyncing="yes"
+       data-tier="missing"
+       style="--score: <%= score_var %>; --tier-color: var(--color-muted);">
+    <span class="rating-heat-bar-bubble"><%= bubble_text %></span>
+    <div class="rating-heat-bar-indicator"></div>
+  </div>
+<% elsif s %>
   <div class="rating-heat-bar"
        data-score="<%= s %>"
        data-tier="<%= tier %>"

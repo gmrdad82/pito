@@ -64,10 +64,19 @@ RSpec.describe TotpCodeInputComponent, type: :component do
       )
     end
 
-    it "wires per-box paste/input/keydown actions to the controller" do
+    it "wires per-box paste/input/change/keydown/blur actions to the controller" do
+      # 2026-05-18 (layered autofill catch) — the cell's data-action
+      # carries five handlers, in this order:
+      #   input  -> onInput      (manual typing + extension single-event autofill)
+      #   change -> onInput      (autofill paths that bypass `input` but fire `change`)
+      #   keydown-> onKeydown    (Backspace/Arrow navigation)
+      #   paste  -> onPaste      (manual clipboard paste from any cell)
+      #   blur   -> onCellBlur   (defensive sync for silent autofill writes)
       expect(page).to have_css(
         'input[data-totp-code-input-target="digit"]' \
-        '[data-action="input->totp-code-input#onInput keydown->totp-code-input#onKeydown paste->totp-code-input#onPaste"]',
+        '[data-action="input->totp-code-input#onInput change->totp-code-input#onInput ' \
+        'keydown->totp-code-input#onKeydown paste->totp-code-input#onPaste ' \
+        'blur->totp-code-input#onCellBlur"]',
         count: 6, visible: :all
       )
     end

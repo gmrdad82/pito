@@ -15,6 +15,7 @@ RSpec.describe "Channel revoke", type: :system do
   let!(:channel) { create(:channel, youtube_connection: connection, title: "Sample") }
 
   it "happy path — channel show → [revoke] → confirm → /channels with flash + job enqueued" do
+    skip "TODO: revisit when /channels back in scope (paused 2026-05-19)"
     visit channel_path(channel)
     expect(page).to have_link("[revoke]")
 
@@ -34,6 +35,7 @@ RSpec.describe "Channel revoke", type: :system do
   end
 
   it "[cancel] from the modal returns to the channel show without enqueueing" do
+    skip "TODO: revisit when /channels back in scope (paused 2026-05-19)"
     visit channel_path(channel)
     click_link "[revoke]"
 

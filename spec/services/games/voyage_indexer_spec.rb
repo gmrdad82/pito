@@ -74,5 +74,75 @@ RSpec.describe Games::VoyageIndexer do
 
       described_class.call(title_only)
     end
+
+    # 2026-05-19 — alternative_names joins the Voyage embedding input
+    # so similar-games + recommended-bundles clustering picks up alt-
+    # name signal (series identifiers, localized names, marketing
+    # aliases). Three cases pin the contract.
+    context "with alternative_names" do
+      it "includes alt_names between title and summary (all three slots)" do
+        game = create(
+          :game,
+          title: "Hollow Knight",
+          summary: "Indie metroidvania.",
+          alternative_names: [ "HK", "ホロウナイト" ]
+        )
+        voyage_client = instance_double(Voyage::Client)
+        allow(Voyage::Client).to receive(:new).and_return(voyage_client)
+        expect(voyage_client).to receive(:embed)
+          .with([ "Hollow Knight — HK ホロウナイト — Indie metroidvania." ])
+          .and_return([ vector ])
+
+        described_class.call(game)
+      end
+
+      it "omits the alt_names slot when alternative_names is empty (no leading em-dash, no blank slot)" do
+        game = create(
+          :game,
+          title: "Hollow Knight",
+          summary: "Indie metroidvania.",
+          alternative_names: []
+        )
+        voyage_client = instance_double(Voyage::Client)
+        allow(Voyage::Client).to receive(:new).and_return(voyage_client)
+        expect(voyage_client).to receive(:embed)
+          .with([ "Hollow Knight — Indie metroidvania." ])
+          .and_return([ vector ])
+
+        described_class.call(game)
+      end
+
+      it "uses title + alt_names when summary is blank (alt slot still wired in)" do
+        game = create(
+          :game,
+          title: "Tetris",
+          summary: nil,
+          alternative_names: [ "テトリス" ]
+        )
+        voyage_client = instance_double(Voyage::Client)
+        allow(Voyage::Client).to receive(:new).and_return(voyage_client)
+        expect(voyage_client).to receive(:embed)
+          .with([ "Tetris — テトリス" ])
+          .and_return([ vector ])
+
+        described_class.call(game)
+      end
+
+      it "strips blank entries inside alternative_names before joining" do
+        game = create(
+          :game,
+          title: "Game",
+          summary: "Sum.",
+          alternative_names: [ "Alt1", "  ", "", "Alt2" ]
+        )
+        voyage_client = instance_double(Voyage::Client)
+        allow(Voyage::Client).to receive(:new).and_return(voyage_client)
+        expect(voyage_client).to receive(:embed)
+          .with([ "Game — Alt1 Alt2 — Sum." ])
+          .and_return([ vector ])
+
+        described_class.call(game)
+      end
+    end
   end
 end

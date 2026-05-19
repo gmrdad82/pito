@@ -29,8 +29,10 @@ RSpec.describe "games/_letter_shelves.html.erb", type: :view do
     end
 
     it "renders the bucket letter as the `<h3>` heading" do
+      # Wave F consolidation — the h3 also carries a per-shelf count
+      # chip emitted by the shared `Games::ShelfComponent`.
       render_partial([ [ "A", [ game ] ] ])
-      expect(rendered).to match(%r{<h3[^>]*>\s*A\s*</h3>})
+      expect(rendered).to match(%r{<h3[^>]*>\s*A\s+<span class="status-badge[^"]*">\d+</span>\s*</h3>}m)
     end
 
     it "stamps `data-letter` on the section so spec callers can target it" do
@@ -43,9 +45,15 @@ RSpec.describe "games/_letter_shelves.html.erb", type: :view do
       expect(rendered).to include('data-controller="steam-shelf"')
     end
 
-    it "renders one `:shelf` cover variant tile per game" do
+    it "renders one `:shelf` variant tile per game" do
+      # Wave F (2026-05-17) — letter shelves render rich tiles via
+      # `Games::GameTileComponent(variant: :shelf)` (title + meta + chips
+      # + editions badge), not the bare `Games::CoverComponent` rendered
+      # in genre/bundles sub-shelves. The tile anchor carries `tile
+      # tile--shelf` + `data-variant="shelf"` + `data-tile-game-id`.
       render_partial([ [ "A", [ game ] ] ])
-      expect(rendered).to include('game-cover--shelf')
+      expect(rendered).to include('tile--shelf')
+      expect(rendered).to include('data-variant="shelf"')
       expect(rendered).to include(%(data-tile-game-id="#{game.id}"))
     end
 
@@ -80,7 +88,7 @@ RSpec.describe "games/_letter_shelves.html.erb", type: :view do
 
     it "renders the `#` heading when the bucket is non-empty" do
       render_partial([ [ "A", [ alpha ] ], [ "#", [ seven_days ] ] ])
-      expect(rendered).to match(%r{<h3[^>]*>\s*\#\s*</h3>})
+      expect(rendered).to match(%r{<h3[^>]*>\s*\#\s+<span class="status-badge[^"]*">\d+</span>\s*</h3>}m)
     end
 
     it "places the `#` bucket AFTER all letter buckets in render order" do
@@ -114,13 +122,16 @@ RSpec.describe "games/_letter_shelves.html.erb", type: :view do
   end
 
   describe "edge: bucket with zero games" do
-    # Defensive — the controller filters empty buckets, but the
-    # partial should still degrade gracefully if a caller hands it
-    # an empty list.
-    it "still renders the section + heading but no tiles" do
+    # The partial filters out empty buckets defensively (`next if
+    # games.empty?`) inside the iteration. The controller already
+    # narrows buckets to non-empty, so this is double protection —
+    # an empty bucket reaching the partial silently renders nothing
+    # for that letter (no h3, no shelf section).
+    it "silently skips an empty bucket (no heading, no tiles)" do
       render_partial([ [ "A", [] ] ])
-      expect(rendered).to match(%r{<h3[^>]*>\s*A\s*</h3>})
+      expect(rendered).not_to match(%r{<h3[^>]*>\s*A})
       expect(rendered).not_to include('game-cover--shelf')
+      expect(rendered).not_to include('game-tile--shelf')
     end
   end
 

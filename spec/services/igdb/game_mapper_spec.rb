@@ -79,6 +79,108 @@ RSpec.describe Igdb::GameMapper do
       expect(attrs[:release_date]).to be_nil
       expect(attrs[:release_year]).to be_nil
     end
+
+    # 2026-05-19 — alternative_names plumbing. IGDB ships
+    # `alternative_names: [{id, name, comment}, ...]`; the mapper
+    # extracts `name` strings (deduped, blanks stripped) into the
+    # local `alternative_names` text[] column. When the key is
+    # absent from the payload the attrs hash MUST omit it so the
+    # column's `default: []` constraint is what holds — i.e. the
+    # mapper distinguishes "field not present" from "field present
+    # but empty / malformed" (which both yield `[]`).
+    describe "alternative_names" do
+      it "maps the IGDB alternative_names array to the `:alternative_names` attr" do
+        json = game_json.merge(
+          "alternative_names" => [
+            { "id" => 1, "name" => "SF6" },
+            { "id" => 2, "name" => "Street Fighter VI" }
+          ]
+        )
+        attrs = described_class.map_game(json, ttb_json, extern_json)
+        expect(attrs[:alternative_names]).to eq([ "SF6", "Street Fighter VI" ])
+      end
+
+      it "OMITS the :alternative_names key when IGDB does not return the field" do
+        stripped = game_json.except("alternative_names")
+        attrs = described_class.map_game(stripped, ttb_json, extern_json)
+        expect(attrs).not_to have_key(:alternative_names)
+      end
+
+      it "returns [] when IGDB returns an empty alternative_names array (resets the column)" do
+        json = game_json.merge("alternative_names" => [])
+        attrs = described_class.map_game(json, ttb_json, extern_json)
+        expect(attrs[:alternative_names]).to eq([])
+      end
+
+      it "returns [] when the payload is malformed (not an array)" do
+        json = game_json.merge("alternative_names" => "oops-a-string")
+        attrs = described_class.map_game(json, ttb_json, extern_json)
+        expect(attrs[:alternative_names]).to eq([])
+      end
+
+      it "strips blank entries (empty / whitespace-only names)" do
+        json = game_json.merge(
+          "alternative_names" => [
+            { "id" => 1, "name" => "" },
+            { "id" => 2, "name" => "   " },
+            { "id" => 3, "name" => "valid" }
+          ]
+        )
+        attrs = described_class.map_game(json, ttb_json, extern_json)
+        expect(attrs[:alternative_names]).to eq([ "valid" ])
+      end
+
+      it "dedupes duplicate names" do
+        json = game_json.merge(
+          "alternative_names" => [
+            { "id" => 1, "name" => "SF6" },
+            { "id" => 2, "name" => "SF6" }
+          ]
+        )
+        attrs = described_class.map_game(json, ttb_json, extern_json)
+        expect(attrs[:alternative_names]).to eq([ "SF6" ])
+      end
+    end
+  end
+
+  describe ".extract_alternative_names" do
+    it "pulls non-blank, deduped name strings from the IGDB payload" do
+      payload = [
+        { "id" => 1, "name" => "SF6" },
+        { "id" => 2, "name" => "Street Fighter VI" }
+      ]
+      expect(described_class.extract_alternative_names(payload))
+        .to eq([ "SF6", "Street Fighter VI" ])
+    end
+
+    it "returns [] when the payload is nil" do
+      expect(described_class.extract_alternative_names(nil)).to eq([])
+    end
+
+    it "returns [] when the payload is not an array" do
+      expect(described_class.extract_alternative_names("nope")).to eq([])
+      expect(described_class.extract_alternative_names({ "name" => "SF6" })).to eq([])
+    end
+
+    it "returns [] for an empty array" do
+      expect(described_class.extract_alternative_names([])).to eq([])
+    end
+
+    it "skips non-Hash rows defensively" do
+      payload = [
+        { "id" => 1, "name" => "SF6" },
+        "not-a-hash",
+        nil,
+        { "id" => 2, "name" => "Street Fighter VI" }
+      ]
+      expect(described_class.extract_alternative_names(payload))
+        .to eq([ "SF6", "Street Fighter VI" ])
+    end
+
+    it "strips whitespace around names" do
+      payload = [ { "id" => 1, "name" => "  SF6  " } ]
+      expect(described_class.extract_alternative_names(payload)).to eq([ "SF6" ])
+    end
   end
 
   describe ".map_external_games" do

@@ -74,11 +74,11 @@ RSpec.describe "settings i18n key resolution" do
     {
       "settings.flash.saved" => "settings saved.",
       "settings.flash.reindex_started" => "reindex started.",
-      "settings.flash.reindex_in_progress" => "reindex already in progress.",
+      "settings.flash.reindex_in_progress" => "reindex in progress.",
       "settings.time_zone.flash.saved" => "time zone saved.",
       "settings.user.flash.updated" => "account updated.",
-      "settings.discord.flash.updated" => "Discord webhook updated.",
-      "settings.slack.flash.updated" => "Slack webhook updated."
+      "settings.discord.flash.updated" => "Discord updated.",
+      "settings.slack.flash.updated" => "Slack updated."
     }.each do |key, expected|
       it "`#{key}` → `#{expected}`" do
         expect(I18n.t(key, default: nil)).to eq(expected)

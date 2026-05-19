@@ -64,7 +64,11 @@ RSpec.describe "Bundles", type: :request do
     it "renders the empty-state copy when the bundle has no members" do
       get games_pane_bundle_path(bundle)
       expect(response).to have_http_status(:ok)
-      expect(response.body).to include("no games in this bundle yet")
+      # 2026-05-18 — empty-state copy is owned by the
+      # `Bundles::AllGamesTableComponent` row inside the
+      # `bundles.all_games.empty` I18n key. Asserted via the I18n
+      # lookup so a future copy change here does not silently desync.
+      expect(response.body).to include(I18n.t("bundles.all_games.empty"))
     end
 
     it "renders the bundle's member games in alphabetical title order" do
@@ -77,10 +81,16 @@ RSpec.describe "Bundles", type: :request do
 
       get games_pane_bundle_path(bundle)
       expect(response).to have_http_status(:ok)
-      # Unique title prefixes so substring matches do not collide with
-      # incidental text elsewhere on the page (CSS, alt attributes, etc.).
-      expect(response.body.index("AlphabeticalAlpha")).to be < response.body.index("AlphabeticalBeta")
-      expect(response.body.index("AlphabeticalBeta")).to be < response.body.index("AlphabeticalGamma")
+      # 2026-05-18 — titles render in two places:
+      #   1. the composite cover grid above the table (insertion /
+      #      position order — first member appears first), and
+      #   2. the `Bundles::AllGamesTableComponent` rows (alphabetical
+      #      by title).
+      # Match `>Title<` to scope to the table's `link_to game.title`
+      # output (the composite uses `title=` / `alt=` attributes, not
+      # element text, so `>Title<` is unique to the table cell link).
+      expect(response.body.index(">AlphabeticalAlpha<")).to be < response.body.index(">AlphabeticalBeta<")
+      expect(response.body.index(">AlphabeticalBeta<")).to be < response.body.index(">AlphabeticalGamma<")
     end
 
     it "renders inside the `bundles_modal_frame` Turbo Frame" do

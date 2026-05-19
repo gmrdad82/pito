@@ -42,16 +42,19 @@ export default class extends Controller {
 
   open(event) {
     if (event) event.preventDefault()
+    // 2026-05-18 — reset state BEFORE opening so a repeat open starts
+    // from a clean slate (empty input, no stale results frame). The
+    // previous behavior pre-selected existing text; user feedback was
+    // that each open should yield a fresh empty input.
+    this._reset()
     if (typeof this.element.showModal === "function" && !this.element.open) {
       this.element.showModal()
     }
     if (this.hasInputTarget) {
-      // Pre-select existing text so a repeat open replaces rather than
-      // appends. setTimeout 0 defers until after the dialog promotion
+      // setTimeout 0 defers focus until after the dialog promotion
       // hands focus around.
       setTimeout(() => {
         this.inputTarget.focus()
-        this.inputTarget.select()
       }, 0)
     }
   }
@@ -61,11 +64,16 @@ export default class extends Controller {
     if (typeof this.element.close === "function" && this.element.open) {
       this.element.close()
     }
+    // Reset AFTER close so the next open starts clean even if `open()`
+    // didn't run (defensive — open() also resets, but a dismiss that
+    // bypasses open() would leak state otherwise).
+    this._reset()
   }
 
   clickOutside(event) {
     if (event.target === this.element) {
       this.element.close()
+      this._reset()
     }
   }
 
@@ -73,6 +81,29 @@ export default class extends Controller {
     if (event.key === "Escape") {
       event.preventDefault()
       if (this.element.open) this.element.close()
+      this._reset()
+    }
+  }
+
+  // 2026-05-18 — clears the input value, cancels any in-flight
+  // debounced query, and wipes the results Turbo Frame so stale
+  // results don't flash on the next open. Idempotent; safe to call
+  // when the modal is already closed.
+  _reset() {
+    if (this._timer) {
+      clearTimeout(this._timer)
+      this._timer = null
+    }
+    if (this.hasInputTarget) {
+      this.inputTarget.value = ""
+    }
+    const frameId = this.frameIdValue
+    if (frameId) {
+      const frame = document.getElementById(frameId)
+      if (frame) {
+        frame.removeAttribute("src")
+        frame.replaceChildren()
+      }
     }
   }
 

@@ -143,8 +143,9 @@ class BundlesController < ApplicationController
     @bundle = Bundle.friendly.find(params[:id])
     @query  = params[:q].to_s.strip[0, MAX_QUERY_LENGTH]
     @result = Games::SearchService.call(query: @query, mode: :bundle_add, bundle: @bundle)
-    render partial: "shared/omnisearch_results",
-           locals: { mode: :bundle_add, query: @query, result: @result, bundle: @bundle }
+    render Search::OmnisearchResultsComponent.new(
+      mode: :bundle_add, query: @query, result: @result, bundle: @bundle
+    )
   end
 
   private

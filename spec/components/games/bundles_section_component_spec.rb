@@ -3,12 +3,21 @@ require "rails_helper"
 # Beta-3 Lane B (B4) — Games::BundlesSectionComponent.
 #
 # Pins down the bundles-section business rule in isolation from
-# /games/:id (2026-05-18 DW slice):
+# /games/:id (2026-05-18 DW slice + 2026-05-19 separator-tile slice):
 #   - LEFT  = `game.bundles` ordered by `LOWER(name)`.
 #   - RIGHT = `Bundles::SuggestedFor.call(game, limit: 3)` MINUS
 #             any bundle the game is already a member of.
-#   - Three render branches: both-empty empty-tile / LEFT only /
-#     RIGHT only / both with `.bundles-section-divider` between them.
+#   - Render branches:
+#       * both empty   — `.shelf-empty-tile` "nothing yet" placeholder,
+#                         no separator, no divider.
+#       * LEFT only    — only default-mode tiles, no separator.
+#       * RIGHT only   — separator tile FIRST, then suggest-mode tiles
+#                         (CSS `:has(...:first-child)` zeros the row
+#                         gap so the separator butts against the pane
+#                         edge).
+#       * BOTH         — LEFT tiles + separator tile + RIGHT tiles.
+#                         The old `.bundles-section-divider` vertical
+#                         hairline is gone (2026-05-19).
 #   - LEFT tiles render `Games::BundleTileComponent` in default mode;
 #     RIGHT tiles render the same component with
 #     `mode: :suggest, target_game: game`.
@@ -38,13 +47,15 @@ RSpec.describe Games::BundlesSectionComponent, type: :component do
       stub_suggested([])
     end
 
-    it "renders the both-empty empty-tile branch (no bundle tiles, no divider)" do
+    it "renders the both-empty empty-tile branch (no bundle tiles, no separator, no divider)" do
       render_inline(described_class.new(game: game))
 
       expect(page).to have_css("section.game-bundles h2", text: "bundles")
       expect(page).to have_css(".shelf-empty-tile[aria-label='nothing yet']")
       expect(page).to have_css(".shelf-empty-tile span", text: "nothing")
       expect(page).to have_css(".shelf-empty-tile span", text: "yet")
+      expect(page).not_to have_css(".bundles-suggested-separator")
+      # 2026-05-19 — the old hairline divider must be gone everywhere.
       expect(page).not_to have_css(".bundles-section-divider")
     end
   end
@@ -57,7 +68,7 @@ RSpec.describe Games::BundlesSectionComponent, type: :component do
       stub_suggested([])
     end
 
-    it "renders 2 default-mode tiles and no divider" do
+    it "renders 2 default-mode tiles and no separator (no RIGHT half to introduce)" do
       render_inline(described_class.new(game: game))
 
       # Default-mode tile = `<a class="bundle-tile" title=bundle.name
@@ -69,6 +80,7 @@ RSpec.describe Games::BundlesSectionComponent, type: :component do
         expect(page).not_to have_css("[aria-label='add to #{bundle.name}']")
       end
       expect(page).to have_css("a.bundle-tile", count: 2)
+      expect(page).not_to have_css(".bundles-suggested-separator")
       expect(page).not_to have_css(".bundles-section-divider")
       expect(page).not_to have_css(".shelf-empty-tile")
     end
@@ -82,7 +94,7 @@ RSpec.describe Games::BundlesSectionComponent, type: :component do
       stub_suggested(suggested_bundles)
     end
 
-    it "renders 3 suggest-mode tiles and no divider" do
+    it "renders separator FIRST, then 3 suggest-mode tiles (no in-bundles to render LEFT of it)" do
       render_inline(described_class.new(game: game))
 
       # `:suggest` mode renders a `button_to` with aria-label
@@ -90,8 +102,21 @@ RSpec.describe Games::BundlesSectionComponent, type: :component do
       suggested_bundles.each do |bundle|
         expect(page).to have_css("[aria-label='add to #{bundle.name}']")
       end
+      expect(page).to have_css(".bundles-suggested-separator", count: 1)
       expect(page).not_to have_css(".bundles-section-divider")
       expect(page).not_to have_css(".shelf-empty-tile")
+    end
+
+    it "places the separator as the FIRST child of the shelf row (CSS no-left-gap edge case)" do
+      render_inline(described_class.new(game: game))
+
+      # The CSS `.game-bundles .shelf-row:has(.bundles-suggested-separator:first-child)`
+      # rule depends on the separator being the literal first child of
+      # `.shelf-row`. Assert structural placement so a future template
+      # tweak that moves the separator AFTER the suggested tiles (or
+      # adds a stray wrapper) breaks the spec.
+      first_child_selector = ".game-bundles .shelf-row > *:first-child"
+      expect(page).to have_css("#{first_child_selector}.bundles-suggested-separator")
     end
   end
 
@@ -104,7 +129,7 @@ RSpec.describe Games::BundlesSectionComponent, type: :component do
       stub_suggested(suggested_bundles)
     end
 
-    it "renders 2 default tiles LEFT, divider, 3 suggest tiles RIGHT" do
+    it "renders 2 default tiles LEFT, separator tile, 3 suggest tiles RIGHT (hairline divider gone)" do
       render_inline(described_class.new(game: game))
 
       in_bundles.each do |bundle|
@@ -115,8 +140,41 @@ RSpec.describe Games::BundlesSectionComponent, type: :component do
       end
       expect(page).to have_css("a.bundle-tile", count: 2)
       expect(page).to have_css(".bundle-tile--suggest", count: 3)
-      expect(page).to have_css(".bundles-section-divider", count: 1)
+      expect(page).to have_css(".bundles-suggested-separator", count: 1)
+      # 2026-05-19 — the hairline divider is gone in every render
+      # branch; the separator tile fills its role.
+      expect(page).not_to have_css(".bundles-section-divider")
       expect(page).not_to have_css(".shelf-empty-tile")
+    end
+
+    it "places the separator BETWEEN the in-bundles tiles and the suggested tiles" do
+      render_inline(described_class.new(game: game))
+
+      # Pin the structural order: the separator must NOT be first
+      # (in-bundles render before it) and it must appear in the DOM
+      # AFTER every default-mode anchor and BEFORE every suggest-mode
+      # form. Walking siblings directly is too fragile because each
+      # bundle tile also emits a sibling `<turbo-cable-stream-source>`
+      # for the bundle-cover live-refresh subscription, so use
+      # document positions.
+      first_child_selector = ".game-bundles .shelf-row > *:first-child"
+      expect(page).not_to have_css("#{first_child_selector}.bundles-suggested-separator")
+
+      shelf = page.find(".game-bundles .shelf-row")
+      separator = shelf.find(".bundles-suggested-separator")
+      default_anchor_positions = shelf.all("a.bundle-tile", minimum: 1).map(&:path)
+      suggest_form_positions = shelf.all(".bundle-tile--suggest", minimum: 1).map(&:path)
+
+      # XPath ordering check — the separator's path string sort key
+      # carries DOM position, so we compare its first-child index.
+      separator_index = shelf.all("*").map(&:path).index(separator.path)
+      expect(separator_index).not_to be_nil
+      default_anchor_positions.each do |path|
+        expect(shelf.all("*").map(&:path).index(path)).to be < separator_index
+      end
+      suggest_form_positions.each do |path|
+        expect(shelf.all("*").map(&:path).index(path)).to be > separator_index
+      end
     end
   end
 
@@ -154,8 +212,10 @@ RSpec.describe Games::BundlesSectionComponent, type: :component do
       expect(page).to have_css("a.bundle-tile", count: 2)
       expect(page).to have_css(".bundle-tile--suggest", count: 2)
 
-      # Divider rendered because both halves are non-empty post-subtraction.
-      expect(page).to have_css(".bundles-section-divider", count: 1)
+      # Separator rendered because the RIGHT half is non-empty
+      # post-subtraction; hairline divider gone.
+      expect(page).to have_css(".bundles-suggested-separator", count: 1)
+      expect(page).not_to have_css(".bundles-section-divider")
     end
   end
 

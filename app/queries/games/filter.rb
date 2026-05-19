@@ -85,11 +85,20 @@ module Games
     # axis (`played`). Explicit `?filters=...,played` opts back in.
     DEFAULT_CHECKED_TOKENS = (TOKEN_UNIVERSE - ENGAGEMENT_TOKENS).freeze
 
-    attr_reader :scope, :raw_tokens
+    attr_reader :scope, :raw_tokens, :primaries_only
 
-    def initialize(scope: Game.all, tokens: nil)
-      @scope      = scope
-      @raw_tokens = tokens
+    # `primaries_only:` (Phase 28 owned_rollup, 2026-05-18) — when true
+    # the `owned` token matches via `Game.owned_rollup` (primary survives
+    # if ANY edition has ownership rows) instead of `Game.owned` (per-row
+    # only). The default `false` preserves the pre-rollup contract for
+    # callers that don't pass the flag (MCP tools, the JSON branch's
+    # `?include_editions=yes` path). When platform binding is also in
+    # play, rollup is intentionally NOT extended — per-platform ownership
+    # always pivots on the row that actually owns the platform.
+    def initialize(scope: Game.all, tokens: nil, primaries_only: false)
+      @scope           = scope
+      @raw_tokens      = tokens
+      @primaries_only  = primaries_only
     end
 
     # The canonical, de-duped, recognised tokens currently CHECKED.
@@ -200,6 +209,11 @@ module Games
       when [ "owned" ]
         rel = if platform_active
                 rel.where(id: Game.owned_on(platform_slugs).select(:id))
+        elsif primaries_only
+                # Phase 28 owned_rollup — primary survives when ANY of
+                # its editions has an ownership row. See Game.owned_rollup
+                # docstring for the SQL shape.
+                rel.where(id: Game.owned_rollup.select(:id))
         else
                 rel.where(id: Game.owned.select(:id))
         end

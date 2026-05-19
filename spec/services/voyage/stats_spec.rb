@@ -140,6 +140,28 @@ RSpec.describe Voyage::Stats do
 
         expect(described_class.call[:storage_kb]).to be_nil
       end
+
+      it "parameterizes the IN (...) clause via sanitize_sql_array (no raw interpolation)" do
+        # Regression guard for the Brakeman SQL-injection warning previously
+        # raised on the `WHERE indexname IN (#{quoted})` interpolation. The
+        # builder must hand the index-name list to `sanitize_sql_array` so
+        # the placeholder gets bound, not string-spliced.
+        expect(ActiveRecord::Base).to receive(:sanitize_sql_array)
+          .with(array_including(a_string_matching(/WHERE indexname IN \(\?\)/)))
+          .and_call_original
+
+        described_class.call
+      end
+
+      it "only inspects the known HNSW index allowlist (no caller-controlled names)" do
+        # The set of index names is hardcoded — any new index has to be added
+        # to the in-file allowlist constant, never sourced from params / DB.
+        allowlist = Voyage::Stats.send(:const_get, :KNOWN_HNSW_INDEXES).values
+        expect(allowlist).to contain_exactly(
+          "index_games_on_summary_embedding_hnsw",
+          "index_bundles_on_summary_embedding_hnsw"
+        )
+      end
     end
 
     describe "embeddings_last_24h" do

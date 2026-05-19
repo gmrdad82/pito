@@ -126,4 +126,74 @@ RSpec.describe Games::GenresLineComponent, type: :component do
       expect(page).to have_no_css("div.game-genres span")
     end
   end
+
+  # 2026-05-19 (Wave B) — when `game.resyncing?` is true the whole
+  # genre line renders as a `sync-indicator` dot-loader at phase
+  # offset 0 (the canonical first slot in the staggered set across
+  # /games/:id). The static genre tokens are NOT rendered while
+  # resyncing — the loader takes the whole zone.
+  describe "resyncing?: true — dot-loader replaces the genre tokens" do
+    let(:primary) { build_stubbed(:genre, name: "Adventure") }
+
+    before do
+      allow(game).to receive(:resyncing?).and_return(true)
+      allow(game).to receive(:primary_genre).and_return(primary)
+      stub_genres_query([])
+    end
+
+    it "renders a single sync-indicator div with the modifier class" do
+      render_inline(described_class.new(game: game))
+      expect(page).to have_css("div.game-genres.game-genres--syncing[data-controller='sync-indicator']", count: 1)
+    end
+
+    it "does NOT render the static <strong> primary token while resyncing" do
+      render_inline(described_class.new(game: game))
+      expect(page).to have_no_css("div.game-genres strong")
+    end
+
+    it "carries phase offset 0 (the canonical first slot)" do
+      render_inline(described_class.new(game: game))
+      el = page.find("div.game-genres.game-genres--syncing")
+      expect(el["data-sync-indicator-phase-offset-value"]).to eq("0")
+    end
+
+    it "carries the canonical 4-frame cycle in the frames data attribute" do
+      render_inline(described_class.new(game: game))
+      el = page.find("div.game-genres.game-genres--syncing")
+      frames = JSON.parse(el["data-sync-indicator-frames-value"])
+      expect(frames).to eq([ "=---", "-=--", "--=-", "---=" ])
+    end
+
+    it "seeds the visible text with the phase-0 frame (=---) before connect" do
+      render_inline(described_class.new(game: game))
+      el = page.find("div.game-genres.game-genres--syncing")
+      expect(el.text.strip).to eq("=---")
+    end
+
+    it "marks the element with `data-resyncing=yes` (yes/no boundary contract)" do
+      render_inline(described_class.new(game: game))
+      el = page.find("div.game-genres.game-genres--syncing")
+      expect(el["data-resyncing"]).to eq("yes")
+    end
+  end
+
+  describe "resyncing?: false — static rendering preserved" do
+    let(:primary) { build_stubbed(:genre, name: "Adventure") }
+
+    before do
+      allow(game).to receive(:resyncing?).and_return(false)
+      allow(game).to receive(:primary_genre).and_return(primary)
+      stub_genres_query([])
+    end
+
+    it "does NOT carry the sync-indicator controller" do
+      render_inline(described_class.new(game: game))
+      expect(page).to have_no_css("[data-controller='sync-indicator']")
+    end
+
+    it "renders the static primary token in <strong>" do
+      render_inline(described_class.new(game: game))
+      expect(page).to have_css("div.game-genres strong", text: "Adventure")
+    end
+  end
 end

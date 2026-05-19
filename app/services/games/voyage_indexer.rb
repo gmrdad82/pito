@@ -69,15 +69,28 @@ module Games
       @game.update_column(:summary_embedding, vector)
     end
 
-    # `title — summary` matches the natural reading order operators
-    # see in the IGDB modal and on the game show page; the em-dash
-    # separator is the same affordance the rest of the UI uses for
-    # title/subtitle compositions. Voyage tokenizes both halves
+    # `title — alt_names — summary` matches the natural reading order
+    # operators see in the IGDB modal and on the game show page; the
+    # em-dash separator is the same affordance the rest of the UI uses
+    # for title/subtitle compositions. Voyage tokenizes all parts
     # together so search queries that mix the title and a summary
     # phrase still embed near the document.
+    #
+    # 2026-05-19 — `alternative_names` joins the embedding input so the
+    # similar-games + recommended-bundles clustering picks up alt-name
+    # signal (series identifiers, localized names, marketing aliases).
+    # Mirrors the searchable-attributes addition in
+    # `Meilisearch::GameIndexer::SEARCHABLE_ATTRIBUTES`. The alt names
+    # are joined with single spaces inside their slot (they are short
+    # tokens, not prose) before being em-dash-joined with the title +
+    # summary slots.
     def combined_text
       parts = []
-      parts << @game.title.to_s.strip   if @game.title.present?
+      parts << @game.title.to_s.strip if @game.title.present?
+      if @game.respond_to?(:alternative_names) && @game.alternative_names.present?
+        alt = Array(@game.alternative_names).map { |n| n.to_s.strip }.reject(&:blank?)
+        parts << alt.join(" ") if alt.any?
+      end
       parts << @game.summary.to_s.strip if @game.summary.present?
       parts.join(" — ")
     end

@@ -6,12 +6,13 @@
 # Subscribers stream from the `stack_stats` broadcasting; producers
 # are background jobs (Voyage indexers, ReindexAllJob) that call
 # `StackStats::Broadcaster.broadcast!` at meaningful state-change
-# moments. Connection auth piggybacks on the existing
-# `ApplicationCable::Connection` identification (cookie-session based).
-#
-# Single-user app: no per-user scoping; every subscriber sees the
-# same global Stack-pane snapshot. If pito ever grows multi-tenant,
-# this channel will need a `verified_user`-scoped stream key.
+# moments. Connection authentication: enforced at the HTTP layer that
+# serves `/settings` (Rails session `before_action` gates the page
+# render). The ActionCable subscription itself has no per-user
+# identification — `ApplicationCable::Connection` is an empty subclass
+# with no `identified_by`. Pito is single-install, multi-user (ADR
+# 0003), so channel-level scoping is unnecessary: every subscriber
+# sees the same global Stack-pane snapshot.
 class StackStatsChannel < ApplicationCable::Channel
   def subscribed
     stream_from "stack_stats"

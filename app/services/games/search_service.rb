@@ -33,16 +33,35 @@ module Games
 
       case mode
       when :game_index
+        # IGDB-only mode — no local corpus to gate against.
         igdb, igdb_error = call_igdb(query)
       when :bundle_add
         local = Search::Omnisearch.call(area: :games, query: query, exclude_bundle: bundle)
         local_games = local[:games]
+        # 2026-05-19 — Reverse lazy IGDB. We always query both halves
+        # so the user can compare the local row(s) against any IGDB
+        # rows that match the same query. The Rule 1 dedup below
+        # filters IGDB rows whose `id` is already the `igdb_id` of a
+        # local hit, so duplicates don't double-render.
         igdb, igdb_error = call_igdb(query)
       when :games_search
         local = Search::Omnisearch.call(area: :games, query: query, include_bundles: true)
         local_games = local[:games]
         local_bundles = local[:bundles]
+        # 2026-05-19 — Reverse lazy IGDB (see :bundle_add note above).
+        # The dedup-by-igdb_id post-filter still hides duplicates.
         igdb, igdb_error = call_igdb(query)
+      end
+
+      # Rule 1 — Dedup IGDB by local id. Filter out IGDB rows whose
+      # `id` already exists as a local Game's `igdb_id`. The local row
+      # wins. With the 2026-05-19 reverse-lazy switch the dedup now
+      # carries every dispatch (not just :game_index) — local + IGDB
+      # are both queried every time, so the dedup is what keeps the
+      # IGDB pane from re-listing rows the user already imported.
+      if igdb.any?
+        local_igdb_ids = local_games.map(&:igdb_id).compact.to_set
+        igdb = igdb.reject { |row| local_igdb_ids.include?(row["id"]) } if local_igdb_ids.any?
       end
 
       Result.new(

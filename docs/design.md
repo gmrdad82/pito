@@ -411,6 +411,36 @@ light gray reads against most artwork. If a dark-theme variant is needed later,
 the composite job would need to emit a second JPEG and the consumer view would
 switch sources.
 
+### Omnisearch modal
+
+The `/games` omnisearch modal renders results in up to three top-to-bottom
+sections, in this fixed order:
+
+1. **games** — local Game rows from the install's Postgres / Meilisearch
+   corpus.
+2. **bundles** — local Bundle rows (`:games_search` mode only).
+3. **on IGDB** — remote IGDB hits, populated on every dispatch and deduped
+   against the local games section by `igdb_id` (see
+   `docs/architecture.md > Games omnisearch` for the dispatch contract).
+
+The user sees any given game in exactly ONE section. When the local install
+has already imported an IGDB row, that row appears in **games** and is
+filtered out of **on IGDB**. When it hasn't, the row appears in **on IGDB**
+only. This guarantees the three-section model never feels like a duplicate
+list — every row is either a local entity (importable already in the
+library) or a remote entity (importable via `[add]`).
+
+Section headings render in the same muted typographic style as other modal
+section headings; empty sections collapse entirely (no "no results" stub
+unless ALL sections are empty, in which case the modal renders a single
+muted line). The IGDB-unavailable case renders an upstream-error sentence
+in place of the **on IGDB** hit list, leaving the local sections untouched.
+
+Dismiss control is `[close]` per the
+[Modal dismiss labels](#modal-dismiss-labels--close-vs-cancel) rubric — the
+modal is informational (the user is browsing, not deciding), so dismissing
+doesn't decline anything.
+
 ### Confirm Modal pattern
 
 For destructive actions where the full action-screen pattern is too heavy — the

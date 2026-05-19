@@ -150,5 +150,78 @@ RSpec.describe Meilisearch::GameIndexer do
 
       expect { described_class.call(game) }.not_to raise_error
     end
+
+    # 2026-05-19 — alternative_names joined the searchable corpus.
+    # The constant ordering matters (Meilisearch weights leading
+    # entries highest), and the document payload must serialize the
+    # array so omnisearch hits surface canonical games via alt-name
+    # tokens ("SF6", "FF7 Rebirth", "TotK", ...). The `respond_to?`
+    # guard keeps boot resilient in environments where the migration
+    # has not yet landed.
+    describe "alternative_names searchable surface" do
+      it "lists `alternative_names` in SEARCHABLE_ATTRIBUTES" do
+        expect(Meilisearch::GameIndexer::SEARCHABLE_ATTRIBUTES).to include("alternative_names")
+      end
+
+      it "orders `alternative_names` immediately after `title` (alt names are title synonyms)" do
+        attrs = Meilisearch::GameIndexer::SEARCHABLE_ATTRIBUTES
+        title_idx = attrs.index("title")
+        alt_idx   = attrs.index("alternative_names")
+        expect(title_idx).not_to be_nil
+        expect(alt_idx).to eq(title_idx + 1)
+      end
+
+      it "configures Meilisearch with the SEARCHABLE_ATTRIBUTES list including alternative_names" do
+        described_class.call(game)
+        expect(WebMock).to have_requested(:put, "#{settings_base}/searchable-attributes").with { |req|
+          JSON.parse(req.body) == Meilisearch::GameIndexer::SEARCHABLE_ATTRIBUTES
+        }
+      end
+
+      it "serializes the game's alternative_names array into the document payload" do
+        allow(game).to receive(:alternative_names).and_return([ "SF6", "Street Fighter VI" ])
+        described_class.call(game)
+        expect(WebMock).to have_requested(:post, documents_url).with { |req|
+          JSON.parse(req.body).first["alternative_names"] == [ "SF6", "Street Fighter VI" ]
+        }
+      end
+
+      it "drops blank entries from the serialized alternative_names" do
+        allow(game).to receive(:alternative_names).and_return([ "SF6", "", "   ", "Street Fighter VI" ])
+        described_class.call(game)
+        expect(WebMock).to have_requested(:post, documents_url).with { |req|
+          JSON.parse(req.body).first["alternative_names"] == [ "SF6", "Street Fighter VI" ]
+        }
+      end
+
+      it "serializes an empty array when the game has no alternative_names" do
+        allow(game).to receive(:alternative_names).and_return([])
+        described_class.call(game)
+        expect(WebMock).to have_requested(:post, documents_url).with { |req|
+          JSON.parse(req.body).first["alternative_names"] == []
+        }
+      end
+
+      it "serializes an empty array when alternative_names is nil" do
+        allow(game).to receive(:alternative_names).and_return(nil)
+        described_class.call(game)
+        expect(WebMock).to have_requested(:post, documents_url).with { |req|
+          JSON.parse(req.body).first["alternative_names"] == []
+        }
+      end
+
+      it "handles a pre-migration Game that does not respond_to?(:alternative_names) without crashing" do
+        # Simulate the legacy / pre-migration shape — Game does NOT yet
+        # have the column. The indexer's `respond_to?` guard should
+        # short-circuit to [] instead of raising NoMethodError.
+        allow(game).to receive(:respond_to?).and_call_original
+        allow(game).to receive(:respond_to?).with(:alternative_names).and_return(false)
+
+        expect { described_class.call(game) }.not_to raise_error
+        expect(WebMock).to have_requested(:post, documents_url).with { |req|
+          JSON.parse(req.body).first["alternative_names"] == []
+        }
+      end
+    end
   end
 end

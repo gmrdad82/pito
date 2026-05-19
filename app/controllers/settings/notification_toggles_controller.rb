@@ -26,7 +26,7 @@
 #     alert and reverts the checkbox visually on next page load.
 #
 # Response: redirect back to /settings with a notice naming the new
-# state (e.g. "Discord every notification on" / "Slack daily digest
+# state (e.g. "Discord all on" / "Slack daily digest
 # off"). Turbo follows the redirect, the page reloads, and the flash
 # toast surfaces in the layout-level region. Auto-dismiss is handled
 # by `toast_controller.js`.

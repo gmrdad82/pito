@@ -45,20 +45,52 @@ RSpec.describe "Leader menu layout integration", type: :request do
       expect(response.body).to include('data-leader-menu-target="popup"')
     end
 
-    it "GET #{path} renders the [_] footer link wired to leader-menu#openRoot" do
+    it "GET #{path} renders the [_] navbar link wired to leader-menu#openRoot" do
       get path
+      # 2026-05-18 — the `[_]` affordance was relocated from the
+      # footer into the header navbar, immediately after `[settings]`.
+      # Slice the response to the <header>...</header> region so the
+      # assertion proves the link's NEW location (not just that the
+      # markup exists somewhere on the page).
+      header = response.body.match(%r{<header\b.*?</header>}m)
+      expect(header).not_to be_nil, "expected to find <header>...</header> in the response"
       # ERB encodes `->` as `-&gt;` inside attribute values; match the
       # encoded bytes so the assertion is grounded in real output.
-      expect(response.body).to include("click-&gt;leader-menu#openRoot")
-      expect(response.body).to match(/\[<span class="bl">_<\/span>\]/)
+      expect(header[0]).to include("click-&gt;leader-menu#openRoot")
+      expect(header[0]).to match(/\[<span class="bl">_<\/span>\]/)
+    end
+
+    it "GET #{path} positions the [_] navbar link immediately after [settings]" do
+      get path
+      header = response.body.match(%r{<header\b.*?</header>}m)
+      expect(header).not_to be_nil
+      # The `settings` token renders in one of two shapes depending on
+      # whether the current page IS /settings (active span,
+      # `>[settings]<`) or not (inactive bracketed link,
+      # `>settings</span>]`). Match on the regex that covers both
+      # so the assertion is shape-agnostic.
+      settings_match = header[0].match(/>\[?settings\]?</)
+      leader_at = header[0].index("click-&gt;leader-menu#openRoot")
+      expect(settings_match).not_to be_nil, "expected to find the [settings] label in the header"
+      expect(leader_at).not_to be_nil
+      expect(leader_at).to be > settings_match.begin(0),
+        "expected the [_] leader link to render after [settings] in the header"
+    end
+
+    it "GET #{path} does NOT render the [_] link inside the footer" do
+      get path
+      footer = response.body.match(%r{<footer\b.*?</footer>}m)
+      expect(footer).not_to be_nil
+      expect(footer[0]).not_to include("click-&gt;leader-menu#openRoot")
+      expect(footer[0]).not_to match(/\[<span class="bl">_<\/span>\]/)
     end
   end
 
   describe "auth-chrome-hidden pages" do
-    it "does NOT render the [_] footer link on /login (content_for :hide_chrome)" do
+    it "does NOT render the [_] navbar link on /login (content_for :hide_chrome)" do
       get "/login"
       expect(response).to have_http_status(:ok)
-      # The footer nav (which carries the [_] link) is gated by
+      # Both nav blocks (header + footer) are gated by
       # `unless content_for?(:hide_chrome)`; auth pages set that flag.
       expect(response.body).not_to include("click-&gt;leader-menu#openRoot")
     end
@@ -94,6 +126,61 @@ RSpec.describe "Leader menu layout integration", type: :request do
       root_items = payload.fetch("menus").fetch("root").fetch("items")
       keys = root_items.reject { |i| i["divider"] }.map { |i| i.fetch("key") }
       expect(keys).not_to include("q")
+    end
+
+    # 2026-05-18 (revision 2) — the root menu was trimmed to /games +
+    # /settings + logout only. The keys below were dropped from the
+    # `menus.root.items` block; the layout payload should no longer
+    # surface any of them.
+    it "drops every out-of-scope binding from the root menu (calendar / channels / videos / projects / notifications / h home / G+)" do
+      root_items = payload.fetch("menus").fetch("root").fetch("items")
+      keys = root_items.reject { |i| i["divider"] }.map { |i| i.fetch("key") }
+      dropped = %w[h cs cm ct c+ Cl C+ C- Cy Vl V+ V- Pl P+ P- Nl Nu Nm G+]
+      offenders = keys & dropped
+      expect(offenders).to be_empty,
+        "expected the dropped keys to be absent from the root menu, found #{offenders.inspect}"
+    end
+
+    it "keeps the in-scope bindings (Gl + S + Q) in the root menu" do
+      root_items = payload.fetch("menus").fetch("root").fetch("items")
+      keys = root_items.reject { |i| i["divider"] }.map { |i| i.fetch("key") }
+      expect(keys).to include("Gl", "S", "Q")
+    end
+  end
+
+  describe "games_index page_actions payload (`G+` + `Gb` create row)" do
+    before { get "/games" }
+
+    def payload
+      match = response.body.match(
+        %r{<script type="application/json" id="pito-keybindings">(?<json>.*?)</script>}m
+      )
+      JSON.parse(match[:json])
+    end
+
+    it "ships [G+] add game in page_actions.games_index" do
+      rows = payload.fetch("page_actions").fetch("games_index")
+      row = rows.find { |r| r["key"] == "G+" }
+      expect(row).not_to be_nil
+      expect(row.fetch("label")).to eq("add game")
+      expect(row.fetch("action")).to eq(
+        "type" => "open_modal_by_id",
+        "target" => "omnisearch-modal-games-index"
+      )
+    end
+
+    it "ships [Gb] add bundle in page_actions.games_index" do
+      rows = payload.fetch("page_actions").fetch("games_index")
+      row = rows.find { |r| r["key"] == "Gb" }
+      expect(row).not_to be_nil
+      expect(row.fetch("label")).to eq("add bundle")
+      expect(row.fetch("action")).to eq("type" => "page_add_bundle")
+    end
+
+    it "carries two grid_2col dividers (filter chips block + create-row block)" do
+      rows = payload.fetch("page_actions").fetch("games_index")
+      grid_dividers = rows.select { |r| r["divider"] == true && r["layout"] == "grid_2col" }
+      expect(grid_dividers.size).to eq(2)
     end
   end
 end
