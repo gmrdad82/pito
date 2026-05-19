@@ -66,8 +66,38 @@
      `.tile-cover img`, and `.bundle-cover-composite` further down
      in this file. */
   --color-cover-border: #1a1a1a;
+  /* 2026-05-19 — no-cover placeholder background. Wraps the
+     `Games::CoverComponent` fallback SVG (`.game-cover-fallback`) when a
+     game has no IGDB cover art. Sits between `--color-bg` (#ffffff) and
+     `--color-border` (#dddddd) so the placeholder reads as a subtle
+     inset surface, never pure white. */
+  --color-cover-placeholder-bg: #d8dde3;
+  /* 2026-05-19 — suggested-bundles separator tile background. Used by
+     `Games::BundlesSuggestedSeparatorComponent` so the tile reads a
+     half-step darker than its container (`--color-bg` #ffffff). Same
+     light off-tone as `--color-cover-placeholder-bg` for visual
+     consistency across the two soft surfaces; future drift between
+     them stays token-local. */
+  --color-suggested-bundles-bg: #d8dde3;
   --color-success: #2e7d32;
   --color-fail: #cc0000;
+  /* 2026-05-19 (Phase 37 Wave A1 next-slice) — trend glyph color tokens.
+     Used by `Channels::IdCardComponent` metric rows (subs / views /
+     hours) for the `↑` / `–` / `↓` glyph. `--color-trend-up` is a
+     dedicated green slightly cooler than `--color-success`
+     (`#2e7d32` light vs `#5cb85c` dark — user-spec'd) so trend signals
+     read as distinct from "OK" green-ticks elsewhere. `-steady` and
+     `-down` alias existing tokens so destructive-red usage in trends
+     is a deliberate, user-authorized exception (2026-05-19 chat) and
+     the muted gray is reused unchanged. */
+  --color-trend-up: #2e7d32;
+  --color-trend-steady: var(--color-muted);
+  --color-trend-down: var(--color-danger);
+  /* 2026-05-19 — channel ID card background. Value copied (not aliased) from
+     the /settings Discord pane's `--color-pane-bg-a` tone (line 46) so the
+     two surfaces visually rhyme today without coupling — future tweaks to
+     either pane tone or this card tone stay independent. */
+  --color-channel-id-card-bg: #f4f6f8;
   --color-flash-notice-bg: #eef4fb;
   --color-flash-notice-border: #b6cce4;
   --color-flash-notice-text: #1a3a5a;
@@ -199,8 +229,27 @@
      `:root` block above for the rationale. Light hairline that frames
      the artwork against the near-black page background. */
   --color-cover-border: #aaaaaa;
+  /* Dark-theme no-cover placeholder bg — equals `--color-bg` (#282a36)
+     to preserve the existing dark placeholder look (per spec: don't
+     break dark). Independent token so future dark tuning stays local. */
+  --color-cover-placeholder-bg: #282a36;
+  /* Dark-theme suggested-bundles tile bg — sits slightly darker than
+     `--color-bg` (#282a36) by reusing `--color-bg-alt` (#21222c), so
+     the tile reads a half-step below its container in dark mode,
+     mirroring the light-theme direction-of-contrast. */
+  --color-suggested-bundles-bg: #21222c;
   --color-success: #50fa7b;
   --color-fail: #ff5555;
+  /* Dark-theme trend glyph tokens — see the `:root` block for the
+     rationale. `#5cb85c` lifts the green for the dark backdrop without
+     reusing `--color-success` (Dracula `#50fa7b`); the muted + danger
+     aliases mirror the light variant. */
+  --color-trend-up: #5cb85c;
+  --color-trend-steady: var(--color-muted);
+  --color-trend-down: var(--color-danger);
+  /* Dark-theme channel ID card bg — value copied from the dark Discord pane
+     `--color-pane-bg-a` (#2f3142, line 197); independent token, see :root. */
+  --color-channel-id-card-bg: #2f3142;
   --color-flash-notice-bg: #282a36;
   --color-flash-notice-border: #6272a4;
   --color-flash-notice-text: #8be9fd;
@@ -758,6 +807,60 @@ body[data-modal-open] {
 .shelf-row {
   scrollbar-width: thin;
   scrollbar-color: var(--color-muted) var(--color-bg);
+}
+
+/* 2026-05-19 — Scoped slim scrollbar for the canonical `ShelfComponent`
+   (top-level since 2026-05-19; was `Games::ShelfComponent`). Mirrors the
+   app-wide slim-scrollbar tokens but encapsulates the rule to the shelf
+   so future global-scrollbar changes don't drift the shelf's appearance.
+   Tokens — `--color-muted`, `--color-bg`, `--color-text` — come from the
+   light/dark `:root` blocks at top-of-file. Widths (6px) and radius (3px)
+   match the sitewide `::-webkit-scrollbar` rules at L722-L738 so the
+   appearance is identical today; the encapsulation is forward-looking. */
+.shelf-row {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-muted) var(--color-bg);
+}
+.shelf-row::-webkit-scrollbar { width: 6px; height: 6px; }
+.shelf-row::-webkit-scrollbar-thumb {
+  background: var(--color-muted);
+  border-radius: 3px;
+}
+.shelf-row::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text);
+}
+
+/* 2026-05-19 — Universal no-shrink for direct children of `.shelf-row`.
+   The canonical `ShelfComponent` row is `display: flex; overflow-x: auto`
+   (see `app/components/shelf_component.rb#row_inline_style`) — meant to
+   overflow horizontally and scroll. Without `flex-shrink: 0`, default
+   flex behavior squeezes children to fit the viewport, hiding the
+   overflow and progressively shrinking tile width as N grows. Tiles
+   that set their own `flex: 0 0 <px>` inline (`Games::GameTileComponent`
+   letter shelf, `Games::BundleTileComponent` bundles shelf) are immune;
+   bare `Games::CoverComponent` covers used by `Games::GenreTileComponent`
+   only carry `width: 98px` and were the visible regression that
+   prompted this rule. The previously-scoped
+   `.game-bundles .shelf-row > *` and `.game-similar .shelf-row > *`
+   rules below now have a global ancestor — kept in place so their
+   intent stays self-documented but redundant with this rule. */
+.shelf-row > * {
+  flex-shrink: 0;
+}
+
+/* 2026-05-19 — `turbo-cable-stream-source` direct children of `.shelf-row`
+   are pure JS attachment points (Turbo Stream subscription anchors) with
+   no visual content. Without this rule the element renders as a zero-
+   content flex item, consuming the row's `gap` between itself and the
+   first visible tile — visually reads as a leading left gap before the
+   first tile (bug reported on /games bundles shelf 2026-05-19 with
+   "Boss Rush Vol. 1"; same pattern on /games/:id `.game-bundles`).
+   `display: none` removes the element from the box tree so it is not a
+   flex item; the custom element's `connectedCallback` still fires
+   (display style does not gate connection callbacks), so the
+   subscription remains active and live cover refresh keeps working. */
+.shelf-row > turbo-cable-stream-source {
+  display: none;
 }
 
 /* Dialog-scoped scrollbar theming.
@@ -1561,13 +1664,14 @@ select:focus {
      - input font-size: 24px, weight 700.
      - input padding: 12px 16px.
      - dialog padding: 16px.
-     - border: 1px solid var(--color-border); 4px radius. */
+     - border: 1px solid var(--color-border); 2px radius (locked
+       2026-05-19 per project-wide modal radius rule). */
 dialog.omnisearch-modal {
   width: 720px;
   max-width: 90vw;
   padding: 16px;
   border: 1px solid var(--color-border);
-  border-radius: 4px;
+  border-radius: 2px;
   background: var(--color-bg);
   color: var(--color-text);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
@@ -1851,8 +1955,12 @@ button[type="submit"].btn-danger:hover {
 }
 
 /* Confirmation dialog */
+/* 2026-05-19 — base `dialog` carries the project-wide 2px modal radius.
+   Every `<dialog>` (confirm-modal, settings-modal, omnisearch-modal,
+   wide-modal, about-modal) inherits this unless it overrides explicitly. */
 dialog {
   border: 1px solid var(--color-input-border);
+  border-radius: 2px;
   padding: 12px 16px;
   max-width: 400px;
   width: 100%;
@@ -3393,6 +3501,31 @@ dialog.leader-menu-popup::backdrop {
   color: var(--color-text);
 }
 
+/* Compact leader popup — opened via flat-key prefix (`g` / `q` on
+   the neutral page chrome; see `flat_key_controller.js` + the `flat:`
+   block in `config/keybindings.yml`). Hides the local section AND its
+   trailing hairline so the popup renders ONLY the prefix-filtered
+   navigation rows. The flag is `data-compact="true"` on the popup
+   `<dialog>`, set by `leader_menu_controller#onFlatKeyOpenWithPrefix`
+   and cleared by `close()`.
+   Compact mode also hides every navigation row whose key does NOT
+   start with the prefix (the renderer paints `--dim` on non-matching
+   rows; in compact mode we want them gone entirely, not just muted).
+   In `g` compact mode this collapses the popup to just gC/gG/gS;
+   in `q` compact mode just qQ. The divider between navigation and
+   logout is also collapsed since a divider row carries no key and
+   would otherwise float alone above an empty group. */
+.leader-menu-popup[data-compact="true"] .leader-menu-page-actions,
+.leader-menu-popup[data-compact="true"] .leader-menu-hairline {
+  display: none;
+}
+.leader-menu-popup[data-compact="true"] .leader-menu-row--dim {
+  display: none;
+}
+.leader-menu-popup[data-compact="true"] .leader-menu-divider-row {
+  display: none;
+}
+
 /* Keybindings reference card (two-section layout — page actions on
    top, hairline, navigation below). Rendered by
    `KeybindingsReferenceComponent`; reuses the existing `<kbd>` text
@@ -3643,13 +3776,23 @@ dialog.leader-menu-popup::backdrop {
    (no `[data-theme="dark"]` ancestor) shows the light variant; the
    dark scope swaps to the dark variant. Both sit inside an
    already-sized `.game-cover` wrapper, so `width: 100%; height: 100%`
-   comes from `.game-cover-img` above. */
+   comes from `.game-cover-img` above.
+
+   2026-05-19 — the fallback SVGs no longer paint their own solid
+   background rect (was `#ffffff` light / `#282a36` dark, now `fill:none`
+   on the outer rect). The placeholder surface now comes from the
+   `--color-cover-placeholder-bg` token applied here so the bg can be
+   theme-tuned from a single CSS source rather than baked into each
+   per-size, per-theme SVG asset. */
+.game-cover-fallback {
+  background-color: var(--color-cover-placeholder-bg);
+}
 .game-cover-fallback--dark { display: none; }
 [data-theme="dark"] .game-cover-fallback--light { display: none; }
 [data-theme="dark"] .game-cover-fallback--dark { display: block; }
 
 /* 2026-05-17 — Shelf default top margin (Wave F consolidation).
-   The `Games::ShelfComponent` previously emitted inline
+   The `ShelfComponent` (renamed top-level 2026-05-19; was `Games::ShelfComponent`) previously emitted inline
    `style="margin-top: 16px"` on every section, which beat the
    cascade and prevented the hairline rule below from collapsing
    the gap between sibling letter / genre shelves to its tighter
@@ -3664,7 +3807,7 @@ dialog.leader-menu-popup::backdrop {
 }
 
 /* Phase 27 §01d follow-up — shelves-by-letter ROW clamp.
-   Each per-letter shelf is rendered through `Games::ShelfComponent`
+   Each per-letter shelf is rendered through `ShelfComponent` (top-level since 2026-05-19)
    whose row is `display: flex; gap: 6px; overflow-x: auto`. In the
    default block layout that row stretches to the container width,
    so a letter bucket with one or two games shows a long empty
@@ -3878,14 +4021,14 @@ dialog.leader-menu-popup::backdrop {
    restore. Both sections (`.game-bundles .shelf-row` and
    `.game-similar .shelf-row`) are rendered as raw
    `<div class="shelf-row" data-controller="steam-shelf">` in
-   `app/views/games/show.html.erb` — NOT through `Games::ShelfComponent`,
+   `app/views/games/show.html.erb` — NOT through `ShelfComponent` (top-level since 2026-05-19),
    which is where the inline `display: flex; gap: ...; overflow-x: auto;
    padding-bottom: 6px;` style normally comes from. Without that style
    the bundle / similar tiles wrap onto multiple rows instead of
    flowing into a single horizontal-scroll row like the /games shelves
    above. Reapply the same flex chrome here scoped to these two
    sections so the markup keeps its raw form (no spec churn on
-   `Games::ShelfComponent`) while the layout matches the rest of the
+   `ShelfComponent`) while the layout matches the rest of the
    shelf family. `flex-wrap: nowrap` is explicit defense against any
    future cascade that might re-enable wrap. */
 .game-bundles .shelf-row,
@@ -3941,7 +4084,10 @@ dialog.leader-menu-popup::backdrop {
   justify-content: space-between;
   border: 1px dashed var(--color-border);
   border-radius: 2px;
-  background-color: transparent;
+  /* 2026-05-19 — tile bg reads a half-step darker than the bundle
+     section's container (`--color-bg`) so the separator stands out as a
+     soft inset surface in both themes. Was `transparent` (no contrast). */
+  background-color: var(--color-suggested-bundles-bg);
   color: var(--color-muted);
   font-size: 11px;
   /* Asymmetric padding — keep the 8px breathing room on top / left /
@@ -4075,19 +4221,17 @@ dialog.leader-menu-popup::backdrop {
    alongside every other cover edge in the app. `overflow: hidden`
    clips per-cell rounded corners to the wrapper outline.
 
-   2026-05-18 — every cover-art cell now picks up a full 2px
-   radius + theme border (matches the shelf cover treatment),
-   replacing the earlier corner-only system that only rounded the
-   four outer corners of the composite. */
+   2026-05-19 — per-cell hairlines dropped. The CSS-positioned
+   composite mirrors the libvips JPEG output (edge-to-edge cells,
+   no internal borders); only the OUTER `.bundle-modal-composite`
+   chrome (1px solid theme-aware border + 2px radius) is painted,
+   matching the letter-shelf cover convention where a single border
+   frames the composite as one cover-art unit. */
 .bundle-modal-composite {
   position: relative;
   border: 1px solid var(--color-cover-border);
   border-radius: 2px;
   overflow: hidden;
-}
-.bundle-modal-cell img {
-  border: 1px solid var(--color-cover-border);
-  border-radius: 2px;
 }
 
 /* games — Genres outer shelf hairline between consecutive sub-shelves.

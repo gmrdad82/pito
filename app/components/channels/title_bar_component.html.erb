@@ -1,0 +1,16 @@
+<%# Phase 37 Wave A1 — `/channels` title bar.
+
+    The flex row baseline-aligns the "channels" text label with the two
+    bracketed links so all three glyphs sit on the same baseline as the
+    chip rows below. `gap: 4px` between the label and the link cluster
+    matches the `[ ]` ↔ label gap inside `.filter-chip` (application.css
+    L416 `a.filter-chip { gap: 4px }`) so the whole top row reads with
+    consistent horizontal rhythm. %>
+<div class="channels-title-bar"
+     style="display: flex; align-items: baseline; gap: 4px;">
+  <span style="font-weight: bold;">channels</span>
+  <span class="channels-title-bar__actions"
+        style="display: inline-flex; align-items: baseline; gap: 4px;">
+    <%= render(BracketedLinkComponent.new(label: "+", href: "#")) %><%= render(BracketedLinkComponent.new(label: "-", href: "#", destructive: true)) %>
+  </span>
+</div>

@@ -64,7 +64,13 @@ module KeybindingsHelper
       # list (and suppresses navigation + logout entirely). Defaults to
       # an empty hash until Phase B starts populating modal entries.
       # Same "no surfaces filtering" rule applies as page_actions.
-      "modal_actions" => resolve_modal_actions_labels(schema.fetch("modal_actions", {}) || {})
+      "modal_actions" => resolve_modal_actions_labels(schema.fetch("modal_actions", {}) || {}),
+      # `flat:` is the leader-less entry-point block (`/` opens
+      # omnisearch, `g` / `q` open the leader popup in compact mode
+      # seeded with that prefix). Consumed by the `flat-key` Stimulus
+      # controller; see `flat_key_controller.js`. The block has no
+      # `surfaces:` keys today so no per-surface filtering applies.
+      "flat" => resolve_flat_labels(schema.fetch("flat", {}) || {})
     }
   end
 
@@ -132,5 +138,17 @@ module KeybindingsHelper
       next entry unless items.is_a?(Array)
       entry.merge("items" => items.map { |row| resolve_label(row) })
     end
+  end
+
+  # Walk a `flat:` block (`{ items: [rows] }`) and resolve labels on
+  # every row. Same shape as a single `modal_actions` entry — one
+  # `items` array of `{ key, label_i18n, action }` hashes. Returns
+  # `{}` when the block is missing entirely (defensive: schemas
+  # without `flat:` still parse cleanly).
+  def resolve_flat_labels(flat)
+    return flat unless flat.is_a?(Hash)
+    items = flat["items"]
+    return flat unless items.is_a?(Array)
+    flat.merge("items" => items.map { |row| resolve_label(row) })
   end
 end

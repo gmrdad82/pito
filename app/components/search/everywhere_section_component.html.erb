@@ -1,0 +1,7 @@
+<% unless empty? %>
+  <ul class="omnisearch-list" style="list-style: none; padding: 0; margin: 0;">
+    <% hits.each do |hit| %>
+      <li class="omnisearch-row"><%= render Search::EverywhereRowComponent.new(kind: kind, record: hit) %></li>
+    <% end %>
+  </ul>
+<% end %>

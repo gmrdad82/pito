@@ -152,7 +152,15 @@ module Igdb
       hits = post("games", builder.to_s)
       return hits if include_editions || hits.empty?
 
-      denoise_by_name(hits)
+      # 2026-05-19 — drop cover-less rows from omnisearch results. A
+      # row without `cover.image_id` renders as a `[?]` placeholder in
+      # the `[+]` add-from-IGDB modal and is almost always noise (IGDB
+      # stubs, regional duplicates, draft entries). Filter at the
+      # client boundary so every caller (GamesController#search,
+      # Games::SearchService, Search::Everywhere, Mcp::Tools::IgdbSearch)
+      # gets the same clean payload. `include_editions: true` callers
+      # bypass this — same discipline as `denoise_by_name`.
+      denoise_by_name(reject_coverless(hits))
     end
 
     def fetch_game(igdb_id)
@@ -272,6 +280,15 @@ module Igdb
     # Explicit edition searches (e.g. "street fighter 6: collector's
     # edition") naturally bypass this: the top hit IS the edition, so
     # the prefix doesn't match anything below it.
+    # 2026-05-19 — drop rows lacking a cover image. IGDB occasionally
+    # returns entries with no `cover` association (stubs, drafts) or
+    # with a `cover` hash whose `image_id` is blank. Both render as
+    # `[?]` placeholders in the omnisearch row and are filtered out
+    # here before they reach any UI surface.
+    def reject_coverless(rows)
+      rows.reject { |row| row.dig("cover", "image_id").to_s.strip.empty? }
+    end
+
     def denoise_by_name(rows)
       return rows if rows.size <= 1
       top = rows.first

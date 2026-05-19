@@ -17,12 +17,19 @@ en:
     sections:
       local: "local"
       global: "global"
+    flat:
+      search: "search"
+      about: "about"
+      global_prefix: "global menu"
+      logout_prefix: "logout menu"
     menus:
       root:
+        channels: "channels"
         games: "games"
         settings: "settings"
         quit: "quit"
         logout: "logout"
+        about: "about"
     modal_actions:
       bundle:
         dark_mode: "dark mode"

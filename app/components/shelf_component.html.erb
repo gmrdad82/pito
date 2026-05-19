@@ -1,0 +1,26 @@
+<section class="<%= section_classes %>"
+         <%= "data-shelf=\"#{shelf_kind}\"".html_safe if shelf_kind.present? %>
+         <% data.each do |k, v| %>data-<%= k.to_s.dasherize %>="<%= v %>" <% end %>
+         data-controller="steam-shelf"
+         <%= "style=\"#{section_inline_style}\"".html_safe if section_inline_style.present? %>>
+  <% if heading? %>
+    <div class="dot-list" style="<%= heading_wrapper_style %>">
+      <% if heading_level == :h2 %>
+        <h2 style="<%= heading_inline_style %>"><%= heading %><% if show_count %> <%= render(StatusBadgeComponent.new(label: count.to_s, kind: :neutral)) %><% end %></h2>
+      <% else %>
+        <h3 style="<%= heading_inline_style %>"><%= heading %><% if show_count %> <%= render(StatusBadgeComponent.new(label: count.to_s, kind: :neutral)) %><% end %></h3>
+      <% end %>
+      <% if more_href.present? %>
+        <%= render(BracketedLinkComponent.new(label: t("common.actions.see_all"), href: more_href)) %>
+      <% end %>
+      <% if heading_extras? %>
+        <%= heading_extras %>
+      <% end %>
+    </div>
+  <% end %>
+
+  <div class="<%= row_class_string %>" data-steam-shelf-target="row"
+       style="<%= row_inline_style %>">
+    <%= content %>
+  </div>
+</section>

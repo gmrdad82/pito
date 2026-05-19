@@ -1,1 +1,111 @@
-<%= render "channels/picker", channels: @channels, max_panes: @max_panes %>
+<%# Phase 37 Wave A1 — `/channels` mocked shell.
+
+    Locked layout (2026-05-19 user — chip-row consolidation pass):
+
+      channels  [+][-]
+      [ ] 7d  [ ] 28d  [ ] 3m  [ ] 365d  [ ] alltime  [ ] <prev_year>  [ ] <current_year>  [ ] <prev_month>  [ ] <current_month>       [ ]| | [ ]| | [ ]| |
+      ─────────────────────────────────────────────────────────────────────────  (hairline)
+      <ID-card shelf — one tile per channel, horizontal scroll>
+
+    Year/month chip values are computed by
+    `Formatting::CurrentChannelFilterChips` so the chip set tracks
+    today's date instead of hard-coded literals. URL values for the
+    year chips are 4-digit year strings; month-chip URL values are the
+    lowercase 3-letter abbreviation (`apr`, `may`, ...), display labels
+    capitalize via `%b` (`Apr`, `May`, ...).
+
+    Wave A1 ships with the generic `FilterChipComponent` for every
+    chip — the controller doesn't yet read `?windows=`, `?calendar=`,
+    or `?channels=`, so the chips toggle URL state harmlessly (same
+    UX as /games chips). Live filtering wires up in later A-steps
+    once the user signs off on the visuals.
+
+    Mock data lives in `Channels::MockData`. %>
+
+<% calendar_chips = Formatting::CurrentChannelFilterChips.call %>
+
+<%= render(Channels::TitleBarComponent.new) %>
+
+<%# Two-column block: LEFT = single chip row (time windows + dynamic
+    year/month chips inline AFTER alltime); RIGHT = avatar shelf.
+
+    Outer flex container baseline-aligns the two columns so the chip
+    row and the RIGHT shelf's checkboxes share the same baseline.
+    `gap: 16px` between left and right groups matches
+    `Games::FilterRowComponent`'s outer left/right gap
+    (filter_row_component.html.erb L18). %>
+<section class="channels-chrome"
+         style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; justify-content: space-between; margin: 6px 0;">
+  <div class="channels-chrome__filters"
+       style="display: flex; flex-direction: column; gap: 6px;">
+    <%# Single chip row — time windows + dynamic year/month chips
+        appended after `alltime`. Window chips toggle `?windows=`;
+        year+month chips toggle `?calendar=`. Both use csv multi-select. %>
+    <div class="channels-filter-row"
+         style="display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline;">
+      <% %w[7d 28d 3m 365d alltime].each do |window| %>
+        <%= render(FilterChipComponent.new(
+              label: window,
+              param: "windows",
+              value: window,
+              current_params: request.query_parameters,
+              csv: true,
+              path: "/channels"
+            )) %>
+      <% end %>
+      <% calendar_chips[:years].each do |chip| %>
+        <%= render(FilterChipComponent.new(
+              label: chip[:label],
+              param: "calendar",
+              value: chip[:value],
+              current_params: request.query_parameters,
+              csv: true,
+              path: "/channels"
+            )) %>
+      <% end %>
+      <% calendar_chips[:months].each do |chip| %>
+        <%= render(FilterChipComponent.new(
+              label: chip[:label],
+              param: "calendar",
+              value: chip[:value],
+              current_params: request.query_parameters,
+              csv: true,
+              path: "/channels"
+            )) %>
+      <% end %>
+    </div>
+  </div>
+  <div class="channels-chrome__avatars">
+    <%= render(Channels::AvatarShelfComponent.new(channels: @channels, current_params: request.query_parameters)) %>
+  </div>
+</section>
+
+<hr class="hairline">
+
+<%# Wave A1 (2026-05-19 chip-row consolidation) main content area —
+    first row is the ID-card shelf (6 cards, one per channel). Uses
+    the canonical headless `ShelfComponent` (heading: nil) — the
+    parallel `Channels::IdCardShelfComponent` was removed in the same
+    pass. Subsequent A-steps fill the remaining metric sections
+    (basics totals, top content, window summaries, audience, traffic,
+    heatmap, trends) beneath it inside the same `.channels-main` wrapper.
+
+    2026-05-19 — each shelf renders a trailing `<hr class="hairline">`
+    so the bottom edge of the shelf reads as a clean separator, matching
+    the inter-shelf hairline convention used on `/games` (see
+    `app/views/games/index.html.erb` lines 158, 173, 180). The
+    `ShelfComponent` does NOT emit its own `<hr>` by design (see the
+    header comment on `app/components/shelf_component.rb`); views own
+    the composition between shelves. %>
+<section class="channels-main">
+  <%= render(ShelfComponent.new(
+        heading: nil,
+        extra_classes: "channels-id-card-shelf",
+        shelf_kind: "channels-id-cards"
+      )) do %>
+    <% @channels.each do |channel| %>
+      <%= render(Channels::IdCardComponent.new(channel: channel)) %>
+    <% end %>
+  <% end %>
+  <hr class="hairline">
+</section>

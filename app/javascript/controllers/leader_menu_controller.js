@@ -189,9 +189,33 @@ export default class extends Controller {
     // match here so the inactivity timer can fire it on expiry. Reset
     // by `resetPrefix`, `close`, and every keystroke.
     this.pendingExactMatch = null
+    // Compact-mode flag (2026-05-19). Flipped to `true` whenever the
+    // popup opens via the flat-key `open_leader_with_prefix` action
+    // (pressing `g` / `q` on the neutral page chrome). Compact mode
+    // hides the local section so the popup renders ONLY the prefix-
+    // filtered navigation rows — the user is mid-flow on a 2-letter
+    // root binding, not browsing page surface keys. Reset on every
+    // popup close. Mirrored on the popup `<dialog>` as
+    // `data-compact="true"` so CSS can hide the local section.
+    this.compactMode = false
+    // Compact-prefix floor (2026-05-19). Stores the seed prefix passed
+    // by the flat-key surface (`g` / `q`) so the popup keeps filtering
+    // navigation rows by that prefix even after the inactivity timer
+    // resets `pendingPrefix` back below the floor. Without this floor
+    // the popup would show ALL rows (qQ leaks into a `g` compact view)
+    // after a 1500ms idle, and a `gg` dead-end would not dismiss
+    // because the second `g` would re-set `pendingPrefix` to `g` (not
+    // `gg`). Reset on every popup close.
+    this.compactPrefix = ""
     this.boundKeydown = this.onKeydown.bind(this)
     this.boundOutside = this.onOutsideClick.bind(this)
     this.boundTurboVisit = this.onTurboVisit.bind(this)
+    // 2026-05-19 — the `flat-key` controller fires this event when a
+    // flat (leader-less) `g` / `q` keystroke lands on the neutral
+    // page chrome. The handler opens the popup + flips compact mode
+    // + seeds the prefix so the popup renders the prefix-filtered
+    // navigation rows immediately.
+    this.boundFlatKeyOpen = this.onFlatKeyOpenWithPrefix.bind(this)
     // A4: when any <dialog> on the page closes, the leader popup
     // closes alongside it so an orphan popup never lingers above a
     // dismissed parent dialog. Esc on the leader popup falls through
@@ -211,6 +235,7 @@ export default class extends Controller {
     // programmatic navigations (Turbo.visit from leader-menu's own
     // action handler, form submits, prefetch-triggered visits).
     document.addEventListener("turbo:visit", this.boundTurboVisit)
+    document.addEventListener("flat-key:open-leader-with-prefix", this.boundFlatKeyOpen)
     // NOTE — DO NOT short-circuit `connect()` on `!hasPopupTarget`.
     // The popup `<div id="leader-menu-popup" data-turbo-permanent>`
     // lives at the END of `<body>`. On a Turbo Drive navigation the
@@ -261,6 +286,7 @@ export default class extends Controller {
     if (this.boundOutside) document.removeEventListener("click", this.boundOutside, true)
     if (this.boundTurboVisit) document.removeEventListener("turbo:visit", this.boundTurboVisit)
     if (this.boundDialogClose) document.removeEventListener("close", this.boundDialogClose, true)
+    if (this.boundFlatKeyOpen) document.removeEventListener("flat-key:open-leader-with-prefix", this.boundFlatKeyOpen)
     if (this.prefixTimer) {
       clearTimeout(this.prefixTimer)
       this.prefixTimer = null
@@ -299,7 +325,19 @@ export default class extends Controller {
     if (this.hasPopupTarget) {
       if (this.popupTarget.open) this.popupTarget.close()
       while (this.popupTarget.firstChild) this.popupTarget.removeChild(this.popupTarget.firstChild)
+      // Drop the compact-mode marker so the next popup open starts
+      // in full mode unless re-flipped by `onFlatKeyOpenWithPrefix`.
+      this.popupTarget.removeAttribute("data-compact")
     }
+    this.compactMode = false
+    this.compactPrefix = ""
+    // Force pendingPrefix back to empty AFTER the compact-mode flags
+    // are cleared. The earlier `resetPrefix()` call (line above the
+    // `compactMode = false` flip) keeps the floor when still in
+    // compact mode; clearing it here ensures the next popup open
+    // starts from a clean accumulator regardless of how this popup
+    // closed.
+    this.pendingPrefix = ""
     document.removeEventListener("click", this.boundOutside, true)
   }
 
@@ -357,6 +395,16 @@ export default class extends Controller {
         // still navigates back to the root menu on Backspace).
         if (this.pendingPrefix.length > 0) {
           this.pendingPrefix = this.pendingPrefix.slice(0, -1)
+          // 2026-05-19 — compact mode close-on-empty. The popup was
+          // opened via a flat-key prefix (`g` / `q`); when the user
+          // clears the prefix back to empty there is no meaningful
+          // fallback to "full leader view" — that requires a SPACE
+          // press. Close the popup so the user can hit SPACE next
+          // for the unfiltered view.
+          if (this.compactMode && this.pendingPrefix.length === 0) {
+            this.close()
+            return
+          }
           this.armPrefixTimer()
           this.repaint()
         } else {
@@ -425,7 +473,18 @@ export default class extends Controller {
     const candidates = this.candidatesForPrefix(this.pendingPrefix)
 
     if (candidates.length === 0) {
-      // Dead-end: reset and repaint so dim styling clears.
+      // Dead-end. In compact mode (popup opened via the flat-key `g`
+      // / `q` prefix), the user has no meaningful fallback to "full
+      // leader view" — that requires a SPACE press. Close the popup
+      // so the next SPACE opens the unfiltered menu. Example: hitting
+      // `g` opens compact gC/gG/gS; hitting `g` again accumulates the
+      // prefix to `gg` which matches no row → dismiss. Non-compact
+      // (SPACE-opened) flow keeps the prior reset-and-repaint
+      // semantic so the user can keep typing.
+      if (this.compactMode) {
+        this.close()
+        return
+      }
       this.resetPrefix()
       this.repaint()
       return
@@ -516,7 +575,12 @@ export default class extends Controller {
   }
 
   resetPrefix() {
-    this.pendingPrefix = ""
+    // In compact mode the seed prefix is the floor — `pendingPrefix`
+    // never falls below it via the inactivity timer or a no-longer-
+    // matching keystroke. Keeping the floor here means a subsequent
+    // `g` press after a 1500ms idle accumulates to `gg` (dead-end →
+    // close) rather than to a fresh single `g`.
+    this.pendingPrefix = this.compactMode && this.compactPrefix ? this.compactPrefix : ""
     this.pendingExactMatch = null
     if (this.prefixTimer) {
       clearTimeout(this.prefixTimer)
@@ -571,6 +635,54 @@ export default class extends Controller {
   // without the popup mounted.
   onTurboVisit(_event) {
     this.close()
+  }
+
+  // 2026-05-19 — flat-key compact open. The `flat-key` Stimulus
+  // controller fires `flat-key:open-leader-with-prefix` when the user
+  // presses a leader-less prefix key (`g` / `q` per
+  // `config/keybindings.yml#flat`). The handler:
+  //   1. Opens the root menu the same way SPACE does (`openMenu("root")`).
+  //   2. Flips `compactMode` on so backspace-to-empty closes the popup
+  //      instead of pop-back. Mirrored on the popup `<dialog>` as
+  //      `data-compact="true"` so the CSS rule
+  //      `.leader-menu-popup[data-compact="true"] .leader-menu-page-actions`
+  //      (also targets the paired hairline) hides the local section
+  //      — the user is mid-flow on a 2-letter root binding, not
+  //      browsing page surface keys.
+  //   3. Seeds the prefix accumulator by routing the prefix char(s)
+  //      through `handlePrefixKey` so dim/match styling + the timer
+  //      arm exactly as if the user typed them inside the popup.
+  //
+  // No-op when the popup is already open (the user is mid-flow on
+  // the leader popup; the flat-key surface is gated to closed-only
+  // anyway via the open-dialog guard in `flat_key_controller`) or
+  // when the prefix detail is missing / non-string.
+  onFlatKeyOpenWithPrefix(event) {
+    if (this.isOpen()) return
+    const prefix = event && event.detail && typeof event.detail.prefix === "string"
+      ? event.detail.prefix
+      : ""
+    if (prefix.length === 0) return
+    this.compactMode = true
+    // Record the seed prefix as the compact floor before the first
+    // render. `buildItemRow` / `buildGridCell` use this floor to hide
+    // rows that don't start with it, independent of the live
+    // `pendingPrefix` accumulator — so qQ stays hidden across the
+    // 1500ms inactivity-timer reset and a second `g` keystroke
+    // accumulates to a true `gg` dead-end that dismisses the popup.
+    this.compactPrefix = prefix
+    this.openMenu("root")
+    if (this.hasPopupTarget) {
+      this.popupTarget.setAttribute("data-compact", "true")
+    }
+    // Route every char through the accumulator so multi-char flat
+    // prefixes (none today, but defensive for future schemas) seed
+    // correctly. Single-char prefixes — the only shape today — also
+    // work because `handlePrefixKey` arms the timer + repaints when
+    // longer candidates exist (e.g. `g` has `gC` / `gG` / `gS`).
+    for (const ch of prefix) {
+      this.handlePrefixKey(ch)
+    }
   }
 
   // ---- menu rendering --------------------------------------------
@@ -749,6 +861,15 @@ export default class extends Controller {
       this.openGlobalSearch()
       return
     }
+    // Generic `open_modal { modal_id: <dom-id> }` — resolves the
+    // `<dialog id={modal_id}>` and opens it. Added 2026-05-19 for the
+    // `?` keybind in `menus.root` (about-modal). Matches the flat
+    // controller's `open_modal` handler so leader + flat dispatch the
+    // same shape consistently.
+    if (action.type === "open_modal" && action.modal_id) {
+      this.openModalById(action.modal_id)
+      return
+    }
     if (action.type === "toggle_filter_chip" && action.token) {
       this.toggleFilterChip(action.token)
       return
@@ -850,18 +971,26 @@ export default class extends Controller {
   }
 
   // `open_modal` with `modal_id: search_placeholder` — opens the
-  // layout `global-search-modal` <dialog>. Resolves the dialog's
-  // Stimulus controller (`global-search-modal`) via `window.Stimulus`
-  // and calls `open()`; falls back to a direct `showModal()` if the
-  // controller isn't wired. Cross-controller LOOKUP is OK here
-  // because the dialog element is the controller's host — no body-
-  // mounted timing concerns.
+  // layout `omnisearch-modal-everywhere` <dialog> (the Phase 37
+  // "Everywhere" omnisearch modal). The YAML token name
+  // `search_placeholder` is retained for back-compat with existing
+  // `page_actions:` entries (games_show, bundles_show, default); it
+  // simply maps to whatever the canonical layout-mounted `/` modal
+  // is — currently the everywhere modal. The prior legacy
+  // `global-search-modal` ("search videos…" placeholder) was removed
+  // from the layout on 2026-05-19 alongside this rewire.
+  //
+  // Resolves the dialog's Stimulus controller (`omnisearch-modal`)
+  // via `window.Stimulus` and calls `open()`; falls back to a direct
+  // `showModal()` if the controller isn't wired. Cross-controller
+  // LOOKUP is OK here because the dialog element is the controller's
+  // host — no body-mounted timing concerns.
   openGlobalSearch() {
-    const dialog = document.getElementById("global-search-modal")
+    const dialog = document.getElementById("omnisearch-modal-everywhere")
     if (!dialog) return
     const app = window.Stimulus
     if (app && typeof app.getControllerForElementAndIdentifier === "function") {
-      const ctrl = app.getControllerForElementAndIdentifier(dialog, "global-search-modal")
+      const ctrl = app.getControllerForElementAndIdentifier(dialog, "omnisearch-modal")
       if (ctrl && typeof ctrl.open === "function") {
         ctrl.open()
         return
@@ -1304,11 +1433,24 @@ export default class extends Controller {
     const cell = document.createElement("div")
     cell.className = "keybindings-row"
 
+    // Compact-prefix floor (2026-05-19). Hide cells whose key does not
+    // start with the floor; the floor survives the inactivity-timer
+    // reset that clears `pendingPrefix`, so `qQ` stays hidden across
+    // a 1500ms idle in a `g` compact view. Mirrors the same block in
+    // `buildItemRow`.
+    if (this.compactMode && this.compactPrefix && this.compactPrefix.length > 0) {
+      const key = item && typeof item.key === "string" ? item.key : ""
+      if (!key.startsWith(this.compactPrefix)) cell.hidden = true
+    }
+
     if (this.pendingPrefix && this.pendingPrefix.length > 0) {
       if (item.key && typeof item.key === "string" && item.key.startsWith(this.pendingPrefix)) {
         cell.classList.add("leader-menu-row--match")
       } else {
         cell.classList.add("leader-menu-row--dim")
+        // Compact mode hides non-matching grid cells the same way it
+        // hides single-column rows (see buildItemRow).
+        if (this.compactMode) cell.hidden = true
       }
     }
 
@@ -1350,6 +1492,9 @@ export default class extends Controller {
       row.className = "leader-menu-row leader-menu-divider-row"
       row.setAttribute("role", "separator")
       row.setAttribute("aria-hidden", "true")
+      // Compact mode collapses dividers entirely so a hairline never
+      // floats alone above an empty navigation group.
+      if (this.compactMode) row.hidden = true
       const hr = document.createElement("hr")
       hr.className = "leader-menu-divider"
       row.appendChild(hr)
@@ -1359,16 +1504,36 @@ export default class extends Controller {
     const row = document.createElement("li")
     row.className = "leader-menu-row"
 
+    // Compact-prefix floor (2026-05-19). Independent of the live
+    // `pendingPrefix` accumulator: when the popup opened via flat-key
+    // (`g` / `q` on the neutral page chrome), the seed prefix is the
+    // floor. Rows whose key does NOT start with the floor are hidden
+    // for the lifetime of the popup, so the 1500ms inactivity-timer
+    // reset that clears `pendingPrefix` does NOT leak unrelated rows
+    // (qQ in a `g` compact view, gC/gG/gS in a `q` compact view).
+    if (this.compactMode && this.compactPrefix && this.compactPrefix.length > 0) {
+      const key = item && typeof item.key === "string" ? item.key : ""
+      if (!key.startsWith(this.compactPrefix)) row.hidden = true
+    }
+
     // A1: dim/highlight rows based on the pending prefix. When the
     // user has typed `s` and `sr` is on the page, `sr` rows get the
     // `leader-menu-row--match` class (highlighted) and every other
     // row gets `leader-menu-row--dim` (muted). When the prefix is
     // empty no class is applied (rows render at default opacity).
+    // Compact mode (flat-key `g` / `q` open) additionally HIDES every
+    // non-matching row via the `hidden` attribute so qQ disappears
+    // when the prefix is `g` and the inverse for `q`. JS-driven
+    // hiding is more deterministic than the CSS-only path and works
+    // even if the popup's `data-compact` attribute lands after the
+    // first render (the attribute is set after `openMenu` but before
+    // the prefix-seeded repaint inside `onFlatKeyOpenWithPrefix`).
     if (this.pendingPrefix && this.pendingPrefix.length > 0) {
       if (item.key && typeof item.key === "string" && item.key.startsWith(this.pendingPrefix)) {
         row.classList.add("leader-menu-row--match")
       } else {
         row.classList.add("leader-menu-row--dim")
+        if (this.compactMode) row.hidden = true
       }
     }
 

@@ -53,7 +53,10 @@ class WellKnownController < ApplicationController
       # connector being the motivating one — and use it to source the
       # connector list icon. Cost: one extra field. Benefit: a possible
       # icon-discovery hit on top of the layout-`<head>` shotgun.
-      logo_uri: "#{app_base}/Pito.png"
+      # 2026-05-19 — retargeted from `/Pito.png` (retired) to
+      # `/android-chrome-192x192.png`, the canonical "app icon" size for
+      # OAuth / PWA contexts.
+      logo_uri: "#{app_base}/android-chrome-192x192.png?v=2"
     }
   end
 
@@ -84,9 +87,11 @@ class WellKnownController < ApplicationController
       # field above — courtesy hint for icon-aware clients that probe
       # this surface. The asset lives at `app.pitomd.com` (the canonical
       # host) but the file resolves on `mcp.pitomd.com` too since both
-      # subdomains serve the same Rails app and `public/Pito.png` is
-      # served by `ActionDispatch::Static`.
-      logo_uri: "#{app_base}/Pito.png"
+      # subdomains serve the same Rails app and the favicon set is
+      # served by `ActionDispatch::Static`. 2026-05-19 — retargeted from
+      # `/Pito.png` (retired) to `/android-chrome-192x192.png` (canonical
+      # app-icon size for OAuth / PWA contexts).
+      logo_uri: "#{app_base}/android-chrome-192x192.png?v=2"
     }
   end
 

@@ -155,10 +155,17 @@ Chart grid lines: `--color-chart-grid` (#eeeeee light, #44475a dark) Tooltip:
 - **Exception — rating quality spectrum.** The `RatingHeatBarComponent` may use
   red (`var(--color-rating-bad)`, `#cc0000` light / `#ff5555` dark) as the low
   end of the quality gradient. Red here encodes semantic quality information
-  ("bad" tier), not a destructive-action signal. This carve-out is restricted
-  to the heat bar's bad-zone color stop and the `--color-rating-bad` token's
+  ("bad" tier), not a destructive-action signal. This carve-out is restricted to
+  the heat bar's bad-zone color stop and the `--color-rating-bad` token's
   surface area; it does NOT extend to other charts, indicators, or decorative
   elements. User-approved 2026-05-17.
+- **Exception — trend-down indicators.** The `▼` glyph in trend-direction
+  renders (subs/views/watch-hours on `Channels::IdCardComponent`, future video
+  and analytics metric surfaces) uses `var(--color-trend-down)`, aliased to
+  `var(--color-danger)` (`#cc0000` light / `#ff5555` dark). This is the SECOND
+  allowed non-destructive use of red, restricted to `--color-trend-down`'s
+  render surfaces. See `### Trend indicators` for the full glyph + color family.
+  User-approved 2026-05-19.
 - Charts use the `--color-chart-N` palette. If more colors are needed, extend
   with non-red colors.
 - All inline styles must use CSS variables, not hex values, for theme
@@ -266,6 +273,29 @@ neutral `:positive`) stay as-is — they're informational, not identity-
 emphasizing. Use `:strong` only when the chip is calling out the user's own
 current item among siblings; over-using it dilutes the emphasis.
 
+### Filter chips
+
+- **Canonical component:** `FilterChipComponent`
+  (`app/components/filter_chip_component.rb`) — the generic URL-toggling
+  bracketed `[ ]` / `[x]` chip used everywhere chip filters appear (`/games`
+  filter row, `/notifications` time windows, `/channels` time and calendar
+  filters).
+- **Reuse rule (locked 2026-05-19, user):** every chip surface in the app uses
+  `FilterChipComponent` or composes it. **No bespoke chip markup.** No
+  hand-rolled `<a class="filter-chip">` or `<span class="filter-chip">` in
+  views, partials, or ViewComponent templates. A new surface needing chips
+  passes `param:` / `value:` / `csv:` / `path:` into `FilterChipComponent` and
+  is done.
+- **Specialized variants:** when a chip surface needs domain-specific logic
+  (cascade implications, token universes, custom Stimulus controllers), wrap or
+  extend `FilterChipComponent` — see `Games::FilterChipComponent` for the
+  canonical wrapping pattern. Wrap, do not reimplement.
+- **Inert visual mode:** for layout-iteration surfaces where chips should render
+  without URL behavior (early-wave mocked layouts), use `FilterChipComponent`
+  with throw-away `param:` values; the controller ignores unread params and the
+  chip behavior remains consistent with /games. There is no `inert:` flag —
+  wired-but-unread params do the job.
+
 ### Platform Chips
 
 Platform tags render as filled status-badge style pills in the platform's brand
@@ -346,6 +376,42 @@ constant) AND mirrors the chip-display collapse at
 `app/helpers/platform_logos_helper.rb`. When adding a new platform chip, update
 BOTH places.
 
+### Shelves
+
+- **Canonical component:** `ShelfComponent` (top-level, no namespace,
+  `app/components/shelf_component.{rb,html.erb}`) — the universal
+  horizontal-scroll tile row primitive. Renamed from `Games::ShelfComponent` on
+  2026-05-19 when /channels and future /videos shelf surfaces locked the shelf
+  as a domain-agnostic primitive.
+- **Usage:** `ShelfComponent.new(heading: nil_or_string, ...)`. `heading:`
+  defaults to `nil` for headless shelves (e.g., /channels ID-card row sits
+  directly under the title chrome with no heading). When `heading:` is a string,
+  the component renders the heading wrapper above the scrollable row.
+- **Row inline style:**
+  `display: flex; gap: 6px; overflow-x: auto; padding-bottom: 6px;` — locked.
+  Every shelf in the app carries this exact row shape so scroll behavior is
+  uniform.
+- **Encapsulated scrollbar (locked 2026-05-19):** the slim scrollbar styling
+  lives INSIDE the shelf component via a scoped class
+  `.shelf-row::-webkit-scrollbar` (and `::-webkit-scrollbar-thumb`,
+  `scrollbar-width: thin`, `scrollbar-color` for Firefox). The global
+  `::-webkit-scrollbar` rule in `app/assets/tailwind/application.css:722-754`
+  remains the app-wide default for page-level scrolls; the shelf overrides via
+  the scoped class so the shelf's scrollbar is a documented property of the
+  component itself rather than a leaky global inheritance.
+- **Reuse rule (locked 2026-05-19, user):** every shelf surface uses
+  `ShelfComponent`. **No parallel `<Domain>::ShelfComponent` reimplementations**
+  — refactor `ShelfComponent` for new use cases instead of forking. The previous
+  `Games::ShelfComponent` rename + heading-optional refactor was driven by this
+  rule. Future use cases (notifications, videos, search results) follow the same
+  pattern.
+- **Callers:**
+  - `/games` letter shelves (alphabetical groupings)
+  - `/games` genre sub-shelves (under the outer genre shelf)
+  - `/games` bundle shelf
+  - `/channels` ID-card shelf (headless)
+  - Future: /videos shelves, notifications, etc.
+
 ### Filter semantics
 
 The `/games` filter chips combine across **four orthogonal axes** — lifecycle
@@ -416,25 +482,24 @@ switch sources.
 The `/games` omnisearch modal renders results in up to three top-to-bottom
 sections, in this fixed order:
 
-1. **games** — local Game rows from the install's Postgres / Meilisearch
-   corpus.
+1. **games** — local Game rows from the install's Postgres / Meilisearch corpus.
 2. **bundles** — local Bundle rows (`:games_search` mode only).
 3. **on IGDB** — remote IGDB hits, populated on every dispatch and deduped
    against the local games section by `igdb_id` (see
    `docs/architecture.md > Games omnisearch` for the dispatch contract).
 
-The user sees any given game in exactly ONE section. When the local install
-has already imported an IGDB row, that row appears in **games** and is
-filtered out of **on IGDB**. When it hasn't, the row appears in **on IGDB**
-only. This guarantees the three-section model never feels like a duplicate
-list — every row is either a local entity (importable already in the
-library) or a remote entity (importable via `[add]`).
+The user sees any given game in exactly ONE section. When the local install has
+already imported an IGDB row, that row appears in **games** and is filtered out
+of **on IGDB**. When it hasn't, the row appears in **on IGDB** only. This
+guarantees the three-section model never feels like a duplicate list — every row
+is either a local entity (importable already in the library) or a remote entity
+(importable via `[add]`).
 
 Section headings render in the same muted typographic style as other modal
-section headings; empty sections collapse entirely (no "no results" stub
-unless ALL sections are empty, in which case the modal renders a single
-muted line). The IGDB-unavailable case renders an upstream-error sentence
-in place of the **on IGDB** hit list, leaving the local sections untouched.
+section headings; empty sections collapse entirely (no "no results" stub unless
+ALL sections are empty, in which case the modal renders a single muted line).
+The IGDB-unavailable case renders an upstream-error sentence in place of the
+**on IGDB** hit list, leaving the local sections untouched.
 
 Dismiss control is `[close]` per the
 [Modal dismiss labels](#modal-dismiss-labels--close-vs-cancel) rubric — the
@@ -506,6 +571,76 @@ Both render via the same pattern:
 
 `ConfirmModalComponent` defaults to `cancel_label: "cancel"`; custom
 informational modals use `[close]`.
+
+### Modal footer alignment
+
+- **Modal footer buttons are LEFT-aligned.** `[close]`, `[cancel]`, and primary
+  action buttons all sit on the left edge of the footer row. No right-aligned
+  footer buttons anywhere in the app. Locked 2026-05-19.
+
+The shared `.modal-footer` and `.confirm-modal-actions` rules use
+`display: flex` with no `justify-content` override, so flex children naturally
+left-align. Do NOT add `margin-left: auto` to push a button right.
+
+### Modal border-radius
+
+**Locked 2026-05-19, user.** Every `<dialog>` surface in the app —
+confirmation modals (`confirm-modal`), settings modals (`settings-modal`),
+wide modals (`wide-modal`), omnisearch modals (`omnisearch-modal`,
+`everywhere-modal`), and the about modal — uses `border-radius: 2px`. The
+omnisearch input field inside an omnisearch modal also uses
+`border-radius: 2px`, matching the global form-input radius. The rule is
+enforced on the base `dialog { border-radius: 2px }` CSS selector so every
+named modal class inherits it; per-modal overrides MUST use 2px or omit the
+property. No other radius values (4px, 6px, etc.) are permitted on modal
+chrome.
+
+### Modal K-V content — `<dl>` grid (no colons)
+
+Modal content that pairs labels with values (version + revision, key + value
+metadata, simple "fact list" surfaces) renders as a `<dl>` definition list laid
+out on a 2-column CSS Grid. **No colons after labels** — the visual grid already
+communicates the K-V relationship; colons add noise. Locked 2026-05-19;
+canonical implementation in `AboutModalComponent`.
+
+```erb
+<div style="display: flex; justify-content: center;">
+  <dl style="display: grid;
+             grid-template-columns: auto auto;
+             column-gap: 8px;
+             row-gap: 4px;
+             margin: 0;">
+    <dt class="text-muted" style="text-align: right;">version</dt>
+    <dd style="margin: 0; text-align: left;">1.2.3</dd>
+    <dt class="text-muted" style="text-align: right;">revision</dt>
+    <dd style="margin: 0; text-align: left;">[abc1234]</dd>
+  </dl>
+</div>
+```
+
+**Centered variant (canonical, About modal).**
+`grid-template-columns: auto auto` keeps both columns sized to content; labels
+right-aligned + values left-aligned puts the gap at the dl's horizontal middle.
+Wrap in a `display: flex; justify-content: center;` parent so the
+intrinsic-width grid centers under whatever heading sits above it.
+
+**Full-width variant.** When the modal needs the value column to take all
+remaining space (long URLs, long titles, multi-word descriptors), use
+`grid-template-columns: auto 1fr` instead — label column hugs content, value
+column expands. Drop the centering wrapper.
+
+- `<dt>` carries `.text-muted` for the label's secondary visual weight.
+- `<dd>` zeros its default browser margin (`margin: 0`) so row-gap is the only
+  vertical rhythm.
+- The grid alignment is the K-V semantic — no `: ` punctuation, no parenthesized
+  formatting, no inline `<strong>`.
+
+**When to use.** Informational modals (about, version, simple metadata
+displays). Multi-row attribute panels on detail pages MAY adopt the same shape
+when the existing `.detail-table` pattern feels too heavy.
+
+**When NOT to use.** Forms (use `FormFieldComponent`), tables of records (use
+`<table>`), narrative prose (use paragraphs).
 
 ### Bracketed labels: minimum text
 
@@ -679,6 +814,33 @@ Short labels for compact display:
 - Active sort shows single arrow (▲ or ▼)
 - Tables use `width: auto` — no unnecessary whitespace
 
+### Trend indicators
+
+- **Glyphs (locked 2026-05-19, user):**
+  - **Up:** `▲` (U+25B2 BLACK UP-POINTING TRIANGLE) in `var(--color-trend-up)` —
+    `#2e7d32` light, `#5cb85c` dark.
+  - **Steady:** `–` (U+2013 EN DASH) in `var(--color-trend-steady)` — aliased to
+    `var(--color-muted)`.
+  - **Down:** `▼` (U+25BC BLACK DOWN-POINTING TRIANGLE) in
+    `var(--color-trend-down)` — aliased to `var(--color-danger)`.
+- **Glyph family parity:** `▲` and `▼` are the SAME glyphs used by sortable
+  table headers (`th.sortable::after`,
+  `app/assets/tailwind/application.css:983-1023`). Reuse them across every
+  trend-direction surface (channel ID cards, video metric rows, any future
+  analytics widget) so the up/down vocabulary stays consistent across the app.
+- **Sizing:** body font-size (13px monospace per the project default); no
+  special sizing. Active sortable arrows bump to 13px from a 10px inactive stack
+  at `application.css:1015` — match active-arrow weight inside trend cells.
+- **Down-trend red is the SECOND authorized exception to the destructive-only
+  red rule.** The first is the rating heat bar (`RatingHeatBarComponent`, see
+  the §"Colors" red-restriction note with `--color-rating-bad`). Trend-down red
+  is restricted to `--color-trend-down` and its rendering surfaces — no other
+  decorative use. New trend-direction tokens that want red must route through
+  `--color-trend-down`.
+- **Component:** trend rendering happens inside data components
+  (`Channels::IdCardComponent`, future video / analytics surfaces). No dedicated
+  `TrendComponent` exists yet — if more than three callers form, extract one.
+
 ### Table Layout
 
 - `border-collapse: collapse`, 13px font
@@ -808,6 +970,135 @@ Mnemonic: a user reading `url` thinks of the technical lowercase identifier;
 - Error: "couldn't create — check the fields below.", "couldn't update — check
   the fields below."
 - Notices: blue-tinted background, errors: red-tinted background
+
+### Channel avatars
+
+- **Source asset shape:** YouTube Data API returns SQUARE thumbnails via
+  `snippet.thumbnails.{default,medium,high}` (88 × 88, 240 × 240, 800 × 800 px
+  JPG/PNG). YouTube.com renders them rounded via CSS; the asset itself is
+  square.
+- **Pito render (locked 2026-05-19, user — reverses earlier 2px-square rule):**
+  `border-radius: 50%`. Renders the avatar as a full circle, hiding YouTube's
+  opaque-white corner padding so circular creator logos (uploaded with
+  transparency, flattened by YouTube to white-cornered JPEG — see "Verified
+  empirically" bullet below) display correctly. Matches YouTube.com's own
+  rendering treatment. Trade-off accepted: creators who uploaded square artwork
+  get their corners clipped; circular-logo creators are visually dominant on
+  YouTube so this is the better default.
+- **Placeholder (no `avatar_url` yet — pre-sync state):** a 1px bordered empty
+  CIRCLE at the same dimensions, `border-radius: 50%`, with a 1px edge in the
+  surface-appropriate border token (chip-row avatars use `--color-border`; ID
+  card avatars use `--color-cover-border`). No initials, no glyph; the empty
+  circle is the pre-sync state.
+- **Applies to:** every channel-avatar render surface — `/channels` avatar
+  shelf, `/channels/:id` legacy detail (until Wave B removes it), the OAuth
+  multi-channel picker modal (when it lands in Wave B), and any future
+  channel-avatar surface. The circular treatment is uniform across every
+  channel-avatar render — chip-row, ID card, detail page, picker modal — so the
+  visual vocabulary stays consistent with YouTube.com's own avatar rendering.
+- **Sizing rule (avatar shelf specifically):** avatar tile height = 2 × chip
+  text line-height + the inter-row gap. See `Games::FilterRowComponent` for the
+  canonical line-height and gap. The avatar is square so width = height. Pito's
+  `Channels::AvatarShelfComponent` is the reference implementation.
+- **Verified empirically 2026-05-19** — six well-known channels (MrBeast, NASA,
+  Veritasium, Google, GoogleDevelopers, LinusTechTips) plus the user's own
+  channel `UCAUaMYX8qxmEmbBybLNr0jw` were probed directly. Every avatar URL
+  returns `https://yt3.googleusercontent.com/<id>=s<NN>-c-k-c0x00ffffff-no-rj`
+  with `content-type: image/jpeg`,
+  `content-disposition: ...channels4_profile.jpg`, JPEG 800×800, 3-channel sRGB
+  (no alpha plane). All four corners read `srgb(255,255,255)`. The `c0x00ffffff`
+  URL fragment is literally a YouTube-server-side opaque-white background fill.
+  **Transparent-corner uploads are flattened to white at YouTube's pipeline.**
+  The user's own channel — uploaded as a circular avatar with PNG transparency —
+  comes through as the same JPEG-white-cornered shape. No alpha handling needed
+  in Pito's render path.
+- **No more 2px-radius for channel avatars.** Any agent reading this subsection
+  and applying `border-radius: 2px` to a channel avatar is using stale guidance
+  — flag and fix. The 2px convention still applies to OTHER surfaces (inputs,
+  panes, the `--color-cover-border` framed game-cover thumbnails, etc.) but NOT
+  to channel avatars specifically.
+
+### Channel ID card
+
+The per-channel summary tile rendered in the /channels ID-card shelf below the
+title+chips hairline. Component: `Channels::IdCardComponent`
+(`app/components/channels/id_card_component.{rb,html.erb}`). Locked 2026-05-19
+after several iterations; the dimensions below diverge intentionally from the
+prior ISO/IEC 7810 ID-1 (1.586:1) sketch.
+
+**Outer card.**
+
+- **Dimensions:** **158 px tall × 314 px wide** (landscape). The width is a 25%
+  widening of the prior ISO ID-1 footprint at the same height; the extra 63 px
+  flow entirely into the right column.
+- **Border:** 1px `var(--color-cover-border)`, `border-radius: 2px` — same
+  framed-thumbnail convention as /games tiles and the /channels avatar shelf's
+  per-avatar border.
+- **Background:** `var(--color-channel-id-card-bg)` — theme-aware token,
+  `#eef0f3` light, `#2f3142` dark. Values copied from the Discord pane's
+  `--color-pane-bg-a` tone for surface parity, but the token is **independent**
+  so future tweaks decouple.
+
+**Two-column body.** Below a full-width name row + horizontal hairline, the body
+splits into:
+
+- **Left column — 125 px fixed (`flex-shrink: 0`).** Avatar + handle. Extends
+  through the full body height; the in-body footer hairline and footer live in
+  the right column only.
+- **Right column — 189 px flex (auto-expand).** Three-row stat grid + footer.
+
+**Avatar (inside card).**
+
+- **Size:** 105 px square (`width: 105px; height: 105px`, `aspect-ratio: 1/1`,
+  `flex-shrink: 0`).
+- **Shape:** `border-radius: 50%` — full circle, per the §"Channel avatars" rule
+  above. Empty pre-sync placeholder uses the same circle with a 1px
+  `var(--color-cover-border)` edge.
+- **Vertical centering:** `margin-top: 3px` nudges the avatar to visually center
+  within its left-column budget (avatar tile + 8 px gap + handle row).
+
+**Name row (top of card).**
+
+- 13 px body font, `font-weight: 700`.
+- `padding: 6px 8px` (6 px vertical / 8 px horizontal) — gives the title visible
+  breathing room from the card border and the hairline below it.
+- CSS ellipsis truncation:
+  `white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%`
+  — long channel names ellipsize, short names render in full.
+
+**Stat grid (right column).**
+
+- 3-column CSS Grid: `grid-template-columns: 1fr auto auto` — number / unit /
+  arrow, in that left-to-right order (locked; flips an earlier
+  `arrow / number / unit` sketch).
+- Number cell: `justify-self: end` so the three number right edges align at the
+  same x against the unit label. `font-variant-numeric: tabular-nums` keeps
+  digit widths consistent across rows.
+- Unit cell: `justify-self: start` so the three unit left edges align.
+- Arrow cell: `justify-self: end`, sitting at the card's right edge with ~6 px
+  right padding (via the right-column padding).
+- Stat font-size: 13 px (body default).
+- Column gap: 6 px.
+
+**Trend arrows.** Use the §"Trend indicators" glyph + color family (`▲ / – / ▼`,
+`--color-trend-up|steady|down`).
+
+**Footer (right column only).**
+
+- Hairline (`border-top: 1px solid var(--color-border)`) and footer copy live
+  inside the right-column wrapper, so the left column extends down through where
+  the footer would otherwise have spanned full-width.
+- Footer content: a single `[YouTube Studio]` `BracketedLinkComponent` link
+  pointing to `https://studio.youtube.com/channel/<youtube_channel_id>`. The
+  brand-names-capitalized rule supplies the "YouTube Studio" copy (not
+  `[studio]`).
+- `BracketedLinkComponent`'s auto-external detection emits
+  `target="_blank" rel="noopener noreferrer"` automatically.
+
+**Inert this phase.** No Stimulus controllers, no actions other than the two
+external `<a>` tags (handle + Studio). Wave A1 ships with `Channels::MockData`
+feeding the component; Wave B swaps the data source for real `Channel` /
+analytics records.
 
 ### Unsaved-changes navigation guard
 
@@ -1066,6 +1357,87 @@ All reusable UI elements are ViewComponents with specs:
 | `SavedViewsSectionComponent` | Saved views dialog trigger and list                |
 | `SortableHeaderComponent`    | Table `<th>` with sort arrows and data attributes  |
 | `StatusIndicatorComponent`   | Trend indicators (▲ ▼ —)                           |
+
+## Brand assets
+
+Locked 2026-05-19 — the legacy `public/Pito.png` logo was retired in favor of a
+multi-size favicon set + Android-Chrome PWA icons. A second favicon iteration
+landed the same day, refining the logo design while keeping every path below
+unchanged. **Every brand-render surface in the Rails app routes through one of
+the paths below — no other logo files live in `public/`, and no surface
+references `/Pito.png` anymore.**
+
+### Canonical asset paths (`public/`)
+
+| Asset                         | Path                           | Native size |
+| ----------------------------- | ------------------------------ | ----------- |
+| Favicon (browser tab, small)  | `/favicon-16x16.png`           | 16 × 16     |
+| Favicon (browser tab, hi-dpi) | `/favicon-32x32.png`           | 32 × 32     |
+| Favicon (legacy `.ico` slot)  | `/favicon-32x32.png` (via 301) | 32 × 32     |
+| Favicon (taskbar / bookmark)  | `/favicon-48x48.png`           | 48 × 48     |
+| Favicon (header logo source)  | `/favicon-64x64.png`           | 64 × 64     |
+| Favicon (Windows tile)        | `/favicon-96x96.png`           | 96 × 96     |
+| Favicon (About modal source)  | `/favicon-128x128.png`         | 128 × 128   |
+| Favicon (manifest medium)     | `/android-chrome-192x192.png`  | 192 × 192   |
+| Favicon (general hi-dpi)      | `/favicon-256x256.png`         | 256 × 256   |
+| Favicon (manifest large)      | `/android-chrome-512x512.png`  | 512 × 512   |
+| Apple touch icon              | `/apple-touch-icon.png`        | 180 × 180   |
+
+### Surface-by-surface usage
+
+| Surface                               | Asset                         | Display size      |
+| ------------------------------------- | ----------------------------- | ----------------- |
+| Header logo (`layouts/application`)   | `/favicon-64x64.png`          | 14 px             |
+| Footer logo (`layouts/application`)   | `/favicon-64x64.png`          | 10 px             |
+| `AboutModalComponent` logo            | `/favicon-128x128.png`        | 64 × 64           |
+| `og:image` (social card / Open Graph) | `/android-chrome-512x512.png` | native            |
+| OAuth `logo_uri` (RFC 7591 extension) | `/android-chrome-192x192.png` | native            |
+| MCP `logo_uri` (RFC 9728 extension)   | `/android-chrome-192x192.png` | native            |
+| `/favicon.ico` request                | 301 → `/favicon-32x32.png`    | 32 × 32           |
+| `manifest.json` icon entries          | 192 + 512 px android-chrome   | per manifest spec |
+
+The header + footer logos source from the 64 px asset and downscale via inline
+CSS — 64 px gives ~4× density on a 14-16 px render, comfortable for retina. The
+About modal sources from the 128 px asset for ~2× density on its 64-px render.
+
+### Logo render conventions
+
+- **Favicon-as-logo surfaces use `border-radius: 2px`** — they are square brand
+  assets, NOT circular avatars. The 50% radius rule from §"Channel avatars"
+  applies to YouTube channel artwork only.
+- **`alt="pito"`** on every `<img>` tag — lowercase, matches the brand treatment
+  in copy.
+- **External-link wrappers** (footer logo → pitomd.com) follow the §"External
+  links — new tab convention" attribute pair.
+
+### Astro landing page (`extras/website/`) — dark only
+
+The Astro-rendered landing site at `extras/website/` ships with a **single dark
+theme** — no light theme code, no theme toggle. Locked 2026-05-19. Enforced by
+`<meta name="color-scheme" content="dark">` in `Base.astro`, which overrides the
+visitor's system preference; the body background never flashes white during
+load.
+
+| Token (Astro `:root`) | Value     | Rails analogue                |
+| --------------------- | --------- | ----------------------------- |
+| `--bg`                | `#0f0f10` | Near-black, project-specific  |
+| `--fg`                | `#f8f8f2` | `--color-text` (dark Dracula) |
+| `--muted`             | `#8a8a93` | Project-specific muted gray   |
+| `--link`              | `#bd93f9` | `--color-link` (dark Dracula) |
+
+The Astro tree is independent of the Rails build, but the design language
+overlaps deliberately:
+
+- **Monospace stack** identical to the Rails app's font rule (§"Typography").
+- **K-V grid pattern** for project metadata blocks mirrors the Rails §"Modal K-V
+  content" subsection.
+- **Palette parity** on `--fg` and `--link` with the Rails dark theme so the
+  marketing surface reads as the same brand.
+
+Astro-side changes do NOT propagate to the Rails CSS, and Rails palette
+extensions do NOT auto-flow to Astro. Cross-surface drift is acceptable so long
+as the four shared tokens above stay close — when the Rails dark palette shifts,
+the Astro site is a manual follow-up sweep, not a build dependency.
 
 ## Aesthetic
 

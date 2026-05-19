@@ -185,6 +185,10 @@ class Channel < ApplicationRecord
   after_save_commit :sync_calendar_entry
   after_touch :sync_calendar_entry
 
+  # Channel-only Meilisearch indexing; independent of the Searchable concern (decoupled from Game/Bundle pipeline).
+  after_save_commit { ChannelIndexJob.perform_later(id) }
+  after_destroy_commit { ChannelRemoveIndexJob.perform_later(id) }
+
   scope :starred,   -> { where(star: true) }
   # Phase 22 — "connected" semantic post-Phase-9 rename. A channel is
   # treated as connected when it carries a `youtube_connection_id`

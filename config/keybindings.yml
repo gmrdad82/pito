@@ -28,6 +28,49 @@ leader:
   key: " "
   display: "_"
 
+# Flat (leader-less) entry points. Keys fire WITHOUT pressing SPACE
+# first; the `flat-key` Stimulus controller listens at document level
+# and respects the same input-focus / open-dialog / modifier-key
+# exemptions the leader controller does (see
+# `flat_key_controller.js`). Supported action types:
+#
+#   open_modal { modal_id: <dom-id> }
+#     Locates `<dialog id=...>` and calls `.showModal()` so the
+#     modal lands in the browser top layer. When the dialog has an
+#     `omnisearch-modal` Stimulus controller wired, that controller's
+#     `open()` method is preferred (resets state, focuses input).
+#
+#   open_leader_with_prefix { prefix: <string> }
+#     Opens the leader-menu popup AND seeds the prefix accumulator
+#     with `prefix` so the popup renders as a filtered compact view
+#     of the matching `menus.root.items`. The compact mode is signaled
+#     by `data-compact="true"` on the popup `<dialog>` so CSS hides
+#     the local (page_actions) section — the user is mid-flow on a
+#     2-letter root binding, not browsing page surface keys.
+#
+# Coupling note: the `menus.root.items` block below was rebound to
+# 2-letter prefixed forms (gC, gG, gS, qQ) so the flat keys here are
+# the canonical entry points and the popup compact-mode view stays
+# filtered. The TUI-only `q` quit binding under `menus.root.items`
+# keeps its single-char key and is unaffected (TUI doesn't ship a
+# flat-key surface).
+flat:
+  items:
+    # Phase 37 (2026-05-19) — `/` flat-key now opens the new
+    # layout-mounted everywhere modal (games + bundles + channels) on
+    # every page. The legacy games-search modal at
+    # `omnisearch-modal-games-search` (mounted only on `/games`) is
+    # unchanged; it stays reachable via the `/` entry under
+    # `page_actions.games_index` for the games page itself.
+    - { key: "/", label_i18n: keybindings.flat.search,
+        action: { type: open_modal, modal_id: omnisearch-modal-everywhere } }
+    - { key: "?", label_i18n: keybindings.flat.about,
+        action: { type: open_modal, modal_id: about-modal } }
+    - { key: g,   label_i18n: keybindings.flat.global_prefix,
+        action: { type: open_leader_with_prefix, prefix: g } }
+    - { key: q,   label_i18n: keybindings.flat.logout_prefix,
+        action: { type: open_leader_with_prefix, prefix: q } }
+
 # Per-modal action keys — rendered in the leader popup INSTEAD of the
 # page actions + nav + logout whenever a `<dialog open>` is on the
 # page carrying `data-modal-actions-key="<key>"`. When a keyed modal
@@ -396,25 +439,38 @@ menus:
   # root menu entirely. Out-of-scope sections can be re-added later
   # when those pages return to active work.
   #
+  # 2026-05-19 — 2-letter prefix scheme. Every navigation binding now
+  # uses a 2-letter form (`gC` channels, `gG` games, `gS` settings,
+  # `qQ` logout) so it can also be reached by the flat-key compact
+  # menu: pressing `g` (or `q`) WITHOUT the SPACE leader opens the
+  # leader popup in compact mode (`data-compact="true"`) seeded with
+  # that prefix — the popup re-renders filtered to just the `g*` (or
+  # `q*`) items. Pressing SPACE first still opens the full leader
+  # menu (page_actions + nav) where the same 2-letter keys also work.
+  # See the top-level `flat:` block for the leader-less entry points.
+  #
+  # 2-letter bindings:
+  #   gC → channels       gG → games       gS → settings
+  #   qQ → logout
   # Direct-key entries (no prefix continuation):
-  #   S → settings       Q → logout       q → quit (TUI-only)
-  # 2-key bindings:
-  #   Gl → games (the only navigation entry; `G+` and `Gb` moved to
-  #               page_actions.games_index — they're page-local
-  #               actions, not global navigation)
+  #   q  → quit (TUI-only; surfaces: [tui]; never appears in the web
+  #         popup so it does not collide with the `q` flat-key)
   #
   # The prefix accumulator (`leader_menu_controller.js#handlePrefixKey`)
-  # still handles multi-char keys natively; `G` is a prefix-only key
-  # waiting for the second char (`l` → games, or in /games context
-  # `+` → add game, `b` → add bundle).
+  # handles multi-char keys natively; `g` is a prefix-only key in this
+  # menu (no exact `g` binding), so pressing `g` then `C`/`G`/`S` fires
+  # the matching navigation. `q` is a prefix-only key in the web view
+  # (the bare `q` quit entry is filtered out as TUI-only).
   #
   # Divider entries split the visual list into logical groups
   # (navigation, logout). Renderers skip dividers during key dispatch.
   root:
     items:
-      - { key: Gl, label_i18n: keybindings.menus.root.games,    action: { type: navigate, path: "/games" } }
-      - { key: S,  label_i18n: keybindings.menus.root.settings, action: { type: navigate, path: "/settings" } }
+      - { key: gC, label_i18n: keybindings.menus.root.channels, action: { type: navigate, path: "/channels" } }
+      - { key: gG, label_i18n: keybindings.menus.root.games,    action: { type: navigate, path: "/games" } }
+      - { key: gS, label_i18n: keybindings.menus.root.settings, action: { type: navigate, path: "/settings" } }
       - { key: q,  label_i18n: keybindings.menus.root.quit,     action: { type: quit }, surfaces: [tui] }
       - divider: true
-      - { key: Q,  label_i18n: keybindings.menus.root.logout,   action: { type: logout } }
+      - { key: qQ, label_i18n: keybindings.menus.root.logout,   action: { type: logout } }
+      - { key: "?", label_i18n: keybindings.menus.root.about,   action: { type: open_modal, modal_id: about-modal } }
 
