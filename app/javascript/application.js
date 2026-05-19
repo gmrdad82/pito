@@ -4,6 +4,36 @@ import "controllers"
 import "Chart.bundle"
 import "chartkick"
 
+// 2026-05-20 — section-accent shim. Turbo Drive replaces body CONTENT
+// on navigation but does NOT re-apply body element ATTRIBUTES, so the
+// server-rendered `<body data-section="...">` stayed at the first
+// page's value across subsequent navigations and the CSS cascade
+// flipping `--color-section-accent` never updated. Mirror approach
+// to the keybindings JSON + enroll-totp-gate meta: render a meta tag
+// in `<head>` (Turbo head-merge swaps mismatched meta tags via
+// `mergeProvisionalElements` / `isEqualNode`) and copy its content
+// onto `document.body.dataset.section` after every navigation.
+// Three listeners cover the lifecycle:
+//   * DOMContentLoaded — initial vanilla page load (belt-and-
+//     suspenders; the server-rendered body attribute is already
+//     correct on first paint, but this keeps the two surfaces in
+//     sync from the very first tick).
+//   * turbo:load — fires after every Turbo Drive navigation
+//     completes (the new body is in the DOM).
+//   * turbo:render — fires when Turbo swaps body content (covers
+//     stream renders and edge cases where `turbo:load` is
+//     suppressed, e.g. cached body restoration).
+const syncSectionAttribute = () => {
+  const meta = document.head.querySelector('meta[name="pito:section"]')
+  if (meta && document.body) {
+    document.body.dataset.section = meta.content
+  }
+}
+
+document.addEventListener("DOMContentLoaded", syncSectionAttribute)
+document.addEventListener("turbo:load", syncSectionAttribute)
+document.addEventListener("turbo:render", syncSectionAttribute)
+
 document.addEventListener("DOMContentLoaded", () => {
   if (!window.Chart) return
   const Chart = window.Chart

@@ -7,8 +7,8 @@
         left column moves to the FOOTER (bottom-left of the card).
       * The footer is now FULL-WIDTH (was right-column-only). It has a
         full-width horizontal hairline above it, and its contents are
-        split into `[@handle]` (left) + a vertical `|` divider via
-        `border-left` on the Studio wrapper + `[ Studio ]` (right).
+        `[@handle]` (left) + `[ Studio ]` (right) with no inner vertical
+        divider between them.
       * Footer copy: `[ YouTube Studio ]` → `[ Studio ]` per spec.
     Avatar stays at 80 px (kept proportionate — the freed-up left column
     vertical space is absorbed by `justify-content: center`). %>
@@ -19,8 +19,7 @@
                 width: <%= card_width_px %>; height: <%= card_height_px %>;
                 flex: 0 0 <%= card_width_px %>;
                 border: 1px solid var(--color-cover-border);
-                border-radius: 2px;
-                background: var(--color-channel-id-card-bg);">
+                border-radius: 2px;">
 
   <%# Optional score badge overlay — top-right corner. Only rendered
       when `@score` is provided (recommended-channels-on-/games/:id
@@ -144,9 +143,9 @@
       hairline above the footer spans the full card width via
       `border-top` on this element. `display: flex` with
       `justify-content: space-between` places `[@handle]` at the left
-      and `[ Studio ]` at the right; the Studio wrapper carries a
-      `border-left` to render the vertical `|` divider between the two
-      sides. %>
+      and `[ Studio ]` at the right. The inner vertical hairline between
+      the two links was removed 2026-05-19 (final ID-card refinement
+      before the component is LOCKED). %>
   <div class="channels-id-card__footer"
        style="border-top: 1px solid var(--color-border);
               display: flex; justify-content: space-between; align-items: stretch;
@@ -158,8 +157,7 @@
       <%= render(BracketedLinkComponent.new(label: channel[:handle], href: handle_url)) %>
     </div>
     <div class="channels-id-card__studio"
-         style="padding: 2px 6px;
-                border-left: 1px solid var(--color-border);">
+         style="padding: 2px 6px;">
       <%= render(BracketedLinkComponent.new(label: "Studio", href: studio_url)) %>
     </div>
   </div>

@@ -1,33 +1,40 @@
-<%# 2026-05-19 v3 — full-width gradient bar with four `|` ticks.
-    The bar shape is ALWAYS `[===…===]` (N=40 cells between the
-    brackets). All `=` cells share the cool-spectrum gradient via
-    background-clip:text on the `__fill` spans. Four `|` ticks
-    (footage + main + extras + completionist) replace individual
-    `=` cells at their projected positions; each tick lives in its
-    own `__tick-char` span so it renders in theme-text color
-    regardless of gradient stop.
+<%# 2026-05-19 v4 — RHM-V5-shaped text bar:
+    `[ ──────────────── ]` flexbox track with `[` and `]` anchored to
+    the parent's left/right edges, a stretching `__fill` carrying the
+    continuous Dracula Green→Cyan→Yellow→Pink gradient, and 4
+    absolutely-positioned `|` ticks (main / extras / completionist /
+    footage) each painted in their category color token.
 
-    Surrounding rows (footage value above, pillar hour labels below,
-    legend) are retained from v1 / v2 — only the bar itself changed
-    shape between revisions.
-%>
+    The 4-row structure (top bubble / bar / bottom labels / legend) is
+    retained from v3 with tighter inter-row gaps. %>
 
 <div class="ttb-fuel-gauge" data-component="time-to-beat" data-variant="text_bar">
-  <%# Row 1 — Footage value text, positioned over the footage tick. %>
+  <%# Row 1 — Footage value bubble, positioned over the footage tick.
+      2026-05-20 — RHM-style column bubble: number on top, ▼ arrow
+      below, both centered on the footage tick at `footage_position%`. %>
   <div class="ttb-fuel-gauge__values ttb-fuel-gauge__values--top">
     <% if render_footage_tick? %>
-      <span class="ttb-fuel-gauge__value ttb-fuel-gauge__value--footage <%= footage_label_alignment_class %>"
-            style="left: <%= footage_position %>%;">
-        <%= footage_value_label %>
-      </span>
+      <div class="ttb-fuel-gauge__footage-bubble" style="left: <%= footage_position %>%;">
+        <span class="ttb-fuel-gauge__footage-bubble-num"><%= footage_value_label %></span>
+        <span class="ttb-fuel-gauge__footage-bubble-arrow">&#9660;</span>
+      </div>
     <% end %>
   </div>
 
-  <%# Row 2 — the bar itself, rendered as one monospace text line. %>
+  <%# Row 2 — the bar itself. Flexbox track mirrors RHM-V5: `[` + `]`
+      snap to the container edges via `flex: 0 0 auto`; the `__fill`
+      grows via `flex: 1 1 auto + overflow: hidden`. Ticks are
+      absolutely positioned overlays at `left: <position>%`. %>
   <div class="ttb-fuel-gauge__bar-row">
     <span class="ttb-fuel-gauge__bar"
           data-resyncing="<%= resyncing? ? "yes" : "no" %>">
-      <span class="ttb-fuel-gauge__bracket">[</span><% cell_groups.each do |group| %><% if group[:kind] == :fill %><span class="ttb-fuel-gauge__fill"><%= group[:text] %></span><% else %><span class="ttb-fuel-gauge__tick-char"><%= group[:text] %></span><% end %><% end %><span class="ttb-fuel-gauge__bracket">]</span>
+      <% gradient_breaks = gradient_break_positions %>
+      <span class="ttb-fuel-gauge__track"><span class="ttb-fuel-gauge__bracket">[</span><span class="ttb-fuel-gauge__fill"<% if gradient_breaks %> style="--ttb-p1: <%= gradient_breaks[:p1] %>; --ttb-p2: <%= gradient_breaks[:p2] %>; --ttb-p3: <%= gradient_breaks[:p3] %>; --ttb-p4: <%= gradient_breaks[:p4] %>; --ttb-p5: <%= gradient_breaks[:p5] %>; --ttb-p6: <%= gradient_breaks[:p6] %>;"<% end %>>===============================================================================</span><span class="ttb-fuel-gauge__bracket">]</span></span>
+      <% tick_overlays.each do |tick| %>
+        <span class="ttb-fuel-gauge__tick <%= tick[:token_class] %>"
+              style="left: <%= tick[:position] %>%;"
+              data-tick="<%= tick[:key] %>">|</span>
+      <% end %>
     </span>
   </div>
 
@@ -42,25 +49,26 @@
     <% end %>
   </div>
 
-  <%# Row 4 — legend. Three pillar swatches (uniform tick color)
-      + the recorded swatch (white-fill / bordered). %>
+  <%# Row 4 — legend. Each item pairs a `|` tick glyph in its category
+      color token with the category label. Replaces the previous CSS
+      rectangle swatches. %>
   <div class="ttb-fuel-gauge__legend">
     <span class="ttb-fuel-gauge__legend-item">
-      <span class="ttb-fuel-gauge__legend-swatch ttb-fuel-gauge__legend-swatch--pillar"></span>
-      <%= self.class.pillar_label[:main] %>
+      <span class="ttb-fuel-gauge__legend-tick" style="color: var(--color-ttb-main);">|</span>
+      <span class="ttb-fuel-gauge__legend-label"><%= self.class.pillar_label[:main] %></span>
     </span>
     <span class="ttb-fuel-gauge__legend-item">
-      <span class="ttb-fuel-gauge__legend-swatch ttb-fuel-gauge__legend-swatch--pillar"></span>
-      <%= self.class.pillar_label[:extras] %>
+      <span class="ttb-fuel-gauge__legend-tick" style="color: var(--color-ttb-extras);">|</span>
+      <span class="ttb-fuel-gauge__legend-label"><%= self.class.pillar_label[:extras] %></span>
     </span>
     <span class="ttb-fuel-gauge__legend-item">
-      <span class="ttb-fuel-gauge__legend-swatch ttb-fuel-gauge__legend-swatch--pillar"></span>
-      <%= self.class.pillar_label[:completionist] %>
+      <span class="ttb-fuel-gauge__legend-tick" style="color: var(--color-ttb-completionist);">|</span>
+      <span class="ttb-fuel-gauge__legend-label"><%= self.class.pillar_label[:completionist] %></span>
     </span>
     <% if render_footage_tick? %>
       <span class="ttb-fuel-gauge__legend-item">
-        <span class="ttb-fuel-gauge__legend-swatch ttb-fuel-gauge__legend-swatch--footage"></span>
-        <%= footage_caption %>
+        <span class="ttb-fuel-gauge__legend-tick" style="color: var(--color-ttb-footage);">|</span>
+        <span class="ttb-fuel-gauge__legend-label"><%= footage_caption %></span>
       </span>
     <% end %>
   </div>

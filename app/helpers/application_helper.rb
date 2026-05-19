@@ -21,19 +21,50 @@ module ApplicationHelper
   # `games`) and nested namespaces (e.g. `channels/stars`,
   # `settings/security/totp`, `games/destroy_confirms`) — the leading
   # segment alone determines the bucket. Anything else (root,
-  # dashboard, login, oauth, notifications, calendar, ...) falls
-  # through to the "home" default so the page renders with the Dracula
-  # Purple accent.
+  # dashboard, notifications, calendar, ...) falls through to the
+  # "home" default so the page renders with the Dracula Purple accent.
+  #
+  # 2026-05-20 — Auth-adjacent surfaces explicitly map to "settings"
+  # so the orange accent carries through every credential / OAuth /
+  # 2FA flow rather than flickering back to the home purple between
+  # the navbar and the settings page proper. Covered surfaces and the
+  # controllers that produce them:
+  #   - `settings/*`                            — Settings::*Controller
+  #     (includes `settings/security/totps`, `settings/webhooks/*`,
+  #     `settings/sessions/*`, `settings/discord_webhooks`,
+  #     `settings/slack_webhooks`, `settings/user`,
+  #     `settings/time_zone`, `settings/notification_toggles`,
+  #     `settings/security`)
+  #   - `login/totp_challenges`                 — Login::TotpChallengesController
+  #     (post-password TOTP step at `/login/totp`)
+  #   - `password_resets`                       — PasswordResetsController
+  #     (`/password/reset` family)
+  #   - `doorkeeper/*`                          — Doorkeeper engine
+  #     (`/oauth/authorize`, `/oauth/token`, `/oauth/revoke`,
+  #     `/oauth/introspect`, `/oauth/applications` admin)
+  #   - `oauth/registrations`                   — Oauth::RegistrationsController
+  #     (MCP dynamic-client registration at `POST /oauth/register`)
+  #   - `youtube_connections/oauth_callbacks`   —
+  #     YoutubeConnections::OauthCallbacksController (Google OAuth
+  #     redirect target for YouTube channel connections)
   def current_section
     return "home" unless respond_to?(:controller_path) && controller_path.present?
 
-    case controller_path
+    path = controller_path
+
+    if path == "login/totp_challenges" ||
+       path == "password_resets" ||
+       path == "oauth/registrations" ||
+       path == "youtube_connections/oauth_callbacks" ||
+       path.start_with?("settings", "doorkeeper/")
+      return "settings"
+    end
+
+    case path
     when "channels", %r{\Achannels/}, "videos", %r{\Avideos/}
       "channels"
     when "games", %r{\Agames/}, "projects", %r{\Aprojects/}
       "games"
-    when "settings", %r{\Asettings/}
-      "settings"
     else
       "home"
     end

@@ -15,10 +15,12 @@
     2026-05-11 (later) — the panel sits on /channels/:slug row 2 as
     the right-hand sibling of the analytics pane inside a shared
     `.pane-row`. It uses the plain `.pane` class (NOT
-    `.pane--standalone`) so the workspace zebra rhythm picks it up —
-    as the even-indexed sibling it paints with `--color-pane-bg-b`,
-    visually distinct from the analytics pane on its left
-    (`--color-pane-bg-a`). Matches the /settings layout pattern.
+    `.pane--standalone`) so the workspace's vertical-hairline
+    treatment separates it from the analytics pane on its left.
+    Matches the /settings layout pattern. (Pane backgrounds were
+    dropped 2026-05-20; the previous `--color-pane-bg-a/b` zebra
+    rhythm is gone — adjacent panes are now separated by a single
+    hairline instead of alternating bg tones.)
 
     2026-05-11 (height fix) — the inline `margin-bottom: 8px` on
     this root pane was dropped. Flex items in a `.pane-row` stretch

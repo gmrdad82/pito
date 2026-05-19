@@ -10,8 +10,9 @@
 #      contains only the avatar.
 #   3. The footer is now FULL-WIDTH (was right-column-only before this
 #      correction). It is a flex row with `[@handle]` at the left and
-#      `[ Studio ]` at the right, split by a vertical `|` divider
-#      rendered as a `border-left` on the Studio wrapper.
+#      `[ Studio ]` at the right. No inner vertical divider between the
+#      two links (removed 2026-05-19 final ID-card refinement before
+#      the component was LOCKED).
 #   4. The horizontal hairline above the footer spans the FULL card
 #      width (was right-column-only before this correction). It is a
 #      `border-top` on the full-width footer element.
@@ -39,7 +40,7 @@
 #   │   └────────┘        1.200h  hours   ▼                      │
 #   │                                                            │
 #   │────────────────────────────────────────────────────────────│  full-width hairline
-#   │  [@studioaurora]              |              [ Studio ]    │  full-width footer
+#   │  [@studioaurora]                              [ Studio ]   │  full-width footer
 #   └────────────────────────────────────────────────────────────┘
 #
 # All values are mocked this slice — `Channels::MockData.channels` feeds
@@ -78,8 +79,8 @@
 #     above the footer. No vertical hairline inside the body.
 #   * Footer: full card width, `display: flex` with
 #     `justify-content: space-between`. `[@handle]` on the left,
-#     `[ Studio ]` on the right, split by a vertical `|` rendered as
-#     a `border-left` on the Studio wrapper.
+#     `[ Studio ]` on the right. No inner vertical divider between
+#     the two links (removed 2026-05-19 final ID-card refinement).
 #   * Trend glyph color: `var(--color-trend-up|steady|down)`. Glyphs
 #     `▲ ▼ –` match the sortable-table convention.
 #

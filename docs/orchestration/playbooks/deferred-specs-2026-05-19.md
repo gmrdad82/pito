@@ -157,11 +157,151 @@ against the new shape before any new coverage lands.
 
 - `spec/components/games/rating_heat_bar_component_spec.rb` — V3 method / class
   renames (`bubble_text` gone, `fill_glyphs` gone); rewrite against the current
-  `RatingHeatBarComponent` public surface
+  `RatingHeatBarComponent` public surface. RHM-V4 (continuous `=` bar) +
+  RHM-V5 (flex bracket alignment + top-margin clearance) refactored this
+  surface further; coverage targets to add when the rewrite lands:
+  - `synthesized_score` class method — rating present, rating nil, edge
+    values 0 / 100, out-of-range clamping; pair with `tier_for` companion
+    that maps score → tier symbol
+  - `TIERS` constant — verify the tier list (bad / mediocre / okay / good /
+    great or current symbol set) and each tier's score boundaries
+  - `overlay_left_percent` private method — clamps score to `[0, 100]`; test
+    with negative, zero, 50, 100, 150 inputs
+  - Render path — score nil — bar renders muted with no overlay (no tick,
+    no bubble)
+  - Render path — score 0 / 100 — bubble + tick anchor at left / right edge;
+    `transform: translateX(-50%)` keeps the glyph centered
+  - Render path — score 50 — bubble + tick centered
+  - Render path — score 87 (mid-high) — gradient color at that position is
+    correct (smoke check, not pixel-perfect)
+  - `BAR_CELLS` constant — currently 60; document that the bar is a
+    fixed-cell-count `=` string with the `__track` flex container handling
+    alignment
+  - Bracket flex behavior (RHM-V5) — `[` and `]` use `flex: 0 0 auto`;
+    `__fill` uses `flex: 1 1 auto` + `overflow: hidden`; `]` always snaps to
+    the parent's right edge regardless of pane width
+  - Top margin clearance (RHM-V5) — `margin-top: 6px` provides clearance
+    from the KV row above the bar on /games/:id
+  - Visual / system spec (optional, deferred to consolidation) — render the
+    bar inside a fake KV table parent at various pane widths and confirm
+    `]` lands flush at parent right
+  - Theme tokens used — `var(--color-rating-bad)`,
+    `var(--color-rating-good)`, etc. (red is the ONE allowed non-destructive
+    red per design.md exception); ensure no hardcoded colors leaked in
+  - RHM-V6 (2026-05-19/20) — 7-band hard-stop gradient — the bar's
+    background is a single `linear-gradient(90deg, …)` with 14 stops at
+    fixed `0 / 14.28 / 14.28 / 28.57 / 28.57 / 42.85 / 42.85 / 57.14 /
+    57.14 / 71.42 / 71.42 / 85.71 / 85.71 / 100` percentages, mapping to
+    the 7-tier rating spectrum (`very-bad → bad → poor → fair → meh →
+    good → excellent`). Each tier band occupies exactly `100 / 7 ≈
+    14.28 %` of the bar width with hard color stops (no interpolation).
+    Spec the exact gradient string against the rendered HTML / inline
+    style and assert each band's start + end percentage matches the
+    table above
+  - RHM-V6 — score tick lands inside a single tier band — for `score = 50`
+    (mid-fair tier), the tick's `left` % falls within `[42.85 %, 57.14 %]`
+    so the underlying band color at the tick is `--color-rating-fair`.
+    Add table-driven cases: `score 0 → very-bad band start`, `score 14 →
+    very-bad band`, `score 50 → fair band`, `score 75 → good band`,
+    `score 100 → excellent band end`
+  - RHM-V6 — token-driven everything — gradient stops, bracket glyphs,
+    and bubble background all reference `var(--color-rating-*)` tokens
+    only; assert zero literal hex anywhere in the rendered markup
+    (regex-grep the rendered HTML for `#` color literals and fail if any
+    appear)
 - `spec/components/games/time_to_beat_component_spec.rb` — V3 method renames
   (`HEAT_THRESHOLDS` gone, `PILLAR_COLOR` gone, `gradient_stops` gone,
   `pillar_cell_index` gone); rewrite against the adaptive-gradient
-  - per-pillar-color surface
+  per-pillar-color surface. TTB-V4 (2026-05-19/20) further refactored
+  this surface; coverage targets when the rewrite lands:
+  - 14-stop dynamic gradient — driven by 6 inline CSS custom properties
+    `--ttb-p1 … --ttb-p6` computed per-game from the main / extras /
+    completionist hour positions. The 7 rating-spectrum colors map onto
+    the bar as: `excellent → good` (main segment) → `fair → meh`
+    (extras segment) → `poor → bad → very-bad` (completionist segment).
+    Spec the inline `style="--ttb-p1: …; --ttb-p2: …; …"` attribute on
+    the rendered root and assert all 6 properties exist with numeric `%`
+    values
+  - `gradient_break_positions`
+    (`app/components/games/time_to_beat_component.rb:244`) — returns a
+    hash with keys `:p1 … :p6` of percentage values computed from
+    main / extras / completionist hours. Table cases per edge-case
+    fixture (see TTB fixtures below)
+  - `tick_overlays`
+    (`app/components/games/time_to_beat_component.rb:118`) — ALWAYS
+    returns the 3 pillar ticks (main / extras / completionist) even
+    when the underlying pillar hours are `nil` / `0`. Verify with the
+    Red Dead Redemption fixture (`main = nil` → main tick rendered at
+    `left: 0 %`). Footage tick is also always included even when
+    footage data is missing (Witcher 3 fixture — `footage_manual = nil
+    && footage_cached = nil`)
+  - `pillar_label_data`
+    (`app/components/games/time_to_beat_component.rb:168`) — returns 3
+    entries always; assert the label text reads `—` (em-dash) when
+    the underlying hours are `0` or `nil`
+  - `footage_value_label`
+    (`app/components/games/time_to_beat_component.rb:91`) — returns
+    `"—"` when footage is `0` / `nil`; verify with the Witcher 3
+    fixture and the Crimson Desert fixture
+  - `footage_position`
+    (`app/components/games/time_to_beat_component.rb:218`) — returns
+    `0` when footage is `0` / `nil`; tick anchors at the left edge in
+    that case
+  - Tick color anchors — pillar ticks adopt their band-end rating
+    color: main tick = `var(--color-rating-good)` (lime end of the
+    main segment), extras tick = `var(--color-rating-meh)` (orange end
+    of the extras segment), completionist tick = `var(--color-rating-
+    very-bad)` (darkest red end of the bar). Footage tick uses
+    `var(--color-text)` (white in dark theme). Assert the inline tick
+    `style="background-color: var(--color-rating-*)"` for each tick
+    role
+  - Footage bubble shape — `num` + `▼` arrow column, matches the RHM
+    `.rating-heat-bar__bubble` shape; bubble copy reads `—` (em-dash)
+    when no footage data
+  - Legend `|` glyphs — three legend pipes colored via inline
+    `style="color: var(--color-ttb-*)"` (or the matching rating token),
+    with NO border / outline / background on the glyph itself
+  - Render path edge cases (see TTB fixtures below) — Pragmata
+    (balanced 3-segment), RDR (`main = nil` collapses green + lime
+    bands to `0 %` width), Crimson Desert (long-tail completionist
+    dominates with poor / bad / very-bad sub-bands occupying ~87 % of
+    the bar), Witcher 3 (footage missing → footage tick + bubble at
+    `0 %` with em-dash bubble)
+  - Theme tokens — every gradient color reference, tick color, legend
+    glyph color, and bubble background uses `var(--color-rating-*)` /
+    `var(--color-text)` / `var(--color-ttb-*)`; no literal hex anywhere
+
+  TTB edge-case fixtures (actual DB values fetched 2026-05-20 via
+  `Game.find_by(igdb_slug: …)` — `ttb_*` columns are seconds, footage
+  is integer hours):
+
+  | slug                       | main (s) | extras (s) | comp (s) | footage_manual | footage_cached |
+  | -------------------------- | -------- | ---------- | -------- | -------------- | -------------- |
+  | `pragmata`                 | 32400    | 51120      | 78480    | 0              | nil            |
+  | `red-dead-redemption`      | nil      | 91297      | 164880   | 28             | nil            |
+  | `crimson-desert`           | 216000   | 297000     | 2655000  | nil            | nil            |
+  | `the-witcher-3-wild-hunt`  | 134552   | 257769     | 581483   | nil            | nil            |
+
+  Converted to hours for sanity (seconds / 3600):
+
+  - **Pragmata** — main 9.0 h, extras 14.2 h, completionist 21.8 h,
+    footage 0 h. Balanced short-to-medium distribution; gradient bands
+    spread across the bar with all three pillars visible.
+  - **Red Dead Redemption** — main `nil`, extras 25.4 h, completionist
+    45.8 h, footage 28 h. Expected: `p1 = p2 = 0 %` (green + lime bands
+    collapse to 0-width slivers), extras tick lands near the middle,
+    completionist tick lands near the right edge, footage tick lands
+    between extras and completionist. Main tick + em-dash label render
+    at `left: 0 %`.
+  - **Crimson Desert** — main 60 h, extras 82.5 h, completionist 737.5 h,
+    footage `nil`. Expected: main + extras pillars occupy tiny slivers
+    at the left edge, completionist dominates ~87 % of the bar with the
+    `poor → bad → very-bad` sub-band sequence; footage tick + bubble
+    render at `0 %` with em-dash.
+  - **The Witcher 3: Wild Hunt** — main 37.4 h, extras 71.6 h,
+    completionist 161.5 h, footage `nil`. Expected: balanced 3-segment
+    with completionist still largest; footage tick + bubble render at
+    `0 %` with em-dash.
 - `spec/requests/favicon_spec.rb` — `/favicon.ico` now serves the direct PNG (no
   redirect); also tracked in `docs/orchestration/follow-ups.md` "favicon_spec.rb
   redirect target update"
