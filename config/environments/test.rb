@@ -60,14 +60,4 @@ Rails.application.configure do
     config.active_record.encryption.deterministic_key = "test-deterministic-key-ci-only0"
     config.active_record.encryption.key_derivation_salt = "test-key-derivation-salt-ci0000"
   end
-
-  # Phase 10 — MCP scope simplification (ADR 0004). Tests run with the
-  # `dev` scope exposed; specs that need the production-style behavior
-  # stub the flag to `false` for individual examples.
-  config.x.mcp.expose_dev_scope = true
-
-  # Phase 25 — 01d. Tests run with the `auth` scope exposed; specs that
-  # need the production-style strip stub the flag to `false` for
-  # individual examples.
-  config.x.mcp.expose_auth_scope = true
 end

@@ -1,128 +1,37 @@
-<%# Single canonical visualization — the fuel gauge. The bar spans the
-    full pane width and represents hours (not percentages) along its
-    x-axis. See `time_to_beat_component.rb` for the layout sketch and
-    the 4-zone color rationale.
+<%# 2026-05-19 v3 — full-width gradient bar with four `|` ticks.
+    The bar shape is ALWAYS `[===…===]` (N=40 cells between the
+    brackets). All `=` cells share the cool-spectrum gradient via
+    background-clip:text on the `__fill` spans. Four `|` ticks
+    (footage + main + extras + completionist) replace individual
+    `=` cells at their projected positions; each tick lives in its
+    own `__tick-char` span so it renders in theme-text color
+    regardless of gradient stop.
 
-    BZ+ restructure (2026-05-17):
-
-      Row 1 — footage value text   (top, positioned over footage tick)
-      Row 2 — TTB bar              (3 colored pillar ticks + 1 footage tick)
-      Row 3 — pillar hour values   (positioned BELOW each pillar tick)
-      Row 4 — legend               (4 swatches + names)
-
-    Pillar names migrated FROM below-the-bar TO the legend row. The
-    "footage" caption migrated FROM below-the-bar TO the legend row.
-    Pillar tick fills moved from theme-text grey to vivid literal
-    hex (yellow / white / pink) so the legend swatch ⇔ bar tick
-    color identity reads at a glance against the cool-spectrum
-    gradient.
-%>
-<%
-  h_main          = hours[:main].to_i
-  h_extras        = hours[:extras].to_i
-  h_completionist = hours[:completionist].to_i
-  footage         = footage_hours
-
-  # Wave C reveal — every tick's `left:` percent now flows through the
-  # `*_position` helpers so the values stub to 0 while `resyncing?` and
-  # snap to the real geometry on sync complete. CSS `transition: left
-  # 600ms ease-in-out` (see application.css) animates the swap.
-  main_pos        = pillar_position(:main)
-  extras_pos      = pillar_position(:extras)
-  compl_pos       = pillar_position(:completionist)
-  footage_pos     = footage_position
+    Surrounding rows (footage value above, pillar hour labels below,
+    legend) are retained from v1 / v2 — only the bar itself changed
+    shape between revisions.
 %>
 
-<div class="ttb-fuel-gauge" data-component="time-to-beat" data-variant="fuel_gauge">
-  <%# Row 1 — Footage value text, positioned over the footage tick.
-      Only one item lives in this row now; pillar hour values have
-      moved BELOW the bar. The footage hours use --color-text so the
-      focal "you are here" number reads brighter than the gradient. %>
+<div class="ttb-fuel-gauge" data-component="time-to-beat" data-variant="text_bar">
+  <%# Row 1 — Footage value text, positioned over the footage tick. %>
   <div class="ttb-fuel-gauge__values ttb-fuel-gauge__values--top">
     <% if render_footage_tick? %>
       <span class="ttb-fuel-gauge__value ttb-fuel-gauge__value--footage <%= footage_label_alignment_class %>"
-            style="left: <%= footage_pos %>%;">
+            style="left: <%= footage_position %>%;">
         <%= footage_value_label %>
       </span>
     <% end %>
   </div>
 
-  <%# Row 2 — the bar itself. The 4-zone effort ramp is a smooth
-      multi-stop linear gradient computed per-game by `gradient_stops`
-      (heat thresholds projected onto `max_x`), inlined as
-      `background-image` here so the visible color spread reflects the
-      game's actual effort scale — Pragmata stays mostly green/lime,
-      Crimson Desert is mostly pink. Zone semantic thresholds (10 / 40
-      / 100 hours) are implicit; no visible vertical guides.
-
-      Wave C reveal — TWO stacked background layers, not a single
-      `background-image`:
-
-        - `__bar-layer--stub` carries the bland `STUB_GRADIENT`
-          (solid `--color-rating-good` green), painted always so the
-          gauge has a visible bed at every moment.
-        - `__bar-layer--real` carries the adaptive gradient computed
-          by `real_gradient_stops`. Its `opacity` is set inline (0
-          while `resyncing?`, 1 once the resync completes), and a
-          `transition: opacity 600ms ease-in-out` rule in the CSS
-          crossfades it in when the Turbo morph swaps the value.
-
-      The CSS-native gradient interpolation is brittle (browsers do
-      not animate `background-image` smoothly); the opacity crossfade
-      between two stacked layers is the reliable equivalent. %>
-  <div class="ttb-fuel-gauge__bar">
-    <div class="ttb-fuel-gauge__bar-layer ttb-fuel-gauge__bar-layer--stub"
-         style="background-image: linear-gradient(to right, <%= stub_gradient_stops %>);"></div>
-    <div class="ttb-fuel-gauge__bar-layer ttb-fuel-gauge__bar-layer--real"
-         style="background-image: linear-gradient(to right, <%= real_gradient_stops %>); opacity: <%= real_layer_opacity %>;"></div>
-
-    <%# Inline "TTB" watermark, vertically centered inside the bar,
-        left-aligned with a few px of padding. Carries the section
-        identifier so no standalone heading sits above. %>
-    <span class="ttb-fuel-gauge__title"><%= t("games.ttb.watermark") %></span>
-
-    <%# Pillar ticks — thin (2px), no border, FILLED with the per-
-        pillar literal hex from `PILLAR_COLOR`. Color identity is
-        what now ties each tick back to its legend swatch + bottom-
-        row hour value. Overshoots the bar by 3px top + bottom so
-        each tick reads as a marker, not a fill stripe. %>
-    <div class="ttb-fuel-gauge__tick ttb-fuel-gauge__tick--pillar ttb-fuel-gauge__tick--main"
-         style="left: <%= main_pos %>%;"
-         data-pillar="main"></div>
-    <div class="ttb-fuel-gauge__tick ttb-fuel-gauge__tick--pillar ttb-fuel-gauge__tick--extras"
-         style="left: <%= extras_pos %>%;"
-         data-pillar="extras"></div>
-    <div class="ttb-fuel-gauge__tick ttb-fuel-gauge__tick--pillar ttb-fuel-gauge__tick--completionist"
-         style="left: <%= compl_pos %>%;"
-         data-pillar="completionist"></div>
-
-    <%# Footage tick — UNCHANGED visual styling from BB/BV: 4px wide,
-        theme-aware page-bg fill + text-color border. Always overlaid
-        on top of the pillar ticks via stacking order. %>
-    <% if render_footage_tick? %>
-      <div class="ttb-fuel-gauge__tick ttb-fuel-gauge__tick--footage"
-           style="left: <%= footage_pos %>%;"
-           data-footage-hours="<%= footage %>"></div>
-    <% end %>
+  <%# Row 2 — the bar itself, rendered as one monospace text line. %>
+  <div class="ttb-fuel-gauge__bar-row">
+    <span class="ttb-fuel-gauge__bar"
+          data-resyncing="<%= resyncing? ? "yes" : "no" %>">
+      <span class="ttb-fuel-gauge__bracket">[</span><% cell_groups.each do |group| %><% if group[:kind] == :fill %><span class="ttb-fuel-gauge__fill"><%= group[:text] %></span><% else %><span class="ttb-fuel-gauge__tick-char"><%= group[:text] %></span><% end %><% end %><span class="ttb-fuel-gauge__bracket">]</span>
+    </span>
   </div>
 
-  <%# Row 3 — pillar hour values, BELOW the bar. Each label sits at
-      its tick's x-position, ALWAYS centered (no edge-clamping — the
-      "Nh" strings are short enough that overflow at the bar bounds
-      is negligible, per 2026-05-17 user direction). Uses --color-muted
-      so the bar + legend stay visually dominant. Plain `"<N>h"`
-      strings only — the previous emoji escalation was removed
-      (2026-05-17 user direction).
-
-      Collision handling: when two adjacent pillar labels sit within
-      `BOTTOM_LABEL_COLLISION_THRESHOLD_PCT` (10 %) of each other on
-      the bar, the earlier label's `effective_position` shifts LEFT
-      by `NUDGE_PCT` and the later label's shifts RIGHT by the same
-      amount — both stay on the same row, both keep the shared
-      `--centered` alignment, and the separation is baked straight
-      into the `left:` value (no CSS-side `translateX` override).
-      This resolves the Crimson Desert case where main (31h, ~4 %)
-      and extras (71h, ~9 %) crowd each other against a 775h max_x. %>
+  <%# Row 3 — pillar hour values, BELOW the bar. %>
   <div class="ttb-fuel-gauge__values ttb-fuel-gauge__values--bottom">
     <% pillar_label_data.each do |label_data| %>
       <span class="ttb-fuel-gauge__value ttb-fuel-gauge__value--pillar <%= pillar_bottom_label_alignment_class %>"
@@ -133,21 +42,19 @@
     <% end %>
   </div>
 
-  <%# Row 4 — legend. Four items: three pillar swatches + names plus
-      the "recorded" swatch + name. Each swatch fills with the same
-      color as its corresponding tick on the bar (footage swatch
-      mirrors the footage tick's bg-fill + text-color border). %>
+  <%# Row 4 — legend. Three pillar swatches (uniform tick color)
+      + the recorded swatch (white-fill / bordered). %>
   <div class="ttb-fuel-gauge__legend">
     <span class="ttb-fuel-gauge__legend-item">
-      <span class="ttb-fuel-gauge__legend-swatch ttb-fuel-gauge__legend-swatch--main"></span>
+      <span class="ttb-fuel-gauge__legend-swatch ttb-fuel-gauge__legend-swatch--pillar"></span>
       <%= self.class.pillar_label[:main] %>
     </span>
     <span class="ttb-fuel-gauge__legend-item">
-      <span class="ttb-fuel-gauge__legend-swatch ttb-fuel-gauge__legend-swatch--extras"></span>
+      <span class="ttb-fuel-gauge__legend-swatch ttb-fuel-gauge__legend-swatch--pillar"></span>
       <%= self.class.pillar_label[:extras] %>
     </span>
     <span class="ttb-fuel-gauge__legend-item">
-      <span class="ttb-fuel-gauge__legend-swatch ttb-fuel-gauge__legend-swatch--completionist"></span>
+      <span class="ttb-fuel-gauge__legend-swatch ttb-fuel-gauge__legend-swatch--pillar"></span>
       <%= self.class.pillar_label[:completionist] %>
     </span>
     <% if render_footage_tick? %>

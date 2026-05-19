@@ -185,11 +185,14 @@ RSpec.describe "API: Footages (importer)", type: :request do
     end
 
     it "rejects tokens missing the app scope" do
-      ro_pair = ApiToken.generate!(
+      # Phase 29 (MCP cut, 2026-05-19) — the catalog collapsed to a
+      # single scope, `app`. Bypass the validator via `update_columns`
+      # to simulate a token whose scope list lost `app`.
+      record, ro_token = ApiToken.generate!(
         user: auth_user, name: "footages-ro",
-        scopes: [ Scopes::DEV ]
+        scopes: [ Scopes::APP ]
       )
-      ro_token = ro_pair.last
+      record.update_columns(scopes: [])
       patch api_footage_path(footage),
             params: { footage: { resolution: "1280x720" } }.to_json,
             headers: {
@@ -217,11 +220,13 @@ RSpec.describe "API: Footages (importer)", type: :request do
     end
 
     it "rejects tokens missing the app scope" do
-      ro_pair = ApiToken.generate!(
+      # Phase 29 (MCP cut, 2026-05-19) — see PATCH context above for
+      # why we bypass the validator to simulate this.
+      record, ro_token = ApiToken.generate!(
         user: auth_user, name: "footages-ro",
-        scopes: [ Scopes::DEV ]
+        scopes: [ Scopes::APP ]
       )
-      ro_token = ro_pair.last
+      record.update_columns(scopes: [])
       delete api_footage_path(footage),
              headers: { "Authorization" => "Bearer #{ro_token}" }
       expect(response).to have_http_status(:forbidden)

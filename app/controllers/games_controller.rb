@@ -243,6 +243,16 @@ class GamesController < ApplicationController
       request.format.json? ? game_path(g, format: :json) : game_path(g)
     }
 
+    # Phase 38 §01 (2026-05-19) — Recommended-channels shelf. Backed by
+    # `Games::ChannelRecommendation` (pgvector cosine on the Voyage
+    # `summary_embedding` column). Returns `[]` defensively when the
+    # game has no embedding yet OR no channels carry a non-NULL
+    # `summary_embedding` OR all candidate scores fall below the
+    # service's `THRESHOLD_SCORE` floor. The show.html.erb shelf is
+    # guarded on `@recommended_channels.any?` so an empty result hides
+    # the entire section (no empty-state copy — quiet over noisy).
+    @recommended_channels = Games::ChannelRecommendation.call(@game, limit: 8)
+
     # show.html.erb reads @game directly; nothing else to set up here.
     respond_to do |format|
       format.html

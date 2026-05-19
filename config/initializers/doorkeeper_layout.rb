@@ -9,7 +9,7 @@
 # layout — `Doorkeeper::ApplicationController` defaults to
 # `layout "doorkeeper/application"` because Rails resolves the layout
 # from the controller's namespace. The result: serif heading,
-# light-grey card, no Pito chrome, no theme toggle, no `data-theme-*`.
+# light-grey card, no Pito chrome.
 #
 # Fix: pin the HTML-rendering Doorkeeper controllers to Pito's
 # `application` layout. Two controllers qualify:

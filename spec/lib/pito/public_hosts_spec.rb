@@ -1,10 +1,12 @@
 require "rails_helper"
 
-# Phase 7.5 — `Pito::PublicHosts` exposes canonical absolute base URLs
-# for `app.pitomd.com` and `mcp.pitomd.com`. Both reads honour the
-# `PITO_APP_BASE_URL` / `PITO_MCP_BASE_URL` environment overrides used
-# by request specs and CI; both strip a trailing slash so callers can
-# safely concatenate paths.
+# Phase 7.5 — `Pito::PublicHosts` exposes a canonical absolute base URL
+# for `app.pitomd.com`. The read honours the `PITO_APP_BASE_URL`
+# environment override used by request specs and CI, and strips a
+# trailing slash so callers can safely concatenate paths.
+#
+# Phase 29 (MCP cut, 2026-05-19) — `DEFAULT_MCP_BASE` / `.mcp_base` were
+# removed alongside the MCP surface.
 RSpec.describe Pito::PublicHosts do
   # Swap an env var for the duration of the block, restoring exactly
   # whatever was there before (including "unset").
@@ -28,10 +30,6 @@ RSpec.describe Pito::PublicHosts do
   describe "constants" do
     it "declares the canonical app base" do
       expect(described_class::DEFAULT_APP_BASE).to eq("https://app.pitomd.com")
-    end
-
-    it "declares the canonical mcp base" do
-      expect(described_class::DEFAULT_MCP_BASE).to eq("https://mcp.pitomd.com")
     end
   end
 
@@ -61,26 +59,6 @@ RSpec.describe Pito::PublicHosts do
     end
   end
 
-  describe ".mcp_base" do
-    it "returns the default when the env var is unset" do
-      with_env("PITO_MCP_BASE_URL", nil) do
-        expect(described_class.mcp_base).to eq("https://mcp.pitomd.com")
-      end
-    end
-
-    it "returns the env-var value when set" do
-      with_env("PITO_MCP_BASE_URL", "https://mcp.example.test") do
-        expect(described_class.mcp_base).to eq("https://mcp.example.test")
-      end
-    end
-
-    it "chomps a trailing slash" do
-      with_env("PITO_MCP_BASE_URL", "https://mcp.example.test/") do
-        expect(described_class.mcp_base).to eq("https://mcp.example.test")
-      end
-    end
-  end
-
   describe "flaw — empty-string env var (chomp leaves it empty)" do
     it "returns an empty string for app_base when set to ''" do
       with_env("PITO_APP_BASE_URL", "") do
@@ -89,12 +67,6 @@ RSpec.describe Pito::PublicHosts do
         # configure this, but documenting the contract surfaces any
         # future regression that adds a fallback.
         expect(described_class.app_base).to eq("")
-      end
-    end
-
-    it "returns an empty string for mcp_base when set to ''" do
-      with_env("PITO_MCP_BASE_URL", "") do
-        expect(described_class.mcp_base).to eq("")
       end
     end
   end

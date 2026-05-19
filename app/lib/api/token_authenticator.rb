@@ -1,14 +1,14 @@
 # Phase 3 — Step B (5b-token-and-auth-concern.md) — Rack-level token auth.
 #
 # The single piece of code that turns a Rack `env` into either a populated
-# `ApiToken` or a structured failure. Both the Rails controller concern
-# (`Api::AuthConcern`) and the MCP rack app (`Mcp::RackApp`) call into it.
+# `ApiToken` or a structured failure. The Rails controller concern
+# (`Api::AuthConcern`) calls into it for every `Api::*` controller.
 #
 # Why a plain class instead of Rack middleware: middleware lives in the
 # stack-build phase and would have to apply globally; we want the auth
-# decision to be invoked only on the endpoints that need it (the MCP rack
-# app, every `Api::*` controller — but NOT the cookie-based HTML routes).
-# A plain class keeps the wiring explicit.
+# decision to be invoked only on the endpoints that need it (every
+# `Api::*` controller — but NOT the cookie-based HTML routes). A plain
+# class keeps the wiring explicit.
 #
 # Failure paths set `env["pito.auth_failed"] = true` so the rack-attack
 # throttle counts only failures; successful lookups don't burn the bucket.
@@ -41,9 +41,7 @@ module Api
 
         # RFC 9728 §5.3 — every 401 from a protected resource includes a
         # `WWW-Authenticate: Bearer ...` challenge that points clients
-        # at the OAuth metadata documents. Claude.ai's MCP custom
-        # connector reads `as_uri` to discover the authorization server
-        # and `resource_uri` to discover the protected-resource doc.
+        # at the OAuth metadata documents.
         if status == 401
           headers["WWW-Authenticate"] = Api::TokenAuthenticator.www_authenticate_header
         end
@@ -59,15 +57,12 @@ module Api
     end
 
     # Single source of truth for the `WWW-Authenticate: Bearer ...`
-    # challenge header. Both the Rack response (`Result#to_rack_response`,
-    # used by `Mcp::RackApp`) and the Rails controller path
-    # (`Api::AuthConcern` rescue handler) emit the same header so MCP
-    # clients have a consistent discovery experience regardless of
-    # which authenticated surface refused them.
+    # challenge header emitted on every 401 from the bearer-authed
+    # API surface. Points clients at the OAuth authorization-server
+    # metadata document for discovery.
     def self.www_authenticate_header
       app = Pito::PublicHosts.app_base
-      mcp = Pito::PublicHosts.mcp_base
-      %(Bearer realm="pito", as_uri="#{app}/.well-known/oauth-authorization-server", resource_uri="#{mcp}/.well-known/oauth-protected-resource")
+      %(Bearer realm="pito", as_uri="#{app}/.well-known/oauth-authorization-server")
     end
 
     def initialize(env)
@@ -122,9 +117,8 @@ module Api
 
       # Phase 7.5 — Doorkeeper fallback. The plaintext bearer was not an
       # `ApiToken` (no row matched the HMAC digest); try
-      # `OauthAccessToken.by_token` next so Claude.ai's MCP custom
-      # connector — which pulls Doorkeeper-issued access tokens via
-      # `/oauth/token` — can authenticate against `/mcp` and `Api::*`
+      # `OauthAccessToken.by_token` next so Doorkeeper-issued access
+      # tokens (via `/oauth/token`) can authenticate against `Api::*`
       # surfaces using the same bearer dispatch as ApiToken users.
       #
       # Distinct revoked / expired branches mirror the ApiToken paths so

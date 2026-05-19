@@ -2,7 +2,7 @@ require "rails_helper"
 
 # 2026-05-17 polish — game cover thumbnail border.
 #
-# Locks the new `--color-cover-border` token + the single rule that
+# Locks the `--color-cover-border` token + the single rule that
 # applies it to every cover surface on `/games`:
 #
 #   * `Games::CoverComponent`           via `.game-cover-img`
@@ -12,11 +12,10 @@ require "rails_helper"
 # model drop; the bundle composite tile takes its place and is locked
 # by its own selector elsewhere in the stylesheet.)
 #
-# Tone is intentionally OPPOSITE to the page background — dark hairline
-# on the light theme, light hairline on the dark theme — so the cover
-# art reads as a framed thumbnail at every shelf size. Distinct from
-# `--color-border` (a same-tone hairline used for tables, inputs, and
-# dividers).
+# 2026-05-19 — the theme system was removed. The token now ships a
+# single value (light hairline tuned for the dark background); the
+# per-theme override is gone. Distinct from `--color-border` (the
+# same-tone hairline used for tables, inputs, and dividers).
 #
 # A blunt source-string check is enough — these are intentional tokens
 # and selectors; a future rename should update both the spec and the
@@ -25,17 +24,17 @@ RSpec.describe "application.css — 2026-05-17 cover thumbnail border", type: :a
   let(:css_path) { Rails.root.join("app/assets/tailwind/application.css") }
   let(:css) { File.read(css_path) }
 
-  describe "--color-cover-border token (opposite-tone, per-theme)" do
-    it "declares `--color-cover-border` exactly twice (one per theme scope)" do
-      expect(css.scan(/^\s*--color-cover-border:/m).length).to eq(2)
+  describe "--color-cover-border token (single-dark)" do
+    it "declares `--color-cover-border` exactly once (theme system removed)" do
+      expect(css.scan(/^\s*--color-cover-border:/m).length).to eq(1)
     end
 
-    it "pins the light-theme value to #1a1a1a (dark hairline on light bg)" do
-      expect(css).to match(/--color-cover-border:\s*#1a1a1a/)
-    end
-
-    it "pins the dark-theme value to #aaaaaa (light hairline on dark bg)" do
+    it "pins the value to #aaaaaa (light hairline on the dark background)" do
       expect(css).to match(/--color-cover-border:\s*#aaaaaa/)
+    end
+
+    it "does NOT declare a light-theme variant of the token (removed)" do
+      expect(css).not_to match(/--color-cover-border:\s*#1a1a1a/)
     end
   end
 

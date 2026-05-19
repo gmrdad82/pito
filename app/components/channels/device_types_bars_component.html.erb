@@ -1,0 +1,42 @@
+<%# Variant 2 — horizontal bar list.
+
+    Five rows, one per device. Each row:
+      LEFT  — fixed 110px column with the device name (body 13px).
+      MIDDLE — 1fr track containing a thin border-bg rectangle and a
+               filled rectangle whose width = `<percent>%`.
+      RIGHT — fixed 48px right-aligned percentage with tabular-nums.
+
+    Track height 14px; bar fill height 14px (full track height). Track
+    background uses `--color-border` so empty space reads as a faint
+    rail rather than blank page bg.
+
+    No-data branch renders an em-dash placeholder. %>
+<section class="channels-device-types channels-device-types--bars"
+         style="margin: 12px 0 0;">
+  <h3 style="font-size: 13px; font-weight: 700; margin: 0 0 8px;">
+    Device types
+    <span style="font-size: 11px; color: var(--color-muted); font-weight: 400;">
+      &mdash; variant 2 (bars)
+    </span>
+  </h3>
+
+  <% if has_data? %>
+    <ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; max-width: 480px;">
+      <% aggregated.each do |slice| %>
+        <li style="display: grid; grid-template-columns: 110px 1fr 48px; align-items: center; gap: 10px; font-size: 13px;">
+          <span><%= slice[:name] %></span>
+          <span style="position: relative; height: 14px; background: var(--color-border); display: block;">
+            <span aria-hidden="true"
+                  style="position: absolute; inset: 0 auto 0 0; width: <%= slice[:percent] %>%; background: <%= color_for(slice[:name]) %>; display: block;"></span>
+          </span>
+          <span style="text-align: right; font-variant-numeric: tabular-nums;">
+            <%= slice[:percent] %>%
+          </span>
+        </li>
+      <% end %>
+    </ul>
+  <% else %>
+    <div style="font-size: 13px; color: var(--color-muted);">&mdash;</div>
+  <% end %>
+</section>
+<hr class="hairline">

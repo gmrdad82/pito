@@ -19,9 +19,11 @@ require "rails_helper"
 #   - Phase C inactivity-timer exact-match grace (`d` dark mode vs
 #     `da` / `dd` on /settings).
 #   - Mandatory-2FA enrollment gate (`<meta name="pito-enroll-totp-gate">`).
-#   - The named action handlers (themeToggle, pageSync, pageDelete,
-#     pageAddBundle, openModalById, …) inlined onto this controller so
-#     dispatch is a direct method call.
+#   - The named action handlers (pageSync, pageDelete, pageAddBundle,
+#     openModalById, …) inlined onto this controller so dispatch is a
+#     direct method call. The legacy `theme_toggle` / `themeToggle()`
+#     action was removed alongside the single-theme cleanup
+#     (2026-05-19); see the comment above `fireAction`.
 RSpec.describe "leader_menu_controller.js" do
   let(:controller_source) do
     File.read(
@@ -314,10 +316,12 @@ RSpec.describe "leader_menu_controller.js" do
       )
     end
 
-    it "dispatches `theme_toggle` → themeToggle()" do
-      expect(fire_action_body).to match(
-        /action\.type\s*===\s*"theme_toggle"[\s\S]*?this\.themeToggle\(\)/m
-      )
+    it "does NOT carry a `theme_toggle` branch (removed alongside the single-theme cleanup, 2026-05-19)" do
+      # The legacy `theme_toggle` action emitted by the YAML dispatch
+      # table is gone. The leader popup no longer toggles dark/light;
+      # the controller should not even reference the action type.
+      expect(fire_action_body).not_to match(/theme_toggle/)
+      expect(fire_action_body).not_to match(/themeToggle/)
     end
 
     it "dispatches `page_sync` → pageSync()" do
@@ -395,29 +399,19 @@ RSpec.describe "leader_menu_controller.js" do
     end
   end
 
-  describe "named action handlers — themeToggle" do
-    let(:theme_body) do
-      controller_source[/themeToggle\s*\(\s*\)\s*\{[\s\S]*?\n\s{2}\}/m].to_s
+  describe "named action handlers — themeToggle removed (2026-05-19)" do
+    it "does not define a themeToggle() handler on the controller" do
+      # The single-theme cleanup deleted the theme system; the named
+      # handler the dispatch table used to call is gone.
+      expect(controller_source).not_to match(/themeToggle\s*\(\s*\)\s*\{/)
     end
 
-    it "resolves the EFFECTIVE current theme from localStorage with a system fallback" do
-      expect(theme_body).to match(/localStorage\.getItem\(\s*"pito-theme"\s*\)/)
-      expect(theme_body).to match(/prefers-color-scheme:\s*dark/)
+    it "does not reference the localStorage `pito-theme` key" do
+      expect(controller_source).not_to match(/pito-theme/)
     end
 
-    it "flips dark ↔ light and writes the explicit next value to localStorage" do
-      expect(theme_body).to match(/current\s*===\s*"dark"\s*\?\s*"light"\s*:\s*"dark"/)
-      expect(theme_body).to match(/localStorage\.setItem\(\s*"pito-theme"\s*,\s*next\s*\)/)
-    end
-
-    it "writes the new theme onto <html data-theme>" do
-      expect(theme_body).to match(
-        /document\.documentElement\.setAttribute\(\s*"data-theme"\s*,\s*next\s*\)/
-      )
-    end
-
-    it "recolors any active charts after the theme flip" do
-      expect(theme_body).to match(/window\.recolorCharts/)
+    it "does not call window.recolorCharts (no theme flip to recolor for)" do
+      expect(controller_source).not_to match(/recolorCharts/)
     end
   end
 

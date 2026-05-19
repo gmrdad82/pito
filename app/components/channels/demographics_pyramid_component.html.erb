@@ -1,0 +1,102 @@
+<%# Phase 37 Wave A (demographics A-slice, 2026-05-19) — V1 population
+    pyramid render. Two-sided horizontal bar chart: male bars left,
+    female bars right, age buckets stacked vertically, shared center
+    axis with age labels. Per-bar percentage label sits on the outer
+    end of each bar. %>
+<section class="channels-demographics-pyramid"
+         style="display: flex; flex-direction: column; gap: 8px;
+                margin: 8px 0;">
+
+  <%# Section heading — matches the bold-13px convention used by the
+      ID-card name row. %>
+  <div class="channels-demographics-pyramid__title"
+       style="font-weight: 700; padding: 0 4px;">
+    <%= title %>
+  </div>
+
+  <%# Pyramid grid — one row per age bucket. Each row is a 3-column
+      grid: [male side | center axis label | female side]. The two
+      side columns each have a fixed width budget of `half_bar_max_px`
+      so the center axis is perfectly vertical across all rows. The
+      male side uses `justify-content: flex-end` so its bar grows
+      RIGHT-TO-LEFT (anchored at the axis). The female side uses
+      `justify-content: flex-start` so its bar grows LEFT-TO-RIGHT.
+      The age label column is `auto` width and centered. %>
+  <div class="channels-demographics-pyramid__grid"
+       style="display: grid;
+              grid-template-columns: <%= half_bar_max_px %>px auto <%= half_bar_max_px %>px;
+              column-gap: 8px; row-gap: 4px;
+              align-items: center;
+              padding: 0 4px;
+              font-variant-numeric: tabular-nums;">
+
+    <% buckets.each do |bucket| %>
+      <% male_pct   = profile.dig(:male, bucket)   || 0 %>
+      <% female_pct = profile.dig(:female, bucket) || 0 %>
+
+      <%# Male row — bar + label, right-anchored at the axis. The
+          percentage label sits to the LEFT of the bar (the outer
+          end). `flex-direction: row` + `justify-content: flex-end`
+          pins the right edge of the bar against the right edge of
+          this column (= the axis). %>
+      <div class="channels-demographics-pyramid__male"
+           style="display: flex; align-items: center; gap: 6px;
+                  justify-content: flex-end; min-width: 0;">
+        <span class="channels-demographics-pyramid__pct"
+              style="color: var(--color-muted);"><%= format_pct(male_pct) %></span>
+        <span class="channels-demographics-pyramid__bar"
+              style="display: inline-block;
+                     width: <%= bar_width_px(male_pct) %>px;
+                     height: 12px;
+                     background: <%= male_color %>;
+                     border-radius: 1px;"></span>
+      </div>
+
+      <%# Center axis label — age bucket. Sits on the axis between
+          the two sides. `padding: 0 4px` gives the label visible
+          breathing room from the inner ends of both bars. The axis
+          itself is rendered via the `border-left` + `border-right`
+          on this cell so the vertical hairlines align across all
+          7 rows. %>
+      <div class="channels-demographics-pyramid__label"
+           style="text-align: center; color: var(--color-muted);
+                  padding: 0 6px;
+                  border-left: 1px solid var(--color-border);
+                  border-right: 1px solid var(--color-border);
+                  min-width: 44px;"><%= bucket %></div>
+
+      <%# Female row — bar + label, left-anchored at the axis. The
+          percentage label sits to the RIGHT of the bar. %>
+      <div class="channels-demographics-pyramid__female"
+           style="display: flex; align-items: center; gap: 6px;
+                  justify-content: flex-start; min-width: 0;">
+        <span class="channels-demographics-pyramid__bar"
+              style="display: inline-block;
+                     width: <%= bar_width_px(female_pct) %>px;
+                     height: 12px;
+                     background: <%= female_color %>;
+                     border-radius: 1px;"></span>
+        <span class="channels-demographics-pyramid__pct"
+              style="color: var(--color-muted);"><%= format_pct(female_pct) %></span>
+      </div>
+    <% end %>
+  </div>
+
+  <%# Legend — bracketed swatches matching the section's bar colors.
+      Inline-flex row with the same 6 px / 8 px rhythm used in the
+      chip rows above. Non-clickable; this is a visual key only. %>
+  <div class="channels-demographics-pyramid__legend"
+       style="display: inline-flex; gap: 16px; padding: 0 4px;
+              color: var(--color-muted);">
+    <span style="display: inline-flex; align-items: center; gap: 6px;">
+      <span style="display: inline-block; width: 10px; height: 10px;
+                   background: <%= male_color %>; border-radius: 1px;"></span>
+      male
+    </span>
+    <span style="display: inline-flex; align-items: center; gap: 6px;">
+      <span style="display: inline-block; width: 10px; height: 10px;
+                   background: <%= female_color %>; border-radius: 1px;"></span>
+      female
+    </span>
+  </div>
+</section>

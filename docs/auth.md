@@ -728,8 +728,6 @@ Claude-mobile token (LD-8).
 
 `Scopes::ALL` is computed against two strip-on-release flags:
 
-- `Rails.application.config.x.mcp.expose_dev_scope` — gates the `dev` scope and
-  its tools (`list_docs`, `read_doc`, `save_note`).
 - `Rails.application.config.x.mcp.expose_auth_scope` — gates the `auth` scope
   and its nine tools (§4).
 
@@ -810,9 +808,6 @@ from `Api::AuthConcern`.
 | `delete_saved_view`      | `app`          |
 | `sync_records`           | `app`          |
 | `delete_records`         | `app`          |
-| `list_docs`              | `dev`          |
-| `read_doc`               | `dev`          |
-| `save_note`              | `dev`          |
 | `login_attempts_pending` | `auth`         |
 | `login_attempts_list`    | `auth`         |
 | `login_attempt_approve`  | `auth`         |

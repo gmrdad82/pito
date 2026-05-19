@@ -47,7 +47,7 @@ class Oauth::RegistrationsController < ApplicationController
   #     "token_endpoint_auth_method": "none" | "client_secret_basic" | "client_secret_post",
   #     "grant_types": ["authorization_code", "refresh_token"],
   #     "response_types": ["code"],
-  #     "scope": "app dev"
+  #     "scope": "app"
   #   }
   #
   # Response (201 Created, RFC 7591 §3.2.1):

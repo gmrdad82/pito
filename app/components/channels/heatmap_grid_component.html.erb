@@ -1,0 +1,55 @@
+<%# Variant 1 — color-intensity heatmap grid.
+
+    Outer CSS Grid layout:
+      column 1 = day label (fixed 36 px)
+      columns 2..25 = 24 cells, each 16 px wide
+      row 1 = hour header (00..23 across the 24 cell columns)
+      rows 2..8 = day rows (Mon..Sun)
+
+    Cell size: 16 × 16 px. Column gap and row gap: 1 px (hairline).
+    Total grid width: 36 (label col) + 4 (gap before cells) +
+    16 × 24 + 1 × 23 = 36 + 4 + 384 + 23 = ~447 px. Pad slightly
+    inside the wrapper. %>
+<div class="channels-heatmap-grid"
+     style="display: inline-block; font-variant-numeric: tabular-nums;">
+  <div style="display: grid;
+              grid-template-columns: 36px repeat(24, 16px);
+              column-gap: 1px;
+              row-gap: 1px;
+              align-items: center;">
+
+    <%# Header row — empty corner cell + 24 hour labels. %>
+    <div></div>
+    <% Channels::HeatmapGridComponent::HOURS.each do |hour| %>
+      <%# Only label every 3rd hour to keep the header readable at
+          the compact cell size. The remaining cells stay empty so
+          the columns still align with the grid below. %>
+      <div style="text-align: center;
+                  font-size: 10px;
+                  color: var(--color-muted);
+                  line-height: 1;
+                  padding-bottom: 2px;">
+        <%= hour % 3 == 0 ? hour.to_s.rjust(2, "0") : "" %>
+      </div>
+    <% end %>
+
+    <%# Day rows — label + 24 cells. %>
+    <% Channels::HeatmapGridComponent::DAYS.each do |day| %>
+      <div style="font-size: 11px;
+                  color: var(--color-muted);
+                  text-align: right;
+                  padding-right: 6px;
+                  line-height: 1;">
+        <%= day %>
+      </div>
+      <% hours_for(day).each do |value| %>
+        <div title="<%= day %> <%= value %>"
+             style="width: 16px;
+                    height: 16px;
+                    background: <%= cell_background(value) %>;
+                    border: 1px solid <%= value.to_i.zero? ? "var(--color-border)" : "transparent" %>;
+                    box-sizing: border-box;"></div>
+      <% end %>
+    <% end %>
+  </div>
+</div>

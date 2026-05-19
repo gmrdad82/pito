@@ -1,9 +1,10 @@
 <!DOCTYPE html>
-<%# Phase 29 (settings refactor) — `data-theme-preference` removed.
-    Theme persistence moved to localStorage only; the inline
-    bootstrap script below reads `pito-theme` and falls back to
-    the OS preference. No server-side theme value renders here. %>
-<html>
+<%# 2026-05-19 — single dark theme. The legacy localStorage-driven
+    light/dark toggle (`pito-theme` key + inline bootstrap script +
+    `theme` Stimulus controller + `data-theme` html attribute) was
+    removed. CSS now ships a single (dark) palette; no per-user
+    preference is read or persisted. %>
+<html data-theme="dark">
   <head>
     <%# Title is built with safe_join rather than string interpolation so
         HTML entities embedded in the page title (such as apostrophe
@@ -76,6 +77,24 @@
     <% enroll_totp_gate_active = Current.user.present? && !Current.user.totp_configured? %>
     <meta name="pito-enroll-totp-gate" content="<%= enroll_totp_gate_active ? "yes" : "no" %>">
 
+    <%# Unified keybindings schema — single source of truth for the
+        leader-menu popup AND the Rust pito CLI's leader overlay,
+        sourced from `config/keybindings.yml`. Mounted in `<head>`
+        so Turbo Drive's head-merge preserves the tag across page
+        navigations (same `isEqualNode` rationale that anchors the
+        `pito-enroll-totp-gate` meta tag above). The Stimulus
+        `leader-menu` + `flat-key` controllers parse the JSON
+        lazily on each keystroke via `document.getElementById`,
+        so the head-resident tag is always findable regardless of
+        connect-time DOM ordering.
+
+        `<script type="application/json">` is non-executable; the
+        browser hands the literal bytes to `JSON.parse` when the
+        controllers read it, so head-position is safe (no inline
+        execution). The schema itself is statically generated from
+        the YAML at boot and contains no user input. %>
+    <script type="application/json" id="pito-keybindings"><%= keybindings_as_json %></script>
+
     <%= yield :head %>
 
     <%# Phase 7.5 — MCP custom-connector icon discovery. Claude.ai's
@@ -135,16 +154,6 @@
     <meta property="og:image" content="https://app.pitomd.com/android-chrome-512x512.png?v=2">
 
     <%= stylesheet_link_tag :app, "data-turbo-track": "reload" %>
-    <script>
-      // Phase 29 (settings refactor) — localStorage-only theme.
-      // `pito-theme` may be "light", "dark", or absent (== auto/system).
-      // No server-side persistence path remains.
-      (function() {
-        var s = localStorage.getItem("pito-theme");
-        if (s === "light" || s === "dark") { document.documentElement.setAttribute("data-theme", s); return; }
-        document.documentElement.setAttribute("data-theme", window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
-      })();
-    </script>
     <%= javascript_importmap_tags %>
   </head>
 
@@ -166,7 +175,17 @@
       — `theme` no longer mounts a keydown listener) read the meta
       tag live on every keypress, so no per-body script, attribute,
       or controller `connect()` cache is needed here. %>
-  <body data-controller="keyboard notifications-modal leader-menu flat-key timezone-detect webhook-help-modal dialog-scroll-lock"
+  <%# 2026-05-19 — `data-section` drives the Dracula section-variant
+      accent system. ApplicationHelper#current_section maps the current
+      controller_path to one of four buckets ("home", "channels",
+      "games", "settings"); CSS in app/assets/tailwind/application.css
+      reads the attribute and flips `--color-section-accent` (and the
+      derived `--color-bg` + `--color-link` palette) per section.
+      Modals reset the accent back to Dracula Purple inside the
+      `dialog { ... }` block so modal chrome stays consistent
+      regardless of which page opened them. %>
+  <body data-section="<%= current_section %>"
+        data-controller="keyboard notifications-modal leader-menu flat-key timezone-detect webhook-help-modal dialog-scroll-lock"
         <%# `data-keybindings-page-key` exposes the YAML key (e.g.
             `games_index`, `games_show`, `bundles_show`, `default`,
             or `nil` for deny-listed pages like /settings) so the
@@ -191,7 +210,7 @@
         per the CSS audit). Solid `var(--color-bg)` background prevents
         content bleed through; the `border-bottom` hairline gives the visual
         separation when content scrolls underneath. %>
-    <header style="position: sticky; top: 0; left: 0; right: 0; height: 32px; background: var(--color-bg); border-bottom: 1px solid var(--color-border); padding: 0 12px; z-index: 100;" data-controller="theme">
+    <header style="position: sticky; top: 0; left: 0; right: 0; height: 32px; background: var(--color-bg); border-bottom: 1px solid var(--color-border); padding: 0 12px; z-index: 100;">
       <%# Header layout (2026-05-10 redesign, refined 2026-05-10 follow-up;
           [logout] dropped 2026-05-16 — DELETE /session route + action
           stay routable for API / keyboard / direct-URL use, only the UI
@@ -400,16 +419,23 @@
       <%= render "shared/totp_verification_modal" %>
     <% end %>
 
-    <%# Unified keybindings schema — the single source of truth for
-        the leader-menu popup AND the Rust `pito` CLI's leader
-        overlay lives in `config/keybindings.yml`. The Ruby loader
-        (`config/initializers/keybindings.rb`) parses it once at
-        boot; `KeybindingsHelper#keybindings_as_json` filters it to
-        the web surface and serializes it here. The Stimulus
-        `leader-menu` controller (mounted on `<body>`) parses the
-        JSON on connect, listens for SPACE, and renders the popup
-        in the `#leader-menu-popup` dialog below. %>
-    <script type="application/json" id="pito-keybindings"><%= keybindings_as_json %></script>
+    <%# 2026-05-19 — keybindings schema `<script id="pito-keybindings">`
+        tag moved to `<head>` so it survives Turbo Drive page
+        navigations reliably. The body-bottom mount used to land in
+        the new body after each Turbo swap, but the timing of body
+        replacement vs Stimulus mutation-observer reconnects left a
+        narrow window where `leader-menu` / `flat-key` controllers
+        could `connect()` before `getElementById("pito-keybindings")`
+        resolved against the new body's children — listener
+        registration silently bailed. Head-mounted matches the same
+        rationale as `pito-enroll-totp-gate` meta tag (see head
+        comment above the meta): Turbo's `mergeProvisionalElements`
+        diffs head children by `isEqualNode`, so identical-content
+        nodes survive the merge intact. The JSON is identical on
+        every page (it's a global schema) so the equality check
+        keeps the same node across nav — no re-parse needed and the
+        Stimulus controllers' lazy `document.getElementById`
+        readers always find a populated tag. %>
 
     <%# Leader-menu popup root — empty placeholder; the Stimulus
         controller paints the bottom-right card here when SPACE is

@@ -98,10 +98,10 @@ module Sessions
     # (`totp_enabled_at` stamped, `totp_disabled_at` nil).
     #
     # Browser-only (R3): this concern is included by
-    # `ApplicationController`; `Api::AuthConcern` and `Mcp::RackApp`
-    # authenticate bearer credentials, not browser users, and are NOT
-    # gated — a token cannot "set up TOTP", and the browser user who
-    # minted the token is themselves gated.
+    # `ApplicationController`; `Api::AuthConcern` authenticates bearer
+    # credentials, not browser users, and is NOT gated — a token
+    # cannot "set up TOTP", and the browser user who minted the token
+    # is themselves gated.
     #
     # Belt-and-suspenders early returns:
     #   - anonymous action  → no `Current.user` to gate.

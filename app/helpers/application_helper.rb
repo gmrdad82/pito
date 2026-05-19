@@ -1,4 +1,44 @@
 module ApplicationHelper
+  # 2026-05-19 — Section-variant theme key.
+  #
+  # Maps the current controller_path to one of four section buckets
+  # that drive the Dracula section-variant accent system. The value is
+  # rendered on `<body data-section="...">` (see
+  # `app/views/layouts/application.html.erb`); CSS in
+  # `app/assets/tailwind/application.css` reads the attribute to pick
+  # `--color-section-accent` per section, which in turn flips the
+  # derived `--color-bg` (4% accent tint over Dracula base) and
+  # `--color-link` palette.
+  #
+  # Mapping (locked 2026-05-19, mirrors the CSS selectors and the
+  # design.md table):
+  #   home / dashboard / fallback -> "home"     (Dracula Purple)
+  #   channels + videos           -> "channels" (Dracula Red)
+  #   projects + games            -> "games"    (Pale Cobalt)
+  #   settings                    -> "settings" (Dracula Orange)
+  #
+  # `controller_path` is matched both for top-level (e.g. `channels`,
+  # `games`) and nested namespaces (e.g. `channels/stars`,
+  # `settings/security/totp`, `games/destroy_confirms`) — the leading
+  # segment alone determines the bucket. Anything else (root,
+  # dashboard, login, oauth, notifications, calendar, ...) falls
+  # through to the "home" default so the page renders with the Dracula
+  # Purple accent.
+  def current_section
+    return "home" unless respond_to?(:controller_path) && controller_path.present?
+
+    case controller_path
+    when "channels", %r{\Achannels/}, "videos", %r{\Avideos/}
+      "channels"
+    when "games", %r{\Agames/}, "projects", %r{\Aprojects/}
+      "games"
+    when "settings", %r{\Asettings/}
+      "settings"
+    else
+      "home"
+    end
+  end
+
   # 2026-05-18 — Mobile-nav abbreviated labels dropped per user
   # decision. Both desktop and mobile now render the full bracketed
   # label (e.g. `[channels]`). The `short:` kwarg is retained for
@@ -244,13 +284,13 @@ module ApplicationHelper
   end
 
   # Initial-paint palette for Chartkick / Chart.js. Mirrors the
-  # --color-chart-1..5 CSS custom properties on the light theme. The
-  # client-side `recolorCharts` reader (in `application.js`) replaces
-  # these with the live CSS-var values shortly after first paint and
-  # again on theme toggle, so this helper exists only to give the
-  # initial pre-recolor frame design-system colors instead of Chart.js
-  # defaults. Keep in sync with `--color-chart-N` in
-  # `app/assets/tailwind/application.css`.
+  # --color-chart-1..5 CSS custom properties. The client-side
+  # `recolorCharts` reader (in `application.js`) replaces these with
+  # the live CSS-var values shortly after first paint, so this helper
+  # exists only to give the initial pre-recolor frame design-system
+  # colors instead of Chart.js defaults. Keep in sync with
+  # `--color-chart-N` in `app/assets/tailwind/application.css`.
+  # (Theme system removed 2026-05-19 — pito is single-theme now.)
   CHART_PALETTE = %w[#0000cc #2e7d32 #8b5cf6 #d97706 #0891b2].freeze
 
   def chart_palette(count = CHART_PALETTE.length)

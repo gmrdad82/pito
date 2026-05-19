@@ -1,0 +1,75 @@
+<%# Variant 1 — ranked list with horizontal bars + a sub-section
+    listing the top YouTube search terms. Compact, data-dense, single
+    column.
+
+    Width budget: this variant is intentionally narrow (the parent view
+    decides the wrapper width). Bars use percentage widths so they
+    fill whatever container width the section gets.
+
+    Tokens used:
+      * 13px body (CLAUDE.md visual style § Font)
+      * `var(--color-text)`, `var(--color-text-bold)`, `var(--color-muted)`,
+        `var(--color-border)` per design.md.
+      * Bar fill uses `var(--color-trend-up)` (a neutral non-red accent
+        already established for positive-direction analytics; reused
+        here as a generic data-bar color so the section stays inside
+        the existing token palette). %>
+<section class="channels-traffic-sources channels-traffic-sources--list"
+         style="display: flex; flex-direction: column; gap: 16px; max-width: 420px;">
+  <div class="channels-traffic-sources__header"
+       style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px;">
+    <h2 style="font-size: 13px; font-weight: 700; color: var(--color-text-bold); margin: 0;">
+      traffic sources
+    </h2>
+    <span style="font-size: 12px; color: var(--color-muted);">
+      variant 1 / ranked list
+    </span>
+  </div>
+
+  <%# Ranked source rows. Each row is a 3-column CSS Grid so the bar
+      and the percent label align vertically across rows even when
+      labels wrap. Grid columns:
+        1) source label (auto, min-content cap)
+        2) bar track (1fr — fills remaining width)
+        3) percent (auto, right-aligned, tabular-nums) %>
+  <ol class="channels-traffic-sources__bars"
+      style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px;">
+    <% aggregated_sources.each do |label, pct, _views| %>
+      <li style="display: grid; grid-template-columns: 130px 1fr 40px; column-gap: 8px; align-items: center; font-size: 13px; color: var(--color-text);">
+        <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+          <%= label %>
+        </span>
+        <span aria-hidden="true"
+              style="position: relative; height: 8px; background: var(--color-border); border-radius: 1px; overflow: hidden;">
+          <span style="position: absolute; inset: 0 auto 0 0; width: <%= [pct, 1].max %>%; background: var(--color-trend-up);"></span>
+        </span>
+        <span style="text-align: right; font-variant-numeric: tabular-nums; color: var(--color-muted);">
+          <%= pct_label(pct) %>
+        </span>
+      </li>
+    <% end %>
+  </ol>
+
+  <%# Sub-section — top YouTube search terms.
+
+      Renders below the ranked list. Two-column grid: term on the
+      left, view count on the right, right-aligned with tabular-nums
+      so the digit columns align across rows. %>
+  <div class="channels-traffic-sources__terms">
+    <h3 style="font-size: 12px; font-weight: 700; color: var(--color-text-bold); margin: 0 0 6px; text-transform: lowercase; letter-spacing: 0.02em;">
+      top YouTube search terms
+    </h3>
+    <ol style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px;">
+      <% aggregated_search_terms.each do |term, views| %>
+        <li style="display: grid; grid-template-columns: 1fr auto; column-gap: 12px; align-items: baseline; font-size: 13px; color: var(--color-text);">
+          <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+            <%= term %>
+          </span>
+          <span style="text-align: right; font-variant-numeric: tabular-nums; color: var(--color-muted);">
+            <%= views_label(views) %>
+          </span>
+        </li>
+      <% end %>
+    </ol>
+  </div>
+</section>

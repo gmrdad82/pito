@@ -17,18 +17,15 @@ clients).
   dedicated Puma (port 3028), separate from the web app (port 3027)
 - **Scope:** every MCP request operates on the install (single-install,
   multi-user per ADR 0003). There is no tenant boundary; access control is
-  per-scope. The catalog is three values — `dev`, `app`, and `auth`. `app` is
-  the everyday surface; `dev` is the developer-KB surface (ADR 0004); `auth` is
-  the login-security surface (Phase 25 — 01d). Both `dev` and `auth` are
-  stripped on release packaging:
-  `Rails.application.config.x.mcp.expose_dev_scope = false` removes `dev` from
-  `Scopes::ALL` and from the MCP tool registry, and
-  `Rails.application.config.x.mcp.expose_auth_scope = false` does the same for
-  `auth`. Production sets both flags to `false`; development and test leave them
-  on. `ApiToken` mirrors the runtime guard: a token row that includes `dev` or
-  `auth` is rejected at validation time when the matching `expose_*_scope` flag
-  is `false`, so a release build refuses to mint or load privileged tokens even
-  if the database was seeded otherwise.
+  per-scope. The catalog is two values — `app` and `auth`. `app` is the
+  everyday surface; `auth` is the login-security surface (Phase 25 — 01d).
+  `auth` is stripped on release packaging:
+  `Rails.application.config.x.mcp.expose_auth_scope = false` removes `auth`
+  from `Scopes::ALL` and from the MCP tool registry. Production sets the flag
+  to `false`; development and test leave it on. `ApiToken` mirrors the runtime
+  guard: a token row that includes `auth` is rejected at validation time when
+  `expose_auth_scope` is `false`, so a release build refuses to mint or load
+  privileged tokens even if the database was seeded otherwise.
 
 The MCP server loads Rails models, decorators, and services directly
 (in-process). It does not make HTTP requests to the web app.
@@ -134,14 +131,15 @@ cross-tenant defense-in-depth check that previously lived inside
 
 ### Scope-per-tool table
 
-Per ADR 0004 the catalog originally collapsed to two values: `dev` for the Dev
-KB tools and `app` for everything else. Phase 25 — 01d added a third scope —
-`auth` — for the login-security surface (pending-approval queue, approve / block
-/ unblock / purge, blocked-location list, auth audit log). Phase 25 — 01e added
-the read-only `totp_status` tool on the same scope. Both `dev` and `auth` strip
-on release (production sets `expose_dev_scope = false` AND
-`expose_auth_scope = false`); `app` is always on. The `auth` scope is opt-in
-per-token and is NOT granted by the default Claude-mobile token.
+Per ADR 0004 the catalog originally collapsed to `app` for application tools
+and a `dev` scope for the dev-KB surface; the dev-KB surface was retired
+later, leaving `app` as the everyday catalog. Phase 25 — 01d added the `auth`
+scope for the login-security surface (pending-approval queue, approve / block
+/ unblock / purge, blocked-location list, auth audit log). Phase 25 — 01e
+added the read-only `totp_status` tool on the same scope. `auth` strips on
+release (production sets `expose_auth_scope = false`); `app` is always on.
+The `auth` scope is opt-in per-token and is NOT granted by the default
+Claude-mobile token.
 
 | Tool                     | Required scope |
 | ------------------------ | -------------- |
@@ -161,9 +159,6 @@ per-token and is NOT granted by the default Claude-mobile token.
 | `delete_saved_view`      | `app`          |
 | `sync_records`           | `app`          |
 | `delete_records`         | `app`          |
-| `list_docs`              | `dev`          |
-| `read_doc`               | `dev`          |
-| `save_note`              | `dev`          |
 | `login_attempts_pending` | `auth`         |
 | `login_attempts_list`    | `auth`         |
 | `login_attempt_approve`  | `auth`         |
@@ -316,99 +311,13 @@ The web flow and the MCP flow share the controller, the view, and the resulting
 | `pito://status` | Live app state: counts, search health, settings |
 | `pito://mcp`    | This document                                   |
 
-## Dev KB surface
-
-Three tools open a bidirectional dev-KB channel between the desktop session
-(Claude Code, file-system access) and remote sessions (Claude Mobile over
-`mcp.pitomd.com`). The substrate is the `docs/` markdown tree already in this
-repo. Mobile **reads** the docs tree to recover session context and curated
-reference material; Mobile **captures** on-the-road thoughts as timestamped
-markdown notes; the next desktop session **curates / promotes** those notes.
-
-| Tool        | Description                                                                                                                                                                                                                               |
-| ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `list_docs` | List markdown files under `docs/` (and `CLAUDE.md` when matched). Args: `name_pattern` (glob, default `"*.md"`), `prefix` (relative to `docs/`, default `""`), `sort` (`mtime_desc` / `mtime_asc` / `path`), `limit` (1–500, default 50). |
-| `read_doc`  | Read a single markdown file by repo-relative path. Path must end in `.md` and resolve to either `CLAUDE.md` or somewhere under `docs/`.                                                                                                   |
-| `save_note` | Append a timestamped markdown note to `docs/notes/`. Server generates the filename `<YYYY-MM-DD-HH-MM-SS>-<slug>.md` (UTC). `content` is required and written verbatim. `slug` is optional and sanitized server-side.                     |
-
-### `list_docs` — return shape
-
-```json
-[
-  {
-    "path": "docs/plans/beta/03-channel-revamp/log.md",
-    "last_modified_at": "2026-05-01T12:00:00Z",
-    "size_bytes": 4321,
-    "first_heading": "Channel revamp — implementation log"
-  }
-]
-```
-
-`first_heading` is the first `# H1` line of the file (empty string if the file
-has no H1) — handy preview without forcing a `read_doc` round trip.
-
-`CLAUDE.md` is included in the listing when the caller passes `prefix == ""` (or
-omits it) and `name_pattern` matches `CLAUDE.md`.
-
-### `read_doc` — return shape
-
-```json
-{
-  "path": "docs/design.md",
-  "content": "# Design system\n…",
-  "last_modified_at": "2026-05-01T12:00:00Z"
-}
-```
-
-### `save_note` — return shape
-
-```json
-{
-  "path": "docs/notes/2026-05-04-12-30-45-hello-world.md",
-  "saved_at": "2026-05-04T12:30:45Z"
-}
-```
-
-The `slug` is sanitized to `[a-z0-9-]`: lowercase, spaces collapse to single
-hyphens, every other character is dropped, runs of hyphens collapse, leading /
-trailing hyphens are stripped, and the result is capped at 50 characters. If
-sanitization yields an empty string (e.g. `"!!!"`), the slug falls back to
-`note`. The slug is a filename hint only — it never affects the write directory.
-
-Sub-second collisions (two saves with the same slug in the same second) get a
-`-2`, `-3`, … suffix appended before `.md`.
-
-### Path safety (read side)
-
-`list_docs` and `read_doc` share a single validator (`DevDocPath.resolve`). The
-validator runs purely lexical / structural checks BEFORE any filesystem access —
-no stat, no read, no glob until the path is cleared. Rejections:
-
-- Absolute paths (start with `/`).
-- Paths whose `Pathname#cleanpath` contains `..` segments.
-- Non-`.md` extensions (e.g. `Gemfile`, `notes.txt`, `notes` with no extension).
-- Paths that don't resolve to either `Rails.root.join("CLAUDE.md")` or a
-  descendant of `Rails.root.join("docs")`.
-
-### Write confinement
-
-`save_note` is the only writer in the Dev KB surface. It writes exclusively to
-`docs/notes/` (created on first use). The slug is sanitized but never
-participates in the path computation — the write directory is hard-coded. There
-is no `write_doc`, no `delete_doc`, no `rename_doc`. Curation, promotion, edits,
-and moves stay desktop concerns. Mobile **captures**; desktop **curates**.
-
-The asymmetry is intentional: it keeps the mobile blast radius small and keeps
-the desktop session as the single point of curation — the place where notes get
-promoted into logs, ADRs, or specs.
-
 ## Auth surface
 
 Nine tools (Phase 25 — 01d + 01e) expose the login-security surface to MCP. All
-nine require the dedicated `auth` scope. The scope strips on release alongside
-`dev`, so a production install advertises none of them. The default
-Claude-mobile token does NOT carry `auth` — opt in per-token only when an
-operator needs MCP-side approval / block / unblock / purge.
+nine require the dedicated `auth` scope. The scope strips on release, so a
+production install advertises none of them. The default Claude-mobile token
+does NOT carry `auth` — opt in per-token only when an operator needs MCP-side
+approval / block / unblock / purge.
 
 The destructive tools (`login_attempt_approve`, `login_attempt_block`,
 `login_attempt_unblock`, `login_attempt_purge`) use the same two-step `confirm`
@@ -525,9 +434,6 @@ app/mcp/
     list_saved_views.rb   # list_saved_views
     create_saved_view.rb  # create_saved_view
     delete_saved_view.rb  # delete_saved_view
-    list_docs.rb          # list_docs (Dev KB)
-    read_doc.rb           # read_doc  (Dev KB)
-    save_note.rb          # save_note (Dev KB)
     login_attempts_pending.rb  # login_attempts_pending  (auth)
     login_attempts_list.rb     # login_attempts_list     (auth)
     login_attempt_approve.rb   # login_attempt_approve   (auth, two-step confirm)
@@ -541,8 +447,6 @@ app/mcp/
     app_status.rb         # pito://status
     design_doc.rb         # pito://design
     mcp_doc.rb            # pito://mcp
-app/lib/
-  dev_doc_path.rb         # Read-side path safety for list_docs / read_doc
 app/models/
   api_token.rb            # Bearer token model (HMAC-SHA256 + pepper)
 app/lib/

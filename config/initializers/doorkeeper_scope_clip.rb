@@ -39,7 +39,12 @@
 #     the clipped list onto the access grant. From there, the access
 #     token inherits the clipped scope list automatically.
 #
-# Spec coverage lives in `spec/requests/oauth_scope_clip_spec.rb`.
+# Spec coverage: the dedicated `spec/requests/oauth_scope_clip_spec.rb`
+# was retired in Phase 29 (MCP cut, 2026-05-19) when the catalog
+# collapsed to a single scope — clip math against a one-element catalog
+# has no meaningful failure surface. The
+# `spec/requests/oauth_authorization_spec.rb` round-trip still
+# exercises the patch end-to-end.
 Rails.application.config.after_initialize do
   Doorkeeper::OAuth::PreAuthorization.class_eval do
     # Public override. Returns the clipped intersection

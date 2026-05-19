@@ -98,18 +98,18 @@ flat:
 #
 # Modal contexts registered below:
 #   bundle          — /games bundles modal (display + inline-edit
-#                     title). Action keys: `l` dark mode, `c` rename.
+#                     title). Action keys: `c` rename.
 #   webhook_help    — Discord + Slack help modals (one shared component,
 #                     two invocations — adding the attribute on the
 #                     shared component scopes it to both). Informational,
-#                     so only `l` dark mode is exposed.
+#                     no modal-scoped action keys (empty items list).
 #   revoke_confirm  — /settings/security session-revoke confirm modal.
-#                     Action keys: `l` dark mode, `r` revoke.
+#                     Action keys: `r` revoke.
 #   reindex_confirm — /settings/stack Meilisearch reindex confirm modal.
-#                     Action keys: `l` dark mode, `r` reindex.
+#                     Action keys: `r` reindex.
 #   sync_confirm    — /games/:id breadcrumb [sync] confirm modal (dangerous
 #                     action — consumes from the IGDB request quota).
-#                     Action keys: `l` dark mode, `s` confirm sync.
+#                     Action keys: `s` confirm sync.
 #
 # Two new action types are introduced in lockstep with this block:
 #
@@ -129,10 +129,6 @@ flat:
 modal_actions:
   bundle:
     items:
-      - key: l
-        label_i18n: keybindings.modal_actions.bundle.dark_mode
-        action:
-          type: theme_toggle
       - key: c
         label_i18n: keybindings.modal_actions.bundle.rename
         action:
@@ -145,46 +141,26 @@ modal_actions:
   # the same way `[delete]` does.
   bundle_delete_confirm:
     items:
-      - key: l
-        label_i18n: keybindings.modal_actions.bundle_delete_confirm.dark_mode
-        action:
-          type: theme_toggle
       - key: d
         label_i18n: keybindings.modal_actions.bundle_delete_confirm.delete
         action:
           type: submit_confirm_modal
   webhook_help:
-    items:
-      - key: l
-        label_i18n: keybindings.modal_actions.webhook_help.dark_mode
-        action:
-          type: theme_toggle
+    items: []
   revoke_confirm:
     items:
-      - key: l
-        label_i18n: keybindings.modal_actions.revoke_confirm.dark_mode
-        action:
-          type: theme_toggle
       - key: r
         label_i18n: keybindings.modal_actions.revoke_confirm.revoke
         action:
           type: submit_confirm_modal
   reindex_confirm:
     items:
-      - key: l
-        label_i18n: keybindings.modal_actions.reindex_confirm.dark_mode
-        action:
-          type: theme_toggle
       - key: r
         label_i18n: keybindings.modal_actions.reindex_confirm.reindex
         action:
           type: submit_confirm_modal
   sync_confirm:
     items:
-      - key: l
-        label_i18n: keybindings.modal_actions.sync_confirm.dark_mode
-        action:
-          type: theme_toggle
       - key: s
         label_i18n: keybindings.modal_actions.sync_confirm.sync
         action:
@@ -210,7 +186,6 @@ page_actions:
   # as `1 left / 1 right`.
   #
   # Rendered shape:
-  #   l  dark mode toggle
   #   /  search
   #   ───── (plain divider) ─────
   #   fr  released   |  fP  PS         (2-col grid)
@@ -221,10 +196,6 @@ page_actions:
   #   ───── (plain divider) ─────
   #   G+ add game    |  Gb add bundle  (2-col grid)
   games_index:
-    - key: l
-      label_i18n: keybindings.page_actions.games_index.dark_mode_toggle
-      action:
-        type: theme_toggle
     # `/` opens the page-scoped omnisearch modal (`:games_search` mode).
     # Local games + bundles + IGDB. The dialog is mounted at the bottom
     # of `app/views/games/index.html.erb` with id
@@ -283,10 +254,6 @@ page_actions:
       action:
         type: page_add_bundle
   games_show:
-    - key: l
-      label_i18n: keybindings.page_actions.games_show.dark_mode
-      action:
-        type: theme_toggle
     - key: "/"
       label_i18n: keybindings.page_actions.games_show.search
       action:
@@ -301,10 +268,6 @@ page_actions:
       action:
         type: page_delete
   bundles_show:
-    - key: l
-      label_i18n: keybindings.page_actions.bundles_show.dark_mode
-      action:
-        type: theme_toggle
     - key: "/"
       label_i18n: keybindings.page_actions.bundles_show.search
       action:
@@ -355,18 +318,14 @@ page_actions:
   # errors, just nothing happens. Phase C ships the keybinding
   # mechanic; Phase D wires the targets.
   #
-  # Prefix-conflict note: `d` is no longer an exact binding (theme
-  # toggle moved to `l` on 2026-05-17). `d` is still a prefix for
-  # `da` and `dd`, but pressing `d` alone now fires nothing — the
+  # Prefix-conflict note: `d` is a prefix-only key for `da` + `dd`
+  # (no exact `d` binding); pressing `d` alone fires nothing — the
   # prefix accumulator waits for the second key (a/d) or the 1500 ms
   # timeout (which expires with no recorded exact match → no-op).
   # `s` is a prefix-only key for `sr` + `sa` + `sd` (no exact `s`
   # binding); pressing `s` then `r`/`a`/`d` fires the matching
-  # 2-key binding. `l` (dark mode) has no longer-prefix neighbors
-  # so it fires immediately on press.
-  # 2026-05-18 — /settings popup layout mirrors /games structure:
-  #   l                              (dark mode)
-  #   ───── (plain divider) ─────
+  # 2-key binding.
+  # 2026-05-18 — /settings popup layout:
   #   sr                             (revoke unused sessions)
   #   ───── (plain divider) ─────
   #   da  Discord all                | sa  Slack all                  (2-col grid)
@@ -379,11 +338,6 @@ page_actions:
   #   col1 = [da, dd]    col2 = [sa, sd]
   # which matches the user's mock exactly.
   settings:
-    - key: l
-      label_i18n: keybindings.page_actions.settings.dark_mode
-      action:
-        type: theme_toggle
-    - divider: true
     - key: sr
       label_i18n: keybindings.page_actions.settings.revoke_unused_sessions
       action:
@@ -418,10 +372,6 @@ page_actions:
         type: open_modal_by_id
         target: reindex_meilisearch_modal
   default:
-    - key: l
-      label_i18n: keybindings.page_actions.default.dark_mode
-      action:
-        type: theme_toggle
     - key: "/"
       label_i18n: keybindings.page_actions.default.search
       action:

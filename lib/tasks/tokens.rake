@@ -11,10 +11,12 @@
 #
 # Scopes are passed as a `+`-separated list (Thor disallows commas inside
 # task args without escaping). Example:
-#   bin/rails "tokens:create[dev-default,dev+app]"
+#   bin/rails "tokens:create[cli-default,app]"
 #
-# Phase 10 — the catalog collapsed from 9 to 2 (`dev` + `app`); old
-# string forms like `dev:read` are no longer valid scope values.
+# Phase 10 — the catalog collapsed from 9 to 2 (`dev` + `app`).
+# Phase 29 (MCP cut, 2026-05-19) — the catalog collapsed further to a
+# single scope, `app`. Legacy string forms like `dev:read` and the
+# retired `dev` / `auth` scopes are no longer valid.
 #
 # Plaintext is shown once and then unreachable; copy it before closing
 # the terminal.
@@ -22,7 +24,7 @@ namespace :tokens do
   desc "Generate a new API token. Usage: tokens:create[name,scope1+scope2+...]"
   task :create, [ :name, :scopes ] => :environment do |_t, args|
     name   = (args[:name] || "default").to_s
-    scopes = (args[:scopes] || "dev+app").to_s.split("+").map(&:strip).reject(&:empty?)
+    scopes = (args[:scopes] || "app").to_s.split("+").map(&:strip).reject(&:empty?)
 
     user = User.first
 
@@ -48,12 +50,8 @@ namespace :tokens do
     puts "plaintext (copy now — it won't be shown again):"
     puts plaintext
     puts ""
-    puts "test with:"
-    puts "  curl -X POST http://localhost:3028/mcp \\"
-    puts "    -H 'Content-Type: application/json' \\"
-    puts "    -H 'Accept: application/json' \\"
-    puts "    -H 'Authorization: Bearer #{plaintext}' \\"
-    puts '    -d \'{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"curl","version":"1.0"}}}\''
+    puts "test with a bearer-authed API request, e.g.:"
+    puts "  curl -H 'Authorization: Bearer #{plaintext}' http://localhost:3027/api/..."
   end
 
   desc "List all API tokens"

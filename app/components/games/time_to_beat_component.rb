@@ -1,54 +1,44 @@
-# 2026-05-17 BQ slice (item 8 of the 10-item /games/:id reshape list) —
-# the variant showcase that briefly lived here has been cut down to a
-# single canonical visualization: the **fuel gauge**. Variant 10 won
-# the pick; the other nine variants (concentric / discs / rings / bars /
-# columns / pyramid / clocks / ladder / stacked_timeline) plus the
-# `ttb-showcase` scaffold are deleted from the component, ERB, view,
-# and CSS.
+# 2026-05-19 v3 refactor — TEXT BAR with full-width gradient + four
+# `|` ticks (footage + main + extras + completionist).
 #
-# 2026-05-17 BZ+ restructure (user direction — "738h should scream at me"):
-# the layout has been reshuffled into four stacked rows so the gauge
-# reads as a labeled chart rather than a tick strip with floating
-# captions.
+# Bar shape (BAR_CELLS = 40):
 #
-#   row 1 — footage value text (top, centered on footage tick)
-#   row 2 — TTB bar with 4 ticks (3 colored pillars + footage notch)
-#   row 3 — pillar hour values (positioned BELOW each pillar tick)
-#   row 4 — legend: 4 swatches + names (main / extras / completionist / recorded)
+#   [=======|==|==========|=================|]
 #
-# Pillar tick colors moved from theme-text to a vivid literal palette
-# that pops against the cool-spectrum gradient (periwinkle → cyan →
-# indigo → magenta-purple):
+# Where:
+#   - `[` / `]` are bracket characters (theme-text color).
+#   - The `=` characters fill EVERY cell between the brackets — the bar
+#     shape is ALWAYS `[===…===]`. The cool-spectrum gradient
+#     (green → lime → amber → pink) is painted on the `=` glyphs via
+#     `background-clip: text; color: transparent;` on the `__fill`
+#     spans.
+#   - Four `|` ticks mark the positions of:
+#       1. `footage_hours` — the user's recorded footage
+#       2. main           — TTB main-story estimate
+#       3. extras         — TTB main + extras estimate
+#       4. completionist  — TTB completionist estimate
+#     Each tick replaces one `=` at index `(value / max_x * N).round`.
+#   - Ticks render in `var(--color-text)` (non-gradient) so the marker
+#     stays visible regardless of which gradient stop it falls on.
 #
-#   main          #FFE74C  bright yellow
-#   extras        #FFFFFF  pure white
-#   completionist #FF4081  vivid pink/magenta
+# When two ticks land in the same cell, only one `|` is rendered there
+# (the cell can only show one character). Pillar bottom labels keep the
+# existing collision-nudge logic so the hour labels read clearly.
 #
-# Footage tick keeps its BB pattern unchanged (4px, page-bg fill +
-# theme-text border). The legend's "recorded" swatch mirrors that
-# styling (bg fill + 1px theme-text border) so the legend reads as a
-# faithful key to the four marks on the bar.
-#
-# 2026-05-17 emoji strip (user direction — "Drop emoji. It adds too
-# much. Keep it simple with text only."): the completionist scream
-# escalation (🔥 / 🔥🔥) and the footage trophy (🏆 for footage >
-# completionist) have both been removed. Labels are now plain
-# `"<N>h"` strings only.
+# The score-bubble, watermark, footage label, legend swatches, and
+# below-bar pillar-hour labels are retained as row-level renderings
+# around the text bar.
 module Games
   class TimeToBeatComponent < ViewComponent::Base
-    # Sample triplet used when the game has no IGDB time-to-beat data.
-    # Picked to match the user's reference screenshot (31 / 71 / 124)
-    # so the gauge always renders something compelling even on a fresh
-    # / unsynced row.
     SAMPLE_HOURS = { main: 31, extras: 71, completionist: 124 }.freeze
 
     PILLAR_KEYS = %i[main extras completionist].freeze
 
-    # Pillar legend labels. Resolved through I18n so locale switches
-    # cascade into the chart legend without code edits. Returned as a
-    # frozen hash so the template's `pillar_label[:main]` lookup
-    # pattern stays unchanged from the prior `PILLAR_LABEL[:main]`
-    # constant form.
+    # Total cell count of the bar. Locked at 40 for monospace density
+    # at the /games/:id pane width — wider than the rating heat bar's
+    # 20 cells so the four ticks have room to separate.
+    BAR_CELLS = 40
+
     def self.pillar_label
       {
         main:          I18n.t("games.ttb.main"),
@@ -57,81 +47,16 @@ module Games
       }.freeze
     end
 
-    # Zone boundaries (in hours). Used by the ERB to compute the left+
-    # right edge of each zone as a percentage of `max_x`. Open-ended
-    # top zone (`100..`) extends to `max_x`.
-    ZONE_BOUNDARIES_HOURS = [ 10, 40, 100 ].freeze
-
-    # Heat-map gradient stops, anchored to FIXED HOUR thresholds (not
-    # percentages). Each stop's percentage is computed per-game by
-    # projecting its hour value onto `max_x`. The adaptive gradient
-    # means:
-    #
-    #   - small max_x (e.g. Pragmata ~23h) → thresholds at 40 / 100h
-    #     project past 100% and get clamped, so the bar is mostly green
-    #     /lime with no orange or pink visible.
-    #   - mid max_x (~100h) → all four stops land at 0 / 10 / 40 / 100%
-    #     and the full ramp is visible.
-    #   - large max_x (e.g. Crimson Desert ~775h) → 100h projects to
-    #     ~13%, so green/lime/orange compress into the left ~13% and
-    #     pink dominates the remaining ~87%.
-    #
-    # Pink (#E91E63) stays distinct from destructive red (#cc0000) —
-    # this is "effort intensity" warning, not a destructive-action
-    # signal. Locked 2026-05-17 (user direction — adaptive gradient).
-    HEAT_THRESHOLDS = [
-      [ 0,   "#4CAF50" ],   # low — green
-      [ 10,  "#CDDC39" ],   # some — lime
-      [ 40,  "#FFB74D" ],   # commitment — amber
-      [ 100, "#E91E63" ]    # insanity — pink
-    ].freeze
-
-    # Per-pillar literal hex palette (BZ+ restructure). Theme-stable,
-    # vivid, distinct against the bar's cool-spectrum gradient. The
-    # legend swatches and pillar tick fills both pull from this map so
-    # legend ⇔ tick color identity is 1:1 visible.
-    PILLAR_COLOR = {
-      main:          "#FFE74C",
-      extras:        "#FFFFFF",
-      completionist: "#FF4081"
-    }.freeze
-
-    # Wave C reveal — stubbed background gradient applied while
-    # `game.resyncing?` is true. Intentionally bland: solid green
-    # (`--color-rating-good`'s low-effort end of the spectrum), no
-    # adaptive hour projection. The DOM stacks this stub layer
-    # underneath the real adaptive layer; when the resync completes the
-    # real layer's opacity transitions 0 → 1 (600ms ease-in-out) and
-    # the bar appears to crossfade from neutral green to its true
-    # adaptive heat ramp. Solid-color (single stop repeated) avoids the
-    # degenerate gradient that would render if we reused
-    # `gradient_stops` with `max_x = 10` and zero hour values.
-    STUB_GRADIENT = "#4CAF50 0%, #4CAF50 100%".freeze
-
     def initialize(game: nil, hours: nil, footage_hours: nil)
       @game           = game
       @hours          = hours
       @footage_hours  = footage_hours
     end
 
-    # Wave C reveal — true while the upstream game is mid-resync. The
-    # template branches on this to render every tick / pillar / footage
-    # marker at `left: 0%` and to stack the stubbed gradient layer on
-    # top of the real adaptive layer (real layer opacity 0). When the
-    # Turbo morph fires on sync complete the rendered DOM no longer
-    # carries the stub class; CSS `transition: left 600ms ease-in-out`
-    # animates each tick to its real position and the stub-gradient
-    # layer fades out as the real-gradient layer fades in. Falls back
-    # to `false` when no game is attached (preview / spec contexts).
     def resyncing?
       @game&.resyncing? == true
     end
 
-    # Returns `{ main:, extras:, completionist: }` as Integers (hours).
-    # Resolution order:
-    #   1. explicit `hours:` kwarg (used by previews / specs).
-    #   2. the game's IGDB ttb_* seconds, converted to whole hours.
-    #   3. SAMPLE_HOURS when (2) yields all-zero / nil.
     def hours
       return symbolize_hours(@hours) if @hours
 
@@ -144,54 +69,75 @@ module Games
       from_game.values.all?(&:zero?) ? SAMPLE_HOURS.dup : from_game
     end
 
-    # Hours of footage recorded for this game. Explicit kwarg wins; else
-    # `Game#hours_of_footage` (manual override → cached value); else 0.
     def footage_hours
       return @footage_hours.to_i if @footage_hours
 
       @game&.hours_of_footage.to_i
     end
 
-    # The bar's x-axis upper bound. 5% slack past
-    # `max(completionist, footage)` so even an over-completionist
-    # footage tick has breathing room on the right edge. Minimum of
-    # 10h so a fresh game with all-zero pillars + zero footage still
-    # renders a meaningful gauge (anchored to the low-effort zone).
     def max_x
       ceiling = [ hours[:completionist].to_i, footage_hours, 10 ].max
       (ceiling * 1.05).round
     end
 
-    # `(value / max_x) * 100`, clamped to [0, 100]. Used to position
-    # ticks and zone edges along the bar.
     def position(value)
       return 0.0 if max_x.zero?
 
       ((value.to_f / max_x) * 100).clamp(0.0, 100.0).round(3)
     end
 
-    # CSS gradient-stops string for the bar's `background-image`,
-    # computed per-game from `HEAT_THRESHOLDS` projected onto `max_x`.
-    # See the constant's docstring for the adaptive behavior across
-    # small / mid / large max_x values. Each threshold's percentage is
-    # clamped to 100% so over-projecting stops don't break the CSS
-    # gradient syntax. A trailing `<last-color> 100%` stop is appended
-    # whenever the last threshold projects below 100%, so the bar
-    # extends fully to its right edge even when the strongest color
-    # never reaches the natural max.
-    def gradient_stops
-      stops = HEAT_THRESHOLDS.map do |hours, color|
-        pct = [ (hours.to_f / max_x * 100).round(2), 100 ].min
-        "#{color} #{pct}%"
-      end
-      stops << "#{HEAT_THRESHOLDS.last[1]} 100%" unless stops.last.end_with?("100%")
-      stops.join(", ")
+    # ------------------------------------------------------------------
+    # Text-bar cell modeling.
+    # ------------------------------------------------------------------
+
+    # Cell index for a single tick value (hours). Returns the integer
+    # cell whose left edge contains the value's projected percentage.
+    # Clamped to [0, BAR_CELLS - 1]. Returns nil for non-positive values
+    # so we don't drop a tick on cell 0 when the data is missing.
+    def tick_index_for(value)
+      h = value.to_i
+      return nil unless h.positive?
+
+      pct = position(h)
+      idx = ((pct / 100.0) * BAR_CELLS).round
+      idx.clamp(0, BAR_CELLS - 1)
     end
 
-    # `"31h"` / `"—"` style label for a single pillar. Falls back to
-    # em-dash when the pillar is missing (0 / nil). Plain text, no
-    # decoration — the emoji escalation was removed per user
-    # direction (2026-05-17).
+    # Cell indices currently occupied by a tick. Resyncing renders no
+    # ticks (the bar reads as a flat gradient). The footage tick is
+    # included alongside the three pillar ticks. Multiple ticks landing
+    # on the same cell collapse to one `|`.
+    def tick_cell_indices
+      return [].to_set if resyncing?
+
+      candidates = PILLAR_KEYS.map { |key| tick_index_for(hours[key]) }
+      candidates << tick_index_for(footage_hours)
+      candidates.compact.to_set
+    end
+
+    # Returns an array of `{ kind:, text: }` groups for rendering.
+    # Adjacent cells of the same kind are merged so the gradient on
+    # the `:fill` spans paints as a continuous strip.
+    #
+    # Every cell is either `:fill` (gradient `=`) or `:tick` (theme-text
+    # `|`). No `:space` cells in v3 — the bar shape is always
+    # `[===…===]` with ticks overriding individual cells.
+    def cell_groups
+      ticks = tick_cell_indices
+
+      cells = (0...BAR_CELLS).map do |i|
+        if ticks.include?(i)
+          { kind: :tick, char: "|" }
+        else
+          { kind: :fill, char: "=" }
+        end
+      end
+
+      cells.chunk_while { |a, b| a[:kind] == b[:kind] }.map do |group|
+        { kind: group.first[:kind], text: group.map { |c| c[:char] }.join }
+      end
+    end
+
     def label_for(key)
       h = hours[key].to_i
       return I18n.t("common.em_dash") unless h.positive?
@@ -199,41 +145,26 @@ module Games
       I18n.t("games.ttb.hours_short", n: h)
     end
 
-    # Top-row label (above the bar): just the footage hours value.
-    # Plain text, no trophy — the over-completionist decoration was
-    # removed per user direction (2026-05-17).
     def footage_value_label
       I18n.t("games.ttb.hours_short", n: footage_hours)
     end
 
-    # Legend caption for the footage swatch. Single word so the legend
-    # row stays compact alongside the three pillar names.
     def footage_caption
       I18n.t("games.ttb.footage")
     end
 
-    # Returns true when the footage tick should render at all. We
-    # always render it for non-nil values (including 0) so the user
-    # sees the "no footage recorded yet" tick parked at the left edge.
     def render_footage_tick?
       true
     end
 
-    # Post-validation polish 5 — edge-label clamping. When a tick sits
-    # near 0 % or 100 % of the bar, the default `translateX(-50%)` push
-    # half the label outside the pane. The CSS modifier classes shift
-    # the label so it aligns to the bar edge instead:
-    #
-    #   position < 10  → `--at-start` (left-aligned, no transform).
-    #   position > 90  → `--at-end`   (right-aligned, translateX(-100%)).
-    #   else           → `--centered` (default translateX(-50%)).
-    #
-    # Applied to PILLAR labels only — the footage label uses
-    # `footage_label_alignment_class` below and stays centered on its
-    # tick regardless of position (overflow accepted per user
-    # direction 2026-05-17 "the footage text 150h can be kept aligned
-    # to the tick. there is no need for this one to be right aligned
-    # in this case").
+    # Below-bar pillar label data. The pillar label sits at the same
+    # percent-along-the-bar as its tick character. Uses the existing
+    # collision-resolution model (pull-apart) so labels at the bar's
+    # left edge for main/extras don't overlap. `nudge` shifts each
+    # colliding label outward by NUDGE_PCT.
+    BOTTOM_LABEL_COLLISION_THRESHOLD_PCT = 10.0
+    NUDGE_PCT = 1.3
+
     def label_alignment_class(position_pct)
       pct = position_pct.to_f
       if pct < 10
@@ -245,27 +176,6 @@ module Games
       end
     end
 
-    # Footage value label alignment.
-    #
-    # Default (footage_hours > 0): CENTERED on its tick. Per user
-    # direction (2026-05-17): "the footage text 150h can be kept
-    # aligned to the tick. there is no need for this one to be right
-    # aligned in this case". Overflow past the bar's right edge is
-    # accepted visually so the number stays visually anchored to the
-    # footage notch even at >90 % position.
-    #
-    # Special case (footage_hours == 0): LEFT-ALIGNED to the tick.
-    # Per user direction (2026-05-18 — "for this case let's nudge the
-    # 0h of footage a bit to the right / aligned in a manner that 0h
-    # starts where the footage pillar / tick starts"). With the footage
-    # tick parked at the bar's left edge (position 0), centering the
-    # "0h" label puts half of it off-pane to the left. The `--at-start`
-    # modifier (translateX(0) + text-align: left) anchors the label so
-    # it begins AT the tick and extends rightward, staying fully visible.
-    #
-    # Wave F spec coverage to add (deferred per iteration mode):
-    #   - footage_hours == 0    → returns "ttb-fuel-gauge__label--at-start"
-    #   - footage_hours  > 0    → returns "ttb-fuel-gauge__label--centered"
     def footage_label_alignment_class
       if footage_hours.to_i == 0
         "ttb-fuel-gauge__label--at-start"
@@ -274,85 +184,12 @@ module Games
       end
     end
 
-    # Bottom-row pillar label alignment — ALWAYS centered on its tick.
-    # Per user direction (2026-05-17): "bottom texts for main, extra
-    # and completionis, can stay with the pillar / tick in their
-    # center. They won't overflow I think." The "Nh" labels are short
-    # enough that centered placement keeps each label visually anchored
-    # to its tick at any position, even near the bar's left / right
-    # edge. Edge-clamping (`label_alignment_class`) is reserved for
-    # cases where overflow would be visually unacceptable — bottom-row
-    # pillar values opt out.
     def pillar_bottom_label_alignment_class
       "ttb-fuel-gauge__label--centered"
     end
 
-    # Collision threshold (in percent of bar width). When two adjacent
-    # pillar labels sit within this gap on the bar, the EARLIER
-    # (leftmost-positioned) label nudges LEFT and the LATER
-    # (rightmost-positioned) label nudges RIGHT — pull-apart, not
-    # same-direction drift. Both stay on the same row; the shift is
-    # baked directly into each label's `left:` value as
-    # `± NUDGE_PCT` of bar width. Picked at 10 % so the Crimson
-    # Desert case (main 31h ≈ 4 %, extras 71h ≈ 9 %, both under the
-    # bar's 775h max_x) resolves while completionist (~95 %) stays
-    # centered.
-    BOTTOM_LABEL_COLLISION_THRESHOLD_PCT = 10.0
-
-    # Horizontal separation applied when a pair of pillar labels
-    # collide. Expressed as a percentage of bar width so the nudge
-    # scales with the pane. Baked into `effective_position` in
-    # `pillar_label_data` so the template's `left:` value already
-    # carries the shift — the CSS no longer applies a pixel-based
-    # `translateX` override. Per user direction (2026-05-17 —
-    # "the main, has to go left not right"), the model is PULL-APART:
-    # the earlier label of a colliding pair shifts LEFT by `NUDGE_PCT`,
-    # the later label shifts RIGHT by `NUDGE_PCT`. For the Crimson
-    # Desert calibration (max_x ≈ 775h), this lands at main
-    # 4.0 → 2.7 % and extras 9.16 → 10.46 %, giving 7.76 % of
-    # separation — well above the 5.16 % raw gap and clearly readable.
-    # Completionist (~95 %) has no collision and stays anchored.
-    # Edges of the bar are clamped to [0, 100] so a near-zero /
-    # near-100 tick can't push its label off-bar.
-    # Step history: 2.1 → 2.0 → 1.8 → 1.3 (2026-05-18, user direction).
-    NUDGE_PCT = 1.3
-
-    # Returns the bottom-row pillar labels with per-label collision
-    # metadata. The template renders each label with `effective_position`
-    # baked into its `left:` style — the horizontal nudge for a
-    # colliding pair is folded directly into the position percentage
-    # (no CSS-side `translateX` modifier). All labels keep the shared
-    # `--centered` alignment class.
-    #
-    # Each entry: `{ key:, hours:, label:, position:, nudge:, effective_position: }`.
-    #
-    #   key                — `:main` / `:extras` / `:completionist` (in pillar order).
-    #   hours              — integer hours (0 / nil pillars are NOT skipped, so the
-    #                        em-dash label still renders in place).
-    #   label              — string from `label_for(key)` ("31h" or "—").
-    #   position           — raw percent along the bar (already clamped 0..100).
-    #   nudge              — `:left`, `:right`, or `nil`. Set by the collision pass
-    #                        below: in any adjacent colliding pair `(a, b)` (with
-    #                        `a` positioned left of `b`), `a` gets `:left` (only if
-    #                        still `nil` — preserves the outward anchor in a 3-way
-    #                        chain where `a` may already be the right-member of an
-    #                        earlier collision) and `b` gets `:right`.
-    #   effective_position — raw `position`, shifted `-NUDGE_PCT` for `:left` or
-    #                        `+NUDGE_PCT` for `:right`, clamped to [0, 100]. This
-    #                        is the value the template puts into `left:`.
-    #
-    # Per user direction (2026-05-17), colliding labels PULL APART —
-    # the earlier label moves LEFT, the later label moves RIGHT.
     def pillar_label_data
       if resyncing?
-        # Wave C reveal — stub every pillar at the bar's left edge
-        # (position 0) so the upcoming Turbo morph + CSS transition
-        # slides each pillar to its real position once the resync
-        # completes. Labels stay computed (`label_for(key)` already
-        # returns em-dash for nil/zero hours, which is the natural
-        # mid-resync state); only the geometry is stubbed. The legend
-        # row, watermark, and footage tick all derive their position
-        # from their own helpers and stub independently in the ERB.
         return PILLAR_KEYS.map do |key|
           {
             key:                key,
@@ -397,51 +234,10 @@ module Games
       ordered
     end
 
-    # Wave C reveal — `left:` percentage for the footage tick. Stubs
-    # to 0 while `resyncing?` so the tick parks at the bar's left edge
-    # and animates rightward on sync complete via the shared CSS
-    # `transition: left 600ms ease-in-out`. Real (post-sync) path
-    # delegates to `position(footage_hours)`.
     def footage_position
       return 0.0 if resyncing?
 
       position(footage_hours)
-    end
-
-    # Wave C reveal — `left:` percentage for an individual pillar tick.
-    # Stubs to 0 during resync (matches `pillar_label_data`'s stubbed
-    # `effective_position`). Real path delegates to
-    # `position(hours[key])`. Used by the ERB so the bar ticks and the
-    # bottom-row labels share the same geometry source.
-    def pillar_position(key)
-      return 0.0 if resyncing?
-
-      position(hours[key].to_i)
-    end
-
-    # Wave C reveal — gradient stop list for the REAL adaptive bar
-    # layer. Identical to `gradient_stops`; named separately so the
-    # ERB reads as a pair (`stub_gradient_stops` / `real_gradient_stops`).
-    def real_gradient_stops
-      gradient_stops
-    end
-
-    # Wave C reveal — gradient stop list for the STUBBED bar layer.
-    # Always returns the constant `STUB_GRADIENT` (solid green); never
-    # collapses to the degenerate adaptive form. Rendered as the lower
-    # `background-image` layer in the ERB, fully visible while
-    # `resyncing?` (real layer opacity 0) and entirely covered once the
-    # resync completes (real layer opacity 1, stub layer hidden behind).
-    def stub_gradient_stops
-      STUB_GRADIENT
-    end
-
-    # Wave C reveal — opacity for the REAL adaptive gradient layer.
-    # 0 while `resyncing?` (stub layer visible underneath); 1 once
-    # the resync completes. The `transition: opacity 600ms ease-in-out`
-    # on `.ttb-fuel-gauge__bar-layer--real` produces the crossfade.
-    def real_layer_opacity
-      resyncing? ? 0 : 1
     end
 
     private

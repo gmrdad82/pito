@@ -171,6 +171,25 @@ Chart grid lines: `--color-chart-grid` (#eeeeee light, #44475a dark) Tooltip:
 - All inline styles must use CSS variables, not hex values, for theme
   compatibility.
 
+### Section accent palette
+
+Each top-level section binds the `--section-accent` token to a fixed hue so
+navigation, headers, and section-scoped chrome carry a consistent identity. The
+palette is locked; do not introduce new sections without a paired user decision
+captured here.
+
+| Section            | Token              | Hex       | Source                          |
+| ------------------ | ------------------ | --------- | ------------------------------- |
+| Home / Dashboard   | `--section-accent` | `#bd93f9` | Dracula Purple                  |
+| Channels + Videos  | `--section-accent` | `#ff5555` | Dracula Red                     |
+| Projects + Games   | `--section-accent` | `#7eb6ff` | Pale Cobalt (Dracula-compatible) |
+| Settings           | `--section-accent` | `#ffb86c` | Dracula Orange                  |
+
+Locked 2026-05-19 after `tmp/dracula-swatches-v2.html` Section B side-by-side
+review. The Projects + Games hue (Pale Cobalt `#7eb6ff`) is the variant-B
+winner; future agents reference this table — not the CSS — as the canonical
+source.
+
 ## Dark Mode
 
 - Toggle: `(n)` keycap in navbar — Dracula bg color in light mode, white in dark

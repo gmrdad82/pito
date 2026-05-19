@@ -31,8 +31,8 @@ class SettingsController < ApplicationController
   # The dropped UI/UX, Workspace, and Voyage panes are gone — workspace
   # knobs (`max_panes`, `pane_title_length`, `timezone`) live in
   # `config/pito.yml` now (see `config/initializers/pito_config.rb`);
-  # theme persistence moved to localStorage; keyboard navigation is
-  # always-on.
+  # the theme system was removed entirely (2026-05-19); keyboard
+  # navigation is always-on.
   #
   # The OAuth-applications + tokens management UI is also gone — pito
   # is single-user, the operator manages those from the shell via
@@ -40,8 +40,6 @@ class SettingsController < ApplicationController
   # Doorkeeper handshake endpoints (`/oauth/authorize`,
   # `/oauth/token`, `/oauth/revoke`, `/oauth/introspect`) stay live
   # for the Claude Desktop OAuth client.
-  #
-  # `update_theme` is gone too — the route is dropped from `routes.rb`.
   #
   # `update` is no longer a multi-section dispatcher; the only surviving
   # legacy caller (the JSON-PATCH path some scripted setups still target)
@@ -170,16 +168,14 @@ class SettingsController < ApplicationController
     ]
   end
 
-  # Public-safe subset surfaced to the JSON API. The pito CLI's
-  # `AppSettings` Rust struct still binds to these three fields; the
-  # Rust crate is paused so we keep the contract intact with the
-  # config.x.pito values and a static `theme: "auto"` placeholder
-  # (theme is browser-local now, no server-side preference exists).
+  # Public-safe subset surfaced to the JSON API. Sourced from
+  # `config.x.pito`. The pito CLI's `AppSettings` Rust struct binds to
+  # these fields; the Rust crate is paused and will be rebuilt against
+  # this shape when CLI parity work resumes.
   def settings_json
     {
       max_panes: Rails.application.config.x.pito.max_panes,
-      pane_title_length: Rails.application.config.x.pito.pane_title_length,
-      theme: "auto"
+      pane_title_length: Rails.application.config.x.pito.pane_title_length
     }
   end
 

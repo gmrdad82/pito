@@ -42,6 +42,22 @@ commits where neither RSpec nor cargo nor prettier coverage adds signal.
 > begins. As items resolve during 5.5, they move to "## Done" with the resolving
 > commit hash. New entries continue to be added throughout Phase 5.
 
+### Deferred decisions — CRON / SCHEDULE (open)
+
+Accumulative list of cron / scheduled-job policy questions that are deferred
+until the related surface ships. Resolve each entry with the user before the
+spec consolidation phase for that surface.
+
+- [ ] **Voyage reindex — Games.** When does `pito:voyage:reindex_games` get
+      re-run? On-demand only? After every IGDB sync? Nightly cron? Need policy
+      plus a green-path spec once games are populated at production scale.
+- [ ] **Voyage reindex — Bundles.** Same question for the bundles reindex rake
+      task. On-demand only? After bundle add / edit? Need policy.
+- [ ] **Voyage reindex — Channels.** Rake task exists, idempotent, manual
+      trigger only; per-record `after_save` callback handles individual
+      re-embedding. Cron cadence not yet decided. Need policy once /channels
+      Wave B real-data ships.
+
 - **favicon_spec.rb redirect target update** — assert `/favicon.ico`
   redirects to `/favicon-32x32.png` instead of `/Pito.png`. Pito.png
   retired 2026-05-19. Needs spec consolidation phase.

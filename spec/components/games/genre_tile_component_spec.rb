@@ -60,7 +60,8 @@ RSpec.describe Games::GenreTileComponent, type: :component do
 
   # ----------------------------------------------------------------
   # Fallback render — no cover_image_id falls through to the
-  # theme-aware SVG pair the CoverComponent emits.
+  # single-dark SVG the CoverComponent emits (theme system removed
+  # 2026-05-19; only the dark fallback asset is referenced).
   # ----------------------------------------------------------------
 
   describe "edge: game with no cover" do
@@ -74,9 +75,13 @@ RSpec.describe Games::GenreTileComponent, type: :component do
 
     before { render_inline(described_class.new(game: naked_game)) }
 
-    it "emits both light and dark theme fallback SVGs" do
-      expect(page).to have_css("img.game-cover-fallback--light", count: 1)
-      expect(page).to have_css("img.game-cover-fallback--dark", count: 1)
+    it "emits exactly one single-dark fallback SVG" do
+      expect(page).to have_css("img.game-cover-fallback", count: 1)
+    end
+
+    it "does NOT emit the dropped theme-variant fallback classes" do
+      expect(page).to have_no_css("img.game-cover-fallback--light")
+      expect(page).to have_no_css("img.game-cover-fallback--dark")
     end
 
     it "sizes the fallback at shelf 98x130" do

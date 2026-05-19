@@ -1,7 +1,7 @@
 # Phase 12 — single source of truth for the writable-field set on
-# Video. Both VideosController and Mcp::Tools::UpdateVideo reference
-# this so the metadata-edit permitted attributes stay in sync across
-# the web and MCP surfaces (locked decision #2).
+# Video. VideosController references this so the metadata-edit
+# permitted attributes stay in sync across the web surface (locked
+# decision #2).
 #
 # This is NOT Pundit. It is a small, self-contained module that
 # exposes:

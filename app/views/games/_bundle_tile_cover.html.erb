@@ -52,46 +52,30 @@
         `Composite::CellMap.for(3)` so the empty bundle looks
         like a bundle, not a generic game.
 
-        2026-05-18 (follow-up) — each cell embeds the shared
-        game-cover fallback SVG (the stylised controller icon)
-        so the placeholder reads as "bundle of missing games"
-        instead of three empty boxes. The main left cell uses
-        the `--large` size; the two right cells use `--small`
-        because their 40% × 50% slot is much tighter. Light +
-        dark variants stack and are toggled via the same
-        `[data-theme]` rules as `.game-cover-fallback`. %>
+        Each cell embeds the shared game-cover fallback SVG (the
+        stylised controller icon) so the placeholder reads as
+        "bundle of missing games" instead of three empty boxes.
+        The main left cell uses the `--large` size; the two right
+        cells use `--small` because their 40% × 50% slot is much
+        tighter. Single-dark since the THEME-REMOVE-COMPONENTS
+        phase 1 sweep. %>
     <div class="bundle-tile__nocover-netflix3"
          aria-label="<%= bundle.name %>"
          title="<%= bundle.name %>">
       <div class="cell cell--main">
-        <%= image_tag image_path("controller_icon_light.svg"),
-                      alt: "", loading: "lazy",
-                      data: { theme: "light" },
-                      class: "bundle-tile__nocover-icon bundle-tile__nocover-icon--large game-cover-fallback--light" %>
         <%= image_tag image_path("controller_icon_dark.svg"),
                       alt: "", loading: "lazy",
-                      data: { theme: "dark" },
-                      class: "bundle-tile__nocover-icon bundle-tile__nocover-icon--large game-cover-fallback--dark" %>
+                      class: "bundle-tile__nocover-icon bundle-tile__nocover-icon--large" %>
       </div>
       <div class="cell">
-        <%= image_tag image_path("controller_icon_light.svg"),
-                      alt: "", loading: "lazy",
-                      data: { theme: "light" },
-                      class: "bundle-tile__nocover-icon bundle-tile__nocover-icon--small game-cover-fallback--light" %>
         <%= image_tag image_path("controller_icon_dark.svg"),
                       alt: "", loading: "lazy",
-                      data: { theme: "dark" },
-                      class: "bundle-tile__nocover-icon bundle-tile__nocover-icon--small game-cover-fallback--dark" %>
+                      class: "bundle-tile__nocover-icon bundle-tile__nocover-icon--small" %>
       </div>
       <div class="cell">
-        <%= image_tag image_path("controller_icon_light.svg"),
-                      alt: "", loading: "lazy",
-                      data: { theme: "light" },
-                      class: "bundle-tile__nocover-icon bundle-tile__nocover-icon--small game-cover-fallback--light" %>
         <%= image_tag image_path("controller_icon_dark.svg"),
                       alt: "", loading: "lazy",
-                      data: { theme: "dark" },
-                      class: "bundle-tile__nocover-icon bundle-tile__nocover-icon--small game-cover-fallback--dark" %>
+                      class: "bundle-tile__nocover-icon bundle-tile__nocover-icon--small" %>
       </div>
     </div>
   <% end %>

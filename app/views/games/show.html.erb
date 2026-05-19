@@ -308,6 +308,70 @@
       <%= render(Games::TimeToBeatComponent.new(game: @game)) %>
     </section>
 
+    <%# Phase 38 §01 (2026-05-19) — recommended channels shelf. Wedged
+        between the TTB block and the bundles section so the right
+        pane reads: summary → TTB → recommended channels → bundles →
+        similar → videos. Source data is `@recommended_channels` (set
+        in `GamesController#show` via `Games::ChannelRecommendation`).
+        The service returns `[]` whenever the game has no embedding,
+        no channels are indexed, or all candidate scores fall below
+        the `THRESHOLD_SCORE` floor — the `.any?` guard hides the
+        whole section in those cases (no empty-state copy, per the
+        dispatch's "be quiet rather than show 'no good fits yet'"
+        rule).
+
+        Hash conversion (real Channel records → IdCardComponent hash):
+        the component expects a fixed hash shape minted by
+        `Channels::MockData`. Real `Channel` rows don't carry
+        `:display_name`, `:watch_hours`, or the `*_trend` fields yet
+        (analytics sync is pending), so this view builds the hash
+        inline with sensible fallbacks:
+          * `:display_name` → `channel.title` (or "channel-<id>" when
+            title is still nil between create and the first sync).
+          * `:handle` → `channel.handle` (the BracketedLinkComponent
+            renders an empty `[]` if the value is blank; acceptable
+            placeholder until first sync).
+          * `:youtube_channel_id` → `channel.url_slug` (the UC-id
+            already lifted out of `channel_url` for the friendly URL
+            path). Drives the `[YouTube Studio]` footer link.
+          * `:avatar_url` → `channel.avatar_url` (nil → placeholder
+            square via the component's existing branch).
+          * `:subscriber_count` / `:view_count` / `:video_count` →
+            forwarded as-is; `Formatting::CompactCount` returns an
+            em-dash on nil.
+          * `:watch_hours` → nil (no analytics column yet);
+            `Formatting::CompactHours` returns an em-dash.
+          * `:*_trend` → nil; `IdCardComponent#trend` falls back to
+            `:steady` (the dash glyph). Safe placeholder until
+            analytics deltas land. %>
+    <% if @recommended_channels.any? %>
+      <hr class="hairline">
+      <section class="game-recommended-channels" aria-label="<%= t("games.recommended_channels.heading") %>">
+        <h2><%= t("games.recommended_channels.heading") %></h2>
+        <%= render ShelfComponent.new(heading: nil) do %>
+          <% @recommended_channels.each do |rec| %>
+            <% ch = rec.channel %>
+            <%= render Channels::IdCardComponent.new(
+                  channel: {
+                    id: ch.id,
+                    display_name: ch.title.presence || "channel-#{ch.id}",
+                    handle: ch.handle,
+                    youtube_channel_id: ch.url_slug,
+                    avatar_url: ch.avatar_url,
+                    subscriber_count: ch.subscriber_count,
+                    view_count: ch.view_count,
+                    watch_hours: nil,
+                    video_count: ch.video_count,
+                    subscriber_count_trend: nil,
+                    view_count_trend: nil,
+                    watch_hours_trend: nil
+                  },
+                  score: rec.score) %>
+          <% end %>
+        <% end %>
+      </section>
+    <% end %>
+
     <%# 2026-05-18 — `bundles` section (DW slice), extracted to
         `Games::BundlesSectionComponent` (Beta-3 Lane B / B4). The
         component owns the two upstream queries (`game.bundles` +

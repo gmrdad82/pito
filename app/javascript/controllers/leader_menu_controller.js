@@ -2,7 +2,7 @@ import { Controller } from "@hotwired/stimulus"
 
 // Module-level live read of the mandatory-2FA enrollment gate.
 // Mirror of the helper in `keyboard_controller.js` /
-// `theme_controller.js`; kept duplicated rather than extracted to a
+// `flat_key_controller.js`; kept duplicated rather than extracted to a
 // shared module so each controller stays self-contained for
 // importmap simplicity. See the layout's head comment for the full
 // rationale on `<meta>`-in-head vs body-mounted signal.
@@ -151,21 +151,32 @@ export default class extends Controller {
   static targets = ["popup"]
 
   connect() {
-    // The schema is embedded in the layout chrome; pages without it
-    // simply get no leader popup (no JS errors). When the schema is
-    // missing the controller registers no listeners at all — there's
-    // no menu to open.
-    const node = document.getElementById("pito-keybindings")
-    if (!node) {
-      this.schema = null
-      return
-    }
-    try {
-      this.schema = JSON.parse(node.textContent || "{}")
-    } catch (_err) {
-      this.schema = null
-      return
-    }
+    // 2026-05-19 — schema parsing moved to a lazy `get schema()` getter
+    // so a stale parse cached at connect time can never strand the
+    // controller. Previously the controller parsed the schema once
+    // here and stored it on `this.schema`; if Turbo Drive's body swap
+    // timing meant the `<script id="pito-keybindings">` tag wasn't
+    // findable at the exact moment Stimulus reconnected (despite the
+    // tag being in the new DOM), the controller bailed via the
+    // early-return below and registered NO listeners — SPACE leader
+    // went dead, and the `flat-key:open-leader-with-prefix` listener
+    // never bound either (so flat `g` / `q` compact-menu opens never
+    // landed). The fix:
+    //   1. Schema parsing is now in `get schema()` (lazy per-access
+    //      `document.getElementById` read with JSON.parse). Every
+    //      schema reader (`onKeydown`, `menuByName`, `resolvePageActions`,
+    //      etc.) goes through the getter, so a missing tag at
+    //      connect time no longer permanently disables the controller
+    //      — the next keystroke re-tries.
+    //   2. Listener registration below is unconditional. Even if the
+    //      schema parse fails on the FIRST keystroke, the listener is
+    //      still installed and will succeed on a later keystroke once
+    //      the tag is in the DOM. Same defensive shape as
+    //      `flat_key_controller`.
+    //   3. The `<script id="pito-keybindings">` tag was moved from
+    //      body-bottom to `<head>` (see layout) so Turbo's head merge
+    //      via `isEqualNode` keeps it intact across nav — the lazy
+    //      read always finds a populated tag.
     this.menuStack = []
     // Inline submenus declared inside a page-action `action: { type:
     // submenu, items: [...] }` entry. Pushed onto `menuStack` by a
@@ -346,6 +357,25 @@ export default class extends Controller {
     // flips with `.showModal()` / `.close()` — read it directly
     // instead of the prior `hidden` flag.
     return this.hasPopupTarget && this.popupTarget.open === true
+  }
+
+  // 2026-05-19 — lazy schema getter. Re-reads
+  // `<script id="pito-keybindings">` from the DOM on every access
+  // and JSON.parses it. Replaces the prior connect-time cache on
+  // `this.schema`. The tag lives in `<head>` (moved 2026-05-19) so
+  // Turbo Drive's head-merge `isEqualNode` diff keeps it intact
+  // across navigations — every lazy read finds the live JSON. Returns
+  // `null` when the tag is missing OR parse fails so callers can
+  // bail uniformly (`if (!schema) return`). The per-keystroke cost
+  // is O(items) — trivial for the < 20-row shipped schema.
+  get schema() {
+    const node = document.getElementById("pito-keybindings")
+    if (!node) return null
+    try {
+      return JSON.parse(node.textContent || "{}")
+    } catch (_err) {
+      return null
+    }
   }
 
   // ---- key handling ----------------------------------------------
@@ -807,9 +837,9 @@ export default class extends Controller {
   // popup always closes BEFORE the side-effect runs so a navigate /
   // modal-open never races against an already-mounted popup.
   //
-  // Dispatch table (locked 2026-05-17 — leader-prefixed action keys):
+  // Dispatch table (2026-05-19 — `theme_toggle` removed alongside the
+  // single-theme cleanup; the leader popup no longer toggles dark/light):
   //   navigate     → Turbo.visit(action.path) / window.location.assign
-  //   theme_toggle → flip <html data-theme> + persist localStorage
   //   page_sync    → POST to <body data-page-sync-url>
   //   page_delete  → showModal() on <dialog id={data-page-delete-modal-id}>
   //   open_modal   → opens the layout `global-search-modal` <dialog>
@@ -821,17 +851,16 @@ export default class extends Controller {
   //   anything else → "leader-menu:action" CustomEvent on `document`;
   //                   listeners (notifications modal, etc.) react.
   //
-  // History: the four action-key handlers (theme_toggle / page_sync /
-  // page_delete / openGlobalSearch) previously lived on
-  // `keyboard_controller` and were reached via
-  // `window.Stimulus.getControllerForElementAndIdentifier(<body>,
-  // "keyboard")`. That cross-controller dispatch was fragile — when
-  // the lookup returned null (Stimulus not yet wired, lookup timing,
-  // future layout change), the guarded `if (... && kb)` branches
-  // silently fell through and the action no-op'd with no console
-  // error. The handlers now live inline on this controller so the
-  // dispatch is a direct method call with no lookup. The methods on
-  // `keyboard_controller` remain (unused) as a deprecated holdover —
+  // History: the action-key handlers (page_sync / page_delete /
+  // openGlobalSearch) previously lived on `keyboard_controller` and
+  // were reached via `window.Stimulus.getControllerForElementAndIdentifier(
+  // <body>, "keyboard")`. That cross-controller dispatch was fragile —
+  // when the lookup returned null (Stimulus not yet wired, lookup
+  // timing, future layout change), the guarded `if (... && kb)`
+  // branches silently fell through and the action no-op'd with no
+  // console error. The handlers now live inline on this controller so
+  // the dispatch is a direct method call with no lookup. The methods
+  // on `keyboard_controller` remain (unused) as a deprecated holdover —
   // a follow-up sweep can delete them once we're sure no other caller
   // resurfaces.
   fireAction(item, action, { closePopup }) {
@@ -839,10 +868,6 @@ export default class extends Controller {
 
     if (action.type === "navigate" && action.path) {
       this.navigateTo(action.path)
-      return
-    }
-    if (action.type === "theme_toggle") {
-      this.themeToggle()
       return
     }
     if (action.type === "page_sync") {
@@ -907,24 +932,6 @@ export default class extends Controller {
   }
 
   // ---- action-key handlers (inlined from keyboard_controller) ----
-
-  // `theme_toggle` — flips dark/light using the same semantics as
-  // `theme_controller.js` (the click handler on the `[theme]` button):
-  // resolve the EFFECTIVE current theme (stored value, or system
-  // preference when storage is empty), flip it, write the explicit
-  // next value to localStorage, and update the `data-theme` attribute
-  // on `<html>`. Writing an explicit value (never removeItem) matches
-  // the click handler exactly so the two surfaces stay in sync.
-  themeToggle() {
-    const stored = localStorage.getItem("pito-theme")
-    const current = (stored === "light" || stored === "dark")
-      ? stored
-      : (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
-    const next = current === "dark" ? "light" : "dark"
-    localStorage.setItem("pito-theme", next)
-    document.documentElement.setAttribute("data-theme", next)
-    if (window.recolorCharts) setTimeout(window.recolorCharts, 50)
-  }
 
   // `page_sync` — locate the page's breadcrumb sync trigger by the
   // `[data-page-action="sync"]` hook and synthesize a click on it.

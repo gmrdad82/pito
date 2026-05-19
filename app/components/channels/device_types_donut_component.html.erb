@@ -1,0 +1,61 @@
+<%# Variant 1 — CSS donut chart with center label + bracketed legend.
+
+    Layout: two-column flex row.
+      LEFT  — 160px square donut. `conic-gradient` colors the disc;
+              the center hole (a centered absolute white circle) cuts
+              out the donut and carries the largest-device label.
+      RIGHT — bracketed legend list: one row per device with a small
+              color swatch + bracketed name + percentage on the right.
+
+    No data path (no channels selected, or zero view weight) renders
+    an em-dash placeholder following the project's nil convention
+    (`Formatting::*` services use the same em-dash for nil). %>
+<section class="channels-device-types channels-device-types--donut"
+         style="margin: 12px 0 0;">
+  <h3 style="font-size: 13px; font-weight: 700; margin: 0 0 8px;">
+    Device types
+    <span style="font-size: 11px; color: var(--color-muted); font-weight: 400;">
+      &mdash; variant 1 (donut)
+    </span>
+  </h3>
+
+  <% if has_data? %>
+    <div style="display: flex; align-items: center; gap: 32px;">
+      <%# Donut. The outer div paints the conic-gradient ring; the
+          inner ::before-ish white disc is achieved with a plain child
+          positioned absolutely at center, sized so the visible ring
+          width is ~26px. %>
+      <div style="position: relative; width: 160px; height: 160px; flex: 0 0 160px;">
+        <div style="position: absolute; inset: 0; border-radius: 50%; background: <%= conic_gradient_css %>;"></div>
+        <div style="position: absolute; inset: 26px; border-radius: 50%; background: var(--color-bg, white); display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;">
+          <span style="font-size: 11px; color: var(--color-muted);">
+            <%= largest_slice[:name] %>
+          </span>
+          <span style="font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums;">
+            <%= largest_slice[:percent] %>%
+          </span>
+        </div>
+      </div>
+
+      <%# Legend: bracketed names + percentages. Each row has a small
+          color swatch matching the slice color. %>
+      <ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px;">
+        <% aggregated.each do |slice| %>
+          <li style="display: flex; align-items: baseline; gap: 8px; font-size: 13px;">
+            <span aria-hidden="true"
+                  style="display: inline-block; width: 10px; height: 10px; background: <%= color_for(slice[:name]) %>; border: 1px solid var(--color-border); flex: 0 0 10px;"></span>
+            <span style="color: var(--color-muted);">[</span>
+            <span><%= slice[:name] %></span>
+            <span style="color: var(--color-muted);">]</span>
+            <span style="margin-left: auto; font-variant-numeric: tabular-nums; min-width: 36px; text-align: right;">
+              <%= slice[:percent] %>%
+            </span>
+          </li>
+        <% end %>
+      </ul>
+    </div>
+  <% else %>
+    <div style="font-size: 13px; color: var(--color-muted);">&mdash;</div>
+  <% end %>
+</section>
+<hr class="hairline">

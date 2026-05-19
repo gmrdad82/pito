@@ -108,4 +108,221 @@
     <% end %>
   <% end %>
   <hr class="hairline">
+
+  <%# Wave A2 — Basics section variant gallery (2026-05-19).
+
+      Three variants of the Basics row render here so the user can pick
+      which visual treatment lands as the canonical surface. After the
+      user picks one, the other two components + their renders get
+      removed in a follow-up dispatch.
+
+      Each component emits its own trailing `<hr class="hairline">` so
+      the variants are visually separated by the same inter-shelf
+      hairline used above. %>
+
+  <!-- variant 1: inline (compact `value label` pairs, 13px bold + 11px muted, 32px gap) -->
+  <%= render(Channels::BasicsSectionInlineComponent.new(channels: @channels)) %>
+
+  <!-- variant 2: card (bordered + tinted 4-cell grid, 22px bold value over 11px muted label) -->
+  <%= render(Channels::BasicsSectionCardComponent.new(channels: @channels)) %>
+
+  <!-- variant 3: separator (4-cell grid with vertical hairline rules, 22px bold value over 11px muted label) -->
+  <%= render(Channels::BasicsSectionSeparatorComponent.new(channels: @channels)) %>
+
+  <%# Top Content variant gallery (2026-05-19).
+
+      Three variants of the union-merged top-videos list render here so
+      the user can pick the visual treatment. After the user picks one,
+      the other two components + their renders get removed in a follow-
+      up dispatch.
+
+      Source: `Channels::MockData.top_content`, filtered by the channel
+      ids the page is rendering and sorted by `:views` desc. Components
+      live in `app/components/channels/top_content_*_component.{rb,html.erb}`. %>
+
+  <% selected_channel_ids = @channels.map { |c| c[:id] } %>
+  <% top_videos = Channels::MockData.top_content
+       .select { |v| selected_channel_ids.include?(v[:channel_id]) }
+       .sort_by { |v| -v[:views].to_i } %>
+  <% channel_name_map = Channels::MockData.channel_name_by_id %>
+
+  <hr class="hairline">
+
+  <!-- variant 1: vertical ranked list (rank + 80×45 thumb placeholder + title + views + channel badge per row) -->
+  <%= render(Channels::TopContentListComponent.new(
+        videos: top_videos,
+        channel_name_by_id: channel_name_map
+      )) %>
+
+  <hr class="hairline">
+
+  <!-- variant 2: 4-column tile grid (16:9 thumb placeholder + 2-line title + views + channel badge per tile) -->
+  <%= render(Channels::TopContentGridComponent.new(
+        videos: top_videos,
+        channel_name_by_id: channel_name_map
+      )) %>
+
+  <hr class="hairline">
+
+  <!-- variant 3: compact 3-column table (title | views | channel — most data-dense) -->
+  <%= render(Channels::TopContentTableComponent.new(
+        videos: top_videos,
+        channel_name_by_id: channel_name_map
+      )) %>
+
+  <%# Device types section variant gallery (2026-05-19).
+
+      Two variants of the device-type viewership breakdown render here
+      so the user can pick the visual treatment. After the user picks
+      one, the other component + its render gets removed in a follow-
+      up dispatch.
+
+      Aggregation across selected channels = view-count-weighted mean
+      of each channel's device-type percentages, rounded + re-
+      normalized to 100. Components live in
+      `app/components/channels/device_types_*_component.{rb,html.erb}`. %>
+
+  <!-- variant 1: donut (CSS conic-gradient with center label + bracketed legend) -->
+  <%= render(Channels::DeviceTypesDonutComponent.new(channels: @channels)) %>
+
+  <!-- variant 2: bars (horizontal bar list, one row per device) -->
+  <%= render(Channels::DeviceTypesBarsComponent.new(channels: @channels)) %>
+
+  <%# Window summaries section variant gallery (2026-05-19).
+
+      Two variants of the per-window subs Δ / views Δ / hours Δ
+      breakdown render here so the user can pick which lands as the
+      canonical surface. After the user picks one, the other component
+      + its render gets removed in a follow-up dispatch. %>
+
+  <hr class="hairline">
+
+  <!-- variant 1: tabs (5-tab strip with one active window's stat cards below; default = 28d) -->
+  <%= render(Channels::WindowSummariesTabsComponent.new(channels: @channels)) %>
+
+  <hr class="hairline">
+
+  <!-- variant 2: grid (5 side-by-side cards, all windows visible at once) -->
+  <%= render(Channels::WindowSummariesGridComponent.new(channels: @channels)) %>
+
+  <%# Audience demographics variant gallery (2026-05-19).
+
+      Two variants of the age × gender breakdown render here so the
+      user can pick which lands as the canonical surface. After the
+      user picks one, the other component + its render gets removed
+      in a follow-up dispatch.
+
+      Aggregation across selected channels = view-count-weighted mean
+      of each channel's male / female × 7-age-bucket percentages.
+      Components live in `app/components/channels/demographics_*_
+      component.{rb,html.erb}`. Mock data lives in
+      `Channels::DemographicsMock` (sibling to `Channels::MockData` to
+      avoid the parallel-edit collision risk on `mock_data.rb` this
+      slice). %>
+
+  <hr class="hairline">
+
+  <!-- variant 1: pyramid (two-sided population pyramid; male left, female right, age buckets vertical, shared center axis) -->
+  <%= render(Channels::DemographicsPyramidComponent.new(channels: @channels)) %>
+
+  <hr class="hairline">
+
+  <!-- variant 2: grouped (side-by-side horizontal bars, one row per age bucket, male above + female below) -->
+  <%= render(Channels::DemographicsGroupedComponent.new(channels: @channels)) %>
+
+  <%# Audience geography variant gallery (2026-05-19).
+
+      Three variants of the country viewership breakdown render here so
+      the user can pick the visual treatment. After the user picks one,
+      the other two components + their renders get removed in a follow-
+      up dispatch.
+
+      Aggregation across selected channels = sum of per-country
+      `:views` from each channel's `:geography` array. Components live
+      in `app/components/channels/geography_*_component.{rb,html.erb}`. %>
+
+  <hr class="hairline">
+
+  <!-- variant 1: ranked list with percentage bars (top-10, flag + code + name + bar + %) -->
+  <%= render(Channels::GeographyListComponent.new(channels: @channels)) %>
+
+  <!-- variant 2: horizontal bar chart (top-8, country name + bar scaled to max + compact view count) -->
+  <%= render(Channels::GeographyBarComponent.new(channels: @channels)) %>
+
+  <!-- variant 3: squarified treemap (top-10 + "Other", proportional rectangles + legend grid) -->
+  <%= render(Channels::GeographyTreemapComponent.new(channels: @channels)) %>
+
+  <%# Traffic sources variant gallery (2026-05-19).
+
+      Two variants of the traffic-sources breakdown render here so the
+      user can pick which lands as the canonical surface. After the
+      user picks one, the other component + its render gets removed
+      in a follow-up dispatch.
+
+      Aggregation across selected channels = per-bucket view-weighted
+      mean of each channel's source percentages, renormalized to 100;
+      per-term search views summed across channels, sorted desc, top
+      10. Components live in `app/components/channels/traffic_sources_
+      *_component.{rb,html.erb}`. %>
+
+  <hr class="hairline">
+
+  <!-- variant 1: ranked list with horizontal bars + top-search-terms sub-section (compact, single column) -->
+  <%= render(Channels::TrafficSourcesListComponent.new(channels: @channels)) %>
+
+  <hr class="hairline">
+
+  <!-- variant 2: split / side-by-side (left=sources, right=top search terms) -->
+  <%= render(Channels::TrafficSourcesSplitComponent.new(channels: @channels)) %>
+
+  <%# Viewer-time heatmap variant gallery (2026-05-19).
+
+      "When your viewers are on YouTube" — two visual treatments
+      of the day × hour activity matrix render here so the user can
+      pick which lands as the canonical surface. After the pick the
+      other component + its render gets removed in a follow-up
+      dispatch.
+
+      Aggregation across selected channels = per-cell sum of each
+      channel's `:viewer_time_heatmap` (7 days × 24 hours). When the
+      user has unchecked every channel (`@channels.empty?`), both
+      variants receive an empty hash and render the empty-state
+      grid / sparkline skeleton (zeros). %>
+
+  <hr class="hairline">
+
+  <% heatmap_data = Channels::MockData::DAYS_OF_WEEK if defined?(Channels::MockData::DAYS_OF_WEEK) %>
+  <% heatmap_days = %w[Mon Tue Wed Thu Fri Sat Sun] %>
+  <% aggregated_heatmap = heatmap_days.each_with_object({}) do |day, acc|
+       summed = Array.new(24, 0)
+       @channels.each do |c|
+         values = Array(c[:viewer_time_heatmap]&.dig(day))
+         24.times { |i| summed[i] += values[i].to_i }
+       end
+       acc[day] = summed
+     end %>
+
+  <div class="channels-heatmap-section">
+    <h3 style="font-size: 13px;
+               font-weight: 700;
+               margin: 8px 0 6px;">
+      when your viewers are on YouTube
+    </h3>
+
+    <!-- variant 1: color-intensity grid (7 rows × 24 cells, opacity ramp on --color-link) -->
+    <%= render(Channels::HeatmapGridComponent.new(heatmap: aggregated_heatmap)) %>
+  </div>
+
+  <hr class="hairline">
+
+  <div class="channels-heatmap-section">
+    <h3 style="font-size: 13px;
+               font-weight: 700;
+               margin: 8px 0 6px;">
+      when your viewers are on YouTube
+    </h3>
+
+    <!-- variant 2: stacked sparklines (7 days, each its own 360×32 SVG line+area chart) -->
+    <%= render(Channels::HeatmapSparklineComponent.new(heatmap: aggregated_heatmap)) %>
+  </div>
 </section>
