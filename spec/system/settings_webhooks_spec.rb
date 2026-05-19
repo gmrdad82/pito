@@ -27,23 +27,41 @@ RSpec.describe "Settings integrations panes (Unit A1)", type: :system do
   let(:discord_url) { "https://discord.com/api/webhooks/123456789012345678/abc-DEF_xyz123" }
 
   describe "the Slack pane" do
-    it "renders the webhook URL field and the routing checkboxes" do
+    # 2026-05-19 — Phase D form restructure. The pane was split into
+    # one URL form (`PATCH /settings/slack_webhook`) + two per-flag
+    # auto-save toggle forms (`PATCH /settings/notification_toggles/
+    # slack/<kind>`). Both checkboxes now share `name="enabled"`; the
+    # stable selector is the `data-leader-toggle=` attribute that
+    # leader-menu and Stimulus key off of. Behavioral coverage of the
+    # toggle endpoints lives in the request specs; this system pass
+    # only verifies the DOM affordances render under a real browser
+    # round-trip.
+    it "renders the webhook URL field and both routing-toggle checkboxes" do
       visit settings_path
       within(:xpath, "//fieldset[.//h2[text()='Slack']]") do
         expect(page).to have_field("slack_webhook_url")
-        expect(page).to have_field("everything", type: "checkbox")
-        expect(page).to have_field("daily_digest", type: "checkbox")
+        expect(page).to have_css(
+          'input[type="checkbox"][data-leader-toggle="slack_every_notification"]'
+        )
+        expect(page).to have_css(
+          'input[type="checkbox"][data-leader-toggle="slack_daily_digest"]'
+        )
         expect(page).to have_button("[update]")
       end
     end
 
+    # 2026-05-19 — Phase D form restructure. The URL form no longer
+    # reads `everything` / `daily_digest`; those flags moved to the
+    # per-flag auto-save endpoint (covered by request + view specs).
+    # The system pass verifies the URL submit path: fill the field,
+    # click `[update]`, the test ping fires, and the row persists
+    # with the saved confirmation.
     it "saves a webhook URL and shows the saved confirmation" do
       stub_request(:post, slack_url).to_return(status: 200, body: "ok")
       visit settings_path
       form = find(:xpath, "//form[.//input[@name='slack_webhook_url']]")
       within(form) do
         fill_in "slack_webhook_url", with: slack_url
-        check "everything"
         click_button "[update]"
       end
       expect(page).to have_content("Slack updated.")
@@ -68,11 +86,16 @@ RSpec.describe "Settings integrations panes (Unit A1)", type: :system do
       end
     end
 
-    # 2026-05-16 webhook-clear UX tweak.
-    # Clearing the URL field and hitting `[update]` persists the row
-    # with nil URL + both flags off and surfaces the distinct
-    # "Slack webhook cleared." flash.
-    it "clears the integration on a blank URL submit" do
+    # 2026-05-19 — webhook-clear UX contract changed. With the input
+    # value masking rollout (FA-era hardening), the field always
+    # submits empty unless the operator types something new — so
+    # blank submissions became a no-op ("Slack unchanged.") to stop
+    # every page-level save from silently wiping the URL. The
+    # cooperating clear gesture is now the literal word `clear`
+    # (case-insensitive) typed into the URL field; the controller
+    # persists nil URL + both flags off and surfaces the distinct
+    # "Slack cleared." flash.
+    it "clears the integration when the operator types the `clear` keyword" do
       NotificationDeliveryChannel.create!(
         kind: "slack", webhook_url: slack_url,
         everything: true, daily_digest: true
@@ -80,7 +103,7 @@ RSpec.describe "Settings integrations panes (Unit A1)", type: :system do
       visit settings_path
       form = find(:xpath, "//form[.//input[@name='slack_webhook_url']]")
       within(form) do
-        fill_in "slack_webhook_url", with: ""
+        fill_in "slack_webhook_url", with: "clear"
         click_button "[update]"
       end
       expect(page).to have_content("Slack cleared.")
@@ -92,23 +115,41 @@ RSpec.describe "Settings integrations panes (Unit A1)", type: :system do
   end
 
   describe "the Discord pane" do
-    it "renders the webhook URL field and the routing checkboxes" do
+    # 2026-05-19 — Phase D form restructure. The pane was split into
+    # one URL form (`PATCH /settings/discord_webhook`) + two per-flag
+    # auto-save toggle forms (`PATCH /settings/notification_toggles/
+    # discord/<kind>`). Both checkboxes now share `name="enabled"`;
+    # the stable selector is the `data-leader-toggle=` attribute that
+    # leader-menu and Stimulus key off of. Behavioral coverage of the
+    # toggle endpoints lives in the request specs; this system pass
+    # only verifies the DOM affordances render under a real browser
+    # round-trip.
+    it "renders the webhook URL field and both routing-toggle checkboxes" do
       visit settings_path
       within(:xpath, "//fieldset[.//h2[text()='Discord']]") do
         expect(page).to have_field("discord_webhook_url")
-        expect(page).to have_field("everything", type: "checkbox")
-        expect(page).to have_field("daily_digest", type: "checkbox")
+        expect(page).to have_css(
+          'input[type="checkbox"][data-leader-toggle="discord_every_notification"]'
+        )
+        expect(page).to have_css(
+          'input[type="checkbox"][data-leader-toggle="discord_daily_digest"]'
+        )
         expect(page).to have_button("[update]")
       end
     end
 
+    # 2026-05-19 — Phase D form restructure. The URL form no longer
+    # reads `everything` / `daily_digest`; those flags moved to the
+    # per-flag auto-save endpoint (covered by request + view specs).
+    # The system pass verifies the URL submit path: fill the field,
+    # click `[update]`, the test ping fires, and the row persists
+    # with the saved confirmation.
     it "saves a webhook URL and shows the saved confirmation" do
       stub_request(:post, discord_url).to_return(status: 204, body: "")
       visit settings_path
       form = find(:xpath, "//form[.//input[@name='discord_webhook_url']]")
       within(form) do
         fill_in "discord_webhook_url", with: discord_url
-        check "everything"
         click_button "[update]"
       end
       expect(page).to have_content("Discord updated.")
@@ -128,11 +169,16 @@ RSpec.describe "Settings integrations panes (Unit A1)", type: :system do
       end
     end
 
-    # 2026-05-16 webhook-clear UX tweak.
-    # Clearing the URL field and hitting `[update]` persists the row
-    # with nil URL + both flags off and surfaces the distinct
-    # "Discord webhook cleared." flash.
-    it "clears the integration on a blank URL submit" do
+    # 2026-05-19 — webhook-clear UX contract changed. With the input
+    # value masking rollout (FA-era hardening), the field always
+    # submits empty unless the operator types something new — so
+    # blank submissions became a no-op ("Discord unchanged.") to stop
+    # every page-level save from silently wiping the URL. The
+    # cooperating clear gesture is now the literal word `clear`
+    # (case-insensitive) typed into the URL field; the controller
+    # persists nil URL + both flags off and surfaces the distinct
+    # "Discord cleared." flash.
+    it "clears the integration when the operator types the `clear` keyword" do
       NotificationDeliveryChannel.create!(
         kind: "discord", webhook_url: discord_url,
         everything: true, daily_digest: true
@@ -140,7 +186,7 @@ RSpec.describe "Settings integrations panes (Unit A1)", type: :system do
       visit settings_path
       form = find(:xpath, "//form[.//input[@name='discord_webhook_url']]")
       within(form) do
-        fill_in "discord_webhook_url", with: ""
+        fill_in "discord_webhook_url", with: "clear"
         click_button "[update]"
       end
       expect(page).to have_content("Discord cleared.")

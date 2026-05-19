@@ -75,7 +75,14 @@ RSpec.describe "Password reset via 2FA", :unauthenticated, type: :system do
     click_button "[log in]"
     expect(page).to have_current_path(login_totp_path)
 
-    fill_in "code", with: ROTP::TOTP.new(seed).now
+    # The login TOTP challenge renders `TotpCodeInputComponent` —
+    # six unnamed visible boxes plus a hidden `<input name="code">`
+    # that the `totp-code-input` Stimulus controller fills with the
+    # concatenated 6-digit value on every keystroke. `rack_test`
+    # does not execute Stimulus, so `fill_in "code"` cannot reach the
+    # hidden field through the visible boxes. Set the hidden field
+    # directly to model what the controller would have written.
+    find('input[name="code"]', visible: :hidden).set(ROTP::TOTP.new(seed).now)
     click_button(match: :first)
     expect(page).to have_current_path(root_path)
   end

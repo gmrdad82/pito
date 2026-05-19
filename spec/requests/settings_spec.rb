@@ -26,6 +26,12 @@ require "rails_helper"
 # passthrough PATCH, the reindex endpoint, the JSON contract, and the
 # dropped-surface negative guards.
 RSpec.describe "Settings", type: :request do
+  # Phase 32 follow-up reindex specs use `travel_to` to freeze the
+  # clock around the controller POST so the `reindex_started_at`
+  # assertion can compare against a known fixed instant. Request
+  # specs do not auto-include `TimeHelpers`, so opt in here.
+  include ActiveSupport::Testing::TimeHelpers
+
   let(:search_engine) do
     instance_double(
       Search::MeilisearchEngine,

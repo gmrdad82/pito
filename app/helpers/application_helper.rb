@@ -6,12 +6,26 @@ module ApplicationHelper
   # `.show-mobile` short-label span is no longer emitted. Whole-group
   # `.hide-mobile` wrappers in the layout were also dropped so
   # `[home]` / `[calendar]` stay visible on mobile.
-  def nav_link(label, path, short: nil, data: nil)
+  def nav_link(label, path, short: nil, data: nil, muted: false)
     _ = short # retained for backward compatibility; ignored
+    safe_label = ERB::Util.html_escape(label)
+
+    # 2026-05-19 — `muted: true` renders a deactivated, non-clickable
+    # bracketed text span for paused-zone navbar entries. Uses the
+    # existing `.bracketed-muted` CSS class (bold + --color-muted +
+    # cursor: default + user-select: none) defined in
+    # `app/assets/tailwind/application.css`. The route stays intact
+    # (still mounted in config/routes.rb); only the rendered link is
+    # deactivated. Same visual footprint as the live link so the
+    # surrounding nav-row layout doesn't shift.
+    if muted
+      return content_tag(:span, class: "bracketed bracketed-muted") do
+        ("[" + safe_label + "]").html_safe
+      end
+    end
+
     prefix = path.chomp("/")
     active = current_page?(path) || (prefix.present? && request.path.start_with?(prefix + "/"))
-
-    safe_label = ERB::Util.html_escape(label)
 
     if active
       content_tag(:span, class: "bracketed bracketed-active") do

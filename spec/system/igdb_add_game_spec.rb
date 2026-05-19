@@ -40,9 +40,13 @@ RSpec.describe "IGDB add-game flow", type: :system do
 
   describe "modal markup on /games" do
     it "renders the trimmed dialog title and input placeholder" do
+      # 2026-05-18 polish — the literal "add a game" copy was removed
+      # too (per the modal's own header comment: "the modal itself is
+      # sufficient context — no heading needed"). Only the defensive
+      # "must NOT contain the old 'add a game from igdb' phrase" + the
+      # input placeholder assertions remain.
       visit games_path
       modal = find("dialog#igdb-search-modal", visible: false)
-      expect(modal).to have_content("add a game")
       expect(modal).to have_no_content("add a game from igdb")
       expect(modal.find("input[type=search]", visible: false)["placeholder"])
         .to eq("search…")
@@ -101,10 +105,15 @@ RSpec.describe "IGDB add-game flow", type: :system do
       expect(GameIgdbSync.jobs.map { |j| j["args"].first }).to include(game.id)
     end
 
-    it "shows the 'metadata loading in background' flash notice" do
+    it "shows the 'game added.' flash notice" do
+      # 2026-05-19 — the Rails `[add]` redirect flashes the
+      # `games.flash.added` translation, currently `"game added."`.
+      # The MCP `game_add_from_igdb` tool still returns the longer
+      # `"added; metadata loading in background."` string — unrelated
+      # surface; the web flash copy is intentionally shorter.
       visit search_games_path(q: "pragmata")
       click_button "[add]"
-      expect(page).to have_content("added; metadata loading in background.")
+      expect(page).to have_content("game added.")
     end
   end
 end

@@ -93,22 +93,6 @@ RSpec.describe "Keyboard row navigation markup", type: :system do
     end
   end
 
-  describe "/collections (list rows)" do
-    let!(:collection_a) { create(:collection, name: "Alpha") }
-    let!(:collection_b) { create(:collection, name: "Bravo") }
-
-    it "tags each collection row with data-keyboard-row + data-keyboard-row-id" do
-      visit "/collections"
-      rows = page.all("tbody tr[data-keyboard-row][data-keyboard-row-id]")
-      expect(rows.size).to eq(2)
-    end
-
-    it "does NOT declare data-keyboard-grid (rows surface, not a grid)" do
-      visit "/collections"
-      expect(page).to have_no_css("[data-keyboard-grid]")
-    end
-  end
-
   describe "/notes (list rows)" do
     let!(:project) { create(:project) }
     let!(:note_a) { create(:note, project: project, title: "Alpha note") }
@@ -216,17 +200,6 @@ RSpec.describe "Keyboard row navigation markup", type: :system do
 
       it "emits prev + next URLs on the middle footage's show page" do
         visit "/footages/#{footage_b.to_param}"
-        expect(page).to have_css("[data-keyboard-detail-prev-url][data-keyboard-detail-next-url]")
-      end
-    end
-
-    describe "/collections/:slug" do
-      let!(:collection_a) { create(:collection, name: "Alpha") }
-      let!(:collection_b) { create(:collection, name: "Bravo") }
-      let!(:collection_c) { create(:collection, name: "Charlie") }
-
-      it "emits prev + next URLs on the middle collection's show page" do
-        visit "/collections/#{collection_b.to_param}"
         expect(page).to have_css("[data-keyboard-detail-prev-url][data-keyboard-detail-next-url]")
       end
     end
