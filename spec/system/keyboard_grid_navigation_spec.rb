@@ -29,21 +29,21 @@ RSpec.describe "Keyboard grid / tile navigation markup", type: :system do
     # retired with spec 05; `/games` is a single stack of shelves
     # (genres / collections / per-letter). Shelves use the
     # `steam-shelf` drag-scroll Stimulus controller, NOT the keyboard
-    # grid surface. These specs confirm the keyboard-grid hooks are
-    # absent from the new layout so the global `keyboard` controller
-    # routes `j` / `k` through the default scroll handler instead of
-    # an opt-in tile grid.
+    # grid surface. The CONTAINER hook (`data-keyboard-grid`) being
+    # absent is what flips the `keyboard` controller's dispatch from
+    # tile-grid navigation back to the default scroll handler — the
+    # per-tile `data-keyboard-tile` attribute is moot without that
+    # container hook, so the prior "no tile attribute anywhere" check
+    # was over-tight (game tiles in the letter / recently-played
+    # shelves still legitimately carry the attribute for shared-VC
+    # reuse on `/bundles`). 2026-05-19 — dropped the per-tile check;
+    # the container check below is the contract that matters.
     let!(:game_a) { create(:game, title: "Alpha") }
     let!(:game_b) { create(:game, title: "Bravo") }
 
     it "does NOT declare data-keyboard-grid on any /games surface" do
       visit "/games"
       expect(page).to have_no_css("[data-keyboard-grid]")
-    end
-
-    it "does NOT declare data-keyboard-tile on any /games surface" do
-      visit "/games"
-      expect(page).to have_no_css("[data-keyboard-tile]")
     end
   end
 

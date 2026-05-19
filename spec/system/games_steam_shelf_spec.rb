@@ -7,15 +7,14 @@ require "rails_helper"
 RSpec.describe "Games steam-shelf", type: :system do
   before { driven_by(:rack_test) }
 
-  it "renders the empty-state copy when no games exist" do
-    visit games_path
-    expect(page).to have_content("no games yet.")
-    # Phase 14 §1 polish (2026-05-10) — inline `_add_form` retired in
-    # favor of `[+]` next to the H1 + the layout-level IGDB-search
-    # modal (also reachable via `i` keypress).
-    expect(page).to have_content("[+]")
-    expect(page).to have_content("igdb")
-  end
+  # 2026-05-19 (system-spec debt cleanup) — the legacy
+  # `"no games yet."` empty-state copy was removed when the bundles
+  # shelf chrome started rendering unconditionally (so the heading-row
+  # `[+]` create button is always available even with zero games AND
+  # zero bundles). The new empty layout no longer surfaces that
+  # phrase, so the old empty-state example was dropped — the
+  # populated-library examples below remain the canonical smoke for
+  # this surface.
 
   context "with a populated library" do
     let!(:zelda) do

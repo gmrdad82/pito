@@ -315,15 +315,22 @@ puts "seeding platforms..."
 # seeds were removed: GoG, Epic, and Steam now share the single `steam`
 # canonical row + Steam logo for the "PC" umbrella. `xbox` stays for
 # future console work but does not currently surface a chip or logo.
+#
+# Idempotency note: lookup is by `name`, NOT `slug`. Platform uses
+# FriendlyId with `should_generate_new_friendly_id?` returning
+# `will_save_change_to_name?`, so the `before_validation` callback
+# regenerates `slug` from `name` on every create — a row inserted with
+# `slug: "ps5"` ends up persisted as `slug: "playstation-5"`. Looking
+# up by `slug:` on subsequent seed runs would miss the existing row
+# and insert a duplicate. `name` is the stable natural key here (it is
+# what FriendlyId derives the slug from in the first place).
 [
-  { slug: "ps5",      name: "PlayStation 5" },
-  { slug: "switch2",  name: "Nintendo Switch 2" },
-  { slug: "steam",    name: "Steam" },
-  { slug: "xbox",     name: "Xbox" }
+  { name: "PlayStation 5" },
+  { name: "Nintendo Switch 2" },
+  { name: "Steam" },
+  { name: "Xbox" }
 ].each do |attrs|
-  Platform.unscoped.find_or_create_by!(slug: attrs[:slug]) do |p|
-    p.name = attrs[:name]
-  end
+  Platform.unscoped.find_or_create_by!(name: attrs[:name])
 end
 puts "  #{Platform.unscoped.count} platform rows present."
 

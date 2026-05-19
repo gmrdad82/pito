@@ -185,27 +185,30 @@
                 full bracketed labels for every nav entry, matching
                 desktop. The `nav_link` helper no longer emits the
                 `.show-mobile` short-label span. %>
-            <span class="nav-group"><%= nav_link "home", root_path %><%= nav_link "calendar", calendar_root_path %></span>
+            <%# muted pending /home revamp %><%# muted pending /calendar revamp %>
+            <span class="nav-group"><%= nav_link "home", root_path, muted: true %><%= nav_link "calendar", calendar_root_path, muted: true %></span>
             <span class="nav-sep" aria-hidden="true">·</span>
-            <span class="nav-group"><%= nav_link "channels", channels_path, short: "C" %><%= nav_link "videos", videos_path, short: "V" %></span>
+            <%# muted pending /videos revamp %>
+            <span class="nav-group"><%= nav_link "channels", channels_path, short: "C" %><%= nav_link "videos", videos_path, short: "V", muted: true %></span>
             <span class="nav-sep" aria-hidden="true">·</span>
-            <span class="nav-group"><%= nav_link "projects", projects_path, short: "P" %><%= nav_link "games", games_path, short: "G" %></span>
+            <%# muted pending /projects revamp %>
+            <span class="nav-group"><%= nav_link "projects", projects_path, short: "P", muted: true %><%= nav_link "games", games_path, short: "G" %></span>
             <span class="nav-sep" aria-hidden="true">·</span>
             <%# Phase 16 §3 — notifications nav link + live unread badge.
                 The badge wrapper carries `id="notifications_badge"` so
                 Turbo Stream broadcasts (`broadcast_replace_to`) target
                 it directly. The page-level subscription is mounted
                 here so every page (not just /notifications) receives
-                the live-update. %>
+                the live-update.
+
+                2026-05-19 — `[notifications]` muted pending /notifications
+                revamp. Click handler dropped along with the live state;
+                the unread badge + turbo_stream subscription stay so the
+                count keeps updating server-side and is ready to re-light
+                when the zone returns to scope. %>
             <span class="nav-group">
-              <%# The `[notifications]` link opens a layout-level modal
-                  (`shared/_notifications_modal`) instead of navigating
-                  to the full `/notifications` page. `data-action` wires
-                  the click handler; the `href` stays as the canonical
-                  notifications path so JS-off users get the standalone
-                  page as a fallback. %>
-              <%= nav_link "notifications", notifications_path, short: "N",
-                           data: { action: "click->notifications-modal#open" } %>
+              <%# muted pending /notifications revamp %>
+              <%= nav_link "notifications", notifications_path, short: "N", muted: true %>
               <%= turbo_stream_from "notifications_badge" %>
               <%= render "notifications/badge", unread_count: Notification.unread.count %>
             </span>
@@ -262,14 +265,17 @@
         <nav class="nav-row" style="display: flex; align-items: center; gap: 4px; margin-bottom: 4px;">
           <%# 2026-05-18 — matches the top nav: `.hide-mobile` dropped
               so the full bracketed labels render on every viewport. %>
-          <span class="nav-group"><%= nav_link "home", root_path %><%= nav_link "calendar", calendar_root_path %></span>
+          <%# muted pending /home revamp %><%# muted pending /calendar revamp %>
+          <span class="nav-group"><%= nav_link "home", root_path, muted: true %><%= nav_link "calendar", calendar_root_path, muted: true %></span>
           <span class="nav-sep" aria-hidden="true">·</span>
-          <span class="nav-group"><%= nav_link "channels", channels_path, short: "C" %><%= nav_link "videos", videos_path, short: "V" %></span>
+          <%# muted pending /videos revamp %>
+          <span class="nav-group"><%= nav_link "channels", channels_path, short: "C" %><%= nav_link "videos", videos_path, short: "V", muted: true %></span>
           <span class="nav-sep" aria-hidden="true">·</span>
-          <span class="nav-group"><%= nav_link "projects", projects_path, short: "P" %><%= nav_link "games", games_path, short: "G" %></span>
+          <%# muted pending /projects revamp %>
+          <span class="nav-group"><%= nav_link "projects", projects_path, short: "P", muted: true %><%= nav_link "games", games_path, short: "G" %></span>
           <span class="nav-sep" aria-hidden="true">·</span>
-          <span class="nav-group"><%= nav_link "notifications", notifications_path, short: "N",
-                           data: { action: "click->notifications-modal#open" } %></span>
+          <%# muted pending /notifications revamp %>
+          <span class="nav-group"><%= nav_link "notifications", notifications_path, short: "N", muted: true %></span>
         </nav>
       <% end %>
       <div style="display: flex; align-items: center; gap: 4px;">

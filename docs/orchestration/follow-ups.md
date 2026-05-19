@@ -1083,6 +1083,62 @@ verification pre-work above, then converts any poll surfaces to push, then
 adds the ticker controller, then wires the broadcasts on Sessions and the five
 stack surfaces.
 
+### `/channels` next-phase scope — locked 2026-05-19
+
+**Trigger:** next beta-3 phase after the current `/games` cycle closes. User
+signals "start /channels" / "next phase" / similar.
+
+**Source:** User-locked scope on 2026-05-19. Sets the boundary for the
+`/channels` revamp so it stays a single-zone phase — no `/videos` coupling yet.
+When `/videos` reopens later, a paired follow-up will revisit `/channels` to
+wire the video-derived metrics this phase deliberately defers.
+
+**Summary:**
+
+The phase revamps the `/channels` zone end-to-end, treating it as standalone.
+The hard rule for this phase: zero `/videos`-related work. Channel-only stats
+are anything sourced directly from the YouTube channel API (subscribers, total
+views, channel-level engagement, oldest-video date). Per-video metrics,
+heatmaps, and video-derived counts wait for the paired follow-up.
+
+**In scope (this phase):**
+
+- **OAuth add.** Connect a YouTube channel via OAuth → creates a `Channel`
+  record.
+- **Remove.** Delete a channel. Per the `CLAUDE.md` bulk-as-foundation hard
+  rule, single-channel delete is a 1-element bulk via
+  `/deletions/channels/:ids`.
+- **Detail views.** Public AND private (auth-gated) channel pages.
+- **Channel-only stats.** Analytics sourced directly from the YouTube channel
+  API — subscribers, total views, channel-level engagement, oldest-video date.
+  Per-video metrics are explicitly out.
+- **SavedViews multi-pane.** Same pattern as `/games` — ≥2-pane side-by-side,
+  persisted view URLs.
+- **Keybindings + navbar.** Reactivate `/channels` in the leader-menu
+  navigation realm AND in the header / footer navbar. Both are currently muted
+  per the paused-zone discipline and the 2026-05-19 navbar-mute commit.
+
+**Out of scope (this phase):**
+
+- Anything `/videos`-related.
+- Per-video stats / engagement / heatmaps.
+- Video-derived counts on the channel page. Channel-API subscribers and total
+  views are fine; "X videos uploaded" and per-video aggregates wait.
+
+**Future hook (when `/videos` reopens):**
+
+- Wire video count + last-upload date + per-video aggregates into the channel
+  detail view.
+- Cross-reference video stats inside SavedView shelves.
+- Update the stats display to show channel ∪ video metrics.
+
+**Action:** dispatch `pito-architect-spec` against the locked scope when the
+user signals the phase start. Spec the OAuth add, the bulk-foundation remove,
+the public + private detail views, the channel-only stat set, the multi-pane
+SavedViews surface, and the navbar / leader-menu reactivation as one phase.
+File the paired video-coupling revisit as a follow-up against the eventual
+`/videos` phase rather than rolling it into this one.
+
 ## Done
 
 ### YouTube credentials hot-rotation gap (omniauth boot-time read)
