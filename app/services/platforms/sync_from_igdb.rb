@@ -36,32 +36,23 @@ module Platforms
 
         platform = Platform.unscoped.find_or_initialize_by(igdb_id: igdb_id)
         if platform.new_record?
-          # New row — fill name + abbreviation, save (FriendlyId derives
-          # the slug from name during `before_validation`), then stamp
-          # the IGDB slug via `update_column` so the FriendlyId
-          # generator doesn't overwrite it. Using update_column also
-          # skips a redundant save callback round-trip.
+          # New row — fill name, save (FriendlyId derives the slug from
+          # name during `before_validation`), then stamp the IGDB slug
+          # via `update_column` so the FriendlyId generator doesn't
+          # overwrite it. Using update_column also skips a redundant
+          # save callback round-trip.
           platform.name = attrs[:name]
-          platform.abbreviation = attrs[:abbreviation]
           platform.save!
           if attrs[:slug].present? && platform.slug != attrs[:slug]
             platform.update_column(:slug, attrs[:slug])
           end
           created += 1
         else
-          changed = false
-          if attrs[:name].present? && platform.name != attrs[:name]
-            platform.name = attrs[:name]
-            changed = true
-          end
-          if attrs.key?(:abbreviation) && platform.abbreviation != attrs[:abbreviation]
-            platform.abbreviation = attrs[:abbreviation]
-            changed = true
-          end
           # Leave `slug` untouched on existing rows so user-facing
           # routes stay stable. FriendlyId history captures renames
           # downstream if the user edits the platform by hand.
-          if changed
+          if attrs[:name].present? && platform.name != attrs[:name]
+            platform.name = attrs[:name]
             platform.save!
             updated += 1
           end

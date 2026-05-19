@@ -21,8 +21,8 @@
       { "id": 12, "name": "Role-playing (RPG)", "slug": "role-playing-rpg" }
     ],
     "platforms": [
-      { "id": 130, "name": "Nintendo Switch", "abbreviation": "Switch", "slug": "switch" },
-      { "id": 41, "name": "Wii U", "abbreviation": "WiiU", "slug": "wiiu" }
+      { "id": 130, "name": "Nintendo Switch", "slug": "switch" },
+      { "id": 41, "name": "Wii U", "slug": "wiiu" }
     ],
     "involved_companies": [
       {

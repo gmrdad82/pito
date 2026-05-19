@@ -316,14 +316,13 @@ puts "seeding platforms..."
 # canonical row + Steam logo for the "PC" umbrella. `xbox` stays for
 # future console work but does not currently surface a chip or logo.
 [
-  { slug: "ps5",      name: "PlayStation 5",     abbreviation: "PS5" },
-  { slug: "switch2",  name: "Nintendo Switch 2", abbreviation: "Switch 2" },
-  { slug: "steam",    name: "Steam",             abbreviation: "Steam" },
-  { slug: "xbox",     name: "Xbox",              abbreviation: "Xbox" }
+  { slug: "ps5",      name: "PlayStation 5" },
+  { slug: "switch2",  name: "Nintendo Switch 2" },
+  { slug: "steam",    name: "Steam" },
+  { slug: "xbox",     name: "Xbox" }
 ].each do |attrs|
   Platform.unscoped.find_or_create_by!(slug: attrs[:slug]) do |p|
     p.name = attrs[:name]
-    p.abbreviation = attrs[:abbreviation]
   end
 end
 puts "  #{Platform.unscoped.count} platform rows present."

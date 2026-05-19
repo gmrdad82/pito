@@ -60,9 +60,9 @@ RSpec.describe Mcp::Tools::GameUpdateLocal do
   # ---------------------------------------------------------------
 
   describe "platform_owned_ids (Phase 27 §01g)" do
-    let!(:ps5)    { create(:platform, name: "PlayStation 5", abbreviation: "PS5") }
-    let!(:steam)  { create(:platform, name: "Steam",         abbreviation: "Steam") }
-    let!(:switch) { create(:platform, name: "Switch 2",      abbreviation: "Switch 2") }
+    let!(:ps5)    { create(:platform, name: "PlayStation 5") }
+    let!(:steam)  { create(:platform, name: "Steam") }
+    let!(:switch) { create(:platform, name: "Switch 2") }
 
     # -----------------------------------------------------------
     # Happy paths

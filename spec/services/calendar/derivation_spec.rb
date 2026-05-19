@@ -72,28 +72,6 @@ RSpec.describe Calendar::Derivation do
         expect(ce.all_day).to be(true)
       end
     end
-
-    context "Game host" do
-      let(:phase_14_ready?) { Game.column_names.include?("release_date") }
-
-      it "is a no-op on Game with release_date=nil" do
-        skip "Phase 14 release_date column not present" unless phase_14_ready?
-
-        g = create(:game)
-        # No release_date set → no entry derived.
-        expect(CalendarEntry.where(game_id: g.id).count).to eq(0)
-      end
-
-      it "writes game_release when release_date is set" do
-        skip "Phase 14 release_date column not present" unless phase_14_ready?
-
-        g = create(:game)
-        g.update!(release_date: 30.days.from_now)
-        ce = CalendarEntry.where(game_id: g.id, entry_type: :game_release).first
-        expect(ce).to be_present
-        expect(ce.title).to start_with("released: ")
-      end
-    end
   end
 
   describe ".revoke!" do

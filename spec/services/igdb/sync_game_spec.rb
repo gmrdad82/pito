@@ -342,11 +342,11 @@ RSpec.describe Igdb::SyncGame do
     #   48  = PlayStation 4  (chip family "ps")
     #   130 = Nintendo Switch
     let(:igdb_platforms_ps4_only) do
-      [ { "id" => 48, "name" => "PlayStation 4", "abbreviation" => "PS4", "slug" => "ps4--1" } ]
+      [ { "id" => 48, "name" => "PlayStation 4", "slug" => "ps4--1" } ]
     end
 
     let(:igdb_platforms_switch_only) do
-      [ { "id" => 130, "name" => "Nintendo Switch", "abbreviation" => "Switch", "slug" => "switch" } ]
+      [ { "id" => 130, "name" => "Nintendo Switch", "slug" => "switch" } ]
     end
 
     let(:igdb_platforms_none) { [] }

@@ -1942,66 +1942,6 @@ dialog.pane-dialog.pane-dialog--wide {
   width: 95vw;
 }
 
-/* 2026-05-16 — Mandatory-2FA gate: when the settings modal is in
-   non-dismissible mode (auto-opened TOTP enrollment for an unconfigured
-   user) the enrollment view body prints "two-factor setup required"
-   as its own <h1>. The partial's <h2> header slot stays empty in that
-   mode (see `_settings_modal.html.erb`) so the single, larger heading
-   is the only one the user sees. Belt-and-suspenders: hide the <h2>
-   defensively even when something accidentally writes text into it.
-
-   2026-05-16 structural fix — the `data-settings-modal-non-dismissible-value`
-   attribute now lives ON the `<dialog>` element directly (the prior
-   `<span>` wrapper around the dialog was invalid HTML — phrasing
-   content cannot contain flow content). Selectors switch from
-   ancestor-descendant to same-element form. */
-dialog.settings-modal[data-settings-modal-non-dismissible-value="yes"] h2[data-settings-modal-target="title"] {
-  display: none;
-}
-
-/* 2026-05-16 — Mandatory-2FA gate: paint the dialog border in the
-   project's destructive red (`--color-danger`) to mirror the same
-   elevated framing the flash-error rule uses. The user is locked out
-   of every other surface until they enable 2FA — the red border
-   matches the red descriptive copy in the dialog body. Gated behind
-   the dialog's own `data-settings-modal-non-dismissible-value="yes"`
-   attribute (same element after the 2026-05-16 structural fix) so
-   only the mandatory enrollment dialog picks up the treatment; the
-   regular settings sub-page dialogs (Slack/Discord, sessions,
-   locations) keep the neutral border.
-
-   Widened max-width to 960px so the enrollment view's two `.pane`
-   cells (444px each = 888px) render side-by-side inside the modal
-   instead of wrapping. Math: 2 × 444 (panes) + 2 × 12 (inner padding)
-   + 2 × 1 (border) ≈ 914px, plus a small breathing-room margin →
-   960px. The standard settings-modal max-width (600px from
-   `.pane-dialog`) is unchanged for every other settings dialog. */
-dialog.settings-modal[data-settings-modal-non-dismissible-value="yes"] {
-  border: 1px solid var(--color-danger);
-  max-width: 960px;
-}
-
-/* 2026-05-16 — Mandatory-2FA gate inner: the partial's inner wrapper
-   declares `max-width: 880px` which clamps the dialog content below
-   what the two-pane layout needs. In non-dismissible mode the partial
-   switches that inline cap to `none` so the inner fills the dialog's
-   own 960px content area; the `.pane-row` is then free to stretch to
-   the full 888px the two `.pane` cells need (each `.pane` is 444px
-   with `box-sizing: border-box` from Tailwind preflight; 2 × 444 =
-   888px including padding). The inner partial declares
-   `padding: 12px 16px` (32px horizontal); 960 - 32 = 928px of usable
-   space — 888px for the panes + 40px slack so a sub-pixel browser
-   layout doesn't wrap the second pane below the first, and the
-   vertical scrollbar sits flush with the dialog's red border instead
-   of floating inside an empty right gutter. Scoped to non-dismissible
-   mode so the standard settings dialogs keep the 880px inner cap.
-
-   2026-05-16 structural fix — same-element selector now that the
-   attribute lives on `<dialog>` directly. */
-dialog.settings-modal[data-settings-modal-non-dismissible-value="yes"] > div {
-  max-width: none;
-}
-
 /* 2026-05-16 — Settings modal inner: lock horizontal scroll. The
    inner wrapper already declares `overflow-y: auto` so the dialog
    can scroll vertically when its content exceeds 80vh, but leaves

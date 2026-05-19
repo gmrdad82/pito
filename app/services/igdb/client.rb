@@ -105,7 +105,7 @@ module Igdb
       total_rating total_rating_count
       cover.id cover.image_id
       genres.id genres.name genres.slug
-      platforms.id platforms.name platforms.abbreviation platforms.slug
+      platforms.id platforms.name platforms.slug
       involved_companies.id
       involved_companies.developer
       involved_companies.publisher
@@ -205,7 +205,7 @@ module Igdb
       return [] if ids.empty?
 
       body = Apicalypse.new
-        .fields("id", "name", "abbreviation", "slug")
+        .fields("id", "name", "slug")
         .where("id = (#{ids.join(",")})")
         .limit(ids.size)
         .to_s
@@ -223,7 +223,7 @@ module Igdb
       offset = 0
       loop do
         body = Apicalypse.new
-          .fields("id", "name", "abbreviation", "slug")
+          .fields("id", "name", "slug")
           .limit(PLATFORMS_PAGE_SIZE)
           .offset(offset)
           .to_s

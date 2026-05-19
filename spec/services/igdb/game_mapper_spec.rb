@@ -261,10 +261,9 @@ RSpec.describe Igdb::GameMapper do
         .to eq(igdb_id: 31, name: "Adventure", slug: "adventure")
     end
 
-    it "maps a platform with abbreviation" do
-      expect(described_class.map_platform("id" => 130, "name" => "Switch",
-                                          "abbreviation" => "NSW", "slug" => "switch"))
-        .to eq(igdb_id: 130, name: "Switch", abbreviation: "NSW", slug: "switch")
+    it "maps a platform" do
+      expect(described_class.map_platform("id" => 130, "name" => "Switch", "slug" => "switch"))
+        .to eq(igdb_id: 130, name: "Switch", slug: "switch")
     end
 
     it "maps a company" do

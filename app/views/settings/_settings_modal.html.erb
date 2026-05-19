@@ -15,106 +15,16 @@
     in a matching `<turbo-frame id="settings_modal_frame">` so the
     server response slots into this frame cleanly.
 
-    Phase 32 (Concern 2). Two optional locals:
-      * `auto_open_url` (String or nil) — when set, the controller
-        opens the dialog on connect and points the Turbo Frame at
-        the URL. Used by the mandatory-2FA gate to auto-open the
-        TOTP enrollment view.
-      * `non_dismissible` (Boolean) — when true, the controller
-        suppresses Escape, click-outside, and the close button. The
-        bracketed [close] link is also omitted from the header so
-        there is no surface to dismiss the dialog. %>
-<%
-  auto_open_url   = local_assigns.fetch(:auto_open_url, nil)
-  non_dismissible = local_assigns.fetch(:non_dismissible, false)
-  # 2026-05-16 polish — in non-dismissible (mandatory-2FA) mode the
-  # enrollment view's body renders its own <h1> heading. The partial
-  # used to pre-populate the header's <h2> with a duplicate copy of
-  # the same text, which produced two stacked "two-factor setup
-  # required" labels in the dialog. The header slot now stays empty
-  # in mandatory mode — the view-body <h1> is the sole heading. The
-  # <h2> element itself is kept so the standard modal flow (which
-  # writes into it via `data-settings-modal-title-param`) still has
-  # a target.
-  default_title   = nil
-  # 2026-05-16 polish — the standard settings dialog clamps the inner
-  # wrapper to `max-width: 880px` (inline style). In non-dismissible
-  # (mandatory-2FA) mode the enrollment view renders two `.pane` cells
-  # side-by-side (2 × 444 = 888px) inside a widened 960px dialog. The
-  # inline 880px cap minus the wrapper's 32px horizontal padding leaves
-  # only 848px of usable content width — short of the 888px the two
-  # panes need — so the second pane wraps below the first. Inline
-  # styles win over external CSS, so the companion CSS rule at
-  # `[data-settings-modal-non-dismissible-value="yes"] dialog.settings-modal > div`
-  # cannot override an inline `max-width` without `!important`.
-  #
-  # 2026-05-16 scrollbar-flush polish — in mandatory mode the inner
-  # wrapper used to cap at 928px while the dialog itself sits at 960px.
-  # The inner is a block element with `width: 100%` clamped by
-  # `max-width`; with no `margin: 0 auto` it left-aligns, so the
-  # ~30px difference shows up as empty space on the right and the
-  # inner's vertical scrollbar floats ~30px shy of the dialog's red
-  # border. Lift the cap entirely in mandatory mode so the inner fills
-  # the dialog's content area and the scrollbar sits flush with the
-  # red border. The dialog's own 960px cap still bounds the wrapper;
-  # the two 444px panes (888px) still fit inside the resulting
-  # 960 - 32 = 928px of usable space, so the side-by-side layout the
-  # turbo-frame block fix restored is preserved.
-  #
-  # 2026-05-16 dismissible-widening polish — when the dismissible
-  # settings modal also widened to 960px (companion CSS rule
-  # `dialog.settings-modal { max-width: 960px }`), the 880px inner
-  # cap left an 80px empty gutter on the right of the dialog —
-  # content sat left-aligned inside the wider frame. Lift the cap to
-  # `none` for the dismissible case too so the inner fills the
-  # dialog. Prose-heavy settings sub-pages now wrap at the same
-  # 928px usable width the mandatory enrollment view uses, which is
-  # already in production for the mandatory flow and reads fine in
-  # monospace. Table-heavy sub-pages (sessions, blocks/locations)
-  # get the full ~880px column area they need; the per-table scroll
-  # rule in CSS handles narrower viewports.
-  inner_max_width = "none"
-%>
-<%# 2026-05-16 structural fix #2 — the `settings-modal` Stimulus
-    controller used to live on this `<dialog>` itself. That worked
-    for the auto-open path (the controller's `connect()` runs as
-    soon as the element enters the DOM, independent of ancestor
-    relationships) and for the in-dialog actions
-    (`click->...#clickOutside`, `[close]`, `cancel->...#cancelDismiss`),
-    but it BROKE the trigger-link path. Trigger links in
-    `_security_pane.html.erb` are siblings of the dialog under
-    `settings/index.html.erb`, not descendants, so their click
-    events never bubble through the dialog and Stimulus never fires
-    `click->settings-modal#open`. The `<a href="…">` then fell
-    through to default navigation and the page full-loaded instead
-    of opening the modal.
-
-    Fix: `data-controller="settings-modal"` and the two Stimulus
-    value attributes now live on a wrapper `<div>` in
-    `settings/index.html.erb` that encloses BOTH the panes (with
-    the trigger links) AND this partial. The dialog keeps its
-    target marker and its in-dialog actions; the wrapper owns the
-    controller scope, so click events on any descendant — pane
-    links OR `[close]` inside the dialog — reach the controller
-    via normal event bubbling.
-
-    `data-settings-modal-non-dismissible-value="…"` is still
-    repeated on the dialog below — purely as a CSS hook. The
-    companion selectors in `app/assets/tailwind/application.css`
-    key on it to widen the dialog and adjust spacing in mandatory
-    mode. Stimulus itself reads the value from the wrapper; the
-    duplicate here is non-functional for JS. %>
+    The inner wrapper has no max-width cap; the dialog's own 960px cap
+    (in `application.css`) bounds the content. %>
 <dialog data-settings-modal-target="dialog"
-        data-settings-modal-non-dismissible-value="<%= non_dismissible ? "yes" : "no" %>"
         data-action="click->settings-modal#clickOutside cancel->settings-modal#cancelDismiss"
         class="pane-dialog settings-modal">
-  <div style="padding: 12px 16px; min-width: 0; width: 100%; max-width: <%= inner_max_width %>; max-height: 80vh; overflow-y: auto;">
+  <div style="padding: 12px 16px; min-width: 0; width: 100%; max-width: none; max-height: 80vh; overflow-y: auto;">
     <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-      <h2 data-settings-modal-target="title" style="margin: 0;"><%= default_title || raw("&nbsp;") %></h2>
-      <% unless non_dismissible %>
-        <%= render(BracketedLinkComponent.new(label: t("common.actions.close"), href: "#",
-            data: { action: "click->settings-modal#close" })) %>
-      <% end %>
+      <h2 data-settings-modal-target="title" style="margin: 0;"><%= raw("&nbsp;") %></h2>
+      <%= render(BracketedLinkComponent.new(label: t("common.actions.close"), href: "#",
+          data: { action: "click->settings-modal#close" })) %>
     </div>
     <%# 2026-05-16 — inline `display: block; width: 100%` as a safety
         net alongside the global `turbo-frame { display: block }` rule

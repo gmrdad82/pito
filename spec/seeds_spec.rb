@@ -152,47 +152,204 @@ RSpec.describe "db/seeds.rb", type: :model do
   # Doorkeeper applications. When the block is absent, the seed
   # behaves exactly as the dev-token + claude-mcp + platforms seed
   # blocks above.
-  #
-  # Placeholder pending blocks — bodies fill in after the master
-  # agent confirms the manual playbook lands as designed.
   describe "runtime_state restore branch" do
+    # Shared helper — stubs `Rails.application.credentials` so the seed
+    # sees both a valid `:owner` block (otherwise the owner-creation
+    # branch falls back to placeholder values + a separate user) AND
+    # whichever `runtime_state` payload the spec supplies. `dig` is
+    # passed through to the real credentials for everything else
+    # (e.g. `:tokens, :pepper` consumed by the dev-token branch).
+    def stub_credentials(runtime_state:, owner_username: "owner_rs_#{SecureRandom.hex(2)}")
+      original_dig = Rails.application.credentials.method(:dig)
+      allow(Rails.application.credentials).to receive(:dig) do |*args|
+        if args == [ :owner ]
+          { username: owner_username, password: "spec-password-1" }
+        else
+          original_dig.call(*args)
+        end
+      end
+      allow(Rails.application.credentials).to receive(:runtime_state).and_return(runtime_state)
+      owner_username
+    end
+
+    # Truncate the surfaces the restore branch writes to so each
+    # example begins from a known empty state. The Phase 27 platform
+    # seed and the claude-mcp OAuth seed both rebuild on every run, so
+    # we wipe + assert post-run rather than carrying fixtures across.
+    before do
+      User.delete_all
+      NotificationDeliveryChannel.delete_all
+      OauthApplication.delete_all
+    end
+
     describe "with credentials.runtime_state present" do
+      let(:totp_seed)         { "JBSWY3DPEHPK3PXP" }
+      let(:totp_enabled_at)   { Time.utc(2026, 5, 1, 12, 30, 0) }
+      let(:slack_webhook_url) { "REDACTED" }
+      let(:discord_webhook_url) { "https://discord.com/api/webhooks/123456789012345678/AbcDefGhiJklMnoPqrStuVwxYz_-AbcDefGhiJklMnoPqrStuVwxYz_-AbcDef" }
+
+      let(:runtime_state_payload) do
+        {
+          totp: {
+            seed:         totp_seed,
+            enabled_at:   totp_enabled_at,
+            disabled_at:  nil
+          },
+          webhooks: {
+            discord: {
+              webhook_url:       discord_webhook_url,
+              everything:        "yes",
+              daily_digest:      "no",
+              last_validated_at: Time.utc(2026, 5, 1, 13, 0, 0)
+            },
+            slack: {
+              webhook_url:       slack_webhook_url,
+              everything:        "no",
+              daily_digest:      "yes",
+              last_validated_at: Time.utc(2026, 5, 1, 13, 5, 0)
+            }
+          },
+          oauth_apps: [
+            {
+              name:         "claude-mcp",
+              uid:          "captured-claude-uid-abc123",
+              secret:       "captured-claude-secret-xyz789",
+              redirect_uri: "https://claude.ai/api/mcp/auth_callback",
+              scopes:       Scopes::ALL.join(" "),
+              confidential: "yes"
+            }
+          ]
+        }
+      end
+
       it "restores the TOTP seed + enabled_at onto User.first" do
-        pending "validated manually first"
-        raise "pending placeholder"
+        stub_credentials(runtime_state: runtime_state_payload)
+        silence_stream($stdout) { Rails.application.load_seed }
+
+        owner = User.first
+        expect(owner).to be_present
+        expect(owner.totp_seed_encrypted).to eq(totp_seed)
+        expect(owner.totp_enabled_at).to eq(totp_enabled_at)
+        expect(owner.totp_disabled_at).to be_nil
       end
 
       it "regenerates 10 fresh backup codes and prints them once " \
          "(the captured payload has no plaintext to restore)" do
-        pending "validated manually first"
-        raise "pending placeholder"
+        stub_credentials(runtime_state: runtime_state_payload)
+        fake_codes = Array.new(10) { |i| "BACKUP-CODE-#{i.to_s.rjust(2, '0')}" }
+        expect(Auth::BackupCodeRegenerator).to receive(:call)
+          .with(hash_including(source_surface: :tui))
+          .and_return(fake_codes)
+
+        output = capture_stdout { Rails.application.load_seed }
+
+        fake_codes.each do |code|
+          expect(output).to include(code)
+        end
+        expect(output.scan(fake_codes.first).size).to eq(1)
       end
 
       it "restores the Discord + Slack NotificationDeliveryChannel rows " \
          "with yes/no flags converted back to Ruby booleans" do
-        pending "validated manually first"
-        raise "pending placeholder"
+        stub_credentials(runtime_state: runtime_state_payload)
+        silence_stream($stdout) { Rails.application.load_seed }
+
+        expect(NotificationDeliveryChannel.count).to eq(2)
+
+        discord = NotificationDeliveryChannel.find_by(kind: "discord")
+        expect(discord).to be_present
+        expect(discord.webhook_url).to eq(discord_webhook_url)
+        expect(discord.everything).to be(true)
+        expect(discord.daily_digest).to be(false)
+
+        slack = NotificationDeliveryChannel.find_by(kind: "slack")
+        expect(slack).to be_present
+        expect(slack.webhook_url).to eq(slack_webhook_url)
+        expect(slack.everything).to be(false)
+        expect(slack.daily_digest).to be(true)
       end
 
       it "restores OauthApplication rows by uid (and the captured " \
          "claude-mcp row pre-empts the seed's own create branch)" do
-        pending "validated manually first"
-        raise "pending placeholder"
+        stub_credentials(runtime_state: runtime_state_payload)
+        silence_stream($stdout) { Rails.application.load_seed }
+
+        # Exactly one claude-mcp row — the captured uid won, the seed's
+        # own create branch found it by name and skipped its create.
+        claude_rows = OauthApplication.where(name: "claude-mcp")
+        expect(claude_rows.count).to eq(1)
+
+        claude = OauthApplication.find_by(uid: "captured-claude-uid-abc123")
+        expect(claude).to be_present
+        expect(claude.name).to eq("claude-mcp")
+        expect(claude.secret).to eq("captured-claude-secret-xyz789")
+        expect(claude.redirect_uri).to eq("https://claude.ai/api/mcp/auth_callback")
+        expect(claude.confidential?).to be(true)
       end
 
       it "is idempotent — a second seed run on the same captured state " \
          "leaves the DB unchanged" do
-        pending "validated manually first"
-        raise "pending placeholder"
+        stub_credentials(runtime_state: runtime_state_payload)
+        silence_stream($stdout) { Rails.application.load_seed }
+
+        snapshot = {
+          users:                         User.count,
+          notification_delivery_channels: NotificationDeliveryChannel.count,
+          oauth_applications:            OauthApplication.count,
+          platforms:                     Platform.unscoped.count,
+          api_tokens:                    ApiToken.count
+        }
+
+        # Second seed run on the same stubbed state.
+        silence_stream($stdout) { Rails.application.load_seed }
+
+        expect(User.count).to eq(snapshot[:users])
+        expect(NotificationDeliveryChannel.count).to eq(snapshot[:notification_delivery_channels])
+        expect(OauthApplication.count).to eq(snapshot[:oauth_applications])
+        expect(Platform.unscoped.count).to eq(snapshot[:platforms])
+        expect(ApiToken.count).to eq(snapshot[:api_tokens])
       end
     end
 
     describe "with credentials.runtime_state absent" do
       it "is a no-op — the existing dev token + claude-mcp + platform " \
          "seeds run unchanged" do
-        pending "validated manually first"
-        raise "pending placeholder"
+        stub_credentials(runtime_state: nil)
+        silence_stream($stdout) { Rails.application.load_seed }
+
+        # The standard seed blocks ran to completion: platforms
+        # populated, the claude-mcp OAuth app exists, no webhook /
+        # captured-uid restore left any extra rows behind.
+        expect(Platform.unscoped.count).to be > 0
+        expect(OauthApplication.where(name: "claude-mcp").count).to eq(1)
+        expect(NotificationDeliveryChannel.count).to eq(0)
+
+        # Owner user created from the stubbed :owner credentials.
+        expect(User.count).to eq(1)
       end
     end
+  end
+
+  # Stdout helpers — RSpec's built-in `output(...).to_stdout` matcher
+  # only works on a `expect { ... }` block, but several specs above
+  # need to BOTH capture the print payload AND make subsequent
+  # assertions on the side effects, so we expose `silence_stream` and
+  # `capture_stdout` as plain helpers. Both swap `$stdout` for a
+  # `StringIO` so the underlying fd stays untouched.
+  def silence_stream(_stream)
+    real = $stdout
+    $stdout = StringIO.new
+    yield
+  ensure
+    $stdout = real
+  end
+
+  def capture_stdout
+    real = $stdout
+    $stdout = StringIO.new
+    yield
+    $stdout.string
+  ensure
+    $stdout = real
   end
 end

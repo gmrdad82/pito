@@ -8,7 +8,7 @@ RSpec.describe Platforms::SyncFromIgdb do
     it "creates a Platform for a fresh IGDB row" do
       Platform.unscoped.delete_all
       allow(client).to receive(:list_all_platforms).and_return(
-        [ { "id" => 167, "name" => "PlayStation 5", "abbreviation" => "PS5", "slug" => "ps5" } ]
+        [ { "id" => 167, "name" => "PlayStation 5", "slug" => "ps5" } ]
       )
 
       result = described_class.new(client: client).call
@@ -17,24 +17,22 @@ RSpec.describe Platforms::SyncFromIgdb do
       platform = Platform.unscoped.first
       expect(platform.igdb_id).to eq(167)
       expect(platform.name).to eq("PlayStation 5")
-      expect(platform.abbreviation).to eq("PS5")
       expect(platform.slug).to eq("ps5")
       expect(result.created).to eq(1)
       expect(result.updated).to eq(0)
       expect(result.total).to eq(1)
     end
 
-    it "updates name + abbreviation when IGDB changes them" do
-      existing = create(:platform, igdb_id: 167, name: "Playstation 5", abbreviation: "PS-5", slug: "ps5-update-test")
+    it "updates name when IGDB changes it" do
+      existing = create(:platform, igdb_id: 167, name: "Playstation 5", slug: "ps5-update-test")
       allow(client).to receive(:list_all_platforms).and_return(
-        [ { "id" => 167, "name" => "PlayStation 5", "abbreviation" => "PS5", "slug" => "ps5-update-test" } ]
+        [ { "id" => 167, "name" => "PlayStation 5", "slug" => "ps5-update-test" } ]
       )
 
       result = described_class.new(client: client).call
 
       existing.reload
       expect(existing.name).to eq("PlayStation 5")
-      expect(existing.abbreviation).to eq("PS5")
       expect(result.updated).to eq(1)
       expect(result.created).to eq(0)
     end
@@ -46,7 +44,7 @@ RSpec.describe Platforms::SyncFromIgdb do
       existing = create(:platform, igdb_id: 167, name: "PS5")
       existing.update_column(:slug, "old-stable-slug")
       allow(client).to receive(:list_all_platforms).and_return(
-        [ { "id" => 167, "name" => "PS5", "abbreviation" => "PS5", "slug" => "new-igdb-slug" } ]
+        [ { "id" => 167, "name" => "PS5", "slug" => "new-igdb-slug" } ]
       )
 
       described_class.new(client: client).call
@@ -56,7 +54,7 @@ RSpec.describe Platforms::SyncFromIgdb do
 
     it "is idempotent — re-running yields no further mutations" do
       allow(client).to receive(:list_all_platforms).and_return(
-        [ { "id" => 167, "name" => "PS5", "abbreviation" => "PS5", "slug" => "ps5-idempotent" } ]
+        [ { "id" => 167, "name" => "PS5", "slug" => "ps5-idempotent" } ]
       )
 
       described_class.new(client: client).call
@@ -95,7 +93,7 @@ RSpec.describe Platforms::SyncFromIgdb do
       expect(seeded.igdb_id).to be_nil
 
       allow(client).to receive(:list_all_platforms).and_return(
-        [ { "id" => 167, "name" => "PlayStation 5", "abbreviation" => "PS5", "slug" => "ps5-prefilled" } ]
+        [ { "id" => 167, "name" => "PlayStation 5", "slug" => "ps5-prefilled" } ]
       )
 
       # On a seeded row, sync should NOT find by igdb_id (it's nil); it
@@ -121,7 +119,7 @@ RSpec.describe Platforms::SyncFromIgdb do
     it "ignores malformed entries (no id, non-hash rows)" do
       allow(client).to receive(:list_all_platforms).and_return(
         [
-          { "id" => 167, "name" => "PS5", "abbreviation" => "PS5", "slug" => "ps5-mixed" },
+          { "id" => 167, "name" => "PS5", "slug" => "ps5-mixed" },
           { "name" => "No id row" },
           "garbage",
           nil

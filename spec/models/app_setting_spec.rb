@@ -218,60 +218,75 @@ RSpec.describe AppSetting, type: :model do
   # install-wide singletons read/written via class methods that promote
   # one canonical `key = "__singleton__"` row to be the lock anchor.
   describe "reindex lock accessors" do
+    before { AppSetting.delete_all }
+
     describe ".singleton_row" do
       it "creates the canonical row on first access" do
-        pending "validated manually first; spec fills in after the operator " \
-                "confirms the singleton-row creation lands cleanly"
-        raise "pending placeholder"
+        expect { AppSetting.singleton_row }.to change(AppSetting, :count).by(1)
+        expect(AppSetting.singleton_row.key).to eq("__singleton__")
       end
 
       it "reuses the same row on subsequent accesses (idempotent)" do
-        pending "validated manually first"
-        raise "pending placeholder"
+        first = AppSetting.singleton_row
+        second = AppSetting.singleton_row
+        expect(second.id).to eq(first.id)
+        expect(AppSetting.where(key: "__singleton__").count).to eq(1)
       end
     end
 
     describe ".reindex_running?" do
       it "defaults to false on a fresh install" do
-        pending "validated manually first"
-        raise "pending placeholder"
+        expect(AppSetting.reindex_running?).to be(false)
       end
 
       it "returns true after start_reindex! flips the flag" do
-        pending "validated manually first"
-        raise "pending placeholder"
+        AppSetting.start_reindex!
+        expect(AppSetting.reindex_running?).to be(true)
       end
     end
 
     describe ".reindex_started_at" do
       it "is nil when idle" do
-        pending "validated manually first"
-        raise "pending placeholder"
+        expect(AppSetting.reindex_started_at).to be_nil
       end
 
       it "carries the started-at timestamp while a reindex is running" do
-        pending "validated manually first"
-        raise "pending placeholder"
+        AppSetting.start_reindex!
+        expect(AppSetting.reindex_started_at).not_to be_nil
+        expect(AppSetting.reindex_started_at).to be_within(5.seconds).of(Time.current)
       end
     end
 
     describe ".start_reindex!" do
       it "sets reindex_running to true and stamps reindex_started_at " \
          "to Time.current in one atomic update" do
-        pending "validated manually first"
-        raise "pending placeholder"
+        AppSetting.start_reindex!
+        row = AppSetting.singleton_row
+        aggregate_failures do
+          expect(row.reindex_running).to be(true)
+          expect(row.reindex_started_at).not_to be_nil
+          expect(row.reindex_started_at).to be_within(5.seconds).of(Time.current)
+        end
       end
     end
 
     describe ".clear_reindex_lock!" do
       it "resets reindex_running to false and nils reindex_started_at" do
-        pending "validated manually first"
-        raise "pending placeholder"
+        AppSetting.start_reindex!
+        AppSetting.clear_reindex_lock!
+        row = AppSetting.singleton_row
+        aggregate_failures do
+          expect(row.reindex_running).to be(false)
+          expect(row.reindex_started_at).to be_nil
+        end
       end
 
       it "is idempotent — safe to invoke repeatedly when already clear" do
-        pending "validated manually first"
-        raise "pending placeholder"
+        expect { AppSetting.clear_reindex_lock! }.not_to raise_error
+        expect { AppSetting.clear_reindex_lock! }.not_to raise_error
+        row = AppSetting.singleton_row
+        expect(row.reindex_running).to be(false)
+        expect(row.reindex_started_at).to be_nil
       end
     end
   end

@@ -130,10 +130,9 @@ module Igdb
     def map_platform(json)
       json ||= {}
       {
-        igdb_id:      json["id"],
-        name:         json["name"],
-        abbreviation: json["abbreviation"],
-        slug:         json["slug"]
+        igdb_id: json["id"],
+        name:    json["name"],
+        slug:    json["slug"]
       }
     end
 

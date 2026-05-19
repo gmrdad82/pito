@@ -23,7 +23,6 @@ en:
       delete: "delete"
       delete_short: "-"
       help: "help"
-      open: "open"
       save: "save"
       see_all: "see all"
       sync: "sync"

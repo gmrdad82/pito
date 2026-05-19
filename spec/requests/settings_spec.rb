@@ -588,17 +588,31 @@ RSpec.describe "Settings", type: :request do
     # BEFORE enqueueing and short-circuits on a conflict.
     describe "with the DB flag already set (lock layer 1)" do
       it "redirects with an alert and does NOT enqueue a second job" do
-        pending "validated manually first; spec fills in after the operator " \
-                "confirms the controller short-circuits before perform_later"
-        raise "pending placeholder"
+        AppSetting.start_reindex!
+
+        expect { post settings_reindex_path }
+          .not_to have_enqueued_job(ReindexAllJob)
+
+        expect(response).to redirect_to(settings_path)
+        follow_redirect!
+        expect(flash[:alert]).to eq("reindex in progress.")
       end
     end
 
     describe "with the DB flag clear" do
       it "flips the flag to running + stamps reindex_started_at before " \
          "enqueueing" do
-        pending "validated manually first"
-        raise "pending placeholder"
+        AppSetting.clear_reindex_lock!
+        expect(AppSetting.reindex_running?).to be(false)
+
+        freeze_time = Time.current
+        travel_to(freeze_time) do
+          expect { post settings_reindex_path }
+            .to have_enqueued_job(ReindexAllJob)
+
+          expect(AppSetting.reindex_running?).to be(true)
+          expect(AppSetting.reindex_started_at).to be_within(1.second).of(freeze_time)
+        end
       end
     end
   end

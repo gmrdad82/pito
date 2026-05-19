@@ -1,14 +1,4 @@
 <% content_for(:title, t("settings.index.title")) %>
-<%
-  # Phase 32 (settings refactor polish — Concern 2). Mandatory-2FA
-  # enrollment gate auto-opens the security modal on /settings and
-  # mutes the surrounding panes. The mandatory-gate redirect lands
-  # users here with `?enroll_totp=1`; we also fall back to detecting
-  # `!Current.user.totp_configured?` directly so anyone who arrives
-  # without the param still sees the dialog (defensive — the gate
-  # owns the redirect, this is the renderer's contract).
-  enroll_totp_gate_active = Current.user.present? && !Current.user.totp_configured?
-%>
 <h1><%= t("settings.index.heading") %></h1>
 
 <%# Phase 29 (settings refactor) — 3-row layout.
@@ -42,12 +32,7 @@
     Security links open a layout-positioned `<dialog>` populated via
     Turbo Frame (see `_settings_modal.html.erb` +
     `settings_modal_controller.js`); the standalone routes still
-    render the full pages on direct hits.
-
-    Phase 32 (Concern 2) — when the mandatory-2FA gate is active the
-    outer `<div>` carries `settings-panes--muted` which lowers
-    opacity, sets `pointer-events: none`, and `aria-disabled="true"`.
-    Visible context, no interaction. %>
+    render the full pages on direct hits. %>
 <%# 2026-05-16 structural fix — the `settings-modal` Stimulus
     controller used to mount on the `<dialog>` itself inside
     `_settings_modal.html.erb`. That worked for the auto-open path
@@ -66,11 +51,8 @@
     its target marker + actions; the wrapper owns the controller
     scope, so click actions on any descendant — pane links or
     in-dialog `[close]` — reach the controller correctly. %>
-<div data-controller="settings-modal"
-     data-settings-modal-auto-open-url-value="<%= (enroll_totp_gate_active ? settings_security_totp_path : "").to_s %>"
-     data-settings-modal-non-dismissible-value="<%= enroll_totp_gate_active ? "yes" : "no" %>">
-  <div class="settings-panes <%= "settings-panes--muted" if enroll_totp_gate_active %>"
-       <% if enroll_totp_gate_active %>aria-disabled="true"<% end %>>
+<div data-controller="settings-modal">
+  <div class="settings-panes">
     <div class="pane-row">
       <%= render "profile_pane" %>
       <%= render "security_pane" %>
@@ -89,19 +71,6 @@
   <%# Layout-positioned settings security modal. Single dialog shared by
       all three security launchers; the Stimulus controller (mounted on
       the wrapper above) swaps the target URL into the inner Turbo
-      Frame on open.
-
-      Phase 32 (Concern 2). When the mandatory-2FA gate is active the
-      wrapper carries two Stimulus values:
-        * `auto-open-url` — the URL to load into the Turbo Frame on
-          connect (here, the TOTP enrollment landing).
-        * `non-dismissible` — "yes" turns off the close button, the
-          click-outside handler, and the Escape key.
-      The Stimulus controller reads both on connect; nothing extra is
-      needed in the trigger links. The partial keeps a duplicate of
-      `non-dismissible` on the `<dialog>` itself purely as a CSS hook
-      for the mandatory-mode width / spacing tweaks. %>
-  <%= render "settings_modal",
-             auto_open_url: enroll_totp_gate_active ? settings_security_totp_path : nil,
-             non_dismissible: enroll_totp_gate_active %>
+      Frame on open. %>
+  <%= render "settings_modal" %>
 </div>

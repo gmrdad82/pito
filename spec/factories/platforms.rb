@@ -2,7 +2,6 @@ FactoryBot.define do
   factory :platform do
     sequence(:igdb_id) { |n| 2_000 + n }
     sequence(:name) { |n| "Platform #{n}" }
-    sequence(:abbreviation) { |n| "P#{n}" }
     # FriendlyId on Platform regenerates the slug from `slug_candidates`
     # whenever `name` changes. Setting slug explicitly here would be
     # clobbered by the `before_validation :set_slug` callback. Leaving
