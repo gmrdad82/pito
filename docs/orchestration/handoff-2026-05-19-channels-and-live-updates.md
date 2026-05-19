@@ -376,6 +376,218 @@ work.
 
 ---
 
+## Implementation plan
+
+Concrete wave breakdown for the /channels phase. **/channels is the ONLY
+channels route this phase — a single-page combined dashboard**, NOT a
+multi-pane workspace.
+
+### Layout model (locked)
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ channels  [+][-]              [ ] c1  [ ] c2  [ ] c3            │  ← title bar
+├─────────────────────────────────────────────────────────────────┤
+│ [c1 card]  [c2 card]  [c3 card]                                 │  ← channel-card shelf
+├─────────────────────────────────────────────────────────────────┤  ← hairline
+│ "Hell on Earth" — all data, charts, aggregations                │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+Two distinct chrome surfaces:
+
+1. **Title bar** — `channels [+][-]` on the LEFT, filter chips
+   `[ ] c1 [ ] c2 ...` on the RIGHT (same chip pattern as /games
+   platform chips). Each chip toggles ONE channel ON/OFF for the
+   dashboard's combined data view.
+   - `[+]` = add channel (opens OAuth picker modal)
+   - `[-]` = TBD action ("new way of doing stuff" — user-locked as
+     design-time discovery, NOT a feature for Wave A; placeholder only)
+2. **Channel-card shelf** — channel cards (avatar + name + handle;
+   exact card shape TBD at layout time). **Banner explicitly NOT
+   displayed here** ("banner is for something else" — stays in schema,
+   fetched during `ChannelDataSync`, dormant until a future use case
+   is identified).
+3. **Hairline** below the shelf.
+4. **"Hell on Earth" main content** — all metric sections (basics
+   totals, Top Content, window summaries, audience breakdowns, traffic
+   sources, heatmap, trends). Each section's combine-vs-split-vs-both
+   is decided at layout time.
+
+**Chip ↔ card interaction (default):** unchecking a chip hides that
+channel's card from the shelf AND drops its data from aggregations
+below. Same semantics as /games platform chip filtering. (Confirm or
+push back at layout time.)
+
+**Combine vs split per section** is decided at layout time:
+
+- Some sections sum (subs, views, watch time, video count)
+- Some weighted-average (CTR, avg view duration)
+- Some render union with channel-of-origin badges (Top Content)
+- Some render per-channel slices side-by-side (audience demographics,
+  day×hour heatmaps)
+- Some render both (e.g., aggregated bar + per-channel breakdown)
+
+**No breadcrumb.**
+
+**Channel filter persistence:** URL query param
+`?channels=id1,id2,id3` (matches /games filter pattern + makes the
+dashboard URL shareable).
+
+### Scope simplifications (locked post-HANDOFF-draft)
+
+- **No `/channels/:id` detail page** — `/channels` is the ONLY route
+- **FriendlyId teardown for Channel** — drop `friendly_id` declaration,
+  drop `url_slug` method, drop `to_param` custom override, drop
+  `Channel.friendly` finder. `friendly_id_slugs` polymorphic history
+  table stays (used by other models like Game)
+- **Sub-controllers dropped entirely:**
+  - `Channels::AnalyticsController` — the body's query layer
+    (`Analytics::*` services) gets called directly from the dashboard
+    sections; the controller goes away
+  - `Channels::AnalyticsRefreshController` — folded into manual sync UI
+  - `Channels::ChangeLogsController` — change log dropped (no edits
+    happen on read-only mirror)
+  - `Channels::StarsController` — already dropping with star
+  - Nested `:videos` action — dropped
+- **`channel_change_logs` table** — drop in migration
+- **Multi-pane workspace pattern** — NOT used in /channels this phase.
+  SavedView code (`SavedView.channels` scope, panes URL, pane picker
+  modal, friendly-URL resolution for panes) STAYS in the codebase for
+  potential reuse in /videos later, but is **dormant** for /channels.
+- **Channel toggle filter** is a new mechanism (URL query param), not
+  the existing SavedView system.
+
+### Wave A — Mocked dashboard layout (1-2 sessions)
+
+Layout-first per the way-of-work rule. User validates visuals + decides
+combine-vs-split per section as work progresses.
+
+| Step | Scope |
+|---|---|
+| A1 | `/channels` dashboard shell (top shelf area + main content area + scaffolding for filter persistence) |
+| A2 | `Channels::MockData` service module — single source for mock data: per-channel hashes + aggregated rollups for each metric |
+| A3a | Title bar — `channels [+][-]` on the LEFT, filter chips `[ ] c1 [ ] c2 ...` on the RIGHT (same chip pattern as /games platform chips). `[+]` opens OAuth picker modal; `[-]` is a placeholder for the TBD action (no Wave A handler — design-time discovery only) |
+| A3b | Channel-card shelf below title bar — cards for each currently-selected channel (avatar + name + handle; exact card shape TBD at layout time). **Banner NOT rendered here.** Mocked: 3-5 channels |
+| A4 | Channel filter URL persistence — `?channels=id1,id2,id3` query param via Stimulus controller (similar to /games filter chips). Chip uncheck → hide card + drop data from aggregations |
+| A5 | Basics section: aggregated totals across selected channels (total subs / total views / total videos / total watch time hrs) |
+| A6 | Top Content section: union-merged ranked list across selected channels, each row badged with channel-of-origin |
+| A7 | Window summaries section: tabs (7d / 28d / 90d / 365d / lifetime), aggregated metrics for the time window |
+| A8 | Trend indicators section: rising/steady/dropping arrows + numeric deltas for the trio (subs / views / watch time) — display style TBD at this point |
+| A9 | Audience geography section: combined country breakdown across selected channels (or per-channel side-by-side — design choice at layout time) |
+| A10 | Audience demographics (age × gender): aggregated viewer percentage OR per-channel side-by-side (design choice at layout time) |
+| A11 | Device Type breakdown |
+| A12 | When your viewers are on YouTube heatmap (day × hour) |
+| A13 | Traffic sources section (find-your-videos breakdown + external + search terms top-N capped) |
+| A14 | Latest content shelf — 5 latest uploads merged across selected channels (chronological), each badged with channel-of-origin |
+| A15 | Sync buttons + state UI per channel chip on the top shelf (data + analytics) |
+| A16 | Multi-channel picker modal (the `[+]` button target — mocked discovered-channels list) |
+| A17 | Revoke flow UI buttons → wire to existing `Channels::BulkRevokesController` (mock the response) |
+| A18 | User validation gate — layout locked once signed off |
+
+### Wave B — Real API wiring (2-3 sessions)
+
+| Step | Scope |
+|---|---|
+| B1 | Migration: drop unused Channel columns (`description`, `country`, `default_language`, `handle_changed_at`, `title_changed_at`, `hidden_subscriber_count`, `watermark_*`, `links`, `keywords`, `star`, `last_synced_at`). **`banner_url` STAYS** — fetched during `ChannelDataSync` but not displayed on the dashboard (banner is reserved for a future use case TBD; dormant column) |
+| B2 | Migration: add new Channel columns (`data_synced_at`, `analytics_synced_at`, `data_syncing`, `analytics_syncing`, `data_sync_error`, `analytics_sync_error`) |
+| B3 | Migration: drop `channel_change_logs` table + `ChannelChangeLog` model |
+| B4 | FriendlyId teardown on Channel (declaration, methods, override, finder) |
+| B5 | Drop sub-controllers + their views (Analytics, AnalyticsRefresh, ChangeLogs, Stars) + their routes |
+| B6 | Drop `:show` route + action + view + partials |
+| B7 | Star cascade removal — `.starred` scope, `enqueue_sync_on_star` callback, sort/filter on index, any star UI |
+| B8 | New `ChannelDataSync` job class — `channels.list?part=snippet,statistics,brandingSettings,contentDetails` upsert |
+| B9 | Refactor `ChannelAnalyticsSync` — split-mutex shape (`analytics_syncing` + `analytics_sync_error`) |
+| B10 | `Channel#sync!(scope:)` orchestrator — enqueues data/analytics/both based on scope arg |
+| B11 | `Channels::Aggregator` service — combine-rule logic per metric type (sum / avg / union / split). Each section component calls a method like `Channels::Aggregator.subscribers_total(channel_ids)` |
+| B12 | Wire real data layer replacing `Channels::MockData.*` — constant swap at view layer, OR aggregator returns the section component's hash |
+| B13 | Multi-channel picker UI wiring — replace auto-add in `YoutubeConnections::OauthCallbacksController` with picker modal |
+| B14 | Daily CRON via sidekiq-cron — `Channel.find_each { ChannelDataSync + ChannelAnalyticsSync }` (2N parallel jobs) |
+| B15 | StackStatsChannel push/poll verification + conversion to push if currently poll (Live Updates dependency) |
+| B16 | Live Updates broadcast hooks — after each sync job → `Turbo::StreamsChannel.broadcast_replace_to` against affected section DOM ids (re-render aggregated sections for selected channels) |
+
+### Wave C — Channel-rollup tables (1-2 sessions)
+
+Fill the existing `NotImplementedError` stubs in `Youtube::AnalyticsClient`.
+These power the aggregator service for the audience/traffic/device/heatmap sections.
+
+| Step | Table + method |
+|---|---|
+| C1 | `channel_daily_by_country` table + `Youtube::AnalyticsClient#channel_geography` (uncomment + wire) |
+| C2 | `channel_demographics` table + `#channel_demographics` (ageGroup × gender) |
+| C3 | `channel_daily_by_device_type` table + new method |
+| C4 | `channel_daily_by_traffic_source` table + new method (top-N caps for high-cardinality detail rows) |
+| C5 | `channel_viewer_time_buckets` table + new method (day × hour heatmap, UTC bucket + user-tz rollup) |
+| C6 | Wire each into the `Channels::Aggregator` service + render in the corresponding dashboard section |
+
+### Wave D — Cross-report queries (1 session, ADR 0011 backfill)
+
+| Step | Scope |
+|---|---|
+| D1 | Impressions report `reports.query` → backfill `video_thumbnail_impressions` + `video_thumbnail_impressions_click_rate` columns (existing NULL today) |
+| D2 | Card-performance report `reports.query` → backfill `card_*` columns |
+| D3 | Render impressions + CTR + card metrics in the dashboard's window summary section |
+
+### Wave E — Trend deltas (1 session)
+
+| Step | Scope |
+|---|---|
+| E1 | Migration: add `subscriber_count_trend_28d_pct`, `view_count_trend_28d_pct`, `watch_time_trend_28d_pct` to `channel_window_summaries` |
+| E2 | Compute during `ChannelAnalyticsSync`: two-window query (current 28d vs prior 28d), delta % stored as numeric |
+| E3 | Aggregator method `Channels::Aggregator.trend(metric, channel_ids)` — combine deltas across selected channels |
+| E4 | Render direction badges / numbers in the dashboard's trend section |
+
+### Wave F — Spec reactivation + factory updates + system-spec debt sweep (1-2 sessions)
+
+| Step | Scope |
+|---|---|
+| F1 | Audit existing channel specs — drop dead ones (channel_revoke, change_logs, show.html specs gone with controllers, friendly URL tests gone) |
+| F2 | Update `spec/factories/channels.rb` — match new column set (drop dropped columns, add new ones) |
+| F3 | Write specs for `ChannelDataSync`, `ChannelAnalyticsSync`, `Channel#sync!` orchestration |
+| F4 | Write specs for `Channels::Aggregator` service (per-metric combine rules) |
+| F5 | Write specs for multi-channel picker UI flow |
+| F6 | Write specs for Live Updates broadcast hooks |
+| F7 | Write specs for the channel filter URL persistence (`?channels=...`) |
+| F8 | Engage system-spec debt cluster — the 2 TODO-skipped `games_index_spec.rb:25, 65` examples (genre nested-shelf headings) — investigate + fix or formally retire |
+| F9 | Add specs for Wave C channel-rollup tables (each new table + method) |
+| F10 | Add specs for Wave D cross-report queries (mock API responses, assert backfill columns get populated) |
+| F11 | Add specs for Wave E trend deltas (two-window computation + storage + aggregation) |
+
+### Wave G — Reactivation + closeout (1 session)
+
+| Step | Scope |
+|---|---|
+| G1 | Reactivate `/channels` in `config/keybindings.yml` (currently dropped from leader-menu navigation) |
+| G2 | Convert `[channels]` navbar entry from currently-muted to active link (helper kwarg flip) |
+| G3 | Add channel-specific page_actions (`s d` = sync data of selected channels, `s a` = sync analytics, `f` = focus filter shelf, etc.) |
+| G4 | Final visual validation pass — confirm dashboard render is stable + Live Updates broadcasts work end-to-end |
+| G5 | Phase log entry + scope-drift bookkeeping (`additions.md` / `dropped.md` per beta convention) |
+| G6 | User validation gate before commit + push |
+
+### Dependency / ordering notes
+
+- **Wave A is the longest** because layout-first means iterating on each section + deciding combine-vs-split per metric. Expect 1-2 sessions of layout polish before user signs off.
+- **Wave B depends on Wave A completion** — don't wire real data until layout is locked.
+- **Wave C/D/E can be sequenced any order** after Wave B lands — they're independent table/column additions.
+- **Wave F starts late** — specs after the surface stops moving. Per the user's way-of-work rule.
+- **Wave G is last** — keybindings/navbar reactivation only after everything else stabilizes.
+
+### Estimated session count: 7-10 sessions
+
+Wave A: 1-2 / Wave B: 2-3 / Wave C: 1-2 / Wave D: 1 / Wave E: 1 / Wave F: 1-2 / Wave G: 1
+
+### Design-time decisions flagged for Wave A architect
+
+1. **Aggregation rules per metric** — discover during layout iteration
+2. **Channel filter URL shape** — lean is `?channels=id1,id2,id3`
+3. **Section combine-vs-split-vs-both** — per-section decision at layout time
+4. **Top shelf chip design** — avatar + name + checkbox shape, or alternate
+5. **`[+]` button position** — top-right of shelf? inline with last channel? Trailing element?
+6. **Trend indicator display** — arrows / numbers / both / micro-bars
+
+---
+
 ## Test verification (2026-05-19 closeout)
 
 Full `bin/test all` run completed cleanly before this handoff:
