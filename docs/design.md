@@ -5,7 +5,11 @@
 - **Font:**
   `ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, monospace`
 - **Base size:** 13px, line-height 1.4
-- **Headings:** h1 18px, h2 14px, h3 13px — all bold
+- **Headings:** all heading levels (h1 / h2 / h3 / h4 / h5 / h6) render at
+  the base 13px size. Visual hierarchy comes from `font-weight: bold` +
+  `font-style` + sparse Nerd Font glyphs + section accent color. No size
+  differentiation per level — locked Beta 4 (see Visual density and hygiene
+  section).
 - **Footer:** 11px
 
 ### Heading 4
@@ -189,6 +193,75 @@ Locked 2026-05-19 after `tmp/dracula-swatches-v2.html` Section B side-by-side
 review. The Projects + Games hue (Pale Cobalt `#7eb6ff`) is the variant-B
 winner; future agents reference this table — not the CSS — as the canonical
 source.
+
+## Visual density and hygiene
+
+pito follows a compact, numbers-heavy, TUI-faithful visual philosophy locked
+2026-05-20 during the Beta 4 exploratory pivot. These rules govern every layout
+decision and every ViewComponent design.
+
+### Compact density
+
+- White space is a premium. Every empty pixel must earn its place by serving a
+  real readability purpose — not for breathing room "by default." Padding
+  budgets are tight. Default to ZERO margin/padding and add only when content
+  collides or visual grouping demands it.
+- Sections, panels, and cards prefer hairline separators (1px borders) over
+  background-tinted blocks for grouping. Hairlines + spacing carry the visual
+  hierarchy; backgrounds are reserved for section-accent tinting at the body
+  level.
+- Numerical data is the headline. Tables, sparklines, percentages, ASCII bars,
+  and inline metrics dominate the canvas. Decorative chrome is the exception.
+
+### Numbers-heavy
+
+- Prefer dense tabular layouts (right-aligned numbers via
+  `font-variant-numeric: tabular-nums`) over prose summaries.
+- Sparklines (`▁▂▃▅▇`) and ASCII progress bars (`▓░`) carry trend / state
+  information inline next to numbers wherever possible.
+- Status pill / chip text stays terse: `[active]`, `[this]`, `[ip]` — no
+  multi-word labels in chips.
+
+### No emojis (durable artifacts and UI)
+
+- Emojis are NEVER allowed in code, ViewComponent output, ERB templates,
+  design.md, ADRs, CLAUDE.md, commit messages, or persistent UI surfaces.
+- Emojis ARE allowed in master-agent + subagent communication (status updates,
+  dispatch announcements, end-of-turn summaries) because that surface is
+  ephemeral chat — see `feedback_emojis_in_communication.md`.
+- Unicode glyphs that are NOT emojis (box-drawing `╭─╮│╰╯`, sparkline blocks
+  `▁▂▃▅▇`, ASCII bars `▓░`, arrows `▲ ▼`, dots `● ○`, brackets, triangles,
+  etc.) are universally accepted — they are TUI primitives, not emojis.
+
+### Sparse Nerd Font icons — must earn their place
+
+- pito ships BitstromWera Nerd Font Mono (per ADR 0016). Nerd Font provides
+  3,600+ icon glyphs.
+- Sparse use ONLY. A Nerd Font icon earns its place by carrying unambiguous
+  functional meaning that text alone cannot convey concisely (e.g. powerline
+  triangle separator `` U+E0B0 for structural rendering, status state glyphs
+  `●` `◐` `✗` for sync indicators).
+- A Nerd Font icon does NOT earn its place by being decorative, by duplicating
+  an adjacent text label, or by adding visual interest.
+- When in doubt: drop the icon. Letter codes (`b12 e33 r3`) beat icon prefixes
+  (`▶ b12 ⏳ e33 ↻ r3`) for compact density.
+
+### Single font size
+
+- 13px base, monospace (BitstromWera Nerd Font Mono).
+- No `h1` / `h2` / `h3` size differentiation. Visual hierarchy comes from
+  `font-weight` (regular 400 / bold 700) + `font-style` (italic / bold-italic)
+  + Nerd Font glyphs (sparse) + color (section accent).
+- Locks the character grid. Every line aligns to the same baseline.
+
+### Lowercase non-brand text
+
+- All UI labels render lowercase: `home`, `channels`, `games`, `settings`,
+  `synced`, `disconnected`, `normal`, `help`, `command`, etc.
+- EXCEPTION: brand names stay capitalized — `YouTube`, `Slack`, `Discord`,
+  `Sidekiq`, `Voyage AI`, `Meilisearch`, `Redis`, `PostgreSQL`, `Rails`,
+  `Hotwire`, `Stimulus`, etc. Per
+  `feedback_brand_names_always_capitalized.md`.
 
 ## Dark Mode
 

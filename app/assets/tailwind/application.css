@@ -1,5 +1,41 @@
 @import "tailwindcss";
 
+/* ============================================================
+   Self-hosted BitstromWera Nerd Font Mono (4 weights/styles).
+   Served by Propshaft from app/assets/fonts/ at /assets/<file>.
+   ============================================================ */
+@font-face {
+  font-family: "BitstromWera Nerd Font Mono";
+  src: url("/assets/BitstromWeraNerdFontMono-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "BitstromWera Nerd Font Mono";
+  src: url("/assets/BitstromWeraNerdFontMono-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "BitstromWera Nerd Font Mono";
+  src: url("/assets/BitstromWeraNerdFontMono-Oblique.ttf") format("truetype");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "BitstromWera Nerd Font Mono";
+  src: url("/assets/BitstromWeraNerdFontMono-BoldOblique.ttf") format("truetype");
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
+
 /* Color tokens — dark-only as of 2026-05-19.
    The previous two-theme system (:root light + [data-theme="dark"]
    overrides) was collapsed into a single unconditional :root block.
@@ -234,7 +270,7 @@ dialog {
 
 /* Base typography */
 body {
-  font-family: ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, monospace;
+  font-family: "BitstromWera Nerd Font Mono", ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, monospace;
   font-size: 13px;
   line-height: 1.4;
   color: var(--color-text);
