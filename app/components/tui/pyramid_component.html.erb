@@ -1,0 +1,11 @@
+<div class="tui-pyramid">
+  <% rows.each do |row| %>
+    <div class="tui-pyramid__row">
+      <span class="tui-pyramid__left-value"><%= row[:left] %>%</span>
+      <span class="tui-pyramid__left-bar" style="--pct: <%= percent(row[:left]) %>%;"></span>
+      <span class="tui-pyramid__label"><%= row[:label] %></span>
+      <span class="tui-pyramid__right-bar" style="--pct: <%= percent(row[:right]) %>%;"></span>
+      <span class="tui-pyramid__right-value"><%= row[:right] %>%</span>
+    </div>
+  <% end %>
+</div>

@@ -48,14 +48,18 @@
 %>
 <%= turbo_frame_tag "settings_modal_frame" do %>
   <div style="max-width: 928px; margin: <%= body_wrapper_margin %>; overflow-wrap: break-word;">
-    <div style="margin-bottom: 8px;">
-      <h1><%= t("settings.security.totp.heading") %></h1>
-      <p class="text-danger" style="margin-top: 2px;">
+    <%# Beta 4 F3-DEEP-A — TUI revamp.
+        Lowercase H1 (rendered at 13px bold via the single-font-size
+        heading rule), one-sentence-per-line lead paragraph, framed
+        panels for the scan + backup-codes blocks. %>
+    <div style="margin-bottom: 12px;">
+      <h1>enroll two-factor authentication</h1>
+      <p class="text-danger" style="margin-top: 4px;">
         <%= t("settings.security.totp.requires_line1") %><br>
         <%= t("settings.security.totp.requires_line2") %>
       </p>
-      <p class="text-muted" style="margin-top: 8px;">
-        <%= t("settings.security.totp.scan_hint") %>
+      <p class="text-muted" style="margin-top: 6px;">
+        scan the QR with Google Authenticator, 1Password, Authy, or any other authenticator app.
       </p>
     </div>
 
@@ -66,14 +70,14 @@
       </div>
 
       <div class="pane">
-        <h2 style="margin-top: 0;"><%= t("settings.security.totp.backup_codes_heading") %></h2>
-        <pre style="font-size: 14px; padding: 8px;">
-<% @codes.each do |code| %><%= code %>
+        <%= render Tui::FramedPanelComponent.new(title: "backup codes") do %>
+          <pre style="font-family: inherit; font-size: 13px; padding: 6px 8px; margin: 4px 0; white-space: pre; background: var(--color-bg-alt); border: 1px solid var(--color-border); font-variant-numeric: tabular-nums;"><% @codes.each do |code| %><%= code %>
 <% end %></pre>
-        <p class="text-muted" style="margin-top: 8px;">
-          <%= t("settings.security.totp.backup_codes_hint_line1") %><br>
-          <%= t("settings.security.totp.backup_codes_hint_line2_html").html_safe %>
-        </p>
+          <p class="text-muted" style="margin: 8px 0 0;">
+            <%= t("settings.security.totp.backup_codes_hint_line1") %><br>
+            <%= t("settings.security.totp.backup_codes_hint_line2_html").html_safe %>
+          </p>
+        <% end %>
       </div>
     </div>
   </div>

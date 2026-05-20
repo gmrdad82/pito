@@ -1,0 +1,11 @@
+<div class="tui-bar-chart">
+  <% rows.each do |row| %>
+    <div class="tui-bar-chart__row">
+      <span class="tui-bar-chart__label"><%= row[:label] %></span>
+      <span class="tui-bar-chart__bar-wrap">
+        <span class="tui-bar-chart__bar" style="width: <%= percent(row[:value]) %>%;"></span>
+      </span>
+      <span class="tui-bar-chart__value"><%= format_value(row[:value]) %></span>
+    </div>
+  <% end %>
+</div>

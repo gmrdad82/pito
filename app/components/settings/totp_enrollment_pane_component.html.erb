@@ -1,27 +1,27 @@
-<h2 style="margin-top: 0;">scan</h2>
-<%# QR codes need black-on-white contrast to scan reliably. The
-    dark theme renders the page on a dark background which makes
-    the SVG (black modules on transparent) unreadable. Wrap the
-    SVG in a white-bg inline-block so the QR is always readable
-    regardless of theme. %>
-<div style="margin: 8px 0;">
-  <div style="background: #ffffff; padding: 8px; display: inline-block;">
-    <%= qr_svg %>
+<%# Beta 4 F3-DEEP-A — TUI revamp.
+    QR-code section rendered inside a Tui::FramedPanelComponent so the
+    framed hairline visually owns the scan step. White bg on the inner
+    inline-block stays — QR modules (black on transparent) need the
+    contrast to scan reliably regardless of theme. %>
+<%= render Tui::FramedPanelComponent.new(title: "scan with authenticator app") do %>
+  <div style="margin: 4px 0 8px;">
+    <div style="background: #ffffff; padding: 8px; display: inline-block;">
+      <%= qr_svg %>
+    </div>
   </div>
-</div>
+  <p class="text-muted" style="margin: 8px 0 4px;">
+    or paste this seed manually:
+  </p>
+  <pre style="font-family: inherit; font-size: 13px; padding: 6px 8px; margin: 0; white-space: pre-wrap; word-break: break-all; background: var(--color-bg-alt); border: 1px solid var(--color-border); font-variant-numeric: tabular-nums;"><%= @seed %></pre>
+<% end %>
 
-<p class="text-muted" style="margin-top: 8px;">
-  or paste this seed manually:
-</p>
-<pre style="font-size: 14px; padding: 8px; white-space: pre-wrap; word-break: break-all;"><%= @seed %></pre>
+<div style="height: 12px;"></div>
 
-<hr class="hairline">
-
-<h2 style="margin-top: 0;">enter code</h2>
+<h2>enter code</h2>
 <%= form_with url: settings_security_totp_path, method: :post, data: { turbo: false } do %>
-  <div style="margin-bottom: 8px;">
-    <label>6-digit code from your authenticator app</label>
+  <div style="margin: 6px 0 8px;">
+    <label class="form-label">6-digit code from your authenticator app</label>
     <%= render TotpCodeInputComponent.new(field: :code, autofocus: true) %>
   </div>
-  <button type="submit" class="bracketed" style="cursor: pointer;">[<span class="bl">enable 2FA</span>]</button>
+  <button type="submit" class="bracketed" style="cursor: pointer; background: none; border: none; padding: 0; color: var(--color-link); font: inherit;">[<span class="bl">verify</span>]</button>
 <% end %>

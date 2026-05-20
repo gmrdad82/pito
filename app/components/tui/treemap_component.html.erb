@@ -1,0 +1,8 @@
+<div class="tui-treemap">
+  <% rows.each do |row| %>
+    <div class="tui-treemap__tile" style="--pct: <%= percent(row[:value]) %>; flex-grow: <%= row[:value].to_f %>;">
+      <span class="tui-treemap__code"><%= row[:code] %></span>
+      <span class="tui-treemap__pct"><%= percent(row[:value]) %>%</span>
+    </div>
+  <% end %>
+</div>

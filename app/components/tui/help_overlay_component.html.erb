@@ -1,0 +1,23 @@
+<dialog id="tui-help-overlay"
+        class="tui-help-overlay"
+        data-controller="tui-help-overlay">
+  <div class="tui-help-overlay__panel">
+    <header class="tui-help-overlay__header">
+      <span class="tui-help-overlay__title">help</span>
+      <span class="tui-help-overlay__close">[esc] to close</span>
+    </header>
+    <div class="tui-help-overlay__groups">
+      <% GROUPS.each do |group| %>
+        <section class="tui-help-overlay__group">
+          <h3 class="tui-help-overlay__group-title"><%= group[:title] %></h3>
+          <dl class="tui-help-overlay__keys">
+            <% group[:items].each do |item| %>
+              <dt class="tui-help-overlay__key">[<%= item[:key] %>]</dt>
+              <dd class="tui-help-overlay__label"><%= item[:label] %></dd>
+            <% end %>
+          </dl>
+        </section>
+      <% end %>
+    </div>
+  </div>
+</dialog>
