@@ -2642,22 +2642,30 @@ hr.hairline {
 .md-check input:indeterminate ~ .md-check-indicator::before { content: "[-]"; }
 .md-check-label { color: var(--color-muted); font-weight: 700; }
 
+/* Beta 4 F3-B-UNHOOK-CAPTION (2026-05-20). Caption text that sits on
+   its own line BELOW an `md-check` toggle — outside the `<label>` so
+   clicking the caption does NOT flip the checkbox. Indented 4ch to
+   align under the toggle's label text (3ch for `[x] ` + 1ch breathing
+   room). Used by the `daily digest` toggle hint. */
+.md-check-caption {
+  display: block;
+  margin: 0 0 0 calc(4ch + 2px);
+  color: var(--color-muted);
+  font-style: italic;
+  font-size: inherit;
+  cursor: default;
+}
+
 /* Beta 4 F3-B-TOGGLE-FEEDBACK. In-flight spinner sibling for toggle
-   checkboxes. The spinner overlays the `[x]` / `[ ]` glyph (which is
-   set to `visibility: hidden` by the controller, preserving its slot)
-   so the surrounding flex layout doesn't reflow when the spinner
-   swaps in. Width matches the 3-char glyph (`[x]`) so the braille dot
-   sits centered in the same character cell. */
+   checkboxes. The spinner ships its own `[` and `]` bracket
+   characters in the partial, so the rendered slot is exactly the same
+   3-character width as the `[x]` / `[ ]` glyph it replaces. The
+   controller toggles `hidden` on both glyph and spinner so only one
+   sits in the inline flow at a time — no margin tricks, no overlay. */
 .md-check-spinner {
   display: inline-block;
-  position: relative;
-  width: 0;
-  margin-left: -3ch;
-  text-align: center;
-  font-weight: bold;
 }
 .md-check-spinner[hidden] { display: none; }
-.md-check-spinner .tui-indicator { display: inline-block; width: 3ch; }
 
 /* Link variant — used for filter chips. Brackets and label render in
    the design-system link color (blue). */
@@ -4904,7 +4912,12 @@ table.all-games-table td {
   gap: 16px;
   height: 28px;
   padding: 0 12px;
-  border-bottom: 1px solid var(--color-border);
+  /* Beta 4 — Phase F1 Lane D (2026-05-20). The `<header>` wrapper in
+     `app/views/layouts/application.html.erb` already paints a 1px
+     bottom border via inline style; the component-level border was
+     dropping a second hairline directly beneath it. Header owns the
+     visual boundary (it survives chrome-suppression and sticky
+     positioning); the inner bar stays flush. */
   background: var(--color-bg);
   color: var(--color-text);
   font-size: 13px;

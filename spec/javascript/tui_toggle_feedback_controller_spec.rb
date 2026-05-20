@@ -113,8 +113,13 @@ RSpec.describe "tui_toggle_feedback_controller.js" do
       expect(controller_source).to match(/startSpinner\s*\(\s*\)\s*\{/)
     end
 
-    it "sets the glyph target's visibility to hidden (preserves layout slot)" do
-      expect(start_body).to match(/this\.glyphTarget\.style\.visibility\s*=\s*"hidden"/)
+    it "hides the glyph target by setting its `hidden` attribute (removes it from inline flow)" do
+      # 2026-05-20 — switched from `style.visibility = "hidden"` to
+      # `hidden = true` so the glyph leaves the inline flow entirely.
+      # The bracketed spinner (`[<tui-indicator>]`) then occupies the
+      # 3ch slot via natural flow — no margin tricks, no overlay, no
+      # text shift while the spinner is showing.
+      expect(start_body).to match(/this\.glyphTarget\.hidden\s*=\s*true/)
     end
 
     it "unhides the spinner target by clearing its `hidden` attribute" do
@@ -142,8 +147,8 @@ RSpec.describe "tui_toggle_feedback_controller.js" do
       expect(end_body).to match(/this\.spinnerTarget\.hidden\s*=\s*true/)
     end
 
-    it "restores the glyph target's visibility" do
-      expect(end_body).to match(/this\.glyphTarget\.style\.visibility\s*=\s*"visible"/)
+    it "restores the glyph target by clearing its `hidden` attribute" do
+      expect(end_body).to match(/this\.glyphTarget\.hidden\s*=\s*false/)
     end
   end
 end
