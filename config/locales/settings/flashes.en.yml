@@ -37,7 +37,7 @@ en:
         clear_failed: "Slack clear failed."
     notification_toggle:
       kind:
-        everything: "all"
+        all: "all"
         daily_digest: "daily digest"
       flash:
         unknown: "unknown toggle."

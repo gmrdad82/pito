@@ -49,9 +49,7 @@
                    data-action="change->auto-submit#submit"
                    <%= "checked" if shared_routing_flag_on?(:all) %>>
             <span class="md-check-indicator" data-tui-toggle-feedback-target="glyph"></span>
-            <span class="md-check-spinner" data-tui-toggle-feedback-target="spinner" hidden>
-              <%= render Tui::IndicatorComponent.new(variant: :braille, mode: :indeterminate, start_offset: 0) %>
-            </span>
+            <span class="md-check-spinner" data-tui-toggle-feedback-target="spinner" hidden>[<%= render Tui::IndicatorComponent.new(variant: :braille, mode: :indeterminate, start_offset: 0) %>]</span>
             <span class="md-check-label"><%= t("settings.notification_toggle.everything") %></span>
           </label>
         <% end %>
@@ -68,13 +66,11 @@
                    data-action="change->auto-submit#submit"
                    <%= "checked" if shared_routing_flag_on?(:daily_digest) %>>
             <span class="md-check-indicator" data-tui-toggle-feedback-target="glyph"></span>
-            <span class="md-check-spinner" data-tui-toggle-feedback-target="spinner" hidden>
-              <%= render Tui::IndicatorComponent.new(variant: :braille, mode: :indeterminate, start_offset: 3) %>
-            </span>
+            <span class="md-check-spinner" data-tui-toggle-feedback-target="spinner" hidden>[<%= render Tui::IndicatorComponent.new(variant: :braille, mode: :indeterminate, start_offset: 3) %>]</span>
             <span class="md-check-label"><%= t("settings.notification_toggle.daily_digest") %></span>
-            <span class="form-hint" style="margin-left: 12px;"><%= t("settings.notification_toggle.daily_digest_hint") %></span>
           </label>
         <% end %>
+        <p class="md-check-caption"><%= t("settings.notification_toggle.daily_digest_hint") %></p>
       </div>
     </div>
 

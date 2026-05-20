@@ -21,16 +21,22 @@ import { Controller } from "@hotwired/stimulus"
 // Targets:
 //
 //   glyph    -> the existing `.md-check-indicator` span (CSS-driven
-//               `[x]` / `[ ]` content). We toggle `.visibility` so the
-//               surrounding flex layout doesn't reflow when the
-//               spinner takes its place.
-//   spinner  -> the sibling `Tui::IndicatorComponent` render, mounted
-//               `hidden` at SSR time. When `hidden` is removed the
-//               nested `tui-indicator` Stimulus controller is already
-//               connected (it mounted on page load) so the braille
-//               frames are already animating in the background — the
-//               first visible frame is whatever the spinner is on at
-//               unhide time.
+//               `[x]` / `[ ]` content, 3ch wide). We toggle the
+//               `hidden` attribute (which maps to `display: none` via
+//               the user-agent stylesheet) so the glyph leaves the
+//               inline flow entirely while the spinner is showing.
+//   spinner  -> the sibling `Tui::IndicatorComponent` render wrapped
+//               in literal `[` and `]` brackets so the spinner slot is
+//               exactly 3 characters wide — the same width as `[x]`.
+//               Mounted `hidden` at SSR time. When `hidden` is removed
+//               the nested `tui-indicator` Stimulus controller is
+//               already connected (it mounted on page load) so the
+//               braille frames are already animating in the
+//               background — the first visible frame is whatever the
+//               spinner is on at unhide time.
+//
+// Because both glyph and spinner are 3ch wide and only one is in the
+// flow at a time, the surrounding label text never shifts on toggle.
 //
 // The matching markup lives in
 // `app/views/settings/_notifications_pane.html.erb`.
@@ -64,7 +70,7 @@ export default class extends Controller {
 
   startSpinner() {
     if (this.hasGlyphTarget) {
-      this.glyphTarget.style.visibility = "hidden"
+      this.glyphTarget.hidden = true
     }
     if (this.hasSpinnerTarget) {
       this.spinnerTarget.hidden = false
@@ -76,7 +82,7 @@ export default class extends Controller {
       this.spinnerTarget.hidden = true
     }
     if (this.hasGlyphTarget) {
-      this.glyphTarget.style.visibility = "visible"
+      this.glyphTarget.hidden = false
     }
   }
 }

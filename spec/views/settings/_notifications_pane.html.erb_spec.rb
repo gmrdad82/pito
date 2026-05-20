@@ -38,8 +38,25 @@ RSpec.describe "settings/_notifications_pane.html.erb", type: :view do
       expect(rendered).to have_css(".md-check-label", text: "daily digest")
     end
 
-    it "renders the daily-digest hint copy next to the toggle" do
+    it "renders the daily-digest hint copy below the toggle" do
       expect(rendered).to include("sent daily at 09:00 in your time zone")
+    end
+
+    it "renders the daily-digest caption OUTSIDE the <label> as a non-interactive sibling" do
+      # F3-B-UNHOOK-CAPTION (2026-05-20). The "sent daily at 09:00 in
+      # your time zone" caption used to sit inside the `<label>`, which
+      # made clicking it flip the checkbox. The caption now renders as
+      # a `<p class="md-check-caption">` sibling BELOW the toggle
+      # label, NOT inside it.
+      expect(rendered).to have_css(
+        "p.md-check-caption",
+        text: "sent daily at 09:00 in your time zone"
+      )
+      # And the caption must NOT live inside any <label>.
+      expect(rendered).not_to have_css(
+        "label .md-check-caption",
+        text: "sent daily at 09:00 in your time zone"
+      )
     end
 
     it "renders both brand subsections (Discord then Slack)" do
@@ -206,6 +223,22 @@ RSpec.describe "settings/_notifications_pane.html.erb", type: :view do
     it "mounts a braille indicator inside each spinner slot" do
       expect(rendered.scan(/tui-indicator--braille/).length).to be >= 2
       expect(rendered.scan(/tui-indicator--indeterminate/).length).to be >= 2
+    end
+
+    it "wraps each spinner indicator in literal `[` and `]` brackets so the slot is 3ch wide (same as `[x]`)" do
+      # The braille glyph itself is 1ch wide; without surrounding
+      # brackets the label text jumps left by 2ch while the spinner is
+      # showing. The fix renders `[<indicator-span>]` inside the
+      # spinner wrapper. We assert (a) a literal `[` sits immediately
+      # after the wrapper's opening `>`, (b) a literal `]` sits
+      # immediately before the wrapper's closing `</span>`, and (c)
+      # the braille indicator span lives between them.
+      #
+      # Dev-mode renders HTML comments around component bodies; those
+      # are invisible characters in the browser and we tolerate them
+      # between the bracket and the indicator span with `[\s\S]*?`.
+      expect(rendered.scan(/<span class="md-check-spinner"[^>]*hidden>\[[\s\S]*?tui-indicator--braille/).length).to eq(2)
+      expect(rendered.scan(/<\/span>\s*\]<\/span>/).length).to eq(2)
     end
 
     it "de-syncs the two spinners via distinct start_offset values" do
