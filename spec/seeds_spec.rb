@@ -198,16 +198,16 @@ RSpec.describe "db/seeds.rb", type: :model do
           webhooks: {
             discord: {
               webhook_url:       discord_webhook_url,
-              everything:        "yes",
-              daily_digest:      "no",
               last_validated_at: Time.utc(2026, 5, 1, 13, 0, 0)
             },
             slack: {
               webhook_url:       slack_webhook_url,
-              everything:        "no",
-              daily_digest:      "yes",
               last_validated_at: Time.utc(2026, 5, 1, 13, 5, 0)
             }
+          },
+          notifications: {
+            send_all:          "yes",
+            send_daily_digest: "yes"
           },
           oauth_apps: [
             {
@@ -250,7 +250,7 @@ RSpec.describe "db/seeds.rb", type: :model do
       end
 
       it "restores the Discord + Slack NotificationDeliveryChannel rows " \
-         "with yes/no flags converted back to Ruby booleans" do
+         "(per-brand flags dropped 2026-05-20)" do
         stub_credentials(runtime_state: runtime_state_payload)
         silence_stream($stdout) { Rails.application.load_seed }
 
@@ -259,14 +259,18 @@ RSpec.describe "db/seeds.rb", type: :model do
         discord = NotificationDeliveryChannel.find_by(kind: "discord")
         expect(discord).to be_present
         expect(discord.webhook_url).to eq(discord_webhook_url)
-        expect(discord.everything).to be(true)
-        expect(discord.daily_digest).to be(false)
 
         slack = NotificationDeliveryChannel.find_by(kind: "slack")
         expect(slack).to be_present
         expect(slack.webhook_url).to eq(slack_webhook_url)
-        expect(slack.everything).to be(false)
-        expect(slack.daily_digest).to be(true)
+      end
+
+      it "restores the shared notification toggles onto AppSetting.singleton_row" do
+        stub_credentials(runtime_state: runtime_state_payload)
+        silence_stream($stdout) { Rails.application.load_seed }
+
+        expect(AppSetting.notifications_send_all?).to be(true)
+        expect(AppSetting.notifications_send_daily_digest?).to be(true)
       end
 
       it "restores OauthApplication rows by uid (and the captured " \

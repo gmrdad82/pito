@@ -391,8 +391,7 @@ a.bracketed.text-muted:visited .bl {
      so the muted bracketed-link surface can never drift lighter than
      the rest of the bracketed-link family, regardless of which parent
      wraps it. Even when nested inside `<span class="text-muted">`
-     (which carries `font-weight: 400` — see the footer `version_label`
-     cluster in `app/views/layouts/application.html.erb`), the
+     (which carries `font-weight: 400`), the
      `a.bracketed.bracketed-muted-link` selector (0,2,1) outranks the
      inherited 400, and the `.bl` companion selector keeps the label
      glyph bold. The defensive `a.bracketed.text-muted` arm covers any
@@ -2643,6 +2642,23 @@ hr.hairline {
 .md-check input:indeterminate ~ .md-check-indicator::before { content: "[-]"; }
 .md-check-label { color: var(--color-muted); font-weight: 700; }
 
+/* Beta 4 F3-B-TOGGLE-FEEDBACK. In-flight spinner sibling for toggle
+   checkboxes. The spinner overlays the `[x]` / `[ ]` glyph (which is
+   set to `visibility: hidden` by the controller, preserving its slot)
+   so the surrounding flex layout doesn't reflow when the spinner
+   swaps in. Width matches the 3-char glyph (`[x]`) so the braille dot
+   sits centered in the same character cell. */
+.md-check-spinner {
+  display: inline-block;
+  position: relative;
+  width: 0;
+  margin-left: -3ch;
+  text-align: center;
+  font-weight: bold;
+}
+.md-check-spinner[hidden] { display: none; }
+.md-check-spinner .tui-indicator { display: inline-block; width: 3ch; }
+
 /* Link variant — used for filter chips. Brackets and label render in
    the design-system link color (blue). */
 .md-check-link .md-check-indicator,
@@ -4873,3 +4889,184 @@ table.all-games-table td {
   z-index: 1;
 }
 
+/* ============================================================
+   Beta 4 — Phase F1 Lane B. Top status bar (`Tui::TopStatusBarComponent`).
+   Locked visual mirrors `tmp/demo-status-bar-final.html`.
+   Layout:
+     [version] [section[:(page)]]   space-between   [progress?] [sync] | b/e/r | clock
+   Colors flow through the L1 Dracula atoms + L2 section accent
+   cascade — no literal hex in this block.
+   ============================================================ */
+.sb-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  height: 28px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-size: 13px;
+  white-space: nowrap;
+  letter-spacing: 0;
+}
+
+.sb-left,
+.sb-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Left group — version (muted) + section (bold + accent) + page tail */
+.sb-version {
+  color: var(--color-muted);
+  font-weight: 400;
+}
+
+.sb-section {
+  color: var(--section-accent);
+  font-weight: 600;
+}
+
+.sb-page-tail {
+  color: inherit;
+  font-weight: 400;
+}
+
+.sb-page-name {
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+/* Right group — progress (optional) + sync + sidekiq + clock */
+.sb-progress-bar {
+  letter-spacing: 0;
+}
+.sb-progress-bar-filled { color: var(--color-text); }
+.sb-progress-bar-empty  { color: var(--color-muted); }
+
+.sb-progress-counter {
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Sync indicator block: dot glyph + word + optional target. The dot
+   modifier carries the color; the word modifier carries the tonal
+   match (`--idle` muted, `--syncing` orange, `--disconnected` pink).
+   The amber + orange tones share `--dracula-orange`; the red /
+   disconnected state uses `--color-danger` (pink) per the locked
+   danger token. */
+.sb-sync                       { display: inline-flex; align-items: baseline; gap: 6px; }
+.sb-sync-dot--green            { color: var(--color-success); }
+.sb-sync-dot--amber            { color: var(--dracula-orange); }
+.sb-sync-dot--red              { color: var(--color-danger); }
+
+.sb-sync-word                  { font-weight: 400; }
+.sb-sync-word--idle            { color: var(--color-muted); }
+.sb-sync-word--syncing         { color: var(--dracula-orange); }
+.sb-sync-word--disconnected    { color: var(--color-danger); }
+
+.sb-sync-target                { color: var(--dracula-orange); }
+
+/* Pipe separator between sync / sidekiq / clock segments */
+.sb-pipe {
+  color: var(--color-muted);
+  padding: 0 4px;
+}
+
+/* Sidekiq cells — b/e/r with per-letter color + muted-zero variant */
+.sb-sidekiq                    { display: inline-flex; gap: 4px; }
+.sb-sk-cell                    { font-variant-numeric: tabular-nums; }
+.sb-sk-cell.sk-zero            { color: var(--color-muted); }
+.sb-sk-cell.sk-b               { color: var(--color-success); }
+.sb-sk-cell.sk-e               { color: var(--dracula-orange); }
+.sb-sk-cell.sk-r               { color: var(--color-danger); }
+
+/* Live clock — muted, tabular for stable character grid as digits tick */
+.sb-clock {
+  color: var(--color-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ────────────────────────────────────────────────────────────────────
+   Beta 4 — Phase F2 TUI primitives
+   `TuiChipComponent` + `TuiCheckboxComponent`. Variants follow ADR 0016
+   (TUI design system + 6 chip variants + checkbox as universal
+   selection marker). Tokens only — no literal hex. Section accent
+   cascades from `body[data-section]`.
+   ──────────────────────────────────────────────────────────────────── */
+
+.tui-chip {
+  display: inline-block;
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+.tui-chip--neutral  { color: var(--color-muted); }
+.tui-chip--info     { color: var(--dracula-cyan); }
+.tui-chip--success  { color: var(--dracula-green); }
+.tui-chip--warn     { color: var(--dracula-orange); }
+.tui-chip--danger   { color: var(--color-danger); }
+.tui-chip--current  {
+  color: var(--color-text);
+  background: color-mix(in srgb, var(--section-accent) 12%, transparent);
+  padding: 0 4px;
+  border-radius: 0;
+}
+
+.tui-checkbox {
+  display: inline-flex;
+  gap: 2px;
+  font-family: inherit;
+  font-size: inherit;
+  color: var(--color-text);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.tui-checkbox:hover {
+  color: var(--color-link-hover);
+}
+
+.tui-checkbox--checked .tui-checkbox__box {
+  color: var(--section-accent);
+  font-weight: 600;
+}
+
+.tui-checkbox__input {
+  display: none;
+}
+
+.tui-indicator {
+  display: inline-block;
+  font-family: inherit;
+  font-size: inherit;
+  color: var(--color-muted);
+  white-space: nowrap;
+}
+
+.tui-indicator--indeterminate {
+  color: var(--dracula-orange); /* amber for transient state */
+}
+
+.tui-indicator--progress {
+  color: var(--dracula-orange);
+}
+
+.tui-indicator--progress .tui-indicator__counter {
+  color: var(--color-text);
+  font-weight: 600;
+  margin-left: 4px;
+}
+
+.tui-indicator--error {
+  color: var(--color-danger);
+}
+
+.tui-indicator--idle {
+  color: var(--dracula-green);
+}

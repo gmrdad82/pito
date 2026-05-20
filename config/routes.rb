@@ -574,16 +574,14 @@ Rails.application.routes.draw do
   # for the Claude Desktop OAuth client; only the management surfaces
   # are gone.
   namespace :settings do
-    # Phase 12 — user account self-service. The authenticated user can
-    # change their own username or password. `current_password` is
-    # required to authorize either mutation. No delete-account, no
-    # create-user. Password recovery is the reset-via-2FA surface at
-    # `/password/reset` (Phase 29 — Unit A2). Singular `resource` so the
-    # URL is `/settings/user` (not `/settings/users/:id`) — there is
-    # only ever one "self" record per session. Pinned to the singular
-    # `Settings::UserController` (Rails would otherwise pluralize a
-    # singular `resource` to `Settings::UsersController`).
-    resource :user, only: %i[show update], controller: "user"
+    # Phase F3 (Beta 4, 2026-05-20) — profile self-service surface CUT.
+    # Per ADR 0016, username + password management moved to operator-
+    # only rake tasks: `bin/rails pito:user:rename` and
+    # `bin/rails pito:user:password_set`. The `/settings/user` GET +
+    # PATCH routes, the `Settings::UserController`, the profile pane
+    # partial, and the standalone /settings/user page are all gone.
+    # Password recovery is unchanged — the reset-via-2FA surface at
+    # `/password/reset` (Phase 29 — Unit A2) still ships.
 
     # 2026-05-16 (sessions revamp) — the standalone `/settings/sessions`
     # index + the modal-based listing + the per-row revoke surface are
@@ -653,21 +651,23 @@ Rails.application.routes.draw do
     # URL — no numeric / UUID id surface anywhere.
     resource :time_zone, only: %i[update], controller: "time_zone"
 
-    # Phase 26 — 01b. Slack webhook pane. Singular `resource` so the
-    # URL is `/settings/slack_webhook` — one Slack webhook config per
-    # install (`notification_delivery_channels.kind = "slack"` row,
-    # unique on `kind`). PATCH validates the URL regex, fires a test
-    # ping, and only persists the row when the ping returns 2xx.
-    resource :slack_webhook, only: %i[update], controller: "slack_webhooks"
-
-    # Phase 26 — 01c. Discord webhook pane. Mirror of 01b for Discord.
-    # URL: `/settings/discord_webhook` — one Discord webhook config per
-    # install (`notification_delivery_channels.kind = "discord"` row,
-    # unique on `kind`). PATCH validates the URL regex (accepts both
-    # `discord.com` and `discordapp.com` host forms), fires a test
-    # ping (`{ "content": ... }` — Discord requires the `content` key),
-    # and only persists the row when the ping returns 2xx.
-    resource :discord_webhook, only: %i[update], controller: "discord_webhooks"
+    # Beta 4 — F3-B. Unified notifications panel. Replaces the prior
+    # per-brand `resource :slack_webhook` and `resource :discord_webhook`
+    # endpoints. Two member-style actions on a single controller, one
+    # per brand. The brand-specific URL form on the panel posts here:
+    #
+    #   PATCH /settings/notifications/discord -> `#update_discord`
+    #   PATCH /settings/notifications/slack   -> `#update_slack`
+    #
+    # The tri-state contract (blank → no-op, "clear" → wipe, else →
+    # validate + test-ping + save) is unchanged from the per-brand
+    # controllers; only the URL path moved.
+    patch "notifications/discord",
+          to: "notifications#update_discord",
+          as: :notifications_discord
+    patch "notifications/slack",
+          to: "notifications#update_slack",
+          as: :notifications_slack
 
     # Phase 26 — 01d. Help-modal Markdown guides for the Slack +
     # Discord webhook panes. The `[help]` link in each pane targets
@@ -685,19 +685,21 @@ Rails.application.routes.draw do
           constraints: { provider: /slack|discord/ }
     end
 
-    # 2026-05-17 — auto-save toggles for the 4 notification routing
-    # flags (Discord every / Discord daily, Slack every / Slack daily).
-    # One endpoint handles all four combinations; the `:brand` and
-    # `:kind` segments are pinned by router constraints and reapplied
-    # by the controller as defense-in-depth. The form posts
-    # `enabled=yes|no` per the yes/no boundary rule. Phase C bindings
-    # (`da`/`dd`/`sa`/`sd`) click the checkboxes via
-    # `[data-leader-toggle]`; the change handler in `auto_submit`
-    # Stimulus fires the PATCH and updates the flash region.
-    patch "notification_toggles/:brand/:kind",
+    # Beta 4 — F3-B. Shared notification routing toggles. The unified
+    # notifications panel renders ONE toggles block at the top; each
+    # toggle flips the matching column on BOTH brand rows at once.
+    # Two URL combinations only:
+    #
+    #   PATCH /settings/notification_toggles/all
+    #   PATCH /settings/notification_toggles/daily_digest
+    #
+    # Form posts `enabled=yes|no` per the yes/no boundary rule. The
+    # `:kind` segment is pinned by router constraint + re-checked in
+    # the controller as defense-in-depth.
+    patch "notification_toggles/:kind",
           to: "notification_toggles#update",
           as: :notification_toggle,
-          constraints: { brand: /discord|slack/, kind: /everything|daily_digest/ }
+          constraints: { kind: /all|daily_digest/ }
   end
 
   # Phase 24 — Google management surface moved from `/settings/youtube`

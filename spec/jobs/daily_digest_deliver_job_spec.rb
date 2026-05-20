@@ -14,10 +14,16 @@ RSpec.describe DailyDigestDeliverJob, type: :job do
     stub_request(:post, discord_url).to_return(status: status, body: body)
   end
 
+  # 2026-05-20 — F3-B-SIMPLIFY-MODEL. The "daily digest is on" gate is
+  # the shared `AppSetting.notifications_send_daily_digest?` flag AND
+  # the existence of a `NotificationDeliveryChannel` row with a present
+  # webhook URL. The per-brand `daily_digest` column was dropped.
   let!(:slack_channel) do
-    NotificationDeliveryChannel.create!(
-      kind: "slack", webhook_url: slack_url, daily_digest: true
-    )
+    NotificationDeliveryChannel.create!(kind: "slack", webhook_url: slack_url)
+  end
+
+  before do
+    AppSetting.set_notification_toggle!(:notifications_send_daily_digest, true)
   end
 
   describe "happy path" do
@@ -29,7 +35,7 @@ RSpec.describe DailyDigestDeliverJob, type: :job do
 
     it "delivers to both Slack and Discord when both are enabled" do
       discord_channel = NotificationDeliveryChannel.create!(
-        kind: "discord", webhook_url: discord_url, daily_digest: true
+        kind: "discord", webhook_url: discord_url
       )
       stub_s = stub_slack
       stub_d = stub_discord
@@ -41,9 +47,7 @@ RSpec.describe DailyDigestDeliverJob, type: :job do
 
     it "treats a 204 from Discord as success" do
       slack_channel.destroy!
-      NotificationDeliveryChannel.create!(
-        kind: "discord", webhook_url: discord_url, daily_digest: true
-      )
+      NotificationDeliveryChannel.create!(kind: "discord", webhook_url: discord_url)
       stub_discord(status: 204)
       expect {
         described_class.new.perform(user.id)
@@ -58,8 +62,8 @@ RSpec.describe DailyDigestDeliverJob, type: :job do
       }.not_to raise_error
     end
 
-    it "no-ops when no NotificationDeliveryChannel has daily_digest enabled" do
-      slack_channel.update!(daily_digest: false)
+    it "no-ops when the shared daily-digest toggle is off" do
+      AppSetting.set_notification_toggle!(:notifications_send_daily_digest, false)
       expect {
         described_class.new.perform(user.id)
       }.not_to raise_error
@@ -140,9 +144,7 @@ RSpec.describe DailyDigestDeliverJob, type: :job do
 
   describe "mixed outcomes (Slack permanent, Discord success)" do
     before do
-      NotificationDeliveryChannel.create!(
-        kind: "discord", webhook_url: discord_url, daily_digest: true
-      )
+      NotificationDeliveryChannel.create!(kind: "discord", webhook_url: discord_url)
     end
 
     it "Discord succeeds even if Slack permanently fails" do

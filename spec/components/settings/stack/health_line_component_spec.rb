@@ -1,50 +1,65 @@
 require "rails_helper"
 
+# Beta 4 F3-D — `HealthLineComponent` now renders a label + a
+# `Tui::ChipComponent` whose label + variant encode the current state.
+# The previous glyph + colored word span surface is gone (replaced by
+# the canonical `[ label ]` bracket grammar from ADR 0016).
 RSpec.describe Settings::Stack::HealthLineComponent, type: :component do
-  # Each state maps to a glyph + copy + severity tuple verbatim from
-  # the source templates `_stack_pane.html.erb` +
-  # `_voyage_section.html.erb`. The matrix below is the single
-  # behavioral surface — one `it` per state asserts the glyph + copy.
+  # Each state maps to a chip label + chip variant verbatim from
+  # `STATES`. The matrix below is the single behavioral surface — one
+  # `it` per state asserts the chip label appears and the chip carries
+  # the expected variant class.
   STATE_EXPECTATIONS = {
-    connected:      "▲ connected",
-    disconnected:   "▽ disconnected",
-    writable:       "▲ writable",
-    read_only:      "▽ read-only",
-    absent:         "▽ not present",
-    configured:     "▲ configured",
-    not_configured: "▽ not configured"
+    connected:      { label: "connected",      variant: :success },
+    disconnected:   { label: "disconnected",   variant: :danger  },
+    writable:       { label: "writable",       variant: :info    },
+    read_only:      { label: "read-only",      variant: :danger  },
+    absent:         { label: "not present",    variant: :warn    },
+    configured:     { label: "configured",     variant: :info    },
+    not_configured: { label: "not configured", variant: :danger  }
   }.freeze
 
-  STATE_EXPECTATIONS.each do |state, expected_text|
-    it "renders glyph + copy '#{expected_text}' for state :#{state}" do
+  STATE_EXPECTATIONS.each do |state, expected|
+    it "renders a `Tui::ChipComponent` " \
+       "`[#{expected[:label]}]` with variant :#{expected[:variant]} " \
+       "for state :#{state}" do
       render_inline(described_class.new(label: "Postgres", state: state))
-      expect(page).to have_text(expected_text)
+
+      expect(page).to have_css(
+        ".tui-chip.tui-chip--#{expected[:variant]}",
+        text: "[#{expected[:label]}]"
+      )
     end
   end
 
   it "renders the label inside a <strong> tag" do
     render_inline(described_class.new(label: "Voyage AI", state: :configured))
+
     expect(page).to have_css("strong", text: "Voyage AI")
-  end
-
-  it "applies the success color style to success-severity states" do
-    render_inline(described_class.new(label: "Redis", state: :connected))
-    expect(page).to have_css('span[style*="--color-success"]', text: "▲ connected")
-  end
-
-  it "applies the text-danger class to danger-severity states" do
-    render_inline(described_class.new(label: "Redis", state: :disconnected))
-    expect(page).to have_css("span.text-danger", text: "▽ disconnected")
-  end
-
-  it "applies the text-muted class to the absent state" do
-    render_inline(described_class.new(label: "notes", state: :absent))
-    expect(page).to have_css("span.text-muted", text: "▽ not present")
   end
 
   it "raises ArgumentError when given an unknown state" do
     expect {
       described_class.new(label: "Postgres", state: :on_fire)
     }.to raise_error(ArgumentError, /unknown state/)
+  end
+
+  it "lays out the label and the chip on a single flex row " \
+     "(label flush left, chip flush right)" do
+    render_inline(described_class.new(label: "Postgres", state: :connected))
+
+    # Inline flex container — single row, two children (label span +
+    # chip span). `justify-content: space-between` keeps the chip flush
+    # right.
+    expect(page).to have_css(
+      'div[style*="display: flex"][style*="justify-content: space-between"]'
+    )
+  end
+
+  it "exposes `chip_label` + `chip_variant` accessors keyed off STATES" do
+    component = described_class.new(label: "Redis", state: :disconnected)
+
+    expect(component.chip_label).to eq("disconnected")
+    expect(component.chip_variant).to eq(:danger)
   end
 end

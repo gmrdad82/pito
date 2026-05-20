@@ -90,6 +90,9 @@ RSpec.describe "Leader menu chrome", type: :system do
     # page is gone — sessions render INLINE in the Security pane on
     # `/settings`. The `/settings` entry in this audit list already
     # covers the surrounding shell.
+    # Phase F3 (Beta 4, 2026-05-20) — `/settings/user` removed from
+    # the audit list. The standalone profile page was cut per ADR 0016
+    # (username + password management moved to operator-only rake tasks).
     AUDITED_PATHS = [
       "/",
       "/dashboard",
@@ -100,7 +103,6 @@ RSpec.describe "Leader menu chrome", type: :system do
       "/notifications",
       "/saved_views",
       "/settings",
-      "/settings/user",
       "/settings/security",
       "/calendar/schedule",
       "/notes"

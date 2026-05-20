@@ -33,38 +33,81 @@ class AppSetting < ApplicationRecord
     voyage_configured?
   end
 
-  # Phase 29 — Unit A1 (Part 4 delivery bug fix). "Is Discord delivery
-  # on" is derived entirely from the `NotificationDeliveryChannel` row
-  # for the kind — its existence plus a present `webhook_url` and at
-  # least one routing flag set (`everything` or `daily_digest`). The
-  # orphaned `AppSetting.discord_enabled` boolean was never written by
-  # the webhook controllers, so the old gate was always false and
-  # Discord delivery was silently dead. The column is dropped; this
-  # predicate is the new source of truth.
+  # 2026-05-20 — F3-B-SIMPLIFY-MODEL. "Is Discord delivery on" is now
+  # derived from two independent signals AND'd together:
+  #
+  #   1. The install-level shared toggle (`notifications_send_all` or
+  #      `notifications_send_daily_digest`) — at least one is ON.
+  #   2. A `NotificationDeliveryChannel` row for the kind exists with a
+  #      present `webhook_url`.
+  #
+  # The shared toggle is the operator-controlled master switch (it can
+  # be flipped ON without any webhook configured — the per-brand
+  # webhook gate decides which providers actually receive deliveries).
   def self.discord_delivery_enabled?
     delivery_channel_enabled?("discord")
   end
 
-  # Phase 29 — Unit A1 (Part 4 delivery bug fix). Slack mirror of
-  # `discord_delivery_enabled?` — derived from the
-  # `NotificationDeliveryChannel` row for the kind, never the dropped
-  # `slack_enabled` column.
+  # 2026-05-20 — F3-B-SIMPLIFY-MODEL. Slack mirror of
+  # `discord_delivery_enabled?` — same two-signal AND.
   def self.slack_delivery_enabled?
     delivery_channel_enabled?("slack")
   end
 
-  # True iff a `NotificationDeliveryChannel` row exists for the kind
-  # with a present `webhook_url` and at least one routing flag
-  # (`everything` or `daily_digest`) set. This is the single source of
-  # truth for the "delivery is on" gate the dispatchers read.
+  # True iff:
+  #   - At least one shared notification toggle is ON
+  #     (`notifications_send_all || notifications_send_daily_digest`).
+  #   - A `NotificationDeliveryChannel` row exists for the kind with a
+  #     present `webhook_url`.
+  #
+  # Per-brand routing flags no longer exist; the shared toggles cover
+  # the install-wide intent and per-brand webhook presence covers the
+  # provider-level dispatch.
   def self.delivery_channel_enabled?(kind)
+    return false unless notifications_any_toggle_on?
+
     row = NotificationDeliveryChannel.find_record_for(kind)
     return false if row.nil?
     return false if row.webhook_url.to_s.strip.empty?
 
-    row.everything? || row.daily_digest?
+    true
   end
   private_class_method :delivery_channel_enabled?
+
+  # 2026-05-20 — F3-B-SIMPLIFY-MODEL. Convenience predicates for the
+  # two shared notification toggles. Both read from the canonical
+  # `AppSetting.singleton_row` and never touch the per-brand
+  # `NotificationDeliveryChannel` rows.
+  def self.notifications_send_all?
+    singleton_row.notifications_send_all
+  end
+
+  def self.notifications_send_daily_digest?
+    singleton_row.notifications_send_daily_digest
+  end
+
+  # True iff at least one of the shared toggles is on. Acts as the
+  # install-level "any notifications go out" gate.
+  def self.notifications_any_toggle_on?
+    notifications_send_all? || notifications_send_daily_digest?
+  end
+
+  # Flip a single shared notification toggle by name. `column` MUST be
+  # one of the two canonical column symbols. Raises ArgumentError for
+  # anything else so the controller's allowlist is the only place this
+  # can be called from.
+  NOTIFICATION_TOGGLE_COLUMNS = %i[
+    notifications_send_all notifications_send_daily_digest
+  ].freeze
+
+  def self.set_notification_toggle!(column, value)
+    column = column.to_sym
+    unless NOTIFICATION_TOGGLE_COLUMNS.include?(column)
+      raise ArgumentError, "unknown notification toggle: #{column.inspect}"
+    end
+
+    singleton_row.update!(column => !!value)
+  end
 
   # Phase 32 follow-up (2026-05-16) — three-layer reindex lock.
   #

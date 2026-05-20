@@ -1,9 +1,12 @@
-<%# Tri-state health line for the stack pane. Extracted from
-    `app/views/settings/_stack_pane.html.erb` +
-    `app/views/settings/_voyage_section.html.erb` per Beta-3 lane B
-    candidate B10. Wrapping `<div style="margin-bottom: 6px;">` is
-    preserved verbatim so vertical spacing in the pane is unchanged. %>
-<div style="margin-bottom: 6px;">
+<%# Tri-state health line for the stack pane. Beta 4 F3-D — status
+    surface migrated from a colored glyph + word span to the canonical
+    `Tui::ChipComponent` `[ label ]` primitive (ADR 0016 TUI design
+    system). The label-to-variant mapping lives on the component; this
+    template is a thin shell that lays out the label + chip on one
+    flexible row, label flush left, chip flush right. Inline flex
+    avoids adding a new CSS class — the layout is single-purpose to
+    this row and reused across all six stack subsystem tiles. %>
+<div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px;">
   <span><strong><%= label %></strong></span>
-  <span<%= status_attrs.map { |k, v| %( #{k}="#{v}") }.join.html_safe %>><%= glyph %> <%= copy %></span>
+  <%= render(Tui::ChipComponent.new(label: chip_label, variant: chip_variant)) %>
 </div>

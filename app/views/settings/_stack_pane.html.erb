@@ -1,10 +1,34 @@
 <%# Phase 29 (settings refactor) — row 3 stack pane (spans both columns
     via `.pane--wide`).
 
-    Two-column inner layout:
-      left  — `db` (Postgres + Redis breakdowns)
-      right — `search` (Meilisearch + Voyage embeddings) + `storage`
-              (assets + notes) stacked.
+    Beta 4 F3-D — restructured from a vertical-divider 2-column layout
+    into a 3x2 tile grid per ADR 0016 (TUI design system + /settings
+    F3 visual redesign):
+
+      ┌──────────────────────┬──────────────────────┐
+      │ PostgreSQL [connected]│ Meilisearch [connected]│
+      │   <breakdown table>   │   <breakdown table>    │
+      ├──────────────────────┼──────────────────────┤
+      │ Redis      [connected]│ Voyage AI [configured] │
+      │   <sidekiq counters>  │   <voyage stats>       │
+      │                       │   [reindex]            │
+      ├──────────────────────┼──────────────────────┤
+      │ assets    [writable]  │ notes      [not present]│
+      │   <breakdown table>   │   <breakdown table>    │
+      └──────────────────────┴──────────────────────┘
+
+    Hairline separators between tiles are rendered via inline
+    `border-right` on the left tile + `border-bottom` on the top two
+    rows. No new CSS classes — the grid reuses the existing
+    `.stack-pane-grid` container with its `grid-template-columns`
+    overridden inline to `1fr 1fr` (the existing `1fr 1px 1fr` rule
+    expected a dedicated `.stack-pane-divider` element which the tile
+    layout replaces with per-tile borders).
+
+    Status chips replace the previous glyph + colored word span. Each
+    tile header is a `Settings::Stack::HealthLineComponent` that
+    delegates to `Tui::ChipComponent`. The chip variant cascade
+    (success / info / warn / danger) carries the operator signal.
 
     Reuses the same ivars + helpers the prior settings index relied
     on (`@postgres_status`, `@redis_status`,
@@ -13,22 +37,12 @@
     `@assets_breakdown`, `@notes_breakdown`, `@voyage_configured`,
     `@search_healthy`).
 
-    Every breakdown table renders as `table.stack-table` (see
-    `application.css`). The class pins width: 100%, drops borders /
-    zebra, and zeroes left padding on the first column + right
-    padding on the last column so the five tables share the same
-    left/right edges across the pane. Numeric columns use `.num` for
-    right alignment + tabular figures; combined with class-driven
-    padding the header and the value share the same right edge.
-    Sizes use `human_filesize_int` for integer-only, KB-minimum
-    output. %>
-<%# 2026-05-18 (DR) — `data-controller="stack-stats-live"` mounts the
-    polling controller (`app/javascript/controllers/stack_stats_live_controller.js`).
-    It hits `GET /settings/stack_stats` every 3 s and patches the
-    `data-stack-stats-live-target` cells below (Sidekiq counters,
-    Voyage embedded/total/pct/last). Connection-health probes, table
-    sizes, and per-index docs stay on the server-side render — they
-    flip rarely and are expensive to recompute. Polling stops on
+    `data-controller="stack-stats-live"` mounts the polling controller
+    (`app/javascript/controllers/stack_stats_live_controller.js`). It
+    hits `GET /settings/stack_stats` every 3 s and patches cells with
+    `data-stack-stats-live-target` in place. Connection-health probes,
+    table sizes, and per-index docs stay on the server-side render —
+    they flip rarely and are expensive to recompute. Polling stops on
     Turbo navigation away (Stimulus `disconnect()` clears the
     interval). %>
 <div class="pane pane--wide"
@@ -37,16 +51,21 @@
   <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
     <legend><h2><%= t("settings.stack.heading") %></h2></legend>
 
-    <div class="stack-pane-grid">
-      <%# Left column: db (Postgres + Redis with hairline) %>
-      <div class="stack-pane-column">
+    <%# 3x2 tile grid. Inline override on the existing `.stack-pane-grid`
+        class flattens the 3-col `1fr 1px 1fr` desktop rule into a
+        2-col tile lattice. Hairlines move from a dedicated divider
+        column into per-tile borders below. %>
+    <div class="stack-pane-grid" style="grid-template-columns: 1fr 1fr; gap: 0;">
+
+      <%# Row 1, col 1 — PostgreSQL %>
+      <div style="padding: 8px 12px; border-right: 1px solid var(--color-border); border-bottom: 1px solid var(--color-border);">
         <%= render Settings::Stack::HealthLineComponent.new(
           label: t("settings.stack.postgres"),
           state: @postgres_status[:connected] ? :connected : :disconnected
         ) %>
 
         <% if @postgres_status[:connected] && @postgres_table_breakdown.any? %>
-          <div style="margin-bottom: 8px;" data-controller="sortable-table" data-sortable-table-id-value="stack-postgres">
+          <div data-controller="sortable-table" data-sortable-table-id-value="stack-postgres">
             <table class="stack-table" data-sortable-table-target="table">
               <thead>
                 <tr>
@@ -56,10 +75,10 @@
                 </tr>
               </thead>
               <tbody>
-                <%# 2026-05-18 — every Postgres row carries
+                <%# Every Postgres row carries
                     `data-stack-stats-live-target="postgres<Label><Field>"`
-                    so the polling controller can patch the rows + size cells
-                    in place every ~3 s without a full-page reload. %>
+                    so the polling controller can patch the rows + size
+                    cells in place every ~3 s without a full-page reload. %>
                 <% @postgres_table_breakdown.each do |row| %>
                   <% key = row[:label].to_s.camelize %>
                   <tr>
@@ -82,30 +101,17 @@
             </table>
           </div>
         <% end %>
-
-        <hr class="hairline">
-
-        <%= render Settings::Stack::HealthLineComponent.new(
-          label: t("settings.stack.redis"),
-          state: @redis_status[:connected] ? :connected : :disconnected
-        ) %>
-
-        <% if @redis_status[:connected] && @sidekiq_breakdown.any? %>
-          <%= render Settings::Stack::Sidekiq::CountersComponent.new(breakdown: @sidekiq_breakdown) %>
-        <% end %>
       </div>
 
-      <div class="stack-pane-divider"></div>
-
-      <%# Right column: search + storage stacked %>
-      <div class="stack-pane-column">
+      <%# Row 1, col 2 — Meilisearch %>
+      <div style="padding: 8px 12px; border-bottom: 1px solid var(--color-border);">
         <%= render Settings::Stack::HealthLineComponent.new(
           label: t("settings.stack.meilisearch"),
           state: @search_healthy ? :connected : :disconnected
         ) %>
 
         <% if @search_per_index_stats.any? %>
-          <div style="margin-bottom: 8px;" data-controller="sortable-table" data-sortable-table-id-value="stack-meilisearch">
+          <div data-controller="sortable-table" data-sortable-table-id-value="stack-meilisearch">
             <table class="stack-table" data-sortable-table-target="table">
               <thead>
                 <tr>
@@ -115,12 +121,13 @@
                 </tr>
               </thead>
               <tbody>
-                <%# 2026-05-18 — the unified `games_<env>` Meilisearch index
-                    is split into two rows by `kind` (`game` / `bundle`).
-                    Size is reported by Meilisearch at the INDEX level only;
-                    `omit_size` rows render a plain dash in the size column
-                    (the size is already attributed to the `games` row, so
-                    duplicating it on `bundles` would mislead the operator). %>
+                <%# The unified `games_<env>` Meilisearch index is split
+                    into two rows by `kind` (`game` / `bundle`). Size is
+                    reported by Meilisearch at the INDEX level only;
+                    `omit_size` rows render a plain dash in the size
+                    column (the size is already attributed to the
+                    `games` row, so duplicating it on `bundles` would
+                    mislead the operator). %>
                 <% @search_per_index_stats.each do |row| %>
                   <% key = row[:label].to_s.camelize %>
                   <tr>
@@ -155,28 +162,40 @@
             </table>
           </div>
         <% end %>
+      </div>
 
-        <hr class="hairline">
+      <%# Row 2, col 1 — Redis (+ Sidekiq counters since Sidekiq runs on Redis) %>
+      <div style="padding: 8px 12px; border-right: 1px solid var(--color-border); border-bottom: 1px solid var(--color-border);">
+        <%= render Settings::Stack::HealthLineComponent.new(
+          label: t("settings.stack.redis"),
+          state: @redis_status[:connected] ? :connected : :disconnected
+        ) %>
 
-        <%# Phase 32 follow-up (2026-05-16) — Voyage section extracted
-            so `ReindexAllJob` can swap it via Turbo Stream replace
-            without re-rendering the entire stack pane. The
-            subscription below mounts the `reindex_status` stream;
-            the job broadcasts to it from its `ensure` block when
-            the reindex completes (or crashes).
+        <% if @redis_status[:connected] && @sidekiq_breakdown.any? %>
+          <%= render Settings::Stack::Sidekiq::CountersComponent.new(breakdown: @sidekiq_breakdown) %>
+        <% end %>
+      </div>
 
-            The `[reindex]` confirm modal is rendered HERE, outside
-            the `<div id="voyage_section">` broadcast target, on
-            purpose. The job's `broadcast_replace_to` runs in a
-            JOB context with no `request` / `session`, so any
-            `form_with` rendered inside the broadcast target would
-            bake a hidden `authenticity_token` unbound to any user's
-            session — the next submit hits
-            `ActionController::InvalidAuthenticityToken`. Mounting
-            the modal at page-render time gives it a CSRF token
-            bound to the current session that stays valid across
-            broadcast-driven state flips of the trigger link.
-            See the matching note in `_voyage_section.html.erb`. %>
+      <%# Row 2, col 2 — Voyage AI (+ stats table + reindex action) %>
+      <%# Phase 32 follow-up — Voyage section kept as a partial so
+          `ReindexAllJob` can Turbo-Stream-replace its
+          `<div id="voyage_section">` without re-rendering the entire
+          stack pane. The subscription below mounts the `reindex_status`
+          stream; the job broadcasts to it from its `ensure` block when
+          the reindex completes (or crashes).
+
+          The `[reindex]` confirm modal is rendered HERE, OUTSIDE the
+          `<div id="voyage_section">` broadcast target, on purpose. The
+          job's `broadcast_replace_to` runs in a JOB context with no
+          `request` / `session`, so any `form_with` rendered inside the
+          broadcast target would bake a hidden `authenticity_token`
+          unbound to any user's session — the next submit would hit
+          `ActionController::InvalidAuthenticityToken`. Mounting the
+          modal at page-render time gives it a CSRF token bound to the
+          current session that stays valid across broadcast-driven
+          state flips of the trigger link. See the matching note in
+          `_voyage_section.html.erb`. %>
+      <div style="padding: 8px 12px; border-bottom: 1px solid var(--color-border);">
         <%= turbo_stream_from "reindex_status" %>
         <%= render "voyage_section" %>
         <%= render(ConfirmModalComponent.new(
@@ -190,9 +209,10 @@
           destructive: true,
           modal_actions_key: "reindex_confirm"
         )) %>
+      </div>
 
-        <hr class="hairline">
-
+      <%# Row 3, col 1 — assets %>
+      <div style="padding: 8px 12px; border-right: 1px solid var(--color-border);">
         <%= render Settings::Stack::HealthLineComponent.new(
           label: t("settings.stack.assets"),
           state: if @storage_status[:present]
@@ -203,7 +223,7 @@
         ) %>
 
         <% if @assets_breakdown.any? %>
-          <div style="margin-bottom: 8px;" data-controller="sortable-table" data-sortable-table-id-value="stack-assets">
+          <div data-controller="sortable-table" data-sortable-table-id-value="stack-assets">
             <table class="stack-table stack-table--3col-aligned" data-sortable-table-target="table">
               <thead>
                 <tr>
@@ -213,11 +233,11 @@
                 </tr>
               </thead>
               <tbody>
-                <%# 2026-05-18 — assets rows expose live-stats targets so
-                    the polling controller can patch file count + size in
-                    place. The label-to-target mapping snake_cases the
-                    multi-word "cover arts" label so it maps cleanly to a
-                    camelCase Stimulus target name. %>
+                <%# Assets rows expose live-stats targets so the polling
+                    controller can patch file count + size in place. The
+                    label-to-target mapping snake_cases the multi-word
+                    "cover arts" label so it maps cleanly to a camelCase
+                    Stimulus target name. %>
                 <% @assets_breakdown.each do |row| %>
                   <% key = row[:label].to_s.tr(" ", "_").camelize %>
                   <tr>
@@ -240,9 +260,10 @@
             </table>
           </div>
         <% end %>
+      </div>
 
-        <hr class="hairline">
-
+      <%# Row 3, col 2 — notes %>
+      <div style="padding: 8px 12px;">
         <%= render Settings::Stack::HealthLineComponent.new(
           label: t("settings.stack.notes"),
           state: if @notes_volume_status[:present]
@@ -253,7 +274,7 @@
         ) %>
 
         <% if @notes_breakdown.any? %>
-          <div style="margin-bottom: 8px;" data-controller="sortable-table" data-sortable-table-id-value="stack-notes">
+          <div data-controller="sortable-table" data-sortable-table-id-value="stack-notes">
             <table class="stack-table stack-table--3col-aligned" data-sortable-table-target="table">
               <thead>
                 <tr>

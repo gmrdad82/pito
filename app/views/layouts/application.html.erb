@@ -218,105 +218,37 @@
         <% if Current.user.present? %>data-timezone-detect-stored-value="<%= Current.user.time_zone %>"
         data-timezone-detect-url-value="<%= settings_time_zone_path %>"
         data-timezone-detect-csrf-value="<%= form_authenticity_token %>"<% end %>>
-    <%# 2026-05-19 — header switched from `position: fixed` to `position: sticky`.
-        Sticky keeps the header in document flow (no `padding-top: 32px` wrapper
-        compensation needed) while still pinning to the top on scroll. The
-        previous fixed positioning needed an outer wrapper with `padding-top:
-        32px` so content didn't slide under the navbar on first paint; sticky
-        sidesteps that by leaving the header at its natural place in flow until
-        the user scrolls past it. `z-index: 100` is the existing convention
-        used previously by the fixed header and stays above `.pane-arrow`
-        (z-index: 99 — the only other layout-chrome z-index near this value
-        per the CSS audit). Solid `var(--color-bg)` background prevents
-        content bleed through; the `border-bottom` hairline gives the visual
-        separation when content scrolls underneath. %>
+    <%# Beta 4 — Phase F1 Lane D (2026-05-20). The legacy bracketed-nav
+        header (`[home][calendar] · [channels][videos] · [projects][games] ·
+        [notifications]  <spacer>  [settings][_]`) was replaced by the
+        TUI-flavoured `Tui::TopStatusBarComponent` — a single status bar
+        that surfaces version + section + optional page tail on the
+        left, and sync state + Sidekiq queue depths + live clock on the
+        right. The component subscribes to the `pito:status_bar` cable
+        channel (ADR 0017, Lane A's `StatusBarChannel` +
+        `StatusBarBroadcastMiddleware`) via the `tui-status-bar`
+        Stimulus controller (Lane C). The `<header>` wrapper stays so
+        sticky-positioning + `:hide_chrome` chrome suppression keep
+        working unchanged.
+        The `unless content_for?(:hide_chrome)` gate still hides the
+        status bar on auth screens (login, OAuth consent, TOTP
+        enrollment gate) just like the old navbar — only the inner
+        component is swapped.
+        The notifications-badge live-update mount (`turbo_stream_from
+        "notifications_badge"` + `render "notifications/badge"`) was
+        dropped along with the bracketed nav — the badge partial spec
+        + the standalone /notifications page mounts still cover the
+        partial; the layout-level live-update will return when
+        /notifications comes back into scope. %>
     <header style="position: sticky; top: 0; left: 0; right: 0; height: 32px; background: var(--color-bg); border-bottom: 1px solid var(--color-border); padding: 0 12px; z-index: 100;">
-      <%# Header layout (2026-05-10 redesign, refined 2026-05-10 follow-up;
-          [logout] dropped 2026-05-16 — DELETE /session route + action
-          stay routable for API / keyboard / direct-URL use, only the UI
-          link was removed):
-            [home][calendar] · [channels][videos] · [projects][notifications]
-            <fluid spacer>     [settings]
-          Left and middle groups are separated by a center-dot `·`
-          (`.nav-sep`); items within a group sit side-by-side. The
-          `.nav-spacer` flex item carries `flex: 1` so the right
-          cluster (settings) right-anchors against the edge of the
-          navbar — there is intentionally NO separator between the
-          spacer and the right cluster (the spacer itself is the
-          visual separator). The inline search input that used to
-          sit in the right cluster was retired in favor of a
-          `/`-keyed search modal (`shared/_search_modal`); the
-          IGDB-search modal is reached via the `[+]` bracketed link
-          in the `/games` chrome (`shared/_igdb_search_modal`).
-          2026-05-17 — the global `i` keybind for the IGDB modal and
-          the global `t` keybind for theme toggle were both removed
-          in the legacy-keyboard-shortcut sweep; the on-screen
-          theme affordance lives on the Settings page. %>
-      <div style="display: flex; align-items: center; height: 32px; gap: 4px;">
-        <a href="/" style="text-decoration: none; display: flex; align-items: center; line-height: 0;" aria-label="Dashboard">
-          <%# 2026-05-19 — header logo retargeted from `/Pito.png` (retired) to
-              `/favicon-64x64.png`. The rendered size is 14px (per
-              `.header-logo`); 64px source gives ~4.6x density for crisp
-              retina rendering. The `?v=2` suffix is a one-shot
-              cache-buster — favicons2.zip overwrote the file in /public
-              but browsers were still serving the prior asset from cache;
-              the query string forces a fresh fetch. %>
-          <img src="/favicon-64x64.png?v=2" alt="pito" class="header-logo">
-        </a>
-        <%# Chrome elements (nav, search, logout, keyboard help link) are
-            suppressed on auth pages by setting
-            `content_for(:hide_chrome, true)` from the page template. The
-            header logo remains visible so the brand is always available.
-            The same flag also gates the footer nav (see footer block
-            below). %>
-        <% unless content_for?(:hide_chrome) %>
-          <nav class="nav-row" style="display: flex; align-items: center; flex: 1; gap: 4px;">
-            <%# 2026-05-18 — `.hide-mobile` dropped on the home/calendar
-                group + its trailing separator. Mobile now renders the
-                full bracketed labels for every nav entry, matching
-                desktop. The `nav_link` helper no longer emits the
-                `.show-mobile` short-label span. %>
-            <%# muted pending /home revamp %><%# muted pending /calendar revamp %>
-            <span class="nav-group"><%= nav_link "home", root_path, muted: true %><%= nav_link "calendar", calendar_root_path, muted: true %></span>
-            <span class="nav-sep" aria-hidden="true">·</span>
-            <%# muted pending /videos revamp %>
-            <span class="nav-group"><%= nav_link "channels", channels_path, short: "C" %><%= nav_link "videos", videos_path, short: "V", muted: true %></span>
-            <span class="nav-sep" aria-hidden="true">·</span>
-            <%# muted pending /projects revamp %>
-            <span class="nav-group"><%= nav_link "projects", projects_path, short: "P", muted: true %><%= nav_link "games", games_path, short: "G" %></span>
-            <span class="nav-sep" aria-hidden="true">·</span>
-            <%# Phase 16 §3 — notifications nav link + live unread badge.
-                The badge wrapper carries `id="notifications_badge"` so
-                Turbo Stream broadcasts (`broadcast_replace_to`) target
-                it directly. The page-level subscription is mounted
-                here so every page (not just /notifications) receives
-                the live-update.
-
-                2026-05-19 — `[notifications]` muted pending /notifications
-                revamp. Click handler dropped along with the live state;
-                the unread badge + turbo_stream subscription stay so the
-                count keeps updating server-side and is ready to re-light
-                when the zone returns to scope. %>
-            <span class="nav-group">
-              <%# muted pending /notifications revamp %>
-              <%= nav_link "notifications", notifications_path, short: "N", muted: true %>
-              <%= turbo_stream_from "notifications_badge" %>
-              <%= render "notifications/badge", unread_count: Notification.unread.count %>
-            </span>
-            <span class="nav-spacer" style="flex: 1;"></span>
-            <%# 2026-05-18 — `[_]` leader-menu trigger moved here from
-                the footer. Sits immediately after `[settings]` in the
-                same right-anchored `.nav-group`. Same Stimulus action
-                wiring (`click->leader-menu#openRoot`) — DOM position
-                only changed. The `[_]` glyph is the discoverable
-                on-screen affordance for the SPACE leader. %>
-            <span class="nav-group">
-              <%= nav_link "settings", settings_path, short: "S" %>
-              <%= render(BracketedLinkComponent.new(label: "_", href: "#", data: { action: "click->leader-menu#openRoot" }, active: false)) %>
-            </span>
-          </nav>
-        <% end %>
-      </div>
+      <% unless content_for?(:hide_chrome) %>
+        <%= render Tui::TopStatusBarComponent.new(
+              section: current_section,
+              page: current_page,
+              version: pito_version,
+              sidekiq_stats: sidekiq_queue_stats
+            ) %>
+      <% end %>
     </header>
 
     <%= render "shared/flash_toasts" %>
@@ -336,14 +268,15 @@
       <%= yield %>
     </main>
 
-    <%# Footer (2026-05-19 cleanup): single centered copyright line. The
-        repeated nav links (home/calendar/channels/...) were dropped along
-        with the version + git-sha cluster — the same copyright string is
-        now mirrored verbatim in `AboutModalComponent#copyright_text`, and
-        the version + commit metadata lives inside the about modal
-        (reached via the `?` keybind or `space ?` leader path). The footer
-        logo link to pitomd.com was dropped 2026-05-19 — the centered
-        copyright text is now the sole footer content. %>
+    <%# Footer (2026-05-19 cleanup, SHA dropped 2026-05-20): single centered
+        copyright line. The repeated nav links (home/calendar/channels/...)
+        and the legacy version + git-sha cluster were dropped — the same
+        copyright string is now mirrored verbatim in
+        `AboutModalComponent#copyright_text`, and the version (VERSION file
+        only — no SHA) lives inside the about modal (reached via the `?`
+        keybind or `space ?` leader path). The footer logo link to
+        pitomd.com was dropped 2026-05-19 — the centered copyright text is
+        now the sole footer content. %>
     <footer style="border-top: 1px solid var(--color-border); padding: 8px 12px; margin-top: 24px; font-size: 11px;">
       <div style="display: flex; align-items: center; justify-content: center; gap: 4px;">
         <span class="text-muted">&copy; <%= Date.current.year %><span class="hide-mobile"> &mdash; all rights reserved.</span></span>
@@ -379,10 +312,11 @@
 
     <%# 2026-05-19 — layout-level "about" modal. Dialog id `about-modal`
         matches the `?` flat-key target in `config/keybindings.yml` and the
-        `space ?` leader path. Sourced version + commit-SHA metadata
-        previously rendered in the footer cluster (`version_label`); the
-        footer was simplified to a single centered copyright line, so the
-        about modal is the canonical surface for that metadata. %>
+        `space ?` leader path. The modal renders the version string from
+        the VERSION file (canonical version source — the SHA / revision
+        row was dropped 2026-05-20). The footer is simplified to a single
+        centered copyright line, so the about modal is the canonical
+        surface for that metadata. %>
     <%= render AboutModalComponent.new %>
 
     <%# Global IGDB-search modal — opened by the `[+]` bracketed link

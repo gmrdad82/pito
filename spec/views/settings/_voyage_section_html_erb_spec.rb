@@ -11,6 +11,11 @@ require "rails_helper"
 #
 # Both states wrap in a `<div id="voyage_section">` so the broadcast
 # target string stays stable.
+#
+# Beta 4 F3-D — the status surface inside the section is now a
+# `Tui::ChipComponent` chip (`[configured]` / `[not configured]`)
+# rendered by `Settings::Stack::HealthLineComponent`. The previous
+# glyph + colored word span is gone.
 RSpec.describe "settings/_voyage_section.html.erb", type: :view do
   # Stats payload is read on every render via `Voyage::Stats.call`. Stub
   # it with a minimal shape so the view never touches the DB / Bundle /
@@ -99,38 +104,38 @@ RSpec.describe "settings/_voyage_section.html.erb", type: :view do
     end
   end
 
+  # Beta 4 F3-D — the Voyage credentials state is rendered by
+  # `Settings::Stack::HealthLineComponent`, which now delegates to
+  # `Tui::ChipComponent`. The chip's variant carries the operator
+  # signal (`:info` for configured, `:danger` for not configured).
   describe "Voyage credentials gating" do
-    # The credentials state is rendered by `Settings::Stack::HealthLineComponent`.
-    # Per the component's STATES table, `:configured` emits the success
-    # glyph + copy via `style="color: var(--color-success);"`, and
-    # `:not_configured` emits the danger glyph + copy via
-    # `class="text-danger"`. Both surface the literal copy strings
-    # "configured" / "not configured" alongside the heading label.
     before do
       allow(AppSetting).to receive(:reindex_running?).and_return(false)
     end
 
-    it "shows the configured indicator when " \
-       "AppSetting.voyage_configured? is true" do
+    it "shows a `Tui::ChipComponent` `[configured]` chip with the info " \
+       "variant when AppSetting.voyage_configured? is true" do
       allow(AppSetting).to receive(:voyage_configured?).and_return(true)
       render partial: "settings/voyage_section"
 
       expect(rendered).to have_css(
-        'span[style*="color: var(--color-success)"]',
-        text: /configured/
+        "span.tui-chip.tui-chip--info", text: "[configured]"
       )
-      expect(rendered).not_to have_css('span.text-danger', text: /not configured/)
+      expect(rendered).not_to have_css(
+        "span.tui-chip.tui-chip--danger", text: "[not configured]"
+      )
     end
 
-    it "shows the not-configured indicator when " \
-       "AppSetting.voyage_configured? is false" do
+    it "shows a `Tui::ChipComponent` `[not configured]` chip with the " \
+       "danger variant when AppSetting.voyage_configured? is false" do
       allow(AppSetting).to receive(:voyage_configured?).and_return(false)
       render partial: "settings/voyage_section"
 
-      expect(rendered).to have_css('span.text-danger', text: /not configured/)
+      expect(rendered).to have_css(
+        "span.tui-chip.tui-chip--danger", text: "[not configured]"
+      )
       expect(rendered).not_to have_css(
-        'span[style*="color: var(--color-success)"]',
-        text: /^▲ configured$/
+        "span.tui-chip.tui-chip--info", text: "[configured]"
       )
     end
   end

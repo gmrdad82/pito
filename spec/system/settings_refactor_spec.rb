@@ -29,12 +29,14 @@ RSpec.describe "Settings refactor — system shell", type: :system do
     sign_in_as(user)
   end
 
-  it "renders the 3-row dashboard with all five panes (Phase 32 follow-up: row 2 is Discord + Slack only)" do
+  it "renders the 3-row dashboard with security + Discord + Slack + stack panes (Phase F3: profile CUT to rake tasks)" do
     visit settings_path
 
-    # Row 1
-    expect(page).to have_content("profile")
+    # Row 1 — Phase F3 (Beta 4, 2026-05-20) — profile pane removed
+    # per ADR 0016. Username + password management moved to operator-
+    # only rake tasks. Security pane is the sole row-1 surface.
     expect(page).to have_content("security")
+    expect(page).to have_no_css("h2", text: /\Aprofile\z/)
     # Row 2 — Discord LEFT, Slack RIGHT (oauth + tokens moved to rake).
     expect(page).to have_content("Discord")
     expect(page).to have_content("Slack")
@@ -59,6 +61,9 @@ RSpec.describe "Settings refactor — system shell", type: :system do
     # Both row-2 headings appear before the row-3 stack pane.
     expect(slack_idx).to be < stack_idx
 
+    # Phase F3 (Beta 4, 2026-05-20) — profile pane CUT per ADR 0016.
+    # Before row 3 we now render Security (row 1) + Discord + Slack
+    # (row 2) = three `<div class="pane">` openings.
     pane_openings_before_row3 = body[0...stack_idx].scan(/<div class="pane">/).size
     expect(pane_openings_before_row3).to be >= 3
   end
@@ -115,24 +120,15 @@ RSpec.describe "Settings refactor — system shell", type: :system do
     expect(page.body).not_to include("data-keyboard-navigation-enabled")
   end
 
-  it "profile form updates the username via /settings/user" do
+  it "does NOT render the dropped /settings/user profile form (Phase F3)" do
+    # Phase F3 (Beta 4, 2026-05-20) — profile pane + /settings/user
+    # surface cut per ADR 0016. Username + password management moved
+    # to operator-only rake tasks (`bin/rails pito:user:rename`,
+    # `bin/rails pito:user:password_set`).
     visit settings_path
-    within("form[action='/settings/user']") do
-      fill_in "user[username]", with: "lucy2"
-      fill_in "user[current_password]", with: password
-      click_button "[update]"
-    end
-
-    # 2FA-on means the user goes through the TOTP modal flow if JS is
-    # on. With rack_test (no JS), the form submits unintercepted; the
-    # server-side gate then rejects because there's no `totp_code`.
-    # We don't validate the success path here — that's covered by the
-    # /settings/user request spec. We just need to confirm the form
-    # is wired to the right endpoint.
-    expect(URI.parse(current_url).path).to be_in([
-      settings_path,
-      settings_user_path
-    ])
+    expect(page).to have_no_selector("form[action='/settings/user']")
+    expect(page.body).not_to include('name="user[current_password]"')
+    expect(page.body).not_to include('name="user[password_confirmation]"')
   end
 
   private

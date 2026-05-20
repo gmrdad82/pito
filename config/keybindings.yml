@@ -319,35 +319,30 @@ page_actions:
   #        `_stack_pane.html.erb` via `ConfirmModalComponent` as
   #        `<dialog id="reindex_meilisearch_modal">`). Once open,
   #        the `reindex_confirm` modal_actions take over.
-  #   da / dd — Discord all / daily digest toggles.
-  #   sa / sd — Slack all / daily digest toggles.
+  #   na / nd — shared notifications all / daily digest toggles.
   #
-  # Discord + Slack toggles target `[data-leader-toggle="<target>"]`
-  # hooks that Phase D will attach to the actual auto-save checkboxes
-  # once the Discord/Slack pane form restructure ships. Until Phase D
-  # the action silently no-ops when the hook is missing — no thrown
-  # errors, just nothing happens. Phase C ships the keybinding
-  # mechanic; Phase D wires the targets.
+  # 2026-05-20 — F3-B-SIMPLIFY-MODEL. The per-brand `da/dd/sa/sd`
+  # toggles collapsed into TWO shared `na/nd` toggles. Each flips the
+  # matching shared column on `AppSetting.singleton_row`; per-brand
+  # webhook URLs still gate which brands actually receive a delivery.
+  # Notifications toggles target `[data-leader-toggle="<target>"]`
+  # hooks rendered by the unified notifications pane on the matching
+  # checkbox. The action silently no-ops when the hook is missing
+  # (defensive — same posture as before).
   #
-  # Prefix-conflict note: `d` is a prefix-only key for `da` + `dd`
-  # (no exact `d` binding); pressing `d` alone fires nothing — the
+  # Prefix-conflict note: `n` is a prefix-only key for `na` + `nd`
+  # (no exact `n` binding); pressing `n` alone fires nothing — the
   # prefix accumulator waits for the second key (a/d) or the 1500 ms
   # timeout (which expires with no recorded exact match → no-op).
-  # `s` is a prefix-only key for `sr` + `sa` + `sd` (no exact `s`
-  # binding); pressing `s` then `r`/`a`/`d` fires the matching
-  # 2-key binding.
-  # 2026-05-18 — /settings popup layout:
+  # `s` is a prefix-only key for `sr` (no exact `s` binding); pressing
+  # `s` then `r` fires the matching 2-key binding.
+  # /settings popup layout:
   #   sr                             (revoke unused sessions)
   #   ───── (plain divider) ─────
-  #   da  Discord all                | sa  Slack all                  (2-col grid)
-  #   dd  Discord daily digest       | sd  Slack daily digest
+  #   na  all                        (single column — collapsed from 2-col)
+  #   nd  daily digest
   #   ───── (plain divider) ─────
   #   vr                             (Voyage reindex)
-  #
-  # YAML order for the 2-col block is `da, dd, sa, sd` so column-first
-  # auto-flow with `grid-template-rows: repeat(2, auto)` renders:
-  #   col1 = [da, dd]    col2 = [sa, sd]
-  # which matches the user's mock exactly.
   settings:
     - key: sr
       label_i18n: keybindings.page_actions.settings.revoke_unused_sessions
@@ -355,27 +350,16 @@ page_actions:
         type: open_revoke_unused_modal
         target: revoke_sessions_modal
     - divider: true
-      layout: grid_2col
-    - key: da
-      label_i18n: keybindings.page_actions.settings.discord_all
+    - key: na
+      label_i18n: keybindings.page_actions.settings.notifications_all
       action:
         type: toggle_setting
-        target: discord_every_notification
-    - key: dd
-      label_i18n: keybindings.page_actions.settings.discord_daily_digest
+        target: notification_all
+    - key: nd
+      label_i18n: keybindings.page_actions.settings.notifications_daily_digest
       action:
         type: toggle_setting
-        target: discord_daily_digest
-    - key: sa
-      label_i18n: keybindings.page_actions.settings.slack_all
-      action:
-        type: toggle_setting
-        target: slack_every_notification
-    - key: sd
-      label_i18n: keybindings.page_actions.settings.slack_daily_digest
-      action:
-        type: toggle_setting
-        target: slack_daily_digest
+        target: notification_daily_digest
     - divider: true
     - key: vr
       label_i18n: keybindings.page_actions.settings.voyage_reindex

@@ -46,7 +46,15 @@ class DailyDigestDeliverJob < ApplicationJob
     user = User.find_by(id: user_id)
     return if user.nil?
 
-    enabled = NotificationDeliveryChannel.where(daily_digest: true).to_a
+    # 2026-05-20 — F3-B-SIMPLIFY-MODEL. Shared toggle is the gate. Per
+    # brand: skip silently if no webhook is configured. The per-brand
+    # `daily_digest` boolean column is gone.
+    return unless AppSetting.notifications_send_daily_digest?
+
+    enabled = NotificationDeliveryChannel
+                .where(kind: NotificationDeliveryChannel::KINDS)
+                .where.not(webhook_url: nil)
+                .to_a
     return if enabled.empty?
 
     result = ::Digest::Composer.new(user).call

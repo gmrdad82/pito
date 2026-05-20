@@ -1,0 +1,39 @@
+<%#
+  Beta 4 — Phase F1 Lane B. Top status bar template. Mirrors V3 of
+  `tmp/demo-status-bar-final.html` (which exercises every state slot:
+  section + page tail + progress + sync target + colored Sidekiq).
+  Lane C's `tui-status-bar` Stimulus controller subscribes to
+  `pito:status_bar` via the `data-cable-channel` root attribute and
+  updates the marked `data-tui-status-bar-target` cells in place.
+%>
+<div class="sb-bar"
+     data-controller="tui-status-bar"
+     data-cable-channel="pito:status_bar"
+     data-tui-status-bar-target="root">
+  <div class="sb-left">
+    <span class="sb-version"><%= version %></span>
+    <span class="<%= section_class %>"><%= section %><% if page %><span class="sb-page-tail">:(<span class="sb-page-name"><%= page %></span>)</span><% end %></span>
+  </div>
+  <div class="sb-right">
+    <% if progress_visible? %>
+      <span class="sb-progress-bar" data-tui-status-bar-target="progressBar">
+        <% filled, empty = progress_bar_cells %>
+        <span class="sb-progress-bar-filled"><%= filled %></span><span class="sb-progress-bar-empty"><%= empty %></span>
+      </span>
+      <span class="sb-progress-counter" data-tui-status-bar-target="progressCounter"><%= progress_counter %></span>
+    <% end %>
+    <span class="sb-sync" data-tui-status-bar-target="sync">
+      <span class="<%= sync_dot_class %>" data-tui-status-bar-target="syncDot"><%= sync_dot_glyph %></span><span class="<%= sync_word_class %>" data-tui-status-bar-target="syncWord"><%= sync_word %></span><% if sync_target_visible? %>
+        <span class="sb-sync-target" data-tui-status-bar-target="syncTarget"><%= sync_target %></span>
+      <% end %>
+    </span>
+    <span class="sb-pipe">|</span>
+    <span class="sb-sidekiq" data-tui-status-bar-target="sidekiq">
+      <span class="sb-sk-cell <%= sidekiq_class_for("b") %>" data-tui-status-bar-target="sidekiqBusy">b<%= sidekiq_value_for("b") %></span>
+      <span class="sb-sk-cell <%= sidekiq_class_for("e") %>" data-tui-status-bar-target="sidekiqEnqueued">e<%= sidekiq_value_for("e") %></span>
+      <span class="sb-sk-cell <%= sidekiq_class_for("r") %>" data-tui-status-bar-target="sidekiqRetry">r<%= sidekiq_value_for("r") %></span>
+    </span>
+    <span class="sb-pipe">|</span>
+    <span class="sb-clock" data-tui-status-bar-target="clock">—</span>
+  </div>
+</div>

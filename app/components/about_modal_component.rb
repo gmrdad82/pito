@@ -1,4 +1,4 @@
-# Layout-level "about" modal (2026-05-19).
+# Layout-level "about" modal (2026-05-19, SHA row removed 2026-05-20).
 #
 # Mounted by the application layout at id `about-modal` so the global
 # leader-menu + flat keybindings can target it. Sizing mirrors the
@@ -7,13 +7,12 @@
 # `.confirm-modal-inner { padding: 12px 16px }` and the shared
 # `.modal-footer` hairline-above-actions pattern).
 #
-# Content blocks (locked in chat 2026-05-19):
+# Content blocks:
 #   - project name + subtitle (muted)
-#   - version + revision K-V grid (`<dl>` with `grid-template-columns:
-#     auto 1fr` for column-aligned values, no colons)
-#   - revision value is a bracketed link to the GitHub commit, new tab
-#     (reuses `ApplicationHelper#git_sha`; falls back to a muted
-#     em-dash when no SHA is available, e.g. detached deploy)
+#   - version + env K-V grid (`<dl>` with `grid-template-columns:
+#     auto 1fr` for column-aligned values, no colons). The VERSION file
+#     is the canonical version source; no commit-SHA / revision row is
+#     rendered.
 #   - copyright line (mirrors the footer string verbatim:
 #     `© <year> — all rights reserved.`)
 #
@@ -27,21 +26,8 @@ class AboutModalComponent < ViewComponent::Base
   # Dialog id is hard-locked — the keybindings YAML targets this id.
   MODAL_ID = "about-modal".freeze
 
-  # GitHub commit URL pattern (same string ApplicationHelper#version_label uses).
-  GITHUB_COMMIT_BASE = "https://github.com/gmrdad82/pito/commit/".freeze
-
   def version_string
     "v#{app_version}"
-  end
-
-  def sha
-    git_sha
-  end
-
-  def commit_url
-    return nil unless sha
-
-    "#{GITHUB_COMMIT_BASE}#{sha}"
   end
 
   def env

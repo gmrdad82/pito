@@ -24,27 +24,19 @@
       <div class="text-muted"><%= t("about.modal.subtitle") %></div>
     </div>
 
-    <%# Version + revision K-V block — 2-column CSS Grid wrapped in a flex
+    <%# Version + env K-V block — 2-column CSS Grid wrapped in a flex
         container so the dl's intrinsic width (label-col + gap + value-col)
         is centered in the dialog. Labels right-aligned + values
         left-aligned puts the visual gap at the dl's horizontal middle,
         which aligns with the centered "pito" word above. `auto auto`
         keeps both columns sized to content, no expansion to the dialog
-        edges. No colons — the grid itself communicates K-V. The revision
-        value is a bracketed link to GitHub opening in a new tab; falls
-        back to em-dash when no SHA is available. %>
+        edges. No colons — the grid itself communicates K-V. The VERSION
+        file is the canonical version source — no commit-SHA / revision
+        row is rendered (removed 2026-05-20). %>
     <div style="display: flex; justify-content: center; margin: 10px 0 0;">
       <dl style="display: grid; grid-template-columns: auto auto; column-gap: 8px; row-gap: 4px; margin: 0;">
         <dt class="text-muted" style="text-align: right;"><%= t("about.modal.version_label") %></dt>
         <dd style="margin: 0; text-align: left;"><%= version_string %></dd>
-        <dt class="text-muted" style="text-align: right;"><%= t("about.modal.revision_label") %></dt>
-        <dd style="margin: 0; text-align: left;">
-          <% if commit_url %>
-            <%= render BracketedLinkComponent.new(label: sha, href: commit_url) %>
-          <% else %>
-            <span class="text-muted"><%= t("common.em_dash") %></span>
-          <% end %>
-        </dd>
         <dt class="text-muted" style="text-align: right;"><%= t("about.modal.env_label") %></dt>
         <dd style="margin: 0; text-align: left;"><%= env %></dd>
       </dl>

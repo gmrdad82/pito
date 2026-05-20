@@ -11,19 +11,17 @@ RSpec.describe NotificationDeliveryChannel, type: :model do
   describe "schema" do
     it "carries the expected columns" do
       expect(described_class.column_names).to include(
-        "id", "kind", "webhook_url", "everything", "daily_digest",
+        "id", "kind", "webhook_url",
         "last_validated_at", "created_at", "updated_at"
       )
     end
 
-    it "defaults `everything` to false" do
-      record = described_class.new(kind: "slack", webhook_url: valid_slack_url)
-      expect(record.everything).to be(false)
-    end
-
-    it "defaults `daily_digest` to false" do
-      record = described_class.new(kind: "slack", webhook_url: valid_slack_url)
-      expect(record.daily_digest).to be(false)
+    # 2026-05-20 — F3-B-SIMPLIFY-MODEL. The per-brand routing-flag
+    # columns (`everything`, `daily_digest`) were dropped from this
+    # table. The two shared toggles now live on `app_settings`
+    # (`notifications_send_all`, `notifications_send_daily_digest`).
+    it "no longer carries the per-brand routing flag columns" do
+      expect(described_class.column_names).not_to include("everything", "daily_digest")
     end
   end
 
@@ -106,18 +104,11 @@ RSpec.describe NotificationDeliveryChannel, type: :model do
     end
   end
 
-  # 2026-05-16 webhook-clear UX tweak.
-  # The model carries the invariant "URL nil implies both flags false"
-  # via a `before_validation` callback. The blocks below pin the
-  # callback's behavior across every entry point (web form,
-  # MCP tool, console). Two complementary surfaces:
-  #
-  #   * The callback itself NORMALIZES — blank URL → nil, both flags
-  #     drop to false on the same save.
-  #   * The `flags_require_webhook_url` validator REJECTS the
-  #     contradictory shape (flag true + URL nil) as defense in depth
-  #     for any code path that bypasses the callback.
-  describe "before_validation — clear-on-blank invariant" do
+  # 2026-05-16 webhook-clear UX tweak (preserved for the URL nilify
+  # half). The flag-zeroing half + the `flags_require_webhook_url`
+  # validator were removed by F3-B-SIMPLIFY-MODEL (2026-05-20) when
+  # per-brand routing flag columns were dropped.
+  describe "before_validation — URL normalize-on-blank" do
     it "normalizes a blank `webhook_url` to nil on save" do
       record = described_class.new(kind: "slack", webhook_url: "")
       record.valid?
@@ -136,87 +127,21 @@ RSpec.describe NotificationDeliveryChannel, type: :model do
       record.valid?
       expect(record.webhook_url).to eq(valid_slack_url)
     end
-
-    it "zeroes `everything` when `webhook_url` is blanked" do
-      record = described_class.create!(
-        kind: "slack", webhook_url: valid_slack_url, everything: true
-      )
-      record.update!(webhook_url: "")
-      expect(record.everything).to be(false)
-      expect(record.webhook_url).to be_nil
-    end
-
-    it "zeroes `daily_digest` when `webhook_url` is blanked" do
-      record = described_class.create!(
-        kind: "slack", webhook_url: valid_slack_url, daily_digest: true
-      )
-      record.update!(webhook_url: "")
-      expect(record.daily_digest).to be(false)
-    end
-
-    it "zeroes BOTH flags in the same save when the URL is blanked" do
-      record = described_class.create!(
-        kind: "slack", webhook_url: valid_slack_url,
-        everything: true, daily_digest: true
-      )
-      record.update!(webhook_url: "")
-      expect(record.everything).to be(false)
-      expect(record.daily_digest).to be(false)
-    end
-
-    it "leaves flags untouched when the URL is present" do
-      record = described_class.new(
-        kind: "slack", webhook_url: valid_slack_url,
-        everything: true, daily_digest: true
-      )
-      record.valid?
-      expect(record.everything).to be(true)
-      expect(record.daily_digest).to be(true)
-    end
-
-    it "does not mutate flags when the model is loaded with both flags false" do
-      record = described_class.create!(kind: "slack", webhook_url: nil)
-      expect(record.everything).to be(false)
-      expect(record.daily_digest).to be(false)
-    end
   end
 
-  describe "flags_require_webhook_url validator" do
-    # 2026-05-17 — the original combined `nilify_blank_webhook_url_and_zero_flags`
-    # `before_validation` callback was split (see model header): the
-    # flag-zeroing half moved to `before_save` so the validator sees the
-    # user-submitted intent (flag-on with blank URL) and fails LOUDLY
-    # instead of silently no-opping after the callback already coerced
-    # the flag to false. The validator is now the primary user-facing
-    # gate; the `before_save` callback is defense-in-depth.
-    it "rejects `everything: true` with a nil URL (form-tampered combination)" do
-      record = described_class.new(kind: "slack", webhook_url: nil, everything: true)
-      expect(record).not_to be_valid
-      expect(record.errors[:base].join).to match(/Slack webhook URL not configured/i)
-      # The post-validation `before_save` flag-zeroing callback only
-      # fires inside `save` — `valid?` alone leaves the flag at the
-      # caller-submitted value so the validator can see it.
-      expect(record.everything).to be(true)
-    end
-
-    it "rejects `daily_digest: true` with a nil URL" do
-      record = described_class.new(kind: "slack", webhook_url: nil, daily_digest: true)
-      expect(record).not_to be_valid
-      # Kind-specific copy — proper-noun brand label via `BRAND_LABELS`.
-      expect(record.errors[:base].join).to match(/Slack webhook URL not configured/i)
-    end
-
-    it "accepts both flags true with a present URL" do
-      record = described_class.new(
-        kind: "slack", webhook_url: valid_slack_url,
-        everything: true, daily_digest: true
-      )
-      expect(record).to be_valid
-    end
-
-    it "accepts both flags false with a nil URL" do
+  describe "flags_require_webhook_url validator (DROPPED)" do
+    # 2026-05-20 — F3-B-SIMPLIFY-MODEL. The validator is gone. The
+    # toggle saves independently of webhook state, on a different model.
+    it "is no longer present on the model" do
       record = described_class.new(kind: "slack", webhook_url: nil)
-      expect(record).to be_valid
+      record.valid? # populate errors
+      expect(record.errors[:base]).to be_empty
+    end
+
+    it "does not respond to the removed columns" do
+      record = described_class.new(kind: "slack", webhook_url: valid_slack_url)
+      expect(record).not_to respond_to(:everything)
+      expect(record).not_to respond_to(:daily_digest)
     end
   end
 

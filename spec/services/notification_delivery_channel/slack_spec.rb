@@ -1,26 +1,25 @@
 require "rails_helper"
 
 RSpec.describe NotificationDeliveryChannel::Slack do
-  # Phase 29 — Unit A1. The Slack delivery gate
-  # (`AppSetting.slack_delivery_enabled?`) is now derived from the
-  # `NotificationDeliveryChannel` row for the kind — its existence plus
-  # a present `webhook_url` and at least one routing flag set. The
-  # orphaned `AppSetting.slack_enabled` column was dropped. The
-  # dispatcher's `webhook_url` still reads the AR row first, then the
-  # `credentials.notifications.slack_webhook_url` fallback.
+  # 2026-05-20 — F3-B-SIMPLIFY-MODEL. The Slack delivery gate is now
+  # an AND of:
+  #   1. A shared toggle ON (`notifications_send_all` OR
+  #      `notifications_send_daily_digest`) on `AppSetting.singleton_row`.
+  #   2. A `NotificationDeliveryChannel` row exists for Slack with a
+  #      present `webhook_url`.
+  # The per-brand routing-flag columns were dropped.
   let(:webhook_url) { "https://hooks.slack.com/services/T01ABCD/B02EFGH/abcdefXYZ1234567" }
   let(:channel) { described_class.new }
   let(:notification) { create(:notification) }
 
-  # Configures a Slack `NotificationDeliveryChannel` row so the
-  # delivery gate is on. `everything: true` is the routing-flag the
-  # gate looks for.
-  def configure_slack_channel(url: webhook_url, everything: true)
+  # Configures a Slack `NotificationDeliveryChannel` row + the install-
+  # level shared toggle so the delivery gate is on end-to-end.
+  def configure_slack_channel(url: webhook_url, toggle_on: true)
     NotificationDeliveryChannel.find_or_initialize_by(kind: "slack").tap do |row|
       row.webhook_url = url
-      row.everything = everything
       row.save!(validate: false)
     end
+    AppSetting.set_notification_toggle!(:notifications_send_all, toggle_on)
   end
 
   before do
@@ -39,10 +38,10 @@ RSpec.describe NotificationDeliveryChannel::Slack do
   end
 
   describe "#enabled?" do
-    it "delegates to AppSetting.slack_delivery_enabled? (driven by the channel row)" do
+    it "delegates to AppSetting.slack_delivery_enabled? (driven by toggle + channel row)" do
       expect(channel.enabled?).to be(true)
-      # Dropping the routing flag flips the gate off.
-      NotificationDeliveryChannel.slack.update_columns(everything: false, daily_digest: false)
+      # Flipping the shared toggle off disables delivery.
+      AppSetting.set_notification_toggle!(:notifications_send_all, false)
       expect(channel.enabled?).to be(false)
     end
 
@@ -113,8 +112,9 @@ RSpec.describe NotificationDeliveryChannel::Slack do
   end
 
   describe "skip paths" do
-    it "skips when the channel row has no routing flag set" do
-      NotificationDeliveryChannel.slack.update_columns(everything: false, daily_digest: false)
+    it "skips when both shared toggles are off" do
+      AppSetting.set_notification_toggle!(:notifications_send_all, false)
+      AppSetting.set_notification_toggle!(:notifications_send_daily_digest, false)
       result = channel.deliver(notification)
       expect(result.status).to eq(:skipped)
       expect(result.reason).to eq(:disabled)

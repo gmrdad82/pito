@@ -3,7 +3,6 @@ require "rails_helper"
 # Phase 29 (settings refactor) — `/settings` is a 3-row dashboard.
 #
 # Surfaces NOT covered here (each has its own request spec):
-#   * `/settings/user`              — Settings::UserController#update
 #   * `/settings/security/totp*`    — Settings::Security::TotpsController
 #   * `/settings/sessions/revokes/:ids` — Settings::Sessions::BulkRevokesController
 #   * `/settings/slack_webhook`     — Settings::SlackWebhooksController
@@ -56,19 +55,22 @@ RSpec.describe "Settings", type: :request do
       expect(response.body).to include("<h1>settings</h1>")
     end
 
-    describe "row 1 — profile + security" do
-      it "renders the profile pane heading" do
+    describe "row 1 — security (profile CUT in Phase F3 — ADR 0016)" do
+      # Phase F3 (Beta 4, 2026-05-20). The profile pane was removed
+      # entirely; username + password management moved to operator-
+      # only rake tasks (`bin/rails pito:user:rename`,
+      # `bin/rails pito:user:password_set`). Row 1 now renders only
+      # the Security pane.
+      it "does NOT render the dropped profile pane heading" do
         get settings_path
-        expect(response.body).to include("<h2>profile</h2>")
+        expect(response.body).not_to include("<h2>profile</h2>")
       end
 
-      it "renders the profile form posting to /settings/user" do
+      it "does NOT render the dropped /settings/user profile form" do
         get settings_path
-        expect(response.body).to match(/action="\/settings\/user"/)
-        expect(response.body).to include('name="user[username]"')
-        expect(response.body).to include('name="user[current_password]"')
-        expect(response.body).to include('name="user[password]"')
-        expect(response.body).to include('name="user[password_confirmation]"')
+        expect(response.body).not_to match(/action="\/settings\/user"/)
+        expect(response.body).not_to include('name="user[current_password]"')
+        expect(response.body).not_to include('name="user[password_confirmation]"')
       end
 
       it "renders the security pane heading" do
@@ -152,10 +154,31 @@ RSpec.describe "Settings", type: :request do
           expect(response.body).to match(/class="status-badge status-badge--code tooltip-host"[^>]*data-tooltip="[^"]*"[^>]*>ip/)
         end
 
-        it "renders a `[this]` neutral status badge for the current-session row instead of `(this session)` muted text" do
+        # 2026-05-20 — Beta 4 Phase F3-C. The current-session marker
+        # swaps from `StatusBadgeComponent label: "this", kind: :strong`
+        # (a `span.status-badge--strong`) to the canonical
+        # `Tui::ChipComponent label: "this", variant: :current` (a
+        # `span.tui-chip.tui-chip--current` rendering `[this]`) per
+        # ADR 0016 (TUI design system) Phase F3 Sessions decision.
+        it "renders a `[this]` Tui chip (`:current` variant) on the current-session row" do
           get settings_path
-          expect(response.body).to include(">this<")
+          expect(response.body).to match(/class="tui-chip tui-chip--current"[^>]*>\[this\]/)
           expect(response.body).not_to include("(this session)")
+        end
+
+        it "renders TUI multi-select checkboxes on every row" do
+          get settings_path
+          # Each row's wrapper carries the stimulus checkbox target +
+          # the canonical TUI checkbox primitive (form mode → label
+          # with class tui-checkbox enclosing the input + glyph box).
+          # The wrapper's opening tag spans multiple lines and includes
+          # `change->sessions-bulk-revoke#toggle` which carries a literal
+          # `>` — use `[\s\S]*?` to walk attributes safely.
+          expect(response.body).to include('data-sessions-bulk-revoke-target="checkbox"')
+          expect(response.body).to match(
+            /class="sessions-table__checkbox"[\s\S]*?data-current="yes"/
+          )
+          expect(response.body).to match(/<label class="tui-checkbox\s*"/)
         end
 
         it "does NOT render the dropped helper copy block" do
@@ -245,12 +268,20 @@ RSpec.describe "Settings", type: :request do
           expect(response.body).to include("confirm-modal#close")
         end
 
-        it "bakes `data-current=\"yes\"` on the current-session row checkbox so Stimulus can detect inclusion" do
+        it "bakes `data-current=\"yes\"` on the current-session row checkbox wrapper so Stimulus can detect inclusion" do
           get settings_path
-          # The seeded current session is the only `yes`; all other
-          # rows would carry `no`. We assert at least one `yes`
-          # appears alongside the checkbox target.
-          expect(response.body).to match(/data-sessions-bulk-revoke-target="checkbox"[^>]*data-current="yes"|data-current="yes"[^>]*data-sessions-bulk-revoke-target="checkbox"/)
+          # 2026-05-20 (Beta 4 F3-C) — the host element moved from the
+          # `<input type=checkbox>` (now rendered by the TUI primitive,
+          # no data: passthrough) to the enclosing `<span class=
+          # "sessions-table__checkbox">` wrapper. The seeded current
+          # session is the only `yes`; all other rows carry `no`. We
+          # assert at least one `yes` appears alongside the checkbox
+          # target. The opening tag spans multiple lines and includes
+          # `change->sessions-bulk-revoke#toggle` (a literal `>`), so
+          # `[\s\S]*?` walks the attribute block safely.
+          expect(response.body).to match(
+            /data-sessions-bulk-revoke-target="checkbox"[\s\S]*?data-current="yes"|data-current="yes"[\s\S]*?data-sessions-bulk-revoke-target="checkbox"/
+          )
         end
 
         it "does NOT carry the old action-screen-page CSS markers (page is gone)" do

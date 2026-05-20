@@ -16,6 +16,17 @@ import { Controller } from "@hotwired/stimulus"
 // modal's title text, conditional current-session warning, and form
 // `action` attribute at click time based on the current selection.
 //
+// 2026-05-20 (Beta 4 F3-C) — row + header checkboxes now render via
+// `Tui::CheckboxComponent` (form mode). The primitive does not accept
+// `data:` passthrough by design, so the stimulus targets +
+// `data-current` host element move to a `<span class=
+// "sessions-table__checkbox">` wrapper that encloses the component
+// render. The controller dereferences each wrapper to its inner
+// `<input type="checkbox">` (excluding the form-mode hidden friend)
+// for `.checked` / `.value` / `.disabled` state. The wrapper carries
+// `data-value="<id>"` for selection-id lookup so we don't have to
+// reach into the input's value attr.
+//
 // Behaviour:
 //
 //   - `[ revoke ]` is rendered idle (muted, non-clickable) when no
@@ -30,51 +41,10 @@ import { Controller } from "@hotwired/stimulus"
 //     unchecked).
 //
 // "Current session in selection" is detected client-side via the
-// `data-current="yes"` attribute baked on each row checkbox in the
-// template (only the row whose session id matches the current
+// `data-current="yes"` attribute baked on each row's wrapper span in
+// the template (only the row whose session id matches the current
 // session carries `yes`). The warning line is hidden unless at
 // least one checked row is `yes`.
-//
-// Markup contract:
-//
-//   <fieldset data-controller="sessions-bulk-revoke">
-//     <a data-sessions-bulk-revoke-target="link"
-//        class="bracketed-muted">[revoke]</a>
-//     <table>
-//       <thead>
-//         <tr>
-//           <th>
-//             <input type="checkbox"
-//                    data-sessions-bulk-revoke-target="headerCheckbox"
-//                    data-action="change->sessions-bulk-revoke#toggleAll">
-//           </th>
-//           …
-//         </tr>
-//       </thead>
-//       <tbody>
-//         <tr>
-//           <td>
-//             <input type="checkbox"
-//                    value="<session.id>"
-//                    data-current="yes|no"
-//                    data-sessions-bulk-revoke-target="checkbox"
-//                    data-action="change->sessions-bulk-revoke#toggle">
-//           </td>
-//           …
-//         </tr>
-//       </tbody>
-//     </table>
-//     <dialog data-sessions-bulk-revoke-target="modal" …>
-//       <div data-sessions-bulk-revoke-target="modalTitle">…</div>
-//       <div data-sessions-bulk-revoke-target="modalWarning" hidden>…</div>
-//       <form data-sessions-bulk-revoke-target="modalForm"
-//             data-action="submit->sessions-bulk-revoke#refreshCsrf"
-//             action="…PLACEHOLDER…">
-//         <input type="hidden" name="authenticity_token" value="…">
-//         …
-//       </form>
-//     </dialog>
-//   </fieldset>
 export default class extends Controller {
   static targets = [
     "link", "headerCheckbox", "checkbox",
@@ -90,9 +60,10 @@ export default class extends Controller {
   }
 
   toggleAll() {
-    const checked = this.headerCheckboxTarget.checked
-    this.checkboxTargets.forEach(cb => {
-      if (!cb.disabled) cb.checked = checked
+    const checked = this._inputFor(this.headerCheckboxTarget)?.checked || false
+    this.checkboxTargets.forEach(wrapper => {
+      const input = this._inputFor(wrapper)
+      if (input && !input.disabled) input.checked = checked
     })
     this.update()
   }
@@ -140,9 +111,15 @@ export default class extends Controller {
     const count = ids.length
 
     if (this.hasHeaderCheckboxTarget) {
-      const total = this.checkboxTargets.filter(cb => !cb.disabled).length
-      this.headerCheckboxTarget.checked = count > 0 && count === total
-      this.headerCheckboxTarget.indeterminate = count > 0 && count < total
+      const headerInput = this._inputFor(this.headerCheckboxTarget)
+      const enabled = this.checkboxTargets
+        .map(w => this._inputFor(w))
+        .filter(input => input && !input.disabled)
+      const total = enabled.length
+      if (headerInput) {
+        headerInput.checked = count > 0 && count === total
+        headerInput.indeterminate = count > 0 && count < total
+      }
     }
 
     if (!this.hasLinkTarget) return
@@ -204,15 +181,30 @@ export default class extends Controller {
     }
   }
 
+  // Pull the real `<input type="checkbox">` out of a wrapper span.
+  // The Tui::CheckboxComponent form mode renders a hidden friend
+  // (`<input type="hidden">`) alongside the visible checkbox — skip
+  // the hidden friend.
+  _inputFor(wrapper) {
+    if (!wrapper) return null
+    return wrapper.querySelector('input[type="checkbox"]')
+  }
+
   get selectedIds() {
     return this.checkboxTargets
-      .filter(cb => cb.checked && !cb.disabled)
-      .map(cb => cb.value)
+      .filter(wrapper => {
+        const input = this._inputFor(wrapper)
+        return input && input.checked && !input.disabled
+      })
+      .map(wrapper => wrapper.dataset.value || this._inputFor(wrapper).value)
   }
 
   get currentSessionInSelection() {
     return this.checkboxTargets
-      .filter(cb => cb.checked && !cb.disabled)
-      .some(cb => cb.dataset.current === "yes")
+      .filter(wrapper => {
+        const input = this._inputFor(wrapper)
+        return input && input.checked && !input.disabled
+      })
+      .some(wrapper => wrapper.dataset.current === "yes")
   }
 }

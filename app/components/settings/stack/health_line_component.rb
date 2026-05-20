@@ -1,26 +1,25 @@
 module Settings
   module Stack
     # Renders a single tri-state health line: `<strong>label</strong>`
-    # followed by a glyph + status word colored by severity.
+    # followed by a `Tui::ChipComponent` whose label + variant encode
+    # the current state.
     #
-    # Extracted from `app/views/settings/_stack_pane.html.erb` (Postgres,
-    # Redis, Meilisearch, assets, notes) and
-    # `app/views/settings/_voyage_section.html.erb` (Voyage AI) per
-    # Beta-3 lane B candidate B10. The seven inline 7-9-line `div`
-    # blocks all shared the same shape: a label + a tri-state status
-    # span, only the glyph / copy / color combination changed per
-    # check.
+    # Beta 4 F3-D — switched the status surface from a colored glyph +
+    # word span to the canonical `[ label ]` chip primitive (ADR 0016
+    # TUI design system). The component still owns the label-to-state
+    # mapping, so consumers do not pass chip variants directly — they
+    # pass a semantic state (`:connected`, `:writable`, `:configured`,
+    # …) and the component resolves the chip copy + variant.
     #
-    # State enum maps to glyph + copy + color class verbatim from the
-    # existing source:
+    # State enum maps to chip label + chip variant verbatim:
     #
-    #   :connected      → green   "▲ connected"      (success)
-    #   :disconnected   → red     "▽ disconnected"   (danger)
-    #   :writable       → green   "▲ writable"       (success)
-    #   :read_only      → red     "▽ read-only"      (danger)
-    #   :absent         → muted   "▽ not present"    (muted)
-    #   :configured     → green   "▲ configured"     (success)
-    #   :not_configured → red     "▽ not configured" (danger)
+    #   :connected      → `[connected]`      success
+    #   :disconnected   → `[disconnected]`   danger
+    #   :writable       → `[writable]`       info
+    #   :read_only      → `[read-only]`      danger
+    #   :absent         → `[not present]`    warn
+    #   :configured     → `[configured]`     info
+    #   :not_configured → `[not configured]` danger
     #
     # Per-consumer state expression varies. Postgres / Redis /
     # Meilisearch flip between `:connected` / `:disconnected`; assets
@@ -30,13 +29,13 @@ module Settings
     # from their existing local flags.
     class HealthLineComponent < ViewComponent::Base
       STATES = {
-        connected:      { glyph: "▲", copy: "connected",      severity: :success },
-        disconnected:   { glyph: "▽", copy: "disconnected",   severity: :danger  },
-        writable:       { glyph: "▲", copy: "writable",       severity: :success },
-        read_only:      { glyph: "▽", copy: "read-only",      severity: :danger  },
-        absent:         { glyph: "▽", copy: "not present",    severity: :muted   },
-        configured:     { glyph: "▲", copy: "configured",     severity: :success },
-        not_configured: { glyph: "▽", copy: "not configured", severity: :danger  }
+        connected:      { chip_label: "connected",      chip_variant: :success },
+        disconnected:   { chip_label: "disconnected",   chip_variant: :danger  },
+        writable:       { chip_label: "writable",       chip_variant: :info    },
+        read_only:      { chip_label: "read-only",      chip_variant: :danger  },
+        absent:         { chip_label: "not present",    chip_variant: :warn    },
+        configured:     { chip_label: "configured",     chip_variant: :info    },
+        not_configured: { chip_label: "not configured", chip_variant: :danger  }
       }.freeze
 
       # @param label [String] the bolded check name, e.g. "Postgres".
@@ -52,25 +51,12 @@ module Settings
         @state = state
       end
 
-      def glyph
-        STATES.fetch(@state).fetch(:glyph)
+      def chip_label
+        STATES.fetch(@state).fetch(:chip_label)
       end
 
-      def copy
-        STATES.fetch(@state).fetch(:copy)
-      end
-
-      # @return [String] inline style / class for the status span.
-      #   Matches the existing inline pattern in the source templates:
-      #     success → `style="color: var(--color-success);"`
-      #     danger  → `class="text-danger"`
-      #     muted   → `class="text-muted"`
-      def status_attrs
-        case STATES.fetch(@state).fetch(:severity)
-        when :success then { style: "color: var(--color-success);" }
-        when :danger  then { class: "text-danger" }
-        when :muted   then { class: "text-muted" }
-        end
+      def chip_variant
+        STATES.fetch(@state).fetch(:chip_variant)
       end
 
       attr_reader :label, :state

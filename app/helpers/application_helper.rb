@@ -262,34 +262,78 @@ module ApplicationHelper
     @_app_version ||= Rails.root.join("VERSION").read.strip
   end
 
-  def git_sha
-    @_git_sha ||= begin
-      sha = `git rev-parse --short HEAD 2>/dev/null`.strip
-      sha.present? ? sha : nil
+  # Beta 4 — Phase F1 Lane B. The top status bar's leading version label.
+  # Aliases `app_version` so the status bar reads from the same canonical
+  # `VERSION` file source as the About modal (no duplicate
+  # source-of-truth). Kept as a distinct helper name so a future shift
+  # (e.g. `vX.Y.Z` for release) can diverge from the underlying
+  # `app_version` without churning every status-bar call site.
+  def pito_version
+    app_version
+  end
+
+  # Beta 4 — Phase F1 Lane B. The top status bar's optional `:(<page>)`
+  # tail. Returns the human-readable name of the current sub-page WHEN
+  # the route is a sub-page deeper than the section's root index. Returns
+  # `nil` for section root screens (e.g. `/channels`, `/settings`,
+  # `/home`) so the status bar renders just `<version> <section>` without
+  # a trailing `:(...)` segment.
+  #
+  # Resolution rules (locked 2026-05-20 with the tmp/demo-status-bar-final
+  # visual):
+  #   - `games#show`     -> @game.title (e.g. "Witcher 3: Wild Hunt")
+  #   - `channels#show`  -> @channel.title or @channel.handle or url tail
+  #   - `videos#show`    -> @video.title
+  #   - `projects#show`  -> @project.name
+  #   - anything else    -> nil (no `:(...)` segment)
+  #
+  # We deliberately depend on the controller's instance variables here
+  # because the layout renders AFTER the controller's action has set
+  # them; reaching into `@game` / `@channel` keeps the helper view-only
+  # and avoids re-querying the DB just to produce a label.
+  def current_page
+    return nil unless respond_to?(:controller_path) && controller_path.present?
+    return nil unless respond_to?(:action_name) && action_name == "show"
+
+    case controller_path
+    when "games"
+      game = instance_variable_get(:@game)
+      game.respond_to?(:title) ? game.title.presence : nil
+    when "channels"
+      channel = instance_variable_get(:@channel)
+      return nil unless channel
+
+      title = channel.respond_to?(:title) ? channel.title : nil
+      handle = channel.respond_to?(:handle) ? channel.handle : nil
+      title.presence || handle.presence
+    when "videos"
+      video = instance_variable_get(:@video)
+      video.respond_to?(:title) ? video.title.presence : nil
+    when "projects"
+      project = instance_variable_get(:@project)
+      project.respond_to?(:name) ? project.name.presence : nil
     end
   end
 
-  def version_label
-    sha = git_sha
-    version = "v#{app_version}"
-    if sha
-      repo_url = "https://github.com/gmrdad82/pito/commit/#{sha}"
-      # 2026-05-16 polish — wrap the SHA in literal `[...]` brackets and
-      # render it through BracketedMutedLinkComponent so it reads as a
-      # quiet muted reference rather than a prominent link affordance.
-      # Matches the `--color-muted` resting state of other muted
-      # bracketed-link surfaces; keeps a real `<a>` to GitHub with the
-      # same subtle hover-darkening the cancel pattern uses elsewhere.
-      sha_link = render(BracketedMutedLinkComponent.new(
-        href: repo_url,
-        label: sha,
-        target: "_blank",
-        rel: "noopener"
-      ))
-      "#{version} #{sha_link}".html_safe
-    else
-      version
-    end
+  # Beta 4 — Phase F1 Lane B. Initial-paint snapshot of Sidekiq queue
+  # depths consumed by `Tui::TopStatusBarComponent`. The cable channel
+  # (`pito:status_bar`, see `StatusBarBroadcastMiddleware`) pushes the
+  # same shape on every job completion so the four cells (b/e/r/s) only
+  # need a sensible value for the very first paint before cable wakes
+  # up. Returns muted-zero defaults if Sidekiq::Stats raises (test envs
+  # that mock Redis, transient Redis blips, etc.) — the page is never
+  # blocked on Sidekiq.
+  def sidekiq_queue_stats
+    require "sidekiq/api"
+    stats = Sidekiq::Stats.new
+    {
+      busy: stats.workers_size,
+      enqueued: stats.enqueued,
+      retry: stats.retry_size,
+      scheduled: stats.scheduled_size
+    }
+  rescue StandardError
+    { busy: 0, enqueued: 0, retry: 0, scheduled: 0 }
   end
 
   def pane_breadcrumb_label(panes, show: 3, trunc_length: 14)

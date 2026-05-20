@@ -15,14 +15,23 @@
   <%# Tight table — mirrors the `/channels` density. Columns:
       checkbox / user-agent / pinged.
 
+      Beta 4 — Phase F3-C (2026-05-20):
+        * Row + header checkboxes now use `Tui::CheckboxComponent`
+          form-mode (the canonical TUI primitive shipped in F2). The
+          stimulus targets + `data-current` host element move to the
+          enclosing `<span class="sessions-table__checkbox">`
+          wrapper, since the TUI primitive does not accept data:
+          passthrough by design. The JS controller dereferences the
+          wrapper to the inner `<input type=checkbox>` for state.
+        * The current-session marker swaps from
+          `StatusBadgeComponent label: "this", kind: :strong` to the
+          canonical `Tui::ChipComponent variant: :current` per
+          ADR 0016 (TUI design system) Phase F3 Sessions decision.
+
       2026-05-16 (sessions revamp v2 polish): the standalone `ip`
       column is gone. The IP value is now an inline
       `TooltipBadgeComponent` rendered at the END of the
       user-agent cell — `[ip]` reveals the address on hover.
-      The current-row `(this session)` muted text is replaced by
-      a `[this]` neutral status badge sitting after the `[ip]`
-      badge. The `sessions.ip` database column is UNTOUCHED —
-      only the rendered column is dropped.
 
       The `active` column was dropped earlier (the visible set is
       filtered to active-only) and the `remember` column was
@@ -34,7 +43,11 @@
     <thead>
       <tr>
         <th class="col-action">
-          <%= render(CheckboxComponent.new(data: { sessions_bulk_revoke_target: "headerCheckbox", action: "change->sessions-bulk-revoke#toggleAll" })) %>
+          <span class="sessions-table__checkbox sessions-table__checkbox--header"
+                data-sessions-bulk-revoke-target="headerCheckbox"
+                data-action="change->sessions-bulk-revoke#toggleAll">
+            <%= render(Tui::CheckboxComponent.new(name: "__select_all", value: "yes", checked: false)) %>
+          </span>
         </th>
         <th class="sortable"><%= helpers.sort_link_to("user-agent", "user_agent", current_sort: sessions_sort, current_dir: sessions_dir, sort_param: "sessions_sort", dir_param: "sessions_dir") %></th>
         <th class="sortable num"><%= helpers.sort_link_to("pinged", "last_activity", current_sort: sessions_sort, current_dir: sessions_dir, sort_param: "sessions_sort", dir_param: "sessions_dir") %></th>
@@ -44,17 +57,16 @@
       <% sessions.each do |s| %>
         <tr>
           <td class="col-action">
-            <%= render(CheckboxComponent.new(
-              value: s.id,
-              data: {
-                sessions_bulk_revoke_target: "checkbox",
-                action: "change->sessions-bulk-revoke#toggle",
-                current: current_flag(s)
-              }
-            )) %>
+            <span class="sessions-table__checkbox"
+                  data-sessions-bulk-revoke-target="checkbox"
+                  data-action="change->sessions-bulk-revoke#toggle"
+                  data-current="<%= current_flag(s) %>"
+                  data-value="<%= s.id %>">
+              <%= render(Tui::CheckboxComponent.new(name: "ids[]", value: s.id, checked: false)) %>
+            </span>
           </td>
           <td style="max-width: 360px; white-space: normal;">
-            <code><%= s.user_agent.presence || "—" %></code><%= render(TooltipBadgeComponent.new(label: "ip", tooltip: s.ip || "—", variant: :code)) %><% if current?(s) %><%= render(StatusBadgeComponent.new(label: "this", kind: :strong)) %><% end %>
+            <code><%= s.user_agent.presence || "—" %></code><%= render(TooltipBadgeComponent.new(label: "ip", tooltip: s.ip || "—", variant: :code)) %><% if current?(s) %><%= render(Tui::ChipComponent.new(label: "this", variant: :current)) %><% end %>
           </td>
           <td class="num"><%= helpers.compact_time_ago(s.last_activity_at) %></td>
         </tr>

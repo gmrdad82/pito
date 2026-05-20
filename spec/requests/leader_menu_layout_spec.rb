@@ -45,54 +45,46 @@ RSpec.describe "Leader menu layout integration", type: :request do
       expect(response.body).to include('data-leader-menu-target="popup"')
     end
 
-    it "GET #{path} renders the [_] navbar link wired to leader-menu#openRoot" do
+    it "GET #{path} renders the Tui::TopStatusBarComponent inside the header" do
       get path
-      # 2026-05-18 — the `[_]` affordance was relocated from the
-      # footer into the header navbar, immediately after `[settings]`.
-      # Slice the response to the <header>...</header> region so the
-      # assertion proves the link's NEW location (not just that the
-      # markup exists somewhere on the page).
+      # Beta 4 — Phase F1 Lane D (2026-05-20). The `[_]` bracketed
+      # leader trigger that used to live in the header's right
+      # cluster (immediately after `[settings]`) was dropped along
+      # with the bracketed-nav layout. The leader menu is still
+      # reachable via the SPACE keypress because the `leader-menu`
+      # Stimulus controller stays mounted on `<body>` and registers a
+      # document keydown listener — see the "mounts data-controller
+      # leader-menu on <body>" spec above. The header now hosts the
+      # status bar; this assertion locks the new shape.
       header = response.body.match(%r{<header\b.*?</header>}m)
       expect(header).not_to be_nil, "expected to find <header>...</header> in the response"
-      # ERB encodes `->` as `-&gt;` inside attribute values; match the
-      # encoded bytes so the assertion is grounded in real output.
-      expect(header[0]).to include("click-&gt;leader-menu#openRoot")
-      expect(header[0]).to match(/\[<span class="bl">_<\/span>\]/)
+      expect(header[0]).to include('class="sb-bar"')
+      expect(header[0]).to include('data-controller="tui-status-bar"')
     end
 
-    it "GET #{path} positions the [_] navbar link immediately after [settings]" do
+    it "GET #{path} does NOT render the legacy [_] navbar link anywhere on the page" do
       get path
-      header = response.body.match(%r{<header\b.*?</header>}m)
-      expect(header).not_to be_nil
-      # The `settings` token renders in one of two shapes depending on
-      # whether the current page IS /settings (active span,
-      # `>[settings]<`) or not (inactive bracketed link,
-      # `>settings</span>]`). Match on the regex that covers both
-      # so the assertion is shape-agnostic.
-      settings_match = header[0].match(/>\[?settings\]?</)
-      leader_at = header[0].index("click-&gt;leader-menu#openRoot")
-      expect(settings_match).not_to be_nil, "expected to find the [settings] label in the header"
-      expect(leader_at).not_to be_nil
-      expect(leader_at).to be > settings_match.begin(0),
-        "expected the [_] leader link to render after [settings] in the header"
-    end
-
-    it "GET #{path} does NOT render the [_] link inside the footer" do
-      get path
-      footer = response.body.match(%r{<footer\b.*?</footer>}m)
-      expect(footer).not_to be_nil
-      expect(footer[0]).not_to include("click-&gt;leader-menu#openRoot")
-      expect(footer[0]).not_to match(/\[<span class="bl">_<\/span>\]/)
+      # Beta 4 — Phase F1 Lane D. The bracketed `[_]` link wired to
+      # `click->leader-menu#openRoot` is gone from BOTH the header and
+      # the footer. SPACE keypress remains the discovery path.
+      expect(response.body).not_to include("click-&gt;leader-menu#openRoot")
+      expect(response.body).not_to match(/\[<span class="bl">_<\/span>\]/)
     end
   end
 
   describe "auth-chrome-hidden pages" do
-    it "does NOT render the [_] navbar link on /login (content_for :hide_chrome)" do
+    it "does NOT render the status bar on /login (content_for :hide_chrome)" do
       get "/login"
       expect(response).to have_http_status(:ok)
-      # Both nav blocks (header + footer) are gated by
-      # `unless content_for?(:hide_chrome)`; auth pages set that flag.
-      expect(response.body).not_to include("click-&gt;leader-menu#openRoot")
+      # The header element is still emitted (the sticky-positioned
+      # shell stays in the layout regardless of `:hide_chrome`), but
+      # the `Tui::TopStatusBarComponent` inside it is gated by the
+      # same `unless content_for?(:hide_chrome)` flag that previously
+      # hid the bracketed nav. Auth pages should never render the
+      # status bar's controller hook.
+      header = response.body.match(%r{<header\b.*?</header>}m)
+      expect(header).not_to be_nil
+      expect(header[0]).not_to include('data-controller="tui-status-bar"')
     end
 
     it "still embeds the schema script tag even on chrome-hidden pages" do

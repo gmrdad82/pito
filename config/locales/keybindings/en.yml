@@ -65,10 +65,8 @@ en:
         delete: "delete"
       settings:
         revoke_unused_sessions: "revoke unused sessions"
-        discord_all: "Discord all"
-        discord_daily_digest: "Discord daily digest"
-        slack_all: "Slack all"
-        slack_daily_digest: "Slack daily digest"
+        notifications_all: "all"
+        notifications_daily_digest: "daily digest"
         voyage_reindex: "Voyage reindex"
       default:
         search: "search"

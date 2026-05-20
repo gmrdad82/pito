@@ -10,17 +10,19 @@ RSpec.describe NotificationDeliver do
         .not_to raise_error
     end
 
-    # Phase 29 — Unit A1. The Slack / Discord delivery gate is now
-    # derived from the `NotificationDeliveryChannel` row (present
-    # `webhook_url` + a routing flag). The orphaned `AppSetting.*_enabled`
-    # columns were dropped. A configured channel row drives both the
-    # gate AND the resolved webhook URL.
+    # 2026-05-20 — F3-B-SIMPLIFY-MODEL. The Slack / Discord delivery
+    # gate is the AND of:
+    #   - Shared toggle ON on `AppSetting.singleton_row`.
+    #   - A `NotificationDeliveryChannel` row with a present
+    #     `webhook_url`.
+    # The per-brand routing-flag columns were dropped.
     it "discord channel: routes to the Discord channel and stamps the column on success" do
       AppSetting.delete_all
       NotificationDeliveryChannel.delete_all
       url = "https://discord.com/api/webhooks/abc"
-      row = NotificationDeliveryChannel.new(kind: "discord", webhook_url: url, everything: true)
+      row = NotificationDeliveryChannel.new(kind: "discord", webhook_url: url)
       row.save!(validate: false)
+      AppSetting.set_notification_toggle!(:notifications_send_all, true)
       stub_request(:post, url).to_return(status: 204, body: "")
 
       expect { described_class.new.perform(notification.id, "discord") }
@@ -31,8 +33,9 @@ RSpec.describe NotificationDeliver do
       AppSetting.delete_all
       NotificationDeliveryChannel.delete_all
       url = "https://hooks.slack.com/services/abc"
-      row = NotificationDeliveryChannel.new(kind: "slack", webhook_url: url, everything: true)
+      row = NotificationDeliveryChannel.new(kind: "slack", webhook_url: url)
       row.save!(validate: false)
+      AppSetting.set_notification_toggle!(:notifications_send_all, true)
       stub_request(:post, url).to_return(status: 200, body: "ok")
 
       expect { described_class.new.perform(notification.id, "slack") }
