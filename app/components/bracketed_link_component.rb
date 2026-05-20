@@ -18,7 +18,13 @@ class BracketedLinkComponent < ViewComponent::Base
   # default for the unspecified case, never an overwrite. The sentinel for
   # "unspecified" is `:auto` so a caller can still pass `target: nil` to
   # force no attribute on an external URL (rare, but legal).
-  def initialize(label:, href: nil, destructive: false, method: nil, data: {}, active: false, target: :auto, rel: :auto)
+  # `as: :submit` switches the rendered tag from `<a>` to
+  # `<button type="submit">` so the same bracketed-action chrome can be
+  # used as a form submit (notifications webhook [update] buttons). The
+  # CSS rule `button.bracketed` resets browser button chrome and pins
+  # the bracketed-link family — see `application.css` near the
+  # `button.bracketed.action-screen-submit` block.
+  def initialize(label:, href: nil, destructive: false, method: nil, data: {}, active: false, target: :auto, rel: :auto, as: :link)
     @label = label
     @href = href
     @destructive = destructive
@@ -27,10 +33,15 @@ class BracketedLinkComponent < ViewComponent::Base
     @active = active
     @target = target
     @rel = rel
+    @as = as
   end
 
   def active?
-    @active || @href.nil?
+    @active || (@as == :link && @href.nil?)
+  end
+
+  def submit?
+    @as == :submit
   end
 
   def css_classes

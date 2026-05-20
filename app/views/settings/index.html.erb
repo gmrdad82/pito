@@ -1,5 +1,4 @@
 <% content_for(:title, t("settings.index.title")) %>
-<h1><%= t("settings.index.heading") %></h1>
 
 <%# Phase 29 (settings refactor) — 3-row layout.
     Phase 32 follow-up (2026-05-16) — Row 2 simplification.
@@ -52,24 +51,47 @@
     scope, so click actions on any descendant — pane links or
     in-dialog `[close]` — reach the controller correctly. %>
 <div data-controller="settings-modal">
-  <div class="settings-panes">
-    <%# Phase F3 (Beta 4, 2026-05-20) — profile pane CUT per ADR 0016.
-        Username + password management moved to operator-only rake
-        tasks (`bin/rails pito:user:rename`, `bin/rails pito:user:
-        password_set`). Row 1 now renders the Security pane alone. %>
-    <div class="pane-row">
+  <%# 2026-05-20 — width-tiling grid per ADR 0016. The legacy
+      `<div class="pane-row">` flex wrappers (one per partial) were
+      replaced by a single `.pito-workspace` CSS-grid container with
+      `repeat(auto-fit, minmax(60ch, 1fr))` columns. The grid handles
+      wrap natively, so the per-row flex containers are no longer
+      needed — every pane sits as a direct grid cell. The legacy
+      `.settings-panes` class stays alongside `.pito-workspace` so the
+      muted-overlay (`.settings-panes--muted`) and compound-pill
+      border-radius rules still apply.
+      Pane classes:
+        * Security + Notifications panes — `.pane.pito-pane` cells
+          tiled by the grid (60ch min-width → tile when viewport ≥
+          ~120ch, stack when narrower).
+        * Stack pane — `.pane.pane--wide.pito-pane.pito-pane--full`,
+          opts out of column tiling via `grid-column: 1 / -1` so its
+          internal 3×2 tile grid keeps the full viewport width. The
+          `pane--wide` 888px hint is overridden by `pito-pane`'s
+          `width: auto`. %>
+  <%# FB-52 (2026-05-20) — V3 60/40 masonry layout per user lock.
+      LEFT 60%: notifications (top) + security/sessions (bottom),
+      stacked vertically.
+      RIGHT 40%: stack panel only.
+      The internal stack sub-panel arrangement (Redis, Postgres,
+      Meilisearch, Voyage AI, assets, notes — vertical) is FB-51,
+      which lands separately. %>
+  <div class="settings-panes pito-workspace settings-panes--v3" data-controller="tui-cursor">
+    <div class="settings-panes__left">
+      <%# Beta 4 — F3-B. Unified notifications panel. Collapses the
+          prior two-pane Discord + Slack row into a single panel
+          rendering a shared toggles block at the top followed by the
+          per-brand subsections (Discord, then Slack). %>
+      <%= render "notifications_pane" %>
+
+      <%# Phase F3 (Beta 4, 2026-05-20) — profile pane CUT per ADR 0016.
+          Username + password management moved to operator-only rake
+          tasks (`bin/rails pito:user:rename`, `bin/rails pito:user:
+          password_set`). The security pane renders as a grid cell. %>
       <%= render "security_pane" %>
     </div>
 
-    <%# Beta 4 — F3-B. Unified notifications panel. Collapses the
-        prior two-pane Discord + Slack row into a single full-width
-        panel rendering a shared toggles block at the top followed by
-        the per-brand subsections (Discord, then Slack). %>
-    <div class="pane-row">
-      <%= render "notifications_pane" %>
-    </div>
-
-    <div class="pane-row">
+    <div class="settings-panes__right">
       <%= render "stack_pane" %>
     </div>
   </div>

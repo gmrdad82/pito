@@ -44,9 +44,20 @@ en:
       col_index: "index"
       col_docs: "docs"
       not_yet_indexed: "not yet indexed"
-      reindex_confirm_title: "reindex Meilisearch?"
-      reindex_confirm_body: "this re-indexes all configured targets."
-      reindex: "reindex"
+      # FB-63 (2026-05-20) — `[reindex]` split into two tile-level
+      # actions. The legacy combined-modal keys
+      # (`reindex_confirm_title` / `reindex_confirm_body` / `reindex`)
+      # are gone along with the single-action
+      # `_voyage_section.html.erb` modal trigger; each tile now owns
+      # a direct-POST link with its own flash copy. The two `*_*`
+      # key shapes are deliberately flat (instead of nested under a
+      # `meilisearch:` / `voyage:` hash) because `settings.stack.meilisearch`
+      # already resolves to the tile label string above — nesting
+      # would collide on the same key and shadow the scalar.
+      meilisearch_reindex_label: "reindex"
+      meilisearch_reindex_flash: "meilisearch reindex queued."
+      voyage_reindex_label: "reindex"
+      voyage_reindex_flash: "voyage reindex queued."
       assets: "assets"
       col_category: "category"
       col_files: "files"

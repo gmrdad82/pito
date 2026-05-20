@@ -1,13 +1,11 @@
-# Discord webhook setup
-
-## Step 1 — Channel settings
+## step 1 — channel settings
 
 Hover the target channel in the channel list, click the gear icon (or
 right-click → `Edit Channel`).
 
 ---
 
-## Step 2 — Create the webhook
+## step 2 — create the webhook
 
 `Integrations` → `Webhooks` → `New Webhook`.
 
@@ -22,7 +20,7 @@ Copy after saving so the webhook exists when pito tests it.
 
 ---
 
-## Step 3 — Paste into pito
+## step 3 — paste into pito
 
 Settings → Discord pane. Paste into `webhook URL`, click `[update]`.
 
@@ -36,15 +34,15 @@ You should see in the channel within ~1s:
 
 ---
 
-## Troubleshooting
+## troubleshooting
 
-| Error                    | Fix                                      |
-| ------------------------ | ---------------------------------------- |
-| **URL invalid**          | re-copy from Discord                     |
-| **test ping 404**        | webhook deleted — redo Step 2            |
-| **test ping 401**        | token reset — redo Step 2                |
-| **connection timed out** | network / `discord.com` reachability     |
-| **no Integrations menu** | missing `Manage Webhooks` on the channel |
-| **channel disappeared**  | channel deleted — redo Step 2 elsewhere  |
+| Error                | Fix                                      |
+| -------------------- | ---------------------------------------- |
+| URL invalid          | re-copy from Discord                     |
+| test ping 404        | webhook deleted — redo step 2            |
+| test ping 401        | token reset — redo step 2                |
+| connection timed out | network / `discord.com` reachability     |
+| no Integrations menu | missing `Manage Webhooks` on the channel |
+| channel disappeared  | channel deleted — redo step 2 elsewhere  |
 
 To reset: clear the `webhook URL` field and `[update]`. Toggles reset to off.

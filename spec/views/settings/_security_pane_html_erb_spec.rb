@@ -32,7 +32,7 @@ RSpec.describe "settings/_security_pane.html.erb", type: :view do
     end
 
     it "renders the security heading" do
-      expect(rendered).to include("<h2>security</h2>")
+      expect(rendered).to include('<span class="pito-pane__title">security</span>')
     end
 
     it "renders the empty-state when the user has no active sessions" do

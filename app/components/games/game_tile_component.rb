@@ -62,14 +62,14 @@ module Games
 
     # 2026-05-17 (Wave B3b) — chips render in a `.tile-cover-chip-
     # overlay` on the cover's bottom-right corner. The set is the
-    # owned ∪ available union, walked in `KNOWN_LOGOS` declaration
+    # owned ∪ available union, walked in `KNOWN_CHIPS` declaration
     # order so render stays deterministic across calls.
     def tile_chip_slugs
-      detail_slugs = helpers.game_detail_logo_slugs(game)
-      owned_pick   = helpers.game_index_tile_logo_slug(game)
+      detail_slugs = helpers.game_detail_chip_slugs(game)
+      owned_pick   = helpers.game_index_tile_chip_slug(game)
       combined     = (detail_slugs + Array(owned_pick)).to_set
 
-      PlatformLogosHelper::KNOWN_LOGOS.select { |slug| combined.include?(slug) }
+      PlatformChipsHelper::KNOWN_CHIPS.select { |slug| combined.include?(slug) }
     end
 
     # Phase 28 §01a — when an edition tile is rendered in flat mode

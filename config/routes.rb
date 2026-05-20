@@ -556,7 +556,21 @@ Rails.application.routes.draw do
   # Theme system removed entirely 2026-05-19 — pito is single-theme
   # now, no server-side preference, no client-side toggle. The legacy
   # `PATCH /settings/theme` route is gone for good.
-  post "settings/reindex", to: "settings#reindex"
+  #
+  # FB-63 (2026-05-20) — the single `[reindex]` action was split into
+  # two distinct actions, one per stack subsystem. Each tile in the
+  # Stack pane owns its own reindex trigger:
+  #
+  #   POST /settings/stack/meilisearch/reindex → Meilisearch only
+  #   POST /settings/stack/voyage/reindex      → Voyage AI only
+  #
+  # The legacy `POST /settings/reindex` combined action is gone.
+  post "settings/stack/meilisearch/reindex",
+       to: "settings#meilisearch_reindex",
+       as: :settings_stack_meilisearch_reindex
+  post "settings/stack/voyage/reindex",
+       to: "settings#voyage_reindex",
+       as: :settings_stack_voyage_reindex
   # 2026-05-18 (DR) — live JSON polled by the `stack-stats-live`
   # Stimulus controller mounted on the Stack pane. Returns the
   # subset of stats that change moment to moment (Sidekiq counters

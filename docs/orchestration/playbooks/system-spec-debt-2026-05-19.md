@@ -133,3 +133,64 @@ system-spec drift from accumulating silently. Currently CI runs the full suite
 per `.github/workflows/ci.yml`, so the gate is there — but CI is on hiatus
 until 2026-06-02 per `project_ci_hiatus_until_jun_2` memory, meaning local
 `bin/test all` is the only gate right now.
+
+## Iteration spec TODOs — accumulating during the consolidation pass
+
+Code-only iteration changes that need spec coverage when the dedicated
+consolidation phase runs. Each item lists the file(s) touched, what changed,
+and the assertion shape the spec should cover.
+
+### 2026-05-20 — TUI chip visual differentiation (Tui::ChipComponent)
+
+- **File:** `app/assets/tailwind/application.css` (`.tui-chip` block).
+- **Change:** added `cursor: default` to `.tui-chip` + variant-scoped
+  `:hover` color locks so chips don't read as bracket-link affordances. Weight
+  already 400 vs bracket-links at 600.
+- **Spec shape:**
+  - `spec/components/tui/chip_component_spec.rb` should assert the rendered
+    chip carries no `cursor: pointer` style and that its computed style does
+    not match the bracket-link hover shift. Component spec can't actually
+    introspect CSS, so the practical assertion is structural — the chip is
+    rendered as a plain `<span class="tui-chip tui-chip--<variant>">` with NO
+    `<a>` ancestor wrapping inside the component. That contract pins the
+    "informational, non-clickable" intent at the markup boundary; the CSS
+    rules then enforce the visual layer.
+  - A separate system spec (later) can hover the chip and confirm color does
+    not change — but that's a Capybara concern that belongs in the system
+    consolidation pass, not the unit pass.
+
+### 2026-05-20 — TUI cursor focus indicator CSS
+
+- **File:** `app/assets/tailwind/application.css` (new
+  `[data-tui-cursor-focused="yes"]` rule near the `.pito-pane` block).
+- **Change:** 2px solid `var(--section-accent)` outline with `-2px` offset
+  overlays the focused pane's existing 1px section-border so the cursor
+  position is visible as the user tabs / Ctrl+hjkl across panes.
+- **Spec shape:**
+  - `spec/system/tui_cursor_navigation_spec.rb` (new) — visit a workspace
+    with multiple panes, press Tab, assert the FIRST `.pito-pane` element
+    carries `data-tui-cursor-focused="yes"` and the others do not. Press Tab
+    again, assert the attribute moved. The CSS layer is verified visually,
+    not in spec — what the spec pins is the attribute placement contract
+    that `tui_cursor_controller.js` ships.
+  - Pair with a unit-level Stimulus controller spec under
+    `spec/javascript/controllers/tui_cursor_controller_spec.js` (if the
+    project's JS test infra supports it) — assert `applyFocus()` toggles the
+    dataset attribute correctly.
+
+### 2026-05-20 — Notes volume status alignment (settings stack pane)
+
+- **File:** `app/controllers/settings_controller.rb`
+  (`notes_volume_status_for_settings_pane` + new
+  `notes_volume_path_for_settings_pane`).
+- **Change:** the chip path now resolves to
+  `ENV["PITO_NOTES_PATH"] || tmp/pito-notes` — the SAME root the breakdown
+  table uses — so the two surfaces always agree. Previous bug: chip checked
+  `docs/notes` (an unrelated design-doc directory) while the table read
+  `tmp/pito-notes`.
+- **Spec shape:** `spec/requests/settings_spec.rb` (existing) should pick up
+  a regression test that stubs `ENV["PITO_NOTES_PATH"]` to a tmp dir, creates
+  one file inside, and asserts the rendered HTML contains BOTH the
+  `[writable]` chip label AND the matching `count`/`size` row for the
+  `project` namespace — i.e., the chip and the breakdown reconcile. Without
+  this regression test, the two-source drift can recur silently.

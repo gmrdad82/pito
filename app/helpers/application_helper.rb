@@ -116,6 +116,21 @@ module ApplicationHelper
     end
   end
 
+  # 2026-05-20 — Per-section bg / accent helpers. Read from
+  # `Pito::SectionColors` so the values are specced and unified across
+  # the Rails layout AND any future server-rendered surface that needs
+  # the same colors (CLI status preview, OG card renderer, etc.).
+  # The layout calls these in the inline `<body style="...">` so the
+  # browser receives Ruby-computed hex instead of resolving a CSS
+  # `color-mix()` chain at paint time.
+  def pito_section_bg(section = current_section)
+    Pito::SectionColors.bg(section)
+  end
+
+  def pito_section_accent(section = current_section)
+    Pito::SectionColors.accent(section)
+  end
+
   def breadcrumb(*crumbs)
     content_for(:breadcrumbs) do
       render(BreadcrumbComponent.new(crumbs: crumbs))

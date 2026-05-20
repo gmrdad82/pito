@@ -1,0 +1,52 @@
+# Help overlay i18n (FB-71, 2026-05-20).
+#
+# Owned by `Tui::HelpOverlayComponent`. Strings live under
+# `help.overlay.*` so the surface can evolve independently of
+# `common.*` and area locales. The `keys` block in
+# `config/locales/keybindings/en.yml` is the canonical key-label
+# source (TAB, Esc, Space, Ctrl, etc.); this file only carries the
+# help-overlay-specific copy (title, group titles, action labels,
+# and the trailing "to close" suffix in the title bar).
+#
+# Group / item ordering mirrors `GROUPS` in
+# `app/components/tui/help_overlay_component.rb`. When the GROUPS
+# constant gains or loses an item, the matching key here must be
+# added or removed in lockstep.
+en:
+  help:
+    overlay:
+      title: "help"
+      esc_close_suffix: "to close"
+      groups:
+        global:
+          title: "global"
+          items:
+            open_help: "open this help"
+            command_palette: "command palette"
+            search: "search"
+            leader_menu: "leader menu"
+        section_nav:
+          title: "section nav"
+          items:
+            home: "home"
+            calendar: "calendar"
+            channels: "channels"
+            videos: "videos"
+            projects: "projects"
+            games: "games"
+            notifications: "notifications"
+            settings: "settings"
+        panel_nav:
+          title: "panel nav"
+          items:
+            cycle_forward: "cycle panel forward"
+            cycle_backward: "cycle panel backward"
+            panel_left: "panel left"
+            panel_right: "panel right"
+            panel_up: "panel up"
+            panel_down: "panel down"
+        session:
+          title: "session"
+          items:
+            logout: "logout"
+            close_modal: "close modal / cancel"

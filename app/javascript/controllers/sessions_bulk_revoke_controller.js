@@ -45,9 +45,23 @@ import { Controller } from "@hotwired/stimulus"
 // the template (only the row whose session id matches the current
 // session carries `yes`). The warning line is hidden unless at
 // least one checked row is `yes`.
+// 2026-05-20 (FB-14) — the `[revoke]` action no longer lives in a
+// row above the table. It lives INSIDE the `<thead>` row.
+//
+// 2026-05-20 (FB-116) — header swap is now ROW-level, not inner-
+// content-level: the `<thead>` carries two `<tr>` siblings —
+// `defaultHeader` (per-column `<th>` cells aligned with body data)
+// and `actionHeader` (checkbox + `<th colspan>` action bar). On any
+// selection change `update()` flips the `hidden` attribute on
+// whichever row is inactive. This restores column→data alignment
+// (per FB-108) that the previous single-row colspan approach broke.
+// TUI parity: Ratatui's `Row::new` accepts dynamic content, so the
+// Rust client performs the same conditional header-row swap when
+// selection state flips.
 export default class extends Controller {
   static targets = [
     "link", "headerCheckbox", "checkbox",
+    "defaultHeader", "actionHeader", "actions", "counter",
     "modal", "modalTitle", "modalWarning", "modalForm"
   ]
 
@@ -120,6 +134,22 @@ export default class extends Controller {
         headerInput.checked = count > 0 && count === total
         headerInput.indeterminate = count > 0 && count < total
       }
+    }
+
+    // FB-116: header row swap — `defaultHeader` (per-column <th>
+    // cells) when nothing is selected; `actionHeader` (checkbox +
+    // colspan action bar) when ≥1 row is checked. Both rows live
+    // in the DOM under `<thead>`; we flip `hidden` on the inactive
+    // one. Per-column cells in `defaultHeader` keep header labels
+    // aligned over their body columns.
+    if (this.hasDefaultHeaderTarget && this.hasActionHeaderTarget) {
+      const selectionMode = count > 0
+      this.defaultHeaderTarget.hidden = selectionMode
+      this.actionHeaderTarget.hidden = !selectionMode
+    }
+    if (this.hasCounterTarget) {
+      const label = count === 1 ? "session" : "sessions"
+      this.counterTarget.textContent = `${count} ${label} selected`
     }
 
     if (!this.hasLinkTarget) return

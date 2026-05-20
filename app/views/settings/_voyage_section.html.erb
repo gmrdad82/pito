@@ -1,36 +1,40 @@
 <%# Phase 32 follow-up (2026-05-16). Voyage section of the Stack pane,
-    extracted so the `ReindexAllJob` can broadcast a Turbo Stream
+    extracted so the Voyage reindex job can broadcast a Turbo Stream
     replace targeted at the wrapping `<div id="voyage_section">`
     without re-rendering the entire stack pane.
 
-    Two states, gated entirely on `AppSetting.reindex_running?`:
+    FB-63 (2026-05-20) — the `[reindex]` action moved OUT of this
+    partial and into the tile's title row. FB-63-V4 then folded the
+    sub-panel header into the V4 title-in-border chrome (title left,
+    chip + action right), and FB-82 (2026-05-20) removed the dead
+    `Settings::Stack::HealthLineComponent` host entirely — the state
+    → chip metadata it owned now lives in
+    `Settings::Stack::HealthState::STATES`. `[reindex]` posts directly
+    to
+    `settings_stack_voyage_reindex_path` — no confirm modal, no
+    `data-turbo-confirm`. The legacy modal-trigger link + the
+    `reindex_meilisearch_modal` `ConfirmModalComponent` host were
+    removed from the stack pane along with the action move.
 
-      * idle    — the `[reindex]` destructive bracketed link wired to
-                  the `reindex_meilisearch_modal` confirm modal
-                  (the modal itself is rendered once at page level in
-                  `_stack_pane.html.erb`, OUTSIDE this broadcast
-                  target — see the CSRF note below).
-      * running — the `dot-loader` `=/-` compound loading indicator
-                  (`.dot-loader` in `tailwind/application.css`, also
-                  used by `syncs/progress.html.erb`) + a small
-                  "reindexing... started ~Xs ago" line driven by
-                  the existing `compact_time_ago` helper.
+    Two states are still gated entirely on `AppSetting.reindex_running?`:
 
-    The wrapping id matches `target: "voyage_section"` in
-    `ReindexAllJob#broadcast_voyage_section`. The view reads the
-    flag fresh every render so the post-redirect page load already
-    shows the running state without waiting for the broadcast.
+      * idle    — the `[reindex]` action on the title row is live.
+      * running — this partial renders the `dot-loader` `=/-` compound
+                  loading indicator (`.dot-loader` in
+                  `tailwind/application.css`, also used by
+                  `syncs/progress.html.erb`) + a small
+                  "reindexing... started ~Xs ago" line driven by the
+                  existing `compact_time_ago` helper. The title-row
+                  `[reindex]` action is hidden via the parent partial
+                  passing `action_label: nil` while the flag is set.
+                  This partial does NOT render the bracketed link
+                  anymore; the title-row action belongs to the parent
+                  view scope (`_stack_pane.html.erb`).
 
-    CSRF / broadcast note. The `ConfirmModalComponent` form must NOT
-    live inside this partial. `Turbo::StreamsChannel.broadcast_replace_to`
-    renders the partial in a JOB context with no `request` and no
-    `session`, so `form_with` would bake a hidden `authenticity_token`
-    that is unbound to any user's session — the next submit hits
-    `ActionController::InvalidAuthenticityToken`. The modal is
-    mounted once in `_stack_pane.html.erb`, generated in a real
-    request context, with a CSRF token bound to the current
-    session. The broadcast only swaps the visual state of the
-    trigger affordance. %>
+    The wrapping id still matches the broadcast target inside the
+    Voyage reindex job. The view reads the flag fresh every render so
+    the post-redirect page load already shows the running state
+    without waiting for the broadcast. %>
 <%# 2026-05-18 (DR) — Voyage stats line added between the heading and
     the action row. `Voyage::Stats.call` is a sub-millisecond aggregate
     read (count + max per target), safe to call on every settings
@@ -39,81 +43,62 @@
     on those without raising. %>
 <%# 2026-05-18 (table polish) — replaced the single-line `<p>` summary
     with a 2-column `metric / value` table using the shared
-    `.stack-table` class (defined in `tailwind/application.css`). The
-    class gives Voyage the SAME edges, header tint, zebra rows, and
-    cell padding as the Postgres / Meilisearch / assets / notes tables
-    in `_stack_pane.html.erb` — even though Voyage's data is
-    heterogeneous (counts, bytes, time-ago strings) rather than a
-    repeating row shape, the operator sees a consistent slab across
-    every pane.
-
-    Row visibility:
-      * games row             — always shown
-      * bundles row           — only when `total_bundles_count > 0`
-                                (mirrors the original guard; the
-                                `bundles.summary_embedding` column is
-                                absent on fresh installs and
-                                `Voyage::Stats#bundle_counts` returns
-                                nil → 0 in that case)
-      * model row             — always shown
-      * last indexed row      — only when `last_indexed_at` is set
-      * storage row           — only when `storage_kb` is non-nil
-      * last 24h row          — only when count > 0
-
-    Polling targets (`data-stack-stats-live-target`) are preserved on
-    every numeric/text cell so the existing `stack_stats_live`
-    controller can patch values in place every ~3 s without any DOM
-    structure change. %>
+    `.tui-table--stack` class. %>
 <% voyage_stats = Voyage::Stats.call %>
 <div id="voyage_section">
-  <%= render Settings::Stack::HealthLineComponent.new(
-    label: t("settings.voyage.heading"),
-    state: AppSetting.voyage_configured? ? :configured : :not_configured
-  ) %>
+  <%# FB-63-V4 (2026-05-20) — Voyage AI sub-panel chrome (title +
+      chip + `[reindex]`) moved OUT of this partial and into the
+      parent `.pito-sub-panel` wrapper in `_stack_pane.html.erb`. The
+      partial now only renders the stats table + running-state strip
+      so the Turbo Stream replace that targets `#voyage_section` does
+      NOT clobber the V4 title-in-border chrome on every broadcast.
+      The `dot-loader` running-state strip below still belongs here
+      (it's the per-broadcast affordance). %>
+  <% reindex_running = AppSetting.reindex_running? %>
 
   <div style="margin-bottom: 8px;">
-    <table class="stack-table">
+    <table class="tui-table tui-table--stack">
       <thead>
         <tr>
-          <th><%= t("settings.voyage.col_metric") %></th>
-          <th class="num"><%= t("settings.voyage.col_value") %></th>
+          <th class="tui-table__th tui-table__th--left"><%= t("settings.voyage.col_metric") %></th>
+          <th class="tui-table__th tui-table__th--right num"><%= t("settings.voyage.col_value") %></th>
         </tr>
       </thead>
       <tbody>
-        <tr>
-          <td><%= t("settings.voyage.games_embedded") %></td>
-          <td class="num"><span data-stack-stats-live-target="voyageEmbedded"><%= number_with_delimiter(voyage_stats[:embedded_games_count].to_i) %></span>/<span data-stack-stats-live-target="voyageTotal"><%= number_with_delimiter(voyage_stats[:total_games_count].to_i) %></span> (<span data-stack-stats-live-target="voyagePct"><%= voyage_stats[:coverage_pct] %></span>%)</td>
+        <tr class="tui-table__row">
+          <td class="tui-table__td"><%= t("settings.voyage.games_embedded") %></td>
+          <td class="tui-table__td tui-table__td--right num"><%= render Tui::SegmentedBarComponent.new(percent: voyage_stats[:coverage_pct].to_f, segments: 10) %><span data-stack-stats-live-target="voyageEmbedded"><%= number_with_delimiter(voyage_stats[:embedded_games_count].to_i) %></span>/<span data-stack-stats-live-target="voyageTotal"><%= number_with_delimiter(voyage_stats[:total_games_count].to_i) %></span><span data-stack-stats-live-target="voyagePct" hidden><%= voyage_stats[:coverage_pct] %></span></td>
         </tr>
         <% if voyage_stats[:total_bundles_count].to_i > 0 %>
-          <tr>
-            <td><%= t("settings.voyage.bundles_embedded") %></td>
-            <td class="num"><span data-stack-stats-live-target="voyageBundlesEmbedded"><%= number_with_delimiter(voyage_stats[:embedded_bundles_count].to_i) %></span>/<span data-stack-stats-live-target="voyageBundlesTotal"><%= number_with_delimiter(voyage_stats[:total_bundles_count].to_i) %></span><% if voyage_stats[:bundle_coverage_pct] %> (<span data-stack-stats-live-target="voyageBundlesCoveragePct"><%= voyage_stats[:bundle_coverage_pct] %></span>%)<% end %></td>
+          <tr class="tui-table__row">
+            <td class="tui-table__td"><%= t("settings.voyage.bundles_embedded") %></td>
+            <td class="tui-table__td tui-table__td--right num"><% if voyage_stats[:bundle_coverage_pct] %><%= render Tui::SegmentedBarComponent.new(percent: voyage_stats[:bundle_coverage_pct].to_f, segments: 10) %><% end %><span data-stack-stats-live-target="voyageBundlesEmbedded"><%= number_with_delimiter(voyage_stats[:embedded_bundles_count].to_i) %></span>/<span data-stack-stats-live-target="voyageBundlesTotal"><%= number_with_delimiter(voyage_stats[:total_bundles_count].to_i) %></span><% if voyage_stats[:bundle_coverage_pct] %><span data-stack-stats-live-target="voyageBundlesCoveragePct" hidden><%= voyage_stats[:bundle_coverage_pct] %></span><% end %></td>
           </tr>
         <% end %>
-        <tr>
-          <td><%= t("settings.voyage.model") %></td>
-          <td class="num"><%= voyage_stats[:model] %></td>
+        <tr class="tui-table__row">
+          <td class="tui-table__td"><%= t("settings.voyage.model") %></td>
+          <td class="tui-table__td tui-table__td--right num"><%= voyage_stats[:model] %></td>
         </tr>
         <% if voyage_stats[:last_indexed_at] %>
-          <tr>
-            <td><%= t("settings.voyage.last_indexed") %></td>
-            <td class="num">
+          <tr class="tui-table__row">
+            <td class="tui-table__td"><%= t("settings.voyage.last_indexed") %></td>
+            <td class="tui-table__td tui-table__td--right num">
               <span data-stack-stats-live-target="voyageLast"><%= compact_time_ago(voyage_stats[:last_indexed_at]) %></span>
             </td>
           </tr>
         <% end %>
         <% if voyage_stats[:storage_kb] %>
-          <tr>
-            <td><%= t("settings.voyage.hnsw_indexes") %></td>
-            <td class="num">
+          <tr class="tui-table__row">
+            <td class="tui-table__td"><%= t("settings.voyage.hnsw_indexes") %></td>
+            <td class="tui-table__td tui-table__td--right num">
               <span data-stack-stats-live-target="voyageStorage"><%= number_with_delimiter(voyage_stats[:storage_kb].to_i) %></span> <%= t("settings.voyage.size_suffix_kb") %>
             </td>
           </tr>
         <% end %>
         <% if voyage_stats[:embeddings_last_24h].to_i > 0 %>
-          <tr>
-            <td><%= t("settings.voyage.last_24h") %></td>
-            <td class="num">
+          <tr class="tui-table__row">
+            <td class="tui-table__td"><%= t("settings.voyage.last_24h") %></td>
+            <td class="tui-table__td tui-table__td--right num">
               <span data-stack-stats-live-target="voyage24h"><%= number_with_delimiter(voyage_stats[:embeddings_last_24h].to_i) %></span> <%= t("settings.voyage.embeddings_suffix") %>
             </td>
           </tr>
@@ -122,7 +107,7 @@
     </table>
   </div>
 
-  <% if AppSetting.reindex_running? %>
+  <% if reindex_running %>
     <%# Running state. Reuses the `.dot-loader` `=/- ` indicator
         from the Sync progress page (definition in
         `app/assets/tailwind/application.css`). The randomized
@@ -134,19 +119,6 @@
       <span class="text-muted" style="margin-left: 6px;">
         <%= t("settings.voyage.reindexing_html", time_ago: compact_time_ago(AppSetting.reindex_started_at)) %>
       </span>
-    </div>
-  <% else %>
-    <div class="dot-list" style="margin-top: 4px;">
-      <%= render(BracketedLinkComponent.new(
-        label: t("settings.voyage.reindex_action"),
-        href: "#",
-        destructive: true,
-        data: {
-          controller: "modal-trigger",
-          action: "click->modal-trigger#open",
-          modal_trigger_target_id_value: "reindex_meilisearch_modal"
-        }
-      )) %>
     </div>
   <% end %>
 </div>

@@ -660,6 +660,39 @@ append-only convention.
   - Pre-existing `.action-screen-footer` sticky-bottom rule is kept
     (still owns the sticky chrome the partial renders into)
 
+### F3-DEEP-C (Beta 4 — 2026-05-20) — .tui-table grammar refinement + .tui-kv companion
+
+- `.tui-table` family (app/assets/tailwind/application.css):
+  - Body rows now use `border-bottom: 1px dashed var(--color-border-soft)`
+    (DASHED) — mirrors `.ascii-table td` grammar from the v3 demo
+  - Header row keeps `border-bottom: 1px solid var(--color-border)`
+    (SOLID) — preserves the header / body visual split
+  - Padding shifted to `3px 8px 3px 0` (was `4px 8px`) — drops right-cell
+    inset so columns hug the next column edge per demo
+  - `font-size: 13px` added explicitly (was inherited)
+  - `.tui-table__row:last-child .tui-table__td` still strips the trailing
+    border so the last row reads clean
+  - Visual regression scope: every page rendering `.tui-table` —
+    `/settings` sessions table, `/channels` Wave A tables, any future
+    F3-DEEP-* surface adopting the primitive
+
+- `.tui-kv` companion class (app/assets/tailwind/application.css):
+  - 2-column grid: `110px 1fr` with `4px 12px` gap
+  - `dt` muted color, `dd` text color + tabular-nums for value alignment
+  - 13px monospace inherit — matches `.tui-table` font discipline
+
+- `Tui::KvComponent` (app/components/tui/kv_component.{rb,html.erb}):
+  - Accepts `rows:` as array of `[label, value]` pairs OR `{label:, value:}` hashes
+  - `normalized_rows` returns array of `[String, String]` tuples (handles both shapes)
+  - Renders `<dl class="tui-kv">` with `<dt>` / `<dd>` per row
+  - Spec checklist:
+    - Renders one `dt`+`dd` pair per row (array input)
+    - Renders one `dt`+`dd` pair per row (hash input with `:label` + `:value`)
+    - Mixed input (array of arrays AND hashes) normalizes correctly
+    - Empty `rows:` renders empty `<dl>` (no children, no error)
+    - Non-string values (Integer, Date, nil) get coerced via `.to_s`
+    - `<dl>` carries `tui-kv` class — grid layout active
+
 ## Section completion log
 
 Entries added by the RSpec consolidation agents as they work through this list.

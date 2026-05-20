@@ -12,7 +12,7 @@
      data-tui-status-bar-target="root">
   <div class="sb-left">
     <span class="sb-version"><%= version %></span>
-    <span class="<%= section_class %>"><%= section %><% if page %><span class="sb-page-tail">:(<span class="sb-page-name"><%= page %></span>)</span><% end %></span>
+    <span class="<%= section_class %>" data-tui-status-bar-target="section"><%= section %><% if page %><span class="sb-page-tail">:(<span class="sb-page-name"><%= page %></span>)</span><% end %></span>
   </div>
   <div class="sb-right">
     <% if progress_visible? %>

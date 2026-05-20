@@ -59,7 +59,15 @@ RSpec.describe Settings::TotpEnrollmentPaneComponent, type: :component do
     )
   end
 
-  it "renders the [enable 2FA] submit button" do
-    expect(page).to have_css('button[type="submit"].bracketed', text: "enable 2FA")
+  # 2026-05-20 — Beta 4 Phase F3-DEEP-A. The enrollment pane submit
+  # label moved from `[enable 2FA]` to `[verify]` so the TUI revamp
+  # treats the action as a single verb (matches the broader `[verify]`
+  # / `[update]` / `[reindex]` vocabulary across the pane family).
+  it "renders the [verify] submit button" do
+    expect(page).to have_css('button[type="submit"].bracketed', text: "verify")
+  end
+
+  it "wraps the [verify] label text in a span.bl (bracketed-link convention)" do
+    expect(page).to have_css('button[type="submit"].bracketed span.bl', text: "verify")
   end
 end

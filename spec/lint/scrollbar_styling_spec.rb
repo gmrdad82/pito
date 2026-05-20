@@ -30,13 +30,17 @@ RSpec.describe "themed scrollbar rules in application.css" do
     )
   end
 
-  it "defines a themed Webkit scrollbar thumb (muted) with rounded corners" do
+  it "defines a themed Webkit scrollbar thumb (muted, square per FB-38 no-radius rule)" do
+    # FB-38 — `border-radius` is ALWAYS 0 sitewide; the scrollbar
+    # thumb dropped its 3px radius along with everything else.
     expect(css).to match(
-      /::-webkit-scrollbar-thumb\s*\{[^}]*background:\s*var\(--color-muted\);[^}]*border-radius:\s*3px;[^}]*\}/m
+      /::-webkit-scrollbar-thumb\s*\{[^}]*background:\s*var\(--color-muted\);[^}]*border-radius:\s*0;[^}]*\}/m
     )
   end
 
   it "darkens the Webkit thumb on hover to --color-text" do
+    skip "TODO: revisit when no-hover sweep (FB-67) is reverted — " \
+         "thumb:hover rule was deleted per universal no-hover rule"
     expect(css).to match(
       /::-webkit-scrollbar-thumb:hover\s*\{[^}]*background:\s*var\(--color-text\);[^}]*\}/m
     )
@@ -80,13 +84,17 @@ RSpec.describe "themed scrollbar rules in application.css" do
     )
   end
 
-  it "themes the dialog Webkit scrollbar thumb (muted) with rounded corners" do
+  it "themes the dialog Webkit scrollbar thumb (muted, square per FB-38 no-radius rule)" do
+    # FB-38 — `border-radius` is ALWAYS 0 sitewide; dialog scrollbar
+    # thumbs match the global rule.
     expect(css).to match(
-      /dialog::-webkit-scrollbar-thumb,\s*dialog\s\*::-webkit-scrollbar-thumb\s*\{[^}]*background:\s*var\(--color-muted\);[^}]*border-radius:\s*3px;[^}]*\}/m
+      /dialog::-webkit-scrollbar-thumb,\s*dialog\s\*::-webkit-scrollbar-thumb\s*\{[^}]*background:\s*var\(--color-muted\);[^}]*border-radius:\s*0;[^}]*\}/m
     )
   end
 
   it "darkens the dialog Webkit thumb on hover to --color-text" do
+    skip "TODO: revisit when no-hover sweep (FB-67) is reverted — " \
+         "dialog thumb:hover rule was deleted per universal no-hover rule"
     expect(css).to match(
       /dialog::-webkit-scrollbar-thumb:hover,\s*dialog\s\*::-webkit-scrollbar-thumb:hover\s*\{[^}]*background:\s*var\(--color-text\);[^}]*\}/m
     )

@@ -20,8 +20,8 @@ RSpec.describe "settings/_notifications_pane.html.erb", type: :view do
       render partial: "settings/notifications_pane"
     end
 
-    it "renders the notifications heading (lowercase, bold via <strong>)" do
-      expect(rendered).to match(%r{<h2><strong>notifications</strong></h2>})
+    it "renders the notifications heading (lowercase, plain 400-weight per V4 design.md)" do
+      expect(rendered).to include('<span class="pito-pane__title">notifications</span>')
     end
 
     it "renders both shared toggle checkboxes unchecked" do

@@ -12,7 +12,33 @@
 #
 # Brand names (Discord, Slack, Voyage, PS, Switch, Steam) stay
 # capitalized per feedback_brand_names_always_capitalized.md.
+#
+# `keys:` block (added 2026-05-20) — canonical user-facing labels for
+# keyboard keys. Locked casing per user feedback 2026-05-20: `TAB` is
+# all caps (treated as an acronym for the Tab key); modifier names
+# (`Esc`, `Space`, `Enter`, `Backspace`, `Shift`, `Ctrl`, `Alt`,
+# `Cmd`) are capitalized; letter keys stay lowercase. Combos use a
+# `-` separator (`Shift-TAB`, `Ctrl-h`). The same labels will export
+# to the Ratatui TUI client so the two surfaces stay aligned.
 en:
+  keys:
+    tab: TAB
+    shift_tab: Shift-TAB
+    esc: Esc
+    space: Space
+    enter: Enter
+    backspace: Backspace
+    shift: Shift
+    ctrl: Ctrl
+    alt: Alt
+    cmd: Cmd
+    h: h
+    j: j
+    k: k
+    l: l
+    question_mark: "?"
+    slash: "/"
+    colon: ":"
   keybindings:
     sections:
       local: "local"
@@ -66,6 +92,5 @@ en:
         revoke_unused_sessions: "revoke unused sessions"
         notifications_all: "all"
         notifications_daily_digest: "daily digest"
-        voyage_reindex: "Voyage reindex"
       default:
         search: "search"

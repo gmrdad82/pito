@@ -1,16 +1,18 @@
 <% if sessions.any? %>
-  <%# Idle bulk-revoke toolbar — `[revoke]` muted/non-clickable
-      until at least one checkbox is ticked. The
-      `sessions-bulk-revoke` Stimulus controller mutates the
-      anchor's text + classes in place as the selection changes.
-      Clicking the live `[revoke N]` link opens the in-page
-      `<dialog>` confirm modal mounted at the bottom of this
-      pane (no navigation — the old action-screen page is gone). %>
-  <div class="bulk-toolbar" style="margin-bottom: 6px;">
-    <span class="action">
-      <a data-sessions-bulk-revoke-target="link" class="bracketed-muted">[revoke]</a>
-    </span>
-  </div>
+  <%# Beta 4 — FB-14 (2026-05-20): the bulk-revoke `[revoke]` action
+      no longer renders on its own row above the table. Instead it
+      lives INSIDE the `<thead>` row, replacing the column labels
+      when at least one row is selected. The column-1 select-all
+      checkbox stays put.
+
+      Beta 4 — FB-116 (2026-05-20): swapped the header from a single
+      colspan-spanning cell with inline spans (which broke column→
+      data alignment per FB-108) to TWO co-existing `<tr>` rows in
+      `<thead>` — `defaultHeader` (per-column `<th>` cells matching
+      the body grid) and `actionHeader` (checkbox + colspan action
+      bar). The Stimulus controller flips the `hidden` attribute on
+      whichever row is inactive. Per-column headers now align over
+      their body columns. %>
 
   <%# Beta 4 — Phase F3-DEEP-B (2026-05-20):
       Migrated to the canonical `.tui-table` styling family that ships
@@ -20,22 +22,34 @@
       while inheriting the TUI table grammar (hairline rows, muted
       lowercase headers, no zebra, no hover).
 
-      Columns: checkbox / user-agent / pinged.
+      Beta 4 — FB-50 (2026-05-20): column rework. Previous columns
+      were checkbox / user-agent / pinged (3 cols). New layout is
+      checkbox / device / browser / ip / last seen / created (6 cols).
+      The raw `user_agent` string is projected via
+      `Formatting::UserAgent.device(...)` + `.browser(...)` to a
+      small enumerated set. The IP `TooltipBadgeComponent` is gone —
+      it's a plain cell now. "pinged" renamed to "last seen". A new
+      "created" column shows session-creation relative time.
 
       Beta 4 — Phase F3-C (2026-05-20):
-        * Row + header checkboxes now use `Tui::CheckboxComponent`
-          form-mode. The stimulus targets + `data-current` host element
-          move to the enclosing `<span class="sessions-table__checkbox">`
-          wrapper. The JS controller dereferences the wrapper to the
-          inner `<input type=checkbox>` for state.
+        * Row + header checkboxes use `Tui::CheckboxComponent` form
+          mode. The stimulus targets + `data-current` host element
+          live on the enclosing `<span class="sessions-table__checkbox">`
+          wrapper.
         * The current-session marker uses `Tui::ChipComponent
-          variant: :current` per ADR 0016.
+          variant: :current` per ADR 0016 and sits in the device
+          column for visibility.
 
       Sortable headers drive `?sessions_sort=<key>&sessions_dir=
       <asc|desc>` on `/settings` itself. %>
   <table class="tui-table sessions-table" style="table-layout: auto;">
     <thead>
-      <tr>
+      <%# FB-116 — Default header: per-column `<th>` cells, matching the
+          body's column grid one-to-one so labels sit directly above
+          their data. FB-108 alignment: text columns (device/browser/
+          ip) get `--left`, date columns (last seen/created) get
+          `--right` (which also stamps tabular-nums). %>
+      <tr data-sessions-bulk-revoke-target="defaultHeader">
         <th class="tui-table__th tui-table__th--left col-action">
           <span class="sessions-table__checkbox sessions-table__checkbox--header"
                 data-sessions-bulk-revoke-target="headerCheckbox"
@@ -43,13 +57,36 @@
             <%= render(Tui::CheckboxComponent.new(name: "__select_all", value: "yes", checked: false)) %>
           </span>
         </th>
-        <th class="tui-table__th tui-table__th--left sortable"><%= helpers.sort_link_to("user-agent", "user_agent", current_sort: sessions_sort, current_dir: sessions_dir, sort_param: "sessions_sort", dir_param: "sessions_dir") %></th>
-        <th class="tui-table__th tui-table__th--right sortable num"><%= helpers.sort_link_to("pinged", "last_activity", current_sort: sessions_sort, current_dir: sessions_dir, sort_param: "sessions_sort", dir_param: "sessions_dir") %></th>
+        <th class="tui-table__th tui-table__th--left sortable sessions-table__col-device">
+          <%= helpers.sort_link_to("device", "user_agent", current_sort: sessions_sort, current_dir: sessions_dir, sort_param: "sessions_sort", dir_param: "sessions_dir") %>
+        </th>
+        <th class="tui-table__th tui-table__th--left sortable sessions-table__col-browser">browser</th>
+        <th class="tui-table__th tui-table__th--left sortable sessions-table__col-ip">ip</th>
+        <th class="tui-table__th tui-table__th--right num sortable sessions-table__col-last-seen">
+          <%= helpers.sort_link_to("last seen", "last_activity", current_sort: sessions_sort, current_dir: sessions_dir, sort_param: "sessions_sort", dir_param: "sessions_dir") %>
+        </th>
+        <th class="tui-table__th tui-table__th--right num sortable sessions-table__col-created">created</th>
+      </tr>
+      <%# FB-116 — Action header: shown only when ≥1 row is selected.
+          Checkbox `<th>` stays in column 1; columns 2..N collapse
+          into a single `<th colspan="5">` carrying the counter +
+          [revoke] link. The Stimulus controller flips `hidden` on
+          whichever <tr> is inactive so only one is visible at a
+          time. %>
+      <tr data-sessions-bulk-revoke-target="actionHeader" hidden>
+        <th class="tui-table__th tui-table__th--left col-action"></th>
+        <th class="tui-table__th tui-table__th--left sessions-table__header-swap" colspan="5"
+            data-sessions-bulk-revoke-target="headerCell">
+          <span class="sessions-table__header-actions" data-sessions-bulk-revoke-target="actions">
+            <span class="sessions-table__counter" data-sessions-bulk-revoke-target="counter">0 selected</span>
+            <a data-sessions-bulk-revoke-target="link" class="bracketed-muted">[revoke]</a>
+          </span>
+        </th>
       </tr>
     </thead>
     <tbody>
       <% sessions.each do |s| %>
-        <tr class="tui-table__row">
+        <tr class="tui-table__row" data-tui-cursor-target="row">
           <td class="tui-table__td tui-table__td--left col-action">
             <span class="sessions-table__checkbox"
                   data-sessions-bulk-revoke-target="checkbox"
@@ -59,10 +96,17 @@
               <%= render(Tui::CheckboxComponent.new(name: "ids[]", value: s.id, checked: false)) %>
             </span>
           </td>
-          <td class="tui-table__td tui-table__td--left" style="max-width: 360px; white-space: normal;">
-            <code><%= s.user_agent.presence || "—" %></code><%= render(TooltipBadgeComponent.new(label: "ip", tooltip: s.ip || "—", variant: :code)) %><% if current?(s) %><%= render(Tui::ChipComponent.new(label: "this", variant: :current)) %><% end %>
+          <td class="tui-table__td tui-table__td--left sessions-table__cell-device">
+            <%= Formatting::UserAgent.device(s.user_agent.to_s) %><% if current?(s) %> <%= render(Tui::ChipComponent.new(label: "this", variant: :current)) %><% end %>
           </td>
-          <td class="tui-table__td tui-table__td--right num"><%= helpers.compact_time_ago(s.last_activity_at) %></td>
+          <td class="tui-table__td tui-table__td--left sessions-table__cell-browser">
+            <%= Formatting::UserAgent.browser(s.user_agent.to_s) %>
+          </td>
+          <td class="tui-table__td tui-table__td--left sessions-table__cell-ip">
+            <%= s.ip.presence || "—" %>
+          </td>
+          <td class="tui-table__td tui-table__td--right num sessions-table__cell-last-seen"><%= helpers.compact_time_ago(s.last_activity_at) %></td>
+          <td class="tui-table__td tui-table__td--right num sessions-table__cell-created"><%= helpers.compact_time_ago(s.created_at) %></td>
         </tr>
       <% end %>
     </tbody>

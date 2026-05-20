@@ -137,7 +137,7 @@
     <%# 2026-05-18 (Beta-3 Lane B / B1) — cover + platform-chip overlay
         extracted to `Games::DetailCoverComponent`. The component owns
         the outer wrapper, the `shared/_igdb_cover` render, the
-        `KNOWN_LOGOS` slug computation, and the bottom-right chip
+        `KNOWN_CHIPS` slug computation, and the bottom-right chip
         overlay strip. Stable DOM id (`game_detail_cover_<id>`) lives
         on the component's outer wrapper — the planned ownership-
         toggle Turbo Stream broadcast replaces that one element. %>
@@ -201,7 +201,7 @@
     <%# 2026-05-17 BP slice (item 7 of the 10-item /games/:id reshape
         list) — LEFT-pane ownership section, now a per-platform
         matrix. One row per applicable platform (PS / Switch / Steam
-        intersected with `game_detail_logo_slugs`); each row carries
+        intersected with `game_detail_chip_slugs`); each row carries
         `[owned]` (bordered green) and / or `[played]` (filled green)
         chips. Multiple rows can be `[owned]` (boolean per platform);
         at most one row across the matrix is `[played]` (singular —

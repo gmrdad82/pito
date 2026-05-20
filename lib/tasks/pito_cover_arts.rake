@@ -25,7 +25,7 @@ namespace :pito do
   namespace :cover_arts do
     desc "Regenerate normalized cover masters for every Game with a cover_image_id"
     task regenerate: :environment do
-      games = Game.where.not(cover_image_id: [nil, ""]).order(:title)
+      games = Game.where.not(cover_image_id: [ nil, "" ]).order(:title)
       total = games.count
       successes = 0
       failures = []
@@ -57,7 +57,7 @@ namespace :pito do
     end
 
     desc "Regenerate the cover master for a single Game by id"
-    task :"regenerate:game", [:id] => :environment do |_, args|
+    task :"regenerate:game", [ :id ] => :environment do |_, args|
       id = args.fetch(:id) { abort "usage: bin/rails pito:cover_arts:regenerate:game[ID]" }
       game = Game.find(id)
       target_dir = Pito::AssetsRoot.path("covers", "games", game.id.to_s)

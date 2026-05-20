@@ -110,6 +110,119 @@ age into reference material.
   in conversation, not in files.
 - Rust crates include tests for new functionality.
 
+## Feedback workflow (universal)
+
+When the user gives feedback (any batch — bug reports, design tweaks, item
+lists):
+
+a. **Ask questions if unclear.** Don't infer placement, scope, copy, or design
+intent when there's a reasonable second interpretation. Stop and ask before
+creating tasks.
+
+b. **Create one task per issue AND per sub-issue.** "Fix help dialog (border +
+bold + keys + headings)" is FOUR tasks, not one. Granular TaskCreate per point
+and sub-point.
+
+c. **Dispatch SMALL, focused agents.** One concern per agent dispatch. Never
+bundle 5 fixes into one agent — the agent picks the easy ones and silently
+drops the rest. ≤5 min wall-clock per dispatch; tasks sharing the same file run
+sequential (still one concern each), not collapsed into one prompt.
+
+d. **Track every card + status updates.** TaskUpdate to `in_progress` when
+dispatching, leave `in_progress` after the agent reports done (the agent's
+"I'm done" is NOT validation). End-of-turn summary lists: shipped, awaiting
+validation, blocked on user input, next.
+
+e. **Ask the user to validate every task before marking complete.** Surface
+each landed fix with a 1-liner ("FB-XX dropped bold from [reindex] — verify by
+reloading /settings stack pane"). Wait for the user's explicit "works" / "yes"
+/ "fixed" for that specific task before TaskUpdate to `completed`. Hanging
+tasks (agent done, user hasn't checked) are tracked as `in_progress` until
+validated.
+
+**Why this rule exists:** 2026-05-20 the master bundled 5 CSS fixes into one
+agent dispatch. The agent reported "all done" but actually missed the
+help-dialog bold drop and the [reindex]/[update]/[help] bold drops. The user
+could see the misses in screenshots, but the master accepted the agent's
+report without user validation. Rule prevents recurrence by forcing per-issue
+granularity + a validation gate.
+
+### Master dispatch presentation checklist — 4 gates before surfacing to user
+
+Before writing the chat summary that surfaces an agent landing to the
+user, the master MUST verify these 4 gates. If any fails, the master
+re-dispatches or self-fixes before presenting to the user — never
+"hope the user won't notice".
+
+1. **Did the agent return success?** Smoke checks green, no errors in
+   the report. If failures: re-dispatch with the specific failure context.
+
+2. **Did the agent ship passing specs for new behavior?** If yes → gate
+   passes. If no, AND the change is non-UI (model/controller/helper):
+   record in `docs/orchestration/playbooks/deferred-specs-<date>.md` for
+   the consolidation pass. If no, AND the change is UI: BLOCKER — see
+   gate 3.
+
+3. **Is the change a HTML / UI / UX element?** If yes:
+   - Did the agent use a ViewComponent? If no → BLOCKER. Re-dispatch
+     to wrap (see "ViewComponents are kings" under `## Code organization`).
+   - Did the ViewComponent ship with a spec? If no → BLOCKER.
+   - Did the spec pass? If no → BLOCKER. Fix or revert.
+
+4. **Did the change break a design rule?** Check against the locks:
+   border-radius 0, bold earned not attributed, no hover effects, no
+   inline CSS, dialog backdrop matches canonical, line-height 1, font
+   stack leads BitstromWera, etc. If a rule was violated:
+   - Instruct the agent to fix (re-dispatch with the specific rule cite)
+   - ALSO update `docs/design.md` to make the rule MORE explicit so
+     the violation doesn't happen again
+
+**Why this rule exists:** the user has seen agents report "done" while
+shipping HTML without ViewComponent, skipping the spec file, leaving
+design rules subtly broken. The checklist catches these before the
+user has to. Spaghetti accumulation is the failure mode this prevents.
+
+**Chat surface to user:** "Landed: <what>. Verify by <specific check>."
+Never "Landed (gate failed silently)."
+
+### Autonomous completion mode (when user signals "cover everything")
+
+When the user signals a batch — phrases like "cover everything", "do
+the rest", "keep going", "don't stop", "ping me when done" — the
+master enters autonomous-completion mode:
+
+- **Dispatch the full queue without pausing for intermediary validation.**
+  Each dispatch is still small + focused (one concern per agent), but
+  the master does NOT stop after each landing to ask "does this work?".
+- **Audit every agent delivery against the 4-gate checklist BEFORE
+  surfacing the next batch.** If gate 1/2/3/4 fails on any agent's
+  report, the master re-dispatches OR self-fixes BEFORE moving on.
+  Spaghetti caught at audit time stays out of the user's review
+  surface.
+- **Send ONE final Slack ping** when the batch lands OR when a real
+  blocker appears (auth needed, design decision required, destructive
+  op needs authorization). Suppress per-task pings during the batch.
+- **Cleanup is part of the job.** When a feature is retired (e.g. a
+  font no longer used), DELETE the asset + remove the @font-face stub
+  + delete dead test infrastructure. Comment-out + leave on disk is
+  NOT cleanup. Git history is the revert path.
+- **Audit also means dispatching the missing piece proactively.** If
+  the user's batch implies a cleanup that wasn't explicitly queued,
+  the master dispatches it — not waiting for the user to specifically
+  ask.
+
+**Real blockers that pause autonomous mode:**
+- Missing credentials (e.g. Cloudflare API token absent)
+- Design decision requiring user pick (between two reasonable
+  interpretations)
+- Destructive operation requiring authorization (git push, delete
+  production data, etc.)
+- Conflict between two locked rules that need user reconciliation
+
+**Counter-pattern:** dispatch 5 agents, 2 land with bugs, surface all 5
+to user "for validation", user catches the 2 broken ones — the master
+should have caught those at audit time. Wasted round trip.
+
 ## Logging convention
 
 Every implementation session ends with `docs/plans/beta/<NN-phase>/log.md`
@@ -292,6 +405,23 @@ The pito app's own Slack webhook (configured in `NotificationDeliveryChannel`
 and sent by Sidekiq workers) is a SEPARATE production surface for end-user
 digests — never conflate the two.
 
+## Astro deployments
+
+The `pito-astro` agent deploys the marketing site (`extras/website/`) to
+Cloudflare Pages after every successful build. Credentials live in
+`Rails.application.credentials.cloudflare` (`api_token` + `client_id`), NEVER
+in env files or on disk. The agent sources them via `bin/rails runner` into
+shell env vars scoped to the deploy command's lifetime, then invokes wrangler.
+
+See `docs/agents/astro.md` for the full credential-lookup + deploy contract
+(including the `client_id` → `CLOUDFLARE_ACCOUNT_ID` mapping note). The master
+agent NEVER invokes `wrangler` directly — every deploy flows through the
+`pito-astro` dispatch so the build-then-deploy invariant stays in one place.
+
+The CI workflow `.github/workflows/deploy-website.yml` is the fallback path
+when the local deploy fails or the master agent explicitly chooses CI for an
+audit-trail commit.
+
 ## Hard rules
 
 - **No JavaScript `alert` / `confirm` / `prompt` / `data-turbo-confirm`**
@@ -406,6 +536,27 @@ See `docs/design.md` for the full design system. Key rules:
   legend labels
 - **Sidekiq Web** at `/sidekiq` with HTTP basic auth, no link in nav or Settings
 
+### Terminology (canonical)
+
+Locked 2026-05-20. These five nouns are the only ones permitted in agents,
+specs, design.md, and code when referring to the listed UI surfaces:
+
+| Use this   | Not this                  | Example                                |
+| ---------- | ------------------------- | -------------------------------------- |
+| **panel**  | pane                      | "security" panel in /settings          |
+| **screen** | page                      | /settings or /games (the URL itself)   |
+| **dialog** | modal                     | the help dialog (`?` overlay)          |
+| **action** | link, url, button         | `[revoke]`, `[update]`, `[help]`       |
+| **hint**   | text, caption             | "type \"clear\" to remove"             |
+
+**No drift — agents, specs, design.md, and code use these terms exclusively. If
+you see "pane" / "modal" / "button" / "caption" / "page" as nouns referring to
+one of these, treat it as a bug to fix.** Existing class names
+(`*-modal`, `*-pane`, etc.) may stay until a coordinated rename; new
+components / docs / copy use the canonical terms. "Page" remains permitted ONLY
+for paginated result navigation ("page 2 of 5"); `<button>` HTML element
+references remain permitted in code, but UI labels read as actions.
+
 ## Code organization — ViewComponents, Formatting services, helpers, partials
 
 **HTML structure = ViewComponent.** Every HTML structure that's more than a
@@ -414,6 +565,47 @@ partials calling partials with helper-magic spaghetti. Each component owns its
 own ERB template + class + spec. Modes/variants become constructor arguments,
 not template branches. ViewComponents nest cleanly; partials nesting partials
 creates tight coupling and untestable surfaces.
+
+### ViewComponents are kings (component-first, always)
+
+Every new visible HTML element wraps in a ViewComponent — **even when
+used only once**. The rule is component-first, not "extract when reused":
+
+- Adding a new dialog backdrop? Make `Tui::DialogBackdropComponent`, not
+  an inline `<div class="backdrop">` in the template that owns it.
+- Adding a new title row inside a panel? Make `Tui::PanelHeaderComponent`,
+  not a raw `<header>` block in the panel's ERB.
+- Adding a single button with a particular style? Make
+  `Tui::SomethingButtonComponent`, not an inline `<button>` with a
+  one-off class.
+
+**Reasoning:** punctual one-off fixes create spaghetti. Fixing a backdrop
+becomes fixing every instance of it; fixing a dialog becomes fixing every
+instance of it. With every visible element as a ViewComponent, the master
+edits the COMPONENT and every instance updates. The cost of "make it a
+component now" is ~2 minutes; the cost of "fix it everywhere later" is
+hours.
+
+**When forking a component is allowed:** never. If the existing component
+doesn't support the new use case, REFACTOR the existing component (add a
+kwarg, extract a variant, add a render mode) — don't create a parallel
+`<Domain>::SimilarComponent`. The component-reuse rule in this same
+section already documents this; the new rule reinforces it.
+
+**The bar for "this is too small to be a component":** if the markup is
+literally one element with no class / no behavior / no variant possibility
+(e.g., `<hr>`, `<br>`, a literal `<span></span>` placeholder), inlining
+is fine. Anything with classes / styling / variants → ViewComponent.
+
+**Every ViewComponent has a spec — mandatory.** A new ViewComponent
+without a corresponding `spec/components/<path>/<name>_component_spec.rb`
+is incomplete. The spec is the contract: renders without raising, accepts
+the documented kwargs, exposes the documented variant set, emits the
+expected DOM grammar, resolves i18n keys for any user-visible text. This
+overrides the iteration-mode-defers-specs rule for VC creation
+specifically — implementation agents must ship spec + component
+together, never separate. The consolidation-mode-rspec rule still
+applies to non-VC test surfaces (request specs, model specs, etc.).
 
 **Data transformation = `Formatting::*` service/module.** Any function that
 takes data and returns formatted-data (numbers, dates, durations, slugs,

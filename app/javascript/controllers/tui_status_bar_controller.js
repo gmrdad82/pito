@@ -38,6 +38,7 @@ import { createConsumer } from "@rails/actioncable"
 export default class extends Controller {
   static targets = [
     "root",
+    "section",
     "sync",
     "syncDot",
     "syncWord",
@@ -62,10 +63,30 @@ export default class extends Controller {
         received: (data) => this.applyPayload(data)
       }
     )
+
+    // FB-47 (2026-05-20) — TSB breadcrumb tracks the focused panel's
+    // title instead of the static section name. The `tui-cursor`
+    // controller broadcasts `tui:panel-focus-changed` on every focus
+    // move; we patch the `.sb-section` text in place. The SSR-rendered
+    // section name remains as the fallback (still visible until the
+    // first focus event fires).
+    this.boundPanelFocus = this.handlePanelFocus.bind(this)
+    document.addEventListener("tui:panel-focus-changed", this.boundPanelFocus)
+
+    // Mitigate the connect-order race: if `tui-cursor` already emitted
+    // its initial event before we registered the listener, the focused
+    // panel's `data-panel-title` is still readable from the DOM. Seed
+    // the section text from it now so the first paint reflects panel
+    // focus, not the section name.
+    this.seedSectionFromFocusedPanel()
   }
 
   disconnect() {
     this.stopClock()
+    if (this.boundPanelFocus) {
+      document.removeEventListener("tui:panel-focus-changed", this.boundPanelFocus)
+      this.boundPanelFocus = null
+    }
     if (this.subscription) {
       this.subscription.unsubscribe()
       this.subscription = null
@@ -74,6 +95,66 @@ export default class extends Controller {
       this.consumer.disconnect()
       this.consumer = null
     }
+  }
+
+  // ---------- Panel focus → breadcrumb ----------
+
+  // FB-101 (2026-05-20) — when a sub-panel inside the focused panel
+  // becomes the active L2 cursor target, the breadcrumb renders
+  // `<panel>:(<sub-panel>)` where the panel name + parens render in
+  // a muted variant of the section accent and the sub-panel name in
+  // the full section accent. Without a sub-panel, the breadcrumb
+  // remains the bare panel title (FB-47 baseline).
+  handlePanelFocus(event) {
+    if (!this.hasSectionTarget) return
+    const detail = event?.detail || {}
+    const panel = detail.panel ?? detail.title ?? ""
+    const subPanel = detail.subPanel || null
+    if (!panel) return
+    this.renderSectionBreadcrumb(panel, subPanel)
+  }
+
+  seedSectionFromFocusedPanel() {
+    if (!this.hasSectionTarget) return
+    const focused = document.querySelector(
+      '[data-tui-cursor-target="panel"][data-tui-cursor-focused="yes"]'
+    )
+    const title = focused?.dataset?.panelTitle
+    if (!title) return
+    const subFocused = focused.querySelector(
+      '[data-tui-cursor-target="sub-panel"][data-tui-cursor-sub-panel-focused="yes"]'
+    )
+    const subTitle = subFocused?.dataset?.panelTitle || null
+    this.renderSectionBreadcrumb(title, subTitle)
+  }
+
+  // Rebuild .sb-section's children. When subPanel is null we render a
+  // single text-node (matches the original SSR shape so CSS that targets
+  // `.sb-section` keeps working). When subPanel is set we emit the
+  // three colored spans that drive FB-101's `stack:(Redis)` shape.
+  renderSectionBreadcrumb(panel, subPanel) {
+    const el = this.sectionTarget
+    while (el.firstChild) el.removeChild(el.firstChild)
+    if (!subPanel) {
+      el.appendChild(document.createTextNode(panel))
+      return
+    }
+    const panelSpan = document.createElement("span")
+    panelSpan.className = "sb-section__panel"
+    panelSpan.textContent = panel
+    const parenOpen = document.createElement("span")
+    parenOpen.className = "sb-section__sub-panel-paren"
+    parenOpen.textContent = ":("
+    const subSpan = document.createElement("span")
+    subSpan.className = "sb-section__sub-panel"
+    subSpan.textContent = subPanel
+    const parenClose = document.createElement("span")
+    parenClose.className = "sb-section__sub-panel-paren"
+    parenClose.textContent = ")"
+    el.appendChild(panelSpan)
+    el.appendChild(parenOpen)
+    el.appendChild(subSpan)
+    el.appendChild(parenClose)
   }
 
   // ---------- Clock ----------

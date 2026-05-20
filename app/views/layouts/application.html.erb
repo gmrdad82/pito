@@ -204,8 +204,18 @@
       Modals reset the accent back to Dracula Purple inside the
       `dialog { ... }` block so modal chrome stays consistent
       regardless of which page opened them. %>
+  <%# 2026-05-20 — Per-section bg + accent are computed in Ruby
+      (`Pito::SectionColors`) and inlined here so the cascade uses
+      single-source-of-truth values that are specced. The inline
+      `--section-accent` CSS var still drives every downstream
+      `color-mix(--section-accent, X%, ...)` token (chip bg, focus
+      ring, pane border) in `app/assets/tailwind/application.css`; we
+      only replaced the cascade SOURCE, not the cascade itself. The
+      `background` inline overrides any prior body bg fallback so the
+      Ruby-picked literal hex paints the canvas. %>
   <body data-section="<%= current_section %>"
-        data-controller="keyboard notifications-modal leader-menu flat-key timezone-detect webhook-help-modal dialog-scroll-lock"
+        style="--section-accent: <%= pito_section_accent %>; --color-section-accent: <%= pito_section_accent %>; background: <%= pito_section_bg %>;"
+        data-controller="keyboard notifications-modal leader-menu flat-key timezone-detect webhook-help-modal dialog-scroll-lock sortable-keys"
         <%# `data-keybindings-page-key` exposes the YAML key (e.g.
             `games_index`, `games_show`, `bundles_show`, `default`,
             or `nil` for deny-listed pages like /settings) so the
@@ -218,7 +228,11 @@
         <% if Current.user.present? %>data-timezone-detect-stored-value="<%= Current.user.time_zone %>"
         data-timezone-detect-url-value="<%= settings_time_zone_path %>"
         data-timezone-detect-csrf-value="<%= form_authenticity_token %>"<% end %>>
-    <%# Beta 4 — Phase F1 Lane D (2026-05-20). The legacy bracketed-nav
+    <%# FB-81 page-load splash REMOVED. Existed only to mask the FOUT
+        moment during the font swap. System-mono-only renders with no
+        font swap to mask, no splash needed. Element, Stimulus controller,
+        and CSS rules all deleted together. %>
+<%# Beta 4 — Phase F1 Lane D (2026-05-20). The legacy bracketed-nav
         header (`[home][calendar] · [channels][videos] · [projects][games] ·
         [notifications]  <spacer>  [settings][_]`) was replaced by the
         TUI-flavoured `Tui::TopStatusBarComponent` — a single status bar
@@ -240,7 +254,7 @@
         + the standalone /notifications page mounts still cover the
         partial; the layout-level live-update will return when
         /notifications comes back into scope. %>
-    <header style="position: sticky; top: 0; left: 0; right: 0; height: 32px; background: var(--color-bg); border-bottom: 1px solid var(--color-border); padding: 0 12px; z-index: 100;">
+    <header style="position: sticky; top: 0; left: 0; right: 0; background: var(--color-bg); border-bottom: 1px solid var(--color-border); padding: 4px 12px; z-index: 100;">
       <% unless content_for?(:hide_chrome) %>
         <%= render Tui::TopStatusBarComponent.new(
               section: current_section,
@@ -257,11 +271,16 @@
         outer `padding-top: 32px` wrapper that compensated for the
         out-of-flow fixed header has been dropped. Sticky leaves the header
         in document flow so the main block sits naturally below it without
-        any compensating gap. The inner `main` block keeps its
-        `padding: 16px 12px 8px 12px` so the first content row sits a
-        consistent ~16px below the navbar whether the page renders a
-        breadcrumb or jumps straight to a heading. %>
-    <main style="padding: 16px 12px 8px 12px;">
+        any compensating gap.
+        2026-05-20 — main side-padding trimmed from 12px → 6px so the
+        `.pito-workspace` width-tiling grid (ADR 0016) reaches closer to
+        the literal viewport edge.
+        2026-05-20 (FB-17) — chrome-to-content gaps tightened to 6px top
+        and 6px bottom (was 16px / 8px). The TUI density brief calls for
+        Excel-sheet rhythm — the first pane row sits flush under the
+        status bar, the bottom status bar hugs the last pane row. Side
+        padding stays at 6px. %>
+    <main style="padding: 6px 6px;">
       <% if content_for?(:breadcrumbs) %>
         <nav class="dot-list" style="margin-bottom: 6px;"><%= yield :breadcrumbs %><% if content_for?(:breadcrumb_actions) %><%= yield :breadcrumb_actions %><% end %></nav>
       <% end %>

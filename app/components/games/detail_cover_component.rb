@@ -11,10 +11,10 @@
 # a single replace targeting this element.
 #
 # Slug computation mirrors the inline block it replaces verbatim — it
-# walks `PlatformLogosHelper::KNOWN_LOGOS` (locked order: ps, switch,
+# walks `PlatformChipsHelper::KNOWN_CHIPS` (locked order: ps, switch,
 # steam) and selects each slug appearing in either
-# `game_detail_logo_slugs(game)` or
-# `Array(game_index_tile_logo_slug(game))`. Walking `KNOWN_LOGOS`
+# `game_detail_chip_slugs(game)` or
+# `Array(game_index_tile_chip_slug(game))`. Walking `KNOWN_CHIPS`
 # (instead of the helper's own ordered output) is what guarantees the
 # detail-row chip order matches the shelf-tile order.
 #
@@ -28,12 +28,12 @@ class Games::DetailCoverComponent < ViewComponent::Base
   attr_reader :game
 
   # Ordered slug list used by the chip-overlay loop. Empty when no
-  # `KNOWN_LOGOS` slug applies to the game (overlay is suppressed in
+  # `KNOWN_CHIPS` slug applies to the game (overlay is suppressed in
   # that case — see the template).
   def detail_chip_slugs
-    @detail_chip_slugs ||= PlatformLogosHelper::KNOWN_LOGOS.select do |slug|
-      (helpers.game_detail_logo_slugs(@game) +
-        Array(helpers.game_index_tile_logo_slug(@game))).include?(slug)
+    @detail_chip_slugs ||= PlatformChipsHelper::KNOWN_CHIPS.select do |slug|
+      (helpers.game_detail_chip_slugs(@game) +
+        Array(helpers.game_index_tile_chip_slug(@game))).include?(slug)
     end
   end
 

@@ -59,6 +59,23 @@ RSpec.describe Tui::CheckboxComponent, type: :component do
         expect(page).to have_css('label.tui-checkbox input[type="checkbox"][name="all"]', visible: :all)
       end
 
+      # FB-97 — form variant adds .tui-checkbox--form so the CSS
+      # `:has(input:checked)` selector can drive the glyph from input state
+      # (keyboard Space + JS .click() both update the visible glyph without
+      # a server re-render).
+      it "tags the label with `.tui-checkbox--form` for the CSS-driven glyph" do
+        render_inline(described_class.new(name: "all"))
+
+        expect(page).to have_css("label.tui-checkbox.tui-checkbox--form")
+      end
+
+      it "renders the glyph box as an empty span (glyph injected via CSS ::before)" do
+        render_inline(described_class.new(name: "all", checked: true))
+
+        box = page.find("label.tui-checkbox--form .tui-checkbox__box")
+        expect(box.text).to eq("")
+      end
+
       it "hidden input value is `no` per pito's yes/no boolean convention" do
         render_inline(described_class.new(name: "all"))
 

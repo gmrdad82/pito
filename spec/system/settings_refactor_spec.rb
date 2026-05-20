@@ -52,7 +52,7 @@ RSpec.describe "Settings refactor — system shell", type: :system do
 
     discord_idx = body.index("<h2>Discord</h2>")
     slack_idx   = body.index("<h2>Slack</h2>")
-    stack_idx   = body.index("<h2>stack</h2>")
+    stack_idx   = body.index('class="pito-pane__title">stack')
     expect(discord_idx).not_to be_nil
     expect(slack_idx).not_to be_nil
     expect(stack_idx).not_to be_nil

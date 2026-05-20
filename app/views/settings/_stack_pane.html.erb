@@ -1,34 +1,47 @@
-<%# Phase 29 (settings refactor) — row 3 stack pane (spans both columns
-    via `.pane--wide`).
+<%# Phase 29 (settings refactor) — row 3 stack pane.
 
-    Beta 4 F3-D — restructured from a vertical-divider 2-column layout
-    into a 3x2 tile grid per ADR 0016 (TUI design system + /settings
-    F3 visual redesign):
+    FB-51 (2026-05-20) — restructured from a 3x2 tile grid into a
+    VERTICAL stack of 6 sub-panels per user-locked order. The stack
+    pane now lives in the 40% right column of the FB-52 V3 layout, so
+    a vertical sub-panel arrangement fits the narrower width.
 
-      ┌──────────────────────┬──────────────────────┐
-      │ PostgreSQL [connected]│ Meilisearch [connected]│
-      │   <breakdown table>   │   <breakdown table>    │
-      ├──────────────────────┼──────────────────────┤
-      │ Redis      [connected]│ Voyage AI [configured] │
-      │   <sidekiq counters>  │   <voyage stats>       │
-      │                       │   [reindex]            │
-      ├──────────────────────┼──────────────────────┤
-      │ assets    [writable]  │ notes      [not present]│
-      │   <breakdown table>   │   <breakdown table>    │
-      └──────────────────────┴──────────────────────┘
+    Sub-panel order (top-to-bottom, user-locked 2026-05-20):
 
-    Hairline separators between tiles are rendered via inline
-    `border-right` on the left tile + `border-bottom` on the top two
-    rows. No new CSS classes — the grid reuses the existing
-    `.stack-pane-grid` container with its `grid-template-columns`
-    overridden inline to `1fr 1fr` (the existing `1fr 1px 1fr` rule
-    expected a dedicated `.stack-pane-divider` element which the tile
-    layout replaces with per-tile borders).
+      ┌──────────────────────────┐
+      │ Redis        [connected] │
+      │   <sidekiq counters>     │
+      ├──────────────────────────┤
+      │ PostgreSQL   [connected] │
+      │   <breakdown table>      │
+      ├──────────────────────────┤
+      │ Meilisearch  [connected] │
+      │   <breakdown table>      │
+      ├──────────────────────────┤
+      │ Voyage AI    [configured]│
+      │   <voyage stats>         │
+      ├──────────────────────────┤
+      │ assets       [writable]  │
+      │   <breakdown table>      │
+      ├──────────────────────────┤
+      │ notes        [absent]    │
+      │   <breakdown table>      │
+      └──────────────────────────┘
 
-    Status chips replace the previous glyph + colored word span. Each
-    tile header is a `Settings::Stack::HealthLineComponent` that
-    delegates to `Tui::ChipComponent`. The chip variant cascade
-    (success / info / warn / danger) carries the operator signal.
+    Per-tile inline border-right / border-bottom dropped (the 2-col
+    tile divider lines from the prior 3x2 grid). The vertical
+    `gap: 8px` between flex children separates sub-panels cleanly;
+    no hairlines needed between them.
+
+    FB-68 (2026-05-20, folded into FB-51) — zebra background removed
+    from `.tui-table--stack` rows. The dashed hairline body row from
+    the canonical `.tui-table` grammar is the row separator; no
+    zebra anywhere in stack-pane tables.
+
+    Status chips remain per sub-panel: each sub-panel header looks up
+    its semantic state in `Settings::Stack::HealthState::STATES` and
+    renders the resolved chip label + variant via `Tui::ChipComponent`.
+    The chip variant cascade (success / danger after FB-6) carries the
+    operator signal.
 
     Reuses the same ivars + helpers the prior settings index relied
     on (`@postgres_status`, `@redis_status`,
@@ -45,28 +58,47 @@
     they flip rarely and are expensive to recompute. Polling stops on
     Turbo navigation away (Stimulus `disconnect()` clears the
     interval). %>
-<div class="pane pane--wide"
+<div class="pane pane--wide pito-pane pito-pane--full"
      data-controller="stack-stats-live"
-     data-stack-stats-live-interval-ms-value="3000">
-  <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
-    <legend><h2><%= t("settings.stack.heading") %></h2></legend>
+     data-stack-stats-live-interval-ms-value="3000"
+     data-tui-cursor-target="panel"
+     data-panel-title="<%= t("settings.stack.heading") %>">
+  <span class="pito-pane__title"><%= t("settings.stack.heading") %></span>
+  <%= render Tui::PanelFieldsetComponent.new do %>
+    <%# FB-51 — vertical sub-panel stack. The `.stack-pane-grid`
+        container still wraps the children (CSS now flexes the
+        container vertically with an 8px gap between sub-panels). %>
+    <div class="stack-pane-grid">
 
-    <%# 3x2 tile grid. Inline override on the existing `.stack-pane-grid`
-        class flattens the 3-col `1fr 1px 1fr` desktop rule into a
-        2-col tile lattice. Hairlines move from a dedicated divider
-        column into per-tile borders below. %>
-    <div class="stack-pane-grid" style="grid-template-columns: 1fr 1fr; gap: 0;">
+      <%# Redis (+ Sidekiq counters since Sidekiq runs on Redis).
+          FB-63-V4 — V4 title-in-border chrome: title left, status chip
+          right. The legacy sub-panel header row is gone; the chip
+          moves into `.pito-sub-panel__actions`. State → chip label +
+          variant resolution lives in
+          `Settings::Stack::HealthState::STATES` (FB-82). %>
+      <% redis_state = @redis_status[:connected] ? :connected : :disconnected %>
+      <% redis_chip = Settings::Stack::HealthState::STATES.fetch(redis_state) %>
+      <%= render Tui::SubPanelComponent.new(title: t("settings.stack.redis")) do |c| %>
+        <% c.with_actions do %>
+          <%= render Tui::ChipComponent.new(label: redis_chip[:chip_label], variant: redis_chip[:chip_variant]) %>
+        <% end %>
 
-      <%# Row 1, col 1 — PostgreSQL %>
-      <div style="padding: 8px 12px; border-right: 1px solid var(--color-border); border-bottom: 1px solid var(--color-border);">
-        <%= render Settings::Stack::HealthLineComponent.new(
-          label: t("settings.stack.postgres"),
-          state: @postgres_status[:connected] ? :connected : :disconnected
-        ) %>
+        <% if @redis_status[:connected] && @sidekiq_breakdown.any? %>
+          <%= render Settings::Stack::Sidekiq::CountersComponent.new(breakdown: @sidekiq_breakdown) %>
+        <% end %>
+      <% end %>
+
+      <%# PostgreSQL. FB-63-V4 — V4 title-in-border. %>
+      <% pg_state = @postgres_status[:connected] ? :connected : :disconnected %>
+      <% pg_chip = Settings::Stack::HealthState::STATES.fetch(pg_state) %>
+      <%= render Tui::SubPanelComponent.new(title: t("settings.stack.postgres")) do |c| %>
+        <% c.with_actions do %>
+          <%= render Tui::ChipComponent.new(label: pg_chip[:chip_label], variant: pg_chip[:chip_variant]) %>
+        <% end %>
 
         <% if @postgres_status[:connected] && @postgres_table_breakdown.any? %>
           <div data-controller="sortable-table" data-sortable-table-id-value="stack-postgres">
-            <table class="stack-table" data-sortable-table-target="table">
+            <table class="tui-table tui-table--stack" data-sortable-table-target="table">
               <thead>
                 <tr>
                   <%= render(SortableHeaderComponent.new(label: t("settings.stack.col_model"), sort_type: "string")) %>
@@ -81,15 +113,15 @@
                     cells in place every ~3 s without a full-page reload. %>
                 <% @postgres_table_breakdown.each do |row| %>
                   <% key = row[:label].to_s.camelize %>
-                  <tr>
-                    <td><%= row[:label] %></td>
-                    <td class="num">
+                  <tr class="tui-table__row">
+                    <td class="tui-table__td"><%= row[:label] %></td>
+                    <td class="tui-table__td tui-table__td--right num">
                       <span data-sort-value="<%= row[:count] || -1 %>"
                             data-stack-stats-live-target="postgres<%= key %>Rows">
                         <%= row[:count] ? number_with_delimiter(row[:count]) : "—" %>
                       </span>
                     </td>
-                    <td class="num">
+                    <td class="tui-table__td tui-table__td--right num">
                       <span data-sort-value="<%= row[:size_bytes] || -1 %>"
                             data-stack-stats-live-target="postgres<%= key %>Size">
                         <%= human_filesize_int(row[:size_bytes]) %>
@@ -101,18 +133,37 @@
             </table>
           </div>
         <% end %>
-      </div>
+      <% end %>
 
-      <%# Row 1, col 2 — Meilisearch %>
-      <div style="padding: 8px 12px; border-bottom: 1px solid var(--color-border);">
-        <%= render Settings::Stack::HealthLineComponent.new(
-          label: t("settings.stack.meilisearch"),
-          state: @search_healthy ? :connected : :disconnected
-        ) %>
+      <%# Meilisearch.
+          FB-63 (2026-05-20) — title-row `[reindex]` action. Direct POST
+          to `settings_stack_meilisearch_reindex_path`; the controller
+          short-circuits with an alert when
+          `AppSetting.reindex_running?` is set (both halves of the
+          split share the same flag), so a double-click during a Voyage
+          run still degrades gracefully without enqueueing a second
+          Meilisearch job. While the lock is set we hide the action
+          entirely (matching the Voyage tile's behaviour in
+          `_voyage_section.html.erb`) so the operator never sees a
+          dangling-link that would alert on click. %>
+      <% meilisearch_reindex_running = AppSetting.reindex_running? %>
+      <% meili_state = @search_healthy ? :connected : :disconnected %>
+      <% meili_chip = Settings::Stack::HealthState::STATES.fetch(meili_state) %>
+      <%= render Tui::SubPanelComponent.new(title: t("settings.stack.meilisearch")) do |c| %>
+        <% c.with_actions do %>
+          <%= render Tui::ChipComponent.new(label: meili_chip[:chip_label], variant: meili_chip[:chip_variant]) %>
+          <% unless meilisearch_reindex_running %>
+            <%= render BracketedLinkComponent.new(
+              label: t("settings.stack.meilisearch_reindex_label"),
+              href: settings_stack_meilisearch_reindex_path,
+              method: :post
+            ) %>
+          <% end %>
+        <% end %>
 
         <% if @search_per_index_stats.any? %>
           <div data-controller="sortable-table" data-sortable-table-id-value="stack-meilisearch">
-            <table class="stack-table" data-sortable-table-target="table">
+            <table class="tui-table tui-table--stack" data-sortable-table-target="table">
               <thead>
                 <tr>
                   <%= render(SortableHeaderComponent.new(label: t("settings.stack.col_index"), sort_type: "string")) %>
@@ -130,25 +181,25 @@
                     mislead the operator). %>
                 <% @search_per_index_stats.each do |row| %>
                   <% key = row[:label].to_s.camelize %>
-                  <tr>
-                    <td><%= row[:label] %></td>
+                  <tr class="tui-table__row">
+                    <td class="tui-table__td"><%= row[:label] %></td>
                     <% if row[:missing] %>
-                      <td class="num text-muted" colspan="2">
+                      <td class="tui-table__td tui-table__td--right num text-muted" colspan="2">
                         <span data-sort-value="-1"><%= t("settings.stack.not_yet_indexed") %></span>
                       </td>
                     <% else %>
-                      <td class="num">
+                      <td class="tui-table__td tui-table__td--right num">
                         <span data-sort-value="<%= row[:documents].to_i %>"
                               data-stack-stats-live-target="meilisearch<%= key %>Docs">
                           <%= number_with_delimiter(row[:documents].to_i) %>
                         </span>
                       </td>
                       <% if row[:omit_size] %>
-                        <td class="num text-muted">
+                        <td class="tui-table__td tui-table__td--right num text-muted">
                           <span data-sort-value="-1">—</span>
                         </td>
                       <% else %>
-                        <td class="num">
+                        <td class="tui-table__td tui-table__td--right num">
                           <span data-sort-value="<%= row[:size_bytes] || -1 %>"
                                 data-stack-stats-live-target="meilisearch<%= key %>Size">
                             <%= human_filesize_int(row[:size_bytes]) %>
@@ -162,69 +213,56 @@
             </table>
           </div>
         <% end %>
-      </div>
+      <% end %>
 
-      <%# Row 2, col 1 — Redis (+ Sidekiq counters since Sidekiq runs on Redis) %>
-      <div style="padding: 8px 12px; border-right: 1px solid var(--color-border); border-bottom: 1px solid var(--color-border);">
-        <%= render Settings::Stack::HealthLineComponent.new(
-          label: t("settings.stack.redis"),
-          state: @redis_status[:connected] ? :connected : :disconnected
-        ) %>
-
-        <% if @redis_status[:connected] && @sidekiq_breakdown.any? %>
-          <%= render Settings::Stack::Sidekiq::CountersComponent.new(breakdown: @sidekiq_breakdown) %>
-        <% end %>
-      </div>
-
-      <%# Row 2, col 2 — Voyage AI (+ stats table + reindex action) %>
-      <%# Phase 32 follow-up — Voyage section kept as a partial so
-          `ReindexAllJob` can Turbo-Stream-replace its
+      <%# Voyage AI (+ stats table + title-row reindex action).
+          Phase 32 follow-up — Voyage section kept as a partial so the
+          Voyage reindex job can Turbo-Stream-replace its
           `<div id="voyage_section">` without re-rendering the entire
           stack pane. The subscription below mounts the `reindex_status`
-          stream; the job broadcasts to it from its `ensure` block when
-          the reindex completes (or crashes).
+          stream; both `MeilisearchReindexJob` and `VoyageReindexJob`
+          broadcast to it from their `ensure` blocks when the reindex
+          completes (or crashes).
 
-          The `[reindex]` confirm modal is rendered HERE, OUTSIDE the
-          `<div id="voyage_section">` broadcast target, on purpose. The
-          job's `broadcast_replace_to` runs in a JOB context with no
-          `request` / `session`, so any `form_with` rendered inside the
-          broadcast target would bake a hidden `authenticity_token`
-          unbound to any user's session — the next submit would hit
-          `ActionController::InvalidAuthenticityToken`. Mounting the
-          modal at page-render time gives it a CSRF token bound to the
-          current session that stays valid across broadcast-driven
-          state flips of the trigger link. See the matching note in
-          `_voyage_section.html.erb`. %>
-      <div style="padding: 8px 12px; border-bottom: 1px solid var(--color-border);">
+          FB-63-V4 (2026-05-20) — Voyage sub-panel adopts V4
+          title-in-border chrome. The wrapping `.pito-sub-panel`
+          surrounds `<div id="voyage_section">` so the Turbo Stream
+          replace inside the partial keeps repainting only the stats
+          + running-state block; the V4 chrome (title left, chip +
+          `[reindex]` right) lives in the parent here and stays put. %>
+      <% voyage_state = AppSetting.voyage_configured? ? :configured : :not_configured %>
+      <% voyage_chip = Settings::Stack::HealthState::STATES.fetch(voyage_state) %>
+      <% voyage_reindex_running = AppSetting.reindex_running? %>
+      <%= render Tui::SubPanelComponent.new(title: t("settings.voyage.heading")) do |c| %>
+        <% c.with_actions do %>
+          <%= render Tui::ChipComponent.new(label: voyage_chip[:chip_label], variant: voyage_chip[:chip_variant]) %>
+          <% unless voyage_reindex_running %>
+            <%= render BracketedLinkComponent.new(
+              label: t("settings.stack.voyage_reindex_label"),
+              href: settings_stack_voyage_reindex_path,
+              method: :post
+            ) %>
+          <% end %>
+        <% end %>
         <%= turbo_stream_from "reindex_status" %>
         <%= render "voyage_section" %>
-        <%= render(ConfirmModalComponent.new(
-          id: "reindex_meilisearch_modal",
-          title: t("settings.stack.reindex_confirm_title"),
-          body: t("settings.stack.reindex_confirm_body"),
-          confirm_path: settings_reindex_path,
-          confirm_method: :post,
-          confirm_label: t("settings.stack.reindex"),
-          cancel_label: t("common.actions.cancel"),
-          destructive: true,
-          modal_actions_key: "reindex_confirm"
-        )) %>
-      </div>
+      <% end %>
 
-      <%# Row 3, col 1 — assets %>
-      <div style="padding: 8px 12px; border-right: 1px solid var(--color-border);">
-        <%= render Settings::Stack::HealthLineComponent.new(
-          label: t("settings.stack.assets"),
-          state: if @storage_status[:present]
-                   @storage_status[:writable] ? :writable : :read_only
-                 else
-                   :absent
-                 end
-        ) %>
+      <%# assets. FB-63-V4 — V4 title-in-border. %>
+      <% assets_state = if @storage_status[:present]
+                          @storage_status[:writable] ? :writable : :read_only
+                        else
+                          :absent
+                        end %>
+      <% assets_chip = Settings::Stack::HealthState::STATES.fetch(assets_state) %>
+      <%= render Tui::SubPanelComponent.new(title: t("settings.stack.assets")) do |c| %>
+        <% c.with_actions do %>
+          <%= render Tui::ChipComponent.new(label: assets_chip[:chip_label], variant: assets_chip[:chip_variant]) %>
+        <% end %>
 
         <% if @assets_breakdown.any? %>
           <div data-controller="sortable-table" data-sortable-table-id-value="stack-assets">
-            <table class="stack-table stack-table--3col-aligned" data-sortable-table-target="table">
+            <table class="tui-table tui-table--stack tui-table--3col-aligned" data-sortable-table-target="table">
               <thead>
                 <tr>
                   <%= render(SortableHeaderComponent.new(label: t("settings.stack.col_category"), sort_type: "string")) %>
@@ -240,15 +278,15 @@
                     Stimulus target name. %>
                 <% @assets_breakdown.each do |row| %>
                   <% key = row[:label].to_s.tr(" ", "_").camelize %>
-                  <tr>
-                    <td><%= row[:label] %></td>
-                    <td class="num">
+                  <tr class="tui-table__row">
+                    <td class="tui-table__td"><%= row[:label] %></td>
+                    <td class="tui-table__td tui-table__td--right num">
                       <span data-sort-value="<%= row[:file_count] || -1 %>"
                             data-stack-stats-live-target="assets<%= key %>Files">
                         <%= row[:file_count] ? number_with_delimiter(row[:file_count]) : "—" %>
                       </span>
                     </td>
-                    <td class="num">
+                    <td class="tui-table__td tui-table__td--right num">
                       <span data-sort-value="<%= row[:size_bytes] || -1 %>"
                             data-stack-stats-live-target="assets<%= key %>Size">
                         <%= human_filesize_int(row[:size_bytes]) %>
@@ -260,22 +298,23 @@
             </table>
           </div>
         <% end %>
-      </div>
+      <% end %>
 
-      <%# Row 3, col 2 — notes %>
-      <div style="padding: 8px 12px;">
-        <%= render Settings::Stack::HealthLineComponent.new(
-          label: t("settings.stack.notes"),
-          state: if @notes_volume_status[:present]
-                   @notes_volume_status[:writable] ? :writable : :read_only
-                 else
-                   :absent
-                 end
-        ) %>
+      <%# notes. FB-63-V4 — V4 title-in-border. %>
+      <% notes_state = if @notes_volume_status[:present]
+                         @notes_volume_status[:writable] ? :writable : :read_only
+                       else
+                         :absent
+                       end %>
+      <% notes_chip = Settings::Stack::HealthState::STATES.fetch(notes_state) %>
+      <%= render Tui::SubPanelComponent.new(title: t("settings.stack.notes")) do |c| %>
+        <% c.with_actions do %>
+          <%= render Tui::ChipComponent.new(label: notes_chip[:chip_label], variant: notes_chip[:chip_variant]) %>
+        <% end %>
 
         <% if @notes_breakdown.any? %>
           <div data-controller="sortable-table" data-sortable-table-id-value="stack-notes">
-            <table class="stack-table stack-table--3col-aligned" data-sortable-table-target="table">
+            <table class="tui-table tui-table--stack tui-table--3col-aligned" data-sortable-table-target="table">
               <thead>
                 <tr>
                   <%= render(SortableHeaderComponent.new(label: t("settings.stack.col_namespace"), sort_type: "string")) %>
@@ -285,14 +324,14 @@
               </thead>
               <tbody>
                 <% @notes_breakdown.each do |row| %>
-                  <tr>
-                    <td><%= row[:label] %></td>
-                    <td class="num">
+                  <tr class="tui-table__row">
+                    <td class="tui-table__td"><%= row[:label] %></td>
+                    <td class="tui-table__td tui-table__td--right num">
                       <span data-sort-value="<%= row[:count] || -1 %>">
                         <%= row[:count] ? number_with_delimiter(row[:count]) : "—" %>
                       </span>
                     </td>
-                    <td class="num">
+                    <td class="tui-table__td tui-table__td--right num">
                       <span data-sort-value="<%= row[:size_bytes] || -1 %>">
                         <%= human_filesize_int(row[:size_bytes]) %>
                       </span>
@@ -303,7 +342,7 @@
             </table>
           </div>
         <% end %>
-      </div>
+      <% end %>
     </div>
-  </fieldset>
+  <% end %>
 </div>

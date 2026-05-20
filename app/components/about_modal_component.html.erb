@@ -1,14 +1,15 @@
-<%# About modal — reuses `.confirm-modal` sizing + `.modal-footer` hairline
-    pattern so width (max 420px) and padding (12px 16px) match the
-    smallest existing dialog (ConfirmModalComponent). The
-    `confirm-modal` Stimulus controller handles click-outside + Escape
-    + the close action — no new controller needed. %>
-<dialog id="<%= AboutModalComponent::MODAL_ID %>" class="confirm-modal"
+<%# About dialog — inherits `.tui-dialog-frame` (FB-53-TWEAK 2026-05-20)
+    for canonical title-in-border behavior: "about" left-flush + "[Esc]
+    to close" right-flush, both sitting on the top border. No bottom-row
+    `[close]` button — the Esc hint is the canonical dismiss. The
+    `confirm-modal` Stimulus controller still handles click-outside +
+    Escape. %>
+<dialog id="<%= AboutModalComponent::MODAL_ID %>" class="confirm-modal tui-dialog-frame"
         data-controller="confirm-modal"
         data-action="click->confirm-modal#clickOutside keydown->confirm-modal#keydown">
+  <span class="tui-dialog-frame__title-left"><%= t("about.modal.title") %></span>
+  <span class="tui-dialog-frame__title-right">[<%= t("keys.esc") %>] <%= t("about.modal.esc_close_suffix") %></span>
   <div class="confirm-modal-inner">
-    <div class="dialog-title"><%= t("about.modal.title") %></div>
-
     <%# Logo above the project name. 64px display size sourced from
         `/favicon-128x128.png` for ~2x retina density on this small modal
         surface (max 420px wide). `border-radius: 2px` matches the project's
@@ -16,7 +17,7 @@
         circular avatar). 2026-05-19 — added when `/Pito.png` was retired
         in favor of the multi-size favicon set. %>
     <%# 2026-05-19 — `?v=2` cache-bust matches the rest of the favicon set. %>
-    <img src="/favicon-128x128.png?v=2" alt="pito" style="width: 64px; height: 64px; border-radius: 2px; display: block; margin: 12px auto 0;">
+    <img src="/favicon-128x128.png?v=2" alt="pito" style="width: 64px; height: 64px; border-radius: 0; display: block; margin: 0 auto;">
 
     <%# Project identity block — name + muted subtitle. %>
     <div style="margin-top: 10px; text-align: center;">
@@ -47,15 +48,6 @@
         the logo / project name / subtitle block above. %>
     <div class="text-muted" style="margin-top: 10px; text-align: center;">
       <%= copyright_text %>
-    </div>
-
-    <%# Footer action row — single `[ close ]` link, LEFT-aligned per the
-        design.md "Modal footer alignment" rule. `.modal-footer` /
-        `.confirm-modal-actions` use `display: flex` with no
-        `justify-content` override, so the button sits at the start of the
-        row by default. No `margin-left: auto`. %>
-    <div class="confirm-modal-actions modal-footer">
-      <button type="button" class="bracketed text-muted" data-action="confirm-modal#close">[<span class="bl"><%= t("common.actions.close") %></span>]</button>
     </div>
   </div>
 </dialog>

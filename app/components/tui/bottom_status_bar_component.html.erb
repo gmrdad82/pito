@@ -7,7 +7,7 @@
   controller file in.
 %>
 <footer class="bsb-bar" data-controller="tui-bottom-status-bar">
-  <span class="bsb-mode bsb-mode--<%= mode %>"><%= mode %></span>
+  <span class="bsb-mode bsb-mode--<%= mode %>" data-tui-bottom-status-bar-target="mode"><%= mode %></span>
   <span class="bsb-pipe">|</span>
   <span class="bsb-sections">
     <% SECTIONS.each do |section| %>
