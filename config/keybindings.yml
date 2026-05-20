@@ -75,8 +75,12 @@ flat:
     - { key: "/", label_i18n: keybindings.flat.search,
         action: { type: open_section_modal_or_fallback,
                   fallback_modal_id: omnisearch-modal-everywhere } }
-    - { key: "?", label_i18n: keybindings.flat.about,
-        action: { type: open_modal, modal_id: about-modal } }
+    # 2026-05-20 — `?` flat-key removed. The new `Tui::HelpOverlayComponent`
+    # owns its own `?` keydown listener (see
+    # `app/javascript/controllers/tui_help_overlay_controller.js`); the
+    # legacy About-modal binding shadowed it and blocked the help overlay
+    # from opening. About modal stays reachable via the SPACE leader
+    # popup (`menus.root.items` → `?` about row) — no flat keybinding.
     - { key: g,   label_i18n: keybindings.flat.global_prefix,
         action: { type: open_leader_with_prefix, prefix: g } }
     - { key: q,   label_i18n: keybindings.flat.logout_prefix,

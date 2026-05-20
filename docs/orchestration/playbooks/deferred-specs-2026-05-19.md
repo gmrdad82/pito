@@ -467,6 +467,199 @@ convention."
 The master agent audits the playbook before kicking off the RSpec consolidation
 phase and resolves all open questions in section 11 with the user first.
 
+## Deferred Beta 4 specs
+
+Iteration-mode Beta 4 dispatches append their deferred spec items here per the
+append-only convention.
+
+- TuiCursorController (app/javascript/controllers/tui_cursor_controller.js):
+  - TAB / Shift-TAB cycle forward/backward
+  - Ctrl-h/j/k/l directional nav
+  - Focus index wraps correctly at ends
+  - Skips when input/textarea/contenteditable focused
+  - Skips when dialog[open] present
+  - Sets data-tui-cursor-focused="yes" on current panel only
+  - Calls scrollIntoView on focus change
+
+- Tui::BottomStatusBarComponent (app/components/tui/bottom_status_bar_component.{rb,html.erb}):
+  - Renders all 8 sections (home/calendar/channels/videos/projects/games/notifications/settings)
+  - Current section gets .bsb-section--current class + section accent color
+  - Mode lozenge changes per mode arg (:normal/:command/:search)
+  - Sticky bottom positioning
+  - ? help + : command hints rendered with section accent on key letters
+  - All section labels lowercase
+
+- Tui::SparklineComponent (app/components/tui/sparkline_component.{rb,html.erb}):
+  - Empty values array renders empty string (no error)
+  - All-zero series renders flat row of `▁` (lowest block) matching input length
+  - Mixed series picks block index by `(v / max) * 6` rounded, clamped 0..6
+  - Single-value series renders the top block `▇` (its own max)
+  - Negative or float values do not raise; clamp logic holds
+  - Renders inside a `<span class="tui-sparkline">` (one element only)
+
+- Tui::ProgressBarComponent (app/components/tui/progress_bar_component.{rb,html.erb}):
+  - Default width 10 cells; custom width arg honored
+  - `current=0, total=0` renders all-empty bar (no div-by-zero) and `0/0` label
+  - `current > total` clamps filled to width (no overflow)
+  - Negative current/total coerced via `.to_i` and clamped to 0
+  - Label uses tabular-nums (`.tui-progress__label`)
+  - Output wraps bar in literal `[ ]` brackets per pito bracketed grammar
+
+- Tui::FramedPanelComponent (app/components/tui/framed_panel_component.{rb,html.erb}):
+  - No title arg -> no `<header>` rendered
+  - With title -> `.tui-framed-panel__title` rendered + border-bottom
+  - Block content rendered inside `.tui-framed-panel__body`
+  - `with_body { ... }` slot renders when no block content given
+  - `content` takes precedence over the body slot when both set
+  - Wrapping `<section>` always emitted (single root)
+
+- Tui::TableComponent (app/components/tui/table_component.{rb,html.erb}):
+  - Headers render with `.tui-table__th--<align>` per `align:` array
+  - Missing align entry defaults to `:left`
+  - Empty rows array still renders thead (no `<tr>` in tbody)
+  - Last row gets `.tui-table__row` class for border-bottom removal via :last-child
+  - Cell content rendered raw (HTML-safe contract is caller's job)
+  - 100% width default; respects ambient font-family
+
+- Tui::BarChartComponent (app/components/tui/bar_chart_component.{rb,html.erb}):
+  - Empty rows render an empty `<div class="tui-bar-chart">`
+  - Bar width `%` computed against series max (not total)
+  - `value_format:` Proc applied when present; default to_s otherwise
+  - Zero-max series renders 0% bars (no div-by-zero)
+  - 3-column grid (label / bar / value) via `display: contents` row wrapper
+  - Bar uses `--section-accent` mix at 50% alpha (inherits ambient section color)
+
+- Tui::HeatmapComponent (app/components/tui/heatmap_component.{rb,html.erb}):
+  - Renders 7 day rows (Mon..Sun) regardless of `data:` key coverage
+  - Missing day key OR missing hour index renders intensity 0
+  - Intensity = `value / series_max` clamped to [0, 1]
+  - All-zero data renders all-transparent cells (no errors)
+  - Custom `hours:` array shrinks column count appropriately
+  - Hour labels zero-padded to 2 chars (`'00'..'23'` style)
+
+- Tui::PyramidComponent (app/components/tui/pyramid_component.{rb,html.erb}):
+  - Bar widths computed against SHARED max across left + right (cross-side comparison)
+  - Empty rows array renders empty `<div class="tui-pyramid">`
+  - Zero-max series renders 0% bars (no div-by-zero)
+  - Left bar uses `--dracula-green`, right bar uses `--dracula-purple`
+  - Values render with literal `%` suffix in template
+  - 5-column grid layout (left-value | left-bar | label | right-bar | right-value)
+
+- Tui::TreemapComponent (app/components/tui/treemap_component.{rb,html.erb}):
+  - Tile background opacity scales with share-of-total percent
+  - `flex-grow` set to raw value (sizes proportionally)
+  - Zero-total renders all 0% tiles (no div-by-zero)
+  - Caller-provided ordering preserved (no internal sort)
+  - Code + pct rendered as separate spans (caller can style independently)
+  - Min tile dims (80×60) prevent collapse under heavy fragmentation
+
+- Tui::HelpOverlayComponent (app/components/tui/help_overlay_component.{rb,html.erb}):
+  - All 4 groups (global / section nav / panel nav / session) render
+  - Bracketed keys formatted [?], [:], [SPACE], etc.
+  - Section accent on group titles via cascade
+  - Stimulus controller toggles on ? and Escape
+  - Modal opens via showModal() (uses HTML dialog element)
+  - Ignores ? when input/textarea/contenteditable focused
+  - Ignores ? when Ctrl/Meta/Alt modifiers are held
+
+### F3-DEEP-A (Beta 4 — 2026-05-20) — TUI revamp of remaining /settings views
+
+- TOTP enrollment view (app/views/settings/security/totps/new.html.erb):
+  - Renders QR code in TuiFramedPanelComponent
+  - Numbered steps with lowercase headings
+  - Backup codes in monospace tabular-nums
+  - 6-digit TOTP input has TUI styling
+  - [verify] action uses BracketedLinkComponent
+- TOTP enrollment pane component (app/components/settings/totp_enrollment_pane_component.{rb,html.erb}):
+  - Scan section wrapped in Tui::FramedPanelComponent with lowercase title
+  - Seed pre-block uses tabular-nums + dark Dracula bg + hairline
+  - [verify] submit button styled as bracketed link
+  - QR white-bg inline-block preserved for cross-theme scan contrast
+- Time zone pane (app/views/settings/_time_zone_pane.html.erb):
+  - Detected + saved zones displayed muted
+  - Select dropdown styled per TUI
+  - [update] action rendered as bracketed link button
+  - Lowercase h2 heading
+- Webhook help modal (app/views/settings/webhooks/help/show.html.erb):
+  - Wrapped in TuiFramedPanelComponent
+  - Brand names capitalized in title ("webhook help — Slack" / "webhook help — Discord")
+  - [close] muted (BracketedMutedLinkComponent) at bottom triggering webhook-help-modal#close
+- Global form input styling (app/assets/tailwind/application.css):
+  - All text/password/email/url/tel/number/search inputs + select + textarea use
+    TUI dark bg (var(--color-bg-alt)) + hairline border + no shadow + 13px
+    monospace inherit + 0 border-radius
+  - Focus state: section accent border, no glow
+  - Disabled state: muted color + not-allowed cursor
+  - Specialized inputs (.totp-modal-box, .omnisearch-input, .bundle-title-input)
+    keep their own styling via higher selector specificity
+- Heading hierarchy (app/assets/tailwind/application.css):
+  - h1-h6 all render at 13px bold per ADR 0016 single-font-size lock
+  - Per-surface overrides (.webhook-help-content h1/h2/h3) keep their sizes
+    via higher specificity
+- Visual regression scope to check during consolidation:
+  - /settings index — headings (was h1 18px / h2 14px, now uniform 13px)
+  - /login + /signup forms — input styling change (dark bg vs white bg)
+  - Any view rendering `<input type="text">` outside the specialized list
+
+### F3-DEEP-B (Beta 4 — 2026-05-20) — sessions table + action-screen TUI
+
+- Sessions::TableComponent (app/components/sessions/table_component.html.erb):
+  - Renders `<table class="tui-table sessions-table">` (Approach B class
+    swap — no component refactor)
+  - Header row uses `.tui-table__th` family with explicit `--left` /
+    `--right` align modifiers (checkbox + user-agent left, pinged right)
+  - Row tags carry `.tui-table__row`; td tags carry `.tui-table__td`
+    with align modifiers matching the header
+  - Sortable header links (`sort_link_to` user-agent + pinged) survive
+    the swap and continue to drive `?sessions_sort=&sessions_dir=` on
+    `/settings`
+  - Bulk-revoke wiring intact — `data-sessions-bulk-revoke-target` on
+    header + per-row checkbox wrappers, `data-current` host element
+    preserved on per-row span
+  - Tui::CheckboxComponent + Tui::ChipComponent (`[this]` marker) +
+    TooltipBadgeComponent (`[ip]`) all still mount inside the
+    refactored cells
+  - Empty-state branch (`sessions.any?` else) still renders
+    `<p class="text-muted">no active sessions.</p>` (unchanged copy)
+  - Verify the legacy `.sessions-table` arrow-positioning rules in
+    application.css still apply because the `<table>` retains
+    `sessions-table` as a secondary class
+
+- shared/_action_screen.html.erb (TUI confirmation footer):
+  - `submit_label:` accepts both bare label ("delete") and legacy
+    `[wrapped]` label ("[ confirm cancel ]") — the partial detects +
+    unwraps a single set of surrounding brackets before re-wrapping
+    via `[<span class="bl">…</span>]`
+  - Non-destructive render: `<button class="bracketed
+    action-screen-submit">` (no `text-danger`)
+  - Destructive render: `<button class="bracketed action-screen-submit
+    text-danger">` — pink via `--color-danger`
+  - Cancel link rendered via `BracketedMutedLinkComponent` (replaces
+    the legacy inline `BracketedLinkComponent label: "cancel"`)
+  - `data-keyboard-confirmation` on `<form>` + `data-keyboard-
+    confirmation-cancel` on cancel link preserved (Esc + y keyboard
+    contract from `keyboard_controller.js` intact)
+  - `form_method:` :delete / :post / default :post all serialize the
+    correct `_method` hidden field
+  - The four call sites all render without Template::Error:
+    - `/deletions/show.html.erb` (passes localized label)
+    - `/deletions/show_youtube_connection.html.erb` (legacy
+      `[confirm revoke]` wrapped label)
+    - `/deletions/_calendar_entry.html.erb` (legacy `[ confirm
+      cancel ]` wrapped label)
+    - `/syncs/show.html.erb` (localized "sync" label)
+
+- application.css additions:
+  - `button.bracketed.action-screen-submit` resets browser button
+    chrome (no background, no border, no padding, inherits font)
+  - Hover swaps `var(--color-link)` → `var(--color-link-hover)` (or
+    `var(--color-danger)` → `var(--color-danger-hover)` in the
+    destructive variant)
+  - Inner `.bl` glyph inherits the parent button color (no separate
+    color rule needed)
+  - Pre-existing `.action-screen-footer` sticky-bottom rule is kept
+    (still owns the sticky chrome the partial renders into)
+
 ## Section completion log
 
 Entries added by the RSpec consolidation agents as they work through this list.

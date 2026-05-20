@@ -1,0 +1,8 @@
+<section class="tui-framed-panel">
+  <% if title %>
+    <header class="tui-framed-panel__title"><%= title %></header>
+  <% end %>
+  <div class="tui-framed-panel__body">
+    <%= content || (body if body) %>
+  </div>
+</section>

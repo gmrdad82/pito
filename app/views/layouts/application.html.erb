@@ -268,20 +268,20 @@
       <%= yield %>
     </main>
 
-    <%# Footer (2026-05-19 cleanup, SHA dropped 2026-05-20): single centered
-        copyright line. The repeated nav links (home/calendar/channels/...)
-        and the legacy version + git-sha cluster were dropped — the same
-        copyright string is now mirrored verbatim in
-        `AboutModalComponent#copyright_text`, and the version (VERSION file
-        only — no SHA) lives inside the about modal (reached via the `?`
-        keybind or `space ?` leader path). The footer logo link to
-        pitomd.com was dropped 2026-05-19 — the centered copyright text is
-        now the sole footer content. %>
-    <footer style="border-top: 1px solid var(--color-border); padding: 8px 12px; margin-top: 24px; font-size: 11px;">
-      <div style="display: flex; align-items: center; justify-content: center; gap: 4px;">
-        <span class="text-muted">&copy; <%= Date.current.year %><span class="hide-mobile"> &mdash; all rights reserved.</span></span>
-      </div>
-    </footer>
+    <%# Beta 4 — Phase F1 (2026-05-20). The legacy centered copyright
+        footer was replaced by `Tui::BottomStatusBarComponent` — a sticky
+        TUI-flavoured status line that surfaces the current input mode
+        (normal/command/search), the 8 top-level section links (with the
+        active section bolded and accented via the `--section-accent`
+        cascade), and the `?` help / `:` command keybinding hints. The
+        copyright + version metadata still lives in
+        `AboutModalComponent` (opened via the `?` keybind / `space ?`
+        leader path), so removing the footer copyright did not orphan
+        that information.
+        Wired here unconditionally — the bar shows on every page that
+        renders the layout, including auth screens, so the section + mode
+        signals are visible at all times. %>
+    <%= render Tui::BottomStatusBarComponent.new(current_section: current_section) %>
 
     <%# 2026-05-16 — the legacy keyboard-shortcuts help modal that
         used to mount here was retired. Keyboard discovery now lives
@@ -289,6 +289,19 @@
         navbar, immediately after `[settings]` — relocated from the
         footer on 2026-05-18 — plus SPACE keypress); the `?`
         keybinding and the `KeyboardShortcutsModalComponent` are gone. %>
+
+    <%# Beta 4 — Phase F1 (2026-05-20). TUI help overlay
+        (`Tui::HelpOverlayComponent`) — a `<dialog>`-backed which-key
+        style modal listing every top-level pito keybinding (global
+        flat keys, section nav under SPACE, panel nav, session).
+        Opened by the `?` flat-key (the `tui-help-overlay` Stimulus
+        controller intercepts `?` at document level) and closed by
+        ESC or another `?` toggle. Mounted FIRST in the modal pile so
+        document order mirrors usage frequency (help is the surface a
+        new user opens before everything else). The overlay sits in
+        the browser top layer via `showModal()` so it lays cleanly
+        above any pre-existing dialog. %>
+    <%= render Tui::HelpOverlayComponent.new %>
 
     <%# Phase 37 (2026-05-19) — "Everywhere" omnisearch modal. Opened
         by the `/` flat-key on every page (per `config/keybindings.yml`

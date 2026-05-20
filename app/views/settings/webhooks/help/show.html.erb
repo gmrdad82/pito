@@ -28,8 +28,23 @@
     those anchors to carry `target="_blank" rel="noopener noreferrer"`
     so a `[help]` click never yanks the user out of their pito
     settings tab. %>
+<%# Beta 4 F3-DEEP-A — TUI revamp. Wrap the rendered Markdown guide in
+    a Tui::FramedPanelComponent with a lowercase + brand-capitalized
+    title (`Slack` / `Discord` brand names stay capitalized per project
+    rule). A bottom-row `[close]` muted bracketed link gives the user
+    an explicit exit (the modal also closes via its existing controller
+    on Esc / backdrop click — this is just an in-content affordance). %>
+<%
+  brand = @provider.to_s == "discord" ? "Discord" : "Slack"
+  panel_title = "webhook help — #{brand}"
+%>
 <%= turbo_frame_tag "webhook_help_modal_frame" do %>
-  <div class="webhook-help-content markdown-body" data-webhook-help="<%= @provider %>">
-    <%= render_markdown(@markdown, plain: true, target_external_links: true) %>
-  </div>
+  <%= render Tui::FramedPanelComponent.new(title: panel_title) do %>
+    <div class="webhook-help-content markdown-body" data-webhook-help="<%= @provider %>">
+      <%= render_markdown(@markdown, plain: true, target_external_links: true) %>
+    </div>
+    <div style="margin-top: 12px; padding-top: 8px; border-top: 1px solid var(--color-border); display: flex; justify-content: flex-start;">
+      <%= render BracketedMutedLinkComponent.new(label: "close", href: "#", data: { action: "click->webhook-help-modal#close" }) %>
+    </div>
+  <% end %>
 <% end %>
