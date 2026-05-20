@@ -48,7 +48,7 @@ RSpec.describe "Layout top status bar", type: :request do
       # The status bar's section span (`.sb-section`) carries the bare
       # section text — no brackets, no separators. Body's data-section
       # attribute mirrors the same value.
-      expect(header).to match(/<span class="sb-section">home/)
+      expect(header).to match(/<span class="sb-section"[^>]*>home/)
     end
 
     it "drops every legacy bracketed-nav hook (nav-row / nav-sep / nav-spacer)" do
@@ -79,7 +79,7 @@ RSpec.describe "Layout top status bar", type: :request do
     it "renders the status bar with the channels section label" do
       header = header_html
       expect(header).to include('class="sb-bar"')
-      expect(header).to match(/<span class="sb-section">channels/)
+      expect(header).to match(/<span class="sb-section"[^>]*>channels/)
     end
   end
 
@@ -89,7 +89,7 @@ RSpec.describe "Layout top status bar", type: :request do
     it "renders the status bar with the games section label" do
       header = header_html
       expect(header).to include('class="sb-bar"')
-      expect(header).to match(/<span class="sb-section">games/)
+      expect(header).to match(/<span class="sb-section"[^>]*>games/)
     end
   end
 
@@ -99,7 +99,7 @@ RSpec.describe "Layout top status bar", type: :request do
     it "renders the status bar with the settings section label" do
       header = header_html
       expect(header).to include('class="sb-bar"')
-      expect(header).to match(/<span class="sb-section">settings/)
+      expect(header).to match(/<span class="sb-section"[^>]*>settings/)
     end
   end
 end

@@ -19,7 +19,7 @@
 # stays legible (3 rows always present, state per row varies).
 #
 # The 3 platform slugs are pulled from `Platforms::ChipComponent::SLUG_BRAND`
-# (canonical brand list) and intersected with `game_detail_logo_slugs`
+# (canonical brand list) and intersected with `game_detail_chip_slugs`
 # (the same applicable-slug filter the previous ownership block used)
 # so the matrix only surfaces platforms IGDB lists the game on. Games
 # with no applicable platforms fall back to a single em-dash row.
@@ -34,7 +34,7 @@
 # footage tick.
 module Games
   class OwnershipMatrixComponent < ViewComponent::Base
-    include PlatformLogosHelper
+    include PlatformChipsHelper
 
     def initialize(game:)
       @game = game
@@ -44,7 +44,7 @@ module Games
 
     # Applicable platform slugs for this game — the full canonical
     # brand list (PS / Switch / Steam). The matrix ALWAYS renders all
-    # three rows regardless of `game_detail_logo_slugs` (IGDB-reported
+    # three rows regardless of `game_detail_chip_slugs` (IGDB-reported
     # applicable set), so the user can mark ownership on any platform
     # — IGDB is incomplete for Switch ports / late-port titles and
     # the matrix must not gate on it. The user's manual ownership

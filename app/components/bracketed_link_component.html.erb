@@ -1,4 +1,6 @@
-<% if active? %>
+<% if submit? %>
+<%= button_tag type: "submit", class: css_classes, data: html_data do %>[<span class="bl"><%= @label %></span>]<% end %>
+<% elsif active? %>
 <span class="bracketed-active">[<%= @label %>]</span>
 <% else %>
 <%= link_to @href, class: css_classes, data: html_data, target: resolved_target, rel: resolved_rel do %>[<span class="bl"><%= @label %></span>]<% end %>

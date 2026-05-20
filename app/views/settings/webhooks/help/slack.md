@@ -1,6 +1,4 @@
-# Slack webhook setup
-
-## Step 1 — Create a Slack app
+## step 1 — create a Slack app
 
 Open the [Slack apps directory](https://api.slack.com/apps), sign in to the
 workspace where pings should land, click `Create New App` → `From scratch`.
@@ -9,13 +7,13 @@ Name it `pito` (or any label), pick the workspace, `Create App`.
 
 ---
 
-## Step 2 — Enable Incoming Webhooks
+## step 2 — enable Incoming Webhooks
 
 Sidebar → `Incoming Webhooks`. Flip `Activate Incoming Webhooks` to `On`.
 
 ---
 
-## Step 3 — Add a webhook URL
+## step 3 — add a webhook URL
 
 Same page, bottom: `Add New Webhook to Workspace`. Pick a channel (public,
 private you belong to, or self-DM), `Allow`.
@@ -28,7 +26,7 @@ URL shape:
 
 ---
 
-## Step 4 — Paste into pito
+## step 4 — paste into pito
 
 Settings → Slack pane. Paste into `webhook URL`, click `[update]`.
 
@@ -42,14 +40,14 @@ You should see in the channel within ~1s:
 
 ---
 
-## Troubleshooting
+## troubleshooting
 
-| Error                    | Fix                                      |
-| ------------------------ | ---------------------------------------- |
-| **URL invalid**          | re-copy from Slack                       |
-| **test ping 404 / 410**  | webhook deleted — redo Step 3            |
-| **test ping 403**        | workspace perms changed — redo Step 3    |
-| **connection timed out** | network / `hooks.slack.com` reachability |
-| **channel disappeared**  | channel deleted — redo Step 3 elsewhere  |
+| Error                | Fix                                      |
+| -------------------- | ---------------------------------------- |
+| URL invalid          | re-copy from Slack                       |
+| test ping 404 / 410  | webhook deleted — redo step 3            |
+| test ping 403        | workspace perms changed — redo step 3    |
+| connection timed out | network / `hooks.slack.com` reachability |
+| channel disappeared  | channel deleted — redo step 3 elsewhere  |
 
 To reset: clear the `webhook URL` field and `[update]`. Toggles reset to off.

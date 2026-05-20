@@ -133,10 +133,15 @@ RSpec.describe "Leader menu layout integration", type: :request do
         "expected the dropped keys to be absent from the root menu, found #{offenders.inspect}"
     end
 
-    it "keeps the in-scope bindings (Gl + S + Q) in the root menu" do
+    # 2026-05-19 — 2-letter prefix scheme. Every navigation binding now
+    # uses a 2-letter form (`gC` channels, `gG` games, `gS` settings,
+    # `qQ` logout) so the same key can also be reached via the flat-key
+    # compact-menu mode. The earlier `Gl` / `S` / `Q` single-character
+    # keys were retired in the rebinding pass.
+    it "keeps the in-scope bindings (gC + gG + gS + qQ + ?) in the root menu" do
       root_items = payload.fetch("menus").fetch("root").fetch("items")
       keys = root_items.reject { |i| i["divider"] }.map { |i| i.fetch("key") }
-      expect(keys).to include("Gl", "S", "Q")
+      expect(keys).to include("gC", "gG", "gS", "qQ", "?")
     end
   end
 

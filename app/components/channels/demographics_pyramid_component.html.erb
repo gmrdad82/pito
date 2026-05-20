@@ -49,7 +49,7 @@
                      width: <%= bar_width_px(male_pct) %>px;
                      height: 12px;
                      background: <%= male_color %>;
-                     border-radius: 1px;"></span>
+                     border-radius: 0;"></span>
       </div>
 
       <%# Center axis label — age bucket. Sits on the axis between
@@ -75,7 +75,7 @@
                      width: <%= bar_width_px(female_pct) %>px;
                      height: 12px;
                      background: <%= female_color %>;
-                     border-radius: 1px;"></span>
+                     border-radius: 0;"></span>
         <span class="channels-demographics-pyramid__pct"
               style="color: var(--color-muted);"><%= format_pct(female_pct) %></span>
       </div>
@@ -90,12 +90,12 @@
               color: var(--color-muted);">
     <span style="display: inline-flex; align-items: center; gap: 6px;">
       <span style="display: inline-block; width: 10px; height: 10px;
-                   background: <%= male_color %>; border-radius: 1px;"></span>
+                   background: <%= male_color %>; border-radius: 0;"></span>
       male
     </span>
     <span style="display: inline-flex; align-items: center; gap: 6px;">
       <span style="display: inline-block; width: 10px; height: 10px;
-                   background: <%= female_color %>; border-radius: 1px;"></span>
+                   background: <%= female_color %>; border-radius: 0;"></span>
       female
     </span>
   </div>

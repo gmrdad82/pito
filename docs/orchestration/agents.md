@@ -31,6 +31,24 @@ This discipline keeps outputs reviewable, predictable, and free of cross-agent
 collisions. It also makes responsibility unambiguous: when something is wrong,
 the failing role is identifiable.
 
+Every implementation agent (rails-impl, website-impl, future ones) must honor
+**"ViewComponents are kings"** per CLAUDE.md — every visible HTML element wraps
+in a ViewComponent (Rails) or `.astro` component (website), even on first use.
+No raw inline HTML in templates with classes/styling/variants. This also means:
+every ViewComponent dispatch produces both the component files AND the matching
+`spec/components/<path>/<name>_component_spec.rb`. Specs are not deferred for
+VCs — they are part of the deliverable.
+
+---
+
+## Canonical terminology
+
+All agents use the 5 locked terms — **panel** (not pane), **screen** (not page),
+**dialog** (not modal), **action** (not link / url / button), **hint** (not text
+/ caption). Canonical source: `CLAUDE.md` § Terminology (canonical) and
+`docs/design.md` § Terminology. Dispatch prompts and agent outputs that drift to
+the legacy terms are bugs to fix.
+
 ---
 
 ## Project-scoped agent stubs

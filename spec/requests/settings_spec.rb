@@ -75,7 +75,7 @@ RSpec.describe "Settings", type: :request do
 
       it "renders the security pane heading" do
         get settings_path
-        expect(response.body).to include("<h2>security</h2>")
+        expect(response.body).to include('<span class="pito-pane__title">security</span>')
       end
 
       # 2026-05-16 (sessions revamp v2). The three security launcher
@@ -296,12 +296,15 @@ RSpec.describe "Settings", type: :request do
       end
     end
 
-    describe "row 2 — Discord + Slack webhook panes" do
-      # Phase 32 follow-up (2026-05-16). The OAuth-applications +
-      # tokens management surface moved out of /settings (to rake
-      # tasks); row 2 is now two distinct webhook panes — Discord
-      # LEFT, Slack RIGHT — instead of the prior stacked combined
-      # pane.
+    describe "row 2 — unified notifications pane" do
+      # Beta 4 — F3-B (2026-05-20). The previously-distinct Discord +
+      # Slack panes were collapsed into a single unified notifications
+      # pane with a shared toggles block on top and the per-brand
+      # webhook subsections beneath. The pane heading is the lowercase
+      # `notifications` (bold via `<strong>` per the F3-DEEP-A heading
+      # rule); the brand sub-headings render as `<h3>Discord</h3>` /
+      # `<h3>Slack</h3>` (proper-noun capitalization preserved per the
+      # project copy rule).
 
       it "does NOT render the dropped OAuth applications heading" do
         get settings_path
@@ -315,35 +318,47 @@ RSpec.describe "Settings", type: :request do
         expect(response.body).not_to include("new token")
       end
 
-      it "renders the Discord webhook form" do
+      it "renders the unified notifications heading (lowercase, V4 plain 400-weight)" do
         get settings_path
-        expect(response.body).to include("<h2>Discord</h2>")
+        expect(response.body).to include('<span class="pito-pane__title">notifications</span>')
+      end
+
+      it "renders the Discord webhook form inside the unified pane" do
+        get settings_path
+        expect(response.body).to include("<h3")
+        expect(response.body).to include(">Discord</h3>")
         expect(response.body).to include('name="discord_webhook_url"')
       end
 
-      it "renders the Slack webhook form" do
+      it "renders the Slack webhook form inside the unified pane" do
         get settings_path
-        expect(response.body).to include("<h2>Slack</h2>")
+        expect(response.body).to include(">Slack</h3>")
         expect(response.body).to include('name="slack_webhook_url"')
       end
 
-      it "renders Discord and Slack as TWO separate .pane blocks (no hairline-stacking)" do
+      it "renders Discord BEFORE Slack inside the unified pane (V1 layout order)" do
         get settings_path
-        # Pull the contents of the row-2 pane-row by scanning between
-        # the Discord <h2> and the row-3 stack pane. Two distinct
-        # `<div class="pane">` openings indicate two side-by-side
-        # panes rather than one stacked pane.
         body = response.body
-        row2_start = body.index("<h2>Discord</h2>")
-        row3_start = body.index("<h2>stack</h2>")
-        expect(row2_start).not_to be_nil
-        expect(row3_start).not_to be_nil
-        expect(row2_start).to be < row3_start
+        discord_at = body.index(">Discord</h3>")
+        slack_at = body.index(">Slack</h3>")
+        expect(discord_at).not_to be_nil
+        expect(slack_at).not_to be_nil
+        expect(discord_at).to be < slack_at
+      end
 
-        pane_openings = body[0...row3_start].scan(/<div class="pane">/).size
-        # Row 1 right pane + the two row-2 panes (Discord + Slack) =
-        # at least three `.pane` openings before row 3.
-        expect(pane_openings).to be >= 3
+      it "renders the shared `[x] all` + `[x] daily digest` toggles" do
+        get settings_path
+        expect(response.body).to include('data-leader-toggle="notification_all"')
+        expect(response.body).to include('data-leader-toggle="notification_daily_digest"')
+      end
+
+      it "drops the separate Discord and Slack `<h2>` headings (collapsed into one pane)" do
+        # Beta 4 F3-B — the two prior `<h2>Discord</h2>` / `<h2>Slack</h2>`
+        # pane headings no longer render; the brand sub-sections sit
+        # under `<h3>` headings inside the single unified pane.
+        get settings_path
+        expect(response.body).not_to include("<h2>Discord</h2>")
+        expect(response.body).not_to include("<h2>Slack</h2>")
       end
     end
 
@@ -402,7 +417,7 @@ RSpec.describe "Settings", type: :request do
     describe "row 3 — stack pane" do
       it "renders the stack heading inside a wide pane" do
         get settings_path
-        expect(response.body).to include("<h2>stack</h2>")
+        expect(response.body).to include('<span class="pito-pane__title">stack</span>')
         expect(response.body).to include("pane--wide")
       end
 
@@ -566,15 +581,19 @@ RSpec.describe "Settings", type: :request do
     end
 
     describe "JSON format" do
+      # 2026-05-19 — the theme system was retired entirely; the JSON
+      # contract carries only the two operator-knob fields the CLI binds
+      # to (`max_panes`, `pane_title_length`). The previous `theme: "auto"`
+      # placeholder is gone.
       it "returns 200" do
         get settings_path(format: :json)
         expect(response).to have_http_status(:ok)
       end
 
-      it "returns the three workspace fields the CLI binds to" do
+      it "returns the two workspace fields the CLI binds to" do
         get settings_path(format: :json)
         json = JSON.parse(response.body)
-        expect(json).to include("max_panes", "pane_title_length", "theme")
+        expect(json).to include("max_panes", "pane_title_length")
       end
 
       it "returns integer values for max_panes + pane_title_length from config.x.pito" do
@@ -584,10 +603,10 @@ RSpec.describe "Settings", type: :request do
         expect(json["pane_title_length"]).to eq(Rails.application.config.x.pito.pane_title_length)
       end
 
-      it "returns the static 'auto' theme placeholder" do
+      it "no longer carries the dropped `theme` key" do
         get settings_path(format: :json)
         json = JSON.parse(response.body)
-        expect(json["theme"]).to eq("auto")
+        expect(json).not_to have_key("theme")
       end
     end
   end

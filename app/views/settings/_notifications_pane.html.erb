@@ -27,10 +27,9 @@
     The `[help]` link opens the layout-level webhook help modal
     (`shared/_webhook_help_modal.html.erb`) via the
     `webhook-help-modal` Stimulus controller. %>
-<div class="pane">
-  <fieldset style="padding: 8px; margin-bottom: 8px; border: none;">
-    <legend><h2><strong><%= t("settings.notifications.heading") %></strong></h2></legend>
-
+<div class="pane pito-pane" data-tui-cursor-target="panel" data-panel-title="<%= t("settings.notifications.heading") %>">
+  <span class="pito-pane__title"><%= t("settings.notifications.heading") %></span>
+  <%= render Tui::PanelFieldsetComponent.new do %>
     <%# Shared toggles. Each lives in its own tiny form so the
         auto-submit Stimulus controller can fire `requestSubmit()`
         on `change` without dragging the URL inputs along. The
@@ -70,7 +69,7 @@
             <span class="md-check-label"><%= t("settings.notification_toggle.daily_digest") %></span>
           </label>
         <% end %>
-        <p class="md-check-caption"><%= t("settings.notification_toggle.daily_digest_hint") %></p>
+        <%= render Tui::HintComponent.new(text: t("settings.notification_toggle.daily_digest_hint")) %>
       </div>
     </div>
 
@@ -89,7 +88,7 @@
                         value: "",
                         placeholder: (@discord_webhook&.webhook_url.present? ? webhook_url_mask(:discord) : nil),
                         autocomplete: "off" %>
-          <button type="submit">[<%= t("common.actions.update") %>]</button>
+          <%= render(BracketedLinkComponent.new(label: t("common.actions.update"), as: :submit)) %>
           <%= render(BracketedMutedLinkComponent.new(
                 label: t("common.actions.help"),
                 href: settings_webhooks_help_path(provider: "discord"),
@@ -99,7 +98,7 @@
                 }
               )) %>
         </div>
-        <p class="webhook-url-hint"><%= t("settings.webhook.clear_hint_html").html_safe %></p>
+        <%= render Tui::HintComponent.new(text: t("settings.webhook.clear_hint_html").html_safe) %>
       <% end %>
     </div>
 
@@ -118,7 +117,7 @@
                         value: "",
                         placeholder: (@slack_webhook&.webhook_url.present? ? webhook_url_mask(:slack) : nil),
                         autocomplete: "off" %>
-          <button type="submit">[<%= t("common.actions.update") %>]</button>
+          <%= render(BracketedLinkComponent.new(label: t("common.actions.update"), as: :submit)) %>
           <%= render(BracketedMutedLinkComponent.new(
                 label: t("common.actions.help"),
                 href: settings_webhooks_help_path(provider: "slack"),
@@ -128,8 +127,8 @@
                 }
               )) %>
         </div>
-        <p class="webhook-url-hint"><%= t("settings.webhook.clear_hint_html").html_safe %></p>
+        <%= render Tui::HintComponent.new(text: t("settings.webhook.clear_hint_html").html_safe) %>
       <% end %>
     </div>
-  </fieldset>
+  <% end %>
 </div>

@@ -60,7 +60,7 @@
           <% end %>
         </optgroup>
       </select>
-      <span class="form-hint" style="display: block; margin-top: 2px;"><%= t("settings.time_zone.hint") %></span>
+      <%= render Tui::HintComponent.new(text: t("settings.time_zone.hint")) %>
     </div>
 
     <button type="submit" class="bracketed" style="cursor: pointer; background: none; border: none; padding: 0; color: var(--color-link); font: inherit;">[<span class="bl"><%= t("common.actions.update") %></span>]</button>

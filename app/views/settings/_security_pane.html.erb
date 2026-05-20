@@ -32,10 +32,9 @@
         title text, conditional warning, and form `action` at click
         time — the modal is one shared instance, content is dynamic
         based on the current checkbox selection. %>
-<div class="pane">
-  <fieldset style="padding: 8px;" data-controller="sessions-bulk-revoke">
-    <legend><h2><%= t("settings.security.heading") %></h2></legend>
-
+<div class="pane pito-pane" data-tui-cursor-target="panel" data-panel-title="<%= t("settings.security.heading") %>">
+  <span class="pito-pane__title"><%= t("settings.security.heading") %></span>
+  <%= render Tui::PanelFieldsetComponent.new(data: { controller: "sessions-bulk-revoke" }) do %>
     <%= render(Sessions::TableComponent.new(
       sessions: @sessions,
       sessions_sort: @sessions_sort,
@@ -73,5 +72,5 @@
     <% if @sessions.any? %>
       <%= render(Sessions::BulkRevokeModalComponent.new) %>
     <% end %>
-  </fieldset>
+  <% end %>
 </div>

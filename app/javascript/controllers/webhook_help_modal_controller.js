@@ -46,6 +46,22 @@ export default class extends Controller {
 
     frame.setAttribute("src", `${this.urlTemplateValue}${provider}`)
 
+    // FB-103 (2026-05-20). Rewrite the dialog frame's top-border title
+    // (`.tui-dialog-frame__title-left`) to the per-brand string. The
+    // server-rendered initial text is the generic `webhook help`
+    // fallback; the brand-specific strings come from data attributes
+    // (`data-webhook-help-title-slack` / `data-webhook-help-title-discord`)
+    // populated server-side from the `settings.webhooks.help.brand_title`
+    // i18n key so the JS layer never invents copy. The in-body `<h1>`
+    // (previously "Slack webhook setup" / "Discord webhook setup") is
+    // gone from the markdown sources — the border title is now the
+    // single canonical title surface for the dialog.
+    const titleEl = dialog.querySelector("[data-webhook-help-title]")
+    if (titleEl) {
+      const brandTitle = dialog.getAttribute(`data-webhook-help-title-${provider}`)
+      if (brandTitle) titleEl.textContent = brandTitle
+    }
+
     if (typeof dialog.showModal === "function" && !dialog.open) {
       dialog.showModal()
     }

@@ -319,11 +319,18 @@ page_actions:
   #        `[revoke N]`. Once the modal is open, the `revoke_confirm`
   #        modal_actions take over (`l` dark mode + `r` revoke
   #        session(s) + Esc close).
-  #   vr — open the reindex Meilisearch confirm modal (mounted by
-  #        `_stack_pane.html.erb` via `ConfirmModalComponent` as
-  #        `<dialog id="reindex_meilisearch_modal">`). Once open,
-  #        the `reindex_confirm` modal_actions take over.
   #   na / nd — shared notifications all / daily digest toggles.
+  #
+  #   FB-63 (2026-05-20) — the legacy `vr` (Voyage reindex) leader
+  #   keybinding that opened the `reindex_meilisearch_modal` dialog
+  #   has been REMOVED. The combined `[reindex]` action split into
+  #   per-tile title-row links on the Meilisearch + Voyage AI tiles;
+  #   the modal it targeted no longer exists, and the leader-menu
+  #   action-type vocabulary does not currently express "POST to a
+  #   path" without a dialog gate. A follow-up FB-* dispatch can
+  #   restore separate `mr` (Meilisearch reindex) + `vr` (Voyage
+  #   reindex) leader keys once a `post_to_path` action type lands
+  #   in the leader-menu controller.
   #
   # 2026-05-20 — F3-B-SIMPLIFY-MODEL. The per-brand `da/dd/sa/sd`
   # toggles collapsed into TWO shared `na/nd` toggles. Each flips the
@@ -345,8 +352,11 @@ page_actions:
   #   ───── (plain divider) ─────
   #   na  all                        (single column — collapsed from 2-col)
   #   nd  daily digest
-  #   ───── (plain divider) ─────
-  #   vr                             (Voyage reindex)
+  #
+  # FB-63 (2026-05-20) — the trailing `vr` (Voyage reindex) entry was
+  # dropped along with the combined `[reindex]` modal. Restore once a
+  # `post_to_path` action type lands; the per-tile title-row
+  # `[reindex]` links are the canonical surface in the meantime.
   settings:
     - key: sr
       label_i18n: keybindings.page_actions.settings.revoke_unused_sessions
@@ -364,12 +374,6 @@ page_actions:
       action:
         type: toggle_setting
         target: notification_daily_digest
-    - divider: true
-    - key: vr
-      label_i18n: keybindings.page_actions.settings.voyage_reindex
-      action:
-        type: open_modal_by_id
-        target: reindex_meilisearch_modal
   default:
     - key: "/"
       label_i18n: keybindings.page_actions.default.search
@@ -404,12 +408,21 @@ menus:
   # Direct-key entries (no prefix continuation):
   #   q  → quit (TUI-only; surfaces: [tui]; never appears in the web
   #         popup so it does not collide with the `q` flat-key)
+  #   a  → about (opens the about dialog)
   #
   # The prefix accumulator (`leader_menu_controller.js#handlePrefixKey`)
   # handles multi-char keys natively; `g` is a prefix-only key in this
   # menu (no exact `g` binding), so pressing `g` then `C`/`G`/`S` fires
   # the matching navigation. `q` is a prefix-only key in the web view
   # (the bare `q` quit entry is filtered out as TUI-only).
+  #
+  # FB-71 (2026-05-20) — about moved from `?` to `a`. The previous `?`
+  # binding collided with the `?` flat-key (now exclusively owned by
+  # `Tui::HelpOverlayComponent`): even though `?` here is gated behind
+  # the SPACE leader so the flat-key handler is bypassed when the menu
+  # is open, sharing the same glyph for two distinct destinations was
+  # confusing. `a` (mnemonic for "about") is unused elsewhere in the
+  # root menu and keeps the leader popup unambiguous.
   #
   # Divider entries split the visual list into logical groups
   # (navigation, logout). Renderers skip dividers during key dispatch.
@@ -421,5 +434,5 @@ menus:
       - { key: q,  label_i18n: keybindings.menus.root.quit,     action: { type: quit }, surfaces: [tui] }
       - divider: true
       - { key: qQ, label_i18n: keybindings.menus.root.logout,   action: { type: logout } }
-      - { key: "?", label_i18n: keybindings.menus.root.about,   action: { type: open_modal, modal_id: about-modal } }
+      - { key: a,  label_i18n: keybindings.menus.root.about,    action: { type: open_modal, modal_id: about-modal } }
 

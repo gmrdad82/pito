@@ -125,21 +125,41 @@ class SettingsController < ApplicationController
     render json: { redis: {}, voyage: {}, postgres: {}, meilisearch: {}, assets: {} }, status: :ok
   end
 
-  # Phase 32 follow-up (2026-05-16) — three-layer reindex lock.
-  # Layer 1 (DB flag) is enforced here BEFORE enqueueing. If the flag
-  # is set the controller short-circuits with an alert; no second job
-  # enqueues. Layer 2 (`sidekiq_options` in `ReindexAllJob`) is a no-op
-  # belt-and-suspenders for the future-Sidekiq-Enterprise case. The
-  # job's `ensure` block clears the flag (Layer 3 ties the UI to it).
-  def reindex
+  # FB-63 (2026-05-20) — split reindex actions. The combined
+  # `[reindex]` action that triggered both Meilisearch + Voyage in one
+  # job is gone; each subsystem tile in the Stack pane now owns its
+  # own `[reindex]` link.
+  #
+  # Three-layer reindex lock contract is unchanged from the prior
+  # combined action — both halves share the same
+  # `AppSetting.reindex_running?` flag, so kicking one while the
+  # other is in flight is rejected with the same alert. Layer 1 (DB
+  # flag) is enforced here BEFORE enqueueing. Layer 2
+  # (`sidekiq_options lock: :until_executed`) lives on each job.
+  # Layer 3 (UI gate) is the Voyage section + tile-level link
+  # rendering — see `_voyage_section.html.erb` + `_stack_pane.html.erb`.
+  def meilisearch_reindex
     if AppSetting.reindex_running?
       redirect_to settings_path, alert: t("settings.flash.reindex_in_progress")
       return
     end
 
     AppSetting.start_reindex!
-    ReindexAllJob.perform_later
-    redirect_to settings_path, notice: t("settings.flash.reindex_started")
+    MeilisearchReindexJob.perform_later
+    redirect_to settings_path,
+      notice: t("settings.stack.meilisearch_reindex_flash")
+  end
+
+  def voyage_reindex
+    if AppSetting.reindex_running?
+      redirect_to settings_path, alert: t("settings.flash.reindex_in_progress")
+      return
+    end
+
+    AppSetting.start_reindex!
+    VoyageReindexJob.perform_later
+    redirect_to settings_path,
+      notice: t("settings.stack.voyage_reindex_flash")
   end
 
   private
@@ -319,9 +339,20 @@ class SettingsController < ApplicationController
     nil
   end
 
+  # 2026-05-20 — Notes volume status now reads the SAME path the
+  # `notes` namespace breakdown table reads (see
+  # `NOTES_NAMESPACE_SOURCES` below). The previous implementation
+  # checked `Rails.root.join("docs/notes")` — an UNRELATED design-doc
+  # directory that has no relationship to the notes data root used by
+  # `NotesFilesystem.root` / `NOTES_NAMESPACE_SOURCES`. The result was
+  # a logically contradictory display: the chip rendered `[not
+  # present]` (because `docs/notes/` is absent / removed) while the
+  # breakdown table below it reported a 39 KB volume sourced from
+  # `tmp/pito-notes`. Aligning both surfaces to the same path resolver
+  # keeps the chip and the table answering the same question.
   def notes_volume_status_for_settings_pane
-    path = Rails.root.join("docs/notes")
-    present = File.directory?(path)
+    path = notes_volume_path_for_settings_pane
+    present = path.present? && File.directory?(path)
     stats = present ? directory_volume_stats(path) : { size_bytes: 0, file_count: 0 }
     {
       present: present,
@@ -331,6 +362,14 @@ class SettingsController < ApplicationController
     }
   rescue StandardError
     { present: false, writable: false, size_bytes: 0, file_count: 0 }
+  end
+
+  # Resolves the same notes-data root that the breakdown table renders
+  # against. Mirrors the `path:` lambda inside `NOTES_NAMESPACE_SOURCES`
+  # so the two surfaces never drift. `PITO_NOTES_PATH` wins when set;
+  # otherwise the dev fallback (`tmp/pito-notes`) is used.
+  def notes_volume_path_for_settings_pane
+    ENV["PITO_NOTES_PATH"].presence || Rails.root.join("tmp/pito-notes").to_s
   end
 
   def directory_volume_stats(path)

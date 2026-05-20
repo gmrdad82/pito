@@ -234,6 +234,58 @@ RSpec.describe "settings/webhooks/help/show.html.erb", type: :view do
     end
   end
 
+  # FB-43 (2026-05-20). The help-modal fragment was previously wrapped
+  # in a `Tui::FramedPanelComponent` with a brand-suffixed in-body title
+  # (`webhook help — Slack` / `webhook help — Discord`) and a bottom
+  # `[close]` muted bracketed link. Per FB-43 the dialog now adopts the
+  # canonical `.tui-dialog-frame` pattern on the host `<dialog>` in
+  # `shared/_webhook_help_modal.html.erb` (1px hairline + corner-flush
+  # title + `[Esc] to close` hint at the top-right). The fragment
+  # therefore renders ONLY the markdown content — no parallel framed
+  # panel, no in-body header, no in-content [close] affordance.
+  #
+  # The per-brand identity is conveyed by the rendered `<h1>` ("Slack
+  # webhook setup" / "Discord webhook setup"). Dismissal is via Esc
+  # (native + Stimulus keydown guard) or backdrop click; the title-right
+  # hint advertises that path.
+  describe "FB-43 — canonical .tui-dialog-frame adoption (fragment renders markdown only)" do
+    %w[slack discord].each do |provider|
+      context "for the #{provider} guide" do
+        before do
+          assign(:provider, provider)
+          assign(:markdown,
+            Rails.root.join("app", "views", "settings", "webhooks", "help", "#{provider}.md").read)
+          render template: "settings/webhooks/help/show", layout: false
+        end
+
+        it "does NOT wrap the body in a parallel `section.tui-framed-panel`" do
+          expect(rendered).not_to have_css("section.tui-framed-panel")
+        end
+
+        it "does NOT render a brand-suffixed in-body header" do
+          brand = provider == "discord" ? "Discord" : "Slack"
+          expect(rendered).not_to include("webhook help — #{brand}")
+        end
+
+        it "does NOT render an in-content [close] muted bracketed link (dismissal lives in the dialog frame)" do
+          expect(rendered).not_to have_css("a.bracketed.bracketed-muted-link span.bl", text: "close")
+        end
+
+        it "does NOT wire any element to the webhook-help-modal#close Stimulus action (single dismiss path = Esc / backdrop)" do
+          expect(rendered).not_to match(
+            /data-action="click-(?:&gt;|>)webhook-help-modal#close"/
+          )
+        end
+
+        it "renders the markdown content wrapper directly inside the turbo frame" do
+          expect(rendered).to have_css(
+            "turbo-frame#webhook_help_modal_frame > div.webhook-help-content.markdown-body"
+          )
+        end
+      end
+    end
+  end
+
   # Phase 26 — 01d (polish 2026-05-11). User feedback: "have better
   # spacing by having a clear row before each title… use some
   # horizontal lines… use tables when needed. Same goes for the Slack

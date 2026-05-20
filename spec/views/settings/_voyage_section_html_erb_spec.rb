@@ -14,7 +14,8 @@ require "rails_helper"
 #
 # Beta 4 F3-D — the status surface inside the section is now a
 # `Tui::ChipComponent` chip (`[configured]` / `[not configured]`)
-# rendered by `Settings::Stack::HealthLineComponent`. The previous
+# rendered in the sub-panel header via state lookup against
+# `Settings::Stack::HealthState::STATES` (FB-82). The previous
 # glyph + colored word span is gone.
 RSpec.describe "settings/_voyage_section.html.erb", type: :view do
   # Stats payload is read on every render via `Voyage::Stats.call`. Stub
@@ -53,17 +54,13 @@ RSpec.describe "settings/_voyage_section.html.erb", type: :view do
       expect(rendered).to have_css('div#voyage_section')
     end
 
-    it "renders the `[reindex]` destructive bracketed link wired to " \
-       "the confirm modal" do
-      # BracketedLinkComponent emits `class="bracketed text-danger"` on
-      # the anchor and the label is wrapped in `[<span class="bl">…]`.
-      # `data-controller="modal-trigger"` + `modal_trigger_target_id_value`
-      # are the wiring to the confirm modal mounted in `_stack_pane`.
-      expect(rendered).to have_css(
-        'a.bracketed.text-danger[data-controller="modal-trigger"]' \
-        '[data-modal-trigger-target-id-value="reindex_meilisearch_modal"]',
-        text: /reindex/
-      )
+    # FB-63-V4 — the `[reindex]` bracketed action no longer lives in
+    # the voyage_section partial; it moved up to the parent
+    # `_stack_pane.html.erb` and renders inside the sub-panel header
+    # via `.pito-sub-panel__actions`. Coverage moved to the stack
+    # pane spec. The Voyage section is now purely a stats render.
+    it "does NOT render its own `[reindex]` link (moved to parent)" do
+      expect(rendered).not_to have_css('a.bracketed.text-danger')
     end
 
     it "does NOT render the dot-loader indicator" do
@@ -104,39 +101,9 @@ RSpec.describe "settings/_voyage_section.html.erb", type: :view do
     end
   end
 
-  # Beta 4 F3-D — the Voyage credentials state is rendered by
-  # `Settings::Stack::HealthLineComponent`, which now delegates to
-  # `Tui::ChipComponent`. The chip's variant carries the operator
-  # signal (`:info` for configured, `:danger` for not configured).
-  describe "Voyage credentials gating" do
-    before do
-      allow(AppSetting).to receive(:reindex_running?).and_return(false)
-    end
-
-    it "shows a `Tui::ChipComponent` `[configured]` chip with the info " \
-       "variant when AppSetting.voyage_configured? is true" do
-      allow(AppSetting).to receive(:voyage_configured?).and_return(true)
-      render partial: "settings/voyage_section"
-
-      expect(rendered).to have_css(
-        "span.tui-chip.tui-chip--info", text: "[configured]"
-      )
-      expect(rendered).not_to have_css(
-        "span.tui-chip.tui-chip--danger", text: "[not configured]"
-      )
-    end
-
-    it "shows a `Tui::ChipComponent` `[not configured]` chip with the " \
-       "danger variant when AppSetting.voyage_configured? is false" do
-      allow(AppSetting).to receive(:voyage_configured?).and_return(false)
-      render partial: "settings/voyage_section"
-
-      expect(rendered).to have_css(
-        "span.tui-chip.tui-chip--danger", text: "[not configured]"
-      )
-      expect(rendered).not_to have_css(
-        "span.tui-chip.tui-chip--info", text: "[configured]"
-      )
-    end
-  end
+  # FB-63-V4 / FB-82 — the Voyage credentials chip (`configured` /
+  # `not configured`) is rendered in the parent `_stack_pane.html.erb`
+  # sub-panel header via `Settings::Stack::HealthState::STATES`. The
+  # voyage_section partial no longer owns that chip. Coverage moved
+  # to the stack pane spec.
 end

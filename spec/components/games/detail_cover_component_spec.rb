@@ -9,15 +9,15 @@ require "rails_helper"
 RSpec.describe Games::DetailCoverComponent, type: :component do
   let(:game) { build_stubbed(:game, :synced, id: 4242, title: "Test Game") }
 
-  # The component reads slug truth from `PlatformLogosHelper` via
-  # `helpers.game_detail_logo_slugs(@game)` /
-  # `helpers.game_index_tile_logo_slug(@game)`. Stubbing those two
+  # The component reads slug truth from `PlatformChipsHelper` via
+  # `helpers.game_detail_chip_slugs(@game)` /
+  # `helpers.game_index_tile_chip_slug(@game)`. Stubbing those two
   # helpers on the ApplicationController's helper module (which the
   # ViewComponent test harness exposes through `helpers`) lets us
   # control which chip slugs apply without hitting the DB.
   before do
-    allow_any_instance_of(PlatformLogosHelper).to receive(:game_detail_logo_slugs).and_return(detail_slugs)
-    allow_any_instance_of(PlatformLogosHelper).to receive(:game_index_tile_logo_slug).and_return(tile_slug)
+    allow_any_instance_of(PlatformChipsHelper).to receive(:game_detail_chip_slugs).and_return(detail_slugs)
+    allow_any_instance_of(PlatformChipsHelper).to receive(:game_index_tile_chip_slug).and_return(tile_slug)
   end
 
   let(:detail_slugs) { [] }
@@ -50,7 +50,7 @@ RSpec.describe Games::DetailCoverComponent, type: :component do
     end
   end
 
-  describe "happy: all three chip slugs match — render in KNOWN_LOGOS order" do
+  describe "happy: all three chip slugs match — render in KNOWN_CHIPS order" do
     let(:detail_slugs) { [ "ps", "switch", "steam" ] }
     let(:tile_slug)    { "ps" }
 
@@ -59,7 +59,7 @@ RSpec.describe Games::DetailCoverComponent, type: :component do
       expect(page).to have_css("div.tile-cover-chip-overlay .platform-chip", count: 3)
     end
 
-    it "renders them in KNOWN_LOGOS declaration order (ps, switch, steam)" do
+    it "renders them in KNOWN_CHIPS declaration order (ps, switch, steam)" do
       render_inline(described_class.new(game: game))
       labels = page.all("div.tile-cover-chip-overlay .platform-chip").map { |chip| chip.text.strip }
       expect(labels).to eq([ "PS", "Switch", "Steam" ])

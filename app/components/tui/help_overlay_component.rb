@@ -16,10 +16,24 @@ module Tui
   # The overlay is opened via the `?` flat-key (handled by the
   # `tui-help-overlay` Stimulus controller — see
   # `app/javascript/controllers/tui_help_overlay_controller.js`) and
-  # closed via ESC or another `?` press. ESC is the convention used
+  # closed via Esc or another `?` press. Esc is the convention used
   # across every other modal in the app; `?` toggles the overlay
   # specifically so a second `?` from a help-induced workflow flips the
-  # surface off without a hand jump to ESC.
+  # surface off without a hand jump to Esc.
+  #
+  # Key labels in the GROUPS constant follow the canonical casing
+  # locked 2026-05-20 (see `config/locales/keybindings/en.yml#keys`):
+  # `TAB` (acronym, all caps), `Esc` / `Space` / `Enter` / `Shift` /
+  # `Ctrl` (capitalized), letter keys lowercase. Combos use `-` as
+  # the separator (`Shift-TAB`, `Ctrl-h`).
+  #
+  # FB-71 (2026-05-20) — group titles and item labels are now
+  # i18n-driven. GROUPS carries i18n key fragments (`group_key:` /
+  # `label_key:`) instead of inline English copy; the ERB resolves them
+  # through `t("help.overlay.groups.<group_key>.title")` and
+  # `t("help.overlay.groups.<group_key>.items.<label_key>")` at render
+  # time. The canonical copy lives in
+  # `config/locales/help/en.yml` under `help.overlay.groups.*`.
   #
   # Mounted in `app/views/layouts/application.html.erb` near the end of
   # `<body>`, before the other modal mounts so the document order
@@ -28,43 +42,43 @@ module Tui
   class HelpOverlayComponent < ViewComponent::Base
     GROUPS = [
       {
-        title: "global",
+        group_key: "global",
         items: [
-          { key: "?",     label: "open this help" },
-          { key: ":",     label: "command palette" },
-          { key: "/",     label: "search" },
-          { key: "SPACE", label: "leader menu" }
+          { key: "?",     label_key: "open_help" },
+          { key: ":",     label_key: "command_palette" },
+          { key: "/",     label_key: "search" },
+          { key: "Space", label_key: "leader_menu" }
         ]
       },
       {
-        title: "section nav",
+        group_key: "section_nav",
         items: [
-          { key: "g h", label: "home" },
-          { key: "g C", label: "calendar" },
-          { key: "g c", label: "channels" },
-          { key: "g v", label: "videos" },
-          { key: "g p", label: "projects" },
-          { key: "g g", label: "games" },
-          { key: "g n", label: "notifications" },
-          { key: "g s", label: "settings" }
+          { key: "g h", label_key: "home" },
+          { key: "g C", label_key: "calendar" },
+          { key: "g c", label_key: "channels" },
+          { key: "g v", label_key: "videos" },
+          { key: "g p", label_key: "projects" },
+          { key: "g g", label_key: "games" },
+          { key: "g n", label_key: "notifications" },
+          { key: "g s", label_key: "settings" }
         ]
       },
       {
-        title: "panel nav",
+        group_key: "panel_nav",
         items: [
-          { key: "TAB",       label: "cycle panel forward" },
-          { key: "Shift+TAB", label: "cycle panel backward" },
-          { key: "Ctrl+h",    label: "panel left" },
-          { key: "Ctrl+l",    label: "panel right" },
-          { key: "Ctrl+k",    label: "panel up" },
-          { key: "Ctrl+j",    label: "panel down" }
+          { key: "TAB",       label_key: "cycle_forward" },
+          { key: "Shift-TAB", label_key: "cycle_backward" },
+          { key: "Ctrl-h",    label_key: "panel_left" },
+          { key: "Ctrl-l",    label_key: "panel_right" },
+          { key: "Ctrl-k",    label_key: "panel_up" },
+          { key: "Ctrl-j",    label_key: "panel_down" }
         ]
       },
       {
-        title: "session",
+        group_key: "session",
         items: [
-          { key: "q Q", label: "logout" },
-          { key: "ESC", label: "close modal / cancel" }
+          { key: "q Q", label_key: "logout" },
+          { key: "Esc", label_key: "close_modal" }
         ]
       }
     ].freeze

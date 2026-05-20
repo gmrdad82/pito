@@ -4,6 +4,11 @@
 # the surface can evolve independently of `common.*` and area locales.
 # `close` deliberately is NOT re-defined here — the modal reuses
 # `common.actions.close` for cross-app consistency.
+#
+# FB-71 (2026-05-20) — added `copyright` (with `%{year}` interpolation)
+# and `esc_close_suffix` ("to close") so the previously hardcoded
+# strings in the ERB + component flow through I18n. The copyright pattern
+# kept verbatim from the previous hardcoded form.
 en:
   about:
     modal:
@@ -12,3 +17,5 @@ en:
       subtitle: "best YouTube tool"
       version_label: "version"
       env_label: "env"
+      esc_close_suffix: "to close"
+      copyright: "© %{year} — all rights reserved."

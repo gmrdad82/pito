@@ -1,17 +1,17 @@
 module Tui
-  # Beta 4 — Phase F2. TUI inline chip primitive. Renders a label
-  # wrapped in literal `[ ]` brackets (the pito-wide bracketed-link
-  # convention; this is the inline tag flavor, not the actionable link
-  # flavor). Variants drive color only — the bracket grammar is fixed.
+  # Beta 4 — Phase F2. TUI inline chip primitive. V2 (locked 2026-05-20):
+  # a single colored `<span>`, no brackets, no background, no border —
+  # just colored text. Variants drive color only.
   #
   # ADR 0016 (TUI design system) locks the 6 variants:
   #
-  #   :neutral  -> `[ip]`, `[id]`, generic muted tag
-  #   :info     -> `[connected]`, info-state markers (Dracula cyan)
-  #   :success  -> `[active]`, `[ok]` (Dracula green)
-  #   :warn     -> `[stale]`, `[deprecated]` (Dracula orange)
-  #   :danger   -> `[revoked]`, `[failed]` (Dracula pink / danger token)
-  #   :current  -> `[this]` for current-session marker (text fg +
+  #   :neutral  -> `ip`, `id`, generic muted tag
+  #   :info     -> `connected`, info-state markers (Dracula cyan)
+  #   :success  -> `active`, `ok` (Dracula green)
+  #   :warn     -> `missing`, `stale`, `deprecated` (Dracula orange —
+  #                also the canonical "missing/unhealthy" color)
+  #   :danger   -> `revoked`, `failed` (Dracula pink / danger token)
+  #   :current  -> `this` for current-session marker (text fg +
   #                section-accent 12% bg tint; subtle inverse)
   #
   # The chip is a pure presentational primitive — no events, no state,

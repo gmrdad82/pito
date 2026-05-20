@@ -9,6 +9,22 @@ en:
       webhook_url_label: "webhook URL:"
     webhook:
       clear_hint_html: type <strong>"clear"</strong> to remove
+    webhooks:
+      help:
+        # FB-43 (2026-05-20). Title-in-border copy for the canonical
+        # `.tui-dialog-frame` adoption of the webhook help dialog.
+        # FB-103 (2026-05-20). Title now interpolates the brand name
+        # ("Slack webhook setup" / "Discord webhook setup") so the
+        # dialog's top-border title carries the per-brand identity
+        # directly. The rendered guide's in-body `<h1>` is dropped in
+        # the matching markdown source change. The generic `title`
+        # key is kept as the dialog's fallback first-paint label
+        # (rendered server-side before the Stimulus controller
+        # rewrites it from the click target's brand param). The
+        # Esc-close suffix mirrors the about + help overlay dialogs.
+        title: webhook help
+        brand_title: "%{brand} webhook setup"
+        esc_close_suffix: to close
     notifications:
       heading: notifications
     notification_toggle:

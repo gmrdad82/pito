@@ -2,7 +2,7 @@ module Settings
   module Stack
     module Sidekiq
       # Renders the Redis-tile Sidekiq counters block — two separate
-      # `.stack-table`s sharing a `table-layout: fixed` 5-column grid so
+      # `.tui-table--stack`s sharing a `table-layout: fixed` 5-column grid so
       # the 2-col lifetime row (successful / failed) aligns under the
       # 5-col queue row (busy / scheduled / enqueued / retry / dead).
       #

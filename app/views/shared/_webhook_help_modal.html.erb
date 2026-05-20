@@ -8,12 +8,19 @@
     `show` action renders the Markdown-rendered guide inside a
     matching `<turbo-frame>` so Turbo swaps in the content.
 
-    Closing semantics mirror the project's other layout-level modals
-    (notifications, search, IGDB search):
+    Closing semantics mirror the project's other layout-level dialogs
+    (notifications, search, IGDB search) AND the canonical
+    `.tui-dialog-frame` adopters (help overlay, about dialog):
       - Esc — native <dialog> Escape handling + an explicit keydown
-        guard on the controller.
+        guard on the controller. The `[Esc] to close` hint sits on
+        the top-right of the dialog border (FB-43 adoption of the
+        canonical `.tui-dialog-frame` pattern).
       - Backdrop click — `clickOutside` action.
-      - `[close]` bracketed link — `close` action.
+
+    No in-content `[close]` bracketed link (FB-43 dropped both the
+    bottom-of-fragment muted close and the wrapper-level close to leave
+    Esc + backdrop click as the single dismissal grammar that matches
+    the help overlay + about dialog).
 
     No JS `confirm()` / `alert()` / `prompt()` and no
     `data-turbo-confirm` (CLAUDE.md hard rule). %>
@@ -26,20 +33,47 @@
 
     `overflow-x: hidden` + `overflow-wrap: anywhere` on the inner content
     keeps long webhook-URL strings from blowing the layout out
-    horizontally; they wrap inside the code block instead. %>
+    horizontally; they wrap inside the code block instead.
+
+    FB-43 (2026-05-20). The dialog adopts the canonical `.tui-dialog-frame`
+    pattern (FB-53 / FB-65): a 1px hairline outer border with the title
+    text sitting ON the top border at the corners.
+
+    FB-103 (2026-05-20). The title text now reflects the per-brand
+    identity directly (`Slack webhook setup` / `Discord webhook setup`)
+    so the in-body `<h1>` could be dropped from the markdown sources
+    (no more duplicate title — border title and body title were
+    redundant). Because the dialog frame lives in the layout (rendered
+    once) and the provider is only known on the click that opens it,
+    the title is driven from data-attributes:
+      - `data-webhook-help-modal-title-slack-value` — Slack brand title
+      - `data-webhook-help-modal-title-discord-value` — Discord brand title
+    The Stimulus controller's `open()` action reads the
+    provider-specific value and rewrites the `__title-left` span
+    contents before calling `showModal()`. The server-rendered initial
+    text is the generic `webhook help` fallback in case the controller
+    hasn't booted yet.
+
+    The previous in-fragment `Tui::FramedPanelComponent` wrap (with its
+    own border + brand-suffixed title) and the dual bottom `[close]`
+    bracketed links are gone; Esc + backdrop click + the title-right
+    hint are the only dismissal paths.
+
+    Inner padded wrapper keeps the scroll behavior intact but switches
+    its padding to `0 14px 12px` (the `.tui-dialog-frame` rule already
+    contributes `padding: 16px 10px 12px` on the outer `<dialog>`, so
+    the wrapper only needs horizontal breathing room for the rendered
+    prose). %>
 <dialog id="webhook-help-modal"
-        class="pane-dialog webhook-help-modal"
+        class="pane-dialog webhook-help-modal tui-dialog-frame"
         style="max-width: 900px; width: min(900px, 92vw);"
+        data-webhook-help-title-slack="<%= t("settings.webhooks.help.brand_title", brand: "Slack") %>"
+        data-webhook-help-title-discord="<%= t("settings.webhooks.help.brand_title", brand: "Discord") %>"
         data-action="click->webhook-help-modal#clickOutside keydown->webhook-help-modal#keydown"
         data-modal-actions-key="webhook_help">
-  <div style="padding: 12px 16px; max-height: 80vh; overflow-y: auto; overflow-x: hidden; overflow-wrap: anywhere; word-wrap: break-word;">
+  <span class="tui-dialog-frame__title-left" data-webhook-help-title><%= t("settings.webhooks.help.title") %></span>
+  <span class="tui-dialog-frame__title-right">[<%= t("keys.esc") %>] <%= t("settings.webhooks.help.esc_close_suffix") %></span>
+  <div class="webhook-help-modal__inner" style="padding: 0 14px 4px; max-height: 80vh; overflow-y: auto; overflow-x: hidden; overflow-wrap: anywhere; word-wrap: break-word;">
     <%= turbo_frame_tag "webhook_help_modal_frame", src: nil, loading: "lazy" %>
-    <div class="modal-footer">
-      <%= render(BracketedLinkComponent.new(
-            label: "close",
-            href: "#",
-            data: { action: "click->webhook-help-modal#close" }
-          )) %>
-    </div>
   </div>
 </dialog>

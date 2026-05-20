@@ -249,7 +249,7 @@ RSpec.describe Games::GameTileComponent, type: :component do
 
   # ----------------------------------------------------------------
   # Platform chip overlay — bottom-right of the cover, walked in
-  # `PlatformLogosHelper::KNOWN_LOGOS` declaration order, rendered
+  # `PlatformChipsHelper::KNOWN_CHIPS` declaration order, rendered
   # via `Platforms::ChipComponent`.
   # ----------------------------------------------------------------
 
@@ -296,22 +296,22 @@ RSpec.describe Games::GameTileComponent, type: :component do
     end
   end
 
-  describe "tile_chip_slugs ordering (KNOWN_LOGOS walk)" do
-    # The component must walk `PlatformLogosHelper::KNOWN_LOGOS` in
+  describe "tile_chip_slugs ordering (KNOWN_CHIPS walk)" do
+    # The component must walk `PlatformChipsHelper::KNOWN_CHIPS` in
     # declaration order so render stays deterministic across calls.
-    it "walks slugs in the canonical KNOWN_LOGOS order" do
+    it "walks slugs in the canonical KNOWN_CHIPS order" do
       # Stub the two helpers `tile_chip_slugs` consumes so the test
       # focuses purely on the ordering invariant.
       allow_any_instance_of(described_class).to receive(:helpers).and_wrap_original do |_orig, *_args|
         double("helpers").tap do |h|
-          allow(h).to receive(:game_detail_logo_slugs).with(game).and_return(%w[steam switch ps])
-          allow(h).to receive(:game_index_tile_logo_slug).with(game).and_return("ps")
+          allow(h).to receive(:game_detail_chip_slugs).with(game).and_return(%w[steam switch ps])
+          allow(h).to receive(:game_index_tile_chip_slug).with(game).and_return("ps")
           allow(h).to receive(:game_path).with(game).and_return("/games/#{game.id}")
         end
       end
       render_inline(described_class.new(game: game))
       chips = page.all(".tile-cover-chip-overlay .platform-chip").map { |el| el[:class] }
-      # KNOWN_LOGOS is %w[ps switch steam] — chips must render in that order.
+      # KNOWN_CHIPS is %w[ps switch steam] — chips must render in that order.
       expect(chips.first).to include("platform-chip--ps")
       expect(chips.last).to include("platform-chip--steam")
     end

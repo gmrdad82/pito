@@ -37,7 +37,13 @@ class AboutModalComponent < ViewComponent::Base
   # Mirrors the footer copy in `layouts/application.html.erb` so the two
   # surfaces stay in lockstep. `Date.current.year` matches the footer's
   # dynamic year.
+  #
+  # FB-71 (2026-05-20) — copy now resolves via I18n
+  # (`about.modal.copyright`) with a `%{year}` interpolation, so the
+  # string flows through the same locale surface as the rest of the
+  # about dialog. The pattern itself (`© <year> — all rights reserved.`)
+  # is preserved verbatim.
   def copyright_text
-    "© #{Date.current.year} — all rights reserved."
+    I18n.t("about.modal.copyright", year: Date.current.year)
   end
 end

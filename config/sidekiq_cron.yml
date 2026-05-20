@@ -1,10 +1,20 @@
 # Recurring jobs — loaded by config/initializers/sidekiq.rb
 
-reindex_search:
+# FB-63 (2026-05-20) — the combined `ReindexAllJob` was split into
+# `MeilisearchReindexJob` + `VoyageReindexJob`. The nightly schedule
+# fires both (offset by 5 minutes so the DB reindex lock has time to
+# clear between them — both jobs share `AppSetting.reindex_running`).
+reindex_meilisearch:
   cron: "0 4 * * *"
-  class: ReindexAllJob
+  class: MeilisearchReindexJob
   queue: search
-  description: "Reindex all channels and videos in Meilisearch"
+  description: "Reindex Game + Bundle documents in Meilisearch"
+
+reindex_voyage:
+  cron: "5 4 * * *"
+  class: VoyageReindexJob
+  queue: search
+  description: "Re-embed Game + Bundle corpora through Voyage AI"
 
 sync_starred_channels:
   cron: "0 0 * * *"   # daily at midnight UTC

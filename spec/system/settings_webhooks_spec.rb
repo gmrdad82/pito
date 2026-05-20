@@ -23,7 +23,7 @@ RSpec.describe "Settings notifications panel (F3-B)", type: :system do
   describe "panel chrome" do
     it "renders the notifications heading and the two shared toggles" do
       visit settings_path
-      expect(page).to have_css("h2", text: "notifications")
+      expect(page).to have_css("span.pito-pane__title", text: "notifications")
       expect(page).to have_css(
         'input[type="checkbox"][data-leader-toggle="notification_all"]'
       )

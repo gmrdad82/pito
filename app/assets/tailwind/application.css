@@ -1,40 +1,5 @@
 @import "tailwindcss";
-
-/* ============================================================
-   Self-hosted BitstromWera Nerd Font Mono (4 weights/styles).
-   Served by Propshaft from app/assets/fonts/ at /assets/<file>.
-   ============================================================ */
-@font-face {
-  font-family: "BitstromWera Nerd Font Mono";
-  src: url("/assets/BitstromWeraNerdFontMono-Regular.ttf") format("truetype");
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "BitstromWera Nerd Font Mono";
-  src: url("/assets/BitstromWeraNerdFontMono-Bold.ttf") format("truetype");
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "BitstromWera Nerd Font Mono";
-  src: url("/assets/BitstromWeraNerdFontMono-Oblique.ttf") format("truetype");
-  font-weight: 400;
-  font-style: italic;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "BitstromWera Nerd Font Mono";
-  src: url("/assets/BitstromWeraNerdFontMono-BoldOblique.ttf") format("truetype");
-  font-weight: 700;
-  font-style: italic;
-  font-display: swap;
-}
+@import "./_theme.css";
 
 /* Color tokens — dark-only as of 2026-05-19.
    The previous two-theme system (:root light + [data-theme="dark"]
@@ -42,78 +7,61 @@
    The current values are the former dark-theme (Dracula-leaning)
    palette; the light-theme tokens were removed wholesale along with
    the [data-theme] selector. No data-theme switching remains in the
-   stylesheet. */
+   stylesheet.
+
+   2026-05-20 — L1 atoms (`--dracula-*` + `--pale-cobalt`), L2 section
+   accents (`--section-accent-*`), L2 section bgs (`--bg-section-*`), and
+   the core L3 semantic tokens (`--color-bg`, `--color-text`,
+   `--color-muted`, `--color-border`, `--color-danger`, `--color-success`,
+   `--color-warn`, `--color-link`, `--color-rating-bad/fair/good/excellent`,
+   `--color-ttb-main/extras/completionist/footage`) now live in
+   `_theme.css`, generated from `Pito::Theme` via `rake pito:theme:export`.
+   Any token declared below this comment that is ALSO declared in
+   `_theme.css` is a deliberate override — the inline value wins per CSS
+   cascade order. The remaining tokens (`--color-bg-alt`,
+   `--color-flash-*`, `--color-rating-meh/poor/very-bad`,
+   `--color-chart-*`, `--color-platform-*`, badge colors, layout knobs)
+   stay inline as a transitional state; folding them into
+   `Pito::Theme::SEMANTIC` is a follow-up. */
 :root {
-  /* ============================================================
-     L1 — Raw palette (atoms, immutable, 12 tokens)
-     Dracula palette + 1 derived (Pale Cobalt for /games section).
-     These NEVER reference each other.
-     ============================================================ */
-  --dracula-bg:           #282a36;
-  --dracula-current-line: #44475a;
-  --dracula-fg:           #f8f8f2;
-  --dracula-comment:      #6272a4;
-  --dracula-cyan:         #8be9fd;
-  --dracula-green:        #50fa7b;
-  --dracula-orange:       #ffb86c;
-  --dracula-pink:         #ff79c6;
-  --dracula-purple:       #bd93f9;
-  --dracula-red:          #ff5555;
-  --dracula-yellow:       #f1fa8c;
-  --pale-cobalt:          #7eb6ff;
-
-  /* ============================================================
-     L2 — Section accents (picks from L1)
-     Cascaded via body[data-section] rules below the :root block.
-     ============================================================ */
-  --section-accent-home:     var(--dracula-purple);
-  --section-accent-channels: var(--dracula-red);
-  --section-accent-games:    var(--pale-cobalt);
-  --section-accent-settings: var(--dracula-orange);
-  --section-accent:          var(--section-accent-home);   /* default */
-
   /* Back-compat alias — legacy `--color-section-accent` consumers
-     follow the new `--section-accent` cascade transparently. */
+     follow the `--section-accent` cascade transparently. */
   --color-section-accent: var(--section-accent);
 
-  /* ============================================================
-     L3 — Semantic tokens (derived via color-mix from L1/L2)
-     Every L3 token references L1/L2 or color-mix() of them.
-     ZERO literal hex permitted at L3.
-     ============================================================ */
-
-  /* Surfaces */
-  --color-bg:           var(--dracula-bg);
+  /* Surfaces (`--color-bg` is also declared in _theme.css; this re-
+     declaration is a no-op kept for transitional clarity). */
   --color-bg-base:      var(--dracula-bg);
-  --color-bg-tint:      color-mix(in srgb, var(--section-accent) 4%,  var(--dracula-bg));
+  /* Body bg wash — 4% accent on bg per swatches-v2 Section B grammar
+     (2026-05-20). Visual section identity is carried by the 35%-accent
+     border on pane wrappers (`--color-section-border`), not the body
+     bg. The 4% wash is barely-there ambient color so the page reads
+     "this section is X" without flooding the canvas. */
+  --color-bg-tint:      color-mix(in srgb, var(--section-accent) 4%, var(--dracula-bg));
+  /* 35%-accent border that gives each pane its section identity. Used
+     on `.pito-pane` wrappers (and any other pane container that wants
+     the section-mapping visual). */
+  --color-section-border: color-mix(in srgb, var(--section-accent) 35%, var(--dracula-bg));
   --color-bg-alt:       color-mix(in srgb, var(--dracula-fg)      3%, var(--dracula-bg));
   --color-bg-hover:     var(--dracula-current-line);
   --color-bg-header:        color-mix(in srgb, var(--dracula-fg)      2%, var(--dracula-bg));
   --color-bg-header-hover:  color-mix(in srgb, var(--dracula-fg)      5%, var(--dracula-bg));
 
-  /* Text */
-  --color-text:        var(--dracula-fg);
+  /* Text — `--color-text` + `--color-muted` come from _theme.css. */
   --color-text-dim:    color-mix(in srgb, var(--dracula-fg) 60%, var(--dracula-bg));
-  --color-muted:       var(--dracula-comment);
 
-  /* Borders */
-  --color-border:               var(--dracula-current-line);
+  /* Borders — `--color-border` comes from _theme.css. */
   --color-border-soft:          color-mix(in srgb, var(--dracula-fg)  8%, var(--dracula-bg));
   --color-border-strong:        color-mix(in srgb, var(--dracula-fg) 25%, var(--dracula-bg));
   --color-input-border:         var(--dracula-comment);
   --color-table-header-border:  var(--dracula-current-line);
 
-  /* Links — section-aware (Q2 LOCKED) */
-  --color-link:         var(--section-accent);
+  /* Links — `--color-link` comes from _theme.css (section-accent ref). */
   --color-link-hover:   color-mix(in srgb, var(--section-accent) 80%, white);
   --color-link-visited: color-mix(in srgb, var(--section-accent) 70%, var(--dracula-comment));
 
-  /* Status — ONE token covers errors / flash-error / deletes / form
-     validation / dangerous actions (Q1 v4 LOCKED). Dracula Pink. */
-  --color-danger:  var(--dracula-pink);
-  --color-fail:    var(--color-danger);     /* alias */
-  --color-success: var(--dracula-green);
-  --color-warn:    var(--dracula-orange);
+  /* Status — `--color-danger`, `--color-success`, `--color-warn` come
+     from _theme.css. `--color-fail` is the legacy alias for danger. */
+  --color-fail:    var(--color-danger);
 
   /* Trend */
   --color-trend-up:     var(--dracula-green);
@@ -135,13 +83,14 @@
   --color-flash-error-border:   var(--color-danger);
   --color-flash-error-text:     var(--color-danger);
 
-  /* Rating spectrum — keeps Dracula Red */
-  --color-rating-excellent: var(--dracula-green);
+  /* Rating spectrum — `--color-rating-excellent/fair/bad` come from
+     _theme.css. `--color-rating-good` overrides the generated atom
+     with a mix (green+yellow) for visual smoothness in the chip
+     gradient. `--color-rating-meh/poor/very-bad` aren't yet in
+     `Pito::Theme::SEMANTIC` — folding them in is a follow-up. */
   --color-rating-good:      color-mix(in srgb, var(--dracula-green) 60%, var(--dracula-yellow));
-  --color-rating-fair:      var(--dracula-yellow);
   --color-rating-meh:       var(--dracula-orange);
   --color-rating-poor:      color-mix(in srgb, var(--dracula-orange) 60%, var(--dracula-red));
-  --color-rating-bad:       var(--dracula-red);
   --color-rating-very-bad:  color-mix(in srgb, var(--dracula-red) 50%, black);
 
   /* TTB ticks (UPDATED 2026-05-20 v4 — anchored to band-END colors).
@@ -152,7 +101,13 @@
        - extras        -> rating-meh       (orange,     end of extras band)
        - completionist -> rating-very-bad  (darkest red, end of comp band)
      Footage stays text-color (white-ish) so the "your data" overlay
-     reads distinct from the spectrum. */
+     reads distinct from the spectrum.
+
+     2026-05-20 — These four tokens are ALSO declared in _theme.css with
+     different (atom-level) values per `Pito::Theme::SEMANTIC`. The
+     inline declarations here win per cascade order and preserve the
+     band-END semantics. Folding the band-END derivation into
+     `Pito::Theme` is a follow-up. */
   --color-ttb-main:          var(--color-rating-good);     /* lime green — caps main band */
   --color-ttb-extras:        var(--color-rating-meh);      /* orange — caps extras band */
   --color-ttb-completionist: var(--color-rating-very-bad); /* darkest red — caps completionist band */
@@ -238,43 +193,53 @@
   --stack-arrow-right:  0;
 }
 
-/* Section cascade — flips `--section-accent` per `<body data-section="...">`.
-   The legacy `--color-section-accent` alias follows in lockstep so any
-   consumer still reading the old name stays correct. */
-body[data-section="home"] {
-  --section-accent: var(--section-accent-home);
-  --color-section-accent: var(--section-accent);
-}
+/* 2026-05-20 — Per-section `--section-accent` + `background` cascade
+   moved to Ruby. The `<body>` element in
+   `app/views/layouts/application.html.erb` now carries inline
+   `style="--section-accent: <hex>; --color-section-accent: <hex>;
+   background: <hex>;"` values computed by `Pito::SectionColors`. The
+   `<body data-section="...">` attribute is preserved so selectors that
+   scope behavior by section still work, but the per-section cascade
+   that used to live HERE (one `body[data-section="..."]` block per
+   section) is gone — those decisions are now specced in
+   `spec/services/pito/section_colors_spec.rb`. The L2 atoms
+   (`--section-accent-*`, `--bg-section-*`) higher up in :root remain
+   declared for reference + as a defense-in-depth fallback if the
+   inline style ever fails to render (e.g. CSP `style-src` lockdown);
+   they're just no longer cited in a per-section selector here.
 
-body[data-section="channels"],
-body[data-section="videos"] {
-  --section-accent: var(--section-accent-channels);
-  --color-section-accent: var(--section-accent);
-}
-
-body[data-section="games"],
-body[data-section="projects"] {
-  --section-accent: var(--section-accent-games);
-  --color-section-accent: var(--section-accent);
-}
-
-body[data-section="settings"] {
-  --section-accent: var(--section-accent-settings);
-  --color-section-accent: var(--section-accent);
-}
+   `dialog` keeps its own `--section-accent` reset to home/purple so
+   modal chrome stays consistent regardless of which page opened it
+   (see the long-form rationale on the `dialog { ... }` block further
+   down the file). */
 
 dialog {
   --section-accent: var(--section-accent-home);
   --color-section-accent: var(--section-accent);
 }
 
-/* Base typography */
+/* Base typography.
+   FB-17 (2026-05-20). `line-height: 1` is locked as the canonical
+   site-wide rhythm per design.md — Excel-sheet density, no airy
+   prose spacing. Narrow overrides (prose modals, large titles,
+   form inputs) re-relax line-height where caret + multi-line reads
+   demand it; the BLANKET value is 1. */
 body {
-  font-family: "BitstromWera Nerd Font Mono", ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, monospace;
+  /* System-mono-only — browser picks whatever monospace the OS/user
+     has configured. No font download. */
+  font-family: ui-monospace, Menlo, "Cascadia Code", "Source Code Pro", Consolas, monospace;
   font-size: 13px;
-  line-height: 1.4;
+  line-height: 1;
   color: var(--color-text);
-  background: var(--color-bg-tint);
+  /* 2026-05-20 — Body bg is overridden by the inline
+     `style="background: <hex>;"` the layout writes on every render
+     (Ruby-computed via `Pito::SectionColors.bg(current_section)`).
+     This rule survives as a defense-in-depth fallback: if the inline
+     style ever fails to apply (CSP lockdown, future cleanup that
+     strips the inline `style` attr, an off-layout page that bypasses
+     `application.html.erb`), the canvas still paints the raw
+     `--dracula-bg` atom rather than going transparent. */
+  background: var(--dracula-bg);
 }
 
 /* Headings — single-font-size TUI hierarchy (ADR 0016).
@@ -287,7 +252,7 @@ body {
 h1, h2, h3, h4, h5, h6 {
   font-size: 13px;
   font-weight: 700;
-  line-height: 1.4;
+  line-height: 1;
   color: var(--color-text);
   margin-top: 2px;
   margin-bottom: 1px;
@@ -303,46 +268,34 @@ h4:first-child, h5:first-child, h6:first-child {
 h4.h4-emphasis { font-style: italic; }
 h4.h4-content { font-style: normal; color: var(--color-text); }
 
-/* Links: blue, no underline, bold */
+/* Links: blue, no underline, normal weight. Bracketed actions are
+   verbs, not headings — the bracket grammar itself carries the
+   click affordance; bolding them adds nothing but noise.
+   2026-05-20 (FB-9): dropped weight from 700 → 400 sitewide. */
 a {
   color: var(--color-link);
   text-decoration: none;
-  font-weight: bold;
+  font-weight: 400;
 }
 a:visited {
   color: var(--color-link);
 }
-a:hover {
-  color: var(--color-link-hover);
-}
+/* FB-67 (2026-05-20) — universal no-hover rule. Hover color swap removed
+   sitewide; affordance comes from cursor + bracketed glyphs, not color
+   transitions on pointer hover. */
 
 /* Bracketed links: [ text ] — whole thing is clickable */
 a.bracketed:visited, a.bracketed:visited .bl { color: var(--color-link); }
-/* Hover lift for the inner `.bl` glyph. The base `a:hover` rule (above)
-   shifts the outer `<a>` to `--color-link-hover`, but the visible label
-   inside a bracketed link is wrapped in `<span class="bl">` and the
-   `a.bracketed:visited .bl` rule pins that span to `--color-link`. Once
-   a link has been clicked (every header / footer nav link in normal
-   use), the visited-state pin wins over inherited hover color and the
-   glyph appears inert under the cursor — even though the brackets
-   themselves do brighten. Match the hover specificity (0,2,1) with the
-   rule below so the inner glyph follows the outer anchor into
-   `--color-link-hover` regardless of visited state. Mirrors the same
-   `.bl`-on-hover pattern used by `bracketed-muted-link` and
-   `text-danger.bracketed` further down. */
-a.bracketed:hover .bl { color: var(--color-link-hover); }
 
-/* Muted bracketed text — disabled/over-limit state. Bold to preserve weight,
-   no link styling, default cursor (not clickable).
-   2026-05-16 polish — explicit `font-weight: 700` + `font-size: 13px` (was
-   `font-weight: bold`, no explicit size) so the muted state cannot drift
-   from the live-link state during the bulk-revoke header swap on the
-   Security pane. The Stimulus controller flips `.bracketed-muted`
-   off / `.bracketed.text-danger` on as soon as one row is ticked; both
-   states must render at the same numeric weight (700) and the same
-   pixel size (13px = body baseline) so the swap is visually still. */
+/* Muted bracketed text — disabled/over-limit state. Normal weight to
+   match the rest of the bracketed-action family (FB-9, 2026-05-20).
+   No link styling, default cursor (not clickable). Explicit
+   `font-size: 13px` keeps the muted state pinned to the body baseline
+   so the bulk-revoke swap on the Security pane stays visually still
+   when the controller flips `.bracketed-muted` off / `.bracketed.text-danger`
+   on as soon as one row is ticked. */
 .bracketed-muted {
-  font-weight: 700;
+  font-weight: 400;
   font-size: 13px;
   color: var(--color-muted);
   cursor: default;
@@ -359,14 +312,14 @@ a.bracketed:hover .bl { color: var(--color-link-hover); }
 }
 /* When the muted bracketed surface is rendered on an `<a>` (e.g. the
    sessions bulk-revoke header anchor, which the Stimulus controller
-   later swaps into a live `[ revoke N ]` link), the base `a:hover`
-   rule above would otherwise lift the color to `--color-link-hover`
-   and signal clickability where there is none. Pin the muted state to
-   `--color-muted` on hover/focus so the disabled affordance reads as
-   inert until a row is checked and the controller adds `.bracketed`. */
+   later swaps into a live `[ revoke N ]` link), keep the disabled
+   affordance pinned to `--color-muted` so it reads as inert until a
+   row is checked and the controller adds `.bracketed`. FB-67
+   (2026-05-20) — pointer hover no longer triggers any color swap on
+   `<a>` sitewide, but the focus pin remains to keep keyboard focus
+   from re-lifting the muted color through any cascading rule. */
 a.bracketed-muted,
 a.bracketed-muted:visited,
-a.bracketed-muted:hover,
 a.bracketed-muted:focus {
   color: var(--color-muted);
 }
@@ -397,30 +350,14 @@ a.bracketed.text-muted:visited,
 a.bracketed.text-muted .bl,
 a.bracketed.text-muted:visited .bl {
   color: var(--color-muted);
-  /* 2026-05-17 lock — `BracketedMutedLinkComponent` ALWAYS renders bold.
-     Explicit `font-weight: 700` on both the `<a>` and the inner `.bl`
-     so the muted bracketed-link surface can never drift lighter than
-     the rest of the bracketed-link family, regardless of which parent
-     wraps it. Even when nested inside `<span class="text-muted">`
-     (which carries `font-weight: 400`), the
-     `a.bracketed.bracketed-muted-link` selector (0,2,1) outranks the
-     inherited 400, and the `.bl` companion selector keeps the label
-     glyph bold. The defensive `a.bracketed.text-muted` arm covers any
-     future call site that composes the utility classes by hand instead
-     of going through the component — bold stays bracketed-family
-     identity, muted is just the color. `.text-muted` standalone
-     remains `font-weight: 400` per the design.md `### Muted text and
-     weight` rule. Originally added 2026-05-16 polish; locked 2026-05-17
-     after a user review of the bracketed-link family weight. */
-  font-weight: 700;
+  /* 2026-05-20 (FB-9) — bracketed-action family is now weight 400
+     sitewide. The previous 700 lock here drifted the muted variant
+     bolder than the surrounding actions; matching the new family
+     baseline keeps the visual rhythm consistent. */
+  font-weight: 400;
 }
-/* Hover softens to a lifted blue-gray — full --color-text (#f8f8f2)
-   would read as an overshoot from the muted resting state. An
-   intermediate tint keeps the hover perceptible but subtle. */
-a.bracketed.bracketed-muted-link:hover,
-a.bracketed.bracketed-muted-link:hover .bl {
-  color: color-mix(in srgb, var(--dracula-comment) 50%, var(--dracula-fg));
-}
+/* FB-67 (2026-05-20) — universal no-hover rule. Muted bracketed-link
+   hover-lift removed; resting state is the only state. */
 
 /* Filter chip — bracketed-checkbox style link. Whole chip is clickable;
    clicking toggles a URL parameter. Visual-only [x] / [ ] indicator (no
@@ -429,14 +366,14 @@ a.filter-chip,
 a.filter-chip:visited {
   color: var(--color-link);
   text-decoration: none;
-  font-weight: bold;
+  font-weight: 400;
   white-space: nowrap;
   cursor: pointer;
   display: inline-flex;
   align-items: baseline;
   gap: 4px;
 }
-a.filter-chip:hover { color: var(--color-link-hover); }
+/* FB-67 (2026-05-20) — no hover color swap on filter chips. */
 
 /* Phase 27 polish (2026-05-11) — games `/games` filter chips use the
    same checkbox-style `[ ] label` / `[x] label` shape as the root
@@ -446,18 +383,37 @@ a.filter-chip:hover { color: var(--color-link-hover); }
    spacing. Active chips carry the `chip--active` modifier; the
    bracket-x vs bracket-space glyph is the primary visual cue (no
    color is added — red is reserved for destructive actions). */
-.md-check-static { font-weight: bold; }
-.md-check-static-label { font-weight: bold; }
+.md-check-static { font-weight: 400; }
+.md-check-static-label { font-weight: 400; }
 a.filter-chip.chip--active .md-check-static,
-a.filter-chip.chip--active .md-check-static-label { font-weight: 700; }
+a.filter-chip.chip--active .md-check-static-label { font-weight: 400; }
 
 /* Danger / destructive */
 .text-danger { color: var(--color-danger); }
 a.text-danger { color: var(--color-danger); }
-a.text-danger:hover { color: var(--color-danger-hover); }
 a.text-danger.bracketed, a.text-danger.bracketed:visited,
 a.text-danger.bracketed .bl, a.text-danger.bracketed:visited .bl { color: var(--color-danger); }
-a.text-danger.bracketed:hover, a.text-danger.bracketed:hover .bl { color: var(--color-danger-hover); }
+/* FB-67 (2026-05-20) — no hover color swap on danger links / bracketed
+   danger actions; the `--color-danger` resting color is the only state. */
+
+/* FB-24a / FB-15 final (2026-05-20) — defensive weight 400 lock across
+   the entire bracketed-action family regardless of variant. The base `a`
+   rule already drops to 400 sitewide, but inherited bold from ancestor
+   contexts (e.g. a parent `<strong>`, `<b>`, `<th>`, or a stray
+   `font-weight: 700` on a containing pane) can still cascade into the
+   bracketed link via the `.bl` span. This rule pins every bracketed
+   variant — neutral, danger, muted, submit button, and the inner `.bl`
+   glyph — to the canonical action-family weight. Specificity (0,2,1)
+   wins over the base `a` rule (0,0,1) so any inherited override loses. */
+a.bracketed, a.bracketed:visited,
+a.bracketed.text-danger, a.bracketed.text-danger:visited,
+button.bracketed,
+button.bracketed.text-danger,
+a.bracketed .bl, a.bracketed:visited .bl,
+a.bracketed.text-danger .bl, a.bracketed.text-danger:visited .bl,
+button.bracketed .bl {
+  font-weight: 400;
+}
 
 /* Beta 4 — Phase F3-DEEP-B (2026-05-20) — action-screen confirmation
    submit button styled as a bracketed link. The shared
@@ -467,30 +423,30 @@ a.text-danger.bracketed:hover, a.text-danger.bracketed:hover .bl { color: var(--
    the visual contract is "bracketed link in the section accent", not
    the browser-default `<button>` chrome. Reset the button chrome and
    pin font + cursor to the bracketed-link family. Danger variant
-   inherits color from `.text-danger` (above). */
-button.bracketed.action-screen-submit {
+   inherits color from `.text-danger` (above).
+
+   FB-24b (2026-05-20) — generalized so any `button.bracketed` gets
+   the same chrome reset and link-color contract, used by
+   `BracketedLinkComponent.new(as: :submit)` (notifications webhook
+   [update] buttons). The legacy `.action-screen-submit` selector is
+   retained for backwards-compat / extra specificity. */
+button.bracketed {
   background: none;
   border: none;
   padding: 0;
   margin: 0;
   font: inherit;
-  font-weight: 700;
+  font-weight: 400;
   cursor: pointer;
   color: var(--color-link);
 }
-button.bracketed.action-screen-submit:hover {
-  color: var(--color-link-hover);
-}
-button.bracketed.action-screen-submit .bl {
+/* FB-67 (2026-05-20) — no hover color swap on bracketed buttons. */
+button.bracketed .bl {
   color: inherit;
 }
-button.bracketed.action-screen-submit.text-danger,
-button.bracketed.action-screen-submit.text-danger .bl {
+button.bracketed.text-danger,
+button.bracketed.text-danger .bl {
   color: var(--color-danger);
-}
-button.bracketed.action-screen-submit.text-danger:hover,
-button.bracketed.action-screen-submit.text-danger:hover .bl {
-  color: var(--color-danger-hover);
 }
 
 /* Muted text — Phase 4 §10 rule 3: muted is a color, not a weight.
@@ -506,21 +462,24 @@ button.bracketed.action-screen-submit.text-danger:hover .bl {
   font-style: italic;
 }
 
-/* Phase 4 §10 cleanup: form labels — bold, block-level. Replaces the
-   inline `display: block; margin-bottom: 2px; font-weight: bold;`
-   triplet repeated across `form_field_component` and
-   `settings/index.html.erb`. */
+/* Phase 4 §10 cleanup: form labels — block-level. Replaces the
+   inline `display: block; margin-bottom: 2px;` triplet repeated across
+   `form_field_component` and `settings/index.html.erb`.
+   2026-05-20 (FB-15) — weight dropped from 700 → 400; the label's
+   role as a "heading for a field" is carried by its position above the
+   input, not by typographic weight. */
 .form-label {
   display: block;
   margin-bottom: 2px;
-  font-weight: 700;
+  font-weight: 400;
 }
 
-/* Phase 4 §10 cleanup: bracketed-link active state. Replaces the
-   inline `style="font-weight: bold; color: var(--color-text);"`
-   on the active-state span in `bracketed_link_component`. */
+/* Phase 4 §10 cleanup: bracketed-link active state. 2026-05-20 (FB-9)
+   — weight drops to 400 to match the rest of the bracketed-action
+   family; the foreground color shift to `--color-text` is the
+   active-state signal. */
 .bracketed-active {
-  font-weight: 700;
+  font-weight: 400;
   color: var(--color-text);
 }
 
@@ -536,16 +495,6 @@ button.bracketed.action-screen-submit.text-danger:hover .bl {
 .bulk-toolbar .action[hidden] { display: none; }
 .bulk-toolbar .action-sep { color: var(--color-muted); }
 .bulk-toolbar .action-sep[hidden] { display: none; }
-
-/* /settings/youtube scopes line. The unified Google-connections table
-   renders each channel as two `<tr>` rows: a data row plus a scopes
-   row spanning the right-hand columns. The scopes prose is muted and
-   slightly smaller so it reads as secondary detail rather than a
-   second copy of the primary row. */
-.scopes-line {
-  color: var(--color-muted);
-  font-size: 0.85em;
-}
 
 /* Phase B revamp (2026-05-06) — Inline list with consistent gap. Replaces
    the manual `<span class="text-muted">·</span>` separators that used to
@@ -726,10 +675,10 @@ button.bracketed.action-screen-submit.text-danger:hover .bl {
    `.pane` usage on other workspaces (channels, videos, projects,
    notes) is untouched. */
 .pane-row--game-show > .pane:first-child {
-  border-radius: 2px 0 0 2px;
+  border-radius: 0;
 }
 .pane-row--game-show > .pane:last-child {
-  border-radius: 0 2px 2px 0;
+  border-radius: 0;
 }
 
 .pane-strip {
@@ -737,6 +686,361 @@ button.bracketed.action-screen-submit.text-danger:hover .bl {
   flex-wrap: nowrap;
   overflow-x: auto;
   gap: 0;
+}
+
+/* `.pito-workspace` + `.pito-pane` — width-tiling grid per ADR 0016
+   (2026-05-20). Replaces the flex `.pane-row` row-wrapper pattern on
+   surfaces that want auto-fit horizontal tiling driven by viewport
+   width rather than fixed-width pane columns.
+   - `.pito-workspace` is a CSS Grid with `repeat(auto-fit,
+     minmax(60ch, 1fr))`: each pane targets a 60ch readable floor;
+     extra viewport width fills with additional columns. On narrow
+     viewports the grid collapses to one column (pure CSS, no media
+     queries).
+   - `.pito-pane` opts INTO grid-cell sizing by zeroing the fixed
+     444px width that the base `.pane` rule sets (the same `.pane`
+     class still carries the 12px padding + flat-bg treatment, only
+     width/flex are overridden). `min-width: 0` lets the grid
+     `minmax` floor govern the cell width rather than the pane's
+     intrinsic content.
+   - `.pito-pane--full` opts OUT of column tiling for surfaces that
+     benefit from the full row (wide tables, the /settings stack
+     pane's internal 3×2 tile grid). The `pane--wide` modifier on
+     /settings stack pane keeps its 888px wire frame off this code
+     path: `pito-pane--full` lets it stretch to the workspace's
+     full width via `grid-column: 1 / -1`. */
+.pito-workspace {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(60ch, 1fr));
+  gap: 0;
+}
+
+.pito-pane {
+  /* FB-48-IMPL (2026-05-20) — V4 corner-flush panel title in top border.
+     `position: relative` anchors the absolutely-positioned
+     `.pito-pane__title` span on the top border line. */
+  position: relative;
+  flex: initial;
+  width: auto;
+  min-width: 0;
+  /* Per-pane section identity — 35%-accent border + 4% bg wash per
+     swatches-v2 Section B grammar (2026-05-20). Border carries the
+     visual identity; the bg is the same near-bg tint as the body so
+     panes read as framed cells of the section rather than separate
+     islands. Zero radius per ADR 0016 single-radius rule (sharp TUI
+     corners).
+     2026-05-20 (FB-3) — padding tightened from the inherited 12px
+     square to 8px vertical / 12px horizontal. The user feedback flagged
+     security + notifications panes as too padded; the stack pane's
+     inner tiles already use this rhythm and feel right. Tight density
+     reads as "Excel sheet" precision per the screen-philosophy lock.
+     2026-05-20 (V3-density) — further tightened to 6px / 10px to push
+     overall V3 chrome density closer to Excel-sheet feel. */
+  padding: 6px 10px;
+  /* FB-48-IMPL (2026-05-20) — V4 panel title in top border requires a
+     FULL 1px hairline (the title sits ON the top border line via the
+     `.pito-pane__title` `top: -7px` + bg-cut). Default is a section-
+     tinted muted border (30% section-accent over transparent); focused
+     state swaps to the full section accent (rule below). Replaces the
+     prior left-only hairline from FB-22 — focus signal now flows
+     through full-border + title color rather than an outline overlay
+     (lands FB-72 implicitly).
+     2026-05-20 follow-up — default border was generic `--color-border`
+     (read purple-ish on the dark Dracula bg, visually unrelated to the
+     section accent). Swapped to `color-mix(section-accent 30%)` so the
+     idle hairline carries subtle section flavor; `--dracula-purple`
+     fallback ensures something always renders if `--section-accent`
+     isn't set in the cascade. */
+  border: 1px solid
+    color-mix(in srgb, var(--section-accent, var(--dracula-purple)) 30%, transparent);
+  border-radius: 0;
+  background: var(--color-bg-tint);
+}
+
+/* FB-48-IMPL (2026-05-20) — V4 panel title in top border.
+   Title is pulled OUT of the panel body and absolute-positioned on the
+   top border line, left-flush ~8px from the corner. Background paints
+   the page bg `var(--color-bg)` so the border hairline is cut behind
+   the title text (same technique as `.tui-dialog-frame__title-left`).
+   Default state inherits the muted border + muted title color;
+   focused panel (`data-tui-cursor-focused="yes"`) swaps both to the
+   section accent so the focus signal reads via color alone. */
+.pito-pane__title {
+  position: absolute;
+  top: -7px;
+  left: 8px;
+  background: var(--color-bg);
+  padding: 0 6px;
+  color: var(--color-muted);
+  font-weight: 400;
+  font-style: normal;
+  font-size: 13px;
+  line-height: 14px;
+  height: 14px;
+  letter-spacing: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* ===== FB-63-V4: stack sub-panels with title in top border =====
+   Each subsystem (Redis / PostgreSQL / Meilisearch / Voyage AI /
+   assets / notes) renders as a `.pito-sub-panel` — a hairline-bordered
+   box that adopts the same V4 title-in-border pattern as the outer
+   `.pito-pane`. Title sits on the LEFT side of the top border; the
+   right side hosts the status chip (and optional `[reindex]` action
+   for Meilisearch + Voyage AI). The page-bg `padding 0 6px` on the
+   absolute spans cuts the border hairline behind the text so the
+   chrome reads as a label fused into the frame. */
+.pito-sub-panel {
+  position: relative;
+  border: 1px solid var(--color-border);
+  padding: 12px 10px 8px;
+  background: transparent;
+}
+.pito-sub-panel__title {
+  position: absolute;
+  top: -7px;
+  left: 8px;
+  background: var(--color-bg);
+  padding: 0 6px;
+  color: var(--color-muted);
+  font-weight: 400;
+  font-style: normal;
+  font-size: 13px;
+  line-height: 14px;
+  height: 14px;
+  letter-spacing: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+.pito-sub-panel__actions {
+  position: absolute;
+  top: -7px;
+  right: 8px;
+  background: var(--color-bg);
+  padding: 0 6px;
+  font-size: 13px;
+  line-height: 14px;
+  height: 14px;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 1ch;
+}
+.pito-sub-panel__actions > * {
+  background: var(--color-bg);
+}
+
+.pito-pane[data-tui-cursor-focused="yes"] {
+  border-color: var(--section-accent, var(--color-link));
+}
+
+.pito-pane[data-tui-cursor-focused="yes"] .pito-pane__title {
+  color: var(--section-accent, var(--color-link));
+}
+
+/* Pane title accent — per swatches-v2 Section B grammar, the pane's
+   leading heading paints in the same section accent that drives the
+   border. Bracketed links inside panes already pick up the accent via
+   the global `--color-link` token (= `--section-accent` per ADR 0015),
+   so this rule only needs to cover headings. Scoped to `.pito-pane`
+   so legacy `.pane` flex-row workspaces (channels / games / bundles
+   show — F4/F5 future) keep their default heading color until they
+   migrate. */
+.pito-pane > h1,
+.pito-pane > h2,
+.pito-pane > h3,
+.pito-pane > legend,
+.pito-pane > fieldset > legend {
+  color: var(--section-accent);
+  /* 2026-05-20 (FB-3) — tighten heading rhythm inside panes. The
+     pane border already separates the heading from the surrounding
+     chrome; an extra `margin-top` only adds whitespace. `margin-bottom`
+     drops to 6px so the heading hugs its content. */
+  margin-top: 0;
+  margin-bottom: 6px;
+}
+
+/* TUI cursor focus marker — `tui_cursor_controller.js` sets
+   `data-tui-cursor-focused="yes"` on the focused panel as the user
+   tabs / Ctrl+hjkl across panes.
+   FB-48-IMPL (2026-05-20) — focus signal now flows through
+   `.pito-pane` border-color + `.pito-pane__title` text color (both
+   swap from `--color-border` / `--color-muted` to `--section-accent`,
+   see the `.pito-pane` block above). The outline overlay is dropped
+   because the full-border color swap already carries the signal —
+   layering a 1px outline on top of a 1px border read as visual noise
+   (lands FB-72 implicitly). The bare `[data-tui-cursor-focused]`
+   fallback for non-`.pito-pane` consumers (sessions sub-cursor, etc.)
+   is preserved as a no-op stub: any future opt-in surface can paint
+   its own focus signal via a more-specific rule. */
+.pito-pane[data-tui-cursor-focused="yes"],
+[data-tui-cursor-focused="yes"] {
+  outline: none;
+}
+
+/* FB-61 (2026-05-20) — sub-cursor row focus marker.
+   When a panel is focused (data-tui-cursor-focused="yes"), plain
+   `j`/`k`/`ArrowDown`/`ArrowUp` move between rows tagged
+   `data-tui-cursor-target="row"` INSIDE that panel. The focused row
+   gets `data-tui-cursor-row-focused="yes"` and receives a subtle
+   section-accent tint — no outline (per user lock; intra-panel
+   navigation reads as a soft highlight rather than a stroke).
+   `Space` toggles a checkbox in the focused row if one exists;
+   `Enter` triggers `[data-row-action="primary"]` if present. */
+.tui-table__row[data-tui-cursor-row-focused="yes"],
+tr[data-tui-cursor-row-focused="yes"],
+[data-tui-cursor-row-focused="yes"] {
+  background: color-mix(in srgb, var(--section-accent) 8%, transparent);
+}
+
+/* FB-101 (2026-05-20) — sub-panel focus marker.
+   When the inside-panel cursor lands on a sub-panel (e.g. one of the
+   stack sub-panels), the sub-panel's border + title swap to the full
+   section accent so the focus reads at the same hierarchy level as a
+   focused panel. The outer panel's `data-tui-cursor-focused="yes"`
+   marker remains. */
+.pito-sub-panel[data-tui-cursor-sub-panel-focused="yes"] {
+  border-color: var(--section-accent);
+}
+.pito-sub-panel[data-tui-cursor-sub-panel-focused="yes"] .pito-sub-panel__title {
+  color: var(--section-accent);
+}
+
+/* FB-101 (2026-05-20) — TST breadcrumb sub-panel rendering.
+   When a sub-panel is focused the breadcrumb expands from `<panel>`
+   to `<panel>:(<sub-panel>)`. The panel name + parens render in a
+   60/40 mix of section accent + muted so the eye reads the sub-panel
+   (full accent) as the primary focus. */
+.sb-section__panel,
+.sb-section__sub-panel-paren {
+  color: color-mix(in srgb, var(--section-accent) 60%, var(--color-muted));
+  font-weight: 400;
+}
+.sb-section__sub-panel {
+  color: var(--section-accent);
+  font-weight: 400;
+}
+
+/* Adjacent-pane hairline removed 2026-05-20 — each `.pito-pane` now
+   carries its own 35%-accent full border (see the `.pito-pane` rule
+   above) per the swatches-v2 Section B grammar, so the single-edge
+   sibling hairline would double up on shared edges (or paint the
+   wrong color on the inner edge). The grid `gap: 0` + each pane's
+   full border together produce the TUI panel-split rhythm without
+   the extra sibling rule. */
+
+/* Full-width panes occupy their own row. The column-sibling hairline
+   (`.pito-workspace > .pito-pane + .pito-pane`) painted on their
+   leading edge would leave a 1px inset stripe at the workspace left
+   edge. A `border-top` substitutes as the row-rhythm separator when
+   a full-width pane follows a tiled row, so the left hairline is
+   redundant here. The selector matches the column-sibling rule's
+   3-class specificity (`.pito-workspace .pito-pane + .pito-pane`) so
+   the override wins on cascade. */
+.pito-pane--full {
+  grid-column: 1 / -1;
+  width: auto;
+}
+
+.pito-workspace > .pito-pane.pito-pane--full {
+  /* FB-48-IMPL (2026-05-20) — `.pito-pane` now carries a full 4-side
+     hairline (V4 title-in-border), so the previous `border-left: 0`
+     + `border-top` row-separator override is no longer needed. The
+     default full border + `grid-column: 1 / -1` already produces the
+     correct row-rhythm for full-width panes. */
+}
+
+/* ===== FB-52 (2026-05-20): V3 60/40 masonry layout for /settings =====
+   Overrides the default `.pito-workspace` `repeat(auto-fit, minmax(60ch,
+   1fr))` width-tiling grid with a fixed 2-column 60/40 split per user
+   lock 2026-05-20:
+     LEFT 60% — notifications (top) + security/sessions (bottom),
+                stacked vertically.
+     RIGHT 40% — stack panel only (single column).
+   Desktop-only — no media-query collapse (mobile is dead per CLEANUP-3).
+   The 60/40 grid holds at all widths; browser will scroll if too narrow.
+
+   The `.pito-pane--full` rule (`grid-column: 1 / -1`) on the stack pane
+   still applies inside the right column — it spans the right column's
+   single grid track, which is the desired behavior.
+
+   TODO FB-51: stack panel needs internal sub-panel arrangement
+   (Redis, Postgres, Meilisearch, Voyage AI, assets, notes — vertical
+   stack). Until that lands, the stack panel's internal 3×2 tile grid
+   may look cramped at 40% viewport width. */
+.settings-panes--v3 {
+  display: grid;
+  grid-template-columns: 60fr 40fr;
+  gap: 6px;
+  /* FB-88 (2026-05-20) — stretch column tracks to the grid's full height so
+     each column's last-child flex-grow rule (below) can absorb leftover
+     vertical space. `align-items: start` (the previous value) collapsed
+     each column to its content height, defeating the grow rule.
+     `min-height: calc(100vh - 44px - 8px - 6px - 22px)` ≈ viewport minus
+     TST(22) + BST(22) + main top padding(6) + V3 margin-top(8) + main
+     bottom padding (22, already accounted for in the 44 above) — set to
+     `100%` so we inherit `<main>`'s min-height computation and minus the
+     8px margin-top to avoid double-counting. */
+  align-items: stretch;
+  min-height: calc(100% - 8px);
+  /* 2026-05-20 (V3-density) — breathing space below the TST so panels
+     don't visually fuse with the top status bar header. */
+  margin-top: 8px;
+}
+
+.settings-panes--v3 .settings-panes__left,
+.settings-panes--v3 .settings-panes__right {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0; /* prevent grid blowout from wide inner content */
+}
+
+/* FB-88 (2026-05-20) — Last panel per column grows to absorb leftover
+   vertical space. Without this, a column whose content is shorter than
+   the grid track height leaves awkward dead space between the last
+   panel and the BST. With it: in V3 the left column has notifications
+   (content-sized) + security (grows to fill); the right column has
+   stack (sole child, grows to fill).
+   `min-height: 0` allows the flex item to shrink below its intrinsic
+   content height too — needed for the overflow rule to engage when
+   content exceeds the available space.
+   `overflow: auto` lets content scroll WITHIN the panel rather than
+   pushing the BST off-screen. Future FB-61/FB-12 sub-cursor wiring
+   will own j/k scroll inside the panel; the mouse scrollbar is the
+   intermediate fallback. */
+.settings-panes--v3 .settings-panes__left > :last-child,
+.settings-panes--v3 .settings-panes__right > :last-child {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+/* FB-?? (2026-05-20) — panels containing V4 sub-panels need extra
+   top padding so the sub-panel titles (positioned at `top: -7px`) have
+   room to render INSIDE the parent's content box. Without this, the
+   FB-88 `overflow: auto` on the last-child stack pane clips the first
+   sub-panel's title overhang.
+   `:has(.pito-sub-panel)` scopes the rule to only those panels that
+   actually host sub-panels (stack pane today); security + notifications
+   keep their tight 6px top padding. */
+.pito-pane:has(.pito-sub-panel) {
+  /* FB-92 (2026-05-20) — sub-panels breathe better: less horizontal margin
+     vs outer panel border (L/R 10 -> 6) + more vertical margin (bottom
+     6 -> 10). Top stays 14px (FB-90) for sub-panel title overhang. */
+  padding: 14px 6px 10px;
+}
+
+/* FB-92 (2026-05-20) — left column carries TOP-LEVEL stacked panels
+   (notifications + security); these need more breathing than the right
+   column's stack sub-panels which use 6px. The V4 panel title sits at
+   `top: -7px` on each panel, so the gap between adjacent left-column
+   panels needs to clear the title's overhang AND read as a deliberate
+   panel separator rather than two fused boxes. Right column keeps 6px
+   (stack sub-panel rhythm is intentionally tighter). */
+.settings-panes--v3 .settings-panes__left {
+  gap: 12px;
 }
 
 /* Themed scrollbars — sitewide, both axes.
@@ -767,11 +1071,9 @@ button.bracketed.action-screen-submit.text-danger:hover .bl {
 }
 ::-webkit-scrollbar-thumb {
   background: var(--color-muted);
-  border-radius: 3px;
+  border-radius: 0;
 }
-::-webkit-scrollbar-thumb:hover {
-  background: var(--color-text);
-}
+/* FB-67 (2026-05-20) — no hover background swap on scrollbar thumb. */
 
 /* Firefox global theming — both axes.
 
@@ -831,11 +1133,9 @@ body[data-modal-open] {
 .shelf-row::-webkit-scrollbar { width: 6px; height: 6px; }
 .shelf-row::-webkit-scrollbar-thumb {
   background: var(--color-muted);
-  border-radius: 3px;
+  border-radius: 0;
 }
-.shelf-row::-webkit-scrollbar-thumb:hover {
-  background: var(--color-text);
-}
+/* FB-67 (2026-05-20) — no hover background swap on shelf-row scrollbar thumb. */
 
 /* 2026-05-19 — Universal no-shrink for direct children of `.shelf-row`.
    The canonical `ShelfComponent` row is `display: flex; overflow-x: auto`
@@ -898,12 +1198,9 @@ dialog *::-webkit-scrollbar-track {
 dialog::-webkit-scrollbar-thumb,
 dialog *::-webkit-scrollbar-thumb {
   background: var(--color-muted);
-  border-radius: 3px;
+  border-radius: 0;
 }
-dialog::-webkit-scrollbar-thumb:hover,
-dialog *::-webkit-scrollbar-thumb:hover {
-  background: var(--color-text);
-}
+/* FB-67 (2026-05-20) — no hover background swap on dialog scrollbar thumbs. */
 dialog {
   scrollbar-width: thin;
   scrollbar-color: var(--color-muted) var(--color-bg);
@@ -971,7 +1268,7 @@ table {
 th, td {
   text-align: left;
   padding: 4px 8px;
-  line-height: 1.4;
+  line-height: 1;
   border: 1px solid var(--color-border);
   white-space: nowrap;
 }
@@ -997,16 +1294,13 @@ tbody td {
 table:not(.detail-table) tr:nth-child(even) {
   background-color: var(--color-bg-alt);
 }
-/* Hover highlight applies to data tables only. Detail tables (key/value
-   layouts and small forms — see `table.detail-table` above) opt out so
-   their rows don't visually flash during editing. */
-table:not(.detail-table) tr:hover {
-  background-color: var(--color-bg-hover);
-}
+/* FB-67 (2026-05-20) — no pointer-hover tint on table rows. Keyboard
+   row navigation still highlights via `.keyboard-highlight` below
+   (intentional, signal-bearing) — only the pointer hover tint is gone. */
 /* Phase 7.5 — Step 04. Keyboard-driven row highlight. The global
    keyboard controller adds `.keyboard-highlight` to whichever row the
-   user has moved to with `j`/`k`. Reuses the same hover background so
-   keyboard navigation and pointer hover share visual treatment. */
+   user has moved to with `j`/`k`. Background tint comes from this
+   class alone (the legacy `tr:hover` pair was removed per FB-67). */
 .keyboard-highlight,
 table:not(.detail-table) tr.keyboard-highlight {
   background-color: var(--color-bg-hover);
@@ -1072,12 +1366,17 @@ th.sortable > .sortable-label {
   color: inherit;
 }
 th.sortable::after {
-  /* Inactive headers render no arrow (2026-05-19). The slot is still
-     reserved (absolute box + 14px width + matching font-size) so the
-     active asc/desc overrides below can swap a single directional glyph
-     in without any layout shift — the label's right-padding reserve and
-     the cell's column geometry are unchanged whether the column is
-     active or not. */
+  /* Inactive headers render NO arrow at all (2026-05-20, FB-14 sweep).
+     The slot's geometry (absolute box + 14px width) is still defined
+     here so the active asc/desc overrides below can swap a single
+     directional glyph in without any layout shift — the label's
+     right-padding reserve and the cell's column geometry are
+     unchanged whether the column is active or not. `content` stays
+     empty in the resting state; the active rules below set it to the
+     directional glyph.
+     Color tracks the section accent (the active column reads in the
+     page's identity color) and the weight drops to 400 to match the
+     bracketed-action weight family. */
   content: "";
   position: absolute;
   right: 1px;
@@ -1087,38 +1386,72 @@ th.sortable::after {
   font-size: 13px;
   line-height: 1;
   text-align: center;
-  color: var(--color-link);
-  font-weight: bold;
+  color: var(--section-accent);
+  font-weight: 400;
   /* The indicator sits visually inside the link's right-padding reserve;
      keep clicks on the indicator passing through to the underlying link
      so the entire cell behaves as one click target. */
   pointer-events: none;
 }
-th.sortable:hover {
-  background: var(--color-bg-header-hover);
-}
+/* FB-67 (2026-05-20) — no hover effect on sortable headers (supersedes
+   FB-4 which already neutralized the slab; this drops the redundant
+   transparent override as part of the universal no-hover sweep). */
 /* Active URL-driven sort headers (server stamps `sort-asc` / `sort-desc`
-   on the inner `<a>` via `sort_link_to`). Override the neutral
-   two-glyph stack with a single directional arrow rendered in the same
-   pseudo-element so the indicator's position is pixel-identical to the
-   inactive state. Bumped to a 13px glyph (was the 10px stack) so the
-   active arrow reads at the same visual weight as JS-driven sort
-   headers below. */
+   on the inner `<a>` via `sort_link_to`). Override the empty inactive
+   pseudo-element with a single directional arrow at the same position.
+   2026-05-20 (FB-14) — explicit `color` + `font-weight` reasserted here
+   so any per-table override that sets position but not color (e.g. the
+   `.sessions-table` rule below) still resolves to the section accent at
+   weight 400. Color + weight tokens stay aligned with the inactive
+   pseudo-element above so the only visual change between states is the
+   single glyph swap. */
 th.sortable:has(> a.sort-asc)::after {
   content: "\25B2";
   font-size: 13px;
   line-height: 1;
+  color: var(--section-accent);
+  font-weight: 400;
 }
 th.sortable:has(> a.sort-desc)::after {
   content: "\25BC";
   font-size: 13px;
   line-height: 1;
+  color: var(--section-accent);
+  font-weight: 400;
+}
+/* FB-110 (2026-05-20) — active sort header LABEL also reads in the
+   section accent so the column identity is signalled by BOTH the arrow
+   glyph and the header text. Inactive sortable headers stay at the
+   default header color (muted via the `.tui-table__th` token). The
+   inner `<a>` already inherits via `th.sortable > a { color: inherit }`
+   above, so setting the color on the `<th>` propagates to the label.
+   Mirrors both URL-driven (`:has(> a.sort-asc)`) and JS-driven
+   (`th.sort-asc` / `th.sort-desc`) active states. */
+th.sortable:has(> a.sort-asc),
+th.sortable:has(> a.sort-desc),
+th.sortable.sort-asc,
+th.sortable.sort-desc,
+th.sort-asc,
+th.sort-desc {
+  color: var(--section-accent);
 }
 /* JS-driven client-side sortable tables (channel + video panes) flip
-   `sort-asc` / `sort-desc` on the `<th>` itself. Replace the neutral
-   stack with a single directional glyph. */
-th.sort-asc::after { content: "\25B2"; font-size: 13px; line-height: 1; }
-th.sort-desc::after { content: "\25BC"; font-size: 13px; line-height: 1; }
+   `sort-asc` / `sort-desc` on the `<th>` itself. Replace the empty
+   pseudo-element with a single directional glyph at the section accent. */
+th.sort-asc::after {
+  content: "\25B2";
+  font-size: 13px;
+  line-height: 1;
+  color: var(--section-accent);
+  font-weight: 400;
+}
+th.sort-desc::after {
+  content: "\25BC";
+  font-size: 13px;
+  line-height: 1;
+  color: var(--section-accent);
+  font-weight: 400;
+}
 
 /* Action column — tight, no extra padding */
 th.col-action, td.col-action {
@@ -1133,112 +1466,121 @@ th.col-action, td.col-action {
   font-variant-numeric: tabular-nums;
 }
 
-/* Stack-pane inner layout (`/settings` row 3). Two visible columns with
-   a 1px vertical hairline between them. Hoisted out of inline styles in
-   `_stack_pane.html.erb` (2026-05-18) so the mobile media query can
-   target real classes instead of `[style*="..."]` attribute selectors
-   (which broke silently on any markup reformat). The `.stack-pane-grid`
-   container holds three children: `.stack-pane-column` (left db),
-   `.stack-pane-divider` (vertical hairline), `.stack-pane-column`
-   (right search+storage). The mobile collapse rule lives in the
-   `@media (max-width: 768px)` block lower in this file. */
+/* Stack-pane inner layout (`/settings` row 3).
+   FB-51 (2026-05-20) — restructured from a 3x2 tile grid into a
+   VERTICAL stack of 6 sub-panels (Redis / PostgreSQL / Meilisearch /
+   Voyage AI / assets / notes). The stack pane now lives in the 40%
+   right column of the FB-52 V3 layout, so a vertical sub-panel
+   arrangement fits the narrower width.
+   The container flexes its sub-panel children vertically with an
+   8px gap. The per-tile inline `border-right` / `border-bottom`
+   hairlines that the prior 3x2 grid carried are dropped — the
+   vertical gap separates sub-panels cleanly. Each child sub-panel
+   is the `<div style="padding: 8px 12px;">` wrapper around a
+   V4 title-in-border header (title + chip resolved via
+   `Settings::Stack::HealthState::STATES`) plus its breakdown table. */
 .stack-pane-grid {
-  display: grid;
-  grid-template-columns: 1fr 1px 1fr;
+  display: flex;
+  flex-direction: column;
+  /* FB-92 (2026-05-20) — vertical breathing between sub-panels bumped
+     from 8px to 12px so adjacent sub-panel borders don't crowd each other. */
   gap: 12px;
-  align-items: stretch;
 }
-.stack-pane-divider {
-  background: var(--color-border);
-  width: 1px;
+/* Defensive opt-out — if any legacy child still ships inline
+   `border-right` / `border-bottom` (e.g. cached partial fragments),
+   strip those so the vertical-gap layout reads cleanly. */
+.stack-pane-grid > * {
+  border-right: 0;
+  border-bottom: 0;
 }
 
 /* Stack-pane breakdown tables (`/settings` row 3 — Postgres / Redis /
    Meilisearch / assets / notes) plus the sessions table on the
-   security pane. Shared treatment: full pane width, dense look (no
-   borders, no zebra), and a clean right-alignment contract for
-   numeric columns.
-
-   Geometry strategy (2026-05-16 reset — replaces the prior
-   per-pixel alignment stack):
-
-   1. Uniform horizontal cell padding (`--stack-cell-padding`) on
-      every `th` AND `td`. The body cell and the header cell share
-      the same left/right padding, so `.num` columns (which carry
-      `text-align: right`) get header-label and body-value right
-      edges aligned at the SAME x-coordinate automatically — no
-      arrow-reserve math, no last-child overrides.
-
-   2. The sort arrow escapes the cell flow via `position: absolute`.
-      Instead of competing with the label for horizontal space inside
-      the header cell, it hangs above the header at
-      (`--stack-arrow-top`, `--stack-arrow-right`). The label is
-      free to right-align flush with the body number below it.
-
-   3. The Redis stats grid (no arrows, just `.num` headers + cells)
-      inherits the same right-alignment automatically — no special
-      casing needed.
-
-   The `.sessions-table` marker class on the security pane's sessions
-   `<table>` opts that table into rule (2) only (arrow escape) so its
-   `[pinged]` header right-aligns with the relative-time values
-   underneath. It does NOT take the full stack-table styling — its
-   `col-action` / `code` cells keep their own conventions. */
-table.stack-table {
+   security pane. Migrated 2026-05-20 (FB-1) to the canonical
+   `.tui-table` grammar (`Tui::TableComponent` family — muted lowercase
+   headers, dashed hairline body rows, no zebra, no header slab) so
+   every data table on /settings reads with the same TUI rhythm. The
+   `.tui-table--stack` modifier is reserved for stack-pane-specific
+   tweaks; default behavior inherits from `.tui-table` / `.tui-table__th`
+   / `.tui-table__td`. The legacy `.stack-table` ruleset that lived
+   here (zebra-adjacent table-bg + heavy header slab + per-table
+   arrow-escape geometry) was deleted in this fix — the new flat
+   shape comes entirely from the TUI primitive. */
+table.tui-table--stack {
   width: 100%;
   table-layout: auto;
 }
-table.stack-table th,
-table.stack-table td {
+/* FB-68 (2026-05-20, folded into FB-51) — opt `.tui-table--stack` out
+   of the global `table:not(.detail-table) tr:nth-child(even)` zebra
+   rule. The canonical `.tui-table` grammar uses a dashed hairline
+   body row as the visual separator — no zebra background. Mirrors
+   the `.sessions-table` opt-out below for the same reason. The
+   Voyage AI stats table + assets breakdown + Postgres breakdown +
+   Meilisearch breakdown + notes breakdown all carry
+   `.tui-table--stack` and inherit this opt-out. */
+table.tui-table--stack tbody tr:nth-child(even),
+table.tui-table--stack tr:nth-child(even) {
+  background-color: transparent;
+}
+table.tui-table--stack th,
+table.tui-table--stack td {
   border: none;
-  padding: 1px var(--stack-cell-padding);
   background: transparent;
-  font-weight: normal;
   font-size: 13px;
-  line-height: 1.4;
+  line-height: 1;
   white-space: nowrap;
 }
-/* Header treatment mirrors the global `thead th` convention (muted
-   color, bold weight, header-bg tint) used on the channels / videos
-   lists, so Stack pane headers carry the same visual signal as every
-   other data table.
-
-   2026-05-17 (settings polish) — explicit `border-bottom` mirrors the
-   global `thead th` rule's `2px solid var(--color-table-header-border)`
-   treatment. Stack-table cells set `border: none` which (at equal
-   class+element specificity vs. the bare `thead th` rule) wins and
-   strips the bottom border on stack-tables only — the sessions table
-   keeps the global rule's border because it carries no per-table
-   override. Adding the rule back explicitly here restores the
-   sessions-style header/body separator on stack-tables so the
-   `--color-bg-header` slab doesn't read as a hard isolated block
-   against the subtle zebra below — same separator semantic as the
-   sessions heading the user signed off on. Token resolves to
-   `--color-border` in dark theme (visual no-op vs. the 1px cell
-   border tone) and to a mid-grey baseline in light theme. */
-table.stack-table thead th,
-table.sessions-table thead th {
+table.tui-table--stack tbody td {
   color: var(--color-muted);
-  font-weight: 700;
-  font-size: 12px;
-  background: var(--color-bg-header);
-  border-bottom: 2px solid var(--color-table-header-border);
 }
-table.stack-table tbody td {
-  color: var(--color-muted);
+/* FB-75 (2026-05-20) — tighten vertical padding on stack-table body
+   rows. Inherits `padding: 3px 8px 3px 0` from `.tui-table__td` in the
+   TUI primitives block; the 3px top/bottom reads as too airy on the
+   Voyage AI tile's stats table (image #134). Drop top/bottom to 1px
+   for stack-scoped tables only; the primitive default stays the
+   reference value for non-stack tables. Horizontal padding preserved
+   via `padding-left: 0` (keeps the right-aligned column edge flush)
+   and `padding-right: 8px` matching `--stack-cell-padding`. */
+table.tui-table--stack tbody td {
+  padding-top: 1px;
+  padding-bottom: 1px;
+}
+/* FB-117 (2026-05-20) — restore the header bottom border on stack-pane
+   tables. The `table.tui-table--stack th, table.tui-table--stack td
+   { border: none; ... }` reset above strips the hairline that the
+   canonical `.tui-table__th` rule (~line 5556) declares
+   (`border-bottom: 1px solid var(--color-border)`), leaving the
+   `metric / value` header sitting directly above body rows with no
+   visual separator (image #151). Reassert the bottom hairline on
+   header cells only — matches the sessions table header rhythm. */
+table.tui-table--stack thead th,
+table.tui-table--stack thead th.sortable {
+  border-bottom: 1px solid var(--color-border);
+}
+/* FB-118 (2026-05-20) — Voyage rows render a `.tui-segmented-bar`
+   immediately followed by the embedded/total count span
+   (`data-stack-stats-live-target="voyageEmbedded"` /
+   `voyageBundlesEmbedded`). The partial used to inject `&nbsp;` between
+   them which gave a full character of horizontal slack; the `&nbsp;`
+   has been dropped from `_voyage_section.html.erb` and this rule
+   restores a tight 4px gap via the adjacent-sibling combinator. Scoped
+   to `.tui-table--stack` so other contexts that compose a segmented
+   bar with a following live-target span are not affected. */
+table.tui-table--stack .tui-segmented-bar + [data-stack-stats-live-target] {
+  margin-left: 4px;
 }
 /* Sortable header cells inside stack-tables override the global
    `th.sortable { padding: 0 }` so cell padding governs the geometry
    uniformly with `<td>` cells. Inner `<a>/<span>` carries no padding
    of its own — the cell provides everything; the right edge of the
    label matches the right edge of the body cell content area. */
-table.stack-table th.sortable,
+table.tui-table--stack th.sortable,
 table.sessions-table th.sortable {
-  padding: 1px var(--stack-cell-padding);
+  padding: 3px var(--stack-cell-padding) 3px 0;
   position: relative;
 }
-table.stack-table th.sortable > a,
-table.stack-table th.sortable > .sortable-label {
+table.tui-table--stack th.sortable > a,
+table.tui-table--stack th.sortable > .sortable-label {
   display: block;
   padding: 0;
   text-decoration: none;
@@ -1246,19 +1588,20 @@ table.stack-table th.sortable > .sortable-label {
 }
 /* Arrow escapes the cell flow — `position: absolute` lifts it above
    the header label so the label can sit flush right (or flush left,
-   for `.string` columns) without arrow-reserve padding. Negative
-   `--stack-arrow-top` floats the indicator slightly above the
-   header's content row; `--stack-arrow-right` anchors it to the
-   right edge of the cell. Cross-references the global
-   `th.sortable::after` rule for content + sizing — only positioning
-   is overridden here. */
-table.stack-table th.sortable::after,
+   for `.string` columns) without arrow-reserve padding.
+   2026-05-20 (FB-14) — `color` + `font-weight` reasserted here so the
+   stack-pane / sessions-table sort glyphs always paint in the section
+   accent at weight 400 regardless of which (asc / desc / inactive)
+   `::after` rule resolves last in the cascade. */
+table.tui-table--stack th.sortable::after,
 table.sessions-table th.sortable::after {
   position: absolute;
   top: var(--stack-arrow-top);
   right: var(--stack-arrow-right);
   transform: none;
   width: auto;
+  color: var(--section-accent);
+  font-weight: 400;
 }
 /* Sessions table inner anchor: zero its padding entirely so the cell
    padding from the `.sessions-table th.sortable` rule above
@@ -1286,25 +1629,60 @@ table.sessions-table th.sortable > .sortable-label {
   display: block;
   padding: 0;
 }
-/* Stack-table rows (2026-05-20).
-   Zebra striping dropped sitewide — stack tables now read as flat
-   rows with a hairline bottom border between siblings. Hover stays
-   suppressed: stack tables are dense breakdown rows (no per-row
-   navigation), so a hover highlight would only add noise. The thead
-   still keeps its own `--color-bg-header` tint via the
-   `table.stack-table thead th` rule above. */
-table.stack-table tbody tr {
-  border-bottom: 1px solid var(--color-border-soft);
+/* FB-67 (2026-05-20) — universal no-hover. The sessions-table sortable
+   header keeps `cursor: default` (TUI fidelity — the inner anchor
+   drives the click); the previous hover override that flipped to
+   transparent + section-accent is gone now that the global
+   `th.sortable:hover` rule has been removed sitewide. */
+table.sessions-table th.sortable {
+  cursor: default;
 }
-table.stack-table tr:hover {
+/* Sessions-table body rows (2026-05-20, F3-DEEP-B cleanup). The global
+   `table:not(.detail-table) tr:nth-child(even)` rule paints zebra on
+   any non-detail table; opt out here so the sessions table reads as
+   the flat `.tui-table` shape the F3-DEEP-B migration committed to.
+   The global `table:not(.detail-table) tr:hover` rule similarly tints
+   on hover — kill it for the sessions table too (the bulk-revoke
+   checkbox is the real click target; row-wide hover noise is the
+   legacy stack pane mode). The hairline-bottom between rows comes
+   from `.tui-table__td`'s own border. */
+table.sessions-table tbody tr:nth-child(even),
+table.sessions-table tr:nth-child(even) {
   background-color: transparent;
 }
+/* FB-67 (2026-05-20) — global `tr:hover` is gone; keep the
+   `.keyboard-highlight` opt-out so keyboard-driven row highlight
+   doesn't tint the sessions table (it stays a flat checkbox grid). */
+table.sessions-table tr.keyboard-highlight {
+  background-color: transparent;
+}
+/* Cell border reset (2026-05-20, F3-DEEP-B cleanup). The global
+   `th, td { border: 1px solid var(--color-border); }` rule paints all
+   four sides on every cell — the inner-cell grid the user flagged.
+   The TUI primitive's `.tui-table__th` / `.tui-table__td` declare a
+   bottom hairline; the top/left/right sides kept inheriting the
+   legacy grid lines from the global rule. Strip only those three
+   here scoped to `.sessions-table` so the `.tui-table` family's
+   bottom-border wins on its own merits without specificity collision.
+   Result: stack of hairline-bottom rows, no inner vertical separators,
+   no outer perimeter. */
+table.sessions-table th,
+table.sessions-table td {
+  border-top: none;
+  border-left: none;
+  border-right: none;
+}
+/* FB-67 (2026-05-20) — global `tr:hover` is gone sitewide; the prior
+   stack-table opt-out (`table.tui-table--stack tr:hover { background-
+   color: transparent }`) is no longer needed. Hairline-bottom rhythm
+   + dashed body rows come from the `.tui-table__td` rule in the TUI
+   primitives block. */
 
-/* `.stack-table--3col-aligned` (2026-05-18 settings polish).
+/* `.tui-table--3col-aligned` (was `.stack-table--3col-aligned`).
    Shared column widths for the assets (category / files / size) +
    notes (namespace / count / size) tables on /settings. Both are
    3-column breakdowns with a string label + two numeric columns,
-   but `table-layout: auto` on `.stack-table` lets each one size
+   but `table-layout: auto` on `.tui-table--stack` lets each one size
    columns independently from its own content — which made the two
    stacked tables read as visually unrelated even though they share
    the same semantic shape.
@@ -1313,19 +1691,19 @@ table.stack-table tr:hover {
    column and the two numeric columns line up across both tables.
    `.num` cells already carry right-alignment + tabular figures via
    the global `.num` rule, so this modifier is width-only. */
-table.stack-table--3col-aligned {
+table.tui-table--3col-aligned {
   table-layout: fixed;
 }
-table.stack-table--3col-aligned th:nth-child(1),
-table.stack-table--3col-aligned td:nth-child(1) {
+table.tui-table--3col-aligned th:nth-child(1),
+table.tui-table--3col-aligned td:nth-child(1) {
   width: 50%;
 }
-table.stack-table--3col-aligned th:nth-child(2),
-table.stack-table--3col-aligned td:nth-child(2) {
+table.tui-table--3col-aligned th:nth-child(2),
+table.tui-table--3col-aligned td:nth-child(2) {
   width: 25%;
 }
-table.stack-table--3col-aligned th:nth-child(3),
-table.stack-table--3col-aligned td:nth-child(3) {
+table.tui-table--3col-aligned th:nth-child(3),
+table.tui-table--3col-aligned td:nth-child(3) {
   width: 25%;
 }
 
@@ -1360,24 +1738,17 @@ table.kv-table td {
   background: transparent;
   font-weight: normal;
   font-size: 12px;
-  line-height: 1.4;
+  line-height: 1;
   vertical-align: top;
 }
 table.kv-table tr {
   border-bottom: 1px solid var(--color-border);
 }
-/* Suppress hover + zebra on kv-table rows (2026-05-17 user direction —
-   /games/:id LEFT pane meta strip). The global `table:not(.detail-table)
-   tr:hover` rule at the top of this file otherwise tints kv-table rows
-   on pointer hover; the explicit `tbody tr` selectors below outrank it
-   and the keyboard-highlight rule on equal-specificity ties. Zebra was
-   already scoped OUT of kv-table when the shared rule moved to
-   `.stack-table` only, but the defensive `:nth-child(even)` override
-   keeps kv-table immune to any future global zebra fallback. */
-table.kv-table tbody tr:hover,
-table.kv-table tr:hover {
-  background-color: transparent;
-}
+/* Suppress zebra on kv-table rows (2026-05-17 user direction —
+   /games/:id LEFT pane meta strip). The defensive `:nth-child(even)`
+   override keeps kv-table immune to any future global zebra fallback.
+   FB-67 (2026-05-20) — the prior `tr:hover` opt-out is no longer
+   needed; the global pointer-hover tint has been removed sitewide. */
 table.kv-table tbody tr:nth-child(even),
 table.kv-table tr:nth-child(even) {
   background-color: transparent;
@@ -1422,39 +1793,17 @@ table.kv-table tr.kv-table__row--syncing td.kv-table__value {
   opacity: 0.55;
 }
 
-/* Sessions-table rows (2026-05-20).
-   Zebra striping dropped sitewide — sessions-table rows now read as
-   flat siblings separated by the cell border treatment from the
-   global `th, td { border: 1px solid var(--color-border); }` rule.
-   The previous zebra alt-tone is gone; no
-   replacement rule is needed for the data rows themselves. */
-
-/* Rounded sessions-table wrapper (2026-05-17, revised).
-
-   `<table>` with `border-collapse: collapse` ignores `border-radius`
-   on the table itself because the outermost cells touch the table
-   edge directly and paint over any corner curvature. A `<div>` parent
-   owns the radius so the cells visually sit inside a rounded frame.
-
-   `.sessions-table-wrap` — the sessions table on /settings already
-   paints its own perimeter via the global `th, td { border: 1px solid
-   var(--color-border) }` rule, so the wrapper supplies only the
-   radius. `overflow: hidden` is intentionally NOT applied here: the
-   sortable header arrows are `position: absolute` and poke above the
-   `<th>` top edge, which `overflow: hidden` would clip. Trade: the
-   cell square corners poke into the rounded wrapper corners by ~2px
-   but the colors align so it is not perceptible.
-
-   Stack-pane tables (Postgres / Sidekiq / Meilisearch / Assets /
-   Notes) used to ride a `.stack-table-wrap` companion class with a
-   border + radius; user feedback was that the bordered look was
-   worse than the borderless original, so that class was removed. The
-   wrapper divs in `_stack_pane.html.erb` remain because they host
-   the `sortable-table` Stimulus controller + a `margin-bottom`
-   spacing; they no longer carry any chrome class. */
-.sessions-table-wrap {
-  border-radius: 2px;
-}
+/* 2026-05-20 (F3-DEEP-B cleanup). The legacy `.sessions-table-wrap`
+   rule (2px border-radius on a wrapper div) and the stale
+   "Sessions-table rows" zebra-removal comment block were dropped
+   here. The sessions table on /settings rides `.tui-table` styling
+   (hairline rows, no zebra, no wrapper chrome) — the wrapper div is
+   gone from `Sessions::TableComponent` markup, so the rule had no
+   resting consumer on /settings. The `bundles/all_games_table_component`
+   still emits the `sessions-table-wrap` class on its container, but
+   the rule only painted a 2px border-radius; losing it is a visual
+   no-op at the bundle modal scale (the wrapper holds the sortable
+   stimulus controller + margin-bottom, both inline). */
 
 /* Footage table on the project show page (`_footage_pane.html.erb`).
    `table-layout: fixed` + a `<colgroup>` with explicit widths is what
@@ -1603,9 +1952,7 @@ table.footage-table {
   cursor: pointer;
   border: 1px solid transparent;
 }
-.footage-scrub-cell:hover {
-  border-color: var(--color-link);
-}
+/* FB-67 (2026-05-20) — no hover border swap on footage scrub cells. */
 
 /* Indicator cells — trend arrows */
 .indicator-up { color: var(--color-success); }
@@ -1702,6 +2049,10 @@ select,
 textarea {
   font-family: inherit;
   font-size: 13px;
+  /* FB-17 — body's `line-height: 1` is too tight for editable
+     fields (cramped caret + descender clipping on `j`/`g`/`p`).
+     Relax to 1.2 only here; the rest of the page stays at 1. */
+  line-height: 1.2;
   background: var(--color-bg-alt);
   color: var(--color-text);
   border: 1px solid var(--color-border);
@@ -1752,7 +2103,7 @@ dialog.omnisearch-modal {
   max-width: 90vw;
   padding: 16px;
   border: 1px solid var(--color-border);
-  border-radius: 2px;
+  border-radius: 0;
   background: var(--color-bg);
   color: var(--color-text);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
@@ -1774,7 +2125,7 @@ input.omnisearch-input {
   border: 1px solid var(--color-border);
   background: transparent;
   color: var(--color-text);
-  border-radius: 2px;
+  border-radius: 0;
 }
 input.omnisearch-input:focus {
   outline: none;
@@ -1799,9 +2150,7 @@ input.omnisearch-input::-webkit-search-cancel-button {
   -webkit-mask-size: contain;
           mask-size: contain;
 }
-input.omnisearch-input::-webkit-search-cancel-button:hover {
-  background-color: var(--color-text);
-}
+/* FB-67 (2026-05-20) — no hover background swap on omnisearch cancel button. */
 /* Sectioned results inside the omnisearch dialog. Each pane (local
    games / local bundles / IGDB hits) renders as its own section with
    a small heading and a flat list of rows. Rows are vertically
@@ -1876,16 +2225,17 @@ li.omnisearch-row:last-child {
   -webkit-mask-size: contain;
           mask-size: contain;
 }
-.igdb-search-input::-webkit-search-cancel-button:hover {
-  background-color: var(--color-text);
-}
+/* FB-67 (2026-05-20) — no hover background swap on igdb cancel button. */
 
 /* All buttons get pointer cursor */
 button, .btn-submit {
   cursor: pointer;
 }
 
-/* Bracketed submit buttons — [ Save ] style */
+/* Bracketed submit buttons — [ Save ] style.
+   2026-05-20 (FB-15) — weight 400 to match the bracketed-link family
+   (FB-9 contract). Click affordance lives in the brackets + link color,
+   not in weight. */
 input[type="submit"],
 button[type="submit"] {
   border: none;
@@ -1893,21 +2243,14 @@ button[type="submit"] {
   padding: 0;
   font-family: inherit;
   font-size: 13px;
-  font-weight: bold;
+  font-weight: 400;
   cursor: pointer;
   color: var(--color-link);
 }
-input[type="submit"]:hover,
-button[type="submit"]:hover {
-  color: var(--color-link-hover);
-}
+/* FB-67 (2026-05-20) — no hover color swap on submit buttons. */
 input[type="submit"].btn-danger,
 button[type="submit"].btn-danger {
   color: var(--color-danger);
-}
-input[type="submit"].btn-danger:hover,
-button[type="submit"].btn-danger:hover {
-  color: var(--color-danger-hover);
 }
 
 /* Flash notices — inline (in-page) variant. Still used by per-form status
@@ -2006,9 +2349,9 @@ button[type="submit"].btn-danger:hover {
   pointer-events: auto;
   padding: 4px 10px;
   border: 1px solid;
-  border-radius: 2px;
+  border-radius: 0;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 400;
   line-height: 1.4;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12);
   cursor: pointer;
@@ -2054,7 +2397,7 @@ dialog {
   --section-accent: var(--section-accent-home);
   --color-section-accent: var(--section-accent);
   border: 1px solid var(--color-input-border);
-  border-radius: 2px;
+  border-radius: 0;
   padding: 12px 16px;
   max-width: 400px;
   width: 100%;
@@ -2084,6 +2427,7 @@ dialog {
    stacked layer may stop reading distinctly — at that point introduce
    a per-dialog override (e.g. `dialog.omnisearch-modal::backdrop` /
    `dialog.confirm-modal::backdrop`) rather than altering the base. */
+/* FB-70 (2026-05-20): dialogs DO dim the backdrop subtly — TUI parity replicates via Ratatui overlay style. User-locked. */
 dialog::backdrop {
   background: var(--color-backdrop);
 }
@@ -2103,18 +2447,13 @@ dialog button {
   font: inherit;
   color: var(--color-link);
 }
-dialog button:hover {
-  color: var(--color-link-hover);
-}
+/* FB-67 (2026-05-20) — no hover color swap on dialog buttons. */
 dialog button.dialog-confirm {
-  font-weight: bold;
+  font-weight: 400;
 }
 dialog button.dialog-destructive {
   color: var(--color-danger);
-  font-weight: bold;
-}
-dialog button.dialog-destructive:hover {
-  color: var(--color-danger-hover);
+  font-weight: 400;
 }
 
 dialog.pane-dialog {
@@ -2274,22 +2613,14 @@ dialog.confirm-modal::backdrop {
   padding: 0;
   font: inherit;
   color: var(--color-link);
-  font-weight: bold;
+  font-weight: 400;
 }
-.confirm-modal-actions button:hover {
-  color: var(--color-link-hover);
-}
+/* FB-67 (2026-05-20) — no hover color swap on confirm-modal buttons. */
 .confirm-modal-actions button.text-danger {
   color: var(--color-danger);
 }
-.confirm-modal-actions button.text-danger:hover {
-  color: var(--color-danger-hover);
-}
 .confirm-modal-actions button.text-muted {
   color: var(--color-muted);
-}
-.confirm-modal-actions button.text-muted:hover {
-  color: var(--color-text);
 }
 
 /* 2026-05-11 — Slack-style segmented 6-digit input for the
@@ -2367,24 +2698,43 @@ dialog.confirm-modal::backdrop {
 /* Phase 26 — 01d (polish). Webhook help modal content styling.
    The .webhook-help-content wrapper hosts the rendered Markdown guide
    (Discord + Slack). The styles below give the guide enough vertical
-   rhythm to scan: clear breathing room above every step heading,
-   horizontal rules as section dividers, table grids for the
-   troubleshooting matrix, and word-wrap in code blocks so a long
-   webhook URL doesn't blow out the modal width. */
+   rhythm to scan: breathing room above every step heading, horizontal
+   rules as section dividers, table grids for the troubleshooting
+   matrix, and word-wrap in code blocks so a long webhook URL doesn't
+   blow out the modal width.
+
+   FB-104 (2026-05-20). Tightened to single-line-height + earned-bold
+   rules:
+     - `line-height: 1` everywhere (was 1.55) so the prose reads as a
+       compact terminal guide rather than a marketing page. Vertical
+       breathing comes from explicit margins on `p`/`li`/`h2` etc., not
+       from inflated leading.
+     - `<strong>` (markdown `**...**`) reset to `font-weight: 400` per
+       "bold has to be earned" — only the `h2`/`h3` step headers keep
+       bold (they ARE earned section headings). The markdown sources
+       have been downcased + scrubbed of inline `**...**` so this is a
+       belt-and-suspenders guard against future drift.
+     - `h1` is unused now (the in-body heading was dropped in FB-103
+       so the dialog frame's top-border title is the canonical title
+       surface); rule kept defensively but with `line-height: 1` so a
+       future `<h1>` doesn't add stray vertical space.
+*/
 .webhook-help-content {
   font-family: var(--default-mono-font-family);
   font-size: 13px;
-  line-height: 1.55;
+  line-height: 1;
 }
 .webhook-help-content h1 {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: bold;
+  line-height: 1;
   margin: 0 0 12px;
 }
 .webhook-help-content h2 {
   font-size: 13px;
   font-weight: bold;
-  /* Extra top margin so each Step N heading pops out from the prose
+  line-height: 1;
+  /* Extra top margin so each step heading pops out from the prose
      above it — the user feedback called out spacing-before-titles
      specifically. */
   margin: 24px 0 8px;
@@ -2392,9 +2742,11 @@ dialog.confirm-modal::backdrop {
 .webhook-help-content h3 {
   font-size: 13px;
   font-weight: bold;
+  line-height: 1;
   margin: 16px 0 6px;
 }
 .webhook-help-content p {
+  line-height: 1;
   margin: 8px 0;
 }
 .webhook-help-content ul,
@@ -2403,6 +2755,7 @@ dialog.confirm-modal::backdrop {
   padding-left: 22px;
 }
 .webhook-help-content li {
+  line-height: 1;
   margin: 4px 0;
 }
 .webhook-help-content hr {
@@ -2420,9 +2773,17 @@ dialog.confirm-modal::backdrop {
   overflow-wrap: anywhere;
   word-wrap: break-word;
   white-space: pre-wrap;
+  line-height: 1;
 }
 .webhook-help-content code {
   font-family: inherit;
+}
+/* FB-104 (2026-05-20). Inline bold in prose drops to weight 400 per the
+   "bold has to be earned" rule. The markdown sources no longer use
+   `**...**` so this rule guards against future drift. Step headers
+   keep bold via the h2/h3 rules above (earned section headings). */
+.webhook-help-content strong {
+  font-weight: 400;
 }
 .webhook-help-content table {
   border-collapse: collapse;
@@ -2450,10 +2811,11 @@ dialog.confirm-modal::backdrop {
   text-align: left;
   vertical-align: top;
   overflow-wrap: anywhere;
+  line-height: 1;
 }
 .webhook-help-content th {
   background: var(--color-bg-alt);
-  font-weight: bold;
+  font-weight: 400;
 }
 
 /* Action screen sticky footer */
@@ -2533,9 +2895,11 @@ hr.hairline {
   cursor: pointer;
   line-height: inherit;
 }
-.ownership-chip-button:hover,
+/* FB-67 (2026-05-20) — no pointer-hover brightness lift on ownership
+   chip buttons. Keyboard focus keeps `outline: none` (focus signal is
+   handled by the `data-tui-cursor-focused` controller, not the
+   browser default focus ring). */
 .ownership-chip-button:focus {
-  filter: brightness(1.15);
   outline: none;
 }
 
@@ -2602,11 +2966,14 @@ hr.hairline {
    template branches on them) but no longer carry visual rules. */
 .ownership-matrix__toggle {
   padding: 2px 4px;
-  border-radius: 3px;
+  border-radius: 0;
   transition: background-color 80ms ease;
   white-space: nowrap;
 }
-.ownership-matrix__toggle:hover,
+/* FB-67 (2026-05-20) — no pointer-hover background tint on ownership
+   matrix toggles. Keyboard focus-within retained intentionally — that
+   signal-bearing affordance reflects an active form field, not pointer
+   hover; keeping it preserves keyboard-driven discoverability. */
 .ownership-matrix__toggle:focus-within {
   background-color: var(--color-row-hover, rgba(0, 0, 0, 0.04));
 }
@@ -2695,7 +3062,7 @@ hr.hairline {
   margin: 16px 0;
   padding: 16px;
   border: 1px solid var(--color-border);
-  border-radius: 4px;
+  border-radius: 0;
 }
 
 /* Inside a framed block, long wrapping values (e.g. a 64-char
@@ -2725,11 +3092,11 @@ hr.hairline {
   height: 0;
   pointer-events: none;
 }
-.md-check-indicator { font-weight: bold; }
+.md-check-indicator { font-weight: 400; }
 .md-check-indicator::before { content: "[ ]"; }
 .md-check input:checked ~ .md-check-indicator::before { content: "[x]"; }
 .md-check input:indeterminate ~ .md-check-indicator::before { content: "[-]"; }
-.md-check-label { color: var(--color-muted); font-weight: 700; }
+.md-check-label { color: var(--color-muted); font-weight: 400; }
 
 /* Beta 4 F3-B-UNHOOK-CAPTION (2026-05-20). Caption text that sits on
    its own line BELOW an `md-check` toggle — outside the `<label>` so
@@ -2738,9 +3105,9 @@ hr.hairline {
    room). Used by the `daily digest` toggle hint. */
 .md-check-caption {
   display: block;
-  margin: 0 0 0 5ch;
+  margin: 0 0 0 calc(5ch + 2px);
   color: var(--color-muted);
-  font-style: italic;
+  font-style: normal;
   font-size: inherit;
   cursor: default;
 }
@@ -2757,11 +3124,12 @@ hr.hairline {
 .md-check-spinner[hidden] { display: none; }
 
 /* Link variant — used for filter chips. Brackets and label render in
-   the design-system link color (blue). */
+   the design-system link color (blue). 2026-05-20 (FB-15) — weight 400
+   to match the bracketed-link family; the link color carries the
+   click affordance. */
 .md-check-link .md-check-indicator,
-.md-check-link .md-check-label { color: var(--color-link); font-weight: bold; }
-.md-check-link:hover .md-check-indicator,
-.md-check-link:hover .md-check-label { color: var(--color-link-hover); }
+.md-check-link .md-check-label { color: var(--color-link); font-weight: 400; }
+/* FB-67 (2026-05-20) — no hover color swap on md-check-link. */
 
 /* Markdown-style radio: ( ) / (x). Mirrors `.md-check` but with parens
    instead of brackets — used for radio groups in forms (theme picker,
@@ -2785,7 +3153,7 @@ hr.hairline {
   position: absolute;
 }
 .md-radio-indicator {
-  font-weight: 700;
+  font-weight: 400;
 }
 .md-radio-indicator::before {
   content: "( )";
@@ -2795,17 +3163,14 @@ hr.hairline {
 }
 .md-radio-label {
   color: var(--color-muted);
-  font-weight: 700;
+  font-weight: 400;
 }
 .md-radio-link .md-radio-indicator,
 .md-radio-link .md-radio-label {
   color: var(--color-link);
-  font-weight: 700;
+  font-weight: 400;
 }
-.md-radio-link:hover .md-radio-indicator,
-.md-radio-link:hover .md-radio-label {
-  color: var(--color-link-hover);
-}
+/* FB-67 (2026-05-20) — no hover color swap on md-radio-link. */
 
 /* Keycap — keyboard shortcut indicator.
    Item 7 — keycaps use a dedicated --color-keycap (purple) so they pop
@@ -2818,7 +3183,7 @@ hr.hairline {
   cursor: pointer;
   color: var(--color-keycap);
 }
-.keycap:hover { color: var(--color-keycap-hover); }
+/* FB-67 (2026-05-20) — no hover color swap on keycaps. */
 
 /* Item 1 — Code-block: bordered block with monospace command + inline
    [ copy ] link. Used in empty-state captions where we surface a CLI
@@ -2863,7 +3228,7 @@ hr.hairline {
 code.inline-code {
   background-color: var(--color-bg-alt);
   padding: 1px 4px;
-  border-radius: 2px;
+  border-radius: 0;
 }
 
 /* Item 4 — URL ellipsis truncation. Wraps a single-line value; the
@@ -2932,7 +3297,7 @@ textarea.note-editor-source {
 .markdown-preview code {
   background-color: var(--color-bg-alt);
   padding: 1px 4px;
-  border-radius: 2px;
+  border-radius: 0;
 }
 .markdown-preview pre {
   background-color: var(--color-bg-alt);
@@ -2954,18 +3319,15 @@ textarea.note-editor-source {
    viewport's bottom (not the pane-row's, which would be a no-op when its
    bottom edge is itself off-screen). `.pane-row` is `display: flex` with
    `flex-wrap: wrap`; `overflow: visible` keeps sticky propagating up to
-   the viewport. Scoped to the desktop breakpoint so the mobile override
-   (which collapses panes to 88vw) isn't broken.
+   the viewport.
 
    Only applied to the note editor instance via the `pane-container--note-editor`
    modifier on the `.pane-row` parent — every other pane row in the app
    keeps the default `overflow: visible` from `.pane-row` already. Kept
    explicit here so future changes to `.pane-row` don't quietly regress
    the sticky behavior. */
-@media (min-width: 769px) {
-  .pane-container--note-editor {
-    overflow: visible;
-  }
+.pane-container--note-editor {
+  overflow: visible;
 }
 
 /* Source pane on /notes/:id — flex column so the .markdown-status can
@@ -3017,104 +3379,17 @@ textarea.note-editor-source {
   justify-content: center;
   margin-top: 8px;
   font-size: 11px;
-  font-weight: bold;
-  line-height: 1.4;
+  font-weight: 400;
+  line-height: 1;
 }
 .chart-html-legend__item {
   text-decoration: none;
   cursor: pointer;
   white-space: nowrap;
 }
-.chart-html-legend__item:hover {
-  filter: brightness(1.15);
-}
+/* FB-67 (2026-05-20) — no hover brightness lift on chart legend items. */
 .chart-html-legend__item[data-hidden="yes"] {
   text-decoration: line-through;
-}
-
-/* Mobile utilities */
-.hide-mobile { }
-.show-mobile { display: none !important; }
-
-/* Mobile responsiveness */
-@media (max-width: 768px) {
-  .hide-mobile { display: none !important; }
-  .show-mobile { display: inline !important; }
-
-  /* Search input: shrink to fit */
-  .search-input { width: 180px !important; min-width: 80px; }
-  .search-form { flex-shrink: 1; min-width: 0; margin-left: 2px !important; }
-
-  /* Tables: horizontal scroll. Firefox theming is opt-in per container
-     (no `:horizontal` form for `scrollbar-width`); Webkit is covered by
-     the global `::-webkit-scrollbar:horizontal` rule above. */
-  table {
-    display: block;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: thin;
-    scrollbar-color: var(--color-muted) var(--color-bg);
-  }
-
-  /* Phase 4 §9.2 — Panes: horizontal scroll with snap on mobile.
-     Single column, panes scale to viewport width.
-     Item 5 — left/right reorder arrows STAY visible on mobile (same
-     top-corner positions as desktop) as discoverability cues + tap
-     targets. The vertical pane-arrow-up/down variants remain hidden
-     on mobile (and globally — see the base rule above). */
-  .pane,
-  .pane--wide,
-  .pane--narrow,
-  .pane--game-detail {
-    flex: 0 0 88vw;
-    width: 88vw;
-  }
-  .pane-strip {
-    scroll-snap-type: x mandatory;
-  }
-  .pane-strip > .pane,
-  .pane-strip > .pane--wide,
-  .pane-strip > .pane--narrow,
-  .pane-strip > .pane--game-detail {
-    scroll-snap-align: start;
-  }
-  .pane-arrow-up,
-  .pane-arrow-down {
-    display: none;
-  }
-
-  /* Dashboard charts: full width stack */
-  div[style*="display: flex"][style*="flex-wrap: wrap"] > div {
-    min-width: 100% !important;
-  }
-
-  /* 2026-05-18 — /settings stack pane (Postgres+Redis on left, Meili+
-     Voyage+assets+notes on right) is a 3-column grid (`1fr 1px 1fr`)
-     defined by `.stack-pane-grid` with a `.stack-pane-divider` hairline
-     in the middle and `.stack-pane-column` left/right halves (see the
-     desktop rules earlier in this file + `_stack_pane.html.erb`). On
-     mobile the 3-col grid overflows; collapse to a single column, hide
-     the vertical hairline, and reintroduce the boundary as a 1px bottom
-     border on the LEFT column. No `!important` needed — these rules
-     come later in source order than the desktop classes at equal
-     specificity, so the cascade naturally favors them inside the media
-     query. */
-  .stack-pane-grid {
-    grid-template-columns: 1fr;
-  }
-  .stack-pane-divider {
-    display: none;
-  }
-  .stack-pane-grid > .stack-pane-column:first-child {
-    border-bottom: 1px solid var(--color-border);
-    padding-bottom: 12px;
-    margin-bottom: 4px;
-  }
-
-  /* Reduce main padding */
-  main {
-    padding: 6px 8px !important;
-  }
 }
 
 /* Phase 16 §3 — Notification surface tokens.
@@ -3156,9 +3431,9 @@ textarea.note-editor-source {
   display: inline-block;
   padding: 1px 6px;
   border: 1px solid var(--color-border);
-  border-radius: 2px;
+  border-radius: 0;
   font-size: 12px;
-  line-height: 1.4;
+  line-height: 1;
   vertical-align: baseline;
   text-transform: lowercase;
 }
@@ -3238,11 +3513,11 @@ textarea.note-editor-source {
 .platform-chip {
   display: inline-block;
   padding: 1px 6px;
-  border-radius: 2px;
+  border-radius: 0;
   font-family: var(--font-mono);
   font-weight: 600;
   letter-spacing: 0;
-  line-height: 1.4;
+  line-height: 1;
   vertical-align: baseline;
   color: var(--dracula-fg);
   white-space: nowrap;
@@ -3422,7 +3697,9 @@ textarea.note-editor-source {
 .status-badge + .tooltip-host {
   margin-left: 0;
 }
-.tooltip-host:hover,
+/* FB-67 (2026-05-20) — no pointer-hover ring on tooltip hosts. Keyboard
+   `:focus-visible` keeps the ring so keyboard-driven discovery of
+   tooltips still surfaces the affordance. */
 .tooltip-host:focus-visible {
   box-shadow: 0 0 0 1px var(--color-text);
 }
@@ -3452,9 +3729,10 @@ textarea.note-editor-source {
   opacity: 0;
   visibility: hidden;
   z-index: 5;
-  border-radius: 2px;
+  border-radius: 0;
 }
-.tooltip-host:hover::after,
+/* FB-67 (2026-05-20) — tooltip popover surfaces only on keyboard
+   `:focus-visible`; pointer-hover trigger removed sitewide. */
 .tooltip-host:focus-visible::after {
   opacity: 1;
   visibility: visible;
@@ -3705,7 +3983,7 @@ dialog.leader-menu-popup::backdrop {
   margin-bottom: 6px;
 }
 .viewer-time-heatmap__title {
-  font-weight: 600;
+  font-weight: 400;
 }
 .viewer-time-heatmap__tz,
 .viewer-time-heatmap__intensity {
@@ -3746,7 +4024,8 @@ dialog.leader-menu-popup::backdrop {
    a positioned `::after` pseudo-element that shows immediately on
    hover OR keyboard focus. Each cell carries `tabindex="0"` so the
    focus branch is reachable via Tab. */
-.viewer-time-heatmap__cell:hover,
+/* FB-67 (2026-05-20) — viewer time heatmap cells: no pointer-hover ring.
+   Keyboard focus retains the ring + tooltip surface for accessibility. */
 .viewer-time-heatmap__cell:focus {
   z-index: 2;
   box-shadow: 0 0 0 1px var(--color-tooltip-border);
@@ -3767,21 +4046,12 @@ dialog.leader-menu-popup::backdrop {
   visibility: hidden;
   z-index: 3;
 }
-.viewer-time-heatmap__cell:hover::after,
+/* FB-67 (2026-05-20) — tooltip surfaces only on keyboard focus on
+   viewer time heatmap cells; pointer hover trigger removed. */
 .viewer-time-heatmap__cell:focus::after {
   opacity: 1;
   visibility: visible;
 }
-@media (max-width: 480px) {
-  .viewer-time-heatmap__grid {
-    grid-template-columns: 36px repeat(24, 1fr);
-    font-size: 10px;
-  }
-  .viewer-time-heatmap__cell {
-    min-height: 10px;
-  }
-}
-
 /* Phase 27 §01e — Games::CoverComponent variant slot dimensions.
    The component already emits `style="width:Npx; height:Npx;"`
    inline so the slot is sized even without external CSS (belt-
@@ -3871,7 +4141,7 @@ dialog.leader-menu-popup::backdrop {
 .pane-row--game-show .pane--narrow > img,
 .pane-row--game-show .pane--narrow .game-cover-detail > img {
   border: 1px solid var(--color-cover-border);
-  border-radius: 2px;
+  border-radius: 0;
 }
 
 /* Missing-cover fallback SVG. Sits inside an already-sized
@@ -3940,7 +4210,7 @@ dialog.leader-menu-popup::backdrop {
   width: 100%;
   height: 100%;
   display: block;
-  border-radius: 2px;
+  border-radius: 0;
   object-fit: cover;
 }
 
@@ -3975,7 +4245,7 @@ dialog.leader-menu-popup::backdrop {
 .bundle-cover-overflow-overlay .status-badge {
   border: 0;
   font-size: 11px;
-  line-height: 1.4;
+  line-height: 1;
   padding: 0 5px;
 }
 
@@ -4011,14 +4281,14 @@ dialog.leader-menu-popup::backdrop {
      `.bundle-cover-composite` tile. The dashed inner cells stay
      INSIDE this outer solid border. */
   border: 1px solid var(--color-cover-border);
-  border-radius: 2px;
+  border-radius: 0;
   box-sizing: border-box;
   overflow: hidden;
 }
 .bundle-tile__nocover-netflix3 .cell {
   border: 1px dashed var(--color-border);
   background-color: var(--color-bg-alt);
-  border-radius: 2px;
+  border-radius: 0;
   /* 2026-05-18 (follow-up) — center the embedded controller icon
      inside each cell. Without flex centering the icon defaults to
      top-left of the cell and reads as off-balance. */
@@ -4168,7 +4438,7 @@ dialog.leader-menu-popup::backdrop {
      chevrons column that `space-around` made necessary. */
   justify-content: space-between;
   border: 1px dashed var(--color-border);
-  border-radius: 2px;
+  border-radius: 0;
   /* 2026-05-19 — tile bg reads a half-step darker than the bundle
      section's container (`--color-bg`) so the separator stands out as a
      soft inset surface in both themes. Was `transparent` (no contrast). */
@@ -4261,7 +4531,7 @@ dialog.leader-menu-popup::backdrop {
   justify-content: center;
   text-align: center;
   border: 1px dashed var(--color-border);
-  border-radius: 2px;
+  border-radius: 0;
   background-color: transparent;
   color: var(--color-muted);
   font-size: 11px;
@@ -4315,7 +4585,7 @@ dialog.leader-menu-popup::backdrop {
 .bundle-modal-composite {
   position: relative;
   border: 1px solid var(--color-cover-border);
-  border-radius: 2px;
+  border-radius: 0;
   overflow: hidden;
 }
 
@@ -4368,7 +4638,7 @@ section[data-shelf="outer-genres"] > section.sub-shelf:not(:first-of-type) {
   width: 100%;
   aspect-ratio: 6.2 / 1;
   overflow: hidden;
-  border-radius: 12px;
+  border-radius: 0;
   border: 1px solid var(--color-border);
   margin-bottom: 12px;
 }
@@ -4470,55 +4740,39 @@ section[data-shelf="outer-genres"] > section.sub-shelf:not(:first-of-type) {
   user-select: none;
 }
 
-/* Settings panes — position-aware border-radius (2026-05-17).
-   `/settings` renders 3 rows under `.settings-panes`:
-     * Row 1: profile (left) + security (right)
-     * Row 2: discord (left) + slack (right)
-     * Row 3: stack (full-width `.pane--wide`, only child)
-   Each row's outer edges round (2px, matches canonical chip / input /
-   cover radius); the shared inside edge between two side-by-side panes
-   stays SQUARE so the pair reads as a continuous compound pill rather
-   than two indented cards. A solo pane in a row (the stack) rounds all
-   four corners. Rules are scoped to `.settings-panes > .pane-row` so
-   `.pane` usage in other workspaces (channels, videos, projects,
-   notes, games show) is untouched. */
-.settings-panes > .pane-row > .pane:only-child {
-  border-radius: 2px;
-}
-
-.settings-panes > .pane-row > .pane:first-child:not(:only-child) {
-  border-radius: 2px 0 0 2px;
-}
-
-.settings-panes > .pane-row > .pane:last-child:not(:only-child) {
-  border-radius: 0 2px 2px 0;
-}
-
-/* Settings-scoped padding trim (2026-05-17). The base `.pane` rule sets
-   `padding: 12px` on all sides for the workspace pane background. On
-   /settings the inner content (fieldset, form-row, last muted hint)
-   already carries its own `margin-bottom: 6-8px`, so the pane bottom
-   edge sat ~18-20px below the last element — visibly slack on every
-   row (profile/security, discord/slack, stack). Halve the pane's
-   `padding-bottom` to 6px and zero any trailing `margin-bottom` on the
-   pane's last child so the gap reads as deliberate breathing room
-   rather than empty space. Scoped to `.settings-panes` so channels,
-   videos, projects, notes, games show, bundles show keep the original
-   12px rhythm. */
-.settings-panes > .pane-row > .pane {
+/* Settings-scoped padding trim — retargeted 2026-05-20 for the
+   `.pito-workspace` width-tiling grid (ADR 0016). The previous
+   compound-pill border-radius rules (`.settings-panes > .pane-row >
+   .pane` variants) assumed flex `.pane-row` wrappers with
+   fixed-width panes; the new auto-fit grid handles wrap natively so
+   panes are direct children of `.settings-panes` and the
+   compound-pill model no longer applies — hairlines between grid
+   cells (`.pito-workspace > .pito-pane + .pito-pane`) substitute
+   for the radius treatment.
+   The padding trim still matters: the base `.pane` rule sets
+   `padding: 12px` on all sides, but on /settings the inner content
+   (fieldset, form-row, last muted hint) already carries its own
+   `margin-bottom: 6-8px`, so the pane bottom edge sat ~18-20px
+   below the last element — visibly slack. Halve the pane's
+   `padding-bottom` to 6px and zero any trailing `margin-bottom` on
+   the pane's last child so the gap reads as deliberate breathing
+   room rather than empty space. Scoped to `.settings-panes` so
+   channels, videos, projects, notes, games show, bundles show keep
+   the original 12px rhythm. */
+.settings-panes > .pane {
   padding-bottom: 6px;
 }
 
-.settings-panes > .pane-row > .pane > *:last-child {
+.settings-panes > .pane > *:last-child {
   margin-bottom: 0;
 }
 
-.settings-panes > .pane-row > .pane > fieldset:last-child {
+.settings-panes > .pane > fieldset:last-child {
   margin-bottom: 0;
   padding-bottom: 0;
 }
 
-.settings-panes > .pane-row > .pane > fieldset:last-child > *:last-child {
+.settings-panes > .pane > fieldset:last-child > *:last-child {
   margin-bottom: 0;
 }
 
@@ -4953,7 +5207,7 @@ table.all-games-table td {
 .rating-score-chip {
   display: inline-block;
   padding: 1px 6px;
-  border-radius: 2px;
+  border-radius: 0;
   border: 1px solid var(--color-tooltip-border);
   color: var(--color-tooltip-border);
   font-weight: 700;
@@ -4981,7 +5235,7 @@ table.all-games-table td {
   font-variant-numeric: tabular-nums;
   color: var(--color-text);
   padding: 0 2px;
-  border-radius: 2px;
+  border-radius: 0;
   pointer-events: none;
   z-index: 1;
 }
@@ -4999,8 +5253,7 @@ table.all-games-table td {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  height: 28px;
-  padding: 0 12px;
+  padding: 0;
   /* Beta 4 — Phase F1 Lane D (2026-05-20). The `<header>` wrapper in
      `app/views/layouts/application.html.erb` already paints a 1px
      bottom border via inline style; the component-level border was
@@ -5014,6 +5267,20 @@ table.all-games-table td {
   letter-spacing: 0;
 }
 
+/* 2026-05-20 (FB-23) — Drop the hairline border under the Top Status
+   Bar. The `<header>` wrapper in `app/views/layouts/application.html.erb`
+   carries an inline `border-bottom: 1px solid var(--color-border)`
+   that visually reads as an "underline" beneath the section name
+   (`0.0.1.beta3 settings`). Per FB-23 the section accent color is
+   enough signal on its own — the hairline doubles up the boundary
+   the section accent already implies. `!important` is required to
+   defeat the inline-style specificity that owns the value today;
+   the rule scopes to `body > header` so it only neutralizes the
+   chrome wrapper, not any nested `<header>` inside `<main>`. */
+body > header {
+  border-bottom: 0 !important;
+}
+
 .sb-left,
 .sb-right {
   display: flex;
@@ -5022,14 +5289,21 @@ table.all-games-table td {
 }
 
 /* Left group — version (muted) + section (bold + accent) + page tail */
+/* FB-57: padding-top: 2px lifts version baseline to match section name */
 .sb-version {
   color: var(--color-muted);
   font-weight: 400;
+  padding-top: 2px;
 }
 
+/* 2026-05-20 (FB-chrome-weight) — bold dropped from TSB section name +
+   page name. Per design.md Typography "bold has to be earned, not
+   attributed": the section accent color already carries the
+   hierarchy signal for `.sb-section`; the page name relies on its
+   foreground tone vs the muted version + tail. No weight needed. */
 .sb-section {
   color: var(--section-accent);
-  font-weight: 600;
+  font-weight: 400;
 }
 
 .sb-page-tail {
@@ -5039,7 +5313,7 @@ table.all-games-table td {
 
 .sb-page-name {
   color: var(--color-text);
-  font-weight: 600;
+  font-weight: 400;
 }
 
 /* Right group — progress (optional) + sync + sidekiq + clock */
@@ -5100,12 +5374,16 @@ table.all-games-table td {
    cascades from `body[data-section]`.
    ──────────────────────────────────────────────────────────────────── */
 
+/* V2 (locked 2026-05-20): just a colored label, no brackets, no bg,
+   no border, no box. Only `color` per variant. font-weight 400 — bold
+   has to be earned, not attributed. Missing/unhealthy = warn orange,
+   never muted gray (too low-contrast on dark bg). */
 .tui-chip {
-  display: inline-block;
-  font-family: inherit;
-  font-size: inherit;
+  color: var(--color-text);
   font-weight: 400;
-  white-space: nowrap;
+  font-style: normal;
+  line-height: 1;
+  letter-spacing: 0;
 }
 
 .tui-chip--neutral  { color: var(--color-muted); }
@@ -5113,12 +5391,7 @@ table.all-games-table td {
 .tui-chip--success  { color: var(--dracula-green); }
 .tui-chip--warn     { color: var(--dracula-orange); }
 .tui-chip--danger   { color: var(--color-danger); }
-.tui-chip--current  {
-  color: var(--color-text);
-  background: color-mix(in srgb, var(--section-accent) 12%, transparent);
-  padding: 0 4px;
-  border-radius: 0;
-}
+.tui-chip--current  { color: var(--section-accent); }
 
 .tui-checkbox {
   display: inline-flex;
@@ -5130,17 +5403,37 @@ table.all-games-table td {
   cursor: pointer;
 }
 
-.tui-checkbox:hover {
-  color: var(--color-link-hover);
-}
+/* FB-67 (2026-05-20) — no hover color swap on tui-checkbox. */
 
 .tui-checkbox--checked .tui-checkbox__box {
   color: var(--section-accent);
-  font-weight: 600;
+  font-weight: 400;
+}
+
+/* FB-97 (2026-05-20) — form-variant glyph is CSS-driven from input :checked
+   state so keyboard Space + JS .click() both update the visible glyph
+   without requiring a server round-trip. The link + inert variants keep
+   their server-rendered glyph since no input toggles them. */
+.tui-checkbox--form .tui-checkbox__box::before {
+  content: "[ ]";
+}
+
+.tui-checkbox--form:has(input[type="checkbox"]:checked) .tui-checkbox__box::before {
+  content: "[x]";
+}
+
+.tui-checkbox--form:has(input[type="checkbox"]:checked) .tui-checkbox__box {
+  color: var(--section-accent);
+  font-weight: 400;
 }
 
 .tui-checkbox__input {
-  display: none;
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+  width: 0;
+  height: 0;
+  margin: 0;
 }
 
 .tui-indicator {
@@ -5161,7 +5454,7 @@ table.all-games-table td {
 
 .tui-indicator--progress .tui-indicator__counter {
   color: var(--color-text);
-  font-weight: 600;
+  font-weight: 400;
   margin-left: 4px;
 }
 
@@ -5181,9 +5474,37 @@ table.all-games-table td {
    section CSS branch needed here.
    ──────────────────────────────────────────────────────────────────── */
 
+/* FB-88 (2026-05-20) — Content area fills viewport between TST + BST.
+   `<main>` is the document's content host and sits between the sticky TST
+   (`<header>` wrapper) and the fixed BST (`.bsb-bar`). Both chrome bars
+   are ~22px tall (FB-76: 4px + 13px + 4px + 1px border). Setting
+   `min-height: calc(100vh - 44px)` forces the content area to fill the
+   full viewport height, which gives the V3 settings grid (and any future
+   screen's flex layout) something to stretch INTO.
+   `padding-bottom: 22px` reserves space under the last content row so it
+   never sits hidden behind the fixed BST. The existing 6px top + side
+   padding from the inline `style=` on `<main>` is preserved by the
+   shorthand override below (top/right/left = 6px, bottom = 22px).
+   Tag selector `main` is unique enough — only one `<main>` per page. */
+main {
+  min-height: calc(100vh - 44px);
+  padding: 6px 6px 22px 6px !important;
+}
+
+/* FB-88 (2026-05-20) — BST fixed at viewport bottom. Was `position: sticky`
+   which kept the bar at the bottom of the document but allowed it to scroll
+   away on short pages and let panels "float" above empty space. Per the
+   user-locked sticky-bottom + content-fills-viewport model, the BST is
+   `position: fixed` so it always paints at the literal viewport bottom,
+   and the `<main>` block fills the gap between TST and BST.
+   TUI parity: Ratatui apps lay out exactly like this — Constraint::Length
+   for TST + BST top/bottom rows, Constraint::Min for the content middle
+   row that fills the leftover space. */
 .bsb-bar {
-  position: sticky;
+  position: fixed;
   bottom: 0;
+  left: 0;
+  right: 0;
   width: 100%;
   padding: 4px 12px;
   background: var(--color-bg);
@@ -5214,6 +5535,15 @@ table.all-games-table td {
   color: var(--dracula-green);
 }
 
+/* FB-112 (2026-05-20) — INSERT mode lozenge color.
+   Auto-engaged when focus lands on a text input (webhook URL,
+   future search/command surfaces). Visually distinct from NORMAL
+   so the user always knows whether keystrokes flow to navigation
+   or to the focused input. */
+.bsb-mode--insert {
+  color: var(--dracula-orange);
+}
+
 .bsb-pipe {
   color: var(--color-muted);
   flex-shrink: 0;
@@ -5224,19 +5554,20 @@ table.all-games-table td {
   gap: 16px;
 }
 
+/* 2026-05-20 (FB-chrome-weight) — bold dropped from BSB section links
+   (both inactive + current). Per design.md Typography "bold has to be
+   earned, not attributed": the muted/accent color contrast carries
+   hierarchy alone; weight 400 across the board. */
 .bsb-section,
 a.bsb-section,
 a.bsb-section:visited {
   color: var(--color-muted);
   text-decoration: none;
   text-transform: lowercase;
-  font-weight: 600;
+  font-weight: 400;
 }
 
-.bsb-section:hover,
-a.bsb-section:hover {
-  color: var(--color-link-hover);
-}
+/* FB-67 (2026-05-20) — no hover color swap on Bottom Status Bar sections. */
 
 /* Current-section accent. Selector specificity (0,2,1) so it beats the
    global `a:visited` (0,1,1) pin that would otherwise lock visited
@@ -5246,7 +5577,7 @@ a.bsb-section:hover {
 a.bsb-section.bsb-section--current,
 a.bsb-section.bsb-section--current:visited {
   color: var(--section-accent);
-  font-weight: 600;
+  font-weight: 400;
 }
 
 .bsb-hints {
@@ -5259,7 +5590,7 @@ a.bsb-section.bsb-section--current:visited {
 
 .bsb-hint-key {
   color: var(--color-text);
-  font-weight: 600;
+  font-weight: 400;
 }
 
 .bsb-hint-spacer {
@@ -5305,7 +5636,7 @@ a.bsb-section.bsb-section--current:visited {
 .tui-framed-panel__title {
   border-bottom: 1px solid var(--color-border);
   padding: 4px 12px;
-  font-weight: 600;
+  font-weight: 400;
   color: var(--color-text);
 }
 
@@ -5314,24 +5645,26 @@ a.bsb-section.bsb-section--current:visited {
 }
 
 .tui-table {
-  border-collapse: collapse;
   width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
   font-family: inherit;
 }
 
 .tui-table__th {
+  text-align: left;
+  padding: 3px 8px 3px 0;
   color: var(--color-muted);
   font-weight: 400;
-  padding: 4px 8px;
-  text-align: left;
   border-bottom: 1px solid var(--color-border);
   text-transform: lowercase;
 }
 
 .tui-table__td {
-  padding: 4px 8px;
-  border-bottom: 1px solid var(--color-border-soft);
+  text-align: left;
+  padding: 3px 8px 3px 0;
   color: var(--color-text);
+  border-bottom: 1px dashed var(--color-border-soft);
 }
 
 .tui-table__th--right,
@@ -5347,6 +5680,25 @@ a.bsb-section.bsb-section--current:visited {
 
 .tui-table__row:last-child .tui-table__td {
   border-bottom: none;
+}
+
+.tui-kv {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  gap: 4px 12px;
+  font-family: inherit;
+  font-size: 13px;
+}
+
+.tui-kv > dt {
+  color: var(--color-muted);
+  margin: 0;
+}
+
+.tui-kv > dd {
+  color: var(--color-text);
+  margin: 0;
+  font-variant-numeric: tabular-nums;
 }
 
 .tui-bar-chart {
@@ -5475,7 +5827,7 @@ a.bsb-section.bsb-section--current:visited {
 }
 
 .tui-treemap__code {
-  font-weight: 600;
+  font-weight: 400;
 }
 
 .tui-treemap__pct {
@@ -5491,73 +5843,277 @@ a.bsb-section.bsb-section--current:visited {
    panel sits centered with a Dracula-flavored chrome.
    ──────────────────────────────────────────────────────────────────── */
 .tui-help-overlay {
-  position: fixed;
-  inset: 0;
-  background: transparent;
-  border: none;
+  /* Remove fixed positioning — let browser center the <dialog> naturally */
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
   padding: 0;
-  margin: auto;
-  max-width: 80vw;
-  max-height: 80vh;
-  z-index: 200;
+  margin: 0; /* let browser auto-center via showModal() */
   color: var(--color-text);
+  /* Auto-size to content; no max-width/max-height bloat */
+  max-width: fit-content;
+  max-height: fit-content;
+}
+
+.tui-help-overlay__panel {
+  /* No additional bg/border — outer dialog handles those */
+  padding: 0;
+}
+
+/* FB-13 / FB-25 / FB-26 (2026-05-20). Drop all bold weight inside the
+   help overlay; visual contrast comes from color signal only — keys
+   paint in the section accent, labels paint in the body color, group
+   titles paint muted with a tiny letter-spacing for small-caps feel.
+   Defensive sweep: the dialog itself sets font-weight: 400 so every
+   descendant inherits normal weight, and the descendant class rules
+   below are element-boosted (h3.tui-help-overlay__group-title etc.)
+   so they decisively beat any future rule that might cascade bold
+   onto these tags via element selectors. */
+.tui-help-overlay,
+.tui-help-overlay * { font-weight: 400; }
+
+.tui-help-overlay__groups {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px 24px; /* compact row gap, decent column gap */
+}
+
+h3.tui-help-overlay__group-title {
+  color: var(--color-muted);
+  font-weight: 400;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  margin: 0 0 2px 0;
+}
+
+.tui-help-overlay__keys {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0 8px; /* zero row gap — rows are flush */
+  margin: 0;
+}
+
+dt.tui-help-overlay__key {
+  color: var(--section-accent);
+  font-weight: 400;
+  margin: 0;
+}
+
+dd.tui-help-overlay__label {
+  color: var(--color-text);
+  font-weight: 400;
+  margin: 0;
 }
 
 .tui-help-overlay::backdrop {
   background: color-mix(in srgb, var(--dracula-bg) 70%, transparent);
 }
 
-.tui-help-overlay__panel {
-  background: var(--color-bg);
+/* ===== Tui::DialogFrame — V4 corner-flush title in top border =====
+   FB-53-TWEAK (2026-05-20). Canonical dialog frame: 1px hairline
+   border with the dialog title left-flush 1ch from the top-left
+   corner and a dismiss hint right-flush 1ch from the top-right
+   corner. Both labels sit ON the top border with a small bg-cut so
+   the border line breaks behind the text. Neutral/muted by default
+   per FB-48 V4 (focus-driven accent); open dialogs adopt
+   `--color-link` for the border + title color. Inherited by FB-43
+   (webhook help) and FB-44 (about) once they migrate. */
+.tui-dialog-frame {
+  position: relative;
   border: 1px solid var(--color-border);
-  padding: 24px;
-  color: var(--color-text);
-  font-family: inherit;
+  padding: 16px 10px 12px;
+  background: var(--color-bg);
+  /* FB-65 (2026-05-20). Dialog elements default to `overflow: auto`, which
+     clips the absolute-positioned titles sitting at `top: -7px` ABOVE the
+     dialog box. Force `overflow: visible` so the title bg-cut + border-break
+     effect renders. Inner scrollable regions, if any, must scope their own
+     overflow on a child wrapper (none of the current dialogs need this). */
+  overflow: visible;
 }
-
-.tui-help-overlay__header {
-  display: flex;
-  justify-content: space-between;
-  border-bottom: 1px solid var(--color-border);
-  padding-bottom: 8px;
-  margin-bottom: 16px;
+.tui-dialog-frame[open] {
+  border-color: var(--color-link, var(--section-accent));
 }
-
-.tui-help-overlay__title {
-  font-weight: 600;
-  color: var(--section-accent);
-}
-
-.tui-help-overlay__close {
+.tui-dialog-frame__title-left,
+.tui-dialog-frame__title-right {
+  /* FB-65 (2026-05-20). V4 demo values: title vertically centered ON the 1px
+     top border line. With `font-size: 13px` + `height: 14px` + `line-height:
+     14px`, the glyph box is 14px tall, anchored at `top: -7px` so its
+     vertical center sits exactly on the border (which lives at y=0..1). The
+     6px horizontal padding creates the bg-cut breaking the border around the
+     title text. `z-index: 1` keeps the title above the border. */
+  position: absolute;
+  top: -7px;
+  height: 14px;
+  line-height: 14px;
+  background: var(--color-bg);
+  padding: 0 6px;
   color: var(--color-muted);
-}
-
-.tui-help-overlay__groups {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 32px;
-}
-
-.tui-help-overlay__group-title {
-  color: var(--section-accent);
-  font-weight: 600;
+  font-weight: 400;
   font-size: 13px;
-  margin-bottom: 8px;
+  z-index: 1;
+}
+/* FB-65 (2026-05-20). Insets switched from `1ch` (ambiguous across font
+   metrics produces sub-pixel drift) to fixed `8px` for stable corner-flush
+   placement that won't clip when the dialog sizes to `fit-content`. */
+.tui-dialog-frame__title-left { left: 8px; }
+.tui-dialog-frame__title-right { right: 8px; }
+.tui-dialog-frame[open] .tui-dialog-frame__title-left,
+.tui-dialog-frame[open] .tui-dialog-frame__title-right {
+  color: var(--color-link, var(--section-accent));
 }
 
-.tui-help-overlay__keys {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 4px 12px;
-  margin: 0;
+/* FB-44 (2026-05-20). About dialog adopts `.tui-dialog-frame` for the
+   canonical title-in-border behavior. Without these overrides, the
+   `.confirm-modal { padding: 0 }` rule earlier in the cascade combines
+   with `.confirm-modal-inner { padding: 12px 16px }` to double-pad
+   the dialog once `.tui-dialog-frame { padding: 16px 10px 12px }`
+   lands on the outer. The about dialog keeps the frame's padding and
+   zeroes the inner wrapper's redundant padding. */
+dialog#about-modal.tui-dialog-frame .confirm-modal-inner {
+  padding: 0;
 }
 
-.tui-help-overlay__key {
-  color: var(--color-text);
-  font-weight: 600;
+/* FB-71 (2026-05-20). About dialog vertical breathing room — image #130
+   showed the logo touching the top border and the copyright touching
+   the bottom border. The shared `.tui-dialog-frame { padding: 16px 10px
+   12px }` is tight for the help overlay (dense keymap list); the about
+   dialog has a centered vertical stack (logo / project name / version
+   grid / copyright) that wants more room above and below to feel like
+   an identity card rather than a packed list. Scoped override bumps
+   top to 24px and bottom to 20px ONLY on `#about-modal` so the help
+   overlay and other `.tui-dialog-frame` consumers keep their current
+   padding. */
+dialog#about-modal.tui-dialog-frame {
+  padding-top: 24px;
+  padding-bottom: 20px;
 }
 
-.tui-help-overlay__label {
+/* FB (2026-05-20). About dialog backdrop matches the help overlay backdrop
+   1:1. The base `dialog::backdrop` + `dialog.confirm-modal::backdrop` rules
+   apply `var(--color-backdrop)` (color-mix black 80%, transparent) which
+   reads "too dark" against the about dialog's identity-card aesthetic. The
+   help overlay backdrop (`color-mix(in srgb, var(--dracula-bg) 70%,
+   transparent)`) is the user-locked reference. Higher specificity (id +
+   class) wins over `dialog.confirm-modal::backdrop`. */
+dialog#about-modal::backdrop {
+  background: color-mix(in srgb, var(--dracula-bg) 70%, transparent);
+}
+
+/* FB-102 (2026-05-20). Webhook help dialog backdrop matches the help
+   overlay + about dialog backdrop 1:1. The dialog inherits
+   `pane-dialog`+`confirm-modal`-grade `::backdrop` darkening (the base
+   `dialog::backdrop` rule applies `var(--color-backdrop)` color-mix black
+   80%) which reads "too dark" against the webhook help guide's prose. The
+   scoped rule below adopts the same lighter color-mix
+   (`var(--dracula-bg)` 70% over transparent) the help overlay + about
+   dialog use, keeping the three reference-class dialogs visually
+   consistent. Higher specificity (id + class on dialog) wins over the
+   base + the `dialog.confirm-modal::backdrop` rule. */
+dialog#webhook-help-modal::backdrop,
+dialog.webhook-help-modal::backdrop {
+  background: color-mix(in srgb, var(--dracula-bg) 70%, transparent);
+}
+
+/* FB-81 page-load splash overlay REMOVED. The splash existed only to mask
+   the FOUT moment during the font swap. System-mono-only renders with no
+   font swap to mask — splash element, Stimulus controller, and these CSS
+   rules all deleted together. */
+
+/* ===== Tui::HintComponent ===== */
+.tui-hint {
+  display: block;
+  color: var(--color-muted, #6272a4);
+  font-style: italic;
+}
+
+/* ===== Sessions table — in-place header swap (FB-14, 2026-05-20) =====
+   The `[revoke]` action moved out of a bulk-toolbar row above the
+   table and into the `<thead>` row. Column 1 (select-all checkbox)
+   keeps its `<th>`; columns 2..N collapse into a single
+   `<th colspan>` whose contents toggle between two co-existing
+   sibling spans — `labels` (default column titles) and `actions`
+   (`<N> selected [revoke]`). The Stimulus controller flips the
+   `hidden` attribute on each. */
+.sessions-table thead th.sessions-table__header-swap { vertical-align: middle; }
+.sessions-table thead [hidden] { display: none; }
+.sessions-table thead .sessions-table__header-labels {
+  display: inline-flex;
+  gap: 1ch;
+  align-items: baseline;
+  width: 100%;
+  justify-content: space-between;
+}
+.sessions-table thead .sessions-table__header-actions {
+  display: inline-flex;
+  gap: 1ch;
+  align-items: baseline;
+}
+.sessions-table thead .sessions-table__counter {
   color: var(--color-muted);
+}
+
+/* ===== Tui::ShadedDensityComponent =====
+   FB-75 (2026-05-20) — Unicode block characters (░▒▓█) carry default
+   side-bearing in monospace fonts, producing visible sub-pixel gaps
+   between cells when rendered in sequence. `letter-spacing: -0.05em`
+   crunches cells together so the shaded bar reads as a continuous
+   density strip rather than 8 discrete glyphs. `white-space: pre`
+   prevents any inter-cell whitespace collapse. `font-variant-numeric:
+   tabular-nums` is defensive — the glyphs aren't digits, but the rule
+   neutralizes any parent context that would shift sizing. */
+.tui-shaded-density {
+  color: var(--section-accent, var(--color-text));
+  font-family: var(--font-mono);
+  letter-spacing: -0.05em;
+  font-variant-numeric: tabular-nums;
+  white-space: pre;
+}
+
+/* ===== Tui::SegmentedBarComponent ===== */
+.tui-segmented-bar {
+  color: var(--section-accent, var(--color-text));
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+  line-height: 1;  /* reduce row height per user feedback */
+  white-space: pre;
+}
+
+/* ===== FB-53: suppress browser focus outline on dialog ===== */
+/* Chrome/Brave paint a UA focus ring (with its own border-radius) on
+   the `<dialog>` element itself when spawned via showModal() — reads
+   as ghost "rounded corners" hugging the modal. Suppress on the
+   dialog element only; descendants (a / button / input / etc.) keep
+   their existing :focus-visible rules above so keyboard navigation
+   inside the dialog remains discoverable. */
+dialog:focus,
+dialog:focus-visible {
+  outline: none;
+}
+
+/* ===== FB-66: suppress browser focus ring on .pito-pane / .pito-workspace ===== */
+/* User has explicitly opted out of native focus accessibility on structural panels.
+   The intentional focus marker is .pito-pane[data-tui-cursor-focused="yes"] (2px
+   section-accent outline via tui-cursor controller). Inner focusable elements
+   (links, buttons, inputs) keep their focus rings — only the panel container
+   itself loses the browser-default outline. */
+.pito-pane:focus,
+.pito-pane:focus-visible,
+.pito-workspace:focus,
+.pito-workspace:focus-visible,
+.settings-panes:focus,
+.settings-panes:focus-visible {
+  outline: none;
+}
+
+/* ===== Tui::PanelFieldsetComponent ===== */
+/* Chromeless fieldset shell used by settings panes (notifications /
+   security / stack). Vertical-only padding per FB-78 / FB-105 — outer
+   panel border owns horizontal inset; fieldset border is suppressed.
+   `min-width: 0` prevents the legacy fieldset content blow-out when
+   children include long monospace strings. */
+.tui-panel-fieldset {
+  padding: 8px 0;
+  border: none;
   margin: 0;
+  min-width: 0;
 }

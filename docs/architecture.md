@@ -4,6 +4,19 @@ This document captures the runtime topology and the platform decisions pito
 relies on. It is the seed file from Phase 1 / Phase 2; further phases append
 rather than rewrite.
 
+## ViewComponent-first architecture
+
+pito's UI is structured as a tree of ViewComponents. Every visible HTML
+element renders through a ViewComponent — single-use or shared, doesn't
+matter. See CLAUDE.md "ViewComponents are kings" for the operational
+contract. The bar for inlining is ultra-strict: only structural HTML with
+zero classes, zero variants, zero styling.
+
+Every ViewComponent ships with its `_spec.rb`. Specs lock the contract:
+render output, kwargs, variants, i18n. No exceptions. See CLAUDE.md
+"ViewComponents are kings" → "Every ViewComponent has a spec" for the
+operational mandate.
+
 ## Datastore — Postgres 17 (Phase 2)
 
 pito's primary relational store is Postgres 17 via the `pgvector/pgvector:pg17`

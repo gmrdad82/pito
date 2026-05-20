@@ -35,7 +35,7 @@ RSpec.describe "settings/_stack_pane.html.erb", type: :view do
   end
 
   it "renders the stack heading inside a wide pane" do
-    expect(rendered).to include("<h2>stack</h2>")
+    expect(rendered).to include('<span class="pito-pane__title">stack</span>')
     expect(rendered).to include("pane--wide")
   end
 
@@ -53,38 +53,42 @@ RSpec.describe "settings/_stack_pane.html.erb", type: :view do
     expect(rendered).to include("notes")
   end
 
-  it "lays out the inner pane as a 2-column tile grid via `.stack-pane-grid` " \
-     "with `grid-template-columns: 1fr 1fr` inline override" do
-    # Beta 4 F3-D — the existing `.stack-pane-grid` class is reused
-    # but its 3-col `1fr 1px 1fr` rule is overridden inline to a flat
-    # 2-col tile grid. No `.stack-pane-divider` element — the vertical
-    # hairline moves into per-tile `border-right`.
+  it "lays out the inner pane as a vertical flex column via `.stack-pane-grid`" do
+    # FB-51/FB-52 V4 — the legacy `1fr 1fr` 2-col tile grid has been
+    # dropped in favor of a vertical flex column. The flex layout is
+    # carried by the `.stack-pane-grid` CSS class (no inline grid
+    # styles). No `.stack-pane-divider` element, no per-tile
+    # `border-right`.
     expect(rendered).to include('class="stack-pane-grid"')
-    expect(rendered).to include("grid-template-columns: 1fr 1fr")
+    expect(rendered).not_to include("grid-template-columns: 1fr 1fr")
     expect(rendered).not_to include('class="stack-pane-divider"')
   end
 
   it "renders a Tui::ChipComponent status chip for each of the six subsystems" do
-    # `Settings::Stack::HealthLineComponent` delegates to
-    # `Tui::ChipComponent`, which renders a `span.tui-chip` with one
-    # variant modifier per subsystem. Six chips total (one per tile):
-    # PostgreSQL, Meilisearch, Redis, Voyage AI, assets, notes.
+    # Each sub-panel header resolves its semantic state via
+    # `Settings::Stack::HealthState::STATES` and renders a
+    # `Tui::ChipComponent` (`span.tui-chip`) with the matching variant
+    # modifier. Six chips total (one per tile): PostgreSQL,
+    # Meilisearch, Redis, Voyage AI, assets, notes.
     expect(rendered).to have_css("span.tui-chip", count: 6)
   end
 
   it "uses the success chip variant for the connected Postgres status" do
+    # FB-CHIP-V2-IMPL — V2 chips render bare label, no brackets.
     expect(rendered).to have_css(
-      "span.tui-chip.tui-chip--success", text: "[connected]"
+      "span.tui-chip.tui-chip--success", text: "connected"
     )
   end
 
-  it "uses the info chip variant for the writable assets status" do
+  it "uses the success chip variant for the writable assets status" do
+    # FB-6 — chip colors collapsed to 2 (success=green, danger=pink);
+    # `writable` is a healthy state, so it resolves to `success`.
     expect(rendered).to have_css(
-      "span.tui-chip.tui-chip--info", text: "[writable]"
+      "span.tui-chip.tui-chip--success", text: "writable"
     )
   end
 
-  it "uses an info chip variant `[configured]` when Voyage credentials " \
+  it "uses a success chip variant `configured` when Voyage credentials " \
      "are present (the default in the test environment via " \
      "`Rails.application.credentials.dig(:voyage, :api_key)`)" do
     # `AppSetting.voyage_configured?` is read directly by the
@@ -93,13 +97,13 @@ RSpec.describe "settings/_stack_pane.html.erb", type: :view do
     # here. In the test environment `voyage_configured?` returns true
     # (credentials are populated by `bin/rails credentials:edit
     # --environment test`), so Voyage AI renders the `:configured`
-    # chip → info variant.
+    # chip → success variant (per FB-6 two-color rule).
     expect(rendered).to have_css(
-      "span.tui-chip.tui-chip--info", text: "[configured]"
+      "span.tui-chip.tui-chip--success", text: "configured"
     )
   end
 
-  it "uses the danger chip variant `[not configured]` when " \
+  it "uses the danger chip variant `not configured` when " \
      "`AppSetting.voyage_configured?` flips to false" do
     allow(AppSetting).to receive(:voyage_configured?).and_return(false)
     # Re-render with the stub in place.
@@ -117,7 +121,7 @@ RSpec.describe "settings/_stack_pane.html.erb", type: :view do
     render partial: "settings/stack_pane"
 
     expect(rendered).to have_css(
-      "span.tui-chip.tui-chip--danger", text: "[not configured]"
+      "span.tui-chip.tui-chip--danger", text: "not configured"
     )
   end
 
@@ -140,19 +144,15 @@ RSpec.describe "settings/_stack_pane.html.erb", type: :view do
     expect(rendered).to have_css("td.num")
   end
 
-  it "renders the reindex link wired to the confirm modal" do
+  it "renders the reindex link as a bracketed turbo-method POST" do
+    # FB-63 — reindex split into per-subsystem actions; each tile
+    # owns its own bracketed POST trigger (no JS confirm modal).
     expect(rendered).to include("reindex")
-    expect(rendered).to include("reindex_meilisearch_modal")
+    expect(rendered).to include('href="/settings/stack/meilisearch/reindex"')
   end
 
-  it "renders hairline borders between tiles via inline `border-right` " \
-     "(odd columns) and `border-bottom` (top two rows)" do
-    # Four tiles carry `border-right` (rows 1-3 × col 1 = 3 tiles, but
-    # only the left tiles need a right border = 3 tiles). The bottom
-    # two rows-of-tiles carry `border-bottom` (rows 1 + 2 = 4 tiles).
-    # Asserting the presence of both border declarations is enough —
-    # the per-tile count varies as the layout evolves.
-    expect(rendered).to include("border-right: 1px solid var(--color-border)")
-    expect(rendered).to include("border-bottom: 1px solid var(--color-border)")
-  end
+  # FB-51/FB-52 V4 — per-tile `border-right` / `border-bottom`
+  # assertions are dropped. The new vertical-flex layout uses
+  # `.pito-sub-panel` framing instead of inline hairlines between
+  # tiles in a grid.
 end

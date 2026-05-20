@@ -1,10 +1,85 @@
 # Design System
 
+## Terminology
+
+Locked 2026-05-20. The five nouns below are the canonical vocabulary for pito's
+UI surfaces. Use them exclusively in design.md, agent prompts, specs, and code
+copy. Drift (pane / modal / button / caption / page used as nouns referring to
+one of these) is a bug to fix, not a stylistic choice.
+
+| Use this   | Not this                  | Example                                |
+| ---------- | ------------------------- | -------------------------------------- |
+| **panel**  | pane                      | "security" panel in /settings          |
+| **screen** | page                      | /settings or /games (the URL itself)   |
+| **dialog** | modal                     | the help dialog (`?` overlay)          |
+| **action** | link, url, button         | `[revoke]`, `[update]`, `[help]`       |
+| **hint**   | text, caption             | "type \"clear\" to remove"             |
+
+**Screen (not page).** pito's top-level surfaces (`/settings`, `/games`,
+`/channels`, `/home`, `/videos`, `/calendar`, `/notifications`) are called
+**screens**, never **pages**. This aligns with the TUI/Ratatui vocabulary that
+the `pito` CLI uses. The Top Status Bar carries the current **screen name**, not
+a page title. The term "page" is reserved for paginated result navigation (e.g.
+"page 2 of 5"); it does NOT refer to a top-level surface.
+
+**Dialog (not modal).** Every overlay that interrupts the screen — help
+overlay, webhook help, about, confirmation, deletion confirmation, TOTP code
+entry, command palette, search "everywhere" — is called a **dialog**. The
+term "modal" is retired in user-facing copy, docs, and new code. Existing
+class names (`omnisearch-modal`, `confirm-modal`, `webhook-help-modal`,
+`notifications-modal`, `totp-modal`, `about-modal`) may stay until a
+coordinated rename; new components should use `*-dialog` naming.
+
+**Panel (not pane).** The subdivided regions inside a screen — "security",
+"notifications", "stack", "time zone" inside `/settings`; tile lattices inside
+`/games`; the channel sidebar; the workspace columns — are called **panels**.
+Existing CSS tokens and class names (`--color-pane-bg`, `.pito-pane`,
+`pane-row`) may stay until a coordinated rename; new components, copy, and
+docs use `panel`.
+
+**Action (not link, url, or button).** Every clickable element rendered in
+pito's bracketed grammar — `[revoke]`, `[update]`, `[help]`, `[close]`,
+`[cancel]`, `[ add channel ]` — is an **action**. Refer to them as actions in
+copy, specs, and dispatch prompts; the `<a>` / `<button>` HTML element choice
+is an implementation detail. Chart legends, bracketed nav items, and submit
+controls are all actions.
+
+**Hint (not text or caption).** Helper copy under an input, an empty-state
+explainer below a chip row, the muted italic explainer next to a toggle, the
+"type \"clear\" to remove" line under a destructive input — all called
+**hints**. The `.form-hint` and `.caption` CSS utilities (see the "Form hints
+and captions" subsection below) keep their existing class names until a
+coordinated rename; new copy and docs use "hint".
+
+## Density and decoration
+
+Every pito screen targets Excel-sheet density. Tabular data, dense rows, tight
+padding (8px vertical / 12px horizontal max for panel content, 6px between
+chrome and content). Decoration appears ONLY when it carries signal: section
+accent border identifies the screen, danger color warns the user, status chip
+colors encode meaning, focus outline shows the cursor. Anything that's "nice to
+look at" without signaling something is removed.
+
+**Border-radius is always 0.** No exceptions. Buttons, panels, chips, dialogs,
+modals, inputs, hover targets — every element renders with sharp 90° corners.
+Rounding is web-design language; pito's TUI aesthetic requires square corners.
+If you find `border-radius: 2px` (or any non-zero value) in CSS, it's a bug to
+fix, not a design choice.
+
 ## Typography
 
 - **Font:**
-  `ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, monospace`
-- **Base size:** 13px, line-height 1.4
+  `"BitstromWera Nerd Font Mono", ui-monospace, Menlo, Consolas, monospace`.
+  Packed into `app/assets/fonts/` and declared via `@font-face`. Nerd Font
+  variant — includes the full glyph set for status icons and inline
+  sparklines drawn as text.
+- **Base size:** 13px
+- **Line-height:** `1` — HARD RULE, no exceptions for body text. Default body /
+  table / chip / link / status bar / form label / panel content all use
+  `line-height: 1`. Input fields and textareas MAY use `1.2` if the caret feels
+  cramped, never higher. NEVER `1.4` / `1.5` / `1.6` anywhere in the app. The
+  reason: pito targets Excel-sheet density — line-height > 1 wastes vertical
+  real estate, and the monospace grid should read like a TUI row.
 - **Headings:** all heading levels (h1 / h2 / h3 / h4 / h5 / h6) render at
   the base 13px size. Visual hierarchy comes from `font-weight: bold` +
   `font-style` + sparse Nerd Font glyphs + section accent color. No size
@@ -17,8 +92,8 @@
 `<h4>` is **not italic by default.** The global `h4` rule sets weight only —
 italic is opt-in via class. This is rule 6 of the §10 design refresh.
 
-- `h4.h4-emphasis` — opt-in italic for decorative `<h4>` (admin pages, dashboard
-  summaries, sidebars).
+- `h4.h4-emphasis` — opt-in italic for decorative `<h4>` (admin screens,
+  dashboard summaries, sidebars).
 - `h4.h4-content` — opt-in marker for user-content `<h4>`. Forces
   `font-style: normal` and `color: var(--color-text)` so user-authored headings
   never inherit a muted or italic style from a surrounding context.
@@ -81,7 +156,7 @@ ERB template under `app/views/` and `app/components/` and asserting each
 User content is **never muted, never italic.** The global `h4` italic rule was
 removed because it leaked into user-authored markdown. User content `<h4>` flows
 through `.h4-content` (forces normal weight + default text color). Decorative
-`<h4>` (admin pages, dashboards, summaries) flows through `.h4-emphasis` if
+`<h4>` (admin screens, dashboards, summaries) flows through `.h4-emphasis` if
 italic is intentional. The default bare `<h4>` is non-italic.
 
 This rule generalises: utility classes that imply muted-or-italic styling
@@ -99,7 +174,7 @@ All colors are defined as CSS custom properties in
 
 | Token                | Value   | Usage                      |
 | -------------------- | ------- | -------------------------- |
-| `--color-bg`         | #ffffff | Page background            |
+| `--color-bg`         | #ffffff | Screen background          |
 | `--color-bg-alt`     | #fafafa | Alternating table rows     |
 | `--color-bg-hover`   | #f0f0f0 | Row hover                  |
 | `--color-bg-header`  | #f4f4f4 | Table headers              |
@@ -116,7 +191,7 @@ All colors are defined as CSS custom properties in
 
 | Token                | Value   | Usage                                |
 | -------------------- | ------- | ------------------------------------ |
-| `--color-bg`         | #282a36 | Page background (Dracula background) |
+| `--color-bg`         | #282a36 | Screen background (Dracula bg)       |
 | `--color-bg-alt`     | #21222c | Alternating rows (darker)            |
 | `--color-bg-hover`   | #44475a | Row hover (Dracula current line)     |
 | `--color-bg-header`  | #343746 | Table headers                        |
@@ -250,9 +325,19 @@ decision and every ViewComponent design.
 
 - 13px base, monospace (BitstromWera Nerd Font Mono).
 - No `h1` / `h2` / `h3` size differentiation. Visual hierarchy comes from
-  `font-weight` (regular 400 / bold 700) + `font-style` (italic / bold-italic)
-  + Nerd Font glyphs (sparse) + color (section accent).
+  color (section accent) + `font-style` (italic / bold-italic) + Nerd Font
+  glyphs (sparse) + position, with `font-weight` as the LAST resort — see
+  §"Bold has to be earned" below.
 - Locks the character grid. Every line aligns to the same baseline.
+
+### Bold has to be earned
+
+**Bold has to be earned, not attributed.** Default font-weight is 400
+everywhere. Bold (600+) is reserved for narrow, deliberate cases where it
+carries unique signal — a section name that needs identity beyond color, a
+label that must read as different from siblings even at a glance. Color,
+italic, glyph, and position carry hierarchy before weight does. Defaulting to
+bold for headings, links, buttons, badges, etc. is a bug — strip it.
 
 ### Lowercase non-brand text
 
@@ -300,7 +385,7 @@ the no-inner-spaces rule. Examples below already reflect the tightened form.
 - **Component:** `BracketedLinkComponent` — use this instead of inline HTML
 - **Linked:** renders `<a class="bracketed">[<span class="bl">label</span>]</a>`
   — theme link color, bold
-- **Active (current page):** renders
+- **Active (current screen):** renders
   `<span class="bracketed-active">[label]</span>` — bold, not a link, text in
   `var(--color-text-bold)`. Component cleanup #2 of the §10 refresh replaced the
   previous inline `style="font-weight: bold;"` with the `.bracketed-active`
@@ -392,7 +477,7 @@ current item among siblings; over-using it dilutes the emphasis.
 
 Platform tags render as filled status-badge style pills in the platform's brand
 color — `PS`, `Switch`, `Steam`. They sit in tile footers and on game detail
-pages as a compact at-a-glance signal of where a game ships.
+screens as a compact at-a-glance signal of where a game ships.
 
 Render shape: background = brand color, text = contrasting white. **NO visible
 `[ ]` brackets in the rendered HTML.** The `[ ]` notation used in chat, spec
@@ -424,7 +509,7 @@ X|S games. User-locked 2026-05-17.
 Two size variants:
 
 - `:sm` — 12px, used in tile footers on shelf surfaces
-- `:md` — 14px, used on the detail-page LEFT pane
+- `:md` — 14px, used on the detail-screen LEFT pane
 
 When chips iterate, render them as separate badges with a small gap — no extra
 separator (dot, pipe, comma) goes between them.
@@ -488,7 +573,7 @@ BOTH places.
   `.shelf-row::-webkit-scrollbar` (and `::-webkit-scrollbar-thumb`,
   `scrollbar-width: thin`, `scrollbar-color` for Firefox). The global
   `::-webkit-scrollbar` rule in `app/assets/tailwind/application.css:722-754`
-  remains the app-wide default for page-level scrolls; the shelf overrides via
+  remains the app-wide default for screen-level scrolls; the shelf overrides via
   the scoped class so the shelf's scrollbar is a documented property of the
   component itself rather than a leaky global inheritance.
 - **Reuse rule (locked 2026-05-19, user):** every shelf surface uses
@@ -601,7 +686,7 @@ doesn't decline anything.
 ### Confirm Modal pattern
 
 For destructive actions where the full action-screen pattern is too heavy — the
-common case being a single-record delete from a detail page — use the in-page
+common case being a single-record delete from a detail screen — use the in-screen
 `<dialog>` confirm modal instead.
 
 The trigger is a `[delete]` bracketed link wired to a Stimulus modal-trigger
@@ -629,7 +714,7 @@ Modal buttons:
 native `<dialog>` element IS the confirmation UI.
 
 For bulk destructive actions, the action-screen framework
-(`/deletions/:type/:ids`) remains the primary path. The in-page modal is a
+(`/deletions/:type/:ids`) remains the primary path. The in-screen modal is a
 per-record convenience layered on top, not a replacement.
 
 ### Modal dismiss labels — `[close]` vs `[cancel]`
@@ -676,16 +761,36 @@ left-align. Do NOT add `margin-left: auto` to push a button right.
 
 ### Modal border-radius
 
-**Locked 2026-05-19, user.** Every `<dialog>` surface in the app —
-confirmation modals (`confirm-modal`), settings modals (`settings-modal`),
-wide modals (`wide-modal`), omnisearch modals (`omnisearch-modal`,
-`everywhere-modal`), and the about modal — uses `border-radius: 2px`. The
-omnisearch input field inside an omnisearch modal also uses
-`border-radius: 2px`, matching the global form-input radius. The rule is
-enforced on the base `dialog { border-radius: 2px }` CSS selector so every
-named modal class inherits it; per-modal overrides MUST use 2px or omit the
-property. No other radius values (4px, 6px, etc.) are permitted on modal
-chrome.
+**Locked 2026-05-20, user — supersedes the prior 2px convention.** Every
+`<dialog>` surface in the app — confirmation modals (`confirm-modal`),
+settings modals (`settings-modal`), wide modals (`wide-modal`), omnisearch
+modals (`omnisearch-modal`, `everywhere-modal`), and the about modal — uses
+`border-radius: 0`. The omnisearch input field inside an omnisearch modal also
+uses `border-radius: 0`, matching the global form-input radius. The rule is
+enforced on the base `dialog { border-radius: 0 }` CSS selector so every named
+modal class inherits it; per-modal overrides MUST use 0 or omit the property.
+No non-zero radius values are permitted on modal chrome — see §"Density and
+decoration" for the universal radius-always-0 rule.
+
+### Dialog behavior (universal contract)
+
+Every dialog in pito follows the same shape:
+
+- Rendered as native `<dialog>` element (no Stimulus-driven `<div>` overlays).
+- **No backdrop darken** — the dialog renders over the existing screen
+  content without dimming the surrounding context. The screen stays readable.
+- **Dismiss hint in top-right** — every dialog shows `[Esc to close]` in the
+  top-right corner of the dialog header. No exceptions. No `[close]` button
+  at the bottom; the Esc hint at the top is the canonical dismiss.
+- **One dismiss target only** — never duplicate the close affordance (no
+  top-AND-bottom close buttons).
+- **Border-radius: 0** — sharp corners per the design rule.
+- **Border: 1px hairline** in the section accent color (or
+  `var(--color-border)` for global dialogs like the help overlay).
+- **Behavior matches the help dialog** (`Tui::HelpOverlayComponent`) —
+  canonical reference for all new dialogs.
+- **ESC always dismisses** — bound at the dialog level, no Stimulus required
+  for that key.
 
 ### Modal K-V content — `<dl>` grid (no colons)
 
@@ -728,7 +833,7 @@ column expands. Drop the centering wrapper.
   formatting, no inline `<strong>`.
 
 **When to use.** Informational modals (about, version, simple metadata
-displays). Multi-row attribute panels on detail pages MAY adopt the same shape
+displays). Multi-row attribute panels on detail screens MAY adopt the same shape
 when the existing `.detail-table` pattern feels too heavy.
 
 **When NOT to use.** Forms (use `FormFieldComponent`), tables of records (use
@@ -737,7 +842,7 @@ when the existing `.detail-table` pattern feels too heavy.
 ### Bracketed labels: minimum text
 
 Bracketed-link labels carry **the verb only** when context makes the noun
-obvious. Trust the user to know what kind of row they're looking at — the page
+obvious. Trust the user to know what kind of row they're looking at — the screen
 heading, breadcrumb, and table headers already supply the context.
 
 **Yes:**
@@ -774,7 +879,7 @@ new tab. Use the exact attribute combination:
 Why the pairing:
 
 - `target="_blank"` keeps the user's pito tab put. A `[help]` modal that links
-  to Slack docs must not yank the user out of the settings page they were
+  to Slack docs must not yank the user out of the settings screen they were
   configuring.
 - `rel="noopener"` prevents the new tab from reaching back into `window.opener`
   (a tabnabbing / cross-window scripting vector).
@@ -824,7 +929,7 @@ rewrite of view-layer ERB.
 
 ### Lead paragraphs — one sentence per line
 
-The muted lead paragraph that sits under each page H1 splits one sentence per
+The muted lead paragraph that sits under each screen H1 splits one sentence per
 line — never a chunky body of text. Use `<br>` between sentences inside one
 `<p class="text-muted">` so the existing margin styling holds and the sentences
 read as a stack rather than wrapped paragraph prose.
@@ -838,7 +943,7 @@ read as a stack rather than wrapped paragraph prose.
 </p>
 ```
 
-Apply on every settings detail page and every `new` / `show` / `edit` page that
+Apply on every settings detail screen and every `new` / `show` / `edit` screen that
 has explanatory prose under the heading. The convention is intentional: each
 sentence reads as its own atomic claim, and the user can scan the stanza without
 parsing wrap behavior.
@@ -881,6 +986,51 @@ Markdown-style checkboxes via `CheckboxComponent`:
 - Clicking toggles dataset visibility (Chart.js default behavior)
 
 ## Tables
+
+### Universal contract (locked 2026-05-20)
+
+Every table in pito follows these rules:
+
+1. **String/text columns align LEFT.** Header label AND every cell in
+   the column.
+2. **Number / date / time columns align RIGHT.** Header label AND every
+   cell.
+3. **Header alignment matches cell alignment.** No mixed alignments
+   within a column. A right-aligned `size` column has a right-aligned
+   `size` header label.
+4. **Use `Formatting::` services for transformed values.** Numbers
+   (with delimiters), dates (relative or absolute), durations, file
+   sizes, etc. all go through `Formatting::*` services. Inline
+   string-juggling in views/components is a smell — extract to a
+   service.
+
+**Sortable columns** (when present) show:
+
+- A single arrow glyph on the header (`▲` asc / `▼` desc) when the
+  column is the active sort, rendered in `var(--section-accent)` at
+  font-weight 400
+- No glyph when the column is sortable but not currently active —
+  inactive sortable headers carry the default muted header color
+- The active glyph + the column header label both inherit the section
+  accent color (the `<th>` color cascades to the inner `<a>` via
+  `color: inherit`)
+- Keyboard (locked 2026-05-20, FB-110):
+  - `s` (NORMAL mode, no modifier) — cycle to the NEXT sortable
+    column inside the currently focused panel. With no active sort,
+    the first sortable column becomes active.
+  - `S` (Shift + s, NORMAL mode) — reverse the direction of the
+    currently active sort column. No-op when no column is active.
+  - Both keys are scoped to `[data-tui-cursor-focused="yes"]` —
+    when no panel is focused, or when a `<dialog>` is open, or in
+    INSERT mode (typing in an input / textarea / contenteditable
+    host or under `data-tui-mode="insert"`), the keys fall through
+    to their native behavior. The handler lives in
+    `app/javascript/controllers/sortable_keys_controller.js`.
+
+**ViewComponent contract:** every table is a `Tui::TableComponent` (or
+a domain-specific component like `Sessions::TableComponent`). Tables
+are never inline `<table>` in views — always wrapped in a component.
+Each component ships with a passing spec.
 
 ### Column Headers
 
@@ -1011,7 +1161,7 @@ should reject `bar_chart` / `line_chart` / `column_chart` / `area_chart` /
 
 ### URL casing
 
-In user-facing copy — view labels, page text, table headers, button text,
+In user-facing copy — view labels, screen text, table headers, button text,
 tooltips, error messages, breadcrumb labels — write `URL` always uppercase.
 Never `url`, `Url`, `Urls`, etc. The full word is always uppercased; embedded
 forms like `URLs` (plural) keep the all-caps. Mixed-case forms are not allowed
@@ -1036,8 +1186,8 @@ Mnemonic: a user reading `url` thinks of the technical lowercase identifier;
   `.form-label` utility (component cleanup #3 of the §10 refresh) instead of an
   inline `style=` attribute. `FormFieldComponent` writes `class: "form-label"`
   on the rendered `<label>`.
-- **Inputs:** full width, 1px solid border (`--color-input-border`), 2px
-  border-radius
+- **Inputs:** full width, 1px solid border (`--color-input-border`), 0
+  border-radius (per §"Density and decoration" universal rule)
 - **Error state:** red border (`--color-danger`) on invalid field, red error
   text below (12px). The error-state inline `border-color` on the input is
   intentionally preserved — errors are not hints and don't share the muted
@@ -1086,7 +1236,7 @@ Mnemonic: a user reading `url` thinks of the technical lowercase identifier;
   shelf, `/channels/:id` legacy detail (until Wave B removes it), the OAuth
   multi-channel picker modal (when it lands in Wave B), and any future
   channel-avatar surface. The circular treatment is uniform across every
-  channel-avatar render — chip-row, ID card, detail page, picker modal — so the
+  channel-avatar render — chip-row, ID card, detail screen, picker modal — so the
   visual vocabulary stays consistent with YouTube.com's own avatar rendering.
 - **Sizing rule (avatar shelf specifically):** avatar tile height = 2 × chip
   text line-height + the inter-row gap. See `Games::FilterRowComponent` for the
@@ -1106,9 +1256,10 @@ Mnemonic: a user reading `url` thinks of the technical lowercase identifier;
   in Pito's render path.
 - **No more 2px-radius for channel avatars.** Any agent reading this subsection
   and applying `border-radius: 2px` to a channel avatar is using stale guidance
-  — flag and fix. The 2px convention still applies to OTHER surfaces (inputs,
-  panes, the `--color-cover-border` framed game-cover thumbnails, etc.) but NOT
-  to channel avatars specifically.
+  — flag and fix. The 2px convention is itself superseded everywhere else by
+  the universal radius-always-0 rule (see §"Density and decoration"); only the
+  `border-radius: 50%` circle treatment for channel avatars remains a deliberate
+  exception because it encodes a circular SHAPE, not corner rounding.
 
 ### Channel ID card
 
@@ -1123,9 +1274,10 @@ prior ISO/IEC 7810 ID-1 (1.586:1) sketch.
 - **Dimensions:** **158 px tall × 314 px wide** (landscape). The width is a 25%
   widening of the prior ISO ID-1 footprint at the same height; the extra 63 px
   flow entirely into the right column.
-- **Border:** 1px `var(--color-cover-border)`, `border-radius: 2px` — same
+- **Border:** 1px `var(--color-cover-border)`, `border-radius: 0` — same
   framed-thumbnail convention as /games tiles and the /channels avatar shelf's
-  per-avatar border.
+  per-avatar border. Per §"Density and decoration" universal radius-always-0
+  rule.
 - **Background:** `var(--color-channel-id-card-bg)` — theme-aware token,
   `#eef0f3` light, `#2f3142` dark. Values copied from the Discord pane's
   `--color-pane-bg-a` tone for surface parity, but the token is **independent**
@@ -1220,10 +1372,10 @@ prompt.
 the "no `alert` / `confirm` / `prompt` / `data-turbo-confirm`" hard rule (see
 `CLAUDE.md` → Hard rules). The browser-native "Leave site?" dialog raised by
 `beforeunload` is structurally different from `window.confirm()` — the browser
-renders the dialog itself, and the page never interrupts a user action
+renders the dialog itself, and the screen never interrupts a user action
 mid-click. The action-confirmation framework (`ConfirmModalComponent`,
 `shared/_action_screen.html.erb`, `DeletionsController` / `SyncsController`)
-covers in-page destructive intent; it cannot cover off-page navigation, tab
+covers in-screen destructive intent; it cannot cover off-screen navigation, tab
 close, or reload, which is the gap this controller fills.
 
 **When to apply.** Any form where losing typed input would be costly —
@@ -1249,7 +1401,7 @@ way to.
 ## Framed blocks
 
 The `.framed-block` class wraps a region in a visually distinct bordered, tinted
-container so it reads as separate from the page background. Reserved for **"save
+container so it reads as separate from the screen background. Reserved for **"save
 this now" / one-time-reveal surfaces** — content the user must capture because
 it cannot be re-shown.
 
@@ -1257,7 +1409,7 @@ it cannot be re-shown.
 
 - 1px `var(--color-border)` border
 - `var(--color-pane-bg)` background tint
-- 4px `border-radius`
+- 0 `border-radius` (per §"Density and decoration" universal rule)
 - 16px inner padding
 - 16px vertical outer margin (`margin: 16px 0`)
 
@@ -1267,7 +1419,7 @@ it cannot be re-shown.
   padding: 16px;
   border: 1px solid var(--color-border);
   background: var(--color-pane-bg);
-  border-radius: 4px;
+  border-radius: 0;
 }
 ```
 
@@ -1275,7 +1427,7 @@ it cannot be re-shown.
 
 - Highlighted content blocks where the visual frame helps the user register
   "this is important / save this / one-time view".
-- OAuth applications post-create page — wraps the `client_id` + `client_secret`
+- OAuth applications post-create screen — wraps the `client_id` + `client_secret`
   credentials list (the secret is shown exactly once and cannot be retrieved
   later).
 - Future: API token plaintext displays, secret-shown-once flows, game cover-art
@@ -1283,7 +1435,7 @@ it cannot be re-shown.
 
 **When NOT to use.**
 
-- Every block on a page. The frame is signal — overusing it degrades the signal
+- Every block on a screen. The frame is signal — overusing it degrades the signal
   so nothing reads as important.
 - Routine read-only detail panels (use a plain `.detail-table` instead).
 - Decorative grouping. Frames mark capture-now content, not visual hierarchy.
@@ -1309,7 +1461,7 @@ Three primitives, all driven by `--color-pane-bg-a` with zebra
   pane background but no fixed width. Used for full-width data-display surfaces:
   oauth_applications create / show / revoke, doorkeeper authorizations new /
   show / error, settings/tokens create / revoke, settings/sessions revoke. Form
-  pages also use it.
+  screens also use it.
 - `.pane--wide` — fixed 904px workspace double-column variant.
 
 `.framed-block` is now orphaned; `pane--standalone` replaced it. New work
@@ -1327,7 +1479,7 @@ drops to `88vw` with `scroll-snap-type: x mandatory`, one pane per viewport.
 
 **Pane zebra.** Multi-pane surfaces alternate background colours via
 `.pane-container > .pane-wrapper:nth-child(even) { background-color: var(--color-bg-alt); }`.
-Single-pane surfaces inherit the page background (no zebra). Apply the same
+Single-pane surfaces inherit the screen background (no zebra). Apply the same
 `.pane-container` parent wherever a multi-pane layout is used — settings,
 project show, channels/videos saved-views — so the zebra rule fires
 automatically.
@@ -1351,13 +1503,48 @@ horizontally, snapping one pane at a time into view.
 
 ## Layout
 
-- Full width for data-heavy pages (videos), constrained for sparse pages
+- Full width for data-heavy screens (videos), constrained for sparse screens
   (channels: 900px, forms: 480px)
 - No shadows, gradients, rounded corners
 - No icon fonts — HTML entities only (▲ ▼ ◀ ▶ − + ×)
 - Header: fixed, 32px height, `(n)` keycap theme toggle on right
 - Multi-column: flex-wrap with min-width for responsive stacking
 - Dashboard: 2-column flex layout with 400px min-width per column
+
+## Layout chrome (TST + BST + content)
+
+Locked 2026-05-20 (FB-88). The top status bar (`<header>` wrapping
+`Tui::TopStatusBarComponent`) and the bottom status bar
+(`Tui::BottomStatusBarComponent` / `.bsb-bar`) are always present at viewport
+top and bottom respectively. The content `<main>` block always fills the
+exact viewport height between them — there is no awkward dead space between
+the last panel and the BST.
+
+- **TST is sticky at viewport top** (`<header>` uses `position: sticky;
+  top: 0`).
+- **BST is fixed at viewport bottom** (`.bsb-bar` uses `position: fixed;
+  bottom: 0; left: 0; right: 0`). Was `sticky` until FB-88; `fixed` is the
+  lock so the bar paints at the literal viewport bottom on short pages too.
+- **Both chrome bars are ~22px tall** (4px padding-top + 13px line + 4px
+  padding-bottom + 1px border, per FB-76).
+- **Content area fills `100vh - 44px`** via `main { min-height: calc(100vh
+  - 44px) }`.
+- **Content has `padding-bottom: 22px`** (BST height) so the last content
+  row never sits hidden behind the fixed BST.
+- **Last panel per column grows** to absorb leftover vertical space within
+  multi-column screen layouts (`.settings-panes--v3`'s last-child rule is
+  the canonical example: notifications stays content-sized, security grows
+  to reach the BST; in the right column the lone stack panel grows to fill
+  the column track).
+- **Overflow scrolls INSIDE the panel** when content exceeds available
+  height. Intermediate state: `overflow: auto` exposes the themed
+  scrollbar. End state (FB-12 / FB-61): sub-cursor j/k drives scroll
+  within the panel and the mouse scrollbar is hidden.
+
+TUI parity: Ratatui's standard layout (`Constraint::Length` for TST + BST
+rows, `Constraint::Min` for the content middle row) replicates this 1:1.
+The web layout is the visual counterpart to the future Rust client's
+top-level pane geometry.
 
 ## Mobile Responsiveness
 
@@ -1374,7 +1561,7 @@ horizontally, snapping one pane at a time into view.
 
 ## Saved Views
 
-The saved-views row sits at the top of every list page that supports saving a
+The saved-views row sits at the top of every list screen that supports saving a
 workspace URL. Phase 4 §9.3 promoted the row to a **horizontal scroll layout at
 every breakpoint** — desktop and mobile alike. The row no longer wraps onto a
 second line; it scrolls horizontally and clips overflow with a fading edge cue.
@@ -1384,9 +1571,9 @@ second line; it scrolls horizontally and clips overflow with a fading edge cue.
 - `.saved-views-row` — the inner item track. Each saved-view label sits in this
   row as a `[label]` bracketed link plus a separator dot.
 
-This rule is global — it overrides any per-page styling that previously allowed
+This rule is global — it overrides any per-screen styling that previously allowed
 the row to wrap. The component (`SavedViewsSectionComponent`) emits both
-classes; pages that compose saved-views inline must use the same shape.
+classes; screens that compose saved-views inline must use the same shape.
 
 ### Horizontal scrollbars
 
@@ -1397,10 +1584,10 @@ container that scrolls horizontally. The convention:
   `::-webkit-scrollbar` rule applies to vertical scrollbars (body, modals,
   textareas) as well as horizontal — the OS default vertical bar is themed away
   too. Firefox uses `scrollbar-width: thin` on `html` for both axes.
-- **Track**: `var(--color-bg)` — blends with the page background.
+- **Track**: `var(--color-bg)` — blends with the screen background.
 - **Thumb**: `var(--color-muted)` — visible but subtle.
 - **Thumb hover**: `var(--color-text)` — clearly indicates interactivity.
-- **Thumb border-radius**: 3px.
+- **Thumb border-radius**: 0 (per §"Density and decoration" universal rule).
 
 Implementation in `app/assets/tailwind/application.css`:
 
@@ -1494,9 +1681,10 @@ About modal sources from the 128 px asset for ~2× density on its 64-px render.
 
 ### Logo render conventions
 
-- **Favicon-as-logo surfaces use `border-radius: 2px`** — they are square brand
-  assets, NOT circular avatars. The 50% radius rule from §"Channel avatars"
-  applies to YouTube channel artwork only.
+- **Favicon-as-logo surfaces use `border-radius: 0`** — square brand assets,
+  sharp corners per §"Density and decoration". They are NOT circular avatars;
+  the 50% radius rule from §"Channel avatars" applies to YouTube channel
+  artwork only.
 - **`alt="pito"`** on every `<img>` tag — lowercase, matches the brand treatment
   in copy.
 - **External-link wrappers** (footer logo → pitomd.com) follow the §"External
@@ -1579,7 +1767,7 @@ surfaces.
   overlaid on the cover's bottom-right corner (per
   `### Platform Chips > Tile overlay placement`), and a caption row below the
   cover containing the title only. Release year and other release info are NOT
-  rendered in the tile — they belong on the game detail page, not the shelf.
+  rendered in the tile — they belong on the game detail screen, not the shelf.
   This is the "game listing" surface — the only shelf kind that uses the rich
   tile.
 - **Genre shelves — 98 × 130 bare cover (no caption, no chips).** One row per
