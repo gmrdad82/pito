@@ -181,18 +181,48 @@ if (runtime_state = Rails.application.credentials.runtime_state)
   end
 
   # ----- Webhooks -----
+  #
+  # 2026-05-20 — F3-B-SIMPLIFY-MODEL. The per-brand `everything` /
+  # `daily_digest` columns were dropped in favour of two shared
+  # toggles on `AppSetting.singleton_row`. The captured payload still
+  # carries the legacy per-brand keys (older runtime_state snapshots);
+  # we OR them into the shared toggles during restore for intent
+  # preservation, then move on. New captures (post-this-commit)
+  # advertise the shared shape directly under `runtime_state[:notifications]`.
+  any_everything   = false
+  any_daily_digest = false
+
   %i[discord slack].each do |kind|
     cfg = runtime_state.dig(:webhooks, kind)
     next if cfg.blank? || cfg[:webhook_url].blank?
 
     record = NotificationDeliveryChannel.find_or_initialize_by(kind: kind.to_s)
     record.webhook_url       = cfg[:webhook_url]
-    record.everything        = YesNo.from_yes_no(cfg[:everything])
-    record.daily_digest      = YesNo.from_yes_no(cfg[:daily_digest])
     record.last_validated_at = cfg[:last_validated_at]
     record.save!
-    puts "  webhook[#{kind}] restored " \
-         "(everything=#{cfg[:everything]}, daily_digest=#{cfg[:daily_digest]})."
+
+    any_everything   ||= YesNo.from_yes_no(cfg[:everything])    if cfg.key?(:everything)
+    any_daily_digest ||= YesNo.from_yes_no(cfg[:daily_digest])  if cfg.key?(:daily_digest)
+
+    puts "  webhook[#{kind}] restored."
+  end
+
+  # Shared toggles — prefer the new `notifications` block when present;
+  # fall back to the OR of the legacy per-brand flags.
+  shared = runtime_state[:notifications]
+  if shared.is_a?(Hash)
+    AppSetting.set_notification_toggle!(:notifications_send_all,
+      YesNo.from_yes_no(shared[:send_all]))
+    AppSetting.set_notification_toggle!(:notifications_send_daily_digest,
+      YesNo.from_yes_no(shared[:send_daily_digest]))
+    puts "  notifications shared toggles restored " \
+         "(send_all=#{shared[:send_all]}, send_daily_digest=#{shared[:send_daily_digest]})."
+  elsif any_everything || any_daily_digest
+    AppSetting.set_notification_toggle!(:notifications_send_all, any_everything)
+    AppSetting.set_notification_toggle!(:notifications_send_daily_digest, any_daily_digest)
+    puts "  notifications shared toggles seeded from legacy per-brand flags " \
+         "(send_all=#{any_everything ? 'yes' : 'no'}, " \
+         "send_daily_digest=#{any_daily_digest ? 'yes' : 'no'})."
   end
 
   # ----- OAuth applications -----

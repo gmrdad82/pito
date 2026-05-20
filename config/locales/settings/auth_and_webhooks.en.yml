@@ -3,16 +3,18 @@ en:
     breadcrumb_root: settings
     discord:
       heading: Discord
-      webhook_url_label: webhook URL
+      webhook_url_label: "webhook URL:"
     slack:
       heading: Slack
-      webhook_url_label: webhook URL
+      webhook_url_label: "webhook URL:"
     webhook:
       clear_hint_html: type <strong>"clear"</strong> to remove
+    notifications:
+      heading: notifications
     notification_toggle:
       everything: all
       daily_digest: daily digest
-      daily_digest_hint: sent daily at 09:00 in your time zone.
+      daily_digest_hint: sent daily at 09:00 in your time zone
     security:
       title: security
       breadcrumb: security

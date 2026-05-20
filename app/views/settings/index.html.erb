@@ -53,14 +53,20 @@
     in-dialog `[close]` — reach the controller correctly. %>
 <div data-controller="settings-modal">
   <div class="settings-panes">
+    <%# Phase F3 (Beta 4, 2026-05-20) — profile pane CUT per ADR 0016.
+        Username + password management moved to operator-only rake
+        tasks (`bin/rails pito:user:rename`, `bin/rails pito:user:
+        password_set`). Row 1 now renders the Security pane alone. %>
     <div class="pane-row">
-      <%= render "profile_pane" %>
       <%= render "security_pane" %>
     </div>
 
+    <%# Beta 4 — F3-B. Unified notifications panel. Collapses the
+        prior two-pane Discord + Slack row into a single full-width
+        panel rendering a shared toggles block at the top followed by
+        the per-brand subsections (Discord, then Slack). %>
     <div class="pane-row">
-      <%= render "discord_pane" %>
-      <%= render "slack_pane" %>
+      <%= render "notifications_pane" %>
     </div>
 
     <div class="pane-row">

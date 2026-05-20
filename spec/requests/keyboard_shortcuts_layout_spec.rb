@@ -24,21 +24,20 @@ RSpec.describe "Keyboard shortcuts layout integration", type: :request do
         expect(response.body).to match(/<body[^>]*data-controller="[^"]*\bkeyboard\b[^"]*"/)
       end
 
-      it "GET #{path} renders the visible [_] bracketed link inside the navbar" do
+      it "GET #{path} renders the new Tui::TopStatusBarComponent inside the header" do
         get path
-        # 2026-05-18 — the visible affordance lives in the header
-        # navbar, immediately after `[settings]` (relocated from
-        # the footer). The displayed glyph is `_` (representing
-        # SPACE = leader per the locked keybindings unified-schema
-        # decision). After the 2026-05-16 help-modal retirement the
-        # link wires ONLY `click->leader-menu#openRoot` — the legacy
-        # `click->keyboard#openHelp` chained action is gone. ERB
-        # escapes `->` in attribute values to `-&gt;`; matching the
-        # encoded form keeps the assertion grounded in real bytes.
+        # Beta 4 — Phase F1 Lane D (2026-05-20). The visible `[_]`
+        # bracketed link inside the navbar was dropped along with the
+        # bracketed-nav layout. The leader menu is still reachable via
+        # the SPACE keypress (the `leader-menu` controller mounted on
+        # `<body>` registers a document keydown listener — covered by
+        # the leader_menu_layout_spec). The header now hosts the
+        # `Tui::TopStatusBarComponent`; this assertion locks the new
+        # shape so we don't regress to the bracketed-nav structure.
         header = response.body.match(%r{<header\b.*?</header>}m)
         expect(header).not_to be_nil, "expected to find <header>...</header> in the response"
-        expect(header[0]).to include("click-&gt;leader-menu#openRoot")
-        expect(header[0]).to match(/\[<span class="bl">_<\/span>\]/)
+        expect(header[0]).to include('class="sb-bar"')
+        expect(header[0]).to include('data-controller="tui-status-bar"')
       end
 
       it "GET #{path} does NOT wire the retired keyboard#openHelp action anywhere" do

@@ -101,12 +101,15 @@ RSpec.describe "pito:state:capture" do
     user
   end
 
-  def seed_webhook(kind, url, everything: false, daily_digest: false, last_validated_at: nil)
+  def seed_webhook(kind, url, last_validated_at: nil, **_legacy_flags_ignored)
+    # 2026-05-20 — F3-B-SIMPLIFY-MODEL. The per-brand `everything` /
+    # `daily_digest` columns were dropped. `_legacy_flags_ignored`
+    # tolerates older callers that still pass them through; the test
+    # bodies that need to assert toggle state use
+    # `AppSetting.set_notification_toggle!` directly.
     NotificationDeliveryChannel.create!(
       kind:              kind,
       webhook_url:       url,
-      everything:        everything,
-      daily_digest:      daily_digest,
       last_validated_at: last_validated_at
     )
   end
@@ -185,21 +188,16 @@ RSpec.describe "pito:state:capture" do
       expect(rs["totp"]).to eq({})
     end
 
-    it "captures Discord + Slack webhook URLs + routing flags " \
-       "(yes/no strings)" do
+    it "captures Discord + Slack webhook URLs (per-brand flags dropped 2026-05-20)" do
       seed_user(with_totp: true)
       seed_webhook(
         "discord",
         "https://discord.com/api/webhooks/12345/abcDEF-_xyz",
-        everything: true,
-        daily_digest: false,
         last_validated_at: Time.utc(2026, 5, 14, 8, 0, 0)
       )
       seed_webhook(
         "slack",
-        "https://hooks.slack.com/services/T01ABCD/B02EFGH/abcdefXYZ1234567",
-        everything: false,
-        daily_digest: true
+        "https://hooks.slack.com/services/T01ABCD/B02EFGH/abcdefXYZ1234567"
       )
 
       silence_stdout { task.invoke }
@@ -207,15 +205,25 @@ RSpec.describe "pito:state:capture" do
       rs = read_runtime_state
       expect(rs["webhooks"]).to be_a(Hash)
       expect(rs["webhooks"]["discord"]).to include(
-        "webhook_url"  => "https://discord.com/api/webhooks/12345/abcDEF-_xyz",
-        "everything"   => "yes",
-        "daily_digest" => "no"
+        "webhook_url"  => "https://discord.com/api/webhooks/12345/abcDEF-_xyz"
       )
       expect(rs["webhooks"]["discord"]["last_validated_at"]).to eq("2026-05-14T08:00:00Z")
       expect(rs["webhooks"]["slack"]).to include(
-        "webhook_url"  => "https://hooks.slack.com/services/T01ABCD/B02EFGH/abcdefXYZ1234567",
-        "everything"   => "no",
-        "daily_digest" => "yes"
+        "webhook_url"  => "https://hooks.slack.com/services/T01ABCD/B02EFGH/abcdefXYZ1234567"
+      )
+    end
+
+    it "captures the shared notification toggles into runtime_state.notifications" do
+      seed_user(with_totp: true)
+      AppSetting.set_notification_toggle!(:notifications_send_all, true)
+      AppSetting.set_notification_toggle!(:notifications_send_daily_digest, false)
+
+      silence_stdout { task.invoke }
+
+      rs = read_runtime_state
+      expect(rs["notifications"]).to include(
+        "send_all"          => "yes",
+        "send_daily_digest" => "no"
       )
     end
 
@@ -368,21 +376,21 @@ RSpec.describe "pito:state:capture" do
   # ---------------------------------------------------------------------
 
   describe "operator-facing stdout (NO secret values)" do
-    it "prints the captured counts + names + yes/no flags only" do
+    it "prints the captured counts + names + shared toggles only" do
       seed_user(with_totp: true)
       seed_webhook(
         "discord",
-        "https://discord.com/api/webhooks/77/secret-payload-xyz",
-        everything: true
+        "https://discord.com/api/webhooks/77/secret-payload-xyz"
       )
+      AppSetting.set_notification_toggle!(:notifications_send_all, true)
       seed_oauth_app("claude-desktop")
 
       output = capture_stdout { task.invoke }
       expect(output).to include("capturing runtime state from live DB...")
       expect(output).to include("TOTP enrollment present")
       expect(output).to include("webhook[discord]")
-      expect(output).to include("everything=yes")
-      expect(output).to include("daily_digest=no")
+      expect(output).to include("send_all=yes")
+      expect(output).to include("send_daily_digest=no")
       expect(output).to include("1 Doorkeeper application to capture")
       expect(output).to include("claude-desktop")
     end
@@ -419,8 +427,7 @@ RSpec.describe "pito:state:capture" do
       seed_user(with_totp: true)
       seed_webhook(
         "slack",
-        "https://hooks.slack.com/services/T01ABCD/B02EFGH/abcdefXYZ1234567",
-        everything: true
+        "https://hooks.slack.com/services/T01ABCD/B02EFGH/abcdefXYZ1234567"
       )
       app = seed_oauth_app("claude-desktop")
 

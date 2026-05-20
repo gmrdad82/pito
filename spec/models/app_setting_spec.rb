@@ -151,52 +151,47 @@ RSpec.describe AppSetting, type: :model do
     end
   end
 
-  # Phase 29 — Unit A1 (Part 4 delivery bug fix). The Slack / Discord
-  # delivery gate is derived ENTIRELY from the
-  # `NotificationDeliveryChannel` row for the kind — its existence plus
-  # a present `webhook_url` and at least one routing flag set. The
-  # orphaned `AppSetting.*_enabled` columns are dropped and never read.
+  # 2026-05-20 — F3-B-SIMPLIFY-MODEL. The per-brand `everything` /
+  # `daily_digest` columns were dropped. Delivery gates are now an AND
+  # of:
+  #
+  #   1. Shared toggle ON (`notifications_send_all` OR
+  #      `notifications_send_daily_digest`) — read off the singleton row.
+  #   2. A `NotificationDeliveryChannel` row exists for the kind with a
+  #      present `webhook_url`.
   shared_examples "a delivery-channel gate predicate" do |kind, predicate, valid_url|
     before { AppSetting.delete_all }
 
-    it "returns false when no #{kind} channel row exists" do
+    it "returns false when no #{kind} channel row exists (toggle off too)" do
       expect(AppSetting.public_send(predicate)).to be(false)
     end
 
-    it "returns false with a channel row that has no routing flag set" do
-      NotificationDeliveryChannel.create!(
-        kind: kind, webhook_url: valid_url, everything: false, daily_digest: false
-      )
+    it "returns false when channel exists but BOTH shared toggles are off" do
+      NotificationDeliveryChannel.create!(kind: kind, webhook_url: valid_url)
       expect(AppSetting.public_send(predicate)).to be(false)
     end
 
-    it "returns false with a channel row whose webhook_url is blank" do
-      channel = NotificationDeliveryChannel.new(
-        kind: kind, webhook_url: "", everything: true
-      )
+    it "returns false when a shared toggle is on but no channel row exists" do
+      AppSetting.set_notification_toggle!(:notifications_send_all, true)
+      expect(AppSetting.public_send(predicate)).to be(false)
+    end
+
+    it "returns false when shared toggle is on but webhook_url is blank" do
+      channel = NotificationDeliveryChannel.new(kind: kind, webhook_url: "")
       channel.save!(validate: false)
+      AppSetting.set_notification_toggle!(:notifications_send_all, true)
       expect(AppSetting.public_send(predicate)).to be(false)
     end
 
-    it "returns true with a channel row that has a webhook_url and `everything` set" do
-      NotificationDeliveryChannel.create!(
-        kind: kind, webhook_url: valid_url, everything: true
-      )
+    it "returns true with a webhook_url and `notifications_send_all` set" do
+      NotificationDeliveryChannel.create!(kind: kind, webhook_url: valid_url)
+      AppSetting.set_notification_toggle!(:notifications_send_all, true)
       expect(AppSetting.public_send(predicate)).to be(true)
     end
 
-    it "returns true with a channel row that has a webhook_url and `daily_digest` set" do
-      NotificationDeliveryChannel.create!(
-        kind: kind, webhook_url: valid_url, daily_digest: true
-      )
-      expect(AppSetting.public_send(predicate)).to be(true)
-    end
-
-    it "does not read any (dropped) AppSetting column" do
-      NotificationDeliveryChannel.create!(
-        kind: kind, webhook_url: valid_url, everything: true
-      )
-      expect { AppSetting.public_send(predicate) }.not_to raise_error
+    it "returns true with a webhook_url and `notifications_send_daily_digest` set" do
+      NotificationDeliveryChannel.create!(kind: kind, webhook_url: valid_url)
+      AppSetting.set_notification_toggle!(:notifications_send_daily_digest, true)
       expect(AppSetting.public_send(predicate)).to be(true)
     end
   end
@@ -211,6 +206,82 @@ RSpec.describe AppSetting, type: :model do
     it_behaves_like "a delivery-channel gate predicate", "discord",
                     :discord_delivery_enabled?,
                     "https://discord.com/api/webhooks/123456789/abcDEF_-ghi"
+  end
+
+  # 2026-05-20 — F3-B-SIMPLIFY-MODEL. The two shared notification
+  # toggles live on the canonical `AppSetting.singleton_row`. The
+  # class-level accessors below front the singleton-row columns so the
+  # web form, the worker, the helper, and the JSON wire all read from
+  # the same surface.
+  describe "shared notification toggles" do
+    before { AppSetting.delete_all }
+
+    describe ".notifications_send_all?" do
+      it "defaults to false on a fresh install" do
+        expect(AppSetting.notifications_send_all?).to be(false)
+      end
+
+      it "is true after set_notification_toggle!(:notifications_send_all, true)" do
+        AppSetting.set_notification_toggle!(:notifications_send_all, true)
+        expect(AppSetting.notifications_send_all?).to be(true)
+      end
+    end
+
+    describe ".notifications_send_daily_digest?" do
+      it "defaults to false on a fresh install" do
+        expect(AppSetting.notifications_send_daily_digest?).to be(false)
+      end
+
+      it "is true after set_notification_toggle!(:notifications_send_daily_digest, true)" do
+        AppSetting.set_notification_toggle!(:notifications_send_daily_digest, true)
+        expect(AppSetting.notifications_send_daily_digest?).to be(true)
+      end
+    end
+
+    describe ".notifications_any_toggle_on?" do
+      it "is false when both toggles are off" do
+        expect(AppSetting.notifications_any_toggle_on?).to be(false)
+      end
+
+      it "is true when only `all` is on" do
+        AppSetting.set_notification_toggle!(:notifications_send_all, true)
+        expect(AppSetting.notifications_any_toggle_on?).to be(true)
+      end
+
+      it "is true when only `daily_digest` is on" do
+        AppSetting.set_notification_toggle!(:notifications_send_daily_digest, true)
+        expect(AppSetting.notifications_any_toggle_on?).to be(true)
+      end
+
+      it "is true when both toggles are on" do
+        AppSetting.set_notification_toggle!(:notifications_send_all, true)
+        AppSetting.set_notification_toggle!(:notifications_send_daily_digest, true)
+        expect(AppSetting.notifications_any_toggle_on?).to be(true)
+      end
+    end
+
+    describe ".set_notification_toggle!" do
+      it "raises ArgumentError on an unknown column" do
+        expect {
+          AppSetting.set_notification_toggle!(:notifications_send_carrier_pigeon, true)
+        }.to raise_error(ArgumentError, /unknown notification toggle/)
+      end
+
+      it "coerces truthy to true and falsy to false" do
+        AppSetting.set_notification_toggle!(:notifications_send_all, "yes")
+        expect(AppSetting.notifications_send_all?).to be(true)
+        AppSetting.set_notification_toggle!(:notifications_send_all, nil)
+        expect(AppSetting.notifications_send_all?).to be(false)
+      end
+
+      it "is idempotent" do
+        AppSetting.set_notification_toggle!(:notifications_send_all, true)
+        expect {
+          AppSetting.set_notification_toggle!(:notifications_send_all, true)
+        }.not_to raise_error
+        expect(AppSetting.notifications_send_all?).to be(true)
+      end
+    end
   end
 
   # Phase 32 follow-up (2026-05-16) — three-layer reindex lock.

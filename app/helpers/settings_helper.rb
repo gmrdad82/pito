@@ -31,4 +31,24 @@ module SettingsHelper
     else raise ArgumentError, "unknown brand: #{brand.inspect}"
     end
   end
+
+  # Beta 4 — F3-B-SIMPLIFY-MODEL (2026-05-20). Renders the unified-
+  # notifications shared toggle state for the given column.
+  #
+  # The two shared columns live on the canonical
+  # `AppSetting.singleton_row`. The view passes either `:all` or
+  # `:daily_digest`; the helper maps to the matching column predicate.
+  # Checkboxes are now independent of webhook configuration — the
+  # toggle can be ON even when no webhook URL is set.
+  #
+  # @param toggle [Symbol] :all or :daily_digest
+  # @return [Boolean]
+  def shared_routing_flag_on?(toggle)
+    case toggle.to_sym
+    when :all, :everything             then AppSetting.notifications_send_all?
+    when :daily_digest                 then AppSetting.notifications_send_daily_digest?
+    else
+      false
+    end
+  end
 end

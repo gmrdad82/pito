@@ -5,12 +5,19 @@ RSpec.describe DailyDigestSchedulerJob, type: :job do
   include ActiveSupport::Testing::TimeHelpers
   include ActiveJob::TestHelper
 
+  # 2026-05-20 — F3-B-SIMPLIFY-MODEL. The "daily digest is on" gate is
+  # the shared `AppSetting.notifications_send_daily_digest?` flag AND at
+  # least one `NotificationDeliveryChannel` with a present URL. The
+  # per-brand `daily_digest` column was dropped.
   let!(:channel) do
     NotificationDeliveryChannel.create!(
       kind: "slack",
-      webhook_url: "https://hooks.slack.com/services/T01ABCD/B02EFGH/abcdefXYZ1234567",
-      daily_digest: true
+      webhook_url: "https://hooks.slack.com/services/T01ABCD/B02EFGH/abcdefXYZ1234567"
     )
+  end
+
+  before do
+    AppSetting.set_notification_toggle!(:notifications_send_daily_digest, true)
   end
 
   # `last_run` defaults to a clearly-in-the-past instant relative to
@@ -209,8 +216,17 @@ RSpec.describe DailyDigestSchedulerJob, type: :job do
   end
 
   describe "users without enabled channels" do
-    it "does NOT pick users when no NotificationDeliveryChannel has digest_enabled" do
-      channel.update!(daily_digest: false)
+    it "does NOT pick users when the shared daily-digest toggle is off" do
+      AppSetting.set_notification_toggle!(:notifications_send_daily_digest, false)
+      user = with_user(tz: "Etc/UTC")
+      travel_to(Time.utc(2026, 6, 15, 9, 0, 0)) do
+        described_class.new.perform
+      end
+      expect(enqueued_user_ids).not_to include(user.id)
+    end
+
+    it "does NOT pick users when no NotificationDeliveryChannel has a URL" do
+      channel.update!(webhook_url: nil)
       user = with_user(tz: "Etc/UTC")
       travel_to(Time.utc(2026, 6, 15, 9, 0, 0)) do
         described_class.new.perform

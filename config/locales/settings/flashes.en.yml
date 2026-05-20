@@ -36,16 +36,13 @@ en:
         cleared: "Slack cleared."
         clear_failed: "Slack clear failed."
     notification_toggle:
-      brand:
-        discord: "Discord"
-        slack: "Slack"
       kind:
         everything: "all"
         daily_digest: "daily digest"
       flash:
         unknown: "unknown toggle."
-        toggled: "%{brand} %{kind} %{state}."
-        toggle_failed: "%{brand} %{kind} failed."
+        toggled: "%{kind} %{state}."
+        toggle_failed: "%{kind} failed."
     totp:
       flash:
         already_on: "2FA already on."

@@ -95,12 +95,18 @@ class DailyDigestSchedulerJob < ApplicationJob
     User.order(:id).first
   end
 
-  # True iff at least one `NotificationDeliveryChannel` is configured
-  # for daily digest. Channels are install-level singletons keyed by
-  # `kind` (per ADR 0003) so this is a single existence check, NOT a
-  # per-user join.
+  # 2026-05-20 — F3-B-SIMPLIFY-MODEL. The "daily digest is on" gate is
+  # now the shared `AppSetting.notifications_send_daily_digest?` flag
+  # AND at least one configured `NotificationDeliveryChannel`. The
+  # per-brand `daily_digest` column was dropped along with the
+  # per-brand routing flags.
   def any_digest_channel_configured?
-    NotificationDeliveryChannel.where(daily_digest: true).exists?
+    return false unless AppSetting.notifications_send_daily_digest?
+
+    NotificationDeliveryChannel
+      .where.not(webhook_url: nil)
+      .where(kind: NotificationDeliveryChannel::KINDS)
+      .exists?
   end
 
   # True iff the anchor's local 09:00 instant has passed within the

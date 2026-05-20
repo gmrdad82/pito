@@ -131,9 +131,10 @@ module PitoStateCapture
   # surface returns on first creation).
   def build_payload(user)
     {
-      totp:       totp_payload(user),
-      webhooks:   webhooks_payload,
-      oauth_apps: oauth_apps_payload
+      totp:          totp_payload(user),
+      webhooks:      webhooks_payload,
+      notifications: notifications_payload,
+      oauth_apps:    oauth_apps_payload
     }
   end
 
@@ -156,13 +157,22 @@ module PitoStateCapture
 
       payload[kind] = {
         webhook_url:       record.webhook_url,
-        everything:        YesNo.to_yes_no(record.everything),
-        daily_digest:      YesNo.to_yes_no(record.daily_digest),
         last_validated_at: record.last_validated_at&.utc&.iso8601
       }.compact
     end
 
     payload
+  end
+
+  # 2026-05-20 — F3-B-SIMPLIFY-MODEL. The two shared notification
+  # toggles live on `AppSetting.singleton_row`. Capture them under a
+  # dedicated `notifications` block (separate from per-brand
+  # `webhooks`) so the seed restore path can read them by name.
+  def notifications_payload
+    {
+      send_all:          YesNo.to_yes_no(AppSetting.notifications_send_all?),
+      send_daily_digest: YesNo.to_yes_no(AppSetting.notifications_send_daily_digest?)
+    }
   end
 
   def oauth_apps_payload
@@ -257,12 +267,15 @@ module PitoStateCapture
     if webhook_count.zero?
       puts "  * no Discord/Slack webhook rows — skipping webhooks block."
     else
-      payload[:webhooks].each do |kind, cfg|
-        puts "  * webhook[#{kind}]: " \
-             "everything=#{cfg[:everything]}, " \
-             "daily_digest=#{cfg[:daily_digest]}."
+      payload[:webhooks].each_key do |kind|
+        puts "  * webhook[#{kind}] captured."
       end
     end
+
+    notifications = payload[:notifications] || {}
+    puts "  * notifications shared toggles: " \
+         "send_all=#{notifications[:send_all]}, " \
+         "send_daily_digest=#{notifications[:send_daily_digest]}."
 
     app_count = payload[:oauth_apps].size
     if app_count.zero?

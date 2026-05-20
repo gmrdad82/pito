@@ -1,8 +1,8 @@
 # Phase 26 — 01b/01c. Install-level per-provider webhook configuration.
-# Persists the webhook URL + routing flags for each notification
-# delivery provider. One row per provider; the unique index on `kind`
-# enforces install-level singleton-per-provider invariant (ADR-0003 —
-# the whole install is one user-base; webhook config is shared).
+# Persists the webhook URL for each notification delivery provider.
+# One row per provider; the unique index on `kind` enforces install-
+# level singleton-per-provider invariant (ADR-0003 — the whole install
+# is one user-base; webhook config is shared).
 #
 # The PORO dispatchers under `app/services/notification_delivery_channel/`
 # (`Slack`, `Discord`, `InApp`) read from this table first to resolve the
@@ -19,31 +19,30 @@
 # reads the row off disk should not be able to extract a callable
 # delivery target.
 #
-# `everything` and `daily_digest` are independent Boolean flags
-# capturing routing intent per provider. Both default to `false`; both
-# are mutable from the Settings pane.
-#
 # `last_validated_at` records the time the most recent test ping
 # succeeded. The pane refuses to persist the row until a 2xx ping has
 # landed for the URL.
+#
+# 2026-05-20 — F3-B-SIMPLIFY-MODEL. The per-brand `everything` /
+# `daily_digest` boolean columns were dropped. Two SHARED columns live
+# on `AppSetting`'s singleton row instead:
+#
+#   - `notifications_send_all`
+#   - `notifications_send_daily_digest`
+#
+# Per-brand routing is no longer a model concern; the only question
+# this model answers is "what URL do I POST to for this brand?". The
+# delivery gate (shared toggle ON + brand webhook URL present) is
+# enforced by the service layer, not the model.
 #
 # 2026-05-16 webhook-clear UX tweak.
 # `webhook_url` is now nullable at the DB level. A nil URL represents
 # "integration cleared" — the row stays on the table (so the panes can
 # render a stable empty form) but no delivery target is configured.
-# The `nilify_blank_webhook_url` (before_validation) +
-# `zero_flags_when_webhook_url_blank` (before_save) callback pair
-# enforces the invariant "URL nil implies both flags false" at the
-# model layer so every surface (web form, MCP tool, console, future
-# CLI) lands on the same state shape without each controller having
-# to special-case it.
-#
-# 2026-05-17 — the original combined `nilify_blank_webhook_url_and_zero_flags`
-# `before_validation` callback was split: the flag-zeroing half moved to
-# `before_save` so the `flags_require_webhook_url` validator sees the
-# user-submitted intent (flag-on with blank URL) and fails loudly,
-# instead of silently no-opping after the callback already coerced the
-# flag to false.
+# The `nilify_blank_webhook_url` (before_validation) callback enforces
+# the invariant at the model layer so every surface (web form, MCP
+# tool, console, future CLI) lands on the same state shape without
+# each controller having to special-case it.
 class NotificationDeliveryChannel < ApplicationRecord
   # Active Record Encryption — probabilistic (not deterministic). The
   # URL is never the target of a `where(webhook_url: ...)` lookup; we
@@ -92,24 +91,12 @@ class NotificationDeliveryChannel < ApplicationRecord
   # Normalize a blank `webhook_url` to nil before validation so the
   # URL-format validator (and the host-allowlist validator) can
   # short-circuit on `webhook_url.nil?` cleanly.
-  #
-  # 2026-05-17 — the flag-zeroing half of the original callback moved
-  # to `before_save` (post-validation). Zeroing flags BEFORE validation
-  # silently swallowed the "flag on, URL blank" intent — the
-  # `flags_require_webhook_url` validator returned early because the
-  # flag was already false by the time it ran, so `save` returned true
-  # and the controller flashed "on" even though the DB stored false.
-  # Keeping nilification pre-validation (so URL-format checks bail
-  # cleanly) and deferring flag-zeroing to post-validation lets the
-  # validator see the user's actual intent and fail loudly.
   before_validation :nilify_blank_webhook_url
-  before_save :zero_flags_when_webhook_url_blank
 
   validates :kind, presence: true, inclusion: { in: KINDS }
   validates :kind, uniqueness: { case_sensitive: false }
   validate :webhook_url_host_must_match_kind
   validate :webhook_url_must_match_kind
-  validate :flags_require_webhook_url
 
   scope :for_kind, ->(kind) { where(kind: kind.to_s) }
 
@@ -189,41 +176,6 @@ class NotificationDeliveryChannel < ApplicationRecord
     errors.add(:webhook_url, "is not a valid URL.")
   end
 
-  # 2026-05-17 — the primary user-facing role of this validator is to
-  # block the auto-save toggle's "flag on, URL blank" attempt and
-  # surface a flash alert ("Slack webhook URL not configured.") so the
-  # toggle visibly reverts on the next render.
-  #
-  # Kind-specific copy lets the same message stay accurate whether the
-  # offending toggle is on the Slack pane or the Discord pane. The
-  # `:base` error keeps `errors.full_messages.to_sentence` clean (no
-  # `Base routing flags ...` prefix).
-  #
-  # Only fires on a transition INTO `true` for a flag — i.e. when
-  # `everything_changed?(to: true)` or `daily_digest_changed?(to: true)`.
-  # This is deliberate: a legacy row with a stale `true` flag and a
-  # blank URL must remain togglable OFF without first satisfying the
-  # validator. Without the `_changed?(to: true)` guard, a user trying
-  # to flip `everything` OFF on such a row would be blocked because
-  # the other flag is still `true` in memory.
-  #
-  # The `zero_flags_when_webhook_url_blank` `before_save` callback acts
-  # as a defense-in-depth post-validation guard for code paths that
-  # somehow bypass validation (e.g. `update_columns` skipping both
-  # callbacks and validations together): once validation has run, any
-  # surviving flag-on-with-blank-URL state gets quietly normalized so
-  # the persisted row never violates the invariant.
-  def flags_require_webhook_url
-    return if webhook_url.present?
-
-    turning_on =
-      everything_changed?(to: true) ||
-      daily_digest_changed?(to: true)
-    return unless turning_on
-
-    errors.add(:base, "#{brand_label} webhook URL not configured.")
-  end
-
   # Resolve the lowercase `kind` to the proper-noun brand label. Falls
   # back to a capitalized form if `kind` is somehow blank or unknown,
   # so the error message stays grammatical instead of dropping into an
@@ -232,28 +184,12 @@ class NotificationDeliveryChannel < ApplicationRecord
     BRAND_LABELS[kind.to_s] || kind.to_s.capitalize.presence || "This"
   end
 
-  # 2026-05-16 webhook-clear UX tweak / 2026-05-17 split.
+  # 2026-05-16 webhook-clear UX tweak.
   # Strip + nilify a blank `webhook_url`. Runs pre-validation so the
   # URL-format + host-allowlist validators can cleanly short-circuit
   # on `webhook_url.nil?`.
   def nilify_blank_webhook_url
     self.webhook_url = webhook_url.to_s.strip
     self.webhook_url = nil if webhook_url.blank?
-  end
-
-  # 2026-05-17 — post-validation flag normalization.
-  # If validation passed AND the URL ended up blank, zero both routing
-  # flags so the persisted row is internally consistent. In the normal
-  # "flag on, URL blank" case the `flags_require_webhook_url`
-  # validator already blocked the save, so this callback never runs for
-  # that scenario — it only fires when the URL is being cleared
-  # legitimately (e.g. the webhook controller's `clear` keyword, which
-  # explicitly assigns `everything: false, daily_digest: false`
-  # alongside `webhook_url: nil`).
-  def zero_flags_when_webhook_url_blank
-    return if webhook_url.present?
-
-    self.everything = false
-    self.daily_digest = false
   end
 end

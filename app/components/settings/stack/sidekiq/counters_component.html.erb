@@ -11,6 +11,19 @@
     Lifetime fills only cols 3 + 5 → `successful` lands under `enqueued`,
     `failed` lands under `dead`. Cols 1, 2, 4 are spacer cells.
 
+    Beta 4 F3-D — per-cell tonal class via `color_class_for(state)`:
+
+      busy       → tui-chip--success  (green)
+      enqueued   → tui-chip--warn     (orange)
+      retry/dead → tui-chip--danger   (pink)
+      failed     → tui-chip--danger   (pink)
+      scheduled  → tui-chip--neutral  (muted)
+      processed  → default text color
+
+    Cells with a zero count roll back to `tui-chip--neutral` so green /
+    orange / pink only surface on a real signal — matches the
+    status-bar Sidekiq segment's `.sk-zero` behavior.
+
     The wrapping `<div>` carries the pair so the vertical spacing reads
     as one Redis-stats block. %>
 <div style="margin-bottom: 8px;">
@@ -35,11 +48,11 @@
       <tr>
         <td class="num"></td>
         <td class="num"></td>
-        <td class="num" data-stack-stats-live-target="successful">
+        <td class="num <%= color_class_for("processed") %>" data-stack-stats-live-target="successful">
           <%= cell_for("processed") %>
         </td>
         <td class="num"></td>
-        <td class="num" data-stack-stats-live-target="failed">
+        <td class="num <%= color_class_for("failed") %>" data-stack-stats-live-target="failed">
           <%= cell_for("failed") %>
         </td>
       </tr>
@@ -65,7 +78,7 @@
     <tbody>
       <tr>
         <% QUEUE_STATES.each do |state| %>
-          <td class="num" data-stack-stats-live-target="<%= state %>">
+          <td class="num <%= color_class_for(state) %>" data-stack-stats-live-target="<%= state %>">
             <%= cell_for(state) %>
           </td>
         <% end %>
