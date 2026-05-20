@@ -254,7 +254,13 @@
         + the standalone /notifications page mounts still cover the
         partial; the layout-level live-update will return when
         /notifications comes back into scope. %>
-    <header style="position: sticky; top: 0; left: 0; right: 0; background: var(--color-bg); border-bottom: 1px solid var(--color-border); padding: 4px 12px; z-index: 100;">
+    <%# FB-121 (2026-05-21) — TST height parity with BST. BST is
+        4px top + 13px content + 4px bottom + 1px border-top = 22px.
+        TST has its `border-bottom` neutralized by `body > header` rule
+        in application.css (FB-23 dropped the hairline). To match
+        22px the asymmetric padding splits the missing 1px border into
+        an extra row of top padding: 5px + 13px + 4px + 0 = 22px. %>
+    <header style="position: sticky; top: 0; left: 0; right: 0; background: var(--color-bg); border-bottom: 1px solid var(--color-border); padding: 5px 12px 4px 12px; z-index: 100;">
       <% unless content_for?(:hide_chrome) %>
         <%= render Tui::TopStatusBarComponent.new(
               section: current_section,

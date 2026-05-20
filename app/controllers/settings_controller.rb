@@ -2,15 +2,22 @@ class SettingsController < ApplicationController
   # 2026-05-16 (sessions revamp v2). The Security pane now renders the
   # sessions table INLINE. Column sort is driven by `?sessions_sort=…`
   # + `?sessions_dir=…` on `/settings` itself (the standalone
-  # `/settings/sessions` index is gone). The allowlist mirrors the
-  # rendered column shape (`user_agent`, `last_activity`). The `ip`
-  # value is rendered as an inline tooltip badge inside the
-  # user-agent cell — it is not sortable, so it is not in the
-  # allowlist. `active` / `remember` columns were dropped from the
-  # table.
+  # `/settings/sessions` index is gone).
+  #
+  # FB-132 (2026-05-21). Allowlist expanded to all five data columns
+  # (`device`, `browser`, `ip`, `last_activity`, `created`) after
+  # migration `20260521002333_add_device_and_browser_to_sessions`
+  # promoted `device` + `browser` to real indexable columns. The legacy
+  # `user_agent` alias stays for backward compat (the prior
+  # `sessions_sort=user_agent` query string still resolves) but the
+  # canonical key is `device` going forward.
   SESSIONS_ALLOWED_SORTS = {
+    "device"        => "device",
+    "browser"       => "browser",
+    "ip"            => "ip",
     "last_activity" => "last_activity_at",
-    "user_agent"    => "user_agent"
+    "created"       => "created_at",
+    "user_agent"    => "device" # legacy alias — pre-FB-132 query strings
   }.freeze
   SESSIONS_ALLOWED_DIRS = %w[asc desc].freeze
   SESSIONS_DEFAULT_SORT = "last_activity"

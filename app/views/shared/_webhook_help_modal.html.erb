@@ -67,6 +67,7 @@
 <dialog id="webhook-help-modal"
         class="pane-dialog webhook-help-modal tui-dialog-frame"
         style="max-width: 900px; width: min(900px, 92vw);"
+        data-controller="tui-dialog-frame"
         data-webhook-help-title-slack="<%= t("settings.webhooks.help.brand_title", brand: "Slack") %>"
         data-webhook-help-title-discord="<%= t("settings.webhooks.help.brand_title", brand: "Discord") %>"
         data-action="click->webhook-help-modal#clickOutside keydown->webhook-help-modal#keydown"

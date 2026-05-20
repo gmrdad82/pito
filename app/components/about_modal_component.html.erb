@@ -5,7 +5,7 @@
     `confirm-modal` Stimulus controller still handles click-outside +
     Escape. %>
 <dialog id="<%= AboutModalComponent::MODAL_ID %>" class="confirm-modal tui-dialog-frame"
-        data-controller="confirm-modal"
+        data-controller="confirm-modal tui-dialog-frame"
         data-action="click->confirm-modal#clickOutside keydown->confirm-modal#keydown">
   <span class="tui-dialog-frame__title-left"><%= t("about.modal.title") %></span>
   <span class="tui-dialog-frame__title-right">[<%= t("keys.esc") %>] <%= t("about.modal.esc_close_suffix") %></span>
@@ -37,7 +37,21 @@
     <div style="display: flex; justify-content: center; margin: 10px 0 0;">
       <dl style="display: grid; grid-template-columns: auto auto; column-gap: 8px; row-gap: 4px; margin: 0;">
         <dt class="text-muted" style="text-align: right;"><%= t("about.modal.version_label") %></dt>
-        <dd style="margin: 0; text-align: left;"><%= version_string %></dd>
+        <%# FB-128 (2026-05-21) — Version renders as a bracketed action
+            linking to the GitHub commit the process was built from.
+            `BracketedLinkComponent` auto-detects the absolute `https://`
+            href and emits `target="_blank"` + `rel="noopener noreferrer"`,
+            so the canonical bracket chrome carries through. Falls back
+            to plain unlinked text when `Pito::GitRevision` could not
+            capture a SHA at boot (production container without `.git/`
+            etc.) — see `AboutModalComponent#commit_url`. %>
+        <dd style="margin: 0; text-align: left;">
+          <% if commit_url %>
+            <%= render BracketedLinkComponent.new(label: version_string, href: commit_url) %>
+          <% else %>
+            <%= version_string %>
+          <% end %>
+        </dd>
         <dt class="text-muted" style="text-align: right;"><%= t("about.modal.env_label") %></dt>
         <dd style="margin: 0; text-align: left;"><%= env %></dd>
       </dl>

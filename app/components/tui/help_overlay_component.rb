@@ -74,6 +74,20 @@ module Tui
           { key: "Ctrl-j",    label_key: "panel_down" }
         ]
       },
+      # FB-133 (2026-05-21) — vim-inspired NORMAL / INSERT mode model.
+      # Pressing `i` flips the mode lozenge in the bottom status bar
+      # from "NORMAL" to "INSERT"; pressing `Esc` flips it back. In
+      # INSERT mode, `Space` toggles the focused row's checkbox (so
+      # the user can navigate rows in NORMAL, press `i`, then `Space`
+      # to flip checkboxes without leaving the keyboard).
+      {
+        group_key: "mode",
+        items: [
+          { key: "i",     label_key: "enter_insert" },
+          { key: "Esc",   label_key: "exit_insert" },
+          { key: "Space", label_key: "toggle_checkbox_insert" }
+        ]
+      },
       {
         group_key: "session",
         items: [

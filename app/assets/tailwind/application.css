@@ -284,8 +284,13 @@ a:visited {
    sitewide; affordance comes from cursor + bracketed glyphs, not color
    transitions on pointer hover. */
 
-/* Bracketed links: [ text ] — whole thing is clickable */
-a.bracketed:visited, a.bracketed:visited .bl { color: var(--color-link); }
+/* Bracketed links: [ text ] — whole thing is clickable.
+   FB-111 (2026-05-20) — bracketed actions pick up the section accent
+   (orange for /settings, etc.) and fall back to --color-link only when
+   no section accent is set. Muted and danger variants below win on
+   specificity and keep their own colors. */
+a.bracketed, a.bracketed .bl { color: var(--section-accent, var(--color-link)); }
+a.bracketed:visited, a.bracketed:visited .bl { color: var(--section-accent, var(--color-link)); }
 
 /* Muted bracketed text — disabled/over-limit state. Normal weight to
    match the rest of the bracketed-action family (FB-9, 2026-05-20).
@@ -438,7 +443,10 @@ button.bracketed {
   font: inherit;
   font-weight: 400;
   cursor: pointer;
-  color: var(--color-link);
+  /* FB-111 (2026-05-20) — bracketed submit buttons pick up the section
+     accent (orange for /settings webhook [update]) and fall back to
+     --color-link when no section accent is set. */
+  color: var(--section-accent, var(--color-link));
 }
 /* FB-67 (2026-05-20) — no hover color swap on bracketed buttons. */
 button.bracketed .bl {
@@ -793,7 +801,15 @@ button.bracketed.text-danger .bl {
    chrome reads as a label fused into the frame. */
 .pito-sub-panel {
   position: relative;
-  border: 1px solid var(--color-border);
+  /* FB-122 (2026-05-21) — explicit per-side border declarations so the
+     `.stack-pane-grid > *` defensive zero-out (which strips `border-right`
+     + `border-bottom` from legacy inline-styled tiles) does NOT clip the
+     sub-panel's right + bottom hairlines. The per-side rules sit higher
+     in cascade order against the generic grid-child selector. */
+  border-top: 1px solid var(--color-border);
+  border-right: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+  border-left: 1px solid var(--color-border);
   padding: 12px 10px 8px;
   background: transparent;
 }
@@ -1004,32 +1020,53 @@ tr[data-tui-cursor-row-focused="yes"],
    (content-sized) + security (grows to fill); the right column has
    stack (sole child, grows to fill).
    `min-height: 0` allows the flex item to shrink below its intrinsic
-   content height too — needed for the overflow rule to engage when
-   content exceeds the available space.
-   `overflow: auto` lets content scroll WITHIN the panel rather than
-   pushing the BST off-screen. Future FB-61/FB-12 sub-cursor wiring
-   will own j/k scroll inside the panel; the mouse scrollbar is the
-   intermediate fallback. */
+   content height too — needed for any future inner-overflow rule on
+   a scrollable child to engage when content exceeds available space.
+
+   FB-123 (2026-05-21) — `overflow: auto` REMOVED from the panel root.
+   The V4 chrome on `.pito-pane` and `.pito-sub-panel` uses
+   `position: absolute; top: -7px` for both the title (`__title`) and
+   the sub-panel actions (`__actions`) to sit ON the top border line.
+   Those elements extend OUTSIDE the panel's content box (above
+   `top: 0`); with `overflow: auto`, the browser clips the overhang —
+   visible in the security panel (last in left column) and the stack
+   panel (sole child in right column) as cut sub-panel chrome and
+   missing top-border title fragments. Notifications was unaffected
+   because it is NOT `:last-child` of its column, so the rule never
+   matched it — that explained why the same `.pito-pane` component
+   rendered differently across the three panels.
+
+   Fix: keep flex-grow on `:last-child`, switch to `overflow: visible`
+   so V4 chrome overhangs paint cleanly. If a specific child ever
+   needs to scroll (long sessions table, dense breakdowns), wrap THAT
+   child in a scroll container (`overflow: auto; max-height: 100%`) —
+   pushing scroll handling DOWN to the content rather than the panel
+   chrome. Deferred until a panel actually overflows in practice. */
 .settings-panes--v3 .settings-panes__left > :last-child,
 .settings-panes--v3 .settings-panes__right > :last-child {
   flex: 1 1 auto;
   min-height: 0;
-  overflow: auto;
+  overflow: visible;
 }
 
 /* FB-?? (2026-05-20) — panels containing V4 sub-panels need extra
    top padding so the sub-panel titles (positioned at `top: -7px`) have
-   room to render INSIDE the parent's content box. Without this, the
-   FB-88 `overflow: auto` on the last-child stack pane clips the first
-   sub-panel's title overhang.
+   room to render INSIDE the parent's content box (kept for visual
+   rhythm even after FB-123 dropped panel-level `overflow: auto` — the
+   sub-panel title overhang still benefits from breathing room above).
    `:has(.pito-sub-panel)` scopes the rule to only those panels that
    actually host sub-panels (stack pane today); security + notifications
    keep their tight 6px top padding. */
 .pito-pane:has(.pito-sub-panel) {
-  /* FB-92 (2026-05-20) — sub-panels breathe better: less horizontal margin
-     vs outer panel border (L/R 10 -> 6) + more vertical margin (bottom
-     6 -> 10). Top stays 14px (FB-90) for sub-panel title overhang. */
-  padding: 14px 6px 10px;
+  /* FB-122 (2026-05-21) — L/R 8 and bottom 12 keep sub-panels'
+     right + bottom hairlines clear of the parent `.pito-pane`'s
+     content-box edge for visual rhythm. Originally introduced to
+     compensate for FB-88's `overflow: auto` clipping (now removed in
+     FB-123, 2026-05-21) — padding kept at these values as the
+     density/breathing balance is independently desirable. Top stays
+     14px (FB-90) for sub-panel title overhang. Was 14px / 6px / 10px
+     (FB-92). */
+  padding: 14px 8px 12px;
 }
 
 /* FB-92 (2026-05-20) — left column carries TOP-LEVEL stacked panels
@@ -1283,7 +1320,7 @@ th, td {
 thead th {
   color: var(--color-muted);
   font-weight: 700;
-  font-size: 14px;
+  font-size: 13px;
   background: var(--color-bg-header);
   border-bottom: 2px solid var(--color-table-header-border);
 }
@@ -1482,17 +1519,19 @@ th.col-action, td.col-action {
 .stack-pane-grid {
   display: flex;
   flex-direction: column;
-  /* FB-92 (2026-05-20) — vertical breathing between sub-panels bumped
-     from 8px to 12px so adjacent sub-panel borders don't crowd each other. */
-  gap: 12px;
+  /* FB-122 (2026-05-21) — vertical breathing between sub-panels bumped
+     from 12px to 16px so adjacent sub-panel borders read as a deliberate
+     gap rather than crowded twin hairlines. Was 8px (initial), 12px (FB-92). */
+  gap: 16px;
 }
-/* Defensive opt-out — if any legacy child still ships inline
-   `border-right` / `border-bottom` (e.g. cached partial fragments),
-   strip those so the vertical-gap layout reads cleanly. */
-.stack-pane-grid > * {
-  border-right: 0;
-  border-bottom: 0;
-}
+/* FB-122 (2026-05-21) — the prior `.stack-pane-grid > * { border-right: 0;
+   border-bottom: 0 }` defensive zero-out (intended to strip legacy inline
+   border styling from cached partial fragments) was clipping the
+   `.pito-sub-panel` right + bottom hairlines because every sub-panel IS a
+   direct child of `.stack-pane-grid`. Removed entirely — sub-panels now
+   render all four hairlines via the per-side declarations on
+   `.pito-sub-panel`, and any future legacy inline overrides should be
+   fixed at source rather than masked by a defensive selector here. */
 
 /* Stack-pane breakdown tables (`/settings` row 3 — Postgres / Redis /
    Meilisearch / assets / notes) plus the sessions table on the
@@ -2723,6 +2762,11 @@ dialog.confirm-modal::backdrop {
   font-family: var(--default-mono-font-family);
   font-size: 13px;
   line-height: 1;
+  /* FB-129 (2026-05-21). Narrower markdown column inside dialogs — prose
+     reads more comfortably at ~600px than the dialog's natural full width.
+     The dialog frame still governs outer padding; this cap applies only to
+     the rendered markdown surface. */
+  max-width: 600px;
 }
 .webhook-help-content h1 {
   font-size: 13px;
@@ -2758,11 +2802,15 @@ dialog.confirm-modal::backdrop {
   line-height: 1;
   margin: 4px 0;
 }
-.webhook-help-content hr {
-  height: 0;
-  border: 0;
-  border-top: 1px solid var(--color-border);
-  margin: 20px 0;
+/* FB (2026-05-21). Drop all horizontal-line separators inside markdown
+   dialogs. The markdown sources may still use `---` between sections, but
+   the rendered `<hr>` reads as wasted whitespace + decoration. Hide them
+   in every dialog-hosted markdown surface (webhook help, help overlay,
+   and any generic `.tui-dialog-frame` consumer rendering markdown). */
+.webhook-help-content hr,
+.tui-help-overlay hr,
+.tui-dialog-frame hr {
+  display: none;
 }
 .webhook-help-content pre {
   background: var(--color-bg-alt);
@@ -3565,7 +3613,7 @@ textarea.note-editor-source {
   width: 100%;
   font-family: ui-monospace, "Cascadia Code", "Source Code Pro", Menlo,
     Consolas, monospace;
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1.4;
   letter-spacing: 0;
   user-select: none;
@@ -4700,7 +4748,7 @@ section[data-shelf="outer-genres"] > section.sub-shelf:not(:first-of-type) {
    subscribers · M videos` row. Inline-friendly so the bullet
    separators sit on the same baseline. */
 .channel-headline__meta {
-  font-size: 14px;
+  font-size: 13px;
   margin-bottom: 6px;
 }
 
@@ -4842,7 +4890,7 @@ section[data-shelf="outer-genres"] > section.sub-shelf:not(:first-of-type) {
    background so no UA / theme default leaks through. */
 input[type="text"].bundle-title-input {
   font-family: inherit;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: bold;
   line-height: inherit;
   color: var(--color-text);
@@ -4961,7 +5009,7 @@ input[type="text"].bundle-title-input:focus-visible {
   width: 100%;
   font-family: ui-monospace, "Cascadia Code", "Source Code Pro", Menlo,
     Consolas, monospace;
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1.4;
   letter-spacing: 0;
   user-select: none;
@@ -5289,11 +5337,15 @@ body > header {
 }
 
 /* Left group — version (muted) + section (bold + accent) + page tail */
-/* FB-57: padding-top: 2px lifts version baseline to match section name */
+/* FB-121 (2026-05-21) — `padding-top: 2px` (legacy FB-57 baseline lift)
+   dropped: the flex row centered on the taller `.sb-version` cell,
+   inflating the TST total height to ~23px and making it visibly taller
+   than the BST (22px). The baseline alignment FB-57 chased is now
+   achieved by the row's `align-items: center` against same-height
+   siblings (all 13px text), so no per-cell padding is needed. */
 .sb-version {
   color: var(--color-muted);
   font-weight: 400;
-  padding-top: 2px;
 }
 
 /* 2026-05-20 (FB-chrome-weight) — bold dropped from TSB section name +
@@ -6047,8 +6099,21 @@ dialog.webhook-help-modal::backdrop {
   gap: 1ch;
   align-items: baseline;
 }
+/* FB-136 (2026-05-21) — global thead rule above is now 13px (was the
+   legacy offender). Keep these belt-and-suspenders selectors so any
+   future cascade regression on the sessions table counter or
+   `.tui-table` headers still resolves to the canonical 13px body size
+   (design.md single-font-size lock). */
+.sessions-table thead th,
+.sessions-table thead .sessions-table__counter {
+  font-size: 13px;
+}
 .sessions-table thead .sessions-table__counter {
   color: var(--color-muted);
+}
+
+.tui-table thead th {
+  font-size: 13px;
 }
 
 /* ===== Tui::ShadedDensityComponent =====
@@ -6116,4 +6181,37 @@ dialog:focus-visible {
   border: none;
   margin: 0;
   min-width: 0;
+}
+
+/* ===== Tui::ConfirmationDialogComponent =====
+   FB-124 (2026-05-21). Canonical confirmation dialog. Built on
+   `.tui-dialog-frame` (title left-flush + `[Esc] to close` right-flush
+   on the top border). One `<p>` message + one danger submit, no
+   `[cancel]`, no internal hairlines. Backdrop matches the help overlay
+   (lighter color-mix); the Stimulus controller blocks click-to-dismiss
+   per FB-127. */
+.tui-confirmation-dialog__message {
+  margin: 0 0 8px;
+  line-height: 1;
+  font-style: normal;
+}
+.tui-confirmation-dialog__form {
+  margin: 0;
+}
+dialog.tui-confirmation-dialog::backdrop {
+  background: color-mix(in srgb, var(--dracula-bg) 70%, transparent);
+}
+
+/* ===== Tui::ReindexProgressComponent =====
+   FB-125 (2026-05-21). Animated `[=-------]` style progress indicator that
+   replaces `[reindex]` during a running reindex job. Width contract: 9 chars
+   including brackets, matching `[reindex]`. The `=` moves left-to-right
+   across 7 dashes; Stimulus controller drives the animation client-side. */
+.tui-reindex-progress {
+  color: var(--section-accent, var(--color-link));
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+  line-height: 1;
+  white-space: pre;
 }

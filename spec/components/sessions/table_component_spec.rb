@@ -97,6 +97,17 @@ RSpec.describe Sessions::TableComponent, type: :component do
       )
     end
 
+    # FB-131 (2026-05-21) — Bug B: `<colgroup>` + `table-layout: fixed`
+    # lock column widths so the row swap (defaultHeader ↔ actionHeader)
+    # no longer reflows on selection.
+    it "renders a `<colgroup>` with 6 explicit-width `<col>` cells" do
+      expect(page).to have_css("table.sessions-table colgroup col", count: 6, visible: :all)
+    end
+
+    it "stamps `table-layout: fixed` on the sessions table to prevent jiggle on selection" do
+      expect(page).to have_css("table.sessions-table[style*='table-layout: fixed']", visible: :all)
+    end
+
     it "stamps FB-108 alignment classes on the per-column header cells" do
       # Text columns (device / browser / ip) get `--left`; date
       # columns (last seen / created) get `--right` + `.num`
@@ -156,13 +167,16 @@ RSpec.describe Sessions::TableComponent, type: :component do
       expect(page).to have_content("safari")
     end
 
-    it "renders the TUI checkbox primitive on every row (3 rows + 1 header = 4 total)" do
+    it "renders the TUI checkbox primitive on every row (3 rows + 2 headers = 5 total)" do
       # Each row's `<span class="sessions-table__checkbox">` wraps a
       # `Tui::CheckboxComponent` (form mode → `<label class=
-      # "tui-checkbox">`). The header gets the same primitive inside
-      # `--header` wrapper.
-      expect(page).to have_css("span.sessions-table__checkbox label.tui-checkbox", count: 4)
+      # "tui-checkbox">`). FB-131 (2026-05-21) — Bug A: the action
+      # header ALSO carries a select-all checkbox so the column-1
+      # affordance survives the row swap. Both headers wrap a
+      # `--header` modifier; total in `<thead>` = 2.
+      expect(page).to have_css("span.sessions-table__checkbox label.tui-checkbox", count: 5, visible: :all)
       expect(page).to have_css("tbody span.sessions-table__checkbox label.tui-checkbox", count: 3)
+      expect(page).to have_css("thead span.sessions-table__checkbox--header label.tui-checkbox", count: 2, visible: :all)
     end
   end
 
@@ -270,9 +284,15 @@ RSpec.describe Sessions::TableComponent, type: :component do
       )
     end
 
-    it "renders the header checkbox target wrapper for select-all" do
+    it "renders two header checkbox target wrappers (FB-131) — one per header row" do
+      # FB-131 (2026-05-21) — Bug A: defaultHeader + actionHeader BOTH
+      # carry a column-1 select-all checkbox so the deselect-all
+      # affordance survives the row swap. Stimulus auto-collects them
+      # as `headerCheckboxTargets`.
       expect(page).to have_css(
-        "span.sessions-table__checkbox--header[data-sessions-bulk-revoke-target='headerCheckbox']"
+        "span.sessions-table__checkbox--header[data-sessions-bulk-revoke-target='headerCheckbox']",
+        count: 2,
+        visible: :all
       )
     end
 

@@ -34,6 +34,15 @@ class AboutModalComponent < ViewComponent::Base
     Rails.env
   end
 
+  # FB-128 (2026-05-21) — GitHub commit URL for the running process,
+  # surfaced as a bracketed `[v0.0.1.beta3]` action in the version row.
+  # Returns `nil` when `Pito::GitRevision` could not capture a SHA at
+  # boot (production container without `.git/`, etc.) — the template
+  # falls back to plain unlinked text in that case.
+  def commit_url
+    Pito::GitRevision.commit_url
+  end
+
   # Mirrors the footer copy in `layouts/application.html.erb` so the two
   # surfaces stay in lockstep. `Date.current.year` matches the footer's
   # dynamic year.

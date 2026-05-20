@@ -58,11 +58,20 @@ import { Controller } from "@hotwired/stimulus"
 // TUI parity: Ratatui's `Row::new` accepts dynamic content, so the
 // Rust client performs the same conditional header-row swap when
 // selection state flips.
+//
+// 2026-05-21 (FB-124) — confirmation dialog is now the canonical
+// `Tui::ConfirmationDialogComponent`. The previous shim
+// (`Sessions::BulkRevokeModalComponent`) carried `modalTitle` /
+// `modalWarning` / `modalForm` Stimulus targets. The new dialog has a
+// minimal structure (single `<p class="tui-confirmation-dialog__message">`
+// + single `<form>` inside the `<dialog>`), and the controller
+// dereferences those by CSS selector instead of named targets. The
+// "current session in selection" warning is gone — per the user-locked
+// contract, the dialog is just `title` + `message` + one action.
 export default class extends Controller {
   static targets = [
     "link", "headerCheckbox", "checkbox",
-    "defaultHeader", "actionHeader", "actions", "counter",
-    "modal", "modalTitle", "modalWarning", "modalForm"
+    "defaultHeader", "actionHeader", "actions", "counter"
   ]
 
   connect() {
@@ -73,8 +82,25 @@ export default class extends Controller {
     this.update()
   }
 
-  toggleAll() {
-    const checked = this._inputFor(this.headerCheckboxTarget)?.checked || false
+  // FB-131 (2026-05-21) — two `headerCheckbox` targets now coexist in
+  // the DOM: one inside `defaultHeader` (visible at SSR) and one
+  // inside `actionHeader` (visible once ≥1 row is selected). The user
+  // can click either to flip select-all state. `toggleAll()` reads
+  // from whichever target dispatched the change event; if no event
+  // (defensive — never happens in practice), falls back to the first
+  // target's state. `update()` then syncs ALL header inputs back to
+  // the resolved selection state so the inactive header's checkbox
+  // stays in sync if the row swap happens between user clicks.
+  toggleAll(event) {
+    let checked = false
+    if (event && event.currentTarget) {
+      const wrapper = event.currentTarget
+      const input = this._inputFor(wrapper)
+      if (input) checked = input.checked
+    } else if (this.hasHeaderCheckboxTarget) {
+      const input = this._inputFor(this.headerCheckboxTargets[0])
+      if (input) checked = input.checked
+    }
     this.checkboxTargets.forEach(wrapper => {
       const input = this._inputFor(wrapper)
       if (input && !input.disabled) input.checked = checked
@@ -82,58 +108,90 @@ export default class extends Controller {
     this.update()
   }
 
-  // Click handler on the `[revoke N]` link. Populates the modal with
-  // the current selection, then opens it. Pre-rendered modal markup
+  // Click handler on the `[revoke N]` link. Populates the dialog with
+  // the current selection, then opens it. Pre-rendered dialog markup
   // means the CSRF token in the form is bound to the current session
   // and stays valid for the submit.
   open(event) {
     if (event) event.preventDefault()
     const ids = this.selectedIds
     if (ids.length === 0) return
-    if (!this.hasModalTarget) return
+    const dialog = this._dialog()
+    if (!dialog) return
 
-    this.populateModal(ids)
-    this.modalTarget.showModal()
+    this.populateDialog(ids, dialog)
+    this._ensureConfirmField(dialog)
+    dialog.showModal()
   }
 
-  populateModal(ids) {
+  // FB-124 — single source of truth is `<dialog id="revoke_sessions_modal">`
+  // rendered by `Tui::ConfirmationDialogComponent`. We look it up by id
+  // rather than via a Stimulus target so the dialog can live OUTSIDE the
+  // sessions-bulk-revoke controller's element tree (it's a peer in the
+  // pane, mounted at the bottom).
+  _dialog() {
+    return document.getElementById("revoke_sessions_modal")
+  }
+
+  populateDialog(ids, dialog) {
     const count = ids.length
     const label = count === 1 ? "session" : "sessions"
 
-    if (this.hasModalTitleTarget) {
-      this.modalTitleTarget.textContent = `revoke ${count} ${label}?`
+    const messageEl = dialog.querySelector(".tui-confirmation-dialog__message")
+    if (messageEl) {
+      messageEl.textContent = `revoke ${count} ${label}?`
     }
 
-    if (this.hasModalWarningTarget) {
-      this.modalWarningTarget.hidden = !this.currentSessionInSelection
-    }
-
-    if (this.hasModalFormTarget) {
+    const form = dialog.querySelector("form")
+    if (form) {
       // The form's `action` attribute carries a literal `0` ids
       // segment at render time (route constraint `[0-9,]+` requires
       // a digit; `0` is filtered out server-side by `parse_ids`).
       // Swap the trailing segment with the joined id list.
-      const form = this.modalFormTarget
       const current = form.getAttribute("action") || ""
       const next = current.replace(/\/revokes\/[\d,]+\b/, `/revokes/${ids.join(",")}`)
       form.setAttribute("action", next)
     }
   }
 
+  // BulkRevokesController#create gates on `confirm=yes`. The new
+  // canonical dialog doesn't bake the hidden field (the primitive is
+  // intentionally minimal), so we inject it on demand the first time
+  // the dialog opens. Idempotent — re-running just hits the existing
+  // hidden input.
+  _ensureConfirmField(dialog) {
+    const form = dialog.querySelector("form")
+    if (!form) return
+    if (form.querySelector('input[name="confirm"]')) return
+    const input = document.createElement("input")
+    input.type = "hidden"
+    input.name = "confirm"
+    input.value = "yes"
+    form.appendChild(input)
+  }
+
   update() {
     const ids = this.selectedIds
     const count = ids.length
 
+    // FB-131 (2026-05-21) — sync ALL header checkboxes (defaultHeader +
+    // actionHeader) so the swap doesn't strand a stale state on the
+    // currently-hidden header. When the row swap reveals the
+    // actionHeader's checkbox, its state is already correct.
     if (this.hasHeaderCheckboxTarget) {
-      const headerInput = this._inputFor(this.headerCheckboxTarget)
       const enabled = this.checkboxTargets
         .map(w => this._inputFor(w))
         .filter(input => input && !input.disabled)
       const total = enabled.length
-      if (headerInput) {
-        headerInput.checked = count > 0 && count === total
-        headerInput.indeterminate = count > 0 && count < total
-      }
+      const headerChecked = count > 0 && count === total
+      const headerIndeterminate = count > 0 && count < total
+      this.headerCheckboxTargets.forEach(wrapper => {
+        const headerInput = this._inputFor(wrapper)
+        if (headerInput) {
+          headerInput.checked = headerChecked
+          headerInput.indeterminate = headerIndeterminate
+        }
+      })
     }
 
     // FB-116: header row swap — `defaultHeader` (per-column <th>

@@ -25,14 +25,28 @@
 # fixture session set without standing up an authenticated request.
 module Sessions
   class TableComponent < ViewComponent::Base
-    def initialize(sessions:, sessions_sort:, sessions_dir:, current_session_id:)
+    # FB-132 (2026-05-21). Sortable column header rebuild — every data
+    # column (`device`, `browser`, `ip`, `last seen`, `created`) gets a
+    # `sort_link_to` and a section-accent arrow that swaps direction on
+    # click. `frame:` is the Turbo Frame id wrapping the sessions
+    # panel; passing it through to `sort_link_to` adds
+    # `data-turbo-frame="<frame>"` + `data-turbo-action="advance"` so
+    # the click navigates ONLY the frame (panel-scoped refresh) and
+    # the browser URL still advances (back/forward + reload semantics
+    # preserved). When `frame:` is nil the link falls back to a
+    # full-page navigation — useful for plain HTML test renders that
+    # don't wrap the component in a frame.
+    FRAME_ID = "sessions_panel".freeze
+
+    def initialize(sessions:, sessions_sort:, sessions_dir:, current_session_id:, frame: FRAME_ID)
       @sessions = sessions
       @sessions_sort = sessions_sort
       @sessions_dir = sessions_dir
       @current_session_id = current_session_id
+      @frame = frame
     end
 
-    attr_reader :sessions, :sessions_sort, :sessions_dir
+    attr_reader :sessions, :sessions_sort, :sessions_dir, :frame
 
     def current?(session)
       @current_session_id.present? && session.id == @current_session_id

@@ -56,8 +56,12 @@ en:
       # would collide on the same key and shadow the scalar.
       meilisearch_reindex_label: "reindex"
       meilisearch_reindex_flash: "meilisearch reindex queued."
+      meilisearch_reindex_confirm_title: "reindex"
+      meilisearch_reindex_confirm_message: "reindex Meilisearch?"
       voyage_reindex_label: "reindex"
       voyage_reindex_flash: "voyage reindex queued."
+      voyage_reindex_confirm_title: "reindex"
+      voyage_reindex_confirm_message: "reindex Voyage AI?"
       assets: "assets"
       col_category: "category"
       col_files: "files"

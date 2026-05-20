@@ -3,7 +3,7 @@ import { Controller } from "@hotwired/stimulus"
 // Connects to data-controller="tui-cursor"
 //
 // =========================================================================
-//  CONTRACT (locked 2026-05-20 for FB-100, FB-98, FB-101, FB-112, FB-113, FB-114)
+//  CONTRACT (locked 2026-05-20, refined 2026-05-21 for FB-133)
 // =========================================================================
 //
 //  Vim-inspired NORMAL / INSERT mode model + 3-level cursor hierarchy.
@@ -16,15 +16,27 @@ import { Controller } from "@hotwired/stimulus"
 //      - h/j/k/l + arrows           → INSIDE the focused panel
 //                                     (sub-panels OR rows, whichever the
 //                                     panel hosts)
-//      - i      → enter INSERT (only if focused element is/contains an input)
+//      - i      → enter INSERT mode AT CURRENT CURSOR LOCATION.
+//                 We do NOT jump focus to "the first input in the panel".
+//                 We only flip mode + broadcast. The user uses TAB to
+//                 walk between focusable elements after entering INSERT.
+//                 (FB-133 — previously `i` jumped past the [x] all /
+//                 [x] daily digest checkboxes straight to the Discord
+//                 webhook URL input; that's surprising.)
 //      - Esc    → exit any input + return to NORMAL (always)
 //
-//    INSERT: text input has the keyboard. We only listen for Esc.
-//      - Esc    → blur input, exit INSERT, return to NORMAL
-//      - Any other key → passes through to the input (no preventDefault)
+//    INSERT: input / checkbox / textarea has the keyboard.
+//      - Esc    → blur active element, exit INSERT, return to NORMAL
+//      - SPACE  → if a row is focused, toggle the row's first
+//                 input[type=checkbox] (so checkbox toggling works
+//                 inside INSERT mode without needing an actual focused
+//                 input)
+//      - Any other key → passes through to the active element
+//                        (no preventDefault)
 //
 //    Mode auto-transitions:
-//      - focusin on input/textarea/[contenteditable] → enter INSERT
+//      - focusin on text input / textarea / [contenteditable] /
+//        input[type=checkbox] → enter INSERT
 //      - focusout when next target isn't another input → exit INSERT
 //
 //    Mode broadcasts on every transition:
@@ -84,8 +96,10 @@ import { Controller } from "@hotwired/stimulus"
 //  =========================================================================
 
 // Sentinel selector matching the elements that count as "text inputs".
-// Excludes checkboxes / radios — those are NORMAL-mode targets (toggled
-// via SPACE on focused row).
+// Excludes checkboxes / radios — those typing-bail rules don't apply
+// to checkboxes (a pressed `j` on a focused checkbox does nothing
+// natively, so we still want our key handler to take over and advance
+// the row cursor).
 const INPUT_SELECTOR = [
   'input[type="text"]',
   'input[type="url"]',
@@ -98,6 +112,17 @@ const INPUT_SELECTOR = [
   "textarea",
   '[contenteditable=""]',
   '[contenteditable="true"]'
+].join(", ")
+
+// FB-133 — selectors that count as "any focusable input that should
+// flip mode to INSERT on focusin". Includes checkboxes + radios so
+// that focusing a checkbox (via mouse / TAB / a focused row's space
+// toggle) repaints the mode lozenge as INSERT — matching the user's
+// mental model that "any form control = INSERT mode".
+const FOCUSABLE_INPUT_SELECTOR = [
+  INPUT_SELECTOR,
+  'input[type="checkbox"]',
+  'input[type="radio"]'
 ].join(", ")
 
 export default class extends Controller {
@@ -151,24 +176,25 @@ export default class extends Controller {
 
   handleFocusIn(event) {
     const t = event.target
-    if (t && t.matches && t.matches(INPUT_SELECTOR)) {
+    if (t && t.matches && t.matches(FOCUSABLE_INPUT_SELECTOR)) {
       this.enterInsertMode()
     }
   }
 
   handleFocusOut(event) {
     const t = event.target
-    if (!t || !t.matches || !t.matches(INPUT_SELECTOR)) return
-    // If focus is moving to another text input, stay in INSERT.
+    if (!t || !t.matches || !t.matches(FOCUSABLE_INPUT_SELECTOR)) return
+    // If focus is moving to another input/checkbox, stay in INSERT.
     const next = event.relatedTarget
-    if (next && next.matches && next.matches(INPUT_SELECTOR)) return
+    if (next && next.matches && next.matches(FOCUSABLE_INPUT_SELECTOR)) return
     this.exitInsertMode()
   }
 
   // ===================== KEY DISPATCH =====================
 
   handleKey(event) {
-    // INSERT mode: only Esc is ours. Everything else is the input's.
+    // INSERT mode: Esc and (FB-133) SPACE-on-row-checkbox are ours;
+    // everything else passes through to the active element.
     if (this.mode === "insert") {
       if (event.key === "Escape") {
         const active = document.activeElement
@@ -176,6 +202,21 @@ export default class extends Controller {
         this.exitInsertMode()
         event.preventDefault()
         event.stopPropagation()
+        return
+      }
+      // SPACE in INSERT — if the active element ISN'T a text input
+      // (it's a checkbox / radio / nothing) AND a row is focused, toggle
+      // the row's first checkbox. This lets a user navigate via j/k in
+      // NORMAL, press i to enter INSERT (so the lozenge reflects "form
+      // is engaged"), then press SPACE to toggle the focused row's
+      // checkbox — the canonical FB-100 / FB-133 contract.
+      if (event.key === " ") {
+        const active = document.activeElement
+        const onTextInput = active && active.matches && active.matches(INPUT_SELECTOR)
+        if (!onTextInput && this.toggleFocusedRowCheckbox()) {
+          event.preventDefault()
+          event.stopPropagation()
+        }
       }
       return
     }
@@ -247,10 +288,14 @@ export default class extends Controller {
         }
       }
 
-      // `i` enters INSERT if there's an input inside the focused panel
-      // (or sub-panel / row) to land on. Mode-independent of nav mode.
+      // FB-133 — `i` simply flips mode to INSERT. We do NOT auto-focus
+      // an input. The user uses TAB to walk between focusable elements
+      // after entering INSERT. This prevents the "i in notifications
+      // panel jumps past the [x] all + [x] daily digest checkboxes
+      // straight to the Discord webhook URL input" surprise.
       if (!handled && k === "i") {
-        if (this.enterInsertFromFocus()) handled = true
+        this.enterInsertMode()
+        handled = true
       }
     }
 
@@ -417,14 +462,20 @@ export default class extends Controller {
     return rows[this.rowIndex] || null
   }
 
-  // FB-100 — toggle the row's checkbox via the row's own input,
-  // NOT by walking the checkbox as a separate cursor stop.
+  // FB-100 / FB-133 — toggle the row's checkbox via the row's own
+  // input, NOT by walking the checkbox as a separate cursor stop.
+  // After toggling, blur the checkbox so a subsequent `j` press
+  // advances the row cursor (without `.blur()` the browser leaves
+  // the checkbox focused → `focusin` flips to INSERT → the next
+  // `j` is consumed by the INSERT handler → user perceives an
+  // "extra stop" between rows).
   toggleFocusedRowCheckbox() {
     const row = this.focusedRow()
     if (!row) return false
     const checkbox = row.querySelector('input[type="checkbox"]')
     if (!checkbox) return false
     checkbox.click()
+    if (typeof checkbox.blur === "function") checkbox.blur()
     return true
   }
 
@@ -479,31 +530,6 @@ export default class extends Controller {
         this.applyRowFocus()
       }
     }
-  }
-
-  // ===================== INSERT FROM `i` =====================
-
-  enterInsertFromFocus() {
-    // Try, in order: focused row's first input, focused sub-panel's
-    // first input, focused panel's first input. First hit wins.
-    const candidates = []
-    const row = this.focusedRow()
-    if (row) candidates.push(row)
-    const subs = this.subPanelsInFocusedPanel()
-    if (subs[this.subPanelIndex]) candidates.push(subs[this.subPanelIndex])
-    const panel = this.panelTargets[this.focusedIndex]
-    if (panel) candidates.push(panel)
-    for (const c of candidates) {
-      const input = c.querySelector(INPUT_SELECTOR)
-      if (input) {
-        input.focus()
-        // focusin listener will flip mode for us — but flip it now too
-        // in case focus() raced.
-        this.enterInsertMode()
-        return true
-      }
-    }
-    return false
   }
 
   // ===================== BREADCRUMB BROADCAST (FB-47 + FB-101) =====================

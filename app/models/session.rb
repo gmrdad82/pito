@@ -45,6 +45,16 @@ class Session < ApplicationRecord
   # `active_sessions` narrows further to non-revoked rows.
   scope :active_sessions, -> { state_active.where(revoked_at: nil) }
 
+  # FB-132 (2026-05-21). `device` + `browser` are derived from the raw
+  # `user_agent` string and stored as their own columns so the sessions
+  # table on `/settings` can sort by them via SQL `ORDER BY` against
+  # indexable columns instead of executing `Formatting::UserAgent` regex
+  # at query time. Forward-fill on every write so any future agent /
+  # smoke harness path that bypasses `create_for!` still ends up with
+  # the projected columns populated. Existing rows backfill via
+  # `bin/rails pito:sessions:backfill_device_browser`.
+  before_validation :derive_device_and_browser
+
   # Mints a new session row for `user`, returns `[record, plaintext]`.
   # Plaintext is shown once and goes into the signed cookie; `token_digest`
   # is what the database stores. Mirrors `ApiToken.generate!`.
@@ -80,5 +90,17 @@ class Session < ApplicationRecord
   def revoke!
     return if revoked?
     update_columns(revoked_at: Time.current, state: self.class.states[:revoked])
+  end
+
+  private
+
+  # Re-projects `device` + `browser` from `user_agent`. Runs on every
+  # save so reseeding / smoke fixtures / future code paths that mutate
+  # `user_agent` after the initial `create_for!` keep the derived
+  # columns in lockstep. The projection is pure (`Formatting::UserAgent`
+  # is a frozen module of functions) so there's no I/O cost.
+  def derive_device_and_browser
+    self.device = Formatting::UserAgent.device(user_agent.to_s)
+    self.browser = Formatting::UserAgent.browser(user_agent.to_s)
   end
 end

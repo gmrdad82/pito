@@ -58,11 +58,29 @@ module StackStats
         voyage: voyage_section,
         postgres: postgres_section,
         meilisearch: meilisearch_section,
-        assets: assets_section
+        assets: assets_section,
+        reindex: reindex_section
       }
     end
 
     private
+
+    # ----- Reindex lock state ----------------------------------------------
+    #
+    # FB-126 (2026-05-21) — carry the shared `AppSetting.reindex_running?`
+    # flag on the same cable broadcast that powers the live stack-pane
+    # cells. The `reindex-action` Stimulus controller listens for this
+    # block and falls back to `[reindex]` on every panel whenever the
+    # shared lock clears. The job-side `reindex_started` brand-tagged
+    # event (broadcast in `MeilisearchReindexJob#perform` /
+    # `VoyageReindexJob#perform` BEFORE the work starts) drives the
+    # per-brand flip TO the running state — see the broadcast helpers
+    # on the jobs for the wire shape.
+    def reindex_section
+      { running: AppSetting.reindex_running? }
+    rescue StandardError
+      { running: false }
+    end
 
     # ----- Voyage -----------------------------------------------------------
 

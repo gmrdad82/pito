@@ -41,6 +41,16 @@ class VoyageReindexJob < ApplicationJob
   sidekiq_options lock: :until_executed, on_conflict: :log
 
   def perform
+    # FB-126 (2026-05-21) — emit a brand-tagged `reindex_started` event
+    # on the shared `stack_stats` channel BEFORE the work begins so the
+    # Voyage sub-panel flips from `[reindex]` to the
+    # `Tui::ReindexProgressComponent` `[=------]` indicator immediately.
+    # The `ensure` block then re-broadcasts the post-run snapshot via
+    # `StackStats::Broadcaster.broadcast!` (which carries
+    # `reindex.running: false`) so the indicator flips back to the
+    # idle `[reindex]` action.
+    ActionCable.server.broadcast("stack_stats", { reindex_event: { kind: "reindex_started", brand: "voyage" } })
+
     StackStats::Broadcaster.broadcast!
 
     sleep REINDEX_SLEEP_SECONDS if REINDEX_SLEEP_SECONDS.positive?

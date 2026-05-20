@@ -45,6 +45,12 @@ en:
             panel_right: "panel right"
             panel_up: "panel up"
             panel_down: "panel down"
+        mode:
+          title: "mode"
+          items:
+            enter_insert: "enter insert mode"
+            exit_insert: "exit insert mode / dismiss dialog"
+            toggle_checkbox_insert: "toggle focused checkbox (insert mode)"
         session:
           title: "session"
           items:

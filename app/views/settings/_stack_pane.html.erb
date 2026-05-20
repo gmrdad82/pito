@@ -136,29 +136,40 @@
       <% end %>
 
       <%# Meilisearch.
-          FB-63 (2026-05-20) — title-row `[reindex]` action. Direct POST
-          to `settings_stack_meilisearch_reindex_path`; the controller
-          short-circuits with an alert when
-          `AppSetting.reindex_running?` is set (both halves of the
-          split share the same flag), so a double-click during a Voyage
-          run still degrades gracefully without enqueueing a second
-          Meilisearch job. While the lock is set we hide the action
-          entirely (matching the Voyage tile's behaviour in
-          `_voyage_section.html.erb`) so the operator never sees a
-          dangling-link that would alert on click. %>
+          FB-126 (2026-05-21) — `[reindex]` now opens a
+          `Tui::ConfirmationDialogComponent` instead of POSTing directly;
+          the dialog (mounted at the bottom of the panel) carries the
+          actual form to `settings_stack_meilisearch_reindex_path`.
+          On submit, the job emits a `reindex_started` cable event
+          (brand: `meilisearch`) and the `reindex-action` Stimulus
+          controller below swaps `[reindex]` for the
+          `Tui::ReindexProgressComponent` `[=------]` indicator in
+          place. When the job's `ensure` block re-broadcasts via
+          `StackStats::Broadcaster.broadcast!` with `reindex.running:
+          false`, the indicator flips back to `[reindex]`.
+
+          The idle + running children sit in the same DOM, toggled via
+          `hidden` so the action slot never collapses (no width jitter
+          when the swap fires). %>
       <% meilisearch_reindex_running = AppSetting.reindex_running? %>
       <% meili_state = @search_healthy ? :connected : :disconnected %>
       <% meili_chip = Settings::Stack::HealthState::STATES.fetch(meili_state) %>
       <%= render Tui::SubPanelComponent.new(title: t("settings.stack.meilisearch")) do |c| %>
         <% c.with_actions do %>
           <%= render Tui::ChipComponent.new(label: meili_chip[:chip_label], variant: meili_chip[:chip_variant]) %>
-          <% unless meilisearch_reindex_running %>
-            <%= render BracketedLinkComponent.new(
-              label: t("settings.stack.meilisearch_reindex_label"),
-              href: settings_stack_meilisearch_reindex_path,
-              method: :post
-            ) %>
-          <% end %>
+          <span data-controller="reindex-action"
+                data-reindex-action-brand-value="meilisearch">
+            <span data-reindex-action-target="idle" <%= "hidden" if meilisearch_reindex_running %>>
+              <button type="button"
+                      class="bracketed"
+                      data-controller="reindex-trigger"
+                      data-reindex-trigger-dialog-id-value="reindex_meilisearch_confirmation"
+                      data-action="click->reindex-trigger#open">[<span class="bl"><%= t("settings.stack.meilisearch_reindex_label") %></span>]</button>
+            </span>
+            <span data-reindex-action-target="running" <%= "hidden" unless meilisearch_reindex_running %>>
+              <%= render Tui::ReindexProgressComponent.new(brand: "meilisearch") %>
+            </span>
+          </span>
         <% end %>
 
         <% if @search_per_index_stats.any? %>
@@ -236,13 +247,23 @@
       <%= render Tui::SubPanelComponent.new(title: t("settings.voyage.heading")) do |c| %>
         <% c.with_actions do %>
           <%= render Tui::ChipComponent.new(label: voyage_chip[:chip_label], variant: voyage_chip[:chip_variant]) %>
-          <% unless voyage_reindex_running %>
-            <%= render BracketedLinkComponent.new(
-              label: t("settings.stack.voyage_reindex_label"),
-              href: settings_stack_voyage_reindex_path,
-              method: :post
-            ) %>
-          <% end %>
+          <%# FB-126 (2026-05-21) — confirmation dialog + cable-driven
+              idle/running toggle. Mirrors the Meilisearch sub-panel
+              above; see the comment block on that branch for the full
+              wire contract. %>
+          <span data-controller="reindex-action"
+                data-reindex-action-brand-value="voyage">
+            <span data-reindex-action-target="idle" <%= "hidden" if voyage_reindex_running %>>
+              <button type="button"
+                      class="bracketed"
+                      data-controller="reindex-trigger"
+                      data-reindex-trigger-dialog-id-value="reindex_voyage_confirmation"
+                      data-action="click->reindex-trigger#open">[<span class="bl"><%= t("settings.stack.voyage_reindex_label") %></span>]</button>
+            </span>
+            <span data-reindex-action-target="running" <%= "hidden" unless voyage_reindex_running %>>
+              <%= render Tui::ReindexProgressComponent.new(brand: "voyage") %>
+            </span>
+          </span>
         <% end %>
         <%= turbo_stream_from "reindex_status" %>
         <%= render "voyage_section" %>
@@ -345,4 +366,29 @@
       <% end %>
     </div>
   <% end %>
+  <%# FB-126 (2026-05-21) — confirmation dialog mounts for each reindex
+      sub-panel. Kept at the bottom of the pane (outside the sub-panel
+      stack) so `<dialog>` is a sibling of the click trigger; the
+      `Tui::ConfirmationDialogComponent` carries the actual POST form
+      with `data-turbo: false` so the redirect-back flow stays intact.
+      Both dialogs share the canonical danger styling on the confirm
+      action. %>
+  <%= render Tui::ConfirmationDialogComponent.new(
+    id: "reindex_meilisearch_confirmation",
+    title: t("settings.stack.meilisearch_reindex_confirm_title"),
+    message: t("settings.stack.meilisearch_reindex_confirm_message"),
+    action_label: t("settings.stack.meilisearch_reindex_label"),
+    action_path: settings_stack_meilisearch_reindex_path,
+    action_method: :post,
+    action_variant: :danger
+  ) %>
+  <%= render Tui::ConfirmationDialogComponent.new(
+    id: "reindex_voyage_confirmation",
+    title: t("settings.stack.voyage_reindex_confirm_title"),
+    message: t("settings.stack.voyage_reindex_confirm_message"),
+    action_label: t("settings.stack.voyage_reindex_label"),
+    action_path: settings_stack_voyage_reindex_path,
+    action_method: :post,
+    action_variant: :danger
+  ) %>
 </div>

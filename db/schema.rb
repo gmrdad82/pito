@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_20_050815) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_21_002333) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -707,7 +707,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_20_050815) do
   end
 
   create_table "sessions", force: :cascade do |t|
+    t.string "browser"
     t.datetime "created_at", null: false
+    t.string "device"
     t.inet "ip"
     t.datetime "last_activity_at"
     t.datetime "revoked_at"
@@ -716,6 +718,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_20_050815) do
     t.datetime "updated_at", null: false
     t.text "user_agent"
     t.bigint "user_id", null: false
+    t.index ["browser"], name: "index_sessions_on_browser"
+    t.index ["device"], name: "index_sessions_on_device"
     t.index ["state"], name: "index_sessions_on_state"
     t.index ["token_digest"], name: "index_sessions_on_token_digest", unique: true
     t.index ["user_id"], name: "index_sessions_on_user_id"

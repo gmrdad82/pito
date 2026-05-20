@@ -70,7 +70,21 @@
         action-screen used to submit; `BulkRevokesController#create`
         still gates on it. %>
     <% if @sessions.any? %>
-      <%= render(Sessions::BulkRevokeModalComponent.new) %>
+      <%# FB-124 (2026-05-21). Canonical confirmation dialog — replaces
+          the legacy `Sessions::BulkRevokeModalComponent` shim. The
+          `sessions-bulk-revoke` controller mutates the `<p>` message and
+          form `action` at click time based on the current selection
+          before calling `showModal()`. The `[Esc] to close` hint in the
+          top-right of the frame is the canonical dismiss; backdrop
+          clicks do NOT dismiss (FB-127). %>
+      <%= render Tui::ConfirmationDialogComponent.new(
+        id: "revoke_sessions_modal",
+        title: "revoke",
+        message: "revoke session?",
+        action_label: "revoke",
+        action_path: settings_sessions_bulk_revoke_path(ids: "0"),
+        action_method: :post
+      ) %>
     <% end %>
   <% end %>
 </div>
