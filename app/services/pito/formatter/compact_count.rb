@@ -2,7 +2,7 @@
 #
 # Pure function. Renders an integer count as a short human-readable
 # string with K / M / B suffixes. Designed for the
-# `Channels::IdCardComponent` metric rows (subscribers, views) where the
+# `Channel::IdCardComponent` metric rows (subscribers, views) where the
 # card cell is too narrow for the full integer.
 #
 # Rules (locked 2026-05-19, user):

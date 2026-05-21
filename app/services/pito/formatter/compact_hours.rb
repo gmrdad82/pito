@@ -2,7 +2,7 @@
 #
 # Pure function. Renders an hour count as a short human-readable string
 # with the European `.` thousands separator. Used by the
-# `Channels::IdCardComponent` watch-hours row.
+# `Channel::IdCardComponent` watch-hours row.
 #
 # Rules (locked 2026-05-19, user):
 #

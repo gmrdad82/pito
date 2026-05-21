@@ -23,7 +23,7 @@
 
 <% when :channel %>
   <%# Circular per design.md §"Channel avatars" — same sizing rule as
-      `Channels::AvatarChipComponent` so the chrome stays consistent. %>
+      `Channel::AvatarChipComponent` so the chrome stays consistent. %>
   <%= link_to "/channels",
               data: { turbo_frame: "_top" },
               style: "flex: 1; display: flex; align-items: center; gap: 8px; text-decoration: none; color: inherit;" do %>

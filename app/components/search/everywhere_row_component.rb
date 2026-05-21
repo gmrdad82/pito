@@ -34,7 +34,7 @@ module Search
     attr_reader :kind, :record
 
     # Avatar tile dimension for the :channel row. Matches the chip-row
-    # tile sizing in `Channels::AvatarChipComponent` (1.4em + 4px
+    # tile sizing in `Channel::AvatarChipComponent` (1.4em + 4px
     # overflow) so the visual rhythm stays consistent across surfaces.
     def channel_avatar_dimension_css
       "calc(1.4em + 4px)"

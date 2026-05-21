@@ -135,13 +135,13 @@
 <div class="pane-row pane-row--game-show">
   <div class="pane pane--narrow">
     <%# 2026-05-18 (Beta-3 Lane B / B1) — cover + platform-chip overlay
-        extracted to `Games::DetailCoverComponent`. The component owns
+        extracted to `Game::DetailCoverComponent`. The component owns
         the outer wrapper, the `shared/_igdb_cover` render, the
         `KNOWN_CHIPS` slug computation, and the bottom-right chip
         overlay strip. Stable DOM id (`game_detail_cover_<id>`) lives
         on the component's outer wrapper — the planned ownership-
         toggle Turbo Stream broadcast replaces that one element. %>
-    <%= render Games::DetailCoverComponent.new(game: @game) %>
+    <%= render Game::DetailCoverComponent.new(game: @game) %>
 
     <h1 style="margin: 8px 0 4px 0;"><%= @game.title %></h1>
 
@@ -156,7 +156,7 @@
         render verbatim except for the cosmetic renames declared in
         `GENRE_DISPLAY_RENAMES`. %>
     <% if @game.primary_genre || @game.genres.any? || @game.resyncing? %>
-      <%# Beta-3 Lane B (B2) — extracted to Games::GenresLineComponent.
+      <%# Beta-3 Lane B (B2) — extracted to Game::GenresLineComponent.
           Outer guard kept (parity with the pre-extraction behavior:
           the WHOLE block was omitted when there were no genres) BUT
           extended 2026-05-19 (Wave B) with `|| @game.resyncing?` so
@@ -166,7 +166,7 @@
           internally branches on `resyncing?` — when true it renders
           the dot-loader; when false it renders the static genre
           tokens (or the `<em>—</em>` fallback for the empty case). %>
-      <%= render Games::GenresLineComponent.new(game: @game) %>
+      <%= render Game::GenresLineComponent.new(game: @game) %>
     <% end %>
 
     <%# 2026-05-17 polish — hairline between the genres line and the
@@ -175,14 +175,14 @@
         rule (8px top + 8px bottom margin). %>
     <hr class="hairline">
 
-    <%# Beta-3 Lane B (B3) — extracted to Games::MetaTableComponent.
+    <%# Beta-3 Lane B (B3) — extracted to Game::MetaTableComponent.
         Owns the meta_rows builder (date / dev / pub / sync conditional
         pushes, fixed render order, `resyncing? → ---` branch on the
         sync cell) and the `<table class="kv-table">` markup. The
         component always renders the sync row, so the `if meta_rows.any?`
         guard that wrapped the inline version is no longer needed —
         `meta_rows` is never empty. %>
-    <%= render Games::MetaTableComponent.new(game: @game) %>
+    <%= render Game::MetaTableComponent.new(game: @game) %>
 
     <%# Wave C5 (spec 08 §"Rating heat-bar synthesis") — vote-weighted
         synthesized score across the three IGDB rating triplets,
@@ -196,7 +196,7 @@
         bar's color encodes the score. Sits below the meta block
         (release / dev / pub) so the LEFT pane reads: cover → title
         → genres → meta → heat-bar → ownership. %>
-    <%= render Games::RatingHeatBarComponent.new(game: @game) %>
+    <%= render Game::RatingHeatBarComponent.new(game: @game) %>
 
     <%# 2026-05-17 BP slice (item 7 of the 10-item /games/:id reshape
         list) — LEFT-pane ownership section, now a per-platform
@@ -236,7 +236,7 @@
       <% if @game.resyncing? %>
         <p class="text-muted ownership-syncing-placeholder" aria-live="polite" style="margin: 0;"><%= t("games.show.ownership_syncing_placeholder") %></p>
       <% else %>
-        <%= render(Games::OwnershipMatrixComponent.new(game: @game)) %>
+        <%= render(Game::OwnershipMatrixComponent.new(game: @game)) %>
       <% end %>
     </section>
 
@@ -305,14 +305,14 @@
         "here is where I am" notch. See `time_to_beat_component.rb`
         for the full rationale. %>
     <section class="time-to-beat" aria-label="<%= t("games.show.ttb_aria") %>">
-      <%= render(Games::TimeToBeatComponent.new(game: @game)) %>
+      <%= render(Game::TimeToBeatComponent.new(game: @game)) %>
     </section>
 
     <%# Phase 38 §01 (2026-05-19) — recommended channels shelf. Wedged
         between the TTB block and the bundles section so the right
         pane reads: summary → TTB → recommended channels → bundles →
         similar → videos. Source data is `@recommended_channels` (set
-        in `GamesController#show` via `Games::ChannelRecommendation`).
+        in `GamesController#show` via `Game::ChannelRecommendation`).
         The service returns `[]` whenever the game has no embedding,
         no channels are indexed, or all candidate scores fall below
         the `THRESHOLD_SCORE` floor — the `.any?` guard hides the
@@ -322,7 +322,7 @@
 
         Hash conversion (real Channel records → IdCardComponent hash):
         the component expects a fixed hash shape minted by
-        `Channels::MockData`. Real `Channel` rows don't carry
+        `Channel::MockData`. Real `Channel` rows don't carry
         `:display_name`, `:watch_hours`, or the `*_trend` fields yet
         (analytics sync is pending), so this view builds the hash
         inline with sensible fallbacks:
@@ -351,7 +351,7 @@
         <%= render ShelfComponent.new(heading: nil) do %>
           <% @recommended_channels.each do |rec| %>
             <% ch = rec.channel %>
-            <%= render Channels::IdCardComponent.new(
+            <%= render Channel::IdCardComponent.new(
                   channel: {
                     id: ch.id,
                     display_name: ch.title.presence || "channel-#{ch.id}",
@@ -373,39 +373,39 @@
     <% end %>
 
     <%# 2026-05-18 — `bundles` section (DW slice), extracted to
-        `Games::BundlesSectionComponent` (Beta-3 Lane B / B4). The
+        `Game::BundlesSectionComponent` (Beta-3 Lane B / B4). The
         component owns the two upstream queries (`game.bundles` +
-        `Bundles::SuggestedFor.call(game, limit: 3)`), the subtraction
+        `Bundle::SuggestedFor.call(game, limit: 3)`), the subtraction
         (`suggested - in`), the three render branches (both-empty
         empty-tile, LEFT-only, RIGHT-only, both-with-divider), and the
-        per-half `Games::BundleTileComponent` mode selection (default
+        per-half `Game::BundleTileComponent` mode selection (default
         for LEFT, `mode: :suggest, target_game: game` for RIGHT). The
         bundles modal partial + per-bundle confirm-delete `<dialog>`s
         are rendered as SIBLINGS below the pane row so the native
         `<dialog>` does not nest inside interactive content. %>
     <hr class="hairline">
-    <%= render Games::BundlesSectionComponent.new(game: @game) %>
+    <%= render Game::BundlesSectionComponent.new(game: @game) %>
 
     <%# 2026-05-18 — `similar` section. Single shelf of up to 10
-        pgvector-cosine-nearest games via `Games::SimilarGames`. The
+        pgvector-cosine-nearest games via `Game::SimilarGames`. The
         whole section (heading + hairline + shelf) is skipped when the
         service returns an empty list (e.g., game has no embedding yet
         or no other embedded rows to compare against), so the page
         does not display an empty "similar" heading. Tiles render via
-        `Games::GenreTileComponent` — the bare-cover style used in
+        `Game::GenreTileComponent` — the bare-cover style used in
         genre sub-shelves (98×130). Click navigates to `/games/:slug`
         via the CoverComponent's `_top` turbo-frame escape. Sits below
         the (future) bundles section and above videos so the
         right-pane order reads: summary → TTB → bundles → similar →
         videos. %>
-    <% similar = Games::SimilarGames.call(@game, limit: 10) %>
+    <% similar = Game::SimilarGames.call(@game, limit: 10) %>
     <hr class="hairline">
     <section class="game-similar" aria-label="<%= t("games.show.similar_aria") %>">
       <h2><%= t("games.show.similar_heading") %></h2>
       <div class="shelf-row" data-controller="steam-shelf">
         <% if similar.any? %>
           <% similar.each do |game| %>
-            <%= render Games::GenreTileComponent.new(game: game) %>
+            <%= render Game::GenreTileComponent.new(game: game) %>
           <% end %>
         <% else %>
           <div class="shelf-empty-tile" aria-label="<%= t("games.show.shelf_empty_aria") %>">
@@ -439,7 +439,7 @@
 <% if @game.primary? && @game.editions.exists? %>
   <div class="pane-row">
     <div class="pane pane--wide">
-      <%= render(Games::EditionsSectionComponent.new(game: @game)) %>
+      <%= render(Game::EditionsSectionComponent.new(game: @game)) %>
     </div>
   </div>
 <% end %>

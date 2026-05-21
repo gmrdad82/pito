@@ -70,8 +70,8 @@ class Game < ApplicationRecord
   friendly_id :igdb_slug, use: :finders
 
   # Phase 34 (2026-05-18) — pgvector neighbor lookups on the Voyage
-  # `summary_embedding` column. Powers `Games::SimilarGames` (a game's
-  # nearest neighbours) and `Bundles::SuggestedFor` (bundles whose
+  # `summary_embedding` column. Powers `Game::SimilarGames` (a game's
+  # nearest neighbours) and `Bundle::SuggestedFor` (bundles whose
   # centroid sits closest to a given game's vector). Distance is cosine
   # (matches the `vector_cosine_ops` HNSW index in `db/schema.rb`).
   has_neighbors :summary_embedding
@@ -83,7 +83,7 @@ class Game < ApplicationRecord
   # Phase 14 §1 — whitelist of IGDB cover-image size tokens.
   # Phase 27 01e adds `t_cover_small_2x` (180 × 256 native) as the
   # source token for the `:shelf` cover-art variant rendered by
-  # `Games::CoverComponent`. It downsamples cleanly into the
+  # `Game::CoverComponent`. It downsamples cleanly into the
   # 98 × 130 shelf tile slot (65% of the 150 × 200 grid tile).
   # `t_cover_big_2x` (~528 × 748 native) is the highest-resolution cover
   # variant IGDB serves. Added 2026-05-17 for the bundle modal composite
@@ -120,7 +120,7 @@ class Game < ApplicationRecord
   # join survives as the IGDB raw record so the picker can re-evaluate
   # the choice on each re-sync without re-fetching from IGDB.
   #
-  # Picked by `Games::PrimaryGenrePicker` (LOWER(name) ASC, id ASC
+  # Picked by `Game::PrimaryGenrePicker` (LOWER(name) ASC, id ASC
   # tie-break). The `before_save` hook below sets the pointer when
   # blank; `Igdb::SyncGame#call` writes it explicitly on every sync
   # (via `update_column`) so a re-sync that adds / drops genres keeps
@@ -203,7 +203,7 @@ class Game < ApplicationRecord
 
   # Phase 27 follow-up (2026-05-17) — fire a rebuild for every bundle
   # touched by a sync / destroy event on this game. The orchestrator
-  # (`Bundles::CompositeRebuildQueue`) sorts inputs alphabetically by
+  # (`Bundle::CompositeRebuildQueue`) sorts inputs alphabetically by
   # `Bundle.name` (case-insensitive) and enqueues a sequential
   # `BundleCoverBuild` chain — predictable order is load-bearing for
   # UX (which bundle is rebuilding next) and for tests (deterministic
@@ -388,7 +388,7 @@ class Game < ApplicationRecord
 
   # Phase 27 follow-up (2026-05-17) — Normalized cover master accessors.
   #
-  # The cover-art normalizer (`Games::CoverArt::Normalizer`) writes a
+  # The cover-art normalizer (`Game::CoverArt::Normalizer`) writes a
   # canonical 600×800 JPEG to
   # `<PITO_ASSETS_PATH>/covers/games/<game_id>/master.jpg`. `public/covers/`
   # is a symlink into the same volume so Rails' static-file middleware
@@ -572,7 +572,7 @@ class Game < ApplicationRecord
   def rebuild_bundle_composites_on_resync
     return unless saved_change_to_igdb_synced_at?
 
-    Bundles::CompositeRebuildQueue.new.enqueue_for_game_resync(self)
+    Bundle::CompositeRebuildQueue.new.enqueue_for_game_resync(self)
   end
 
   # Phase 27 follow-up (2026-05-17) — capture the game's bundles BEFORE
@@ -594,7 +594,7 @@ class Game < ApplicationRecord
     targets = Array(@pre_destroy_bundles).compact
     return if targets.empty?
 
-    Bundles::CompositeRebuildQueue.new
+    Bundle::CompositeRebuildQueue.new
                                   .enqueue_for_game_destroy(self, was_in: targets)
   end
 
@@ -614,7 +614,7 @@ class Game < ApplicationRecord
   # nil between syncs).
   def assign_primary_genre_if_blank
     return if primary_genre_id.present?
-    pick = Games::PrimaryGenrePicker.new.pick(self)
+    pick = Game::PrimaryGenrePicker.new.pick(self)
     self.primary_genre_id = pick&.id
   end
 

@@ -138,7 +138,7 @@ class GamesController < ApplicationController
     #   - Genres outer-shelf — primary-genre scoping (2026-05-11
     #     follow-up). `filtered_scope.where.not(primary_genre_id: nil)`
     #     lists only genres that own at least one game pinned to them
-    #     via `Games::PrimaryGenrePicker` AND that survive the
+    #     via `Game::PrimaryGenrePicker` AND that survive the
     #     current filter. Result: every multi-genre game appears in
     #     EXACTLY ONE sub-shelf instead of every `game_genres` join
     #     it touches; filter-excluded games never contribute.
@@ -244,14 +244,14 @@ class GamesController < ApplicationController
     }
 
     # Phase 38 §01 (2026-05-19) — Recommended-channels shelf. Backed by
-    # `Games::ChannelRecommendation` (pgvector cosine on the Voyage
+    # `Game::ChannelRecommendation` (pgvector cosine on the Voyage
     # `summary_embedding` column). Returns `[]` defensively when the
     # game has no embedding yet OR no channels carry a non-NULL
     # `summary_embedding` OR all candidate scores fall below the
     # service's `THRESHOLD_SCORE` floor. The show.html.erb shelf is
     # guarded on `@recommended_channels.any?` so an empty result hides
     # the entire section (no empty-state copy — quiet over noisy).
-    @recommended_channels = Games::ChannelRecommendation.call(@game, limit: 8)
+    @recommended_channels = Game::ChannelRecommendation.call(@game, limit: 8)
 
     # show.html.erb reads @game directly; nothing else to set up here.
     respond_to do |format|
@@ -325,7 +325,7 @@ class GamesController < ApplicationController
   end
 
   # 2026-05-18 — omnisearch endpoint for the `/`-keyed search modal on
-  # `/games`. Runs the unified `Games::SearchService` in `:games_search`
+  # `/games`. Runs the unified `Game::SearchService` in `:games_search`
   # mode so the result envelope carries BOTH local games + bundles
   # (Meilisearch) AND IGDB hits as separate panes. Rendered via the
   # `Search::OmnisearchResultsComponent` ViewComponent (replaces the
@@ -333,7 +333,7 @@ class GamesController < ApplicationController
   # partial chain).
   def omnisearch
     @query = params[:q].to_s.strip[0, MAX_QUERY_LENGTH]
-    @result = Games::SearchService.call(query: @query, mode: :games_search)
+    @result = Game::SearchService.call(query: @query, mode: :games_search)
     render Search::OmnisearchResultsComponent.new(
       mode: :games_search, query: @query, result: @result, bundle: nil
     )

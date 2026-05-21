@@ -1,0 +1,76 @@
+<%# Variant 2 — stacked per-day sparklines.
+
+    Layout: 7 rows. Each row is a CSS grid with two columns —
+    fixed 36 px day label + flexible sparkline (360 × 32 SVG).
+    Rows separated by 4 px gap. Hour scale (00, 06, 12, 18) is
+    rendered ONCE at the bottom under the last sparkline so the
+    column reads as a single calendar even though each row owns
+    its own SVG.
+
+    Y-axis is shared across all 7 sparklines — see `max_value`
+    on the component. The fill polygon uses the same `--color-link`
+    accent at low opacity so the curve still reads against the
+    light/dark theme backgrounds. %>
+<div class="channels-heatmap-sparkline"
+     style="display: inline-block;
+            font-variant-numeric: tabular-nums;">
+  <% Channel::HeatmapSparklineComponent::DAYS.each do |day| %>
+    <div style="display: grid;
+                grid-template-columns: 36px <%= Channel::HeatmapSparklineComponent::SPARKLINE_WIDTH %>px;
+                column-gap: 6px;
+                align-items: center;
+                margin-bottom: 4px;">
+      <div style="font-size: 11px;
+                  color: var(--color-muted);
+                  text-align: right;
+                  line-height: 1;">
+        <%= day %>
+      </div>
+      <svg width="<%= Channel::HeatmapSparklineComponent::SPARKLINE_WIDTH %>"
+           height="<%= Channel::HeatmapSparklineComponent::SPARKLINE_HEIGHT %>"
+           viewBox="0 0 <%= Channel::HeatmapSparklineComponent::SPARKLINE_WIDTH %> <%= Channel::HeatmapSparklineComponent::SPARKLINE_HEIGHT %>"
+           style="display: block; overflow: visible;">
+        <%# Baseline hairline at the bottom so quiet days read as
+            a clear floor line, not an empty cell. %>
+        <line x1="0"
+              y1="<%= Channel::HeatmapSparklineComponent::SPARKLINE_HEIGHT - 2 %>"
+              x2="<%= Channel::HeatmapSparklineComponent::SPARKLINE_WIDTH %>"
+              y2="<%= Channel::HeatmapSparklineComponent::SPARKLINE_HEIGHT - 2 %>"
+              stroke="var(--color-border)"
+              stroke-width="1" />
+        <%# Filled area underneath the line — same accent color at
+            ~18% opacity for subtle hill shading. %>
+        <polygon points="<%= area_points_for(day) %>"
+                 fill="color-mix(in srgb, var(--color-link) 18%, transparent)"
+                 stroke="none" />
+        <%# Line stroke. %>
+        <polyline points="<%= points_for(day) %>"
+                  fill="none"
+                  stroke="var(--color-link)"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round" />
+      </svg>
+    </div>
+  <% end %>
+  <%# Hour-axis caption row — labels at 00, 06, 12, 18. %>
+  <div style="display: grid;
+              grid-template-columns: 36px <%= Channel::HeatmapSparklineComponent::SPARKLINE_WIDTH %>px;
+              column-gap: 6px;
+              margin-top: 2px;">
+    <div></div>
+    <div style="position: relative; height: 12px;">
+      <% [ 0, 6, 12, 18 ].each do |h| %>
+        <% step = Channel::HeatmapSparklineComponent::SPARKLINE_WIDTH.to_f / 23.0 %>
+        <span style="position: absolute;
+                     left: <%= (h * step).round(2) %>px;
+                     transform: translateX(-50%);
+                     font-size: 10px;
+                     color: var(--color-muted);
+                     line-height: 1;">
+          <%= h.to_s.rjust(2, "0") %>
+        </span>
+      <% end %>
+    </div>
+  </div>
+</div>

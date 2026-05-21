@@ -28,7 +28,7 @@
 %>
 <turbo-stream action="append" targets=".bundles-shelf-row">
   <template>
-    <%= render(Games::BundleTileComponent.new(bundle: @bundle)) %>
+    <%= render(Game::BundleTileComponent.new(bundle: @bundle)) %>
   </template>
 </turbo-stream>
 

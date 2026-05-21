@@ -3,10 +3,10 @@
     One shelf per non-empty letter bucket. Buckets arrive in render
     order from the controller's `build_letter_buckets` (A..Z first,
     `#` last). The heading is the bucket key uppercased (already done
-    in the controller). Tiles render through `Games::GameTileComponent`
+    in the controller). Tiles render through `Game::GameTileComponent`
     at the `:shelf` variant; shelf chrome (heading + count badge +
     horizontal scroll row + `steam-shelf` controller) is emitted by
-    `Games::ShelfComponent`.
+    `::ShelfComponent`.
 
     Locals:
       buckets  Array of `[letter, [Game, ...]]` tuples. Empty buckets
@@ -25,7 +25,7 @@
   <section class="all-games-shelves-by-letter games-shelves-by-letter-mode">
     <% buckets.each do |(letter, games)| %>
       <% next if games.empty? %>
-      <%= render(Games::ShelfComponent.new(
+      <%= render(::ShelfComponent.new(
             heading: letter,
             count: games.size,
             heading_level: :h3,
@@ -35,7 +35,7 @@
             row_classes: "letter-shelf-row"
           )) do %>
         <% games.each do |game| %>
-          <%= render(Games::GameTileComponent.new(game: game, variant: :shelf)) %>
+          <%= render(Game::GameTileComponent.new(game: game, variant: :shelf)) %>
         <% end %>
       <% end %>
     <% end %>

@@ -12,7 +12,7 @@
 #     metadata string `<NN> · <YYYY>`. Used as the tile's native
 #     `title=` attribute (screen readers + tooltip-on-truncation) and
 #     by any caller that needs a flat string. The visual tile renders
-#     the colored badge directly via `Games::RatingBadgeComponent` —
+#     the colored badge directly via `Game::RatingBadgeComponent` —
 #     this helper is the inert text fallback.
 #
 #     2026-05-11 polish (Fix 2): the `/100` suffix was retired
@@ -68,7 +68,7 @@ module GamesHelper
   end
 
   # Legacy `<NN>/100` rating string. Preserved for back-compat — the
-  # visual surfaces now use `Games::RatingBadgeComponent` instead.
+  # visual surfaces now use `Game::RatingBadgeComponent` instead.
   # Returns `""` when `igdb_rating` is blank so callers can fall back
   # to an em-dash.
   def game_rating_display(game)

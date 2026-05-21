@@ -91,7 +91,7 @@ export default class extends Controller {
         // without a page reload. The PATCH response carries the
         // canonical `{ id, name }` payload; resolve the matching
         // `#bundle-tile-<id>` anchor (rendered by
-        // `Games::BundleTileComponent`) and rewrite its
+        // `Game::BundleTileComponent`) and rewrite its
         // `.bundle-tile-name` caption + the anchor's `title` attribute
         // (hover tooltip) + `aria-label` if present. Other surfaces
         // (the bundles modal header, the per-bundle delete-confirm

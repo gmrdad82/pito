@@ -20,7 +20,7 @@
 #                        by :bundle_add.
 #
 # 2026-05-19 — Dropped the `:igdb_open` kind. The dispatcher
-# (`Games::SearchService`) now dedupes IGDB rows against local Games
+# (`Game::SearchService`) now dedupes IGDB rows against local Games
 # by `igdb_id` before reaching the view, so an IGDB row that exists
 # locally is never rendered — there is no [open] branch to maintain.
 # A local hit always wins via the `:local_game_link` row above.

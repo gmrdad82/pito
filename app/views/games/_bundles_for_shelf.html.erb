@@ -16,8 +16,8 @@
     render as an empty composite, which the no-cover fallback covers.
 
     Wave F (2026-05-17) — shelf chrome flows through
-    `Games::ShelfComponent`; per-bundle tile renders through
-    `Games::BundleTileComponent`. The dialog frame partial
+    `::ShelfComponent`; per-bundle tile renders through
+    `Game::BundleTileComponent`. The dialog frame partial
     (`bundles_modal`) is rendered as a sibling so the modal
     container exists in the DOM when the user clicks a tile OR clicks
     `[+]` (the create flow's Turbo Stream `replace`s this same node).
@@ -32,7 +32,7 @@
 <%
   bundles = local_assigns.fetch(:bundles)
 %>
-<%= render(Games::ShelfComponent.new(
+<%= render(::ShelfComponent.new(
       heading: t("games.bundles_shelf.heading"),
       count: bundles.size,
       heading_level: :h2,
@@ -60,7 +60,7 @@
                   aria: { label: t("games.bundles_shelf.create_aria") } do %>[<span class="bl"><%= t("common.actions.add_short") %></span>]<% end %>
   <% end %>
   <% bundles.each do |bundle| %>
-    <%= render(Games::BundleTileComponent.new(bundle: bundle)) %>
+    <%= render(Game::BundleTileComponent.new(bundle: bundle)) %>
   <% end %>
 <% end %>
 

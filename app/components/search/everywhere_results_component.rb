@@ -26,7 +26,7 @@
 #   game_hits:     Enumerable of Game records (Meilisearch hits).
 #   bundle_hits:   Enumerable of Bundle records.
 #   channel_hits:  Enumerable of channel-shaped Hashes (mock data
-#                   today — `Channels::MockData` entries with `:id`,
+#                   today — `Channel::MockData` entries with `:id`,
 #                   `:display_name`, `:avatar_url`, `:handle`, etc.).
 module Search
   class EverywhereResultsComponent < ViewComponent::Base

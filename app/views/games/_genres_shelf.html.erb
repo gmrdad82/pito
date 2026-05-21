@@ -3,7 +3,7 @@
     `<section data-shelf="outer-genres">` carrying an `<h2>` heading;
     inside it iterates one sub-shelf per genre that owns at least one
     game (alphabetical, case-insensitive). Each sub-shelf is a row of
-    `Games::CoverComponent` tiles at `:shelf` variant.
+    `Game::CoverComponent` tiles at `:shelf` variant.
 
     Empty buckets are hidden — when no genre owns any game, the entire
     `<section>` is suppressed (no muted placeholder, no `<h2>`). This

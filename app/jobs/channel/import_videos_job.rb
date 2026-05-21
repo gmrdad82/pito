@@ -1,6 +1,6 @@
 # Phase 22 §6.1 — Channel::ImportVideosJob.
 #
-# Sidekiq worker that drives one `Channels::VideoImporter` run per
+# Sidekiq worker that drives one `Channel::VideoImporter` run per
 # `ImportJob`. Flat naming pattern follows the existing `ChannelSync`
 # precedent (see CLAUDE.md "Architecture notes"); using
 # `Channel::ImportVideosJob` (namespaced under `Channel`) makes the
@@ -13,9 +13,9 @@
 #   running -> failed   (importer raised a FatalError)
 #
 # Retry posture (mirrors `VideoSyncBack`):
-#   - `Channels::VideoImporter::TransientError` re-raises to let
+#   - `Channel::VideoImporter::TransientError` re-raises to let
 #     Sidekiq retry (default 3 attempts with exponential backoff).
-#   - `Channels::VideoImporter::FatalError` marks the job `failed`,
+#   - `Channel::VideoImporter::FatalError` marks the job `failed`,
 #     captures `error_payload`, dispatches the completion notification,
 #     and does NOT re-raise (suppress_retry).
 #   - Channel deleted between enqueue and perform → no-op (cleanup).
@@ -43,19 +43,19 @@ class Channel::ImportVideosJob
     import_job.update!(status: :completed)
     Pito::Notifications::Source::ImportJobCompleted.report!(import_job)
     broadcast_progress(import_job)
-  rescue Channels::VideoImporter::FatalError => e
+  rescue Channel::VideoImporter::FatalError => e
     mark_failed(import_job, code: e.code, message: e.message)
     raise unless e.suppress_retry?
-  rescue Channels::VideoImporter::TransientError
+  rescue Channel::VideoImporter::TransientError
     raise
   end
 
   private
 
   # Override seam — specs stub `Channel::ImportVideosJob#build_importer`
-  # to inject a fake `Channels::VideoImporter`.
+  # to inject a fake `Channel::VideoImporter`.
   def build_importer
-    Channels::VideoImporter.new
+    Channel::VideoImporter.new
   end
 
   def mark_failed(import_job, code:, message:)

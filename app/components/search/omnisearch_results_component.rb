@@ -18,7 +18,7 @@
 # Args:
 #   mode:    one of :game_index, :bundle_add, :games_search.
 #   query:   sanitized query string (or blank when input is empty).
-#   result:  Games::SearchService::Result struct for :bundle_add /
+#   result:  Game::SearchService::Result struct for :bundle_add /
 #             :games_search. For :game_index it is a Hash with
 #             :results (IGDB rows) and :search_error (string or nil)
 #             keys — passed through to the legacy partial.
@@ -63,7 +63,7 @@ module Search
     end
 
     # 2026-05-19 — Dropped `existing_games_by_igdb_id`. The dispatcher
-    # (`Games::SearchService`) now strips any IGDB row whose id maps to
+    # (`Game::SearchService`) now strips any IGDB row whose id maps to
     # a local Game's `igdb_id` before the result reaches this view, so
     # the view never needs to flag "already-local" rows — they simply
     # don't appear in the IGDB section. Every IGDB row rendered here is

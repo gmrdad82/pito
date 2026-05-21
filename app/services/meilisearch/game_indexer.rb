@@ -49,7 +49,7 @@
 # Vector payload: when the Game has a `summary_embedding`, it is
 # attached as `_vectors.default` so Meilisearch's hybrid search can
 # rank by vector similarity. The vector itself comes from
-# `Voyage::Client` via `Games::VoyageIndexer`; this service does not
+# `Voyage::Client` via `Game::VoyageIndexer`; this service does not
 # call Voyage directly.
 #
 # Network failures are logged and swallowed — a Meilisearch hiccup

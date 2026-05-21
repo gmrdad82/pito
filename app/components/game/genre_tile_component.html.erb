@@ -1,0 +1,15 @@
+<%# Phase 27 sub-spec 01c (VC slice) — genre sub-shelf tile.
+    Delegates to Game::CoverComponent at the :shelf variant.
+    When `link_to:` is nil (passed explicitly), the cover renders
+    WITHOUT its inner <a href> — the wrapping <div> becomes the
+    click target, attaching whatever Stimulus controllers / actions
+    the caller passes via `data:`. Default behavior unchanged:
+    bare CoverComponent at :shelf with its own link to /games/:slug. %>
+<% if link_to_show? && data_attrs.empty? %>
+  <%= render(Game::CoverComponent.new(game: game, variant: :shelf)) %>
+<% else %>
+  <div<% data_attrs.each do |k, v| %> data-<%= k.to_s.dasherize %>="<%= v %>"<% end %>
+       style="cursor: pointer;">
+    <%= render(Game::CoverComponent.new(game: game, variant: :shelf, link_to_show: false)) %>
+  </div>
+<% end %>

@@ -70,7 +70,7 @@ class Channel < ApplicationRecord
 
   # Phase 35 (2026-05-19) — pgvector neighbor lookups on the Voyage
   # `summary_embedding` column. Powers channel-similarity surfaces
-  # (e.g. `Games::ChannelRecommendation` — games whose vector sits
+  # (e.g. `Game::ChannelRecommendation` — games whose vector sits
   # closest to a given channel's centroid). Distance is cosine
   # (matches the `vector_cosine_ops` HNSW index in `db/schema.rb`).
   has_neighbors :summary_embedding
@@ -200,7 +200,7 @@ class Channel < ApplicationRecord
   # text (title + handle + description + keywords). Independent of
   # `ChannelIndexJob` (Meilisearch keyword surface) — Voyage powers
   # the pgvector `has_neighbors :summary_embedding` cosine lookup
-  # used by `Games::ChannelRecommendation` and future channel-
+  # used by `Game::ChannelRecommendation` and future channel-
   # similarity surfaces. The indexer no-ops on blank input so rows
   # before the first sync stay cheap.
   after_save_commit { ChannelVoyageIndexJob.perform_later(id) }

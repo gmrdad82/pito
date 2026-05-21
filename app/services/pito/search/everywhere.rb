@@ -4,7 +4,7 @@
 # Built fresh per the user's strict-independence rule: NO inheritance
 # from / sharing with the existing video-only `SearchController#show`,
 # NO modification to `Pito::Search.engine`, NO coupling to the existing
-# `Pito::Search::Omnisearch` dispatcher or `Games::SearchService`.
+# `Pito::Search::Omnisearch` dispatcher or `Game::SearchService`.
 #
 # Three sources, queried independently:
 #

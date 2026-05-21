@@ -1,7 +1,7 @@
 # Phase 34 (2026-05-18) — Background Voyage + Meilisearch indexer for
 # a single Game.
 #
-# Thin wrapper around `Games::VoyageIndexer.call` — looks the row up,
+# Thin wrapper around `Game::VoyageIndexer.call` — looks the row up,
 # guards on a vanished record, hands off. Enqueued by:
 #
 #   - `Igdb::SyncGame#call` success path (every IGDB sync re-embeds
@@ -20,7 +20,7 @@ class GameVoyageIndexJob < ApplicationJob
     game = Game.find_by(id: game_id)
     return unless game
 
-    Games::VoyageIndexer.call(game)
+    Game::VoyageIndexer.call(game)
   ensure
     # 2026-05-18 (DR follow-up) — push the post-index Stack-pane
     # snapshot so any open `/settings` tab sees the updated Voyage

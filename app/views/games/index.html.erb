@@ -103,7 +103,7 @@
       group sits flush against the content container's left edge and
       the right (platform) chip group sits flush against its right
       edge — aligning with the navbar / footer chrome. %>
-  <%= render Games::FilterRowComponent.new(
+  <%= render Game::FilterRowComponent.new(
         checked_tokens:         @checked_tokens,
         request_path:           games_path
       ) %>
@@ -140,14 +140,14 @@
                                  @letter_buckets.any? %>
 
     <% if @recently_played.any? %>
-      <%= render(Games::ShelfComponent.new(
+      <%= render(::ShelfComponent.new(
             heading: t("games.index.recently_played_heading"),
             show_count: false,
             heading_level: :h2,
             row_gap: "8px"
           )) do %>
         <% @recently_played.each do |game| %>
-          <%= render(Games::GameTileComponent.new(game: game, variant: :grid)) %>
+          <%= render(Game::GameTileComponent.new(game: game, variant: :grid)) %>
         <% end %>
       <% end %>
     <% end %>

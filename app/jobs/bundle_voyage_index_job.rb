@@ -1,7 +1,7 @@
 # Phase 34 (2026-05-18) — Background Voyage + Meilisearch indexer for
 # a single Bundle.
 #
-# Thin wrapper around `Bundles::VoyageIndexer.call` — looks the row up,
+# Thin wrapper around `Bundle::VoyageIndexer.call` — looks the row up,
 # guards on a vanished record, hands off. Enqueued by:
 #
 #   - `Bundle` after_commit hook on create / update (name or composite
@@ -22,7 +22,7 @@ class BundleVoyageIndexJob < ApplicationJob
     bundle = Bundle.find_by(id: bundle_id)
     return unless bundle
 
-    Bundles::VoyageIndexer.call(bundle)
+    Bundle::VoyageIndexer.call(bundle)
   ensure
     # 2026-05-18 (DR follow-up) — push the post-index Stack-pane
     # snapshot so any open `/settings` tab sees the updated Voyage

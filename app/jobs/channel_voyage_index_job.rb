@@ -1,7 +1,7 @@
 # Phase 35 (2026-05-19) — Background Voyage indexer for a single
 # Channel.
 #
-# Thin wrapper around `Channels::VoyageIndexer.call` — looks the row
+# Thin wrapper around `Channel::VoyageIndexer.call` — looks the row
 # up, guards on a vanished record, hands off. Enqueued by:
 #
 #   - `Channel` after_save_commit hook (every save re-embeds; the
@@ -23,7 +23,7 @@ class ChannelVoyageIndexJob < ApplicationJob
     channel = Channel.find_by(id: channel_id)
     return unless channel
 
-    Channels::VoyageIndexer.call(channel)
+    Channel::VoyageIndexer.call(channel)
   ensure
     # 2026-05-19 — push the post-index Stack-pane snapshot so any
     # open `/settings` tab sees the updated Voyage coverage +

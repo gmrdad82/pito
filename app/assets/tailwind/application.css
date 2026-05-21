@@ -1336,7 +1336,7 @@ body[data-modal-open] {
 }
 
 /* 2026-05-19 — Scoped slim scrollbar for the canonical `ShelfComponent`
-   (top-level since 2026-05-19; was `Games::ShelfComponent`). Mirrors the
+   (top-level since 2026-05-19; was `::ShelfComponent`). Mirrors the
    app-wide slim-scrollbar tokens but encapsulates the rule to the shelf
    so future global-scrollbar changes don't drift the shelf's appearance.
    Tokens — `--color-muted`, `--color-bg`, `--color-text` — come from
@@ -1361,9 +1361,9 @@ body[data-modal-open] {
    overflow horizontally and scroll. Without `flex-shrink: 0`, default
    flex behavior squeezes children to fit the viewport, hiding the
    overflow and progressively shrinking tile width as N grows. Tiles
-   that set their own `flex: 0 0 <px>` inline (`Games::GameTileComponent`
-   letter shelf, `Games::BundleTileComponent` bundles shelf) are immune;
-   bare `Games::CoverComponent` covers used by `Games::GenreTileComponent`
+   that set their own `flex: 0 0 <px>` inline (`Game::GameTileComponent`
+   letter shelf, `Game::BundleTileComponent` bundles shelf) are immune;
+   bare `Game::CoverComponent` covers used by `Game::GenreTileComponent`
    only carry `width: 98px` and were the visible regression that
    prompted this rule. The previously-scoped
    `.game-bundles .shelf-row > *` and `.game-similar .shelf-row > *`
@@ -2008,7 +2008,7 @@ table.kv-table td.kv-table__value {
 }
 
 /* 2026-05-19 (Bug A3 fix) — `kv-table__row--syncing` modifier on the
-   meta-table sync `<tr>`. Rendered by `Games::MetaTableComponent`
+   meta-table sync `<tr>`. Rendered by `Game::MetaTableComponent`
    while `@game.resyncing?` is true. The whole row dims with
    `opacity: 0.55` so the "stale, refreshing" signal is unmistakable
    even when the value cell text is still being morphed by Turbo's
@@ -4294,7 +4294,7 @@ dialog.leader-menu-popup::backdrop {
   opacity: 1;
   visibility: visible;
 }
-/* Phase 27 §01e — Games::CoverComponent variant slot dimensions.
+/* Phase 27 §01e — Game::CoverComponent variant slot dimensions.
    The component already emits `style="width:Npx; height:Npx;"`
    inline so the slot is sized even without external CSS (belt-
    and-braces for the no-cover placeholder branch + the
@@ -4347,7 +4347,7 @@ dialog.leader-menu-popup::backdrop {
      dark theme  → light hairline (`#aaaaaa`)
 
    Selectors:
-     `.game-cover-img`             — IMG inside `Games::CoverComponent`
+     `.game-cover-img`             — IMG inside `Game::CoverComponent`
                                      (genre shelves, collection-shelf
                                      game tiles, fallback SVGs).
      `.tile-cover img`             — IMG inside the rich-tile shape
@@ -4403,7 +4403,7 @@ dialog.leader-menu-popup::backdrop {
 }
 
 /* 2026-05-17 — Shelf default top margin (Wave F consolidation).
-   The `ShelfComponent` (renamed top-level 2026-05-19; was `Games::ShelfComponent`) previously emitted inline
+   The `ShelfComponent` (renamed top-level 2026-05-19; was `::ShelfComponent`) previously emitted inline
    `style="margin-top: 16px"` on every section, which beat the
    cascade and prevented the hairline rule below from collapsing
    the gap between sibling letter / genre shelves to its tighter
@@ -4440,7 +4440,7 @@ dialog.leader-menu-popup::backdrop {
 /* Phase 27 §01h / Phase 27 follow-up (2026-05-17) — Bundle tile
    composite cover. Sized to the WRAPPER (`.bundle-cover-wrap`) which
    carries the inline `width: <N>px; height: <N>px` from
-   `Games::BundleTileComponent` — 150 × 200 for `size: :grid` (the
+   `Game::BundleTileComponent` — 150 × 200 for `size: :grid` (the
    /games shelf), 98 × 130 for `size: :shelf` (the /games/:id bundles
    section). The composite is built at 600 × 800 via
    `Composite::Builder`; the browser downsamples to whichever physical
@@ -4757,7 +4757,7 @@ dialog.leader-menu-popup::backdrop {
 
 /* 2026-05-18 — Empty-state placeholder tile for the /games/:id
    `bundles` and `similar` shelves. When neither half of `bundles`
-   has rows, or when `Games::SimilarGames` returns nothing (no
+   has rows, or when `Game::SimilarGames` returns nothing (no
    embedding yet / nothing comparable), the shelf still renders so
    the page rhythm stays consistent — a single dashed-border tile
    sits in place of real cover tiles, carrying muted copy like
@@ -4787,7 +4787,7 @@ dialog.leader-menu-popup::backdrop {
 }
 
 /* 2026-05-18 — Suggested-bundle tile (`mode: :suggest` branch of
-   `Games::BundleTileComponent`) renders as a `button_to` form whose
+   `Game::BundleTileComponent`) renders as a `button_to` form whose
    inner button carries `.bundle-tile-suggest-button`. Strip the
    default browser button chrome so the form reads as a bare cover
    matching the LEFT-half anchors. */
@@ -5386,7 +5386,7 @@ input[type="text"].bundle-title-input:focus-visible {
    shared `.sessions-table` rules above.
 
    The `.rating-score-chip` block immediately below paints the
-   colored pill rendered by `Games::RatingScoreChipComponent` —
+   colored pill rendered by `Game::RatingScoreChipComponent` —
    single source of truth for the chip's geometry + edge treatment,
    used wherever the rating chip surfaces (currently only this
    table; future surfaces opt in by rendering the component). */
@@ -5436,7 +5436,7 @@ table.all-games-table td {
 }
 
 /* Rating-score chip — tier-colored pill rendered by
-   `Games::RatingScoreChipComponent`. Background color is set inline
+   `Game::RatingScoreChipComponent`. Background color is set inline
    per-instance from the tier map (TIER_BG_COLOR); the per-tier hex
    intentionally mirrors the dark-theme `--color-rating-*` palette
    so the chip reads loudly in BOTH themes. Text is black + bold
@@ -5457,7 +5457,7 @@ table.all-games-table td {
   line-height: 1.4;
 }
 
-/* Channels::IdCardComponent optional score badge — top-right corner
+/* Channel::IdCardComponent optional score badge — top-right corner
    overlay. Only rendered when the component receives `score:` (e.g.
    recommended-channels shelf on /games/:id). The card's outer
    <article> sets `position: relative` so the badge anchors cleanly

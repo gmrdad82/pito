@@ -94,8 +94,12 @@ frontmatter). The Agent tool also supports per-call `model` override.
 **6-gate audit before surfacing any agent delivery to you:**
 
 1. **Success** — agent reported success + smoke check green?
-2. **Specs** — every new module / class / job / component has a passing
-   spec? No spec → re-dispatch.
+2. **Specs** — **DEFERRED during rebuild phase.** The codebase is being
+   rebuilt piece-by-piece on the locked architecture; specs will be
+   re-introduced fresh once the structural rebuild settles. During
+   rebuild, agents do NOT write specs and do NOT run specs. This gate
+   resumes its hard form (every module has a passing spec) when the
+   user signals "rebuild settled — re-introduce specs".
 3. **Docs** — every new module / class / job / component has a class-level
    docblock header (purpose, kwargs, variants, focusables, mode behavior,
    cable subscriptions, related dependencies)? No docs → re-dispatch.
@@ -220,8 +224,12 @@ focusables, mode behavior, cable subscriptions, related dependencies.
 A Claude agent building the TUI equivalent reads the docblock and
 re-derives the contract.
 
-**Every module / class / job / component has a passing spec.** Mandatory.
-No exceptions.
+**Every module / class / job / component has a passing spec.** Mandatory
+**after** the rebuild phase settles. **Currently suspended:** the
+codebase is being rebuilt on the locked architecture; the `spec/`
+directory will be purged as part of the rebuild. Agents do not write or
+run specs during this phase. This rule resumes when the user signals
+"rebuild settled — re-introduce specs".
 
 **One module = one purpose.** `Pito::Formatter::*` formats. Jobs do
 Sidekiq work. ViewComponents render HTML. Services orchestrate. Helpers

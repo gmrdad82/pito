@@ -13,7 +13,7 @@
 # (`[a-zA-Z0-9_-]` only); see `composite_id` comment for context.
 #
 # Vector payload: when an embedding is supplied (from
-# `Bundles::VoyageIndexer` via `Voyage::Client`), it is attached as
+# `Bundle::VoyageIndexer` via `Voyage::Client`), it is attached as
 # `_vectors.default` so Meilisearch's hybrid surface can rank by
 # vector similarity. The embedding is also written to the
 # `bundles.summary_embedding` pgvector column by the caller — passing
@@ -102,7 +102,7 @@ module Meilisearch
     end
 
     # Concatenate up to 5 member-game summaries (em-dash joined, same
-    # separator the `Games::VoyageIndexer` uses for the title/summary
+    # separator the `Game::VoyageIndexer` uses for the title/summary
     # combination). Truncating at 5 keeps the Meilisearch doc bounded
     # for a large bundle without losing its distinguishing keywords;
     # the rest of the corpus picks up the per-game terms via the

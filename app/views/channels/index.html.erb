@@ -20,11 +20,11 @@
     UX as /games chips). Live filtering wires up in later A-steps
     once the user signs off on the visuals.
 
-    Mock data lives in `Channels::MockData`. %>
+    Mock data lives in `Channel::MockData`. %>
 
 <% calendar_chips = Pito::Formatter::CurrentChannelFilterChips.call %>
 
-<%= render(Channels::TitleBarComponent.new) %>
+<%= render(Channel::TitleBarComponent.new) %>
 
 <%# Two-column block: LEFT = single chip row (time windows + dynamic
     year/month chips inline AFTER alltime); RIGHT = avatar shelf.
@@ -32,7 +32,7 @@
     Outer flex container baseline-aligns the two columns so the chip
     row and the RIGHT shelf's checkboxes share the same baseline.
     `gap: 16px` between left and right groups matches
-    `Games::FilterRowComponent`'s outer left/right gap
+    `Game::FilterRowComponent`'s outer left/right gap
     (filter_row_component.html.erb L18). %>
 <section class="channels-chrome"
          style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; justify-content: space-between; margin: 6px 0;">
@@ -76,7 +76,7 @@
     </div>
   </div>
   <div class="channels-chrome__avatars">
-    <%= render(Channels::AvatarShelfComponent.new(channels: @channels, current_params: request.query_parameters)) %>
+    <%= render(Channel::AvatarShelfComponent.new(channels: @channels, current_params: request.query_parameters)) %>
   </div>
 </section>
 
@@ -104,7 +104,7 @@
         shelf_kind: "channels-id-cards"
       )) do %>
     <% @channels.each do |channel| %>
-      <%= render(Channels::IdCardComponent.new(channel: channel)) %>
+      <%= render(Channel::IdCardComponent.new(channel: channel)) %>
     <% end %>
   <% end %>
   <hr class="hairline">
@@ -121,13 +121,13 @@
       hairline used above. %>
 
   <!-- variant 1: inline (compact `value label` pairs, 13px bold + 11px muted, 32px gap) -->
-  <%= render(Channels::BasicsSectionInlineComponent.new(channels: @channels)) %>
+  <%= render(Channel::BasicsSectionInlineComponent.new(channels: @channels)) %>
 
   <!-- variant 2: card (bordered + tinted 4-cell grid, 22px bold value over 11px muted label) -->
-  <%= render(Channels::BasicsSectionCardComponent.new(channels: @channels)) %>
+  <%= render(Channel::BasicsSectionCardComponent.new(channels: @channels)) %>
 
   <!-- variant 3: separator (4-cell grid with vertical hairline rules, 22px bold value over 11px muted label) -->
-  <%= render(Channels::BasicsSectionSeparatorComponent.new(channels: @channels)) %>
+  <%= render(Channel::BasicsSectionSeparatorComponent.new(channels: @channels)) %>
 
   <%# Top Content variant gallery (2026-05-19).
 
@@ -136,20 +136,20 @@
       the other two components + their renders get removed in a follow-
       up dispatch.
 
-      Source: `Channels::MockData.top_content`, filtered by the channel
+      Source: `Channel::MockData.top_content`, filtered by the channel
       ids the page is rendering and sorted by `:views` desc. Components
       live in `app/components/channels/top_content_*_component.{rb,html.erb}`. %>
 
   <% selected_channel_ids = @channels.map { |c| c[:id] } %>
-  <% top_videos = Channels::MockData.top_content
+  <% top_videos = Channel::MockData.top_content
        .select { |v| selected_channel_ids.include?(v[:channel_id]) }
        .sort_by { |v| -v[:views].to_i } %>
-  <% channel_name_map = Channels::MockData.channel_name_by_id %>
+  <% channel_name_map = Channel::MockData.channel_name_by_id %>
 
   <hr class="hairline">
 
   <!-- variant 1: vertical ranked list (rank + 80×45 thumb placeholder + title + views + channel badge per row) -->
-  <%= render(Channels::TopContentListComponent.new(
+  <%= render(Channel::TopContentListComponent.new(
         videos: top_videos,
         channel_name_by_id: channel_name_map
       )) %>
@@ -157,7 +157,7 @@
   <hr class="hairline">
 
   <!-- variant 2: 4-column tile grid (16:9 thumb placeholder + 2-line title + views + channel badge per tile) -->
-  <%= render(Channels::TopContentGridComponent.new(
+  <%= render(Channel::TopContentGridComponent.new(
         videos: top_videos,
         channel_name_by_id: channel_name_map
       )) %>
@@ -165,7 +165,7 @@
   <hr class="hairline">
 
   <!-- variant 3: compact 3-column table (title | views | channel — most data-dense) -->
-  <%= render(Channels::TopContentTableComponent.new(
+  <%= render(Channel::TopContentTableComponent.new(
         videos: top_videos,
         channel_name_by_id: channel_name_map
       )) %>
@@ -183,10 +183,10 @@
       `app/components/channels/device_types_*_component.{rb,html.erb}`. %>
 
   <!-- variant 1: donut (CSS conic-gradient with center label + bracketed legend) -->
-  <%= render(Channels::DeviceTypesDonutComponent.new(channels: @channels)) %>
+  <%= render(Channel::DeviceTypesDonutComponent.new(channels: @channels)) %>
 
   <!-- variant 2: bars (horizontal bar list, one row per device) -->
-  <%= render(Channels::DeviceTypesBarsComponent.new(channels: @channels)) %>
+  <%= render(Channel::DeviceTypesBarsComponent.new(channels: @channels)) %>
 
   <%# Window summaries section variant gallery (2026-05-19).
 
@@ -198,12 +198,12 @@
   <hr class="hairline">
 
   <!-- variant 1: tabs (5-tab strip with one active window's stat cards below; default = 28d) -->
-  <%= render(Channels::WindowSummariesTabsComponent.new(channels: @channels)) %>
+  <%= render(Channel::WindowSummariesTabsComponent.new(channels: @channels)) %>
 
   <hr class="hairline">
 
   <!-- variant 2: grid (5 side-by-side cards, all windows visible at once) -->
-  <%= render(Channels::WindowSummariesGridComponent.new(channels: @channels)) %>
+  <%= render(Channel::WindowSummariesGridComponent.new(channels: @channels)) %>
 
   <%# Audience demographics variant gallery (2026-05-19).
 
@@ -216,19 +216,19 @@
       of each channel's male / female × 7-age-bucket percentages.
       Components live in `app/components/channels/demographics_*_
       component.{rb,html.erb}`. Mock data lives in
-      `Channels::DemographicsMock` (sibling to `Channels::MockData` to
+      `Channel::DemographicsMock` (sibling to `Channel::MockData` to
       avoid the parallel-edit collision risk on `mock_data.rb` this
       slice). %>
 
   <hr class="hairline">
 
   <!-- variant 1: pyramid (two-sided population pyramid; male left, female right, age buckets vertical, shared center axis) -->
-  <%= render(Channels::DemographicsPyramidComponent.new(channels: @channels)) %>
+  <%= render(Channel::DemographicsPyramidComponent.new(channels: @channels)) %>
 
   <hr class="hairline">
 
   <!-- variant 2: grouped (side-by-side horizontal bars, one row per age bucket, male above + female below) -->
-  <%= render(Channels::DemographicsGroupedComponent.new(channels: @channels)) %>
+  <%= render(Channel::DemographicsGroupedComponent.new(channels: @channels)) %>
 
   <%# Audience geography variant gallery (2026-05-19).
 
@@ -244,13 +244,13 @@
   <hr class="hairline">
 
   <!-- variant 1: ranked list with percentage bars (top-10, flag + code + name + bar + %) -->
-  <%= render(Channels::GeographyListComponent.new(channels: @channels)) %>
+  <%= render(Channel::GeographyListComponent.new(channels: @channels)) %>
 
   <!-- variant 2: horizontal bar chart (top-8, country name + bar scaled to max + compact view count) -->
-  <%= render(Channels::GeographyBarComponent.new(channels: @channels)) %>
+  <%= render(Channel::GeographyBarComponent.new(channels: @channels)) %>
 
   <!-- variant 3: squarified treemap (top-10 + "Other", proportional rectangles + legend grid) -->
-  <%= render(Channels::GeographyTreemapComponent.new(channels: @channels)) %>
+  <%= render(Channel::GeographyTreemapComponent.new(channels: @channels)) %>
 
   <%# Traffic sources variant gallery (2026-05-19).
 
@@ -268,12 +268,12 @@
   <hr class="hairline">
 
   <!-- variant 1: ranked list with horizontal bars + top-search-terms sub-section (compact, single column) -->
-  <%= render(Channels::TrafficSourcesListComponent.new(channels: @channels)) %>
+  <%= render(Channel::TrafficSourcesListComponent.new(channels: @channels)) %>
 
   <hr class="hairline">
 
   <!-- variant 2: split / side-by-side (left=sources, right=top search terms) -->
-  <%= render(Channels::TrafficSourcesSplitComponent.new(channels: @channels)) %>
+  <%= render(Channel::TrafficSourcesSplitComponent.new(channels: @channels)) %>
 
   <%# Viewer-time heatmap variant gallery (2026-05-19).
 
@@ -291,7 +291,7 @@
 
   <hr class="hairline">
 
-  <% heatmap_data = Channels::MockData::DAYS_OF_WEEK if defined?(Channels::MockData::DAYS_OF_WEEK) %>
+  <% heatmap_data = Channel::MockData::DAYS_OF_WEEK if defined?(Channel::MockData::DAYS_OF_WEEK) %>
   <% heatmap_days = %w[Mon Tue Wed Thu Fri Sat Sun] %>
   <% aggregated_heatmap = heatmap_days.each_with_object({}) do |day, acc|
        summed = Array.new(24, 0)
@@ -310,7 +310,7 @@
     </h3>
 
     <!-- variant 1: color-intensity grid (7 rows × 24 cells, opacity ramp on --color-link) -->
-    <%= render(Channels::HeatmapGridComponent.new(heatmap: aggregated_heatmap)) %>
+    <%= render(Channel::HeatmapGridComponent.new(heatmap: aggregated_heatmap)) %>
   </div>
 
   <hr class="hairline">
@@ -323,6 +323,6 @@
     </h3>
 
     <!-- variant 2: stacked sparklines (7 days, each its own 360×32 SVG line+area chart) -->
-    <%= render(Channels::HeatmapSparklineComponent.new(heatmap: aggregated_heatmap)) %>
+    <%= render(Channel::HeatmapSparklineComponent.new(heatmap: aggregated_heatmap)) %>
   </div>
 </section>

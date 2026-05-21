@@ -17,7 +17,7 @@
 # Phase 27 follow-up (2026-05-17) — `fetch_for_game(game)` prefers the
 # normalized local master
 # (`<PITO_ASSETS_PATH>/covers/games/<id>/master.jpg`) written by
-# `Games::CoverArt::Normalizer` over a CDN download. Local FS read is
+# `Game::CoverArt::Normalizer` over a CDN download. Local FS read is
 # dramatically faster than an HTTPS round-trip and avoids burning the
 # `covers/_tiles/<cover_image_id>.jpg` cache slot when the master
 # already covers the same need. Falls back to the legacy

@@ -1,0 +1,57 @@
+<%# Phase 27 sub-spec 01e — Game::CoverComponent renderer.
+    The wrapper carries the variant's `width` / `height` HTML
+    attributes so the browser reserves layout before the image
+    decodes (no CLS). `data-variant` is load-bearing for spec
+    assertions and downstream styling hooks.
+
+    Missing-cover path: render a static SVG fallback at the variant's
+    exact dimensions instead of the plain-text "[no cover]" sentinel.
+    Pito is single-theme (dark) — only the dark fallback variant is
+    emitted. %>
+<%# `data-turbo-frame="_top"` escapes the surrounding `games_listing`
+    Turbo Frame on `/games` (declared in `app/views/games/index.html.erb`)
+    so clicking a shelf cover triggers a full-page navigation to
+    `/games/:id` (whose show view is not wrapped in that frame and would
+    otherwise raise "Content missing"). Mirrors the same attribute on
+    `Game::GameTileComponent`'s rich tile — letter-shelf tiles and
+    genre/bundle bare-cover tiles now share the same navigation
+    semantics. %>
+<% if link_to_show? %>
+  <a href="<%= game_path %>"
+     class="<%= css_classes %>"
+     data-variant="<%= variant %>"
+     data-tile-game-id="<%= game.id %>"
+     data-turbo-frame="_top"
+     style="width: <%= width %>px; height: <%= height %>px;"
+     title="<%= game.title %>">
+    <% if cover_present? %>
+      <%= image_tag cover_url, alt: game.title, loading: "lazy",
+                    width: width, height: height,
+                    data: { variant: variant },
+                    class: "game-cover-img" %>
+    <% else %>
+      <%= image_tag fallback_path, alt: t("games.cover.no_cover_alt"), loading: "lazy",
+                    width: width, height: height,
+                    data: { variant: variant },
+                    class: "game-cover-img game-cover-fallback" %>
+    <% end %>
+  </a>
+<% else %>
+  <div class="<%= css_classes %>"
+       data-variant="<%= variant %>"
+       data-tile-game-id="<%= game.id %>"
+       style="width: <%= width %>px; height: <%= height %>px;"
+       title="<%= game.title %>">
+    <% if cover_present? %>
+      <%= image_tag cover_url, alt: game.title, loading: "lazy",
+                    width: width, height: height,
+                    data: { variant: variant },
+                    class: "game-cover-img" %>
+    <% else %>
+      <%= image_tag fallback_path, alt: t("games.cover.no_cover_alt"), loading: "lazy",
+                    width: width, height: height,
+                    data: { variant: variant },
+                    class: "game-cover-img game-cover-fallback" %>
+    <% end %>
+  </div>
+<% end %>

@@ -7,7 +7,7 @@
 #                                       the next job with [third].
 #   perform(bundle_id, nil)           — equivalent to passing [].
 #
-# The chain pattern (orchestrated by `Bundles::CompositeRebuildQueue`)
+# The chain pattern (orchestrated by `Bundle::CompositeRebuildQueue`)
 # enqueues bundles in deterministic alphabetical order so multi-bundle
 # fan-outs (e.g. a game's cover_image_id change rippling to N bundles)
 # rebuild predictably.
@@ -26,7 +26,7 @@
 # `"bundle_cover:<id>"` stream:
 #
 #   1. `target: "bundle_cover_<id>"` — the shelf-tile cover-wrap
-#      rendered by `Games::BundleTileComponent` on /games (bundles
+#      rendered by `Game::BundleTileComponent` on /games (bundles
 #      shelf) and /games/:id (bundles section, both halves). Partial:
 #      `app/views/games/_bundle_tile_cover.html.erb`. The tile
 #      component sizes the cover at either 150 × 200 (grid) or
@@ -55,7 +55,7 @@ class BundleCoverBuild
 
   # Shelf-tile cover dimensions used when re-rendering
   # `_bundle_tile_cover` for the Turbo Stream broadcast. Matches the
-  # `:grid` SIZES entry in `Games::BundleTileComponent` — the
+  # `:grid` SIZES entry in `Game::BundleTileComponent` — the
   # dominant visible surface on /games. Tiles rendered at the
   # smaller `:shelf` size (98 × 130) share the same wrapper id, so
   # the broadcast still replaces them; the CSS sizes the inner
