@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe Pito::SectionColors do
+RSpec.describe Pito::Theme::Sections do
   describe "BG constant" do
     it "covers every section the layout can render (8 sections)" do
       expect(described_class::BG.keys).to match_array(%w[

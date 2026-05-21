@@ -215,7 +215,7 @@
       `dialog { ... }` block so modal chrome stays consistent
       regardless of which page opened them. %>
   <%# 2026-05-20 — Per-section bg + accent are computed in Ruby
-      (`Pito::SectionColors`) and inlined here so the cascade uses
+      (`Pito::Theme::Sections`) and inlined here so the cascade uses
       single-source-of-truth values that are specced. The inline
       `--section-accent` CSS var still drives every downstream
       `color-mix(--section-accent, X%, ...)` token (chip bg, focus
