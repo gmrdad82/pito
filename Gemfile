@@ -103,7 +103,7 @@ gem "draper", "~> 4.0"
 # so the enrollment view can show the QR scan target without an external
 # image service. Both gems are pure Ruby — no native extensions.
 gem "rotp", "~> 6.3"
-gem "rqrcode", "~> 2.2"
+gem "rqrcode", "~> 3.2"
 
 # MCP (Model Context Protocol) server
 gem "mcp"
