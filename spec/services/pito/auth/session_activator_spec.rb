@@ -4,7 +4,7 @@ require "rails_helper"
 # minting a fresh active Session row + returning the plaintext for the
 # cookie. The trusted-location upsert and LoginAttempt write are gone
 # along with the new-location approval surface.
-RSpec.describe Auth::SessionActivator do
+RSpec.describe Pito::Auth::SessionActivator do
   let(:user) { create(:user) }
 
   def fake_request(remote_ip: "10.60.0.2", user_agent: "AgentActivator/1.0")

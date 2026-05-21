@@ -16,7 +16,7 @@
 # Sad paths bottom out through the same generic `login failed.`
 # response with no oracle differentiation (LD-14). The only writes the
 # controller still makes are `AuthAuditLog` rows (high-level audit via
-# `Auth::AuditLogger` — distinct from the dropped per-attempt log).
+# `Pito::Auth::AuditLogger` — distinct from the dropped per-attempt log).
 class SessionsController < ApplicationController
   # Phase 29 — Unit A2 follow-up — security finding F6. The
   # constant-ish-time dummy bcrypt compare used by the unknown-username
@@ -117,7 +117,7 @@ class SessionsController < ApplicationController
   # The post-session `require_totp_configured!` gate handles the rest
   # (forces enrollment when the user has no TOTP).
   def bootstrap_first_login_session(user:)
-    session_record, plaintext = Auth::SessionActivator.call(
+    session_record, plaintext = Pito::Auth::SessionActivator.call(
       user: user,
       request: request
     )
@@ -157,7 +157,7 @@ class SessionsController < ApplicationController
     # Phase 25 — 01g (LD-11). Each failed login bumps the per-account
     # backoff bucket. The bucket TTL is the current backoff window, so
     # a quiet user resets naturally; an attacker pays exponentially.
-    Auth::BackoffCalculator.record_trip!(key: backoff_username_key(username))
+    Pito::Auth::BackoffCalculator.record_trip!(key: backoff_username_key(username))
 
     if SessionThrottle.exhausted?(request.remote_ip)
       render_throttled
@@ -186,7 +186,7 @@ class SessionsController < ApplicationController
   def reset_backoff_for_username(username)
     key = backoff_username_key(username)
     return if key.empty?
-    Auth::BackoffCalculator.reset!(key: key)
+    Pito::Auth::BackoffCalculator.reset!(key: key)
   end
 
   def write_session_cookie(plaintext)

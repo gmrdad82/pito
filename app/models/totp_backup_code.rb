@@ -1,7 +1,7 @@
 # Phase 25 — 01e. Single-use TOTP backup code.
 #
-# Ten codes are minted at enrollment by `Auth::TotpEnroller` (and on
-# regenerate by `Auth::BackupCodeRegenerator`). Each row stores ONLY
+# Ten codes are minted at enrollment by `Pito::Auth::TotpEnroller` (and on
+# regenerate by `Pito::Auth::BackupCodeRegenerator`). Each row stores ONLY
 # the BCrypt digest — the plaintext is shown to the user exactly once,
 # on the one-shot enrollment view.
 #

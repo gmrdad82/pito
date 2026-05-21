@@ -1,7 +1,7 @@
 require "rails_helper"
 
 # Phase 25 — 01g (LD-11). Exponential backoff calculator.
-RSpec.describe Auth::BackoffCalculator do
+RSpec.describe Pito::Auth::BackoffCalculator do
   let(:key) { "ip:1.2.3.4" }
 
   before { Rack::Attack.cache.store.clear if defined?(Rack::Attack) }

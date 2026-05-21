@@ -2,7 +2,7 @@
 #
 # Every privileged auth action (TOTP enroll / disable, backup-code
 # regenerate, Voyage credential rotation, password reset) writes one
-# row via `Auth::AuditLogger`. The row is the canonical "who did
+# row via `Pito::Auth::AuditLogger`. The row is the canonical "who did
 # what, from where, to which target" record. Never auto-pruned.
 #
 # `source_surface` enum (`web` / `tui` / `mcp`) records where the

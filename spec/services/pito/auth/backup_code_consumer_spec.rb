@@ -1,7 +1,7 @@
 require "rails_helper"
 
-# Phase 25 — 01e. Auth::BackupCodeConsumer specs.
-RSpec.describe Auth::BackupCodeConsumer do
+# Phase 25 — 01e. Pito::Auth::BackupCodeConsumer specs.
+RSpec.describe Pito::Auth::BackupCodeConsumer do
   let(:user) { create(:user) }
   # Plaintext uses only the safe 28-char alphabet
   # (A-Z + 2-9, minus O I L B 8). 8 chars exact.

@@ -1,7 +1,7 @@
 require "rails_helper"
 
-# Phase 25 — 01e. Auth::TotpVerifier specs.
-RSpec.describe Auth::TotpVerifier do
+# Phase 25 — 01e. Pito::Auth::TotpVerifier specs.
+RSpec.describe Pito::Auth::TotpVerifier do
   let(:seed) { "JBSWY3DPEHPK3PXP" }
   let(:user) { create(:user, totp_seed_encrypted: seed, totp_enabled_at: Time.current) }
   let(:totp) { ROTP::TOTP.new(seed) }
@@ -59,7 +59,7 @@ RSpec.describe Auth::TotpVerifier do
     it "accepts a code on first use and sets totp_last_used_step" do
       code = totp.now
       expect(described_class.call(user: user, code: code)).to eq(:ok)
-      step_now = Time.now.to_i / Auth::TotpVerifier::STEP_SECONDS
+      step_now = Time.now.to_i / Pito::Auth::TotpVerifier::STEP_SECONDS
       expect(user.reload.totp_last_used_step).to eq(step_now)
     end
 
@@ -82,7 +82,7 @@ RSpec.describe Auth::TotpVerifier do
     it "advances the watermark when a code resolves to a higher step than the last one" do
       # Simulate the next 30-s window having elapsed by writing a
       # backdated watermark, then verify the current code advances it.
-      current_step = Time.now.to_i / Auth::TotpVerifier::STEP_SECONDS
+      current_step = Time.now.to_i / Pito::Auth::TotpVerifier::STEP_SECONDS
       user.update_columns(totp_last_used_step: current_step - 5)
 
       code = totp.now

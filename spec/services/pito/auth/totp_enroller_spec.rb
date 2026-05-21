@@ -1,7 +1,7 @@
 require "rails_helper"
 
-# Phase 25 — 01e. Auth::TotpEnroller specs.
-RSpec.describe Auth::TotpEnroller do
+# Phase 25 — 01e. Pito::Auth::TotpEnroller specs.
+RSpec.describe Pito::Auth::TotpEnroller do
   let(:user) { create(:user) }
 
   describe ".call (happy path)" do

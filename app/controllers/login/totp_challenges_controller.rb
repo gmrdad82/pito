@@ -10,7 +10,7 @@
 #
 # Success path:
 #
-#   - Activates the session via `Auth::SessionActivator`.
+#   - Activates the session via `Pito::Auth::SessionActivator`.
 #   - Rotates the session token (LD-12) via `reset_session` and a
 #     fresh cookie. The pre-auth marker is cleared on success.
 #
@@ -79,7 +79,7 @@ class Login::TotpChallengesController < ApplicationController
       # Phase 25 — 01g (LD-11). 2FA success clears the per-account
       # backoff bucket — the user has proven possession of the seed,
       # whatever earlier failures recorded should not gate them out.
-      Auth::BackoffCalculator.reset!(
+      Pito::Auth::BackoffCalculator.reset!(
         key: "username:#{Digest::SHA256.hexdigest(@pre_auth_user.username.to_s.strip.downcase)}"
       )
       # P25 F8 — on success, drop the nonce cache entry. The
@@ -105,11 +105,11 @@ class Login::TotpChallengesController < ApplicationController
   private
 
   def try_totp(code)
-    Auth::TotpVerifier.call(user: @pre_auth_user, code: code) == :ok
+    Pito::Auth::TotpVerifier.call(user: @pre_auth_user, code: code) == :ok
   end
 
   def try_backup_code(code)
-    Auth::BackupCodeConsumer.call(user: @pre_auth_user, code: code) == :ok
+    Pito::Auth::BackupCodeConsumer.call(user: @pre_auth_user, code: code) == :ok
   end
 
   def activate_and_redirect
@@ -120,7 +120,7 @@ class Login::TotpChallengesController < ApplicationController
     # pre-auth phase.
     reset_session
 
-    session_record, plaintext = Auth::SessionActivator.call(
+    session_record, plaintext = Pito::Auth::SessionActivator.call(
       user: @pre_auth_user,
       request: request
     )

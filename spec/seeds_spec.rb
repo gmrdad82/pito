@@ -237,7 +237,7 @@ RSpec.describe "db/seeds.rb", type: :model do
          "(the captured payload has no plaintext to restore)" do
         stub_credentials(runtime_state: runtime_state_payload)
         fake_codes = Array.new(10) { |i| "BACKUP-CODE-#{i.to_s.rjust(2, '0')}" }
-        expect(Auth::BackupCodeRegenerator).to receive(:call)
+        expect(Pito::Auth::BackupCodeRegenerator).to receive(:call)
           .with(hash_including(source_surface: :tui))
           .and_return(fake_codes)
 

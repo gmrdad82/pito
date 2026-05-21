@@ -31,11 +31,11 @@
 # both was the failing field on flows that bundle multiple
 # credentials.
 #
-# Internal use of `Auth::TotpVerifier` triggers the replay-defense
+# Internal use of `Pito::Auth::TotpVerifier` triggers the replay-defense
 # watermark on success — a code consumed by a write here cannot be
 # replayed against a different sensitive action in the same drift
 # window. That is the locked, install-wide replay contract (RFC 6238
-# §5.2 — see `Auth::TotpVerifier` header comment).
+# §5.2 — see `Pito::Auth::TotpVerifier` header comment).
 module RecentTotpVerification
   extend ActiveSupport::Concern
 
@@ -55,7 +55,7 @@ module RecentTotpVerification
     return true unless Current.user&.totp_enabled?
 
     code = params[:totp_code].to_s.strip
-    return true if Auth::TotpVerifier.call(user: Current.user, code: code) == :ok
+    return true if Pito::Auth::TotpVerifier.call(user: Current.user, code: code) == :ok
 
     if redirect_on_failure
       redirect_to redirect_on_failure, alert: GENERIC_FLASH
