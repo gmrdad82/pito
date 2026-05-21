@@ -43,8 +43,20 @@ module Pito
         "calendar"      => "#bd93f9"
       }.freeze
 
+      # ACCENTS — canonical alias for the 3 named screen accents referenced in
+      # `tmp/dracula-swatches-v2.html` § B (Section mapping). Delegates to the
+      # full ACCENT table so there is a single hex source of truth.
+      ACCENTS = {
+        home:   ACCENT.fetch("home"),   # Dracula Purple
+        videos: ACCENT.fetch("videos"), # Dracula Red
+        games:  ACCENT.fetch("games")   # Pale Cobalt
+      }.freeze
+
+      # Dracula bg — base for recipe-derived CSS color-mix() tokens.
+      DRACULA_BG = "#282a36".freeze
+
       # Fallbacks when section is nil / unknown.
-      DEFAULT_BG     = "#282a36" # Dracula bg
+      DEFAULT_BG     = DRACULA_BG
       DEFAULT_ACCENT = "#bd93f9" # Dracula Purple
 
       def self.bg(section)
@@ -53,6 +65,19 @@ module Pito
 
       def self.accent(section)
         ACCENT.fetch(section.to_s, DEFAULT_ACCENT)
+      end
+
+      # Recipe: focused-pane border = 35% accent over Dracula bg.
+      # Returns a CSS `color-mix()` string — safe to embed in inline styles
+      # or written to `_theme.css` by the rake task.
+      def self.border(section)
+        "color-mix(in srgb, #{accent(section)} 35%, #{DRACULA_BG})"
+      end
+
+      # Recipe: row / action focus tint = 18% accent over transparent.
+      # Returns a CSS `color-mix()` string.
+      def self.focus_tint(section)
+        "color-mix(in srgb, #{accent(section)} 18%, transparent)"
       end
 
       # Pure-Ruby equivalent of CSS `color-mix(in srgb, accent_hex percent%,

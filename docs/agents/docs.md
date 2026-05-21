@@ -19,8 +19,9 @@ Project-scoped overrides for the docs-keeper agent in pito. Base template:
   in-file; git history is the archive.
 - **Markdown wraps at 80 chars.** `prettier --write '**/*.md'` enforces.
 - **Brand capitalization:** Slack, Discord, YouTube, Voyage AI, PostgreSQL,
-  Meilisearch, OAuth, Git. Pito itself renders lowercase as `pito` except as
-  the leading word of a sentence/heading.
+  Meilisearch, OAuth, Git. pito renders lowercase everywhere in prose —
+  including sentence-start and headings — like iPhone / git / bash. The only
+  uppercase form is the Ruby namespace (`Pito::*`).
 
 ## Pointers
 

@@ -2,7 +2,7 @@
 
 ## System topology
 
-Pito is a single Rails monolith with two companion clients. Hosted
+pito is a single Rails monolith with two companion clients. Hosted
 locally on the owner's laptop, exposed via cloudflared tunnels.
 
 - **app.pitomd.com** — Rails Puma serving the primary web surface
@@ -118,7 +118,7 @@ Read-only mirror from YouTube. URL locked after create. Columns:
 
 ### Video
 
-Belongs to one channel. Many-to-many with games. Editable in Pito:
+Belongs to one channel. Many-to-many with games. Editable in pito:
 title, description, thumbnail, playlist, visibility. Carries embedding +
 analytics rollup associations.
 

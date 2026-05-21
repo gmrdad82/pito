@@ -6,7 +6,7 @@ Project-scoped overrides for the architect agent in pito. Base template:
 
 ## Project overrides
 
-- **No `docs/plans/` tree.** Pito no longer maintains phase plans, phase logs,
+- **No `docs/plans/` tree.** pito no longer maintains phase plans, phase logs,
   additions, or dropped files. The phase-plan workflow is retired. The architect
   works directly from canonical docs + chat context.
 - **Specs live in `tmp/specs/<slug>.md`** (gitignored). They are scratch

@@ -6,7 +6,7 @@ Project-scoped overrides for the audit-state agent in pito. Base template:
 
 ## Project overrides
 
-- **No `docs/plans/` tree.** Pito retired phase plans, logs, additions, and
+- **No `docs/plans/` tree.** pito retired phase plans, logs, additions, and
   dropped files. The auditor compares actual repo state against the canonical
   reality docs, not against a phase plan.
 - **Canonical reality surfaces:**

@@ -1,8 +1,8 @@
-# Pito — Claude collaboration rules
+# pito — Claude collaboration rules
 
 ## Project at a glance
 
-Pito is a self-hosted YouTube channel management tool, used solely by the
+pito is a self-hosted YouTube channel management tool, used solely by the
 owner. Hosted locally via cloudflared tunnels:
 
 - `app.pitomd.com` — Rails app (primary surface)
@@ -19,7 +19,7 @@ Companion clients:
 
 Purpose: manage titles, descriptions, thumbnails, playlists, visibility
 for videos across the owner's YouTube channels. YouTube Studio remains
-the upload tool (videos uploaded as Drafts there). Pito brings
+the upload tool (videos uploaded as Drafts there). pito brings
 cross-channel analytics, scheduling, and recommendation systems for
 game ↔ channel ↔ bundle pairings.
 

@@ -16,8 +16,8 @@ Project-scoped overrides for the security-auditor agent in pito. Base template:
 - **Output rubric:** Critical / High / Medium / Low / Informational + concrete
   remediation per finding.
 - **Read-only on application code.** Only writes the finding report.
-- **Pito-specific concerns:**
-  - `Current.user` enforcement at every authenticated boundary. Pito is
+- **pito-specific concerns:**
+  - `Current.user` enforcement at every authenticated boundary. pito is
     single-install + multi-user (no `Tenant`), so IDOR concerns are reduced
     but session/user boundary still matters at the browser surface.
   - Mandatory-2FA gate (`Sessions::AuthConcern`) is browser-only; API tokens
