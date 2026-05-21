@@ -1,0 +1,56 @@
+<div class="pane pito-pane" data-tui-cursor-target="panel" data-panel-title="<%= t("settings.security.heading") %>">
+  <span class="pito-pane__title"><%= t("settings.security.heading") %></span>
+  <%= render Tui::PanelFieldsetComponent.new(data: { controller: "sessions-bulk-revoke" }) do %>
+    <%= render(Sessions::TableComponent.new(
+      sessions: sessions,
+      sessions_sort: sessions_sort,
+      sessions_dir: sessions_dir,
+      current_session_id: Current.session&.id
+    )) %>
+
+    <%# Revoke-sessions confirm modal (2026-05-16 revamp v3).
+
+        One shared `<dialog>` mounted at the panel level. The
+        `sessions-bulk-revoke` Stimulus controller populates the
+        title (`revoke N session(s)?`), the conditional warning
+        (`this set includes your current session. revoking it signs
+        you out.`), and the form `action` attribute at click time
+        based on the current checkbox selection.
+
+        Page-level mount mirrors the reindex modal in
+        `_stack_pane.html.erb` — the hidden `authenticity_token`
+        baked by `form_with` is rendered in a real request context
+        with a session-bound CSRF token, so submitting from the
+        modal never trips `InvalidAuthenticityToken`. (A
+        broadcast-driven render in a job context has no `request` /
+        `session` and would bake an unbound token — same hazard
+        called out in `_voyage_section.html.erb`.)
+
+        The form `action` carries a literal `0` ids segment at render
+        time (the route constraint `[0-9,]+` requires a digit, and
+        `0` is filtered out by `parse_ids` server-side as a safety
+        net — so a hand-crafted POST to the placeholder URL is a
+        no-op). Stimulus rewrites the segment to
+        `/settings/sessions/revokes/<real-ids>` when the modal opens.
+        The hidden `confirm=yes` param mirrors what the deleted
+        action-screen used to submit; `BulkRevokesController#create`
+        still gates on it. %>
+    <% if sessions.any? %>
+      <%# FB-124 (2026-05-21). Canonical confirmation dialog — replaces
+          the legacy `Sessions::BulkRevokeModalComponent` shim. The
+          `sessions-bulk-revoke` controller mutates the `<p>` message and
+          form `action` at click time based on the current selection
+          before calling `showModal()`. The `[Esc] to close` hint in the
+          top-right of the frame is the canonical dismiss; backdrop
+          clicks do NOT dismiss (FB-127). %>
+      <%= render Tui::ConfirmationDialogComponent.new(
+        id: "revoke_sessions_modal",
+        title: "revoke",
+        message: "revoke session?",
+        action_label: "revoke",
+        action_path: settings_sessions_bulk_revoke_path(ids: "0"),
+        action_method: :post
+      ) %>
+    <% end %>
+  <% end %>
+</div>
