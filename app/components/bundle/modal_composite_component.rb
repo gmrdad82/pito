@@ -5,7 +5,7 @@
 # `Bundle::AllGamesTableComponent`). Mirrors the libvips composite-
 # cover layout: up to nine games render as percentage-positioned
 # anchors over a 3:4 canvas, with each cell's `left/top/width/height`
-# computed from `Composite::CellMap.for(n)` — the same source-of-
+# computed from `Bundle::Composite::CellMap.for(n)` — the same source-of-
 # truth the libvips renderer uses, so layout edits propagate to both
 # surfaces for free.
 #
@@ -33,11 +33,11 @@ class Bundle
       @first_nine ||= bundle.games.first(9)
     end
 
-    # `Composite::CellMap.for(n)` returns `[{ x:, y:, w:, h: }, ...]`
+    # `Bundle::Composite::CellMap.for(n)` returns `[{ x:, y:, w:, h: }, ...]`
     # in unit-square coordinates (0..1). Identical source of truth
     # used by the libvips composite builder for the JPEG output.
     def cells
-      @cells ||= Composite::CellMap.for(first_nine.size)
+      @cells ||= Bundle::Composite::CellMap.for(first_nine.size)
     end
 
     # Local `master.jpg` URL when present; falls back to the IGDB

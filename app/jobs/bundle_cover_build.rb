@@ -12,7 +12,7 @@
 # fan-outs (e.g. a game's cover_image_id change rippling to N bundles)
 # rebuild predictably.
 #
-# Looks up the bundle and delegates to `Composite::Builder#call`. On
+# Looks up the bundle and delegates to `Bundle::Composite::Builder#call`. On
 # bundle deleted mid-flight, no-ops gracefully AND still advances the
 # chain — a deleted bundle is moot, not a failure.
 #
@@ -79,7 +79,7 @@ class BundleCoverBuild
     bundle = Bundle.find_by(id: bundle_id)
     return if bundle.nil?
 
-    Composite::Builder.new.call(bundle)
+    Bundle::Composite::Builder.new.call(bundle)
   end
 
   # Broadcast Turbo Stream `replace` events for both consumer

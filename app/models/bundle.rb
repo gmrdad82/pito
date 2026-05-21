@@ -70,8 +70,8 @@ class Bundle < ApplicationRecord
     image_ids = bundle_members.includes(:game).map { |bm| bm.game.cover_image_id }.compact
     return composite_cover_path.blank? if image_ids.empty?
 
-    layout = Composite::LayoutChooser.choose(image_ids.size)
-    expected = Composite::Checksum.compute(image_ids, layout.layout_name)
+    layout = Bundle::Composite::LayoutChooser.choose(image_ids.size)
+    expected = Bundle::Composite::Checksum.compute(image_ids, layout.layout_name)
     composite_cover_checksum != expected
   end
 

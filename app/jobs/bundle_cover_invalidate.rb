@@ -2,7 +2,7 @@
 #
 # Fires from `Game#after_update_commit` when `cover_image_id` changes.
 # Two responsibilities:
-#   1. Evict the previous tile from `Composite::TileCache` so the next
+#   1. Evict the previous tile from `Bundle::Composite::TileCache` so the next
 #      build re-downloads the new IGDB cover bytes (the cache key is
 #      the cover_image_id; the old tile is now stale).
 #   2. Enqueue a `BundleCoverBuild` sequential chain (via
@@ -28,7 +28,7 @@ class BundleCoverInvalidate
     game = Game.find_by(id: game_id)
     return if game.nil?
 
-    cache = Composite::TileCache.new
+    cache = Bundle::Composite::TileCache.new
     cache.evict(previous_cover_image_id) if previous_cover_image_id.present?
 
     Bundle::CompositeRebuildQueue.new.enqueue_for_game_resync(game)
