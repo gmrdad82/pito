@@ -15,7 +15,7 @@ class VideoRetentionSync
     connection = channel.youtube_connection
     return if connection.nil? || connection.needs_reauth?
 
-    client = Youtube::AnalyticsClient.new(connection: connection)
+    client = Channel::Youtube::AnalyticsClient.new(connection: connection)
     response = client.video_retention(video: video)
     rows = parse_rows(response, video: video)
     return if rows.empty?
@@ -24,7 +24,7 @@ class VideoRetentionSync
       VideoRetention.where(video_id: video.id).delete_all
       VideoRetention.insert_all(rows, unique_by: %i[video_id elapsed_ratio_bucket])
     end
-  rescue Youtube::AnalyticsClient::AuthError
+  rescue Channel::Youtube::AnalyticsClient::AuthError
     Rails.logger.warn(
       "[analytics-sync] retention skipped for video #{video_id}; connection #{connection&.id} needs reauth"
     )

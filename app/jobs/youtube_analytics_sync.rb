@@ -40,7 +40,7 @@ class YoutubeAnalyticsSync
       .where(channels: { youtube_connection_id: connection.id })
 
     if retention_only
-      active_videos = videos.find_each.select { |v| Youtube::ActiveVideoClassifier.active?(v) }
+      active_videos = videos.find_each.select { |v| Channel::Youtube::ActiveVideoClassifier.active?(v) }
       active_videos.each { |v| VideoRetentionSync.perform_async(v.id) }
       return
     end

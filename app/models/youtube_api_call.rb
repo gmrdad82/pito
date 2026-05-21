@@ -1,6 +1,6 @@
 # Phase 7 — Step B (7b-youtube-client-and-audit.md) — append-only
 # audit row for every YouTube / OAuth-revocation API call. One row
-# per logical call (final outcome) — `Youtube::Client`'s retry loop
+# per logical call (final outcome) — `Channel::Youtube::Client`'s retry loop
 # collapses retries into the single row that reflects the eventual
 # success/failure (locked decision).
 class YoutubeApiCall < ApplicationRecord
@@ -9,7 +9,7 @@ class YoutubeApiCall < ApplicationRecord
   belongs_to :youtube_connection, optional: true
 
   # Phase 13.2 — Analytics sync engine adds the `analytics_v2` kind for
-  # rows audited by `Youtube::AnalyticsClient` (the existing string column
+  # rows audited by `Channel::Youtube::AnalyticsClient` (the existing string column
   # absorbs new kinds without a migration).
   KIND_DATA_V3 = "oauth".freeze
   KIND_PUBLIC = "public".freeze

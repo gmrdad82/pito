@@ -94,7 +94,7 @@ module Google
         client_kind: "oauth",
         endpoint: "oauth2.revoke",
         http_method: "POST",
-        units: Youtube::Quota.cost_for("oauth2.revoke"),
+        units: Channel::Youtube::Quota.cost_for("oauth2.revoke"),
         outcome: outcome,
         http_status: http_status,
         error_message: error_message&.to_s&.first(2_000),

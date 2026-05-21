@@ -12,7 +12,7 @@
 # NOT downgrade a `"user"` row to `"igdb"`. The controller upsert in
 # `Games::OwnershipTogglesController#ensure_user_added_platform_availability!`
 # is no-op when a row already exists (regardless of `source`), and
-# the IGDB sync's `first_or_create!` in `Igdb::SyncGame#sync_platforms`
+# the IGDB sync's `first_or_create!` in `Game::Igdb::SyncGame#sync_platforms`
 # preserves the existing row when present.
 class GamePlatform < ApplicationRecord
   SOURCES = %w[igdb user].freeze

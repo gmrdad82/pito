@@ -10,7 +10,7 @@
 #      `bundles.summary_embedding` via `update_column` (skip
 #      callbacks — no `after_save` rebuild loops).
 #   3. Push the Bundle's document — including the freshly written
-#      vector — into Meilisearch via `Meilisearch::BundleIndexer`.
+#      vector — into Meilisearch via `Bundle::MeilisearchIndexer`.
 #
 # Gating: matches `Game::VoyageIndexer` — `AppSetting.voyage_configured?`
 # gates the Voyage call. When the API key is blank the embedding step
@@ -41,7 +41,7 @@ class Bundle
       return if combined_text.blank?
 
       embedding = embed_and_persist if AppSetting.voyage_configured?
-      Meilisearch::BundleIndexer.call(@bundle.reload, embedding: embedding)
+      Bundle::MeilisearchIndexer.call(@bundle.reload, embedding: embedding)
     end
 
     private
@@ -66,7 +66,7 @@ class Bundle
     end
 
     # Concatenate up to 5 member-game summaries with the em-dash
-    # separator. Cap matches `Meilisearch::BundleIndexer` so the
+    # separator. Cap matches `Bundle::MeilisearchIndexer` so the
     # embedded text matches the searchable text the index sees.
     def aggregated_member_summaries
       @bundle.games.first(MAX_MEMBER_SUMMARIES).map(&:summary).compact.reject(&:blank?).join(" — ")

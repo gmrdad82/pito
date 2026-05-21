@@ -28,13 +28,13 @@ class VideoSyncBack
 
     # Phase 11 §01a reserved hook — thumbnail YouTube push-back
     # (parent open question §4). When the deferred follow-up lands,
-    # call `Youtube::ThumbnailsClient.new(connection).set_thumbnail(video)`
+    # call `Channel::Youtube::ThumbnailsClient.new(connection).set_thumbnail(video)`
     # here BEFORE the `update_video` call so the thumbnail bytes land
     # alongside the writable-subset PUT. Today the thumbnail stays
     # local-only via Active Storage; this comment is the bookmark.
 
-    fresh = Youtube::VideosReader.new(connection).read_video(video)
-    payload = Youtube::VideosClient.new(connection).update_video(video, fresh: fresh)
+    fresh = Channel::Youtube::VideosReader.new(connection).read_video(video)
+    payload = Channel::Youtube::VideosClient.new(connection).update_video(video, fresh: fresh)
 
     new_etag = payload.is_a?(Hash) ? payload[:etag] : nil
     made_for_kids_effective_value = payload.is_a?(Hash) ? payload.dig(:status, :madeForKids) : nil
@@ -45,19 +45,19 @@ class VideoSyncBack
       last_sync_error: nil,
       made_for_kids_effective: made_for_kids_effective_value.nil? ? video.made_for_kids_effective : made_for_kids_effective_value
     )
-  rescue Youtube::QuotaExhaustedError => e
+  rescue Channel::Youtube::QuotaExhaustedError => e
     record_error(video, "youtube quota exceeded; will retry: #{e.message}")
     raise # let Sidekiq retry with backoff
-  rescue Youtube::AuthRevokedError => e
+  rescue Channel::Youtube::AuthRevokedError => e
     connection&.update_columns(needs_reauth: true) if connection
     record_error(video, "youtube connection needs re-auth: #{e.message}")
-  rescue Youtube::ValidationError => e
+  rescue Channel::Youtube::ValidationError => e
     record_error(video, "youtube rejected the update: #{e.message}")
     # Non-retriable — re-sending the same payload won't succeed.
-  rescue Youtube::NotFoundError => e
+  rescue Channel::Youtube::NotFoundError => e
     record_error(video, "video not found on youtube: #{e.message}")
     # Non-retriable.
-  rescue Youtube::ServerError => e
+  rescue Channel::Youtube::ServerError => e
     record_error(video, "youtube server error: #{e.message}")
     raise # let Sidekiq retry
   rescue *network_error_classes => e

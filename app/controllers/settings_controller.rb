@@ -246,7 +246,7 @@ class SettingsController < ApplicationController
 
   # 2026-05-18 — the unified `games_<env>` Meilisearch index holds both
   # Game and Bundle documents (distinguished by the `kind` field — see
-  # `Meilisearch::BundleIndexer`). We surface them as TWO rows in the
+  # `Bundle::MeilisearchIndexer`). We surface them as TWO rows in the
   # Stack pane so the operator can see games-vs-bundles indexed counts
   # at a glance.
   #

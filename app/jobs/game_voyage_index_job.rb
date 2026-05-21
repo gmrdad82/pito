@@ -4,7 +4,7 @@
 # Thin wrapper around `Game::VoyageIndexer.call` — looks the row up,
 # guards on a vanished record, hands off. Enqueued by:
 #
-#   - `Igdb::SyncGame#call` success path (every IGDB sync re-embeds
+#   - `Game::Igdb::SyncGame#call` success path (every IGDB sync re-embeds
 #     the row, since `summary` may have just been overwritten).
 #   - `pito:voyage:reindex_games` rake task (one job per Game).
 #   - Console / future operator surfaces.

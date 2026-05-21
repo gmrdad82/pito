@@ -9,14 +9,14 @@
                               extract_decisions_param finds the hash
       - display_only_fields: optional array overriding the
                               "no `accept pito` possible" set. Defaults
-                              to `Youtube::DiffComputer::DISPLAY_ONLY_FIELDS`
+                              to `Channel::Youtube::DiffComputer::DISPLAY_ONLY_FIELDS`
                               for the video surface.
     Unit A0 retired the channel diff surface (channel is a read-only
     mirror); this partial now serves the video surface only —
     `/videos/:slug/diff`. The decision_form_url is supplied by the
     caller. %>
 <% decision_name      ||= "decisions" %>
-<% display_only_fields ||= Youtube::DiffComputer::DISPLAY_ONLY_FIELDS %>
+<% display_only_fields ||= Channel::Youtube::DiffComputer::DISPLAY_ONLY_FIELDS %>
 <%= form_with url: decision_form_url, method: :patch, local: true,
               data: { unsaved_form_skip: "true" } do |f| %>
   <table class="diff-table">

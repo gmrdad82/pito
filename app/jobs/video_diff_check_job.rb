@@ -7,15 +7,15 @@
 # Per-video sequence:
 #   1. Resolve Video + connected YoutubeConnection. Skip with a
 #      log entry when either is missing.
-#   2. Call `Youtube::Client#videos_list` (1 unit) for
+#   2. Call `Channel::Youtube::Client#videos_list` (1 unit) for
 #      `snippet,status,contentDetails,statistics`.
-#   3. Run `Youtube::DiffComputer`.
-#   4. Persist via `Youtube::VideoDiffPersister`. Empty diff stamps
+#   3. Run `Channel::Youtube::DiffComputer`.
+#   4. Persist via `Channel::Youtube::VideoDiffPersister`. Empty diff stamps
 #      `last_diff_checked_at` and returns nil.
 #   5. On a non-empty diff, enqueue a `Notification` row with
 #      `kind: video_diff_detected, severity: info` (Phase 16 surface).
 #
-# Quota / auth / 5xx errors raised by `Youtube::Client` re-raise so
+# Quota / auth / 5xx errors raised by `Channel::Youtube::Client` re-raise so
 # Sidekiq's retry policy handles backoff. The job intentionally does
 # NOT catch them — silent quota exhaustion would hide a real problem.
 class VideoDiffCheckJob
@@ -41,7 +41,7 @@ class VideoDiffCheckJob
       return
     end
 
-    response = Youtube::Client.new(connection).videos_list(
+    response = Channel::Youtube::Client.new(connection).videos_list(
       ids: [ video.youtube_video_id ],
       parts: %i[snippet status contentDetails statistics]
     )
@@ -52,8 +52,8 @@ class VideoDiffCheckJob
       return
     end
 
-    diff_hash = Youtube::DiffComputer.call(video, item)
-    diff = Youtube::VideoDiffPersister.call(
+    diff_hash = Channel::Youtube::DiffComputer.call(video, item)
+    diff = Channel::Youtube::VideoDiffPersister.call(
       video: video,
       diff_hash: diff_hash
     )

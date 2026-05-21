@@ -30,8 +30,8 @@
 # single HTTP call per document and Meilisearch does NOT rate-limit
 # operator-driven batch upserts, so the simplest correct shape is a
 # straight `find_each` over Game + Bundle that invokes the existing
-# `Meilisearch::GameIndexer.call(game)` /
-# `Meilisearch::BundleIndexer.call(bundle)` service objects. Both
+# `Game::MeilisearchIndexer.call(game)` /
+# `Bundle::MeilisearchIndexer.call(bundle)` service objects. Both
 # services already swallow + log per-row failures, so a single bad
 # document does not bomb the run.
 class MeilisearchReindexJob < ApplicationJob
@@ -65,12 +65,12 @@ class MeilisearchReindexJob < ApplicationJob
     StackStats::Broadcaster.broadcast!
 
     Game.find_each do |game|
-      Meilisearch::GameIndexer.call(game)
+      Game::MeilisearchIndexer.call(game)
     end
 
     if defined?(Bundle) && Bundle.table_exists?
       Bundle.find_each do |bundle|
-        Meilisearch::BundleIndexer.call(bundle)
+        Bundle::MeilisearchIndexer.call(bundle)
       end
     end
   ensure

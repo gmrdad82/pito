@@ -13,12 +13,12 @@ module Platforms
     Result = Struct.new(:created, :updated, :total, keyword_init: true)
 
     class << self
-      def call(client: Igdb::Client.new)
+      def call(client: Game::Igdb::Client.new)
         new(client: client).call
       end
     end
 
-    def initialize(client: Igdb::Client.new)
+    def initialize(client: Game::Igdb::Client.new)
       @client = client
     end
 
@@ -30,7 +30,7 @@ module Platforms
       Array(rows).each do |row|
         next unless row.is_a?(Hash)
 
-        attrs = Igdb::GameMapper.map_platform(row)
+        attrs = Game::Igdb::GameMapper.map_platform(row)
         igdb_id = attrs[:igdb_id]
         next unless igdb_id.is_a?(Integer) && igdb_id.positive?
 
@@ -60,7 +60,7 @@ module Platforms
       end
 
       Result.new(created: created, updated: updated, total: Platform.unscoped.count)
-    rescue Igdb::Client::Error => e
+    rescue Game::Igdb::Client::Error => e
       Rails.logger.error("[Platforms::SyncFromIgdb] IGDB error: #{e.class} #{e.message}")
       raise
     end

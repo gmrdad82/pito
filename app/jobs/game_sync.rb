@@ -13,7 +13,7 @@
 #     worker will complete the work.
 #   - Delegate to `GameIgdbSync.new.perform(game_id)` which already
 #     handles the `games.resyncing` mutex flag + IGDB sync via
-#     `Igdb::SyncGame#call`.
+#     `Game::Igdb::SyncGame#call`.
 #   - Rescue StandardError so a single failure does not abort the
 #     enclosing `BulkSyncJob` batch; the error is logged and the row's
 #     `last_sync_error` column carries the message for surfaces that

@@ -305,8 +305,8 @@ class GamesController < ApplicationController
     if @query.present?
       started_at = Process.clock_gettime(Process::CLOCK_MONOTONIC)
       begin
-        @results = Igdb::Client.new.search_games(@query, limit: 10)
-      rescue Igdb::Client::Error => e
+        @results = Game::Igdb::Client.new.search_games(@query, limit: 10)
+      rescue Game::Igdb::Client::Error => e
         @search_error = { kind: "upstream_unavailable", message: e.message }
       end
       @took_ms = ((Process.clock_gettime(Process::CLOCK_MONOTONIC) - started_at) * 1000).round(1)

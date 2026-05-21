@@ -31,7 +31,7 @@ module Composite
 
     # Phase 14 audit F2 — bounded HTTP timeouts so a hung IGDB CDN
     # response cannot wedge a `BundleCoverBuild` worker indefinitely.
-    # Mirrors `Igdb::Client`'s F1 timeouts and the webhook-style
+    # Mirrors `Game::Igdb::Client`'s F1 timeouts and the webhook-style
     # 5 / 10 / 5 tuning landed elsewhere.
     OPEN_TIMEOUT_SEC  = 5
     READ_TIMEOUT_SEC  = 10

@@ -15,7 +15,7 @@
 #      winner. IGDB's per-game genre array order IS the primacy order
 #      (the first array entry is the canonical primary). The
 #      `game_genres.position` column captures that ordering at sync
-#      time (see `Igdb::SyncGame#sync_genres`).
+#      time (see `Game::Igdb::SyncGame#sync_genres`).
 #
 #      Tie-break (in priority order):
 #        a. `game_genres.position ASC NULLS LAST`

@@ -83,9 +83,9 @@ class Game
       return [ [], nil ] if query.blank?
 
       begin
-        rows = Igdb::Client.new.search_games(query, limit: 10)
+        rows = Game::Igdb::Client.new.search_games(query, limit: 10)
         [ rows, nil ]
-      rescue Igdb::Client::Error => e
+      rescue Game::Igdb::Client::Error => e
         [ [], { kind: "upstream_unavailable", message: e.message } ]
       end
     end
