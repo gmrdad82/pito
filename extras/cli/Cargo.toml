@@ -44,7 +44,7 @@ clap = { version = "4", features = ["derive"] }
 which = "7"
 # Read/write `~/.config/pito/auth.toml` for the `pito auth` subcommand
 # family (Phase 18 cli-parity foundation).
-toml = "0.9"
+toml = "1.1"
 
 [dev-dependencies]
 wiremock = "0.6"
