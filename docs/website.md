@@ -1,39 +1,56 @@
 # Website — Astro / pitomd.com
 
-> Skeleton — to fill in fresh after the doc walk.
+## Purpose
+
+A simple static landing page at `pitomd.com`. Sole goals:
+
+1. Something at the apex domain (so the domain isn't a 404).
+2. Provide a favicon for Google's crawler / icon cache.
+
+**Not** a marketing funnel. **Not** a docs site. **Not** a feature
+showcase.
 
 ## Layout
 
-(placeholder — `extras/website/`. Astro 4. Static SSG. Zero-JS by default.
-React/Vue/Svelte islands only when needed.)
-
-## Build
-
-(placeholder — `cd extras/website && pnpm install && pnpm build`. Output
-to `extras/website/dist/`.)
-
-## Deploy
-
-(placeholder — Cloudflare Pages via wrangler. Credentials via
-`Rails.application.credentials.cloudflare` (`api_token` + `client_id`).
-`pito-astro` agent owns the deploy flow. Build-then-deploy invariant.
-CI fallback at `.github/workflows/deploy-website.yml`.)
-
-## Domains
-
-(placeholder — `pitomd.com` apex (production). `*.pages.dev` for branch
-previews.)
-
-## Content
-
-(placeholder — landing page only at the moment. Sections: hero, about,
-contact, footer with version + commit SHA + apex domain.)
+`extras/website/`. Astro 4. Static SSG. Zero-JS by default. React / Vue
+/ Svelte islands only when actually needed (currently: none).
 
 ## Style
 
-(placeholder — same Dracula palette + system mono as the Rails app. 13px
-base + line-height 1. No font assets bundled (system mono only).)
+- Same Dracula palette as the Rails app
+- System monospace font (no bundled font files)
+- 13px base + `line-height: 1`
+- Minimal content: hero + about + contact + footer
 
-## Local preview
+## Build
 
-(placeholder — `pnpm dev` runs at http://localhost:4321.)
+```
+cd extras/website
+pnpm install
+pnpm build       # outputs to dist/
+pnpm dev         # local preview at http://localhost:4321
+```
+
+## Deploy
+
+Cloudflare Pages via `wrangler`. Credentials live in
+`Rails.application.credentials.cloudflare`:
+
+- `api_token`
+- `client_id` — maps to `CLOUDFLARE_ACCOUNT_ID` env var at deploy time
+
+The **`pito-astro` agent** owns the deploy flow. The agent reads
+credentials from Rails credentials via `bin/rails runner`, exports them
+to shell env vars scoped to the deploy command's lifetime, and invokes
+`wrangler`.
+
+**Invariant: build then deploy.** Never deploy without rebuilding.
+
+CI fallback at `.github/workflows/deploy-website.yml` runs the same
+sequence when the master agent picks CI over local deploy (e.g., for an
+audit-trail commit).
+
+## Domains
+
+- `pitomd.com` apex — production
+- `*.pages.dev` — preview deployments (per branch / per commit)

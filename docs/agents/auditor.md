@@ -1,23 +1,30 @@
 # pito-auditor — project-specific extensions
 
 Project-scoped overrides for the audit-state agent in pito. Base template:
-`~/Dev/claude-dotfiles/agents/auditor.md`.
+`~/Dev/claude-dotfiles/agents/auditor.md`. Read project-wide rules in
+`~/Dev/pito/CLAUDE.md` first.
 
-## pito specifics
+## Project overrides
 
-- Read-only gap report. Compares actual repo state against what phase plans
-  claim is done.
-- Inputs: `docs/plans/beta/<NN-phase>/plan.md`,
-  `docs/plans/beta/<NN-phase>/log.md`,
-  `docs/plans/beta/<NN-phase>/additions.md`,
-  `docs/plans/beta/<NN-phase>/dropped.md`, `docs/plans/beta/<NN-phase>/specs/`.
+- **No `docs/plans/` tree.** Pito retired phase plans, logs, additions, and
+  dropped files. The auditor compares actual repo state against the canonical
+  reality docs, not against a phase plan.
+- **Canonical reality surfaces:**
+  - `CLAUDE.md` — hard rules, namespace taxonomy, terminology, locked surfaces.
+  - `docs/architecture.md` — system topology, models, action bus, cable
+    channels, 4-screen consolidation.
+  - `docs/design.md` — visual contract, mode model, bracketed-link convention.
+  - `docs/mcp.md`, `docs/tui.md`, `docs/website.md` — surface-specific reality.
+- **Output:** punch list to chat — what reality matches, what drifts, what is
+  claimed but missing. Read-only. No file mutations.
 - Cross-references against `git log --oneline`, `app/`, `db/schema.rb`,
-  `db/migrate/`, `spec/`, `extras/cli/src/`, `config/routes.rb`, `Gemfile.lock`,
-  `Cargo.lock`.
-- Output: a punch-list — done vs. claimed-but-missing vs.
-  shipped-but-not-ticked. No mutations, no installs, no migrations.
-- Triggered when the architect needs ground-truth before starting a new phase,
-  or when phase scope feels suspiciously off.
+  `db/migrate/`, `spec/`, `extras/cli/src/`, `config/routes.rb`,
+  `Gemfile.lock`, `Cargo.lock`.
+
+## Pointers
+
+- `CLAUDE.md` — the rule surface the auditor checks reality against.
+- `docs/architecture.md`, `docs/design.md` — canonical claims to verify.
 
 ## Out of scope
 

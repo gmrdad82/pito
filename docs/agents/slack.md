@@ -1,115 +1,61 @@
-# pito-slack project stub
+# pito-slack — project-specific extensions
 
-The `pito-slack` agent reads this file at dispatch time.
-
-## When to use Slack at all
-
-`pito-slack` agent dispatches and Slack-MCP polling are **opt-in
-asynchronous-coordination tools**, NOT default communication channels.
-
-**Master agent uses Slack ONLY when:**
-
-- User has explicitly signaled async mode in chat (examples below).
-- A long-running process needs a checkpoint while user is known-away.
-
-**Master agent does NOT use Slack when:**
-
-- User is actively chatting in the session (any chat message in the last
-  few turns).
-- The information can be communicated in the chat response itself.
-- The user has signaled "I'm back" or equivalent.
-
-**Explicit async signals (the only ways to enable Slack mode):**
-
-- "I'm going off / going on Slack"
-- "Ping me on Slack when X done"
-- "I'll be on Slack for a while"
-- "Keep me posted on Slack"
-
-**Explicit return signals (any of these turn Slack mode off):**
-
-- "I'm back"
-- `#claude I'm back` (in Slack)
-- Any chat message from the user in the active session (implicit return)
-
-When in doubt: prefer chat. Slack is for "user is away and needs a heads-up";
-chat is for everything else.
-
-**In-flight exception.** If the user has just asked for an async update and
-then returns mid-update, finish the in-flight Slack message but DO NOT
-initiate new ones. Subsequent communication flows back through chat.
+The `pito-slack` agent reads this file at dispatch time. Base template:
+`~/Dev/claude-dotfiles/agents/slack.md`. Read project-wide rules in
+`~/Dev/pito/CLAUDE.md` first.
 
 ## Channel
 
-- `default_channel: "#pito-app"` — private channel; agent uses
-  `slack_search_channels` with `channel_types: "private_channel"` to resolve
-  the channel ID at send time.
+- **`#pito-app`** — private channel. Channel ID: `C0B18G4E25B`.
+- The agent uses `slack_search_channels` with `channel_types:
+  "private_channel"` to resolve the ID at send time, OR uses the literal ID
+  above directly.
+- (Channel was renamed from `#dev` → `#pito-app` on 2026-05-18.)
 
-## Message style
+## One-way only
 
-Messages must be **git-commit-subject concise**. Think of every ping as if
-it had to fit in a single-line git commit subject. Signal-only, no
-enumerated details, no SHAs unless the user must act on them.
+`pito-slack` is **Claude → user only**. No polling, no `#claude`-prefix
+monitoring, no async response loop. The user reaches Claude via the chat
+session; Slack pings are heads-up signals one-way.
 
-**Good shape:** `dotfiles green`, `specs running`, `specs green`,
-`/games ready`, `commit pushed`.
+## Message style — signal-only, concise
 
-**Too verbose:** `✅ claude-dotfiles checks all green (prettier, bash
-syntax, install dry-run, roundtrip, frontmatter lint). pushed 2 commits…`
+Every ping is git-commit-subject concise. Status verb + 3-8 words. Emoji
+allowed and encouraged as the signal accent — match the actual signal
+(✅ done, ⏳ in flight, 🚫 blocked, ⚠️ conflict, 🚀 next, ✨ delivered).
 
-Status verbs only: `running`, `green`, `red`, `done`, `ready`, `blocked`.
-Add specifics only when the user must act on them (failing spec count for
-triage, commit SHA they need to verify). Otherwise, shorter wins. The chat
-conversation remains the detailed surface — Slack is the heads-up only.
+**Good shape:**
+- `✅ dotfiles green`
+- `🧪 specs running`
+- `✅ /games ready`
+- `🚀 commit pushed`
+- `🚫 needs auth — Cloudflare token`
 
-## How the master agent uses pito-slack
+**Too verbose:** any sentence with enumerated details, multiple clauses, or
+commit SHAs that the user is not expected to click immediately.
+
+**SHAs:** include only when the user needs to verify a specific commit. Wrap
+as `<https://github.com/gmrdad82/pito/commit/SHA|SHA>` so the SHA is
+one-click to GitHub.
+
+## When to ping
+
+- **Task completion awaiting validation** — every dispatch landing surfaces
+  in both chat AND Slack. Never silent.
+- **Real blocker requiring user input** — auth, design pick, destructive op
+  authorization, locked-rule conflict.
+- **Long-running process milestones** — full spec sweep finished,
+  commit+push milestone, batch completion in autonomous-completion mode.
+- **NOT** for routine in-chat status (the conversation is the detail
+  surface).
+
+## Always through this agent — never direct MCP
 
 The master agent NEVER calls `mcp__claude_ai_Slack__slack_send_message`
-directly. All pings flow through this agent: dispatch `pito-slack` with the
-message body, the agent does the send. This keeps Slack message style
-governance in one place (here) and avoids per-call drift in tone or length.
+directly. Every ping flows through `pito-slack` so message-style governance
+stays in this one file. Direct MCP calls are a process failure.
 
-## Incoming convention — `#claude` prefix only
+## Pointers
 
-`#pito-app` carries traffic from other people and other apps too. The agent
-acts ONLY on user messages whose body STARTS with `#claude `. Everything
-else is noise — read past, do not act. (The earlier `#code` prefix was
-deprecated 2026-05-17 — user prefers a single convention.)
-
-Examples that DO count as direct requests to Claude Code:
-
-- `#claude status?` — user wants a current-task summary.
-- `#claude yes` — affirmative reply to the agent's last pending question.
-- `#claude cancel that, try X instead` — direction change.
-- `#claude back at laptop` — stop the polling loop; user is back in chat.
-- `#claude all good. Continue...` — go-ahead signal.
-
-Examples that DO NOT count (ignore):
-
-- `ok`, `yes`, plain prose — these may be replying to another person/app
-  in the channel, not to Claude Code.
-- `@Claude …` — this tags the Anthropic-built Claude Slack app (a
-  separate brain), not this agent. The `#claude` prefix is a text marker
-  the agent grep-filters for, NOT a Slack mention.
-
-## Polling cadence
-
-ONLY active when explicit async mode is on (see "When to use Slack at all"
-above). When active, the master agent schedules wakeups at **60-second intervals (standard, do not deviate)** to call `slack_read_channel` on the configured channel,
-filtered for `#claude`-prefixed messages newer than the last seen ts.
-
-Polling is NEVER scheduled while the user is actively chatting in the
-session. A chat message from the user implicitly cancels Slack mode and
-stops the loop (see the explicit-return-signals list above).
-
-**The loop stops on any of these signals:**
-- User types `I'm back` (or close paraphrase) in the chat session.
-- User sends `#claude I'm back` in `#pito-app`.
-- User sends ANY message in the chat session — active in-chat
-  conversation implicitly means the user is at the keyboard, so polling
-  Slack is redundant. The master agent stops scheduling new wakeups; the
-  next-scheduled wakeup fires harmlessly once, detects the in-chat
-  activity from context, and does not reschedule.
-
-After any signal, no more wakeups are scheduled and the master agent
-returns to normal chat-driven flow.
+- `CLAUDE.md` → "Slack notifications" — the cross-stack contract.
+- `CLAUDE.md` → "Communication style" — emoji-mapping rules (chat-side).

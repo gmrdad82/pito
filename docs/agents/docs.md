@@ -1,54 +1,40 @@
 # pito-docs — project-specific extensions
 
 Project-scoped overrides for the docs-keeper agent in pito. Base template:
-`~/Dev/claude-dotfiles/agents/docs.md`.
+`~/Dev/claude-dotfiles/agents/docs.md`. Read project-wide rules in
+`~/Dev/pito/CLAUDE.md` first.
 
-## Project conventions
+## Project overrides
 
-When authoring or editing prose under `docs/`, follow the same conventions the
-rest of the repo enforces.
+- **Canonical docs (the full set):** `CLAUDE.md`, `docs/architecture.md`,
+  `docs/design.md`, `docs/mcp.md`, `docs/tui.md`, `docs/website.md`, and the
+  per-agent stubs under `docs/agents/`. That is the entire durable docs surface.
+- **No `docs/plans/`, no `docs/orchestration/`, no `docs/decisions/`,**
+  **no `docs/notes/`, no `docs/setup.md`, no `docs/auth.md`.** All retired.
+  `auth.md` content folded into `docs/architecture.md`. Phase logs and
+  additions/dropped tracking are gone — the docs reflect current reality, not
+  history.
+- **Update reality in place.** When a feature lands and a canonical doc no
+  longer matches the code, edit the doc directly. Never archive prior versions
+  in-file; git history is the archive.
+- **Markdown wraps at 80 chars.** `prettier --write '**/*.md'` enforces.
+- **Brand capitalization:** Slack, Discord, YouTube, Voyage AI, PostgreSQL,
+  Meilisearch, OAuth, Git. Pito itself renders lowercase as `pito` except as
+  the leading word of a sentence/heading.
 
-### A. Bracketed-link convention — `[label]` (no inner spaces)
+## Pointers
 
-Examples and references inside docs use the `[label]` form — no inner padding.
-Write `[add channel]`, not `[ add channel ]`. The `[ ]` / `[x]` checkbox
-indicator is a separate convention and keeps its inner space. When quoting
-historical shapes (e.g. "the prior `[ label ]` shape"), make the historical
-context explicit so the older form isn't mistaken for current. Canonical:
-`docs/design.md` → "Bracketed Links / Buttons" and "Bracketed labels: minimum
-text".
-
-### B. Lead-paragraph copy — one sentence per line
-
-Page-style docs that imitate web view layout (e.g. mock copy in specs) should
-split the lead paragraph into one sentence per line via `<br>` inside one
-`<p class="text-muted">`. Inside pure prose docs (architecture, design, ADRs),
-follow regular prose with the 80-char wrap — the one-sentence-per-line rule
-applies to UI copy specs, not narrative docs.
-
-## pito specifics
-
-- Top-level reference docs: `docs/architecture.md`, `docs/design.md`,
-  `docs/mcp.md`, `docs/setup.md`, `docs/auth.md`. Keep these current with
-  reality after every feature lands.
-- Phase logs: `docs/plans/beta/<NN-phase>/log.md`. Append after the user
-  validates work; never silently rewrite.
-- Scope changes flow through `additions.md` / `dropped.md` in the phase
-  directory. Never edit `plan.md` silently.
-- Markdown files wrap at 80 chars. `prettier --write '**/*.md'` enforces.
-- Notes commit lifecycle: stage `docs/notes/` before staging the rest of the
-  change so Mobile-dropped notes land in history.
-- ADR convention: `docs/decisions/` for durable structural commitments; routine
-  choices stay in `log.md`.
+- `CLAUDE.md` — collaboration contract; the durable-rule surface.
+- `docs/architecture.md` — topology, models, action bus, cable channels.
+- `docs/design.md` — visual contract, terminology, mode model.
 
 ## File scope
 
 `docs/` only. Never touch `app/`, `extras/`, `lib/`, `db/`, `bin/`, `config/`,
-`spec/`, `Gemfile`, `CLAUDE.md` (route through the architect when project-wide
-rules need editing).
+`spec/`, `Gemfile`. `CLAUDE.md` edits go through the architect.
 
 ## Out of scope
 
 - Committing or pushing.
-- Generating new docs without a clear trigger from a feature landing or a scope
+- Generating docs without a clear trigger from a feature landing or scope
   change.

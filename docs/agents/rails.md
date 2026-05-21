@@ -1,150 +1,112 @@
 # pito-rails — project-specific extensions
 
 Project-scoped overrides for the Rails-impl agent in pito. Base template:
-`~/Dev/claude-dotfiles/agents/rails.md`.
+`~/Dev/claude-dotfiles/agents/rails.md`. Read project-wide rules in
+`~/Dev/pito/CLAUDE.md` first.
 
-## Project conventions
+## Project overrides
 
-The architect gates these at spec time, but the Rails impl agent enforces them
-at the code level. If a spec contradicts a rule, STOP and report.
+### Namespace taxonomy (canonical, locked)
 
-### A. Bracketed-link convention — `[label]` (no inner spaces)
+Every new Ruby/ERB module respects this taxonomy. See `CLAUDE.md` and
+`docs/architecture.md` § "Namespaces" for the full rationale.
 
-User-facing bracketed links use `[label]` (no inner padding). `[add channel]`
-not `[ add channel ]`. Drop redundant nouns when the page heading supplies
-context — `[add]` instead of `[add channel]` on an "Add channel" page.
-`BracketedLinkComponent` already renders the tightened form; never hand-roll
-inline brackets. The `[ ]` / `[x]` checkbox indicator is a separate convention
-and keeps its inner space. Canonical reference: `docs/design.md` → "Bracketed
-Links / Buttons" and "Bracketed labels: minimum text".
+- `Pito::*` — cross-cutting app primitives (`Pito::ActionDispatcher`,
+  `Pito::Theme`, etc.).
+- `Settings::*`, `Channel::*`, `Video::*`, `Game::*`, `Bundle::*`,
+  `Footage::*` — per-domain models, services, jobs.
+- `Screen::<screen>::*PanelComponent` — every panel ViewComponent under a
+  screen. `Screen::Settings::SecurityPanelComponent`,
+  `Screen::Channel::HistoryPanelComponent`, etc.
+- `Tui::*` — shared TUI/visual primitives (`Tui::CheckboxComponent`,
+  `Tui::FramedPanelComponent`, etc.).
 
-### B. Lead-paragraph copy — one sentence per line
+Never create parallel namespaces (`App::*`, `Domain::*`, plain top-level
+component names). Refactor a canonical primitive rather than forking.
 
-The muted lead paragraph under each page H1 renders one sentence per line. Use
-`<br>` between sentences inside one `<p class="text-muted">` so the existing
-margin styling holds. Apply to every settings detail page and every `new` /
-`show` / `edit` view with explanatory prose under the heading.
+### ViewComponents are kings
 
-### C. Pane primitives
+Every visible HTML element wraps in a ViewComponent — even when used once.
+Every panel becomes a `Screen::<screen>::*PanelComponent`. Forking a component
+to support a new use case is never allowed; refactor the canonical (add a
+kwarg, extract a variant) instead. See `CLAUDE.md` → "ViewComponents are
+kings".
 
-- `.pane` — fixed-width workspace column (`flex: 0 0 452px`), zebra-striped by
-  `:nth-child(even)` inside `.pane-row`. Channels / videos workspace and
-  settings index grid use this.
-- `.pane.pane--standalone` — full-width single-column container, same pane
-  background, no fixed width. Use for oauth_applications create / show / revoke,
-  doorkeeper authorizations new / show / error, settings/tokens create / revoke,
-  settings/sessions revoke, and form pages.
-- `.pane--wide` — fixed 904px double-column workspace variant.
+### Every ViewComponent ships with a spec
 
-`.framed-block` is orphaned; reach for `pane--standalone` instead. Canonical
-reference: `docs/design.md` → "Panes (Multi-item View)".
+A new VC without `spec/components/<path>/<name>_component_spec.rb` is
+incomplete. This overrides the iteration-defers-specs rule for VC creation
+specifically — VC + spec land together.
 
-### D. Spec pyramid
+### No Capybara / no system specs
 
-Every implementation pass covers, at minimum:
+Pito does not run system specs. The `.rspec` exclusion is permanent. Coverage
+comes from request specs, model specs, service specs, job specs, ViewComponent
+specs, helper specs, validator specs, MCP tool specs, and lib specs. Routing
+specs only when route logic is non-trivial. Critical-journey coverage lives in
+request specs (multi-step request flows), not in Capybara.
 
-1. Model specs (validations, associations, callbacks, scopes, public methods).
-2. Service specs.
-3. Job specs (Sidekiq / cron).
-4. ViewComponent specs.
-5. Helper specs.
-6. Validator specs.
-7. `app/lib/` and `lib/` specs.
-8. MCP tool specs.
-9. Request specs — happy / sad / edge / flaw per controller / route.
-10. System specs ONLY for critical user journeys. Selective, not blanket.
-11. Routing specs only when route logic is non-trivial.
+### 6-gate audit on every dispatch landing
 
-System specs are intentionally thin — slow and brittle.
+Master enforces the 6-gate audit (see `CLAUDE.md` → "Master dispatch
+presentation checklist"). Implementation agents self-check against the same
+gates before reporting: agent success, specs passing for new behavior, VC used
++ spec written for UI changes, no design-rule violation, Turbo + cable
+discipline preserved, namespace taxonomy respected.
 
-RSpec auto-migrates the **test** DB on each run via `maintain_test_schema!`.
-Applying a migration against the **dev** DB is a separate step — see rule F.
+### Brand capitalization in copy and code
 
-### E. Yes / no boundary
+Slack, Discord, YouTube, Voyage AI, PostgreSQL, Meilisearch, OAuth, Git stay
+capitalized in user-visible copy and identifiers where applicable. Pito itself
+renders lowercase as `pito` in copy. Locales, flash messages, panel headings —
+all respect this.
 
-External booleans (URL params, JSON, MCP I/O, CLI args, Rust client wire format)
-are `"yes"` / `"no"` strings — never `true` / `false` / `0` / `1`. Internal
-storage stays Boolean. Convert at every boundary. See `CLAUDE.md` hard rules.
+### Yes / no boundary
 
-### F. Migrations: run them
+Every boolean crossing an external boundary (URL params, JSON, MCP I/O, CLI
+args, Rust wire format) is a `"yes"` / `"no"` string. Internal storage stays
+Boolean. Convert at the boundary.
 
-**Migrations: run them.** When this agent creates a `db/migrate/*.rb` file, it
-MUST run `bin/rails db:migrate` against the dev DB before reporting back. Test
-DB migration is automatic via RSpec. Dev DB does NOT auto-migrate — the user's
-`bin/dev` Puma reads from dev. If you don't migrate dev, the user hits broken
-routes / 500s on the next page load.
+### Migrations: run them
 
-Concrete:
+When this agent creates `db/migrate/*.rb`, it MUST run `bin/rails db:migrate`
+against the dev DB before reporting. Test DB migrates automatically via RSpec;
+dev DB does not. Verify with `bin/rails db:migrate:status` that no `down` rows
+remain.
 
-- After `add_column` / `create_table` / `rename_*`: run `bin/rails db:migrate`.
-- Verify with `bin/rails db:migrate:status` that no `down` rows remain.
-- If the migration fails (FK violation, NOT NULL on existing data, etc.), STOP
-  and report — don't paper over.
-- The master agent will tell the user to restart `bin/dev` after the commit
-  lands.
+### Spec invocation
 
-### G. Spec invocation
+`bin/test <files>` for targeted verification of the specs this agent just
+wrote. Do NOT run `bin/test failed` or `bin/test all` — those are the
+architect's pre-commit pass. Agents do not run the full suite.
 
-This agent runs **`bin/test <files>`** for targeted verification of the specs it
-just wrote — pass the spec file paths it added or changed. Do NOT run
-`bin/test failed` (re-runs prior failures + needs new-file handling — that's the
-architect's concern) and do NOT run `bin/test all` (full local suite — also the
-architect's). When adding a new spec file, run `bin/test <new_spec_file_path>`
-to confirm the new test passes in isolation before reporting back. Aggregate
-verification (fast loop across the whole suite) is the architect's pre-commit
-pass; the full-suite gate is CI, which overrides `.rspec` to include system
-specs. Agents do not run the full suite themselves.
+### External links
 
-## pito specifics
+External `<a>` tags carry `target="_blank" rel="noopener noreferrer"`.
+`BracketedLinkComponent` emits this pair automatically for absolute http(s)
+hrefs — prefer the component over raw `<a>` tags everywhere.
 
-- Stack: Rails 8.1, Hotwire (Turbo + Stimulus), ERB, Tailwind CSS, Postgres 17
-  (pgvector / pgcrypto / citext), Redis 7, Sidekiq + sidekiq-cron.
-- Test runner: `bundle exec rspec`. Lint: `bundle exec rubocop`. Security smoke:
-  `bundle exec brakeman -q`.
-- Every change must include RSpec specs alongside.
-- Hard rules live in `CLAUDE.md` — bracketed `[label]` link convention,
-  bulk-as-foundation URLs, `yes`/`no` strings at external boundaries, no JS
-  `alert`/`confirm`/`prompt`/`data-turbo-confirm` (carve-out: `unsaved-form`
-  Stimulus controller for `beforeunload`).
-- External links open in a new tab. Every `<a>` pointing off the pito app
-  (anything that isn't a relative path or a pito host) MUST carry
-  `target="_blank" rel="noopener noreferrer"` — that exact attribute pair, no
-  `rel="noopener"` alone. Internal navigation stays same-tab so Turbo and
-  back-button history keep working. **`BracketedLinkComponent` handles this
-  automatically** as of 2026-05-16 — when `href:` is an absolute `http(s)` URL
-  the component emits the target/rel pair itself; callers drop the explicit
-  kwargs. Explicit caller-supplied `target:` / `rel:` still win for the rare
-  override case. **Prefer the component over raw `<a>` tags for every clickable
-  link** so the bracketed `[ label ]` visual convention stays consistent across
-  the app. For markdown-rendered surfaces pass
-  `render_markdown(@md, target_external_links: true)` so the helper rewrites
-  anchors via Nokogiri. Full convention + carve-outs: `docs/design.md` →
-  "External links — new tab convention".
-- View components live under `app/components/` (ViewComponent). Helpers hold
-  logic only — see the `ViewComponents and decorators` memory note.
-- Modal pattern: `ConfirmModalComponent` for in-page confirms, action pages
-  (`/deletions/`, `/syncs/`) for destructive flows. Both use the shared
-  `.modal-footer` class for the hairline-separated action row.
-- Notes editor: `field-sizing: content` on the textarea, no JS autogrow, counter
-  in normal flow inside the right pane (see `app/views/notes/show.html.erb`).
+### No JS confirm dialogs
+
+No `alert` / `confirm` / `prompt` / `data-turbo-confirm`. Confirmation flows go
+through the action confirmation framework (`shared/_action_screen.html.erb` +
+`DeletionsController` / `SyncsController` / `Confirmable` concern). Carve-out:
+`beforeunload` via the `unsaved-form` Stimulus controller is allowed (browser
+native, not a JS interrupt).
+
+## Pointers
+
+- `CLAUDE.md` — hard rules, namespace policy, terminology, 6-gate audit.
+- `docs/architecture.md` — topology, models, action bus, cable channels.
+- `docs/design.md` — visual contract, mode model, bracketed-link convention.
 
 ## File scope
 
-`app/`, `lib/`, `config/`, `db/migrate/` (when no DBA agent is involved),
-`Gemfile`, `bin/`, `.github/workflows/`. Specs under `spec/`. Never touch
-`docs/`, `extras/`, `.claude-config/` (deprecated).
+`app/`, `lib/`, `config/`, `db/migrate/`, `Gemfile`, `bin/`,
+`.github/workflows/`. Specs under `spec/`. Never touch `docs/`, `extras/`.
 
 ## Out of scope
 
 - Committing or pushing.
-- Updating documentation under `docs/` — route through pito-docs.
-- Writing in `extras/cli/`, `extras/website/` — those go to pito-rust /
-  pito-astro respectively.
-
-## Pinging the user via Slack
-
-Any rails dispatch can trigger `pito-slack` with a message string to ping the
-user about long-running operations (spec sweeps starting / finishing, dev DB
-migrations applied, etc.). The master agent dispatches `pito-slack` with the
-verbatim message body and an optional channel override; default channel is
-the one in `docs/agents/slack.md`.
+- Updating docs under `docs/` — route through pito-docs.
+- Writing in `extras/cli/` or `extras/website/`.

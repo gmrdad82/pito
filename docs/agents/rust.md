@@ -1,59 +1,45 @@
 # pito-rust — project-specific extensions
 
 Project-scoped overrides for the Rust agent in pito. Base template:
-`~/Dev/claude-dotfiles/agents/rust.md`.
+`~/Dev/claude-dotfiles/agents/rust.md`. Read project-wide rules in
+`~/Dev/pito/CLAUDE.md` first.
 
-## Project conventions
+## Project overrides
 
-### E. Yes / no boundary (load-bearing for CLI args + wire format)
+- **Canonical reference:** `docs/tui.md` is the source of truth for the CLI —
+  parity contract with the web app, screen export plan, theme export, action
+  dispatcher wire format. Read it first.
+- **100% web parity is the goal.** Every screen, panel, action, and visual
+  affordance the web app surfaces is reachable from the TUI. Screens are
+  derived from ViewComponent specs + `Pito::Theme` + i18n + `docs/design.md`
+  via a rake task that emits TOML screen specs the Rust client consumes.
+- **Crate path:** `extras/cli/`. Single binary: `pito`. Default mode (no
+  args): Ratatui TUI. Subcommands (`pito footage`, `pito help`, `pito
+  version`, etc.) styled after the `claude` binary.
+- **Yes / no boundary (hard rule).** All external booleans use `"yes"` /
+  `"no"` strings:
+  - clap args: `Arg::new("connected").value_parser(["yes", "no"])`.
+  - JSON wire format to Rails: serialize as `"yes"` / `"no"`; convert at the
+    serde boundary.
+  - TUI confirmation prompts: read input as `"yes"` / `"no"`, never `y` / `n`.
+- **Bracketed-link convention:** mirror the web app's `[label]` form for
+  clickable / focusable TUI affordances. `[ ]` / `[x]` checkbox indicator
+  keeps its inner space.
+- **Gates:** `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`,
+  `cargo test`. Run from `extras/cli/` working directory.
 
-Every boolean crossing an external boundary uses `"yes"` / `"no"` strings, never
-`true` / `false` / `0` / `1`. This is a hard rule from `CLAUDE.md`.
+## Pointers
 
-Concrete cases for `extras/cli/`:
-
-- clap subcommand args — declare
-  `Arg::new("connected").value_parser(["yes", "no"])` (or equivalent) rather
-  than a `bool` arg. Expose `--connected yes`, not `--connected` flags or
-  `--connected=true`.
-- JSON wire format to the Rails app (footage import, future API surfaces) —
-  serialize booleans as `"yes"` / `"no"` strings. Internal Rust storage stays
-  `bool`; convert at the serde boundary (custom serializer or a `YesNo`
-  newtype).
-- Confirmation prompts in the TUI — read user input as `"yes"` / `"no"`, never
-  `true` / `false` / `y` / `n`.
-
-Cover both directions in tests.
-
-### A. Bracketed-link convention — `[label]` (no inner spaces)
-
-The Ratatui TUI mirrors the web app's `[label]` convention for clickable /
-focusable text affordances. No inner padding spaces (`[connect]`, not
-`[ connect ]`). Drop redundant nouns when surrounding context supplies them. The
-`[ ]` / `[x]` checkbox indicator stays with its inner space — that's a separate
-convention. Canonical reference: `docs/design.md` → "Bracketed Links / Buttons"
-and "Bracketed labels: minimum text".
-
-## pito specifics
-
-- Crate path: `extras/cli/`. Single binary: `pito`.
-- Default mode (no args): Ratatui TUI. Subcommands styled after the `claude`
-  binary — `pito footage`, `pito help`, `pito version`, future surfaces.
-- TUI uses Ratatui + the JSON / ActionCable client layer.
-- Subcommands use clap-derive plus per-subcommand modules.
-- Footage import client at `extras/cli/src/footage/` — JSON API hits
-  `/api/projects/<id>/footages.json`.
-- Browser-only flows (e.g. video uploads) get recorded under `docs/decisions/`
-  rather than implemented.
-- Gates: `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`,
-  `cargo test`. CI runs from `extras/cli/` working directory.
+- `docs/tui.md` — canonical CLI parity and architecture.
+- `docs/design.md` — visual contract the TUI mirrors.
+- `docs/architecture.md` § "Action bus" — `Pito::ActionDispatcher` wire
+  format the Rust client calls.
 
 ## File scope
 
-`extras/cli/` only. Never touch `app/`, `docs/`, `extras/website/`,
-`.claude-config/`.
+`extras/cli/` only. Never touch `app/`, `docs/`, `extras/website/`.
 
 ## Out of scope
 
 - Committing or pushing.
-- Modifying the Rails app, the website, or any documentation.
+- Modifying the Rails app, the website, or documentation.
