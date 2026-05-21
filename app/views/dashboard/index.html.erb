@@ -29,7 +29,18 @@
     </div>
 
     <div class="settings-panes__right">
-      <%= render "settings/stack_pane" %>
+      <%= render Pito::StackPanelComponent.new(
+        postgres_status: @postgres_status,
+        postgres_table_breakdown: @postgres_table_breakdown,
+        search_healthy: @search_healthy,
+        search_stats: @search_stats,
+        search_per_index_stats: @search_per_index_stats,
+        voyage_configured: @voyage_configured,
+        storage_status: @storage_status,
+        assets_breakdown: @assets_breakdown,
+        sidekiq_breakdown: @sidekiq_breakdown,
+        redis_status: @redis_status
+      ) %>
     </div>
   </div>
 
