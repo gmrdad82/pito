@@ -39,23 +39,11 @@ class MeilisearchReindexJob < ApplicationJob
   sidekiq_options lock: :until_executed, on_conflict: :log
 
   def perform
-    # FB-126 (2026-05-21) — emit a brand-tagged `reindex_started` event
-    # on the shared `stack_stats` channel BEFORE the work begins so the
-    # Meilisearch sub-panel flips from `[reindex]` to the
-    # `Tui::ReindexProgressComponent` `[=------]` indicator immediately.
-    # The `ensure` block then re-broadcasts the post-run snapshot via
-    # `StackStats::Broadcaster.broadcast!` (which carries
-    # `reindex.running: false`) so the indicator flips back to the
-    # idle `[reindex]` action.
-    ActionCable.server.broadcast("stack_stats", { reindex_event: { kind: "reindex_started", brand: "meilisearch" } })
-
     # ADR 0018 — panel-scoped cable broadcast. Tracks the
     # `pito:settings:stack:meilisearch` channel via the canonical
     # `Pito::CableBroadcaster` envelope (`kind:`, `payload:`, `ts:`) so
     # any panel subscriber (future progress bar, future indicator
-    # variants) consumes a uniform shape. The legacy `stack_stats`
-    # ActionCable broadcast above stays for back-compat until the cable
-    # subscriber refactor.
+    # variants) consumes a uniform shape.
     Pito::CableBroadcaster.broadcast_panel(
       "pito:settings:stack:meilisearch",
       kind: "reindex_event",
