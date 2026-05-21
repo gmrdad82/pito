@@ -1,48 +1,9 @@
-<% content_for(:title, t("settings.index.title")) %>
+<% content_for(:title, t("dashboard.index.title", default: "home")) %>
 <% content_for(:head) do %>
   <meta name="turbo-cache-control" content="no-cache">
 <% end %>
 
-<%# C18 (2026-05-21) — /settings consolidated into / (home). The ex-settings
-    panels (security, notifications, stack) now render here.
-    Partials remain at app/views/settings/_*_pane.html.erb — C18 moves the
-    rendering location only. Partial-to-VC conversion is follow-up work.
-
-    The settings-modal Stimulus controller wraps both the panels (where trigger
-    links live) AND the _settings_modal partial (where the dialog lives) so
-    click actions on any descendant reach the controller scope. %>
-<div class="settings-modal-wrapper" data-controller="settings-modal">
-  <%# ADR 0016 width-tiling grid. Two-column V3 60/40 layout:
-      LEFT 60%:  notifications (top) + security/sessions (bottom).
-      RIGHT 40%: stack panel only. %>
-  <div class="settings-panes pito-workspace settings-panes--v3" data-controller="tui-cursor">
-    <div class="settings-panes__left">
-      <%= render Pito::NotificationsPanelComponent.new(
-        discord_webhook: @discord_webhook,
-        slack_webhook: @slack_webhook,
-      ) %>
-      <%= render Pito::SecurityPanelComponent.new(
-        sessions: @sessions,
-        sessions_sort: @sessions_sort,
-        sessions_dir: @sessions_dir
-      ) %>
-    </div>
-
-    <div class="settings-panes__right">
-      <%= render Pito::StackPanelComponent.new(
-        postgres_status: @postgres_status,
-        postgres_table_breakdown: @postgres_table_breakdown,
-        search_healthy: @search_healthy,
-        search_stats: @search_stats,
-        search_per_index_stats: @search_per_index_stats,
-        voyage_configured: @voyage_configured,
-        storage_status: @storage_status,
-        assets_breakdown: @assets_breakdown,
-        sidekiq_breakdown: @sidekiq_breakdown,
-        redis_status: @redis_status
-      ) %>
-    </div>
-  </div>
-
-  <%= render "settings/settings_modal" %>
-</div>
+<%# Home — intentionally empty. Layout-first rebuild: panels added one by
+    one via the demo→pick→implement→confirm flow. Use plan mode + chat
+    to specify each panel. %>
+<div class="pito-workspace home-empty"></div>
