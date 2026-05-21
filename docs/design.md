@@ -23,7 +23,7 @@ multi-layer menus.
 - Base size: **13px**
 - Line-height: **1**
 - Default weight: 400 (normal)
-- **Bold is earned, not attributed.** Only the section identifier in TST,
+- **Bold is earned, not attributed.** Only the screen identifier in TST,
   the focused panel title, and a small set of explicit headings get bold.
 - Italic reserved for **hints** (`type "clear" to remove`).
 - `tabular-nums` (`font-variant-numeric: tabular-nums`) for any numeric
@@ -37,7 +37,7 @@ and export to CSS custom properties + Rust `theme.rs` via
 
 - Text: high-contrast against bg
 - Muted: `var(--color-muted)` for de-emphasized prose + inactive UI
-- Borders: section-accent-tinted hairline (1px)
+- Borders: screen-accent-tinted hairline (1px)
 - Background: panel bg + sub-panel bg with subtle delta
 - **Red `#cc0000`** is ONLY for destructive flows. One exception: the
   rating heat bar's bad-zone color stop (`--color-rating-bad`).
@@ -45,7 +45,7 @@ and export to CSS custom properties + Rust `theme.rs` via
 ## Screen accents
 
 Three screens, three accents (canonical picks from
-`tmp/dracula-swatches-v2.html` § B — Section mapping):
+`tmp/dracula-swatches-v2.html` § B — Screen mapping):
 
 | Screen | Accent | Hex | Token |
 |---|---|---|---|
@@ -65,7 +65,7 @@ Exact values: `Pito::Theme::Sections.accent(:home | :videos | :games)`.
 **Note on red:** `#ff5555` is the videos screen accent AND looks similar
 to the destructive token `#cc0000`. They are NOT the same token. Videos
 screen uses `--accent-videos = #ff5555` (Dracula Red — informational,
-section identity). Destructive actions still use `--color-danger`
+screen identity). Destructive actions still use `--color-danger`
 (`#cc0000` light / `#ff5555` dark — value coincides in dark theme but
 the semantic is different). On `/videos`, destructive actions are still
 gated by `Tui::ConfirmationDialogComponent` so users never mistake an
@@ -93,7 +93,7 @@ Notes:
   - `Tui::DateTimeComponent` — live clock
 - **BST (Bottom Status Bar)** — fixed, 22px tall. Components inside:
   - mode lozenge (NORMAL / INSERT)
-  - sections list — one entry per top-level screen (4 entries)
+  - screens list — one entry per top-level screen (4 entries)
   - `? help` hint — `?` white, `help` muted, NOT italic
   - `: command` hint — `:` white, `command` muted, NOT italic
 
@@ -115,7 +115,7 @@ under `Pito::*` since Home is the dashboard + system-monitoring surface
 governed by the `Pito::*` namespace, not a separate `Home::*` domain.
 
 Panels carry their **title in the top border** (V4 frame),
-section-accent border when focused, muted border otherwise.
+screen-accent border when focused, muted border otherwise.
 
 A panel may carry an **indicator** (e.g., `connected` / `writable` /
 `disconnected`) and one or more **actions** (e.g., `[reindex]`) in the
@@ -160,7 +160,7 @@ Demo: `tmp/demo-command-palette.html` (V6 picked).
 ## Actions
 
 Every clickable / activatable element renders as `[ label ]`.
-Section-accent color. No bold. `cursor: pointer` (suppressed when the
+Screen-accent color. No bold. `cursor: pointer` (suppressed when the
 mouse guard is active — cursor is hidden then).
 
 - `BracketedLinkComponent` — `<a>` / `<button type=submit>` shapes
@@ -177,7 +177,7 @@ effects. No focus rings (focus signal = color tint).
   cells)
 - Minimal whitespace
 - Sortable headers with arrow indicators (active = solid underline
-  section-accent; idle = muted)
+  screen-accent; idle = muted)
 - Sort state reflected in URL (`?sessions_sort=device&sessions_dir=asc`)
 - No zebra rows
 - Hairline `<thead>` bottom border
@@ -216,7 +216,7 @@ BST hints (`? help`, `: command`) use a different style: NOT italic;
 ## Charts and progress
 
 - `Tui::SparklineComponent` — `▁▂▃▅▇` unicode bars
-- `Tui::ProgressBarComponent` — filled `▰▱`-style bar, section-accent aware
+- `Tui::ProgressBarComponent` — filled `▰▱`-style bar, screen-accent aware
 - `Tui::SegmentedBarComponent` — Voyage embedding progress (10 segments)
 - `Tui::ShadedDensityComponent` — `░▒▓█` fill
 - `Tui::HeatmapComponent` — day × hour grid
@@ -280,7 +280,7 @@ method. The cursor controller (`tui_cursor_controller.js`) reads
 with j/k.
 
 Per-style visuals — one `--focus-tint-bg` + `--focus-tint-border` across
-all styles via `color-mix(in srgb, var(--section-accent) 18%,
+all styles via `color-mix(in srgb, var(--screen-accent) 18%,
 transparent)`:
 
 - `:row` — whole `<tr>` tinted
@@ -368,4 +368,4 @@ Currently-relevant demos:
 - `tmp/demo-charts.html` — chart catalog
 - `tmp/demo-sortable-arrows.html` — sortable indicator (V4 picked)
 - `tmp/demo-panel-title.html` — V4 corner-flush title
-- `tmp/demo-settings-bg-variants.html` — body bg tint per section
+- `tmp/demo-settings-bg-variants.html` — body bg tint per screen

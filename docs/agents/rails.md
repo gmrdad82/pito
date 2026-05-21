@@ -40,7 +40,7 @@ specifically — VC + spec land together.
 
 ### No Capybara / no system specs
 
-Pito does not run system specs. The `.rspec` exclusion is permanent. Coverage
+pito does not run system specs. The `.rspec` exclusion is permanent. Coverage
 comes from request specs, model specs, service specs, job specs, ViewComponent
 specs, helper specs, validator specs, MCP tool specs, and lib specs. Routing
 specs only when route logic is non-trivial. Critical-journey coverage lives in
@@ -57,8 +57,9 @@ discipline preserved, namespace taxonomy respected.
 ### Brand capitalization in copy and code
 
 Slack, Discord, YouTube, Voyage AI, PostgreSQL, Meilisearch, OAuth, Git stay
-capitalized in user-visible copy and identifiers where applicable. Pito itself
-renders lowercase as `pito` in copy. Locales, flash messages, panel headings —
+capitalized in user-visible copy and identifiers where applicable. pito renders
+lowercase everywhere in copy — including sentence-start. Locales, flash
+messages, panel headings —
 all respect this.
 
 ### Yes / no boundary

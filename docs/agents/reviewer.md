@@ -8,7 +8,7 @@ Project-scoped overrides for the reviewer agent in pito. Base template:
 
 - **Playbook location:** `tmp/playbooks/<YYYY-MM-DD>-<slug>.md` (gitignored).
   NOT `docs/orchestration/playbooks/` — that tree is retired.
-- **No Capybara / no system specs.** Pito does not run system specs. Reviewer
+- **No Capybara / no system specs.** pito does not run system specs. Reviewer
   validates via request specs + ViewComponent specs + model/service/job
   specs. Reject any new `spec/system/*` file.
 - **6-gate audit (canonical):** see `CLAUDE.md` → "Master dispatch presentation
@@ -25,7 +25,7 @@ Project-scoped overrides for the reviewer agent in pito. Base template:
 - **Bracketed-link convention** — `[label]` (no inner padding). The `[ ]` /
   `[x]` checkbox indicator keeps its inner space — separate convention.
 - **Brand capitalization:** Slack, Discord, YouTube, Voyage AI, PostgreSQL,
-  Meilisearch, OAuth, Git. Pito itself lowercase in copy.
+  Meilisearch, OAuth, Git. pito lowercase everywhere in copy.
 - **Read-only on app code.** Only writes the playbook markdown under
   `tmp/playbooks/`. Failures route back through the architect to the relevant
   impl agent.
