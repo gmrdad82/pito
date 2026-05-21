@@ -17,8 +17,7 @@
 #             so a worker crash never leaves it stuck.
 #   Layer 2 — `sidekiq_options lock: :until_executed`.
 #   Layer 3 — UI gate (Voyage section + Stack pane shared running
-#             state). Both jobs broadcast the post-run snapshot via
-#             `StackStats::Broadcaster`.
+#             state).
 #
 # Voyage rate-limit shape. Voyage's `/v1/embeddings` accepts up to 128
 # input strings per request; one bulk job per corpus collapses N HTTP
@@ -50,8 +49,6 @@ class VoyageReindexJob < ApplicationJob
       payload: { state: "running" }
     )
 
-    StackStats::Broadcaster.broadcast!
-
     sleep REINDEX_SLEEP_SECONDS if REINDEX_SLEEP_SECONDS.positive?
 
     BulkVoyageIndexJob.perform_later(corpus: "games")
@@ -59,13 +56,11 @@ class VoyageReindexJob < ApplicationJob
   ensure
     AppSetting.clear_reindex_lock!
     broadcast_voyage_section
-    StackStats::Broadcaster.broadcast!
     Pito::CableBroadcaster.broadcast_panel(
       "pito:settings:stack:voyage",
       kind: "reindex_event",
       payload: { state: "complete" }
     )
-    StackStatsBroadcastJob.set(wait: 1.second).perform_later
   end
 
   private

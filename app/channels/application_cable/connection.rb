@@ -12,10 +12,10 @@
 #
 # Pito remains a single-install multi-user app (ADR 0003), so this
 # identity is for AUTH GATING only — not for data scoping. Channels
-# that broadcast install-wide snapshots (e.g. `StackStatsChannel`)
-# still stream from a single global broadcasting; the connection-level
-# `identified_by :current_user` simply gives every channel a uniform
-# hook to reject unauthenticated clients.
+# that broadcast install-wide snapshots still stream from a single
+# global broadcasting; the connection-level `identified_by
+# :current_user` simply gives every channel a uniform hook to reject
+# unauthenticated clients.
 module ApplicationCable
   class Connection < ActionCable::Connection::Base
     identified_by :current_user

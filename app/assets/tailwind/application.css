@@ -542,6 +542,23 @@ button.bracketed .bl {
   color: var(--color-text);
 }
 
+/* Analytics::LegendSwatchComponent — bracketed legend swatch used in
+   chart legends. The series color is passed via the `--swatch-color`
+   custom property (NOT inline `style="color: ..."`) so the color
+   override stays inside the cascade rather than as a raw inline rule. */
+.analytics-legend-swatch {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+}
+.analytics-legend-swatch__glyph {
+  color: var(--swatch-color);
+  font-weight: 400;
+}
+.analytics-legend-swatch__label {
+  color: var(--color-text);
+}
+
 /* Phase B — bulk-select toolbar. Each `.action` span carries its own
    leading `.action-sep` dot (`·`); the controller hides the separator
    on whichever action is currently first-visible so we never get the
@@ -1789,15 +1806,14 @@ table.tui-table--stack thead th.sortable {
   border-bottom: 1px solid var(--color-border);
 }
 /* FB-118 (2026-05-20) — Voyage rows render a `.tui-segmented-bar`
-   immediately followed by the embedded/total count span
-   (`data-stack-stats-live-target="voyageEmbedded"` /
-   `voyageBundlesEmbedded`). The partial used to inject `&nbsp;` between
-   them which gave a full character of horizontal slack; the `&nbsp;`
-   has been dropped from `_voyage_section.html.erb` and this rule
-   restores a tight 4px gap via the adjacent-sibling combinator. Scoped
-   to `.tui-table--stack` so other contexts that compose a segmented
-   bar with a following live-target span are not affected. */
-table.tui-table--stack .tui-segmented-bar + [data-stack-stats-live-target] {
+   immediately followed by the embedded/total count span. The partial
+   used to inject `&nbsp;` between them which gave a full character of
+   horizontal slack; the `&nbsp;` has been dropped from
+   `_voyage_section.html.erb` and this rule restores a tight 4px gap
+   via the adjacent-sibling combinator. Scoped to `.tui-table--stack`
+   so other contexts that compose a segmented bar with a following
+   span are not affected. */
+table.tui-table--stack .tui-segmented-bar + span {
   margin-left: 4px;
 }
 /* Sortable header cells inside stack-tables override the global

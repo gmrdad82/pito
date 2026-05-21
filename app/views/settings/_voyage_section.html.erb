@@ -67,12 +67,12 @@
       <tbody>
         <tr class="tui-table__row">
           <td class="tui-table__td"><%= t("settings.voyage.games_embedded") %></td>
-          <td class="tui-table__td tui-table__td--right num"><%= render Tui::SegmentedBarComponent.new(percent: voyage_stats[:coverage_pct].to_f, segments: 10) %><span data-stack-stats-live-target="voyageEmbedded"><%= number_with_delimiter(voyage_stats[:embedded_games_count].to_i) %></span>/<span data-stack-stats-live-target="voyageTotal"><%= number_with_delimiter(voyage_stats[:total_games_count].to_i) %></span><span data-stack-stats-live-target="voyagePct" hidden><%= voyage_stats[:coverage_pct] %></span></td>
+          <td class="tui-table__td tui-table__td--right num"><%= render Tui::SegmentedBarComponent.new(percent: voyage_stats[:coverage_pct].to_f, segments: 10) %><span><%= number_with_delimiter(voyage_stats[:embedded_games_count].to_i) %></span>/<span><%= number_with_delimiter(voyage_stats[:total_games_count].to_i) %></span></td>
         </tr>
         <% if voyage_stats[:total_bundles_count].to_i > 0 %>
           <tr class="tui-table__row">
             <td class="tui-table__td"><%= t("settings.voyage.bundles_embedded") %></td>
-            <td class="tui-table__td tui-table__td--right num"><% if voyage_stats[:bundle_coverage_pct] %><%= render Tui::SegmentedBarComponent.new(percent: voyage_stats[:bundle_coverage_pct].to_f, segments: 10) %><% end %><span data-stack-stats-live-target="voyageBundlesEmbedded"><%= number_with_delimiter(voyage_stats[:embedded_bundles_count].to_i) %></span>/<span data-stack-stats-live-target="voyageBundlesTotal"><%= number_with_delimiter(voyage_stats[:total_bundles_count].to_i) %></span><% if voyage_stats[:bundle_coverage_pct] %><span data-stack-stats-live-target="voyageBundlesCoveragePct" hidden><%= voyage_stats[:bundle_coverage_pct] %></span><% end %></td>
+            <td class="tui-table__td tui-table__td--right num"><% if voyage_stats[:bundle_coverage_pct] %><%= render Tui::SegmentedBarComponent.new(percent: voyage_stats[:bundle_coverage_pct].to_f, segments: 10) %><% end %><span><%= number_with_delimiter(voyage_stats[:embedded_bundles_count].to_i) %></span>/<span><%= number_with_delimiter(voyage_stats[:total_bundles_count].to_i) %></span></td>
           </tr>
         <% end %>
         <tr class="tui-table__row">
@@ -83,7 +83,7 @@
           <tr class="tui-table__row">
             <td class="tui-table__td"><%= t("settings.voyage.last_indexed") %></td>
             <td class="tui-table__td tui-table__td--right num">
-              <span data-stack-stats-live-target="voyageLast"><%= compact_time_ago(voyage_stats[:last_indexed_at]) %></span>
+              <span><%= compact_time_ago(voyage_stats[:last_indexed_at]) %></span>
             </td>
           </tr>
         <% end %>
@@ -91,7 +91,7 @@
           <tr class="tui-table__row">
             <td class="tui-table__td"><%= t("settings.voyage.hnsw_indexes") %></td>
             <td class="tui-table__td tui-table__td--right num">
-              <span data-stack-stats-live-target="voyageStorage"><%= number_with_delimiter(voyage_stats[:storage_kb].to_i) %></span> <%= t("settings.voyage.size_suffix_kb") %>
+              <span><%= number_with_delimiter(voyage_stats[:storage_kb].to_i) %></span> <%= t("settings.voyage.size_suffix_kb") %>
             </td>
           </tr>
         <% end %>
@@ -99,7 +99,7 @@
           <tr class="tui-table__row">
             <td class="tui-table__td"><%= t("settings.voyage.last_24h") %></td>
             <td class="tui-table__td tui-table__td--right num">
-              <span data-stack-stats-live-target="voyage24h"><%= number_with_delimiter(voyage_stats[:embeddings_last_24h].to_i) %></span> <%= t("settings.voyage.embeddings_suffix") %>
+              <span><%= number_with_delimiter(voyage_stats[:embeddings_last_24h].to_i) %></span> <%= t("settings.voyage.embeddings_suffix") %>
             </td>
           </tr>
         <% end %>

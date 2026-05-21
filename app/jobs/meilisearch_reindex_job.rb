@@ -22,9 +22,7 @@
 #             render on the shared flag; that behaviour stays. The
 #             Stack pane's per-tile `[reindex]` link is rendered idle
 #             whenever the flag is clear and is hidden during a
-#             running reindex. Both jobs broadcast the post-run
-#             snapshot via `StackStats::Broadcaster` so any open
-#             `/settings` tab catches the trailing edge.
+#             running reindex.
 #
 # Why Meilisearch is its own job. The per-row Meilisearch push is a
 # single HTTP call per document and Meilisearch does NOT rate-limit
@@ -50,8 +48,6 @@ class MeilisearchReindexJob < ApplicationJob
       payload: { state: "running" }
     )
 
-    StackStats::Broadcaster.broadcast!
-
     Game.find_each do |game|
       Game::MeilisearchIndexer.call(game)
     end
@@ -64,13 +60,11 @@ class MeilisearchReindexJob < ApplicationJob
   ensure
     AppSetting.clear_reindex_lock!
     broadcast_voyage_section
-    StackStats::Broadcaster.broadcast!
     Pito::CableBroadcaster.broadcast_panel(
       "pito:settings:stack:meilisearch",
       kind: "reindex_event",
       payload: { state: "complete" }
     )
-    StackStatsBroadcastJob.set(wait: 1.second).perform_later
   end
 
   private

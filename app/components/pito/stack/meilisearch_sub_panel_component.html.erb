@@ -3,9 +3,7 @@
 
     FB-126 (2026-05-21) — `[reindex]` opens a confirmation dialog
     mounted by the parent `Pito::StackPanelComponent` (id
-    `reindex_meilisearch_confirmation`). The `reindex-action` Stimulus
-    controller swaps idle ↔ running slots on the cable
-    `reindex_started` event + the `ensure`-block re-broadcast.
+    `reindex_meilisearch_confirmation`).
 
     FB-165 — idle slot's button is the j/k focusable for this
     sub-panel. The running slot drops out of the focus list
@@ -18,10 +16,9 @@
 <%= render Tui::SubPanelComponent.new(title: t("settings.stack.meilisearch")) do |c| %>
   <% c.with_actions do %>
     <%= render Tui::ChipComponent.new(label: chip[:chip_label], variant: chip[:chip_variant]) %>
-    <span data-controller="reindex-action"
-          data-reindex-action-brand-value="meilisearch">
+    <span>
       <% _meili_f = focusables.first %>
-      <span data-reindex-action-target="idle" <%= "hidden" if reindex_running? %>>
+      <span <%= "hidden" if reindex_running? %>>
         <%# FB-178 (2026-05-21) — `data-reindex-brand="meilisearch"`
             is the canonical hook the `:command` palette uses to
             programmatically click this button. ADR 0018 —
@@ -34,7 +31,7 @@
           data: { reindex_brand: "meilisearch" },
         ) %>
       </span>
-      <span data-reindex-action-target="running" <%= "hidden" unless reindex_running? %>>
+      <span <%= "hidden" unless reindex_running? %>>
         <%= render Tui::ReindexProgressComponent.new(brand: "meilisearch") %>
       </span>
     </span>
@@ -68,8 +65,7 @@
                 </td>
               <% else %>
                 <td class="tui-table__td tui-table__td--right num">
-                  <span data-sort-value="<%= row[:documents].to_i %>"
-                        data-stack-stats-live-target="meilisearch<%= key %>Docs">
+                  <span data-sort-value="<%= row[:documents].to_i %>">
                     <%= number_with_delimiter(row[:documents].to_i) %>
                   </span>
                 </td>
@@ -79,8 +75,7 @@
                   </td>
                 <% else %>
                   <td class="tui-table__td tui-table__td--right num">
-                    <span data-sort-value="<%= row[:size_bytes] || -1 %>"
-                          data-stack-stats-live-target="meilisearch<%= key %>Size">
+                    <span data-sort-value="<%= row[:size_bytes] || -1 %>">
                       <%= helpers.human_filesize_int(row[:size_bytes]) %>
                     </span>
                   </td>

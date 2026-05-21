@@ -9,13 +9,6 @@ module AnalyticsHelper
     Pito::Formatter::AnalyticsMetric.call(value, type: type)
   end
 
-  # Bracketed legend swatch — `[label]` rendered with the series'
-  # color. Used inline in chart legends and in summary card labels.
-  def bracketed_legend(label, color)
-    content_tag(:span, "[#{label}]", class: "bracketed-active",
-                style: "color: #{color};")
-  end
-
   # Delegates to Pito::Formatter::AnalyticsWindowLabel.
   def analytics_window_label(window, long: false)
     Pito::Formatter::AnalyticsWindowLabel.call(window, long: long)

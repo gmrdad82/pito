@@ -5,10 +5,7 @@ module Pito
     # PostgreSQL sub-panel inside the stack panel on Home.
     #
     # Shows: connection status chip + per-table breakdown (rows + size)
-    # for the canonical domain tables (games, bundles). Rows expose
-    # `data-stack-stats-live-target` cells so the panel-level polling
-    # controller can patch counts + sizes in place every ~3 s without a
-    # full-page reload.
+    # for the canonical domain tables (games, bundles).
     #
     # ## Kwargs
     #

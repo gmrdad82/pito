@@ -10,21 +10,17 @@
 
     FB-126 (2026-05-21) — `[reindex]` opens a confirmation dialog
     mounted by the parent `Pito::StackPanelComponent` (id
-    `reindex_voyage_confirmation`). Mirrors the Meilisearch sub-panel
-    above for the wire contract; the `reindex-action` Stimulus
-    controller swaps idle ↔ running slots on cable broadcasts.
+    `reindex_voyage_confirmation`).
 
     FB-166 — same Ruby-driven focusable contract as the Meilisearch
     sub-panel. %>
 <%= render Tui::SubPanelComponent.new(title: t("settings.voyage.heading")) do |c| %>
   <% c.with_actions do %>
     <%= render Tui::ChipComponent.new(label: chip[:chip_label], variant: chip[:chip_variant]) %>
-    <span data-controller="reindex-action"
-          data-reindex-action-brand-value="voyage">
+    <span>
       <% _voyage_f = focusables.first %>
-      <span data-reindex-action-target="idle" <%= "hidden" if reindex_running? %>>
-        <%# FB-178 — see Meilisearch sub-panel for `data-reindex-brand`
-            rationale. ADR 0018 — `data-action-name` routes the click
+      <span <%= "hidden" if reindex_running? %>>
+        <%# ADR 0018 — `data-action-name` routes the click
             through `window.Pito.dispatchAction(:reindex_voyage)`. %>
         <%= render Tui::ActionButtonComponent.new(
           action_name: :reindex_voyage,
@@ -33,7 +29,7 @@
           data: { reindex_brand: "voyage" },
         ) %>
       </span>
-      <span data-reindex-action-target="running" <%= "hidden" unless reindex_running? %>>
+      <span <%= "hidden" unless reindex_running? %>>
         <%= render Tui::ReindexProgressComponent.new(brand: "voyage") %>
       </span>
     </span>

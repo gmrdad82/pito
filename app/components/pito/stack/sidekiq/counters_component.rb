@@ -30,11 +30,6 @@ module Pito
       # (col 5). Cols 1, 2, 4 of the lifetime table are spacer cells.
       # The 5 equal-width columns in both tables' colgroups keep the
       # alignment honest.
-      #
-      # Per-cell `data-stack-stats-live-target` attributes are preserved
-      # verbatim — the `stack-stats-live` Stimulus controller patches
-      # these cells every ~3 s from the `/settings/stack_stats` JSON
-      # endpoint without a full-page reload.
       class CountersComponent < ViewComponent::Base
         # @param breakdown [Array<Hash>] each element is
         #   `{ label: <state>, count: <integer> }` where `<state>` is

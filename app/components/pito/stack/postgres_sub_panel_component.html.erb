@@ -16,23 +16,16 @@
           </tr>
         </thead>
         <tbody>
-          <%# Every Postgres row carries
-              `data-stack-stats-live-target="postgres<Label><Field>"`
-              so the polling controller can patch the rows + size
-              cells in place every ~3 s without a full-page reload. %>
           <% table_breakdown.each do |row| %>
-            <% key = row[:label].to_s.camelize %>
             <tr class="tui-table__row">
               <td class="tui-table__td"><%= row[:label] %></td>
               <td class="tui-table__td tui-table__td--right num">
-                <span data-sort-value="<%= row[:count] || -1 %>"
-                      data-stack-stats-live-target="postgres<%= key %>Rows">
+                <span data-sort-value="<%= row[:count] || -1 %>">
                   <%= row[:count] ? number_with_delimiter(row[:count]) : "—" %>
                 </span>
               </td>
               <td class="tui-table__td tui-table__td--right num">
-                <span data-sort-value="<%= row[:size_bytes] || -1 %>"
-                      data-stack-stats-live-target="postgres<%= key %>Size">
+                <span data-sort-value="<%= row[:size_bytes] || -1 %>">
                   <%= helpers.human_filesize_int(row[:size_bytes]) %>
                 </span>
               </td>

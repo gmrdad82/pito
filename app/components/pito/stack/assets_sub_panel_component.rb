@@ -6,9 +6,7 @@ module Pito
     #
     # Shows: storage status chip (`writable` / `read_only` / `absent`)
     # + per-category file count + size breakdown (cover arts +
-    # composites). Rows expose `data-stack-stats-live-target` cells so
-    # the panel-level polling controller can patch counts + sizes in
-    # place every ~3 s.
+    # composites).
     #
     # ## Kwargs
     #

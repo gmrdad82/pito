@@ -13,12 +13,7 @@ module Pito
     #
     # FB-126 (2026-05-21) — `[reindex]` opens a
     # `Tui::ConfirmationDialogComponent` (mounted by the parent
-    # `Pito::StackPanelComponent`) instead of POSTing directly. The
-    # `reindex-action` Stimulus controller swaps `[reindex]` for the
-    # `Tui::ReindexProgressComponent` `[=------]` indicator when the
-    # job's `reindex_started` cable event fires; when the job's
-    # `ensure` block re-broadcasts via `StackStats::Broadcaster`, the
-    # indicator flips back to `[reindex]`.
+    # `Pito::StackPanelComponent`) instead of POSTing directly.
     #
     # The idle + running children sit in the same DOM, toggled via
     # `hidden` so the action slot never collapses (no width jitter

@@ -16,24 +16,16 @@
           </tr>
         </thead>
         <tbody>
-          <%# Assets rows expose live-stats targets so the polling
-              controller can patch file count + size in place. The
-              label-to-target mapping snake_cases the multi-word
-              "cover arts" label so it maps cleanly to a camelCase
-              Stimulus target name. %>
           <% breakdown.each do |row| %>
-            <% key = row[:label].to_s.tr(" ", "_").camelize %>
             <tr class="tui-table__row">
               <td class="tui-table__td"><%= row[:label] %></td>
               <td class="tui-table__td tui-table__td--right num">
-                <span data-sort-value="<%= row[:file_count] || -1 %>"
-                      data-stack-stats-live-target="assets<%= key %>Files">
+                <span data-sort-value="<%= row[:file_count] || -1 %>">
                   <%= row[:file_count] ? number_with_delimiter(row[:file_count]) : "—" %>
                 </span>
               </td>
               <td class="tui-table__td tui-table__td--right num">
-                <span data-sort-value="<%= row[:size_bytes] || -1 %>"
-                      data-stack-stats-live-target="assets<%= key %>Size">
+                <span data-sort-value="<%= row[:size_bytes] || -1 %>">
                   <%= helpers.human_filesize_int(row[:size_bytes]) %>
                 </span>
               </td>

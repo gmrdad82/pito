@@ -588,12 +588,6 @@ Rails.application.routes.draw do
   post "settings/stack/voyage/reindex",
        to: "settings#voyage_reindex",
        as: :settings_stack_voyage_reindex
-  # 2026-05-18 (DR) — live JSON polled by the `stack-stats-live`
-  # Stimulus controller mounted on the Stack pane. Returns the
-  # subset of stats that change moment to moment (Sidekiq counters
-  # + Voyage embedding coverage). 3 s default cadence; cookie-authed.
-  get "settings/stack_stats", to: "settings#stack_stats",
-      as: :settings_stack_stats, defaults: { format: "json" }
 
   # Phase 32 (settings refactor follow-up, 2026-05-16). The
   # `/settings/oauth_applications/*` and `/settings/tokens/*` web

@@ -33,8 +33,8 @@
         <% display_only = display_only_fields.include?(field.to_s) %>
         <tr>
           <td class="diff-field-name"><code><%= field %></code></td>
-          <td class="diff-cell"><%= human_diff_value(field, diff.pito_value(field)) %></td>
-          <td class="diff-cell"><%= human_diff_value(field, diff.youtube_value(field)) %></td>
+          <td class="diff-cell"><%= render Channel::Diff::CellComponent.new(value: diff.pito_value(field), field_kind: Channel::Diff::CellComponent.kind_for(field)) %></td>
+          <td class="diff-cell"><%= render Channel::Diff::CellComponent.new(value: diff.youtube_value(field), field_kind: Channel::Diff::CellComponent.kind_for(field)) %></td>
           <td class="diff-cell">
             <%= render(DiffDecisionRadioComponent.new(
                   field: field,

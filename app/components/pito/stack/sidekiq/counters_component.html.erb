@@ -48,11 +48,11 @@
       <tr class="tui-table__row">
         <td class="tui-table__td tui-table__td--right num"></td>
         <td class="tui-table__td tui-table__td--right num"></td>
-        <td class="tui-table__td tui-table__td--right num <%= color_class_for("processed") %>" data-stack-stats-live-target="successful">
+        <td class="tui-table__td tui-table__td--right num <%= color_class_for("processed") %>">
           <%= cell_for("processed") %>
         </td>
         <td class="tui-table__td tui-table__td--right num"></td>
-        <td class="tui-table__td tui-table__td--right num <%= color_class_for("failed") %>" data-stack-stats-live-target="failed">
+        <td class="tui-table__td tui-table__td--right num <%= color_class_for("failed") %>">
           <%= cell_for("failed") %>
         </td>
       </tr>
@@ -78,7 +78,7 @@
     <tbody>
       <tr class="tui-table__row">
         <% QUEUE_STATES.each do |state| %>
-          <td class="tui-table__td tui-table__td--right num <%= color_class_for(state) %>" data-stack-stats-live-target="<%= state %>">
+          <td class="tui-table__td tui-table__td--right num <%= color_class_for(state) %>">
             <%= cell_for(state) %>
           </td>
         <% end %>

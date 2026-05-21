@@ -6,10 +6,9 @@ module FootageHelper
   FILENAME_TAIL = 12
 
   # Delegates to Pito::Formatter::FootageFilesize.
-  # Returns "—" for nil and 0 (not probed yet). Uses Rails'
-  # number_to_human_size internally.
+  # Returns "—" for nil and 0 (not probed yet).
   def human_filesize(bytes)
-    Pito::Formatter::FootageFilesize.call(bytes, number_helper: self)
+    Pito::Formatter::FootageFilesize.call(bytes)
   end
 
   # Delegates to Pito::Formatter::FootageDuration.
