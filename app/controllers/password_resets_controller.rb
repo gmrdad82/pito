@@ -186,7 +186,7 @@ class PasswordResetsController < ApplicationController
     # proven possession of their second factor.
     reset_backoff_for_username(@user.username)
 
-    Auth::AuditLogger.call(
+    Pito::Auth::AuditLogger.call(
       acting_user: @user,
       source_surface: :web,
       action: :password_reset,
@@ -208,13 +208,13 @@ class PasswordResetsController < ApplicationController
 
   # True iff the code is a live TOTP code OR a valid (unused) backup
   # code. A backup code that matches is consumed (`used_at` stamped)
-  # by `Auth::BackupCodeConsumer` so it cannot be reused — per R1.
+  # by `Pito::Auth::BackupCodeConsumer` so it cannot be reused — per R1.
   def verify_recovery_code(user, code)
     return false if code.blank?
 
-    return true if Auth::TotpVerifier.call(user: user, code: code) == :ok
+    return true if Pito::Auth::TotpVerifier.call(user: user, code: code) == :ok
 
-    Auth::BackupCodeConsumer.call(user: user, code: code) == :ok
+    Pito::Auth::BackupCodeConsumer.call(user: user, code: code) == :ok
   end
 
   def render_reset_failed
@@ -279,7 +279,7 @@ class PasswordResetsController < ApplicationController
     normalized = username.to_s.strip.downcase
     return if normalized.blank?
 
-    Auth::BackoffCalculator.reset!(
+    Pito::Auth::BackoffCalculator.reset!(
       key: "username:#{Digest::SHA256.hexdigest(normalized)}"
     )
   end

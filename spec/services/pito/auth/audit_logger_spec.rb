@@ -6,7 +6,7 @@ require "rails_helper"
 # lifecycle + Voyage credential writes + password reset; the
 # canonical target type is `User` (TOTP / password reset) or
 # `AppSetting` (Voyage credential rotation).
-RSpec.describe Auth::AuditLogger do
+RSpec.describe Pito::Auth::AuditLogger do
   let(:user) { create(:user) }
 
   describe ".call (happy)" do

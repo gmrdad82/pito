@@ -1,7 +1,7 @@
 require "rails_helper"
 
-# Phase 25 — 01e. Auth::BackupCodeRegenerator specs.
-RSpec.describe Auth::BackupCodeRegenerator do
+# Phase 25 — 01e. Pito::Auth::BackupCodeRegenerator specs.
+RSpec.describe Pito::Auth::BackupCodeRegenerator do
   let(:user) { create(:user, :totp_enabled) }
 
   describe ".call (happy path)" do
@@ -20,7 +20,7 @@ RSpec.describe Auth::BackupCodeRegenerator do
     it "returns the 10 plaintext codes" do
       codes = described_class.call(user: user)
       expect(codes.length).to eq(10)
-      codes.each { |code| expect(code.length).to eq(Auth::TotpEnroller::BACKUP_CODE_LENGTH) }
+      codes.each { |code| expect(code.length).to eq(Pito::Auth::TotpEnroller::BACKUP_CODE_LENGTH) }
     end
 
     it "writes an AuthAuditLog row with action: backup_code_regenerate" do

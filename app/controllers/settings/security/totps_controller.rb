@@ -108,7 +108,7 @@ class Settings::Security::TotpsController < ApplicationController
           )
         end
 
-        Auth::AuditLogger.call(
+        Pito::Auth::AuditLogger.call(
           acting_user: Current.user,
           source_surface: :web,
           action: :totp_enroll,
@@ -146,8 +146,8 @@ class Settings::Security::TotpsController < ApplicationController
   # user — non-resumable enrollment per the 2026-05-16 cleanup.
   def generate_draft!
     seed = ROTP::Base32.random_base32
-    codes = Array.new(Auth::TotpEnroller::BACKUP_CODE_COUNT) do
-      Auth::TotpEnroller.generate_code
+    codes = Array.new(Pito::Auth::TotpEnroller::BACKUP_CODE_COUNT) do
+      Pito::Auth::TotpEnroller.generate_code
     end
     Rails.cache.write(
       self.class.enrollment_cache_key(Current.user.id),
@@ -159,7 +159,7 @@ class Settings::Security::TotpsController < ApplicationController
 
   # Stateless verify against the cached draft seed (NOT the user row,
   # which is still blank at this point). Mirrors the validation logic
-  # in `Auth::TotpVerifier` minus the replay watermark — the user is
+  # in `Pito::Auth::TotpVerifier` minus the replay watermark — the user is
   # mid-enrollment, there is no prior watermark to defend against.
   def verify_against_seed(seed, code)
     return false if seed.blank?

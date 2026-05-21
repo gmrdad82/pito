@@ -163,7 +163,7 @@ if (runtime_state = Rails.application.credentials.runtime_state)
     # be lifted out at capture time, so they're regenerated here and
     # shown once. Mirrors the dev-token "save this now" banner.
     if owner.totp_enabled?
-      fresh_codes = Auth::BackupCodeRegenerator.call(
+      fresh_codes = Pito::Auth::BackupCodeRegenerator.call(
         user:           owner,
         acting_user:    owner,
         source_surface: :tui

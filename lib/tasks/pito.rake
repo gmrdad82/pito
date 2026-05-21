@@ -113,7 +113,7 @@ namespace :pito do
       # but the rake task has no `Current.user`, so the affected user
       # is recorded as both `acting_user` and `target`. The metadata
       # carries the revocation tallies for incident forensics.
-      Auth::AuditLogger.call(
+      Pito::Auth::AuditLogger.call(
         acting_user: user,
         source_surface: :tui,
         action: :password_reset,
@@ -167,12 +167,12 @@ namespace :pito do
         exit 1
       end
 
-      # `Auth::BackupCodeRegenerator` destroys every existing
+      # `Pito::Auth::BackupCodeRegenerator` destroys every existing
       # (used + unused) backup-code row, mints 10 fresh ones, persists
       # the BCrypt digests, and writes an `AuthAuditLog` row. The
       # rake invocation tags `source_surface: :tui` (no `Current.user`
       # in this context — the user IS the acting user).
-      plaintext_codes = Auth::BackupCodeRegenerator.call(
+      plaintext_codes = Pito::Auth::BackupCodeRegenerator.call(
         user: user,
         acting_user: user,
         source_surface: :tui
