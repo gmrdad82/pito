@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: pito documentation
+    url: https://github.com/gmrdad82/pito/tree/main/docs
+    about: How pito works — architecture, design, MCP, TUI, website. Check the docs before opening an issue.
+  - name: project philosophy (no SLA, no support guarantees)
+    url: https://github.com/gmrdad82/pito#project-philosophy
+    about: pito is one person's tool, open-sourced as-is. Read this before opening an issue.
