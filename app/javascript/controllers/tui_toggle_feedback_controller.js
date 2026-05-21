@@ -75,6 +75,13 @@ export default class extends Controller {
     if (this.hasSpinnerTarget) {
       this.spinnerTarget.hidden = false
     }
+    // FB-165 — while the async save is in flight, drop this toggle out
+    // of the j/k focus list. The wrapping `[data-tui-focusable]` ancestor
+    // gets `data-tui-focusable-disabled="yes"`; the cursor controller's
+    // filter skips disabled focusables. Restored on `turbo:submit-end`
+    // (or whenever the page re-renders post-redirect, since the new
+    // markup ships without the disabled flag).
+    this.toggleFocusableDisabled(true)
   }
 
   endSpinner(_event) {
@@ -83,6 +90,17 @@ export default class extends Controller {
     }
     if (this.hasGlyphTarget) {
       this.glyphTarget.hidden = false
+    }
+    this.toggleFocusableDisabled(false)
+  }
+
+  toggleFocusableDisabled(disabled) {
+    const wrapper = this.element.closest("[data-tui-focusable]")
+    if (!wrapper) return
+    if (disabled) {
+      wrapper.dataset.tuiFocusableDisabled = "yes"
+    } else {
+      delete wrapper.dataset.tuiFocusableDisabled
     }
   }
 }

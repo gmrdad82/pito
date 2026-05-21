@@ -36,12 +36,34 @@
         `data-leader-toggle="notification_<kind>"` hooks are stable
         click targets if a leader-menu binding wants to dispatch a
         synthetic click. %>
+    <%# FB-165 (2026-05-21) — `data-tui-focusable="<key>"` marks each
+        focusable target the j/k cursor cycles through.
+
+        FB-166 (2026-05-21) — focus list is now Ruby-declared in
+        `SettingsHelper#notifications_focusables`. Each entry carries a
+        `:style` value (`:checkbox_label`, `:input`, `:action`) that the
+        CSS keys off for a per-element focus visual. The template emits
+        `data-tui-focusable-style` from the contract; the cursor
+        controller doesn't read the style itself — CSS does.
+
+        Order is locked in Ruby:
+          ["all", "daily", "discord_webhook", "discord_update",
+           "discord_help", "slack_webhook", "slack_update", "slack_help"].
+
+        While the async toggle save is in flight the
+        `tui-toggle-feedback` controller stamps `data-tui-focusable-disabled`
+        — the cursor list skips disabled focusables until the save
+        round-trips. %>
+    <% _nf = notifications_focusables.each_with_object({}) { |f, h| h[f[:key]] = f[:style] } %>
     <div class="notifications-toggles" style="margin-bottom: 12px;">
       <div style="margin-bottom: 4px;">
         <%= form_with url: settings_notification_toggle_path(kind: "all"),
                       method: :patch,
                       data: { controller: "auto-submit" } do |_f| %>
-          <label class="md-check" data-controller="tui-toggle-feedback">
+          <label class="md-check"
+                 data-controller="tui-toggle-feedback"
+                 data-tui-focusable="all"
+                 data-tui-focusable-style="<%= _nf["all"] %>">
             <input type="checkbox" name="enabled" value="yes"
                    data-leader-toggle="notification_all"
                    data-tui-toggle-feedback-target="checkbox"
@@ -58,7 +80,10 @@
         <%= form_with url: settings_notification_toggle_path(kind: "daily_digest"),
                       method: :patch,
                       data: { controller: "auto-submit" } do |_f| %>
-          <label class="md-check" data-controller="tui-toggle-feedback">
+          <label class="md-check"
+                 data-controller="tui-toggle-feedback"
+                 data-tui-focusable="daily"
+                 data-tui-focusable-style="<%= _nf["daily"] %>">
             <input type="checkbox" name="enabled" value="yes"
                    data-leader-toggle="notification_daily_digest"
                    data-tui-toggle-feedback-target="checkbox"
@@ -75,7 +100,10 @@
 
     <hr class="hairline">
 
-    <%# Discord subsection. %>
+    <%# Discord subsection. FB-165 — input + [update] + [help] are
+        each individual focusables (`discord_webhook`, `discord_update`,
+        `discord_help`). The subsection wrapper itself is NOT a focusable;
+        the j/k cursor steps through the three inner focusables. %>
     <div class="notifications-brand" style="margin-bottom: 12px;">
       <h3 style="margin: 0 0 6px;"><%= t("settings.discord.heading") %></h3>
       <%= form_with url: settings_notifications_discord_path,
@@ -87,14 +115,23 @@
                         id: "discord_webhook_url",
                         value: "",
                         placeholder: (@discord_webhook&.webhook_url.present? ? webhook_url_mask(:discord) : nil),
-                        autocomplete: "off" %>
-          <%= render(BracketedLinkComponent.new(label: t("common.actions.update"), as: :submit)) %>
+                        autocomplete: "off",
+                        data: { tui_focusable: "discord_webhook",
+                                tui_focusable_style: _nf["discord_webhook"] } %>
+          <%= render(BracketedLinkComponent.new(
+                label: t("common.actions.update"),
+                as: :submit,
+                data: { tui_focusable: "discord_update",
+                        tui_focusable_style: _nf["discord_update"] }
+              )) %>
           <%= render(BracketedMutedLinkComponent.new(
                 label: t("common.actions.help"),
                 href: settings_webhooks_help_path(provider: "discord"),
                 data: {
                   action: "click->webhook-help-modal#open",
-                  webhook_help_modal_provider_param: "discord"
+                  webhook_help_modal_provider_param: "discord",
+                  tui_focusable: "discord_help",
+                  tui_focusable_style: _nf["discord_help"]
                 }
               )) %>
         </div>
@@ -116,14 +153,23 @@
                         id: "slack_webhook_url",
                         value: "",
                         placeholder: (@slack_webhook&.webhook_url.present? ? webhook_url_mask(:slack) : nil),
-                        autocomplete: "off" %>
-          <%= render(BracketedLinkComponent.new(label: t("common.actions.update"), as: :submit)) %>
+                        autocomplete: "off",
+                        data: { tui_focusable: "slack_webhook",
+                                tui_focusable_style: _nf["slack_webhook"] } %>
+          <%= render(BracketedLinkComponent.new(
+                label: t("common.actions.update"),
+                as: :submit,
+                data: { tui_focusable: "slack_update",
+                        tui_focusable_style: _nf["slack_update"] }
+              )) %>
           <%= render(BracketedMutedLinkComponent.new(
                 label: t("common.actions.help"),
                 href: settings_webhooks_help_path(provider: "slack"),
                 data: {
                   action: "click->webhook-help-modal#open",
-                  webhook_help_modal_provider_param: "slack"
+                  webhook_help_modal_provider_param: "slack",
+                  tui_focusable: "slack_help",
+                  tui_focusable_style: _nf["slack_help"]
                 }
               )) %>
         </div>

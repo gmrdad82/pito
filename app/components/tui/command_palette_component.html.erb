@@ -1,0 +1,35 @@
+<%# FB-170 (2026-05-21) — V6 command palette template.
+
+    Two stacked regions (suggestion list above, input bar below), both
+    `position: fixed` at the viewport bottom. Hidden by default via
+    the [hidden] attribute on the root; the Stimulus controller flips
+    `hidden` off when `:` opens the palette.
+
+    `data-tui-command-palette-commands-value` carries the JSON-encoded
+    command catalog so the controller can filter / select / execute
+    without a server round-trip per keystroke. %>
+<div class="tui-command-palette"
+     hidden
+     data-controller="tui-command-palette"
+     data-tui-command-palette-commands-value="<%= commands_json %>">
+  <div class="tui-command-palette__list" data-tui-command-palette-target="list">
+    <%# Populated dynamically by the Stimulus controller after
+        filtering. The empty state shows a single muted "no matches"
+        row. %>
+  </div>
+  <div class="tui-command-palette__foot">
+    <span>↓ next</span>
+    <span>Tab cycle</span>
+    <span>Enter run</span>
+    <span>Esc close</span>
+  </div>
+  <div class="tui-command-palette__line">
+    <span class="tui-command-palette__prompt">:</span>
+    <input type="text"
+           class="tui-command-palette__input"
+           data-tui-command-palette-target="input"
+           data-action="input->tui-command-palette#filter keydown->tui-command-palette#keydown"
+           autocomplete="off"
+           spellcheck="false">
+  </div>
+</div>

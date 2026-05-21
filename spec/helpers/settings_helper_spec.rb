@@ -98,4 +98,64 @@ RSpec.describe SettingsHelper, type: :helper do
       end
     end
   end
+
+  # FB-166 (2026-05-21) — Ruby-declared focusables contract for the
+  # notifications pane + stack sub-panels. Each focusable carries a
+  # `:style` that maps to one of four CSS focus visuals:
+  #
+  #   * `:checkbox_label` — tint around the inline-flex label+checkbox
+  #   * `:input`          — section-accent border on the input only
+  #   * `:action`         — compact tint around the bracketed action
+  #   * `:row`            — full-width tint (sessions table rows; see
+  #                         Sessions::TableComponent#focusables for
+  #                         the `:row` style)
+  #
+  # Specs lock document order + per-key style so the cursor's j/k
+  # cycle has a stable, spec-asserted contract instead of relying on
+  # scattered HTML attributes.
+  describe "#notifications_focusables (FB-166 — Ruby-driven focus contract)" do
+    it "returns the 8 focusables in locked document order" do
+      expect(helper.notifications_focusables.map { |f| f[:key] }).to eq([
+        "all",
+        "daily",
+        "discord_webhook",
+        "discord_update",
+        "discord_help",
+        "slack_webhook",
+        "slack_update",
+        "slack_help"
+      ])
+    end
+
+    it "stamps :checkbox_label on the two shared toggles (all + daily)" do
+      by_key = helper.notifications_focusables.index_by { |f| f[:key] }
+      expect(by_key["all"][:style]).to eq(:checkbox_label)
+      expect(by_key["daily"][:style]).to eq(:checkbox_label)
+    end
+
+    it "stamps :input on the two webhook URL inputs" do
+      by_key = helper.notifications_focusables.index_by { |f| f[:key] }
+      expect(by_key["discord_webhook"][:style]).to eq(:input)
+      expect(by_key["slack_webhook"][:style]).to eq(:input)
+    end
+
+    it "stamps :action on the four bracketed [update] / [help] actions" do
+      by_key = helper.notifications_focusables.index_by { |f| f[:key] }
+      expect(by_key["discord_update"][:style]).to eq(:action)
+      expect(by_key["discord_help"][:style]).to eq(:action)
+      expect(by_key["slack_update"][:style]).to eq(:action)
+      expect(by_key["slack_help"][:style]).to eq(:action)
+    end
+  end
+
+  describe "#stack_reindex_focusables (FB-166 — Ruby-driven focus contract)" do
+    it "returns a single :action focusable when the reindex job is idle" do
+      result = helper.stack_reindex_focusables(running: false)
+      expect(result).to eq([ { key: "reindex", style: :action } ])
+    end
+
+    it "returns an empty list while the reindex is running (no focus stop)" do
+      expect(helper.stack_reindex_focusables(running: true)).to eq([])
+    end
+  end
 end

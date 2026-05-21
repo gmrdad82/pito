@@ -1,0 +1,95 @@
+# FB-180 (2026-05-21) — V6 `:command` palette i18n.
+#
+# All command palette names + hints flow through I18n so brand names
+# stay canonically capitalized (per CLAUDE.md
+# `feedback_brand_names_always_capitalized`). Non-brand text remains
+# lowercase per design.md `single-font-size + lowercase non-brand text`.
+#
+# Canonical brand spellings used here:
+#   Slack, Discord, YouTube, Voyage AI, Meilisearch, PostgreSQL, Redis.
+#
+# When a new screen-scoped command lands in
+# `Tui::ScreenCommands::<Screen>`, add the matching `name` + `hint`
+# keys under `tui.commands.<key>` and have the registry read them via
+# `I18n.t("tui.commands.<key>.name")` / `.hint`.
+en:
+  tui:
+    commands:
+      home:
+        name: "home"
+        hint: "go to home"
+      channels:
+        name: "channels"
+        hint: "go to channels"
+      games:
+        name: "games"
+        hint: "go to games"
+      videos:
+        name: "videos"
+        hint: "go to videos"
+      projects:
+        name: "projects"
+        hint: "go to projects"
+      notifications:
+        name: "notifications"
+        hint: "go to notifications"
+      settings:
+        name: "settings"
+        hint: "go to settings"
+      help:
+        name: "help"
+        hint: "open help dialog"
+      about:
+        name: "about"
+        hint: "open about dialog"
+      logout:
+        name: "logout"
+        hint: "logout"
+      reindex_meilisearch:
+        name: "reindex Meilisearch"
+        hint: "reindex Meilisearch"
+      reindex_voyage:
+        name: "reindex Voyage AI"
+        hint: "reindex Voyage AI"
+      toggle_all:
+        name: "toggle all notifications"
+        hint: "toggle [x] all"
+      toggle_daily:
+        name: "toggle daily digest"
+        hint: "toggle [x] daily digest"
+      clear_discord:
+        name: "clear Discord webhook"
+        hint: "clear Discord webhook URL"
+      clear_slack:
+        name: "clear Slack webhook"
+        hint: "clear Slack webhook URL"
+      sort_sessions_device_asc:
+        name: "sort sessions by device asc"
+        hint: "sort sessions by device asc"
+      sort_sessions_device_desc:
+        name: "sort sessions by device desc"
+        hint: "sort sessions by device desc"
+      sort_sessions_browser_asc:
+        name: "sort sessions by browser asc"
+        hint: "sort sessions by browser asc"
+      sort_sessions_browser_desc:
+        name: "sort sessions by browser desc"
+        hint: "sort sessions by browser desc"
+      sort_sessions_ip_asc:
+        name: "sort sessions by ip asc"
+        hint: "sort sessions by ip asc"
+      sort_sessions_ip_desc:
+        name: "sort sessions by ip desc"
+        hint: "sort sessions by ip desc"
+      sort_sessions_last_seen_asc:
+        name: "sort sessions by last seen asc"
+        hint: "sort sessions by last seen asc"
+      sort_sessions_last_seen_desc:
+        name: "sort sessions by last seen desc"
+        hint: "sort sessions by last seen desc"
+      sort_sessions_created_asc:
+        name: "sort sessions by created asc"
+        hint: "sort sessions by created asc"
+      sort_sessions_created_desc:
+        name: "sort sessions by created desc"
+        hint: "sort sessions by created desc"

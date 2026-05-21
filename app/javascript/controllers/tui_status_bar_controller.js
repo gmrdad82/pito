@@ -225,9 +225,19 @@ export default class extends Controller {
         this.hideProgressBar()
         break
       case "data":
-        // Sidekiq queue-depth push — no state change. Payload carries
-        // the latest counts (busy / enqueued / retry / scheduled).
-        if (payload) this.updateSidekiqStats(payload)
+        // Sidekiq queue-depth push. Payload carries the latest counts
+        // (busy / enqueued / retry / scheduled) AND — per FB-153 —
+        // the shared reindex `sync_state` ("idle" | "syncing") so the
+        // sync indicator dot + word follow reindex job state without
+        // needing a separate `kind: "indeterminate"` broadcast.
+        if (payload) {
+          this.updateSidekiqStats(payload)
+          if (payload.sync_state === "syncing") {
+            this.setSyncState("syncing")
+          } else if (payload.sync_state === "idle") {
+            this.setSyncState("idle")
+          }
+        }
         break
     }
   }

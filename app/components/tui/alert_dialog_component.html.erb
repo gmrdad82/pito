@@ -1,0 +1,7 @@
+<dialog id="<%= id %>" class="tui-alert-dialog tui-dialog-frame" data-controller="tui-dialog-frame tui-alert-dialog">
+  <span class="tui-dialog-frame__title-left"><%= title %></span>
+  <span class="tui-dialog-frame__title-right"><%= t("keys.esc") %> to close</span>
+  <% message_lines.each do |line| %>
+    <p class="tui-alert-dialog__line"><%= line %></p>
+  <% end %>
+</dialog>

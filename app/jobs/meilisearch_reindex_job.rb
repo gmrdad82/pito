@@ -49,6 +49,19 @@ class MeilisearchReindexJob < ApplicationJob
     # idle `[reindex]` action.
     ActionCable.server.broadcast("stack_stats", { reindex_event: { kind: "reindex_started", brand: "meilisearch" } })
 
+    # ADR 0018 — panel-scoped cable broadcast. Tracks the
+    # `pito:settings:stack:meilisearch` channel via the canonical
+    # `Pito::CableBroadcaster` envelope (`kind:`, `payload:`, `ts:`) so
+    # any panel subscriber (future progress bar, future indicator
+    # variants) consumes a uniform shape. The legacy `stack_stats`
+    # ActionCable broadcast above stays for back-compat until the cable
+    # subscriber refactor.
+    Pito::CableBroadcaster.broadcast_panel(
+      "pito:settings:stack:meilisearch",
+      kind: "reindex_event",
+      payload: { state: "running" }
+    )
+
     StackStats::Broadcaster.broadcast!
 
     Game.find_each do |game|
@@ -64,6 +77,11 @@ class MeilisearchReindexJob < ApplicationJob
     AppSetting.clear_reindex_lock!
     broadcast_voyage_section
     StackStats::Broadcaster.broadcast!
+    Pito::CableBroadcaster.broadcast_panel(
+      "pito:settings:stack:meilisearch",
+      kind: "reindex_event",
+      payload: { state: "complete" }
+    )
     StackStatsBroadcastJob.set(wait: 1.second).perform_later
   end
 

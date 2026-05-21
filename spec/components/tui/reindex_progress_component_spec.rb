@@ -2,12 +2,31 @@ require "rails_helper"
 
 RSpec.describe Tui::ReindexProgressComponent, type: :component do
   describe "#initial_frame" do
-    it "renders 9 characters including brackets (matches [reindex] width)" do
+    it "renders 9 characters total (matches `[reindex]` width)" do
       expect(described_class.new(brand: "meilisearch").initial_frame.length).to eq(9)
     end
 
-    it "starts with `=` at the leftmost position" do
+    it "renders `[=------]` (bracket + `=` + 6 dashes + bracket)" do
       expect(described_class.new(brand: "voyage").initial_frame).to eq("[=------]")
+    end
+
+    it "starts and ends with literal brackets" do
+      frame = described_class.new(brand: "meilisearch").initial_frame
+      expect(frame[0]).to eq("[")
+      expect(frame[-1]).to eq("]")
+    end
+
+    it "uses only `[`, `]`, `=`, `-` characters" do
+      frame = described_class.new(brand: "meilisearch").initial_frame
+      expect(frame).to match(/\A\[[=\-]+\]\z/)
+    end
+
+    it "contains exactly one `=` and `INNER_WIDTH - 1` dashes inside the brackets" do
+      frame = described_class.new(brand: "meilisearch").initial_frame
+      inner = frame[1..-2]
+      expect(inner.length).to eq(described_class::INNER_WIDTH)
+      expect(inner.count("=")).to eq(1)
+      expect(inner.count("-")).to eq(described_class::INNER_WIDTH - 1)
     end
   end
 
@@ -31,11 +50,20 @@ RSpec.describe Tui::ReindexProgressComponent, type: :component do
       render_inline(described_class.new(brand: "voyage"))
       expect(page).to have_text("[=------]")
     end
+
+    it "exposes the inner width (7) as the Stimulus width data-value" do
+      render_inline(described_class.new(brand: "voyage"))
+      expect(page).to have_css("[data-tui-reindex-progress-width-value='7']")
+    end
   end
 
-  describe "label width constant" do
-    it "is 7 (matches reindex string length)" do
-      expect(described_class::LABEL_WIDTH).to eq(7)
+  describe "width constants" do
+    it "INNER_WIDTH is 7 (matches `reindex` letter count)" do
+      expect(described_class::INNER_WIDTH).to eq(7)
+    end
+
+    it "TOTAL_WIDTH is 9 (matches `[reindex]` total width)" do
+      expect(described_class::TOTAL_WIDTH).to eq(9)
     end
   end
 end

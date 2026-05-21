@@ -56,12 +56,12 @@
       (it's the per-broadcast affordance). %>
   <% reindex_running = AppSetting.reindex_running? %>
 
-  <div style="margin-bottom: 8px;">
-    <table class="tui-table tui-table--stack">
+  <div style="margin-bottom: 8px;" data-controller="sortable-table" data-sortable-table-id-value="stack-voyage">
+    <table class="tui-table tui-table--stack" data-sortable-table-target="table">
       <thead>
         <tr>
-          <th class="tui-table__th tui-table__th--left"><%= t("settings.voyage.col_metric") %></th>
-          <th class="tui-table__th tui-table__th--right num"><%= t("settings.voyage.col_value") %></th>
+          <%= render(SortableHeaderComponent.new(label: t("settings.voyage.col_metric"), sort_type: "string")) %>
+          <%= render(SortableHeaderComponent.new(label: t("settings.voyage.col_value"), sort_type: "string", numeric: true)) %>
         </tr>
       </thead>
       <tbody>

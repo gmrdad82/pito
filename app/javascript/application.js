@@ -3,6 +3,12 @@ import "@hotwired/turbo-rails"
 import "controllers"
 import "Chart.bundle"
 import "chartkick"
+// ADR 0018 — Action bus. Importing for side-effect: sets `window.Pito`
+// so every consumer (Stimulus controllers, palette, future leader menu,
+// future MCP-web bridge) can call `Pito.dispatchAction(name)` without
+// crafting its own POST flow. See `app/javascript/pito_actions.js` for
+// the contract.
+import "pito_actions"
 
 // 2026-05-20 — section-accent shim. Turbo Drive replaces body CONTENT
 // on navigation but does NOT re-apply body element ATTRIBUTES, so the

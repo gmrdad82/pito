@@ -177,6 +177,21 @@ re-dispatches or self-fixes before presenting to the user — never
    - ALSO update `docs/design.md` to make the rule MORE explicit so
      the violation doesn't happen again
 
+5. **Does the change preserve Turbo + cable discipline?** Verify (locked
+   2026-05-21):
+   - Any new `<form>` does NOT have `data-turbo="false"`.
+   - Any controller action that handles a panel-scoped operation
+     returns `head :no_content` / `render turbo_stream:` /
+     `turbo_frame` — NOT `redirect_to`.
+   - Any new cable broadcast targets a specific panel channel
+     (`pito:<screen>:<panel>` or `pito:<screen>:<panel>:<sub-panel>`),
+     never a global pito stream.
+   - Each panel ViewComponent subscribes to its own stream
+     (`turbo_stream_from "pito:<screen>:<panel>"` or a Stimulus
+     controller wired to the same channel name).
+   - See `docs/architecture.md` → "Turbo-everywhere + cable-per-panel"
+     for the full operational contract.
+
 **Why this rule exists:** the user has seen agents report "done" while
 shipping HTML without ViewComponent, skipping the spec file, leaving
 design rules subtly broken. The checklist catches these before the
@@ -454,6 +469,14 @@ audit-trail commit.
   enrollment is confirmed. The gate is browser-only — API tokens and MCP bearer
   surfaces are exempt by design (a bearer credential cannot complete a TOTP
   enrollment). Allowlist is minimal: TOTP-setup routes plus logout.
+- **Action bus.** Every user-triggerable action (web click, palette command,
+  leader-menu shortcut, MCP tool call, CLI subcommand) flows through
+  `Pito::ActionRegistry` + `Pito.dispatchAction` (JS) / `Pito::ActionDispatcher`
+  (Rails). Never inline-POST from a Stimulus controller or palette handler.
+  Never bypass the confirmation contract on the registry. Never broadcast cable
+  payloads outside the `pito:status_bar` / `pito:<screen>:<panel>` /
+  `pito:<screen>:<panel>:<sub_panel>` grammar. See
+  `docs/decisions/0018-action-bus-and-cable-architecture.md`.
 
 ## Source of truth
 

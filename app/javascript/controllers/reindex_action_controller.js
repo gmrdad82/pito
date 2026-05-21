@@ -56,8 +56,18 @@ export default class extends Controller {
       this.handleEvent(data.reindex_event);
       return;
     }
+    // FB-138 (2026-05-21) — snapshot broadcasts carry no brand, so we
+    // can never use them to flip a sub-panel TO the running state.
+    // Doing so caused brand cross-contamination: a Meilisearch
+    // reindex would also flip the Voyage sub-panel to running because
+    // the snapshot's `reindex.running: true` matched both brands
+    // under the old `brand || true` rule. Only the explicit
+    // `reindex_started` event (which DOES carry a brand) drives the
+    // per-brand flip to running. Snapshots with `running: false`
+    // flip BOTH back to idle (safe — shared lock means at most one
+    // brand was running when the snapshot was emitted).
     if (data.reindex && typeof data.reindex.running !== "undefined") {
-      this.setRunning(Boolean(data.reindex.running) && this.brandMatches(data.reindex.brand));
+      if (data.reindex.running === false) this.setRunning(false);
     }
   }
 
@@ -69,11 +79,11 @@ export default class extends Controller {
     }
   }
 
-  // Snapshot broadcasts carry no brand; treat any nil brand as
-  // "applies to whichever brand was running" (the lock is shared, so a
-  // `running: false` snapshot universally flips both back to idle).
+  // Brand-tagged events MUST match this controller's brand value;
+  // events without a brand are ignored (snapshot path handles the
+  // brand-agnostic `running: false` case separately).
   brandMatches(brand) {
-    if (!brand) return true;
+    if (!brand) return false;
     return brand === this.brandValue;
   }
 

@@ -173,6 +173,17 @@
   --color-disabled:       color-mix(in srgb, var(--color-text) 40%, var(--dracula-bg));
   --color-row-hover:      color-mix(in srgb, white 4%, transparent);
 
+  /* FB-168 (2026-05-21) — unified focus tint tokens. Single source of
+     truth for the row bg + input border so the visual reads as one
+     coherent focus signal across `:row`, `:action`, `:checkbox_label`,
+     and `:input` focusable styles. `--focus-tint-bg` is the 8% tint
+     used on row-shaped focusables; `--focus-tint-border` mixes the
+     same accent against the panel bg so the border on `:input`
+     reads as the SAME visual color as the row tint over the same
+     background. */
+  --focus-tint-bg:     color-mix(in srgb, var(--section-accent) 18%, transparent);
+  --focus-tint-border: color-mix(in srgb, var(--section-accent) 45%, transparent);
+
   /* ============================================================
      Layout knobs (non-color, preserved from prior :root)
      ============================================================ */
@@ -212,6 +223,25 @@
    modal chrome stays consistent regardless of which page opened it
    (see the long-form rationale on the `dialog { ... }` block further
    down the file). */
+
+/* FB-PURPLE-REGRESSION (2026-05-21) — defense-in-depth per-section
+   cascade. The inline `<body style="--section-accent: …">` is the
+   canonical source, but a regression surfaced where the inline style
+   wasn't propagating to descendant `color-mix()` callers (panel
+   border, focus tint, `[reindex]` button) — they were falling back
+   to the `:root` home/purple value. Re-declaring the per-section
+   override on `body[data-section="X"]` selectors gives the cascade a
+   CSS-rule-level pin that doesn't rely on inline style substitution
+   timing. Specificity (0,1,1) beats `:root` (0,0,1) and matches the
+   inline style precedence already in place. */
+body[data-section="home"]          { --section-accent: var(--section-accent-home); --color-section-accent: var(--section-accent-home); }
+body[data-section="channels"]      { --section-accent: var(--section-accent-channels); --color-section-accent: var(--section-accent-channels); }
+body[data-section="videos"]        { --section-accent: var(--section-accent-videos); --color-section-accent: var(--section-accent-videos); }
+body[data-section="games"]         { --section-accent: var(--section-accent-games); --color-section-accent: var(--section-accent-games); }
+body[data-section="projects"]      { --section-accent: var(--section-accent-projects); --color-section-accent: var(--section-accent-projects); }
+body[data-section="settings"]      { --section-accent: var(--section-accent-settings); --color-section-accent: var(--section-accent-settings); }
+body[data-section="notifications"] { --section-accent: var(--section-accent-notifications); --color-section-accent: var(--section-accent-notifications); }
+body[data-section="calendar"]      { --section-accent: var(--section-accent-calendar); --color-section-accent: var(--section-accent-calendar); }
 
 dialog {
   --section-accent: var(--section-accent-home);
@@ -396,8 +426,28 @@ a.filter-chip.chip--active .md-check-static-label { font-weight: 400; }
 /* Danger / destructive */
 .text-danger { color: var(--color-danger); }
 a.text-danger { color: var(--color-danger); }
-a.text-danger.bracketed, a.text-danger.bracketed:visited,
-a.text-danger.bracketed .bl, a.text-danger.bracketed:visited .bl { color: var(--color-danger); }
+/* FB-130 (2026-05-21) — danger overrides section-accent for ALL bracketed
+   actions (anchor + button + .bl inner span). `!important` is required
+   because the generic `a.bracketed` / `button.bracketed` rules above
+   would otherwise tie or win on source-order under the cascade; the
+   design contract is unambiguous (destructive = danger pink, no
+   exceptions), so the override is justified. Selectors cover both
+   class orderings (`.text-danger.bracketed` and `.bracketed.text-danger`)
+   on both `<a>` and `<button>` plus the inner `.bl` span. */
+a.bracketed.text-danger,
+a.bracketed.text-danger:visited,
+a.bracketed.text-danger .bl,
+a.bracketed.text-danger:visited .bl,
+a.text-danger.bracketed,
+a.text-danger.bracketed:visited,
+a.text-danger.bracketed .bl,
+a.text-danger.bracketed:visited .bl,
+button.bracketed.text-danger,
+button.bracketed.text-danger .bl,
+button.text-danger.bracketed,
+button.text-danger.bracketed .bl {
+  color: var(--color-danger) !important;
+}
 /* FB-67 (2026-05-20) — no hover color swap on danger links / bracketed
    danger actions; the `--color-danger` resting color is the only state. */
 
@@ -452,10 +502,11 @@ button.bracketed {
 button.bracketed .bl {
   color: inherit;
 }
-button.bracketed.text-danger,
-button.bracketed.text-danger .bl {
-  color: var(--color-danger);
-}
+/* FB-130 (2026-05-21) — `button.bracketed.text-danger` color override
+   moved to the consolidated `!important` block under "Danger /
+   destructive" above. The danger contract is unambiguous and needs to
+   beat the section-accent rule on `button.bracketed` regardless of
+   source-order. */
 
 /* Muted text — Phase 4 §10 rule 3: muted is a color, not a weight.
    Two weights only (bold + normal). `.text-muted` is the default
@@ -903,11 +954,84 @@ button.bracketed.text-danger .bl {
    section-accent tint — no outline (per user lock; intra-panel
    navigation reads as a soft highlight rather than a stroke).
    `Space` toggles a checkbox in the focused row if one exists;
-   `Enter` triggers `[data-row-action="primary"]` if present. */
+   `Enter` triggers `[data-row-action="primary"]` if present.
+
+   FB-165 (2026-05-21) — added `[data-tui-focusable-focused="yes"]`
+   selector for the new generic focus-list-per-panel architecture.
+   Same visual signal (8% section-accent tint, no outline) — applies
+   to checkbox rows, table rows, individual buttons/inputs/anchors
+   that opt in via `data-tui-focusable="<key>"`. The two selectors
+   coexist: legacy `[data-tui-cursor-row-focused]` callers keep
+   working, new callers use `[data-tui-focusable-focused]`.
+
+   FB-166 (2026-05-21) — per-element focus visual driven by
+   `data-tui-focusable-style="<style>"` declared in Ruby. The base
+   selector below provides the default row tint; per-style overrides
+   below pick a custom visual:
+
+     * `:row`            — full-width 8% tint (default).
+     * `:action`         — compact tint around bracketed actions only,
+                           with 2px horizontal breathing room.
+     * `:checkbox_label` — tint around the inline-flex label container
+                           (paints across `[ ] label` together).
+     * `:input`          — NO bg; section-accent border on the input
+                           itself (the input is the focusable).
+   */
 .tui-table__row[data-tui-cursor-row-focused="yes"],
 tr[data-tui-cursor-row-focused="yes"],
-[data-tui-cursor-row-focused="yes"] {
-  background: color-mix(in srgb, var(--section-accent) 8%, transparent);
+[data-tui-cursor-row-focused="yes"],
+[data-tui-focusable-focused="yes"] {
+  background: var(--focus-tint-bg);
+}
+
+/* FB-167 (2026-05-21) — unified focus tint across `:row`, `:action`,
+   `:checkbox_label`, and the unstyled default. Style affects SHAPE /
+   EXTENT (full row vs hugged label vs compact-action) not COLOR
+   intensity. One single 8% section-accent tint everywhere a tint
+   applies — the eye reads one consistent focus signal. No padding on
+   `:action` (previous 0 2px caused text jiggle on cursor moves).
+   `:input` stays border-only because text inputs already carry a
+   border in the field grammar (TUI/vim convention).
+
+   FB-168 (2026-05-21) — both bg + input border now resolve through
+   the shared `--focus-tint-*` tokens (declared in :root), so the
+   visual reads as ONE coherent focus signal: the 8% bg-tinted rows
+   and the 25%-against-bg border on inputs are mathematically the
+   same accent over the same surface. */
+[data-tui-focusable-focused="yes"][data-tui-focusable-style="row"],
+[data-tui-focusable-focused="yes"][data-tui-focusable-style="action"],
+[data-tui-focusable-focused="yes"][data-tui-focusable-style="checkbox_label"] {
+  background: var(--focus-tint-bg);
+}
+
+/* FB-PURPLE-REGRESSION (2026-05-21) — `<td>` / `<th>` children of a
+   focused `<tr>` inherit the row bg explicitly. Without this rule the
+   `<tr>`'s `background` paints only on rows where the cells have
+   `background: transparent` (the default), but ANY cell-level bg
+   declaration (zebra rules, hover, sub-panel chrome) breaks the
+   uniform tint — producing the "row skip" pattern the user saw where
+   some rows showed the tint and others didn't. Setting cell bg to
+   `inherit` when the parent row is focused ensures every cell paints
+   with the row's tint regardless of cascade noise. */
+tr[data-tui-focusable-focused="yes"] > td,
+tr[data-tui-focusable-focused="yes"] > th {
+  background: inherit;
+}
+
+/* FB-166 — `:input` is border-only on the input element. The default
+   row tint above would paint a bg across the input which conflicts
+   with the field grammar; override to transparent and ride a
+   section-accent border instead. The `!important` overrides the
+   global form-input border rule (--color-border hairline).
+
+   FB-168 — border color now mixes the accent against the panel bg
+   (25%) so the resulting solid color reads as the SAME visual hue
+   as the row's 8% transparent tint over the same bg. Adjust the
+   25% knob in :root if the border ends up too faint or too bright. */
+[data-tui-focusable-focused="yes"][data-tui-focusable-style="input"] {
+  background: transparent;
+  border-color: var(--focus-tint-border) !important;
+  outline: none;
 }
 
 /* FB-101 (2026-05-20) — sub-panel focus marker.
@@ -1000,6 +1124,17 @@ tr[data-tui-cursor-row-focused="yes"],
      8px margin-top to avoid double-counting. */
   align-items: stretch;
   min-height: calc(100% - 8px);
+  /* FB-137 (2026-05-21) — `flex: 1 1 0` (basis 0, was `1 1 auto`).
+     Auto-basis starts at content height and grows from there; on
+     `/settings` the prior content height of the two columns was already
+     less than the available height so growth never engaged. Zero-basis
+     starts at 0 and grows to fill remaining space — the canonical
+     pattern for a flex item that must consume all leftover space in
+     its parent. Combined with the `main > div:has(> .settings-panes--v3)`
+     bridge rule above (which makes the modal-controller wrapper a flex
+     column too), the grid now grows to fill `<main>`'s
+     `min-height: calc(100vh - 44px)` regardless of intrinsic content. */
+  flex: 1 1 0;
   /* 2026-05-20 (V3-density) — breathing space below the TST so panels
      don't visually fuse with the top status bar header. */
   margin-top: 8px;
@@ -1011,6 +1146,14 @@ tr[data-tui-cursor-row-focused="yes"],
   flex-direction: column;
   gap: 6px;
   min-width: 0; /* prevent grid blowout from wide inner content */
+  /* FB-88 restore (2026-05-21) — explicit `height: 100%` ensures the flex
+     column fills its grid row even when `align-items: stretch` alone
+     fails to propagate height to the flex container (some browsers
+     under-resolve stretch when the child is itself a flex container).
+     `min-height: 0` lets nested flex items shrink below their intrinsic
+     content height if a future inner scroll container engages. */
+  height: 100%;
+  min-height: 0;
 }
 
 /* FB-88 (2026-05-20) — Last panel per column grows to absorb leftover
@@ -1044,9 +1187,47 @@ tr[data-tui-cursor-row-focused="yes"],
    chrome. Deferred until a panel actually overflows in practice. */
 .settings-panes--v3 .settings-panes__left > :last-child,
 .settings-panes--v3 .settings-panes__right > :last-child {
-  flex: 1 1 auto;
+  /* FB-137 (2026-05-21) — `flex: 1 1 0` (basis 0, was `1 1 auto`).
+     Same rationale as `.settings-panes--v3` itself: zero-basis grows
+     from 0 into available space, while auto-basis starts at content
+     height and effectively no-ops when content already fits. */
+  flex: 1 1 0;
   min-height: 0;
   overflow: visible;
+  /* FB-145 (2026-05-21) — short-viewport inner scroll. The panel root
+     stays `overflow: visible` so V4 chrome (title overhang at top:-7px,
+     sub-panel actions) paints cleanly above the border. But on short
+     viewports content can extend BELOW the panel content box and run
+     UNDER the fixed Bottom Status Bar. Solution: make the panel itself
+     a flex column so its inner `.tui-panel-fieldset` becomes the sole
+     scrollable surface (overflow rules live on the fieldset below). */
+  display: flex;
+  flex-direction: column;
+}
+
+/* FB-145 (2026-05-21) — inner-scroll surface for the growing last-child
+   panel in each column (security pane on the left, stack pane on the
+   right). The fieldset wraps the actual content (sessions table or
+   `.stack-pane-grid` of sub-panels) and is the natural scroll container:
+   it sits INSIDE the panel border (so V4 chrome overhangs are not
+   clipped) but constrains its own height so content never extends past
+   the panel's content box.
+   `flex: 1 1 0` + `min-height: 0` lets the fieldset shrink below its
+   intrinsic content height; `overflow-y: auto` engages a vertical scroll
+   only when content overflows. Scrollbars are hidden (`scrollbar-width:
+   none` + `::-webkit-scrollbar { display: none }`) per FB-145 — scroll is
+   cursor-driven (j/k) per the TUI navigation contract; mouse wheel still
+   works, just without a visible thumb. */
+.settings-panes--v3 .settings-panes__left > :last-child > .tui-panel-fieldset,
+.settings-panes--v3 .settings-panes__right > :last-child > .tui-panel-fieldset {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.settings-panes--v3 .settings-panes__left > :last-child > .tui-panel-fieldset::-webkit-scrollbar,
+.settings-panes--v3 .settings-panes__right > :last-child > .tui-panel-fieldset::-webkit-scrollbar {
+  display: none;
 }
 
 /* FB-?? (2026-05-20) — panels containing V4 sub-panels need extra
@@ -1433,32 +1614,24 @@ th.sortable::after {
 /* FB-67 (2026-05-20) — no hover effect on sortable headers (supersedes
    FB-4 which already neutralized the slab; this drops the redundant
    transparent override as part of the universal no-hover sweep). */
-/* Active URL-driven sort headers (server stamps `sort-asc` / `sort-desc`
-   on the inner `<a>` via `sort_link_to`). Override the empty inactive
-   pseudo-element with a single directional arrow at the same position.
-   2026-05-20 (FB-14) — explicit `color` + `font-weight` reasserted here
-   so any per-table override that sets position but not color (e.g. the
-   `.sessions-table` rule below) still resolves to the section accent at
-   weight 400. Color + weight tokens stay aligned with the inactive
-   pseudo-element above so the only visual change between states is the
-   single glyph swap. */
-th.sortable:has(> a.sort-asc)::after {
-  content: "\25B2";
-  font-size: 13px;
-  line-height: 1;
-  color: var(--section-accent);
-  font-weight: 400;
-}
-th.sortable:has(> a.sort-desc)::after {
-  content: "\25BC";
-  font-size: 13px;
-  line-height: 1;
-  color: var(--section-accent);
-  font-weight: 400;
+/* FB-132 (2026-05-21) — V4 underline IS the arrow (solid=asc, dashed=desc).
+   The arrow-glyph approach (FB-14 / FB-110) is superseded: instead of
+   painting `\25B2` / `\25BC` in the `::after` pseudo-element, the active
+   sort header carries a `border-bottom` whose style encodes direction
+   (solid = ascending, dashed = descending) and whose color is the
+   section accent. The `::after` slot stays geometrically defined above
+   for layout-shift safety but its `content` is forced empty on the
+   active states so no glyph paints. Tracks Ratatui's underline styles
+   for TUI parity (V4 in `tmp/demo-sortable-arrows.html`). */
+th.sortable:has(> a.sort-asc)::after,
+th.sortable:has(> a.sort-desc)::after,
+th.sort-asc::after,
+th.sort-desc::after {
+  content: "";
 }
 /* FB-110 (2026-05-20) — active sort header LABEL also reads in the
-   section accent so the column identity is signalled by BOTH the arrow
-   glyph and the header text. Inactive sortable headers stay at the
+   section accent so the column identity is signalled by the underline
+   AND the header text color. Inactive sortable headers stay at the
    default header color (muted via the `.tui-table__th` token). The
    inner `<a>` already inherits via `th.sortable > a { color: inherit }`
    above, so setting the color on the `<th>` propagates to the label.
@@ -1472,22 +1645,42 @@ th.sort-asc,
 th.sort-desc {
   color: var(--section-accent);
 }
-/* JS-driven client-side sortable tables (channel + video panes) flip
-   `sort-asc` / `sort-desc` on the `<th>` itself. Replace the empty
-   pseudo-element with a single directional glyph at the section accent. */
-th.sort-asc::after {
-  content: "\25B2";
-  font-size: 13px;
-  line-height: 1;
-  color: var(--section-accent);
-  font-weight: 400;
+/* FB-132 (2026-05-21) — V4 underline IS the arrow. Solid border-bottom
+   on ascending, dashed border-bottom on descending — painted in section
+   accent. */
+/* FB-142 (2026-05-21) — V4 underline visibility re-fix. Previous attempts
+   painted the border-bottom on the inner `<a>` element with a
+   `margin-bottom` push-up; verified rendered DOM is
+     `<th class="...sortable..."><a class="sort-asc">label</a></th>`
+   (NO `<span class="sortable-label">` wrapper — that shape is for the
+   separate `SortableHeaderComponent` family). The selector
+   `th.sortable > a.sort-asc` was correct and matched, BUT the visual
+   underline was eaten by the `<th>`'s own 1px hairline border-bottom
+   sitting at nearly the same Y — even with margin-bottom: 3px the link
+   border sat too close to the cell border to read as a deliberate
+   indicator (and on tables that compose `.tui-table__th` styling the
+   anchor's display/padding chain made the anchor border slip under the
+   cell border entirely).
+   The fix: paint the underline DIRECTLY ON THE `<th>` itself, replacing
+   the existing 1px color-border hairline with a 2px section-accent
+   border-bottom (solid=asc, dashed=desc) ONLY on the active column.
+   This single-border swap guarantees visibility — no double-border, no
+   margin-bottom contortions, no anchor box-model collisions, no
+   cell-vs-anchor border Y-collision. Inactive columns keep the muted
+   1px hairline from `.tui-table__th` / `th.sortable` base. The full
+   selector spans both rendering shapes (URL-driven `:has(> a.sort-asc)`
+   for `sort_link_to` output AND JS-driven `th.sort-asc` for tables that
+   set the class on the `<th>` directly via `sortable_table_controller`)
+   so the rule covers every active-sort surface in the app. */
+th.sortable:has(> a.sort-asc),
+th.sortable.sort-asc,
+th.sort-asc {
+  border-bottom: 1px solid var(--section-accent);
 }
-th.sort-desc::after {
-  content: "\25BC";
-  font-size: 13px;
-  line-height: 1;
-  color: var(--section-accent);
-  font-weight: 400;
+th.sortable:has(> a.sort-desc),
+th.sortable.sort-desc,
+th.sort-desc {
+  border-bottom: 1px dashed var(--section-accent);
 }
 
 /* Action column — tight, no extra padding */
@@ -2763,10 +2956,11 @@ dialog.confirm-modal::backdrop {
   font-size: 13px;
   line-height: 1;
   /* FB-129 (2026-05-21). Narrower markdown column inside dialogs — prose
-     reads more comfortably at ~600px than the dialog's natural full width.
+     reads more comfortably at ~440px than the dialog's natural full width.
      The dialog frame still governs outer padding; this cap applies only to
-     the rendered markdown surface. */
-  max-width: 600px;
+     the rendered markdown surface. Second pass 2026-05-21: 600px → 440px
+     (27% narrower) per user feedback the column still felt wide. */
+  max-width: 440px;
 }
 .webhook-help-content h1 {
   font-size: 13px;
@@ -5326,7 +5520,7 @@ table.all-games-table td {
    the rule scopes to `body > header` so it only neutralizes the
    chrome wrapper, not any nested `<header>` inside `<main>`. */
 body > header {
-  border-bottom: 0 !important;
+  border-bottom: 1px solid var(--color-border) !important;
 }
 
 .sb-left,
@@ -5540,8 +5734,58 @@ body > header {
    Tag selector `main` is unique enough — only one `<main>` per page. */
 main {
   min-height: calc(100vh - 44px);
-  padding: 6px 6px 22px 6px !important;
+  padding: 6px 6px 12px 6px !important;
+  /* FB-88 restore (2026-05-21) — `<main>` becomes a flex column so the
+     V3 settings grid (and any future content host) can `flex: 1 1 auto`
+     into the viewport-derived min-height. Without this, `min-height` on
+     `<main>` alone is inert for child sizing: `.settings-panes--v3`'s
+     `min-height: 100%` resolved against `<main>`'s CONTENT box (which
+     collapsed to children's intrinsic height), so the grid never gained
+     leftover vertical space and the `:last-child` flex-grow rule had
+     nothing to absorb. Result before fix: white space between the
+     security/stack panels and the BST. */
+  display: flex;
+  flex-direction: column;
 }
+
+/* FB-137 (2026-05-21) — bridge the flex chain through the
+   `<div data-controller="settings-modal">` wrapper that sits BETWEEN
+   `<main>` (flex column) and `.settings-panes--v3` (grid). Before this
+   rule the wrapper was a default block element with `height: content`,
+   which broke the flex propagation: `<main>` grew to viewport height
+   but its direct child (the wrapper div) stayed at content height,
+   so `.settings-panes--v3`'s `flex: 1 1 auto` had no growable
+   parent to absorb leftover space into. The previous FB-88/FB-123
+   chain only worked on screens whose grid was a DIRECT child of
+   `<main>` — `/settings` has the modal-controller wrapper inbetween
+   (mounted in `app/views/settings/index.html.erb` to anchor the
+   Stimulus controller around BOTH the panes AND the dialog), so the
+   chain broke specifically for `/settings`.
+   `:has(> .settings-panes--v3)` scopes the rule narrowly to the
+   wrapper that actually hosts the V3 grid, so other `<main>` direct
+   children (breadcrumb nav, single-pane screens) keep their natural
+   block layout.
+   `flex: 1 1 0` (basis 0, not auto) makes the wrapper start from
+   zero height and grow into available space, instead of starting
+   from content height; combined with the inner grid's `min-height: 0`
+   this is the standard fix for the "intermediate wrapper breaks flex
+   chain" pattern. */
+main > div:has(> .settings-panes--v3),
+main > .settings-modal-wrapper {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* FB-144 (2026-05-21) — explicit class-based fallback for the
+   modal-controller wrapper that hosts /settings panes. The `:has()`
+   selector above SHOULD also match, but adding a stable class on the
+   wrapper (`<div class="settings-modal-wrapper" data-controller="settings-modal">`
+   in app/views/settings/index.html.erb) provides a direct, deterministic
+   selector that doesn't depend on browser `:has()` engine behavior.
+   The settings-modal-wrapper class is unique to /settings (other screens
+   don't carry it) so this rule scopes cleanly. */
 
 /* FB-88 (2026-05-20) — BST fixed at viewport bottom. Was `position: sticky`
    which kept the bar at the bottom of the document but allowed it to scroll
@@ -6065,6 +6309,55 @@ dialog.webhook-help-modal::backdrop {
   background: color-mix(in srgb, var(--dracula-bg) 70%, transparent);
 }
 
+/* FB-141 (2026-05-21). Cap the outer dialog frame width to match the
+   narrower markdown column. 440px content + 20px outer padding + ~28px
+   inner-wrapper padding ≈ 480px outer.
+
+   `!important` is required here because the host
+   `shared/_webhook_help_modal.html.erb` carries an inline
+   `style="max-width: 900px; width: min(900px, 92vw);"` that pre-dates
+   FB-129 and wins over plain class selectors by specificity. Until that
+   inline style is removed at the ERB layer, the CSS layer forces the
+   cap with `!important`. This was the actual root cause of the
+   horizontal scroll + huge right padding reported in FB-141 image #173:
+   the dialog was rendering at ~830px (`min(900px, 92vw)`), the markdown
+   column was capped at 440px, and the ~390px gap on the right read as
+   "huge padding" while the troubleshooting table's `display: block;
+   overflow-x: auto` (FB-129 first pass) produced the bottom horizontal
+   scrollbar. */
+dialog#webhook-help-modal,
+dialog.webhook-help-modal {
+  max-width: 480px !important;
+  width: 480px !important;
+}
+
+/* FB-141 (2026-05-21). Disallow horizontal scroll on the markdown
+   surface. The dialog's inner wrapper already carries an inline
+   `overflow-x: hidden`; this guard ensures any future markup change
+   (e.g. a long inline code span or a table that escapes the cell)
+   cannot reintroduce a scrollbar. The `.webhook-help-content table`
+   override below trades the previous `display: block; overflow-x: auto`
+   belt-and-suspenders pattern for `table-layout: fixed` + cell
+   word-break so the troubleshooting matrix wraps inside the column
+   width instead of triggering horizontal overflow. */
+.webhook-help-content {
+  overflow-x: hidden;
+}
+.webhook-help-content table {
+  display: table;
+  table-layout: fixed;
+  overflow-x: visible;
+}
+.webhook-help-content th,
+.webhook-help-content td {
+  word-break: break-word;
+}
+.webhook-help-content pre,
+.webhook-help-content code {
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
 /* FB-81 page-load splash overlay REMOVED. The splash existed only to mask
    the FOUT moment during the font swap. System-mono-only renders with no
    font swap to mask — splash element, Stimulus controller, and these CSS
@@ -6202,16 +6495,164 @@ dialog.tui-confirmation-dialog::backdrop {
   background: color-mix(in srgb, var(--dracula-bg) 70%, transparent);
 }
 
+/* ===== Tui::AlertDialogComponent =====
+   FB-172 (2026-05-21). Message-only alert dialog (no submit action).
+   Spawned by the `keyboard-only` Stimulus controller when forbidden
+   mouse activity is detected — title `invalid input`, body lines
+   `mouse interaction forbidden` + `type ? for help or : for command`.
+   Built on the same `.tui-dialog-frame` chrome as the confirmation
+   dialog so the corner-flush title + `[Esc] to close` hint stay
+   uniform across every dialog in the app. */
+.tui-alert-dialog {
+  max-width: 480px;
+  padding: 16px 14px 12px !important;
+}
+.tui-alert-dialog__line {
+  margin: 0 0 6px;
+  line-height: 1;
+}
+.tui-alert-dialog__line:last-child {
+  margin-bottom: 0;
+}
+dialog.tui-alert-dialog::backdrop {
+  background: color-mix(in srgb, var(--dracula-bg) 70%, transparent);
+}
+
+/* ===== Keyboard-only mode (FB-172) =====
+   When the `keyboard-only` Stimulus controller is mounted on `<body>`
+   it adds the `.keyboard-only` class; the rule below hides the native
+   OS cursor everywhere so the only interaction surface is the
+   keyboard. `!important` so per-element `cursor:` rules elsewhere in
+   this file (every interactive element sets `cursor: pointer`) cannot
+   override the disable. */
+body.keyboard-only,
+body.keyboard-only * {
+  cursor: none !important;
+}
+
 /* ===== Tui::ReindexProgressComponent =====
-   FB-125 (2026-05-21). Animated `[=-------]` style progress indicator that
-   replaces `[reindex]` during a running reindex job. Width contract: 9 chars
-   including brackets, matching `[reindex]`. The `=` moves left-to-right
-   across 7 dashes; Stimulus controller drives the animation client-side. */
+   FB-125 / FB-171 (2026-05-21). Animated `=--------` style progress
+   indicator that replaces `[reindex]` during a running reindex job.
+   Width contract: 9 chars (matches `[reindex]` total width). The `=`
+   moves left-to-right across 8 dashes; Stimulus controller drives the
+   animation client-side. ONLY `=` and `-` characters — NO brackets
+   (user pick, FB-171). Width is locked to 9ch on the root so the slot
+   reserves exactly the horizontal real estate the idle `[reindex]`
+   link does, preventing jiggle on the swap. `font-variant-numeric:
+   tabular-nums` + `letter-spacing: 0` forbid font-driven width drift
+   between `=` and `-` glyphs. */
 .tui-reindex-progress {
+  display: inline-block;
+  width: 9ch;
   color: var(--section-accent, var(--color-link));
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   letter-spacing: 0;
   line-height: 1;
+  text-align: left;
   white-space: pre;
+}
+
+/* ────────────────────────────────────────────────────────────────────
+   FB-170 (2026-05-21). V6 `:command` palette
+   (`Tui::CommandPaletteComponent`). Vim-line input pinned to the
+   viewport bottom (sits 22px above the BST), with an inline suggestion
+   list flush above it. Hidden by default; opened by the `:` key in
+   NORMAL mode. The Stimulus controller `tui-command-palette` toggles
+   the [hidden] attribute and paints suggestion rows from a JSON
+   catalog encoded into a data-* attribute by the Ruby component.
+   ──────────────────────────────────────────────────────────────────── */
+.tui-command-palette {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 22px; /* sits ABOVE the BST (22px tall, fixed bottom) */
+  z-index: 200; /* above panel chrome, below dialog top-layer */
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1;
+}
+
+.tui-command-palette[hidden] {
+  display: none !important;
+}
+
+.tui-command-palette__list {
+  border-top: 1px solid var(--color-border);
+  background: var(--color-bg);
+  max-height: 40vh;
+  overflow-y: auto;
+}
+
+.tui-command-palette__item {
+  display: flex;
+  align-items: center;
+  gap: 1ch;
+  padding: 2px 12px;
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tui-command-palette__item--active {
+  background: color-mix(in srgb, var(--section-accent) 14%, transparent);
+}
+
+.tui-command-palette__marker {
+  color: var(--section-accent);
+  width: 2ch;
+  display: inline-block;
+  text-align: center;
+}
+
+.tui-command-palette__verb {
+  color: var(--section-accent);
+  min-width: 28ch;
+}
+
+.tui-command-palette__hint {
+  color: var(--color-muted);
+}
+
+.tui-command-palette__empty {
+  padding: 4px 12px;
+  color: var(--color-muted);
+}
+
+.tui-command-palette__foot {
+  display: flex;
+  gap: 2ch;
+  padding: 2px 12px;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg);
+  color: var(--color-muted);
+}
+
+.tui-command-palette__line {
+  display: flex;
+  align-items: center;
+  gap: 0.5ch;
+  height: 22px;
+  padding: 0 12px;
+  background: var(--color-bg);
+  border-top: 1px solid var(--color-border);
+}
+
+.tui-command-palette__prompt {
+  color: var(--section-accent);
+}
+
+.tui-command-palette__input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1;
+  padding: 0;
 }

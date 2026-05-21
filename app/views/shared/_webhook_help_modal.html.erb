@@ -73,7 +73,7 @@
         data-action="click->webhook-help-modal#clickOutside keydown->webhook-help-modal#keydown"
         data-modal-actions-key="webhook_help">
   <span class="tui-dialog-frame__title-left" data-webhook-help-title><%= t("settings.webhooks.help.title") %></span>
-  <span class="tui-dialog-frame__title-right">[<%= t("keys.esc") %>] <%= t("settings.webhooks.help.esc_close_suffix") %></span>
+  <span class="tui-dialog-frame__title-right"><%= t("keys.esc") %> <%= t("settings.webhooks.help.esc_close_suffix") %></span>
   <div class="webhook-help-modal__inner" style="padding: 0 14px 4px; max-height: 80vh; overflow-y: auto; overflow-x: hidden; overflow-wrap: anywhere; word-wrap: break-word;">
     <%= turbo_frame_tag "webhook_help_modal_frame", src: nil, loading: "lazy" %>
   </div>
