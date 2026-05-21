@@ -7,8 +7,8 @@
 #
 # `as_summary_json` is the per-row shape used by the index and the
 # state-change responses. `as_detail_json` wraps the existing
-# `NotificationFormatter::InApp.payload_for` so the CLI / MCP detail
-# render gets the same body the in-app modal renders.
+# `Pito::Notifications::Formatter::InApp.payload_for` so the CLI / MCP
+# detail render gets the same body the in-app modal renders.
 class NotificationDecorator < ApplicationDecorator
   def as_summary_json
     {
@@ -33,7 +33,7 @@ class NotificationDecorator < ApplicationDecorator
   def as_detail_json
     {
       notification: as_summary_json,
-      payload: NotificationFormatter::InApp.payload_for(object)
+      payload: Pito::Notifications::Formatter::InApp.payload_for(object)
     }
   end
 end

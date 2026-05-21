@@ -33,7 +33,7 @@ RSpec.describe "Notifications", type: :request do
 
     it "renders all rows by default" do
       get "/notifications"
-      # Each row's title is rendered via NotificationFormatter::InApp,
+      # Each row's title is rendered via Pito::Notifications::Formatter::InApp,
       # which calls the per-kind template's `#title` (NOT the
       # `notifications.title` column). Assert on the dom_ids — every
       # row partial wraps in `id="notification_<id>"`.
@@ -120,7 +120,7 @@ RSpec.describe "Notifications", type: :request do
     # BOTTOM of the page and rendered as a two-column grid (one
     # `<emoji> <kind label>` pair per line). One legend line per
     # registered event-type emoji, sourced from
-    # `NotificationFormatter::EVENT_TYPE_EMOJI`. The legend stays in
+    # `Pito::Notifications::Formatter::EVENT_TYPE_EMOJI`. The legend stays in
     # sync with the formatter constant — no separate copy to maintain.
     describe "glyph legend" do
       it "renders the legend wrapper with the documented class" do
@@ -130,14 +130,14 @@ RSpec.describe "Notifications", type: :request do
 
       it "renders every emoji from EVENT_TYPE_EMOJI in the legend" do
         get "/notifications"
-        NotificationFormatter::EVENT_TYPE_EMOJI.each_value do |emoji|
+        Pito::Notifications::Formatter::EVENT_TYPE_EMOJI.each_value do |emoji|
           expect(response.body).to include(emoji)
         end
       end
 
       it "renders a humanized kind label for each emoji" do
         get "/notifications"
-        NotificationFormatter::EVENT_TYPE_EMOJI.each_key do |kind|
+        Pito::Notifications::Formatter::EVENT_TYPE_EMOJI.each_key do |kind|
           expect(response.body).to include(kind.tr("_", " "))
         end
       end
@@ -188,7 +188,7 @@ RSpec.describe "Notifications", type: :request do
         item_count = response.body.scan(
           /class="notification-glyph-legend-item"/
         ).length
-        expect(item_count).to eq(NotificationFormatter::EVENT_TYPE_EMOJI.length)
+        expect(item_count).to eq(Pito::Notifications::Formatter::EVENT_TYPE_EMOJI.length)
       end
     end
 
@@ -382,7 +382,7 @@ RSpec.describe "Notifications", type: :request do
     end
 
     it "renders the formatter-derived title" do
-      payload = NotificationFormatter::InApp.payload_for(unread_a)
+      payload = Pito::Notifications::Formatter::InApp.payload_for(unread_a)
       get "/notifications/#{unread_a.id}"
       expect(response.body).to include(payload[:title])
     end

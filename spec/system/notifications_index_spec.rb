@@ -177,7 +177,7 @@ RSpec.describe "Notifications index", type: :system do
       visit "/notifications"
       expect(page).to have_selector(
         ".notification-glyph-legend-item",
-        count: NotificationFormatter::EVENT_TYPE_EMOJI.length
+        count: Pito::Notifications::Formatter::EVENT_TYPE_EMOJI.length
       )
     end
 

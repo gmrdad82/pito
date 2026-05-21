@@ -1,0 +1,238 @@
+# Phase 16 §2 — Notification formatter.
+#
+# Translates a `Notification` row into a per-channel payload. Four
+# concrete formatters live under this namespace:
+#
+# - `Pito::Notifications::Formatter::Discord` — JSON for the Discord
+#   webhook endpoint. Rich embed with severity-mapped color +
+#   emoji-prefixed content + footer / timestamp.
+# - `Pito::Notifications::Formatter::Slack` — JSON for the Slack
+#   incoming-webhook endpoint. Block Kit (header + section + context).
+# - `Pito::Notifications::Formatter::InApp` — structured hash for §3's
+#   ERB views.
+#
+# Phase 29 (MCP cut, 2026-05-19) — the `Mcp` variant was dropped
+# alongside the MCP surface. The `:mcp` channel symbol is no longer
+# accepted by `link` or `escape_for`.
+#
+# Each formatter delegates per-event-type strings (title / body / url)
+# to a `Templates::<Kind>` PORO. Templates read ONLY from
+# `notification.event_payload` — the formatter is pure (input:
+# Notification row; output: payload), idempotent, and round-trip-safe
+# across source-row edits.
+#
+# Spec contract:
+# `docs/plans/beta/16-notifications/specs/02-notification-formatter.md`.
+module Pito
+  module Notifications
+    module Formatter
+      module_function
+
+      # Severity → Discord embed color (decimal int) per Q4. The "no red"
+      # design rule applies to in-app surfaces; Discord embed colors are
+      # NOT pito's design surface and red is the universal "urgent" signal
+      # there. The table below is verbatim from the spec.
+      SEVERITY_COLORS = {
+        "info"    => 5_793_266,    # 0x5865F2 muted blue
+        "success" => 5_763_719,    # 0x57F287 green
+        "warn"    => 16_705_372,   # 0xFEE75C amber
+        "urgent"  => 15_548_997    # 0xED4245 red
+      }.freeze
+
+      # Severity → in-app severity_class. Note 2 lock: `urgent` maps to
+      # `--color-warn` (amber), NOT red — `--color-error` (red) is reserved
+      # for genuinely destructive actions per CLAUDE.md.
+      IN_APP_SEVERITY_CLASSES = {
+        "info"    => "notification-info",
+        "success" => "notification-success",
+        "warn"    => "notification-warn",
+        "urgent"  => "notification-urgent"
+      }.freeze
+
+      # Event-type → Unicode emoji per Q6. Works in both Discord + Slack
+      # without further encoding.
+      EVENT_TYPE_EMOJI = {
+        "video_published"                => "📺",
+        "game_release_today"             => "🎮",
+        "milestone_reached"              => "🏆",
+        "calendar_entry_firing"          => "📅",
+        "sync_error"                     => "🚨",
+        "youtube_reauth_needed"          => "🔐"
+      }.freeze
+
+      # Stable fallback when the event type is not in the map (e.g., a
+      # future kind that lands before the formatter's emoji entry does).
+      DEFAULT_EMOJI = "•"
+
+      # Truncation marker. Single Unicode ellipsis char (NOT three dots)
+      # per master decision 2026-05-10 #8.
+      ELLIPSIS = "…"
+
+      # Discord per-field caps per Q8.
+      DISCORD_CONTENT_LIMIT     = 2000
+      DISCORD_TITLE_LIMIT       = 256
+      DISCORD_DESCRIPTION_LIMIT = 4096
+
+      # Slack per-field caps per Q8.
+      SLACK_HEADER_LIMIT        = 150
+      SLACK_SECTION_LIMIT       = 3000
+
+      # ── helpers ───────────────────────────────────────────────────────
+
+      def severity_color(severity)
+        SEVERITY_COLORS.fetch(severity.to_s) do
+          raise ArgumentError, "unknown severity: #{severity.inspect}"
+        end
+      end
+
+      def emoji_for(event_type)
+        EVENT_TYPE_EMOJI.fetch(event_type.to_s, DEFAULT_EMOJI)
+      end
+
+      # Per-channel link syntax per Q7. The formatter exposes one helper
+      # so per-kind templates produce channel-correct markup without
+      # caring which channel they end up on.
+      def link(text, url, channel:)
+        case channel.to_sym
+        when :discord, :in_app
+          "[#{text}](#{url})"
+        when :slack
+          "<#{url}|#{text}>"
+        else
+          raise ArgumentError, "unknown channel: #{channel.inspect}"
+        end
+      end
+
+      # Per-channel escape rules per Q11.
+      #
+      # - Discord: backslash-escape the markdown control characters.
+      # - Slack: HTML-encode `&`, `<`, `>` per Slack mrkdwn.
+      # - In-app: no escape at this layer; ERB auto-escapes downstream.
+      DISCORD_ESCAPE_PATTERN = /([*_~`|<>\[\]()\\])/
+      SLACK_ESCAPE_REPLACEMENTS = { "&" => "&amp;", "<" => "&lt;", ">" => "&gt;" }.freeze
+      SLACK_ESCAPE_PATTERN = /[&<>]/
+
+      def escape_for(text, channel:)
+        return "" if text.nil?
+
+        case channel.to_sym
+        when :discord
+          text.to_s.gsub(DISCORD_ESCAPE_PATTERN) { |c| "\\#{c}" }
+        when :slack
+          text.to_s.gsub(SLACK_ESCAPE_PATTERN, SLACK_ESCAPE_REPLACEMENTS)
+        when :in_app
+          text.to_s
+        else
+          raise ArgumentError, "unknown channel: #{channel.inspect}"
+        end
+      end
+
+      # Truncate `text` so it fits within `limit` characters. Appends the
+      # Unicode ellipsis when truncated. Never leaves a half-open `[`
+      # mid-link — if a `[` is opened past the resulting cut without a
+      # matching `)`, the helper rolls back to the previous balanced
+      # boundary.
+      def truncate_for(text, limit:)
+        return "" if text.nil?
+
+        str = text.to_s
+        return str if str.length <= limit
+        return ELLIPSIS if limit <= ELLIPSIS.length
+
+        cut = str[0, limit - ELLIPSIS.length]
+        cut = roll_back_unbalanced_link(cut)
+        "#{cut}#{ELLIPSIS}"
+      end
+
+      # ISO-8601 UTC for machine-readable contexts; `time_ago_in_words`
+      # for the in-app relative render.
+      def format_timestamp(time, format)
+        return nil if time.nil?
+
+        case format.to_sym
+        when :iso
+          time.utc.iso8601
+        when :relative
+          ApplicationController.helpers.time_ago_in_words(time) + " ago"
+        else
+          raise ArgumentError, "unknown timestamp format: #{format.inspect}"
+        end
+      end
+
+      # Resolve a Notification's `url` attribute to an absolute URL.
+      # Leading-slash app paths get the install host prepended; absolute
+      # http(s) URLs pass through; nil stays nil.
+      def absolute_url(url)
+        return nil if url.blank?
+        return url if url.match?(%r{\Ahttps?://})
+
+        "#{install_host}#{url}"
+      end
+
+      def install_host
+        options = Rails.application.routes.default_url_options
+        host = options[:host].presence || "app.pitomd.com"
+        protocol = options[:protocol].presence || "https"
+        "#{protocol}://#{host}"
+      end
+
+      def avatar_url
+        Rails.application.credentials.dig(:notifications, :pito_avatar_url)
+      end
+
+      # Phase 16 §2 security fix-forward (F1 / F2 — 2026-05-10 audit). URL
+      # scheme allowlist applied at every outbound boundary that renders a
+      # `[text](url)` markdown link to a downstream renderer (in-app HTML,
+      # MCP markdown, Discord embed description, Slack mrkdwn section).
+      #
+      # Allowed:
+      #   - `http://`, `https://` — the live source-helper surface today.
+      #   - `mailto:` — owner / support contact links in future templates.
+      #   - Leading-slash app paths (`/notifications/1`, `/videos/42`).
+      #
+      # Stripped (becomes bare text at the boundary):
+      #   - `javascript:`, `data:`, `vbscript:`, `file:`, `tel:`, `sms:`,
+      #     and every other scheme pito does not need.
+      ALLOWED_URL_SCHEMES = %w[http https mailto].freeze
+
+      def url_scheme_allowed?(url)
+        return false if url.nil?
+
+        str = url.to_s.strip
+        return false if str.empty?
+
+        # Leading-slash app paths have no scheme; they are always allowed.
+        return true if str.start_with?("/") && !str.start_with?("//")
+
+        begin
+          uri = URI.parse(str)
+          ALLOWED_URL_SCHEMES.include?(uri.scheme&.downcase)
+        rescue URI::InvalidURIError
+          false
+        end
+      end
+
+      # Resolve the per-kind template class. Raises a clear error for an
+      # unknown event_type rather than `NoMethodError` on `nil.title`.
+      def template_for(notification)
+        klass = Templates::REGISTRY[notification.event_type.to_s]
+        raise ArgumentError, "no template registered for event_type: #{notification.event_type.inspect}" if klass.nil?
+
+        klass.new(notification)
+      end
+
+      # ── private helpers ───────────────────────────────────────────────
+
+      # If `cut` has a `[` opened past the last `)`, roll back to before
+      # that `[` so the truncation does not leave a half-open link.
+      def roll_back_unbalanced_link(cut)
+        last_open = cut.rindex("[")
+        last_close = cut.rindex(")")
+        return cut if last_open.nil?
+        return cut if last_close && last_close > last_open
+
+        cut[0, last_open]
+      end
+    end
+  end
+end

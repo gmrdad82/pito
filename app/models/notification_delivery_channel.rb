@@ -105,7 +105,7 @@ class NotificationDeliveryChannel < ApplicationRecord
   # existing call sites (`NotificationDeliveryChannel.for("discord")`)
   # keep working after the Phase 26 PORO rebase.
   def self.for(kind)
-    Base.for(kind)
+    Pito::Notifications::DeliveryChannel::Base.for(kind)
   end
 
   # Install-level singleton lookup for the AR row. Returns the one row

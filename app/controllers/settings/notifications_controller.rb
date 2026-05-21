@@ -50,7 +50,7 @@ class Settings::NotificationsController < ApplicationController
       return
     end
 
-    ping_result = Webhooks::DiscordClient.new(webhook_url).ping(t("settings.discord.test_ping_text"))
+    ping_result = Pito::Notifications::Webhooks::DiscordClient.new(webhook_url).ping(t("settings.discord.test_ping_text"))
 
     unless ping_result.success?
       redirect_to settings_path,
@@ -90,7 +90,7 @@ class Settings::NotificationsController < ApplicationController
       return
     end
 
-    ping_result = Webhooks::SlackClient.new(webhook_url).ping(t("settings.slack.test_ping_text"))
+    ping_result = Pito::Notifications::Webhooks::SlackClient.new(webhook_url).ping(t("settings.slack.test_ping_text"))
 
     unless ping_result.success?
       redirect_to settings_path,

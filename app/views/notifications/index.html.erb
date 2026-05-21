@@ -158,7 +158,7 @@
       Severity (the bordered badge in its own column) is self-
       documenting — the badge text IS the enum value — so no legend
       entry is needed for that axis. %>
-  <% legend_pairs = NotificationFormatter::EVENT_TYPE_EMOJI.map { |kind, emoji|
+  <% legend_pairs = Pito::Notifications::Formatter::EVENT_TYPE_EMOJI.map { |kind, emoji|
        [ emoji, kind.tr("_", " ") ]
      } %>
   <div class="notification-glyph-legend text-muted"

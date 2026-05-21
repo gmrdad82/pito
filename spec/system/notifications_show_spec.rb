@@ -6,7 +6,7 @@ RSpec.describe "Notifications show", type: :system do
   let(:notification) { create(:notification, :video_published) }
 
   it "renders the formatter-derived title" do
-    payload = NotificationFormatter::InApp.payload_for(notification)
+    payload = Pito::Notifications::Formatter::InApp.payload_for(notification)
     visit "/notifications/#{notification.id}"
     expect(page).to have_selector("h1", text: payload[:title])
   end

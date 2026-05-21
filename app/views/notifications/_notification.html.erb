@@ -20,7 +20,7 @@
         the modal's own `[ mark read ]` button cover both flows.
         (Severity badge and timestamp stay as-is.) %>
 <%
-  payload = NotificationFormatter::InApp.payload_for(notification)
+  payload = Pito::Notifications::Formatter::InApp.payload_for(notification)
 %>
 <%# `data-keyboard-row` opts each notification row into the global
     keyboard controller's list-row navigation (`j`/`k` move highlight,

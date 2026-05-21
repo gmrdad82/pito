@@ -8,6 +8,6 @@ class NotificationSchedulerJob < ApplicationJob
   queue_as :default
 
   def perform
-    NotificationScheduler.new.perform
+    Pito::Notifications::Scheduler.new.perform
   end
 end

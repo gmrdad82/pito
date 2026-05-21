@@ -32,7 +32,7 @@ RSpec.describe "notifications/index.html.erb", type: :view do
   # 2026-05-10 — glyph legend at the modal top. The legend maps every
   # event-type emoji (📺, 🎮, 🚨…) to a human label so the otherwise
   # opaque pictograph in the row's first column is readable. The
-  # legend is built from `NotificationFormatter::EVENT_TYPE_EMOJI`
+  # legend is built from `Pito::Notifications::Formatter::EVENT_TYPE_EMOJI`
   # at render time, so a new kind landing in the map appears here
   # automatically (no separate copy to maintain).
   describe "glyph legend" do
@@ -43,14 +43,14 @@ RSpec.describe "notifications/index.html.erb", type: :view do
 
     it "renders every emoji from EVENT_TYPE_EMOJI" do
       render
-      NotificationFormatter::EVENT_TYPE_EMOJI.each_value do |emoji|
+      Pito::Notifications::Formatter::EVENT_TYPE_EMOJI.each_value do |emoji|
         expect(rendered).to include(emoji)
       end
     end
 
     it "renders a humanized label for each event_type (underscores -> spaces)" do
       render
-      NotificationFormatter::EVENT_TYPE_EMOJI.each_key do |kind|
+      Pito::Notifications::Formatter::EVENT_TYPE_EMOJI.each_key do |kind|
         expect(rendered).to include(kind.tr("_", " "))
       end
     end
