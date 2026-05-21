@@ -27,7 +27,7 @@ en:
       ownership_heading: "ownership"
       # 2026-05-19 (Bug A2 fix) — placeholder rendered in the LEFT-pane
       # ownership block while `@game.resyncing?` is true. The full
-      # `Games::OwnershipMatrixComponent` matrix (3 rows × 2 auto-submit
+      # `Game::OwnershipMatrixComponent` matrix (3 rows × 2 auto-submit
       # checkboxes) is suppressed during resync so the user cannot race
       # IGDB by flipping ownership while the sync job is in flight. Copy
       # matches the kv-table sync row's "---" muted-stale signal +

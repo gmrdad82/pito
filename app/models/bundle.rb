@@ -19,7 +19,7 @@
 # Membership is many-to-many through `bundle_members(position)`.
 # Cover regeneration is async via Sidekiq (`BundleCoverBuild`); the
 # multi-bundle case (a game's cover changes, fanning out to N bundles)
-# goes through `Bundles::CompositeRebuildQueue` so the rebuilds run as
+# goes through `Bundle::CompositeRebuildQueue` so the rebuilds run as
 # a deterministic sequential chain (alphabetical by `Bundle.name`).
 class Bundle < ApplicationRecord
   # Phase 20 — friendly URLs. Name-derived slug + history-on-rename.
@@ -32,7 +32,7 @@ class Bundle < ApplicationRecord
   include Compositable
 
   # Phase 34 (2026-05-18) — pgvector neighbor lookups on the Voyage
-  # `summary_embedding` column. Powers `Bundles::SuggestedFor` (bundles
+  # `summary_embedding` column. Powers `Bundle::SuggestedFor` (bundles
   # whose centroid sits closest to a given game's vector). Distance is
   # cosine (matches the `vector_cosine_ops` HNSW index in
   # `db/schema.rb`).

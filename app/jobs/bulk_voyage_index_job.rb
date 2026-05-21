@@ -23,9 +23,9 @@
 # byte-identical embeddings) to a per-row reindex:
 #
 #   - Game:   "title — alt_names — summary" (em-dash, mirrors
-#             `Games::VoyageIndexer#combined_text`; alt_names slot
+#             `Game::VoyageIndexer#combined_text`; alt_names slot
 #             omitted when alternative_names is empty)
-#   - Bundle: "name — agg(summaries)" (mirrors `Bundles::VoyageIndexer#combined_text`,
+#   - Bundle: "name — agg(summaries)" (mirrors `Bundle::VoyageIndexer#combined_text`,
 #             up to 5 member summaries em-dash joined)
 #
 # If the single-record builders ever change, update both call sites in
@@ -70,7 +70,7 @@ class BulkVoyageIndexJob < ApplicationJob
   private
 
   # All games that have a usable summary (title alone is not embedded
-  # in the per-row path either — see `Games::VoyageIndexer#call`'s
+  # in the per-row path either — see `Game::VoyageIndexer#call`'s
   # early-return when both title and summary are blank — but title-
   # only games are valid). The query mirrors the per-row enqueue
   # filter (`Game.where.not(summary: nil)`) so the bulk job indexes
@@ -101,7 +101,7 @@ class BulkVoyageIndexJob < ApplicationJob
   end
 
   # Bundles with at least one member-game that contributes summary
-  # text. Mirrors `Bundles::VoyageIndexer#combined_text` — a bundle
+  # text. Mirrors `Bundle::VoyageIndexer#combined_text` — a bundle
   # with only `name` and no summarisable members still indexes (name
   # alone is enough to find by typing); a bundle with neither name nor
   # any summary text is skipped via `combined_text.blank?`.
@@ -147,7 +147,7 @@ class BulkVoyageIndexJob < ApplicationJob
     end
   end
 
-  # Mirrors `Games::VoyageIndexer#combined_text` — keep in sync.
+  # Mirrors `Game::VoyageIndexer#combined_text` — keep in sync.
   # 2026-05-19 — `alternative_names` joins the embedding input so the
   # similar-games + recommended-bundles clustering picks up alt-name
   # signal (series identifiers, localized names, marketing aliases).
@@ -162,11 +162,11 @@ class BulkVoyageIndexJob < ApplicationJob
     parts.join(" — ")
   end
 
-  # Mirrors `Bundles::VoyageIndexer#combined_text` — keep in sync.
+  # Mirrors `Bundle::VoyageIndexer#combined_text` — keep in sync.
   def bundle_text(bundle)
     parts = []
     parts << bundle.name.to_s.strip if bundle.name.present?
-    summaries = bundle.games.first(Bundles::VoyageIndexer::MAX_MEMBER_SUMMARIES)
+    summaries = bundle.games.first(Bundle::VoyageIndexer::MAX_MEMBER_SUMMARIES)
                       .map(&:summary).compact.reject(&:blank?).join(" — ")
     parts << summaries if summaries.present?
     parts.join(" — ")

@@ -36,7 +36,7 @@
 #
 # Bundle cover-art fan-out (success path only) — every bundle the
 # game belongs to gets its composite cover rebuilt via
-# `Bundles::CompositeRebuildQueue#enqueue_for_game_resync`. The
+# `Bundle::CompositeRebuildQueue#enqueue_for_game_resync`. The
 # orchestrator alphabetizes and enqueues a sequential
 # `BundleCoverBuild` chain so the UX (and the test suite) sees a
 # predictable order. We call the orchestrator EXPLICITLY here even
@@ -88,7 +88,7 @@ class GameIgdbSync
       # read the freshly-resynced row (e.g. the new `cover_image_id`).
       if success
         begin
-          Bundles::CompositeRebuildQueue.new
+          Bundle::CompositeRebuildQueue.new
                                         .enqueue_for_game_resync(game.reload)
         rescue StandardError
           # Fan-out is a downstream nicety; a Bundle lookup failure or

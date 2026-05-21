@@ -563,7 +563,7 @@ class SettingsController < ApplicationController
   # categories as separate rows:
   #
   #   * cover arts — game master images normalized by
-  #     `Games::CoverArt::Normalizer` to `<root>/covers/games/<id>/master.jpg`
+  #     `Game::CoverArt::Normalizer` to `<root>/covers/games/<id>/master.jpg`
   #   * composites — bundle composites assembled by `Composite::Builder`
   #     to `<root>/covers/bundles/<id>/composite.jpg`
   #

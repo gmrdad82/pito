@@ -11,7 +11,7 @@
 #   - `:game_index`   — IGDB-only add-from-IGDB flow.
 #   - `:bundle_add`   — local games (Meilisearch) with a leading
 #                        recommendations shelf seeded by
-#                        `Bundles::Recommender`. Requires `bundle:`.
+#                        `Bundle::Recommender`. Requires `bundle:`.
 #   - `:games_search` — local games + bundles + IGDB.
 #
 # Args:
@@ -45,7 +45,7 @@ module Search
     # shelf.
     def recommendations
       return [] unless mode == :bundle_add && bundle
-      @recommendations ||= Bundles::Recommender.call(bundle, limit: 10).to_a
+      @recommendations ||= Bundle::Recommender.call(bundle, limit: 10).to_a
     end
 
     def render_recommendations?

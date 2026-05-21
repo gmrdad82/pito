@@ -33,7 +33,7 @@ export default class extends Controller {
 
   // 2026-05-18 — `data-sortable-table-no-url-value="yes"` opts a table
   // out of the URL-hash sort persistence. Used by tables that live
-  // inside a modal (e.g. `Bundles::AllGamesTableComponent`) where
+  // inside a modal (e.g. `Bundle::AllGamesTableComponent`) where
   // mirroring sort state into the page URL is wrong: the modal opens
   // and closes, but the URL would survive both. Honors the project's
   // "yes / no for external booleans" convention.

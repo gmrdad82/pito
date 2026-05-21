@@ -37,7 +37,7 @@ class ChannelsController < ApplicationController
   # The legacy pane workspace (saved views, sort/dir, star filter,
   # picker prefetch) is dropped FROM THIS ACTION ONLY. Real data
   # wiring returns in Wave B once the layout is signed off.
-  # `Channels::MockData.channels` feeds the avatar shelf via
+  # `Channel::MockData.channels` feeds the avatar shelf via
   # `@channels`. JSON branch is preserved for CLI / MCP callers and
   # still serves the real DB rows decorated by `ChannelDecorator` so
   # downstream surfaces don't regress on the layout-iteration phase.
@@ -50,7 +50,7 @@ class ChannelsController < ApplicationController
   # already toggles via `FilterChipComponent` (csv mode):
   #
   #   * `?channels=` — comma-separated channel ids. Drives which
-  #     `Channels::MockData.channels` entries land in `@channels` and,
+  #     `Channel::MockData.channels` entries land in `@channels` and,
   #     transitively, in the ID-card shelf + the Basics row. Sentinel
   #     handling per the spec:
   #       - param missing entirely        → render ALL channels
@@ -77,7 +77,7 @@ class ChannelsController < ApplicationController
         @selected_calendar = parse_csv_filter_param(params[:calendar]) || []
 
         selected_channel_ids = parse_csv_filter_param(params[:channels])
-        all_channels = Channels::MockData.channels
+        all_channels = Channel::MockData.channels
         @channels = if selected_channel_ids.nil?
           all_channels
         else

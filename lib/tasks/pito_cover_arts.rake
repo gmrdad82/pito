@@ -1,7 +1,7 @@
 # Phase 27 follow-up (2026-05-17) — Cover-art master regen tasks.
 #
 # Two tasks for regenerating the normalized cover masters produced by
-# `Games::CoverArt::Normalizer`:
+# `Game::CoverArt::Normalizer`:
 #
 #   bin/rails pito:cover_arts:regenerate
 #     Regenerates every Game with a `cover_image_id`. The per-game
@@ -38,7 +38,7 @@ namespace :pito do
         FileUtils.rm_rf(target_dir) if File.directory?(target_dir)
 
         begin
-          path = Games::CoverArt::Normalizer.new(game: game).call
+          path = Game::CoverArt::Normalizer.new(game: game).call
           if path
             successes += 1
             puts "[#{index_str}] OK   #{game.title.inspect} → #{path}"
@@ -63,7 +63,7 @@ namespace :pito do
       target_dir = Pito::AssetsRoot.path("covers", "games", game.id.to_s)
       FileUtils.rm_rf(target_dir) if File.directory?(target_dir)
 
-      path = Games::CoverArt::Normalizer.new(game: game).call
+      path = Game::CoverArt::Normalizer.new(game: game).call
       puts "Game id=#{game.id} #{game.title.inspect}:"
       puts "  cover_image_id: #{game.cover_image_id.inspect}"
       puts "  regenerated:    #{path || '(skipped — no cover_image_id)'}"

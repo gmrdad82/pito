@@ -16,7 +16,7 @@
 
     2026-05-18 (slice W5) — the +N-more overflow shelf that used to sit
     below the composite is REPLACED with a flat "all games" table
-    (`Bundles::AllGamesTableComponent`). Fixed copy "all games" (no
+    (`Bundle::AllGamesTableComponent`). Fixed copy "all games" (no
     `+N` count), zebra-striped `.sessions-table`-styled table listing
     EVERY member game with columns: checkbox, title, primary genre,
     short release date, rating-score chip. The composite cover grid at
@@ -46,5 +46,5 @@
   <%= turbo_stream_from "bundle_cover:#{@bundle.id}" %>
   <%= render "bundles/modal_composite", bundle: @bundle %>
 
-  <%= render(Bundles::AllGamesTableComponent.new(bundle: @bundle)) %>
+  <%= render(Bundle::AllGamesTableComponent.new(bundle: @bundle)) %>
 <% end %>

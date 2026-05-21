@@ -1,5 +1,5 @@
 # Canonical horizontal-scroll shelf wrapper. Previously namespaced as
-# `Games::ShelfComponent` (Phase 27 Wave F) — promoted to a top-level
+# `::ShelfComponent` (Phase 27 Wave F) — promoted to a top-level
 # `ShelfComponent` on 2026-05-19 so non-/games surfaces (notably
 # `/channels` Wave A1) can reuse the same chrome.
 #

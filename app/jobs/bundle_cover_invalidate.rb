@@ -6,7 +6,7 @@
 #      build re-downloads the new IGDB cover bytes (the cache key is
 #      the cover_image_id; the old tile is now stale).
 #   2. Enqueue a `BundleCoverBuild` sequential chain (via
-#      `Bundles::CompositeRebuildQueue`) for every Bundle the Game
+#      `Bundle::CompositeRebuildQueue`) for every Bundle the Game
 #      belongs to, so the composites rebuild in deterministic
 #      alphabetical order rather than racing concurrent disk writes.
 #
@@ -31,6 +31,6 @@ class BundleCoverInvalidate
     cache = Composite::TileCache.new
     cache.evict(previous_cover_image_id) if previous_cover_image_id.present?
 
-    Bundles::CompositeRebuildQueue.new.enqueue_for_game_resync(game)
+    Bundle::CompositeRebuildQueue.new.enqueue_for_game_resync(game)
   end
 end

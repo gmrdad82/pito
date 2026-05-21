@@ -1,12 +1,12 @@
 <%# Phase 27 §01c-v2 — Genre sub-shelf row.
     One sub-shelf per non-empty genre. Renders the heading + count +
-    optional `[see all]` link via `Games::ShelfComponent`, then a
+    optional `[see all]` link via `::ShelfComponent`, then a
     horizontally scrolling row of bare covers rendered through
-    `Games::GenreTileComponent` (a thin wrapper over
-    `Games::CoverComponent(variant: :shelf)`).
+    `Game::GenreTileComponent` (a thin wrapper over
+    `Game::CoverComponent(variant: :shelf)`).
 
     Genre and bundle sub-shelves render bare covers at `:shelf` so
-    the row stays dense and image-driven; the rich `Games::GameTile
+    the row stays dense and image-driven; the rich `Game::GameTile
     Component(variant: :shelf)` (title + meta + chips + editions
     badge) is reserved for the LETTER shelves on `/games`.
 
@@ -19,7 +19,7 @@
     sub-shelf now reads `Game.where(primary_genre_id: genre.id)` so
     each game appears in EXACTLY ONE sub-shelf (the row whose
     `primary_genre_id` matches). Multi-genre games no longer duplicate
-    across every linked genre — `Games::PrimaryGenrePicker` chose one
+    across every linked genre — `Game::PrimaryGenrePicker` chose one
     canonical pick at save time.
 
     Locals:
@@ -51,7 +51,7 @@
            games_path(genre: genre.id)
          end
 %>
-<%= render(Games::ShelfComponent.new(
+<%= render(::ShelfComponent.new(
       heading: genre_display_name(genre),
       count: total_count,
       heading_level: :h3,
@@ -65,6 +65,6 @@
       more_href: (total_count > cap ? href : nil)
     )) do %>
   <% games.each do |game| %>
-    <%= render(Games::GenreTileComponent.new(game: game)) %>
+    <%= render(Game::GenreTileComponent.new(game: game)) %>
   <% end %>
 <% end %>

@@ -38,7 +38,7 @@ class GameGenre < ApplicationRecord
     # silently re-pick on every `game.genres << x` when the operator
     # has chosen a primary in the future surface.
     return if g.primary_genre_id.present?
-    pick = Games::PrimaryGenrePicker.new.pick(g)
+    pick = Game::PrimaryGenrePicker.new.pick(g)
     new_id = pick&.id
     return if new_id.nil?
     g.update_column(:primary_genre_id, new_id)

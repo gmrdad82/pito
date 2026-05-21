@@ -1,0 +1,100 @@
+<section class="all-games" style="margin-top: 16px;">
+  <%# 2026-05-18 — heading row carries a `[+]` add-member trigger that
+      opens the per-bundle omnisearch modal (`:bundle_add` mode). The
+      `[+]` link uses the `modal-trigger` Stimulus controller to call
+      `showModal()` on the dialog whose id matches `omnisearch_dialog_id`
+      (rendered as a sibling of the table below). The modal hits
+      `/bundles/:id/search` and renders Local + IGDB results; per-row
+      `[add]` POSTs `/bundles/:id/members`. %>
+  <div style="display: flex; align-items: baseline; gap: 8px; margin: 0 0 6px;">
+    <h3 style="margin: 0;"><%= t("bundles.all_games.heading") %></h3>
+    <%= render(BracketedLinkComponent.new(
+          label: t("common.actions.add_short"),
+          href: "#",
+          data: {
+            controller: "modal-trigger",
+            action: "click->modal-trigger#open",
+            modal_trigger_target_id_value: omnisearch_dialog_id
+          }
+        )) %>
+  </div>
+  <hr class="hairline">
+  <%# 2026-05-18 — sortable wiring. `sortable-table` Stimulus
+      controller drives column sort; `data-sortable-table-no-url-value="yes"`
+      keeps sort state DOM-local (this table lives inside a modal —
+      mirroring sort state into the URL hash would survive the modal
+      close, which is wrong). Sortable column hints:
+        title   — string (cell text)
+        genre   — string (cell text)
+        release — date (data-sort-value=ISO date; em-dash rows sort
+                  last via the empty-string fallback)
+        score   — number (data-sort-value=synthesized score; score-less
+                  rows sort lowest)
+      The checkbox column is intentionally not sortable. %>
+  <div class="sessions-table-wrap" style="margin-top: 8px;"
+       data-controller="sortable-table"
+       data-sortable-table-id-value="bundle-<%= bundle.id %>-all-games"
+       data-sortable-table-no-url-value="yes">
+    <table class="sessions-table all-games-table"
+           data-sortable-table-target="table">
+      <thead>
+        <tr>
+          <th class="all-games-col-check">
+            <%= render(CheckboxComponent.new) %>
+          </th>
+          <%= render(SortableHeaderComponent.new(label: t("bundles.all_games.col.title"), sort_type: "string", extra_class: "all-games-col-title")) %>
+          <%= render(SortableHeaderComponent.new(label: t("bundles.all_games.col.genre"), sort_type: "string", extra_class: "all-games-col-genre")) %>
+          <%= render(SortableHeaderComponent.new(label: t("bundles.all_games.col.release"), sort_type: "date", numeric: true, extra_class: "all-games-col-release")) %>
+          <%= render(SortableHeaderComponent.new(label: t("bundles.all_games.col.score"), sort_type: "number", numeric: true, extra_class: "all-games-col-score")) %>
+        </tr>
+      </thead>
+      <tbody>
+        <% if games.any? %>
+          <% games.each do |game| %>
+            <% chip = Game::RatingScoreChipComponent.new(game: game) %>
+            <tr>
+              <td class="all-games-col-check">
+                <%= render(CheckboxComponent.new(value: game.id, name: "game_ids[]")) %>
+              </td>
+              <td class="all-games-col-title" title="<%= game.title %>">
+                <%= link_to game.title,
+                            game_path(game),
+                            data: { turbo_frame: "_top" } %>
+              </td>
+              <td class="all-games-col-genre"><%= primary_genre_label(game) %></td>
+              <td class="num all-games-col-release" data-sort-value="<%= game.release_date&.iso8601 %>">
+                <%= short_release_date(game) %>
+              </td>
+              <td class="num all-games-col-score" data-sort-value="<%= chip.score || -1 %>">
+                <%= render(chip) %>
+              </td>
+            </tr>
+          <% end %>
+        <% else %>
+          <%# 2026-05-18 (Bug 1 fix) — empty-state row. Rendered when the
+              bundle has no members so the `all games [+]` heading +
+              `[+]` add trigger above remain reachable. Single muted
+              row spanning all five columns; copy explicitly nudges the
+              user toward the `[+]` button to add the first member. %>
+          <tr>
+            <td colspan="5" class="text-muted" style="text-align: center; padding: 12px;">
+              <%= t("bundles.all_games.empty") %>
+            </td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+
+  <%# Per-bundle omnisearch modal (`:bundle_add` mode). Mounted as a
+      sibling of the table so the [+] trigger's `modal-trigger` lookup
+      finds it by id within the same Turbo Frame. %>
+  <%= render Search::OmnisearchModalComponent.new(
+        mode: :bundle_add,
+        dialog_id: omnisearch_dialog_id,
+        url: search_bundle_path(bundle),
+        placeholder: t("bundles.all_games.search_placeholder"),
+        results_frame_id: omnisearch_frame_id,
+        bundle: bundle
+      ) %>
+</section>

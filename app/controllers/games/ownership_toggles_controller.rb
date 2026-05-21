@@ -1,6 +1,6 @@
 # 2026-05-17 — inline per-platform ownership matrix toggles for
 # `/games/:id`. Powers the auto-submit checkbox cells rendered by
-# `Games::OwnershipMatrixComponent`. Two actions:
+# `Game::OwnershipMatrixComponent`. Two actions:
 #
 #   PATCH /games/:game_id/ownership_toggles/:platform  → ownership
 #   PATCH /games/:game_id/played_toggles/:platform     → played

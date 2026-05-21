@@ -30,7 +30,7 @@
     <%= form_with(url: game_platform_ownerships_path(@game),
                   method: :patch,
                   data: { turbo: false }) do %>
-      <%= render(Games::PlatformOwnershipEditorComponent.new(
+      <%= render(Game::PlatformOwnershipEditorComponent.new(
             game: @game,
             platforms: @platforms,
             owned_platform_ids: @owned_platform_ids

@@ -19,7 +19,7 @@
 # Error contract: any non-2xx response, JSON parse failure, or
 # network error returns nil (the per-input slot in the batch is nil).
 # Caller decides what nil means — `Notes::EmbedJob` writes nothing,
-# `Games::VoyageIndexer` skips the pgvector write. Errors are logged
+# `Game::VoyageIndexer` skips the pgvector write. Errors are logged
 # via `Rails.logger.warn` with the exception class + message for
 # operator visibility.
 #

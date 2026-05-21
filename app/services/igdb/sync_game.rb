@@ -74,7 +74,7 @@ module Igdb
       # a cover-art hiccup must not fail the sync (the IGDB-sourced
       # row is already committed at this point).
       begin
-        Games::CoverArt::Normalizer.new(game: game).call
+        Game::CoverArt::Normalizer.new(game: game).call
       rescue StandardError => e
         Rails.logger.warn "[Igdb::SyncGame] cover normalization failed for game id=#{game.id}: #{e.class}: #{e.message}"
       end
@@ -177,7 +177,7 @@ module Igdb
     # Phase 27 v2 spec 01 follow-up (2026-05-17) — IGDB-order primacy.
     # IGDB returns the `genres` array in its canonical primacy order
     # (first entry = primary). The `game_genres.position` column
-    # captures that ordering so `Games::PrimaryGenrePicker` can pick
+    # captures that ordering so `Game::PrimaryGenrePicker` can pick
     # the IGDB-first genre instead of the alphabetical winner.
     #
     # Positions are recorded as the 0-based array index. The picker's
@@ -203,7 +203,7 @@ module Igdb
     end
 
     # Phase 27 v2 spec 01 — explicit re-pick on every sync. The
-    # `Games::PrimaryGenrePicker` rule 1 honors an existing
+    # `Game::PrimaryGenrePicker` rule 1 honors an existing
     # `primary_genre_id` pin (so user-set pins survive). IGDB sync
     # deliberately bypasses that pin honor: a re-sync is the canonical
     # moment to re-derive from IGDB's current metadata, so we clear
@@ -222,7 +222,7 @@ module Igdb
       # to the alphabetical pick. The actual DB write that follows
       # carries the freshly-derived id (or nil).
       game.primary_genre_id = nil
-      pick = Games::PrimaryGenrePicker.new.pick(game)
+      pick = Game::PrimaryGenrePicker.new.pick(game)
       game.update_column(:primary_genre_id, pick&.id)
     end
 

@@ -24,17 +24,17 @@
 <div id="bundle_modal_composite_<%= bundle.id %>">
   <% if bundle.games.any? %>
     <%# CSS-positioned composite cover grid is now owned by
-        `Bundles::ModalCompositeComponent`. The component pulls
+        `Bundle::ModalCompositeComponent`. The component pulls
         `bundle.games.first(9)` and renders each cell over a 3:4 canvas
         using `Composite::CellMap.for(n)` — the same source of truth
         the libvips JPEG builder uses. %>
-    <%= render Bundles::ModalCompositeComponent.new(bundle: bundle) %>
+    <%= render Bundle::ModalCompositeComponent.new(bundle: bundle) %>
   <% else %>
     <%# Empty-bundle placeholder. Mirrors the populated composite
         slot above: same `width: 100%` + `aspect-ratio: 3 / 4` outer
         box. Reuses the shelf-tile netflix-3 grid markup so the
         visual reads as "bundle waiting for members" rather than
         empty whitespace above the [+] add row. %>
-    <%= render Bundles::EmptyCoverPlaceholderComponent.new(bundle: bundle, modifier: :modal) %>
+    <%= render Bundle::EmptyCoverPlaceholderComponent.new(bundle: bundle, modifier: :modal) %>
   <% end %>
 </div>

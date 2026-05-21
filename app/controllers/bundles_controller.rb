@@ -19,7 +19,7 @@
 #                confirms" rule (reached from `/games/:id`'s
 #                `[delete]`).
 #   - games_pane: Turbo Frame fragment listing the bundle's member
-#                  games as `Games::CoverComponent` grid tiles — used
+#                  games as `Game::CoverComponent` grid tiles — used
 #                  by the `/games` bundles modal (replaces the former
 #                  `Collections#games_pane`).
 class BundlesController < ApplicationController
@@ -119,7 +119,7 @@ class BundlesController < ApplicationController
   # `Collections#games_pane`). Returns the games belonging to `bundle`
   # as a Turbo Frame fragment. The frame id matches the layout-level
   # modal (`bundles_modal_frame`); the partial renders a grid of
-  # `Games::CoverComponent` tiles linked to each game's show page.
+  # `Game::CoverComponent` tiles linked to each game's show page.
   def games_pane
     @bundle = Bundle.friendly.find(params[:id])
     # The `bundle_members` association carries a default `order(:position)`
@@ -131,7 +131,7 @@ class BundlesController < ApplicationController
 
   # 2026-05-18 — omnisearch endpoint for the bundle modal's "all games"
   # heading `[+]` trigger (`:bundle_add` mode). Runs the unified
-  # `Games::SearchService` with the current bundle as the
+  # `Game::SearchService` with the current bundle as the
   # `exclude_bundle:` so already-member games drop out of the local
   # half of the envelope. IGDB hits stay raw — adding from IGDB inside
   # the bundle modal is a two-step ("first sync IGDB into the library,
@@ -141,7 +141,7 @@ class BundlesController < ApplicationController
   def search
     @bundle = Bundle.friendly.find(params[:id])
     @query  = params[:q].to_s.strip[0, MAX_QUERY_LENGTH]
-    @result = Games::SearchService.call(query: @query, mode: :bundle_add, bundle: @bundle)
+    @result = Game::SearchService.call(query: @query, mode: :bundle_add, bundle: @bundle)
     render Search::OmnisearchResultsComponent.new(
       mode: :bundle_add, query: @query, result: @result, bundle: @bundle
     )

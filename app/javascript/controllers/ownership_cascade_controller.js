@@ -2,7 +2,7 @@ import { Controller } from "@hotwired/stimulus"
 
 // 2026-05-18 — ownership cascade for the per-platform ownership matrix
 // on `/games/:id`. Wraps the matrix block rendered by
-// `Games::OwnershipMatrixComponent` and applies the same cascade rules
+// `Game::OwnershipMatrixComponent` and applies the same cascade rules
 // the server-side `Games::OwnershipTogglesController` enforces, so the
 // user sees the cascade IMMEDIATELY (without waiting for the PATCH +
 // redirect round-trip) while the DB still converges to the same state.

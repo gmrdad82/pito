@@ -11,14 +11,14 @@ namespace :pito do
   # are skipped; rows whose pick resolves to `nil` (zero linked genres)
   # stay `nil` (no row touched, no UPDATE issued).
   #
-  # Runs `Games::PrimaryGenrePicker#pick` row-by-row and writes via
+  # Runs `Game::PrimaryGenrePicker#pick` row-by-row and writes via
   # `update_column` so callbacks DON'T fire — the model's
   # `before_save :assign_primary_genre_if_blank` would otherwise do the
   # same work redundantly, and we want a single, auditable write per
   # row. `find_each` keeps memory flat for large installs.
   desc "Backfill games.primary_genre_id for existing rows. Idempotent."
   task backfill_primary_genres: :environment do
-    picker  = Games::PrimaryGenrePicker.new
+    picker  = Game::PrimaryGenrePicker.new
     updated = 0
     skipped = 0
     no_pick = 0

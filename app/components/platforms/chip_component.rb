@@ -22,7 +22,7 @@ class Platforms::ChipComponent < ViewComponent::Base
   # Used by `Games::OwnershipTogglesController` (writes a
   # `game_platforms` join row with `source: "user"` when the user
   # marks a chip as owned but IGDB has not listed the platform) and
-  # by `Games::OwnershipMatrixComponent` (reads ownership / played
+  # by `Game::OwnershipMatrixComponent` (reads ownership / played
   # state for the chip's canonical platform).
   CANONICAL_PLATFORM_SLUG_BY_CHIP = {
     "ps"     => "ps5",
@@ -42,8 +42,8 @@ class Platforms::ChipComponent < ViewComponent::Base
   def label
     # I18n is the canonical label surface. SLUG_BRAND.dig(:label)
     # remains the fallback so direct constant readers
-    # (Games::OwnershipMatrixComponent, OwnershipTogglesController,
-    # Games::PlatformOwnershipChipComponent) keep working until they
+    # (Game::OwnershipMatrixComponent, OwnershipTogglesController,
+    # Game::PlatformOwnershipChipComponent) keep working until they
     # route through this method.
     I18n.t("platforms.chip.label.#{@slug}", default: SLUG_BRAND.dig(@slug, :label))
   end

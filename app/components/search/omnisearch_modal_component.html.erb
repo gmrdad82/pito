@@ -11,7 +11,7 @@
         <h3 class="omnisearch-section-heading">similar to your bundle</h3>
         <div class="shelf-row" data-controller="steam-shelf">
           <% recommendations.each do |game| %>
-            <%= render Games::GenreTileComponent.new(
+            <%= render Game::GenreTileComponent.new(
                   game: game,
                   link_to: nil,
                   data: {

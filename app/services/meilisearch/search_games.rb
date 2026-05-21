@@ -29,7 +29,7 @@
 # Network failures are logged and degrade to empty result sets so a
 # Meilisearch hiccup never crashes the search controller path. The
 # IGDB half of the omnisearch envelope is independent (see
-# `Games::SearchService`) and continues even when the local half is
+# `Game::SearchService`) and continues even when the local half is
 # empty.
 require "net/http"
 require "json"
