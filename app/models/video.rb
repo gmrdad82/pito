@@ -72,7 +72,7 @@ class Video < ApplicationRecord
   # Phase 26 §01g — viewer-time buckets. UTC-stored day-of-week ×
   # hour-of-day rollup powering the "best time to publish" heatmap.
   # User-tz conversion happens at query time via
-  # `Analytics::ViewerTimeRollup`.
+  # `Pito::Analytics::ViewerTimeRollup`.
   has_many :viewer_time_buckets,
            class_name: "VideoViewerTimeBucket",
            dependent: :delete_all

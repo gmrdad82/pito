@@ -1,7 +1,7 @@
 require "rails_helper"
 
 RSpec.describe ViewerTimeHeatmapComponent, type: :component do
-  Result = Analytics::ViewerTimeRollup::Result
+  Result = Pito::Analytics::ViewerTimeRollup::Result
 
   describe "happy — full data" do
     it "renders a 7x24 grid of cells" do

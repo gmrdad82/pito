@@ -13,7 +13,7 @@ class Channels::AnalyticsController < ApplicationController
     @decorator = Analytics::ChannelDecorator.new(@channel)
     @window = current_window
     @window_start, @window_end = window_dates(@window)
-    @last_synced_at = Analytics::DataFreshness.last_synced_at(channel: @channel)
+    @last_synced_at = Pito::Analytics::DataFreshness.last_synced_at(channel: @channel)
     @needs_reauth = @channel.youtube_connection&.needs_reauth?
   end
 end

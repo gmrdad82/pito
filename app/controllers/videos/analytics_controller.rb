@@ -12,7 +12,7 @@ class Videos::AnalyticsController < ApplicationController
     @decorator = Analytics::VideoDecorator.new(@video)
     @window = current_window
     @window_start, @window_end = window_dates(@window)
-    @last_synced_at = Analytics::DataFreshness.last_synced_at(video: @video)
+    @last_synced_at = Pito::Analytics::DataFreshness.last_synced_at(video: @video)
     @needs_reauth = @video.channel&.youtube_connection&.needs_reauth?
   end
 end

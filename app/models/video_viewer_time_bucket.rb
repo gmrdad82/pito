@@ -2,7 +2,7 @@
 #
 # Raw day-of-week × hour-of-day rollup row, stored in **UTC**. One row
 # per `(video_id, day_of_week_utc, hour_of_day_utc)` triple. The
-# user-tz rollup lives in `Analytics::ViewerTimeRollup` and converts
+# user-tz rollup lives in `Pito::Analytics::ViewerTimeRollup` and converts
 # at query time using `Current.user.time_zone` (the storage / render
 # contract pinned by 01f).
 #

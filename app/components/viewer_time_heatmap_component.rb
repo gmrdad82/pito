@@ -1,7 +1,7 @@
 # Phase 26 — 01g. Viewer-time analytics implementation.
 #
 # Renders a 7x24 day-of-week x hour-of-day heatmap from the rollup
-# hash produced by `Analytics::ViewerTimeRollup#call`. Single-hue
+# hash produced by `Pito::Analytics::ViewerTimeRollup#call`. Single-hue
 # intensity gradient (link-blue with alpha 0.0..1.0) — no red, per
 # the project's design rules.
 #

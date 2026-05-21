@@ -190,7 +190,7 @@ module Youtube
     # Phase 26 §01g — viewer-time buckets. Pulls the day x hour viewer
     # distribution for a single video over `(from..to)`. Results are
     # returned in the YouTube channel's UTC bucket; the user-tz rollup
-    # happens at query time in `Analytics::ViewerTimeRollup`.
+    # happens at query time in `Pito::Analytics::ViewerTimeRollup`.
     def video_viewer_time(video:, from:, to:)
       assert_video_belongs!(video)
       params = AnalyticsQueryBuilder.video_viewer_time_params(

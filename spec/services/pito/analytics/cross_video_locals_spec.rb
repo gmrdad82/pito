@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe Analytics::CrossVideoLocals do
+RSpec.describe Pito::Analytics::CrossVideoLocals do
   subject(:locals) { described_class.new }
 
   describe "#when_to_publish" do

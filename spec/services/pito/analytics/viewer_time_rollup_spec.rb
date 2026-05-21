@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe Analytics::ViewerTimeRollup do
+RSpec.describe Pito::Analytics::ViewerTimeRollup do
   subject(:service) { described_class.new }
 
   let(:channel) { create(:channel) }

@@ -2,7 +2,7 @@
 #
 # Renders the cross-channel summary cards (only when ≥ 2 channels per
 # master-agent decision 7), one card per channel, and the four
-# cross-video local rollups computed by `Analytics::CrossVideoLocals`.
+# cross-video local rollups computed by `Pito::Analytics::CrossVideoLocals`.
 class AnalyticsController < ApplicationController
   include AnalyticsWindow
 
@@ -13,8 +13,8 @@ class AnalyticsController < ApplicationController
     @show_cross_channel_summary = @channels.size >= 2
     @cross_channel_summary = build_cross_channel_summary if @show_cross_channel_summary
     @channel_decorators = @channels.map { |c| Analytics::ChannelDecorator.new(c) }
-    @last_synced_at = Analytics::DataFreshness.last_synced_at
-    @cross_video_locals = Analytics::CrossVideoLocals.new
+    @last_synced_at = Pito::Analytics::DataFreshness.last_synced_at
+    @cross_video_locals = Pito::Analytics::CrossVideoLocals.new
   end
 
   private

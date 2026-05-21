@@ -5,7 +5,7 @@
 # `VideoViewerTimeBucket.resolve_iana` (P26 §01g); moved here per the
 # P26 reviewer concern 5 — the helper is not a model concern, it is a
 # tz-shape conversion utility shared by the rollup scope, the
-# `Analytics::ViewerTimeRollup` service, and any future caller that
+# `Pito::Analytics::ViewerTimeRollup` service, and any future caller that
 # needs to pass an IANA tz name into a SQL `AT TIME ZONE` clause.
 #
 # Accepts:
