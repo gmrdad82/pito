@@ -125,6 +125,8 @@ class Login::TotpChallengesController < ApplicationController
       request: request
     )
 
+    @pre_auth_user.update!(last_login_at: Time.current)
+
     write_session_cookie(plaintext)
     clear_pre_auth_marker
 

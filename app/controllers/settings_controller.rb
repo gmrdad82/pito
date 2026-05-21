@@ -93,11 +93,9 @@ class SettingsController < ApplicationController
     @redis_status = redis_status_for_settings_pane
     @search_per_index_stats = search_per_index_stats_for_settings_pane
     @storage_status = storage_status_for_settings_pane
-    @notes_volume_status = notes_volume_status_for_settings_pane
     @postgres_table_breakdown = postgres_table_breakdown_for_settings_pane
     @sidekiq_breakdown = sidekiq_breakdown_for_settings_pane
     @assets_breakdown = assets_breakdown_for_settings_pane
-    @notes_breakdown = notes_breakdown_for_settings_pane
     @voyage_configured = AppSetting.voyage_configured?
 
     respond_to do |format|
@@ -354,38 +352,7 @@ class SettingsController < ApplicationController
     nil
   end
 
-  # 2026-05-20 — Notes volume status now reads the SAME path the
-  # `notes` namespace breakdown table reads (see
-  # `NOTES_NAMESPACE_SOURCES` below). The previous implementation
-  # checked `Rails.root.join("docs/notes")` — an UNRELATED design-doc
-  # directory that has no relationship to the notes data root used by
-  # `NotesFilesystem.root` / `NOTES_NAMESPACE_SOURCES`. The result was
-  # a logically contradictory display: the chip rendered `[not
-  # present]` (because `docs/notes/` is absent / removed) while the
-  # breakdown table below it reported a 39 KB volume sourced from
-  # `tmp/pito-notes`. Aligning both surfaces to the same path resolver
-  # keeps the chip and the table answering the same question.
-  def notes_volume_status_for_settings_pane
-    path = notes_volume_path_for_settings_pane
-    present = path.present? && File.directory?(path)
-    stats = present ? directory_volume_stats(path) : { size_bytes: 0, file_count: 0 }
-    {
-      present: present,
-      writable: present && File.writable?(path),
-      size_bytes: stats[:size_bytes],
-      file_count: stats[:file_count]
-    }
-  rescue StandardError
-    { present: false, writable: false, size_bytes: 0, file_count: 0 }
-  end
-
-  # Resolves the same notes-data root that the breakdown table renders
-  # against. Mirrors the `path:` lambda inside `NOTES_NAMESPACE_SOURCES`
-  # so the two surfaces never drift. `PITO_NOTES_PATH` wins when set;
-  # otherwise the dev fallback (`tmp/pito-notes`) is used.
-  def notes_volume_path_for_settings_pane
-    ENV["PITO_NOTES_PATH"].presence || Rails.root.join("tmp/pito-notes").to_s
-  end
+  # Notes volume helpers dropped 2026-05-21 (D17).
 
   def directory_volume_stats(path)
     Rails.cache.fetch([ "settings/volume-stats", path.to_s ], expires_in: 5.minutes) do
@@ -613,44 +580,5 @@ class SettingsController < ApplicationController
     end
   end
 
-  NOTES_NAMESPACE_SOURCES = [
-    {
-      label: "project",
-      counter: -> { Note.count },
-      path:    -> { ENV["PITO_NOTES_PATH"].presence || Rails.root.join("tmp/pito-notes").to_s }
-    }
-  ].freeze
-
-  def notes_breakdown_for_settings_pane
-    rows = NOTES_NAMESPACE_SOURCES.map do |source|
-      stats = notes_namespace_stats(source)
-      {
-        label: source[:label],
-        count: stats[:count],
-        size_bytes: stats[:size_bytes]
-      }
-    end
-    rows.sort_by { |row| -(row[:size_bytes] || 0) }
-  rescue StandardError
-    []
-  end
-
-  def notes_namespace_stats(source)
-    count =
-      begin
-        source[:counter].call
-      rescue StandardError
-        nil
-      end
-    path = source[:path].call
-    stats =
-      if path && File.directory?(path)
-        directory_volume_stats(path)
-      else
-        { size_bytes: 0, file_count: 0 }
-      end
-    { count: count, size_bytes: stats[:size_bytes], file_count: stats[:file_count] }
-  rescue StandardError
-    { count: nil, size_bytes: 0, file_count: 0 }
-  end
+  # Notes namespace breakdown helpers dropped 2026-05-21 (D17).
 end

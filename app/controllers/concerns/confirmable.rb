@@ -14,15 +14,17 @@
 module Confirmable
   extend ActiveSupport::Concern
 
-  # Phase B post-validation: extended to cover Project Workspace types so
-  # `[delete]` links from project / game show pages route cleanly through
-  # the deletions framework. Footage stays out — its delete flow (if any)
+  # Phase B post-validation: covers the surfaces that route through the
+  # deletions framework. Footage stays out — its delete flow (if any)
   # is owned by the importer surface, not the web UI.
   #
   # Phase 27 follow-up (2026-05-17) — the "collection" type was dropped
   # along with the Collection model; every grouping is now a Bundle and
   # uses the `bundle` type.
-  TYPES = %w[channel video project game note timeline calendar_entry bundle video_game_link].freeze
+  #
+  # D18 (2026-05-21) — "project" and "timeline" types dropped alongside
+  # the Project + Timeline models.
+  TYPES = %w[channel video game calendar_entry bundle video_game_link].freeze
 
   private
 
@@ -66,13 +68,7 @@ module Confirmable
     case @type
     when "channel"    then channels_path
     when "video"      then videos_path
-    when "project"    then projects_path
     when "game"       then games_path
-    # Notes and timelines have no top-level user-facing index — they are
-    # rendered inside the project show page. Cancel returns to the
-    # projects index, which is the closest reasonable parent.
-    when "note"       then projects_path
-    when "timeline"   then projects_path
     # Phase 15 §2 — calendar entries cancel back to the schedule view
     # (the closest surface that always renders).
     when "calendar_entry" then calendar_schedule_path
@@ -92,10 +88,7 @@ module Confirmable
     case type
     when "channel"    then Channel
     when "video"      then Video
-    when "project"    then Project
     when "game"       then Game
-    when "note"       then Note
-    when "timeline"   then Timeline
     when "calendar_entry" then CalendarEntry
     when "bundle"     then Bundle
     when "video_game_link" then VideoGameLink
@@ -126,14 +119,8 @@ module Confirmable
            .where(id: ids)
            .group("videos.id")
            .order(youtube_video_id: :asc)
-    when "project"
-      Project.where(id: ids).order(name: :asc)
     when "game"
       Game.where(id: ids).order(title: :asc)
-    when "note"
-      Note.includes(:project).where(id: ids).order(title: :asc)
-    when "timeline"
-      Timeline.includes(:project).where(id: ids).order(title: :asc)
     when "calendar_entry"
       # Phase 15 §2 — exclude derived/auto entries from manual cancel.
       # The schedule / month views do not render the [cancel] link on
@@ -147,16 +134,13 @@ module Confirmable
   end
 
   # Display label used by JSON preview responses (and mirrored by the HTML
-  # views): channel_url for channels, title for videos, name for
-  # projects, title for games/notes/timelines.
+  # views): channel_url for channels, youtube_video_id for videos, title
+  # for games, name for bundles.
   def label_for(item)
     case item
     when Channel    then item.channel_url
     when Video      then item.youtube_video_id
-    when Project    then item.name
     when Game       then item.title
-    when Note       then item.title
-    when Timeline   then item.title
     when CalendarEntry then item.title
     when Bundle        then item.name
     when VideoGameLink

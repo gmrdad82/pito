@@ -284,7 +284,7 @@ class Calendar::EntriesController < ApplicationController
   def create_params(type)
     base = params.require(:calendar_entry).permit(
       :title, :description, :starts_at, :ends_at, :all_day, :timezone,
-      :entry_type, :parent_entry_id, :game_id, :project_id, :video_id,
+      :entry_type, :parent_entry_id, :game_id, :video_id,
       :channel_id, :milestone_rule_id, :manual_date_override,
       :release_precision, :tba_remind_monthly, :notify_anyway,
       metadata: {}
@@ -296,7 +296,7 @@ class Calendar::EntriesController < ApplicationController
   def update_params(type)
     base = params.require(:calendar_entry).permit(
       :title, :description, :starts_at, :ends_at, :all_day, :timezone,
-      :parent_entry_id, :game_id, :project_id,
+      :parent_entry_id, :game_id,
       :manual_date_override, :release_precision,
       :tba_remind_monthly, :notify_anyway, metadata: {}
     )

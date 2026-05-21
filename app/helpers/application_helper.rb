@@ -14,8 +14,11 @@ module ApplicationHelper
   # design.md table):
   #   home / dashboard / fallback -> "home"     (Dracula Purple)
   #   channels + videos           -> "channels" (Dracula Red)
-  #   projects + games            -> "games"    (Pale Cobalt)
+  #   games                       -> "games"    (Pale Cobalt)
   #   settings                    -> "settings" (Dracula Orange)
+  #
+  # D18 (2026-05-21) — Projects dropped from the "games" bucket along
+  # with the Project model.
   #
   # `controller_path` is matched both for top-level (e.g. `channels`,
   # `games`) and nested namespaces (e.g. `channels/stars`,
@@ -63,7 +66,7 @@ module ApplicationHelper
     case path
     when "channels", %r{\Achannels/}, "videos", %r{\Avideos/}
       "channels"
-    when "games", %r{\Agames/}, "projects", %r{\Aprojects/}
+    when "games", %r{\Agames/}
       "games"
     else
       "home"
@@ -197,21 +200,17 @@ module ApplicationHelper
   # same rendering pipeline so they line up at the pixel level.
   #
   # Used by the index pages whose order is driven by URL state — see
-  # `ChannelsController` and `VideosController`. The `/projects` index
-  # predates this helper and ships its own inline lambda; the helper is
-  # written so it could absorb that view later without behavior change.
+  # `ChannelsController` and `VideosController`.
   #
   # `current_sort` / `current_dir` come from the controller (`@sort` /
   # `@dir`) so the indicator and the next-direction calculation reflect
   # what the page is actually rendering, not the raw `params`.
   #
   # `sort_param:` / `dir_param:` allow a page to host more than one
-  # independently sortable table. The project show page, for example,
-  # hosts both a footage table (default `sort` / `dir` params) and a
-  # notes table (namespaced `notes_sort` / `notes_dir`) — passing
-  # `sort_param: "notes_sort", dir_param: "notes_dir"` keeps each
-  # table's URL state distinct while preserving the other's params on
-  # each click.
+  # independently sortable table on the same screen. Each independent
+  # table can pass distinct param names (e.g. `sort_param: "left_sort",
+  # dir_param: "left_dir"`) so URL state stays distinct while preserving
+  # the other table's params on each click.
   #
   # Dual-arrow fix (2026-05-06, refined 2026-05-06 polish-2): the active
   # column's link carries a `.sort-asc` / `.sort-desc` class. The
@@ -258,12 +257,7 @@ module ApplicationHelper
     case type
     when "channel"    then channels_path
     when "video"      then videos_path
-    when "project"    then projects_path
     when "game"       then games_path
-    # Notes/timelines have no top-level user-facing index — fall back to
-    # the projects index, the closest reasonable parent.
-    when "note"       then projects_path
-    when "timeline"   then projects_path
     # 2026-05-18 — `/bundles` index removed. Bundles are reachable
     # only via the /games bundle shelf + modal flow; cancel/back
     # destinations fall back to /games.
@@ -299,7 +293,6 @@ module ApplicationHelper
   #   - `games#show`     -> @game.title (e.g. "Witcher 3: Wild Hunt")
   #   - `channels#show`  -> @channel.title or @channel.handle or url tail
   #   - `videos#show`    -> @video.title
-  #   - `projects#show`  -> @project.name
   #   - anything else    -> nil (no `:(...)` segment)
   #
   # We deliberately depend on the controller's instance variables here
@@ -324,9 +317,6 @@ module ApplicationHelper
     when "videos"
       video = instance_variable_get(:@video)
       video.respond_to?(:title) ? video.title.presence : nil
-    when "projects"
-      project = instance_variable_get(:@project)
-      project.respond_to?(:name) ? project.name.presence : nil
     end
   end
 

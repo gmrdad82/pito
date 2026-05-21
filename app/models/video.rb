@@ -29,11 +29,10 @@ class Video < ApplicationRecord
   # checklist. The Path A2 thin retract is reversed: Video carries the
   # YouTube Data API v3 writable subset (title, description, tags,
   # category_id, privacy_status, publish_at, ...) plus the four
-  # pre-publish-checklist booleans + completion timestamp. Project
-  # relation is direct via `project_id` (Timeline intermediary stays
-  # dropped per realignment Resolved ambiguity #1).
+  # pre-publish-checklist booleans + completion timestamp.
+  #
+  # D18 (2026-05-21) — Projects dropped; `belongs_to :project` removed.
   belongs_to :channel
-  belongs_to :project, optional: true
   belongs_to :youtube_connection, optional: true
 
   has_many :video_stats, dependent: :destroy
@@ -131,7 +130,7 @@ class Video < ApplicationRecord
   WRITABLE_FIELDS = %i[
     title description tags category_id
     self_declared_made_for_kids contains_synthetic_media
-    privacy_status publish_at project_id
+    privacy_status publish_at
   ].freeze
 
   # Q12 lock — switch to case-sensitive uniqueness. YouTube IDs are

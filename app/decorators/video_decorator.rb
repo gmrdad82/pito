@@ -34,7 +34,6 @@ class VideoDecorator < ApplicationDecorator
       thumbnail_url: thumbnail_url,
       publish_at: publish_at&.iso8601,
       duration_seconds: duration_seconds,
-      project_id: project_id,
       self_declared_made_for_kids: YesNo.to_yes_no(self_declared_made_for_kids),
       made_for_kids_effective: YesNo.to_yes_no(made_for_kids_effective),
       contains_synthetic_media: YesNo.to_yes_no(contains_synthetic_media),

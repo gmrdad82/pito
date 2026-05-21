@@ -18,7 +18,7 @@
 #   - .permit(params) — Action Controller-friendly helper.
 module VideoPolicy
   EDITABLE_ATTRS = %i[
-    title description category_id project_id
+    title description category_id
     self_declared_made_for_kids contains_synthetic_media
     thumbnail
   ].freeze

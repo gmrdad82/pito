@@ -24,9 +24,6 @@
   <% if @video.title.present? %>
     <p style="margin-bottom: 4px;"><strong><%= @video.title %></strong></p>
   <% end %>
-  <% if @video.project.present? %>
-    <p style="margin-bottom: 4px;">part of project: <%= link_to @video.project.name, project_path(@video.project) %></p>
-  <% end %>
   <% if @video.imported? %>
     <p class="text-muted" style="margin-bottom: 4px;">imported</p>
   <% end %>

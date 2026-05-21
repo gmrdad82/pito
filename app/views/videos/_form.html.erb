@@ -1,9 +1,12 @@
 <%# Phase 12 — video edit form fragment. Surfaces the writable
       subset (title, description, tags, category_id,
-      self_declared_made_for_kids, contains_synthetic_media,
-      project_id). Privacy and publish_at are read-only here — the
+      self_declared_made_for_kids, contains_synthetic_media).
+      Privacy and publish_at are read-only here — the
       [publish] / [schedule] / [unpublish] CTAs above the form
       are the only paths that change them.
+
+      D18 (2026-05-21) — Projects dropped; the `project_id`
+      dropdown is gone.
 
       Phase 11 §01a — multipart upload (thumbnail attachment) +
       nested attributes for chapters and end-screens. The single
@@ -119,14 +122,6 @@
       <li>paid promotion &mdash; <%= render(BracketedLinkComponent.new(label: "open in studio", href: video.studio_url)) %></li>
       <li>end screen &mdash; <%= render(BracketedLinkComponent.new(label: "open in studio", href: video.studio_url)) %></li>
     </ul>
-  </fieldset>
-
-  <fieldset style="margin-bottom: 12px;">
-    <legend>project</legend>
-    <%= f.select :project_id,
-                 [ [ "(none)", nil ] ] + @projects.map { |p| [ p.name, p.id ] },
-                 { include_blank: false },
-                 { style: "max-width: 320px;" } %>
   </fieldset>
 
   <% if video.last_sync_error.present? %>

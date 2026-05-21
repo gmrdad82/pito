@@ -27,9 +27,10 @@ The app's mental shape: see how videos are doing, what games to play
 next, server health, when to publish without competing across channels,
 is this game good for this channel.
 
-**Four screens, full stop.** Calendar + Notifications fold into Home.
-Channels fold into Videos. Bundles + Projects + Footage fold into Games.
-Notes are dropped entirely.
+**Three screens, full stop.** Settings is dropped — its panels (security,
+notifications, stack, logging, time zone) redistribute into Home.
+Calendar + Notifications also live on Home. Channels fold into Videos.
+Bundles + Footage fold into Games. Projects + Notes are dropped entirely.
 
 For system, model, action-bus, cable details → `docs/architecture.md`.
 For visual, keybinding, terminology contract → `docs/design.md`.
@@ -161,11 +162,22 @@ domain they feed.
 - `Pito::SlugBuilder`, `Pito::TimeZone`, `Pito::TokenDigest`,
   `Pito::PublicHosts`, `Pito::AssetsRoot`, `Pito::SafeEach` — utilities
 
-### Screen-owned service namespace
+### Home screen — under `Pito::*`
 
-- `Settings::*` — settings-screen services (e.g., `Settings::Stack::HealthState`).
-  Not under `Pito::*` — Settings is a dedicated screen and owns its
-  service namespace top-level, symmetric with `Video::*` / `Game::*`.
+Home is not a "domain" — it's the dashboard + system-monitoring surface.
+It has no `Home::*` namespace. Home's services live under `Pito::*` (the
+cross-cutting namespace IS home's namespace). The ex-settings panel
+services (e.g., `Pito::Stack::HealthState` — formerly
+`Settings::Stack::HealthState`) live here.
+
+Home's panel ViewComponents live directly under `Pito::*PanelComponent`
+(NOT `Screen::Home::*PanelComponent`). Examples:
+`Pito::SecurityPanelComponent`, `Pito::StackPanelComponent`,
+`Pito::NotificationsPanelComponent`, `Pito::CalendarPanelComponent`,
+`Pito::AggregatorPanelComponent`, `Pito::PersonalStatsPanelComponent`,
+`Pito::ApiQuotaPanelComponent`.
+
+Settings as a namespace is gone for good.
 
 ### Domain layer (singular)
 
@@ -186,17 +198,17 @@ domain they feed.
 
 ### Screen layer (Panel-as-ViewComponent)
 
-Every panel = one ViewComponent class under
-`Screen::<screen>::<name>PanelComponent`.
+Three screens, three ViewComponent namespaces:
 
-- `Screen::Home::*` — Aggregator, Calendar, Notifications, PersonalStats,
-  ApiQuota panels
-- `Screen::Videos::*` — List, Edit, Analytics, ThumbnailPreview,
-  ScheduleConflict panels
-- `Screen::Games::*` — Catalog, Detail, Bundles, BundleDetail, Footage
-  panels
-- `Screen::Settings::*` — Security, Notifications, Stack (+ sub-panels),
-  Logging, TimeZone panels
+- **Home (`/`) → `Pito::*PanelComponent`** (no `Screen::Home::` wrapper).
+  Panels include: Security, Notifications (delivery channels), Stack
+  (+ sub-panels), Logging, TimeZone (ex-settings), plus Aggregator,
+  Calendar, NotificationsFeed (in-app), PersonalStats, ApiQuota
+  (home-native).
+- **Videos (`/videos`) → `Screen::Videos::*PanelComponent`** — List,
+  Edit, Analytics, ThumbnailPreview, ScheduleConflict.
+- **Games (`/games`) → `Screen::Games::*PanelComponent`** — Catalog,
+  Detail, Bundles, BundleDetail, Footage.
 
 Each Panel VC owns:
 - `focusables` method (ordered Ruby array)
@@ -404,9 +416,9 @@ named agent fits.
 
 ## CLI + MCP scope
 
-- **CLI** (`extras/cli/`, Rust + Ratatui) — **100% web parity**. Every
-  screen, panel, sub-panel that the web app has, the TUI also renders.
-  Screen export rake task derives Ratatui spec from each Panel VC.
+- **CLI** (`extras/cli/`, Rust + Ratatui) — **100% web parity**. The 3
+  screens (home / videos / games) all render in the TUI. Screen export
+  rake task derives Ratatui spec from each Panel VC.
 - **MCP** (`mcp.pitomd.com`, parked) — **narrower scope, analytics-first**.
   Initial surface: `Pito::Analytics::*` + `Channel::Analytics::*` +
   `Video::Analytics::*`. Other tools added as needs surface.

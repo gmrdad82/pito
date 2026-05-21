@@ -1,5 +1,5 @@
 <% content_for(:title, "edit footage") %>
-<% breadcrumb(["projects", projects_path], [@footage.project.name, project_path(@footage.project)], @footage.filename) %>
+<% breadcrumb(["footage", footages_path], @footage.filename, "edit") %>
 
 <h1>edit <%= @footage.filename %></h1>
 
@@ -46,7 +46,7 @@
 
     <div style="display: flex; gap: 6px;">
       <button type="submit">[<b>update</b>]</button>
-      <%= render(BracketedLinkComponent.new(label: "cancel", href: project_path(@footage.project))) %>
+      <%= render(BracketedLinkComponent.new(label: "cancel", href: footage_path(@footage))) %>
     </div>
   <% end %>
 </div>

@@ -28,16 +28,11 @@
         <% when "project" %>
           <th>name</th>
           <th class="num">footage</th>
-          <th class="num">notes</th>
           <th class="num">timelines</th>
         <% when "game" %>
           <th><%= t("deletions.show.col.title") %></th>
           <th><%= t("deletions.show.col.publisher") %></th>
           <th><%= t("deletions.show.col.bundles") %></th>
-        <% when "note" %>
-          <th>title</th>
-          <th>project</th>
-          <th class="num">last modified</th>
         <% when "timeline" %>
           <th>title</th>
           <th>project</th>
@@ -80,7 +75,6 @@
           <% when "project" %>
             <td><%= item.name %></td>
             <td class="num"><%= number_with_delimiter(item.footages.count) %></td>
-            <td class="num"><%= number_with_delimiter(item.notes.count) %></td>
             <td class="num"><%= number_with_delimiter(item.timelines.count) %></td>
           <% when "game" %>
             <td><%= item.title %></td>
@@ -89,10 +83,6 @@
               <% names = item.bundles.order(:name).pluck(:name) %>
               <%= names.any? ? names.join(", ") : t("common.em_dash") %>
             </td>
-          <% when "note" %>
-            <td><%= item.title %></td>
-            <td><%= item.project.name %></td>
-            <td class="num"><%= item.last_modified_at&.strftime("%Y-%m-%d %H:%M") %></td>
           <% when "timeline" %>
             <td><%= item.title %></td>
             <td><%= item.project.name %></td>

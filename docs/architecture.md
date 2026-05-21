@@ -244,10 +244,15 @@ VectorSimilarity, TopK, HmsScorer, WeightedBlend),
 `Pito::ExternalApiTracker::*` (Youtube, Igdb, Voyage),
 `Pito::Schedule::Conflict`, `Pito::SlugBuilder`, `Pito::TimeZone`, etc.
 
-### Screen-owned services
+### Home services live under `Pito::*`
 
-- `Settings::*` — settings-screen services (`Settings::Stack::HealthState`,
-  …). Top-level, not under `Pito::*`. Symmetric with domain namespaces.
+Home is not a domain — it's the dashboard + system-monitoring surface.
+No `Home::*` namespace. Home's services live under `Pito::*` (same
+namespace as cross-cutting infrastructure). Ex-settings services
+(`Pito::Stack::HealthState`, etc.) live here.
+
+`Settings::*` is gone for good (Settings screen + namespace both
+dropped).
 
 ### Domain layer (singular)
 
@@ -270,8 +275,11 @@ VectorSimilarity, TopK, HmsScorer, WeightedBlend),
 
 ### Screen layer
 
-`Screen::Home::*`, `Screen::Videos::*`, `Screen::Games::*`,
-`Screen::Settings::*` — Panel-as-VC per `CLAUDE.md`.
+Three screens. Panel-as-VC per `CLAUDE.md`:
+
+- **Home (`/`)** → `Pito::*PanelComponent` (no `Screen::Home::` wrapper)
+- **Videos (`/videos`)** → `Screen::Videos::*PanelComponent`
+- **Games (`/games`)** → `Screen::Games::*PanelComponent`
 
 ### UI primitive layer
 

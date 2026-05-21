@@ -205,13 +205,9 @@ Rails.application.routes.draw do
          to: "videos/retention_refresh#create",
          as: :retention_refresh
   end
-  # Phase 4 — Project Workspace. Phase A landed the route shells; Phase B
-  # fills in the controller bodies and adds nested create routes for notes
-  # and timelines (default-create lives on the parent project — §6.2/§11.1).
-  resources :projects do
-    resources :notes, only: [ :create ]
-    resources :timelines, only: [ :create ]
-  end
+  # Phase 4 — Project Workspace dropped 2026-05-21 (D18). Footage now
+  # attaches directly to Game; Timeline + ProjectReference were Project-
+  # only models so they were dropped alongside Projects.
   # Phase 27 follow-up (2026-05-17) — `resources :collections` and the
   # `:games_pane` member action were removed along with the Collection
   # model. The `/games` page's former "collections shelf" is now a
@@ -364,34 +360,10 @@ Rails.application.routes.draw do
       as: :footage_frame_thumb,
       constraints: { filename: /\d{2}-\d{2}-\d{2}/ },
       defaults: { format: "jpg" }
-  # Phase B post-commit (2026-05-04) — Note revamp. The note editor is now
-  # a single screen (no /edit) — `GET /notes/:id` renders the two-pane
-  # editor directly. `/edit` and `/new` are intentionally absent.
-  #
-  # Phase 20 — friendly URLs. Notes resolve by their on-disk `path`
-  # (which can include slashes when nested). Routes use a `*path` glob
-  # so `/notes/projects/foo/bar.md` reaches the controller intact. Bulk
-  # actions still go through `/deletions/note/:ids` (numeric ids).
-  resources :notes, only: %i[index] do
-    collection do
-      # Phase 4 §6.4 — `[ scan now ]` enqueues NoteSyncJob.
-      post :scan
-    end
-  end
-  # Phase 20 — friendly URLs. `/*path` glob keeps slash-bearing
-  # Note#path values intact (e.g. `subdir/file.md`). Setting
-  # `format: false` prevents the `.md` suffix in the path from
-  # being parsed as a Rails format token (which would 406 against
-  # the controller's implicit HTML render); the controller's
-  # `respond_to do |format|` block still honors the `Accept`
-  # header so JSON request specs continue to receive JSON.
-  scope :notes, as: :note do
-    get    "/*path", to: "notes#show",    constraints: { path: /.+/ }, format: false
-    patch  "/*path", to: "notes#update",  constraints: { path: /.+/ }, format: false
-    put    "/*path", to: "notes#update",  constraints: { path: /.+/ }, format: false
-    delete "/*path", to: "notes#destroy", constraints: { path: /.+/ }, format: false
-  end
-  resources :timelines, only: [ :index, :show, :update, :destroy ]
+  # Notes routes dropped 2026-05-21 (D17). The Note model + controller +
+  # editor screen + filesystem mirror were all removed; deletions of
+  # `note` type via `/deletions/note/:ids` no longer apply.
+  # Timeline routes dropped 2026-05-21 (D18) alongside Projects.
 
   # Importer download endpoint — single controller, branches on Rails.env
   # in Phase B. Route shell lands now (§14 step 8 ordering); controller body
@@ -400,15 +372,13 @@ Rails.application.routes.draw do
       to: "footage_importer/downloads#show",
       as: :footage_importer_download
 
-  # Nested JSON API for the importer (Phase B). All four CRUD verbs live
-  # under `/api/` for symmetry — collection actions on the project-nested
-  # path, member actions on the flat `/api/footages/:id` path. The HTML
-  # edit/destroy flow stays at the top-level `/footages/:id` (no .json).
+  # JSON API for the importer (Phase B). 2026-05-21 (D18) — Projects
+  # dropped; the importer index/create now live on the flat `/api/footages`
+  # collection routes. Member actions (update/destroy/frames) stay at
+  # `/api/footages/:id`. The HTML edit/destroy flow stays at the top-level
+  # `/footages/:id` (no .json).
   namespace :api do
-    resources :projects, only: [] do
-      resources :footages, only: [ :index, :create ]
-    end
-    resources :footages, only: [ :update, :destroy ] do
+    resources :footages, only: [ :index, :create, :update, :destroy ] do
       member do
         # Phase 7.5 §06 — bulk frame upload from the importer. Bearer-
         # authenticated via `Api::AuthConcern`. CLI integration tests

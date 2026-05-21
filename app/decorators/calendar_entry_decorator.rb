@@ -26,7 +26,6 @@ class CalendarEntryDecorator < ApplicationDecorator
       game_id: game_id,
       video_id: video_id,
       channel_id: channel_id,
-      project_id: project_id,
       milestone_rule_id: milestone_rule_id
     }
   end

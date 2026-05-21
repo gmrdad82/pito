@@ -1328,7 +1328,6 @@ body[data-modal-open] {
    horizontal-overflow opt-ins. */
 .pane-strip,
 .saved-views-list,
-.markdown-preview pre,
 .themed-scroll-x,
 .shelf-row {
   scrollbar-width: thin;
@@ -3486,129 +3485,14 @@ code.inline-code {
   vertical-align: bottom;
 }
 
-/* Phase B post-commit (2026-05-04) — Note revamp.
-   Two-pane editor on /notes/:id — preview pane (markdown rendered) +
-   source pane (textarea + status bar). Heights match so the panes
-   line up; the status bar floats at the bottom-right of the source
-   pane, mirroring the Meilisearch stat-line pattern.
+/* Note editor CSS dropped 2026-05-21 (D17). The two-pane markdown editor
+   (`/notes/:id`), the `.markdown-preview` + `.markdown-status` rules,
+   and the `pane-container--note-editor` / `pane--note-source` overrides
+   are all gone alongside the Notes feature.
 
-   .markdown-preview enforces sane defaults so commonmarker / marked
-   output renders cleanly inside a pane (now flex-sized 50% up to a
-   600px cap, was a flat 640px): tight margins on block elements,
-   monospace `code` blocks, mute the muted-but-still readable font
-   weight on rendered headings (the page already uses monospace;
-   rendered <h1>..<h6> use the same family).
-*/
-.markdown-preview {
-  font-family: var(--font-mono, ui-monospace);
-  font-size: 13px;
-  line-height: 1.45;
-  overflow-wrap: break-word;
-}
-
-/* Note editor source textarea. Grows with its content via the modern
-   CSS-only `field-sizing: content` (Chromium 123+, Firefox 130+). No
-   min-height, no overflow trick, no JS autogrow — when the content
-   gets tall, the pane gets tall, the page scrolls. Just like every
-   other pane that holds taller content. */
-textarea.note-editor-source {
-  resize: none;
-  field-sizing: content;
-  padding: 10px 12px;
-}
-.markdown-preview h1,
-.markdown-preview h2,
-.markdown-preview h3,
-.markdown-preview h4,
-.markdown-preview h5,
-.markdown-preview h6 {
-  margin-top: 12px;
-  margin-bottom: 6px;
-  font-weight: bold;
-}
-/* The first rendered element sits flush with the pane's top padding —
-   no double-up between the wrapper's `padding-top` and the heading's
-   own `margin-top`. */
-.markdown-preview > :first-child {
-  margin-top: 0;
-}
-.markdown-preview p { margin: 0 0 8px 0; }
-.markdown-preview ul,
-.markdown-preview ol { margin: 0 0 8px 16px; padding: 0; }
-.markdown-preview li { margin-bottom: 2px; }
-.markdown-preview code {
-  background-color: var(--color-bg-alt);
-  padding: 1px 4px;
-  border-radius: 0;
-}
-.markdown-preview pre {
-  background-color: var(--color-bg-alt);
-  padding: 8px;
-  overflow-x: auto;
-  margin: 0 0 8px 0;
-}
-.markdown-preview pre code {
-  background-color: transparent;
-  padding: 0;
-}
-.markdown-preview blockquote {
-  border-left: 2px solid var(--color-border);
-  margin: 0 0 8px 0;
-  padding-left: 8px;
-  color: var(--color-muted);
-}
-/* Note editor — overflow override so the sticky words status pins to the
-   viewport's bottom (not the pane-row's, which would be a no-op when its
-   bottom edge is itself off-screen). `.pane-row` is `display: flex` with
-   `flex-wrap: wrap`; `overflow: visible` keeps sticky propagating up to
-   the viewport.
-
-   Only applied to the note editor instance via the `pane-container--note-editor`
-   modifier on the `.pane-row` parent — every other pane row in the app
-   keeps the default `overflow: visible` from `.pane-row` already. Kept
-   explicit here so future changes to `.pane-row` don't quietly regress
-   the sticky behavior. */
-.pane-container--note-editor {
-  overflow: visible;
-}
-
-/* Source pane on /notes/:id — flex column so the .markdown-status can
-   sit naturally at the end of the pane (after the textarea) AND
-   align-self to the right edge. The textarea grows with content; the
-   status sticks to the viewport bottom while any part of this pane is
-   on screen. */
-.pane--note-source {
-  display: flex;
-  flex-direction: column;
-}
-
-/* Words counter — sticks to the bottom of the source pane while the
-   user scrolls a long note. Spans the full width of the pane (negative
-   12px margins on each side cancel the pane's symmetric 12px padding)
-   with the text right-aligned. Opaque background reuses the body's
-   `--color-bg-tint` so scrolled-up content doesn't bleed through; top
-   border separates it from the textarea above.
-
-   `margin-top: auto` pushes the bar to the bottom of the source pane
-   when the pane is stretched taller than its textarea (e.g. short note
-   with a tall preview on the left). Combined with `position: sticky;
-   bottom: 0`, the bar then pins to the viewport bottom while any part
-   of the source pane is on screen.
-
-   2026-05-20 — was the pane-b tone; pane backgrounds were removed
-   app-wide. The bar paints the body bg-tint to keep its opaque
-   scroll-cover behavior. */
-.markdown-status {
-  font-size: 11px;
-  text-align: right;
-  position: sticky;
-  bottom: 0;
-  background: var(--color-bg-tint);
-  border-top: 1px solid var(--color-border);
-  padding: 4px 12px;
-  margin: auto -12px -12px -12px;
-  z-index: 1;
-}
+   The webhook help dialog still renders markdown via
+   `ApplicationHelper#render_markdown` but uses its own `.help-dialog__*`
+   typography — it never depended on `.markdown-preview`. */
 
 /* Chart HTML legend — rendered as a sibling of the Chartkick wrapper so
    the canvas plot area stays at a fixed height regardless of how many
