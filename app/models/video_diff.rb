@@ -1,8 +1,8 @@
 # Phase 23 — Step 23a (Video Sync + Diff Dialog).
 #
 # Open-diff registry. Created / updated by the daily diff-check job
-# (`VideoDiffCheckJob`) via `Youtube::VideoDiffPersister`; resolved by
-# `Youtube::VideoDiffApply` when the user submits the per-field
+# (`VideoDiffCheckJob`) via `Channel::Youtube::VideoDiffPersister`; resolved by
+# `Channel::Youtube::VideoDiffApply` when the user submits the per-field
 # decision form.
 #
 # Per locked Q2: KEEP ALL resolved diffs as audit history. No expiry

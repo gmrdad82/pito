@@ -8,7 +8,7 @@
 #      so this doesn't re-fire bundle composite rebuilds or any
 #      `after_save` chain).
 #   2. Push the Game's document — including the freshly written
-#      vector — into Meilisearch via `Meilisearch::GameIndexer`.
+#      vector — into Meilisearch via `Game::MeilisearchIndexer`.
 #
 # Gating: matches the `Notes::EmbedJob` pattern — `voyage_configured?`
 # gates the Voyage call. When the API key is blank the embedding
@@ -39,7 +39,7 @@ class Game
       return if @game.title.to_s.strip.blank? && @game.summary.to_s.strip.blank?
 
       embed_and_persist if AppSetting.voyage_configured?
-      Meilisearch::GameIndexer.call(@game.reload)
+      Game::MeilisearchIndexer.call(@game.reload)
     end
 
     private
@@ -80,7 +80,7 @@ class Game
     # similar-games + recommended-bundles clustering picks up alt-name
     # signal (series identifiers, localized names, marketing aliases).
     # Mirrors the searchable-attributes addition in
-    # `Meilisearch::GameIndexer::SEARCHABLE_ATTRIBUTES`. The alt names
+    # `Game::MeilisearchIndexer::SEARCHABLE_ATTRIBUTES`. The alt names
     # are joined with single spaces inside their slot (they are short
     # tokens, not prose) before being em-dash-joined with the title +
     # summary slots.

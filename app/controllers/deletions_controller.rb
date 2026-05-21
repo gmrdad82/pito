@@ -77,7 +77,7 @@ class DeletionsController < ApplicationController
       return
     end
 
-    result = Youtube::DisconnectChannel.call(channel_ids: ids)
+    result = Channel::Youtube::DisconnectChannel.call(channel_ids: ids)
     n = result.disconnected_channel_ids.length
     redirect_to channels_path,
                 notice: "revoked #{n} channel#{'s' if n != 1}."

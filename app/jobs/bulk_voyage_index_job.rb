@@ -96,7 +96,7 @@ class BulkVoyageIndexJob < ApplicationJob
     return if records.empty?
 
     sync_to_search(records, text_for: ->(g) { game_text(g) }) do |record|
-      Meilisearch::GameIndexer.call(record.reload)
+      Game::MeilisearchIndexer.call(record.reload)
     end
   end
 
@@ -110,7 +110,7 @@ class BulkVoyageIndexJob < ApplicationJob
     return if records.empty?
 
     sync_to_search(records, text_for: ->(b) { bundle_text(b) }) do |record|
-      Meilisearch::BundleIndexer.call(record.reload, embedding: record.summary_embedding)
+      Bundle::MeilisearchIndexer.call(record.reload, embedding: record.summary_embedding)
     end
   end
 

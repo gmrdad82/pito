@@ -227,19 +227,19 @@ class YoutubeConnections::OauthCallbacksController < ApplicationController
   def discover_and_link_channels(connection)
     items = []
     begin
-      response = Youtube::Client.new(connection).channels_list(
+      response = Channel::Youtube::Client.new(connection).channels_list(
         mine: true, parts: %i[snippet statistics]
       )
       items = Array(response[:items])
-    rescue Youtube::QuotaExhaustedError
+    rescue Channel::Youtube::QuotaExhaustedError
       audit("youtube_connection.callback.discovery_failed",
             connection_id: connection.id, reason: "quota_exhausted")
       return { added: [], duplicates: [], error: "quota exceeded" }
-    rescue Youtube::NeedsReauthError
+    rescue Channel::Youtube::NeedsReauthError
       audit("youtube_connection.callback.discovery_failed",
             connection_id: connection.id, reason: "needs_reauth")
       return { added: [], duplicates: [], error: "needs reauth" }
-    rescue Youtube::TransientError
+    rescue Channel::Youtube::TransientError
       audit("youtube_connection.callback.discovery_failed",
             connection_id: connection.id, reason: "transient")
       return { added: [], duplicates: [], error: "service temporarily unavailable" }

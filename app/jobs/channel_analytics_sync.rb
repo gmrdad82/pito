@@ -1,6 +1,6 @@
 # Phase 13.2 — Analytics sync engine. Per-channel job. Runs C1, C2
 # (×4 windows), C3 (×4 windows). C4 / C5 are deferred (NotImplemented
-# stubs in `Youtube::AnalyticsClient`).
+# stubs in `Channel::Youtube::AnalyticsClient`).
 #
 # Idempotent via the analytics tables' UNIQUE (composite-key) indexes
 # — `upsert_all` resolves conflicts by overwriting the existing row.
@@ -14,7 +14,7 @@ class ChannelAnalyticsSync
   sidekiq_options queue: "analytics", retry: 5
 
   REFRESH_DAYS = 3
-  WINDOWS = Youtube::AnalyticsQueryBuilder::WINDOWS
+  WINDOWS = Channel::Youtube::AnalyticsQueryBuilder::WINDOWS
 
   def perform(channel_id)
     channel = Channel.find_by(id: channel_id)
@@ -23,7 +23,7 @@ class ChannelAnalyticsSync
     connection = channel.youtube_connection
     return if connection.nil? || connection.needs_reauth?
 
-    client = Youtube::AnalyticsClient.new(connection: connection)
+    client = Channel::Youtube::AnalyticsClient.new(connection: connection)
     today = client.today_pt
     from = today - REFRESH_DAYS
     to = today - 1
@@ -38,7 +38,7 @@ class ChannelAnalyticsSync
       sync_top_videos(client, channel, window: window, today: today)
       return if connection.reload.needs_reauth?
     end
-  rescue Youtube::AnalyticsClient::AuthError
+  rescue Channel::Youtube::AnalyticsClient::AuthError
     # Audit row already written; connection.needs_reauth flipped.
     Rails.logger.warn(
       "[analytics-sync] channel #{channel_id} skipped — connection #{connection&.id} needs reauth"
@@ -99,7 +99,7 @@ class ChannelAnalyticsSync
     return [] if response[:rows].empty?
 
     pairs = header_names(response[:column_headers]).zip(response[:rows].first).to_h
-    from, to = Youtube::AnalyticsQueryBuilder.window_range(window, today)
+    from, to = Channel::Youtube::AnalyticsQueryBuilder.window_range(window, today)
     [
       {
         channel_id: channel.id,

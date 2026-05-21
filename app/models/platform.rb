@@ -103,7 +103,7 @@ class Platform < ApplicationRecord
   scope :canonical, -> { unscoped.where(slug: CANONICAL_SLUGS).order(:slug) }
 
   # "Ships on" join (multi-valued IGDB-driven set). Populated by
-  # `Igdb::SyncGame#sync_platforms`. Renamed from `:games` so the
+  # `Game::Igdb::SyncGame#sync_platforms`. Renamed from `:games` so the
   # ownership-through-join can claim the plural `:games` name.
   has_many :game_platforms, dependent: :destroy
   has_many :games_available, through: :game_platforms, source: :game

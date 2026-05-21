@@ -4,7 +4,7 @@
 # into the dedicated `channels_<env>` Meilisearch index. Used after:
 #   - Initial Channel-search rollout (existing channels need their
 #     first index pass).
-#   - A `Meilisearch::ChannelIndexer` attribute-list change that
+#   - A `Channel::MeilisearchIndexer` attribute-list change that
 #     requires a forced reconfigure across the whole corpus.
 #   - Operator-triggered "rebuild channel search" workflow.
 #
@@ -19,7 +19,7 @@ namespace :pito do
     task reindex_channels: :environment do
       total = Channel.count
       Channel.find_each.with_index(1) do |channel, idx|
-        Meilisearch::ChannelIndexer.new(channel).call
+        Channel::MeilisearchIndexer.new(channel).call
         puts "[#{idx}/#{total}] indexed channel #{channel.id}"
       end
     end

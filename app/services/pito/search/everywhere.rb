@@ -8,9 +8,9 @@
 #
 # Three sources, queried independently:
 #
-#   * games    — `Meilisearch::SearchGames` (unified `games_<env>` index,
+#   * games    — `Pito::Search::SearchGames` (unified `games_<env>` index,
 #                kind=game discriminator) — returns Game records.
-#   * bundles  — `Meilisearch::SearchGames` (same unified call, kind=bundle
+#   * bundles  — `Pito::Search::SearchGames` (same unified call, kind=bundle
 #                discriminator + `include_bundles: true`) — returns Bundle
 #                records.
 #   * channels — `Pito::Search.engine.search(Channel, ...)` against the
@@ -23,7 +23,7 @@
 #     path derives the index name from the model class, so calling it
 #     with `Bundle` would target a `bundles_<env>` index that does not
 #     exist, and the `deserialize_hit` `find_by(id:)` step cannot resolve
-#     namespaced string ids back to Bundle rows. `Meilisearch::SearchGames`
+#     namespaced string ids back to Bundle rows. `Pito::Search::SearchGames`
 #     already handles this split correctly (per `kind`, with id stripping
 #     for bundles, plus a Postgres ILIKE fallback). Reusing it preserves
 #     the orchestrator's "query each source independently" intent without
@@ -75,14 +75,14 @@ module Pito
 
       private
 
-      # Delegates to `Meilisearch::SearchGames` with `include_bundles:
+      # Delegates to `Pito::Search::SearchGames` with `include_bundles:
       # false` (games-only). The returned `:games` array is Meilisearch
       # ranking + Postgres ILIKE fallback merged uniques, capped at
       # `@per_page`. `:total` mirrors the array length — Meilisearch's
       # estimated-total figure is not surfaced by SearchGames; the cap is
       # the practical ceiling the UI shows anyway.
       def search_games
-        result = Meilisearch::SearchGames.call(
+        result = Pito::Search::SearchGames.call(
           @query, include_bundles: false, limit: @per_page
         )
         games = Array(result[:games])
@@ -92,14 +92,14 @@ module Pito
         { hits: [], total: 0, took_ms: 0.0, error: e.class.name }
       end
 
-      # Delegates to `Meilisearch::SearchGames` with `include_bundles:
+      # Delegates to `Pito::Search::SearchGames` with `include_bundles:
       # true` and slices off the `:bundles` half of the envelope. The
       # `:games` half is discarded here because `search_games` already
       # owns that source — two calls to SearchGames keep the per-source
       # error isolation intact (a bundle-side failure must not blank the
       # games section and vice versa).
       def search_bundles
-        result = Meilisearch::SearchGames.call(
+        result = Pito::Search::SearchGames.call(
           @query, include_bundles: true, limit: @per_page
         )
         bundles = Array(result[:bundles])

@@ -8,7 +8,7 @@
 # the latest snapshot.
 #
 # Quota-aware: a 401 from the Analytics API flips
-# `connection.needs_reauth` (via `Youtube::AnalyticsClient::AuthError`)
+# `connection.needs_reauth` (via `Channel::Youtube::AnalyticsClient::AuthError`)
 # and exits cleanly. A 403 (quota exhausted) raises and bubbles up to
 # Sidekiq's retry policy — `sidekiq_options retry: 0` would burn the
 # job; we let the default retry/backoff carry it through so the daily
@@ -29,7 +29,7 @@ class VideoViewerTimeSyncJob
     connection = channel.youtube_connection
     return if connection.nil? || connection.needs_reauth?
 
-    client = Youtube::AnalyticsClient.new(connection: connection)
+    client = Channel::Youtube::AnalyticsClient.new(connection: connection)
     today = client.today_pt
     from = today - days.to_i
     to = today - 1
@@ -42,7 +42,7 @@ class VideoViewerTimeSyncJob
       rows,
       unique_by: %i[video_id day_of_week_utc hour_of_day_utc]
     )
-  rescue Youtube::AnalyticsClient::AuthError
+  rescue Channel::Youtube::AnalyticsClient::AuthError
     Rails.logger.warn(
       "[viewer-time-sync] video #{video_id} skipped — connection " \
       "#{connection&.id} needs reauth"

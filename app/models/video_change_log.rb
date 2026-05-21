@@ -2,7 +2,7 @@
 #
 # Append-only audit row recording one applied field change from a
 # resolved `VideoDiff`. Created exclusively by the apply orchestrator
-# (`Youtube::VideoDiffApply`) after a successful per-field decision
+# (`Channel::Youtube::VideoDiffApply`) after a successful per-field decision
 # round-trip.
 #
 # Append-only enforcement: persisted rows are read-only at the model

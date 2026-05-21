@@ -17,7 +17,7 @@
 # Filter: `where.not(summary: nil)` excludes the unsynced rows that
 # have nothing to embed yet. A row with a title-only would also be
 # embeddable but its signal-to-noise is poor; the IGDB-sync hook
-# (`Igdb::SyncGame#call` success path) will pick those up the next
+# (`Game::Igdb::SyncGame#call` success path) will pick those up the next
 # time they re-sync.
 namespace :pito do
   namespace :voyage do

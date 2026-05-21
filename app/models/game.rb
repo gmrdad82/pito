@@ -1,10 +1,10 @@
 # Phase 14 §1 — Game model. IGDB-backed metadata + local-only fields.
 #
 # Phase 27 v2 spec 03 — field partition LOCKED. The sync job
-# (`GameIgdbSync` → `Igdb::SyncGame#call`) is last-write-wins on the
+# (`GameIgdbSync` → `Game::Igdb::SyncGame#call`) is last-write-wins on the
 # IGDB-sourced columns / joins; the ownership-sourced columns / joins
 # are NEVER touched by sync. The partition is enforced in two places:
-#   - `Igdb::SyncGame#call` only writes IGDB columns.
+#   - `Game::Igdb::SyncGame#call` only writes IGDB columns.
 #   - `GamesController#local_only_params` only permits ownership /
 #     notes / footage / version inputs.
 # The model spec `Game spec — sync field partition` runs a sync against
@@ -24,7 +24,7 @@
 #   `external_gog_id` and `external_epic_id` columns are GONE. PC
 #   distribution stores are now represented exclusively by the
 #   Steam Platform row + `external_steam_app_id`; IGDB GoG / Epic
-#   external-game rows are dropped by `Igdb::GameMapper` instead of
+#   external-game rows are dropped by `Game::Igdb::GameMapper` instead of
 #   being mapped onto their own columns.
 #
 # IGDB-sourced joins (replaced wholesale on every re-sync):
@@ -122,7 +122,7 @@ class Game < ApplicationRecord
   #
   # Picked by `Game::PrimaryGenrePicker` (LOWER(name) ASC, id ASC
   # tie-break). The `before_save` hook below sets the pointer when
-  # blank; `Igdb::SyncGame#call` writes it explicitly on every sync
+  # blank; `Game::Igdb::SyncGame#call` writes it explicitly on every sync
   # (via `update_column`) so a re-sync that adds / drops genres keeps
   # the pointer current. FK is `on_delete: :nullify` (see
   # `BetaMigration3` — the column landed in the Phase 27 follow-up of
@@ -229,7 +229,7 @@ class Game < ApplicationRecord
   # buckets) re-render without a manual page reload. The index view
   # subscribes via `<%= turbo_stream_from "games" %>`. Update is needed
   # in addition to create because the "add a game" flow stores a near-
-  # empty row first, then `Igdb::SyncGame#call` populates title /
+  # empty row first, then `Game::Igdb::SyncGame#call` populates title /
   # genres / cover_image_id / primary_genre_id asynchronously — those
   # writes are `update!` / `save!` and must trigger a refresh too.
   # `turbo-refresh-method=morph` + `turbo-refresh-scroll=preserve` in
@@ -605,7 +605,7 @@ class Game < ApplicationRecord
   # on every save, not only `create`, so a row whose primary was
   # nullified (FK `on_delete: :nullify`) re-picks on the next save.
   #
-  # `Igdb::SyncGame#call` writes the column explicitly (via
+  # `Game::Igdb::SyncGame#call` writes the column explicitly (via
   # `update_column`) after `sync_genres`, bypassing this hook so the
   # re-pick honors a re-shuffled IGDB genre set even when the existing
   # pointer is non-blank. This hook remains the safety net for non-sync

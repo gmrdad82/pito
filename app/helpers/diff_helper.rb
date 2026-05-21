@@ -34,7 +34,7 @@ module DiffHelper
   # display-only fields. The decision radio for these fields is
   # disabled — only `accept youtube` makes sense.
   def diff_field_display_only?(field)
-    Youtube::DiffComputer::DISPLAY_ONLY_FIELDS.include?(field.to_s)
+    Channel::Youtube::DiffComputer::DISPLAY_ONLY_FIELDS.include?(field.to_s)
   end
 
   def format_short_text(value)

@@ -1,5 +1,5 @@
 # Phase 13.2 — Analytics sync engine. Per-video job. Active videos
-# (per `Youtube::ActiveVideoClassifier`) run V1, V2 (×4 windows), V3,
+# (per `Channel::Youtube::ActiveVideoClassifier`) run V1, V2 (×4 windows), V3,
 # V4 device + OS, V5, V6, V8 — eight API calls. Inactive videos run
 # V1 only.
 #
@@ -10,7 +10,7 @@ class VideoAnalyticsSync
   sidekiq_options queue: "analytics", retry: 5
 
   REFRESH_DAYS = 3
-  WINDOWS = Youtube::AnalyticsQueryBuilder::WINDOWS
+  WINDOWS = Channel::Youtube::AnalyticsQueryBuilder::WINDOWS
 
   def perform(video_id)
     video = Video.find_by(id: video_id)
@@ -22,11 +22,11 @@ class VideoAnalyticsSync
     connection = channel.youtube_connection
     return if connection.nil? || connection.needs_reauth?
 
-    client = Youtube::AnalyticsClient.new(connection: connection)
+    client = Channel::Youtube::AnalyticsClient.new(connection: connection)
     today = client.today_pt
     from = today - REFRESH_DAYS
     to = today - 1
-    active = Youtube::ActiveVideoClassifier.active?(video)
+    active = Channel::Youtube::ActiveVideoClassifier.active?(video)
 
     sync_video_daily(client, video, from: from, to: to)
     return if connection.reload.needs_reauth?
@@ -53,7 +53,7 @@ class VideoAnalyticsSync
     return if connection.reload.needs_reauth?
 
     sync_video_demographics(client, video, from: from, to: to)
-  rescue Youtube::AnalyticsClient::AuthError
+  rescue Channel::Youtube::AnalyticsClient::AuthError
     Rails.logger.warn(
       "[analytics-sync] video #{video_id} skipped — connection #{connection&.id} needs reauth"
     )
@@ -246,7 +246,7 @@ class VideoAnalyticsSync
     return [] if response[:rows].empty?
 
     pairs = header_names(response[:column_headers]).zip(response[:rows].first).to_h
-    from, to = Youtube::AnalyticsQueryBuilder.window_range(window, today)
+    from, to = Channel::Youtube::AnalyticsQueryBuilder.window_range(window, today)
     [
       {
         video_id: video.id,

@@ -48,7 +48,7 @@
     (see `after_*_commit` hooks on `Game`). On receipt, Turbo morph-
     refreshes the page in place so the shelves below (recently-played +
     genres + bundles + letter buckets) reflect newly-added rows AND
-    `Igdb::SyncGame#call`'s async backfill of title / genres / cover.
+    `Game::Igdb::SyncGame#call`'s async backfill of title / genres / cover.
     Layout meta `turbo-refresh-method=morph` + `turbo-refresh-scroll=
     preserve` keep scroll position. %>
 <%= turbo_stream_from "games" %>

@@ -1,10 +1,10 @@
-# Phase 14 §1 — Sidekiq job wrapping `Igdb::SyncGame#call`.
+# Phase 14 §1 — Sidekiq job wrapping `Game::Igdb::SyncGame#call`.
 #
-# Single argument `game_id`. On `Igdb::Client::RateLimited` /
+# Single argument `game_id`. On `Game::Igdb::Client::RateLimited` /
 # `ServerError` / network errors, raises so Sidekiq retries with
 # exponential backoff (5 attempts). On `ValidationError` (game ID
 # does not exist on IGDB) the local row is stamped with
-# `last_sync_error` inside `Igdb::SyncGame` and the job swallows
+# `last_sync_error` inside `Game::Igdb::SyncGame` and the job swallows
 # the raise so Sidekiq does NOT retry.
 #
 # Phase 14 §1 polish (2026-05-10) — `games.resyncing` mutex flag.
@@ -70,12 +70,12 @@ class GameIgdbSync
     game.update_column(:resyncing, true)
     success = false
     begin
-      Igdb::SyncGame.new.call(game)
+      Game::Igdb::SyncGame.new.call(game)
       success = true
-    rescue Igdb::Client::RateLimited => e
+    rescue Game::Igdb::Client::RateLimited => e
       sleep(e.retry_after.to_i.clamp(1, 60))
       raise
-    rescue Igdb::Client::ValidationError
+    rescue Game::Igdb::Client::ValidationError
       # Local row already stamped with last_sync_error inside SyncGame.
       # No re-raise — non-retryable. No bundle rebuild fan-out
       # (no data changed; nothing to rebuild).

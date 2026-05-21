@@ -1,7 +1,7 @@
 # Phase B (2026-05-19) — Meilisearch index job for Channel.
 #
 # Standalone job that fans the Channel after_save_commit callback out
-# to the `Meilisearch::ChannelIndexer` service. Decoupled from the
+# to the `Channel::MeilisearchIndexer` service. Decoupled from the
 # generic `SearchIndexJob` to keep the Channel pipeline fully
 # independent of the Game / Bundle / Searchable-concern stack.
 class ChannelIndexJob < ApplicationJob
@@ -11,6 +11,6 @@ class ChannelIndexJob < ApplicationJob
     channel = Channel.find_by(id: channel_id)
     return if channel.nil?
 
-    Meilisearch::ChannelIndexer.new(channel).call
+    Channel::MeilisearchIndexer.new(channel).call
   end
 end

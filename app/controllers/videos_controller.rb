@@ -376,7 +376,7 @@ class VideosController < ApplicationController
 
     decisions = extract_decisions_param
 
-    result = Youtube::VideoDiffApply.call(
+    result = Channel::Youtube::VideoDiffApply.call(
       video_diff: @diff,
       decisions: decisions,
       user: Current.user
@@ -466,8 +466,8 @@ class VideosController < ApplicationController
       detected_at: diff.detected_at&.iso8601,
       fields: diff.fields,
       payload: diff.payload,
-      writable_fields: Youtube::DiffComputer::WRITABLE_FIELDS,
-      display_only_fields: Youtube::DiffComputer::DISPLAY_ONLY_FIELDS
+      writable_fields: Channel::Youtube::DiffComputer::WRITABLE_FIELDS,
+      display_only_fields: Channel::Youtube::DiffComputer::DISPLAY_ONLY_FIELDS
     }
   end
 
