@@ -1,0 +1,50 @@
+<div class="pane">
+  <h2><%= t("settings.time_zone.heading") %></h2>
+
+  <div style="margin: 6px 0 8px;">
+    <div class="text-muted" style="font-variant-numeric: tabular-nums;">saved: <%= current_iana %></div>
+  </div>
+
+  <%= form_with url: settings_time_zone_path, method: :patch, local: true do |_f| %>
+    <div style="margin-bottom: 6px;">
+      <label for="settings_time_zone" class="form-label"><%= t("settings.time_zone.label") %></label>
+      <%# IANA canonical name goes on the wire (the `value` of each
+          option). The label is the friendly Rails name so the user
+          sees `(GMT+02:00) Bucharest` rather than `Europe/Bucharest`
+          in the dropdown. The currently stored zone resolves through
+          `ActiveSupport::TimeZone[]` (which accepts both forms) and
+          we mark the option whose IANA value matches.
+
+          The dropdown carries two optgroups: the Rails-curated
+          "friendly" set (`ActiveSupport::TimeZone.all`, ~150 zones,
+          labeled with `(GMT±HH:MM) City` prefixes) first, then the
+          full IANA tzinfo set covering edge zones the Rails subset
+          does NOT include (`Pacific/Kiritimati`,
+          `Pacific/Pago_Pago`, the `Etc/*` synthetics, etc.). All
+          entries persist as the canonical IANA name; either
+          optgroup satisfies the spec's "all valid IANA zones"
+          acceptance bullet. %>
+      <select name="time_zone" id="settings_time_zone" autocomplete="off"
+              style="max-width: 420px; width: 100%;">
+        <optgroup label="<%= t("settings.time_zone.optgroup_common") %>">
+          <% ActiveSupport::TimeZone.all.each do |zone| %>
+            <option value="<%= zone.tzinfo.name %>" <%= "selected" if zone.tzinfo.name == current_iana %>>
+              <%= zone.to_s %>
+            </option>
+          <% end %>
+        </optgroup>
+        <optgroup label="<%= t("settings.time_zone.optgroup_all_iana") %>">
+          <% TZInfo::Timezone.all_identifiers.sort.each do |iana| %>
+            <% next if friendly_iana_names.include?(iana) %>
+            <option value="<%= iana %>" <%= "selected" if iana == current_iana %>>
+              <%= iana %>
+            </option>
+          <% end %>
+        </optgroup>
+      </select>
+      <%= render Tui::HintComponent.new(text: t("settings.time_zone.hint")) %>
+    </div>
+
+    <button type="submit" class="bracketed" style="cursor: pointer; background: none; border: none; padding: 0; color: var(--color-link); font: inherit;">[<span class="bl"><%= t("common.actions.update") %></span>]</button>
+  <% end %>
+</div>
