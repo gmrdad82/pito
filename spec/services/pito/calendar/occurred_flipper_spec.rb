@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe Calendar::OccurredFlipper do
+RSpec.describe Pito::Calendar::OccurredFlipper do
   describe ".flip_ripe!" do
     it "flips :scheduled entries with starts_at in the past to :occurred" do
       ripe = create(:calendar_entry, :custom, starts_at: 1.hour.ago, state: :scheduled)

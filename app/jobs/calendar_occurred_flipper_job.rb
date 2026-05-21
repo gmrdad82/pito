@@ -6,6 +6,6 @@ class CalendarOccurredFlipperJob < ApplicationJob
   queue_as :default
 
   def perform
-    Calendar::OccurredFlipper.flip_ripe!
+    Pito::Calendar::OccurredFlipper.flip_ripe!
   end
 end

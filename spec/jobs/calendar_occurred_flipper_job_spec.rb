@@ -1,8 +1,8 @@
 require "rails_helper"
 
 RSpec.describe CalendarOccurredFlipperJob, type: :job do
-  it "invokes Calendar::OccurredFlipper#flip_ripe!" do
-    expect(Calendar::OccurredFlipper).to receive(:flip_ripe!)
+  it "invokes Pito::Calendar::OccurredFlipper#flip_ripe!" do
+    expect(Pito::Calendar::OccurredFlipper).to receive(:flip_ripe!)
     described_class.new.perform
   end
 

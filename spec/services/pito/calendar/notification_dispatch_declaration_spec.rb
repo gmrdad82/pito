@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe Calendar::NotificationDispatchDeclaration do
+RSpec.describe Pito::Calendar::NotificationDispatchDeclaration do
   describe ".declarations_for" do
     context "game_release" do
       # 2026-05-12 — the `game_release_upcoming` pre-release reminder

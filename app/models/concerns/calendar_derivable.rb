@@ -17,11 +17,11 @@ module CalendarDerivable
   extend ActiveSupport::Concern
 
   def derive_calendar_entry!
-    Calendar::Derivation.sync!(self)
+    Pito::Calendar::Derivation.sync!(self)
   end
 
   def revoke_calendar_entry!
-    Calendar::Derivation.revoke!(self)
+    Pito::Calendar::Derivation.revoke!(self)
   end
 
   # Convenience: the host's after_save hook calls this; service decides
@@ -36,9 +36,9 @@ module CalendarDerivable
   # service handles this via `revoke_all_for_host!`.
   def sync_calendar_entry
     if calendar_entry_attributes.nil?
-      Calendar::Derivation.revoke_all_for_host!(self)
+      Pito::Calendar::Derivation.revoke_all_for_host!(self)
     else
-      Calendar::Derivation.sync!(self)
+      Pito::Calendar::Derivation.sync!(self)
     end
   end
 end

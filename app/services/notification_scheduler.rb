@@ -1,7 +1,7 @@
 # Phase 16 §1 — Notifications data model + delivery channels.
 #
 # Cron-driven scheduler. Walks the calendar for ripe declarations
-# (per `Calendar::NotificationDispatchDeclaration` from Phase 15),
+# (per `Pito::Calendar::NotificationDispatchDeclaration` from Phase 15),
 # materializes one Notification row per declaration, then enqueues a
 # `NotificationDeliver` per enabled channel.
 #
@@ -30,7 +30,7 @@ class NotificationScheduler
       .where(state: %i[scheduled occurred])
       .where(entry_type: relevant_types)
       .find_each do |entry|
-        Calendar::NotificationDispatchDeclaration
+        Pito::Calendar::NotificationDispatchDeclaration
           .declarations_for(entry)
           .each do |decl|
             next if decl[:fires_at] > horizon
@@ -143,7 +143,7 @@ class NotificationScheduler
     end
   end
 
-  # `Calendar::NotificationDispatchDeclaration` returns severities as
+  # `Pito::Calendar::NotificationDispatchDeclaration` returns severities as
   # strings ("info" / "warn" / "success" / "urgent"). The Notification
   # enum accepts the symbol form; coerce defensively.
   def severity_value(severity)

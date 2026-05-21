@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe Calendar::Derivation do
+RSpec.describe Pito::Calendar::Derivation do
   describe ".sync!" do
     let(:channel) { create(:channel) }
 

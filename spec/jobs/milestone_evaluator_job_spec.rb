@@ -1,9 +1,9 @@
 require "rails_helper"
 
 RSpec.describe MilestoneEvaluatorJob, type: :job do
-  it "invokes Calendar::MilestoneEvaluator#evaluate_all!" do
-    evaluator = instance_double(Calendar::MilestoneEvaluator)
-    expect(Calendar::MilestoneEvaluator).to receive(:new).and_return(evaluator)
+  it "invokes Pito::Calendar::MilestoneEvaluator#evaluate_all!" do
+    evaluator = instance_double(Pito::Calendar::MilestoneEvaluator)
+    expect(Pito::Calendar::MilestoneEvaluator).to receive(:new).and_return(evaluator)
     expect(evaluator).to receive(:evaluate_all!)
     described_class.new.perform
   end

@@ -2,7 +2,7 @@ require "rails_helper"
 
 # 2026-05-11 — iterate-and-soft-fail wrapper. Replaces the duplicated
 # `begin / rescue StandardError / Rails.logger.warn / next` scaffolding
-# the reviewer flagged in `Calendar::MilestoneEvaluator` (and adjacent
+# the reviewer flagged in `Pito::Calendar::MilestoneEvaluator` (and adjacent
 # sweep services). See `app/lib/pito/safe_each.rb`.
 RSpec.describe Pito::SafeEach do
   describe ".call" do

@@ -230,7 +230,7 @@ class Video < ApplicationRecord
 
   # Phase 15 §1 — Calendar derivation. Re-derives on the relevant
   # attribute changes only (gating per §"Models / hooks"). The hook
-  # runs after the row commits so the `Calendar::Derivation` upsert
+  # runs after the row commits so the `Pito::Calendar::Derivation` upsert
   # always sees the persisted state.
   CALENDAR_DERIVATION_FIELDS = %w[
     title published_at publish_at privacy_status

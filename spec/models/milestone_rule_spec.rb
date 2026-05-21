@@ -234,7 +234,7 @@ RSpec.describe MilestoneRule, type: :model do
     it "enabled=false rule is never fired by the evaluator" do
       rule = create(:milestone_rule, :disabled)
       reader = double("reader", read: 1_000_000)
-      Calendar::MilestoneEvaluator.new(metric_reader: reader).evaluate_all!
+      Pito::Calendar::MilestoneEvaluator.new(metric_reader: reader).evaluate_all!
       expect(rule.reload.fired_at).to be_nil
     end
 
@@ -242,7 +242,7 @@ RSpec.describe MilestoneRule, type: :model do
       rule = create(:milestone_rule, :fired, enabled: false)
       rule.update!(enabled: true)
       reader = double("reader", read: 1_000_000)
-      Calendar::MilestoneEvaluator.new(metric_reader: reader).evaluate_all!
+      Pito::Calendar::MilestoneEvaluator.new(metric_reader: reader).evaluate_all!
       # fired_at stays the same
       expect(rule.reload.fired_at).to be_within(1.second).of(rule.fired_at)
     end

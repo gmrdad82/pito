@@ -7,6 +7,6 @@ class MilestoneEvaluatorJob < ApplicationJob
   queue_as :default
 
   def perform
-    Calendar::MilestoneEvaluator.new.evaluate_all!
+    Pito::Calendar::MilestoneEvaluator.new.evaluate_all!
   end
 end

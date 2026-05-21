@@ -181,7 +181,7 @@ class Channel < ApplicationRecord
   after_update_commit :enqueue_sync_on_star
 
   # Phase 15 §1 — Calendar derivation. Always derives once per channel
-  # (keyed on `created_at`). The Calendar::Derivation upsert is
+  # (keyed on `created_at`). The Pito::Calendar::Derivation upsert is
   # idempotent (no-ops when the existing row matches), so we fire the
   # hook on every save / touch — that way `Channel.first.touch` from
   # the manual playbook reliably brings up a derived entry on

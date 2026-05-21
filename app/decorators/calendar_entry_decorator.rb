@@ -8,7 +8,7 @@
 #
 # `as_summary_json` is the per-row shape used in lists; `as_detail_json`
 # returns the full record including parent / child id mirrors and the
-# `Calendar::NotificationDispatchDeclaration.declarations_for(entry)`
+# `Pito::Calendar::NotificationDispatchDeclaration.declarations_for(entry)`
 # array under `dispatch_declarations`.
 class CalendarEntryDecorator < ApplicationDecorator
   def as_summary_json
@@ -48,10 +48,10 @@ class CalendarEntryDecorator < ApplicationDecorator
   end
 
   # Top-level sibling array shipped alongside `entry` on the show
-  # response. Mirrors `Calendar::NotificationDispatchDeclaration.declarations_for`
+  # response. Mirrors `Pito::Calendar::NotificationDispatchDeclaration.declarations_for`
   # with ISO-8601 timestamps applied to the `fires_at` field.
   def dispatch_declarations_json
-    Calendar::NotificationDispatchDeclaration.declarations_for(object).map do |d|
+    Pito::Calendar::NotificationDispatchDeclaration.declarations_for(object).map do |d|
       d.merge(fires_at: d[:fires_at]&.iso8601)
     end
   end

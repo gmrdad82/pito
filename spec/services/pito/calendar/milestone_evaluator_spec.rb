@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe Calendar::MilestoneEvaluator do
+RSpec.describe Pito::Calendar::MilestoneEvaluator do
   let(:reader_class) do
     Class.new do
       def initialize(value)

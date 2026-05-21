@@ -297,7 +297,7 @@ RSpec.describe CalendarEntry, type: :model do
       expect(manual.save).to be(true)
     end
 
-    it "Calendar::Derivation can bypass specific attributes via `bypass_readonly_for`" do
+    it "Pito::Calendar::Derivation can bypass specific attributes via `bypass_readonly_for`" do
       # The service writes through a scoped allowlist; simulate by
       # setting the flag directly on the model instance.
       derived.bypass_readonly_for = [ :title ]

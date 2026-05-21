@@ -9,7 +9,7 @@
 # Read-only enforcement: `derived` and `auto` entries are read-only
 # outside `metadata.user_overrides`. The model-level callback rejects
 # any attribute write outside the user_overrides sub-key. The
-# `Calendar::Derivation` service bypasses by re-driving the upsert
+# `Pito::Calendar::Derivation` service bypasses by re-driving the upsert
 # through a dedicated re-sync code path that calls `assign_attributes`
 # from inside the service (the service is the canonical writer).
 class CalendarEntry < ApplicationRecord

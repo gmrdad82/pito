@@ -1,8 +1,8 @@
 require "rails_helper"
 
 # Phase 15 §1 — `CalendarDerivable` is a thin mixin that delegates to
-# `Calendar::Derivation`. Per-host integration is covered in
-# `spec/services/calendar/derivation_spec.rb` (Video/Channel/Game) and
+# `Pito::Calendar::Derivation`. Per-host integration is covered in
+# `spec/services/pito/calendar/derivation_spec.rb` (Video/Channel/Game) and
 # `spec/models/game_calendar_derivation_spec.rb`. This spec pins the
 # concern's own contract — the dispatch logic in `sync_calendar_entry`
 # and the two pass-through helpers.
@@ -30,15 +30,15 @@ RSpec.describe CalendarDerivable do
   let(:host) { host_class.new }
 
   describe "#derive_calendar_entry!" do
-    it "delegates to Calendar::Derivation.sync!" do
-      expect(Calendar::Derivation).to receive(:sync!).with(host)
+    it "delegates to Pito::Calendar::Derivation.sync!" do
+      expect(Pito::Calendar::Derivation).to receive(:sync!).with(host)
       host.derive_calendar_entry!
     end
   end
 
   describe "#revoke_calendar_entry!" do
-    it "delegates to Calendar::Derivation.revoke!" do
-      expect(Calendar::Derivation).to receive(:revoke!).with(host)
+    it "delegates to Pito::Calendar::Derivation.revoke!" do
+      expect(Pito::Calendar::Derivation).to receive(:revoke!).with(host)
       host.revoke_calendar_entry!
     end
   end
@@ -47,8 +47,8 @@ RSpec.describe CalendarDerivable do
     context "when calendar_entry_attributes returns nil" do
       it "calls revoke_all_for_host! (not sync!)" do
         host.stub_attrs = nil
-        expect(Calendar::Derivation).to receive(:revoke_all_for_host!).with(host)
-        expect(Calendar::Derivation).not_to receive(:sync!)
+        expect(Pito::Calendar::Derivation).to receive(:revoke_all_for_host!).with(host)
+        expect(Pito::Calendar::Derivation).not_to receive(:sync!)
         host.sync_calendar_entry
       end
     end
@@ -56,8 +56,8 @@ RSpec.describe CalendarDerivable do
     context "when calendar_entry_attributes returns a hash" do
       it "calls sync! (not revoke_all_for_host!)" do
         host.stub_attrs = { title: "x", starts_at: Time.current, all_day: false }
-        expect(Calendar::Derivation).to receive(:sync!).with(host)
-        expect(Calendar::Derivation).not_to receive(:revoke_all_for_host!)
+        expect(Pito::Calendar::Derivation).to receive(:sync!).with(host)
+        expect(Pito::Calendar::Derivation).not_to receive(:revoke_all_for_host!)
         host.sync_calendar_entry
       end
     end
@@ -65,7 +65,7 @@ RSpec.describe CalendarDerivable do
     context "edge — empty hash counts as 'present' (not nil)" do
       it "still routes to sync! (Derivation handles validation)" do
         host.stub_attrs = {}
-        expect(Calendar::Derivation).to receive(:sync!).with(host)
+        expect(Pito::Calendar::Derivation).to receive(:sync!).with(host)
         host.sync_calendar_entry
       end
     end

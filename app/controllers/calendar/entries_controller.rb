@@ -114,7 +114,7 @@ class Calendar::EntriesController < ApplicationController
   def show
     @parent_entry = @entry.parent_entry
     @child_entries = @entry.child_entries.where.not(state: %i[cancelled superseded]).to_a
-    @declarations = Calendar::NotificationDispatchDeclaration.declarations_for(@entry)
+    @declarations = Pito::Calendar::NotificationDispatchDeclaration.declarations_for(@entry)
 
     respond_to do |format|
       format.html
@@ -338,6 +338,6 @@ class Calendar::EntriesController < ApplicationController
   def load_show_decorations
     @parent_entry = @entry.parent_entry
     @child_entries = @entry.child_entries.where.not(state: %i[cancelled superseded]).to_a
-    @declarations = Calendar::NotificationDispatchDeclaration.declarations_for(@entry)
+    @declarations = Pito::Calendar::NotificationDispatchDeclaration.declarations_for(@entry)
   end
 end
