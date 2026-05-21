@@ -1,4 +1,4 @@
-# 2026-05-17 — Composite::CellMap.
+# 2026-05-17 — Bundle::Composite::CellMap.
 #
 # Single source of truth for "where do the cover tiles sit on the
 # 0..1 unit square?" for a given member count. Used by the bundle-
@@ -6,7 +6,7 @@
 # the composite layout in HTML/CSS). The libvips JPEG builder still
 # uses its own pixel constants — both surfaces now derive from the
 # same per-layout `cells` arrays defined on each
-# `Composite::Layout::*` module, so when one is edited the other
+# `Bundle::Composite::Layout::*` module, so when one is edited the other
 # follows for free.
 #
 # Each cell is a hash with `:x`, `:y`, `:w`, `:h` floats in 0..1
@@ -25,14 +25,16 @@
 # touched, used for selective corner rounding) was removed when the
 # bundle modal switched to a full 2px radius on every cell. No
 # consumer needs corner metadata today; layouts return raw cells.
-module Composite
-  module CellMap
-    module_function
+class Bundle
+  module Composite
+    module CellMap
+      module_function
 
-    def for(count)
-      return [] unless count.is_a?(Integer) && count.positive?
+      def for(count)
+        return [] unless count.is_a?(Integer) && count.positive?
 
-      Composite::LayoutChooser.choose(count).cells
+        Bundle::Composite::LayoutChooser.choose(count).cells
+      end
     end
   end
 end

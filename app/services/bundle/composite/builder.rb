@@ -43,56 +43,58 @@
 # `covers/bundles/<id>/composite.jpg` (the legacy flat layout
 # `composites/bundle-<id>.jpg` was retired on the same day in favor of
 # the unified `/covers/<type>/<id>/...` layout).
-module Composite
-  class Builder
-    OUTPUT_WIDTH  = 300
-    OUTPUT_HEIGHT = 400
-    JPEG_QUALITY  = 92
-    SHARPEN_SIGMA = 1.0
+class Bundle
+  module Composite
+    class Builder
+      OUTPUT_WIDTH  = 300
+      OUTPUT_HEIGHT = 400
+      JPEG_QUALITY  = 92
+      SHARPEN_SIGMA = 1.0
 
-    def initialize(tile_cache: TileCache.new)
-      @tile_cache = tile_cache
-    end
-
-    def call(bundle)
-      members = bundle.bundle_members.includes(:game).order(:position).to_a
-      tile_games = members.map(&:game).select { |g| g.cover_image_id.present? }
-      cover_image_ids = tile_games.map(&:cover_image_id)
-
-      if cover_image_ids.empty?
-        bundle.update!(composite_cover_path: nil,
-                       composite_cover_checksum: nil)
-        return nil
+      def initialize(tile_cache: TileCache.new)
+        @tile_cache = tile_cache
       end
 
-      layout = Composite::LayoutChooser.choose(cover_image_ids.size)
-      # The overflow layout fills nine cells and overlays a "+N" caption
-      # on the bottom-right; only the first 9 ids contribute tiles.
-      # Phase 27 follow-up (2026-05-17) — switched to `fetch_for_game`
-      # so the local cover-art master
-      # (`/covers/games/<id>/master.jpg`) is preferred over an IGDB
-      # HTTPS round-trip when present.
-      slice_games = layout == Composite::Layout::NineGridWithOverflow ? tile_games.first(9) : tile_games
-      tiles    = slice_games.map { |g| @tile_cache.fetch_for_game(g) }
-      composite = layout.compose(tiles, total_member_count: members.size)
-      # Light edge sharpen — recovers crispness lost in the tile resize
-      # without introducing visible halos. Applied once to the final
-      # composite (not per-tile) so the cost is constant per build.
-      composite = composite.sharpen(sigma: SHARPEN_SIGMA)
+      def call(bundle)
+        members = bundle.bundle_members.includes(:game).order(:position).to_a
+        tile_games = members.map(&:game).select { |g| g.cover_image_id.present? }
+        cover_image_ids = tile_games.map(&:cover_image_id)
 
-      path = output_path(bundle)
-      FileUtils.mkdir_p(path.dirname)
-      composite.jpegsave(path.to_s, Q: JPEG_QUALITY, strip: true)
+        if cover_image_ids.empty?
+          bundle.update!(composite_cover_path: nil,
+                         composite_cover_checksum: nil)
+          return nil
+        end
 
-      relative = path.relative_path_from(Pito::AssetsRoot.root).to_s
-      checksum = Composite::Checksum.compute(cover_image_ids, layout.layout_name)
-      bundle.update!(composite_cover_path: relative,
-                     composite_cover_checksum: checksum)
-      path
-    end
+        layout = Bundle::Composite::LayoutChooser.choose(cover_image_ids.size)
+        # The overflow layout fills nine cells and overlays a "+N" caption
+        # on the bottom-right; only the first 9 ids contribute tiles.
+        # Phase 27 follow-up (2026-05-17) — switched to `fetch_for_game`
+        # so the local cover-art master
+        # (`/covers/games/<id>/master.jpg`) is preferred over an IGDB
+        # HTTPS round-trip when present.
+        slice_games = layout == Bundle::Composite::Layout::NineGridWithOverflow ? tile_games.first(9) : tile_games
+        tiles    = slice_games.map { |g| @tile_cache.fetch_for_game(g) }
+        composite = layout.compose(tiles, total_member_count: members.size)
+        # Light edge sharpen — recovers crispness lost in the tile resize
+        # without introducing visible halos. Applied once to the final
+        # composite (not per-tile) so the cost is constant per build.
+        composite = composite.sharpen(sigma: SHARPEN_SIGMA)
 
-    def output_path(bundle)
-      Pito::AssetsRoot.path("covers", "bundles", bundle.id.to_s, "composite.jpg")
+        path = output_path(bundle)
+        FileUtils.mkdir_p(path.dirname)
+        composite.jpegsave(path.to_s, Q: JPEG_QUALITY, strip: true)
+
+        relative = path.relative_path_from(Pito::AssetsRoot.root).to_s
+        checksum = Bundle::Composite::Checksum.compute(cover_image_ids, layout.layout_name)
+        bundle.update!(composite_cover_path: relative,
+                       composite_cover_checksum: checksum)
+        path
+      end
+
+      def output_path(bundle)
+        Pito::AssetsRoot.path("covers", "bundles", bundle.id.to_s, "composite.jpg")
+      end
     end
   end
 end
