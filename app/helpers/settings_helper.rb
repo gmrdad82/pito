@@ -24,12 +24,10 @@ module SettingsHelper
   #
   # @param brand [Symbol] :discord or :slack
   # @return [String] e.g. "https://discord.com/***"
+  # Delegates to Pito::Formatter::WebhookUrlMask.
+  # Returns the placeholder mask for a webhook URL input field.
   def webhook_url_mask(brand)
-    case brand
-    when :discord then "https://discord.com/***"
-    when :slack   then "https://hooks.slack.com/***"
-    else raise ArgumentError, "unknown brand: #{brand.inspect}"
-    end
+    Pito::Formatter::WebhookUrlMask.call(brand)
   end
 
   # Beta 4 — F3-B-SIMPLIFY-MODEL (2026-05-20). Renders the unified-

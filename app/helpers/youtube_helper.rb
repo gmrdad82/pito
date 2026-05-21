@@ -6,18 +6,10 @@ module YoutubeHelper
   # through untouched. View layer only; the model still stores the full
   # email so the value round-trips faithfully if it ever needs to leave
   # the boundary.
+  # Delegates to Pito::Formatter::YoutubeConnectionEmail.
+  # Strips the brand-account @pages.plusgoogle.com domain noise.
   def format_connection_email(email)
-    str = email.to_s
-    return str if str.empty?
-
-    local, domain = str.split("@", 2)
-    return str if domain.nil?
-
-    if domain.casecmp("pages.plusgoogle.com").zero?
-      local
-    else
-      str
-    end
+    Pito::Formatter::YoutubeConnectionEmail.call(email)
   end
 
   # Short, readable label for an OAuth scope. Google scopes arrive as
@@ -25,11 +17,10 @@ module YoutubeHelper
   # plain strings (`openid`, `email`, `profile`). Strip everything up
   # to and including the last `/` so URL-shaped scopes collapse to the
   # trailing segment; plain strings pass through.
+  # Delegates to Pito::Formatter::YoutubeScopeLabel.
+  # Strips URL-shaped scopes to the trailing segment; plain strings pass through.
   def format_scope_short_label(scope)
-    str = scope.to_s
-    return "" if str.empty?
-
-    str.include?("/") ? str.split("/").last.to_s : str
+    Pito::Formatter::YoutubeScopeLabel.call(scope)
   end
 
   # Phase 7.5 §11b — outbound URL builders for the channel show page.

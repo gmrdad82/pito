@@ -30,21 +30,10 @@ module GamesHelper
   STAR_GLYPH = "★" # ★
   MIDDLE_DOT = "·" # ·
 
-  # Zero-pad a numeric rating to two digits. The IGDB rating is a
-  # decimal in storage (`igdb_rating` is `decimal(5,2)`); tile callers
-  # already coerce via `.to_i` upstream, but this helper accepts any
-  # numeric and rounds defensively.
-  #
-  # Examples:
-  #   format_game_rating(nil)   # => ""
-  #   format_game_rating(5)     # => "05"
-  #   format_game_rating(93)    # => "93"
-  #   format_game_rating(100)   # => "100"
-  #   format_game_rating(8.7)   # => "09"
+  # Zero-pad a numeric rating to two digits.
+  # Delegates to Pito::Formatter::GameRating — see that module for examples.
   def format_game_rating(rating)
-    return "" if rating.nil?
-
-    format("%02d", rating.to_i)
+    Pito::Formatter::GameRating.call(rating)
   end
 
   # Compose the tile's plain-text second-line metadata string.
@@ -86,10 +75,9 @@ module GamesHelper
   # even when some pillars are unknown) without claiming a fake zero.
   # The rounding uses `Float#round` (half-up) so values just below a
   # whole hour still surface — e.g. 3 540s (59m) rounds to `1h`.
+  # Whole-hour formatter for IGDB time-to-beat fields.
+  # Delegates to Pito::Formatter::TtbHours.
   def ttb_hours(seconds)
-    return "—" if seconds.nil? || seconds.to_i <= 0
-
-    hours = (seconds.to_f / 3600).round
-    "#{hours}h"
+    Pito::Formatter::TtbHours.call(seconds)
   end
 end

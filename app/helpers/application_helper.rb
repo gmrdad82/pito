@@ -158,35 +158,21 @@ module ApplicationHelper
     end
   end
 
+  # Delegates to Pito::Formatter::Duration — H:MM:SS / M:SS or "—".
   def format_duration(seconds)
-    return "—" unless seconds&.positive?
-    hours = seconds / 3600
-    mins = (seconds % 3600) / 60
-    secs = seconds % 60
-    if hours > 0
-      format("%d:%02d:%02d", hours, mins, secs)
-    else
-      format("%d:%02d", mins, secs)
-    end
+    Pito::Formatter::Duration.call(seconds)
   end
 
+  # Delegates to Pito::Formatter::VideoWatchTime — "Xh" or "—".
   def format_video_watch_time(minutes)
-    return "—" unless minutes&.positive?
-    hours = (minutes / 60.0).round
-    "#{number_with_delimiter(hours)}h"
+    Pito::Formatter::VideoWatchTime.call(minutes)
   end
 
   # Phase 14 §1 — time-to-beat formatter. IGDB returns seconds; we
   # display "Xh Ym" (or "—" when the field is nil / non-positive).
+  # Delegates to Pito::Formatter::Seconds.
   def format_seconds(seconds)
-    return "—" unless seconds.is_a?(Integer) && seconds.positive?
-    hours = seconds / 3600
-    minutes = (seconds % 3600) / 60
-    if hours.positive?
-      minutes.zero? ? "#{hours}h" : "#{hours}h #{minutes}m"
-    else
-      "#{minutes}m"
-    end
+    Pito::Formatter::Seconds.call(seconds)
   end
 
   # Render a sortable column header as a `link_to` whose URL flips the
@@ -390,13 +376,10 @@ module ApplicationHelper
   # column shares the same shape via `FootageHelper#filename_truncate_middle`,
   # which delegates here. Caller chooses `head:` / `tail:`; nothing is
   # generic about the choice, so it lives at the call site.
-  ELLIPSIS = "…".freeze # Unicode U+2026 — single character, NOT `...`.
-
+  # Delegates to Pito::Formatter::MiddleTruncate — Unicode ellipsis
+  # joining head + tail chars. See that module for full contract.
   def middle_truncate(str, head:, tail:)
-    s = str.to_s
-    return "" if s.empty?
-    return s if s.length <= head + 1 + tail
-    "#{s[0...head]}#{ELLIPSIS}#{s[-tail..]}"
+    Pito::Formatter::MiddleTruncate.call(str, head: head, tail: tail)
   end
 
   # Phase B post-commit (2026-05-04) — Note revamp. Server-side markdown
@@ -531,16 +514,9 @@ module ApplicationHelper
   # storage / index probes always report a real number, never "not
   # probed yet"; the footage helper's 0-as-em-dash semantics don't
   # apply to dashboard counters).
-  STACK_SIZE_UNITS = %w[KB MB GB TB PB].freeze
-
+  # Delegates to Pito::Formatter::FilesizeInt — integer-only byte
+  # formatter (KB minimum unit). Used by the /settings stack pane tables.
   def human_filesize_int(bytes)
-    return "—" if bytes.nil?
-    n = bytes.to_f / 1024.0
-    unit_index = 0
-    while n >= 1024 && unit_index < STACK_SIZE_UNITS.length - 1
-      n /= 1024.0
-      unit_index += 1
-    end
-    "#{n.round} #{STACK_SIZE_UNITS[unit_index]}"
+    Pito::Formatter::FilesizeInt.call(bytes)
   end
 end
