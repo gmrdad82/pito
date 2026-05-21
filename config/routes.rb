@@ -101,6 +101,19 @@ Rails.application.routes.draw do
        to: "channels/bulk_revokes#create",
        constraints: { ids: %r{[\d,]+} }
 
+  # C19b (2026-05-22) — 3-screen taxonomy consolidation. /channels folds
+  # into the /videos screen. The bare GET /channels redirects 301 to
+  # /videos. All channel sub-routes (show, destroy, history, analytics,
+  # star, bulk revoke, panes, etc.) remain reachable as functional
+  # endpoints — only the top-level screen URL was consolidated.
+  #
+  # Order matters: this redirect is declared BEFORE `resources :channels`
+  # so it wins the bare `/channels` match. The resource block still owns
+  # the `channels_path` named helper (which now resolves to `/channels`,
+  # which 301s to `/videos`). Controllers that `redirect_to channels_path`
+  # take a two-hop path through the redirect — acceptable until those
+  # call sites are migrated to point at the new screen directly.
+  get "/channels", to: redirect("/videos", status: 301)
   resources :channels, only: [ :index, :show, :destroy ] do
     collection do
       get :panes
@@ -262,6 +275,11 @@ Rails.application.routes.draw do
           to: "games/ownership_toggles#played",
           as: :played_toggle
   end
+  # C19b (2026-05-22) — 3-screen taxonomy consolidation. /footages folds
+  # into the /games screen. Bare GET /footages redirects 301 to /games.
+  # Detail/sub-routes (`/footages/:id`, `/footages/:id/edit`,
+  # `/footages/:id/frames.json`, etc.) remain reachable.
+  get "/footages", to: redirect("/games", status: 301)
   resources :footages, only: [ :index, :show, :edit, :update, :destroy ]
 
   # Phase 14 §2 / Phase 27 follow-up (2026-05-17 + 2026-05-18) — Bundles
@@ -288,6 +306,12 @@ Rails.application.routes.draw do
   #   - games_pane: Turbo Frame fragment that backs the `/games`
   #                bundles modal grid.
   # Members CRUD stays — used by the modal's add-member form.
+  # C19b (2026-05-22) — 3-screen taxonomy consolidation. /bundles folds
+  # into the /games screen (bundles already render as a shelf there).
+  # Bare GET /bundles redirects 301 to /games. Detail/sub-routes
+  # (`/bundles/:id`, `/bundles/:id/games_pane`, member CRUD, etc.) stay
+  # reachable — no index action existed before so no resources tweak.
+  get "/bundles", to: redirect("/games", status: 301)
   resources :bundles, only: [ :show, :create, :update, :destroy ] do
     member do
       get :games_pane
@@ -413,6 +437,16 @@ Rails.application.routes.draw do
   # used for the bulk path because mark-read is non-destructive
   # (CLAUDE.md's `/<action>s/:type/:ids` shape is for destructive
   # actions only).
+  # C19b (2026-05-22) — 3-screen taxonomy consolidation. /notifications
+  # folds into the / (home) screen as a panel. Bare GET /notifications
+  # redirects 301 to /. The `notifications_path` named helper still
+  # resolves to `/notifications` (used heavily by the controller and
+  # views for `redirect_to`); those flows now take a two-hop path
+  # through the 301 until they are migrated to point at the home panel
+  # directly. Detail + per-row actions (`/notifications/:id`,
+  # `:read`/`:unread`, `mark_read`, `mark_all_read`, `badge`) stay
+  # reachable.
+  get "/notifications", to: redirect("/", status: 301)
   resources :notifications, only: %i[index show] do
     member do
       patch :read
@@ -455,8 +489,15 @@ Rails.application.routes.draw do
   # month grid. Canonical URLs remain `/calendar/month/:year/:month`
   # and `/calendar/schedule`. Manual entries are CRUD'd under
   # `/calendar/entries`.
+  # C19b (2026-05-22) — 3-screen taxonomy consolidation. /calendar folds
+  # into / (home) as a panel. Bare GET /calendar redirects 301 to /.
+  # Sub-routes (`/calendar/month/:year/:month`, `/calendar/schedule`,
+  # `/calendar/entries/*`) stay reachable. The `calendar_root_path`
+  # named helper still resolves to `/calendar`; existing breadcrumbs +
+  # back-links now take a two-hop path through the 301 until they are
+  # migrated to point at the home panel directly.
   get "/calendar",
-      to: "calendar/router#show",
+      to: redirect("/", status: 301),
       as: :calendar_root
   get "/calendar/month/:year/:month",
       to: "calendar/month#show",
