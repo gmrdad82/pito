@@ -51,4 +51,42 @@ module SettingsHelper
       false
     end
   end
+
+  # FB-166 (2026-05-21) — Ruby-declared focusables for the notifications
+  # pane. Each focusable carries a `:style` that the CSS keys off for
+  # a per-element focus visual:
+  #
+  #   * `:checkbox_label` — tint around the inline-flex label+checkbox
+  #   * `:input`          — section-accent border on the input only
+  #   * `:action`         — compact tint around the bracketed action
+  #
+  # Document order is locked here, NOT in the template — the template
+  # zips against this list when emitting `data-tui-focusable` +
+  # `data-tui-focusable-style`. Specs assert against this method so the
+  # focus contract is spec-locked instead of HTML-fragile.
+  def notifications_focusables
+    [
+      { key: "all",              style: :checkbox_label },
+      { key: "daily",            style: :checkbox_label },
+      { key: "discord_webhook",  style: :input },
+      { key: "discord_update",   style: :action },
+      { key: "discord_help",     style: :action },
+      { key: "slack_webhook",    style: :input },
+      { key: "slack_update",     style: :action },
+      { key: "slack_help",       style: :action }
+    ]
+  end
+
+  # FB-166 (2026-05-21) — Ruby-declared focusables for stack sub-panels.
+  # Meilisearch + Voyage each carry a `[reindex]` action focusable when
+  # the reindex job is NOT running; the running slot has no focusables
+  # because the indicator is non-interactive.
+  #
+  # @param running [Boolean] whether the reindex is currently in flight
+  # @return [Array<Hash>]
+  def stack_reindex_focusables(running:)
+    return [] if running
+
+    [ { key: "reindex", style: :action } ]
+  end
 end

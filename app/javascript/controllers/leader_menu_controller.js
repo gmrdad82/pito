@@ -79,9 +79,11 @@ const STACK_STORAGE_KEY = "pito:leader-menu:stack"
 // Side-effect of `.showModal()`: the rest of the page becomes inert
 // (no clicks, no focus). For a keyboard-driven leader popup this is
 // fine. The backdrop is suppressed in CSS so the page stays visually
-// undimmed. The controller still installs a one-shot outside-click
-// listener — clicks landing on the dialog backdrop (anywhere outside
-// the inner `.leader-menu-card`) dismiss the popup.
+// undimmed. FB-138 (2026-05-21): the popup dismisses ONLY on [Esc]
+// (Backspace stays for clearing the prefix). The previous outside-
+// click dismissal was removed for parity with FB-127 dialog backdrop-
+// click prevent — the leader popup is keyboard-driven and accidental
+// backdrop clicks should not close it.
 //
 // Form-control pass-through (2026-05-11): the keypress gate that
 // guards the popup-opening SPACE skips every interactive form
@@ -99,9 +101,11 @@ const STACK_STORAGE_KEY = "pito:leader-menu:stack"
 // Dismiss-on-navigate (2026-05-10): the popup ALSO closes on every
 // `turbo:visit` event — any Turbo navigation start, whether triggered
 // by a leader-menu action, a click on a link / button anywhere on
-// the page, or a form submission. Combined with the outside-click
-// handler, this guarantees the popup never lingers after the user
-// has begun navigating somewhere else. The `turbo:visit` listener
+// the page, or a form submission. This guarantees the popup never
+// lingers after the user has begun navigating somewhere else, even
+// after FB-138 removed the outside-click dismissal — any link/button
+// click that DOES trigger navigation still closes via this path. The
+// `turbo:visit` listener
 // also clears the persisted menu stack from `sessionStorage` so the
 // popup does NOT silently rehydrate on the destination page. The TUI
 // side already closes on every resolved keybinding action via the
@@ -218,8 +222,19 @@ export default class extends Controller {
     // because the second `g` would re-set `pendingPrefix` to `g` (not
     // `gg`). Reset on every popup close.
     this.compactPrefix = ""
+    // FB-147 (2026-05-21) — track the current vim-style mode so SPACE
+    // (and every other leader key) bails out while INSERT is active.
+    // The `tui-cursor` controller owns the mode state machine and
+    // broadcasts every transition via the `tui:mode-changed` event
+    // (see app/javascript/controllers/tui_cursor_controller.js). In
+    // INSERT mode, SPACE is owned by the cursor controller — it
+    // toggles the focused row's checkbox. Without this guard, focused
+    // input loses keystrokes (SPACE doesn't insert a space) AND the
+    // leader popup spawns over notifications/security rows, surprising
+    // the user.
+    this.insertMode = false
+    this.boundModeChanged = this.onModeChanged.bind(this)
     this.boundKeydown = this.onKeydown.bind(this)
-    this.boundOutside = this.onOutsideClick.bind(this)
     this.boundTurboVisit = this.onTurboVisit.bind(this)
     // 2026-05-19 — the `flat-key` controller fires this event when a
     // flat (leader-less) `g` / `q` keystroke lands on the neutral
@@ -237,14 +252,16 @@ export default class extends Controller {
     // no-op via the `isOpen()` guard inside `close()`.
     this.boundDialogClose = this.onDialogClose.bind(this)
     document.addEventListener("keydown", this.boundKeydown)
+    document.addEventListener("tui:mode-changed", this.boundModeChanged)
     // `close` does not bubble on <dialog>; capture phase catches every
     // dialog close anywhere in the document.
     document.addEventListener("close", this.boundDialogClose, true)
-    // Close the popup the moment any Turbo navigation begins. Pairs
-    // with the outside-click listener: clicks on links outside the
-    // popup already dismiss it, and `turbo:visit` also catches
-    // programmatic navigations (Turbo.visit from leader-menu's own
-    // action handler, form submits, prefetch-triggered visits).
+    // Close the popup the moment any Turbo navigation begins. After
+    // FB-138 removed the outside-click dismissal, this is the primary
+    // path that ensures the popup never lingers when the user clicks
+    // a link/button that triggers navigation. Also catches programmatic
+    // navigations (Turbo.visit from leader-menu's own action handler,
+    // form submits, prefetch-triggered visits).
     document.addEventListener("turbo:visit", this.boundTurboVisit)
     document.addEventListener("flat-key:open-leader-with-prefix", this.boundFlatKeyOpen)
     // NOTE — DO NOT short-circuit `connect()` on `!hasPopupTarget`.
@@ -294,7 +311,7 @@ export default class extends Controller {
 
   disconnect() {
     if (this.boundKeydown) document.removeEventListener("keydown", this.boundKeydown)
-    if (this.boundOutside) document.removeEventListener("click", this.boundOutside, true)
+    if (this.boundModeChanged) document.removeEventListener("tui:mode-changed", this.boundModeChanged)
     if (this.boundTurboVisit) document.removeEventListener("turbo:visit", this.boundTurboVisit)
     if (this.boundDialogClose) document.removeEventListener("close", this.boundDialogClose, true)
     if (this.boundFlatKeyOpen) document.removeEventListener("flat-key:open-leader-with-prefix", this.boundFlatKeyOpen)
@@ -349,7 +366,6 @@ export default class extends Controller {
     // starts from a clean accumulator regardless of how this popup
     // closed.
     this.pendingPrefix = ""
-    document.removeEventListener("click", this.boundOutside, true)
   }
 
   isOpen() {
@@ -380,8 +396,31 @@ export default class extends Controller {
 
   // ---- key handling ----------------------------------------------
 
+  // FB-147 (2026-05-21) — react to NORMAL ↔ INSERT transitions broadcast
+  // by the `tui-cursor` controller. We never SPAWN the popup while
+  // INSERT mode is active; if the popup is already open when mode
+  // flips to INSERT (the user hit `i` while leader was up), close it
+  // so it can't gobble keystrokes the focused input expects.
+  onModeChanged(event) {
+    const mode = event && event.detail && event.detail.mode
+    if (mode === "insert") {
+      this.insertMode = true
+      if (this.isOpen()) this.close()
+    } else {
+      this.insertMode = false
+    }
+  }
+
   onKeydown(event) {
     if (!this.schema) return
+    // FB-147 (2026-05-21) — INSERT mode owns the keyboard. SPACE in
+    // INSERT is the cursor controller's "toggle focused row's
+    // checkbox" hotkey (see tui_cursor_controller.js handleKey); every
+    // other printable key needs to reach the focused input/textarea.
+    // The popup must never spawn or accumulate prefix keystrokes here.
+    // Esc is handled by the cursor controller (blur + return to NORMAL),
+    // not us.
+    if (this.insertMode) return
     // Mandatory-2FA enrollment gate. When the authenticated user has
     // not configured TOTP, the layout renders
     // `<meta name="pito-enroll-totp-gate" content="yes">` in `<head>`
@@ -641,21 +680,6 @@ export default class extends Controller {
     this.close()
   }
 
-  onOutsideClick(event) {
-    if (!this.isOpen()) return
-    // The popup is a `<dialog>` opened via `.showModal()` — the
-    // dialog element itself covers the full viewport (it IS the
-    // backdrop surface), so the prior `popupTarget.contains(event.target)`
-    // guard would treat every click as "inside" and never dismiss.
-    // Test against the inner `.leader-menu-card` instead: clicks
-    // inside the visible card stay; clicks anywhere else (backdrop)
-    // close the popup. The card is the only direct child of the
-    // dialog after `render()`.
-    const card = this.hasPopupTarget ? this.popupTarget.querySelector(".leader-menu-card") : null
-    if (card && card.contains(event.target)) return
-    this.close()
-  }
-
   // Close on every Turbo navigation start. The popup MUST NOT survive
   // a page transition — whether the user clicked a link, submitted a
   // form, or pressed a leader-menu navigate key. `close()` is safe to
@@ -724,9 +748,6 @@ export default class extends Controller {
     this.persistStack()
     this.render(menu, name)
     if (this.hasPopupTarget) this.showPopup()
-    // Bind outside-click on the next tick so the click that opened
-    // the popup doesn't immediately close it.
-    setTimeout(() => document.addEventListener("click", this.boundOutside, true), 0)
   }
 
   // Place the popup in the browser top layer via `.showModal()` so
@@ -1687,6 +1708,29 @@ export default class extends Controller {
 
   rehydrate() {
     if (typeof window.sessionStorage === "undefined") return
+    // 2026-05-21 — fresh page loads (reload, hard reload Ctrl+Shift+R,
+    // back/forward cache miss, direct URL entry) clear any persisted
+    // stack before reading. `turbo:visit` clears sessionStorage on
+    // Turbo Drive navigations; a browser-native reload bypasses Turbo
+    // entirely, so the previous open state would resurrect on every
+    // hard reload and spawn the leader popup unprompted. The
+    // performance navigation entry distinguishes a fresh load
+    // (`type === "reload"` or `"navigate"`) from a Turbo body swap
+    // (no new navigation entry — `connect()` re-runs without a
+    // navigation type change).
+    try {
+      const navEntries = (typeof performance !== "undefined" && typeof performance.getEntriesByType === "function")
+        ? performance.getEntriesByType("navigation")
+        : []
+      const navType = navEntries.length > 0 ? navEntries[0].type : null
+      if (navType === "reload" || navType === "navigate" || navType === "back_forward") {
+        window.sessionStorage.removeItem(STACK_STORAGE_KEY)
+        return
+      }
+    } catch (_err) {
+      // performance API unavailable; fall through and keep the
+      // defensive rehydrate path.
+    }
     let stored
     try {
       stored = window.sessionStorage.getItem(STACK_STORAGE_KEY)
@@ -1716,6 +1760,5 @@ export default class extends Controller {
     if (!menu) return
     this.render(menu, top)
     if (this.hasPopupTarget) this.showPopup()
-    setTimeout(() => document.addEventListener("click", this.boundOutside, true), 0)
   }
 }

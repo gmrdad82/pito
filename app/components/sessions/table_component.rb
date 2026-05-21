@@ -55,5 +55,33 @@ module Sessions
     def current_flag(session)
       current?(session) ? "yes" : "no"
     end
+
+    # FB-166 (2026-05-21) — Ruby-declared focusables contract.
+    #
+    # Each session row is a single focusable of style `:row` (full-width
+    # tint via CSS). The cursor controller reads
+    # `data-tui-focusable="<key>"` + `data-tui-focusable-style="<style>"`
+    # off each `<tr>`; the style drives the per-element focus visual
+    # (row tint, action tint, checkbox-label tint, input border).
+    #
+    # FB-174 (2026-05-21) — the defaultHeader's select-all is also a
+    # focusable, prepended as the FIRST entry. j from row 1 (or k from
+    # the first session row) lands here so the user can keyboard-
+    # toggle select-all.
+    #
+    # FB-PURPLE-REGRESSION (2026-05-21) — style flipped from
+    # `:checkbox_label` to `:row`. The focusable moved from the single
+    # `<th>` checkbox cell up to the parent `<tr>` so the focus tint
+    # paints across the entire header row (matching the body-row
+    # behavior). `:checkbox_label` only made sense when the focusable
+    # hugged the [ ]-glyph cell; on a `<tr>` the row-wide tint is the
+    # consistent visual.
+    #
+    # Specs assert against this method so the focus contract is locked
+    # to Ruby — not scattered across HTML attributes.
+    def focusables
+      [ { key: "select_all", style: :row } ] +
+        sessions.map { |s| { key: "row_#{s.id}", style: :row } }
+    end
   end
 end

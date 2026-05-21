@@ -1,6 +1,12 @@
 # Pin npm packages by running ./bin/importmap
 
 pin "application"
+# ADR 0018 — Action bus. `pito_actions.js` sets `window.Pito` so every
+# consumer (Stimulus controllers, palette, future leader menu, future
+# MCP-web bridge) can call `Pito.dispatchAction(name)` without crafting
+# its own POST flow. Pinned alongside `application` so importmap-rails
+# serves the file under `/assets/`.
+pin "pito_actions"
 pin "@hotwired/turbo-rails", to: "turbo.min.js"
 pin "@hotwired/stimulus", to: "stimulus.min.js"
 pin "@hotwired/stimulus-loading", to: "stimulus-loading.js"

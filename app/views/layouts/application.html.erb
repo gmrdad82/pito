@@ -23,6 +23,16 @@
     <%= csrf_meta_tags %>
     <%= csp_meta_tag %>
 
+    <%# ADR 0018 — Action bus meta tag. Carries every registered
+        `Pito::Action`'s JS-readable subset (name, path, method,
+        confirmation, i18n labels, cable_panel) so `window.Pito.dispatchAction`
+        can resolve actions without round-tripping the server. Turbo's
+        head-merge (`mergeProvisionalElements` / `isEqualNode`) keeps this
+        node identical across navigations as long as the route table is
+        unchanged. Updates ship via a head re-render whenever the
+        registry mutates. %>
+    <meta name="pito-actions" content="<%= Pito::ActionRegistry.all.to_h { |a| [a.name.to_s, a.to_h] }.to_json %>">
+
     <%# 2026-05-20 — section-accent meta tag. The `<body data-section>`
         attribute below is the canonical signal for the Dracula section-
         variant accent CSS cascade, but Turbo Drive replaces body
@@ -215,7 +225,7 @@
       Ruby-picked literal hex paints the canvas. %>
   <body data-section="<%= current_section %>"
         style="--section-accent: <%= pito_section_accent %>; --color-section-accent: <%= pito_section_accent %>; background: <%= pito_section_bg %>;"
-        data-controller="keyboard notifications-modal leader-menu flat-key timezone-detect webhook-help-modal dialog-scroll-lock sortable-keys"
+        data-controller="keyboard notifications-modal leader-menu flat-key timezone-detect webhook-help-modal dialog-scroll-lock sortable-keys keyboard-only"
         <%# `data-keybindings-page-key` exposes the YAML key (e.g.
             `games_index`, `games_show`, `bundles_show`, `default`,
             or `nil` for deny-listed pages like /settings) so the
@@ -306,6 +316,19 @@
         Wired here unconditionally — the bar shows on every page that
         renders the layout, including auth screens, so the section + mode
         signals are visible at all times. %>
+    <%# FB-170 (2026-05-21) — V6 `:command` palette. Pinned 22px above
+        the BST via `position: fixed`. Hidden by default; the
+        `tui-command-palette` Stimulus controller listens for `:` at
+        document level (when no input has focus and no dialog is open)
+        and shows the palette. Commands are sourced from
+        `Tui::CommandRegistry.commands_for(controller_name)` — every
+        screen gets the global verbs; screens with a registered
+        `Tui::ScreenCommands::<Name>` module also get the screen-scoped
+        commands stacked on top. %>
+    <%= render Tui::CommandPaletteComponent.new(
+          commands: Tui::CommandRegistry.commands_for(controller_name)
+        ) %>
+
     <%= render Tui::BottomStatusBarComponent.new(current_section: current_section) %>
 
     <%# 2026-05-16 — the legacy keyboard-shortcuts help modal that
@@ -327,6 +350,21 @@
         the browser top layer via `showModal()` so it lays cleanly
         above any pre-existing dialog. %>
     <%= render Tui::HelpOverlayComponent.new %>
+
+    <%# FB-172 (2026-05-21) — keyboard-only mode alert dialog. The
+        `keyboard-only` Stimulus controller (mounted on `<body>`)
+        intercepts every mouse interaction at the document capture phase
+        and spawns this dialog via `showModal()`. The OS cursor itself is
+        hidden via `body.keyboard-only { cursor: none }` in
+        `application.css`. Witty title `invalid input`; the second line
+        surfaces the `?` / `:` discoverability hint per the FB-172
+        contract. Mounted once globally so every screen shares the same
+        dialog node. %>
+    <%= render Tui::AlertDialogComponent.new(
+          id: "mouse-forbidden-alert",
+          title: "invalid input",
+          message: [ "mouse interaction forbidden", "type ? for help or : for command" ]
+        ) %>
 
     <%# Phase 37 (2026-05-19) — "Everywhere" omnisearch modal. Opened
         by the `/` flat-key on every page (per `config/keybindings.yml`

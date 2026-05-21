@@ -159,12 +159,33 @@
           <%= render Tui::ChipComponent.new(label: meili_chip[:chip_label], variant: meili_chip[:chip_variant]) %>
           <span data-controller="reindex-action"
                 data-reindex-action-brand-value="meilisearch">
+            <%# FB-165 — the idle slot's button is the j/k focusable for
+                the Meilisearch sub-panel. When the running slot swaps in
+                (cable broadcast flips `hidden`), the button drops out of
+                the focus list automatically via `offsetParent === null`. %>
+            <%# FB-166 — focusable style declared in Ruby
+                (`SettingsHelper#stack_reindex_focusables`). The
+                running state emits an empty focusables list, so the
+                cursor list skips this slot during a reindex. %>
+            <% _meili_f = stack_reindex_focusables(running: meilisearch_reindex_running).first %>
             <span data-reindex-action-target="idle" <%= "hidden" if meilisearch_reindex_running %>>
-              <button type="button"
-                      class="bracketed"
-                      data-controller="reindex-trigger"
-                      data-reindex-trigger-dialog-id-value="reindex_meilisearch_confirmation"
-                      data-action="click->reindex-trigger#open">[<span class="bl"><%= t("settings.stack.meilisearch_reindex_label") %></span>]</button>
+              <%# FB-178 (2026-05-21) — `data-reindex-brand="meilisearch"`
+                  is the canonical hook the `:command` palette uses to
+                  programmatically click this button (palette command
+                  `reindex Meilisearch`). The action-bus
+                  (`Pito.dispatchAction`) owns the dialog-open behavior; the
+                  attribute is purely a CSS selector handle. %>
+              <%# ADR 0018 — `data-action-name` routes the click through
+                  `window.Pito.dispatchAction(:reindex_meilisearch)` so the
+                  same canonical bus path the `:reindex Meilisearch` palette
+                  command uses powers this button. The action's registry
+                  entry resolves to the confirmation dialog open. %>
+              <%= render Tui::ActionButtonComponent.new(
+                action_name: :reindex_meilisearch,
+                label: t("settings.stack.meilisearch_reindex_label"),
+                focusable: _meili_f,
+                data: { reindex_brand: "meilisearch" },
+              ) %>
             </span>
             <span data-reindex-action-target="running" <%= "hidden" unless meilisearch_reindex_running %>>
               <%= render Tui::ReindexProgressComponent.new(brand: "meilisearch") %>
@@ -253,12 +274,21 @@
               wire contract. %>
           <span data-controller="reindex-action"
                 data-reindex-action-brand-value="voyage">
+            <%# FB-166 — same Ruby-driven focusable contract as the
+                Meilisearch sub-panel above. %>
+            <% _voyage_f = stack_reindex_focusables(running: voyage_reindex_running).first %>
             <span data-reindex-action-target="idle" <%= "hidden" if voyage_reindex_running %>>
-              <button type="button"
-                      class="bracketed"
-                      data-controller="reindex-trigger"
-                      data-reindex-trigger-dialog-id-value="reindex_voyage_confirmation"
-                      data-action="click->reindex-trigger#open">[<span class="bl"><%= t("settings.stack.voyage_reindex_label") %></span>]</button>
+              <%# FB-178 (2026-05-21) — see Meilisearch branch above for
+                  `data-reindex-brand` rationale (palette click handle). %>
+              <%# ADR 0018 — `data-action-name` routes the click through
+                  `window.Pito.dispatchAction(:reindex_voyage)`. See the
+                  Meilisearch branch above for the rationale. %>
+              <%= render Tui::ActionButtonComponent.new(
+                action_name: :reindex_voyage,
+                label: t("settings.stack.voyage_reindex_label"),
+                focusable: _voyage_f,
+                data: { reindex_brand: "voyage" },
+              ) %>
             </span>
             <span data-reindex-action-target="running" <%= "hidden" unless voyage_reindex_running %>>
               <%= render Tui::ReindexProgressComponent.new(brand: "voyage") %>

@@ -17,6 +17,227 @@ render output, kwargs, variants, i18n. No exceptions. See CLAUDE.md
 "ViewComponents are kings" → "Every ViewComponent has a spec" for the
 operational mandate.
 
+## Turbo-everywhere + cable-per-panel (locked 2026-05-21)
+
+Every form submit, every navigation triggered by a click, every cable
+broadcast targets ONE panel at a time. The page never full-reloads from
+within an authenticated screen. This section is the operational contract;
+ADR 0017 (`docs/decisions/0017-cable-first-architecture-spec.md`) carries
+the original cable-first rationale and the channel-payload envelope.
+
+**User-locked direction (2026-05-21).** Verbatim:
+
+> We have to be able from backend to listen and update one panel at a
+> time.
+
+> How can you make sure that you always use turbo for submitting and no
+> page refresh and how can you make sure that each panel listens to its
+> cable?
+
+### Submit discipline
+
+- Every `<form>` is Turbo by default (Rails 7+). NEVER set
+  `data-turbo="false"` — that's a process failure. The dispatch that
+  added it gets re-dispatched to remove it.
+- Controllers respond with one of:
+  - `head :no_content` (204) — when the cable broadcast handles the UI
+    update entirely.
+  - `render turbo_stream: ...` — when an inline DOM replace is needed
+    immediately (vs. waiting for cable).
+  - `respond_to { |format| format.turbo_frame { ... }; format.html { ... } }`
+    — when the action serves both standalone (full page) and frame
+    contexts.
+- **NEVER `redirect_to settings_path`** (or any other path) inside a
+  panel-scoped action — that triggers full navigation, loses cursor /
+  scroll / mode state. If the user expects a flash, broadcast a toast
+  via cable instead.
+
+### Cable-per-panel channel naming
+
+- `pito:<screen>:<panel>` for panel-level updates.
+- `pito:<screen>:<panel>:<sub-panel>` for sub-panel granularity (when a
+  panel itself has sub-panels — e.g., the /settings stack panel splits
+  into Postgres / Meilisearch / Redis / Voyage / assets / notes
+  sub-tiles).
+- Examples:
+  - `pito:settings:notifications` — notification toggles.
+  - `pito:settings:security` — sessions table updates.
+  - `pito:settings:stack:meilisearch` — Meilisearch sub-panel.
+  - `pito:settings:stack:voyage` — Voyage sub-panel.
+  - `pito:status_bar` — TST live data (cross-screen, applies to every
+    authenticated screen's TST simultaneously).
+
+### Subscription
+
+Each panel ViewComponent subscribes to its own stream. Two valid forms:
+
+1. **Turbo Streams** (preferred for HTML replacement):
+
+   ```erb
+   <%= turbo_stream_from "pito:settings:notifications" %>
+   ```
+
+2. **Direct ActionCable + Stimulus** (preferred for non-HTML signals
+   like sync indicator state, busy counts, brand-specific events):
+
+   ```erb
+   <div data-controller="my-panel-controller"
+        data-my-panel-controller-channel-value="pito:settings:notifications">
+   ```
+
+### Backend broadcast
+
+Jobs / controllers broadcast to the SPECIFIC panel's channel — never to
+a global pito stream, never to the page-level stream:
+
+```ruby
+# Turbo Streams:
+Turbo::StreamsChannel.broadcast_replace_to(
+  "pito:settings:notifications",
+  target: "notifications_panel",
+  partial: "settings/notifications_pane",
+  locals: { ... }
+)
+
+# Direct ActionCable:
+ActionCable.server.broadcast(
+  "pito:settings:stack:meilisearch",
+  { kind: "reindex_started", brand: "meilisearch" }
+)
+```
+
+**Cross-cutting events** (TST sync indicator changes, Sidekiq busy
+counts) broadcast to `pito:status_bar` and apply globally to every
+authenticated screen's TST. Cross-cutting is the documented exception to
+the per-panel rule; it is not a license to coarsen other channels.
+
+### Failure modes this prevents
+
+- Form submit → full page reload → cursor focus lost, scroll position
+  lost, INSERT mode lost (the bug user reported on /settings
+  notifications toggle).
+- One panel's update reloading the entire page → other panels lose
+  state.
+- 409-on-retry returning HTML error page instead of staying inside the
+  in-place dialog (the bug user reported on second reindex attempt).
+- Cross-contamination — Meilisearch broadcast reaching Voyage panel
+  (the bug user reported on initial FB-126 wiring; FB-126 brand filter
+  fixed).
+
+### Audit gate
+
+Every dispatch that touches form submits or cable broadcasts MUST
+verify Turbo + cable discipline before reporting done. This is gate 5
+of the master dispatch checklist in `CLAUDE.md` (extends the existing 4
+gates).
+
+## Action bus + cable architecture (locked 2026-05-21)
+
+Every user-triggerable action in pito — web click, palette command,
+leader-menu shortcut, MCP tool call, CLI subcommand — flows through a
+single three-layer architecture: **Action registry → Trigger dispatcher
+→ Cable broadcast**. Full rationale and contract live in
+`docs/decisions/0018-action-bus-and-cable-architecture.md`; this section
+is the operational summary.
+
+The bus exists because FB-126 / FB-178 / FB-180 surfaced five parallel
+paths converging on the same `[reindex]` action — each with its own
+copy, confirmation step, response handling, and i18n key. Locking the
+bus now keeps /games + /channels (much larger action surfaces) from
+multiplying the spaghetti.
+
+### Layer 1 — `Pito::ActionRegistry`
+
+The canonical source of every action. `Pito::Action` struct entries
+live under `app/services/pito/actions/*.rb`. Shape:
+
+```ruby
+Pito::Action.define(:reindex_meilisearch,
+  path:         -> { settings_stack_meilisearch_reindex_path },
+  method:       :post,
+  confirmation: { title: "reindex Meilisearch?",
+                  message: "this rebuilds the search index. it may take a few minutes.",
+                  danger:  true },
+  i18n_key:     "tui.commands.reindex_meilisearch",
+  cable_panel:  "pito:settings:stack:meilisearch",
+  scopes:       %i[web palette leader mcp cli])
+```
+
+The registry serializes to a `<meta name="pito-actions">` tag in the
+layout for browser consumption; Rails consumers (MCP, CLI bridge,
+server-side dispatch) call the registry directly.
+
+### Layer 2 — Trigger dispatcher
+
+**Browser** — `Pito.dispatchAction(name, payload = {})` in
+`app/javascript/pito/action.js`. Single entry point. Mounts
+`Tui::ConfirmationDialogComponent` when the registry entry carries a
+`confirmation:` block; issues a Turbo-form POST against the action's
+`path` with CSRF token; expects `204 No Content` and lets cable handle
+the UI update. Non-204 responses are parsed as
+`{ kind: "error", payload: { message:, code: } }` envelopes — no HTML
+error pages reach the user inside a panel.
+
+Stimulus controllers, palette, and leader menu all call
+`Pito.dispatchAction(name)`. They do not craft their own `fetch` or
+embed their own confirmation copy.
+
+**Server** — `Pito::ActionDispatcher.call(name, user:, confirm: false,
+payload: {})` in `app/services/pito/action_dispatcher.rb`. Used by MCP
+and CLI surfaces (which can't mount the JS dialog) and by any
+server-side call site. Mirrors the JS dispatcher's contract: validates
+the `confirm: true` two-step flag against the registry's
+`confirmation:` block, then invokes the underlying controller / service
+/ job.
+
+### Layer 3 — Cable channel grammar
+
+Three channel patterns, each with a fixed broadcast contract:
+
+| Pattern | Subscribers | Broadcasters | Notes |
+|---|---|---|---|
+| `pito:status_bar` | TST on every authenticated screen | `StatusBarBroadcastMiddleware` on every Sidekiq job, always | Global; carries `sync_state`, `workers`, `sidekiq` counters, `clock` |
+| `pito:<screen>:<panel>` | Panel ViewComponent | Controller / job opt-in via `broadcasts_to_panel` macro | Panel-scoped; payloads per ADR 0017 envelope |
+| `pito:<screen>:<panel>:<sub_panel>` | Sub-panel ViewComponent | Same as panel | Sub-panel-scoped |
+
+The Sidekiq middleware coverage of `pito:status_bar` is **mandatory and
+unconditional** — every job's start + finish updates the TST. Panel
+broadcasts opt in via the macro; the canonical channel name comes from
+the action's registry entry (`cable_panel:`) so renames stay coherent.
+
+`Pito::CableBroadcaster.call(channel, kind:, payload:)` enforces the
+`{ kind, payload, ts }` envelope so no caller broadcasts raw shapes.
+
+### Cross-stack consumer table
+
+| Consumer | Reads registry via | Triggers via |
+|---|---|---|
+| Web HTML | `Tui::ActionLinkComponent.new(name: :foo)` | `Pito.dispatchAction(:foo)` |
+| `:command` palette | `Pito::ActionRegistry.for_scope(:palette, screen:)` | `Pito.dispatchAction(palette.selected)` |
+| Leader menu | `Pito::ActionRegistry.for_scope(:leader, screen:)` | `Pito.dispatchAction(leader.bound)` |
+| MCP tool | `Pito::ActionRegistry[:foo]` | `Pito::ActionDispatcher.call(:foo, user:, confirm: true)` |
+| CLI subcommand | `Pito::ActionRegistry[:foo]` | `Pito::ActionDispatcher` via Rails JSON endpoint |
+
+### Spec contract
+
+A single registry-wide spec
+(`spec/services/pito/action_registry_spec.rb`) enforces, for every
+registered action:
+
+- `i18n_key` resolves to a non-empty translation.
+- Brand names inside the resolved label are capitalized
+  (Meilisearch / Voyage AI / Postgres / Redis / Slack / Discord /
+  YouTube).
+- `confirmation:` is either nil or carries `title:` + `message:` +
+  `danger:`.
+- `cable_panel:` is either nil or matches the
+  `pito:<screen>:<panel>[:<sub_panel>]` grammar.
+- `scopes:` is non-empty and every symbol is one of
+  `%i[web palette leader mcp cli]`.
+
+Failing the contract fails CI. See ADR 0018 for the full spec contract,
+the migration plan, the non-goals, and the alternatives considered.
+
 ## Datastore — Postgres 17 (Phase 2)
 
 pito's primary relational store is Postgres 17 via the `pgvector/pgvector:pg17`

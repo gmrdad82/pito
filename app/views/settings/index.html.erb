@@ -50,7 +50,7 @@
     its target marker + actions; the wrapper owns the controller
     scope, so click actions on any descendant — pane links or
     in-dialog `[close]` — reach the controller correctly. %>
-<div data-controller="settings-modal">
+<div class="settings-modal-wrapper" data-controller="settings-modal">
   <%# 2026-05-20 — width-tiling grid per ADR 0016. The legacy
       `<div class="pane-row">` flex wrappers (one per partial) were
       replaced by a single `.pito-workspace` CSS-grid container with

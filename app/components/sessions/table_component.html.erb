@@ -76,7 +76,29 @@
           their data. FB-108 alignment: text columns (device/browser/
           ip) get `--left`, date columns (last seen/created) get
           `--right` (which also stamps tabular-nums). %>
-      <tr data-sessions-bulk-revoke-target="defaultHeader">
+      <%# FB-146 (2026-05-21) — REMOVE `data-tui-cursor-target="row"` from
+          defaultHeader. FB-144 re-added the cursor target on the header
+          row to satisfy FB-140 (k from row 1 → select-all), but the
+          user reports the "extra stop" is STILL present after FB-133's
+          `.blur()` fix. Forensic enumeration of the rendered DOM showed
+          exactly N+1 row stops (1 defaultHeader + N body rows) — the
+          extra is the header itself. Drop the target so row nav covers
+          ONLY the N body rows; FB-140 (keyboard select-all) is parked
+          pending a separate UX decision (Shift-K jump, Tab into header
+          via Shift-Tab from row 1's checkbox column, or a dedicated
+          keybinding). actionHeader stays untargeted as before. %>
+      <%# FB-PURPLE-REGRESSION (2026-05-21) — `data-tui-focusable` moved
+          from the single `<th>` checkbox cell to the `<tr>` itself so
+          the focus tint paints across the ENTIRE header row (matching
+          the body-row `:row` focus behavior). The previous shape only
+          tinted the column-1 checkbox cell, which read as a visual
+          asymmetry. Style is `:row` (full-width tint) to match the
+          body-row contract; the `:checkbox_label` style only made
+          sense when the focusable hugged the single `<th>` containing
+          the [ ] glyph. %>
+      <tr data-sessions-bulk-revoke-target="defaultHeader"
+          data-tui-focusable="select_all"
+          data-tui-focusable-style="row">
         <th class="tui-table__th tui-table__th--left col-action">
           <span class="sessions-table__checkbox sessions-table__checkbox--header"
                 data-sessions-bulk-revoke-target="headerCheckbox"
@@ -138,8 +160,23 @@
       </tr>
     </thead>
     <tbody>
-      <% sessions.each do |s| %>
-        <tr class="tui-table__row" data-tui-cursor-target="row">
+      <%# FB-165 (2026-05-21) — body rows are now generic `[data-tui-focusable]`
+          targets keyed by `row_<session_id>`. Header rows stay outside
+          the focus ring (sort is `s`/`S` driven separately).
+
+          FB-166 (2026-05-21) — focusables come from the Ruby
+          `#focusables` contract (see component class); the template
+          zips the ordered list with the rendered rows and emits the
+          `data-tui-focusable` + `data-tui-focusable-style` attrs from
+          each entry. CSS keys off the style for per-element focus visuals. %>
+      <%# FB-174 (2026-05-21) — `focusables[0]` is `select_all`; session
+          rows are at `focusables[1..]`. The `i + 1` offset reflects
+          the contract change in `Sessions::TableComponent#focusables`. %>
+      <% sessions.each_with_index do |s, i| %>
+        <% f = focusables[i + 1] %>
+        <tr class="tui-table__row"
+            data-tui-focusable="<%= f[:key] %>"
+            data-tui-focusable-style="<%= f[:style] %>">
           <td class="tui-table__td tui-table__td--left col-action">
             <span class="sessions-table__checkbox"
                   data-sessions-bulk-revoke-target="checkbox"
@@ -162,7 +199,7 @@
             <%= s.browser.presence || Formatting::UserAgent.browser(s.user_agent.to_s) %>
           </td>
           <td class="tui-table__td tui-table__td--left sessions-table__cell-ip">
-            <%= s.ip.presence || "—" %>
+            <%= Formatting::IpAddress.call(s.ip) %>
           </td>
           <td class="tui-table__td tui-table__td--right num sessions-table__cell-last-seen"><%= helpers.compact_time_ago(s.last_activity_at) %></td>
           <td class="tui-table__td tui-table__td--right num sessions-table__cell-created"><%= helpers.compact_time_ago(s.created_at) %></td>

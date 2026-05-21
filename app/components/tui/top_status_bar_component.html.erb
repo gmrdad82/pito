@@ -5,6 +5,14 @@
   Lane C's `tui-status-bar` Stimulus controller subscribes to
   `pito:status_bar` via the `data-cable-channel` root attribute and
   updates the marked `data-tui-status-bar-target` cells in place.
+
+  FB-161 (2026-05-21): three sub-elements extracted to their own
+  ViewComponents per "ViewComponents are kings":
+  - Tui::SyncIndicatorComponent  — ●/✗ + word + optional target
+  - Tui::SidekiqStatsComponent   — b/e/r cells
+  - Tui::DateTimeComponent       — wall clock (SSR placeholder, hydrated by Stimulus)
+  Stimulus target attributes are preserved on the extracted roots so
+  the cable update contract stays intact.
 %>
 <div class="sb-bar"
      data-controller="tui-status-bar"
@@ -22,18 +30,14 @@
       </span>
       <span class="sb-progress-counter" data-tui-status-bar-target="progressCounter"><%= progress_counter %></span>
     <% end %>
-    <span class="sb-sync" data-tui-status-bar-target="sync">
-      <span class="<%= sync_dot_class %>" data-tui-status-bar-target="syncDot"><%= sync_dot_glyph %></span><span class="<%= sync_word_class %>" data-tui-status-bar-target="syncWord"><%= sync_word %></span><% if sync_target_visible? %>
-        <span class="sb-sync-target" data-tui-status-bar-target="syncTarget"><%= sync_target %></span>
-      <% end %>
-    </span>
+    <%= render Tui::SyncIndicatorComponent.new(state: sync_state, target: sync_target) %>
     <span class="sb-pipe">|</span>
-    <span class="sb-sidekiq" data-tui-status-bar-target="sidekiq">
-      <span class="sb-sk-cell <%= sidekiq_class_for("b") %>" data-tui-status-bar-target="sidekiqBusy">b<%= sidekiq_value_for("b") %></span>
-      <span class="sb-sk-cell <%= sidekiq_class_for("e") %>" data-tui-status-bar-target="sidekiqEnqueued">e<%= sidekiq_value_for("e") %></span>
-      <span class="sb-sk-cell <%= sidekiq_class_for("r") %>" data-tui-status-bar-target="sidekiqRetry">r<%= sidekiq_value_for("r") %></span>
-    </span>
+    <%= render Tui::SidekiqStatsComponent.new(
+      busy: sidekiq_stats[:busy],
+      enqueued: sidekiq_stats[:enqueued],
+      retry: sidekiq_stats[:retry]
+    ) %>
     <span class="sb-pipe">|</span>
-    <span class="sb-clock" data-tui-status-bar-target="clock">—</span>
+    <%= render Tui::DateTimeComponent.new %>
   </div>
 </div>

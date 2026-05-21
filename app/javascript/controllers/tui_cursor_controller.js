@@ -3,103 +3,119 @@ import { Controller } from "@hotwired/stimulus"
 // Connects to data-controller="tui-cursor"
 //
 // =========================================================================
-//  CONTRACT (locked 2026-05-20, refined 2026-05-21 for FB-133)
+//  CONTRACT (locked 2026-05-21 for FB-165 — focus-list-per-panel rewrite)
 // =========================================================================
 //
-//  Vim-inspired NORMAL / INSERT mode model + 3-level cursor hierarchy.
+//  Vim-inspired NORMAL / INSERT modes + per-panel "focus list" cursor.
+//
+//  --- ARCHITECTURE: focus-list-per-panel ---
+//
+//  Every focusable element inside a panel/sub-panel carries
+//
+//    data-tui-focusable="<stable_key>"
+//
+//  where the key is a domain identifier (`"all"`, `"daily"`,
+//  `"discord_webhook"`, `"discord_update"`, `"row_<session_id>"`,
+//  `"reindex"`, etc.). The cursor controller queries the *focused
+//  scope* (the active sub-panel if any, otherwise the active panel)
+//  for its direct `[data-tui-focusable]` descendants IN DOCUMENT ORDER
+//  — that ordered list is the active focus ring.
+//
+//  `j` / ArrowDown moves to next; `k` / ArrowUp moves to previous.
+//  Movement clamps at the boundaries (no wrap — vim convention is no-op
+//  past the edge so the user can `j` repeatedly without falling off).
+//
+//  The focused focusable gets `data-tui-focusable-focused="yes"` —
+//  CSS paints a section-accent tint (per FB-99 lock; tint only, no
+//  outline).
+//
+//  --- DYNAMIC LIST ---
+//
+//  Elements can be added or removed at runtime:
+//
+//    * a Stimulus controller (e.g. reindex-action) hides its idle slot
+//      while a reindex is in flight; the `offsetParent === null`
+//      filter automatically drops `[hidden]` / display:none nodes from
+//      the focus ring. When the running slot flips back to idle, the
+//      filter re-includes it.
+//    * a controller can explicitly disable a focusable by setting
+//      `data-tui-focusable-disabled="yes"` without hiding the element
+//      (notification toggle while async save commits). The filter
+//      drops disabled focusables.
+//    * Cable broadcasts mutate the DOM via the relevant controller —
+//      no special wiring needed on this side; the next j/k re-reads
+//      the focus list.
 //
 //  --- MODE MODEL ---
 //
 //    NORMAL (default): keyboard navigation owns the screen.
 //      - SPACE  → leader menu (owned by leader_menu_controller, not us)
-//      - TAB / Shift-TAB / Ctrl-hjkl → panel-level nav
+//      - TAB / Shift-TAB / Ctrl-hjkl → panel-level nav (ALWAYS, all
+//                                     modifier-free key paths are
+//                                     evaluated BEFORE the inside-panel
+//                                     branches so they can't be hijacked
+//                                     by row/focusable handling).
 //      - h/j/k/l + arrows           → INSIDE the focused panel
-//                                     (sub-panels OR rows, whichever the
-//                                     panel hosts)
+//                                     (sub-panels OR focusables — never
+//                                     both at the same time).
 //      - i      → enter INSERT mode AT CURRENT CURSOR LOCATION.
-//                 We do NOT jump focus to "the first input in the panel".
-//                 We only flip mode + broadcast. The user uses TAB to
-//                 walk between focusable elements after entering INSERT.
-//                 (FB-133 — previously `i` jumped past the [x] all /
-//                 [x] daily digest checkboxes straight to the Discord
-//                 webhook URL input; that's surprising.)
-//      - Esc    → exit any input + return to NORMAL (always)
+//      - Esc    → exit any input + return to NORMAL (always).
 //
 //    INSERT: input / checkbox / textarea has the keyboard.
-//      - Esc    → blur active element, exit INSERT, return to NORMAL
-//      - SPACE  → if a row is focused, toggle the row's first
-//                 input[type=checkbox] (so checkbox toggling works
-//                 inside INSERT mode without needing an actual focused
-//                 input)
-//      - Any other key → passes through to the active element
-//                        (no preventDefault)
+//      - Esc    → blur active element, exit INSERT, return to NORMAL.
+//      - SPACE  → if the focused focusable IS a checkbox (or contains
+//                 one), toggle it. Otherwise pass through.
+//      - j/k/ArrowDown/ArrowUp when active element is NOT a text input
+//                 → advance focusable cursor (auto-focus the focusable's
+//                 input/checkbox/button so SPACE / typing still lands
+//                 somewhere meaningful).
+//      - Any other key → passes through to the active element.
 //
 //    Mode auto-transitions:
 //      - focusin on text input / textarea / [contenteditable] /
-//        input[type=checkbox] → enter INSERT
-//      - focusout when next target isn't another input → exit INSERT
+//        input[type=checkbox] → enter INSERT.
+//      - focusout when next target isn't another input → exit INSERT.
 //
 //    Mode broadcasts on every transition:
 //      document.dispatchEvent(
-//        new CustomEvent("tui:mode-changed", { detail: { mode: "normal" | "insert" } })
+//        new CustomEvent("tui:mode-changed", { detail: { mode } })
 //      )
-//      → consumed by tui_bottom_status_bar_controller to repaint the mode lozenge
+//      → consumed by tui_bottom_status_bar_controller to repaint the
+//      mode lozenge.
 //
 //  --- 3-LEVEL CURSOR HIERARCHY ---
 //
 //    Level 1 — PANEL.
-//      Targets: elements with data-tui-cursor-target="panel"
-//      Marker:  data-tui-cursor-focused="yes" on the focused panel
-//      Keys:    TAB, Shift-TAB, Ctrl-h, Ctrl-l, Ctrl-j, Ctrl-k
+//      Targets: elements with data-tui-cursor-target="panel".
+//      Marker:  data-tui-cursor-focused="yes" on the focused panel.
+//      Keys:    TAB, Shift-TAB, Ctrl-h, Ctrl-l, Ctrl-j, Ctrl-k.
 //
-//    Level 2 — INSIDE PANEL.
-//      Branches per focused panel content:
-//        a) Panel has data-tui-cursor-target="sub-panel" children
-//             → h/ArrowLeft + l/ArrowRight + j/ArrowDown + k/ArrowUp
-//               cycle sub-panels (linear index, clamped)
-//             → focused sub-panel gets data-tui-cursor-sub-panel-focused="yes"
-//             → dispatches tui:panel-focus-changed with sub-panel breadcrumb
-//        b) Panel has data-tui-cursor-target="row" children (and no sub-panels)
-//             → j/ArrowDown / k/ArrowUp cycle rows
-//             → h/ArrowLeft / l/ArrowRight no-op (reserved for L3 future)
-//             → focused row gets data-tui-cursor-row-focused="yes"
-//             → SPACE on row → click first input[type=checkbox] inside the row
-//             → Enter on row → click [data-row-action="primary"] inside the row
-//        c) Neither → all hjkl + arrows no-op silently
+//    Level 2 — SUB-PANEL (when present in focused panel).
+//      Targets: elements with data-tui-cursor-target="sub-panel"
+//               INSIDE the focused panel.
+//      Marker:  data-tui-cursor-sub-panel-focused="yes".
+//      Keys:    h/ArrowLeft + l/ArrowRight + j/ArrowDown + k/ArrowUp
+//               cycle sub-panels (clamped) UNLESS the sub-panel has
+//               its own focus list — then j/k drive the focus list
+//               and h/l cycle between sub-panels.
 //
-//    Level 3 — INSIDE SUB-PANEL (deferred — FB-113 future work).
-//      Stub: sub-panels with rows inside them aren't navigable yet.
-//      Stack sub-panels (Redis, PostgreSQL, etc.) host KV-style metric
-//      rows that aren't user-actionable. Revisit when a sub-panel ships
-//      with row-level actions.
+//    Level 3 — FOCUSABLE (data-tui-focusable inside focused scope).
+//      The focused scope is the active sub-panel if any, otherwise
+//      the active panel. j/k moves within the focus list (clamped).
+//      Visual marker: data-tui-focusable-focused="yes" on the element.
 //
-//  --- MOUSE / KEYBOARD SYNC (FB-98) ---
+//  --- MOUSE / KEYBOARD SYNC ---
 //
-//    Click on a data-tui-cursor-target="row" → updates this.rowIndex
-//    and re-applies the focus marker so the cursor follows the click.
-//    Same delegate handles panels and sub-panels (defensive — keyboard
-//    + mouse never diverge).
+//    Click anywhere → walks ancestors looking for panel / sub-panel /
+//    focusable markers; syncs the matching index when found.
 //
 //  --- TST BREADCRUMB EVENTS (FB-47 + FB-101) ---
 //
-//    Every focus change dispatches `tui:panel-focus-changed` on document.
-//    Detail shape:
-//
-//      { panel: "<panel title>", subPanel: "<sub-panel title>" | null }
-//
-//    The tui-status-bar controller listens and rebuilds the .sb-section
-//    span as either:
-//
-//      <panel>                              (no sub-panel focused)
-//      <panel>:(<sub-panel>)                (sub-panel focused)
+//    Every focus change dispatches `tui:panel-focus-changed` on
+//    document with `{ panel, subPanel }`.
 //
 //  =========================================================================
 
-// Sentinel selector matching the elements that count as "text inputs".
-// Excludes checkboxes / radios — those typing-bail rules don't apply
-// to checkboxes (a pressed `j` on a focused checkbox does nothing
-// natively, so we still want our key handler to take over and advance
-// the row cursor).
 const INPUT_SELECTOR = [
   'input[type="text"]',
   'input[type="url"]',
@@ -114,11 +130,6 @@ const INPUT_SELECTOR = [
   '[contenteditable="true"]'
 ].join(", ")
 
-// FB-133 — selectors that count as "any focusable input that should
-// flip mode to INSERT on focusin". Includes checkboxes + radios so
-// that focusing a checkbox (via mouse / TAB / a focused row's space
-// toggle) repaints the mode lozenge as INSERT — matching the user's
-// mental model that "any form control = INSERT mode".
 const FOCUSABLE_INPUT_SELECTOR = [
   INPUT_SELECTOR,
   'input[type="checkbox"]',
@@ -131,8 +142,11 @@ export default class extends Controller {
   connect() {
     this.mode = "normal"
     this.focusedIndex = 0
-    this.rowIndex = 0
     this.subPanelIndex = 0
+    this.focusableIndex = 0
+    // FB-179 (2026-05-21) — saved focusable index for restoring panel
+    // scope after a dialog closes.
+    this.savedScopeIndex = null
 
     this.boundKey = this.handleKey.bind(this)
     this.boundFocusIn = this.handleFocusIn.bind(this)
@@ -144,6 +158,25 @@ export default class extends Controller {
     document.addEventListener("focusout", this.boundFocusOut)
     document.addEventListener("click", this.boundClick, true)
 
+    // FB-179 (2026-05-21) — watch every <dialog> [open] attribute. When
+    // a dialog opens, save the current panel focusable index and reset
+    // the cursor to the dialog's first focusable. When the dialog
+    // closes, restore the saved index against the panel scope.
+    this.dialogObserver = new MutationObserver((mutations) => {
+      for (const m of mutations) {
+        if (m.type !== "attributes" || m.attributeName !== "open") continue
+        const dialog = m.target
+        if (dialog.hasAttribute("open")) {
+          this.handleDialogOpened(dialog)
+        } else {
+          this.handleDialogClosed(dialog)
+        }
+      }
+    })
+    document.querySelectorAll("dialog").forEach((dialog) => {
+      this.dialogObserver.observe(dialog, { attributes: true, attributeFilter: ["open"] })
+    })
+
     this.applyFocus()
   }
 
@@ -152,6 +185,25 @@ export default class extends Controller {
     document.removeEventListener("focusin", this.boundFocusIn)
     document.removeEventListener("focusout", this.boundFocusOut)
     document.removeEventListener("click", this.boundClick, true)
+    if (this.dialogObserver) {
+      this.dialogObserver.disconnect()
+      this.dialogObserver = null
+    }
+  }
+
+  handleDialogOpened(_dialog) {
+    // Save the panel-scope index, reset cursor into the dialog scope.
+    this.savedScopeIndex = this.focusableIndex
+    this.focusableIndex = 0
+    this.applyFocusableFocus()
+  }
+
+  handleDialogClosed(_dialog) {
+    // Dialog gone — restore the saved panel-scope index. focusedScope()
+    // will now return the panel again on its own.
+    this.focusableIndex = this.savedScopeIndex || 0
+    this.savedScopeIndex = null
+    this.applyFocusableFocus()
   }
 
   // ===================== MODE STATE MACHINE =====================
@@ -184,48 +236,122 @@ export default class extends Controller {
   handleFocusOut(event) {
     const t = event.target
     if (!t || !t.matches || !t.matches(FOCUSABLE_INPUT_SELECTOR)) return
-    // If focus is moving to another input/checkbox, stay in INSERT.
     const next = event.relatedTarget
     if (next && next.matches && next.matches(FOCUSABLE_INPUT_SELECTOR)) return
     this.exitInsertMode()
   }
 
   // ===================== KEY DISPATCH =====================
-
+  //
+  // Panel-level keys (TAB / Shift-TAB / Ctrl-hjkl) are evaluated FIRST,
+  // BEFORE any mode-specific branch — they must work identically in
+  // NORMAL and INSERT. This is the FB-165 regression fix: previously
+  // FB-143's `tabIntoFocusedRow` trapped Tab inside a focused row
+  // when the row had internal focusable elements, requiring N tabs
+  // per panel × N actions per row to escape (sessions × 5 actions =
+  // 25 tabs before Tab finally advanced the panel cursor). Per the
+  // 2026-05-21 user-locked architecture, Tab/Shift-Tab/Ctrl-hjkl are
+  // panel-level keys, period — focusable-level cycling lives on j/k.
   handleKey(event) {
-    // INSERT mode: Esc and (FB-133) SPACE-on-row-checkbox are ours;
-    // everything else passes through to the active element.
-    if (this.mode === "insert") {
-      if (event.key === "Escape") {
-        const active = document.activeElement
-        if (active && typeof active.blur === "function") active.blur()
-        this.exitInsertMode()
+    if (this.shouldIgnore(event)) return
+
+    // --- Panel-level keys — always active, all modes. ---
+    if (event.key === "Tab" && !event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey) {
+      event.preventDefault()
+      event.stopPropagation()
+      this.nextPanel()
+      return
+    }
+    if (event.key === "Tab" && event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey) {
+      event.preventDefault()
+      event.stopPropagation()
+      this.previousPanel()
+      return
+    }
+    if (event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey) {
+      const k = event.key.toLowerCase()
+      if (k === "h" || k === "k") {
         event.preventDefault()
         event.stopPropagation()
+        this.previousPanel()
         return
       }
-      // SPACE in INSERT — if the active element ISN'T a text input
-      // (it's a checkbox / radio / nothing) AND a row is focused, toggle
-      // the row's first checkbox. This lets a user navigate via j/k in
-      // NORMAL, press i to enter INSERT (so the lozenge reflects "form
-      // is engaged"), then press SPACE to toggle the focused row's
-      // checkbox — the canonical FB-100 / FB-133 contract.
-      if (event.key === " ") {
-        const active = document.activeElement
-        const onTextInput = active && active.matches && active.matches(INPUT_SELECTOR)
-        if (!onTextInput && this.toggleFocusedRowCheckbox()) {
-          event.preventDefault()
-          event.stopPropagation()
-        }
+      if (k === "l" || k === "j") {
+        event.preventDefault()
+        event.stopPropagation()
+        this.nextPanel()
+        return
+      }
+    }
+
+    // --- INSERT mode branch. ---
+    if (this.mode === "insert") {
+      this.handleInsertKey(event)
+      return
+    }
+
+    // --- NORMAL mode branch. ---
+    this.handleNormalKey(event)
+  }
+
+  shouldIgnore(event) {
+    // FB-179 (2026-05-21) — when a dialog is open, the cursor scope
+    // shifts to that dialog. If the dialog declares its own
+    // [data-tui-focusable] children, we DRIVE j/k/Tab navigation inside
+    // those (the new dialog-scope behavior). If the dialog has no
+    // focusables of its own, the dialog owns its keyboard — bail.
+    const openDialog = document.querySelector("dialog[open]")
+    if (openDialog) {
+      const hasOwnFocusables = openDialog.querySelector("[data-tui-focusable]")
+      if (!hasOwnFocusables) return true
+    }
+    // Modifier combos we don't handle (Alt-*, Meta-*, etc.).
+    if (event.altKey || event.metaKey) return true
+    return false
+  }
+
+  handleInsertKey(event) {
+    const k = event.key
+
+    if (k === "Escape") {
+      const active = document.activeElement
+      if (active && typeof active.blur === "function") active.blur()
+      this.exitInsertMode()
+      event.preventDefault()
+      event.stopPropagation()
+      return
+    }
+
+    if (k === " ") {
+      const active = document.activeElement
+      const onTextInput = active && active.matches && active.matches(INPUT_SELECTOR)
+      if (!onTextInput && this.toggleFocusedFocusableCheckbox()) {
+        event.preventDefault()
+        event.stopPropagation()
       }
       return
     }
 
-    // NORMAL mode. Bail when a dialog is open (leader menu, help, about).
-    if (document.querySelector("dialog[open]")) return
+    if (k === "j" || k === "k" || k === "ArrowDown" || k === "ArrowUp") {
+      const active = document.activeElement
+      const onTextInput = active && active.matches && active.matches(INPUT_SELECTOR)
+      if (!onTextInput) {
+        if (k === "j" || k === "ArrowDown") {
+          this.focusNext()
+        } else {
+          this.focusPrev()
+        }
+        this.refocusForFocusable()
+        event.preventDefault()
+        event.stopPropagation()
+      }
+      return
+    }
+  }
 
-    // Also bail if the event target is somehow still an input despite
-    // NORMAL mode (defensive: a stray focused-but-not-blurred control).
+  handleNormalKey(event) {
+    // Defensive: if focus is stuck on an input despite NORMAL mode,
+    // bail so typing into the input still works.
     const t = event.target
     if (t && t.matches && t.matches(INPUT_SELECTOR + ", select")) return
 
@@ -233,68 +359,58 @@ export default class extends Controller {
     const k = event.key
 
     if (k === "Escape") {
-      // No-op in NORMAL (already there), but absorb it so background
-      // listeners don't react twice.
       handled = true
-    } else if (k === "Tab" && !event.shiftKey && !event.ctrlKey && !event.metaKey) {
-      this.nextPanel(); handled = true
-    } else if (k === "Tab" && event.shiftKey && !event.ctrlKey && !event.metaKey) {
-      this.previousPanel(); handled = true
-    } else if (event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey) {
-      switch (k) {
-        case "h": this.previousPanel(); handled = true; break
-        case "l": this.nextPanel(); handled = true; break
-        case "j": this.nextPanel(); handled = true; break
-        case "k": this.previousPanel(); handled = true; break
-      }
     } else if (!event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey) {
-      // Plain hjkl / arrows / Space / Enter / i — inside-panel work.
+      // FB-170 (2026-05-21 user-locked) — FLAT TRAVERSAL.
+      // j/k ALWAYS cycles ALL focusables across the focused panel in
+      // document order. Sub-panels are visual grouping only, not nav
+      // stops. h/l still cycles between sub-panels when they exist —
+      // sub-panels remain a useful affordance for jumping past a
+      // group's focusables, but they no longer scope j/k.
       const mode = this.insidePanelMode()
-      if (mode === "sub-panel") {
+      const hasFocusables = this.focusablesInFocusedScope().length > 0
+      const hasSubPanels = mode === "sub-panel"
+
+      if (hasFocusables) {
         switch (k) {
-          case "h":
-          case "ArrowLeft":
-          case "k":
-          case "ArrowUp":
-            this.previousSubPanel(); handled = true; break
-          case "l":
-          case "ArrowRight":
-          case "j":
-          case "ArrowDown":
-            this.nextSubPanel(); handled = true; break
-        }
-      } else if (mode === "row") {
-        switch (k) {
-          case "j":
-          case "ArrowDown":
-            this.nextRow(); handled = true; break
-          case "k":
-          case "ArrowUp":
-            this.previousRow(); handled = true; break
-          case "h":
-          case "ArrowLeft":
-            // reserved (L3 future)
+          case "j": case "ArrowDown":
+            this.focusNext(); handled = true; break
+          case "k": case "ArrowUp":
+            this.focusPrev(); handled = true; break
+          case "h": case "ArrowLeft":
+            if (hasSubPanels) this.previousSubPanel()
             handled = true; break
-          case "l":
-          case "ArrowRight":
-            // reserved (L3 future)
+          case "l": case "ArrowRight":
+            if (hasSubPanels) this.nextSubPanel()
             handled = true; break
           case " ":
-            if (this.toggleFocusedRowCheckbox()) handled = true
+            if (this.toggleFocusedFocusableCheckbox()) handled = true
             break
           case "Enter":
-            if (this.triggerFocusedRowAction()) handled = true
+            if (this.triggerFocusedFocusableAction()) handled = true
             break
+        }
+      } else if (hasSubPanels) {
+        // Panel has sub-panels but NO focusables anywhere — hjkl
+        // cycles between sub-panels (legacy affordance for empty
+        // grouping panels, e.g., placeholder/info-only sections).
+        switch (k) {
+          case "h": case "ArrowLeft":
+          case "k": case "ArrowUp":
+            this.previousSubPanel(); handled = true; break
+          case "l": case "ArrowRight":
+          case "j": case "ArrowDown":
+            this.nextSubPanel(); handled = true; break
         }
       }
 
-      // FB-133 — `i` simply flips mode to INSERT. We do NOT auto-focus
-      // an input. The user uses TAB to walk between focusable elements
-      // after entering INSERT. This prevents the "i in notifications
-      // panel jumps past the [x] all + [x] daily digest checkboxes
-      // straight to the Discord webhook URL input" surprise.
+      // `i` flips mode to INSERT. We DO auto-focus the currently
+      // focused focusable so the user lands somewhere actionable
+      // (a checkbox / button / input) — but the cursor list cursor
+      // doesn't jump. The user already picked the focusable via j/k.
       if (!handled && k === "i") {
         this.enterInsertMode()
+        this.refocusForFocusable()
         handled = true
       }
     }
@@ -310,8 +426,8 @@ export default class extends Controller {
   nextPanel() {
     if (this.panelTargets.length === 0) return
     this.focusedIndex = (this.focusedIndex + 1) % this.panelTargets.length
-    this.rowIndex = 0
     this.subPanelIndex = 0
+    this.focusableIndex = 0
     this.applyFocus()
   }
 
@@ -319,8 +435,8 @@ export default class extends Controller {
     if (this.panelTargets.length === 0) return
     this.focusedIndex =
       (this.focusedIndex - 1 + this.panelTargets.length) % this.panelTargets.length
-    this.rowIndex = 0
     this.subPanelIndex = 0
+    this.focusableIndex = 0
     this.applyFocus()
   }
 
@@ -334,7 +450,7 @@ export default class extends Controller {
       }
     })
     this.applySubPanelFocus()
-    this.applyRowFocus()
+    this.applyFocusableFocus()
     this.emitFocusChange()
   }
 
@@ -344,8 +460,7 @@ export default class extends Controller {
     const focused = this.panelTargets[this.focusedIndex]
     if (!focused) return "none"
     if (this.subPanelsInFocusedPanel().length > 0) return "sub-panel"
-    if (this.rowsInFocusedPanel().length > 0) return "row"
-    return "none"
+    return "panel"
   }
 
   // ===================== SUB-PANEL LEVEL =====================
@@ -356,18 +471,24 @@ export default class extends Controller {
     const all = Array.from(
       focused.querySelectorAll('[data-tui-cursor-target="sub-panel"]')
     )
-    // Direct sub-panels of the focused panel only — exclude any that
-    // belong to a nested panel target (defensive against deep layouts).
     return all.filter(
       (el) => el.closest('[data-tui-cursor-target="panel"]') === focused
     )
+  }
+
+  focusedSubPanel() {
+    const subs = this.subPanelsInFocusedPanel()
+    if (subs.length === 0) return null
+    return subs[this.subPanelIndex] || null
   }
 
   nextSubPanel() {
     const subs = this.subPanelsInFocusedPanel()
     if (subs.length === 0) return
     this.subPanelIndex = Math.min(this.subPanelIndex + 1, subs.length - 1)
+    this.focusableIndex = 0
     this.applySubPanelFocus()
+    this.applyFocusableFocus()
     this.emitFocusChange()
   }
 
@@ -375,15 +496,14 @@ export default class extends Controller {
     const subs = this.subPanelsInFocusedPanel()
     if (subs.length === 0) return
     this.subPanelIndex = Math.max(this.subPanelIndex - 1, 0)
+    this.focusableIndex = 0
     this.applySubPanelFocus()
+    this.applyFocusableFocus()
     this.emitFocusChange()
   }
 
   applySubPanelFocus() {
     const subs = this.subPanelsInFocusedPanel()
-    // Always clear sub-panel markers across ALL sub-panels in the DOM
-    // (not just the focused panel) so a panel switch doesn't leave a
-    // stale marker on an off-screen panel.
     document
       .querySelectorAll(
         '[data-tui-cursor-target="sub-panel"][data-tui-cursor-sub-panel-focused="yes"]'
@@ -404,91 +524,203 @@ export default class extends Controller {
     }
   }
 
-  // ===================== ROW LEVEL =====================
+  // ===================== FOCUSABLE LEVEL =====================
+  //
+  // FB-170 (2026-05-21 user-locked) — FLAT TRAVERSAL.
+  // The "focused scope" is ALWAYS the top-level focused panel. j/k
+  // cycles through every focusable inside that panel in DOCUMENT ORDER,
+  // regardless of which sub-panel each focusable lives in. Sub-panels
+  // are visual grouping (boxes for legibility), NOT navigational stops.
+  // Empty sub-panels contribute no focusables and are naturally skipped.
+  //
+  // Example: pressing j inside the stack panel cycles
+  //   Meilisearch [reindex] → Voyage [reindex] → wrap (clamped)
+  // Empty sub-panels (Redis, Postgres, assets, notes) are not stops.
 
-  rowsInFocusedPanel() {
-    const focused = this.panelTargets[this.focusedIndex]
-    if (!focused) return []
-    // Skip rows when sub-panels are present (rows belong to a nested
-    // L3 cursor that's deferred for now).
-    const all = Array.from(
-      focused.querySelectorAll('[data-tui-cursor-target="row"]')
-    )
-    return all.filter(
-      (row) => row.closest('[data-tui-cursor-target="panel"]') === focused
-    )
+  focusedScope() {
+    // FB-179 (2026-05-21) — an open <dialog> wins the cursor scope.
+    // When a dialog is open, j/k/Tab cycle the dialog's focusables;
+    // Esc closes the dialog and scope reverts (via handleDialogClosed
+    // restoring savedScopeIndex). When no dialog is open, fall back to
+    // the focused top-level panel.
+    const openDialog = document.querySelector("dialog[open]")
+    if (openDialog) return openDialog
+    return this.panelTargets[this.focusedIndex] || null
   }
 
-  nextRow() {
-    const rows = this.rowsInFocusedPanel()
-    if (rows.length === 0) return
-    this.rowIndex = Math.min(this.rowIndex + 1, rows.length - 1)
-    this.applyRowFocus()
+  focusablesInFocusedScope() {
+    const scope = this.focusedScope()
+    if (!scope) return []
+    const all = Array.from(scope.querySelectorAll("[data-tui-focusable]"))
+    // FB-179 (2026-05-21) — when scope is a <dialog>, skip the
+    // closest-panel filter since dialog focusables aren't under a panel
+    // ancestor. Apply only the disabled / hidden filters.
+    const isDialogScope = scope.tagName === "DIALOG"
+    return all.filter((el) => {
+      if (!isDialogScope) {
+        // Only focusables whose closest PANEL is this panel — skips
+        // focusables owned by a nested panel (defensive; shouldn't
+        // happen in practice). `closest('[data-tui-cursor-target="panel"]')`
+        // walks up DOM and stops at the first PANEL ancestor, naturally
+        // ignoring sub-panel wrappers (which use the "sub-panel" attribute
+        // value, not "panel"). That's the flat-traversal mechanism.
+        const ownPanel = el.closest('[data-tui-cursor-target="panel"]')
+        if (ownPanel !== scope) return false
+      }
+      // Skip disabled (async save in flight, etc.).
+      if (el.dataset.tuiFocusableDisabled === "yes") return false
+      // Skip hidden / display:none / detached.
+      if (el.offsetParent === null) {
+        // `offsetParent` is null for `position: fixed` elements that are
+        // still visible — but our focusables aren't fixed-position, so
+        // this filter is safe for the surface we control.
+        return false
+      }
+      return true
+    })
   }
 
-  previousRow() {
-    const rows = this.rowsInFocusedPanel()
-    if (rows.length === 0) return
-    this.rowIndex = Math.max(this.rowIndex - 1, 0)
-    this.applyRowFocus()
+  focusNext() {
+    const list = this.focusablesInFocusedScope()
+    if (list.length === 0) return
+    this.focusableIndex = Math.min(this.focusableIndex + 1, list.length - 1)
+    this.applyFocusableFocus()
   }
 
-  applyRowFocus() {
-    const rows = this.rowsInFocusedPanel()
-    // Clear stale row markers everywhere — same defensive reset as
-    // sub-panels above.
+  focusPrev() {
+    const list = this.focusablesInFocusedScope()
+    if (list.length === 0) return
+    this.focusableIndex = Math.max(this.focusableIndex - 1, 0)
+    this.applyFocusableFocus()
+  }
+
+  applyFocusableFocus() {
+    // FB-174 (2026-05-21) — bulletproof stale-marker clear.
+    //
+    // Previously used `delete el.dataset.tuiFocusableFocused` which
+    // SHOULD remove the attribute but in practice some browsers / DOM
+    // states leave the attribute around in a "removed but still
+    // selector-matching" form (observed: pressing j 6 times leaves
+    // visible orange tint on rows 0..5 even though the controller
+    // logs claim only row 6 is the active focusable). `removeAttribute`
+    // is the spec-required form that guarantees the attribute node
+    // is detached from the element AND the CSS selector
+    // `[data-tui-focusable-focused="yes"]` stops matching immediately.
+    //
+    // Document-wide query (not just focused scope) is intentional —
+    // panel switches and click syncs may have planted markers in
+    // sibling panels that the focused-scope query would miss.
     document
-      .querySelectorAll(
-        '[data-tui-cursor-target="row"][data-tui-cursor-row-focused="yes"]'
-      )
-      .forEach((row) => {
-        delete row.dataset.tuiCursorRowFocused
+      .querySelectorAll("[data-tui-focusable-focused]")
+      .forEach((el) => {
+        el.removeAttribute("data-tui-focusable-focused")
       })
-    if (rows.length === 0) {
-      this.rowIndex = 0
+    const list = this.focusablesInFocusedScope()
+    if (list.length === 0) {
+      this.focusableIndex = 0
       return
     }
-    if (this.rowIndex >= rows.length) this.rowIndex = rows.length - 1
-    if (this.rowIndex < 0) this.rowIndex = 0
-    const active = rows[this.rowIndex]
+    if (this.focusableIndex >= list.length) this.focusableIndex = list.length - 1
+    if (this.focusableIndex < 0) this.focusableIndex = 0
+    const active = list[this.focusableIndex]
     if (active) {
-      active.dataset.tuiCursorRowFocused = "yes"
+      active.setAttribute("data-tui-focusable-focused", "yes")
       active.scrollIntoView({ block: "nearest" })
+      // FB-184 (2026-05-21) — auto-sync sub-panel marker to the focused
+      // focusable's parent sub-panel. FB-169 made stack panel j/k traverse
+      // flat across sub-panel focusables; this re-couples the visible
+      // sub-panel border accent to the focused focusable so the user
+      // sees which zone owns the cursor. Walks up to the nearest
+      // `[data-tui-cursor-target="sub-panel"]` ancestor and syncs
+      // `this.subPanelIndex` against the focused panel's sub-panel list.
+      this.syncSubPanelFromFocusable(active)
     }
   }
 
-  focusedRow() {
-    const rows = this.rowsInFocusedPanel()
-    return rows[this.rowIndex] || null
+  // FB-184 (2026-05-21). When a focusable becomes active via j/k or
+  // click, derive its parent sub-panel (if any) and re-align the
+  // sub-panel marker. No-op when the focusable lives outside any
+  // sub-panel (e.g. focusables directly under a panel without sub-panel
+  // grouping, or dialog-scope focusables).
+  syncSubPanelFromFocusable(active) {
+    if (!active || !active.closest) return
+    const subPanel = active.closest('[data-tui-cursor-target="sub-panel"]')
+    if (!subPanel) return
+    const subs = this.subPanelsInFocusedPanel()
+    const idx = subs.indexOf(subPanel)
+    if (idx === -1) return
+    if (idx === this.subPanelIndex) return
+    this.subPanelIndex = idx
+    this.applySubPanelFocus()
   }
 
-  // FB-100 / FB-133 — toggle the row's checkbox via the row's own
-  // input, NOT by walking the checkbox as a separate cursor stop.
-  // After toggling, blur the checkbox so a subsequent `j` press
-  // advances the row cursor (without `.blur()` the browser leaves
-  // the checkbox focused → `focusin` flips to INSERT → the next
-  // `j` is consumed by the INSERT handler → user perceives an
-  // "extra stop" between rows).
-  toggleFocusedRowCheckbox() {
-    const row = this.focusedRow()
-    if (!row) return false
-    const checkbox = row.querySelector('input[type="checkbox"]')
+  focusedFocusable() {
+    const list = this.focusablesInFocusedScope()
+    return list[this.focusableIndex] || null
+  }
+
+  // SPACE on a focused focusable. If the focusable IS a checkbox or
+  // CONTAINS a checkbox, toggle it. Otherwise no-op.
+  //
+  // FB-167 (2026-05-21) — do NOT blur after toggle. The previous blur
+  // triggered focusout → handleFocusOut → exitInsertMode, kicking the
+  // user out of INSERT after every SPACE toggle. User contract: only
+  // Esc exits INSERT, period. Leaving focus on the checkbox keeps the
+  // native focus ring + INSERT lozenge alive across repeated toggles.
+  toggleFocusedFocusableCheckbox() {
+    const el = this.focusedFocusable()
+    if (!el) return false
+    const checkbox =
+      el.matches && el.matches('input[type="checkbox"]')
+        ? el
+        : el.querySelector('input[type="checkbox"]')
     if (!checkbox) return false
     checkbox.click()
-    if (typeof checkbox.blur === "function") checkbox.blur()
     return true
   }
 
-  triggerFocusedRowAction() {
-    const row = this.focusedRow()
-    if (!row) return false
-    const action = row.querySelector('[data-row-action="primary"]')
+  // Enter triggers the focusable's primary action — if the focusable IS
+  // a button/anchor click it; otherwise look for [data-row-action="primary"]
+  // (legacy) or the first button/anchor inside.
+  triggerFocusedFocusableAction() {
+    const el = this.focusedFocusable()
+    if (!el) return false
+    if (el.matches && el.matches('button, a[href], input[type="submit"]')) {
+      el.click()
+      return true
+    }
+    const action =
+      el.querySelector('[data-row-action="primary"]') ||
+      el.querySelector('button, a[href], input[type="submit"]')
     if (!action) return false
     action.click()
     return true
   }
 
-  // ===================== MOUSE → KEYBOARD SYNC (FB-98) =====================
+  // After j/k moves the focusable cursor (in INSERT mode, or on `i` entry),
+  // place native focus on the focusable's input/checkbox/button so SPACE
+  // / typing lands somewhere meaningful.
+  refocusForFocusable() {
+    const el = this.focusedFocusable()
+    if (!el) return
+    let target = null
+    if (el.matches && el.matches('input, button, a[href], textarea, select')) {
+      target = el
+    } else {
+      target =
+        el.querySelector('input[type="checkbox"]') ||
+        el.querySelector(INPUT_SELECTOR) ||
+        el.querySelector('button, a[href], input[type="submit"]')
+    }
+    if (target && typeof target.focus === "function") {
+      target.focus({ preventScroll: true })
+      return
+    }
+    const active = document.activeElement
+    if (active && typeof active.blur === "function") active.blur()
+  }
+
+  // ===================== MOUSE → KEYBOARD SYNC =====================
 
   handleClick(event) {
     const t = event.target
@@ -500,8 +732,8 @@ export default class extends Controller {
       const panelIdx = this.panelTargets.indexOf(panel)
       if (panelIdx !== -1 && panelIdx !== this.focusedIndex) {
         this.focusedIndex = panelIdx
-        this.rowIndex = 0
         this.subPanelIndex = 0
+        this.focusableIndex = 0
         this.applyFocus()
       }
     }
@@ -513,21 +745,21 @@ export default class extends Controller {
       const subIdx = subs.indexOf(subPanel)
       if (subIdx !== -1 && subIdx !== this.subPanelIndex) {
         this.subPanelIndex = subIdx
+        this.focusableIndex = 0
         this.applySubPanelFocus()
+        this.applyFocusableFocus()
         this.emitFocusChange()
       }
     }
 
-    // Sync row index on row click (excluding clicks that originate from
-    // the row's own checkbox — that's a checkbox toggle, not a row pick,
-    // and the click still bubbles so we can update rowIndex on the row).
-    const row = t.closest('[data-tui-cursor-target="row"]')
-    if (row) {
-      const rows = this.rowsInFocusedPanel()
-      const rowIdx = rows.indexOf(row)
-      if (rowIdx !== -1 && rowIdx !== this.rowIndex) {
-        this.rowIndex = rowIdx
-        this.applyRowFocus()
+    // Sync focusable index on focusable click.
+    const focusable = t.closest("[data-tui-focusable]")
+    if (focusable) {
+      const list = this.focusablesInFocusedScope()
+      const idx = list.indexOf(focusable)
+      if (idx !== -1 && idx !== this.focusableIndex) {
+        this.focusableIndex = idx
+        this.applyFocusableFocus()
       }
     }
   }

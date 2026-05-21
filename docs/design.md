@@ -1546,6 +1546,16 @@ rows, `Constraint::Min` for the content middle row) replicates this 1:1.
 The web layout is the visual counterpart to the future Rust client's
 top-level pane geometry.
 
+### Cable-per-panel (cross-ref to architecture.md)
+
+UI updates are panel-scoped. Channel naming is `pito:<screen>:<panel>`
+(with `pito:<screen>:<panel>:<sub-panel>` for sub-panels and
+`pito:status_bar` for the cross-screen TST channel). Every `<form>` is
+Turbo by default; controllers respond with `head :no_content` /
+`render turbo_stream:` / `turbo_frame` — never `redirect_to` inside a
+panel-scoped action. See `docs/architecture.md` →
+"Turbo-everywhere + cable-per-panel" for the full operational contract.
+
 ## Mobile Responsiveness
 
 - `.hide-mobile` — hidden below 768px (home nav link, search button, copyright

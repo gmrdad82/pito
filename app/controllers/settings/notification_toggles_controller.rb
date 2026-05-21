@@ -24,9 +24,15 @@
 #   * `flags_require_webhook_url` is gone from the model.
 #   * The brand-specific webhook URL update flow stays untouched.
 #
-# Response: redirect back to /settings with a notice naming the new
-# state. Turbo follows the redirect, the page reloads, and the flash
-# toast surfaces in the layout-level region.
+# Response: `head :no_content` (HTTP 204). FB-147 (2026-05-21) — the
+# previous `redirect_to settings_path` triggered Turbo Drive to swap
+# the entire page on every checkbox toggle, blowing away cursor
+# focus + scroll position + in-flight INSERT mode. The toggle's
+# visual feedback (the [x] glyph + the braille spinner during save)
+# is owned client-side by `tui-toggle-feedback`; the success flash
+# was redundant for an auto-saved row. Returning 204 keeps Turbo
+# happy (no navigation, no body swap) while the auto-submit
+# controller fires-and-forgets.
 class Settings::NotificationTogglesController < ApplicationController
   # Maps the URL segment to the column on `app_settings`.
   KINDS = {
@@ -55,12 +61,13 @@ class Settings::NotificationTogglesController < ApplicationController
 
     AppSetting.set_notification_toggle!(column, enabled)
 
-    redirect_to settings_path,
-                notice: t(
-                  "settings.notification_toggle.flash.toggled",
-                  kind: t("settings.notification_toggle.kind.#{LABEL_KEYS.fetch(column)}"),
-                  state: enabled ? "on" : "off"
-                )
+    # FB-147 (2026-05-21) — fire-and-forget. The checkbox glyph + the
+    # braille spinner are owned by `tui-toggle-feedback`; the auto-save
+    # row needs zero feedback from the server beyond a 2xx that ends
+    # the spinner. Returning a redirect (the prior implementation)
+    # caused Turbo Drive to swap the entire body — wiping cursor
+    # focus + scroll + INSERT mode mid-toggle.
+    head :no_content
   end
 
   private

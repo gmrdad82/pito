@@ -145,28 +145,36 @@ class SettingsController < ApplicationController
   # (`sidekiq_options lock: :until_executed`) lives on each job.
   # Layer 3 (UI gate) is the Voyage section + tile-level link
   # rendering — see `_voyage_section.html.erb` + `_stack_pane.html.erb`.
+  # FB-138 (2026-05-21). The reindex actions are submitted from the
+  # `Tui::ConfirmationDialogComponent` form which IS Turbo-driven
+  # (Rails 8 `form_with` default). Returning `head :no_content`
+  # (HTTP 204) tells Turbo to do nothing — no navigation, no body
+  # render — and the controller's `turbo:submit-end` listener closes
+  # the dialog. The cable broadcast
+  # (`StackStats::Broadcaster.broadcast!` from the job + the
+  # brand-tagged `reindex_started` event) drives the in-place UI swap.
+  #
+  # FB-149 (2026-05-21). Conflicts (a second click while the shared
+  # lock is held) ALSO return 204 — Turbo's 409 handling renders the
+  # empty response body and could trigger a navigation to the action
+  # URL. The cable already surfaces the running state visually, so
+  # the dialog closes silently on the no-op path. The double click
+  # is harmless: `start_reindex!` is gated by `reindex_running?`
+  # below so we never enqueue twice.
   def meilisearch_reindex
-    if AppSetting.reindex_running?
-      redirect_to settings_path, alert: t("settings.flash.reindex_in_progress")
-      return
+    unless AppSetting.reindex_running?
+      AppSetting.start_reindex!
+      MeilisearchReindexJob.perform_later
     end
-
-    AppSetting.start_reindex!
-    MeilisearchReindexJob.perform_later
-    redirect_to settings_path,
-      notice: t("settings.stack.meilisearch_reindex_flash")
+    head :no_content
   end
 
   def voyage_reindex
-    if AppSetting.reindex_running?
-      redirect_to settings_path, alert: t("settings.flash.reindex_in_progress")
-      return
+    unless AppSetting.reindex_running?
+      AppSetting.start_reindex!
+      VoyageReindexJob.perform_later
     end
-
-    AppSetting.start_reindex!
-    VoyageReindexJob.perform_later
-    redirect_to settings_path,
-      notice: t("settings.stack.voyage_reindex_flash")
+    head :no_content
   end
 
   private

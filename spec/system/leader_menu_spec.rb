@@ -363,14 +363,14 @@ RSpec.describe "Leader menu chrome", type: :system do
       expect(controller_source).to include("turbo:visit")
     end
 
-    it "keeps the outside-click handler intact (clicks on links outside still dismiss)" do
-      # Belt-and-braces: even on surfaces where Turbo is unavailable
-      # (auth pages with chrome hidden) OR where a click triggers a
-      # non-Turbo navigation, the outside-click listener still closes
-      # the popup. Lock both code paths so a future refactor that
-      # consolidates listeners doesn't accidentally drop one.
-      expect(controller_source).to match(/onOutsideClick\([^)]*\)/)
-      expect(controller_source).to include("document.addEventListener(\"click\", this.boundOutside, true)")
+    it "does NOT install an outside-click dismissal handler (Esc-only dismiss per FB-138)" do
+      # FB-138 (2026-05-21) — the leader menu must dismiss ONLY on
+      # [Esc] (Backspace stays for clearing the prefix). Outside-click
+      # dismissal was removed for parity with FB-127 backdrop-click
+      # prevent on dialogs. Lock the absence of the handler so a future
+      # refactor doesn't accidentally reintroduce it.
+      expect(controller_source).not_to match(/onOutsideClick\b/)
+      expect(controller_source).not_to include("this.boundOutside")
     end
 
     it "close() empties the menu stack and clears the persisted sessionStorage entry" do

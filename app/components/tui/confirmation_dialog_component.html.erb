@@ -1,8 +1,10 @@
 <dialog id="<%= id %>" class="tui-confirmation-dialog tui-dialog-frame" data-controller="tui-confirmation-dialog">
   <span class="tui-dialog-frame__title-left"><%= title %></span>
-  <span class="tui-dialog-frame__title-right">[<%= t("keys.esc") %>] to close</span>
+  <span class="tui-dialog-frame__title-right"><%= t("keys.esc") %> to close</span>
   <p class="tui-confirmation-dialog__message"><%= message %></p>
-  <%= form_with url: action_path, method: action_method, class: "tui-confirmation-dialog__form", data: { turbo: false } do %>
-    <%= render BracketedLinkComponent.new(label: action_label, as: :submit, destructive: destructive?) %>
+  <%= form_with url: action_path, method: action_method, class: "tui-confirmation-dialog__form" do %>
+    <span data-tui-focusable="confirm" data-tui-focusable-style="action">
+      <%= render BracketedLinkComponent.new(label: action_label, as: :submit, destructive: destructive?) %>
+    </span>
   <% end %>
 </dialog>

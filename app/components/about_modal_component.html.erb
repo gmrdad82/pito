@@ -8,7 +8,7 @@
         data-controller="confirm-modal tui-dialog-frame"
         data-action="click->confirm-modal#clickOutside keydown->confirm-modal#keydown">
   <span class="tui-dialog-frame__title-left"><%= t("about.modal.title") %></span>
-  <span class="tui-dialog-frame__title-right">[<%= t("keys.esc") %>] <%= t("about.modal.esc_close_suffix") %></span>
+  <span class="tui-dialog-frame__title-right"><%= t("keys.esc") %> <%= t("about.modal.esc_close_suffix") %></span>
   <div class="confirm-modal-inner">
     <%# Logo above the project name. 64px display size sourced from
         `/favicon-128x128.png` for ~2x retina density on this small modal

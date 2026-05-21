@@ -51,6 +51,15 @@ class VoyageReindexJob < ApplicationJob
     # idle `[reindex]` action.
     ActionCable.server.broadcast("stack_stats", { reindex_event: { kind: "reindex_started", brand: "voyage" } })
 
+    # ADR 0018 — panel-scoped cable broadcast. See `MeilisearchReindexJob`
+    # for the rationale; this job mirrors the same `running` / `complete`
+    # shape against its own `pito:settings:stack:voyage` channel.
+    Pito::CableBroadcaster.broadcast_panel(
+      "pito:settings:stack:voyage",
+      kind: "reindex_event",
+      payload: { state: "running" }
+    )
+
     StackStats::Broadcaster.broadcast!
 
     sleep REINDEX_SLEEP_SECONDS if REINDEX_SLEEP_SECONDS.positive?
@@ -61,6 +70,11 @@ class VoyageReindexJob < ApplicationJob
     AppSetting.clear_reindex_lock!
     broadcast_voyage_section
     StackStats::Broadcaster.broadcast!
+    Pito::CableBroadcaster.broadcast_panel(
+      "pito:settings:stack:voyage",
+      kind: "reindex_event",
+      payload: { state: "complete" }
+    )
     StackStatsBroadcastJob.set(wait: 1.second).perform_later
   end
 
