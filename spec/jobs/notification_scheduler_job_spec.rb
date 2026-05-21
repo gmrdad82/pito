@@ -2,9 +2,9 @@ require "rails_helper"
 
 RSpec.describe NotificationSchedulerJob do
   describe "#perform" do
-    it "delegates to NotificationScheduler" do
-      scheduler = instance_double(NotificationScheduler)
-      expect(NotificationScheduler).to receive(:new).and_return(scheduler)
+    it "delegates to Pito::Notifications::Scheduler" do
+      scheduler = instance_double(Pito::Notifications::Scheduler)
+      expect(Pito::Notifications::Scheduler).to receive(:new).and_return(scheduler)
       expect(scheduler).to receive(:perform)
       described_class.new.perform
     end

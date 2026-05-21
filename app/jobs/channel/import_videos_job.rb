@@ -41,7 +41,7 @@ class Channel::ImportVideosJob
     end
 
     import_job.update!(status: :completed)
-    NotificationSource::ImportJobCompleted.report!(import_job)
+    Pito::Notifications::Source::ImportJobCompleted.report!(import_job)
     broadcast_progress(import_job)
   rescue Channels::VideoImporter::FatalError => e
     mark_failed(import_job, code: e.code, message: e.message)
@@ -65,7 +65,7 @@ class Channel::ImportVideosJob
       status: :failed,
       error_payload: { "code" => code.to_s, "message" => message.to_s }
     )
-    NotificationSource::ImportJobCompleted.report!(import_job)
+    Pito::Notifications::Source::ImportJobCompleted.report!(import_job)
     broadcast_progress(import_job)
   end
 

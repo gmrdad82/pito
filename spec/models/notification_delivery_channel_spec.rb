@@ -215,15 +215,15 @@ RSpec.describe NotificationDeliveryChannel, type: :model do
     # specs continue to work. The AR row lookup moved to
     # `.find_record_for`.
     it "returns a Slack PORO dispatcher for 'slack'" do
-      expect(described_class.for("slack")).to be_a(NotificationDeliveryChannel::Slack)
+      expect(described_class.for("slack")).to be_a(Pito::Notifications::DeliveryChannel::Slack)
     end
 
     it "returns a Discord PORO dispatcher for 'discord'" do
-      expect(described_class.for("discord")).to be_a(NotificationDeliveryChannel::Discord)
+      expect(described_class.for("discord")).to be_a(Pito::Notifications::DeliveryChannel::Discord)
     end
 
     it "returns an InApp PORO dispatcher for 'in_app'" do
-      expect(described_class.for("in_app")).to be_a(NotificationDeliveryChannel::InApp)
+      expect(described_class.for("in_app")).to be_a(Pito::Notifications::DeliveryChannel::InApp)
     end
 
     it "raises on an unknown kind" do

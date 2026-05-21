@@ -2,7 +2,7 @@ require "rails_helper"
 
 RSpec.describe "notifications/show.html.erb", type: :view do
   let(:notification) { create(:notification, :video_published) }
-  let(:payload) { NotificationFormatter::InApp.payload_for(notification) }
+  let(:payload) { Pito::Notifications::Formatter::InApp.payload_for(notification) }
 
   before do
     assign(:notification, notification)

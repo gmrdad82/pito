@@ -81,7 +81,7 @@ class NotificationsController < ApplicationController
   end
 
   def show
-    @payload = NotificationFormatter::InApp.payload_for(@notification)
+    @payload = Pito::Notifications::Formatter::InApp.payload_for(@notification)
 
     respond_to do |format|
       format.html

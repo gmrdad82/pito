@@ -22,7 +22,7 @@ RSpec.describe "notifications/_notification.html.erb", type: :view do
 
   it "renders the event-type glyph (color emoji)" do
     render partial: "notifications/notification", locals: { notification: unread }
-    expected_emoji = NotificationFormatter::EVENT_TYPE_EMOJI.fetch("video_published")
+    expected_emoji = Pito::Notifications::Formatter::EVENT_TYPE_EMOJI.fetch("video_published")
     expect(rendered).to include('class="notification-glyph"')
     expect(rendered).to include(expected_emoji)
   end

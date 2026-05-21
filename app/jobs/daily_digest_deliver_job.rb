@@ -102,8 +102,8 @@ class DailyDigestDeliverJob < ApplicationJob
 
   def http_client_for(channel)
     case channel.kind.to_s
-    when "slack"   then Webhooks::SlackClient.new(channel.webhook_url)
-    when "discord" then Webhooks::DiscordClient.new(channel.webhook_url)
+    when "slack"   then Pito::Notifications::Webhooks::SlackClient.new(channel.webhook_url)
+    when "discord" then Pito::Notifications::Webhooks::DiscordClient.new(channel.webhook_url)
     end
   end
 
