@@ -1,0 +1,56 @@
+name: Feature request
+description: Suggest a feature or enhancement for pito
+title: "[feature] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the suggestion.
+
+        Reminder: **pito is one person's tool, open-sourced as-is.** Feature
+        requests are a wishlist — there's no commitment to implementation.
+        PRs welcome but not guaranteed to be merged. If the feature doesn't
+        fit the author's needs, it likely won't ship from this repo.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What use case or pain point is this solving?
+      placeholder: |
+        When I try to ..., I expect ..., but pito currently doesn't ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Sketch how this might work. Doesn't have to be polished.
+      placeholder: |
+        Add a panel on `/games` that shows ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What else have you tried? Why didn't it work?
+      placeholder: |
+        I tried using YouTube Studio for this but ...
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: ack
+    attributes:
+      label: Acknowledgment
+      options:
+        - label: I've read the [project philosophy](https://github.com/gmrdad82/pito#project-philosophy) and understand feature requests are a wishlist with no implementation commitment.
+          required: true
+        - label: I've searched existing issues to avoid duplicates.
+          required: true
+        - label: I'd be willing to discuss / contribute a PR for this if it aligns with the project's direction.
+          required: false

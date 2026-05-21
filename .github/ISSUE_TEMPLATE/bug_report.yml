@@ -1,0 +1,73 @@
+name: Bug report
+description: Report a bug in pito
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug report.
+
+        Reminder: **pito is alpha and self-hosted. No SLA, no support
+        guarantees, no roadmap commitments.** Issues are triaged when there's
+        time. Quality reports get triaged faster.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Describe the bug + what you expected to happen.
+      placeholder: |
+        I expected ... but ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Numbered steps. The shorter + more deterministic, the better.
+      placeholder: |
+        1. Run `bin/dev`
+        2. Visit `/`
+        3. Click `[reindex]` on the Meilisearch sub-panel
+        4. See error
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: pito version
+      description: From the `VERSION` file at the repo root, or from the About dialog.
+      placeholder: e.g. 0.0.1.beta3
+    validations:
+      required: true
+
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: OS + Ruby version + Postgres + Redis + Meilisearch versions.
+      placeholder: e.g. Arch Linux, Ruby 3.3.5, Postgres 17.2, Redis 7.4, Meilisearch 1.10
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs / error output
+      description: Paste error tracebacks, log lines, or screenshots. Use code blocks for text.
+      render: shell
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: ack
+    attributes:
+      label: Acknowledgment
+      options:
+        - label: I've read the [project philosophy](https://github.com/gmrdad82/pito#project-philosophy) and understand pito is alpha with no SLA.
+          required: true
+        - label: I've searched existing issues to avoid duplicates.
+          required: true
