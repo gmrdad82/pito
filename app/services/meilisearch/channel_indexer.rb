@@ -52,7 +52,7 @@ module Meilisearch
 
     private
 
-    # Mirrors `Search::Engine#index_name_for` (private) without
+    # Mirrors `Pito::Search::Engine#index_name_for` (private) without
     # depending on the engine — keeps the Channel indexer standalone.
     def index_name
       "channels_#{Rails.env}"

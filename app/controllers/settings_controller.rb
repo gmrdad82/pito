@@ -83,8 +83,8 @@ class SettingsController < ApplicationController
 
     # Stack pane — same probe set the previous /settings exposed.
     begin
-      @search_healthy = Search.engine.healthy?
-      @search_stats = Search.engine.index_stats
+      @search_healthy = Pito::Search.engine.healthy?
+      @search_stats = Pito::Search.engine.index_stats
     rescue StandardError
       @search_healthy = false
       @search_stats = {}
@@ -262,8 +262,8 @@ class SettingsController < ApplicationController
   def search_per_index_stats_for_settings_pane
     engine_rows = {}
 
-    if Search.engine.respond_to?(:per_index_stats)
-      stats = Search.engine.per_index_stats
+    if Pito::Search.engine.respond_to?(:per_index_stats)
+      stats = Pito::Search.engine.per_index_stats
       stats.each do |index_name, payload|
         next if index_name.to_s.end_with?("_test")
         label = index_name.to_s.sub(/_(development|production)\z/, "")
@@ -315,10 +315,10 @@ class SettingsController < ApplicationController
   # so the row totals still reconcile with the total reported by
   # `per_index_stats`.
   def split_games_index_by_kind(raw_index_name, total_documents)
-    return [ total_documents, 0 ] unless Search.engine.respond_to?(:documents_count_for)
+    return [ total_documents, 0 ] unless Pito::Search.engine.respond_to?(:documents_count_for)
 
-    games_count = Search.engine.documents_count_for(raw_index_name, field: "kind", value: "game")
-    bundles_count = Search.engine.documents_count_for(raw_index_name, field: "kind", value: "bundle")
+    games_count = Pito::Search.engine.documents_count_for(raw_index_name, field: "kind", value: "game")
+    bundles_count = Pito::Search.engine.documents_count_for(raw_index_name, field: "kind", value: "bundle")
 
     if games_count.nil? && bundles_count.nil?
       [ total_documents, 0 ]

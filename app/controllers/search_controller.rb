@@ -8,7 +8,7 @@ class SearchController < ApplicationController
       return
     end
 
-    engine = Search.engine
+    engine = Pito::Search.engine
     @videos = engine.search(Video, @query, page: @page, per_page: 20)
 
     respond_to do |format|

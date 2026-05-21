@@ -1,6 +1,6 @@
 require "rails_helper"
 
-# 2026-05-18 — Search::Omnisearch dispatcher coverage.
+# 2026-05-18 — Pito::Search::Omnisearch dispatcher coverage.
 #
 # The dispatcher is a thin routing layer: given an `area:`, look up the
 # registered implementation in `AREAS` and forward `query` + extra kwargs.
@@ -9,7 +9,7 @@ require "rails_helper"
 #   - kwargs (e.g. `exclude_bundle:`, `include_bundles:`) pass through
 #   - unknown area raises ArgumentError naming the bad area
 #   - the `AREAS` table is frozen (constant guarded against runtime mutation)
-RSpec.describe Search::Omnisearch do
+RSpec.describe Pito::Search::Omnisearch do
   describe ".call" do
     context "with a known area" do
       it "delegates `:games` to `Meilisearch::SearchGames.call` with the query positional" do

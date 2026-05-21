@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe Search::Engine do
+RSpec.describe Pito::Search::Engine do
   subject { described_class.new }
 
   describe "abstract interface" do
@@ -45,7 +45,7 @@ RSpec.describe Search::Engine do
     end
 
     # 2026-05-18 — `documents_count_for(index, field:, value:)` is the
-    # filtered-count surface used by the settings stack pane to split a
+    # filtered-count surface used by the settings stack panel to split a
     # single physical index (`games_<env>`) into Game vs Bundle rows by
     # the `kind` discriminator. Engines that don't support filtered
     # counts inherit `nil` so the view renders neutrally.

@@ -12,7 +12,7 @@
 #   2. As the user types, the `omnisearch-modal` Stimulus controller
 #      GETs `/search/everywhere?q=<term>` into the dialog's nested
 #      `<turbo-frame id="everywhere_results">`.
-#   3. This action delegates to `Search::Everywhere` (the three-source
+#   3. This action delegates to `Pito::Search::Everywhere` (the three-source
 #      orchestrator: games + bundles + channels) and renders the
 #      `Search::EverywhereResultsComponent` directly. The component
 #      wraps the response body in its own turbo-frame so Turbo's
@@ -32,7 +32,7 @@ class EverywhereSearchController < ApplicationController
                    params[:context].presence ||
                    request.path
 
-    @result = Search::Everywhere.new(
+    @result = Pito::Search::Everywhere.new(
       query: query,
       current_path: current_path,
       page: params[:page]

@@ -1,11 +1,11 @@
 require "rails_helper"
 
-RSpec.describe Search do
+RSpec.describe Pito::Search do
   after { described_class.reset_engine! }
 
   describe ".engine" do
     it "returns a MeilisearchEngine by default" do
-      expect(described_class.engine).to be_a(Search::MeilisearchEngine)
+      expect(described_class.engine).to be_a(Pito::Search::MeilisearchEngine)
     end
 
     it "caches the engine instance" do
@@ -17,7 +17,7 @@ RSpec.describe Search do
     it "respects the search_engine AppSetting" do
       AppSetting.set("search_engine", "meilisearch")
       described_class.reset_engine!
-      expect(described_class.engine).to be_a(Search::MeilisearchEngine)
+      expect(described_class.engine).to be_a(Pito::Search::MeilisearchEngine)
     end
 
     it "raises for unknown engines" do

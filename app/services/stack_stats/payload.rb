@@ -193,8 +193,8 @@ module StackStats
     def search_per_index_stats
       engine_rows = {}
 
-      if Search.engine.respond_to?(:per_index_stats)
-        stats = Search.engine.per_index_stats
+      if Pito::Search.engine.respond_to?(:per_index_stats)
+        stats = Pito::Search.engine.per_index_stats
         stats.each do |index_name, payload|
           next if index_name.to_s.end_with?("_test")
           label = index_name.to_s.sub(/_(development|production)\z/, "")
@@ -234,8 +234,8 @@ module StackStats
     end
 
     def split_games_index_by_kind(raw_index_name, total_documents)
-      games_count = Search.engine.documents_count_for(raw_index_name, field: "kind", value: "game")
-      bundles_count = Search.engine.documents_count_for(raw_index_name, field: "kind", value: "bundle")
+      games_count = Pito::Search.engine.documents_count_for(raw_index_name, field: "kind", value: "game")
+      bundles_count = Pito::Search.engine.documents_count_for(raw_index_name, field: "kind", value: "bundle")
       if games_count.nil? && bundles_count.nil?
         [ total_documents, 0 ]
       else

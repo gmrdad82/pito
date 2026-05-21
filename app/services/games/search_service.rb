@@ -36,7 +36,7 @@ module Games
         # IGDB-only mode — no local corpus to gate against.
         igdb, igdb_error = call_igdb(query)
       when :bundle_add
-        local = Search::Omnisearch.call(area: :games, query: query, exclude_bundle: bundle)
+        local = Pito::Search::Omnisearch.call(area: :games, query: query, exclude_bundle: bundle)
         local_games = local[:games]
         # 2026-05-19 — Reverse lazy IGDB. We always query both halves
         # so the user can compare the local row(s) against any IGDB
@@ -45,7 +45,7 @@ module Games
         # local hit, so duplicates don't double-render.
         igdb, igdb_error = call_igdb(query)
       when :games_search
-        local = Search::Omnisearch.call(area: :games, query: query, include_bundles: true)
+        local = Pito::Search::Omnisearch.call(area: :games, query: query, include_bundles: true)
         local_games = local[:games]
         local_bundles = local[:bundles]
         # 2026-05-19 — Reverse lazy IGDB (see :bundle_add note above).

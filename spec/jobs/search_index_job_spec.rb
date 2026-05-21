@@ -2,10 +2,10 @@ require "rails_helper"
 
 RSpec.describe SearchIndexJob, type: :job do
   let(:video) { create(:video) }
-  let(:engine) { instance_double(Search::MeilisearchEngine) }
+  let(:engine) { instance_double(Pito::Search::MeilisearchEngine) }
 
   before do
-    allow(Search).to receive(:engine).and_return(engine)
+    allow(Pito::Search).to receive(:engine).and_return(engine)
   end
 
   it "indexes the record" do

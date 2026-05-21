@@ -2,7 +2,7 @@
 #
 # Pushes one Game's searchable document into the
 # `games_#{Rails.env}` index. The index name follows the project
-# convention enforced in `Search::Engine#index_name_for` (model name
+# convention enforced in `Pito::Search::Engine#index_name_for` (model name
 # underscored + pluralized + per-env suffix), so the same physical
 # index that the eventual `Game` Searchable surface will hit is the
 # one this service writes to.

@@ -1,12 +1,12 @@
 require "rails_helper"
 
 RSpec.describe SearchRemoveJob, type: :job do
-  let(:engine) { Search::MeilisearchEngine.new }
+  let(:engine) { Pito::Search::MeilisearchEngine.new }
   let(:client) { engine.instance_variable_get(:@client) }
   let(:mock_index) { instance_double("MeiliSearch::Index") }
 
   before do
-    allow(Search).to receive(:engine).and_return(engine)
+    allow(Pito::Search).to receive(:engine).and_return(engine)
     allow(client).to receive(:index).and_return(mock_index)
   end
 

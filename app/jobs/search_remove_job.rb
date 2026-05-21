@@ -2,7 +2,7 @@ class SearchRemoveJob < ApplicationJob
   queue_as :search
 
   def perform(class_name, id, index_name: nil)
-    engine = Search.engine
+    engine = Pito::Search.engine
     # Build a lightweight struct to pass to remove
     idx_name = index_name || "#{class_name.underscore.pluralize}_#{Rails.env}"
     client = engine.instance_variable_get(:@client)

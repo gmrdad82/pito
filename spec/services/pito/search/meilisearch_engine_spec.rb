@@ -7,7 +7,7 @@ require "rails_helper"
 # index/remove without raising, reindex_all idempotent, empty
 # searches return zero) — the actual match/highlight surface returns
 # once Phase 8+ rebuilds metadata caching.
-RSpec.describe Search::MeilisearchEngine, skip: ENV["CI"].present? && "requires Meilisearch" do
+RSpec.describe Pito::Search::MeilisearchEngine, skip: ENV["CI"].present? && "requires Meilisearch" do
   let(:engine) { described_class.new }
   let(:channel) { create(:channel) }
   let(:video) { create(:video, channel: channel) }
@@ -180,7 +180,7 @@ RSpec.describe Search::MeilisearchEngine, skip: ENV["CI"].present? && "requires 
   # 2026-05-18 — `documents_count_for` issues a Meilisearch search with
   # an empty query, a single `<field> = "<value>"` filter and `limit: 0`,
   # returning `estimatedTotalHits` as the integer count. The settings
-  # stack pane uses this to split the shared `games_<env>` index into
+  # stack panel uses this to split the shared `games_<env>` index into
   # Game vs Bundle rows by the `kind` discriminator.
   describe "#documents_count_for" do
     let(:stub_engine) { described_class.new }
