@@ -19,8 +19,8 @@
 # absolute totals (`subscribers_total` / `views_total` /
 # `watch_hours_total`).
 #
-# Counts go through `Formatting::CompactCount` (subs Δ + views Δ) and
-# `Formatting::CompactHours` (hours Δ) — same formatters the ID-card
+# Counts go through `Pito::Formatter::CompactCount` (subs Δ + views Δ) and
+# `Pito::Formatter::CompactHours` (hours Δ) — same formatters the ID-card
 # uses so number-format conventions stay consistent across the page.
 class Channels::WindowSummariesTabsComponent < ViewComponent::Base
   WINDOWS = %w[7d 28d 3m 365d alltime].freeze
@@ -48,15 +48,15 @@ class Channels::WindowSummariesTabsComponent < ViewComponent::Base
   end
 
   def subs_delta_formatted
-    Formatting::CompactCount.call(active_summary[:subs_delta])
+    Pito::Formatter::CompactCount.call(active_summary[:subs_delta])
   end
 
   def views_delta_formatted
-    Formatting::CompactCount.call(active_summary[:views_delta])
+    Pito::Formatter::CompactCount.call(active_summary[:views_delta])
   end
 
   def watch_hours_delta_formatted
-    Formatting::CompactHours.call(active_summary[:watch_hours_delta])
+    Pito::Formatter::CompactHours.call(active_summary[:watch_hours_delta])
   end
 
   # Heading copy — matches the section's purpose. Caller may suppress

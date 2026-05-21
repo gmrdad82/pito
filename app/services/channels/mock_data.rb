@@ -14,8 +14,8 @@
 #   * `:handle` — `@xxxxx`, builds the external youtube.com link
 #   * `:youtube_channel_id` — UC-prefixed id for the Studio URL helper
 #   * `:subscriber_count` / `:view_count` / `:watch_hours` — diverse
-#     values spread across the `Formatting::CompactCount` and
-#     `Formatting::CompactHours` branches so every formatter tier renders
+#     values spread across the `Pito::Formatter::CompactCount` and
+#     `Pito::Formatter::CompactHours` branches so every formatter tier renders
 #     at least once on the page
 #   * `:subscriber_count_trend` / `:view_count_trend` / `:watch_hours_trend`
 #     — `:up` / `:steady` / `:down` symbols; mixed across the 6 so all
@@ -52,7 +52,7 @@
 # `:window_summaries` hash keyed by the five window labels (`"7d"`,
 # `"28d"`, `"3m"`, `"365d"`, `"alltime"`). Each window value is a
 # `{ subs_delta:, views_delta:, watch_hours_delta: }` triple spread
-# across the `Formatting::CompactCount` / `Formatting::CompactHours`
+# across the `Pito::Formatter::CompactCount` / `Pito::Formatter::CompactHours`
 # tier ranges so every formatter branch renders at least once when
 # the `Channels::WindowSummaries*` components iterate. The `"alltime"`
 # window stores `nil` for each delta — the consumer is expected to
@@ -522,7 +522,7 @@ module Channels
     # Phase 37 Top Content slice — per-channel mock top videos.
     #
     # Returns a flat array of video hashes spanning all 6 channels. View
-    # counts are spread across the `Formatting::CompactCount` tiers
+    # counts are spread across the `Pito::Formatter::CompactCount` tiers
     # (1K, 10K, 100K, 1M, 10M, 100M) so every formatter branch renders at
     # least once when merged + ranked. 5 videos per channel x 6 channels
     # = 30 entries total.

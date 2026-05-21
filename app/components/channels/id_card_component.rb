@@ -160,14 +160,14 @@ class Channels::IdCardComponent < ViewComponent::Base
   end
 
   def subscriber_count_formatted
-    Formatting::CompactCount.call(channel[:subscriber_count])
+    Pito::Formatter::CompactCount.call(channel[:subscriber_count])
   end
 
   def view_count_formatted
-    Formatting::CompactCount.call(channel[:view_count])
+    Pito::Formatter::CompactCount.call(channel[:view_count])
   end
 
   def watch_hours_formatted
-    Formatting::CompactHours.call(channel[:watch_hours])
+    Pito::Formatter::CompactHours.call(channel[:watch_hours])
   end
 end

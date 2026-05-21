@@ -64,6 +64,6 @@ class Channels::TrafficSourcesSplitComponent < ViewComponent::Base
   end
 
   def views_label(views)
-    Formatting::CompactCount.call(views)
+    Pito::Formatter::CompactCount.call(views)
   end
 end

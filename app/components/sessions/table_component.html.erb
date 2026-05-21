@@ -38,7 +38,7 @@
       were checkbox / user-agent / pinged (3 cols). New layout is
       checkbox / device / browser / ip / last seen / created (6 cols).
       The raw `user_agent` string is projected via
-      `Formatting::UserAgent.device(...)` + `.browser(...)` to a
+      `Pito::Formatter::UserAgent.device(...)` + `.browser(...)` to a
       small enumerated set. The IP `TooltipBadgeComponent` is gone —
       it's a plain cell now. "pinged" renamed to "last seen". A new
       "created" column shows session-creation relative time.
@@ -189,17 +189,17 @@
           <%# FB-132 (2026-05-21). Read `device` + `browser` straight off
               the row — they're now real DB columns derived at write
               time by `Session#derive_device_and_browser`. The legacy
-              `Formatting::UserAgent` call is the fallback for pre-
+              `Pito::Formatter::UserAgent` call is the fallback for pre-
               migration rows that haven't been backfilled yet
               (operator runs `bin/rails pito:sessions:backfill_device_browser`). %>
           <td class="tui-table__td tui-table__td--left sessions-table__cell-device">
-            <%= s.device.presence || Formatting::UserAgent.device(s.user_agent.to_s) %><% if current?(s) %> <%= render(Tui::ChipComponent.new(label: "this", variant: :current)) %><% end %>
+            <%= s.device.presence || Pito::Formatter::UserAgent.device(s.user_agent.to_s) %><% if current?(s) %> <%= render(Tui::ChipComponent.new(label: "this", variant: :current)) %><% end %>
           </td>
           <td class="tui-table__td tui-table__td--left sessions-table__cell-browser">
-            <%= s.browser.presence || Formatting::UserAgent.browser(s.user_agent.to_s) %>
+            <%= s.browser.presence || Pito::Formatter::UserAgent.browser(s.user_agent.to_s) %>
           </td>
           <td class="tui-table__td tui-table__td--left sessions-table__cell-ip">
-            <%= Formatting::IpAddress.call(s.ip) %>
+            <%= Pito::Formatter::IpAddress.call(s.ip) %>
           </td>
           <td class="tui-table__td tui-table__td--right num sessions-table__cell-last-seen"><%= helpers.compact_time_ago(s.last_activity_at) %></td>
           <td class="tui-table__td tui-table__td--right num sessions-table__cell-created"><%= helpers.compact_time_ago(s.created_at) %></td>

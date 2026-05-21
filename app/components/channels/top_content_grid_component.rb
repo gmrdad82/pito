@@ -24,6 +24,6 @@ class Channels::TopContentGridComponent < ViewComponent::Base
   end
 
   def views_formatted(video)
-    Formatting::CompactCount.call(video[:views])
+    Pito::Formatter::CompactCount.call(video[:views])
   end
 end

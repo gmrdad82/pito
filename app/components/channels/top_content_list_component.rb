@@ -38,7 +38,7 @@ class Channels::TopContentListComponent < ViewComponent::Base
   end
 
   def views_formatted(video)
-    Formatting::CompactCount.call(video[:views])
+    Pito::Formatter::CompactCount.call(video[:views])
   end
 
   # Fixed 48 px thumbnail placeholder — small enough to keep the row

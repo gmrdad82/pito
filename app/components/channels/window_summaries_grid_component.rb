@@ -15,8 +15,8 @@
 # absolute totals (`subscribers_total` / `views_total` /
 # `watch_hours_total`).
 #
-# Counts go through `Formatting::CompactCount` (subs Δ + views Δ) and
-# `Formatting::CompactHours` (hours Δ) — same formatters the ID-card
+# Counts go through `Pito::Formatter::CompactCount` (subs Δ + views Δ) and
+# `Pito::Formatter::CompactHours` (hours Δ) — same formatters the ID-card
 # uses so number-format conventions stay consistent across the page.
 class Channels::WindowSummariesGridComponent < ViewComponent::Base
   WINDOWS = %w[7d 28d 3m 365d alltime].freeze
@@ -40,9 +40,9 @@ class Channels::WindowSummariesGridComponent < ViewComponent::Base
       summary = Channels::Aggregator.window_summary(channels, window)
       {
         window: window,
-        subs: Formatting::CompactCount.call(summary[:subs_delta]),
-        views: Formatting::CompactCount.call(summary[:views_delta]),
-        hours: Formatting::CompactHours.call(summary[:watch_hours_delta])
+        subs: Pito::Formatter::CompactCount.call(summary[:subs_delta]),
+        views: Pito::Formatter::CompactCount.call(summary[:views_delta]),
+        hours: Pito::Formatter::CompactHours.call(summary[:watch_hours_delta])
       }
     end
   end

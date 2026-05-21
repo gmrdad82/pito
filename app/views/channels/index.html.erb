@@ -8,7 +8,7 @@
       <ID-card shelf — one tile per channel, horizontal scroll>
 
     Year/month chip values are computed by
-    `Formatting::CurrentChannelFilterChips` so the chip set tracks
+    `Pito::Formatter::CurrentChannelFilterChips` so the chip set tracks
     today's date instead of hard-coded literals. URL values for the
     year chips are 4-digit year strings; month-chip URL values are the
     lowercase 3-letter abbreviation (`apr`, `may`, ...), display labels
@@ -22,7 +22,7 @@
 
     Mock data lives in `Channels::MockData`. %>
 
-<% calendar_chips = Formatting::CurrentChannelFilterChips.call %>
+<% calendar_chips = Pito::Formatter::CurrentChannelFilterChips.call %>
 
 <%= render(Channels::TitleBarComponent.new) %>
 

@@ -48,7 +48,7 @@ class Session < ApplicationRecord
   # FB-132 (2026-05-21). `device` + `browser` are derived from the raw
   # `user_agent` string and stored as their own columns so the sessions
   # table on `/settings` can sort by them via SQL `ORDER BY` against
-  # indexable columns instead of executing `Formatting::UserAgent` regex
+  # indexable columns instead of executing `Pito::Formatter::UserAgent` regex
   # at query time. Forward-fill on every write so any future agent /
   # smoke harness path that bypasses `create_for!` still ends up with
   # the projected columns populated. Existing rows backfill via
@@ -97,10 +97,10 @@ class Session < ApplicationRecord
   # Re-projects `device` + `browser` from `user_agent`. Runs on every
   # save so reseeding / smoke fixtures / future code paths that mutate
   # `user_agent` after the initial `create_for!` keep the derived
-  # columns in lockstep. The projection is pure (`Formatting::UserAgent`
+  # columns in lockstep. The projection is pure (`Pito::Formatter::UserAgent`
   # is a frozen module of functions) so there's no I/O cost.
   def derive_device_and_browser
-    self.device = Formatting::UserAgent.device(user_agent.to_s)
-    self.browser = Formatting::UserAgent.browser(user_agent.to_s)
+    self.device = Pito::Formatter::UserAgent.device(user_agent.to_s)
+    self.browser = Pito::Formatter::UserAgent.browser(user_agent.to_s)
   end
 end

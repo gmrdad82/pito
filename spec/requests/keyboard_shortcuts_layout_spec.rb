@@ -99,7 +99,7 @@ RSpec.describe "Keyboard shortcuts layout integration", type: :request do
     # 2026-05-19 — Phase 37 Wave A1 `/channels` mocked-shell rebuild
     # replaced the prior `starred` filter chip with a row of time-window
     # chips (`7d`, `28d`, `3m`, `365d`, `alltime`) + dynamic year/month
-    # chips computed by `Formatting::CurrentChannelFilterChips`. The
+    # chips computed by `Pito::Formatter::CurrentChannelFilterChips`. The
     # `starred` chip is not currently rendered on /channels, so the
     # earlier assertion no longer holds. The keyboard-hook contract on
     # the new chip family revisits when /channels rejoins the beta-3

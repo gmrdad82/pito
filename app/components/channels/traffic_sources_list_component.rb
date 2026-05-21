@@ -79,6 +79,6 @@ class Channels::TrafficSourcesListComponent < ViewComponent::Base
   # Format an integer view count using the existing compact-count
   # formatter (K / M / B suffixes).
   def views_label(views)
-    Formatting::CompactCount.call(views)
+    Pito::Formatter::CompactCount.call(views)
   end
 end

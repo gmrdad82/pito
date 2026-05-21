@@ -28,8 +28,8 @@ namespace :pito do
       updated = 0
       relation.find_each do |s|
         s.update_columns(
-          device: Formatting::UserAgent.device(s.user_agent.to_s),
-          browser: Formatting::UserAgent.browser(s.user_agent.to_s)
+          device: Pito::Formatter::UserAgent.device(s.user_agent.to_s),
+          browser: Pito::Formatter::UserAgent.browser(s.user_agent.to_s)
         )
         updated += 1
       end

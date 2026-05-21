@@ -13,10 +13,10 @@ class Channels::BasicsSectionSeparatorComponent < ViewComponent::Base
 
   def stats
     [
-      { value: Channels::Aggregator.subscribers_total(@channels), label: "subs", formatter: Formatting::CompactCount },
-      { value: Channels::Aggregator.views_total(@channels), label: "views", formatter: Formatting::CompactCount },
-      { value: Channels::Aggregator.videos_total(@channels), label: "videos", formatter: Formatting::CompactCount },
-      { value: Channels::Aggregator.watch_hours_total(@channels), label: "hours", formatter: Formatting::CompactHours }
+      { value: Channels::Aggregator.subscribers_total(@channels), label: "subs", formatter: Pito::Formatter::CompactCount },
+      { value: Channels::Aggregator.views_total(@channels), label: "views", formatter: Pito::Formatter::CompactCount },
+      { value: Channels::Aggregator.videos_total(@channels), label: "videos", formatter: Pito::Formatter::CompactCount },
+      { value: Channels::Aggregator.watch_hours_total(@channels), label: "hours", formatter: Pito::Formatter::CompactHours }
     ]
   end
 end

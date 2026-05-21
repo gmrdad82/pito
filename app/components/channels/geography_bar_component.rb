@@ -4,7 +4,7 @@
 # Visualization-first: each row is a wide bar whose length tracks the
 # absolute view count (not percentage). The longest bar fills the full
 # track width; shorter bars scale relative to the max. The value on the
-# right uses `Formatting::CompactCount` so K / M / B suffixes keep the
+# right uses `Pito::Formatter::CompactCount` so K / M / B suffixes keep the
 # numbers compact regardless of channel mix.
 #
 # Row layout:
@@ -57,6 +57,6 @@ class Channels::GeographyBarComponent < ViewComponent::Base
   end
 
   def compact(value)
-    Formatting::CompactCount.call(value)
+    Pito::Formatter::CompactCount.call(value)
   end
 end

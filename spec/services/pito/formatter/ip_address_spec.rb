@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe Formatting::IpAddress do
+RSpec.describe Pito::Formatter::IpAddress do
   describe ".call" do
     context "with nil or blank" do
       it { expect(described_class.call(nil)).to eq("—") }

@@ -337,10 +337,10 @@
           * `:avatar_url` → `channel.avatar_url` (nil → placeholder
             square via the component's existing branch).
           * `:subscriber_count` / `:view_count` / `:video_count` →
-            forwarded as-is; `Formatting::CompactCount` returns an
+            forwarded as-is; `Pito::Formatter::CompactCount` returns an
             em-dash on nil.
           * `:watch_hours` → nil (no analytics column yet);
-            `Formatting::CompactHours` returns an em-dash.
+            `Pito::Formatter::CompactHours` returns an em-dash.
           * `:*_trend` → nil; `IdCardComponent#trend` falls back to
             `:steady` (the dash glyph). Safe placeholder until
             analytics deltas land. %>

@@ -1,5 +1,5 @@
 # Phase 37 Wave A1 (2026-05-19 chip-row consolidation) —
-# `Formatting::CurrentChannelFilterChips`.
+# `Pito::Formatter::CurrentChannelFilterChips`.
 #
 # Pure function. Returns the dynamic year + month filter-chip definitions
 # the `/channels` chip row appends after the static time-window chips
@@ -26,32 +26,34 @@
 # Pure — no I/O, no Rails dependency beyond `Date` / `1.month.ago`.
 # Reusable by future video / channels / games filter rows that need
 # the same "previous + current period" chip set.
-module Formatting
-  module CurrentChannelFilterChips
-    module_function
+module Pito
+  module Formatter
+    module CurrentChannelFilterChips
+      module_function
 
-    # @param today [Date] inject for tests; defaults to `Date.current`.
-    # @return [Hash] `{ years: [{label:, value:}, ...], months: [{label:, value:}, ...] }`.
-    #   Each array carries the previous-period entry first then the
-    #   current-period entry — render order matches the locked layout
-    #   `[ ] <prev-year> [ ] <current-year> [ ] <prev-month> [ ] <current-month>`.
-    def call(today: Date.current)
-      prev_year = today.year - 1
-      current_year = today.year
+      # @param today [Date] inject for tests; defaults to `Date.current`.
+      # @return [Hash] `{ years: [{label:, value:}, ...], months: [{label:, value:}, ...] }`.
+      #   Each array carries the previous-period entry first then the
+      #   current-period entry — render order matches the locked layout
+      #   `[ ] <prev-year> [ ] <current-year> [ ] <prev-month> [ ] <current-month>`.
+      def call(today: Date.current)
+        prev_year = today.year - 1
+        current_year = today.year
 
-      current_month_date = today.beginning_of_month
-      prev_month_date = current_month_date.prev_month
+        current_month_date = today.beginning_of_month
+        prev_month_date = current_month_date.prev_month
 
-      {
-        years: [
-          { label: prev_year.to_s, value: prev_year.to_s },
-          { label: current_year.to_s, value: current_year.to_s }
-        ],
-        months: [
-          { label: prev_month_date.strftime("%b"), value: prev_month_date.strftime("%b").downcase },
-          { label: current_month_date.strftime("%b"), value: current_month_date.strftime("%b").downcase }
-        ]
-      }
+        {
+          years: [
+            { label: prev_year.to_s, value: prev_year.to_s },
+            { label: current_year.to_s, value: current_year.to_s }
+          ],
+          months: [
+            { label: prev_month_date.strftime("%b"), value: prev_month_date.strftime("%b").downcase },
+            { label: current_month_date.strftime("%b"), value: current_month_date.strftime("%b").downcase }
+          ]
+        }
+      end
     end
   end
 end

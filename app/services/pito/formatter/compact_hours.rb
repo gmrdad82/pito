@@ -1,4 +1,4 @@
-# Phase 37 Wave A1 — `Formatting::CompactHours`.
+# Phase 37 Wave A1 — `Pito::Formatter::CompactHours`.
 #
 # Pure function. Renders an hour count as a short human-readable string
 # with the European `.` thousands separator. Used by the
@@ -17,28 +17,30 @@
 # watch-time stays readable at exact precision. Pure function — no I/O,
 # no I18n, no Rails dependency. The `.` separator is hardcoded (not
 # `I18n.t("number.format.delimiter")`).
-module Formatting
-  module CompactHours
-    EM_DASH = "—"
+module Pito
+  module Formatter
+    module CompactHours
+      EM_DASH = "—"
 
-    module_function
+      module_function
 
-    def call(hours)
-      return EM_DASH if hours.nil?
+      def call(hours)
+        return EM_DASH if hours.nil?
 
-      n = hours.to_i
-      return "0h" if n.zero?
+        n = hours.to_i
+        return "0h" if n.zero?
 
-      "#{insert_dot_thousands(n)}h"
-    end
+        "#{insert_dot_thousands(n)}h"
+      end
 
-    # Insert a `.` every three digits from the right. Handles negatives
-    # by preserving the sign in front of the formatted digit run.
-    def insert_dot_thousands(integer)
-      sign = integer.negative? ? "-" : ""
-      digits = integer.abs.to_s
-      grouped = digits.reverse.scan(/\d{1,3}/).join(".").reverse
-      "#{sign}#{grouped}"
+      # Insert a `.` every three digits from the right. Handles negatives
+      # by preserving the sign in front of the formatted digit run.
+      def insert_dot_thousands(integer)
+        sign = integer.negative? ? "-" : ""
+        digits = integer.abs.to_s
+        grouped = digits.reverse.scan(/\d{1,3}/).join(".").reverse
+        "#{sign}#{grouped}"
+      end
     end
   end
 end
