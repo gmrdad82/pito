@@ -17,8 +17,15 @@
       RIGHT 40%: stack panel only. %>
   <div class="settings-panes pito-workspace settings-panes--v3" data-controller="tui-cursor">
     <div class="settings-panes__left">
-      <%= render "settings/notifications_pane" %>
-      <%= render "settings/security_pane" %>
+      <%= render Pito::NotificationsPanelComponent.new(
+        discord_webhook: @discord_webhook,
+        slack_webhook: @slack_webhook,
+      ) %>
+      <%= render Pito::SecurityPanelComponent.new(
+        sessions: @sessions,
+        sessions_sort: @sessions_sort,
+        sessions_dir: @sessions_dir
+      ) %>
     </div>
 
     <div class="settings-panes__right">
