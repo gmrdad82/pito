@@ -21,16 +21,6 @@ sync_starred_channels:
   class: SyncStarredChannelsJob
   description: "Re-sync every starred channel daily"
 
-# Phase 4 §6.3 — reconcile project notes filesystem ↔ DB rows. Walks the
-# notes volume per tenant, adds/changes/deletes, enqueues Notes::EmbedJob
-# on changes. Tenant-wide lock auto-clears in the job's `ensure` block.
-note_sync:
-  cron: "*/5 * * * *"
-  class: NoteSyncJob
-  description: "Reconcile note files with DB rows; enqueue embeds on change"
-  args:
-    - 1   # default singleton tenant id; multi-tenant mode swaps this
-
 # Phase 15 §1 — milestone evaluator. Daily fallback at 02:00 UTC. Phase 13's
 # analytics sync also enqueues this job inline when a snapshot lands; the
 # daily cron is the safety net.

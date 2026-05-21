@@ -59,7 +59,7 @@ class FootagesController < ApplicationController
     )
 
     if @footage.update(permitted)
-      redirect_to project_path(@footage.project), notice: "footage updated."
+      redirect_to footage_path(@footage), notice: "footage updated."
     else
       @games = Game.order(:title)
       render :edit, status: :unprocessable_content
@@ -67,9 +67,8 @@ class FootagesController < ApplicationController
   end
 
   def destroy
-    project = @footage.project
     @footage.destroy!
-    redirect_to project_path(project), notice: "footage deleted."
+    redirect_to footages_path, notice: "footage deleted."
   end
 
   # Phase 7.5 §06 — Frame manifest JSON.
@@ -169,7 +168,6 @@ class FootagesController < ApplicationController
   def footage_json(footage)
     {
       id: footage.id,
-      project_id: footage.project_id,
       game_id: footage.game_id,
       kind: footage.kind,
       source: footage.source,

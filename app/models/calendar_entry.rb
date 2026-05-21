@@ -2,9 +2,12 @@
 #
 # Central calendar entry. Eight `entry_type` values, three `source`
 # provenances, four `state` values. Type-specific cross-references live
-# as typed FK columns (`video_id`, `game_id`, `channel_id`, `project_id`,
+# as typed FK columns (`video_id`, `game_id`, `channel_id`,
 # `parent_entry_id`, `milestone_rule_id`); type-specific data lives in
 # `metadata` (jsonb). Validators enforce both shapes.
+#
+# D18 (2026-05-21) — Projects dropped; `project_id` column + relation
+# removed alongside the Project model.
 #
 # Read-only enforcement: `derived` and `auto` entries are read-only
 # outside `metadata.user_overrides`. The model-level callback rejects
@@ -16,7 +19,6 @@ class CalendarEntry < ApplicationRecord
   belongs_to :video,           optional: true
   belongs_to :game,            optional: true
   belongs_to :channel,         optional: true
-  belongs_to :project,         optional: true
   belongs_to :parent_entry,
              class_name: "CalendarEntry",
              optional: true

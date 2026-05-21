@@ -48,7 +48,7 @@
         <col style="width: 360px;"> <%# channel %>
       <% when "project", "collection" %>
         <col style="width: 360px;"> <%# name %>
-      <% when "game", "note", "timeline" %>
+      <% when "game", "timeline" %>
         <col style="width: 360px;"> <%# title %>
       <% end %>
     </colgroup>
@@ -65,7 +65,7 @@
           <th>channel</th>
         <% when "project", "collection" %>
           <th>name</th>
-        <% when "game", "note", "timeline" %>
+        <% when "game", "timeline" %>
           <th><%= t("syncs.show.col.title") %></th>
         <% end %>
       </tr>
@@ -92,7 +92,7 @@
             <td><%= item.channel&.channel_url %></td>
           <% when "project", "collection" %>
             <td><%= item.name %></td>
-          <% when "game", "note", "timeline" %>
+          <% when "game", "timeline" %>
             <td><%= item.title %></td>
           <% end %>
         </tr>

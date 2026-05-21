@@ -15,22 +15,13 @@ class AppSetting < ApplicationRecord
   end
 
   # Phase 29 (settings refactor) — the Voyage.ai pane and the per-target
-  # `voyage_index_project_notes` flag column are both dropped. Indexing is
-  # gated solely on credentials presence now: a configured Voyage API key
-  # means embeddings are eligible for any indexer that calls this gate.
-  # `Notes::EmbedJob` short-circuits when this is false.
+  # `voyage_index_project_notes` flag column are both dropped. Indexing
+  # is gated solely on credentials presence now: a configured Voyage API
+  # key means embeddings are eligible for any indexer that calls this
+  # gate. The Notes feature (and its `Notes::EmbedJob`) was dropped
+  # 2026-05-21 (D17); the gate remains for game/bundle/channel indexers.
   def self.voyage_configured?
     Rails.application.credentials.dig(:voyage, :api_key).to_s.strip.present?
-  end
-
-  # Phase 29 (settings refactor) — predicate now equals
-  # `voyage_configured?`. The per-target flag column is gone; with no
-  # operator-facing toggle, "key configured" is the only signal.
-  # Callers (`Notes::EmbedJob`) can keep the two-call shape
-  # (`voyage_indexing_project_notes? && voyage_configured?`) for
-  # readability; both predicates resolve to the same boolean today.
-  def self.voyage_indexing_project_notes?
-    voyage_configured?
   end
 
   # 2026-05-20 — F3-B-SIMPLIFY-MODEL. "Is Discord delivery on" is now

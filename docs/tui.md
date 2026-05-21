@@ -22,16 +22,15 @@ Single binary at `extras/cli/`. Style mirrors the `claude` binary:
 
 ## Surface contract
 
-The TUI renders the same 4 screens as the web app:
+The TUI renders the same 3 screens as the web app:
 
-- `/` Home
-- `/videos`
-- `/games`
-- `/settings`
+- `/` Home (dashboard + system monitoring) — Dracula Purple `#bd93f9`
+- `/videos` (channels + videos) — Dracula Red `#ff5555`
+- `/games` (catalog + bundles + footage) — Pale Cobalt `#7eb6ff`
 
-Layout chrome (TST + content + BST) is identical. The 4 accent groups
-apply. Section accents drive Ratatui `Style` calls the same way they
-drive CSS custom properties on the web.
+Layout chrome (TST + content + BST) is identical. The 3 accents drive
+Ratatui `Style` calls the same way they drive CSS custom properties on
+the web.
 
 **Visual parity goal:** someone fluent in the web app should not need
 to re-learn the TUI. Same panels, same sub-panels, same focusables,
@@ -141,9 +140,10 @@ When TUI work picks up:
 1. Add `lib/tasks/pito_tui_export.rake` skeleton (rake stub that emits a
    first panel's TOML — proof of concept).
 2. Add `extras/cli/src/spec.rs` with `serde` `PanelSpec` struct.
-3. Implement TUI rendering of `Screen::Settings::SecurityPanelComponent`
-   as the first end-to-end screen.
-4. Expand to remaining 3 screens (Home, Videos, Games).
+3. Implement TUI rendering of `Pito::SecurityPanelComponent` (the
+   ex-settings security panel, now on Home) as the first end-to-end
+   panel.
+4. Expand to remaining screens (Videos, Games).
 5. Add cross-stack parity tests in `cargo test`.
 
 Until then: the binary builds, basic subcommands work, no TUI rendering

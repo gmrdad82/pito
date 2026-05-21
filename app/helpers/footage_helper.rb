@@ -1,7 +1,6 @@
 module FootageHelper
   # Pito's "no value" placeholder for table cells. Mirrors the convention
-  # already used in `app/views/channels/_pane.html.erb` and the resolution
-  # column of `app/views/projects/_footage_pane.html.erb`.
+  # already used in `app/views/channels/_pane.html.erb`.
   EMPTY_VALUE = "—".freeze
 
   # Renders a byte count using Rails' `number_to_human_size` (2-digit
@@ -15,8 +14,8 @@ module FootageHelper
   end
 
   # Renders a duration in seconds as a compact `Xh Ym Zs` / `Ym Zs` / `Zs`
-  # string. Pito's project workspace footage table uses this for the
-  # `duration` column; sibling tables stay on `format_duration`
+  # string. Pito's footage tables use this for the `duration`
+  # column; sibling tables stay on `format_duration`
   # (`HH:MM:SS`) which suits per-row precision. The two helpers coexist
   # by intent — choose the form that matches the table's density.
   #
@@ -51,7 +50,7 @@ module FootageHelper
     59.94  => "59.94"
   }.freeze
 
-  # Renders an fps value for the project workspace footage table.
+  # Renders an fps value for the footage table.
   #
   # - nil / 0 / negative -> EMPTY_VALUE (em-dash placeholder, mirrors
   #   `human_filesize` / `human_duration`).
@@ -83,8 +82,8 @@ module FootageHelper
     format("%.2f", f)
   end
 
-  # Source-enum -> display label. The `source` column on the project
-  # workspace footage table previously rendered the raw enum string
+  # Source-enum -> display label. The `source` column on the footage
+  # table previously rendered the raw enum string
   # (`"obs"` / `"camera"`); the user-facing label uses the acronym
   # convention (`OBS`) for `obs` and a proper-noun-style capitalization
   # (`Camera`) for `camera`. Unknown values fall back to `titleize` so
@@ -101,7 +100,7 @@ module FootageHelper
     SOURCE_LABELS.fetch(source.to_s, source.to_s.titleize)
   end
 
-  # Project workspace footage filename column. Thin wrapper over
+  # Footage filename column. Thin wrapper over
   # `ApplicationHelper#middle_truncate` that pins the footage-specific
   # head/tail defaults so OBS-style timestamped names collapse to
   # `Ghost 'n…23-11-43.mkv` (8 + 1 + 12 = 21 chars). The shared helper

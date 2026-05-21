@@ -65,6 +65,5 @@ en:
       assets: "assets"
       col_category: "category"
       col_files: "files"
-      notes: "notes"
       col_namespace: "namespace"
       col_count: "count"

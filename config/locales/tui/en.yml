@@ -27,9 +27,6 @@ en:
       videos:
         name: "videos"
         hint: "go to videos"
-      projects:
-        name: "projects"
-        hint: "go to projects"
       notifications:
         name: "notifications"
         hint: "go to notifications"

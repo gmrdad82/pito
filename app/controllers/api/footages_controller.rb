@@ -1,15 +1,19 @@
 # Phase 4 §7.5 — JSON API for the `pito footage` importer.
 #
 # Routes (all under `/api/` for surface symmetry — Phase 5.5 cleanup):
-#   GET    /api/projects/:project_id/footages.json — index, used for diff (§7.3)
-#   POST   /api/projects/:project_id/footages.json — create ("Add" branch)
-#   PATCH  /api/footages/:id.json                  — update probed metadata
-#   DELETE /api/footages/:id.json                  — remove a missing file
+#   GET    /api/footages.json      — index, used for diff (§7.3)
+#   POST   /api/footages.json      — create ("Add" branch)
+#   PATCH  /api/footages/:id.json  — update probed metadata
+#   DELETE /api/footages/:id.json  — remove a missing file
 #
 # The HTML edit / destroy flow stays at top-level
 # `/footages/:id` (no `.json`) and is served by `FootagesController`.
 #
 # Booleans serialize as "yes"/"no" per the project-wide rule (CLAUDE.md).
+#
+# D18 (2026-05-21) — Projects dropped; the index/create no longer nest
+# under `/api/projects/:project_id/`. Footage attaches directly to
+# Game via `game_id`.
 module Api
   class FootagesController < ApplicationController
     # Phase 12 — Step A. The cookie-session before_action defaults to
@@ -26,12 +30,11 @@ module Api
     # concern.
     include Api::AuthConcern
 
-    before_action :set_project, only: [ :index, :create ]
     before_action :set_footage, only: [ :update, :destroy, :update_frames ]
 
     def index
       require_scope!(Scopes::APP)
-      footages = @project.footages.order(:local_path)
+      footages = Footage.order(:local_path)
       render json: footages.map { |f| footage_json(f) }
     end
 
@@ -44,7 +47,7 @@ module Api
         return
       end
 
-      footage = @project.footages.new(attrs)
+      footage = Footage.new(attrs)
       if footage.save
         render json: footage_json(footage), status: :created
       else
@@ -123,10 +126,6 @@ module Api
 
     private
 
-    def set_project
-      @project = Project.friendly.find(params[:project_id])
-    end
-
     def set_footage
       @footage = Footage.friendly.find(params[:id])
     end
@@ -192,7 +191,6 @@ module Api
     def footage_json(footage)
       {
         id: footage.id,
-        project_id: footage.project_id,
         game_id: footage.game_id,
         kind: footage.kind,
         source: footage.source,

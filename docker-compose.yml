@@ -59,13 +59,11 @@ volumes:
     name: pito-redis-data
   pito-meilisearch-data:
     name: pito-meilisearch-data
-  # Phase 4 §6.1 + §5 — named volumes for project notes (markdown files on
-  # disk) and Active Storage assets (game cover art, future channel
+  # Active Storage assets volume (game cover art, future channel
   # banners/avatars). Currently unmounted — Rails runs natively on the dev
-  # host and reads PITO_NOTES_PATH / PITO_ASSETS_PATH env vars. The volume
-  # declarations live here so the names are reserved for when Rails moves
-  # into a container (Hetzner cutover, Phase 16).
-  pito-notes:
-    name: pito-notes
+  # host and reads PITO_ASSETS_PATH env var. The volume declaration lives
+  # here so the name is reserved for when Rails moves into a container
+  # (Hetzner cutover, Phase 16). The sibling `pito-notes` volume was
+  # removed 2026-05-21 alongside the Notes feature drop (D17).
   pito-assets:
     name: pito-assets

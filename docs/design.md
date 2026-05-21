@@ -42,31 +42,45 @@ and export to CSS custom properties + Rust `theme.rs` via
 - **Red `#cc0000`** is ONLY for destructive flows. One exception: the
   rating heat bar's bad-zone color stop (`--color-rating-bad`).
 
-## Section accents
+## Screen accents
 
-Four screens, four accent groups. 1:1 mapping. Every component belongs
-to exactly one screen → exactly one accent.
+Three screens, three accents (canonical picks from
+`tmp/dracula-swatches-v2.html` § B — Section mapping):
 
-| Screen | Accent role |
-|---|---|
-| `/` Home | (general) — calendar + notifications keep this accent wherever they render |
-| `/videos` | (creator) |
-| `/games` | (catalog) |
-| `/settings` | (account / system) |
+| Screen | Accent | Hex | Token |
+|---|---|---|---|
+| `/` home (dashboard + system) | Dracula Purple | `#bd93f9` | `--accent-home` |
+| `/videos` (channels + videos) | Dracula Red | `#ff5555` | `--accent-videos` |
+| `/games` (catalog + bundles + footage) | Pale Cobalt | `#7eb6ff` | `--accent-games` |
 
-Exact hex values: `Pito::Theme::Sections.accent(:home | :videos | :games | :settings)`.
+**Recipe for each screen's chrome:**
+
+- Panel bg: `color-mix(in srgb, <accent> 4%, #282a36)`
+- Panel border (focused): `color-mix(in srgb, <accent> 35%, #282a36)`
+- Panel title + action color: pure accent hex
+- Focus tint on rows / actions: `color-mix(in srgb, <accent> 18%, transparent)`
+
+Exact values: `Pito::Theme::Sections.accent(:home | :videos | :games)`.
+
+**Note on red:** `#ff5555` is the videos screen accent AND looks similar
+to the destructive token `#cc0000`. They are NOT the same token. Videos
+screen uses `--accent-videos = #ff5555` (Dracula Red — informational,
+section identity). Destructive actions still use `--color-danger`
+(`#cc0000` light / `#ff5555` dark — value coincides in dark theme but
+the semantic is different). On `/videos`, destructive actions are still
+gated by `Tui::ConfirmationDialogComponent` so users never mistake an
+accent-colored region for a destructive action.
 
 Notes:
 
-- **Omnisearch** (the `:` / `everywhere` search overlay) is NOT a screen
-  — it's a tool. It inherits the General (Home) accent regardless of
-  where it's invoked.
-- **Calendar** is a panel inside Home (`Screen::Home::CalendarPanelComponent`).
+- **Omnisearch** (the `:` / everywhere search overlay) is NOT a screen
+  — it's a tool. It inherits the home accent regardless of where invoked.
+- **Calendar** is a panel inside Home (`Pito::CalendarPanelComponent`).
   When rendered elsewhere (e.g., a lighter-weight calendar variant on a
-  game detail screen), it keeps the General accent.
+  game detail screen), it keeps the home accent.
 - **Notifications** are a panel inside Home
-  (`Screen::Home::NotificationsPanelComponent`). Full detail there. Short
-  form accessible via leader menu from any screen.
+  (`Pito::NotificationsPanelComponent`). Full detail there. Short form
+  accessible via leader menu from any screen.
 
 ## Layout chrome
 
@@ -87,14 +101,18 @@ Demo: `tmp/demo-status-bar.html`.
 
 ## Screens, panels, sub-panels
 
-- **Screen** — corresponds to a URL (`/`, `/videos`, `/games`,
-  `/settings`). A screen is a ViewComponent composed of panels.
+- **Screen** — corresponds to a URL (`/`, `/videos`, `/games`).
+  A screen is a ViewComponent composed of panels.
 - **Panel** — a top-level grouping inside a screen
-  (`Screen::Settings::SecurityPanelComponent`). A panel is a
-  ViewComponent composed of sub-panels.
+  (`Pito::SecurityPanelComponent` on Home; `Screen::Videos::EditPanelComponent`
+  on Videos; etc.). A panel is a ViewComponent composed of sub-panels.
 - **Sub-panel** — a section within a panel
-  (`Screen::Settings::Stack::MeilisearchSubPanelComponent`). A sub-panel
-  composes leaf elements: text, inputs, tables, charts, images.
+  (`Pito::Stack::MeilisearchSubPanelComponent`). A sub-panel composes
+  leaf elements: text, inputs, tables, charts, images.
+
+**Home panels are NOT under `Screen::Home::*`** — they live directly
+under `Pito::*` since Home is the dashboard + system-monitoring surface
+governed by the `Pito::*` namespace, not a separate `Home::*` domain.
 
 Panels carry their **title in the top border** (V4 frame),
 section-accent border when focused, muted border otherwise.
@@ -164,7 +182,7 @@ effects. No focus rings (focus signal = color tint).
 - No zebra rows
 - Hairline `<thead>` bottom border
 
-Sessions table (`/settings` → security) is the canonical sortable table.
+Sessions table (Home → security panel) is the canonical sortable table.
 
 KV-tables (lighter variant) used in stack sub-panels.
 

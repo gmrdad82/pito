@@ -3,6 +3,9 @@
 # Each `entry_type` declares which typed FKs are required, allowed, or
 # forbidden. The model layer rejects mismatched shapes so the database
 # is never asked to enforce them.
+#
+# D18 (2026-05-21) — Projects dropped; `project_id` removed from every
+# rule's allowed list.
 class CalendarEntryCrossReferenceValidator < ActiveModel::Validator
   # Per-type rule table:
   #   - required: list of FK columns that MUST be set.
@@ -26,27 +29,27 @@ class CalendarEntryCrossReferenceValidator < ActiveModel::Validator
     },
     "game_release" => {
       required:  [],
-      allowed:   %i[game_id project_id],
+      allowed:   %i[game_id],
       forbidden: %i[video_id channel_id parent_entry_id milestone_rule_id]
     },
     "purchase_planned" => {
       required:  %i[parent_entry_id],
-      allowed:   %i[game_id project_id],
+      allowed:   %i[game_id],
       forbidden: %i[video_id channel_id milestone_rule_id]
     },
     "milestone_manual" => {
       required:  [],
-      allowed:   %i[project_id],
+      allowed:   [],
       forbidden: %i[video_id channel_id game_id parent_entry_id milestone_rule_id]
     },
     "milestone_auto" => {
       required:  %i[milestone_rule_id],
-      allowed:   %i[project_id],
+      allowed:   [],
       forbidden: %i[video_id channel_id game_id parent_entry_id]
     },
     "custom" => {
       required:  [],
-      allowed:   %i[project_id],
+      allowed:   [],
       forbidden: %i[video_id channel_id game_id parent_entry_id milestone_rule_id]
     }
   }.freeze

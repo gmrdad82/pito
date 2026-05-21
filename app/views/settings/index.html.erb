@@ -14,7 +14,7 @@
             Claude Desktop OAuth client.
     Row 3 — stack pane spanning both columns (`.pane--wide`):
             db (Postgres + Redis), search (Meilisearch + Voyage),
-            storage (assets + notes).
+            storage (assets). Notes storage row dropped 2026-05-21 (D17).
 
     The dropped UI/UX, Workspace, and Voyage panes (theme,
     keyboard-navigation toggle, max_panes, pane_title_length,
@@ -74,7 +74,7 @@
       stacked vertically.
       RIGHT 40%: stack panel only.
       The internal stack sub-panel arrangement (Redis, Postgres,
-      Meilisearch, Voyage AI, assets, notes — vertical) is FB-51,
+      Meilisearch, Voyage AI, assets — vertical) is FB-51,
       which lands separately. %>
   <div class="settings-panes pito-workspace settings-panes--v3" data-controller="tui-cursor">
     <div class="settings-panes__left">

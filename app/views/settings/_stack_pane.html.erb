@@ -22,9 +22,6 @@
       ├──────────────────────────┤
       │ assets       [writable]  │
       │   <breakdown table>      │
-      ├──────────────────────────┤
-      │ notes        [absent]    │
-      │   <breakdown table>      │
       └──────────────────────────┘
 
     Per-tile inline border-right / border-bottom dropped (the 2-col
@@ -46,9 +43,8 @@
     Reuses the same ivars + helpers the prior settings index relied
     on (`@postgres_status`, `@redis_status`,
     `@search_per_index_stats`, `@postgres_table_breakdown`,
-    `@sidekiq_breakdown`, `@storage_status`, `@notes_volume_status`,
-    `@assets_breakdown`, `@notes_breakdown`, `@voyage_configured`,
-    `@search_healthy`).
+    `@sidekiq_breakdown`, `@storage_status`, `@assets_breakdown`,
+    `@voyage_configured`, `@search_healthy`).
 
     `data-controller="stack-stats-live"` mounts the polling controller
     (`app/javascript/controllers/stack_stats_live_controller.js`). It
@@ -351,49 +347,7 @@
         <% end %>
       <% end %>
 
-      <%# notes. FB-63-V4 — V4 title-in-border. %>
-      <% notes_state = if @notes_volume_status[:present]
-                         @notes_volume_status[:writable] ? :writable : :read_only
-                       else
-                         :absent
-                       end %>
-      <% notes_chip = Settings::Stack::HealthState::STATES.fetch(notes_state) %>
-      <%= render Tui::SubPanelComponent.new(title: t("settings.stack.notes")) do |c| %>
-        <% c.with_actions do %>
-          <%= render Tui::ChipComponent.new(label: notes_chip[:chip_label], variant: notes_chip[:chip_variant]) %>
-        <% end %>
-
-        <% if @notes_breakdown.any? %>
-          <div data-controller="sortable-table" data-sortable-table-id-value="stack-notes">
-            <table class="tui-table tui-table--stack tui-table--3col-aligned" data-sortable-table-target="table">
-              <thead>
-                <tr>
-                  <%= render(SortableHeaderComponent.new(label: t("settings.stack.col_namespace"), sort_type: "string")) %>
-                  <%= render(SortableHeaderComponent.new(label: t("settings.stack.col_count"), sort_type: "number", numeric: true)) %>
-                  <%= render(SortableHeaderComponent.new(label: t("settings.stack.col_size"), sort_type: "number", numeric: true)) %>
-                </tr>
-              </thead>
-              <tbody>
-                <% @notes_breakdown.each do |row| %>
-                  <tr class="tui-table__row">
-                    <td class="tui-table__td"><%= row[:label] %></td>
-                    <td class="tui-table__td tui-table__td--right num">
-                      <span data-sort-value="<%= row[:count] || -1 %>">
-                        <%= row[:count] ? number_with_delimiter(row[:count]) : "—" %>
-                      </span>
-                    </td>
-                    <td class="tui-table__td tui-table__td--right num">
-                      <span data-sort-value="<%= row[:size_bytes] || -1 %>">
-                        <%= human_filesize_int(row[:size_bytes]) %>
-                      </span>
-                    </td>
-                  </tr>
-                <% end %>
-              </tbody>
-            </table>
-          </div>
-        <% end %>
-      <% end %>
+      <%# Notes sub-panel removed 2026-05-21 (D17). %>
     </div>
   <% end %>
   <%# FB-126 (2026-05-21) — confirmation dialog mounts for each reindex

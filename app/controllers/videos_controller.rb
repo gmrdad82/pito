@@ -476,10 +476,10 @@ class VideosController < ApplicationController
     @video = Video.friendly.find(params[:id])
   end
 
-  # Phase 14 §3 — populate the edit-form view bag with the projects
-  # dropdown options + the linked games/bundles fieldset data.
+  # Phase 14 §3 — populate the edit-form view bag with the linked
+  # games/bundles fieldset data. (D18 2026-05-21 — Project dropdown
+  # dropped alongside Projects.)
   def load_edit_form_locals
-    @projects = Project.order(:name)
     @video_links = @video.video_game_links.includes(:game, :bundle).order(:id)
     @link_pickable_games = Game.order(:title).limit(500)
     @link_pickable_bundles = Bundle.order(:name).limit(500)
