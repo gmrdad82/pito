@@ -64,7 +64,7 @@ gem "aasm", "~> 5.5"
 # commonmarker: GFM markdown rendering for note bodies (Phase B helper).
 gem "commonmarker", "~> 2.4"
 # neighbor: Active Record bridge for pgvector cosine queries on notes.embedding.
-gem "neighbor", "~> 0.6"
+gem "neighbor", "~> 1.1"
 
 group :development, :test do
   gem "debug", platforms: %i[ mri windows ], require: "debug/prelude"
