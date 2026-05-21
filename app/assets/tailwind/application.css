@@ -208,12 +208,12 @@
    moved to Ruby. The `<body>` element in
    `app/views/layouts/application.html.erb` now carries inline
    `style="--section-accent: <hex>; --color-section-accent: <hex>;
-   background: <hex>;"` values computed by `Pito::SectionColors`. The
+   background: <hex>;"` values computed by `Pito::Theme::Sections`. The
    `<body data-section="...">` attribute is preserved so selectors that
    scope behavior by section still work, but the per-section cascade
    that used to live HERE (one `body[data-section="..."]` block per
    section) is gone — those decisions are now specced in
-   `spec/services/pito/section_colors_spec.rb`. The L2 atoms
+   `spec/services/pito/theme/sections_spec.rb`. The L2 atoms
    (`--section-accent-*`, `--bg-section-*`) higher up in :root remain
    declared for reference + as a defense-in-depth fallback if the
    inline style ever fails to render (e.g. CSP `style-src` lockdown);
@@ -263,7 +263,7 @@ body {
   color: var(--color-text);
   /* 2026-05-20 — Body bg is overridden by the inline
      `style="background: <hex>;"` the layout writes on every render
-     (Ruby-computed via `Pito::SectionColors.bg(current_section)`).
+     (Ruby-computed via `Pito::Theme::Sections.bg(current_section)`).
      This rule survives as a defense-in-depth fallback: if the inline
      style ever fails to apply (CSP lockdown, future cleanup that
      strips the inline `style` attr, an off-layout page that bypasses

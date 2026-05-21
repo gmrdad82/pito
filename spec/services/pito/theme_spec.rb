@@ -51,9 +51,9 @@ RSpec.describe Pito::Theme do
       expect(described_class::SECTION_ACCENTS.fetch("settings")).to eq(described_class::DRACULA.fetch(:orange))
     end
 
-    it "agrees with Pito::SectionColors::ACCENT for every section" do
+    it "agrees with Pito::Theme::Sections::ACCENT for every section" do
       described_class::SECTION_ACCENTS.each do |section, hex|
-        expect(Pito::SectionColors::ACCENT.fetch(section)).to eq(hex), "section=#{section}"
+        expect(Pito::Theme::Sections::ACCENT.fetch(section)).to eq(hex), "section=#{section}"
       end
     end
   end
@@ -73,9 +73,9 @@ RSpec.describe Pito::Theme do
       expect(described_class::SECTION_BGS.fetch("settings")).to eq("#34333b")
     end
 
-    it "agrees with Pito::SectionColors::BG for every section" do
+    it "agrees with Pito::Theme::Sections::BG for every section" do
       described_class::SECTION_BGS.each do |section, hex|
-        expect(Pito::SectionColors::BG.fetch(section)).to eq(hex), "section=#{section}"
+        expect(Pito::Theme::Sections::BG.fetch(section)).to eq(hex), "section=#{section}"
       end
     end
   end
@@ -146,8 +146,8 @@ RSpec.describe Pito::Theme do
   end
 
   describe ".section_border" do
-    it "delegates to Pito::SectionColors.section_border" do
-      expect(described_class.section_border("settings")).to eq(Pito::SectionColors.section_border("settings"))
+    it "delegates to Pito::Theme::Sections.section_border" do
+      expect(described_class.section_border("settings")).to eq(Pito::Theme::Sections.section_border("settings"))
     end
 
     it "computes the user-locked settings border (35% orange on #34333b)" do

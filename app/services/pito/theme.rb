@@ -1,8 +1,8 @@
 module Pito
   # 2026-05-20 — Single source of truth for the pito theme system.
   #
-  # This module supersedes `Pito::SectionColors` as the canonical theme
-  # surface. `SectionColors` remains as the lower-level mix() / per-section
+  # This module supersedes `Pito::Theme::Sections` as the canonical theme
+  # surface. `Sections` remains as the lower-level mix() / per-section
   # bg+accent primitive that Theme delegates to (so we don't have two
   # sources of truth for the same hex values).
   #
@@ -49,7 +49,7 @@ module Pito
     PALE_COBALT = "#7eb6ff".freeze
 
     # L2 — section accents (picks from L1). Cascade source for
-    # `--section-accent`. Mirrors `Pito::SectionColors::ACCENT`.
+    # `--section-accent`. Mirrors `Pito::Theme::Sections::ACCENT`.
     SECTION_ACCENTS = {
       "home"          => DRACULA.fetch(:purple),
       "channels"      => DRACULA.fetch(:red),
@@ -62,7 +62,7 @@ module Pito
     }.freeze
 
     # L2 — per-section page backgrounds (hand-picked atoms, NOT derived).
-    # See `Pito::SectionColors::BG` for the canonical lock dates per
+    # See `Pito::Theme::Sections::BG` for the canonical lock dates per
     # section.
     SECTION_BGS = {
       "home"          => "#2c2a36",
@@ -126,15 +126,15 @@ module Pito
     end
 
     # L3 — derived pane border per section (35% accent + section bg).
-    # Delegates to `Pito::SectionColors` so the derivation lives in one
+    # Delegates to `Pito::Theme::Sections` so the derivation lives in one
     # place.
     def self.section_border(section)
-      Pito::SectionColors.section_border(section)
+      Pito::Theme::Sections.section_border(section)
     end
 
     # L4 — derived effect tokens.
     def self.color_link_hover(section)
-      Pito::SectionColors.mix(section_accent(section), 80, "#ffffff")
+      Pito::Theme::Sections.mix(section_accent(section), 80, "#ffffff")
     end
 
     def self.color_focus_ring(section)
@@ -142,7 +142,7 @@ module Pito
       # approximate by mixing against bg for the hex form; consumers
       # that need true alpha use the CSS `color-mix(... transparent)`
       # form directly.
-      Pito::SectionColors.mix(section_accent(section), 40, section_bg(section))
+      Pito::Theme::Sections.mix(section_accent(section), 40, section_bg(section))
     end
 
     # ----- Export -----------------------------------------------------
