@@ -22,7 +22,7 @@ ratatui = "0.30"
 # works without it; we trade visual fidelity in the fallback path for a
 # system-dep-free build. Keep `image-defaults` (full image format support) and
 # `crossterm` (event integration).
-ratatui-image = { version = "10", default-features = false, features = ["image-defaults", "crossterm"] }
+ratatui-image = { version = "11", default-features = false, features = ["image-defaults", "crossterm"] }
 # image 0.25 is ratatui-image's transitive dep — pinned here so the cache
 # layer's downscale path can reach the same encoder/decoder surface without
 # version skew.
