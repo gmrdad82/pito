@@ -1,4 +1,4 @@
-module Settings
+module Pito
   module Stack
     # Pure-data lookup table mapping a semantic health state symbol to
     # the chip label + chip variant the stack pane renders inline.

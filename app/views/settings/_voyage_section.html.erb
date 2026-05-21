@@ -9,7 +9,7 @@
     chip + action right), and FB-82 (2026-05-20) removed the dead
     `Settings::Stack::HealthLineComponent` host entirely — the state
     → chip metadata it owned now lives in
-    `Settings::Stack::HealthState::STATES`. `[reindex]` posts directly
+    `Pito::Stack::HealthState::STATES`. `[reindex]` posts directly
     to
     `settings_stack_voyage_reindex_path` — no confirm modal, no
     `data-turbo-confirm`. The legacy modal-trigger link + the

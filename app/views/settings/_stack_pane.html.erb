@@ -35,7 +35,7 @@
     zebra anywhere in stack-pane tables.
 
     Status chips remain per sub-panel: each sub-panel header looks up
-    its semantic state in `Settings::Stack::HealthState::STATES` and
+    its semantic state in `Pito::Stack::HealthState::STATES` and
     renders the resolved chip label + variant via `Tui::ChipComponent`.
     The chip variant cascade (success / danger after FB-6) carries the
     operator signal.
@@ -71,22 +71,22 @@
           right. The legacy sub-panel header row is gone; the chip
           moves into `.pito-sub-panel__actions`. State → chip label +
           variant resolution lives in
-          `Settings::Stack::HealthState::STATES` (FB-82). %>
+          `Pito::Stack::HealthState::STATES` (FB-82). %>
       <% redis_state = @redis_status[:connected] ? :connected : :disconnected %>
-      <% redis_chip = Settings::Stack::HealthState::STATES.fetch(redis_state) %>
+      <% redis_chip = Pito::Stack::HealthState::STATES.fetch(redis_state) %>
       <%= render Tui::SubPanelComponent.new(title: t("settings.stack.redis")) do |c| %>
         <% c.with_actions do %>
           <%= render Tui::ChipComponent.new(label: redis_chip[:chip_label], variant: redis_chip[:chip_variant]) %>
         <% end %>
 
         <% if @redis_status[:connected] && @sidekiq_breakdown.any? %>
-          <%= render Settings::Stack::Sidekiq::CountersComponent.new(breakdown: @sidekiq_breakdown) %>
+          <%= render Pito::Stack::Sidekiq::CountersComponent.new(breakdown: @sidekiq_breakdown) %>
         <% end %>
       <% end %>
 
       <%# PostgreSQL. FB-63-V4 — V4 title-in-border. %>
       <% pg_state = @postgres_status[:connected] ? :connected : :disconnected %>
-      <% pg_chip = Settings::Stack::HealthState::STATES.fetch(pg_state) %>
+      <% pg_chip = Pito::Stack::HealthState::STATES.fetch(pg_state) %>
       <%= render Tui::SubPanelComponent.new(title: t("settings.stack.postgres")) do |c| %>
         <% c.with_actions do %>
           <%= render Tui::ChipComponent.new(label: pg_chip[:chip_label], variant: pg_chip[:chip_variant]) %>
@@ -149,7 +149,7 @@
           when the swap fires). %>
       <% meilisearch_reindex_running = AppSetting.reindex_running? %>
       <% meili_state = @search_healthy ? :connected : :disconnected %>
-      <% meili_chip = Settings::Stack::HealthState::STATES.fetch(meili_state) %>
+      <% meili_chip = Pito::Stack::HealthState::STATES.fetch(meili_state) %>
       <%= render Tui::SubPanelComponent.new(title: t("settings.stack.meilisearch")) do |c| %>
         <% c.with_actions do %>
           <%= render Tui::ChipComponent.new(label: meili_chip[:chip_label], variant: meili_chip[:chip_variant]) %>
@@ -259,7 +259,7 @@
           + running-state block; the V4 chrome (title left, chip +
           `[reindex]` right) lives in the parent here and stays put. %>
       <% voyage_state = AppSetting.voyage_configured? ? :configured : :not_configured %>
-      <% voyage_chip = Settings::Stack::HealthState::STATES.fetch(voyage_state) %>
+      <% voyage_chip = Pito::Stack::HealthState::STATES.fetch(voyage_state) %>
       <% voyage_reindex_running = AppSetting.reindex_running? %>
       <%= render Tui::SubPanelComponent.new(title: t("settings.voyage.heading")) do |c| %>
         <% c.with_actions do %>
@@ -301,7 +301,7 @@
                         else
                           :absent
                         end %>
-      <% assets_chip = Settings::Stack::HealthState::STATES.fetch(assets_state) %>
+      <% assets_chip = Pito::Stack::HealthState::STATES.fetch(assets_state) %>
       <%= render Tui::SubPanelComponent.new(title: t("settings.stack.assets")) do |c| %>
         <% c.with_actions do %>
           <%= render Tui::ChipComponent.new(label: assets_chip[:chip_label], variant: assets_chip[:chip_variant]) %>

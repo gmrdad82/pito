@@ -1707,7 +1707,7 @@ th.col-action, td.col-action {
    vertical gap separates sub-panels cleanly. Each child sub-panel
    is the `<div style="padding: 8px 12px;">` wrapper around a
    V4 title-in-border header (title + chip resolved via
-   `Settings::Stack::HealthState::STATES`) plus its breakdown table. */
+   `Pito::Stack::HealthState::STATES`) plus its breakdown table. */
 .stack-pane-grid {
   display: flex;
   flex-direction: column;

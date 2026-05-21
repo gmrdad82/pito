@@ -1,4 +1,4 @@
-module Settings
+module Pito
   # Renders the LEFT pane of the mandatory-2FA enrollment screen — the
   # QR-code scan block, the seed fallback, and the 6-digit enter-code
   # form that POSTs to `settings_security_totp_path`.

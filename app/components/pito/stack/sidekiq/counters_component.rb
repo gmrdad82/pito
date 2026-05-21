@@ -1,4 +1,4 @@
-module Settings
+module Pito
   module Stack
     module Sidekiq
       # Renders the Redis-tile Sidekiq counters block — two separate
