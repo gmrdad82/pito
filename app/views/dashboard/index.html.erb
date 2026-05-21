@@ -1,18 +1,30 @@
+<% content_for(:title, t("settings.index.title")) %>
 <% content_for(:head) do %>
   <meta name="turbo-cache-control" content="no-cache">
 <% end %>
 
-<h1>dashboard</h1>
+<%# C18 (2026-05-21) — /settings consolidated into / (home). The ex-settings
+    panels (security, notifications, stack) now render here.
+    Partials remain at app/views/settings/_*_pane.html.erb — C18 moves the
+    rendering location only. Partial-to-VC conversion is follow-up work.
 
-<% if @video_count > 0 %>
-  <p class="caption" style="margin-bottom: 8px;"><%= number_with_delimiter(@video_count) %> videos across <%= number_with_delimiter(@channel_count) %> channels.</p>
+    The settings-modal Stimulus controller wraps both the panels (where trigger
+    links live) AND the _settings_modal partial (where the dialog lives) so
+    click actions on any descendant reach the controller scope. %>
+<div class="settings-modal-wrapper" data-controller="settings-modal">
+  <%# ADR 0016 width-tiling grid. Two-column V3 60/40 layout:
+      LEFT 60%:  notifications (top) + security/sessions (bottom).
+      RIGHT 40%: stack panel only. %>
+  <div class="settings-panes pito-workspace settings-panes--v3" data-controller="tui-cursor">
+    <div class="settings-panes__left">
+      <%= render "settings/notifications_pane" %>
+      <%= render "settings/security_pane" %>
+    </div>
 
-  <p class="caption">[dashboard reset — charts return with intentional metrics in a later phase.]</p>
-<% else %>
-  <p class="text-muted">no videos yet. run:</p>
-  <div data-controller="clipboard-copy" class="code-block">
-    <span class="code-prompt" aria-hidden="true">$</span>
-    <code data-clipboard-copy-target="source">bin/rails db:seed</code>
-    <a href="#" data-action="click->clipboard-copy#copy" class="bracketed">[<span class="bl">copy</span>]</a>
+    <div class="settings-panes__right">
+      <%= render "settings/stack_pane" %>
+    </div>
   </div>
-<% end %>
+
+  <%= render "settings/settings_modal" %>
+</div>

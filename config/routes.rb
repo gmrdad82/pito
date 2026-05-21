@@ -521,7 +521,13 @@ Rails.application.routes.draw do
   # partials). See `app/services/search/everywhere.rb`.
   get "/search/everywhere", to: "everywhere_search#show",
                             as: :everywhere_search
-  get "settings", to: "settings#index"
+  # C18 (2026-05-21) — /settings consolidated into / (home). The bare
+  # /settings GET now 301-redirects to /. Sub-routes under
+  # /settings/security/*, /settings/stack/*, /settings/notifications/*,
+  # /settings/time_zone, and /settings/webhooks/* remain functional —
+  # the panels' form actions and Turbo Frame paths still post to them.
+  # SettingsController is kept alive (C19e cleanup will purge it).
+  get "settings", to: redirect("/", status: 301)
   patch "settings", to: "settings#update"
   # Theme system removed entirely 2026-05-19 — pito is single-theme
   # now, no server-side preference, no client-side toggle. The legacy

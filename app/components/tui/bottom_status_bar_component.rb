@@ -1,27 +1,31 @@
 module Tui
   # Beta 4 — Phase F1. Bottom status bar. Sticky-bottom counterpart to
-  # `Tui::TopStatusBarComponent`. Provides the 7-section nav, current
-  # mode lozenge, and `?` / `:` keybinding hints, vim/TUI status-line
-  # style.
+  # `Tui::TopStatusBarComponent`. Provides the 3-screen nav (home /
+  # videos / games), current mode lozenge, and `?` / `:` keybinding
+  # hints, vim/TUI status-line style.
   #
   # Layout:
   #
-  #   <mode> | home calendar channels videos projects games notifications settings | ? help  : command
+  #   <mode> | home videos games | ? help  : command
   #
   # LEFT:    mode lozenge (lowercase). One of `:normal`, `:command`,
   #          `:search`. Color cycles per mode (cyan / purple / green).
-  # CENTER:  8 section links, lowercase. Current section bolded and
+  # CENTER:  3 screen links, lowercase. Current screen bolded and
   #          colored with the section accent (CSS cascade from
   #          `body[data-section]`).
   # RIGHT:   `? help` + `: command` hint markers (lowercase, muted with
   #          the key letter in foreground weight).
+  #
+  # C18 (2026-05-21): settings consolidated into / (home). The sections
+  # list was trimmed from 8 entries to 3 (home / videos / games).
+  # /settings now redirects 301 to /.
   #
   # The section accent (`--section-accent`) cascades via
   # `body[data-section]` (set by `current_section` in
   # `ApplicationHelper`), so the bar inherits the right color
   # automatically — no per-render section-to-color lookup needed.
   class BottomStatusBarComponent < ViewComponent::Base
-    SECTIONS = %i[home calendar channels videos projects games notifications settings].freeze
+    SECTIONS = %i[home videos games].freeze
     MODES = %i[normal command search].freeze
 
     def initialize(current_section:, mode: :normal)
@@ -43,14 +47,9 @@ module Tui
 
     def section_path(section)
       case section.to_s
-      when "home"          then "/"
-      when "calendar"      then "/calendar"
-      when "channels"      then "/channels"
-      when "videos"        then "/videos"
-      when "projects"      then "/projects"
-      when "games"         then "/games"
-      when "notifications" then "/notifications"
-      when "settings"      then "/settings"
+      when "home"   then "/"
+      when "videos" then "/videos"
+      when "games"  then "/games"
       else "/"
       end
     end
