@@ -1,30 +1,26 @@
 # FB-test-infra (2026-05-22). Dev/test rake tasks for exercising
-# cable-driven ViewComponents (top status bar, Sync indicator, Sidekiq
-# stats cell, Notifications indicator) without waiting for real
-# Sidekiq activity or external sync events. Two surfaces:
+# cable-driven ViewComponents (Sidekiq stats cell, Notifications
+# indicator) without waiting for real Sidekiq activity or external
+# events. Two surfaces:
 #
 #   `pito:test:broadcast_*` — synthesize a cable envelope on the
 #     `pito:status_bar` channel with an arbitrary `kind:` + `payload:`.
 #     Useful when you want to see the VC react to a specific state
-#     (e.g. sync=disconnected, retry_count=42) without recreating the
-#     underlying world.
+#     (e.g. retry_count=42) without recreating the underlying world.
 #
 #   `pito:test:enqueue_*_job` — drop one of the three `Pito::Test::*`
 #     dummy Sidekiq jobs into Redis so the real Sidekiq middleware
 #     fires its own broadcast against the canonical envelope (full
 #     stack exercise: enqueue -> middleware -> cable -> VC).
+#
+# 2026-05-22 (cable routing refactor): the `broadcast_sync` task was
+# dropped — sync state is no longer externally settable. The sync
+# indicator now pulses on ANY cable activity (`tui:cable-activity`
+# event fanned out by `tui-status-bar` on every received message) and
+# returns to `synced` after 400ms of quiet. Cable disconnection is
+# the only path that flips the indicator to `disconnected`.
 namespace :pito do
   namespace :test do
-    desc "broadcast a synthetic sync payload (state: synced|syncing|disconnected)"
-    task :broadcast_sync, [ :state ] => :environment do |_, args|
-      state = (args[:state] || "synced").to_s
-      Pito::CableBroadcaster.broadcast_status_bar(
-        { state: state },
-        kind: :sync
-      )
-      puts "broadcasted sync #{state}"
-    end
-
     desc "broadcast a synthetic sidekiq stats payload (busy, enqueued, retry_count)"
     task :broadcast_sidekiq, [ :busy, :enqueued, :retry_count ] => :environment do |_, args|
       payload = {

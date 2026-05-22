@@ -4,63 +4,83 @@ import { createConsumer } from "@rails/actioncable"
 // Beta 4 — Phase F1 Lane C. Live data wiring for
 // `Tui::TopStatusBarComponent` (Lane B). Subscribes to the
 // `StatusBarChannel` (Lane A — broadcasting `pito:status_bar`) and
-// patches the marked DOM cells in place. Also ticks a 1Hz local
-// wall-clock so the right-most segment always reads true time —
-// independent of the cable being connected.
+// fans out kind-specific custom DOM events to child Stimulus controllers
+// (one per ViewComponent slot: SyncIndicator, SidekiqStats, DateTime,
+// etc.). The parent owns the cable subscription + breadcrumb + local
+// wall-clock; every other slot is painted by its own child controller
+// listening for the kind-specific event.
 //
-// Targets mirror Lane B's `data-tui-status-bar-target="..."` attrs:
+// 2026-05-22 (registry refactor) — the previous `switch (kind)` block
+// was replaced by a frozen dictionary at module top (`KIND_HANDLERS`).
+// Adding a new cable kind = one entry in the map. The same dispatch
+// also fires a generic `tui:cable-activity` event on every received
+// message so activity-aware listeners (e.g. the sync indicator pulse)
+// can react without registering for each individual kind.
 //
-//   root, sync, syncDot, syncWord, syncTarget,
-//   progressBar, progressCounter,
-//   sidekiq, sidekiqBusy, sidekiqEnqueued, sidekiqRetry,
-//   clock
+// Targets (legacy direct-target patches retained for sync/breadcrumb
+// only):
+//   root, section, clock (legacy clock target unused since the
+//   DateTime VC was extracted; kept on the static targets list as a
+//   no-op for backward compat).
 //
 // Payload envelope follows ADR 0017:
 //
 //   { kind: "<state>", payload: { ... }, ts: "<iso-8601>" }
 //
-// `kind` ∈ { idle, indeterminate, progress, complete, error, data }.
-// `data` is used for Sidekiq queue-depth pushes (no state change).
+// Canonical kinds (FB-test-infra 2026-05-22):
 //
-// CSS modifier classes mirror Lane B's component exactly:
+//   sync          → fans out `tui:sync-changed`
+//   sidekiq       → fans out `tui:sidekiq-changed`
+//   notifications → fans out `tui:notifications-changed`
+//   data          → alias of `sidekiq` (legacy Sidekiq middleware envelope)
 //
-//   .sb-sync-dot--green / --amber / --red
-//   .sb-sync-word--idle / --syncing / --disconnected
+// Legacy long-running-job kinds (idle / indeterminate / progress /
+// complete / error) are registered without a kind-specific event —
+// they still fire the generic `tui:cable-activity` event so any future
+// activity-aware listener can pick them up.
+
+// Cable-kind routing registry. Adding a new cable kind = one entry.
+// Each entry declares:
+//   - event: the document-level CustomEvent name fanned out for VCs to listen to
+//   - payloadKeys: array of expected payload field names (for dev-time validation)
+//   - alias: optional — when set, this kind is an alias of the named canonical kind
 //
-// The dot color follows sync state (green idle, amber syncing,
-// red disconnected). The word follows the same state taxonomy but
-// with the human label `synced` / `syncing` / `disconnected`.
-//
-// Cable lifecycle: connect() creates the consumer + subscription;
-// disconnect() unsubscribes AND disconnects the consumer so a Turbo
-// morph doesn't leak listeners. Both refs are cached on `this` so
-// the teardown is symmetric with `stack_stats_live_controller.js`.
+// EVERY received message — regardless of kind — also fires the generic
+// `tui:cable-activity` event for activity-aware VCs (e.g. sync indicator).
+export const KIND_HANDLERS = Object.freeze({
+  sync:          { event: "tui:sync-changed",          payloadKeys: ["state", "target"] },
+  sidekiq:       { event: "tui:sidekiq-changed",       payloadKeys: ["busy", "enqueued", "retry"] },
+  notifications: { event: "tui:notifications-changed", payloadKeys: ["future_count"] },
+  data:          { alias: "sidekiq" },  // legacy Sidekiq middleware kind
+  // Legacy long-running-job kinds — fire activity event only, no specific listener:
+  idle:          { event: null, payloadKeys: [] },
+  indeterminate: { event: null, payloadKeys: [] },
+  progress:      { event: null, payloadKeys: [] },
+  complete:      { event: null, payloadKeys: [] },
+  error:         { event: null, payloadKeys: [] }
+})
+
+export const ACTIVITY_EVENT = "tui:cable-activity"
+
 export default class extends Controller {
   static targets = [
     "root",
-    "section",
-    "sync",
-    "syncDot",
-    "syncWord",
-    "syncTarget",
-    "progressBar",
-    "progressCounter",
-    "sidekiq",
-    "sidekiqBusy",
-    "sidekiqEnqueued",
-    "sidekiqRetry",
-    "clock"
+    "section"
   ]
 
+  // Re-export the registry on the controller class so specs / external
+  // consumers can lock the shape without importing the module directly.
+  static KIND_HANDLERS = KIND_HANDLERS
+  static ACTIVITY_EVENT = ACTIVITY_EVENT
+
   connect() {
-    this.startClock()
     this.consumer = createConsumer()
     this.subscription = this.consumer.subscriptions.create(
       { channel: "StatusBarChannel" },
       {
         connected: () => this.onConnected(),
         disconnected: () => this.onDisconnected(),
-        received: (data) => this.applyPayload(data)
+        received: (data) => this.received(data)
       }
     )
 
@@ -82,7 +102,6 @@ export default class extends Controller {
   }
 
   disconnect() {
-    this.stopClock()
     if (this.boundPanelFocus) {
       document.removeEventListener("tui:panel-focus-changed", this.boundPanelFocus)
       this.boundPanelFocus = null
@@ -94,6 +113,39 @@ export default class extends Controller {
     if (this.consumer) {
       this.consumer.disconnect()
       this.consumer = null
+    }
+  }
+
+  // ---------- Cable payload funnel (registry-driven) ----------
+
+  // 2026-05-22 — Map-driven dispatch. Every received message fires
+  // `tui:cable-activity` first (so activity-aware listeners pulse on
+  // any traffic), then resolves the `kind` to its registry entry and
+  // fans out the kind-specific event if defined. Aliases are resolved
+  // one hop (no recursion needed).
+  received(data) {
+    const { kind, payload } = data || {}
+
+    // Always fire the generic activity event first — for activity-aware listeners.
+    document.dispatchEvent(new CustomEvent(ACTIVITY_EVENT, {
+      detail: { kind, payload, ts: data?.ts },
+      bubbles: false
+    }))
+
+    // Resolve aliases (one hop only).
+    let handler = KIND_HANDLERS[kind]
+    if (handler && handler.alias) handler = KIND_HANDLERS[handler.alias]
+    if (!handler) {
+      console.warn(`[tui-status-bar] unknown cable kind: ${kind}`)
+      return
+    }
+
+    // Fan-out the kind-specific event if defined.
+    if (handler.event) {
+      document.dispatchEvent(new CustomEvent(handler.event, {
+        detail: payload || {},
+        bubbles: false
+      }))
     }
   }
 
@@ -157,291 +209,28 @@ export default class extends Controller {
     el.appendChild(parenClose)
   }
 
-  // ---------- Clock ----------
-
-  startClock() {
-    this.updateClock()
-    this.clockTimer = setInterval(() => this.updateClock(), 1000)
-  }
-
-  stopClock() {
-    if (this.clockTimer) {
-      clearInterval(this.clockTimer)
-      this.clockTimer = null
-    }
-  }
-
-  updateClock() {
-    if (!this.hasClockTarget) return
-    const now = new Date()
-    const weekday = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][now.getDay()]
-    const month = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][now.getMonth()]
-    const day = now.getDate()
-    const hh = String(now.getHours()).padStart(2, "0")
-    const mm = String(now.getMinutes()).padStart(2, "0")
-    const ss = String(now.getSeconds()).padStart(2, "0")
-    this.clockTarget.textContent = `${weekday}, ${month} ${day} · ${hh}:${mm}:${ss}`
-  }
-
   // ---------- Cable lifecycle callbacks ----------
+  //
+  // Cable connect / disconnect are signaled out via the same custom
+  // event mechanism the registry uses — the SyncIndicator child
+  // controller listens for explicit `disconnected` state via
+  // `tui:sync-changed` so the dot can flip red without needing a
+  // dedicated event channel for cable lifecycle.
 
   onConnected() {
-    // Cable established — snap the dot back to the idle (green) state.
-    // First real payload from the server will overwrite this immediately
-    // if anything is actually in flight.
-    this.setSyncState("idle")
+    // Cable established — re-paint as synced.
+    document.dispatchEvent(new CustomEvent("tui:sync-changed", {
+      detail: { state: "synced" },
+      bubbles: false
+    }))
   }
 
   onDisconnected() {
     // Cable dropped — surface the red ✗ disconnected indicator per
     // ADR 0017's error-handling section.
-    this.setSyncState("disconnected")
-  }
-
-  // ---------- Payload funnel ----------
-
-  applyPayload(data) {
-    if (!data) return
-    const { kind, payload } = data
-    switch (kind) {
-      case "idle":
-        this.setSyncState("idle")
-        this.hideProgressBar()
-        break
-      case "indeterminate":
-        this.setSyncState("syncing", payload && payload.label)
-        this.hideProgressBar()
-        break
-      case "progress":
-        this.setSyncState("syncing", payload && payload.label)
-        if (payload) this.showProgressBar(payload.current, payload.total)
-        break
-      case "complete":
-        this.setSyncState("idle")
-        this.hideProgressBar()
-        break
-      case "error":
-        this.setSyncState("disconnected")
-        this.hideProgressBar()
-        break
-      case "data":
-        // Sidekiq queue-depth push. Payload carries the latest counts
-        // (busy / enqueued / retry / scheduled) AND — per FB-153 —
-        // the shared reindex `sync_state` ("idle" | "syncing") so the
-        // sync indicator dot + word follow reindex job state without
-        // needing a separate `kind: "indeterminate"` broadcast.
-        if (payload) {
-          this.updateSidekiqStats(payload)
-          if (payload.sync_state === "syncing") {
-            this.setSyncState("syncing")
-          } else if (payload.sync_state === "idle") {
-            this.setSyncState("idle")
-          }
-        }
-        break
-      case "notifications":
-        // 2026-05-22 — Future-notification awareness. Payload:
-        //   { future_count: <int> }
-        // Fans out to `tui:notifications-changed` so the DateTime VC
-        // (and any other listener) can react. No direct DOM patching
-        // here — the listener owns its own paint contract.
-        if (payload) this.dispatchNotificationsChanged(payload)
-        break
-    }
-  }
-
-  // ---------- F1 child-VC event dispatch (2026-05-22) ----------
-  //
-  // Phase F1 splits the bar into 5 ViewComponents (AppVersion,
-  // Breadcrumb, SyncIndicator, SidekiqStats, DateTime). Each child has
-  // its own Stimulus controller listening for a custom DOM event.
-  // `dispatchSyncChanged` / `dispatchSidekiqChanged` mirror the legacy
-  // direct-target patches so the bar updates twice: once via the legacy
-  // target swap (still wired for backward compat), and once via the
-  // event flow (the new authoritative path). The two converge on the
-  // same DOM so there's no visible double-paint.
-  dispatchSyncChanged(state, target = null) {
-    document.dispatchEvent(
-      new CustomEvent("tui:sync-changed", {
-        detail: { state, target }
-      })
-    )
-  }
-
-  dispatchSidekiqChanged(stats) {
-    document.dispatchEvent(
-      new CustomEvent("tui:sidekiq-changed", {
-        detail: {
-          busy:     stats.busy,
-          enqueued: stats.enqueued,
-          retry:    stats.retry
-        }
-      })
-    )
-  }
-
-  // 2026-05-22 — Fans out the `notifications` kind to any listener
-  // (currently the DateTime VC). Payload shape per the locked envelope:
-  //   { future_count: <int> }
-  dispatchNotificationsChanged(payload) {
-    document.dispatchEvent(
-      new CustomEvent("tui:notifications-changed", {
-        detail: {
-          future_count: payload.future_count
-        }
-      })
-    )
-  }
-
-  // ---------- Sync state ----------
-
-  // `state` is the LOCAL three-state taxonomy used by the controller:
-  //   idle          → ● green + word "synced"
-  //   syncing       → ● amber + word "syncing" (+ optional target label)
-  //   disconnected  → ✗ red   + word "disconnected"
-  //
-  // Lane B's component emits one of four Ruby states (idle / syncing /
-  // syncing_with_target / disconnected); the controller collapses the
-  // two `syncing*` variants because the only difference is whether the
-  // optional `syncTarget` slot has text.
-  setSyncState(state, target = null) {
-    // Reset every state-flavored modifier on the dot + word so a
-    // transition (idle → syncing → idle) doesn't leave a stale class.
-    if (this.hasSyncDotTarget) {
-      this.syncDotTarget.classList.remove(
-        "sb-sync-dot--green",
-        "sb-sync-dot--amber",
-        "sb-sync-dot--red"
-      )
-    }
-    if (this.hasSyncWordTarget) {
-      this.syncWordTarget.classList.remove(
-        "sb-sync-word--idle",
-        "sb-sync-word--syncing",
-        "sb-sync-word--disconnected"
-      )
-    }
-
-    const dotClass = {
-      idle: "sb-sync-dot--green",
-      syncing: "sb-sync-dot--amber",
-      disconnected: "sb-sync-dot--red"
-    }[state] || "sb-sync-dot--green"
-
-    const wordClass = {
-      idle: "sb-sync-word--idle",
-      syncing: "sb-sync-word--syncing",
-      disconnected: "sb-sync-word--disconnected"
-    }[state] || "sb-sync-word--idle"
-
-    const wordText = {
-      idle: "synced",
-      syncing: "syncing",
-      disconnected: "disconnected"
-    }[state] || "synced"
-
-    const dotGlyph = state === "disconnected" ? "✗" : "●"
-
-    if (this.hasSyncDotTarget) {
-      this.syncDotTarget.classList.add(dotClass)
-      this.syncDotTarget.textContent = dotGlyph
-    }
-    if (this.hasSyncWordTarget) {
-      this.syncWordTarget.classList.add(wordClass)
-      this.syncWordTarget.textContent = wordText
-    }
-    if (this.hasSyncTargetTarget) {
-      // Show / clear the optional `syncing channels`-style label.
-      this.syncTargetTarget.textContent = (state === "syncing" && target) ? target : ""
-    }
-
-    // F1: also dispatch the event so the child `tui-sync-indicator`
-    // controller can patch its slot (legacy target patches above stay
-    // in place for backward compat during the F1 transition).
-    this.dispatchSyncChanged(state, target)
-  }
-
-  // ---------- Progress bar ----------
-
-  // Matches Lane B's `PROGRESS_BAR_WIDTH = 8` constant. Centralized
-  // here so a future width change only has to touch the component +
-  // this single literal (no other consumer of the bar exists).
-  static PROGRESS_BAR_WIDTH = 8
-
-  showProgressBar(current, total) {
-    if (!this.hasProgressBarTarget || !this.hasProgressCounterTarget) return
-    if (current == null || total == null) return
-    const totalInt = Number(total)
-    const currentInt = Number(current)
-    if (!Number.isFinite(totalInt) || totalInt <= 0) return
-
-    const width = this.constructor.PROGRESS_BAR_WIDTH
-    const ratio = Math.max(0, Math.min(1, currentInt / totalInt))
-    const filled = Math.round(ratio * width)
-    const empty = width - filled
-
-    // Lane B splits the bar into two spans (`.sb-progress-bar-filled` +
-    // `.sb-progress-bar-empty`) so the filled/empty halves can be colored
-    // independently. Rebuild both via DOM APIs (no innerHTML) so the cell
-    // stays safe even if a future caller threads user-supplied text in.
-    while (this.progressBarTarget.firstChild) {
-      this.progressBarTarget.removeChild(this.progressBarTarget.firstChild)
-    }
-    const filledSpan = document.createElement("span")
-    filledSpan.className = "sb-progress-bar-filled"
-    filledSpan.textContent = "▓".repeat(filled)
-    const emptySpan = document.createElement("span")
-    emptySpan.className = "sb-progress-bar-empty"
-    emptySpan.textContent = "░".repeat(empty)
-    this.progressBarTarget.appendChild(filledSpan)
-    this.progressBarTarget.appendChild(emptySpan)
-
-    this.progressCounterTarget.textContent = `${currentInt}/${totalInt}`
-  }
-
-  hideProgressBar() {
-    if (this.hasProgressBarTarget) this.progressBarTarget.textContent = ""
-    if (this.hasProgressCounterTarget) this.progressCounterTarget.textContent = ""
-  }
-
-  // ---------- Sidekiq queue-depth cells ----------
-
-  // Payload shape (per ADR 0017):
-  //   { busy: <int>, enqueued: <int>, retry: <int>, scheduled: <int> }
-  //
-  // The bar renders three of the four — b / e / r — so `scheduled` is
-  // accepted but not painted here. The `scheduled` slot is a future
-  // surface (likely the per-subsystem stack panel).
-  updateSidekiqStats(stats) {
-    if (stats.busy !== undefined && this.hasSidekiqBusyTarget) {
-      this.updateSidekiqCell(this.sidekiqBusyTarget, "b", stats.busy, "sk-b")
-    }
-    if (stats.enqueued !== undefined && this.hasSidekiqEnqueuedTarget) {
-      this.updateSidekiqCell(this.sidekiqEnqueuedTarget, "e", stats.enqueued, "sk-e")
-    }
-    if (stats.retry !== undefined && this.hasSidekiqRetryTarget) {
-      this.updateSidekiqCell(this.sidekiqRetryTarget, "r", stats.retry, "sk-r")
-    }
-
-    // F1: also dispatch the event so the child `tui-sidekiq-stats`
-    // controller can patch its slot (legacy target patches above stay
-    // in place for backward compat during the F1 transition).
-    this.dispatchSidekiqChanged(stats)
-  }
-
-  updateSidekiqCell(el, letter, value, nonZeroClass) {
-    if (!el) return
-    const n = Number(value)
-    const safe = Number.isFinite(n) ? n : 0
-    el.textContent = `${letter}${safe}`
-    // Mirror Lane B's class swap: `sk-zero` (muted) at 0, per-letter
-    // color (`sk-b` / `sk-e` / `sk-r`) when non-zero.
-    if (safe === 0) {
-      el.classList.add("sk-zero")
-      el.classList.remove(nonZeroClass)
-    } else {
-      el.classList.remove("sk-zero")
-      el.classList.add(nonZeroClass)
-    }
+    document.dispatchEvent(new CustomEvent("tui:sync-changed", {
+      detail: { state: "disconnected" },
+      bubbles: false
+    }))
   }
 }

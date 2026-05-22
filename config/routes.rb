@@ -737,15 +737,5 @@ Rails.application.routes.draw do
   # block above).
   get "/settings/youtube", to: redirect("/channels", status: 301)
 
-  # FB-test-infra (2026-05-22). Dev/test-only cable broadcast
-  # trampoline backing `window.Pito.testBroadcast(kind, payload)`.
-  # Mounted only when `Rails.env.development?` or `Rails.env.test?`
-  # so it can NEVER appear in a production routing table. The
-  # controller re-checks the env as defense-in-depth — see
-  # `TestBroadcastController#development_or_test_only!`.
-  if Rails.env.development? || Rails.env.test?
-    post "/_test/broadcast", to: "test_broadcast#create", as: :test_broadcast
-  end
-
   get "up" => "rails/health#show", as: :rails_health_check
 end

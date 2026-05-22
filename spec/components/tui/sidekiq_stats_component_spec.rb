@@ -86,5 +86,19 @@ RSpec.describe Tui::SidekiqStatsComponent, type: :component do
       render_inline(component)
       expect(page).to have_css("[data-tui-sidekiq-stats-target='retry']")
     end
+
+    # FB-test-infra (2026-05-22) — Regression: the three i18n prefix
+    # data-* values the child `tui-sidekiq-stats` controller reads on
+    # connect MUST be present on the root span. Without them the JS
+    # rebuilds cells as `<undefined>3` instead of `b3`. The payload key
+    # contract (`busy` / `enqueued` / `retry`) is the same the test
+    # rake (`pito:test:broadcast_sidekiq`) ships via the canonical
+    # `kind: "sidekiq"` envelope.
+    it "seeds the three prefix values on the root span" do
+      render_inline(component)
+      expect(page).to have_css("[data-tui-sidekiq-stats-busy-prefix-value]")
+      expect(page).to have_css("[data-tui-sidekiq-stats-enqueued-prefix-value]")
+      expect(page).to have_css("[data-tui-sidekiq-stats-retry-prefix-value]")
+    end
   end
 end

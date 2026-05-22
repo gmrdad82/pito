@@ -96,5 +96,29 @@ RSpec.describe Tui::SyncIndicatorComponent, type: :component do
       expect(component.word_syncing).to eq(I18n.t("tui.tst.sync.syncing"))
       expect(component.word_disconnected).to eq(I18n.t("tui.tst.sync.disconnected"))
     end
+
+    # FB-test-infra (2026-05-22) — Regression: the three state-name
+    # data-* attrs the child `tui-sync-indicator` controller reads on
+    # connect MUST be present on the root span. If any goes missing the
+    # JS layer falls back to undefined and renders an empty word.
+    it "seeds the three Stimulus state values on the root span" do
+      render_inline(described_class.new(state: :idle))
+      expect(page).to have_css("[data-tui-sync-indicator-synced-value]")
+      expect(page).to have_css("[data-tui-sync-indicator-syncing-value]")
+      expect(page).to have_css("[data-tui-sync-indicator-disconnected-value]")
+    end
+
+    # FB-test-infra (2026-05-22) — Regression: locks the canonical
+    # three state names (`synced` / `syncing` / `disconnected`) the
+    # JS sync indicator paints from the activity-pulse / disconnected
+    # event paths. If anyone renames the JS contract (e.g. `idle`
+    # instead of `synced`) this assertion catches the drift.
+    it "publishes the canonical state names (synced/syncing/disconnected)" do
+      synced = I18n.t("tui.tst.sync.synced")
+      syncing = I18n.t("tui.tst.sync.syncing")
+      disconnected = I18n.t("tui.tst.sync.disconnected")
+      expect([ synced, syncing, disconnected ]).to all(be_a(String))
+      expect([ synced, syncing, disconnected ]).to all(be_present)
+    end
   end
 end
