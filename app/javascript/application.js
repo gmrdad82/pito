@@ -32,7 +32,25 @@ import "pito_actions"
 const syncSectionAttribute = () => {
   const meta = document.head.querySelector('meta[name="pito:section"]')
   if (meta && document.body) {
-    document.body.dataset.section = meta.content
+    const section = meta.content
+    document.body.dataset.section = section
+
+    // Also update the inline style vars that the server renders on first paint.
+    // Turbo Drive preserves body element attributes across navigations, so the
+    // server-rendered inline style stays stale after a Turbo navigation. Reading
+    // the already-declared :root CSS vars (--section-accent-<section>,
+    // --bg-section-<section>) gives us the correct values without a server
+    // round-trip or extra meta tags.
+    const rootStyle = getComputedStyle(document.documentElement)
+    const accent = rootStyle.getPropertyValue(`--section-accent-${section}`).trim()
+    const bg     = rootStyle.getPropertyValue(`--bg-section-${section}`).trim()
+    if (accent) {
+      document.body.style.setProperty("--section-accent", accent)
+      document.body.style.setProperty("--color-section-accent", accent)
+    }
+    if (bg) {
+      document.body.style.setProperty("background", bg)
+    }
   }
 }
 
