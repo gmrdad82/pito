@@ -263,6 +263,82 @@ The mode lozenge in BST shows the current mode.
 
 Input focus auto-enters INSERT.
 
+## Transitions
+
+The project ships **exactly 2 transition effects** plus 1 continuous
+decoration. Web and TUI share names, tokens, and shape — same canonical
+contract on both surfaces.
+
+### The 2 canonical effects
+
+- **`scramble-settle`** — content transitions (text, numbers, words).
+  When a value changes A → B, each character position cycles through
+  3–5 random characters for ~200ms (staggered per-character), then
+  settles on the B character. Web: JS `setInterval` ticks updating each
+  cell's text. TUI: same pattern via Ratatui's per-frame redraw.
+- **`color-crossfade`** — color transitions. Animates the `color` CSS
+  property from color A to color B over 300ms ease-out. Web: CSS
+  transition on `color`. TUI: per-frame ANSI color interpolation
+  between the two named colors via the Ratatui truecolor path.
+
+### The shimmer decoration (not a transition)
+
+- **`shimmer`** — used ONLY on `Tui::SyncIndicatorComponent` while in
+  the `syncing` state. CSS gradient sweep across text via
+  `background-clip: text` + animated `background-position`. TUI parity:
+  per-character truecolor foregrounds interpolating between muted +
+  accent over a moving offset. Continuous, not state-driven; stops the
+  moment `syncing` flips off.
+
+### Token contract
+
+| Token | Value | Scope |
+|---|---|---|
+| scramble-settle duration | 200ms | per-character window |
+| scramble-settle stagger | 30ms | between adjacent characters |
+| scramble-settle frame | ~30ms | between scramble ticks |
+| color-crossfade duration | 300ms | full transition |
+| color-crossfade easing | ease-out | |
+| shimmer cycle | 1.6s linear infinite | |
+| shimmer gradient | muted 0%, muted 40%, accent 50%, muted 60%, muted 100% | |
+| debounce | 80ms | collapse rapid value changes |
+
+Tokens exported by `Pito::Transitions::Tokens` (see
+`docs/architecture.md` § Canonical namespace taxonomy) into CSS custom
+properties + Rust `theme.rs`. Single source of truth.
+
+### Reduced motion
+
+`prefers-reduced-motion: reduce` skips all animations — content swaps
+instantly, colors swap instantly, shimmer does not run. Single global
+gate at the controller level (`tui_transition_controller.js`); no
+per-VC opt-out, no per-effect override.
+
+### Composition
+
+An element may opt into both effects simultaneously. Canonical example:
+`Tui::SidekiqStatsComponent` runs `scramble-settle` on the number
+while a `color-crossfade` re-tints the color when a threshold crosses.
+The two effects compose cleanly because they target different CSS
+properties (text content vs. `color`).
+
+### TUI parity
+
+Web + TUI use the same effect names, same tokens, same shape. The
+Ratatui client reads tokens from the exported `theme.rs` and runs the
+same per-frame logic. New effects require an explicit registry entry in
+`Pito::Transitions::Effects` AND a parity spec — no silent additions.
+
+### How VCs opt in
+
+VCs do NOT type raw data-attrs. They include `Tui::Transitionable` and
+call its helper to emit the canonical data-attr set consumed by the
+single Stimulus controller `tui_transition_controller.js`.
+
+Demo reference: `tmp/cable-vc-transitions-v2.html` — visual lock for
+all 3 cable VCs (sync indicator, date time, sidekiq stats) using the
+2 effects + the shimmer decoration.
+
 ## Keybindings
 
 Shared between web and TUI. **One exception:** `q` quits the TUI; web
@@ -376,3 +452,5 @@ Currently-relevant demos:
 - `tmp/demo-sortable-arrows.html` — sortable indicator (V4 picked)
 - `tmp/demo-panel-title.html` — V4 corner-flush title
 - `tmp/demo-settings-bg-variants.html` — body bg tint per screen
+- `tmp/cable-vc-transitions-v2.html` — `scramble-settle` +
+  `color-crossfade` + `shimmer` visual lock (see § Transitions)

@@ -244,6 +244,28 @@ VectorSimilarity, TopK, HmsScorer, WeightedBlend),
 `Pito::ExternalApiTracker::*` (Youtube, Igdb, Voyage),
 `Pito::Schedule::Conflict`, `Pito::SlugBuilder`, `Pito::TimeZone`, etc.
 
+**`Pito::Transitions`** — canonical transition tokens + effect registry.
+Ruby-first. Exports to CSS custom properties + Rust `theme.rs` (mirrors
+the `Pito::Theme` pattern). Single source of truth for durations,
+easings, frame counts, debounce.
+
+- `Pito::Transitions::Tokens` — duration / stagger / easing / debounce
+  constants (see `docs/design.md` § Transitions § Token contract).
+- `Pito::Transitions::Effects` — the 2 canonical effects
+  (`scramble-settle`, `color-crossfade`) as a frozen map. New effects
+  require an explicit registry entry + parity spec — no silent
+  additions.
+- `Pito::Transitions::ReducedMotion` — the global gate honoring
+  `prefers-reduced-motion: reduce`.
+
+Companion JS: `app/javascript/controllers/tui_transition_controller.js`
+— the single Stimulus controller that drives all transitions via
+data-attrs. VCs opt in via the helper module `Tui::Transitionable`
+(emits the canonical data-attr set so no VC types raw attrs). The
+`shimmer` decoration is NOT a transition and is not registered here —
+it lives on `Tui::SyncIndicatorComponent` only, gated by `syncing`
+state.
+
 ### Home services live under `Pito::*`
 
 Home is not a domain — it's the dashboard + system-monitoring surface.
