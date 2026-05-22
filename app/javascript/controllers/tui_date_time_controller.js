@@ -14,7 +14,8 @@ import { Controller } from "@hotwired/stimulus"
  *
  * Format shape MUST mirror `Tui::DateTimeComponent.format(time)` in
  * Ruby — otherwise the very first tick after SSR would diff every char
- * and the whole string would scramble. Format: `mon may 22 12:34:56`.
+ * and the whole string would scramble.
+ * Format: `Fri, May 22 · 17:30:30` (Title Case, comma, U+00B7 separator).
  *
  * Lifecycle:
  *   connect()    — register listener, schedule 1Hz tick
@@ -26,8 +27,9 @@ import { Controller } from "@hotwired/stimulus"
  */
 export default class extends Controller {
   static outlets = ["tui-transition"]
-  static WEEKDAYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"]
-  static MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"]
+  static WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+  static MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+  static SEPARATOR = "·"
 
   connect() {
     this._boundNotif = this.onNotificationsChanged.bind(this)
@@ -62,6 +64,6 @@ export default class extends Controller {
     const mo = ctor.MONTHS[now.getMonth()]
     const day = now.getDate()
     const pad = (n) => String(n).padStart(2, "0")
-    return `${wd} ${mo} ${day} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`
+    return `${wd}, ${mo} ${day} ${ctor.SEPARATOR} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`
   }
 }

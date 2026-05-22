@@ -413,6 +413,12 @@ Chrome, Firefox, Safari, Linux, macOS, Windows, Android, iOS.
 Non-brand words stay lowercase. All copy via i18n
 (`config/locales/**.yml`).
 
+**Proper nouns inside formatted strings are capitalized.** Weekday
+abbreviations Sun–Sat and month abbreviations Jan–Dec are proper nouns
+and always Title Case. Everything else in UI copy stays lowercase:
+screen labels, action labels, mode words, sync states, breadcrumb
+segments, headings.
+
 ## Visual density rules
 
 - `border-radius: 0` everywhere — no rounded corners

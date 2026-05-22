@@ -33,10 +33,35 @@ RSpec.describe Tui::BottomStatusBarComponent, type: :component do
     expect(page).to have_css("span.bsb-hint-key", text: ":")
   end
 
-  it "renders pipe separators from i18n" do
+  it "renders three pipe separators from i18n" do
+    # Phase 2 (2026-05-22) — pipe count rose from 2 to 3 when
+    # Tui::SidekiqStatsComponent moved into the BST after ScreensList.
+    # Layout: mode | screens | sidekiq | hints
     render_inline(component)
-    expect(page).to have_css("span.bsb-pipe", count: 2)
+    expect(page).to have_css("span.bsb-pipe", count: 3)
     expect(page).to have_css("span.bsb-pipe", text: I18n.t("tui.bst.pipe"))
+  end
+
+  it "composes Tui::SidekiqStatsComponent (tui-sidekiq-stats span present)" do
+    # Phase 2 (2026-05-22) — SidekiqStats moved here from the TST. The
+    # VC renders a single span (no internal cells) that hosts both the
+    # tui-sidekiq-stats controller and the tui-transition controller.
+    render_inline(component)
+    expect(page).to have_css("span.tui-sidekiq-stats", count: 1)
+  end
+
+  it "positions Tui::SidekiqStatsComponent AFTER the ScreensList pipe" do
+    # Lock the BST ordering: mode | screens | sidekiq | hints. The
+    # sidekiq span must appear after the second pipe (the one closing
+    # the screens list) and before the third pipe (the one opening the
+    # hints group).
+    render_inline(component)
+    html = page.native.to_html
+    screens_idx = html.index("bsb-sections")
+    sidekiq_idx = html.index("tui-sidekiq-stats")
+    hints_idx   = html.index("bsb-hints")
+    expect(screens_idx).to be < sidekiq_idx
+    expect(sidekiq_idx).to be < hints_idx
   end
 
   it "forwards current_section to the screens list" do

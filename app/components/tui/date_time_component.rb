@@ -5,7 +5,8 @@ module Tui
   # changed scramble; unchanged digits + the static colon stay put) and
   # the muted ↔ accent crossfade is driven by an `active_color`.
   #
-  # Format shape: `mon may 22 12:34:56` (lowercase weekday + month abbrev).
+  # Format shape: `Fri, May 22 · 17:30:30` (Title Case weekday + month,
+  # comma after weekday, U+00B7 middle dot separator, HH:MM:SS).
   # The Ruby `self.format(time)` and the JS `formatNow()` in
   # `tui_date_time_controller.js` MUST agree on this exact shape so the
   # SSR first paint and every subsequent client tick produce a stable
@@ -30,8 +31,9 @@ module Tui
   class DateTimeComponent < ViewComponent::Base
     include Tui::Transitionable
 
-    WEEKDAYS = %w[sun mon tue wed thu fri sat].freeze
-    MONTHS   = %w[jan feb mar apr may jun jul aug sep oct nov dec].freeze
+    WEEKDAYS  = %w[Sun Mon Tue Wed Thu Fri Sat].freeze
+    MONTHS    = %w[Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec].freeze
+    SEPARATOR = "·".freeze
 
     def initialize(now: Time.current, future_notifications: 0)
       @now = now
@@ -46,10 +48,9 @@ module Tui
     def self.format(time)
       weekday = WEEKDAYS[time.wday]
       month   = MONTHS[time.month - 1]
-      hh = Kernel.format("%02d", time.hour)
-      mm = Kernel.format("%02d", time.min)
-      ss = Kernel.format("%02d", time.sec)
-      "#{weekday} #{month} #{time.day} #{hh}:#{mm}:#{ss}"
+      date    = "#{weekday}, #{month} #{time.day}"
+      clock   = Kernel.format("%02d:%02d:%02d", time.hour, time.min, time.sec)
+      "#{date} #{SEPARATOR} #{clock}"
     end
 
     def transitionable_data

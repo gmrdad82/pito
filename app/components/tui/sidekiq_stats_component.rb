@@ -1,43 +1,40 @@
 module Tui
-  # Beta 4 — extracted from `Tui::TopStatusBarComponent` (2026-05-21)
-  # per "ViewComponents are kings" — sub-elements of the top status
-  # bar each get their own VC + spec.
+  # Beta 4 — Phase F1 Lane B, refactored Phase 2 (2026-05-22).
   #
-  # Sidekiq queue-depth stats cells: `b<n> e<n> r<n>`. Each cell is
-  # width-locked to 5 chars total — 1-char prefix (`b` / `e` / `r`) +
-  # 4-char short-formatted value (`32  ` `1k  ` `999k` `1M  `). The
-  # 4-char pad prevents word-jumping when broadcasts cascade values.
+  # SidekiqStatsComponent renders Sidekiq queue-depth stats as a SINGLE
+  # span: `b<n> e<n> r<n>`. No internal cells, no width-lock, no padding.
+  # The whole value lives in one `tui-transition` host so length changes
+  # cascade-scramble through downstream segments naturally.
+  #
+  # The colocated `tui-sidekiq-stats` Stimulus controller listens for
+  # `tui:sidekiq-changed` document events, formats the new value as
+  # `b<short(busy)> e<short(enqueued)> r<short(retry)>`, and pushes both
+  # the new value and a segments JSON descriptor into the tui-transition
+  # outlet for per-segment color routing.
   #
   # Constructor inputs:
   #   - busy:        integer (default 0)
   #   - enqueued:    integer (default 0)
-  #   - retry_count: integer (default 0)
+  #   - retry_count: integer (default 0). Legacy `retry:` kwarg accepted.
   #
-  # The `scheduled` count is intentionally NOT rendered here — the
-  # bar shows three of the four counts. `scheduled` is a future
-  # surface (per-subsystem stack panel).
+  # The `scheduled` count is intentionally NOT rendered here — a future
+  # stack sub-panel surfaces it.
   #
-  # 2026-05-22 — Phase 2B rewires the three cells through the canonical
-  # `Tui::Transitionable` mixin (scramble-settle + color-crossfade) and
-  # short-formats values via `Pito::Formatter::ShortNumber`. The parent
-  # `tui-sidekiq-stats` Stimulus controller listens for the
-  # `tui:sidekiq-changed` event and walks each cell's colocated
-  # `tui-transition` controller via `setValue(...)`.
-  #
-  # Color rules (locked 2026-05-22):
+  # Segment colors (locked 2026-05-22):
   #
   #   busy     → base :muted, active :success (green)
   #   enqueued → base :muted, active :warn    (orange)
   #   retry    → base :muted, active :danger  (pink)
   #
+  # Active = the segment value is > 0. Color is driven by the
+  # `.tt-char.tt-seg-<name>.is-active` CSS rules on the host.
+  #
   # @contract see app/services/pito/formatter/short_number.rb
   # @contract see app/components/tui/transitionable.rb
+  # @contract see app/javascript/controllers/tui_transition_controller.js
   # @contract see app/javascript/controllers/tui_sidekiq_stats_controller.js
   class SidekiqStatsComponent < ViewComponent::Base
     include Tui::Transitionable
-
-    # Short-format value width (chars). The full cell is 1 (prefix) + 4 (value).
-    CELL_WIDTH = 4
 
     def initialize(busy: 0, enqueued: 0, retry_count: 0, **legacy)
       # `retry:` is accepted as a legacy kwarg for callers that still pass
@@ -47,34 +44,42 @@ module Tui
       @retry_count = (legacy[:retry] || retry_count).to_i
     end
 
-    # Ordered cell descriptors driving the template.
-    def cells
+    # The full single-string value rendered into the span.
+    def formatted_value
+      "b#{short(@busy)} e#{short(@enqueued)} r#{short(@retry_count)}"
+    end
+
+    # Segments descriptor consumed by `tui-transition`'s segmentsValue.
+    # Each entry: { name, range: [start, endExclusive], active }.
+    def segments_json
+      busy_str = "b#{short(@busy)}"
+      enq_str  = "e#{short(@enqueued)}"
+      ret_str  = "r#{short(@retry_count)}"
+      bs = 0
+      be = bs + busy_str.length
+      es = be + 1 # +1 space separator
+      ee = es + enq_str.length
+      rs = ee + 1
+      re = rs + ret_str.length
       [
-        { name: :busy,     prefix: "b", value: @busy,        active_color: :success },
-        { name: :enqueued, prefix: "e", value: @enqueued,    active_color: :warn },
-        { name: :retry,    prefix: "r", value: @retry_count, active_color: :danger }
-      ]
+        { name: "busy",     range: [ bs, be ], active: @busy > 0 },
+        { name: "enqueued", range: [ es, ee ], active: @enqueued > 0 },
+        { name: "retry",    range: [ rs, re ], active: @retry_count > 0 }
+      ].to_json
     end
 
-    # Short-format the raw value then right-pad with spaces to CELL_WIDTH.
-    # Returns the exact string the user sees inside a cell (post-prefix).
-    def display_value(raw)
-      Pito::Formatter::ShortNumber.call(raw).ljust(CELL_WIDTH)
+    # Build data-attrs Hash for the single host span. Merges the
+    # transitionable base attrs with the segments descriptor.
+    def transitionable_data
+      attrs = transitionable_attrs(value: formatted_value, color: :muted)
+      attrs[:data][:tui_transition_segments_value] = segments_json
+      attrs
     end
 
-    # Build the data-attrs payload for one cell — combines the
-    # `tui-transition` controller (via Transitionable mixin) with the
-    # cell-name marker the parent `tui-sidekiq-stats` controller uses to
-    # locate each cell on `tui:sidekiq-changed`.
-    def cell_data(cell)
-      base = transitionable_attrs(
-        value: display_value(cell[:value]),
-        color: :muted,
-        active_color: cell[:active_color],
-        prefix: cell[:prefix]
-      )
-      base[:data][:tui_sidekiq_stats_cell_name_value] = cell[:name].to_s
-      base[:data]
+    private
+
+    def short(value)
+      Pito::Formatter::ShortNumber.call(value)
     end
   end
 end

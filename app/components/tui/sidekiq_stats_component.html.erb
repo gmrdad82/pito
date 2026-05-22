@@ -1,9 +1,8 @@
-<span class="tui-sidekiq-row sb-sidekiq"
-      data-controller="tui-sidekiq-stats"
-      data-tui-status-bar-target="sidekiq">
-  <% cells.each do |cell| %>
-    <%= content_tag :span,
-          class: "tui-sidekiq-cell sb-sk-cell",
-          data: cell_data(cell) do %><span class="cell-prefix"><%= cell[:prefix] %></span><%= display_value(cell[:value]) %><% end %>
-  <% end %>
-</span>
+<%
+  base_data  = transitionable_data[:data]
+  merged_data = base_data.merge(
+    controller: "tui-sidekiq-stats #{base_data[:controller]}",
+    tui_sidekiq_stats_tui_transition_outlet: ".tui-sidekiq-stats"
+  )
+%>
+<%= content_tag :span, formatted_value, class: "tui-sidekiq-stats", data: merged_data %>

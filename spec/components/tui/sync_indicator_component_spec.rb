@@ -85,19 +85,19 @@ RSpec.describe Tui::SyncIndicatorComponent, type: :component do
   end
 
   describe "color contract" do
-    it "is accent for :synced" do
+    it "is muted for :synced (idle/calm state draws no attention)" do
       render_inline(described_class.new(state: :synced))
-      expect(page).to have_css('.tui-sync-word[data-tui-transition-color-value="accent"]')
+      expect(page).to have_css('.tui-sync-word[data-tui-transition-color-value="muted"]')
     end
 
-    it "is accent for :syncing" do
+    it "is accent for :syncing (active sync draws attention)" do
       render_inline(described_class.new(state: :syncing))
       expect(page).to have_css('.tui-sync-word[data-tui-transition-color-value="accent"]')
     end
 
-    it "is pink for :disconnected" do
+    it "is danger for :disconnected" do
       render_inline(described_class.new(state: :disconnected))
-      expect(page).to have_css('.tui-sync-word[data-tui-transition-color-value="pink"]')
+      expect(page).to have_css('.tui-sync-word[data-tui-transition-color-value="danger"]')
     end
   end
 

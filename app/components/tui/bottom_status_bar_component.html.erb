@@ -1,15 +1,22 @@
 <%#
-  Beta 4 — Phase F1. Bottom status bar template. Composes the four
-  sub-VCs: ModeLozengeComponent (left), ScreensListComponent (center),
-  HelpHintComponent + CommandHintComponent (right). A separate dispatch
-  wires the `tui-bottom-status-bar` Stimulus controller; the
-  data-controller attribute is mounted here so the JS dispatch only needs
-  to drop the controller file in.
+  Beta 4 — Phase F1. Bottom status bar template. Composes the sub-VCs:
+  ModeLozengeComponent (left), ScreensListComponent (center-left),
+  SidekiqStatsComponent (center-right; Phase 2 2026-05-22), then
+  HelpHintComponent + CommandHintComponent (right). The
+  `tui-bottom-status-bar` Stimulus controller is mounted on the footer
+  root.
+
+  Phase 2 (2026-05-22): SidekiqStatsComponent moved here from the TST.
+  The VC is a single-span cascade-scramble host that listens for
+  `tui:sidekiq-changed` document events (still dispatched by
+  `tui-status-bar` from the TST cable channel).
 %>
 <footer class="bsb-bar" data-controller="tui-bottom-status-bar">
   <%= render Tui::ModeLozengeComponent.new(mode: mode) %>
   <span class="bsb-pipe"><%= pipe_label %></span>
   <%= render Tui::ScreensListComponent.new(current_section: current_section) %>
+  <span class="bsb-pipe"><%= pipe_label %></span>
+  <%= render Tui::SidekiqStatsComponent.new %>
   <span class="bsb-pipe"><%= pipe_label %></span>
   <span class="bsb-hints">
     <%= render Tui::HelpHintComponent.new %>

@@ -101,7 +101,11 @@ module Tui
     end
 
     def color_for(state)
-      state == :disconnected ? :pink : :accent
+      case state
+      when :syncing      then :accent
+      when :disconnected then :danger
+      else                    :muted
+      end
     end
   end
 end

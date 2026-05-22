@@ -9,10 +9,15 @@
   FB-161 (2026-05-21): three sub-elements extracted to their own
   ViewComponents per "ViewComponents are kings":
   - Tui::SyncIndicatorComponent  — ●/✗ + word + optional target
-  - Tui::SidekiqStatsComponent   — b/e/r cells
   - Tui::DateTimeComponent       — wall clock (SSR placeholder, hydrated by Stimulus)
   Stimulus target attributes are preserved on the extracted roots so
   the cable update contract stays intact.
+
+  Phase 2 (2026-05-22): Tui::SidekiqStatsComponent moved out of the TST
+  and into the BST (after the screens-list pipe). The TST no longer
+  carries Sidekiq queue-depth stats; the `tui:sidekiq-changed` document
+  event still fires from `tui-status-bar`, but it's now consumed by the
+  BST-mounted sidekiq VC.
 
   2026-05-22 F1: two more sub-elements extracted:
   - Tui::AppVersionComponent — version link to GitHub release tag
@@ -39,12 +44,6 @@
       <span class="sb-progress-counter" data-tui-status-bar-target="progressCounter"><%= progress_counter %></span>
     <% end %>
     <%= render Tui::SyncIndicatorComponent.new(state: sync_state) %>
-    <span class="sb-pipe">|</span>
-    <%= render Tui::SidekiqStatsComponent.new(
-      busy: sidekiq_stats[:busy],
-      enqueued: sidekiq_stats[:enqueued],
-      retry: sidekiq_stats[:retry]
-    ) %>
     <span class="sb-pipe">|</span>
     <%= render Tui::DateTimeComponent.new %>
   </div>

@@ -94,7 +94,8 @@ export default class extends Controller {
     stagger:     { type: Number, default: 30 },
     debounce:    { type: Number, default: 80 },
     prefix:      { type: String, default: "" },
-    effect:      { type: String, default: "scramble-settle" }
+    effect:      { type: String, default: "scramble-settle" },
+    segments:    { type: String, default: "" }   // JSON array: [{ name, range: [start, endExclusive], active }, ...]
   }
 
   connect() {
@@ -152,6 +153,11 @@ export default class extends Controller {
     this.applyAlign()
   }
 
+  segmentsValueChanged(newValue, oldValue) {
+    if (typeof oldValue === "undefined") return
+    this.applySegments()
+  }
+
   // ─── public API (thin wrappers over Stimulus values) ───────────────
   setValue(v)       { this.valueValue       = String(v) }
   setColor(name)    { this.colorValue       = String(name) }
@@ -192,6 +198,29 @@ export default class extends Controller {
     // min-width slot. For sync VC, "right" anchors the right edge so the
     // next neighbor in TST doesn't get pushed when the word length changes.
     this.element.style.textAlign = this.alignValue
+  }
+
+  applySegments() {
+    if (!this.segmentsValue) return
+    let segments
+    try { segments = JSON.parse(this.segmentsValue) } catch (_) { return }
+    if (!Array.isArray(segments)) return
+    const cells = Array.from(this.element.querySelectorAll(".tt-char"))
+    // Clear any previous segment classes on every cell
+    cells.forEach(cell => {
+      Array.from(cell.classList).forEach(cls => {
+        if (cls.startsWith("tt-seg-")) cell.classList.remove(cls)
+      })
+      cell.classList.remove("is-active", "is-inactive")
+    })
+    segments.forEach(({ name, range, active }) => {
+      if (!name || !Array.isArray(range)) return
+      const [start, end] = range
+      for (let i = start; i < end && i < cells.length; i++) {
+        cells[i].classList.add(`tt-seg-${name}`)
+        cells[i].classList.add(active ? "is-active" : "is-inactive")
+      }
+    })
   }
 
   fireSettled() {
@@ -245,6 +274,7 @@ export default class extends Controller {
       cell.textContent = str.charAt(i)
       this.element.appendChild(cell)
     }
+    this.applySegments()
   }
 
   animateDiff(fromRaw, toRaw) {
@@ -308,7 +338,7 @@ export default class extends Controller {
   //   colon / period / space / dash: pass-through unchanged (no scramble)
   scrambleCell(cell, target, indexFromLeft) {
     // Pass-through for structural characters
-    const isPassThrough = /[:. -]/.test(target)
+    const isPassThrough = /[:.,·\- ]/.test(target)
     if (isPassThrough) {
       cell.textContent = target
       return

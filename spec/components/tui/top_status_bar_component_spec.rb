@@ -32,15 +32,16 @@ RSpec.describe Tui::TopStatusBarComponent, type: :component do
     expect(page).to have_css("span.tui-sync-word")
   end
 
-  # Wave 2B (2026-05-22) — SidekiqStats rebuilt with `.tui-sidekiq-row`
-  # parent + `.tui-sidekiq-cell` children. Legacy `.sb-sk-cell.sk-r`
-  # class no longer exists; per-cell color is now driven by the
-  # colocated tui-transition outlet's `is-busy/is-enqueued/is-retry`
-  # variants (toggled live by the JS controller).
-  it "renders Tui::SidekiqStatsComponent (tui-sidekiq-row span)" do
+  # Phase 2 (2026-05-22) — SidekiqStatsComponent moved from TST to BST.
+  # The TST no longer mounts the sidekiq VC; the `tui:sidekiq-changed`
+  # event still fires from `tui-status-bar`, now consumed by the
+  # BST-mounted sidekiq span.
+  it "does NOT render Tui::SidekiqStatsComponent (moved to BST in Phase 2)" do
     render_inline(component)
-    expect(page).to have_css("span.tui-sidekiq-row")
-    expect(page).to have_css("span.tui-sidekiq-cell", count: 3)
+    expect(page).not_to have_css("span.tui-sidekiq-stats")
+    expect(page).not_to have_css(".tui-sidekiq-row")
+    expect(page).not_to have_css(".tui-sidekiq-cell")
+    expect(page).not_to have_css(".sb-sidekiq")
   end
 
   it "renders Tui::DateTimeComponent (sb-clock span)" do
@@ -83,16 +84,15 @@ RSpec.describe Tui::TopStatusBarComponent, type: :component do
   end
 
   describe "sidekiq stats delegation" do
-    # Wave 2B (2026-05-22) — retry cell color is no longer a static class
-    # on the SSR markup. The VC renders three `.tui-sidekiq-cell` cells
-    # with `data-tui-sidekiq-stats-cell-name-value="retry"` markers so
-    # the JS controller (tui-sidekiq-stats) can flip the colocated
-    # tui-transition outlet's color class (`.is-retry`) on cable events.
-    it "renders three tui-sidekiq-cell cells including a retry cell marker" do
+    # Phase 2 (2026-05-22) — SidekiqStats is no longer mounted in the
+    # TST. Even when callers pass `sidekiq_stats:`, the TST does not
+    # render the VC; the BST owns it now. The kwarg remains accepted
+    # for backward compatibility (no-op in the TST).
+    it "does NOT render any sidekiq element even when sidekiq_stats kwarg is passed" do
       bar = described_class.new(section: "settings", sidekiq_stats: { busy: 0, enqueued: 0, retry: 3 })
       render_inline(bar)
-      expect(page).to have_css("span.tui-sidekiq-cell", count: 3)
-      expect(page).to have_css("[data-tui-sidekiq-stats-cell-name-value='retry']")
+      expect(page).not_to have_css("span.tui-sidekiq-stats")
+      expect(page).not_to have_css(".tui-sidekiq-cell")
     end
   end
 

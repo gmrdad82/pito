@@ -48,6 +48,18 @@ RSpec.describe "Pito::Transitions JS parity" do
     end
   end
 
+  describe "segments Stimulus value and pass-through regex extensions" do
+    it "JS controller declares the segments Stimulus value for per-segment color regions" do
+      expect(js_source).to include("segments:"),
+        "expected JS controller to declare Stimulus value `segments`"
+    end
+
+    it "JS controller's scramble-settle pass-through regex includes comma and middle dot" do
+      expect(js_source).to match(/\/\[.*[,·].*\]\/\.test/),
+        "expected the pass-through regex to include comma and middle dot"
+    end
+  end
+
   describe "Ruby Effects registry ↔ JS effect-name parity" do
     it "Pito::Transitions::Effects exposes the 3 canonical effect names" do
       # If a 4th effect lands on either side, this assertion forces the

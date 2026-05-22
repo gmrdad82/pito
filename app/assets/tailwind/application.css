@@ -6744,16 +6744,12 @@ body.keyboard-only * {
 .tui-date-time { color: var(--color-muted); }
 .tui-date-time.is-notif { color: var(--section-accent-home); }
 
-/* sidekiq stats cells — width-locked to 5ch (1-char prefix + 4-char padded value) */
-.tui-sidekiq-row { display: inline-flex; gap: 14px; }
-.tui-sidekiq-cell { color: var(--color-muted); min-width: 5ch; text-align: left; font-variant-numeric: tabular-nums; white-space: pre; }
-.tui-sidekiq-cell.is-busy     { color: var(--color-success); }
-.tui-sidekiq-cell.is-enqueued { color: var(--color-warn); }
-.tui-sidekiq-cell.is-retry    { color: var(--color-danger); }
-.tui-sidekiq-cell .cell-prefix { color: var(--color-muted); opacity: 1; }
-.tui-sidekiq-cell.is-busy     .cell-prefix,
-.tui-sidekiq-cell.is-enqueued .cell-prefix,
-.tui-sidekiq-cell.is-retry    .cell-prefix { color: inherit; opacity: 0.7; }
+/* sidekiq stats — single-string cascade-scramble with per-segment colors */
+.tui-sidekiq-stats { color: var(--color-muted); font-variant-numeric: tabular-nums; white-space: pre; }
+.tui-sidekiq-stats .tt-char.tt-seg-busy.is-active     { color: var(--color-success); }
+.tui-sidekiq-stats .tt-char.tt-seg-enqueued.is-active { color: var(--color-warn); }
+.tui-sidekiq-stats .tt-char.tt-seg-retry.is-active    { color: var(--color-danger); }
+/* inactive segments inherit muted from the host */
 
 /* per-char/digit slot */
 .tt-char { display: inline-block; white-space: pre; }
