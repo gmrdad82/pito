@@ -6713,6 +6713,14 @@ body.keyboard-only * {
               var(--tui-trn-color-crossfade-easing, ease-out);
 }
 
+/* tui-transition: SSR-safe align — data-attr selectors so first paint already
+   has correct text-align with no flash before Stimulus boots. The JS
+   controller's applyAlign() still runs on connect + alignValueChanged for
+   dynamic changes; it sets the same value via inline style (no visual diff). */
+[data-tui-transition-align-value="left"]   { text-align: left;   }
+[data-tui-transition-align-value="center"] { text-align: center; }
+[data-tui-transition-align-value="right"]  { text-align: right;  }
+
 /* shimmer decoration (sync VC syncing state) */
 @keyframes tui-shimmer-flow {
   0%   { background-position: -200% 0; }

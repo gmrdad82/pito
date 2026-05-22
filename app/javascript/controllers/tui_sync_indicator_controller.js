@@ -22,6 +22,11 @@ import { Controller } from "@hotwired/stimulus"
  *       activity pulse; `synced` / `syncing` also pass through but are
  *       normally owned by the activity-pulse path.
  *
+ * Canonical color lock (matches Tui::SyncIndicatorComponent#color_for):
+ *   synced       → "muted"   // idle / calm
+ *   syncing      → "accent"  // active, paired with shimmer
+ *   disconnected → "danger"  // cable lifecycle error
+ *
  * Sequencing rule (shimmer ↔ scramble, never overlap):
  *
  *   forward (synced → syncing):
@@ -32,7 +37,7 @@ import { Controller } from "@hotwired/stimulus"
  *
  *   reverse (anything → synced / disconnected):
  *     1. setShimmer(false)          // shimmer off FIRST
- *     2. setColor(...)
+ *     2. setColor("muted" | "danger")
  *     3. setValue(word)             // scramble back
  *
  * Word labels come from data-* values seeded by the VC (sourced from
@@ -118,9 +123,10 @@ export default class extends Controller {
   setSynced() {
     const c = this.transitionController()
     if (!c) return
-    // reverse path: shimmer off FIRST, then scramble back.
+    // reverse path: shimmer off FIRST, then scramble back to muted idle.
+    // synced is the calm/idle state — color matches the DateTime idle discipline.
     c.setShimmer(false)
-    c.setColor("accent")
+    c.setColor("muted")
     c.setValue(this.wordFor("synced"))
   }
 
@@ -128,7 +134,7 @@ export default class extends Controller {
     const c = this.transitionController()
     if (!c) return
     c.setShimmer(false)
-    c.setColor("pink")
+    c.setColor("danger")
     c.setValue(this.wordFor("disconnected"))
   }
 
