@@ -64,9 +64,15 @@ import { Controller } from "@hotwired/stimulus"
 export default class extends Controller {
   static outlets = ["tui-transition"]
 
-  // Mirrors Tui::SidekiqStatsComponent::PREFIX exactly. 7 chars + 1 space
-  // = 8-char offset before the first segment starts.
-  static PREFIX = "Sidekiq"
+  // The brand prefix is sourced from i18n on the Ruby side
+  // (`tui.sidekiq.label`) and emitted by Tui::SidekiqStatsComponent as a
+  // Stimulus value (`data-tui-sidekiq-stats-prefix-value`). The default
+  // here is a safety fallback used only when the value is absent (SSR
+  // boot ordering, isolated controller tests). The same YAML feeds the
+  // future Rust TUI client.
+  static values = {
+    prefix: { type: String, default: "Sidekiq" }
+  }
 
   // Mirrors Tui::SidekiqStatsComponent::DEFAULT_CONCURRENCY. Used when
   // the cable payload omits concurrency (boot-ordering or partial mock).
@@ -96,14 +102,14 @@ export default class extends Controller {
       1
     )
 
-    const ctor = this.constructor
+    const prefix = this.prefixValue
     const bs = "b" + this.shortFormat(busy)
     const es = "e" + this.shortFormat(enqueued)
     const rs = "r" + this.shortFormat(retry)
     const ds = "d" + this.shortFormat(dead)
-    const value = `${ctor.PREFIX} ${bs} ${es} ${rs} ${ds}`
+    const value = `${prefix} ${bs} ${es} ${rs} ${ds}`
 
-    const offset = ctor.PREFIX.length + 1 // 8 — chars before the first segment starts
+    const offset = prefix.length + 1 // chars before the first segment starts (typ. 8)
     const bStart = offset
     const bEnd   = bStart + bs.length
     const eStart = bEnd + 1

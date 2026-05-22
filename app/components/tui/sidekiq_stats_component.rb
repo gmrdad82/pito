@@ -59,15 +59,21 @@ module Tui
   class SidekiqStatsComponent < ViewComponent::Base
     include Tui::Transitionable
 
-    # 7-char brand prefix + 1 space = 8-char offset before the first segment.
-    # The prefix never changes between broadcasts, so diff-only animateDiff
-    # leaves it untouched — only segment cells scramble.
-    PREFIX = "Sidekiq"
-
     # Default Sidekiq concurrency used when no `concurrency:` kwarg is
     # given (SSR safety). The middleware broadcast carries the real
     # value; the JS controller mirrors this default.
     DEFAULT_CONCURRENCY = 10
+
+    # The brand prefix (canonically capitalized "Sidekiq") is sourced from
+    # `config/locales/tui/en.yml` at `tui.sidekiq.label` so the future Rust
+    # TUI client consumes the same YAML. The prefix never changes between
+    # broadcasts, so diff-only animateDiff leaves it untouched — only
+    # segment cells scramble. The VC also emits the resolved value as a
+    # Stimulus value (`data-tui-sidekiq-stats-prefix-value`) so the JS
+    # controller mirrors it without hardcoding.
+    def prefix
+      I18n.t("tui.sidekiq.label")
+    end
 
     def initialize(busy: 0, enqueued: 0, retry_count: 0, dead: 0, concurrency: DEFAULT_CONCURRENCY, **legacy)
       # `retry:` is accepted as a legacy kwarg for callers that still pass
@@ -83,7 +89,7 @@ module Tui
 
     # The full single-string value rendered into the span.
     def formatted_value
-      "#{PREFIX} b#{short(@busy)} e#{short(@enqueued)} r#{short(@retry_count)} d#{short(@dead)}"
+      "#{prefix} b#{short(@busy)} e#{short(@enqueued)} r#{short(@retry_count)} d#{short(@dead)}"
     end
 
     # Segments descriptor consumed by `tui-transition`'s segmentsValue.
@@ -93,7 +99,7 @@ module Tui
       enq_str  = "e#{short(@enqueued)}"
       ret_str  = "r#{short(@retry_count)}"
       dead_str = "d#{short(@dead)}"
-      offset   = PREFIX.length + 1 # 8 — chars before the first segment starts
+      offset   = prefix.length + 1 # chars before the first segment starts (typ. 8)
       bs = offset
       be = bs + busy_str.length
       es = be + 1 # +1 space separator
@@ -115,6 +121,7 @@ module Tui
     def transitionable_data
       attrs = transitionable_attrs(value: formatted_value, color: :muted)
       attrs[:data][:tui_transition_segments_value] = segments_json
+      attrs[:data][:tui_sidekiq_stats_prefix_value] = prefix
       attrs
     end
 

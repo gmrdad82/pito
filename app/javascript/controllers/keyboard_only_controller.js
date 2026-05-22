@@ -57,6 +57,11 @@ import { Controller } from "@hotwired/stimulus"
 //         event.movementX !== 0 || event.movementY !== 0
 //     - `mouseenter` on document/viewport (cursor re-entry after mouseleave),
 //       excluding synthetic zero-coord zero-movement events
+//     - Side-button presses on the mouse (back = X1 / button 3,
+//       forward = X2 / button 4) AND middle-button (button 1) via the
+//       `auxclick` event AND `mousedown` capture-phase guard. This blocks
+//       the browser's built-in back/forward shortcut on side-button
+//       clicks (added 2026-05-22).
 //
 //   DOES NOT TRIGGER:
 //     - Programmatic `.click()` calls (event.isTrusted === false)
@@ -90,12 +95,19 @@ export default class extends Controller {
     this.boundMouseMove = this.handleMouseMove.bind(this)
     this.boundMouseLeave = this.handleMouseLeave.bind(this)
     this.boundMouseEnter = this.handleMouseEnter.bind(this)
+    this.boundAuxClick = this.handleAuxClick.bind(this)
 
     // Capture phase so we run before any per-element listener (Stimulus,
     // native form submit, anchor navigation, dialog backdrop click guard).
     document.addEventListener("mousedown", this.boundMouseInteraction, true)
     document.addEventListener("click", this.boundMouseInteraction, true)
     document.addEventListener("contextmenu", this.boundMouseInteraction, true)
+    // `auxclick` fires for non-primary mouse buttons (middle = button 1,
+    // back = button 3 / X1, forward = button 4 / X2). Capture-phase
+    // preventDefault on this event blocks the browser's built-in
+    // back/forward navigation triggered by mouse side buttons. Added
+    // 2026-05-22 in response to mouse4 still triggering browser back.
+    document.addEventListener("auxclick", this.boundAuxClick, true)
     document.addEventListener("mousemove", this.boundMouseMove)
     // mouseleave on document fires when the cursor exits the viewport;
     // auto-dismiss the alert dialog so the user isn't trapped after
@@ -110,6 +122,7 @@ export default class extends Controller {
     document.removeEventListener("mousedown", this.boundMouseInteraction, true)
     document.removeEventListener("click", this.boundMouseInteraction, true)
     document.removeEventListener("contextmenu", this.boundMouseInteraction, true)
+    document.removeEventListener("auxclick", this.boundAuxClick, true)
     document.removeEventListener("mousemove", this.boundMouseMove)
     document.removeEventListener("mouseleave", this.boundMouseLeave)
     document.removeEventListener("mouseenter", this.boundMouseEnter)
@@ -121,6 +134,22 @@ export default class extends Controller {
     // fired with detail === 0, and isTrusted is the only relevant check.
     if (event.type === "contextmenu") {
       if (!event.isTrusted) return
+      event.preventDefault()
+      event.stopPropagation()
+      this.showAlert()
+      return
+    }
+
+    // Side-button mousedown (back = X1 / button 3, forward = X2 / button 4)
+    // — always physical, fast-path block. Without this branch the
+    // browser fires its built-in history back/forward navigation on the
+    // ensuing `auxclick`. We still let the capture-phase `auxclick`
+    // listener do its own preventDefault, but blocking at mousedown
+    // stops the navigation earlier and surfaces the alert immediately.
+    // Middle-click (button 1) is included for parity; it can also open
+    // links in new tabs which is mouse-only behavior we forbid.
+    if (event.type === "mousedown" && event.isTrusted &&
+        (event.button === 1 || event.button === 3 || event.button === 4)) {
       event.preventDefault()
       event.stopPropagation()
       this.showAlert()
@@ -173,6 +202,22 @@ export default class extends Controller {
       if (event.clientX === 0 && event.clientY === 0) return
     }
     this.showAlert()
+  }
+
+  handleAuxClick(event) {
+    // `auxclick` fires for non-primary mouse buttons:
+    //   button 1 = middle (open-in-new-tab on links)
+    //   button 3 = back (X1 — browser back-history)
+    //   button 4 = forward (X2 — browser forward-history)
+    // All three are mouse-only interactions; block them and surface the
+    // alert. preventDefault is critical here — browsers wire side-button
+    // history navigation to the `auxclick` default action.
+    if (!event.isTrusted) return
+    if (event.button === 1 || event.button === 3 || event.button === 4) {
+      event.preventDefault()
+      event.stopPropagation()
+      this.showAlert()
+    }
   }
 
   handleMouseLeave() {

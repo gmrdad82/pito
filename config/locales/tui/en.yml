@@ -122,6 +122,13 @@ en:
       logout:
         name: "logout"
         hint: "logout"
+    # 2026-05-22 — Phase 2F. Canonical Sidekiq brand label sourced from
+    # i18n so the future Rust TUI client reads it from the same YAML
+    # (per project's same-YAML-feeds-TUI contract). Used by
+    # Tui::SidekiqStatsComponent (Ruby) + tui_sidekiq_stats_controller.js
+    # (mirrored through a Stimulus value emitted from the VC).
+    sidekiq:
+      label: "Sidekiq"
     tst:
       sync:
         synced: "synced"

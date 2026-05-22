@@ -4,6 +4,11 @@ require "rails_helper"
 require "json"
 
 RSpec.describe Tui::SidekiqStatsComponent, type: :component do
+  # Canonical brand prefix sourced from i18n (tui.sidekiq.label).
+  # Cached once per spec run so assertions stay readable without
+  # re-resolving inline.
+  let(:prefix) { I18n.t("tui.sidekiq.label") }
+
   # Helper to extract the segments-hash-by-name from the rendered host
   # element. Most assertions below use this to keep the spec readable
   # and decoupled from positional ordering of the segments array.
@@ -29,7 +34,17 @@ RSpec.describe Tui::SidekiqStatsComponent, type: :component do
     end
 
     it "renders the formatted value as visible text" do
-      expect(page).to have_css("span.tui-sidekiq-stats", text: "Sidekiq b3 e5 r2 d1")
+      expect(page).to have_css("span.tui-sidekiq-stats", text: "#{prefix} b3 e5 r2 d1")
+    end
+
+    it "sources the brand prefix from I18n.t('tui.sidekiq.label')" do
+      expect(prefix).to eq("Sidekiq") # canonical brand value lives in the YAML
+      expect(page).to have_css("span.tui-sidekiq-stats", text: /\A#{Regexp.escape(prefix)} /)
+    end
+
+    it "exposes the prefix as a Stimulus value (data-tui-sidekiq-stats-prefix-value)" do
+      host = page.find("span.tui-sidekiq-stats")
+      expect(host["data-tui-sidekiq-stats-prefix-value"]).to eq(prefix)
     end
 
     it "mounts both tui-sidekiq-stats AND tui-transition controllers on the host" do
@@ -48,13 +63,13 @@ RSpec.describe Tui::SidekiqStatsComponent, type: :component do
   describe "default (all zeros)" do
     before { render_inline(described_class.new) }
 
-    it "renders 'Sidekiq b0 e0 r0 d0' as visible text" do
-      expect(page).to have_css("span.tui-sidekiq-stats", text: "Sidekiq b0 e0 r0 d0")
+    it "renders '<prefix> b0 e0 r0 d0' as visible text" do
+      expect(page).to have_css("span.tui-sidekiq-stats", text: "#{prefix} b0 e0 r0 d0")
     end
 
-    it "seeds tui-transition's value to 'Sidekiq b0 e0 r0 d0'" do
+    it "seeds tui-transition's value to '<prefix> b0 e0 r0 d0'" do
       host = page.find("span.tui-sidekiq-stats")
-      expect(host["data-tui-transition-value-value"]).to eq("Sidekiq b0 e0 r0 d0")
+      expect(host["data-tui-transition-value-value"]).to eq("#{prefix} b0 e0 r0 d0")
     end
 
     it "uses :muted as the base color" do
@@ -159,7 +174,7 @@ RSpec.describe Tui::SidekiqStatsComponent, type: :component do
     it "dead=5000 → fatal (flat — short-formatted as d5k)" do
       render_inline(described_class.new(dead: 5000))
       expect(segments_by_name["dead"]["color"]).to eq("fatal")
-      expect(page).to have_css("span.tui-sidekiq-stats", text: "Sidekiq b0 e0 r0 d5k")
+      expect(page).to have_css("span.tui-sidekiq-stats", text: "#{prefix} b0 e0 r0 d5k")
     end
   end
 
@@ -181,38 +196,40 @@ RSpec.describe Tui::SidekiqStatsComponent, type: :component do
 
     it "encodes contiguous ranges across the formatted string" do
       by_name = segments_by_name
-      # "Sidekiq b3 e0 r2 d1"  (PREFIX = "Sidekiq" + space = 8-char offset)
-      # busy: [8, 10)   → "b3"
-      # enq:  [11, 13)  → "e0"
-      # ret:  [14, 16)  → "r2"
-      # dead: [17, 19)  → "d1"
-      expect(by_name["busy"]["range"]).to eq([ 8, 10 ])
-      expect(by_name["enqueued"]["range"]).to eq([ 11, 13 ])
-      expect(by_name["retry"]["range"]).to eq([ 14, 16 ])
-      expect(by_name["dead"]["range"]).to eq([ 17, 19 ])
+      # "<prefix> b3 e0 r2 d1"  (offset = prefix.length + 1 space; "Sidekiq"=8)
+      offset = prefix.length + 1
+      # busy: [offset, offset+2)
+      # enq:  [offset+3, offset+5)
+      # ret:  [offset+6, offset+8)
+      # dead: [offset+9, offset+11)
+      expect(by_name["busy"]["range"]).to eq([ offset, offset + 2 ])
+      expect(by_name["enqueued"]["range"]).to eq([ offset + 3, offset + 5 ])
+      expect(by_name["retry"]["range"]).to eq([ offset + 6, offset + 8 ])
+      expect(by_name["dead"]["range"]).to eq([ offset + 9, offset + 11 ])
     end
   end
 
   describe "short-format integration" do
     it "displays 1500 as '1k'" do
       render_inline(described_class.new(busy: 1500))
-      expect(page).to have_css("span.tui-sidekiq-stats", text: "Sidekiq b1k e0 r0 d0")
+      expect(page).to have_css("span.tui-sidekiq-stats", text: "#{prefix} b1k e0 r0 d0")
       host = page.find("span.tui-sidekiq-stats")
-      expect(host["data-tui-transition-value-value"]).to eq("Sidekiq b1k e0 r0 d0")
+      expect(host["data-tui-transition-value-value"]).to eq("#{prefix} b1k e0 r0 d0")
     end
 
     it "adjusts segment ranges to the short-formatted length" do
       render_inline(described_class.new(busy: 1500))
       by_name = segments_by_name
-      # "Sidekiq b1k e0 r0 d0"  (8-char PREFIX offset)
-      # busy: [8, 11)   → "b1k"
-      # enq:  [12, 14)  → "e0"
-      # ret:  [15, 17)  → "r0"
-      # dead: [18, 20)  → "d0"
-      expect(by_name["busy"]["range"]).to eq([ 8, 11 ])
-      expect(by_name["enqueued"]["range"]).to eq([ 12, 14 ])
-      expect(by_name["retry"]["range"]).to eq([ 15, 17 ])
-      expect(by_name["dead"]["range"]).to eq([ 18, 20 ])
+      # "<prefix> b1k e0 r0 d0"  (offset = prefix.length + 1)
+      offset = prefix.length + 1
+      # busy: [offset, offset+3)  → "b1k"
+      # enq:  [offset+4, offset+6)
+      # ret:  [offset+7, offset+9)
+      # dead: [offset+10, offset+12)
+      expect(by_name["busy"]["range"]).to eq([ offset, offset + 3 ])
+      expect(by_name["enqueued"]["range"]).to eq([ offset + 4, offset + 6 ])
+      expect(by_name["retry"]["range"]).to eq([ offset + 7, offset + 9 ])
+      expect(by_name["dead"]["range"]).to eq([ offset + 10, offset + 12 ])
     end
   end
 
@@ -227,7 +244,7 @@ RSpec.describe Tui::SidekiqStatsComponent, type: :component do
   describe "legacy `retry:` kwarg compatibility" do
     it "still accepts retry: instead of retry_count:" do
       render_inline(described_class.new(busy: 0, enqueued: 0, retry: 7))
-      expect(page).to have_css("span.tui-sidekiq-stats", text: "Sidekiq b0 e0 r7 d0")
+      expect(page).to have_css("span.tui-sidekiq-stats", text: "#{prefix} b0 e0 r7 d0")
       # And the flat tier still applies — retry > 0 → danger.
       expect(segments_by_name["retry"]["color"]).to eq("danger")
     end
