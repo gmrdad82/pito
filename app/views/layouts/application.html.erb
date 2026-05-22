@@ -225,7 +225,7 @@
       Ruby-picked literal hex paints the canvas. %>
   <body data-section="<%= current_section %>"
         style="--section-accent: <%= pito_section_accent %>; --color-section-accent: <%= pito_section_accent %>; background: <%= pito_section_bg %>;"
-        data-controller="keyboard notifications-modal leader-menu flat-key timezone-detect webhook-help-modal dialog-scroll-lock sortable-keys keyboard-only"
+        data-controller="keyboard notifications-modal tui-leader-menu flat-key timezone-detect webhook-help-modal dialog-scroll-lock sortable-keys keyboard-only"
         <%# `data-keybindings-page-key` exposes the YAML key (e.g.
             `games_index`, `games_show`, `bundles_show`, `default`,
             or `nil` for deny-listed pages like /settings) so the
@@ -359,8 +359,11 @@
         dialog node. %>
     <%= render Tui::AlertDialogComponent.new(
           id: "mouse-forbidden-alert",
-          title: "invalid input",
-          message: [ "mouse interaction forbidden", "type ? for help or : for command" ]
+          title: t("tui.keyboard_only.title"),
+          message: [
+            t("tui.keyboard_only.message_line_1"),
+            t("tui.keyboard_only.message_line_2")
+          ]
         ) %>
 
     <%# Phase 37 (2026-05-19) — "Everywhere" omnisearch modal. Opened
@@ -464,36 +467,14 @@
         Stimulus controllers' lazy `document.getElementById`
         readers always find a populated tag. %>
 
-    <%# Leader-menu popup root — empty placeholder; the Stimulus
-        controller paints the bottom-right card here when SPACE is
-        pressed (or the `[_]` navbar link is clicked — relocated
-        from the footer on 2026-05-18). Closed by
-        default; the controller calls `.showModal()` / `.close()` to
-        open and dismiss.
-
-        2026-05-17 — the popup is a `<dialog>` opened via
-        `.showModal()` so the browser places it in the TOP LAYER.
-        That's the only way to render reliably above other
-        `<dialog>`s already opened via `.showModal()` (bundle modal,
-        reindex confirm, IGDB add-game modal, etc.) — z-index alone
-        cannot win against top-layer content. The browser stacks
-        top-layer dialogs in opening order, so the leader popup
-        (opened LAST when the user hits SPACE) renders above any
-        pre-existing modal. The backdrop is suppressed in CSS so the
-        rest of the page stays visually undimmed; native focus
-        trapping is a side-effect of `.showModal()` we accept (the
-        popup is keyboard-driven anyway).
-
-        `data-turbo-permanent` keeps this node intact across Turbo
-        Drive page swaps so the popup remains visible when a leader
-        item fires `navigate` + drills into a submenu (e.g. root `C`
-        channels — navigate to /channels AND show the channels
-        submenu). The matching menu-stack state is persisted via
-        `sessionStorage` (`pito:leader-menu:stack`) so the
-        re-mounted Stimulus controller rehydrates the popup. %>
-    <dialog id="leader-menu-popup"
-            data-leader-menu-target="popup"
-            data-turbo-permanent
-            class="leader-menu-popup"></dialog>
+    <%# D5 (2026-05-22) — leader-menu rebuild. The 1700-line nested-
+        submenu / flat-key / compact-mode prior controller was retired.
+        The new Tui::LeaderMenuComponent is a 1-level shallow which-key
+        popup (h v g ? : q a) flowing through Tui::DialogComponent
+        chrome — opened on SPACE by the tui-leader-menu Stimulus
+        controller, closed on next-key commit or Esc. Mounted next to
+        the help + about dialogs so the layout's `<body>`-scoped
+        Stimulus controller can find `#tui-leader-menu` reliably. %>
+    <%= render Tui::LeaderMenuComponent.new(screen_accent: current_section.to_sym) %>
   </body>
 </html>

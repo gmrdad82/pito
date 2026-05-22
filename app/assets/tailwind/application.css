@@ -4050,6 +4050,66 @@ dialog.leader-menu-popup::backdrop {
   display: none;
 }
 
+/* D5 (2026-05-22) — Tui::LeaderMenuComponent. 1-level shallow which-key
+   popup wrapping Tui::DialogComponent chrome. The dialog itself paints
+   the title-in-border + [Esc] hint + screen-accent border via
+   `.tui-dialog-frame`; this block styles the inner entries grid.
+
+   Layout: each entry is a row `<li>` with three inline spans —
+   key glyph (section-accent color), middle dot separator (muted), and
+   label. The key column is min-width 2ch so single-char and 2-char
+   keys line up consistently in the monospace face. Rows are compact
+   (4px vertical padding) so 7 default entries fit a small popup
+   without scrolling.
+
+   No hover effects, no border-radius, no decoration — same lockdown
+   as every other Tui::* component (see docs/design.md). */
+dialog.tui-leader-menu {
+  /* Sit bottom-right above the bottom-status-bar `[_]` invocation site
+     instead of centering. tui-dialog-frame's default centering is
+     overridden because the leader popup is a small command-launcher,
+     not a content dialog. */
+  position: fixed;
+  bottom: 56px;
+  right: 12px;
+  top: auto;
+  left: auto;
+  transform: none;
+  max-width: none;
+  width: auto;
+  min-width: 240px;
+  padding: 8px 12px;
+}
+dialog.tui-leader-menu::backdrop {
+  /* Suppress the backdrop so the rest of the page stays visually
+     undimmed while the popup is open — parity with the legacy
+     leader-menu-popup mounting. */
+  background: transparent;
+}
+.tui-leader-menu__entries {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.tui-leader-menu__entry {
+  display: grid;
+  grid-template-columns: 2ch auto 1fr;
+  column-gap: 8px;
+  align-items: baseline;
+  padding: 2px 0;
+  white-space: nowrap;
+}
+.tui-leader-menu__key {
+  color: var(--color-section-accent, var(--color-text));
+  font-weight: bold;
+}
+.tui-leader-menu__sep {
+  color: var(--color-muted);
+}
+.tui-leader-menu__label {
+  color: var(--color-text);
+}
+
 /* Keybindings reference card (two-section layout — page actions on
    top, hairline, navigation below). Rendered by
    `KeybindingsReferenceComponent`; reuses the existing `<kbd>` text

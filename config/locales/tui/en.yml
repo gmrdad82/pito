@@ -22,6 +22,35 @@ en:
     dialog:
       esc_to_close: "Esc to close"
       esc_to_cancel: "Esc to cancel"
+    # FB-172 (2026-05-21) — keyboard-only mouse guard alert dialog copy.
+    # Title surfaces in the top-border chrome; message lines stack as
+    # separate <p> elements inside the dialog body.
+    keyboard_only:
+      title: "invalid input"
+      message_line_1: "mouse interaction forbidden"
+      message_line_2: "type ? for help or : for command"
+    # D5 (2026-05-22) — leader menu (rebuilt as 1-level shallow which-key
+    # popup). Title renders in the Tui::DialogComponent top-border;
+    # `entries.<slug>.label` keys feed each Tui::LeaderMenuEntryComponent
+    # row label. Brand names stay capitalized; non-brand text lowercase
+    # per design.md.
+    leader:
+      title: "leader"
+      entries:
+        h:
+          label: "home"
+        v:
+          label: "videos"
+        g:
+          label: "games"
+        help:
+          label: "help"
+        command:
+          label: "command"
+        q:
+          label: "logout"
+        a:
+          label: "about"
     # D9 (2026-05-22) — help dialog (replaced legacy help overlay) and
     # about dialog (replaced legacy AboutModalComponent). Titles render
     # in the dialog chrome top-border.

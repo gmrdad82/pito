@@ -1,0 +1,27 @@
+<%# D5 (2026-05-22) — leader menu body flows through Tui::DialogComponent.
+    The chrome (title-in-border, [Esc] to close, backdrop guard, screen
+    accent) lives in the canonical wrapper; this template owns the
+    which-key entry grid. %>
+<%= render Tui::DialogComponent.new(
+      id: Tui::LeaderMenuComponent::DIALOG_ID,
+      title: title,
+      screen_accent: screen_accent,
+      extra_classes: "tui-leader-menu",
+      extra_controllers: "tui-leader-menu"
+    ) do %>
+  <ul class="tui-leader-menu__entries" role="list">
+    <% resolved_entries.each do |entry| %>
+      <%= render Tui::LeaderMenuEntryComponent.new(
+            key: entry[:key],
+            label: entry[:label],
+            data: {
+              "leader-key" => entry[:key],
+              "leader-path" => entry[:path],
+              "leader-path-method" => entry[:path_method],
+              "leader-action-name" => entry[:action_name],
+              "leader-dispatch-method" => entry[:dispatch_method]
+            }.compact
+          ) %>
+    <% end %>
+  </ul>
+<% end %>
