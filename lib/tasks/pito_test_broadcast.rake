@@ -49,6 +49,14 @@ namespace :pito do
       puts "enqueued SleepJob jid=#{jid} sleep=#{seconds}s"
     end
 
+    desc "enqueue N sleep jobs at once (count, seconds; default 20,10) — count > Sidekiq concurrency parks excess in enqueued"
+    task :enqueue_bulk, [ :count, :seconds ] => :environment do |_, args|
+      count   = (args[:count] || 20).to_i
+      seconds = (args[:seconds] || 10).to_i
+      jids = Array.new(count) { Pito::Test::SleepJob.perform_async(seconds) }
+      puts "enqueued #{count} SleepJob(s), sleep=#{seconds}s each; first jid=#{jids.first}, last jid=#{jids.last}"
+    end
+
     desc "enqueue a guaranteed-failing dummy job to populate Sidekiq retry queue"
     task enqueue_failing_job: :environment do
       jid = Pito::Test::FailingJob.perform_async
