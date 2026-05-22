@@ -1,25 +1,26 @@
 <%#
-  Beta 4 — Phase F1. Bottom status bar template. Composes the sub-VCs in
-  this order: ModeLozengeComponent | SidekiqStatsComponent |
-  ScreensListComponent | HelpHintComponent + CommandHintComponent. The
-  `tui-bottom-status-bar` Stimulus controller is mounted on the footer
-  root.
+  Beta 4 — Phase F1. Bottom status bar template. 3-zone grid layout —
+  left/center/right — anchored via CSS `grid-template-columns: 1fr auto 1fr`.
+
+  Left zone:   ModeLozengeComponent | SidekiqStatsComponent
+  Center zone: ScreensListComponent (visually anchored, unaffected by left/right zone growth)
+  Right zone:  HelpHintComponent + CommandHintComponent
 
   Phase 2 (2026-05-22): SidekiqStatsComponent moved here from the TST.
-  Phase 2 follow-up (2026-05-22): Sidekiq moved LEFT, immediately after
-  the Mode lozenge — final layout is `mode | Sidekiq | screens | hints`.
-  The VC is a single-span cascade-scramble host that listens for
-  `tui:sidekiq-changed` document events (dispatched by
-  `tui-status-bar` from the TST cable channel).
+  Phase 3 (2026-05-22): switched from a single flex row with inter-VC pipes
+  to a 3-zone grid so ScreensList stays centered regardless of Sidekiq's
+  cascade-scramble width. Pipes are intra-zone only.
 %>
 <footer class="bsb-bar" data-controller="tui-bottom-status-bar">
-  <%= render Tui::ModeLozengeComponent.new(mode: mode) %>
-  <span class="bsb-pipe"><%= pipe_label %></span>
-  <%= render Tui::SidekiqStatsComponent.new %>
-  <span class="bsb-pipe"><%= pipe_label %></span>
-  <%= render Tui::ScreensListComponent.new(current_section: current_section) %>
-  <span class="bsb-pipe"><%= pipe_label %></span>
-  <span class="bsb-hints">
+  <span class="bsb-zone bsb-zone--left">
+    <%= render Tui::ModeLozengeComponent.new(mode: mode) %>
+    <span class="bsb-pipe"><%= pipe_label %></span>
+    <%= render Tui::SidekiqStatsComponent.new %>
+  </span>
+  <span class="bsb-zone bsb-zone--center">
+    <%= render Tui::ScreensListComponent.new(current_section: current_section) %>
+  </span>
+  <span class="bsb-zone bsb-zone--right bsb-hints">
     <%= render Tui::HelpHintComponent.new %>
     <span class="bsb-hint-spacer"></span>
     <%= render Tui::CommandHintComponent.new %>

@@ -5781,13 +5781,28 @@ main > .settings-modal-wrapper {
   padding: 4px 12px;
   background: var(--color-bg);
   border-top: 1px solid var(--color-border);
-  display: flex;
-  align-items: center;
-  gap: 12px;
+  /* 3-zone grid: left | center | right. The center column is `auto` so it
+     sizes to ScreensList; side columns are `1fr` so left content grows
+     leftward + right content grows rightward without pushing the center.
+     Sidekiq's cascade-scramble width changes stay isolated to the left
+     zone — ScreensList (home / videos / games) stays anchored. */
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: baseline;
+  column-gap: 12px;
   font-size: 13px;
   font-family: inherit;
   z-index: 100;
 }
+
+.bsb-zone {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 12px;
+}
+.bsb-zone--left   { justify-self: start; }
+.bsb-zone--center { justify-self: center; }
+.bsb-zone--right  { justify-self: end; }
 
 /* 2026-05-22 — Phase 2E. Mode lozenge color flows through the canonical
    tui-transition controller. CSS classes `.bsb-mode` + `.is-{accent,success,

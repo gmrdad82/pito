@@ -33,12 +33,13 @@ RSpec.describe Tui::BottomStatusBarComponent, type: :component do
     expect(page).to have_css("span.bsb-hint-key", text: ":")
   end
 
-  it "renders three pipe separators from i18n" do
-    # Phase 2 follow-up (2026-05-22) — Sidekiq moved LEFT, immediately
-    # after the Mode lozenge. Layout: mode | Sidekiq | screens | hints.
-    # Pipe count stays 3.
+  it "renders one intra-zone pipe separator from i18n" do
+    # Phase 3 (2026-05-22) — BST switched to 3-zone grid layout
+    # (left | center | right). Inter-zone pipes are gone (grid gap handles
+    # separation visually). The only pipe left is INTRA-zone, between
+    # Mode and Sidekiq inside the left zone.
     render_inline(component)
-    expect(page).to have_css("span.bsb-pipe", count: 3)
+    expect(page).to have_css("span.bsb-pipe", count: 1)
     expect(page).to have_css("span.bsb-pipe", text: I18n.t("tui.bst.pipe"))
   end
 
