@@ -1,8 +1,1 @@
-<span class="sb-sync"
-      data-controller="tui-sync-indicator"
-      data-tui-sync-indicator-synced-value="<%= word_synced %>"
-      data-tui-sync-indicator-syncing-value="<%= word_syncing %>"
-      data-tui-sync-indicator-disconnected-value="<%= word_disconnected %>"
-      data-tui-status-bar-target="sync">
-  <span class="<%= dot_class %>" data-tui-sync-indicator-target="dot" data-tui-status-bar-target="syncDot"><%= dot_glyph %></span><span class="<%= word_class %>" data-tui-sync-indicator-target="word" data-tui-status-bar-target="syncWord"><%= word %></span><span class="sb-sync-target" data-tui-sync-indicator-target="target" data-tui-status-bar-target="syncTarget"><%= target if target_visible? %></span>
-</span>
+<%= content_tag :span, state_word, class: "tui-sync-word", data: root_data_attrs %>

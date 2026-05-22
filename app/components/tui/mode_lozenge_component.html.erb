@@ -1,4 +1,18 @@
-<%# Beta 4 — Phase F1. Mode lozenge. Renders the current mode string with
-    a BEM modifier for color theming. The data-target wires the Stimulus
-    controller on the parent footer to swap the mode class on the fly. %>
-<span class="bsb-mode bsb-mode--<%= mode %>" data-tui-bottom-status-bar-target="mode"><%= mode_label %></span>
+<%# Beta 4 — Phase 2E. Mode lozenge wired through Tui::Transitionable.
+    The host span carries TWO Stimulus controllers:
+      1. tui-mode-lozenge — listens for tui:mode-changed, delegates to the
+         colocated tui-transition outlet (this very element).
+      2. tui-transition   — owns the scramble-settle + color-crossfade
+         animation, palette resolution via .bsb-mode + .is-* classes.
+    Color modifier classes (.bsb-mode--<mode>) are GONE — color now flows
+    through `data-tui-transition-color-value` + `.is-{muted,accent,success}`
+    swapped by the tui-transition controller. %>
+<%
+  base = transitionable_data[:data]
+  controller_chain = "tui-mode-lozenge #{base[:controller]}"
+  merged = base.merge(
+    controller: controller_chain,
+    tui_mode_lozenge_tui_transition_outlet: ".bsb-mode"
+  )
+%>
+<%= content_tag :span, mode_word, class: "bsb-mode", data: merged %>

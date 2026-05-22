@@ -1,38 +1,46 @@
 import { Controller } from "@hotwired/stimulus"
 
-// Beta 4 — Phase F1 child controller for `Tui::SyncIndicatorComponent`.
-//
-// 2026-05-22 (activity-pulse refactor) — the sync indicator no longer
-// listens for a discrete `sync` payload kind. Instead it listens for
-// the generic `tui:cable-activity` event (fanned out by the parent
-// `tui-status-bar` controller on EVERY received cable message
-// regardless of kind) and flips to the `syncing` glyph for 400ms,
-// re-arming the timer on every subsequent activity event. When the
-// timer expires the indicator returns to `synced`. This makes the
-// indicator a true "any traffic" pulse, trivially extensible as new
-// cable kinds are added (no per-kind listener wiring required).
-//
-// The controller also honors the explicit `tui:sync-changed` event for
-// the `disconnected` state ONLY — the cable lifecycle (`connected` /
-// `disconnected` callbacks on the parent's ActionCable subscription)
-// drives that path. `synced` / `syncing` are owned entirely by the
-// activity-pulse mechanism.
-//
-// Event contracts:
-//
-//   tui:cable-activity (every cable message)
-//     → flip to `syncing` for PULSE_MS, then back to `synced`.
-//
-//   tui:sync-changed
-//     detail: { state: "synced" | "syncing" | "disconnected" }
-//     → only `disconnected` is honored here. Synced/syncing pass
-//       through the activity-pulse path.
-//
-// Word labels come from data-* values seeded by the VC (which sources
-// them from `config/locales/tui/en.yml` `tui.tst.sync.*`) so the JS
-// layer never inlines English strings.
+/**
+ * tui-sync-indicator — thin delegator for Tui::SyncIndicatorComponent.
+ *
+ * Phase 2A (2026-05-22) — glyph-free, word-only. All visual animation
+ * (scramble-settle, color-crossfade, shimmer) is delegated to the
+ * colocated tui-transition outlet via setValue / setColor / setShimmer.
+ * This controller's only job is event translation: cable lifecycle +
+ * activity events on document → setState calls on the outlet.
+ *
+ * Event contracts:
+ *
+ *   tui:cable-activity (every cable message)
+ *     → flip to "syncing" for PULSE_MS, then back to "synced".
+ *       Re-arms the timer on every subsequent activity event so a
+ *       burst of traffic keeps the cell amber until the burst quiets.
+ *
+ *   tui:sync-changed
+ *     detail: { state: "synced" | "syncing" | "disconnected" }
+ *     → explicit state override. `disconnected` cancels any in-flight
+ *       activity pulse; `synced` / `syncing` also pass through but are
+ *       normally owned by the activity-pulse path.
+ *
+ * Sequencing rule (shimmer ↔ scramble, never overlap):
+ *
+ *   forward (synced → syncing):
+ *     1. setShimmer(false)          // clear stale shimmer
+ *     2. setColor("accent")
+ *     3. setValue(word)             // scramble starts
+ *     4. on tui-transition:settled → setShimmer(true)
+ *
+ *   reverse (anything → synced / disconnected):
+ *     1. setShimmer(false)          // shimmer off FIRST
+ *     2. setColor(...)
+ *     3. setValue(word)             // scramble back
+ *
+ * Word labels come from data-* values seeded by the VC (sourced from
+ * `config/locales/tui/en.yml` `tui.tst.sync.*`) so this JS layer never
+ * inlines English strings.
+ */
 export default class extends Controller {
-  static targets = ["dot", "word", "target"]
+  static outlets = ["tui-transition"]
   static values = {
     synced: String,
     syncing: String,
@@ -40,113 +48,100 @@ export default class extends Controller {
   }
 
   // Activity pulse duration in milliseconds. Every `tui:cable-activity`
-  // event re-arms this timer; the indicator returns to `synced` only
+  // event re-arms this timer; the indicator returns to "synced" only
   // after PULSE_MS of quiet.
   static PULSE_MS = 400
 
-  // Glyph + class triples for each state. Class names match the locked
-  // CSS in `app/assets/tailwind/application.css`.
-  static GLYPH_SYNCING = "●"
-  static GLYPH_SYNCED = "●"
-  static GLYPH_DISCONNECTED = "✗"
-
   connect() {
-    this.boundActivity = this.onActivity.bind(this)
-    this.boundExplicitState = this.onExplicitState.bind(this)
-    document.addEventListener("tui:cable-activity", this.boundActivity)
-    document.addEventListener("tui:sync-changed", this.boundExplicitState)
-    this.pulseTimer = null
-    // Initial state — synced (matches SSR first paint).
-    this.setState("synced")
+    this._pulseTimer = null
+    this._boundExplicit = this.onExplicitState.bind(this)
+    this._boundActivity = this.onActivity.bind(this)
+    document.addEventListener("tui:sync-changed", this._boundExplicit)
+    document.addEventListener("tui:cable-activity", this._boundActivity)
   }
 
   disconnect() {
-    if (this.boundActivity) {
-      document.removeEventListener("tui:cable-activity", this.boundActivity)
-      this.boundActivity = null
-    }
-    if (this.boundExplicitState) {
-      document.removeEventListener("tui:sync-changed", this.boundExplicitState)
-      this.boundExplicitState = null
-    }
-    if (this.pulseTimer) {
-      clearTimeout(this.pulseTimer)
-      this.pulseTimer = null
+    document.removeEventListener("tui:sync-changed", this._boundExplicit)
+    document.removeEventListener("tui:cable-activity", this._boundActivity)
+    if (this._pulseTimer) {
+      clearTimeout(this._pulseTimer)
+      this._pulseTimer = null
     }
   }
 
-  // Activity event — flip to syncing for PULSE_MS, re-arming on every
-  // new activity so a burst of traffic keeps the indicator amber until
-  // the burst quiets.
+  // ─── event handlers ───────────────────────────────────────────────
+  onExplicitState(event) {
+    const state = event?.detail?.state
+    if (!state) return
+    if (state === "disconnected") {
+      if (this._pulseTimer) {
+        clearTimeout(this._pulseTimer)
+        this._pulseTimer = null
+      }
+      this.setDisconnected()
+    } else if (state === "syncing") {
+      this.setSyncing()
+    } else if (state === "synced") {
+      if (this._pulseTimer) {
+        clearTimeout(this._pulseTimer)
+        this._pulseTimer = null
+      }
+      this.setSynced()
+    }
+  }
+
   onActivity() {
-    this.setState("syncing")
-    if (this.pulseTimer) clearTimeout(this.pulseTimer)
-    this.pulseTimer = setTimeout(() => {
-      this.setState("synced")
-      this.pulseTimer = null
+    this.setSyncing()
+    if (this._pulseTimer) clearTimeout(this._pulseTimer)
+    this._pulseTimer = setTimeout(() => {
+      this.setSynced()
+      this._pulseTimer = null
     }, this.constructor.PULSE_MS)
   }
 
-  // Explicit state event — only honor `disconnected`. Synced/syncing
-  // are owned by the activity-pulse path.
-  onExplicitState(event) {
-    const state = event?.detail?.state
-    if (state === "disconnected") {
-      if (this.pulseTimer) {
-        clearTimeout(this.pulseTimer)
-        this.pulseTimer = null
-      }
-      this.setState("disconnected")
-    }
+  // ─── delegation to tui-transition outlet ──────────────────────────
+  setSyncing() {
+    const c = this.transitionController()
+    if (!c) return
+    // forward path: shimmer off first, color/value drive the scramble,
+    // shimmer flips on once the scramble settles.
+    c.setShimmer(false)
+    c.setColor("accent")
+    c.setValue(this.wordFor("syncing"))
+    c.element.addEventListener(
+      "tui-transition:settled",
+      () => c.setShimmer(true),
+      { once: true }
+    )
   }
 
-  setState(state) {
-    if (this.hasDotTarget) {
-      this.dotTarget.classList.remove(
-        "sb-sync-dot--green",
-        "sb-sync-dot--amber",
-        "sb-sync-dot--red"
-      )
-    }
-    if (this.hasWordTarget) {
-      this.wordTarget.classList.remove(
-        "sb-sync-word--idle",
-        "sb-sync-word--syncing",
-        "sb-sync-word--disconnected"
-      )
-    }
+  setSynced() {
+    const c = this.transitionController()
+    if (!c) return
+    // reverse path: shimmer off FIRST, then scramble back.
+    c.setShimmer(false)
+    c.setColor("accent")
+    c.setValue(this.wordFor("synced"))
+  }
 
-    let dotClass = "sb-sync-dot--green"
-    let wordClass = "sb-sync-word--idle"
-    let dotGlyph = this.constructor.GLYPH_SYNCED
-    let wordText = this.syncedValue
+  setDisconnected() {
+    const c = this.transitionController()
+    if (!c) return
+    c.setShimmer(false)
+    c.setColor("pink")
+    c.setValue(this.wordFor("disconnected"))
+  }
 
-    if (state === "syncing") {
-      dotClass = "sb-sync-dot--amber"
-      wordClass = "sb-sync-word--syncing"
-      dotGlyph = this.constructor.GLYPH_SYNCING
-      wordText = this.syncingValue
-    } else if (state === "disconnected") {
-      dotClass = "sb-sync-dot--red"
-      wordClass = "sb-sync-word--disconnected"
-      dotGlyph = this.constructor.GLYPH_DISCONNECTED
-      wordText = this.disconnectedValue
-    }
+  // ─── helpers ──────────────────────────────────────────────────────
+  transitionController() {
+    if (this.hasTuiTransitionOutlet) return this.tuiTransitionOutlet
+    return null
+  }
 
-    if (this.hasDotTarget) {
-      this.dotTarget.classList.add(dotClass)
-      this.dotTarget.textContent = dotGlyph
-    }
-    if (this.hasWordTarget) {
-      this.wordTarget.classList.add(wordClass)
-      this.wordTarget.textContent = wordText
-    }
-    // The optional `syncing channels`-style target is no longer wired
-    // from the activity path (the activity event carries no target
-    // label). Clear it so a stale label from a prior explicit dispatch
-    // doesn't linger.
-    if (this.hasTargetTarget) {
-      this.targetTarget.textContent = ""
-    }
+  wordFor(stateName) {
+    if (stateName === "synced")       return this.syncedValue
+    if (stateName === "syncing")      return this.syncingValue
+    if (stateName === "disconnected") return this.disconnectedValue
+    return stateName
   }
 }

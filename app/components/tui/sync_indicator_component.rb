@@ -1,70 +1,60 @@
 module Tui
-  # Beta 4 — extracted from `Tui::TopStatusBarComponent` (2026-05-21)
-  # per "ViewComponents are kings" — sub-elements of the top status
-  # bar each get their own VC + spec.
+  # Tui::SyncIndicatorComponent — word-only sync indicator wired through
+  # the canonical `Tui::Transitionable` mixin so its value-changes pass
+  # through the locked scramble-settle → color-crossfade → shimmer
+  # pipeline owned by `tui_transition_controller.js` (Wave 1B).
   #
-  # Sync indicator: ●/✗ glyph + word ("synced" / "syncing" /
-  # "disconnected") + optional target label rendered immediately
-  # after the word for `:syncing_with_target`.
-  #
-  # Visual rules + class hooks mirror the locked demo at
-  # `tmp/demo-status-bar-final.html` and Lane C's
-  # `tui_status_bar_controller.js` which patches the same DOM cells.
+  # 2026-05-22 (Phase 2A) — glyphs (●/◐/✗) dropped per Beta 4 word-only
+  # contract. State now drives only the word ("synced" / "syncing" /
+  # "disconnected"), the active color (accent for synced/syncing,
+  # pink/danger for disconnected), and the shimmer decoration (syncing
+  # only). The colocated `tui-sync-indicator` controller is a thin
+  # delegator that listens for `tui:sync-changed` + `tui:cable-activity`
+  # events and patches the colocated `tui-transition` outlet via
+  # setValue / setColor / setShimmer. Sequencing rule: shimmer NEVER
+  # overlaps the scramble (forward path waits for
+  # `tui-transition:settled` before flipping shimmer on; reverse path
+  # turns shimmer off first, then scrambles back).
   #
   # Constructor inputs:
-  #   - state:  one of `:idle`, `:syncing`, `:syncing_with_target`,
-  #             `:disconnected`. Drives the dot glyph + dot color +
-  #             word + word color. Defaults to `:idle`.
-  #   - target: optional string. Rendered after the word for
-  #             `:syncing_with_target` (e.g. "syncing channels"
-  #             → target="channels"). Ignored for other states.
+  #   - state:  one of `:synced`, `:syncing`, `:disconnected`. Accepts
+  #             `:idle` as a soft alias to `:synced` to preserve the
+  #             existing wire format from `StatusBarBroadcastJob`
+  #             (`sync_state: :idle`). Defaults to `:synced`.
   #
-  # The root element + each child carry the
-  # `data-tui-status-bar-target="..."` attributes that the cable
-  # Stimulus controller subscribes to — this VC is a drop-in render
-  # inside `Tui::TopStatusBarComponent` and does not break the live
-  # update contract.
+  # Cable contract: the parent `tui-top-status-bar` controller fans
+  # `pito:status_bar` payloads into `tui:sync-changed` and
+  # `tui:cable-activity` events on document. This VC's child controller
+  # consumes both — explicit state events drive `disconnected`, activity
+  # events drive a 400ms `syncing` pulse, quiescence returns the cell to
+  # `synced`.
   #
-  # 2026-05-22 — Now also carries the `tui-sync-indicator` Stimulus
-  # controller which listens for `tui:sync-changed` custom DOM events
-  # (dispatched by the parent `tui-top-status-bar` controller on every
-  # cable payload). The child controller patches the dot glyph + class
-  # + word text/class in place. Word text flows through I18n keys
-  # `tui.tst.sync.synced` / `.syncing` / `.disconnected` so the SSR +
-  # JS layers share the same string source.
+  # i18n: words come from `config/locales/tui/en.yml` `tui.tst.sync.*`.
+  # All three per-state words are also emitted as data-* attrs so the
+  # JS layer can read them without inlining English.
+  #
+  # @contract see docs/design.md § Transitions
+  # @contract see docs/architecture.md § Pito::Transitions
   class SyncIndicatorComponent < ViewComponent::Base
-    STATES = %i[idle syncing syncing_with_target disconnected].freeze
+    include Tui::Transitionable
 
-    def initialize(state: :idle, target: nil)
-      @state = STATES.include?(state.to_sym) ? state.to_sym : :idle
-      @target = target.presence
+    STATES = %i[synced syncing disconnected].freeze
+    DEFAULT_STATE = :synced
+
+    def initialize(state: DEFAULT_STATE)
+      @state = normalize_state(state)
     end
 
-    attr_reader :state, :target
+    attr_reader :state
 
-    def dot_glyph
-      @state == :disconnected ? "✗" : "●"
-    end
-
-    def dot_class
+    def state_word
       case @state
-      when :idle              then "sb-sync-dot sb-sync-dot--green"
-      when :syncing, :syncing_with_target then "sb-sync-dot sb-sync-dot--amber"
-      when :disconnected      then "sb-sync-dot sb-sync-dot--red"
+      when :synced       then I18n.t("tui.tst.sync.synced")
+      when :syncing      then I18n.t("tui.tst.sync.syncing")
+      when :disconnected then I18n.t("tui.tst.sync.disconnected")
       end
     end
 
-    def word
-      case @state
-      when :idle              then I18n.t("tui.tst.sync.synced")
-      when :syncing, :syncing_with_target then I18n.t("tui.tst.sync.syncing")
-      when :disconnected      then I18n.t("tui.tst.sync.disconnected")
-      end
-    end
-
-    # i18n strings exposed to the Stimulus controller as data-* attrs
-    # so the JS layer doesn't reach back into the server for label text
-    # on every cable push.
     def word_synced
       I18n.t("tui.tst.sync.synced")
     end
@@ -77,16 +67,41 @@ module Tui
       I18n.t("tui.tst.sync.disconnected")
     end
 
-    def word_class
-      case @state
-      when :idle              then "sb-sync-word sb-sync-word--idle"
-      when :syncing, :syncing_with_target then "sb-sync-word sb-sync-word--syncing"
-      when :disconnected      then "sb-sync-word sb-sync-word--disconnected"
-      end
+    # Builds the merged data-attrs hash for the host span:
+    #   - canonical tui-transition data-attrs (controller, effect, value,
+    #     align, color, shimmer) from the Transitionable mixin
+    #   - per-state word values for the colocated tui-sync-indicator
+    #     controller to read in setState()
+    #   - the existing top-status-bar target hook (`sync`)
+    #   - the controller chain (`tui-sync-indicator tui-transition`)
+    #   - the outlet selector pointing back to this same span
+    def root_data_attrs
+      base = transitionable_attrs(
+        value: state_word,
+        align: :right,
+        color: color_for(@state),
+        shimmer: @state == :syncing
+      )
+      attrs = base[:data]
+      attrs[:controller] = "tui-sync-indicator #{attrs[:controller]}"
+      attrs[:tui_sync_indicator_synced_value]       = word_synced
+      attrs[:tui_sync_indicator_syncing_value]      = word_syncing
+      attrs[:tui_sync_indicator_disconnected_value] = word_disconnected
+      attrs[:tui_sync_indicator_tui_transition_outlet] = ".tui-sync-word"
+      attrs[:tui_status_bar_target] = "sync"
+      attrs
     end
 
-    def target_visible?
-      @state == :syncing_with_target && @target.present?
+    private
+
+    def normalize_state(raw)
+      sym = raw.to_sym
+      sym = :synced if sym == :idle
+      STATES.include?(sym) ? sym : DEFAULT_STATE
+    end
+
+    def color_for(state)
+      state == :disconnected ? :pink : :accent
     end
   end
 end

@@ -3,85 +3,78 @@ module Tui
   # per "ViewComponents are kings" — sub-elements of the top status
   # bar each get their own VC + spec.
   #
-  # Sidekiq queue-depth stats cells: `b<n> e<n> r<n>`. Each cell
-  # carries `.sb-sk-cell` plus a state class (`.sk-zero` muted when
-  # the count is 0, `.sk-b` / `.sk-e` / `.sk-r` colored when non-zero).
+  # Sidekiq queue-depth stats cells: `b<n> e<n> r<n>`. Each cell is
+  # width-locked to 5 chars total — 1-char prefix (`b` / `e` / `r`) +
+  # 4-char short-formatted value (`32  ` `1k  ` `999k` `1M  `). The
+  # 4-char pad prevents word-jumping when broadcasts cascade values.
   #
   # Constructor inputs:
-  #   - busy:      integer (default 0)
-  #   - enqueued:  integer (default 0)
-  #   - retry:     integer (default 0) — accepted via kwarg
-  #                `retry:` despite being a Ruby keyword (safe in
-  #                kwargs context).
+  #   - busy:        integer (default 0)
+  #   - enqueued:    integer (default 0)
+  #   - retry_count: integer (default 0)
   #
   # The `scheduled` count is intentionally NOT rendered here — the
   # bar shows three of the four counts. `scheduled` is a future
   # surface (per-subsystem stack panel).
   #
-  # Cells carry `data-tui-status-bar-target="sidekiqBusy"` etc. so
-  # `tui_status_bar_controller.js` can patch them in place when the
-  # `pito:status_bar` cable pushes new counts.
+  # 2026-05-22 — Phase 2B rewires the three cells through the canonical
+  # `Tui::Transitionable` mixin (scramble-settle + color-crossfade) and
+  # short-formats values via `Pito::Formatter::ShortNumber`. The parent
+  # `tui-sidekiq-stats` Stimulus controller listens for the
+  # `tui:sidekiq-changed` event and walks each cell's colocated
+  # `tui-transition` controller via `setValue(...)`.
   #
-  # 2026-05-22 — Now also carries the `tui-sidekiq-stats` Stimulus
-  # controller which listens for `tui:sidekiq-changed` custom DOM
-  # events (dispatched by the parent `tui-top-status-bar` controller on
-  # every `data` payload). Color rules locked here:
+  # Color rules (locked 2026-05-22):
   #
-  #   busy > 0      → .sk-b (var(--color-success), green)
-  #   enqueued > 0  → .sk-e (var(--color-muted),  muted) — orange historically
-  #   retry > 0     → .sk-r (var(--color-danger), pink)
-  #   any count 0   → .sk-zero (muted)
+  #   busy     → base :muted, active :success (green)
+  #   enqueued → base :muted, active :warn    (orange)
+  #   retry    → base :muted, active :danger  (pink)
   #
-  # Letter prefixes (`b` / `e` / `r`) come from i18n keys
-  # `tui.tst.sidekiq.busy_prefix` etc. so the JS layer can rebuild
-  # `b<N>` / `e<N>` / `r<N>` without inlining English literals.
+  # @contract see app/services/pito/formatter/short_number.rb
+  # @contract see app/components/tui/transitionable.rb
+  # @contract see app/javascript/controllers/tui_sidekiq_stats_controller.js
   class SidekiqStatsComponent < ViewComponent::Base
-    def initialize(**kwargs)
-      @counts = {
-        busy:     kwargs.fetch(:busy, 0).to_i,
-        enqueued: kwargs.fetch(:enqueued, 0).to_i,
-        retry:    kwargs.fetch(:retry, 0).to_i
-      }
+    include Tui::Transitionable
+
+    # Short-format value width (chars). The full cell is 1 (prefix) + 4 (value).
+    CELL_WIDTH = 4
+
+    def initialize(busy: 0, enqueued: 0, retry_count: 0, **legacy)
+      # `retry:` is accepted as a legacy kwarg for callers that still pass
+      # it under the Ruby keyword form. New callers should use `retry_count:`.
+      @busy        = busy.to_i
+      @enqueued    = enqueued.to_i
+      @retry_count = (legacy[:retry] || retry_count).to_i
     end
 
-    # Letter → count lookup so the template stays a flat list of
-    # three cells driven by a single helper.
-    def value_for(letter)
-      @counts.fetch(letter_to_key(letter), 0)
+    # Ordered cell descriptors driving the template.
+    def cells
+      [
+        { name: :busy,     prefix: "b", value: @busy,        active_color: :success },
+        { name: :enqueued, prefix: "e", value: @enqueued,    active_color: :warn },
+        { name: :retry,    prefix: "r", value: @retry_count, active_color: :danger }
+      ]
     end
 
-    def cell_class_for(letter)
-      value = value_for(letter)
-      return "sb-sk-cell sk-zero" if value.zero?
-
-      "sb-sk-cell sk-#{letter}"
+    # Short-format the raw value then right-pad with spaces to CELL_WIDTH.
+    # Returns the exact string the user sees inside a cell (post-prefix).
+    def display_value(raw)
+      Pito::Formatter::ShortNumber.call(raw).ljust(CELL_WIDTH)
     end
 
-    def target_for(letter)
-      case letter.to_s
-      when "b" then "sidekiqBusy"
-      when "e" then "sidekiqEnqueued"
-      when "r" then "sidekiqRetry"
-      end
-    end
-
-    def prefix_for(letter)
-      case letter.to_s
-      when "b" then I18n.t("tui.tst.sidekiq.busy_prefix")
-      when "e" then I18n.t("tui.tst.sidekiq.enqueued_prefix")
-      when "r" then I18n.t("tui.tst.sidekiq.retry_prefix")
-      end
-    end
-
-    private
-
-    def letter_to_key(letter)
-      case letter.to_s
-      when "b" then :busy
-      when "e" then :enqueued
-      when "r" then :retry
-      else letter.to_sym
-      end
+    # Build the data-attrs payload for one cell — combines the
+    # `tui-transition` controller (via Transitionable mixin) with the
+    # cell-name marker the parent `tui-sidekiq-stats` controller uses to
+    # locate each cell on `tui:sidekiq-changed`.
+    def cell_data(cell)
+      base = transitionable_attrs(
+        value: display_value(cell[:value]),
+        color: :muted,
+        active_color: cell[:active_color],
+        prefix: cell[:prefix]
+      )
+      base[:data][:tui_sidekiq_stats_cell_name_value] = cell[:name].to_s
+      base[:data]
     end
   end
 end

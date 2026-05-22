@@ -1,4 +1,8 @@
-<span class="sb-clock"
-      data-controller="tui-date-time"
-      data-action="tui:notifications-changed@document->tui-date-time#onNotificationsChanged"
-      data-tui-status-bar-target="clock"><%= formatted %></span>
+<%
+  data_attrs = transitionable_data[:data].merge(
+    controller: "tui-date-time #{transitionable_data[:data][:controller]}",
+    tui_date_time_tui_transition_outlet: ".tui-date-time",
+    tui_status_bar_target: "clock"
+  )
+%>
+<%= content_tag :span, current_value, class: "sb-clock tui-date-time", data: data_attrs %>

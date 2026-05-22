@@ -5511,6 +5511,11 @@ body > header {
   color: var(--section-accent);
   font-weight: 400;
 }
+/* 2026-05-22 — Phase 2D/2E. Breadcrumb kind on tui-transition controller
+   uses `.is-muted` as the only off-state modifier; default (no modifier)
+   keeps the section accent color from above. Mirrors the breadcrumb entry
+   in tui_transition_controller.js COLOR_CLASS. */
+.sb-section.is-muted { color: var(--color-muted); }
 
 .sb-page-tail {
   color: inherit;
@@ -5784,32 +5789,24 @@ main > .settings-modal-wrapper {
   z-index: 100;
 }
 
+/* 2026-05-22 — Phase 2E. Mode lozenge color flows through the canonical
+   tui-transition controller. CSS classes `.bsb-mode` + `.is-{accent,success,
+   danger}` are toggled by tui_transition_controller.js per
+   Tui::ModeLozengeComponent::COLORS:
+     normal  → muted    (base class, no modifier)
+     insert  → accent   (.is-accent)
+     command → accent   (.is-accent)
+     search  → success  (.is-success)
+   Legacy BEM modifiers `.bsb-mode--{normal,insert,command,search}` removed
+   in favor of this state-class scheme shared by every Transitionable host. */
 .bsb-mode {
   color: var(--color-muted);
   text-transform: lowercase;
   flex-shrink: 0;
 }
-
-.bsb-mode--normal {
-  color: var(--dracula-cyan);
-}
-
-.bsb-mode--command {
-  color: var(--dracula-purple);
-}
-
-.bsb-mode--search {
-  color: var(--dracula-green);
-}
-
-/* FB-112 (2026-05-20) — INSERT mode lozenge color.
-   Auto-engaged when focus lands on a text input (webhook URL,
-   future search/command surfaces). Visually distinct from NORMAL
-   so the user always knows whether keystrokes flow to navigation
-   or to the focused input. */
-.bsb-mode--insert {
-  color: var(--dracula-orange);
-}
+.bsb-mode.is-accent  { color: var(--section-accent-home); }
+.bsb-mode.is-success { color: var(--color-success); }
+.bsb-mode.is-danger  { color: var(--color-danger); }
 
 .bsb-pipe {
   color: var(--color-muted);
@@ -6741,8 +6738,9 @@ body.keyboard-only * {
 .tui-date-time { color: var(--color-muted); }
 .tui-date-time.is-notif { color: var(--section-accent-home); }
 
-/* sidekiq stats cells */
-.tui-sidekiq-cell { color: var(--color-muted); min-width: 4ch; text-align: left; }
+/* sidekiq stats cells — width-locked to 5ch (1-char prefix + 4-char padded value) */
+.tui-sidekiq-row { display: inline-flex; gap: 14px; }
+.tui-sidekiq-cell { color: var(--color-muted); min-width: 5ch; text-align: left; font-variant-numeric: tabular-nums; white-space: pre; }
 .tui-sidekiq-cell.is-busy     { color: var(--color-success); }
 .tui-sidekiq-cell.is-enqueued { color: var(--color-warn); }
 .tui-sidekiq-cell.is-retry    { color: var(--color-danger); }

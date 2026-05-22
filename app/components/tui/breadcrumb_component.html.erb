@@ -1,4 +1,10 @@
-<span class="sb-section"
-      data-controller="tui-breadcrumb"
-      data-tui-status-bar-target="section"
-      data-tui-breadcrumb-screen-value="<%= screen %>"><% if sub_panel_visible? %><span class="sb-section__panel"><%= label %></span><span class="sb-section__sub-panel-paren"><%= paren_open %></span><span class="sb-section__sub-panel"><%= sub_panel %></span><span class="sb-section__sub-panel-paren"><%= paren_close %></span><% else %><%= label %><% end %></span>
+<%
+  base_data = transitionable_data[:data]
+  data_attrs = base_data.merge(
+    controller: "tui-breadcrumb #{base_data[:controller]}",
+    tui_status_bar_target: "section",
+    tui_breadcrumb_screen_value: screen,
+    tui_breadcrumb_tui_transition_outlet: ".sb-section"
+  )
+%>
+<%= content_tag :span, current_value, class: "sb-section", data: data_attrs %>

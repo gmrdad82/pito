@@ -16,7 +16,7 @@ module Tui
   # Kwargs:
   #   current_section: (String) — "home", "videos", or "games". Forwarded
   #                    to `Tui::ScreensListComponent`.
-  #   mode:            (Symbol) — :normal, :command, or :search. Forwarded
+  #   mode:            (Symbol) — :normal, :insert, :command, :search. Forwarded
   #                    to `Tui::ModeLozengeComponent`. Defaults to :normal.
   #
   # C18 (2026-05-21): settings consolidated into / (home). The sections
@@ -28,10 +28,10 @@ module Tui
   # `ApplicationHelper`), so the bar inherits the right color
   # automatically — no per-render section-to-color lookup needed.
   class BottomStatusBarComponent < ViewComponent::Base
-    MODES = %i[normal command search].freeze
+    MODES = %i[normal insert command search].freeze
 
     # @param current_section [String] active screen slug — "home", "videos", "games"
-    # @param mode            [Symbol] editor mode — :normal, :command, :search
+    # @param mode            [Symbol] editor mode — :normal, :insert, :command, :search
     def initialize(current_section:, mode: :normal)
       @current_section = current_section.to_s
       @mode = MODES.include?(mode.to_sym) ? mode.to_sym : :normal

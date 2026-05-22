@@ -38,7 +38,7 @@
       </span>
       <span class="sb-progress-counter" data-tui-status-bar-target="progressCounter"><%= progress_counter %></span>
     <% end %>
-    <%= render Tui::SyncIndicatorComponent.new(state: sync_state, target: sync_target) %>
+    <%= render Tui::SyncIndicatorComponent.new(state: sync_state) %>
     <span class="sb-pipe">|</span>
     <%= render Tui::SidekiqStatsComponent.new(
       busy: sidekiq_stats[:busy],

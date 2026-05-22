@@ -80,9 +80,18 @@ en:
         cycle: "Tab cycle"
         run: "Enter run"
         close: "Esc close"
+    # 2026-05-22 — Phase 2E. Mode lozenge canonical i18n root.
+    # `tui.bst.mode.*` retained below as a deprecated alias for any
+    # legacy reader that hasn't been migrated yet.
+    mode:
+      normal: "normal"
+      insert: "insert"
+      command: "command"
+      search: "search"
     bst:
       mode:
         normal: "normal"
+        insert: "insert"
         command: "command"
         search: "search"
       screens:

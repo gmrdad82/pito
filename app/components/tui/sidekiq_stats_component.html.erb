@@ -1,10 +1,9 @@
-<span class="sb-sidekiq"
+<span class="tui-sidekiq-row sb-sidekiq"
       data-controller="tui-sidekiq-stats"
-      data-tui-sidekiq-stats-busy-prefix-value="<%= prefix_for("b") %>"
-      data-tui-sidekiq-stats-enqueued-prefix-value="<%= prefix_for("e") %>"
-      data-tui-sidekiq-stats-retry-prefix-value="<%= prefix_for("r") %>"
       data-tui-status-bar-target="sidekiq">
-  <span class="<%= cell_class_for("b") %>" data-tui-sidekiq-stats-target="busy" data-tui-status-bar-target="<%= target_for("b") %>"><%= prefix_for("b") %><%= value_for("b") %></span>
-  <span class="<%= cell_class_for("e") %>" data-tui-sidekiq-stats-target="enqueued" data-tui-status-bar-target="<%= target_for("e") %>"><%= prefix_for("e") %><%= value_for("e") %></span>
-  <span class="<%= cell_class_for("r") %>" data-tui-sidekiq-stats-target="retry" data-tui-status-bar-target="<%= target_for("r") %>"><%= prefix_for("r") %><%= value_for("r") %></span>
+  <% cells.each do |cell| %>
+    <%= content_tag :span,
+          class: "tui-sidekiq-cell sb-sk-cell",
+          data: cell_data(cell) do %><span class="cell-prefix"><%= cell[:prefix] %></span><%= display_value(cell[:value]) %><% end %>
+  <% end %>
 </span>

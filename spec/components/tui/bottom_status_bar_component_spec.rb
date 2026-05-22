@@ -44,19 +44,20 @@ RSpec.describe Tui::BottomStatusBarComponent, type: :component do
     expect(page).to have_css("a.bsb-section.bsb-section--current", text: I18n.t("tui.bst.screens.videos"))
   end
 
-  it "forwards mode to the mode lozenge" do
+  it "forwards mode to the mode lozenge (renders i18n word for the mode)" do
     render_inline(described_class.new(current_section: "home", mode: :search))
-    expect(page).to have_css("span.bsb-mode.bsb-mode--search")
+    expect(page).to have_css("span.bsb-mode")
+    expect(page.find("span.bsb-mode")["data-tui-transition-value-value"]).to eq(I18n.t("tui.mode.search"))
   end
 
   it "defaults mode to :normal" do
     render_inline(component)
-    expect(page).to have_css("span.bsb-mode.bsb-mode--normal")
+    expect(page.find("span.bsb-mode")["data-tui-transition-value-value"]).to eq(I18n.t("tui.mode.normal"))
   end
 
   it "falls back to :normal for unrecognised mode" do
     render_inline(described_class.new(current_section: "home", mode: :bogus))
-    expect(page).to have_css("span.bsb-mode.bsb-mode--normal")
+    expect(page.find("span.bsb-mode")["data-tui-transition-value-value"]).to eq(I18n.t("tui.mode.normal"))
   end
 
   it "does not produce translation missing strings" do

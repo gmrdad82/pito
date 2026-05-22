@@ -1,74 +1,67 @@
 import { Controller } from "@hotwired/stimulus"
 
-// Beta 4 — Phase F1 child controller for `Tui::DateTimeComponent`.
-// Ticks once per second to keep the wall clock current. The visible
-// string is `Fri, May 22 · 01:30:46`; the day rolls over silently at
-// midnight (just whatever the next 1Hz tick renders), no animation.
-//
-// (2026-05-22 — the original midnight scramble effect that ran for
-// ~500ms at every 00:00:00 local rollover was deleted. User decided
-// the animation was unnecessary; the clock simply ticks forward and
-// the date label updates on the next tick after midnight.)
-//
-// Lifecycle:
-//   connect()    — render once, schedule 1Hz tick
-//   tick()       — re-render once per second
-//   disconnect() — clear the 1Hz timer
-//
-// 2026-05-22 — Now also reacts to `tui:notifications-changed` (document
-// event, fanned out by `tui-status-bar` on the `notifications` kind).
-// When `future_count > 0` the root span gains the
-// `.dt-has-future-notif` class so its text color flips to the Home
-// section accent (Dracula Purple). When `future_count === 0` the class
-// is removed and the clock returns to the default muted color. The
-// listener is registered via Stimulus `data-action` wiring in the
-// template (declarative, no manual addEventListener needed).
+/**
+ * tui-date-time — thin delegator (Phase 2C, 2026-05-22).
+ *
+ * Owns:
+ *   - 1Hz local tick that pushes the new formatted time into the
+ *     colocated `tui-transition` outlet via `setValue(...)`. The
+ *     diff-only scramble in `tui-transition` means only the chars that
+ *     changed animate — the static colons and unchanged digits stay put.
+ *   - `tui:notifications-changed` document-event listener that flips
+ *     the outlet's color between "muted" (default) and "accent" (when
+ *     `event.detail.future_count > 0`).
+ *
+ * Format shape MUST mirror `Tui::DateTimeComponent.format(time)` in
+ * Ruby — otherwise the very first tick after SSR would diff every char
+ * and the whole string would scramble. Format: `mon may 22 12:34:56`.
+ *
+ * Lifecycle:
+ *   connect()    — register listener, schedule 1Hz tick
+ *   tick()       — push current value into outlet
+ *   disconnect() — drop listener + clear interval
+ *
+ * Outlets:
+ *   tui-transition — the colocated canonical animator on the same span.
+ */
 export default class extends Controller {
-  static WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
-  static MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-  static FUTURE_NOTIF_CLASS = "dt-has-future-notif"
+  static outlets = ["tui-transition"]
+  static WEEKDAYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"]
+  static MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"]
 
   connect() {
-    this.render(new Date())
-    this.tickTimer = setInterval(() => this.tick(), 1000)
+    this._boundNotif = this.onNotificationsChanged.bind(this)
+    document.addEventListener("tui:notifications-changed", this._boundNotif)
+    this._tickHandle = setInterval(() => this.tick(), 1000)
   }
 
   disconnect() {
-    if (this.tickTimer) {
-      clearInterval(this.tickTimer)
-      this.tickTimer = null
-    }
-  }
-
-  // Stimulus action handler — wired via `data-action` in the template:
-  //   tui:notifications-changed@document->tui-date-time#onNotificationsChanged
-  // Toggles the future-notification color class based on the broadcast
-  // count. A missing / non-numeric / negative count is treated as 0
-  // (no purple).
-  onNotificationsChanged(event) {
-    const ctor = this.constructor
-    const raw = event?.detail?.future_count
-    const count = Number(raw)
-    const hasFuture = Number.isFinite(count) && count > 0
-    if (hasFuture) {
-      this.element.classList.add(ctor.FUTURE_NOTIF_CLASS)
-    } else {
-      this.element.classList.remove(ctor.FUTURE_NOTIF_CLASS)
+    document.removeEventListener("tui:notifications-changed", this._boundNotif)
+    if (this._tickHandle) {
+      clearInterval(this._tickHandle)
+      this._tickHandle = null
     }
   }
 
   tick() {
-    this.render(new Date())
+    if (!this.hasTuiTransitionOutlet) return
+    this.tuiTransitionOutlet.setValue(this.formatNow())
   }
 
-  render(now) {
+  onNotificationsChanged(event) {
+    if (!this.hasTuiTransitionOutlet) return
+    const raw = event?.detail?.future_count
+    const count = Number.parseInt(raw || 0, 10)
+    this.tuiTransitionOutlet.setColor(Number.isFinite(count) && count > 0 ? "accent" : "muted")
+  }
+
+  formatNow() {
+    const now = new Date()
     const ctor = this.constructor
-    const weekday = ctor.WEEKDAYS[now.getDay()]
-    const month = ctor.MONTHS[now.getMonth()]
+    const wd = ctor.WEEKDAYS[now.getDay()]
+    const mo = ctor.MONTHS[now.getMonth()]
     const day = now.getDate()
-    const hh = String(now.getHours()).padStart(2, "0")
-    const mm = String(now.getMinutes()).padStart(2, "0")
-    const ss = String(now.getSeconds()).padStart(2, "0")
-    this.element.textContent = `${weekday}, ${month} ${day} · ${hh}:${mm}:${ss}`
+    const pad = (n) => String(n).padStart(2, "0")
+    return `${wd} ${mo} ${day} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`
   }
 }

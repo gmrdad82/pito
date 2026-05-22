@@ -35,9 +35,11 @@ import { Controller } from "@hotwired/stimulus"
  *     scramble → instant set; color → instant class swap; shimmer → no-op.
  *
  * Kind detection (CSS-class on host):
- *   .tui-sync-word     → sync     (accent default; .is-muted / .is-pink)
- *   .tui-date-time     → datetime (muted default; .is-notif)
- *   .tui-sidekiq-cell  → sidekiq  (muted default; .is-busy / .is-enqueued / .is-retry)
+ *   .tui-sync-word     → sync       (accent default; .is-muted / .is-pink)
+ *   .tui-date-time     → datetime   (muted default; .is-notif)
+ *   .tui-sidekiq-cell  → sidekiq    (muted default; .is-busy / .is-enqueued / .is-retry)
+ *   .sb-section        → breadcrumb (accent default; .is-muted)
+ *   .bsb-mode          → mode       (muted default; .is-accent / .is-success / .is-danger)
  *
  * @contract see docs/design.md § Transitions, docs/architecture.md § Pito::Transitions
  */
@@ -62,6 +64,16 @@ const COLOR_CLASS = {
     busy:     "is-busy",
     enqueued: "is-enqueued",
     retry:    "is-retry"
+  },
+  breadcrumb: {
+    accent:   "",            // default on .sb-section (section accent in CSS)
+    muted:    "is-muted"
+  },
+  mode: {
+    muted:    "",            // default on .bsb-mode (muted in CSS)
+    accent:   "is-accent",
+    success:  "is-success",
+    danger:   "is-danger"
   }
 }
 
@@ -109,6 +121,8 @@ export default class extends Controller {
     if (this.element.classList.contains("tui-sync-word")) return "sync"
     if (this.element.classList.contains("tui-date-time")) return "datetime"
     if (this.element.classList.contains("tui-sidekiq-cell")) return "sidekiq"
+    if (this.element.classList.contains("sb-section")) return "breadcrumb"
+    if (this.element.classList.contains("bsb-mode")) return "mode"
     return "sync"
   }
 

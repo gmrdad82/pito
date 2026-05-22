@@ -1,51 +1,69 @@
 module Tui
-  # Beta 4 — extracted from `Tui::TopStatusBarComponent` (2026-05-21)
-  # per "ViewComponents are kings" — sub-elements of the top status
-  # bar each get their own VC + spec.
+  # Beta 4 — Phase 2C (2026-05-22). Wires DateTime through the canonical
+  # `Tui::Transitionable` mixin so the per-tick value diff is animated by
+  # `tui-transition` (scramble-settle, diff-only — only the chars that
+  # changed scramble; unchanged digits + the static colon stay put) and
+  # the muted ↔ accent crossfade is driven by an `active_color`.
   #
-  # DateTime cell: `Wed, May 20 · 12:34:56`. The SSR first paint
-  # renders an em-dash placeholder (`—`) because the canonical clock
-  # is the user's local time, ticked client-side by the cable
-  # Stimulus controller at 1Hz. Server time would drift the instant
-  # the page loaded.
+  # Format shape: `mon may 22 12:34:56` (lowercase weekday + month abbrev).
+  # The Ruby `self.format(time)` and the JS `formatNow()` in
+  # `tui_date_time_controller.js` MUST agree on this exact shape so the
+  # SSR first paint and every subsequent client tick produce a stable
+  # diff (otherwise the entire string would scramble on first hydrate).
   #
   # Constructor inputs:
-  #   - time: optional Time / DateTime. When present, the SSR paint
-  #           formats it as `Wed, May 20 · 12:34:56` (still gets
-  #           overwritten by the Stimulus clock the moment the
-  #           controller connects). Defaults to nil → renders `—`.
+  #   - now: a Time / DateTime — defaults to Time.current. The server
+  #          first-paints this; the Stimulus controller takes over at
+  #          connect() and pushes new values into the colocated
+  #          `tui-transition` outlet at 1Hz.
+  #   - future_notifications: integer count of upcoming notifications.
+  #          Positive → color flips to :accent (Home section accent).
+  #          Zero / negative → color stays :muted.
   #
-  # The root span carries `data-tui-status-bar-target="clock"` so
-  # `tui_status_bar_controller.js#updateClock` patches it in place.
+  # The root span carries both `tui-date-time` (the 1Hz tick driver) and
+  # `tui-transition` (the canonical diff-only animator). `tui-date-time`
+  # is an outlet host for `tui-transition` so it can call
+  # `setValue(...)` and `setColor(...)` on its sibling controller.
   #
-  # 2026-05-22 — Now also carries the `tui-date-time` Stimulus controller
-  # which ticks once per second to keep the displayed wall clock
-  # current. The day rollover at 00:00:00 (local) is silent — the next
-  # tick simply renders the new date string. (An earlier iteration ran
-  # a ~500ms digit-scramble effect at every midnight rollover; that
-  # animation was removed 2026-05-22 — the clock simply advances.)
-  # Pairs with the wall-clock tick already managed by
-  # `tui_status_bar_controller.js#updateClock` — both controllers may
-  # coexist during the F1 transition; the child controller is
-  # authoritative once it connects.
+  # Pairs with: `Tui::Transitionable`, `tui_transition_controller.js`,
+  # `tui_date_time_controller.js`, `Tui::TopStatusBarComponent`.
   class DateTimeComponent < ViewComponent::Base
-    WEEKDAYS = %w[Sun Mon Tue Wed Thu Fri Sat].freeze
-    MONTHS   = %w[Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec].freeze
-    PLACEHOLDER = "—".freeze
+    include Tui::Transitionable
 
-    def initialize(time: nil)
-      @time = time
+    WEEKDAYS = %w[sun mon tue wed thu fri sat].freeze
+    MONTHS   = %w[jan feb mar apr may jun jul aug sep oct nov dec].freeze
+
+    def initialize(now: Time.current, future_notifications: 0)
+      @now = now
+      @future_notifications = future_notifications.to_i
     end
 
-    def formatted
-      return PLACEHOLDER if @time.nil?
+    def current_value
+      self.class.format(@now)
+    end
 
-      weekday = WEEKDAYS[@time.wday]
-      month   = MONTHS[@time.month - 1]
-      hh = format("%02d", @time.hour)
-      mm = format("%02d", @time.min)
-      ss = format("%02d", @time.sec)
-      "#{weekday}, #{month} #{@time.day} · #{hh}:#{mm}:#{ss}"
+    # Canonical format shape. JS mirrors this exactly in `formatNow()`.
+    def self.format(time)
+      weekday = WEEKDAYS[time.wday]
+      month   = MONTHS[time.month - 1]
+      hh = Kernel.format("%02d", time.hour)
+      mm = Kernel.format("%02d", time.min)
+      ss = Kernel.format("%02d", time.sec)
+      "#{weekday} #{month} #{time.day} #{hh}:#{mm}:#{ss}"
+    end
+
+    def transitionable_data
+      transitionable_attrs(
+        value: current_value,
+        color: notif_color,
+        active_color: :accent
+      )
+    end
+
+    private
+
+    def notif_color
+      @future_notifications.positive? ? :accent : :muted
     end
   end
 end
