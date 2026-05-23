@@ -62,8 +62,16 @@ module Pito
         AppSetting.reindex_running?
       end
 
+      # FB-167 (2026-05-23) — inlined from `SettingsHelper#stack_reindex_focusables`
+      # for the same reason as the Meilisearch sub-panel: parent
+      # aggregation (`Pito::StackPanelComponent#focusable_keys`)
+      # instantiates this VC in Ruby, so `helpers.*` raises
+      # `HelpersCalledBeforeRenderError`. The helper was pure logic
+      # (`running ? [] : [{...}]`); inlining preserves behavior.
       def focusables
-        helpers.stack_reindex_focusables(running: reindex_running?)
+        return [] if reindex_running?
+
+        [ { key: "reindex", style: :action } ]
       end
 
       def state

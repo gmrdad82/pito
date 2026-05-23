@@ -838,6 +838,7 @@ button.bracketed .bl {
 .home-row--3col   { grid-template-columns: 1fr 1fr 1fr; }
 .home-row--50-50  { grid-template-columns: 1fr 1fr; }
 .home-row--60-40  { grid-template-columns: 6fr 4fr; }
+.home-row--40-60  { grid-template-columns: 4fr 6fr; }
 .home-row--4col   { grid-template-columns: 1fr 1fr 1fr 1fr; }
 
 /* Row 3 right column — vertical flex stack with content-driven heights.

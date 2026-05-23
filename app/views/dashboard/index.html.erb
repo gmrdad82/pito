@@ -6,7 +6,7 @@
 <%# Phase 2D (2026-05-23) — home screen layout shell.
     Locked C3 + masonry row 3 grid:
       Row 1 (3 cols, 1fr 1fr 1fr): Channels overview | Latest videos | Games releasing
-      Row 2 (60/40, 6fr 4fr):       Calendar | Notifications feed
+      Row 2 (40/60, 4fr 6fr):       Notifications feed | Calendar (Calendar still at 60%, just on the right)
       Row 3 (60/40, 6fr 4fr):       Stack | (Notifications settings on top, Security on bottom)
     Hard rule: full-width rows are NEVER allowed. No panel ever spans an
     entire row alone. The right column of row 3 is a vertical flex stack
@@ -19,10 +19,12 @@
     <%= render Pito::GamesReleasingPanelComponent.new %>
   </div>
 
-  <%# Row 2 — 60/40: Calendar dominates left, Notifications feed right %>
-  <div class="home-row home-row--60-40">
-    <%= render Pito::CalendarPanelComponent.new %>
+  <%# Row 2 — 40/60: NotifFeed left (4fr), Calendar right (6fr; still 60% of the row).
+      Per user 2026-05-23 — Calendar stays at 60% of row width but on the right;
+      Notifications feed moves left at 40%. %>
+  <div class="home-row home-row--40-60">
     <%= render Pito::NotificationsFeedPanelComponent.new %>
+    <%= render Pito::CalendarPanelComponent.new %>
   </div>
 
   <%# Row 3 — 60/40 with masonry right column.
