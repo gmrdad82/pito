@@ -1179,6 +1179,19 @@ tr[data-tui-focusable-focused="yes"] > th {
   color: var(--section-accent);
 }
 
+/* FB-NESTED-FOCUS (2026-05-23) — when a panel is focused AND contains a
+   focused sub-panel, drop the panel's accent border + title accent so
+   only the inner sub-panel carries the visual accent. Avoids the double-
+   accent noise (Stack outer + Meilisearch sub-panel both glowing). The
+   `:has()` selector is supported in Chrome 105+ / Firefox 121+ /
+   Safari 15.4+ — all browsers pito targets. */
+.pito-pane[data-tui-cursor-focused="yes"]:has([data-tui-cursor-sub-panel-focused="yes"]) {
+  border-color: var(--color-border);
+}
+.pito-pane[data-tui-cursor-focused="yes"]:has([data-tui-cursor-sub-panel-focused="yes"]) .pito-pane__title {
+  color: var(--color-muted);
+}
+
 /* FB-101 (2026-05-20) — TST breadcrumb sub-panel rendering.
    When a sub-panel is focused the breadcrumb expands from `<panel>`
    to `<panel>:(<sub-panel>)`. The panel name + parens render in a
@@ -6624,13 +6637,24 @@ dialog:focus-visible {
    security / stack). Vertical-only padding per FB-78 / FB-105 — outer
    panel border owns horizontal inset; fieldset border is suppressed.
    `min-width: 0` prevents the legacy fieldset content blow-out when
-   children include long monospace strings. */
+   children include long monospace strings.
+   FB-SCROLL-INDICATOR (2026-05-23) — `position: relative` anchors the
+   absolutely-positioned `Tui::ScrollIndicatorComponent` ▲/▼ glyphs that
+   auto-mount inside every fieldset. `overflow-y: auto` lets long panel
+   bodies (security sessions table / notifications form / stack tiles)
+   scroll within the cell while the panel chrome stays fixed. Native
+   scrollbar is suppressed below by the existing scrollbar-suppression
+   rules — only the cursor-driven ▲/▼ indicator affords scroll. */
 .tui-panel-fieldset {
+  position: relative;
   padding: 8px 0;
   border: none;
   margin: 0;
   min-width: 0;
+  overflow-y: auto;
+  scrollbar-width: none;
 }
+.tui-panel-fieldset::-webkit-scrollbar { display: none; }
 
 /* ===== Tui::ConfirmationDialogComponent =====
    FB-124 (2026-05-21). Canonical confirmation dialog. Built on
@@ -6908,11 +6932,23 @@ body.keyboard-only * {
 .tt-char.is-leaving    { animation: tt-fade-out 200ms ease both; }
 /* 2026-05-23 — Generic per-segment color hooks for tt-char cells. The
    segments JSON's `color` field is written as `is-<color>` per cell by
-   applySegments(). New "accent-pale" color tier (washed-out home-accent
-   purple) used by Tui::BreadcrumbComponent's panel_title segment so the
-   panel name reads "soft brand-family" against the un-segmented ":(" / ")"
-   delimiters that inherit the host accent-pale color. */
+   applySegments(). The complete palette is mirrored at the cell level so
+   any VC's segments_json can pick from the full semantic palette without
+   per-VC CSS additions.
+
+   Why generic + flat (not scoped per-VC): an `is-<color>` class on a cell
+   should resolve to the same `--color-<color>` token everywhere. The
+   sidekiq stats CSS adds its OWN scoped rules under `.tui-sidekiq-stats`
+   for historical reasons (they predate this generic block); both can
+   co-exist since the scoped selectors win specificity but emit the same
+   resolved color. */
+.tt-char.is-muted       { color: var(--color-muted); }
+.tt-char.is-accent      { color: var(--section-accent-home); }
 .tt-char.is-accent-pale { color: var(--color-accent-pale); }
+.tt-char.is-success     { color: var(--color-success); }
+.tt-char.is-warn        { color: var(--color-warn); }
+.tt-char.is-danger      { color: var(--color-danger); }
+.tt-char.is-fatal       { color: var(--color-fatal); }
 @keyframes tt-fade-in  { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes tt-fade-out { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(3px); } }
 
