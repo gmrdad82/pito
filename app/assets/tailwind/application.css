@@ -823,11 +823,21 @@ button.bracketed .bl {
 .home-grid {
   display: grid;
   grid-template-columns: 1fr;
-  grid-template-rows: 1fr 1fr 1fr;       /* equal thirds; user may revisit */
+  /* `minmax(0, 1fr)` instead of bare `1fr` because grid rows default to
+     `minmax(auto, 1fr)` — any row whose CONTENT has an intrinsic minimum
+     height (e.g. `.pito-pane` title-on-border chrome) blows past the
+     1/3 fair share and squashes the other rows. `minmax(0, 1fr)` clamps
+     the minimum at 0, so all three rows truly share equally. */
+  grid-template-rows: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
   gap: 12px;
   padding: 12px;
   width: 100%;
-  height: 100%;
+  /* `flex: 1` so home-grid expands to fill <main>'s flex-column height
+     (main has `min-height: calc(100vh - 44px)`). Previously used
+     `height: 100%` which only resolves when the parent has a DEFINITE
+     height — main is `min-height` not `height`, so 100% was undefined
+     and the grid collapsed to content height. */
+  flex: 1;
   min-height: 0;                          /* let grid clamp */
   box-sizing: border-box;
 }
@@ -836,6 +846,9 @@ button.bracketed .bl {
   display: grid;
   gap: 12px;
   min-height: 0;                          /* let row clamp */
+  /* Same minmax(0, 1fr) clamp needed for the row's own children — the
+     panel chrome inside has intrinsic min-height too. */
+  grid-auto-rows: minmax(0, 1fr);
 }
 
 .home-row--3col   { grid-template-columns: 1fr 1fr 1fr; }
