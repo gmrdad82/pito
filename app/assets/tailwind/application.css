@@ -832,14 +832,20 @@ button.bracketed .bl {
   gap: 12px;
   padding: 12px;
   width: 100%;
-  /* `flex: 1` so home-grid expands to fill <main>'s flex-column height
-     (main has `min-height: calc(100vh - 44px)`). Previously used
-     `height: 100%` which only resolves when the parent has a DEFINITE
-     height — main is `min-height` not `height`, so 100% was undefined
-     and the grid collapsed to content height. */
+  /* Hard cap at viewport height minus TST + BST (each 22px). <main>
+     uses `min-height` not `height`, so it can grow past the viewport if
+     children request more vertical space. `flex: 1` would just grow
+     with it — `max-height: calc(100vh - 44px)` is the explicit cap that
+     forces the grid (and its `minmax(0, 1fr)` rows) to share the
+     visible area equally. `flex: 1` stays so the grid expands to fill
+     any leftover space in main. `overflow: hidden` prevents the grid
+     content from poking past the cap on edge browsers. */
   flex: 1;
-  min-height: 0;                          /* let grid clamp */
+  height: calc(100vh - 44px);
+  max-height: calc(100vh - 44px);
+  min-height: 0;
   box-sizing: border-box;
+  overflow: hidden;
 }
 
 .home-row {
