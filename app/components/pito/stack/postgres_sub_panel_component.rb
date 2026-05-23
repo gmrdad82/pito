@@ -22,8 +22,14 @@ module Pito
     #
     # ## Focusables
     #
-    # None. The sub-panel is purely informational; no `[reindex]` /
-    # action element to focus.
+    # - `postgres` (style: :inert) — a single inert focusable on the
+    #   sub-panel root so the cursor can LAND on the Postgres sub-panel
+    #   during h/l traversal of the Stack panel. No action fires on
+    #   Enter/Space; the focusable just gives the cursor a stop in
+    #   the flat focusables list so `syncSubPanelFromFocusable` snaps
+    #   the visible sub-panel border accent to Postgres. Without this
+    #   stop, h/l would skip Postgres entirely (it has no reindex /
+    #   action to focus). FB-187 (2026-05-23).
     #
     # ## Composes
     #
@@ -40,8 +46,11 @@ module Pito
 
       attr_reader :status, :table_breakdown
 
+      # Returns a single inert focusable on the sub-panel root so the
+      # cursor lands on Postgres during h/l traversal across the Stack
+      # panel's 2x2 sub-panel grid. Inert = no Enter/Space action fires.
       def focusables
-        []
+        [ { key: "postgres", style: :inert } ]
       end
 
       def state

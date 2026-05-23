@@ -24,7 +24,14 @@ module Pito
     #
     # ## Focusables
     #
-    # None. Purely informational sub-panel; no `[reindex]` action.
+    # - `assets` (style: :inert) — a single inert focusable on the
+    #   sub-panel root so the cursor can LAND on the Assets sub-panel
+    #   during h/l traversal across the Stack panel. No action fires on
+    #   Enter/Space; the focusable gives the cursor a stop in the flat
+    #   focusables list so `syncSubPanelFromFocusable` snaps the visible
+    #   sub-panel border accent to Assets. Without this stop, h/l would
+    #   skip Assets entirely (it has no `[reindex]` / action to focus).
+    #   FB-187 (2026-05-23).
     #
     # ## Composes
     #
@@ -41,8 +48,11 @@ module Pito
 
       attr_reader :storage_status, :breakdown
 
+      # Returns a single inert focusable on the sub-panel root so the
+      # cursor lands on Assets during h/l traversal across the Stack
+      # panel's 2x2 sub-panel grid. Inert = no Enter/Space action fires.
       def focusables
-        []
+        [ { key: "assets", style: :inert } ]
       end
 
       def state

@@ -355,6 +355,58 @@ Key labels live in `config/locales/keybindings/en.yml`.
 Per-panel keybinds live in the panel's VC `keybinds` method, exported
 to i18n for TUI sharing.
 
+### Spatial Ctrl-hjkl navigation (locked 2026-05-23)
+
+When the user presses Ctrl-h / Ctrl-j / Ctrl-k / Ctrl-l, the
+`tui_cursor_controller` picks the next panel based on each panel's
+`getBoundingClientRect()`. The algorithm is **purely geometric** — it
+does not look at DOM order, panel index, sub-panel structure, or any
+other domain hint. The 4 steps:
+
+1. **Direction gate.** A candidate panel must lie in the requested
+   direction relative to the focused panel's center:
+   - Ctrl-h (left):  `candidate.center.x < focused.center.x`
+   - Ctrl-l (right): `candidate.center.x > focused.center.x`
+   - Ctrl-k (up):    `candidate.center.y < focused.center.y`
+   - Ctrl-j (down):  `candidate.center.y > focused.center.y`
+
+   A 1-pixel epsilon (`> 1` / `< -1`) defends against floating-point
+   noise on perfectly co-linear centers.
+
+2. **Score each surviving candidate.**
+   - `primary`   = absolute distance along the direction axis
+   - `secondary` = absolute distance along the orthogonal axis
+   - `score = primary * 3 + secondary`
+   - Lower score wins.
+
+3. **Tiebreak by DOM order.** If two candidates score identically, the
+   one that appears first in `panelTargets` (document order) wins.
+
+4. **No edge wrap.** If no candidate survives the direction gate, the
+   focus stays put — vim convention; the user can mash Ctrl-j at the
+   bottom edge without falling off.
+
+The **3:1 primary weighting** ensures the IMMEDIATE next row/column
+always wins over a far-away panel with better orthogonal alignment.
+Worked example (Home screen, 8 panels):
+
+- From `games-releases` (row 1, col 3), Ctrl-j must reach `calendar`
+  (row 2, ~60% column) — even though `notifications-settings`
+  (row 3, right column) is almost perfectly column-aligned. Calendar
+  is in the next row; primary*3 dominates.
+- From `notifications-settings` (row 3 right), Ctrl-k reaches
+  `calendar` (row 2 right). Symmetric with the down case.
+- From `calendar` (row 2 right), Ctrl-k reaches `games-releases`
+  (row 1 col 3) — DOM-order tiebreaks against `latest-videos` since
+  both row-1 panels are equidistant by primary.
+
+**Same algorithm runs in Ratatui** (TUI parity): panel `Rect`
+positions are fed through the same scoring formula. New screens
+inherit correct spatial nav for free — no per-screen hardcoding.
+
+Truth table + Ruby port live in
+`spec/javascript/tui_cursor_spatial_nav_spec.rb`.
+
 ## Focusables (the cursor model)
 
 Each panel exposes an ordered Ruby array of focusables via its `#focusables`

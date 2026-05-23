@@ -1,6 +1,6 @@
 <%# Pito::Stack::PostgresSubPanelComponent — PostgreSQL sub-panel
     inside the stack panel on Home. FB-63-V4 — V4 title-in-border. %>
-<%= render Tui::SubPanelComponent.new(title: t("settings.stack.postgres")) do |c| %>
+<%= render Tui::SubPanelComponent.new(title: t("settings.stack.postgres"), focusable_key: "postgres") do |c| %>
   <% c.with_actions do %>
     <%= render Tui::ChipComponent.new(label: chip[:chip_label], variant: chip[:chip_variant]) %>
   <% end %>

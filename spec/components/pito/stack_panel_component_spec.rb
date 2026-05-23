@@ -139,6 +139,63 @@ RSpec.describe Pito::StackPanelComponent, type: :component do
     end
   end
 
+  describe "#focusable_keys (FB-187 — Postgres + Assets reachable via h/l)" do
+    before do
+      # Stub the reindex-running check so Meilisearch + Voyage emit their
+      # `[reindex]` focusables (idle state).
+      allow(AppSetting).to receive(:reindex_running?).and_return(false)
+      allow(AppSetting).to receive(:voyage_configured?).and_return(true)
+    end
+
+    it "aggregates all four sub-panel focusables in row-major declaration order" do
+      keys = component.focusable_keys
+      expect(keys).to eq([ "reindex", "reindex", "postgres", "assets" ])
+    end
+
+    it "includes both action-bearing sub-panels (meilisearch + voyage reindex)" do
+      expect(component.focusable_keys.count("reindex")).to eq(2)
+    end
+
+    it "includes both action-less sub-panels (postgres + assets) so h/l can land on them" do
+      expect(component.focusable_keys).to include("postgres", "assets")
+    end
+  end
+
+  describe "rendered sub-panel root focusables (FB-187)" do
+    subject(:rendered) do
+      allow(AppSetting).to receive(:reindex_running?).and_return(false)
+      allow(AppSetting).to receive(:voyage_configured?).and_return(true)
+      render_inline(component)
+    end
+
+    it "emits data-tui-focusable on the Postgres sub-panel root" do
+      sub_panel = rendered.css(".pito-sub-panel").find { |el| el["data-tui-focusable"] == "postgres" }
+      expect(sub_panel).to be_present
+      expect(sub_panel["data-tui-focusable-key"]).to eq("postgres")
+      expect(sub_panel["data-tui-cursor-target"]).to eq("sub-panel")
+    end
+
+    it "emits data-tui-focusable on the Assets sub-panel root" do
+      sub_panel = rendered.css(".pito-sub-panel").find { |el| el["data-tui-focusable"] == "assets" }
+      expect(sub_panel).to be_present
+      expect(sub_panel["data-tui-focusable-key"]).to eq("assets")
+      expect(sub_panel["data-tui-cursor-target"]).to eq("sub-panel")
+    end
+
+    it "does NOT emit data-tui-focusable on action-bearing Meilisearch sub-panel root " \
+       "(the [reindex] action carries the focusable)" do
+      meili = rendered.css(".pito-sub-panel").find { |el| el.text.include?(I18n.t("settings.stack.meilisearch")) }
+      expect(meili).to be_present
+      expect(meili["data-tui-focusable"]).to be_nil
+    end
+
+    it "does NOT emit data-tui-focusable on action-bearing Voyage sub-panel root" do
+      voyage = rendered.css(".pito-sub-panel").find { |el| el.text.include?(I18n.t("settings.voyage.heading")) }
+      expect(voyage).to be_present
+      expect(voyage["data-tui-focusable"]).to be_nil
+    end
+  end
+
   describe "constructor contract (Redis sub-panel dropped 2026-05-23)" do
     it "does not accept the legacy redis_status kwarg" do
       kwargs = described_class.instance_method(:initialize).parameters.map(&:last)

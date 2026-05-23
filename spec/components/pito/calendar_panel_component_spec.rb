@@ -102,6 +102,29 @@ RSpec.describe Pito::CalendarPanelComponent, type: :component do
     end
   end
 
+  describe "#focusables (FB-187 — view toggle reachable inside the panel)" do
+    let(:component) { described_class.new }
+
+    it "returns the month + schedule keys in declaration order" do
+      expect(component.focusables).to eq(%w[month schedule])
+    end
+
+    it "matches the data-tui-focusable-key attrs emitted by the view toggle buttons" do
+      toggle_keys = rendered.css(".tui-view-toggle button").map { |b| b["data-tui-focusable-key"] }
+      expect(toggle_keys).to eq(component.focusables)
+    end
+
+    it "wires both toggle buttons as data-tui-focusable so the cursor controller picks them up" do
+      focusables = rendered.css("[data-tui-focusable]")
+      keys = focusables.map { |el| el["data-tui-focusable-key"] }
+      expect(keys).to include("month", "schedule")
+    end
+
+    it "emits the panel-level focusables data attr so the TUI parity contract reads both keys" do
+      expect(root["data-tui-panel-focusables-value"]).to eq("month,schedule")
+    end
+  end
+
   describe "PANEL_NAME" do
     it "matches the canonical Pito::PanelChannel allowlist entry" do
       expect(described_class::PANEL_NAME).to eq(:calendar)

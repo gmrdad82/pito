@@ -56,8 +56,11 @@ import { Controller } from "@hotwired/stimulus"
 //                          picks the nearest panel in the requested
 //                          direction by panel bounding rect (no edge
 //                          wrap). Direction-gated scoring weights
-//                          orthogonal-axis distance × 3 and primary-axis
-//                          distance × 1, so axis-aligned neighbors win.
+//                          PRIMARY-axis (along-direction) distance × 3 and
+//                          SECONDARY-axis (orthogonal) distance × 1, so the
+//                          immediate next row/column always wins over a
+//                          far-away column-aligned panel. Locked 2026-05-23
+//                          to fix the games-releases ↓ skip-Calendar bug.
 //                          Ratatui Layout parity: the Rust TUI mirrors
 //                          this exact formula.
 //                          TAB / Shift-TAB stay sequential — Ctrl-hjkl
@@ -484,10 +487,21 @@ export default class extends Controller {
 
   // Spatial neighbor traversal — chooses the nearest panel in the requested
   // direction by bounding rect (Ctrl-h/j/k/l). Direction-gated; no edge wrap.
-  // Scoring weights orthogonal-axis distance × 3 and primary-axis distance × 1,
-  // so panels aligned along the move axis win over off-axis distractions.
+  //
+  // Scoring weights PRIMARY-axis distance × 3 and SECONDARY-axis distance × 1,
+  // so the IMMEDIATE next row/column always wins over a far-away panel with
+  // better orthogonal alignment. Secondary distance breaks ties among
+  // equidistant primary candidates. Final tiebreak: DOM order.
+  //
+  // Example fix (locked 2026-05-23): Ctrl-j from `games-releases` (row 1)
+  // must reach `calendar` (row 2) even though `notifications-settings`
+  // (row 3 right) is more column-aligned with the focused panel — calendar
+  // is in the next row, so primary*3 wins.
+  //
   // Ratatui Layout parity (TUI): the Rust client mirrors this exact scoring
-  // formula on panel Rect positions.
+  // formula on panel Rect positions. See docs/design.md §Spatial Ctrl-hjkl
+  // navigation. The Ruby port + truth table live in
+  // `spec/javascript/tui_cursor_spatial_nav_spec.rb`.
   movePanelDirection(dir) {
     const panels = this.panelTargets
     if (panels.length === 0) return
@@ -520,9 +534,11 @@ export default class extends Controller {
       }
       if (!inDirection) return
 
-      // Score: weight secondary heavily so we prefer panels aligned on the
-      // orthogonal axis. Primary distance tiebreaks among aligned candidates.
-      const score = secondary * 3 + primary
+      // Score: weight PRIMARY (along-direction) distance heavily so we always
+      // prefer the NEXT row/column over far-away panels with better orthogonal
+      // alignment. Secondary (cross-direction) distance breaks ties among
+      // equidistant primary candidates. See docs/design.md §Spatial Ctrl-hjkl.
+      const score = primary * 3 + secondary
       if (score < bestScore) {
         bestScore = score
         bestIdx = idx

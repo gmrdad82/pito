@@ -1,7 +1,7 @@
-<div class="<%= sub_panel_class %>" data-tui-cursor-target="sub-panel" data-panel-title="<%= title %>">
+<%= content_tag :div, class: sub_panel_class, data: root_data do %>
   <span class="pito-sub-panel__title"><%= title %></span>
   <% if actions? %>
     <span class="pito-sub-panel__actions"><%= actions %></span>
   <% end %>
   <%= content %>
-</div>
+<% end %>

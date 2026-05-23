@@ -2012,10 +2012,30 @@ table.sessions-table th.sortable {
    on hover — kill it for the sessions table too (the bulk-revoke
    checkbox is the real click target; row-wide hover noise is the
    legacy stack pane mode). The hairline-bottom between rows comes
-   from `.tui-table__td`'s own border. */
+   from `.tui-table__td`'s own border.
+
+   2026-05-23 — user reported even body rows reading as "not showing at
+   all" (header + odd row visible, even row blank). The opt-out shares
+   specificity (0,2,2) with the global zebra rule and is declared AFTER
+   it in source order, so source-order cascade resolves the conflict —
+   in theory. In practice the user's screenshot consistently shows the
+   even body row missing, which means SOMETHING (a Tailwind base-layer
+   reset, a parent `<turbo-frame>` paint, a cell-level bg, a panel
+   chrome background swap) is sneaking in between the two rules.
+   Bullet-proof the opt-out: force `!important` on the row bg (and on
+   the cells via `background: transparent !important`) so no
+   downstream rule can override, and reaffirm `color: var(--color-text)`
+   at the cell level so any "color: transparent" / dim-text leak that
+   coincides with the even-row cascade is overridden. The session table
+   reads as a flat grid of dashed hairline rows — no zebra, ever. */
 table.sessions-table tbody tr:nth-child(even),
 table.sessions-table tr:nth-child(even) {
-  background-color: transparent;
+  background-color: transparent !important;
+}
+table.sessions-table tbody tr:nth-child(even) > td,
+table.sessions-table tr:nth-child(even) > td {
+  background-color: transparent !important;
+  color: var(--color-text);
 }
 /* FB-67 (2026-05-20) — global `tr:hover` is gone; keep the
    `.keyboard-highlight` opt-out so keyboard-driven row highlight
@@ -6647,7 +6667,14 @@ dialog:focus-visible {
    rules — only the cursor-driven ▲/▼ indicator affords scroll. */
 .tui-panel-fieldset {
   position: relative;
-  padding: 8px 0;
+  /* FB-SCROLL-FIRST-ROW (2026-05-23) — top padding bumped from 8px to
+     14px so the first focusable row inside the scroll viewport does not
+     sit flush against the `.pito-pane__title` span (positioned at
+     `top: -7px` on the panel border). With overflow-y: auto on the
+     fieldset, `block: "nearest"` scrollIntoView aligns the focused row
+     to the padding box's top edge — the extra 6px above the previous
+     8px keeps the first row visually clear of the title text overhang. */
+  padding: 14px 0 8px;
   border: none;
   margin: 0;
   min-width: 0;
@@ -6961,19 +6988,33 @@ body.keyboard-only * {
 }
 
 /* Tui::ScrollIndicatorComponent — pointer-events: none ▲/▼ overlay glyphs
-   for cursor-driven (not scrollbar-interactive) scroll affordance. */
+   for cursor-driven (not scrollbar-interactive) scroll affordance.
+   FB-SCROLL-STICKY (2026-05-23) — switched from `position: absolute` to
+   `position: sticky` so the indicators stay pinned to the visible
+   viewport edges of the scrolling `.tui-panel-fieldset`. With the prior
+   `absolute` positioning, the ▼ glyph anchored to a reference point
+   that scrolled with the content, landing visually mid-panel instead
+   of flush at the bottom border. `float: right` removes the glyph from
+   inline flow (so it doesn't reserve a content line at the top/bottom
+   of the scroll content) and lets `right` push it against the border.
+   The ▼ glyph also uses `margin-top: -13px` so it occupies the
+   trailing line of the scroll content — the float keeps the row
+   collapsed but the negative top margin pulls it up into the trailing
+   padding region where sticky-bottom can resolve correctly. */
 .tui-scroll-indicator {
-  position: absolute;
-  right: 6px;
+  position: sticky;
+  float: right;
+  right: 2px;
   pointer-events: none;
   opacity: 0;
   transition: opacity 200ms ease-out;
   color: var(--color-muted);
   font-size: 13px;
   line-height: 1;
+  z-index: 2;
 }
-.tui-scroll-indicator--top    { top: 4px; }
-.tui-scroll-indicator--bottom { bottom: 4px; }
+.tui-scroll-indicator--top    { top: 2px; }
+.tui-scroll-indicator--bottom { bottom: 2px; margin-top: -13px; }
 .tui-scroll-indicator--visible { opacity: 1; }
 
 /* Wave 2B (2026-05-23) — Pito::*PanelComponent placeholder shared by all
