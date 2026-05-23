@@ -65,12 +65,25 @@
         </tr>
       </thead>
       <tbody>
-        <tr class="tui-table__row">
+        <%# FB-188 (2026-05-23) — only the embedded-coverage rows
+            (games_embedded + bundles_embedded) participate in j/k
+            focus. The remaining rows below (model, last_indexed,
+            hnsw_indexes, last_24h) are static metric KVs — they
+            stay non-focusable per the V4 sub-panel focus model. %>
+        <tr class="tui-table__row"
+            data-tui-focusable="row_games_embedded"
+            data-tui-focusable-key="row_games_embedded"
+            data-tui-focusable-style="row"
+            data-tui-cursor-target="row">
           <td class="tui-table__td"><%= t("settings.voyage.games_embedded") %></td>
           <td class="tui-table__td tui-table__td--right num"><%= render Tui::SegmentedBarComponent.new(percent: voyage_stats[:coverage_pct].to_f, segments: 10) %><span><%= number_with_delimiter(voyage_stats[:embedded_games_count].to_i) %></span>/<span><%= number_with_delimiter(voyage_stats[:total_games_count].to_i) %></span></td>
         </tr>
         <% if voyage_stats[:total_bundles_count].to_i > 0 %>
-          <tr class="tui-table__row">
+          <tr class="tui-table__row"
+              data-tui-focusable="row_bundles_embedded"
+              data-tui-focusable-key="row_bundles_embedded"
+              data-tui-focusable-style="row"
+              data-tui-cursor-target="row">
             <td class="tui-table__td"><%= t("settings.voyage.bundles_embedded") %></td>
             <td class="tui-table__td tui-table__td--right num"><% if voyage_stats[:bundle_coverage_pct] %><%= render Tui::SegmentedBarComponent.new(percent: voyage_stats[:bundle_coverage_pct].to_f, segments: 10) %><% end %><span><%= number_with_delimiter(voyage_stats[:embedded_bundles_count].to_i) %></span>/<span><%= number_with_delimiter(voyage_stats[:total_bundles_count].to_i) %></span></td>
           </tr>

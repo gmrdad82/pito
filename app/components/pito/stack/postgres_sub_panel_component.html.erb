@@ -17,7 +17,12 @@
         </thead>
         <tbody>
           <% table_breakdown.each do |row| %>
-            <tr class="tui-table__row">
+            <% _row_key = "row_" + row[:label].to_s.parameterize(separator: "_") %>
+            <tr class="tui-table__row"
+                data-tui-focusable="<%= _row_key %>"
+                data-tui-focusable-key="<%= _row_key %>"
+                data-tui-focusable-style="row"
+                data-tui-cursor-target="row">
               <td class="tui-table__td"><%= row[:label] %></td>
               <td class="tui-table__td tui-table__td--right num">
                 <span data-sort-value="<%= row[:count] || -1 %>">

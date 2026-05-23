@@ -57,7 +57,12 @@
               mislead the operator). %>
           <% per_index_stats.each do |row| %>
             <% key = row[:label].to_s.camelize %>
-            <tr class="tui-table__row">
+            <% _row_key = "row_" + row[:label].to_s.parameterize(separator: "_") %>
+            <tr class="tui-table__row"
+                data-tui-focusable="<%= _row_key %>"
+                data-tui-focusable-key="<%= _row_key %>"
+                data-tui-focusable-style="row"
+                data-tui-cursor-target="row">
               <td class="tui-table__td"><%= row[:label] %></td>
               <% if row[:missing] %>
                 <td class="tui-table__td tui-table__td--right num text-muted" colspan="2">

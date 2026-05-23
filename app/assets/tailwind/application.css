@@ -1668,119 +1668,51 @@ table:not(.detail-table) tr.keyboard-highlight {
   background-color: var(--color-bg-hover);
 }
 
-/* Sortable headers.
-   The neutral up/down indicator is drawn by the `::after` pseudo-element
-   on every `th.sortable`. When the column is the active sort, the
-   server-rendered link picks up a `.sort-asc` / `.sort-desc` class (via
-   `ApplicationHelper#sort_link_to`) and the `:has()` rule below swaps
-   the neutral two-glyph stack for a single directional glyph rendered
-   in the SAME pseudo-element. Both states share one rendering pipeline
-   (same absolute-positioned `::after`, same offset, same font sizing),
-   so active and inactive headers line up identically — no stray
-   trailing whitespace, no inline-text glyph drifting next to the label.
-   The legacy `th.sort-asc` / `th.sort-desc` classes (set by the
-   client-side `sortable_table_controller.js` on click) are preserved
-   below for tables that opt into in-page JS sorting (channel + video
-   panes); those replace the neutral indicator entirely so the same
-   one-indicator rule holds. */
+/* V4 sort indicator (locked 2026-05-23, FB-189).
+   The active sort header carries a `border-bottom` whose style encodes
+   direction (solid = ascending, dashed = descending) and whose color is
+   the section accent. NO `::after` pseudo-element, NO glyph, NO arrow
+   reserve. Inactive headers keep the muted 1px hairline from the
+   `.tui-table__th` base. Tracks Ratatui's underline styles for TUI
+   parity (`Modifier::UNDERLINED` + dashed Block border map directly).
+   Reference: V4 variant in `tmp/demo-sortable-arrows.html`.
+   Supersedes FB-14 / FB-110 / FB-132 / FB-142 (all glyph-based attempts
+   removed). The legacy `.sort-asc` / `.sort-desc` classes (set by the
+   client-side `sortable_table_controller.js` on click) AND the
+   server-rendered `<a class="sort-asc">` shape (via
+   `ApplicationHelper#sort_link_to`) both resolve to the same
+   border-bottom rules via `:has()` + bare-class selectors. */
 th.sortable {
   cursor: pointer;
   user-select: none;
   position: relative;
   /* Click-target fix (2026-05-06 polish-3): the entire <th> should sort,
      not just the text. The base `<th>` padding (4px 8px) moves to the
-     inner <a> / <span> below; the th itself goes to padding 0 so the
-     inner element can fill the cell and the rightmost label edge can
-     align with the rightmost value edge (no header-vs-data column
-     drift). Cell padding stays 0; the arrow reserve lives on the
-     inner element instead. */
+     inner <a> / <span> below; the `<th>` itself goes to padding 0 so
+     the inner element fills the cell. Cell padding stays 0; inner
+     element carries symmetric 4px/8px padding (no arrow reserve under
+     V4 — there is no glyph). */
   padding: 0;
 }
-/* Arrow-reserve geometry (2026-05-16 re-fix).
-   The ::after arrow uses `position: absolute; right: 1px; width: 14px`
-   on the `<th>` — so it occupies the rightmost 1–15px of the cell.
-   We need the label's right edge to stop ~7px before the arrow's left
-   edge → label must end >= 22px from the cell's right border.
-   Two DOM shapes flow into this component pair:
+/* Inner anchor / span — fills the cell content box so the entire
+   header click-target is one element. Symmetric 4px/8px padding under
+   V4 (no arrow-reserve column on the right — there is no glyph). Two
+   DOM shapes flow into this rule pair:
      (a) helper-based — `sort_link_to` emits `<th><a>label</a></th>`,
      (b) component-based — `SortableHeaderComponent` emits
-         `<th><span class="sortable-label">label</span></th>`.
-   The previous attempt set `padding-right: 22px` only on
-   `th.sortable > a`, which never matched shape (b), so Stack-pane
-   `.num` labels (`text-align: right` on the `<th>`) slid under the
-   arrow.
-   The fix targets BOTH wrappers with the same right-padding reserve
-   and the same `display: block` fill. The `<span>` wrapper exists
-   solely so the component DOM has an element to attach the reserve
-   to (a bare text node can't be padded). Either wrapper occupies the
-   full cell content box (`display: block`) and ends 22px before its
-   own right edge → label ends 22px from cell border for `.num`
-   columns. The cell itself keeps `padding: 0`, so data values in TD
-   beneath (which inherit base `td` padding) still right-align to the
-   same cell edge whatever the surrounding table prescribes — the
-   header and value column edges don't drift because of this fix. */
+         `<th><span class="sortable-label">label</span></th>`. */
 th.sortable > a,
 th.sortable > .sortable-label {
   display: block;
   padding: 4px 8px;
-  padding-right: 22px;
   text-decoration: none;
   color: inherit;
 }
-th.sortable::after {
-  /* Inactive headers render NO arrow at all (2026-05-20, FB-14 sweep).
-     The slot's geometry (absolute box + 14px width) is still defined
-     here so the active asc/desc overrides below can swap a single
-     directional glyph in without any layout shift — the label's
-     right-padding reserve and the cell's column geometry are
-     unchanged whether the column is active or not. `content` stays
-     empty in the resting state; the active rules below set it to the
-     directional glyph.
-     Color tracks the section accent (the active column reads in the
-     page's identity color) and the weight drops to 400 to match the
-     bracketed-action weight family. */
-  content: "";
-  position: absolute;
-  right: 1px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 14px;
-  font-size: 13px;
-  line-height: 1;
-  text-align: center;
-  color: var(--section-accent);
-  font-weight: 400;
-  /* The indicator sits visually inside the link's right-padding reserve;
-     keep clicks on the indicator passing through to the underlying link
-     so the entire cell behaves as one click target. */
-  pointer-events: none;
-}
-/* FB-67 (2026-05-20) — no hover effect on sortable headers (supersedes
-   FB-4 which already neutralized the slab; this drops the redundant
-   transparent override as part of the universal no-hover sweep). */
-/* FB-132 (2026-05-21) — V4 underline IS the arrow (solid=asc, dashed=desc).
-   The arrow-glyph approach (FB-14 / FB-110) is superseded: instead of
-   painting `\25B2` / `\25BC` in the `::after` pseudo-element, the active
-   sort header carries a `border-bottom` whose style encodes direction
-   (solid = ascending, dashed = descending) and whose color is the
-   section accent. The `::after` slot stays geometrically defined above
-   for layout-shift safety but its `content` is forced empty on the
-   active states so no glyph paints. Tracks Ratatui's underline styles
-   for TUI parity (V4 in `tmp/demo-sortable-arrows.html`). */
-th.sortable:has(> a.sort-asc)::after,
-th.sortable:has(> a.sort-desc)::after,
-th.sort-asc::after,
-th.sort-desc::after {
-  content: "";
-}
-/* FB-110 (2026-05-20) — active sort header LABEL also reads in the
-   section accent so the column identity is signalled by the underline
-   AND the header text color. Inactive sortable headers stay at the
-   default header color (muted via the `.tui-table__th` token). The
-   inner `<a>` already inherits via `th.sortable > a { color: inherit }`
-   above, so setting the color on the `<th>` propagates to the label.
-   Mirrors both URL-driven (`:has(> a.sort-asc)`) and JS-driven
-   (`th.sort-asc` / `th.sort-desc`) active states. */
+/* Active sort header LABEL reads in the section accent. The inner
+   `<a>` / `<span>` inherits via `color: inherit` on the rule above so
+   setting the color on the `<th>` propagates. Mirrors both URL-driven
+   (`:has(> a.sort-asc)`) and JS-driven (`th.sort-asc` / `th.sort-desc`)
+   active states. */
 th.sortable:has(> a.sort-asc),
 th.sortable:has(> a.sort-desc),
 th.sortable.sort-asc,
@@ -1789,42 +1721,24 @@ th.sort-asc,
 th.sort-desc {
   color: var(--section-accent);
 }
-/* FB-132 (2026-05-21) — V4 underline IS the arrow. Solid border-bottom
-   on ascending, dashed border-bottom on descending — painted in section
-   accent. */
-/* FB-142 (2026-05-21) — V4 underline visibility re-fix. Previous attempts
-   painted the border-bottom on the inner `<a>` element with a
-   `margin-bottom` push-up; verified rendered DOM is
-     `<th class="...sortable..."><a class="sort-asc">label</a></th>`
-   (NO `<span class="sortable-label">` wrapper — that shape is for the
-   separate `SortableHeaderComponent` family). The selector
-   `th.sortable > a.sort-asc` was correct and matched, BUT the visual
-   underline was eaten by the `<th>`'s own 1px hairline border-bottom
-   sitting at nearly the same Y — even with margin-bottom: 3px the link
-   border sat too close to the cell border to read as a deliberate
-   indicator (and on tables that compose `.tui-table__th` styling the
-   anchor's display/padding chain made the anchor border slip under the
-   cell border entirely).
-   The fix: paint the underline DIRECTLY ON THE `<th>` itself, replacing
-   the existing 1px color-border hairline with a 2px section-accent
-   border-bottom (solid=asc, dashed=desc) ONLY on the active column.
-   This single-border swap guarantees visibility — no double-border, no
-   margin-bottom contortions, no anchor box-model collisions, no
-   cell-vs-anchor border Y-collision. Inactive columns keep the muted
-   1px hairline from `.tui-table__th` / `th.sortable` base. The full
-   selector spans both rendering shapes (URL-driven `:has(> a.sort-asc)`
-   for `sort_link_to` output AND JS-driven `th.sort-asc` for tables that
-   set the class on the `<th>` directly via `sortable_table_controller`)
-   so the rule covers every active-sort surface in the app. */
+/* V4 underline IS the arrow. Solid border-bottom on ascending, dashed
+   on descending — both painted in section accent at 2px to overpower
+   the muted 1px hairline from `.tui-table__th` base. Single-border swap
+   guarantees visibility (no double-border, no margin contortions, no
+   anchor box-model collisions). Inactive columns keep the muted 1px
+   hairline. The full selector spans both rendering shapes (URL-driven
+   `:has(> a.sort-asc)` for `sort_link_to` output AND JS-driven
+   `th.sort-asc` for tables that set the class on the `<th>` directly
+   via `sortable_table_controller`). */
 th.sortable:has(> a.sort-asc),
 th.sortable.sort-asc,
 th.sort-asc {
-  border-bottom: 1px solid var(--section-accent);
+  border-bottom: 2px solid var(--section-accent);
 }
 th.sortable:has(> a.sort-desc),
 th.sortable.sort-desc,
 th.sort-desc {
-  border-bottom: 1px dashed var(--section-accent);
+  border-bottom: 2px dashed var(--section-accent);
 }
 
 /* Action column — tight, no extra padding */
@@ -1953,23 +1867,11 @@ table.tui-table--stack th.sortable > .sortable-label {
   text-decoration: none;
   color: inherit;
 }
-/* Arrow escapes the cell flow — `position: absolute` lifts it above
-   the header label so the label can sit flush right (or flush left,
-   for `.string` columns) without arrow-reserve padding.
-   2026-05-20 (FB-14) — `color` + `font-weight` reasserted here so the
-   stack-pane / sessions-table sort glyphs always paint in the section
-   accent at weight 400 regardless of which (asc / desc / inactive)
-   `::after` rule resolves last in the cascade. */
-table.tui-table--stack th.sortable::after,
-table.sessions-table th.sortable::after {
-  position: absolute;
-  top: var(--stack-arrow-top);
-  right: var(--stack-arrow-right);
-  transform: none;
-  width: auto;
-  color: var(--section-accent);
-  font-weight: 400;
-}
+/* V4 (locked 2026-05-23, FB-189) — the stack-pane + sessions-table
+   `::after` arrow-positioning override is gone; V4 has no glyph. The
+   active-column underline is painted by the global border-bottom rule.
+   `--stack-arrow-top` / `--stack-arrow-right` tokens (lines ~203) are
+   now unused but kept defined for any third-party callers. */
 /* Sessions table inner anchor: zero its padding entirely so the cell
    padding from the `.sessions-table th.sortable` rule above
    (`1px var(--stack-cell-padding)` = `1px 8px`) is the single source

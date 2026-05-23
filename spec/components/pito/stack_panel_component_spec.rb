@@ -207,4 +207,92 @@ RSpec.describe Pito::StackPanelComponent, type: :component do
       expect(kwargs).not_to include(:sidekiq_breakdown)
     end
   end
+
+  describe "FB-188 (2026-05-23) — data-table row focusables drill INTO the sub-panel" do
+    # The four stack sub-panels each render a sortable data table.
+    # Body rows become flat j/k focusables alongside the sub-panel's
+    # action button (`[reindex]` on Meilisearch + Voyage; nothing on
+    # Postgres + Assets). Voyage's stats table is mixed — only the
+    # embedded-coverage rows (`games_embedded` + `bundles_embedded`)
+    # participate; the static metric KVs (model / last_indexed /
+    # hnsw_indexes / last_24h) stay non-focusable.
+    let(:component) do
+      described_class.new(
+        postgres_status: { connected: true, version: "16.0" },
+        postgres_table_breakdown: [
+          { label: "games",   count: 100, size_bytes: 1024 },
+          { label: "bundles", count:  50, size_bytes:  512 }
+        ],
+        search_healthy: true,
+        search_stats: {},
+        search_per_index_stats: [
+          { label: "games",   documents: 100, size_bytes: 2048 },
+          { label: "bundles", documents:  50, size_bytes:  512, omit_size: true }
+        ],
+        voyage_configured: true,
+        storage_status: { present: true, writable: true },
+        assets_breakdown: [
+          { label: "covers",     file_count: 10, size_bytes: 1024 },
+          { label: "composites", file_count:  5, size_bytes:  512 }
+        ]
+      )
+    end
+
+    before do
+      allow(AppSetting).to receive(:reindex_running?).and_return(false)
+      allow(AppSetting).to receive(:voyage_configured?).and_return(true)
+      # Stub Voyage stats so the partial renders its embedded-coverage rows.
+      allow(Voyage::Stats).to receive(:call).and_return(
+        coverage_pct: 50.0,
+        embedded_games_count: 50,
+        total_games_count: 100,
+        bundle_coverage_pct: 30.0,
+        embedded_bundles_count: 3,
+        total_bundles_count: 10,
+        model: "voyage-3",
+        last_indexed_at: nil,
+        storage_kb: nil,
+        embeddings_last_24h: 0
+      )
+    end
+
+    subject(:rendered) { render_inline(component) }
+
+    it "emits row-level data-tui-focusable on every Postgres breakdown <tr>" do
+      postgres = rendered.css(".pito-sub-panel").find { |el| el["data-tui-focusable"] == "postgres" }
+      rows = postgres.css("tbody tr.tui-table__row")
+      expect(rows.size).to eq(2)
+      expect(rows.map { |r| r["data-tui-focusable"] }).to eq([ "row_games", "row_bundles" ])
+      expect(rows.map { |r| r["data-tui-focusable-style"] }).to all(eq("row"))
+      expect(rows.map { |r| r["data-tui-cursor-target"] }).to all(eq("row"))
+    end
+
+    it "emits row-level data-tui-focusable on every Meilisearch breakdown <tr>" do
+      meili = rendered.css(".pito-sub-panel").find { |el| el.text.include?(I18n.t("settings.stack.meilisearch")) }
+      rows = meili.css("tbody tr.tui-table__row")
+      expect(rows.size).to eq(2)
+      expect(rows.map { |r| r["data-tui-focusable"] }).to eq([ "row_games", "row_bundles" ])
+      expect(rows.map { |r| r["data-tui-focusable-style"] }).to all(eq("row"))
+    end
+
+    it "emits row-level data-tui-focusable on every Assets breakdown <tr>" do
+      assets = rendered.css(".pito-sub-panel").find { |el| el["data-tui-focusable"] == "assets" }
+      rows = assets.css("tbody tr.tui-table__row")
+      expect(rows.size).to eq(2)
+      expect(rows.map { |r| r["data-tui-focusable"] }).to eq([ "row_covers", "row_composites" ])
+      expect(rows.map { |r| r["data-tui-focusable-style"] }).to all(eq("row"))
+    end
+
+    it "emits focusables ONLY on Voyage's embedded-coverage rows (games + bundles); " \
+       "static metric-KV rows (model / last_indexed / hnsw_indexes / last_24h) stay non-focusable" do
+      voyage = rendered.css(".pito-sub-panel").find { |el| el.text.include?(I18n.t("settings.voyage.heading")) }
+      focusable_rows = voyage.css("tbody tr.tui-table__row[data-tui-focusable]")
+      keys = focusable_rows.map { |r| r["data-tui-focusable"] }
+      expect(keys).to eq([ "row_games_embedded", "row_bundles_embedded" ])
+      # Confirm the model row exists in the rendered DOM but is NOT focusable.
+      model_row = voyage.css("tbody tr.tui-table__row").find { |r| r.text.include?("voyage-3") }
+      expect(model_row).to be_present
+      expect(model_row["data-tui-focusable"]).to be_nil
+    end
+  end
 end
