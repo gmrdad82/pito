@@ -38,10 +38,6 @@ module Pito
         { label: "bundles", table: "bundles", class_name: "Bundle" }
       ].freeze
 
-      SIDEKIQ_BREAKDOWN_STATES = %w[
-        processed failed busy scheduled enqueued retry dead
-      ].freeze
-
       ASSETS_CATEGORY_DIRECTORIES = {
         "cover arts" => [ "covers", "games" ],
         "composites" => [ "covers", "bundles" ]
@@ -80,11 +76,9 @@ module Pito
           search_healthy:           search_healthy,
           search_stats:             search_stats,
           postgres_status:          postgres_status_for_settings_pane,
-          redis_status:             redis_status_for_settings_pane,
           search_per_index_stats:   search_per_index_stats_for_settings_pane,
           storage_status:           storage_status_for_settings_pane,
           postgres_table_breakdown: postgres_table_breakdown_for_settings_pane,
-          sidekiq_breakdown:        sidekiq_breakdown_for_settings_pane,
           assets_breakdown:         assets_breakdown_for_settings_pane,
           voyage_configured:        AppSetting.voyage_configured?
         }
@@ -232,35 +226,6 @@ module Pito
       end
 
       # ---------------------------------------------------------------------------
-      # Redis helpers
-      # ---------------------------------------------------------------------------
-
-      def redis_status_for_settings_pane
-        url    = ENV.fetch("REDIS_URL", "redis://127.0.0.1:64527/0")
-        client = Redis.new(url: url, timeout: 0.5, reconnect_attempts: 0)
-        info   = client.info
-        db_size = client.dbsize
-        client.close
-        {
-          connected:         true,
-          version:           info["redis_version"],
-          used_memory_human: info["used_memory_human"],
-          db_size:           db_size,
-          persistence:       redis_persistence_summary(info)
-        }
-      rescue StandardError
-        { connected: false, version: nil, used_memory_human: nil, db_size: nil, persistence: nil }
-      end
-
-      def redis_persistence_summary(info)
-        aof_enabled = info["aof_enabled"].to_s == "1"
-        return "aof" if aof_enabled
-        rdb_changes = info["rdb_changes_since_last_save"]
-        return "rdb" if rdb_changes
-        nil
-      end
-
-      # ---------------------------------------------------------------------------
       # Storage / assets helpers
       # ---------------------------------------------------------------------------
 
@@ -338,32 +303,6 @@ module Pito
         { size_bytes: size, file_count: count }
       rescue StandardError
         { size_bytes: 0, file_count: 0 }
-      end
-
-      # ---------------------------------------------------------------------------
-      # Sidekiq helpers
-      # ---------------------------------------------------------------------------
-
-      def sidekiq_breakdown_for_settings_pane
-        require "sidekiq/api"
-        stats = Sidekiq::Stats.new
-        busy  = begin
-          Sidekiq::Workers.new.size
-        rescue StandardError
-          0
-        end
-        counts = {
-          "processed" => stats.processed,
-          "failed"    => stats.failed,
-          "busy"      => busy,
-          "scheduled" => stats.scheduled_size,
-          "enqueued"  => stats.enqueued,
-          "retry"     => stats.retry_size,
-          "dead"      => stats.dead_size
-        }
-        SIDEKIQ_BREAKDOWN_STATES.map { |state| { label: state, count: counts[state] } }
-      rescue StandardError
-        []
       end
     end
   end

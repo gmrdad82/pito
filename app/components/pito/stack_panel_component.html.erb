@@ -1,21 +1,21 @@
 <%# Pito::StackPanelComponent — system stack monitoring panel on Home.
 
-    Composes 4 brand sub-panel ViewComponents in a vertical stack:
-      * Redis sub-panel (inline — uses Sidekiq::CountersComponent
-        directly, no dedicated VC since the counters component IS the
-        Redis surface)
-      * Pito::Stack::PostgresSubPanelComponent
-      * Pito::Stack::MeilisearchSubPanelComponent
-      * Pito::Stack::VoyageSubPanelComponent
-      * Pito::Stack::AssetsSubPanelComponent
+    Composes 4 brand sub-panel ViewComponents in a 2x2 grid:
+
+      row 1: Meilisearch | Voyage AI
+      row 2: Postgres    | Assets
+
+    The Redis sub-panel was dropped 2026-05-23 (no dedicated VC ever
+    existed — Redis was rendered inline via `Sidekiq::CountersComponent`
+    here). The Sidekiq counters surface has been retired with it.
 
     The two reindex confirmation dialogs (Meilisearch + Voyage) sit at
-    the bottom of the panel, OUTSIDE the sub-panel stack, so each
+    the bottom of the panel, OUTSIDE the sub-panel grid, so each
     `<dialog>` is a sibling of its click trigger and `showModal()`
     resolves cleanly. Both dialogs share the canonical danger styling
     on the confirm action.
 
-    Phase 2C (2026-05-23) — root element now flows through
+    Phase 2C (2026-05-23) — root element flows through
     `Tui::PanelBase#panel_root_data` so the panel registers as a
     tui-cursor target and a tui-panel-cable subscriber (canonical
     Stimulus + cable wiring). Title sourced from
@@ -26,37 +26,17 @@
       **panel_data do %>
   <span class="pito-pane__title"><%= title %></span>
   <%= render Tui::PanelFieldsetComponent.new do %>
-    <%# FB-51 — vertical sub-panel stack. The `.stack-pane-grid`
-        container still wraps the children (CSS now flexes the
-        container vertically with an 8px gap between sub-panels). %>
-    <div class="stack-pane-grid">
-
-      <%# Redis (+ Sidekiq counters since Sidekiq runs on Redis).
-          Kept inline here — the counters component is the Redis
-          surface, no dedicated sub-panel VC is needed. %>
-      <% redis_state = redis_status[:connected] ? :connected : :disconnected %>
-      <% redis_chip = Pito::Stack::HealthState::STATES.fetch(redis_state) %>
-      <%= render Tui::SubPanelComponent.new(title: t("settings.stack.redis")) do |c| %>
-        <% c.with_actions do %>
-          <%= render Tui::ChipComponent.new(label: redis_chip[:chip_label], variant: redis_chip[:chip_variant]) %>
-        <% end %>
-
-        <% if redis_status[:connected] && sidekiq_breakdown.any? %>
-          <%= render Pito::Stack::Sidekiq::CountersComponent.new(breakdown: sidekiq_breakdown) %>
-        <% end %>
-      <% end %>
-
-      <%= render postgres_sub_panel %>
+    <%# 2x2 sub-panel grid — see `.pito-stack-grid` in application.css. %>
+    <div class="pito-stack-grid">
       <%= render meilisearch_sub_panel %>
       <%= render voyage_sub_panel %>
+      <%= render postgres_sub_panel %>
       <%= render assets_sub_panel %>
-
-      <%# Notes sub-panel removed 2026-05-21 (D17). %>
     </div>
   <% end %>
   <%# FB-126 (2026-05-21) — confirmation dialog mounts for each reindex
       sub-panel. Kept at the bottom of the pane (outside the sub-panel
-      stack) so `<dialog>` is a sibling of the click trigger; the
+      grid) so `<dialog>` is a sibling of the click trigger; the
       `Tui::ConfirmationDialogComponent` carries the actual POST form
       with `data-turbo: false` so the redirect-back flow stays intact.
       Both dialogs share the canonical danger styling on the confirm

@@ -967,10 +967,9 @@ button.bracketed .bl {
 .pito-sub-panel {
   position: relative;
   /* FB-122 (2026-05-21) — explicit per-side border declarations so the
-     `.stack-pane-grid > *` defensive zero-out (which strips `border-right`
-     + `border-bottom` from legacy inline-styled tiles) does NOT clip the
-     sub-panel's right + bottom hairlines. The per-side rules sit higher
-     in cascade order against the generic grid-child selector. */
+     sub-panel's right + bottom hairlines never get clipped by a parent
+     grid-child reset. The per-side rules sit higher in cascade order
+     against any generic grid-child selector. */
   border-top: 1px solid var(--color-border);
   border-right: 1px solid var(--color-border);
   border-bottom: 1px solid var(--color-border);
@@ -1322,7 +1321,7 @@ tr[data-tui-focusable-focused="yes"] > th {
 /* FB-145 (2026-05-21) — inner-scroll surface for the growing last-child
    panel in each column (security pane on the left, stack pane on the
    right). The fieldset wraps the actual content (sessions table or
-   `.stack-pane-grid` of sub-panels) and is the natural scroll container:
+   `.pito-stack-grid` of sub-panels) and is the natural scroll container:
    it sits INSIDE the panel border (so V4 chrome overhangs are not
    clipped) but constrains its own height so content never extends past
    the panel's content box.
@@ -1809,35 +1808,27 @@ th.col-action, td.col-action {
   font-variant-numeric: tabular-nums;
 }
 
-/* Stack-pane inner layout (`/settings` row 3).
-   FB-51 (2026-05-20) — restructured from a 3x2 tile grid into a
-   VERTICAL stack of 6 sub-panels (Redis / PostgreSQL / Meilisearch /
-   Voyage AI / assets / notes). The stack pane now lives in the 40%
-   right column of the FB-52 V3 layout, so a vertical sub-panel
-   arrangement fits the narrower width.
-   The container flexes its sub-panel children vertically with an
-   8px gap. The per-tile inline `border-right` / `border-bottom`
-   hairlines that the prior 3x2 grid carried are dropped — the
-   vertical gap separates sub-panels cleanly. Each child sub-panel
-   is the `<div style="padding: 8px 12px;">` wrapper around a
-   V4 title-in-border header (title + chip resolved via
-   `Pito::Stack::HealthState::STATES`) plus its breakdown table. */
-.stack-pane-grid {
-  display: flex;
-  flex-direction: column;
-  /* FB-122 (2026-05-21) — vertical breathing between sub-panels bumped
-     from 12px to 16px so adjacent sub-panel borders read as a deliberate
-     gap rather than crowded twin hairlines. Was 8px (initial), 12px (FB-92). */
+/* Pito::StackPanelComponent — 2x2 sub-panel grid (locked 2026-05-23).
+   Row 1: Meilisearch | Voyage AI
+   Row 2: Postgres    | Assets
+   Redis sub-panel dropped per user; the prior vertical `.stack-pane-grid`
+   layout (FB-51 / FB-122 — 6 sub-panels stacked top-to-bottom) is
+   superseded by the 2x2 grid below. Children are `.pito-sub-panel`
+   roots (from `Tui::SubPanelComponent`) — `min-width: 0` keeps wide
+   breakdown tables from blowing out the column track. */
+.pito-stack-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
   gap: 16px;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
 }
-/* FB-122 (2026-05-21) — the prior `.stack-pane-grid > * { border-right: 0;
-   border-bottom: 0 }` defensive zero-out (intended to strip legacy inline
-   border styling from cached partial fragments) was clipping the
-   `.pito-sub-panel` right + bottom hairlines because every sub-panel IS a
-   direct child of `.stack-pane-grid`. Removed entirely — sub-panels now
-   render all four hairlines via the per-side declarations on
-   `.pito-sub-panel`, and any future legacy inline overrides should be
-   fixed at source rather than masked by a defensive selector here. */
+.pito-stack-grid > .pito-sub-panel {
+  min-height: 0;
+  min-width: 0;
+}
 
 /* Stack-pane breakdown tables (`/settings` row 3 — Postgres / Redis /
    Meilisearch / assets / notes) plus the sessions table on the
@@ -6938,4 +6929,74 @@ body.keyboard-only * {
   color: var(--color-muted);
   font-style: italic;
   margin: 8px 0;
+}
+
+/* Calendar toggle round (2026-05-23) — `.pito-pane__title-actions`:
+   mirror of `.pito-sub-panel__actions`, placed on the right edge of
+   the `.pito-pane` top border. Used by `Pito::CalendarPanelComponent`
+   to host the `Tui::ViewToggleComponent` (`[schedule]  month `, etc.)
+   without disturbing the centered title's left placement. Page-bg
+   padding cuts the border hairline behind the contents so the chrome
+   reads as a label fused into the frame, identical to the sub-panel
+   actions slot. */
+.pito-pane__title-actions {
+  position: absolute;
+  top: -7px;
+  right: 8px;
+  background: var(--color-bg);
+  padding: 0 6px;
+  font-size: 13px;
+  line-height: 14px;
+  height: 14px;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 1ch;
+}
+.pito-pane__title-actions > * {
+  background: var(--color-bg);
+}
+
+/* Tui::ViewToggleComponent — pair of mutually-exclusive view toggles
+   used by panels that switch between view modes (e.g. month /
+   schedule on the calendar panel). Width-stable by design:
+   - Inactive: `[label]` — section-accent color, brackets included.
+   - Active:   ` label ` — distinct color (chosen via is-<color>
+     modifier), surrounding spaces compensate for the missing
+     bracket characters.
+
+   Both renderings occupy `label.length + 2` columns. `white-space:
+   pre` on the rendered button preserves the leading + trailing
+   whitespace verbatim so the active variant's spaces aren't
+   collapsed by the user-agent. */
+.tui-view-toggle {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+}
+.tui-view-toggle__view {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  cursor: pointer;
+  white-space: pre;
+  color: var(--section-accent, var(--color-link));
+}
+.tui-view-toggle__view--inactive {
+  /* Section-accent inherited from base rule above; declared
+     explicitly here for documentation symmetry with --active. */
+  color: var(--section-accent, var(--color-link));
+}
+.tui-view-toggle__view--active.is-success      { color: var(--color-success); }
+.tui-view-toggle__view--active.is-warn         { color: var(--color-warn); }
+.tui-view-toggle__view--active.is-danger       { color: var(--color-danger); }
+.tui-view-toggle__view--active.is-accent-pale  { color: var(--color-accent-pale); }
+.tui-view-toggle__view:focus,
+.tui-view-toggle__view:focus-visible {
+  outline: 0;
+  text-decoration: underline;
 }

@@ -21,8 +21,10 @@
 # keeps DashboardController readable.
 #
 # The Stack panel's status chips read from `Pito::Stack::HealthState`;
-# the probe logic itself (Postgres / Redis / Meilisearch / Voyage /
-# assets) lives here because no canonical service has claimed it yet.
+# the probe logic itself (Postgres / Meilisearch / Voyage / assets)
+# lives here because no canonical service has claimed it yet. The Redis
+# + Sidekiq probes were dropped 2026-05-23 along with the Redis
+# sub-panel.
 module HomePanelData
   extend ActiveSupport::Concern
 
@@ -51,10 +53,6 @@ module HomePanelData
   POSTGRES_TABLE_ROWS = [
     { label: "games",   table: "games",   class_name: "Game"   },
     { label: "bundles", table: "bundles", class_name: "Bundle" }
-  ].freeze
-
-  SIDEKIQ_BREAKDOWN_STATES = %w[
-    processed failed busy scheduled enqueued retry dead
   ].freeze
 
   # Assets root sub-directory map. Each row appears in the assets
@@ -91,10 +89,11 @@ module HomePanelData
     @slack_webhook   = NotificationDeliveryChannel.find_record_for("slack")
   end
 
-  # Sets the 10 ivars the Stack panel demands. Each probe is rescued
-  # so a transient subsystem failure (Redis down, Meilisearch
-  # unreachable) renders the panel in its "disconnected" state instead
-  # of 500ing the whole home page.
+  # Sets the 8 ivars the Stack panel demands. Each probe is rescued
+  # so a transient subsystem failure (Meilisearch unreachable, etc.)
+  # renders the panel in its "disconnected" state instead of 500ing the
+  # whole home page. Redis + Sidekiq probes were removed 2026-05-23 when
+  # the Redis sub-panel was dropped from the Stack panel.
   def set_stack_panel_data
     begin
       @search_healthy = Pito::Search.engine.healthy?
@@ -105,11 +104,9 @@ module HomePanelData
     end
 
     @postgres_status          = probe_postgres_status
-    @redis_status             = probe_redis_status
     @search_per_index_stats   = probe_search_per_index_stats
     @storage_status           = probe_storage_status
     @postgres_table_breakdown = probe_postgres_table_breakdown
-    @sidekiq_breakdown        = probe_sidekiq_breakdown
     @assets_breakdown         = probe_assets_breakdown
     @voyage_configured        = AppSetting.voyage_configured?
   end
@@ -160,31 +157,6 @@ module HomePanelData
     }
   rescue StandardError
     { connected: false, adapter: "postgresql", database: nil, version: nil }
-  end
-
-  def probe_redis_status
-    url = ENV.fetch("REDIS_URL", "redis://127.0.0.1:64527/0")
-    client = Redis.new(url: url, timeout: 0.5, reconnect_attempts: 0)
-    info = client.info
-    db_size = client.dbsize
-    client.close
-    {
-      connected:         true,
-      version:           info["redis_version"],
-      used_memory_human: info["used_memory_human"],
-      db_size:           db_size,
-      persistence:       redis_persistence_summary(info)
-    }
-  rescue StandardError
-    { connected: false, version: nil, used_memory_human: nil, db_size: nil, persistence: nil }
-  end
-
-  def redis_persistence_summary(info)
-    aof_enabled = info["aof_enabled"].to_s == "1"
-    return "aof" if aof_enabled
-    rdb_changes = info["rdb_changes_since_last_save"]
-    return "rdb" if rdb_changes
-    nil
   end
 
   def probe_storage_status
@@ -286,29 +258,6 @@ module HomePanelData
     { count: count, size_bytes: size }
   rescue StandardError
     { count: nil, size_bytes: nil }
-  end
-
-  def probe_sidekiq_breakdown
-    require "sidekiq/api"
-    stats = Sidekiq::Stats.new
-    busy =
-      begin
-        Sidekiq::Workers.new.size
-      rescue StandardError
-        0
-      end
-    counts = {
-      "processed" => stats.processed,
-      "failed"    => stats.failed,
-      "busy"      => busy,
-      "scheduled" => stats.scheduled_size,
-      "enqueued"  => stats.enqueued,
-      "retry"     => stats.retry_size,
-      "dead"      => stats.dead_size
-    }
-    SIDEKIQ_BREAKDOWN_STATES.map { |state| { label: state, count: counts[state] } }
-  rescue StandardError
-    []
   end
 
   def probe_assets_breakdown

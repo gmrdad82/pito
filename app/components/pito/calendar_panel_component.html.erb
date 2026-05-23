@@ -2,7 +2,20 @@
       class: "pane pito-pane pito-panel pito-panel--calendar",
       **panel_data do %>
   <span class="pito-pane__title"><%= title %></span>
+  <%# View toggle in the title-actions slot — mirrors Meilisearch
+      sub-panel's `[reindex]` placement on the top border, right edge.
+      Width-stable: ` view ` (active) and `[view]` (inactive) both
+      render at `label.length + 2` cols, so the chrome doesn't
+      shift horizontally on toggle. %>
+  <span class="pito-pane__title-actions">
+    <%= render Tui::ViewToggleComponent.new(
+          views: views,
+          current: current_view,
+          event_name: "calendar:view-changed",
+          active_color: :success
+        ) %>
+  </span>
   <%= render Tui::PanelFieldsetComponent.new do %>
-    <p class="pito-panel__placeholder">[ panel content TBD ]</p>
+    <p class="pito-panel__placeholder">[ <%= current_view %> view TBD ]</p>
   <% end %>
 <% end %>

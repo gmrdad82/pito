@@ -2,7 +2,6 @@ require "rails_helper"
 
 RSpec.describe Pito::StackPanelComponent, type: :component do
   let(:postgres_status) { { connected: true, version: "16.0" } }
-  let(:redis_status)    { { connected: true } }
   let(:storage_status)  { { present: true, writable: true } }
   let(:search_stats)    { {} }
 
@@ -15,9 +14,7 @@ RSpec.describe Pito::StackPanelComponent, type: :component do
       search_per_index_stats: [],
       voyage_configured: true,
       storage_status: storage_status,
-      assets_breakdown: [],
-      sidekiq_breakdown: [],
-      redis_status: redis_status
+      assets_breakdown: []
     )
   end
 
@@ -113,6 +110,44 @@ RSpec.describe Pito::StackPanelComponent, type: :component do
 
     it "registers the panel as a tui-cursor target on the root section" do
       expect(root["data-tui-cursor-target"]).to eq("panel")
+    end
+
+    describe "2x2 sub-panel grid (locked 2026-05-23)" do
+      it "renders the canonical .pito-stack-grid container" do
+        expect(rendered.css("div.pito-stack-grid")).to be_present
+      end
+
+      it "drops the legacy vertical .stack-pane-grid container" do
+        expect(rendered.css("div.stack-pane-grid")).to be_empty
+      end
+
+      it "composes all four remaining sub-panels in row-major order " \
+         "(Meilisearch | Voyage AI / Postgres | Assets)" do
+        sub_panel_titles = rendered.css(".pito-stack-grid .pito-sub-panel__title").map { |n| n.text.strip }
+        expect(sub_panel_titles).to eq([
+          I18n.t("settings.stack.meilisearch"),
+          I18n.t("settings.voyage.heading"),
+          I18n.t("settings.stack.postgres"),
+          I18n.t("settings.stack.assets")
+        ])
+      end
+
+      it "does not render the dropped Redis sub-panel" do
+        sub_panel_titles = rendered.css(".pito-stack-grid .pito-sub-panel__title").map { |n| n.text.strip.downcase }
+        expect(sub_panel_titles).not_to include(I18n.t("settings.stack.redis").downcase)
+      end
+    end
+  end
+
+  describe "constructor contract (Redis sub-panel dropped 2026-05-23)" do
+    it "does not accept the legacy redis_status kwarg" do
+      kwargs = described_class.instance_method(:initialize).parameters.map(&:last)
+      expect(kwargs).not_to include(:redis_status)
+    end
+
+    it "does not accept the legacy sidekiq_breakdown kwarg" do
+      kwargs = described_class.instance_method(:initialize).parameters.map(&:last)
+      expect(kwargs).not_to include(:sidekiq_breakdown)
     end
   end
 end

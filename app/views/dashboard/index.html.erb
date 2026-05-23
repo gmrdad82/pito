@@ -39,9 +39,7 @@
           search_per_index_stats:   @search_per_index_stats,
           voyage_configured:        @voyage_configured,
           storage_status:           @storage_status,
-          assets_breakdown:         @assets_breakdown,
-          sidekiq_breakdown:        @sidekiq_breakdown,
-          redis_status:             @redis_status
+          assets_breakdown:         @assets_breakdown
         ) %>
     <div class="home-row-3-right-column">
       <%= render Pito::NotificationsPanelComponent.new(

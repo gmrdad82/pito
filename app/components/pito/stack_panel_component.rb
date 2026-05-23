@@ -3,13 +3,18 @@ module Pito
   #
   # The stack panel on Home (/). System stack monitoring tile lattice
   # showing connection health + per-subsystem stats for the operational
-  # dependencies (Redis + Sidekiq, PostgreSQL, Meilisearch, Voyage AI,
-  # assets storage).
+  # dependencies (PostgreSQL, Meilisearch, Voyage AI, assets storage).
   #
-  # Composes 4 brand sub-panels in a vertical stack: PostgreSQL +
-  # Meilisearch + Voyage AI + assets. The Redis section is rendered
-  # inline alongside the sidekiq counters component (no dedicated
-  # sub-panel VC — the counters component IS the Redis surface).
+  # Composes 4 brand sub-panels in a 2x2 grid:
+  #
+  #   row 1: Meilisearch | Voyage AI
+  #   row 2: Postgres    | Assets
+  #
+  # The Redis sub-panel was dropped 2026-05-23 — the Sidekiq counters
+  # surface (Sidekiq runs on Redis) was the only remaining Redis-flavored
+  # signal in the panel and it has been retired here; Redis health is
+  # implicit via the Sidekiq-dependent jobs and surfaces elsewhere if
+  # needed.
   #
   # ## Kwargs
   #
@@ -21,8 +26,6 @@ module Pito
   # @param voyage_configured [Boolean] Voyage credentials present?
   # @param storage_status [Hash] assets root probe (present/writable)
   # @param assets_breakdown [Array<Hash>] per-category file + size
-  # @param sidekiq_breakdown [Array<Hash>] queue states (busy/etc)
-  # @param redis_status [Hash] Redis connection probe
   #
   # ## Cable channel
   #
@@ -43,14 +46,11 @@ module Pito
   #
   # ## Composes
   #
-  # - `Pito::Stack::PostgresSubPanelComponent`
   # - `Pito::Stack::MeilisearchSubPanelComponent`
   # - `Pito::Stack::VoyageSubPanelComponent`
+  # - `Pito::Stack::PostgresSubPanelComponent`
   # - `Pito::Stack::AssetsSubPanelComponent`
-  # - `Pito::Stack::Sidekiq::CountersComponent` (Redis section)
   # - `Tui::PanelFieldsetComponent` (frame chrome)
-  # - `Tui::SubPanelComponent` (Redis title row only — sub-panel VCs
-  #   wrap their own SubPanelComponent internally)
   # - `Tui::ConfirmationDialogComponent` (reindex confirmation dialogs)
   #
   # ## Phase 2C (2026-05-23)
@@ -74,9 +74,7 @@ module Pito
       search_per_index_stats:,
       voyage_configured:,
       storage_status:,
-      assets_breakdown:,
-      sidekiq_breakdown:,
-      redis_status:
+      assets_breakdown:
     )
       @postgres_status = postgres_status
       @postgres_table_breakdown = postgres_table_breakdown
@@ -86,14 +84,11 @@ module Pito
       @voyage_configured = voyage_configured
       @storage_status = storage_status
       @assets_breakdown = assets_breakdown
-      @sidekiq_breakdown = sidekiq_breakdown
-      @redis_status = redis_status
     end
 
     attr_reader :postgres_status, :postgres_table_breakdown,
                 :search_healthy, :search_stats, :search_per_index_stats,
-                :voyage_configured, :storage_status, :assets_breakdown,
-                :sidekiq_breakdown, :redis_status
+                :voyage_configured, :storage_status, :assets_breakdown
 
     def title
       I18n.t("tui.home.panels.#{PANEL_NAME}.title")
@@ -101,12 +96,12 @@ module Pito
 
     # Aggregate focusables from each sub-panel. The stack panel itself
     # contributes nothing; the cursor traverses sub-panel focusables in
-    # declaration order (Redis → Postgres → Meilisearch → Voyage →
+    # 2x2-grid declaration order (Meilisearch → Voyage → Postgres →
     # assets).
     def focusables
-      postgres_sub_panel.focusables +
-        meilisearch_sub_panel.focusables +
+      meilisearch_sub_panel.focusables +
         voyage_sub_panel.focusables +
+        postgres_sub_panel.focusables +
         assets_sub_panel.focusables
     end
 
