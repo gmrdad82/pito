@@ -2003,6 +2003,11 @@ th.col-action, td.col-action {
 .pito-stack-grid > .pito-sub-panel {
   min-height: 0;
   min-width: 0;
+  /* 2026-05-24 — stretch each sub-panel to fill its 1fr × 1fr grid cell
+     so the four cells occupy the full stack-panel space evenly (no
+     bottom-of-panel whitespace gap below the second row). height: 100%
+     pins the sub-panel border to its cell's bottom edge. */
+  height: 100%;
 }
 
 /* Stack-pane breakdown tables (`/settings` row 3 — Postgres / Redis /
@@ -5883,7 +5888,11 @@ body > header {
 .tui-chip--success  { color: var(--dracula-green); }
 .tui-chip--warn     { color: var(--dracula-orange); }
 .tui-chip--danger   { color: var(--color-danger); }
-.tui-chip--current  { color: var(--section-accent); }
+/* 2026-05-24 — current-session chip flipped from section accent to
+   success green so it matches the "Meilisearch v1.13 connected" hint
+   green and reads consistently as a "currently active / healthy"
+   signal across the home dashboard. */
+.tui-chip--current  { color: var(--color-success); }
 
 .tui-checkbox {
   display: inline-flex;

@@ -323,6 +323,13 @@ other text in the UI MUST map to one of the three above. Inventing a
 new role-color pair is a code smell — extend the taxonomy in design.md
 before adding a fourth.
 
+**Stack sub-panels are a 2×2 50/50 grid.** Meilisearch / Voyage AI /
+Postgres / Assets each occupy exactly one quadrant of the Stack panel,
+both horizontally AND vertically. Each sub-panel stretches to fill its
+grid cell — no whitespace gap below the bottom row, no column drift.
+Sub-panels with shorter content still own their full cell height; tall
+content scrolls inside the sub-panel. Locked 2026-05-24.
+
 **Bracket-to-space rule on TST chrome.** Where a non-action label sits
 in an actions slot adjacent to a bracketed action (e.g. `month` next to
 `[schedule]`), use a literal space pair around the label instead of
