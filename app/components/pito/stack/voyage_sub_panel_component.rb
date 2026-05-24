@@ -52,6 +52,11 @@ module Pito
     # - `reindex_voyage` (style: :action) — only when reindex is
     #   NOT running. Resolved via
     #   `SettingsHelper#stack_reindex_focusables(running:)`.
+    # - `voyage_header` (style: :inert) — header row focusable on the
+    #   embeds table so j/k can land ON the sortable header. The stop
+    #   gives `s` / `S` a sub-panel-scoped focus context. Always
+    #   emitted (the embeds table is always rendered with at least the
+    #   games row).
     #
     # ## Composes
     #
@@ -80,9 +85,10 @@ module Pito
       # `HelpersCalledBeforeRenderError`. The helper was pure logic
       # (`running ? [] : [{...}]`); inlining preserves behavior.
       def focusables
-        return [] if reindex_running?
-
-        [ { key: "reindex", style: :action } ]
+        list = []
+        list << { key: "reindex", style: :action } unless reindex_running?
+        list << { key: "voyage_header", style: :inert }
+        list
       end
 
       def state

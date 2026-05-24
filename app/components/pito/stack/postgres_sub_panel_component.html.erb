@@ -8,7 +8,12 @@
     <div data-controller="sortable-table" data-sortable-table-id-value="stack-postgres">
       <table class="tui-table tui-table--stack" data-sortable-table-target="table">
         <thead>
-          <tr>
+          <%# FB (2026-05-24) — header row focusable. Inert style so the
+              row doesn't paint a focus tint; the cursor just gets a
+              stop here so `s` / `S` fire scoped to this sub-panel. %>
+          <tr data-tui-focusable="postgres_header"
+              data-tui-focusable-key="postgres_header"
+              data-tui-focusable-style="inert">
             <%= render(SortableHeaderComponent.new(label: t("settings.stack.col_model"), sort_type: "string")) %>
             <%= render(SortableHeaderComponent.new(label: t("settings.stack.col_rows"), sort_type: "number", numeric: true)) %>
             <%= render(SortableHeaderComponent.new(label: t("settings.stack.col_size"), sort_type: "number", numeric: true)) %>

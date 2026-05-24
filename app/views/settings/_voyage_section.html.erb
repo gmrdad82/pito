@@ -71,7 +71,12 @@
   <div data-controller="sortable-table" data-sortable-table-id-value="stack-voyage-embeds">
     <table class="tui-table tui-table--stack" data-sortable-table-target="table">
       <thead>
-        <tr>
+        <%# FB (2026-05-24) — header row focusable. Inert style so the
+            row doesn't paint a focus tint; the cursor just gets a stop
+            here so `s` / `S` fire scoped to this sub-panel. %>
+        <tr data-tui-focusable="voyage_header"
+            data-tui-focusable-key="voyage_header"
+            data-tui-focusable-style="inert">
           <%= render(SortableHeaderComponent.new(label: t("settings.voyage.col_collection"), sort_type: "string")) %>
           <%= render(SortableHeaderComponent.new(label: t("settings.voyage.col_embedded"), sort_type: "number", numeric: true)) %>
         </tr>

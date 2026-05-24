@@ -32,6 +32,10 @@ module Pito
     #   sub-panel border accent to Assets. Without this stop, h/l would
     #   skip Assets entirely (it has no `[reindex]` / action to focus).
     #   FB-187 (2026-05-23).
+    # - `assets_header` (style: :inert) — header row focusable on the
+    #   breakdown table so j/k can land ON the sortable header. The
+    #   stop gives `s` / `S` a sub-panel-scoped focus context. Emitted
+    #   only when the breakdown table is rendered (non-empty).
     #
     # ## Composes
     #
@@ -51,7 +55,9 @@ module Pito
       # cursor lands on Assets during h/l traversal across the Stack
       # panel's 2x2 sub-panel grid. Inert = no Enter/Space action fires.
       def focusables
-        [ { key: "assets", style: :inert } ]
+        list = [ { key: "assets", style: :inert } ]
+        list << { key: "assets_header", style: :inert } if breakdown.any?
+        list
       end
 
       def state

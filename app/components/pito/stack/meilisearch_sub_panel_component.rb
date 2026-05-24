@@ -42,6 +42,11 @@ module Pito
     #   `SettingsHelper#stack_reindex_focusables(running:)` which
     #   returns `[]` while running (the indicator slot is
     #   non-interactive).
+    # - `meilisearch_header` (style: :inert) — header row focusable
+    #   so j/k cycles can land ON the table header. Inert = no action
+    #   fires on Enter/Space; the stop gives `s` / `S` a sub-panel-
+    #   scoped focus context. Only emitted when `per_index_stats`
+    #   is non-empty (no header row otherwise).
     #
     # ## Composes
     #
@@ -116,9 +121,10 @@ module Pito
       # The original helper was pure logic — `running ? [] : [{...}]` —
       # so inlining is safe and matches the canonical-source rule.
       def focusables
-        return [] if reindex_running?
-
-        [ { key: "reindex", style: :action } ]
+        list = []
+        list << { key: "reindex", style: :action } unless reindex_running?
+        list << { key: "meilisearch_header", style: :inert } if per_index_stats.any?
+        list
       end
 
       def state

@@ -32,6 +32,11 @@ module Pito
     #   the visible sub-panel border accent to Postgres. Without this
     #   stop, h/l would skip Postgres entirely (it has no reindex /
     #   action to focus). FB-187 (2026-05-23).
+    # - `postgres_header` (style: :inert) — header row focusable on
+    #   the breakdown table so j/k can land ON the sortable header.
+    #   The stop gives `s` / `S` a sub-panel-scoped focus context.
+    #   Emitted only when the breakdown table is rendered (connected +
+    #   non-empty).
     #
     # ## Composes
     #
@@ -51,7 +56,11 @@ module Pito
       # cursor lands on Postgres during h/l traversal across the Stack
       # panel's 2x2 sub-panel grid. Inert = no Enter/Space action fires.
       def focusables
-        [ { key: "postgres", style: :inert } ]
+        list = [ { key: "postgres", style: :inert } ]
+        if status[:connected] && table_breakdown.any?
+          list << { key: "postgres_header", style: :inert }
+        end
+        list
       end
 
       def state

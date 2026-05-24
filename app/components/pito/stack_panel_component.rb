@@ -41,10 +41,14 @@ module Pito
   # Stack panel itself has no focusables; sub-panels supply them via
   # their own `focusables` methods. The aggregate list is:
   #
-  #   - `reindex` (meilisearch) — `[reindex]` action when idle
-  #   - `reindex` (voyage)      — `[reindex]` action when idle
-  #   - `postgres` (inert)      — sub-panel root stop (FB-187)
-  #   - `assets` (inert)        — sub-panel root stop (FB-187)
+  #   - `reindex` (meilisearch)  — `[reindex]` action when idle
+  #   - `meilisearch_header`     — table header stop (inert, FB 2026-05-24)
+  #   - `reindex` (voyage)       — `[reindex]` action when idle
+  #   - `voyage_header`          — table header stop (inert, FB 2026-05-24)
+  #   - `postgres` (inert)       — sub-panel root stop (FB-187)
+  #   - `postgres_header`        — table header stop (inert, FB 2026-05-24)
+  #   - `assets` (inert)         — sub-panel root stop (FB-187)
+  #   - `assets_header`          — table header stop (inert, FB 2026-05-24)
   #
   # FB-187 (2026-05-23): PostgreSQL + Assets sub-panels each emit a
   # single inert focusable on the sub-panel root so h/l traversal

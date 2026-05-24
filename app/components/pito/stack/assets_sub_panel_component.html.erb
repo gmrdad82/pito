@@ -8,7 +8,12 @@
     <div data-controller="sortable-table" data-sortable-table-id-value="stack-assets">
       <table class="tui-table tui-table--stack tui-table--3col-aligned" data-sortable-table-target="table">
         <thead>
-          <tr>
+          <%# FB (2026-05-24) — header row focusable. Inert style so the
+              row doesn't paint a focus tint; the cursor just gets a
+              stop here so `s` / `S` fire scoped to this sub-panel. %>
+          <tr data-tui-focusable="assets_header"
+              data-tui-focusable-key="assets_header"
+              data-tui-focusable-style="inert">
             <%= render(SortableHeaderComponent.new(label: t("settings.stack.col_category"), sort_type: "string")) %>
             <%= render(SortableHeaderComponent.new(label: t("settings.stack.col_files"), sort_type: "number", numeric: true)) %>
             <%= render(SortableHeaderComponent.new(label: t("settings.stack.col_size"), sort_type: "number", numeric: true)) %>

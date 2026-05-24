@@ -64,15 +64,26 @@ export default class extends Controller {
     );
     if (!focusedPanel) return;
 
-    // Only act when the focused panel actually contains a sortable table.
-    if (!focusedPanel.querySelector("th.sortable")) return;
+    // FB (2026-05-24) — when a sub-panel is focused inside the focused
+    // panel, narrow scope to it so `s` / `S` only sort the sub-panel
+    // the cursor is in (e.g. Meilisearch vs Voyage on the stack panel).
+    // Without this scoping, the outer focused panel finds ALL sub-panel
+    // sortable headers and picks the DOM-first one, which is wrong when
+    // the cursor is elsewhere.
+    const focusedSubPanel = document.querySelector(
+      '[data-tui-cursor-sub-panel-focused="yes"]',
+    );
+    const scope = focusedSubPanel || focusedPanel;
+
+    // Only act when the scope actually contains a sortable table.
+    if (!scope.querySelector("th.sortable")) return;
 
     if (event.key === "s" && !event.shiftKey) {
-      if (this.cycleNextSortable(focusedPanel)) {
+      if (this.cycleNextSortable(scope)) {
         event.preventDefault();
       }
     } else if (event.key === "S" && event.shiftKey) {
-      if (this.toggleCurrentDirection(focusedPanel)) {
+      if (this.toggleCurrentDirection(scope)) {
         event.preventDefault();
       }
     }
