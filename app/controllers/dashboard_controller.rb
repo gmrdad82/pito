@@ -24,6 +24,7 @@ class DashboardController < ApplicationController
   before_action :set_notifications_panel_data,        only: :index, if: :html_request?
   before_action :set_notifications_feed_panel_data,   only: :index, if: :html_request?
   before_action :set_stack_panel_data,                only: :index, if: :html_request?
+  before_action :set_calendar_panel_data,             only: :index, if: :html_request?
 
   def index
     respond_to do |format|

@@ -78,6 +78,11 @@ en:
           # PANEL_NAME, file names, etc. stay stable; only the user-facing
           # title shortened.
           title: "channels"
+          col_handle: "handle"
+          col_subs: "subs"
+          col_views: "views"
+          col_last_published: "last published"
+          empty: "no channels"
         latest_videos:
           title: "latest videos"
         games_releasing:

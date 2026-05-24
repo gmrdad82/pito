@@ -1,49 +1,89 @@
 module Pito
-  # Pito::ChannelsOverviewPanelComponent — home-screen panel showing
-  # cross-channel counts + subs / views / watched-hours trends across
-  # configurable time windows (7d / 28d / 3m / this year / lifetime).
+  # Pito::ChannelsOverviewPanelComponent — home-screen panel showing a
+  # compact sortable summary of all YouTube channels owned by the user.
   #
-  # ## Round status
+  # ## Purpose
   #
-  # Wave 2B blank-shell round: renders a `Tui::FramedPanelComponent`
-  # chrome with the i18n-resolved title and a `[ panel content TBD ]`
-  # placeholder body. Real content (channel-count rollup + trend
-  # sparklines) lands in a future content round per
-  # `docs/architecture.md` § Home panels.
+  # Renders a sessions-style table with one row per channel. Columns:
+  # handle, subscriber count, total views, last published video (relative).
+  # Sort is server-side via `sort_link_to`; default = `last_published_at DESC`
+  # (most recently active channel first).
   #
-  # ## Canonical wiring
+  # ## kwargs
   #
-  # - Includes `Tui::PanelBase` for the `panel_root_data` Hash spread
-  #   into the section content_tag (controller / cursor target / cable
-  #   screen+name values / focusables / keybinds).
-  # - Cable channel: `pito:home:channels_overview` (canonical grammar).
-  # - Focusables / keybinds: empty in the blank round; populated when
-  #   real content lands.
+  # - `channels:`    — ActiveRecord::Relation or Array of Channel records,
+  #                    pre-sorted by the controller.
+  # - `sort:`        — active sort key String (e.g. "last_published_at").
+  # - `dir:`         — active sort direction String ("asc" / "desc").
+  #
+  # ## Focusables
+  #
+  # - `channels_sync` — panel-level sync indicator action (leading).
+  # - `row_<channel.id>` — one focusable per channel row (style :row).
+  #
+  # ## Cable channel
+  #
+  # `pito:home:channels_overview` — panel-scoped stream per canonical grammar.
   #
   # ## TUI parity
   #
-  # The Ratatui sibling component reads the same panel data attrs
-  # emitted here to derive its focusables list + cable subscription.
-  # Do NOT inline data attrs in the template — emit via
-  # `panel_root_data` so the canonical shape stays in one place.
+  # The Ratatui sibling reads `panel_root_data` attrs for focusables +
+  # cable subscription. Do NOT inline data attrs in the template.
+  #
+  # ## Formatters
+  #
+  # - Subscriber / view counts  -> `Pito::Formatter::CompactCount`
+  # - Last published timestamp  -> `Pito::Formatter::CompactTimeAgo`
   class ChannelsOverviewPanelComponent < ViewComponent::Base
     include Tui::PanelBase
 
     PANEL_NAME = :channels_overview
 
+    ALLOWED_SORTS = %w[handle subscriber_count view_count last_published_at].freeze
+    ALLOWED_DIRS  = %w[asc desc].freeze
+    DEFAULT_SORT  = "last_published_at"
+    DEFAULT_DIR   = "desc"
+
+    def initialize(channels: [], sort: DEFAULT_SORT, dir: DEFAULT_DIR)
+      @channels = channels
+      @sort     = ALLOWED_SORTS.include?(sort) ? sort : DEFAULT_SORT
+      @dir      = ALLOWED_DIRS.include?(dir)   ? dir  : DEFAULT_DIR
+    end
+
+    attr_reader :channels, :sort, :dir
+
     def title
       I18n.t("tui.home.panels.#{PANEL_NAME}.title")
     end
 
-    # 2026-05-24 — panel-level `[ ] sync` action contributed as the
-    # leading focusable. `target: "home.channels"` matches the panel's
-    # canonical sync localStorage suffix.
     def focusables
-      %w[channels_sync]
+      base = %w[channels_sync]
+      base + channels.map { |c| "row_#{c.id}" }
     end
 
     def panel_data
       panel_root_data(name: PANEL_NAME, focusables: focusables, keybinds: {})
+    end
+
+    # Compact subscriber count via shared formatter.
+    def format_subs(channel)
+      Pito::Formatter::CompactCount.call(channel.subscriber_count)
+    end
+
+    # Compact view count via shared formatter.
+    def format_views(channel)
+      Pito::Formatter::CompactCount.call(channel.view_count)
+    end
+
+    # Relative time of the most recently published video on this channel.
+    # Falls back to "never" when the channel has no published videos.
+    def format_last_published(channel)
+      Pito::Formatter::CompactTimeAgo.call(channel.last_published_video_at)
+    end
+
+    # Display handle (prefer @handle, fall back to title).
+    def display_handle(channel)
+      channel.handle.presence || channel.title.presence || "—"
     end
   end
 end

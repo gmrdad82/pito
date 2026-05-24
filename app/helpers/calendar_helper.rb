@@ -225,4 +225,108 @@ module CalendarHelper
   def bucket_entries_by_date(entries, tz: "UTC")
     entries.group_by { |e| e.starts_at.in_time_zone(tz).to_date }
   end
+
+  # ── Home-panel calendar filter helpers (4-category `calendar_filter[*]`) ──
+  #
+  # The home Calendar panel uses a coarser 4-chip filter model than the
+  # standalone /calendar views. Four category chips map to the 8 entry_types:
+  #
+  #   channel  → channel_published, video_published, video_scheduled
+  #   game     → game_release, purchase_planned
+  #   system   → milestone_auto
+  #   manual   → milestone_manual, custom
+  #
+  # URL shape: `?calendar_filter[channel]=on&calendar_filter[game]=on`
+  # (Rails hash param). When ALL chips are on (or param absent entirely),
+  # no WHERE clause is added — all entries are shown. When ALL are off,
+  # an empty result is returned (`.none`).
+
+  PANEL_CALENDAR_CATEGORIES = {
+    "channel" => %w[channel_published video_published video_scheduled],
+    "game"    => %w[game_release purchase_planned],
+    "system"  => %w[milestone_auto],
+    "manual"  => %w[milestone_manual custom]
+  }.freeze
+
+  # Parse `params[:calendar_filter]` (Hash of category→"on" pairs).
+  # Returns:
+  #   :all   — param absent (default — all 4 categories shown)
+  #   :none  — param present but all values absent / off
+  #   Array  — explicit subset of valid category keys
+  def panel_calendar_active_categories(raw_filter)
+    return :all if raw_filter.blank?
+    active = PANEL_CALENDAR_CATEGORIES.keys.select { |k| raw_filter[k].to_s == "on" }
+    active.empty? ? :none : active
+  end
+
+  # Is the given category chip currently active?
+  def panel_calendar_category_active?(category, raw_filter)
+    active = panel_calendar_active_categories(raw_filter)
+    case active
+    when :all  then true
+    when :none then false
+    else            active.include?(category)
+    end
+  end
+
+  # Build the toggle URL for clicking a category chip. Flips the chip's
+  # membership. Other URL params (sort, etc.) are preserved.
+  def panel_calendar_chip_href(category, raw_filter, current_params:)
+    base = current_params.to_h.with_indifferent_access
+                         .except(:controller, :action)
+                         .to_h.transform_keys(&:to_s)
+    existing = panel_calendar_active_categories(raw_filter)
+    current_set = case existing
+    when :all  then PANEL_CALENDAR_CATEGORIES.keys.dup
+    when :none then []
+    else            existing.dup
+    end
+    if current_set.include?(category)
+      current_set.delete(category)
+    else
+      current_set << category
+    end
+    # Rebuild calendar_filter hash
+    if current_set.sort == PANEL_CALENDAR_CATEGORIES.keys.sort
+      # All on — drop the param entirely (canonical "all" state = no param)
+      base.delete("calendar_filter")
+    elsif current_set.empty?
+      base["calendar_filter"] = {}
+    else
+      base["calendar_filter"] = current_set.index_with { "on" }
+    end
+    base.empty? ? "?" : "?#{base.to_query}"
+  end
+
+  # Filter an entries scope by the active panel calendar categories.
+  # Returns the relation (possibly `.none`) to the caller.
+  def panel_calendar_filter_scope(scope, raw_filter)
+    active = panel_calendar_active_categories(raw_filter)
+    case active
+    when :all  then scope
+    when :none then scope.none
+    else
+      types = active.flat_map { |cat| PANEL_CALENDAR_CATEGORIES[cat] }.compact
+      scope.where(entry_type: types)
+    end
+  end
+
+  # Short display text for a calendar entry bullet in a day cell.
+  # Truncates to PANEL_CHIP_TITLE_LENGTH characters.
+  PANEL_CHIP_TITLE_LENGTH = 22
+
+  def panel_calendar_bullet_text(entry)
+    raw = entry.title.to_s
+    raw.length <= PANEL_CHIP_TITLE_LENGTH ? raw : "#{raw[0...PANEL_CHIP_TITLE_LENGTH]}…"
+  end
+
+  # CSS category modifier for coloring bullets and chips.
+  def panel_calendar_entry_category(entry)
+    case entry.entry_type
+    when "channel_published", "video_published", "video_scheduled" then "channel"
+    when "game_release", "purchase_planned"                         then "game"
+    when "milestone_auto"                                           then "system"
+    else                                                                 "manual"
+    end
+  end
 end

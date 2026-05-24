@@ -122,6 +122,33 @@ module HomePanelData
     @notifications_feed_unread_count = Notification.unread.count
   end
 
+  # Fetches the current-month CalendarEntry buckets for the home Calendar
+  # panel. Applies the 4-category `?calendar_filter[*]=on` server filter.
+  # Groups results by Date, ordered by created_at ASC within each day.
+  def set_calendar_panel_data
+    install_tz = Rails.application.config.x.pito.timezone
+    tz = ActiveSupport::TimeZone[install_tz] || ActiveSupport::TimeZone["UTC"]
+    today = Time.current.in_time_zone(tz).to_date
+    @calendar_year   = today.year
+    @calendar_month  = today.month
+    @calendar_raw_filter = params[:calendar_filter]
+
+    grid      = home_calendar_month_grid(@calendar_year, @calendar_month)
+    first_day = grid.first
+    last_day  = grid.last + 1.day
+
+    range_start = tz.local(first_day.year, first_day.month, first_day.day)
+    range_end   = tz.local(last_day.year,  last_day.month,  last_day.day)
+
+    scope = CalendarEntry.in_range(range_start, range_end).visible.order(:created_at)
+    scope = home_calendar_filter_scope(scope, @calendar_raw_filter)
+
+    entries = scope.to_a
+    @calendar_buckets = entries.group_by { |e| e.starts_at.in_time_zone(install_tz).to_date }
+    @calendar_grid    = grid
+    @calendar_today   = today
+  end
+
   # Sets the 8 ivars the Stack panel demands plus the 8 sort ivars
   # (one sort key + direction per sub-panel). Each probe is rescued
   # so a transient subsystem failure (Meilisearch unreachable, etc.)
@@ -164,6 +191,32 @@ module HomePanelData
   end
 
   private
+
+  # -----------------------------------------------------------------
+  # Home calendar helpers
+  # -----------------------------------------------------------------
+
+  # Build Monday-first 6-week-max grid of Date objects for a given year/month.
+  def home_calendar_month_grid(year, month)
+    first      = Date.new(year, month, 1)
+    last       = Date.new(year, month, -1)
+    leading    = first.cwday - 1 # cwday: 1=Mon … 7=Sun
+    grid_start = first - leading.days
+    total_days = (last - grid_start).to_i + 1
+    rows       = (total_days / 7.0).ceil
+    Array.new(rows * 7) { |i| grid_start + i.days }
+  end
+
+  # Apply the 4-category `?calendar_filter[*]=on` filter to a scope.
+  # Returns scope.none when all chips are off, unmodified scope when all
+  # chips are on or the param is absent, filtered scope otherwise.
+  def home_calendar_filter_scope(scope, raw_filter)
+    return scope if raw_filter.blank?
+    active = CalendarHelper::PANEL_CALENDAR_CATEGORIES.keys.select { |k| raw_filter[k].to_s == "on" }
+    return scope.none if active.empty?
+    types = active.flat_map { |cat| CalendarHelper::PANEL_CALENDAR_CATEGORIES[cat] }.compact
+    scope.where(entry_type: types)
+  end
 
   # -----------------------------------------------------------------
   # Session sort helpers
@@ -425,5 +478,59 @@ module HomePanelData
     else rows
     end
     dir == "asc" ? sorted : sorted.reverse
+  end
+
+  # -----------------------------------------------------------------
+  # Channels overview panel
+  # -----------------------------------------------------------------
+
+  # Channels overview panel sort allowlist.
+  # Columns: handle (text), subscriber_count (numeric), view_count (numeric),
+  # last_published_at (derived MAX of videos.published_at).
+  CHANNELS_OVERVIEW_ALLOWED_SORTS = %w[handle subscriber_count view_count last_published_at].freeze
+  CHANNELS_OVERVIEW_ALLOWED_DIRS  = %w[asc desc].freeze
+  CHANNELS_OVERVIEW_DEFAULT_SORT  = "last_published_at"
+  CHANNELS_OVERVIEW_DEFAULT_DIR   = "desc"
+
+  # Sets `@channels_overview_channels`, `@channels_overview_sort`,
+  # `@channels_overview_dir` for `Pito::ChannelsOverviewPanelComponent`.
+  #
+  # Channels are fetched with a LEFT OUTER JOIN subquery so the
+  # `last_published_at` virtual column is available for ORDER BY.
+  # The subquery is cheap (one MAX per channel) and cached at the
+  # page-render boundary (no cable broadcast yet).
+  def set_channels_overview_panel_data
+    @channels_overview_sort = channels_overview_sort_key
+    @channels_overview_dir  = channels_overview_dir_value
+
+    subquery = Video.select("channel_id, MAX(published_at) AS last_published_at")
+                    .group(:channel_id)
+                    .to_sql
+
+    base = Channel.select("channels.*, COALESCE(v.last_published_at, NULL) AS last_published_video_at")
+                  .joins("LEFT OUTER JOIN (#{subquery}) v ON v.channel_id = channels.id")
+
+    @channels_overview_channels = base.order(Arel.sql(channels_overview_order_clause))
+  end
+
+  def channels_overview_sort_key
+    raw = params[:channels_sort].to_s
+    CHANNELS_OVERVIEW_ALLOWED_SORTS.include?(raw) ? raw : CHANNELS_OVERVIEW_DEFAULT_SORT
+  end
+
+  def channels_overview_dir_value
+    raw = params[:channels_dir].to_s
+    CHANNELS_OVERVIEW_ALLOWED_DIRS.include?(raw) ? raw : CHANNELS_OVERVIEW_DEFAULT_DIR
+  end
+
+  def channels_overview_order_clause
+    col = case @channels_overview_sort
+    when "handle"            then "LOWER(channels.handle)"
+    when "subscriber_count"  then "channels.subscriber_count"
+    when "view_count"        then "channels.view_count"
+    else "v.last_published_at"
+    end
+    nulls = @channels_overview_dir == "desc" ? "NULLS LAST" : "NULLS FIRST"
+    "#{col} #{@channels_overview_dir.upcase} #{nulls}"
   end
 end

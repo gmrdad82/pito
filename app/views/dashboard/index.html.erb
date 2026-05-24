@@ -27,7 +27,14 @@
           filter:        @notifications_feed_filter,
           unread_count:  @notifications_feed_unread_count
         ) %>
-    <%= render Pito::CalendarPanelComponent.new %>
+    <%= render Pito::CalendarPanelComponent.new(
+          buckets:    @calendar_buckets,
+          grid:       @calendar_grid,
+          today:      @calendar_today,
+          year:       @calendar_year,
+          month:      @calendar_month,
+          raw_filter: @calendar_raw_filter
+        ) %>
   </div>
 
   <%# Row 3 — 60/40 with masonry right column.

@@ -26,7 +26,7 @@
 //   - `owned`  requires `released`              (lifecycle dep)
 //   - `played` requires `released + owned`      + ≥ 1 platform chip
 //
-// `wishlist + played` is CONDITIONALLY mutex — they may coexist iff
+// `not_owned + played` is CONDITIONALLY mutex — they may coexist iff
 // `owned` is also checked (owned still satisfies played's ownership
 // dep). When `owned` is unchecked, `played` auto-unchecks via the
 // generic uncheck cascade because its `owned` parent is no longer met.
