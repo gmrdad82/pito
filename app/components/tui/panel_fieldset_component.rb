@@ -92,25 +92,47 @@ module Tui
   # bounding-box corners.
   class PanelFieldsetComponent < ViewComponent::Base
     SCROLL_INDICATOR_CONTROLLER = "tui-scroll-indicator".freeze
+    AXES = %i[vertical horizontal].freeze
 
-    def initialize(class_name: nil, data: nil)
+    # 2026-05-25 — `axis:` kwarg forwards to the inner
+    # `Tui::ScrollIndicatorComponent` AND wires the corresponding
+    # Stimulus `data-tui-scroll-indicator-axis-value` attribute on the
+    # fieldset. Default `:vertical` preserves prior behavior for every
+    # existing caller (no caller needs to opt in to keep the right-edge
+    # ▲ ▼ █ indicator).
+    def initialize(class_name: nil, data: nil, axis: :vertical)
       @class_name = class_name
       @data = data
+      @axis = axis.to_sym
+      unless AXES.include?(@axis)
+        raise ArgumentError,
+              "Unknown axis #{axis.inspect} (expected one of #{AXES.inspect})"
+      end
+    end
+
+    attr_reader :axis
+
+    def horizontal?
+      @axis == :horizontal
     end
 
     def fieldset_class
-      [ "tui-panel-fieldset", @class_name ].compact.join(" ")
+      base = [ "tui-panel-fieldset", @class_name ].compact.join(" ")
+      horizontal? ? "#{base} tui-panel-fieldset--horizontal" : base
     end
 
     # Merge the caller-supplied `data:` hash with the auto-mount
     # `tui-scroll-indicator` controller. Stimulus `data-controller`
     # accepts a space-separated list — appending preserves any caller
-    # controllers (string or symbol keys both honored).
+    # controllers (string or symbol keys both honored). The axis value
+    # is emitted alongside via the canonical Stimulus
+    # `data-<controller>-<value>-value` shape.
     def data_attrs
       base = (@data || {}).dup
       key = base.key?("controller") ? "controller" : :controller
       existing = base[key].to_s.strip
       base[key] = existing.empty? ? SCROLL_INDICATOR_CONTROLLER : "#{existing} #{SCROLL_INDICATOR_CONTROLLER}"
+      base[:tui_scroll_indicator_axis_value] = @axis.to_s
       base
     end
   end

@@ -376,4 +376,18 @@ puts "  #{Platform.unscoped.count} platform rows present."
 # and videos were already dropped from the seed on 2026-05-10.
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# 2026-05-25 — Upcoming-games demo seed (dev / demo only)
+# ---------------------------------------------------------------------------
+#
+# Populates the home-screen "upcoming games" panel with owned games
+# whose `release_date` lands inside the upcoming 30-day window. Self-
+# guarded against production via an env check in the loaded file so
+# accidentally running it on prod is a no-op.
+#
+# Idempotent across reruns — re-seeding shifts the demo titles' release
+# dates forward so the panel stays "alive" without manual maintenance.
+
+load Rails.root.join("db/seeds/upcoming_games_demo.rb")
+
 puts "done!"
