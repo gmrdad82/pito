@@ -4,17 +4,17 @@ module Pito
     #
     # Assets storage sub-panel inside the stack panel on Home.
     #
-    # Shows: storage status chip (`writable` / `read_only` / `absent`)
-    # + per-category file count + size breakdown (cover arts +
-    # composites).
+    # Shows: a hint line (`Assets writable` or `Assets not writable`) at
+    # the top of the body, followed by per-category file count + size
+    # breakdown (cover arts + composites). The title-row status chip was
+    # removed (Phase 1D); status is now conveyed via the hint line.
     #
     # ## Kwargs
     #
     # @param storage_status [Hash] assets root probe — keys:
     #   `:path`, `:present`, `:writable`, `:size_bytes`,
-    #   `:file_count`. Drives chip variant: `:writable` (writable
-    #   present), `:read_only` (present but not writable), `:absent`
-    #   (root directory missing).
+    #   `:file_count`. Drives hint-line status word: `writable` (writable
+    #   present), `not writable` (present but not writable or absent).
     # @param breakdown [Array<Hash>] per-category rows — `:label`,
     #   `:file_count` (nil → em-dash), `:size_bytes` (nil → em-dash).
     #
@@ -36,7 +36,6 @@ module Pito
     # ## Composes
     #
     # - `Tui::SubPanelComponent` (chrome with title + actions slot)
-    # - `Tui::ChipComponent` (status chip)
     # - `SortableHeaderComponent` (sortable column headers)
     class AssetsSubPanelComponent < ViewComponent::Base
       CABLE_CHANNEL = "pito:home:stack:assets".freeze
@@ -63,8 +62,16 @@ module Pito
         end
       end
 
-      def chip
-        Pito::Stack::HealthState::STATES.fetch(state)
+      # Human-readable status word for the hint line.
+      # Writable → "writable"; read-only or absent → "not writable".
+      def status_word
+        (storage_status[:present] && storage_status[:writable]) ? "writable" : "not writable"
+      end
+
+      # CSS modifier class for the hint-line status span.
+      # Writable → green (is-success); not writable → red (is-danger).
+      def status_color_class
+        (storage_status[:present] && storage_status[:writable]) ? "is-success" : "is-danger"
       end
     end
   end

@@ -3,87 +3,68 @@ import { Controller } from "@hotwired/stimulus"
 /**
  * tui-sync-indicator — thin delegator for Tui::SyncIndicatorComponent.
  *
- * Phase 2A (2026-05-22) — glyph-free, word-only. All visual animation
+ * Phase 1C (2026-05-24) — checkbox-style, word-only. All visual animation
  * (scramble-settle, color-crossfade, shimmer) is delegated to the
  * colocated tui-transition outlet via setValue / setColor / setShimmer.
  * This controller's only job is event translation: cable lifecycle +
  * activity events on document → setState calls on the outlet.
  *
- * State model (2026-05-22 revision — busy-aware, no momentary pulse):
+ * State model:
  *
- *   The sync indicator reflects ACTUAL ongoing work, not transient
- *   cable noise. The state is derived from the cable payload, NOT
- *   from the mere fact of receiving a broadcast.
+ *   Three states; "disconnected" is DROPPED — cable drops show as :idle.
+ *   The indicator reflects actual ongoing work, not cable connectivity.
  *
  *   Sidekiq stats (kind="sidekiq" or "data" alias):
- *     - busy > 0 OR enqueued > 0 OR retry > 0  →  setSyncing (sticky)
- *     - all zeros                              →  setSynced
+ *     - busy > 0 OR enqueued > 0 OR retry > 0  →  setActive (sticky)
+ *     - all zeros                               →  setIdle (after cool-down)
  *
- *   tui:sync-changed (explicit state from cable lifecycle):
- *     detail.state ∈ { "synced" | "syncing" | "disconnected" }
- *     - disconnected → setDisconnected (overrides Sidekiq-derived state)
- *     - synced / syncing → respective setter
+ *   tui:sync-changed (explicit state from cable):
+ *     detail.state ∈ { "idle" | "active" | "paused" }
+ *     - paused  → setPaused (future per-panel pause wiring)
+ *     - active  → setActive
+ *     - idle    → setIdle
+ *     (any "disconnected" or legacy state name is treated as idle)
  *
- *   Other cable kinds (notifications, idle, indeterminate, progress,
- *   complete, error) are NOT (yet) wired to drive sync state. They fire
- *   tui:cable-activity but the sync controller ignores them. The current
- *   sync state is preserved across these events.
+ *   Other cable kinds are ignored here.
  *
- *   Rationale: the user-locked behavior is "when Sidekiq has work, sync
- *   is syncing; when Sidekiq is quiet, sync is synced". A timed pulse
- *   was flashing the indicator on every broadcast regardless of payload
- *   — including the welcome broadcast on page reload — which read as
- *   constant churn. Stats-derived state cleanly tracks real work.
+ * Canonical display strings (checkbox glyph + word):
+ *   idle   → "[ ] sync"  (muted color; no shimmer)
+ *   active → "[x] sync"  (accent color; shimmer)
+ *   paused → "[-] sync"  (accent-pale color; no shimmer)
  *
- * Canonical color lock (matches Tui::SyncIndicatorComponent#color_for):
- *   synced       → "muted"   // idle / calm
- *   syncing      → "accent"  // active, paired with shimmer
- *   disconnected → "danger"  // cable lifecycle error
+ * Full display strings are seeded as data-* attrs by the VC so this JS
+ * layer never reconstructs glyphs or inlines English.
  *
  * Sequencing rule (shimmer ↔ scramble, never overlap):
  *
- *   forward (synced → syncing):
+ *   forward (idle → active):
  *     1. _shimmerOnSettle = true    // arm deferred shimmer-on
  *     2. setShimmer(false)          // clear stale shimmer
  *     3. setColor("accent")
  *     4. setValue(word)             // scramble starts
  *     5. on tui-transition:settled  // flag still true → setShimmer(true)
  *
- *   reverse (anything → synced / disconnected):
+ *   reverse (anything → idle / paused):
  *     1. _shimmerOnSettle = false   // disarm BEFORE scramble starts
  *     2. setShimmer(false)          // shimmer off FIRST
- *     3. setColor("muted" | "danger")
+ *     3. setColor("muted" | "accent-pale")
  *     4. setValue(word)             // scramble back; settled fires but flag is off
  *
  * Idempotency: each setter checks the current outlet value. If already
- * in the target state, the methods short-circuit — no re-color, no
- * re-value, no scramble trigger. Multiple Sidekiq broadcasts at the same
- * state (e.g. 5 lifecycle ticks during a single long-running job) leave
- * the visible state stable.
+ * in the target state, the methods short-circuit.
  *
- * Settled listener strategy: ONE permanent listener (`_boundSettled`)
- * attached to the outlet element on first attach. Gated by the
- * `_shimmerOnSettle` boolean. Avoids stale `{ once: true }` arrow
- * listeners firing during the LATER reverse-scramble.
- *
- * Word labels come from data-* values seeded by the VC (sourced from
- * `config/locales/tui/en.yml` `tui.tst.sync.*`) so this JS layer never
- * inlines English strings.
+ * Debounce-off cool-down: active broadcasts set state immediately.
+ * idle broadcasts arm a COOL_DOWN_MS timer; another active broadcast
+ * during cool-down cancels it and state stays active.
  */
 export default class extends Controller {
   static outlets = ["tui-transition"]
   static values = {
-    synced: String,
-    syncing: String,
-    disconnected: String
+    idle: String,
+    active: String,
+    paused: String
   }
 
-  // Debounce-off cool-down. busy>0 broadcasts flip to syncing immediately
-  // (no cool-down). busy=0 broadcasts arm a COOL_DOWN_MS timer; if another
-  // busy>0 arrives during cool-down, the timer is cancelled and sync
-  // stays in syncing. After COOL_DOWN_MS of all-zero broadcasts → setSynced.
-  // Bridges rapid Sidekiq job cycles (small back-to-back jobs that pulse
-  // busy=1/busy=0 in tight succession) without visible flicker.
   static COOL_DOWN_MS = 1000
 
   connect() {
@@ -114,36 +95,37 @@ export default class extends Controller {
   onExplicitState(event) {
     const state = event?.detail?.state
     if (!state) return
-    if (state === "disconnected") {
-      this.setDisconnected()
-    } else if (state === "syncing") {
-      this.setSyncing()
-    } else if (state === "synced") {
-      this.setSynced()
+    if (state === "paused") {
+      this.setPaused()
+    } else if (state === "active") {
+      this.setActive()
+    } else {
+      // "idle", "synced" (legacy), "syncing" (legacy), "disconnected"
+      // (dropped) — all map to idle
+      this.setIdle()
     }
   }
 
-  // Sidekiq-aware activity handler. Only Sidekiq stats currently drive
-  // the syncing/synced state. Other kinds are ignored here (they still
-  // fire their own kind-specific events for kind-targeted VCs).
+  // Sidekiq-aware activity handler. Only Sidekiq stats drive the
+  // active/idle state. Other cable kinds are ignored.
   //
-  // Debounce-off: busy>0 → setSyncing immediately + cancel any pending
-  // cool-down. busy=0 → arm a COOL_DOWN_MS timer; only setSynced after
-  // the timer expires with no intervening busy>0.
+  // Debounce-off: active → setActive immediately + cancel any pending
+  // cool-down. all-zero → arm a COOL_DOWN_MS timer; only setIdle after
+  // the timer expires with no intervening active broadcast.
   onActivity(event) {
     const detail = event?.detail || {}
     const { kind, payload } = detail
-    if (kind !== "sidekiq" && kind !== "data") return  // not a sync-driving kind
+    if (kind !== "sidekiq" && kind !== "data") return
     if (this.sidekiqActive(payload)) {
       if (this._coolDownTimer) {
         clearTimeout(this._coolDownTimer)
         this._coolDownTimer = null
       }
-      this.setSyncing()
+      this.setActive()
     } else {
       if (this._coolDownTimer) clearTimeout(this._coolDownTimer)
       this._coolDownTimer = setTimeout(() => {
-        this.setSynced()
+        this.setIdle()
         this._coolDownTimer = null
       }, this.constructor.COOL_DOWN_MS)
     }
@@ -156,51 +138,48 @@ export default class extends Controller {
   }
 
   // ─── delegation to tui-transition outlet ──────────────────────────
-  setSyncing() {
+  setActive() {
     const c = this.transitionController()
     if (!c) return
     this.ensureSettledListenerAttached()
     this._shimmerOnSettle = true
-    if (this.currentValue() === this.wordFor("syncing")) return  // idempotent
+    if (this.currentValue() === this.wordFor("active")) return
     c.setShimmer(false)
     c.setColor("accent")
-    c.setValue(this.wordFor("syncing"))
+    c.setValue(this.wordFor("active"))
   }
 
-  setSynced() {
+  setIdle() {
     const c = this.transitionController()
     if (!c) return
     this._shimmerOnSettle = false
-    if (this.currentValue() === this.wordFor("synced")) {
+    if (this.currentValue() === this.wordFor("idle")) {
       c.setShimmer(false)
       return
     }
     c.setShimmer(false)
     c.setColor("muted")
-    c.setValue(this.wordFor("synced"))
+    c.setValue(this.wordFor("idle"))
   }
 
-  setDisconnected() {
+  setPaused() {
     const c = this.transitionController()
     if (!c) return
     this._shimmerOnSettle = false
-    if (this.currentValue() === this.wordFor("disconnected")) {
+    if (this.currentValue() === this.wordFor("paused")) {
       c.setShimmer(false)
       return
     }
     c.setShimmer(false)
-    c.setColor("danger")
-    c.setValue(this.wordFor("disconnected"))
+    c.setColor("accent-pale")
+    c.setValue(this.wordFor("paused"))
   }
 
   // ─── helpers ──────────────────────────────────────────────────────
-  // `dead` is intentionally NOT included here. Jobs in Sidekiq's dead
-  // set have exhausted all retry attempts — they are TERMINAL failures,
-  // not active work. The sync indicator should reflect ongoing work
-  // (busy / enqueued / retry); a dead-set count is surfaced separately
-  // by the `d<N>` segment on tui-sidekiq-stats (Dracula red when > 0)
-  // so the failure stays visible without putting the indicator into
-  // a permanent "syncing" state after every dead-letter accumulation.
+  // `dead` is intentionally NOT included. Jobs in Sidekiq's dead set
+  // are terminal failures, not active work. The sync indicator reflects
+  // ongoing work (busy / enqueued / retry); dead-set count is surfaced
+  // separately by the `d<N>` segment on tui-sidekiq-stats.
   sidekiqActive(payload) {
     if (!payload || typeof payload !== "object") return false
     const b = parseInt(payload.busy || 0, 10) || 0
@@ -231,9 +210,9 @@ export default class extends Controller {
   }
 
   wordFor(stateName) {
-    if (stateName === "synced")       return this.syncedValue
-    if (stateName === "syncing")      return this.syncingValue
-    if (stateName === "disconnected") return this.disconnectedValue
+    if (stateName === "idle")   return this.idleValue
+    if (stateName === "active") return this.activeValue
+    if (stateName === "paused") return this.pausedValue
     return stateName
   }
 }

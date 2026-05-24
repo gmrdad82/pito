@@ -96,11 +96,14 @@ module HomePanelData
   # the Redis sub-panel was dropped from the Stack panel.
   def set_stack_panel_data
     begin
-      @search_healthy = Pito::Search.engine.healthy?
-      @search_stats   = Pito::Search.engine.index_stats
+      engine          = Pito::Search.engine
+      @search_healthy = engine.healthy?
+      @search_stats   = engine.index_stats.merge(
+        version: engine.respond_to?(:version) ? engine.version : nil
+      )
     rescue StandardError
       @search_healthy = false
-      @search_stats   = {}
+      @search_stats   = { version: nil }
     end
 
     @postgres_status          = probe_postgres_status

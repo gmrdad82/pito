@@ -4,9 +4,11 @@ module Pito
     #
     # Voyage AI sub-panel inside the stack panel on Home.
     #
-    # Shows: configuration status chip + `[reindex]` action + stats
-    # table (games embedded, bundles embedded, model, last indexed,
-    # HNSW index size, last 24h embeddings) + running-state strip.
+    # Shows: a hint line (`Voyage AI configured and ready`) at the top of
+    # the body, followed by `[reindex]` action + stats table (games
+    # embedded, bundles embedded, model, last indexed, HNSW index size,
+    # last 24h embeddings) + running-state strip. The title-row status
+    # chip was removed (Phase 1D); status is now conveyed via the hint line.
     #
     # FB-126 (2026-05-21) — `[reindex]` opens a
     # `Tui::ConfirmationDialogComponent` (mounted by the parent
@@ -18,15 +20,15 @@ module Pito
     # stats block on broadcast. The `_voyage_section` partial is
     # still rendered from this component to preserve the
     # `<div id="voyage_section">` Turbo Stream target hook; the
-    # title-in-border chrome (chip + `[reindex]`) stays put in the
+    # title-in-border chrome (`[reindex]`) stays put in the
     # sub-panel template above so per-broadcast repaints do not
     # clobber it.
     #
     # ## Kwargs
     #
     # @param configured [Boolean] Voyage credentials present?
-    #   (`AppSetting.voyage_configured?`). Drives chip variant
-    #   (`:configured` vs `:not_configured`).
+    #   (`AppSetting.voyage_configured?`). Drives hint-line status word
+    #   (`configured and ready` vs `not configured`).
     #
     # ## Cable channel
     #
@@ -44,7 +46,6 @@ module Pito
     # ## Composes
     #
     # - `Tui::SubPanelComponent` (chrome with title + actions slot)
-    # - `Tui::ChipComponent` (status chip)
     # - `Tui::ActionButtonComponent` (`[reindex]` idle action)
     # - `Tui::ReindexProgressComponent` (`[=----]` running indicator)
     # - Voyage stats partial `_voyage_section.html.erb` (Turbo Stream
@@ -78,8 +79,15 @@ module Pito
         AppSetting.voyage_configured? ? :configured : :not_configured
       end
 
-      def chip
-        Pito::Stack::HealthState::STATES.fetch(state)
+      # Human-readable status word for the hint line.
+      def status_word
+        AppSetting.voyage_configured? ? "configured and ready" : "not configured"
+      end
+
+      # CSS modifier class for the hint-line status span.
+      # Configured → green (is-success); not configured → red (is-danger).
+      def status_color_class
+        AppSetting.voyage_configured? ? "is-success" : "is-danger"
       end
     end
   end

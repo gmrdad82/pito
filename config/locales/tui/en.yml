@@ -162,9 +162,9 @@ en:
       label: "Sidekiq:"
     tst:
       sync:
-        synced: "synced"
-        syncing: "syncing"
-        disconnected: "disconnected"
+        idle: "sync"
+        active: "sync"
+        paused: "sync"
       sidekiq:
         busy_prefix: "b"
         enqueued_prefix: "e"

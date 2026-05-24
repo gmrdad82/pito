@@ -945,7 +945,7 @@ button.bracketed .bl {
      isn't set in the cascade. */
   border: 1px solid
     color-mix(in srgb, var(--section-accent, var(--dracula-purple)) 30%, transparent);
-  border-radius: 0;
+  border-radius: 4px;
   background: var(--color-bg-tint);
 }
 
@@ -993,6 +993,7 @@ button.bracketed .bl {
   border-right: 1px solid var(--color-border);
   border-bottom: 1px solid var(--color-border);
   border-left: 1px solid var(--color-border);
+  border-radius: 4px;
   padding: 12px 10px 8px;
   background: transparent;
 }
@@ -1028,6 +1029,74 @@ button.bracketed .bl {
 }
 .pito-sub-panel__actions > * {
   background: var(--color-bg);
+}
+
+/* btop-style pipe brackets — chrome glyphs flanking title + action slots.
+   Each slot renders as │text│ where the pipes are muted chrome that
+   NEVER inherit the focus-accent color. Title text may accent on focus;
+   pipes stay --color-border regardless.
+   (Phase 1A, 2026-05-24) */
+.pito-pane__title::before,
+.pito-sub-panel__title::before {
+  content: "│";
+  color: var(--color-border);
+  margin-right: 4px;
+}
+.pito-pane__title::after,
+.pito-sub-panel__title::after {
+  content: "│";
+  color: var(--color-border);
+  margin-left: 4px;
+}
+/* Title slot gets `│ … │` pipe brackets (btop style). The action slot
+   does NOT — actions just sit side-by-side per user lock 2026-05-24.
+   No inter-action separator either; the bracketed-link [foo] [bar] style
+   reads cleanly without extra glyphs. */
+/* Pito::Stack::*SubPanelComponent — hint line at top of body replacing
+   the old title-row status chip. Label muted, status word semantic. */
+.pito-sub-panel__hint {
+  margin: 0 0 8px;
+  font-size: 13px;
+  line-height: 1.2;
+}
+.pito-sub-panel__hint-label {
+  color: var(--color-muted);
+}
+.pito-sub-panel__hint-status {
+  margin-left: 4px;
+  font-weight: bold;
+}
+.pito-sub-panel__hint-status.is-success { color: var(--color-success); }
+.pito-sub-panel__hint-status.is-warn    { color: var(--color-warn); }
+.pito-sub-panel__hint-status.is-danger  { color: var(--color-danger); }
+.pito-sub-panel__hint-status.is-muted   { color: var(--color-muted); }
+/* Pipe brackets are CHROME — keep --color-border even when panel/sub-panel
+   is focused and the title text swaps to the section accent. */
+.pito-pane[data-tui-cursor-focused="yes"] .pito-pane__title::before,
+.pito-pane[data-tui-cursor-focused="yes"] .pito-pane__title::after,
+.pito-sub-panel[data-tui-cursor-sub-panel-focused="yes"] .pito-sub-panel__title::before,
+.pito-sub-panel[data-tui-cursor-sub-panel-focused="yes"] .pito-sub-panel__title::after {
+  color: var(--color-border);
+}
+/* Dialog frame title pipe brackets — same btop chrome pattern. */
+.tui-dialog-frame__title-left::before,
+.tui-dialog-frame__title-right::before {
+  content: "│";
+  color: var(--color-border);
+  margin-right: 4px;
+}
+.tui-dialog-frame__title-left::after,
+.tui-dialog-frame__title-right::after {
+  content: "│";
+  color: var(--color-border);
+  margin-left: 4px;
+}
+/* Pipes stay muted even when open dialog accents its title text. */
+.tui-dialog-frame[open] .tui-dialog-frame__title-left::before,
+.tui-dialog-frame[open] .tui-dialog-frame__title-left::after,
+.tui-dialog-frame[open] .tui-dialog-frame__title-right::before,
+.tui-dialog-frame[open] .tui-dialog-frame__title-right::after {
+  color: var(--color-border);
 }
 
 .pito-pane[data-tui-cursor-focused="yes"] {
@@ -1733,12 +1802,12 @@ th.sort-desc {
 th.sortable:has(> a.sort-asc),
 th.sortable.sort-asc,
 th.sort-asc {
-  border-bottom: 2px solid var(--section-accent);
+  border-bottom: 1px solid var(--section-accent);
 }
 th.sortable:has(> a.sort-desc),
 th.sortable.sort-desc,
 th.sort-desc {
-  border-bottom: 2px dashed var(--section-accent);
+  border-bottom: 1px dashed var(--section-accent);
 }
 
 /* Action column — tight, no extra padding */
@@ -6263,6 +6332,7 @@ dd.tui-help-dialog__label {
 .tui-dialog-frame {
   position: relative;
   border: 1px solid var(--color-border);
+  border-radius: 4px;
   padding: 16px 10px 12px;
   background: var(--color-bg);
   /* FB-65 (2026-05-20). Dialog elements default to `overflow: auto`, which
@@ -6904,19 +6974,26 @@ body.keyboard-only * {
    collapsed but the negative top margin pulls it up into the trailing
    padding region where sticky-bottom can resolve correctly. */
 .tui-scroll-indicator {
-  position: sticky;
-  float: right;
-  right: 2px;
+  position: absolute;
+  right: -7px;            /* hover over right border line */
   pointer-events: none;
   opacity: 0;
   transition: opacity 200ms ease-out;
-  color: var(--color-muted);
+  background: var(--color-bg);
+  padding: 0 2px;
   font-size: 13px;
   line-height: 1;
   z-index: 2;
 }
-.tui-scroll-indicator--top    { top: 2px; }
-.tui-scroll-indicator--bottom { bottom: 2px; margin-top: -13px; }
+.tui-scroll-indicator--top    { top: 2px; color: var(--color-muted); }
+.tui-scroll-indicator--bottom { bottom: 2px; color: var(--color-muted); }
+.tui-scroll-indicator--handle {
+  top: var(--handle-pct, 50%);
+  transform: translateY(-50%);
+  color: var(--section-accent);
+  background: var(--color-bg);
+  padding: 0;
+}
 .tui-scroll-indicator--visible { opacity: 1; }
 
 /* Wave 2B (2026-05-23) — Pito::*PanelComponent placeholder shared by all

@@ -3,8 +3,8 @@ require "rails_helper"
 RSpec.describe Tui::ScrollIndicatorComponent, type: :component do
   subject(:rendered) { render_inline(described_class.new) }
 
-  it "renders both top and bottom span elements" do
-    expect(rendered.css("span").length).to eq(2)
+  it "renders three span elements (top + handle + bottom)" do
+    expect(rendered.css("span").length).to eq(3)
   end
 
   it "renders the top indicator with correct classes and glyph" do
@@ -15,6 +15,14 @@ RSpec.describe Tui::ScrollIndicatorComponent, type: :component do
     expect(top.text.strip).to eq("▲")
   end
 
+  it "renders the handle indicator with correct classes and glyph" do
+    handle = rendered.css("span.tui-scroll-indicator--handle").first
+    expect(handle).to be_present
+    expect(handle["class"]).to include("tui-scroll-indicator")
+    expect(handle["class"]).to include("tui-scroll-indicator--handle")
+    expect(handle.text.strip).to eq("█")
+  end
+
   it "renders the bottom indicator with correct classes and glyph" do
     bottom = rendered.css("span.tui-scroll-indicator--bottom").first
     expect(bottom).to be_present
@@ -23,16 +31,18 @@ RSpec.describe Tui::ScrollIndicatorComponent, type: :component do
     expect(bottom.text.strip).to eq("▼")
   end
 
-  it "marks both spans aria-hidden" do
+  it "marks all three spans aria-hidden" do
     rendered.css("span").each do |span|
       expect(span["aria-hidden"]).to eq("true")
     end
   end
 
-  it "wires Stimulus target attributes for top and bottom" do
-    top = rendered.css("span.tui-scroll-indicator--top").first
+  it "wires Stimulus target attributes for top, handle, and bottom" do
+    top    = rendered.css("span.tui-scroll-indicator--top").first
+    handle = rendered.css("span.tui-scroll-indicator--handle").first
     bottom = rendered.css("span.tui-scroll-indicator--bottom").first
     expect(top["data-tui-scroll-indicator-target"]).to eq("top")
+    expect(handle["data-tui-scroll-indicator-target"]).to eq("handle")
     expect(bottom["data-tui-scroll-indicator-target"]).to eq("bottom")
   end
 

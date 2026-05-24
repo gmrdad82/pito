@@ -70,6 +70,17 @@ module Pito
         false
       end
 
+      # Returns the Meilisearch server version string (e.g. "1.10.3"),
+      # or nil when the engine is unreachable or the version endpoint
+      # is unavailable. Used by `Pito::Stack::MeilisearchSubPanelComponent`
+      # to render the hint line (`Meilisearch v<version> connected`).
+      def version
+        info = @client.version
+        info["pkgVersion"] || info["commitDate"]
+      rescue StandardError
+        nil
+      end
+
       def index_stats
         stats = @client.stats
         indexes = stats["indexes"] || {}

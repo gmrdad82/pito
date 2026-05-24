@@ -16,7 +16,6 @@
     sub-panel. %>
 <%= render Tui::SubPanelComponent.new(title: t("settings.voyage.heading")) do |c| %>
   <% c.with_actions do %>
-    <%= render Tui::ChipComponent.new(label: chip[:chip_label], variant: chip[:chip_variant]) %>
     <span>
       <% _voyage_f = focusables.first %>
       <span <%= "hidden" if reindex_running? %>>
@@ -34,6 +33,10 @@
       </span>
     </span>
   <% end %>
+  <p class="pito-sub-panel__hint">
+    <span class="pito-sub-panel__hint-label">Voyage AI</span>
+    <span class="pito-sub-panel__hint-status <%= status_color_class %>"><%= status_word %></span>
+  </p>
   <%= helpers.turbo_stream_from "reindex_status" %>
   <%= render "settings/voyage_section" %>
 <% end %>

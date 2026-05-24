@@ -4,12 +4,14 @@ module Pito
     #
     # Meilisearch sub-panel inside the stack panel on Home.
     #
-    # Shows: connection status chip + `[reindex]` action +
-    # per-index stats (games + bundles — doc count + size). The
-    # unified `games_<env>` Meilisearch index is split into two rows
-    # by `kind` (`game` / `bundle`); size is reported by Meilisearch
-    # at the INDEX level only, so `omit_size` bundle row renders a
-    # plain dash in the size column to avoid double-attribution.
+    # Shows: a hint line (`Meilisearch v<version> connected`) at the top
+    # of the body, followed by `[reindex]` action + per-index stats
+    # (games + bundles — doc count + size). The unified `games_<env>`
+    # Meilisearch index is split into two rows by `kind` (`game` /
+    # `bundle`); size is reported by Meilisearch at the INDEX level only,
+    # so `omit_size` bundle row renders a plain dash in the size column.
+    # The title-row status chip was removed (Phase 1D); status is now
+    # conveyed via the hint line.
     #
     # FB-126 (2026-05-21) — `[reindex]` opens a
     # `Tui::ConfirmationDialogComponent` (mounted by the parent
@@ -22,8 +24,8 @@ module Pito
     # ## Kwargs
     #
     # @param healthy [Boolean] Meilisearch reachability
-    # @param stats [Hash] aggregate Meilisearch stats (currently
-    #   unused at the sub-panel surface; reserved for future).
+    # @param stats [Hash] aggregate Meilisearch stats — keys include
+    #   `:version` (String or nil, from `MeilisearchEngine#version`).
     # @param per_index_stats [Array<Hash>] rows — `:label`,
     #   `:documents`, `:size_bytes`, `:missing` (bool — "not yet
     #   indexed"), `:omit_size` (bool — show dash for size).
@@ -44,7 +46,6 @@ module Pito
     # ## Composes
     #
     # - `Tui::SubPanelComponent` (chrome with title + actions slot)
-    # - `Tui::ChipComponent` (status chip)
     # - `Tui::ActionButtonComponent` (`[reindex]` idle action)
     # - `Tui::ReindexProgressComponent` (`[=----]` running indicator)
     # - `SortableHeaderComponent` (sortable column headers)
@@ -81,8 +82,29 @@ module Pito
         healthy ? :connected : :disconnected
       end
 
-      def chip
-        Pito::Stack::HealthState::STATES.fetch(state)
+      # Version label string — e.g. "1.10.3". Falls back to "—" when the
+      # engine is unreachable or the version probe returned nil.
+      # Meilisearch convention uses a `v` prefix in user-facing copy
+      # (e.g. "Meilisearch v1.10 connected"), so callers prepend "v"
+      # in the template when the version is not "—".
+      def meilisearch_version
+        v = stats[:version].presence
+        return "—" unless v
+
+        # Trim to major.minor only (e.g. "1.10.3" → "1.10").
+        parts = v.split(".")
+        parts.first(2).join(".")
+      end
+
+      # Human-readable status word for the hint line.
+      def status_word
+        healthy ? "connected" : "disconnected"
+      end
+
+      # CSS modifier class for the hint-line status span.
+      # Connected → green (is-success); disconnected → red (is-danger).
+      def status_color_class
+        healthy ? "is-success" : "is-danger"
       end
     end
   end

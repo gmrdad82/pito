@@ -1,92 +1,102 @@
 module Tui
-  # Tui::SyncIndicatorComponent — word-only sync indicator wired through
+  # Tui::SyncIndicatorComponent — checkbox-style sync indicator wired through
   # the canonical `Tui::Transitionable` mixin so its value-changes pass
   # through the locked scramble-settle → color-crossfade → shimmer
-  # pipeline owned by `tui_transition_controller.js` (Wave 1B).
+  # pipeline owned by `tui_transition_controller.js`.
   #
-  # 2026-05-22 (Phase 2A) — glyphs (●/◐/✗) dropped per Beta 4 word-only
-  # contract. State now drives only the word ("synced" / "syncing" /
-  # "disconnected"), the active color (accent for synced/syncing,
-  # pink/danger for disconnected), and the shimmer decoration (syncing
-  # only). The colocated `tui-sync-indicator` controller is a thin
-  # delegator that listens for `tui:sync-changed` + `tui:cable-activity`
-  # events and patches the colocated `tui-transition` outlet via
-  # setValue / setColor / setShimmer. Sequencing rule: shimmer NEVER
-  # overlaps the scramble (forward path waits for
-  # `tui-transition:settled` before flipping shimmer on; reverse path
-  # turns shimmer off first, then scrambles back).
+  # 2026-05-24 (Phase 1C) — redesigned as checkbox-style display.
+  # "disconnected" state dropped — cable drops are treated as idle (no
+  # recent activity). Three states now drive the indicator:
+  #
+  #   idle   → [ ] sync  (Sidekiq quiet; muted color)
+  #   active → [x] sync  (Sidekiq busy/enqueued/retry > 0; accent + shimmer)
+  #   paused → [-] sync  (future per-panel pause; accent-pale color)
+  #
+  # The checkbox glyph ([ ] / [x] / [-]) is part of the emitted value
+  # string so the Transitionable scramble effect applies to the full
+  # display string, not just the word.
   #
   # Constructor inputs:
-  #   - state:  one of `:synced`, `:syncing`, `:disconnected`. Accepts
-  #             `:idle` as a soft alias to `:synced` to preserve the
-  #             existing wire format from `StatusBarBroadcastJob`
-  #             (`sync_state: :idle`). Defaults to `:synced`.
+  #   - state:  one of `:idle`, `:active`, `:paused`. Defaults to `:idle`.
   #
   # Cable contract: the parent `tui-top-status-bar` controller fans
   # `pito:status_bar` payloads into `tui:sync-changed` and
   # `tui:cable-activity` events on document. This VC's child controller
-  # consumes both — explicit state events drive `disconnected`, activity
-  # events drive a 400ms `syncing` pulse, quiescence returns the cell to
-  # `synced`.
+  # (tui-sync-indicator) consumes both — Sidekiq activity events drive
+  # :active vs :idle; the :paused state is future-wired via explicit
+  # cable event. No :disconnected path exists; cable drops show as :idle.
   #
-  # i18n: words come from `config/locales/tui/en.yml` `tui.tst.sync.*`.
-  # All three per-state words are also emitted as data-* attrs so the
-  # JS layer can read them without inlining English.
+  # i18n: the word "sync" comes from `config/locales/tui/en.yml`
+  # `tui.tst.sync.*`. All three per-state full display strings are also
+  # emitted as data-* attrs so the JS layer can read them without
+  # inlining English or reconstructing glyphs.
   #
   # @contract see docs/design.md § Transitions
   # @contract see docs/architecture.md § Pito::Transitions
   class SyncIndicatorComponent < ViewComponent::Base
     include Tui::Transitionable
 
-    STATES = %i[synced syncing disconnected].freeze
-    DEFAULT_STATE = :synced
+    STATES = %i[idle active paused].freeze
+    DEFAULT_STATE = :idle
 
     def initialize(state: DEFAULT_STATE)
-      @state = normalize_state(state)
+      @state = STATES.include?(state.to_sym) ? state.to_sym : DEFAULT_STATE
     end
 
     attr_reader :state
 
     def state_word
       case @state
-      when :synced       then I18n.t("tui.tst.sync.synced")
-      when :syncing      then I18n.t("tui.tst.sync.syncing")
-      when :disconnected then I18n.t("tui.tst.sync.disconnected")
+      when :active then I18n.t("tui.tst.sync.active")
+      when :paused then I18n.t("tui.tst.sync.paused")
+      else              I18n.t("tui.tst.sync.idle")
       end
     end
 
-    def word_synced
-      I18n.t("tui.tst.sync.synced")
+    def checkbox_glyph
+      case @state
+      when :active then "[x]"
+      when :paused then "[-]"
+      else              "[ ]"
+      end
     end
 
-    def word_syncing
-      I18n.t("tui.tst.sync.syncing")
+    def display_value
+      "#{checkbox_glyph} #{state_word}"
     end
 
-    def word_disconnected
-      I18n.t("tui.tst.sync.disconnected")
+    def word_idle
+      "[ ] #{I18n.t("tui.tst.sync.idle")}"
+    end
+
+    def word_active
+      "[x] #{I18n.t("tui.tst.sync.active")}"
+    end
+
+    def word_paused
+      "[-] #{I18n.t("tui.tst.sync.paused")}"
     end
 
     # Builds the merged data-attrs hash for the host span:
     #   - canonical tui-transition data-attrs (controller, effect, value,
     #     align, color, shimmer) from the Transitionable mixin
-    #   - per-state word values for the colocated tui-sync-indicator
+    #   - per-state full display strings for the colocated tui-sync-indicator
     #     controller to read in setState()
     #   - the existing top-status-bar target hook (`sync`)
     #   - the controller chain (`tui-sync-indicator tui-transition`)
     #   - the outlet selector pointing back to this same span
     def root_data_attrs
       base = transitionable_attrs(
-        value: state_word,
+        value: display_value,
         align: :right,
         color: color_for(@state),
-        shimmer: @state == :syncing
+        shimmer: @state == :active
       )
       attrs = base[:data]
       attrs[:controller] = "tui-sync-indicator #{attrs[:controller]}"
-      attrs[:tui_sync_indicator_synced_value]       = word_synced
-      attrs[:tui_sync_indicator_syncing_value]      = word_syncing
-      attrs[:tui_sync_indicator_disconnected_value] = word_disconnected
+      attrs[:tui_sync_indicator_idle_value]   = word_idle
+      attrs[:tui_sync_indicator_active_value] = word_active
+      attrs[:tui_sync_indicator_paused_value] = word_paused
       attrs[:tui_sync_indicator_tui_transition_outlet] = ".tui-sync-word"
       attrs[:tui_status_bar_target] = "sync"
       attrs
@@ -94,17 +104,11 @@ module Tui
 
     private
 
-    def normalize_state(raw)
-      sym = raw.to_sym
-      sym = :synced if sym == :idle
-      STATES.include?(sym) ? sym : DEFAULT_STATE
-    end
-
     def color_for(state)
       case state
-      when :syncing      then :accent
-      when :disconnected then :danger
-      else                    :muted
+      when :active then :accent
+      when :paused then :"accent-pale"
+      else              :muted
       end
     end
   end

@@ -1,9 +1,11 @@
 <%# Pito::Stack::PostgresSubPanelComponent — PostgreSQL sub-panel
-    inside the stack panel on Home. FB-63-V4 — V4 title-in-border. %>
+    inside the stack panel on Home. FB-63-V4 — V4 title-in-border.
+    Phase 1D — status chip removed; hint line added at body top. %>
 <%= render Tui::SubPanelComponent.new(title: t("settings.stack.postgres"), focusable_key: "postgres") do |c| %>
-  <% c.with_actions do %>
-    <%= render Tui::ChipComponent.new(label: chip[:chip_label], variant: chip[:chip_variant]) %>
-  <% end %>
+  <p class="pito-sub-panel__hint">
+    <span class="pito-sub-panel__hint-label">PostgreSQL <%= postgres_version %></span>
+    <span class="pito-sub-panel__hint-status <%= status_color_class %>"><%= status_word %></span>
+  </p>
 
   <% if status[:connected] && table_breakdown.any? %>
     <div data-controller="sortable-table" data-sortable-table-id-value="stack-postgres">

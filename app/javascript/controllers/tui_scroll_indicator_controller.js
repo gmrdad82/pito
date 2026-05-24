@@ -1,8 +1,8 @@
 import { Controller } from "@hotwired/stimulus"
 
 /**
- * tui-scroll-indicator — toggles the top/bottom ▲/▼ overlay glyphs based
- * on the host's scroll position.
+ * tui-scroll-indicator — toggles the top/bottom ▲/▼ overlay glyphs and
+ * positions a floating █ handle on the right border, based on scroll position.
  *
  * Visibility rules:
  *   - ▲ visible when scrollTop > THRESHOLD_PX (content above is hidden)
@@ -10,6 +10,8 @@ import { Controller } from "@hotwired/stimulus"
  *     (content below is hidden)
  *   - Neither visible when content does not overflow OR scrolled exactly
  *     to the corresponding edge.
+ *   - Handle visible whenever content overflows (max > THRESHOLD_PX);
+ *     positioned via --handle-pct CSS variable (percent of scroll progress).
  *
  * Recomputed on:
  *   - connect (initial paint)
@@ -20,7 +22,7 @@ import { Controller } from "@hotwired/stimulus"
  * itself is mouse-wheel + keyboard cursor (j/k) handled elsewhere.
  */
 export default class extends Controller {
-  static targets = ["top", "bottom"]
+  static targets = ["top", "bottom", "handle"]
   static THRESHOLD_PX = 2
 
   connect() {
@@ -60,5 +62,11 @@ export default class extends Controller {
     const bottomVisible = top < max - t
     if (this.hasTopTarget) this.topTarget.classList.toggle("tui-scroll-indicator--visible", topVisible)
     if (this.hasBottomTarget) this.bottomTarget.classList.toggle("tui-scroll-indicator--visible", bottomVisible)
+    // Handle position: percent of scroll progress, clamped to [0, 100]
+    if (this.hasHandleTarget && max > 0) {
+      const pct = Math.max(0, Math.min(100, (top / max) * 100))
+      this.handleTarget.style.setProperty("--handle-pct", `${pct}%`)
+      this.handleTarget.classList.toggle("tui-scroll-indicator--visible", max > t)
+    }
   }
 }

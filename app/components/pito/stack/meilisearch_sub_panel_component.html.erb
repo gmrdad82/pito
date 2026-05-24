@@ -15,7 +15,6 @@
     slot during a reindex. %>
 <%= render Tui::SubPanelComponent.new(title: t("settings.stack.meilisearch")) do |c| %>
   <% c.with_actions do %>
-    <%= render Tui::ChipComponent.new(label: chip[:chip_label], variant: chip[:chip_variant]) %>
     <span>
       <% _meili_f = focusables.first %>
       <span <%= "hidden" if reindex_running? %>>
@@ -36,6 +35,11 @@
       </span>
     </span>
   <% end %>
+
+  <p class="pito-sub-panel__hint">
+    <span class="pito-sub-panel__hint-label">Meilisearch<% if meilisearch_version != "—" %> v<%= meilisearch_version %><% else %> —<% end %></span>
+    <span class="pito-sub-panel__hint-status <%= status_color_class %>"><%= status_word %></span>
+  </p>
 
   <% if per_index_stats.any? %>
     <div data-controller="sortable-table" data-sortable-table-id-value="stack-meilisearch">

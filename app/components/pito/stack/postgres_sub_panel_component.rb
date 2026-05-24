@@ -4,14 +4,16 @@ module Pito
     #
     # PostgreSQL sub-panel inside the stack panel on Home.
     #
-    # Shows: connection status chip + per-table breakdown (rows + size)
-    # for the canonical domain tables (games, bundles).
+    # Shows: a hint line (`PostgreSQL <version> connected`) at the top of
+    # the body, followed by a per-table breakdown (rows + size) for the
+    # canonical domain tables (games, bundles). The title-row status chip
+    # was removed (Phase 1D); status is now conveyed via the hint line.
     #
     # ## Kwargs
     #
     # @param status [Hash] connection probe — keys: `:connected`,
     #   `:adapter`, `:database`, `:version`. Falsy `:connected` skips
-    #   the breakdown table entirely (only the chip renders).
+    #   the breakdown table entirely (only the hint line renders).
     # @param table_breakdown [Array<Hash>] per-table rows. Each row:
     #   `:label`, `:count` (nil → em-dash), `:size_bytes` (nil →
     #   em-dash).
@@ -33,8 +35,7 @@ module Pito
     #
     # ## Composes
     #
-    # - `Tui::SubPanelComponent` (chrome with title + chip actions slot)
-    # - `Tui::ChipComponent` (status chip)
+    # - `Tui::SubPanelComponent` (chrome with title + actions slot)
     # - `SortableHeaderComponent` (column headers — sortable)
     class PostgresSubPanelComponent < ViewComponent::Base
       CABLE_CHANNEL = "pito:home:stack:postgres".freeze
@@ -57,8 +58,21 @@ module Pito
         status[:connected] ? :connected : :disconnected
       end
 
-      def chip
-        Pito::Stack::HealthState::STATES.fetch(state)
+      # Version label string — e.g. "17". Falls back to "—" when the
+      # probe did not capture a version (disconnected or unavailable).
+      def postgres_version
+        status[:version].presence || "—"
+      end
+
+      # Human-readable status word for the hint line.
+      def status_word
+        status[:connected] ? "connected" : "disconnected"
+      end
+
+      # CSS modifier class for the hint-line status span.
+      # Connected → green (is-success); disconnected → red (is-danger).
+      def status_color_class
+        status[:connected] ? "is-success" : "is-danger"
       end
     end
   end
