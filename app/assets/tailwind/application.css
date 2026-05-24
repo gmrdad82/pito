@@ -2032,18 +2032,17 @@ table.tui-table--stack td {
   font-size: 13px;
   line-height: 1;
   white-space: nowrap;
-}
-/* 2026-05-24 — stack tables adopt the sessions-style per-row dashed
-   hairline. The canonical .tui-table__td rule already declares
-   `border-bottom: 1px dashed var(--color-border-soft)`; previously
-   `table.tui-table--stack th, td { border: none }` stripped it. The
-   stripped rule above no longer kills the border; here we explicitly
-   clear non-bottom sides so only the bottom hairline shows. */
-table.tui-table--stack tbody td {
+  /* 2026-05-24 — clear the GLOBAL `th, td { border: 1px solid }` rule
+     on three sides; bottom is intentionally left to inherit from the
+     canonical .tui-table__th (1px solid) for headers and
+     .tui-table__td (1px dashed) for body rows. Previously the whole
+     border was stripped (`border: none`) which killed those canonical
+     hairlines too. */
   border-top: none;
   border-left: none;
   border-right: none;
 }
+/* 2026-05-24 — last body row has no bottom hairline (sits at panel base). */
 table.tui-table--stack tbody tr:last-child td {
   border-bottom: none;
 }
