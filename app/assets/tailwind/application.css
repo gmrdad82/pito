@@ -1065,7 +1065,9 @@ button.bracketed .bl {
   z-index: 1;
   display: inline-flex;
   align-items: center;
-  gap: 1ch;
+  /* 2026-05-24 — gap tightened from 1ch (~8px) to 4px so adjacent
+     actions ([reindex] + [ ] sync, etc.) sit closer without merging. */
+  gap: 4px;
 }
 .pito-sub-panel__actions > * {
   background: var(--section-bg, var(--color-bg));
@@ -5851,7 +5853,10 @@ body > header {
   gap: 2px;
   font-family: inherit;
   font-size: inherit;
-  color: var(--color-text);
+  /* 2026-05-24 — actions are always section accent. A checkbox with a
+     label IS an action (toggleable), per the locked rule in
+     docs/design.md + CLAUDE.md. Idle / hovered / checked alike. */
+  color: var(--section-accent);
   text-decoration: none;
   cursor: pointer;
 }
@@ -7238,7 +7243,8 @@ body.keyboard-only * {
   z-index: 1;
   display: inline-flex;
   align-items: center;
-  gap: 1ch;
+  /* 2026-05-24 — gap tightened to 4px so adjacent actions sit closer. */
+  gap: 4px;
 }
 .pito-pane__title-actions > * {
   background: var(--section-bg, var(--color-bg));

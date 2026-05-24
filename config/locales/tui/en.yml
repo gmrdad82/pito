@@ -68,7 +68,7 @@ en:
         security:
           title: "security"
         notifications:
-          title: "notifications settings"
+          title: "settings"
         stack:
           title: "stack"
         channels_overview:

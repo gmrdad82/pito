@@ -11,21 +11,22 @@
       `month [schedule]`; toggle and it flips to `[month] schedule`.
       Active also uses section-accent (matches the "actions are always
       accent" lock — the entire toggle reads in one color, distinguished
-      only by the bracketed / unbracketed shape). The leading sync VC
-      gains a `[ ] sync` action; full slot now reads
-      `[ ] sync   month [schedule]`. %>
+      only by the bracketed / unbracketed shape).
+
+      2026-05-24 (order) — sync VC is ALWAYS LAST in any panel's action
+      list. Full slot reads `month [schedule] [ ] sync`. %>
   <span class="pito-pane__title-actions">
-    <%= render Tui::SyncIndicatorComponent.new(
-          mode: :target,
-          target: "home.calendar",
-          focusable_key: "calendar_sync"
-        ) %>
     <%= render Tui::ViewToggleComponent.new(
           views: views,
           current: current_view,
           event_name: "calendar:view-changed",
           active_color: :accent,
           active_style: :plain
+        ) %>
+    <%= render Tui::SyncIndicatorComponent.new(
+          mode: :target,
+          target: "home.calendar",
+          focusable_key: "calendar_sync"
         ) %>
   </span>
   <%= render Tui::PanelFieldsetComponent.new do %>
