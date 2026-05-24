@@ -2073,22 +2073,23 @@ table.sessions-table td {
   border-left: none;
   border-right: none;
 }
-/* 2026-05-24 — column spacing tweaks. Default `.tui-table__td` is
-   `padding: 3px 8px 3px 0` which leaves the LEFT side of every cell
-   flush to the previous cell. For right-aligned numeric cells this
-   crowds adjacent columns ("last secreated" running together). And
-   for the checkbox column the 8px gap to the device label reads as
-   too tight. */
-table.sessions-table .col-action,
-table.sessions-table th.col-action,
-table.sessions-table td.col-action {
-  padding-right: 14px;
+/* 2026-05-24 — sessions-table column-width redistribution.
+   The canonical `.col-action` checkbox spacing now lives in the TUI
+   primitive layer (`.tui-table__td.col-action`), applied identically
+   to every table that opts in. The session-specific knobs below
+   constrain the IP column to its content width so the surplus auto-
+   distributes to the right-aligned date columns (last-seen / created)
+   that previously crowded together ("last secreated"). */
+table.sessions-table .sessions-table__col-ip,
+table.sessions-table .sessions-table__cell-ip {
+  width: 1%;
+  white-space: nowrap;
 }
 table.sessions-table .sessions-table__col-last-seen,
 table.sessions-table .sessions-table__cell-last-seen,
 table.sessions-table .sessions-table__col-created,
 table.sessions-table .sessions-table__cell-created {
-  padding-left: 14px;
+  padding-left: 24px;
 }
 /* FB-67 (2026-05-20) — global `tr:hover` is gone sitewide; the prior
    stack-table opt-out (`table.tui-table--stack tr:hover { background-
@@ -6127,6 +6128,17 @@ a.bsb-section.bsb-section--current:visited {
   padding: 3px 8px 3px 0;
   color: var(--color-text);
   border-bottom: 1px dashed var(--color-border-soft);
+}
+
+/* 2026-05-24 — canonical checkbox-column spacing (TUI primitive).
+   Any `.col-action` cell (used as the leading checkbox slot in
+   channels / videos / sessions / bulk_operations / deletions tables)
+   gets a wider right padding so the `[ ]` glyph is not glued to the
+   following label. Lives in the TUI primitive layer so every table
+   that opts into the convention reads identically. */
+.tui-table__th.col-action,
+.tui-table__td.col-action {
+  padding-right: 14px;
 }
 
 .tui-table__th--right,
