@@ -2028,11 +2028,24 @@ table.tui-table--stack {
 }
 table.tui-table--stack th,
 table.tui-table--stack td {
-  border: none;
   background: transparent;
   font-size: 13px;
   line-height: 1;
   white-space: nowrap;
+}
+/* 2026-05-24 — stack tables adopt the sessions-style per-row dashed
+   hairline. The canonical .tui-table__td rule already declares
+   `border-bottom: 1px dashed var(--color-border-soft)`; previously
+   `table.tui-table--stack th, td { border: none }` stripped it. The
+   stripped rule above no longer kills the border; here we explicitly
+   clear non-bottom sides so only the bottom hairline shows. */
+table.tui-table--stack tbody td {
+  border-top: none;
+  border-left: none;
+  border-right: none;
+}
+table.tui-table--stack tbody tr:last-child td {
+  border-bottom: none;
 }
 
 /* 2026-05-24 — drop the trailing 8px right padding from the last cell
@@ -2057,17 +2070,12 @@ table.tui-table--stack tbody tr > td:first-child {
   color: var(--color-muted);
 }
 /* FB-75 (2026-05-20) — tighten vertical padding on stack-table body
-   rows. Inherits `padding: 3px 8px 3px 0` from `.tui-table__td` in the
-   TUI primitives block; the 3px top/bottom reads as too airy on the
-   Voyage AI tile's stats table (image #134). Drop top/bottom to 1px
-   for stack-scoped tables only; the primitive default stays the
-   reference value for non-stack tables. Horizontal padding preserved
-   via `padding-left: 0` (keeps the right-aligned column edge flush)
-   and `padding-right: 8px` matching `--stack-cell-padding`. */
-table.tui-table--stack tbody td {
-  padding-top: 1px;
-  padding-bottom: 1px;
-}
+   rows. 2026-05-24 — REVERTED. User asked stack kv-tables to match
+   the sessions table padding rhythm so the dashed per-row hairline
+   (just adopted on stack tables too) reads with the same vertical
+   breathing room. Inherit the canonical `.tui-table__td` 3px top /
+   3px bottom — sub-panels now have the 50/50 grid height to absorb
+   the extra rhythm. */
 /* FB-117 (2026-05-20) — restore the header bottom border on stack-pane
    tables. The `table.tui-table--stack th, table.tui-table--stack td
    { border: none; ... }` reset above strips the hairline that the
