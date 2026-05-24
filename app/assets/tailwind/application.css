@@ -1989,7 +1989,16 @@ th.col-action, td.col-action {
   grid-template-columns: 1fr 1fr;
   grid-template-rows: 1fr 1fr;
   gap: 16px;
+  /* 2026-05-25 — height-chain fix. `.pito-stack-grid` sits inside
+     `.tui-panel-fieldset__scroll` which is a BLOCK element (its own
+     `flex: 1` makes it fill the fieldset, but inside it children are
+     block-flow). So the previous `flex: 1` here was a no-op and the
+     grid collapsed to content height, leaving a gap below the 2x2
+     when the window is tall. Use `height: 100%` instead, which fills
+     the scroll wrapper regardless of its display type. `min-height: 0`
+     stays so the grid can still clamp when content overflows. */
   flex: 1;
+  height: 100%;
   min-height: 0;
   width: 100%;
   /* 2026-05-24 — `.pito-stack-grid` sits INSIDE

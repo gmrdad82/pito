@@ -337,10 +337,18 @@ export default class extends Controller {
     ) {
       return "idle"
     }
-    // Without finer per-target activity signal (future cable wiring),
-    // default to idle for enabled targets. Cable suppression layer
-    // remains the load-bearing semantic.
-    return "idle"
+    // 2026-05-25 — bug fix: enabled target with no early-exit hit must
+    // render as `:active` (`[x] sync`), NOT `:idle`. The previous final
+    // fallback returned `"idle"` and the toggle never flipped the glyph
+    // from `[ ]` to `[x]` after enabling. State semantics (locked):
+    //   `[ ]` idle    = user-disabled / parent-disabled / master-disabled
+    //                   (without explicit per-target opt-in)
+    //   `[x]` active  = user-enabled AND no specific cable activity right
+    //                   now (default after enabling — what this branch
+    //                   returns)
+    //   `[x]` syncing = active + shimmer (driven elsewhere by cable
+    //                   activity events; not derived here).
+    return "active"
   }
 
   // Returns true when this target has registered children in the
