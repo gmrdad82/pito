@@ -87,6 +87,7 @@ module Pito
       def focusables
         list = []
         list << { key: "reindex", style: :action } unless reindex_running?
+        list << { key: "voyage_sync", style: :action }
         list << { key: "voyage_header", style: :inert }
         list
       end

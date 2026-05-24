@@ -108,11 +108,15 @@ module Pito
     end
 
     # Aggregate focusables from each sub-panel. The stack panel itself
-    # contributes nothing; the cursor traverses sub-panel focusables in
-    # 2x2-grid declaration order (Meilisearch → Voyage → Postgres →
-    # assets).
+    # contributes the panel-level sync indicator (`stack_sync`) at the
+    # head of the list; the cursor then traverses sub-panel focusables
+    # in 2x2-grid declaration order (Meilisearch → Voyage → Postgres →
+    # assets). Each sub-panel also contributes its own
+    # `<sub_panel>_sync` focusable as the trailing action stop —
+    # see the sub-panel VCs for the per-sub-panel ordering.
     def focusables
-      meilisearch_sub_panel.focusables +
+      [ { key: "stack_sync", style: :action } ] +
+        meilisearch_sub_panel.focusables +
         voyage_sub_panel.focusables +
         postgres_sub_panel.focusables +
         assets_sub_panel.focusables

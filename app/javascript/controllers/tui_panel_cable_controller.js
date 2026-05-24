@@ -1,5 +1,6 @@
 import { Controller } from "@hotwired/stimulus"
 import { createConsumer } from "@rails/actioncable"
+import { isTargetSyncDisabled } from "controllers/tui_sync_indicator_controller"
 
 /**
  * tui-panel-cable — per-panel cable subscriber. Mounted on every
@@ -23,6 +24,16 @@ import { createConsumer } from "@rails/actioncable"
  *   disconnect → unsubscribe + tear down consumer
  *
  * Reconnects on disconnect via createConsumer's default reconnect policy.
+ *
+ * Sync suppression (Phase 1D, 2026-05-24):
+ *   Before dispatching a received event, the controller checks the
+ *   `pito.sync.<screen>.<name>` localStorage flag via
+ *   `isTargetSyncDisabled()`. If disabled (direct flag = "no" or
+ *   inherited from a parent panel target = "no"), the broadcast is
+ *   dropped silently and no event fires. The semantic flipped from the
+ *   prior `pito.pause.<target>` = "yes" suppress shape to the canonical
+ *   `pito.sync.<target>` = "no" suppress shape — pausing = unchecked
+ *   sync = disabled.
  *
  * Contract: see docs/architecture.md § Cable channel grammar
  */
@@ -69,6 +80,11 @@ export default class extends Controller {
 
   onReceived(data) {
     const { kind, payload, ts } = data || {}
+    // Phase 1D (2026-05-24) — drop the payload silently if the target's
+    // sync is disabled via localStorage. Target = `<screen>.<name>`
+    // matching Tui::SyncIndicatorComponent's localStorage key suffix.
+    const target = `${this.screenValue}.${this.nameValue}`
+    if (isTargetSyncDisabled(target)) return
     this.element.dispatchEvent(
       new CustomEvent(`pito:panel:${this.nameValue}:received`, {
         detail: { kind, payload, ts },

@@ -1,68 +1,74 @@
 import { Controller } from "@hotwired/stimulus"
 
 /**
- * tui-sync-indicator — thin delegator for Tui::SyncIndicatorComponent.
+ * tui-sync-indicator — thin controller for Tui::SyncIndicatorComponent.
  *
- * Phase 1C (2026-05-24) — checkbox-style, word-only. All visual animation
- * (scramble-settle, color-crossfade, shimmer) is delegated to the
- * colocated tui-transition outlet via setValue / setColor / setShimmer.
- * This controller's only job is event translation: cable lifecycle +
- * activity events on document → setState calls on the outlet.
+ * Phase 1D (2026-05-24) — unified replacement for the deleted
+ * tui-pause-control controller. Drives BOTH the top-status-bar
+ * aggregate indicator and per-panel / per-sub-panel target indicators
+ * with one VC + one controller, switched by the `mode` Stimulus value.
  *
- * State model:
+ * ## Mode values (declared via `data-tui-sync-indicator-mode-value`)
  *
- *   Three states; "disconnected" is DROPPED — cable drops show as :idle.
- *   The indicator reflects actual ongoing work, not cable connectivity.
+ *   :tst    — aggregate read-only (default; used in the top status bar)
+ *   :target — interactive per-panel / per-sub-panel; click toggles a
+ *             `pito.sync.<target>` localStorage flag.
  *
- *   Sidekiq stats (kind="sidekiq" or "data" alias):
- *     - busy > 0 OR enqueued > 0 OR retry > 0  →  setActive (sticky)
- *     - all zeros                               →  setIdle (after cool-down)
+ * ## Four states
  *
- *   tui:sync-changed (explicit state from cable):
- *     detail.state ∈ { "idle" | "active" | "paused" }
- *     - paused  → setPaused (future per-panel pause wiring)
- *     - active  → setActive
- *     - idle    → setIdle
- *     (any "disconnected" or legacy state name is treated as idle)
+ *   idle         → "[ ] sync"  muted color, no shimmer
+ *   active       → "[x] sync"  accent color, no shimmer (work present
+ *                              but nothing currently coming over cable
+ *                              for THIS target)
+ *   syncing      → "[x] sync"  accent color, shimmer (target currently
+ *                              receiving cable content)
+ *   disconnected → "[!] sync"  danger (red) color, no shimmer
  *
- *   Other cable kinds are ignored here.
+ * ## localStorage shape (locked 2026-05-24)
  *
- * Canonical display strings (checkbox glyph + word):
- *   idle   → "[ ] sync"  (muted color; no shimmer)
- *   active → "[x] sync"  (accent color; shimmer)
- *   paused → "[-] sync"  (accent-pale color; no shimmer)
+ *   key   = `pito.sync.<target>`
+ *   value = `"yes"` (enabled, default)
+ *         | `"no"`  (user-disabled)
  *
- * Full display strings are seeded as data-* attrs by the VC so this JS
- * layer never reconstructs glyphs or inlines English.
+ * Unset key = enabled (default). Inverted from the old
+ * `pito.pause.<target>` semantic — "yes" used to mean paused.
  *
- * Sequencing rule (shimmer ↔ scramble, never overlap):
+ * ## :target mode behavior
  *
- *   forward (idle → active):
- *     1. _shimmerOnSettle = true    // arm deferred shimmer-on
- *     2. setShimmer(false)          // clear stale shimmer
- *     3. setColor("accent")
- *     4. setValue(word)             // scramble starts
- *     5. on tui-transition:settled  // flag still true → setShimmer(true)
+ *   - Click / Enter / Space toggles `pito.sync.<target>` between "yes"
+ *     and "no". After write, controller dispatches `tui:sync-changed`
+ *     on document with detail `{ target, parentTarget, enabled }`.
+ *   - Initial state computed from localStorage (self + optional
+ *     parent_target inheritance).
+ *   - Listens for `tui:sync-changed` on document so child sub-panel
+ *     controls re-evaluate when the parent panel's flag changes.
  *
- *   reverse (anything → idle / paused):
- *     1. _shimmerOnSettle = false   // disarm BEFORE scramble starts
- *     2. setShimmer(false)          // shimmer off FIRST
- *     3. setColor("muted" | "accent-pale")
- *     4. setValue(word)             // scramble back; settled fires but flag is off
+ * ## :tst mode behavior
  *
- * Idempotency: each setter checks the current outlet value. If already
- * in the target state, the methods short-circuit.
+ *   - Listens for `tui:sync-changed` (any target toggled),
+ *     `tui:cable-activity` (Sidekiq stats), and per-panel cable lifecycle
+ *     events to derive the aggregate state.
+ *   - Sidekiq busy/enqueued/retry > 0 AND at least one target enabled
+ *     → :active. Cable not connected → :disconnected. Otherwise :idle.
+ *   - Click is a no-op in :tst mode.
  *
- * Debounce-off cool-down: active broadcasts set state immediately.
- * idle broadcasts arm a COOL_DOWN_MS timer; another active broadcast
- * during cool-down cancels it and state stays active.
+ * ## Cable suppression contract
+ *
+ * `tui_panel_cable_controller` reads localStorage with the new
+ * `pito.sync.<target>` shape — "no" = suppress payload. Subpanel
+ * targets inherit the parent's "no" via the `isTargetSyncDisabled`
+ * helper exported below.
  */
 export default class extends Controller {
   static outlets = ["tui-transition"]
   static values = {
+    mode: { type: String, default: "tst" },
+    target: String,
+    parentTarget: String,
     idle: String,
     active: String,
-    paused: String
+    syncing: String,
+    disconnected: String
   }
 
   static COOL_DOWN_MS = 1000
@@ -71,15 +77,23 @@ export default class extends Controller {
     this._shimmerOnSettle = false
     this._settledAttachedTo = null
     this._coolDownTimer = null
+    this._cableDisconnected = false
     this._boundExplicit = this.onExplicitState.bind(this)
+    this._boundSyncChanged = this.onSyncChanged.bind(this)
     this._boundActivity = this.onActivity.bind(this)
     this._boundSettled = this.onTransitionSettled.bind(this)
-    document.addEventListener("tui:sync-changed", this._boundExplicit)
+    document.addEventListener("tui:sync-changed", this._boundSyncChanged)
+    document.addEventListener("tui:sync-state-changed", this._boundExplicit)
     document.addEventListener("tui:cable-activity", this._boundActivity)
+
+    if (this.isTargetMode()) {
+      this._paint(this._computeTargetState())
+    }
   }
 
   disconnect() {
-    document.removeEventListener("tui:sync-changed", this._boundExplicit)
+    document.removeEventListener("tui:sync-changed", this._boundSyncChanged)
+    document.removeEventListener("tui:sync-state-changed", this._boundExplicit)
     document.removeEventListener("tui:cable-activity", this._boundActivity)
     if (this._settledAttachedTo) {
       this._settledAttachedTo.removeEventListener("tui-transition:settled", this._boundSettled)
@@ -91,29 +105,76 @@ export default class extends Controller {
     }
   }
 
-  // ─── event handlers ───────────────────────────────────────────────
+  // ─── mode detection ───────────────────────────────────────────────
+  isTargetMode() {
+    return this.hasModeValue && this.modeValue === "target"
+  }
+
+  isTstMode() {
+    return !this.isTargetMode()
+  }
+
+  // ─── :target mode click handler ───────────────────────────────────
+  toggle(event) {
+    if (!this.isTargetMode()) return
+    if (event) {
+      event.preventDefault()
+      event.stopPropagation()
+    }
+    if (!this.hasTargetValue) return
+    const key = this._lsKey(this.targetValue)
+    // Default semantic: unset = "yes" (enabled). A toggle flips to "no".
+    const currentEnabled = this._readEnabled(this.targetValue)
+    const nextEnabled = !currentEnabled
+    localStorage.setItem(key, nextEnabled ? "yes" : "no")
+    this._paint(this._computeTargetState())
+    document.dispatchEvent(new CustomEvent("tui:sync-changed", {
+      detail: {
+        target: this.targetValue,
+        parentTarget: this.hasParentTargetValue ? this.parentTargetValue : null,
+        enabled: nextEnabled
+      }
+    }))
+  }
+
+  // Listen for sibling / parent toggles — re-evaluate if this control
+  // observes the changed target (self) or its parent (inheritance).
+  onSyncChanged(event) {
+    const changed = event && event.detail && event.detail.target
+    if (!changed) return
+    if (this.isTargetMode()) {
+      if (
+        changed === this.targetValue ||
+        (this.hasParentTargetValue && changed === this.parentTargetValue)
+      ) {
+        this._paint(this._computeTargetState())
+      }
+    }
+    // In :tst mode, any change in any target may shift the aggregate.
+    // Re-derive on next tick (Sidekiq event will refresh the source-of-truth
+    // numbers; the explicit refresh here is a safe nudge).
+  }
+
+  // ─── explicit state path (legacy `tui:sync-state-changed` event) ──
   onExplicitState(event) {
-    const state = event?.detail?.state
+    const state = event && event.detail && event.detail.state
     if (!state) return
-    if (state === "paused") {
-      this.setPaused()
+    if (state === "disconnected") {
+      this.setDisconnected()
+    } else if (state === "syncing") {
+      this.setSyncing()
     } else if (state === "active") {
       this.setActive()
     } else {
-      // "idle", "synced" (legacy), "syncing" (legacy), "disconnected"
-      // (dropped) — all map to idle
       this.setIdle()
     }
   }
 
   // Sidekiq-aware activity handler. Only Sidekiq stats drive the
-  // active/idle state. Other cable kinds are ignored.
-  //
-  // Debounce-off: active → setActive immediately + cancel any pending
-  // cool-down. all-zero → arm a COOL_DOWN_MS timer; only setIdle after
-  // the timer expires with no intervening active broadcast.
+  // active/idle state in :tst mode.
   onActivity(event) {
-    const detail = event?.detail || {}
+    if (!this.isTstMode()) return
+    const detail = event && event.detail || {}
     const { kind, payload } = detail
     if (kind !== "sidekiq" && kind !== "data") return
     if (this.sidekiqActive(payload)) {
@@ -137,16 +198,71 @@ export default class extends Controller {
     }
   }
 
+  // ─── :target mode state computation ───────────────────────────────
+  _computeTargetState() {
+    if (this._cableDisconnected) return "disconnected"
+    const selfEnabled = this._readEnabled(this.targetValue)
+    if (!selfEnabled) return "idle"
+    if (this.hasParentTargetValue && this.parentTargetValue) {
+      const parentEnabled = this._readEnabled(this.parentTargetValue)
+      if (!parentEnabled) return "idle"
+    }
+    // Without finer per-target activity signal (future cable wiring),
+    // default to idle for enabled targets. Cable suppression layer
+    // remains the load-bearing semantic.
+    return "idle"
+  }
+
+  _readEnabled(target) {
+    if (!target) return true
+    const raw = localStorage.getItem(this._lsKey(target))
+    if (raw === "no") return false
+    return true // "yes" or unset → enabled (default)
+  }
+
+  _lsKey(target) {
+    return `pito.sync.${target}`
+  }
+
+  _paint(state) {
+    if (state === "disconnected") {
+      this.setDisconnected()
+    } else if (state === "syncing") {
+      this.setSyncing()
+    } else if (state === "active") {
+      this.setActive()
+    } else {
+      this.setIdle()
+    }
+  }
+
   // ─── delegation to tui-transition outlet ──────────────────────────
   setActive() {
     const c = this.transitionController()
     if (!c) return
     this.ensureSettledListenerAttached()
-    this._shimmerOnSettle = true
-    if (this.currentValue() === this.wordFor("active")) return
+    this._shimmerOnSettle = false
+    if (this.currentValue() === this.wordFor("active")) {
+      c.setShimmer(false)
+      return
+    }
     c.setShimmer(false)
     c.setColor("accent")
     c.setValue(this.wordFor("active"))
+  }
+
+  setSyncing() {
+    const c = this.transitionController()
+    if (!c) return
+    this.ensureSettledListenerAttached()
+    this._shimmerOnSettle = true
+    if (this.currentValue() === this.wordFor("syncing")) {
+      c.setShimmer(true)
+      return
+    }
+    c.setShimmer(false)
+    c.setColor("accent")
+    c.setValue(this.wordFor("syncing"))
   }
 
   setIdle() {
@@ -162,24 +278,20 @@ export default class extends Controller {
     c.setValue(this.wordFor("idle"))
   }
 
-  setPaused() {
+  setDisconnected() {
     const c = this.transitionController()
     if (!c) return
     this._shimmerOnSettle = false
-    if (this.currentValue() === this.wordFor("paused")) {
+    if (this.currentValue() === this.wordFor("disconnected")) {
       c.setShimmer(false)
       return
     }
     c.setShimmer(false)
-    c.setColor("accent-pale")
-    c.setValue(this.wordFor("paused"))
+    c.setColor("danger")
+    c.setValue(this.wordFor("disconnected"))
   }
 
   // ─── helpers ──────────────────────────────────────────────────────
-  // `dead` is intentionally NOT included. Jobs in Sidekiq's dead set
-  // are terminal failures, not active work. The sync indicator reflects
-  // ongoing work (busy / enqueued / retry); dead-set count is surfaced
-  // separately by the `d<N>` segment on tui-sidekiq-stats.
   sidekiqActive(payload) {
     if (!payload || typeof payload !== "object") return false
     const b = parseInt(payload.busy || 0, 10) || 0
@@ -210,9 +322,30 @@ export default class extends Controller {
   }
 
   wordFor(stateName) {
-    if (stateName === "idle")   return this.idleValue
-    if (stateName === "active") return this.activeValue
-    if (stateName === "paused") return this.pausedValue
+    if (stateName === "idle")         return this.idleValue
+    if (stateName === "active")       return this.activeValue
+    if (stateName === "syncing")      return this.syncingValue || this.activeValue
+    if (stateName === "disconnected") return this.disconnectedValue
     return stateName
   }
+}
+
+/**
+ * Module helper — exported so cable consumer controllers can ask
+ * "is this target's syncing disabled right now?" without re-implementing
+ * the inheritance logic. Default export stays the Controller class.
+ *
+ * Semantic: localStorage `pito.sync.<target>` = "no" means user-disabled
+ * (drop cable payloads). Unset or "yes" means enabled (default).
+ * Parent inheritance: a disabled parent target cascades to its
+ * sub-panels unless the sub-panel has its own explicit "yes" override.
+ */
+export function isTargetSyncDisabled(target, parentTarget = null) {
+  const direct = localStorage.getItem(`pito.sync.${target}`)
+  if (direct === "no") return true
+  if (direct === "yes") return false
+  if (parentTarget) {
+    return localStorage.getItem(`pito.sync.${parentTarget}`) === "no"
+  }
+  return false
 }

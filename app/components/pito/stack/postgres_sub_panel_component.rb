@@ -57,6 +57,7 @@ module Pito
       # panel's 2x2 sub-panel grid. Inert = no Enter/Space action fires.
       def focusables
         list = [ { key: "postgres", style: :inert } ]
+        list << { key: "postgres_sync", style: :action }
         if status[:connected] && table_breakdown.any?
           list << { key: "postgres_header", style: :inert }
         end

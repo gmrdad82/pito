@@ -1,63 +1,118 @@
 module Tui
-  # Tui::SyncIndicatorComponent — checkbox-style sync indicator wired through
-  # the canonical `Tui::Transitionable` mixin so its value-changes pass
-  # through the locked scramble-settle → color-crossfade → shimmer
-  # pipeline owned by `tui_transition_controller.js`.
+  # Tui::SyncIndicatorComponent — checkbox-style sync indicator.
   #
-  # 2026-05-24 (Phase 1C) — redesigned as checkbox-style display.
-  # "disconnected" state dropped — cable drops are treated as idle (no
-  # recent activity). Three states now drive the indicator:
+  # 2026-05-24 (Phase 1D) — unified replacement for the now-deleted
+  # `Tui::PauseControlComponent`. Renders the same `[ ] sync` / `[x] sync`
+  # / `[!] sync` checkbox+word display in TWO contexts:
   #
-  #   idle   → [ ] sync  (Sidekiq quiet; muted color)
-  #   active → [x] sync  (Sidekiq busy/enqueued/retry > 0; accent + shimmer)
-  #   paused → [-] sync  (future per-panel pause; accent-pale color)
+  #   1. `mode: :tst` (default) — aggregate read-only indicator in the
+  #      top status bar. Not clickable. Reflects global cable activity
+  #      across every enabled target.
   #
-  # The checkbox glyph ([ ] / [x] / [-]) is part of the emitted value
-  # string so the Transitionable scramble effect applies to the full
-  # display string, not just the word.
+  #   2. `mode: :target` — interactive per-panel / per-sub-panel control
+  #      mounted in a panel or sub-panel's title-actions slot. Clicking
+  #      toggles a `pito.sync.<target>` localStorage flag between "yes"
+  #      (enabled, default) and "no" (disabled). Disabling a panel-level
+  #      target suppresses cable broadcasts for every descendant
+  #      sub-panel; disabling a sub-panel target suppresses that target
+  #      alone.
   #
-  # Constructor inputs:
-  #   - state:  one of `:idle`, `:active`, `:paused`. Defaults to `:idle`.
+  # ## Four canonical states (locked 2026-05-24)
   #
-  # Cable contract: the parent `tui-top-status-bar` controller fans
-  # `pito:status_bar` payloads into `tui:sync-changed` and
-  # `tui:cable-activity` events on document. This VC's child controller
-  # (tui-sync-indicator) consumes both — Sidekiq activity events drive
-  # :active vs :idle; the :paused state is future-wired via explicit
-  # cable event. No :disconnected path exists; cable drops show as :idle.
+  # | State        | Glyph | Color           | Shimmer | When                                                            |
+  # |--------------|-------|-----------------|---------|-----------------------------------------------------------------|
+  # | idle         | [ ]   | muted           | no      | Self-flag = "no", or no enabled targets / no activity.          |
+  # | active       | [x]   | accent          | no      | Enabled + has active work (Sidekiq busy/enqueued/retry > 0).    |
+  # | syncing      | [x]   | accent          | yes     | THIS target currently receiving cable content (shimmer on word) |
+  # | disconnected | [!]   | danger (red)    | no      | Cable connection failed / syncing not available.                |
   #
-  # i18n: the word "sync" comes from `config/locales/tui/en.yml`
-  # `tui.tst.sync.*`. All three per-state full display strings are also
-  # emitted as data-* attrs so the JS layer can read them without
-  # inlining English or reconstructing glyphs.
+  # NO `[-]` paused-with-warn-dash state — dropped from the previous
+  # PauseControlComponent design. Pausing = unchecked = idle.
+  #
+  # ## Kwargs
+  #
+  # @param mode [Symbol] `:tst` (default) or `:target`.
+  # @param state [Symbol] SSR initial state: one of
+  #   `:idle`, `:active`, `:syncing`, `:disconnected`. Defaults to `:idle`.
+  #   In `:target` mode the JS controller recomputes from localStorage on
+  #   connect, so this is paint-only.
+  # @param target [String, Symbol] (only `:target` mode) dot-namespaced
+  #   target key, e.g. `"home.stack"` or `"home.stack.meilisearch"`. Used
+  #   as the localStorage suffix: `pito.sync.<target>`. Value `"yes"` =
+  #   enabled (default), `"no"` = disabled.
+  # @param parent_target [String, Symbol, nil] (only `:target` mode)
+  #   dot-namespaced target of the containing panel for sub-panels (e.g.
+  #   `"home.stack"`). The JS controller resolves the displayed state by
+  #   combining the self flag with the parent flag — a parent disabled
+  #   target cascades to all sub-panels.
+  # @param focusable_key [String, Symbol, nil] (only `:target` mode) when
+  #   present, emits `data-tui-focusable=<key>` so j/k cursor can land on
+  #   it. Style = `action`.
+  #
+  # ## Cable contract (`:tst` mode)
+  #
+  # Listens for `tui:cable-activity` and `tui:sync-changed` on document,
+  # plus per-panel `pito:panel:*:received` / `pito:panel:*:connected` /
+  # `pito:panel:*:disconnected` events. The controller derives idle /
+  # active / syncing / disconnected from the combined signal.
+  #
+  # ## Cable contract (`:target` mode)
+  #
+  # Click → flips `pito.sync.<target>` between "yes" and "no" → dispatches
+  # `tui:sync-changed` on document with detail
+  # `{ target, parentTarget, enabled }` so the TST + sibling targets +
+  # cable-suppression layer re-evaluate.
+  #
+  # ## i18n
+  #
+  # The word "sync" comes from `config/locales/tui/en.yml` `tui.tst.sync.*`.
+  # All four per-state full display strings are emitted as data-* attrs.
   #
   # @contract see docs/design.md § Transitions
-  # @contract see docs/architecture.md § Pito::Transitions
   class SyncIndicatorComponent < ViewComponent::Base
     include Tui::Transitionable
 
-    STATES = %i[idle active paused].freeze
+    MODES  = %i[tst target].freeze
+    STATES = %i[idle active syncing disconnected].freeze
+    DEFAULT_MODE  = :tst
     DEFAULT_STATE = :idle
 
-    def initialize(state: DEFAULT_STATE)
+    def initialize(mode: DEFAULT_MODE, state: DEFAULT_STATE,
+                   target: nil, parent_target: nil, focusable_key: nil)
+      @mode  = MODES.include?(mode.to_sym) ? mode.to_sym : DEFAULT_MODE
       @state = STATES.include?(state.to_sym) ? state.to_sym : DEFAULT_STATE
+      @target = target&.to_s
+      @parent_target = parent_target&.to_s
+      @focusable_key = focusable_key&.to_s
+
+      if @mode == :target && @target.nil?
+        raise ArgumentError, "Tui::SyncIndicatorComponent mode: :target requires target:"
+      end
     end
 
-    attr_reader :state
+    attr_reader :mode, :state, :target, :parent_target, :focusable_key
+
+    def target_mode?
+      @mode == :target
+    end
+
+    def tst_mode?
+      @mode == :tst
+    end
 
     def state_word
       case @state
-      when :active then I18n.t("tui.tst.sync.active")
-      when :paused then I18n.t("tui.tst.sync.paused")
-      else              I18n.t("tui.tst.sync.idle")
+      when :active, :syncing then I18n.t("tui.tst.sync.active")
+      when :disconnected     then I18n.t("tui.tst.sync.disconnected", default: I18n.t("tui.tst.sync.idle"))
+      else                        I18n.t("tui.tst.sync.idle")
       end
     end
 
     def checkbox_glyph
       case @state
-      when :active then "[x]"
-      when :paused then "[-]"
-      else              "[ ]"
+      when :active, :syncing then "[x]"
+      when :disconnected     then "[!]"
+      else                        "[ ]"
       end
     end
 
@@ -73,42 +128,64 @@ module Tui
       "[x] #{I18n.t("tui.tst.sync.active")}"
     end
 
-    def word_paused
-      "[-] #{I18n.t("tui.tst.sync.paused")}"
+    def word_syncing
+      "[x] #{I18n.t("tui.tst.sync.active")}"
     end
 
-    # Builds the merged data-attrs hash for the host span:
-    #   - canonical tui-transition data-attrs (controller, effect, value,
-    #     align, color, shimmer) from the Transitionable mixin
-    #   - per-state full display strings for the colocated tui-sync-indicator
-    #     controller to read in setState()
-    #   - the existing top-status-bar target hook (`sync`)
-    #   - the controller chain (`tui-sync-indicator tui-transition`)
-    #   - the outlet selector pointing back to this same span
+    def word_disconnected
+      "[!] #{I18n.t("tui.tst.sync.disconnected", default: I18n.t("tui.tst.sync.idle"))}"
+    end
+
+    # Builds the merged data-attrs hash for the host span.
     def root_data_attrs
       base = transitionable_attrs(
         value: display_value,
         align: :right,
         color: color_for(@state),
-        shimmer: @state == :active
+        shimmer: @state == :syncing
       )
       attrs = base[:data]
       attrs[:controller] = "tui-sync-indicator #{attrs[:controller]}"
-      attrs[:tui_sync_indicator_idle_value]   = word_idle
-      attrs[:tui_sync_indicator_active_value] = word_active
-      attrs[:tui_sync_indicator_paused_value] = word_paused
+      attrs[:tui_sync_indicator_mode_value]         = @mode.to_s
+      attrs[:tui_sync_indicator_idle_value]         = word_idle
+      attrs[:tui_sync_indicator_active_value]       = word_active
+      attrs[:tui_sync_indicator_syncing_value]      = word_syncing
+      attrs[:tui_sync_indicator_disconnected_value] = word_disconnected
       attrs[:tui_sync_indicator_tui_transition_outlet] = ".tui-sync-word"
-      attrs[:tui_status_bar_target] = "sync"
+      attrs[:tui_status_bar_target] = "sync" if tst_mode?
+
+      if target_mode?
+        attrs[:tui_sync_indicator_target_value] = @target
+        attrs[:tui_sync_indicator_parent_target_value] = @parent_target if @parent_target
+        attrs[:action] = "click->tui-sync-indicator#toggle keydown.enter->tui-sync-indicator#toggle keydown.space->tui-sync-indicator#toggle"
+        if @focusable_key
+          attrs[:tui_focusable] = @focusable_key
+          attrs[:tui_focusable_key] = @focusable_key
+          attrs[:tui_focusable_style] = "action"
+        end
+      end
+
       attrs
+    end
+
+    # Aria label for `:target` mode rendering. The controller swaps the
+    # value at runtime once it knows the live state.
+    def aria_label
+      I18n.t("tui.sync_indicator.aria.idle", default: "sync")
     end
 
     private
 
+    # Color name maps to the `kind=sync` row of the tui-transition
+    # controller's COLOR_CLASS table:
+    #   accent → no class (default `.tui-sync-word` color)
+    #   muted  → `.is-muted`
+    #   pink   → `.is-pink` (var(--color-danger), used for disconnected)
     def color_for(state)
       case state
-      when :active then :accent
-      when :paused then :"accent-pale"
-      else              :muted
+      when :active, :syncing then :accent
+      when :disconnected     then :pink
+      else                        :muted
       end
     end
   end

@@ -873,11 +873,12 @@ button.bracketed .bl {
 
 /* Row 3 right column — vertical flex stack with content-driven heights.
    Notifications settings sits on top of Security; each takes whatever
-   height it needs. */
+   height it needs. User feedback 2026-05-24: nudge the vertical gap +5px
+   (12 → 17) so the two panels read as more separate. */
 .home-row-3-right-column {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 17px;
   min-height: 0;
 }
 
@@ -1093,6 +1094,43 @@ button.bracketed .bl {
 .pito-sub-panel__hint.is-warn    { color: var(--color-warn); }
 .pito-sub-panel__hint.is-danger  { color: var(--color-danger); }
 .pito-sub-panel__hint.is-muted   { color: var(--color-muted); }
+
+/* Phase 1D (2026-05-24) — Tui::SyncIndicatorComponent in `:target` mode.
+   Replaces the deleted .pito-pause-control. Renders as a `<button>` so
+   Enter / Space toggle naturally. Border = 0, transparent bg so the
+   section-bg shows through the title-actions border slot consistently
+   with sibling actions like `[reindex]`. Color comes from the
+   tui-transition controller's per-kind COLOR_CLASS map (is-muted /
+   is-pink etc.) plus the kind-detection on `.tui-sync-word`. */
+.tui-sync-word--target {
+  background: transparent;
+  border: 0;
+  padding: 0 4px;
+  cursor: pointer;
+  font: inherit;
+  line-height: 1;
+  color: inherit;
+}
+.tui-sync-word--target:focus-visible {
+  outline: 1px solid var(--section-accent, var(--color-link));
+  outline-offset: 1px;
+}
+
+/* Restrict shimmer to the "sync" word portion (chars 5+). The first
+   four characters of every sync display string are the checkbox+space
+   prefix (`[ ] ` / `[x] ` / `[!] `) — they should NOT shimmer per the
+   2026-05-24 spec. The tui-transition controller breaks the host text
+   into per-char `.tt-char` cells; we re-establish a solid color on the
+   first 4 cells when the host has `.tui-shimmer`. */
+.tui-sync-word.tui-shimmer .tt-char:nth-child(-n+4) {
+  background: none !important;
+  -webkit-background-clip: initial !important;
+  background-clip: initial !important;
+  -webkit-text-fill-color: currentColor !important;
+  color: var(--section-accent-home);
+  animation: none !important;
+}
+
 /* 2026-05-24 (pipe-chrome unify) — when a panel / sub-panel / dialog
    is focused (or open, for dialogs), the title slot's pipe brackets
    (real border-left / border-right on the slot element) follow the

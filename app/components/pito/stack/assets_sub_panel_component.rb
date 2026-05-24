@@ -56,6 +56,7 @@ module Pito
       # panel's 2x2 sub-panel grid. Inert = no Enter/Space action fires.
       def focusables
         list = [ { key: "assets", style: :inert } ]
+        list << { key: "assets_sync", style: :action }
         list << { key: "assets_header", style: :inert } if breakdown.any?
         list
       end

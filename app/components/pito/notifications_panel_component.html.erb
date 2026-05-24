@@ -12,6 +12,14 @@
       class: "pane pito-pane pito-panel pito-panel--notifications",
       **panel_data do %>
   <span class="pito-pane__title"><%= title %></span>
+  <%# Phase 1D (2026-05-24) — panel-level sync indicator. %>
+  <span class="pito-pane__title-actions">
+    <%= render Tui::SyncIndicatorComponent.new(
+      mode: :target,
+      target: "home.notifications",
+      focusable_key: "notifications_sync"
+    ) %>
+  </span>
   <%= render Tui::PanelFieldsetComponent.new do %>
     <%# Shared toggles. Each lives in its own tiny form so the
         auto-submit Stimulus controller can fire `requestSubmit()`

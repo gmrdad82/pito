@@ -185,6 +185,10 @@ en:
       sync:
         idle: "sync"
         active: "sync"
+        syncing: "sync"
+        disconnected: "sync"
+        # `paused` retained as a defensive alias; the canonical states
+        # are idle / active / syncing / disconnected (Phase 1D, 2026-05-24).
         paused: "sync"
       sidekiq:
         busy_prefix: "b"

@@ -44,8 +44,8 @@ RSpec.describe Pito::SecurityPanelComponent, type: :component do
     expect(root["data-tui-panel-name-value"]).to eq("security")
   end
 
-  it "joins the default focusables (select_all only) when sessions is empty" do
-    expect(root["data-tui-panel-focusables-value"]).to eq("select_all")
+  it "joins the default focusables (security_sync + select_all) when sessions is empty" do
+    expect(root["data-tui-panel-focusables-value"]).to eq("security_sync,select_all")
   end
 
   it "JSON-encodes the keybinds Hash into the panel data value" do

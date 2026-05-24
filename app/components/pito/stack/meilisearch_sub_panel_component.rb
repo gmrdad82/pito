@@ -123,6 +123,7 @@ module Pito
       def focusables
         list = []
         list << { key: "reindex", style: :action } unless reindex_running?
+        list << { key: "meilisearch_sync", style: :action }
         list << { key: "meilisearch_header", style: :inert } if per_index_stats.any?
         list
       end

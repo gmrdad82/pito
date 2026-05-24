@@ -56,7 +56,7 @@ module Pito
     end
 
     def focusables
-      [ { key: "select_all", style: :row } ] +
+      [ { key: "security_sync", style: :action }, { key: "select_all", style: :row } ] +
         sessions.map { |s| { key: "row_#{s.id}", style: :row } }
     end
 

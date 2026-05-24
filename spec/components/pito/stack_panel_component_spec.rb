@@ -147,9 +147,15 @@ RSpec.describe Pito::StackPanelComponent, type: :component do
       allow(AppSetting).to receive(:voyage_configured?).and_return(true)
     end
 
-    it "aggregates all four sub-panel focusables in row-major declaration order" do
+    it "aggregates the panel-level pause + sub-panel focusables in row-major declaration order" do
       keys = component.focusable_keys
-      expect(keys).to eq([ "reindex", "reindex", "postgres", "assets" ])
+      expect(keys).to eq([
+        "stack_sync",
+        "reindex", "meilisearch_sync",
+        "reindex", "voyage_sync", "voyage_header",
+        "postgres", "postgres_sync",
+        "assets", "assets_sync"
+      ])
     end
 
     it "includes both action-bearing sub-panels (meilisearch + voyage reindex)" do
@@ -158,6 +164,17 @@ RSpec.describe Pito::StackPanelComponent, type: :component do
 
     it "includes both action-less sub-panels (postgres + assets) so h/l can land on them" do
       expect(component.focusable_keys).to include("postgres", "assets")
+    end
+
+    it "exposes the panel-level pause control at the head of the list" do
+      expect(component.focusable_keys.first).to eq("stack_sync")
+    end
+
+    it "emits a `<sub_panel>_pause` focusable for every sub-panel" do
+      keys = component.focusable_keys
+      %w[meilisearch_sync voyage_sync postgres_sync assets_sync].each do |k|
+        expect(keys).to include(k)
+      end
     end
   end
 

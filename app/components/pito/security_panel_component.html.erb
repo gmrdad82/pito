@@ -10,6 +10,14 @@
       class: "pane pito-pane pito-panel pito-panel--security",
       **panel_data do %>
   <span class="pito-pane__title"><%= title %></span>
+  <%# Phase 1D (2026-05-24) — panel-level sync indicator. %>
+  <span class="pito-pane__title-actions">
+    <%= render Tui::SyncIndicatorComponent.new(
+      mode: :target,
+      target: "home.security",
+      focusable_key: "security_sync"
+    ) %>
+  </span>
   <%= render Tui::PanelFieldsetComponent.new(data: { controller: "sessions-bulk-revoke" }) do %>
     <%= render(Sessions::TableComponent.new(
       sessions: sessions,

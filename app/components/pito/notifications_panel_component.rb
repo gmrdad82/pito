@@ -57,6 +57,7 @@ module Pito
 
     def focusables
       [
+        { key: "notifications_sync", style: :action },
         { key: "all",             style: :checkbox_label },
         { key: "daily",           style: :checkbox_label },
         { key: "discord_webhook", style: :input },

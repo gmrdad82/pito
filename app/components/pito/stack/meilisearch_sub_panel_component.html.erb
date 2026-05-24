@@ -33,6 +33,14 @@
       <span <%= "hidden" unless reindex_running? %>>
         <%= render Tui::ReindexProgressComponent.new(brand: "meilisearch") %>
       </span>
+      <%# Phase 1D (2026-05-24) — sub-panel sync indicator AFTER [reindex].
+          Parent target wires up parent-disable inheritance. %>
+      <%= render Tui::SyncIndicatorComponent.new(
+        mode: :target,
+        target: "home.stack.meilisearch",
+        parent_target: "home.stack",
+        focusable_key: "meilisearch_sync"
+      ) %>
     </span>
   <% end %>
 

@@ -40,9 +40,9 @@ RSpec.describe Pito::NotificationsPanelComponent, type: :component do
     expect(root["data-tui-panel-name-value"]).to eq("notifications")
   end
 
-  it "joins the locked focusables list into the panel data value" do
+  it "joins the locked focusables list (with notifications_sync leading) into the panel data value" do
     expect(root["data-tui-panel-focusables-value"]).to eq(
-      "all,daily,discord_webhook,discord_update,discord_help,slack_webhook,slack_update,slack_help"
+      "notifications_sync,all,daily,discord_webhook,discord_update,discord_help,slack_webhook,slack_update,slack_help"
     )
   end
 
