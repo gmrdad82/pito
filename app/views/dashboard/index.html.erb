@@ -14,8 +14,16 @@
 <div class="pito-workspace home-grid" data-controller="tui-cursor">
   <%# Row 1 — 3 cols even: YouTube content hierarchy %>
   <div class="home-row home-row--3col">
-    <%= render Pito::ChannelsOverviewPanelComponent.new %>
-    <%= render Pito::LatestVideosPanelComponent.new %>
+    <%= render Pito::ChannelsOverviewPanelComponent.new(
+          channels: @channels_overview_channels,
+          sort:     @channels_overview_sort,
+          dir:      @channels_overview_dir
+        ) %>
+    <%= render Pito::LatestVideosPanelComponent.new(
+          videos:      @videos,
+          videos_sort: @videos_sort,
+          videos_dir:  @videos_dir
+        ) %>
     <%= render Pito::GamesReleasingPanelComponent.new %>
   </div>
 

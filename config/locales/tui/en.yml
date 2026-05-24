@@ -97,6 +97,13 @@ en:
           title: "notifications"
         calendar:
           title: "calendar"
+          filter:
+            channel: "channel"
+            game: "game"
+            system: "system"
+            manual: "manual"
+          day_dialog:
+            empty: "no entries"
     # D5 (2026-05-22) — leader menu (rebuilt as 1-level shallow which-key
     # popup). Title renders in the Tui::DialogComponent top-border;
     # `entries.<slug>.label` keys feed each Tui::LeaderMenuEntryComponent

@@ -1,8 +1,12 @@
+<%# Pito::LatestVideosPanelComponent — home-screen latest-videos table.
+    Columns: thumbnail / title / channel / views / published at.
+    Sortable headers via `sort_link_to`. Turbo Frame `latest_videos_panel`
+    scopes sort clicks to this panel only (no full-page reload).
+    Each body row is a tui-cursor focusable (j/k nav, ENTER stub). %>
 <%= content_tag :section,
       class: "pane pito-pane pito-panel pito-panel--latest-videos",
       **panel_data do %>
   <span class="pito-pane__title"><%= title %></span>
-  <%# 2026-05-24 — panel-level `[ ] sync` action. %>
   <span class="pito-pane__title-actions">
     <%= render Tui::SyncIndicatorComponent.new(
       mode: :target,
@@ -11,6 +15,84 @@
     ) %>
   </span>
   <%= render Tui::PanelFieldsetComponent.new do %>
-    <p class="pito-panel__placeholder">[ panel content TBD ]</p>
+    <turbo-frame id="<%= Pito::LatestVideosPanelComponent::FRAME_ID %>">
+      <% if videos.any? %>
+        <table class="tui-table latest-videos-table">
+          <thead>
+            <tr>
+              <th class="tui-table__th tui-table__th--left latest-videos-table__col-thumb">thumb</th>
+              <th class="tui-table__th tui-table__th--left sortable latest-videos-table__col-title">
+                <%= helpers.sort_link_to("title", "title",
+                      current_sort: videos_sort,
+                      current_dir:  videos_dir,
+                      sort_param:   "videos_sort",
+                      dir_param:    "videos_dir",
+                      frame:        Pito::LatestVideosPanelComponent::FRAME_ID) %>
+              </th>
+              <th class="tui-table__th tui-table__th--left sortable latest-videos-table__col-channel">
+                <%= helpers.sort_link_to("channel", "channel",
+                      current_sort: videos_sort,
+                      current_dir:  videos_dir,
+                      sort_param:   "videos_sort",
+                      dir_param:    "videos_dir",
+                      frame:        Pito::LatestVideosPanelComponent::FRAME_ID) %>
+              </th>
+              <th class="tui-table__th tui-table__th--right num sortable latest-videos-table__col-views">
+                <%= helpers.sort_link_to("views", "views",
+                      current_sort: videos_sort,
+                      current_dir:  videos_dir,
+                      sort_param:   "videos_sort",
+                      dir_param:    "videos_dir",
+                      frame:        Pito::LatestVideosPanelComponent::FRAME_ID) %>
+              </th>
+              <th class="tui-table__th tui-table__th--right num sortable latest-videos-table__col-published">
+                <%= helpers.sort_link_to("published", "published_at",
+                      current_sort: videos_sort,
+                      current_dir:  videos_dir,
+                      sort_param:   "videos_sort",
+                      dir_param:    "videos_dir",
+                      frame:        Pito::LatestVideosPanelComponent::FRAME_ID) %>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <% videos.each_with_index do |video, i| %>
+              <% foc = focusables[i + 1] %>
+              <tr class="tui-table__row"
+                  data-tui-focusable="<%= foc[:key] %>"
+                  data-tui-focusable-style="<%= foc[:style] %>"
+                  data-tui-cursor-target="row">
+                <td class="tui-table__td tui-table__td--left latest-videos-table__cell-thumb">
+                  <% if thumbnail_url_for(video) %>
+                    <img src="<%= thumbnail_url_for(video) %>"
+                         alt=""
+                         class="latest-videos-table__thumb"
+                         loading="lazy"
+                         width="48"
+                         height="27">
+                  <% else %>
+                    <span class="latest-videos-table__thumb-placeholder">—</span>
+                  <% end %>
+                </td>
+                <td class="tui-table__td tui-table__td--left latest-videos-table__cell-title">
+                  <%= video.title.presence || "—" %>
+                </td>
+                <td class="tui-table__td tui-table__td--left latest-videos-table__cell-channel">
+                  <%= video.channel.title.presence || "—" %>
+                </td>
+                <td class="tui-table__td tui-table__td--right num latest-videos-table__cell-views">
+                  <%= formatted_views(video) %>
+                </td>
+                <td class="tui-table__td tui-table__td--right num latest-videos-table__cell-published">
+                  <%= published_at_label(video) %>
+                </td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      <% else %>
+        <p class="text-muted" style="margin: 0;">no published videos yet.</p>
+      <% end %>
+    </turbo-frame>
   <% end %>
 <% end %>

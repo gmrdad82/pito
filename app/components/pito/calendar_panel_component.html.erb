@@ -2,19 +2,7 @@
       class: "pane pito-pane pito-panel pito-panel--calendar",
       **panel_data do %>
   <span class="pito-pane__title"><%= title %></span>
-  <%# View toggle in the title-actions slot — mirrors Meilisearch
-      sub-panel's `[reindex]` placement on the top border, right edge.
-
-      2026-05-24 (locked) — active variant renders as plain `label`
-      (no surrounding spaces, no brackets); inactive stays bracketed
-      `[label]`. Result: when month is current, the slot reads
-      `month [schedule]`; toggle and it flips to `[month] schedule`.
-      Active also uses section-accent (matches the "actions are always
-      accent" lock — the entire toggle reads in one color, distinguished
-      only by the bracketed / unbracketed shape).
-
-      2026-05-24 (order) — sync VC is ALWAYS LAST in any panel's action
-      list. Full slot reads `month [schedule] [ ] sync`. %>
+  <%# Title-actions: view toggle + sync. Order: toggle first, sync always last. %>
   <span class="pito-pane__title-actions">
     <%= render Tui::ViewToggleComponent.new(
           views: views,
@@ -30,6 +18,57 @@
         ) %>
   </span>
   <%= render Tui::PanelFieldsetComponent.new do %>
-    <p class="pito-panel__placeholder">[ <%= current_view %> view TBD ]</p>
+    <%# ── Filter chips ───────────────────────────────────────────── %>
+    <div class="cal-filter-row">
+      <% CalendarPanelComponent::CATEGORY_ORDER.each do |cat| %>
+        <a href="<%= category_chip_href(cat) %>"
+           class="cal-filter-chip <%= category_css_modifier(cat) %>"
+           data-tui-focusable="filter_<%= cat %>"
+           aria-pressed="<%= category_active?(cat) %>">
+          <span class="cal-filter-chip__bracket">[</span><span class="cal-filter-chip__check"><%= category_active?(cat) ? "x" : " " %></span><span class="cal-filter-chip__bracket">]</span>
+          <span class="cal-filter-chip__label"><%= category_chip_label(cat) %></span>
+        </a>
+      <% end %>
+    </div>
+
+    <%# ── Month heading ─────────────────────────────────────────── %>
+    <div class="cal-month-heading">
+      <%= month_heading %>
+    </div>
+
+    <%# ── Day-of-week headers ────────────────────────────────────── %>
+    <div class="cal-grid">
+      <% week_day_headers.each do |wd| %>
+        <div class="cal-dow-header"><%= wd %></div>
+      <% end %>
+
+      <%# ── Day cells ────────────────────────────────────────────── %>
+      <% grid_rows.each do |week| %>
+        <% week.each do |date| %>
+          <div class="<%= day_cell_classes(date) %>"
+               data-tui-focusable="day_<%= date.iso8601 %>"
+               data-date="<%= date.iso8601 %>">
+            <button class="cal-day-open-btn"
+                    aria-label="<%= date.strftime('%-d %B %Y') %>"
+                    onclick="document.getElementById('<%= day_dialog_id(date) %>').showModal()">
+              <span class="cal-day-number"><%= date.day %></span>
+            </button>
+            <% day_entries(date).each do |entry| %>
+              <span class="<%= entry_bullet_class(entry) %>">•&nbsp;<%= bullet_text(entry) %></span>
+            <% end %>
+          </div>
+        <% end %>
+      <% end %>
+    </div>
+  <% end %>
+
+  <%# ── Day-detail dialogs (one per grid date with entries) ───────── %>
+  <% grid.each do |date| %>
+    <% entries = day_entries(date) %>
+    <%= render Tui::CalendarDayDialogComponent.new(
+          id:      day_dialog_id(date),
+          date:    date,
+          entries: entries
+        ) %>
   <% end %>
 <% end %>

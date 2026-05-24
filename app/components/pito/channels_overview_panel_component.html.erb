@@ -2,10 +2,8 @@
       class: "pane pito-pane pito-panel pito-panel--channels-overview",
       **panel_data do %>
   <span class="pito-pane__title"><%= title %></span>
-  <%# 2026-05-24 — panel-level `[ ] sync` action. Mirrors the existing
-      stack / security / notifications panels. `target: "home.channels"`
-      per the dispatch lock (the localStorage key stays `home.channels`
-      while the panel name in cable + i18n stays `channels_overview`). %>
+  <%# Panel-level `[ ] sync` action. `target: "home.channels"` matches
+      the localStorage sync key; the cable channel key is `channels_overview`. %>
   <span class="pito-pane__title-actions">
     <%= render Tui::SyncIndicatorComponent.new(
       mode: :target,
@@ -14,6 +12,73 @@
     ) %>
   </span>
   <%= render Tui::PanelFieldsetComponent.new do %>
-    <p class="pito-panel__placeholder">[ panel content TBD ]</p>
+    <% if channels.any? %>
+      <%# Sortable channel-overview table. Columns: handle / subs / views /
+          last published. All columns are server-side-sortable via
+          `sort_link_to` (no Turbo Frame — full-page sort to keep the
+          home grid consistent). Default sort = last_published_at DESC. %>
+      <table class="tui-table channels-overview-table">
+        <thead>
+          <tr>
+            <th class="tui-table__th tui-table__th--left sortable">
+              <%= helpers.sort_link_to(
+                    t("tui.home.panels.channels_overview.col_handle"),
+                    "handle",
+                    current_sort: sort, current_dir: dir,
+                    sort_param: "channels_sort", dir_param: "channels_dir"
+                  ) %>
+            </th>
+            <th class="tui-table__th tui-table__th--right num sortable">
+              <%= helpers.sort_link_to(
+                    t("tui.home.panels.channels_overview.col_subs"),
+                    "subscriber_count",
+                    current_sort: sort, current_dir: dir,
+                    sort_param: "channels_sort", dir_param: "channels_dir"
+                  ) %>
+            </th>
+            <th class="tui-table__th tui-table__th--right num sortable">
+              <%= helpers.sort_link_to(
+                    t("tui.home.panels.channels_overview.col_views"),
+                    "view_count",
+                    current_sort: sort, current_dir: dir,
+                    sort_param: "channels_sort", dir_param: "channels_dir"
+                  ) %>
+            </th>
+            <th class="tui-table__th tui-table__th--right num sortable">
+              <%= helpers.sort_link_to(
+                    t("tui.home.panels.channels_overview.col_last_published"),
+                    "last_published_at",
+                    current_sort: sort, current_dir: dir,
+                    sort_param: "channels_sort", dir_param: "channels_dir"
+                  ) %>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <% channels.each_with_index do |channel, i| %>
+            <%# Focusables list: index 0 is channels_sync; row focusables start at 1. %>
+            <% fkey = focusables[i + 1] %>
+            <tr class="tui-table__row"
+                data-tui-focusable="<%= fkey %>"
+                data-tui-focusable-style="row">
+              <td class="tui-table__td tui-table__td--left channels-overview-table__cell-handle">
+                <%= display_handle(channel) %>
+              </td>
+              <td class="tui-table__td tui-table__td--right num channels-overview-table__cell-subs">
+                <%= format_subs(channel) %>
+              </td>
+              <td class="tui-table__td tui-table__td--right num channels-overview-table__cell-views">
+                <%= format_views(channel) %>
+              </td>
+              <td class="tui-table__td tui-table__td--right num channels-overview-table__cell-last-published">
+                <%= format_last_published(channel) %>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    <% else %>
+      <p class="tui-panel__empty"><%= t("tui.home.panels.channels_overview.empty") %></p>
+    <% end %>
   <% end %>
 <% end %>

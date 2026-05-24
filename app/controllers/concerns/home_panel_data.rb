@@ -64,6 +64,13 @@ module HomePanelData
 
   STACK_ALLOWED_DIRS = %w[asc desc].freeze
 
+  # Latest-videos panel sort allowlist.
+  LATEST_VIDEOS_ALLOWED_SORTS = %w[title channel views published_at].freeze
+  LATEST_VIDEOS_ALLOWED_DIRS  = %w[asc desc].freeze
+  LATEST_VIDEOS_DEFAULT_SORT  = "published_at".freeze
+  LATEST_VIDEOS_DEFAULT_DIR   = "desc".freeze
+  LATEST_VIDEOS_LIMIT         = 12
+
   # Meilisearch unified `games_*` index splits into two display rows
   # (games + bundles) via the `kind` field. Only the unified index is
   # surfaced; per-env suffixes are stripped.
@@ -149,6 +156,25 @@ module HomePanelData
     @calendar_today   = today
   end
 
+  # Sets `@videos`, `@videos_sort`, `@videos_dir` for the Latest Videos
+  # panel. Fetches the most recent LATEST_VIDEOS_LIMIT published videos
+  # across all channels, sorted by the requested column. Includes :channel
+  # so the template can show the channel title without an N+1.
+  #
+  # Sort columns:
+  #   title       — videos.title ASC/DESC
+  #   channel     — channels.title ASC/DESC (joined via :channel)
+  #   views       — view_count ASC/DESC
+  #   published_at — published_at ASC/DESC (default DESC)
+  #
+  # Only videos with a non-nil `published_at` are shown (i.e. actually
+  # published; drafts / scheduled stay hidden).
+  def set_latest_videos_panel_data
+    @videos_sort = sanitized_latest_videos_sort
+    @videos_dir  = sanitized_latest_videos_dir
+    @videos      = fetch_latest_videos
+  end
+
   # Sets the 8 ivars the Stack panel demands plus the 8 sort ivars
   # (one sort key + direction per sub-panel). Each probe is rescued
   # so a transient subsystem failure (Meilisearch unreachable, etc.)
@@ -191,6 +217,46 @@ module HomePanelData
   end
 
   private
+
+  # -----------------------------------------------------------------
+  # Latest-videos helpers
+  # -----------------------------------------------------------------
+
+  def sanitized_latest_videos_sort
+    v = params[:videos_sort].to_s
+    LATEST_VIDEOS_ALLOWED_SORTS.include?(v) ? v : LATEST_VIDEOS_DEFAULT_SORT
+  end
+
+  def sanitized_latest_videos_dir
+    v = params[:videos_dir].to_s.downcase
+    LATEST_VIDEOS_ALLOWED_DIRS.include?(v) ? v : LATEST_VIDEOS_DEFAULT_DIR
+  end
+
+  def fetch_latest_videos
+    dir = sanitized_latest_videos_dir
+    sort_clause =
+      case sanitized_latest_videos_sort
+      when "title"
+        Arel.sql("videos.title #{dir}")
+      when "channel"
+        # JOIN already present via `includes(:channel).joins(:channel)`
+        Arel.sql("channels.title #{dir}")
+      when "views"
+        Arel.sql("view_count #{dir}")
+      else
+        # published_at — secondary sort by id desc keeps rows stable
+        [ Arel.sql("published_at #{dir} nulls last"), Arel.sql("id desc") ]
+      end
+
+    Video
+      .where.not(published_at: nil)
+      .includes(:channel)
+      .joins(:channel)
+      .order(sort_clause)
+      .limit(LATEST_VIDEOS_LIMIT)
+  rescue StandardError
+    []
+  end
 
   # -----------------------------------------------------------------
   # Home calendar helpers
