@@ -194,8 +194,8 @@ module Pito
             action_name: :sort_table,
             args: { table: "stack-meilisearch", column: 2 } },
           { key: "sync_toggle_meilisearch",
-            name: I18n.t("tui.commands.sync_toggle.name"),
-            hint: I18n.t("tui.commands.sync_toggle.hint"),
+            name: I18n.t("tui.commands.sync_toggle.name", label: "meilisearch"),
+            hint: I18n.t("tui.commands.sync_toggle.hint", label: "meilisearch"),
             action_name: :sync_toggle,
             args: { target: "home.stack.meilisearch" } }
         ]

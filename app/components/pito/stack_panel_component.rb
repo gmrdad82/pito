@@ -145,8 +145,8 @@ module Pito
     def panel_commands
       [
         { key: "sync_toggle_stack",
-          name: I18n.t("tui.commands.sync_toggle.name"),
-          hint: I18n.t("tui.commands.sync_toggle.hint"),
+          name: I18n.t("tui.commands.sync_toggle.name", label: "stack"),
+          hint: I18n.t("tui.commands.sync_toggle.hint", label: "stack"),
           action_name: :sync_toggle,
           args: { target: "home.stack" } }
       ]

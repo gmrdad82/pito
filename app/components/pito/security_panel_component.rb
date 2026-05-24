@@ -130,8 +130,8 @@ module Pito
           hint: I18n.t("tui.commands.revoke_selected_sessions.hint"),
           action_name: :revoke_selected_sessions },
         { key: "sync_toggle_security",
-          name: I18n.t("tui.commands.sync_toggle.name"),
-          hint: I18n.t("tui.commands.sync_toggle.hint"),
+          name: I18n.t("tui.commands.sync_toggle.name", label: "security"),
+          hint: I18n.t("tui.commands.sync_toggle.hint", label: "security"),
           action_name: :sync_toggle,
           args: { target: "home.security" } }
       ]

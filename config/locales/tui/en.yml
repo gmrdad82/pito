@@ -222,8 +222,15 @@ en:
         name: "sort by files"
         hint: "sort table by file count"
       sync_toggle:
-        name: "sync toggle"
-        hint: "toggle sync for the focused scope"
+        # 2026-05-24 — `name` now interpolates `%{label}` so each
+        # registering panel/sub-panel distinguishes its row (e.g.,
+        # "sync toggle (stack)", "sync toggle (postgres)") and the
+        # palette never shows two indistinguishable `:sync toggle`
+        # rows. Callers MUST pass `label:` per call site. (Note: the
+        # interpolation key is `label`, NOT `scope`, because `scope`
+        # is a reserved I18n keyword that re-paths the lookup.)
+        name: "sync toggle (%{label})"
+        hint: "toggle sync for the %{label} scope"
       toggle_tst_sync:
         name: "toggle sync"
         hint: "toggle the home-wide sync master switch"

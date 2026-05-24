@@ -407,9 +407,14 @@ export default class extends Controller {
           case "l": case "ArrowRight":
             if (hasSubPanels) this.nextSubPanel()
             handled = true; break
-          case " ":
-            if (this.toggleFocusedFocusableCheckbox()) handled = true
-            break
+          // 2026-05-24 — NORMAL-mode SPACE is OWNED by the leader menu
+          // controller, per the contract docblock at the top of this
+          // file: "SPACE → leader menu (owned by leader_menu_controller,
+          // not us)". We do NOT short-circuit the keystroke here, even
+          // when a focusable is focused — otherwise the user has to
+          // exit-cursor-focus to use `Space s` (the master TST sync
+          // toggle) or any other leader entry. Toggling a focused
+          // checkbox / button via SPACE is INSERT mode's job.
           case "Enter":
             if (this.triggerFocusedFocusableAction()) handled = true
             break

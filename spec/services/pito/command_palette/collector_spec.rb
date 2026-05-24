@@ -69,5 +69,46 @@ RSpec.describe Pito::CommandPalette::Collector do
       result = described_class.call(panel_commands: [ a, b, c ])
       expect(result.map { |x| x[:key] }).to eq(%w[a b c])
     end
+
+    # 2026-05-24 — Bug 4 fix: palette de-duplication. The same logical
+    # action (same action_name + same args) registered by two scopes
+    # should appear once. First-occurrence wins so the most-specific
+    # scope (sub_panel > panel > screen) shadows broader-scope duplicates.
+    describe "de-duplication by [action_name, args] signature" do
+      it "drops a panel command that exactly duplicates a sub_panel command's action+args" do
+        sub = { key: "sync_sub", name: "sync toggle (postgres)", action_name: :sync_toggle, args: { target: "home.stack.postgres" } }
+        pan = { key: "sync_pan", name: "sync toggle (postgres)", action_name: :sync_toggle, args: { target: "home.stack.postgres" } }
+        result = described_class.call(sub_panel_commands: [ sub ], panel_commands: [ pan ])
+        expect(result.map { |c| c[:key] }).to eq([ "sync_sub" ])
+      end
+
+      it "keeps two `sync_toggle` commands that target DIFFERENT scopes (different args)" do
+        sub = { key: "sync_postgres", name: "sync toggle (postgres)", action_name: :sync_toggle, args: { target: "home.stack.postgres" } }
+        pan = { key: "sync_stack",    name: "sync toggle (stack)",    action_name: :sync_toggle, args: { target: "home.stack" } }
+        result = described_class.call(sub_panel_commands: [ sub ], panel_commands: [ pan ])
+        expect(result.map { |c| c[:key] }).to eq(%w[sync_postgres sync_stack])
+      end
+
+      it "drops a duplicate within the same scope (keeps first)" do
+        a = { key: "first",  name: "x", action_name: :foo, args: { id: 1 } }
+        b = { key: "second", name: "x", action_name: :foo, args: { id: 1 } }
+        result = described_class.call(panel_commands: [ a, b ])
+        expect(result.map { |c| c[:key] }).to eq([ "first" ])
+      end
+
+      it "treats commands with the same path + method as duplicates" do
+        a = { key: "go_a", name: "home", path: "/", method: :get }
+        b = { key: "go_b", name: "home", path: "/", method: :get }
+        result = described_class.call(screen_commands: [ a, b ])
+        expect(result.length).to eq(1)
+      end
+
+      it "treats commands with the same path but DIFFERENT methods as distinct" do
+        a = { key: "get_home",  name: "home",   path: "/", method: :get }
+        b = { key: "post_home", name: "submit", path: "/", method: :post }
+        result = described_class.call(screen_commands: [ a, b ])
+        expect(result.length).to eq(2)
+      end
+    end
   end
 end

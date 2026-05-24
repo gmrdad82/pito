@@ -48,7 +48,7 @@ module Pito
           Array(sub_panel_commands).each { |c| merged << annotate(c, :sub_panel) }
           Array(panel_commands).each     { |c| merged << annotate(c, :panel) }
           Array(screen_commands).each    { |c| merged << annotate(c, :screen) }
-          merged
+          dedupe(merged)
         end
 
         private
@@ -59,6 +59,41 @@ module Pito
           # lives on the panel but applies panel-wide). Default to the
           # collector-level scope otherwise.
           command.merge(scope: command[:scope] || scope)
+        end
+
+        # 2026-05-24 — palette de-duplication.
+        #
+        # A command is "the same" iff it would dispatch identically: same
+        # `action_name` AND same `args` payload (or same `path` when no
+        # action_name). The first occurrence wins so the most-specific
+        # scope (sub_panel > panel > screen) shadows any duplicate from a
+        # broader scope. The unique `key` field is NOT used for
+        # equivalence — by design two scopes may emit the same logical
+        # action under different keys (e.g., `sync_toggle_stack` from the
+        # panel + a generic `sync_toggle` from a screen catalog). We
+        # collapse those into one row so the user never sees an exact
+        # duplicate in the palette.
+        def dedupe(commands)
+          seen = {}
+          commands.each_with_object([]) do |cmd, out|
+            sig = signature_for(cmd)
+            next if seen[sig]
+            seen[sig] = true
+            out << cmd
+          end
+        end
+
+        def signature_for(cmd)
+          if cmd[:action_name]
+            [ :action, cmd[:action_name].to_sym, cmd[:args] || {} ]
+          elsif cmd[:path]
+            [ :path, cmd[:path], (cmd[:method] || :get).to_s.downcase ]
+          else
+            # Fall back to the key as the signature when neither
+            # action_name nor path is present — keeps the entry but lets
+            # the next occurrence dedupe.
+            [ :key, cmd[:key] ]
+          end
         end
       end
     end

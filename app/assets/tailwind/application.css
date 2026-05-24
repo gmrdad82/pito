@@ -3576,10 +3576,17 @@ hr.hairline {
   height: 0;
   pointer-events: none;
 }
-.md-check-indicator { font-weight: 400; }
+/* 2026-05-24 — actions are always section accent. The `[ ]` / `[x]` /
+   `[-]` glyph on every `.md-check` (notifications-settings toggles,
+   etc.) reads as the action's affordance, not muted decoration. Lock
+   matches the `.tui-checkbox` rule above + docs/design.md "actions
+   are always accent". Idle, checked, and indeterminate alike. */
+.md-check-indicator { font-weight: 400; color: var(--section-accent); }
 .md-check-indicator::before { content: "[ ]"; }
 .md-check input:checked ~ .md-check-indicator::before { content: "[x]"; }
 .md-check input:indeterminate ~ .md-check-indicator::before { content: "[-]"; }
+.md-check input:checked ~ .md-check-indicator,
+.md-check input:indeterminate ~ .md-check-indicator { color: var(--section-accent); }
 .md-check-label { color: var(--color-muted); font-weight: 400; }
 
 /* Beta 4 F3-B-UNHOOK-CAPTION (2026-05-20). Caption text that sits on

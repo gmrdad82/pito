@@ -114,8 +114,8 @@ module Pito
             action_name: :sort_table,
             args: { table: "stack-postgres", column: 2 } },
           { key: "sync_toggle_postgres",
-            name: I18n.t("tui.commands.sync_toggle.name"),
-            hint: I18n.t("tui.commands.sync_toggle.hint"),
+            name: I18n.t("tui.commands.sync_toggle.name", label: "postgres"),
+            hint: I18n.t("tui.commands.sync_toggle.hint", label: "postgres"),
             action_name: :sync_toggle,
             args: { target: "home.stack.postgres" } }
         ]

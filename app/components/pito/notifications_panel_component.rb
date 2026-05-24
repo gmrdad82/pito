@@ -114,8 +114,8 @@ module Pito
           action_name: :focus_focusable,
           args: { focusable: "slack_webhook" } },
         { key: "sync_toggle_notifications",
-          name: I18n.t("tui.commands.sync_toggle.name"),
-          hint: I18n.t("tui.commands.sync_toggle.hint"),
+          name: I18n.t("tui.commands.sync_toggle.name", label: "notifications"),
+          hint: I18n.t("tui.commands.sync_toggle.hint", label: "notifications"),
           action_name: :sync_toggle,
           args: { target: "home.notifications" } }
       ]

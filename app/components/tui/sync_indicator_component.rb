@@ -172,7 +172,16 @@ module Tui
       if target_mode?
         attrs[:tui_sync_indicator_target_value] = @target
         attrs[:tui_sync_indicator_parent_target_value] = @parent_target if @parent_target
-        attrs[:action] = "click->tui-sync-indicator#toggle keydown.enter->tui-sync-indicator#toggle keydown.space->tui-sync-indicator#toggle"
+        # 2026-05-24 — only `click` is wired. Native <button> already
+        # converts SPACE / Enter keydown into a click event, AND the
+        # `tui_cursor_controller`'s INSERT-mode SPACE handler does an
+        # `el.click()` on the focused button (see
+        # `toggleFocusedFocusableCheckbox`). Adding explicit
+        # `keydown.space->toggle keydown.enter->toggle` actions on top of
+        # those two paths caused a double-fire that toggled the sync flag
+        # twice (net zero) every keystroke. The cursor controller +
+        # native button activation are the single canonical paths.
+        attrs[:action] = "click->tui-sync-indicator#toggle"
         if @focusable_key
           attrs[:tui_focusable] = @focusable_key
           attrs[:tui_focusable_key] = @focusable_key

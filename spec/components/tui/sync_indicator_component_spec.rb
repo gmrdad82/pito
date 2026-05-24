@@ -248,11 +248,25 @@ RSpec.describe Tui::SyncIndicatorComponent, type: :component do
       expect(attr).to include("tui-transition")
     end
 
-    it "binds click + Enter + Space to the toggle action" do
+    # 2026-05-24 — double-fire bug fix. ONLY `click` is wired now;
+    # native <button> already converts SPACE / Enter keydown into a
+    # click event, and the tui_cursor_controller INSERT-SPACE handler
+    # does `el.click()` on the focused button. Adding explicit
+    # `keydown.space` / `keydown.enter` actions on top caused a
+    # double-toggle (net zero) every keystroke.
+    it "binds click to the toggle action (single canonical path)" do
       action = button["data-action"].to_s
       expect(action).to include("click->tui-sync-indicator#toggle")
-      expect(action).to include("keydown.enter->tui-sync-indicator#toggle")
-      expect(action).to include("keydown.space->tui-sync-indicator#toggle")
+    end
+
+    it "does NOT bind keydown.space (would double-fire with cursor controller INSERT-SPACE handler)" do
+      action = button["data-action"].to_s
+      expect(action).not_to include("keydown.space")
+    end
+
+    it "does NOT bind keydown.enter (would double-fire with native button activation)" do
+      action = button["data-action"].to_s
+      expect(action).not_to include("keydown.enter")
     end
 
     it "emits the target value data attr" do
