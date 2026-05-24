@@ -23,7 +23,10 @@
       Per user 2026-05-23 — Calendar stays at 60% of row width but on the right;
       Notifications feed moves left at 40%. %>
   <div class="home-row home-row--40-60">
-    <%= render Pito::NotificationsFeedPanelComponent.new %>
+    <%= render Pito::NotificationsFeedPanelComponent.new(
+          filter:        @notifications_feed_filter,
+          unread_count:  @notifications_feed_unread_count
+        ) %>
     <%= render Pito::CalendarPanelComponent.new %>
   </div>
 

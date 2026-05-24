@@ -29,7 +29,7 @@
 module Games
   module FiltersHelper
     # The eight canonical filter chips in render order. Left side
-    # (status + ownership): released, scheduled, owned, wishlist,
+    # (status + ownership): released, scheduled, owned, not_owned,
     # played. Right side (platforms): ps, switch, steam.
     #
     # Phase 27 v2 spec 06 (2026-05-17 PC store collapse): `gog` and
@@ -38,8 +38,9 @@ module Games
     # rename: `ps5` → `ps` and `switch2` → `switch` (family tokens —
     # PS4+PS5 + Switch gen 1+2 collapse to one chip each). The CSV
     # serialisation follows this order so bookmarks are stable.
+    # Phase 29 (2026-05-25) — `wishlist` token renamed to `not_owned`.
     TOKEN_UNIVERSE = %w[
-      released scheduled owned wishlist played
+      released scheduled owned not_owned played
       ps switch steam
     ].freeze
 
@@ -48,7 +49,7 @@ module Games
     # can also reason about group membership without re-importing the
     # query object's internals.
     STATUS_TOKENS    = %w[released scheduled].freeze
-    OWNERSHIP_TOKENS = %w[owned wishlist played].freeze
+    OWNERSHIP_TOKENS = %w[owned not_owned played].freeze
     PLATFORM_TOKENS  = %w[ps switch steam].freeze
 
     # Default-checked chip set for bare `/games` (no `?filters=` param).
@@ -56,6 +57,8 @@ module Games
     # engagement axis is opt-in. Bare `/games` therefore checks every
     # chip except `played`, and the canonical URL canonicalisation
     # (`games_path_with_checked`) emits the bare path for this set.
+    # Phase 29 (2026-05-25): `not_owned` replaces `wishlist` in the
+    # default set; the opt-in behaviour is unchanged.
     DEFAULT_CHECKED_TOKENS = (TOKEN_UNIVERSE - %w[played]).freeze
 
     # Parse a `?filters=` raw value into the checked-token set.
@@ -127,6 +130,11 @@ module Games
       "steam"     => "Steam"
     }.freeze
 
+    # Legacy token alias — old `?filters=...,wishlist,...` URLs are
+    # transparently normalised to `not_owned` during parse. The canonical
+    # token in every outbound URL is `not_owned`.
+    LEGACY_TOKEN_ALIASES = { "wishlist" => "not_owned" }.freeze
+
     def chip_label(token)
       CHIP_LABELS.fetch(token.to_s, token.to_s)
     end
@@ -141,7 +149,9 @@ module Games
         when nil    then []
         else raw.to_s.split(",")
         end
-      list.map { |t| t.to_s.downcase.strip }.reject(&:empty?).uniq
+      list.map { |t| t.to_s.downcase.strip }
+          .map { |t| LEGACY_TOKEN_ALIASES.fetch(t, t) }
+          .reject(&:empty?).uniq
     end
   end
 end

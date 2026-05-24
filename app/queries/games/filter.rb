@@ -8,8 +8,10 @@
 # AXES (4):
 #   1. Lifecycle  = {released, scheduled}  — released XOR scheduled per
 #      game (no game is both).
-#   2. Ownership  = {owned, wishlist}      — `wishlist` ≡ NOT owned
-#      globally (anywhere).
+#   2. Ownership  = {owned, not_owned}     — `not_owned` ≡ NOT owned
+#      globally (anywhere). Phase 29 (2026-05-25): renamed from
+#      `wishlist`; legacy `wishlist` token is normalised upstream by
+#      `Games::FiltersHelper#parse_checked_tokens`.
 #   3. Engagement = {played}               — single chip. Per-platform
 #      via `games.played_platform_id`.
 #   4. Platform   = {ps, switch, steam}  — multi-select; tokens
@@ -25,7 +27,7 @@
 # EDGE CASES:
 #   - `released + scheduled` BOTH checked → lifecycle axis inactive
 #     (every game passes the lifecycle axis — rule e).
-#   - `owned + wishlist` BOTH checked → ownership universe covered
+#   - `owned + not_owned` BOTH checked → ownership universe covered
 #     (rule f). When NO platform is set, the axis is inactive. When a
 #     platform IS set, per-platform binding kicks in:
 #     (owned-on-platform OR not-owned-globally with platform available).
@@ -47,7 +49,7 @@
 module Games
   class Filter
     LIFECYCLE_TOKENS  = %w[released scheduled].freeze
-    OWNERSHIP_TOKENS  = %w[owned wishlist].freeze
+    OWNERSHIP_TOKENS  = %w[owned not_owned].freeze
     ENGAGEMENT_TOKENS = %w[played].freeze
     PLATFORM_TOKENS   = %w[ps switch steam].freeze
 
@@ -134,9 +136,9 @@ module Games
 
     # 01b carried a `contradiction?` predicate for the C-3
     # `owned + not_owned` simultaneous-check case. v2 has no
-    # `not_owned` chip (and `owned + wishlist` is rule (f), NOT a
-    # contradiction). Method survives to keep the controller /
-    # component signature stable.
+    # `not_owned` chip contradiction (and `owned + not_owned` is rule
+    # (f), covering the full ownership universe). Method survives to
+    # keep the controller / component signature stable.
     def contradiction?
       false
     end
@@ -217,19 +219,19 @@ module Games
         else
                 rel.where(id: Game.owned.select(:id))
         end
-      when [ "wishlist" ]
-        # wishlist is ALWAYS global — "doesn't own ANYWHERE". The
+      when [ "not_owned" ]
+        # not_owned is ALWAYS global — "doesn't own ANYWHERE". The
         # platform-availability binding (if any) is already applied
         # above via the platform axis.
-        rel = rel.where(id: Game.wishlist.select(:id))
-      when %w[owned wishlist], %w[wishlist owned]
+        rel = rel.where(id: Game.not_owned_anywhere.select(:id))
+      when %w[owned not_owned], %w[not_owned owned]
         # Both checked — rule (f). With no platform, no narrowing
         # (every game passes ownership). With a platform set, union
         # (owned-on-platform) ∪ (not-owned-globally).
         if platform_active
-          owned_on_ids = Game.owned_on(platform_slugs).select(:id)
-          wishlist_ids = Game.wishlist.select(:id)
-          rel = rel.where(id: owned_on_ids).or(rel.where(id: wishlist_ids))
+          owned_on_ids    = Game.owned_on(platform_slugs).select(:id)
+          not_owned_ids   = Game.not_owned_anywhere.select(:id)
+          rel = rel.where(id: owned_on_ids).or(rel.where(id: not_owned_ids))
         end
       end
 

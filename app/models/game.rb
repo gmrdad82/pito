@@ -362,19 +362,29 @@ class Game < ApplicationRecord
   scope :released_on,  ->(slug) { released.on_platform(slug) }
   scope :scheduled_on, ->(slug) { scheduled.on_platform(slug) }
 
-  # Phase 27 v2 spec 06 — `played` and `wishlist` scopes for the
-  # revamped filter row.
+  # Phase 27 v2 spec 06 — `played` scope for the revamped filter row.
+  # Phase 29 (2026-05-25) — "wishlist" terminology dropped; replaced by
+  # "not owned" / `not_owned_anywhere`. The concept: a game the user
+  # does not own on any platform (zero ownership rows anywhere).
   #
-  #   .played    → games with `played_at` non-null. The column was
-  #                introduced in Phase 14 §1; the scope is new.
-  #   .wishlist  → games with ZERO ownership rows. Orthogonal to release
-  #                status — a scheduled (future) game the user has added
-  #                to the library but doesn't own anywhere IS in
-  #                wishlist; a released game the user doesn't own
-  #                anywhere IS in wishlist. Aliases the existing
-  #                `.not_owned` scope so both lexicons survive.
-  scope :played,   -> { where.not(played_at: nil) }
-  scope :wishlist, -> { not_owned }
+  #   .played            → games with `played_at` non-null. The column
+  #                        was introduced in Phase 14 §1; the scope is new.
+  #   .not_owned_anywhere → games with ZERO ownership rows. Orthogonal
+  #                        to release status. Aliases the existing
+  #                        `.not_owned` scope under the new vocabulary.
+  #   .wishlist          → legacy alias for `.not_owned_anywhere`. Kept
+  #                        so existing callers in older specs / MCP tools
+  #                        survive without immediate churn.
+  scope :played,             -> { where.not(played_at: nil) }
+  scope :not_owned_anywhere, -> { not_owned }
+  scope :wishlist,           -> { not_owned_anywhere }
+
+  # Returns true when the game has at least one ownership row (i.e. the
+  # user owns it on one or more platforms). Mirrors the `.owned` scope
+  # logic as an instance predicate.
+  def owned?
+    game_platform_ownerships.loaded? ? game_platform_ownerships.any? : game_platform_ownerships.exists?
+  end
 
   # IGDB cover URL builder. The IGDB CDN serves directly to the
   # browser — pito does not proxy or cache image bytes for the show

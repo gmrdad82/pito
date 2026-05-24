@@ -4,7 +4,10 @@
 # right-slot layout to a single compact band. Left side carries the
 # status + ownership chips; right side carries the platform chips.
 #
-#   [ ] released [ ] scheduled [ ] owned [ ] wishlist [ ] played    [ ] PS [ ] Switch [ ] Steam
+# Phase 29 (2026-05-25) — `wishlist` token retired; replaced by
+# `not_owned` chip (label: "not owned").
+#
+#   [ ] released [ ] scheduled [ ] owned [ ] not owned [ ] played    [ ] PS [ ] Switch [ ] Steam
 #
 # Default state — every chip CHECKED, URL `/games` (no `?filters=`
 # param) — communicates "showing the full list, nothing narrowed".

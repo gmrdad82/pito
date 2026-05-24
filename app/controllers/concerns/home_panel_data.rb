@@ -111,6 +111,17 @@ module HomePanelData
     @slack_webhook   = NotificationDeliveryChannel.find_record_for("slack")
   end
 
+  # Sets `@notifications_feed_filter`, `@notifications_feed_unread_count`
+  # for `Pito::NotificationsFeedPanelComponent`.
+  #
+  # The component fetches its own `notifications` relation when none is
+  # injected, using the filter. The controller only needs to resolve the
+  # filter param and pass the unread count (single cheap COUNT query).
+  def set_notifications_feed_panel_data
+    @notifications_feed_filter       = params[:notifications_feed_filter].to_s == "unread" ? "unread" : "all"
+    @notifications_feed_unread_count = Notification.unread.count
+  end
+
   # Sets the 8 ivars the Stack panel demands plus the 8 sort ivars
   # (one sort key + direction per sub-panel). Each probe is rescued
   # so a transient subsystem failure (Meilisearch unreachable, etc.)
