@@ -42,5 +42,8 @@
   <% end %>
   <p class="pito-sub-panel__hint <%= hint_color_class %>"><%= hint_text %></p>
   <%= helpers.turbo_stream_from "reindex_status" %>
-  <%= render "settings/voyage_section" %>
+  <%# 2026-05-25 — pass current sort params as locals so the sortable
+      embeds table inside the partial emits `sort_link_to` headers with
+      the correct active-column class on first paint. %>
+  <%= render "settings/voyage_section", voyage_sort: current_sort, voyage_dir: current_dir %>
 <% end %>

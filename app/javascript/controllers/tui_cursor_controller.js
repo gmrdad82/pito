@@ -669,7 +669,10 @@ export default class extends Controller {
     const active = list[this.focusableIndex]
     if (active) {
       active.setAttribute("data-tui-focusable-focused", "yes")
-      active.scrollIntoView({ block: "nearest" })
+      // inline: "nearest" ensures horizontal-scroll shelves (e.g. upcoming
+      // games tiles) scroll the focused tile into view without jumping
+      // the vertical position of the panel row.
+      active.scrollIntoView({ block: "nearest", inline: "nearest" })
       // FB-184 (2026-05-21) — auto-sync sub-panel marker to the focused
       // focusable's parent sub-panel. FB-169 made stack panel j/k traverse
       // flat across sub-panel focusables; this re-couples the visible

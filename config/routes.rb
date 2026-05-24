@@ -426,6 +426,18 @@ Rails.application.routes.draw do
 
   resources :saved_views, only: [ :index, :create, :destroy ]
 
+  # Notifications feed panel bulk actions (home screen).
+  # POST /notifications_feed/bulk_read   — mark selected ids read
+  # POST /notifications_feed/bulk_unread — mark selected ids unread
+  # Handled by NotificationsFeedController (distinct from
+  # NotificationsController which owns the /notifications resource).
+  resources :notifications_feed, only: [] do
+    collection do
+      post :bulk_read
+      post :bulk_unread
+    end
+  end
+
   # Phase 16 §3 — Notification UI. Routes:
   #   - GET    /notifications                   index (paginated, filter)
   #   - GET    /notifications/:id               detail

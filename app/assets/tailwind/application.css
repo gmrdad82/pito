@@ -7371,8 +7371,11 @@ body.keyboard-only * {
      get bigger tiles without manual breakpoint tuning. */
 }
 .upcoming-tile__cover-wrap {
-  flex: 1 1 auto;
-  min-height: 0;
+  /* Fix 2026-05-25 — cover dominates: tile height = row height, width
+     follows the 3:4 aspect ratio naturally. flex: 0 0 auto prevents
+     the cover from shrinking to accommodate the meta strip. */
+  flex: 0 0 auto;
+  height: 100%;
   display: flex;
   align-items: stretch;
 }
@@ -7416,12 +7419,14 @@ body.keyboard-only * {
   font-size: 12px;
   color: var(--color-muted);
 }
-/* Focus paint — section-accent tint when the tile is the cursor's
-   focused focusable. Mirrors the rest of pito's focus paint
-   convention (tint only, no outline). */
-.upcoming-tile[data-tui-focusable-focused="yes"] {
-  outline: 1px solid var(--section-accent);
-  outline-offset: 1px;
+/* Focus paint — tint + accent underline on the meta strip only when
+   the tile is the cursor's focused focusable. Cover stays clean.
+   Uses the games-screen accent (--section-accent-games) regardless of
+   which panel the shelf lives in, since upcoming tiles are always in
+   the games-releasing panel. */
+.upcoming-tile[data-tui-focusable-focused="yes"] .upcoming-tile__meta {
+  background: var(--focus-tint-bg);
+  border-bottom: 1px solid var(--section-accent-games);
 }
 
 /* Wave 2B (2026-05-23) — Pito::*PanelComponent placeholder shared by all
@@ -7433,6 +7438,52 @@ body.keyboard-only * {
   font-style: italic;
   margin: 8px 0;
 }
+
+/* Notifications feed panel — nf-kind-chip, nf-table, nf-toolbar.
+   Kind chip: plain text label colored per notification domain.
+     channel (video*) → videos accent red
+     game (game_release*) → games accent blue
+     system (milestone, calendar, sync_error) → home accent purple
+   Muted variant: read rows get 50% opacity chip. */
+.nf-kind-chip {
+  font-weight: 400;
+  font-style: normal;
+  line-height: 1;
+}
+.nf-kind-chip--channel { color: var(--section-accent-videos); }
+.nf-kind-chip--game    { color: var(--section-accent-games); }
+.nf-kind-chip--system  { color: var(--section-accent-home); }
+.nf-kind-chip--muted   { opacity: 0.45; }
+
+/* nf-table column widths (fixed layout via colgroup). */
+.nf-table { table-layout: fixed; width: 100%; }
+.nf-table__col-action { width: 28px; }
+.nf-table__col-kind   { width: 56px; }
+.nf-table__col-title  { width: auto; }
+.nf-table__col-time   { width: 64px; }
+
+/* Unread row: full white text. Read row: muted text. */
+.nf-table__row--unread { color: var(--color-text); }
+.nf-table__row--read   { color: var(--color-muted); }
+
+/* Title cell: unread = normal weight, read = muted. */
+.nf-table__title--unread { color: inherit; }
+.nf-table__title--read   { color: var(--color-muted); }
+
+/* nf-toolbar: filter checkbox + bulk action chips in one row. */
+.nf-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+.nf-toolbar__filter  { display: flex; align-items: center; }
+.nf-toolbar__actions { display: flex; align-items: center; gap: 8px; }
+.nf-toolbar__counter { color: var(--color-muted); font-size: 0.85em; }
+
+/* nf-table checkbox cell spacing. */
+.nf-table__checkbox         { display: inline-flex; align-items: center; }
+.nf-table__checkbox--header { }
 
 /* Calendar toggle round (2026-05-23) — `.pito-pane__title-actions`:
    mirror of `.pito-sub-panel__actions`, placed on the right edge of

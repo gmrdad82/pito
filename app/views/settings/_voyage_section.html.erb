@@ -64,56 +64,66 @@
       (it's the per-broadcast affordance). %>
   <% reindex_running = AppSetting.reindex_running? %>
 
-  <%# Embeds table — sortable. Two columns: collection + embedded.
-      `data-sort-value` on the embedded cell holds the raw integer
-      count of embedded rows so the numeric sort orders the rows by
-      coverage. %>
-  <div data-controller="sortable-table" data-sortable-table-id-value="stack-voyage-embeds">
-    <table class="tui-table tui-table--stack" data-sortable-table-target="table">
-      <thead>
-        <%# FB (2026-05-24) — header row focusable. Inert style so the
-            row doesn't paint a focus tint; the cursor just gets a stop
-            here so `s` / `S` fire scoped to this sub-panel. %>
-        <tr data-tui-focusable="voyage_header"
-            data-tui-focusable-key="voyage_header"
-            data-tui-focusable-style="inert">
-          <%= render(SortableHeaderComponent.new(label: t("settings.voyage.col_collection"), sort_type: "string")) %>
-          <%= render(SortableHeaderComponent.new(label: t("settings.voyage.col_embedded"), sort_type: "number", numeric: true)) %>
-        </tr>
-      </thead>
-      <tbody>
-        <%# FB-188 (2026-05-23) — only the embedded-coverage rows
-            (games_embedded + bundles_embedded) participate in j/k
-            focus. %>
+  <%# Embeds table — server-side sort. Two columns: collection + embedded.
+      2026-05-25 — migrated from SortableHeaderComponent (client-side,
+      hash-driven) to `sort_link_to` server-side sort. The
+      `data-controller="sortable-table"` wrapper is removed. Sort params:
+      `?voyage_sort=…&voyage_dir=…`. Default: embedded desc.
+      Locals `voyage_sort` + `voyage_dir` are passed from the VC. When the
+      partial is re-rendered via Turbo Stream broadcast (reindex job), the
+      sort defaults apply because the partial won't receive locals in that
+      path — the operator refreshes manually after a reindex. %>
+  <%# Resolve sort locals with defaults so Turbo Stream re-renders degrade
+      gracefully. The broadcast path calls render without locals. %>
+  <% _voyage_sort = defined?(voyage_sort) ? voyage_sort : "embedded" %>
+  <% _voyage_dir  = defined?(voyage_dir)  ? voyage_dir  : "desc" %>
+
+  <%# Build sorted rows for server-side ordering. %>
+  <% _voyage_rows = [
+       { key: "row_games_embedded",   label: t("settings.voyage.games_embedded"),   count: voyage_stats[:embedded_games_count].to_i,   total: voyage_stats[:total_games_count].to_i,   pct: voyage_stats[:coverage_pct].to_f },
+       voyage_stats[:total_bundles_count].to_i > 0 ? { key: "row_bundles_embedded", label: t("settings.voyage.bundles_embedded"), count: voyage_stats[:embedded_bundles_count].to_i, total: voyage_stats[:total_bundles_count].to_i, pct: voyage_stats[:bundle_coverage_pct].to_f } : nil
+     ].compact %>
+  <% _voyage_rows = case _voyage_sort
+     when "collection" then _voyage_rows.sort_by { |r| r[:label].downcase }
+     when "embedded"   then _voyage_rows.sort_by { |r| r[:count] }
+     else _voyage_rows
+     end %>
+  <% _voyage_rows = _voyage_dir == "asc" ? _voyage_rows : _voyage_rows.reverse %>
+
+  <table class="tui-table tui-table--stack">
+    <thead>
+      <%# Server-side sort headers. `sort_link_to` emits
+          `<a class="sort-asc">` / `<a class="sort-desc">` on the
+          active column; CSS `:has(> a.sort-asc)` picks up the V4
+          underline on first paint without client JS. %>
+      <tr data-tui-focusable="voyage_header"
+          data-tui-focusable-key="voyage_header"
+          data-tui-focusable-style="inert">
+        <th class="tui-table__th tui-table__th--left sortable">
+          <%= sort_link_to(t("settings.voyage.col_collection"), "collection", current_sort: _voyage_sort, current_dir: _voyage_dir, sort_param: "voyage_sort", dir_param: "voyage_dir") %>
+        </th>
+        <th class="tui-table__th tui-table__th--right num sortable">
+          <%= sort_link_to(t("settings.voyage.col_embedded"), "embedded", current_sort: _voyage_sort, current_dir: _voyage_dir, sort_param: "voyage_sort", dir_param: "voyage_dir") %>
+        </th>
+      </tr>
+    </thead>
+    <tbody>
+      <%# FB-188 (2026-05-23) — only the embedded-coverage rows
+          (games_embedded + bundles_embedded) participate in j/k focus. %>
+      <% _voyage_rows.each do |vr| %>
         <tr class="tui-table__row"
-            data-tui-focusable="row_games_embedded"
-            data-tui-focusable-key="row_games_embedded"
+            data-tui-focusable="<%= vr[:key] %>"
+            data-tui-focusable-key="<%= vr[:key] %>"
             data-tui-focusable-style="row"
             data-tui-cursor-target="row">
-          <td class="tui-table__td"><%= t("settings.voyage.games_embedded") %></td>
+          <td class="tui-table__td"><%= vr[:label] %></td>
           <td class="tui-table__td tui-table__td--right num">
-            <span data-sort-value="<%= voyage_stats[:embedded_games_count].to_i %>">
-              <%= render Tui::SegmentedBarComponent.new(percent: voyage_stats[:coverage_pct].to_f, segments: 10) %><span><%= number_with_delimiter(voyage_stats[:embedded_games_count].to_i) %></span>/<span><%= number_with_delimiter(voyage_stats[:total_games_count].to_i) %></span>
-            </span>
+            <%= render Tui::SegmentedBarComponent.new(percent: vr[:pct], segments: 10) %><span><%= number_with_delimiter(vr[:count]) %></span>/<span><%= number_with_delimiter(vr[:total]) %></span>
           </td>
         </tr>
-        <% if voyage_stats[:total_bundles_count].to_i > 0 %>
-          <tr class="tui-table__row"
-              data-tui-focusable="row_bundles_embedded"
-              data-tui-focusable-key="row_bundles_embedded"
-              data-tui-focusable-style="row"
-              data-tui-cursor-target="row">
-            <td class="tui-table__td"><%= t("settings.voyage.bundles_embedded") %></td>
-            <td class="tui-table__td tui-table__td--right num">
-              <span data-sort-value="<%= voyage_stats[:embedded_bundles_count].to_i %>">
-                <% if voyage_stats[:bundle_coverage_pct] %><%= render Tui::SegmentedBarComponent.new(percent: voyage_stats[:bundle_coverage_pct].to_f, segments: 10) %><% end %><span><%= number_with_delimiter(voyage_stats[:embedded_bundles_count].to_i) %></span>/<span><%= number_with_delimiter(voyage_stats[:total_bundles_count].to_i) %></span>
-              </span>
-            </td>
-          </tr>
-        <% end %>
-      </tbody>
-    </table>
-  </div>
+      <% end %>
+    </tbody>
+  </table>
 
   <%# Info table — NOT sortable. No `<thead>`, no sortable-table
       controller. Pure key/value rows. Small top margin separates it

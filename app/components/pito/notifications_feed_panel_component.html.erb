@@ -1,8 +1,12 @@
+<%# Pito::NotificationsFeedPanelComponent — in-app notifications feed.
+    Columns: checkbox | kind chip | title | relative time.
+    Sort: unread first (CASE WHEN) + created_at DESC within each group.
+    Filter: [ ] unread checkbox → ?notifications_feed_filter=unread.
+    Bulk: [read] [un-read] action chips → NotificationsFeedController. %>
 <%= content_tag :section,
       class: "pane pito-pane pito-panel pito-panel--notifications-feed",
       **panel_data do %>
   <span class="pito-pane__title"><%= title %></span>
-  <%# 2026-05-24 — panel-level `[ ] sync` action. %>
   <span class="pito-pane__title-actions">
     <%= render Tui::SyncIndicatorComponent.new(
       mode: :target,
@@ -10,7 +14,121 @@
       focusable_key: "notifications_feed_sync"
     ) %>
   </span>
-  <%= render Tui::PanelFieldsetComponent.new do %>
-    <p class="pito-panel__placeholder">[ panel content TBD ]</p>
+  <%= render Tui::PanelFieldsetComponent.new(data: { controller: "notifications-feed-bulk" }) do %>
+    <turbo-frame id="<%= Pito::NotificationsFeedPanelComponent::FRAME_ID %>">
+      <%# Filter row: [ ] unread checkbox + bulk action chips. %>
+      <div class="nf-toolbar">
+        <%# [ ] unread filter checkbox — links to ?notifications_feed_filter=unread or all. %>
+        <span class="nf-toolbar__filter">
+          <% filter_target = filter == "unread" ? root_path : root_path(notifications_feed_filter: "unread") %>
+          <%= link_to filter_target,
+                data: { "turbo-frame": Pito::NotificationsFeedPanelComponent::FRAME_ID,
+                        "turbo-action": "advance" },
+                class: "tui-checkbox #{filter == 'unread' ? 'tui-checkbox--checked' : ''}" do %>
+            <span class="tui-checkbox__box"><%= filter == "unread" ? "[x]" : "[ ]" %></span>
+            <span class="tui-checkbox__label">unread</span>
+          <% end %>
+        </span>
+
+        <%# Bulk action chips — shown always; operate on selected rows. %>
+        <span class="nf-toolbar__actions" data-notifications-feed-bulk-target="actions">
+          <span class="nf-toolbar__counter" data-notifications-feed-bulk-target="counter"></span>
+          <%= form_with url: bulk_read_notifications_feed_index_path,
+                method: :post,
+                data: { "notifications-feed-bulk-target": "readForm",
+                        "turbo-frame": Pito::NotificationsFeedPanelComponent::FRAME_ID } do |f| %>
+            <span data-notifications-feed-bulk-target="idsRead"></span>
+            <%= f.button "[read]",
+                  type: "submit",
+                  class: "bracketed-muted",
+                  data: { "notifications-feed-bulk-target": "readBtn" } %>
+          <% end %>
+          <%= form_with url: bulk_unread_notifications_feed_index_path,
+                method: :post,
+                data: { "notifications-feed-bulk-target": "unreadForm",
+                        "turbo-frame": Pito::NotificationsFeedPanelComponent::FRAME_ID } do |f| %>
+            <span data-notifications-feed-bulk-target="idsUnread"></span>
+            <%= f.button "[un-read]",
+                  type: "submit",
+                  class: "bracketed-muted",
+                  data: { "notifications-feed-bulk-target": "unreadBtn" } %>
+          <% end %>
+        </span>
+      </div>
+
+      <% if notifications.any? %>
+        <table class="tui-table nf-table">
+          <colgroup>
+            <col class="nf-table__col-action">
+            <col class="nf-table__col-kind">
+            <col class="nf-table__col-title">
+            <col class="nf-table__col-time">
+          </colgroup>
+          <thead>
+            <%# Default header — select-all + column labels. %>
+            <tr data-notifications-feed-bulk-target="defaultHeader"
+                data-tui-focusable="select_all"
+                data-tui-focusable-style="row">
+              <th class="tui-table__th tui-table__th--left nf-table__col-action">
+                <span class="nf-table__checkbox nf-table__checkbox--header"
+                      data-notifications-feed-bulk-target="headerCheckbox"
+                      data-action="change->notifications-feed-bulk#toggleAll">
+                  <%= render(Tui::CheckboxComponent.new(name: "__select_all", value: "yes", checked: false)) %>
+                </span>
+              </th>
+              <th class="tui-table__th tui-table__th--left nf-table__col-kind">kind</th>
+              <th class="tui-table__th tui-table__th--left nf-table__col-title">notification</th>
+              <th class="tui-table__th tui-table__th--right num nf-table__col-time">time</th>
+            </tr>
+            <%# Action header — shown when ≥1 row is selected. %>
+            <tr data-notifications-feed-bulk-target="actionHeader" hidden>
+              <th class="tui-table__th tui-table__th--left nf-table__col-action">
+                <span class="nf-table__checkbox nf-table__checkbox--header"
+                      data-notifications-feed-bulk-target="headerCheckbox"
+                      data-action="change->notifications-feed-bulk#toggleAll">
+                  <%= render(Tui::CheckboxComponent.new(name: "__select_all_action", value: "yes", checked: false)) %>
+                </span>
+              </th>
+              <th class="tui-table__th tui-table__th--left" colspan="3"
+                  data-notifications-feed-bulk-target="headerCell">
+                <span data-notifications-feed-bulk-target="headerActions">
+                  <span data-notifications-feed-bulk-target="headerCounter">0 selected</span>
+                </span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <% notifications.each do |n| %>
+              <% unread = n.unread? %>
+              <tr id="<%= dom_id(n) %>"
+                  class="tui-table__row <%= unread ? 'nf-table__row--unread' : 'nf-table__row--read' %>"
+                  data-tui-focusable="row_<%= n.id %>"
+                  data-tui-focusable-style="row">
+                <td class="tui-table__td tui-table__td--left nf-table__col-action">
+                  <span class="nf-table__checkbox"
+                        data-notifications-feed-bulk-target="checkbox"
+                        data-action="change->notifications-feed-bulk#toggle"
+                        data-value="<%= n.id %>">
+                    <%= render(Tui::CheckboxComponent.new(name: "ids[]", value: n.id, checked: false)) %>
+                  </span>
+                </td>
+                <td class="tui-table__td tui-table__td--left nf-table__col-kind">
+                  <% variant = kind_chip_variant(n.kind) %>
+                  <span class="nf-kind-chip <%= kind_chip_css(variant) %> <%= unread ? '' : 'nf-kind-chip--muted' %>"><%= kind_chip_label(n.kind) %></span>
+                </td>
+                <td class="tui-table__td tui-table__td--left nf-table__col-title">
+                  <span class="<%= unread ? 'nf-table__title--unread' : 'nf-table__title--read' %>"><%= n.title %></span>
+                </td>
+                <td class="tui-table__td tui-table__td--right num nf-table__col-time"><%= helpers.compact_time_ago(n.created_at) %></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      <% else %>
+        <p class="text-muted" style="margin: 0;">
+          <%= filter == "unread" ? "no unread notifications." : "no notifications." %>
+        </p>
+      <% end %>
+    </turbo-frame>
   <% end %>
 <% end %>

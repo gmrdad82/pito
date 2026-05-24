@@ -12,7 +12,13 @@
     FB-166 — focusable style declared in Ruby
     (`SettingsHelper#stack_reindex_focusables`). The running state
     emits an empty focusables list, so the cursor list skips this
-    slot during a reindex. %>
+    slot during a reindex.
+
+    2026-05-25 — Migrated from SortableHeaderComponent (client-side,
+    hash-driven) to server-side sort via `sort_link_to`. The
+    `data-controller="sortable-table"` wrapper is removed; sort state
+    is resolved from `?meilisearch_sort=…&meilisearch_dir=…` query
+    params on first paint. Default: docs desc. %>
 <%= render Tui::SubPanelComponent.new(title: t("settings.stack.meilisearch"), panel_commands: panel_commands) do |c| %>
   <% c.with_actions do %>
     <span>
@@ -54,63 +60,62 @@
   <%= render "settings/meilisearch_section" %>
 
   <% if per_index_stats.any? %>
-    <div data-controller="sortable-table" data-sortable-table-id-value="stack-meilisearch">
-      <table class="tui-table tui-table--stack" data-sortable-table-target="table">
-        <thead>
-          <%# FB (2026-05-24) — header row focusable. Inert style so the
-              row doesn't paint a focus tint; the cursor just gets a
-              stop here so `s` / `S` fire scoped to this sub-panel. %>
-          <tr data-tui-focusable="meilisearch_header"
-              data-tui-focusable-key="meilisearch_header"
-              data-tui-focusable-style="inert">
-            <%= render(SortableHeaderComponent.new(label: t("settings.stack.col_index"), sort_type: "string")) %>
-            <%= render(SortableHeaderComponent.new(label: t("settings.stack.col_docs"), sort_type: "number", numeric: true)) %>
-            <%= render(SortableHeaderComponent.new(label: t("settings.stack.col_size"), sort_type: "number", numeric: true)) %>
-          </tr>
-        </thead>
-        <tbody>
-          <%# The unified `games_<env>` Meilisearch index is split
-              into two rows by `kind` (`game` / `bundle`). Size is
-              reported by Meilisearch at the INDEX level only;
-              `omit_size` rows render a plain dash in the size
-              column (the size is already attributed to the
-              `games` row, so duplicating it on `bundles` would
-              mislead the operator). %>
-          <% per_index_stats.each do |row| %>
-            <% key = row[:label].to_s.camelize %>
-            <% _row_key = "row_" + row[:label].to_s.parameterize(separator: "_") %>
-            <tr class="tui-table__row"
-                data-tui-focusable="<%= _row_key %>"
-                data-tui-focusable-key="<%= _row_key %>"
-                data-tui-focusable-style="row"
-                data-tui-cursor-target="row">
-              <td class="tui-table__td"><%= row[:label] %></td>
-              <% if row[:missing] %>
-                <td class="tui-table__td tui-table__td--right num text-muted" colspan="2">
-                  <span data-sort-value="-1"><%= t("settings.stack.not_yet_indexed") %></span>
-                </td>
+    <table class="tui-table tui-table--stack">
+      <thead>
+        <%# Server-side sort headers. `sort_link_to` emits
+            `<a class="sort-asc">` / `<a class="sort-desc">` on the
+            active column; CSS `:has(> a.sort-asc)` picks up the V4
+            underline on first paint without client JS.
+            Focusable row retained for j/k cursor stop. %>
+        <tr data-tui-focusable="meilisearch_header"
+            data-tui-focusable-key="meilisearch_header"
+            data-tui-focusable-style="inert">
+          <th class="tui-table__th tui-table__th--left sortable">
+            <%= helpers.sort_link_to(t("settings.stack.col_index"), "index", current_sort: current_sort, current_dir: current_dir, sort_param: "meilisearch_sort", dir_param: "meilisearch_dir") %>
+          </th>
+          <th class="tui-table__th tui-table__th--right num sortable">
+            <%= helpers.sort_link_to(t("settings.stack.col_docs"), "docs", current_sort: current_sort, current_dir: current_dir, sort_param: "meilisearch_sort", dir_param: "meilisearch_dir") %>
+          </th>
+          <th class="tui-table__th tui-table__th--right num sortable">
+            <%= helpers.sort_link_to(t("settings.stack.col_size"), "size", current_sort: current_sort, current_dir: current_dir, sort_param: "meilisearch_sort", dir_param: "meilisearch_dir") %>
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        <%# The unified `games_<env>` Meilisearch index is split
+            into two rows by `kind` (`game` / `bundle`). Size is
+            reported by Meilisearch at the INDEX level only;
+            `omit_size` rows render a plain dash in the size
+            column (the size is already attributed to the
+            `games` row, so duplicating it on `bundles` would
+            mislead the operator). %>
+        <% per_index_stats.each do |row| %>
+          <% _row_key = "row_" + row[:label].to_s.parameterize(separator: "_") %>
+          <tr class="tui-table__row"
+              data-tui-focusable="<%= _row_key %>"
+              data-tui-focusable-key="<%= _row_key %>"
+              data-tui-focusable-style="row"
+              data-tui-cursor-target="row">
+            <td class="tui-table__td"><%= row[:label] %></td>
+            <% if row[:missing] %>
+              <td class="tui-table__td tui-table__td--right num text-muted" colspan="2">
+                <%= t("settings.stack.not_yet_indexed") %>
+              </td>
+            <% else %>
+              <td class="tui-table__td tui-table__td--right num">
+                <%= number_with_delimiter(row[:documents].to_i) %>
+              </td>
+              <% if row[:omit_size] %>
+                <td class="tui-table__td tui-table__td--right num text-muted">—</td>
               <% else %>
                 <td class="tui-table__td tui-table__td--right num">
-                  <span data-sort-value="<%= row[:documents].to_i %>">
-                    <%= number_with_delimiter(row[:documents].to_i) %>
-                  </span>
+                  <%= helpers.human_filesize_int(row[:size_bytes]) %>
                 </td>
-                <% if row[:omit_size] %>
-                  <td class="tui-table__td tui-table__td--right num text-muted">
-                    <span data-sort-value="-1">—</span>
-                  </td>
-                <% else %>
-                  <td class="tui-table__td tui-table__td--right num">
-                    <span data-sort-value="<%= row[:size_bytes] || -1 %>">
-                      <%= helpers.human_filesize_int(row[:size_bytes]) %>
-                    </span>
-                  </td>
-                <% end %>
               <% end %>
-            </tr>
-          <% end %>
-        </tbody>
-      </table>
-    </div>
+            <% end %>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
   <% end %>
 <% end %>
