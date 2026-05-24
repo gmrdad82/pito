@@ -1756,7 +1756,12 @@ tbody td {
   color: var(--color-text);
   font-weight: 400;
 }
-table:not(.detail-table) tr:nth-child(even) {
+/* Even-row zebra. Yields to keyboard focus state via :not() — without
+   the exclusion the zebra (or transparent zebra opt-out below) beats
+   the focus-tint rule on cascade specificity and the keyboard cursor
+   becomes invisible on every other row. */
+table:not(.detail-table)
+  tr:nth-child(even):not([data-tui-focusable-focused="yes"]):not([data-tui-cursor-row-focused="yes"]) {
   background-color: var(--color-bg-alt);
 }
 /* FB-67 (2026-05-20) — no pointer-hover tint on table rows. Keyboard
@@ -1912,8 +1917,12 @@ table.tui-table--stack {
    Voyage AI stats table + assets breakdown + Postgres breakdown +
    Meilisearch breakdown + notes breakdown all carry
    `.tui-table--stack` and inherit this opt-out. */
-table.tui-table--stack tbody tr:nth-child(even),
-table.tui-table--stack tr:nth-child(even) {
+/* Stack-table zebra opt-out. Same `:not(focused)` exclusion as the
+   global zebra rule so the focus tint shows on every other row. */
+table.tui-table--stack tbody
+  tr:nth-child(even):not([data-tui-focusable-focused="yes"]):not([data-tui-cursor-row-focused="yes"]),
+table.tui-table--stack
+  tr:nth-child(even):not([data-tui-focusable-focused="yes"]):not([data-tui-cursor-row-focused="yes"]) {
   background-color: transparent;
 }
 table.tui-table--stack th,
@@ -2042,13 +2051,22 @@ table.sessions-table th.sortable {
    at the cell level so any "color: transparent" / dim-text leak that
    coincides with the even-row cascade is overridden. The session table
    reads as a flat grid of dashed hairline rows — no zebra, ever. */
-table.sessions-table tbody tr:nth-child(even),
-table.sessions-table tr:nth-child(even) {
-  background-color: transparent !important;
+/* Sessions table zebra opt-out. The previous version added
+   `!important` defensively to nuke zebra leaks but it also nuked the
+   keyboard focus tint on every even row. Switching to a `:not(focused)`
+   exclusion means the focus tint wins naturally (no specificity arms
+   race needed). */
+table.sessions-table tbody
+  tr:nth-child(even):not([data-tui-focusable-focused="yes"]):not([data-tui-cursor-row-focused="yes"]),
+table.sessions-table
+  tr:nth-child(even):not([data-tui-focusable-focused="yes"]):not([data-tui-cursor-row-focused="yes"]) {
+  background-color: transparent;
 }
-table.sessions-table tbody tr:nth-child(even) > td,
-table.sessions-table tr:nth-child(even) > td {
-  background-color: transparent !important;
+table.sessions-table tbody
+  tr:nth-child(even):not([data-tui-focusable-focused="yes"]):not([data-tui-cursor-row-focused="yes"]) > td,
+table.sessions-table
+  tr:nth-child(even):not([data-tui-focusable-focused="yes"]):not([data-tui-cursor-row-focused="yes"]) > td {
+  background-color: transparent;
   color: var(--color-text);
 }
 /* FB-67 (2026-05-20) — global `tr:hover` is gone; keep the
@@ -2165,8 +2183,12 @@ table.kv-table tr {
    override keeps kv-table immune to any future global zebra fallback.
    FB-67 (2026-05-20) — the prior `tr:hover` opt-out is no longer
    needed; the global pointer-hover tint has been removed sitewide. */
-table.kv-table tbody tr:nth-child(even),
-table.kv-table tr:nth-child(even) {
+/* KV-table zebra opt-out — same `:not(focused)` exclusion so the
+   focus tint wins on every other row. */
+table.kv-table tbody
+  tr:nth-child(even):not([data-tui-focusable-focused="yes"]):not([data-tui-cursor-row-focused="yes"]),
+table.kv-table
+  tr:nth-child(even):not([data-tui-focusable-focused="yes"]):not([data-tui-cursor-row-focused="yes"]) {
   background-color: transparent;
 }
 table.kv-table tbody tr.keyboard-highlight,
