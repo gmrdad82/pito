@@ -41,9 +41,17 @@
     render. Bundle keys come back nil when the `summary_embedding`
     column is not yet on the bundles table — the view degrades to "—"
     on those without raising. %>
-<%# 2026-05-18 (table polish) — replaced the single-line `<p>` summary
-    with a 2-column `metric / value` table using the shared
-    `.tui-table--stack` class. %>
+<%# 2026-05-24 — Voyage sub-panel split into two tables:
+
+      1. EMBEDS table (sortable) — `collection | embedded` columns,
+         rows = games + bundles. `data-sort-value` carries the raw
+         embedded integer count so the column sorts numerically even
+         though the rendered cell mixes a segmented bar + `N / M`.
+
+      2. INFO table (NON-sortable) — model, last indexed, HNSW
+         indexes, last 24h. No `<thead>`, no `sortable-table`
+         controller; pure key/value rows. The visual separation is a
+         small top margin on the second table (no border). %>
 <% voyage_stats = Voyage::Stats.call %>
 <div id="voyage_section">
   <%# FB-63-V4 (2026-05-20) — Voyage AI sub-panel chrome (title +
@@ -56,27 +64,33 @@
       (it's the per-broadcast affordance). %>
   <% reindex_running = AppSetting.reindex_running? %>
 
-  <div style="margin-bottom: 8px;" data-controller="sortable-table" data-sortable-table-id-value="stack-voyage">
+  <%# Embeds table — sortable. Two columns: collection + embedded.
+      `data-sort-value` on the embedded cell holds the raw integer
+      count of embedded rows so the numeric sort orders the rows by
+      coverage. %>
+  <div data-controller="sortable-table" data-sortable-table-id-value="stack-voyage-embeds">
     <table class="tui-table tui-table--stack" data-sortable-table-target="table">
       <thead>
         <tr>
-          <%= render(SortableHeaderComponent.new(label: t("settings.voyage.col_metric"), sort_type: "string")) %>
-          <%= render(SortableHeaderComponent.new(label: t("settings.voyage.col_value"), sort_type: "string", numeric: true)) %>
+          <%= render(SortableHeaderComponent.new(label: t("settings.voyage.col_collection"), sort_type: "string")) %>
+          <%= render(SortableHeaderComponent.new(label: t("settings.voyage.col_embedded"), sort_type: "number", numeric: true)) %>
         </tr>
       </thead>
       <tbody>
         <%# FB-188 (2026-05-23) — only the embedded-coverage rows
             (games_embedded + bundles_embedded) participate in j/k
-            focus. The remaining rows below (model, last_indexed,
-            hnsw_indexes, last_24h) are static metric KVs — they
-            stay non-focusable per the V4 sub-panel focus model. %>
+            focus. %>
         <tr class="tui-table__row"
             data-tui-focusable="row_games_embedded"
             data-tui-focusable-key="row_games_embedded"
             data-tui-focusable-style="row"
             data-tui-cursor-target="row">
           <td class="tui-table__td"><%= t("settings.voyage.games_embedded") %></td>
-          <td class="tui-table__td tui-table__td--right num"><%= render Tui::SegmentedBarComponent.new(percent: voyage_stats[:coverage_pct].to_f, segments: 10) %><span><%= number_with_delimiter(voyage_stats[:embedded_games_count].to_i) %></span>/<span><%= number_with_delimiter(voyage_stats[:total_games_count].to_i) %></span></td>
+          <td class="tui-table__td tui-table__td--right num">
+            <span data-sort-value="<%= voyage_stats[:embedded_games_count].to_i %>">
+              <%= render Tui::SegmentedBarComponent.new(percent: voyage_stats[:coverage_pct].to_f, segments: 10) %><span><%= number_with_delimiter(voyage_stats[:embedded_games_count].to_i) %></span>/<span><%= number_with_delimiter(voyage_stats[:total_games_count].to_i) %></span>
+            </span>
+          </td>
         </tr>
         <% if voyage_stats[:total_bundles_count].to_i > 0 %>
           <tr class="tui-table__row"
@@ -85,9 +99,23 @@
               data-tui-focusable-style="row"
               data-tui-cursor-target="row">
             <td class="tui-table__td"><%= t("settings.voyage.bundles_embedded") %></td>
-            <td class="tui-table__td tui-table__td--right num"><% if voyage_stats[:bundle_coverage_pct] %><%= render Tui::SegmentedBarComponent.new(percent: voyage_stats[:bundle_coverage_pct].to_f, segments: 10) %><% end %><span><%= number_with_delimiter(voyage_stats[:embedded_bundles_count].to_i) %></span>/<span><%= number_with_delimiter(voyage_stats[:total_bundles_count].to_i) %></span></td>
+            <td class="tui-table__td tui-table__td--right num">
+              <span data-sort-value="<%= voyage_stats[:embedded_bundles_count].to_i %>">
+                <% if voyage_stats[:bundle_coverage_pct] %><%= render Tui::SegmentedBarComponent.new(percent: voyage_stats[:bundle_coverage_pct].to_f, segments: 10) %><% end %><span><%= number_with_delimiter(voyage_stats[:embedded_bundles_count].to_i) %></span>/<span><%= number_with_delimiter(voyage_stats[:total_bundles_count].to_i) %></span>
+              </span>
+            </td>
           </tr>
         <% end %>
+      </tbody>
+    </table>
+  </div>
+
+  <%# Info table — NOT sortable. No `<thead>`, no sortable-table
+      controller. Pure key/value rows. Small top margin separates it
+      from the embeds table above. %>
+  <div style="margin-top: 8px;">
+    <table class="tui-table tui-table--stack">
+      <tbody>
         <tr class="tui-table__row">
           <td class="tui-table__td"><%= t("settings.voyage.model") %></td>
           <td class="tui-table__td tui-table__td--right num"><%= voyage_stats[:model] %></td>

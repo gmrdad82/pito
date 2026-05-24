@@ -5,10 +5,20 @@ module Pito
     # Voyage AI sub-panel inside the stack panel on Home.
     #
     # Shows: a hint line (`Voyage AI configured and ready`) at the top of
-    # the body, followed by `[reindex]` action + stats table (games
-    # embedded, bundles embedded, model, last indexed, HNSW index size,
-    # last 24h embeddings) + running-state strip. The title-row status
-    # chip was removed (Phase 1D); status is now conveyed via the hint line.
+    # the body, followed by `[reindex]` action + TWO stacked stats tables
+    # + running-state strip:
+    #
+    #   1. EMBEDS table (sortable) — `collection | embedded`. Rows:
+    #      games, bundles (when present). The `embedded` cell carries a
+    #      raw integer `data-sort-value` so the numeric sort orders by
+    #      coverage count.
+    #   2. INFO table (NON-sortable) — pure key/value: model,
+    #      last_indexed, HNSW indexes, last 24h. No `<thead>`, no
+    #      `sortable-table` controller; visually separated from the
+    #      embeds table by a small top margin (no border).
+    #
+    # The title-row status chip was removed (Phase 1D); status is now
+    # conveyed via the hint line.
     #
     # FB-126 (2026-05-21) — `[reindex]` opens a
     # `Tui::ConfirmationDialogComponent` (mounted by the parent
