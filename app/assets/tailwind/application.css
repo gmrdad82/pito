@@ -966,7 +966,7 @@ button.bracketed .bl {
   top: -7px;
   left: 8px;
   background: var(--section-bg, var(--color-bg));
-  padding: 0 6px;
+  padding: 0;
   color: var(--color-muted);
   font-weight: 400;
   font-style: normal;
@@ -1006,7 +1006,7 @@ button.bracketed .bl {
   top: -7px;
   left: 8px;
   background: var(--section-bg, var(--color-bg));
-  padding: 0 6px;
+  padding: 0;
   color: var(--color-muted);
   font-weight: 400;
   font-style: normal;
@@ -1022,7 +1022,7 @@ button.bracketed .bl {
   top: -7px;
   right: 8px;
   background: var(--color-bg);
-  padding: 0 6px;
+  padding: 0;
   font-size: 13px;
   line-height: 14px;
   height: 14px;
@@ -1044,13 +1044,13 @@ button.bracketed .bl {
 .pito-sub-panel__title::before {
   content: "│";
   color: var(--color-border);
-  margin-right: 4px;
+  margin-right: 6px;
 }
 .pito-pane__title::after,
 .pito-sub-panel__title::after {
   content: "│";
   color: var(--color-border);
-  margin-left: 4px;
+  margin-left: 6px;
 }
 /* Title AND action slots both get `│ … │` pipe brackets (btop style).
    Inside the action slot, individual actions sit side-by-side WITHOUT
@@ -1097,13 +1097,13 @@ button.bracketed .bl {
 .tui-dialog-frame__title-right::before {
   content: "│";
   color: var(--color-border);
-  margin-right: 4px;
+  margin-right: 6px;
 }
 .tui-dialog-frame__title-left::after,
 .tui-dialog-frame__title-right::after {
   content: "│";
   color: var(--color-border);
-  margin-left: 4px;
+  margin-left: 6px;
 }
 /* Pipes stay muted even when open dialog accents its title text. */
 .tui-dialog-frame[open] .tui-dialog-frame__title-left::before,
@@ -6376,7 +6376,7 @@ dd.tui-help-dialog__label {
   height: 14px;
   line-height: 14px;
   background: var(--color-bg);
-  padding: 0 6px;
+  padding: 0;
   color: var(--color-muted);
   font-weight: 400;
   font-size: 13px;

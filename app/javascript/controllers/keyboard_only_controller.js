@@ -235,6 +235,11 @@ export default class extends Controller {
   }
 
   showAlert() {
+    // If the size-guard dialog is currently open, just block the mouse event
+    // without surfacing the mouse-catcher dialog on top. The size-guard
+    // already conveys to the user that the window is too small.
+    const sizeGuard = document.getElementById("size-guard-dialog")
+    if (sizeGuard && sizeGuard.open) return
     if (this.alertShown) return
     this.alertShown = true
     const dialog = document.getElementById(this.dialogIdValue)
