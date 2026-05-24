@@ -166,6 +166,40 @@ module Pito
       def hint_color_class
         healthy ? "is-success" : "is-danger"
       end
+
+      # Phase 1C (2026-05-24) — `:` palette commands for this sub-panel.
+      # Surfaces reindex + per-column table sort + sync toggle. The list
+      # is serialized to JSON and emitted as `data-panel-commands` on
+      # the sub-panel root via `Tui::SubPanelComponent`. See
+      # `Pito::CommandPalette::Collector` for the merge contract.
+      def panel_commands
+        [
+          { key: "reindex_meilisearch",
+            name: I18n.t("tui.commands.reindex_meilisearch.name"),
+            hint: I18n.t("tui.commands.reindex_meilisearch.hint"),
+            action_name: :reindex_meilisearch },
+          { key: "sort_meilisearch_index",
+            name: I18n.t("tui.commands.sort_table_index.name"),
+            hint: I18n.t("tui.commands.sort_table_index.hint"),
+            action_name: :sort_table,
+            args: { table: "stack-meilisearch", column: 0 } },
+          { key: "sort_meilisearch_docs",
+            name: I18n.t("tui.commands.sort_table_docs.name"),
+            hint: I18n.t("tui.commands.sort_table_docs.hint"),
+            action_name: :sort_table,
+            args: { table: "stack-meilisearch", column: 1 } },
+          { key: "sort_meilisearch_size",
+            name: I18n.t("tui.commands.sort_table_size.name"),
+            hint: I18n.t("tui.commands.sort_table_size.hint"),
+            action_name: :sort_table,
+            args: { table: "stack-meilisearch", column: 2 } },
+          { key: "sync_toggle_meilisearch",
+            name: I18n.t("tui.commands.sync_toggle.name"),
+            hint: I18n.t("tui.commands.sync_toggle.hint"),
+            action_name: :sync_toggle,
+            args: { target: "home.stack.meilisearch" } }
+        ]
+      end
     end
   end
 end

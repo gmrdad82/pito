@@ -91,6 +91,35 @@ module Pito
       def hint_color_class
         state == :writable ? "is-success" : "is-danger"
       end
+
+      # Phase 1C (2026-05-24) — `:` palette commands for this sub-panel.
+      # Sort by category / files / size + sync toggle. Assets has no
+      # reindex action. See `Pito::CommandPalette::Collector` for the
+      # merge contract.
+      def panel_commands
+        [
+          { key: "sort_assets_category",
+            name: I18n.t("tui.commands.sort_table_category.name"),
+            hint: I18n.t("tui.commands.sort_table_category.hint"),
+            action_name: :sort_table,
+            args: { table: "stack-assets", column: 0 } },
+          { key: "sort_assets_files",
+            name: I18n.t("tui.commands.sort_table_files.name"),
+            hint: I18n.t("tui.commands.sort_table_files.hint"),
+            action_name: :sort_table,
+            args: { table: "stack-assets", column: 1 } },
+          { key: "sort_assets_size",
+            name: I18n.t("tui.commands.sort_table_size.name"),
+            hint: I18n.t("tui.commands.sort_table_size.hint"),
+            action_name: :sort_table,
+            args: { table: "stack-assets", column: 2 } },
+          { key: "sync_toggle_assets",
+            name: I18n.t("tui.commands.sync_toggle.name"),
+            hint: I18n.t("tui.commands.sync_toggle.hint"),
+            action_name: :sync_toggle,
+            args: { target: "home.stack.assets" } }
+        ]
+      end
     end
   end
 end

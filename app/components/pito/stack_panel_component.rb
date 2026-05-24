@@ -134,7 +134,22 @@ module Pito
     end
 
     def panel_data
-      panel_root_data(name: PANEL_NAME, focusables: focusable_keys, keybinds: keybinds)
+      panel_root_data(name: PANEL_NAME, focusables: focusable_keys, keybinds: keybinds, panel_commands: panel_commands)
+    end
+
+    # Phase 1C (2026-05-24) — `:` palette commands for the stack panel
+    # itself (aggregate level — sub-panels carry their own command
+    # lists). Only the panel-wide sync toggle lives here; sub-panel-
+    # specific reindex + sort verbs live on each sub-panel VC. See
+    # `Pito::CommandPalette::Collector` for the merge contract.
+    def panel_commands
+      [
+        { key: "sync_toggle_stack",
+          name: I18n.t("tui.commands.sync_toggle.name"),
+          hint: I18n.t("tui.commands.sync_toggle.hint"),
+          action_name: :sync_toggle,
+          args: { target: "home.stack" } }
+      ]
     end
 
     def postgres_sub_panel

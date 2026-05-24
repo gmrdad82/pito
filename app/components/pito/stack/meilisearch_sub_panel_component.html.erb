@@ -13,7 +13,7 @@
     (`SettingsHelper#stack_reindex_focusables`). The running state
     emits an empty focusables list, so the cursor list skips this
     slot during a reindex. %>
-<%= render Tui::SubPanelComponent.new(title: t("settings.stack.meilisearch")) do |c| %>
+<%= render Tui::SubPanelComponent.new(title: t("settings.stack.meilisearch"), panel_commands: panel_commands) do |c| %>
   <% c.with_actions do %>
     <span>
       <% _meili_f = focusables.first %>

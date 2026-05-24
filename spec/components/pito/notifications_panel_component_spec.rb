@@ -67,4 +67,39 @@ RSpec.describe Pito::NotificationsPanelComponent, type: :component do
   it "no longer defines the legacy CABLE_CHANNEL constant (Phase 2C cleanup)" do
     expect(described_class.const_defined?(:CABLE_CHANNEL)).to be(false)
   end
+
+  describe "#panel_commands (Phase 1C — section-specific palette)" do
+    subject(:commands) { described_class.new(discord_webhook: nil, slack_webhook: nil).panel_commands }
+
+    it "returns an Array of Hash entries" do
+      expect(commands).to be_an(Array)
+      expect(commands).to all(be_a(Hash))
+    end
+
+    it "carries the locked notification command set" do
+      keys = commands.map { |c| c[:key] }
+      expect(keys).to contain_exactly(
+        "toggle_all",
+        "toggle_daily_digest",
+        "focus_discord_webhook",
+        "focus_slack_webhook",
+        "sync_toggle_notifications"
+      )
+    end
+
+    it "wires each command to a registered action_name" do
+      commands.each do |c|
+        expect(c[:action_name]).to be_a(Symbol)
+        expect { Pito::ActionRegistry[c[:action_name]] }.not_to raise_error
+      end
+    end
+
+    it "serializes into the panel root's data-panel-commands attribute" do
+      raw = root["data-panel-commands"]
+      expect(raw).to be_present
+      parsed = JSON.parse(raw)
+      expect(parsed.length).to eq(5)
+      expect(parsed.first["key"]).to eq("toggle_all")
+    end
+  end
 end

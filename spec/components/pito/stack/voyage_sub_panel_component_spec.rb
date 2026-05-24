@@ -78,4 +78,32 @@ RSpec.describe Pito::Stack::VoyageSubPanelComponent, type: :component do
       expect(component.hint_color_class).to eq("is-danger")
     end
   end
+
+  describe "#panel_commands (Phase 1C — section-specific palette)" do
+    before { allow(AppSetting).to receive(:voyage_configured?).and_return(true) }
+
+    subject(:commands) { described_class.new(configured: true).panel_commands }
+
+    it "returns the locked reindex + 2 sort + sync_toggle command set" do
+      keys = commands.map { |c| c[:key] }
+      expect(keys).to contain_exactly(
+        "reindex_voyage",
+        "sort_voyage_collection",
+        "sort_voyage_embedded",
+        "sync_toggle_voyage"
+      )
+    end
+
+    it "annotates sort commands with table id + numeric column index" do
+      sort_cmd = commands.find { |c| c[:key] == "sort_voyage_embedded" }
+      expect(sort_cmd[:action_name]).to eq(:sort_table)
+      expect(sort_cmd[:args]).to eq(table: "stack-voyage", column: 1)
+    end
+
+    it "wires every action_name to a registered ActionRegistry entry" do
+      commands.each do |c|
+        expect { Pito::ActionRegistry[c[:action_name]] }.not_to raise_error
+      end
+    end
+  end
 end

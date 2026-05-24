@@ -1,7 +1,7 @@
 <%# Pito::Stack::PostgresSubPanelComponent — PostgreSQL sub-panel
     inside the stack panel on Home. FB-63-V4 — V4 title-in-border.
     Phase 1D — status chip removed; hint line added at body top. %>
-<%= render Tui::SubPanelComponent.new(title: t("settings.stack.postgres"), focusable_key: "postgres") do |c| %>
+<%= render Tui::SubPanelComponent.new(title: t("settings.stack.postgres"), focusable_key: "postgres", panel_commands: panel_commands) do |c| %>
   <% c.with_actions do %>
     <%# Phase 1D (2026-05-24) — sub-panel sync indicator. PostgreSQL has no
         other border action (no [reindex]) so this is the sole occupant of

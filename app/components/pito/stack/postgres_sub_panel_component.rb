@@ -91,6 +91,35 @@ module Pito
       def hint_color_class
         status[:connected] ? "is-success" : "is-danger"
       end
+
+      # Phase 1C (2026-05-24) — `:` palette commands for this sub-panel.
+      # Sort by model / rows / size + sync toggle. PostgreSQL has no
+      # reindex action (Meilisearch + Voyage carry that). See
+      # `Pito::CommandPalette::Collector` for the merge contract.
+      def panel_commands
+        [
+          { key: "sort_postgres_model",
+            name: I18n.t("tui.commands.sort_table_model.name"),
+            hint: I18n.t("tui.commands.sort_table_model.hint"),
+            action_name: :sort_table,
+            args: { table: "stack-postgres", column: 0 } },
+          { key: "sort_postgres_rows",
+            name: I18n.t("tui.commands.sort_table_rows.name"),
+            hint: I18n.t("tui.commands.sort_table_rows.hint"),
+            action_name: :sort_table,
+            args: { table: "stack-postgres", column: 1 } },
+          { key: "sort_postgres_size",
+            name: I18n.t("tui.commands.sort_table_size.name"),
+            hint: I18n.t("tui.commands.sort_table_size.hint"),
+            action_name: :sort_table,
+            args: { table: "stack-postgres", column: 2 } },
+          { key: "sync_toggle_postgres",
+            name: I18n.t("tui.commands.sync_toggle.name"),
+            hint: I18n.t("tui.commands.sync_toggle.hint"),
+            action_name: :sync_toggle,
+            args: { target: "home.stack.postgres" } }
+        ]
+      end
     end
   end
 end

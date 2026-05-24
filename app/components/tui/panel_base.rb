@@ -56,14 +56,27 @@ module Tui
     # @param title [String, nil] panel title displayed in the breadcrumb when
     #   this panel is focused; when nil the mixin introspects the including
     #   VC's `#title` method (every Pito::*PanelComponent defines one).
+    # @param panel_commands [Array<Hash>, nil] Phase 1C (2026-05-24) — the
+    #   `:` command palette's per-panel command catalog. When non-nil the
+    #   list is serialized to JSON and emitted as
+    #   `data-panel-commands="<JSON>"` on the panel root so the JS palette
+    #   controller can scan + merge at open time. When nil the mixin
+    #   introspects the including VC's `#panel_commands` method (every
+    #   Pito::*PanelComponent that participates in the palette defines one;
+    #   panels without commands leave it `[]`). See
+    #   `Pito::CommandPalette::Collector` for the merge contract.
     # @return [Hash{Symbol => Hash}] `{ data: { ... } }` spread into content_tag
-    def panel_root_data(name:, focusables: [], keybinds: {}, screen: DEFAULT_SCREEN, title: nil)
+    def panel_root_data(name:, focusables: [], keybinds: {}, screen: DEFAULT_SCREEN, title: nil, panel_commands: nil)
       # The cursor controller reads `dataset.panelTitle` (`data-panel-title`)
       # in `emitFocusChange()` to populate the `tui:panel-focus-changed` event
       # detail. The breadcrumb VC listens for that event and renders the
       # focused panel's title. Introspect via the including VC's `#title`
       # when no explicit kwarg is passed.
       resolved_title = title || (respond_to?(:title, true) ? send(:title) : nil)
+      resolved_commands = panel_commands
+      if resolved_commands.nil? && respond_to?(:panel_commands, true)
+        resolved_commands = send(:panel_commands)
+      end
       data = {
         controller: "tui-panel-cable",
         tui_panel_cable_screen_value: screen.to_s,
@@ -74,6 +87,7 @@ module Tui
         tui_panel_keybinds_value: keybinds.to_json
       }
       data[:panel_title] = resolved_title.to_s if resolved_title
+      data[:panel_commands] = Array(resolved_commands).to_json if resolved_commands
       { data: data }
     end
   end

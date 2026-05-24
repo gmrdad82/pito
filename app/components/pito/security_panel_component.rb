@@ -75,7 +75,66 @@ module Pito
     end
 
     def panel_data
-      panel_root_data(name: PANEL_NAME, focusables: focusable_keys, keybinds: keybinds)
+      panel_root_data(name: PANEL_NAME, focusables: focusable_keys, keybinds: keybinds, panel_commands: panel_commands)
+    end
+
+    # Phase 1C (2026-05-24) — `:` palette commands for the security
+    # panel. Sort verbs target the sessions table by column; `select all`
+    # / `revoke selected` / `revoke all except this` map to the existing
+    # bulk-revoke flow. The action_names below (select_all_sessions,
+    # revoke_selected_sessions, revoke_all_except_current) are STUB
+    # placeholders — they'll be wired into ActionRegistry once the bulk
+    # actions get pulled out of the inline form into action-bus form
+    # (Phase 2 work). The palette + JS still references them so the
+    # plumbing surfaces today; the action lookup will warn until the
+    # registry entries land. See `Pito::CommandPalette::Collector` for
+    # the merge contract.
+    def panel_commands
+      [
+        { key: "sort_sessions_device",
+          name: I18n.t("tui.commands.sort_sessions_device.name"),
+          hint: I18n.t("tui.commands.sort_sessions_device.hint"),
+          action_name: :sort_table,
+          args: { table: "sessions", column: "device" } },
+        { key: "sort_sessions_browser",
+          name: I18n.t("tui.commands.sort_sessions_browser.name"),
+          hint: I18n.t("tui.commands.sort_sessions_browser.hint"),
+          action_name: :sort_table,
+          args: { table: "sessions", column: "browser" } },
+        { key: "sort_sessions_ip",
+          name: I18n.t("tui.commands.sort_sessions_ip.name"),
+          hint: I18n.t("tui.commands.sort_sessions_ip.hint"),
+          action_name: :sort_table,
+          args: { table: "sessions", column: "ip" } },
+        { key: "sort_sessions_last_seen",
+          name: I18n.t("tui.commands.sort_sessions_last_seen.name"),
+          hint: I18n.t("tui.commands.sort_sessions_last_seen.hint"),
+          action_name: :sort_table,
+          args: { table: "sessions", column: "last_seen" } },
+        { key: "sort_sessions_created",
+          name: I18n.t("tui.commands.sort_sessions_created.name"),
+          hint: I18n.t("tui.commands.sort_sessions_created.hint"),
+          action_name: :sort_table,
+          args: { table: "sessions", column: "created" } },
+        { key: "select_all_sessions",
+          name: I18n.t("tui.commands.select_all_sessions.name"),
+          hint: I18n.t("tui.commands.select_all_sessions.hint"),
+          action_name: :click_focusable,
+          args: { focusable: "select_all" } },
+        { key: "revoke_all_except_current",
+          name: I18n.t("tui.commands.revoke_all_except_current.name"),
+          hint: I18n.t("tui.commands.revoke_all_except_current.hint"),
+          action_name: :revoke_all_except_current },
+        { key: "revoke_selected_sessions",
+          name: I18n.t("tui.commands.revoke_selected_sessions.name"),
+          hint: I18n.t("tui.commands.revoke_selected_sessions.hint"),
+          action_name: :revoke_selected_sessions },
+        { key: "sync_toggle_security",
+          name: I18n.t("tui.commands.sync_toggle.name"),
+          hint: I18n.t("tui.commands.sync_toggle.hint"),
+          action_name: :sync_toggle,
+          args: { target: "home.security" } }
+      ]
     end
   end
 end

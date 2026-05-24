@@ -174,6 +174,91 @@ en:
       logout:
         name: "logout"
         hint: "logout"
+      # Phase 1C (2026-05-24) — section-specific `:` palette commands.
+      # The `name:` is the user-typed verb; the `hint:` renders in the
+      # muted right column of the suggestion list. Same YAML feeds the
+      # future Rust TUI client per the same-source-of-truth contract.
+      reindex_meilisearch:
+        name: "reindex meilisearch"
+        hint: "rebuild Meilisearch index"
+      reindex_voyage:
+        name: "reindex voyage"
+        hint: "rebuild Voyage AI embeddings"
+      sort_table:
+        name: "sort"
+        hint: "sort the focused table"
+      sort_table_index:
+        name: "sort by index"
+        hint: "sort table by index name"
+      sort_table_docs:
+        name: "sort by docs"
+        hint: "sort table by document count"
+      sort_table_size:
+        name: "sort by size"
+        hint: "sort table by size on disk"
+      sort_table_collection:
+        name: "sort by collection"
+        hint: "sort table by collection name"
+      sort_table_embedded:
+        name: "sort by embedded"
+        hint: "sort table by embedded count"
+      sort_table_model:
+        name: "sort by model"
+        hint: "sort table by model name"
+      sort_table_rows:
+        name: "sort by rows"
+        hint: "sort table by row count"
+      sort_table_category:
+        name: "sort by category"
+        hint: "sort table by category"
+      sort_table_files:
+        name: "sort by files"
+        hint: "sort table by file count"
+      sync_toggle:
+        name: "sync toggle"
+        hint: "toggle sync for the focused scope"
+      toggle_all:
+        name: "toggle all"
+        hint: "toggle the all notifications checkbox"
+      toggle_daily_digest:
+        name: "toggle daily digest"
+        hint: "toggle the daily digest checkbox"
+      focus_discord_webhook:
+        name: "focus discord webhook"
+        hint: "jump to the Discord webhook input"
+      focus_slack_webhook:
+        name: "focus slack webhook"
+        hint: "jump to the Slack webhook input"
+      sort_sessions_device:
+        name: "sort by device"
+        hint: "sort sessions by device"
+      sort_sessions_browser:
+        name: "sort by browser"
+        hint: "sort sessions by browser"
+      sort_sessions_ip:
+        name: "sort by ip"
+        hint: "sort sessions by IP address"
+      sort_sessions_last_seen:
+        name: "sort by last seen"
+        hint: "sort sessions by last-seen timestamp"
+      sort_sessions_created:
+        name: "sort by created"
+        hint: "sort sessions by created-at timestamp"
+      select_all_sessions:
+        name: "select all"
+        hint: "toggle select-all on the sessions table"
+      revoke_all_except_current:
+        name: "revoke all except this"
+        hint: "revoke every session except the current one"
+      revoke_selected_sessions:
+        name: "revoke selected"
+        hint: "revoke the currently selected sessions"
+      click_focusable:
+        name: "click"
+        hint: "click the named focusable"
+      focus_focusable:
+        name: "focus"
+        hint: "focus the named focusable"
     # 2026-05-22 — Phase 2F. Canonical Sidekiq brand label sourced from
     # i18n so the future Rust TUI client reads it from the same YAML
     # (per project's same-YAML-feeds-TUI contract). Used by

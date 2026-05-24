@@ -120,4 +120,30 @@ RSpec.describe Pito::Stack::AssetsSubPanelComponent, type: :component do
       expect(page).to have_css("table.tui-table")
     end
   end
+
+  describe "#panel_commands (Phase 1C — section-specific palette)" do
+    subject(:commands) { described_class.new(storage_status: writable_status, breakdown: []).panel_commands }
+
+    it "returns the locked 3-column sort + sync_toggle command set (no reindex)" do
+      keys = commands.map { |c| c[:key] }
+      expect(keys).to contain_exactly(
+        "sort_assets_category",
+        "sort_assets_files",
+        "sort_assets_size",
+        "sync_toggle_assets"
+      )
+    end
+
+    it "annotates sort commands with table id + numeric column index" do
+      sort_cmd = commands.find { |c| c[:key] == "sort_assets_files" }
+      expect(sort_cmd[:action_name]).to eq(:sort_table)
+      expect(sort_cmd[:args]).to eq(table: "stack-assets", column: 1)
+    end
+
+    it "wires every action_name to a registered ActionRegistry entry" do
+      commands.each do |c|
+        expect { Pito::ActionRegistry[c[:action_name]] }.not_to raise_error
+      end
+    end
+  end
 end

@@ -17,16 +17,25 @@ module Tui
   #   (action-bearing sub-panels — Meilisearch, Voyage — keep emitting
   #   focusables on their own `[reindex]` action instead).
   #   FB-187 (2026-05-23).
+  #
+  # Phase 1C (2026-05-24) — `panel_commands:` kwarg accepts the
+  # per-sub-panel `:` palette command catalog. When non-nil the list is
+  # serialized to JSON and emitted as `data-panel-commands="<JSON>"` on
+  # the sub-panel root so the JS palette controller can scan + merge at
+  # open time. The parent sub-panel VC owns its commands list and passes
+  # it in here; see `Pito::CommandPalette::Collector` for the merge
+  # contract.
   class SubPanelComponent < ViewComponent::Base
     renders_one :actions
 
-    def initialize(title:, class_name: nil, focusable_key: nil)
+    def initialize(title:, class_name: nil, focusable_key: nil, panel_commands: nil)
       @title = title
       @class_name = class_name
       @focusable_key = focusable_key
+      @panel_commands = panel_commands
     end
 
-    attr_reader :title, :focusable_key
+    attr_reader :title, :focusable_key, :panel_commands
 
     def sub_panel_class
       [ "pito-sub-panel", @class_name ].compact.join(" ")
@@ -41,6 +50,7 @@ module Tui
         data[:tui_focusable] = focusable_key.to_s
         data[:tui_focusable_key] = focusable_key.to_s
       end
+      data[:panel_commands] = Array(panel_commands).to_json if panel_commands
       data
     end
   end

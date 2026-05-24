@@ -112,6 +112,33 @@ module Pito
       def hint_color_class
         AppSetting.voyage_configured? ? "is-success" : "is-danger"
       end
+
+      # Phase 1C (2026-05-24) — `:` palette commands for this sub-panel.
+      # Surfaces reindex + per-column embed-table sort + sync toggle. See
+      # `Pito::CommandPalette::Collector` for the merge contract.
+      def panel_commands
+        [
+          { key: "reindex_voyage",
+            name: I18n.t("tui.commands.reindex_voyage.name"),
+            hint: I18n.t("tui.commands.reindex_voyage.hint"),
+            action_name: :reindex_voyage },
+          { key: "sort_voyage_collection",
+            name: I18n.t("tui.commands.sort_table_collection.name"),
+            hint: I18n.t("tui.commands.sort_table_collection.hint"),
+            action_name: :sort_table,
+            args: { table: "stack-voyage", column: 0 } },
+          { key: "sort_voyage_embedded",
+            name: I18n.t("tui.commands.sort_table_embedded.name"),
+            hint: I18n.t("tui.commands.sort_table_embedded.hint"),
+            action_name: :sort_table,
+            args: { table: "stack-voyage", column: 1 } },
+          { key: "sync_toggle_voyage",
+            name: I18n.t("tui.commands.sync_toggle.name"),
+            hint: I18n.t("tui.commands.sync_toggle.hint"),
+            action_name: :sync_toggle,
+            args: { target: "home.stack.voyage" } }
+        ]
+      end
     end
   end
 end

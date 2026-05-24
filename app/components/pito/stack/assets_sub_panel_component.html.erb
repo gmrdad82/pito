@@ -1,7 +1,7 @@
 <%# Pito::Stack::AssetsSubPanelComponent — assets storage sub-panel
     inside the stack panel on Home. FB-63-V4 — V4 title-in-border.
     Phase 1D — status chip removed; hint line added at body top. %>
-<%= render Tui::SubPanelComponent.new(title: t("settings.stack.assets"), focusable_key: "assets") do |c| %>
+<%= render Tui::SubPanelComponent.new(title: t("settings.stack.assets"), focusable_key: "assets", panel_commands: panel_commands) do |c| %>
   <% c.with_actions do %>
     <%# Phase 1D (2026-05-24) — sub-panel sync indicator. Assets has no
         other border action so this is the sole occupant of the slot. %>

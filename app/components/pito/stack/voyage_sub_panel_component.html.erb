@@ -14,7 +14,7 @@
 
     FB-166 — same Ruby-driven focusable contract as the Meilisearch
     sub-panel. %>
-<%= render Tui::SubPanelComponent.new(title: t("settings.voyage.heading")) do |c| %>
+<%= render Tui::SubPanelComponent.new(title: t("settings.voyage.heading"), panel_commands: panel_commands) do |c| %>
   <% c.with_actions do %>
     <span>
       <% _voyage_f = focusables.first %>

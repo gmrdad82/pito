@@ -81,7 +81,44 @@ module Pito
     end
 
     def panel_data
-      panel_root_data(name: PANEL_NAME, focusables: focusable_keys, keybinds: keybinds)
+      panel_root_data(name: PANEL_NAME, focusables: focusable_keys, keybinds: keybinds, panel_commands: panel_commands)
+    end
+
+    # Phase 1C (2026-05-24) — `:` palette commands for the notifications
+    # settings panel. Toggle-all + daily-digest dispatch the existing
+    # checkbox focusables via `:click`. Webhook focus commands shift the
+    # cursor to the corresponding input. `[help]` opens the help dialog.
+    # Filter / mark-all-read verbs do NOT belong here — those are the
+    # notifications FEED panel's catalog (Phase 3 territory). See
+    # `Pito::CommandPalette::Collector` for the merge contract.
+    def panel_commands
+      [
+        { key: "toggle_all",
+          name: I18n.t("tui.commands.toggle_all.name"),
+          hint: I18n.t("tui.commands.toggle_all.hint"),
+          action_name: :click_focusable,
+          args: { focusable: "all" } },
+        { key: "toggle_daily_digest",
+          name: I18n.t("tui.commands.toggle_daily_digest.name"),
+          hint: I18n.t("tui.commands.toggle_daily_digest.hint"),
+          action_name: :click_focusable,
+          args: { focusable: "daily" } },
+        { key: "focus_discord_webhook",
+          name: I18n.t("tui.commands.focus_discord_webhook.name"),
+          hint: I18n.t("tui.commands.focus_discord_webhook.hint"),
+          action_name: :focus_focusable,
+          args: { focusable: "discord_webhook" } },
+        { key: "focus_slack_webhook",
+          name: I18n.t("tui.commands.focus_slack_webhook.name"),
+          hint: I18n.t("tui.commands.focus_slack_webhook.hint"),
+          action_name: :focus_focusable,
+          args: { focusable: "slack_webhook" } },
+        { key: "sync_toggle_notifications",
+          name: I18n.t("tui.commands.sync_toggle.name"),
+          hint: I18n.t("tui.commands.sync_toggle.hint"),
+          action_name: :sync_toggle,
+          args: { target: "home.notifications" } }
+      ]
     end
   end
 end

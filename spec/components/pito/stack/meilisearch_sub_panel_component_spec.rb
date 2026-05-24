@@ -121,6 +121,45 @@ RSpec.describe Pito::Stack::MeilisearchSubPanelComponent, type: :component do
     end
   end
 
+  describe "#panel_commands (Phase 1C — section-specific palette)" do
+    subject(:commands) do
+      described_class.new(healthy: true, stats: healthy_stats, per_index_stats: []).panel_commands
+    end
+
+    it "returns the locked reindex + 3-column sort + sync_toggle command set" do
+      keys = commands.map { |c| c[:key] }
+      expect(keys).to contain_exactly(
+        "reindex_meilisearch",
+        "sort_meilisearch_index",
+        "sort_meilisearch_docs",
+        "sort_meilisearch_size",
+        "sync_toggle_meilisearch"
+      )
+    end
+
+    it "annotates sort commands with table id + numeric column index" do
+      sort_cmd = commands.find { |c| c[:key] == "sort_meilisearch_docs" }
+      expect(sort_cmd[:action_name]).to eq(:sort_table)
+      expect(sort_cmd[:args]).to eq(table: "stack-meilisearch", column: 1)
+    end
+
+    it "wires every action_name to a registered ActionRegistry entry" do
+      commands.each do |c|
+        expect { Pito::ActionRegistry[c[:action_name]] }.not_to raise_error
+      end
+    end
+
+    it "serializes into the sub-panel root's data-panel-commands attribute" do
+      page_doc = render_inline(described_class.new(healthy: true, stats: healthy_stats, per_index_stats: []))
+      sub_panel_root = page_doc.css(".pito-sub-panel").first
+      raw = sub_panel_root["data-panel-commands"]
+      expect(raw).to be_present
+      parsed = JSON.parse(raw)
+      expect(parsed.length).to eq(5)
+      expect(parsed.map { |c| c["key"] }).to include("reindex_meilisearch", "sort_meilisearch_index")
+    end
+  end
+
   describe "hint line renders before index table" do
     let(:per_index_stats) do
       [ { label: "games", documents: 50, size_bytes: 2048, missing: false, omit_size: false } ]

@@ -4,6 +4,12 @@ import { Controller } from "@hotwired/stimulus"
 //
 // FB-170 (2026-05-21) — V6 `:command` palette controller.
 // FB-D4  (2026-05-22) — i18n empty value + mode dispatch + hint filter.
+// Phase 1C (2026-05-24) — section-specific palette: at OPEN time the
+// controller scans the DOM for the focused panel + sub-panel and
+// concatenates their `data-panel-commands` JSON onto the front of the
+// catalog. This mirrors `Pito::CommandPalette::Collector` (Ruby) — the
+// shared shape lets Ratatui derive its palette from the same screen
+// spec.
 //
 // Listens for `:` at document level when no input has focus and no
 // dialog is open; opens the palette, focuses the input, and lets the
@@ -32,12 +38,44 @@ export default class extends Controller {
 
   connect() {
     this.selectedIndex = 0
-    this.filtered = this.commandsValue.slice()
+    this.activeCatalog = this.commandsValue.slice()
+    this.filtered = this.activeCatalog.slice()
     this.boundOpen = this.handleOpenKey.bind(this)
     this.boundOpenEvent = this.open.bind(this)
     document.addEventListener("keydown", this.boundOpen, true)
     document.addEventListener("pito:leader:open_command", this.boundOpenEvent)
     document.addEventListener("pito:action:open_command", this.boundOpenEvent)
+  }
+
+  // Phase 1C (2026-05-24) — scan the DOM for the focused panel +
+  // sub-panel, parse their `data-panel-commands` JSON, and concatenate
+  // sub-panel → panel → screen-scoped commands. Mirrors the Ruby
+  // `Pito::CommandPalette::Collector#call` ordering so web + future
+  // Ratatui clients stay in lockstep.
+  collectScopedCommands() {
+    const screen = this.commandsValue.slice()
+    const focusedPanel = document.querySelector('[data-tui-cursor-target="panel"][data-tui-cursor-focused="yes"]')
+    const focusedSubPanel = document.querySelector('[data-tui-cursor-target="sub-panel"][data-tui-cursor-sub-panel-focused="yes"]')
+    const subPanelCommands = this.parseCommandsAttr(focusedSubPanel)
+    const panelCommands = this.parseCommandsAttr(focusedPanel)
+    const annotate = (cmd, scope) => Object.assign({ scope }, cmd, cmd.scope ? { scope: cmd.scope } : {})
+    return [
+      ...subPanelCommands.map((c) => annotate(c, "sub_panel")),
+      ...panelCommands.map((c) => annotate(c, "panel")),
+      ...screen.map((c) => annotate(c, "screen"))
+    ]
+  }
+
+  parseCommandsAttr(el) {
+    if (!el) return []
+    const raw = el.getAttribute("data-panel-commands")
+    if (!raw) return []
+    try {
+      const parsed = JSON.parse(raw)
+      return Array.isArray(parsed) ? parsed : []
+    } catch (e) {
+      return []
+    }
   }
 
   disconnect() {
@@ -69,7 +107,12 @@ export default class extends Controller {
   open() {
     this.element.removeAttribute("hidden")
     this.inputTarget.value = ""
-    this.filtered = this.commandsValue.slice()
+    // Phase 1C (2026-05-24) — rebuild the active catalog every open so
+    // it reflects whichever panel / sub-panel the cursor is currently
+    // focused on. The base `commandsValue` catalog (screen + global)
+    // remains the trailing scope.
+    this.activeCatalog = this.collectScopedCommands()
+    this.filtered = this.activeCatalog.slice()
     this.selectedIndex = 0
     this.render()
     // Notify BST mode lozenge: palette open → command mode.
@@ -98,9 +141,12 @@ export default class extends Controller {
 
   // input -> filter
   // D4 contract: substring match against `name` OR `hint` (case-insensitive).
+  // Phase 1C — filter against the panel-scoped `activeCatalog` (built
+  // in `open()`), not the static `commandsValue` (which only carries
+  // the screen + global scope).
   filter() {
     const q = (this.inputTarget.value || "").toLowerCase().trim()
-    const all = this.commandsValue
+    const all = this.activeCatalog || this.commandsValue
     if (q === "") {
       this.filtered = all.slice()
     } else {
@@ -176,9 +222,46 @@ export default class extends Controller {
     // POST + cable wiring stays in one canonical surface. Legacy
     // commands without `action_name` keep the original action /
     // navigate branching below.
-    if (cmd.action_name && window.Pito && typeof window.Pito.dispatchAction === "function") {
-      window.Pito.dispatchAction(cmd.action_name)
-      return
+    //
+    // Phase 1C (2026-05-24) — section-specific commands also carry an
+    // `args:` payload (table id + column, sync indicator target, etc.).
+    // Pre-resolved client-side actions (sort_table, sync_toggle,
+    // click_focusable, focus_focusable) are handled here directly so
+    // they short-circuit the registry path-lookup (no Rails route, no
+    // POST). Anything else with an `action_name` still flows through
+    // `Pito.dispatchAction` for the canonical confirmation / submit
+    // pipeline.
+    if (cmd.action_name) {
+      const args = cmd.args || {}
+      if (cmd.action_name === "sort_table") {
+        this.runSortTable(args)
+        return
+      }
+      if (cmd.action_name === "sync_toggle") {
+        this.runSyncToggle(args)
+        return
+      }
+      if (cmd.action_name === "click_focusable") {
+        this.runClickFocusable(args)
+        return
+      }
+      if (cmd.action_name === "focus_focusable") {
+        this.runFocusFocusable(args)
+        return
+      }
+      if (window.Pito && typeof window.Pito.dispatchAction === "function") {
+        // Stub action names (revoke_*, etc.) are registered in
+        // `Pito::ActionRegistry` with `path: "#"` so the dispatcher
+        // won't crash. The console warning makes the not-yet-wired
+        // status visible to operators using palette during Phase 1C.
+        try {
+          window.Pito.dispatchAction(cmd.action_name)
+        } catch (err) {
+          // eslint-disable-next-line no-console
+          console.warn(`tui-command-palette: action "${cmd.action_name}" not yet wired — ${err.message || err}`)
+        }
+        return
+      }
     }
     if (cmd.action === "open_help") {
       // FB-ITEM-3 (2026-05-22) — converge on the `pito:action:open_help`
@@ -210,6 +293,83 @@ export default class extends Controller {
     }
     if (cmd.path) {
       this.navigate(cmd.path, cmd.method)
+    }
+  }
+
+  // Phase 1C (2026-05-24) — programmatic sort. Finds the matching
+  // `[data-controller="sortable-table"][data-sortable-table-id-value=<id>]`
+  // block, then clicks the Nth `<th class="sortable">` (column index)
+  // or matches by inner label text (when `args.column` is a string).
+  runSortTable(args) {
+    const tableId = args.table
+    const column = args.column
+    if (tableId === undefined || column === undefined) return
+    const root = document.querySelector(`[data-controller~="sortable-table"][data-sortable-table-id-value="${tableId}"]`)
+    if (!root) {
+      // eslint-disable-next-line no-console
+      console.warn(`tui-command-palette: sortable-table with id "${tableId}" not found`)
+      return
+    }
+    const headers = root.querySelectorAll("th.sortable, th[data-action*='sortable-table#sort']")
+    let target = null
+    if (typeof column === "number") {
+      target = headers[column]
+    } else {
+      const colStr = String(column).toLowerCase()
+      target = Array.from(headers).find((h) => (h.textContent || "").toLowerCase().includes(colStr))
+    }
+    if (target && typeof target.click === "function") target.click()
+  }
+
+  // Phase 1C (2026-05-24) — programmatic sync indicator toggle. Finds
+  // `[data-sync-target=<name>]` and clicks. The element is a
+  // `Tui::SyncIndicatorComponent` checkbox; click toggles the active
+  // state and broadcasts through the existing controller.
+  runSyncToggle(args) {
+    const target = args.target
+    if (!target) return
+    const el = document.querySelector(`[data-sync-target="${target}"]`)
+    if (el && typeof el.click === "function") {
+      el.click()
+    } else {
+      // eslint-disable-next-line no-console
+      console.warn(`tui-command-palette: sync target "${target}" not found — TODO wire in Phase 2`)
+    }
+  }
+
+  // Phase 1C (2026-05-24) — programmatic click on a named focusable.
+  // The focusable lives inside the focused panel / sub-panel scope so
+  // the query is rooted at the focused panel when present.
+  runClickFocusable(args) {
+    const key = args.focusable
+    if (!key) return
+    const scope = document.querySelector('[data-tui-cursor-target="panel"][data-tui-cursor-focused="yes"]') || document
+    const el = scope.querySelector(`[data-tui-focusable="${key}"]`)
+    if (el && typeof el.click === "function") {
+      el.click()
+    } else {
+      // eslint-disable-next-line no-console
+      console.warn(`tui-command-palette: focusable "${key}" not found in focused scope — TODO wire in Phase 2`)
+    }
+  }
+
+  // Phase 1C (2026-05-24) — programmatic focus on a named focusable
+  // (e.g. the Discord webhook input).
+  runFocusFocusable(args) {
+    const key = args.focusable
+    if (!key) return
+    const scope = document.querySelector('[data-tui-cursor-target="panel"][data-tui-cursor-focused="yes"]') || document
+    const el = scope.querySelector(`[data-tui-focusable="${key}"]`)
+    if (el) {
+      // Many focusables wrap an inner input — prefer focusing the
+      // innermost input/textarea/contenteditable; fall back to the
+      // focusable root.
+      const inner = el.querySelector("input, textarea, [contenteditable='true']")
+      const target = inner || el
+      if (typeof target.focus === "function") target.focus()
+    } else {
+      // eslint-disable-next-line no-console
+      console.warn(`tui-command-palette: focusable "${key}" not found in focused scope — TODO wire in Phase 2`)
     }
   }
 

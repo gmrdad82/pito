@@ -32,4 +32,81 @@ Rails.application.config.after_initialize do
     i18n_key: "tui.commands.reindex_voyage",
     cable_panel: "pito:settings:stack:voyage"
   )
+
+  # Phase 1C (2026-05-24) — section-specific `:` palette actions.
+  #
+  # `sort_table` — programmatically clicks a `SortableHeaderComponent`
+  # `<th>` inside a `[data-controller="sortable-table"]` block. The
+  # palette command carries `args: { table: <id>, column: <n|name> }`;
+  # the JS dispatcher (`pito_actions.js#dispatchAction`) reads them and
+  # synthesizes a click on the right header. Pure client-side — no path,
+  # no POST.
+  #
+  # `sync_toggle` — programmatically clicks the
+  # `Tui::SyncIndicatorComponent` for the named target
+  # (`home.stack.meilisearch`, `home.stack`, etc.). The args carry
+  # `target: <name>`; the JS dispatcher finds the matching
+  # `[data-sync-target=<name>]` element and `.click()`s it. Same wire
+  # shape as sort_table — no path, no POST.
+  #
+  # `click_focusable` / `focus_focusable` — generic helpers the palette
+  # uses for "press X" / "go to X" commands without a dedicated action.
+  # JS finds `[data-tui-focusable=<key>]` and clicks / focuses.
+  #
+  # `revoke_all_except_current` / `revoke_selected_sessions` — STUB
+  # entries; the underlying forms still POST through the legacy bulk-
+  # revoke flow. Phase 2 lifts them into the action bus proper.
+  Pito::ActionRegistry.define(
+    :sort_table,
+    path: -> { "#" },
+    method: :get,
+    confirmation: nil,
+    i18n_key: "tui.commands.sort_table",
+    cable_panel: nil
+  )
+
+  Pito::ActionRegistry.define(
+    :sync_toggle,
+    path: -> { "#" },
+    method: :get,
+    confirmation: nil,
+    i18n_key: "tui.commands.sync_toggle",
+    cable_panel: nil
+  )
+
+  Pito::ActionRegistry.define(
+    :click_focusable,
+    path: -> { "#" },
+    method: :get,
+    confirmation: nil,
+    i18n_key: "tui.commands.click_focusable",
+    cable_panel: nil
+  )
+
+  Pito::ActionRegistry.define(
+    :focus_focusable,
+    path: -> { "#" },
+    method: :get,
+    confirmation: nil,
+    i18n_key: "tui.commands.focus_focusable",
+    cable_panel: nil
+  )
+
+  Pito::ActionRegistry.define(
+    :revoke_all_except_current,
+    path: -> { "#" },
+    method: :get,
+    confirmation: nil,
+    i18n_key: "tui.commands.revoke_all_except_current",
+    cable_panel: nil
+  )
+
+  Pito::ActionRegistry.define(
+    :revoke_selected_sessions,
+    path: -> { "#" },
+    method: :get,
+    confirmation: nil,
+    i18n_key: "tui.commands.revoke_selected_sessions",
+    cable_panel: nil
+  )
 end

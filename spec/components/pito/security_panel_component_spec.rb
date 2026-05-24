@@ -70,4 +70,44 @@ RSpec.describe Pito::SecurityPanelComponent, type: :component do
   it "no longer defines the legacy CABLE_CHANNEL constant (Phase 2C cleanup)" do
     expect(described_class.const_defined?(:CABLE_CHANNEL)).to be(false)
   end
+
+  describe "#panel_commands (Phase 1C — section-specific palette)" do
+    subject(:commands) do
+      described_class.new(sessions: sessions, sessions_sort: "last_seen", sessions_dir: "desc").panel_commands
+    end
+
+    it "returns an Array of Hash entries" do
+      expect(commands).to be_an(Array)
+      expect(commands).to all(be_a(Hash))
+    end
+
+    it "surfaces the locked security command set (5 sort + select_all + 2 revoke + sync)" do
+      keys = commands.map { |c| c[:key] }
+      expect(keys).to contain_exactly(
+        "sort_sessions_device",
+        "sort_sessions_browser",
+        "sort_sessions_ip",
+        "sort_sessions_last_seen",
+        "sort_sessions_created",
+        "select_all_sessions",
+        "revoke_all_except_current",
+        "revoke_selected_sessions",
+        "sync_toggle_security"
+      )
+    end
+
+    it "wires every command to a registered action_name" do
+      commands.each do |c|
+        expect(c[:action_name]).to be_a(Symbol)
+        expect { Pito::ActionRegistry[c[:action_name]] }.not_to raise_error
+      end
+    end
+
+    it "serializes into the panel root's data-panel-commands attribute" do
+      raw = root["data-panel-commands"]
+      expect(raw).to be_present
+      parsed = JSON.parse(raw)
+      expect(parsed.length).to eq(9)
+    end
+  end
 end

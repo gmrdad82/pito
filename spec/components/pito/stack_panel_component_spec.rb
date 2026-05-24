@@ -213,6 +213,34 @@ RSpec.describe Pito::StackPanelComponent, type: :component do
     end
   end
 
+  describe "#panel_commands (Phase 1C — section-specific palette)" do
+    subject(:commands) { component.panel_commands }
+
+    it "returns a single sync_toggle entry at the panel-aggregate level" do
+      expect(commands.map { |c| c[:key] }).to eq([ "sync_toggle_stack" ])
+    end
+
+    it "wires the sync_toggle entry to the registered :sync_toggle action" do
+      expect(commands.first[:action_name]).to eq(:sync_toggle)
+      expect(commands.first[:args]).to eq(target: "home.stack")
+      expect { Pito::ActionRegistry[:sync_toggle] }.not_to raise_error
+    end
+
+    it "serializes into the panel root's data-panel-commands attribute" do
+      allow_any_instance_of(Pito::Stack::PostgresSubPanelComponent).to receive(:focusables).and_return([])
+      allow_any_instance_of(Pito::Stack::MeilisearchSubPanelComponent).to receive(:focusables).and_return([])
+      allow_any_instance_of(Pito::Stack::VoyageSubPanelComponent).to receive(:focusables).and_return([])
+      allow_any_instance_of(Pito::Stack::AssetsSubPanelComponent).to receive(:focusables).and_return([])
+      rendered = render_inline(component)
+      root = rendered.css("section.pito-panel").first
+      raw = root["data-panel-commands"]
+      expect(raw).to be_present
+      parsed = JSON.parse(raw)
+      expect(parsed.length).to eq(1)
+      expect(parsed.first["key"]).to eq("sync_toggle_stack")
+    end
+  end
+
   describe "constructor contract (Redis sub-panel dropped 2026-05-23)" do
     it "does not accept the legacy redis_status kwarg" do
       kwargs = described_class.instance_method(:initialize).parameters.map(&:last)

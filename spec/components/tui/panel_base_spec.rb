@@ -94,6 +94,48 @@ RSpec.describe Tui::PanelBase do
     end
   end
 
+  describe "#panel_root_data — panel_commands (Phase 1C)" do
+    let(:cmds) do
+      [
+        { key: "reindex", name: "reindex", hint: "rebuild", action_name: :reindex_meilisearch },
+        { key: "sync", name: "sync toggle", hint: "toggle sync", action_name: :sync_toggle, args: { target: "x" } }
+      ]
+    end
+
+    it "serializes panel_commands kwarg to JSON in data-panel-commands" do
+      result = instance.panel_root_data(name: :stack, panel_commands: cmds)
+      raw = result[:data][:panel_commands]
+      expect(raw).to be_present
+      parsed = JSON.parse(raw)
+      expect(parsed.length).to eq(2)
+      expect(parsed.first["key"]).to eq("reindex")
+      expect(parsed.last["args"]).to eq("target" => "x")
+    end
+
+    it "omits the data-panel-commands attr when no commands given (kwarg + no #panel_commands method)" do
+      result = instance.panel_root_data(name: :stack)
+      expect(result[:data]).not_to have_key(:panel_commands)
+    end
+
+    it "introspects the including VC's #panel_commands method when kwarg omitted" do
+      cls = Class.new do
+        include Tui::PanelBase
+        def panel_commands
+          [ { key: "x", name: "x", hint: "x", action_name: :sync_toggle } ]
+        end
+      end
+      result = cls.new.panel_root_data(name: :stack)
+      parsed = JSON.parse(result[:data][:panel_commands])
+      expect(parsed.length).to eq(1)
+      expect(parsed.first["key"]).to eq("x")
+    end
+
+    it "serializes an empty array as []" do
+      result = instance.panel_root_data(name: :stack, panel_commands: [])
+      expect(result[:data][:panel_commands]).to eq("[]")
+    end
+  end
+
   describe "DEFAULT_SCREEN" do
     it "is frozen and equal to 'home'" do
       expect(described_class::DEFAULT_SCREEN).to eq("home")
