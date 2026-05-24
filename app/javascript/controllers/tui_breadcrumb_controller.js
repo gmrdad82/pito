@@ -54,6 +54,11 @@ export default class extends Controller {
   static outlets = ["tui-transition"]
   static values = { screen: String }
 
+  // Buffered [panel, subPanel] pair when applyState is called before the
+  // tui-transition outlet controller has connected. Flushed by
+  // tuiTransitionOutletConnected() once the outlet is ready.
+  _pendingState = null
+
   connect() {
     this.boundFocus = this.onPanelFocusChanged.bind(this)
     document.addEventListener("tui:panel-focus-changed", this.boundFocus)
@@ -65,20 +70,30 @@ export default class extends Controller {
       document.removeEventListener("tui:panel-focus-changed", this.boundFocus)
       this.boundFocus = null
     }
+    this._pendingState = null
+  }
+
+  // Stimulus lifecycle — fires when the tui-transition outlet controller
+  // actually connects (not just when its element appears in the DOM).
+  // Flushes any state buffered before the outlet was ready.
+  tuiTransitionOutletConnected(_controller, _element) {
+    if (this._pendingState) {
+      const [panel, subPanel] = this._pendingState
+      this._pendingState = null
+      this.applyState(panel, subPanel)
+    }
   }
 
   onPanelFocusChanged(event) {
-    if (!this.hasTuiTransitionOutlet) return
     const detail = event?.detail || {}
     const panel = detail.panel ?? detail.title ?? ""
     const subPanel = detail.subPanel || ""
-    this.applyState(panel, subPanel)
+    this._applyOrBuffer(panel, subPanel)
   }
 
   // Seed from the currently focused panel so a late connect (after
   // tui-cursor's initial event already fired) still paints correctly.
   seedFromFocusedPanel() {
-    if (!this.hasTuiTransitionOutlet) return
     const focused = document.querySelector(
       '[data-tui-cursor-target="panel"][data-tui-cursor-focused="yes"]'
     )
@@ -88,7 +103,29 @@ export default class extends Controller {
       '[data-tui-cursor-target="sub-panel"][data-tui-cursor-sub-panel-focused="yes"]'
     )
     const subPanel = subFocused?.dataset?.panelTitle || ""
-    this.applyState(panel, subPanel)
+    this._applyOrBuffer(panel, subPanel)
+  }
+
+  // Attempt to apply state immediately; buffer for outlet-connected flush
+  // if the outlet element exists but its controller is not yet booted.
+  _applyOrBuffer(panel, subPanel) {
+    if (!this.hasTuiTransitionOutlet) {
+      // No outlet element at all yet — buffer and wait.
+      this._pendingState = [panel, subPanel]
+      return
+    }
+    try {
+      this.applyState(panel, subPanel)
+    } catch (err) {
+      // Outlet element found but controller not yet connected (Stimulus
+      // race on initial page load). Buffer and let tuiTransitionOutletConnected
+      // flush once the outlet controller is ready.
+      if (err && err.message && err.message.includes("missing an outlet controller")) {
+        this._pendingState = [panel, subPanel]
+        return
+      }
+      throw err
+    }
   }
 
   applyState(panel, subPanel) {

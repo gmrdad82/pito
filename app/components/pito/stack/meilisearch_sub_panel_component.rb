@@ -49,6 +49,49 @@ module Pito
     # - `Tui::ActionButtonComponent` (`[reindex]` idle action)
     # - `Tui::ReindexProgressComponent` (`[=----]` running indicator)
     # - `SortableHeaderComponent` (sortable column headers)
+    #
+    # ## Top-border chrome contract (sub-panel-level) — LOCKED
+    #
+    # All four Stack sub-panels (`Meilisearch`, `Voyage`, `Postgres`,
+    # `Assets`) share the same chrome contract described here. Sibling
+    # sub-panel files reference this section as the canonical source.
+    #
+    # Every `.pito-sub-panel` is a rounded box (`border-radius: 10px`)
+    # with a 1px solid border in `var(--color-border)`. The title and
+    # optional action slots pierce the top border using real CSS borders
+    # on the slot element — NOT pseudo-elements.
+    #
+    # ### Title slot
+    #
+    # The `.pito-sub-panel__title` element is positioned at:
+    #
+    #   top: -7px; left: 8px; height: 14px;
+    #   border-left:  1px solid var(--color-border);
+    #   border-right: 1px solid var(--color-border);
+    #   padding: 0 6px;
+    #   background: var(--section-bg, var(--color-bg));
+    #
+    # The background cuts through the sub-panel's top border so the
+    # section-tinted page background shows through the notch.
+    #
+    # ### Action slot
+    #
+    # The top-right action slot (e.g. `[reindex]`) uses class
+    # `.pito-sub-panel__actions`. Same chrome geometry: real
+    # `border-left` + `border-right` + `padding: 0 6px` +
+    # `background: var(--section-bg, var(--color-bg))`.
+    #
+    # ### Pipe contract — strict
+    #
+    # NEVER use `::before` / `::after` with `content: "│"` or
+    # `content: ""` + background for the pipe brackets. The pipes are
+    # CSS `border-left` / `border-right` on the slot element itself.
+    # This was rejected in three separate polish rounds and is locked.
+    #
+    # ### Border radius
+    #
+    # `border-radius: 10px` on `.pito-sub-panel`. Locked — matches
+    # `.pito-pane` and `.tui-dialog-frame`.
     class MeilisearchSubPanelComponent < ViewComponent::Base
       CABLE_CHANNEL = "pito:home:stack:meilisearch".freeze
 
