@@ -56,6 +56,7 @@ export default class extends Controller {
       this._resizeObserver = new ResizeObserver(this._boundCompute)
       this._resizeObserver.observe(scrollEl)
     }
+    window.addEventListener("resize", this._boundCompute, { passive: true })
     this.requestCompute()
   }
 
@@ -65,6 +66,7 @@ export default class extends Controller {
       this._resizeObserver.disconnect()
       this._resizeObserver = null
     }
+    window.removeEventListener("resize", this._boundCompute)
     if (this._raf) cancelAnimationFrame(this._raf)
   }
 

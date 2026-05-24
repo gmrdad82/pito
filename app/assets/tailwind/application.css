@@ -1877,10 +1877,10 @@ th.col-action, td.col-action {
      (which sets `overflow-y: auto`, clipping anything above scrollTop=0),
      a sub-panel sitting at the very top of the scroll surface gets its
      title clipped — visible as `ilisearch` / `yage AI` truncated at the
-     character mid-line. `padding-top: 10px` reserves enough space so the
-     -7px outset clears the scroll's top edge cleanly (3px breathing).
+     character mid-line. `padding-top: 8px` = 7px outset + 1px safety so the
+     -7px title clears the scroll's top edge with minimal breathing room.
      Same reasoning for `[reindex]` action chips on the same border line. */
-  padding-top: 10px;
+  padding-top: 8px;
 }
 .pito-stack-grid > .pito-sub-panel {
   min-height: 0;
