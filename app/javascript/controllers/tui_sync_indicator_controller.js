@@ -386,16 +386,25 @@ export default class extends Controller {
   }
 
   _paint(state) {
+    // 2026-05-25 — STRIPPED. The tui-transition outlet machinery (and
+    // its global `.tui-sync-word` selector) was the source of every
+    // sync glyph routing bug. Plain textContent swap = instant + can
+    // never misroute. Set the host text + color class directly.
+    const word = this.wordFor(state) || this.wordFor("idle")
+    if (typeof word === "string" && word.length > 0) {
+      this.element.textContent = word
+    }
+    const COLORS = ["is-accent", "is-muted", "is-pink", "is-accent-pale", "is-warn"]
+    COLORS.forEach((cls) => this.element.classList.remove(cls))
     if (state === "disconnected") {
-      this.setDisconnected()
-    } else if (state === "syncing") {
-      this.setSyncing()
-    } else if (state === "active") {
-      this.setActive()
-    } else if (state === "mixed") {
-      this.setMixed()
+      this.element.classList.add("is-pink")
     } else {
-      this.setIdle()
+      this.element.classList.add("is-accent")
+    }
+    if (state === "syncing") {
+      this.element.classList.add("tui-shimmer")
+    } else {
+      this.element.classList.remove("tui-shimmer")
     }
   }
 
