@@ -17,6 +17,10 @@
 # `app/components/tui/help_dialog_component.rb`. When the GROUPS
 # constant gains or loses an item, the matching key here must be
 # added or removed in lockstep.
+#
+# Phase 6 (2026-05-24): section_nav keys corrected to Space-prefixed
+# leader navigation (Space h / Space v / Space g). Added focusable_nav
+# group (j / k / Enter) and sort group (s / S).
 en:
   help:
     overlay:
@@ -33,14 +37,25 @@ en:
         section_nav:
           title: "section nav"
           items:
-            home: "home"
-            videos: "videos"
-            games: "games"
+            home: "go to home"
+            videos: "go to videos"
+            games: "go to games"
         panel_nav:
           title: "panel nav"
           items:
             cycle_forward: "cycle panel forward"
             cycle_backward: "cycle panel backward"
+        focusable_nav:
+          title: "focusable nav"
+          items:
+            next_focusable: "next focusable"
+            prev_focusable: "previous focusable"
+            activate: "activate focused action"
+        sort:
+          title: "sort"
+          items:
+            sort_next_column: "cycle to next sort column"
+            sort_reverse: "reverse active sort direction"
         mode:
           title: "mode"
           items:

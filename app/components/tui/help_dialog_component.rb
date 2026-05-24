@@ -2,11 +2,14 @@ module Tui
   # Beta 4 — Phase D9 (2026-05-22). TUI help dialog. Replaces the legacy
   # `Tui::HelpOverlayComponent` with a wrapper around the canonical
   # `Tui::DialogComponent` chrome.
+  # Updated Phase 6 (2026-05-24): section_nav keys corrected to Space-prefixed
+  # leader navigation; focusable_nav group added (j/k/Enter); sort group
+  # entries (s/S) added to panel_nav.
   #
   # Lists every top-level keybinding pito supports (global flat keys,
-  # section nav, panel nav, mode, session) in a which-key-style two-column
-  # tree (key on the left, lowercase label on the right, grouped by
-  # category).
+  # section nav, panel nav, focusable nav, sort, mode, session) in a
+  # which-key-style two-column tree (key on the left, lowercase label on
+  # the right, grouped by category).
   #
   # Opened via `?` (the `tui-help-dialog` Stimulus controller intercepts the
   # key at document level) and closed via `[Esc]` per the canonical dialog
@@ -36,9 +39,9 @@ module Tui
       {
         group_key: "section_nav",
         items: [
-          { key: "g h", label_key: "home" },
-          { key: "g v", label_key: "videos" },
-          { key: "g g", label_key: "games" }
+          { key: "Space h", label_key: "home" },
+          { key: "Space v", label_key: "videos" },
+          { key: "Space g", label_key: "games" }
         ]
       },
       {
@@ -46,6 +49,21 @@ module Tui
         items: [
           { key: "TAB",       label_key: "cycle_forward" },
           { key: "Shift-TAB", label_key: "cycle_backward" }
+        ]
+      },
+      {
+        group_key: "focusable_nav",
+        items: [
+          { key: "j",     label_key: "next_focusable" },
+          { key: "k",     label_key: "prev_focusable" },
+          { key: "Enter", label_key: "activate" }
+        ]
+      },
+      {
+        group_key: "sort",
+        items: [
+          { key: "s", label_key: "sort_next_column" },
+          { key: "S", label_key: "sort_reverse" }
         ]
       },
       {
