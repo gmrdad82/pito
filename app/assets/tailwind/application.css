@@ -976,6 +976,13 @@ button.bracketed .bl {
   letter-spacing: 0;
   z-index: 1;
   pointer-events: none;
+  /* 2026-05-24 (mathematical-pipe round) — inline-flex with align-items
+     stretch so the ::before / ::after 1px CSS rules fill the slot's
+     14px height exactly. white-space: nowrap keeps the title from
+     wrapping when the slot is narrow (image #228 "Me[isearch]" clip). */
+  display: inline-flex;
+  align-items: stretch;
+  white-space: nowrap;
 }
 
 /* ===== FB-63-V4: stack sub-panels with title in top border =====
@@ -1016,58 +1023,84 @@ button.bracketed .bl {
   letter-spacing: 0;
   z-index: 1;
   pointer-events: none;
+  /* 2026-05-24 — same inline-flex/stretch pattern as `.pito-pane__title`
+     so 1px CSS pipe pseudo-elements fill the slot height exactly and
+     the title text gets its own flex item (no clipping). nowrap so
+     narrow sub-panel cells in the stack 2x2 grid don't wrap "Voyage
+     AI" / "Meilisearch" titles. */
+  display: inline-flex;
+  align-items: stretch;
+  white-space: nowrap;
 }
 .pito-sub-panel__actions {
   position: absolute;
   top: -7px;
   right: 8px;
-  background: var(--color-bg);
+  background: var(--section-bg, var(--color-bg));
   padding: 0;
   font-size: 13px;
   line-height: 14px;
   height: 14px;
   z-index: 1;
   display: inline-flex;
-  align-items: center;
+  align-items: stretch;
   gap: 1ch;
 }
 .pito-sub-panel__actions > * {
-  background: var(--color-bg);
+  background: var(--section-bg, var(--color-bg));
 }
 
-/* btop-style pipe brackets — chrome glyphs flanking title + action slots.
-   Each slot renders as │text│ where the pipes are muted chrome that
-   NEVER inherit the focus-accent color. Title text may accent on focus;
-   pipes stay --color-border regardless.
-   (Phase 1A, 2026-05-24) */
+/* btop-style pipe brackets — REAL 1px CSS lines (not text glyphs)
+   flanking title + action slots. Each slot reads `│text│` where the
+   pipes are 1px wide × 14px tall (= slot height), painted in
+   `var(--color-border)` — IDENTICAL token to the panel's `border-top`
+   so the horizontal border line and the vertical pipe render in the
+   exact same color with no font anti-aliasing drift.
+
+   Geometry:
+     - Slot is `top: -7px; height: 14px;` over a 1px horizontal border
+       at y=0..1. Slot extent y=-7..+7 (7px above the border, 7px below).
+     - Pipe is `width: 1px; height: 14px;` — fills the slot vertically.
+     - Visual result: ─| title |─ where the pipe meets the horizontal
+       border line at its midpoint (pixel-precise).
+     - `align-self: stretch` + parent's `align-items: stretch` ensures
+       the pipe pseudo fills the slot height with no flexbox baseline drift.
+
+   2026-05-24 — replaces the prior `content: "│"` text glyph approach
+   (U+2502 box-drawing). Font glyphs have anti-aliasing + intrinsic
+   gaps at top/bottom of the line-height box, so they didn't visually
+   touch the panel's real 1px CSS `border-top`. Real CSS pseudo lines
+   resolve all visual drift. */
 .pito-pane__title::before,
-.pito-sub-panel__title::before {
-  content: "│";
-  color: var(--color-border);
+.pito-sub-panel__title::before,
+.pito-pane__actions::before,
+.pito-pane__title-actions::before,
+.pito-sub-panel__actions::before,
+.tui-dialog-frame__title-left::before,
+.tui-dialog-frame__title-right::before {
+  content: "";
+  display: inline-block;
+  width: 1px;
+  height: 14px;
+  background: var(--color-border);
+  flex: 0 0 auto;
+  align-self: stretch;
   margin-right: 6px;
 }
 .pito-pane__title::after,
-.pito-sub-panel__title::after {
-  content: "│";
-  color: var(--color-border);
-  margin-left: 6px;
-}
-/* Title AND action slots both get `│ … │` pipe brackets (btop style).
-   Inside the action slot, individual actions sit side-by-side WITHOUT
-   inter-action separators — the bracketed-link [foo] [bar] style reads
-   cleanly. Pipes are same color as the horizontal border line so the
-   visual reads as `--| title |---| [a] [b] |--` (continuous border).
-   Locked 2026-05-24 with the corrected user spec. */
-.pito-pane__actions::before,
-.pito-sub-panel__actions::before {
-  content: "│";
-  color: var(--color-border);
-  margin-right: 6px;
-}
+.pito-sub-panel__title::after,
 .pito-pane__actions::after,
-.pito-sub-panel__actions::after {
-  content: "│";
-  color: var(--color-border);
+.pito-pane__title-actions::after,
+.pito-sub-panel__actions::after,
+.tui-dialog-frame__title-left::after,
+.tui-dialog-frame__title-right::after {
+  content: "";
+  display: inline-block;
+  width: 1px;
+  height: 14px;
+  background: var(--color-border);
+  flex: 0 0 auto;
+  align-self: stretch;
   margin-left: 6px;
 }
 /* Pito::Stack::*SubPanelComponent — hint line at top of body replacing
@@ -1084,33 +1117,20 @@ button.bracketed .bl {
 .pito-sub-panel__hint.is-warn    { color: var(--color-warn); }
 .pito-sub-panel__hint.is-danger  { color: var(--color-danger); }
 .pito-sub-panel__hint.is-muted   { color: var(--color-muted); }
-/* Pipe brackets are CHROME — keep --color-border even when panel/sub-panel
-   is focused and the title text swaps to the section accent. */
+/* Pipe brackets are CHROME — keep `var(--color-border)` background even
+   when panel/sub-panel/dialog is focused and the title text swaps to
+   the section accent. The pseudos use `background` (not `color`) since
+   they're 1px CSS lines, so the focused-text-color cascade can't bleed
+   into them — but we declare the override explicitly for safety. */
 .pito-pane[data-tui-cursor-focused="yes"] .pito-pane__title::before,
 .pito-pane[data-tui-cursor-focused="yes"] .pito-pane__title::after,
 .pito-sub-panel[data-tui-cursor-sub-panel-focused="yes"] .pito-sub-panel__title::before,
-.pito-sub-panel[data-tui-cursor-sub-panel-focused="yes"] .pito-sub-panel__title::after {
-  color: var(--color-border);
-}
-/* Dialog frame title pipe brackets — same btop chrome pattern. */
-.tui-dialog-frame__title-left::before,
-.tui-dialog-frame__title-right::before {
-  content: "│";
-  color: var(--color-border);
-  margin-right: 6px;
-}
-.tui-dialog-frame__title-left::after,
-.tui-dialog-frame__title-right::after {
-  content: "│";
-  color: var(--color-border);
-  margin-left: 6px;
-}
-/* Pipes stay muted even when open dialog accents its title text. */
+.pito-sub-panel[data-tui-cursor-sub-panel-focused="yes"] .pito-sub-panel__title::after,
 .tui-dialog-frame[open] .tui-dialog-frame__title-left::before,
 .tui-dialog-frame[open] .tui-dialog-frame__title-left::after,
 .tui-dialog-frame[open] .tui-dialog-frame__title-right::before,
 .tui-dialog-frame[open] .tui-dialog-frame__title-right::after {
-  color: var(--color-border);
+  background: var(--color-border);
 }
 
 .pito-pane[data-tui-cursor-focused="yes"] {
@@ -6368,9 +6388,11 @@ dd.tui-help-dialog__label {
   /* FB-65 (2026-05-20). V4 demo values: title vertically centered ON the 1px
      top border line. With `font-size: 13px` + `height: 14px` + `line-height:
      14px`, the glyph box is 14px tall, anchored at `top: -7px` so its
-     vertical center sits exactly on the border (which lives at y=0..1). The
-     6px horizontal padding creates the bg-cut breaking the border around the
-     title text. `z-index: 1` keeps the title above the border. */
+     vertical center sits exactly on the border (which lives at y=0..1).
+     `z-index: 1` keeps the title above the border.
+     2026-05-24 — `inline-flex` + `align-items: stretch` so the 1px CSS
+     pipe pseudos fill the 14px slot height exactly. Zero padding so the
+     pipes touch the horizontal border-end with no gap. */
   position: absolute;
   top: -7px;
   height: 14px;
@@ -6381,6 +6403,9 @@ dd.tui-help-dialog__label {
   font-weight: 400;
   font-size: 13px;
   z-index: 1;
+  display: inline-flex;
+  align-items: stretch;
+  white-space: nowrap;
 }
 /* FB-65 (2026-05-20). Insets switched from `1ch` (ambiguous across font
    metrics produces sub-pixel drift) to fixed `8px` for stable corner-flush
@@ -7016,7 +7041,12 @@ body.keyboard-only * {
    padding region where sticky-bottom can resolve correctly. */
 .tui-scroll-indicator {
   position: absolute;
-  right: -7px;            /* hover over right border line */
+  /* 2026-05-24 — center the glyph on the panel's 1px right border.
+     Glyph box is ~10px wide; the right border lives at the panel's
+     right edge. `right: -6px` shifts the glyph so its visual center
+     lands roughly on the border line (was `right: -7px` which read
+     as floating just inside the border). */
+  right: -6px;
   pointer-events: none;
   opacity: 0;
   transition: opacity 200ms ease-out;
@@ -7029,8 +7059,14 @@ body.keyboard-only * {
 .tui-scroll-indicator--top    { top: 2px; color: var(--color-muted); }
 .tui-scroll-indicator--bottom { bottom: 2px; color: var(--color-muted); }
 .tui-scroll-indicator--handle {
-  top: var(--handle-pct, 50%);
-  transform: translateY(-50%);
+  /* 2026-05-24 — handle position is computed in pixels by the
+     Stimulus controller (sets `top: <Npx>` directly) with a 20px
+     reserved zone at top + bottom so the █ handle never overlaps
+     the ▲ ▼ arrow glyphs. The legacy `--handle-pct` var is no
+     longer consumed — kept the fallback removal to avoid stale
+     percent-based positioning. `transform` is removed; the JS
+     places `top` at the glyph's intended top-edge directly. */
+  top: 0;
   color: var(--section-accent);
   background: var(--color-bg);
   padding: 0;
@@ -7059,18 +7095,31 @@ body.keyboard-only * {
   position: absolute;
   top: -7px;
   right: 8px;
-  background: var(--color-bg);
-  padding: 0 6px;
+  /* 2026-05-24 — bg inherits section-bg (same as `.pito-pane__title`)
+     so the panel's section-tinted page bg shows through the cutout
+     rather than rendering a darker `--color-bg` slab that visually
+     reads as a different surface (image #227 bug). */
+  background: var(--section-bg, var(--color-bg));
+  /* zero outer padding so the leading + trailing 1px CSS pipes
+     touch the horizontal border-end with no gap. The pipe pseudos
+     own their own 6px breathing margin. */
+  padding: 0;
   font-size: 13px;
   line-height: 14px;
   height: 14px;
   z-index: 1;
   display: inline-flex;
-  align-items: center;
+  /* stretch so children + pseudo pipes fill the 14px slot height */
+  align-items: stretch;
   gap: 1ch;
 }
 .pito-pane__title-actions > * {
-  background: var(--color-bg);
+  background: var(--section-bg, var(--color-bg));
+  /* center the action text vertically inside the stretched slot
+     (the slot stretches its children but the actual text is what
+     reads) */
+  display: inline-flex;
+  align-items: center;
 }
 
 /* Tui::ViewToggleComponent — pair of mutually-exclusive view toggles
