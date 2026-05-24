@@ -2040,12 +2040,12 @@ table.sessions-table td {
    checkbox padding lives in the TUI primitive layer above so every
    table with a checkbox column reads identically. */
 .sessions-table { table-layout: fixed; }
-.sessions-table__width-action    { width: 40px; }
-.sessions-table__width-device    { width: 140px; }
-.sessions-table__width-browser   { width: 90px; }
+.sessions-table__width-action    { width: 30px; }
+.sessions-table__width-device    { width: 105px; }
+.sessions-table__width-browser   { width: 60px; }
 .sessions-table__width-ip        { width: auto; }
-.sessions-table__width-last-seen { width: 100px; }
-.sessions-table__width-created   { width: 100px; }
+.sessions-table__width-last-seen { width: 80px; }
+.sessions-table__width-created   { width: 70px; }
 /* FB-67 (2026-05-20) — global `tr:hover` is gone sitewide; the prior
    stack-table opt-out (`table.tui-table--stack tr:hover { background-
    color: transparent }`) is no longer needed. Hairline-bottom rhythm
@@ -6076,16 +6076,13 @@ a.bsb-section.bsb-section--current:visited {
   border-bottom: 1px dashed var(--color-border-soft);
 }
 
-/* 2026-05-24 — canonical checkbox-column spacing (TUI primitive).
-   Any `.col-action` cell (used as the leading checkbox slot in
-   channels / videos / sessions / bulk_operations / deletions tables)
-   gets a wider right padding so the `[ ]` glyph is not glued to the
-   following label. Lives in the TUI primitive layer so every table
-   that opts into the convention reads identically. */
-.tui-table__th.col-action,
-.tui-table__td.col-action {
-  padding-right: 14px;
-}
+/* 2026-05-24 — canonical checkbox-column width (TUI primitive).
+   Any `.col-action` cell (the leading checkbox slot in channels /
+   videos / sessions / bulk_operations / deletions tables) reads
+   identically: 30px column width set via the per-table `<colgroup>`,
+   default `.tui-table__td` 8px right padding gives the `[ ]` glyph
+   the breathing room it needs. No padding-right override needed —
+   the default suffices at the 30px convention. */
 
 .tui-table__th--right,
 .tui-table__td--right {
