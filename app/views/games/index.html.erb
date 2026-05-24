@@ -1,140 +1,55 @@
-<%# Phase 27 v2 spec 05 — `/games` is a single shelves-by-letter
-    layout. The display-mode switcher and the three per-mode partials
-    (`_grid_mode` / `_list_mode` / `_shelves_by_letter_mode`) are gone;
-    the page renders one stack of shelves top-to-bottom:
+<%# Games screen v1 layout shell (2026-05-25).
+    2-row CSS Grid using `.home-grid.games-grid`:
+      Row 1 (40/60): games releasing (upcoming owned) | top games
+      Row 2 (library): full-width cell with nested rows:
+        Row 2A (60/40): genres | bundles
+        Row 2B (full):  library table
 
-      1. Page title `games` + `[+]`.
-      2. Filter row (spec 06 reworks the row's internal layout).
-      3. Recently-played shelf (only when at least one game has
-         `played_at` set).
-      4. Hairline.
-      5. Genres outer shelf (one sub-shelf per non-empty genre,
-         heading labels per `GenresHelper#genre_display_name` —
-         IGDB-verbatim except for the cosmetic renames in
-         `GENRE_DISPLAY_RENAMES`).
-      6. Hairline.
-      7. Bundles outer shelf (one tile per non-empty bundle, alphabetical;
-         clicking a tile opens the bundles-modal pane).
-      8. Hairline.
-      9. Letter shelves (one shelf per non-empty letter A..Z, then
-         `#` bucket at the end if non-empty).
-
-    Phase 27 follow-up (2026-05-17) — the legacy top-of-page "bundles"
-    shelf (10 most-recent bundles) was merged into the Bundles outer
-    shelf below; they were two views onto the same model and the
-    Collection→Bundle consolidation made the duplication redundant.
-
-    Phase 27 v2 spec 06 — the listing partition (shelves 3–10 above)
-    is wrapped in `<turbo-frame id="games_listing">` so the
-    `games-filter` Stimulus controller can re-fetch the frame on
-    chip toggle without re-rendering the filter row itself or
-    triggering a full page navigation.
-
-    Each shelf carries the `steam-shelf` Stimulus controller for
-    drag-scroll + mouse-wheel-to-horizontal scroll, with the project's
-    themed slim scrollbar (6 px on both axes — see the global
-    `::-webkit-scrollbar` rules in `app/assets/tailwind/application.css`).
-
-    Phase 14 §1 polish (2026-05-10) — the inline IGDB type-ahead
-    `_add_form` partial was retired. The H1 carries a `[+]`
-    bracketed link that opens the layout-level IGDB-search modal
-    (`shared/_igdb_search_modal`). 2026-05-17 — the previous global
-    `i` keybind was removed in the legacy-keyboard-shortcut sweep;
-    the `[+]` link is now the only entry point. %>
+    The existing turbo_stream_from, filter row, omnisearch modals, and
+    games_listing turbo frame are preserved below the grid for
+    compatibility with the current controller + IGDB add flow. They are
+    intentionally invisible in this shell — a future dispatch will
+    migrate that surface into the TableSubPanelComponent (Row 2B). %>
 <% content_for(:title, t("games.index.title")) %>
 
-<%# 2026-05-19 — Live refresh subscription. Every Game create / update /
-    destroy broadcasts a Turbo `refresh` signal to the `"games"` stream
-    (see `after_*_commit` hooks on `Game`). On receipt, Turbo morph-
-    refreshes the page in place so the shelves below (recently-played +
-    genres + bundles + letter buckets) reflect newly-added rows AND
-    `Game::Igdb::SyncGame#call`'s async backfill of title / genres / cover.
-    Layout meta `turbo-refresh-method=morph` + `turbo-refresh-scroll=
-    preserve` keep scroll position. %>
+<%# Live refresh subscription — see original view comment for details. %>
 <%= turbo_stream_from "games" %>
 
-<%# 2026-05-17 polish (revised) — `/games` shares one horizontal column
-    with the rest of the page. The chrome wrapper (`<main>`) in
-    `application.html.erb` already carries the canonical 12 px
-    horizontal padding; this view does NOT introduce its own
-    `max-width` clamp or viewport break-out. Title row, filter row,
-    and shelves Turbo Frame all sit inside the same content container
-    so their left and right edges line up with the navbar nav links
-    (and the footer copy) — i.e. 12 px from each viewport edge.
-
-    The previous `max-width: 1100px` wrapper around the title + filter
-    band, plus the `.games-shelves-fullwidth` viewport break-out
-    around the shelves frame, were removed in favor of this single
-    aligned column. Per-shelf horizontal scroll on overflow is
-    unchanged — each `.shelf` row keeps its own `overflow-x: auto`. %>
-<div>
-  <div style="display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px;">
-    <div class="dot-list">
-      <h1><%= t("games.index.heading") %></h1>
-      <%# 2026-05-18 — unified omnisearch chrome. The `[+]` button now
-          opens the shared `_omnisearch_modal` in `:game_index` mode
-          (Mac-style big-bold input + `[close]` footer) instead of the
-          old `_igdb_search_modal` partial whose chrome (small input +
-          `[cancel]` link) diverged visually from the other two
-          omnisearch surfaces (`/games SPACE /` and the bundle modal
-          `[+]`). The endpoint and per-row IGDB `[add]` / `[update]`
-          contract are unchanged — `/games/search` still backs the
-          modal and `_search_results` still renders the rows; only the
-          surrounding chrome is unified. %>
-      <%= render(BracketedLinkComponent.new(
-            label: t("common.actions.add_short"),
-            href: "#",
-            data: {
-              controller: "modal-trigger",
-              action: "click->modal-trigger#open",
-              modal_trigger_target_id_value: "omnisearch-modal-games-index"
-            }
-          )) %>
-    </div>
+<div class="pito-workspace home-grid games-grid" data-controller="tui-cursor">
+  <%# Row 1 — 40/60 split: upcoming releases + top games. %>
+  <div class="home-row home-row--40-60">
+    <%= render Pito::GamesReleasingPanelComponent.new %>
+    <%= render Pito::TopGamesPanelComponent.new %>
   </div>
 
-  <%# Phase 27 v2 spec 06 — single compact filter band. All chips
-      default to CHECKED; URL `/games` (no `?filters=`) means "full
-      list". The Stimulus controller mounted on the row itself manages
-      chip toggles, the cascade, and the Turbo Frame refresh. The
-      row stays OUTSIDE the `games_listing` frame so it does not
-      re-render per chip click. The row uses `justify-content:
-      space-between` internally so the left (status + ownership) chip
-      group sits flush against the content container's left edge and
-      the right (platform) chip group sits flush against its right
-      edge — aligning with the navbar / footer chrome. %>
+  <%# Row 2 — library row. Full-width grid cell containing two nested
+      sub-rows rendered via `.games-library-row`. %>
+  <div class="games-library-row">
+    <%# Row 2A — 60/40: genres (left) + bundles (right). %>
+    <div class="games-library-row__top">
+      <%= render Pito::Games::GenresPanelComponent.new %>
+      <%= render Pito::Games::BundlesPanelComponent.new %>
+    </div>
+
+    <%# Row 2B — full width: library table. %>
+    <div class="games-library-row__bottom">
+      <%= render Pito::Games::TableSubPanelComponent.new %>
+    </div>
+  </div>
+</div>
+
+<%# ============================================================
+    Legacy filter + listing surface — preserved for the IGDB add
+    flow and games_listing turbo frame. Rendered off-screen until
+    the TableSubPanelComponent dispatch migrates this content.
+    ============================================================ %>
+<div style="display: none;" aria-hidden="true">
   <%= render Game::FilterRowComponent.new(
-        checked_tokens:         @checked_tokens,
-        request_path:           games_path
+        checked_tokens: @checked_tokens,
+        request_path:   games_path
       ) %>
 
-  <%# Phase 27 v2 spec 06 — Turbo Frame wraps the listing partition.
-      Filter chip clicks point the frame at the new URL via Stimulus;
-      the frame fetches and morphs in the new contents without a full
-      navigation. The frame id (`games_listing`) is declared in the
-      FilterRowComponent's `data-games-filter-frame-id-value` for the
-      controller to target — frame lookup is by id, so the frame may
-      live anywhere in the document as long as the id is unique. %>
-  <%# 2026-05-17 — `games_listing` frame ALWAYS renders a visible body.
-      The previous outer `if has_any_content` wrapper let the frame
-      collapse to a comment-only / whitespace-only body when every shelf
-      bucket was empty (e.g. `?filters=` with zero results, or
-      `?filters=...,played` against a library where no game has
-      `played_at` set). Turbo Frame fetches against a body that
-      degenerates to whitespace tripped the "Content missing" fallback
-      in some browsers — the user saw the literal `Content missing`
-      string below the filter row instead of an empty-state message.
-      Explicit empty-state copy inside the frame keeps the frame body
-      non-empty so Turbo's frame-missing detection never fires AND
-      gives the user a useful "no games match this filter" hint. %>
   <%= turbo_frame_tag "games_listing" do %>
-    <%# 2026-05-18 — `has_any_content` no longer gates the bundles
-        shelf. The bundles partial renders UNCONDITIONALLY below so the
-        heading-row `[+]` create button is always available even when
-        the user has zero games AND zero bundles. The "no games match
-        this filter" empty-state copy still renders for the other
-        listing partitions (recently played + genres + letter shelves)
-        when none of them have content. %>
     <% has_any_listing_content = @recently_played.any? ||
                                  @genres_for_shelf.any? ||
                                  @letter_buckets.any? %>
@@ -152,30 +67,16 @@
       <% end %>
     <% end %>
 
-    <%# Phase 27 §01c-v2 — Genres outer shelf. One sub-shelf per non-
-        empty genre, alphabetical. Empty buckets hidden. %>
     <% if @genres_for_shelf.any? %>
       <hr class="hairline">
       <%= render "games/genres_shelf", genres: @genres_for_shelf %>
     <% end %>
 
-    <%# Bundles outer shelf — one tile per non-empty bundle.
-        2026-05-18 — rendered UNCONDITIONALLY when no filter is active
-        (`params[:filters].nil?`) so the heading-row `[+]` create button
-        is always available from `/games`. When a filter IS active AND
-        the result set is empty, hide the entire bundles section
-        (heading + count chip + `[+]` + shelf row) — otherwise the
-        zero-count heading reads as visual noise next to the
-        "no games match this filter." copy. Matches the same
-        hide-when-empty pattern that the genres + letter shelves use in
-        filtered state (they gate on `.any?` above and below). %>
     <% if @bundles_for_shelf.any? || params[:filters].nil? %>
       <hr class="hairline">
       <%= render "games/bundles_for_shelf", bundles: @bundles_for_shelf %>
     <% end %>
 
-    <%# Phase 27 v2 spec 05 — Letter shelves. One `<section>` per non-
-        empty letter; `#` bucket renders LAST when present. %>
     <% if @letter_buckets.any? %>
       <hr class="hairline">
       <%= render "games/letter_shelves", buckets: @letter_buckets %>
@@ -187,11 +88,8 @@
   <% end %>
 </div>
 
-<%# 2026-05-18 — `/`-keyed omnisearch modal (`:games_search` mode).
-    Opened by the `/ search` page action in `config/keybindings.yml`
-    (page_actions.games_index → open_modal_by_id target:
-    "omnisearch-modal-games-search"). Hits /games/omnisearch and
-    returns local games + bundles + IGDB as separate sections. %>
+<%# Omnisearch modals — must remain in the DOM for the IGDB add-game
+    flow ([+] in the title row) and the / search keybind. %>
 <%= render Search::OmnisearchModalComponent.new(
       mode: :games_search,
       dialog_id: "omnisearch-modal-games-search",
@@ -200,15 +98,6 @@
       results_frame_id: "omnisearch_results_games_search"
     ) %>
 
-<%# 2026-05-18 — `[+]` `:game_index` omnisearch modal. IGDB-only
-    add-from-IGDB flow. Hits `/games/search` (the existing endpoint
-    rendering `_search_results`, which already wraps its body in a
-    `<turbo-frame id="igdb_search_results">` so the per-row
-    `[add]` / `[update]` contract is preserved unchanged); only the
-    surrounding chrome is unified with the other two omnisearch
-    surfaces. The frame id MUST match the partial's own
-    `turbo_frame_tag` so the controller-driven `src` swap lands in
-    the right frame. %>
 <%= render Search::OmnisearchModalComponent.new(
       mode: :game_index,
       dialog_id: "omnisearch-modal-games-index",

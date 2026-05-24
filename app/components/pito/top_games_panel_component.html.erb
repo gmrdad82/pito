@@ -1,0 +1,8 @@
+<%= content_tag :section,
+      class: "pane pito-pane pito-panel pito-panel--top-games",
+      **panel_data do %>
+  <span class="pito-pane__title"><%= title %></span>
+  <%= render Tui::PanelFieldsetComponent.new do %>
+    <p class="pito-panel__placeholder">[ panel content TBD ]</p>
+  <% end %>
+<% end %>
