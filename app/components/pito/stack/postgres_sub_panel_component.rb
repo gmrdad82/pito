@@ -45,12 +45,14 @@ module Pito
     class PostgresSubPanelComponent < ViewComponent::Base
       CABLE_CHANNEL = "pito:home:stack:postgres".freeze
 
-      def initialize(status:, table_breakdown:)
+      def initialize(status:, table_breakdown:, current_sort: "rows", current_dir: "desc")
         @status = status
         @table_breakdown = table_breakdown
+        @current_sort = current_sort
+        @current_dir  = current_dir
       end
 
-      attr_reader :status, :table_breakdown
+      attr_reader :status, :table_breakdown, :current_sort, :current_dir
 
       # Returns a single inert focusable on the sub-panel root so the
       # cursor lands on Postgres during h/l traversal across the Stack

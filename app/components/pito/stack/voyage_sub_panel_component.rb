@@ -68,11 +68,13 @@ module Pito
     class VoyageSubPanelComponent < ViewComponent::Base
       CABLE_CHANNEL = "pito:home:stack:voyage".freeze
 
-      def initialize(configured:)
-        @configured = configured
+      def initialize(configured:, current_sort: "embedded", current_dir: "desc")
+        @configured   = configured
+        @current_sort = current_sort
+        @current_dir  = current_dir
       end
 
-      attr_reader :configured
+      attr_reader :configured, :current_sort, :current_dir
 
       def reindex_running?
         AppSetting.reindex_running?

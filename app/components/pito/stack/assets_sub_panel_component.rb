@@ -44,12 +44,14 @@ module Pito
     class AssetsSubPanelComponent < ViewComponent::Base
       CABLE_CHANNEL = "pito:home:stack:assets".freeze
 
-      def initialize(storage_status:, breakdown:)
+      def initialize(storage_status:, breakdown:, current_sort: "files", current_dir: "desc")
         @storage_status = storage_status
         @breakdown = breakdown
+        @current_sort = current_sort
+        @current_dir  = current_dir
       end
 
-      attr_reader :storage_status, :breakdown
+      attr_reader :storage_status, :breakdown, :current_sort, :current_dir
 
       # Returns a single inert focusable on the sub-panel root so the
       # cursor lands on Assets during h/l traversal across the Stack

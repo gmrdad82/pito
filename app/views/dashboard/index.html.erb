@@ -39,7 +39,15 @@
           search_per_index_stats:   @search_per_index_stats,
           voyage_configured:        @voyage_configured,
           storage_status:           @storage_status,
-          assets_breakdown:         @assets_breakdown
+          assets_breakdown:         @assets_breakdown,
+          meilisearch_sort:         @meilisearch_sort,
+          meilisearch_dir:          @meilisearch_dir,
+          voyage_sort:              @voyage_sort,
+          voyage_dir:               @voyage_dir,
+          postgres_sort:            @postgres_sort,
+          postgres_dir:             @postgres_dir,
+          assets_sort:              @assets_sort,
+          assets_dir:               @assets_dir
         ) %>
     <div class="home-row-3-right-column">
       <%= render Pito::NotificationsPanelComponent.new(

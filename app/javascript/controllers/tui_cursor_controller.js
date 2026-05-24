@@ -252,6 +252,20 @@ export default class extends Controller {
     if (!t || !t.matches || !t.matches(FOCUSABLE_INPUT_SELECTOR)) return
     const next = event.relatedTarget
     if (next && next.matches && next.matches(FOCUSABLE_INPUT_SELECTOR)) return
+    // FB-167 guard: if the focusout was triggered by a DOM hide (e.g. the
+    // header-row swap in sessions-bulk-revoke hiding the defaultHeader row
+    // while the header checkbox had focus), the losing element is now inside
+    // a `[hidden]` ancestor. This is NOT a user-driven focus exit — it is a
+    // side-effect of a Stimulus controller mutating the DOM. Don't exit
+    // INSERT; instead re-anchor native focus on the current focusable so the
+    // cursor stays in INSERT mode with the correct element focused.
+    if (t.closest("[hidden]")) {
+      // Defer one tick so the DOM mutation fully settles before we try to
+      // re-focus. Without the timeout, focus() is a no-op on the newly
+      // visible element in some browsers.
+      setTimeout(() => { this.refocusForFocusable() }, 0)
+      return
+    }
     this.exitInsertMode()
   }
 

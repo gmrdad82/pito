@@ -42,6 +42,28 @@ module HomePanelData
   SESSIONS_DEFAULT_SORT = "last_activity"
   SESSIONS_DEFAULT_DIR  = "desc"
 
+  # Meilisearch sub-panel sort — columns: index (label), docs, size.
+  MEILISEARCH_ALLOWED_SORTS = %w[index docs size].freeze
+  MEILISEARCH_DEFAULT_SORT  = "docs"
+  MEILISEARCH_DEFAULT_DIR   = "desc"
+
+  # Voyage sub-panel sort — columns: collection (label), embedded.
+  VOYAGE_ALLOWED_SORTS = %w[collection embedded].freeze
+  VOYAGE_DEFAULT_SORT  = "embedded"
+  VOYAGE_DEFAULT_DIR   = "desc"
+
+  # Postgres sub-panel sort — columns: model (label), rows, size.
+  POSTGRES_ALLOWED_SORTS = %w[model rows size].freeze
+  POSTGRES_DEFAULT_SORT  = "rows"
+  POSTGRES_DEFAULT_DIR   = "desc"
+
+  # Assets sub-panel sort — columns: category (label), files, size.
+  ASSETS_ALLOWED_SORTS = %w[category files size].freeze
+  ASSETS_DEFAULT_SORT  = "files"
+  ASSETS_DEFAULT_DIR   = "desc"
+
+  STACK_ALLOWED_DIRS = %w[asc desc].freeze
+
   # Meilisearch unified `games_*` index splits into two display rows
   # (games + bundles) via the `kind` field. Only the unified index is
   # surfaced; per-env suffixes are stripped.
@@ -89,12 +111,28 @@ module HomePanelData
     @slack_webhook   = NotificationDeliveryChannel.find_record_for("slack")
   end
 
-  # Sets the 8 ivars the Stack panel demands. Each probe is rescued
+  # Sets the 8 ivars the Stack panel demands plus the 8 sort ivars
+  # (one sort key + direction per sub-panel). Each probe is rescued
   # so a transient subsystem failure (Meilisearch unreachable, etc.)
   # renders the panel in its "disconnected" state instead of 500ing the
   # whole home page. Redis + Sidekiq probes were removed 2026-05-23 when
   # the Redis sub-panel was dropped from the Stack panel.
+  #
+  # Server-side sort (2026-05-25) — each sub-panel's data array is sorted
+  # here before being passed to the ViewComponent so the V4 underline
+  # (`<a class="sort-asc">` / `<a class="sort-desc">`) is present on
+  # first paint without any client-side JS.
   def set_stack_panel_data
+    # Resolve sort params for all 4 sub-panels up front.
+    @meilisearch_sort = sanitized_stack_sort(:meilisearch_sort, MEILISEARCH_ALLOWED_SORTS, MEILISEARCH_DEFAULT_SORT)
+    @meilisearch_dir  = sanitized_stack_dir(:meilisearch_dir, MEILISEARCH_DEFAULT_DIR)
+    @voyage_sort      = sanitized_stack_sort(:voyage_sort, VOYAGE_ALLOWED_SORTS, VOYAGE_DEFAULT_SORT)
+    @voyage_dir       = sanitized_stack_dir(:voyage_dir, VOYAGE_DEFAULT_DIR)
+    @postgres_sort    = sanitized_stack_sort(:postgres_sort, POSTGRES_ALLOWED_SORTS, POSTGRES_DEFAULT_SORT)
+    @postgres_dir     = sanitized_stack_dir(:postgres_dir, POSTGRES_DEFAULT_DIR)
+    @assets_sort      = sanitized_stack_sort(:assets_sort, ASSETS_ALLOWED_SORTS, ASSETS_DEFAULT_SORT)
+    @assets_dir       = sanitized_stack_dir(:assets_dir, ASSETS_DEFAULT_DIR)
+
     begin
       engine          = Pito::Search.engine
       @search_healthy = engine.healthy?
@@ -107,10 +145,10 @@ module HomePanelData
     end
 
     @postgres_status          = probe_postgres_status
-    @search_per_index_stats   = probe_search_per_index_stats
+    @search_per_index_stats   = sort_meilisearch_rows(probe_search_per_index_stats)
     @storage_status           = probe_storage_status
-    @postgres_table_breakdown = probe_postgres_table_breakdown
-    @assets_breakdown         = probe_assets_breakdown
+    @postgres_table_breakdown = sort_postgres_rows(probe_postgres_table_breakdown)
+    @assets_breakdown         = sort_assets_rows(probe_assets_breakdown)
     @voyage_configured        = AppSetting.voyage_configured?
   end
 
@@ -323,5 +361,58 @@ module HomePanelData
     { size_bytes: size, file_count: count }
   rescue StandardError
     { size_bytes: 0, file_count: 0 }
+  end
+
+  # -----------------------------------------------------------------
+  # Stack sub-panel sort helpers
+  # -----------------------------------------------------------------
+
+  def sanitized_stack_sort(param, allowed, default)
+    v = params[param].to_s
+    allowed.include?(v) ? v : default
+  end
+
+  def sanitized_stack_dir(param, default)
+    v = params[param].to_s.downcase
+    STACK_ALLOWED_DIRS.include?(v) ? v : default
+  end
+
+  # Sort Meilisearch per_index_stats rows by the current column + direction.
+  # Columns: index (label string), docs (integer), size (size_bytes integer).
+  def sort_meilisearch_rows(rows)
+    key, dir = @meilisearch_sort, @meilisearch_dir
+    sorted = case key
+    when "index" then rows.sort_by { |r| r[:label].to_s.downcase }
+    when "docs"  then rows.sort_by { |r| [ r[:missing] ? 1 : 0, r[:documents].to_i ] }
+    when "size"  then rows.sort_by { |r| [ r[:omit_size] ? 1 : 0, r[:size_bytes].to_i ] }
+    else rows
+    end
+    dir == "asc" ? sorted : sorted.reverse
+  end
+
+  # Sort Postgres table_breakdown rows by the current column + direction.
+  # Columns: model (label string), rows (count integer), size (size_bytes integer).
+  def sort_postgres_rows(rows)
+    key, dir = @postgres_sort, @postgres_dir
+    sorted = case key
+    when "model" then rows.sort_by { |r| r[:label].to_s.downcase }
+    when "rows"  then rows.sort_by { |r| r[:count].to_i }
+    when "size"  then rows.sort_by { |r| r[:size_bytes].to_i }
+    else rows
+    end
+    dir == "asc" ? sorted : sorted.reverse
+  end
+
+  # Sort assets breakdown rows by the current column + direction.
+  # Columns: category (label string), files (file_count integer), size (size_bytes integer).
+  def sort_assets_rows(rows)
+    key, dir = @assets_sort, @assets_dir
+    sorted = case key
+    when "category" then rows.sort_by { |r| r[:label].to_s.downcase }
+    when "files"    then rows.sort_by { |r| r[:file_count].to_i }
+    when "size"     then rows.sort_by { |r| r[:size_bytes].to_i }
+    else rows
+    end
+    dir == "asc" ? sorted : sorted.reverse
   end
 end

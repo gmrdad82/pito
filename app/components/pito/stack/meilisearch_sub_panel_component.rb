@@ -100,13 +100,15 @@ module Pito
     class MeilisearchSubPanelComponent < ViewComponent::Base
       CABLE_CHANNEL = "pito:home:stack:meilisearch".freeze
 
-      def initialize(healthy:, stats:, per_index_stats:)
+      def initialize(healthy:, stats:, per_index_stats:, current_sort: "docs", current_dir: "desc")
         @healthy = healthy
         @stats = stats
         @per_index_stats = per_index_stats
+        @current_sort = current_sort
+        @current_dir  = current_dir
       end
 
-      attr_reader :healthy, :stats, :per_index_stats
+      attr_reader :healthy, :stats, :per_index_stats, :current_sort, :current_dir
 
       def reindex_running?
         AppSetting.reindex_running?

@@ -87,7 +87,15 @@ module Pito
       search_per_index_stats:,
       voyage_configured:,
       storage_status:,
-      assets_breakdown:
+      assets_breakdown:,
+      meilisearch_sort: "docs",
+      meilisearch_dir: "desc",
+      voyage_sort: "embedded",
+      voyage_dir: "desc",
+      postgres_sort: "rows",
+      postgres_dir: "desc",
+      assets_sort: "files",
+      assets_dir: "desc"
     )
       @postgres_status = postgres_status
       @postgres_table_breakdown = postgres_table_breakdown
@@ -97,11 +105,23 @@ module Pito
       @voyage_configured = voyage_configured
       @storage_status = storage_status
       @assets_breakdown = assets_breakdown
+      @meilisearch_sort = meilisearch_sort
+      @meilisearch_dir  = meilisearch_dir
+      @voyage_sort      = voyage_sort
+      @voyage_dir       = voyage_dir
+      @postgres_sort    = postgres_sort
+      @postgres_dir     = postgres_dir
+      @assets_sort      = assets_sort
+      @assets_dir       = assets_dir
     end
 
     attr_reader :postgres_status, :postgres_table_breakdown,
                 :search_healthy, :search_stats, :search_per_index_stats,
-                :voyage_configured, :storage_status, :assets_breakdown
+                :voyage_configured, :storage_status, :assets_breakdown,
+                :meilisearch_sort, :meilisearch_dir,
+                :voyage_sort, :voyage_dir,
+                :postgres_sort, :postgres_dir,
+                :assets_sort, :assets_dir
 
     def title
       I18n.t("tui.home.panels.#{PANEL_NAME}.title")
@@ -155,7 +175,9 @@ module Pito
     def postgres_sub_panel
       @postgres_sub_panel ||= Pito::Stack::PostgresSubPanelComponent.new(
         status: postgres_status,
-        table_breakdown: postgres_table_breakdown
+        table_breakdown: postgres_table_breakdown,
+        current_sort: postgres_sort,
+        current_dir: postgres_dir
       )
     end
 
@@ -163,20 +185,26 @@ module Pito
       @meilisearch_sub_panel ||= Pito::Stack::MeilisearchSubPanelComponent.new(
         healthy: search_healthy,
         stats: search_stats,
-        per_index_stats: search_per_index_stats
+        per_index_stats: search_per_index_stats,
+        current_sort: meilisearch_sort,
+        current_dir: meilisearch_dir
       )
     end
 
     def voyage_sub_panel
       @voyage_sub_panel ||= Pito::Stack::VoyageSubPanelComponent.new(
-        configured: voyage_configured
+        configured: voyage_configured,
+        current_sort: voyage_sort,
+        current_dir: voyage_dir
       )
     end
 
     def assets_sub_panel
       @assets_sub_panel ||= Pito::Stack::AssetsSubPanelComponent.new(
         storage_status: storage_status,
-        breakdown: assets_breakdown
+        breakdown: assets_breakdown,
+        current_sort: assets_sort,
+        current_dir: assets_dir
       )
     end
   end

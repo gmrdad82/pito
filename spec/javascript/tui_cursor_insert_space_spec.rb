@@ -86,4 +86,37 @@ RSpec.describe "tui_cursor_controller INSERT-mode SPACE contract" do
       expect(js_source).to match(/SPACE\s*→\s*leader menu/i)
     end
   end
+
+  describe "handleFocusOut — DOM-hide guard (FB-167 extension)" do
+    # When a Stimulus controller hides the row that owns the currently-focused
+    # checkbox (e.g. sessions-bulk-revoke swaps defaultHeader → actionHeader),
+    # the browser fires a `focusout` on the now-hidden element. Without the
+    # guard, handleFocusOut would call exitInsertMode() and the cursor would
+    # drop out of INSERT unexpectedly. The guard detects that the losing
+    # element is inside a `[hidden]` ancestor and re-focuses instead.
+    it "checks t.closest('[hidden]') before calling exitInsertMode" do
+      expect(js_source).to match(/t\.closest\("\[hidden\]"\)/)
+    end
+
+    it "calls refocusForFocusable inside the hidden-ancestor guard branch" do
+      expect(js_source).to match(
+        /t\.closest\("\[hidden\]"\)[\s\S]+?refocusForFocusable\(\)/
+      )
+    end
+
+    it "uses setTimeout to defer the re-focus one tick for DOM settle" do
+      expect(js_source).to match(
+        /setTimeout\(\(\) => \{ this\.refocusForFocusable\(\) \}, 0\)/
+      )
+    end
+
+    it "returns early from the guard branch without calling exitInsertMode" do
+      # The guard branch must `return` before reaching exitInsertMode().
+      # We verify there is a `return` between the hidden-ancestor check
+      # and the `exitInsertMode()` call.
+      expect(js_source).to match(
+        /t\.closest\("\[hidden\]"\)[\s\S]+?return\s*\n[\s\S]+?this\.exitInsertMode\(\)/
+      )
+    end
+  end
 end

@@ -219,6 +219,73 @@ when rendered. Re-renders re-subscribe automatically.
 
 **Envelope:** `{ kind: <string>, payload: <hash>, ts: <ISO8601> }`.
 
+## Sync state
+
+Controls whether a panel (or the entire app) actively receives cable
+broadcasts. Persisted in `AppSetting` rows — no localStorage, no
+session flags.
+
+### Storage
+
+N separate `AppSetting` keys, value `"yes"` (enabled, default) /
+`"no"` (disabled). An absent key means enabled.
+
+| Key pattern | Scope |
+|---|---|
+| `sync.app` | Global master switch |
+| `sync.<screen>.<panel>` | Per-panel per-screen |
+| `sync.<screen>.<panel>.<sub_panel>` | Per-sub-panel |
+
+### Cascade — strict top-down only
+
+Toggling a parent writes the same value to ALL descendants. Toggling a
+child writes only itself. No bottom-up aggregation.
+
+- `cascade_targets("app")` → master + every panel + every sub-panel
+- `cascade_targets("home.stack")` → stack + 4 sub-panels (Meilisearch /
+  Voyage AI / Postgres / Assets)
+- `cascade_targets("home.notifications_feed")` → just itself (no children)
+
+### Registry
+
+`Pito::SyncTargets` (`app/services/pito/sync_targets.rb`) — holds
+`PANELS_BY_SCREEN` and `PARENTS_TO_CHILDREN`. Source of truth for the
+cascade map; `SyncController` and `Pito::CableBroadcaster` both read it.
+
+### Endpoint
+
+`POST /sync/toggle?target=<key>` → `SyncController#toggle` — reads
+current value, computes next, cascades writes, broadcasts cable per
+cascaded target on `pito:sync_state`. Returns `head :no_content`.
+
+### Cable suppression
+
+`Pito::CableBroadcaster.broadcast_panel` reads `AppSetting` before
+broadcasting. Drops if any of the following is `"no"`:
+
+- `sync.<target>`
+- any ancestor of `<target>`
+- `sync.app`
+
+### Client
+
+`tui_sync_indicator_controller.js` — POSTs on click + listens for
+`pito:sync_state` cable broadcasts (bridged via the global
+`pito_sync_state_bridge.js`) + paints glyph via direct `textContent`
+swap. No localStorage anywhere.
+
+### First paint
+
+Server reads `AppSetting` at render time. `Tui::SyncIndicatorComponent`
+initializer calls `AppSetting.sync_enabled?(target)` and derives the
+initial `[ ]` / `[x]` glyph. HTML lands with the correct state — no
+flash-of-wrong-state.
+
+### TUI parity
+
+Ratatui client reads the same `AppSetting` values via the same API
+endpoint. No separate sync-state storage for the CLI.
+
 ## Background jobs
 
 - **Sidekiq** with sidekiq-cron for schedules.
@@ -379,6 +446,47 @@ file, see the data sources, see the cable channel, see the keybinds.
 
 Page navigation is initial paint only; after that, every panel update
 flows through cable broadcasts.
+
+## UI architecture rules
+
+### Never use localStorage for state
+
+Persistent UI state lives in `AppSetting` / DB. The server renders
+truth; JS submits `POST` and listens to cable broadcasts. localStorage
+is forbidden for any state that must survive a page reload or sync
+across clients.
+
+### No URL-hash sorting on tables
+
+Sort state lives in URL query params (server-readable). The server picks
+defaults when params are unset and renders the V4 underline indicator on
+first paint. No client-only sort state.
+
+### All actions are section accent
+
+Every bracketed action (`[reindex]`, `[ ] sync`, `[update]`, etc.) paints
+in `var(--section-accent)`. Exception: `[!] sync` in a disconnected
+state renders red (`var(--red)`).
+
+### Text-color taxonomy
+
+| Text class | Color |
+|---|---|
+| Data values | white |
+| Labels | muted |
+| Titles + actions | accent |
+
+### Stack sub-panels are a 2x2 50/50 grid
+
+The Stack panel on Home lays out its four sub-panels (Meilisearch /
+Voyage AI / Postgres / Assets) in a two-column, two-row grid where each
+cell takes exactly 50% of the available width.
+
+### Bracket-to-space rule on TST chrome
+
+Non-action labels adjacent to bracketed actions on the TST chrome use
+literal spaces as separators, not brackets. Brackets are reserved for
+interactive actions only.
 
 ## Deployment
 
