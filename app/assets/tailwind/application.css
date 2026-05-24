@@ -2073,24 +2073,21 @@ table.sessions-table td {
   border-left: none;
   border-right: none;
 }
-/* 2026-05-24 — sessions-table column-width redistribution.
-   The canonical `.col-action` checkbox spacing now lives in the TUI
-   primitive layer (`.tui-table__td.col-action`), applied identically
-   to every table that opts in. The session-specific knobs below
-   constrain the IP column to its content width so the surplus auto-
-   distributes to the right-aligned date columns (last-seen / created)
-   that previously crowded together ("last secreated"). */
-table.sessions-table .sessions-table__col-ip,
-table.sessions-table .sessions-table__cell-ip {
-  width: 1%;
-  white-space: nowrap;
-}
-table.sessions-table .sessions-table__col-last-seen,
-table.sessions-table .sessions-table__cell-last-seen,
-table.sessions-table .sessions-table__col-created,
-table.sessions-table .sessions-table__cell-created {
-  padding-left: 24px;
-}
+/* 2026-05-24 — sessions-table column widths in pixels.
+   The table is `table-layout: fixed` (set on `.sessions-table` below)
+   so the `<colgroup>` widths lock the columns. Five columns have
+   bounded content (checkbox glyph, device label, browser name, two
+   date strings) and pin to pixels; IP is the only flex column and
+   takes the remaining horizontal space. The canonical `.col-action`
+   checkbox padding lives in the TUI primitive layer above so every
+   table with a checkbox column reads identically. */
+.sessions-table { table-layout: fixed; }
+.sessions-table__width-action    { width: 40px; }
+.sessions-table__width-device    { width: 140px; }
+.sessions-table__width-browser   { width: 90px; }
+.sessions-table__width-ip        { width: auto; }
+.sessions-table__width-last-seen { width: 100px; }
+.sessions-table__width-created   { width: 100px; }
 /* FB-67 (2026-05-20) — global `tr:hover` is gone sitewide; the prior
    stack-table opt-out (`table.tui-table--stack tr:hover { background-
    color: transparent }`) is no longer needed. Hairline-bottom rhythm

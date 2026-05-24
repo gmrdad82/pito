@@ -56,19 +56,21 @@
       <asc|desc>` on `/settings` itself. %>
   <%# FB-131 (2026-05-21) — `<colgroup>` + `table-layout: fixed` locks
       column widths so the header row swap (defaultHeader ↔ actionHeader)
-      no longer reflows on selection. Without fixed layout the
-      colspan="5" cell in actionHeader sizes to its content (counter +
-      [revoke]) which produces a visible jiggle relative to the 5
-      individual columns in defaultHeader. Widths sum to 100% and roughly
-      match the prior auto-sized rendering (ip widest, dates narrowest). %>
-  <table class="tui-table sessions-table" style="table-layout: fixed;">
+      no longer reflows on selection.
+      2026-05-24 — inline `style="width: X%"` replaced with per-column
+      classes that resolve to pixel widths in the .sessions-table CSS
+      block. IP is the only flex column (`width: auto`); the rest are
+      pinned because their content is bounded and predictable
+      (checkbox glyph, "android"/"linux", "chrome"/"safari", "~12mo
+      ago"). %>
+  <table class="tui-table sessions-table">
     <colgroup>
-      <col style="width: 5%;">
-      <col style="width: 18%;">
-      <col style="width: 18%;">
-      <col style="width: 35%;">
-      <col style="width: 12%;">
-      <col style="width: 12%;">
+      <col class="sessions-table__width-action">
+      <col class="sessions-table__width-device">
+      <col class="sessions-table__width-browser">
+      <col class="sessions-table__width-ip">
+      <col class="sessions-table__width-last-seen">
+      <col class="sessions-table__width-created">
     </colgroup>
     <thead>
       <%# FB-116 — Default header: per-column `<th>` cells, matching the
