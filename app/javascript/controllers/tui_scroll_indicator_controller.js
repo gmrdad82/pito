@@ -93,12 +93,17 @@ export default class extends Controller {
     //   - Handle top = offset + (scrollProgress × usableHeight)
     // This guarantees the █ handle never sits on top of the ▲ ▼ arrows
     // (e.g. scrollTop=0 puts handle at y=offset, NOT y=0 where ▲ lives).
-    if (this.hasHandleTarget && max > 0) {
-      const clientH = this._scrollEl.clientHeight
-      const usableH = Math.max(0, clientH - offset * 2)
-      const progress = Math.max(0, Math.min(1, top / max))
-      const handleY = offset + progress * usableH
-      this.handleTarget.style.top = `${handleY}px`
+    // Visibility toggle runs UNCONDITIONALLY so the handle hides when
+    // content shrinks below the overflow threshold (e.g. window resized
+    // taller). Position math only runs when overflowing.
+    if (this.hasHandleTarget) {
+      if (max > 0) {
+        const clientH = this._scrollEl.clientHeight
+        const usableH = Math.max(0, clientH - offset * 2)
+        const progress = Math.max(0, Math.min(1, top / max))
+        const handleY = offset + progress * usableH
+        this.handleTarget.style.top = `${handleY}px`
+      }
       this.handleTarget.classList.toggle("tui-scroll-indicator--visible", max > t)
     }
   }
