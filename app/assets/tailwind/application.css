@@ -1487,13 +1487,15 @@ tr[data-tui-focusable-focused="yes"] > th {
 .pito-pane:has(.pito-sub-panel) {
   /* FB-122 (2026-05-21) — L/R 8 and bottom 12 keep sub-panels'
      right + bottom hairlines clear of the parent `.pito-pane`'s
-     content-box edge for visual rhythm. Originally introduced to
-     compensate for FB-88's `overflow: auto` clipping (now removed in
-     FB-123, 2026-05-21) — padding kept at these values as the
-     density/breathing balance is independently desirable. Top stays
-     14px (FB-90) for sub-panel title overhang. Was 14px / 6px / 10px
-     (FB-92). */
-  padding: 14px 8px 12px;
+     content-box edge for visual rhythm.
+     2026-05-24 — top dropped from 14px to 0. Title clearance for the
+     first row of sub-panels lives INSIDE the scroll wrapper on
+     `.pito-stack-grid` (padding-top: 8px) where it actually does
+     work — the scroll wrapper owns its own coordinate system, so the
+     outer `.pito-pane`'s padding-top can't help with title clipping.
+     Dropping the outer top padding kills the redundant gap between
+     the stack panel title and the first sub-panel. */
+  padding: 0 8px 12px;
 }
 
 /* FB-92 (2026-05-20) — left column carries TOP-LEVEL stacked panels
@@ -1871,12 +1873,15 @@ th.col-action, td.col-action {
   flex: 1;
   min-height: 0;
   width: 100%;
-  /* 2026-05-24 — padding-top: 0 verified by user in DevTools. Sub-panel
-     titles at `top: -7px` extend into the parent `.pito-pane`'s own
-     padding-top zone (6px) which is `overflow: visible` — no clipping
-     happens at the stack-grid boundary in practice, so the grid does
-     not need additional padding to clear the outset. */
-  padding-top: 0;
+  /* 2026-05-24 — `.pito-stack-grid` sits INSIDE
+     `.tui-panel-fieldset__scroll` whose `overflow-y: auto` owns the
+     scroll clipping. The grid's first-row sub-panel titles are at
+     `top: -7px` (relative to sub-panel) — to clear the scroll viewport
+     they need ≥ 7px clearance INSIDE the scroll wrapper. The grid
+     provides it via `padding-top: 8px` (7px outset + 1px safety).
+     Outer `.pito-pane`'s padding-top can't help because the scroll
+     wrapper owns its own coordinate system. */
+  padding-top: 8px;
 }
 .pito-stack-grid > .pito-sub-panel {
   min-height: 0;
@@ -7085,6 +7090,11 @@ body.keyboard-only * {
   line-height: 1;
   z-index: 2;
   color: var(--section-accent);
+  /* 2026-05-24 — glyph width compressed ~30% (13px → ~9px, -4px) so
+     the ▲ ▼ █ chrome reads as slim, not bulky. Visual-only via
+     transform (no layout impact); applies uniformly to arrows + handle. */
+  transform: scaleX(0.7);
+  transform-origin: center;
 }
 .tui-scroll-indicator--top    { top: 2px; }
 .tui-scroll-indicator--bottom { bottom: 2px; }
