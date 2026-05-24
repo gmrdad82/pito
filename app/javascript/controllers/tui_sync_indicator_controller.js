@@ -408,76 +408,15 @@ export default class extends Controller {
     }
   }
 
-  // ─── delegation to tui-transition outlet ──────────────────────────
-  setActive() {
-    const c = this.transitionController()
-    if (!c) return
-    this.ensureSettledListenerAttached()
-    this._shimmerOnSettle = false
-    if (this.currentValue() === this.wordFor("active")) {
-      c.setShimmer(false)
-      return
-    }
-    c.setShimmer(false)
-    c.setColor("accent")
-    c.setValue(this.wordFor("active"))
-  }
-
-  setSyncing() {
-    const c = this.transitionController()
-    if (!c) return
-    this.ensureSettledListenerAttached()
-    this._shimmerOnSettle = true
-    if (this.currentValue() === this.wordFor("syncing")) {
-      c.setShimmer(true)
-      return
-    }
-    c.setShimmer(false)
-    c.setColor("accent")
-    c.setValue(this.wordFor("syncing"))
-  }
-
-  setIdle() {
-    const c = this.transitionController()
-    if (!c) return
-    this._shimmerOnSettle = false
-    if (this.currentValue() === this.wordFor("idle")) {
-      c.setShimmer(false)
-      return
-    }
-    c.setShimmer(false)
-    // 2026-05-24 — "actions are always accent" lock. Idle was previously
-    // muted; promoted to accent so the sync VC reads as a normal action
-    // even when unchecked. The `[ ]` glyph still signals "off".
-    c.setColor("accent")
-    c.setValue(this.wordFor("idle"))
-  }
-
-  setMixed() {
-    const c = this.transitionController()
-    if (!c) return
-    this._shimmerOnSettle = false
-    if (this.currentValue() === this.wordFor("mixed")) {
-      c.setShimmer(false)
-      return
-    }
-    c.setShimmer(false)
-    c.setColor("accent")
-    c.setValue(this.wordFor("mixed"))
-  }
-
-  setDisconnected() {
-    const c = this.transitionController()
-    if (!c) return
-    this._shimmerOnSettle = false
-    if (this.currentValue() === this.wordFor("disconnected")) {
-      c.setShimmer(false)
-      return
-    }
-    c.setShimmer(false)
-    c.setColor("danger")
-    c.setValue(this.wordFor("disconnected"))
-  }
+  // 2026-05-25 — setX wrappers now route through _paint (the direct
+  // textContent swap). The old tui-transition outlet machinery is
+  // dead code; kept the method names so existing callers
+  // (onActivity, onExplicitState, etc.) still work without rewrite.
+  setActive()       { this._paint("active") }
+  setSyncing()      { this._paint("syncing") }
+  setIdle()         { this._paint("idle") }
+  setMixed()        { this._paint("mixed") }
+  setDisconnected() { this._paint("disconnected") }
 
   // ─── helpers ──────────────────────────────────────────────────────
   sidekiqActive(payload) {
