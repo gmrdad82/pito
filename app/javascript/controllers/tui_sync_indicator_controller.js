@@ -15,13 +15,11 @@ import { Controller } from "@hotwired/stimulus"
  *             `/sync/toggle?target=<target>`; the server cascades the
  *             write and broadcasts the new state.
  *
- * ## Five states (locked 2026-05-24)
+ * ## Four states (locked 2026-05-25)
  *
  *   idle         → "[ ] sync"  accent, no shimmer (target disabled)
  *   active       → "[x] sync"  accent, no shimmer (target enabled)
  *   syncing      → "[x] sync"  accent, shimmer (cable activity)
- *   mixed        → "[-] sync"  accent, no shimmer (parent only —
- *                              children have mixed enabled flags)
  *   disconnected → "[!] sync"  danger (red), no shimmer
  *
  * ## Wire shape
@@ -62,21 +60,7 @@ export default class extends Controller {
     idle: String,
     active: String,
     syncing: String,
-    mixed: String,
     disconnected: String
-  }
-
-  // 2026-05-24 — known sub-panel suffixes for each parent panel. Used
-  // by the parent's `_isParent()` / `_hasMixedChildren()` derivation
-  // so the parent's glyph re-aggregates when a child broadcast lands.
-  // Mirror of `Pito::SyncTargets::PARENTS_TO_CHILDREN`.
-  static CHILDREN_BY_PARENT = {
-    "home.stack": [
-      "home.stack.meilisearch",
-      "home.stack.voyage",
-      "home.stack.postgres",
-      "home.stack.assets"
-    ]
   }
 
   static COOL_DOWN_MS = 1000
@@ -86,15 +70,12 @@ export default class extends Controller {
     this._cableDisconnected = false
     // Per-target enabled cache, hydrated from the SSR class on the
     // host element and updated on every cable broadcast we observe.
-    // No localStorage reads anywhere. The cache lets parent VCs
-    // re-derive their :mixed state from the latest children states
-    // without re-fetching from the server.
+    // No localStorage reads anywhere.
     this._enabledByTarget = window.__pitoSyncStateCache = window.__pitoSyncStateCache || {}
     if (this.isTargetMode()) {
       // Seed cache from the SSR state (class `is-accent` is paired with
       // [x] = enabled in our `_paint`). Cheap, idempotent.
-      const hostSaysEnabled = this.element.textContent.includes("[x]") ||
-                              this.element.textContent.includes("[-]")
+      const hostSaysEnabled = this.element.textContent.includes("[x]")
       if (this.hasTargetValue && this._enabledByTarget[this.targetValue] === undefined) {
         this._enabledByTarget[this.targetValue] = hostSaysEnabled
       }
@@ -196,10 +177,9 @@ export default class extends Controller {
     return typeof bare === "string" && bare.length > 0 ? bare : null
   }
 
-  // Listen for sibling / parent / child / master toggles. The
-  // upstream emitter is the sync-state cable bridge (see
-  // `pito_actions.js`) — it dispatches one `tui:sync-changed` per
-  // cascaded target the server wrote.
+  // Listen for sibling / parent / master toggles. The upstream emitter
+  // is the sync-state cable bridge (see `pito_actions.js`) — it
+  // dispatches one `tui:sync-changed` per cascaded target the server wrote.
   onSyncChanged(event) {
     const changed = event && event.detail && event.detail.target
     if (changed === undefined || changed === null) return
@@ -209,11 +189,8 @@ export default class extends Controller {
     }
     if (this.isTargetMode()) {
       const isSelf   = changed === this.targetValue
-      const isParent = this.hasParentTargetValue && changed === this.parentTargetValue
-      const isChild  = this._isParent() &&
-        (this.constructor.CHILDREN_BY_PARENT[this.targetValue] || []).includes(changed)
       const isMaster = changed === "app"
-      if (isSelf || isParent || isChild || isMaster) {
+      if (isSelf || isMaster) {
         this._paint(this._computeTargetState())
       }
     } else if (this.isTstMode()) {
@@ -251,41 +228,18 @@ export default class extends Controller {
 
   // ─── :target mode state computation ───────────────────────────────
   //
-  // Parent panels compute `:mixed` when their registered children
-  // carry divergent enabled flags. Parent-self flag is authoritative
-  // only when children are uniform.
+  // Server owns top-down cascade. JS only reads its own target's
+  // enabled flag plus the parent and master guards.
   _computeTargetState() {
     if (this._cableDisconnected) return "disconnected"
-    if (this._isParent() && this._hasMixedChildren()) return "mixed"
     const selfEnabled = this._cachedEnabled(this.targetValue)
     if (!selfEnabled) return "idle"
     if (this.hasParentTargetValue && this.parentTargetValue) {
       const parentEnabled = this._cachedEnabled(this.parentTargetValue)
       if (!parentEnabled) return "idle"
     }
-    if (!this._cachedEnabled("app")) {
-      return "idle"
-    }
+    if (!this._cachedEnabled("app")) return "idle"
     return "active"
-  }
-
-  _isParent() {
-    if (!this.hasTargetValue) return false
-    const children = this.constructor.CHILDREN_BY_PARENT[this.targetValue]
-    return Array.isArray(children) && children.length > 0
-  }
-
-  _hasMixedChildren() {
-    if (!this._isParent()) return false
-    const children = this.constructor.CHILDREN_BY_PARENT[this.targetValue]
-    let sawEnabled = false
-    let sawDisabled = false
-    for (const childTarget of children) {
-      if (this._cachedEnabled(childTarget)) sawEnabled = true
-      else                                  sawDisabled = true
-      if (sawEnabled && sawDisabled) return true
-    }
-    return false
   }
 
   _paint(state) {
@@ -310,7 +264,6 @@ export default class extends Controller {
   setActive()       { this._paint("active") }
   setSyncing()      { this._paint("syncing") }
   setIdle()         { this._paint("idle") }
-  setMixed()        { this._paint("mixed") }
   setDisconnected() { this._paint("disconnected") }
 
   // ─── helpers ──────────────────────────────────────────────────────
@@ -326,7 +279,6 @@ export default class extends Controller {
     if (stateName === "idle")         return this.idleValue
     if (stateName === "active")       return this.activeValue
     if (stateName === "syncing")      return this.syncingValue || this.activeValue
-    if (stateName === "mixed")        return this.mixedValue || this.idleValue
     if (stateName === "disconnected") return this.disconnectedValue
     return stateName
   }

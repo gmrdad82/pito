@@ -674,6 +674,10 @@ export default class extends Controller {
   // grouping, or dialog-scope focusables).
   syncSubPanelFromFocusable(active) {
     if (!active || !active.closest) return
+    // FB-185 — if the focusable lives in the panel's own title-actions slot
+    // (e.g. the stack panel's [ ] sync button), it is NOT inside any
+    // sub-panel. Bail early so the sub-panel marker doesn't shift.
+    if (active.closest('.pito-pane__title-actions')) return
     const subPanel = active.closest('[data-tui-cursor-target="sub-panel"]')
     if (!subPanel) return
     const subs = this.subPanelsInFocusedPanel()
