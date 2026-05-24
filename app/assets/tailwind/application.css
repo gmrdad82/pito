@@ -1962,6 +1962,16 @@ table.tui-table--stack td {
   line-height: 1;
   white-space: nowrap;
 }
+
+/* 2026-05-24 — drop the trailing 8px right padding from the last cell
+   of every row in the stack sub-panel tables (Meilisearch / Voyage AI
+   embeds / Postgres / Assets) so the focus tint stops AT the cell
+   content rather than extending past it (visible whitespace gap after
+   `17/17` etc. in the focused-row tint). */
+table.tui-table--stack thead tr > th:last-child,
+table.tui-table--stack tbody tr > td:last-child {
+  padding-right: 0;
+}
 table.tui-table--stack tbody td {
   color: var(--color-muted);
 }
