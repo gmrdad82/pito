@@ -13,7 +13,7 @@ RSpec.describe Pito::GamesReleasingPanelComponent, type: :component do
 
   it "renders the rescued pito-pane chrome with the i18n title" do
     title = I18n.t("tui.home.panels.games_releasing.title")
-    expect(title).to eq("games releasing")
+    expect(title).to eq("upcoming games")
     expect(root["class"]).to include("pane")
     expect(root["class"]).to include("pito-pane")
     header = rendered.css(".pito-pane__title").first
