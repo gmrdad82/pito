@@ -670,6 +670,12 @@ export default class extends Controller {
     if (idx === this.subPanelIndex) return
     this.subPanelIndex = idx
     this.applySubPanelFocus()
+    // 2026-05-24 — broadcast a focus-changed event so downstream
+    // listeners (tui-breadcrumb, etc.) see the new sub-panel title.
+    // Without this, j/k crossing a sub-panel boundary updates the
+    // sub-panel marker but the breadcrumb stays pinned to the previous
+    // sub-panel title.
+    this.emitFocusChange()
   }
 
   focusedFocusable() {
