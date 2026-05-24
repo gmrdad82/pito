@@ -737,5 +737,13 @@ Rails.application.routes.draw do
   # block above).
   get "/settings/youtube", to: redirect("/channels", status: 301)
 
+  # 2026-05-25 (sync-rebuild) — the single mutation endpoint for the
+  # server-side sync state. Replaces every `localStorage.setItem` call
+  # the JS sync layer used to fire. `target=` query param carries the
+  # dot-namespaced sync target (`app`, `home.<panel>`, or
+  # `home.<panel>.<sub_panel>`); see `Pito::SyncTargets` for the
+  # full universe.
+  post "sync/toggle", to: "sync#toggle", as: :sync_toggle
+
   get "up" => "rails/health#show", as: :rails_health_check
 end

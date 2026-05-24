@@ -85,16 +85,34 @@ module Tui
     DEFAULT_MODE  = :tst
     DEFAULT_STATE = :idle
 
-    def initialize(mode: DEFAULT_MODE, state: DEFAULT_STATE,
+    # Sentinel for "no `state:` argument passed". Distinct from `:idle`
+    # so an explicit `state: :idle` (spec fixtures + top-status-bar)
+    # still wins over the AppSetting-derived initial state.
+    STATE_UNSET = Object.new.freeze
+    private_constant :STATE_UNSET
+
+    def initialize(mode: DEFAULT_MODE, state: STATE_UNSET,
                    target: nil, parent_target: nil, focusable_key: nil)
       @mode  = MODES.include?(mode.to_sym) ? mode.to_sym : DEFAULT_MODE
-      @state = STATES.include?(state.to_sym) ? state.to_sym : DEFAULT_STATE
       @target = target&.to_s
       @parent_target = parent_target&.to_s
       @focusable_key = focusable_key&.to_s
 
       if @mode == :target && @target.nil?
         raise ArgumentError, "Tui::SyncIndicatorComponent mode: :target requires target:"
+      end
+
+      # 2026-05-25 (sync-rebuild) — server-side initial state. Reads
+      # the canonical AppSetting row so the HTML lands with the right
+      # glyph from the SSR pass. No client-side localStorage lookup,
+      # no flash-of-wrong-state. The `state:` kwarg still wins when
+      # explicitly passed (used by the top-status-bar aggregate
+      # indicator + spec fixtures); otherwise the AppSetting-derived
+      # state is the default.
+      @state = if state.equal?(STATE_UNSET)
+        derive_initial_state
+      else
+        STATES.include?(state.to_sym) ? state.to_sym : DEFAULT_STATE
       end
     end
 
@@ -215,6 +233,31 @@ module Tui
     end
 
     private
+
+    # 2026-05-25 (sync-rebuild) — derive the SSR-initial state from
+    # the canonical AppSetting rows. Logic mirrors the cable
+    # suppression chain in `Pito::CableBroadcaster`:
+    #
+    #   :tst mode    → reads `sync.app` (master)
+    #   :target mode → reads `sync.<target>` AND every ancestor in the
+    #                  suppression chain (parent panel + "app"). Any
+    #                  disabled link short-circuits to `:idle`.
+    #
+    # An enabled target lands as `:active` (the [x] glyph) so the user
+    # sees the right initial paint before any cable activity fires.
+    def derive_initial_state
+      if tst_mode?
+        return AppSetting.sync_enabled?("app") ? :active : :idle
+      end
+      chain = Pito::SyncTargets.suppression_chain(@target) || [ @target ]
+      enabled = chain.all? { |t| AppSetting.sync_enabled?(t) }
+      enabled ? :active : :idle
+    rescue StandardError
+      # Defensive: tests render the VC without a DB row; fall back to
+      # the documented default. Production has the table; the rescue
+      # only kicks in for in-memory render-without-DB tests.
+      DEFAULT_STATE
+    end
 
     # Color name maps to the `kind=sync` row of the tui-transition
     # controller's COLOR_CLASS table:

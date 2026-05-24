@@ -23,56 +23,29 @@
  */
 
 // 2026-05-24 — client-side action whitelist. Actions in this map run
-// entirely in JS (no POST, no path lookup). The leader menu / palette /
-// any other dispatcher hands them off here.
+// entirely in JS (no path lookup through the action registry). The
+// leader menu / palette / any other dispatcher hands them off here.
+//
+// 2026-05-25 (sync-rebuild) — `toggle_tst_sync` now POSTs to
+// `/sync/toggle?target=app`. Server cascades the write across every
+// known sync target (Pito::SyncTargets.cascade_targets("app")) and
+// broadcasts a sync-state envelope per cascaded target on the
+// `pito:sync_state` channel. The bridge below (see initSyncBridge)
+// converts each broadcast into a `tui:sync-changed` document event
+// every sync-indicator VC already listens for.
 const CLIENT_ACTIONS = {
-  // `Space s` master switch — toggle the `pito.sync.app` localStorage
-  // flag (single global master across every screen) and dispatch
-  // `tui:sync-changed` so every panel + sub-panel sync VC anywhere
-  // re-evaluates via the existing cascade path.
-  //
-  // 2026-05-24 (sync-rebuild) — master key renamed from `pito.sync.home`
-  // to `pito.sync.app`. Architecture lock: ONE master flag covers
-  // every screen (videos/games will share the same gate when their
-  // sync VCs land). Per-panel-per-screen flags stay scoped
-  // (`pito.sync.<screen>.<panel>`).
-  //
-  // After the flip the handler fires a `tui:notice` event so the TST
-  // notice slot surfaces the visible "sync paused" / "sync resumed"
-  // confirmation. Messages flow through i18n
-  // (`tui.notices.sync_paused` / `tui.notices.sync_resumed`).
-  // 2026-05-25 — explicit cascade. TST toggle walks every panel +
-  // sub-panel sync VC target on the page, writes its localStorage flag
-  // to the new uniform value, fires `tui:sync-changed` per target so
-  // each VC re-paints from its own flag. No more master-lookup at
-  // read time — write propagates explicitly.
   toggle_tst_sync() {
-    const key = "pito.sync.app"
-    const raw = localStorage.getItem(key)
-    const currentlyEnabled = raw === "no" ? false : true
-    const nextEnabled = !currentlyEnabled
-    const value = nextEnabled ? "yes" : "no"
-
-    localStorage.setItem(key, value)
-
-    const targetEls = document.querySelectorAll('[data-tui-sync-indicator-target-value]')
-    const targets = new Set()
-    targetEls.forEach((el) => {
-      const t = el.getAttribute("data-tui-sync-indicator-target-value")
-      if (t) targets.add(t)
-    })
-
-    targets.forEach((t) => {
-      localStorage.setItem(`pito.sync.${t}`, value)
-      document.dispatchEvent(new CustomEvent("tui:sync-changed", {
-        detail: { target: t, parentTarget: null, enabled: nextEnabled }
-      }))
-    })
-
-    document.dispatchEvent(new CustomEvent("tui:sync-changed", {
-      detail: { target: "app", parentTarget: null, enabled: nextEnabled }
-    }))
-
+    postSyncToggle("app")
+    // Optimistic notice. The cable broadcast still drives the glyph
+    // repaint; the notice copy is read from <meta name=pito-notices>
+    // (mirroring per-panel toggles), with the user's most recent
+    // cached value as the optimism source. When the cache is unset,
+    // we default to "currently enabled" (the documented unset = yes
+    // semantic) and so the toggle is optimistically heading to OFF.
+    const wasEnabled = window.__pitoSyncStateCache &&
+      window.__pitoSyncStateCache["app"] !== undefined
+      ? window.__pitoSyncStateCache["app"] : true
+    const nextEnabled = !wasEnabled
     const message = readNoticeI18n(nextEnabled ? "sync_resumed" : "sync_paused")
     if (message) {
       document.dispatchEvent(new CustomEvent("tui:notice", {
@@ -80,6 +53,20 @@ const CLIENT_ACTIONS = {
       }))
     }
   }
+}
+
+// POSTs to /sync/toggle?target=<target>. Same wire shape as the
+// per-target sync VC click handler. CSRF token pulled from the
+// standard <meta name="csrf-token"> element.
+function postSyncToggle(target) {
+  const csrfMeta = document.querySelector('meta[name="csrf-token"]')
+  const headers = { "X-Requested-With": "XMLHttpRequest", "Accept": "application/json" }
+  if (csrfMeta) headers["X-CSRF-Token"] = csrfMeta.content
+  fetch(`/sync/toggle?target=${encodeURIComponent(target)}`, {
+    method: "POST",
+    headers,
+    credentials: "same-origin"
+  })
 }
 
 // Reads the resolved i18n string for a notice key out of the

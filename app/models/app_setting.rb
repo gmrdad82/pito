@@ -14,6 +14,32 @@ class AppSetting < ApplicationRecord
     record
   end
 
+  # 2026-05-25 (sync-rebuild) — server-side sync state, replaces the
+  # killed `pito.sync.*` localStorage layer.
+  #
+  # One AppSetting row per target. Targets are dot-namespaced strings:
+  #
+  #   sync.app                          — master (single global switch)
+  #   sync.<screen>.<panel>             — per-panel
+  #   sync.<screen>.<panel>.<sub_panel> — per-sub-panel
+  #
+  # Value semantics ride the yes/no boundary contract:
+  #   "yes" → enabled (default when the row is absent)
+  #   "no"  → user-disabled
+  #
+  # The full target catalog + cascade rules live in `Pito::SyncTargets`.
+  # The toggle controller + the cable broadcaster suppression layer both
+  # call into these two helpers; nothing else reads the rows directly.
+  SYNC_KEY_PREFIX = "sync.".freeze
+
+  def self.sync_enabled?(target)
+    get("#{SYNC_KEY_PREFIX}#{target}") != "no"
+  end
+
+  def self.set_sync(target, enabled)
+    set("#{SYNC_KEY_PREFIX}#{target}", enabled ? "yes" : "no")
+  end
+
   # Phase 29 (settings refactor) — the Voyage.ai pane and the per-target
   # `voyage_index_project_notes` flag column are both dropped. Indexing
   # is gated solely on credentials presence now: a configured Voyage API

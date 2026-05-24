@@ -19,7 +19,16 @@ RSpec.describe Tui::SyncIndicatorComponent, type: :component do
   let(:disconnected_display) { "[!] #{disconnected_word}" }
 
   describe "default state + mode" do
-    it "defaults to :idle state" do
+    # 2026-05-25 (sync-rebuild) — the default state is now derived from
+    # the canonical AppSetting `sync.app` row when `state:` is omitted.
+    # Master OFF → :idle; master ON (or unset, the documented default)
+    # → :active. The explicit `state: :idle` path below still works.
+    it "defaults to :active when AppSetting master is enabled (the unset = yes default)" do
+      expect(described_class.new.state).to eq(:active)
+    end
+
+    it "defaults to :idle when AppSetting master is disabled" do
+      AppSetting.set_sync("app", false)
       expect(described_class.new.state).to eq(:idle)
     end
 
@@ -191,10 +200,15 @@ RSpec.describe Tui::SyncIndicatorComponent, type: :component do
     end
 
     describe "outlet wiring (tui-transition)" do
-      it "wires the tui-transition outlet selector pointing at .tui-sync-word" do
+      # 2026-05-25 — per-instance outlet class (`tui-sync-word--id-tst`
+      # in :tst mode, `tui-sync-word--id-<sanitized-target>` in target
+      # mode). The original `.tui-sync-word` global selector matched
+      # every sync VC and routed every toggle through the TST instance.
+      # The unique outlet keeps each VC's transition wiring isolated.
+      it "wires the tui-transition outlet selector to the per-instance class" do
         render_inline(described_class.new(state: :idle))
         expect(page).to have_css(
-          '.tui-sync-word[data-tui-sync-indicator-tui-transition-outlet=".tui-sync-word"]'
+          '.tui-sync-word[data-tui-sync-indicator-tui-transition-outlet=".tui-sync-word--id-tst"]'
         )
       end
     end
@@ -238,8 +252,14 @@ RSpec.describe Tui::SyncIndicatorComponent, type: :component do
       expect(classes).to include("tui-sync-word--target")
     end
 
-    it "renders the SSR-default '[ ] sync' display string" do
-      expect(button.text.strip).to eq("[ ] sync")
+    it "renders the SSR-derived display string (default = enabled → '[x] sync')" do
+      # 2026-05-25 (sync-rebuild) — unset AppSetting row = enabled,
+      # so the SSR default for a per-target VC is `[x] sync` (the
+      # `:active` glyph). The old `[ ] sync` paint reflected the
+      # localStorage-default world where every target started as
+      # "idle until proven active"; the canonical server state is
+      # the inverse.
+      expect(button.text.strip).to eq("[x] sync")
     end
 
     it "wires the tui-sync-indicator + tui-transition controllers" do
@@ -389,27 +409,22 @@ RSpec.describe Tui::SyncIndicatorComponent, type: :component do
     end
   end
 
-  # 2026-05-24 (sync-rebuild) — lock the master flag key + cascade in
-  # the controller JS via static analysis. The architecture lock: ONE
-  # global master flag (`pito.sync.app`) cascades to every per-panel
-  # target on every screen. A direct `"yes"` per-panel override still
-  # wins so the user can opt a single panel back in.
-  describe "controller JS master cascade (static source check)" do
+  # 2026-05-25 (sync-rebuild) — locked architecture: localStorage is
+  # KILLED. Toggle handler POSTs to /sync/toggle; server cascades the
+  # write to AppSetting + broadcasts on pito:sync_state. The JS still
+  # listens for `changed === "app"` as the master cascade trigger
+  # (now driven by the cable bridge, not by an in-JS write).
+  describe "controller JS — no localStorage (static source check)" do
     let(:js_source) do
       Rails.root.join("app/javascript/controllers/tui_sync_indicator_controller.js").read
     end
 
-    it "uses `pito.sync.app` for the master gate (renamed from pito.sync.home)" do
-      expect(js_source).to include('"pito.sync.app"')
-      expect(js_source).not_to include('"pito.sync.home"')
+    it "contains zero localStorage.getItem / setItem / removeItem calls" do
+      expect(js_source).not_to match(/localStorage\.(get|set|remove)Item/)
     end
 
-    it "treats the `app` target as the master in isTargetSyncDisabled" do
-      expect(js_source).to match(/localStorage\.getItem\("pito\.sync\.app"\)\s*===\s*"no"/)
-    end
-
-    it "treats the `app` target as the master inside _computeTargetState" do
-      expect(js_source).to match(/this\._lsKey\("app"\)/)
+    it "POSTs to /sync/toggle from the toggle handler" do
+      expect(js_source).to include("/sync/toggle")
     end
 
     it "treats `changed === \"app\"` as the master cascade trigger in onSyncChanged" do
@@ -428,6 +443,75 @@ RSpec.describe Tui::SyncIndicatorComponent, type: :component do
     it "the notice message lookup interpolates panel title from data-panel-title" do
       expect(js_source).to include("data-panel-title")
       expect(js_source).to match(/sync_paused_for|sync_resumed_for/)
+    end
+  end
+
+  # 2026-05-25 (sync-rebuild) — pito_actions.js master action also
+  # POSTs (no more localStorage cascade in JS land).
+  describe "pito_actions.js master action (static source check)" do
+    let(:js_source) do
+      Rails.root.join("app/javascript/pito_actions.js").read
+    end
+
+    it "contains zero localStorage.getItem / setItem / removeItem calls" do
+      expect(js_source).not_to match(/localStorage\.(get|set|remove)Item/)
+    end
+
+    it "POSTs to /sync/toggle?target=app for the master toggle" do
+      expect(js_source).to include("/sync/toggle")
+    end
+  end
+
+  # 2026-05-25 (sync-rebuild) — server-side initial state. The VC
+  # reads AppSetting at render time so the HTML lands with the right
+  # glyph without any client-side localStorage lookup.
+  describe "server-side initial state (SSR from AppSetting)" do
+    context ":target mode" do
+      it "paints '[x] sync' when the target row is enabled" do
+        AppSetting.set_sync("home.security", true)
+        render_inline(described_class.new(mode: :target, target: "home.security"))
+        expect(page).to have_css("button.tui-sync-word", text: /\A\[x\]/)
+      end
+
+      it "paints '[ ] sync' when the target row is disabled" do
+        AppSetting.set_sync("home.security", false)
+        render_inline(described_class.new(mode: :target, target: "home.security"))
+        expect(page).to have_css("button.tui-sync-word", text: /\A\[ \]/)
+      end
+
+      it "paints '[ ] sync' when the parent panel row is disabled (sub-panel inherits)" do
+        AppSetting.set_sync("home.stack", false)
+        render_inline(described_class.new(
+          mode: :target, target: "home.stack.voyage", parent_target: "home.stack"
+        ))
+        expect(page).to have_css("button.tui-sync-word", text: /\A\[ \]/)
+      end
+
+      it "paints '[ ] sync' when the master 'app' row is disabled" do
+        AppSetting.set_sync("app", false)
+        render_inline(described_class.new(mode: :target, target: "home.security"))
+        expect(page).to have_css("button.tui-sync-word", text: /\A\[ \]/)
+      end
+    end
+
+    context ":tst mode (top status bar aggregate)" do
+      it "paints '[x] sync' when master is enabled and state: is omitted" do
+        AppSetting.set_sync("app", true)
+        render_inline(described_class.new)
+        expect(page).to have_css(".tui-sync-word", text: "[x] sync")
+      end
+
+      it "paints '[ ] sync' when master is disabled and state: is omitted" do
+        AppSetting.set_sync("app", false)
+        render_inline(described_class.new)
+        expect(page).to have_css(".tui-sync-word", text: "[ ] sync")
+      end
+
+      it "honors an explicit state: kwarg over the AppSetting-derived default" do
+        AppSetting.set_sync("app", true)
+        render_inline(described_class.new(state: :idle))
+        expect(page).to have_css(".tui-sync-word", text: "[ ] sync")
+      end
     end
   end
 end

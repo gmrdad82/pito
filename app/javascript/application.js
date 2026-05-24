@@ -9,6 +9,10 @@ import "chartkick"
 // crafting its own POST flow. See `app/javascript/pito_actions.js` for
 // the contract.
 import "pito_actions"
+// 2026-05-25 (sync-rebuild) — converts `pito:sync_state` cable
+// broadcasts into `tui:sync-changed` document events. Imported for
+// side-effect; subscribes once on DOM ready.
+import "pito_sync_state_bridge"
 
 // 2026-05-20 — section-accent shim. Turbo Drive replaces body CONTENT
 // on navigation but does NOT re-apply body element ATTRIBUTES, so the

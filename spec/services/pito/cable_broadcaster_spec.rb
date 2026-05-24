@@ -69,9 +69,82 @@ RSpec.describe Pito::CableBroadcaster do
       }.to raise_error(ArgumentError, /must start with pito:/)
     end
 
-    it "accepts deeper sub-panel grammar (pito:home:stack:redis)" do
-      expect(ActionCable.server).to receive(:broadcast).with("pito:home:stack:redis", anything)
-      described_class.broadcast_panel("pito:home:stack:redis", kind: "complete", payload: {})
+    it "accepts deeper sub-panel grammar (pito:home:stack:meilisearch)" do
+      expect(ActionCable.server).to receive(:broadcast).with("pito:home:stack:meilisearch", anything)
+      described_class.broadcast_panel("pito:home:stack:meilisearch", kind: "complete", payload: {})
+    end
+  end
+
+  # 2026-05-25 (sync-rebuild) — server-side sync-state gate.
+  # Disabled targets never reach the broadcast call.
+  describe ".broadcast_panel — sync-state suppression gate" do
+    it "drops the broadcast when the panel target is disabled" do
+      AppSetting.set_sync("home.stack", false)
+      expect(ActionCable.server).not_to receive(:broadcast)
+      described_class.broadcast_panel("pito:home:stack", kind: "indeterminate", payload: {})
+    end
+
+    it "drops the broadcast when the parent panel target is disabled" do
+      AppSetting.set_sync("home.stack", false)
+      expect(ActionCable.server).not_to receive(:broadcast)
+      described_class.broadcast_panel("pito:home:stack:voyage", kind: "complete", payload: {})
+    end
+
+    it "drops the broadcast when the master 'app' switch is off" do
+      AppSetting.set_sync("app", false)
+      expect(ActionCable.server).not_to receive(:broadcast)
+      described_class.broadcast_panel("pito:home:security", kind: "data", payload: {})
+    end
+
+    it "fires the broadcast when every link in the chain is enabled" do
+      AppSetting.set_sync("app", true)
+      AppSetting.set_sync("home.stack", true)
+      AppSetting.set_sync("home.stack.voyage", true)
+      expect(ActionCable.server).to receive(:broadcast).with("pito:home:stack:voyage", anything)
+      described_class.broadcast_panel("pito:home:stack:voyage", kind: "complete", payload: {})
+    end
+
+    it "leaves non-registered channel grammars alone (no gate, broadcast fires)" do
+      # `pito:settings:stack:*` is a legacy grammar not in the sync
+      # registry; the gate is a no-op for it (broadcast still fires
+      # so the legacy reindex jobs keep working).
+      AppSetting.set_sync("app", false)
+      expect(ActionCable.server).to receive(:broadcast).with("pito:settings:stack:meilisearch", anything)
+      described_class.broadcast_panel("pito:settings:stack:meilisearch", kind: "complete", payload: {})
+    end
+  end
+
+  describe ".broadcast_sync_state" do
+    it "broadcasts a sync_state envelope on pito:sync_state with the canonical payload shape" do
+      expect(ActionCable.server).to receive(:broadcast).with(
+        "pito:sync_state",
+        {
+          kind: "sync_state",
+          payload: { target: "home.stack.meilisearch", enabled: true },
+          ts: kind_of(String)
+        }
+      )
+      described_class.broadcast_sync_state(target: "home.stack.meilisearch", enabled: true)
+    end
+
+    it "stringifies the target arg" do
+      expect(ActionCable.server).to receive(:broadcast).with(
+        "pito:sync_state",
+        hash_including(payload: hash_including(target: "home.stack"))
+      )
+      described_class.broadcast_sync_state(target: :"home.stack", enabled: false)
+    end
+
+    it "coerces enabled to a boolean" do
+      expect(ActionCable.server).to receive(:broadcast).with(
+        "pito:sync_state",
+        hash_including(payload: hash_including(enabled: false))
+      )
+      described_class.broadcast_sync_state(target: "app", enabled: nil)
+    end
+
+    it "pins to the SYNC_STATE_CHANNEL constant" do
+      expect(described_class::SYNC_STATE_CHANNEL).to eq("pito:sync_state")
     end
   end
 end

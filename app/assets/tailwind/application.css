@@ -7297,6 +7297,133 @@ body.keyboard-only * {
 }
 .tui-scroll-indicator--visible { opacity: 1; }
 
+/* 2026-05-25 — Horizontal axis (◀ ▶ ▬) on the BOTTOM border of the
+   panel. Mirror of the vertical mode's right-edge layout: the same
+   anchor element (`.pito-pane`) hosts both axes via the same
+   "outside the border by ~4px" rule. The horizontal-modifier
+   overrides `right: -4px` from the base rule (irrelevant on this
+   axis) and resets `transform` (vertical mode's `scaleX(0.7)` would
+   distort the wide ◀/▶/▬ glyphs visually if reused — these glyphs
+   are already narrow). */
+.tui-scroll-indicator--horizontal {
+  /* Reset vertical-mode defaults that don't apply on the bottom edge. */
+  right: auto;
+  top: auto;
+  /* Sit OUTSIDE the panel's bottom border (mirror of -4px on the
+     right edge against `.pito-pane`'s padding-box). */
+  bottom: -4px;
+  /* Glyphs ◀ ▶ ▬ are visually slim already — drop the vertical
+     mode's transform: scaleX(0.7) which would smush them further. */
+  transform: none;
+}
+.tui-scroll-indicator--left  { left: 2px; }
+.tui-scroll-indicator--right { right: 2px; }
+/* Handle in horizontal mode sits on the same bottom row as ◀ ▶ —
+   its X coordinate is computed in pixels by the Stimulus controller
+   (`style.left = <Npx>`), so no static `left` value is set here. */
+.tui-scroll-indicator--horizontal.tui-scroll-indicator--handle {
+  bottom: -4px;
+  /* `left` is JS-set; clear inherited `right: auto` so the handle
+     anchors from the left edge of `.pito-pane`'s padding-box. */
+  left: 0;
+}
+
+/* 2026-05-25 — `Tui::PanelFieldsetComponent` horizontal-axis variant.
+   Vertical mode (default) uses `overflow-y: auto`; horizontal mode
+   flips to `overflow-x: auto` + `overflow-y: hidden` so the inner
+   `.tui-panel-fieldset__scroll` wrapper scrolls left-to-right and
+   the bottom-edge ◀ ▶ ▬ glyphs (positioned against `.pito-pane`)
+   are not clipped by the fieldset's own overflow box. */
+.tui-panel-fieldset--horizontal,
+.tui-panel-fieldset--horizontal > .tui-panel-fieldset__scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+/* 2026-05-25 — Upcoming-games shelf row inside the fieldset's scroll
+   wrapper. Flex row, no wrap, tile-gap mirrors the canonical
+   `.shelf-row` spacing (6px). `height: 100%` lets each child tile
+   resolve its height from the panel-driven row height; tile cover
+   art further inherits via flex-grow + `aspect-ratio: 3/4`. */
+.upcoming-tile-shelf__row {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 8px;
+  height: 100%;
+  align-items: stretch;
+  padding: 4px 0;
+}
+
+/* 2026-05-25 — Upcoming-games tile. Vertical flex stack: cover (top,
+   flex-grow), title, chip strip, days-until. The cover wrapper owns
+   `min-height: 0` so flexbox lets it shrink instead of overflowing
+   when the panel is short. */
+.upcoming-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  color: inherit;
+  text-decoration: none;
+  min-width: 0;
+  /* Tile width follows the cover's intrinsic aspect-ratio — no fixed
+     min/max — so denser panels show more tiles + sparser panels
+     get bigger tiles without manual breakpoint tuning. */
+}
+.upcoming-tile__cover-wrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  align-items: stretch;
+}
+/* `:shelf_fill` cover variant — height drives off the parent
+   container, width follows the canonical 3:4 aspect ratio. */
+.game-cover--shelf-fill {
+  display: flex;
+  height: 100%;
+  width: auto;
+  aspect-ratio: 3 / 4;
+}
+.game-cover--shelf-fill .game-cover-img {
+  height: 100%;
+  width: 100%;
+  object-fit: cover;
+  display: block;
+}
+.upcoming-tile__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  width: 100%;
+}
+.upcoming-tile__title {
+  font-size: 13px;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  /* Title bounded by the cover's measured width (the parent flex
+     item shrinks to the cover's intrinsic px width). */
+  max-width: 100%;
+  color: var(--color-text);
+}
+.upcoming-tile__chips {
+  display: inline-flex;
+  gap: 2px;
+}
+.upcoming-tile__when {
+  font-size: 12px;
+  color: var(--color-muted);
+}
+/* Focus paint — section-accent tint when the tile is the cursor's
+   focused focusable. Mirrors the rest of pito's focus paint
+   convention (tint only, no outline). */
+.upcoming-tile[data-tui-focusable-focused="yes"] {
+  outline: 1px solid var(--section-accent);
+  outline-offset: 1px;
+}
+
 /* Wave 2B (2026-05-23) — Pito::*PanelComponent placeholder shared by all
    home panels (channels_overview / latest_videos / games_releasing /
    notifications_feed / calendar) until content rounds wire real data

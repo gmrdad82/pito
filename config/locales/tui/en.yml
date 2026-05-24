@@ -82,6 +82,12 @@ en:
           title: "latest videos"
         games_releasing:
           title: "upcoming games"
+          # 2026-05-25 — empty-state copy for the upcoming-games shelf.
+          # Surfaces when no owned game has a `release_date` inside the
+          # next 30 days. Locked terminology: "owned" (mirrors the
+          # `Game.owned` Phase 27 §1a scope name); "30 days" (mirrors
+          # `Pito::GamesReleasingPanelComponent::UPCOMING_WINDOW_DAYS`).
+          empty: "no owned games releasing in the next 30 days"
         notifications_feed:
           title: "notifications"
         calendar:
