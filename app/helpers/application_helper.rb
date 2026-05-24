@@ -287,6 +287,17 @@ module ApplicationHelper
   # and avoids re-querying the DB just to produce a label.
   def current_page
     return nil unless respond_to?(:controller_path) && controller_path.present?
+
+    # Dashboard index — seed the breadcrumb with the FIRST panel's title
+    # so a fresh page load renders directly with "channels overview" (or
+    # whichever panel sits first in the DOM) instead of "home" → scramble
+    # → first panel. The cursor controller focuses index 0 at connect, so
+    # this server-side seed matches the client's first applyState exactly
+    # and the diff-only transition becomes a no-op.
+    if controller_path == "dashboard" && action_name == "index"
+      return I18n.t("tui.home.panels.channels_overview.title", default: nil)
+    end
+
     return nil unless respond_to?(:action_name) && action_name == "show"
 
     case controller_path
