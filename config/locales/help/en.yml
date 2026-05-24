@@ -41,10 +41,6 @@ en:
           items:
             cycle_forward: "cycle panel forward"
             cycle_backward: "cycle panel backward"
-            panel_left: "panel left"
-            panel_right: "panel right"
-            panel_up: "panel up"
-            panel_down: "panel down"
         mode:
           title: "mode"
           items:

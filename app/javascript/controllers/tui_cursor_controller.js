@@ -4,6 +4,8 @@ import { Controller } from "@hotwired/stimulus"
 //
 // =========================================================================
 //  CONTRACT (locked 2026-05-21 for FB-165 — focus-list-per-panel rewrite)
+//  Updated 2026-05-24: spatial Ctrl-hjkl panel nav dropped; TAB / Shift-TAB
+//  are now the sole panel traversal keys (user decision 2026-05-23).
 // =========================================================================
 //
 //  Vim-inspired NORMAL / INSERT modes + per-panel "focus list" cursor.
@@ -50,23 +52,11 @@ import { Controller } from "@hotwired/stimulus"
 //
 //    NORMAL (default): keyboard navigation owns the screen.
 //      - SPACE  → leader menu (owned by leader_menu_controller, not us)
-//      - TAB / Shift-TAB → sequential DOM-order panel traversal (next /
-//                          previous panel by document order).
-//      - Ctrl-h / Ctrl-j / Ctrl-k / Ctrl-l → SPATIAL neighbor navigation:
-//                          picks the nearest panel in the requested
-//                          direction by panel bounding rect (no edge
-//                          wrap). Direction-gated scoring weights
-//                          PRIMARY-axis (along-direction) distance × 3 and
-//                          SECONDARY-axis (orthogonal) distance × 1, so the
-//                          immediate next row/column always wins over a
-//                          far-away column-aligned panel. Locked 2026-05-23
-//                          to fix the games-releases ↓ skip-Calendar bug.
-//                          Ratatui Layout parity: the Rust TUI mirrors
-//                          this exact formula.
-//                          TAB / Shift-TAB stay sequential — Ctrl-hjkl
-//                          is the spatial path; both are evaluated
-//                          BEFORE the inside-panel branches so they
-//                          can't be hijacked by row/focusable handling.
+//      - TAB         → advance to next panel in DOM order (wraps around).
+//                      No-op when a dialog is open or focus is on a form
+//                      input (browser default takes over).
+//      - Shift-TAB   → retreat to previous panel in DOM order (wraps).
+//                      Same guards as TAB.
 //      - h/j/k/l + arrows           → INSIDE the focused panel
 //                                     (sub-panels OR focusables — never
 //                                     both at the same time).
@@ -100,7 +90,7 @@ import { Controller } from "@hotwired/stimulus"
 //    Level 1 — PANEL.
 //      Targets: elements with data-tui-cursor-target="panel".
 //      Marker:  data-tui-cursor-focused="yes" on the focused panel.
-//      Keys:    TAB, Shift-TAB, Ctrl-h, Ctrl-l, Ctrl-j, Ctrl-k.
+//      Keys:    TAB (forward), Shift-TAB (backward) — DOM order, wraps.
 //
 //    Level 2 — SUB-PANEL (when present in focused panel).
 //      Targets: elements with data-tui-cursor-target="sub-panel"
@@ -267,57 +257,40 @@ export default class extends Controller {
 
   // ===================== KEY DISPATCH =====================
   //
-  // Panel-level keys (TAB / Shift-TAB / Ctrl-hjkl) are evaluated FIRST,
-  // BEFORE any mode-specific branch — they must work identically in
-  // NORMAL and INSERT. This is the FB-165 regression fix: previously
-  // FB-143's `tabIntoFocusedRow` trapped Tab inside a focused row
-  // when the row had internal focusable elements, requiring N tabs
-  // per panel × N actions per row to escape (sessions × 5 actions =
-  // 25 tabs before Tab finally advanced the panel cursor). Per the
-  // 2026-05-21 user-locked architecture, Tab/Shift-Tab/Ctrl-hjkl are
-  // panel-level keys, period — focusable-level cycling lives on j/k.
+  // Panel-level keys (TAB / Shift-TAB) are evaluated FIRST, BEFORE any
+  // mode-specific branch — they must work identically in NORMAL and INSERT.
+  // This is the FB-165 regression fix: previously FB-143's `tabIntoFocusedRow`
+  // trapped Tab inside a focused row when the row had internal focusable
+  // elements, requiring N tabs per panel × N actions per row to escape.
+  // Per the 2026-05-21 user-locked architecture (updated 2026-05-24 to drop
+  // spatial Ctrl-hjkl), Tab/Shift-Tab are the sole panel-level keys —
+  // focusable-level cycling lives on j/k.
+  //
+  // TAB / Shift-TAB guard: when focus is inside a form input / textarea /
+  // contenteditable / select, we do NOT intercept — the browser handles
+  // text-field tab order naturally. When a dialog is open, shouldIgnore()
+  // already bails so TAB falls through to the dialog's own focus trap.
   handleKey(event) {
     if (this.shouldIgnore(event)) return
 
     // --- Panel-level keys — always active, all modes. ---
     if (event.key === "Tab" && !event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey) {
+      // Let the browser handle TAB when focus is on a form input / select.
+      const active = document.activeElement
+      if (active && active.matches && active.matches(INPUT_SELECTOR + ", select")) return
       event.preventDefault()
       event.stopPropagation()
       this.nextPanel()
       return
     }
     if (event.key === "Tab" && event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey) {
+      // Let the browser handle Shift-TAB when focus is on a form input / select.
+      const active = document.activeElement
+      if (active && active.matches && active.matches(INPUT_SELECTOR + ", select")) return
       event.preventDefault()
       event.stopPropagation()
       this.previousPanel()
       return
-    }
-    if (event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey) {
-      const k = event.key.toLowerCase()
-      if (k === "h") {
-        this.movePanelDirection("left")
-        event.preventDefault()
-        event.stopPropagation()
-        return
-      }
-      if (k === "l") {
-        this.movePanelDirection("right")
-        event.preventDefault()
-        event.stopPropagation()
-        return
-      }
-      if (k === "k") {
-        this.movePanelDirection("up")
-        event.preventDefault()
-        event.stopPropagation()
-        return
-      }
-      if (k === "j") {
-        this.movePanelDirection("down")
-        event.preventDefault()
-        event.stopPropagation()
-        return
-      }
     }
 
     // --- INSERT mode branch. ---
@@ -483,74 +456,6 @@ export default class extends Controller {
     this.subPanelIndex = 0
     this.focusableIndex = 0
     this.applyFocus()
-  }
-
-  // Spatial neighbor traversal — chooses the nearest panel in the requested
-  // direction by bounding rect (Ctrl-h/j/k/l). Direction-gated; no edge wrap.
-  //
-  // Scoring weights PRIMARY-axis distance × 3 and SECONDARY-axis distance × 1,
-  // so the IMMEDIATE next row/column always wins over a far-away panel with
-  // better orthogonal alignment. Secondary distance breaks ties among
-  // equidistant primary candidates. Final tiebreak: DOM order.
-  //
-  // Example fix (locked 2026-05-23): Ctrl-j from `games-releases` (row 1)
-  // must reach `calendar` (row 2) even though `notifications-settings`
-  // (row 3 right) is more column-aligned with the focused panel — calendar
-  // is in the next row, so primary*3 wins.
-  //
-  // Ratatui Layout parity (TUI): the Rust client mirrors this exact scoring
-  // formula on panel Rect positions. See docs/design.md §Spatial Ctrl-hjkl
-  // navigation. The Ruby port + truth table live in
-  // `spec/javascript/tui_cursor_spatial_nav_spec.rb`.
-  movePanelDirection(dir) {
-    const panels = this.panelTargets
-    if (panels.length === 0) return
-    const focusedIdx = this.focusedIndex
-    if (focusedIdx < 0 || focusedIdx >= panels.length) return
-    const focused = panels[focusedIdx]
-    const focusedRect = focused.getBoundingClientRect()
-    const fCx = focusedRect.left + focusedRect.width / 2
-    const fCy = focusedRect.top + focusedRect.height / 2
-
-    let bestIdx = -1
-    let bestScore = Infinity
-    panels.forEach((panel, idx) => {
-      if (idx === focusedIdx) return
-      const r = panel.getBoundingClientRect()
-      const cx = r.left + r.width / 2
-      const cy = r.top + r.height / 2
-      const dx = cx - fCx
-      const dy = cy - fCy
-
-      // Direction gate: only consider panels in the requested direction.
-      let inDirection = false
-      let primary = 0   // distance along direction axis
-      let secondary = 0 // distance across direction axis
-      switch (dir) {
-        case "left":  inDirection = dx < -1; primary = -dx; secondary = Math.abs(dy); break
-        case "right": inDirection = dx > 1;  primary = dx;  secondary = Math.abs(dy); break
-        case "up":    inDirection = dy < -1; primary = -dy; secondary = Math.abs(dx); break
-        case "down":  inDirection = dy > 1;  primary = dy;  secondary = Math.abs(dx); break
-      }
-      if (!inDirection) return
-
-      // Score: weight PRIMARY (along-direction) distance heavily so we always
-      // prefer the NEXT row/column over far-away panels with better orthogonal
-      // alignment. Secondary (cross-direction) distance breaks ties among
-      // equidistant primary candidates. See docs/design.md §Spatial Ctrl-hjkl.
-      const score = primary * 3 + secondary
-      if (score < bestScore) {
-        bestScore = score
-        bestIdx = idx
-      }
-    })
-
-    if (bestIdx >= 0) {
-      this.focusedIndex = bestIdx
-      this.subPanelIndex = 0
-      this.focusableIndex = 0
-      this.applyFocus()
-    }
   }
 
   applyFocus() {

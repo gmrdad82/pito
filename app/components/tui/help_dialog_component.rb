@@ -45,11 +45,7 @@ module Tui
         group_key: "panel_nav",
         items: [
           { key: "TAB",       label_key: "cycle_forward" },
-          { key: "Shift-TAB", label_key: "cycle_backward" },
-          { key: "Ctrl-h",    label_key: "panel_left" },
-          { key: "Ctrl-l",    label_key: "panel_right" },
-          { key: "Ctrl-k",    label_key: "panel_up" },
-          { key: "Ctrl-j",    label_key: "panel_down" }
+          { key: "Shift-TAB", label_key: "cycle_backward" }
         ]
       },
       {
