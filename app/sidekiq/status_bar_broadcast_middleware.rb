@@ -47,8 +47,16 @@ class StatusBarBroadcastMiddleware
     broadcast_stats unless @current_job_class == "StatusBarBroadcastJob"
     yield
   ensure
+    # 2026-05-25 — TRAILING BROADCAST DROPPED. The previous design
+    # scheduled a 1s trailing-edge StatusBarBroadcastJob after every
+    # real job so the TST `b<n>` cell snaps to 0 once the worker
+    # released its slot. Twice (FB-171, 2026-05-24 SETNX lock) it
+    # caused runaway queues — every real job spawns one, lock TTL
+    # races with high job throughput, queue grows faster than it
+    # drains. Killing the trailing entirely. The TST will read `b1`
+    # one tick longer after the last job in a burst; acceptable cost
+    # vs the runaway risk. Sidekiq cable activity is sufficient signal.
     broadcast_stats
-    schedule_trailing_broadcast
   end
 
   private
