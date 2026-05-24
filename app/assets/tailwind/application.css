@@ -1242,6 +1242,27 @@ tr[data-tui-cursor-row-focused="yes"],
   background: var(--focus-tint-bg);
 }
 
+/* 2026-05-24 — `inert` style on a `<tr>` (e.g. the stack sub-panel
+   table header rows) DOES paint the focus tint — the row is a
+   navigation stop where `s` / `S` fire sort, and the user needs to
+   see the cursor land on it. `inert` on a non-`tr` element (e.g.
+   sub-panel root `<div>`) stays paint-free so the cursor's
+   land-on-container stops don't flood the panel with bg-tint. */
+tr[data-tui-focusable-focused="yes"][data-tui-focusable-style="inert"] {
+  background: var(--focus-tint-bg);
+}
+
+/* 2026-05-24 — focused-row text contrast lift. Muted text inside a
+   focused row reads harder on the accent-tinted bg (low-contrast
+   gray over slight-purple); brighten it 50% of the way to the full
+   text token so the eye picks it up without losing the "muted"
+   relative ordering vs default text. Accent text already pops
+   against the bg-tint; default text needs no boost. */
+[data-tui-focusable-focused="yes"] .text-muted,
+[data-tui-focusable-focused="yes"] .pito-sub-panel__hint.is-muted {
+  color: color-mix(in srgb, var(--color-muted) 50%, var(--color-text));
+}
+
 /* FB-PURPLE-REGRESSION (2026-05-21) — `<td>` / `<th>` children of a
    focused `<tr>` inherit the row bg explicitly. Without this rule the
    `<tr>`'s `background` paints only on rows where the cells have
