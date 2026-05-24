@@ -1756,14 +1756,12 @@ tbody td {
   color: var(--color-text);
   font-weight: 400;
 }
-/* Even-row zebra. Yields to keyboard focus state via :not() — without
-   the exclusion the zebra (or transparent zebra opt-out below) beats
-   the focus-tint rule on cascade specificity and the keyboard cursor
-   becomes invisible on every other row. */
-table:not(.detail-table)
-  tr:nth-child(even):not([data-tui-focusable-focused="yes"]):not([data-tui-cursor-row-focused="yes"]) {
-  background-color: var(--color-bg-alt);
-}
+/* 2026-05-24 — no zebra anywhere. The previous global rule painted
+   every even row in `--color-bg-alt`; that produced inconsistent
+   cell backgrounds, masked the keyboard focus tint, and was already
+   opted out of by every canonical table (sessions / kv-table /
+   tui-table--stack). With zero use cases left, the rule is removed
+   wholesale (and so are the per-table opt-outs below). */
 /* FB-67 (2026-05-20) — no pointer-hover tint on table rows. Keyboard
    row navigation still highlights via `.keyboard-highlight` below
    (intentional, signal-bearing) — only the pointer hover tint is gone. */
@@ -1909,22 +1907,6 @@ table.tui-table--stack {
   width: 100%;
   table-layout: auto;
 }
-/* FB-68 (2026-05-20, folded into FB-51) — opt `.tui-table--stack` out
-   of the global `table:not(.detail-table) tr:nth-child(even)` zebra
-   rule. The canonical `.tui-table` grammar uses a dashed hairline
-   body row as the visual separator — no zebra background. Mirrors
-   the `.sessions-table` opt-out below for the same reason. The
-   Voyage AI stats table + assets breakdown + Postgres breakdown +
-   Meilisearch breakdown + notes breakdown all carry
-   `.tui-table--stack` and inherit this opt-out. */
-/* Stack-table zebra opt-out. Same `:not(focused)` exclusion as the
-   global zebra rule so the focus tint shows on every other row. */
-table.tui-table--stack tbody
-  tr:nth-child(even):not([data-tui-focusable-focused="yes"]):not([data-tui-cursor-row-focused="yes"]),
-table.tui-table--stack
-  tr:nth-child(even):not([data-tui-focusable-focused="yes"]):not([data-tui-cursor-row-focused="yes"]) {
-  background-color: transparent;
-}
 table.tui-table--stack th,
 table.tui-table--stack td {
   border: none;
@@ -2026,48 +2008,6 @@ table.sessions-table th.sortable > .sortable-label {
    `th.sortable:hover` rule has been removed sitewide. */
 table.sessions-table th.sortable {
   cursor: default;
-}
-/* Sessions-table body rows (2026-05-20, F3-DEEP-B cleanup). The global
-   `table:not(.detail-table) tr:nth-child(even)` rule paints zebra on
-   any non-detail table; opt out here so the sessions table reads as
-   the flat `.tui-table` shape the F3-DEEP-B migration committed to.
-   The global `table:not(.detail-table) tr:hover` rule similarly tints
-   on hover — kill it for the sessions table too (the bulk-revoke
-   checkbox is the real click target; row-wide hover noise is the
-   legacy stack pane mode). The hairline-bottom between rows comes
-   from `.tui-table__td`'s own border.
-
-   2026-05-23 — user reported even body rows reading as "not showing at
-   all" (header + odd row visible, even row blank). The opt-out shares
-   specificity (0,2,2) with the global zebra rule and is declared AFTER
-   it in source order, so source-order cascade resolves the conflict —
-   in theory. In practice the user's screenshot consistently shows the
-   even body row missing, which means SOMETHING (a Tailwind base-layer
-   reset, a parent `<turbo-frame>` paint, a cell-level bg, a panel
-   chrome background swap) is sneaking in between the two rules.
-   Bullet-proof the opt-out: force `!important` on the row bg (and on
-   the cells via `background: transparent !important`) so no
-   downstream rule can override, and reaffirm `color: var(--color-text)`
-   at the cell level so any "color: transparent" / dim-text leak that
-   coincides with the even-row cascade is overridden. The session table
-   reads as a flat grid of dashed hairline rows — no zebra, ever. */
-/* Sessions table zebra opt-out. The previous version added
-   `!important` defensively to nuke zebra leaks but it also nuked the
-   keyboard focus tint on every even row. Switching to a `:not(focused)`
-   exclusion means the focus tint wins naturally (no specificity arms
-   race needed). */
-table.sessions-table tbody
-  tr:nth-child(even):not([data-tui-focusable-focused="yes"]):not([data-tui-cursor-row-focused="yes"]),
-table.sessions-table
-  tr:nth-child(even):not([data-tui-focusable-focused="yes"]):not([data-tui-cursor-row-focused="yes"]) {
-  background-color: transparent;
-}
-table.sessions-table tbody
-  tr:nth-child(even):not([data-tui-focusable-focused="yes"]):not([data-tui-cursor-row-focused="yes"]) > td,
-table.sessions-table
-  tr:nth-child(even):not([data-tui-focusable-focused="yes"]):not([data-tui-cursor-row-focused="yes"]) > td {
-  background-color: transparent;
-  color: var(--color-text);
 }
 /* FB-67 (2026-05-20) — global `tr:hover` is gone; keep the
    `.keyboard-highlight` opt-out so keyboard-driven row highlight
@@ -2177,19 +2117,6 @@ table.kv-table td {
 }
 table.kv-table tr {
   border-bottom: 1px solid var(--color-border);
-}
-/* Suppress zebra on kv-table rows (2026-05-17 user direction —
-   /games/:id LEFT pane meta strip). The defensive `:nth-child(even)`
-   override keeps kv-table immune to any future global zebra fallback.
-   FB-67 (2026-05-20) — the prior `tr:hover` opt-out is no longer
-   needed; the global pointer-hover tint has been removed sitewide. */
-/* KV-table zebra opt-out — same `:not(focused)` exclusion so the
-   focus tint wins on every other row. */
-table.kv-table tbody
-  tr:nth-child(even):not([data-tui-focusable-focused="yes"]):not([data-tui-cursor-row-focused="yes"]),
-table.kv-table
-  tr:nth-child(even):not([data-tui-focusable-focused="yes"]):not([data-tui-cursor-row-focused="yes"]) {
-  background-color: transparent;
 }
 table.kv-table tbody tr.keyboard-highlight,
 table.kv-table tr.keyboard-highlight {
