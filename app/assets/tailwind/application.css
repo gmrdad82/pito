@@ -554,6 +554,21 @@ button.bracketed .bl {
   display: block;
   margin-bottom: 2px;
   font-weight: 400;
+  /* 2026-05-24 — global text-color taxonomy. Form labels ("webhook
+     URL:", etc.) belong to the LABELS / hints / captions / headers /
+     placeholders bucket → muted. Without this, labels inherit body
+     white and visually compete with the data values they describe. */
+  color: var(--color-muted);
+}
+
+/* 2026-05-24 — global text-color taxonomy. Section / brand headings
+   that label a subsection ("Discord", "Slack" in the notifications
+   panel) are LABEL captions, not screen / panel titles. They render
+   muted, matching `.form-label`. Titles + actions reserve the accent
+   color. */
+.notifications-brand__heading {
+  color: var(--color-muted);
+  font-weight: 400;
 }
 
 /* Phase 4 §10 cleanup: bracketed-link active state. 2026-05-20 (FB-9)
@@ -2024,7 +2039,16 @@ table.tui-table--stack thead tr > th:last-child,
 table.tui-table--stack tbody tr > td:last-child {
   padding-right: 0;
 }
-table.tui-table--stack tbody td {
+/* 2026-05-24 — global text-color taxonomy (CLAUDE.md + docs/design.md):
+   data VALUES = white (--color-text), LABELS / headers / captions =
+   muted (--color-muted), TITLES + actions = section accent. Stack
+   kv-tables (Meilisearch / PostgreSQL / Voyage AI / Assets) treat the
+   FIRST body cell of every row as a row LABEL ("games", "bundles",
+   model name, asset kind) → muted; remaining cells are data values
+   inheriting white from the canonical `.tui-table__td` rule. The
+   previous blanket `table.tui-table--stack tbody td { color: muted }`
+   muted the value cells too, which violated the taxonomy. */
+table.tui-table--stack tbody tr > td:first-child {
   color: var(--color-muted);
 }
 /* FB-75 (2026-05-20) — tighten vertical padding on stack-table body
@@ -3587,7 +3611,13 @@ hr.hairline {
 .md-check input:indeterminate ~ .md-check-indicator::before { content: "[-]"; }
 .md-check input:checked ~ .md-check-indicator,
 .md-check input:indeterminate ~ .md-check-indicator { color: var(--section-accent); }
-.md-check-label { color: var(--color-muted); font-weight: 400; }
+/* 2026-05-24 — global text-color taxonomy: a `[ ] label` checkbox is
+   a single ACTION unit. The label inherits the same section-accent as
+   the indicator so the whole compound reads as one affordance. The
+   previous muted label color split the compound visually and violated
+   the taxonomy ("titles + actions = accent"). Matches the canonical
+   `.tui-checkbox` color contract. */
+.md-check-label { color: var(--section-accent); font-weight: 400; }
 
 /* Beta 4 F3-B-UNHOOK-CAPTION (2026-05-20). Caption text that sits on
    its own line BELOW an `md-check` toggle — outside the `<label>` so

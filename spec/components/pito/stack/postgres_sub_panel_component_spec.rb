@@ -136,6 +136,61 @@ RSpec.describe Pito::Stack::PostgresSubPanelComponent, type: :component do
     end
   end
 
+  describe "global text-color taxonomy (2026-05-24)" do
+    # Per CLAUDE.md + docs/design.md, the locked rule is:
+    #   - data values        → --color-text (white, default)
+    #   - labels / captions  → --color-muted
+    #   - titles + actions   → --section-accent
+    #
+    # In the stack kv-table:
+    #   - first body cell = row LABEL ("Game", "Bundle", ...)         → muted via CSS rule
+    #   - other cells     = data values (row counts, byte sizes)      → white (.tui-table__td default)
+    #
+    # We assert the structural contract:
+    #   1. The label cell is the first child <td> of each body row.
+    #   2. Value cells are NOT decorated with any "force-muted" utility
+    #      class (`.text-muted`, etc.) — they inherit the default white.
+    let(:table_breakdown) do
+      [
+        { label: "Game",   count: 100, size_bytes: 1024 },
+        { label: "Bundle", count:  50, size_bytes:  512 }
+      ]
+    end
+
+    before do
+      render_inline(described_class.new(status: connected_status, table_breakdown: table_breakdown))
+    end
+
+    it "renders the table with the canonical .tui-table--stack hook (first-child label rule keys off this class)" do
+      expect(page).to have_css("table.tui-table.tui-table--stack")
+    end
+
+    it "places the row label in the first body <td> of each row" do
+      rows = page.find("table.tui-table--stack tbody").all("tr")
+      expect(rows.size).to eq(2)
+      expect(rows[0].all("td").first.text.strip).to eq("Game")
+      expect(rows[1].all("td").first.text.strip).to eq("Bundle")
+    end
+
+    it "does NOT decorate value cells with `.text-muted` (they inherit white from .tui-table__td)" do
+      value_cells = page.find("table.tui-table--stack tbody").all("td.tui-table__td--right")
+      expect(value_cells).not_to be_empty
+      value_cells.each do |cell|
+        expect(cell[:class]).not_to include("text-muted")
+      end
+    end
+
+    it "does NOT decorate the row LABEL cell with `.text-muted` (the CSS first-child rule colors it)" do
+      # The point: templates stay clean. The CSS taxonomy paints the
+      # cell; no per-cell utility class is needed.
+      rows = page.find("table.tui-table--stack tbody").all("tr")
+      rows.each do |row|
+        label_cell = row.all("td").first
+        expect(label_cell[:class]).not_to include("text-muted")
+      end
+    end
+  end
+
   describe "#panel_commands (Phase 1C — section-specific palette)" do
     subject(:commands) { described_class.new(status: connected_status, table_breakdown: []).panel_commands }
 

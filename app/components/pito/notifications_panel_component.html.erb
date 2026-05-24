@@ -96,7 +96,11 @@
         `discord_help`). The subsection wrapper itself is NOT a focusable;
         the j/k cursor steps through the three inner focusables. %>
     <div class="notifications-brand" style="margin-bottom: 12px;">
-      <h3 style="margin: 0 0 6px;"><%= t("settings.discord.heading") %></h3>
+      <%# 2026-05-24 — global text-color taxonomy: brand headings
+          ("Discord", "Slack") are LABEL captions, not titles. Class
+          hook is colored muted via `.notifications-brand__heading`
+          rather than inline body white. %>
+      <h3 class="notifications-brand__heading" style="margin: 0 0 6px;"><%= t("settings.discord.heading") %></h3>
       <%= form_with url: settings_notifications_discord_path,
                     method: :patch, local: true do |_f| %>
         <div class="webhook-url-row">
@@ -134,7 +138,7 @@
 
     <%# Slack subsection. %>
     <div class="notifications-brand">
-      <h3 style="margin: 0 0 6px;"><%= t("settings.slack.heading") %></h3>
+      <h3 class="notifications-brand__heading" style="margin: 0 0 6px;"><%= t("settings.slack.heading") %></h3>
       <%= form_with url: settings_notifications_slack_path,
                     method: :patch, local: true do |_f| %>
         <div class="webhook-url-row">

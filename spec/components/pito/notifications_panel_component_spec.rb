@@ -68,6 +68,57 @@ RSpec.describe Pito::NotificationsPanelComponent, type: :component do
     expect(described_class.const_defined?(:CABLE_CHANNEL)).to be(false)
   end
 
+  describe "global text-color taxonomy (2026-05-24)" do
+    # Per CLAUDE.md + docs/design.md, the locked rule is:
+    #   - data values        → --color-text (white)
+    #   - labels / captions  → --color-muted
+    #   - titles + actions   → --section-accent
+    #
+    # On this panel:
+    #   "Discord" / "Slack" brand subsection headings = LABEL captions
+    #   "webhook URL:" form labels                    = LABEL captions
+    #   "[ ] all" / "[x] daily digest" checkboxes     = ACTIONS (whole compound)
+    it "renders the Discord brand heading with the muted-label class hook" do
+      heading = rendered.css("h3.notifications-brand__heading").first
+      expect(heading).to be_present
+      expect(heading.text.strip).to eq(I18n.t("settings.discord.heading"))
+    end
+
+    it "renders the Slack brand heading with the muted-label class hook" do
+      headings = rendered.css("h3.notifications-brand__heading").map { |n| n.text.strip }
+      expect(headings).to include(I18n.t("settings.slack.heading"))
+    end
+
+    it "renders both brand headings with the same canonical class (one CSS rule covers both)" do
+      headings = rendered.css("h3.notifications-brand__heading")
+      expect(headings.size).to eq(2)
+      headings.each do |h|
+        expect(h["class"]).to include("notifications-brand__heading")
+      end
+    end
+
+    it "renders the Discord webhook URL field-label with the canonical .form-label hook" do
+      label = rendered.css('label[for="discord_webhook_url"]').first
+      expect(label).to be_present
+      expect(label["class"]).to include("form-label")
+    end
+
+    it "renders the Slack webhook URL field-label with the canonical .form-label hook" do
+      label = rendered.css('label[for="slack_webhook_url"]').first
+      expect(label).to be_present
+      expect(label["class"]).to include("form-label")
+    end
+
+    it "renders `[ ] all` and `[x] daily digest` as `.md-check` compounds with both indicator + label slots present" do
+      checkboxes = rendered.css("label.md-check")
+      expect(checkboxes.size).to be >= 2
+      checkboxes.first(2).each do |cb|
+        expect(cb.css(".md-check-indicator")).to be_present
+        expect(cb.css(".md-check-label")).to be_present
+      end
+    end
+  end
+
   describe "#panel_commands (Phase 1C — section-specific palette)" do
     subject(:commands) { described_class.new(discord_webhook: nil, slack_webhook: nil).panel_commands }
 

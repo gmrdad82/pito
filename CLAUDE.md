@@ -305,6 +305,24 @@ Non-action chrome (titles, hints, delimiters, muted labels) stays in
 its own token. The `[!] sync` disconnected state is the one exception
 (red `var(--color-danger)`). Locked 2026-05-24.
 
+**Text-color taxonomy (the only 3 colors UI text ever takes).** Locked
+2026-05-24. Apply globally; never per-screen patch.
+
+| Role | Color | Examples |
+|---|---|---|
+| **Data values** | `var(--color-text)` (white/light) | table cell numbers, names, content — the stuff the user came to see |
+| **Labels / hints / captions / headers** | `var(--color-muted)` | column headers ("docs", "size"), kv-table label column ("model", "last indexed"), section labels ("Discord", "webhook URL:"), help hints ("type 'clear' to remove"), placeholders |
+| **Titles + actions** | `var(--section-accent)` | panel + sub-panel titles, bracketed actions (`[reindex]`, `[ ] sync`, `[update]`, etc. — see the actions-accent rule above) |
+
+The `[ ] label` checkbox-with-label is treated as ONE action — both
+the bracket AND the label paint in accent. Independent "label" text
+NOT attached to an action stays muted.
+
+Disconnected `[!] sync` red is the one exception (red danger). All
+other text in the UI MUST map to one of the three above. Inventing a
+new role-color pair is a code smell — extend the taxonomy in design.md
+before adding a fourth.
+
 **Bracket-to-space rule on TST chrome.** Where a non-action label sits
 in an actions slot adjacent to a bracketed action (e.g. `month` next to
 `[schedule]`), use a literal space pair around the label instead of
