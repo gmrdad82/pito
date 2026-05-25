@@ -256,7 +256,8 @@
       <% end %>
     </header>
 
-    <%= render "shared/flash_toasts" %>
+    <%# 2026-05-25 — legacy flash_toasts removed. Auth dialog renders the
+        login error inline via Tui::HintComponent(severity: :danger). %>
 
     <%# 2026-05-19 — header is now `position: sticky` (was `fixed`) so the
         outer `padding-top: 32px` wrapper that compensated for the

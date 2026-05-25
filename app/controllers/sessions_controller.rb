@@ -65,7 +65,7 @@ class SessionsController < ApplicationController
     end
 
     cookies.delete(Sessions::Authenticator::COOKIE_NAME)
-    redirect_to login_path, notice: "signed out."
+    redirect_to login_path
   end
 
   private
@@ -88,7 +88,7 @@ class SessionsController < ApplicationController
     audit("session.login.success",
           session_id: session_record.id,
           ip: request.remote_ip)
-    redirect_to(root_path, notice: "signed in.")
+    redirect_to root_path
   end
 
   def mark_failure_and_render_invalid
