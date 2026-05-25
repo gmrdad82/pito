@@ -56,8 +56,7 @@ fn cleanup(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> Result<()> 
 }
 
 fn run_loop<C: PitoClient>(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, app: &mut App<C>) -> Result<()> {
-    let tick_rate = std::time::Duration::from_millis(50);
-    let mut last_tick = std::time::Instant::now();
+    // No polling — event loop blocks briefly between renders
 
     // Boot — push welcome lines
     app.push_line("");
@@ -69,8 +68,7 @@ fn run_loop<C: PitoClient>(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>
     loop {
         terminal.draw(|frame| ui::render(frame, app))?;
 
-        let timeout = tick_rate.saturating_sub(last_tick.elapsed());
-        if event::poll(timeout)? {
+        if event::poll(std::time::Duration::from_millis(100))? {
             if let Event::Key(key) = event::read()? {
                 if key.kind == KeyEventKind::Press {
                     match key.code {
@@ -80,9 +78,7 @@ fn run_loop<C: PitoClient>(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>
                         KeyCode::Esc => {
                             app.quit();
                         }
-                        KeyCode::Tab => {
-                            app.toggle_sidebar();
-                        }
+                        // Tab removed — sidebar always visible
                         KeyCode::Enter => {
                             let cmd = app.input_buffer.clone();
                             app.input_buffer.clear();
@@ -107,10 +103,7 @@ fn run_loop<C: PitoClient>(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>
             }
         }
 
-        if last_tick.elapsed() >= tick_rate {
-            last_tick = std::time::Instant::now();
-            app.poll_status();
-        }
+        // No polling — user requested removal
 
         if !app.running {
             break;

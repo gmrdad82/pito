@@ -9230,27 +9230,511 @@ ${h2.join(`
     }
   });
 
+  // node_modules/@rails/actioncable/app/assets/javascripts/actioncable.esm.js
+  function createWebSocketURL(url) {
+    if (typeof url === "function") {
+      url = url();
+    }
+    if (url && !/^wss?:/i.test(url)) {
+      const a = document.createElement("a");
+      a.href = url;
+      a.href = a.href;
+      a.protocol = a.protocol.replace("http", "ws");
+      return a.href;
+    } else {
+      return url;
+    }
+  }
+  function createConsumer(url = getConfig("url") || INTERNAL.default_mount_path) {
+    return new Consumer(url);
+  }
+  function getConfig(name) {
+    const element = document.head.querySelector(`meta[name='action-cable-${name}']`);
+    if (element) {
+      return element.getAttribute("content");
+    }
+  }
+  var adapters, logger, now, secondsSince, ConnectionMonitor, INTERNAL, message_types, protocols, supportedProtocols, indexOf, Connection, extend, Subscription, SubscriptionGuarantor, Subscriptions, Consumer;
+  var init_actioncable_esm = __esm({
+    "node_modules/@rails/actioncable/app/assets/javascripts/actioncable.esm.js"() {
+      adapters = {
+        logger: typeof console !== "undefined" ? console : void 0,
+        WebSocket: typeof WebSocket !== "undefined" ? WebSocket : void 0
+      };
+      logger = {
+        log(...messages) {
+          if (this.enabled) {
+            messages.push(Date.now());
+            adapters.logger.log("[ActionCable]", ...messages);
+          }
+        }
+      };
+      now = () => (/* @__PURE__ */ new Date()).getTime();
+      secondsSince = (time) => (now() - time) / 1e3;
+      ConnectionMonitor = class {
+        constructor(connection) {
+          this.visibilityDidChange = this.visibilityDidChange.bind(this);
+          this.connection = connection;
+          this.reconnectAttempts = 0;
+        }
+        start() {
+          if (!this.isRunning()) {
+            this.startedAt = now();
+            delete this.stoppedAt;
+            this.startPolling();
+            addEventListener("visibilitychange", this.visibilityDidChange);
+            logger.log(`ConnectionMonitor started. stale threshold = ${this.constructor.staleThreshold} s`);
+          }
+        }
+        stop() {
+          if (this.isRunning()) {
+            this.stoppedAt = now();
+            this.stopPolling();
+            removeEventListener("visibilitychange", this.visibilityDidChange);
+            logger.log("ConnectionMonitor stopped");
+          }
+        }
+        isRunning() {
+          return this.startedAt && !this.stoppedAt;
+        }
+        recordMessage() {
+          this.pingedAt = now();
+        }
+        recordConnect() {
+          this.reconnectAttempts = 0;
+          delete this.disconnectedAt;
+          logger.log("ConnectionMonitor recorded connect");
+        }
+        recordDisconnect() {
+          this.disconnectedAt = now();
+          logger.log("ConnectionMonitor recorded disconnect");
+        }
+        startPolling() {
+          this.stopPolling();
+          this.poll();
+        }
+        stopPolling() {
+          clearTimeout(this.pollTimeout);
+        }
+        poll() {
+          this.pollTimeout = setTimeout((() => {
+            this.reconnectIfStale();
+            this.poll();
+          }), this.getPollInterval());
+        }
+        getPollInterval() {
+          const { staleThreshold, reconnectionBackoffRate } = this.constructor;
+          const backoff = Math.pow(1 + reconnectionBackoffRate, Math.min(this.reconnectAttempts, 10));
+          const jitterMax = this.reconnectAttempts === 0 ? 1 : reconnectionBackoffRate;
+          const jitter = jitterMax * Math.random();
+          return staleThreshold * 1e3 * backoff * (1 + jitter);
+        }
+        reconnectIfStale() {
+          if (this.connectionIsStale()) {
+            logger.log(`ConnectionMonitor detected stale connection. reconnectAttempts = ${this.reconnectAttempts}, time stale = ${secondsSince(this.refreshedAt)} s, stale threshold = ${this.constructor.staleThreshold} s`);
+            this.reconnectAttempts++;
+            if (this.disconnectedRecently()) {
+              logger.log(`ConnectionMonitor skipping reopening recent disconnect. time disconnected = ${secondsSince(this.disconnectedAt)} s`);
+            } else {
+              logger.log("ConnectionMonitor reopening");
+              this.connection.reopen();
+            }
+          }
+        }
+        get refreshedAt() {
+          return this.pingedAt ? this.pingedAt : this.startedAt;
+        }
+        connectionIsStale() {
+          return secondsSince(this.refreshedAt) > this.constructor.staleThreshold;
+        }
+        disconnectedRecently() {
+          return this.disconnectedAt && secondsSince(this.disconnectedAt) < this.constructor.staleThreshold;
+        }
+        visibilityDidChange() {
+          if (document.visibilityState === "visible") {
+            setTimeout((() => {
+              if (this.connectionIsStale() || !this.connection.isOpen()) {
+                logger.log(`ConnectionMonitor reopening stale connection on visibilitychange. visibilityState = ${document.visibilityState}`);
+                this.connection.reopen();
+              }
+            }), 200);
+          }
+        }
+      };
+      ConnectionMonitor.staleThreshold = 6;
+      ConnectionMonitor.reconnectionBackoffRate = 0.15;
+      INTERNAL = {
+        message_types: {
+          welcome: "welcome",
+          disconnect: "disconnect",
+          ping: "ping",
+          confirmation: "confirm_subscription",
+          rejection: "reject_subscription"
+        },
+        disconnect_reasons: {
+          unauthorized: "unauthorized",
+          invalid_request: "invalid_request",
+          server_restart: "server_restart",
+          remote: "remote"
+        },
+        default_mount_path: "/cable",
+        protocols: ["actioncable-v1-json", "actioncable-unsupported"]
+      };
+      ({ message_types, protocols } = INTERNAL);
+      supportedProtocols = protocols.slice(0, protocols.length - 1);
+      indexOf = [].indexOf;
+      Connection = class {
+        constructor(consumer) {
+          this.open = this.open.bind(this);
+          this.consumer = consumer;
+          this.subscriptions = this.consumer.subscriptions;
+          this.monitor = new ConnectionMonitor(this);
+          this.disconnected = true;
+        }
+        send(data) {
+          if (this.isOpen()) {
+            this.webSocket.send(JSON.stringify(data));
+            return true;
+          } else {
+            return false;
+          }
+        }
+        open() {
+          if (this.isActive()) {
+            logger.log(`Attempted to open WebSocket, but existing socket is ${this.getState()}`);
+            return false;
+          } else {
+            const socketProtocols = [...protocols, ...this.consumer.subprotocols || []];
+            logger.log(`Opening WebSocket, current state is ${this.getState()}, subprotocols: ${socketProtocols}`);
+            if (this.webSocket) {
+              this.uninstallEventHandlers();
+            }
+            this.webSocket = new adapters.WebSocket(this.consumer.url, socketProtocols);
+            this.installEventHandlers();
+            this.monitor.start();
+            return true;
+          }
+        }
+        close({ allowReconnect } = {
+          allowReconnect: true
+        }) {
+          if (!allowReconnect) {
+            this.monitor.stop();
+          }
+          if (this.isOpen()) {
+            return this.webSocket.close();
+          }
+        }
+        reopen() {
+          logger.log(`Reopening WebSocket, current state is ${this.getState()}`);
+          if (this.isActive()) {
+            try {
+              return this.close();
+            } catch (error) {
+              logger.log("Failed to reopen WebSocket", error);
+            } finally {
+              logger.log(`Reopening WebSocket in ${this.constructor.reopenDelay}ms`);
+              setTimeout(this.open, this.constructor.reopenDelay);
+            }
+          } else {
+            return this.open();
+          }
+        }
+        getProtocol() {
+          if (this.webSocket) {
+            return this.webSocket.protocol;
+          }
+        }
+        isOpen() {
+          return this.isState("open");
+        }
+        isActive() {
+          return this.isState("open", "connecting");
+        }
+        triedToReconnect() {
+          return this.monitor.reconnectAttempts > 0;
+        }
+        isProtocolSupported() {
+          return indexOf.call(supportedProtocols, this.getProtocol()) >= 0;
+        }
+        isState(...states) {
+          return indexOf.call(states, this.getState()) >= 0;
+        }
+        getState() {
+          if (this.webSocket) {
+            for (let state in adapters.WebSocket) {
+              if (adapters.WebSocket[state] === this.webSocket.readyState) {
+                return state.toLowerCase();
+              }
+            }
+          }
+          return null;
+        }
+        installEventHandlers() {
+          for (let eventName in this.events) {
+            const handler = this.events[eventName].bind(this);
+            this.webSocket[`on${eventName}`] = handler;
+          }
+        }
+        uninstallEventHandlers() {
+          for (let eventName in this.events) {
+            this.webSocket[`on${eventName}`] = function() {
+            };
+          }
+        }
+      };
+      Connection.reopenDelay = 500;
+      Connection.prototype.events = {
+        message(event) {
+          if (!this.isProtocolSupported()) {
+            return;
+          }
+          const { identifier, message, reason, reconnect, type } = JSON.parse(event.data);
+          this.monitor.recordMessage();
+          switch (type) {
+            case message_types.welcome:
+              if (this.triedToReconnect()) {
+                this.reconnectAttempted = true;
+              }
+              this.monitor.recordConnect();
+              return this.subscriptions.reload();
+            case message_types.disconnect:
+              logger.log(`Disconnecting. Reason: ${reason}`);
+              return this.close({
+                allowReconnect: reconnect
+              });
+            case message_types.ping:
+              return null;
+            case message_types.confirmation:
+              this.subscriptions.confirmSubscription(identifier);
+              if (this.reconnectAttempted) {
+                this.reconnectAttempted = false;
+                return this.subscriptions.notify(identifier, "connected", {
+                  reconnected: true
+                });
+              } else {
+                return this.subscriptions.notify(identifier, "connected", {
+                  reconnected: false
+                });
+              }
+            case message_types.rejection:
+              return this.subscriptions.reject(identifier);
+            default:
+              return this.subscriptions.notify(identifier, "received", message);
+          }
+        },
+        open() {
+          logger.log(`WebSocket onopen event, using '${this.getProtocol()}' subprotocol`);
+          this.disconnected = false;
+          if (!this.isProtocolSupported()) {
+            logger.log("Protocol is unsupported. Stopping monitor and disconnecting.");
+            return this.close({
+              allowReconnect: false
+            });
+          }
+        },
+        close(event) {
+          logger.log("WebSocket onclose event");
+          if (this.disconnected) {
+            return;
+          }
+          this.disconnected = true;
+          this.monitor.recordDisconnect();
+          return this.subscriptions.notifyAll("disconnected", {
+            willAttemptReconnect: this.monitor.isRunning()
+          });
+        },
+        error() {
+          logger.log("WebSocket onerror event");
+        }
+      };
+      extend = function(object, properties) {
+        if (properties != null) {
+          for (let key in properties) {
+            const value = properties[key];
+            object[key] = value;
+          }
+        }
+        return object;
+      };
+      Subscription = class {
+        constructor(consumer, params = {}, mixin) {
+          this.consumer = consumer;
+          this.identifier = JSON.stringify(params);
+          extend(this, mixin);
+        }
+        perform(action, data = {}) {
+          data.action = action;
+          return this.send(data);
+        }
+        send(data) {
+          return this.consumer.send({
+            command: "message",
+            identifier: this.identifier,
+            data: JSON.stringify(data)
+          });
+        }
+        unsubscribe() {
+          return this.consumer.subscriptions.remove(this);
+        }
+      };
+      SubscriptionGuarantor = class {
+        constructor(subscriptions) {
+          this.subscriptions = subscriptions;
+          this.pendingSubscriptions = [];
+        }
+        guarantee(subscription) {
+          if (this.pendingSubscriptions.indexOf(subscription) == -1) {
+            logger.log(`SubscriptionGuarantor guaranteeing ${subscription.identifier}`);
+            this.pendingSubscriptions.push(subscription);
+          } else {
+            logger.log(`SubscriptionGuarantor already guaranteeing ${subscription.identifier}`);
+          }
+          this.startGuaranteeing();
+        }
+        forget(subscription) {
+          logger.log(`SubscriptionGuarantor forgetting ${subscription.identifier}`);
+          this.pendingSubscriptions = this.pendingSubscriptions.filter(((s15) => s15 !== subscription));
+        }
+        startGuaranteeing() {
+          this.stopGuaranteeing();
+          this.retrySubscribing();
+        }
+        stopGuaranteeing() {
+          clearTimeout(this.retryTimeout);
+        }
+        retrySubscribing() {
+          this.retryTimeout = setTimeout((() => {
+            if (this.subscriptions && typeof this.subscriptions.subscribe === "function") {
+              this.pendingSubscriptions.map(((subscription) => {
+                logger.log(`SubscriptionGuarantor resubscribing ${subscription.identifier}`);
+                this.subscriptions.subscribe(subscription);
+              }));
+            }
+          }), 500);
+        }
+      };
+      Subscriptions = class {
+        constructor(consumer) {
+          this.consumer = consumer;
+          this.guarantor = new SubscriptionGuarantor(this);
+          this.subscriptions = [];
+        }
+        create(channelName, mixin) {
+          const channel = channelName;
+          const params = typeof channel === "object" ? channel : {
+            channel
+          };
+          const subscription = new Subscription(this.consumer, params, mixin);
+          return this.add(subscription);
+        }
+        add(subscription) {
+          this.subscriptions.push(subscription);
+          this.consumer.ensureActiveConnection();
+          this.notify(subscription, "initialized");
+          this.subscribe(subscription);
+          return subscription;
+        }
+        remove(subscription) {
+          this.forget(subscription);
+          if (!this.findAll(subscription.identifier).length) {
+            this.sendCommand(subscription, "unsubscribe");
+          }
+          return subscription;
+        }
+        reject(identifier) {
+          return this.findAll(identifier).map(((subscription) => {
+            this.forget(subscription);
+            this.notify(subscription, "rejected");
+            return subscription;
+          }));
+        }
+        forget(subscription) {
+          this.guarantor.forget(subscription);
+          this.subscriptions = this.subscriptions.filter(((s15) => s15 !== subscription));
+          return subscription;
+        }
+        findAll(identifier) {
+          return this.subscriptions.filter(((s15) => s15.identifier === identifier));
+        }
+        reload() {
+          return this.subscriptions.map(((subscription) => this.subscribe(subscription)));
+        }
+        notifyAll(callbackName, ...args) {
+          return this.subscriptions.map(((subscription) => this.notify(subscription, callbackName, ...args)));
+        }
+        notify(subscription, callbackName, ...args) {
+          let subscriptions;
+          if (typeof subscription === "string") {
+            subscriptions = this.findAll(subscription);
+          } else {
+            subscriptions = [subscription];
+          }
+          return subscriptions.map(((subscription2) => typeof subscription2[callbackName] === "function" ? subscription2[callbackName](...args) : void 0));
+        }
+        subscribe(subscription) {
+          if (this.sendCommand(subscription, "subscribe")) {
+            this.guarantor.guarantee(subscription);
+          }
+        }
+        confirmSubscription(identifier) {
+          logger.log(`Subscription confirmed ${identifier}`);
+          this.findAll(identifier).map(((subscription) => this.guarantor.forget(subscription)));
+        }
+        sendCommand(subscription, command) {
+          const { identifier } = subscription;
+          return this.consumer.send({
+            command,
+            identifier
+          });
+        }
+      };
+      Consumer = class {
+        constructor(url) {
+          this._url = url;
+          this.subscriptions = new Subscriptions(this);
+          this.connection = new Connection(this);
+          this.subprotocols = [];
+        }
+        get url() {
+          return createWebSocketURL(this._url);
+        }
+        send(data) {
+          return this.connection.send(data);
+        }
+        connect() {
+          return this.connection.open();
+        }
+        disconnect() {
+          return this.connection.close({
+            allowReconnect: false
+          });
+        }
+        ensureActiveConnection() {
+          if (!this.connection.isActive()) {
+            return this.connection.open();
+          }
+        }
+        addSubProtocol(subprotocol) {
+          this.subprotocols = [...this.subprotocols, subprotocol];
+        }
+      };
+    }
+  });
+
   // app/javascript/application.js
   var require_application = __commonJS({
     "app/javascript/application.js"() {
       init_xterm();
       init_addon_fit();
       init_addon_web_links();
+      init_actioncable_esm();
       var T = { bg: "#1a1b26", fg: "#c0caf5", mu: "#565f89", ac: "#7aa2f7", gr: "#9ece6a", rd: "#f7768e", or: "#ff9e64", bd: "#292e42", sb: "#16171f" };
       var term = new Dl({ cursorBlink: true, cursorStyle: "bar", fontSize: 16, fontFamily: 'ui-monospace,"Cascadia Code","Source Code Pro",Consolas,monospace', lineHeight: 1, scrollback: 1e4, allowProposedApi: true, theme: { background: T.bg, foreground: T.fg, cursor: T.fg, selectionBackground: "#33467c", black: T.bg, red: T.rd, green: T.gr, yellow: T.or, blue: T.ac, magenta: T.rd, cyan: T.gr, white: T.fg, brightBlack: T.mu, brightRed: "#ff9e9e", brightGreen: "#b9f27c", brightYellow: "#ffc777", brightBlue: "#7dcfff", brightMagenta: "#c099ff", brightCyan: "#86e1fc", brightWhite: "#ffffff" } });
       var fit = new o();
       term.loadAddon(fit);
       term.loadAddon(new L2());
       term.open(document.getElementById("terminal"));
-      term.attachCustomKeyEventHandler((e) => {
-        if (e.type === "keydown" && e.key === "Tab") {
-          e.preventDefault();
-          sidebarOpen = !sidebarOpen;
-          draw();
-          return false;
-        }
-        return true;
-      });
       var CSI = "\x1B[";
       var c256 = (r, g2, b2) => CSI + "38;2;" + r + ";" + g2 + ";" + b2 + "m";
       var cbg = (r, g2, b2) => CSI + "48;2;" + r + ";" + g2 + ";" + b2 + "m";
@@ -9269,15 +9753,13 @@ ${h2.join(`
       var S2 = (c, f2, b2) => (b2 ? bo2(b2) : "") + (f2 ? co2(f2) : "") + c + R;
       var channels = [];
       var sidebarOpen = true;
-      var statusData = null;
-      var sidebarData = null;
       var log = [];
       var cmdBuffer = "";
       var SW = 30;
       function draw() {
         const c = term.cols, r = term.rows;
-        if (c < 20 || r < 6) return;
-        const mw = c - (sidebarOpen ? SW + 1 : 0), sh = r - 3;
+        if (c < 20 || r < 5) return;
+        const mw = c - (sidebarOpen ? SW + 1 : 0), sh = r - 2;
         const out = [];
         let h2 = "";
         if (channels.length > 0) h2 = channels.map((ch) => S2("@" + ch.channel_url, T.ac)).join(" ") + " ";
@@ -9292,51 +9774,19 @@ ${h2.join(`
           out.push(l2);
         }
         out.push(S2(("> " + cmdBuffer).padEnd(c), T.fg, T.sb));
-        const sk = statusData && statusData.sidekiq ? statusData.sidekiq : { enqueued: 0, retry: 0, dead: 0, scheduled: 0 };
-        const conn = statusData && statusData.connected !== false;
-        let sl2 = "";
-        sl2 += (conn ? S2("\u25CF", T.gr) : S2("\u25CF", T.rd)) + " ";
-        sl2 += S2("connected  sidekiq ", T.mu);
-        sl2 += S2("b" + sk.enqueued, T.gr) + " " + S2("e" + sk.retry, T.or) + " " + S2("r" + sk.dead, T.rd) + " " + S2("d" + sk.scheduled, T.mu);
-        const time = (/* @__PURE__ */ new Date()).toLocaleTimeString();
-        sl2 += S2(time.padStart(c - sl2.replace(/\x1b\[[0-9;]*m/g, "").length - time.length), T.mu);
-        out.push(S2(sl2, T.fg, T.sb));
         term.write(CSI + "H" + out.join("\r\n") + CSI + "0J");
       }
       function sbLine(i) {
         const sw = SW;
         if (i === 0) return S2("channels".padEnd(sw), T.ac) + B2;
         if (i === 1) {
-          if (sidebarData && sidebarData.channels && sidebarData.channels.length > 0) {
-            const t = sidebarData.channels.length;
-            const s15 = sidebarData.channels.filter((x) => x.star).length;
-            return S2(("  " + t + " total  " + s15 + " starred").padEnd(sw), T.mu);
-          } else if (channels.length > 0) {
-            return S2(("  @" + channels[0].channel_url).padEnd(sw), T.mu);
-          }
-          return S2("  (none)".padEnd(sw), T.mu);
-        }
-        if (i >= 2 && i < 7 && sidebarData && sidebarData.channels && i - 2 < sidebarData.channels.length) {
-          const ch = sidebarData.channels[i - 2];
-          return S2(("  @" + ch.channel_url + " " + gr3(ch.video_count || 0) + "v").padEnd(sw), T.mu);
+          return S2("  (use /channels)".padEnd(sw), T.mu);
         }
         if (i === 8) return S2("videos".padEnd(sw), T.ac) + B2;
-        if (i >= 9 && i < 14 && sidebarData && sidebarData.recent_videos && i - 9 < sidebarData.recent_videos.length) {
-          const v3 = sidebarData.recent_videos[i - 9];
-          return S2(("  " + (v3.youtube_video_id || "").substring(0, 10) + " " + gr3(v3.views || 0)).padEnd(sw), T.mu);
-        }
+        if (i === 9) return S2("  (use /videos)".padEnd(sw), T.mu);
         if (i === 15) return S2("games".padEnd(sw), T.ac) + B2;
-        if (i >= 16 && i < 21 && sidebarData && sidebarData.upcoming_games && i - 16 < sidebarData.upcoming_games.length) {
-          const g2 = sidebarData.upcoming_games[i - 16];
-          return S2(("  " + (g2.title || g2) + " " + mu(g2.release_date || "")).padEnd(sw), T.mu);
-        }
+        if (i === 16) return S2("  (use /games)".padEnd(sw), T.mu);
         return " ".repeat(sw);
-      }
-      function gr3(n) {
-        return S2(String(n || 0), T.gr);
-      }
-      function mu(s15) {
-        return S2(s15 || "", T.mu);
       }
       term.onData((d) => {
         const k2 = d.charCodeAt(0);
@@ -9366,7 +9816,6 @@ ${h2.join(`
           case "help":
             log.push(S2("commands:", T.fg) + B2);
             ["status", "channels", "videos", "auth", "reindex", "games", "config"].forEach((x) => log.push("  " + S2("/" + x, T.ac)));
-            log.push("  Tab " + S2("toggle sidebar", T.mu));
             break;
           case "status":
             try {
@@ -9454,40 +9903,58 @@ ${h2.join(`
         const m = document.querySelector('meta[name="csrf-token"]');
         return m ? m.getAttribute("content") : "";
       }
-      async function ps2() {
-        try {
-          const r = await f("/status.json");
-          statusData = await r.json();
-        } catch (e) {
-          statusData = { connected: false };
-        }
-        draw();
+      var connEl = document.getElementById("sb-conn");
+      var bEl = document.getElementById("sb-b");
+      var eEl = document.getElementById("sb-e");
+      var rEl = document.getElementById("sb-r");
+      var dEl = document.getElementById("sb-d");
+      function formatNum(n) {
+        return n >= 1e3 ? (n / 1e3).toFixed(1).replace(/\.0$/, "") + "k" : String(n || 0);
       }
-      async function psb() {
-        try {
-          const r = await f("/sidebar.json");
-          sidebarData = await r.json();
-        } catch (e) {
-          sidebarData = null;
+      var cable = createConsumer("/cable");
+      cable.subscriptions.create("StatusBarChannel", {
+        received(data) {
+          if (!data || data.kind !== "status_bar") return;
+          const p = data.payload || {};
+          const sk = p.sidekiq || {};
+          const ok = p.connected !== false;
+          if (connEl) {
+            connEl.textContent = ok ? "connected" : "disconnected";
+            connEl.className = ok ? "sb-connected" : "sb-disconnected";
+          }
+          if (bEl) {
+            const v3 = sk.busy || 0;
+            bEl.textContent = "b" + formatNum(v3);
+            bEl.className = "sb-val b" + (v3 > 0 ? "" : "0");
+          }
+          if (eEl) {
+            const v3 = sk.enqueued || 0;
+            eEl.textContent = "e" + formatNum(v3);
+            eEl.className = "sb-val e" + (v3 > 0 ? "" : "0");
+          }
+          if (rEl) {
+            const v3 = sk.retry || 0;
+            rEl.textContent = "r" + formatNum(v3);
+            rEl.className = "sb-val r" + (v3 > 0 ? "" : "0");
+          }
+          if (dEl) {
+            const v3 = sk.dead || 0;
+            dEl.textContent = "d" + formatNum(v3);
+            dEl.className = "sb-val d" + (v3 > 0 ? "" : "0");
+          }
         }
-        draw();
-      }
+      });
       function boot() {
         fit.fit();
-        if (term.cols < 20 || term.rows < 6) {
+        if (term.cols < 20 || term.rows < 5) {
           setTimeout(boot, 200);
           return;
         }
         log.push("");
         log.push(S2("pito", T.fg) + B2 + "  " + S2("YouTube channel management", T.mu));
         log.push(S2("  type /help for commands, /auth <code> to login", T.mu));
-        log.push(S2("  Tab toggles sidebar", T.mu));
         log.push("");
-        ps2();
-        psb();
         draw();
-        setInterval(ps2, 5e3);
-        setInterval(psb, 3e4);
       }
       window.addEventListener("resize", () => {
         fit.fit();

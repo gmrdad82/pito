@@ -10,6 +10,7 @@ Rails.application.routes.draw do
       ActiveSupport::SecurityUtils.secure_compare(password, expected_pass.to_s)
   end
   mount Sidekiq::Web => "/sidekiq"
+  mount ActionCable.server => "/cable"
 
   # OAuth authorization server metadata (RFC 8414)
   get "/.well-known/oauth-authorization-server",

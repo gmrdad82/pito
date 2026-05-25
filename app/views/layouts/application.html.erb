@@ -1,14 +1,119 @@
 <!DOCTYPE html>
-<html><head><meta charset="UTF-8"><title>pito</title>
-<meta name="color-scheme" content="dark">
-<%= csrf_meta_tags %>
-<link rel="stylesheet" href="/xterm.css">
-<style>
-*{margin:0;padding:0;box-sizing:border-box}
-html,body{height:100%;width:100%;overflow:hidden;background:#1a1b26}
-#terminal{height:100%;width:100%}
-</style>
-</head><body>
-<div id="terminal"></div>
-<script src="/app.js?v=<%= File.mtime(Rails.root.join('public/app.js')).to_i rescue 1 %>"></script>
-</body></html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>pito</title>
+  <meta name="color-scheme" content="dark">
+  <%= csrf_meta_tags %>
+  <%= csp_meta_tag %>
+  <link rel="stylesheet" href="/xterm.css">
+  <style>
+    :root {
+      --bg: #1a1b26;
+      --fg: #c0caf5;
+      --muted: #565f89;
+      --accent: #7aa2f7;
+      --green: #9ece6a;
+      --red: #f7768e;
+      --orange: #ff9e64;
+      --sbar-bg: #16171f;
+      --sbar-fg: #a6adc8;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { height: 100%; width: 100%; overflow: hidden; background: var(--bg); color: var(--fg); font-family: ui-monospace, "Cascadia Code", "Source Code Pro", Consolas, monospace; font-size: 14px; line-height: 1; }
+    #app { display: flex; flex-direction: column; height: 100%; padding: 20px; }
+    #terminal { flex: 1; min-height: 0; }
+    #status-bar {
+      flex-shrink: 0;
+      height: 22px;
+      background: var(--sbar-bg);
+      color: var(--sbar-fg);
+      display: flex;
+      align-items: center;
+      padding: 0 8px;
+      font-size: 14px;
+      user-select: none;
+      margin-top: 4px;
+    }
+    .sb-connected { color: var(--green); }
+    .sb-disconnected { color: var(--red); }
+    #status-bar .sb-right { margin-left: auto; display: flex; align-items: center; gap: 4px; }
+    #status-bar .sb-label { color: var(--muted); }
+    #status-bar .sb-val { font-weight: normal; }
+    #status-bar .sb-val.b0, .sb-val.e0, .sb-val.r0, .sb-val.d0 { color: var(--muted) !important; }
+    #status-bar .sb-val.b { color: var(--green); }
+    #status-bar .sb-val.e { color: var(--orange); }
+    #status-bar .sb-val.r { color: var(--red); }
+    #status-bar .sb-val.d { color: var(--red); }
+    #status-bar .sb-sep { color: var(--muted); margin: 0 6px; }
+    #status-bar .sb-time { color: var(--muted); font-variant-numeric: tabular-nums; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div id="terminal"></div>
+    <div id="status-bar">
+      <span id="sb-conn"></span>
+      <div class="sb-right">
+        <span class="sb-label" id="sb-sk-label"></span>
+        <span class="sb-val b" id="sb-b">b0</span>
+        <span class="sb-val e" id="sb-e">e0</span>
+        <span class="sb-val r" id="sb-r">r0</span>
+        <span class="sb-val d" id="sb-d">d0</span>
+        <span class="sb-sep">·</span>
+        <span class="sb-time" id="sb-datetime"></span>
+      </div>
+    </div>
+  </div>
+  <script src="/app.js"></script>
+  <script>
+    // ── Scramble ticker (1 Hz, scramble-settle on each second change) ──
+    const ALPHA='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const DIGITS='0123456789';
+    const SYMBOLS=':,· ';
+    const CHARS=ALPHA+DIGITS+SYMBOLS;
+    const dtEl=document.getElementById('sb-datetime');
+    const months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const days=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    let lastFormatted='',scrambleTimeout=null;
+
+    function formatTime(d){
+      return days[d.getDay()]+', '+months[d.getMonth()]+' '+d.getDate()+' · '+
+        String(d.getHours()).padStart(2,'0')+'·'+String(d.getMinutes()).padStart(2,'0');
+    }
+
+    function scrambleSettleStep(from,to,step,totalSteps){
+      return to.split('').map((c,i)=>{
+        if(i>=from.length)return c;
+        if(c===from[i])return c;
+        const progress=(step/totalSteps);
+        if(Math.random()>progress*0.7+0.3)return CHARS[Math.floor(Math.random()*CHARS.length)];
+        return c;
+      }).join('');
+    }
+
+    function animateTime(){
+      const now=new Date();
+      const next=formatTime(now);
+      if(next===lastFormatted){dtEl.textContent=next;}
+      else if(!lastFormatted){dtEl.textContent=next;lastFormatted=next;}
+      else{
+        let step=0,steps=6;
+        clearInterval(scrambleTimeout);
+        scrambleTimeout=setInterval(()=>{
+          step++;
+          dtEl.textContent=scrambleSettleStep(lastFormatted,next,step,steps);
+          if(step>=steps){dtEl.textContent=next;lastFormatted=next;clearInterval(scrambleTimeout);}
+        },40);
+      }
+    }
+    setInterval(animateTime,1000);
+    animateTime();
+
+    // ── i18n labels ───────────────────────────────────────────────────
+    // Labels set by cable consumer in app.js when it receives status_bar payload
+    document.getElementById('sb-sk-label').textContent='sidekiq';
+  </script>
+</body>
+</html>

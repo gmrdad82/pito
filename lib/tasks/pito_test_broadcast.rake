@@ -1,88 +1,21 @@
-# FB-test-infra (2026-05-22). Dev/test rake tasks for exercising
-# cable-driven ViewComponents (Sidekiq stats cell, Notifications
-# indicator) without waiting for real Sidekiq activity or external
-# events. Two surfaces:
-#
-#   `pito:test:broadcast_*` — synthesize a cable envelope on the
-#     `pito:status_bar` channel with an arbitrary `kind:` + `payload:`.
-#     Useful when you want to see the VC react to a specific state
-#     (e.g. retry_count=42) without recreating the underlying world.
-#
-#   `pito:test:enqueue_*_job` — drop one of the three `Pito::Test::*`
-#     dummy Sidekiq jobs into Redis so the real Sidekiq middleware
-#     fires its own broadcast against the canonical envelope (full
-#     stack exercise: enqueue -> middleware -> cable -> VC).
-#
-# 2026-05-22 (cable routing refactor): the `broadcast_sync` task was
-# dropped — sync state is no longer externally settable. The sync
-# indicator now pulses on ANY cable activity (`tui:cable-activity`
-# event fanned out by `tui-status-bar` on every received message) and
-# returns to `synced` after 400ms of quiet. Cable disconnection is
-# the only path that flips the indicator to `disconnected`.
 namespace :pito do
-  namespace :test do
-    desc "broadcast a synthetic sidekiq stats payload (busy, enqueued, retry_count, dead)"
-    task :broadcast_sidekiq, [ :busy, :enqueued, :retry_count, :dead ] => :environment do |_, args|
-      payload = {
-        busy: (args[:busy] || 0).to_i,
-        enqueued: (args[:enqueued] || 0).to_i,
-        retry: (args[:retry_count] || 0).to_i,
-        dead: (args[:dead] || 0).to_i
-      }
-      Pito::CableBroadcaster.broadcast_status_bar(payload, kind: :sidekiq)
-      puts "broadcasted sidekiq b=#{payload[:busy]} e=#{payload[:enqueued]} r=#{payload[:retry]} d=#{payload[:dead]}"
+  desc "Push dummy Sidekiq jobs for status bar testing"
+  task test_broadcast: :environment do
+    puts "Pushing dummy Sidekiq jobs..."
+
+    # Busy: simulate active (long-running) jobs
+    3.times do
+      Pito::Test::SimpleSidekiqJob.perform_async
+      print "."
     end
 
-    desc "broadcast a synthetic notifications payload (future_count)"
-    task :broadcast_notifications, [ :future_count ] => :environment do |_, args|
-      future_count = (args[:future_count] || 0).to_i
-      Pito::CableBroadcaster.broadcast_status_bar(
-        { future_count: future_count },
-        kind: :notifications
-      )
-      puts "broadcasted notifications future_count=#{future_count}"
+    # Enqueued: queue some jobs that will wait
+    5.times do
+      Pito::Test::SimpleSidekiqJob.perform_in(rand(10..60).seconds)
+      print "."
     end
 
-    desc "enqueue a long-running dummy job (seconds, default 5) to populate Sidekiq busy queue"
-    task :enqueue_sleep_job, [ :seconds ] => :environment do |_, args|
-      seconds = (args[:seconds] || 5).to_i
-      jid = Pito::Test::SleepJob.perform_async(seconds)
-      puts "enqueued SleepJob jid=#{jid} sleep=#{seconds}s"
-    end
-
-    desc "enqueue N sleep jobs at once (count, seconds; default 20,10) — count > Sidekiq concurrency parks excess in enqueued"
-    task :enqueue_bulk, [ :count, :seconds ] => :environment do |_, args|
-      count   = (args[:count] || 20).to_i
-      seconds = (args[:seconds] || 10).to_i
-      jids = Array.new(count) { Pito::Test::SleepJob.perform_async(seconds) }
-      puts "enqueued #{count} SleepJob(s), sleep=#{seconds}s each; first jid=#{jids.first}, last jid=#{jids.last}"
-    end
-
-    desc "enqueue a guaranteed-failing dummy job to populate Sidekiq retry queue"
-    task enqueue_failing_job: :environment do
-      jid = Pito::Test::FailingJob.perform_async
-      puts "enqueued FailingJob jid=#{jid}"
-    end
-
-    desc "schedule a dummy job far in the future (seconds_from_now, default 3600) to populate Sidekiq scheduled set"
-    task :enqueue_scheduled_job, [ :seconds_from_now ] => :environment do |_, args|
-      seconds = (args[:seconds_from_now] || 3600).to_i
-      jid = Pito::Test::ScheduledJob.perform_in(seconds.seconds)
-      puts "scheduled ScheduledJob jid=#{jid} fire_in=#{seconds}s"
-    end
-
-    desc "clear ALL Sidekiq state — queues, retry set, dead set, scheduled set. Use to reset after testing"
-    task clear: :environment do
-      require "sidekiq/api"
-      queued = Sidekiq::Queue.all.sum(&:size)
-      Sidekiq::Queue.all.each(&:clear)
-      retried = Sidekiq::RetrySet.new.size
-      Sidekiq::RetrySet.new.clear
-      scheduled = Sidekiq::ScheduledSet.new.size
-      Sidekiq::ScheduledSet.new.clear
-      dead = Sidekiq::DeadSet.new.size
-      Sidekiq::DeadSet.new.clear
-      puts "cleared sidekiq state — queued=#{queued} retry=#{retried} scheduled=#{scheduled} dead=#{dead}"
-    end
+    puts
+    puts "Done! Watch the status bar — b/e/r/d will update as jobs run."
   end
 end
