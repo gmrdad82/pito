@@ -104,10 +104,9 @@ const dEl=document.getElementById('sb-d');
 function formatNum(n){return n>=1000?(n/1000).toFixed(1).replace(/\.0$/,'')+'k':String(n||0);}
 
 const cable=createConsumer();
-console.log('[cable] consumer created');
 cable.subscriptions.create('StatusBarChannel',{
-  connected(){console.log('[cable] StatusBarChannel connected');if(connEl&&connEl.textContent!=='connected'){scrambleText(connEl,'connected','sb-connected');}},
-  disconnected(){console.log('[cable] StatusBarChannel disconnected');if(connEl){scrambleText(connEl,'disconnected','sb-disconnected');}},
+  connected(){if(connEl&&connEl.textContent!=='connected'){scrambleText(connEl,'connected','sb-connected');}},
+  disconnected(){if(connEl){scrambleText(connEl,'disconnected','sb-disconnected');}},
   received(data){
     if(!data||data.kind!=='status_bar')return;
     const p=data.payload||{};
@@ -118,10 +117,10 @@ cable.subscriptions.create('StatusBarChannel',{
       const cls=ok?'sb-connected':'sb-disconnected';
       if(connEl.textContent!==next)scrambleText(connEl,next,cls);
     }
-    if(bEl){const v=sk.busy||0;bEl.textContent='b'+formatNum(v);bEl.className='sb-val b'+(v>0?'':'0');}
-    if(eEl){const v=sk.enqueued||0;eEl.textContent='e'+formatNum(v);eEl.className='sb-val e'+(v>0?'':'0');}
-    if(rEl){const v=sk.retry||0;rEl.textContent='r'+formatNum(v);rEl.className='sb-val r'+(v>0?'':'0');}
-    if(dEl){const v=sk.dead||0;dEl.textContent='d'+formatNum(v);dEl.className='sb-val d'+(v>0?'':'0');}
+    if(bEl){const v='b'+formatNum(sk.busy||0);const cls='sb-val b'+(sk.busy?'':'0');if(bEl.textContent!==v){scrambleText(bEl,v,cls);}else{bEl.className=cls;}}
+    if(eEl){const v='e'+formatNum(sk.enqueued||0);const cls='sb-val e'+(sk.enqueued?'':'0');if(eEl.textContent!==v){scrambleText(eEl,v,cls);}else{eEl.className=cls;}}
+    if(rEl){const v='r'+formatNum(sk.retry||0);const cls='sb-val r'+(sk.retry?'':'0');if(rEl.textContent!==v){scrambleText(rEl,v,cls);}else{rEl.className=cls;}}
+    if(dEl){const v='d'+formatNum(sk.dead||0);const cls='sb-val d'+(sk.dead?'':'0');if(dEl.textContent!==v){scrambleText(dEl,v,cls);}else{dEl.className=cls;}}
   }
 });
 
