@@ -23,7 +23,7 @@ en:
       heading: "Voyage AI"
       col_metric: "metric"
       col_value: "value"
-      col_collection: "embeds"
+      col_collection: "collections"
       col_embedded: "embedded"
       games_embedded: "games"
       model: "model"
