@@ -53,3 +53,4 @@
 /target/
 /extras/*/target/
 .claude/
+node_modules/
