@@ -7382,51 +7382,9 @@ dialog.tui-size-guard-dialog::backdrop {
   margin: 8px 0;
 }
 
-/* Notifications feed panel — nf-kind-chip, nf-table, nf-toolbar.
-   Kind chip: plain text label colored per notification domain.
-     channel (video*) → videos accent red
-     game (game_release*) → games accent blue
-     system (milestone, calendar, sync_error) → home accent purple
-   Muted variant: read rows get 50% opacity chip. */
-.nf-kind-chip {
-  font-weight: 400;
-  font-style: normal;
-  line-height: 1;
-}
-.nf-kind-chip--channel { color: var(--section-accent-videos); }
-.nf-kind-chip--game    { color: var(--section-accent-games); }
-.nf-kind-chip--system  { color: var(--section-accent-home); }
-.nf-kind-chip--muted   { opacity: 0.45; }
-
-/* nf-table column widths (fixed layout via colgroup). */
-.nf-table { table-layout: fixed; width: 100%; }
-.nf-table__col-action { width: 28px; }
-.nf-table__col-kind   { width: 56px; }
-.nf-table__col-title  { width: auto; }
-.nf-table__col-time   { width: 64px; }
-
-/* Unread row: full white text. Read row: muted text. */
-.nf-table__row--unread { color: var(--color-text); }
-.nf-table__row--read   { color: var(--color-muted); }
-
-/* Title cell: unread = normal weight, read = muted. */
-.nf-table__title--unread { color: inherit; }
-.nf-table__title--read   { color: var(--color-muted); }
-
-/* nf-toolbar: filter checkbox + category chips + bulk action chips in one row. */
-.nf-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 6px;
-}
-.nf-toolbar__filter  { display: flex; align-items: center; }
-.nf-toolbar__actions { display: flex; align-items: center; gap: 8px; }
-.nf-toolbar__counter { color: var(--color-muted); font-size: 0.85em; }
-
-/* nf-table checkbox cell spacing. */
-.nf-table__checkbox         { display: inline-flex; align-items: center; }
-.nf-table__checkbox--header { }
+/* Notifications feed panel — placeholder block (body pending rebuild, 2026-05-25).
+   nf-kind-chip, nf-table, nf-toolbar rules removed along with the table body.
+   Re-introduce when the feed body is rebuilt. */
 
 /* Calendar toggle round (2026-05-23) — `.pito-pane__title-actions`:
    mirror of `.pito-sub-panel__actions`, placed on the right edge of
@@ -7759,99 +7717,6 @@ a.cal-filter-chip:visited {
    already handles this, but naming it explicitly makes the intent clear. */
 .tui-sync-word.is-accent {
   color: var(--section-accent);
-}
-
-/* === pito-border-round (btop corners) === */
-/*
- * A5 (2026-05-25) — btop-style rounded-corner ASCII overlay for every
- * `.pito-pane` and `.pito-sub-panel`. Renders Unicode box-drawing corner
- * characters `╭` (top-left) and `╮` (top-right) at the top corners of the
- * panel's CSS border, reinforcing the visual rounded-frame idiom from btop.
- *
- * Implementation notes:
- *
- *   • `::before` positions `╭` at the panel's top-left corner.
- *   • `::after`  positions `╮` at the panel's top-right corner.
- *   • Both sit at `top: -1px` (on the border line) and outside the panel's
- *     `padding` space so they don't shift inner content.
- *   • `pointer-events: none; z-index: 2` — decorative, never traps clicks.
- *   • `font-size: 13px; line-height: 1; font-family: monospace` — matches the
- *     panel title chrome font metrics so the glyph aligns with the border line.
- *   • Color matches the idle border: `color-mix(section-accent 30%, transparent)`
- *     for `.pito-pane`; `var(--color-border)` for `.pito-sub-panel`.
- *   • On focus (`data-tui-cursor-focused="yes"`) the glyph upgrades to full
- *     section accent, mirroring the focused border + title color swap.
- *
- * Utility class `.pito-border-round` mirrors the same rules so future
- * components (dialogs, shelves, etc.) can opt in without inheriting
- * `.pito-pane` or `.pito-sub-panel` ancestry.
- *
- * Bottom corners are intentionally omitted: the CSS `border-radius: 10px`
- * already rounds the bottom corners smoothly, and adding bottom-corner glyphs
- * would conflict with the panel's `padding-bottom` content area. The top
- * corners are the visually prominent surface (title-in-border chrome lives
- * there), matching how btop's top-border dominates the frame identity.
- */
-
-/* Top-left corner glyph */
-.pito-pane::before,
-.pito-sub-panel::before,
-.pito-border-round::before {
-  content: "╭";
-  position: absolute;
-  top: -1px;
-  left: -1px;
-  font-size: 13px;
-  line-height: 1;
-  font-family: monospace;
-  pointer-events: none;
-  z-index: 2;
-}
-
-/* Top-right corner glyph */
-.pito-pane::after,
-.pito-sub-panel::after,
-.pito-border-round::after {
-  content: "╮";
-  position: absolute;
-  top: -1px;
-  right: -1px;
-  font-size: 13px;
-  line-height: 1;
-  font-family: monospace;
-  pointer-events: none;
-  z-index: 2;
-}
-
-/* Idle color — matches the panel's idle border tone */
-.pito-pane::before,
-.pito-pane::after,
-.pito-border-round::before,
-.pito-border-round::after {
-  color: color-mix(in srgb, var(--section-accent, var(--dracula-purple)) 30%, transparent);
-}
-
-.pito-sub-panel::before,
-.pito-sub-panel::after {
-  color: var(--color-border);
-}
-
-/* Focus upgrade — corners shift to full section accent when panel is focused */
-.pito-pane[data-tui-cursor-focused="yes"]::before,
-.pito-pane[data-tui-cursor-focused="yes"]::after {
-  color: var(--section-accent, var(--dracula-purple));
-}
-
-.pito-sub-panel[data-tui-cursor-sub-panel-focused="yes"]::before,
-.pito-sub-panel[data-tui-cursor-sub-panel-focused="yes"]::after {
-  color: var(--section-accent, var(--dracula-purple));
-}
-
-/* Suppress corners when a sub-panel is focused inside a pane
-   (parent pane dims its own chrome per the existing focused-with-child rule) */
-.pito-pane[data-tui-cursor-focused="yes"]:has([data-tui-cursor-sub-panel-focused="yes"])::before,
-.pito-pane[data-tui-cursor-focused="yes"]:has([data-tui-cursor-sub-panel-focused="yes"])::after {
-  color: color-mix(in srgb, var(--section-accent, var(--dracula-purple)) 30%, transparent);
 }
 
 /* === panel border-top split pipe === */
