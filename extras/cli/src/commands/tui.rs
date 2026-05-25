@@ -56,7 +56,8 @@ fn cleanup(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> Result<()> 
 }
 
 fn run_loop<C: PitoClient>(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, app: &mut App<C>) -> Result<()> {
-    // No polling — event loop blocks briefly between renders
+    let mut last_draw = std::time::Instant::now();
+    let tick_rate = std::time::Duration::from_millis(100); // 10 fps for status bar time
 
     // Boot — push welcome lines
     app.push_line("");
@@ -68,7 +69,9 @@ fn run_loop<C: PitoClient>(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>
     loop {
         terminal.draw(|frame| ui::render(frame, app))?;
 
-        if event::poll(std::time::Duration::from_millis(100))? {
+        // Redraw every 100ms even if no key event, so the status bar time ticks
+        let timeout = tick_rate.saturating_sub(last_draw.elapsed());
+        if event::poll(timeout)? {
             if let Event::Key(key) = event::read()? {
                 if key.kind == KeyEventKind::Press {
                     match key.code {
@@ -103,7 +106,9 @@ fn run_loop<C: PitoClient>(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>
             }
         }
 
-        // No polling — user requested removal
+        if last_draw.elapsed() >= tick_rate {
+            last_draw = std::time::Instant::now();
+        }
 
         if !app.running {
             break;

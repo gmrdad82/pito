@@ -135,17 +135,14 @@ pub fn render<C: PitoClient>(frame: &mut Frame, app: &mut App<C>) {
 
     // ── Status bar ─────────────────────────────────────────────
     let status_area = Rect::new(area.x, status_y, cols, 1);
+
+    // Time tick + scramble before immutable borrow
+    let now_str = app.scrambled_time();
+
     let sd = &app.status_data;
     let conn_fg = if sd.connected { theme.success } else { theme.danger };
-
-    // Left side: "connected" (green or red)
     let mut st = vec![Span::styled("connected", Style::default().fg(conn_fg))];
-
-    // Right side: "Sidekiq b0 e0 r0 d0 · Mon, May 25 · 22:49:00"
     let mut right: Vec<Span> = Vec::new();
-    if app.cached_time_string.is_empty() {
-        app.cached_time_string = chrono::Local::now().format("%a, %b %e · %H:%M:%S").to_string();
-    }
     right.push(Span::styled("Sidekiq", Style::default().fg(theme.muted)));
     right.push(Span::raw(" "));
     right.push(Span::styled(format!("b{}", sd.sidekiq_busy), Style::default().fg(if sd.sidekiq_busy > 0 { theme.success } else { theme.muted })));
@@ -156,10 +153,12 @@ pub fn render<C: PitoClient>(frame: &mut Frame, app: &mut App<C>) {
     right.push(Span::raw(" "));
     right.push(Span::styled(format!("d{}", sd.sidekiq_dead), Style::default().fg(if sd.sidekiq_dead > 0 { theme.purple } else { theme.muted })));
     right.push(Span::styled(" · ", Style::default().fg(theme.muted)));
-    right.push(Span::styled(app.cached_time_string.clone(), Style::default().fg(theme.cyan)));
+    right.push(Span::styled(now_str, Style::default().fg(theme.cyan)));
 
+    // Right-align: push enough padding to push content to the right edge
     let right_w: u16 = right.iter().map(|s| s.width() as u16).sum();
-    let pad = cols.saturating_sub(right_w + 11u16 + 2u16);
+    let left_w: u16 = st.iter().map(|s| s.width() as u16).sum();
+    let pad = cols.saturating_sub(left_w + right_w);
     st.push(Span::raw(" ".repeat(pad as usize)));
     st.extend(right);
 

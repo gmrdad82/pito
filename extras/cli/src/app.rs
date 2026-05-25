@@ -124,6 +124,9 @@ pub struct App<C: PitoClient> {
     // Datetime tick (1 Hz)
     pub last_time_update: Instant,
     pub cached_time_string: String,
+    pub display_time_string: String,
+    pub scramble_tick: u8,
+    pub scramble_total: u8,
 
     // Footage detail (salvaged)
     pub footage_detail_state: Option<FootageDetailState>,
@@ -163,6 +166,9 @@ status_data: StatusData {
             last_status_poll: Instant::now(),
             last_time_update: Instant::now(),
             cached_time_string: String::new(),
+            display_time_string: String::new(),
+            scramble_tick: 0,
+            scramble_total: 6,
             footage_detail_state: None,
             footage_detail_rects: None,
             terminal_capability: TerminalCapability::TextOnly,
@@ -207,14 +213,48 @@ status_data: StatusData {
     }
 
     /// Return true if at least 1 second has elapsed since the last time
-    /// update, and reset the timer. Callers use this to gate datetime
-    /// recomputation so the status bar only refreshes at 1 Hz.
+    /// update, and reset the timer. Also starts a scramble animation.
+    /// Callers use this to gate datetime recomputation so the status bar
+    /// only refreshes at 1 Hz.
     pub fn update_time_stale(&mut self) -> bool {
         if self.last_time_update.elapsed() >= Duration::from_secs(1) {
             self.last_time_update = Instant::now();
+            self.scramble_tick = self.scramble_total;
             true
         } else {
             false
+        }
+    }
+
+    /// Compute the displayed time string, scrambling during transitions.
+    /// Returns the string that should be rendered for the current frame.
+    pub fn scrambled_time(&mut self) -> String {
+        if self.cached_time_string.is_empty() {
+            self.cached_time_string = chrono::Local::now().format("%a, %b %e · %H:%M:%S").to_string();
+            self.display_time_string = self.cached_time_string.clone();
+            return self.display_time_string.clone();
+        }
+
+        if self.scramble_tick > 0 {
+            self.scramble_tick -= 1;
+            let progress = (self.scramble_total - self.scramble_tick) as f64 / self.scramble_total as f64;
+            let scrambled: String = self.cached_time_string.chars()
+                .enumerate()
+                .map(|(i, c)| {
+                    if i >= self.display_time_string.len() { return c; }
+                    let old = self.display_time_string.chars().nth(i).unwrap_or(c);
+                    if c == old { return c; }
+                    if fastrand::f64() < progress * 0.7 + 0.3 { return c; }
+                    let set = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+                    let idx = fastrand::usize(..set.len());
+                    set.chars().nth(idx).unwrap_or(c)
+                })
+                .collect();
+            self.display_time_string = scrambled;
+            self.display_time_string.clone()
+        } else {
+            self.display_time_string = self.cached_time_string.clone();
+            self.display_time_string.clone()
         }
     }
 
