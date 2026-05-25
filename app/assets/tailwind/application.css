@@ -3014,14 +3014,22 @@ dialog.confirm-modal::backdrop {
   font-family: var(--default-mono-font-family, ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, monospace);
   font-size: 16px;
   font-weight: bold;
-  border: 1px solid var(--color-border);
-  background: var(--color-bg);
+  /* 2026-05-25 — minimal chrome: bottom border only. Side + top borders dropped. */
+  border: none;
+  border-bottom: 1px solid var(--color-muted);
+  background: transparent;
   color: var(--color-text);
   padding: 0;
 }
-.totp-modal-box:focus {
-  outline: 1px solid var(--color-link);
-  outline-offset: -1px;
+/* Focused cell — Solid variant D tint + accent bottom border.
+   The tint comes from --focus-tint-bg (12% accent + bg, picked 2026-05-22
+   per tmp/cursor-and-month-v1.html variant D). Tied to design.md rule #5
+   binding CTRL+j/k navigation with the focus tint cursor. */
+.totp-modal-box:focus,
+.totp-modal-box:focus-visible {
+  background: var(--focus-tint-bg);
+  border-bottom-color: var(--section-accent);
+  outline: none;
 }
 
 /* 2026-05-17 — webhook URL form row.
@@ -7378,6 +7386,7 @@ body[data-tui-authenticated="no"] .tui-page-scroll-indicator { display: none; }
   padding-top: 18px;
   /* No background — panels are border-only per design.md. */
 }
+
 
 .pito-auth-dialog__error {
   color: var(--color-danger);

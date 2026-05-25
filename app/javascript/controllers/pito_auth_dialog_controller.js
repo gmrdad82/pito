@@ -71,8 +71,7 @@ export default class extends Controller {
     if (list.length === 0) return
     const idx = list.indexOf(document.activeElement)
     const next = list[(idx + 1) % list.length] || list[0]
-    next.focus()
-    if (next.select) next.select()
+    this.focusAndMark(next)
   }
 
   focusPrev() {
@@ -80,8 +79,34 @@ export default class extends Controller {
     if (list.length === 0) return
     const idx = list.indexOf(document.activeElement)
     const prev = list[(idx - 1 + list.length) % list.length]
-    prev.focus()
-    if (prev.select) prev.select()
+    this.focusAndMark(prev)
+  }
+
+  // Apply the canonical focus-tint cursor by setting
+  // `data-tui-focusable-focused="yes"` + `data-tui-focusable-style="action"`
+  // on the focused element when it's a button. The existing CSS rule
+  // (`[data-tui-focusable-focused][data-tui-focusable-style="action"]`)
+  // paints the Solid variant D tint. Inputs rely on their own `:focus`
+  // styling (.totp-modal-box bottom-border-accent) per the input contract.
+  // Clears prior marks from the dialog so only one cursor at a time.
+  focusAndMark(el) {
+    this.element.querySelectorAll('[data-tui-focusable-focused="yes"]').forEach((prev) => {
+      prev.removeAttribute("data-tui-focusable-focused")
+      // only strip our injected style — leave any author-supplied style alone
+      if (prev.dataset.tuiFocusableInjected === "yes") {
+        prev.removeAttribute("data-tui-focusable-style")
+        delete prev.dataset.tuiFocusableInjected
+      }
+    })
+    if (el.tagName === "BUTTON" && !el.hasAttribute("data-tui-focusable-style")) {
+      el.setAttribute("data-tui-focusable-style", "action")
+      el.dataset.tuiFocusableInjected = "yes"
+    }
+    if (el.tagName === "BUTTON") {
+      el.setAttribute("data-tui-focusable-focused", "yes")
+    }
+    el.focus()
+    if (el.select) el.select()
   }
 
   toggleBackup() {
