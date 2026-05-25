@@ -45,6 +45,11 @@
 #   `#owned_platforms` and the `.owned` / `.not_owned` /
 #   `.owned_on(slug)` scopes), bundle_members, video_game_links.
 #
+# B7 (2026-05-25) — play_on helpers.
+#   `#play_on_ownership` → the GamePlatformOwnership where play_on=true,
+#     or nil. At most one per game (partial unique DB index).
+#   `#play_on_platform`  → that ownership's Platform, or nil.
+#
 # The single-valued `platform_owned_id` column is gone (Phase 27 §1a).
 #
 # Phase 4 legacy columns (DEPRECATED — Phase 14 polish drops them):
@@ -384,6 +389,27 @@ class Game < ApplicationRecord
   # logic as an instance predicate.
   def owned?
     game_platform_ownerships.loaded? ? game_platform_ownerships.any? : game_platform_ownerships.exists?
+  end
+
+  # B7 (2026-05-25) — play_on readers.
+  #
+  # `play_on_ownership` returns the single GamePlatformOwnership row
+  # whose `play_on` flag is true, or nil when none is set. At most one
+  # row per game can have play_on=true (partial unique DB index).
+  #
+  # `play_on_platform` returns that ownership's Platform, or nil.
+  # Useful for display: `game.play_on_platform&.name` renders "PC (Steam)"
+  # without an extra join when the association is already loaded.
+  def play_on_ownership
+    if game_platform_ownerships.loaded?
+      game_platform_ownerships.find(&:play_on?)
+    else
+      game_platform_ownerships.find_by(play_on: true)
+    end
+  end
+
+  def play_on_platform
+    play_on_ownership&.platform
   end
 
   # IGDB cover URL builder. The IGDB CDN serves directly to the

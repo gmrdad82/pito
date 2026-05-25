@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_21_230000) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_25_130000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -70,6 +70,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_21_230000) do
     t.string "key"
     t.boolean "notifications_send_all", default: false, null: false
     t.boolean "notifications_send_daily_digest", default: false, null: false
+    t.text "paused_targets", default: "[]", null: false
     t.boolean "reindex_running", default: false, null: false
     t.datetime "reindex_started_at"
     t.datetime "updated_at", null: false
@@ -389,8 +390,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_21_230000) do
     t.datetime "created_at", null: false
     t.bigint "game_id", null: false
     t.bigint "platform_id", null: false
+    t.boolean "play_on", default: false, null: false
     t.datetime "updated_at", null: false
     t.index ["game_id", "platform_id"], name: "index_game_platform_ownerships_uniqueness", unique: true
+    t.index ["game_id", "play_on"], name: "index_game_platform_ownerships_unique_play_on_per_game", unique: true, where: "(play_on = true)"
     t.index ["game_id"], name: "index_game_platform_ownerships_on_game_id"
     t.index ["platform_id"], name: "index_game_platform_ownerships_on_platform_id"
   end
@@ -528,6 +531,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_21_230000) do
 
   create_table "notifications", force: :cascade do |t|
     t.text "body"
+    t.string "category", default: "system", null: false
     t.datetime "created_at", null: false
     t.bigint "created_by_user_id"
     t.string "dedup_key"
@@ -546,6 +550,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_21_230000) do
     t.string "title", null: false
     t.datetime "updated_at", null: false
     t.string "url"
+    t.index ["category"], name: "index_notifications_on_category"
     t.index ["created_at"], name: "index_notifications_on_created_at"
     t.index ["created_by_user_id"], name: "index_notifications_on_created_by_user_id", where: "(created_by_user_id IS NOT NULL)"
     t.index ["event_type", "dedup_key"], name: "index_notifications_unique_dedup", unique: true, where: "(dedup_key IS NOT NULL)"

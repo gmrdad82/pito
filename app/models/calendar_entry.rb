@@ -1,13 +1,28 @@
 # Phase 15 §1 — Calendar Data Model.
 #
-# Central calendar entry. Eight `entry_type` values, three `source`
-# provenances, four `state` values. Type-specific cross-references live
-# as typed FK columns (`video_id`, `game_id`, `channel_id`,
-# `parent_entry_id`, `milestone_rule_id`); type-specific data lives in
-# `metadata` (jsonb). Validators enforce both shapes.
+# Central calendar entry. Thirteen `entry_type` values grouped into five
+# high-level `category` values (derived — no stored column). Three
+# `source` provenances, four `state` values. Type-specific
+# cross-references live as typed FK columns (`video_id`, `game_id`,
+# `channel_id`, `parent_entry_id`, `milestone_rule_id`); type-specific
+# data lives in `metadata` (jsonb). Validators enforce both shapes.
 #
 # D18 (2026-05-21) — Projects dropped; `project_id` column + relation
 # removed alongside the Project model.
+#
+# Category mapping (B5, 2026-05-25) — derived from `entry_type` via
+# `#category`; no stored column. Call `CalendarEntry.in_category(cat)`
+# for a scope-compatible query.
+#
+#   :channel  ← channel_published, video_published, video_scheduled,
+#                channel_anniversary, channel_metadata_change,
+#                channel_milestone
+#   :game     ← game_release, purchase_planned, owned_release_imminent
+#   :system   ← system_event, milestone_auto (legacy compat)
+#   :manual   ← milestone_manual, custom
+#
+# `milestone_auto` (integer 6) is kept in the enum for backwards
+# compatibility with existing rows; it routes to `:system` if present.
 #
 # Read-only enforcement: `derived` and `auto` entries are read-only
 # outside `metadata.user_overrides`. The model-level callback rejects
@@ -40,14 +55,20 @@ class CalendarEntry < ApplicationRecord
   attribute :release_precision, :integer
 
   enum :entry_type, {
-    channel_published: 0,
-    video_published:   1,
-    video_scheduled:   2,
-    game_release:      3,
-    purchase_planned:  4,
-    milestone_manual:  5,
-    milestone_auto:    6,
-    custom:            7
+    channel_published:       0,
+    video_published:         1,
+    video_scheduled:         2,
+    game_release:            3,
+    purchase_planned:        4,
+    milestone_manual:        5,
+    milestone_auto:          6,  # legacy — routes to :system category
+    custom:                  7,
+    # B5 (2026-05-25) — new entry types.
+    channel_anniversary:     8,  # year anniversary for a channel
+    channel_metadata_change: 9,  # title / description / branding change
+    channel_milestone:       10, # sub count / view count milestone
+    owned_release_imminent:  11, # owned game releasing within N days
+    system_event:            12  # infrastructure events (Sidekiq retries, storage warnings, log truncation)
   }
   enum :source, { manual: 0, derived: 1, auto: 2 }
   enum :state, {
@@ -125,6 +146,56 @@ class CalendarEntry < ApplicationRecord
   # ("hide :cancelled and :superseded by default").
   scope :visible, -> {
     where.not(state: %i[cancelled superseded])
+  }
+
+  # ──── Category ─────────────────────────────────────────────────────
+  #
+  # Five high-level categories derived from `entry_type`. Stored nowhere;
+  # always computed. Use `in_category` scope for DB-level filtering.
+
+  # Maps each entry_type symbol to its category symbol. The map is
+  # intentionally exhaustive so any newly added entry_type value raises
+  # KeyError at call time rather than silently returning nil.
+  ENTRY_TYPE_CATEGORY = {
+    channel_published:       :channel,
+    video_published:         :channel,
+    video_scheduled:         :channel,
+    channel_anniversary:     :channel,
+    channel_metadata_change: :channel,
+    channel_milestone:       :channel,
+    game_release:            :game,
+    purchase_planned:        :game,
+    owned_release_imminent:  :game,
+    milestone_manual:        :manual,
+    custom:                  :manual,
+    milestone_auto:          :system,
+    system_event:            :system
+  }.freeze
+
+  # Returns the category symbol for this entry: :channel, :game,
+  # :system, or :manual. Raises KeyError if the entry_type value is
+  # unrecognised (signals a mapping gap, not a nil fallback).
+  def category
+    ENTRY_TYPE_CATEGORY.fetch(entry_type.to_sym)
+  end
+
+  # Returns all entry_type integer values that belong to `cat`.
+  # Used internally by `in_category` to build the SQL IN list without
+  # round-tripping through Ruby object instantiation.
+  def self.entry_types_for_category(cat)
+    symbols = ENTRY_TYPE_CATEGORY.select { |_, v| v == cat.to_sym }.keys
+    raise ArgumentError, "Unknown category #{cat.inspect}" if symbols.empty?
+
+    symbols.map { |sym| entry_types[sym] }
+  end
+
+  # Scope: entries whose entry_type falls within the given category.
+  # Accepts :channel, :game, :system, :manual (or string equivalents).
+  #
+  # Example:
+  #   CalendarEntry.in_category(:game).in_range(Date.today, 30.days.from_now)
+  scope :in_category, lambda { |cat|
+    where(entry_type: entry_types_for_category(cat))
   }
 
   # ──── Predicates ───────────────────────────────────────────────────
