@@ -176,55 +176,29 @@ class AppSetting < ApplicationRecord
     singleton_row.update!(reindex_running: false, reindex_started_at: nil)
   end
 
-  # 2026-05-25 (pause-from-sync) — paused target set.
+  # 2026-05-25 (collapse-to-master) — master sync pause flag.
   #
-  # `paused_targets` is a JSON-serialized `text` column on the singleton
-  # row holding every dot-namespaced sync target the user has explicitly
-  # paused (e.g. `["home.stack", "home.stack.meilisearch"]`). The
-  # column is always non-NULL (defaults to `"[]"`). Reads/writes use the
-  # singleton row's built-in row-level lock so concurrent Sidekiq jobs
-  # cannot corrupt the set.
+  # `master_sync_paused` is a boolean column on the singleton row. When true
+  # all sync activity (background jobs, cable broadcasts) is suppressed.
+  # Replaces the prior `paused_targets` JSON array (which held per-panel /
+  # per-sub-panel pause state — now gone).
   #
-  # `paused_targets_set`   — returns a Ruby `Set` of paused target strings.
-  # `mark_paused!(target)` — adds `target` to the set and persists atomically.
-  # `mark_resumed!(target)`— removes `target` from the set and persists atomically.
+  # `master_sync_paused?` — returns true when the master pause is active.
+  # `pause_master!`        — sets the flag to true, atomically.
+  # `resume_master!`       — clears the flag, atomically.
   #
   # Callers use `Pito::SyncState` instead of calling these directly; the
-  # service layer enforces cascade rules and broadcasts.
+  # service layer owns broadcasts.
 
-  def self.paused_targets_set
-    raw = singleton_row.paused_targets.to_s
-    parsed = JSON.parse(raw)
-    Set.new(parsed.map(&:to_s))
-  rescue JSON::ParserError
-    Set.new
+  def self.master_sync_paused?
+    singleton_row.master_sync_paused
   end
 
-  def self.mark_paused!(target)
-    target = target.to_s
-    row = singleton_row
-    row.with_lock do
-      current = begin
-        JSON.parse(row.paused_targets.to_s)
-      rescue JSON::ParserError
-        []
-      end
-      current << target unless current.include?(target)
-      row.update!(paused_targets: current.to_json)
-    end
+  def self.pause_master!
+    singleton_row.update!(master_sync_paused: true)
   end
 
-  def self.mark_resumed!(target)
-    target = target.to_s
-    row = singleton_row
-    row.with_lock do
-      current = begin
-        JSON.parse(row.paused_targets.to_s)
-      rescue JSON::ParserError
-        []
-      end
-      current.delete(target)
-      row.update!(paused_targets: current.to_json)
-    end
+  def self.resume_master!
+    singleton_row.update!(master_sync_paused: false)
   end
 end

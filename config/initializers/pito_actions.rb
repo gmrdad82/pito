@@ -147,32 +147,21 @@ Rails.application.config.after_initialize do
     scope: :global
   )
 
-  # 2026-05-25 (pause-from-sync) — explicit pause / resume actions.
+  # 2026-05-25 (collapse-to-master) — master sync toggle.
   #
-  # `:pause_target` and `:resume_target` are REVERSIBLE (no confirmation
-  # needed). The JS dispatcher POSTs to `/pito/sync/pause` or
-  # `/pito/sync/resume` with `target=<dot_namespaced_target>` in the
-  # request body. The server cascades to children, broadcasts the new
-  # state, and may emit `uncertain` on a parent if a child is individually
-  # resumed while the parent is still paused.
+  # `:toggle_master_sync` is a client-side action; the JS dispatcher reads
+  # the current master pause state from the TST indicator element and POSTs
+  # to `/pito/sync/pause` or `/pito/sync/resume` accordingly (no target
+  # param needed — master is implicit). Registered here so the `:` palette
+  # can surface a "toggle master sync" entry.
   #
-  # scope: :global — pause/resume can be invoked on any panel on any screen.
+  # scope: :global — master sync toggle applies on every screen.
   Pito::ActionRegistry.define(
-    :pause_target,
-    path: -> { routes.pito_sync_pause_path },
-    method: :post,
+    :toggle_master_sync,
+    path: -> { "#" },
+    method: :get,
     confirmation: nil,
-    i18n_key: "tui.commands.pause_target",
-    cable_panel: nil,
-    scope: :global
-  )
-
-  Pito::ActionRegistry.define(
-    :resume_target,
-    path: -> { routes.pito_sync_resume_path },
-    method: :post,
-    confirmation: nil,
-    i18n_key: "tui.commands.resume_target",
+    i18n_key: "tui.commands.toggle_master_sync",
     cable_panel: nil,
     scope: :global
   )
@@ -226,21 +215,6 @@ Rails.application.config.after_initialize do
     scope: :home
   )
 
-  # Phase C4 (2026-05-25) — calendar panel mode toggle + category filter.
-  #
-  # `:calendar_set_mode` — redirects to / with `?calendar_mode=month|list`.
-  # The JS dispatcher sends `args: { mode: "month"|"list" }` as a query param.
-  # scope: :home — calendar is a home-screen panel only.
-  Pito::ActionRegistry.define(
-    :calendar_set_mode,
-    path: -> { routes.pito_calendar_set_mode_path },
-    method: :get,
-    confirmation: nil,
-    i18n_key: "tui.commands.calendar_set_mode",
-    cable_panel: "pito:home:calendar",
-    scope: :home
-  )
-
   # `:calendar_filter_category` — redirects to / with `?calendar_category=<cat>|""`.
   # The JS dispatcher sends `args: { category: "channel"|"game"|"system"|"manual"|"" }`.
   # scope: :home — calendar is a home-screen panel only.
@@ -278,46 +252,6 @@ Rails.application.config.after_initialize do
     confirmation: nil,
     i18n_key: "tui.commands.notifications_feed_mark_all_read",
     cable_panel: "pito:home:notifications_feed",
-    scope: :home
-  )
-
-  Pito::ActionRegistry.define(
-    :notifications_feed_filter_channel,
-    path: -> { "#" },
-    method: :get,
-    confirmation: nil,
-    i18n_key: "tui.commands.notifications_feed_filter_channel",
-    cable_panel: nil,
-    scope: :home
-  )
-
-  Pito::ActionRegistry.define(
-    :notifications_feed_filter_game,
-    path: -> { "#" },
-    method: :get,
-    confirmation: nil,
-    i18n_key: "tui.commands.notifications_feed_filter_game",
-    cable_panel: nil,
-    scope: :home
-  )
-
-  Pito::ActionRegistry.define(
-    :notifications_feed_filter_system,
-    path: -> { "#" },
-    method: :get,
-    confirmation: nil,
-    i18n_key: "tui.commands.notifications_feed_filter_system",
-    cable_panel: nil,
-    scope: :home
-  )
-
-  Pito::ActionRegistry.define(
-    :notifications_feed_filter_manual,
-    path: -> { "#" },
-    method: :get,
-    confirmation: nil,
-    i18n_key: "tui.commands.notifications_feed_filter_manual",
-    cable_panel: nil,
     scope: :home
   )
 

@@ -1,32 +1,37 @@
 module Tui
-  # Beta 4 — Phase F1. Bottom status bar. Sticky-bottom counterpart to
-  # `Tui::TopStatusBarComponent`. Provides the 3-screen nav, current mode
-  # lozenge, and `?` / `:` keybinding hints, vim/TUI status-line style.
+  # R10a (2026-05-25) — Bottom status bar. Sticky-bottom counterpart to
+  # `Tui::TopStatusBarComponent`. Provides the current mode + breadcrumb
+  # on the left, Sidekiq queue depth in the center, and help/command hints
+  # on the right.
   #
-  # Layout:
+  # Layout (3-zone grid `1fr auto 1fr`):
   #
-  #   <mode> | home videos games | ? help  : command
+  #   <mode> | <breadcrumb>    [sidekiq]    ? help  : command
   #
   # Children (all composed via `render` in the template):
-  #   - `Tui::ModeLozengeComponent`  — mode lozenge (left)
-  #   - `Tui::ScreensListComponent`  — screen nav row (center)
+  #   - `Tui::ModeLozengeComponent`  — mode lozenge (left, with scramble/color animation)
+  #   - `Tui::BreadcrumbComponent`   — screen/panel/sub-panel crumb (left)
+  #   - `Tui::SidekiqStatsComponent` — b/e/r queue cells (center)
   #   - `Tui::HelpHintComponent`     — `? help` hint (right)
   #   - `Tui::CommandHintComponent`  — `: command` hint (right)
   #
   # Kwargs:
   #   current_section: (String) — "home", "videos", or "games". Forwarded
-  #                    to `Tui::ScreensListComponent`.
+  #                    to `Tui::BreadcrumbComponent` as the idle fallback screen name.
   #   mode:            (Symbol) — :normal, :insert, :command, :search. Forwarded
   #                    to `Tui::ModeLozengeComponent`. Defaults to :normal.
-  #
-  # C18 (2026-05-21): settings consolidated into / (home). The sections
-  # list was trimmed from 8 entries to 3 (home / videos / games).
-  # /settings now redirects 301 to /.
   #
   # The section accent (`--section-accent`) cascades via
   # `body[data-section]` (set by `current_section` in
   # `ApplicationHelper`), so the bar inherits the right color
   # automatically — no per-render section-to-color lookup needed.
+  #
+  # Cable: no direct subscription. Child VCs each manage their own
+  # cable events (`tui:mode-changed`, `tui:sidekiq-changed`,
+  # `tui:panel-focus-changed`).
+  #
+  # CABLE_CHANNEL: none (child VCs own their subscriptions)
+  # Focusables: none (chrome bar, not a panel)
   class BottomStatusBarComponent < ViewComponent::Base
     MODES = %i[normal insert command search].freeze
 

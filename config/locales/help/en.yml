@@ -68,7 +68,6 @@ en:
         calendar:
           title: "calendar"
           items:
-            set_mode: "switch calendar view (month / week)"
             filter_category: "filter entries by category"
             prev_month: "navigate to previous month"
             next_month: "navigate to next month"

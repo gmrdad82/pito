@@ -9,14 +9,14 @@ module Pito
   #   :calendar_today      → GET /pito/calendar/today
   #   :calendar_pick_year  → GET /pito/calendar/pick_year (stub)
   #
-  # ## Mode and filter actions (redirect to / with URL param)
+  # ## Filter action (redirect to / with URL param)
   #
-  #   :calendar_set_mode       → GET /pito/calendar/set_mode?mode=month|list
   #   :calendar_filter_category → GET /pito/calendar/filter_category?category=<cat>|""
   #
-  # `set_mode` and `filter_category` follow the "no localStorage" hard rule:
-  # they redirect to `/` with the resolved param so URL state is canonical and
-  # server-rendered truth is preserved.
+  # `filter_category` follows the "no localStorage" hard rule:
+  # it redirects to `/` with the resolved param so URL state is canonical and
+  # server-rendered truth is preserved. Schedule mode has been dropped —
+  # calendar is month-only.
   #
   # ## Month param contract
   #
@@ -28,7 +28,7 @@ module Pito
   #
   # Navigation actions: HTML Turbo Frame response rendering
   # `Pito::Calendar::MonthGridComponent` inside the frame wrapper.
-  # Mode/filter actions: redirect to `root_path` with the resolved param.
+  # Filter action: redirect to `root_path` with the resolved param.
   #
   # ## Cable channel
   #
@@ -38,10 +38,9 @@ module Pito
   # ## Related
   #
   # `Pito::Calendar::MonthGridComponent` — the rendered month grid component.
-  # `Pito::Calendar::ScheduleListComponent` — the rendered schedule list component.
   # `Pito::Calendar::CategoryColors`     — chip color constants.
   # `CalendarHelper`                     — entry bucketing + filtering.
-  # `HomePanelData`                      — resolves `@calendar_mode` + `@calendar_category`.
+  # `HomePanelData`                      — resolves `@calendar_category`.
   class CalendarController < ApplicationController
     include CalendarHelper
 
@@ -79,31 +78,11 @@ module Pito
       render_month_grid
     end
 
-    # GET /pito/calendar/set_mode?mode=month|list
-    #
-    # Persists the calendar view mode in the URL by redirecting to `/` with
-    # `?calendar_mode=<mode>`. Allowed values: "month", "list". Any other
-    # value is silently coerced to "month". Preserves any existing
-    # `calendar_category` param present in the referrer so the category filter
-    # is not lost on mode switch.
-    #
-    # No localStorage — URL is the canonical state per the hard rule.
-    ALLOWED_MODES = %w[month list].freeze
-
-    def set_mode
-      raw_mode = params[:mode].to_s
-      resolved = ALLOWED_MODES.include?(raw_mode) ? raw_mode : "month"
-      redirect_params = { calendar_mode: resolved }
-      redirect_params[:calendar_category] = params[:calendar_category] if params[:calendar_category].present?
-      redirect_to root_path(redirect_params)
-    end
-
     # GET /pito/calendar/filter_category?category=channel|game|system|manual|""
     #
     # Persists the active category filter in the URL by redirecting to `/`
     # with `?calendar_category=<cat>`. An empty or absent `category` param
-    # clears the filter (all categories shown). Preserves `calendar_mode` so
-    # the mode is not lost on category switch.
+    # clears the filter (all categories shown).
     #
     # Allowed values: "channel", "game", "system", "manual", "" (clear).
     ALLOWED_CATEGORIES = %w[channel game system manual].freeze
@@ -111,7 +90,6 @@ module Pito
     def filter_category
       raw_cat = params[:category].to_s
       redirect_params = {}
-      redirect_params[:calendar_mode] = params[:calendar_mode] if params[:calendar_mode].present?
       redirect_params[:calendar_category] = raw_cat if ALLOWED_CATEGORIES.include?(raw_cat)
       redirect_to root_path(redirect_params)
     end

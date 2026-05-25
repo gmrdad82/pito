@@ -13,16 +13,16 @@
   --dracula-yellow: #f1fa8c;
   --pale-cobalt: #7eb6ff;
 
-  /* L2 — section accents */
+  /* L2 — section accents. 2026-05-25: unified to single Pito purple. */
   --section-accent-home: #bd93f9;
-  --section-accent-channels: #ff5555;
-  --section-accent-videos: #ff5555;
-  --section-accent-games: #7eb6ff;
-  --section-accent-projects: #7eb6ff;
-  --section-accent-settings: #ffb86c;
+  --section-accent-channels: #bd93f9;
+  --section-accent-videos: #bd93f9;
+  --section-accent-games: #bd93f9;
+  --section-accent-projects: #bd93f9;
+  --section-accent-settings: #bd93f9;
   --section-accent-notifications: #bd93f9;
   --section-accent-calendar: #bd93f9;
-  --section-accent: var(--section-accent-home); /* default */
+  --section-accent: #bd93f9; /* single Pito purple — all sections */
 
   /* L2 — per-section background atoms */
   --bg-section-home: #2e2e3e;

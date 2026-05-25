@@ -1,29 +1,20 @@
 <%# Pito::NotificationsFeedPanelComponent — in-app notifications feed.
     Columns: checkbox | kind chip | title | relative time.
     Sort: unread first (CASE WHEN) + created_at DESC within each group.
-    Filter row:
-      [ ] unread  checkbox → ?notifications_feed_filter=unread
-      [ ] channel [ ] game [ ] system [ ] manual chips → ?notifications_category=
-    Bulk: [read] [un-read] action chips + [mark all read] → NotificationsFeedController.
+    Toolbar: [ ] unread checkbox + [read] [un-read] bulk actions + [mark all read].
+    All categories shown; no category filter chips.
     Cable: pito:home:notifications_feed. %>
 <%= content_tag :section,
       class: "pane pito-pane pito-panel pito-panel--notifications-feed",
       **panel_data do %>
   <span class="pito-pane__title"><%= title %></span>
-  <span class="pito-pane__title-actions">
-    <%= render Tui::SyncIndicatorComponent.new(
-      mode: :target,
-      target: "home.notifications_feed",
-      focusable_key: "notifications_feed_sync"
-    ) %>
-  </span>
   <%= render Tui::PanelFieldsetComponent.new(data: { controller: "notifications-feed-bulk" }) do %>
     <turbo-frame id="<%= Pito::NotificationsFeedPanelComponent::FRAME_ID %>">
-      <%# Toolbar row: unread checkbox + category filter chips + bulk actions. %>
+      <%# Toolbar row: unread checkbox + bulk actions. %>
       <div class="nf-toolbar">
         <%# [ ] unread filter checkbox — links to ?notifications_feed_filter=unread or all. %>
         <span class="nf-toolbar__filter">
-          <% filter_target = filter == "unread" ? root_path(notifications_category: category) : root_path(notifications_feed_filter: "unread", notifications_category: category) %>
+          <% filter_target = filter == "unread" ? root_path : root_path(notifications_feed_filter: "unread") %>
           <%= link_to filter_target,
                 data: { "turbo-frame": Pito::NotificationsFeedPanelComponent::FRAME_ID,
                         "turbo-action": "advance" },
@@ -33,25 +24,13 @@
           <% end %>
         </span>
 
-        <%# Category filter chips — channel / game / system / manual. %>
-        <span class="nf-toolbar__chips">
-          <%= render Pito::Notifications::FilterChipsComponent.new(
-            active_category: category,
-            frame_id: Pito::NotificationsFeedPanelComponent::FRAME_ID,
-            filter: filter
-          ) %>
-        </span>
-
-        <%# Bulk action chips — shown always; operate on selected rows. %>
+        <%# Bulk action buttons — shown always; operate on selected rows. %>
         <span class="nf-toolbar__actions" data-notifications-feed-bulk-target="actions">
           <span class="nf-toolbar__counter" data-notifications-feed-bulk-target="counter"></span>
           <%= form_with url: bulk_read_notifications_feed_index_path,
                 method: :post,
                 data: { "notifications-feed-bulk-target": "readForm",
                         "turbo-frame": Pito::NotificationsFeedPanelComponent::FRAME_ID } do |f| %>
-            <% if category.present? %>
-              <%= f.hidden_field :notifications_category, value: category %>
-            <% end %>
             <% if filter == "unread" %>
               <%= f.hidden_field :notifications_feed_filter, value: "unread" %>
             <% end %>
@@ -65,9 +44,6 @@
                 method: :post,
                 data: { "notifications-feed-bulk-target": "unreadForm",
                         "turbo-frame": Pito::NotificationsFeedPanelComponent::FRAME_ID } do |f| %>
-            <% if category.present? %>
-              <%= f.hidden_field :notifications_category, value: category %>
-            <% end %>
             <% if filter == "unread" %>
               <%= f.hidden_field :notifications_feed_filter, value: "unread" %>
             <% end %>
@@ -80,9 +56,6 @@
           <%# [mark all read] — POSTs to NotificationsFeedController#mark_all_read. %>
           <%= form_with url: mark_all_read_notifications_feed_index_path,
                 method: :post do |f| %>
-            <% if category.present? %>
-              <%= f.hidden_field :notifications_category, value: category %>
-            <% end %>
             <% if filter == "unread" %>
               <%= f.hidden_field :notifications_feed_filter, value: "unread" %>
             <% end %>
@@ -163,11 +136,7 @@
         </table>
       <% else %>
         <p class="text-muted" style="margin: 0;">
-          <% if category.present? %>
-            no <%= category %> notifications<%= filter == "unread" ? " unread" : "" %>.
-          <% else %>
-            <%= filter == "unread" ? "no unread notifications." : "no notifications." %>
-          <% end %>
+          <%= filter == "unread" ? "no unread notifications." : "no notifications." %>
         </p>
       <% end %>
     </turbo-frame>

@@ -209,53 +209,22 @@
   --stack-arrow-right:  0;
 }
 
-/* 2026-05-20 — Per-section `--section-accent` + `background` cascade
-   moved to Ruby. The `<body>` element in
-   `app/views/layouts/application.html.erb` now carries inline
-   `style="--section-accent: <hex>; --color-section-accent: <hex>;
-   background: <hex>;"` values computed by `Pito::Theme::Sections`. The
-   `<body data-section="...">` attribute is preserved so selectors that
-   scope behavior by section still work, but the per-section cascade
-   that used to live HERE (one `body[data-section="..."]` block per
-   section) is gone — those decisions are now specced in
-   `spec/services/pito/theme/sections_spec.rb`. The L2 atoms
-   (`--section-accent-*`, `--bg-section-*`) higher up in :root remain
-   declared for reference + as a defense-in-depth fallback if the
-   inline style ever fails to render (e.g. CSP `style-src` lockdown);
-   they're just no longer cited in a per-section selector here.
-
-   `dialog` keeps its own `--section-accent` reset to home/purple so
-   modal chrome stays consistent regardless of which page opened it
-   (see the long-form rationale on the `dialog { ... }` block further
-   down the file). */
-
-/* FB-PURPLE-REGRESSION (2026-05-21) — defense-in-depth per-section
-   cascade. The inline `<body style="--section-accent: …">` is the
-   canonical source, but a regression surfaced where the inline style
-   wasn't propagating to descendant `color-mix()` callers (panel
-   border, focus tint, `[reindex]` button) — they were falling back
-   to the `:root` home/purple value. Re-declaring the per-section
-   override on `body[data-section="X"]` selectors gives the cascade a
-   CSS-rule-level pin that doesn't rely on inline style substitution
-   timing. Specificity (0,1,1) beats `:root` (0,0,1) and matches the
-   inline style precedence already in place. */
-/* 2026-05-24 — Section-aware --section-bg alias so title slots on
-   .pito-pane / .pito-sub-panel / .tui-dialog-frame match the body's
-   inline-styled section-tinted bg (not the raw Dracula --color-bg).
-   Without this, title slots showed darker than the rest of the page. */
-body[data-section="home"]          { --section-accent: var(--section-accent-home);          --color-section-accent: var(--section-accent-home);          --section-bg: var(--bg-section-home); }
-body[data-section="channels"]      { --section-accent: var(--section-accent-channels);      --color-section-accent: var(--section-accent-channels);      --section-bg: var(--bg-section-channels); }
-body[data-section="videos"]        { --section-accent: var(--section-accent-videos);        --color-section-accent: var(--section-accent-videos);        --section-bg: var(--bg-section-videos); }
-body[data-section="games"]         { --section-accent: var(--section-accent-games);         --color-section-accent: var(--section-accent-games);         --section-bg: var(--bg-section-games); }
-body[data-section="projects"]      { --section-accent: var(--section-accent-projects);      --color-section-accent: var(--section-accent-projects);      --section-bg: var(--bg-section-projects); }
-body[data-section="settings"]      { --section-accent: var(--section-accent-settings);      --color-section-accent: var(--section-accent-settings);      --section-bg: var(--bg-section-settings); }
-body[data-section="notifications"] { --section-accent: var(--section-accent-notifications); --color-section-accent: var(--section-accent-notifications); --section-bg: var(--bg-section-notifications); }
-body[data-section="calendar"]      { --section-accent: var(--section-accent-calendar);      --color-section-accent: var(--section-accent-calendar);      --section-bg: var(--bg-section-calendar); }
-
-dialog {
-  --section-accent: var(--section-accent-home);
-  --color-section-accent: var(--section-accent);
-}
+/* 2026-05-25 — Single Pito purple accent. Per-section `body[data-section]`
+   accent overrides removed. `--section-accent` is now a single fixed value
+   (`#bd93f9`) in `:root` (via `_theme.css`). The `<body data-section="...">`
+   attribute is preserved so selectors that scope behavior by section still
+   work. The `dialog` accent reset is no longer needed because there is no
+   per-section variation to reset back from. Section bg tints (`--section-bg`,
+   `background` on `<body>`) still vary per section — those are driven by the
+   Ruby-computed inline `style` on `<body>` in `application.html.erb`. */
+body[data-section="home"]          { --section-bg: var(--bg-section-home); }
+body[data-section="channels"]      { --section-bg: var(--bg-section-channels); }
+body[data-section="videos"]        { --section-bg: var(--bg-section-videos); }
+body[data-section="games"]         { --section-bg: var(--bg-section-games); }
+body[data-section="projects"]      { --section-bg: var(--bg-section-projects); }
+body[data-section="settings"]      { --section-bg: var(--bg-section-settings); }
+body[data-section="notifications"] { --section-bg: var(--bg-section-notifications); }
+body[data-section="calendar"]      { --section-bg: var(--bg-section-calendar); }
 
 /* Base typography.
    FB-17 (2026-05-20). `line-height: 1` is locked as the canonical
@@ -5734,14 +5703,12 @@ table.all-games-table td {
   z-index: 1;
 }
 
-/* ============================================================
-   Beta 4 — Phase F1 Lane B. Top status bar (`Tui::TopStatusBarComponent`).
-   Locked visual mirrors `tmp/demo-status-bar-final.html`.
-   Layout:
-     [version] [section[:(page)]]   space-between   [progress?] [sync] | b/e/r | clock
+/* === pito-tst (top status bar) ===================================
+   R10b (2026-05-25). Tui::TopStatusBarComponent.
+   Layout: [app version]    [empty center]    [ [ ] sync | DateTime ]
    Colors flow through the L1 Dracula atoms + L2 section accent
    cascade — no literal hex in this block.
-   ============================================================ */
+   ================================================================= */
 .sb-bar {
   display: flex;
   align-items: center;
@@ -6096,15 +6063,15 @@ main > .settings-modal-wrapper {
    The settings-modal-wrapper class is unique to /settings (other screens
    don't carry it) so this rule scopes cleanly. */
 
-/* FB-88 (2026-05-20) — BST fixed at viewport bottom. Was `position: sticky`
-   which kept the bar at the bottom of the document but allowed it to scroll
-   away on short pages and let panels "float" above empty space. Per the
-   user-locked sticky-bottom + content-fills-viewport model, the BST is
-   `position: fixed` so it always paints at the literal viewport bottom,
-   and the `<main>` block fills the gap between TST and BST.
-   TUI parity: Ratatui apps lay out exactly like this — Constraint::Length
-   for TST + BST top/bottom rows, Constraint::Min for the content middle
-   row that fills the leftover space. */
+/* === pito-bst (bottom status bar) ================================
+   R10a (2026-05-25). Tui::BottomStatusBarComponent.
+   Layout: [ mode | breadcrumb ]    [sidekiq]    [ help | command ]
+   3-zone grid: 1fr auto 1fr. Pinned to viewport bottom via position:fixed.
+   Left zone: ModeLozengeComponent + pipe + BreadcrumbComponent
+   Center zone: SidekiqStatsComponent (anchored, unaffected by left/right)
+   Right zone: HelpHintComponent + CommandHintComponent
+   ================================================================= */
+/* FB-88 (2026-05-20) — BST fixed at viewport bottom. */
 .bsb-bar {
   position: fixed;
   bottom: 0;
@@ -7448,32 +7415,8 @@ dialog.tui-size-guard-dialog::backdrop {
   margin-bottom: 6px;
 }
 .nf-toolbar__filter  { display: flex; align-items: center; }
-.nf-toolbar__chips   { display: flex; align-items: center; }
 .nf-toolbar__actions { display: flex; align-items: center; gap: 8px; }
 .nf-toolbar__counter { color: var(--color-muted); font-size: 0.85em; }
-
-/* nf-filter-chips — category filter chip row (Pito::Notifications::FilterChipsComponent).
-   Each chip is a [ ] / [x] checkbox-style link. Bracket + label paint in
-   var(--section-accent) per the actions-accent rule. Chips are separated by
-   a single space via gap; no delimiter chrome between them.
-   Active chip ([x]) keeps the same accent color — the checked bracket is the
-   visual indicator; no background change (no-hover rule). */
-.nf-filter-chips {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-.nf-filter-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 0;
-  color: var(--section-accent);
-  text-decoration: none;
-  white-space: nowrap;
-}
-.nf-filter-chip:hover { color: var(--section-accent); text-decoration: none; }
-.nf-filter-chip__box   { color: var(--section-accent); }
-.nf-filter-chip__label { color: var(--section-accent); margin-left: 2px; }
 
 /* nf-table checkbox cell spacing. */
 .nf-table__checkbox         { display: inline-flex; align-items: center; }

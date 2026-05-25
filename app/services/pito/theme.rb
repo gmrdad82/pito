@@ -1,6 +1,13 @@
 module Pito
   # 2026-05-20 — Single source of truth for the pito theme system.
   #
+  # 2026-05-25 — SINGLE ACCENT DECISION. All screen accents unified to
+  # one Pito purple (`#bd93f9`, Dracula Purple). `SECTION_ACCENTS` still
+  # holds per-section keys (for backwards-compatibility with callers) but
+  # every value resolves to `DRACULA[:purple]`. The CSS cascade
+  # (`body[data-section]` per-section overrides) has been dropped;
+  # `--section-accent` is now a single fixed value in `:root`.
+  #
   # This module supersedes `Pito::Theme::Sections` as the canonical theme
   # surface. `Sections` remains as the lower-level mix() / per-section
   # bg+accent primitive that Theme delegates to (so we don't have two
@@ -43,20 +50,21 @@ module Pito
       yellow:       "#f1fa8c"
     }.freeze
 
-    # L1 derived atom — /games + /projects section accent. Pale cobalt
-    # gives the gaming surfaces a PlayStation-blue feel that Dracula
-    # Cyan (too greenish) and Purple (already home) don't cover.
+    # L1 derived atom — retained for reference; no longer used as a section
+    # accent following the 2026-05-25 single-accent decision.
     PALE_COBALT = "#7eb6ff".freeze
 
-    # L2 — section accents (picks from L1). Cascade source for
-    # `--section-accent`. Mirrors `Pito::Theme::Sections::ACCENT`.
+    # L2 — section accents. DEPRECATED: all entries resolve to Dracula Purple
+    # following the 2026-05-25 single-accent decision. Kept for
+    # backwards-compatibility with callers that pass a section key. The CSS
+    # cascade source is `--section-accent: #bd93f9` in `:root`.
     SECTION_ACCENTS = {
       "home"          => DRACULA.fetch(:purple),
-      "channels"      => DRACULA.fetch(:red),
-      "videos"        => DRACULA.fetch(:red),
-      "games"         => PALE_COBALT,
-      "projects"      => PALE_COBALT,
-      "settings"      => DRACULA.fetch(:orange),
+      "channels"      => DRACULA.fetch(:purple),
+      "videos"        => DRACULA.fetch(:purple),
+      "games"         => DRACULA.fetch(:purple),
+      "projects"      => DRACULA.fetch(:purple),
+      "settings"      => DRACULA.fetch(:purple),
       "notifications" => DRACULA.fetch(:purple),
       "calendar"      => DRACULA.fetch(:purple)
     }.freeze

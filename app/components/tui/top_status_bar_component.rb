@@ -1,75 +1,47 @@
 module Tui
-  # Beta 4 — Phase F1 Lane B. The top status bar. Locked visual matches
-  # `tmp/demo-status-bar-final.html` (5 state variants V1-V5):
+  # R10b (2026-05-25). Top status bar. Simplified to 3 slots:
   #
-  #   0.3.2-beta8 <section>[:(<page>)]         [<progress?>] <sync> | b<n> e<n> r<n> | <weekday>, <month> <day> · HH:MM:SS
+  #   [app version]    [empty center]    [ [ ] sync | DateTime ]
   #
-  # Left-fixed:  version (muted) + section (bold + section accent) +
-  #              optional `:(<page>)` (parens muted, inner page name
-  #              bold + bright).
-  # Right-pushed via space-between: optional progress (bar + counter)
-  #              + sync indicator (●/✗ + word + optional target) + `|`
-  #              + Sidekiq cells (b/e/r) + `|` + live clock.
+  # Left:   Tui::AppVersionComponent — link to GitHub release tag
+  # Center: empty (clean visual breathing room)
+  # Right:  Tui::SyncIndicatorComponent — `[ ] sync` checkbox indicator
+  #         + `|` pipe + Tui::DateTimeComponent — live wall clock
   #
-  # 2026-05-22 — F1 split into 5 child ViewComponents per "ViewComponents
-  # are kings":
+  # Removed from TST (R10b):
+  #   - Tui::BreadcrumbComponent   → moved to BST left zone (alongside mode lozenge)
+  #   - Tui::TstNoticeComponent    → center slot is now blank
+  #   - Tui::SidekiqStatsComponent → already moved to BST center in Phase 2 (2026-05-22)
+  #   - Tui::HelpHintComponent     → moved to BST right zone
+  #   - Tui::CommandHintComponent  → moved to BST right zone
   #
-  #   - Tui::AppVersionComponent  — leading link to GitHub release tag
-  #   - Tui::BreadcrumbComponent  — section + panel + sub-panel
-  #   - Tui::SyncIndicatorComponent — ●/✗ + word + optional target
-  #   - Tui::SidekiqStatsComponent  — b/e/r cells
-  #   - Tui::DateTimeComponent      — wall clock + day-rollover scramble
+  # The parent owns the single ActionCable subscription to `pito:status_bar`
+  # (via `tui_status_bar_controller.js`). On each payload the parent
+  # controller dispatches `tui:sync-changed`; the sync child VC's own
+  # Stimulus controller listens and patches its slot.
   #
-  # The parent still owns the single ActionCable subscription to
-  # `pito:status_bar` (via `tui_status_bar_controller.js`). On each
-  # payload the parent controller dispatches `tui:sync-changed` and
-  # `tui:sidekiq-changed` custom DOM events; each child VC's own
-  # Stimulus controller listens for its event and patches its slot.
-  # Breadcrumb listens for `tui:panel-focus-changed` (existing event
-  # from `tui_cursor_controller.js`).
-  #
-  # Subscribes to `pito:status_bar` (see ADR 0017 + Lane A's
-  # `StatusBarChannel` + `StatusBarBroadcastMiddleware`) for live
-  # Sidekiq queue depth + sync state pushes; Lane C's
-  # `tui_status_bar_controller.js` will hydrate the cells. The
-  # data-* attributes on the rendered DOM are the contract between
-  # this component (Lane B) and that controller (Lane C).
-  #
-  # Section accent (`--section-accent`) cascades via
-  # `body[data-section]` (set by `current_section` in
-  # `ApplicationHelper`) so the bar inherits the right color
-  # automatically — no per-render section-to-color lookup needed here.
+  # Subscribes to: `pito:status_bar`
+  # CABLE_CHANNEL: "pito:status_bar"
+  # Focusables: none (chrome bar, not a panel)
   #
   # Constructor inputs:
-  #   - section:        required string (one of "home", "channels",
-  #                     "games", "settings", "videos", "projects").
-  #                     The CSS class `sb-section` always picks the
-  #                     section accent via the cascading
-  #                     `var(--section-accent)`, so passing the section
-  #                     here is mostly cosmetic (label text) — the
-  #                     class hook `.sb-section` is enough for color.
-  #   - page:           optional string. When present, the `:(<page>)`
-  #                     tail renders after the section label. `nil`
-  #                     omits the tail entirely.
-  #   - version:        optional string. Defaults to `Pito::VERSION`
-  #                     for callers that don't pass one (mainly tests).
-  #   - sidekiq_stats:  optional hash `{busy:, enqueued:, retry:,
-  #                     scheduled:}`. Defaults to `{0, 0, 0, 0}`.
-  #                     Cable pushes overwrite these in-place; the
-  #                     initial render value is just the SSR first
-  #                     paint.
-  #   - sync_state:     one of `:idle`, `:syncing`,
-  #                     `:syncing_with_target`, `:disconnected`.
-  #                     Drives the dot glyph + sync word color + the
-  #                     optional `sync_target` label. Defaults to
-  #                     `:idle`.
-  #   - sync_target:    optional string. Rendered immediately after
-  #                     the sync word for `:syncing_with_target` (e.g.
-  #                     "syncing channels" → target="channels"). Ignored
-  #                     for other states.
-  #   - progress:       optional hash `{current:, total:}`. Renders the
-  #                     ASCII bar + counter when present. `nil` omits
-  #                     the whole progress segment.
+  #   - section:     required string ("home", "videos", "games"). Used for
+  #                  section-accent cascade context (forwarded to `section`
+  #                  attr). No label rendered in TST since R10b.
+  #   - version:     optional string. Defaults to `Pito::VERSION` for
+  #                  callers that don't pass one (mainly tests); forwarded
+  #                  to AppVersionComponent.
+  #   - sync_state:  one of `:idle`, `:syncing`, `:syncing_with_target`,
+  #                  `:disconnected`. Drives the `[ ] sync` glyph + color.
+  #                  Defaults to `:idle`.
+  #   - sync_target: optional string. Rendered for `:syncing_with_target`
+  #                  state. Ignored for other states.
+  #   - progress:    optional hash `{current:, total:}`. Renders the ASCII
+  #                  bar + counter when present. `nil` omits the segment.
+  #
+  # Deprecated kwargs (accepted but unused since R10b):
+  #   - page:           was the breadcrumb page tail; breadcrumb moved to BST.
+  #   - sidekiq_stats:  was the Sidekiq cells; Sidekiq moved to BST center.
   class TopStatusBarComponent < ViewComponent::Base
     SYNC_STATES = %i[idle syncing syncing_with_target disconnected].freeze
 

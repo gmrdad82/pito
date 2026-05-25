@@ -4,6 +4,16 @@ module Pito
     # so they are specced, single-source-of-truth, and can be computed
     # server-side instead of via opaque browser `color-mix()` cascades.
     #
+    # 2026-05-25 — SINGLE ACCENT DECISION. The user unified all screen
+    # accents to one Pito purple (`#bd93f9`, Dracula Purple). The
+    # per-section accent map below is DEPRECATED — every entry now resolves
+    # to the same purple. `ACCENT`, `accent(section)`, and the BG derivation
+    # still function (bg tints still differ slightly because different
+    # sections historically had different accents feeding the 4% recipe, but
+    # all entries now share the same purple input). The per-section CSS
+    # cascade (`body[data-section]` overrides) has been dropped from
+    # `application.css`; `--section-accent` is a single `:root` value.
+    #
     # L1 atoms (`BG`, `ACCENT`) are hand-picked per-section hex values.
     # The accent set mirrors the L2 Dracula tokens that used to drive the
     # `body[data-section]` cascade in `app/assets/tailwind/application.css`;
@@ -15,18 +25,21 @@ module Pito
     # tokens (e.g. the 35%-accent pane border) can be computed and tested
     # in isolation.
     module Sections
-      # L2 — section accent. Cascade source for `--section-accent` /
-      # `--color-section-accent`. Values mirror the Dracula L2 tokens
-      # declared in `app/assets/tailwind/application.css`.
+      # CANONICAL — single Pito purple accent. All section lookups resolve here.
+      PITO_PURPLE = "#bd93f9".freeze # Dracula Purple
+
+      # L2 — section accent. DEPRECATED: all entries now resolve to PITO_PURPLE.
+      # Kept for backwards-compatibility with callers that pass a section key;
+      # the cascade source is `--section-accent: #bd93f9` in `:root`.
       ACCENT = {
-        "home"          => "#bd93f9", # Dracula Purple
-        "channels"      => "#ff5555", # Dracula Red
-        "videos"        => "#ff5555",
-        "games"         => "#7eb6ff", # Pale Cobalt
-        "projects"      => "#7eb6ff",
-        "settings"      => "#ffb86c", # Dracula Orange
-        "notifications" => "#bd93f9",
-        "calendar"      => "#bd93f9"
+        "home"          => PITO_PURPLE,
+        "channels"      => PITO_PURPLE,
+        "videos"        => PITO_PURPLE,
+        "games"         => PITO_PURPLE,
+        "projects"      => PITO_PURPLE,
+        "settings"      => PITO_PURPLE,
+        "notifications" => PITO_PURPLE,
+        "calendar"      => PITO_PURPLE
       }.freeze
 
       # 2026-05-22 — Section page bg canonical recipe lock.
@@ -71,18 +84,17 @@ module Pito
         end
       end.freeze
 
-      # ACCENTS — canonical alias for the 3 named screen accents referenced in
-      # `tmp/dracula-swatches-v2.html` § B (Section mapping). Delegates to the
-      # full ACCENT table so there is a single hex source of truth.
+      # ACCENTS — canonical alias for the 3 named screen accents. All resolve
+      # to PITO_PURPLE following the 2026-05-25 single-accent decision.
       ACCENTS = {
-        home:   ACCENT.fetch("home"),   # Dracula Purple
-        videos: ACCENT.fetch("videos"), # Dracula Red
-        games:  ACCENT.fetch("games")   # Pale Cobalt
+        home:   PITO_PURPLE,
+        videos: PITO_PURPLE,
+        games:  PITO_PURPLE
       }.freeze
 
       # Fallbacks when section is nil / unknown.
       DEFAULT_BG     = DRACULA_BG
-      DEFAULT_ACCENT = "#bd93f9" # Dracula Purple
+      DEFAULT_ACCENT = PITO_PURPLE
 
       def self.bg(section)
         BG.fetch(section.to_s, DEFAULT_BG)

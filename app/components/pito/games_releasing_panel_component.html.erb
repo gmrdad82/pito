@@ -2,17 +2,6 @@
       class: "pane pito-pane pito-panel pito-panel--games-releasing",
       **panel_data do %>
   <span class="pito-pane__title"><%= title %></span>
-  <%# 2026-05-24 — panel-level `[ ] sync` action. `target:
-      "home.upcoming_games"` matches the lock (cable + panel name stay
-      `games_releasing`; the localStorage suffix tracks the user-facing
-      label).  %>
-  <span class="pito-pane__title-actions">
-    <%= render Tui::SyncIndicatorComponent.new(
-      mode: :target,
-      target: "home.upcoming_games",
-      focusable_key: "upcoming_games_sync"
-    ) %>
-  </span>
   <%# 2026-05-25 — content round. `axis: :horizontal` flips the
       auto-mounted scroll indicator to its horizontal mode (left/right
       glyphs on the BOTTOM border; scroll surface owns `overflow-x: auto`

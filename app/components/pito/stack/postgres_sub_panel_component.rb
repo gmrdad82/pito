@@ -59,7 +59,6 @@ module Pito
       # panel's 2x2 sub-panel grid. Inert = no Enter/Space action fires.
       def focusables
         list = [ { key: "postgres", style: :inert } ]
-        list << { key: "postgres_sync", style: :action }
         if status[:connected] && table_breakdown.any?
           list << { key: "postgres_header", style: :inert }
         end
@@ -119,17 +118,6 @@ module Pito
             name: I18n.t("tui.commands.sync_toggle.name", label: "postgres"),
             hint: I18n.t("tui.commands.sync_toggle.hint", label: "postgres"),
             action_name: :sync_toggle,
-            args: { target: "home.stack.postgres" } },
-          # 2026-05-25 (pause-from-sync) — explicit pause / resume palette commands.
-          { key: "pause_home_stack_postgres",
-            name: I18n.t("tui.commands.pause_target.name", label: "postgres"),
-            hint: I18n.t("tui.commands.pause_target.hint", label: "postgres"),
-            action_name: :pause_target,
-            args: { target: "home.stack.postgres" } },
-          { key: "resume_home_stack_postgres",
-            name: I18n.t("tui.commands.resume_target.name", label: "postgres"),
-            hint: I18n.t("tui.commands.resume_target.hint", label: "postgres"),
-            action_name: :resume_target,
             args: { target: "home.stack.postgres" } }
         ]
       end

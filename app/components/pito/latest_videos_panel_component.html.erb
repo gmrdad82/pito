@@ -7,13 +7,6 @@
       class: "pane pito-pane pito-panel pito-panel--latest-videos",
       **panel_data do %>
   <span class="pito-pane__title"><%= title %></span>
-  <span class="pito-pane__title-actions">
-    <%= render Tui::SyncIndicatorComponent.new(
-      mode: :target,
-      target: "home.latest_videos",
-      focusable_key: "latest_videos_sync"
-    ) %>
-  </span>
   <%= render Tui::PanelFieldsetComponent.new do %>
     <turbo-frame id="<%= Pito::LatestVideosPanelComponent::FRAME_ID %>">
       <% if videos.any? %>
@@ -57,7 +50,7 @@
           </thead>
           <tbody>
             <% videos.each_with_index do |video, i| %>
-              <% foc = focusables[i + 1] %>
+              <% foc = focusables[i] %>
               <tr class="tui-table__row"
                   data-tui-focusable="<%= foc[:key] %>"
                   data-tui-focusable-style="<%= foc[:style] %>"

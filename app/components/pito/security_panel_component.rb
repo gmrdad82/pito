@@ -80,7 +80,7 @@ module Pito
     end
 
     def focusables
-      [ { key: "security_sync", style: :action }, { key: "select_all", style: :row } ] +
+      [ { key: "select_all", style: :row } ] +
         sessions.map { |s| { key: "row_#{s.id}", style: :row } }
     end
 
@@ -158,7 +158,7 @@ module Pito
           hint: I18n.t("tui.commands.sync_toggle.hint", label: "security"),
           action_name: :sync_toggle,
           args: { target: "home.security" } }
-      ] + sync_pause_commands("home.security", label: "security")
+      ]
     end
   end
 end

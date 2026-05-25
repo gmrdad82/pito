@@ -66,39 +66,6 @@ module Tui
     #   panels without commands leave it `[]`). See
     #   `Pito::CommandPalette::Collector` for the merge contract.
     # @return [Hash{Symbol => Hash}] `{ data: { ... } }` spread into content_tag
-    # 2026-05-25 (pause-from-sync) — generates the canonical pause +
-    # resume palette command pair for a given sync target. Panels and
-    # sub-panels call this inside their `panel_commands` method to inject
-    # the two entries at the end of their list.
-    #
-    # The returned hashes follow the same shape as all other panel_commands
-    # entries so the JS palette controller can dispatch them via the
-    # `:pause_target` / `:resume_target` registry actions.
-    #
-    # `label` is the short human-readable name used for disambiguation
-    # in the palette (e.g. "stack", "meilisearch", "assets"). Defaults
-    # to the tail segment of the dot-namespaced target.
-    #
-    # @param target [String] dot-namespaced sync target, e.g. "home.stack"
-    # @param label  [String, nil] display label; defaults to last segment
-    # @return [Array<Hash>] two command hashes: pause + resume
-    def sync_pause_commands(target, label: nil)
-      target = target.to_s
-      lbl    = (label || target.to_s.split(".").last).to_s
-      [
-        { key: "pause_#{target.tr(".", "_")}",
-          name: I18n.t("tui.commands.pause_target.name", label: lbl),
-          hint: I18n.t("tui.commands.pause_target.hint", label: lbl),
-          action_name: :pause_target,
-          args: { target: target } },
-        { key: "resume_#{target.tr(".", "_")}",
-          name: I18n.t("tui.commands.resume_target.name", label: lbl),
-          hint: I18n.t("tui.commands.resume_target.hint", label: lbl),
-          action_name: :resume_target,
-          args: { target: target } }
-      ]
-    end
-
     def panel_root_data(name:, focusables: [], keybinds: {}, screen: DEFAULT_SCREEN, title: nil, panel_commands: nil)
       # The cursor controller reads `dataset.panelTitle` (`data-panel-title`)
       # in `emitFocusChange()` to populate the `tui:panel-focus-changed` event

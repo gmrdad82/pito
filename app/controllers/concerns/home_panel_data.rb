@@ -118,34 +118,22 @@ module HomePanelData
     @slack_webhook   = NotificationDeliveryChannel.find_record_for("slack")
   end
 
-  # Sets `@notifications_feed_filter`, `@notifications_feed_unread_count`,
-  # and `@notifications_feed_category` for `Pito::NotificationsFeedPanelComponent`.
+  # Sets `@notifications_feed_filter` and `@notifications_feed_unread_count`
+  # for `Pito::NotificationsFeedPanelComponent`.
   #
   # The component fetches its own `notifications` relation when none is
-  # injected, using the filter + category. The controller only needs to
-  # resolve the params and pass the unread count (single cheap COUNT query).
-  #
-  # `notifications_category` accepts: channel | game | system | manual.
-  # Any other value (including blank) is treated as "all" (nil).
-  NOTIFICATIONS_FEED_ALLOWED_CATEGORIES = %w[channel game system manual].freeze
-
+  # injected, using the filter. The controller only needs to resolve the
+  # param and pass the unread count (single cheap COUNT query).
+  # All categories are shown; no category filter param.
   def set_notifications_feed_panel_data
     @notifications_feed_filter       = params[:notifications_feed_filter].to_s == "unread" ? "unread" : "all"
     @notifications_feed_unread_count = Notification.unread.count
-    raw_cat = params[:notifications_category].to_s
-    @notifications_feed_category = NOTIFICATIONS_FEED_ALLOWED_CATEGORIES.include?(raw_cat) ? raw_cat : nil
   end
-
-  # Calendar mode allowlist for `?calendar_mode=` query param.
-  # "month" renders Pito::Calendar::MonthGridComponent.
-  # "list"  renders Pito::Calendar::ScheduleListComponent.
-  CALENDAR_ALLOWED_MODES = %w[month list].freeze
-  CALENDAR_DEFAULT_MODE  = "month".freeze
 
   # Fetches the current-month CalendarEntry buckets for the home Calendar
   # panel. Applies the 4-category `?calendar_filter[*]=on` server filter.
-  # Also resolves `?calendar_mode=month|list` (default: month) and the
-  # `?calendar_category=<cat>` single-category URL filter.
+  # Also resolves the `?calendar_category=<cat>` single-category URL filter.
+  # Calendar is month-only; schedule mode has been dropped.
   # Groups results by Date, ordered by created_at ASC within each day.
   def set_calendar_panel_data
     install_tz = Rails.application.config.x.pito.timezone
@@ -155,13 +143,9 @@ module HomePanelData
     @calendar_month  = today.month
     @calendar_raw_filter = params[:calendar_filter]
 
-    # Resolve calendar_mode from URL query param.
-    raw_mode = params[:calendar_mode].to_s
-    @calendar_mode = CALENDAR_ALLOWED_MODES.include?(raw_mode) ? raw_mode.to_sym : CALENDAR_DEFAULT_MODE.to_sym
-
     # Resolve single-category filter from URL query param.
     raw_cat = params[:calendar_category].to_s
-    @calendar_category = NOTIFICATIONS_FEED_ALLOWED_CATEGORIES.include?(raw_cat) ? raw_cat.to_sym : nil
+    @calendar_category = %w[channel game system manual].include?(raw_cat) ? raw_cat.to_sym : nil
 
     grid      = home_calendar_month_grid(@calendar_year, @calendar_month)
     first_day = grid.first

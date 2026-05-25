@@ -23,7 +23,6 @@ module Pito
   # ## Focusables
   #
   # Delegated to `SettingsHelper#notifications_focusables` (locked list):
-  #   notifications_sync (sync indicator)
   #   all              — "all notifications" checkbox label
   #   daily            — "daily digest" checkbox label
   #   discord_webhook  — Discord webhook URL input
@@ -42,7 +41,6 @@ module Pito
   #   open_discord_help_dialog — focuses + clicks the Discord [help] link
   #   open_slack_help_dialog   — focuses + clicks the Slack [help] link
   #   sync_toggle_notifications — fires the sync toggle for this panel
-  #   (+ sync_pause_commands from Tui::PanelBase)
   #
   # ## Composes
   #
@@ -84,7 +82,6 @@ module Pito
 
     def focusables
       [
-        { key: "notifications_sync", style: :action },
         { key: "all",             style: :checkbox_label },
         { key: "daily",           style: :checkbox_label },
         { key: "discord_webhook", style: :input },
@@ -155,7 +152,7 @@ module Pito
           hint: I18n.t("tui.commands.sync_toggle.hint", label: "notifications"),
           action_name: :sync_toggle,
           args: { target: "home.notifications" } }
-      ] + sync_pause_commands("home.notifications", label: "notifications")
+      ]
     end
   end
 end

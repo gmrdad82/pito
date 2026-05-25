@@ -652,9 +652,7 @@ Rails.application.routes.draw do
       get "next",            to: "calendar#next",            as: :calendar_next_month
       get "today",           to: "calendar#today",           as: :calendar_today
       get "pick_year",       to: "calendar#pick_year",       as: :calendar_pick_year
-      # Phase C4 (2026-05-25) — mode toggle + category filter.
-      # Both redirect to / with URL params so state lives in the URL (no localStorage).
-      get "set_mode",        to: "calendar#set_mode",        as: :calendar_set_mode
+      # Category filter — redirects to / with URL params so state lives in the URL (no localStorage).
       get "filter_category", to: "calendar#filter_category", as: :calendar_filter_category
     end
   end

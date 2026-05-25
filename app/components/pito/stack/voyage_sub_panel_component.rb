@@ -89,7 +89,6 @@ module Pito
       def focusables
         list = []
         list << { key: "reindex", style: :action } unless reindex_running?
-        list << { key: "voyage_sync", style: :action }
         list << { key: "voyage_header", style: :inert }
         list
       end
@@ -138,17 +137,6 @@ module Pito
             name: I18n.t("tui.commands.sync_toggle.name", label: "voyage"),
             hint: I18n.t("tui.commands.sync_toggle.hint", label: "voyage"),
             action_name: :sync_toggle,
-            args: { target: "home.stack.voyage" } },
-          # 2026-05-25 (pause-from-sync) — explicit pause / resume palette commands.
-          { key: "pause_home_stack_voyage",
-            name: I18n.t("tui.commands.pause_target.name", label: "voyage"),
-            hint: I18n.t("tui.commands.pause_target.hint", label: "voyage"),
-            action_name: :pause_target,
-            args: { target: "home.stack.voyage" } },
-          { key: "resume_home_stack_voyage",
-            name: I18n.t("tui.commands.resume_target.name", label: "voyage"),
-            hint: I18n.t("tui.commands.resume_target.hint", label: "voyage"),
-            action_name: :resume_target,
             args: { target: "home.stack.voyage" } }
         ]
       end

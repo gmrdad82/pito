@@ -241,18 +241,6 @@ export default class extends Controller {
         this.runSyncToggle(args)
         return
       }
-      // 2026-05-25 (pause-from-sync) — POST to /pito/sync/pause or
-      // /pito/sync/resume with target= in the body. Handled here (not
-      // via window.Pito.dispatchAction) so the args.target param is
-      // forwarded as a POST body field rather than being ignored.
-      if (cmd.action_name === "pause_target") {
-        this.runPauseTarget(args)
-        return
-      }
-      if (cmd.action_name === "resume_target") {
-        this.runResumeTarget(args)
-        return
-      }
       if (cmd.action_name === "click_focusable") {
         this.runClickFocusable(args)
         return
@@ -347,40 +335,6 @@ export default class extends Controller {
       // eslint-disable-next-line no-console
       console.warn(`tui-command-palette: sync target "${target}" not found — TODO wire in Phase 2`)
     }
-  }
-
-  // 2026-05-25 (pause-from-sync) — POST /pito/sync/pause?target=<target>.
-  // Pauses the target + cascades to children server-side. The cable
-  // broadcast drives the repaint; no optimistic paint here.
-  runPauseTarget(args) {
-    const target = args && args.target
-    if (!target) return
-    this._postSyncAction("/pito/sync/pause", target)
-  }
-
-  // 2026-05-25 (pause-from-sync) — POST /pito/sync/resume?target=<target>.
-  // Resumes the target + cascades server-side. If a parent is still
-  // paused, the server broadcasts `uncertain` on the parent.
-  runResumeTarget(args) {
-    const target = args && args.target
-    if (!target) return
-    this._postSyncAction("/pito/sync/resume", target)
-  }
-
-  // Shared POST helper for pause / resume. Sends `target=<target>` as a
-  // query param (matching how /sync/toggle works) + CSRF token.
-  _postSyncAction(path, target) {
-    const csrfMeta = document.querySelector('meta[name="csrf-token"]')
-    const headers = { "X-Requested-With": "XMLHttpRequest", "Accept": "application/json" }
-    if (csrfMeta) headers["X-CSRF-Token"] = csrfMeta.content
-    fetch(`${path}?target=${encodeURIComponent(target)}`, {
-      method: "POST",
-      headers,
-      credentials: "same-origin"
-    }).catch((err) => {
-      // eslint-disable-next-line no-console
-      console.warn(`tui-command-palette: sync action "${path}" failed — ${err.message || err}`)
-    })
   }
 
   // Phase 1C (2026-05-24) — programmatic click on a named focusable.

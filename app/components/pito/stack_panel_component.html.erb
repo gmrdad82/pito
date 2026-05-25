@@ -25,17 +25,6 @@
       class: "pane pane--wide pito-pane pito-pane--full pito-panel pito-panel--stack",
       **panel_data do %>
   <span class="pito-pane__title"><%= title %></span>
-  <%# Phase 1D (2026-05-24) — panel-level sync indicator. Disabling here
-      cascades to the 4 stack sub-panels (cable suppression layer reads
-      both self + parent flags). Replaces the deleted PauseControlComponent
-      `||` glyph with the canonical `[ ] sync` checkbox-style indicator. %>
-  <span class="pito-pane__title-actions">
-    <%= render Tui::SyncIndicatorComponent.new(
-      mode: :target,
-      target: "home.stack",
-      focusable_key: "stack_sync"
-    ) %>
-  </span>
   <%= render Tui::PanelFieldsetComponent.new do %>
     <%# 2x2 sub-panel grid — see `.pito-stack-grid` in application.css. %>
     <div class="pito-stack-grid">

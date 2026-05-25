@@ -63,7 +63,7 @@ en:
         notifications:
           title: "settings"
         stack:
-          title: "stack"
+          title: "system"
         channels_overview:
           # 2026-05-24 (lock) — display value shortened "channels overview"
           # → "channels". YAML key intentionally kept as `channels_overview`
@@ -324,17 +324,6 @@ en:
       calendar_pick_year:
         name: "pick year"
         hint: "open the year picker for the calendar"
-      # Phase C4 (2026-05-25) — calendar panel mode toggle + category filter.
-      # scope: :home — only available on the home screen.
-      calendar_set_mode:
-        name: "calendar: set mode"
-        hint: "switch calendar view mode (month or list)"
-      calendar_set_mode_month:
-        name: "calendar: switch to month mode"
-        hint: "switch calendar to month grid view"
-      calendar_set_mode_list:
-        name: "calendar: switch to list mode"
-        hint: "switch calendar to schedule list view"
       calendar_filter_category:
         name: "calendar: filter category"
         hint: "filter calendar entries by category"
@@ -358,18 +347,6 @@ en:
       notifications_feed_mark_all_read:
         name: "mark all read"
         hint: "mark every unread notification as read"
-      notifications_feed_filter_channel:
-        name: "filter channel"
-        hint: "show only channel notifications"
-      notifications_feed_filter_game:
-        name: "filter game"
-        hint: "show only game notifications"
-      notifications_feed_filter_system:
-        name: "filter system"
-        hint: "show only system notifications"
-      notifications_feed_filter_manual:
-        name: "filter manual"
-        hint: "show only manual notifications"
     # 2026-05-22 — Phase 2F. Canonical Sidekiq brand label sourced from
     # i18n so the future Rust TUI client reads it from the same YAML
     # (per project's same-YAML-feeds-TUI contract). Used by

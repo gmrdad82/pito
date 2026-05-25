@@ -125,7 +125,6 @@ module Pito
       def focusables
         list = []
         list << { key: "reindex", style: :action } unless reindex_running?
-        list << { key: "meilisearch_sync", style: :action }
         list << { key: "meilisearch_header", style: :inert } if per_index_stats.any?
         list
       end
@@ -199,17 +198,6 @@ module Pito
             name: I18n.t("tui.commands.sync_toggle.name", label: "meilisearch"),
             hint: I18n.t("tui.commands.sync_toggle.hint", label: "meilisearch"),
             action_name: :sync_toggle,
-            args: { target: "home.stack.meilisearch" } },
-          # 2026-05-25 (pause-from-sync) — explicit pause / resume palette commands.
-          { key: "pause_home_stack_meilisearch",
-            name: I18n.t("tui.commands.pause_target.name", label: "meilisearch"),
-            hint: I18n.t("tui.commands.pause_target.hint", label: "meilisearch"),
-            action_name: :pause_target,
-            args: { target: "home.stack.meilisearch" } },
-          { key: "resume_home_stack_meilisearch",
-            name: I18n.t("tui.commands.resume_target.name", label: "meilisearch"),
-            hint: I18n.t("tui.commands.resume_target.hint", label: "meilisearch"),
-            action_name: :resume_target,
             args: { target: "home.stack.meilisearch" } }
         ]
       end

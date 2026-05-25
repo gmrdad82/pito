@@ -2,15 +2,6 @@
       class: "pane pito-pane pito-panel pito-panel--channels-overview",
       **panel_data do %>
   <span class="pito-pane__title"><%= title %></span>
-  <%# Panel-level `[ ] sync` action. `target: "home.channels"` matches
-      the localStorage sync key; the cable channel key is `channels_overview`. %>
-  <span class="pito-pane__title-actions">
-    <%= render Tui::SyncIndicatorComponent.new(
-      mode: :target,
-      target: "home.channels",
-      focusable_key: "channels_sync"
-    ) %>
-  </span>
   <%= render Tui::PanelFieldsetComponent.new do %>
     <% if channels.any? %>
       <%# Sortable channel-overview table. Columns: handle / subs / views /
@@ -56,8 +47,7 @@
         </thead>
         <tbody>
           <% channels.each_with_index do |channel, i| %>
-            <%# Focusables list: index 0 is channels_sync; row focusables start at 1. %>
-            <% fkey = focusables[i + 1] %>
+            <% fkey = focusables[i] %>
             <tr class="tui-table__row"
                 data-tui-focusable="<%= fkey %>"
                 data-tui-focusable-style="row">

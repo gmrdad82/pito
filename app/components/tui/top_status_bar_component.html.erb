@@ -1,31 +1,23 @@
 <%#
-  Beta 4 — Phase F1 Lane B. Top status bar template. Mirrors V3 of
-  `tmp/demo-status-bar-final.html` (which exercises every state slot:
-  section + page tail + progress + sync target + colored Sidekiq).
-  Lane C's `tui-status-bar` Stimulus controller subscribes to
-  `pito:status_bar` via the `data-cable-channel` root attribute and
-  updates the marked `data-tui-status-bar-target` cells in place.
+  R10b (2026-05-25). Top status bar template. Simplified to 3 slots:
+  [app version] .... [empty center] .... [ [ ] sync | DateTime ]
 
-  FB-161 (2026-05-21): three sub-elements extracted to their own
-  ViewComponents per "ViewComponents are kings":
-  - Tui::SyncIndicatorComponent  — ●/✗ + word + optional target
-  - Tui::DateTimeComponent       — wall clock (SSR placeholder, hydrated by Stimulus)
-  Stimulus target attributes are preserved on the extracted roots so
-  the cable update contract stays intact.
+  Left:   AppVersionComponent
+  Center: empty (was TstNoticeComponent; moved to ephemeral-notice territory;
+          center is visually blank to keep the TST uncluttered)
+  Right:  SyncIndicatorComponent + pipe + DateTimeComponent
 
-  Phase 2 (2026-05-22): Tui::SidekiqStatsComponent moved out of the TST
-  and into the BST (after the screens-list pipe). The TST no longer
-  carries Sidekiq queue-depth stats; the `tui:sidekiq-changed` document
-  event still fires from `tui-status-bar`, but it's now consumed by the
-  BST-mounted sidekiq VC.
+  The parent `tui-status-bar` controller (Lane C) dispatches custom DOM
+  events (`tui:sync-changed`) on every `pito:status_bar` cable payload;
+  child VCs' Stimulus controllers listen for their event and patch in place.
 
-  2026-05-22 F1: two more sub-elements extracted:
-  - Tui::AppVersionComponent — version link to GitHub release tag
-  - Tui::BreadcrumbComponent — section + panel + sub-panel breadcrumb
-
-  The parent `tui-status-bar` controller dispatches custom DOM events
-  (`tui:sync-changed`, `tui:sidekiq-changed`) on every cable payload;
-  the child controllers listen for their event and patch in place.
+  Removed from TST (R10b):
+  - BreadcrumbComponent   → moved to BST left zone
+  - TstNoticeComponent    → center slot now empty
+  - ScreensListComponent  → was already removed in R2
+  - SidekiqStatsComponent → was already moved to BST in Phase 2 (2026-05-22)
+  - HelpHintComponent     → moved to BST right zone
+  - CommandHintComponent  → moved to BST right zone
 %>
 <div class="sb-bar"
      data-controller="tui-status-bar"
@@ -33,13 +25,8 @@
      data-tui-status-bar-target="root">
   <div class="sb-left">
     <%= render Tui::AppVersionComponent.new %>
-    <%= render Tui::BreadcrumbComponent.new(screen: section, panel: page) %>
   </div>
-  <%# Phase 1D (2026-05-24) — centered ephemeral notice slot. Listens for
-      `tui:notice` document events (fired by sync toggles + future
-      ephemeral-message emitters) and renders the message verbatim. %>
   <div class="sb-center">
-    <%= render Tui::TstNoticeComponent.new %>
   </div>
   <div class="sb-right">
     <% if progress_visible? %>

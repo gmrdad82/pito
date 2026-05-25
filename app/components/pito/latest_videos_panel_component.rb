@@ -17,7 +17,7 @@ module Pito
   # published at (relative). Sortable headers for title / channel /
   # views / published_at via `sort_link_to`.
   #
-  # ## Row focusables
+  # ## Focusables
   #
   # Each video row is a focusable of style `:row` keyed
   # `video_row_<id>`. j/k navigate rows. ENTER is wired as a stub
@@ -64,11 +64,9 @@ module Pito
       I18n.t("tui.home.panels.#{PANEL_NAME}.title")
     end
 
-    # Ordered focusables: sync action first, then one `:row` per video.
+    # Ordered focusables: one `:row` per video.
     def focusables
-      sync = { key: "latest_videos_sync", style: :action }
-      rows = videos.map { |v| { key: "video_row_#{v.id}", style: :row } }
-      [ sync ] + rows
+      videos.map { |v| { key: "video_row_#{v.id}", style: :row } }
     end
 
     def focusable_keys

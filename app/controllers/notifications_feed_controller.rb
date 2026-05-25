@@ -5,7 +5,8 @@
 # Distinct from `NotificationsController` (which owns the standalone
 # `/notifications` resource). This controller is scoped to the panel's
 # bulk-action surface only: mark selected rows read or unread, and
-# mark all unread notifications as read.
+# mark all unread notifications as read. All categories are shown in the
+# feed; no category filter param is accepted.
 #
 # ## Endpoints
 #
@@ -18,17 +19,12 @@
 # `ids[]` — array of notification IDs (integer strings). Accepts comma-
 # separated string OR Rails array param convention. Empty → no-op.
 #
-# `notifications_category` — category filter currently active on the feed.
-# Forwarded to the redirect URL so the panel re-renders with the same filter.
-#
 # ## Response
 #
 # Turbo Frame redirect to / (home) so the panel re-renders with the
 # updated read state. The Turbo Frame ID is
 # `Pito::NotificationsFeedPanelComponent::FRAME_ID`. HTML fallback
-# redirects to root_path. `mark_all_read` also re-renders the panel as
-# a Turbo Stream replace for the named frame, returning the full updated
-# panel markup without a page reload.
+# redirects to root_path.
 #
 # ## Rate-limiting
 #
@@ -59,23 +55,18 @@ class NotificationsFeedController < ApplicationController
   # POST /notifications_feed/mark_all_read
   #
   # Marks every unread notification read (install-wide, no category scope).
-  # Responds with a Turbo Stream that replaces the notifications feed panel
-  # frame (`Pito::NotificationsFeedPanelComponent::FRAME_ID`) so the table
-  # re-renders in-place without a full page reload. The active category
-  # filter (`?notifications_category=`) is forwarded to the re-render so
-  # the selected chip stays active.
+  # Redirects back to root so the panel re-renders with the updated read state.
   def mark_all_read
     Notification.unread.update_all(in_app_read_at: Time.current)
 
-    category = resolve_category_param
-    filter   = params[:notifications_feed_filter].to_s == "unread" ? "unread" : "all"
+    filter = params[:notifications_feed_filter].to_s == "unread" ? "unread" : "all"
 
     respond_to do |format|
       format.turbo_stream do
-        redirect_to redirect_after_mark_all_url(category, filter), allow_other_host: false
+        redirect_to redirect_after_mark_all_url(filter), allow_other_host: false
       end
       format.html do
-        redirect_to redirect_after_mark_all_url(category, filter), allow_other_host: false
+        redirect_to redirect_after_mark_all_url(filter), allow_other_host: false
       end
     end
   end
@@ -83,11 +74,9 @@ class NotificationsFeedController < ApplicationController
   private
 
   def redirect_after_bulk
-    filter   = params[:notifications_feed_filter].to_s == "unread" ? "unread" : "all"
-    category = resolve_category_param
+    filter = params[:notifications_feed_filter].to_s == "unread" ? "unread" : "all"
     opts = {}
-    opts[:notifications_feed_filter]  = "unread" if filter == "unread"
-    opts[:notifications_category]     = category if category.present?
+    opts[:notifications_feed_filter] = "unread" if filter == "unread"
     target_url = root_path(**opts)
 
     respond_to do |format|
@@ -100,18 +89,10 @@ class NotificationsFeedController < ApplicationController
     end
   end
 
-  def redirect_after_mark_all_url(category, filter)
+  def redirect_after_mark_all_url(filter)
     opts = {}
     opts[:notifications_feed_filter] = "unread" if filter == "unread"
-    opts[:notifications_category]    = category if category.present?
     root_path(**opts)
-  end
-
-  ALLOWED_CATEGORIES = %w[channel game system manual].freeze
-
-  def resolve_category_param
-    v = params[:notifications_category].to_s
-    ALLOWED_CATEGORIES.include?(v) ? v : nil
   end
 
   def parse_ids(raw)

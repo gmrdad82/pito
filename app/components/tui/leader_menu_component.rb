@@ -42,17 +42,15 @@ module Tui
 
     # 2026-05-24 — `s` entry added: `Space s` toggles TST sync. The
     # entry fires the `:toggle_tst_sync` registered action which flips
-    # the `pito.sync.app` global master switch (one flag covers every
-    # screen). The TST sync VC and per-panel sync VCs all read this
-    # master flag via `isTargetSyncDisabled` and display the cascaded
-    # state.
+    # the master sync switch (one flag covers every screen). The TST
+    # sync indicator reads and persists state server-side via
+    # `Pito::SyncState.pause_master!` / `resume_master!`.
     #
-    # 2026-05-25 (E2) — `p` entry added: `Space p` triggers
-    # `:pause_target` / `:resume_target` for the currently focused
-    # panel's sync target. The JS dispatcher reads the active panel's
-    # `data-sync-target` attribute and dispatches the correct action
-    # (pause if running, resume if paused). dispatch_method resolves
-    # via the `tui:leader:toggle_pause` custom event which the
+    # 2026-05-25 (collapse-to-master) — `p` entry: `Space p` triggers
+    # `:toggle_master_sync` for the master sync indicator. Only the
+    # master TST `[ ] sync` indicator exists; per-panel sync indicators
+    # have been removed. dispatch_method resolves via the
+    # `tui:leader:toggle_pause` custom event which the
     # tui_sync_indicator_controller intercepts.
     DEFAULT_ENTRIES = [
       { key: "h", label_key: "tui.leader.entries.h.label",       path: "/" },

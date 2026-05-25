@@ -37,7 +37,7 @@ en:
     meilisearch:
       reindexing_html: "reindexing... started %{time_ago}"
     stack:
-      heading: "stack"
+      heading: "system"
       postgres: "Postgres"
       redis: "Redis"
       meilisearch: "Meilisearch"

@@ -2,44 +2,16 @@
       class: "pane pito-pane pito-panel pito-panel--calendar",
       **panel_data do %>
   <span class="pito-pane__title"><%= title %></span>
-  <%# Title-actions: mode toggle (bracket-to-space rule) + sync.
-      Active mode renders as plain label; inactive renders as [bracketed action].
-      Both paint in var(--section-accent) per actions-always-accent rule. %>
-  <span class="pito-pane__title-actions">
-    <% views.each do |v| %>
-      <% if v[:name] == mode %>
-        <span class="cal-mode-label cal-mode-label--active" data-tui-focusable="<%= v[:name] %>"><%= v[:label] %></span>
-      <% else %>
-        <%= link_to "[#{v[:label]}]",
-              helpers.pito_calendar_set_mode_path(mode: v[:name]),
-              class: "cal-mode-action",
-              data: { tui_focusable: v[:name].to_s } %>
-      <% end %>
-    <% end %>
-    <%= render Tui::SyncIndicatorComponent.new(
-          mode: :target,
-          target: "home.calendar",
-          focusable_key: "calendar_sync"
-        ) %>
-  </span>
   <%= render Tui::PanelFieldsetComponent.new do %>
-    <%# ── Legend (always shown) ─────────────────────────────────── %>
+    <%# Legend (always shown) %>
     <%= render Pito::CalendarLegendComponent.new(active_filter: category) %>
 
-    <%# ── Mode-branched sub-component ──────────────────────────── %>
-    <% if mode == :month %>
-      <%= render Pito::Calendar::MonthGridComponent.new(
-            entries:         entries,
-            month:           Date.new(year, month, 1),
-            today:           today,
-            category_filter: category
-          ) %>
-    <% else %>
-      <%= render Pito::Calendar::ScheduleListComponent.new(
-            entries:         entries,
-            range_start:     today,
-            category_filter: category
-          ) %>
-    <% end %>
+    <%# Month grid (month-only; schedule mode dropped) %>
+    <%= render Pito::Calendar::MonthGridComponent.new(
+          entries:         entries,
+          month:           Date.new(year, month, 1),
+          today:           today,
+          category_filter: category
+        ) %>
   <% end %>
 <% end %>

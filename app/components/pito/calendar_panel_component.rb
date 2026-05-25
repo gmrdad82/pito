@@ -1,22 +1,9 @@
 module Pito
   # Pito::CalendarPanelComponent — home-screen calendar panel.
   #
-  # Renders the calendar legend always at top, then branches on `mode:` to
-  # compose either `Pito::Calendar::MonthGridComponent` (month grid view,
-  # default) or `Pito::Calendar::ScheduleListComponent` (schedule list view).
-  # The view toggle in the title-border slot uses URL query param
-  # `?calendar_mode=month|list` — clicking an inactive mode action sends a GET
-  # to `Pito::CalendarController#set_mode` which redirects to `/` with the param
-  # persisted. This follows the "no localStorage" hard rule.
-  #
-  # ## View toggle — title-border slot
-  #
-  # Follows the bracket-to-space rule: active mode renders as a plain space-
-  # delimited label (no brackets); inactive mode renders as bracketed action.
-  # Both paint in `var(--section-accent)` (actions-always-accent rule).
-  #
-  # Title slot copy: `calendar month [list]` (when month is active) or
-  # `calendar [month] list` (when list is active).
+  # Always renders in month-grid mode (`Pito::Calendar::MonthGridComponent`).
+  # Schedule list mode has been dropped — calendar is month-only.
+  # The legend is always shown above the grid.
   #
   # ## Filter chips (category)
   #
@@ -26,9 +13,8 @@ module Pito
   #
   # ## Kwargs
   #
-  # @param mode [Symbol] `:month` (default) or `:list`
   # @param entries [Array<CalendarEntry>] flat entry array for the current month window
-  # @param buckets [Hash{Date => Array<CalendarEntry>}] entries grouped by date (legacy; kept for compat)
+  # @param buckets [Hash{Date => Array<CalendarEntry>}] entries grouped by date
   # @param grid [Array<Date>] Monday-first grid of dates (from HomePanelData)
   # @param today [Date] today in install tz for "current day" highlight
   # @param year [Integer] current month year
@@ -42,14 +28,13 @@ module Pito
   #
   # ## Focusables
   #
-  # `calendar_sync` (sync indicator), `month` + `list` (mode toggle actions),
   # `filter_channel` + `filter_game` + `filter_system` + `filter_manual`
   # (filter chips), then `day_<iso8601>` per day cell in grid order.
   #
   # ## Palette commands (`panel_commands`)
   #
-  # 7 commands registered: switch to month mode, switch to list mode, filter
-  # by channel / game / system / manual, clear filter. All scope: :home.
+  # 5 commands: filter by channel / game / system / manual, clear filter.
+  # All scope: :home.
   #
   # ## TUI parity
   #
@@ -63,20 +48,11 @@ module Pito
 
     CABLE_CHANNEL = "pito:home:calendar".freeze
 
-    MODES = %i[month list].freeze
-    DEFAULT_MODE = :month
-
-    VIEWS = [
-      { name: :month, label: "month" },
-      { name: :list,  label: "list" }
-    ].freeze
-
     WEEK_DAYS = %w[mon tue wed thu fri sat sun].freeze
 
     CATEGORY_ORDER = %w[channel game system manual].freeze
 
     def initialize(
-      mode: DEFAULT_MODE,
       entries: nil,
       buckets: nil,
       grid: nil,
@@ -85,11 +61,10 @@ module Pito
       month: nil,
       raw_filter: nil,
       category: nil,
-      # Legacy alias kept for any call sites still passing current_view:
+      # Deprecated kwargs kept for call-site compat — ignored.
+      mode: nil,
       current_view: nil
     )
-      resolved = (current_view || mode).to_sym
-      @mode = MODES.include?(resolved) ? resolved : DEFAULT_MODE
       @entries    = entries || (buckets ? buckets.values.flatten : [])
       @buckets    = buckets || {}
       @grid       = grid || []
@@ -100,7 +75,7 @@ module Pito
       @category   = category&.to_sym
     end
 
-    attr_reader :mode, :entries, :buckets, :grid, :today, :year, :month, :raw_filter, :category
+    attr_reader :entries, :buckets, :grid, :today, :year, :month, :raw_filter, :category
 
     def title
       I18n.t("tui.home.panels.#{PANEL_NAME}.title")
@@ -112,16 +87,7 @@ module Pito
 
     def focusables
       day_keys = grid.map { |d| "day_#{d.iso8601}" }
-      %w[calendar_sync month list filter_channel filter_game filter_system filter_manual] + day_keys
-    end
-
-    def views
-      VIEWS
-    end
-
-    # Current mode as string (for URL params and CSS).
-    def current_mode_str
-      mode.to_s
+      %w[filter_channel filter_game filter_system filter_manual] + day_keys
     end
 
     # Month heading: "may 2026"
@@ -197,21 +163,11 @@ module Pito
       classes.join(" ")
     end
 
-    # Phase C4 — `:` palette commands for the calendar panel.
-    # 7 commands: 2 mode-switch + 4 category filters + 1 clear filter.
+    # `:` palette commands for the calendar panel.
+    # 5 commands: 4 category filters + 1 clear filter.
     # All scope: :home — calendar is a home-screen panel only.
     def panel_commands
       [
-        { key: "calendar_set_mode_month",
-          name: I18n.t("tui.commands.calendar_set_mode_month.name"),
-          hint: I18n.t("tui.commands.calendar_set_mode_month.hint"),
-          action_name: :calendar_set_mode,
-          args: { mode: "month" } },
-        { key: "calendar_set_mode_list",
-          name: I18n.t("tui.commands.calendar_set_mode_list.name"),
-          hint: I18n.t("tui.commands.calendar_set_mode_list.hint"),
-          action_name: :calendar_set_mode,
-          args: { mode: "list" } },
         { key: "calendar_filter_channel",
           name: I18n.t("tui.commands.calendar_filter_channel.name"),
           hint: I18n.t("tui.commands.calendar_filter_channel.hint"),
@@ -237,7 +193,7 @@ module Pito
           hint: I18n.t("tui.commands.calendar_filter_clear.hint"),
           action_name: :calendar_filter_category,
           args: { category: "" } }
-      ] + sync_pause_commands("home.calendar", label: "calendar")
+      ]
     end
   end
 end

@@ -293,9 +293,7 @@
       <% unless content_for?(:hide_chrome) %>
         <%= render Tui::TopStatusBarComponent.new(
               section: current_section,
-              page: current_page,
-              version: pito_version,
-              sidekiq_stats: sidekiq_queue_stats
+              version: pito_version
             ) %>
       <% end %>
     </header>

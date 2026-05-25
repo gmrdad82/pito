@@ -31,9 +31,7 @@ module Pito
   # ## Focusables
   #
   # Ordered list:
-  #   1. `upcoming_games_sync` — panel-level `[ ] sync` checkbox
-  #      (rendered in the top-right action slot).
-  #   2. `upcoming_<id>` for each tile, in `release_date ASC` order.
+  #   1. `upcoming_<id>` for each tile, in `release_date ASC` order.
   #
   # j/k walks the list in this order; TAB / Shift-TAB advances /
   # retreats panels at the screen level.
@@ -88,11 +86,10 @@ module Pito
       I18n.t("tui.home.panels.#{PANEL_NAME}.empty")
     end
 
-    # Focusables: panel-level sync action first, then one stop per
-    # tile (ordered the same way the template renders them so the
-    # cursor index matches DOM order).
+    # Focusables: one stop per tile (ordered the same way the template
+    # renders them so the cursor index matches DOM order).
     def focusables
-      [ "upcoming_games_sync" ] + upcoming_games.map { |g| "upcoming_#{g.id}" }
+      upcoming_games.map { |g| "upcoming_#{g.id}" }
     end
 
     def panel_data

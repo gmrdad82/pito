@@ -18,7 +18,6 @@ module Pito
   #
   # ## Focusables
   #
-  # - `channels_sync` — panel-level sync indicator action (leading).
   # - `row_<channel.id>` — one focusable per channel row (style :row).
   #
   # ## Cable channel
@@ -57,8 +56,7 @@ module Pito
     end
 
     def focusables
-      base = %w[channels_sync]
-      base + channels.map { |c| "row_#{c.id}" }
+      channels.map { |c| "row_#{c.id}" }
     end
 
     def panel_data

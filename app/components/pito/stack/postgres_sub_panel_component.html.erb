@@ -8,17 +8,6 @@
     is resolved from `?postgres_sort=…&postgres_dir=…` query params
     on first paint. Default: rows desc. %>
 <%= render Tui::SubPanelComponent.new(title: t("settings.stack.postgres"), focusable_key: "postgres", panel_commands: panel_commands) do |c| %>
-  <% c.with_actions do %>
-    <%# Phase 1D (2026-05-24) — sub-panel sync indicator. PostgreSQL has no
-        other border action (no [reindex]) so this is the sole occupant of
-        the actions slot. %>
-    <%= render Tui::SyncIndicatorComponent.new(
-      mode: :target,
-      target: "home.stack.postgres",
-      parent_target: "home.stack",
-      focusable_key: "postgres_sync"
-    ) %>
-  <% end %>
   <p class="pito-sub-panel__hint <%= hint_color_class %>"><%= hint_text %></p>
 
   <% if status[:connected] && table_breakdown.any? %>

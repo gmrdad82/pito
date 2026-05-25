@@ -8,16 +8,6 @@
     is resolved from `?assets_sort=…&assets_dir=…` query params on
     first paint. Default: files desc. %>
 <%= render Tui::SubPanelComponent.new(title: t("settings.stack.assets"), focusable_key: "assets", panel_commands: panel_commands) do |c| %>
-  <% c.with_actions do %>
-    <%# Phase 1D (2026-05-24) — sub-panel sync indicator. Assets has no
-        other border action so this is the sole occupant of the slot. %>
-    <%= render Tui::SyncIndicatorComponent.new(
-      mode: :target,
-      target: "home.stack.assets",
-      parent_target: "home.stack",
-      focusable_key: "assets_sync"
-    ) %>
-  <% end %>
   <p class="pito-sub-panel__hint <%= hint_color_class %>"><%= hint_text %></p>
 
   <% if breakdown.any? %>
