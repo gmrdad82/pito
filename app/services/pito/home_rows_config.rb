@@ -31,8 +31,6 @@ module Pito
     # All panel keys that may appear in a row definition.
     # Extend this list as new panels are added to the home screen.
     ALLOWED_PANEL_KEYS = %w[
-      channels_overview
-      latest_videos
       games_releasing
       notifications_feed
       calendar
@@ -47,7 +45,7 @@ module Pito
     # Mirrors the DEFAULT_HOME_ROWS constant in the migration.
     def self.default
       [
-        { "cols" => 3, "panels" => [ "channels_overview", "latest_videos", "games_releasing" ] },
+        { "cols" => 1, "panels" => [ "games_releasing" ] },
         { "cols" => 2, "panels" => [ "notifications_feed", "calendar" ], "ratios" => [ 40, 60 ] },
         {
           "cols" => 2,

@@ -152,9 +152,7 @@ Rails.application.routes.draw do
                             controller: "channels/change_logs"
   end
   # R2 (2026-05-25) — /videos screen removed. Index + edit + panes + diffs
-  # collection actions dropped. Video data surfaces via home panels
-  # (Pito::LatestVideosPanelComponent, Pito::ChannelsOverviewPanelComponent).
-  # Member routes retained for CLI / MCP JSON API surface.
+  # collection actions dropped. Member routes retained for CLI / MCP JSON API surface.
   resources :videos, only: [ :show, :destroy ] do
     member do
       # Retained for the pito CLI: /videos/:id/stats.json

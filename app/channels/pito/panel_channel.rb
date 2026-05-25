@@ -43,8 +43,6 @@ module Pito
       security
       notifications
       stack
-      channels_overview
-      latest_videos
       games_releasing
       notifications_feed
       calendar

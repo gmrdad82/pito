@@ -51,8 +51,6 @@ module Pito
     # New panels: add an entry here. Keys must match AppSetting.home_rows_config
     # slot strings and the HomePanelData concern's data keys.
     PANEL_COMPONENT_MAP = {
-      "channels_overview"  => "Pito::ChannelsOverviewPanelComponent",
-      "latest_videos"      => "Pito::LatestVideosPanelComponent",
       "games_releasing"    => "Pito::GamesReleasingPanelComponent",
       "notifications_feed" => "Pito::NotificationsFeedPanelComponent",
       "calendar"           => "Pito::CalendarPanelComponent",

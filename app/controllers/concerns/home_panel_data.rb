@@ -64,13 +64,6 @@ module HomePanelData
 
   STACK_ALLOWED_DIRS = %w[asc desc].freeze
 
-  # Latest-videos panel sort allowlist.
-  LATEST_VIDEOS_ALLOWED_SORTS = %w[title channel views published_at].freeze
-  LATEST_VIDEOS_ALLOWED_DIRS  = %w[asc desc].freeze
-  LATEST_VIDEOS_DEFAULT_SORT  = "published_at".freeze
-  LATEST_VIDEOS_DEFAULT_DIR   = "desc".freeze
-  LATEST_VIDEOS_LIMIT         = 12
-
   # Meilisearch unified `games_*` index displays games. Only the unified
   # index is surfaced; per-env suffixes are stripped.
   # R1 (2026-05-25) — bundles row removed.
@@ -107,16 +100,6 @@ module HomePanelData
   # initializer via `kwargs_for(key)`.
   def assemble_home_panel_data
     @home_panel_data = {
-      "channels_overview"  => {
-        channels: @channels_overview_channels,
-        sort:     @channels_overview_sort,
-        dir:      @channels_overview_dir
-      },
-      "latest_videos"      => {
-        videos:      @videos,
-        videos_sort: @videos_sort,
-        videos_dir:  @videos_dir
-      },
       "games_releasing"    => {},
       "notifications_feed" => {
         filter:       @notifications_feed_filter,
@@ -231,25 +214,6 @@ module HomePanelData
     @calendar_today   = today
   end
 
-  # Sets `@videos`, `@videos_sort`, `@videos_dir` for the Latest Videos
-  # panel. Fetches the most recent LATEST_VIDEOS_LIMIT published videos
-  # across all channels, sorted by the requested column. Includes :channel
-  # so the template can show the channel title without an N+1.
-  #
-  # Sort columns:
-  #   title       — videos.title ASC/DESC
-  #   channel     — channels.title ASC/DESC (joined via :channel)
-  #   views       — view_count ASC/DESC
-  #   published_at — published_at ASC/DESC (default DESC)
-  #
-  # Only videos with a non-nil `published_at` are shown (i.e. actually
-  # published; drafts / scheduled stay hidden).
-  def set_latest_videos_panel_data
-    @videos_sort = sanitized_latest_videos_sort
-    @videos_dir  = sanitized_latest_videos_dir
-    @videos      = fetch_latest_videos
-  end
-
   # Sets the 8 ivars the Stack panel demands plus the 8 sort ivars
   # (one sort key + direction per sub-panel). Each probe is rescued
   # so a transient subsystem failure (Meilisearch unreachable, etc.)
@@ -292,50 +256,6 @@ module HomePanelData
   end
 
   private
-
-  # -----------------------------------------------------------------
-  # Latest-videos helpers
-  # -----------------------------------------------------------------
-
-  def sanitized_latest_videos_sort
-    v = params[:videos_sort].to_s
-    LATEST_VIDEOS_ALLOWED_SORTS.include?(v) ? v : LATEST_VIDEOS_DEFAULT_SORT
-  end
-
-  def sanitized_latest_videos_dir
-    v = params[:videos_dir].to_s.downcase
-    LATEST_VIDEOS_ALLOWED_DIRS.include?(v) ? v : LATEST_VIDEOS_DEFAULT_DIR
-  end
-
-  # Frozen lookup: every [sort_key, dir] pair maps to a compile-time
-  # literal SQL string. No user input is interpolated into Arel.sql —
-  # the entire string is a constant. `.fetch` falls back to the default
-  # if any unexpected combination slips through sanitization.
-  LATEST_VIDEOS_ORDER_CLAUSES = {
-    %w[title asc]  => "videos.title asc",
-    %w[title desc] => "videos.title desc",
-    %w[channel asc]  => "channels.title asc",
-    %w[channel desc] => "channels.title desc",
-    %w[views asc]  => "view_count asc",
-    %w[views desc] => "view_count desc",
-    %w[published_at asc]  => "videos.published_at asc nulls last",
-    %w[published_at desc] => "videos.published_at desc nulls last"
-  }.freeze
-
-  def fetch_latest_videos
-    sort   = sanitized_latest_videos_sort
-    dir    = sanitized_latest_videos_dir
-    clause = LATEST_VIDEOS_ORDER_CLAUSES.fetch([ sort, dir ], "videos.published_at desc nulls last")
-
-    Video
-      .where.not(published_at: nil)
-      .includes(:channel)
-      .joins(:channel)
-      .order(Arel.sql(clause))
-      .limit(LATEST_VIDEOS_LIMIT)
-  rescue StandardError
-    []
-  end
 
   # -----------------------------------------------------------------
   # Home calendar helpers
@@ -624,65 +544,5 @@ module HomePanelData
     else rows
     end
     dir == "asc" ? sorted : sorted.reverse
-  end
-
-  # -----------------------------------------------------------------
-  # Channels overview panel
-  # -----------------------------------------------------------------
-
-  # Channels overview panel sort allowlist.
-  # Columns: handle (text), subscriber_count (numeric), view_count (numeric),
-  # last_published_at (derived MAX of videos.published_at).
-  CHANNELS_OVERVIEW_ALLOWED_SORTS = %w[handle subscriber_count view_count last_published_at].freeze
-  CHANNELS_OVERVIEW_ALLOWED_DIRS  = %w[asc desc].freeze
-  CHANNELS_OVERVIEW_DEFAULT_SORT  = "last_published_at"
-  CHANNELS_OVERVIEW_DEFAULT_DIR   = "desc"
-
-  # Sets `@channels_overview_channels`, `@channels_overview_sort`,
-  # `@channels_overview_dir` for `Pito::ChannelsOverviewPanelComponent`.
-  #
-  # Channels are fetched with a LEFT OUTER JOIN subquery so the
-  # `last_published_at` virtual column is available for ORDER BY.
-  # The subquery is cheap (one MAX per channel) and cached at the
-  # page-render boundary (no cable broadcast yet).
-  def set_channels_overview_panel_data
-    @channels_overview_sort = channels_overview_sort_key
-    @channels_overview_dir  = channels_overview_dir_value
-
-    subquery = Video.select("channel_id, MAX(published_at) AS last_published_at")
-                    .group(:channel_id)
-                    .to_sql
-
-    # Eagerly load with `.to_a` so `channels.any?` / `.each` in the VC
-    # never triggers a COUNT(*) against the complex SELECT (which would
-    # produce a syntax error because PostgreSQL cannot wrap `channels.*` +
-    # virtual columns inside COUNT). The result set is small (all owned
-    # channels) so eager loading is appropriate here.
-    @channels_overview_channels =
-      Channel.joins("LEFT OUTER JOIN (#{subquery}) v ON v.channel_id = channels.id")
-             .select("channels.*", "v.last_published_at AS last_published_video_at")
-             .order(Arel.sql(channels_overview_order_clause))
-             .to_a
-  end
-
-  def channels_overview_sort_key
-    raw = params[:channels_sort].to_s
-    CHANNELS_OVERVIEW_ALLOWED_SORTS.include?(raw) ? raw : CHANNELS_OVERVIEW_DEFAULT_SORT
-  end
-
-  def channels_overview_dir_value
-    raw = params[:channels_dir].to_s
-    CHANNELS_OVERVIEW_ALLOWED_DIRS.include?(raw) ? raw : CHANNELS_OVERVIEW_DEFAULT_DIR
-  end
-
-  def channels_overview_order_clause
-    col = case @channels_overview_sort
-    when "handle"            then "LOWER(channels.handle)"
-    when "subscriber_count"  then "channels.subscriber_count"
-    when "view_count"        then "channels.view_count"
-    else "v.last_published_at"
-    end
-    nulls = @channels_overview_dir == "desc" ? "NULLS LAST" : "NULLS FIRST"
-    "#{col} #{@channels_overview_dir.upcase} #{nulls}"
   end
 end

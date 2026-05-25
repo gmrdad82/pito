@@ -25,8 +25,6 @@ class DashboardController < ApplicationController
   before_action :set_notifications_feed_panel_data,   only: :index, if: :html_request?
   before_action :set_stack_panel_data,                only: :index, if: :html_request?
   before_action :set_calendar_panel_data,             only: :index, if: :html_request?
-  before_action :set_channels_overview_panel_data,    only: :index, if: :html_request?
-  before_action :set_latest_videos_panel_data,        only: :index, if: :html_request?
   before_action :assemble_home_panel_data,            only: :index, if: :html_request?
 
   def index

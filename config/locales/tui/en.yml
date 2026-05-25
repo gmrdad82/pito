@@ -64,20 +64,6 @@ en:
           title: "settings"
         stack:
           title: "system"
-        channels_overview:
-          # 2026-05-24 (lock) — display value shortened "channels overview"
-          # → "channels". YAML key intentionally kept as `channels_overview`
-          # so cable channel grammar (`pito:home:channels_overview`),
-          # PANEL_NAME, file names, etc. stay stable; only the user-facing
-          # title shortened.
-          title: "channels"
-          col_handle: "handle"
-          col_subs: "subs"
-          col_views: "views"
-          col_last_published: "last published"
-          empty: "no channels"
-        latest_videos:
-          title: "latest videos"
         games_releasing:
           title: "upcoming games"
           # 2026-05-25 — empty-state copy for the upcoming-games shelf.
