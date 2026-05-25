@@ -6214,6 +6214,12 @@ dialog.webhook-help-modal {
   color: var(--color-muted, #6272a4);
   font-style: italic;
 }
+/* danger variant — specificity bump so .text-danger's color wins the
+   cascade vs the .tui-hint muted color (both specificity 0,0,1,0 but
+   .tui-hint sits later in the file). Combo selector boosts to 0,0,2,0. */
+.tui-hint.text-danger {
+  color: var(--color-danger);
+}
 
 /* ===== Sessions table — in-place header swap (FB-14, 2026-05-20) =====
    The `[revoke]` action moved out of a bulk-toolbar row above the
