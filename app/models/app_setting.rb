@@ -1,3 +1,32 @@
+# AppSetting — install-wide key/value settings store.
+#
+# Purpose:
+#   Single-table store for scalar settings that need DB persistence. All rows
+#   share the `key` / `value` text columns (value is encrypted at rest).
+#   A canonical singleton row (`key = "__singleton__"`) carries boolean +
+#   timestamp columns that were promoted out of the key/value shape for
+#   performance or query convenience.
+#
+# Sections (see inline docblocks for each):
+#   - Generic get/set helpers
+#   - Sync state (SYNC_KEY_PREFIX rows)
+#   - Notification toggles (singleton row boolean columns)
+#   - Reindex lock (singleton row columns)
+#   - Master sync pause (singleton row boolean column)
+#   - Home layout config (home_rows column on singleton row)
+#
+# Home layout API:
+#   AppSetting.home_rows_config           → Array (parsed JSON, default on nil)
+#   AppSetting.set_home_rows!(arr)        → validates via Pito::HomeRowsConfig,
+#                                           JSON-encodes, persists to singleton row
+#   instance#home_rows_config             → parsed JSON for this instance
+#   instance#home_rows_config=(arr)       → validates + JSON-encodes + memoizes
+#
+# Related:
+#   Pito::HomeRowsConfig  — value object: default / validate! / normalize
+#   Pito::SyncTargets     — sync target catalog + cascade rules
+#   Pito::SyncState       — service layer for sync broadcasts
+
 class AppSetting < ApplicationRecord
   encrypts :value, deterministic: true
 
@@ -200,5 +229,51 @@ class AppSetting < ApplicationRecord
 
   def self.resume_master!
     singleton_row.update!(master_sync_paused: false)
+  end
+
+  # ── Home layout config ────────────────────────────────────────────────────
+  #
+  # `home_rows` is a :text column on the singleton row holding a JSON-encoded
+  # array of row descriptors.  Consumers always go through the two class-level
+  # helpers below so the memoization cache and the value-object layer are
+  # always consulted.
+  #
+  # `home_rows_config`      — returns the parsed Array (falls back to the
+  #                           Pito::HomeRowsConfig.default when the column
+  #                           is nil / unparseable).
+  # `home_rows_config=(arr)` — validates via Pito::HomeRowsConfig.validate!,
+  #                            JSON-encodes, stores in @home_rows_config cache.
+  # `AppSetting.home_rows_config`    — class helper → singleton_row.home_rows_config
+  # `AppSetting.set_home_rows!(arr)` — class helper → validates, persists,
+  #                                    returns updated singleton row.
+
+  def home_rows_config
+    @home_rows_config ||= begin
+      raw = self[:home_rows]
+      if raw.present?
+        JSON.parse(raw)
+      else
+        Pito::HomeRowsConfig.default
+      end
+    rescue JSON::ParserError
+      Pito::HomeRowsConfig.default
+    end
+  end
+
+  def home_rows_config=(arr)
+    Pito::HomeRowsConfig.validate!(arr)
+    self[:home_rows] = JSON.generate(arr)
+    @home_rows_config = arr
+  end
+
+  def self.home_rows_config
+    singleton_row.home_rows_config
+  end
+
+  def self.set_home_rows!(arr)
+    row = singleton_row
+    row.home_rows_config = arr
+    row.save!
+    row
   end
 end

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_25_140001) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_25_150000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -67,6 +67,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_25_140001) do
 
   create_table "app_settings", force: :cascade do |t|
     t.datetime "created_at", null: false
+    t.text "home_rows", default: "[{\"cols\":3,\"panels\":[\"channels_overview\",\"latest_videos\",\"games_releasing\"]},{\"cols\":2,\"panels\":[\"notifications_feed\",\"calendar\"],\"ratios\":[40,60]},{\"cols\":2,\"panels\":[\"stack\",{\"stack\":[\"notifications\",\"security\"]}],\"ratios\":[60,40]}]"
     t.string "key"
     t.boolean "master_sync_paused", default: false, null: false
     t.boolean "notifications_send_all", default: false, null: false

@@ -1,0 +1,37 @@
+<section data-tui-cursor-target="row"
+         class="pito-home-row pito-home-row--<%= cols %>col"
+         style="grid-template-columns: <%= grid_template_columns %>;">
+  <% panels.each do |slot| %>
+    <% if slot.is_a?(String) %>
+      <%# Single-key slot — resolve component and render or show unknown placeholder %>
+      <% klass = component_class_for(slot) %>
+      <% if klass %>
+        <%= render klass.new(**kwargs_for(slot)) %>
+      <% else %>
+        <div class="pito-home-row__unknown-slot">
+          <span class="pito-home-row__unknown-hint">unknown panel: <%= slot %></span>
+        </div>
+      <% end %>
+    <% elsif slot.is_a?(Hash) %>
+      <%# Stacked slot — e.g. { "stack" => ["notifications", "security"] } %>
+      <% stacked_keys = slot.values.first %>
+      <div class="pito-home-row__stack-slot">
+        <% Array(stacked_keys).each do |stacked_key| %>
+          <% klass = component_class_for(stacked_key) %>
+          <% if klass %>
+            <%= render klass.new(**kwargs_for(stacked_key)) %>
+          <% else %>
+            <div class="pito-home-row__unknown-slot">
+              <span class="pito-home-row__unknown-hint">unknown panel: <%= stacked_key %></span>
+            </div>
+          <% end %>
+        <% end %>
+      </div>
+    <% else %>
+      <%# Unrecognized slot type — render unknown placeholder %>
+      <div class="pito-home-row__unknown-slot">
+        <span class="pito-home-row__unknown-hint">unknown slot type</span>
+      </div>
+    <% end %>
+  <% end %>
+</section>

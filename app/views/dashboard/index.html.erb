@@ -3,82 +3,18 @@
   <meta name="turbo-cache-control" content="no-cache">
 <% end %>
 
-<%# Phase 2D (2026-05-23) — home screen layout shell.
-    Locked C3 + masonry row 3 grid:
-      Row 1 (3 cols, 1fr 1fr 1fr): Channels overview | Latest videos | Games releasing
-      Row 2 (40/60, 4fr 6fr):       Notifications feed | Calendar (Calendar still at 60%, just on the right)
-      Row 3 (60/40, 6fr 4fr):       Stack | (Notifications settings on top, Security on bottom)
-    Hard rule: full-width rows are NEVER allowed. No panel ever spans an
-    entire row alone. The right column of row 3 is a vertical flex stack
-    with content-driven heights. %>
+<%# Home screen — rows driven by AppSetting.home_rows_config.
+    Each row hash supplies: cols (Integer), panels (Array<String|Hash>),
+    ratios (Array<Integer>, optional). Panel kwargs are pre-assembled in
+    HomePanelData#assemble_home_panel_data and forwarded via panel_data:.
+    HomeRowComponent handles unknown keys with a muted placeholder. %>
 <div class="pito-workspace home-grid" data-controller="tui-cursor">
-  <%# Row 1 — 3 cols even: YouTube content hierarchy %>
-  <div class="home-row home-row--3col">
-    <%= render Pito::ChannelsOverviewPanelComponent.new(
-          channels: @channels_overview_channels,
-          sort:     @channels_overview_sort,
-          dir:      @channels_overview_dir
+  <% AppSetting.home_rows_config.each do |row| %>
+    <%= render Pito::HomeRowComponent.new(
+          cols:       row["cols"]   || row[:cols],
+          panels:     row["panels"] || row[:panels],
+          ratios:     row["ratios"] || row[:ratios],
+          panel_data: @home_panel_data
         ) %>
-    <%= render Pito::LatestVideosPanelComponent.new(
-          videos:      @videos,
-          videos_sort: @videos_sort,
-          videos_dir:  @videos_dir
-        ) %>
-    <%= render Pito::GamesReleasingPanelComponent.new %>
-  </div>
-
-  <%# Row 2 — 40/60: NotifFeed left (4fr), Calendar right (6fr; still 60% of the row).
-      Per user 2026-05-23 — Calendar stays at 60% of row width but on the right;
-      Notifications feed moves left at 40%. %>
-  <div class="home-row home-row--40-60">
-    <%= render Pito::NotificationsFeedPanelComponent.new(
-          filter:       @notifications_feed_filter,
-          unread_count: @notifications_feed_unread_count
-        ) %>
-    <%= render Pito::CalendarPanelComponent.new(
-          entries:    @calendar_entries,
-          buckets:    @calendar_buckets,
-          grid:       @calendar_grid,
-          today:      @calendar_today,
-          year:       @calendar_year,
-          month:      @calendar_month,
-          raw_filter: @calendar_raw_filter,
-          category:   @calendar_category
-        ) %>
-  </div>
-
-  <%# Row 3 — 60/40 with masonry right column.
-      Left: Stack (4 service sub-panels).
-      Right: vertical stack — Notifications settings on top, Security on bottom. %>
-  <div class="home-row home-row--60-40">
-    <%= render Pito::StackPanelComponent.new(
-          postgres_status:          @postgres_status,
-          postgres_table_breakdown: @postgres_table_breakdown,
-          search_healthy:           @search_healthy,
-          search_stats:             @search_stats,
-          search_per_index_stats:   @search_per_index_stats,
-          voyage_configured:        @voyage_configured,
-          storage_status:           @storage_status,
-          assets_breakdown:         @assets_breakdown,
-          meilisearch_sort:         @meilisearch_sort,
-          meilisearch_dir:          @meilisearch_dir,
-          voyage_sort:              @voyage_sort,
-          voyage_dir:               @voyage_dir,
-          postgres_sort:            @postgres_sort,
-          postgres_dir:             @postgres_dir,
-          assets_sort:              @assets_sort,
-          assets_dir:               @assets_dir
-        ) %>
-    <div class="home-row-3-right-column">
-      <%= render Pito::NotificationsPanelComponent.new(
-            discord_webhook: @discord_webhook,
-            slack_webhook:   @slack_webhook
-          ) %>
-      <%= render Pito::SecurityPanelComponent.new(
-            sessions:       @sessions,
-            sessions_sort:  @sessions_sort,
-            sessions_dir:   @sessions_dir
-          ) %>
-    </div>
-  </div>
+  <% end %>
 </div>

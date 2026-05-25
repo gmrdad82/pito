@@ -254,14 +254,20 @@ body {
      Stimulus controller listens to window resize events and pops a
      dialog when the viewport is below threshold; this CSS pair adds
      defense-in-depth so the page chrome never scrolls under the
-     guard. `overflow: hidden` keeps the page body from scrolling —
-     individual panels manage their own scroll regions.
-     Width dropped 1280→1200 on 2026-05-23 — the half-tile width on
-     a 2560 display (1280) loses a few pixels to the browser chrome
-     so the guard was firing on legitimate half-screen tiles. */
+     guard. Width dropped 1280→1200 on 2026-05-23 — the half-tile
+     width on a 2560 display (1280) loses a few pixels to the browser
+     chrome so the guard was firing on legitimate half-screen tiles. */
   min-width: 1200px;
   min-height: 800px;
+  /* Y4 (2026-05-25) — app-shell scroll model. Body is a 3-child flex
+     column: TST (<header>) + scrollable main + BST (<footer.bsb-bar>).
+     height: 100vh pins the outer container to the viewport. overflow:
+     hidden on the body itself remains a size-guard defense layer — the
+     actual scroll surface is <main> (see pito-app-shell scroll block). */
+  height: 100vh;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Headings — single-font-size TUI hierarchy (ADR 0016).
@@ -6071,13 +6077,13 @@ main > .settings-modal-wrapper {
    Center zone: SidekiqStatsComponent (anchored, unaffected by left/right)
    Right zone: HelpHintComponent + CommandHintComponent
    ================================================================= */
-/* FB-88 (2026-05-20) — BST fixed at viewport bottom. */
+/* FB-88 (2026-05-20) — BST pinned at viewport bottom.
+   Y4 (2026-05-25) — migrated from position:fixed to flex child.
+   Body is now a flex column (TST + <main> + BST); BST sits naturally
+   as the last flex child, always visible at the bottom of the
+   viewport without position:fixed. */
 .bsb-bar {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  width: 100%;
+  flex: 0 0 auto;
   padding: 4px 12px;
   background: var(--color-bg);
   border-top: 1px solid var(--color-border);
@@ -6954,7 +6960,7 @@ dialog.tui-size-guard-dialog::backdrop {
   position: fixed;
   left: 0;
   right: 0;
-  bottom: 22px; /* sits ABOVE the BST (22px tall, fixed bottom) */
+  bottom: 22px; /* sits ABOVE the BST (22px tall; in-flow flex child since Y4) */
   width: 100vw;  /* D4 contract: full viewport width */
   z-index: 200; /* above panel chrome, below dialog top-layer */
   background: var(--color-bg);
@@ -7893,4 +7899,97 @@ a.cal-filter-chip:visited {
 /* Focused sub-panel: upgrade inner pipe to full accent */
 .pito-sub-panel[data-tui-cursor-sub-panel-focused="yes"] .pito-sub-panel__actions > * + * {
   border-left-color: var(--section-accent, var(--dracula-purple));
+}
+
+/* === pito-home-row === */
+
+/* Generic home-dashboard row — a CSS grid whose column widths are driven
+   inline via `grid-template-columns` (generated from the `ratios:` kwarg
+   of Pito::HomeRowComponent). The --Xcol modifier classes serve as
+   semantic hooks and provide equal-width fallbacks when no inline style
+   is present, but the component always writes an explicit inline style so
+   the modifiers are primarily for introspection / TUI parity. */
+.pito-home-row {
+  display: grid;
+  gap: 12px;
+  min-height: 0;
+  grid-auto-rows: minmax(0, 1fr);
+}
+
+/* Equal-width fallbacks — used when the component is rendered without
+   an explicit ratios: kwarg and no inline style is injected (e.g. tests
+   or static HTML snapshots). The component always writes an inline style,
+   so these are backstops only. */
+.pito-home-row--1col { grid-template-columns: 1fr; }
+.pito-home-row--2col { grid-template-columns: 1fr 1fr; }
+.pito-home-row--3col { grid-template-columns: 1fr 1fr 1fr; }
+.pito-home-row--4col { grid-template-columns: 1fr 1fr 1fr 1fr; }
+
+/* Vertical stack inside a single grid cell — used when a slot is a Hash
+   like { "stack" => ["notifications", "security"] }. Child panels share
+   the column height equally, with the same row-gap as the outer grid. */
+.pito-home-row__stack-slot {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+}
+
+.pito-home-row__stack-slot > * {
+  flex: 1;
+  min-height: 0;
+}
+
+/* Unknown-panel placeholder — muted hint so a misconfigured slot is
+   visible without breaking layout. */
+.pito-home-row__unknown-slot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed var(--color-border);
+}
+
+.pito-home-row__unknown-hint {
+  color: var(--color-muted);
+  font-size: 0.75rem;
+}
+
+/* === pito-app-shell scroll ==========================================
+   Y4 (2026-05-25). Vertical scroll model for the 3-child body flex
+   column: TST (<header>) + scrollable content (<main>) + BST
+   (<footer.bsb-bar>).
+
+   Outer wrapper:  <body>
+     display: flex; flex-direction: column; height: 100vh
+     (declared in the body { } block above)
+
+   TST:            body > header
+     flex: 0 0 auto — shrinks to its intrinsic height (22px), never
+     grows; sticky inside the flex column is a no-op but harmless.
+
+   Scrollable mid: body > main
+     flex: 1 1 auto — fills all remaining height between TST + BST.
+     min-height: 0 — overrides flexbox's default min-height: auto so
+     the item can shrink below its intrinsic content height and the
+     overflow-y: auto scroll surface actually engages. Without this,
+     flex items refuse to shrink and the scroll container never clips.
+     overflow-y: auto — vertical scroll when content exceeds the
+     available height; no horizontal scroll (content controlled by
+     the pito-workspace grid).
+
+   BST:            body > footer.bsb-bar
+     flex: 0 0 auto — migrated from position:fixed; sits as the last
+     flex child, always visible at viewport bottom.
+     (full rule lives in the pito-bst block above)
+
+   Total height:   100vh = TST(22px) + main(flex-grow) + BST(22px)
+   ================================================================= */
+body > header {
+  flex: 0 0 auto;
+}
+
+body > main {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
 }

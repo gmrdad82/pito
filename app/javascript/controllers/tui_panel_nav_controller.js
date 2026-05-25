@@ -36,6 +36,23 @@ import { Controller } from "@hotwired/stimulus"
 //   - `tui-cursor` is active on <body> (cursor owns Tab; this controller
 //     defers to it and only provides the event bridge).
 //
+// Auto-scroll behavior:
+//   After moving focus to a panel, the controller checks whether the panel
+//   is fully visible within its nearest scrollable ancestor. If it is not
+//   fully visible, `scrollIntoView({ behavior: "smooth", block: "nearest" })`
+//   is called to bring the panel into view without disturbing panels that
+//   are already on-screen. The scroll is skipped when the panel is 100%
+//   within the scroll container's client rect — this prevents spurious
+//   smooth-scroll jank on panels already visible to the user.
+//
+//   Scroll container resolution: `nearestScrollContainer(el)` walks the DOM
+//   ancestor chain from the panel element upward, checking each element's
+//   computed `overflow-y` (and `overflow`) for `auto` or `scroll`. Falls
+//   back to `document.documentElement` when no scrollable ancestor is found.
+//   This means the check works regardless of whether the scroll container
+//   is `<main>`, a `.home-grid` wrapper, or the document root — it adapts
+//   to the actual layout without hardcoding a selector.
+//
 // Events emitted:
 //   `pito:panel:focused` (document, bubbles: false)
 //     detail: { panelId: string | null, panelTitle: string | null }
@@ -60,6 +77,48 @@ const INPUT_SELECTOR =
   'input[type="tel"], input:not([type]), textarea, ' +
   '[contenteditable=""], [contenteditable="true"], select'
 
+// Returns the nearest ancestor element (including el itself) whose
+// computed overflow-y (or overflow shorthand) is "auto" or "scroll",
+// indicating it is the actual scroll container for el. Falls back to
+// document.documentElement when no scrollable ancestor exists.
+function nearestScrollContainer(el) {
+  let node = el.parentElement
+  while (node && node !== document.documentElement) {
+    const style = window.getComputedStyle(node)
+    const overflowY = style.overflowY || style.overflow
+    if (overflowY === "auto" || overflowY === "scroll") return node
+    node = node.parentElement
+  }
+  return document.documentElement
+}
+
+// Returns true when el is fully visible (no part clipped) within the
+// bounds of its nearest scroll container. Uses getBoundingClientRect on
+// both the element and the container so the check is in viewport-space
+// coordinates and works regardless of nested transforms.
+function isPanelFullyVisible(el) {
+  const container = nearestScrollContainer(el)
+  const elRect = el.getBoundingClientRect()
+  const cRect = container === document.documentElement
+    ? { top: 0, left: 0, bottom: window.innerHeight, right: window.innerWidth }
+    : container.getBoundingClientRect()
+  return (
+    elRect.top >= cRect.top &&
+    elRect.bottom <= cRect.bottom &&
+    elRect.left >= cRect.left &&
+    elRect.right <= cRect.right
+  )
+}
+
+// Scrolls el into view only when it is not already fully visible in its
+// scroll container. Skips the call entirely when the panel is on-screen
+// to avoid spurious smooth-scroll jitter for the common case.
+function scrollPanelIntoViewIfNeeded(el) {
+  if (!isPanelFullyVisible(el)) {
+    el.scrollIntoView({ behavior: "smooth", block: "nearest" })
+  }
+}
+
 export default class extends Controller {
   connect() {
     this.boundKey = this.handleKey.bind(this)
@@ -80,8 +139,19 @@ export default class extends Controller {
   // event name. The internal event carries { panel, subPanel, title };
   // the public event forwards panelId (from the focused element's id
   // attribute, if any) and panelTitle (from detail.panel).
+  //
+  // Also auto-scrolls the newly focused panel into view when it is not
+  // fully visible in its scroll container — the tui-cursor controller owns
+  // focus traversal in this path but does not perform page-level scroll.
   handleFocusChanged(event) {
     const detail = event.detail || {}
+
+    // Scroll the focused panel element into view if it's off-screen.
+    const focusedEl = document.querySelector(
+      '[data-tui-cursor-target="panel"][data-tui-cursor-focused="yes"]'
+    )
+    if (focusedEl) scrollPanelIntoViewIfNeeded(focusedEl)
+
     document.dispatchEvent(
       new CustomEvent("pito:panel:focused", {
         bubbles: false,
@@ -159,7 +229,7 @@ export default class extends Controller {
     const next = panels[nextIdx]
     if (next) {
       next.setAttribute("data-tui-cursor-focused", "yes")
-      next.scrollIntoView({ block: "nearest", behavior: "smooth" })
+      scrollPanelIntoViewIfNeeded(next)
 
       // Emit pito:panel:focused directly — the cursor controller is not
       // present in this standalone path, so we emit ourselves.

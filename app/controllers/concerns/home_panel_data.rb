@@ -95,6 +95,73 @@ module HomePanelData
   # Entry points
   # -----------------------------------------------------------------
 
+  # Assembles `@home_panel_data` — a single Hash mapping every panel key
+  # to the kwargs Hash its ViewComponent initializer expects. Called after
+  # all individual `set_*_panel_data` methods have run so every ivar is
+  # already populated.
+  #
+  # The dashboard view (`dashboard/index.html.erb`) loops over
+  # `AppSetting.home_rows_config` and renders each row via
+  # `Pito::HomeRowComponent`, forwarding this hash as `panel_data:`.
+  # The HomeRowComponent splats the matching sub-hash into each panel's
+  # initializer via `kwargs_for(key)`.
+  def assemble_home_panel_data
+    @home_panel_data = {
+      "channels_overview"  => {
+        channels: @channels_overview_channels,
+        sort:     @channels_overview_sort,
+        dir:      @channels_overview_dir
+      },
+      "latest_videos"      => {
+        videos:      @videos,
+        videos_sort: @videos_sort,
+        videos_dir:  @videos_dir
+      },
+      "games_releasing"    => {},
+      "notifications_feed" => {
+        filter:       @notifications_feed_filter,
+        unread_count: @notifications_feed_unread_count
+      },
+      "calendar"           => {
+        entries:    @calendar_entries,
+        buckets:    @calendar_buckets,
+        grid:       @calendar_grid,
+        today:      @calendar_today,
+        year:       @calendar_year,
+        month:      @calendar_month,
+        raw_filter: @calendar_raw_filter,
+        category:   @calendar_category
+      },
+      "stack"              => {
+        postgres_status:          @postgres_status,
+        postgres_table_breakdown: @postgres_table_breakdown,
+        search_healthy:           @search_healthy,
+        search_stats:             @search_stats,
+        search_per_index_stats:   @search_per_index_stats,
+        voyage_configured:        @voyage_configured,
+        storage_status:           @storage_status,
+        assets_breakdown:         @assets_breakdown,
+        meilisearch_sort:         @meilisearch_sort,
+        meilisearch_dir:          @meilisearch_dir,
+        voyage_sort:              @voyage_sort,
+        voyage_dir:               @voyage_dir,
+        postgres_sort:            @postgres_sort,
+        postgres_dir:             @postgres_dir,
+        assets_sort:              @assets_sort,
+        assets_dir:               @assets_dir
+      },
+      "notifications"      => {
+        discord_webhook: @discord_webhook,
+        slack_webhook:   @slack_webhook
+      },
+      "security"           => {
+        sessions:      @sessions,
+        sessions_sort: @sessions_sort,
+        sessions_dir:  @sessions_dir
+      }
+    }
+  end
+
   # Sets `@sessions`, `@sessions_sort`, `@sessions_dir` for the
   # Security panel. Active (non-revoked) rows only; revoked rows stay
   # in the DB for audit. Falls back to `Session.none` when the request
