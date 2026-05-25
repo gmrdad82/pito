@@ -250,11 +250,11 @@ module CalendarHelper
 
   # Parse `params[:calendar_filter]` (Hash of category→"on" pairs).
   # Returns:
-  #   :all   — param absent (default — all 4 categories shown)
-  #   :none  — param present but all values absent / off
+  #   :all   — param absent / nil (default — all 4 categories shown)
+  #   :none  — param present (even empty hash) but no category is "on"
   #   Array  — explicit subset of valid category keys
   def panel_calendar_active_categories(raw_filter)
-    return :all if raw_filter.blank?
+    return :all if raw_filter.nil?
     active = PANEL_CALENDAR_CATEGORIES.keys.select { |k| raw_filter[k].to_s == "on" }
     active.empty? ? :none : active
   end

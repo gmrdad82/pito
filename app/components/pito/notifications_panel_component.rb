@@ -21,8 +21,26 @@ module Pito
   # ## Focusables
   #
   # Delegated to `SettingsHelper#notifications_focusables` (locked list):
-  #   all, daily, discord_webhook, discord_update, discord_help,
-  #   slack_webhook, slack_update, slack_help
+  #   notifications_sync (sync indicator)
+  #   all              — "all notifications" checkbox label
+  #   daily            — "daily digest" checkbox label
+  #   discord_webhook  — Discord webhook URL input
+  #   discord_update   — Discord [update] submit action
+  #   discord_help     — Discord [help] link (opens webhook-help-modal)
+  #   slack_webhook    — Slack webhook URL input
+  #   slack_update     — Slack [update] submit action
+  #   slack_help       — Slack [help] link (opens webhook-help-modal)
+  #
+  # ## Palette commands (`:` palette)
+  #
+  #   toggle_all               — clicks the "all notifications" checkbox
+  #   toggle_daily_digest      — clicks the "daily digest" checkbox
+  #   focus_discord_webhook    — focuses the Discord webhook URL input
+  #   focus_slack_webhook      — focuses the Slack webhook URL input
+  #   open_discord_help_dialog — focuses + clicks the Discord [help] link
+  #   open_slack_help_dialog   — focuses + clicks the Slack [help] link
+  #   sync_toggle_notifications — fires the sync toggle for this panel
+  #   (+ sync_pause_commands from Tui::PanelBase)
   #
   # ## Composes
   #
@@ -39,6 +57,13 @@ module Pito
   # is gone. Title resolves from `tui.home.panels.notifications.title`
   # ("notifications settings", distinct from the in-app feed panel) so
   # the future Ratatui client reads the same YAML.
+  #
+  # ## Phase C6 (2026-05-25)
+  #
+  # Added open_discord_help_dialog + open_slack_help_dialog palette commands.
+  # Both dispatch :click_focusable on the respective help link focusable
+  # (discord_help / slack_help), which triggers the webhook-help-modal
+  # Stimulus controller's #open handler via a synthetic click.
   class NotificationsPanelComponent < ViewComponent::Base
     include Tui::PanelBase
 
@@ -113,6 +138,16 @@ module Pito
           hint: I18n.t("tui.commands.focus_slack_webhook.hint"),
           action_name: :focus_focusable,
           args: { focusable: "slack_webhook" } },
+        { key: "open_discord_help_dialog",
+          name: I18n.t("tui.commands.open_discord_help_dialog.name"),
+          hint: I18n.t("tui.commands.open_discord_help_dialog.hint"),
+          action_name: :click_focusable,
+          args: { focusable: "discord_help" } },
+        { key: "open_slack_help_dialog",
+          name: I18n.t("tui.commands.open_slack_help_dialog.name"),
+          hint: I18n.t("tui.commands.open_slack_help_dialog.hint"),
+          action_name: :click_focusable,
+          args: { focusable: "slack_help" } },
         { key: "sync_toggle_notifications",
           name: I18n.t("tui.commands.sync_toggle.name", label: "notifications"),
           hint: I18n.t("tui.commands.sync_toggle.hint", label: "notifications"),

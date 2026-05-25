@@ -435,6 +435,7 @@ Rails.application.routes.draw do
     collection do
       post :bulk_read
       post :bulk_unread
+      post :mark_all_read
     end
   end
 
@@ -766,6 +767,27 @@ Rails.application.routes.draw do
   # controller as the `/sync/toggle` action — no namespace module prefix).
   post "pito/sync/pause",  to: "sync#pause",  as: :pito_sync_pause
   post "pito/sync/resume", to: "sync#resume", as: :pito_sync_resume
+
+  # 2026-05-25 — Pito::CalendarController navigation endpoints.
+  #
+  # Back the `Pito::Calendar::MonthGridComponent` Turbo Frame navigation
+  # actions registered in `Pito::ActionRegistry` (see pito_actions.rb):
+  #
+  #   GET /pito/calendar/prev?month=YYYY-MM  → :calendar_prev_month
+  #   GET /pito/calendar/next?month=YYYY-MM  → :calendar_next_month
+  #   GET /pito/calendar/today               → :calendar_today
+  #   GET /pito/calendar/pick_year           → :calendar_pick_year
+  #
+  # All four return a rendered `Pito::Calendar::MonthGridComponent`
+  # inside the `#pito_calendar_panel` Turbo Frame.
+  namespace :pito do
+    scope :calendar do
+      get "prev",      to: "calendar#prev",      as: :calendar_prev_month
+      get "next",      to: "calendar#next",      as: :calendar_next_month
+      get "today",     to: "calendar#today",     as: :calendar_today
+      get "pick_year", to: "calendar#pick_year", as: :calendar_pick_year
+    end
+  end
 
   get "up" => "rails/health#show", as: :rails_health_check
 end

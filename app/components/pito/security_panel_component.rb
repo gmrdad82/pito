@@ -31,6 +31,30 @@ module Pito
   # - `Sessions::TableComponent` (the sessions table)
   # - `Tui::ConfirmationDialogComponent` (bulk-revoke confirm dialog)
   #
+  # ## Palette commands (`:` palette, panel_commands)
+  #
+  # sort sessions by device      — :sort_table  { table: "sessions", column: "device" }
+  # sort sessions by browser     — :sort_table  { table: "sessions", column: "browser" }
+  # sort sessions by IP          — :sort_table  { table: "sessions", column: "ip" }
+  # sort sessions by last seen   — :sort_table  { table: "sessions", column: "last_seen" }
+  # sort sessions by created at  — :sort_table  { table: "sessions", column: "created" }
+  # select all sessions          — :click_focusable { focusable: "select_all" }
+  # revoke all sessions beside this one — :revoke_all_except_current
+  #
+  # ## Scramble-transition new-row insertion
+  #
+  # `sessions-scramble` Stimulus controller mounts on the
+  # `<turbo-frame id="sessions_panel">` inside `Sessions::TableComponent`.
+  # On connect it walks up the DOM to the panel root (the element with
+  # `data-tui-panel-cable-name-value`) and attaches a listener for the
+  # `pito:panel:security:received` DOM event fired by `tui-panel-cable`.
+  # On `kind: "session_created"`, it expects a Turbo Stream `append` to
+  # have already inserted the new `<tr>` (wired server-side in C9), then
+  # scrambles each data cell from random chars to final content over ~400 ms
+  # (10 frames × 40 ms, vanilla setInterval — no external animation library).
+  # Sort is reset to creation-descending on insertion so the new row is
+  # immediately visible.
+  #
   # ## Phase 2C (2026-05-23)
   #
   # Wired with the canonical `Tui::PanelBase` mixin. Cable channel is now

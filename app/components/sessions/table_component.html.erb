@@ -9,7 +9,7 @@
     matching `<turbo-frame id="sessions_panel">` in the response, and
     swaps just that subtree — keeping notifications + stack panel
     untouched and preserving scroll + focus position. %>
-<turbo-frame id="<%= frame %>">
+<turbo-frame id="<%= frame %>" data-controller="sessions-scramble">
 <% if sessions.any? %>
   <%# Beta 4 — FB-14 (2026-05-20): the bulk-revoke `[revoke]` action
       no longer renders on its own row above the table. Instead it

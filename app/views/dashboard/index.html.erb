@@ -33,7 +33,8 @@
   <div class="home-row home-row--40-60">
     <%= render Pito::NotificationsFeedPanelComponent.new(
           filter:        @notifications_feed_filter,
-          unread_count:  @notifications_feed_unread_count
+          unread_count:  @notifications_feed_unread_count,
+          category:      @notifications_feed_category
         ) %>
     <%= render Pito::CalendarPanelComponent.new(
           buckets:    @calendar_buckets,

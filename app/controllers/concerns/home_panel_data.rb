@@ -118,15 +118,22 @@ module HomePanelData
     @slack_webhook   = NotificationDeliveryChannel.find_record_for("slack")
   end
 
-  # Sets `@notifications_feed_filter`, `@notifications_feed_unread_count`
-  # for `Pito::NotificationsFeedPanelComponent`.
+  # Sets `@notifications_feed_filter`, `@notifications_feed_unread_count`,
+  # and `@notifications_feed_category` for `Pito::NotificationsFeedPanelComponent`.
   #
   # The component fetches its own `notifications` relation when none is
-  # injected, using the filter. The controller only needs to resolve the
-  # filter param and pass the unread count (single cheap COUNT query).
+  # injected, using the filter + category. The controller only needs to
+  # resolve the params and pass the unread count (single cheap COUNT query).
+  #
+  # `notifications_category` accepts: channel | game | system | manual.
+  # Any other value (including blank) is treated as "all" (nil).
+  NOTIFICATIONS_FEED_ALLOWED_CATEGORIES = %w[channel game system manual].freeze
+
   def set_notifications_feed_panel_data
     @notifications_feed_filter       = params[:notifications_feed_filter].to_s == "unread" ? "unread" : "all"
     @notifications_feed_unread_count = Notification.unread.count
+    raw_cat = params[:notifications_category].to_s
+    @notifications_feed_category = NOTIFICATIONS_FEED_ALLOWED_CATEGORIES.include?(raw_cat) ? raw_cat : nil
   end
 
   # Fetches the current-month CalendarEntry buckets for the home Calendar

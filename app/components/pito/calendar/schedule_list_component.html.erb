@@ -1,0 +1,42 @@
+<div class="cal-schedule-list">
+  <% if empty? %>
+    <p class="cal-schedule-list__empty text--muted"><%= empty_message %></p>
+  <% else %>
+    <% grouped_entries.each do |date, entries| %>
+      <div class="cal-schedule-list__group" data-date="<%= date.iso8601 %>">
+        <%# Date header row — muted, "Mon, May 26" format %>
+        <div class="cal-schedule-list__date-header text--muted">
+          <%= date_header_label(date) %>
+        </div>
+
+        <%# Entry rows for this date %>
+        <% entries.each do |entry| %>
+          <div class="cal-schedule-list__row"
+               data-focusable="<%= entry_focusable_key(entry) %>"
+               tabindex="0">
+
+            <%# Time column — fixed-width, muted %>
+            <span class="cal-schedule-list__time text--muted">
+              <%= entry_time(entry) %>
+            </span>
+
+            <%# Category color square — 8×8 px filled block %>
+            <span class="cal-schedule-list__dot"
+                  style="<%= color_square_style(entry) %>"
+                  aria-hidden="true"></span>
+
+            <%# Entry title — data value, primary color %>
+            <span class="cal-schedule-list__title text--value">
+              <%= entry.title %>
+            </span>
+
+            <%# Category label — muted, after title %>
+            <span class="cal-schedule-list__category text--muted">
+              <%= category_label(entry) %>
+            </span>
+          </div>
+        <% end %>
+      </div>
+    <% end %>
+  <% end %>
+</div>

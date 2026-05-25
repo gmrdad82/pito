@@ -1,0 +1,19 @@
+<div class="cal-legend-row">
+  <% categories.each do |cat| %>
+    <button
+      class="<%= item_classes(cat) %>"
+      type="button"
+      data-controller="action-trigger"
+      data-action="click->action-trigger#dispatch"
+      data-action-name="<%= ACTION_NAME %>"
+      data-action-payload='{"category":"<%= cat %>"}'
+      aria-pressed="<%= active?(cat) ? "true" : "false" %>"
+    >
+      <span class="cal-legend-square"
+            style="background-color: <%= color_for(cat) %>;"></span>
+      <span class="cal-legend-label <%= active?(cat) ? "cal-legend-label--active" : "" %>">
+        <%= label_for(cat) %>
+      </span>
+    </button>
+  <% end %>
+</div>

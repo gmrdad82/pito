@@ -1,0 +1,73 @@
+<turbo-frame id="pito_calendar_panel">
+  <div class="mgrid">
+    <%# ── Title-border slot ─────────────────────────────────────── %>
+    <div class="mgrid__header">
+      <span class="mgrid__month-label"><%= month_heading %></span>
+      <span class="mgrid__nav-actions">
+        <a href="<%= prev_month_href %>"
+           class="mgrid__nav-action"
+           data-turbo-frame="pito_calendar_panel"
+           data-tui-focusable="mgrid_prev"
+           aria-label="previous month">
+          <span class="bracket-l">[</span>prev<span class="bracket-r">]</span>
+        </a>
+        <a href="<%= today_href %>"
+           class="mgrid__nav-today"
+           data-turbo-frame="pito_calendar_panel"
+           data-tui-focusable="mgrid_today"
+           aria-label="go to today">
+          today
+        </a>
+        <a href="<%= next_month_href %>"
+           class="mgrid__nav-action"
+           data-turbo-frame="pito_calendar_panel"
+           data-tui-focusable="mgrid_next"
+           aria-label="next month">
+          <span class="bracket-l">[</span>next<span class="bracket-r">]</span>
+        </a>
+        <a href="<%= pick_year_href %>"
+           class="mgrid__nav-action"
+           data-turbo-frame="pito_calendar_panel"
+           data-tui-focusable="mgrid_year"
+           aria-label="pick year">
+          <span class="bracket-l">[</span>year<span class="bracket-r">]</span>
+        </a>
+      </span>
+    </div>
+
+    <%# ── Weekday header row (sun … sat) ──────────────────────── %>
+    <div class="mgrid__dow-row">
+      <% week_day_headers.each do |wd| %>
+        <div class="mgrid__dow-header"><%= wd %></div>
+      <% end %>
+    </div>
+
+    <%# ── Day cells grid ──────────────────────────────────────── %>
+    <div class="mgrid__grid">
+      <% grid_rows.each do |week| %>
+        <% week.each do |date| %>
+          <div class="<%= day_cell_classes(date) %>"
+               data-tui-focusable="mgrid_day_<%= date.iso8601 %>"
+               data-date="<%= date.iso8601 %>">
+            <span class="mgrid__day-number"><%= date.day %></span>
+
+            <%# Up to CHIP_MAX_SHOW event chips %>
+            <% visible_chips(date).each do |entry| %>
+              <span class="mgrid__chip">
+                <span class="mgrid__chip-dot"
+                      style="background-color: <%= chip_color(entry) %>;"
+                      aria-hidden="true"></span>
+                <span class="mgrid__chip-title"><%= chip_title(entry) %></span>
+              </span>
+            <% end %>
+
+            <%# Overflow hint "+N more" %>
+            <% if overflow_count(date) > 0 %>
+              <span class="mgrid__overflow-hint">+<%= overflow_count(date) %> more</span>
+            <% end %>
+          </div>
+        <% end %>
+      <% end %>
+    </div>
+  </div>
+</turbo-frame>

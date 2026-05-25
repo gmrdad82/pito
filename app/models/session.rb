@@ -15,6 +15,12 @@
 # `approval_required_until` window are gone — the new-location
 # approval surface was removed entirely. Remaining states are
 # `active`, `expired`, `revoked` (integer-backed; values preserved).
+#
+# Cable: on `after_create`, broadcasts `kind: "session_created"` on
+# `pito:home:security` so the security panel's sessions table can
+# scramble-insert the new row. Broadcast is best-effort (failures are
+# logged, not raised). Both login paths funnel through `create_for!` →
+# `create!` → this callback, so no controller-level duplication needed.
 class Session < ApplicationRecord
   belongs_to :user
 
@@ -54,6 +60,14 @@ class Session < ApplicationRecord
   # the projected columns populated. Existing rows backfill via
   # `bin/rails pito:sessions:backfill_device_browser`.
   before_validation :derive_device_and_browser
+
+  # After every new session row is committed, broadcast a `session_created`
+  # envelope on `pito:home:security` so the security panel's sessions table
+  # can scramble-insert the new row without a full page reload.
+  #
+  # Fires for BOTH login paths (no-TOTP direct mint + post-TOTP mint)
+  # because both funnel through `Session.create_for!` → `Session.create!`.
+  after_create :broadcast_session_created
 
   # Mints a new session row for `user`, returns `[record, plaintext]`.
   # Plaintext is shown once and goes into the signed cookie; `token_digest`
@@ -102,5 +116,30 @@ class Session < ApplicationRecord
   def derive_device_and_browser
     self.device = Pito::Formatter::UserAgent.device(user_agent.to_s)
     self.browser = Pito::Formatter::UserAgent.browser(user_agent.to_s)
+  end
+
+  # Broadcasts a `session_created` cable envelope on `pito:home:security`.
+  #
+  # Payload fields mirror the columns the security-panel sessions table
+  # displays: session_id, device, browser, ip, created_at. `user_agent`
+  # is included as the raw string in case the client wants to re-derive.
+  #
+  # Wrapped in rescue so a cable outage or Redis hiccup never breaks the
+  # login transaction — the session row is already persisted at this point.
+  def broadcast_session_created
+    Pito::CableBroadcaster.broadcast_panel(
+      "pito:home:security",
+      kind: "session_created",
+      payload: {
+        session_id: id,
+        device:     device.to_s,
+        browser:    browser.to_s,
+        ip:         ip.to_s,
+        user_agent: user_agent.to_s,
+        created_at: created_at.iso8601
+      }
+    )
+  rescue StandardError => e
+    Rails.logger.warn("[Session#broadcast_session_created] cable broadcast failed: #{e.message}")
   end
 end

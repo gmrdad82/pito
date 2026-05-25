@@ -1,0 +1,20 @@
+<%# Pito::Notifications::FilterChipsComponent
+    Category filter chips for the notifications feed toolbar.
+    4 chips: channel | game | system | manual.
+    Active chip: [x] label. Inactive: [ ] label.
+    Each chip is a GET link targeting the panel Turbo Frame.
+    Bracket + label = one action unit, painted in var(--section-accent). %>
+<span class="nf-filter-chips">
+  <% Pito::Notifications::FilterChipsComponent::CATEGORIES.each do |cat| %>
+    <%= link_to chip_url(cat, helpers),
+          class: chip_css(cat),
+          data: {
+            "turbo-frame": frame_id,
+            "turbo-action": "advance",
+            "tui-focusable": "filter_chip_#{cat}",
+            "tui-focusable-style": "inline"
+          } do %>
+      <span class="nf-filter-chip__box"><%= chip_box(cat) %></span><span class="nf-filter-chip__label"><%= cat %></span>
+    <% end %>
+  <% end %>
+</span>

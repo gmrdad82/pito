@@ -176,4 +176,72 @@ Rails.application.config.after_initialize do
     cable_panel: nil,
     scope: :global
   )
+
+  # 2026-05-25 — Pito::Calendar::MonthGridComponent navigation actions.
+  #
+  # Four GET actions drive Turbo Frame navigation in the home calendar panel.
+  # All are scoped to :home (calendar nav only applies on the home screen).
+  # The `month` arg is threaded through as `?month=YYYY-MM` in the JS
+  # dispatcher payload — the controller reads it from `params[:month]`.
+  #
+  # `path` resolves the named-route helper minted by the
+  # `namespace :pito { scope :calendar { ... } }` block in routes.rb.
+  Pito::ActionRegistry.define(
+    :calendar_prev_month,
+    path: -> { routes.pito_calendar_prev_month_path },
+    method: :get,
+    confirmation: nil,
+    i18n_key: "tui.commands.calendar_prev_month",
+    cable_panel: "pito:home:calendar",
+    scope: :home
+  )
+
+  Pito::ActionRegistry.define(
+    :calendar_next_month,
+    path: -> { routes.pito_calendar_next_month_path },
+    method: :get,
+    confirmation: nil,
+    i18n_key: "tui.commands.calendar_next_month",
+    cable_panel: "pito:home:calendar",
+    scope: :home
+  )
+
+  Pito::ActionRegistry.define(
+    :calendar_today,
+    path: -> { routes.pito_calendar_today_path },
+    method: :get,
+    confirmation: nil,
+    i18n_key: "tui.commands.calendar_today",
+    cable_panel: "pito:home:calendar",
+    scope: :home
+  )
+
+  Pito::ActionRegistry.define(
+    :calendar_pick_year,
+    path: -> { routes.pito_calendar_pick_year_path },
+    method: :get,
+    confirmation: nil,
+    i18n_key: "tui.commands.calendar_pick_year",
+    cable_panel: "pito:home:calendar",
+    scope: :home
+  )
+
+  # Phase C5 (2026-05-25) — notifications feed panel palette commands.
+  #
+  # `:mark_all_read_notifications_feed` — POSTs to
+  # `/notifications_feed/mark_all_read` to mark every unread notification
+  # as read without row selection. Responds with a redirect so the feed
+  # panel re-renders with the updated read state. Non-destructive and
+  # reversible at the row level; no confirmation needed.
+  #
+  # scope: :home — notifications feed is a home-screen panel only.
+  Pito::ActionRegistry.define(
+    :mark_all_read_notifications_feed,
+    path: -> { routes.mark_all_read_notifications_feed_index_path },
+    method: :post,
+    confirmation: nil,
+    i18n_key: "tui.commands.notifications_feed_mark_all_read",
+    cable_panel: "pito:home:notifications_feed",
+    scope: :home
+  )
 end
