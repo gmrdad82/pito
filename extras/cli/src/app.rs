@@ -168,7 +168,7 @@ status_data: StatusData {
             cached_time_string: String::new(),
             display_time_string: String::new(),
             scramble_tick: 0,
-            scramble_total: 6,
+            scramble_total: 15,
             footage_detail_state: None,
             footage_detail_rects: None,
             terminal_capability: TerminalCapability::TextOnly,
@@ -229,10 +229,11 @@ status_data: StatusData {
     /// Compute the displayed time string, scrambling during transitions.
     /// Returns the string that should be rendered for the current frame.
     pub fn scrambled_time(&mut self) -> String {
-        if self.cached_time_string.is_empty() {
+        // Every 1s, update cached time and start scramble
+        if self.last_time_update.elapsed() >= Duration::from_secs(1) {
             self.cached_time_string = chrono::Local::now().format("%a, %b %e · %H:%M:%S").to_string();
-            self.display_time_string = self.cached_time_string.clone();
-            return self.display_time_string.clone();
+            self.last_time_update = Instant::now();
+            self.scramble_tick = self.scramble_total;
         }
 
         if self.scramble_tick > 0 {

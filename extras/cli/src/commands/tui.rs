@@ -57,7 +57,10 @@ fn cleanup(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> Result<()> 
 
 fn run_loop<C: PitoClient>(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, app: &mut App<C>) -> Result<()> {
     let mut last_draw = std::time::Instant::now();
-    let tick_rate = std::time::Duration::from_millis(100); // 10 fps for status bar time
+    let tick_rate = std::time::Duration::from_millis(33); // ~30 fps for smooth scramble
+
+    // Boot — fetch initial status
+    let _ = app.client.get_status().map(|s| app.status_data = s);
 
     // Boot — push welcome lines
     app.push_line("");
