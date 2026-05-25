@@ -7475,7 +7475,10 @@ body[data-tui-authenticated="no"] .tui-page-scroll-indicator { display: none; }
    .pito-pane[data-tui-cursor-focused="yes"] border-color rule also fires. */
 .pito-auth-dialog {
   position: absolute;
-  top: 50%;
+  /* Optical center — 45% from top compensates for the dialog's bottom-heavy
+     content (code block under the form) so it reads as centered even though
+     geometric 50% would sit slightly low to the eye. */
+  top: 45%;
   left: 50%;
   transform: translate(-50%, -50%);
   max-width: 360px;
