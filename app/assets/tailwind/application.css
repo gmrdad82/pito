@@ -7453,12 +7453,8 @@ body > main::-webkit-scrollbar {
   left: 0;
   right: 0;
   bottom: 0;
-  width: 100vw;
-  height: 100vh;
   z-index: 1000;
   background: var(--color-bg);
-  display: grid;
-  place-items: center;
   margin: 0;
   padding: 0;
 }
@@ -7478,6 +7474,10 @@ body[data-tui-authenticated="no"] .tui-page-scroll-indicator { display: none; }
    data-tui-cursor-focused="yes" is set on the element so the existing
    .pito-pane[data-tui-cursor-focused="yes"] border-color rule also fires. */
 .pito-auth-dialog {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   max-width: 360px;
   width: 100%;
   padding-top: 18px;
