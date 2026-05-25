@@ -3,19 +3,29 @@ namespace :pito do
   task test_broadcast: :environment do
     puts "Pushing dummy Sidekiq jobs..."
 
-    # Busy: simulate active (long-running) jobs
-    3.times do
-      Pito::Test::SimpleSidekiqJob.perform_async
-      print "."
+    # Busy: long-running jobs (30s sleep)
+    2.times do
+      Pito::Test::SimpleSidekiqJob.perform_async(30)
+      print "b"
     end
 
-    # Enqueued: queue some jobs that will wait
-    5.times do
-      Pito::Test::SimpleSidekiqJob.perform_in(rand(10..60).seconds)
-      print "."
+    # Enqueued: immediate jobs that will sit in queue
+    12.times do
+      Pito::Test::SimpleSidekiqJob.perform_async(rand(1..3))
+      print "e"
     end
+
+    # Retry: a job that fails and goes to retry
+    2.times do
+      Pito::Test::FailingJob.perform_async
+      print "r"
+    end
+
+    # Dead: a job with max retries exhausted will go to dead
+    # (handled by Sidekiq automatically)
 
     puts
-    puts "Done! Watch the status bar — b/e/r/d will update as jobs run."
+    puts "Done! b=busy, e=enqueued, r=retry"
+    puts "Watch the status bar — b/e/r/d will update as jobs run."
   end
 end

@@ -1,5 +1,10 @@
+require Rails.root.join("app/sidekiq/status_bar_broadcast_middleware")
+
 Sidekiq.configure_server do |config|
   config.redis = { url: ENV.fetch("REDIS_URL", "redis://127.0.0.1:64527/0") }
+  config.server_middleware do |chain|
+    chain.add Pito::StatusBarBroadcastMiddleware
+  end
 
   # DISABLED until further notice (user request 2026-05-18) — no scheduled
   # background work should run. To re-enable: uncomment the block below and

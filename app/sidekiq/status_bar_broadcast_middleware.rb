@@ -1,10 +1,5 @@
+require "sidekiq/api"
 require Rails.root.join("app/services/pito/cable_broadcaster")
-
-Sidekiq.configure_server do |config|
-  config.server_middleware do |chain|
-    chain.add Pito::StatusBarBroadcastMiddleware
-  end
-end
 
 module Pito
   class StatusBarBroadcastMiddleware
@@ -12,10 +7,11 @@ module Pito
       yield
     ensure
       payload = SidekiqStatusPayload.call
+      Rails.logger.info "[StatusBarMiddleware] broadcasting: #{payload.inspect}" rescue nil
       Pito::CableBroadcaster.broadcast_status_bar(payload)
     end
 
-    class SidekiqStatusPayload
+    module SidekiqStatusPayload
       module_function
 
       def call

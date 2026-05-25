@@ -7,6 +7,7 @@
   <meta name="color-scheme" content="dark">
   <%= csrf_meta_tags %>
   <%= csp_meta_tag %>
+  <%= action_cable_meta_tag %>
   <link rel="stylesheet" href="/xterm.css">
   <style>
     :root {
@@ -17,11 +18,12 @@
       --green: #9ece6a;
       --red: #f7768e;
       --orange: #ff9e64;
+      --purple: #bb9af7;
       --sbar-bg: #16171f;
       --sbar-fg: #a6adc8;
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { height: 100%; width: 100%; overflow: hidden; background: var(--bg); color: var(--fg); font-family: ui-monospace, "Cascadia Code", "Source Code Pro", Consolas, monospace; font-size: 14px; line-height: 1; }
+    html, body { height: 100%; width: 100%; overflow: hidden; background: var(--bg); color: var(--fg); font-family: ui-monospace, "Cascadia Code", "Source Code Pro", Consolas, monospace; font-size: 16px; line-height: 1; }
     #app { display: flex; flex-direction: column; height: 100%; padding: 20px; }
     #terminal { flex: 1; min-height: 0; }
     #status-bar {
@@ -32,7 +34,7 @@
       display: flex;
       align-items: center;
       padding: 0 8px;
-      font-size: 14px;
+      font-size: 16px;
       user-select: none;
       margin-top: 4px;
     }
@@ -45,7 +47,7 @@
     #status-bar .sb-val.b { color: var(--green); }
     #status-bar .sb-val.e { color: var(--orange); }
     #status-bar .sb-val.r { color: var(--red); }
-    #status-bar .sb-val.d { color: var(--red); }
+    #status-bar .sb-val.d { color: var(--purple); }
     #status-bar .sb-sep { color: var(--muted); margin: 0 6px; }
     #status-bar .sb-time { color: var(--muted); font-variant-numeric: tabular-nums; }
   </style>
@@ -66,7 +68,8 @@
       </div>
     </div>
   </div>
-  <script src="/app.js"></script>
+  <%= javascript_importmap_tags %>
+  <%= javascript_import_module_tag "application" %>
   <script>
     // ── Scramble ticker (1 Hz, scramble-settle on each second change) ──
     const ALPHA='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';

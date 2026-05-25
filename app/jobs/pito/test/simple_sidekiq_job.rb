@@ -3,9 +3,17 @@ module Pito
     class SimpleSidekiqJob
       include Sidekiq::Job
 
+      def perform(seconds = 5)
+        sleep(seconds)
+      end
+    end
+
+    class FailingJob
+      include Sidekiq::Job
+      sidekiq_options retry: 2
+
       def perform
-        # Simulate work for status bar testing
-        sleep(rand(2..5))
+        raise "intentional failure for status bar testing"
       end
     end
   end

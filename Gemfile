@@ -1,7 +1,8 @@
 source "https://rubygems.org"
 
 gem "rails", "~> 8.1.3"
-# gem "propshaft" — removed Phase 1 (no assets to serve)
+gem "importmap-rails", "~> 2.1"
+gem "propshaft"
 gem "pg", "~> 1.5"
 gem "puma", ">= 5.0"
 gem "jbuilder"

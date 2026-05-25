@@ -1,5 +1,4 @@
 web: bin/rails server -p ${PORT:-3027}
 worker: bundle exec sidekiq -C config/sidekiq.yml
-js: npx esbuild app/javascript/application.js --bundle --outfile=public/app.js --format=iife --watch
 tunnel: cloudflared tunnel run pito
 website: cd extras/website && mise exec node@22 -- npm run dev

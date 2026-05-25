@@ -60,6 +60,14 @@ Rails.application.configure do
   # Highlight code that triggered redirect in logs.
   config.action_dispatch.verbose_redirect_logs = true
 
+  # Action Cable allowed request origins
+  config.action_cable.allowed_request_origins = [
+    "https://app.pitomd.com",
+    "https://mcp.pitomd.com",
+    %r{https?://localhost(:\d+)?},
+    %r{https?://127\.0\.0\.1(:\d+)?}
+  ]
+
   # Raises error for missing translations.
   # config.i18n.raise_on_missing_translations = true
 
