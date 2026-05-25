@@ -67,17 +67,37 @@ import { Controller } from "@hotwired/stimulus"
  */
 export default class extends Controller {
   static targets = ["top", "bottom", "left", "right", "handle", "scroll"]
-  static values = { axis: { type: String, default: "vertical" } }
+  static values = {
+    axis: { type: String, default: "vertical" },
+    // 2026-05-25 — Optional CSS selector pointing to an external scroll
+    // source (e.g. page-level <main>). When set, scroll listeners attach
+    // to the resolved element instead of this.scrollTarget / this.element.
+    // Useful when the indicator markup lives outside the scrollable
+    // element to escape its overflow clipping.
+    source: { type: String, default: "" }
+  }
   static THRESHOLD_PX = 2
-  // 2026-05-24 — Reserve N px at each end of the scroll track so the
-  // handle glyph never overlaps the arrow glyphs. Same offset both
-  // ends for visual symmetry.
-  static ARROW_OFFSET_PX = 20
+  // 2026-05-25 — Geometry: arrows sit `top: 2px` / `bottom: 2px`, glyphs
+  // are 13px tall (font-size). ARROW_RESERVE_PX = 2 + 13 = 15 — that's
+  // where the leading arrow visually ENDS. The handle's leading edge
+  // (top / left) travels from 15px at progress 0 to
+  // (clientExtent - 15 - 13) at progress 1, so the handle's trailing
+  // edge butts up against the trailing arrow's leading edge with no gap
+  // and no overlap. Symmetric.
+  static GLYPH_PX = 13
+  static ARROW_RESERVE_PX = 15
 
   connect() {
-    // Prefer inner scroll target (fieldset wrapper) over this.element so
-    // the fieldset can stay overflow: visible and the indicators are not clipped.
-    const scrollEl = this.hasScrollTarget ? this.scrollTarget : this.element
+    // Source resolution order: explicit source selector > scroll target >
+    // this.element. The selector form lets the indicator observe an
+    // external scrollable element when its markup sits outside.
+    let scrollEl
+    if (this.sourceValue) {
+      scrollEl = document.querySelector(this.sourceValue)
+    }
+    if (!scrollEl) {
+      scrollEl = this.hasScrollTarget ? this.scrollTarget : this.element
+    }
     this._scrollEl = scrollEl
     this._boundCompute = this.requestCompute.bind(this)
     this._raf = null
@@ -119,7 +139,8 @@ export default class extends Controller {
 
   _computeVertical() {
     const t = this.constructor.THRESHOLD_PX
-    const offset = this.constructor.ARROW_OFFSET_PX
+    const arrowReserve = this.constructor.ARROW_RESERVE_PX
+    const glyph = this.constructor.GLYPH_PX
     const scrollPos = this._scrollEl.scrollTop
     const max = this._scrollEl.scrollHeight - this._scrollEl.clientHeight
     const leadingVisible = scrollPos > t
@@ -129,9 +150,10 @@ export default class extends Controller {
     if (this.hasHandleTarget) {
       if (max > 0) {
         const clientH = this._scrollEl.clientHeight
-        const usableH = Math.max(0, clientH - offset * 2)
+        const minTop = arrowReserve
+        const maxTop = Math.max(minTop, clientH - arrowReserve - glyph)
         const progress = Math.max(0, Math.min(1, scrollPos / max))
-        const handleY = offset + progress * usableH
+        const handleY = minTop + progress * (maxTop - minTop)
         this.handleTarget.style.top = `${handleY}px`
       }
       this.handleTarget.classList.toggle("tui-scroll-indicator--visible", max > t)
@@ -140,7 +162,8 @@ export default class extends Controller {
 
   _computeHorizontal() {
     const t = this.constructor.THRESHOLD_PX
-    const offset = this.constructor.ARROW_OFFSET_PX
+    const arrowReserve = this.constructor.ARROW_RESERVE_PX
+    const glyph = this.constructor.GLYPH_PX
     const scrollPos = this._scrollEl.scrollLeft
     const max = this._scrollEl.scrollWidth - this._scrollEl.clientWidth
     const leadingVisible = scrollPos > t
@@ -150,9 +173,10 @@ export default class extends Controller {
     if (this.hasHandleTarget) {
       if (max > 0) {
         const clientW = this._scrollEl.clientWidth
-        const usableW = Math.max(0, clientW - offset * 2)
+        const minLeft = arrowReserve
+        const maxLeft = Math.max(minLeft, clientW - arrowReserve - glyph)
         const progress = Math.max(0, Math.min(1, scrollPos / max))
-        const handleX = offset + progress * usableW
+        const handleX = minLeft + progress * (maxLeft - minLeft)
         this.handleTarget.style.left = `${handleX}px`
       }
       this.handleTarget.classList.toggle("tui-scroll-indicator--visible", max > t)

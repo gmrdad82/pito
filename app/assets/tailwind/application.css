@@ -7843,3 +7843,23 @@ body > main {
 body > main::-webkit-scrollbar {
   display: none;                     /* Chromium / Safari */
 }
+
+/* 2026-05-25 — Page-level scroll indicator wrapper. Lives OUTSIDE <main>
+   to escape its overflow clipping. Fixed-positioned against the viewport
+   between TST (22px) + BST (22px), full-height vertical track on the right
+   edge. The indicator (.tui-scroll-indicator) inside is position:absolute
+   relative to this wrap, so its `right: -4px` becomes 4px outside this
+   wrap's right edge — clamped to within 4px of the viewport right edge
+   by the wrap's own positioning. */
+.tui-page-scroll-indicator {
+  position: fixed;
+  top: 22px;
+  right: 4px;
+  bottom: 22px;
+  width: 13px;
+  pointer-events: none;
+  z-index: 3;
+}
+.tui-page-scroll-indicator .tui-scroll-indicator {
+  right: 0;
+}

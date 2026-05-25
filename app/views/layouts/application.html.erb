@@ -313,15 +313,24 @@
         Excel-sheet rhythm — the first pane row sits flush under the
         status bar, the bottom status bar hugs the last pane row. Side
         padding stays at 6px. %>
-    <main style="padding: 6px 6px; position: relative;"
-          data-controller="tui-scroll-indicator"
-          data-tui-scroll-indicator-axis-value="vertical">
-      <%= render Tui::ScrollIndicatorComponent.new(axis: :vertical) %>
+    <main id="pito-main-scroll" style="padding: 6px 6px;">
       <% if content_for?(:breadcrumbs) %>
         <nav class="dot-list" style="margin-bottom: 6px;"><%= yield :breadcrumbs %><% if content_for?(:breadcrumb_actions) %><%= yield :breadcrumb_actions %><% end %></nav>
       <% end %>
       <%= yield %>
     </main>
+
+    <%# Page-level scroll indicator — lives OUTSIDE <main> so <main>'s
+        overflow-y: auto cannot clip the right-edge glyphs. Fixed-positioned
+        against the viewport between TST (22px) + BST (22px). The Stimulus
+        controller resolves its scroll source via the `source` value
+        (CSS selector). %>
+    <div class="tui-page-scroll-indicator"
+         data-controller="tui-scroll-indicator"
+         data-tui-scroll-indicator-axis-value="vertical"
+         data-tui-scroll-indicator-source-value="#pito-main-scroll">
+      <%= render Tui::ScrollIndicatorComponent.new(axis: :vertical) %>
+    </div>
 
     <%# Beta 4 — Phase F1 (2026-05-20). The legacy centered copyright
         footer was replaced by `Tui::BottomStatusBarComponent` — a sticky
