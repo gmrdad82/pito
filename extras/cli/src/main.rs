@@ -6,8 +6,7 @@ mod commands;
 mod confirm;
 mod footage;
 mod keybindings;
-mod keys;
-mod notifications;
+// mod keys; // removed — key handling now inline in commands::tui
 mod output;
 mod theme;
 mod ui;
@@ -25,9 +24,9 @@ fn main() -> Result<()> {
         Some(cli::Commands::Footage(args)) => commands::footage::run(args),
         Some(cli::Commands::Games(args)) => commands::games::run(args),
         Some(cli::Commands::Help) => commands::help::run(),
-        Some(cli::Commands::Notifications(args)) => commands::notifications::run(args),
         Some(cli::Commands::Search(args)) => commands::search::run(args),
         Some(cli::Commands::Views(args)) => commands::views::run(args),
         Some(cli::Commands::Version) => commands::version::run(),
+        _ => commands::tui::run(),
     }
 }

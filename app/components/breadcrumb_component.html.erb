@@ -1,4 +1,0 @@
-<% segments.each_with_index do |seg, i| %>
-<% if i > 0 %><span class="text-muted"> / </span><% end %>
-<%= render(BracketedLinkComponent.new(label: seg[:label], href: seg[:href], active: seg[:active])) %>
-<% end %>

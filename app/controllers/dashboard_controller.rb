@@ -1,38 +1,6 @@
 class DashboardController < ApplicationController
-  # Home (/) — Phase 2D (2026-05-23). Layout shell wired with the 3-row
-  # C3 + masonry row 3 grid (see `app/views/dashboard/index.html.erb`).
-  #
-  # C19f follow-up (2026-05-23). The three rescued ex-settings panels
-  # (Security, Notifications, Stack) need real data — the prior stub
-  # path fed `false`/`nil`/`[]` and the panels rendered empty (no
-  # session rows, no Stack subsystem rows, etc.). Data fetching now
-  # lives in `Concerns::HomePanelData`, mixed in below; each rescued
-  # panel has its own `set_*_panel_data` method run via before_action
-  # so DashboardController stays readable.
-  #
-  # The remaining home-native panels (Aggregator, Calendar, PersonalStats,
-  # ApiQuota, NotificationsFeed) still render blank in this round; their
-  # real data wiring lands in subsequent content rounds, each via its
-  # own panel-scoped controller action + cable broadcast.
-  #
-  # JSON branch retained as the CLI's canonical `get_dashboard` envelope
-  # so `pito` deserializes cleanly. Shape: video_count + channel_count +
-  # footage_count.
-  #
-  # Z3 (2026-05-25) — auth dialog overlay. The root path is now always
-  # served regardless of auth state. Unauthenticated visitors see the
-  # panel chrome skeleton behind `Pito::AuthDialogComponent`. The data
-  # before_actions only run when a session is present so expensive stack
-  # probes don't fire on the unauthenticated path.
-  include HomePanelData
-
-  allow_anonymous :index
-
-  before_action :set_security_panel_data,             only: :index, if: :authenticated_html_request?
-  before_action :set_notifications_panel_data,        only: :index, if: :authenticated_html_request?
-  before_action :set_stack_panel_data,                only: :index, if: :authenticated_html_request?
-  before_action :set_calendar_panel_data,             only: :index, if: :authenticated_html_request?
-  before_action :assemble_home_panel_data,            only: :index
+  # Home (/) — serves the xterm.js web shell for HTML requests, JSON for API.
+  allow_anonymous :index, :sidebar, :status
 
   def index
     respond_to do |format|
@@ -41,18 +9,32 @@ class DashboardController < ApplicationController
     end
   end
 
+  # GET /status.json — live Sidekiq + connection status for status bar
+  def status
+    stats = Sidekiq::Stats.new
+    render json: {
+      connected: true,
+      sidekiq: {
+        busy: stats.workers_size,
+        enqueued: stats.enqueued,
+        retry: stats.retry_size,
+        dead: stats.dead_size,
+        scheduled: stats.scheduled_size
+      },
+      timestamp: Time.current.iso8601
+    }
+  end
+
+  # GET /sidebar.json — sidebar data for both web and TUI clients
+  def sidebar
+    render json: {
+      channels: channel_stats,
+      recent_videos: recent_videos,
+      upcoming_games: upcoming_games
+    }
+  end
+
   private
-
-  def html_request?
-    request.format.html?
-  end
-
-  # Z3 (2026-05-25) — gate data fetches on authenticated HTML requests.
-  # Unauthenticated requests still render the layout + auth dialog overlay
-  # but skip expensive panel probes (stack health, session rows, etc.).
-  def authenticated_html_request?
-    request.format.html? && Current.session.present?
-  end
 
   def dashboard_json
     {
@@ -60,5 +42,40 @@ class DashboardController < ApplicationController
       channel_count: Channel.count,
       footage_count: Footage.count
     }
+  end
+
+  def channel_stats
+    Channel.all.map do |ch|
+      {
+        channel_url: ch.channel_url,
+        star: ch.star,
+        video_count: ch.videos.count,
+        total_views: ch.videos.sum(:view_count)
+      }
+    end
+  end
+
+  def recent_videos
+    Video.order(created_at: :desc).limit(10).map do |v|
+      {
+        youtube_video_id: v.youtube_video_id,
+        title: v.title,
+        views: v.view_count,
+        channel_url: v.channel&.channel_url
+      }
+    end
+  end
+
+  def upcoming_games
+    Game.where.not(release_date: nil)
+        .where("release_date > ?", Time.current)
+        .order(release_date: :asc)
+        .limit(10)
+        .map do |g|
+      {
+        title: g.title,
+        release_date: g.release_date&.strftime("%Y-%m-%d")
+      }
+    end
   end
 end

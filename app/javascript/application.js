@@ -1,300 +1,215 @@
-// Configure your import map in config/importmap.rb. Read more: https://github.com/rails/importmap-rails
-import "@hotwired/turbo-rails"
-import "controllers"
-import "Chart.bundle"
-import "chartkick"
-// ADR 0018 — Action bus. Importing for side-effect: sets `window.Pito`
-// so every consumer (Stimulus controllers, palette, future leader menu,
-// future MCP-web bridge) can call `Pito.dispatchAction(name)` without
-// crafting its own POST flow. See `app/javascript/pito_actions.js` for
-// the contract.
-import "pito_actions"
-// 2026-05-25 (sync-rebuild) — converts `pito:sync_state` cable
-// broadcasts into `tui:sync-changed` document events. Imported for
-// side-effect; subscribes once on DOM ready.
-import "pito_sync_state_bridge"
+import { Terminal } from '@xterm/xterm';
+import { FitAddon } from '@xterm/addon-fit';
+import { WebLinksAddon } from '@xterm/addon-web-links';
 
-// 2026-05-20 — section-accent shim. Turbo Drive replaces body CONTENT
-// on navigation but does NOT re-apply body element ATTRIBUTES, so the
-// server-rendered `<body data-section="...">` stayed at the first
-// page's value across subsequent navigations and the CSS cascade
-// flipping `--color-section-accent` never updated. Mirror approach
-// to the keybindings JSON + enroll-totp-gate meta: render a meta tag
-// in `<head>` (Turbo head-merge swaps mismatched meta tags via
-// `mergeProvisionalElements` / `isEqualNode`) and copy its content
-// onto `document.body.dataset.section` after every navigation.
-// Three listeners cover the lifecycle:
-//   * DOMContentLoaded — initial vanilla page load (belt-and-
-//     suspenders; the server-rendered body attribute is already
-//     correct on first paint, but this keeps the two surfaces in
-//     sync from the very first tick).
-//   * turbo:load — fires after every Turbo Drive navigation
-//     completes (the new body is in the DOM).
-//   * turbo:render — fires when Turbo swaps body content (covers
-//     stream renders and edge cases where `turbo:load` is
-//     suppressed, e.g. cached body restoration).
-const syncSectionAttribute = () => {
-  const meta = document.head.querySelector('meta[name="pito:section"]')
-  if (meta && document.body) {
-    const section = meta.content
-    document.body.dataset.section = section
+// ── Tokyo Night palette ──────────────────────────────────────────
+const T = {
+  bg:      '#1a1b26', fg:      '#c0caf5', muted:   '#565f89',
+  accent:  '#7aa2f7', green:   '#9ece6a', red:     '#f7768e',
+  orange:  '#ff9e64', yellow:  '#e0af68', purple:  '#bb9af7',
+  border:  '#292e42', cyan:     '#1abc9c',
+  sbarBg:  '#16171f',
+};
 
-    // Also update the inline style vars that the server renders on first paint.
-    // Turbo Drive preserves body element attributes across navigations, so the
-    // server-rendered inline style stays stale after a Turbo navigation. Reading
-    // the already-declared :root CSS vars (--section-accent-<section>,
-    // --bg-section-<section>) gives us the correct values without a server
-    // round-trip or extra meta tags.
-    const rootStyle = getComputedStyle(document.documentElement)
-    const accent = rootStyle.getPropertyValue(`--section-accent-${section}`).trim()
-    const bg     = rootStyle.getPropertyValue(`--bg-section-${section}`).trim()
-    if (accent) {
-      document.body.style.setProperty("--section-accent", accent)
-      document.body.style.setProperty("--color-section-accent", accent)
-    }
-    if (bg) {
-      document.body.style.setProperty("background", bg)
-    }
+// ── Terminal ─────────────────────────────────────────────────────
+const term = new Terminal({
+  cursorBlink: true, cursorStyle: 'bar', fontSize: 14,
+  fontFamily: 'ui-monospace, "Cascadia Code", "Source Code Pro", Consolas, monospace',
+  lineHeight: 1.0, scrollback: 10000, allowProposedApi: true,
+  theme: {
+    background: T.bg, foreground: T.fg, cursor: T.fg, selectionBackground: '#33467c',
+    black: T.bg, red: T.red, green: T.green, yellow: T.yellow,
+    blue: T.accent, magenta: T.purple, cyan: T.cyan, white: T.fg,
+    brightBlack: T.muted, brightRed: '#ff9e9e', brightGreen: '#b9f27c',
+    brightYellow: '#ffc777', brightBlue: '#7dcfff', brightMagenta: '#c099ff',
+    brightCyan: '#86e1fc', brightWhite: '#ffffff',
+  },
+});
+
+const fit = new FitAddon();
+term.loadAddon(fit);
+term.loadAddon(new WebLinksAddon());
+term.open(document.getElementById('terminal'));
+
+// ── ANSI helpers ─────────────────────────────────────────────────
+const CSI = '\x1b[';
+const cu  = (r,c) => CSI + r + ';' + c + 'H';
+const clr = () => CSI + '2K';
+const sgr = (n) => CSI + n + 'm';
+const c256 = (r,g,b) => CSI + '38;2;' + r + ';' + g + ';' + b + 'm';
+const bg256 = (r,g,b) => CSI + '48;2;' + r + ';' + g + ';' + b + 'm';
+
+function rgb(s) { const m = s.match(/^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i); return m ? [parseInt(m[1],16),parseInt(m[2],16),parseInt(m[3],16)] : [192,202,245]; }
+function c(s) { const [r,g,b] = rgb(s); return c256(r,g,b); }
+function bg(s) { const [r,g,b] = rgb(s); return bg256(r,g,b); }
+const R = sgr(0);
+const B = sgr(1), D = sgr(2);
+const M = c(T.muted), A = c(T.accent), G = c(T.green), RD = c(T.red), O = c(T.orange), F = c(T.fg);
+
+function muted(s) { return M + s + R; }
+function accent(s) { return A + s + R; }
+function green(s) { return G + s + R; }
+function red(s) { return RD + s + R; }
+function orange(s) { return O + s + R; }
+function bold(s) { return B + s + R; }
+function w(s) { term.write(s); }
+
+// ── State ────────────────────────────────────────────────────────
+let channels = [];
+let sidebarOpen = true;
+const mainLines = [];
+
+// ── Layout ───────────────────────────────────────────────────────
+let cols, rows;
+function resize() { cols = term.cols; rows = term.rows; }
+const HEADER_H = 1, STATUS_H = 1, INPUT_H = 1;
+const SIDEBAR_W = 36;
+
+function mainH() { return rows - HEADER_H - INPUT_H - STATUS_H; }
+
+function drawFrame() {
+  resize();
+  const sh = mainH();
+
+  // Header
+  w(clr() + cu(1,1) + bg(T.sbarBg) + F);
+  const chanStr = channels.length > 0
+    ? channels.map(ch => accent('@'+ch.channel_url)).join(' ') + ' '
+    : muted('no channels connected');
+  const hPad = Math.max(0, cols - chanStr.length - muted('pito').length - 2);
+  w(chanStr + ' '.repeat(hPad) + muted('pito') + R);
+
+  // Main area
+  const visible = mainLines.slice(Math.max(0, mainLines.length - sh));
+  for (let i = 0; i < sh; i++) {
+    w(cu(HEADER_H + 1 + i, 1) + clr());
+    if (i < visible.length) w(F + visible[i] + R);
   }
+
+  // Sidebar divider
+  if (sidebarOpen && cols > SIDEBAR_W) {
+    const divider = cols - SIDEBAR_W - 1;
+    for (let i = 0; i < sh; i++) w(cu(HEADER_H + 1 + i, divider + 1) + bg(T.border) + ' ' + R);
+    let sr = HEADER_H + 1;
+    w(cu(sr++, cols - SIDEBAR_W) + A + B + 'channels' + R);
+    if (channels.length > 0) channels.slice(0,6).forEach(ch => { w(cu(sr++, cols - SIDEBAR_W) + M + '  @'+ch.channel_url + R); });
+    else w(cu(sr++, cols - SIDEBAR_W) + M + '  (none)' + R);
+    sr++;
+    w(cu(sr++, cols - SIDEBAR_W) + A + B + 'videos' + R);
+    w(cu(sr++, cols - SIDEBAR_W) + M + '  (use /videos)' + R);
+    sr++;
+    w(cu(sr++, cols - SIDEBAR_W) + A + B + 'games' + R);
+    w(cu(sr++, cols - SIDEBAR_W) + M + '  (use /games)' + R);
+  }
+
+  // Input line
+  const ir = rows - STATUS_H - 1;
+  w(clr() + cu(ir, 1) + bg(T.sbarBg) + F + accent('> ') + cmdBuffer + R);
+
+  // Status bar
+  w(clr() + cu(rows, 1) + bg(T.sbarBg) + F + green('●') + ' ' + muted('connected') + '  ' + muted('sidekiq') + ' ' + green('b0') + ' ' + orange('e0') + ' ' + red('r0') + ' ' + muted('d0') + ' '.repeat(Math.max(0, cols - 50)) + muted(new Date().toLocaleTimeString()) + R);
 }
 
-document.addEventListener("DOMContentLoaded", syncSectionAttribute)
-document.addEventListener("turbo:load", syncSectionAttribute)
-document.addEventListener("turbo:render", syncSectionAttribute)
+// ── Command ──────────────────────────────────────────────────────
+let cmdBuffer = '';
+const cmdHistory = [];
 
-document.addEventListener("DOMContentLoaded", () => {
-  if (!window.Chart) return
-  const Chart = window.Chart
+term.onData(data => {
+  const code = data.charCodeAt(0);
+  if (code === 13) {
+    mainLines.push(accent('> ') + cmdBuffer);
+    if (cmdBuffer.trim()) { cmdHistory.push(cmdBuffer); exec(cmdBuffer.trim()); }
+    cmdBuffer = ''; drawFrame();
+  } else if (code === 127) { cmdBuffer = cmdBuffer.slice(0, -1); drawFrame(); }
+  else if (code === 9) { sidebarOpen = !sidebarOpen; drawFrame(); }
+  else if (data >= ' ' && data <= '~') { cmdBuffer += data; drawFrame(); }
+});
 
-  // Global defaults
-  Chart.defaults.font.family = 'ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, monospace'
-  Chart.defaults.font.size = 11
-  Chart.defaults.color = getComputedStyle(document.documentElement).getPropertyValue("--color-muted").trim() || "#555555"
-  Chart.defaults.animation = false
-  Chart.defaults.elements.point.radius = 0
-  Chart.defaults.elements.point.hitRadius = 8
-  Chart.defaults.elements.line.borderWidth = 1.5
+async function exec(cmd) {
+  if (cmd.startsWith('/')) await apiCmd(cmd.slice(1));
+  else if (cmd === 'help') mainLines.push(muted('  /help /status /channels /videos /auth /reindex /games /config'));
+  else if (cmd === 'clear') mainLines.length = 0;
+  else mainLines.push(muted('  unknown: ' + cmd + ' — try /help'));
+  drawFrame();
+}
 
-  // Legend: rendered as HTML below the canvas (NOT inside it). Keeping the
-  // legend out of the canvas means a chart with many series does not shrink
-  // its plot area — every chart canvas keeps the same fixed height set via
-  // Chartkick `height:`, and the legend wraps to as many rows as it needs
-  // below the chart card. Bracketed [label] convention, colored per series.
-  Chart.defaults.plugins.legend.display = false
-
-  function ensureLegendContainer(chart) {
-    // Mount the legend as a sibling of the Chartkick wrapper (which is the
-    // canvas's parent element). This way the canvas stays at the height the
-    // wrapper enforces, and the legend lives outside that wrapper so it
-    // can grow freely below.
-    const wrapper = chart.canvas.parentElement
-    if (!wrapper || !wrapper.parentElement) return null
-    const host = wrapper.parentElement
-    let legend = host.querySelector(":scope > .chart-html-legend")
-    if (!legend) {
-      legend = document.createElement("div")
-      legend.className = "chart-html-legend"
-      host.insertBefore(legend, wrapper.nextSibling)
-    }
-    return legend
+async function apiCmd(cmd) {
+  const [action, ...args] = cmd.split(/\s+/);
+  switch (action) {
+    case 'help':
+      mainLines.push(bold('commands:'));
+      mainLines.push('  ' + accent('/status') + '     ' + muted('dashboard'));
+      mainLines.push('  ' + accent('/channels') + '   ' + muted('list channels'));
+      mainLines.push('  ' + accent('/videos') + '     ' + muted('recent videos'));
+      mainLines.push('  ' + accent('/auth') + '       ' + muted('login (6-digit TOTP)'));
+      mainLines.push('  ' + accent('/reindex') + '    ' + muted('meilisearch|voyage'));
+      mainLines.push('  ' + accent('/games') + '      ' + muted('upcoming releases'));
+      mainLines.push('  ' + accent('/config') + '     ' + muted('show settings'));
+      mainLines.push('  Tab              ' + muted('toggle sidebar'));
+      break;
+    case 'status':
+      try { const r = await fetch('/dashboard.json'); const d = await r.json();
+        mainLines.push(bold('dashboard:'));
+        mainLines.push('  channels  ' + green(d.channel_count));
+        mainLines.push('  videos    ' + green(d.video_count));
+        mainLines.push('  footage   ' + green(d.footage_count));
+      } catch(e) { mainLines.push(red('  error: '+e.message)); }
+      break;
+    case 'channels':
+      try { const r = await fetch('/channels.json'); const d = await r.json();
+        channels = d;
+        mainLines.push(bold('channels ('+d.length+'):'));
+        d.forEach(c => mainLines.push('  ' + (c.star ? accent('★') : ' ') + ' ' + accent(c.channel_url)));
+      } catch(e) { mainLines.push(red('  error: '+e.message)); }
+      break;
+    case 'videos':
+      try { const r = await fetch('/videos.json'); const d = await r.json();
+        mainLines.push(bold('videos ('+d.length+'):'));
+        d.slice(0,30).forEach(v => mainLines.push('  ' + v.youtube_video_id + ' ' + muted('·') + ' ' + green(v.views) + ' views'));
+      } catch(e) { mainLines.push(red('  error: '+e.message)); }
+      break;
+    case 'auth':
+      if (!args[0] || args[0].length !== 6) { mainLines.push(muted('  usage: /auth <6-digit-code>')); break; }
+      try { const r = await fetch('/login', { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded','X-CSRF-Token':csrf()}, body:'code='+args[0], redirect:'manual' });
+        mainLines.push((r.ok||r.status===302) ? green('  authenticated') : red('  login failed'));
+      } catch(e) { mainLines.push(red('  error: '+e.message)); }
+      break;
+    case 'reindex':
+      if (!args[0] || !['meilisearch','voyage'].includes(args[0])) { mainLines.push(muted('  usage: /reindex meilisearch|voyage')); break; }
+      try { const r = await fetch('/commands/execute', { method:'POST', headers:{'Content-Type':'application/json','X-CSRF-Token':csrf()}, body:JSON.stringify({command:'reindex '+args[0]}) });
+        const d = await r.json();
+        mainLines.push(d.error ? red('  '+d.error) : green('  '+d.output));
+      } catch(e) { mainLines.push(red('  error: '+e.message)); }
+      break;
+    case 'games':
+      try { const r = await fetch('/commands/execute', { method:'POST', headers:{'Content-Type':'application/json','X-CSRF-Token':csrf()}, body:JSON.stringify({command:'games'}) });
+        const d = await r.json();
+        if (d.error) { mainLines.push(red('  '+d.error)); }
+        else { mainLines.push(bold('upcoming games:')); d.output.split('\n').forEach(l => mainLines.push('  '+l)); }
+      } catch(e) { mainLines.push(red('  error: '+e.message)); }
+      break;
+    case 'config':
+      try { const r = await fetch('/commands/execute', { method:'POST', headers:{'Content-Type':'application/json','X-CSRF-Token':csrf()}, body:JSON.stringify({command:'config'}) });
+        const d = await r.json();
+        if (d.error) { mainLines.push(red('  '+d.error)); }
+        else { mainLines.push(bold('config:')); d.output.split('\n').forEach(l => mainLines.push('  '+l)); }
+      } catch(e) { mainLines.push(red('  error: '+e.message)); }
+      break;
+    default:
+      mainLines.push(muted('  unknown: /'+action+' — try /help'));
   }
+  drawFrame();
+}
 
-  const htmlLegendPlugin = {
-    id: "htmlLegend",
-    afterUpdate(chart) {
-      const legend = ensureLegendContainer(chart)
-      if (!legend) return
-      const mutedColor = getComputedStyle(document.documentElement)
-        .getPropertyValue("--color-muted").trim() || "#888888"
+function csrf() { const m = document.querySelector('meta[name="csrf-token"]'); return m ? m.getAttribute('content') : ''; }
 
-      // Wipe and re-render
-      while (legend.firstChild) legend.removeChild(legend.firstChild)
-
-      chart.data.datasets.forEach((ds, i) => {
-        const meta = chart.getDatasetMeta(i)
-        const hidden = meta.hidden
-        const color = ds.borderColor || ds.backgroundColor || mutedColor
-        const item = document.createElement("a")
-        item.href = "#"
-        item.className = "chart-html-legend__item"
-        item.textContent = `[${ds.label}]`
-        item.style.color = hidden ? mutedColor : color
-        item.dataset.hidden = hidden ? "yes" : "no"
-        item.addEventListener("click", (e) => {
-          e.preventDefault()
-          const isHidden = chart.getDatasetMeta(i).hidden
-          chart.setDatasetVisibility(i, isHidden) // toggle
-          chart.update()
-        })
-        legend.appendChild(item)
-      })
-    }
-  }
-
-  Chart.register(htmlLegendPlugin)
-
-  // Synced crosshair state — charts in the same group share hover index
-  const syncState = {} // { groupName: { index, sourceChartId } }
-
-  function getSyncGroup(chart) {
-    const canvas = chart.canvas
-    const container = canvas.closest("[data-sync-group]")
-    return container ? container.dataset.syncGroup : null
-  }
-
-  function getSyncedCharts(group, excludeChart) {
-    if (!group || !window.Chartkick) return []
-    return Object.values(Chartkick.charts)
-      .map(c => c.getChartObject())
-      .filter(c => c && c !== excludeChart && getSyncGroup(c) === group)
-  }
-
-  // Crosshair plugin — vertical hairline with dots at intersections, with sync
-  const crosshairPlugin = {
-    id: "crosshair",
-
-    afterEvent(chart, args) {
-      if (chart.config.options?.plugins?.crosshair === false) return
-      const group = getSyncGroup(chart)
-      if (!group) return
-
-      const event = args.event
-      if (event.type === "mousemove" && chart.tooltip) {
-        const active = chart.tooltip.getActiveElements()
-        if (active.length) {
-          const idx = active[0].index
-          if (!syncState[group] || syncState[group].index !== idx || syncState[group].source !== chart.id) {
-            syncState[group] = { index: idx, source: chart.id }
-            getSyncedCharts(group, chart).forEach(sibling => {
-              const ds0 = sibling.getDatasetMeta(0)
-              if (!ds0 || !ds0.data[idx]) return
-              sibling.tooltip.setActiveElements(
-                sibling.data.datasets.map((_, di) => ({ datasetIndex: di, index: idx })),
-                { x: ds0.data[idx].x, y: ds0.data[idx].y }
-              )
-              sibling.setActiveElements(
-                sibling.data.datasets.map((_, di) => ({ datasetIndex: di, index: idx }))
-              )
-              sibling.update("none")
-            })
-          }
-        }
-      }
-      if (event.type === "mouseout") {
-        if (syncState[group]?.source === chart.id) {
-          delete syncState[group]
-          getSyncedCharts(group, chart).forEach(sibling => {
-            sibling.tooltip.setActiveElements([], {})
-            sibling.setActiveElements([])
-            sibling.update("none")
-          })
-        }
-      }
-    },
-
-    afterDraw(chart) {
-      if (chart.config.options?.plugins?.crosshair === false) return
-      const tooltip = chart.tooltip
-      if (!tooltip || !tooltip.getActiveElements().length) return
-
-      const ctx = chart.ctx
-      const x = tooltip.caretX
-      const topY = chart.scales.y ? chart.scales.y.top : chart.chartArea.top
-      const bottomY = chart.scales.y ? chart.scales.y.bottom : chart.chartArea.bottom
-
-      // Draw vertical hairline
-      ctx.save()
-      ctx.beginPath()
-      ctx.moveTo(x, topY)
-      ctx.lineTo(x, bottomY)
-      ctx.lineWidth = 1
-      ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue("--color-muted").trim() || "#999999"
-      ctx.setLineDash([3, 3])
-      ctx.stroke()
-      ctx.restore()
-
-      // Draw dots at each dataset intersection
-      const activeElements = tooltip.getActiveElements()
-      activeElements.forEach((el) => {
-        const meta = chart.getDatasetMeta(el.datasetIndex)
-        const point = meta.data[el.index]
-        if (!point) return
-
-        ctx.save()
-        ctx.beginPath()
-        ctx.arc(point.x, point.y, 4, 0, Math.PI * 2)
-        ctx.fillStyle = meta.dataset.options.borderColor || "#0000cc"
-        ctx.fill()
-        ctx.lineWidth = 1.5
-        ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue("--color-bg").trim() || "#ffffff"
-        ctx.stroke()
-        ctx.restore()
-      })
-    }
-  }
-
-  Chart.register(crosshairPlugin)
-
-  // Tooltip: show all datasets at the hovered x position
-  Chart.defaults.interaction.mode = "index"
-  Chart.defaults.interaction.intersect = false
-  Chart.defaults.plugins.tooltip.position = "nearest"
-
-  // Initial-paint chart styling — reads --color-chart-N CSS vars and
-  // applies the design-system palette to every Chartkick chart on the
-  // page. 2026-05-19 — the legacy dark/light theme toggle was removed,
-  // so this runs ONCE at first paint (no theme-change re-invocation).
-  // The function is no longer exported on `window` because there are
-  // no remaining external callers.
-  function getChartColors() {
-    const style = getComputedStyle(document.documentElement)
-    return [1, 2, 3, 4, 5].map(n => style.getPropertyValue(`--color-chart-${n}`).trim()).filter(Boolean)
-  }
-
-  function recolorCharts() {
-    if (!window.Chartkick) return
-    const colors = getChartColors()
-    if (!colors.length) return
-
-    const style = getComputedStyle(document.documentElement)
-    const mutedColor = style.getPropertyValue("--color-muted").trim() || "#555555"
-    const gridColor = style.getPropertyValue("--color-chart-grid").trim() || "#eeeeee"
-    const tooltipBg = style.getPropertyValue("--color-tooltip-bg").trim() || "rgba(0,0,0,0.8)"
-    const tooltipText = style.getPropertyValue("--color-tooltip-text").trim() || "#ffffff"
-
-    Chart.defaults.color = mutedColor
-
-    Object.values(Chartkick.charts).forEach(ck => {
-      const chart = ck.getChartObject()
-      if (!chart) return
-      chart.data.datasets.forEach((ds, i) => {
-        const color = colors[i % colors.length]
-        if (ds.type === "bar" || chart.config.type === "bar") {
-          ds.backgroundColor = color
-        } else {
-          ds.borderColor = color
-          ds.pointBackgroundColor = color
-        }
-      })
-      const scales = chart.options.scales
-      if (scales?.x) {
-        scales.x.ticks = { ...scales.x.ticks, color: mutedColor }
-        scales.x.grid = { ...scales.x.grid, color: gridColor }
-      }
-      if (scales?.y) {
-        scales.y.ticks = { ...scales.y.ticks, color: mutedColor }
-        scales.y.grid = { ...scales.y.grid, color: gridColor }
-      }
-      chart.options.plugins.tooltip = {
-        ...chart.options.plugins.tooltip,
-        backgroundColor: tooltipBg,
-        titleColor: tooltipText,
-        bodyColor: tooltipText
-      }
-      chart.update("none")
-    })
-  }
-
-  // Recolor after Chartkick finishes rendering
-  setTimeout(recolorCharts, 100)
-})
+// ── Boot ─────────────────────────────────────────────────────────
+function boot() {
+  fit.fit(); resize();
+  mainLines.push(''); mainLines.push(bold('pito') + '  ' + muted('YouTube channel management'));
+  mainLines.push(muted('  type /help for commands, /auth <code> to login'));
+  mainLines.push(muted('  Tab toggles sidebar')); mainLines.push('');
+  drawFrame();
+}
+window.addEventListener('resize', () => { fit.fit(); resize(); drawFrame(); });
+setTimeout(boot, 100);

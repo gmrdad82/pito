@@ -38,29 +38,29 @@ impl Theme {
 
     fn dark() -> Self {
         Self {
-            bg: Color::Rgb(40, 42, 54),
-            fg: Color::Rgb(248, 248, 242),
-            border: Color::Rgb(68, 71, 90),
-            muted: Color::Rgb(98, 114, 164),
-            accent: Color::Rgb(189, 147, 249),
-            success: Color::Rgb(80, 250, 123),
-            danger: Color::Rgb(255, 85, 85),
-            orange: Color::Rgb(255, 184, 108),
-            cyan: Color::Rgb(139, 233, 253),
+            bg: Color::Rgb(26, 27, 38),
+            fg: Color::Rgb(192, 202, 245),
+            border: Color::Rgb(41, 46, 66),
+            muted: Color::Rgb(86, 95, 137),
+            accent: Color::Rgb(122, 162, 247),
+            success: Color::Rgb(158, 206, 106),
+            danger: Color::Rgb(247, 118, 142),
+            orange: Color::Rgb(255, 158, 100),
+            cyan: Color::Rgb(26, 188, 156),
         }
     }
 
     fn light() -> Self {
         Self {
-            bg: Color::Rgb(248, 248, 242),
-            fg: Color::Rgb(40, 42, 54),
-            border: Color::Rgb(200, 200, 210),
-            muted: Color::Rgb(120, 120, 140),
-            accent: Color::Rgb(130, 80, 200),
-            success: Color::Rgb(30, 150, 60),
-            danger: Color::Rgb(200, 50, 50),
-            orange: Color::Rgb(200, 130, 50),
-            cyan: Color::Rgb(50, 150, 180),
+            bg: Color::Rgb(217, 219, 235),
+            fg: Color::Rgb(86, 95, 137),
+            border: Color::Rgb(203, 207, 226),
+            muted: Color::Rgb(150, 158, 191),
+            accent: Color::Rgb(52, 84, 163),
+            success: Color::Rgb(72, 140, 86),
+            danger: Color::Rgb(197, 59, 83),
+            orange: Color::Rgb(182, 101, 51),
+            cyan: Color::Rgb(15, 128, 108),
         }
     }
 }

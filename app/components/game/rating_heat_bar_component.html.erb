@@ -1,5 +1,0 @@
-<%# Deprecated passthrough — delegates to Pito::ScoreBarComponent.
-    ViewComponent 4.x does not resolve parent templates for subclasses,
-    so this shim re-renders the canonical component directly.
-    Drop this file once all call sites reference Pito::ScoreBarComponent. %>
-<%= render Pito::ScoreBarComponent.new(game: @game, score: @override) %>

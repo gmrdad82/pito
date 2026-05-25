@@ -309,6 +309,33 @@ impl PitoClient for HttpClient {
         let status: BulkOperationStatus = response.json().context("decode bulk status")?;
         Ok(status)
     }
+
+    fn execute_command(&self, command: &str) -> Result<String> {
+        let url = self.url("/commands/execute.json");
+        let body = json!({ "command": command });
+        let response = self
+            .client
+            .post(&url)
+            .header("Accept", "application/json")
+            .header("Content-Type", "application/json")
+            .json(&body)
+            .send()
+            .with_context(|| format!("POST {}", url))?;
+        // Try to extract a server error message from the JSON body on failure.
+        if !response.status().is_success() {
+            let status_code = response.status().as_u16();
+            let server_msg = response
+                .text()
+                .unwrap_or_else(|_| "no response body".to_string());
+            return Err(anyhow::anyhow!(
+                "server returned {}: {}",
+                status_code,
+                server_msg
+            ));
+        }
+        let text = response.text().context("read command response")?;
+        Ok(text)
+    }
 }
 
 #[cfg(test)]

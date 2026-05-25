@@ -74,7 +74,7 @@ multi-layer menus.
 
 ## Colors
 
-Dracula-derived palette. Exact hex values live in `app/lib/pito/theme.rb`
+Tokyo Night palette. Exact hex values live in `app/services/pito/theme.rb`
 and export to CSS custom properties + Rust `theme.rs` via
 `lib/tasks/pito_theme.rake`.
 
@@ -82,29 +82,28 @@ and export to CSS custom properties + Rust `theme.rs` via
 - Muted: `var(--color-muted)` for de-emphasized prose + inactive UI
 - Borders: screen-accent-tinted hairline (1px)
 - Background: panel bg + sub-panel bg with subtle delta
-- **Red `#cc0000`** is ONLY for destructive flows. One exception: the
+- **Red `#f7768e`** is ONLY for destructive flows. One exception: the
   rating heat bar's bad-zone color stop (`--color-rating-bad`).
 
 ## Screen accents
 
-Three screens, three accents (canonical picks from
-`tmp/dracula-swatches-v2.html` § B — Screen mapping):
+Three screens, three accents (Tokyo Night picks):
 
 | Screen | Accent | Hex | Token |
 |---|---|---|---|
-| `/` home (dashboard + system) | Dracula Purple | `#bd93f9` | `--accent-home` |
-| `/videos` (channels + videos) | Dracula Red | `#ff5555` | `--accent-videos` |
-| `/games` (catalog + bundles + footage) | Pale Cobalt | `#7eb6ff` | `--accent-games` |
+| `/` home (dashboard + system) | Tokyo Night Blue | `#7aa2f7` | `--accent-home` |
+| `/videos` (channels + videos) | Tokyo Night Red | `#f7768e` | `--accent-videos` |
+| `/games` (catalog + bundles + footage) | Tokyo Night Teal | `#1abc9c` | `--accent-games` |
 
 **Recipe for each screen's chrome:**
 
-- Panel bg: `color-mix(in srgb, <accent> 4%, #282a36)`
-- Panel border (focused): `color-mix(in srgb, <accent> 35%, #282a36)`
+- Panel bg: `color-mix(in srgb, <accent> 4%, #1a1b26)`
+- Panel border (focused): `color-mix(in srgb, <accent> 35%, #1a1b26)`
 - Panel title + action color: pure accent hex
 - Focus tint on rows / actions: `color-mix(in srgb, <accent> 18%, transparent)`
 
 **Section background recipe (canonical):** every screen's background is
-`color-mix(in srgb, <section accent hex> 4%, #282a36)`, with the focused
+`color-mix(in srgb, <section accent hex> 4%, #1a1b26)`, with the focused
 border at 35% and the focus tint at 18% of the same accent. Exported by
 `Pito::Theme::Sections` into `_theme.css` and the Rust client's
 `extras/cli/src/theme.rs`. The `settings` value is a frozen historical
@@ -112,13 +111,12 @@ override (`#34333b`) preserved via `USER_LOCKED_BG`.
 
 Exact values: `Pito::Theme::Sections.accent(:home | :videos | :games)`.
 
-**Note on red:** `#ff5555` is the videos screen accent AND looks similar
-to the destructive token `#cc0000`. They are NOT the same token. Videos
-screen uses `--accent-videos = #ff5555` (Dracula Red — informational,
-screen identity). Destructive actions still use `--color-danger`
-(`#cc0000` light / `#ff5555` dark — value coincides in dark theme but
-the semantic is different). On `/videos`, destructive actions are still
-gated by `Tui::ConfirmationDialogComponent` so users never mistake an
+**Note on red:** `#f7768e` is the videos screen accent AND the destructive
+token. They are the same hex value but different semantic tokens. Videos
+screen uses `--accent-videos = #f7768e` (Tokyo Night Red — informational,
+screen identity). Destructive actions use `--color-danger` / `--color-fatal`
+(also `#f7768e`). On `/videos`, destructive actions are still gated by
+`Tui::ConfirmationDialogComponent` so users never mistake an
 accent-colored region for a destructive action.
 
 Notes:

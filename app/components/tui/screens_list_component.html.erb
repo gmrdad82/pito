@@ -1,8 +1,0 @@
-<%# Beta 4 — Phase F1. Screens list. Renders home / videos / games nav
-    row. Current screen gets .bsb-section--current; CSS cascade applies
-    section-accent color via body[data-section]. %>
-<span class="bsb-sections">
-  <% sections.each do |section| %>
-    <a href="<%= section_path(section) %>" class="<%= section_classes(section) %>"><%= section_label(section) %></a>
-  <% end %>
-</span>

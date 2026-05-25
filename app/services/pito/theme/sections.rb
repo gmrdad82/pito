@@ -4,67 +4,57 @@ module Pito
     # so they are specced, single-source-of-truth, and can be computed
     # server-side instead of via opaque browser `color-mix()` cascades.
     #
-    # 2026-05-25 — SINGLE ACCENT DECISION. The user unified all screen
-    # accents to one Pito purple (`#bd93f9`, Dracula Purple). The
-    # per-section accent map below is DEPRECATED — every entry now resolves
-    # to the same purple. `ACCENT`, `accent(section)`, and the BG derivation
-    # still function (bg tints still differ slightly because different
-    # sections historically had different accents feeding the 4% recipe, but
-    # all entries now share the same purple input). The per-section CSS
-    # cascade (`body[data-section]` overrides) has been dropped from
-    # `application.css`; `--section-accent` is a single `:root` value.
+    # 2026-05-25 — SINGLE ACCENT DECISION (historical). The user unified
+    # all screen accents to one Pito purple (`#bd93f9`, Dracula Purple).
+    #
+    # 2026-05-26 — TOKYO NIGHT MIGRATION. Per-section accents restored with
+    # Tokyo Night colors: home=blue (#7aa2f7), videos=red (#f7768e),
+    # games=teal (#1abc9c). Other sections default to the blue accent.
+    # The BG derivation recipe continues to work (4% accent over Tokyo
+    # Night bg), now producing distinct tints per section again.
     #
     # L1 atoms (`BG`, `ACCENT`) are hand-picked per-section hex values.
-    # The accent set mirrors the L2 Dracula tokens that used to drive the
-    # `body[data-section]` cascade in `app/assets/tailwind/application.css`;
-    # the bg set is the small `color-mix(in srgb, accent X%, dracula-bg)`
-    # tint family that used to derive at browser paint time.
+    # The accent set mirrors the L2 Tokyo Night tokens that drive the
+    # section accents; the bg set is the small `color-mix(in srgb, accent
+    # X%, tokyo-night-bg)` tint family that used to derive at browser paint
+    # time.
     #
     # `mix(accent, percent, bg)` performs the equivalent of CSS
     # `color-mix(in srgb, accent percent%, bg)` in pure Ruby so derived
     # tokens (e.g. the 35%-accent pane border) can be computed and tested
     # in isolation.
     module Sections
-      # CANONICAL — single Pito purple accent. All section lookups resolve here.
-      PITO_PURPLE = "#bd93f9".freeze # Dracula Purple
+      # CANONICAL — Tokyo Night blue as the default accent. All section
+      # lookups that don't have a specific color resolve here.
+      BLUE_ACCENT = "#7aa2f7".freeze
 
-      # L2 — section accent. DEPRECATED: all entries now resolve to PITO_PURPLE.
-      # Kept for backwards-compatibility with callers that pass a section key;
-      # the cascade source is `--section-accent: #bd93f9` in `:root`.
+      # L2 — section accent. Each section resolves to its Tokyo Night color.
       ACCENT = {
-        "home"          => PITO_PURPLE,
-        "channels"      => PITO_PURPLE,
-        "videos"        => PITO_PURPLE,
-        "games"         => PITO_PURPLE,
-        "projects"      => PITO_PURPLE,
-        "settings"      => PITO_PURPLE,
-        "notifications" => PITO_PURPLE,
-        "calendar"      => PITO_PURPLE
+        "home"          => BLUE_ACCENT,
+        "channels"      => BLUE_ACCENT,
+        "videos"        => "#f7768e".freeze,
+        "games"         => "#1abc9c".freeze,
+        "projects"      => BLUE_ACCENT,
+        "settings"      => BLUE_ACCENT,
+        "notifications" => BLUE_ACCENT,
+        "calendar"      => BLUE_ACCENT
       }.freeze
 
       # 2026-05-22 — Section page bg canonical recipe lock.
       #
       # The canonical visual contract for every screen's page bg is
-      # `color-mix(in srgb, <section accent> 4%, <dracula bg>)`. The
+      # `color-mix(in srgb, <section accent> 4%, <tokyo-night bg>)`. The
       # demo `tmp/dracula-swatches-v2.html` (§ B + § Section pane
       # composition) is the source of truth for the 4% lock.
       #
       # Previously this constant held hand-picked per-section hex
-      # atoms that drifted from the recipe (e.g. home = #2c2a36,
-      # which is only ~1% purple — visibly washed-out vs the
-      # canonical #2e2e3e). The drift surfaced in the
-      # `body[data-section] style="background: <hex>;"` inline that
-      # the layout writes via `pito_section_bg`, so the live page bg
-      # diverged from the demo and from the in-CSS
-      # `--color-bg-tint = color-mix(... 4% ...)` recipe.
-      #
-      # The current set DERIVES bg from the ACCENT table via the
-      # canonical 4%/Dracula recipe. The only override is `settings`,
-      # which the user explicitly locked to `#34333b` on 2026-05-20
-      # — a slightly warmer charcoal that visually de-emphasizes the
-      # /settings screen vs the orange accent's 4% tint.
+      # atoms that drifted from the recipe. The current set DERIVES bg
+      # from the ACCENT table via the canonical 4%/Tokyo Night recipe.
+      # The only override is `settings`, which the user explicitly
+      # locked to `#34333b` on 2026-05-20 — a slightly warmer charcoal
+      # that visually de-emphasizes the /settings screen.
       RECIPE_PCT  = 4
-      DRACULA_BG  = "#282a36".freeze
+      TOKYO_NIGHT_BG  = "#1a1b26".freeze
       USER_LOCKED_BG = {
         "settings" => "#34333b"
       }.freeze
@@ -73,9 +63,9 @@ module Pito
           ar = accent_hex[1..2].to_i(16)
           ag = accent_hex[3..4].to_i(16)
           ab = accent_hex[5..6].to_i(16)
-          br = DRACULA_BG[1..2].to_i(16)
-          bg_val = DRACULA_BG[3..4].to_i(16)
-          bb = DRACULA_BG[5..6].to_i(16)
+          br = TOKYO_NIGHT_BG[1..2].to_i(16)
+          bg_val = TOKYO_NIGHT_BG[3..4].to_i(16)
+          bb = TOKYO_NIGHT_BG[5..6].to_i(16)
           ratio = RECIPE_PCT.to_f / 100.0
           r = (br + ((ar - br) * ratio)).round.clamp(0, 255)
           g = (bg_val + ((ag - bg_val) * ratio)).round.clamp(0, 255)
@@ -84,17 +74,16 @@ module Pito
         end
       end.freeze
 
-      # ACCENTS — canonical alias for the 3 named screen accents. All resolve
-      # to PITO_PURPLE following the 2026-05-25 single-accent decision.
+      # ACCENTS — canonical alias for the 3 named screen accents.
       ACCENTS = {
-        home:   PITO_PURPLE,
-        videos: PITO_PURPLE,
-        games:  PITO_PURPLE
+        home:   BLUE_ACCENT,
+        videos: "#f7768e".freeze,
+        games:  "#1abc9c".freeze
       }.freeze
 
       # Fallbacks when section is nil / unknown.
-      DEFAULT_BG     = DRACULA_BG
-      DEFAULT_ACCENT = PITO_PURPLE
+      DEFAULT_BG     = TOKYO_NIGHT_BG
+      DEFAULT_ACCENT = BLUE_ACCENT
 
       def self.bg(section)
         BG.fetch(section.to_s, DEFAULT_BG)
@@ -104,11 +93,11 @@ module Pito
         ACCENT.fetch(section.to_s, DEFAULT_ACCENT)
       end
 
-      # Recipe: focused-pane border = 35% accent over Dracula bg.
+      # Recipe: focused-pane border = 35% accent over Tokyo Night bg.
       # Returns a CSS `color-mix()` string — safe to embed in inline styles
       # or written to `_theme.css` by the rake task.
       def self.border(section)
-        "color-mix(in srgb, #{accent(section)} 35%, #{DRACULA_BG})"
+        "color-mix(in srgb, #{accent(section)} 35%, #{TOKYO_NIGHT_BG})"
       end
 
       # Recipe: row / action focus tint = 18% accent over transparent.

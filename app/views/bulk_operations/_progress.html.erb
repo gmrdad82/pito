@@ -1,6 +1,0 @@
-<% bar_width = 30 %>
-<% filled = total > 0 ? (current.to_f / total * bar_width).round : 0 %>
-<% empty = bar_width - filled %>
-<div id="operation_progress" style="margin-top: 2px;">
-  <span class="text-muted">[<%= "#" * filled %><%= "." * empty %>] <%= current %>/<%= total %></span>
-</div>

@@ -1,7 +1,0 @@
-<%# Phase 27 v2 spec 06 — single bracketed-checkbox chip link.
-    JS-off path: clicking the anchor navigates to `href`, which is the
-    canonical URL for the post-toggle state.
-    JS-on path:  the `games-filter` Stimulus controller intercepts the
-    click via `data-action`, flips the checked state, applies the
-    `played` cascade when relevant, and refreshes the Turbo Frame
-    without a full navigation. %><%= link_to href, class: css_classes, data: data_attributes do %><span class="md-check-static"><%= checked? ? "[x]" : "[ ]" %></span> <span class="md-check-static-label"><%= label %></span><% end %>

@@ -1,7 +1,0 @@
-<% if as == :link %>
-  <%= link_to inner_html, href, class: element_classes, data: data %>
-<% elsif as == :submit %>
-  <%= content_tag :button, inner_html, type: "submit", class: element_classes, data: data %>
-<% else %>
-  <%= content_tag :button, inner_html, type: "button", class: element_classes, data: data %>
-<% end %>

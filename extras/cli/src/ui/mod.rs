@@ -1,237 +1,165 @@
-pub mod channel_detail;
-pub mod channels;
-pub mod confirmation;
-pub mod dashboard;
-pub mod footage_detail;
-pub mod help;
-pub mod leader_menu;
-pub mod operation_progress;
-pub mod saved_views;
-pub mod search;
-pub mod settings;
-pub mod video_detail;
-pub mod videos;
-
 use ratatui::{
     Frame,
-    layout::{Alignment, Constraint, Direction, Layout, Rect},
+    layout::Rect,
     style::Style,
     text::{Line, Span},
-    widgets::Paragraph,
+    widgets::{Block, Paragraph},
 };
 
-use crate::app::{App, KeyState, Overlay, Screen};
+pub mod footage_detail;
 
-pub fn render(frame: &mut Frame, app: &mut App) {
+use crate::app::App;
+use crate::api::client::PitoClient;
+
+const SIDEBAR_WIDTH: u16 = 36;
+
+pub fn render<C: PitoClient>(frame: &mut Frame, app: &mut App<C>) {
     let theme = app.theme();
 
-    // Set background
+    // Full-screen background
     frame.render_widget(
-        ratatui::widgets::Block::default().style(Style::default().bg(theme.bg)),
+        Block::default().style(Style::default().bg(theme.bg)),
         frame.area(),
     );
 
-    let layout = Layout::vertical([
-        Constraint::Length(1), // header
-        Constraint::Min(0),    // body
-        Constraint::Length(1), // footer
-    ])
-    .split(frame.area());
+    let area = frame.area();
+    let cols = area.width;
+    let rows = area.height;
 
-    render_header(frame, layout[0], app);
-    render_body(frame, layout[1], app);
-    render_footer(frame, layout[2], app);
+    // ── Layout zones ───────────────────────────────────────────
+    // header (1) | main+sidebar | input (1) | status (1)
+    let header_area = Rect::new(area.x, area.y, cols, 1);
+    let body_start = area.y + 1;
+    let body_height = rows.saturating_sub(3); // header + input + status
+    let input_y = body_start + body_height;
+    let status_y = input_y + 1;
 
-    // Overlay on top
-    match app.overlay {
-        Some(Overlay::Help) => help::render(frame, frame.area(), &theme),
-        Some(Overlay::Search) => search::render(frame, frame.area(), &theme, &app.search_state),
-        Some(Overlay::Confirmation) => {
-            if let Some(ref state) = app.confirmation_state {
-                confirmation::render(frame, frame.area(), &theme, state);
-            }
+    let main_width = if app.sidebar_open {
+        cols.saturating_sub(SIDEBAR_WIDTH + 1)
+    } else {
+        cols
+    };
+    let sidebar_x = area.x + main_width + 1;
+
+    // ── Header ─────────────────────────────────────────────────
+    let header_bg = Style::default().bg(theme.bg).fg(theme.fg);
+    let mut spans: Vec<Span> = Vec::new();
+
+    if app.channels.is_empty() {
+        spans.push(Span::styled("no channels connected", Style::default().fg(theme.muted)));
+    } else {
+        for ch in &app.channels {
+            spans.push(Span::styled(format!("@{} ", ch.channel_url), Style::default().fg(theme.accent)));
         }
-        Some(Overlay::LeaderMenu) => {
-            if let Some(ref state) = app.leader_menu {
-                leader_menu::render(frame, frame.area(), &theme, state);
-            }
-        }
-        Some(Overlay::LoginPending) => {
-            if let Some(ref state) = app.login_pending {
-                crate::notifications::overlay::render(frame, frame.area(), &theme, state);
-            }
-        }
-        None => {}
     }
 
-    // Bulk-operation progress overlay renders on top of everything else (it's
-    // launched *after* a confirmation closes, so it normally stands alone, but
-    // layering it last guarantees it stays visible if any other overlay races
-    // in).
-    if let Some(ref progress) = app.operation_progress {
-        operation_progress::render(
-            frame,
-            frame.area(),
-            &theme,
-            progress,
-            &app.channels_state.channels,
+    let right = Span::styled("pito", Style::default().fg(theme.muted));
+    let left_width = spans.iter().map(|s| s.width()).sum::<usize>() as u16;
+    let right_width = right.width() as u16;
+    let pad = cols.saturating_sub(left_width + right_width);
+
+    spans.push(Span::raw(" ".repeat(pad as usize)));
+    spans.push(right);
+
+    frame.render_widget(Paragraph::new(Line::from(spans)).style(header_bg), header_area);
+
+    // ── Main area ──────────────────────────────────────────────
+    let main_area = Rect::new(area.x, body_start, main_width, body_height);
+    let visible_lines: Vec<&str> = app.conversation_lines.iter()
+        .rev()
+        .take(body_height as usize)
+        .collect::<Vec<_>>()
+        .into_iter()
+        .rev()
+        .map(|s| s.as_str())
+        .collect();
+
+    let mut main_spans: Vec<Line> = Vec::new();
+    for line in &visible_lines {
+        main_spans.push(Line::from(Span::styled(*line, Style::default().fg(theme.fg))));
+    }
+    // Pad with empty lines
+    while main_spans.len() < body_height as usize {
+        main_spans.push(Line::from(""));
+    }
+
+    frame.render_widget(
+        Paragraph::new(main_spans).style(Style::default().bg(theme.bg).fg(theme.fg)),
+        main_area,
+    );
+
+    // ── Sidebar divider ────────────────────────────────────────
+    if app.sidebar_open && cols > SIDEBAR_WIDTH {
+        let divider_x = sidebar_x.saturating_sub(1);
+        let divider_area = Rect::new(divider_x, body_start, 1, body_height);
+        frame.render_widget(
+            Block::default().style(Style::default().bg(theme.border)),
+            divider_area,
         );
     }
-}
 
-fn render_header(frame: &mut Frame, area: Rect, app: &mut App) {
-    let theme = app.theme();
-    let screen_label = match app.screen {
-        Screen::Dashboard => "[dashboard]",
-        Screen::Channels => "[channels]",
-        Screen::ChannelDetail => "[channel]",
-        Screen::Videos => "[videos]",
-        Screen::VideoDetail => "[video]",
-        Screen::SavedViews => "[saved views]",
-        Screen::Settings => "[settings]",
-        Screen::FootageDetail => "[footage]",
-    };
+    // ── Sidebar ────────────────────────────────────────────────
+    if app.sidebar_open && cols > SIDEBAR_WIDTH {
+        let sidebar_area = Rect::new(sidebar_x, body_start, SIDEBAR_WIDTH.min(cols - sidebar_x), body_height);
+        let mut sb_lines: Vec<Line> = Vec::new();
+        let a = Style::default().fg(theme.accent);
+        let m = Style::default().fg(theme.muted);
+        let f = Style::default().fg(theme.fg);
 
-    // Brand + current screen, anchored to the left edge.
-    let left = Line::from(vec![
-        Span::styled(" pito ", Style::default().fg(theme.accent)),
-        Span::styled("| ", Style::default().fg(theme.border)),
-        Span::styled(screen_label, Style::default().fg(theme.fg)),
-    ]);
+        sb_lines.push(Line::from(Span::styled("channels", a)));
+        if app.channels.is_empty() {
+            sb_lines.push(Line::from(Span::styled("  (none)", m)));
+        } else {
+            for ch in app.channels.iter().take(6) {
+                sb_lines.push(Line::from(Span::styled(format!("  @{}", ch.channel_url), m)));
+            }
+        }
+        sb_lines.push(Line::from(""));
+        sb_lines.push(Line::from(Span::styled("videos", a)));
+        sb_lines.push(Line::from(Span::styled("  (use /videos)", m)));
+        sb_lines.push(Line::from(""));
+        sb_lines.push(Line::from(Span::styled("games", a)));
+        sb_lines.push(Line::from(Span::styled("  (use /games)", m)));
 
-    // Theme + help affordances, anchored to the right edge of the bar (web-app
-    // top-right convention).
-    let right_spans = vec![
-        Span::styled("(n)", Style::default().fg(theme.muted)),
-        Span::raw(" theme  "),
-        Span::styled("(?)", Style::default().fg(theme.muted)),
-        Span::raw(" help "),
-    ];
-    let right_width: usize = right_spans.iter().map(|s| s.content.chars().count()).sum();
-    let right_width = right_width.min(area.width as usize) as u16;
+        while sb_lines.len() < body_height as usize {
+            sb_lines.push(Line::from(""));
+        }
+        frame.render_widget(
+            Paragraph::new(sb_lines).style(Style::default().bg(theme.bg).fg(theme.fg)),
+            sidebar_area,
+        );
+    }
 
-    // Split the bar so left can grow and right always reserves exactly the
-    // width its spans need.
-    let chunks = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([Constraint::Min(0), Constraint::Length(right_width)])
-        .split(area);
-
-    let bg = Style::default().bg(theme.bg).fg(theme.fg);
-    frame.render_widget(Paragraph::new(left).style(bg), chunks[0]);
+    // ── Input line ─────────────────────────────────────────────
+    let input_area = Rect::new(area.x, input_y, cols, 1);
+    let prompt = Span::styled("> ", Style::default().fg(theme.accent));
+    let input_text = Span::styled(&app.input_buffer, Style::default().fg(theme.fg));
     frame.render_widget(
-        Paragraph::new(Line::from(right_spans))
-            .alignment(Alignment::Right)
-            .style(bg),
-        chunks[1],
+        Paragraph::new(Line::from(vec![prompt, input_text]))
+            .style(Style::default().bg(theme.bg).fg(theme.fg)),
+        input_area,
     );
-}
 
-fn render_body(frame: &mut Frame, area: Rect, app: &mut App) {
-    let theme = app.theme();
-    match app.screen {
-        Screen::Dashboard => dashboard::render(frame, area, &theme, &app.dashboard_state),
-        Screen::Channels => {
-            let sync_anim = channels::SyncAnim {
-                ids: app.syncing_animated_ids(),
-                tick: app.sync_anim_tick(),
-            };
-            channels::render(frame, area, &theme, &app.channels_state, sync_anim);
-        }
-        Screen::ChannelDetail => {
-            if let Some(ref state) = app.channel_detail_state {
-                channel_detail::render(frame, area, &theme, state);
-            }
-        }
-        Screen::Videos => videos::render(frame, area, &theme, &app.videos_state),
-        Screen::VideoDetail => {
-            if let Some(ref state) = app.video_detail_state {
-                video_detail::render(frame, area, &theme, state);
-            }
-        }
-        Screen::SavedViews => saved_views::render(frame, area, &theme, &app.saved_views_state),
-        Screen::Settings => settings::render(frame, area, &theme, &app.settings_state),
-        Screen::FootageDetail => {
-            if let Some(ref state) = app.footage_detail_state {
-                let capability = app.terminal_capability;
-                // Borrow the live image protocol mutably for the duration of
-                // the render. The protocol's internal cache mutates as
-                // ratatui-image encodes for the current rect.
-                let preview = app.footage_detail_preview.as_mut();
-                let rects = footage_detail::render(frame, area, &theme, state, capability, preview);
-                app.footage_detail_rects = Some(rects);
-            }
-        }
-    }
-}
+    // ── Status bar ─────────────────────────────────────────────
+    let status_area = Rect::new(area.x, status_y, cols, 1);
+    let mut st_spans: Vec<Span> = Vec::new();
+    st_spans.push(Span::styled("● ", Style::default().fg(theme.success)));
+    st_spans.push(Span::styled("connected  ", Style::default().fg(theme.muted)));
+    st_spans.push(Span::styled("sidekiq ", Style::default().fg(theme.muted)));
+    st_spans.push(Span::styled("b0 ", Style::default().fg(theme.success)));
+    st_spans.push(Span::styled("e0 ", Style::default().fg(theme.orange)));
+    st_spans.push(Span::styled("r0 ", Style::default().fg(theme.danger)));
+    st_spans.push(Span::styled("d0", Style::default().fg(theme.muted)));
 
-fn render_footer(frame: &mut Frame, area: Rect, app: &mut App) {
-    let theme = app.theme();
+    let now = chrono::Local::now().format("%H:%M:%S").to_string();
+    let left_w: usize = st_spans.iter().map(|s| s.width()).sum();
+    let pad_w = cols as usize - left_w - now.len();
+    st_spans.push(Span::raw(" ".repeat(pad_w)));
+    st_spans.push(Span::styled(now, Style::default().fg(theme.muted)));
 
-    let state_hint = match app.key_state {
-        KeyState::Normal => "",
-        KeyState::GPrefix => "g...",
-        KeyState::ColonPrefix => ":",
-        KeyState::FilterPrefix => "f...",
-    };
-
-    // `[_]` leader-key indicator, mirroring the web app's status-bar
-    // posture. The glyph is the schema's `leader.display` value (currently
-    // `_`); rendering it from the schema rather than hard-coding keeps the
-    // two surfaces in sync if it ever changes. Highlighted when the popup
-    // is open.
-    let leader_open = app.overlay == Some(Overlay::LeaderMenu);
-    let leader_glyph = crate::keybindings::load().leader.display.clone();
-    let leader_indicator_style = if leader_open {
-        Style::default().fg(theme.accent)
-    } else {
-        Style::default().fg(theme.muted)
-    };
-
-    let mut spans = vec![
-        Span::styled("[", Style::default().fg(theme.muted)),
-        Span::styled(leader_glyph, leader_indicator_style),
-        Span::styled("]", Style::default().fg(theme.muted)),
-        Span::raw("  "),
-        Span::styled("q", Style::default().fg(theme.muted)),
-        Span::styled(" back  ", Style::default().fg(theme.fg)),
-        Span::styled(":q", Style::default().fg(theme.muted)),
-        Span::styled(" quit  ", Style::default().fg(theme.fg)),
-        Span::styled("g+key", Style::default().fg(theme.muted)),
-        Span::styled(" navigate  ", Style::default().fg(theme.fg)),
-        Span::styled("?", Style::default().fg(theme.muted)),
-        Span::styled(" help", Style::default().fg(theme.fg)),
-        Span::raw("  "),
-        Span::styled(state_hint, Style::default().fg(theme.accent)),
-    ];
-
-    if let Some(ref status) = app.leader_status {
-        spans.push(Span::raw("  "));
-        spans.push(Span::styled(
-            status.as_str(),
-            Style::default().fg(theme.cyan),
-        ));
-    }
-
-    // Phase 25 — 01c. Status-line prompt for non-notification surfaces
-    // when a pending-approval notification is in flight and the overlay
-    // isn't currently open. The prompt mirrors the in-overlay keys so
-    // the operator can fire approve / block / later from anywhere.
-    if app.login_pending_count > 0 && app.overlay != Some(Overlay::LoginPending) {
-        spans.push(Span::raw("  "));
-        spans.push(Span::styled(
-            "pending approval — ",
-            Style::default().fg(theme.danger),
-        ));
-        spans.push(Span::styled("[a]", Style::default().fg(theme.accent)));
-        spans.push(Span::styled("pprove ", Style::default().fg(theme.fg)));
-        spans.push(Span::styled("[b]", Style::default().fg(theme.danger)));
-        spans.push(Span::styled("lock ", Style::default().fg(theme.fg)));
-        spans.push(Span::styled("[l]", Style::default().fg(theme.muted)));
-        spans.push(Span::styled("ater", Style::default().fg(theme.fg)));
-    }
-
-    let line = Line::from(spans);
-    let footer = Paragraph::new(line).style(Style::default().bg(theme.bg).fg(theme.fg));
-    frame.render_widget(footer, area);
+    frame.render_widget(
+        Paragraph::new(Line::from(st_spans))
+            .style(Style::default().bg(theme.bg).fg(theme.fg)),
+        status_area,
+    );
 }

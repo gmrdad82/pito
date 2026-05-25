@@ -32,6 +32,10 @@ pub trait PitoClient {
     /// Implementations return the same shape regardless of `kind`; the TUI
     /// reads `status` to know when polling should stop.
     fn get_bulk_operation_status(&self, id: u64) -> Result<BulkOperationStatus>;
+
+    /// Send an arbitrary command string to `POST /commands/execute`.
+    /// Returns the server response body as a plain string.
+    fn execute_command(&self, command: &str) -> Result<String>;
 }
 
 /// Per-bulk-operation bookkeeping for the mock client. We need to remember the
@@ -745,6 +749,10 @@ impl PitoClient for MockClient {
             items,
             completed_at,
         })
+    }
+
+    fn execute_command(&self, _command: &str) -> Result<String> {
+        Ok("ok".to_string())
     }
 }
 

@@ -1,8 +1,0 @@
-<%
-  base_data  = transitionable_data[:data]
-  merged_data = base_data.merge(
-    controller: "tui-sidekiq-stats #{base_data[:controller]}",
-    tui_sidekiq_stats_tui_transition_outlet: ".tui-sidekiq-stats"
-  )
-%>
-<%= content_tag :span, formatted_value, class: "tui-sidekiq-stats", data: merged_data %>

@@ -1,1 +1,0 @@
-<button type="button" class="bracketed" <%= data_attrs.map { |k, v| "data-#{k}=\"#{ERB::Util.h(v)}\"" }.join(" ").html_safe %>>[<span class="bl"><%= label %></span>]</button>

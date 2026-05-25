@@ -1,13 +1,9 @@
 source "https://rubygems.org"
 
 gem "rails", "~> 8.1.3"
-gem "propshaft"
+# gem "propshaft" — removed Phase 1 (no assets to serve)
 gem "pg", "~> 1.5"
 gem "puma", ">= 5.0"
-gem "importmap-rails"
-gem "turbo-rails"
-gem "stimulus-rails"
-gem "tailwindcss-rails"
 gem "jbuilder"
 gem "tzinfo-data", platforms: %i[ windows jruby ]
 gem "bootsnap", require: false
@@ -88,14 +84,14 @@ end
 
 group :development do
   gem "ruby-lsp", require: false
-  gem "web-console"
+  # gem "web-console" — removed Phase 1 (no web views)
 end
 
-gem "view_component", "~> 4.9"
+# gem "view_component" — removed Phase 1 (no web views)
 
-gem "capybara", "~> 3.40", group: :test
+# gem "capybara" — removed Phase 1 (no web UI to test)
 
-gem "draper", "~> 4.0"
+# gem "draper" — removed Phase 1 (no web views)
 
 # Phase 25 — 01e. TOTP 2FA (`rotp`) + QR-code rendering (`rqrcode`).
 # `rotp` generates and verifies the standard `otpauth://totp/...` URIs and

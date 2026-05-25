@@ -1,20 +1,2 @@
-<% content_for(:title, t("dashboard.index.title", default: "home")) %>
-<% content_for(:head) do %>
-  <meta name="turbo-cache-control" content="no-cache">
-<% end %>
-
-<%# Home screen — rows driven by AppSetting.home_rows_config.
-    Each row hash supplies: cols (Integer), panels (Array<String|Hash>),
-    ratios (Array<Integer>, optional). Panel kwargs are pre-assembled in
-    HomePanelData#assemble_home_panel_data and forwarded via panel_data:.
-    HomeRowComponent handles unknown keys with a muted placeholder. %>
-<div class="pito-workspace home-grid" data-controller="tui-cursor">
-  <% AppSetting.home_rows_config.each do |row| %>
-    <%= render Pito::HomeRowComponent.new(
-          cols:       row["cols"]   || row[:cols],
-          panels:     row["panels"] || row[:panels],
-          ratios:     row["ratios"] || row[:ratios],
-          panel_data: @home_panel_data
-        ) %>
-  <% end %>
-</div>
+<%# Dashboard — renders inside the application layout which hosts the xterm.js terminal %>
+<%# The terminal JS bootstraps itself and renders the UI. This view is intentionally empty. %>
