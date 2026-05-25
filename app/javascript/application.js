@@ -22,7 +22,6 @@ function draw(){
   if(c<20||r<6)return;
   const mw=c-(sidebarOpen?SW+1:0),sh=r-3;
 
-  // Build output as array of lines
   const out=[];
 
   // Header
@@ -55,12 +54,10 @@ function draw(){
   sl+=S(time.padStart(c-sl.replace(/\x1b\[[0-9;]*m/g,'').length-time.length),T.mu);
   out.push(S(sl,T.fg,T.sb));
 
-  // Write all at once (no clear, just overwrite)
   term.write(CSI+'H'+out.join('\r\n')+CSI+'0J');
 }
 
 function sbLine(i){
-  // i is row index in main area (0-based)
   const sw=SW;
   if(i===0)return S('channels'.padEnd(sw),T.ac)+B;
   if(i===1){
@@ -124,11 +121,9 @@ async function apiCmd(cmd){
 async function f(url,opts){return fetch(url,opts);}
 function csrf(){const m=document.querySelector('meta[name="csrf-token"]');return m?m.getAttribute('content'):'';}
 
-// ── Polling (no clear — just redraw) ──
 async function ps(){try{const r=await f('/status.json');statusData=await r.json();}catch(e){statusData={connected:false};}draw();}
 async function psb(){try{const r=await f('/sidebar.json');sidebarData=await r.json();}catch(e){sidebarData=null;}draw();}
 
-// ── Boot ─────────────────────────
 function boot(){
   fit.fit();
   if(term.cols<20||term.rows<6){setTimeout(boot,200);return;}
