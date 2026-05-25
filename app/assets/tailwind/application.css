@@ -7859,3 +7859,143 @@ a.cal-filter-chip:visited {
 .tui-sync-word.is-accent {
   color: var(--section-accent);
 }
+
+/* === pito-border-round (btop corners) === */
+/*
+ * A5 (2026-05-25) — btop-style rounded-corner ASCII overlay for every
+ * `.pito-pane` and `.pito-sub-panel`. Renders Unicode box-drawing corner
+ * characters `╭` (top-left) and `╮` (top-right) at the top corners of the
+ * panel's CSS border, reinforcing the visual rounded-frame idiom from btop.
+ *
+ * Implementation notes:
+ *
+ *   • `::before` positions `╭` at the panel's top-left corner.
+ *   • `::after`  positions `╮` at the panel's top-right corner.
+ *   • Both sit at `top: -1px` (on the border line) and outside the panel's
+ *     `padding` space so they don't shift inner content.
+ *   • `pointer-events: none; z-index: 2` — decorative, never traps clicks.
+ *   • `font-size: 13px; line-height: 1; font-family: monospace` — matches the
+ *     panel title chrome font metrics so the glyph aligns with the border line.
+ *   • Color matches the idle border: `color-mix(section-accent 30%, transparent)`
+ *     for `.pito-pane`; `var(--color-border)` for `.pito-sub-panel`.
+ *   • On focus (`data-tui-cursor-focused="yes"`) the glyph upgrades to full
+ *     section accent, mirroring the focused border + title color swap.
+ *
+ * Utility class `.pito-border-round` mirrors the same rules so future
+ * components (dialogs, shelves, etc.) can opt in without inheriting
+ * `.pito-pane` or `.pito-sub-panel` ancestry.
+ *
+ * Bottom corners are intentionally omitted: the CSS `border-radius: 10px`
+ * already rounds the bottom corners smoothly, and adding bottom-corner glyphs
+ * would conflict with the panel's `padding-bottom` content area. The top
+ * corners are the visually prominent surface (title-in-border chrome lives
+ * there), matching how btop's top-border dominates the frame identity.
+ */
+
+/* Top-left corner glyph */
+.pito-pane::before,
+.pito-sub-panel::before,
+.pito-border-round::before {
+  content: "╭";
+  position: absolute;
+  top: -1px;
+  left: -1px;
+  font-size: 13px;
+  line-height: 1;
+  font-family: monospace;
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* Top-right corner glyph */
+.pito-pane::after,
+.pito-sub-panel::after,
+.pito-border-round::after {
+  content: "╮";
+  position: absolute;
+  top: -1px;
+  right: -1px;
+  font-size: 13px;
+  line-height: 1;
+  font-family: monospace;
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* Idle color — matches the panel's idle border tone */
+.pito-pane::before,
+.pito-pane::after,
+.pito-border-round::before,
+.pito-border-round::after {
+  color: color-mix(in srgb, var(--section-accent, var(--dracula-purple)) 30%, transparent);
+}
+
+.pito-sub-panel::before,
+.pito-sub-panel::after {
+  color: var(--color-border);
+}
+
+/* Focus upgrade — corners shift to full section accent when panel is focused */
+.pito-pane[data-tui-cursor-focused="yes"]::before,
+.pito-pane[data-tui-cursor-focused="yes"]::after {
+  color: var(--section-accent, var(--dracula-purple));
+}
+
+.pito-sub-panel[data-tui-cursor-sub-panel-focused="yes"]::before,
+.pito-sub-panel[data-tui-cursor-sub-panel-focused="yes"]::after {
+  color: var(--section-accent, var(--dracula-purple));
+}
+
+/* Suppress corners when a sub-panel is focused inside a pane
+   (parent pane dims its own chrome per the existing focused-with-child rule) */
+.pito-pane[data-tui-cursor-focused="yes"]:has([data-tui-cursor-sub-panel-focused="yes"])::before,
+.pito-pane[data-tui-cursor-focused="yes"]:has([data-tui-cursor-sub-panel-focused="yes"])::after {
+  color: color-mix(in srgb, var(--section-accent, var(--dracula-purple)) 30%, transparent);
+}
+
+/* === panel border-top split pipe === */
+/*
+ * A6 (2026-05-25) — vertical pipe separator between adjacent items inside
+ * the border-top action slots (`.pito-pane__title-actions` and
+ * `.pito-sub-panel__actions`).
+ *
+ * When multiple action elements share the actions slot, they sit side by side
+ * with a 4px gap. This rule adds a `border-left` hairline on every non-first
+ * child inside the actions slot, creating a visible `│` pipe between adjacent
+ * actions (e.g., `[reindex] │ [ ] sync`, or multiple toggle chips).
+ *
+ * Constraint (locked 2026-05-24): pipes are CSS `border-left` / `border-right`
+ * on the slot element itself — NEVER `::before` / `::after` with `content`.
+ *
+ * Padding: `padding-left: 4px` on the non-first child keeps the text clear of
+ * the new border (matching the 4px gap already set on the flex container).
+ * Gap on the parent is reduced to 0 when this rule is active because the
+ * padding-left takes over the spacing role.
+ *
+ * Color: `var(--color-border)` for sub-panel actions (matches sub-panel border
+ * tone); `color-mix(section-accent 30%)` for pane actions (matches pane idle
+ * border tone). Focused state upgrades to full section accent.
+ */
+
+/* Pipe between adjacent items in the pane title-actions slot */
+.pito-pane__title-actions > * + * {
+  border-left: 1px solid
+    color-mix(in srgb, var(--section-accent, var(--dracula-purple)) 30%, transparent);
+  padding-left: 6px;
+}
+
+/* Focused pane: upgrade inner pipe to full accent */
+.pito-pane[data-tui-cursor-focused="yes"] .pito-pane__title-actions > * + * {
+  border-left-color: var(--section-accent, var(--dracula-purple));
+}
+
+/* Pipe between adjacent items in the sub-panel actions slot */
+.pito-sub-panel__actions > * + * {
+  border-left: 1px solid var(--color-border);
+  padding-left: 6px;
+}
+
+/* Focused sub-panel: upgrade inner pipe to full accent */
+.pito-sub-panel[data-tui-cursor-sub-panel-focused="yes"] .pito-sub-panel__actions > * + * {
+  border-left-color: var(--section-accent, var(--dracula-purple));
+}
