@@ -29,10 +29,10 @@ en:
     editions_section:
       heading: "editions (%{count})"
     owned_platforms:
-      empty: "(not owned on any platform)"
+      empty: "(no platform ownership added)"
     platform_ownership_chip:
       owned_title: "owned on %{label} — click to remove"
-      not_owned_title: "not owned on %{label} — click to add"
+      not_owned_title: "click to add ownership on %{label}"
     platform_ownership_editor:
       no_platforms: "(no platforms available)"
     played_chip:

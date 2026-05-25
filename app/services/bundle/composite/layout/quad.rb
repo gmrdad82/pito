@@ -1,3 +1,7 @@
+# DEPRECATED 2026-05-25 — no longer reachable via Bundle::Composite::LayoutChooser.
+# 4+ game bundles now render via Bundle::Composite::Layout::CountOverflow.
+# File retained for reference; do not call from new code.
+#
 # Phase 14 §2 — Quad layout. 4 members; 2×2 grid, each tile 150×200.
 # Canvas halved 2026-05-17 — see `Bundle::Composite::Builder` header.
 class Bundle

@@ -1,3 +1,7 @@
+# DEPRECATED 2026-05-25 — no longer reachable via Bundle::Composite::LayoutChooser.
+# 4+ game bundles now render via Bundle::Composite::Layout::CountOverflow.
+# File retained for reference; do not call from new code.
+#
 # Phase 27 §02 — EightGrid layout. 8 members; 2 columns × 4 rows.
 #
 # Canvas 300×400. Canvas halved 2026-05-17 — see `Bundle::Composite::Builder`

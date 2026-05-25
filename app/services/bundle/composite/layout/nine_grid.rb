@@ -1,3 +1,8 @@
+# DEPRECATED 2026-05-25 — no longer reachable via Bundle::Composite::LayoutChooser.
+# 4+ game bundles now render via Bundle::Composite::Layout::CountOverflow.
+# File retained for reference (NineGridWithOverflow delegates here); do not
+# call from new code.
+#
 # Phase 14 §2 + Phase 27 §02 — NineGrid layout. Exactly 9 members;
 # 3×3 grid, each tile 100×134. (100 × 3 = 300 width; 134 × 3 = 402,
 # rounded to OUTPUT_HEIGHT 400 via the final crop.) The blank-cell

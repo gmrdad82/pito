@@ -1,3 +1,7 @@
+# DEPRECATED 2026-05-25 — no longer reachable via Bundle::Composite::LayoutChooser.
+# 4+ game bundles now render via Bundle::Composite::Layout::CountOverflow.
+# File retained for reference; do not call from new code.
+#
 # Identical to :nine_grid layout output. The +N overflow indicator is
 # rendered as an HTML overlay in `_bundle_for_shelf_tile.html.erb`, not
 # baked into the JPEG. The layout file survives as a separate class so

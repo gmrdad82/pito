@@ -120,11 +120,10 @@ module Games
 
     # Canonical token → on-screen label. Platform tokens use
     # `Platform::PLATFORM_LABELS` short names; status / ownership
-    # tokens render verbatim except for the legacy `not_owned` (which
-    # is no longer in TOKEN_UNIVERSE but kept for safety in case a
-    # caller passes it in).
+    # tokens render verbatim except for `not_owned` (filter chip label
+    # is "owned" — F1 label sweep 2026-05-25; data scope name unchanged).
     CHIP_LABELS = {
-      "not_owned" => "not owned",
+      "not_owned" => "owned",
       "ps"        => "PS",
       "switch"    => "Switch",
       "steam"     => "Steam"

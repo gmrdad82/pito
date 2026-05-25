@@ -51,8 +51,7 @@
 
   <%= turbo_frame_tag "games_listing" do %>
     <% has_any_listing_content = @recently_played.any? ||
-                                 @genres_for_shelf.any? ||
-                                 @letter_buckets.any? %>
+                                 @genres_for_shelf.any? %>
 
     <% if @recently_played.any? %>
       <%= render(::ShelfComponent.new(
@@ -75,11 +74,6 @@
     <% if @bundles_for_shelf.any? || params[:filters].nil? %>
       <hr class="hairline">
       <%= render "games/bundles_for_shelf", bundles: @bundles_for_shelf %>
-    <% end %>
-
-    <% if @letter_buckets.any? %>
-      <hr class="hairline">
-      <%= render "games/letter_shelves", buckets: @letter_buckets %>
     <% end %>
 
     <% unless has_any_listing_content %>

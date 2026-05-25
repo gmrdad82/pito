@@ -67,14 +67,19 @@ class Bundle
         end
 
         layout = Bundle::Composite::LayoutChooser.choose(cover_image_ids.size)
-        # The overflow layout fills nine cells and overlays a "+N" caption
-        # on the bottom-right; only the first 9 ids contribute tiles.
+        # CountOverflow renders a solid color tile with no game images.
+        # All other layouts need tile images fetched from TileCache.
         # Phase 27 follow-up (2026-05-17) — switched to `fetch_for_game`
         # so the local cover-art master
         # (`/covers/games/<id>/master.jpg`) is preferred over an IGDB
         # HTTPS round-trip when present.
-        slice_games = layout == Bundle::Composite::Layout::NineGridWithOverflow ? tile_games.first(9) : tile_games
-        tiles    = slice_games.map { |g| @tile_cache.fetch_for_game(g) }
+        if layout == Bundle::Composite::Layout::CountOverflow
+          tiles = []
+        else
+          tiles = tile_games.map { |g| @tile_cache.fetch_for_game(g) }
+        end
+        # Pass total bundle member count (not just those with cover images) so
+        # CountOverflow displays the true game count for the bundle.
         composite = layout.compose(tiles, total_member_count: members.size)
         # Light edge sharpen — recovers crispness lost in the tile resize
         # without introducing visible halos. Applied once to the final

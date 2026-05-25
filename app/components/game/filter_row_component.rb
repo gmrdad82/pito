@@ -5,9 +5,9 @@
 # status + ownership chips; right side carries the platform chips.
 #
 # Phase 29 (2026-05-25) — `wishlist` token retired; replaced by
-# `not_owned` chip (label: "not owned").
+# `not_owned` chip (label: "owned" per F1 label sweep 2026-05-25).
 #
-#   [ ] released [ ] scheduled [ ] owned [ ] not owned [ ] played    [ ] PS [ ] Switch [ ] Steam
+#   [ ] released [ ] scheduled [ ] owned [ ] owned [ ] played    [ ] PS [ ] Switch [ ] Steam
 #
 # Default state — every chip CHECKED, URL `/games` (no `?filters=`
 # param) — communicates "showing the full list, nothing narrowed".

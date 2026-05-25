@@ -1,3 +1,7 @@
+# DEPRECATED 2026-05-25 — no longer reachable via Bundle::Composite::LayoutChooser.
+# 4+ game bundles now render via Bundle::Composite::Layout::CountOverflow.
+# File retained for reference; do not call from new code.
+#
 # Phase 27 §02 — Netflix5 layout. 5 members; 1 big left + 2×2 grid right.
 #
 # Canvas 300×400 (matches every other layout in this dir; the spec

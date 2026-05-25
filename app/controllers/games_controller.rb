@@ -72,14 +72,7 @@ class GamesController < ApplicationController
   # existing filter codepath narrows.
   def index
     # Phase 27 v2 spec 06 follow-up (2026-05-17) — filter is built
-    # FIRST so every shelf below consumes the filtered scope. Prior
-    # to this reorder only the letter shelves saw the filter; the
-    # recently-played, genre, and bundle shelves rendered against
-    # the unfiltered library and leaked rows the filter excluded
-    # (e.g. `?filters=switch` still showed PS-only titles in the
-    # alphabetical letter shelves was correct, but PS-only titles
-    # still surfaced through the genre / bundle shelves at the top
-    # of the page).
+    # FIRST so every shelf below consumes the filtered scope.
     @filter = sanitized_filter
     # Phase 28 §01a — primaries-only by default across every listing
     # partition. `?include_editions=yes` flips the listing to a flat
@@ -94,9 +87,9 @@ class GamesController < ApplicationController
     end
 
     # Phase 27 v2 spec 06 — filter row state read from a single CSV param.
-    # The query composes AFTER `?genre=` / `?bundle=` narrowing (01c)
-    # and BEFORE the per-letter partitioning (05). Unknown tokens are
-    # dropped silently. v2 has no `not_owned` chip so the 01b
+    # The query composes AFTER `?genre=` / `?bundle=` narrowing (01c).
+    # Unknown tokens are dropped silently. v2 has no `not_owned` chip so
+    # the 01b
     # contradiction case can never arise (`Games::Filter#contradiction?`
     # always returns false), but the ivar survives for the component's
     # stable signature.
@@ -162,7 +155,7 @@ class GamesController < ApplicationController
     #       the first game.
     #   (b) Cross-shelf filtering: on `/games?filters=...`, the
     #       bundles shelf intersects with the filtered scope just like
-    #       the recently-played / genres / letter shelves — a bundle
+    #       the recently-played / genres shelves — a bundle
     #       renders only if at least one of its member games matches.
     # The signal that the user is actively filtering is
     # `params[:filters]` being present (even when explicitly empty);
@@ -203,24 +196,10 @@ class GamesController < ApplicationController
     # outer shelf at the top of the page (`@genres_for_shelf`) is
     # the single source of truth for genre-grouped tile rows.
 
-    # Phase 27 v2 spec 05 — per-platform shelves retired. The new
-    # contract is genres outer shelf → collections outer shelf →
-    # per-letter shelves; the legacy per-platform shelves are gone
-    # from the page. The platform filter still lives on the 01b
-    # filter row's `owned_on=<slug>` token.
+    # Phase 27 v2 spec 05 — per-platform shelves retired. The platform
+    # filter still lives on the 01b filter row's `owned_on=<slug>` token.
 
     @all_games = filtered_scope.order(Arel.sql("release_year DESC NULLS LAST"))
-
-    # Phase 27 v2 spec 05 — letter buckets for the shelves-by-letter
-    # layout (now the SOLE listing layout on `/games`).
-    #
-    # Bucketing rule: first character of `Game.title` uppercased when
-    # in `[A-Z]`, otherwise `'#'`. Empty buckets are hidden — only
-    # letters that own at least one game render a `<section>`. Within
-    # a bucket, games sort by `LOWER(title)`, with `id` as a stable
-    # tiebreak. The `#` (digit / symbol) bucket renders LAST, after
-    # `Z`, per the spec's pinned decision.
-    @letter_buckets = build_letter_buckets(@all_games)
 
     respond_to do |format|
       format.html
@@ -505,32 +484,5 @@ class GamesController < ApplicationController
     int = raw.to_i
     return int if int.positive? && raw.to_s == int.to_s
     Bundle.where(slug: raw.to_s).limit(1).pick(:id)
-  end
-
-  # Phase 27 v2 spec 05 — build the letter-bucket array.
-  #
-  # Returns an Array of `[letter, [Game, ...]]` tuples in render
-  # order (A..Z first, `#` last). Empty buckets are NOT included.
-  # The grouping happens in Ruby (not SQL) because the bucket key
-  # is a derived value — uppercased first character with a
-  # collapse-to-`#` fallback for digits / symbols — and the
-  # already-filtered `@all_games` relation is bounded in size by
-  # the per-install library cap (spec 05 §"no pagination").
-  def build_letter_buckets(scope)
-    grouped = scope.to_a.group_by do |game|
-      first = game.title.to_s.strip[0]
-      if first && first.match?(/[A-Za-z]/)
-        first.upcase
-      else
-        "#"
-      end
-    end
-
-    grouped.each_value do |games|
-      games.sort_by! { |g| [ g.title.to_s.downcase, g.id ] }
-    end
-
-    ordered = grouped.keys.sort_by { |letter| letter == "#" ? "{" : letter }
-    ordered.map { |letter| [ letter, grouped[letter] ] }
   end
 end

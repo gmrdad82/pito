@@ -1,3 +1,7 @@
+# DEPRECATED 2026-05-25 — no longer reachable via Bundle::Composite::LayoutChooser.
+# 4+ game bundles now render via Bundle::Composite::Layout::CountOverflow.
+# File retained for reference; do not call from new code.
+#
 # Phase 27 §02 — Netflix7 layout. 7 members; 1 big top + 3 mid row +
 # 3 bottom row.
 #

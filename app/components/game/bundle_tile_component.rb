@@ -6,7 +6,7 @@
 # change.
 #
 # Renders one bundle in the `/games` Bundles outer shelf row at
-# 150 × 200 (letter-shelf parity). Shows the composite cover when
+# 150 × 200. Shows the composite cover when
 # `BundleCoverBuild` has produced one; otherwise falls back to the
 # project's theme-aware grid SVGs. When the bundle holds more than
 # nine members, an HTML `+N` overlay (via `StatusBadgeComponent

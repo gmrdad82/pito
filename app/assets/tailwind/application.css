@@ -4641,8 +4641,8 @@ dialog.tui-leader-menu::backdrop {
                                      game tiles, fallback SVGs).
      `.tile-cover img`             — IMG inside the rich-tile shape
                                      (`games/_tile.html.erb` for the
-                                     letter shelves + recently-played
-                                     shelf; `bundles/_tile.html.erb`).
+                                     recently-played shelf;
+                                     `bundles/_tile.html.erb`).
      `.bundle-cover-composite`     — leading composite cover tile in
                                      the bundles shelf row.
      `.pane-row--game-show .pane--narrow > img`
@@ -4706,25 +4706,6 @@ dialog.tui-leader-menu::backdrop {
   margin-top: 16px;
 }
 
-/* Phase 27 §01d follow-up — shelves-by-letter ROW clamp.
-   Each per-letter shelf is rendered through `ShelfComponent` (top-level since 2026-05-19)
-   whose row is `display: flex; gap: 6px; overflow-x: auto`. In the
-   default block layout that row stretches to the container width,
-   so a letter bucket with one or two games shows a long empty
-   stripe (and a long empty horizontal scrollbar) to the right of
-   the cover art. Clamp the ROW to `width: max-content` so the
-   visible span equals `N × 150 + (N-1) × 6` — never wider than the
-   cover art itself.
-
-   2026-05-17 (Wave F consolidation) — the clamp moved OFF the
-   outer `.shelf` section onto the inner `.shelf-row`. The section
-   stays full-width so the heading and the hairline (a `border-top`
-   on the section, see selectors further down) span the full
-   container width — matching the genre + bundle shelves below. */
-.games-shelves-by-letter-mode .shelf-row {
-  width: max-content;
-  max-width: 100%;
-}
 
 /* Phase 27 §01h / Phase 27 follow-up (2026-05-17) — Bundle tile
    composite cover. Sized to the WRAPPER (`.bundle-cover-wrap`) which
@@ -5126,31 +5107,13 @@ dialog.tui-leader-menu::backdrop {
 
    2026-05-17 (Wave F consolidation) — `padding-top` tightened from
    `8px` to `4px` so the heading sits closer to the hairline above
-   it. Mirrors the change applied to the letter-shelf hairline rule
-   below for visual parity across all three shelf families. */
+   it. */
 section[data-shelf="outer-genres"] > section.sub-shelf:not(:first-of-type) {
   border-top: 1px solid var(--color-border);
   margin-top: 8px;
   padding-top: 4px;
 }
 
-/* games — Letter-shelf hairline between consecutive letter shelves on
-   `/games`. Mirrors the bundle / genre sub-shelf treatment so the
-   A..Z..# sequence reads as a clearly separated stack rather than a
-   continuous slab. Scoped via the outer wrapper class emitted by
-   `app/views/games/_letter_shelves.html.erb`.
-
-   2026-05-17 (Wave F consolidation) — the outer `.shelf` width clamp
-   moved to the inner `.shelf-row`, so this `border-top` now spans
-   the full container width (matching genre + bundle shelves above)
-   instead of being clipped to the cover-art content width. Also
-   `padding-top` tightened from `8px` to `4px` so the per-letter
-   heading sits closer to the hairline. */
-.games-shelves-by-letter-mode > section[data-shelf="letter"]:not(:first-of-type) {
-  border-top: 1px solid var(--color-border);
-  margin-top: 8px;
-  padding-top: 4px;
-}
 
 /* 2026-05-11 — /channels/:id detail pane header.
    Sizing + positioning mirror YouTube's desktop channel header

@@ -12,9 +12,9 @@
 #
 # The component owns the size mapping AND the CSS class name AND
 # the `data-variant` attribute. Consumers (the all-games grid, the
-# 01c Genres / Bundles shelves, the 01d shelves-by-letter
-# display mode) render this component instead of inlining
-# `image_tag` calls — that way size changes happen in one place.
+# Genres / Bundles shelves) render this component instead of
+# inlining `image_tag` calls — that way size changes happen in one
+# place.
 #
 # # Size decision — `:shelf` at 65%
 #

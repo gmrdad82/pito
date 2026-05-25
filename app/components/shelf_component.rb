@@ -4,8 +4,7 @@
 # `/channels` Wave A1) can reuse the same chrome.
 #
 # Renders the shared chrome that was previously duplicated across
-# `_letter_shelves.html.erb`, `_genre_sub_shelf.html.erb`, and
-# `_bundles_for_shelf.html.erb`:
+# `_genre_sub_shelf.html.erb` and `_bundles_for_shelf.html.erb`:
 #
 #   <section class="shelf <extra_classes>" data-controller="steam-shelf"
 #            data-shelf="<shelf_kind>" ...extra_data>
@@ -27,15 +26,15 @@
 # — the component does not emit an explicit `<hr>`.
 #
 # 2026-05-17 (Wave F rewire) — extended to absorb the divergent
-# markup of the three /games callers without losing load-bearing CSS hooks
+# markup of the /games callers without losing load-bearing CSS hooks
 # or request-spec assertions:
 #   * extra_classes  — appended to the outer `<section class="shelf ...">`
-#     (e.g. "shelf--letter", "sub-shelf sub-shelf--genre", "shelf--bundles
-#     outer-shelf"). Specs grep for these literals.
-#   * shelf_kind     — emitted as `data-shelf="<kind>"` (e.g. "letter",
+#     (e.g. "sub-shelf sub-shelf--genre", "shelf--bundles outer-shelf").
+#     Specs grep for these literals.
+#   * shelf_kind     — emitted as `data-shelf="<kind>"` (e.g.
 #     "genre-sub", "outer-bundles"). CSS + request specs depend on this.
 #   * data           — extra `data-*` attributes on the outer section
-#     (e.g. `{ letter: "A" }`, `{ genre_id: 42 }`).
+#     (e.g. `{ genre_id: 42 }`).
 #   * section_style  — inline style override for the outer section
 #     (genre sub-shelf uses `margin-top: 12px`; the others omit the
 #     style and rely on the CSS `.shelf { margin-top: 16px }` default,
@@ -46,7 +45,7 @@
 #   * heading_margin — inline `margin-bottom` for the heading wrapper
 #     (genre sub-shelf uses 4px; the others use 6px).
 #   * row_classes    — appended to the row `class` (e.g.
-#     "letter-shelf-row", "sub-shelf-row", "bundles-shelf-row").
+#     "sub-shelf-row", "bundles-shelf-row").
 #   * row_gap        — inline `gap` on the row (bundles shelf uses 12px,
 #     all others 6px).
 #   * row_align      — inline `align-items` on the row (bundles uses
@@ -118,7 +117,7 @@ class ShelfComponent < ViewComponent::Base
     # NIL when the caller does not override — the default
     # `margin-top: 16px` is now expressed in CSS (`.shelf` rule in
     # `app/assets/tailwind/application.css`) so the hairline rules
-    # for sibling letter / genre shelves can win with their tighter
+    # for sibling genre shelves can win with their tighter
     # `margin-top: 8px` (inline styles would beat the cascade).
     section_style.presence
   end

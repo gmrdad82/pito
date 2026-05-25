@@ -16,8 +16,8 @@
 #           sizes the slot); only the caption typography shrinks. The
 #           dedicated smaller cover artwork lives in
 #           `Game::CoverComponent(variant: :shelf)` — a different
-#           call shape consumed by the shelves-by-letter display
-#           directly, NOT by this rich tile.
+#           call shape used in horizontal shelf rows, NOT by this
+#           rich tile.
 #
 # All helpers are sourced from `helpers.<name>` so the component picks
 # up the existing helper / url-helper surface without re-implementing
