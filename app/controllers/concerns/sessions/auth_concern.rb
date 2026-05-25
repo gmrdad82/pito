@@ -37,7 +37,20 @@ module Sessions
     private
 
     def authenticate_session!
-      return if anonymous_action?
+      # Anonymous-allowed actions (dashboard#index, sessions#new/#create) still
+      # need an opportunistic cookie read so Current.session populates when
+      # a valid session exists — otherwise the layout can't tell the user is
+      # authenticated on the next GET / after a successful POST /login.
+      # Never redirects on failure here; anonymous actions proceed without a
+      # session.
+      if anonymous_action?
+        opportunistic = Sessions::Authenticator.call(request)
+        if opportunistic.success?
+          Current.session = opportunistic.session
+          opportunistic.session.touch_activity!
+        end
+        return
+      end
 
       result = Sessions::Authenticator.call(request)
 
