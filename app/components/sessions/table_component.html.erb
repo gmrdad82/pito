@@ -89,18 +89,16 @@
           pending a separate UX decision (Shift-K jump, Tab into header
           via Shift-Tab from row 1's checkbox column, or a dedicated
           keybinding). actionHeader stays untargeted as before. %>
-      <%# FB-PURPLE-REGRESSION (2026-05-21) — `data-tui-focusable` moved
-          from the single `<th>` checkbox cell to the `<tr>` itself so
-          the focus tint paints across the ENTIRE header row (matching
-          the body-row `:row` focus behavior). The previous shape only
-          tinted the column-1 checkbox cell, which read as a visual
-          asymmetry. Style is `:row` (full-width tint) to match the
-          body-row contract; the `:checkbox_label` style only made
-          sense when the focusable hugged the single `<th>` containing
-          the [ ] glyph. %>
-      <tr data-sessions-bulk-revoke-target="defaultHeader"
-          data-tui-focusable="select_all"
-          data-tui-focusable-style="row">
+      <%# FB-PURPLE-REGRESSION (2026-05-21 → corrected) — `data-tui-focusable`
+          was previously on the `<tr>` itself (style `:row`) so the focus tint
+          painted the full header row. That caused an N+1 focus-stop bug: the
+          cursor controller counted the header as stop 0, shifting every even
+          body row's index by one and making the even-row cursor paint miss.
+          FB-146 already removed `data-tui-cursor-target="row"` for the same
+          reason (see FB-146 comment above). The `data-tui-focusable` attrs
+          are now removed from the header `<tr>` entirely. The select-all
+          keyboard UX is parked pending a separate decision (see FB-146). %>
+      <tr data-sessions-bulk-revoke-target="defaultHeader">
         <th class="tui-table__th tui-table__th--left col-action">
           <span class="sessions-table__checkbox sessions-table__checkbox--header"
                 data-sessions-bulk-revoke-target="headerCheckbox"

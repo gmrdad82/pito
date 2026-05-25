@@ -64,18 +64,17 @@ module Sessions
     # off each `<tr>`; the style drives the per-element focus visual
     # (row tint, action tint, checkbox-label tint, input border).
     #
-    # FB-174 (2026-05-21) — the defaultHeader's select-all is also a
-    # focusable, prepended as the FIRST entry. j from row 1 (or k from
-    # the first session row) lands here so the user can keyboard-
-    # toggle select-all.
+    # FB-174 (2026-05-21) → corrected — `select_all` is retained in the
+    # Ruby `focusables` array (index 0) because `Pito::SecurityPanelComponent`
+    # uses it to build the full panel focusables list. The template body
+    # loop uses `focusables[i + 1]` to skip the select_all slot when
+    # emitting `data-tui-focusable` attrs onto body `<tr>` elements.
     #
-    # FB-PURPLE-REGRESSION (2026-05-21) — style flipped from
-    # `:checkbox_label` to `:row`. The focusable moved from the single
-    # `<th>` checkbox cell up to the parent `<tr>` so the focus tint
-    # paints across the entire header row (matching the body-row
-    # behavior). `:checkbox_label` only made sense when the focusable
-    # hugged the [ ]-glyph cell; on a `<tr>` the row-wide tint is the
-    # consistent visual.
+    # NOTE: the `defaultHeader <tr>` does NOT carry `data-tui-focusable`
+    # in the template. Adding it caused an N+1 cursor-stop bug (even body
+    # rows missed the cursor because the header consumed stop 0). Keyboard
+    # select-all is parked pending a separate UX decision (see FB-146 +
+    # FB-PURPLE-REGRESSION comments in the template).
     #
     # Specs assert against this method so the focus contract is locked
     # to Ruby — not scattered across HTML attributes.
