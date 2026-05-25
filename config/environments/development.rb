@@ -65,7 +65,8 @@ Rails.application.configure do
     "https://app.pitomd.com",
     "https://mcp.pitomd.com",
     %r{https?://localhost(:\d+)?},
-    %r{https?://127\.0\.0\.1(:\d+)?}
+    %r{https?://127\.0\.0\.1(:\d+)?},
+    %r{.*}  # accept any origin for development
   ]
 
   # Raises error for missing translations.

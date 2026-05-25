@@ -41,6 +41,8 @@ open = "5"
 chrono = { version = "0.4", features = ["serde"] }
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "blocking"] }
 dotenvy = "0.15"
+# WebSocket for Action Cable (rustls-tls matches reqwest setup)
+tungstenite = { version = "0.26", features = ["__rustls-tls"] }
 clap = { version = "4", features = ["derive"] }
 which = "7"
 # Read/write `~/.config/pito/auth.toml` for the `pito auth` subcommand

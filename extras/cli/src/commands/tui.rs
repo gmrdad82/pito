@@ -8,6 +8,8 @@ use crossterm::{
 };
 use ratatui::{Terminal, backend::CrosstermBackend};
 
+use std::sync::mpsc;
+
 use crate::api::client::PitoClient;
 use crate::app::App;
 // use crate::keys; // simplified — key handling inline
@@ -59,8 +61,11 @@ fn run_loop<C: PitoClient>(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>
     let mut last_draw = std::time::Instant::now();
     let tick_rate = std::time::Duration::from_millis(33); // ~30 fps for smooth scramble
 
-    // Boot — fetch initial status
-    let _ = app.client.get_status().map(|s| app.status_data = s);
+    // Boot status comes from cable WebSocket — no polling
+    // Spawn cable WebSocket background thread
+    let (cable_tx, cable_rx) = mpsc::channel();
+    let ws_url = std::env::var("PITO_API_URL").unwrap_or_else(|_| "https://app.pitomd.com".into());
+    crate::cable::spawn(&ws_url, cable_tx);
 
     // Boot — push welcome lines
     app.push_line("");
@@ -107,6 +112,11 @@ fn run_loop<C: PitoClient>(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>
                     }
                 }
             }
+        }
+
+        // Poll cable channel for status updates (non-blocking)
+        while let Ok(sd) = cable_rx.try_recv() {
+            app.status_data = sd;
         }
 
         if last_draw.elapsed() >= tick_rate {

@@ -44,7 +44,6 @@ Rails.application.routes.draw do
   # JSON-only dashboard alias for pito CLI
   get "dashboard", to: "dashboard#index", as: :dashboard
   get "sidebar", to: "dashboard#sidebar", as: :sidebar
-  get "status", to: "dashboard#status", as: :status
 
   # Commands — slash-command API for xterm.js + Rust TUI
   post "commands/execute", to: "commands#execute"

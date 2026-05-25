@@ -1,6 +1,6 @@
 class DashboardController < ApplicationController
   # Home (/) — serves the xterm.js web shell for HTML requests, JSON for API.
-  allow_anonymous :index, :sidebar, :status, :channel_analytics
+  allow_anonymous :index, :sidebar, :channel_analytics
 
   def index
     respond_to do |format|
@@ -9,21 +9,7 @@ class DashboardController < ApplicationController
     end
   end
 
-  # GET /status.json — live Sidekiq + connection status for status bar
-  def status
-    stats = Sidekiq::Stats.new
-    render json: {
-      connected: true,
-      sidekiq: {
-        busy: stats.workers_size,
-        enqueued: stats.enqueued,
-        retry: stats.retry_size,
-        dead: stats.dead_size,
-        scheduled: stats.scheduled_size
-      },
-      timestamp: Time.current.iso8601
-    }
-  end
+  # REMOVED: /status.json — cable handles this now
 
   # GET /analytics/channel/:id — time-series data for ASCII chart rendering
   def channel_analytics

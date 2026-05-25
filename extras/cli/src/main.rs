@@ -1,6 +1,7 @@
 mod api;
 mod app;
 mod auth;
+mod cable;
 mod cli;
 mod commands;
 mod confirm;

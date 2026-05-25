@@ -14,4 +14,5 @@ pub mod confirm;
 pub mod footage;
 pub mod keybindings;
 pub mod output;
+pub mod cable;
 pub mod theme;
