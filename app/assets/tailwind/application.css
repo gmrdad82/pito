@@ -7509,42 +7509,6 @@ body[data-tui-authenticated="no"] .tui-page-scroll-indicator { display: none; }
   margin: 4px 0 10px;
 }
 
-/* [ log in ] — button.bracketed reset; accent color from button.bracketed rule.
-   Issue 1 fix: explicit color: var(--section-accent) here so the button rule
-   is not overridden by any muted reset. */
-.pito-auth-dialog__submit {
-  background: none;
-  border: none;
-  padding: 0;
-  cursor: pointer;
-  font: inherit;
-  font-size: 13px;
-  font-weight: 400;
-  color: var(--section-accent);
-}
-
-.pito-auth-dialog__submit .bl {
-  color: var(--section-accent);
-}
-
-/* [ use backup code ] / [ use TOTP code ] — Issue 1 fix: accent color, not muted.
-   cursor: pointer overrides any default. */
-.pito-auth-dialog__toggle-btn {
-  background: none;
-  border: none;
-  padding: 0;
-  cursor: pointer;
-  user-select: auto;
-  font: inherit;
-  font-size: 13px;
-  font-weight: 400;
-  color: var(--section-accent);
-}
-
-.pito-auth-dialog__toggle-btn .bl {
-  color: var(--section-accent);
-}
-
 /* No-enrollment code block: hint label + monospace command row. */
 .pito-auth-dialog__code-block {
   margin-top: 14px;
@@ -7581,21 +7545,3 @@ body[data-tui-authenticated="no"] .tui-page-scroll-indicator { display: none; }
   flex: 1;
 }
 
-/* [ copy ] — bracketed action in section accent (Issue 1 fix).
-   cursor: pointer; explicit accent color overrides any muted inheritance. */
-.pito-auth-dialog__copy-btn {
-  background: none;
-  border: none;
-  padding: 0;
-  cursor: pointer;
-  user-select: auto;
-  font: inherit;
-  font-size: 12px;
-  font-weight: 400;
-  flex-shrink: 0;
-  color: var(--section-accent);
-}
-
-.pito-auth-dialog__copy-btn .bl {
-  color: var(--section-accent);
-}

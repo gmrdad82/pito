@@ -1,77 +1,41 @@
 <%# Pito::AuthDialogComponent — full-viewport non-dismissible TOTP login overlay.
     Rendered by app/views/layouts/application.html.erb when Current.session.nil?.
-    Form posts to POST /login (sessions#create). On success → full-page reload.
-    On 422 → same layout re-renders with flash[:alert] set.
+    Form posts to POST /login (sessions#create).
 
-    Panel chrome: uses the same `.pito-pane` + `.pito-pane__title` pattern as
-    every home panel — border-radius, section-accent border, title-in-border
-    with pipe separators via border-left/border-right on the slot.
-
-    data-tui-cursor-focused="yes": marks the dialog as the focal element so
-    `.pito-pane[data-tui-cursor-focused="yes"]` fires the accent border rule.
-    The focused-panel bg tint (--focus-tint-bg) is applied via .pito-auth-dialog.
-
-    Stimulus: `pito-auth-dialog` controller handles:
-      - backup / TOTP toggle
-      - toggle label swap (target: toggleBtn)
-    The 6-digit segmented input is handled by the existing `totp-code-input`
-    controller (TotpCodeInputComponent).
-    The 8-char backup code input is handled by `backup-code-input` controller
-    (BackupCodeInputComponent). %>
+    Panel chrome: uses .pito-pane + .pito-pane__title (no fill, border-only).
+    All bracketed actions use the canonical .bracketed class (button.bracketed
+    rule in application.css handles font-weight 400 + chrome reset). NO custom
+    action classes. NO inline CSS. %>
 <div class="pito-auth-overlay" role="dialog" aria-modal="true" aria-labelledby="auth-dialog-title">
   <div class="pito-auth-dialog pito-pane" data-controller="pito-auth-dialog" data-tui-cursor-focused="yes">
-    <%# Title sits on the top border line via .pito-pane__title positioning.
-        It is NOT a heading — it IS the panel chrome label.
-        aria-hidden since the outer role="dialog" already has aria-labelledby. %>
-    <span class="pito-pane__title" id="auth-dialog-title" aria-hidden="false"><%= t("tui.auth.title") %></span>
+    <span class="pito-pane__title" id="auth-dialog-title"><%= t("tui.auth.title") %></span>
 
     <% if login_error %>
       <p class="pito-auth-dialog__error"><%= login_error %></p>
     <% end %>
 
     <%= form_with url: "/login", method: :post, scope: nil do |_f| %>
-      <%# Primary TOTP input — 6-segment boxes via TotpCodeInputComponent.
-          The component emits a hidden field named "code" that receives the
-          concatenated 6-digit string on every keystroke/paste/autofill. %>
       <div class="pito-auth-dialog__field" id="auth-totp-field"
            data-pito-auth-dialog-target="totpField">
         <%= render TotpCodeInputComponent.new(field: :code, autofocus: true) %>
       </div>
 
-      <%# Backup code input — revealed via toggle; hidden by default.
-          8 discrete single-char inputs via BackupCodeInputComponent.
-          Codes are 8 lowercase alphanumeric chars (SecureRandom.alphanumeric(8).downcase). %>
       <div class="pito-auth-dialog__field" id="auth-backup-field" hidden
            data-pito-auth-dialog-target="backupField">
         <%= render Pito::BackupCodeInputComponent.new(field: :backup_code) %>
       </div>
 
-      <%# Actions row — plain div (NOT .pito-pane__title-actions) so the
-          title-actions pipe rule (.pito-pane__title-actions > * + *) never fires.
-          gap: 6px from .pito-auth-dialog__actions gives natural inline spacing. %>
       <div class="pito-auth-dialog__actions">
-        <%# [ log in ] — bracketed action in section accent. %>
-        <button type="submit" class="pito-auth-dialog__submit bracketed">
-          [<span class="bl"><%= t("tui.auth.submit_label") %></span>]
-        </button>
-
-        <%# Toggle: [ use backup code ] / [ use TOTP code ] — bracketed accent action.
-            Label text swaps via the Stimulus controller. %>
-        <button type="button"
-                class="pito-auth-dialog__toggle-btn bracketed"
+        <button type="submit" class="bracketed">[<span class="bl"><%= t("tui.auth.submit_label") %></span>]</button>
+        <button type="button" class="bracketed"
                 data-action="click->pito-auth-dialog#toggleBackup"
                 data-pito-auth-dialog-target="toggleBtn"
                 data-use-backup-label="<%= t("tui.auth.use_backup_label") %>"
-                data-use-totp-label="<%= t("tui.auth.use_totp_label") %>">
-          [<span class="bl"><%= t("tui.auth.use_backup_label") %></span>]
-        </button>
+                data-use-totp-label="<%= t("tui.auth.use_totp_label") %>">[<span class="bl"><%= t("tui.auth.use_backup_label") %></span>]</button>
       </div>
     <% end %>
 
     <% if totp_not_enrolled? %>
-      <%# No-enrollment hint: monospace code block with [ copy ] action.
-          The outer div mounts `clipboard-copy` controller; the source target
-          is the <code> element; the copy action fires navigator.clipboard. %>
       <div class="pito-auth-dialog__code-block"
            data-controller="clipboard-copy"
            data-clipboard-copy-toast-message-value="<%= t("tui.auth.copied_label") %>">
@@ -79,11 +43,8 @@
         <div class="pito-auth-dialog__code-row">
           <code class="pito-auth-dialog__code-text"
                 data-clipboard-copy-target="source">bin/rails pito:auth:enroll</code>
-          <button type="button"
-                  class="pito-auth-dialog__copy-btn bracketed"
-                  data-action="click->clipboard-copy#copy">
-            [<span class="bl"><%= t("tui.auth.copy_label") %></span>]
-          </button>
+          <button type="button" class="bracketed"
+                  data-action="click->clipboard-copy#copy">[<span class="bl"><%= t("tui.auth.copy_label") %></span>]</button>
         </div>
       </div>
     <% end %>
