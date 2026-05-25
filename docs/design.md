@@ -28,9 +28,24 @@
    and would conflict with text inputs — CTRL+modifier makes the contract
    work even when a code-cell input has focus. Reference implementation:
    `app/javascript/controllers/pito_auth_dialog_controller.js`
-   (`visibleFocusables` + `focusNext` / `focusPrev`). Future panel-level
-   nav follows the same shape — extract into a mixin when the second
-   consumer lands.
+   (`visibleFocusables` + `focusNext` / `focusPrev` + `focusAndMark`).
+   Future panel-level nav follows the same shape — extract into a mixin
+   when the second consumer lands.
+
+6. **One cursor. One source.** The focus-tint cursor visual is defined
+   exactly ONCE in `app/assets/tailwind/application.css` via the
+   `[data-tui-focusable-focused="yes"][data-tui-focusable-style="..."]`
+   selectors (`row` / `action` / `checkbox_label` / `inert`-on-`tr` paint
+   the Solid variant D tint `--focus-tint-bg`; `input` is border-only by
+   convention). EVERY consumer that wants the cursor sets those same two
+   data attributes on the focused element and removes them from the prior
+   one. Both `j`/`k` row-nav (`tui-cursor` controller) and CTRL+j/k flat
+   nav (`pito-auth-dialog` etc.) use this contract. **Do NOT add new
+   `:focus` / `:focus-visible` rules that paint the same tint** — the
+   visual lives in one place so tweaking it tweaks everywhere. If a new
+   focusable shape needs a different paint, add a new `data-tui-focusable-style`
+   value + its rule alongside the existing four. Never inline a second
+   focus-tint source.
 
 ## Goal
 
