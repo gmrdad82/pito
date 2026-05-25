@@ -310,6 +310,18 @@ impl PitoClient for HttpClient {
         Ok(status)
     }
 
+    fn authenticate(&self, code: &str) -> Result<bool> {
+        let url = self.url("/login");
+        let body = format!("code={}", code);
+        let resp = self
+            .client
+            .post(&url)
+            .header("Content-Type", "application/x-www-form-urlencoded")
+            .body(body)
+            .send()?;
+        Ok(resp.status().is_success() || resp.status().as_u16() == 302)
+    }
+
     fn execute_command(&self, command: &str) -> Result<String> {
         let url = self.url("/commands/execute.json");
         let body = json!({ "command": command });

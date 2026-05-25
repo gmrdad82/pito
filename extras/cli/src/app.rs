@@ -98,6 +98,7 @@ pub struct App<C: PitoClient> {
     pub running: bool,
     pub theme_mode: ThemeMode,
     pub sidebar_open: bool,
+    pub authenticated: bool,
 
     // Data
     pub channels: Vec<Channel>,
@@ -134,6 +135,7 @@ impl<C: PitoClient> App<C> {
             running: true,
             theme_mode: ThemeMode::Dark,
             sidebar_open: true,
+            authenticated: false,
             channels: Vec::new(),
             selected_channel_ids: Vec::new(),
             conversation_lines: Vec::new(),
@@ -365,6 +367,25 @@ impl<C: PitoClient> App<C> {
                     }
                     Err(e) => {
                         self.push_line(format!("  error: {:#}", e));
+                    }
+                }
+            }
+            "/auth" => {
+                if parts.len() < 2 || parts[1].len() != 6 {
+                    self.push_line("  usage: /auth <6-digit-code>");
+                } else {
+                    self.push_line("  authenticating...");
+                    match self.client.authenticate(parts[1]) {
+                        Ok(true) => {
+                            self.authenticated = true;
+                            self.push_line("  authenticated");
+                            if let Ok(chans) = self.client.get_channels() {
+                                self.push_line(format!("  {} channels loaded", chans.len()));
+                                self.channels = chans;
+                            }
+                        }
+                        Ok(false) => { self.push_line("  login failed"); }
+                        Err(e) => { self.push_line(format!("  error: {:#}", e)); }
                     }
                 }
             }

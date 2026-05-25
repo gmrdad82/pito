@@ -36,6 +36,10 @@ pub trait PitoClient {
     /// Send an arbitrary command string to `POST /commands/execute`.
     /// Returns the server response body as a plain string.
     fn execute_command(&self, command: &str) -> Result<String>;
+
+    /// Authenticate with a 6-digit TOTP code via POST /login.
+    /// Returns true if auth succeeded.
+    fn authenticate(&self, code: &str) -> Result<bool>;
 }
 
 /// Per-bulk-operation bookkeeping for the mock client. We need to remember the
@@ -753,6 +757,10 @@ impl PitoClient for MockClient {
 
     fn execute_command(&self, _command: &str) -> Result<String> {
         Ok("ok".to_string())
+    }
+
+    fn authenticate(&self, _code: &str) -> Result<bool> {
+        Ok(true) // mock always succeeds
     }
 }
 
