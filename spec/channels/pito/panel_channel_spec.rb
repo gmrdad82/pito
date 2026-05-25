@@ -61,6 +61,30 @@ RSpec.describe Pito::PanelChannel, type: :channel do
     end
   end
 
+  # 2026-05-25 — kind-agnostic relay assertion.
+  # PanelChannel streams every envelope verbatim from the ActionCable
+  # server-side broadcast. There is no server-side kind filter in
+  # `#subscribed` or elsewhere in the channel class. The canonical
+  # confirmation is structural: the channel body calls `stream_from`
+  # unconditionally (no `kind` param check); new kinds like `pause` and
+  # `uncertain` therefore relay automatically without any channel change.
+  describe "kind-agnostic relay (pause + uncertain)" do
+    before { stub_connection(current_user: user) }
+
+    it "confirms subscription for home:stack (any kind relays through that stream)" do
+      subscribe(screen: "home", name: "stack")
+      expect(subscription).to be_confirmed
+      expect(subscription).to have_stream_from("pito:home:stack")
+    end
+
+    it "has no kind-filter logic in the subscribed method (source assertion)" do
+      # The channel class should not define a KIND_FILTER or similar
+      # constant — kind routing is the JS controller's responsibility.
+      expect(defined?(described_class::KIND_FILTER)).to be_nil
+      expect(described_class.instance_methods(false)).not_to include(:filter_kind)
+    end
+  end
+
   describe "allowlists" do
     it "exposes ALLOWED_SCREENS as a frozen array of home/videos/games" do
       expect(described_class::ALLOWED_SCREENS).to eq(%w[home videos games])

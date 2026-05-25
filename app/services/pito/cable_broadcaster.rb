@@ -6,7 +6,7 @@ module Pito
   # `pito:<screen>:<panel>[:<sub-panel>]` channel grammar so consumers
   # can never broadcast a raw shape or invent a non-pito channel name.
   #
-  # Two surfaces:
+  # Surfaces:
   #
   #   `.broadcast_status_bar(payload)` — global TST channel. Always
   #     `kind: "data"`; payload carries `sync_state`, `busy`, Sidekiq
@@ -16,6 +16,28 @@ module Pito
   #     sub-panel-scoped channel matching the `pito:` grammar. Caller
   #     specifies the kind (`indeterminate`, `progress`, `complete`,
   #     `error`, `reindex_event`, …).
+  #
+  #   `.broadcast_pause(target:, paused:)` — convenience wrapper that
+  #     emits `kind: "pause"` on the given `target` stream (must start
+  #     with `pito:`). Payload shape:
+  #       `{ target: <String>, paused: <Boolean>, ts: <ISO8601> }`
+  #     Honors the sync-enabled gate — suppressed when target or any
+  #     ancestor is disabled.
+  #
+  #   `.broadcast_uncertain(target:, reason:)` — convenience wrapper
+  #     that emits `kind: "uncertain"` on the given `target` stream
+  #     (must start with `pito:`). Payload shape:
+  #       `{ target: <String>, uncertain: true, reason: <String>, ts: <ISO8601> }`
+  #     Honors the sync-enabled gate — suppressed when target or any
+  #     ancestor is disabled.
+  #
+  #   `.broadcast_sync_state(target:, enabled:)` — sync-state toggle
+  #     broadcast on `pito:sync_state`. Clients re-paint sync indicator
+  #     glyphs from `{ target, enabled }`.
+  #
+  # Canonical kinds (all panel-scoped streams):
+  #   indeterminate, progress, complete, error, reindex_event,
+  #   pause, uncertain
   module CableBroadcaster
     extend self
 
@@ -57,6 +79,41 @@ module Pito
       ActionCable.server.broadcast(
         channel,
         { kind: kind, payload: payload, ts: Time.current.iso8601 }
+      )
+    end
+
+    # Emits a `pause` envelope on the target stream.
+    #
+    # Use when a background job or real-time process is temporarily
+    # paused (e.g. a sync loop waiting for rate-limit headroom).
+    # The caller decides the boolean semantics of `paused:`.
+    #
+    # Payload: `{ target:, paused:, ts: }`.
+    # Honors the sync-enabled gate (dropped when target or ancestor is
+    # disabled).
+    def broadcast_pause(target:, paused:)
+      broadcast_panel(
+        target.to_s,
+        kind: "pause",
+        payload: { target: target.to_s, paused: !!paused, ts: Time.current.iso8601 }
+      )
+    end
+
+    # Emits an `uncertain` envelope on the target stream.
+    #
+    # Use when the state of a remote resource cannot be confidently
+    # determined (e.g. an API timeout, an ambiguous diff result). The
+    # `reason:` string is a short, user-facing hint surfaced by the JS
+    # panel controller.
+    #
+    # Payload: `{ target:, uncertain: true, reason:, ts: }`.
+    # Honors the sync-enabled gate (dropped when target or ancestor is
+    # disabled).
+    def broadcast_uncertain(target:, reason:)
+      broadcast_panel(
+        target.to_s,
+        kind: "uncertain",
+        payload: { target: target.to_s, uncertain: true, reason: reason.to_s, ts: Time.current.iso8601 }
       )
     end
 

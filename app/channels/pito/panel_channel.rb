@@ -27,6 +27,15 @@ module Pito
   # added to the dashboard MUST extend ALLOWED_PANELS — the regex guard is a
   # second line of defense against arbitrary stream injection.
   #
+  # Kind relay: this channel is KIND-AGNOSTIC. It streams every envelope
+  # emitted by `Pito::CableBroadcaster` verbatim — no server-side kind
+  # filtering is applied. The JS panel controller is responsible for routing
+  # each envelope by `kind`. Canonical panel-scoped kinds include:
+  #   indeterminate, progress, complete, error, reindex_event, pause, uncertain
+  #
+  # `pause`     — emitted by `.broadcast_pause`; payload `{ target, paused, ts }`.
+  # `uncertain` — emitted by `.broadcast_uncertain`; payload `{ target, uncertain: true, reason, ts }`.
+  #
   # @contract see docs/architecture.md § Cable channel grammar
   class PanelChannel < ApplicationCable::Channel
     ALLOWED_SCREENS = %w[home videos games].freeze

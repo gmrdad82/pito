@@ -114,6 +114,83 @@ RSpec.describe Pito::CableBroadcaster do
     end
   end
 
+  # 2026-05-25 — canonical convenience wrappers for pause + uncertain kinds.
+  describe ".broadcast_pause" do
+    it "emits kind 'pause' on the given target stream with the correct payload shape" do
+      expect(ActionCable.server).to receive(:broadcast).with(
+        "pito:home:stack",
+        {
+          kind: "pause",
+          payload: { target: "pito:home:stack", paused: true, ts: kind_of(String) },
+          ts: kind_of(String)
+        }
+      )
+      described_class.broadcast_pause(target: "pito:home:stack", paused: true)
+    end
+
+    it "coerces paused to a boolean" do
+      expect(ActionCable.server).to receive(:broadcast).with(
+        "pito:home:stack",
+        hash_including(payload: hash_including(paused: false))
+      )
+      described_class.broadcast_pause(target: "pito:home:stack", paused: nil)
+    end
+
+    it "honors the sync-enabled gate (broadcast suppressed when target is disabled)" do
+      AppSetting.set_sync("home.stack", false)
+      expect(ActionCable.server).not_to receive(:broadcast)
+      described_class.broadcast_pause(target: "pito:home:stack", paused: true)
+    end
+
+    it "raises ArgumentError when the target does not start with pito:" do
+      expect {
+        described_class.broadcast_pause(target: "home:stack", paused: false)
+      }.to raise_error(ArgumentError, /must start with pito:/)
+    end
+  end
+
+  describe ".broadcast_uncertain" do
+    it "emits kind 'uncertain' on the given target stream with the correct payload shape" do
+      expect(ActionCable.server).to receive(:broadcast).with(
+        "pito:home:security",
+        {
+          kind: "uncertain",
+          payload: { target: "pito:home:security", uncertain: true, reason: "API timeout", ts: kind_of(String) },
+          ts: kind_of(String)
+        }
+      )
+      described_class.broadcast_uncertain(target: "pito:home:security", reason: "API timeout")
+    end
+
+    it "always sets uncertain: true in the payload" do
+      expect(ActionCable.server).to receive(:broadcast).with(
+        "pito:home:security",
+        hash_including(payload: hash_including(uncertain: true))
+      )
+      described_class.broadcast_uncertain(target: "pito:home:security", reason: "unknown")
+    end
+
+    it "stringifies the reason arg" do
+      expect(ActionCable.server).to receive(:broadcast).with(
+        "pito:home:security",
+        hash_including(payload: hash_including(reason: "timed_out"))
+      )
+      described_class.broadcast_uncertain(target: "pito:home:security", reason: :timed_out)
+    end
+
+    it "honors the sync-enabled gate (broadcast suppressed when target is disabled)" do
+      AppSetting.set_sync("home.security", false)
+      expect(ActionCable.server).not_to receive(:broadcast)
+      described_class.broadcast_uncertain(target: "pito:home:security", reason: "timeout")
+    end
+
+    it "raises ArgumentError when the target does not start with pito:" do
+      expect {
+        described_class.broadcast_uncertain(target: "home:security", reason: "x")
+      }.to raise_error(ArgumentError, /must start with pito:/)
+    end
+  end
+
   describe ".broadcast_sync_state" do
     it "broadcasts a sync_state envelope on pito:sync_state with the canonical payload shape" do
       expect(ActionCable.server).to receive(:broadcast).with(
