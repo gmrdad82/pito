@@ -24,8 +24,7 @@
 # `map_game` returns ONLY IGDB-sourced columns. Local-only columns
 # (`played_at`, `notes`, `hours_of_footage_manual`) are intentionally
 # absent so a caller can `update!(map_game(...))` without clobbering
-# local edits. Per-platform ownership (Phase 27 §1a) lives in
-# `game_platform_ownerships` — the join survives sync untouched.
+# local edits.
 class Game
   module Igdb
     module GameMapper
@@ -120,15 +119,6 @@ class Game
       end
 
       def map_genre(json)
-        json ||= {}
-        {
-          igdb_id: json["id"],
-          name:    json["name"],
-          slug:    json["slug"]
-        }
-      end
-
-      def map_platform(json)
         json ||= {}
         {
           igdb_id: json["id"],

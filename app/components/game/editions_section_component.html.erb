@@ -1,7 +1,4 @@
-<%# Phase 28 §01a — Editions sub-section. Listed in title order.
-    Each row carries: cover thumb (small IGDB variant), title (link to
-    the edition show page), version_title (muted), and the per-edition
-    owned-platforms chip strip. %>
+<%# Phase 28 §01a — Editions sub-section. Listed in title order. %>
 <section id="editions" class="editions-section" style="margin-top: 16px;">
   <h2 style="margin-top: 0;"><%= heading %></h2>
   <ul style="list-style: none; padding: 0; margin: 0;">
@@ -24,9 +21,6 @@
               (<%= edition.version_title %>)
             </span>
           <% end %>
-        </span>
-        <span class="edition-ownership" style="flex: 0 0 auto;">
-          <%= render(Game::OwnedPlatformsChipListComponent.new(game: edition)) %>
         </span>
       </li>
     <% end %>

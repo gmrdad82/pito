@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_25_160000) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_25_170000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -363,30 +363,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_25_160000) do
     t.index ["genre_id"], name: "index_game_genres_on_genre_id"
   end
 
-  create_table "game_platform_ownerships", force: :cascade do |t|
-    t.datetime "created_at", null: false
-    t.bigint "game_id", null: false
-    t.bigint "platform_id", null: false
-    t.boolean "play_on", default: false, null: false
-    t.datetime "updated_at", null: false
-    t.index ["game_id", "platform_id"], name: "index_game_platform_ownerships_uniqueness", unique: true
-    t.index ["game_id", "play_on"], name: "index_game_platform_ownerships_unique_play_on_per_game", unique: true, where: "(play_on = true)"
-    t.index ["game_id"], name: "index_game_platform_ownerships_on_game_id"
-    t.index ["platform_id"], name: "index_game_platform_ownerships_on_platform_id"
-  end
-
-  create_table "game_platforms", force: :cascade do |t|
-    t.datetime "created_at", null: false
-    t.bigint "game_id", null: false
-    t.bigint "platform_id", null: false
-    t.string "source", default: "igdb", null: false
-    t.datetime "updated_at", null: false
-    t.index ["game_id", "platform_id"], name: "index_game_platforms_on_game_id_and_platform_id", unique: true
-    t.index ["game_id"], name: "index_game_platforms_on_game_id"
-    t.index ["platform_id"], name: "index_game_platforms_on_platform_id"
-    t.index ["source"], name: "index_game_platforms_on_source"
-  end
-
   create_table "game_publishers", force: :cascade do |t|
     t.bigint "company_id", null: false
     t.datetime "created_at", null: false
@@ -415,9 +391,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_25_160000) do
     t.text "last_sync_error"
     t.boolean "manual_date_override", default: false, null: false
     t.text "notes"
-    t.jsonb "platforms", default: [], null: false
     t.date "played_at"
-    t.bigint "played_platform_id"
     t.bigint "primary_genre_id"
     t.string "publisher"
     t.date "release_date"
@@ -439,7 +413,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_25_160000) do
     t.index ["igdb_id"], name: "index_games_on_igdb_id", unique: true, where: "(igdb_id IS NOT NULL)"
     t.index ["igdb_slug"], name: "index_games_on_igdb_slug", unique: true, where: "(igdb_slug IS NOT NULL)"
     t.index ["igdb_synced_at"], name: "index_games_on_igdb_synced_at"
-    t.index ["played_platform_id"], name: "index_games_on_played_platform_id"
     t.index ["primary_genre_id"], name: "index_games_on_primary_genre_id"
     t.index ["release_year"], name: "index_games_on_release_year"
     t.index ["summary_embedding"], name: "index_games_on_summary_embedding_hnsw", opclass: :vector_cosine_ops, using: :hnsw
@@ -583,16 +556,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_25_160000) do
     t.string "uid", null: false
     t.datetime "updated_at", null: false
     t.index ["uid"], name: "index_oauth_applications_on_uid", unique: true
-  end
-
-  create_table "platforms", force: :cascade do |t|
-    t.datetime "created_at", null: false
-    t.bigint "igdb_id"
-    t.string "name", null: false
-    t.string "slug", null: false
-    t.datetime "updated_at", null: false
-    t.index ["igdb_id"], name: "index_platforms_on_igdb_id", unique: true
-    t.index ["slug"], name: "index_platforms_on_slug", unique: true
   end
 
   create_table "playlist_videos", force: :cascade do |t|
@@ -1108,15 +1071,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_25_160000) do
   add_foreign_key "game_developers", "games", on_delete: :cascade
   add_foreign_key "game_genres", "games", on_delete: :cascade
   add_foreign_key "game_genres", "genres", on_delete: :cascade
-  add_foreign_key "game_platform_ownerships", "games", on_delete: :cascade
-  add_foreign_key "game_platform_ownerships", "platforms", on_delete: :restrict
-  add_foreign_key "game_platforms", "games", on_delete: :cascade
-  add_foreign_key "game_platforms", "platforms", on_delete: :cascade
   add_foreign_key "game_publishers", "companies", on_delete: :cascade
   add_foreign_key "game_publishers", "games", on_delete: :cascade
   add_foreign_key "games", "games", column: "version_parent_id", on_delete: :nullify
   add_foreign_key "games", "genres", column: "primary_genre_id", on_delete: :nullify
-  add_foreign_key "games", "platforms", column: "played_platform_id"
   add_foreign_key "import_jobs", "channels", on_delete: :cascade
   add_foreign_key "import_jobs", "users", column: "enqueued_by_id", on_delete: :restrict
   add_foreign_key "milestone_rules", "users", column: "created_by_user_id", on_delete: :nullify

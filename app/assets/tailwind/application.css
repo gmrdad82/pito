@@ -20,7 +20,7 @@
    `_theme.css` is a deliberate override — the inline value wins per CSS
    cascade order. The remaining tokens (`--color-bg-alt`,
    `--color-flash-*`, `--color-rating-meh/poor/very-bad`,
-   `--color-chart-*`, `--color-platform-*`, badge colors, layout knobs)
+   `--color-chart-*`, badge colors, layout knobs)
    stay inline as a transitional state; folding them into
    `Pito::Theme::SEMANTIC` is a follow-up. */
 :root {
@@ -157,11 +157,6 @@
   --color-badge-code-text:     var(--dracula-fg);
   --color-badge-success-border: var(--dracula-green);
   --color-badge-success-text:   var(--dracula-green);
-
-  /* Platform brand colors (Q5 LOCKED — tokenize external brand identities) */
-  --color-platform-ps:     #003791;
-  --color-platform-switch: #E60012;
-  --color-platform-steam:  #00ADEE;
 
   /* ============================================================
      L4 — Effect tokens (state derivations)
@@ -2243,9 +2238,8 @@ table.tui-table--3col-aligned td:nth-child(3) {
    so rows read as a stack of label/value pairs. The value column
    truncates with ellipsis (via a `max-width` on the value cell) so
    long publisher / developer lists do not overflow the surrounding
-   pane. Label column width matches the sibling `.ownership-label`
-   (`min-width: 80px`) so the meta strip and ownership block share a
-   visual rhythm in the LEFT pane.
+   pane. Label column `min-width: 80px` aligns the meta strip
+   consistently within the LEFT pane.
 
    `width: auto` (2026-05-17 item 2 polish) so the table shrink-wraps
    to its content — values like `12-12-2025` or `Bitmap Bureau` sit
@@ -2301,8 +2295,8 @@ table.kv-table td.kv-table__value {
    opacity dim sits ON TOP of the existing `var(--color-muted)` value
    color so the row reads even more washed-out than the surrounding
    date / dev / pub rows — same visual posture as the breadcrumb
-   `[sync]` / `[delete]` muted spans + the ownership-matrix
-   "syncing…" placeholder. No background change (kv-table is
+   `[sync]` / `[delete]` muted spans + "syncing…" placeholders. No
+   background change (kv-table is
    transparent-zebra by design). */
 table.kv-table tr.kv-table__row--syncing td.kv-table__label,
 table.kv-table tr.kv-table__row--syncing td.kv-table__value {
@@ -3391,119 +3385,6 @@ hr.hairline {
   margin: 8px 0;
 }
 
-/* Wave C4 (spec 08 §"Ownership chips") — /games/:id LEFT-pane
-   ownership block. One label column + a horizontal chip row per
-   ownership facet (platforms / played / footage). The
-   label width is fixed so the chip rows align vertically; the chips
-   wrap if the row gets long. */
-.ownership-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 4px 0;
-  flex-wrap: wrap;
-}
-.ownership-label {
-  min-width: 80px;
-  color: var(--color-muted);
-}
-
-/* Ownership chip toggle button — strips the default <button> chrome so
-   the bracketed `[PS5]` / `[Switch]` / `[Steam]` chip reads as a plain
-   clickable label identical to `Platforms::ChipComponent` plus a pointer
-   cursor. Hover bumps brightness slightly so the toggle affordance
-   reads without changing the color tier. */
-.ownership-chip-button {
-  background: none;
-  border: 0;
-  padding: 0;
-  font: inherit;
-  cursor: pointer;
-  line-height: inherit;
-}
-/* FB-67 (2026-05-20) — no pointer-hover brightness lift on ownership
-   chip buttons. Keyboard focus keeps `outline: none` (focus signal is
-   handled by the `data-tui-cursor-focused` controller, not the
-   browser default focus ring). */
-.ownership-chip-button:focus {
-  outline: none;
-}
-
-/* Static chip (played — non-interactive in this slice).
-   Same bracketed shape, no pointer cursor; the `title` attribute
-   carries the contextual hover string. */
-.ownership-chip-static {
-  cursor: default;
-}
-
-/* 2026-05-17 BP slice / 2026-05-18 dual-checkbox — per-platform
-   ownership matrix on /games/:id. One row per applicable platform
-   (PS / Switch / Steam). Row layout: platform-name label column
-   (fixed min-width so chips align across rows) + two inline
-   auto-submit checkboxes (`[ ] owned` / `[ ] played`) rendered as
-   `.ownership-matrix__toggle` cells. Matches the visual rhythm of
-   the previous `.ownership-row` block — identical row height +
-   label column width — so the LEFT pane's vertical cadence stays
-   unchanged when the matrix replaces the flat rows. */
-.ownership-matrix__row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 4px 0;
-  /* `nowrap` keeps the platform label + both `[owned]` / `[played]`
-     toggles on a single line inside the 272px LEFT pane (≈248px
-     content width). Wrapping was the prior failure mode: the second
-     toggle stacked under the first, breaking the matrix shape. The
-     gap was tightened from 16 → 8 and the toggle horizontal padding
-     from 6 → 4 (see `.ownership-matrix__toggle` below) so the
-     three items fit. `min-width` on the platform label was dropped
-     since "Switch" (the widest label) measures ~45px and the fixed
-     80px column was burning width budget the row no longer has. */
-  flex-wrap: nowrap;
-}
-.ownership-matrix__platform {
-  color: var(--color-muted);
-  white-space: nowrap;
-  width: 56px;
-  flex-shrink: 0;
-}
-.ownership-checkbox {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  cursor: pointer;
-}
-
-/* 2026-05-17 — inline-editable ownership matrix toggles. Each cell is
-   an `md-check` checkbox inside a tiny auto-submit form; the `change`
-   event PATCHes `Games::OwnershipTogglesController` and Turbo
-   re-renders /games/:id with a flash naming the new state. The hover
-   affordance is a subtle bg tint (matches the existing
-   `.ownership-chip-button:hover` rule) so the cell reads as
-   clickable.
-
-   2026-05-18 FN2 follow-up — the previous variant tinted the
-   `--owned` / `--played` cells green (bordered + filled
-   respectively). User feedback: drop the colorization so checked
-   chips render in the same default text color as unchecked ones.
-   The bracket + label stay neutral regardless of state; the `[x]`
-   indicator alone signals on/off. The `--owned` / `--played`
-   modifier classes still ship on the wrapping `<label>` (the
-   template branches on them) but no longer carry visual rules. */
-.ownership-matrix__toggle {
-  padding: 2px 4px;
-  border-radius: 0;
-  transition: background-color 80ms ease;
-  white-space: nowrap;
-}
-/* FB-67 (2026-05-20) — no pointer-hover background tint on ownership
-   matrix toggles. Keyboard focus-within retained intentionally — that
-   signal-bearing affordance reflects an active form field, not pointer
-   hover; keeping it preserves keyboard-driven discoverability. */
-.ownership-matrix__toggle:focus-within {
-  background-color: var(--color-row-hover, rgba(0, 0, 0, 0.04));
-}
-
 /* Wave C7 (spec 08 §"RIGHT-pane sections" line 301 + §"RIGHT pane
    Time-to-beat" lines 318-333) — RIGHT-pane sections on `/games/:id`.
    The summary section sits above the hairline divider; the time-to-
@@ -3925,38 +3806,6 @@ code.inline-code {
   border-color: var(--color-badge-urgent-border);
   color: var(--color-badge-urgent-text);
 }
-/* 2026-05-17 — Platform chip primitive. Status-badge sibling: a
-   colored pill painted in the platform brand color as BACKGROUND
-   (PS5 PlayStation blue, Switch Nintendo red, Steam cyan) with white
-   text on top. No literal `[ ]` brackets — the colored surface IS
-   the visual delimiter, mirroring `.status-badge`. One color set for
-   BOTH themes (do not theme-switch); per-slug modifier classes paint
-   `background-color` below. Shape (padding / radius / line-height)
-   matches `.status-badge` so the chips read as a sibling badge
-   primitive rather than a new shape. */
-.platform-chip {
-  display: inline-block;
-  padding: 1px 6px;
-  border-radius: 0;
-  font-family: var(--font-mono);
-  font-weight: 600;
-  letter-spacing: 0;
-  line-height: 1;
-  vertical-align: baseline;
-  color: var(--dracula-fg);
-  white-space: nowrap;
-}
-.platform-chip--sm {
-  font-size: 11px;
-  padding: 0 5px;
-}
-.platform-chip--md {
-  font-size: 13px;
-  padding: 2px 8px;
-}
-.platform-chip--ps     { background-color: var(--color-platform-ps);     color: var(--dracula-fg); }
-.platform-chip--switch { background-color: var(--color-platform-switch); color: var(--dracula-fg); }
-.platform-chip--steam  { background-color: var(--color-platform-steam);  color: var(--dracula-fg); }
 /* Rating heat-bar — text-glyph bar (2026-05-19 v4).
    The bar is ONE continuous run of `=` characters between `[` `]`
    brackets. The full bad→excellent gradient paints across every `=`
@@ -4590,14 +4439,10 @@ dialog.tui-leader-menu::backdrop {
 
    Selectors:
      `.game-cover-img`             — IMG inside `Game::CoverComponent`
-                                     (genre shelves, collection-shelf
-                                     game tiles, fallback SVGs).
+                                     (shelves, game tiles, fallback SVGs).
      `.tile-cover img`             — IMG inside the rich-tile shape
                                      (`games/_tile.html.erb` for the
-                                     recently-played shelf;
-                                     `bundles/_tile.html.erb`).
-     `.bundle-cover-composite`     — leading composite cover tile in
-                                     the bundles shelf row.
+                                     recently-played shelf).
      `.pane-row--game-show .pane--narrow > img`
                                    — IMG rendered by
                                      `shared/_igdb_cover.html.erb` on
@@ -4621,7 +4466,6 @@ dialog.tui-leader-menu::backdrop {
                                      un-wrapped cover render. */
 .game-cover-img,
 .tile-cover img,
-.bundle-cover-composite,
 .pane-row--game-show .pane--narrow > img,
 .pane-row--game-show .pane--narrow .game-cover-detail > img {
   border: 1px solid var(--color-cover-border);
@@ -4659,183 +4503,6 @@ dialog.tui-leader-menu::backdrop {
   margin-top: 16px;
 }
 
-
-/* Phase 27 §01h / Phase 27 follow-up (2026-05-17) — Bundle tile
-   composite cover. Sized to the WRAPPER (`.bundle-cover-wrap`) which
-   carries the inline `width: <N>px; height: <N>px` from
-   `Game::BundleTileComponent` — 150 × 200 for `size: :grid` (the
-   /games shelf), 98 × 130 for `size: :shelf` (the /games/:id bundles
-   section). The composite is built at 600 × 800 via
-   `Composite::Builder`; the browser downsamples to whichever physical
-   size the wrapper declares (3:4 aspect ratio preserved). Prior to
-   2026-05-18 this rule hardcoded 150 × 200 which forced every shelf
-   variant back to grid size — drop the fixed dimensions and let the
-   wrapper drive sizing. */
-.bundle-cover-composite {
-  width: 100%;
-  height: 100%;
-  display: block;
-  border-radius: 0;
-  object-fit: cover;
-}
-
-/* 2026-05-17 — Bundle cover `+N` overflow overlay. Mirrors the inline
-   `.tile-cover-chip-overlay` rendered in `games/_tile.html.erb`
-   visually (anchored bottom-right of the cover, container background
-   uses the cover-border token so the strip reads as a continuation of
-   the cover edge), but with a single muted `StatusBadge` inside instead
-   of brand-coloured platform chips.
-
-   Two deltas vs the chip overlay:
-
-   1. `right: -1px; bottom: -1px` — the overlay edge OVERLAPS the
-      cover's 1px border (defined on `.bundle-cover-composite` above)
-      so the two edges read as one continuous line instead of stacking
-      into a double border on dark theme (where both `--color-border`
-      and `--color-cover-border` are visible neutrals).
-   2. The descendant `.status-badge` override strips the badge's own
-      border + renormalises font-size / line-height / padding to match
-      `.platform-chip--sm` (11px / 1.4 / `padding: 0 5px`), so a `+N`
-      badge sitting next to platform chips on a sibling tile reads as
-      the same shape — not a chunkier bordered pill. */
-.bundle-cover-overflow-overlay {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  display: inline-flex;
-  padding: 1px;
-  background-color: var(--color-cover-border);
-  z-index: 1;
-}
-.bundle-cover-overflow-overlay .status-badge {
-  border: 0;
-  font-size: 11px;
-  line-height: 1;
-  padding: 0 5px;
-}
-
-/* 2026-05-18 (Bug 4) — Empty-bundle netflix-3 placeholder.
-
-   When a bundle has no composite cover yet (no members, or the async
-   `BundleCoverBuild` job has not landed), the tile renders a 3-cell
-   grid that previews the netflix-style composite layout a
-   3-member bundle would resolve to. The single large left cell +
-   two stacked right cells mirror `Composite::CellMap.for(3)` so
-   the placeholder reads as "bundle waiting for members" rather than
-   "missing single game cover".
-
-   Sized to the wrapper (`.bundle-cover-wrap` — `100%` of the
-   surrounding 150 × 200 or 98 × 130 box). The grid layout is fixed
-   at 60% / 40% columns with two equal-height rows; the main cell
-   spans both rows on the left. `gap: 2px` keeps cell separators
-   subtle. Each cell carries a 1px dashed border + the secondary
-   surface background so both light and dark themes show the
-   placeholder against the surrounding cover wrapper without
-   competing for the eye. */
-.bundle-tile__nocover-netflix3 {
-  width: 100%;
-  height: 100%;
-  display: grid;
-  grid-template-columns: 60% 40%;
-  grid-template-rows: 50% 50%;
-  gap: 2px;
-  background-color: transparent;
-  /* 2026-05-18 (follow-up 3) — adopt the standard cover-art outer
-     chrome (1px solid theme-aware border + 2px radius) so the
-     empty-bundle placeholder reads as the same shape as a real
-     `.bundle-cover-composite` tile. The dashed inner cells stay
-     INSIDE this outer solid border. */
-  border: 1px solid var(--color-cover-border);
-  border-radius: 0;
-  box-sizing: border-box;
-  overflow: hidden;
-}
-.bundle-tile__nocover-netflix3 .cell {
-  border: 1px dashed var(--color-border);
-  background-color: var(--color-bg-alt);
-  border-radius: 0;
-  /* 2026-05-18 (follow-up) — center the embedded controller icon
-     inside each cell. Without flex centering the icon defaults to
-     top-left of the cell and reads as off-balance. */
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  /* 2026-05-18 (follow-up 2) — draw the 1px dashed border INSIDE the
-     cell's allocated grid track. Without `border-box`, the border
-     sits OUTSIDE the track and the rightmost / bottommost cell edges
-     get clipped by the parent wrapper's `overflow: hidden` (the
-     cover-radius clip on `.bundle-cover-wrap`), so the right + bottom
-     dashed strokes disappear. */
-  box-sizing: border-box;
-}
-.bundle-tile__nocover-netflix3 .cell--main {
-  /* Large left cell spans both rows. */
-  grid-row: span 2;
-}
-/* 2026-05-18 (follow-up) — controller icon embedded in each cell of
-   the netflix-3 placeholder. Two sizes: `--large` for the main left
-   cell (90% wide of a 60% × 100% slot — fills the cell), `--small`
-   for the two right cells (90% wide of a 40% × 50% slot — fills the
-   cell). Opacity keeps the icon muted so the dashed-border cells
-   still read as "missing", not "decorated".
-
-   2026-05-18 (follow-up 3) — bumped from `width: 50%` + tight pixel
-   caps (60 / 24) to `width: 90%` + generous caps (90 / 50) so the
-   embedded controller properly fills each cell instead of looking
-   lost in dead whitespace. `height: auto` keeps the SVG aspect ratio
-   so the icon scales by width and never overflows the cell's
-   vertical track.
-
-   2026-05-19 — dark-only: only one SVG variant ships; the previous
-   `.game-cover-fallback--light` / `--dark` toggle was removed with
-   the theme system collapse. */
-.bundle-tile__nocover-icon {
-  opacity: 0.4;
-  width: auto;
-  height: auto;
-  object-fit: contain;
-}
-.bundle-tile__nocover-icon--large {
-  width: 90%;
-  max-width: 90px;
-  height: auto;
-}
-.bundle-tile__nocover-icon--small {
-  width: 90%;
-  max-width: 50px;
-  height: auto;
-}
-
-/* 2026-05-18 (EQ Bug 1 follow-up) — netflix-3 placeholder rendered in
-   the /games bundles modal when the bundle has zero members. Lives in
-   the same slot the populated `.bundle-modal-composite` would occupy,
-   so it must match the populated composite's outer geometry: fluid
-   width spanning the modal body + `aspect-ratio: 3 / 4` (NOT
-   `height: 100%`, which collapses to 0 without a fixed parent — the
-   shelf-tile variant gets its height from the surrounding
-   `.bundle-cover-wrap` box, which the modal slot does not have).
-
-   The outer border + radius come from the base
-   `.bundle-tile__nocover-netflix3` rule (1px solid
-   `var(--color-cover-border)` + 2px radius), matching the
-   `.bundle-modal-composite` chrome exactly.
-
-   At the modal's larger pixel footprint (~450 – 870px wide), the
-   shelf-sized icon caps (`max-width: 90px / 50px`) leave the
-   controller SVGs floating in dead space. Generous caps
-   (`200px` main / `100px` small) let the icons scale proportionally
-   into the much-larger cells. */
-.bundle-tile__nocover-netflix3--modal {
-  height: auto;
-  aspect-ratio: 3 / 4;
-}
-.bundle-tile__nocover-netflix3--modal .bundle-tile__nocover-icon--large {
-  max-width: 200px;
-}
-.bundle-tile__nocover-netflix3--modal .bundle-tile__nocover-icon--small {
-  max-width: 100px;
-}
 
 /* 2026-05-18 — /games/:id bundles + similar shelves horizontal-scroll
    restore. Both sections (`.game-bundles .shelf-row` and
@@ -5026,47 +4693,6 @@ dialog.tui-leader-menu::backdrop {
   display: block;
   text-align: left;
 }
-
-/* 2026-05-17 — Bundle MODAL composite (CSS-positioned per-cell
-   grid in `bundles/games_pane.html.erb`, distinct from the libvips
-   baked `.bundle-cover-composite` JPEG above).
-
-   The wrapper is the 3:4 canvas; each `.bundle-modal-cell` is
-   positioned absolutely via percentage left/top/width/height
-   computed from `Composite::CellMap.for(N)` ratios.
-
-   `--color-cover-border` is the shared theme-aware token used by
-   `.game-cover-img`, `.tile-cover img`, and `.bundle-cover-composite`
-   above, so the modal composite edge tracks light/dark theme
-   alongside every other cover edge in the app. `overflow: hidden`
-   clips per-cell rounded corners to the wrapper outline.
-
-   2026-05-19 — per-cell hairlines dropped. The CSS-positioned
-   composite mirrors the libvips JPEG output (edge-to-edge cells,
-   no internal borders); only the OUTER `.bundle-modal-composite`
-   chrome (1px solid theme-aware border + 2px radius) is painted,
-   matching the letter-shelf cover convention where a single border
-   frames the composite as one cover-art unit. */
-.bundle-modal-composite {
-  position: relative;
-  border: 1px solid var(--color-cover-border);
-  border-radius: 0;
-  overflow: hidden;
-}
-
-/* games — Genres outer shelf hairline between consecutive sub-shelves.
-   Selector kept verbatim so the per-shelf spec assertion still locks
-   the scope.
-
-   2026-05-17 (Wave F consolidation) — `padding-top` tightened from
-   `8px` to `4px` so the heading sits closer to the hairline above
-   it. */
-section[data-shelf="outer-genres"] > section.sub-shelf:not(:first-of-type) {
-  border-top: 1px solid var(--color-border);
-  margin-top: 8px;
-  padding-top: 4px;
-}
-
 
 /* 2026-05-11 — /channels/:id detail pane header.
    Sizing + positioning mirror YouTube's desktop channel header

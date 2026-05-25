@@ -1,20 +1,10 @@
-<%# 2026-05-17 (Wave B6 VC) — rich game tile, ViewComponent edition.
-    Template extracted verbatim from `app/views/games/_tile.html.erb`.
-    See `game_tile_component.rb` for the full provenance comment.
+<%# Game::GameTileComponent — rich game tile.
+    `data-keyboard-tile` opts each tile into the global keyboard controller's
+    tile-grid navigation when the surrounding container declares
+    `data-keyboard-grid="true"`.
 
-    `data-keyboard-tile` opts each tile into the global keyboard
-    controller's tile-grid navigation when the surrounding container
-    declares `data-keyboard-grid="true"` (the all-games grid on
-    `/games` and the bundles grid on `/bundles`; the horizontally
-    scrolling shelves do NOT opt in). The geometry-driven row
-    computation in `keyboard_controller.js#moveTileGrid` walks tiles
-    by `getBoundingClientRect()` so the same component works at any
-    `repeat(auto-fill, minmax(...))` column count.
-
-    `data-turbo-frame="_top"` escapes the `games_listing` Turbo Frame
-    on `/games` so clicking a tile triggers a full-page navigation to
-    `/games/:id` (which has no `games_listing` frame and would
-    otherwise raise "Content missing").
+    `data-turbo-frame="_top"` escapes the `games_listing` Turbo Frame on
+    `/games` so clicking a tile triggers a full-page navigation to `/games/:id`.
 %>
 <a href="<%= game_path %>" class="tile tile--<%= variant %>"
    style="flex: 0 0 150px; width: 150px; display: block; text-decoration: none; color: inherit; cursor: pointer;"
@@ -28,35 +18,15 @@
                     alt: game.title, loading: "lazy",
                     style: "width: 100%; height: 100%; object-fit: cover; display: block;" %>
     <% else %>
-      <%# Single-theme (dark) fallback. The SVG fills the 150x200 slot
-          via absolute positioning. %>
       <%= image_tag image_path("game_cover_fallback_grid_dark.svg"),
                     alt: t("games.cover.no_cover_alt"), loading: "lazy",
                     width: 150, height: 200,
                     class: "game-cover-fallback",
                     style: "position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;" %>
     <% end %>
-    <%# 2026-05-17 (Wave B3b) — platform chips overlay returns to the
-        cover's bottom-right corner (the inline meta-row variant was
-        removed in the same pass). The container is absolute, anchored
-        flush to the right + bottom edges so it visually merges with
-        the cover border; its background uses the cover-border CSS
-        token so the strip reads as a continuation of that border in
-        both themes. Chip-to-chip gap is 2px (locked design rule);
-        outer padding is 2px so chips don't bleed into the corner. %>
-    <% if tile_chip_slugs.any? %>
-      <div class="tile-cover-chip-overlay"
-           style="position: absolute; right: 0; bottom: 0; display: inline-flex; gap: 2px; padding: 1px; background-color: var(--color-cover-border);">
-        <% tile_chip_slugs.each do |slug| %>
-          <%= render(Platforms::ChipComponent.new(slug: slug, size: :sm)) %>
-        <% end %>
-      </div>
-    <% end %>
   </div>
   <div class="tile-caption" style="padding: 4px 0 0 0; font-size: <%= caption_font_size %>; max-width: 150px;">
-    <%# Phase 28 §01a — when an edition tile is rendered in flat mode
-        (`?include_editions=yes`), show a muted parent pointer above
-        the title so the user can navigate up to the primary. %>
+    <%# Phase 28 §01a — edition parent pointer %>
     <% if (pp = parent_pointer) %>
       <div class="tile-caption-parent-pointer text-muted"
            style="font-size: <%= meta_font_size %>; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px;">
@@ -69,15 +39,6 @@
          data-title-tooltip-full-title-value="<%= game.title %>">
       <%= game.title %>
     </div>
-    <%# 2026-05-17 (Wave B3b) — caption meta row dropped entirely.
-        The release year is gone (per user instruction) and the
-        platform chips moved back onto the cover's bottom-right
-        overlay (see `.tile-cover-chip-overlay` above). The caption
-        now holds only the title, the optional parent-pointer (above)
-        and the editions badge (below). %>
-    <%# Phase 28 §01a — `+N editions` badge on primary tiles with at
-        least one edition. The outer tile is already wrapped in an
-        anchor, so the badge renders bare (no nested link). %>
     <% if show_editions_badge? %>
       <div class="tile-caption-editions-badge"
            style="font-size: <%= meta_font_size %>; margin-top: 2px;">

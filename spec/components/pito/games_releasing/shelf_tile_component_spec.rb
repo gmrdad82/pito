@@ -1,7 +1,6 @@
 require "rails_helper"
 
 RSpec.describe Pito::GamesReleasing::ShelfTileComponent, type: :component do
-  let!(:ps5) { Platform.unscoped.find_or_create_by!(name: "PlayStation 5") }
   let(:game) do
     g = Game.new(
       title:        "Hollow Knight: Silksong",
@@ -10,7 +9,6 @@ RSpec.describe Pito::GamesReleasing::ShelfTileComponent, type: :component do
       release_year: (Date.current + 12.days).year
     )
     g.save!(validate: false)
-    GamePlatformOwnership.create!(game: g, platform: ps5)
     g
   end
 
@@ -42,9 +40,6 @@ RSpec.describe Pito::GamesReleasing::ShelfTileComponent, type: :component do
     end
 
     it "does NOT wrap the cover in its own anchor (the tile is already linked)" do
-      # `link_to_show: false` is passed so the cover renders as a div,
-      # not a nested <a>. Otherwise the outer tile anchor would contain
-      # a nested interactive descendant — invalid HTML.
       cover_anchors = rendered.css(".upcoming-tile__cover-wrap a[data-variant]")
       expect(cover_anchors).to be_empty
     end
@@ -55,27 +50,6 @@ RSpec.describe Pito::GamesReleasing::ShelfTileComponent, type: :component do
       title_el = rendered.css(".upcoming-tile__title").first
       expect(title_el).to be_present
       expect(title_el.text.strip).to eq(game.title)
-    end
-  end
-
-  describe "platform chips" do
-    it "renders a Platforms::ChipComponent for each chip slug" do
-      # PS5 ownership resolves through `platforms_available` /
-      # `game_detail_chip_slugs` — the helper expects platforms in
-      # `platforms_available` (NOT just owned). Stub the helper to a
-      # deterministic chip slug list so the test does not depend on
-      # the full IGDB-platform graph.
-      allow_any_instance_of(described_class).to receive(:chip_slugs).and_return([ "ps" ])
-      rerendered = render_inline(described_class.new(game: game))
-      chips = rerendered.css(".upcoming-tile__chips .platform-chip")
-      expect(chips.size).to eq(1)
-      expect(chips.first["class"]).to include("platform-chip--ps")
-    end
-
-    it "suppresses the chip strip when no chip slugs apply" do
-      allow_any_instance_of(described_class).to receive(:chip_slugs).and_return([])
-      rerendered = render_inline(described_class.new(game: game))
-      expect(rerendered.css(".upcoming-tile__chips")).to be_empty
     end
   end
 

@@ -1,8 +1,6 @@
 <%# Pito::GamesReleasing::ShelfTileComponent template.
     `data-tui-focusable` marks the tile as a focus stop. j/k on the
-    home screen advances the focus cursor in DOM order; the
-    surrounding `.upcoming-tile-shelf__row` lays tiles left-to-right
-    with `display: flex`, so j/k naturally walks horizontally. %>
+    home screen advances the focus cursor in DOM order. %>
 <a class="upcoming-tile"
    href="<%= game_path %>"
    data-tui-focusable="<%= focusable_key %>"
@@ -13,11 +11,6 @@
   </div>
   <div class="upcoming-tile__meta">
     <span class="upcoming-tile__title"><%= game.title %></span>
-    <% if chip_slugs.any? %>
-      <span class="upcoming-tile__chips">
-        <% chip_slugs.each do |slug| %><%= render(Platforms::ChipComponent.new(slug: slug, size: :sm)) %><% end %>
-      </span>
-    <% end %>
     <% if time_until_release %>
       <span class="upcoming-tile__when"><%= time_until_release %></span>
     <% end %>

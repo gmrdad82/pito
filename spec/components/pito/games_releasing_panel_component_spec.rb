@@ -5,21 +5,9 @@ RSpec.describe Pito::GamesReleasingPanelComponent, type: :component do
 
   let(:root) { rendered.css("section.pito-panel").first }
 
-  # Bare-minimum Platform row so seeded games can be marked owned.
-  # `unscoped` mirrors the production seed because Platform has a
-  # default scope that hides legacy rows.
-  let!(:ps5) do
-    Platform.unscoped.find_or_create_by!(name: "PlayStation 5")
-  end
-
-  # Test DB inherits the dev seed via `bin/rails db:seed`, which
-  # currently populates several demo upcoming-games rows. Those
-  # rows leak into the panel's `upcoming_games` scope and break the
-  # empty / populated assertions below. Wipe ownership rows up front
-  # so each example controls its own dataset. Transactional fixtures
-  # roll the deletes back at example boundaries.
+  # Isolate each example from dev-seed upcoming games.
   before do
-    GamePlatformOwnership.delete_all
+    Game.where("release_date > ?", Date.current).delete_all
   end
 
   it "renders the canonical pito-panel section wrapper" do
@@ -71,7 +59,7 @@ RSpec.describe Pito::GamesReleasingPanelComponent, type: :component do
     end
   end
 
-  describe "empty state (no owned upcoming games)" do
+  describe "empty state (no upcoming games in window)" do
     it "emits upcoming_games_sync as the sole focusable" do
       expect(root["data-tui-panel-focusables-value"]).to eq("upcoming_games_sync")
       expect(root["data-tui-panel-keybinds-value"]).to eq("{}")
@@ -90,7 +78,7 @@ RSpec.describe Pito::GamesReleasingPanelComponent, type: :component do
     end
   end
 
-  describe "populated state (owned games in the next 30 days)" do
+  describe "populated state (scheduled games in the next 30 days)" do
     let!(:soon) do
       g = Game.new(
         title: "Soon Game",
@@ -99,7 +87,6 @@ RSpec.describe Pito::GamesReleasingPanelComponent, type: :component do
         release_year: (Date.current + 5.days).year
       )
       g.save!(validate: false)
-      GamePlatformOwnership.create!(game: g, platform: ps5)
       g
     end
 
@@ -111,7 +98,6 @@ RSpec.describe Pito::GamesReleasingPanelComponent, type: :component do
         release_year: (Date.current + 20.days).year
       )
       g.save!(validate: false)
-      GamePlatformOwnership.create!(game: g, platform: ps5)
       g
     end
 
@@ -123,25 +109,14 @@ RSpec.describe Pito::GamesReleasingPanelComponent, type: :component do
         release_year: (Date.current + 90.days).year
       )
       g.save!(validate: false)
-      GamePlatformOwnership.create!(game: g, platform: ps5)
       g
     end
 
-    let!(:not_owned) do
-      g = Game.new(
-        title: "Not Owned",
-        igdb_slug: "not-owned-test",
-        release_date: Date.current + 10.days,
-        release_year: (Date.current + 10.days).year
-      )
-      g.save!(validate: false)
-      g
-    end
-
-    it "renders one tile per owned game inside the upcoming window" do
+    it "renders one tile per game inside the upcoming window" do
       tiles = rendered.css(".upcoming-tile-shelf__row .upcoming-tile")
       titles = tiles.map { |t| t["title"] }
-      expect(titles).to eq([ "Soon Game", "Later Game" ])
+      expect(titles).to include("Soon Game", "Later Game")
+      expect(titles).not_to include("Too Far")
     end
 
     it "orders tiles by release_date ASC (soonest first)" do
@@ -150,22 +125,11 @@ RSpec.describe Pito::GamesReleasingPanelComponent, type: :component do
       expect(tiles.last["title"]).to eq("Later Game")
     end
 
-    it "excludes owned games outside the 30-day window" do
-      titles = rendered.css(".upcoming-tile-shelf__row .upcoming-tile").map { |t| t["title"] }
-      expect(titles).not_to include("Too Far")
-    end
-
-    it "excludes unowned games inside the window" do
-      titles = rendered.css(".upcoming-tile-shelf__row .upcoming-tile").map { |t| t["title"] }
-      expect(titles).not_to include("Not Owned")
-    end
-
     it "contributes per-tile focusable keys after upcoming_games_sync" do
       focusables = root["data-tui-panel-focusables-value"].split(",")
       expect(focusables.first).to eq("upcoming_games_sync")
       expect(focusables).to include("upcoming_#{soon.id}")
       expect(focusables).to include("upcoming_#{later.id}")
-      # Per-tile focusables follow release_date ASC ordering.
       expect(focusables[1..]).to eq([ "upcoming_#{soon.id}", "upcoming_#{later.id}" ])
     end
 
@@ -177,7 +141,7 @@ RSpec.describe Pito::GamesReleasingPanelComponent, type: :component do
       expect(fieldset["data-tui-scroll-indicator-axis-value"]).to eq("horizontal")
     end
 
-    it "renders the bottom-edge ◀ ▶ ▬ scroll indicator glyphs" do
+    it "renders the bottom-edge scroll indicator glyphs" do
       expect(rendered.css(".tui-scroll-indicator--left").text).to include("◀")
       expect(rendered.css(".tui-scroll-indicator--right").text).to include("▶")
       handle = rendered.css(".tui-scroll-indicator--horizontal.tui-scroll-indicator--handle")

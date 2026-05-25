@@ -59,11 +59,8 @@ class Game::MetaTableComponent < ViewComponent::Base
   SYNC_ROW_KEY = "sync".freeze
 
   # Canonical 4-frame cycle for sync-indicator across /games/:id.
-  # Mirrors Game::GenresLineComponent::SYNC_INDICATOR_FRAMES — the
-  # canonical frame array lives here too so the kv-table row template
-  # doesn't reach into a sibling component for a literal. Phase
-  # offsets are assigned per-row (date=1, dev=2, pub=3) so the four
-  # zones in the LEFT pane stagger.
+  # Phase offsets are assigned per-row (date=1, dev=2, pub=3) so the
+  # four zones in the LEFT pane stagger.
   SYNC_INDICATOR_FRAMES = [ "=---", "-=--", "--=-", "---=" ].freeze
   SYNC_INDICATOR_PHASE_OFFSETS = {
     "date" => 1,

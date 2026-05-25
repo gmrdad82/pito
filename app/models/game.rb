@@ -1,59 +1,22 @@
 # Phase 14 §1 — Game model. IGDB-backed metadata + local-only fields.
 #
-# Phase 27 v2 spec 03 — field partition LOCKED. The sync job
-# (`GameIgdbSync` → `Game::Igdb::SyncGame#call`) is last-write-wins on the
-# IGDB-sourced columns / joins; the ownership-sourced columns / joins
-# are NEVER touched by sync. The partition is enforced in two places:
-#   - `Game::Igdb::SyncGame#call` only writes IGDB columns.
-#   - `GamesController#local_only_params` only permits ownership /
-#     notes / footage / version inputs.
-# The model spec `Game spec — sync field partition` runs a sync against
-# a row with every ownership field set and asserts the post-sync
-# attribute hash is unchanged for the ownership set.
-#
 # IGDB-sourced columns (overwritten by every re-sync, last-write-wins):
 #   igdb_id, igdb_slug, igdb_checksum, title, summary, cover_image_id,
 #   release_date, release_year, release_precision, igdb_rating,
 #   igdb_rating_count, aggregated_rating, aggregated_rating_count,
 #   total_rating, total_rating_count, external_steam_app_id,
 #   ttb_main_seconds, ttb_extras_seconds, ttb_completionist_seconds,
-#   igdb_synced_at, primary_genre_id (re-picked from the synced genre
-#   set).
-#
-#   Phase 27 v2 spec 06 (2026-05-17 collapse) — the legacy
-#   `external_gog_id` and `external_epic_id` columns are GONE. PC
-#   distribution stores are now represented exclusively by the
-#   Steam Platform row + `external_steam_app_id`; IGDB GoG / Epic
-#   external-game rows are dropped by `Game::Igdb::GameMapper` instead of
-#   being mapped onto their own columns.
+#   igdb_synced_at, primary_genre_id (re-picked from the synced genre set).
 #
 # IGDB-sourced joins (replaced wholesale on every re-sync):
-#   game_genres, game_platforms, game_developers, game_publishers.
+#   game_genres, game_developers, game_publishers.
 #
-# Ownership-sourced columns (NEVER touched by sync):
-#   played_at, recorded (single boolean per game — NOT per-platform;
-#   spec 08 confirmed defer-permanently), notes, hours_of_footage_manual,
+# Local-only columns (NEVER touched by sync):
+#   played_at, recorded, notes, hours_of_footage_manual,
 #   hours_of_footage_cached, manual_date_override, last_sync_error,
 #   version_parent_id, version_title.
 #
-# Phase 27 follow-up (2026-05-17) — `collection_id` was dropped along
-# with the entire `Collection` model.
-#
-# Ownership-sourced joins (NEVER touched by sync):
-#   game_platform_ownerships (per-platform ownership join — see
-#   `#owned_platforms` and the `.owned` / `.not_owned` /
-#   `.owned_on(slug)` scopes), video_game_links.
-#
-# B7 (2026-05-25) — play_on helpers.
-#   `#play_on_ownership` → the GamePlatformOwnership where play_on=true,
-#     or nil. At most one per game (partial unique DB index).
-#   `#play_on_platform`  → that ownership's Platform, or nil.
-#
-# The single-valued `platform_owned_id` column is gone (Phase 27 §1a).
-#
-# Phase 4 legacy columns (DEPRECATED — Phase 14 polish drops them):
-#   `publisher` (string)  — superseded by Company + GamePublisher join.
-#   `platforms` (jsonb)   — superseded by Platform + GamePlatform join.
+# Phase 4 legacy:
 #   `cover_art` (Active Storage attachment) — surfaces only on the
 #     manual-override edit form; new code reads `cover_image_id` first.
 class Game < ApplicationRecord
@@ -129,15 +92,6 @@ class Game < ApplicationRecord
   belongs_to :primary_genre, class_name: "Genre", optional: true
   before_save :assign_primary_genre_if_blank
 
-  # Played-on platform — single (1:1, not 1:N). Reflects WHERE the user
-  # played the game (single canonical platform), distinct from
-  # `owned_platforms` (where the user owns it, can be many) and
-  # `platforms_available` (where IGDB says it's released, metadata only).
-  # `played_at` remains a global "when did I play it" timestamp; this FK
-  # is the orthogonal "on what" pointer. Most games start nil; user sets
-  # manually. FK is nullable; no backfill.
-  belongs_to :played_platform, class_name: "Platform", optional: true
-
   # Phase 28 §01a — Multi-version game grouping. A `Game` may be either
   # a primary (`version_parent_id IS NULL`) or an edition pointing at a
   # primary. Editions cannot themselves parent another edition (single
@@ -156,28 +110,10 @@ class Game < ApplicationRecord
   validate :cannot_be_parent_and_edition_simultaneously
   validate :no_self_reference
 
-  has_many :game_platforms, dependent: :destroy
-  has_many :platforms_available, through: :game_platforms, source: :platform
   has_many :game_developers, dependent: :destroy
   has_many :developers, through: :game_developers, source: :company
   has_many :game_publishers, dependent: :destroy
   has_many :publishers, through: :game_publishers, source: :company
-
-  # Phase 27 §1a — per-platform ownership join. Replaces the
-  # single-valued `platform_owned_id` pointer with a multi-valued set.
-  # Cascade-on-delete so destroying a Game removes its ownership rows
-  # (Platform deletion is restricted; see `Platform` model).
-  has_many :game_platform_ownerships, dependent: :destroy
-  has_many :owned_platforms, through: :game_platform_ownerships, source: :platform
-
-  # Phase 27 §01f — nested attributes for the per-platform ownership
-  # editor (`Games::PlatformOwnershipsController#update`). `allow_destroy`
-  # lets the controller mark un-ticked rows for deletion via `_destroy`.
-  # `reject_if` skips blank in-memory rows the editor scaffolds for
-  # not-yet-owned platforms when the user leaves them unticked.
-  accepts_nested_attributes_for :game_platform_ownerships,
-                                allow_destroy: true,
-                                reject_if: :all_blank
 
   # Phase 14 §3 — video attribution. `dependent: :destroy` so the
   # `recompute_game_footage_cache` after_destroy_commit hook on
@@ -237,137 +173,16 @@ class Game < ApplicationRecord
       .where(id: Game.where.not(version_parent_id: nil).select(:version_parent_id))
   }
 
-  # Phase 28 §01a — ownership rollup scope. A primary appears in
-  # `owned_rollup` when EITHER the primary itself OR ANY of its editions
-  # has at least one `game_platform_ownership` row. Editions appear when
-  # they themselves have an ownership row. The 01b `Games::Filter`
-  # `owned` token swaps to this scope so the primaries-only listing
-  # respects rollup semantics (architect lean #7 locked yes).
+  # Status scopes consumed by the filter row.
   #
-  # SQL shape: a row qualifies when its id is in the owned set OR when
-  # it is a primary whose `id` matches the `version_parent_id` of any
-  # owned edition. Both branches are subqueries (no joins) so the
-  # resulting relation stays composable with downstream `where` chains.
-  scope :owned_rollup, lambda {
-    owned_ids_subquery = Game.joins(:game_platform_ownerships).select(:id)
-    parents_of_owned   = Game.joins(:game_platform_ownerships)
-                             .where.not(version_parent_id: nil)
-                             .select(:version_parent_id)
-    where(id: owned_ids_subquery)
-      .or(where(id: parents_of_owned))
-      .distinct
-  }
-
-  # Phase 27 §1a — ownership scopes consumed by `01b`'s filter row.
-  #
-  #   .owned         → at least one ownership row (DISTINCT to dedupe
-  #                    games owned on multiple platforms).
-  #   .not_owned     → zero ownership rows.
-  #   .owned_on(sl)  → ownership row whose platform matches the slug.
-  scope :owned, -> { joins(:game_platform_ownerships).distinct }
-  scope :not_owned, lambda {
-    left_joins(:game_platform_ownerships)
-      .where(game_platform_ownerships: { id: nil })
-  }
-  scope :owned_on, lambda { |slug_or_slugs|
-    # `where(platforms: { slug: ... })` would conflict with the legacy
-    # `games.platforms` jsonb column (ActiveRecord treats the hash key
-    # as a column on `games`). The raw `"platforms"."slug"` SQL is
-    # safe — slug values flow through bind parameters.
-    #
-    # Accepts a single slug or an Array. The Array form is what the
-    # filter query object (`Games::Filter`) uses when a chip token
-    # like `switch2` maps to multiple DB slugs (`switch` + `switch-2`)
-    # or `steam` collapses the PC family (`win` / `linux` / `mac` /
-    # `dos` / `web` / `steam`). The single-slug form is preserved for
-    # any callers that pass one slug directly.
-    slugs = Array(slug_or_slugs)
-    joins(game_platform_ownerships: :platform)
-      .where('"platforms"."slug" IN (?)', slugs)
-      .distinct
-  }
-
-  # Phase 27 §01b — status + IGDB-platform scopes consumed by the
-  # filter row.
-  #
-  #   .recorded            → games with at least one linked Video.
-  #   .released            → `release_date <= today` (boundary inclusive
-  #                          on the past side; nil dates excluded).
-  #   .scheduled           → `release_date > today`; nil dates excluded.
-  #   .on_platform(slug)   → games released/scheduled on the IGDB-reported
-  #                          platform (rides on `:platforms_available`, NOT
-  #                          the per-platform-ownership join). "Available
-  #                          on" is metadata; "owned on" is the library.
-  #   .released_on(slug)   → `released.on_platform(slug)`.
-  #   .scheduled_on(slug)  → `scheduled.on_platform(slug)`.
-  #
-  # The spec was authored against an imagined `first_release_date`
-  # datetime column; the actual schema (Phase 14 §1) stores `release_date`
-  # as a `date`. The day-granular comparison is identical semantically:
-  # a release scheduled for today is "released"; tomorrow is "scheduled".
-  #
-  # The raw `"platforms"."slug" = ?` SQL mirrors the `owned_on` pattern
-  # for the same `games.platforms` jsonb collision reason; the slug is
-  # bound (no SQL injection risk).
-  scope :recorded, -> { where(id: VideoGameLink.select(:game_id).distinct) }
-  scope :released, -> { where("release_date <= ?", Date.current) }
+  #   .recorded  → games with at least one linked Video.
+  #   .released  → `release_date <= today`; nil dates excluded.
+  #   .scheduled → `release_date > today`; nil dates excluded.
+  #   .played    → games with `played_at` non-null.
+  scope :recorded,  -> { where(id: VideoGameLink.select(:game_id).distinct) }
+  scope :released,  -> { where("release_date <= ?", Date.current) }
   scope :scheduled, -> { where("release_date > ?", Date.current) }
-  scope :on_platform, lambda { |slug_or_slugs|
-    # Accepts a single slug or an Array. See the parallel comment on
-    # `.owned_on` for the chip-token-to-DB-slug expansion rationale
-    # (`switch2` → %w[switch switch-2], `steam` → the PC family).
-    slugs = Array(slug_or_slugs)
-    joins(game_platforms: :platform)
-      .where('"platforms"."slug" IN (?)', slugs)
-      .distinct
-  }
-  scope :released_on,  ->(slug) { released.on_platform(slug) }
-  scope :scheduled_on, ->(slug) { scheduled.on_platform(slug) }
-
-  # Phase 27 v2 spec 06 — `played` scope for the revamped filter row.
-  # Phase 29 (2026-05-25) — "wishlist" terminology dropped; replaced by
-  # "not owned" / `not_owned_anywhere`. The concept: a game the user
-  # does not own on any platform (zero ownership rows anywhere).
-  #
-  #   .played            → games with `played_at` non-null. The column
-  #                        was introduced in Phase 14 §1; the scope is new.
-  #   .not_owned_anywhere → games with ZERO ownership rows. Orthogonal
-  #                        to release status. Aliases the existing
-  #                        `.not_owned` scope under the new vocabulary.
-  #   .wishlist          → legacy alias for `.not_owned_anywhere`. Kept
-  #                        so existing callers in older specs / MCP tools
-  #                        survive without immediate churn.
-  scope :played,             -> { where.not(played_at: nil) }
-  scope :not_owned_anywhere, -> { not_owned }
-  scope :wishlist,           -> { not_owned_anywhere }
-
-  # Returns true when the game has at least one ownership row (i.e. the
-  # user owns it on one or more platforms). Mirrors the `.owned` scope
-  # logic as an instance predicate.
-  def owned?
-    game_platform_ownerships.loaded? ? game_platform_ownerships.any? : game_platform_ownerships.exists?
-  end
-
-  # B7 (2026-05-25) — play_on readers.
-  #
-  # `play_on_ownership` returns the single GamePlatformOwnership row
-  # whose `play_on` flag is true, or nil when none is set. At most one
-  # row per game can have play_on=true (partial unique DB index).
-  #
-  # `play_on_platform` returns that ownership's Platform, or nil.
-  # Useful for display: `game.play_on_platform&.name` renders "PC (Steam)"
-  # without an extra join when the association is already loaded.
-  def play_on_ownership
-    if game_platform_ownerships.loaded?
-      game_platform_ownerships.find(&:play_on?)
-    else
-      game_platform_ownerships.find_by(play_on: true)
-    end
-  end
-
-  def play_on_platform
-    play_on_ownership&.platform
-  end
+  scope :played,    -> { where.not(played_at: nil) }
 
   # IGDB cover URL builder. The IGDB CDN serves directly to the
   # browser — pito does not proxy or cache image bytes for the show
@@ -430,36 +245,6 @@ class Game < ApplicationRecord
 
   def edition?
     version_parent_id.present?
-  end
-
-  # Phase 28 §01a — ownership rollup helpers. The base `owned_platforms`
-  # association is preserved as-is (per-row ownership through the join);
-  # these helpers add the rollup semantics specific to the multi-version
-  # listing surfaces.
-  #
-  # `owned_platforms_with_editions` for a primary unions the primary's
-  # own ownerships with every edition's ownerships, deduped. For an
-  # edition it is equivalent to `owned_platforms` (an edition has no
-  # editions of its own — single-level nesting locked).
-  def owned_platforms_with_editions
-    return owned_platforms unless primary?
-
-    ids = [ id, *editions.ids ]
-    Platform.joins(:game_platform_ownerships)
-            .where(game_platform_ownerships: { game_id: ids })
-            .distinct
-            .order(:name)
-  end
-
-  # Returns the editions you own on the given platform. Empty for a
-  # primary with no editions, and empty for an edition (no recursion).
-  def owned_editions(platform)
-    return Game.none unless primary?
-    return Game.none if platform.nil?
-
-    editions.joins(:game_platform_ownerships)
-            .where(game_platform_ownerships: { platform_id: platform.id })
-            .distinct
   end
 
   # Phase 4 legacy variant helpers — kept for the polish window.
@@ -535,7 +320,6 @@ class Game < ApplicationRecord
   # surfaces.
   def build_release_metadata
     md = {}
-    md[:platforms] = platforms.map { |p| (p["platform"] || p[:platform]) }.compact if platforms.present?
     md[:igdb_id] = igdb_id if igdb_id.present?
     md[:igdb_slug] = igdb_slug if igdb_slug.present?
     md

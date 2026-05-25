@@ -5,17 +5,7 @@
 # by the search jbuilder partial. Boundary booleans serialize as
 # `"yes"` / `"no"` strings (CLAUDE.md hard rule) and timestamps as
 # ISO-8601.
-#
-# `as_summary_json` keeps the row-level shape used by the index and
-# the shelves; `as_detail_json` adds the full IGDB-backed metadata
-# block surfaced on the show page.
 class GameDecorator < ApplicationDecorator
-  # Phase 27 §1a — `platform_owned_id` is gone. Summary callers that
-  # need a quick "do they own this?" signal can either inspect
-  # `platforms_owning` from the detail payload or use the new
-  # `platform_owned_ids` array carried alongside it. The summary keeps
-  # `platform_owned_ids` (a plural integer array) so the CLI / Mobile
-  # callers can render an ownership chip without fetching the detail.
   def as_summary_json
     {
       id: id,
@@ -23,7 +13,6 @@ class GameDecorator < ApplicationDecorator
       title: title,
       release_year: release_year,
       igdb_rating: igdb_rating&.to_f,
-      platform_owned_ids: owned_platforms.map(&:id),
       played_at: played_at&.iso8601,
       cover_image_id: cover_image_id,
       resyncing: YesNo.to_yes_no(resyncing?),
@@ -44,24 +33,13 @@ class GameDecorator < ApplicationDecorator
       ttb_main_seconds: ttb_main_seconds,
       ttb_extras_seconds: ttb_extras_seconds,
       ttb_completionist_seconds: ttb_completionist_seconds,
-      # Phase 27 v2 spec 06 (2026-05-17 PC store collapse) — `external_gog_id`
-      # and `external_epic_id` columns retired. Steam is the sole PC-store
-      # surface here.
       external_steam_app_id: external_steam_app_id,
       notes: notes,
       hours_of_footage_manual: hours_of_footage_manual&.to_f,
       hours_of_footage_cached: hours_of_footage_cached&.to_f,
       manual_date_override: YesNo.to_yes_no(manual_date_override),
       last_sync_error: last_sync_error,
-      # Phase 27 v2 spec 01 — single main genre per Game. The wire
-      # shape changes from a multi-element list (`genres: [{id,name}]`)
-      # to a SINGULAR string field (`genre: "name"` or `nil`). Every
-      # Rails / MCP / CLI consumer is expected to migrate to the new
-      # shape; back-compat aliasing was deliberately not added — only
-      # pito's own surfaces consume the field and they belong to the
-      # same release wave. The `genres:` key is gone outright.
       genre: primary_genre&.name,
-      platforms_owning: owned_platforms.map { |p| { id: p.id, name: p.name } },
       updated_at: updated_at&.iso8601
     )
   end
