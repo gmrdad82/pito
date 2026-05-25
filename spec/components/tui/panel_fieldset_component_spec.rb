@@ -87,4 +87,70 @@ RSpec.describe Tui::PanelFieldsetComponent, type: :component do
       expect(classes).to include("extra-class")
     end
   end
+
+  describe "axis: :vertical (default)" do
+    subject(:rendered) do
+      render_inline(described_class.new) { "body content" }
+    end
+
+    it "emits data-tui-scroll-indicator-axis-value=vertical" do
+      fieldset = rendered.css("fieldset").first
+      expect(fieldset["data-tui-scroll-indicator-axis-value"]).to eq("vertical")
+    end
+
+    it "does NOT add the --horizontal modifier class" do
+      classes = rendered.css("fieldset").first["class"].to_s.split
+      expect(classes).not_to include("tui-panel-fieldset--horizontal")
+    end
+
+    it "renders the vertical ▲ ▼ █ scroll indicator glyphs (right-border, non-interactive)" do
+      expect(rendered.css(".tui-scroll-indicator--top").text.strip).to eq("▲")
+      expect(rendered.css(".tui-scroll-indicator--handle").text.strip).to eq("█")
+      expect(rendered.css(".tui-scroll-indicator--bottom").text.strip).to eq("▼")
+    end
+
+    it "marks all scroll indicator spans aria-hidden (non-interactive)" do
+      rendered.css(".tui-scroll-indicator").each do |span|
+        expect(span["aria-hidden"]).to eq("true")
+      end
+    end
+  end
+
+  describe "axis: :horizontal (shelf / horizontal scroll context)" do
+    subject(:rendered) do
+      render_inline(described_class.new(axis: :horizontal, class_name: "my-shelf")) { "shelf content" }
+    end
+
+    it "adds the --horizontal modifier class" do
+      classes = rendered.css("fieldset").first["class"].to_s.split
+      expect(classes).to include("tui-panel-fieldset--horizontal")
+    end
+
+    it "emits data-tui-scroll-indicator-axis-value=horizontal" do
+      fieldset = rendered.css("fieldset").first
+      expect(fieldset["data-tui-scroll-indicator-axis-value"]).to eq("horizontal")
+    end
+
+    it "renders the horizontal ◀ ▶ ▬ scroll indicator glyphs (bottom-border)" do
+      expect(rendered.css(".tui-scroll-indicator--left").text.strip).to eq("◀")
+      expect(rendered.css(".tui-scroll-indicator--right").text.strip).to eq("▶")
+      handle = rendered.css(".tui-scroll-indicator--horizontal.tui-scroll-indicator--handle")
+      expect(handle.text.strip).to eq("▬")
+    end
+
+    it "does NOT render the vertical ▲ ▼ glyphs" do
+      expect(rendered.css(".tui-scroll-indicator--top")).to be_empty
+      expect(rendered.css(".tui-scroll-indicator--bottom")).to be_empty
+    end
+
+    it "marks all horizontal scroll indicator spans aria-hidden (non-interactive)" do
+      rendered.css(".tui-scroll-indicator").each do |span|
+        expect(span["aria-hidden"]).to eq("true")
+      end
+    end
+
+    it "yields content into the inner scroll wrapper" do
+      expect(rendered.css(".tui-panel-fieldset__scroll").text).to include("shelf content")
+    end
+  end
 end
