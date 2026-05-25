@@ -1,7 +1,7 @@
 <%# Tui::SyncIndicatorComponent — 3-state sync indicator for TST.
     States: synced (muted [ ] sync) / syncing (accent [x] sync + shimmer) /
-    disconnected (danger [!] sync). JS controller drives state transitions
-    via pito:cable-activity + pito:cable:disconnected + pito:cable:connected. %>
+    disconnected (danger [ ] sync, color-only). JS controller drives state
+    transitions via pito:cable-activity + pito:cable:disconnected + pito:cable:connected. %>
 <span class="tui-sync-indicator"
       data-controller="tui-sync-indicator"
       data-tui-sync-indicator-state-value="<%= initial_state %>">

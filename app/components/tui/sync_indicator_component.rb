@@ -2,9 +2,9 @@ module Tui
   # Tui::SyncIndicatorComponent — 3-state visual sync indicator pinned to TST.
   #
   # States (set by Stimulus controller via data-tui-sync-indicator-state-value):
-  #   - "synced"       muted "[ ] sync"   — cable idle, no animation
+  #   - "synced"       muted  "[ ] sync"  — cable idle, no animation
   #   - "syncing"      accent "[x] sync"  — cable activity, shimmer animation
-  #   - "disconnected" danger "[!] sync"  — cable lost, no animation
+  #   - "disconnected" danger "[ ] sync"  — cable lost, no animation (color-only)
   #
   # Default initial state: "synced". The Stimulus controller flips to
   # "syncing" on any `pito:cable-activity` event (debounced 300 ms back to
@@ -36,12 +36,10 @@ module Tui
     attr_reader :initial_state
 
     # Returns the bracket glyph character for a given state string.
+    # Only "syncing" gets a non-blank glyph. "disconnected" uses the same
+    # blank glyph as "synced" — distinguished by color (danger red) instead.
     def glyph_for(state)
-      case state
-      when "syncing"      then "x"
-      when "disconnected" then "!"
-      else                     " "
-      end
+      state == "syncing" ? "x" : " "
     end
   end
 end

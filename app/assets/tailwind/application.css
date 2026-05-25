@@ -7446,11 +7446,17 @@ body > main::-webkit-scrollbar {
   position: fixed;
   inset: 0;
   z-index: 1000;
-  background: color-mix(in srgb, var(--color-bg) 75%, transparent);
+  background: var(--color-bg);
   display: flex;
   align-items: center;
   justify-content: center;
 }
+
+/* 2026-05-25 — When unauthenticated, hide <main> entirely so panel chrome
+   doesn't bleed through the dialog backdrop. The dialog overlay is the
+   only thing visible. */
+body[data-tui-authenticated="no"] > main { display: none; }
+body[data-tui-authenticated="no"] .tui-page-scroll-indicator { display: none; }
 
 .pito-auth-dialog {
   background: var(--color-bg);

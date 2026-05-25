@@ -7,7 +7,7 @@ import { Controller } from "@hotwired/stimulus"
  *
  *   synced       → "[ ] sync"  muted, no animation
  *   syncing      → "[x] sync"  accent, shimmer
- *   disconnected → "[!] sync"  danger (red), no animation
+ *   disconnected → "[ ] sync"  danger (red), color-only, no animation
  *
  * State transitions are driven by document events:
  *
@@ -99,7 +99,9 @@ export default class extends Controller {
     const box = this.element.querySelector(".tui-sync-indicator__box")
     if (!box) return
 
-    const glyph = s === "syncing" ? "x" : (s === "disconnected" ? "!" : " ")
+    // Only "syncing" gets a non-blank glyph. "disconnected" shares the
+    // blank glyph with "synced" — color (danger red) is the differentiator.
+    const glyph = s === "syncing" ? "x" : " "
 
     // Skip scramble if glyph hasn't changed.
     if (glyph === this._currentGlyph) {
