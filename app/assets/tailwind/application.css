@@ -822,42 +822,22 @@ button.bracketed .bl {
 .home-grid {
   display: grid;
   grid-template-columns: 1fr;
-  /* `minmax(0, 1fr)` instead of bare `1fr` because grid rows default to
-     `minmax(auto, 1fr)` — any row whose CONTENT has an intrinsic minimum
-     height (e.g. `.pito-pane` title-on-border chrome) blows past the
-     1/3 fair share and squashes the other rows. `minmax(0, 1fr)` clamps
-     the minimum at 0, so all three rows truly share equally. */
-  grid-template-rows: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
-  /* 2026-05-24 — row-gap bumped to 17px (was 12px, +5px per user) so the
-     horizontal whitespace between home grid rows reads as more relaxed.
-     Column gap stays 12px via the explicit `column-gap` below. */
+  /* 2026-05-25 — rows are content-sized. 1 row = 1 line of 13px (TUI parity).
+     No equal-share enforcement, no viewport cap. If the rendered rows exceed
+     the available vertical space the page-shell scroll (Y4) takes over. */
+  grid-auto-rows: auto;
   row-gap: 17px;
   column-gap: 12px;
   padding: 12px;
   width: 100%;
-  /* Hard cap at viewport height minus TST + BST (each 22px). <main>
-     uses `min-height` not `height`, so it can grow past the viewport if
-     children request more vertical space. `flex: 1` would just grow
-     with it — `max-height: calc(100vh - 44px)` is the explicit cap that
-     forces the grid (and its `minmax(0, 1fr)` rows) to share the
-     visible area equally. `flex: 1` stays so the grid expands to fill
-     any leftover space in main. `overflow: hidden` prevents the grid
-     content from poking past the cap on edge browsers. */
-  flex: 1;
-  height: calc(100vh - 44px);
-  max-height: calc(100vh - 44px);
-  min-height: 0;
   box-sizing: border-box;
-  overflow: hidden;
 }
 
 .home-row {
   display: grid;
   gap: 12px;
-  min-height: 0;                          /* let row clamp */
-  /* Same minmax(0, 1fr) clamp needed for the row's own children — the
-     panel chrome inside has intrinsic min-height too. */
-  grid-auto-rows: minmax(0, 1fr);
+  /* 2026-05-25 — content-sized rows. 1 row = 1 line of 13px (TUI parity). */
+  grid-auto-rows: auto;
 }
 
 .home-row--3col   { grid-template-columns: 1fr 1fr 1fr; }
@@ -890,16 +870,14 @@ button.bracketed .bl {
 .home-grid .pito-panel,
 .home-grid .pito-pane {
   width: 100%;
-  height: 100%;
   display: flex;
   flex-direction: column;
-  min-height: 0;
   min-width: 0;
 }
 
 .home-grid .pito-pane .tui-panel-fieldset {
-  flex: 1;
-  min-height: 0;
+  /* 2026-05-25 — fieldset sizes to its content rows (1 line = 13px TUI parity).
+     No flex:1 stretch; if rendered content overflows the page-shell scroll handles it. */
 }
 
 /* The Stack panel ships `.pito-pane--full` so it would span the full
@@ -7259,8 +7237,8 @@ dialog.tui-size-guard-dialog::backdrop {
      mode's transform: scaleX(0.7) which would smush them further. */
   transform: none;
 }
-.tui-scroll-indicator--left  { left: 2px; }
-.tui-scroll-indicator--right { right: 2px; }
+.tui-scroll-indicator--left  { left: 4px; bottom: -7px; }
+.tui-scroll-indicator--right { right: 4px; bottom: -7px; }
 /* Handle in horizontal mode sits on the same bottom row as ◀ ▶ —
    its X coordinate is computed in pixels by the Stimulus controller
    (`style.left = <Npx>`), so no static `left` value is set here. */
@@ -7777,8 +7755,8 @@ a.cal-filter-chip:visited {
 .pito-home-row {
   display: grid;
   gap: 12px;
-  min-height: 0;
-  grid-auto-rows: minmax(0, 1fr);
+  /* 2026-05-25 — content-sized rows. 1 row = 1 line of 13px (TUI parity). */
+  grid-auto-rows: auto;
 }
 
 /* Equal-width fallbacks — used when the component is rendered without
