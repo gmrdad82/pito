@@ -26,6 +26,7 @@ pub struct Theme {
     pub danger: Color,
     pub orange: Color,
     pub cyan: Color,
+    pub purple: Color,
 }
 
 impl Theme {
@@ -47,6 +48,7 @@ impl Theme {
             danger: Color::Rgb(247, 118, 142),
             orange: Color::Rgb(255, 158, 100),
             cyan: Color::Rgb(26, 188, 156),
+            purple: Color::Rgb(187, 154, 247),
         }
     }
 
@@ -61,6 +63,7 @@ impl Theme {
             danger: Color::Rgb(197, 59, 83),
             orange: Color::Rgb(182, 101, 51),
             cyan: Color::Rgb(15, 128, 108),
+            purple: Color::Rgb(160, 120, 220),
         }
     }
 }

@@ -121,6 +121,10 @@ pub struct App<C: PitoClient> {
     pub status_data: StatusData,
     pub last_status_poll: Instant,
 
+    // Datetime tick (1 Hz)
+    pub last_time_update: Instant,
+    pub cached_time_string: String,
+
     // Footage detail (salvaged)
     pub footage_detail_state: Option<FootageDetailState>,
     pub footage_detail_rects: Option<ScrubRects>,
@@ -149,14 +153,16 @@ impl<C: PitoClient> App<C> {
             client,
             sync_polling: None,
             operation_progress: None,
-            status_data: StatusData {
-                connected: false,
+status_data: StatusData {
+            connected: true,
                 sidekiq_busy: 0,
                 sidekiq_enqueued: 0,
                 sidekiq_retry: 0,
                 sidekiq_dead: 0,
             },
             last_status_poll: Instant::now(),
+            last_time_update: Instant::now(),
+            cached_time_string: String::new(),
             footage_detail_state: None,
             footage_detail_rects: None,
             terminal_capability: TerminalCapability::TextOnly,
@@ -198,6 +204,18 @@ impl<C: PitoClient> App<C> {
 
     pub fn sync_anim_tick(&self) -> u8 {
         self.sync_polling.as_ref().map(|sp| sp.tick).unwrap_or(0)
+    }
+
+    /// Return true if at least 1 second has elapsed since the last time
+    /// update, and reset the timer. Callers use this to gate datetime
+    /// recomputation so the status bar only refreshes at 1 Hz.
+    pub fn update_time_stale(&mut self) -> bool {
+        if self.last_time_update.elapsed() >= Duration::from_secs(1) {
+            self.last_time_update = Instant::now();
+            true
+        } else {
+            false
+        }
     }
 
     /// Poll GET /status.json every [`STATUS_POLL_INTERVAL`]. Errors are

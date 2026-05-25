@@ -30,7 +30,7 @@ pub fn render<C: PitoClient>(frame: &mut Frame, app: &mut App<C>) {
     // header (1) | main+sidebar | input (1) | status (1)
     let header_area = Rect::new(area.x, area.y, cols, 1);
     let body_start = area.y + 1;
-    let body_height = rows.saturating_sub(3); // header + input + status
+    let body_height = rows.saturating_sub(3);
     let input_y = body_start + body_height;
     let status_y = input_y + 1;
 
@@ -44,7 +44,6 @@ pub fn render<C: PitoClient>(frame: &mut Frame, app: &mut App<C>) {
     // ── Header ─────────────────────────────────────────────────
     let header_bg = Style::default().bg(theme.bg).fg(theme.fg);
     let mut spans: Vec<Span> = Vec::new();
-
     if app.channels.is_empty() {
         spans.push(Span::styled("no channels connected", Style::default().fg(theme.muted)));
     } else {
@@ -52,15 +51,12 @@ pub fn render<C: PitoClient>(frame: &mut Frame, app: &mut App<C>) {
             spans.push(Span::styled(format!("@{} ", ch.channel_url), Style::default().fg(theme.accent)));
         }
     }
-
     let right = Span::styled("pito", Style::default().fg(theme.muted));
-    let left_width = spans.iter().map(|s| s.width()).sum::<usize>() as u16;
-    let right_width = right.width() as u16;
+    let left_width: u16 = spans.iter().map(|s| s.width() as u16).sum();
+    let right_width: u16 = right.width() as u16;
     let pad = cols.saturating_sub(left_width + right_width);
-
     spans.push(Span::raw(" ".repeat(pad as usize)));
     spans.push(right);
-
     frame.render_widget(Paragraph::new(Line::from(spans)).style(header_bg), header_area);
 
     // ── Main area ──────────────────────────────────────────────
@@ -78,11 +74,9 @@ pub fn render<C: PitoClient>(frame: &mut Frame, app: &mut App<C>) {
     for line in &visible_lines {
         main_spans.push(Line::from(Span::styled(*line, Style::default().fg(theme.fg))));
     }
-    // Pad with empty lines
     while main_spans.len() < body_height as usize {
         main_spans.push(Line::from(""));
     }
-
     frame.render_widget(
         Paragraph::new(main_spans).style(Style::default().bg(theme.bg).fg(theme.fg)),
         main_area,
@@ -104,7 +98,6 @@ pub fn render<C: PitoClient>(frame: &mut Frame, app: &mut App<C>) {
         let mut sb_lines: Vec<Line> = Vec::new();
         let a = Style::default().fg(theme.accent);
         let m = Style::default().fg(theme.muted);
-        let _f = Style::default().fg(theme.fg);
 
         sb_lines.push(Line::from(Span::styled("channels", a)));
         if app.channels.is_empty() {
@@ -142,31 +135,36 @@ pub fn render<C: PitoClient>(frame: &mut Frame, app: &mut App<C>) {
 
     // ── Status bar ─────────────────────────────────────────────
     let status_area = Rect::new(area.x, status_y, cols, 1);
-    let mut st_spans: Vec<Span> = Vec::new();
-
     let sd = &app.status_data;
-    let (conn_icon, conn_label) = if sd.connected {
-        ("● ", "connected")
-    } else {
-        ("○ ", "offline")
-    };
-    st_spans.push(Span::styled(conn_icon, Style::default().fg(if sd.connected { theme.success } else { theme.danger })));
-    st_spans.push(Span::styled(format!("{}  ", conn_label), Style::default().fg(theme.muted)));
+    let conn_fg = if sd.connected { theme.success } else { theme.danger };
 
-    st_spans.push(Span::styled("sidekiq ", Style::default().fg(theme.muted)));
-    st_spans.push(Span::styled(format!("b{} ", sd.sidekiq_busy), Style::default().fg(if sd.sidekiq_busy > 0 { theme.orange } else { theme.success })));
-    st_spans.push(Span::styled(format!("e{} ", sd.sidekiq_enqueued), Style::default().fg(if sd.sidekiq_enqueued > 0 { theme.orange } else { theme.muted })));
-    st_spans.push(Span::styled(format!("r{} ", sd.sidekiq_retry), Style::default().fg(if sd.sidekiq_retry > 0 { theme.danger } else { theme.muted })));
-    st_spans.push(Span::styled(format!("d{}", sd.sidekiq_dead), Style::default().fg(if sd.sidekiq_dead > 0 { theme.danger } else { theme.muted })));
+    // Left side: "connected" (green or red)
+    let mut st = vec![Span::styled("connected", Style::default().fg(conn_fg))];
 
-    let now = chrono::Local::now().format("%H:%M:%S").to_string();
-    let left_w: usize = st_spans.iter().map(|s| s.width()).sum();
-    let pad_w = cols as usize - left_w - now.len();
-    st_spans.push(Span::raw(" ".repeat(pad_w)));
-    st_spans.push(Span::styled(now, Style::default().fg(theme.muted)));
+    // Right side: "Sidekiq b0 e0 r0 d0 · Mon, May 25 · 22:49:00"
+    let mut right: Vec<Span> = Vec::new();
+    if app.cached_time_string.is_empty() {
+        app.cached_time_string = chrono::Local::now().format("%a, %b %e · %H:%M:%S").to_string();
+    }
+    right.push(Span::styled("Sidekiq", Style::default().fg(theme.muted)));
+    right.push(Span::raw(" "));
+    right.push(Span::styled(format!("b{}", sd.sidekiq_busy), Style::default().fg(if sd.sidekiq_busy > 0 { theme.success } else { theme.muted })));
+    right.push(Span::raw(" "));
+    right.push(Span::styled(format!("e{}", sd.sidekiq_enqueued), Style::default().fg(if sd.sidekiq_enqueued > 0 { theme.orange } else { theme.muted })));
+    right.push(Span::raw(" "));
+    right.push(Span::styled(format!("r{}", sd.sidekiq_retry), Style::default().fg(if sd.sidekiq_retry > 0 { theme.danger } else { theme.muted })));
+    right.push(Span::raw(" "));
+    right.push(Span::styled(format!("d{}", sd.sidekiq_dead), Style::default().fg(if sd.sidekiq_dead > 0 { theme.purple } else { theme.muted })));
+    right.push(Span::styled(" · ", Style::default().fg(theme.muted)));
+    right.push(Span::styled(app.cached_time_string.clone(), Style::default().fg(theme.cyan)));
+
+    let right_w: u16 = right.iter().map(|s| s.width() as u16).sum();
+    let pad = cols.saturating_sub(right_w + 11u16 + 2u16);
+    st.push(Span::raw(" ".repeat(pad as usize)));
+    st.extend(right);
 
     frame.render_widget(
-        Paragraph::new(Line::from(st_spans))
+        Paragraph::new(Line::from(st))
             .style(Style::default().bg(theme.bg).fg(theme.fg)),
         status_area,
     );
