@@ -37,12 +37,15 @@
           category:      @notifications_feed_category
         ) %>
     <%= render Pito::CalendarPanelComponent.new(
+          mode:       @calendar_mode,
+          entries:    @calendar_entries,
           buckets:    @calendar_buckets,
           grid:       @calendar_grid,
           today:      @calendar_today,
           year:       @calendar_year,
           month:      @calendar_month,
-          raw_filter: @calendar_raw_filter
+          raw_filter: @calendar_raw_filter,
+          category:   @calendar_category
         ) %>
   </div>
 

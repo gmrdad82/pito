@@ -2,15 +2,20 @@
       class: "pane pito-pane pito-panel pito-panel--calendar",
       **panel_data do %>
   <span class="pito-pane__title"><%= title %></span>
-  <%# Title-actions: view toggle + sync. Order: toggle first, sync always last. %>
+  <%# Title-actions: mode toggle (bracket-to-space rule) + sync.
+      Active mode renders as plain label; inactive renders as [bracketed action].
+      Both paint in var(--section-accent) per actions-always-accent rule. %>
   <span class="pito-pane__title-actions">
-    <%= render Tui::ViewToggleComponent.new(
-          views: views,
-          current: current_view,
-          event_name: "calendar:view-changed",
-          active_color: :accent,
-          active_style: :plain
-        ) %>
+    <% views.each do |v| %>
+      <% if v[:name] == mode %>
+        <span class="cal-mode-label cal-mode-label--active" data-tui-focusable="<%= v[:name] %>"><%= v[:label] %></span>
+      <% else %>
+        <%= link_to "[#{v[:label]}]",
+              helpers.pito_calendar_set_mode_path(mode: v[:name]),
+              class: "cal-mode-action",
+              data: { tui_focusable: v[:name].to_s } %>
+      <% end %>
+    <% end %>
     <%= render Tui::SyncIndicatorComponent.new(
           mode: :target,
           target: "home.calendar",
@@ -18,57 +23,23 @@
         ) %>
   </span>
   <%= render Tui::PanelFieldsetComponent.new do %>
-    <%# ── Filter chips ───────────────────────────────────────────── %>
-    <div class="cal-filter-row">
-      <% CalendarPanelComponent::CATEGORY_ORDER.each do |cat| %>
-        <a href="<%= category_chip_href(cat) %>"
-           class="cal-filter-chip <%= category_css_modifier(cat) %>"
-           data-tui-focusable="filter_<%= cat %>"
-           aria-pressed="<%= category_active?(cat) %>">
-          <span class="cal-filter-chip__bracket">[</span><span class="cal-filter-chip__check"><%= category_active?(cat) ? "x" : " " %></span><span class="cal-filter-chip__bracket">]</span>
-          <span class="cal-filter-chip__label"><%= category_chip_label(cat) %></span>
-        </a>
-      <% end %>
-    </div>
+    <%# ── Legend (always shown) ─────────────────────────────────── %>
+    <%= render Pito::CalendarLegendComponent.new(active_filter: category) %>
 
-    <%# ── Month heading ─────────────────────────────────────────── %>
-    <div class="cal-month-heading">
-      <%= month_heading %>
-    </div>
-
-    <%# ── Day-of-week headers ────────────────────────────────────── %>
-    <div class="cal-grid">
-      <% week_day_headers.each do |wd| %>
-        <div class="cal-dow-header"><%= wd %></div>
-      <% end %>
-
-      <%# ── Day cells ────────────────────────────────────────────── %>
-      <% grid_rows.each do |week| %>
-        <% week.each do |date| %>
-          <div class="<%= day_cell_classes(date) %>"
-               data-tui-focusable="day_<%= date.iso8601 %>"
-               data-date="<%= date.iso8601 %>">
-            <button class="cal-day-open-btn"
-                    aria-label="<%= date.strftime('%-d %B %Y') %>"
-                    onclick="document.getElementById('<%= day_dialog_id(date) %>').showModal()">
-              <span class="cal-day-number"><%= date.day %></span>
-            </button>
-            <% day_entries(date).each do |entry| %>
-              <span class="<%= entry_bullet_class(entry) %>">•&nbsp;<%= bullet_text(entry) %></span>
-            <% end %>
-          </div>
-        <% end %>
-      <% end %>
-    </div>
-  <% end %>
-
-  <%# ── Day-detail dialogs (one per grid date with entries) ───────── %>
-  <% grid.each do |date| %>
-    <% entries = day_entries(date) %>
-    <%= render Tui::CalendarDayDialogComponent.new(
-          id:      day_dialog_id(date),
-          date:    date,
-          entries: entries
-        ) %>
+    <%# ── Mode-branched sub-component ──────────────────────────── %>
+    <% if mode == :month %>
+      <%= render Pito::Calendar::MonthGridComponent.new(
+            entries:         entries,
+            month:           Date.new(year, month, 1),
+            today:           today,
+            category_filter: category
+          ) %>
+    <% else %>
+      <%= render Pito::Calendar::ScheduleListComponent.new(
+            entries:         entries,
+            range_start:     today,
+            category_filter: category
+          ) %>
+    <% end %>
   <% end %>
 <% end %>

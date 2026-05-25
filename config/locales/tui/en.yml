@@ -125,6 +125,8 @@ en:
           label: "games"
         s:
           label: "sync"
+        p:
+          label: "pause / resume"
         help:
           label: "help"
         command:
@@ -329,6 +331,35 @@ en:
       calendar_pick_year:
         name: "pick year"
         hint: "open the year picker for the calendar"
+      # Phase C4 (2026-05-25) — calendar panel mode toggle + category filter.
+      # scope: :home — only available on the home screen.
+      calendar_set_mode:
+        name: "calendar: set mode"
+        hint: "switch calendar view mode (month or list)"
+      calendar_set_mode_month:
+        name: "calendar: switch to month mode"
+        hint: "switch calendar to month grid view"
+      calendar_set_mode_list:
+        name: "calendar: switch to list mode"
+        hint: "switch calendar to schedule list view"
+      calendar_filter_category:
+        name: "calendar: filter category"
+        hint: "filter calendar entries by category"
+      calendar_filter_channel:
+        name: "calendar: filter channel"
+        hint: "show only channel calendar entries"
+      calendar_filter_game:
+        name: "calendar: filter game"
+        hint: "show only game calendar entries"
+      calendar_filter_system:
+        name: "calendar: filter system"
+        hint: "show only system calendar entries"
+      calendar_filter_manual:
+        name: "calendar: filter manual"
+        hint: "show only manual calendar entries"
+      calendar_filter_clear:
+        name: "calendar: clear filter"
+        hint: "clear the calendar category filter and show all entries"
       # Phase C5 (2026-05-25) — notifications feed panel palette commands.
       # scope: :home — only available on the home screen.
       notifications_feed_mark_all_read:

@@ -226,6 +226,34 @@ Rails.application.config.after_initialize do
     scope: :home
   )
 
+  # Phase C4 (2026-05-25) — calendar panel mode toggle + category filter.
+  #
+  # `:calendar_set_mode` — redirects to / with `?calendar_mode=month|list`.
+  # The JS dispatcher sends `args: { mode: "month"|"list" }` as a query param.
+  # scope: :home — calendar is a home-screen panel only.
+  Pito::ActionRegistry.define(
+    :calendar_set_mode,
+    path: -> { routes.pito_calendar_set_mode_path },
+    method: :get,
+    confirmation: nil,
+    i18n_key: "tui.commands.calendar_set_mode",
+    cable_panel: "pito:home:calendar",
+    scope: :home
+  )
+
+  # `:calendar_filter_category` — redirects to / with `?calendar_category=<cat>|""`.
+  # The JS dispatcher sends `args: { category: "channel"|"game"|"system"|"manual"|"" }`.
+  # scope: :home — calendar is a home-screen panel only.
+  Pito::ActionRegistry.define(
+    :calendar_filter_category,
+    path: -> { routes.pito_calendar_filter_category_path },
+    method: :get,
+    confirmation: nil,
+    i18n_key: "tui.commands.calendar_filter_category",
+    cable_panel: "pito:home:calendar",
+    scope: :home
+  )
+
   # Phase C5 (2026-05-25) — notifications feed panel palette commands.
   #
   # `:mark_all_read_notifications_feed` — POSTs to
@@ -233,6 +261,14 @@ Rails.application.config.after_initialize do
   # as read without row selection. Responds with a redirect so the feed
   # panel re-renders with the updated read state. Non-destructive and
   # reversible at the row level; no confirmation needed.
+  #
+  # The four filter-chip actions (`filter_channel` / `filter_game` /
+  # `filter_system` / `filter_manual`) are pure client-side clicks:
+  # the JS dispatcher resolves `click_focusable` with the matching chip's
+  # `data-tui-focusable` key. Registered as :global `click_focusable`
+  # (already present above); these named stubs exist so the palette can
+  # surface human-readable entries (`filter channel`, `filter game`, …)
+  # that resolve via `click_focusable` under the hood.
   #
   # scope: :home — notifications feed is a home-screen panel only.
   Pito::ActionRegistry.define(
@@ -242,6 +278,185 @@ Rails.application.config.after_initialize do
     confirmation: nil,
     i18n_key: "tui.commands.notifications_feed_mark_all_read",
     cable_panel: "pito:home:notifications_feed",
+    scope: :home
+  )
+
+  Pito::ActionRegistry.define(
+    :notifications_feed_filter_channel,
+    path: -> { "#" },
+    method: :get,
+    confirmation: nil,
+    i18n_key: "tui.commands.notifications_feed_filter_channel",
+    cable_panel: nil,
+    scope: :home
+  )
+
+  Pito::ActionRegistry.define(
+    :notifications_feed_filter_game,
+    path: -> { "#" },
+    method: :get,
+    confirmation: nil,
+    i18n_key: "tui.commands.notifications_feed_filter_game",
+    cable_panel: nil,
+    scope: :home
+  )
+
+  Pito::ActionRegistry.define(
+    :notifications_feed_filter_system,
+    path: -> { "#" },
+    method: :get,
+    confirmation: nil,
+    i18n_key: "tui.commands.notifications_feed_filter_system",
+    cable_panel: nil,
+    scope: :home
+  )
+
+  Pito::ActionRegistry.define(
+    :notifications_feed_filter_manual,
+    path: -> { "#" },
+    method: :get,
+    confirmation: nil,
+    i18n_key: "tui.commands.notifications_feed_filter_manual",
+    cable_panel: nil,
+    scope: :home
+  )
+
+  # E1 (2026-05-25) — notifications settings panel palette commands.
+  #
+  # `toggle_all` / `toggle_daily_digest` — client-side click on the
+  # matching checkbox focusable. Pure client-side stubs; no path / POST.
+  # `focus_slack_webhook` / `focus_discord_webhook` — move keyboard focus
+  # to the respective webhook URL input in the Notifications settings panel.
+  # `open_slack_help_dialog` / `open_discord_help_dialog` — open the
+  # per-brand webhook help dialog via the existing dialog opener flow.
+  #
+  # scope: :home — notifications settings is a home-screen panel only.
+  Pito::ActionRegistry.define(
+    :toggle_all,
+    path: -> { "#" },
+    method: :get,
+    confirmation: nil,
+    i18n_key: "tui.commands.toggle_all",
+    cable_panel: nil,
+    scope: :home
+  )
+
+  Pito::ActionRegistry.define(
+    :toggle_daily_digest,
+    path: -> { "#" },
+    method: :get,
+    confirmation: nil,
+    i18n_key: "tui.commands.toggle_daily_digest",
+    cable_panel: nil,
+    scope: :home
+  )
+
+  Pito::ActionRegistry.define(
+    :focus_slack_webhook,
+    path: -> { "#" },
+    method: :get,
+    confirmation: nil,
+    i18n_key: "tui.commands.focus_slack_webhook",
+    cable_panel: nil,
+    scope: :home
+  )
+
+  Pito::ActionRegistry.define(
+    :focus_discord_webhook,
+    path: -> { "#" },
+    method: :get,
+    confirmation: nil,
+    i18n_key: "tui.commands.focus_discord_webhook",
+    cable_panel: nil,
+    scope: :home
+  )
+
+  Pito::ActionRegistry.define(
+    :open_slack_help_dialog,
+    path: -> { "#" },
+    method: :get,
+    confirmation: nil,
+    i18n_key: "tui.commands.open_slack_help_dialog",
+    cable_panel: nil,
+    scope: :home
+  )
+
+  Pito::ActionRegistry.define(
+    :open_discord_help_dialog,
+    path: -> { "#" },
+    method: :get,
+    confirmation: nil,
+    i18n_key: "tui.commands.open_discord_help_dialog",
+    cable_panel: nil,
+    scope: :home
+  )
+
+  # E1 (2026-05-25) — security panel palette commands (session table).
+  #
+  # Five sort commands + select_all are pure client-side sort/click
+  # stubs that the JS dispatcher resolves via `sort_table` or
+  # `click_focusable` dispatches. Named entries here surface human-
+  # readable palette rows (e.g., "sort by device") so the user doesn't
+  # need to type the generic "sort" command. Path "#" = client-side only.
+  #
+  # scope: :home — security / session management is a home-screen panel.
+  Pito::ActionRegistry.define(
+    :sort_sessions_device,
+    path: -> { "#" },
+    method: :get,
+    confirmation: nil,
+    i18n_key: "tui.commands.sort_sessions_device",
+    cable_panel: nil,
+    scope: :home
+  )
+
+  Pito::ActionRegistry.define(
+    :sort_sessions_browser,
+    path: -> { "#" },
+    method: :get,
+    confirmation: nil,
+    i18n_key: "tui.commands.sort_sessions_browser",
+    cable_panel: nil,
+    scope: :home
+  )
+
+  Pito::ActionRegistry.define(
+    :sort_sessions_ip,
+    path: -> { "#" },
+    method: :get,
+    confirmation: nil,
+    i18n_key: "tui.commands.sort_sessions_ip",
+    cable_panel: nil,
+    scope: :home
+  )
+
+  Pito::ActionRegistry.define(
+    :sort_sessions_last_seen,
+    path: -> { "#" },
+    method: :get,
+    confirmation: nil,
+    i18n_key: "tui.commands.sort_sessions_last_seen",
+    cable_panel: nil,
+    scope: :home
+  )
+
+  Pito::ActionRegistry.define(
+    :sort_sessions_created,
+    path: -> { "#" },
+    method: :get,
+    confirmation: nil,
+    i18n_key: "tui.commands.sort_sessions_created",
+    cable_panel: nil,
+    scope: :home
+  )
+
+  Pito::ActionRegistry.define(
+    :select_all_sessions,
+    path: -> { "#" },
+    method: :get,
+    confirmation: nil,
+    i18n_key: "tui.commands.select_all_sessions",
+    cable_panel: nil,
     scope: :home
   )
 end

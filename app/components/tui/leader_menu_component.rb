@@ -46,11 +46,20 @@ module Tui
     # screen). The TST sync VC and per-panel sync VCs all read this
     # master flag via `isTargetSyncDisabled` and display the cascaded
     # state.
+    #
+    # 2026-05-25 (E2) — `p` entry added: `Space p` triggers
+    # `:pause_target` / `:resume_target` for the currently focused
+    # panel's sync target. The JS dispatcher reads the active panel's
+    # `data-sync-target` attribute and dispatches the correct action
+    # (pause if running, resume if paused). dispatch_method resolves
+    # via the `tui:leader:toggle_pause` custom event which the
+    # tui_sync_indicator_controller intercepts.
     DEFAULT_ENTRIES = [
       { key: "h", label_key: "tui.leader.entries.h.label",       path: "/" },
       { key: "v", label_key: "tui.leader.entries.v.label",       path: "/videos" },
       { key: "g", label_key: "tui.leader.entries.g.label",       path: "/games" },
       { key: "s", label_key: "tui.leader.entries.s.label",       action_name: "toggle_tst_sync" },
+      { key: "p", label_key: "tui.leader.entries.p.label",       dispatch_method: "toggle_pause" },
       { key: "?", label_key: "tui.leader.entries.help.label",    dispatch_method: "open_help" },
       { key: ":", label_key: "tui.leader.entries.command.label", dispatch_method: "open_command" },
       { key: "q", label_key: "tui.leader.entries.q.label",       path: "/session", path_method: "delete" },

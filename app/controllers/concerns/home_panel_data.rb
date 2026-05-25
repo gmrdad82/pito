@@ -136,8 +136,16 @@ module HomePanelData
     @notifications_feed_category = NOTIFICATIONS_FEED_ALLOWED_CATEGORIES.include?(raw_cat) ? raw_cat : nil
   end
 
+  # Calendar mode allowlist for `?calendar_mode=` query param.
+  # "month" renders Pito::Calendar::MonthGridComponent.
+  # "list"  renders Pito::Calendar::ScheduleListComponent.
+  CALENDAR_ALLOWED_MODES = %w[month list].freeze
+  CALENDAR_DEFAULT_MODE  = "month".freeze
+
   # Fetches the current-month CalendarEntry buckets for the home Calendar
   # panel. Applies the 4-category `?calendar_filter[*]=on` server filter.
+  # Also resolves `?calendar_mode=month|list` (default: month) and the
+  # `?calendar_category=<cat>` single-category URL filter.
   # Groups results by Date, ordered by created_at ASC within each day.
   def set_calendar_panel_data
     install_tz = Rails.application.config.x.pito.timezone
@@ -146,6 +154,14 @@ module HomePanelData
     @calendar_year   = today.year
     @calendar_month  = today.month
     @calendar_raw_filter = params[:calendar_filter]
+
+    # Resolve calendar_mode from URL query param.
+    raw_mode = params[:calendar_mode].to_s
+    @calendar_mode = CALENDAR_ALLOWED_MODES.include?(raw_mode) ? raw_mode.to_sym : CALENDAR_DEFAULT_MODE.to_sym
+
+    # Resolve single-category filter from URL query param.
+    raw_cat = params[:calendar_category].to_s
+    @calendar_category = NOTIFICATIONS_FEED_ALLOWED_CATEGORIES.include?(raw_cat) ? raw_cat.to_sym : nil
 
     grid      = home_calendar_month_grid(@calendar_year, @calendar_month)
     first_day = grid.first
@@ -158,6 +174,7 @@ module HomePanelData
     scope = home_calendar_filter_scope(scope, @calendar_raw_filter)
 
     entries = scope.to_a
+    @calendar_entries = entries
     @calendar_buckets = entries.group_by { |e| e.starts_at.in_time_zone(install_tz).to_date }
     @calendar_grid    = grid
     @calendar_today   = today
