@@ -7458,11 +7458,15 @@ body[data-tui-authenticated="no"] .tui-page-scroll-indicator { display: none; }
    the absolutely-positioned title (same 14px as every other pane body
    gets from the title overlap). Width is capped to accommodate the 6-box
    segmented input row. Padding-top elevated to 18px so the .pito-pane__title
-   span (top: -7px, line-height: 14px) has breathing room before content. */
+   span (top: -7px, line-height: 14px) has breathing room before content.
+   Issue 3 fix: focused-panel tint applied directly — accent bg + accent border.
+   data-tui-cursor-focused="yes" is set on the element so the existing
+   .pito-pane[data-tui-cursor-focused="yes"] border-color rule also fires. */
 .pito-auth-dialog {
   max-width: 360px;
   width: 100%;
   padding-top: 18px;
+  background: var(--focus-tint-bg);
 }
 
 .pito-auth-dialog__error {
@@ -7494,15 +7498,20 @@ body[data-tui-authenticated="no"] .tui-page-scroll-indicator { display: none; }
   border-color: var(--section-accent);
 }
 
-/* Actions row: submit + toggle on the same line, gap between them. */
+/* Actions row: submit + toggle inline — natural word-spacing only, no gap/pipe.
+   Issue 2 fix: no gap: property so siblings sit with normal inline spacing.
+   The .pito-pane__title-actions pipe rule is NOT used here (this is a plain
+   .pito-auth-dialog__actions class), so no pipe rule fires. */
 .pito-auth-dialog__actions {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 6px;
   margin: 4px 0 10px;
 }
 
-/* [ log in ] — button.bracketed reset; accent color from button.bracketed family rule. */
+/* [ log in ] — button.bracketed reset; accent color from button.bracketed rule.
+   Issue 1 fix: explicit color: var(--section-accent) here so the button rule
+   is not overridden by any muted reset. */
 .pito-auth-dialog__submit {
   background: none;
   border: none;
@@ -7510,11 +7519,15 @@ body[data-tui-authenticated="no"] .tui-page-scroll-indicator { display: none; }
   cursor: pointer;
   font: inherit;
   font-size: 13px;
+  color: var(--section-accent);
 }
 
-/* [ use backup code ] / [ use TOTP code ] — secondary action, muted color.
-   cursor: pointer overrides the `.bracketed-muted` cursor: default since
-   these ARE interactive buttons. user-select also overridden. */
+.pito-auth-dialog__submit .bl {
+  color: var(--section-accent);
+}
+
+/* [ use backup code ] / [ use TOTP code ] — Issue 1 fix: accent color, not muted.
+   cursor: pointer overrides any default. */
 .pito-auth-dialog__toggle-btn {
   background: none;
   border: none;
@@ -7523,6 +7536,11 @@ body[data-tui-authenticated="no"] .tui-page-scroll-indicator { display: none; }
   user-select: auto;
   font: inherit;
   font-size: 13px;
+  color: var(--section-accent);
+}
+
+.pito-auth-dialog__toggle-btn .bl {
+  color: var(--section-accent);
 }
 
 /* No-enrollment code block: hint label + monospace command row. */
@@ -7561,8 +7579,8 @@ body[data-tui-authenticated="no"] .tui-page-scroll-indicator { display: none; }
   flex: 1;
 }
 
-/* [ copy ] — bracketed-muted action inline with code.
-   cursor: pointer overrides bracketed-muted's cursor: default. */
+/* [ copy ] — bracketed action in section accent (Issue 1 fix).
+   cursor: pointer; explicit accent color overrides any muted inheritance. */
 .pito-auth-dialog__copy-btn {
   background: none;
   border: none;
@@ -7572,4 +7590,9 @@ body[data-tui-authenticated="no"] .tui-page-scroll-indicator { display: none; }
   font: inherit;
   font-size: 12px;
   flex-shrink: 0;
+  color: var(--section-accent);
+}
+
+.pito-auth-dialog__copy-btn .bl {
+  color: var(--section-accent);
 }
