@@ -172,6 +172,11 @@ mouse guard is active — cursor is hidden then).
 
 - `BracketedLinkComponent` — `<a>` / `<button type=submit>` shapes
 - `Tui::ActionButtonComponent` — bracketed button wired to the action bus
+- `Tui::ActionComponent` — generic bracketed action for forms and local Stimulus
+  wiring. Kwargs: `label:`, `as:` (`:submit` / `:button` / `:link`, default
+  `:button`), `href:` (when `as: :link`), `data:` (hash of Stimulus attrs),
+  `destructive:` (bool, adds `.text-danger`). Does NOT require an ActionRegistry
+  entry — use for auth forms, copy triggers, any non-bus action.
 
 Destructive actions always route through a confirmation dialog. No hover
 effects. No focus rings (focus signal = color tint).
@@ -240,10 +245,31 @@ mode, SPACE opens the leader menu (no checkbox effect).
 ## Hints
 
 `Tui::HintComponent` — italic, muted, left-aligned. Sits under the row
-it explains.
+it explains. Kwargs: `text:`, `severity:` (`:muted` default / `:danger` for
+error messages — adds `.text-danger` to render in `var(--color-danger)`).
 
 BST hints (`? help`, `: command`) use a different style: NOT italic;
 `?` / `:` white; `help` / `command` muted.
+
+## Code blocks
+
+`Tui::CodeComponent` — bordered monospace command display. Uses the existing
+`.code-block` + `.code-block code` CSS rules. Kwargs: `text:` (required),
+`copyable:` (bool, default `false`), `copied_message:` (label flashed after
+copy, default `"copied!"`), `copy_label:` (action label, default `"copy"`).
+When `copyable: true`, composes `Tui::ActionComponent` wired to the
+`clipboard-copy` Stimulus controller. No new CSS classes.
+
+## Segmented code inputs
+
+`Tui::TotpCodeComponent` — unified segmented-box input replacing the former
+`TotpCodeInputComponent` (6-digit) and `Pito::BackupCodeInputComponent`
+(8-char). Kwargs: `field:`, `mode:` (`:digits` 6-numeric / `:backup`
+8-alphanumeric, default `:digits`), `autofocus:`, `hidden:`, `data:` (extra
+data attrs on the wrapper). Stimulus controller: `tui-totp-code`
+(tui_totp_code_controller.js). Mode `:digits` auto-submits on full entry;
+mode `:backup` does not. Both modes share identical UX (distribute paste,
+arrow nav, backspace step, hidden field sync).
 
 ## Charts and progress
 

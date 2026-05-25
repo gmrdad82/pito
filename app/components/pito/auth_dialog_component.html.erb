@@ -1,51 +1,43 @@
 <%# Pito::AuthDialogComponent — full-viewport non-dismissible TOTP login overlay.
-    Rendered by app/views/layouts/application.html.erb when Current.session.nil?.
-    Form posts to POST /login (sessions#create).
-
-    Panel chrome: uses .pito-pane + .pito-pane__title (no fill, border-only).
-    All bracketed actions use the canonical .bracketed class (button.bracketed
-    rule in application.css handles font-weight 400 + chrome reset). NO custom
-    action classes. NO inline CSS. %>
+    Structural chrome: .pito-auth-overlay (fixed fullscreen) + .pito-auth-dialog.pito-pane.
+    All interactive and content elements are ViewComponent renders. %>
 <div class="pito-auth-overlay" role="dialog" aria-modal="true" aria-labelledby="auth-dialog-title">
   <div class="pito-auth-dialog pito-pane" data-controller="pito-auth-dialog" data-tui-cursor-focused="yes">
     <span class="pito-pane__title" id="auth-dialog-title"><%= t("tui.auth.title") %></span>
 
     <% if login_error %>
-      <p class="pito-auth-dialog__error"><%= login_error %></p>
+      <%= render Tui::HintComponent.new(text: login_error, severity: :danger) %>
     <% end %>
 
-    <%= form_with url: "/login", method: :post, scope: nil do |_f| %>
-      <div class="pito-auth-dialog__field" id="auth-totp-field"
-           data-pito-auth-dialog-target="totpField">
-        <%= render TotpCodeInputComponent.new(field: :code, autofocus: true) %>
-      </div>
-
-      <div class="pito-auth-dialog__field" id="auth-backup-field" hidden
-           data-pito-auth-dialog-target="backupField">
-        <%= render Pito::BackupCodeInputComponent.new(field: :backup_code) %>
-      </div>
+    <%= form_with url: "/login", method: :post, scope: nil do %>
+      <%= render Tui::TotpCodeComponent.new(field: :code, mode: :digits, autofocus: true,
+            data: { pito_auth_dialog_target: "totpField" }) %>
+      <%= render Tui::TotpCodeComponent.new(field: :backup_code, mode: :backup,
+            hidden: true,
+            data: { pito_auth_dialog_target: "backupField" }) %>
 
       <div class="pito-auth-dialog__actions">
-        <button type="submit" class="bracketed">[<span class="bl"><%= t("tui.auth.submit_label") %></span>]</button>
-        <button type="button" class="bracketed"
-                data-action="click->pito-auth-dialog#toggleBackup"
-                data-pito-auth-dialog-target="toggleBtn"
-                data-use-backup-label="<%= t("tui.auth.use_backup_label") %>"
-                data-use-totp-label="<%= t("tui.auth.use_totp_label") %>">[<span class="bl"><%= t("tui.auth.use_backup_label") %></span>]</button>
+        <%= render Tui::ActionComponent.new(label: t("tui.auth.submit_label"), as: :submit) %>
+        <%= render Tui::ActionComponent.new(
+              label: t("tui.auth.use_backup_label"),
+              as: :button,
+              data: {
+                action: "click->pito-auth-dialog#toggleBackup",
+                pito_auth_dialog_target: "toggleBtn",
+                use_backup_label: t("tui.auth.use_backup_label"),
+                use_totp_label: t("tui.auth.use_totp_label")
+              }) %>
       </div>
     <% end %>
 
     <% if totp_not_enrolled? %>
-      <div class="pito-auth-dialog__code-block"
-           data-controller="clipboard-copy"
-           data-clipboard-copy-toast-message-value="<%= t("tui.auth.copied_label") %>">
-        <p class="pito-auth-dialog__hint"><%= t("tui.auth.code_block_intro") %></p>
-        <div class="pito-auth-dialog__code-row">
-          <code class="pito-auth-dialog__code-text"
-                data-clipboard-copy-target="source">bin/rails pito:auth:enroll</code>
-          <button type="button" class="bracketed"
-                  data-action="click->clipboard-copy#copy">[<span class="bl"><%= t("tui.auth.copy_label") %></span>]</button>
-        </div>
+      <div class="pito-auth-dialog__code-block">
+        <%= render Tui::HintComponent.new(text: t("tui.auth.code_block_intro")) %>
+        <%= render Tui::CodeComponent.new(
+              text: "bin/rails pito:auth:enroll",
+              copyable: true,
+              copied_message: t("tui.auth.copied_label"),
+              copy_label: t("tui.auth.copy_label")) %>
       </div>
     <% end %>
   </div>

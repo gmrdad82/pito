@@ -1,45 +1,41 @@
 # Pito::AuthDialogComponent — non-dismissible TOTP login overlay.
 #
 # Purpose:
-#   Renders a full-viewport overlay dialog when `Current.session.nil?`.
-#   The root layout always serves; this dialog sits on top of the panel
-#   chrome so the owner can see the structural skeleton without seeing
-#   live data.
+#   Renders a full-viewport overlay when `Current.session.nil?`. Sits above
+#   all panel chrome so the owner can see the structural skeleton without
+#   seeing live data. Not dismissible by Esc / backdrop — disappears only on
+#   a successful POST /login (full-page reload).
 #
-#   Visual pattern: adopts the canonical `.pito-pane` chrome (border-radius,
-#   section-accent border, title-in-border via `.pito-pane__title`). The
-#   6-digit TOTP input renders as TotpCodeInputComponent (six segmented
-#   boxes + hidden concatenation field). A backup-code field is toggled
-#   via the `pito-auth-dialog` Stimulus controller. When TOTP is not yet
-#   enrolled, a code-block hint appears with a `[ copy ]` action backed by
-#   the `clipboard-copy` Stimulus controller.
+#   All interactive and content elements compose via ViewComponents:
+#   - Tui::HintComponent      — login error line (severity: :danger)
+#   - Tui::TotpCodeComponent  — 6-digit (mode: :digits) or 8-char (mode: :backup)
+#   - Tui::ActionComponent    — [log in] submit + [use backup code] toggle
+#   - Tui::CodeComponent      — enrollment hint with [ copy ] action
 #
 # Kwargs: none required.
 #
 # Variants: none.
 #
 # Focusables:
-#   - digit boxes (6)     — primary TOTP segmented input (autofocused on digit 1)
-#   - `#auth-backup-code` — 8-char backup code input (revealed via toggle)
-#   - `[ log in ]`        — submit button
-#   - `[ use backup code ]` / `[ use TOTP code ]` — toggle button
-#   - `[ copy ]`          — clipboard action (only when totp_not_enrolled?)
+#   - digit boxes (6)       — primary TOTP segmented input (autofocused on digit 1)
+#   - backup char boxes (8) — revealed via toggle
+#   - `[ log in ]`          — submit action
+#   - `[ use backup code ]` / `[ use TOTP code ]` — toggle action
+#   - `[ copy ]`            — clipboard action (only when totp_not_enrolled?)
 #
 # Mode behavior:
 #   Unconditionally shown when the layout detects `Current.session.nil?`.
-#   Not dismissible by keyboard (Esc / backdrop). Disappears only on a
-#   successful POST /login which triggers a full-page reload.
 #
 # Cable subscriptions: none (unauthenticated context; cable never opens).
 #
 # Related:
 #   app/views/layouts/application.html.erb — renders this component
 #   app/controllers/sessions_controller.rb — handles POST /login
-#   app/helpers/application_helper.rb      — tui_authenticated?
-#   app/components/totp_code_input_component.rb — 6-box segmented input
-#   app/javascript/controllers/pito_auth_dialog_controller.js — toggle + label swap
-#   app/javascript/controllers/clipboard_copy_controller.js — [ copy ] action
-#   config/locales/tui/en.yml              — tui.auth.* keys
+#   app/components/tui/totp_code_component.rb  — unified segmented input
+#   app/components/tui/action_component.rb     — bracketed action primitive
+#   app/components/tui/code_component.rb       — copyable command block
+#   app/javascript/controllers/pito_auth_dialog_controller.js
+#   config/locales/tui/en.yml — tui.auth.* keys
 class Pito::AuthDialogComponent < ViewComponent::Base
   # Returns true when TOTP has not been enrolled yet.
   # Used to render the operator hint in the dialog body.

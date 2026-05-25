@@ -5,4 +5,7 @@
   <span class="tui-dialog-frame__title-left"><%= title %></span>
   <span class="tui-dialog-frame__title-right"><%= esc_hint_text %></span>
   <%= content %>
+  <% if footer? %>
+    <div class="tui-dialog-frame__footer"><%= footer %></div>
+  <% end %>
 </dialog>

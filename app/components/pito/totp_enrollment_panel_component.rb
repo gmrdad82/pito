@@ -9,12 +9,12 @@ module Pito
   # variants: none
   #
   # focusables (2):
-  #   1. code input  — TotpCodeInputComponent(:code, autofocus: true)
+  #   1. code input  — Tui::TotpCodeComponent(mode: :digits, autofocus: true)
   #   2. [verify]    — form submit action (bracketed button)
   #
   # cable: pito:home:totp_enrollment
   #
-  # composes: Tui::FramedPanelComponent, TotpCodeInputComponent
+  # composes: Tui::FramedPanelComponent, Tui::TotpCodeComponent
   #
   # Extracted from `app/views/settings/security/totps/new.html.erb`
   # (lines 64-106) per Beta-3 lane B candidate B11. The right-panel

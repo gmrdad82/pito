@@ -8,7 +8,7 @@
                 data: { turbo: false } do %>
     <div style="margin-bottom: 12px;">
       <label class="form-label">authenticator code</label>
-      <%= render TotpCodeInputComponent.new(field: :code, autofocus: true) %>
+      <%= render Tui::TotpCodeComponent.new(field: :code, mode: :digits, autofocus: true) %>
     </div>
 
     <details style="margin-bottom: 12px;">

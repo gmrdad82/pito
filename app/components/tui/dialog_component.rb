@@ -40,6 +40,7 @@ module Tui
   #   * `open()` / `close()` actions for callers that drive the dialog from JS
   class DialogComponent < ViewComponent::Base
     renders_one :body
+    renders_one :footer
 
     def initialize(id:, title:, screen_accent: :home, esc_hint_key: "tui.dialog.esc_to_close", extra_classes: nil, extra_controllers: nil)
       @id = id

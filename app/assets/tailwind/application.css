@@ -6149,6 +6149,15 @@ dd.tui-help-dialog__label {
   color: var(--color-link, var(--section-accent));
 }
 
+/* Footer slot rendered by Tui::DialogComponent when a `with_footer` block is
+   provided. Separates footer content from the body with a muted hairline. */
+.tui-dialog-frame__footer {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid
+    color-mix(in srgb, var(--section-accent, var(--dracula-purple)) 20%, transparent);
+}
+
 /* FB-44 (2026-05-20). About dialog adopts `.tui-dialog-frame` for the
    canonical title-in-border behavior. Without these overrides, the
    `.confirm-modal { padding: 0 }` rule earlier in the cascade combines
@@ -7434,9 +7443,9 @@ body > main::-webkit-scrollbar {
    The dialog box adopts the canonical `.pito-pane` chrome — same border-radius,
    same section-accent border mix, same `.pito-pane__title` title-in-border
    pattern with pipe separators (border-left / border-right on the slot).
-   The 6-digit TOTP input renders via TotpCodeInputComponent (segmented boxes).
-   Submit + toggle are bracketed actions in section accent / muted respectively.
-   No-enrollment state shows a code-block row with [ copy ] inline action. */
+   The 6-digit TOTP input renders via Tui::TotpCodeComponent (segmented boxes).
+   Submit + toggle are bracketed actions via Tui::ActionComponent.
+   No-enrollment state composes Tui::HintComponent + Tui::CodeComponent. */
 
 .pito-auth-overlay {
   position: fixed;
