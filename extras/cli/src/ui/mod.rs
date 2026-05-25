@@ -104,7 +104,7 @@ pub fn render<C: PitoClient>(frame: &mut Frame, app: &mut App<C>) {
         let mut sb_lines: Vec<Line> = Vec::new();
         let a = Style::default().fg(theme.accent);
         let m = Style::default().fg(theme.muted);
-        let f = Style::default().fg(theme.fg);
+        let _f = Style::default().fg(theme.fg);
 
         sb_lines.push(Line::from(Span::styled("channels", a)));
         if app.channels.is_empty() {

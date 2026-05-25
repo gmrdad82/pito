@@ -46,6 +46,5 @@ pub mod state;
 
 pub use capability::TerminalCapability;
 pub use preview::PreviewProtocol;
-pub use render::render;
-pub use scrub::{ScrubRects, handle_mouse};
+pub use scrub::ScrubRects;
 pub use state::FootageDetailState;
