@@ -9,7 +9,7 @@ class DashboardController < ApplicationController
     end
   end
 
-  # REMOVED: /status.json — cable handles this now
+  # REMOVED: cable handles status bar now
 
   # GET /analytics/channel/:id — time-series data for ASCII chart rendering
   def channel_analytics

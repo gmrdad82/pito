@@ -1,30 +1,4 @@
 {
   "schema_version": 1,
-  "agents": [
-    {
-      "id": "agent_afb3287b",
-      "session_name": "rust-cable-i18n",
-      "fork_context": false,
-      "agent_type": "general",
-      "prompt": "Add Action Cable WebSocket support and datetime tick to the Rust TUI at /home/catalin/Dev/pito/extras/cli.\n\n1. **Cable consumer** — In the TUI event loop (`commands/tui.rs`), before the main loop, spawn a WebSocket connection to `/cable` on the server. Subscribe to `StatusBarChannel`. When a `status_bar` payload arrives, update `app.status_data` fields (connected, sidekiq_busy, sidekiq_enqueued, sidekiq_retry, sidekiq_dead). Use the `tungstenite` crate for WebSocket (add it to Cargo.toml if needed). The cable protocol is JSON: subscribe with `{\"command\":\"subscribe\",\"identifier\":\"{\\\"channel\\\":\\\"StatusBarChannel\\\"}\"}`, receive messages with `{\"message_id\":...,\"type\":\"confirm_subscription\"}` and `{\"message_id\":...,\"message\":{...}}`.\n\nActually this is complex. For now instead:\n\n1. **Remove poll_status** from the loop (already done).\n2. **Add a 1Hz datetime tick** — in the status bar, update the time every second. Add `last_time_update: Instant` to App struct, and in the UI render, if 1 second has passed, mark the time as stale so the next draw recomputes it.\n3. **i18n** — the \"Sidekiq\" label and \"connected\"/\"disconnected\" strings: for now just hardcode them matching web: \"Sidekiq\" (capitalized), \"connected\" (no dot, just text).\n\nRead the current files:\n- extras/cli/src/app.rs (App struct, status_data fields)\n- extras/cli/src/ui/mod.rs (status bar rendering)\n- extras/cli/src/commands/tui.rs (event loop)\n\nThen make the edits.",
-      "assignment": {
-        "objective": "Add Action Cable WebSocket support and datetime tick to the Rust TUI at /home/catalin/Dev/pito/extras/cli.\n\n1. **Cable consumer** — In the TUI event loop (`commands/tui.rs`), before the main loop, spawn a WebSocket connection to `/cable` on the server. Subscribe to `StatusBarChannel`. When a `status_bar` payload arrives, update `app.status_data` fields (connected, sidekiq_busy, sidekiq_enqueued, sidekiq_retry, sidekiq_dead). Use the `tungstenite` crate for WebSocket (add it to Cargo.toml if needed). The cable protocol is JSON: subscribe with `{\"command\":\"subscribe\",\"identifier\":\"{\\\"channel\\\":\\\"StatusBarChannel\\\"}\"}`, receive messages with `{\"message_id\":...,\"type\":\"confirm_subscription\"}` and `{\"message_id\":...,\"message\":{...}}`.\n\nActually this is complex. For now instead:\n\n1. **Remove poll_status** from the loop (already done).\n2. **Add a 1Hz datetime tick** — in the status bar, update the time every second. Add `last_time_update: Instant` to App struct, and in the UI render, if 1 second has passed, mark the time as stale so the next draw recomputes it.\n3. **i18n** — the \"Sidekiq\" label and \"connected\"/\"disconnected\" strings: for now just hardcode them matching web: \"Sidekiq\" (capitalized), \"connected\" (no dot, just text).\n\nRead the current files:\n- extras/cli/src/app.rs (App struct, status_data fields)\n- extras/cli/src/ui/mod.rs (status bar rendering)\n- extras/cli/src/commands/tui.rs (event loop)\n\nThen make the edits."
-      },
-      "model": "deepseek-v4-flash",
-      "nickname": "Blue",
-      "status": "Completed",
-      "result": "No compilation tool available, but the edits are straightforward and correct. Here's the summary:\n\n---\n\n### SUMMARY\n\nI added a 1 Hz datetime tick to the TUI status bar and verified the i18n strings were already correct. The `App` struct gained two new fields (`last_time_update: Instant` and `cached_time_string: String`) and an `update_time_stale()` method that returns `true` once per second. The status bar render (`ui/mod.rs`) now gates the `chrono::Local::now().format(...)` call behind that method, so the formatted time string is only recomputed at 1 Hz instead of every draw cycle (~100ms). The \"connected\" and \"Sidekiq\" label strings already matched the web convention (hardcoded, capitalized \"Sidekiq\", no trailing dot) so no i18n changes were needed. The `poll_status` call had already been removed from the event loop.\n\n### EVIDENCE\n\n- `extras/cli/src/app.rs:120-126` — `last_time_update: Instant` and `cached_time_string: String` fields added to `App` struct.\n- `extras/cli/src/app.rs:163-165` — Both fields initialized in `App::new()` (`Instant::now()` and `String::new()`).\n- `extras/cli/src/app.rs:209-219` — `update_time_stale()` method: returns `true` if ≥1 second has elapsed (and resets the timer), otherwise `false`.\n- `extras/cli/src/ui/mod.rs:165-167` — Status bar render now calls `app.update_time_stale()` to gate `chrono::Local::now().format(...)`.\n- `extras/cli/src/ui/mod.rs:149` — `\"connected\"` (lowercase, no dot) — already matches web convention.\n- `extras/cli/src/ui/mod.rs:155` — `\"Sidekiq\"` (capitalized) — already matches web convention.\n\n### CHANGES\n\n- `extras/cli/src/app.rs` — Added `last_time_update` and `cached_time_string` fields to `App` struct.\n- `extras/cli/src/app.rs` — Initialized both fields in `App::new()`.\n- `extras/cli/src/app.rs` — Added `update_time_stale()` method to App.\n- `extras/cli/src/ui/mod.rs` — Gated datetime recomputation with `app.update_time_stale()`.\n\n### RISKS\n\nNone observed.\n\n### BLOCKERS\n\nNone.",
-      "steps_taken": 17,
-      "duration_ms": 36484,
-      "allowed_tools": [
-        "read_file",
-        "write_file",
-        "edit_file",
-        "apply_patch",
-        "file_search"
-      ],
-      "updated_at_ms": 1779742358097,
-      "session_boot_id": "boot_c12786a4-d6d"
-    }
-  ]
+  "agents": []
 }
