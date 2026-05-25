@@ -228,29 +228,31 @@ Rails.application.config.after_initialize do
     scope: :home
   )
 
-  # Phase C5 (2026-05-25) — notifications feed panel palette commands.
+  # 2026-05-25 — notifications feed panel palette commands (clean slate).
   #
-  # `:mark_all_read_notifications_feed` — POSTs to
-  # `/notifications_feed/mark_all_read` to mark every unread notification
-  # as read without row selection. Responds with a redirect so the feed
-  # panel re-renders with the updated read state. Non-destructive and
-  # reversible at the row level; no confirmation needed.
+  # `:notifications_feed_mark_read` — POSTs to `/notifications_feed/mark_read`
+  # to mark every unread notification as read (no selection required).
   #
-  # The four filter-chip actions (`filter_channel` / `filter_game` /
-  # `filter_system` / `filter_manual`) are pure client-side clicks:
-  # the JS dispatcher resolves `click_focusable` with the matching chip's
-  # `data-tui-focusable` key. Registered as :global `click_focusable`
-  # (already present above); these named stubs exist so the palette can
-  # surface human-readable entries (`filter channel`, `filter game`, …)
-  # that resolve via `click_focusable` under the hood.
+  # `:notifications_feed_mark_unread` — POSTs to `/notifications_feed/mark_unread`
+  # to mark every read notification as unread (no selection required).
   #
   # scope: :home — notifications feed is a home-screen panel only.
   Pito::ActionRegistry.define(
-    :mark_all_read_notifications_feed,
-    path: -> { routes.mark_all_read_notifications_feed_index_path },
+    :notifications_feed_mark_read,
+    path: -> { routes.mark_read_notifications_feed_index_path },
     method: :post,
     confirmation: nil,
-    i18n_key: "tui.commands.notifications_feed_mark_all_read",
+    i18n_key: "tui.commands.notifications_feed_mark_read",
+    cable_panel: "pito:home:notifications_feed",
+    scope: :home
+  )
+
+  Pito::ActionRegistry.define(
+    :notifications_feed_mark_unread,
+    path: -> { routes.mark_unread_notifications_feed_index_path },
+    method: :post,
+    confirmation: nil,
+    i18n_key: "tui.commands.notifications_feed_mark_unread",
     cable_panel: "pito:home:notifications_feed",
     scope: :home
   )

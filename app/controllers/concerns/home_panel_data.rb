@@ -101,10 +101,7 @@ module HomePanelData
   def assemble_home_panel_data
     @home_panel_data = {
       "games_releasing"    => {},
-      "notifications_feed" => {
-        filter:       @notifications_feed_filter,
-        unread_count: @notifications_feed_unread_count
-      },
+      "notifications_feed" => {},
       "calendar"           => {
         entries:    @calendar_entries,
         buckets:    @calendar_buckets,
@@ -166,18 +163,6 @@ module HomePanelData
   def set_notifications_panel_data
     @discord_webhook = NotificationDeliveryChannel.find_record_for("discord")
     @slack_webhook   = NotificationDeliveryChannel.find_record_for("slack")
-  end
-
-  # Sets `@notifications_feed_filter` and `@notifications_feed_unread_count`
-  # for `Pito::NotificationsFeedPanelComponent`.
-  #
-  # The component fetches its own `notifications` relation when none is
-  # injected, using the filter. The controller only needs to resolve the
-  # param and pass the unread count (single cheap COUNT query).
-  # All categories are shown; no category filter param.
-  def set_notifications_feed_panel_data
-    @notifications_feed_filter       = params[:notifications_feed_filter].to_s == "unread" ? "unread" : "all"
-    @notifications_feed_unread_count = Notification.unread.count
   end
 
   # Fetches the current-month CalendarEntry buckets for the home Calendar
