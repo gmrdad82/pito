@@ -2,12 +2,10 @@
     Mode :digits renders 6 numeric boxes; mode :backup renders 8 alphanumeric boxes.
     The tui-totp-code Stimulus controller wires per-box handlers and syncs the
     hidden aggregation field on every change so the parent form submits the
-    expected params[field] value. %>
-<div class="totp-modal-boxes"
-     <%= hidden? ? "hidden" : "" %>
-     data-controller="<%= stimulus_controller %>"
-     data-tui-totp-code-mode-value="<%= @mode %>"
-     data-tui-totp-code-field-value="<%= field %>">
+    expected params[field] value.
+    wrapper_data merges caller-supplied `data:` (e.g. parent-controller targets)
+    so consumers like Pito::AuthDialogComponent can wire targets on the wrapper. %>
+<%= content_tag :div, class: "totp-modal-boxes", hidden: hidden?, data: wrapper_data do %>
   <% box_count.times do |i| %>
     <input type="text"
            maxlength="1"
@@ -24,4 +22,4 @@
          name="<%= field %>"
          value=""
          data-tui-totp-code-target="hidden">
-</div>
+<% end %>
