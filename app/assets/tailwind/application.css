@@ -7243,7 +7243,7 @@ dialog.tui-size-guard-dialog::backdrop {
    its X coordinate is computed in pixels by the Stimulus controller
    (`style.left = <Npx>`), so no static `left` value is set here. */
 .tui-scroll-indicator--horizontal.tui-scroll-indicator--handle {
-  bottom: -4px;
+  bottom: -7px;
   /* `left` is JS-set; clear inherited `right: auto` so the handle
      anchors from the left edge of `.pito-pane`'s padding-box. */
   left: 0;
