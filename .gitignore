@@ -53,3 +53,6 @@
 /target/
 /extras/*/target/
 .claude/
+
+# Node packages vendored for importmaps (don't commit)
+node_modules/

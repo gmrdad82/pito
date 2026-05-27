@@ -1,5 +1,5 @@
 name: Feature request
-description: Suggest a feature or enhancement for pito
+description: Suggest a feature, screen change, or workflow improvement
 title: "[feature] "
 labels: ["enhancement"]
 body:
@@ -8,10 +8,29 @@ body:
       value: |
         Thanks for the suggestion.
 
-        Reminder: **pito is one person's tool, open-sourced as-is.** Feature
-        requests are a wishlist — there's no commitment to implementation.
-        PRs welcome but not guaranteed to be merged. If the feature doesn't
-        fit the author's needs, it likely won't ship from this repo.
+        Reminder: **pito is one person's tool, open-sourced as-is.**
+        Feature requests are a wishlist — there's no commitment to
+        implementation. PRs welcome but not guaranteed to be merged.
+        If the feature doesn't fit the author's needs, it likely won't
+        ship from this repo.
+
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What kind of suggestion?
+      options:
+        - "Home screen (dashboard / system / calendar / notifications)"
+        - "Videos screen (videos + channels)"
+        - "Games screen (games + bundles + footage)"
+        - "Recommendation system (channel ↔ game ↔ bundle)"
+        - "Scheduling / publish workflow"
+        - "Analytics / metrics"
+        - "Self-hosting / deploy / Kamal"
+        - "Astro landing (extras/website/)"
+        - "Docs / docs structure"
+        - "Other"
+    validations:
+      required: true
 
   - type: textarea
     id: problem
@@ -19,7 +38,8 @@ body:
       label: The problem
       description: What use case or pain point is this solving?
       placeholder: |
-        When I try to ..., I expect ..., but pito currently doesn't ...
+        When I try to schedule a video for a channel that already has
+        another video going out the same day, pito ...
     validations:
       required: true
 
@@ -29,7 +49,7 @@ body:
       label: Proposed solution
       description: Sketch how this might work. Doesn't have to be polished.
       placeholder: |
-        Add a panel on `/games` that shows ...
+        Add a conflict-detection panel on the Videos screen that ...
     validations:
       required: true
 
@@ -39,7 +59,7 @@ body:
       label: Alternatives considered
       description: What else have you tried? Why didn't it work?
       placeholder: |
-        I tried using YouTube Studio for this but ...
+        I tried tracking this in YouTube Studio's Content tab, but ...
     validations:
       required: false
 
@@ -48,9 +68,14 @@ body:
     attributes:
       label: Acknowledgment
       options:
-        - label: I've read the [project philosophy](https://github.com/gmrdad82/pito#project-philosophy) and understand feature requests are a wishlist with no implementation commitment.
+        - label:
+            I've read the [project
+            status](https://github.com/gmrdad82/pito#project-status) section and
+            understand feature requests are a wishlist.
           required: true
         - label: I've searched existing issues to avoid duplicates.
           required: true
-        - label: I'd be willing to discuss / contribute a PR for this if it aligns with the project's direction.
+        - label:
+            I'd be willing to discuss / contribute a PR for this if it aligns
+            with the project's direction.
           required: false

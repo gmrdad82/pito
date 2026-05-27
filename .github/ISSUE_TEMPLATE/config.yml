@@ -1,8 +1,24 @@
 blank_issues_enabled: false
 contact_links:
-  - name: pito documentation
-    url: https://github.com/gmrdad82/pito/tree/main/docs
-    about: How pito works — architecture, design, MCP, TUI, website. Check the docs before opening an issue.
-  - name: project philosophy (no SLA, no support guarantees)
-    url: https://github.com/gmrdad82/pito#project-philosophy
-    about: pito is one person's tool, open-sourced as-is. Read this before opening an issue.
+  - name: README — what pito is and how to start
+    url: https://github.com/gmrdad82/pito#what-it-does
+    about:
+      Project overview, stack, getting started. Read before opening an issue.
+  - name: docs/architecture.md — system topology + models + namespaces
+    url: https://github.com/gmrdad82/pito/blob/main/docs/architecture.md
+    about:
+      The canonical reference for the Rails layer. Check here before reporting a
+      "how does X work?" issue.
+  - name: docs/design.md — visual contract + keybindings + terminology
+    url: https://github.com/gmrdad82/pito/blob/main/docs/design.md
+    about: The canonical reference for UI / UX conventions.
+  - name: AGENTS.md + docs/EXTRA.md — collaboration rules
+    url: https://github.com/gmrdad82/pito/blob/main/AGENTS.md
+    about:
+      How AI tools (Claude Code, OpenCode) work in this repo. Project-specific
+      overrides in docs/EXTRA.md.
+  - name: Project status (no SLA, no support guarantees)
+    url: https://github.com/gmrdad82/pito#project-status
+    about:
+      pito is one person's tool, open-sourced as-is. Read before opening an
+      issue.
