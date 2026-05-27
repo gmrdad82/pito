@@ -212,18 +212,18 @@ Each task carries a `model:` hint. Pick by complexity, not by feel.
 
 ## P8 — PostgreSQL search (FTS + trigram)
 
-- [ ] T8.1 In baseline migration, enable extensions: `pg_trgm`, `unaccent`. (pgvector already enabled.) model: [haiku]
-- [ ] T8.2 Add `tsvector` column `games.search_vector` populated from `title || ' ' || description`. model: [haiku]
-- [ ] T8.3 Add GIN index on `games.search_vector`. model: [haiku]
-- [ ] T8.4 Add `tsvector` column `videos.search_vector` populated from `title || ' ' || description`. model: [haiku]
-- [ ] T8.5 Add GIN index on `videos.search_vector`. model: [haiku]
-- [ ] T8.6 Add trigram GIN index on `games.title` (`gin_trgm_ops`). model: [haiku]
-- [ ] T8.7 Add trigram GIN index on `videos.title` (`gin_trgm_ops`). model: [haiku]
-- [ ] T8.8 Build `app/queries/pito/search/games_query.rb`: scope `by_text`, `by_genre`. model: [sonnet]
-- [ ] T8.9 Build `app/queries/pito/search/videos_query.rb`: scope `by_text`, `by_genre_via_game_link`. model: [sonnet]
-- [ ] T8.10 Helper `Pito::Search.tokenize(string)` to escape user input for `to_tsquery`. model: [haiku]
+- [x] T8.1 In baseline migration, enable extensions: `pg_trgm`, `unaccent`. (pgvector already enabled.) model: [haiku]
+- [x] T8.2 Add `tsvector` column `games.search_vector` populated from `title || ' ' || summary`. model: [haiku]
+- [x] T8.3 Add GIN index on `games.search_vector`. model: [haiku]
+- [x] T8.4 Add `tsvector` column `videos.search_vector` populated from `title || ' ' || description`. model: [haiku]
+- [x] T8.5 Add GIN index on `videos.search_vector`. model: [haiku]
+- [x] T8.6 Add trigram GIN index on `games.title` (`gin_trgm_ops`). model: [haiku]
+- [x] T8.7 Add trigram GIN index on `videos.title` (`gin_trgm_ops`). model: [haiku]
+- [x] T8.8 Build `app/queries/pito/search/games_query.rb`: scope `by_text`, `by_genre`. model: [sonnet]
+- [x] T8.9 Build `app/queries/pito/search/videos_query.rb`: scope `by_text`, `by_genre_via_game_link`. model: [sonnet]
+- [x] T8.10 Helper `Pito::Search.matches(column, query)` to produce a safe `@@ plainto_tsquery` clause. model: [haiku]
 - [ ] T8.11 Smoke specs deferred to revisit later (per P3 wipe). model: [manual]
-- [ ] T8.12 Commit: `[skipci] postgres fts + pg_trgm search`. model: [manual]
+- [x] T8.12 Commit: `[skipci] postgres fts + pg_trgm search`. model: [manual]
 
 ## P9 — Asset pipeline & Tailwind
 

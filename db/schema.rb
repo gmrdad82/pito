@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_26_000000) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_27_171930) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -140,6 +140,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_26_000000) do
     t.date "release_date"
     t.integer "release_precision"
     t.integer "release_year"
+    t.virtual "search_vector", type: :tsvector, as: "to_tsvector('english'::regconfig, (((COALESCE(title, ''::character varying))::text || ' '::text) || COALESCE(summary, ''::text)))", stored: true
     t.text "summary"
     t.vector "summary_embedding", limit: 1024
     t.string "title", default: "Untitled game", null: false
@@ -156,7 +157,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_26_000000) do
     t.index ["igdb_synced_at"], name: "index_games_on_igdb_synced_at"
     t.index ["primary_genre_id"], name: "index_games_on_primary_genre_id"
     t.index ["release_year"], name: "index_games_on_release_year"
+    t.index ["search_vector"], name: "index_games_on_search_vector", using: :gin
     t.index ["summary_embedding"], name: "index_games_on_summary_embedding_hnsw", opclass: :vector_cosine_ops, using: :hnsw
+    t.index ["title"], name: "index_games_on_title_trigram", opclass: :gin_trgm_ops, using: :gin
   end
 
   create_table "genres", force: :cascade do |t|
@@ -213,6 +216,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_26_000000) do
     t.integer "privacy_status", default: 0, null: false
     t.datetime "publish_at"
     t.datetime "published_at"
+    t.virtual "search_vector", type: :tsvector, as: "to_tsvector('english'::regconfig, (((COALESCE(title, ''::character varying))::text || ' '::text) || COALESCE(description, ''::text)))", stored: true
     t.vector "summary_embedding", limit: 1024
     t.text "tags", default: [], null: false, array: true
     t.string "thumbnail_url"
@@ -224,8 +228,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_26_000000) do
     t.index ["privacy_status"], name: "index_videos_on_privacy_status"
     t.index ["publish_at"], name: "index_videos_on_publish_at", where: "(publish_at IS NOT NULL)"
     t.index ["published_at"], name: "index_videos_on_published_at"
+    t.index ["search_vector"], name: "index_videos_on_search_vector", using: :gin
     t.index ["summary_embedding"], name: "index_videos_on_summary_embedding_hnsw", opclass: :vector_cosine_ops, using: :hnsw
     t.index ["tags"], name: "index_videos_on_tags", using: :gin
+    t.index ["title"], name: "index_videos_on_title_trigram", opclass: :gin_trgm_ops, using: :gin
     t.index ["youtube_video_id"], name: "index_videos_on_youtube_video_id", unique: true
   end
 
