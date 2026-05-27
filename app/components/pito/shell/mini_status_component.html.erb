@@ -1,0 +1,12 @@
+<% if @mode == :start %>
+  <span style="color: var(--accent-red);"><%= t("pito.shell.mini_status.not_authenticated") %></span>
+<% else %>
+  <span style="color: <%= connection_color %>;"><%= connection_label %></span>
+<% end %>
+<% if @show_notifications && @notifications > 0 %>
+  <span class="text-fg-faded" style="margin: 0 8px;">·</span>
+  <span class="text-cyan"><%= @notifications %> <%= t("pito.shell.mini_status.notifications") %></span>
+<% end %>
+<span class="text-fg-faded" style="margin: 0 8px;">·</span>
+<span class="font-bold text-yellow">ctrl+p</span>
+<span class="text-fg-faded" style="margin-left: 4px;"><%= t("pito.shell.mini_status.commands") %></span>

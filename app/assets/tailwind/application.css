@@ -50,6 +50,38 @@
   * { font-size: inherit; }
 }
 
+/* ── Shell animations ──────────────────────────────────────────
+ *
+ * Braille spinner: cycles through 10 braille characters to show
+ * loading/progress.  The animation is defined here for reference;
+ * Plan 2+ Stimulus controllers will toggle the `.pito-braille`
+ * class on a real element and cycle characters via JS.
+ *
+ * Text shimmer: a horizontal sweep highlight on gradient text.
+ *
+ * Both keyframe sets are shared across Pito::Shell components
+ * (InProgressComponent, PostCommandDotsComponent).
+ */
+
+@keyframes pito-braille-spin {
+  0%   { content: "⠋"; }
+  10%  { content: "⠙"; }
+  20%  { content: "⠹"; }
+  30%  { content: "⠸"; }
+  40%  { content: "⠼"; }
+  50%  { content: "⠴"; }
+  60%  { content: "⠦"; }
+  70%  { content: "⠧"; }
+  80%  { content: "⠇"; }
+  90%  { content: "⠏"; }
+  100% { content: "⠋"; }
+}
+
+@keyframes pito-shimmer-sweep {
+  0%   { background-position: -100% 0; }
+  100% { background-position: 100% 0; }
+}
+
 /* ── Theme system ──────────────────────────────────────────────
  *
  * Add a new theme: drop another `[data-theme="<name>"]` block

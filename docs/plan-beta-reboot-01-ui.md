@@ -502,22 +502,22 @@ config/locales/pito/
 - [x] T3.5 Create `app/components/pito/cursor/component.html.erb` — inline `<span>` with `background: <color>; color: var(--bg-root);` containing the character. complexity: [low]
 - [x] T3.6 Smoke render the cursor; verify the character appears inverted (purple bg, dark fg). complexity: [manual]
 - [x] T3.7 Visual review: both primitives match `ui-p1.5.md` patterns. complexity: [manual]
-- [-] T3.8 Commit: `U3: Pito::Segment + Pito::Cursor primitives`. complexity: [manual]
+- [x] T3.8 Commit: `U3: Pito::Segment + Pito::Cursor primitives`. complexity: [manual]
 
 ## U4 — Shell components
 
 > Chatbox, mini-status, post-command dots, in-progress indicator.
 
-- [ ] T4.1 Create `Pito::Shell::ChatboxComponent` (rb + erb). Args: `state:`, `placeholder_key:`, `filter:`. complexity: [medium]
-- [ ] T4.2 In the erb, use `Pito::Segment::Component` with purple border + surface background. Inside, render line 1 (Cursor + placeholder) and conditionally line 2 (filter context). complexity: [medium]
-- [ ] T4.3 Create `Pito::Shell::MiniStatusComponent` (rb + erb). Args: `mode:`, `state:`, `notifications:`, `show_notifications:`. complexity: [medium]
-- [ ] T4.4 Create `Pito::Shell::PostCommandDotsComponent` (rb + erb). Add CSS keyframes for the sweep animation in a co-located stylesheet (e.g., `app/components/pito/shell/post_command_dots_component.css` or inline `<style>` in the template — pick one and commit to it). complexity: [medium]
-- [ ] T4.5 Create `Pito::Shell::InProgressComponent` (rb + erb). Args: `verb_key:`. Wrap in `Pito::Segment::Component` (borderless). Inside: braille spinner span + shimmer-text span + dim ellipsis. complexity: [medium]
-- [ ] T4.6 Add CSS keyframes for braille spinner cycle and text shimmer. Co-locate in component CSS or `application.css` under a clearly-namespaced selector. complexity: [medium]
-- [ ] T4.7 Smoke render each shell component in isolation (via console or a temporary `/_smoke/shell` route). complexity: [manual]
-- [ ] T4.8 Delete any temporary smoke routes/views after verification. complexity: [low]
-- [ ] T4.9 Visual review: each matches its v0 spec (`ui-p1.4.md`, `ui-p1.5.md`, `ui-p1.2.md`). complexity: [manual]
-- [ ] T4.10 Commit: `U4: Pito::Shell components (chatbox, mini-status, dots, in-progress)`. complexity: [manual]
+- [x] T4.1 Create `Pito::Shell::ChatboxComponent` (rb + erb). Args: `state:`, `placeholder_key:`, `filter:`. complexity: [medium]
+- [x] T4.2 In the erb, use `Pito::Segment::Component` with purple border + surface background. Inside, render line 1 (Cursor + placeholder) and conditionally line 2 (filter context). complexity: [medium]
+- [x] T4.3 Create `Pito::Shell::MiniStatusComponent` (rb + erb). Args: `mode:`, `state:`, `notifications:`, `show_notifications:`. complexity: [medium]
+- [x] T4.4 Create `Pito::Shell::PostCommandDotsComponent` (rb + erb). Add CSS keyframes for the sweep animation in a co-located stylesheet (e.g., `app/components/pito/shell/post_command_dots_component.css` or inline `<style>` in the template — pick one and commit to it). complexity: [medium]
+- [x] T4.5 Create `Pito::Shell::InProgressComponent` (rb + erb). Args: `verb_key:`. Wrap in `Pito::Segment::Component` (borderless). Inside: braille spinner span + shimmer-text span + dim ellipsis. complexity: [medium]
+- [x] T4.6 Add CSS keyframes for braille spinner cycle and text shimmer. Co-locate in component CSS or `application.css` under a clearly-namespaced selector. complexity: [medium]
+- [x] T4.7 Smoke render each shell component in isolation (via console or a temporary `/_smoke/shell` route). complexity: [manual]
+- [x] T4.8 Delete any temporary smoke routes/views after verification. complexity: [low]
+- [x] T4.9 Visual review: each matches its v0 spec (`ui-p1.4.md`, `ui-p1.5.md`, `ui-p1.2.md`). complexity: [manual]
+- [-] T4.10 Commit: `U4: Pito::Shell components (chatbox, mini-status, dots, in-progress)`. complexity: [manual]
 
 ## U5 — Event content components
 

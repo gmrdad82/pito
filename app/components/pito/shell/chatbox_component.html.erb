@@ -1,0 +1,26 @@
+<%# Chatbox — bar+gap+content via Pito::Segment, two-line layout %>
+<%
+  placeholder = @placeholder_key ? t(@placeholder_key) : ""
+%>
+<%= render(Pito::Segment::Component.new(
+      border: "var(--accent-purple)",
+      background: "var(--bg-surface)"
+    )) do %>
+  <div class="flex flex-col">
+    <%# Line 1: cursor + placeholder %>
+    <div class="flex items-center">
+      <%= render(Pito::Cursor::Component.new(char: "/", color: "var(--accent-purple)")) %>
+      <span class="text-fg-faded" style="margin-left: 8px;"><%= placeholder %></span>
+    </div>
+    <%# Line 2: filter context (only shown in :default state) %>
+    <% if @filter && @state != :start %>
+      <div class="flex items-center gap-[4px] text-fg-faded" style="margin-top: 10px;">
+        <span>Channel:</span>
+        <span class="text-cyan"><%= @filter[:channel] %></span>
+        <span>·</span>
+        <span>Period:</span>
+        <span class="text-cyan"><%= @filter[:period] %></span>
+      </div>
+    <% end %>
+  </div>
+<% end %>
