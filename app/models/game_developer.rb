@@ -1,4 +1,5 @@
-# Phase 14 §1 — Game ↔ Company (developer role) join.
+# frozen_string_literal: true
+
 class GameDeveloper < ApplicationRecord
   belongs_to :game
   belongs_to :company

@@ -1,74 +1,8 @@
-# Phase 14 §3 — `VideoGameLink`. Join row tying a Video to a Game.
-#
-# - `link_type` enum (`game: 0`). Bundle links (formerly `bundle: 1`)
-#   are removed — bundles are dropped entirely (R1, 2026-05-25).
-# - `game_id` is required (non-null). `bundle_id` column is dropped
-#   via migration (R1).
-# - `is_primary` is a hint for analytics weighting (Phase 13). Multiple
-#   primaries per Video are allowed (master-agent decision #2).
-# - `created_by_user_id` audit column — Z1-ext: FK dropped, column gone
-#   after migration 20260525190002. Callback is now a no-op.
-# - `after_commit :recompute_game_footage_cache` (on create AND destroy)
-#   keeps `Game#hours_of_footage_cached` in sync with the linked Video
-#   durations.
+# frozen_string_literal: true
+
 class VideoGameLink < ApplicationRecord
-  # Rails 8.1 — defensive: lock the enum-backing column type.
-  attribute :link_type, :integer
-  enum :link_type, { game: 0 }, prefix: :link
-
   belongs_to :video
-  belongs_to :game, optional: true
+  belongs_to :game
 
-  validate :exactly_one_target
-  validates :game_id, uniqueness: { scope: :video_id, allow_nil: true }
-
-  before_validation :stamp_created_by_user, on: :create
-
-  # Recompute the game-side footage cache on link create AND link
-  # destroy. A single `after_commit` (rather than two `after_*_commit`
-  # declarations of the same method) — registering the same method
-  # name twice merges into ONE callback with the union of `:if`
-  # filters, producing an impossible "create AND destroy in the same
-  # transaction" gate.
-  after_commit :recompute_game_footage_cache, on: %i[create destroy]
-
-  # The linked target (the Game), useful in views.
-  def target
-    game
-  end
-
-  private
-
-  def exactly_one_target
-    if game_id.blank?
-      errors.add(:base, "game link must have game_id")
-    end
-  end
-
-  # Z1-ext: User model gone. created_by_user_id column will be removed
-  # by migration 20260525190002; this callback is now a no-op stub until
-  # the column is dropped and the before_validation is removed.
-  def stamp_created_by_user
-    # no-op — user FK dropped in Z1-ext migration
-  end
-
-  # Game-side cache. Sums `Game#videos`'s `duration_seconds` after
-  # commit (the linked-video set is up-to-date by then). Rounded to
-  # the nearest hour.
-  def recompute_game_footage_cache
-    return unless link_game?
-
-    # On destroy, `game` association may already be cleared (Rails
-    # nullifies the in-memory pointer when the parent is destroyed via
-    # CASCADE). `game_id` survives in the in-memory attributes, so we
-    # fall through to a `find_by` lookup. If the game itself was
-    # deleted (CASCADE from the games table), there is no cache to
-    # recompute — return.
-    target_game = game || Game.find_by(id: game_id)
-    return unless target_game
-    return if target_game.destroyed?
-
-    total = target_game.videos.sum(:duration_seconds).to_i
-    target_game.update_column(:hours_of_footage_cached, (total / 3600.0).round)
-  end
+  validates :video_id, uniqueness: { scope: :game_id }
 end

@@ -199,16 +199,16 @@ Each task carries a `model:` hint. Pick by complexity, not by feel.
 > The dev DB is already dropped. We rebuild the schema from a single
 > "beta" migration after the audit.
 
-- [ ] T7.1 Produce a model audit table at `docs/reboot/model-audit.md`: every model in `app/models/` + columns of intent {keep, drop, defer}. model: [pro]
-- [ ] T7.2 Review the audit by hand; lock keep/drop per row. model: [manual]
-- [ ] T7.3 Delete every model file flagged "drop" (TotpBackupCode stays — backups are still useful). model: [flash]
-- [ ] T7.4 Delete every concern under `app/models/concerns/` no longer referenced. model: [flash]
-- [ ] T7.5 Delete every decorator under `app/decorators/` no longer referenced. model: [flash]
-- [ ] T7.6 Delete every policy under `app/policies/` (single-user app, no policies for v1). model: [flash]
-- [ ] T7.7 Wipe `db/migrate/` entirely. model: [flash]
-- [ ] T7.8 Generate one fresh migration `20260526000000_beta_baseline.rb` covering every kept table (Channel, Video, Game, Footage, CalendarEntry, SavedView, AppSetting, Session, ApiToken, AppSetting, ChannelDaily, VideoDaily, GameGenre, GameDeveloper, GamePublisher, Genre, YoutubeConnection, etc.). Include pgvector + pg_trgm + tsvector extensions. model: [pro]
-- [ ] T7.9 Verify schema by `bin/rails db:setup`. model: [manual]
-- [ ] T7.10 Commit: `[skipci] schema baseline; drop obsolete models`. model: [manual]
+- [x] T7.1 Produce a model audit table at `docs/reboot/model-audit.md`: every model in `app/models/` + columns of intent {keep, drop, defer}. model: [pro]
+- [x] T7.2 Review the audit by hand; lock keep/drop per row. model: [manual]
+- [x] T7.3 Delete every model file flagged "drop" (TotpBackupCode stays — backups are still useful). model: [flash]
+- [x] T7.4 Delete every concern under `app/models/concerns/` no longer referenced. model: [flash]
+- [x] T7.5 Delete every decorator under `app/decorators/` no longer referenced. model: [flash]
+- [x] T7.6 Delete every policy under `app/policies/` (single-user app, no policies for v1). model: [flash]
+- [x] T7.7 Wipe `db/migrate/` entirely. model: [flash]
+- [x] T7.8 Generate one fresh migration `20260526000000_beta_baseline.rb` covering every kept table (Channel, Video, Game, Footage, CalendarEntry, SavedView, AppSetting, Session, ApiToken, AppSetting, ChannelDaily, VideoDaily, GameGenre, GameDeveloper, GamePublisher, Genre, YoutubeConnection, etc.). Include pgvector + pg_trgm + tsvector extensions. model: [pro]
+- [x] T7.9 Verify schema by `bin/rails db:setup`. model: [manual]
+- [x] T7.10 Commit: `[skipci] schema baseline; drop obsolete models`. model: [manual]
 
 ## P8 — PostgreSQL search (FTS + trigram)
 
