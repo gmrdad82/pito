@@ -1,0 +1,54 @@
+<%# U7 — Start screen. Full-viewport centered layout, no auth required. %>
+<%# ASCII logo per ui-p2.md, chatbox at 50vh, tip line + bottom corners below. %>
+
+<div style="display: flex; flex-direction: column; min-height: 100vh;">
+  <%# Top spacer — pushes centered group toward 50vh %>
+  <div style="flex: 1;"></div>
+
+  <%# Centered group %>
+  <div style="display: flex; flex-direction: column; align-items: center;">
+    <%# ASCII logo — 6 rows, brand-pito blocks + fg-dim shadow chars, 18px %>
+    <pre style="font-size: 18px; line-height: 1; margin: 0; white-space: pre; font-family: ui-monospace, monospace;">
+<span style="color: var(--brand-pito);">██████</span><span style="color: var(--fg-dim);">╗ </span><span style="color: var(--brand-pito);">██</span><span style="color: var(--fg-dim);">╗</span><span style="color: var(--brand-pito);">████████</span><span style="color: var(--fg-dim);">╗ </span><span style="color: var(--brand-pito);">██████</span><span style="color: var(--fg-dim);">╗ </span>
+<span style="color: var(--brand-pito);">██</span><span style="color: var(--fg-dim);">╔══</span><span style="color: var(--brand-pito);">██</span><span style="color: var(--fg-dim);">╗</span><span style="color: var(--brand-pito);">██</span><span style="color: var(--fg-dim);">║╚══</span><span style="color: var(--brand-pito);">██</span><span style="color: var(--fg-dim);">╔══╝</span><span style="color: var(--brand-pito);">██</span><span style="color: var(--fg-dim);">╔═══</span><span style="color: var(--brand-pito);">██</span><span style="color: var(--fg-dim);">╗</span>
+<span style="color: var(--brand-pito);">██████</span><span style="color: var(--fg-dim);">╔╝</span><span style="color: var(--brand-pito);">██</span><span style="color: var(--fg-dim);">║   </span><span style="color: var(--brand-pito);">██</span><span style="color: var(--fg-dim);">║   </span><span style="color: var(--brand-pito);">██</span><span style="color: var(--fg-dim);">║   </span><span style="color: var(--brand-pito);">██</span><span style="color: var(--fg-dim);">║</span>
+<span style="color: var(--brand-pito);">██</span><span style="color: var(--fg-dim);">╔═══╝ </span><span style="color: var(--brand-pito);">██</span><span style="color: var(--fg-dim);">║   </span><span style="color: var(--brand-pito);">██</span><span style="color: var(--fg-dim);">║   </span><span style="color: var(--brand-pito);">██</span><span style="color: var(--fg-dim);">║   </span><span style="color: var(--brand-pito);">██</span><span style="color: var(--fg-dim);">║</span>
+<span style="color: var(--brand-pito);">██</span><span style="color: var(--fg-dim);">║     </span><span style="color: var(--brand-pito);">██</span><span style="color: var(--fg-dim);">║   </span><span style="color: var(--brand-pito);">██</span><span style="color: var(--fg-dim);">║   ╚</span><span style="color: var(--brand-pito);">██████</span><span style="color: var(--fg-dim);">╔╝</span>
+<span style="color: var(--fg-dim);">╚═╝     ╚═╝   ╚═╝    ╚═════╝ </span>
+</pre>
+
+    <%# 32px gap %>
+    <div style="height: 32px;"></div>
+
+    <%# Chatbox — start state, max-width 600px. DO NOT MOVE. %>
+    <div style="width: 100%; max-width: 600px; padding: 0 16px;">
+      <%= render(Pito::Shell::ChatboxComponent.new(
+            state: :start,
+            placeholder_key: "pito.shell.chatbox.start_placeholder"
+          )) %>
+    </div>
+
+    <%# Mini-status row — right-aligned to chatbox right edge %>
+    <div style="margin-top: 8px; width: 100%; max-width: 600px; padding: 0 16px;">
+      <div style="display: flex; justify-content: flex-end;">
+        <%= render(Pito::Shell::MiniStatusComponent.new(mode: :start)) %>
+      </div>
+    </div>
+  </div>
+
+  <%# Spacer between centered group and bottom area — tip lives inside this %>
+  <div style="flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 16px;">
+    <%# Tip line — orange bullet + ctrl+k in yellow + dim text %>
+    <span class="text-fg-faded">
+      <span style="color: var(--accent-orange);">●</span>
+      <span class="font-bold text-yellow">ctrl+k</span>
+      Start typing or press to open commands
+    </span>
+  </div>
+
+  <%# Bottom corners %>
+  <div style="display: flex; justify-content: space-between; padding: 0 50px 32px;">
+    <a href="<%= @pitomd_url %>" class="text-fg-dim hover:underline" target="_blank">pitomd.com</a>
+    <span class="text-fg-dim">v<%= @version %></span>
+  </div>
+</div>

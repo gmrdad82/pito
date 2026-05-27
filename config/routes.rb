@@ -16,6 +16,7 @@ Rails.application.routes.draw do
       as: :youtube_connection_oauth_failure
 
   root "terminal#show"
+  get "/start", to: "start_screens#show"
 
   # JSON-only dashboard alias for pito CLI
   get "dashboard", to: "dashboard#index", as: :dashboard

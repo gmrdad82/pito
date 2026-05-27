@@ -543,19 +543,19 @@ config/locales/pito/
 - [x] T6.5 Pass hardcoded filter `{ channel: "@gmrdad82", period: "7d" }` to the chatbox. Pass `mode: :connection, state: true, notifications: 3, show_notifications: true` to the mini-status. complexity: [low]
 - [x] T6.6 In `config/routes.rb`, add `root "terminal#show"`. complexity: [low]
 - [x] T6.7 Visit `/`, verify the render matches `ui-p1.5.md` final state (segments aligned, chatbox at bottom, mini-status right-aligned). complexity: [manual]
-- [-] T6.8 Commit: `U6: chat shell page (/) with sample messages`. complexity: [manual]
+- [x] T6.8 Commit: `U6: chat shell page (/) with sample messages`. complexity: [manual]
 
 ## U7 — Start screen page (`/start`)
 
 > The unauthenticated landing screen. Centered chatbox, no logo asset yet (out of scope).
 
-- [ ] T7.1 Generate `StartScreensController` with `#show` action. complexity: [low]
-- [ ] T7.2 Create `Pito::StartScreen::Component` (rb + erb). Args: `version:`, `pitomd_url:`. Slot: `logo` (default empty). complexity: [medium]
-- [ ] T7.3 In the erb, build the full-viewport layout: empty top region, centered group (logo slot — reserve ~120px vertical space, empty for now — then 32px gap, chatbox `state: :start` `max-width: 800px`, mini-status row), tip line midway between mini-status and bottom corners, bottom corners (pitomd link + version). Chatbox's vertical center at 50vh. complexity: [medium]
-- [ ] T7.4 In `StartScreensController#show`, pass `version: "0.1.0"` and render. Caller does NOT fill the logo slot in Plan 1 — leave it empty. complexity: [low]
-- [ ] T7.5 In `config/routes.rb`, add `get "/start", to: "start_screens#show"`. complexity: [low]
-- [ ] T7.6 Visit `/start`. Verify: chatbox at 50vh, centered, single-line placeholder showing `/authenticate 123456` with cursor on `/`. Mini-status reads "Not authenticated · ctrl+p commands" with "Not authenticated" in red. Tip line centered, dim. pitomd.com link bottom-left, version bottom-right. complexity: [manual]
-- [ ] T7.7 Commit: `U7: start screen (/start)`. complexity: [manual]
+- [x] T7.1 Generate `StartScreensController` with `#show` action. complexity: [low]
+- [x] T7.2 Create `Pito::StartScreen::Component` (rb + erb). Args: `version:`, `pitomd_url:`. Slot: `logo` (default empty). complexity: [medium]
+- [x] T7.3 In the erb, build the full-viewport layout: empty top region, centered group (logo slot — reserve ~120px vertical space, empty for now — then 32px gap, chatbox `state: :start` `max-width: 800px`, mini-status row), tip line midway between mini-status and bottom corners, bottom corners (pitomd link + version). Chatbox's vertical center at 50vh. complexity: [medium]
+- [x] T7.4 In `StartScreensController#show`, pass `version: "0.1.0"` and render. Caller does NOT fill the logo slot in Plan 1 — leave it empty. complexity: [low]
+- [x] T7.5 In `config/routes.rb`, add `get "/start", to: "start_screens#show"`. complexity: [low]
+- [x] T7.6 Visit `/start`. Verify: chatbox at 50vh, centered, single-line placeholder showing `/authenticate 123456` with cursor on `/`. Mini-status reads "Not authenticated · ctrl+p commands" with "Not authenticated" in red. Tip line centered, dim. pitomd.com link bottom-left, version bottom-right. complexity: [manual]
+- [-] T7.7 Commit: `U7: start screen (/start)`. complexity: [manual]
 
 ## U8 — Palette components + review page (`/_ui/palettes`)
 

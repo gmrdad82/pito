@@ -3,6 +3,7 @@ en:
     shell:
       chatbox:
         placeholder: "Ask anything…"
+        start_placeholder: "authenticate 123456"
       mini_status:
         connected: "Connected"
         disconnected: "Disconnected"
