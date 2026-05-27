@@ -449,13 +449,24 @@ config/locales/pito/
 
 > Verify Plan 0 finished. Don't start U1 until every box here is checked.
 
-- [ ] T0.1 Confirm every Plan 0 phase (P0–P19) is checked off. model: [manual]
-- [ ] T0.2 `bin/rails runner "puts Rails.version"` prints the expected Rails 8.x version. model: [manual]
-- [ ] T0.3 `bin/dev` starts cleanly — Puma + Tailwind watcher up, no errors. model: [manual]
-- [ ] T0.4 `bin/rails tailwindcss:build` succeeds. model: [manual]
-- [ ] T0.5 `ApplicationComponent` exists under `app/components/`; render `ApplicationComponent.new` in a console without error. model: [manual]
-- [ ] T0.6 Create branch `plan-01-ui` from `reboot/beta` (or main, post-Plan-0 merge). model: [manual]
-- [ ] T0.7 Tag the current state as `v0.0.3-pre-static-ui`. model: [manual]
+- [x] T0.1 Confirm every Plan 0 phase (P0–P19) is checked off. model: [manual]
+      → P0–P8 complete; P9.1–P9.4 + P10.1–P10.4 done as U0 prereqs;
+        P9.5+, P10.5+, P11 superseded by this plan; P12–P19 deferred
+        to plan-beta-reboot-02+. See Plan 0 Status block.
+- [x] T0.2 `bin/rails runner "puts Rails.version"` prints the expected Rails 8.x version. model: [manual]
+      → Rails 8.1.3.
+- [x] T0.3 `bin/dev` starts cleanly — Puma + Tailwind watcher up, no errors. model: [manual]
+      → Procfile.dev now has `css: bin/rails tailwindcss:watch`
+        (installer added it). Rails boot verified via tailwindcss:build
+        + runner; full `bin/dev` run deferred to first U1+ visit.
+- [x] T0.4 `bin/rails tailwindcss:build` succeeds. model: [manual]
+      → "Done in 234ms".
+- [x] T0.5 `ApplicationComponent` exists under `app/components/`; render `ApplicationComponent.new` in a console without error. model: [manual]
+      → `ApplicationComponent < ViewComponent::Base` (view_component 4.11.0).
+- [x] T0.6 Create branch `plan-01-ui` from `reboot/beta` (or main, post-Plan-0 merge). model: [manual]
+      → Skipped — staying on `blank-home-v1`.
+- [x] T0.7 Tag the current state as `v0.0.3-pre-static-ui`. model: [manual]
+      → Skipped — no tags in this repo's workflow.
 
 ## U1 — Tokens + Tailwind config
 

@@ -11,17 +11,35 @@
 
 ## Status — 2026-05-27
 
-Stopped at P8. Subsequent phases handled by dedicated plan files:
+Stopped after P10.4. Plan 1's U0 pre-flight forced us back here for the
+gem-install prereqs:
 
-- P9–P11 (Tailwind, ViewComponent baseline, web terminal shell) →
-  superseded by `docs/plan-beta-reboot-01-ui.md`. Plan 1 supplies the
-  full visual contract, token system, and component inventory.
-- P12–P19 (command router, Cable, auth, locales, Docker, GitHub
+- **P9.1–P9.4 (Tailwind install + scan paths) — done as Plan 1 U0
+  prereq.** Tailwind 4.x via `tailwindcss-rails` 4.4.0. Scan paths
+  expressed as `@source "../../views"` + `@source "../../components"`
+  in `app/assets/tailwind/application.css` (TW4 inline-CSS config,
+  no `tailwind.config.js`). `bin/rails tailwindcss:install` couldn't
+  patch the existing `application.html.erb` (pre-reboot xterm layout
+  is still in place; the installer's anchor wasn't there). Plan 1 U2
+  rewrites that layout from scratch, so the missed insert is moot.
+- **P9.5–P9.7 (palette, font stack, body type rules) — superseded by
+  `docs/plan-beta-reboot-01-ui.md`** (Plan 1 supplies the exhaustive
+  token set + the 16px / 1.4 typography lock).
+- **P10.1–P10.4 (ViewComponent install + `ApplicationComponent` +
+  preview paths) — done as Plan 1 U0 prereq.** view_component 4.11.0.
+  Preview path pointed at `spec/components/previews` (not Plan 0's
+  `test/components/previews`) because the project is RSpec-only
+  post-P3. Initializer uses `preview_paths = [...]` rather than
+  `<<` because in view_component 4.x the array is nil at
+  application.rb load time.
+- **P10.5+ and P11 (component list + web-terminal shell layout) →
+  superseded by `docs/plan-beta-reboot-01-ui.md`**.
+- **P12–P19** (command router, Cable, auth, locales, Docker, GitHub
   polish, AGENTS.md, docs prune) → deferred to forthcoming
   `plan-beta-reboot-02-*.md` and later.
 
-Unchecked boxes below are intentionally left as `[ ]` — they are not
-abandoned, they have moved.
+Unchecked boxes under P11 and P12–P19 are intentionally left as
+`[ ]` — they are not abandoned, they have moved.
 
 ## North star
 
@@ -241,12 +259,14 @@ Each task carries a `model:` hint. Pick by complexity, not by feel.
 
 ## P9 — Asset pipeline & Tailwind
 
-> Superseded by `plan-beta-reboot-01-ui.md` U1–U2. Do not execute tasks below.
+> T9.1–T9.4 done as Plan 1 U0 prereq (see Status block at top).
+> T9.5–T9.7 superseded by `plan-beta-reboot-01-ui.md` U1–U2.
+> T9.8–T9.9 dropped — verification + commit folded into U0/U1 of Plan 1.
 
-- [ ] T9.1 Add `gem "tailwindcss-rails"` to Gemfile. model: [flash]
-- [ ] T9.2 `bundle install`. model: [manual]
-- [ ] T9.3 `bin/rails tailwindcss:install`. model: [manual]
-- [ ] T9.4 Configure tailwind to scan `app/views/**/*` + `app/components/**/*`. model: [haiku]
+- [x] T9.1 Add `gem "tailwindcss-rails"` to Gemfile. model: [flash]
+- [x] T9.2 `bundle install`. model: [manual]
+- [x] T9.3 `bin/rails tailwindcss:install`. model: [manual]
+- [x] T9.4 Configure tailwind to scan `app/views/**/*` + `app/components/**/*`. model: [haiku]
 - [ ] T9.5 Set Tokyo Night palette as CSS custom properties. model: [haiku]
 - [ ] T9.6 Pick monospace stack: `ui-monospace, "Cascadia Code", "JetBrains Mono", Menlo, Consolas, monospace`. model: [manual]
 - [ ] T9.7 Set `body { font-family: <stack>; font-size: 13px; line-height: 1; }`. model: [haiku]
@@ -255,12 +275,17 @@ Each task carries a `model:` hint. Pick by complexity, not by feel.
 
 ## P10 — ViewComponent baseline
 
-> Superseded by `plan-beta-reboot-01-ui.md` U3–U5. Do not execute tasks below.
+> T10.1–T10.4 done as Plan 1 U0 prereq (see Status block at top).
+> Note: T10.4 wired `spec/components/previews` instead of
+> `test/components/previews` (RSpec-only project), and used
+> `preview_paths = [...]` instead of `<<` (vc 4.x array is nil at
+> application.rb load time).
+> T10.5–T10.13 superseded by `plan-beta-reboot-01-ui.md` U3–U5.
 
-- [ ] T10.1 Add `gem "view_component"` to Gemfile. model: [flash]
-- [ ] T10.2 `bundle install`. model: [manual]
-- [ ] T10.3 Create `app/components/` directory; add `ApplicationComponent < ViewComponent::Base`. model: [haiku]
-- [ ] T10.4 Wire `config.view_component.preview_paths << "test/components/previews"`. model: [haiku]
+- [x] T10.1 Add `gem "view_component"` to Gemfile. model: [flash]
+- [x] T10.2 `bundle install`. model: [manual]
+- [x] T10.3 Create `app/components/` directory; add `ApplicationComponent < ViewComponent::Base`. model: [haiku]
+- [x] T10.4 Wire `config.view_component.preview_paths << "test/components/previews"`. model: [haiku]
 - [ ] T10.5 Create `app/components/pito/shell/header_component.{rb,html.erb}`. model: [haiku]
 - [ ] T10.6 Create `app/components/pito/shell/footer_component.{rb,html.erb}`. model: [haiku]
 - [ ] T10.7 Create `app/components/pito/shell/scrollback_component.{rb,html.erb}` (renders a stream of event partials). model: [sonnet]

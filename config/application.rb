@@ -39,6 +39,11 @@ module Pito
     # Don't generate system test files.
     config.generators.system_tests = nil
 
+    # ViewComponent preview paths (Plan 0 P10.4). Plan 1 doesn't use
+    # Lookbook or previews, but the path is wired now so future previews
+    # under spec/components/previews/ work without further config.
+    config.view_component.preview_paths = [ Rails.root.join("spec/components/previews").to_s ]
+
     # Postgres timezone defaults — Phase 2.
     # Postgres stores timestamps as timestamptz; pin Rails to UTC so Groupdate
     # aggregates render predictably across both Pumas and Sidekiq workers.

@@ -1,3 +1,4 @@
 web: bin/rails server -p ${PORT:-3027}
 tunnel: cloudflared tunnel run pito
 website: cd extras/website && mise exec node@22 -- npm run dev
+css: bin/rails tailwindcss:watch

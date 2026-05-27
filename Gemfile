@@ -3,6 +3,8 @@ source "https://rubygems.org"
 gem "rails", "~> 8.1.3"
 gem "importmap-rails", "~> 2.1"
 gem "propshaft"
+gem "tailwindcss-rails"
+gem "view_component"
 gem "pg", "~> 1.5"
 gem "puma", ">= 5.0"
 gem "jbuilder"
@@ -68,8 +70,6 @@ group :development do
   gem "ruby-lsp", require: false
   # gem "web-console" — removed Phase 1 (no web views)
 end
-
-# gem "view_component" — removed Phase 1 (no web views)
 
 # gem "capybara" — removed Phase 1 (no web UI to test)
 
