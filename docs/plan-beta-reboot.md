@@ -192,7 +192,7 @@ Each task carries a `model:` hint. Pick by complexity, not by feel.
 - [x] T6.17 No Meilisearch imports in Voyage services (clean). model: [sonnet]
 - [x] T6.18 Search `app/` for removed-gem symbols; remove or stub. model: [sonnet]
 - [x] T6.19 `bundle install`; ensure `bin/rails runner "puts 1"` boots. model: [manual]
-- [-] T6.20 Commit: gem cull. model: [manual]
+- [x] T6.20 Commit: gem cull. model: [manual]
 
 ## P7 — Model + schema audit & rebuild
 
