@@ -1,5 +1,6 @@
 name: Bug report
-description: Report a bug in pito
+description:
+  Report a bug in the Rails app, the Astro landing, or the CI pipeline
 title: "[bug] "
 labels: ["bug"]
 body:
@@ -9,8 +10,28 @@ body:
         Thanks for taking the time to file a bug report.
 
         Reminder: **pito is alpha and self-hosted. No SLA, no support
-        guarantees, no roadmap commitments.** Issues are triaged when there's
-        time. Quality reports get triaged faster.
+        guarantees, no roadmap commitments.** Issues are triaged when
+        there's time. Quality reports get triaged faster.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which area?
+      options:
+        - "Rails app (app/, controllers, models, views, components, channels,
+          jobs)"
+        - "Database (migrations, schema, query / performance)"
+        - "Hotwire (Turbo Frames / Streams) or Stimulus"
+        - "ActionCable / status-bar broadcasts"
+        - "Voyage embeddings / recommendation"
+        - "Auth / OAuth / sessions"
+        - "Astro landing (extras/website/)"
+        - "Kamal / Docker / deploy"
+        - "CI (.github/workflows/)"
+        - "Docs (README, AGENTS.md, EXTRA, docs/*)"
+        - "Other / unsure"
+    validations:
+      required: true
 
   - type: textarea
     id: what-happened
@@ -26,12 +47,13 @@ body:
     id: repro
     attributes:
       label: Steps to reproduce
-      description: Numbered steps. The shorter + more deterministic, the better.
+      description: Numbered, deterministic steps. Shortest possible repro.
       placeholder: |
-        1. Run `bin/dev`
-        2. Visit `/`
-        3. Click `[reindex]` on the Meilisearch sub-panel
-        4. See error
+        1. `bin/setup`
+        2. `bin/rails server`
+        3. Visit `http://localhost:3000/...`
+        4. Click ...
+        5. See error
     validations:
       required: true
 
@@ -39,17 +61,19 @@ body:
     id: version
     attributes:
       label: pito version
-      description: From the `VERSION` file at the repo root, or from the About dialog.
-      placeholder: e.g. 0.0.1.beta3
+      description:
+        From the `VERSION` file at the repo root, or `git rev-parse --short
+        HEAD`.
+      placeholder: e.g. v0.1.0 or 0534e93
     validations:
-      required: true
+      required: false
 
   - type: input
     id: environment
     attributes:
       label: Environment
-      description: OS + Ruby version + Postgres + Redis + Meilisearch versions.
-      placeholder: e.g. Arch Linux, Ruby 3.3.5, Postgres 17.2, Redis 7.4, Meilisearch 1.10
+      description: OS + Ruby version + Postgres version.
+      placeholder: e.g. Arch Linux, Ruby 3.3.5, Postgres 17.2
     validations:
       required: false
 
@@ -57,7 +81,9 @@ body:
     id: logs
     attributes:
       label: Relevant logs / error output
-      description: Paste error tracebacks, log lines, or screenshots. Use code blocks for text.
+      description:
+        Paste backtraces, Rails log lines, browser console errors. Use code
+        blocks for text.
       render: shell
     validations:
       required: false
@@ -67,7 +93,10 @@ body:
     attributes:
       label: Acknowledgment
       options:
-        - label: I've read the [project philosophy](https://github.com/gmrdad82/pito#project-philosophy) and understand pito is alpha with no SLA.
+        - label:
+            I've read the [project
+            status](https://github.com/gmrdad82/pito#project-status) section and
+            understand pito is alpha with no SLA.
           required: true
         - label: I've searched existing issues to avoid duplicates.
           required: true
