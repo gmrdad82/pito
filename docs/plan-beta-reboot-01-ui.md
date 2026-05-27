@@ -106,7 +106,7 @@ Tailwind utility aliases (extend `theme.extend.colors` in `tailwind.config.js`, 
 | Utility name | CSS var |
 |---|---|
 | `bg-root`, `bg-surface`, `bg-elevated` | `--bg-*` |
-| `border-default`, `border-faded` | `--border-*` |
+| `border-line-default`, `border-line-faded` | `--border-*` (TW4 @theme strips `--color-line-` prefix, producing `border-line-*`) |
 | `text-fg`, `text-fg-dim`, `text-fg-faded` | `--fg-*` |
 | `text-purple`, `text-blue`, `text-cyan`, `text-green`, `text-yellow`, `text-orange`, `text-red` | `--accent-*` |
 | `bg-purple`, `bg-orange` (etc.) | `--accent-*` |
@@ -475,10 +475,10 @@ config/locales/pito/
 - [x] T1.2 Extend Tailwind config (`tailwind.config.js` for TW3 or `@theme` block in `application.css` for TW4) to alias the CSS vars as utility names: `bg-root`, `bg-surface`, `bg-elevated`, `border-default`, `border-faded`, `text-fg`, `text-fg-dim`, `text-fg-faded`, `text-purple/blue/cyan/green/yellow/orange/red`, `bg-purple/orange/...`, `text-pito`, `bg-pito`. complexity: [medium]
 - [x] T1.3 In `app/views/layouts/application.html.erb`, add `data-theme="tokyo-night"` to the `<html>` element. complexity: [low]
 - [x] T1.4 Create a temporary smoke partial at `app/views/_smoke/tokens.html.erb` that renders one `<div>` per utility with a label. Route at `get "/_smoke/tokens", to: "_smoke#tokens"`. Controller stub. complexity: [low]
-- [ ] T1.5 Run `bin/dev`; visit `/_smoke/tokens`; verify every color renders correctly per the hex values in the spec. complexity: [manual]
-- [ ] T1.6 Delete the smoke partial, controller, and route. complexity: [low]
-- [ ] T1.7 Add a comment block at the top of `application.css` documenting the theme system (how to add a new theme: drop a `[data-theme="<name>"]` block with the same var names). complexity: [low]
-- [ ] T1.8 Commit: `[skipci] U1: design tokens + tokyo night palette + pito brand`. complexity: [manual]
+- [x] T1.5 Run `bin/dev`; visit `/_smoke/tokens`; verify every color renders correctly per the hex values in the spec. complexity: [manual]
+- [x] T1.6 Delete the smoke partial, controller, and route. complexity: [low]
+- [x] T1.7 Add a comment block at the top of `application.css` documenting the theme system (how to add a new theme: drop a `[data-theme="<name>"]` block with the same var names). complexity: [low]
+- [-] T1.8 Commit: `U1: design tokens + tokyo night palette + pito brand`. complexity: [manual]
 
 ## U2 — Application layout shell
 
@@ -489,7 +489,7 @@ config/locales/pito/
 - [ ] T2.3 In Tailwind config, set `theme.fontSize.base = ["16px", "1.4"]` (size + line-height). Plan 1 uses ONLY `text-base` everywhere. complexity: [low]
 - [ ] T2.4 Add a body-level rule (in `application.css` or as Tailwind base layer): `* { font-size: inherit; }` — defensive guard against `text-sm`/`text-lg` from accidental use. complexity: [low]
 - [ ] T2.5 Boot `bin/dev`, visit `/` (still 404 fine), verify the page background is `#1a1b26` and any visible text is monospace 16px. complexity: [manual]
-- [ ] T2.6 Commit: `[skipci] U2: application layout shell + typography lock`. complexity: [manual]
+- [ ] T2.6 Commit: `U2: application layout shell + typography lock`. complexity: [manual]
 
 ## U3 — Primitive components (Segment, Cursor)
 
@@ -502,7 +502,7 @@ config/locales/pito/
 - [ ] T3.5 Create `app/components/pito/cursor/component.html.erb` — inline `<span>` with `background: <color>; color: var(--bg-root);` containing the character. complexity: [low]
 - [ ] T3.6 Smoke render the cursor; verify the character appears inverted (purple bg, dark fg). complexity: [manual]
 - [ ] T3.7 Visual review: both primitives match `ui-p1.5.md` patterns. complexity: [manual]
-- [ ] T3.8 Commit: `[skipci] U3: Pito::Segment + Pito::Cursor primitives`. complexity: [manual]
+- [ ] T3.8 Commit: `U3: Pito::Segment + Pito::Cursor primitives`. complexity: [manual]
 
 ## U4 — Shell components
 
@@ -517,7 +517,7 @@ config/locales/pito/
 - [ ] T4.7 Smoke render each shell component in isolation (via console or a temporary `/_smoke/shell` route). complexity: [manual]
 - [ ] T4.8 Delete any temporary smoke routes/views after verification. complexity: [low]
 - [ ] T4.9 Visual review: each matches its v0 spec (`ui-p1.4.md`, `ui-p1.5.md`, `ui-p1.2.md`). complexity: [manual]
-- [ ] T4.10 Commit: `[skipci] U4: Pito::Shell components (chatbox, mini-status, dots, in-progress)`. complexity: [manual]
+- [ ] T4.10 Commit: `U4: Pito::Shell components (chatbox, mini-status, dots, in-progress)`. complexity: [manual]
 
 ## U5 — Event content components
 
@@ -530,7 +530,7 @@ config/locales/pito/
 - [ ] T5.5 Create `Pito::Event::StatusFooterComponent` (rb + erb). Borderless, `▣` glyph + mode + agent + duration. complexity: [low]
 - [ ] T5.6 Smoke render each event component in isolation. complexity: [manual]
 - [ ] T5.7 Visual review: each matches `ui-p1.5.md`. Pay attention to the alignment invariant — text in any event should sit 22px from the segment's left edge regardless of whether the segment has a border. complexity: [manual]
-- [ ] T5.8 Commit: `[skipci] U5: Pito::Event content components`. complexity: [manual]
+- [ ] T5.8 Commit: `U5: Pito::Event content components`. complexity: [manual]
 
 ## U6 — Chat shell page (`/`)
 
@@ -543,7 +543,7 @@ config/locales/pito/
 - [ ] T6.5 Pass hardcoded filter `{ channel: "@gmrdad82", period: "7d" }` to the chatbox. Pass `mode: :connection, state: true, notifications: 3, show_notifications: true` to the mini-status. complexity: [low]
 - [ ] T6.6 In `config/routes.rb`, add `root "terminal#show"`. complexity: [low]
 - [ ] T6.7 Visit `/`, verify the render matches `ui-p1.5.md` final state (segments aligned, chatbox at bottom, mini-status right-aligned). complexity: [manual]
-- [ ] T6.8 Commit: `[skipci] U6: chat shell page (/) with sample messages`. complexity: [manual]
+- [ ] T6.8 Commit: `U6: chat shell page (/) with sample messages`. complexity: [manual]
 
 ## U7 — Start screen page (`/start`)
 
@@ -555,7 +555,7 @@ config/locales/pito/
 - [ ] T7.4 In `StartScreensController#show`, pass `version: "0.1.0"` and render. Caller does NOT fill the logo slot in Plan 1 — leave it empty. complexity: [low]
 - [ ] T7.5 In `config/routes.rb`, add `get "/start", to: "start_screens#show"`. complexity: [low]
 - [ ] T7.6 Visit `/start`. Verify: chatbox at 50vh, centered, single-line placeholder showing `/authenticate 123456` with cursor on `/`. Mini-status reads "Not authenticated · ctrl+p commands" with "Not authenticated" in red. Tip line centered, dim. pitomd.com link bottom-left, version bottom-right. complexity: [manual]
-- [ ] T7.7 Commit: `[skipci] U7: start screen (/start)`. complexity: [manual]
+- [ ] T7.7 Commit: `U7: start screen (/start)`. complexity: [manual]
 
 ## U8 — Palette components + review page (`/_ui/palettes`)
 
@@ -571,7 +571,7 @@ config/locales/pito/
 - [ ] T8.8 Create `app/views/_ui/palettes/show.html.erb`. Stack both palettes vertically inside an 800px centered container, each with a small subheading above (`"Slash command palette · opens above chatbox when / is typed"`, `"Ctrl+P command palette · centered modal overlay"`). complexity: [low]
 - [ ] T8.9 In `config/routes.rb`, add `namespace :_ui do get "palettes", to: "palettes#show" end`. complexity: [low]
 - [ ] T8.10 Visit `/_ui/palettes`. Verify both palettes match `ui-p3.md`. complexity: [manual]
-- [ ] T8.11 Commit: `[skipci] U8: palette components + review page`. complexity: [manual]
+- [ ] T8.11 Commit: `U8: palette components + review page`. complexity: [manual]
 
 ## U9 — Sidebar overlay + review page (`/_ui/sidebar`)
 
@@ -588,7 +588,7 @@ config/locales/pito/
   Note: the chat shell extends full width on purpose — the sidebar is an overlay that covers the right ~480px by design. Some chat content goes behind the sidebar; that's the intended behavior. complexity: [medium]
 - [ ] T9.6 In `config/routes.rb`, add `namespace :_ui do get "sidebar", to: "sidebar#show" end`. complexity: [low]
 - [ ] T9.7 Visit `/_ui/sidebar`. Verify: no horizontal page scroll, chat shell renders at full viewport width (identical to `/`), sidebar floats fixed on the right at 480px, sticky header, scrollable body inside the sidebar. complexity: [manual]
-- [ ] T9.8 Commit: `[skipci] U9: sidebar overlay component + review page`. complexity: [manual]
+- [ ] T9.8 Commit: `U9: sidebar overlay component + review page`. complexity: [manual]
 
 ## U10 — i18n locale files
 
@@ -602,7 +602,7 @@ config/locales/pito/
 - [ ] T10.6 Create `config/locales/pito/sample/en.yml` containing every sample message body string used by the chat shell page. Prefix every key with `pito.sample.` and add a top-of-file comment `# SAMPLE — every key in this file will be replaced when real data is wired in Plan 2+`. complexity: [medium]
 - [ ] T10.7 Audit each component template under `app/components/pito/**` and each view under `app/views/**` — run `git grep -nE '">[A-Z]'` and `git grep -nE 'translate\\b'`. Goal: every user-facing string is `t(".key")`. Fix any stragglers. complexity: [medium]
 - [ ] T10.8 Boot `bin/dev`; visit each route and confirm no `translation missing` placeholders appear. complexity: [manual]
-- [ ] T10.9 Commit: `[skipci] U10: i18n locale files; all copy externalized`. complexity: [manual]
+- [ ] T10.9 Commit: `U10: i18n locale files; all copy externalized`. complexity: [manual]
 
 ## U11 — Verification & cleanup
 
@@ -613,7 +613,7 @@ config/locales/pito/
 - [ ] T11.3 `git grep -n 'text-sm\\|text-lg\\|text-xl\\|text-2xl\\|text-3xl\\|text-4xl\\|text-5xl'` in `app/views/**` and `app/components/**` — should return zero hits (Plan 1 uses only `text-base`). complexity: [manual]
 - [ ] T11.4 `git diff --stat reboot/beta...HEAD -- Gemfile Gemfile.lock` — should show NO new gems beyond what Plan 0 introduced. complexity: [manual]
 - [ ] T11.5 Update `docs/architecture.md` to mention the static UI baseline lives at `/`, `/start`. Note the `/_ui/*` review routes will be removed in Plan 2+. complexity: [low]
-- [ ] T11.6 Commit: `[skipci] U11: static ui verification + architecture notes`. complexity: [manual]
+- [ ] T11.6 Commit: `U11: static ui verification + architecture notes`. complexity: [manual]
 - [ ] T11.7 Tag: `git tag v0.1.0-static-ui`. complexity: [manual]
 
 ---
@@ -647,5 +647,5 @@ Same as Plan 0:
 3. Dispatch as a sub-agent (in OpenCode, Claude Code, etc.) OR do by hand.
 4. Verify (read the diff, run `bin/dev`, visit the affected route, compare against the referenced v0 spec).
 5. Check the box. Move on.
-6. Commit at the end of each phase using the suggested `[skipci]` title.
+6. Commit at the end of each phase using the suggested title.
 7. If a task feels bigger than 5 minutes, split it.

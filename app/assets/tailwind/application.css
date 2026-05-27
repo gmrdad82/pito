@@ -2,3 +2,72 @@
 
 @source "../../views";
 @source "../../components";
+
+/* ── Theme tokens (Tailwind utility aliases) ──────────────────
+ *
+ * Every token references a CSS var defined under a
+ * `[data-theme="..."]` block below.  Add a new theme by
+ * dropping another block with the same var names.
+ */
+
+@theme {
+  --color-root:        var(--bg-root);
+  --color-surface:     var(--bg-surface);
+  --color-elevated:    var(--bg-elevated);
+  --color-line-default: var(--border-default);
+  --color-line-faded:   var(--border-faded);
+  --color-fg:          var(--fg-default);
+  --color-fg-dim:      var(--fg-dim);
+  --color-fg-faded:    var(--fg-faded);
+  --color-purple:      var(--accent-purple);
+  --color-blue:        var(--accent-blue);
+  --color-cyan:        var(--accent-cyan);
+  --color-green:       var(--accent-green);
+  --color-yellow:      var(--accent-yellow);
+  --color-orange:      var(--accent-orange);
+  --color-red:         var(--accent-red);
+  --color-pito:        var(--brand-pito);
+}
+
+/* Generated utilities (TW4 derives these from --color-* tokens):
+ *   bg-root  text-root  border-root
+ *   bg-surface  text-surface  border-surface
+ *   bg-elevated  text-elevated  border-elevated
+ *   border-line-default  border-line-faded
+ *   bg-fg  text-fg
+ *   bg-fg-dim  text-fg-dim
+ *   bg-fg-faded  text-fg-faded
+ *   bg-purple  text-purple  border-purple (…blue, cyan, green, yellow, orange, red)
+ *   bg-pito  text-pito  border-pito
+ */
+
+/* ── Theme system ──────────────────────────────────────────────
+ *
+ * Add a new theme: drop another `[data-theme="<name>"]` block
+ * with the same var names. Theme switching (Plan 2+) flips the
+ * `data-theme` attribute on `<html>` and persists in localStorage.
+ * No Ruby or template changes needed.
+ */
+
+[data-theme="tokyo-night"] {
+  --bg-root:         #1a1b26;
+  --bg-surface:      #1f2335;
+  --bg-elevated:     #24283b;
+
+  --border-default:  #292e42;
+  --border-faded:    #414868;
+
+  --fg-default:      #c0caf5;
+  --fg-dim:          #565f89;
+  --fg-faded:        #414868;
+
+  --accent-purple:   #bb9af7;
+  --accent-blue:     #7aa2f7;
+  --accent-cyan:     #7dcfff;
+  --accent-green:    #9ece6a;
+  --accent-yellow:   #e0af68;
+  --accent-orange:   #ff9e64;
+  --accent-red:      #f7768e;
+
+  --brand-pito:      #5170ff;
+}
