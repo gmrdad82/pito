@@ -65,17 +65,16 @@ Read these while executing Plan 1 — they are the visual contract:
 - `docs/ui/ui-p4.md` + `ui-p4.1.md` — sidebar overlay (overlay pattern, not side-by-side)
 - `tmp/v0-snapshots/v0.zip` — final v0 render snapshot (visual cross-reference)
 
-## Model recommendations
+## Complexity hints
 
 Same as Plan 0:
 
-| Hint | Suggested model | When |
-|---|---|---|
-| `[manual]` | you, by hand | branches, commits, visual review, design choices |
-| `[flash]` | DeepSeek V4 Flash / Gemini 2.0 Flash / GPT-4o-mini | YAML, renames, file audits, locale entries |
-| `[haiku]` | Claude Haiku 3.5 | Single-file ViewComponents, small ERB templates, controllers |
-| `[sonnet]` | Claude Sonnet 4 | Multi-file refactors, layout files, CSS architecture |
-| `[pro]` | DeepSeek V4 Pro / Claude Opus 4 | Architecture decisions (rare in Plan 1; mostly token system) |
+| Hint | When |
+|---|---|
+| `[manual]` | You, by hand — branches, commits, visual review, design choices |
+| `[low]` | YAML, renames, file audits, locale entries, single-file ViewComponents, small ERB templates, controllers |
+| `[medium]` | Multi-file refactors, layout files, CSS architecture |
+| `[high]` | Architecture decisions (rare in Plan 1; mostly token system) |
 
 ## Tokens & theme system
 
@@ -449,173 +448,173 @@ config/locales/pito/
 
 > Verify Plan 0 finished. Don't start U1 until every box here is checked.
 
-- [x] T0.1 Confirm every Plan 0 phase (P0–P19) is checked off. model: [manual]
+- [x] T0.1 Confirm every Plan 0 phase (P0–P19) is checked off. complexity: [manual]
       → P0–P8 complete; P9.1–P9.4 + P10.1–P10.4 done as U0 prereqs;
         P9.5+, P10.5+, P11 superseded by this plan; P12–P19 deferred
         to plan-beta-reboot-02+. See Plan 0 Status block.
-- [x] T0.2 `bin/rails runner "puts Rails.version"` prints the expected Rails 8.x version. model: [manual]
+- [x] T0.2 `bin/rails runner "puts Rails.version"` prints the expected Rails 8.x version. complexity: [manual]
       → Rails 8.1.3.
-- [x] T0.3 `bin/dev` starts cleanly — Puma + Tailwind watcher up, no errors. model: [manual]
+- [x] T0.3 `bin/dev` starts cleanly — Puma + Tailwind watcher up, no errors. complexity: [manual]
       → Procfile.dev now has `css: bin/rails tailwindcss:watch`
         (installer added it). Rails boot verified via tailwindcss:build
         + runner; full `bin/dev` run deferred to first U1+ visit.
-- [x] T0.4 `bin/rails tailwindcss:build` succeeds. model: [manual]
+- [x] T0.4 `bin/rails tailwindcss:build` succeeds. complexity: [manual]
       → "Done in 234ms".
-- [x] T0.5 `ApplicationComponent` exists under `app/components/`; render `ApplicationComponent.new` in a console without error. model: [manual]
+- [x] T0.5 `ApplicationComponent` exists under `app/components/`; render `ApplicationComponent.new` in a console without error. complexity: [manual]
       → `ApplicationComponent < ViewComponent::Base` (view_component 4.11.0).
-- [x] T0.6 Create branch `plan-01-ui` from `reboot/beta` (or main, post-Plan-0 merge). model: [manual]
+- [x] T0.6 Create branch `plan-01-ui` from `reboot/beta` (or main, post-Plan-0 merge). complexity: [manual]
       → Skipped — staying on `blank-home-v1`.
-- [x] T0.7 Tag the current state as `v0.0.3-pre-static-ui`. model: [manual]
+- [x] T0.7 Tag the current state as `v0.0.3-pre-static-ui`. complexity: [manual]
       → Skipped — no tags in this repo's workflow.
 
 ## U1 — Tokens + Tailwind config
 
 > Define every named color/spacing token. Tokyo Night palette as CSS variables; Tailwind utility aliases on top.
 
-- [ ] T1.1 In `app/assets/tailwind/application.css`, add a `[data-theme="tokyo-night"]` selector block containing every CSS variable from the Tokens & theme system section above. model: [haiku]
-- [ ] T1.2 Extend Tailwind config (`tailwind.config.js` for TW3 or `@theme` block in `application.css` for TW4) to alias the CSS vars as utility names: `bg-root`, `bg-surface`, `bg-elevated`, `border-default`, `border-faded`, `text-fg`, `text-fg-dim`, `text-fg-faded`, `text-purple/blue/cyan/green/yellow/orange/red`, `bg-purple/orange/...`, `text-pito`, `bg-pito`. model: [sonnet]
-- [ ] T1.3 In `app/views/layouts/application.html.erb`, add `data-theme="tokyo-night"` to the `<html>` element. model: [haiku]
-- [ ] T1.4 Create a temporary smoke partial at `app/views/_smoke/tokens.html.erb` that renders one `<div>` per utility with a label. Route at `get "/_smoke/tokens", to: "_smoke#tokens"`. Controller stub. model: [haiku]
-- [ ] T1.5 Run `bin/dev`; visit `/_smoke/tokens`; verify every color renders correctly per the hex values in the spec. model: [manual]
-- [ ] T1.6 Delete the smoke partial, controller, and route. model: [flash]
-- [ ] T1.7 Add a comment block at the top of `application.css` documenting the theme system (how to add a new theme: drop a `[data-theme="<name>"]` block with the same var names). model: [haiku]
-- [ ] T1.8 Commit: `[skipci] U1: design tokens + tokyo night palette + pito brand`. model: [manual]
+- [x] T1.1 In `app/assets/tailwind/application.css`, add a `[data-theme="tokyo-night"]` selector block containing every CSS variable from the Tokens & theme system section above. complexity: [low]
+- [x] T1.2 Extend Tailwind config (`tailwind.config.js` for TW3 or `@theme` block in `application.css` for TW4) to alias the CSS vars as utility names: `bg-root`, `bg-surface`, `bg-elevated`, `border-default`, `border-faded`, `text-fg`, `text-fg-dim`, `text-fg-faded`, `text-purple/blue/cyan/green/yellow/orange/red`, `bg-purple/orange/...`, `text-pito`, `bg-pito`. complexity: [medium]
+- [x] T1.3 In `app/views/layouts/application.html.erb`, add `data-theme="tokyo-night"` to the `<html>` element. complexity: [low]
+- [x] T1.4 Create a temporary smoke partial at `app/views/_smoke/tokens.html.erb` that renders one `<div>` per utility with a label. Route at `get "/_smoke/tokens", to: "_smoke#tokens"`. Controller stub. complexity: [low]
+- [ ] T1.5 Run `bin/dev`; visit `/_smoke/tokens`; verify every color renders correctly per the hex values in the spec. complexity: [manual]
+- [ ] T1.6 Delete the smoke partial, controller, and route. complexity: [low]
+- [ ] T1.7 Add a comment block at the top of `application.css` documenting the theme system (how to add a new theme: drop a `[data-theme="<name>"]` block with the same var names). complexity: [low]
+- [ ] T1.8 Commit: `[skipci] U1: design tokens + tokyo night palette + pito brand`. complexity: [manual]
 
 ## U2 — Application layout shell
 
 > Lock typography and base layout. Single font size, monospace, dark bg.
 
-- [ ] T2.1 Reset `app/views/layouts/application.html.erb` to: `<html data-theme="tokyo-night">` + `<head>` (title, csrf, viewport, csp, stylesheet, importmap_tags) + `<body class="bg-root text-fg font-mono">` with `<%= yield %>`. model: [haiku]
-- [ ] T2.2 In Tailwind config, set `theme.fontFamily.mono = ["ui-monospace", "monospace"]`. Override default mono stack — no web fonts, no fallbacks beyond `monospace`. model: [haiku]
-- [ ] T2.3 In Tailwind config, set `theme.fontSize.base = ["16px", "1.4"]` (size + line-height). Plan 1 uses ONLY `text-base` everywhere. model: [haiku]
-- [ ] T2.4 Add a body-level rule (in `application.css` or as Tailwind base layer): `* { font-size: inherit; }` — defensive guard against `text-sm`/`text-lg` from accidental use. model: [haiku]
-- [ ] T2.5 Boot `bin/dev`, visit `/` (still 404 fine), verify the page background is `#1a1b26` and any visible text is monospace 16px. model: [manual]
-- [ ] T2.6 Commit: `[skipci] U2: application layout shell + typography lock`. model: [manual]
+- [ ] T2.1 Reset `app/views/layouts/application.html.erb` to: `<html data-theme="tokyo-night">` + `<head>` (title, csrf, viewport, csp, stylesheet, importmap_tags) + `<body class="bg-root text-fg font-mono">` with `<%= yield %>`. complexity: [low]
+- [ ] T2.2 In Tailwind config, set `theme.fontFamily.mono = ["ui-monospace", "monospace"]`. Override default mono stack — no web fonts, no fallbacks beyond `monospace`. complexity: [low]
+- [ ] T2.3 In Tailwind config, set `theme.fontSize.base = ["16px", "1.4"]` (size + line-height). Plan 1 uses ONLY `text-base` everywhere. complexity: [low]
+- [ ] T2.4 Add a body-level rule (in `application.css` or as Tailwind base layer): `* { font-size: inherit; }` — defensive guard against `text-sm`/`text-lg` from accidental use. complexity: [low]
+- [ ] T2.5 Boot `bin/dev`, visit `/` (still 404 fine), verify the page background is `#1a1b26` and any visible text is monospace 16px. complexity: [manual]
+- [ ] T2.6 Commit: `[skipci] U2: application layout shell + typography lock`. complexity: [manual]
 
 ## U3 — Primitive components (Segment, Cursor)
 
 > Build the two visual primitives every other component depends on.
 
-- [ ] T3.1 Create `app/components/pito/segment/component.rb`. Initialize with `border:` and `background:` keyword args, both nilable. Render block content via `content` slot. model: [haiku]
-- [ ] T3.2 Create `app/components/pito/segment/component.html.erb` with the bar+gap+content flex markup. Bar 4px wide, gap 6px transparent, content `flex-1` with padding `10px 16px 10px 12px` and the background fill applied ONLY to the content child. model: [sonnet]
-- [ ] T3.3 Smoke render in `rails console`: `ApplicationController.renderer.render(Pito::Segment::Component.new(border: "var(--accent-orange)", background: nil)) { "test" }`. Inspect output. model: [manual]
-- [ ] T3.4 Create `app/components/pito/cursor/component.rb` with `char:` and `color:` kwargs (default `var(--accent-purple)`). model: [haiku]
-- [ ] T3.5 Create `app/components/pito/cursor/component.html.erb` — inline `<span>` with `background: <color>; color: var(--bg-root);` containing the character. model: [haiku]
-- [ ] T3.6 Smoke render the cursor; verify the character appears inverted (purple bg, dark fg). model: [manual]
-- [ ] T3.7 Visual review: both primitives match `ui-p1.5.md` patterns. model: [manual]
-- [ ] T3.8 Commit: `[skipci] U3: Pito::Segment + Pito::Cursor primitives`. model: [manual]
+- [ ] T3.1 Create `app/components/pito/segment/component.rb`. Initialize with `border:` and `background:` keyword args, both nilable. Render block content via `content` slot. complexity: [low]
+- [ ] T3.2 Create `app/components/pito/segment/component.html.erb` with the bar+gap+content flex markup. Bar 4px wide, gap 6px transparent, content `flex-1` with padding `10px 16px 10px 12px` and the background fill applied ONLY to the content child. complexity: [medium]
+- [ ] T3.3 Smoke render in `rails console`: `ApplicationController.renderer.render(Pito::Segment::Component.new(border: "var(--accent-orange)", background: nil)) { "test" }`. Inspect output. complexity: [manual]
+- [ ] T3.4 Create `app/components/pito/cursor/component.rb` with `char:` and `color:` kwargs (default `var(--accent-purple)`). complexity: [low]
+- [ ] T3.5 Create `app/components/pito/cursor/component.html.erb` — inline `<span>` with `background: <color>; color: var(--bg-root);` containing the character. complexity: [low]
+- [ ] T3.6 Smoke render the cursor; verify the character appears inverted (purple bg, dark fg). complexity: [manual]
+- [ ] T3.7 Visual review: both primitives match `ui-p1.5.md` patterns. complexity: [manual]
+- [ ] T3.8 Commit: `[skipci] U3: Pito::Segment + Pito::Cursor primitives`. complexity: [manual]
 
 ## U4 — Shell components
 
 > Chatbox, mini-status, post-command dots, in-progress indicator.
 
-- [ ] T4.1 Create `Pito::Shell::ChatboxComponent` (rb + erb). Args: `state:`, `placeholder_key:`, `filter:`. model: [sonnet]
-- [ ] T4.2 In the erb, use `Pito::Segment::Component` with purple border + surface background. Inside, render line 1 (Cursor + placeholder) and conditionally line 2 (filter context). model: [sonnet]
-- [ ] T4.3 Create `Pito::Shell::MiniStatusComponent` (rb + erb). Args: `mode:`, `state:`, `notifications:`, `show_notifications:`. model: [sonnet]
-- [ ] T4.4 Create `Pito::Shell::PostCommandDotsComponent` (rb + erb). Add CSS keyframes for the sweep animation in a co-located stylesheet (e.g., `app/components/pito/shell/post_command_dots_component.css` or inline `<style>` in the template — pick one and commit to it). model: [sonnet]
-- [ ] T4.5 Create `Pito::Shell::InProgressComponent` (rb + erb). Args: `verb_key:`. Wrap in `Pito::Segment::Component` (borderless). Inside: braille spinner span + shimmer-text span + dim ellipsis. model: [sonnet]
-- [ ] T4.6 Add CSS keyframes for braille spinner cycle and text shimmer. Co-locate in component CSS or `application.css` under a clearly-namespaced selector. model: [sonnet]
-- [ ] T4.7 Smoke render each shell component in isolation (via console or a temporary `/_smoke/shell` route). model: [manual]
-- [ ] T4.8 Delete any temporary smoke routes/views after verification. model: [flash]
-- [ ] T4.9 Visual review: each matches its v0 spec (`ui-p1.4.md`, `ui-p1.5.md`, `ui-p1.2.md`). model: [manual]
-- [ ] T4.10 Commit: `[skipci] U4: Pito::Shell components (chatbox, mini-status, dots, in-progress)`. model: [manual]
+- [ ] T4.1 Create `Pito::Shell::ChatboxComponent` (rb + erb). Args: `state:`, `placeholder_key:`, `filter:`. complexity: [medium]
+- [ ] T4.2 In the erb, use `Pito::Segment::Component` with purple border + surface background. Inside, render line 1 (Cursor + placeholder) and conditionally line 2 (filter context). complexity: [medium]
+- [ ] T4.3 Create `Pito::Shell::MiniStatusComponent` (rb + erb). Args: `mode:`, `state:`, `notifications:`, `show_notifications:`. complexity: [medium]
+- [ ] T4.4 Create `Pito::Shell::PostCommandDotsComponent` (rb + erb). Add CSS keyframes for the sweep animation in a co-located stylesheet (e.g., `app/components/pito/shell/post_command_dots_component.css` or inline `<style>` in the template — pick one and commit to it). complexity: [medium]
+- [ ] T4.5 Create `Pito::Shell::InProgressComponent` (rb + erb). Args: `verb_key:`. Wrap in `Pito::Segment::Component` (borderless). Inside: braille spinner span + shimmer-text span + dim ellipsis. complexity: [medium]
+- [ ] T4.6 Add CSS keyframes for braille spinner cycle and text shimmer. Co-locate in component CSS or `application.css` under a clearly-namespaced selector. complexity: [medium]
+- [ ] T4.7 Smoke render each shell component in isolation (via console or a temporary `/_smoke/shell` route). complexity: [manual]
+- [ ] T4.8 Delete any temporary smoke routes/views after verification. complexity: [low]
+- [ ] T4.9 Visual review: each matches its v0 spec (`ui-p1.4.md`, `ui-p1.5.md`, `ui-p1.2.md`). complexity: [manual]
+- [ ] T4.10 Commit: `[skipci] U4: Pito::Shell components (chatbox, mini-status, dots, in-progress)`. complexity: [manual]
 
 ## U5 — Event content components
 
 > The five segments that appear in the chat message stream. All static renderers; all use Pito::Segment under the hood.
 
-- [ ] T5.1 Create `Pito::Event::UserMessageComponent` (rb + erb). Orange border, no background, body text in `text-fg`. model: [haiku]
-- [ ] T5.2 Create `Pito::Event::AssistantTextComponent` (rb + erb). Borderless, supports optional rich content slot. model: [haiku]
-- [ ] T5.3 Create `Pito::Event::ThoughtComponent` (rb + erb). Borderless, `+ Thought:` prefix orange-bold + duration dim. model: [haiku]
-- [ ] T5.4 Create `Pito::Event::ToolOutputComponent` (rb + erb). Purple border + elevated background. Title, command, pre-formatted output, "Click to expand" affordance (purely visual — no click handler). model: [sonnet]
-- [ ] T5.5 Create `Pito::Event::StatusFooterComponent` (rb + erb). Borderless, `▣` glyph + mode + agent + duration. model: [haiku]
-- [ ] T5.6 Smoke render each event component in isolation. model: [manual]
-- [ ] T5.7 Visual review: each matches `ui-p1.5.md`. Pay attention to the alignment invariant — text in any event should sit 22px from the segment's left edge regardless of whether the segment has a border. model: [manual]
-- [ ] T5.8 Commit: `[skipci] U5: Pito::Event content components`. model: [manual]
+- [ ] T5.1 Create `Pito::Event::UserMessageComponent` (rb + erb). Orange border, no background, body text in `text-fg`. complexity: [low]
+- [ ] T5.2 Create `Pito::Event::AssistantTextComponent` (rb + erb). Borderless, supports optional rich content slot. complexity: [low]
+- [ ] T5.3 Create `Pito::Event::ThoughtComponent` (rb + erb). Borderless, `+ Thought:` prefix orange-bold + duration dim. complexity: [low]
+- [ ] T5.4 Create `Pito::Event::ToolOutputComponent` (rb + erb). Purple border + elevated background. Title, command, pre-formatted output, "Click to expand" affordance (purely visual — no click handler). complexity: [medium]
+- [ ] T5.5 Create `Pito::Event::StatusFooterComponent` (rb + erb). Borderless, `▣` glyph + mode + agent + duration. complexity: [low]
+- [ ] T5.6 Smoke render each event component in isolation. complexity: [manual]
+- [ ] T5.7 Visual review: each matches `ui-p1.5.md`. Pay attention to the alignment invariant — text in any event should sit 22px from the segment's left edge regardless of whether the segment has a border. complexity: [manual]
+- [ ] T5.8 Commit: `[skipci] U5: Pito::Event content components`. complexity: [manual]
 
 ## U6 — Chat shell page (`/`)
 
 > The main route. Hardcoded sample messages rendered through Event components.
 
-- [ ] T6.1 Generate `TerminalController` with `#show` action. model: [haiku]
-- [ ] T6.2 Create `lib/pito/sample/chat_shell.rb` — a module returning an ordered array of sample message records (each with `kind:` symbol + relevant fields). Mark every body string with comment `# SAMPLE — replace when wiring real data in Plan 2+`. model: [sonnet]
-- [ ] T6.3 In `TerminalController#show`, assign `@events = Pito::Sample::ChatShell.events` and render the view. model: [haiku]
-- [ ] T6.4 Create `app/views/terminal/show.html.erb`. Layout: full-viewport flex column. Top region: scroll area (`flex: 1, overflow-y: auto`) iterating over `@events` and rendering the right Event component for each kind. Bottom region: chatbox row (default state) + mini-status row beneath (with post-command dots on left, mini-status on right). model: [sonnet]
-- [ ] T6.5 Pass hardcoded filter `{ channel: "@gmrdad82", period: "7d" }` to the chatbox. Pass `mode: :connection, state: true, notifications: 3, show_notifications: true` to the mini-status. model: [haiku]
-- [ ] T6.6 In `config/routes.rb`, add `root "terminal#show"`. model: [haiku]
-- [ ] T6.7 Visit `/`, verify the render matches `ui-p1.5.md` final state (segments aligned, chatbox at bottom, mini-status right-aligned). model: [manual]
-- [ ] T6.8 Commit: `[skipci] U6: chat shell page (/) with sample messages`. model: [manual]
+- [ ] T6.1 Generate `TerminalController` with `#show` action. complexity: [low]
+- [ ] T6.2 Create `lib/pito/sample/chat_shell.rb` — a module returning an ordered array of sample message records (each with `kind:` symbol + relevant fields). Mark every body string with comment `# SAMPLE — replace when wiring real data in Plan 2+`. complexity: [medium]
+- [ ] T6.3 In `TerminalController#show`, assign `@events = Pito::Sample::ChatShell.events` and render the view. complexity: [low]
+- [ ] T6.4 Create `app/views/terminal/show.html.erb`. Layout: full-viewport flex column. Top region: scroll area (`flex: 1, overflow-y: auto`) iterating over `@events` and rendering the right Event component for each kind. Bottom region: chatbox row (default state) + mini-status row beneath (with post-command dots on left, mini-status on right). complexity: [medium]
+- [ ] T6.5 Pass hardcoded filter `{ channel: "@gmrdad82", period: "7d" }` to the chatbox. Pass `mode: :connection, state: true, notifications: 3, show_notifications: true` to the mini-status. complexity: [low]
+- [ ] T6.6 In `config/routes.rb`, add `root "terminal#show"`. complexity: [low]
+- [ ] T6.7 Visit `/`, verify the render matches `ui-p1.5.md` final state (segments aligned, chatbox at bottom, mini-status right-aligned). complexity: [manual]
+- [ ] T6.8 Commit: `[skipci] U6: chat shell page (/) with sample messages`. complexity: [manual]
 
 ## U7 — Start screen page (`/start`)
 
 > The unauthenticated landing screen. Centered chatbox, no logo asset yet (out of scope).
 
-- [ ] T7.1 Generate `StartScreensController` with `#show` action. model: [haiku]
-- [ ] T7.2 Create `Pito::StartScreen::Component` (rb + erb). Args: `version:`, `pitomd_url:`. Slot: `logo` (default empty). model: [sonnet]
-- [ ] T7.3 In the erb, build the full-viewport layout: empty top region, centered group (logo slot — reserve ~120px vertical space, empty for now — then 32px gap, chatbox `state: :start` `max-width: 800px`, mini-status row), tip line midway between mini-status and bottom corners, bottom corners (pitomd link + version). Chatbox's vertical center at 50vh. model: [sonnet]
-- [ ] T7.4 In `StartScreensController#show`, pass `version: "0.1.0"` and render. Caller does NOT fill the logo slot in Plan 1 — leave it empty. model: [haiku]
-- [ ] T7.5 In `config/routes.rb`, add `get "/start", to: "start_screens#show"`. model: [haiku]
-- [ ] T7.6 Visit `/start`. Verify: chatbox at 50vh, centered, single-line placeholder showing `/authenticate 123456` with cursor on `/`. Mini-status reads "Not authenticated · ctrl+p commands" with "Not authenticated" in red. Tip line centered, dim. pitomd.com link bottom-left, version bottom-right. model: [manual]
-- [ ] T7.7 Commit: `[skipci] U7: start screen (/start)`. model: [manual]
+- [ ] T7.1 Generate `StartScreensController` with `#show` action. complexity: [low]
+- [ ] T7.2 Create `Pito::StartScreen::Component` (rb + erb). Args: `version:`, `pitomd_url:`. Slot: `logo` (default empty). complexity: [medium]
+- [ ] T7.3 In the erb, build the full-viewport layout: empty top region, centered group (logo slot — reserve ~120px vertical space, empty for now — then 32px gap, chatbox `state: :start` `max-width: 800px`, mini-status row), tip line midway between mini-status and bottom corners, bottom corners (pitomd link + version). Chatbox's vertical center at 50vh. complexity: [medium]
+- [ ] T7.4 In `StartScreensController#show`, pass `version: "0.1.0"` and render. Caller does NOT fill the logo slot in Plan 1 — leave it empty. complexity: [low]
+- [ ] T7.5 In `config/routes.rb`, add `get "/start", to: "start_screens#show"`. complexity: [low]
+- [ ] T7.6 Visit `/start`. Verify: chatbox at 50vh, centered, single-line placeholder showing `/authenticate 123456` with cursor on `/`. Mini-status reads "Not authenticated · ctrl+p commands" with "Not authenticated" in red. Tip line centered, dim. pitomd.com link bottom-left, version bottom-right. complexity: [manual]
+- [ ] T7.7 Commit: `[skipci] U7: start screen (/start)`. complexity: [manual]
 
 ## U8 — Palette components + review page (`/_ui/palettes`)
 
 > Both palettes rendered statically on a review-only page. Production rendering happens later as overlays inside the chat shell.
 
-- [ ] T8.1 Create `Pito::Palette::Slash::Component` (rb + erb). Args: `commands:`, `selected_index:`, `typed:`. model: [sonnet]
-- [ ] T8.2 In the erb, wrap in `Pito::Segment::Component` (purple border + surface bg). Render the command list (rows with `/<verb>` left, description right, fixed-width padding so descriptions align at column 20). Highlight selected row with `bg-border-default`. Divider line. Input echo line with cursor. model: [sonnet]
-- [ ] T8.3 Create `Pito::Palette::CtrlP::Component` (rb + erb). Args: `sections:`, `selected_section_index:`, `selected_item_index:`. model: [sonnet]
-- [ ] T8.4 In the erb, render the centered modal (surface bg, 1px border, 24px padding). Title row + search input + sections. Apply `max-height: min(80vh, 600px); overflow-y: auto`. Selected row inset 8px from interior edges. model: [sonnet]
-- [ ] T8.5 Create `Pito::Palette::CtrlP::SectionComponent` (rb + erb). Renders the section title + a list of item rows. model: [haiku]
-- [ ] T8.6 Generate `_Ui::PalettesController` (controller class name `Ui::PalettesController`, file at `app/controllers/_ui/palettes_controller.rb`). Action `#show`. model: [haiku]
-- [ ] T8.7 In the controller, hardcode the slash commands array (8 commands) and the Ctrl+P sections array (Suggested / Session / Channel / Output) using the i18n keys from the spec. model: [sonnet]
-- [ ] T8.8 Create `app/views/_ui/palettes/show.html.erb`. Stack both palettes vertically inside an 800px centered container, each with a small subheading above (`"Slash command palette · opens above chatbox when / is typed"`, `"Ctrl+P command palette · centered modal overlay"`). model: [haiku]
-- [ ] T8.9 In `config/routes.rb`, add `namespace :_ui do get "palettes", to: "palettes#show" end`. model: [haiku]
-- [ ] T8.10 Visit `/_ui/palettes`. Verify both palettes match `ui-p3.md`. model: [manual]
-- [ ] T8.11 Commit: `[skipci] U8: palette components + review page`. model: [manual]
+- [ ] T8.1 Create `Pito::Palette::Slash::Component` (rb + erb). Args: `commands:`, `selected_index:`, `typed:`. complexity: [medium]
+- [ ] T8.2 In the erb, wrap in `Pito::Segment::Component` (purple border + surface bg). Render the command list (rows with `/<verb>` left, description right, fixed-width padding so descriptions align at column 20). Highlight selected row with `bg-border-default`. Divider line. Input echo line with cursor. complexity: [medium]
+- [ ] T8.3 Create `Pito::Palette::CtrlP::Component` (rb + erb). Args: `sections:`, `selected_section_index:`, `selected_item_index:`. complexity: [medium]
+- [ ] T8.4 In the erb, render the centered modal (surface bg, 1px border, 24px padding). Title row + search input + sections. Apply `max-height: min(80vh, 600px); overflow-y: auto`. Selected row inset 8px from interior edges. complexity: [medium]
+- [ ] T8.5 Create `Pito::Palette::CtrlP::SectionComponent` (rb + erb). Renders the section title + a list of item rows. complexity: [low]
+- [ ] T8.6 Generate `_Ui::PalettesController` (controller class name `Ui::PalettesController`, file at `app/controllers/_ui/palettes_controller.rb`). Action `#show`. complexity: [low]
+- [ ] T8.7 In the controller, hardcode the slash commands array (8 commands) and the Ctrl+P sections array (Suggested / Session / Channel / Output) using the i18n keys from the spec. complexity: [medium]
+- [ ] T8.8 Create `app/views/_ui/palettes/show.html.erb`. Stack both palettes vertically inside an 800px centered container, each with a small subheading above (`"Slash command palette · opens above chatbox when / is typed"`, `"Ctrl+P command palette · centered modal overlay"`). complexity: [low]
+- [ ] T8.9 In `config/routes.rb`, add `namespace :_ui do get "palettes", to: "palettes#show" end`. complexity: [low]
+- [ ] T8.10 Visit `/_ui/palettes`. Verify both palettes match `ui-p3.md`. complexity: [manual]
+- [ ] T8.11 Commit: `[skipci] U8: palette components + review page`. complexity: [manual]
 
 ## U9 — Sidebar overlay + review page (`/_ui/sidebar`)
 
 > Sidebar rendered as `position: fixed` overlay on top of the chat shell. Review-only route; production opens via interaction.
 
-- [ ] T9.1 Create `Pito::Sidebar::Component` (rb + erb). Args: `title:`, `subtitle_key:`, `subtitle_args:`. Slot: `body`. model: [sonnet]
-- [ ] T9.2 In the erb, render the `<aside>` with `position: fixed; right: 0; top: 0; bottom: 0; width: 480px; background: var(--bg-root); border-left: 1px solid var(--border-default); z-index: 10; overflow: hidden`. Inside, sticky header (title block + esc) and scrollable body slot. model: [sonnet]
-- [ ] T9.3 Create `Pito::Sidebar::SectionComponent` (rb + erb). Args: `title_key:`. Renders title + content slot + 24px bottom margin. model: [haiku]
-- [ ] T9.4 Generate `_Ui::SidebarController` with action `#show`. Hardcode game-detail sample data (Hollow Knight) in the controller or in `lib/pito/sample/game_detail.rb`. model: [sonnet]
+- [ ] T9.1 Create `Pito::Sidebar::Component` (rb + erb). Args: `title:`, `subtitle_key:`, `subtitle_args:`. Slot: `body`. complexity: [medium]
+- [ ] T9.2 In the erb, render the `<aside>` with `position: fixed; right: 0; top: 0; bottom: 0; width: 480px; background: var(--bg-root); border-left: 1px solid var(--border-default); z-index: 10; overflow: hidden`. Inside, sticky header (title block + esc) and scrollable body slot. complexity: [medium]
+- [ ] T9.3 Create `Pito::Sidebar::SectionComponent` (rb + erb). Args: `title_key:`. Renders title + content slot + 24px bottom margin. complexity: [low]
+- [ ] T9.4 Generate `_Ui::SidebarController` with action `#show`. Hardcode game-detail sample data (Hollow Knight) in the controller or in `lib/pito/sample/game_detail.rb`. complexity: [medium]
 - [ ] T9.5 Create `app/views/_ui/sidebar/show.html.erb`. Two children of a root wrapper with `overflow: hidden`:
   - `<main>` containing the SAME content as `TerminalController#show` (reuse the sample messages module from U6). No max-width, no padding-right. Chat shell renders at full viewport width.
   - `<aside>` rendered via `Pito::Sidebar::Component` with `title: "Hollow Knight"`, `subtitle_key: "pito.sidebar.game.subtitle"`, `subtitle_args: { date: "2026-05-18" }`. Inside the body slot, render each game-detail section via `Pito::Sidebar::SectionComponent`.
   
-  Note: the chat shell extends full width on purpose — the sidebar is an overlay that covers the right ~480px by design. Some chat content goes behind the sidebar; that's the intended behavior. model: [sonnet]
-- [ ] T9.6 In `config/routes.rb`, add `namespace :_ui do get "sidebar", to: "sidebar#show" end`. model: [haiku]
-- [ ] T9.7 Visit `/_ui/sidebar`. Verify: no horizontal page scroll, chat shell renders at full viewport width (identical to `/`), sidebar floats fixed on the right at 480px, sticky header, scrollable body inside the sidebar. model: [manual]
-- [ ] T9.8 Commit: `[skipci] U9: sidebar overlay component + review page`. model: [manual]
+  Note: the chat shell extends full width on purpose — the sidebar is an overlay that covers the right ~480px by design. Some chat content goes behind the sidebar; that's the intended behavior. complexity: [medium]
+- [ ] T9.6 In `config/routes.rb`, add `namespace :_ui do get "sidebar", to: "sidebar#show" end`. complexity: [low]
+- [ ] T9.7 Visit `/_ui/sidebar`. Verify: no horizontal page scroll, chat shell renders at full viewport width (identical to `/`), sidebar floats fixed on the right at 480px, sticky header, scrollable body inside the sidebar. complexity: [manual]
+- [ ] T9.8 Commit: `[skipci] U9: sidebar overlay component + review page`. complexity: [manual]
 
 ## U10 — i18n locale files
 
 > Consolidate all user-facing strings into locale files. Audit components to ensure no inline strings remain.
 
-- [ ] T10.1 Create `config/locales/pito/shell/en.yml` with the keys listed in the i18n key tree (chatbox + mini-status + in-progress sections). model: [haiku]
-- [ ] T10.2 Create `config/locales/pito/event/en.yml` with the keys for thought + tool output. model: [haiku]
-- [ ] T10.3 Create `config/locales/pito/start_screen/en.yml`. model: [haiku]
-- [ ] T10.4 Create `config/locales/pito/palette/en.yml` with all slash command descriptions + Ctrl+P section labels + command labels. model: [haiku]
-- [ ] T10.5 Create `config/locales/pito/sidebar/en.yml` with the game-detail section labels + esc hint + subtitle. model: [haiku]
-- [ ] T10.6 Create `config/locales/pito/sample/en.yml` containing every sample message body string used by the chat shell page. Prefix every key with `pito.sample.` and add a top-of-file comment `# SAMPLE — every key in this file will be replaced when real data is wired in Plan 2+`. model: [sonnet]
-- [ ] T10.7 Audit each component template under `app/components/pito/**` and each view under `app/views/**` — run `git grep -nE '">[A-Z]'` and `git grep -nE 'translate\\b'`. Goal: every user-facing string is `t(".key")`. Fix any stragglers. model: [sonnet]
-- [ ] T10.8 Boot `bin/dev`; visit each route and confirm no `translation missing` placeholders appear. model: [manual]
-- [ ] T10.9 Commit: `[skipci] U10: i18n locale files; all copy externalized`. model: [manual]
+- [ ] T10.1 Create `config/locales/pito/shell/en.yml` with the keys listed in the i18n key tree (chatbox + mini-status + in-progress sections). complexity: [low]
+- [ ] T10.2 Create `config/locales/pito/event/en.yml` with the keys for thought + tool output. complexity: [low]
+- [ ] T10.3 Create `config/locales/pito/start_screen/en.yml`. complexity: [low]
+- [ ] T10.4 Create `config/locales/pito/palette/en.yml` with all slash command descriptions + Ctrl+P section labels + command labels. complexity: [low]
+- [ ] T10.5 Create `config/locales/pito/sidebar/en.yml` with the game-detail section labels + esc hint + subtitle. complexity: [low]
+- [ ] T10.6 Create `config/locales/pito/sample/en.yml` containing every sample message body string used by the chat shell page. Prefix every key with `pito.sample.` and add a top-of-file comment `# SAMPLE — every key in this file will be replaced when real data is wired in Plan 2+`. complexity: [medium]
+- [ ] T10.7 Audit each component template under `app/components/pito/**` and each view under `app/views/**` — run `git grep -nE '">[A-Z]'` and `git grep -nE 'translate\\b'`. Goal: every user-facing string is `t(".key")`. Fix any stragglers. complexity: [medium]
+- [ ] T10.8 Boot `bin/dev`; visit each route and confirm no `translation missing` placeholders appear. complexity: [manual]
+- [ ] T10.9 Commit: `[skipci] U10: i18n locale files; all copy externalized`. complexity: [manual]
 
 ## U11 — Verification & cleanup
 
 > Final pass before tagging. Make sure the plan delivered exactly what it promised.
 
-- [ ] T11.1 Visit `/`, `/start`, `/_ui/palettes`, `/_ui/sidebar` in a real browser at full width (not the v0 narrow preview). Compare each side-by-side with its v0 spec (`docs/ui/ui-pX.md`) and the v0 snapshot. Note any visual deltas; fix or document. model: [manual]
-- [ ] T11.2 `git grep -nE '#[0-9a-fA-F]{6}'` in `app/views/**` and `app/components/**` — should return zero hex values (everything goes through Tailwind utilities or CSS vars). model: [manual]
-- [ ] T11.3 `git grep -n 'text-sm\\|text-lg\\|text-xl\\|text-2xl\\|text-3xl\\|text-4xl\\|text-5xl'` in `app/views/**` and `app/components/**` — should return zero hits (Plan 1 uses only `text-base`). model: [manual]
-- [ ] T11.4 `git diff --stat reboot/beta...HEAD -- Gemfile Gemfile.lock` — should show NO new gems beyond what Plan 0 introduced. model: [manual]
-- [ ] T11.5 Update `docs/architecture.md` to mention the static UI baseline lives at `/`, `/start`. Note the `/_ui/*` review routes will be removed in Plan 2+. model: [haiku]
-- [ ] T11.6 Commit: `[skipci] U11: static ui verification + architecture notes`. model: [manual]
-- [ ] T11.7 Tag: `git tag v0.1.0-static-ui`. model: [manual]
+- [ ] T11.1 Visit `/`, `/start`, `/_ui/palettes`, `/_ui/sidebar` in a real browser at full width (not the v0 narrow preview). Compare each side-by-side with its v0 spec (`docs/ui/ui-pX.md`) and the v0 snapshot. Note any visual deltas; fix or document. complexity: [manual]
+- [ ] T11.2 `git grep -nE '#[0-9a-fA-F]{6}'` in `app/views/**` and `app/components/**` — should return zero hex values (everything goes through Tailwind utilities or CSS vars). complexity: [manual]
+- [ ] T11.3 `git grep -n 'text-sm\\|text-lg\\|text-xl\\|text-2xl\\|text-3xl\\|text-4xl\\|text-5xl'` in `app/views/**` and `app/components/**` — should return zero hits (Plan 1 uses only `text-base`). complexity: [manual]
+- [ ] T11.4 `git diff --stat reboot/beta...HEAD -- Gemfile Gemfile.lock` — should show NO new gems beyond what Plan 0 introduced. complexity: [manual]
+- [ ] T11.5 Update `docs/architecture.md` to mention the static UI baseline lives at `/`, `/start`. Note the `/_ui/*` review routes will be removed in Plan 2+. complexity: [low]
+- [ ] T11.6 Commit: `[skipci] U11: static ui verification + architecture notes`. complexity: [manual]
+- [ ] T11.7 Tag: `git tag v0.1.0-static-ui`. complexity: [manual]
 
 ---
 
@@ -644,7 +643,7 @@ These are explicitly NOT in Plan 1. They live in subsequent plans:
 Same as Plan 0:
 
 1. Pick the next unchecked task in phase order.
-2. Read the `model:` hint; pick the cheapest model that fits.
+2. Read the `complexity:` hint; pick the cheapest model that fits the tier.
 3. Dispatch as a sub-agent (in OpenCode, Claude Code, etc.) OR do by hand.
 4. Verify (read the diff, run `bin/dev`, visit the affected route, compare against the referenced v0 spec).
 5. Check the box. Move on.

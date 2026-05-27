@@ -66,17 +66,16 @@ New for Plan 3:
 | Chat handlers never mutate domain data (no AR writes, no API calls that change state). Slash owns mutation. | Conceptual cleanliness — chat reads, slash writes. (Plan 3's `List` handler doesn't even read; later chat handlers will read but never write.) |
 | Events stored by chat handlers use the same `Event::KINDS` from Plan 2. No new kinds in Plan 3. | Consistent rendering pipeline. |
 
-## Model recommendations
+## Complexity hints
 
 Same as previous plans:
 
-| Hint | Suggested model | When |
-|---|---|---|
-| `[manual]` | you, by hand | branches, commits, visual review, design choices |
-| `[flash]` | DeepSeek V4 Flash / Gemini 2.0 Flash / GPT-4o-mini | YAML, renames, file audits, locale entries |
-| `[haiku]` | Claude Haiku 3.5 | Single-file Ruby classes, value objects, small handlers |
-| `[sonnet]` | Claude Sonnet 4 | Multi-file work: parser, dispatcher, controller integration |
-| `[pro]` | DeepSeek V4 Pro / Claude Opus 4 | Architectural calls (rare — most decisions inherited from Plan 2) |
+| Hint | When |
+|---|---|
+| `[manual]` | You, by hand — branches, commits, visual review, design choices |
+| `[low]` | YAML, renames, file audits, locale entries, single-file Ruby classes, value objects, small handlers |
+| `[medium]` | Multi-file work: parser, dispatcher, controller integration |
+| `[high]` | Architectural calls (rare — most decisions inherited from Plan 2) |
 
 ## Module map
 
@@ -118,138 +117,138 @@ Plan 2's `Pito::Lex`, `Pito::Stream::Broadcaster`, models, controller, component
 
 > Verify Plan 2 finished. Don't start C1 until every box here is checked.
 
-- [ ] T0.1 Confirm every Plan 2 phase (S0–S14) is checked off. model: [manual]
-- [ ] T0.2 `bin/dev` boots; `/` renders persisted events; typing `/help` works end-to-end; refresh persists. model: [manual]
-- [ ] T0.3 `Pito::Slash::Dispatcher`, `Pito::Stream::Broadcaster`, `Conversation.singleton` all callable from console without error. model: [manual]
-- [ ] T0.4 Create branch `plan-03-chat` from `plan-02-slash` (or main, post-Plan-2 merge). model: [manual]
-- [ ] T0.5 Tag the current state as `v0.2.1-pre-chat`. model: [manual]
+- [ ] T0.1 Confirm every Plan 2 phase (S0–S14) is checked off. complexity: [manual]
+- [ ] T0.2 `bin/dev` boots; `/` renders persisted events; typing `/help` works end-to-end; refresh persists. complexity: [manual]
+- [ ] T0.3 `Pito::Slash::Dispatcher`, `Pito::Stream::Broadcaster`, `Conversation.singleton` all callable from console without error. complexity: [manual]
+- [ ] T0.4 Create branch `plan-03-chat` from `plan-02-slash` (or main, post-Plan-2 merge). complexity: [manual]
+- [ ] T0.5 Tag the current state as `v0.2.1-pre-chat`. complexity: [manual]
 
 ## C1 — Chat parser + message value object
 
 > Tokens → ChatMessage. Classifies as new-turn vs refinement vs unknown.
 
-- [ ] T1.1 Create `lib/pito/chat/message.rb`. Frozen value object with `verb:` (symbol or nil), `body_tokens:` (array of `Pito::Lex::Token`), `kind:` (`:new_turn` or `:refinement` or `:unknown`), `raw:` (original input string). model: [haiku]
-- [ ] T1.2 Create `lib/pito/chat/parser.rb`. Class method `Pito::Chat::Parser.call(tokens, raw:, conversation:) -> Message`. The `conversation` arg is needed to decide refinement-eligibility (i.e. whether an open Turn exists). model: [sonnet]
-- [ ] T1.3 Parser rule: if `tokens.first.type == :slash`, raise `Pito::Chat::Parser::NotAChatMessage`. (Slash messages must not reach the Chat parser.) model: [haiku]
-- [ ] T1.4 Parser rule: take the first `:word` token's value as the candidate verb (symbol). If it's in the recognized verb set (`%i[list show find]`), classify as `:new_turn` with that verb. The remaining tokens become `body_tokens`. model: [sonnet]
-- [ ] T1.5 Parser rule: if the candidate verb isn't recognized, check refinement eligibility — does `Turn.last_for(conversation)` exist and is it less than 30 minutes old? If yes, classify as `:refinement` with `verb: nil` and all tokens (minus EOF) as `body_tokens`. If no, classify as `:unknown` with `verb: nil`. model: [sonnet]
-- [ ] T1.6 Add `Turn.last_for(conversation)` class method returning the most recent Turn in the conversation, or nil. Already implicit in `Conversation#turns` ordering but add a named method for clarity. model: [haiku]
-- [ ] T1.7 Recognized-verb set lives in `Pito::Chat::Parser::RECOGNIZED_VERBS = %i[list show find].freeze` at the top of the parser file. Constant kept here (not in Registry) so the parser can classify independently of registration state. model: [haiku]
-- [ ] T1.8 RSpec spec `spec/lib/pito/chat/parser_spec.rb`: `list videos` → `Message(verb: :list, kind: :new_turn)`; `more stuff` after a recent turn → `Message(verb: nil, kind: :refinement)`; `more stuff` with no recent turn → `Message(verb: nil, kind: :unknown)`; `/help` raises `NotAChatMessage`. model: [sonnet]
-- [ ] T1.9 Verify in console: `Pito::Chat::Parser.call(Pito::Lex::Lexer.call("list videos"), raw: "list videos", conversation: Conversation.singleton)` returns the expected Message. model: [manual]
-- [ ] T1.10 Commit: `[skipci] C1: chat parser + message value object`. model: [manual]
+- [ ] T1.1 Create `lib/pito/chat/message.rb`. Frozen value object with `verb:` (symbol or nil), `body_tokens:` (array of `Pito::Lex::Token`), `kind:` (`:new_turn` or `:refinement` or `:unknown`), `raw:` (original input string). complexity: [low]
+- [ ] T1.2 Create `lib/pito/chat/parser.rb`. Class method `Pito::Chat::Parser.call(tokens, raw:, conversation:) -> Message`. The `conversation` arg is needed to decide refinement-eligibility (i.e. whether an open Turn exists). complexity: [medium]
+- [ ] T1.3 Parser rule: if `tokens.first.type == :slash`, raise `Pito::Chat::Parser::NotAChatMessage`. (Slash messages must not reach the Chat parser.) complexity: [low]
+- [ ] T1.4 Parser rule: take the first `:word` token's value as the candidate verb (symbol). If it's in the recognized verb set (`%i[list show find]`), classify as `:new_turn` with that verb. The remaining tokens become `body_tokens`. complexity: [medium]
+- [ ] T1.5 Parser rule: if the candidate verb isn't recognized, check refinement eligibility — does `Turn.last_for(conversation)` exist and is it less than 30 minutes old? If yes, classify as `:refinement` with `verb: nil` and all tokens (minus EOF) as `body_tokens`. If no, classify as `:unknown` with `verb: nil`. complexity: [medium]
+- [ ] T1.6 Add `Turn.last_for(conversation)` class method returning the most recent Turn in the conversation, or nil. Already implicit in `Conversation#turns` ordering but add a named method for clarity. complexity: [low]
+- [ ] T1.7 Recognized-verb set lives in `Pito::Chat::Parser::RECOGNIZED_VERBS = %i[list show find].freeze` at the top of the parser file. Constant kept here (not in Registry) so the parser can classify independently of registration state. complexity: [low]
+- [ ] T1.8 RSpec spec `spec/lib/pito/chat/parser_spec.rb`: `list videos` → `Message(verb: :list, kind: :new_turn)`; `more stuff` after a recent turn → `Message(verb: nil, kind: :refinement)`; `more stuff` with no recent turn → `Message(verb: nil, kind: :unknown)`; `/help` raises `NotAChatMessage`. complexity: [medium]
+- [ ] T1.9 Verify in console: `Pito::Chat::Parser.call(Pito::Lex::Lexer.call("list videos"), raw: "list videos", conversation: Conversation.singleton)` returns the expected Message. complexity: [manual]
+- [ ] T1.10 Commit: `[skipci] C1: chat parser + message value object`. complexity: [manual]
 
 ## C2 — Chat registry + handler base + result types
 
 > Distinct from Slash's equivalents. No cross-import.
 
-- [ ] T2.1 Create `lib/pito/chat/result.rb`. Three immutable subclasses: `Pito::Chat::Result::Ok(events:)`, `Pito::Chat::Result::Error(message_key:, message_args:)`, `Pito::Chat::Result::Refine(events:)`. Each is its own class, NOT a reuse of `Pito::Slash::Result::*`. model: [sonnet]
-- [ ] T2.2 In `Result::Ok` and `Result::Refine`, `events:` is an array of `{ kind:, payload: }` hashes (same shape Plan 2 uses). model: [haiku]
-- [ ] T2.3 Create `lib/pito/chat/handler.rb`. Abstract base class. Initialized with `message:` and `conversation:` kwargs. Instance method `call -> Result`. Class attribute `verb`. Class attribute `description_key`. model: [sonnet]
-- [ ] T2.4 Create `lib/pito/chat/registry.rb`. Singleton-style class with `register(handler_class)`, `lookup(verb) -> handler_class | nil`, `size -> integer`. model: [haiku]
-- [ ] T2.5 Extend `config/initializers/pito.rb` to also call `Pito::Chat::Registry.register_all!` at boot. model: [haiku]
-- [ ] T2.6 Implement `Pito::Chat::Registry.register_all!` to register every handler under `Pito::Chat::Handlers::*`. model: [haiku]
-- [ ] T2.7 RSpec spec for `Pito::Chat::Registry`: registering a handler, looking up, unknown verb returns nil. model: [haiku]
-- [ ] T2.8 Confirm no cross-import: `git grep -n "Pito::Slash" lib/pito/chat` returns zero. model: [manual]
-- [ ] T2.9 Commit: `[skipci] C2: chat registry + handler base + result types`. model: [manual]
+- [ ] T2.1 Create `lib/pito/chat/result.rb`. Three immutable subclasses: `Pito::Chat::Result::Ok(events:)`, `Pito::Chat::Result::Error(message_key:, message_args:)`, `Pito::Chat::Result::Refine(events:)`. Each is its own class, NOT a reuse of `Pito::Slash::Result::*`. complexity: [medium]
+- [ ] T2.2 In `Result::Ok` and `Result::Refine`, `events:` is an array of `{ kind:, payload: }` hashes (same shape Plan 2 uses). complexity: [low]
+- [ ] T2.3 Create `lib/pito/chat/handler.rb`. Abstract base class. Initialized with `message:` and `conversation:` kwargs. Instance method `call -> Result`. Class attribute `verb`. Class attribute `description_key`. complexity: [medium]
+- [ ] T2.4 Create `lib/pito/chat/registry.rb`. Singleton-style class with `register(handler_class)`, `lookup(verb) -> handler_class | nil`, `size -> integer`. complexity: [low]
+- [ ] T2.5 Extend `config/initializers/pito.rb` to also call `Pito::Chat::Registry.register_all!` at boot. complexity: [low]
+- [ ] T2.6 Implement `Pito::Chat::Registry.register_all!` to register every handler under `Pito::Chat::Handlers::*`. complexity: [low]
+- [ ] T2.7 RSpec spec for `Pito::Chat::Registry`: registering a handler, looking up, unknown verb returns nil. complexity: [low]
+- [ ] T2.8 Confirm no cross-import: `git grep -n "Pito::Slash" lib/pito/chat` returns zero. complexity: [manual]
+- [ ] T2.9 Commit: `[skipci] C2: chat registry + handler base + result types`. complexity: [manual]
 
 ## C3 — Chat dispatcher
 
 > Glue layer. Classifies the message, looks up the handler, invokes it, returns the result.
 
-- [ ] T3.1 Create `lib/pito/chat/dispatcher.rb`. Class method `Pito::Chat::Dispatcher.call(input:, conversation:) -> Result`. model: [sonnet]
-- [ ] T3.2 Dispatcher flow: (1) tokenize via `Pito::Lex::Lexer.call(input)`; (2) parse via `Pito::Chat::Parser.call(tokens, raw: input, conversation: conversation)`; (3) branch on `message.kind`. model: [sonnet]
-- [ ] T3.3 Branch `:new_turn`: look up handler via `Pito::Chat::Registry.lookup(message.verb)`. If nil, return `Result::Error(message_key: "pito.chat.errors.verb_not_implemented", message_args: { verb: message.verb })`. Else instantiate handler and call it. model: [sonnet]
-- [ ] T3.4 Branch `:refinement`: dispatch to a fixed handler `Pito::Chat::Handlers::RefineDemo` for Plan 3 (since no real refinement-capable handler exists). Future plans replace this with proper routing to the current turn's originating handler. model: [sonnet]
-- [ ] T3.5 Branch `:unknown`: dispatch to `Pito::Chat::Handlers::Unknown`. model: [haiku]
-- [ ] T3.6 Wrap step (2)'s `NotAChatMessage` exception: should never happen (controller routes leading-`/` to Slash), but if it does, return `Result::Error(message_key: "pito.chat.errors.misrouted_slash", message_args: { raw: input })`. model: [haiku]
-- [ ] T3.7 RSpec spec for the dispatcher: returns Ok for `list ...`, Error for `madeup ...` as new_turn (verb_not_implemented after we register only `:list`), Refine for refinement input, Error for unknown input with no open turn. model: [sonnet]
-- [ ] T3.8 Commit: `[skipci] C3: chat dispatcher`. model: [manual]
+- [ ] T3.1 Create `lib/pito/chat/dispatcher.rb`. Class method `Pito::Chat::Dispatcher.call(input:, conversation:) -> Result`. complexity: [medium]
+- [ ] T3.2 Dispatcher flow: (1) tokenize via `Pito::Lex::Lexer.call(input)`; (2) parse via `Pito::Chat::Parser.call(tokens, raw: input, conversation: conversation)`; (3) branch on `message.kind`. complexity: [medium]
+- [ ] T3.3 Branch `:new_turn`: look up handler via `Pito::Chat::Registry.lookup(message.verb)`. If nil, return `Result::Error(message_key: "pito.chat.errors.verb_not_implemented", message_args: { verb: message.verb })`. Else instantiate handler and call it. complexity: [medium]
+- [ ] T3.4 Branch `:refinement`: dispatch to a fixed handler `Pito::Chat::Handlers::RefineDemo` for Plan 3 (since no real refinement-capable handler exists). Future plans replace this with proper routing to the current turn's originating handler. complexity: [medium]
+- [ ] T3.5 Branch `:unknown`: dispatch to `Pito::Chat::Handlers::Unknown`. complexity: [low]
+- [ ] T3.6 Wrap step (2)'s `NotAChatMessage` exception: should never happen (controller routes leading-`/` to Slash), but if it does, return `Result::Error(message_key: "pito.chat.errors.misrouted_slash", message_args: { raw: input })`. complexity: [low]
+- [ ] T3.7 RSpec spec for the dispatcher: returns Ok for `list ...`, Error for `madeup ...` as new_turn (verb_not_implemented after we register only `:list`), Refine for refinement input, Error for unknown input with no open turn. complexity: [medium]
+- [ ] T3.8 Commit: `[skipci] C3: chat dispatcher`. complexity: [manual]
 
 ## C4 — ChatController extension
 
 > Wire the Chat branch. Materialize Chat Results into Events. Handle the Refine variant by attaching to the existing Turn.
 
-- [ ] T4.1 Edit `ChatController#create` (from Plan 2 S7.2) to dispatch via `Pito::Chat::Dispatcher.call(input: params[:input], conversation: current_conversation)` when the input doesn't start with `/`. model: [sonnet]
-- [ ] T4.2 Materialize the Result: always create an `echo` Event first (same as Slash branch); then for `Result::Ok`, create a new Turn and attach `result.events` to it; for `Result::Error`, attach to a new Turn the echo + one `error` Event; for `Result::Refine`, attach the echo + `result.events` to the **most recent existing Turn** (no new Turn created). model: [sonnet]
-- [ ] T4.3 Extract Turn creation/lookup into a helper `current_or_new_turn(conversation:, input_text:, input_kind:, attach_to_existing:)` on `ChatController`. The flag is set by the result type. model: [sonnet]
-- [ ] T4.4 Each Event creation still goes through `Pito::Stream::Broadcaster` so the broadcast pipeline is unchanged. model: [manual]
-- [ ] T4.5 RSpec request spec extension: POST `/chat` with input `list videos` returns 204; creates exactly one new Turn; creates an echo Event + at least one assistant_text Event; broadcasts to the conversation stream. model: [sonnet]
-- [ ] T4.6 RSpec request spec extension: POST `/chat` with input `madeup verb` (and no existing recent turn) returns 204; creates a Turn; creates echo + error Event with `payload[:message_key] == "pito.chat.errors.unknown_input"`. model: [haiku]
-- [ ] T4.7 RSpec request spec extension: with a recent existing Turn present, POST `/chat` with input `refinement text` returns 204; does NOT create a new Turn; adds echo + new Events to the existing Turn. model: [sonnet]
-- [ ] T4.8 Commit: `[skipci] C4: chat controller branch + turn attachment logic`. model: [manual]
+- [ ] T4.1 Edit `ChatController#create` (from Plan 2 S7.2) to dispatch via `Pito::Chat::Dispatcher.call(input: params[:input], conversation: current_conversation)` when the input doesn't start with `/`. complexity: [medium]
+- [ ] T4.2 Materialize the Result: always create an `echo` Event first (same as Slash branch); then for `Result::Ok`, create a new Turn and attach `result.events` to it; for `Result::Error`, attach to a new Turn the echo + one `error` Event; for `Result::Refine`, attach the echo + `result.events` to the **most recent existing Turn** (no new Turn created). complexity: [medium]
+- [ ] T4.3 Extract Turn creation/lookup into a helper `current_or_new_turn(conversation:, input_text:, input_kind:, attach_to_existing:)` on `ChatController`. The flag is set by the result type. complexity: [medium]
+- [ ] T4.4 Each Event creation still goes through `Pito::Stream::Broadcaster` so the broadcast pipeline is unchanged. complexity: [manual]
+- [ ] T4.5 RSpec request spec extension: POST `/chat` with input `list videos` returns 204; creates exactly one new Turn; creates an echo Event + at least one assistant_text Event; broadcasts to the conversation stream. complexity: [medium]
+- [ ] T4.6 RSpec request spec extension: POST `/chat` with input `madeup verb` (and no existing recent turn) returns 204; creates a Turn; creates echo + error Event with `payload[:message_key] == "pito.chat.errors.unknown_input"`. complexity: [low]
+- [ ] T4.7 RSpec request spec extension: with a recent existing Turn present, POST `/chat` with input `refinement text` returns 204; does NOT create a new Turn; adds echo + new Events to the existing Turn. complexity: [medium]
+- [ ] T4.8 Commit: `[skipci] C4: chat controller branch + turn attachment logic`. complexity: [manual]
 
 ## C5 — Example handler: `Pito::Chat::Handlers::List` end-to-end
 
 > The one chat handler this plan wires fully. Returns hardcoded fake data, no DB.
 
-- [ ] T5.1 Create `app/services/pito/chat/handlers/list.rb`. Class `Pito::Chat::Handlers::List < Pito::Chat::Handler`. `self.verb = :list`. `self.description_key = "pito.chat.list.descriptions.list"`. model: [haiku]
-- [ ] T5.2 `#call` returns `Pito::Chat::Result::Ok.new(events: [...])`. The events array contains one `assistant_text` event with payload `{ message_key: "pito.chat.list.fake_response", message_args: { count: 5, sample_title: "Sample video title" } }`. model: [haiku]
-- [ ] T5.3 Mark the handler clearly: `# FAKE DATA — returns hardcoded placeholder content. Real list logic arrives in a domain plan.` at the top of the file. model: [haiku]
-- [ ] T5.4 Register `List` in `Pito::Chat::Registry.register_all!`. model: [haiku]
-- [ ] T5.5 Verify in console: `Pito::Chat::Dispatcher.call(input: "list videos", conversation: Conversation.singleton)` returns `Result::Ok` with one assistant_text event. model: [manual]
-- [ ] T5.6 RSpec service spec for `Pito::Chat::Handlers::List`: returns Ok with one event whose payload references the expected i18n key. model: [haiku]
-- [ ] T5.7 Smoke test: type `list videos` in the chatbox at `/`. See echo (orange border) + assistant text response. Refresh. Same content reappears. model: [manual]
-- [ ] T5.8 Commit: `[skipci] C5: /list handler end-to-end (fake data)`. model: [manual]
+- [ ] T5.1 Create `app/services/pito/chat/handlers/list.rb`. Class `Pito::Chat::Handlers::List < Pito::Chat::Handler`. `self.verb = :list`. `self.description_key = "pito.chat.list.descriptions.list"`. complexity: [low]
+- [ ] T5.2 `#call` returns `Pito::Chat::Result::Ok.new(events: [...])`. The events array contains one `assistant_text` event with payload `{ message_key: "pito.chat.list.fake_response", message_args: { count: 5, sample_title: "Sample video title" } }`. complexity: [low]
+- [ ] T5.3 Mark the handler clearly: `# FAKE DATA — returns hardcoded placeholder content. Real list logic arrives in a domain plan.` at the top of the file. complexity: [low]
+- [ ] T5.4 Register `List` in `Pito::Chat::Registry.register_all!`. complexity: [low]
+- [ ] T5.5 Verify in console: `Pito::Chat::Dispatcher.call(input: "list videos", conversation: Conversation.singleton)` returns `Result::Ok` with one assistant_text event. complexity: [manual]
+- [ ] T5.6 RSpec service spec for `Pito::Chat::Handlers::List`: returns Ok with one event whose payload references the expected i18n key. complexity: [low]
+- [ ] T5.7 Smoke test: type `list videos` in the chatbox at `/`. See echo (orange border) + assistant text response. Refresh. Same content reappears. complexity: [manual]
+- [ ] T5.8 Commit: `[skipci] C5: /list handler end-to-end (fake data)`. complexity: [manual]
 
 ## C6 — Unknown-input handler
 
 > "didn't understand" path. Real flow, error event in the scrollback.
 
-- [ ] T6.1 Create `app/services/pito/chat/handlers/unknown.rb`. Class `Pito::Chat::Handlers::Unknown < Pito::Chat::Handler`. No `verb` attribute (not registered against any verb — invoked directly by the dispatcher's `:unknown` branch). model: [haiku]
-- [ ] T6.2 `#call` returns `Pito::Chat::Result::Error.new(message_key: "pito.chat.errors.unknown_input", message_args: { input: message.raw })`. model: [haiku]
-- [ ] T6.3 In `Pito::Chat::Dispatcher`, the `:unknown` branch instantiates and calls this handler (no registry lookup). model: [haiku]
-- [ ] T6.4 RSpec service spec: returns Error with the expected message_key and message_args. model: [haiku]
-- [ ] T6.5 Smoke test: type `hello` in the chatbox. See echo + red-bordered error: "Didn't understand 'hello'. Try /help for available commands." model: [manual]
-- [ ] T6.6 Smoke test: type `madeup verb here` (recognized chat verb pattern but unregistered verb — `madeup` isn't in `RECOGNIZED_VERBS`). Since `madeup` isn't recognized AND there's no open turn, it routes to Unknown. See the same error. model: [manual]
-- [ ] T6.7 Commit: `[skipci] C6: unknown-input handler`. model: [manual]
+- [ ] T6.1 Create `app/services/pito/chat/handlers/unknown.rb`. Class `Pito::Chat::Handlers::Unknown < Pito::Chat::Handler`. No `verb` attribute (not registered against any verb — invoked directly by the dispatcher's `:unknown` branch). complexity: [low]
+- [ ] T6.2 `#call` returns `Pito::Chat::Result::Error.new(message_key: "pito.chat.errors.unknown_input", message_args: { input: message.raw })`. complexity: [low]
+- [ ] T6.3 In `Pito::Chat::Dispatcher`, the `:unknown` branch instantiates and calls this handler (no registry lookup). complexity: [low]
+- [ ] T6.4 RSpec service spec: returns Error with the expected message_key and message_args. complexity: [low]
+- [ ] T6.5 Smoke test: type `hello` in the chatbox. See echo + red-bordered error: "Didn't understand 'hello'. Try /help for available commands." complexity: [manual]
+- [ ] T6.6 Smoke test: type `madeup verb here` (recognized chat verb pattern but unregistered verb — `madeup` isn't in `RECOGNIZED_VERBS`). Since `madeup` isn't recognized AND there's no open turn, it routes to Unknown. See the same error. complexity: [manual]
+- [ ] T6.7 Commit: `[skipci] C6: unknown-input handler`. complexity: [manual]
 
 ## C7 — Refinement primitive (structural only)
 
 > No real refinement-capable handler yet. Just prove the Refine result type round-trips.
 
-- [ ] T7.1 Create `app/services/pito/chat/handlers/refine_demo.rb`. Class `Pito::Chat::Handlers::RefineDemo < Pito::Chat::Handler`. No `verb` attribute (invoked directly by dispatcher's `:refinement` branch). model: [haiku]
-- [ ] T7.2 `#call` returns `Pito::Chat::Result::Refine.new(events: [{ kind: :assistant_text, payload: { message_key: "pito.chat.refine_demo.acknowledged", message_args: { input: message.raw } } }])`. model: [haiku]
-- [ ] T7.3 Mark the handler: `# DEMO — Proves the Refine result type round-trips. Replace with proper routing when real refinement-capable handlers exist.` model: [haiku]
-- [ ] T7.4 RSpec service spec for `RefineDemo`: returns `Result::Refine` with one assistant_text event. model: [haiku]
-- [ ] T7.5 RSpec request spec: with an existing recent Turn (e.g. previous `list videos` request), POST `/chat` with input `add ctr` results in events appended to the existing Turn, not a new Turn. model: [sonnet]
-- [ ] T7.6 Smoke test: type `list videos`. Then type `add ctr`. Observe: only one Turn exists in the DB for both messages; both echo events + both response events appear in the scrollback. model: [manual]
-- [ ] T7.7 Smoke test: wait > 30 minutes (or temporarily lower the threshold) after `list videos`, then type `add ctr`. Observe: it now routes to Unknown (no open turn), producing an error event. Restore threshold after. model: [manual]
-- [ ] T7.8 Commit: `[skipci] C7: refinement primitive (structural)`. model: [manual]
+- [ ] T7.1 Create `app/services/pito/chat/handlers/refine_demo.rb`. Class `Pito::Chat::Handlers::RefineDemo < Pito::Chat::Handler`. No `verb` attribute (invoked directly by dispatcher's `:refinement` branch). complexity: [low]
+- [ ] T7.2 `#call` returns `Pito::Chat::Result::Refine.new(events: [{ kind: :assistant_text, payload: { message_key: "pito.chat.refine_demo.acknowledged", message_args: { input: message.raw } } }])`. complexity: [low]
+- [ ] T7.3 Mark the handler: `# DEMO — Proves the Refine result type round-trips. Replace with proper routing when real refinement-capable handlers exist.` complexity: [low]
+- [ ] T7.4 RSpec service spec for `RefineDemo`: returns `Result::Refine` with one assistant_text event. complexity: [low]
+- [ ] T7.5 RSpec request spec: with an existing recent Turn (e.g. previous `list videos` request), POST `/chat` with input `add ctr` results in events appended to the existing Turn, not a new Turn. complexity: [medium]
+- [ ] T7.6 Smoke test: type `list videos`. Then type `add ctr`. Observe: only one Turn exists in the DB for both messages; both echo events + both response events appear in the scrollback. complexity: [manual]
+- [ ] T7.7 Smoke test: wait > 30 minutes (or temporarily lower the threshold) after `list videos`, then type `add ctr`. Observe: it now routes to Unknown (no open turn), producing an error event. Restore threshold after. complexity: [manual]
+- [ ] T7.8 Commit: `[skipci] C7: refinement primitive (structural)`. complexity: [manual]
 
 ## C8 — i18n keys for Plan 3
 
 > Every user-facing string added by Plan 3.
 
-- [ ] T8.1 Create `config/locales/pito/chat/en.yml`. Add keys: `pito.chat.list.descriptions.list`, `pito.chat.list.fake_response`, `pito.chat.errors.unknown_input`, `pito.chat.errors.verb_not_implemented`, `pito.chat.errors.misrouted_slash`, `pito.chat.refine_demo.acknowledged`. model: [haiku]
-- [ ] T8.2 Suggested copy: `list.descriptions.list: "List items (videos, games, playlists)"`; `list.fake_response: "[FAKE] Would list %{count} items here. Example: %{sample_title}"`; `errors.unknown_input: "Didn't understand %{input}. Try /help for available commands."`; `errors.verb_not_implemented: "The chat verb %{verb} isn't wired yet."`; `errors.misrouted_slash: "Internal: slash command %{raw} reached the chat parser."`; `refine_demo.acknowledged: "[DEMO refinement] Received: %{input}"`. model: [haiku]
-- [ ] T8.3 Audit every file added/modified in Plan 3 — no inline user-facing strings. model: [sonnet]
-- [ ] T8.4 Boot `bin/dev`, exercise `list videos`, `hello`, `madeup`, `add ctr` (after a recent turn). No `translation missing` placeholders. model: [manual]
-- [ ] T8.5 Commit: `[skipci] C8: i18n keys for chat core`. model: [manual]
+- [ ] T8.1 Create `config/locales/pito/chat/en.yml`. Add keys: `pito.chat.list.descriptions.list`, `pito.chat.list.fake_response`, `pito.chat.errors.unknown_input`, `pito.chat.errors.verb_not_implemented`, `pito.chat.errors.misrouted_slash`, `pito.chat.refine_demo.acknowledged`. complexity: [low]
+- [ ] T8.2 Suggested copy: `list.descriptions.list: "List items (videos, games, playlists)"`; `list.fake_response: "[FAKE] Would list %{count} items here. Example: %{sample_title}"`; `errors.unknown_input: "Didn't understand %{input}. Try /help for available commands."`; `errors.verb_not_implemented: "The chat verb %{verb} isn't wired yet."`; `errors.misrouted_slash: "Internal: slash command %{raw} reached the chat parser."`; `refine_demo.acknowledged: "[DEMO refinement] Received: %{input}"`. complexity: [low]
+- [ ] T8.3 Audit every file added/modified in Plan 3 — no inline user-facing strings. complexity: [medium]
+- [ ] T8.4 Boot `bin/dev`, exercise `list videos`, `hello`, `madeup`, `add ctr` (after a recent turn). No `translation missing` placeholders. complexity: [manual]
+- [ ] T8.5 Commit: `[skipci] C8: i18n keys for chat core`. complexity: [manual]
 
 ## C9 — AGENTS.md additions
 
 > Document the conventions Plan 3 introduces.
 
-- [ ] T9.1 Add section `## Chat conventions` to AGENTS.md describing: `Pito::Chat::*` namespace, handlers under `app/services/pito/chat/handlers/`, every handler returns a `Pito::Chat::Result`, registry registered in `config/initializers/pito.rb`, recognized verbs declared in parser constant `RECOGNIZED_VERBS`. model: [sonnet]
-- [ ] T9.2 Add section `## Turn lifecycle` describing: how the parser classifies new-turn vs refinement vs unknown, the 30-minute open-turn threshold, how the controller attaches Events to existing vs new Turns based on the Result type. model: [sonnet]
-- [ ] T9.3 Add section `## Chat vs Slash` summarizing the isolation invariants: no cross-import, no shared Result types, shared only via `Pito::Lex` and `Pito::Stream::*`, chat reads (eventually) and slash writes. model: [haiku]
-- [ ] T9.4 Commit: `[skipci] C9: AGENTS.md chat + turn lifecycle conventions`. model: [manual]
+- [ ] T9.1 Add section `## Chat conventions` to AGENTS.md describing: `Pito::Chat::*` namespace, handlers under `app/services/pito/chat/handlers/`, every handler returns a `Pito::Chat::Result`, registry registered in `config/initializers/pito.rb`, recognized verbs declared in parser constant `RECOGNIZED_VERBS`. complexity: [medium]
+- [ ] T9.2 Add section `## Turn lifecycle` describing: how the parser classifies new-turn vs refinement vs unknown, the 30-minute open-turn threshold, how the controller attaches Events to existing vs new Turns based on the Result type. complexity: [medium]
+- [ ] T9.3 Add section `## Chat vs Slash` summarizing the isolation invariants: no cross-import, no shared Result types, shared only via `Pito::Lex` and `Pito::Stream::*`, chat reads (eventually) and slash writes. complexity: [low]
+- [ ] T9.4 Commit: `[skipci] C9: AGENTS.md chat + turn lifecycle conventions`. complexity: [manual]
 
 ## C10 — Verification & cleanup
 
 > Final pass. Confirm Plan 3 delivered what it promised.
 
-- [ ] T10.1 `bundle exec rspec` is green across all specs added by Plan 3 (lib, service, request). model: [manual]
-- [ ] T10.2 `bin/dev` boots cleanly; visit `/`; type `/help` (still works from Plan 2). model: [manual]
-- [ ] T10.3 Type `list videos` → echo + fake list response appears via Cable. Refresh `/` → events persist. model: [manual]
-- [ ] T10.4 Type `hello` → echo + red error event ("Didn't understand 'hello'"). model: [manual]
-- [ ] T10.5 With the previous Turn still open (within 30 min), type `add ctr` → events appended to the existing Turn (no new Turn row). model: [manual]
-- [ ] T10.6 `git grep -n "Pito::Slash" lib/pito/chat app/services/pito/chat` — should return zero hits (isolation invariant). model: [manual]
-- [ ] T10.7 `git grep -n "Pito::Chat" lib/pito/slash app/services/pito/slash` — should return zero hits (the other direction). model: [manual]
-- [ ] T10.8 `git grep -nE '"[A-Z][a-z][^"]*"' app/services/pito/chat lib/pito/chat` — every match is an i18n key, an inline-comment string, or a non-user-facing string. model: [manual]
-- [ ] T10.9 Tag: `git tag v0.3.0-chat-core`. model: [manual]
-- [ ] T10.10 Commit: `[skipci] C10: chat core verification`. model: [manual]
+- [ ] T10.1 `bundle exec rspec` is green across all specs added by Plan 3 (lib, service, request). complexity: [manual]
+- [ ] T10.2 `bin/dev` boots cleanly; visit `/`; type `/help` (still works from Plan 2). complexity: [manual]
+- [ ] T10.3 Type `list videos` → echo + fake list response appears via Cable. Refresh `/` → events persist. complexity: [manual]
+- [ ] T10.4 Type `hello` → echo + red error event ("Didn't understand 'hello'"). complexity: [manual]
+- [ ] T10.5 With the previous Turn still open (within 30 min), type `add ctr` → events appended to the existing Turn (no new Turn row). complexity: [manual]
+- [ ] T10.6 `git grep -n "Pito::Slash" lib/pito/chat app/services/pito/chat` — should return zero hits (isolation invariant). complexity: [manual]
+- [ ] T10.7 `git grep -n "Pito::Chat" lib/pito/slash app/services/pito/slash` — should return zero hits (the other direction). complexity: [manual]
+- [ ] T10.8 `git grep -nE '"[A-Z][a-z][^"]*"' app/services/pito/chat lib/pito/chat` — every match is an i18n key, an inline-comment string, or a non-user-facing string. complexity: [manual]
+- [ ] T10.9 Tag: `git tag v0.3.0-chat-core`. complexity: [manual]
+- [ ] T10.10 Commit: `[skipci] C10: chat core verification`. complexity: [manual]
 
 ---
 
@@ -279,7 +278,7 @@ These are explicitly NOT in Plan 3:
 Same as previous plans:
 
 1. Pick the next unchecked task in phase order.
-2. Read the `model:` hint; pick the cheapest model that fits.
+2. Read the `complexity:` hint; pick the cheapest model that fits the tier.
 3. Dispatch as a sub-agent (in OpenCode, Claude Code, etc.) OR do by hand.
 4. Verify (read the diff, run `bin/dev`, exercise the affected flow).
 5. Check the box. Move on.
