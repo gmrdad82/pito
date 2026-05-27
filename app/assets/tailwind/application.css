@@ -11,6 +11,9 @@
  */
 
 @theme {
+  --font-mono:        "ui-monospace", monospace;
+  --text-base:        16px;
+  --text-base--line-height: 1.4;
   --color-root:        var(--bg-root);
   --color-surface:     var(--bg-surface);
   --color-elevated:    var(--bg-elevated);
@@ -40,6 +43,12 @@
  *   bg-purple  text-purple  border-purple (…blue, cyan, green, yellow, orange, red)
  *   bg-pito  text-pito  border-pito
  */
+
+/* Plan 1 uses ONLY text-base — no text-sm/text-lg/etc. anywhere.
+ * This rule prevents accidental font-size creep from any source. */
+@layer base {
+  * { font-size: inherit; }
+}
 
 /* ── Theme system ──────────────────────────────────────────────
  *

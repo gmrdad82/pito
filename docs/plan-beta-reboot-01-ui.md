@@ -478,18 +478,18 @@ config/locales/pito/
 - [x] T1.5 Run `bin/dev`; visit `/_smoke/tokens`; verify every color renders correctly per the hex values in the spec. complexity: [manual]
 - [x] T1.6 Delete the smoke partial, controller, and route. complexity: [low]
 - [x] T1.7 Add a comment block at the top of `application.css` documenting the theme system (how to add a new theme: drop a `[data-theme="<name>"]` block with the same var names). complexity: [low]
-- [-] T1.8 Commit: `U1: design tokens + tokyo night palette + pito brand`. complexity: [manual]
+- [x] T1.8 Commit: `U1: design tokens + tokyo night palette + pito brand`. complexity: [manual]
 
 ## U2 — Application layout shell
 
 > Lock typography and base layout. Single font size, monospace, dark bg.
 
-- [ ] T2.1 Reset `app/views/layouts/application.html.erb` to: `<html data-theme="tokyo-night">` + `<head>` (title, csrf, viewport, csp, stylesheet, importmap_tags) + `<body class="bg-root text-fg font-mono">` with `<%= yield %>`. complexity: [low]
-- [ ] T2.2 In Tailwind config, set `theme.fontFamily.mono = ["ui-monospace", "monospace"]`. Override default mono stack — no web fonts, no fallbacks beyond `monospace`. complexity: [low]
-- [ ] T2.3 In Tailwind config, set `theme.fontSize.base = ["16px", "1.4"]` (size + line-height). Plan 1 uses ONLY `text-base` everywhere. complexity: [low]
-- [ ] T2.4 Add a body-level rule (in `application.css` or as Tailwind base layer): `* { font-size: inherit; }` — defensive guard against `text-sm`/`text-lg` from accidental use. complexity: [low]
-- [ ] T2.5 Boot `bin/dev`, visit `/` (still 404 fine), verify the page background is `#1a1b26` and any visible text is monospace 16px. complexity: [manual]
-- [ ] T2.6 Commit: `U2: application layout shell + typography lock`. complexity: [manual]
+- [x] T2.1 Reset `app/views/layouts/application.html.erb` to: `<html data-theme="tokyo-night">` + `<head>` (title, csrf, viewport, csp, stylesheet, importmap_tags) + `<body class="bg-root text-fg font-mono">` with `<%= yield %>`. complexity: [low]
+- [x] T2.2 In Tailwind config, set `theme.fontFamily.mono = ["ui-monospace", "monospace"]`. Override default mono stack — no web fonts, no fallbacks beyond `monospace`. complexity: [low]
+- [x] T2.3 In Tailwind config, set `theme.fontSize.base = ["16px", "1.4"]` (size + line-height). Plan 1 uses ONLY `text-base` everywhere. complexity: [low]
+- [x] T2.4 Add a body-level rule (in `application.css` or as Tailwind base layer): `* { font-size: inherit; }` — defensive guard against `text-sm`/`text-lg` from accidental use. complexity: [low]
+- [x] T2.5 Boot `bin/dev`, visit `/` (still 404 fine), verify the page background is `#1a1b26` and any visible text is monospace 16px. complexity: [manual]
+- [-] T2.6 Commit: `U2: application layout shell + typography lock`. complexity: [manual]
 
 ## U3 — Primitive components (Segment, Cursor)
 
