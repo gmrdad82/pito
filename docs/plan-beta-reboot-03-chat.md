@@ -5,6 +5,11 @@
 > Tasks are atomic (≤5 min each). Check off as you go. Re-open scope
 > only after a phase commit lands.
 
+## Sign-off
+
+- [x] Drafted — 2026-05-27
+- [x] Audited — 2026-05-27
+
 ## North star
 
 Plan 2 wired the slash-command branch of `POST /chat`. Plan 3 wires the **other branch** — the free-text branch — and adds the **refinement turn model** that distinguishes chat from slash. After Plan 3, typing `list` (or any other recognized chat verb) in the chatbox produces a real broadcasted response. Typing `hello` (or any unrecognized free text) produces a real "didn't understand" error event in the scrollback.

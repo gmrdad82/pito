@@ -5,6 +5,11 @@
 > Tasks are atomic (≤5 min each). Check off as you go. Re-open scope
 > only after a phase commit lands.
 
+## Sign-off
+
+- [x] Drafted — 2026-05-27
+- [x] Audited — 2026-05-27
+
 ## North star
 
 Plan 1 left a static visual chassis at `/`, `/start`, `/_ui/palettes`, `/_ui/sidebar`. Plan 2 turns the chatbox at `/` into a working pipe for **slash commands**: typing `/help` and pressing Enter produces an echoed user event in the scrollback, a real assistant response listing the registered slash commands, and a persisted record of the exchange that survives a page refresh.

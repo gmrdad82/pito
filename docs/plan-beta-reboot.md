@@ -4,6 +4,11 @@
 > atomic (≤5 min each). Check off as you go. Re-open scope only after
 > a milestone lands.
 
+## Sign-off
+
+- [x] Drafted — 2026-05-27
+- [x] Audited — 2026-05-27
+
 ## North star
 
 Pito returns to Rails 8 defaults. One self-hosted Rails app, single-user,
@@ -129,25 +134,25 @@ Each task carries a `model:` hint. Pick by complexity, not by feel.
 - [x] T3.8 Reset `spec/spec_helper.rb` to the rspec-rails generator template. model: [haiku]
 - [x] T3.9 Empty `spec/support/` factories/helpers (keep dir). model: [flash]
 - [x] T3.10 `bundle exec rspec` should report 0 examples, 0 failures. model: [manual]
-- [ ] T3.11 Commit: `[skipci] wipe spec bodies; rspec back to generator defaults`. model: [manual]
+- [x] T3.11 Commit: "Wipe specs and reset Rspec". model: [manual]
 
 ## P4 — Sidekiq → SolidQueue
 
-- [ ] T4.1 Remove `sidekiq` + `sidekiq-cron` from Gemfile. model: [flash]
-- [ ] T4.2 Add `gem "solid_queue"` to Gemfile. model: [flash]
-- [ ] T4.3 `bundle install`. model: [manual]
-- [ ] T4.4 Run `bin/rails solid_queue:install`. model: [manual]
-- [ ] T4.5 Delete `config/sidekiq.yml` + `config/sidekiq_cron.yml` + `config/initializers/sidekiq.rb`. model: [flash]
-- [ ] T4.6 Delete `app/sidekiq/` directory (middleware + folders). model: [flash]
-- [ ] T4.7 In `config/application.rb`, set `config.active_job.queue_adapter = :solid_queue`. model: [haiku]
-- [ ] T4.8 Remove sidekiq mount + auth from `config/routes.rb`. model: [haiku]
-- [ ] T4.9 Strip `include Sidekiq::Job` / `sidekiq_options` from every file under `app/jobs/**`; ensure each inherits `ApplicationJob`. model: [sonnet]
-- [ ] T4.10 Audit `app/jobs/` and `app/services/**` for `.perform_async` / `Sidekiq::Stats` / `Sidekiq::Cron` references; replace `.perform_async` with `.perform_later`. model: [sonnet]
-- [ ] T4.11 Migrate cron entries from `sidekiq_cron.yml` into `config/recurring.yml` (SolidQueue syntax). model: [sonnet]
-- [ ] T4.12 Update `Procfile.dev`: drop `worker: sidekiq`, no replacement needed (SolidQueue runs in Puma in dev). model: [flash]
-- [ ] T4.13 Re-create dev DB: `bin/rails db:create db:migrate`. model: [manual]
-- [ ] T4.14 Smoke test: enqueue one job, confirm SolidQueue picks it up. model: [manual]
-- [ ] T4.15 Commit: `[skipci] sidekiq → solid_queue migration`. model: [manual]
+- [x] T4.1 Remove `sidekiq` + `sidekiq-cron` from Gemfile. model: [flash]
+- [x] T4.2 Add `gem "solid_queue"` to Gemfile. model: [flash]
+- [x] T4.3 `bundle install`. model: [manual]
+- [x] T4.4 Run `bin/rails solid_queue:install`. model: [manual]
+- [x] T4.5 Delete `config/sidekiq.yml` + `config/sidekiq_cron.yml` + `config/initializers/sidekiq.rb`. model: [flash]
+- [x] T4.6 Delete `app/sidekiq/` directory (middleware + folders). model: [flash]
+- [x] T4.7 In `config/application.rb`, set `config.active_job.queue_adapter = :solid_queue`. model: [haiku]
+- [x] T4.8 Remove sidekiq mount + auth from `config/routes.rb`. model: [haiku]
+- [x] T4.9 Strip `include Sidekiq::Job` / `sidekiq_options` from every file under `app/jobs/**`; ensure each inherits `ApplicationJob`. model: [sonnet]
+- [x] T4.10 Audit `app/jobs/` and `app/services/**` for `.perform_async` / `Sidekiq::Stats` / `Sidekiq::Cron` references; replace `.perform_async` with `.perform_later`. model: [sonnet]
+- [x] T4.11 Migrate cron entries from `sidekiq_cron.yml` into `config/recurring.yml` (SolidQueue syntax). model: [sonnet]
+- [x] T4.12 Update `Procfile.dev`: drop `worker: sidekiq`, no replacement needed (SolidQueue runs in Puma in dev). model: [flash]
+- [x] T4.13 Re-create dev DB: `bin/rails db:create db:migrate` + load SolidQueue tables. model: [manual]
+- [x] T4.14 Smoke test: enqueue one job, confirm SolidQueue picks it up. model: [manual]
+- [x] T4.15 Commit: `[skipci] sidekiq → solid_queue migration` (combined with P3 wipe in commit). model: [manual]
 
 ## P5 — Redis → SolidCache + SolidCable
 

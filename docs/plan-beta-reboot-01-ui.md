@@ -5,6 +5,11 @@
 > Tasks are atomic (≤5 min each). Check off as you go. Re-open scope
 > only after a phase commit lands.
 
+## Sign-off
+
+- [x] Drafted — 2026-05-27
+- [x] Audited — 2026-05-27
+
 ## North star
 
 Plan 0 leaves the Rails 8 app reset to defaults: gems culled, schema rebuilt, Tailwind installed, ViewComponent baseline in place, locales scaffolded. Plan 1 builds the **static visual chassis** on top of that reset — the four screens designed during the v0 phase (chat shell, start screen, palette overlays, sidebar overlay), implemented as ViewComponents with Tailwind tokens and i18n copy.
