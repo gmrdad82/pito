@@ -1,0 +1,7 @@
+<%= render(Pito::Segment::Component.new) do %>
+  <% if @body %>
+    <span class="text-fg"><%= @body %></span>
+  <% else %>
+    <%= content %>
+  <% end %>
+<% end %>

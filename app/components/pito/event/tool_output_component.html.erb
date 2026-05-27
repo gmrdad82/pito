@@ -1,0 +1,11 @@
+<%= render(Pito::Segment::Component.new(
+      border: "var(--accent-purple)",
+      background: "var(--bg-elevated)"
+    )) do %>
+  <div style="display: flex; flex-direction: column; gap: 4px;">
+    <p class="text-fg-dim"><%= @title %></p>
+    <p class="text-cyan" style="margin-top: 12px;"><%= @command %></p>
+    <pre class="text-fg" style="margin-top: 12px; white-space: pre; font-family: inherit; font-size: inherit;"><%= @output %></pre>
+    <p class="text-fg-dim" style="margin-top: 8px; cursor: default;"><%= t("pito.event.tool_output.click_to_expand") %></p>
+  </div>
+<% end %>

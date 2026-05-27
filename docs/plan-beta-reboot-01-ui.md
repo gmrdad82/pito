@@ -517,20 +517,20 @@ config/locales/pito/
 - [x] T4.7 Smoke render each shell component in isolation (via console or a temporary `/_smoke/shell` route). complexity: [manual]
 - [x] T4.8 Delete any temporary smoke routes/views after verification. complexity: [low]
 - [x] T4.9 Visual review: each matches its v0 spec (`ui-p1.4.md`, `ui-p1.5.md`, `ui-p1.2.md`). complexity: [manual]
-- [-] T4.10 Commit: `U4: Pito::Shell components (chatbox, mini-status, dots, in-progress)`. complexity: [manual]
+- [x] T4.10 Commit: `U4: Pito::Shell components (chatbox, mini-status, dots, in-progress)`. complexity: [manual]
 
 ## U5 — Event content components
 
 > The five segments that appear in the chat message stream. All static renderers; all use Pito::Segment under the hood.
 
-- [ ] T5.1 Create `Pito::Event::UserMessageComponent` (rb + erb). Orange border, no background, body text in `text-fg`. complexity: [low]
-- [ ] T5.2 Create `Pito::Event::AssistantTextComponent` (rb + erb). Borderless, supports optional rich content slot. complexity: [low]
-- [ ] T5.3 Create `Pito::Event::ThoughtComponent` (rb + erb). Borderless, `+ Thought:` prefix orange-bold + duration dim. complexity: [low]
-- [ ] T5.4 Create `Pito::Event::ToolOutputComponent` (rb + erb). Purple border + elevated background. Title, command, pre-formatted output, "Click to expand" affordance (purely visual — no click handler). complexity: [medium]
-- [ ] T5.5 Create `Pito::Event::StatusFooterComponent` (rb + erb). Borderless, `▣` glyph + mode + agent + duration. complexity: [low]
-- [ ] T5.6 Smoke render each event component in isolation. complexity: [manual]
-- [ ] T5.7 Visual review: each matches `ui-p1.5.md`. Pay attention to the alignment invariant — text in any event should sit 22px from the segment's left edge regardless of whether the segment has a border. complexity: [manual]
-- [ ] T5.8 Commit: `U5: Pito::Event content components`. complexity: [manual]
+- [x] T5.1 Create `Pito::Event::UserMessageComponent` (rb + erb). Orange border, no background, body text in `text-fg`. complexity: [low]
+- [x] T5.2 Create `Pito::Event::AssistantTextComponent` (rb + erb). Borderless, supports optional rich content slot. complexity: [low]
+- [x] T5.3 Create `Pito::Event::ThoughtComponent` (rb + erb). Borderless, `+ Thought:` prefix orange-bold + duration dim. complexity: [low]
+- [x] T5.4 Create `Pito::Event::ToolOutputComponent` (rb + erb). Purple border + elevated background. Title, command, pre-formatted output, "Click to expand" affordance (purely visual — no click handler). complexity: [medium]
+- [x] T5.5 Create `Pito::Event::StatusFooterComponent` (rb + erb). Borderless, `▣` glyph + mode + agent + duration. complexity: [low]
+- [x] T5.6 Smoke render each event component in isolation. complexity: [manual]
+- [x] T5.7 Visual review: each matches `ui-p1.5.md`. Pay attention to the alignment invariant — text in any event should sit 22px from the segment's left edge regardless of whether the segment has a border. complexity: [manual]
+- [-] T5.8 Commit: `U5: Pito::Event content components`. complexity: [manual]
 
 ## U6 — Chat shell page (`/`)
 

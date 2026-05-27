@@ -1,0 +1,10 @@
+<%= render(Pito::Segment::Component.new) do %>
+  <span class="text-fg-dim">
+    <span class="text-cyan">▣</span>
+    <%= @mode %>
+    <span class="text-fg-faded">·</span>
+    <%= @agent %>
+    <span class="text-fg-faded">·</span>
+    <%= @duration %>
+  </span>
+<% end %>
