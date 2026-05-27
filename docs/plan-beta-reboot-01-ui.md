@@ -530,20 +530,20 @@ config/locales/pito/
 - [x] T5.5 Create `Pito::Event::StatusFooterComponent` (rb + erb). Borderless, `▣` glyph + mode + agent + duration. complexity: [low]
 - [x] T5.6 Smoke render each event component in isolation. complexity: [manual]
 - [x] T5.7 Visual review: each matches `ui-p1.5.md`. Pay attention to the alignment invariant — text in any event should sit 22px from the segment's left edge regardless of whether the segment has a border. complexity: [manual]
-- [-] T5.8 Commit: `U5: Pito::Event content components`. complexity: [manual]
+- [x] T5.8 Commit: `U5: Pito::Event content components`. complexity: [manual]
 
 ## U6 — Chat shell page (`/`)
 
 > The main route. Hardcoded sample messages rendered through Event components.
 
-- [ ] T6.1 Generate `TerminalController` with `#show` action. complexity: [low]
-- [ ] T6.2 Create `lib/pito/sample/chat_shell.rb` — a module returning an ordered array of sample message records (each with `kind:` symbol + relevant fields). Mark every body string with comment `# SAMPLE — replace when wiring real data in Plan 2+`. complexity: [medium]
-- [ ] T6.3 In `TerminalController#show`, assign `@events = Pito::Sample::ChatShell.events` and render the view. complexity: [low]
-- [ ] T6.4 Create `app/views/terminal/show.html.erb`. Layout: full-viewport flex column. Top region: scroll area (`flex: 1, overflow-y: auto`) iterating over `@events` and rendering the right Event component for each kind. Bottom region: chatbox row (default state) + mini-status row beneath (with post-command dots on left, mini-status on right). complexity: [medium]
-- [ ] T6.5 Pass hardcoded filter `{ channel: "@gmrdad82", period: "7d" }` to the chatbox. Pass `mode: :connection, state: true, notifications: 3, show_notifications: true` to the mini-status. complexity: [low]
-- [ ] T6.6 In `config/routes.rb`, add `root "terminal#show"`. complexity: [low]
-- [ ] T6.7 Visit `/`, verify the render matches `ui-p1.5.md` final state (segments aligned, chatbox at bottom, mini-status right-aligned). complexity: [manual]
-- [ ] T6.8 Commit: `U6: chat shell page (/) with sample messages`. complexity: [manual]
+- [x] T6.1 Generate `TerminalController` with `#show` action. complexity: [low]
+- [x] T6.2 Create `lib/pito/sample/chat_shell.rb` — a module returning an ordered array of sample message records (each with `kind:` symbol + relevant fields). Mark every body string with comment `# SAMPLE — replace when wiring real data in Plan 2+`. complexity: [medium]
+- [x] T6.3 In `TerminalController#show`, assign `@events = Pito::Sample::ChatShell.events` and render the view. complexity: [low]
+- [x] T6.4 Create `app/views/terminal/show.html.erb`. Layout: full-viewport flex column. Top region: scroll area (`flex: 1, overflow-y: auto`) iterating over `@events` and rendering the right Event component for each kind. Bottom region: chatbox row (default state) + mini-status row beneath (with post-command dots on left, mini-status on right). complexity: [medium]
+- [x] T6.5 Pass hardcoded filter `{ channel: "@gmrdad82", period: "7d" }` to the chatbox. Pass `mode: :connection, state: true, notifications: 3, show_notifications: true` to the mini-status. complexity: [low]
+- [x] T6.6 In `config/routes.rb`, add `root "terminal#show"`. complexity: [low]
+- [x] T6.7 Visit `/`, verify the render matches `ui-p1.5.md` final state (segments aligned, chatbox at bottom, mini-status right-aligned). complexity: [manual]
+- [-] T6.8 Commit: `U6: chat shell page (/) with sample messages`. complexity: [manual]
 
 ## U7 — Start screen page (`/start`)
 

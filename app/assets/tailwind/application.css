@@ -50,6 +50,44 @@
   * { font-size: inherit; }
 }
 
+/* ── Themed scrollbar (slim, non-native) ──────────────────── */
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-button {
+  display: none;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-root);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-default);
+  border-radius: 0;
+}
+
+html {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-default) var(--bg-root);
+  scrollbar-gutter: stable;
+}
+
+/* ── Ghost cursor: outline by default, solid on chatbox hover ── */
+
+.pito-cursor--ghost {
+  border: 1px solid var(--cursor-color, var(--fg-default));
+  background: transparent;
+  color: var(--cursor-color, var(--fg-default));
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.chatbox-wrapper:hover .pito-cursor--ghost {
+  background: var(--cursor-color, var(--fg-default));
+  color: var(--bg-root);
+  border-color: transparent;
+}
+
 /* ── Shell animations ──────────────────────────────────────────
  *
  * Braille spinner: cycles through 10 braille characters to show

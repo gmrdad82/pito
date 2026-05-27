@@ -1,0 +1,11 @@
+en:
+  pito:
+    shell:
+      chatbox:
+        placeholder: "Ask anything…"
+      mini_status:
+        connected: "Connected"
+        disconnected: "Disconnected"
+        notifications: "Notifications"
+        not_authenticated: "Not authenticated"
+        commands: "commands"
