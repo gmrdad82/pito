@@ -71,35 +71,15 @@ class BulkVoyageIndexJob < ApplicationJob
     records = Game.where.not(summary: nil).where("summary <> ''").order(:id).to_a
     return if records.empty?
 
-    sync_to_search(records, text_for: ->(g) { game_text(g) }) do |record|
-      Game::MeilisearchIndexer.call(record.reload)
-    end
-  end
-
-  # Partition `records` into needs-embedding vs already-embedded,
-  # run Voyage only on the missing ones (slicing in MAX_BATCH_SIZE
-  # chunks to fit the per-request limit), persist the new vectors,
-  # and finally push EVERY record into Meilisearch so the search
-  # index ends up in lockstep with PG.
-  #
-  # `text_for:` is a callable that builds the Voyage input string for
-  # a single record (only invoked for needs-embedding rows). The
-  # block (`push_to_search`) is the Meilisearch-side push — called
-  # once per record, regardless of whether that record was just
-  # embedded or had a vector already.
-  def sync_to_search(records, text_for:, &push_to_search)
     needs_embed, _already_embedded = records.partition { |r| r.summary_embedding.nil? }
-
-    embed_missing(needs_embed, text_for) if needs_embed.any?
-
-    records.each { |record| push_to_search.call(record) }
+    embed_missing(needs_embed) if needs_embed.any?
   end
 
   # Voyage embed + write for records that have no vector yet. Slices
   # in MAX_BATCH_SIZE-sized groups; for pito's current corpus (≪128
   # of each) this loops once.
-  def embed_missing(records, text_for)
-    inputs = records.map { |r| text_for.call(r) }
+  def embed_missing(records)
+    inputs = records.map { |r| game_text(r) }
     records.each_slice(Voyage::Client::MAX_BATCH_SIZE).zip(inputs.each_slice(Voyage::Client::MAX_BATCH_SIZE)).each do |batch_records, batch_inputs|
       embeddings = Voyage::Client.new.embed_batch(inputs: batch_inputs)
       batch_records.zip(embeddings).each do |record, embedding|

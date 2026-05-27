@@ -39,7 +39,6 @@ class Game
       return if @game.title.to_s.strip.blank? && @game.summary.to_s.strip.blank?
 
       embed_and_persist if AppSetting.voyage_configured?
-      Game::MeilisearchIndexer.call(@game.reload)
     end
 
     private

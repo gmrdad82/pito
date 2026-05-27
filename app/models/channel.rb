@@ -192,13 +192,8 @@ class Channel < ApplicationRecord
   after_save_commit :sync_calendar_entry
   after_touch :sync_calendar_entry
 
-  # Channel-only Meilisearch indexing; independent of the Searchable concern (decoupled from Game/Bundle pipeline).
-  after_save_commit { ChannelIndexJob.perform_later(id) }
-  after_destroy_commit { ChannelRemoveIndexJob.perform_later(id) }
-
   # Phase 35 (2026-05-19) — Voyage embedding for the channel-level
-  # text (title + handle + description + keywords). Independent of
-  # `ChannelIndexJob` (Meilisearch keyword surface) — Voyage powers
+  # text (title + handle + description + keywords). Voyage powers
   # the pgvector `has_neighbors :summary_embedding` cosine lookup
   # used by `Game::ChannelRecommendation` and future channel-
   # similarity surfaces. The indexer no-ops on blank input so rows

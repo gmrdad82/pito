@@ -1,23 +1,10 @@
 Rails.application.routes.draw do
   mount ActionCable.server => "/cable"
 
-  # OAuth authorization server metadata (RFC 8414)
-  get "/.well-known/oauth-authorization-server",
-      to: "well_known#oauth_authorization_server",
-      as: :oauth_authorization_server_metadata,
-      defaults: { format: "json" }
-
   # Auth — TOTP login
   get  "/login",    to: "sessions#new",     as: :login
   post "/login",   to: "sessions#create"
   delete "/session", to: "sessions#destroy", as: :session_logout
-
-  # Doorkeeper OAuth
-  use_doorkeeper do
-    skip_controllers :applications, :authorized_applications
-  end
-  post "/oauth/register", to: "oauth/registrations#create",
-       as: :oauth_register, defaults: { format: "json" }
 
   # Google OAuth callback (YouTube connection)
   match "/auth/google/callback",

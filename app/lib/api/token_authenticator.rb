@@ -115,35 +115,6 @@ module Api
         return Result.new(token: token, failure_reason: nil)
       end
 
-      # Phase 7.5 — Doorkeeper fallback. The plaintext bearer was not an
-      # `ApiToken` (no row matched the HMAC digest); try
-      # `OauthAccessToken.by_token` next so Doorkeeper-issued access
-      # tokens (via `/oauth/token`) can authenticate against `Api::*`
-      # surfaces using the same bearer dispatch as ApiToken users.
-      #
-      # Distinct revoked / expired branches mirror the ApiToken paths so
-      # the existing 401 envelopes (`revoked_token`, `expired_token`)
-      # remain stable. Anything else maps to `invalid_token`.
-      oauth_token = lookup_oauth_token(plaintext)
-      if oauth_token
-        if oauth_token.revoked?
-          return failure("revoked_token", token: oauth_token)
-        end
-
-        if oauth_token.expired?
-          return failure("expired_token", token: oauth_token)
-        end
-
-        unless oauth_token.resource_owner_id.present?
-          # Defense-in-depth: a token without a resource owner cannot
-          # be safely dispatched. Treat as invalid.
-          return failure("invalid_token", token: oauth_token)
-        end
-
-        audit("auth.success", token: oauth_token, scope_required: nil, result: "ok")
-        return Result.new(token: oauth_token, failure_reason: nil)
-      end
-
       failure("invalid_token")
     end
 
@@ -174,27 +145,10 @@ module Api
       nil
     end
 
-    # Best-effort human label for the audit row. `ApiToken` carries an
-    # operator-supplied `name`; Doorkeeper's `OauthAccessToken` carries
-    # an `application_id` instead — fall back to the application's name
-    # for OAuth, and `nil` if neither path is available.
     def token_label(token)
       return nil if token.nil?
       return token.name if token.is_a?(ApiToken)
-      return token.application&.name if token.respond_to?(:application)
 
-      nil
-    end
-
-    # Doorkeeper bearer-token lookup. Returns the `OauthAccessToken`
-    # row (which subclasses `Doorkeeper::AccessToken`) or `nil`. Wrapped
-    # in a guard so request flows that pre-date Doorkeeper (e.g. specs
-    # that boot a stubbed environment) keep working without raising.
-    def lookup_oauth_token(plaintext)
-      return nil unless defined?(OauthAccessToken)
-
-      OauthAccessToken.by_token(plaintext)
-    rescue StandardError
       nil
     end
 

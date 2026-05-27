@@ -63,16 +63,11 @@ class CommandsController < ApplicationController
 
   def reindex_output(args)
     target = args[0]
-    unless %w[meilisearch voyage].include?(target)
-      return { error: "usage: reindex meilisearch|voyage" }
+    unless %w[voyage].include?(target)
+      return { error: "usage: reindex voyage" }
     end
-    if target == "meilisearch"
-      MeilisearchReindexJob.perform_later
-      { output: "meilisearch reindex queued" }
-    else
-      VoyageReindexJob.perform_later
-      { output: "voyage reindex queued" }
-    end
+    VoyageReindexJob.perform_later
+    { output: "voyage reindex queued" }
   end
 
   def games_output

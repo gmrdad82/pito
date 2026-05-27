@@ -23,16 +23,11 @@ module Searchable
 
   included do
     after_commit :search_index, on: [ :create, :update ]
-    after_commit :search_remove, on: :destroy
   end
 
   private
 
   def search_index
     SearchIndexJob.perform_later(self.class.name, id)
-  end
-
-  def search_remove
-    SearchRemoveJob.perform_later(self.class.name, id, index_name: self.class.name.underscore.pluralize + "_#{Rails.env}")
   end
 end

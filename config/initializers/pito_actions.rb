@@ -15,19 +15,6 @@
 Rails.application.config.after_initialize do
   routes = Rails.application.routes.url_helpers
 
-  # scope: :home — stack operations only make sense on the home screen
-  # (Stack sub-panel). They must not appear in the palette on /videos or
-  # /games, where Meilisearch / Voyage AI context is absent.
-  Pito::ActionRegistry.define(
-    :reindex_meilisearch,
-    path: -> { routes.settings_stack_meilisearch_reindex_path },
-    method: :post,
-    confirmation: { brand: "Meilisearch", danger: true },
-    i18n_key: "tui.commands.reindex_meilisearch",
-    cable_panel: "pito:settings:stack:meilisearch",
-    scope: :home
-  )
-
   Pito::ActionRegistry.define(
     :reindex_voyage,
     path: -> { routes.settings_stack_voyage_reindex_path },
