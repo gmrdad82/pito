@@ -9,6 +9,20 @@
 - [x] Drafted — 2026-05-27
 - [x] Audited — 2026-05-27
 
+## Status — 2026-05-27
+
+Stopped at P8. Subsequent phases handled by dedicated plan files:
+
+- P9–P11 (Tailwind, ViewComponent baseline, web terminal shell) →
+  superseded by `docs/plan-beta-reboot-01-ui.md`. Plan 1 supplies the
+  full visual contract, token system, and component inventory.
+- P12–P19 (command router, Cable, auth, locales, Docker, GitHub
+  polish, AGENTS.md, docs prune) → deferred to forthcoming
+  `plan-beta-reboot-02-*.md` and later.
+
+Unchecked boxes below are intentionally left as `[ ]` — they are not
+abandoned, they have moved.
+
 ## North star
 
 Pito returns to Rails 8 defaults. One self-hosted Rails app, single-user,
@@ -227,6 +241,8 @@ Each task carries a `model:` hint. Pick by complexity, not by feel.
 
 ## P9 — Asset pipeline & Tailwind
 
+> Superseded by `plan-beta-reboot-01-ui.md` U1–U2. Do not execute tasks below.
+
 - [ ] T9.1 Add `gem "tailwindcss-rails"` to Gemfile. model: [flash]
 - [ ] T9.2 `bundle install`. model: [manual]
 - [ ] T9.3 `bin/rails tailwindcss:install`. model: [manual]
@@ -238,6 +254,8 @@ Each task carries a `model:` hint. Pick by complexity, not by feel.
 - [ ] T9.9 Commit: `[skipci] tailwind via tailwindcss-rails; tokyo night palette`. model: [manual]
 
 ## P10 — ViewComponent baseline
+
+> Superseded by `plan-beta-reboot-01-ui.md` U3–U5. Do not execute tasks below.
 
 - [ ] T10.1 Add `gem "view_component"` to Gemfile. model: [flash]
 - [ ] T10.2 `bundle install`. model: [manual]
@@ -255,6 +273,8 @@ Each task carries a `model:` hint. Pick by complexity, not by feel.
 
 ## P11 — UI shell: web terminal layout
 
+> Superseded by `plan-beta-reboot-01-ui.md` U2 + U6. Do not execute tasks below.
+
 - [ ] T11.1 Reset `app/views/layouts/application.html.erb` to: header + scrollback + input, monospace, Tokyo Night bg. model: [sonnet]
 - [ ] T11.2 Route `root "terminal#show"`. model: [haiku]
 - [ ] T11.3 Generate `TerminalController` with `#show` rendering `Pito::Shell::ScrollbackComponent.new(events: [])`. model: [haiku]
@@ -267,6 +287,8 @@ Each task carries a `model:` hint. Pick by complexity, not by feel.
 - [ ] T11.10 Commit: `[skipci] web terminal shell scaffold`. model: [manual]
 
 ## P12 — Command router + handler registry
+
+> Deferred to `plan-beta-reboot-02-*.md` (or later). Do not execute tasks below.
 
 - [ ] T12.1 `lib/pito/command/router.rb`: `Router.parse("/games genre rpg") => Pito::Command::Invocation`. model: [sonnet]
 - [ ] T12.2 `lib/pito/command/invocation.rb`: value object with `verb`, `subject`, `args`, `kwargs`. model: [haiku]
@@ -286,6 +308,8 @@ Each task carries a `model:` hint. Pick by complexity, not by feel.
 
 ## P13 — Action Cable streaming
 
+> Deferred to `plan-beta-reboot-02-*.md` (or later). Do not execute tasks below.
+
 - [ ] T13.1 Generate `Pito::TerminalChannel < ApplicationCable::Channel` streaming from `"pito:terminal:#{session_id}"`. model: [haiku]
 - [ ] T13.2 `Pito::Stream::Broadcaster.new(session_id:).emit(event_component)` -> renders component, broadcasts as Turbo Stream append. model: [sonnet]
 - [ ] T13.3 Wire each handler to receive a `broadcaster` and emit one event per output unit. model: [sonnet]
@@ -296,6 +320,8 @@ Each task carries a `model:` hint. Pick by complexity, not by feel.
 - [ ] T13.8 Commit: `[skipci] action cable streaming pipeline`. model: [manual]
 
 ## P14 — Auth reset (TOTP + Google YouTube OAuth)
+
+> Deferred to `plan-beta-reboot-02-*.md` (or later). Do not execute tasks below.
 
 - [ ] T14.1 Delete `app/controllers/sessions_controller.rb` + `app/views/sessions/` (if any). model: [flash]
 - [ ] T14.2 Delete `app/controllers/login/` namespace. model: [flash]
@@ -316,6 +342,8 @@ Each task carries a `model:` hint. Pick by complexity, not by feel.
 
 ## P15 — Locales reset
 
+> Deferred to `plan-beta-reboot-02-*.md` (or later). UI-scoped i18n is handled by `plan-beta-reboot-01-ui.md` U10; broader locales reset (commands, errors, keybindings, domain copy) waits. Do not execute tasks below.
+
 - [ ] T15.1 Delete every file under `config/locales/` except `en.yml`. model: [flash]
 - [ ] T15.2 Reset `en.yml` to the Rails 8 generator stub. model: [haiku]
 - [ ] T15.3 Create `config/locales/keybindings/en.yml` with at minimum: `enter`, `escape`, `up`, `down`. model: [haiku]
@@ -328,6 +356,8 @@ Each task carries a `model:` hint. Pick by complexity, not by feel.
 - [ ] T15.10 Commit: `[skipci] locales reset; domain + commands + keybindings`. model: [manual]
 
 ## P16 — Dockerfile + docker-compose + Kamal
+
+> Deferred to `plan-beta-reboot-02-*.md` (or later). Do not execute tasks below.
 
 - [ ] T16.1 Re-generate Dockerfile to Rails 8 default: single-stage build, jemalloc, libvips, postgresql-client. model: [sonnet]
 - [ ] T16.2 Drop `BUNDLE_WITHOUT` to also exclude `assets` group (post Tailwind precompile). model: [haiku]
@@ -342,6 +372,8 @@ Each task carries a `model:` hint. Pick by complexity, not by feel.
 
 ## P17 — GitHub repo polish
 
+> Deferred to `plan-beta-reboot-02-*.md` (or later). Do not execute tasks below.
+
 - [ ] T17.1 Update GitHub description: `self-hosted YouTube channel management — web terminal, slash commands, Rails 8`. model: [manual]
 - [ ] T17.2 Update GitHub topics: `rails`, `ruby`, `youtube`, `self-hosted`, `terminal-ui`, `hotwire`, `view-component`, `postgresql`, `pgvector`, `solid-queue`. model: [manual]
 - [ ] T17.3 Delete obsolete tags (anything pre-`v0.0.2-pre-reboot`) if you want a clean tag list. model: [manual]
@@ -352,6 +384,8 @@ Each task carries a `model:` hint. Pick by complexity, not by feel.
 - [ ] T17.8 Commit: `[skipci] readme + github metadata refresh`. model: [manual]
 
 ## P18 — AGENTS.md as the single skill source of truth
+
+> Deferred to `plan-beta-reboot-02-*.md` (or later). Do not execute tasks below.
 
 > AGENTS.md replaces `docs/skills/`. Every convention lives here. Each
 > section is short, opinionated, and references file paths so agents
@@ -372,6 +406,8 @@ Each task carries a `model:` hint. Pick by complexity, not by feel.
 - [ ] T18.13 Commit: `[skipci] AGENTS.md: skill conventions consolidated`. model: [manual]
 
 ## P19 — docs/ prune & rewrite
+
+> Deferred to `plan-beta-reboot-02-*.md` (or later). Do not execute tasks below.
 
 - [ ] T19.1 Delete `docs/mcp.md`. model: [flash]
 - [ ] T19.2 Delete `docs/tui.md` (already removed in P1; confirm). model: [flash]
