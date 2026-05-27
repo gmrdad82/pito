@@ -103,19 +103,19 @@ Each task carries a `model:` hint. Pick by complexity, not by feel.
 - [x] T1.9 Remove "Rust TUI" references from `docs/architecture.md`. model: [haiku]
 - [x] T1.10 Remove "TUI" references from `docs/design.md`. model: [haiku]
 - [x] T1.11 Remove `rust` row from AGENTS.md skill table. model: [flash]
-- [ ] T1.12 Commit: `[skipci] drop rust cli + cargo workspace`. model: [manual]
+- [x] T1.12 Commit: "Rust CLI removal". model: [manual]
 
 ## P2 — xterm.js + esbuild + node tooling removal
 
-- [ ] T2.1 Delete `package.json` + `package-lock.json`. model: [flash]
-- [ ] T2.2 Delete `node_modules/`. model: [flash]
-- [ ] T2.3 Delete `app/javascript/application.js` (xterm boot). model: [flash]
-- [ ] T2.4 Delete `app/assets/builds/`. model: [flash]
-- [ ] T2.5 Delete `.prettierrc.json` + `.prettierignore`. model: [flash]
-- [ ] T2.6 Delete `bin/build` if present; remove esbuild lines from `Procfile.dev`. model: [flash]
-- [ ] T2.7 Update `.gitignore` to remove node_modules + esbuild lines (keep `.wrangler` for Astro). model: [flash]
-- [ ] T2.8 Update `.dockerignore` to drop node_modules + builds. model: [flash]
-- [ ] T2.9 Commit: `[skipci] drop xterm.js + esbuild + node tooling`. model: [manual]
+- [x] T2.1 Delete `package.json` + `package-lock.json`. model: [flash]
+- [x] T2.2 Delete `node_modules/`. model: [flash]
+- [x] T2.3 Delete `app/javascript/application.js` (xterm boot). model: [flash]
+- [x] T2.4 Delete `app/assets/builds/`. model: [flash]
+- [x] T2.5 Delete `.prettierrc.json` + `.prettierignore`. model: [flash]
+- [x] T2.6 Delete `bin/build` if present; remove esbuild lines from `Procfile.dev`. model: [flash]
+- [x] T2.7 Update `.gitignore` to remove node_modules + esbuild lines (keep `.wrangler` for Astro). model: [flash]
+- [x] T2.8 Update `.dockerignore` to drop node_modules + builds. model: [flash]
+- [x] T2.9 Commit: "Remove xterm.js experiment". model: [manual]
 
 ## P3 — Spec body wipe
 

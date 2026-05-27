@@ -45,10 +45,4 @@
 # via `config/pito.yml.example`; the actual file is per-install.
 /config/pito.yml
 
-
-/app/assets/builds/*
-!/app/assets/builds/.keep
 .claude/
-
-# Node packages vendored for importmaps (don't commit)
-node_modules/
