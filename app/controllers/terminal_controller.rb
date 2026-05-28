@@ -3,6 +3,6 @@ class TerminalController < ApplicationController
   allow_anonymous :show
 
   def show
-    @events = Pito::Sample::ChatShell.events
+    @events = current_conversation.events.includes(:turn).order(:position)
   end
 end

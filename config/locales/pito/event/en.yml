@@ -2,7 +2,6 @@ en:
   pito:
     event:
       thought:
-        prefix: "+ Thought:"
+        prefix: "Thought"
       tool_output:
         click_to_expand: "Click to expand"
-        click_to_collapse: "Click to collapse"

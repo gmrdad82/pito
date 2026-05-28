@@ -262,13 +262,13 @@ Plan 1's components (`Pito::Event::UserMessageComponent`, `Pito::Event::Assistan
 
 > Page refresh must reproduce every event in order. No HTML stored — components re-render from payloads.
 
-- [ ] T8.1 Update `TerminalController#show` to load `@events = current_conversation.events.includes(:turn).order(:position)`. complexity: [low]
-- [ ] T8.2 Replace the hardcoded sample loop in `app/views/terminal/show.html.erb` with iteration over `@events`. For each event, render the component matched by `event.kind` using the same mapping defined in `Pito::Stream::EventRenderer`. complexity: [medium]
-- [ ] T8.3 Extract the kind-to-component lookup into a shared method `Pito::Stream::EventRenderer.component_for(event) -> ViewComponent::Base` so both the broadcaster and the view use the same code path. complexity: [medium]
-- [ ] T8.4 Keep the hardcoded sample events under `lib/pito/sample/chat_shell.rb` (from Plan 1 U6.2) — but seed them into the DB on first boot rather than rendering inline. Add a Rake task `bin/rails pito:sample:seed` that creates one Conversation + sample Events. complexity: [medium]
-- [ ] T8.5 In a dev-only initializer, run the seed once if `Conversation.none?` (so a fresh `db:reset` produces a populated demo state). complexity: [low]
-- [ ] T8.6 Smoke test: visit `/`, see sample events. POST `/chat` with `/help` (via the chatbox). See echo + assistant text appended. Refresh `/`. Verify the new events appear in the same order. complexity: [manual]
-- [ ] T8.7 Commit: `[skipci] S8: scrollback re-renders from persisted events`. complexity: [manual]
+- [x] T8.1 Update `TerminalController#show` to load `@events = current_conversation.events.includes(:turn).order(:position)`. complexity: [low]
+- [x] T8.2 Replace the hardcoded sample loop in `app/views/terminal/show.html.erb` with iteration over `@events`. For each event, render the component matched by `event.kind` using the same mapping defined in `Pito::Stream::EventRenderer`. complexity: [medium]
+- [x] T8.3 Extract the kind-to-component lookup into a shared method `Pito::Stream::EventRenderer.component_for(event) -> ViewComponent::Base` so both the broadcaster and the view use the same code path. complexity: [medium]
+- [x] T8.4 Keep the hardcoded sample events under `lib/pito/sample/chat_shell.rb` (from Plan 1 U6.2) — but seed them into the DB on first boot rather than rendering inline. Add a Rake task `bin/rails pito:sample:seed` that creates one Conversation + sample Events. complexity: [medium]
+- [x] T8.5 In a dev-only initializer, run the seed once if `Conversation.none?` (so a fresh `db:reset` produces a populated demo state). complexity: [low]
+- [x] T8.6 Smoke test: visit `/`, see sample events. POST `/chat` with `/help` (via the chatbox). See echo + assistant text appended. Refresh `/`. Verify the new events appear in the same order. complexity: [manual]
+- [x] T8.7 Commit: `[skipci] S8: scrollback re-renders from persisted events`. complexity: [manual]
 
 ## S9 — Example handler: `Pito::Slash::Handlers::Help` end-to-end
 

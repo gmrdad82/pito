@@ -2,6 +2,7 @@
 pin "@xterm/xterm", to: "xterm.js"
 pin "@xterm/addon-fit", to: "addon-fit.js"
 pin "@xterm/addon-web-links", to: "addon-web-links.js"
+pin "@hotwired/turbo-rails", to: "turbo.min.js", preload: true
 pin "@rails/actioncable", to: "actioncable.js"
 pin "application", to: "application.js"
 pin "@hotwired/stimulus", to: "stimulus.min.js"

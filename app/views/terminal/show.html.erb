@@ -8,26 +8,7 @@
   <%# Scrollable event stream — segments extend to scrollbar, scrollbar floats at 35px from right %>
   <div id="pito-scrollback" class="pito-hide-scrollbar pito-scroll-fade" style="flex: 1; overflow-y: auto; padding: 32px 50px 0;">
       <% @events.each do |event| %>
-        <% case event[:kind] %>
-        <% when :user_message %>
-          <%= render(Pito::Event::UserMessageComponent.new(body: event[:body])) %>
-        <% when :assistant_text %>
-          <%= render(Pito::Event::AssistantTextComponent.new(body: event[:body])) %>
-        <% when :thought %>
-          <%= render(Pito::Event::ThoughtComponent.new(body: event[:body], duration: event[:duration])) %>
-        <% when :tool_output %>
-          <%= render(Pito::Event::ToolOutputComponent.new(
-                title: event[:title],
-                command: event[:command],
-                output: event[:output]
-              )) %>
-        <% when :status_footer %>
-          <%= render(Pito::Event::StatusFooterComponent.new(
-                mode: event[:mode],
-                agent: event[:agent],
-                duration: event[:duration]
-              )) %>
-        <% end %>
+        <%= render Pito::Stream::EventRenderer.component_for(event) %>
       <% end %>
   </div>
 

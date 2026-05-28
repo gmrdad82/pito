@@ -1,6 +1,7 @@
 // Pito — application entry point
 //
-// importmap-rails entry point. Registers Stimulus controllers and
-// imports vendored JS modules (@xterm/xterm, actioncable, etc).
+// importmap-rails entry point. Loads Turbo, registers Stimulus controllers,
+// and imports vendored JS modules (@xterm/xterm, actioncable, etc).
 
+import "@hotwired/turbo-rails"
 import "controllers"

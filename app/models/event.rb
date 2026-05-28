@@ -1,7 +1,10 @@
 # frozen_string_literal: true
 
 class Event < ApplicationRecord
-  KINDS = %w[echo assistant_text error confirmation_prompt].freeze
+  KINDS = %w[
+    echo assistant_text error confirmation_prompt
+    user_message thought tool_output status_footer
+  ].freeze
 
   belongs_to :conversation
   belongs_to :turn

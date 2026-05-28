@@ -5,7 +5,9 @@ require "rails_helper"
 RSpec.describe Event, type: :model do
   describe "KINDS" do
     it "includes all expected kinds" do
-      expect(described_class::KINDS).to match_array(%w[echo assistant_text error confirmation_prompt])
+      expect(described_class::KINDS).to match_array(
+        %w[echo assistant_text error confirmation_prompt user_message thought tool_output status_footer]
+      )
     end
   end
 

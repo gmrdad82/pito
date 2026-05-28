@@ -2,18 +2,7 @@ en:
   pito:
     shell:
       chatbox:
-        placeholder: "Ask anything…"
-        start_placeholder: "/authenticate 123456"
+        placeholder: "Type a command or message…"
         filter:
-          channel_label: "Channel:"
-          period_label: "Period:"
-      mini_status:
-        connected: "Connected"
-        disconnected: "Disconnected"
-        authenticated: "Authenticated"
-        not_authenticated: "Not authenticated"
-        notifications_count: "%{count} notifications"
-        commands_hint: "ctrl+k"
-        commands_label: "commands"
-      in_progress:
-        default_verb: "Building"
+          channel_label: "Channel"
+          period_label: "Period"
