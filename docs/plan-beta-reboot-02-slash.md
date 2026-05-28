@@ -178,15 +178,15 @@ Plan 1's components (`Pito::Event::UserMessageComponent`, `Pito::Event::Assistan
 
 > One tokenizer. Knows nothing about slash or chat. Produces a flat token stream.
 
-- [ ] T2.1 Create `lib/pito/lex/token.rb`. Frozen value object with `type:` (symbol), `value:` (string), `position:` (integer — column offset). complexity: [low]
-- [ ] T2.2 Create `lib/pito/lex/lexer.rb`. Class method `Pito::Lex::Lexer.call(string) -> Array<Token>`. complexity: [medium]
-- [ ] T2.3 Lexer recognizes the token types: `:slash` (`/`), `:word` (run of `[a-zA-Z][a-zA-Z0-9_-]*`), `:number` (run of digits), `:string` (double-quoted, with `\"` escape), `:colon` (`:`), `:equals` (`=`), `:comma` (`,`), `:at` (`@`), `:dot` (`.`), `:eof`. Skips whitespace. Unknown character → `:unknown` token (caller decides what to do). complexity: [medium]
-- [ ] T2.4 Lexer is hand-rolled — no Parslet, no Treetop, no regex-only scanner. Walk the string with an index, build tokens, return the array. complexity: [medium]
-- [ ] T2.5 RSpec spec `spec/lib/pito/lex/lexer_spec.rb` covering each token type, escape handling in strings, position offsets, and the empty-string edge case. complexity: [low]
-- [ ] T2.6 Verify `Pito::Lex::Lexer.call("/help")` returns `[Token(:slash), Token(:word, "help"), Token(:eof)]`. complexity: [manual]
-- [ ] T2.7 Verify `Pito::Lex::Lexer.call("/schedule 42 for \"tomorrow at noon\"")` returns the expected six-token stream. complexity: [manual]
-- [ ] T2.8 Add a comment block at the top of `lexer.rb`: "Pure function. No knowledge of slash or chat. Both Pito::Slash::Parser and Pito::Chat::Parser consume this." complexity: [low]
-- [ ] T2.9 Commit: `[skipci] S2: shared lexer Pito::Lex`. complexity: [manual]
+- [x] T2.1 Create `lib/pito/lex/token.rb`. Frozen value object with `type:` (symbol), `value:` (string), `position:` (integer — column offset). complexity: [low]
+- [x] T2.2 Create `lib/pito/lex/lexer.rb`. Class method `Pito::Lex::Lexer.call(string) -> Array<Token>`. complexity: [medium]
+- [x] T2.3 Lexer recognizes the token types: `:slash` (`/`), `:word` (run of `[a-zA-Z][a-zA-Z0-9_-]*`), `:number` (run of digits), `:string` (double-quoted, with `\"` escape), `:colon` (`:`), `:equals` (`=`), `:comma` (`,`), `:at` (`@`), `:dot` (`.`), `:eof`. Skips whitespace. Unknown character → `:unknown` token (caller decides what to do). complexity: [medium]
+- [x] T2.4 Lexer is hand-rolled — no Parslet, no Treetop, no regex-only scanner. Walk the string with an index, build tokens, return the array. complexity: [medium]
+- [x] T2.5 RSpec spec `spec/lib/pito/lex/lexer_spec.rb` covering each token type, escape handling in strings, position offsets, and the empty-string edge case. complexity: [low]
+- [x] T2.6 Verify `Pito::Lex::Lexer.call("/help")` returns `[Token(:slash), Token(:word, "help"), Token(:eof)]`. complexity: [manual]
+- [x] T2.7 Verify `Pito::Lex::Lexer.call("/schedule 42 for \"tomorrow at noon\"")` returns the expected six-token stream. complexity: [manual]
+- [x] T2.8 Add a comment block at the top of `lexer.rb`: "Pure function. No knowledge of slash or chat. Both Pito::Slash::Parser and Pito::Chat::Parser consume this." complexity: [low]
+- [x] T2.9 Commit: `S2: shared lexer Pito::Lex`. complexity: [manual]
 
 ## S3 — Stream pipeline: ChatChannel + Broadcaster
 
