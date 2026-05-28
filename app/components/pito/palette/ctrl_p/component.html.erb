@@ -2,8 +2,8 @@
 <div style="width: 600px; background: var(--bg-surface); border: 1px solid var(--border-default); padding: 10px;">
   <%# Title row %>
   <div style="display: flex; justify-content: space-between; align-items: center; padding: 0 6px;">
-    <span style="font-weight: bold; color: var(--fg);">Commands</span>
-    <span style="color: var(--fg-dim);">esc</span>
+    <span style="font-weight: bold; color: var(--fg);"><%= t("pito.palette.ctrl_p.title") %></span>
+    <span style="color: var(--fg-dim);"><%= t("pito.palette.ctrl_p.esc_hint") %></span>
   </div>
 
   <%# 12px gap %>
@@ -11,8 +11,8 @@
 
   <%# Search input area %>
   <div style="display: flex; align-items: center; padding-bottom: 4px; border-bottom: 1px solid var(--border-default); margin: 0 6px;">
-    <%= render(Pito::Cursor::Component.new(char: "S")) %>
-    <span style="color: var(--fg-dim);">earch</span>
+    <%= render(Pito::Cursor::Component.new(char: t("pito.palette.ctrl_p.search_placeholder")[0])) %>
+    <span style="color: var(--fg-dim);"><%= t("pito.palette.ctrl_p.search_placeholder")[1..] %></span>
   </div>
 
   <%# 16px gap %>
@@ -22,7 +22,7 @@
   <div class="pito-hide-scrollbar pito-scroll-fade-slim" style="max-height: min(80vh, 600px); overflow-y: auto;">
     <% @sections.each_with_index do |section, s_idx| %>
       <%= render(Pito::Palette::CtrlP::SectionComponent.new(
-            title: section[:title],
+            title_key: section[:title_key],
             items: section[:items],
             selected: (s_idx == @selected_section_index),
             selected_item_index: (s_idx == @selected_section_index ? @selected_item_index : nil)

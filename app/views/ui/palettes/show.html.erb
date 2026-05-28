@@ -2,12 +2,12 @@
 <div class="max-w-800px" style="max-width: 800px; margin: 0 auto;">
   <%# Page title %>
   <div style="color: var(--fg-dim); padding-top: 16px; margin-bottom: 24px;">
-    pito — command palettes preview
+    <%= t("pito.ui.palettes.page_title") %>
   </div>
 
   <%# Slash palette section %>
   <div style="color: var(--fg-dim); margin-bottom: 12px;">
-    Slash command palette  ·  opens above chatbox when <code>/</code> is typed
+    <%= t("pito.ui.palettes.slash_subheading").html_safe %>
   </div>
   <%= render(Pito::Palette::Slash::Component.new(
         commands: @slash_commands,
@@ -20,7 +20,7 @@
 
   <%# Ctrl+P palette section %>
   <div style="color: var(--fg-dim); margin-bottom: 12px;">
-    ctrl+k command palette  ·  centered modal overlay
+    <%= t("pito.ui.palettes.ctrlp_subheading") %>
   </div>
 
   <%# Center the modal inside the 800px container %>

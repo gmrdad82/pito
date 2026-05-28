@@ -3,10 +3,17 @@ en:
     shell:
       chatbox:
         placeholder: "Ask anything…"
-        start_placeholder: "authenticate 123456"
+        start_placeholder: "/authenticate 123456"
+        filter:
+          channel_label: "Channel:"
+          period_label: "Period:"
       mini_status:
         connected: "Connected"
         disconnected: "Disconnected"
-        notifications: "Notifications"
+        authenticated: "Authenticated"
         not_authenticated: "Not authenticated"
-        commands: "commands"
+        notifications_count: "%{count} notifications"
+        commands_hint: "ctrl+k"
+        commands_label: "commands"
+      in_progress:
+        default_verb: "Building"

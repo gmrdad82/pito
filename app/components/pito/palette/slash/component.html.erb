@@ -10,7 +10,7 @@
         <% selected = i == @selected_index %>
         <div style="<%= 'background: var(--border-default);' if selected %> padding: 2px 10px;">
           <span class="text-fg" style="display: inline-block; width: 16ch;"><%= "/#{cmd[:verb]}" %></span>
-          <span class="text-fg-dim"><%= cmd[:description] %></span>
+          <span class="text-fg-dim"><%= t(cmd[:description_key]) %></span>
         </div>
       <% end %>
 

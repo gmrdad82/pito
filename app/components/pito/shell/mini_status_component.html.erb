@@ -5,8 +5,8 @@
 <% end %>
 <% if @show_notifications && @notifications > 0 %>
   <span class="text-fg-faded" style="margin: 0 8px;">·</span>
-  <span class="text-cyan"><%= @notifications %> <%= t("pito.shell.mini_status.notifications") %></span>
+  <span class="text-cyan"><%= t("pito.shell.mini_status.notifications_count", count: @notifications) %></span>
 <% end %>
 <span class="text-fg-faded" style="margin: 0 8px;">·</span>
-<span class="font-bold text-yellow">ctrl+k</span>
-<span class="text-fg-dim" style="margin-left: 4px;"><%= t("pito.shell.mini_status.commands") %></span>
+<span class="font-bold text-yellow"><%= t("pito.shell.mini_status.commands_hint") %></span>
+<span class="text-fg-dim" style="margin-left: 4px;"><%= t("pito.shell.mini_status.commands_label") %></span>

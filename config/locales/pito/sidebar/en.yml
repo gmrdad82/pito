@@ -4,6 +4,7 @@
 en:
   pito:
     sidebar:
+      esc_hint: "esc"
       game:
         subtitle: "Game · imported %{date}"
       section:

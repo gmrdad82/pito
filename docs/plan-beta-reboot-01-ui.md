@@ -594,15 +594,15 @@ config/locales/pito/
 
 > Consolidate all user-facing strings into locale files. Audit components to ensure no inline strings remain.
 
-- [ ] T10.1 Create `config/locales/pito/shell/en.yml` with the keys listed in the i18n key tree (chatbox + mini-status + in-progress sections). complexity: [low]
-- [ ] T10.2 Create `config/locales/pito/event/en.yml` with the keys for thought + tool output. complexity: [low]
-- [ ] T10.3 Create `config/locales/pito/start_screen/en.yml`. complexity: [low]
-- [ ] T10.4 Create `config/locales/pito/palette/en.yml` with all slash command descriptions + Ctrl+P section labels + command labels. complexity: [low]
-- [ ] T10.5 Create `config/locales/pito/sidebar/en.yml` with the game-detail section labels + esc hint + subtitle. complexity: [low]
-- [ ] T10.6 Create `config/locales/pito/sample/en.yml` containing every sample message body string used by the chat shell page. Prefix every key with `pito.sample.` and add a top-of-file comment `# SAMPLE — every key in this file will be replaced when real data is wired in Plan 2+`. complexity: [medium]
-- [ ] T10.7 Audit each component template under `app/components/pito/**` and each view under `app/views/**` — run `git grep -nE '">[A-Z]'` and `git grep -nE 'translate\\b'`. Goal: every user-facing string is `t(".key")`. Fix any stragglers. complexity: [medium]
-- [ ] T10.8 Boot `bin/dev`; visit each route and confirm no `translation missing` placeholders appear. complexity: [manual]
-- [ ] T10.9 Commit: `U10: i18n locale files; all copy externalized`. complexity: [manual]
+- [x] T10.1 Create `config/locales/pito/shell/en.yml` with the keys listed in the i18n key tree (chatbox + mini-status + in-progress sections). complexity: [low]
+- [x] T10.2 Create `config/locales/pito/event/en.yml` with the keys for thought + tool output. complexity: [low]
+- [x] T10.3 Create `config/locales/pito/start_screen/en.yml`. complexity: [low]
+- [x] T10.4 Create `config/locales/pito/palette/en.yml` with all slash command descriptions + Ctrl+P section labels + command labels. complexity: [low]
+- [x] T10.5 Create `config/locales/pito/sidebar/en.yml` with the game-detail section labels + esc hint + subtitle. complexity: [low]
+- [x] T10.6 Create `config/locales/pito/sample/en.yml` containing every sample message body string used by the chat shell page. Prefix every key with `pito.sample.` and add a top-of-file comment `# SAMPLE — every key in this file will be replaced when real data is wired in Plan 2+`. complexity: [medium]
+- [x] T10.7 Audit each component template under `app/components/pito/**` and each view under `app/views/**` — run `git grep -nE '">[A-Z]'` and `git grep -nE 'translate\b'`. Goal: every user-facing string is `t(".key")`. Fix any stragglers. complexity: [medium]
+- [x] T10.8 Boot `bin/dev`; visit each route and confirm no `translation missing` placeholders appear. complexity: [manual]
+- [-] T10.9 Commit: `U10: i18n locale files; all copy externalized`. complexity: [manual]
 
 ## U11 — Verification & cleanup
 

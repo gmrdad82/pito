@@ -16,10 +16,10 @@
     <%# Line 2: filter context (only shown in :default state) %>
     <% if @filter && @state != :start %>
       <div class="flex items-center gap-[4px] text-fg-faded" style="margin-top: 10px;">
-        <span>Channel:</span>
+        <span><%= t("pito.shell.chatbox.filter.channel_label") %></span>
         <span class="text-cyan"><%= @filter[:channel] %></span>
         <span>·</span>
-        <span>Period:</span>
+        <span><%= t("pito.shell.chatbox.filter.period_label") %></span>
         <span class="text-cyan"><%= @filter[:period] %></span>
       </div>
     <% end %>

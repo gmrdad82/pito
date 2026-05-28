@@ -38,11 +38,12 @@
 
   <%# Spacer between centered group and bottom area — tip lives inside this %>
   <div style="flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 16px;">
-    <%# Tip line — orange bullet + ctrl+k in yellow + dim text %>
+    <%# Tip line — orange bullet + prefix in yellow + dim placeholder text %>
     <span class="text-fg-faded">
       <span style="color: var(--accent-orange);">●</span>
-      <span class="font-bold text-yellow">ctrl+k</span>
-      Start typing or press to open commands
+      <span class="font-bold text-yellow"><%= t("pito.start_screen.tip_prefix") %></span>
+      <span> — </span>
+      <span><%= t("pito.start_screen.tip_placeholder") %></span>
     </span>
   </div>
 

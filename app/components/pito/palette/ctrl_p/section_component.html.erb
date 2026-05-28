@@ -1,9 +1,9 @@
 <%# Section: orange-bold title + item rows %>
-<div style="color: var(--accent-orange); font-weight: bold; margin-bottom: 4px; padding: 0 7px;"><%= @title %></div>
+<div style="color: var(--accent-orange); font-weight: bold; margin-bottom: 4px; padding: 0 7px;"><%= t(@title_key) %></div>
 <% @items.each_with_index do |item, idx| %>
   <% item_selected = @selected && idx == @selected_item_index %>
   <div style="display: flex; justify-content: space-between; padding: 2px 7px;<%= ' background: var(--border-default);' if item_selected %>">
-    <span style="color: var(--fg);"><%= item[:name] %></span>
+    <span style="color: var(--fg);"><%= t(item[:label_key]) %></span>
     <% if item[:shortcut] %>
       <span style="color: var(--fg-dim);"><%= item[:shortcut] %></span>
     <% end %>
