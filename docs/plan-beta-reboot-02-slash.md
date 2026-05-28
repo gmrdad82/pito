@@ -233,11 +233,11 @@ Plan 1's components (`Pito::Event::UserMessageComponent`, `Pito::Event::Assistan
 
 > Glue layer. Parses the input, looks up the handler, invokes it, returns the result. No persistence, no broadcasting — that's the controller's job.
 
-- [ ] T6.1 Create `lib/pito/slash/dispatcher.rb`. Class method `Pito::Slash::Dispatcher.call(input:, conversation:) -> Result`. complexity: [medium]
-- [ ] T6.2 Dispatcher flow: (1) tokenize via `Pito::Lex::Lexer.call(input)`; (2) parse via `Pito::Slash::Parser.call(tokens, raw: input)`; (3) look up handler via `Pito::Slash::Registry.lookup(invocation.verb)`; (4) if nil, return `Result::Error(message_key: "pito.slash.errors.unknown_verb", message_args: { verb: invocation.verb })`; (5) else instantiate the handler with `invocation:` + `conversation:` and call it; (6) return the handler's Result. complexity: [medium]
-- [ ] T6.3 Wrap step (2) in a rescue: `Pito::Slash::Parser::NotASlashCommand` and `Pito::Slash::Parser::MissingVerb` both become `Result::Error(message_key: "pito.slash.errors.parse_failed", message_args: { raw: input })`. complexity: [low]
-- [ ] T6.4 RSpec spec for the dispatcher: returns Ok for a registered verb, Error for unknown verb, Error for malformed input. Uses a fixture handler registered in the test. complexity: [medium]
-- [ ] T6.5 Commit: `[skipci] S6: slash dispatcher`. complexity: [manual]
+- [x] T6.1 Create `lib/pito/slash/dispatcher.rb`. Class method `Pito::Slash::Dispatcher.call(input:, conversation:) -> Result`. complexity: [medium]
+- [x] T6.2 Dispatcher flow: (1) tokenize via `Pito::Lex::Lexer.call(input)`; (2) parse via `Pito::Slash::Parser.call(tokens, raw: input)`; (3) look up handler via `Pito::Slash::Registry.lookup(invocation.verb)`; (4) if nil, return `Result::Error(message_key: "pito.slash.errors.unknown_verb", message_args: { verb: invocation.verb })`; (5) else instantiate the handler with `invocation:` + `conversation:` and call it; (6) return the handler's Result. complexity: [medium]
+- [x] T6.3 Wrap step (2) in a rescue: `Pito::Slash::Parser::NotASlashCommand` and `Pito::Slash::Parser::MissingVerb` both become `Result::Error(message_key: "pito.slash.errors.parse_failed", message_args: { raw: input })`. complexity: [low]
+- [x] T6.4 RSpec spec for the dispatcher: returns Ok for a registered verb, Error for unknown verb, Error for malformed input. Uses a fixture handler registered in the test. complexity: [medium]
+- [x] T6.5 Commit: `S6: slash dispatcher`. complexity: [manual]
 
 ## S7 — ChatController + form wiring + Stimulus submit
 
