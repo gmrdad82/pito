@@ -1,0 +1,36 @@
+<%# Ctrl+P command palette — centered modal box %>
+<div style="width: 600px; background: var(--bg-surface); border: 1px solid var(--border-default); padding: 16px;">
+  <%# Title row %>
+  <div style="display: flex; justify-content: space-between; align-items: center;">
+    <span style="font-weight: bold; color: var(--fg);">Commands</span>
+    <span style="color: var(--fg-dim);">esc</span>
+  </div>
+
+  <%# 12px gap %>
+  <div style="height: 12px;"></div>
+
+  <%# Search input area %>
+  <div style="display: flex; align-items: center; padding-bottom: 4px; border-bottom: 1px solid var(--border-default);">
+    <%= render(Pito::Cursor::Component.new(char: "S", color: "var(--accent-purple)")) %>
+    <span style="color: var(--fg-dim);">earch</span>
+  </div>
+
+  <%# 16px gap %>
+  <div style="height: 16px;"></div>
+
+  <%# Sections container — scrollable %>
+  <div style="max-height: min(80vh, 600px); overflow-y: auto;">
+    <% @sections.each_with_index do |section, s_idx| %>
+      <%= render(Pito::Palette::CtrlP::SectionComponent.new(
+            title: section[:title],
+            items: section[:items],
+            selected: (s_idx == @selected_section_index),
+            selected_item_index: (s_idx == @selected_section_index ? @selected_item_index : nil)
+          )) %>
+      <%# Gap between sections (not after last) %>
+      <% if s_idx < @sections.length - 1 %>
+        <div style="height: 12px;"></div>
+      <% end %>
+    <% end %>
+  </div>
+</div>

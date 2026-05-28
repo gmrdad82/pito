@@ -555,21 +555,21 @@ config/locales/pito/
 - [x] T7.4 In `StartScreensController#show`, pass `version: "0.1.0"` and render. Caller does NOT fill the logo slot in Plan 1 — leave it empty. complexity: [low]
 - [x] T7.5 In `config/routes.rb`, add `get "/start", to: "start_screens#show"`. complexity: [low]
 - [x] T7.6 Visit `/start`. Verify: chatbox at 50vh, centered, single-line placeholder showing `/authenticate 123456` with cursor on `/`. Mini-status reads "Not authenticated · ctrl+p commands" with "Not authenticated" in red. Tip line centered, dim. pitomd.com link bottom-left, version bottom-right. complexity: [manual]
-- [-] T7.7 Commit: `U7: start screen (/start)`. complexity: [manual]
+- [x] T7.7 Commit: `U7: start screen (/start)`. complexity: [manual]
 
 ## U8 — Palette components + review page (`/_ui/palettes`)
 
 > Both palettes rendered statically on a review-only page. Production rendering happens later as overlays inside the chat shell.
 
-- [ ] T8.1 Create `Pito::Palette::Slash::Component` (rb + erb). Args: `commands:`, `selected_index:`, `typed:`. complexity: [medium]
-- [ ] T8.2 In the erb, wrap in `Pito::Segment::Component` (purple border + surface bg). Render the command list (rows with `/<verb>` left, description right, fixed-width padding so descriptions align at column 20). Highlight selected row with `bg-border-default`. Divider line. Input echo line with cursor. complexity: [medium]
-- [ ] T8.3 Create `Pito::Palette::CtrlP::Component` (rb + erb). Args: `sections:`, `selected_section_index:`, `selected_item_index:`. complexity: [medium]
-- [ ] T8.4 In the erb, render the centered modal (surface bg, 1px border, 24px padding). Title row + search input + sections. Apply `max-height: min(80vh, 600px); overflow-y: auto`. Selected row inset 8px from interior edges. complexity: [medium]
-- [ ] T8.5 Create `Pito::Palette::CtrlP::SectionComponent` (rb + erb). Renders the section title + a list of item rows. complexity: [low]
-- [ ] T8.6 Generate `_Ui::PalettesController` (controller class name `Ui::PalettesController`, file at `app/controllers/_ui/palettes_controller.rb`). Action `#show`. complexity: [low]
-- [ ] T8.7 In the controller, hardcode the slash commands array (8 commands) and the Ctrl+P sections array (Suggested / Session / Channel / Output) using the i18n keys from the spec. complexity: [medium]
-- [ ] T8.8 Create `app/views/_ui/palettes/show.html.erb`. Stack both palettes vertically inside an 800px centered container, each with a small subheading above (`"Slash command palette · opens above chatbox when / is typed"`, `"Ctrl+P command palette · centered modal overlay"`). complexity: [low]
-- [ ] T8.9 In `config/routes.rb`, add `namespace :_ui do get "palettes", to: "palettes#show" end`. complexity: [low]
+- [x] T8.1 Create `Pito::Palette::Slash::Component` (rb + erb). Args: `commands:`, `selected_index:`, `typed:`. complexity: [medium]
+- [x] T8.2 In the erb, wrap in `Pito::Segment::Component` (purple border + surface bg). Render the command list (rows with `/<verb>` left, description right, fixed-width padding so descriptions align at column 20). Highlight selected row with `bg-border-default`. Divider line. Input echo line with cursor. complexity: [medium]
+- [x] T8.3 Create `Pito::Palette::CtrlP::Component` (rb + erb). Args: `sections:`, `selected_section_index:`, `selected_item_index:`. complexity: [medium]
+- [x] T8.4 In the erb, render the centered modal (surface bg, 1px border, 24px padding). Title row + search input + sections. Apply `max-height: min(80vh, 600px); overflow-y: auto`. Selected row inset 8px from interior edges. complexity: [medium]
+- [x] T8.5 Create `Pito::Palette::CtrlP::SectionComponent` (rb + erb). Renders the section title + a list of item rows. complexity: [low]
+- [x] T8.6 Generate `_Ui::PalettesController` (controller class name `Ui::PalettesController`, file at `app/controllers/_ui/palettes_controller.rb`). Action `#show`. complexity: [low]
+- [x] T8.7 In the controller, hardcode the slash commands array (8 commands) and the Ctrl+P sections array (Suggested / Session / Channel / Output) using the i18n keys from the spec. complexity: [medium]
+- [x] T8.8 Create `app/views/_ui/palettes/show.html.erb`. Stack both palettes vertically inside an 800px centered container, each with a small subheading above (`"Slash command palette · opens above chatbox when / is typed"`, `"Ctrl+P command palette · centered modal overlay"`). complexity: [low]
+- [x] T8.9 In `config/routes.rb`, add `namespace :_ui do get "palettes", to: "palettes#show" end`. complexity: [low]
 - [ ] T8.10 Visit `/_ui/palettes`. Verify both palettes match `ui-p3.md`. complexity: [manual]
 - [ ] T8.11 Commit: `U8: palette components + review page`. complexity: [manual]
 

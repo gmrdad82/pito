@@ -18,6 +18,11 @@ Rails.application.routes.draw do
   root "terminal#show"
   get "/start", to: "start_screens#show"
 
+  # _ui — review-only pages for UI component development
+  namespace :_ui do
+    get "palettes", to: "palettes#show"
+  end
+
   # JSON-only dashboard alias for pito CLI
   get "dashboard", to: "dashboard#index", as: :dashboard
   get "sidebar", to: "dashboard#sidebar", as: :sidebar

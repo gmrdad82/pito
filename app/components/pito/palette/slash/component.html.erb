@@ -1,0 +1,26 @@
+<%# Slash command palette — wrapped in Segment with purple border + surface bg %>
+<%= render(Pito::Segment::Component.new(
+      border: "var(--accent-purple)",
+      background: "var(--bg-surface)"
+    )) do %>
+  <div style="display: flex; flex-direction: column;">
+    <%# Command list — verb displayed in fixed-width column so descriptions align %>
+    <% @commands.each_with_index do |cmd, i| %>
+      <% selected = i == @selected_index %>
+      <div style="<%= 'background: var(--border-default);' if selected %> padding: 2px 0;">
+        <span class="text-fg" style="display: inline-block; width: 16ch;"><%= "/#{cmd[:verb]}" %></span>
+        <span class="text-fg-dim"><%= cmd[:description] %></span>
+      </div>
+    <% end %>
+
+    <%# 8px gap + divider + 8px gap %>
+    <div style="height: 8px;"></div>
+    <div style="height: 1px; background: var(--border-default);"></div>
+    <div style="height: 8px;"></div>
+
+    <%# Input echo line %>
+    <div style="display: flex; align-items: center;">
+      <%= render(Pito::Cursor::Component.new(char: "/", color: "var(--accent-purple)")) %>
+    </div>
+  </div>
+<% end %>
