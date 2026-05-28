@@ -1,7 +1,7 @@
 # Phase 12 — Step A (6a-sessions-and-login-ui.md) — cookie-session
 # resolver.
 #
-# Mirrors `Api::TokenAuthenticator`: input is the request, output is a
+# Input is the request, output is a
 # Result struct (success / failure + reason). Never raises on auth-flow
 # control paths; misconfiguration of the pepper falls through to a
 # `failure(:auth_misconfigured)` shape so callers can render a clean

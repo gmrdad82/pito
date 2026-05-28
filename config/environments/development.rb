@@ -63,7 +63,6 @@ Rails.application.configure do
   # Action Cable allowed request origins
   config.action_cable.allowed_request_origins = [
     "https://app.pitomd.com",
-    "https://mcp.pitomd.com",
     %r{https?://localhost(:\d+)?},
     %r{https?://127\.0\.0\.1(:\d+)?},
     %r{.*}  # accept any origin for development
@@ -77,10 +76,9 @@ Rails.application.configure do
 
   # Allow Cloudflare Tunnel hostnames. Rails 6+ rejects requests with unknown
   # Host headers in development; the pito CLI and any browser hitting the tunnel
-  # arrive here with Host: app.pitomd.com (or mcp.pitomd.com). "localhost",
+  # arrive here with Host: app.pitomd.com. "localhost",
   # "127.0.0.1", and "::1" are already in config.hosts by default.
   config.hosts << "app.pitomd.com"
-  config.hosts << "mcp.pitomd.com"
 
   # Default URL options for url_for, redirect_to(host:), and any *_url helper
   # called outside a request context (mailers, jobs, console). The Cloudflare

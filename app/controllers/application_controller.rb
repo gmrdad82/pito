@@ -12,11 +12,13 @@ class ApplicationController < ActionController::Base
   # Translate ActiveRecord::RecordNotFound into a clean JSON 404.
   rescue_from ActiveRecord::RecordNotFound, with: :render_not_found
 
-  # Auth errors from API namespace.
-  rescue_from Api::Unauthorized, with: :render_api_unauthorized
-  rescue_from Api::Forbidden,    with: :render_api_forbidden
+  helper_method :current_conversation
 
   private
+
+  def current_conversation
+    Conversation.singleton
+  end
 
   def set_user_time_zone
     Time.zone = "Etc/UTC"
@@ -24,17 +26,5 @@ class ApplicationController < ActionController::Base
 
   def render_not_found
     render json: { error: "Not found" }, status: :not_found
-  end
-
-  def render_api_unauthorized(error)
-    response.headers["WWW-Authenticate"] = Api::TokenAuthenticator.www_authenticate_header
-    render json: { error: error.reason }, status: :unauthorized
-  end
-
-  def render_api_forbidden(error)
-    render json: {
-      error: "insufficient_scope",
-      required: error.required_scope
-    }, status: :forbidden
   end
 end

@@ -7,9 +7,6 @@
 # `Current.user` — the User model is gone (Z1). Every controller that
 # previously gated on `Current.user.present?` now gates on
 # `Current.session.present?`.
-#
-# `Api::*` controllers do NOT include this concern — they use
-# `Api::AuthConcern` (bearer-only). The two surfaces stay separate.
 module Sessions
   module AuthConcern
     extend ActiveSupport::Concern

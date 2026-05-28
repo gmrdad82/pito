@@ -16,6 +16,7 @@ Rails.application.routes.draw do
       as: :youtube_connection_oauth_failure
 
   root "terminal#show"
+  post "/chat", to: "chat#create"
   get "/start", to: "start_screens#show"
 
   # _ui — review-only pages for UI component development
@@ -27,9 +28,6 @@ Rails.application.routes.draw do
   # JSON-only dashboard alias for pito CLI
   get "dashboard", to: "dashboard#index", as: :dashboard
   get "sidebar", to: "dashboard#sidebar", as: :sidebar
-
-  # Commands — slash-command API for xterm.js + Rust TUI
-  post "commands/execute", to: "commands#execute"
 
   # Channels — JSON API surface
   resources :channels, only: [ :index, :show, :destroy ] do
@@ -94,15 +92,6 @@ Rails.application.routes.draw do
   get "/footages/:footage_id/frames/t/:filename.jpg", to: "footages#frame_thumb",
       as: :footage_frame_thumb, constraints: { filename: /\d{2}-\d{2}-\d{2}/ }, defaults: { format: "jpg" }
   get "footage/importer/download", to: "footage_importer/downloads#show", as: :footage_importer_download
-
-  # API namespace (bearer auth for importer)
-  namespace :api do
-    resources :footages, only: [ :index, :create, :update, :destroy ] do
-      member do
-        patch :frames, action: :update_frames
-      end
-    end
-  end
 
   # Analytics
   resource :analytics, only: :show, controller: "analytics"

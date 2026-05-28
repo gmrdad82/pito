@@ -1,7 +1,5 @@
-# Pool sizing rule: max(Web Puma threads, MCP Puma threads, Sidekiq concurrency).
-# Defaults today: Web Puma 3 (config/puma.rb), MCP Puma 5 (config/puma_mcp.rb),
-# Sidekiq concurrency 5 (config/sidekiq.yml). The formula resolves to 5.
-# Tune by setting RAILS_MAX_THREADS / MCP_THREADS / SIDEKIQ_CONCURRENCY env vars.
+# Pool sizing rule: at least the Web Puma thread count (config/puma.rb), with
+# headroom for SolidQueue's in-process worker. Tune via RAILS_MAX_THREADS.
 default: &default
   adapter: postgresql
   encoding: unicode
