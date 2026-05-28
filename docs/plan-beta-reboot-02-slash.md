@@ -220,14 +220,14 @@ Plan 1's components (`Pito::Event::UserMessageComponent`, `Pito::Event::Assistan
 
 > The dispatch table. Where a verb meets its handler.
 
-- [ ] T5.1 Create `lib/pito/slash/result.rb`. Three immutable subclasses: `Pito::Slash::Result::Ok(events:)`, `Pito::Slash::Result::Error(message_key:, message_args:)`, `Pito::Slash::Result::NeedsConfirmation(prompt_key:, prompt_args:, command_text:)`. Each carries the payload shape needed to materialize an Event. complexity: [medium]
-- [ ] T5.2 In `Result::Ok`, `events:` is an array of `{ kind:, payload: }` hashes (so a single command can produce multiple events). complexity: [low]
-- [ ] T5.3 Create `lib/pito/slash/handler.rb`. Abstract base class. Initialized with `invocation:` and `conversation:` kwargs. Instance method `call -> Result`. Subclasses override `#call`. Class method `verb` returns the symbol the handler responds to (subclasses set it). complexity: [medium]
-- [ ] T5.4 Create `lib/pito/slash/registry.rb`. Singleton-style class with `register(handler_class)` and `lookup(verb) -> handler_class | nil`. Internal storage: a hash keyed by `handler_class.verb`. complexity: [low]
-- [ ] T5.5 Add `Pito::Slash::Registry.register_all!` that explicitly registers every handler under `Pito::Slash::Handlers::*`. Called once at boot from `config/initializers/pito.rb`. complexity: [low]
-- [ ] T5.6 Create `config/initializers/pito.rb` that runs `Rails.application.config.to_prepare { Pito::Slash::Registry.register_all! }`. complexity: [low]
-- [ ] T5.7 RSpec spec for `Pito::Slash::Registry`: registering a handler, looking it up, looking up an unknown verb returns nil. complexity: [low]
-- [ ] T5.8 Commit: `[skipci] S5: slash registry + handler base + result types`. complexity: [manual]
+- [x] T5.1 Create `lib/pito/slash/result.rb`. Three immutable subclasses: `Pito::Slash::Result::Ok(events:)`, `Pito::Slash::Result::Error(message_key:, message_args:)`, `Pito::Slash::Result::NeedsConfirmation(prompt_key:, prompt_args:, command_text:)`. Each carries the payload shape needed to materialize an Event. complexity: [medium]
+- [x] T5.2 In `Result::Ok`, `events:` is an array of `{ kind:, payload: }` hashes (so a single command can produce multiple events). complexity: [low]
+- [x] T5.3 Create `lib/pito/slash/handler.rb`. Abstract base class. Initialized with `invocation:` and `conversation:` kwargs. Instance method `call -> Result`. Subclasses override `#call`. Class method `verb` returns the symbol the handler responds to (subclasses set it). complexity: [medium]
+- [x] T5.4 Create `lib/pito/slash/registry.rb`. Singleton-style class with `register(handler_class)` and `lookup(verb) -> handler_class | nil`. Internal storage: a hash keyed by `handler_class.verb`. complexity: [low]
+- [x] T5.5 Add `Pito::Slash::Registry.register_all!` that explicitly registers every handler under `Pito::Slash::Handlers::*`. Called once at boot from `config/initializers/pito.rb`. complexity: [low]
+- [x] T5.6 Create `config/initializers/pito.rb` that runs `Rails.application.config.to_prepare { Pito::Slash::Registry.register_all! }`. complexity: [low]
+- [x] T5.7 RSpec spec for `Pito::Slash::Registry`: registering a handler, looking it up, looking up an unknown verb returns nil. complexity: [low]
+- [x] T5.8 Commit: `S5: slash registry + handler base + result types`. complexity: [manual]
 
 ## S6 — Slash dispatcher
 
