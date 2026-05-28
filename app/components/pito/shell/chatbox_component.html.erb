@@ -1,6 +1,11 @@
 <%# Chatbox — bar+gap+content via Pito::Segment, two-line layout %>
 <%
   placeholder = @placeholder_key ? t(@placeholder_key) : ""
+  input_attrs = { value: "", placeholder:, autocomplete: "off",
+                  class: "text-fg placeholder:text-fg-faded bg-transparent outline-none border-none w-full",
+                  style: "caret-color: var(--accent-purple); font-family: inherit; font-size: inherit; resize: none; overflow: hidden; padding: 0 0 0 8px;",
+                  data: { action: "keydown->pito--chat-form#handleKeydown" } }
+  input_attrs[:data].merge!(@input_data) if @input_data
 %>
 <div class="chatbox-wrapper">
 <%= render(Pito::Segment::Component.new(
@@ -8,10 +13,10 @@
       background: "var(--bg-surface)"
     )) do %>
   <div class="flex flex-col">
-    <%# Line 1: cursor + placeholder %>
+    <%# Line 1: text input %>
     <div class="flex items-center">
       <%= render(Pito::Cursor::Component.new(char: "/", ghost: true)) %>
-      <span class="text-fg-faded" style="margin-left: 8px;"><%= placeholder %></span>
+      <%= text_area_tag :input_field, nil, rows: 1, **input_attrs %>
     </div>
     <%# Line 2: filter context (only shown in :default state) %>
     <% if @filter && @state != :start %>

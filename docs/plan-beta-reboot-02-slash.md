@@ -243,20 +243,20 @@ Plan 1's components (`Pito::Event::UserMessageComponent`, `Pito::Event::Assistan
 
 > The single POST endpoint. Form around the existing chatbox component. Stimulus controller submits on Enter.
 
-- [ ] T7.1 Generate `app/controllers/chat_controller.rb` with `#create` action mapped to `POST /chat`. complexity: [low]
-- [ ] T7.2 In `#create`, read `params[:input]` (string). If `params[:input].to_s.start_with?("/")`, dispatch via `Pito::Slash::Dispatcher`. Otherwise, return 204 No Content for now (Plan 3 will wire the Chat branch). complexity: [medium]
-- [ ] T7.3 After dispatch returns a `Result`, the controller materializes Events: (a) always create an `echo` Event first with `payload: { text: params[:input] }`; (b) for `Result::Ok`, iterate `result.events` and create each; (c) for `Result::Error`, create one `error` Event with the result's `message_key`/`message_args`; (d) for `Result::NeedsConfirmation`, create one `confirmation_prompt` Event. All persisted within one `Turn` record. complexity: [medium]
-- [ ] T7.4 Each Event creation goes through `Pito::Stream::Broadcaster.new(conversation: current_conversation).emit(turn:, kind:, payload:)`. The broadcaster persists AND broadcasts. complexity: [medium]
-- [ ] T7.5 Controller responds with `head :no_content` after dispatch — all visible output arrives via the Cable broadcast. complexity: [low]
-- [ ] T7.6 Add `current_conversation` helper to `ApplicationController` returning `Conversation.singleton`. (Multi-conversation routing deferred.) complexity: [low]
-- [ ] T7.7 In `config/routes.rb`, add `post "/chat", to: "chat#create"`. complexity: [low]
-- [ ] T7.8 Update `app/views/terminal/show.html.erb` to wrap the chatbox in a `form_with url: chat_path, method: :post, data: { controller: "pito--chat-form", turbo: true }`. The form contains a hidden input named `input` populated by Stimulus from the chatbox's editable region. (Plan 1's chatbox is currently a static visual — Plan 2 makes the bar+content area editable via `contenteditable="true"` on the text span, OR replaces the inner text with an `<input type="text">` styled to match. Pick whichever is simpler to style; the input route is recommended for Plan 2.) complexity: [medium]
-- [ ] T7.9 Create Stimulus controller `app/javascript/controllers/pito/chat_form_controller.js`. Targets: `input` (the text field), `form` (the form element). On Enter keydown (no Shift): `event.preventDefault()`, copy the visible input value into a hidden field, submit the form via `this.formTarget.requestSubmit()`, clear the visible input. complexity: [medium]
-- [ ] T7.10 Pin Stimulus controller in `config/importmap.rb` and register it in `app/javascript/controllers/index.js` (or equivalent eager-load list). complexity: [low]
-- [ ] T7.11 Subscribe the `<turbo-cable-stream-source>` element in the terminal layout to `"pito:conversation:#{current_conversation.id}"`. Provide the conversation id from the controller. complexity: [medium]
-- [ ] T7.12 Add a wrapping `<div id="pito-scrollback">` around the scrollback area in the terminal view (matches the target id used by the broadcaster). complexity: [low]
-- [ ] T7.13 RSpec request spec `spec/requests/chat_spec.rb`: POST `/chat` with input `/help` returns 204; creates exactly one Turn; creates an echo Event + at least one response Event; broadcasts to the conversation stream. complexity: [medium]
-- [ ] T7.14 Commit: `[skipci] S7: chat controller + form + stimulus submit`. complexity: [manual]
+- [x] T7.1 Generate `app/controllers/chat_controller.rb` with `#create` action mapped to `POST /chat`. complexity: [low]
+- [x] T7.2 In `#create`, read `params[:input]` (string). If `params[:input].to_s.start_with?("/")`, dispatch via `Pito::Slash::Dispatcher`. Otherwise, return 204 No Content for now (Plan 3 will wire the Chat branch). complexity: [medium]
+- [x] T7.3 After dispatch returns a `Result`, the controller materializes Events: (a) always create an `echo` Event first with `payload: { text: params[:input] }`; (b) for `Result::Ok`, iterate `result.events` and create each; (c) for `Result::Error`, create one `error` Event with the result's `message_key`/`message_args`; (d) for `Result::NeedsConfirmation`, create one `confirmation_prompt` Event. All persisted within one `Turn` record. complexity: [medium]
+- [x] T7.4 Each Event creation goes through `Pito::Stream::Broadcaster.new(conversation: current_conversation).emit(turn:, kind:, payload:)`. The broadcaster persists AND broadcasts. complexity: [medium]
+- [x] T7.5 Controller responds with `head :no_content` after dispatch — all visible output arrives via the Cable broadcast. complexity: [low]
+- [x] T7.6 Add `current_conversation` helper to `ApplicationController` returning `Conversation.singleton`. (Multi-conversation routing deferred.) complexity: [low]
+- [x] T7.7 In `config/routes.rb`, add `post "/chat", to: "chat#create"`. complexity: [low]
+- [x] T7.8 Update `app/views/terminal/show.html.erb` to wrap the chatbox in a `form_with url: chat_path, method: :post, data: { controller: "pito--chat-form", turbo: true }`. The form contains a hidden input named `input` populated by Stimulus from the chatbox's editable region. (Plan 1's chatbox is currently a static visual — Plan 2 makes the bar+content area editable via `contenteditable="true"` on the text span, OR replaces the inner text with an `<input type="text">` styled to match. Pick whichever is simpler to style; the input route is recommended for Plan 2.) complexity: [medium]
+- [x] T7.9 Create Stimulus controller `app/javascript/controllers/pito/chat_form_controller.js`. Targets: `input` (the text field), `form` (the form element). On Enter keydown (no Shift): `event.preventDefault()`, copy the visible input value into a hidden field, submit the form via `this.formTarget.requestSubmit()`, clear the visible input. complexity: [medium]
+- [x] T7.10 Pin Stimulus controller in `config/importmap.rb` and register it in `app/javascript/controllers/index.js` (or equivalent eager-load list). complexity: [low]
+- [x] T7.11 Subscribe the `<turbo-cable-stream-source>` element in the terminal layout to `"pito:conversation:#{current_conversation.id}"`. Provide the conversation id from the controller. complexity: [medium]
+- [x] T7.12 Add a wrapping `<div id="pito-scrollback">` around the scrollback area in the terminal view (matches the target id used by the broadcaster). complexity: [low]
+- [x] T7.13 RSpec request spec `spec/requests/chat_spec.rb`: POST `/chat` with input `/help` returns 204; creates exactly one Turn; creates an echo Event + at least one response Event; broadcasts to the conversation stream. complexity: [medium]
+- [x] T7.14 Commit: `[skipci] S7: chat controller + form + stimulus submit`. complexity: [manual]
 
 ## S8 — Scrollback re-render from persisted Events
 

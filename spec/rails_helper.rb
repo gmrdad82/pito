@@ -1,6 +1,10 @@
 # This file is copied to spec/ when you run 'rails generate rspec:install'
 require 'spec_helper'
-ENV['RAILS_ENV'] ||= 'test'
+# Force the test environment. A plain `||=` would let an ambient
+# RAILS_ENV=development (exported in the dev shell) leak in and boot specs
+# against the dev environment — which silently breaks host authorization
+# (Rack::Test's www.example.com isn't in the dev config.hosts allowlist).
+ENV['RAILS_ENV'] = 'test'
 require_relative '../config/environment'
 # Prevent database truncation if the environment is production
 abort("The Rails environment is running in production mode!") if Rails.env.production?
