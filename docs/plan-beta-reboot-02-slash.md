@@ -274,14 +274,14 @@ Plan 1's components (`Pito::Event::UserMessageComponent`, `Pito::Event::Assistan
 
 > The one handler this plan wires fully. Returns hardcoded help text by listing the registry.
 
-- [ ] T9.1 Create `app/services/pito/slash/handlers/help.rb`. Class `Pito::Slash::Handlers::Help < Pito::Slash::Handler`. `self.verb = :help`. complexity: [low]
-- [ ] T9.2 `#call` returns `Pito::Slash::Result::Ok.new(events: [...])`. The events array contains one `assistant_text` event with payload `{ message_key: "pito.slash.help.intro", message_args: { count: Pito::Slash::Registry.size } }`, followed by one `assistant_text` event per registered handler listing its verb (using `message_key: "pito.slash.help.entry"` and `message_args: { verb: ..., description_key: ... }`). complexity: [medium]
-- [ ] T9.3 Add a `self.description_key` class attribute to `Pito::Slash::Handler` so each handler advertises an i18n key for its one-line description. `Help` sets it to `"pito.slash.help.descriptions.help"`. complexity: [low]
-- [ ] T9.4 Register `Help` in `Pito::Slash::Registry.register_all!`. complexity: [low]
-- [ ] T9.5 Verify in console: `Pito::Slash::Dispatcher.call(input: "/help", conversation: Conversation.singleton)` returns a `Result::Ok` with the expected events. complexity: [manual]
-- [ ] T9.6 RSpec service spec for `Pito::Slash::Handlers::Help`: returns Ok; produces N+1 events where N is the registry size. complexity: [low]
-- [ ] T9.7 Smoke test: type `/help` in the chatbox at `/`, press Enter. See `/help` echoed (orange border) and the help response appended (no border). Refresh. Same content reappears. complexity: [manual]
-- [ ] T9.8 Commit: `[skipci] S9: /help handler end-to-end`. complexity: [manual]
+- [x] T9.1 Create `app/services/pito/slash/handlers/help.rb`. Class `Pito::Slash::Handlers::Help < Pito::Slash::Handler`. `self.verb = :help`. complexity: [low]
+- [x] T9.2 `#call` returns `Pito::Slash::Result::Ok.new(events: [...])`. The events array contains one `assistant_text` event with payload `{ message_key: "pito.slash.help.intro", message_args: { count: Pito::Slash::Registry.size } }`, followed by one `assistant_text` event per registered handler listing its verb (using `message_key: "pito.slash.help.entry"` and `message_args: { verb: ..., description_key: ... }`). complexity: [medium]
+- [x] T9.3 Add a `self.description_key` class attribute to `Pito::Slash::Handler` so each handler advertises an i18n key for its one-line description. `Help` sets it to `"pito.slash.help.descriptions.help"`. complexity: [low]
+- [x] T9.4 Register `Help` in `Pito::Slash::Registry.register_all!`. complexity: [low]
+- [x] T9.5 Verify in console: `Pito::Slash::Dispatcher.call(input: "/help", conversation: Conversation.singleton)` returns a `Result::Ok` with the expected events. complexity: [manual]
+- [x] T9.6 RSpec service spec for `Pito::Slash::Handlers::Help`: returns Ok; produces N+1 events where N is the registry size. complexity: [low]
+- [x] T9.7 Smoke test: type `/help` in the chatbox at `/`, press Enter. See `/help` echoed (orange border) and the help response appended (no border). Refresh. Same content reappears. complexity: [manual]
+- [x] T9.8 Commit: `[skipci] S9: /help handler end-to-end`. complexity: [manual]
 
 ## S10 — Error path: unknown verb event
 
