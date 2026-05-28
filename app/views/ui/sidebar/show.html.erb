@@ -1,0 +1,98 @@
+<%# U9 — Sidebar review page. Exact copy of / layout with sidebar overlaid. %>
+<%# Top: scrollable event stream. Bottom: chatbox + mini-status row. %>
+
+<div class="flex flex-col" style="height: 100vh;">
+  <%# Scrollable event stream — scroll disabled when sidebar is open, sidebar handles all scrolling %>
+  <div style="flex: 1; overflow: hidden; padding: 32px 50px 0;">
+      <% @events.each do |event| %>
+        <% case event[:kind] %>
+        <% when :user_message %>
+          <%= render(Pito::Event::UserMessageComponent.new(body: event[:body])) %>
+        <% when :assistant_text %>
+          <%= render(Pito::Event::AssistantTextComponent.new(body: event[:body])) %>
+        <% when :thought %>
+          <%= render(Pito::Event::ThoughtComponent.new(body: event[:body], duration: event[:duration])) %>
+        <% when :tool_output %>
+          <%= render(Pito::Event::ToolOutputComponent.new(
+                title: event[:title],
+                command: event[:command],
+                output: event[:output]
+              )) %>
+        <% when :status_footer %>
+          <%= render(Pito::Event::StatusFooterComponent.new(
+                mode: event[:mode],
+                agent: event[:agent],
+                duration: event[:duration]
+              )) %>
+        <% end %>
+      <% end %>
+  </div>
+
+  <%# Bottom: chatbox + mini-status row — same padding as / %>
+  <div style="padding: 0 50px 32px; border-top: 20px solid var(--bg-root);">
+    <%# Chatbox %>
+    <%= render(Pito::Shell::ChatboxComponent.new(
+          state: :default,
+          placeholder_key: "pito.shell.chatbox.placeholder",
+          filter: { channel: "@gmrdad82", period: "7d" }
+        )) %>
+
+    <%# Mini-status row %>
+    <div class="flex items-center" style="margin-top: 8px;">
+      <div style="margin-left: 10px;">
+        <%= render(Pito::Shell::PostCommandDotsComponent.new) %>
+      </div>
+      <div style="margin-left: auto;">
+        <%= render(Pito::Shell::MiniStatusComponent.new(
+              mode: :connection,
+              state: true,
+              notifications: 3,
+              show_notifications: true
+            )) %>
+      </div>
+    </div>
+  </div>
+</div>
+
+<%# Sidebar overlay — fixed on right, on top of everything %>
+<%= render(Pito::Sidebar::Component.new(
+      title: @game[:title],
+      subtitle_key: "pito.sidebar.game.subtitle",
+      subtitle_args: { date: @game[:subtitle_date] }
+    )) do |sidebar| %>
+  <% sidebar.with_body do %>
+    <% @game[:sections].each do |section| %>
+      <%= render(Pito::Sidebar::SectionComponent.new(title_key: section[:title_key])) do |comp| %>
+        <% comp.with_body do %>
+          <% case section[:type] %>
+          <% when :top_videos %>
+            <% section[:rows].each do |row| %>
+              <div style="display: flex; justify-content: space-between; padding: 2px 0;">
+                <span><span style="color: var(--fg-dim);"><%= row[:date] %></span> <span style="color: var(--fg);"><%= row[:title] %></span></span>
+                <span style="color: var(--accent-cyan); flex-shrink: 0;"><%= row[:views] %></span>
+              </div>
+            <% end %>
+          <% when :tags %>
+            <span style="color: var(--fg);"><%= section[:tags] %></span>
+          <% when :paragraph %>
+            <span style="color: var(--fg);"><%= section[:text] %></span>
+          <% when :commands %>
+            <% section[:commands].each do |cmd| %>
+              <div style="padding: 2px 0;">
+                <span style="color: var(--fg-dim);">·</span>
+                <span style="color: var(--accent-cyan);"><%= cmd %></span>
+              </div>
+            <% end %>
+          <% else %>
+            <% section[:rows].each do |row| %>
+              <div style="display: flex; justify-content: space-between; padding: 2px 0;">
+                <span style="color: <%= row[:label_color] == :cyan ? 'var(--accent-cyan)' : 'var(--fg-dim)' %>;"><%= row[:label] %></span>
+                <span style="color: var(--fg);"><%= row[:value] %></span>
+              </div>
+            <% end %>
+          <% end %>
+        <% end %>
+      <% end %>
+    <% end %>
+  <% end %>
+<% end %>

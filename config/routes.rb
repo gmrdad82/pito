@@ -21,6 +21,7 @@ Rails.application.routes.draw do
   # _ui — review-only pages for UI component development
   namespace :_ui do
     get "palettes", to: "palettes#show"
+    get "sidebar",  to: "sidebar#show"
   end
 
   # JSON-only dashboard alias for pito CLI

@@ -88,6 +88,15 @@ html {
   border-color: transparent;
 }
 
+/* ── Hide scrollbar, keep scrolling ──────────────────────────── */
+
+.pito-hide-scrollbar {
+  scrollbar-width: none;
+}
+.pito-hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 /* ── Shell animations ──────────────────────────────────────────
  *
  * Braille spinner: cycles through 10 braille characters to show

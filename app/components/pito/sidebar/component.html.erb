@@ -1,0 +1,18 @@
+<%# Sidebar — fixed overlay panel on the right edge of viewport %>
+<aside style="position: fixed; right: 0; top: 0; bottom: 0; width: 480px; background: var(--bg-root); border-left: 1px solid var(--border-default); z-index: 10; overflow: hidden; display: flex; flex-direction: column;">
+  <%# Sticky header %>
+  <div style="padding: 16px 16px 0;">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+      <div>
+        <div style="color: var(--accent-cyan); font-weight: bold;"><%= @title %></div>
+        <div style="color: var(--fg-dim); font-size: inherit;"><%= t(@subtitle_key, **@subtitle_args) %></div>
+      </div>
+      <span style="color: var(--fg-dim); flex-shrink: 0;">esc</span>
+    </div>
+  </div>
+
+  <%# Scrollable body — hidden scrollbar, keep scrolling %>
+  <div class="pito-hide-scrollbar" style="flex: 1; overflow-y: auto; padding: 16px;">
+    <%= body %>
+  </div>
+</aside>

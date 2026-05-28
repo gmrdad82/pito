@@ -577,18 +577,18 @@ config/locales/pito/
 
 > Sidebar rendered as `position: fixed` overlay on top of the chat shell. Review-only route; production opens via interaction.
 
-- [ ] T9.1 Create `Pito::Sidebar::Component` (rb + erb). Args: `title:`, `subtitle_key:`, `subtitle_args:`. Slot: `body`. complexity: [medium]
-- [ ] T9.2 In the erb, render the `<aside>` with `position: fixed; right: 0; top: 0; bottom: 0; width: 480px; background: var(--bg-root); border-left: 1px solid var(--border-default); z-index: 10; overflow: hidden`. Inside, sticky header (title block + esc) and scrollable body slot. complexity: [medium]
-- [ ] T9.3 Create `Pito::Sidebar::SectionComponent` (rb + erb). Args: `title_key:`. Renders title + content slot + 24px bottom margin. complexity: [low]
-- [ ] T9.4 Generate `_Ui::SidebarController` with action `#show`. Hardcode game-detail sample data (Hollow Knight) in the controller or in `lib/pito/sample/game_detail.rb`. complexity: [medium]
-- [ ] T9.5 Create `app/views/_ui/sidebar/show.html.erb`. Two children of a root wrapper with `overflow: hidden`:
+- [x] T9.1 Create `Pito::Sidebar::Component` (rb + erb). Args: `title:`, `subtitle_key:`, `subtitle_args:`. Slot: `body`. complexity: [medium]
+- [x] T9.2 In the erb, render the `<aside>` with `position: fixed; right: 0; top: 0; bottom: 0; width: 480px; background: var(--bg-root); border-left: 1px solid var(--border-default); z-index: 10; overflow: hidden`. Inside, sticky header (title block + esc) and scrollable body slot. complexity: [medium]
+- [x] T9.3 Create `Pito::Sidebar::SectionComponent` (rb + erb). Args: `title_key:`. Renders title + content slot + 24px bottom margin. complexity: [low]
+- [x] T9.4 Generate `_Ui::SidebarController` with action `#show`. Hardcode game-detail sample data (Hollow Knight) in the controller or in `lib/pito/sample/game_detail.rb`. complexity: [medium]
+- [x] T9.5 Create `app/views/_ui/sidebar/show.html.erb`. Two children of a root wrapper with `overflow: hidden`:
   - `<main>` containing the SAME content as `TerminalController#show` (reuse the sample messages module from U6). No max-width, no padding-right. Chat shell renders at full viewport width.
   - `<aside>` rendered via `Pito::Sidebar::Component` with `title: "Hollow Knight"`, `subtitle_key: "pito.sidebar.game.subtitle"`, `subtitle_args: { date: "2026-05-18" }`. Inside the body slot, render each game-detail section via `Pito::Sidebar::SectionComponent`.
   
   Note: the chat shell extends full width on purpose — the sidebar is an overlay that covers the right ~480px by design. Some chat content goes behind the sidebar; that's the intended behavior. complexity: [medium]
-- [ ] T9.6 In `config/routes.rb`, add `namespace :_ui do get "sidebar", to: "sidebar#show" end`. complexity: [low]
-- [ ] T9.7 Visit `/_ui/sidebar`. Verify: no horizontal page scroll, chat shell renders at full viewport width (identical to `/`), sidebar floats fixed on the right at 480px, sticky header, scrollable body inside the sidebar. complexity: [manual]
-- [ ] T9.8 Commit: `U9: sidebar overlay component + review page`. complexity: [manual]
+- [x] T9.6 In `config/routes.rb`, add `namespace :_ui do get "sidebar", to: "sidebar#show" end`. complexity: [low]
+- [x] T9.7 Visit `/_ui/sidebar`. Verify: no horizontal page scroll, chat shell renders at full viewport width (identical to `/`), sidebar floats fixed on the right at 480px, sticky header, scrollable body inside the sidebar. complexity: [manual]
+- [x] T9.8 Commit: `U9: sidebar overlay component + review page`. complexity: [manual]
 
 ## U10 — i18n locale files
 
