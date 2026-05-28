@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_27_171930) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_28_190628) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -60,6 +60,25 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_27_171930) do
     t.string "slug"
     t.datetime "updated_at", null: false
     t.index ["igdb_id"], name: "index_companies_on_igdb_id", unique: true
+  end
+
+  create_table "conversations", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "title"
+    t.datetime "updated_at", null: false
+  end
+
+  create_table "events", force: :cascade do |t|
+    t.bigint "conversation_id", null: false
+    t.datetime "created_at", null: false
+    t.string "kind", null: false
+    t.jsonb "payload", default: {}, null: false
+    t.integer "position", null: false
+    t.bigint "turn_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["conversation_id", "position"], name: "index_events_on_conversation_id_and_position", unique: true
+    t.index ["conversation_id"], name: "index_events_on_conversation_id"
+    t.index ["turn_id"], name: "index_events_on_turn_id"
   end
 
   create_table "footages", force: :cascade do |t|
@@ -195,6 +214,17 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_27_171930) do
     t.index ["used_at"], name: "index_totp_backup_codes_on_used_at"
   end
 
+  create_table "turns", force: :cascade do |t|
+    t.bigint "conversation_id", null: false
+    t.datetime "created_at", null: false
+    t.string "input_kind", null: false
+    t.string "input_text", null: false
+    t.integer "position", null: false
+    t.datetime "updated_at", null: false
+    t.index ["conversation_id", "position"], name: "index_turns_on_conversation_id_and_position", unique: true
+    t.index ["conversation_id"], name: "index_turns_on_conversation_id"
+  end
+
   create_table "video_game_links", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.bigint "game_id", null: false
@@ -250,6 +280,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_27_171930) do
   end
 
   add_foreign_key "channels", "youtube_connections", on_delete: :nullify
+  add_foreign_key "events", "conversations"
+  add_foreign_key "events", "turns"
   add_foreign_key "footages", "games", on_delete: :nullify
   add_foreign_key "game_developers", "companies", on_delete: :cascade
   add_foreign_key "game_developers", "games", on_delete: :cascade
@@ -259,6 +291,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_27_171930) do
   add_foreign_key "game_publishers", "companies", on_delete: :cascade
   add_foreign_key "game_publishers", "games", on_delete: :cascade
   add_foreign_key "games", "genres", column: "primary_genre_id", on_delete: :nullify
+  add_foreign_key "turns", "conversations"
   add_foreign_key "video_game_links", "games", on_delete: :cascade
   add_foreign_key "video_game_links", "videos", on_delete: :cascade
   add_foreign_key "videos", "channels"

@@ -151,28 +151,28 @@ Plan 1's components (`Pito::Event::UserMessageComponent`, `Pito::Event::Assistan
 
 > Verify Plan 1 finished. Don't start S1 until every box here is checked.
 
-- [ ] T0.1 Confirm every Plan 1 phase (U0–U11) is checked off. complexity: [manual]
-- [ ] T0.2 `bin/dev` starts cleanly; `/` renders the chat shell with hardcoded sample events; `/start` renders the start screen. complexity: [manual]
-- [ ] T0.3 `Pito::Shell::ChatboxComponent`, `Pito::Event::UserMessageComponent`, `Pito::Event::AssistantTextComponent` exist and render without error from console. complexity: [manual]
-- [ ] T0.4 Create branch `plan-02-slash` from `plan-01-ui` (or main, post-Plan-1 merge). complexity: [manual]
-- [ ] T0.5 Tag the current state as `v0.1.1-pre-slash`. complexity: [manual]
+- [x] T0.1 Confirm every Plan 1 phase (U0–U11) is checked off. complexity: [manual]
+- [x] T0.2 `bin/dev` starts cleanly; `/` renders the chat shell with hardcoded sample events; `/start` renders the start screen. complexity: [manual]
+- [x] T0.3 `Pito::Shell::ChatboxComponent`, `Pito::Event::UserMessageComponent`, `Pito::Event::AssistantTextComponent` exist and render without error from console. complexity: [manual]
+- [x] T0.4 Create branch `plan-02-slash` from `plan-01-ui` (or main, post-Plan-1 merge). complexity: [manual]
+- [x] T0.5 Tag the current state as `v0.1.1-pre-slash`. complexity: [manual]
 
 ## S1 — Persistence: Conversation, Turn, Event
 
 > Build the three tables that hold every interaction. Payloads are structured JSON; no HTML stored.
 
-- [ ] T1.1 Generate migration `add_conversations_turns_events.rb`. Tables: `conversations`, `turns`, `events`. complexity: [medium]
-- [ ] T1.2 In the migration, `conversations` has: `id`, `title` (string, nullable), `created_at`, `updated_at`. No user_id (single-user app). complexity: [low]
-- [ ] T1.3 In the migration, `turns` has: `id`, `conversation_id` (FK, not null, indexed), `position` (integer, not null), `input_kind` (string, not null — `"slash"` or `"chat"`), `input_text` (string, not null), `created_at`, `updated_at`. Unique index on `(conversation_id, position)`. complexity: [low]
-- [ ] T1.4 In the migration, `events` has: `id`, `conversation_id` (FK, not null, indexed), `turn_id` (FK, not null, indexed), `position` (integer, not null), `kind` (string, not null), `payload` (jsonb, not null, default `{}`), `created_at`, `updated_at`. Unique index on `(conversation_id, position)`. complexity: [low]
-- [ ] T1.5 `bin/rails db:migrate`. Verify schema landed. complexity: [manual]
-- [ ] T1.6 Create `app/models/conversation.rb`: `has_many :turns, -> { order(:position) }`, `has_many :events, -> { order(:position) }`. Add `Conversation.singleton` class method that finds the first conversation or creates one (Plan 2 single-conversation assumption). complexity: [medium]
-- [ ] T1.7 Create `app/models/turn.rb`: `belongs_to :conversation`, `has_many :events, -> { order(:position) }`. Validations: `input_kind` in `%w[slash chat]`, `position` presence, `input_text` presence. complexity: [low]
-- [ ] T1.8 Create `app/models/event.rb`: `belongs_to :conversation`, `belongs_to :turn`. Validations: `kind` presence, `position` presence. Add `KINDS` constant listing supported kinds: `%w[echo assistant_text error confirmation_prompt]`. complexity: [low]
-- [ ] T1.9 Add a class method `Event.next_position_for(conversation)` returning `conversation.events.maximum(:position).to_i + 1`. complexity: [low]
-- [ ] T1.10 Add a class method `Turn.next_position_for(conversation)` returning `conversation.turns.maximum(:position).to_i + 1`. complexity: [low]
-- [ ] T1.11 RSpec model specs: `Conversation.singleton` returns the same record across calls; `Event.next_position_for` increments; `Turn` validates `input_kind` inclusion. complexity: [low]
-- [ ] T1.12 Commit: `[skipci] S1: conversation/turn/event persistence`. complexity: [manual]
+- [x] T1.1 Generate migration `add_conversations_turns_events.rb`. Tables: `conversations`, `turns`, `events`. complexity: [medium]
+- [x] T1.2 In the migration, `conversations` has: `id`, `title` (string, nullable), `created_at`, `updated_at`. No user_id (single-user app). complexity: [low]
+- [x] T1.3 In the migration, `turns` has: `id`, `conversation_id` (FK, not null, indexed), `position` (integer, not null), `input_kind` (string, not null — `"slash"` or `"chat"`), `input_text` (string, not null), `created_at`, `updated_at`. Unique index on `(conversation_id, position)`. complexity: [low]
+- [x] T1.4 In the migration, `events` has: `id`, `conversation_id` (FK, not null, indexed), `turn_id` (FK, not null, indexed), `position` (integer, not null), `kind` (string, not null), `payload` (jsonb, not null, default `{}`), `created_at`, `updated_at`. Unique index on `(conversation_id, position)`. complexity: [low]
+- [x] T1.5 `bin/rails db:migrate`. Verify schema landed. complexity: [manual]
+- [x] T1.6 Create `app/models/conversation.rb`: `has_many :turns, -> { order(:position) }`, `has_many :events, -> { order(:position) }`. Add `Conversation.singleton` class method that finds the first conversation or creates one (Plan 2 single-conversation assumption). complexity: [medium]
+- [x] T1.7 Create `app/models/turn.rb`: `belongs_to :conversation`, `has_many :events, -> { order(:position) }`. Validations: `input_kind` in `%w[slash chat]`, `position` presence, `input_text` presence. complexity: [low]
+- [x] T1.8 Create `app/models/event.rb`: `belongs_to :conversation`, `belongs_to :turn`. Validations: `kind` presence, `position` presence. Add `KINDS` constant listing supported kinds: `%w[echo assistant_text error confirmation_prompt]`. complexity: [low]
+- [x] T1.9 Add a class method `Event.next_position_for(conversation)` returning `conversation.events.maximum(:position).to_i + 1`. complexity: [low]
+- [x] T1.10 Add a class method `Turn.next_position_for(conversation)` returning `conversation.turns.maximum(:position).to_i + 1`. complexity: [low]
+- [x] T1.11 RSpec model specs: `Conversation.singleton` returns the same record across calls; `Event.next_position_for` increments; `Turn` validates `input_kind` inclusion. complexity: [low]
+- [x] T1.12 Commit: `[skipci] S1: conversation/turn/event persistence`. complexity: [manual]
 
 ## S2 — Shared lexer (`Pito::Lex`)
 
