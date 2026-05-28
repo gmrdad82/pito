@@ -208,13 +208,13 @@ Plan 1's components (`Pito::Event::UserMessageComponent`, `Pito::Event::Assistan
 
 > Tokens → SlashInvocation. Hand-rolled grammar.
 
-- [ ] T4.1 Create `lib/pito/slash/invocation.rb`. Frozen value object with `verb:` (symbol), `args:` (array of strings/numbers), `kwargs:` (hash, symbol keys), `raw:` (original input string). complexity: [low]
-- [ ] T4.2 Create `lib/pito/slash/parser.rb`. Class method `Pito::Slash::Parser.call(tokens, raw:) -> Invocation`. complexity: [medium]
-- [ ] T4.3 Grammar rule: first token MUST be `:slash`, else raise `Pito::Slash::Parser::NotASlashCommand`. Second token MUST be `:word`, else raise `Pito::Slash::Parser::MissingVerb`. The verb is `tokens[1].value.to_sym`. complexity: [medium]
-- [ ] T4.4 Grammar rule: remaining tokens collect into `args` (positional) and `kwargs` (when a `:word`/`:colon` or `:word`/`:equals` pattern appears). For Plan 2 keep it simple: bare words/numbers/strings → args; `key=value` or `key:value` → kwargs. complexity: [medium]
-- [ ] T4.5 RSpec spec `spec/lib/pito/slash/parser_spec.rb`: `/help` → `Invocation(verb: :help, args: [], kwargs: {})`; `/publish 42` → `Invocation(verb: :publish, args: [42], kwargs: {})`; `/schedule 42 when="tomorrow"` → `Invocation(verb: :schedule, args: [42], kwargs: { when: "tomorrow" })`. Errors raise the named exception classes. complexity: [low]
-- [ ] T4.6 Verify in console: `Pito::Slash::Parser.call(Pito::Lex::Lexer.call("/help"), raw: "/help")` returns the expected Invocation. complexity: [manual]
-- [ ] T4.7 Commit: `[skipci] S4: slash parser + invocation value object`. complexity: [manual]
+- [x] T4.1 Create `lib/pito/slash/invocation.rb`. Frozen value object with `verb:` (symbol), `args:` (array of strings/numbers), `kwargs:` (hash, symbol keys), `raw:` (original input string). complexity: [low]
+- [x] T4.2 Create `lib/pito/slash/parser.rb`. Class method `Pito::Slash::Parser.call(tokens, raw:) -> Invocation`. complexity: [medium]
+- [x] T4.3 Grammar rule: first token MUST be `:slash`, else raise `Pito::Slash::Parser::NotASlashCommand`. Second token MUST be `:word`, else raise `Pito::Slash::Parser::MissingVerb`. The verb is `tokens[1].value.to_sym`. complexity: [medium]
+- [x] T4.4 Grammar rule: remaining tokens collect into `args` (positional) and `kwargs` (when a `:word`/`:colon` or `:word`/`:equals` pattern appears). For Plan 2 keep it simple: bare words/numbers/strings → args; `key=value` or `key:value` → kwargs. complexity: [medium]
+- [x] T4.5 RSpec spec `spec/lib/pito/slash/parser_spec.rb`: `/help` → `Invocation(verb: :help, args: [], kwargs: {})`; `/publish 42` → `Invocation(verb: :publish, args: [42], kwargs: {})`; `/schedule 42 when="tomorrow"` → `Invocation(verb: :schedule, args: [42], kwargs: { when: "tomorrow" })`. Errors raise the named exception classes. complexity: [low]
+- [x] T4.6 Verify in console: `Pito::Slash::Parser.call(Pito::Lex::Lexer.call("/help"), raw: "/help")` returns the expected Invocation. complexity: [manual]
+- [x] T4.7 Commit: `S4: slash parser + invocation value object`. complexity: [manual]
 
 ## S5 — Slash registry + handler base + result types
 
