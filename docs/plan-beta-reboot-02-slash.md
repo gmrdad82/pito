@@ -287,12 +287,12 @@ Plan 1's components (`Pito::Event::UserMessageComponent`, `Pito::Event::Assistan
 
 > Typing `/nope` produces a real error event in the scrollback.
 
-- [ ] T10.1 Confirm `Pito::Slash::Dispatcher` already returns `Result::Error` for unknown verbs (per S6.2). No code change here, just verification. complexity: [manual]
-- [ ] T10.2 Verify `ChatController#create` materializes the Error into an `error` Event (per S7.3). No code change here. complexity: [manual]
-- [ ] T10.3 Smoke test: type `/nope` in the chatbox. See echo + red-bordered error: "Unknown command: /nope". complexity: [manual]
-- [ ] T10.4 RSpec request spec extension: POST `/chat` with input `/nope` creates an error Event with `kind: :error`, `payload[:message_key] == "pito.slash.errors.unknown_verb"`. complexity: [low]
-- [ ] T10.5 Smoke test: type a garbled input like `/` (slash with no verb). See echo + error event "Couldn't parse command: /". complexity: [manual]
-- [ ] T10.6 Commit: `[skipci] S10: unknown-verb + parse-failed error events`. complexity: [manual]
+- [x] T10.1 Confirm `Pito::Slash::Dispatcher` already returns `Result::Error` for unknown verbs (per S6.2). No code change here, just verification. complexity: [manual]
+- [x] T10.2 Verify `ChatController#create` materializes the Error into an `error` Event (per S7.3). No code change here. complexity: [manual]
+- [x] T10.3 Smoke test: type `/nope` in the chatbox. See echo + red-bordered error: "Unknown command: /nope". complexity: [manual]
+- [x] T10.4 RSpec request spec extension: POST `/chat` with input `/nope` creates an error Event with `kind: :error`, `payload[:message_key] == "pito.slash.errors.unknown_verb"`. complexity: [low]
+- [x] T10.5 Smoke test: type a garbled input like `/` (slash with no verb). See echo + error event "Couldn't parse command: /". complexity: [manual]
+- [x] T10.6 Commit: `S10: unknown-verb + parse-failed error events`. complexity: [manual]
 
 ## S11 — Confirmation primitive (structural only)
 
