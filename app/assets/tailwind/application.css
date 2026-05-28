@@ -97,6 +97,44 @@ html {
   display: none;
 }
 
+/* ── Scroll fade hint (top/bottom gradient mask) ────────────── */
+
+.pito-scroll-fade {
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent 0%,
+    black 16px,
+    black calc(100% - 36px),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0%,
+    black 16px,
+    black calc(100% - 36px),
+    transparent 100%
+  );
+}
+
+/* Same gradient but with even 26px on both ends (no border compensation). */
+
+.pito-scroll-fade-slim {
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent 0%,
+    black 16px,
+    black calc(100% - 26px),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0%,
+    black 16px,
+    black calc(100% - 26px),
+    transparent 100%
+  );
+}
+
 /* ── Shell animations ──────────────────────────────────────────
  *
  * Braille spinner: cycles through 10 braille characters to show

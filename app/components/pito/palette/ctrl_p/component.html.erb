@@ -19,7 +19,7 @@
   <div style="height: 16px;"></div>
 
   <%# Sections container — scrollable, width matches modal, padding creates gap between content and scrollbar %>
-  <div class="pito-hide-scrollbar" style="max-height: min(80vh, 600px); overflow-y: auto;">
+  <div class="pito-hide-scrollbar pito-scroll-fade-slim" style="max-height: min(80vh, 600px); overflow-y: auto;">
     <% @sections.each_with_index do |section, s_idx| %>
       <%= render(Pito::Palette::CtrlP::SectionComponent.new(
             title: section[:title],
