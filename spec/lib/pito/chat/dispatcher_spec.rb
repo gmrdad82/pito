@@ -95,7 +95,9 @@ RSpec.describe Pito::Chat::Dispatcher do
 
       result = described_class.call(input: "more stuff", conversation:)
       expect(result).to be_a(Pito::Chat::Result::Refine)
-      expect(result.events).to eq([ { kind: :assistant_text, payload: { text: "refine ok" } } ])
+      expect(result.events).to eq([
+        { kind: :assistant_text, payload: { message_key: "pito.chat.refine_demo.acknowledged", message_args: { input: "more stuff" } } }
+      ])
     end
 
     it "returns Error(misrouted_slash) for slash-prefixed input" do

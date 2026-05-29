@@ -10,7 +10,7 @@ module Pito
       RECOGNIZED_VERBS = %i[list show find].freeze
 
       # Raised when a slash-prefixed input reaches the Chat parser.
-      # Slash commands belong to Pito::Slash and are routed upstream.
+      # Slash commands are routed upstream before reaching this parser.
       NotAChatMessage = Class.new(StandardError)
 
       # Parse a sequence of tokens into a Message.

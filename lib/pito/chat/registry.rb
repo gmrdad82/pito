@@ -36,7 +36,7 @@ module Pito
 
           Pito::Chat::Handlers.constants
             .map { |c| Pito::Chat::Handlers.const_get(c) }
-            .select { |c| c.is_a?(Class) && c < Pito::Chat::Handler && c.respond_to?(:verb) && c.verb }
+            .select { |c| c.is_a?(Class) && c < Pito::Chat::Handler && c.instance_variable_defined?(:@verb) && c.instance_variable_get(:@verb) }
         rescue NameError
           []
         end

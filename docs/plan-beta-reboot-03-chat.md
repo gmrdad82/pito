@@ -176,7 +176,7 @@ Plan 2's `Pito::Lex`, `Pito::Stream::Broadcaster`, models, controller, component
 - [x] T4.5 RSpec request spec extension: POST `/chat` with input `list videos` returns 204; creates exactly one new Turn; creates an echo Event + at least one assistant_text Event; broadcasts to the conversation stream. complexity: [medium]
 - [x] T4.6 RSpec request spec extension: POST `/chat` with input `madeup verb` (and no existing recent turn) returns 204; creates a Turn; creates echo + error Event with `payload[:message_key] == "pito.chat.errors.unknown_input"`. complexity: [low]
 - [x] T4.7 RSpec request spec extension: with a recent existing Turn present, POST `/chat` with input `refinement text` returns 204; does NOT create a new Turn; adds echo + new Events to the existing Turn. complexity: [medium]
-- [-] T4.8 Commit: `C4: chat controller branch + turn attachment logic`. complexity: [manual]
+- [x] T4.8 Commit: `C4: chat controller branch + turn attachment logic`. complexity: [manual]
 
 ## C5 — Example handler: `Pito::Chat::Handlers::List` end-to-end
 
@@ -186,10 +186,9 @@ Plan 2's `Pito::Lex`, `Pito::Stream::Broadcaster`, models, controller, component
 - [x] T5.2 `#call` returns `Pito::Chat::Result::Ok.new(events: [...])`. The events array contains one `assistant_text` event with payload `{ message_key: "pito.chat.list.fake_response", message_args: { count: 5, sample_title: "Sample video title" } }`. complexity: [low]
 - [x] T5.3 Mark the handler clearly: `# FAKE DATA — returns hardcoded placeholder content. Real list logic arrives in a domain plan.` at the top of the file. complexity: [low]
 - [x] T5.4 Register `List` in `Pito::Chat::Registry.register_all!`. complexity: [low]
-- [ ] T5.5 Verify in console: `Pito::Chat::Dispatcher.call(input: "list videos", conversation: Conversation.singleton)` returns `Result::Ok` with one assistant_text event. complexity: [manual]
-- [ ] T5.6 RSpec service spec for `Pito::Chat::Handlers::List`: returns Ok with one event whose payload references the expected i18n key. complexity: [low]
+- [x] T5.5 Verify in console: `Pito::Chat::Dispatcher.call(input: "list videos", conversation: Conversation.singleton)` returns `Result::Ok` with one assistant_text event. complexity: [manual]
+- [x] T5.6 RSpec service spec for `Pito::Chat::Handlers::List`: returns Ok with one event whose payload references the expected i18n key. complexity: [low]
 - [ ] T5.7 Smoke test: type `list videos` in the chatbox at `/`. See echo (orange border) + assistant text response. Refresh. Same content reappears. complexity: [manual]
-- [ ] T5.8 Commit: `[skipci] C5: /list handler end-to-end (fake data)`. complexity: [manual]
 
 ## C6 — Unknown-input handler
 
@@ -198,7 +197,7 @@ Plan 2's `Pito::Lex`, `Pito::Stream::Broadcaster`, models, controller, component
 - [x] T6.1 Create `app/services/pito/chat/handlers/unknown.rb`. Class `Pito::Chat::Handlers::Unknown < Pito::Chat::Handler`. No `verb` attribute (not registered against any verb — invoked directly by the dispatcher's `:unknown` branch). complexity: [low]
 - [x] T6.2 `#call` returns `Pito::Chat::Result::Error.new(message_key: "pito.chat.errors.unknown_input", message_args: { input: message.raw })`. complexity: [low]
 - [x] T6.3 In `Pito::Chat::Dispatcher`, the `:unknown` branch instantiates and calls this handler (no registry lookup). complexity: [low]
-- [ ] T6.4 RSpec service spec: returns Error with the expected message_key and message_args. complexity: [low]
+- [x] T6.4 RSpec service spec: returns Error with the expected message_key and message_args. complexity: [low]
 - [ ] T6.5 Smoke test: type `hello` in the chatbox. See echo + red-bordered error: "Didn't understand 'hello'. Try /help for available commands." complexity: [manual]
 - [ ] T6.6 Smoke test: type `madeup verb here` (recognized chat verb pattern but unregistered verb — `madeup` isn't in `RECOGNIZED_VERBS`). Since `madeup` isn't recognized AND there's no open turn, it routes to Unknown. See the same error. complexity: [manual]
 - [ ] T6.7 Commit: `[skipci] C6: unknown-input handler`. complexity: [manual]
@@ -210,8 +209,8 @@ Plan 2's `Pito::Lex`, `Pito::Stream::Broadcaster`, models, controller, component
 - [x] T7.1 Create `app/services/pito/chat/handlers/refine_demo.rb`. Class `Pito::Chat::Handlers::RefineDemo < Pito::Chat::Handler`. No `verb` attribute (invoked directly by dispatcher's `:refinement` branch). complexity: [low]
 - [x] T7.2 `#call` returns `Pito::Chat::Result::Refine.new(events: [{ kind: :assistant_text, payload: { message_key: "pito.chat.refine_demo.acknowledged", message_args: { input: message.raw } } }])`. complexity: [low]
 - [x] T7.3 Mark the handler: `# DEMO — Proves the Refine result type round-trips. Replace with proper routing when real refinement-capable handlers exist.` complexity: [low]
-- [ ] T7.4 RSpec service spec for `RefineDemo`: returns `Result::Refine` with one assistant_text event. complexity: [low]
-- [ ] T7.5 RSpec request spec: with an existing recent Turn (e.g. previous `list videos` request), POST `/chat` with input `add ctr` results in events appended to the existing Turn, not a new Turn. complexity: [medium]
+- [x] T7.4 RSpec service spec for `RefineDemo`: returns `Result::Refine` with one assistant_text event. complexity: [low]
+- [x] T7.5 RSpec request spec: with an existing recent Turn (e.g. previous `list videos` request), POST `/chat` with input `add ctr` results in events appended to the existing Turn, not a new Turn. complexity: [medium]
 - [ ] T7.6 Smoke test: type `list videos`. Then type `add ctr`. Observe: only one Turn exists in the DB for both messages; both echo events + both response events appear in the scrollback. complexity: [manual]
 - [ ] T7.7 Smoke test: wait > 30 minutes (or temporarily lower the threshold) after `list videos`, then type `add ctr`. Observe: it now routes to Unknown (no open turn), producing an error event. Restore threshold after. complexity: [manual]
 - [ ] T7.8 Commit: `[skipci] C7: refinement primitive (structural)`. complexity: [manual]
@@ -222,7 +221,7 @@ Plan 2's `Pito::Lex`, `Pito::Stream::Broadcaster`, models, controller, component
 
 - [x] T8.1 Create `config/locales/pito/chat/en.yml`. Add keys: `pito.chat.list.descriptions.list`, `pito.chat.list.fake_response`, `pito.chat.errors.unknown_input`, `pito.chat.errors.verb_not_implemented`, `pito.chat.errors.misrouted_slash`, `pito.chat.refine_demo.acknowledged`. complexity: [low]
 - [x] T8.2 Suggested copy: `list.descriptions.list: "List items (videos, games, playlists)"`; `list.fake_response: "[FAKE] Would list %{count} items here. Example: %{sample_title}"`; `errors.unknown_input: "Didn't understand %{input}. Try /help for available commands."`; `errors.verb_not_implemented: "The chat verb %{verb} isn't wired yet."`; `errors.misrouted_slash: "Internal: slash command %{raw} reached the chat parser."`; `refine_demo.acknowledged: "[DEMO refinement] Received: %{input}"`. complexity: [low]
-- [ ] T8.3 Audit every file added/modified in Plan 3 — no inline user-facing strings. complexity: [medium]
+- [x] T8.3 Audit every file added/modified in Plan 3 — no inline user-facing strings. complexity: [medium]
 - [ ] T8.4 Boot `bin/dev`, exercise `list videos`, `hello`, `madeup`, `add ctr` (after a recent turn). No `translation missing` placeholders. complexity: [manual]
 - [ ] T8.5 Commit: `[skipci] C8: i18n keys for chat core`. complexity: [manual]
 
