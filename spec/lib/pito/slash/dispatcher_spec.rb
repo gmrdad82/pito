@@ -14,12 +14,12 @@ end
 RSpec.describe Pito::Slash::Dispatcher do
   let(:conversation) { Conversation.create! }
 
-  before do
-    Pito::Slash::Registry.register(DispatcherTestHandler)
-  end
-
-  after do
+  around do |example|
+    old_registry = Pito::Slash::Registry.instance_variable_get(:@registry)&.dup || {}
     Pito::Slash::Registry.instance_variable_set(:@registry, {})
+    Pito::Slash::Registry.register(DispatcherTestHandler)
+    example.run
+    Pito::Slash::Registry.instance_variable_set(:@registry, old_registry)
   end
 
   describe ".call" do

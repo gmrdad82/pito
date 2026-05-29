@@ -36,3 +36,22 @@ These are explicitly NOT in Plan 1. They live in subsequent plans.
 
 - Component spec coverage (RSpec component tests via `view_component/test_helpers`)
 - Lookbook (deferred; possibly never per Plan 0 lock)
+
+---
+
+## Plan 2 — Slash Core (explicitly NOT in scope)
+
+- The Chat branch of `ChatController#create` (Plan 3).
+- Chat parser, registry, handlers, refinement turn model (Plan 3).
+- Real domain handlers: `/publish`, `/schedule`, `/connect`, `/authenticate`, `/config` (later plans, one per domain).
+- The actual confirmation flow — a real handler that triggers, accepts `/confirm`/`/cancel`, completes the action. (Later plan.)
+- Multi-conversation routing: `current_conversation` becomes per-tab/per-URL; new-session creation; session picker. (Later plan.)
+- Ctrl+K (or Ctrl+P) command palette UI (later plan; palette components exist as static visuals from Plan 1).
+- Slash command autocomplete / suggestions while typing.
+- Syntax highlighting of the input.
+- History navigation (↑/↓ through previous inputs).
+- Multi-step dialogs with masked input (e.g. `/authenticate` with 6 TOTP boxes).
+- Real OAuth flow for `/connect`.
+- Per-handler authorization checks.
+- Rate limiting on `POST /chat`.
+- Localization beyond English.

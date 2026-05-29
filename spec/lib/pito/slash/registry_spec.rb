@@ -12,7 +12,12 @@ class RegistryTestHandler < Pito::Slash::Handler
 end
 
 RSpec.describe Pito::Slash::Registry do
-  before { described_class.instance_variable_set(:@registry, {}) }
+  around do |example|
+    old_registry = described_class.instance_variable_get(:@registry)&.dup || {}
+    described_class.instance_variable_set(:@registry, {})
+    example.run
+    described_class.instance_variable_set(:@registry, old_registry)
+  end
 
   describe ".register" do
     it "registers a handler by its verb" do

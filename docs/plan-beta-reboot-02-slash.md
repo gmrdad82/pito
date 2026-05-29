@@ -10,6 +10,14 @@
 - [x] Drafted — 2026-05-27
 - [x] Audited — 2026-05-27
 
+> **Plan 2 completed 2026-05-29.** Notable divergences from spec:
+> - **T14.8 (tag `v0.2.0-slash-core`) skipped** — user will handle separately.
+> - **T14.9 (final commit) skipped** — user will commit manually.
+> - **`EchoConfirm` handler added** as a temporary fixture (T11.1) to prove the
+>   `NeedsConfirmation` result type round-trips. Marked `# DEMO` for future removal.
+> - **Registry spec isolation fix** applied during T14.1: `registry_spec.rb` and
+>   `dispatcher_spec.rb` now save/restore `@registry` state to prevent leakage.
+
 ## North star
 
 Plan 1 left a static visual chassis at `/`, `/start`, `/_ui/palettes`, `/_ui/sidebar`. Plan 2 turns the chatbox at `/` into a working pipe for **slash commands**: typing `/help` and pressing Enter produces an echoed user event in the scrollback, a real assistant response listing the registered slash commands, and a persisted record of the exchange that survives a page refresh.
@@ -329,13 +337,13 @@ Plan 1's components (`Pito::Event::UserMessageComponent`, `Pito::Event::Assistan
 
 > Final pass. Confirm Plan 2 delivered what it promised.
 
-- [ ] T14.1 `bundle exec rspec` is green across model, lib, service, and request specs added by Plan 2. complexity: [manual]
-- [ ] T14.2 `bin/dev` boots cleanly; visit `/`; sample events appear. complexity: [manual]
-- [ ] T14.3 Type `/help` → echo + help response appears via Cable broadcast. Refresh `/` → same events persist. complexity: [manual]
-- [ ] T14.4 Type `/nope` → echo + red error event. complexity: [manual]
-- [ ] T14.5 Type `/confirm_demo` → echo + yellow confirmation prompt event. complexity: [manual]
-- [ ] T14.6 `git grep -n "Pito::Chat" lib/pito/slash app/services/pito/slash app/controllers/chat_controller.rb` — should return zero hits (the isolation invariant). complexity: [manual]
-- [ ] T14.7 `git grep -nE '"[A-Z][a-z][^"]*"' app/services/pito/slash` — every match is an i18n key or a non-user-facing string. complexity: [manual]
+- [x] T14.1 `bundle exec rspec` is green across model, lib, service, and request specs added by Plan 2. complexity: [manual]
+- [x] T14.2 `bin/dev` boots cleanly; visit `/`; sample events appear. complexity: [manual]
+- [x] T14.3 Type `/help` → echo + help response appears via Cable broadcast. Refresh `/` → same events persist. complexity: [manual]
+- [x] T14.4 Type `/nope` → echo + red error event. complexity: [manual]
+- [x] T14.5 Type `/confirm_demo` → echo + yellow confirmation prompt event. complexity: [manual]
+- [x] T14.6 `git grep -n "Pito::Chat" lib/pito/slash app/services/pito/slash app/controllers/chat_controller.rb` — should return zero hits (the isolation invariant). complexity: [manual]
+- [x] T14.7 `git grep -nE '"[A-Z][a-z][^"]*"' app/services/pito/slash` — every match is an i18n key or a non-user-facing string. complexity: [manual]
 - [ ] T14.8 Tag: `git tag v0.2.0-slash-core`. complexity: [manual]
 - [ ] T14.9 Commit: `[skipci] S14: slash core verification`. complexity: [manual]
 
