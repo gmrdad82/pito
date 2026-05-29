@@ -309,11 +309,11 @@ Plan 1's components (`Pito::Event::UserMessageComponent`, `Pito::Event::Assistan
 
 > Every user-facing string. No inline strings anywhere.
 
-- [ ] T12.1 Create `config/locales/pito/slash/en.yml`. Add keys: `pito.slash.help.intro`, `pito.slash.help.entry`, `pito.slash.help.descriptions.help`, `pito.slash.errors.unknown_verb`, `pito.slash.errors.parse_failed`, `pito.slash.confirm_demo.prompt`. complexity: [low]
-- [ ] T12.2 Suggested copy: `intro: "%{count} commands available."`; `entry: "/%{verb} — %{description}"` with description resolved by interpolating `t(description_key)`; `unknown_verb: "Unknown command: /%{verb}. Type /help for the command list."`; `parse_failed: "Couldn't parse command: %{raw}"`; `confirm_demo.prompt: "Confirm running this demo command?"`. complexity: [low]
-- [ ] T12.3 Audit every file added/modified in Plan 2 — no inline user-facing strings. Run `git diff plan-01-ui...HEAD -- '*.rb' '*.erb' | grep -E '\"[A-Z][a-z]'` and resolve each hit. complexity: [medium]
-- [ ] T12.4 Boot `bin/dev`, exercise `/help`, `/nope`, `/`, `/confirm_demo`. No `translation missing` placeholders. complexity: [manual]
-- [ ] T12.5 Commit: `[skipci] S12: i18n keys for slash core`. complexity: [manual]
+- [x] T12.1 Create `config/locales/pito/slash/en.yml`. Add keys: `pito.slash.help.intro`, `pito.slash.help.entry`, `pito.slash.help.descriptions.help`, `pito.slash.errors.unknown_verb`, `pito.slash.errors.parse_failed`, `pito.slash.confirm_demo.prompt`. complexity: [low]
+- [x] T12.2 Suggested copy: `intro: "%{count} commands available."`; `entry: "/%{verb} — %{description}"` with description resolved by interpolating `t(description_key)`; `unknown_verb: "Unknown command: /%{verb}. Type /help for the command list."`; `parse_failed: "Couldn't parse command: %{raw}"`; `confirm_demo.prompt: "Confirm running this demo command?"`. complexity: [low]
+- [x] T12.3 Audit every file added/modified in Plan 2 — no inline user-facing strings. Run `git diff plan-01-ui...HEAD -- '*.rb' '*.erb' | grep -E '"[A-Z][a-z]'` and resolve each hit. complexity: [medium]
+- [x] T12.4 Boot `bin/dev`, exercise `/help`, `/nope`, `/`, `/confirm_demo`. No `translation missing` placeholders. complexity: [manual]
+- [x] T12.5 Commit: `[skipci] S12: i18n keys for slash core`. complexity: [manual]
 
 ## S13 — AGENTS.md additions
 
