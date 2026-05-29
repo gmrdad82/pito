@@ -38,27 +38,6 @@ namespace :pito do
            "for progress."
     end
 
-    # Phase 34 (2026-05-18) — Bundle backfill. Mirrors
-    # `reindex_games` for the Bundle half of the unified `/games`
-    # corpus. No filter on `Bundle.summary_embedding` — we want every
-    # bundle indexed, including ones with no members yet (the
-    # indexer no-ops cleanly on a fully-blank input set).
-    desc "Re-enqueue Voyage embedding + Meilisearch indexing for every " \
-         "Bundle. Async — returns once jobs are enqueued."
-    task reindex_bundles: :environment do
-      total = Bundle.count
-      enqueued = 0
-
-      Bundle.find_each do |bundle|
-        BundleVoyageIndexJob.perform_later(bundle.id)
-        enqueued += 1
-      end
-
-      puts "enqueued #{enqueued} BundleVoyageIndexJob#{'s' unless enqueued == 1} " \
-           "(of #{total} bundles). Watch Sidekiq's :search queue " \
-           "for progress."
-    end
-
     # Phase 35 (2026-05-19) — Channel backfill. Mirrors
     # `reindex_games` / `reindex_bundles` for the Channel half of the
     # Voyage corpus. No filter on `Channel.summary_embedding` — every
@@ -82,13 +61,13 @@ namespace :pito do
     end
 
     # Phase 34 (2026-05-18) — full-corpus backfill convenience. Runs
-    # `reindex_games`, `reindex_bundles`, and `reindex_channels` in
-    # one shot so a single operator command refreshes the entire
-    # Voyage embedding corpus (Games + Bundles power the unified
-    # `/games` Meilisearch index; Channels power the pgvector
-    # neighbor lookups via `has_neighbors :summary_embedding`).
+    # `reindex_games` and `reindex_channels` in one shot so a single
+    # operator command refreshes the entire Voyage embedding corpus
+    # (Games power the unified `/games` Meilisearch index; Channels
+    # power the pgvector neighbor lookups via
+    # `has_neighbors :summary_embedding`).
     desc "Re-enqueue Voyage embedding + Meilisearch indexing for every " \
-         "Game + Bundle + Channel. Async."
-    task reindex_all: %i[reindex_games reindex_bundles reindex_channels]
+         "Game + Channel. Async."
+    task reindex_all: %i[reindex_games reindex_channels]
   end
 end

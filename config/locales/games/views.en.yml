@@ -18,11 +18,7 @@ en:
       no_matches: "no games match this filter."
     omnisearch:
       # Placeholder for the `:games_search` omnisearch modal (/games SPACE /).
-      # Intentionally distinct from sibling omnisearch placeholders
-      # (`games.search.placeholder_igdb`, `bundles.all_games.search_placeholder`)
-      # so the three surfaces can diverge independently without retroactive
-      # splits. Change each key on its own.
-      placeholder: "search games and bundles"
+      placeholder: "search games"
     show:
       ownership_heading: "ownership"
       # 2026-05-19 (Bug A2 fix) — placeholder rendered in the LEFT-pane
@@ -44,7 +40,6 @@ en:
       videos_aria: "videos"
       videos_heading: "videos"
       delete_confirm_title: "delete %{title}?"
-      delete_confirm_body: "linked videos detach and any bundle composites regenerate. this cannot be undone."
+      delete_confirm_body: "linked videos detach. this cannot be undone."
       sync_confirm_title: "resync %{title}?"
       sync_confirm_body: "this will consume from your IGDB request quota."
-      delete_bundle_confirm_title: "delete %{bundle}?"

@@ -14,25 +14,180 @@
 # `I18n.t("tui.commands.<key>.name")` / `.hint`.
 en:
   tui:
+    # Z3 (2026-05-25) — auth dialog overlay copy.
+    # Rendered by Pito::AuthDialogComponent when Current.session.nil?.
+    # All copy lowercase per design.md non-brand convention.
+    auth:
+      title: "log in"
+      code_placeholder: "6-digit code"
+      backup_placeholder: "backup code"
+      submit_label: "log in"
+      use_backup_label: "use backup code"
+      use_totp_label: "use TOTP code"
+      copy_label: "copy"
+      copied_label: "copied!"
+      code_block_intro: "no TOTP enrolled — run this in your terminal:"
+      error: "login failed."
+    # D9 (2026-05-22) — canonical Tui::DialogComponent dismiss hints. The
+    # chrome renders `t("tui.dialog.esc_to_close")` in the top-right of
+    # the border by default; ConfirmationDialog flavor passes
+    # `tui.dialog.esc_to_cancel` so the same chrome reads "Esc to cancel"
+    # for decisional dialogs.
+    dialog:
+      esc_to_close: "Esc to close"
+      esc_to_cancel: "Esc to cancel"
+    # Phase 1C (2026-05-22) — minimum-window-size guard dialog copy.
+    # Surfaces via Tui::SizeGuardDialogComponent when window.innerWidth
+    # < 1200 or window.innerHeight < 800. Min values locked per
+    # docs/design.md § Layout. Width dropped 1280→1200 on 2026-05-23.
+    size_guard:
+      title: "window too small"
+      message: "resize the window to at least %{min_width}×%{min_height} to continue."
+    # Phase 2C (2026-05-23) — canonical i18n namespace for home-screen panel
+    # titles. Each Pito::*PanelComponent VC reads its title via
+    # `I18n.t("tui.home.panels.<panel_name>.title")` so the same YAML
+    # feeds the future Ratatui client (parity with the panel-name keys
+    # in Pito::PanelChannel::ALLOWED_PANELS). Brand names stay
+    # capitalized; non-brand words stay lowercase per design.md.
+    # 2026-05-24 — Stack sub-panel hint line i18n.
+    # Each sub-panel VC builds its hint string via
+    # `I18n.t("tui.stack.hint.<key>", ...)` so the future Rust TUI
+    # client reads the same YAML (parity contract). Status words live
+    # under `tui.stack.status.*`; hint templates under
+    # `tui.stack.hint.*`. Brand names stay capitalized; non-brand text
+    # lowercase per design.md.
+    stack:
+      status:
+        connected: "connected"
+        disconnected: "disconnected"
+        configured: "configured and ready"
+        not_configured: "not configured"
+        writable: "writable"
+        not_writable: "not writable"
+        unknown: "—"
+      hint:
+        postgres: "PostgreSQL %{version} %{status}"
+        meilisearch: "Meilisearch v%{version} %{status}"
+        voyage_ai: "Voyage AI %{status}"
+        assets: "Assets %{status}"
+    home:
+      panels:
+        security:
+          title: "security"
+        notifications:
+          title: "settings"
+        stack:
+          title: "system"
+        games_releasing:
+          title: "upcoming games"
+          # 2026-05-25 — empty-state copy for the upcoming-games shelf.
+          # Surfaces when no owned game has a `release_date` inside the
+          # next 30 days. Locked terminology: "owned" (mirrors the
+          # `Game.owned` Phase 27 §1a scope name); "30 days" (mirrors
+          # `Pito::GamesReleasingPanelComponent::UPCOMING_WINDOW_DAYS`).
+          empty: "no owned games releasing in the next 30 days"
+        notifications_feed:
+          title: "notifications"
+        calendar:
+          title: "calendar"
+          filter:
+            channel: "channel"
+            game: "game"
+            system: "system"
+            manual: "manual"
+          legend:
+            channel: "channel"
+            game: "game"
+            system: "system"
+            manual: "manual"
+          day_dialog:
+            empty: "no entries"
+    # D5 (2026-05-22) — leader menu (rebuilt as 1-level shallow which-key
+    # popup). Title renders in the Tui::DialogComponent top-border;
+    # `entries.<slug>.label` keys feed each Tui::LeaderMenuEntryComponent
+    # row label. Brand names stay capitalized; non-brand text lowercase
+    # per design.md.
+    leader:
+      title: "leader"
+      entries:
+        h:
+          label: "home"
+        v:
+          label: "videos"
+        g:
+          label: "games"
+        s:
+          label: "sync"
+        help:
+          label: "help"
+        command:
+          label: "command"
+        q:
+          label: "logout"
+        a:
+          label: "about"
+    # D9 (2026-05-22) — help dialog (replaced legacy help overlay) and
+    # about dialog (replaced legacy AboutModalComponent). Titles render
+    # in the dialog chrome top-border.
+    help:
+      title: "help"
+    about:
+      title: "about"
+      app_name: "pito"
+      subtitle: "best YouTube tool"
+      version_label: "version"
+      version_prefix: "v"
+      license_label: "license"
+      license_value: "AGPL-3.0"
+      source_label: "source"
+      source_value: "github.com/gmrdad82/pito"
+      commit_label: "commit"
+      contact_label: "contact"
+      contact_value: "gmrdad82 [at] gmail [dot] com"
+      env_label: "env"
+      copyright: "© %{year} — all rights reserved."
+    command_palette:
+      prompt_placeholder: ""
+      empty: "no matches"
+      separator: " · "
+      footer:
+        next: "↓ next"
+        cycle: "Tab cycle"
+        run: "Enter run"
+        close: "Esc close"
+    # 2026-05-22 — Phase 2E. Mode lozenge canonical i18n root.
+    # `tui.bst.mode.*` retained below as a deprecated alias for any
+    # legacy reader that hasn't been migrated yet.
+    mode:
+      normal: "normal"
+      insert: "insert"
+      command: "command"
+      search: "search"
+    bst:
+      mode:
+        normal: "normal"
+        insert: "insert"
+        command: "command"
+        search: "search"
+      screens:
+        home: "home"
+        videos: "videos"
+        games: "games"
+      help_key: "?"
+      help_label: "help"
+      command_key: ":"
+      command_label: "command"
+      pipe: "|"
     commands:
       home:
         name: "home"
         hint: "go to home"
-      channels:
-        name: "channels"
-        hint: "go to channels"
-      games:
-        name: "games"
-        hint: "go to games"
       videos:
         name: "videos"
         hint: "go to videos"
-      notifications:
-        name: "notifications"
-        hint: "go to notifications"
-      settings:
-        name: "settings"
-        hint: "go to settings"
+      games:
+        name: "games"
+        hint: "go to games"
       help:
         name: "help"
         hint: "open help dialog"
@@ -42,51 +197,171 @@ en:
       logout:
         name: "logout"
         hint: "logout"
+      # Phase 1C (2026-05-24) — section-specific `:` palette commands.
+      # The `name:` is the user-typed verb; the `hint:` renders in the
+      # muted right column of the suggestion list. Same YAML feeds the
+      # future Rust TUI client per the same-source-of-truth contract.
       reindex_meilisearch:
-        name: "reindex Meilisearch"
-        hint: "reindex Meilisearch"
+        name: "reindex meilisearch"
+        hint: "rebuild Meilisearch index"
       reindex_voyage:
-        name: "reindex Voyage AI"
-        hint: "reindex Voyage AI"
+        name: "reindex voyage"
+        hint: "rebuild Voyage AI embeddings"
+      sort_table:
+        name: "sort"
+        hint: "sort the focused table"
+      sort_table_index:
+        name: "sort by index"
+        hint: "sort table by index name"
+      sort_table_docs:
+        name: "sort by docs"
+        hint: "sort table by document count"
+      sort_table_size:
+        name: "sort by size"
+        hint: "sort table by size on disk"
+      sort_table_collection:
+        name: "sort by collection"
+        hint: "sort table by collection name"
+      sort_table_embedded:
+        name: "sort by embedded"
+        hint: "sort table by embedded count"
+      sort_table_model:
+        name: "sort by model"
+        hint: "sort table by model name"
+      sort_table_rows:
+        name: "sort by rows"
+        hint: "sort table by row count"
+      sort_table_category:
+        name: "sort by category"
+        hint: "sort table by category"
+      sort_table_files:
+        name: "sort by files"
+        hint: "sort table by file count"
+      sync_toggle:
+        # 2026-05-24 — `name` now interpolates `%{label}` so each
+        # registering panel/sub-panel distinguishes its row (e.g.,
+        # "sync toggle (stack)", "sync toggle (postgres)") and the
+        # palette never shows two indistinguishable `:sync toggle`
+        # rows. Callers MUST pass `label:` per call site. (Note: the
+        # interpolation key is `label`, NOT `scope`, because `scope`
+        # is a reserved I18n keyword that re-paths the lookup.)
+        name: "sync toggle (%{label})"
+        hint: "toggle sync for the %{label} scope"
+      toggle_tst_sync:
+        name: "toggle sync"
+        hint: "toggle the home-wide sync master switch"
       toggle_all:
-        name: "toggle all notifications"
-        hint: "toggle [x] all"
-      toggle_daily:
+        name: "toggle all"
+        hint: "toggle the all notifications checkbox"
+      toggle_daily_digest:
         name: "toggle daily digest"
-        hint: "toggle [x] daily digest"
-      clear_discord:
-        name: "clear Discord webhook"
-        hint: "clear Discord webhook URL"
-      clear_slack:
-        name: "clear Slack webhook"
-        hint: "clear Slack webhook URL"
-      sort_sessions_device_asc:
-        name: "sort sessions by device asc"
-        hint: "sort sessions by device asc"
-      sort_sessions_device_desc:
-        name: "sort sessions by device desc"
-        hint: "sort sessions by device desc"
-      sort_sessions_browser_asc:
-        name: "sort sessions by browser asc"
-        hint: "sort sessions by browser asc"
-      sort_sessions_browser_desc:
-        name: "sort sessions by browser desc"
-        hint: "sort sessions by browser desc"
-      sort_sessions_ip_asc:
-        name: "sort sessions by ip asc"
-        hint: "sort sessions by ip asc"
-      sort_sessions_ip_desc:
-        name: "sort sessions by ip desc"
-        hint: "sort sessions by ip desc"
-      sort_sessions_last_seen_asc:
-        name: "sort sessions by last seen asc"
-        hint: "sort sessions by last seen asc"
-      sort_sessions_last_seen_desc:
-        name: "sort sessions by last seen desc"
-        hint: "sort sessions by last seen desc"
-      sort_sessions_created_asc:
-        name: "sort sessions by created asc"
-        hint: "sort sessions by created asc"
-      sort_sessions_created_desc:
-        name: "sort sessions by created desc"
-        hint: "sort sessions by created desc"
+        hint: "toggle the daily digest checkbox"
+      focus_discord_webhook:
+        name: "focus discord webhook"
+        hint: "jump to the Discord webhook input"
+      focus_slack_webhook:
+        name: "focus slack webhook"
+        hint: "jump to the Slack webhook input"
+      open_slack_help_dialog:
+        name: "open slack help dialog"
+        hint: "open the Slack webhook help dialog"
+      open_discord_help_dialog:
+        name: "open discord help dialog"
+        hint: "open the Discord webhook help dialog"
+      sort_sessions_device:
+        name: "sort by device"
+        hint: "sort sessions by device"
+      sort_sessions_browser:
+        name: "sort by browser"
+        hint: "sort sessions by browser"
+      sort_sessions_ip:
+        name: "sort by ip"
+        hint: "sort sessions by IP address"
+      sort_sessions_last_seen:
+        name: "sort by last seen"
+        hint: "sort sessions by last-seen timestamp"
+      sort_sessions_created:
+        name: "sort by created"
+        hint: "sort sessions by created-at timestamp"
+      select_all_sessions:
+        name: "select all"
+        hint: "toggle select-all on the sessions table"
+      revoke_all_except_current:
+        name: "revoke all except this"
+        hint: "revoke every session except the current one"
+      revoke_selected_sessions:
+        name: "revoke selected"
+        hint: "revoke the currently selected sessions"
+      click_focusable:
+        name: "click"
+        hint: "click the named focusable"
+      focus_focusable:
+        name: "focus"
+        hint: "focus the named focusable"
+      # 2026-05-25 — calendar month-grid navigation actions.
+      # Registered in Pito::ActionRegistry, scope: :home.
+      calendar_prev_month:
+        name: "previous month"
+        hint: "navigate calendar to the previous month"
+      calendar_next_month:
+        name: "next month"
+        hint: "navigate calendar to the next month"
+      calendar_today:
+        name: "go to today"
+        hint: "navigate calendar to the current month"
+      calendar_pick_year:
+        name: "pick year"
+        hint: "open the year picker for the calendar"
+      calendar_filter_category:
+        name: "calendar: filter category"
+        hint: "filter calendar entries by category"
+      calendar_filter_channel:
+        name: "calendar: filter channel"
+        hint: "show only channel calendar entries"
+      calendar_filter_game:
+        name: "calendar: filter game"
+        hint: "show only game calendar entries"
+      calendar_filter_system:
+        name: "calendar: filter system"
+        hint: "show only system calendar entries"
+      calendar_filter_manual:
+        name: "calendar: filter manual"
+        hint: "show only manual calendar entries"
+      calendar_filter_clear:
+        name: "calendar: clear filter"
+        hint: "clear the calendar category filter and show all entries"
+      # 2026-05-25 — notifications feed panel palette commands (clean slate).
+      # scope: :home — only available on the home screen.
+      notifications_feed_mark_read:
+        name: "mark as read"
+        hint: "mark every unread notification as read"
+      notifications_feed_mark_unread:
+        name: "mark as unread"
+        hint: "mark every read notification as unread"
+    # 2026-05-22 — Phase 2F. Canonical Sidekiq brand label sourced from
+    # i18n so the future Rust TUI client reads it from the same YAML
+    # (per project's same-YAML-feeds-TUI contract). Used by
+    # Tui::SidekiqStatsComponent (Ruby) + tui_sidekiq_stats_controller.js
+    # (mirrored through a Stimulus value emitted from the VC).
+    sidekiq:
+      label: "Sidekiq:"
+    tst:
+      sync:
+        idle: "sync"
+        active: "sync"
+        syncing: "sync"
+        mixed: "sync"
+        disconnected: "sync"
+        # `paused` retained as a defensive alias; the canonical states
+        # are idle / active / syncing / mixed / disconnected
+        # (Phase 1D, 2026-05-24).
+        paused: "sync"
+      sidekiq:
+        busy_prefix: "b"
+        enqueued_prefix: "e"
+        retry_prefix: "r"
+      breadcrumb:
+        paren_open: ":("
+        paren_close: ")"
+      version:
+        release_url: "https://github.com/gmrdad82/pito/releases/tag/v%{version}"

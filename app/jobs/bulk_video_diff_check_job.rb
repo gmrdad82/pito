@@ -13,10 +13,8 @@
 # uniformly distributed in [0, window). With 500 videos that's one
 # call every ~28 seconds. With 5000 it's one every ~3 seconds — still
 # well under YouTube's per-second rate limit.
-class BulkVideoDiffCheckJob
-  include Sidekiq::Job
-
-  sidekiq_options queue: "default", retry: 2
+class BulkVideoDiffCheckJob < ApplicationJob
+  queue_as :default
 
   STAGGER_WINDOW_SECONDS = 4 * 60 * 60
 
@@ -32,7 +30,7 @@ class BulkVideoDiffCheckJob
     window = STAGGER_WINDOW_SECONDS
     scope.find_each.with_index do |video, idx|
       offset = (window.to_f * idx / total).floor
-      VideoDiffCheckJob.perform_in(offset, video.id)
+      VideoDiffCheckJob.set(wait: offset.seconds).perform_later(video.id)
       enqueued += 1
     end
 

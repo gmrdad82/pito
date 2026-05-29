@@ -1,17 +1,26 @@
 # Help overlay i18n (FB-71, 2026-05-20).
 #
-# Owned by `Tui::HelpOverlayComponent`. Strings live under
-# `help.overlay.*` so the surface can evolve independently of
-# `common.*` and area locales. The `keys` block in
+# Owned by `Tui::HelpDialogComponent` (renamed from
+# `Tui::HelpOverlayComponent` in D9 2026-05-22; the i18n key namespace
+# `help.overlay.*` was kept to avoid churning every existing key on the
+# rename). Strings live under `help.overlay.*` so the surface can evolve
+# independently of `common.*` and area locales. The `keys` block in
 # `config/locales/keybindings/en.yml` is the canonical key-label
 # source (TAB, Esc, Space, Ctrl, etc.); this file only carries the
-# help-overlay-specific copy (title, group titles, action labels,
-# and the trailing "to close" suffix in the title bar).
+# help-dialog-specific copy (title, group titles, action labels).
+#
+# The dialog chrome's `Esc to close` hint now flows from
+# `tui.dialog.esc_to_close` (the canonical Tui::DialogComponent hint key)
+# — the legacy `help.overlay.esc_close_suffix` key is no longer rendered.
 #
 # Group / item ordering mirrors `GROUPS` in
-# `app/components/tui/help_overlay_component.rb`. When the GROUPS
+# `app/components/tui/help_dialog_component.rb`. When the GROUPS
 # constant gains or loses an item, the matching key here must be
 # added or removed in lockstep.
+#
+# Phase 6 (2026-05-24): section_nav keys corrected to Space-prefixed
+# leader navigation (Space h / Space v / Space g). Added focusable_nav
+# group (j / k / Enter) and sort group (s / S).
 en:
   help:
     overlay:
@@ -28,28 +37,47 @@ en:
         section_nav:
           title: "section nav"
           items:
-            home: "home"
-            calendar: "calendar"
-            channels: "channels"
-            videos: "videos"
-            games: "games"
-            notifications: "notifications"
-            settings: "settings"
+            home: "go to home"
+            videos: "go to videos"
+            games: "go to games"
         panel_nav:
           title: "panel nav"
           items:
             cycle_forward: "cycle panel forward"
             cycle_backward: "cycle panel backward"
-            panel_left: "panel left"
-            panel_right: "panel right"
-            panel_up: "panel up"
-            panel_down: "panel down"
+        focusable_nav:
+          title: "focusable nav"
+          items:
+            next_focusable: "next focusable"
+            prev_focusable: "previous focusable"
+            activate: "activate focused action"
+        sort:
+          title: "sort"
+          items:
+            sort_next_column: "cycle to next sort column"
+            sort_reverse: "reverse active sort direction"
+        calendar:
+          title: "calendar"
+          items:
+            filter_category: "filter entries by category"
+            prev_month: "navigate to previous month"
+            next_month: "navigate to next month"
+            today: "navigate to current month"
+        notifications:
+          title: "notifications"
+          items:
+            mark_all_read: "mark all notifications as read"
+            filter_channel: "show only channel notifications"
+            filter_game: "show only game notifications"
+            filter_system: "show only system notifications"
+            filter_manual: "show only manual notifications"
         mode:
           title: "mode"
           items:
             enter_insert: "enter insert mode"
             exit_insert: "exit insert mode / dismiss dialog"
             toggle_checkbox_insert: "toggle focused checkbox (insert mode)"
+            scramble_row_insert: "insert a scramble row at cursor (insert mode)"
         session:
           title: "session"
           items:

@@ -6,40 +6,20 @@
 # NO modification to `Pito::Search.engine`, NO coupling to the existing
 # `Pito::Search::Omnisearch` dispatcher or `Game::SearchService`.
 #
-# Three sources, queried independently:
+# R1 (2026-05-25) — Bundles source removed. Two sources remain:
 #
 #   * games    — `Pito::Search::SearchGames` (unified `games_<env>` index,
 #                kind=game discriminator) — returns Game records.
-#   * bundles  — `Pito::Search::SearchGames` (same unified call, kind=bundle
-#                discriminator + `include_bundles: true`) — returns Bundle
-#                records.
 #   * channels — `Pito::Search.engine.search(Channel, ...)` against the
 #                dedicated `channels_<env>` index.
-#
-# Why two different surfaces (orchestrator-internal note):
-#   * Games + Bundles share ONE physical Meilisearch index distinguished
-#     by a `kind` field, with bundle docs carrying a namespaced
-#     `"bundle_<id>"` primary key. The generic `Pito::Search.engine.search`
-#     path derives the index name from the model class, so calling it
-#     with `Bundle` would target a `bundles_<env>` index that does not
-#     exist, and the `deserialize_hit` `find_by(id:)` step cannot resolve
-#     namespaced string ids back to Bundle rows. `Pito::Search::SearchGames`
-#     already handles this split correctly (per `kind`, with id stripping
-#     for bundles, plus a Postgres ILIKE fallback). Reusing it preserves
-#     the orchestrator's "query each source independently" intent without
-#     re-implementing the existing split logic.
-#   * Channels live in their OWN `channels_<env>` index (per the Channel
-#     indexer's standalone design), so `Pito::Search.engine.search(Channel, ...)`
-#     resolves naturally.
 #
 # Result shape returned by `#call`:
 #
 #   {
 #     query: String,
 #     games:    { hits: [Game, ...],    total: Integer, took_ms: Float },
-#     bundles:  { hits: [Bundle, ...],  total: Integer, took_ms: Float },
 #     channels: { hits: [Channel, ...], total: Integer, took_ms: Float },
-#     section_order: [Symbol, Symbol, Symbol]
+#     section_order: [Symbol, Symbol]
 #   }
 #
 # Per-source failures degrade to empty hits with an `:error` key on
@@ -47,9 +27,9 @@
 # blank the whole modal.
 #
 # Section-order contract:
-#   * `/channels*` → [:channels, :games, :bundles]
-#   * `/games*`    → [:games, :bundles, :channels]
-#   * any other    → [:channels, :games, :bundles]
+#   * `/channels*` → [:channels, :games]
+#   * `/games*`    → [:games, :channels]
+#   * any other    → [:channels, :games]
 #     (default — navbar / personal-importance order)
 module Pito
   module Search
@@ -67,7 +47,6 @@ module Pito
         {
           query: @query,
           games: search_games,
-          bundles: search_bundles,
           channels: search_channels,
           section_order: section_order
         }
@@ -75,12 +54,9 @@ module Pito
 
       private
 
-      # Delegates to `Pito::Search::SearchGames` with `include_bundles:
-      # false` (games-only). The returned `:games` array is Meilisearch
-      # ranking + Postgres ILIKE fallback merged uniques, capped at
-      # `@per_page`. `:total` mirrors the array length — Meilisearch's
-      # estimated-total figure is not surfaced by SearchGames; the cap is
-      # the practical ceiling the UI shows anyway.
+      # Delegates to `Pito::Search::SearchGames` (games-only). The returned
+      # `:games` array is Meilisearch ranking + Postgres ILIKE fallback
+      # merged uniques, capped at `@per_page`.
       def search_games
         result = Pito::Search::SearchGames.call(
           @query, include_bundles: false, limit: @per_page
@@ -92,28 +68,10 @@ module Pito
         { hits: [], total: 0, took_ms: 0.0, error: e.class.name }
       end
 
-      # Delegates to `Pito::Search::SearchGames` with `include_bundles:
-      # true` and slices off the `:bundles` half of the envelope. The
-      # `:games` half is discarded here because `search_games` already
-      # owns that source — two calls to SearchGames keep the per-source
-      # error isolation intact (a bundle-side failure must not blank the
-      # games section and vice versa).
-      def search_bundles
-        result = Pito::Search::SearchGames.call(
-          @query, include_bundles: true, limit: @per_page
-        )
-        bundles = Array(result[:bundles])
-        { hits: bundles, total: bundles.size, took_ms: 0.0 }
-      rescue StandardError => e
-        log_failure(:bundles, e)
-        { hits: [], total: 0, took_ms: 0.0, error: e.class.name }
-      end
-
       # Dedicated `channels_<env>` index via the generic engine path.
       # Returns `{ hits: [{ id:, record:, highlights:, score: }, ...],
       # total:, took_ms: }`; we map the `:record` out so the consumer
-      # component sees Channel records (matching the games + bundles
-      # shape).
+      # component sees Channel records (matching the games shape).
       def search_channels
         raw = Pito::Search.engine.search(Channel, @query, page: @page, per_page: @per_page)
         records = Array(raw[:hits]).map { |hit| hit[:record] }.compact
@@ -129,11 +87,11 @@ module Pito
 
       def section_order
         if @current_path.start_with?("/channels")
-          [ :channels, :games, :bundles ]
+          [ :channels, :games ]
         elsif @current_path.start_with?("/games")
-          [ :games, :bundles, :channels ]
+          [ :games, :channels ]
         else
-          [ :channels, :games, :bundles ]
+          [ :channels, :games ]
         end
       end
 
@@ -141,7 +99,6 @@ module Pito
         {
           query: "",
           games:    { hits: [], total: 0, took_ms: 0.0 },
-          bundles:  { hits: [], total: 0, took_ms: 0.0 },
           channels: { hits: [], total: 0, took_ms: 0.0 },
           section_order: section_order
         }

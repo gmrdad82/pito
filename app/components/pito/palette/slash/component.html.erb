@@ -1,0 +1,28 @@
+<%# Slash command palette — bar+gap+content laid out manually (not using Segment helper)
+    so padding: 10px 6px only applies here, not globally. %>
+<div class="flex">
+  <div style="width: 4px; background: var(--accent-purple); flex-shrink: 0;"></div>
+  <div style="width: 6px; flex-shrink: 0;"></div>
+  <div class="flex-1" style="min-width: 0; background: var(--bg-surface); padding: 10px 6px;">
+    <div style="display: flex; flex-direction: column;">
+      <%# Command list — verb displayed in fixed-width column so descriptions align %>
+      <% @commands.each_with_index do |cmd, i| %>
+        <% selected = i == @selected_index %>
+        <div style="<%= 'background: var(--border-default);' if selected %> padding: 2px 10px;">
+          <span class="text-fg" style="display: inline-block; width: 16ch;"><%= "/#{cmd[:verb]}" %></span>
+          <span class="text-fg-dim"><%= t(cmd[:description_key]) %></span>
+        </div>
+      <% end %>
+
+      <%# 8px gap + divider + 8px gap %>
+      <div style="height: 8px;"></div>
+      <div style="height: 1px; background: var(--border-default);"></div>
+      <div style="height: 8px;"></div>
+
+      <%# Input echo line %>
+      <div style="display: flex; align-items: center; padding: 0 10px;">
+        <%= render(Pito::Cursor::Component.new(char: "/")) %>
+      </div>
+    </div>
+  </div>
+</div>

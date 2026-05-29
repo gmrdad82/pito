@@ -44,8 +44,7 @@ class SavedViewsController < ApplicationController
     kind = @saved_view.kind
     @saved_view.destroy!
 
-    redirect_path = kind == "channels" ? channels_path : videos_path
-    redirect_to redirect_path, notice: "view deleted."
+    redirect_to root_path, notice: "view deleted."
   end
 
   private

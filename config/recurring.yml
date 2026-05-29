@@ -1,15 +1,68 @@
-# examples:
-#   periodic_cleanup:
-#     class: CleanSoftDeletedRecordsJob
-#     queue: background
-#     args: [ 1000, { batch_size: 500 } ]
-#     schedule: every hour
-#   periodic_cleanup_with_command:
-#     command: "SoftDeletedRecord.due.delete_all"
-#     priority: 2
-#     schedule: at 5am every day
+# SolidQueue recurring schedule
+# https://github.com/rails/solid_queue#recurring-schedule
+#
+# Entries migrated from config/sidekiq_cron.yml (reboot/beta).
+#
+# Dropped entries:
+#   - reindex_meilisearch         — Meilisearch removed (P6)
+#   - notification_scheduler      — Notifications deferred (post-reboot)
+#   - notification_cleanup        — Notifications deferred (post-reboot)
+#   - viewer_time_daily_refresh   — Analytics deferred (post-reboot)
+#   - youtube_analytics_sync      — Analytics deferred (post-reboot)
+#   - youtube_analytics_retention — Analytics deferred (post-reboot)
+#   - daily_digest_scheduler      — Digest deferred (post-reboot)
 
 production:
+  # SolidQueue housekeeping — clear finished jobs every hour
   clear_solid_queue_finished_jobs:
     command: "SolidQueue::Job.clear_finished_in_batches(sleep_between_batches: 0.3)"
     schedule: every hour at minute 12
+
+  # Voyage AI reindex — daily at 04:05 UTC (5 min after the old Meilisearch slot)
+  reindex_voyage:
+    class: VoyageReindexJob
+    queue: search
+    schedule: "5 4 * * *"
+    description: "Re-embed Game + Bundle corpora through Voyage AI"
+
+  # Starred channel sync — daily at midnight UTC
+  sync_starred_channels:
+    class: SyncStarredChannelsJob
+    schedule: "0 0 * * *"
+    description: "Re-sync every starred channel daily"
+
+  # Milestone evaluator — daily at 02:00 UTC
+  milestone_evaluator:
+    class: MilestoneEvaluatorJob
+    schedule: "0 2 * * *"
+    description: "Evaluate milestone rules; fire milestone_auto entries on threshold crossings"
+
+  # Calendar occurred flipper — every hour at minute 5
+  calendar_occurred_flipper:
+    class: CalendarOccurredFlipperJob
+    schedule: "5 * * * *"
+    description: "Flip ripe :scheduled calendar entries to :occurred"
+
+  # IGDB nightly refresh — every day at 03:00 UTC
+  game_igdb_nightly_refresh:
+    class: GameIgdbNightlyRefresh
+    schedule: "0 3 * * *"
+    description: "Re-sync every Game whose igdb_synced_at is older than 7 days"
+
+  # Stale session sweeper — every 15 minutes
+  session_stale_sweeper:
+    class: SessionStaleSweeperJob
+    schedule: "*/15 * * * *"
+    description: "Revoke active sessions idle past 30 days"
+
+  # Video diff check — daily at 01:30 UTC
+  video_diff_check_bulk:
+    class: BulkVideoDiffCheckJob
+    schedule: "30 1 * * *"
+    description: "Fan-out daily YouTube video diff check across the catalogue"
+
+  # Cloudflare trusted proxies — weekly Monday at 09:00 UTC
+  cloudflare_trusted_proxies_refresher:
+    class: CloudflareTrustedProxiesRefresherJob
+    schedule: "0 9 * * 1"
+    description: "Weekly drift check between production.rb trusted_proxies and Cloudflare's published lists"

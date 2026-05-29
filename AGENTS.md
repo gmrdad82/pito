@@ -1400,3 +1400,333 @@ declared there overrides the defaults below.
 - `curl -H "Authorization: Bearer $VOYAGE_API_KEY" https://api.voyageai.com/v1/embeddings -d '{"model":"voyage-3-large", "input":["hello"]}'`
 — confirm API reachability and key validity.
 <!-- agents:end name=voyage -->
+
+---
+
+<!-- agents:begin name=pito-dispatch sha=plan02 -->
+
+## Dispatch core
+
+## Project context
+
+This section documents the unified messaging pipeline introduced in Plan 2.
+It is consumed by both the Slash system (this plan) and the Chat system
+(Plan 3). Read `docs/EXTRA.md` first; anything there overrides the defaults
+below.
+
+## Conventions
+
+### Endpoint
+
+- There is a single `POST /chat` endpoint. `ChatController#create` reads
+  `params[:input]`.
+- Leading `/` → dispatched to `Pito::Slash::Dispatcher`.
+- No leading `/` → reserved for the Chat branch (Plan 3).
+- The controller always responds `head :no_content`. All visible output is
+  delivered via Turbo Stream broadcast over Action Cable.
+
+### Conversation helper
+
+- `ApplicationController#current_conversation` returns
+  `Conversation.singleton`. In Plan 2 this is hard-coded to a single
+  conversation (find-or-create). Multi-conversation routing is deferred to
+  a later plan.
+
+### Broadcast pipeline
+
+- `Pito::Stream::Broadcaster.new(conversation:).emit(turn:, kind:, payload:)`
+  is the only way to add an item to the scrollback.
+- It: (1) validates the payload, (2) persists an `Event`, (3) renders the
+  matching `ViewComponent`, (4) broadcasts a Turbo Stream `append` to
+  `"pito:conversation:#{conversation.id}"` targeting `#pito-scrollback`.
+
+## Anti-patterns
+
+- Don't add a second POST endpoint for slash commands. The single `/chat`
+  endpoint is the contract.
+- Don't render HTML inline in the controller. The broadcaster + component
+  pipeline is the single source of truth for scrollback output.
+- Don't access `Event` records directly in controllers to build a response.
+  The broadcaster abstracts persistence + rendering + streaming.
+
+## Commands / verification
+
+- `bin/rails console` then
+  `Pito::Stream::Broadcaster.new(conversation: Conversation.singleton).emit(...)`
+  to manually inject an event and confirm it appears in the scrollback.
+- Browser DevTools → Network → WS → confirm broadcasts arrive on
+  `"pito:conversation:<id>"`.
+<!-- agents:end name=pito-dispatch -->
+
+---
+
+<!-- agents:begin name=pito-slash sha=plan02 -->
+
+## Slash conventions
+
+## Project context
+
+Read `docs/EXTRA.md` first. It may declare additional handlers, custom
+result types, or registry loading rules. Anything declared there overrides
+the defaults below.
+
+## Conventions
+
+### Namespace
+
+- Everything lives under `Pito::Slash::*`.
+- Infrastructure (parser, registry, result types, dispatcher) lives under
+  `lib/pito/slash/`.
+- Concrete domain handlers live under `app/services/pito/slash/handlers/`.
+
+### Handler contract
+
+- Every handler inherits from `Pito::Slash::Handler`.
+- Every handler declares:
+  - `self.verb = :<symbol>` — the command word it responds to.
+  - `self.description_key = "pito.slash.help.descriptions.<verb>"` — an i18n
+    key used by `/help`.
+- Every handler implements `#call` and returns a `Result` value object:
+  - `Result::Ok` — command succeeded; carries an array of events to render.
+  - `Result::Error` — command failed; carries an i18n key + args.
+  - `Result::NeedsConfirmation` — command needs user confirmation; carries a
+    prompt key + the command text to re-run if confirmed.
+- The controller never reads handler internals. It only pattern-matches on
+  the `Result` class.
+
+### Registry
+
+- `Pito::Slash::Registry` is a singleton-style class.
+- `register(handler_class)` adds a handler; `lookup(verb)` returns the class
+  or `nil`.
+- `register_all!` discovers every class under `Pito::Slash::Handlers` that
+  inherits from `Handler` and registers it automatically.
+- Registration runs once at boot in `config/initializers/pito.rb` inside a
+  `to_prepare` block.
+
+### Unknown commands
+
+- A verb with no registered handler produces a `Result::Error` with
+  `message_key: "pito.slash.errors.unknown_verb"`.
+- Malformed input (e.g. `/` with no verb) produces a `Result::Error` with
+  `message_key: "pito.slash.errors.parse_failed"`.
+
+## Anti-patterns
+
+- Don't couple Slash handlers to Chat internals. No `require "pito/chat"`
+  inside `lib/pito/slash/` or `app/services/pito/slash/`.
+- Don't return plain strings from handlers. Always return a `Result`.
+- Don't hardcode user-facing strings in handlers. Use i18n keys + args.
+
+## Commands / verification
+
+- `bin/rails console` then
+  `Pito::Slash::Dispatcher.call(input: "/help", conversation: Conversation.singleton)`
+  to exercise the full parse → registry → handler pipeline.
+- `Pito::Slash::Registry.registered_verbs` to inspect the current dispatch
+  table.
+<!-- agents:end name=pito-slash -->
+
+---
+
+<!-- agents:begin name=pito-events sha=plan02 -->
+
+## Event payload conventions
+
+## Project context
+
+Read `docs/EXTRA.md` first. It may declare additional `Event` kinds,
+payload schemas, or rendering rules. Anything declared there overrides the
+defaults below.
+
+## Conventions
+
+### Structured payloads only
+
+- `Event#payload` is a `jsonb` hash. It never stores rendered HTML.
+- On every read the event is re-rendered through a `ViewComponent`. This
+  means timestamps re-resolve, translations refresh, and theme changes are
+  picked up automatically.
+
+### i18n keys + args
+
+- Payloads carry `message_key:` (or `prompt_key:`) plus `message_args:` (or
+  `prompt_args:`). The component calls `I18n.t(key, **args)` at render time.
+- Never store a rendered string in the database.
+
+### Supported kinds
+
+- `echo` — user input echo. Payload: `{ text: }`.
+- `assistant_text` — assistant response line. Payload:
+  `{ message_key:, message_args: }` or `{ text: }`.
+- `error` — error response. Payload: `{ message_key:, message_args: }`.
+- `confirmation_prompt` — confirmation prompt. Payload:
+  `{ prompt_key:, prompt_args:, command_text: }`.
+
+### Component mapping
+
+- `Pito::Stream::EventRenderer.component_for(event)` is the single source of
+  truth for kind → component lookup. Both the broadcaster (Cable stream)
+  and the terminal view (initial page load) use it.
+
+## Anti-patterns
+
+- Don't store HTML in `payload`. It breaks theme switching, translation
+  updates, and time-relative strings.
+- Don't add a new kind without adding it to `Event::KINDS`, registering a
+  component in `EventRenderer`, and creating the component class.
+- Don't bypass `EventRenderer` when rendering events. Always use
+  `component_for` so the view and the broadcaster stay in sync.
+
+## Commands / verification
+
+- `Event.pluck(:kind).uniq` to audit the kinds present in the database.
+- `Event.last.payload` in console to inspect the raw payload of the most
+  recent event.
+<!-- agents:end name=pito-events -->
+
+---
+
+<!-- agents:begin name=pito-invariants sha=plan02 -->
+
+## Cross-system invariants
+
+These rules keep the Slash and Chat systems decoupled so they can evolve
+independently.
+
+| Invariant | Rationale |
+|---|---|
+| `lib/pito/slash/**` does NOT `require` or reference `Pito::Chat::*`. | Parallel expansion without coupling. |
+| `lib/pito/chat/**` (Plan 3) does NOT `require` or reference `Pito::Slash::*`. | Same. |
+| Both systems share **only** `Pito::Lex` and `Pito::Stream::*`. Nothing else. | Minimum shared surface. |
+| Every handler returns a `Result` value object; the controller never reads handler internals. | Uniform dispatch contract. |
+| Events store structured payloads, never HTML. | Refresh-survives, theme-survives, locale-survives. |
+| Re-rendering an Event from its payload must always produce the current "now" (timestamps re-resolve, "5m ago" recomputes). | Date/time relevance survives time. |
+
+## Commands / verification
+
+- `git grep -n "Pito::Chat" lib/pito/slash app/services/pito/slash app/controllers/chat_controller.rb` — should return zero hits (the isolation invariant).
+- `git grep -nE '"[A-Z][a-z][^"]*"' app/services/pito/slash` — every match should be an i18n key or a non-user-facing string.
+<!-- agents:end name=pito-invariants -->
+
+<!-- agents:begin name=pito-chat sha=plan03 -->
+
+## Chat conventions
+
+### Project context
+
+Read `docs/EXTRA.md` first. It may declare additional chat handlers, custom
+result types, or registry loading rules. Anything declared there overrides
+the defaults below.
+
+### Conventions
+
+#### Namespace
+
+- Everything lives under `Pito::Chat::*`.
+- Infrastructure (parser, registry, result types, dispatcher) lives under
+  `lib/pito/chat/`.
+- Concrete domain handlers live under `app/services/pito/chat/handlers/`.
+
+#### Handler contract
+
+- Every handler inherits from `Pito::Chat::Handler`.
+- Every handler that responds to a verb declares:
+  - `self.verb = :<symbol>` — the command word it responds to.
+  - `self.description_key = "pito.chat.<area>.descriptions.<verb>"` — an i18n
+    key used by the help system.
+- Handlers invoked directly (not by verb lookup), such as `Unknown` and
+  `RefineDemo`, omit `self.verb`.
+- Every handler implements `#call` and returns a `Pito::Chat::Result` value
+  object:
+  - `Result::Ok` — succeeded; carries an array of events to render.
+  - `Result::Error` — failed; carries an i18n key + args.
+  - `Result::Refine` — refinement; carries events appended to the existing
+    open Turn.
+
+#### Registry
+
+- `Pito::Chat::Registry` is a singleton-style class.
+- `register(handler_class)` adds a handler; `lookup(verb)` returns the class
+  or `nil`.
+- `register_all!` discovers every class under `Pito::Chat::Handlers` that
+  inherits from `Handler` **and** has a `verb` set. Handlers without a verb
+  are skipped.
+- Registration runs once at boot in `config/initializers/pito.rb` inside a
+  `to_prepare` block, alongside the existing Slash registration.
+
+#### Recognized verbs
+
+- The set of recognized chat verbs lives in
+  `Pito::Chat::Parser::RECOGNIZED_VERBS = %i[list show find].freeze`.
+- This constant lives in the parser (not the registry) so the parser can
+  classify messages independently of handler registration state.
+
+## Turn lifecycle
+
+### Classification
+
+The parser classifies every chat message into one of three kinds:
+
+- **`:new_turn`** — The input starts with a recognized verb (`list`, `show`,
+  `find`). A new Turn is created for this exchange.
+- **`:refinement`** — The input does not start with a recognized verb, but a
+  recent open Turn exists in the conversation (created within the last 30
+  minutes). Events are appended to the existing Turn.
+- **`:unknown`** — The input does not start with a recognized verb and no
+  recent open Turn exists. The `Unknown` handler produces a "didn't
+  understand" error.
+
+### Open-turn threshold
+
+- A Turn is "open" if `Turn.last_for(conversation)` returns a Turn whose
+  `created_at` is less than 30 minutes ago.
+- The timeout is defined as `Pito::Chat::Parser::OPEN_TURN_TIMEOUT` (set to
+  `30.minutes`). Adjustable in a single place.
+
+### Controller attachment
+
+The `ChatController#handle_chat` method materializes the Result from the
+dispatcher:
+
+| Result type | Turn action | Events emitted |
+|---|---|---|
+| `Ok` | Creates a new Turn | echo + result events |
+| `Error` | Creates a new Turn | echo + single error event |
+| `Refine` | Attaches to existing Turn via `Turn.last_for` | echo + result events |
+
+The helper `current_or_new_turn(attach_to_existing:)` encapsulates the
+create-vs-reuse decision.
+
+## Chat vs Slash
+
+| Concern | Chat (`Pito::Chat::*`) | Slash (`Pito::Slash::*`) |
+|---|---|---|
+| Entry point | Input not starting with `/` | Input starting with `/` |
+| Dispatcher | `Pito::Chat::Dispatcher` | `Pito::Slash::Dispatcher` |
+| Parser | `Pito::Chat::Parser` | `Pito::Slash::Parser` |
+| Parser output | `Pito::Chat::Message` | `Pito::Slash::Invocation` |
+| Result types | `Ok`, `Error`, `Refine` | `Ok`, `Error`, `NeedsConfirmation` |
+| Handler base | `Pito::Chat::Handler` | `Pito::Slash::Handler` |
+| Handler location | `app/services/pito/chat/handlers/` | `app/services/pito/slash/handlers/` |
+| Registry | `Pito::Chat::Registry` | `Pito::Slash::Registry` |
+| Shared types | `Pito::Lex`, `Pito::Stream::*` only | (same) |
+| Cross-import | **Forbidden** — no reference to `Pito::Slash::*` | **Forbidden** — no reference to `Pito::Chat::*` |
+
+## Anti-patterns
+
+- Don't couple Chat handlers to Slash internals. No `require "pito/slash"`
+  inside `lib/pito/chat/` or `app/services/pito/chat/`.
+- Don't return plain strings from handlers. Always return a `Result`.
+- Don't hardcode user-facing strings. Use i18n keys + args.
+
+## Commands / verification
+
+- `bin/rails console` then
+  `Pito::Chat::Dispatcher.call(input: "list videos", conversation: Conversation.singleton)`
+  to exercise the full pipeline.
+- `Pito::Chat::Registry.registered_verbs` to inspect the dispatch table.
+- `Pito::Chat::Parser::RECOGNIZED_VERBS` to see which opening words trigger
+  new-turn classification.
+- `Turn.last_for(conversation)` to check the most recent Turn.
+<!-- agents:end name=pito-chat -->

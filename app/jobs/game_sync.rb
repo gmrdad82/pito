@@ -19,12 +19,8 @@
 #     `last_sync_error` column carries the message for surfaces that
 #     read it.
 #
-# The job is itself a Sidekiq::Job (NOT ActiveJob) for parity with
-# the rest of the bulk-sync convention (BulkSyncJob dispatches via
-# `perform_async`).
-class GameSync
-  include Sidekiq::Job
-  sidekiq_options queue: :default, retry: 3
+class GameSync < ApplicationJob
+  queue_as :default
 
   # Postgres advisory-lock classes are 32-bit signed ints. We pick a
   # fixed namespace integer per resource so the (namespace, id) pair

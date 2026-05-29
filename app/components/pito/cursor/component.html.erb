@@ -1,0 +1,5 @@
+<% if ghost? %>
+  <span class="pito-cursor--ghost" style="display: inline-block; line-height: 1; padding: 2px 0; --cursor-color: <%= @color %>;"><%= @char %></span>
+<% else %>
+  <span style="background: <%= @color %>; color: var(--bg-root); display: inline-block; line-height: 1; padding: 2px 0;"><%= @char %></span>
+<% end %>

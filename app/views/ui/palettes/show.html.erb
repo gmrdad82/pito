@@ -1,0 +1,37 @@
+<%# Palette review page — static mockups of both command palettes %>
+<div class="max-w-800px" style="max-width: 800px; margin: 0 auto;">
+  <%# Page title %>
+  <div style="color: var(--fg-dim); padding-top: 16px; margin-bottom: 24px;">
+    <%= t("pito.ui.palettes.page_title") %>
+  </div>
+
+  <%# Slash palette section %>
+  <div style="color: var(--fg-dim); margin-bottom: 12px;">
+    <%= t("pito.ui.palettes.slash_subheading").html_safe %>
+  </div>
+  <%= render(Pito::Palette::Slash::Component.new(
+        commands: @slash_commands,
+        selected_index: @slash_selected_index,
+        typed: "/"
+      )) %>
+
+  <%# 48px gap between palettes %>
+  <div style="height: 48px;"></div>
+
+  <%# Ctrl+P palette section %>
+  <div style="color: var(--fg-dim); margin-bottom: 12px;">
+    <%= t("pito.ui.palettes.ctrlp_subheading") %>
+  </div>
+
+  <%# Center the modal inside the 800px container %>
+  <div style="display: flex; justify-content: center;">
+    <%= render(Pito::Palette::CtrlP::Component.new(
+          sections: @ctrlp_sections,
+          selected_section_index: @ctrlp_selected_section_index,
+          selected_item_index: @ctrlp_selected_item_index
+        )) %>
+  </div>
+
+  <%# Bottom spacing %>
+  <div style="height: 48px;"></div>
+</div>

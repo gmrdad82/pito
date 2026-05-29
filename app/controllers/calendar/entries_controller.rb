@@ -49,7 +49,7 @@ class Calendar::EntriesController < ApplicationController
 
       @entry = CalendarEntry.new(default_create_attributes)
       @entry.source = :manual
-      @entry.created_by_user = Current.user
+      # Z1: User model gone; created_by_user association dropped.
       @entry.save!
       redirect_to edit_calendar_entry_path(@entry), notice: "calendar entry created."
       return
@@ -96,7 +96,7 @@ class Calendar::EntriesController < ApplicationController
 
     @entry = CalendarEntry.new(attrs)
     @entry.source = :manual
-    @entry.created_by_user = Current.user
+    # Z1: User model gone; created_by_user association dropped.
 
     if @entry.save
       respond_to do |format|

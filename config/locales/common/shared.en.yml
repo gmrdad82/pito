@@ -41,10 +41,6 @@ en:
 
     search:
       # Placeholder for the `:game_index` omnisearch modal (the [+] on /games).
-      # Intentionally distinct from sibling omnisearch placeholders
-      # (`games.omnisearch.placeholder`, `bundles.all_games.search_placeholder`)
-      # so the three surfaces can diverge independently without retroactive
-      # splits. Change each key on its own.
       placeholder_igdb: "search games"
       no_results: "no results for '%{query}'."
       no_cover: "[?]"
@@ -52,10 +48,8 @@ en:
     omnisearch:
       placeholder_default: "type to search."
       section_games: "games"
-      section_bundles: "bundles"
       section_igdb: "on IGDB"
       row_kind_game: "game"
-      row_kind_bundle: "bundle"
       igdb_error: "igdb error: %{msg}"
       no_igdb_results: "no igdb results for '%{query}'."
       no_results: "no results for '%{query}'."
@@ -92,9 +86,6 @@ en:
       col:
         title: "title"
         publisher: "publisher"
-        bundles: "bundles"
-        name: "name"
-        members: "members"
 
   syncs:
     show:

@@ -1,6 +1,15 @@
 module Pito
   # 2026-05-20 — Single source of truth for the pito theme system.
   #
+  # 2026-05-25 — SINGLE ACCENT DECISION (historical). All screen accents
+  # were unified to one Pito purple (`#bd93f9`, Dracula Purple).
+  #
+  # 2026-05-26 — TOKYO NIGHT MIGRATION. Palette switched from Dracula to
+  # Tokyo Night. Per-section accents restored: home=blue (#7aa2f7),
+  # videos=red (#f7768e), games=teal (#1abc9c). Other sections default to
+  # the blue accent. The CSS variable names retain the `--dracula-*` prefix
+  # for backward compatibility with `app/assets/tailwind/application.css`.
+  #
   # This module supersedes `Pito::Theme::Sections` as the canonical theme
   # surface. `Sections` remains as the lower-level mix() / per-section
   # bg+accent primitive that Theme delegates to (so we don't have two
@@ -9,7 +18,7 @@ module Pito
   # The L1-L4 architecture is documented in ADR 0015 (theme system
   # mathematical derivation). Briefly:
   #
-  # - L1 — Dracula palette atoms (immutable hex literals, no cross-refs)
+  # - L1 — Tokyo Night palette atoms (immutable hex literals, no cross-refs)
   # - L2 — Section accents + per-section page backgrounds (picks from L1)
   # - L3 — Semantic tokens (derived where possible, hand-picked where not)
   # - L4 — Effect tokens (derived from L3 via mix)
@@ -17,9 +26,9 @@ module Pito
   # Two clients consume this module:
   #
   # 1. The Rails CSS pipeline via `rake pito:theme:export` which writes
-  #    `app/assets/tailwind/_theme.css` with a `:root { ... }` block
+  #    `tmp/_theme.css` with a `:root { ... }` block
   #    matching `Pito::Theme.export_css`.
-  # 2. The future Ratatui CLI under `extras/cli/` which consumes
+  # 2. The Ratatui CLI under `extras/cli/` which consumes
   #    `extras/cli/src/theme.rs` (also written by the rake task) — atoms
   #    are exposed as `pub const` string literals; the CLI's existing
   #    typed-Color wrapper layer will be refactored to read from them.
@@ -28,74 +37,79 @@ module Pito
   # color change is a one-line edit to this file + one rake task run,
   # never a hunt-and-replace across CSS + Rust.
   module Theme
-    # L1 — Dracula palette atoms (immutable).
-    DRACULA = {
-      bg:           "#282a36",
-      current_line: "#44475a",
-      fg:           "#f8f8f2",
-      comment:      "#6272a4",
-      cyan:         "#8be9fd",
-      green:        "#50fa7b",
-      orange:       "#ffb86c",
-      pink:         "#ff79c6",
-      purple:       "#bd93f9",
-      red:          "#ff5555",
-      yellow:       "#f1fa8c"
+    # L1 — Tokyo Night palette atoms (immutable).
+    TOKYO_NIGHT = {
+      bg:           "#1a1b26",
+      selection:    "#33467c",
+      current_line: "#292e42",
+      fg:           "#c0caf5",
+      comment:      "#565f89",
+      cyan:         "#1abc9c",
+      green:        "#9ece6a",
+      orange:       "#ff9e64",
+      pink:         "#ad8ee6",
+      purple:       "#bb9af7",
+      red:          "#f7768e",
+      yellow:       "#e0af68"
     }.freeze
 
-    # L1 derived atom — /games + /projects section accent. Pale cobalt
-    # gives the gaming surfaces a PlayStation-blue feel that Dracula
-    # Cyan (too greenish) and Purple (already home) don't cover.
-    PALE_COBALT = "#7eb6ff".freeze
+    # L1 derived atom — retained for reference; no longer used as a section
+    # accent. Updated to Tokyo Night blue (#7aa2f7) as the palette accent.
+    BLUE_ACCENT = "#7aa2f7".freeze
 
-    # L2 — section accents (picks from L1). Cascade source for
-    # `--section-accent`. Mirrors `Pito::Theme::Sections::ACCENT`.
+    # L2 — section accents. Per the Tokyo Night migration, the three primary
+    # screens get distinct accent colors; all other sections default to the
+    # blue accent.
     SECTION_ACCENTS = {
-      "home"          => DRACULA.fetch(:purple),
-      "channels"      => DRACULA.fetch(:red),
-      "videos"        => DRACULA.fetch(:red),
-      "games"         => PALE_COBALT,
-      "projects"      => PALE_COBALT,
-      "settings"      => DRACULA.fetch(:orange),
-      "notifications" => DRACULA.fetch(:purple),
-      "calendar"      => DRACULA.fetch(:purple)
+      "home"          => BLUE_ACCENT,
+      "channels"      => BLUE_ACCENT,
+      "videos"        => TOKYO_NIGHT.fetch(:red),
+      "games"         => TOKYO_NIGHT.fetch(:cyan),
+      "projects"      => BLUE_ACCENT,
+      "settings"      => BLUE_ACCENT,
+      "notifications" => BLUE_ACCENT,
+      "calendar"      => BLUE_ACCENT
     }.freeze
 
-    # L2 — per-section page backgrounds (hand-picked atoms, NOT derived).
-    # See `Pito::Theme::Sections::BG` for the canonical lock dates per
-    # section.
-    SECTION_BGS = {
-      "home"          => "#2c2a36",
-      "channels"      => "#36292d",
-      "videos"        => "#36292d",
-      "games"         => "#292c33",
-      "projects"      => "#292c33",
-      "settings"      => "#34333b",
-      "notifications" => "#2c2a36",
-      "calendar"      => "#2c2a36"
-    }.freeze
+    # L2 — per-section page backgrounds.
+    #
+    # 2026-05-22 — Delegated to `Pito::Theme::Sections::BG` to keep a
+    # single source of truth. The Sections table derives bg from the
+    # canonical 4%-accent-over-Tokyo-Night-bg recipe (with `settings` as a
+    # user-locked override at `#34333b`). Previously this constant
+    # duplicated hand-picked atoms that drifted from the recipe —
+    # delegation eliminates the drift.
+    SECTION_BGS = Pito::Theme::Sections::BG
 
     # L3 — semantic tokens. Most reference L1 atoms; `color-link`
     # references the section-aware `--section-accent` CSS variable so
     # the cascade keeps working at CSS-render time.
     SEMANTIC = {
-      "color-bg"               => DRACULA.fetch(:bg),
-      "color-text"             => DRACULA.fetch(:fg),
-      "color-muted"            => DRACULA.fetch(:comment),
-      "color-border"           => DRACULA.fetch(:current_line),
-      "color-danger"           => DRACULA.fetch(:pink),
-      "color-danger-hover"     => "color-mix(in srgb, #{DRACULA.fetch(:pink)} 80%, #{DRACULA.fetch(:bg)})",
-      "color-success"          => DRACULA.fetch(:green),
-      "color-warn"             => DRACULA.fetch(:orange),
+      "color-bg"               => TOKYO_NIGHT.fetch(:bg),
+      "color-text"             => TOKYO_NIGHT.fetch(:fg),
+      "color-muted"            => TOKYO_NIGHT.fetch(:comment),
+      # 2026-05-23 — Wave 2E refinement. Washed-out home-accent blue,
+      # distinct from --color-muted (Tokyo Night comment gray, owned by
+      # AppVersion). Used by Tui::BreadcrumbComponent's idle + host
+      # colors so the breadcrumb stays "soft brand-family" against the
+      # focused panel's accent without competing with AppVersion's muted
+      # gray.
+      "color-accent-pale"      => "color-mix(in srgb, var(--section-accent-home) 55%, var(--color-bg))",
+      "color-border"           => TOKYO_NIGHT.fetch(:current_line),
+      "color-danger"           => TOKYO_NIGHT.fetch(:pink),
+      "color-danger-hover"     => "color-mix(in srgb, #{TOKYO_NIGHT.fetch(:pink)} 80%, #{TOKYO_NIGHT.fetch(:bg)})",
+      "color-success"          => TOKYO_NIGHT.fetch(:green),
+      "color-warn"             => TOKYO_NIGHT.fetch(:orange),
+      "color-fatal"            => TOKYO_NIGHT.fetch(:red),
       "color-link"             => "var(--section-accent)",
-      "color-rating-bad"       => DRACULA.fetch(:red),
-      "color-rating-fair"      => DRACULA.fetch(:yellow),
-      "color-rating-good"      => DRACULA.fetch(:green),
-      "color-rating-excellent" => DRACULA.fetch(:green),
-      "color-ttb-main"         => DRACULA.fetch(:green),
-      "color-ttb-extras"       => DRACULA.fetch(:cyan),
-      "color-ttb-completionist" => DRACULA.fetch(:pink),
-      "color-ttb-footage"      => DRACULA.fetch(:fg),
+      "color-rating-bad"       => TOKYO_NIGHT.fetch(:red),
+      "color-rating-fair"      => TOKYO_NIGHT.fetch(:yellow),
+      "color-rating-good"      => TOKYO_NIGHT.fetch(:green),
+      "color-rating-excellent" => TOKYO_NIGHT.fetch(:green),
+      "color-ttb-main"         => TOKYO_NIGHT.fetch(:green),
+      "color-ttb-extras"       => TOKYO_NIGHT.fetch(:cyan),
+      "color-ttb-completionist" => TOKYO_NIGHT.fetch(:pink),
+      "color-ttb-footage"      => TOKYO_NIGHT.fetch(:fg),
       # System-mono-only — browser picks whatever monospace the
       # OS/user has configured. No font download.
       "font-mono"              => %(ui-monospace, Menlo, "Cascadia Code", "Source Code Pro", Consolas, monospace),
@@ -110,15 +124,15 @@ module Pito
     # ----- Accessors ---------------------------------------------------
 
     def self.atoms
-      DRACULA
+      TOKYO_NIGHT
     end
 
     def self.section_accent(section)
-      SECTION_ACCENTS.fetch(section.to_s, DRACULA.fetch(:purple))
+      SECTION_ACCENTS.fetch(section.to_s, BLUE_ACCENT)
     end
 
     def self.section_bg(section)
-      SECTION_BGS.fetch(section.to_s, DRACULA.fetch(:bg))
+      SECTION_BGS.fetch(section.to_s, TOKYO_NIGHT.fetch(:bg))
     end
 
     def self.semantic
@@ -149,13 +163,16 @@ module Pito
 
     # Build the canonical `:root { ... }` block that ships as
     # `app/assets/tailwind/_theme.css`.
+    #
+    # NOTE: CSS variable names retain the `--dracula-*` prefix for backward
+    # compatibility. The values are Tokyo Night hex codes.
     def self.export_css
       lines = [ ":root {" ]
-      lines << "  /* L1 — Dracula palette atoms */"
-      DRACULA.each do |name, hex|
+      lines << "  /* L1 — Tokyo Night palette atoms (CSS var names kept as --dracula-* for compat) */"
+      TOKYO_NIGHT.each do |name, hex|
         lines << "  --dracula-#{name.to_s.tr('_', '-')}: #{hex};"
       end
-      lines << "  --pale-cobalt: #{PALE_COBALT};"
+      lines << "  --blue-accent: #{BLUE_ACCENT};"
       lines << ""
       lines << "  /* L2 — section accents */"
       SECTION_ACCENTS.each do |section, hex|
@@ -188,11 +205,11 @@ module Pito
       lines << "// and re-run the task."
       lines << ""
       lines << "pub mod theme {"
-      lines << "    // L1 — Dracula palette atoms"
-      DRACULA.each do |name, hex|
+      lines << "    // L1 — Tokyo Night palette atoms (const names kept as DRACULA_* for compat)"
+      TOKYO_NIGHT.each do |name, hex|
         lines << "    pub const DRACULA_#{name.to_s.upcase}: &str = #{hex.inspect};"
       end
-      lines << "    pub const PALE_COBALT: &str = #{PALE_COBALT.inspect};"
+      lines << "    pub const BLUE_ACCENT: &str = #{BLUE_ACCENT.inspect};"
       lines << ""
       lines << "    // L2 — section accents"
       SECTION_ACCENTS.each do |section, hex|

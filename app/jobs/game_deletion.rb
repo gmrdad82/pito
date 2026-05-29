@@ -2,7 +2,7 @@
 #
 # Per-game deletion job. Dispatched by `BulkDeleteJob` when the
 # operation's target_type is "Game" — the bulk job hands each row off
-# to a per-game async Sidekiq job so deletions run in parallel across
+
 # rows, with per-row advisory locking to prevent two workers from
 # operating on the same game.
 #
@@ -16,9 +16,8 @@
 #     failure does not abort the surrounding batch — the bulk operation
 #     item is marked failed via Turbo-stream broadcast back to the
 #     bulk operations channel.
-class GameDeletion
-  include Sidekiq::Job
-  sidekiq_options queue: "bulk_deletion", retry: 3
+class GameDeletion < ApplicationJob
+  queue_as :bulk_deletion
 
   ADVISORY_LOCK_NAMESPACE = 7_002
 

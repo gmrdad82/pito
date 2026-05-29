@@ -9,9 +9,8 @@
 # job (or was already flipped by a sibling job for the same
 # connection), the job exits cleanly. Other channels' jobs run
 # independently.
-class ChannelAnalyticsSync
-  include Sidekiq::Job
-  sidekiq_options queue: "analytics", retry: 5
+class ChannelAnalyticsSync < ApplicationJob
+  queue_as :analytics
 
   REFRESH_DAYS = 3
   WINDOWS = Channel::Youtube::AnalyticsQueryBuilder::WINDOWS

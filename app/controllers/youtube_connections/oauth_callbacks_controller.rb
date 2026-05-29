@@ -36,10 +36,10 @@ class YoutubeConnections::OauthCallbacksController < ApplicationController
 
   # `failure` is allowed before sign-in (auth flow can fail upstream
   # of any session creation). `create` is NOT allow_anonymous: the
-  # YouTube-connect path expects `Current.user` to be set (the user
-  # was signed in to pito BEFORE clicking [ connect ]; the cookie
-  # stays through the OAuth round-trip because the redirect bounces
-  # through the same domain).
+  # YouTube-connect path expects an active session (the user was signed
+  # in to pito BEFORE clicking [ connect ]; the cookie stays through
+  # the OAuth round-trip because the redirect bounces through the same
+  # domain). Z1: Current.user is gone; guard is now Current.session.
   allow_anonymous :failure
 
   # OmniAuth's middleware does its own state-parameter check before
@@ -70,7 +70,7 @@ class YoutubeConnections::OauthCallbacksController < ApplicationController
 
     connection = upsert_youtube_connection_for_current_user(auth_hash)
     if connection.nil?
-      audit("youtube_connection.callback.failed", reason: "no_current_user")
+      audit("youtube_connection.callback.failed", reason: "no_active_session")
       return redirect_to(youtube_connection_oauth_failure_path,
                          alert: "session expired. please sign in and retry.")
     end
@@ -122,7 +122,8 @@ class YoutubeConnections::OauthCallbacksController < ApplicationController
   # current user is in scope (the connect flow expects a logged-in
   # pito user).
   def upsert_youtube_connection_for_current_user(auth_hash)
-    return nil unless Current.user.present?
+    # Z1: User model gone; guard on active session instead.
+    return nil unless Current.session.present?
 
     info = auth_hash.respond_to?(:info) ? auth_hash.info : auth_hash["info"] || {}
     creds = auth_hash.respond_to?(:credentials) ? auth_hash.credentials : auth_hash["credentials"] || {}
@@ -134,8 +135,6 @@ class YoutubeConnections::OauthCallbacksController < ApplicationController
     connection = YoutubeConnection.find_or_initialize_by(
       google_subject_id: subject_id
     )
-
-    connection.user             ||= Current.user
     connection.email              = info["email"] || connection.email
     connection.access_token       = creds["token"]
     connection.refresh_token      = creds["refresh_token"] || connection.refresh_token

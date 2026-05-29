@@ -206,7 +206,7 @@ page_actions:
   #   fr  released   |  fP  PS         (2-col grid)
   #   fs  scheduled  |  fN  Switch
   #   fo  owned      |  fS  Steam
-  #   fw  wishlist   |
+  #   fw  not owned  |
   #   fp  played     |
   #   ───── (plain divider) ─────
   #   G+ add game    |  Gb add bundle  (2-col grid)
@@ -234,8 +234,8 @@ page_actions:
       label_i18n: keybindings.page_actions.games_index.owned
       action: { type: toggle_filter_chip, token: owned }
     - key: fw
-      label_i18n: keybindings.page_actions.games_index.wishlist
-      action: { type: toggle_filter_chip, token: wishlist }
+      label_i18n: keybindings.page_actions.games_index.not_owned
+      action: { type: toggle_filter_chip, token: not_owned }
     - key: fp
       label_i18n: keybindings.page_actions.games_index.played
       action: { type: toggle_filter_chip, token: played }
@@ -434,5 +434,5 @@ menus:
       - { key: q,  label_i18n: keybindings.menus.root.quit,     action: { type: quit }, surfaces: [tui] }
       - divider: true
       - { key: qQ, label_i18n: keybindings.menus.root.logout,   action: { type: logout } }
-      - { key: a,  label_i18n: keybindings.menus.root.about,    action: { type: open_modal, modal_id: about-modal } }
+      - { key: a,  label_i18n: keybindings.menus.root.about,    action: { type: open_modal, modal_id: about-dialog } }
 

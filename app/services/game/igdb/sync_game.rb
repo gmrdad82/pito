@@ -3,16 +3,14 @@
 # Single public method `call(game)`:
 #   1. Fetch the IGDB game row + time-to-beat row + external-games rows.
 #   2. Map the JSON into IGDB-sourced attributes (no local-only columns).
-#   3. Upsert reference rows (Genre, Platform, Company) by `igdb_id`.
-#   4. Replace join rows (game_genres / game_platforms / game_developers
-#      / game_publishers) — delete-and-create semantics.
+#   3. Upsert reference rows (Genre, Company) by `igdb_id`.
+#   4. Replace join rows (game_genres / game_developers / game_publishers)
+#      — delete-and-create semantics.
 #   5. Stamp `igdb_synced_at`, clear `last_sync_error`.
 #
 # Last-write-wins per spec Q5: every IGDB-sourced column is in the
 # `attrs` hash. Local-only columns (`played_at`, `notes`,
-# `hours_of_footage_manual`) are NEVER written here. Per-platform
-# ownership (Phase 27 §1a) lives in `game_platform_ownerships` — the
-# join survives sync untouched.
+# `hours_of_footage_manual`) are NEVER written here.
 #
 # The whole flow runs in a single transaction so a partial failure
 # rolls back the IGDB-sourced overwrite.
@@ -46,20 +44,9 @@ class Game
 
           assign_with_slug_collision_guard(game, attrs)
           sync_genres(game, game_json["genres"])
-          # Phase 27 v2 spec 01 — re-evaluate the canonical primary
-          # genre on EVERY sync. The Game model's
-          # `before_save :assign_primary_genre_if_blank` hook only sets
-          # `primary_genre_id` when blank; an existing pointer to a genre
-          # that IGDB just dropped (or to a genre still present that is
-          # no longer the alphabetical winner after a re-sync added a
-          # new alphabetically-earlier genre) needs an explicit re-pick.
-          # The picker is cheap (single sorted query over a handful of
-          # rows); idempotent re-evaluation beats a stale pointer.
-          # `update_column` writes the FK without firing callbacks (no
-          # save loop) and without validations (the FK on_delete:
-          # :nullify keeps the value safe).
+          # Phase 27 v2 spec 01 — re-evaluate the canonical primary genre
+          # on EVERY sync. `update_column` writes the FK without callbacks.
           re_assign_primary_genre(game)
-          sync_platforms(game, game_json["platforms"])
           sync_developers(game, game_json["involved_companies"])
           sync_publishers(game, game_json["involved_companies"])
           game.update!(igdb_synced_at: Time.current, last_sync_error: nil)
@@ -227,34 +214,6 @@ class Game
         game.update_column(:primary_genre_id, pick&.id)
       end
 
-      # FN3 (2026-05-18) — preserve user-added platform rows across IGDB
-      # syncs. The `source` column on `game_platforms` (FN2) distinguishes
-      # IGDB-imported rows (`"igdb"`) from rows the user added by clicking
-      # `[owned] PS` etc. on `/games/:id` (`"user"`).
-      #
-      # Two preservation rules:
-      #
-      #   1. Destroy only `from_igdb`-scoped rows when IGDB stops returning
-      #      a platform. User rows (`source: "user"`) survive even if IGDB
-      #      never lists that platform (canonical example: RDR1 — IGDB has
-      #      PS3 / Xbox 360 only, but the user marked owned PS → PS5 row
-      #      with `source: "user"` must persist across syncs).
-      #
-      #   2. On upsert, if a row already exists for `(game, platform)`,
-      #      LEAVE its `source` untouched. A user-added row that IGDB also
-      #      reports must NOT be downgraded from `"user"` to `"igdb"`. New
-      #      rows that IGDB introduces are created with `source: "igdb"`.
-      def sync_platforms(game, platforms_json)
-        list = Array(platforms_json).select { |row| row.is_a?(Hash) }
-        platform_records = list.map { |row| upsert_platform(row) }
-        game.game_platforms.from_igdb.where.not(platform_id: platform_records.map(&:id)).destroy_all
-        platform_records.each do |p|
-          existing = game.game_platforms.find_by(platform_id: p.id)
-          next if existing # preserve existing source (FN3 rule 2)
-          game.game_platforms.create!(platform_id: p.id, source: "igdb")
-        end
-      end
-
       def sync_developers(game, involved_companies)
         records = Game::Igdb::GameMapper.developers(involved_companies).map { |attrs| upsert_company(attrs) }
         game.game_developers.where.not(company_id: records.map(&:id)).destroy_all
@@ -277,14 +236,6 @@ class Game
         genre.assign_attributes(attrs)
         genre.save!
         genre
-      end
-
-      def upsert_platform(row)
-        attrs = Game::Igdb::GameMapper.map_platform(row)
-        platform = Platform.find_or_initialize_by(igdb_id: attrs[:igdb_id])
-        platform.assign_attributes(attrs)
-        platform.save!
-        platform
       end
 
       def upsert_company(attrs)

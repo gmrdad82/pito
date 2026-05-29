@@ -1,0 +1,36 @@
+<%# Ctrl+P command palette — centered modal box %>
+<div style="width: 600px; background: var(--bg-surface); border: 1px solid var(--border-default); padding: 10px;">
+  <%# Title row %>
+  <div style="display: flex; justify-content: space-between; align-items: center; padding: 0 6px;">
+    <span style="font-weight: bold; color: var(--fg);"><%= t("pito.palette.ctrl_p.title") %></span>
+    <span style="color: var(--fg-dim);"><%= t("pito.palette.ctrl_p.esc_hint") %></span>
+  </div>
+
+  <%# 12px gap %>
+  <div style="height: 12px;"></div>
+
+  <%# Search input area %>
+  <div style="display: flex; align-items: center; padding-bottom: 4px; border-bottom: 1px solid var(--border-default); margin: 0 6px;">
+    <%= render(Pito::Cursor::Component.new(char: t("pito.palette.ctrl_p.search_placeholder")[0])) %>
+    <span style="color: var(--fg-dim);"><%= t("pito.palette.ctrl_p.search_placeholder")[1..] %></span>
+  </div>
+
+  <%# 16px gap %>
+  <div style="height: 16px;"></div>
+
+  <%# Sections container — scrollable, width matches modal, padding creates gap between content and scrollbar %>
+  <div class="pito-hide-scrollbar pito-scroll-fade-slim" style="max-height: min(80vh, 600px); overflow-y: auto;">
+    <% @sections.each_with_index do |section, s_idx| %>
+      <%= render(Pito::Palette::CtrlP::SectionComponent.new(
+            title_key: section[:title_key],
+            items: section[:items],
+            selected: (s_idx == @selected_section_index),
+            selected_item_index: (s_idx == @selected_section_index ? @selected_item_index : nil)
+          )) %>
+      <%# Gap between sections (not after last) %>
+      <% if s_idx < @sections.length - 1 %>
+        <div style="height: 12px;"></div>
+      <% end %>
+    <% end %>
+  </div>
+</div>

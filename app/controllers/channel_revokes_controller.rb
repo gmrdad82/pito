@@ -33,7 +33,7 @@ class ChannelRevokesController < ApplicationController
       return
     end
 
-    DeleteChannelDataJob.perform_async(channel.id, channel.youtube_connection_id)
+    DeleteChannelDataJob.perform_later(channel.id, channel.youtube_connection_id)
     redirect_to channels_path, notice: "channel revoke scheduled."
   end
 

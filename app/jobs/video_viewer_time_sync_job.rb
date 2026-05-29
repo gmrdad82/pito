@@ -10,12 +10,9 @@
 # Quota-aware: a 401 from the Analytics API flips
 # `connection.needs_reauth` (via `Channel::Youtube::AnalyticsClient::AuthError`)
 # and exits cleanly. A 403 (quota exhausted) raises and bubbles up to
-# Sidekiq's retry policy — `sidekiq_options retry: 0` would burn the
-# job; we let the default retry/backoff carry it through so the daily
-# refresh can self-heal once the quota window resets.
-class VideoViewerTimeSyncJob
-  include Sidekiq::Job
-  sidekiq_options queue: "analytics", retry: 5
+# the retry policy for backoff.
+class VideoViewerTimeSyncJob < ApplicationJob
+  queue_as :analytics
 
   REFRESH_DAYS = 1
 

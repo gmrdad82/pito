@@ -1,6 +1,5 @@
 # Phase 22 §6.1 — Channel::ImportVideosJob.
 #
-# Sidekiq worker that drives one `Channel::VideoImporter` run per
 # `ImportJob`. Flat naming pattern follows the existing `ChannelSync`
 # precedent (see CLAUDE.md "Architecture notes"); using
 # `Channel::ImportVideosJob` (namespaced under `Channel`) makes the
@@ -14,14 +13,13 @@
 #
 # Retry posture (mirrors `VideoSyncBack`):
 #   - `Channel::VideoImporter::TransientError` re-raises to let
-#     Sidekiq retry (default 3 attempts with exponential backoff).
+#     (default 3 attempts with exponential backoff).
 #   - `Channel::VideoImporter::FatalError` marks the job `failed`,
 #     captures `error_payload`, dispatches the completion notification,
 #     and does NOT re-raise (suppress_retry).
 #   - Channel deleted between enqueue and perform → no-op (cleanup).
-class Channel::ImportVideosJob
-  include Sidekiq::Job
-  sidekiq_options queue: "default", retry: 3
+class Channel::ImportVideosJob < ApplicationJob
+  queue_as :default
 
   def perform(channel_id, import_job_id)
     import_job = ImportJob.find_by(id: import_job_id)

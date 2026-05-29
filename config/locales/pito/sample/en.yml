@@ -1,0 +1,62 @@
+# SAMPLE — every key in this file will be replaced when real data is wired in Plan 2+.
+en:
+  pito:
+    sample:
+      user_message:
+        channels_overview: "/channels overview"
+        channel_detail: "/channel @gmrdad82-vlog --detail"
+        notifications_unread: "/notifications --unread"
+        help_commands: "/help commands"
+      assistant_text:
+        pulling_stats: "Pulling stats for your 3 active channels…"
+        detailed_breakdown: "Here's the detailed breakdown for @gmrdad82-vlog."
+        here_are_commands: "Here are the commands you can use. Type /help <command> for details on any of them."
+      thought:
+        channel_overview: "You asked me to provide an overview of your connected channels. I need to fetch subscriber counts, total views, and watch-time data for each one."
+        vlog_detail: "Fetching detailed metrics for the vlog channel — subscriber growth, top-performing videos, and audience retention."
+        notifications_check: "Checking for unread notifications across all channels and mentions."
+      tool_output:
+        channel_rollup_title: "# Channel rollup"
+        channel_rollup_command: "$ pito channels overview --period 7d"
+        channel_rollup_output: |-
+          @gmrdad82      1,240      48,310      612h
+          @gmrdad82-vlog   890      14,107      188h
+        vlog_detail_title: "# @gmrdad82-vlog — detail"
+        vlog_detail_command: "$ pito channel @gmrdad82-vlog --detail --period 30d"
+        vlog_detail_output: |-
+          Subscribers      +47     (2.1%)
+          Views            14,107  (+8.3%)
+          Watch time       188h    (+5.7%)
+          Avg retention    62.4%
+          Top video        "Building a TUI in Rust" (12.4k views)
+        notifications_title: "# Unread notifications"
+        notifications_command: "$ pito notifications --unread --limit 5"
+        notifications_output: |-
+          #  Type        Channel           Time         Summary
+          1  comment     @gmrdad82         2m ago       "Great video!"
+          2  milestone   @gmrdad82-vlog    15m ago      1k subscribers!
+          3  mention     @gmrdad82         1h ago       @pito in #general
+          4  upload      @gmrdad82-vlog    3h ago       "My new setup"
+          5  alert       @gmrdad82         6h ago       Retention drop on TUI video
+        available_commands_title: "# Available commands"
+        available_commands_command: "$ pito help"
+        available_commands_output: |-
+          /channels       Channel overview & management
+          /notifications  View and manage notifications
+          /help           Show this help message
+          /settings       Configure pito preferences
+          /theme          Switch color themes
+          /export         Export channel data
+      status_footer:
+        build_2m14s:
+          mode: "Build"
+          agent: "Big Pickle"
+          duration: "2m 14s"
+        build_1m48s:
+          mode: "Build"
+          agent: "Big Pickle"
+          duration: "1m 48s"
+        inspect_0m9s:
+          mode: "Inspect"
+          agent: "Big Pickle"
+          duration: "0.9s"

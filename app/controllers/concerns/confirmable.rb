@@ -18,13 +18,10 @@ module Confirmable
   # deletions framework. Footage stays out — its delete flow (if any)
   # is owned by the importer surface, not the web UI.
   #
-  # Phase 27 follow-up (2026-05-17) — the "collection" type was dropped
-  # along with the Collection model; every grouping is now a Bundle and
-  # uses the `bundle` type.
-  #
   # D18 (2026-05-21) — "project" and "timeline" types dropped alongside
   # the Project + Timeline models.
-  TYPES = %w[channel video game calendar_entry bundle video_game_link].freeze
+  # R1 (2026-05-25) — "bundle" type dropped with bundles removal.
+  TYPES = %w[channel video game calendar_entry video_game_link].freeze
 
   private
 
@@ -67,19 +64,13 @@ module Confirmable
   def cancel_path
     case @type
     when "channel"    then channels_path
-    when "video"      then videos_path
-    when "game"       then games_path
-    # Phase 15 §2 — calendar entries cancel back to the schedule view
-    # (the closest surface that always renders).
+    # R2 (2026-05-25) — /videos and /games screens removed; fall back to root.
+    when "video"      then root_path
+    when "game"       then root_path
+    # Phase 15 §2 — calendar entries cancel back to the schedule view.
     when "calendar_entry" then calendar_schedule_path
-    # 2026-05-18 — `/bundles` index removed. Bundles are reachable
-    # only via the /games bundle shelf + modal flow; cancel/back
-    # destinations fall back to /games.
-    when "bundle"     then games_path
-    # Phase 14 §3 — video_game_link cancel returns to the parent video
-    # edit page. The deletion screen is reached from the [remove]
-    # button on the video edit form.
-    when "video_game_link" then videos_path
+    # R2 (2026-05-25) — /videos screen removed; video_game_link falls back to root.
+    when "video_game_link" then root_path
     else root_path
     end
   end
@@ -90,7 +81,6 @@ module Confirmable
     when "video"      then Video
     when "game"       then Game
     when "calendar_entry" then CalendarEntry
-    when "bundle"     then Bundle
     when "video_game_link" then VideoGameLink
     end
   end
@@ -126,26 +116,23 @@ module Confirmable
       # The schedule / month views do not render the [cancel] link on
       # those rows; this guard is defense-in-depth for direct URL hits.
       CalendarEntry.where(id: ids).where(source: :manual).order(starts_at: :asc)
-    when "bundle"
-      Bundle.where(id: ids).order(name: :asc)
     when "video_game_link"
-      VideoGameLink.includes(:game, :bundle, :video).where(id: ids).order(:id)
+      VideoGameLink.includes(:game, :video).where(id: ids).order(:id)
     end
   end
 
   # Display label used by JSON preview responses (and mirrored by the HTML
   # views): channel_url for channels, youtube_video_id for videos, title
-  # for games, name for bundles.
+  # for games.
   def label_for(item)
     case item
     when Channel    then item.channel_url
     when Video      then item.youtube_video_id
     when Game       then item.title
     when CalendarEntry then item.title
-    when Bundle        then item.name
     when VideoGameLink
       target = item.target
-      target_label = target.respond_to?(:title) ? target.title : target&.name
+      target_label = target.respond_to?(:title) ? target.title : target.to_s
       "video ##{item.video_id} → #{item.link_type}: #{target_label}"
     else item.to_s
     end

@@ -1,4 +1,4 @@
-# Phase 14 §3 — Video↔Game/Bundle link CRUD.
+# Phase 14 §3 — Video↔Game link CRUD.
 #
 # Surface (nested under `/videos/:video_id/links`):
 #
@@ -8,13 +8,14 @@
 #
 # Boundary discipline (CLAUDE.md):
 #   - `is_primary` arrives as `"yes"` / `"no"` strings on the wire.
-#   - Smuggling both `game_id` and `bundle_id` is rejected (422).
-#   - Duplicate (same video + same target) is rejected (422). Master-
+#   - Duplicate (same video + same game) is rejected (422). Master-
 #     agent decision #7: surface the uniqueness 422 as a clean flash
 #     ("already linked").
 #
 # Permissions: anyone signed in can add or remove any link, regardless
 # of who created it (master-agent decision #8 / ADR 0003).
+#
+# R1 (2026-05-25) — bundle link type removed. Only `game` links remain.
 class VideoGameLinksController < ApplicationController
   before_action :load_video
 
@@ -33,25 +34,14 @@ class VideoGameLinksController < ApplicationController
     when "game"
       return render_unprocessable("linked_id is required.") unless linked_id.positive?
       return render_unprocessable("game not found.") unless Game.exists?(linked_id)
-      return render_unprocessable("cannot smuggle bundle_id on a game link.") if params[:bundle_id].present?
 
       link = @video.video_game_links.new(
         link_type: :game,
         game_id: linked_id,
         is_primary: is_primary
       )
-    when "bundle"
-      return render_unprocessable("linked_id is required.") unless linked_id.positive?
-      return render_unprocessable("bundle not found.") unless Bundle.exists?(linked_id)
-      return render_unprocessable("cannot smuggle game_id on a bundle link.") if params[:game_id].present?
-
-      link = @video.video_game_links.new(
-        link_type: :bundle,
-        bundle_id: linked_id,
-        is_primary: is_primary
-      )
     else
-      return render_unprocessable("link_type must be 'game' or 'bundle'.")
+      return render_unprocessable("link_type must be 'game'.")
     end
 
     if link.save

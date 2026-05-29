@@ -248,9 +248,10 @@ class NotificationsController < ApplicationController
   #     stops processing on non-2xx so the user sees the redirect-back
   #     fallback in the rendered toast (the form's parent action).
   def enforce_mark_read_rate_limit
-    return unless Current.user
+    return unless Current.session
 
-    lock_key = "notifications:mark_read:user:#{Current.user.id}"
+    # Z1: User model gone. Lock key scoped to session token instead.
+    lock_key = "notifications:mark_read:session:#{Current.session.token_digest}"
     return if Rails.cache.write(lock_key, 1, expires_in: MARK_READ_RATE_LIMIT_TTL, unless_exist: true)
 
     respond_to do |format|

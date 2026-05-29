@@ -1,0 +1,48 @@
+en:
+  pito:
+    palette:
+      ctrl_p:
+        title: "Commands"
+        esc_hint: "esc"
+        search_placeholder: "Search"
+        sections:
+          suggested: "Suggested"
+          session: "Session"
+          channel: "Channel"
+          output: "Output"
+        commands:
+          new_session: "New session"
+          switch_session: "Switch session"
+          switch_channel: "Switch channel"
+          switch_period: "Switch period"
+          open_editor: "Open editor"
+          rename_session: "Rename session"
+          jump_to_message: "Jump to message"
+          fork_session: "Fork session"
+          compact_session: "Compact session"
+          share_session: "Share session"
+          export_transcript: "Export transcript"
+          refresh_channels: "Refresh channels"
+          add_channel: "Add channel"
+          remove_channel: "Remove channel"
+          toggle_channel_filter: "Toggle channel filter"
+          copy_last_assistant_message: "Copy last assistant message"
+          copy_session_transcript: "Copy session transcript"
+          show_tool_details: "Show tool details"
+          toggle_sidebar: "Toggle sidebar"
+          show_timestamps: "Show timestamps"
+      slash:
+        descriptions:
+          authenticate: "Authenticate to access pito"
+          channels: "List your YouTube channels"
+          videos: "List videos for a channel"
+          import: "Import channel or video metadata"
+          export: "Export session transcript"
+          help: "Show help and command reference"
+          clear: "Clear the current session"
+          new: "Start a new session"
+    ui:
+      palettes:
+        page_title: "pito — command palettes preview"
+        slash_subheading: "Slash command palette  ·  opens above chatbox when / is typed"
+        ctrlp_subheading: "ctrl+k command palette  ·  centered modal overlay"

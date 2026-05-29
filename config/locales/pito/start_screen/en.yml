@@ -1,0 +1,5 @@
+en:
+  pito:
+    start_screen:
+      tip_prefix: "Tip"
+      tip_placeholder: "[placeholder for tip dictionary]"

@@ -1,10 +1,8 @@
 # Phase 12 — Step A (6a-sessions-and-login-ui.md) — failed-login bucket.
 #
-# Mirrors `ApiAuthThrottle` shape (10 / 5min) but with a separate cache
-# key prefix so the failed-login bucket doesn't share state with the
-# failed-bearer-token bucket. `SessionsController#create` calls
-# `record_failure(ip)` on every failure path; the rack-attack
-# `blocklist` block reads the same counter via `exhausted?`.
+# Failed-login bucket (10 / 5min per IP). `SessionsController#create` calls
+# `record_failure(ip)` on every failure path; the rack-attack `blocklist`
+# block reads the same counter via `exhausted?`.
 module SessionThrottle
   LIMIT  = 10
   WINDOW = 5.minutes

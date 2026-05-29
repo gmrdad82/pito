@@ -1,0 +1,9 @@
+<%= render(Pito::Segment::Component.new) do %>
+  <span class="text-fg-dim">
+    <span class="font-bold text-orange"><%= t("pito.event.thought.prefix") %></span>
+    <%= @body %>
+    <% if @duration %>
+      <span class="text-fg-dim" style="margin-left: 4px;">(<%= @duration %>)</span>
+    <% end %>
+  </span>
+<% end %>

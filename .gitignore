@@ -45,14 +45,7 @@
 # via `config/pito.yml.example`; the actual file is per-install.
 /config/pito.yml
 
+.claude/
 
 /app/assets/builds/*
 !/app/assets/builds/.keep
-
-# Rust workspace target dirs (root + per-crate fallback).
-/target/
-/extras/*/target/
-.claude/
-
-# Node packages vendored for importmaps (don't commit)
-node_modules/

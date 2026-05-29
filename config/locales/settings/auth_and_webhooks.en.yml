@@ -3,10 +3,10 @@ en:
     breadcrumb_root: settings
     discord:
       heading: Discord
-      webhook_url_label: "webhook URL:"
+      webhook_url_label: "Discord webhook:"
     slack:
       heading: Slack
-      webhook_url_label: "webhook URL:"
+      webhook_url_label: "Slack webhook:"
     webhook:
       clear_hint_html: type <strong>"clear"</strong> to remove
     webhooks:

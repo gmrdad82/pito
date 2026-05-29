@@ -34,23 +34,17 @@ module Tui
   # `.commands(context = {})` class method.
   class CommandRegistry
     GLOBAL_COMMANDS = [
-      { name: I18n.t("tui.commands.home.name"),          hint: I18n.t("tui.commands.home.hint"),          path: -> { "/" } },
-      { name: I18n.t("tui.commands.channels.name"),      hint: I18n.t("tui.commands.channels.hint"),      path: -> { "/channels" } },
-      { name: I18n.t("tui.commands.games.name"),         hint: I18n.t("tui.commands.games.hint"),         path: -> { "/games" } },
-      { name: I18n.t("tui.commands.videos.name"),        hint: I18n.t("tui.commands.videos.hint"),        path: -> { "/videos" } },
-      { name: I18n.t("tui.commands.projects.name"),      hint: I18n.t("tui.commands.projects.hint"),      path: -> { "/projects" } },
-      { name: I18n.t("tui.commands.notifications.name"), hint: I18n.t("tui.commands.notifications.hint"), path: -> { "/notifications" } },
-      { name: I18n.t("tui.commands.settings.name"),      hint: I18n.t("tui.commands.settings.hint"),      path: -> { "/settings" } },
-      { name: I18n.t("tui.commands.help.name"),          hint: I18n.t("tui.commands.help.hint"),          action: :open_help },
-      { name: I18n.t("tui.commands.about.name"),         hint: I18n.t("tui.commands.about.hint"),         action: :open_about },
-      { name: I18n.t("tui.commands.logout.name"),        hint: I18n.t("tui.commands.logout.hint"),        method: :delete, path: -> { "/session" } }
+      { name: I18n.t("tui.commands.home.name"),   hint: I18n.t("tui.commands.home.hint"),   path: -> { "/" } },
+      { name: I18n.t("tui.commands.videos.name"), hint: I18n.t("tui.commands.videos.hint"), path: -> { "/videos" } },
+      { name: I18n.t("tui.commands.games.name"),  hint: I18n.t("tui.commands.games.hint"),  path: -> { "/games" } },
+      { name: I18n.t("tui.commands.help.name"),   hint: I18n.t("tui.commands.help.hint"),   action: :open_help },
+      { name: I18n.t("tui.commands.about.name"),  hint: I18n.t("tui.commands.about.hint"),  action: :open_about },
+      { name: I18n.t("tui.commands.logout.name"), hint: I18n.t("tui.commands.logout.hint"), method: :delete, path: -> { "/session" } }
     ].freeze
 
     # Lookup table — screen name (controller_name in Rails) -> module
     # constant. Add per-screen modules here as they ship.
-    SCREEN_MODULES = {
-      "settings" => "Tui::ScreenCommands::Settings"
-    }.freeze
+    SCREEN_MODULES = {}.freeze
 
     class << self
       def commands_for(screen_name, context = {})

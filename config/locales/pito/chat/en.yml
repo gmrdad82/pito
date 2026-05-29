@@ -1,0 +1,13 @@
+en:
+  pito:
+    chat:
+      list:
+        descriptions:
+          list: "List items (videos, games, playlists)"
+        fake_response: "[FAKE] Would list %{count} items here. Example: %{sample_title}"
+      errors:
+        unknown_input: "Didn't understand %{input}. Try /help for available commands."
+        verb_not_implemented: "The chat verb %{verb} isn't wired yet."
+        misrouted_slash: "Internal: slash command %{raw} reached the chat parser."
+      refine_demo:
+        acknowledged: "[DEMO refinement] Received: %{input}"

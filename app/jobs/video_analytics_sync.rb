@@ -5,9 +5,8 @@
 #
 # Idempotent via the analytics tables' UNIQUE indexes — `upsert_all`
 # resolves conflicts by overwriting.
-class VideoAnalyticsSync
-  include Sidekiq::Job
-  sidekiq_options queue: "analytics", retry: 5
+class VideoAnalyticsSync < ApplicationJob
+  queue_as :analytics
 
   REFRESH_DAYS = 3
   WINDOWS = Channel::Youtube::AnalyticsQueryBuilder::WINDOWS

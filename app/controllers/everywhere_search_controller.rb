@@ -12,8 +12,8 @@
 #   2. As the user types, the `omnisearch-modal` Stimulus controller
 #      GETs `/search/everywhere?q=<term>` into the dialog's nested
 #      `<turbo-frame id="everywhere_results">`.
-#   3. This action delegates to `Pito::Search::Everywhere` (the three-source
-#      orchestrator: games + bundles + channels) and renders the
+#   3. This action delegates to `Pito::Search::Everywhere` (the two-source
+#      orchestrator: games + channels) and renders the
 #      `Search::EverywhereResultsComponent` directly. The component
 #      wraps the response body in its own turbo-frame so Turbo's
 #      "matching frame" requirement is satisfied without a view file
@@ -45,7 +45,6 @@ class EverywhereSearchController < ApplicationController
             query:        @result[:query],
             current_path: current_path,
             game_hits:    @result[:games][:hits] || [],
-            bundle_hits:  @result[:bundles][:hits] || [],
             channel_hits: @result[:channels][:hits] || []
           ),
           layout: false

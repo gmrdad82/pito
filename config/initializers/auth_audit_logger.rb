@@ -1,14 +1,8 @@
-# Phase 3 — Step B (5b-token-and-auth-concern.md) — auth audit logger.
-#
-# Dedicated logger for `Api::TokenAuthenticator` events (auth.success,
-# auth.missing_token, auth.invalid_token, auth.revoked_token,
-# auth.expired_token, auth.insufficient_scope, auth.throttled).
-#
-# Format: one JSON line per event. The call site already JSON-encodes
-# the payload, so the formatter just appends a newline.
-#
-# Both Pumas (web + mcp) write to the same file. Logrotate is host-side
-# concern (not configured here).
+# Auth audit logger. Writes structured auth events (e.g.
+# session.cookie.invalid from Sessions::AuthConcern) as one JSON line per
+# event to log/auth_audit.log. The call site already JSON-encodes the
+# payload, so the formatter just appends a newline. Logrotate is a
+# host-side concern (not configured here).
 require "logger"
 
 audit_path = Rails.root.join("log/auth_audit.log")

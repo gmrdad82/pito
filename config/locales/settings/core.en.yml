@@ -23,8 +23,9 @@ en:
       heading: "Voyage AI"
       col_metric: "metric"
       col_value: "value"
-      games_embedded: "games embedded"
-      bundles_embedded: "bundles embedded"
+      col_collection: "collections"
+      col_embedded: "embedded"
+      games_embedded: "games"
       model: "model"
       last_indexed: "last indexed"
       hnsw_indexes: "HNSW indexes"
@@ -33,8 +34,10 @@ en:
       embeddings_suffix: "embeddings"
       reindexing_html: "reindexing... started %{time_ago}"
       reindex_action: "reindex"
+    meilisearch:
+      reindexing_html: "reindexing... started %{time_ago}"
     stack:
-      heading: "stack"
+      heading: "system"
       postgres: "Postgres"
       redis: "Redis"
       meilisearch: "Meilisearch"

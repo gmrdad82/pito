@@ -31,10 +31,8 @@
 # channel revoke. The umbrella spec's user-facing copy mentions
 # "calendar entries" but NOT notes; this job intentionally does not
 # touch the notes tree.
-class DeleteChannelDataJob
-  include Sidekiq::Job
-
-  sidekiq_options queue: "default", retry: 3
+class DeleteChannelDataJob < ApplicationJob
+  queue_as :default
 
   def perform(channel_id, connection_id_snapshot = nil)
     channel = Channel.find_by(id: channel_id)

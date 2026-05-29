@@ -79,8 +79,8 @@ class SyncsController < ApplicationController
 
     job_class = job_class_name.safe_constantize
     # `ChannelDiffCheckJob` / `VideoDiffCheckJob` are Sidekiq workers
-    # (`Sidekiq::Job`), not ActiveJob — `perform_async`, not `perform_later`.
-    @items.each { |item| job_class.perform_async(item.id) } if job_class
+    # (`Sidekiq::Job`), not ActiveJob — `perform_later`, not `perform_async`.
+    @items.each { |item| job_class.perform_later(item.id) } if job_class
 
     respond_to do |format|
       format.html do

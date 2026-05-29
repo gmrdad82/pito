@@ -29,14 +29,14 @@ module Backfill
 
       enqueued = 0
       channel_scope.find_each do |channel|
-        ChannelAnalyticsSync.perform_async(channel.id)
+        ChannelAnalyticsSync.perform_later(channel.id)
         enqueued += 1
       end
 
       video_scope.find_each do |video|
         next unless Channel::Youtube::ActiveVideoClassifier.active?(video)
 
-        VideoAnalyticsSync.perform_async(video.id)
+        VideoAnalyticsSync.perform_later(video.id)
         enqueued += 1
       end
 

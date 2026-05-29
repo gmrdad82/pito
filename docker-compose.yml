@@ -22,18 +22,6 @@ services:
       timeout: 5s
       retries: 10
 
-  redis:
-    image: redis:7
-    ports:
-      - "127.0.0.1:${REDIS_PORT:-64527}:6379"
-    volumes:
-      - pito-redis-data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
   meilisearch:
     image: getmeili/meilisearch:v1.13
     ports:
@@ -55,8 +43,6 @@ volumes:
   # `pito_pito-...` form that compose generates by default).
   pito-postgres-data:
     name: pito-postgres-data
-  pito-redis-data:
-    name: pito-redis-data
   pito-meilisearch-data:
     name: pito-meilisearch-data
   # Active Storage assets volume (game cover art, future channel

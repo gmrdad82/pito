@@ -16,30 +16,20 @@ module Pito
     class BackupCodeRegenerator
       class NotEnrolled < StandardError; end
 
-      def self.call(user:, acting_user: nil, source_surface: :web)
-        raise ArgumentError, "user required" if user.nil?
-        raise NotEnrolled, "user #{user.id} is not enrolled in 2FA" unless user.totp_enabled?
+      def self.call
+        raise NotEnrolled, "owner is not enrolled in 2FA" unless AppSetting.totp_enabled?
 
-        acting_user ||= user
         plaintext_codes = Array.new(Pito::Auth::TotpEnroller::BACKUP_CODE_COUNT) do
           Pito::Auth::TotpEnroller.generate_code
         end
 
         ActiveRecord::Base.transaction do
-          user.totp_backup_codes.destroy_all
+          TotpBackupCode.delete_all
           plaintext_codes.each do |code|
-            user.totp_backup_codes.create!(
+            TotpBackupCode.create!(
               code_digest: BCrypt::Password.create(code)
             )
           end
-
-          Pito::Auth::AuditLogger.call(
-            acting_user: acting_user,
-            source_surface: source_surface,
-            action: :backup_code_regenerate,
-            target: user,
-            metadata: { regenerated_count: plaintext_codes.size }
-          )
         end
 
         plaintext_codes

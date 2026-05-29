@@ -1,0 +1,27 @@
+<%= render(Pito::Segment::Component.new) do %>
+  <style>
+    .pito-shimmer {
+      background: linear-gradient(
+        90deg,
+        var(--brand-pito) 0%,
+        var(--accent-purple) 50%,
+        var(--brand-pito) 100%
+      );
+      background-size: 200% 100%;
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      animation: pito-shimmer-sweep 1.4s infinite;
+    }
+
+    @keyframes pito-shimmer-sweep {
+      0%   { background-position: -100% 0; }
+      100% { background-position: 100% 0; }
+    }
+  </style>
+  <span>
+    <span class="pito-shimmer">⠋</span>
+    <span class="pito-shimmer" style="margin-left: 4px;"><%= t(@verb_key) %></span>
+    <span class="text-fg-faded">…</span>
+  </span>
+<% end %>

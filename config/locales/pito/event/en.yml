@@ -1,0 +1,7 @@
+en:
+  pito:
+    event:
+      thought:
+        prefix: "Thought"
+      tool_output:
+        click_to_expand: "Click to expand"

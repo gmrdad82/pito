@@ -1,0 +1,16 @@
+# frozen_string_literal: true
+
+# Sidebar — i18n keys for the game-detail sidebar review page.
+en:
+  pito:
+    sidebar:
+      esc_hint: "esc"
+      game:
+        subtitle: "Game · imported %{date}"
+      section:
+        overview: "Overview"
+        channels: "Channels covering this game"
+        top_videos: "Top videos"
+        tags: "Tags"
+        recommendation: "Recommendation"
+        quick_commands: "Quick commands"

@@ -1,0 +1,15 @@
+en:
+  pito:
+    slash:
+      help:
+        intro: "%{count} commands available."
+        entry: "/%{verb} — %{description}"
+        descriptions:
+          help: "Show this command list"
+          confirm_demo: "Demo confirmation prompt"
+      errors:
+        unknown_verb: "Unknown command: /%{verb}. Type /help for the command list."
+        parse_failed: "Couldn't parse command: %{raw}"
+      confirm_hint: "type /confirm or /cancel"
+      confirm_demo:
+        prompt: "Confirm running this demo command?"

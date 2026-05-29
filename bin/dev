@@ -1,69 +1,11 @@
-#!/usr/bin/env bash
-set -euo pipefail
+#!/usr/bin/env sh
 
-# --- Check Docker is running ---
-if ! docker info > /dev/null 2>&1; then
-  echo "ERROR: Docker is not running. Start Docker and try again."
-  exit 1
-fi
-
-# --- Ensure Compose services are up and healthy ---
-TIMEOUT=60
-SERVICES="postgres redis meilisearch"
-
-# Start services if not already running
-docker compose up -d
-
-echo "Waiting for services to be healthy (timeout: ${TIMEOUT}s)..."
-elapsed=0
-while [ $elapsed -lt $TIMEOUT ]; do
-  all_healthy=true
-  for svc in $SERVICES; do
-    status=$(docker compose ps --format json "$svc" 2>/dev/null | ruby -rjson -e '
-      data = JSON.parse(STDIN.read)
-      puts data["Health"]
-    ' 2>/dev/null || echo "unknown")
-
-    if [ "$status" != "healthy" ]; then
-      all_healthy=false
-      break
-    fi
-  done
-
-  if [ "$all_healthy" = true ]; then
-    echo "All services healthy."
-    break
-  fi
-
-  sleep 2
-  elapsed=$((elapsed + 2))
-done
-
-if [ "$all_healthy" != true ]; then
-  echo "ERROR: Services did not become healthy within ${TIMEOUT}s."
-  docker compose ps
-  exit 1
-fi
-
-# --- Install foreman if needed ---
 if ! gem list foreman -i --silent; then
   echo "Installing foreman..."
   gem install foreman
 fi
 
-# --- Build pito CLI release binary (one-shot, non-fatal) ---
-# Procfile.dev is for long-lived processes only; cargo build exits 0 and would
-# trip foreman's process-death cascade. Run it here instead so the binary at
-# target/release/pito is current before the parade starts.
-echo "Building pito CLI release binary..."
-if ! cargo build --release --manifest-path extras/cli/Cargo.toml; then
-  echo "WARNING: cargo build failed; pito CLI binary may be stale."
-  echo "Continuing with foreman startup; rebuild manually when convenient."
-fi
-
-# Default web Puma port (3027). The "27" suffix marker keeps pito clear of
-# other local projects (e.g. fepra2 on 3018). Override with PORT=... if
-# something else is already bound.
+# Default to port 3027 if not specified
 export PORT="${PORT:-3027}"
 
 # Let the debug gem allow remote connections,

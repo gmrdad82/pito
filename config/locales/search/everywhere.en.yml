@@ -17,8 +17,7 @@ en:
       placeholder: "search anything"
       kind_label:
         game: "game"
-        bundle: "bundle"
         channel: "channel"
       empty:
         all: "no results"
-      blank_query: "type to search games, bundles, and channels"
+      blank_query: "type to search games and channels"
