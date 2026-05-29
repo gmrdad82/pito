@@ -298,12 +298,12 @@ Plan 1's components (`Pito::Event::UserMessageComponent`, `Pito::Event::Assistan
 
 > No real confirmation flow yet. Just prove the data type round-trips through the pipeline so future handlers can return it.
 
-- [ ] T11.1 Add a temporary fixture handler `Pito::Slash::Handlers::EchoConfirm` registered under verb `:confirm_demo`. Its `#call` returns `Result::NeedsConfirmation.new(prompt_key: "pito.slash.confirm_demo.prompt", prompt_args: {}, command_text: "/confirm_demo")`. complexity: [low]
-- [ ] T11.2 Verify `ChatController#create` materializes a NeedsConfirmation into a `confirmation_prompt` Event with the right payload (per S7.3). complexity: [manual]
-- [ ] T11.3 Smoke test: type `/confirm_demo`. See echo + yellow-bordered confirmation_prompt event. (No interaction — that's a later plan.) complexity: [manual]
-- [ ] T11.4 RSpec service spec for `EchoConfirm`: returns `Result::NeedsConfirmation` with the expected fields. complexity: [low]
-- [ ] T11.5 Mark `EchoConfirm` clearly as `# DEMO — remove once a real confirmation-requiring handler exists` in a top-of-file comment. It stays in tree as the canonical example until then. complexity: [low]
-- [ ] T11.6 Commit: `[skipci] S11: confirmation primitive (structural)`. complexity: [manual]
+- [x] T11.1 Add a temporary fixture handler `Pito::Slash::Handlers::EchoConfirm` registered under verb `:confirm_demo`. Its `#call` returns `Result::NeedsConfirmation.new(prompt_key: "pito.slash.confirm_demo.prompt", prompt_args: {}, command_text: "/confirm_demo")`. complexity: [low]
+- [x] T11.2 Verify `ChatController#create` materializes a NeedsConfirmation into a `confirmation_prompt` Event with the right payload (per S7.3). complexity: [manual]
+- [x] T11.3 Smoke test: type `/confirm_demo`. See echo + yellow-bordered confirmation_prompt event. (No interaction — that's a later plan.) complexity: [manual]
+- [x] T11.4 RSpec service spec for `EchoConfirm`: returns `Result::NeedsConfirmation` with the expected fields. complexity: [low]
+- [x] T11.5 Mark `EchoConfirm` clearly as `# DEMO — remove once a real confirmation-requiring handler exists` in a top-of-file comment. It stays in tree as the canonical example until then. complexity: [low]
+- [x] T11.6 Commit: `[skipci] S11: confirmation primitive (structural)`. complexity: [manual]
 
 ## S12 — i18n keys for Plan 2
 

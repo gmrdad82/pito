@@ -46,6 +46,24 @@ RSpec.describe "Chat requests", type: :request do
       end
     end
 
+    context "with the confirm_demo command" do
+      let(:params) { { input: "/confirm_demo" } }
+
+      it "returns 204 No Content" do
+        post "/chat", params: params
+        expect(response).to have_http_status(:no_content)
+      end
+
+      it "creates a confirmation_prompt Event with the right payload" do
+        post "/chat", params: params
+        turn = Turn.last
+        confirm_event = turn.events.find { |e| e.kind == "confirmation_prompt" }
+        expect(confirm_event).to be_present
+        expect(confirm_event.payload["prompt_key"]).to eq("pito.slash.confirm_demo.prompt")
+        expect(confirm_event.payload["command_text"]).to eq("/confirm_demo")
+      end
+    end
+
     context "with an unknown verb" do
       let(:params) { { input: "/nope" } }
 
