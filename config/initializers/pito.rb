@@ -4,4 +4,5 @@
 # This runs on every request in development (code reload) and once in production.
 Rails.application.config.to_prepare do
   Pito::Slash::Registry.register_all!
+  Pito::Chat::Registry.register_all!
 end

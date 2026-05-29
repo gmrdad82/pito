@@ -136,21 +136,21 @@ Plan 2's `Pito::Lex`, `Pito::Stream::Broadcaster`, models, controller, component
 - [x] T1.7 Recognized-verb set lives in `Pito::Chat::Parser::RECOGNIZED_VERBS = %i[list show find].freeze` at the top of the parser file. Constant kept here (not in Registry) so the parser can classify independently of registration state. complexity: [low]
 - [x] T1.8 RSpec spec `spec/lib/pito/chat/parser_spec.rb`: `list videos` → `Message(verb: :list, kind: :new_turn)`; `more stuff` after a recent turn → `Message(verb: nil, kind: :refinement)`; `more stuff` with no recent turn → `Message(verb: nil, kind: :unknown)`; `/help` raises `NotAChatMessage`. complexity: [medium]
 - [x] T1.9 Verify in console: `Pito::Chat::Parser.call(Pito::Lex::Lexer.call("list videos"), raw: "list videos", conversation: Conversation.singleton)` returns the expected Message. complexity: [manual]
-- [-] T1.10 Commit: `C1: chat parser + message value object`. complexity: [manual]
+- [x] T1.10 Commit: `C1: chat parser + message value object`. complexity: [manual]
 
 ## C2 — Chat registry + handler base + result types
 
 > Distinct from Slash's equivalents. No cross-import.
 
-- [ ] T2.1 Create `lib/pito/chat/result.rb`. Three immutable subclasses: `Pito::Chat::Result::Ok(events:)`, `Pito::Chat::Result::Error(message_key:, message_args:)`, `Pito::Chat::Result::Refine(events:)`. Each is its own class, NOT a reuse of `Pito::Slash::Result::*`. complexity: [medium]
-- [ ] T2.2 In `Result::Ok` and `Result::Refine`, `events:` is an array of `{ kind:, payload: }` hashes (same shape Plan 2 uses). complexity: [low]
-- [ ] T2.3 Create `lib/pito/chat/handler.rb`. Abstract base class. Initialized with `message:` and `conversation:` kwargs. Instance method `call -> Result`. Class attribute `verb`. Class attribute `description_key`. complexity: [medium]
-- [ ] T2.4 Create `lib/pito/chat/registry.rb`. Singleton-style class with `register(handler_class)`, `lookup(verb) -> handler_class | nil`, `size -> integer`. complexity: [low]
-- [ ] T2.5 Extend `config/initializers/pito.rb` to also call `Pito::Chat::Registry.register_all!` at boot. complexity: [low]
-- [ ] T2.6 Implement `Pito::Chat::Registry.register_all!` to register every handler under `Pito::Chat::Handlers::*`. complexity: [low]
-- [ ] T2.7 RSpec spec for `Pito::Chat::Registry`: registering a handler, looking up, unknown verb returns nil. complexity: [low]
-- [ ] T2.8 Confirm no cross-import: `git grep -n "Pito::Slash" lib/pito/chat` returns zero. complexity: [manual]
-- [ ] T2.9 Commit: `[skipci] C2: chat registry + handler base + result types`. complexity: [manual]
+- [x] T2.1 Create `lib/pito/chat/result.rb`. Three immutable subclasses: `Pito::Chat::Result::Ok(events:)`, `Pito::Chat::Result::Error(message_key:, message_args:)`, `Pito::Chat::Result::Refine(events:)`. Each is its own class, NOT a reuse of `Pito::Slash::Result::*`. complexity: [medium]
+- [x] T2.2 In `Result::Ok` and `Result::Refine`, `events:` is an array of `{ kind:, payload: }` hashes (same shape Plan 2 uses). complexity: [low]
+- [-] T2.3 Create `lib/pito/chat/handler.rb`. Abstract base class. Initialized with `message:` and `conversation:` kwargs. Instance method `call -> Result`. Class attribute `verb`. Class attribute `description_key`. complexity: [medium]
+- [-] T2.4 Create `lib/pito/chat/registry.rb`. Singleton-style class with `register(handler_class)`, `lookup(verb) -> handler_class | nil`, `size -> integer`. complexity: [low]
+- [x] T2.5 Extend `config/initializers/pito.rb` to also call `Pito::Chat::Registry.register_all!` at boot. complexity: [low]
+- [x] T2.6 Implement `Pito::Chat::Registry.register_all!` to register every handler under `Pito::Chat::Handlers::*`. complexity: [low]
+- [x] T2.7 RSpec spec for `Pito::Chat::Registry`: registering a handler, looking up, unknown verb returns nil. complexity: [low]
+- [x] T2.8 Confirm no cross-import: `git grep -n "Pito::Slash" lib/pito/chat` returns zero. complexity: [manual]
+- [x] T2.9 Commit: `C2: chat registry + handler base + result types`. complexity: [manual]
 
 ## C3 — Chat dispatcher
 
