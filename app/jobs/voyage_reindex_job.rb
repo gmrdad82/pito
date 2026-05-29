@@ -27,36 +27,9 @@ class VoyageReindexJob < ApplicationJob
   queue_as :search
 
   def perform
-    # ADR 0018 — panel-scoped cable broadcast for `running` / `complete`
-    # state on the `pito:settings:stack:voyage` channel.
-    Pito::CableBroadcaster.broadcast_panel(
-      "pito:settings:stack:voyage",
-      kind: "reindex_event",
-      payload: { state: "running" }
-    )
-
     sleep REINDEX_SLEEP_SECONDS if REINDEX_SLEEP_SECONDS.positive?
-
     BulkVoyageIndexJob.perform_later(corpus: "games")
   ensure
     AppSetting.clear_reindex_lock!
-    broadcast_voyage_section
-    Pito::CableBroadcaster.broadcast_panel(
-      "pito:settings:stack:voyage",
-      kind: "reindex_event",
-      payload: { state: "complete" }
-    )
-  end
-
-  private
-
-  def broadcast_voyage_section
-    Turbo::StreamsChannel.broadcast_replace_to(
-      "reindex_status",
-      target: "voyage_section",
-      partial: "settings/voyage_section"
-    )
-  rescue StandardError
-    nil
   end
 end

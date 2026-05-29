@@ -1,14 +1,7 @@
-# Phase 12 — Step A (6a-sessions-and-login-ui.md) — shared HMAC-SHA256
-# token digest.
+# Phase 12 — Step A — shared HMAC-SHA256 token digest.
 #
 # Single source of truth for `HMAC-SHA256(:tokens.pepper, plaintext)` used
-# by both `ApiToken` (Phase 5) and `Session` (Phase 6A) to digest opaque
-# tokens before storing them in the database. Reuses the existing
-# `:tokens.pepper` credential — one pepper, one helper, two callers.
-#
-# `ApiToken.digest` continues to forward to this helper for backwards
-# compatibility; new callers (the session model and authenticator) call
-# this helper directly.
+# by `ApiToken` to digest opaque tokens before storing in the database.
 module Pito
   module TokenDigest
     module_function

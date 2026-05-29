@@ -45,9 +45,6 @@ en:
         requires_line1: pito requires 2FA.
         requires_line2: nothing else is reachable until 2FA is enabled.
         scan_hint: scan with 1Password (or any authenticator app).
-        backup_codes_heading: backup codes
-        backup_codes_hint_line1: each code works once.
-        backup_codes_hint_line2_html: store them somewhere safe &mdash; outside the device that holds your authenticator.
     user:
       title: user
       breadcrumb: user

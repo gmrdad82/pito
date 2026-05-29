@@ -1,7 +1,5 @@
-# Phase 12 — Step A (6a-sessions-and-login-ui.md) — failed-login bucket.
-#
-# Failed-login bucket (10 / 5min per IP). `SessionsController#create` calls
-# `record_failure(ip)` on every failure path.
+# Failed-login bucket (10 / 5min per IP). `Pito::Auth::ChatLogin` calls
+# `record_failure(ip)` on every failed `/authenticate` attempt.
 module SessionThrottle
   LIMIT  = 10
   WINDOW = 5.minutes

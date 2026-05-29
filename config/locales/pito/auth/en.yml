@@ -1,0 +1,8 @@
+en:
+  pito:
+    auth:
+      authenticated: "Authenticated."
+      failed: "Authentication failed."
+      throttled: "Too many attempts. Wait a few minutes and try again."
+      not_enrolled: "No TOTP enrolled — run bin/rails pito:tools:auth:enroll."
+      required: "Authenticate first: /authenticate <code>"

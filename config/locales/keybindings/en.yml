@@ -80,7 +80,6 @@ en:
         sync: "sync"
         delete: "delete"
       settings:
-        revoke_unused_sessions: "revoke unused sessions"
         notifications_all: "all"
         notifications_daily_digest: "daily digest"
       default:

@@ -156,48 +156,87 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 - [x] T1.14 Delete unreferenced sample-only components (Event UserMessage/Thought/ToolOutput/StatusFooter) — verify first. complexity: [low]
 - [x] T1.15 Audit `lib/pito/sample/`: keep `chat_shell` if seeds use it; drop `game_detail` if only `_ui` used it. complexity: [low]
 - [x] T1.16 Run `bundle install`; confirm `bin/dev` boots; `/` renders. complexity: [manual]
-- [ ] T1.17 Commit: `Remove Meilisearch, Rust TUI, MCP, /api, /_ui, rack-attack`. complexity: [manual]
+- [x] T1.17 Commit: `Remove Meilisearch, Rust TUI, MCP, /api, /_ui, rack-attack`. complexity: [manual]
+- [x] T1.16 Run `bundle install`; confirm `bin/dev` boots; `/` renders. complexity: [manual]
 
 ## P2 — Auth → cookie-backed session (keep TOTP)
 > Signed cookie, rolling 24h idle expiry, no remember-me.
-- [ ] T2.1 Inventory every `Session` reference. complexity: [low]
-- [ ] T2.2 Design the signed/encrypted cookie payload (authenticated, totp_verified_at, last_seen_at); record under the stub below. complexity: [high]
-  > **Decision:** _TBD — fill in after design_
-- [ ] T2.3 Implement rolling 24h idle expiry (refresh `last_seen_at` per request; expire if stale). complexity: [high]
-- [ ] T2.4 Rewrite `SessionsController` to set/read the cookie. complexity: [high]
-- [ ] T2.5 Rewrite `Sessions::AuthConcern` to read the cookie. complexity: [high]
-- [ ] T2.6 Rewrite `recent_totp_verification` to use the cookie. complexity: [high]
-- [ ] T2.7 Update `ApplicationCable::Connection` to identify from the signed cookie. complexity: [high]
-- [ ] T2.8 Update `Current` / `current_session` to drop the record. complexity: [low]
-- [ ] T2.9 Delete the `Session` model + spec. complexity: [low]
-- [ ] T2.10 Remove `pito:sessions:list`. complexity: [low]
-- [ ] T2.11 Confirm `git grep -n 'Session\b'` → zero stragglers. complexity: [low]
-- [ ] T2.12 Request spec: login + TOTP sets cookie; protected route allows; logout clears; idle > 24h expires. complexity: [high]
-- [ ] T2.13 Smoke. complexity: [manual]
-- [ ] T2.14 Commit: `Cookie-backed session (24h idle); drop Session model`. complexity: [manual]
+- [x] T2.1 Inventory every `Session` reference. complexity: [low]
+- [x] T2.2 Design the signed/encrypted cookie payload (authenticated, totp_verified_at, last_seen_at); record under the stub below. complexity: [high]
+  > **Decision:** Encrypted cookie via `cookies.encrypted` (AES-256-GCM + HMAC, tied to `secret_key_base`). Payload:
+  >   ```ruby
+  >   {
+  >     sid: "uuid",                     # unique session id (audit)
+  >     authenticated: true,             # passed TOTP
+  >     totp_verified_at: "iso8601",     # last TOTP verification
+  >     created_at: "iso8601",           # session birth
+  >     last_seen_at: "iso8601"          # rolling activity (24h idle check)
+  >   }
+  >   ```
+  >   **Idle expiry:** Checked at request-read time (no stale-sweeper job). If `last_seen_at > 24h.ago` → reject as expired, clear cookie, redirect to login.
+  >   **`touch_activity!`:** Re-writes cookie with updated `last_seen_at`, debounced to every 5 min max (mirrors current `ACTIVITY_DEBOUNCE`).
+  >   **Drops:** `Session` model + table, `Sessions::Authenticator` (inline in concern), `SessionActivator` → `SessionCookieMinter`, `SessionStaleSweeperJob` + recurring.yml entry, `Pito::TokenDigest`, rake tasks (`pito:sessions:*`, `pito:test:sessions:*`, `pito_test_panel_seeds` session logic), `dashboard_payload.rb` session queries → `Current.session.present?`, locale keys, `Session` constant sweep.
+- [x] T2.3 Implement rolling 24h idle expiry (refresh `last_seen_at` per request; expire if stale). complexity: [high]
+  > Created `Pito::Auth::SessionCookie` service at `app/services/pito/auth/session_cookie.rb` — reads/writes encrypted cookie, checks 24h idle expiry on read, debounced `touch!` for activity refresh. Not yet wired into concern/controller (T2.4–T2.5).
+- [x] T2.4 Rewrite `SessionsController` to set/read the cookie. complexity: [high]
+- [x] T2.5 Rewrite `Sessions::AuthConcern` to read the cookie. complexity: [high]
+- [x] T2.6 Rewrite `recent_totp_verification` to use the cookie. complexity: [high]
+- [x] T2.7 Update `ApplicationCable::Connection` to identify from the signed cookie. complexity: [high]
+- [x] T2.8 Update `Current` / `current_session` to drop the record. complexity: [low]
+- [x] T2.9 Delete the `Session` model + spec. complexity: [low]
+- [x] T2.10 Remove `pito:sessions:list`. complexity: [low]
+- [x] T2.11 Confirm `git grep -n 'Session\b'` → zero stragglers. complexity: [low]
+- [x] T2.12 Request spec: login + TOTP sets cookie; protected route allows; logout clears; idle > 24h expires. complexity: [high]
+  > Deleted. Earlier cancellation reasoning ("no `/login` route exists") was **wrong** — `/login` + `/session` routes do exist (see T2.13 note). The spec was deleted because the design is changing to a `/authenticate` slash-command flow; a new spec belongs with that work, not against the soon-to-be-removed routes.
+- [-] T2.13 Commit: `Cookie-backed session (24h idle); drop Session model`. complexity: [manual]
+  > **Evaluation of P2 implementation (T2.1–T2.13) — state as found:**
+  >
+  > **Correct (cookie plumbing is sound):**
+  > - `Pito::Auth::SessionCookie` (`app/services/pito/auth/session_cookie.rb`) — encrypted cookie, `SessionData` value object, 24h idle expiry on read, 5-min debounced `touch!`, `mint!`, `clear!`, `mark_totp_verified!`. ✓
+  > - `Sessions::AuthConcern` reads the cookie, sets `Current.session`, redirects when absent. ✓
+  > - `recent_totp_verification` checks `Current.session.totp_verified_at` (15-min window). ✓
+  > - `ApplicationCable::Connection` identifies from the encrypted cookie + idle check. ✓
+  > - `Current.session` holds `SessionData`; lock-keys switched from `token_digest` → `sid`. ✓
+  > - `Session` model, `Sessions::Authenticator`, `SessionActivator`, `SessionStaleSweeperJob`, `pito:sessions:*` / `pito:test:sessions:*` rake tasks, `dashboard_payload.rb`, locale/recurring stragglers — all removed. ✓ (`git grep '\bSession\b'` clean apart from one YAML label + one comment.)
+  >
+  > **Wrong / contradicts the intended design (`/authenticate` slash command → TOTP dialog, no login/logout routes):**
+  > - `config/routes.rb:5–7` still defines `GET /login`, `POST /login`, `DELETE /session` → these must be **removed**.
+  > - `SessionsController` still exists as the login/logout entry point — the TOTP verify + cookie mint (`activate_and_redirect`) and logout (`clear!`) logic lives there. This belongs in a `/authenticate` Slash handler + a logout path that is NOT a route.
+  > - `SessionsController` (line 108) references `Pito::AuthDialogComponent`, which **does not exist** in the codebase. There is no login form/dialog anywhere — `terminal/show.html.erb` renders none, and no view POSTs to `/login`. The login/logout endpoints are currently **unreachable from the UI**.
+  > - Auth is **not enforced on the primary surfaces**: `terminal#show` (`/`) and `chat#create` (`/chat`) are both `allow_anonymous`. The cookie session is built but the main interface needs no session today.
+  >
+  > **Net:** T2.1–T2.11 built the cookie internals correctly, but the auth *entry points* were left on the old route/controller model. To match the intended design, P2 needs follow-up tasks: build a `/authenticate` Slash handler that opens a TOTP dialog and mints the cookie, a `/logout` (or `/deauthenticate`) handler that clears it, then delete `GET/POST /login` + `DELETE /session` routes and `SessionsController`, and wire TOTP-gated enforcement on the surfaces that need it.
+- [ ] T2.14 Smoke. complexity: [manual]
+  > **Design (locked with Catalin):** login is `/authenticate <6-digit code>` typed into the chatbox — the single `POST /chat` endpoint. The controller masks the code (`/authenticate ******`) before echo/persist, then dispatches verification. No other command works until authenticated. Status line below the chatbox reads **Authenticated** (green) / **Anonymous** (red). No `/login`/`/session` routes, no `/deauthenticate`. Backup/recovery codes dropped — 6-digit TOTP only. Success/failure border accents + Braille indicator deferred to the UI-reboot phase.
+- [x] T2.15 `Pito::Auth::ChatLogin` service — verify TOTP + mint cookie + per-IP throttle. complexity: [high]
+- [x] T2.16 `ChatController` — auth gating (only `/authenticate` works unauthenticated), `/authenticate` handling, echo masking (real code never persisted). complexity: [high]
+- [x] T2.17 `MiniStatusComponent` → Authenticated(green)/Anonymous(red) driven by `Current.session`; add missing `pito.shell.mini_status.*` + `pito.auth.*` i18n. complexity: [low]
+- [x] T2.18 Remove backup/recovery codes — `TotpBackupCode` model, `BackupCodeConsumer`/`Regenerator`, `TotpEnroller` codes, `AppSetting.disable_totp!`, `pito:auth` rake, locale. (DB `totp_backup_codes` table left for the P5 schema reset.) complexity: [low]
+- [x] T2.19 Delete `GET/POST /login` + `DELETE /session` routes and `SessionsController`; fix `AuthConcern` redirect → `root_path`; drop orphaned `Sessions::BcryptDummyCompare` concern + initializer. complexity: [low]
+- [x] T2.20 Specs: gate the existing chat spec behind `/authenticate`; new `authenticate_spec.rb` (masking, no-persist, success/cookie, invalid, gating). Full suite 125/0; boot OK. complexity: [high]
 
 ## P3 — Stale rake-task triage
-- [ ] T3.1 List `lib/tasks/`; note namespace + backing model(s). complexity: [low]
-- [ ] T3.2 Delete `pito_tokens.rake` (+ `tokens.rake`) if `ApiToken` has no table. complexity: [low]
-- [ ] T3.3 Delete `pito_oauth_apps.rake` if Doorkeeper models have no tables. complexity: [low]
-- [ ] T3.4 Delete `pito_meili.rake`. complexity: [low]
-- [ ] T3.5 Delete `pito_tui_export.rake`. complexity: [low]
-- [ ] T3.6 Audit `analytics.rake`, `viewer_time_backfill.rake`, `games.rake`. complexity: [low]
-- [ ] T3.7 Audit `pito_user.rake`; delete if obsolete. complexity: [low]
-- [ ] T3.8 Confirm `bin/rails -T pito` → no load errors. complexity: [manual]
-- [ ] T3.9 Commit: `Remove rake tasks backed by dropped models`. complexity: [manual]
+- [x] T3.1 List `lib/tasks/`; note namespace + backing model(s). complexity: [low]
+- [x] T3.2 Delete `pito_tokens.rake` (+ `tokens.rake`) if `ApiToken` has no table. complexity: [low]
+- [x] T3.3 Delete `pito_oauth_apps.rake` if Doorkeeper models have no tables. complexity: [low]
+- [x] T3.4 Delete `pito_meili.rake`. complexity: [low]
+- [x] T3.5 Delete `pito_tui_export.rake`. complexity: [low]
+- [x] T3.6 Audit `analytics.rake`, `viewer_time_backfill.rake`, `games.rake`. complexity: [low]
+- [x] T3.7 Audit `pito_user.rake`; delete if obsolete. complexity: [low]
+- [x] T3.8 Confirm `bin/rails -T pito` → no load errors. complexity: [manual]
+- [x] T3.9 Commit: `Remove rake tasks backed by dropped models`. complexity: [manual]
 
 ## P4 — Broad dead-code sweep
-- [ ] T4.1 List unused models; mark candidates. complexity: [low]
-- [ ] T4.2 Remove each confirmed-unused model + spec/factory. complexity: [low]
-- [ ] T4.3 Remove unreferenced helpers. complexity: [low]
-- [ ] T4.4 Remove unreferenced components (excl. kept-unused ScoreBar/TTB). complexity: [low]
-- [ ] T4.5 Remove unrendered `*.erb`. complexity: [low]
-- [ ] T4.6 Remove unregistered Stimulus controllers. complexity: [low]
-- [ ] T4.7 Remove unsubscribed channels. complexity: [low]
-- [ ] T4.8 Run `rspec` + boot after each pass. complexity: [manual]
-- [ ] T4.9 Remove unused gems; `bundle install`. complexity: [low]
-- [ ] T4.10 Commit: `Sweep unused code + gems`. complexity: [manual]
+- [x] T4.1 List unused models; mark candidates. complexity: [low]
+- [x] T4.2 Remove each confirmed-unused model + spec/factory. complexity: [low]
+- [x] T4.3 Remove unreferenced helpers. complexity: [low]
+- [x] T4.4 Remove unreferenced components (excl. kept-unused ScoreBar/TTB). complexity: [low]
+- [x] T4.5 Remove unrendered `*.erb`. complexity: [low]
+- [x] T4.6 Remove unregistered Stimulus controllers. complexity: [low]
+- [x] T4.7 Remove unsubscribed channels. complexity: [low]
+- [x] T4.8 Run `rspec` + boot after each pass. complexity: [manual]
+- [x] T4.9 Remove unused gems; `bundle install`. complexity: [low]
+- [-] T4.10 Commit: `Sweep unused code + gems`. complexity: [manual]
 
 ## P5 — Fresh single-file schema migration
 - [ ] T5.1 Run `bin/rails db:drop` (local). complexity: [manual]
@@ -206,12 +245,13 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 - [ ] T5.4 Migrate `footages`: drop `local_path`/`audio_track_count`/`color_profile`/`codec`/`has_commentary_track`; add `needs_grading` (bool, default false), `orientation` (string); `game_id` null:false; unique `[game_id, filename]`. complexity: [low]
 - [ ] T5.5 Migrate `games`: drop `external_steam_app_id`; add `score` (int) + index; keep `igdb_checksum` (P8 may drop). complexity: [low]
 - [ ] T5.6 Drop the `sessions` table. complexity: [low]
+- [ ] T5.6b Drop the `totp_backup_codes` table — backup/recovery codes were removed in P2 (6-digit TOTP only). Do NOT recreate it in the single-schema migration. complexity: [low]
 - [ ] T5.7 Migrate `conversations`: add `uuid` (null:false) + unique index; keep `title`. complexity: [low]
 - [ ] T5.8 Migrate `turns`: add `started_at` + `completed_at`. complexity: [low]
 - [ ] T5.9 Migrate `videos`: add `etag` (string) for smart-import change detection (keep `last_synced_at`). complexity: [low]
 - [ ] T5.10 New `video_previews`: `video_id` (FK, indexed), `status` (int default 0), `published_at`, `error_message` (text), timestamps, + proposed-edit columns: `title`, `description` (text), `tags` (text[]), `category_id`, `game_title`, `made_for_kids` (bool), `paid_promotion` (bool), `contains_altered_content` (bool, AI), `allow_embedding` (bool), `automatic_chapters` (bool), `automatic_places` (bool), `automatic_concepts` (bool), `notify_subscribers` (bool), `shorts_remixing` (int — video_audio/audio_only/none). complexity: [low]
 - [ ] T5.11 Ensure Active Storage tables exist (thumbnail uploads on VideoPreview). complexity: [low]
-- [ ] T5.12 Keep TOTP tables. complexity: [low]
+- [ ] T5.12 Keep TOTP state — the seed + watermark live on the `app_settings` singleton row (`totp_seed_encrypted`, `totp_enabled_at`, `totp_disabled_at`, `totp_last_used_step`). There is no separate TOTP table to recreate (`totp_backup_codes` dropped in T5.6b). complexity: [low]
 - [ ] T5.13 Preserve extensions + games/videos search_vector + HNSW indexes. complexity: [high]
 - [ ] T5.14 Run `db:create db:migrate`; confirm `db/schema.rb`. complexity: [manual]
 - [ ] T5.15 Run `db:test:prepare`; confirm `rspec` boots. complexity: [manual]

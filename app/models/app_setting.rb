@@ -60,7 +60,6 @@ class AppSetting < ApplicationRecord
   end
 
   def self.disable_totp!
-    TotpBackupCode.delete_all
     singleton_row.update!(
       totp_seed_encrypted: nil,
       totp_enabled_at: nil,

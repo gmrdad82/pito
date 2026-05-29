@@ -324,12 +324,9 @@ class YoutubeConnections::OauthCallbacksController < ApplicationController
     parts.join(" ")
   end
 
-  # Phase 9 — audit trail for callback outcomes. Mirrors the helper
-  # pattern in `SessionsController#audit` (one structured JSON line
-  # per event via the AUTH_AUDIT_LOGGER), gated on the logger being
-  # defined. Audit-row keys are locked in
-  # `docs/plans/beta/09-login-with-google-drop/specs/01-google-identity-rename.md`
-  # under "Master agent decisions → Copy decisions §5".
+  # Phase 9 — audit trail for callback outcomes. One structured JSON
+  # line per event via the AUTH_AUDIT_LOGGER, gated on the logger being
+  # defined.
   def audit(event, **payload)
     return unless defined?(AUTH_AUDIT_LOGGER)
 

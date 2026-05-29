@@ -9,16 +9,96 @@ class ChatController < ApplicationController
 
     conversation = current_conversation
 
-    if input.start_with?("/")
-      handle_slash(input, conversation)
+    if authenticate_command?(input)
+      handle_authenticate(input, conversation)
+    elsif Current.session.present?
+      if input.start_with?("/")
+        handle_slash(input, conversation)
+      else
+        handle_chat(input, conversation)
+      end
     else
-      handle_chat(input, conversation)
+      handle_unauthenticated(input, conversation)
     end
 
     head :no_content
   end
 
   private
+
+  # ── Authentication branch ──────────────────────────────────────────
+  #
+  # `/authenticate <code>` is the single login entry point (no /login
+  # route). The 6-digit code is masked before it is echoed or persisted
+  # so the real code never touches the DB or the scrollback.
+
+  def authenticate_command?(input)
+    input.strip.match?(%r{\A/authenticate(\s|\z)}i)
+  end
+
+  def handle_authenticate(input, conversation)
+    masked = mask_secret(input)
+
+    turn = conversation.turns.create!(
+      position: Turn.next_position_for(conversation),
+      input_kind: "slash",
+      input_text: masked
+    )
+
+    broadcaster = Pito::Stream::Broadcaster.new(conversation:)
+    broadcaster.emit(turn:, kind: "echo", payload: { text: masked })
+
+    code = input.strip.split(/\s+/, 2)[1].to_s
+    result = Pito::Auth::ChatLogin.call(code:, request:)
+
+    if result.authenticated?
+      Current.session = result.session_data
+      broadcaster.emit(
+        turn:,
+        kind: "assistant_text",
+        payload: { message_key: "pito.auth.authenticated", message_args: {} }
+      )
+    else
+      broadcaster.emit(
+        turn:,
+        kind: "error",
+        payload: { message_key: auth_error_key(result.status), message_args: {} }
+      )
+    end
+  end
+
+  # Masks everything after the verb: `/authenticate 123456` → `/authenticate ******`.
+  def mask_secret(input)
+    verb, rest = input.strip.split(/\s+/, 2)
+    return input if rest.blank?
+
+    "#{verb} #{'*' * rest.length}"
+  end
+
+  def auth_error_key(status)
+    case status
+    when :throttled    then "pito.auth.throttled"
+    when :not_enrolled then "pito.auth.not_enrolled"
+    else                    "pito.auth.failed"
+    end
+  end
+
+  # Any non-`/authenticate` command issued without a session is refused.
+  def handle_unauthenticated(input, conversation)
+    turn = conversation.turns.create!(
+      position: Turn.next_position_for(conversation),
+      input_kind: input.start_with?("/") ? "slash" : "chat",
+      input_text: input
+    )
+
+    broadcaster = Pito::Stream::Broadcaster.new(conversation:)
+    broadcaster.emit(turn:, kind: "echo", payload: { text: input })
+    broadcaster.emit(
+      turn:,
+      kind: "error",
+      payload: { message_key: "pito.auth.required", message_args: {} }
+    )
+  end
 
   # ── Slash branch (Plan 2) ──────────────────────────────────────────
 

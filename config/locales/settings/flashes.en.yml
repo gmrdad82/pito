@@ -49,9 +49,3 @@ en:
         expired: "enrollment expired."
         enrolled: "2FA enrolled."
         login_failed: "login failed."
-    sessions:
-      flash:
-        cancelled: "revoke cancelled."
-        nothing: "nothing to revoke."
-        revoked_one: "session revoked"
-        revoked_many: "%{count} sessions revoked"

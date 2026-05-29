@@ -49,12 +49,6 @@ production:
     schedule: "0 3 * * *"
     description: "Re-sync every Game whose igdb_synced_at is older than 7 days"
 
-  # Stale session sweeper — every 15 minutes
-  session_stale_sweeper:
-    class: SessionStaleSweeperJob
-    schedule: "*/15 * * * *"
-    description: "Revoke active sessions idle past 30 days"
-
   # Video diff check — daily at 01:30 UTC
   video_diff_check_bulk:
     class: BulkVideoDiffCheckJob

@@ -9,6 +9,17 @@ RSpec.describe "Chat requests", type: :request do
   describe "POST /chat" do
     let(:conversation) { Conversation.singleton }
 
+    # Authenticate the session (mint the cookie via /authenticate <code>),
+    # then clear the turns the auth round-trip created so per-test counts
+    # start from a clean slate. The cookie lives in the Rack::Test jar, so
+    # it survives the DB cleanup and authenticates subsequent requests.
+    before do
+      seed = ROTP::Base32.random_base32
+      AppSetting.enroll_totp!(seed: seed)
+      post "/chat", params: { input: "/authenticate #{ROTP::TOTP.new(seed).now}" }
+      conversation.turns.destroy_all
+    end
+
     context "with a slash command" do
       let(:params) { { input: "/help" } }
 

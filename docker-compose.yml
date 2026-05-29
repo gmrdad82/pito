@@ -27,10 +27,10 @@ volumes:
   # `pito_pito-...` form that compose generates by default).
   pito-postgres-data:
     name: pito-postgres-data
-  # Active Storage assets volume (game cover art, future channel
-  # banners/avatars). Currently unmounted — Rails runs natively on the dev
-  # host and reads PITO_ASSETS_PATH env var. The volume declaration lives
-  # here so the name is reserved for when Rails moves into a container
-  # (Hetzner cutover, Phase 16).
+  # Active Storage assets volume: IGDB cover arts, Video thumbnails,
+  # VideoPreview thumbnails, Channel avatars. Currently unmounted — Rails
+  # runs natively on the dev host and reads PITO_ASSETS_PATH env var.
+  # The volume declaration lives here so the name is reserved for when
+  # Rails moves into a container (Hetzner cutover).
   pito-assets:
     name: pito-assets

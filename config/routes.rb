@@ -1,10 +1,8 @@
 Rails.application.routes.draw do
   mount ActionCable.server => "/cable"
 
-  # Auth — TOTP login
-  get  "/login",    to: "sessions#new",     as: :login
-  post "/login",   to: "sessions#create"
-  delete "/session", to: "sessions#destroy", as: :session_logout
+  # Auth is TOTP-only via the chatbox (`/authenticate <code>`) — no login
+  # or logout routes. See ChatController + Pito::Auth::ChatLogin.
 
   # Google OAuth callback (YouTube connection)
   match "/auth/google/callback",
@@ -18,137 +16,6 @@ Rails.application.routes.draw do
   root "terminal#show"
   post "/chat", to: "chat#create"
   get "/start", to: "start_screens#show"
-
-  # JSON-only dashboard alias for pito CLI
-  get "dashboard", to: "dashboard#index", as: :dashboard
-  get "sidebar", to: "dashboard#sidebar", as: :sidebar
-
-  # Channels — JSON API surface
-  resources :channels, only: [ :index, :show, :destroy ] do
-    collection do
-      post :connect_google
-    end
-    member do
-      get  :revoke, to: "channel_revokes#show",   as: :revoke
-      post :revoke, to: "channel_revokes#create"
-      get  :videos  # /channels/:id/videos.json
-      resource :star, only: :update, controller: "channels/stars", as: :channel_star
-    end
-    resource :analytics, only: :show, controller: "channels/analytics"
-    post "analytics/refresh", to: "channels/analytics_refresh#create", as: :analytics_refresh
-    resources :change_logs, only: :index, path: "history", controller: "channels/change_logs"
-  end
-
-  # Bulk channel revoke
-  get  "/channels/revokes/:ids", to: "channels/bulk_revokes#show",
-       as: :channels_bulk_revoke, constraints: { ids: %r{[\d,]+} }
-  post "/channels/revokes/:ids", to: "channels/bulk_revokes#create",
-       constraints: { ids: %r{[\d,]+} }
-
-  # Videos — JSON API surface
-  resources :videos, only: [ :show, :destroy ] do
-    member do
-      get :stats
-      get   :pre_publish_checklist
-      patch :publish
-      patch :schedule
-      patch :unpublish
-      get   :diff
-      patch :apply_diff
-    end
-    resources :links, only: %i[create update destroy], controller: "video_game_links"
-    resource :analytics, only: :show, controller: "videos/analytics"
-    post "analytics/refresh", to: "videos/analytics_refresh#create", as: :analytics_refresh
-    post "analytics/retention/refresh", to: "videos/retention_refresh#create", as: :retention_refresh
-  end
-
-  # Games — JSON API surface
-  resources :games, only: [ :show, :create, :destroy ] do
-    collection do
-      get :search
-      get :omnisearch
-      get :version_parent_search
-    end
-    member do
-      post :resync
-    end
-  end
-
-  # Images — cover art / thumbnail pipeline
-  get "images/games/:id", to: "images#show_game", defaults: { format: "json" }
-  get "images/videos/:id/thumbnail", to: "images#show_video_thumbnail", defaults: { format: "json" }
-
-  # Footage — JSON API + frame endpoints for scrub UI
-  resources :footages, only: [ :index, :show, :edit, :update, :destroy ]
-  get "/footages/:id/frames.json",       to: "footages#frames",       as: :footage_frames,       defaults: { format: "json" }
-  get "/footages/:footage_id/frames/m/:filename.jpg", to: "footages#frame_master",
-      as: :footage_frame_master, constraints: { filename: /\d{2}-\d{2}-\d{2}/ }, defaults: { format: "jpg" }
-  get "/footages/:footage_id/frames/t/:filename.jpg", to: "footages#frame_thumb",
-      as: :footage_frame_thumb, constraints: { filename: /\d{2}-\d{2}-\d{2}/ }, defaults: { format: "jpg" }
-  get "footage/importer/download", to: "footage_importer/downloads#show", as: :footage_importer_download
-
-  # Analytics
-  resource :analytics, only: :show, controller: "analytics"
-  get "analytics/channel/:id", to: "dashboard#channel_analytics", as: :analytics_channel
-
-  # Video imports
-  namespace :imports do
-    resources :channels, only: %i[index create show update]
-  end
-
-  # Saved views
-  resources :saved_views, only: [ :index, :create, :destroy ]
-
-  # Notifications — JSON API surface
-  resources :notifications, only: %i[index show] do
-    member do
-      patch :read
-      patch :unread
-    end
-    collection do
-      patch :mark_read
-      patch :mark_all_read
-      get   :badge
-    end
-  end
-
-  # Notifications feed (in-app actions)
-  resources :notifications_feed, only: [] do
-    collection do
-      post :mark_read
-      post :mark_unread
-    end
-  end
-
-  # Calendar — entry CRUD
-  scope "/calendar" do
-    resources :entries,
-              controller: "calendar/entries",
-              as: :calendar_entries,
-              only: %i[new create show edit update] do
-      collection do
-        get :quick_add
-      end
-      member do
-        patch :note
-        get   :details_pane
-      end
-    end
-  end
-
-  # Deletions — bulk delete confirmation
-  get  "deletions/:type/:ids", to: "deletions#show", as: :deletions
-  post "deletions/:type/:ids", to: "deletions#create"
-  delete "deletions/calendar_entry/:ids",
-         to: "deletions#cancel_calendar_entry",
-         defaults: { type: "calendar_entry" },
-         as: :calendar_entry_cancellation
-  delete "deletions/youtube_connection/:ids",
-         to: "deletions#destroy_youtube_connection",
-         as: :youtube_connection_disconnect
-
-  # Sync toggle
-  post "sync/toggle", to: "sync#toggle", as: :sync_toggle
 
   # Health check
   get "up" => "rails/health#show", as: :rails_health_check

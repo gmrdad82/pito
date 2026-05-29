@@ -187,7 +187,7 @@ class Imports::ChannelsController < ApplicationController
     return false unless Current.session
 
     # Z1: User model gone. Lock key scoped to session token instead.
-    lock_key = "imports:enqueue:session:#{Current.session.token_digest}"
+    lock_key = "imports:enqueue:session:#{Current.session.sid}"
     !Rails.cache.write(lock_key, 1, expires_in: ENQUEUE_RATE_LIMIT_TTL, unless_exist: true)
   end
 

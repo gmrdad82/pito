@@ -19,6 +19,7 @@
 require "fileutils"
 
 namespace :pito do
+  namespace :tools do
   namespace :assets do
     desc "Create symlinks public/covers + public/thumbnails to assets volume (idempotent)"
     task setup_symlinks: :environment do
@@ -54,7 +55,8 @@ namespace :pito do
       end
 
       puts ""
-      puts "[pito:assets:setup_symlinks] done"
+      puts "[pito:tools:assets:setup_symlinks] done"
     end
+  end
   end
 end

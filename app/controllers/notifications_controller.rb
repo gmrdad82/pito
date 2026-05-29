@@ -250,7 +250,7 @@ class NotificationsController < ApplicationController
     return unless Current.session
 
     # Z1: User model gone. Lock key scoped to session token instead.
-    lock_key = "notifications:mark_read:session:#{Current.session.token_digest}"
+    lock_key = "notifications:mark_read:session:#{Current.session.sid}"
     return if Rails.cache.write(lock_key, 1, expires_in: MARK_READ_RATE_LIMIT_TTL, unless_exist: true)
 
     respond_to do |format|

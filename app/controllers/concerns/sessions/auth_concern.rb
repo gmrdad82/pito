@@ -1,12 +1,14 @@
-# Z2d (2026-05-25) — controller-level cookie-session auth.
+# Encrypted-cookie session auth.
 #
-# Replaces the old username+password flow. The only entry point to a
-# live session is `POST /login` (TOTP code or backup code).
+# Reads `Pito::Auth::SessionCookie` on every request. If the cookie is
+# valid (not expired, not tampered) populates `Current.session` with a
+# `SessionData` value object. If absent or expired, redirects to the
+# root chat shell, where the owner authenticates by typing
+# `/authenticate <code>` (there is no /login route).
 #
-# Successful resolution populates `Current.session`. There is no
-# `Current.user` — the User model is gone (Z1). Every controller that
-# previously gated on `Current.user.present?` now gates on
-# `Current.session.present?`.
+# Anonymous-allowed actions (the root chat shell, health check) skip the
+# redirect but still opportunistically load a valid session so the
+# layout can render the authenticated state.
 module Sessions
   module AuthConcern
     extend ActiveSupport::Concern
@@ -22,10 +24,6 @@ module Sessions
     end
 
     class_methods do
-      # Mark one or more controller actions as "no auth required". Used
-      # by `SessionsController` (the login form itself), the OAuth
-      # consent screen's pre-login redirect path, and the public health
-      # check.
       def allow_anonymous(*actions)
         self._anonymous_allowed_actions = (_anonymous_allowed_actions + actions.map(&:to_sym)).freeze
       end
@@ -34,38 +32,20 @@ module Sessions
     private
 
     def authenticate_session!
-      # Anonymous-allowed actions (dashboard#index, sessions#new/#create) still
-      # need an opportunistic cookie read so Current.session populates when
-      # a valid session exists — otherwise the layout can't tell the user is
-      # authenticated on the next GET / after a successful POST /login.
-      # Never redirects on failure here; anonymous actions proceed without a
-      # session.
-      if anonymous_action?
-        opportunistic = Sessions::Authenticator.call(request)
-        if opportunistic.success?
-          Current.session = opportunistic.session
-          opportunistic.session.touch_activity!
-        end
+      cookie_manager = Pito::Auth::SessionCookie.new(request)
+      data = cookie_manager.read
+
+      if data
+        Current.session = cookie_manager.touch!(data)
         return
       end
 
-      result = Sessions::Authenticator.call(request)
-
-      if result.success?
-        Current.session = result.session
-        result.session.touch_activity!
-        return
-      end
-
-      audit_session_cookie_failure(result.reason) if result.reason
-
-      if result.reason == :auth_misconfigured
-        render plain: "auth misconfigured", status: :internal_server_error
-        return
-      end
+      # Anonymous actions proceed without a session — the layout shows
+      # the unauthenticated (Anonymous) state.
+      return if anonymous_action?
 
       stash_intended_url
-      redirect_to login_path, alert: "please log in."
+      redirect_to root_path, alert: "authenticate first: /authenticate <code>"
     end
 
     def anonymous_action?
@@ -74,7 +54,7 @@ module Sessions
 
     def stash_intended_url
       return unless request.get?
-      return if request.path == login_path
+      return if request.path == root_path
       return if request.path.start_with?("/oauth/") && !request.path.end_with?("/authorize")
 
       cookies.signed[INTENDED_URL_COOKIE] = {
@@ -92,24 +72,8 @@ module Sessions
       Current.reset
     end
 
-    # Cookie `secure` flag mirrors the production / dev rule from the
-    # locked decision: on in every env except `test` (which runs over
-    # plain HTTP via Rack::Test).
     def cookie_secure?
       !Rails.env.test?
-    end
-
-    def audit_session_cookie_failure(reason)
-      payload = {
-        ts: Time.now.utc.iso8601(3),
-        event: "session.cookie.invalid",
-        reason: reason.to_s,
-        ip: request.remote_ip,
-        route: "#{request.method} #{request.path}"
-      }
-      AUTH_AUDIT_LOGGER.info(payload.to_json) if defined?(AUTH_AUDIT_LOGGER)
-    rescue StandardError
-      nil
     end
   end
 end

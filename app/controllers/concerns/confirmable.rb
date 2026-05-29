@@ -21,7 +21,7 @@ module Confirmable
   # D18 (2026-05-21) — "project" and "timeline" types dropped alongside
   # the Project + Timeline models.
   # R1 (2026-05-25) — "bundle" type dropped with bundles removal.
-  TYPES = %w[channel video game calendar_entry video_game_link].freeze
+  TYPES = %w[channel video game].freeze
 
   private
 
@@ -66,10 +66,6 @@ module Confirmable
     # R2 (2026-05-25) — /videos and /games screens removed; fall back to root.
     when "video"      then root_path
     when "game"       then root_path
-    # Phase 15 §2 — calendar entries cancel back to the schedule view.
-    when "calendar_entry" then calendar_schedule_path
-    # R2 (2026-05-25) — /videos screen removed; video_game_link falls back to root.
-    when "video_game_link" then root_path
     else root_path
     end
   end
@@ -79,8 +75,6 @@ module Confirmable
     when "channel"    then Channel
     when "video"      then Video
     when "game"       then Game
-    when "calendar_entry" then CalendarEntry
-    when "video_game_link" then VideoGameLink
     end
   end
 
@@ -110,13 +104,6 @@ module Confirmable
            .order(youtube_video_id: :asc)
     when "game"
       Game.where(id: ids).order(title: :asc)
-    when "calendar_entry"
-      # Phase 15 §2 — exclude derived/auto entries from manual cancel.
-      # The schedule / month views do not render the [cancel] link on
-      # those rows; this guard is defense-in-depth for direct URL hits.
-      CalendarEntry.where(id: ids).where(source: :manual).order(starts_at: :asc)
-    when "video_game_link"
-      VideoGameLink.includes(:game, :video).where(id: ids).order(:id)
     end
   end
 
@@ -125,14 +112,9 @@ module Confirmable
   # for games.
   def label_for(item)
     case item
-    when Channel    then item.channel_url
-    when Video      then item.youtube_video_id
-    when Game       then item.title
-    when CalendarEntry then item.title
-    when VideoGameLink
-      target = item.target
-      target_label = target.respond_to?(:title) ? target.title : target.to_s
-      "video ##{item.video_id} → #{item.link_type}: #{target_label}"
+    when Channel then item.channel_url
+    when Video   then item.youtube_video_id
+    when Game    then item.title
     else item.to_s
     end
   end

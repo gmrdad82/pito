@@ -6,3 +6,12 @@ en:
         filter:
           channel_label: "Channel"
           period_label: "Period"
+      mini_status:
+        authenticated: "Authenticated"
+        anonymous: "Anonymous"
+        not_authenticated: "Anonymous"
+        notifications_count:
+          one: "%{count} notification"
+          other: "%{count} notifications"
+        commands_hint: "/"
+        commands_label: "for commands"
