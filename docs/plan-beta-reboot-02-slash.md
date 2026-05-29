@@ -319,11 +319,11 @@ Plan 1's components (`Pito::Event::UserMessageComponent`, `Pito::Event::Assistan
 
 > Document the conventions Plan 2 introduces so later plans don't drift.
 
-- [ ] T13.1 Add section `## Dispatch core` to AGENTS.md describing: single `POST /chat` endpoint, leading-`/` branches to Slash, no-leading-`/` branches to Chat (Plan 3), `current_conversation` helper, broadcast via `Pito::Stream::Broadcaster`. complexity: [medium]
-- [ ] T13.2 Add section `## Slash conventions` describing: `Pito::Slash::*` namespace, handlers under `app/services/pito/slash/handlers/`, every handler returns a `Result`, registry registered in `config/initializers/pito.rb`, every handler exposes `verb` and `description_key`. complexity: [medium]
-- [ ] T13.3 Add section `## Event payload conventions` describing: structured payloads only, i18n keys + args (never rendered strings), `Event::KINDS` enumeration, re-render through ViewComponents on every read. complexity: [medium]
-- [ ] T13.4 Add section `## Cross-system invariants` listing the Slash/Chat isolation rules from the Cross-plan invariants table above. complexity: [low]
-- [ ] T13.5 Commit: `[skipci] S13: AGENTS.md dispatch + slash + event conventions`. complexity: [manual]
+- [x] T13.1 Add section `## Dispatch core` to AGENTS.md describing: single `POST /chat` endpoint, leading-`/` branches to Slash, no-leading-`/` branches to Chat (Plan 3), `current_conversation` helper, broadcast via `Pito::Stream::Broadcaster`. complexity: [medium]
+- [x] T13.2 Add section `## Slash conventions` describing: `Pito::Slash::*` namespace, handlers under `app/services/pito/slash/handlers/`, every handler returns a `Result`, registry registered in `config/initializers/pito.rb`, every handler exposes `verb` and `description_key`. complexity: [medium]
+- [x] T13.3 Add section `## Event payload conventions` describing: structured payloads only, i18n keys + args (never rendered strings), `Event::KINDS` enumeration, re-render through ViewComponents on every read. complexity: [medium]
+- [x] T13.4 Add section `## Cross-system invariants` listing the Slash/Chat isolation rules from the Cross-plan invariants table above. complexity: [low]
+- [x] T13.5 Commit: `[skipci] S13: AGENTS.md dispatch + slash + event conventions`. complexity: [manual]
 
 ## S14 — Verification & cleanup
 
