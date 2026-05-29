@@ -10,6 +10,9 @@
 - [x] Drafted — 2026-05-27
 - [x] Audited — 2026-05-27
 
+> **Plan 3 completed 2026-05-29.** Notable divergence from spec:
+> - **T10.9 (tag `v0.3.0-chat-core`) skipped** — user will handle separately.
+
 ## North star
 
 Plan 2 wired the slash-command branch of `POST /chat`. Plan 3 wires the **other branch** — the free-text branch — and adds the **refinement turn model** that distinguishes chat from slash. After Plan 3, typing `list` (or any other recognized chat verb) in the chatbox produces a real broadcasted response. Typing `hello` (or any unrecognized free text) produces a real "didn't understand" error event in the scrollback.
@@ -245,7 +248,7 @@ Plan 2's `Pito::Lex`, `Pito::Stream::Broadcaster`, models, controller, component
 - [x] T10.6 `git grep -n "Pito::Slash" lib/pito/chat app/services/pito/chat` — should return zero hits (isolation invariant). complexity: [manual]
 - [x] T10.7 `git grep -n "Pito::Chat" lib/pito/slash app/services/pito/slash` — should return zero hits (the other direction). complexity: [manual]
 - [x] T10.8 `git grep -nE '"[A-Z][a-z][^"]*"' app/services/pito/chat lib/pito/chat` — every match is an i18n key, an inline-comment string, or a non-user-facing string. complexity: [manual]
-- [x] T10.9 Tag: `git tag v0.3.0-chat-core`. complexity: [manual]
+- [ ] T10.9 Tag: `git tag v0.3.0-chat-core`. complexity: [manual]
 - [x] T10.10 Commit: `C10: chat core verification`. complexity: [manual]
 
 ---

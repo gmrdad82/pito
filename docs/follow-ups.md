@@ -55,3 +55,24 @@ These are explicitly NOT in Plan 1. They live in subsequent plans.
 - Per-handler authorization checks.
 - Rate limiting on `POST /chat`.
 - Localization beyond English.
+
+---
+
+## Plan 3 — Chat Core (explicitly NOT in scope)
+
+- Real chat handlers that hit the DB: list videos, list games, top videos by metric, etc.
+- The full chat grammar described in earlier brainstorming: `with FIELD, FIELD`, `top N`, `latest N`, period overrides, filter keywords (`shorts`, `longform`, etc.). Plan 3 ships a stub verb only.
+- Phrase dictionary for fuzzy modifier matching ("watched mostly by men", "on mobile").
+- Embedding fallback via Voyage for unmatched remainders.
+- Optional LLM fallback for genuinely novel inputs.
+- The `new topic` keyword (or button) to explicitly close the current Turn.
+- Replace-vs-append refinement semantics: refinements that rewrite the previous result block (e.g., add a column to the same table) instead of appending new events.
+- TAB channel cycling + SHIFT+TAB period cycling (Stimulus + state).
+- Channel/period context being sent with each message and converted to absolute timestamps server-side.
+- Multi-conversation routing (per-tab conversations, session picker, rename, fork).
+- Ctrl+K / Ctrl+P command palette UI.
+- Autocomplete or suggestions while typing.
+- Syntax highlighting of recognized tokens.
+- Sessions persisted across devices (mobile → desktop continuity).
+- Authentication (`/authenticate`) and OAuth (`/connect`) — covered by Plan 0 P14, surfaced in a later plan.
+- Localization beyond English.
