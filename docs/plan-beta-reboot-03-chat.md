@@ -156,14 +156,14 @@ Plan 2's `Pito::Lex`, `Pito::Stream::Broadcaster`, models, controller, component
 
 > Glue layer. Classifies the message, looks up the handler, invokes it, returns the result.
 
-- [ ] T3.1 Create `lib/pito/chat/dispatcher.rb`. Class method `Pito::Chat::Dispatcher.call(input:, conversation:) -> Result`. complexity: [medium]
-- [ ] T3.2 Dispatcher flow: (1) tokenize via `Pito::Lex::Lexer.call(input)`; (2) parse via `Pito::Chat::Parser.call(tokens, raw: input, conversation: conversation)`; (3) branch on `message.kind`. complexity: [medium]
-- [ ] T3.3 Branch `:new_turn`: look up handler via `Pito::Chat::Registry.lookup(message.verb)`. If nil, return `Result::Error(message_key: "pito.chat.errors.verb_not_implemented", message_args: { verb: message.verb })`. Else instantiate handler and call it. complexity: [medium]
-- [ ] T3.4 Branch `:refinement`: dispatch to a fixed handler `Pito::Chat::Handlers::RefineDemo` for Plan 3 (since no real refinement-capable handler exists). Future plans replace this with proper routing to the current turn's originating handler. complexity: [medium]
-- [ ] T3.5 Branch `:unknown`: dispatch to `Pito::Chat::Handlers::Unknown`. complexity: [low]
-- [ ] T3.6 Wrap step (2)'s `NotAChatMessage` exception: should never happen (controller routes leading-`/` to Slash), but if it does, return `Result::Error(message_key: "pito.chat.errors.misrouted_slash", message_args: { raw: input })`. complexity: [low]
-- [ ] T3.7 RSpec spec for the dispatcher: returns Ok for `list ...`, Error for `madeup ...` as new_turn (verb_not_implemented after we register only `:list`), Refine for refinement input, Error for unknown input with no open turn. complexity: [medium]
-- [ ] T3.8 Commit: `[skipci] C3: chat dispatcher`. complexity: [manual]
+- [x] T3.1 Create `lib/pito/chat/dispatcher.rb`. Class method `Pito::Chat::Dispatcher.call(input:, conversation:) -> Result`. complexity: [medium]
+- [x] T3.2 Dispatcher flow: (1) tokenize via `Pito::Lex::Lexer.call(input)`; (2) parse via `Pito::Chat::Parser.call(tokens, raw: input, conversation: conversation)`; (3) branch on `message.kind`. complexity: [medium]
+- [x] T3.3 Branch `:new_turn`: look up handler via `Pito::Chat::Registry.lookup(message.verb)`. If nil, return `Result::Error(message_key: "pito.chat.errors.verb_not_implemented", message_args: { verb: message.verb })`. Else instantiate handler and call it. complexity: [medium]
+- [x] T3.4 Branch `:refinement`: dispatch to a fixed handler `Pito::Chat::Handlers::RefineDemo` for Plan 3 (since no real refinement-capable handler exists). Future plans replace this with proper routing to the current turn's originating handler. complexity: [medium]
+- [x] T3.5 Branch `:unknown`: dispatch to `Pito::Chat::Handlers::Unknown`. complexity: [low]
+- [x] T3.6 Wrap step (2)'s `NotAChatMessage` exception: should never happen (controller routes leading-`/` to Slash), but if it does, return `Result::Error(message_key: "pito.chat.errors.misrouted_slash", message_args: { raw: input })`. complexity: [low]
+- [x] T3.7 RSpec spec for the dispatcher: returns Ok for `list ...`, Error for `madeup ...` as new_turn (verb_not_implemented after we register only `:list`), Refine for refinement input, Error for unknown input with no open turn. complexity: [medium]
+- [x] T3.8 Commit: `C3: chat dispatcher`. complexity: [manual]
 
 ## C4 — ChatController extension
 
