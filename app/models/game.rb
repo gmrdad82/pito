@@ -16,7 +16,7 @@ class Game < ApplicationRecord
   has_many :video_game_links, dependent: :destroy
   has_many :linked_videos, through: :video_game_links, source: :video
 
-  has_many :footages, dependent: :nullify
+  has_many :footages, dependent: :destroy
 
   has_neighbors :summary_embedding
 

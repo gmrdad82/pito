@@ -27,10 +27,9 @@ class Game
         game_json = @client.fetch_game(game.igdb_id).first
         raise Game::Igdb::Client::ValidationError, "IGDB has no game with id=#{game.igdb_id}" if game_json.nil?
 
-        ttb_json    = @client.fetch_time_to_beat(game.igdb_id)
-        extern_json = @client.fetch_external_games(game.igdb_id)
+        ttb_json = @client.fetch_time_to_beat(game.igdb_id)
 
-        attrs = Game::Igdb::GameMapper.map_game(game_json, ttb_json, extern_json)
+        attrs = Game::Igdb::GameMapper.map_game(game_json, ttb_json)
 
         Game.transaction do
           # Phase 28 §01a — resolve `version_parent_id` BEFORE the main

@@ -3,8 +3,8 @@
 # Resolves absolute Pathnames under the Pito-managed assets root. The root
 # is the on-disk home for Pito-derived binary assets (Active Storage's
 # `:local` service, footage thumbnails, future channel banners / video
-# thumbnails). It is NOT a copy of source footage — `Footage#local_path`
-# continues to point at the user's drive.
+# thumbnails). It is NOT a copy of source footage — `Footage#filename`
+# points at the file on the user's drive.
 #
 # The assets root resolves from `ENV["PITO_ASSETS_PATH"]` and defaults to
 # `/var/lib/pito-assets` (matching `config/storage.yml` and the production

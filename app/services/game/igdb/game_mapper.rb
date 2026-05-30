@@ -6,20 +6,11 @@
 # Conventions:
 #   - `first_release_date` (Unix seconds) → `Time.at(...).utc.to_date`
 #   - `cover.image_id` (string) → `cover_image_id`
-#   - `external_games[category=1].uid` → `external_steam_app_id`
-#   - `external_games[category=5].uid`  → DROPPED (GoG collapsed into Steam)
-#   - `external_games[category=26].uid` → DROPPED (Epic collapsed into Steam)
+#   - `external_games` → DROPPED (columns removed in schema reset; `external_steam_app_id` no longer stored)
 #   - `involved_companies[developer=true]` → `game_developers` join
 #   - `involved_companies[publisher=true]` → `game_publishers` join
 #   - `game_time_to_beats.{hastily,normally,completely}` →
 #     `ttb_{main,extras,completionist}_seconds`
-#
-# Phase 27 v2 spec 06 (2026-05-17 PC store collapse): GoG and Epic
-# external rows are no longer mapped onto their own columns. The
-# columns themselves are gone (`CollapsePcPlatformsIntoSteam`
-# migration) and the PC-store ownership surface is unified under
-# Steam. The mapper preserves `external_steam_app_id` and silently
-# ignores categories 5 and 26.
 #
 # `map_game` returns ONLY IGDB-sourced columns. Local-only columns
 # (`played_at`, `notes`, `hours_of_footage_manual`) are intentionally
@@ -30,7 +21,7 @@ class Game
     module GameMapper
       module_function
 
-      def map_game(json, ttb_json = nil, external_json = nil)
+      def map_game(json, ttb_json = nil)
         json ||= {}
 
         release_date = unix_to_date(json["first_release_date"])
@@ -72,7 +63,6 @@ class Game
         end
 
         attrs.merge!(map_time_to_beat(ttb_json))
-        attrs.merge!(map_external_games(external_json))
         attrs
       end
 
@@ -97,25 +87,6 @@ class Game
           ttb_extras_seconds:        json["normally"],
           ttb_completionist_seconds: json["completely"]
         }
-      end
-
-      # Phase 27 v2 spec 06 (2026-05-17 PC store collapse): the result
-      # hash carries ONLY `external_steam_app_id`. GoG (category 5) and
-      # Epic (category 26) external rows surface as IGDB platform
-      # "ownability" signals (handled by `Game.on_platform("steam")`-
-      # adjacent logic via the IGDB platforms join) but they no longer
-      # populate dedicated columns — the columns themselves are gone.
-      def map_external_games(external_json)
-        list = Array(external_json)
-        result = { external_steam_app_id: nil }
-        list.each do |row|
-          next unless row.is_a?(Hash)
-          case row["category"]
-          when Game::Igdb::Client::EXTERNAL_GAME_CATEGORY_STEAM
-            result[:external_steam_app_id] ||= row["uid"]
-          end
-        end
-        result
       end
 
       def map_genre(json)

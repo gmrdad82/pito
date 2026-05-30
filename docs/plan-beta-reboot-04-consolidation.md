@@ -188,7 +188,7 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 - [x] T2.11 Confirm `git grep -n 'Session\b'` → zero stragglers. complexity: [low]
 - [x] T2.12 Request spec: login + TOTP sets cookie; protected route allows; logout clears; idle > 24h expires. complexity: [high]
   > Deleted. Earlier cancellation reasoning ("no `/login` route exists") was **wrong** — `/login` + `/session` routes do exist (see T2.13 note). The spec was deleted because the design is changing to a `/authenticate` slash-command flow; a new spec belongs with that work, not against the soon-to-be-removed routes.
-- [-] T2.13 Commit: `Cookie-backed session (24h idle); drop Session model`. complexity: [manual]
+- [x] T2.13 Commit: `Cookie-backed session (24h idle); drop Session model`. complexity: [manual]
   > **Evaluation of P2 implementation (T2.1–T2.13) — state as found:**
   >
   > **Correct (cookie plumbing is sound):**
@@ -206,7 +206,7 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
   > - Auth is **not enforced on the primary surfaces**: `terminal#show` (`/`) and `chat#create` (`/chat`) are both `allow_anonymous`. The cookie session is built but the main interface needs no session today.
   >
   > **Net:** T2.1–T2.11 built the cookie internals correctly, but the auth *entry points* were left on the old route/controller model. To match the intended design, P2 needs follow-up tasks: build a `/authenticate` Slash handler that opens a TOTP dialog and mints the cookie, a `/logout` (or `/deauthenticate`) handler that clears it, then delete `GET/POST /login` + `DELETE /session` routes and `SessionsController`, and wire TOTP-gated enforcement on the surfaces that need it.
-- [ ] T2.14 Smoke. complexity: [manual]
+- [x] T2.14 Smoke. complexity: [manual]
   > **Design (locked with Catalin):** login is `/authenticate <6-digit code>` typed into the chatbox — the single `POST /chat` endpoint. The controller masks the code (`/authenticate ******`) before echo/persist, then dispatches verification. No other command works until authenticated. Status line below the chatbox reads **Authenticated** (green) / **Anonymous** (red). No `/login`/`/session` routes, no `/deauthenticate`. Backup/recovery codes dropped — 6-digit TOTP only. Success/failure border accents + Braille indicator deferred to the UI-reboot phase.
 - [x] T2.15 `Pito::Auth::ChatLogin` service — verify TOTP + mint cookie + per-IP throttle. complexity: [high]
 - [x] T2.16 `ChatController` — auth gating (only `/authenticate` works unauthenticated), `/authenticate` handling, echo masking (real code never persisted). complexity: [high]
@@ -258,16 +258,16 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 - [x] T5.16 Commit: `Reset to a single initial schema migration`. complexity: [manual]
 
 ## P6 — Model updates
-- [ ] T6.1 Update `Footage`: `belongs_to :game` (required); `filename` unique scoped to `game_id`; drop `local_path`. complexity: [low]
-- [ ] T6.2 `Footage`: `#audio_track_count` → `audio_track_names.length`. complexity: [low]
-- [ ] T6.3 `Footage`: `orientation` enum/constants + validation. complexity: [low]
-- [ ] T6.4 `git grep -n` dropped footage cols + `external_steam_app_id` → remove refs. complexity: [low]
-- [ ] T6.5 `Conversation`: generate `uuid` on create; validate; `to_param` → uuid; `display_name`/"Unnamed N". complexity: [low]
-- [ ] T6.6 `Turn`: stamp `started_at`/`completed_at` + `#elapsed_seconds`. complexity: [low]
-- [ ] T6.7 `Video`: store/compare `etag` (helper to detect change); mark Video read-only-by-convention. complexity: [low]
-- [ ] T6.8 `VideoPreview` model: `belongs_to :video`; `status` enum (draft/publishing/published/failed); proposed-edit attributes (see T5.10); validations; `has_one_attached :thumbnail`. complexity: [low]
-- [ ] T6.9 RSpec specs: Footage, Conversation, Turn, VideoPreview. complexity: [low]
-- [ ] T6.10 Commit: `Model updates: Footage/Conversation/Turn/Video/VideoPreview`. complexity: [manual]
+- [x] T6.1 Update `Footage`: `belongs_to :game` (required); `filename` unique scoped to `game_id`; drop `local_path`. complexity: [low]
+- [x] T6.2 `Footage`: `#audio_track_count` → `audio_track_names.length`. complexity: [low]
+- [x] T6.3 `Footage`: `orientation` enum/constants + validation. complexity: [low]
+- [x] T6.4 `git grep -n` dropped footage cols + `external_steam_app_id` → remove refs. complexity: [low]
+- [x] T6.5 `Conversation`: generate `uuid` on create; validate; `to_param` → uuid; `display_name`/"Unnamed N". complexity: [low]
+- [x] T6.6 `Turn`: stamp `started_at`/`completed_at` + `#elapsed_seconds`. complexity: [low]
+- [x] T6.7 `Video`: store/compare `etag` (helper to detect change); mark Video read-only-by-convention. complexity: [low]
+- [x] T6.8 `VideoPreview` model: `belongs_to :video`; `status` enum (draft/publishing/published/failed); proposed-edit attributes (see T5.10); validations; `has_one_attached :thumbnail`. complexity: [low]
+- [x] T6.9 RSpec specs: Footage, Conversation, Turn, VideoPreview. complexity: [low]
+- [x] T6.10 Commit: `Model updates: Footage/Conversation/Turn/Video/VideoPreview`. complexity: [manual]
 
 ## P7 — Game score calculator + backfill
 - [ ] T7.1 `Pito::Game::ScoreCalculator.call(game)` porting `synthesized_score`. complexity: [high]

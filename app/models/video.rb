@@ -1,5 +1,9 @@
 # frozen_string_literal: true
 
+# Read-only mirror of a YouTube video. Never edited directly — the
+# Video table is populated solely by `/import videos` (smart pull)
+# and re-populated after VideoPreview publishes succeed. Edits are
+# staged in `VideoPreview` and applied through the YouTube Data API.
 class Video < ApplicationRecord
   belongs_to :channel
 
@@ -15,4 +19,12 @@ class Video < ApplicationRecord
 
   validates :youtube_video_id, presence: true, uniqueness: true
   validates :title, presence: true
+
+  # ── Change detection (smart import) ──────────────────────────
+  # Returns true when the given etag differs from the stored value
+  # (or when no etag is stored yet), indicating the video should be
+  # re-fetched from YouTube.
+  def etag_changed?(new_etag)
+    etag.blank? || etag != new_etag
+  end
 end
