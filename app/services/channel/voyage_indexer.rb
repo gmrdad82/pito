@@ -76,8 +76,9 @@ class Channel
         # Operators can also see the underlying cause in the
         # `[Voyage::Client] embed failed` log line emitted from
         # the client.
-        raise "Voyage embedding returned nil for channel ##{@channel.id} " \
-              "(api key configured but call failed — see prior log lines)"
+        raise Pito::Error::VoyageEmbeddingNil.new(
+          resource_type: "channel", resource_id: @channel.id
+        )
       end
 
       # `update_column` skips validations + callbacks so this write

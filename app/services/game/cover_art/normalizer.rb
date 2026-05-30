@@ -119,7 +119,11 @@ class Game
           http.get(uri.request_uri)
         end
         unless response.is_a?(Net::HTTPSuccess)
-          raise "IGDB CDN returned #{response.code} for #{@game.cover_image_id} (#{SOURCE_SIZE})"
+          raise Pito::Error::ExternalFetchFailed.new(
+          source: "IGDB CDN",
+          http_code: response.code,
+          detail: "#{@game.cover_image_id} (#{SOURCE_SIZE})"
+        )
         end
         response.body
       end

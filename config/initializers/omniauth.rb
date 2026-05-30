@@ -68,10 +68,13 @@ google_oauth_redirect_uri =
   google_oauth_credentials[:redirect_uri].presence
 
 if google_oauth_client_id.blank? || google_oauth_client_secret.blank?
-  raise "missing google_oauth credentials: add :google_oauth.client_id " \
-        "+ :google_oauth.client_secret via `bin/rails credentials:edit` " \
-        "(or set PITO_GOOGLE_OAUTH_CLIENT_ID / " \
-        "PITO_GOOGLE_OAUTH_CLIENT_SECRET for CI / local-no-DB workflows)."
+  raise Pito::Error::MissingConfiguration.new(
+    key: "google_oauth",
+    hint: "add :google_oauth.client_id + :google_oauth.client_secret " \
+          "via `bin/rails credentials:edit` " \
+          "(or set PITO_GOOGLE_OAUTH_CLIENT_ID / " \
+          "PITO_GOOGLE_OAUTH_CLIENT_SECRET for CI / local-no-DB workflows)."
+  )
 end
 
 # Single scope set requested every time — see the scope strategy
