@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_28_190628) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_30_000001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -18,6 +18,34 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_28_190628) do
   enable_extension "pgcrypto"
   enable_extension "unaccent"
   enable_extension "vector"
+
+  create_table "active_storage_attachments", force: :cascade do |t|
+    t.bigint "blob_id", null: false
+    t.datetime "created_at", null: false
+    t.string "name", null: false
+    t.bigint "record_id", null: false
+    t.string "record_type", null: false
+    t.index ["blob_id"], name: "index_active_storage_attachments_on_blob_id"
+    t.index ["record_type", "record_id", "name", "blob_id"], name: "index_active_storage_attachments_uniqueness", unique: true
+  end
+
+  create_table "active_storage_blobs", force: :cascade do |t|
+    t.bigint "byte_size", null: false
+    t.string "checksum"
+    t.string "content_type"
+    t.datetime "created_at", null: false
+    t.string "filename", null: false
+    t.string "key", null: false
+    t.text "metadata"
+    t.string "service_name", null: false
+    t.index ["key"], name: "index_active_storage_blobs_on_key", unique: true
+  end
+
+  create_table "active_storage_variant_records", force: :cascade do |t|
+    t.bigint "blob_id", null: false
+    t.string "variation_digest", null: false
+    t.index ["blob_id", "variation_digest"], name: "index_active_storage_variant_records_uniqueness", unique: true
+  end
 
   create_table "app_settings", force: :cascade do |t|
     t.datetime "created_at", null: false
@@ -66,6 +94,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_28_190628) do
     t.datetime "created_at", null: false
     t.string "title"
     t.datetime "updated_at", null: false
+    t.uuid "uuid", null: false
+    t.index ["uuid"], name: "index_conversations_on_uuid", unique: true
   end
 
   create_table "events", force: :cascade do |t|
@@ -83,22 +113,18 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_28_190628) do
 
   create_table "footages", force: :cascade do |t|
     t.string "aspect_ratio"
-    t.integer "audio_track_count"
     t.text "audio_track_names", default: [], null: false, array: true
     t.integer "bit_depth", default: 8, null: false
-    t.string "codec"
-    t.string "color_profile"
     t.datetime "created_at", null: false
     t.integer "duration_seconds"
     t.string "filename", null: false
     t.decimal "fps", precision: 6, scale: 3
-    t.bigint "game_id"
-    t.boolean "has_commentary_track", default: false, null: false
-    t.string "local_path", null: false
+    t.bigint "game_id", null: false
+    t.boolean "needs_grading", default: false, null: false
+    t.string "orientation"
     t.string "resolution"
     t.datetime "updated_at", null: false
-    t.index ["game_id"], name: "index_footages_on_game_id"
-    t.index ["local_path"], name: "index_footages_on_local_path", unique: true
+    t.index ["game_id", "filename"], name: "index_footages_on_game_id_and_filename", unique: true
   end
 
   create_table "game_developers", force: :cascade do |t|
@@ -145,7 +171,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_28_190628) do
     t.text "alternative_names", default: [], null: false, array: true
     t.string "cover_image_id"
     t.datetime "created_at", null: false
-    t.string "external_steam_app_id"
     t.string "igdb_checksum"
     t.bigint "igdb_id"
     t.decimal "igdb_rating", precision: 5, scale: 2
@@ -159,6 +184,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_28_190628) do
     t.date "release_date"
     t.integer "release_precision"
     t.integer "release_year"
+    t.integer "score"
     t.virtual "search_vector", type: :tsvector, as: "to_tsvector('english'::regconfig, (((COALESCE(title, ''::character varying))::text || ' '::text) || COALESCE(summary, ''::text)))", stored: true
     t.text "summary"
     t.vector "summary_embedding", limit: 1024
@@ -170,12 +196,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_28_190628) do
     t.integer "ttb_main_seconds"
     t.datetime "updated_at", null: false
     t.index ["alternative_names"], name: "index_games_on_alternative_names", using: :gin
-    t.index ["external_steam_app_id"], name: "index_games_on_external_steam_app_id", where: "(external_steam_app_id IS NOT NULL)"
     t.index ["igdb_id"], name: "index_games_on_igdb_id", unique: true, where: "(igdb_id IS NOT NULL)"
     t.index ["igdb_slug"], name: "index_games_on_igdb_slug", unique: true, where: "(igdb_slug IS NOT NULL)"
     t.index ["igdb_synced_at"], name: "index_games_on_igdb_synced_at"
     t.index ["primary_genre_id"], name: "index_games_on_primary_genre_id"
     t.index ["release_year"], name: "index_games_on_release_year"
+    t.index ["score"], name: "index_games_on_score"
     t.index ["search_vector"], name: "index_games_on_search_vector", using: :gin
     t.index ["summary_embedding"], name: "index_games_on_summary_embedding_hnsw", opclass: :vector_cosine_ops, using: :hnsw
     t.index ["title"], name: "index_games_on_title_trigram", opclass: :gin_trgm_ops, using: :gin
@@ -190,36 +216,14 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_28_190628) do
     t.index ["igdb_id"], name: "index_genres_on_igdb_id", unique: true
   end
 
-  create_table "sessions", force: :cascade do |t|
-    t.string "browser"
-    t.datetime "created_at", null: false
-    t.string "device"
-    t.inet "ip"
-    t.datetime "last_activity_at"
-    t.datetime "revoked_at"
-    t.integer "state", default: 0, null: false
-    t.string "token_digest", null: false
-    t.datetime "updated_at", null: false
-    t.text "user_agent"
-    t.index ["state"], name: "index_sessions_on_state"
-    t.index ["token_digest"], name: "index_sessions_on_token_digest", unique: true
-  end
-
-  create_table "totp_backup_codes", force: :cascade do |t|
-    t.string "code_digest", null: false
-    t.datetime "created_at", null: false
-    t.datetime "updated_at", null: false
-    t.datetime "used_at"
-    t.index ["code_digest"], name: "index_totp_backup_codes_on_code_digest", unique: true
-    t.index ["used_at"], name: "index_totp_backup_codes_on_used_at"
-  end
-
   create_table "turns", force: :cascade do |t|
+    t.datetime "completed_at"
     t.bigint "conversation_id", null: false
     t.datetime "created_at", null: false
     t.string "input_kind", null: false
     t.string "input_text", null: false
     t.integer "position", null: false
+    t.datetime "started_at"
     t.datetime "updated_at", null: false
     t.index ["conversation_id", "position"], name: "index_turns_on_conversation_id_and_position", unique: true
     t.index ["conversation_id"], name: "index_turns_on_conversation_id"
@@ -234,6 +238,30 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_28_190628) do
     t.index ["video_id", "game_id"], name: "index_video_game_links_on_video_id_and_game_id", unique: true
   end
 
+  create_table "video_previews", force: :cascade do |t|
+    t.boolean "allow_embedding"
+    t.boolean "automatic_chapters"
+    t.boolean "automatic_concepts"
+    t.boolean "automatic_places"
+    t.string "category_id"
+    t.boolean "contains_altered_content"
+    t.datetime "created_at", null: false
+    t.text "description"
+    t.text "error_message"
+    t.string "game_title"
+    t.boolean "made_for_kids"
+    t.boolean "notify_subscribers"
+    t.boolean "paid_promotion"
+    t.datetime "published_at"
+    t.integer "shorts_remixing"
+    t.integer "status", default: 0, null: false
+    t.text "tags", array: true
+    t.string "title"
+    t.datetime "updated_at", null: false
+    t.bigint "video_id", null: false
+    t.index ["video_id"], name: "index_video_previews_on_video_id"
+  end
+
   create_table "videos", force: :cascade do |t|
     t.string "category_id"
     t.bigint "channel_id", null: false
@@ -241,6 +269,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_28_190628) do
     t.datetime "created_at", null: false
     t.text "description"
     t.integer "duration_seconds"
+    t.string "etag"
     t.datetime "last_synced_at"
     t.bigint "like_count", default: 0, null: false
     t.integer "privacy_status", default: 0, null: false
@@ -279,10 +308,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_28_190628) do
     t.index ["google_subject_id"], name: "index_youtube_connections_on_google_subject_id", unique: true
   end
 
+  add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
+  add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
   add_foreign_key "channels", "youtube_connections", on_delete: :nullify
   add_foreign_key "events", "conversations"
   add_foreign_key "events", "turns"
-  add_foreign_key "footages", "games", on_delete: :nullify
+  add_foreign_key "footages", "games", on_delete: :cascade
   add_foreign_key "game_developers", "companies", on_delete: :cascade
   add_foreign_key "game_developers", "games", on_delete: :cascade
   add_foreign_key "game_genres", "games", on_delete: :cascade
@@ -294,5 +325,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_28_190628) do
   add_foreign_key "turns", "conversations"
   add_foreign_key "video_game_links", "games", on_delete: :cascade
   add_foreign_key "video_game_links", "videos", on_delete: :cascade
+  add_foreign_key "video_previews", "videos", on_delete: :cascade
   add_foreign_key "videos", "channels"
 end
