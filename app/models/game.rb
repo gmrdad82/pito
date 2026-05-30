@@ -26,4 +26,45 @@ class Game < ApplicationRecord
        prefix: true
 
   validates :title, presence: true
+
+  # ── Score (vote-weighted average of IGDB rating triplets) ─────
+  RATING_FIELDS = %i[
+    igdb_rating igdb_rating_count
+    aggregated_rating aggregated_rating_count
+    total_rating total_rating_count
+  ].freeze
+
+  # Maximum absolute drift allowed during auto-recompute. Prevents a
+  # single glitched IGDB sync from wiping a well-established score.
+  # Manual calls to `recompute_score!` bypass this guard.
+  SCORE_DRIFT_THRESHOLD = 30
+
+  before_save :auto_recompute_score, if: :rating_fields_changed?
+
+  # Bypasses the drift guard — a deliberate action (e.g. backfill).
+  def recompute_score!
+    update!(score: Pito::Game::ScoreCalculator.call(self))
+  end
+
+  private
+
+  def rating_fields_changed?
+    RATING_FIELDS.any? { |f| will_save_change_to_attribute?(f) }
+  end
+
+  def auto_recompute_score
+    new_score = Pito::Game::ScoreCalculator.call(self)
+    if score_drift_too_large?(new_score)
+      raise Pito::Error::ScoreDrift.new(
+        game: self, old_score: score, new_score: new_score
+      )
+    end
+    self.score = new_score
+  end
+
+  def score_drift_too_large?(new_score)
+    return false if score.nil?
+
+    (new_score - score).abs > SCORE_DRIFT_THRESHOLD
+  end
 end

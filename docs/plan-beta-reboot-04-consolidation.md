@@ -270,12 +270,12 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 - [x] T6.10 Commit: `Model updates: Footage/Conversation/Turn/Video/VideoPreview`. complexity: [manual]
 
 ## P7 — Game score calculator + backfill
-- [ ] T7.1 `Pito::Game::ScoreCalculator.call(game)` porting `synthesized_score`. complexity: [high]
-- [ ] T7.2 `Game#recompute_score!` writes to `score`. complexity: [low]
-- [ ] T7.3 Recompute on save when a rating field changed. complexity: [low]
-- [ ] T7.4 RSpec `ScoreCalculator` spec. complexity: [low]
-- [ ] T7.5 `pito:tools:games:backfill_scores`. complexity: [low]
-- [ ] T7.6 Commit: `Game score: calculator + backfill`. complexity: [manual]
+- [x] T7.1 `Pito::Game::ScoreCalculator.call(game)` porting `synthesized_score`. complexity: [high]
+- [x] T7.2 `Game#recompute_score!` writes to `score`. complexity: [low]
+- [x] T7.3 Recompute on save when a rating field changed. complexity: [low]
+- [x] T7.4 RSpec `ScoreCalculator` + Game model + rake spec. complexity: [low]
+- [x] T7.5 `pito:tools:games:backfill_scores`. complexity: [low]
+- [x] T7.6 Commit: `Game score: calculator + backfill`. complexity: [manual]
 
 ## P8 — IGDB sync investigation (release-date + checksum)
 - [ ] T8.1 Probe what IGDB `release_dates` returns ↔ `release_precision`; how `Game::Igdb` maps it now. complexity: [high]
