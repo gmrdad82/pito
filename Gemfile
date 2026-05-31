@@ -62,7 +62,7 @@ gem "ruby-vips", "~> 2.2", require: false
 # aasm: state machines for Timeline (editing/exported/uploaded) and Video.
 gem "aasm", "~> 5.5"
 # commonmarker: GFM markdown rendering for note bodies (Phase B helper).
-gem "commonmarker", "~> 2.4"
+gem "commonmarker", "~> 2.8"
 # neighbor: Active Record bridge for pgvector cosine queries on notes.embedding.
 gem "neighbor", "~> 0.6"
 
@@ -91,7 +91,7 @@ group :development do
   gem "web-console"
 end
 
-gem "view_component", "~> 4.9"
+gem "view_component", "~> 4.11"
 
 gem "capybara", "~> 3.40", group: :test
 
@@ -111,7 +111,7 @@ gem "mcp"
 # Phase 12 — Step B (6b-doorkeeper-oauth-server.md). OAuth 2.0 authorization
 # server. Authorization Code + PKCE only; Client Credentials and ROPC are
 # disabled in `config/initializers/doorkeeper.rb` per the locked decisions.
-gem "doorkeeper", "~> 5.8"
+gem "doorkeeper", "~> 5.9"
 
 # Phase 20 — friendly URLs. Renameable resources (Project, Bundle, Collection,
 # MilestoneRule) get a `slug` column with `:slugged` + `:history`; identifier-
