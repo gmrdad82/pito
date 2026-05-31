@@ -325,7 +325,8 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 - [x] T9.3 Update both to conventions (no inline `style=`; `data-accent`); read `game.score` / TTB seconds. complexity: [low]
 - [x] T9.4 Mark both `# KEPT BUT UNUSED — no host screen yet`. complexity: [low]
 - [x] T9.5 Restore/refresh their specs. complexity: [low]
-- [ ] T9.6 Commit: `Restore ScoreBar + TimeToBeat (kept, unused)`. complexity: [manual]
+- [x] T9.6 Commit: `Restore ScoreBar + TimeToBeat (kept, unused)`. complexity: [manual]
+  > Committed as `4f87c36a` (the box was just left unticked by the parallel run). Specs were later converted to `type: :component` + expanded in `b98628fc`.
 
 ## P10 — ViewComponent CSS freeze
 - [ ] T10.1 `@keyframes` (shimmer, pulse) → global stylesheet. complexity: [low]

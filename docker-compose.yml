@@ -13,24 +13,12 @@ services:
       POSTGRES_USER: pito
       POSTGRES_DB: pito_development
       POSTGRES_HOST_AUTH_METHOD: trust
-    volumes:
-      - pito-postgres-data:/var/lib/postgresql/data
+    # No named volume — Postgres data lives in the container's writable
+    # layer and is intentionally ephemeral (local-only; recreate with
+    # db:create db:migrate + seeds). Reintroduce a volume when persistence
+    # matters.
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
       interval: 5s
       timeout: 5s
       retries: 10
-
-volumes:
-  # Explicit `name:` overrides bypass docker-compose's project-prefix so the
-  # listed volume name matches the YAML key exactly (avoids the doubled
-  # `pito_pito-...` form that compose generates by default).
-  pito-postgres-data:
-    name: pito-postgres-data
-  # Active Storage assets volume: IGDB cover arts, Video thumbnails,
-  # VideoPreview thumbnails, Channel avatars. Currently unmounted — Rails
-  # runs natively on the dev host and reads PITO_ASSETS_PATH env var.
-  # The volume declaration lives here so the name is reserved for when
-  # Rails moves into a container (Hetzner cutover).
-  pito-assets:
-    name: pito-assets
