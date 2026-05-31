@@ -317,7 +317,7 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 - [x] T8.9 IGDB adapter: add `release_dates.{category,y,m,d,date}` to `Game::Igdb::Client::GAME_FIELDS`; update `Game::Igdb::GameMapper.map_game` to pick the canonical row + translate IGDB `category` (0..7) to the component shape + delegate to `ReleaseDateMapper`; drop the dead `release_year:` mapper line; satisfies `spec/services/game/igdb/game_mapper_release_date_spec.rb`. complexity: [high]
 - [x] T8.10 `Pito::Game::ReleaseLabelComponent` (or `Game#release_label` helper) reading copy from `config/locales/pito/game/en.yml`; satisfies `spec/components/pito/game/release_label_component_spec.rb`. complexity: [low]
 - [x] T8.11 Backfill: add `pito:tools:games:resync_release_dates` rake task that enqueues `Game::Igdb::SyncGame` for every row with `igdb_id` so existing games repopulate the new components; run once locally to verify. complexity: [low]
-- [-] T8.12 Commit: `Game release-date components: implementation`. complexity: [manual]
+- [x] T8.12 Commit: `Game release-date components: implementation`. complexity: [manual]
 
 ## P9 — Restore ScoreBar + TimeToBeat (kept-unused)
 - [ ] T9.1 Restore `pito/score_bar_component.{rb,html.erb}` from history. complexity: [low]
