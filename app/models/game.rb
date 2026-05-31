@@ -61,6 +61,30 @@ class Game < ApplicationRecord
     igdb_synced_at.present? && release_year.nil?
   end
 
+  def release_label
+    if release_year.nil?
+      return I18n.t("pito.game.release_label.month_day_unknown_year",
+                    month: Date::MONTHNAMES[release_month],
+                    day:   release_day) if release_month.present? && release_day.present?
+
+      return I18n.t("pito.game.release_label.tba")
+    end
+
+    if release_month.present? && release_day.present?
+      I18n.t("pito.game.release_label.day", date: I18n.l(release_date, format: :long))
+    elsif release_month.present?
+      I18n.t("pito.game.release_label.month_year",
+              month: Date::MONTHNAMES[release_month],
+              year:  release_year)
+    elsif release_quarter.present?
+      I18n.t("pito.game.release_label.quarter_year",
+              quarter: release_quarter,
+              year:    release_year)
+    else
+      I18n.t("pito.game.release_label.year", year: release_year)
+    end
+  end
+
   private
 
   def rating_fields_changed?
