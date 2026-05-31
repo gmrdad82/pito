@@ -18,8 +18,7 @@
 # all caps (treated as an acronym for the Tab key); modifier names
 # (`Esc`, `Space`, `Enter`, `Backspace`, `Shift`, `Ctrl`, `Alt`,
 # `Cmd`) are capitalized; letter keys stay lowercase. Combos use a
-# `-` separator (`Shift-TAB`, `Ctrl-h`). The same labels will export
-# to the Ratatui TUI client so the two surfaces stay aligned.
+# `-` separator (`Shift-TAB`, `Ctrl-h`).
 en:
   keys:
     tab: TAB

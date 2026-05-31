@@ -2,10 +2,10 @@
 #
 # Reads the active webhook URL from the AR row first
 # (`NotificationDeliveryChannel.discord&.webhook_url`) and falls back to
-# `Rails.application.credentials.notifications.discord_webhook_url`. POSTs
-# JSON. Treats 2xx as success, 4xx (except 429) as terminal, 5xx + 429 +
-# network errors as transient (Sidekiq retries via the raise; the base
-# class records the failure on the row first).
+# `ENV["PITO_DISCORD_WEBHOOK_URL"]`. POSTs JSON. Treats 2xx as success,
+# 4xx (except 429) as terminal, 5xx + 429 + network errors as transient
+# (Sidekiq retries via the raise; the base class records the failure on
+# the row first).
 #
 # Payload formatting lives in
 # `Pito::Notifications::Formatter::Discord`. Spec 01 ships a minimal
@@ -39,11 +39,11 @@ module Pito
         end
 
         def webhook_url
-          # Phase 26 01b — AR row first, credentials fallback.
+          # Phase 26 01b — AR row first, ENV var as fallback.
           row_url = NotificationDeliveryChannel.discord&.webhook_url
           return row_url if row_url.present?
 
-          Rails.application.credentials.dig(:notifications, :discord_webhook_url)
+          ENV["PITO_DISCORD_WEBHOOK_URL"].presence
         end
 
         def delivered_at_column

@@ -93,7 +93,10 @@ module Pito
           },
           httponly: true,
           same_site: :lax,
-          secure: !Rails.env.test?
+          # Secure only in production. Dev runs plain http on localhost (a
+          # Secure cookie would be silently dropped and break login); test
+          # has no TLS either.
+          secure: Rails.env.production?
         }
       end
 

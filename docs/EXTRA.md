@@ -5,11 +5,11 @@ Edit freely — the agents `install.sh` never touches this file.
 
 ## What pito is
 
-A self-hosted YouTube channel management tool for the owner. Hosted locally via
-Cloudflare tunnels:
+A self-hosted YouTube channel management tool for the owner. Runs locally on
+plain localhost in development:
 
-- `app.pitomd.com` — Rails app (primary surface)
-- `pitomd.com` — Astro landing page (Cloudflare Pages)
+- `http://localhost:3027` — Rails app (dev; production host is deploy-time config)
+- `pitomd.com` — marketing / landing site, now in the separate `gmrdad82/pitomd` repo
 
 Future deployment: Hetzner via Kamal.
 
@@ -43,8 +43,6 @@ the task is the removal itself.
   Rails work.**
 - `docs/design.md` — visual contract, keybindings, terminology, brand caps,
   accent groups, terminal-aesthetic rules.
-- `docs/website.md` — Astro landing page contract (`extras/website/`).
-
 Note: `docs/tui.md` covers surfaces being removed.
 
 ## Canonical namespace policy
@@ -152,11 +150,9 @@ them.** Data-source integrations are claimed by the domain they feed.
   CI workflows — used for WIP commits on feature branches. Omit `[skipci]` when
   the commit is ready to land green.
 
-- **github** — Multiple workflows: `ci.yml` (Rails), `pito-cli-ci.yml` +
-  `pito-cli-publish.yml` (Rust — being removed), `website-ci.yml` +
-  `deploy-website.yml` (Astro), `docs-ci.yml`. CI path filters are intentionally
-  tight — only Rails-affecting paths trigger `ci.yml`. AGENTS.md / EXTRA.md
-  edits do NOT trigger Rails CI by design.
+- **github** — Multiple workflows: `ci.yml` (Rails), `docs-ci.yml`. CI path
+  filters are intentionally tight — only Rails-affecting paths trigger
+  `ci.yml`. AGENTS.md / EXTRA.md edits do NOT trigger Rails CI by design.
 
 ## Hard rules
 

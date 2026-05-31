@@ -162,10 +162,9 @@ class ChannelsController < ApplicationController
 
   # GET /channels/:id/videos(.json)
   #
-  # Returns the videos belonging to the given channel. Used by the pito CLI
-  # to populate per-channel video lists. JSON shape mirrors
-  # VideosController#index so the same Rust `Video` struct decodes either
-  # response.
+  # Returns the videos belonging to the given channel. JSON shape mirrors
+  # VideosController#index so external API consumers can decode either
+  # response with the same Video shape.
   def videos
     @channel = Channel.friendly.find(params[:id])
     @videos = @channel.videos

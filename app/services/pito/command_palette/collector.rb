@@ -14,9 +14,8 @@ module Pito
     # (deterministic shape assertions) AND by the JS palette controller
     # (which scans the DOM for `data-panel-commands` attrs at open time
     # and concatenates them in the same order). Keeping the merge logic
-    # here means a Ratatui TUI sibling can call the same merge through a
-    # shared rake-exported screen spec — no behavioral drift between web
-    # and TUI palettes.
+    # here means the web palette has one canonical ordering with no
+    # behavioral drift between the Ruby and JS sides.
     #
     # ## Command hash shape
     #

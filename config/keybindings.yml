@@ -1,7 +1,6 @@
 # Unified keybindings schema — single source of truth for the Rails
-# web app's leader-menu popup AND the Rust `pito` CLI's Ratatui leader
-# overlay. Both surfaces parse this file at load time; edit it once,
-# both stacks pick up the change.
+# web app's leader-menu popup. The web app parses this file at load
+# time; edit it once and the change is picked up.
 #
 # Source-of-truth docs:
 #   docs/notes/2026-05-10-23-30-00-keybindings-unified-schema-proposal.md

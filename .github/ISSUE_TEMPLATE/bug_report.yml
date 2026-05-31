@@ -25,7 +25,6 @@ body:
         - "ActionCable / status-bar broadcasts"
         - "Voyage embeddings / recommendation"
         - "Auth / OAuth / sessions"
-        - "Astro landing (extras/website/)"
         - "Kamal / Docker / deploy"
         - "CI (.github/workflows/)"
         - "Docs (README, AGENTS.md, EXTRA, docs/*)"

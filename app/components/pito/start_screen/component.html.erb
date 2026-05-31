@@ -49,7 +49,11 @@
 
   <%# Bottom corners %>
   <div style="display: flex; justify-content: space-between; padding: 0 50px 32px;">
-    <a href="<%= @pitomd_url %>" class="text-fg-dim hover:underline" target="_blank">pitomd.com</a>
+    <% if @marketing_url.present? %>
+      <a href="<%= @marketing_url %>" class="text-fg-dim hover:underline" target="_blank"><%= URI.parse(@marketing_url).host || @marketing_url %></a>
+    <% else %>
+      <span></span>
+    <% end %>
     <span class="text-fg-dim">v<%= @version %></span>
   </div>
 </div>

@@ -35,47 +35,35 @@ OmniAuth.config.on_failure = proc do |env|
   YoutubeConnections::OauthCallbacksController.action(:failure).call(env)
 end
 
-# Phase 29 — Unit A1. YouTube / Google OAuth credentials moved back
-# OUT of the AppSetting singleton and into
-# `Rails.application.credentials.google_oauth` (the project's stated
-# configuration strategy — secrets live exclusively in credentials).
-# Google / YouTube config is now deploy-time config; rotating it
-# requires a `bin/rails credentials:edit` + a Puma restart. This
-# deliberately closes follow-up 3 (the omniauth hot-rotation gap) by
-# accepting the tradeoff rather than chasing per-request resolution.
+# YouTube / Google OAuth config is sourced from ENV vars
+# (PITO_GOOGLE_OAUTH_CLIENT_ID / PITO_GOOGLE_OAUTH_CLIENT_SECRET /
+# PITO_GOOGLE_OAUTH_REDIRECT_URI). It is deploy-time config; rotating
+# it requires updating the environment + a Puma restart.
 #
-# The resolver is now three-tier:
+# The resolver is now two-tier:
 #
-#   1. `Rails.application.credentials.google_oauth` block (primary).
-#   2. ENV var (PITO_GOOGLE_OAUTH_CLIENT_ID /
-#      PITO_GOOGLE_OAUTH_CLIENT_SECRET) for CI / local-no-DB workflows.
-#   3. Test-mode placeholder so request specs boot without
-#      `master.key`.
-
-google_oauth_credentials = Rails.application.credentials.google_oauth || {}
+#   1. ENV var (PITO_GOOGLE_OAUTH_CLIENT_ID /
+#      PITO_GOOGLE_OAUTH_CLIENT_SECRET) — the source.
+#   2. Test-mode placeholder so request specs boot without any
+#      configured secret.
 
 google_oauth_client_id =
-  google_oauth_credentials[:client_id].presence ||
   ENV["PITO_GOOGLE_OAUTH_CLIENT_ID"].presence ||
   (Rails.env.test? ? "test-google-oauth-client-id-not-a-secret" : nil)
 
 google_oauth_client_secret =
-  google_oauth_credentials[:client_secret].presence ||
   ENV["PITO_GOOGLE_OAUTH_CLIENT_SECRET"].presence ||
   (Rails.env.test? ? "test-google-oauth-client-secret-not-a-secret" : nil)
 
 google_oauth_redirect_uri =
-  google_oauth_credentials[:redirect_uri].presence
+  ENV["PITO_GOOGLE_OAUTH_REDIRECT_URI"].presence
 
-if google_oauth_client_id.blank? || google_oauth_client_secret.blank?
-  raise Pito::Error::MissingConfiguration.new(
-    key: "google_oauth",
-    hint: "add :google_oauth.client_id + :google_oauth.client_secret " \
-          "via `bin/rails credentials:edit` " \
-          "(or set PITO_GOOGLE_OAUTH_CLIENT_ID / " \
-          "PITO_GOOGLE_OAUTH_CLIENT_SECRET for CI / local-no-DB workflows)."
-  )
-end
+# Google OAuth is an optional surface (the YouTube-connection flow). When
+# the client id/secret aren't configured we simply don't register the
+# provider — the app boots normally and the feature stays dormant until
+# the operator supplies the credentials (later, via AppSettings). No raise,
+# no warning: an unconfigured install is a valid state.
+google_oauth_configured = google_oauth_client_id.present? && google_oauth_client_secret.present?
 
 # Single scope set requested every time — see the scope strategy
 # block in the file header. Listed as a constant rather than inlined
@@ -103,6 +91,8 @@ PITO_GOOGLE_OAUTH_REQUIRED_YOUTUBE_SCOPES = %w[
 ].freeze
 
 Rails.application.config.middleware.use OmniAuth::Builder do
+  next unless google_oauth_configured
+
   provider :google_oauth2,
            google_oauth_client_id,
            google_oauth_client_secret,
@@ -115,7 +105,7 @@ Rails.application.config.middleware.use OmniAuth::Builder do
              prompt: "consent",
              skip_jwt: true,
              # The Google Cloud Console is registered with the
-             # callback URI `https://app.pitomd.com/auth/google/callback`
+             # callback URI `<host>/auth/google/callback`
              # (NOT the gem default `/auth/google_oauth2/callback`).
              # `callback_path` overrides where OmniAuth's middleware
              # listens for the return; `redirect_uri` (when provided)
@@ -128,14 +118,14 @@ Rails.application.config.middleware.use OmniAuth::Builder do
                # Google so pin-mismatch doesn't apply). In dev /
                # production we pin to the resolved value (must match
                # the URI registered with the Google Cloud Console).
-               # The `:google_oauth, :redirect_uri` credential is
-               # OPTIONAL — when blank we fall back to the production
+               # The PITO_GOOGLE_OAUTH_REDIRECT_URI ENV var is
+               # OPTIONAL — when blank we fall back to the local dev
                # callback URL.
                if Rails.env.test?
                  nil
                else
                  google_oauth_redirect_uri ||
-                   "https://app.pitomd.com/auth/google/callback"
+                   "http://localhost:3027/auth/google/callback"
                end
              ),
              # PKCE is free defense-in-depth; the gem requires

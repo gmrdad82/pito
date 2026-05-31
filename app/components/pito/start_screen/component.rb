@@ -4,13 +4,14 @@ module Pito
   module StartScreen
     class Component < ViewComponent::Base
       # @param version [String] app version displayed in bottom-right corner.
-      # @param pitomd_url [String] URL for the pitomd.com link in bottom-left.
+      # @param marketing_url [String, nil] URL for the marketing link in the
+      #   bottom-left. When blank the link is omitted.
       # @param logo [Object] optional logo content (slot — empty in Plan 1).
       renders_one :logo
 
-      def initialize(version:, pitomd_url: "https://pitomd.com")
+      def initialize(version:, marketing_url: nil)
         @version = version
-        @pitomd_url = pitomd_url
+        @marketing_url = marketing_url
       end
     end
   end

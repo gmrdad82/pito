@@ -8,9 +8,9 @@
 #      and pre-allocated encrypted API key columns. All class-level
 #      helpers route through `singleton_row`.
 #
-# API-key reads fall through to `Rails.application.credentials` when
-# the singleton row column is blank. Lets keys move out of credentials
-# gradually without a forced migration.
+# API-key reads fall through to ENV vars when the singleton row column
+# is blank. Lets keys be supplied via the environment without a forced
+# DB write.
 class AppSetting < ApplicationRecord
   SINGLETON_KEY = "__singleton__"
 
@@ -72,20 +72,20 @@ class AppSetting < ApplicationRecord
     singleton_row.totp_seed_encrypted
   end
 
-  # ── API keys (fall through to credentials when blank) ────────────────
+  # ── API keys (fall through to ENV when blank) ────────────────────────
 
   def self.google_oauth_client_id
     singleton_row.google_oauth_client_id.presence ||
-      Rails.application.credentials.dig(:google, :client_id)
+      ENV["PITO_GOOGLE_OAUTH_CLIENT_ID"].presence
   end
 
   def self.google_oauth_client_secret
     singleton_row.google_oauth_client_secret.presence ||
-      Rails.application.credentials.dig(:google, :client_secret)
+      ENV["PITO_GOOGLE_OAUTH_CLIENT_SECRET"].presence
   end
 
   def self.voyage_api_key
     singleton_row.voyage_api_key.presence ||
-      Rails.application.credentials.dig(:voyage, :api_key)
+      ENV["PITO_VOYAGE_API_KEY"].presence
   end
 end

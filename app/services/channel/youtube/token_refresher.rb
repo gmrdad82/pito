@@ -26,13 +26,11 @@ class Channel
       def call(youtube_connection)
         raise Channel::Youtube::NeedsReauthError, "no refresh token on file" if youtube_connection.refresh_token.blank?
 
-        # Phase 29 — Unit A1. Google OAuth credentials live exclusively in
-        # `Rails.application.credentials.google_oauth` again (the project's
-        # configuration strategy — secrets in credentials only). The
-        # AppSetting read is gone.
+        # Google OAuth credentials are sourced from ENV vars
+        # (PITO_GOOGLE_OAUTH_CLIENT_ID / PITO_GOOGLE_OAUTH_CLIENT_SECRET).
         response = post_form(
-          client_id:     Rails.application.credentials.dig(:google_oauth, :client_id),
-          client_secret: Rails.application.credentials.dig(:google_oauth, :client_secret),
+          client_id:     ENV["PITO_GOOGLE_OAUTH_CLIENT_ID"],
+          client_secret: ENV["PITO_GOOGLE_OAUTH_CLIENT_SECRET"],
           refresh_token: youtube_connection.refresh_token,
           grant_type:    "refresh_token"
         )

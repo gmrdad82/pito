@@ -4,7 +4,6 @@ module Pito
     # 2-effect transition system + shimmer decoration. Single source of truth.
     # Exported to:
     #   - app/assets/tailwind/_theme.css  (CSS custom properties --tui-trn-*)
-    #   - extras/cli/src/transitions.rs   (Rust constants for Ratatui parity)
     #
     # Adding a token = add constant here + run rake pito:transitions:export.
     module Tokens

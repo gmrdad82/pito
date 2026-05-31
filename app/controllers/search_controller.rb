@@ -21,12 +21,12 @@ class SearchController < ApplicationController
 
   private
 
-  # Flat shape consumed by the pito CLI's `SearchResults` Rust struct:
+  # Flat shape for external API consumers:
   #   { query, videos: [SearchHit<Video>], video_total, took_ms }
   # where each SearchHit is { record: <Video summary>, highlights }.
-  # Hits whose backing Video row no longer exists are dropped — the Rust
-  # `SearchHit::record` field is non-nullable, so emitting `null` would
-  # break deserialization on the client.
+  # Hits whose backing Video row no longer exists are dropped so the
+  # `record` field is never null, which would break strict client
+  # deserialization.
   def search_json_payload
     hits = (@videos[:hits] || []).filter_map { |hit| search_hit_json(hit) }
     {

@@ -169,13 +169,16 @@ module Pito
 
       def install_host
         options = Rails.application.routes.default_url_options
-        host = options[:host].presence || "app.pitomd.com"
-        protocol = options[:protocol].presence || "https"
+        host = options[:host].presence
+        return "http://localhost:3027" if host.nil?
+
+        host = "#{host}:#{options[:port]}" if options[:port].present?
+        protocol = options[:protocol].presence || "http"
         "#{protocol}://#{host}"
       end
 
       def avatar_url
-        Rails.application.credentials.dig(:notifications, :pito_avatar_url)
+        ENV["PITO_NOTIFICATIONS_AVATAR_URL"].presence
       end
 
       # Phase 16 §2 security fix-forward (F1 / F2 — 2026-05-10 audit). URL

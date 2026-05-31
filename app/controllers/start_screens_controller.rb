@@ -5,7 +5,7 @@ class StartScreensController < ApplicationController
   def show
     render(Pito::StartScreen::Component.new(
       version: "0.1.0",
-      pitomd_url: "https://pitomd.com"
+      marketing_url: ENV["PITO_MARKETING_URL"].presence
     ))
   end
 end

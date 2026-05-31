@@ -1,16 +1,15 @@
 # Phase 16 §1 → Phase 26 01b refactor. Slack webhook channel.
 #
-# Mirror of `Discord` — different credentials key, different
+# Mirror of `Discord` — different webhook ENV var, different
 # `delivered_at_column`, different formatter target (Spec 02). Same
 # retry semantics: 2xx ok, 4xx (non-429) terminal,
 # 5xx / 429 / network transient.
 #
 # Phase 26 01b — `#webhook_url` now resolves the AR row first
 # (`NotificationDeliveryChannel.slack&.webhook_url`) and falls back to
-# `Rails.application.credentials.notifications.slack_webhook_url` if no
-# row exists yet. This lets the Settings pane manage the URL without
-# rotating credentials, while still honoring credentials for installs
-# that never used the pane.
+# `ENV["PITO_SLACK_WEBHOOK_URL"]` if no row exists yet. This lets the
+# Settings pane manage the URL without touching the environment, while
+# still honoring the ENV var for installs that never used the pane.
 module Pito
   module Notifications
     module DeliveryChannel
@@ -40,12 +39,12 @@ module Pito
 
         def webhook_url
           # Phase 26 01b — AR row first (operator-managed via Settings pane),
-          # credentials block as fallback (legacy installs). Either source
-          # yields a plaintext URL — ARE decrypts the column on read.
+          # ENV var as fallback (legacy installs). Either source yields a
+          # plaintext URL — ARE decrypts the column on read.
           row_url = NotificationDeliveryChannel.slack&.webhook_url
           return row_url if row_url.present?
 
-          Rails.application.credentials.dig(:notifications, :slack_webhook_url)
+          ENV["PITO_SLACK_WEBHOOK_URL"].presence
         end
 
         def delivered_at_column
