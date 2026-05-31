@@ -101,7 +101,7 @@ class Game
       DEFAULT_SEARCH_CATEGORIES = DEFAULT_SEARCH_GAME_TYPES
 
       GAME_FIELDS = %w[
-        id name slug summary checksum first_release_date
+        id name slug summary first_release_date
         rating rating_count aggregated_rating aggregated_rating_count
         total_rating total_rating_count
         cover.id cover.image_id

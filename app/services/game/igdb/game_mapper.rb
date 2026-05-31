@@ -28,7 +28,6 @@ class Game
         attrs = {
           igdb_id:                 json["id"],
           igdb_slug:               json["slug"],
-          igdb_checksum:           json["checksum"],
           title:                   json["name"],
           summary:                 json["summary"],
           cover_image_id:          json.dig("cover", "image_id"),

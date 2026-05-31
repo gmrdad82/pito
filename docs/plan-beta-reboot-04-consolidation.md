@@ -291,10 +291,26 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
   >   - **KEEP** `release_date` (date) — recomputed `before_save` as the lower-bound of what the components describe; used for sorts / ranges / `released?`.
   >   - **ADD** composite index `(release_month, release_day)` for "Christmas in any year"–style queries.
   > **Code follow-on (NOT in P8 — future phase):** `Pito::Game::ReleaseDateMapper` service, IGDB adapter update (request `release_dates[].{category,y,m,d,date}` and pick the canonical row), `Game` validations + `before_save :recompute_release_date` + `released?`/`tba?`/`released_in`/`upcoming` + `release_label` presenter. Spec contracts already written; implementation gates the green run.
-- [ ] T8.3 Investigate whether `igdb_checksum`/timestamp is used in `Game::Igdb::SyncGame` to skip unchanged. complexity: [high]
-- [ ] T8.4 Decide: keep + wire `igdb_checksum`, or DROP; record under the stub below. complexity: [manual]
-  > **Decision:** _TBD — fill in after investigation_
-- [ ] T8.5 Migration applying both decisions. complexity: [low]
+- [x] T8.3 Investigate whether `igdb_checksum`/timestamp is used in `Game::Igdb::SyncGame` to skip unchanged. complexity: [high]
+  > **Findings — `igdb_checksum` is write-only dead data; no skip-unchanged logic exists.**
+  >
+  > - **Requested + stored, never read.** `Client::GAME_FIELDS` requests `checksum` (`client.rb:104`); `GameMapper.map_game` writes `igdb_checksum: json["checksum"]` (`game_mapper.rb:31`). `git grep -ni igdb_checksum` over `app/ lib/ spec/` returns exactly **one** hit — that write. No scope, predicate, comparison, or early-return reads it anywhere.
+  > - **`SyncGame#call` always does a full overwrite.** It unconditionally `fetch_game` + `fetch_time_to_beat`, maps, and last-write-wins every IGDB column (per the file's own header). There is no `if stored_checksum == fetched_checksum; return` guard, and no IGDB-timestamp comparison.
+  > - **No IGDB timestamp is even fetched.** `GAME_FIELDS` does **not** request IGDB's row-version field `updated_at`, so the "or an IGDB timestamp" option in the P8 framing has nothing to compare against today.
+  > - **Nightly refresh is time-based, not checksum-based.** `GameIgdbNightlyRefresh` selects via `Game.synced.stale` (intended `igdb_synced_at < 7.days.ago`) — unrelated to checksum. (Aside, out of T8.3 scope: those `synced`/`stale` scopes no longer exist on `Game`, so the job is currently broken — flag for a later phase.)
+  > - **Checksum can't save the call it would need to.** The checksum is a field *on* the game row, so you only learn it *after* the full `fetch_game`. Skipping work would require a separate cheaper pre-query (`where id = X & checksum != stored`, id-only) before the full fetch — which the code does not do. As wired, the checksum offers zero call savings.
+  >
+  > **Recommendation for T8.4: DROP** `igdb_checksum` (column + the `GAME_FIELDS` entry + the mapper line). It is unused, and wiring it for real savings would need a separate lightweight pre-fetch query that isn't designed here. Decision is operator's (T8.4).
+- [x] T8.4 Decide: keep + wire `igdb_checksum`, or DROP; record under the stub below. complexity: [manual]
+  > **Decision (Catalin, 2026-05-31): DROP `igdb_checksum`.** It is write-only dead data (see T8.3 findings) and, as a field *on* the game row, cannot save a fetch without a separate id-only pre-query that isn't designed here. Remove all three sites:
+  >   - **Schema** (T8.5): drop the `games.igdb_checksum` column.
+  >   - **`Client::GAME_FIELDS`** (`client.rb:104`): remove `checksum` from the requested fields.
+  >   - **`GameMapper.map_game`** (`game_mapper.rb:31`): remove the `igdb_checksum: json["checksum"]` line.
+  > No IGDB timestamp gets wired in its place — skip-unchanged remains out of scope; the nightly refresh stays time-based.
+- [x] T8.5 Migration applying both decisions. complexity: [low]
+  > Applied by **amending the single initial schema** in place (`db/migrate/20260530000001_initial_schema.rb`) — keeps the locked "one fresh single-file migration" invariant rather than stacking a follow-on. Changes to the `games` table: dropped `igdb_checksum`; dropped `release_precision`; added `release_quarter`/`release_month`/`release_day` (int, nullable); added composite index `(release_month, release_day)`; kept `release_date` + `release_year` (+ its index). Also dropped the two checksum **code** sites so the mapper doesn't write a now-missing column: `checksum` removed from `Client::GAME_FIELDS`, and `igdb_checksum:` removed from `GameMapper.map_game`. Rebuilt: `db:drop db:create db:migrate` + `db:test:prepare`; `db/schema.rb` regenerated.
+  > **Gotcha:** a stale `db/schema.rb` was being loaded by `db:migrate` instead of running the edited migration (both versions got marked done; DB matched old schema.rb). Forced a real run by moving `schema.rb` aside before `db:migrate`, which then re-dumped it correctly.
+  > **Left for later (NOT this task):** `Game` still declares `attribute :release_precision` + its `enum` (now backing no column — harmless virtual attribute); removal belongs to the model-layer task **T8.8**.
 - [ ] T8.6 Commit: `IGDB sync decisions applied`. complexity: [manual]
 - [ ] T8.7 Implement `Pito::Game::ReleaseDateMapper` service to satisfy `spec/services/pito/game/release_date_mapper_spec.rb`. complexity: [low]
 - [ ] T8.8 `Game` model layer: validations + `before_save :recompute_release_date` (delegating to `ReleaseDateMapper`) + scopes (`released_in`, `tba`, `upcoming`) + predicates (`released?`, `tba?`); satisfies the release-date examples in `spec/models/game_spec.rb`. complexity: [high]

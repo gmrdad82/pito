@@ -179,7 +179,6 @@ class InitialSchema < ActiveRecord::Migration[8.1]
     create_table :games do |t|
       t.bigint :igdb_id
       t.string :igdb_slug
-      t.string :igdb_checksum
 
       t.string :title, null: false, default: "Untitled game"
       t.text   :summary
@@ -187,9 +186,16 @@ class InitialSchema < ActiveRecord::Migration[8.1]
       t.string :cover_image_id
       t.text   :platforms, array: true, null: false, default: []
 
+      # Release date as independent precision components keyed off
+      # nullability (P8 / docs/architecture.md § "Game release-date
+      # representation"). `release_date` is the recomputed lower-bound
+      # used for sorts / ranges / `released?`; the components carry the
+      # known precision. Each is NULL when not known at that grain.
       t.date    :release_date
       t.integer :release_year
-      t.integer :release_precision
+      t.integer :release_quarter # 1..4, NULL unless quarter precision
+      t.integer :release_month   # 1..12, NULL when only year/quarter known
+      t.integer :release_day     # 1..31, NULL when only month known
 
       # 3 ratings + counts.
       t.decimal :igdb_rating,             precision: 5, scale: 2
@@ -225,6 +231,7 @@ class InitialSchema < ActiveRecord::Migration[8.1]
       t.index :primary_genre_id
       t.index :igdb_synced_at
       t.index :release_year
+      t.index [ :release_month, :release_day ] # "Christmas in any year"-style queries
       t.index :score
       t.index :alternative_names, using: :gin
       # search_vector (+ GIN), summary_embedding HNSW, title trigram → T5.13
