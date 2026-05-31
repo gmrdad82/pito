@@ -17,8 +17,7 @@
 # default and log a warning (we never raise at boot — that would
 # brick `bin/rails`).
 #
-# Changes to `config/pito.yml` require a Puma restart to take effect;
-# the rake tasks (`bin/rails pito:config:*`) print a reminder.
+# Changes to `config/pito.yml` require a Puma restart to take effect.
 
 module Pito
   module Config

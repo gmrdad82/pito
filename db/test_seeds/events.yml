@@ -1,0 +1,153 @@
+---
+- id: 1
+  conversation_id: 1
+  turn_id: 1
+  position: 1
+  kind: user_message
+  payload: '{"text": "/channels overview"}'
+  created_at: 2026-05-31 19:02:30.141796000 Z
+  updated_at: 2026-05-31 19:02:30.141796000 Z
+- id: 2
+  conversation_id: 1
+  turn_id: 1
+  position: 2
+  kind: assistant_text
+  payload: '{"text": "Pulling stats for your 3 active channels…"}'
+  created_at: 2026-05-31 19:02:30.156323000 Z
+  updated_at: 2026-05-31 19:02:30.156323000 Z
+- id: 3
+  conversation_id: 1
+  turn_id: 1
+  position: 3
+  kind: thought
+  payload: '{"text": "You asked me to provide an overview of your connected channels.
+    I need to fetch subscriber counts, total views, and watch-time data for each one.",
+    "duration": "4.2s"}'
+  created_at: 2026-05-31 19:02:30.173994000 Z
+  updated_at: 2026-05-31 19:02:30.173994000 Z
+- id: 4
+  conversation_id: 1
+  turn_id: 1
+  position: 4
+  kind: tool_output
+  payload: '{"title": "# Channel rollup", "output": "@gmrdad82      1,240      48,310      612h\n@gmrdad82-vlog   890      14,107      188h",
+    "command": "$ pito channels overview --period 7d"}'
+  created_at: 2026-05-31 19:02:30.190440000 Z
+  updated_at: 2026-05-31 19:02:30.190440000 Z
+- id: 5
+  conversation_id: 1
+  turn_id: 1
+  position: 5
+  kind: status_footer
+  payload: '{"mode": "Build", "agent": "Big Pickle", "duration": "2m 14s"}'
+  created_at: 2026-05-31 19:02:30.203793000 Z
+  updated_at: 2026-05-31 19:02:30.203793000 Z
+- id: 6
+  conversation_id: 1
+  turn_id: 2
+  position: 6
+  kind: user_message
+  payload: '{"text": "/channel @gmrdad82-vlog --detail"}'
+  created_at: 2026-05-31 19:02:30.236168000 Z
+  updated_at: 2026-05-31 19:02:30.236168000 Z
+- id: 7
+  conversation_id: 1
+  turn_id: 2
+  position: 7
+  kind: assistant_text
+  payload: '{"text": "Here''s the detailed breakdown for @gmrdad82-vlog."}'
+  created_at: 2026-05-31 19:02:30.249385000 Z
+  updated_at: 2026-05-31 19:02:30.249385000 Z
+- id: 8
+  conversation_id: 1
+  turn_id: 2
+  position: 8
+  kind: thought
+  payload: '{"text": "Fetching detailed metrics for the vlog channel — subscriber
+    growth, top-performing videos, and audience retention.", "duration": "3.1s"}'
+  created_at: 2026-05-31 19:02:30.263200000 Z
+  updated_at: 2026-05-31 19:02:30.263200000 Z
+- id: 9
+  conversation_id: 1
+  turn_id: 2
+  position: 9
+  kind: tool_output
+  payload: '{"title": "# @gmrdad82-vlog — detail", "output": "Subscribers      +47     (2.1%)\nViews            14,107  (+8.3%)\nWatch
+    time       188h    (+5.7%)\nAvg retention    62.4%\nTop video        \"Building
+    a TUI in Rust\" (12.4k views)", "command": "$ pito channel @gmrdad82-vlog --detail
+    --period 30d"}'
+  created_at: 2026-05-31 19:02:30.278134000 Z
+  updated_at: 2026-05-31 19:02:30.278134000 Z
+- id: 10
+  conversation_id: 1
+  turn_id: 2
+  position: 10
+  kind: status_footer
+  payload: '{"mode": "Build", "agent": "Big Pickle", "duration": "1m 48s"}'
+  created_at: 2026-05-31 19:02:30.292892000 Z
+  updated_at: 2026-05-31 19:02:30.292892000 Z
+- id: 11
+  conversation_id: 1
+  turn_id: 3
+  position: 11
+  kind: user_message
+  payload: '{"text": "/notifications --unread"}'
+  created_at: 2026-05-31 19:02:30.323543000 Z
+  updated_at: 2026-05-31 19:02:30.323543000 Z
+- id: 12
+  conversation_id: 1
+  turn_id: 3
+  position: 12
+  kind: thought
+  payload: '{"text": "Checking for unread notifications across all channels and mentions.",
+    "duration": "0.8s"}'
+  created_at: 2026-05-31 19:02:30.336218000 Z
+  updated_at: 2026-05-31 19:02:30.336218000 Z
+- id: 13
+  conversation_id: 1
+  turn_id: 3
+  position: 13
+  kind: tool_output
+  payload: '{"title": "# Unread notifications", "output": "#  Type        Channel           Time         Summary\n1  comment     @gmrdad82         2m
+    ago       \"Great video!\"\n2  milestone   @gmrdad82-vlog    15m ago      1k subscribers!\n3  mention     @gmrdad82         1h
+    ago       @pito in #general\n4  upload      @gmrdad82-vlog    3h ago       \"My
+    new setup\"\n5  alert       @gmrdad82         6h ago       Retention drop on TUI
+    video", "command": "$ pito notifications --unread --limit 5"}'
+  created_at: 2026-05-31 19:02:30.395313000 Z
+  updated_at: 2026-05-31 19:02:30.395313000 Z
+- id: 14
+  conversation_id: 1
+  turn_id: 3
+  position: 14
+  kind: status_footer
+  payload: '{"mode": "Inspect", "agent": "Big Pickle", "duration": "0.9s"}'
+  created_at: 2026-05-31 19:02:30.411790000 Z
+  updated_at: 2026-05-31 19:02:30.411790000 Z
+- id: 15
+  conversation_id: 1
+  turn_id: 4
+  position: 15
+  kind: user_message
+  payload: '{"text": "/help commands"}'
+  created_at: 2026-05-31 19:02:30.441709000 Z
+  updated_at: 2026-05-31 19:02:30.441709000 Z
+- id: 16
+  conversation_id: 1
+  turn_id: 4
+  position: 16
+  kind: assistant_text
+  payload: '{"text": "Here are the commands you can use. Type /help <command> for
+    details on any of them."}'
+  created_at: 2026-05-31 19:02:30.457940000 Z
+  updated_at: 2026-05-31 19:02:30.457940000 Z
+- id: 17
+  conversation_id: 1
+  turn_id: 4
+  position: 17
+  kind: tool_output
+  payload: '{"title": "# Available commands", "output": "/channels       Channel overview
+    & management\n/notifications  View and manage notifications\n/help           Show
+    this help message\n/settings       Configure pito preferences\n/theme          Switch
+    color themes\n/export         Export channel data", "command": "$ pito help"}'
+  created_at: 2026-05-31 19:02:30.474082000 Z
+  updated_at: 2026-05-31 19:02:30.474082000 Z

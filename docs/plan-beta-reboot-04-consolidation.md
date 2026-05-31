@@ -371,29 +371,51 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 - [x] T12.4 Commit: `Self-validating factories spec`. complexity: [manual]
 
 ## P13 — Rake reorg + seeds prepare/populate
-- [ ] T13.1 Empty `db/seeds.rb`. complexity: [low]
-- [ ] T13.2 Map surviving tasks → `pito:test:*` / `pito:tools:*`; record tree. complexity: [low]
-- [ ] T13.3 `pito:test:seeds:prepare` — snapshot current DB rows → seed files. complexity: [high]
-- [ ] T13.4 `pito:test:seeds:populate` — drop existing + load prepared seeds. complexity: [high]
-- [ ] T13.5 `test_broadcast` → `pito:test:broadcast`. complexity: [low]
-- [ ] T13.6 `test_panel_seeds` (+ clear) → `pito:test:panels:*`. complexity: [low]
-- [ ] T13.7 auth/TOTP → `pito:tools:auth:*`. complexity: [low]
-- [ ] T13.8 state → `pito:tools:state:*`. complexity: [low]
-- [ ] T13.9 config → `pito:tools:config:*`. complexity: [low]
-- [ ] T13.10 cleanup/assets/cover_arts → `pito:tools:{cleanup,assets,cover_arts}:*`. complexity: [low]
-  > Cover art is slated to move to **Active Storage** (see "Open follow-ups"); revisit the `cover_arts` namespace then — some of it may fold into the AS refactor rather than survive as a standalone rake namespace.
-- [ ] T13.11 `games:backfill_scores` → `pito:tools:games:*`. complexity: [low]
-- [ ] T13.12 `pito:tools:db:dump` + `:restore`. complexity: [low]
-- [ ] T13.13 Update initializers/docs invoking renamed tasks. complexity: [low]
-- [ ] T13.14 Confirm `bin/rails -T pito` → only `pito:test:*` + `pito:tools:*`. complexity: [manual]
+- [x] T13.1 Empty `db/seeds.rb`. complexity: [low]
+- [x] T13.2 Map surviving tasks → `pito:test:*` / `pito:tools:*`; record tree. complexity: [low]
+  > **Surviving / new task tree (6 tasks):**
+  > - `pito:test:seeds:prepare` — snapshot DB rows → YAML seed files + AS file manifest
+  > - `pito:test:seeds:populate` — truncate + load seeds (FORCE=yes required)
+  > - `pito:tools:auth:enroll` — TOTP enrollment
+  > - `pito:tools:auth:reset` — TOTP reset
+  > - `pito:tools:games:backfill_scores` — recompute game scores
+  > - `pito:tools:games:resync_release_dates` — enqueue IGDB re-sync
+- [x] T13.3 `pito:test:seeds:prepare` — snapshot current DB rows → seed files. complexity: [high]
+  > Handles generated columns (skipped on insert), Active Storage file manifest + copy.
+- [x] T13.4 `pito:test:seeds:populate` — drop existing + load prepared seeds. complexity: [high]
+  > Truncates all tables, inserts from YAML, resets PK sequences, restores AS files.
+- [x] T13.5 `test_broadcast` → `pito:test:broadcast`. complexity: [low]
+  > **Removed** — task no longer exists.
+- [x] T13.6 `test_panel_seeds` (+ clear) → `pito:test:panels:*`. complexity: [low]
+  > **Removed** — task no longer exists.
+- [x] T13.7 auth/TOTP → `pito:tools:auth:*`. complexity: [low]
+  > Already correctly namespaced under `pito:tools:auth:*`.
+- [x] T13.8 state → `pito:tools:state:*`. complexity: [low]
+  > **Removed** — underlying code/tasks no longer exist.
+- [x] T13.9 config → `pito:tools:config:*`. complexity: [low]
+  > **Removed** — underlying code/tasks no longer exist.
+- [x] T13.10 cleanup/assets/cover_arts → `pito:tools:{cleanup,assets,cover_arts}:*`. complexity: [low]
+  > **Removed** — underlying code/tasks no longer exist.
+- [x] T13.11 `games:backfill_scores` → `pito:tools:games:*`. complexity: [low]
+  > Already correctly namespaced under `pito:tools:games:*`.
+- [x] T13.12 `pito:tools:db:dump` + `:restore`. complexity: [low]
+  > **Skipped** — redundant with `pito:test:seeds:prepare` + `populate`.
+- [x] T13.13 Update initializers/docs invoking renamed tasks. complexity: [low]
+  > Cleaned: `config/initializers/pito_config.rb` (removed rake task refs), `.env.example` (removed config rake refs), `config/pito.yml.example` (removed config rake refs).
+- [x] T13.14 Confirm `bin/rails -T pito` → only `pito:test:*` + `pito:tools:*`. complexity: [manual]
+  > ✅ 6 tasks: `pito:test:seeds:{prepare,populate}` + `pito:tools:auth:{enroll,reset}` + `pito:tools:games:{backfill_scores,resync_release_dates}`.
+- [x] T13.14.5 Parallel specs default to 4 processors. complexity: [low]
+  > `bin/parallel_setup` + `bin/test`: `PARALLEL_TEST_PROCESSORS=4` (was 8). CI left at 8. `parallel_tests` gem already in Gemfile with `~> 5.7`.
 - [ ] T13.15 Commit: `Rake reorg + seeds prepare/populate`. complexity: [manual]
 
 ## P14 — Rake task specs
 - [ ] T14.1 Rake-spec helper. complexity: [low]
 - [ ] T14.2 Spec `pito:test:seeds:prepare`/`populate` (round-trip). complexity: [low]
 - [ ] T14.3 Spec `pito:tools:auth:*`. complexity: [low]
-- [ ] T14.4 Spec `pito:tools:state:*`. complexity: [low]
-- [ ] T14.5 Spec `pito:tools:db:dump`/`restore` (stubbed). complexity: [low]
+- [x] T14.4 Spec `pito:tools:state:*`. complexity: [low]
+  > **Removed** — tasks no longer exist.
+- [x] T14.5 Spec `pito:tools:db:dump`/`restore` (stubbed). complexity: [low]
+  > **Removed** — redundant with seeds prepare/populate.
 - [ ] T14.6 Spec `pito:tools:games:backfill_scores`. complexity: [low]
 - [ ] T14.7 `rspec` rake specs green. complexity: [manual]
 - [ ] T14.8 Commit: `Specs for pito:test / pito:tools`. complexity: [manual]

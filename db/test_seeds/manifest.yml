@@ -1,0 +1,23 @@
+---
+:tables:
+  active_storage_attachments: 0
+  active_storage_blobs: 0
+  active_storage_variant_records: 0
+  app_settings: 0
+  channels: 2
+  companies: 2
+  conversations: 1
+  events: 17
+  footages: 1
+  game_developers: 0
+  game_genres: 0
+  game_platform_ownerships: 0
+  game_publishers: 0
+  games: 0
+  genres: 0
+  turns: 0
+  video_game_links: 0
+  video_previews: 0
+  videos: 0
+  youtube_connections: 0
+:active_storage_files: {}

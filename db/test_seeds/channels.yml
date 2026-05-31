@@ -1,0 +1,29 @@
+---
+- id: 1
+  youtube_channel_id: yt_channel_1
+  youtube_connection_id:
+  title: Channel 1
+  handle:
+  description:
+  avatar_url:
+  banner_url:
+  subscriber_count:
+  view_count:
+  video_count:
+  last_synced_at:
+  created_at: 2026-05-31 19:03:25.200576000 Z
+  updated_at: 2026-05-31 19:03:25.200576000 Z
+- id: 2
+  youtube_channel_id: yt_channel_2
+  youtube_connection_id:
+  title: Channel 2
+  handle:
+  description:
+  avatar_url:
+  banner_url:
+  subscriber_count:
+  view_count:
+  video_count:
+  last_synced_at:
+  created_at: 2026-05-31 19:03:25.319198000 Z
+  updated_at: 2026-05-31 19:03:25.319198000 Z
