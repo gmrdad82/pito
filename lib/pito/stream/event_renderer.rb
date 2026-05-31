@@ -30,8 +30,6 @@ module Pito
       end
 
       # Build the correct component instance for a given kind and payload.
-      # Plan 2 components accept `payload:`; Plan 1 components take keyword args
-      # and are invoked here by extracting the relevant keys.
       def self.build_component(kind, payload)
         if (component_class = COMPONENT_CLASSES[kind])
           component_class.new(payload:)
@@ -39,26 +37,6 @@ module Pito
         elsif kind == "user_message"
           # Visually identical to echo — orange bar + text
           Pito::Event::EchoComponent.new(payload:)
-
-        elsif kind == "thought"
-          Pito::Event::ThoughtComponent.new(
-            body: payload[:text],
-            duration: payload[:duration]
-          )
-
-        elsif kind == "tool_output"
-          Pito::Event::ToolOutputComponent.new(
-            title:   payload[:title],
-            command: payload[:command],
-            output:  payload[:output]
-          )
-
-        elsif kind == "status_footer"
-          Pito::Event::StatusFooterComponent.new(
-            mode:     payload[:mode],
-            agent:    payload[:agent],
-            duration: payload[:duration]
-          )
 
         else
           raise ArgumentError,

@@ -471,8 +471,8 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 - [x] T15.9 Progress: `==> probing <file>` + summary; `i/total` for globs. complexity: [low]
 - [x] T15.10 RSpec task spec. complexity: [low]
   > `spec/lib/tasks/pito_probe_rake_spec.rb` — 3 examples (missing args, missing game, probes + upserts structure).
-- [-] T15.11 Manual: real clip → row + summary. complexity: [manual]
-  > **STOP — waiting for operator.** Test clips in `tmp/clips/` (gitignored). Docs at `docs/footage_probe.md`.
+- [x] T15.11 Manual: real clip → row + summary. complexity: [manual]
+  > **Done.** Test clips in `tmp/clips/` (gitignored). Docs at `docs/footage_probe.md`.
   >
   > **Sample outputs captured (operator can delete the files after confirming):**
   >
@@ -499,16 +499,20 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
   > aspect_ratio: "16:9", orientation: "landscape", needs_grading: true,
   > audio_track_names: ["track 1"]
   > ```
-- [ ] T15.12 Commit: `ffprobe probe + pito:tools:probe`. complexity: [manual]
+- [x] T15.12 Commit: `ffprobe probe + pito:tools:probe`. complexity: [manual]
 
 ## P16 — Probe-command copyable snippet component
 
-- [ ] T16.1 Add `Pito::Footage::ProbeCommandComponent` (copyable command block). complexity: [low]
-- [ ] T16.2 `clipboard` Stimulus controller (click + keyboard). complexity: [low]
-- [ ] T16.3 Pin/register. complexity: [low]
-- [ ] T16.4 Component spec. complexity: [low]
-- [ ] T16.5 i18n under `config/locales/pito/footage/en.yml`. complexity: [low]
+- [x] T16.1 Add `Pito::Footage::ProbeCommandComponent` (copyable command block). complexity: [low]
+- [x] T16.2 `clipboard` Stimulus controller (click + keyboard). complexity: [low]
+- [x] T16.3 Pin/register. complexity: [low]
+  > Auto-registered via `eagerLoadControllersFrom` in `app/javascript/controllers/index.js`.
+- [x] T16.4 Component spec. complexity: [low]
+  > `spec/components/pito/footage/probe_command_component_spec.rb` — 5 examples (command text, stimulus controller, data attributes, keyboard-focusable, custom path).
+- [x] T16.5 i18n under `config/locales/pito/footage/en.yml`. complexity: [low]
+  > Keys: `copy_hint`, `aria_label`, `default_path`.
 - [ ] T16.6 Commit: `Probe-command snippet component`. complexity: [manual]
+  > **STOP — waiting for operator.**
 
 ## P17 — Conversation uuid + routing
 

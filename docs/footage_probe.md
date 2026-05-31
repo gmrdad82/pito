@@ -134,6 +134,22 @@ result.audio_track_names # => ["Gameplay", "Commentary"]
 result.error_message  # => nil (or error string on failure)
 ```
 
+## UI Component
+
+`Pito::Footage::ProbeCommandComponent` renders a copyable command block. It is **not wired to any route by default** — render it wherever you need it (e.g. a game detail page):
+
+```erb
+<%= render Pito::Footage::ProbeCommandComponent.new(game_id: game.id, path: "/mnt/media/tekken") %>
+```
+
+This renders:
+
+```
+cd /mnt/media/tekken && rails pito:tools:probe game=42 .
+```
+
+Click the block, press **Tab** to focus it, or hit **Ctrl+C** / **Cmd+C** to copy the command to the clipboard.
+
 ## Testing
 
 The rspec suite uses captured ffprobe JSON fixtures (small text files) instead of real video clips:
