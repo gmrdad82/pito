@@ -20,12 +20,16 @@ class Game < ApplicationRecord
 
   has_neighbors :summary_embedding
 
-  attribute :release_precision, :integer
-  enum :release_precision,
-       { day: 0, month: 1, quarter: 2, year: 3, tba: 4 },
-       prefix: true
-
   validates :title, presence: true
+
+  # ── Release-date component validations ──────────────────────────
+  validate :release_date_components_are_consistent
+
+  before_save :recompute_release_date
+
+  scope :released_in, ->(year) { where(release_year: year) }
+  scope :tba, -> { where(release_year: nil) }
+  scope :upcoming, -> { where("release_date > ? OR release_year IS NULL", Date.current) }
 
   # ── Score (vote-weighted average of IGDB rating triplets) ─────
   RATING_FIELDS = %i[
@@ -44,6 +48,17 @@ class Game < ApplicationRecord
   # Bypasses the drift guard — a deliberate action (e.g. backfill).
   def recompute_score!
     update!(score: Pito::Game::ScoreCalculator.call(self))
+  end
+
+  def released?
+    effective = release_date || derive_release_date
+    return false if effective.nil?
+
+    effective <= Date.current
+  end
+
+  def tba?
+    igdb_synced_at.present? && release_year.nil?
   end
 
   private
@@ -66,5 +81,46 @@ class Game < ApplicationRecord
     return false if score.nil?
 
     (new_score - score).abs > SCORE_DRIFT_THRESHOLD
+  end
+
+  def release_date_components_are_consistent
+    if release_quarter.present? && release_month.present?
+      errors.add(:release_quarter, "and month are mutually exclusive")
+    end
+
+    if release_day.present? && release_month.nil?
+      errors.add(:release_day, "requires month")
+    end
+
+    if release_quarter.present? && !release_quarter.between?(1, 4)
+      errors.add(:release_quarter, "out of range")
+    end
+
+    if release_month.present? && !release_month.between?(1, 12)
+      errors.add(:release_month, "out of range")
+    end
+
+    if release_year.present? && release_month.present? && release_day.present?
+      begin
+        Date.new(release_year, release_month, release_day)
+      rescue Date::Error
+        errors.add(:base, "invalid date")
+      end
+    end
+  end
+
+  def recompute_release_date
+    self.release_date = derive_release_date
+  end
+
+  def derive_release_date
+    Pito::Game::ReleaseDateMapper.call(
+      year:    release_year,
+      quarter: release_quarter,
+      month:   release_month,
+      day:     release_day
+    )[:release_date]
+  rescue Pito::Error::ReleaseDateInconsistent
+    nil
   end
 end
