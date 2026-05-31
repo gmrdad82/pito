@@ -2,7 +2,7 @@
 
 require "rails_helper"
 
-RSpec.describe Pito::TimeToBeatComponent, type: :model do
+RSpec.describe Pito::TimeToBeatComponent do
   let(:game) do
     build_stubbed(:game,
                   ttb_main_seconds:          50 * 3600,

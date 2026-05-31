@@ -2,7 +2,7 @@
 
 require "rails_helper"
 
-RSpec.describe Pito::ScoreBarComponent, type: :model do
+RSpec.describe Pito::ScoreBarComponent do
   let(:game) { build_stubbed(:game, igdb_rating: 87.0, igdb_rating_count: 150) }
 
   describe ".synthesized_score" do

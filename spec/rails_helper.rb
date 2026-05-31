@@ -13,10 +13,32 @@ abort("The Rails environment is running in production mode!") if Rails.env.produ
 # return unless Rails.env.test?
 require 'rspec/rails'
 require 'factory_bot_rails'
+require 'view_component/test_helpers'
 # Add additional requires below this line. Rails is not loaded until this point!
 
 RSpec.configure do |config|
   config.include FactoryBot::Syntax::Methods
+
+  # ── ViewComponent specs ───────────────────────────────────────────
+  # Any spec under spec/components is automatically tagged
+  # `type: :component` — no need to write `type:` by hand. That type
+  # pulls in ViewComponent::TestHelpers, so `render_inline(Component.new(...))`
+  # is available and returns a Nokogiri fragment you can assert on with
+  # `.css(...)`, `.text`, and `.to_html`. We intentionally do NOT depend
+  # on Capybara (dropped in Phase 1 — no web UI to drive), so use plain
+  # Nokogiri assertions rather than `have_css`/`have_text` matchers.
+  #
+  # Convention for a component spec:
+  #   RSpec.describe Pito::Foo::BarComponent do   # no `type:` needed
+  #     it "renders the label" do
+  #       node = render_inline(described_class.new(label: "Hi"))
+  #       expect(node.css("[data-role='label']").text).to eq("Hi")
+  #     end
+  #   end
+  config.define_derived_metadata(file_path: %r{/spec/components/}) do |metadata|
+    metadata[:type] = :component
+  end
+  config.include ViewComponent::TestHelpers, type: :component
 
   # Remove this line if you're not using ActiveRecord or ActiveRecord fixtures
   config.fixture_paths = [

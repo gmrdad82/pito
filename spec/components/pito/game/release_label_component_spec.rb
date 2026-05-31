@@ -15,7 +15,7 @@ require "rails_helper"
 # also a regression signal if someone edits the locale file by mistake.
 # A separate spec (not here) would cover locale switching if pito ever
 # adds non-English locales.
-RSpec.describe "Pito::Game release label", type: :model do
+RSpec.describe "Pito::Game release label" do
   let(:render) do
     ->(game) {
       if defined?(Pito::Game::ReleaseLabelComponent)
