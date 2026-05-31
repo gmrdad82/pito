@@ -1,0 +1,71 @@
+<%# Pito::TimeToBeatComponent — KEPT BUT UNUSED — no host screen yet. %>
+<div class="pito-ttb" data-component="time-to-beat">
+  <%# Row 1 — Footage value bubble. %>
+  <div class="pito-ttb__values pito-ttb__values--top">
+    <% if render_footage_tick? %>
+      <div class="pito-ttb__footage-bubble"
+           data-position="<%= footage_position %>">
+        <span class="pito-ttb__footage-bubble-num"><%= footage_value_label %></span>
+        <span class="pito-ttb__footage-bubble-arrow">&#9660;</span>
+      </div>
+    <% end %>
+  </div>
+
+  <%# Row 2 — the bar. %>
+  <div class="pito-ttb__bar-row">
+    <span class="pito-ttb__bar">
+      <% breaks = gradient_break_positions %>
+      <span class="pito-ttb__track">
+        <span class="pito-ttb__bracket">[</span>
+        <span class="pito-ttb__fill"
+              data-p1="<%= breaks[:p1] %>"
+              data-p2="<%= breaks[:p2] %>"
+              data-p3="<%= breaks[:p3] %>"
+              data-p4="<%= breaks[:p4] %>"
+              data-p5="<%= breaks[:p5] %>"
+              data-p6="<%= breaks[:p6] %>">
+          ===============================================================================
+        </span>
+        <span class="pito-ttb__bracket">]</span>
+      </span>
+      <% tick_overlays.each do |tick| %>
+        <span class="pito-ttb__tick <%= tick[:token_class] %>"
+              data-accent="<%= tick[:key] %>"
+              data-position="<%= tick[:position] %>">|</span>
+      <% end %>
+    </span>
+  </div>
+
+  <%# Row 3 — pillar hour values below the bar. %>
+  <div class="pito-ttb__values pito-ttb__values--bottom">
+    <% pillar_label_data.each do |label_data| %>
+      <span class="pito-ttb__value pito-ttb__value--pillar <%= pillar_bottom_label_alignment_class %>"
+            data-pillar="<%= label_data[:key] %>"
+            data-position="<%= label_data[:effective_position] %>">
+        <%= label_data[:label] %>
+      </span>
+    <% end %>
+  </div>
+
+  <%# Row 4 — legend. %>
+  <div class="pito-ttb__legend">
+    <span class="pito-ttb__legend-item">
+      <span class="pito-ttb__legend-tick" data-accent="main">|</span>
+      <span class="pito-ttb__legend-label"><%= self.class.pillar_label[:main] %></span>
+    </span>
+    <span class="pito-ttb__legend-item">
+      <span class="pito-ttb__legend-tick" data-accent="extras">|</span>
+      <span class="pito-ttb__legend-label"><%= self.class.pillar_label[:extras] %></span>
+    </span>
+    <span class="pito-ttb__legend-item">
+      <span class="pito-ttb__legend-tick" data-accent="completionist">|</span>
+      <span class="pito-ttb__legend-label"><%= self.class.pillar_label[:completionist] %></span>
+    </span>
+    <% if render_footage_tick? %>
+      <span class="pito-ttb__legend-item">
+        <span class="pito-ttb__legend-tick" data-accent="footage">|</span>
+        <span class="pito-ttb__legend-label"><%= footage_caption %></span>
+      </span>
+    <% end %>
+  </div>
+</div>

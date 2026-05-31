@@ -15,3 +15,10 @@ en:
         year: "%{year}"
         month_day_unknown_year: "%{month} %{day}"
         tba: "TBA"
+      ttb:
+        main: "main"
+        extras: "extras"
+        completionist: "completionist"
+        footage: "footage"
+        hours_short: "%{n}h"
+        em_dash: "—"

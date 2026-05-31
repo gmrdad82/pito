@@ -62,12 +62,8 @@ class Pito::ScoreBarComponent < ViewComponent::Base
     self.class.tier_for(score)
   end
 
-  def resyncing?
-    @game&.resyncing? == true
-  end
-
   def overlay?
-    !resyncing? && !score.nil?
+    !score.nil?
   end
 
   def overlay_left_percent
