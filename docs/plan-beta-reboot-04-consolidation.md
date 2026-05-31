@@ -314,8 +314,8 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 - [x] T8.6 Commit: `IGDB sync decisions applied`. complexity: [manual]
 - [x] T8.7 Implement `Pito::Game::ReleaseDateMapper` service to satisfy `spec/services/pito/game/release_date_mapper_spec.rb`. complexity: [low]
 - [x] T8.8 `Game` model layer: validations + `before_save :recompute_release_date` (delegating to `ReleaseDateMapper`) + scopes (`released_in`, `tba`, `upcoming`) + predicates (`released?`, `tba?`); satisfies the release-date examples in `spec/models/game_spec.rb`. complexity: [high]
-- [-] T8.9 IGDB adapter: add `release_dates.{category,y,m,d,date}` to `Game::Igdb::Client::GAME_FIELDS`; update `Game::Igdb::GameMapper.map_game` to pick the canonical row + translate IGDB `category` (0..7) to the component shape + delegate to `ReleaseDateMapper`; drop the dead `release_year:` mapper line; satisfies `spec/services/game/igdb/game_mapper_release_date_spec.rb`. complexity: [high]
-- [ ] T8.10 `Pito::Game::ReleaseLabelComponent` (or `Game#release_label` helper) reading copy from `config/locales/pito/game/en.yml`; satisfies `spec/components/pito/game/release_label_component_spec.rb`. complexity: [low]
+- [x] T8.9 IGDB adapter: add `release_dates.{category,y,m,d,date}` to `Game::Igdb::Client::GAME_FIELDS`; update `Game::Igdb::GameMapper.map_game` to pick the canonical row + translate IGDB `category` (0..7) to the component shape + delegate to `ReleaseDateMapper`; drop the dead `release_year:` mapper line; satisfies `spec/services/game/igdb/game_mapper_release_date_spec.rb`. complexity: [high]
+- [-] T8.10 `Pito::Game::ReleaseLabelComponent` (or `Game#release_label` helper) reading copy from `config/locales/pito/game/en.yml`; satisfies `spec/components/pito/game/release_label_component_spec.rb`. complexity: [low]
 - [ ] T8.11 Backfill: add `pito:tools:games:resync_release_dates` rake task that enqueues `Game::Igdb::SyncGame` for every row with `igdb_id` so existing games repopulate the new components; run once locally to verify. complexity: [low]
 - [ ] T8.12 Commit: `Game release-date components: implementation`. complexity: [manual]
 
