@@ -6,5 +6,23 @@ FactoryBot.define do
     channel
     sequence(:youtube_video_id) { |n| "yt_video_#{n}" }
     sequence(:title) { |n| "Video #{n}" }
+
+    trait :scheduled do
+      privacy_status { :private }
+      publish_at { 1.day.from_now }
+    end
+
+    trait :public do
+      privacy_status { :public }
+      published_at { 1.day.ago }
+    end
+
+    trait :private do
+      privacy_status { :private }
+    end
+
+    trait :unlisted do
+      privacy_status { :unlisted }
+    end
   end
 end

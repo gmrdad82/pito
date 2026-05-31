@@ -348,19 +348,20 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 - [ ] T10.17 Commit: `Freeze component CSS`. complexity: [manual]
 
 ## P11 — Factories for every model + traits
-- [ ] T11.1 Audit `spec/factories/` vs models; list missing. complexity: [low]
-- [ ] T11.2 Factory `channel` (+ `:with_videos`, `:on_connection`). complexity: [low]
-- [ ] T11.3 Factory `video` (+ `:scheduled`/`:public`/`:private`). complexity: [low]
-- [ ] T11.4 Factory `video_preview` (+ `:published`/`:failed`; thumbnail attach). complexity: [low]
-- [ ] T11.5 Factory `game` (+ `:with_ratings`/`:tba`/`:unreleased`/`:with_score`). complexity: [low]
-- [ ] T11.6 Factory `footage` (game required; + `:needs_grading`/`:portrait`/`:with_audio_tracks`). complexity: [low]
-- [ ] T11.7 Factory `company`. complexity: [low]
-- [ ] T11.8 Factory `genre`. complexity: [low]
-- [ ] T11.9 Factories for join models. complexity: [low]
-- [ ] T11.10 Factory `app_setting` (singleton + key/value + TOTP traits). complexity: [low]
-- [ ] T11.11 Factory `totp_backup_code` (+ `:used`). complexity: [low]
-- [ ] T11.12 Factory `youtube_connection` (+ `:needs_reauth`). complexity: [low]
-- [ ] T11.13 Factory `conversation` (+ `:named`); refresh `turn`/`event`. complexity: [low]
+- [x] T11.1 Audit `spec/factories/` vs models; list missing. complexity: [low]
+- [x] T11.2 Factory `channel` (+ `:with_videos`, `:on_connection`). complexity: [low]
+- [x] T11.3 Factory `video` (+ `:scheduled`/`:public`/`:private`). complexity: [low]
+- [x] T11.4 Factory `video_preview` (+ `:published`/`:failed`; thumbnail attach). complexity: [low]
+- [x] T11.5 Factory `game` (+ `:with_ratings`/`:tba`/`:unreleased`/`:with_score`). complexity: [low]
+- [x] T11.6 Factory `footage` (game required; + `:needs_grading`/`:portrait`/`:with_audio_tracks`). complexity: [low]
+- [x] T11.7 Factory `company`. complexity: [low]
+- [x] T11.8 Factory `genre`. complexity: [low]
+- [x] T11.9 Factories for join models. complexity: [low]
+- [x] T11.10 Factory `app_setting` (singleton + key/value + TOTP traits). complexity: [low]
+- [x] T11.11 Factory `totp_backup_code` (+ `:used`). complexity: [low]
+  > **Skipped** — `TotpBackupCode` model was dropped in P2 (T2.18). No factory needed.
+- [x] T11.12 Factory `youtube_connection` (+ `:needs_reauth`). complexity: [low]
+- [x] T11.13 Factory `conversation` (+ `:named`); refresh `turn`/`event`. complexity: [low]
 - [ ] T11.14 Commit: `Factories for every model with traits`. complexity: [manual]
 
 ## P12 — Auto-validating factories_spec
