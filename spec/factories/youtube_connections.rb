@@ -14,5 +14,11 @@ FactoryBot.define do
     trait :needs_reauth do
       needs_reauth { true }
     end
+
+    trait :with_channels do
+      after(:create) do |connection|
+        create_list(:channel, 2, youtube_connection: connection)
+      end
+    end
   end
 end

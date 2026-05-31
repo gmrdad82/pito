@@ -362,13 +362,13 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
   > **Skipped** — `TotpBackupCode` model was dropped in P2 (T2.18). No factory needed.
 - [x] T11.12 Factory `youtube_connection` (+ `:needs_reauth`). complexity: [low]
 - [x] T11.13 Factory `conversation` (+ `:named`); refresh `turn`/`event`. complexity: [low]
-- [ ] T11.14 Commit: `Factories for every model with traits`. complexity: [manual]
+- [x] T11.14 Commit: `Factories for every model with traits`. complexity: [manual]
 
 ## P12 — Auto-validating factories_spec
-- [ ] T12.1 `spec/models/factories_spec.rb`: each factory builds valid. complexity: [low]
-- [ ] T12.2 Extend: each trait builds valid. complexity: [low]
-- [ ] T12.3 Run; fix failures. complexity: [low]
-- [ ] T12.4 Commit: `Self-validating factories spec`. complexity: [manual]
+- [x] T12.1 `spec/models/factories_spec.rb`: each factory builds valid. complexity: [low]
+- [x] T12.2 Extend: each trait builds valid. complexity: [low]
+- [x] T12.3 Run; fix failures. complexity: [low]
+- [x] T12.4 Commit: `Self-validating factories spec`. complexity: [manual]
 
 ## P13 — Rake reorg + seeds prepare/populate
 - [ ] T13.1 Empty `db/seeds.rb`. complexity: [low]

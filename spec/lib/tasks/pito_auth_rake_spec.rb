@@ -30,8 +30,10 @@ RSpec.describe "pito:tools:auth rake tasks" do
       before { AppSetting.enroll_totp!(seed: ROTP::Base32.random_base32) }
 
       it "exits without enrolling when FORCE is not set" do
-        expect { Rake::Task["pito:tools:auth:enroll"].invoke }
-          .to raise_error(SystemExit)
+        suppress_output do
+          expect { Rake::Task["pito:tools:auth:enroll"].invoke }
+            .to raise_error(SystemExit)
+        end
         expect(AppSetting.totp_enabled?).to be true
       end
 
@@ -64,9 +66,13 @@ RSpec.describe "pito:tools:auth rake tasks" do
   end
 
   def suppress_output
+    old_stdout = $stdout
+    old_stderr = $stderr
     $stdout = File.open(File::NULL, "w")
+    $stderr = File.open(File::NULL, "w")
     yield
   ensure
-    $stdout = STDOUT
+    $stdout = old_stdout
+    $stderr = old_stderr
   end
 end

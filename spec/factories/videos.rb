@@ -24,5 +24,13 @@ FactoryBot.define do
     trait :unlisted do
       privacy_status { :unlisted }
     end
+
+    trait :with_linked_games do
+      after(:create) do |video|
+        create_list(:game, 2).each do |game|
+          create(:video_game_link, video: video, game: game)
+        end
+      end
+    end
   end
 end

@@ -39,5 +39,27 @@ FactoryBot.define do
       sequence(:igdb_id) { |n| n + 100 }
       sequence(:igdb_slug) { |n| "game-#{n}" }
     end
+
+    trait :with_footages do
+      after(:create) do |game|
+        create_list(:footage, 2, game: game)
+      end
+    end
+
+    trait :with_genres do
+      after(:create) do |game|
+        create_list(:genre, 2).each do |genre|
+          create(:game_genre, game: game, genre: genre)
+        end
+      end
+    end
+
+    trait :with_developers do
+      after(:create) do |game|
+        create_list(:company, 2).each do |company|
+          create(:game_developer, game: game, company: company)
+        end
+      end
+    end
   end
 end
