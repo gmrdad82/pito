@@ -13,9 +13,9 @@ Rails.application.routes.draw do
       to: "youtube_connections/oauth_callbacks#failure",
       as: :youtube_connection_oauth_failure
 
-  root "terminal#show"
+  root "start_screens#show"
   post "/chat", to: "chat#create"
-  get "/start", to: "start_screens#show"
+  get "/chat/:uuid", to: "conversations#show", as: :conversation
 
   # Health check
   get "up" => "rails/health#show", as: :rails_health_check

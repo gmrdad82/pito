@@ -37,7 +37,7 @@ RSpec.describe Pito::Stream::Broadcaster do
     end
 
     it "broadcasts to the conversation stream" do
-      stream = "pito:conversation:#{conversation.id}"
+      stream = "pito:conversation:#{conversation.uuid}"
       expect {
         broadcaster.emit(turn:, kind: "echo", payload: { text: "/help" })
       }.to have_broadcasted_to(stream)

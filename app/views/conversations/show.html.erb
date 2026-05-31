@@ -1,24 +1,20 @@
-<%# U6 — Chat shell page (/). Full-viewport flex column. %>
-<%# Top: scrollable event stream. Bottom: chatbox + mini-status row. %>
+<%# P17 — Chat shell page for a specific conversation (/chat/:uuid). %>
+<%# Identical layout to terminal/show; stream targets the conversation uuid. %>
 
-<%# Subscribe to the conversation's Turbo Stream channel for live event broadcasts %>
-<%= turbo_stream_from "pito:conversation:#{current_conversation.id}" %>
+<%= turbo_stream_from "pito:conversation:#{@conversation.uuid}" %>
 
 <div class="flex flex-col" style="height: 100vh;">
-  <%# Scrollable event stream — segments extend to scrollbar, scrollbar floats at 35px from right %>
   <div id="pito-scrollback" class="pito-hide-scrollbar pito-scroll-fade" style="flex: 1; overflow-y: auto; padding: 32px 50px 0;">
-      <% @events.each do |event| %>
-        <%= render Pito::Stream::EventRenderer.component_for(event) %>
-      <% end %>
+    <% @events.each do |event| %>
+      <%= render Pito::Stream::EventRenderer.component_for(event) %>
+    <% end %>
   </div>
 
-  <%# Bottom: chatbox + mini-status row — 50px left, aligns right edge with scrollbar position %>
-  <%# Bottom: chatbox + mini-status row — 20px page-colored border-top masks scrolling segments %>
   <div style="padding: 0 50px 32px; border-top: 20px solid var(--bg-root);">
-    <%# Chatbox form %>
     <%= form_with url: chat_path, method: :post,
                   data: { controller: "pito--chat-form", turbo: true },
                   class: "chatbox-form" do |form| %>
+      <%= form.hidden_field :uuid, value: @conversation.uuid %>
       <%= form.hidden_field :input, data: { pito__chat_form_target: "hiddenInput" } %>
 
       <%= render(Pito::Shell::ChatboxComponent.new(
@@ -29,7 +25,6 @@
           )) %>
     <% end %>
 
-    <%# Mini-status row: dots at 22px (chatbox text alignment), status right %>
     <div class="flex items-center" style="margin-top: 8px;">
       <div style="margin-left: 10px;">
         <%= render(Pito::Shell::PostCommandDotsComponent.new) %>

@@ -17,7 +17,11 @@ class ApplicationController < ActionController::Base
   private
 
   def current_conversation
-    Conversation.singleton
+    if params[:uuid].present?
+      Conversation.find_by!(uuid: params[:uuid])
+    else
+      Conversation.singleton
+    end
   end
 
   def set_user_time_zone

@@ -7,7 +7,7 @@ class ChatController < ApplicationController
     input = params[:input].to_s
     return head :no_content if input.blank?
 
-    conversation = current_conversation
+    conversation = resolve_conversation
 
     if authenticate_command?(input)
       handle_authenticate(input, conversation)
@@ -21,10 +21,24 @@ class ChatController < ApplicationController
       handle_unauthenticated(input, conversation)
     end
 
-    head :no_content
+    if params[:uuid].present?
+      head :no_content
+    else
+      render json: { uuid: conversation.uuid }, status: :created
+    end
   end
 
   private
+
+  # ── Conversation resolution ─────────────────────────────────────────
+
+  def resolve_conversation
+    if params[:uuid].present?
+      Conversation.find_by!(uuid: params[:uuid])
+    else
+      Conversation.create!
+    end
+  end
 
   # ── Authentication branch ──────────────────────────────────────────
   #

@@ -511,18 +511,17 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
   > `spec/components/pito/footage/probe_command_component_spec.rb` — 5 examples (command text, stimulus controller, data attributes, keyboard-focusable, custom path).
 - [x] T16.5 i18n under `config/locales/pito/footage/en.yml`. complexity: [low]
   > Keys: `copy_hint`, `aria_label`, `default_path`.
-- [ ] T16.6 Commit: `Probe-command snippet component`. complexity: [manual]
-  > **STOP — waiting for operator.**
+- [x] T16.6 Commit: `Probe-command snippet component`. complexity: [manual]
 
 ## P17 — Conversation uuid + routing
 
-- [ ] T17.1 `GET /` → start screen. complexity: [low]
-- [ ] T17.2 `GET /chat/:uuid` → `ConversationsController#show` (by uuid). complexity: [low]
-- [ ] T17.3 `#show` loads ordered `@events`. complexity: [low]
-- [ ] T17.4 `POST /chat`: on first message create a Conversation (uuid); return uuid. complexity: [high]
-- [ ] T17.5 Cable stream → `pito:conversation:<uuid>`. complexity: [low]
-- [ ] T17.6 `current_conversation` resolves by uuid param. complexity: [high]
-- [ ] T17.7 Request specs: `/chat/:uuid` renders; unknown uuid → 404. complexity: [low]
+- [x] T17.1 `GET /` → start screen. complexity: [low]
+- [x] T17.2 `GET /chat/:uuid` → `ConversationsController#show` (by uuid). complexity: [low]
+- [x] T17.3 `#show` loads ordered `@events`. complexity: [low]
+- [x] T17.4 `POST /chat`: on first message create a Conversation (uuid); return uuid. complexity: [high]
+- [x] T17.5 Cable stream → `pito:conversation:<uuid>`. complexity: [low]
+- [x] T17.6 `current_conversation` resolves by uuid param. complexity: [high]
+- [x] T17.7 Request specs: `/chat/:uuid` renders; unknown uuid → 404. complexity: [low]
 - [ ] T17.8 Commit: `Conversation uuid + /chat/:uuid routing`. complexity: [manual]
 
 ## P18 — Root start screen

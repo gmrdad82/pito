@@ -21,7 +21,7 @@ RSpec.describe "Chat requests", type: :request do
     end
 
     context "with a slash command" do
-      let(:params) { { input: "/help" } }
+      let(:params) { { input: "/help", uuid: conversation.uuid } }
 
       it "returns 204 No Content" do
         post "/chat", params: params
@@ -50,7 +50,7 @@ RSpec.describe "Chat requests", type: :request do
       end
 
       it "broadcasts to the conversation stream" do
-        stream = "pito:conversation:#{conversation.id}"
+        stream = "pito:conversation:#{conversation.uuid}"
         expect {
           post "/chat", params: params
         }.to have_broadcasted_to(stream).at_least(:once)
@@ -58,7 +58,7 @@ RSpec.describe "Chat requests", type: :request do
     end
 
     context "with the confirm_demo command" do
-      let(:params) { { input: "/confirm_demo" } }
+      let(:params) { { input: "/confirm_demo", uuid: conversation.uuid } }
 
       it "returns 204 No Content" do
         post "/chat", params: params
@@ -76,7 +76,7 @@ RSpec.describe "Chat requests", type: :request do
     end
 
     context "with an unknown verb" do
-      let(:params) { { input: "/nope" } }
+      let(:params) { { input: "/nope", uuid: conversation.uuid } }
 
       it "returns 204 No Content" do
         post "/chat", params: params
@@ -93,7 +93,7 @@ RSpec.describe "Chat requests", type: :request do
     end
 
     context "with a non-slash input (unknown word, no open turn)" do
-      let(:params) { { input: "hello" } }
+      let(:params) { { input: "hello", uuid: conversation.uuid } }
 
       it "returns 204 No Content" do
         post "/chat", params: params
@@ -116,7 +116,7 @@ RSpec.describe "Chat requests", type: :request do
       end
 
       it "broadcasts to the conversation stream" do
-        stream = "pito:conversation:#{conversation.id}"
+        stream = "pito:conversation:#{conversation.uuid}"
         expect {
           post "/chat", params: params
         }.to have_broadcasted_to(stream).at_least(:once)
@@ -124,7 +124,7 @@ RSpec.describe "Chat requests", type: :request do
     end
 
     context "with a recognised chat verb (list)" do
-      let(:params) { { input: "list videos" } }
+      let(:params) { { input: "list videos", uuid: conversation.uuid } }
 
       it "returns 204 No Content" do
         post "/chat", params: params
@@ -146,7 +146,7 @@ RSpec.describe "Chat requests", type: :request do
       end
 
       it "broadcasts to the conversation stream" do
-        stream = "pito:conversation:#{conversation.id}"
+        stream = "pito:conversation:#{conversation.uuid}"
         expect {
           post "/chat", params: params
         }.to have_broadcasted_to(stream).at_least(:once)
@@ -164,7 +164,7 @@ RSpec.describe "Chat requests", type: :request do
         )
       end
 
-      let(:params) { { input: "add ctr" } }
+      let(:params) { { input: "add ctr", uuid: conversation.uuid } }
 
       it "returns 204 No Content" do
         post "/chat", params: params
@@ -186,7 +186,7 @@ RSpec.describe "Chat requests", type: :request do
     end
 
     context "with a garbled slash input (no verb)" do
-      let(:params) { { input: "/" } }
+      let(:params) { { input: "/", uuid: conversation.uuid } }
 
       it "returns 204 No Content" do
         post "/chat", params: params
@@ -208,6 +208,32 @@ RSpec.describe "Chat requests", type: :request do
       it "returns 204 No Content" do
         post "/chat", params: params
         expect(response).to have_http_status(:no_content)
+      end
+    end
+
+    context "without a uuid (first message)" do
+      let(:params) { { input: "/help" } }
+
+      it "returns 201 Created with the new conversation uuid" do
+        post "/chat", params: params
+        expect(response).to have_http_status(:created)
+        json = response.parsed_body
+        expect(json["uuid"]).to be_present
+        expect(Conversation.find_by(uuid: json["uuid"])).to be_present
+      end
+
+      it "creates a new Conversation" do
+        expect {
+          post "/chat", params: params
+        }.to change(Conversation, :count).by(1)
+      end
+
+      it "creates the Turn on the new conversation" do
+        post "/chat", params: params
+        json = response.parsed_body
+        conv = Conversation.find_by!(uuid: json["uuid"])
+        expect(conv.turns.count).to eq(1)
+        expect(conv.turns.first.input_text).to eq("/help")
       end
     end
   end

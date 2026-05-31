@@ -20,7 +20,7 @@ module Pito
         html = Pito::Stream::EventRenderer.render(event)
 
         Turbo::StreamsChannel.broadcast_stream_to(
-          "pito:conversation:#{@conversation.id}",
+          "pito:conversation:#{@conversation.uuid}",
           content: ApplicationController.helpers.turbo_stream.append("pito-scrollback", html)
         )
 

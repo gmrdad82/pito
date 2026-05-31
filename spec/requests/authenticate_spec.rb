@@ -15,7 +15,7 @@ RSpec.describe "Authentication via /authenticate", type: :request do
 
   describe "valid code" do
     it "masks the code in the echo and never persists it" do
-      post "/chat", params: { input: "/authenticate #{totp.now}" }
+      post "/chat", params: { input: "/authenticate #{totp.now}", uuid: conversation.uuid }
 
       echo = last_turn_events.find { |e| e.kind == "echo" }
       expect(echo.payload["text"]).to eq("/authenticate ******")
@@ -26,7 +26,7 @@ RSpec.describe "Authentication via /authenticate", type: :request do
     end
 
     it "emits an authenticated assistant_text event" do
-      post "/chat", params: { input: "/authenticate #{totp.now}" }
+      post "/chat", params: { input: "/authenticate #{totp.now}", uuid: conversation.uuid }
 
       kinds = last_turn_events.pluck(:kind)
       expect(kinds).to eq(%w[echo assistant_text])
@@ -35,15 +35,15 @@ RSpec.describe "Authentication via /authenticate", type: :request do
     end
 
     it "sets the session cookie" do
-      post "/chat", params: { input: "/authenticate #{totp.now}" }
+      post "/chat", params: { input: "/authenticate #{totp.now}", uuid: conversation.uuid }
       expect(cookies[Pito::Auth::SessionCookie::COOKIE_NAME]).to be_present
     end
 
     it "lets subsequent commands through" do
-      post "/chat", params: { input: "/authenticate #{totp.now}" }
+      post "/chat", params: { input: "/authenticate #{totp.now}", uuid: conversation.uuid }
       conversation.turns.destroy_all
 
-      post "/chat", params: { input: "/help" }
+      post "/chat", params: { input: "/help", uuid: conversation.uuid }
       expect(last_turn_events.pluck(:kind)).to include("echo")
       expect(last_turn_events.none? { |e| e.payload["message_key"] == "pito.auth.required" }).to be true
     end
@@ -51,7 +51,7 @@ RSpec.describe "Authentication via /authenticate", type: :request do
 
   describe "invalid code" do
     it "emits an auth failed error and sets no cookie" do
-      post "/chat", params: { input: "/authenticate 000000" }
+      post "/chat", params: { input: "/authenticate 000000", uuid: conversation.uuid }
 
       error = last_turn_events.find { |e| e.kind == "error" }
       expect(error.payload["message_key"]).to eq("pito.auth.failed")
@@ -61,21 +61,21 @@ RSpec.describe "Authentication via /authenticate", type: :request do
 
   describe "gating when unauthenticated" do
     it "refuses a slash command with pito.auth.required" do
-      post "/chat", params: { input: "/help" }
+      post "/chat", params: { input: "/help", uuid: conversation.uuid }
 
       error = last_turn_events.find { |e| e.kind == "error" }
       expect(error.payload["message_key"]).to eq("pito.auth.required")
     end
 
     it "refuses a chat message with pito.auth.required" do
-      post "/chat", params: { input: "list videos" }
+      post "/chat", params: { input: "list videos", uuid: conversation.uuid }
 
       error = last_turn_events.find { |e| e.kind == "error" }
       expect(error.payload["message_key"]).to eq("pito.auth.required")
     end
 
     it "still echoes the refused input" do
-      post "/chat", params: { input: "list videos" }
+      post "/chat", params: { input: "list videos", uuid: conversation.uuid }
 
       echo = last_turn_events.find { |e| e.kind == "echo" }
       expect(echo.payload["text"]).to eq("list videos")
