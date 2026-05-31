@@ -43,7 +43,7 @@ the task is the removal itself.
   Rails work.**
 - `docs/design.md` — visual contract, keybindings, terminology, brand caps,
   accent groups, terminal-aesthetic rules.
-Note: `docs/tui.md` covers surfaces being removed.
+  Note: `docs/tui.md` covers surfaces being removed.
 
 ## Canonical namespace policy
 

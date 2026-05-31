@@ -1,6 +1,7 @@
 # P1.4 — pito chat shell painting + spacing refinements (v0.dev edit prompt)
 
 > **How to use this file**
+>
 > - Same v0.dev project as P1 / P1.1 / P1.2 / P1.3.
 > - Model: **v0 Auto** is fine (these are localized fixes — Mini territory).
 > - Attach this file and paste the one-liner below in the chat input.

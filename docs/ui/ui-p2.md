@@ -1,6 +1,7 @@
 # P2 — pito start screen (v0.dev prompt)
 
 > **How to use this file**
+>
 > - Same v0.dev project as P1.x (new component or new page within it).
 > - Model: **v0 Max Fast** — new screen, worth the credits.
 > - Attach this file and paste the one-liner below in the chat input.

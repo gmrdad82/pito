@@ -1,6 +1,7 @@
 # P1.3 — pito chat shell structural refactor (v0.dev edit prompt)
 
 > **How to use this file**
+>
 > - Same v0.dev project as P1 / P1.1 / P1.2.
 > - Model: **v0 Max Fast** (do NOT use Auto — these are design-taste / structural changes; Mini will miss the alignment invariant).
 > - Attach this file and paste the one-liner below in the chat input.

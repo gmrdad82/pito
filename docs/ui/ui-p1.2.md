@@ -1,6 +1,7 @@
 # P1.2 — pito chat shell layout fixes (v0.dev edit prompt)
 
 > **How to use this file**
+>
 > - Same v0.dev project as P1 / P1.1.
 > - Model: **v0 Auto** (it'll likely pick Mini, which is fine — these are surgical layout edits).
 > - Attach this file and add the one-liner instruction below in the chat input.

@@ -1,10 +1,10 @@
 ---
-- id: 45
+- id: 390
   aggregated_rating:
   aggregated_rating_count:
   alternative_names: "{}"
   cover_image_id:
-  created_at: 2026-05-31 20:16:24.779720000 Z
+  created_at: 2026-05-31 20:40:34.338363000 Z
   igdb_id:
   igdb_rating:
   igdb_rating_count:
@@ -20,13 +20,13 @@
   release_quarter:
   release_year:
   score:
-  search_vector: "'27':2 'game':1"
+  search_vector: "'28':2 'game':1"
   summary:
   summary_embedding:
-  title: Game 27
+  title: Game 28
   total_rating:
   total_rating_count:
   ttb_completionist_seconds:
   ttb_extras_seconds:
   ttb_main_seconds:
-  updated_at: 2026-05-31 20:16:24.779720000 Z
+  updated_at: 2026-05-31 20:40:34.338363000 Z

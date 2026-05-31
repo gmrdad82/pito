@@ -11,6 +11,7 @@
 - [x] Audited — 2026-05-27
 
 > **Plan 2 completed 2026-05-29.** Notable divergences from spec:
+>
 > - **T14.8 (tag `v0.2.0-slash-core`) skipped** — user will handle separately.
 > - **T14.9 (final commit) skipped** — user will commit manually.
 > - **`EchoConfirm` handler added** as a temporary fixture (T11.1) to prove the
@@ -28,12 +29,12 @@ Data is **fake but the flow is real**. Handlers return hardcoded payloads. No DB
 
 ## Supersedes from Plan 0
 
-| Plan 0 reference | Plan 0 says | Plan 2 supersedes with |
-|---|---|---|
-| P12 | Command router + handler registry under `lib/pito/command/...` with `Pito::Command::Router/Invocation/Registry/Handler` | Replaced by `lib/pito/lex/`, `lib/pito/slash/`, and `lib/pito/stream/` with the namespaces `Pito::Lex`, `Pito::Slash::Parser/Invocation/Registry/Handler/Result`. Handlers live under `app/services/pito/slash/handlers/`. |
-| P12.5–P12.11 | First seven handlers (Help, Channels::Stats, Videos::Show, Videos::Publish, Videos::Schedule, Games::ByGenre, Videos::ByGenre) | Replaced by a single example handler `Pito::Slash::Handlers::Help` end-to-end. Domain handlers (publish/schedule/etc.) move to later plans. |
-| P12.14 | Form on terminal page POSTs to `/commands` | Replaced by single `POST /chat` endpoint. Controller does a leading-`/` check and dispatches to Slash or Chat. Plan 2 wires the Slash branch; Plan 3 wires the Chat branch. |
-| P13 | `Pito::TerminalChannel` streaming from `"pito:terminal:#{session_id}"` + `Pito::Stream::Broadcaster` + `Pito::Stream::Echo` + `Pito::Stream::Spinner` | Replaced by `Pito::ChatChannel` streaming from `"pito:conversation:#{conversation_id}"` + `Pito::Stream::Broadcaster` emitting persisted Event records. Echo and Spinner are out of scope; replaced by the Event persistence model (which gives us the same effect plus refresh-survivability). |
+| Plan 0 reference | Plan 0 says                                                                                                                                           | Plan 2 supersedes with                                                                                                                                                                                                                                                                          |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| P12              | Command router + handler registry under `lib/pito/command/...` with `Pito::Command::Router/Invocation/Registry/Handler`                               | Replaced by `lib/pito/lex/`, `lib/pito/slash/`, and `lib/pito/stream/` with the namespaces `Pito::Lex`, `Pito::Slash::Parser/Invocation/Registry/Handler/Result`. Handlers live under `app/services/pito/slash/handlers/`.                                                                      |
+| P12.5–P12.11     | First seven handlers (Help, Channels::Stats, Videos::Show, Videos::Publish, Videos::Schedule, Games::ByGenre, Videos::ByGenre)                        | Replaced by a single example handler `Pito::Slash::Handlers::Help` end-to-end. Domain handlers (publish/schedule/etc.) move to later plans.                                                                                                                                                     |
+| P12.14           | Form on terminal page POSTs to `/commands`                                                                                                            | Replaced by single `POST /chat` endpoint. Controller does a leading-`/` check and dispatches to Slash or Chat. Plan 2 wires the Slash branch; Plan 3 wires the Chat branch.                                                                                                                     |
+| P13              | `Pito::TerminalChannel` streaming from `"pito:terminal:#{session_id}"` + `Pito::Stream::Broadcaster` + `Pito::Stream::Echo` + `Pito::Stream::Spinner` | Replaced by `Pito::ChatChannel` streaming from `"pito:conversation:#{conversation_id}"` + `Pito::Stream::Broadcaster` emitting persisted Event records. Echo and Spinner are out of scope; replaced by the Event persistence model (which gives us the same effect plus refresh-survivability). |
 
 P0–P11 and P14–P19 of Plan 0 are unaffected. Plan 1's component inventory is unaffected. Plan 2 wires forms and Stimulus around the existing chatbox; it does not change the chatbox's visual contract.
 
@@ -41,56 +42,56 @@ P0–P11 and P14–P19 of Plan 0 are unaffected. Plan 1's component inventory is
 
 Carry forward from Plan 0 + Plan 1:
 
-| Topic | Decision |
-|---|---|
-| UI stack | Turbo + Stimulus + importmap-rails (zero node) |
-| CSS | tailwindcss-rails |
-| Components | view_component |
-| Jobs | SolidQueue |
-| Cache | SolidCache |
-| Cable | SolidCable |
-| Brand | `pito` lowercase except sentence start |
-| i18n | All copy in `config/locales/pito/<area>/en.yml` |
-| License | AGPL-3.0 |
+| Topic      | Decision                                        |
+| ---------- | ----------------------------------------------- |
+| UI stack   | Turbo + Stimulus + importmap-rails (zero node)  |
+| CSS        | tailwindcss-rails                               |
+| Components | view_component                                  |
+| Jobs       | SolidQueue                                      |
+| Cache      | SolidCache                                      |
+| Cable      | SolidCable                                      |
+| Brand      | `pito` lowercase except sentence start          |
+| i18n       | All copy in `config/locales/pito/<area>/en.yml` |
+| License    | AGPL-3.0                                        |
 
 New for Plan 2:
 
-| Topic | Decision |
-|---|---|
-| Endpoint | Single `POST /chat`. Controller inspects the input; leading `/` → Slash dispatcher, otherwise → Chat dispatcher (Plan 3 wires Chat). |
-| Code layout | Infrastructure (parsers, registries, value objects, base classes) lives under `lib/pito/`. Concrete handlers (the domain work) live under `app/services/pito/<system>/handlers/`. |
-| Persistence | Three models: `Conversation` (top-level container), `Turn` (one user input + its responses), `Event` (one renderable thing in scrollback). Events store **structured payloads** (`kind`, `payload`, `position`), never rendered HTML. Re-render through ViewComponents on every read. |
-| Locale-key payloads | Payloads reference **i18n keys + interpolation args**, never rendered strings. `{ kind: :ok, message_key: "pito.slash.help.intro", message_args: {} }` not `{ message: "Available commands…" }`. |
-| Broadcast | `Pito::Stream::Broadcaster.new(conversation:).emit(event)` — persists the Event, then broadcasts a Turbo Stream `append` of the rendered ViewComponent to `"pito:conversation:#{conversation.id}"`. |
-| Cable channel name | `"pito:conversation:#{conversation.id}"`. One stream per conversation, matching the "per-conversation" decision from question 12. |
-| Conversation lookup | A `current_conversation` helper on `ApplicationController`. Plan 2 hardcodes "the single conversation" (find-or-create one). Multi-conversation routing is deferred. |
-| Parser invariants | `Pito::Lex` produces tokens with no knowledge of slash or chat. `Pito::Slash::Parser` consumes tokens; never imports `Pito::Chat`. (Plan 3 will mirror this from the other side.) |
-| Form submission | Stimulus controller on the chatbox captures Enter, prevents default, submits the form via Turbo. Stays simple — no autocomplete, no palette, no history navigation in Plan 2. |
-| Confirmation primitive | `Pito::Slash::Result::NeedsConfirmation` is defined and serialized as an Event of kind `:confirmation_prompt`. **No actual confirmation handler is built** — just the structural support so domain handlers in later plans can return it. |
-| Unknown command | A slash verb with no matching handler produces an Event of kind `:error` with `message_key: "pito.slash.errors.unknown_verb"` and `message_args: { verb: <verb> }`. Renders through `Pito::Event::ErrorComponent`. |
-| Tests | RSpec request specs for the controller, RSpec lib specs for lexer + parser + registry, RSpec service specs for handlers. Component specs deferred per Plan 0 P3 + P18.6. |
+| Topic                  | Decision                                                                                                                                                                                                                                                                              |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Endpoint               | Single `POST /chat`. Controller inspects the input; leading `/` → Slash dispatcher, otherwise → Chat dispatcher (Plan 3 wires Chat).                                                                                                                                                  |
+| Code layout            | Infrastructure (parsers, registries, value objects, base classes) lives under `lib/pito/`. Concrete handlers (the domain work) live under `app/services/pito/<system>/handlers/`.                                                                                                     |
+| Persistence            | Three models: `Conversation` (top-level container), `Turn` (one user input + its responses), `Event` (one renderable thing in scrollback). Events store **structured payloads** (`kind`, `payload`, `position`), never rendered HTML. Re-render through ViewComponents on every read. |
+| Locale-key payloads    | Payloads reference **i18n keys + interpolation args**, never rendered strings. `{ kind: :ok, message_key: "pito.slash.help.intro", message_args: {} }` not `{ message: "Available commands…" }`.                                                                                      |
+| Broadcast              | `Pito::Stream::Broadcaster.new(conversation:).emit(event)` — persists the Event, then broadcasts a Turbo Stream `append` of the rendered ViewComponent to `"pito:conversation:#{conversation.id}"`.                                                                                   |
+| Cable channel name     | `"pito:conversation:#{conversation.id}"`. One stream per conversation, matching the "per-conversation" decision from question 12.                                                                                                                                                     |
+| Conversation lookup    | A `current_conversation` helper on `ApplicationController`. Plan 2 hardcodes "the single conversation" (find-or-create one). Multi-conversation routing is deferred.                                                                                                                  |
+| Parser invariants      | `Pito::Lex` produces tokens with no knowledge of slash or chat. `Pito::Slash::Parser` consumes tokens; never imports `Pito::Chat`. (Plan 3 will mirror this from the other side.)                                                                                                     |
+| Form submission        | Stimulus controller on the chatbox captures Enter, prevents default, submits the form via Turbo. Stays simple — no autocomplete, no palette, no history navigation in Plan 2.                                                                                                         |
+| Confirmation primitive | `Pito::Slash::Result::NeedsConfirmation` is defined and serialized as an Event of kind `:confirmation_prompt`. **No actual confirmation handler is built** — just the structural support so domain handlers in later plans can return it.                                             |
+| Unknown command        | A slash verb with no matching handler produces an Event of kind `:error` with `message_key: "pito.slash.errors.unknown_verb"` and `message_args: { verb: <verb> }`. Renders through `Pito::Event::ErrorComponent`.                                                                    |
+| Tests                  | RSpec request specs for the controller, RSpec lib specs for lexer + parser + registry, RSpec service specs for handlers. Component specs deferred per Plan 0 P3 + P18.6.                                                                                                              |
 
 ## Cross-plan invariants
 
-| Invariant | Rationale |
-|---|---|
-| `lib/pito/slash/**` does NOT `require` or reference `Pito::Chat::*`. | Parallel expansion without coupling. Plan 3 mirrors this from its side. |
-| `lib/pito/chat/**` (Plan 3) does NOT `require` or reference `Pito::Slash::*`. | Same. |
-| Both systems share **only** `Pito::Lex` and `Pito::Stream::*`. Nothing else. | Minimum shared surface. |
-| Every handler returns a `Result` value object; the controller never reads handler internals. | Uniform dispatch contract. |
-| Events store structured payloads, never HTML. | Refresh-survives, theme-survives, locale-survives. |
-| Re-rendering an Event from its payload must always produce the current "now" (timestamps re-resolve, "5m ago" recomputes). | Date/time relevance survives time. |
+| Invariant                                                                                                                  | Rationale                                                               |
+| -------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `lib/pito/slash/**` does NOT `require` or reference `Pito::Chat::*`.                                                       | Parallel expansion without coupling. Plan 3 mirrors this from its side. |
+| `lib/pito/chat/**` (Plan 3) does NOT `require` or reference `Pito::Slash::*`.                                              | Same.                                                                   |
+| Both systems share **only** `Pito::Lex` and `Pito::Stream::*`. Nothing else.                                               | Minimum shared surface.                                                 |
+| Every handler returns a `Result` value object; the controller never reads handler internals.                               | Uniform dispatch contract.                                              |
+| Events store structured payloads, never HTML.                                                                              | Refresh-survives, theme-survives, locale-survives.                      |
+| Re-rendering an Event from its payload must always produce the current "now" (timestamps re-resolve, "5m ago" recomputes). | Date/time relevance survives time.                                      |
 
 ## Complexity hints
 
 Same as Plan 0 and Plan 1:
 
-| Hint | When |
-|---|---|
-| `[manual]` | You, by hand — branches, commits, visual review, design choices |
-| `[low]` | YAML, renames, file audits, locale entries, gemfile edits, single-file Ruby classes, value objects, small controllers, ERB tweaks |
-| `[medium]` | Multi-file work: lexer + parser pair, controller + channel + broadcaster, persistence layer |
-| `[high]` | Architectural calls: turn model, payload schema, invariants |
+| Hint       | When                                                                                                                              |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `[manual]` | You, by hand — branches, commits, visual review, design choices                                                                   |
+| `[low]`    | YAML, renames, file audits, locale entries, gemfile edits, single-file Ruby classes, value objects, small controllers, ERB tweaks |
+| `[medium]` | Multi-file work: lexer + parser pair, controller + channel + broadcaster, persistence layer                                       |
+| `[high]`   | Architectural calls: turn model, payload schema, invariants                                                                       |
 
 ## Module map
 

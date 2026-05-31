@@ -46,9 +46,9 @@ IGDB game search/`add`, and multi-conversation history (`/new`, `/resume`, sideb
 - **Search:** pg_trgm + pgvector HNSW (Voyage). Meilisearch dropped; indexers linger.
 - **Auth today:** rotp TOTP + omniauth-google + `Session` DB model + AppSetting singleton + TotpBackupCode.
 - **Factories** only for conversation/turn/event. No `factories_spec`.
-- **Footage already has ffprobe-shaped columns** — ffprobe is a *populate* job.
+- **Footage already has ffprobe-shaped columns** — ffprobe is a _populate_ job.
 - **IGDB stack mostly IN TREE:** `app/services/game/igdb/{client,apicalypse,game_mapper,
-  rate_limiter,sync_game,token_cache}.rb` + `game/igdb.rb`; `game/search_service.rb`;
+rate_limiter,sync_game,token_cache}.rb` + `game/igdb.rb`; `game/search_service.rb`;
   `pito/search/search_games.rb`; jobs `game_igdb_sync.rb`, `game_sync.rb`,
   `game_igdb_nightly_refresh.rb`. **Dropped (history only):** the search UI
   (`igdb_search_modal_controller.js`, `games/_search_results*.html.erb`,
@@ -61,34 +61,34 @@ triplets, drop zero-vote, `numerator.fdiv(denominator).round`, nil when no votes
 
 ### Decisions (locked unless re-opened)
 
-| Topic | Decision |
-|---|---|
-| Auth | Drop `Session` model + `sessions` table; **signed cookie, rolling 24h idle expiry, no remember-me**. Keep TOTP login + `pito:tools:auth`. Remove `pito:sessions:list`. |
-| rack-attack | Remove (local app). |
-| MCP / API | Remove `/mcp` + `/api` endpoints + trail if present. |
-| Footage | `game` **required**; `filename` unique scoped to `game_id`; no `local_path`. ADD `needs_grading`, `orientation`. DROP `audio_track_count` (derive), `color_profile`, `codec`, `has_commentary_track`. KEEP `bit_depth`, `resolution`, `fps`, `duration_seconds`, `audio_track_names[]`, `aspect_ratio`. |
-| `needs_grading` | `false` only for Rec.709/SDR; else `true`. Validate vs real footage later. |
-| Game ratings | KEEP all three triplets. ADD stored `score` int (0–100) via the recovered formula. |
-| Steam | **DROP `external_steam_app_id`.** |
-| `igdb_checksum` | Investigation (P8): is it (or an IGDB timestamp) used to skip unchanged syncs? Keep+wire if it saves calls; DROP if unused. |
-| `release_year` | Investigation (P8): check IGDB payload, then keep vs `release_date`+`release_precision`. |
-| Schema | **One fresh single-file migration.** Adds `turns.started_at/completed_at`, `conversations.uuid`, `videos.etag`, and a `video_previews` table. |
-| Dispatch | **Async.** POST → **persist echo then broadcast** → Braille → enqueue job → job **persists result then broadcasts** → "<word> for Ns" (backend elapsed). **Persist-before-broadcast** so refresh conserves the conversation. |
-| Command context | Every chat POST carries the TAB channel (`@all`/`@handle`) + Shift+TAB period. The channel is used; the **period is dead data for now** — carried + displayed, but used only in future analytics. |
-| Read-only mirrors | `Channel` and `Video` are **read-only mirrors of YouTube** — never edited directly. `Playlist` is **dropped** (no model); only shown read-only on a video if YouTube provides it. |
-| `/import videos` | PULL. **Smart/incremental:** store `etag`/checksum + `last_synced_at`; walk the uploads playlist newest-first; `videos.list` only new/changed ids; **stop after a run of known-unchanged**. Per-channel jobs + progress Segments. (Period does NOT scope it.) |
-| VideoPreview | The one writable surface. Stages edits to (per YouTube Studio): **title, description, tags, category + game title, made-for-kids, paid promotion, AI/altered-content disclosure, allow embedding, allow automatic chapters & key moments, allow automatic places (Featured places), allow automatic concepts, notify subscribers, Shorts remixing (video+audio / audio-only / none), thumbnail**. **Full edit UI** via `/edit video <id>`. **Publish pushes only the YouTube Data API-supported subset** (title/description/tags/category/made-for-kids/embeddable/AI-disclosure, + privacy/`publishAt` via lifecycle); the Studio-only toggles (paid promotion, automatic chapters/places/concepts, Shorts remixing, notify subscribers) are staged but may not be API-writable — **verify per field**. `Video` untouched until YouTube confirms. |
-| `/update videos` | PUBLISH pending VideoPreviews → YouTube (videos.update + thumbnails.set); on each success **enqueue a single-video import** to refresh `Video`. Per-channel jobs + progress Segments. |
-| Video lifecycle | `/publish`, `/schedule`, `/unlist`, `/delete` each open a **sidebar picker** of eligible videos → select → echo + async job → Braille → result Segment **with a link to the video**. publish/schedule/unlist push privacy/`publishAt` then re-import; `/schedule` adds a date step; `/delete` confirms, then deletes on YouTube + removes the local `Video`. |
-| ScoreBar + TTB | Restore both; mark **kept-but-unused**. |
-| `/_ui` | Removed. |
-| Conversation | `/` = start screen. Conversation at `/chat/:uuid` (uuid col; PK stays bigint). `title` = name, default `"Unnamed N"`, rename supported. |
-| Transition / echo | Enter → animate chatbox to bottom → **URL → `/chat/:uuid`** → POST → **echo only after that** → thinking → result. |
-| Channels | One Google account (`YoutubeConnection`) → many `Channel`s, addable incrementally. `/connect` picker lists the account's channels (keyboard + mouse). `/disconnect` drops the channel + its videos; drop the `YoutubeConnection` too if it was the last channel. |
-| Games search/add | Re-wire in-tree IGDB services; rebuild search UI as a **sidebar**; `/add game` adds an IGDB game to the **global library**. On add: enqueue `GameIgdbSync` **once**. Daily `GameIgdbNightlyRefresh` for **not-yet-released** games. |
-| `/resume` "session" | A **Conversation**. |
-| Analytics | Out of scope. Shift+TAB period UI built but **unwired**. Future `Pito::Stats` / `Pito::Analytics`. |
-| Braille words | Two dictionaries — slash vs chat — by leading `/`. Past-tense "X for Ns" on completion (P25). |
+| Topic               | Decision                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Auth                | Drop `Session` model + `sessions` table; **signed cookie, rolling 24h idle expiry, no remember-me**. Keep TOTP login + `pito:tools:auth`. Remove `pito:sessions:list`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| rack-attack         | Remove (local app).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| MCP / API           | Remove `/mcp` + `/api` endpoints + trail if present.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| Footage             | `game` **required**; `filename` unique scoped to `game_id`; no `local_path`. ADD `needs_grading`, `orientation`. DROP `audio_track_count` (derive), `color_profile`, `codec`, `has_commentary_track`. KEEP `bit_depth`, `resolution`, `fps`, `duration_seconds`, `audio_track_names[]`, `aspect_ratio`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| `needs_grading`     | `false` only for Rec.709/SDR; else `true`. Validate vs real footage later.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| Game ratings        | KEEP all three triplets. ADD stored `score` int (0–100) via the recovered formula.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| Steam               | **DROP `external_steam_app_id`.**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `igdb_checksum`     | Investigation (P8): is it (or an IGDB timestamp) used to skip unchanged syncs? Keep+wire if it saves calls; DROP if unused.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `release_year`      | Investigation (P8): check IGDB payload, then keep vs `release_date`+`release_precision`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| Schema              | **One fresh single-file migration.** Adds `turns.started_at/completed_at`, `conversations.uuid`, `videos.etag`, and a `video_previews` table.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| Dispatch            | **Async.** POST → **persist echo then broadcast** → Braille → enqueue job → job **persists result then broadcasts** → "<word> for Ns" (backend elapsed). **Persist-before-broadcast** so refresh conserves the conversation.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| Command context     | Every chat POST carries the TAB channel (`@all`/`@handle`) + Shift+TAB period. The channel is used; the **period is dead data for now** — carried + displayed, but used only in future analytics.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| Read-only mirrors   | `Channel` and `Video` are **read-only mirrors of YouTube** — never edited directly. `Playlist` is **dropped** (no model); only shown read-only on a video if YouTube provides it.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `/import videos`    | PULL. **Smart/incremental:** store `etag`/checksum + `last_synced_at`; walk the uploads playlist newest-first; `videos.list` only new/changed ids; **stop after a run of known-unchanged**. Per-channel jobs + progress Segments. (Period does NOT scope it.)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| VideoPreview        | The one writable surface. Stages edits to (per YouTube Studio): **title, description, tags, category + game title, made-for-kids, paid promotion, AI/altered-content disclosure, allow embedding, allow automatic chapters & key moments, allow automatic places (Featured places), allow automatic concepts, notify subscribers, Shorts remixing (video+audio / audio-only / none), thumbnail**. **Full edit UI** via `/edit video <id>`. **Publish pushes only the YouTube Data API-supported subset** (title/description/tags/category/made-for-kids/embeddable/AI-disclosure, + privacy/`publishAt` via lifecycle); the Studio-only toggles (paid promotion, automatic chapters/places/concepts, Shorts remixing, notify subscribers) are staged but may not be API-writable — **verify per field**. `Video` untouched until YouTube confirms. |
+| `/update videos`    | PUBLISH pending VideoPreviews → YouTube (videos.update + thumbnails.set); on each success **enqueue a single-video import** to refresh `Video`. Per-channel jobs + progress Segments.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| Video lifecycle     | `/publish`, `/schedule`, `/unlist`, `/delete` each open a **sidebar picker** of eligible videos → select → echo + async job → Braille → result Segment **with a link to the video**. publish/schedule/unlist push privacy/`publishAt` then re-import; `/schedule` adds a date step; `/delete` confirms, then deletes on YouTube + removes the local `Video`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| ScoreBar + TTB      | Restore both; mark **kept-but-unused**.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| `/_ui`              | Removed.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| Conversation        | `/` = start screen. Conversation at `/chat/:uuid` (uuid col; PK stays bigint). `title` = name, default `"Unnamed N"`, rename supported.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| Transition / echo   | Enter → animate chatbox to bottom → **URL → `/chat/:uuid`** → POST → **echo only after that** → thinking → result.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| Channels            | One Google account (`YoutubeConnection`) → many `Channel`s, addable incrementally. `/connect` picker lists the account's channels (keyboard + mouse). `/disconnect` drops the channel + its videos; drop the `YoutubeConnection` too if it was the last channel.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| Games search/add    | Re-wire in-tree IGDB services; rebuild search UI as a **sidebar**; `/add game` adds an IGDB game to the **global library**. On add: enqueue `GameIgdbSync` **once**. Daily `GameIgdbNightlyRefresh` for **not-yet-released** games.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| `/resume` "session" | A **Conversation**.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| Analytics           | Out of scope. Shift+TAB period UI built but **unwired**. Future `Pito::Stats` / `Pito::Analytics`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| Braille words       | Two dictionaries — slash vs chat — by leading `/`. Past-tense "X for Ns" on completion (P25).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 
 ---
 
@@ -107,11 +107,11 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 
 ## Complexity hints
 
-| Hint | When |
-|---|---|
-| `[manual]` | Operator: commits, smoke tests, decisions, investigations, OAuth. |
-| `[low]` | Mechanical, decided. |
-| `[high]` | Architectural: cookie-session, schema squash, async dispatch, `data-accent`, ffprobe parse, score calc, transition, thinking indicator, OAuth multi-channel, smart import, VideoPreview publish, sidebar grouping, IGDB search sidebar. |
+| Hint       | When                                                                                                                                                                                                                                    |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `[manual]` | Operator: commits, smoke tests, decisions, investigations, OAuth.                                                                                                                                                                       |
+| `[low]`    | Mechanical, decided.                                                                                                                                                                                                                    |
+| `[high]`   | Architectural: cookie-session, schema squash, async dispatch, `data-accent`, ffprobe parse, score calc, transition, thinking indicator, OAuth multi-channel, smart import, VideoPreview publish, sidebar grouping, IGDB search sidebar. |
 
 ## Phase index
 
@@ -132,14 +132,18 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 ---
 
 ## P0 — Pre-flight
+
 > Pre-flight only — verification, no code change. **Exempt from the commit-gate rule** (see "How to use this plan").
+
 - [x] T0.1 Confirm Plan 3 (C0–C10) checked off. complexity: [manual]
 - [x] T0.2 Run `bundle exec rspec` — green. complexity: [manual]
 - [x] T0.3 Confirm `bin/dev` boots; `/`, `/help`, `list videos`, `hello` work. complexity: [manual]
 - [x] T0.4 Confirm `git status` clean. complexity: [manual]
 
 ## P1 — Remove dead/legacy surfaces
+
 > Keep DEMO/FAKE fixtures (EchoConfirm, chat List, RefineDemo).
+
 - [x] T1.1 Delete Meilisearch indexers + specs. complexity: [low]
 - [x] T1.2 Run `git grep -ni meili` → remove every reference. complexity: [low]
 - [x] T1.3 Delete `extras/cli/` (Rust TUI). complexity: [low]
@@ -160,22 +164,26 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 - [x] T1.16 Run `bundle install`; confirm `bin/dev` boots; `/` renders. complexity: [manual]
 
 ## P2 — Auth → cookie-backed session (keep TOTP)
+
 > Signed cookie, rolling 24h idle expiry, no remember-me.
+
 - [x] T2.1 Inventory every `Session` reference. complexity: [low]
 - [x] T2.2 Design the signed/encrypted cookie payload (authenticated, totp_verified_at, last_seen_at); record under the stub below. complexity: [high]
   > **Decision:** Encrypted cookie via `cookies.encrypted` (AES-256-GCM + HMAC, tied to `secret_key_base`). Payload:
-  >   ```ruby
-  >   {
-  >     sid: "uuid",                     # unique session id (audit)
-  >     authenticated: true,             # passed TOTP
-  >     totp_verified_at: "iso8601",     # last TOTP verification
-  >     created_at: "iso8601",           # session birth
-  >     last_seen_at: "iso8601"          # rolling activity (24h idle check)
-  >   }
-  >   ```
-  >   **Idle expiry:** Checked at request-read time (no stale-sweeper job). If `last_seen_at > 24h.ago` → reject as expired, clear cookie, redirect to login.
-  >   **`touch_activity!`:** Re-writes cookie with updated `last_seen_at`, debounced to every 5 min max (mirrors current `ACTIVITY_DEBOUNCE`).
-  >   **Drops:** `Session` model + table, `Sessions::Authenticator` (inline in concern), `SessionActivator` → `SessionCookieMinter`, `SessionStaleSweeperJob` + recurring.yml entry, `Pito::TokenDigest`, rake tasks (`pito:sessions:*`, `pito:test:sessions:*`, `pito_test_panel_seeds` session logic), `dashboard_payload.rb` session queries → `Current.session.present?`, locale keys, `Session` constant sweep.
+  >
+  > ```ruby
+  > {
+  >   sid: "uuid",                     # unique session id (audit)
+  >   authenticated: true,             # passed TOTP
+  >   totp_verified_at: "iso8601",     # last TOTP verification
+  >   created_at: "iso8601",           # session birth
+  >   last_seen_at: "iso8601"          # rolling activity (24h idle check)
+  > }
+  > ```
+  >
+  > **Idle expiry:** Checked at request-read time (no stale-sweeper job). If `last_seen_at > 24h.ago` → reject as expired, clear cookie, redirect to login.
+  > **`touch_activity!`:** Re-writes cookie with updated `last_seen_at`, debounced to every 5 min max (mirrors current `ACTIVITY_DEBOUNCE`).
+  > **Drops:** `Session` model + table, `Sessions::Authenticator` (inline in concern), `SessionActivator` → `SessionCookieMinter`, `SessionStaleSweeperJob` + recurring.yml entry, `Pito::TokenDigest`, rake tasks (`pito:sessions:*`, `pito:test:sessions:*`, `pito_test_panel_seeds` session logic), `dashboard_payload.rb` session queries → `Current.session.present?`, locale keys, `Session` constant sweep.
 - [x] T2.3 Implement rolling 24h idle expiry (refresh `last_seen_at` per request; expire if stale). complexity: [high]
   > Created `Pito::Auth::SessionCookie` service at `app/services/pito/auth/session_cookie.rb` — reads/writes encrypted cookie, checks 24h idle expiry on read, debounced `touch!` for activity refresh. Not yet wired into concern/controller (T2.4–T2.5).
 - [x] T2.4 Rewrite `SessionsController` to set/read the cookie. complexity: [high]
@@ -192,6 +200,7 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
   > **Evaluation of P2 implementation (T2.1–T2.13) — state as found:**
   >
   > **Correct (cookie plumbing is sound):**
+  >
   > - `Pito::Auth::SessionCookie` (`app/services/pito/auth/session_cookie.rb`) — encrypted cookie, `SessionData` value object, 24h idle expiry on read, 5-min debounced `touch!`, `mint!`, `clear!`, `mark_totp_verified!`. ✓
   > - `Sessions::AuthConcern` reads the cookie, sets `Current.session`, redirects when absent. ✓
   > - `recent_totp_verification` checks `Current.session.totp_verified_at` (15-min window). ✓
@@ -200,12 +209,13 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
   > - `Session` model, `Sessions::Authenticator`, `SessionActivator`, `SessionStaleSweeperJob`, `pito:sessions:*` / `pito:test:sessions:*` rake tasks, `dashboard_payload.rb`, locale/recurring stragglers — all removed. ✓ (`git grep '\bSession\b'` clean apart from one YAML label + one comment.)
   >
   > **Wrong / contradicts the intended design (`/authenticate` slash command → TOTP dialog, no login/logout routes):**
+  >
   > - `config/routes.rb:5–7` still defines `GET /login`, `POST /login`, `DELETE /session` → these must be **removed**.
   > - `SessionsController` still exists as the login/logout entry point — the TOTP verify + cookie mint (`activate_and_redirect`) and logout (`clear!`) logic lives there. This belongs in a `/authenticate` Slash handler + a logout path that is NOT a route.
   > - `SessionsController` (line 108) references `Pito::AuthDialogComponent`, which **does not exist** in the codebase. There is no login form/dialog anywhere — `terminal/show.html.erb` renders none, and no view POSTs to `/login`. The login/logout endpoints are currently **unreachable from the UI**.
   > - Auth is **not enforced on the primary surfaces**: `terminal#show` (`/`) and `chat#create` (`/chat`) are both `allow_anonymous`. The cookie session is built but the main interface needs no session today.
   >
-  > **Net:** T2.1–T2.11 built the cookie internals correctly, but the auth *entry points* were left on the old route/controller model. To match the intended design, P2 needs follow-up tasks: build a `/authenticate` Slash handler that opens a TOTP dialog and mints the cookie, a `/logout` (or `/deauthenticate`) handler that clears it, then delete `GET/POST /login` + `DELETE /session` routes and `SessionsController`, and wire TOTP-gated enforcement on the surfaces that need it.
+  > **Net:** T2.1–T2.11 built the cookie internals correctly, but the auth _entry points_ were left on the old route/controller model. To match the intended design, P2 needs follow-up tasks: build a `/authenticate` Slash handler that opens a TOTP dialog and mints the cookie, a `/logout` (or `/deauthenticate`) handler that clears it, then delete `GET/POST /login` + `DELETE /session` routes and `SessionsController`, and wire TOTP-gated enforcement on the surfaces that need it.
 - [x] T2.14 Smoke. complexity: [manual]
   > **Design (locked with Catalin):** login is `/authenticate <6-digit code>` typed into the chatbox — the single `POST /chat` endpoint. The controller masks the code (`/authenticate ******`) before echo/persist, then dispatches verification. No other command works until authenticated. Status line below the chatbox reads **Authenticated** (green) / **Anonymous** (red). No `/login`/`/session` routes, no `/deauthenticate`. Backup/recovery codes dropped — 6-digit TOTP only. Success/failure border accents + Braille indicator deferred to the UI-reboot phase.
 - [x] T2.15 `Pito::Auth::ChatLogin` service — verify TOTP + mint cookie + per-IP throttle. complexity: [high]
@@ -216,6 +226,7 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 - [x] T2.20 Specs: gate the existing chat spec behind `/authenticate`; new `authenticate_spec.rb` (masking, no-persist, success/cookie, invalid, gating). Full suite 125/0; boot OK. complexity: [high]
 
 ## P3 — Stale rake-task triage
+
 - [x] T3.1 List `lib/tasks/`; note namespace + backing model(s). complexity: [low]
 - [x] T3.2 Delete `pito_tokens.rake` (+ `tokens.rake`) if `ApiToken` has no table. complexity: [low]
 - [x] T3.3 Delete `pito_oauth_apps.rake` if Doorkeeper models have no tables. complexity: [low]
@@ -227,6 +238,7 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 - [x] T3.9 Commit: `Remove rake tasks backed by dropped models`. complexity: [manual]
 
 ## P4 — Broad dead-code sweep
+
 - [x] T4.1 List unused models; mark candidates. complexity: [low]
 - [x] T4.2 Remove each confirmed-unused model + spec/factory. complexity: [low]
 - [x] T4.3 Remove unreferenced helpers. complexity: [low]
@@ -239,6 +251,7 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 - [x] T4.10 Commit: `Sweep unused code + gems`. complexity: [manual]
 
 ## P5 — Fresh single-file schema migration
+
 - [x] T5.1 Run `bin/rails db:drop` (local). complexity: [manual]
 - [x] T5.2 Delete all `db/migrate/*`. complexity: [low]
 - [x] T5.3 Author one `..._initial_schema.rb` recreating every kept table. complexity: [high]
@@ -258,6 +271,7 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 - [x] T5.16 Commit: `Reset to a single initial schema migration`. complexity: [manual]
 
 ## P6 — Model updates
+
 - [x] T6.1 Update `Footage`: `belongs_to :game` (required); `filename` unique scoped to `game_id`; drop `local_path`. complexity: [low]
 - [x] T6.2 `Footage`: `#audio_track_count` → `audio_track_names.length`. complexity: [low]
 - [x] T6.3 `Footage`: `orientation` enum/constants + validation. complexity: [low]
@@ -270,6 +284,7 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 - [x] T6.10 Commit: `Model updates: Footage/Conversation/Turn/Video/VideoPreview`. complexity: [manual]
 
 ## P7 — Game score calculator + backfill
+
 - [x] T7.1 `Pito::Game::ScoreCalculator.call(game)` porting `synthesized_score`. complexity: [high]
 - [x] T7.2 `Game#recompute_score!` writes to `score`. complexity: [low]
 - [x] T7.3 Recompute on save when a rating field changed. complexity: [low]
@@ -278,19 +293,21 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 - [x] T7.6 Commit: `Game score: calculator + backfill`. complexity: [manual]
 
 ## P8 — IGDB sync investigation (release-date + checksum)
+
 - [x] T8.1 Probe what IGDB `release_dates` returns ↔ `release_precision`; how `Game::Igdb` maps it now. complexity: [high]
 - [x] T8.2 Decide keep vs drop `release_year`; record under the stub below. complexity: [manual]
   > **Decision (supersedes the original "keep vs drop" framing):** Redesign release-date storage as **independent precision components** keyed off nullability, not a single date + enum. Durable design lives in `docs/architecture.md` § "Game release-date representation"; specs land the contract under `spec/services/pito/game/release_date_mapper_spec.rb`, `spec/components/pito/game/release_label_component_spec.rb`, `spec/services/game/igdb/game_mapper_release_date_spec.rb`, and additions to `spec/models/game_spec.rb`.
   >
   > **Schema delta (applied in T8.5):**
-  >   - **DROP** `release_precision` (never written, never read).
-  >   - **KEEP** `release_year` (single-column index queries — `WHERE release_year = 2026` — are cheap and direct).
-  >   - **ADD** `release_quarter` (int 1..4, NULL unless quarter precision).
-  >   - **ADD** `release_month` (int 1..12, NULL when only year/quarter known).
-  >   - **ADD** `release_day` (int 1..31, NULL when only month known).
-  >   - **KEEP** `release_date` (date) — recomputed `before_save` as the lower-bound of what the components describe; used for sorts / ranges / `released?`.
-  >   - **ADD** composite index `(release_month, release_day)` for "Christmas in any year"–style queries.
-  > **Code follow-on (NOT in P8 — future phase):** `Pito::Game::ReleaseDateMapper` service, IGDB adapter update (request `release_dates[].{category,y,m,d,date}` and pick the canonical row), `Game` validations + `before_save :recompute_release_date` + `released?`/`tba?`/`released_in`/`upcoming` + `release_label` presenter. Spec contracts already written; implementation gates the green run.
+  >
+  > - **DROP** `release_precision` (never written, never read).
+  > - **KEEP** `release_year` (single-column index queries — `WHERE release_year = 2026` — are cheap and direct).
+  > - **ADD** `release_quarter` (int 1..4, NULL unless quarter precision).
+  > - **ADD** `release_month` (int 1..12, NULL when only year/quarter known).
+  > - **ADD** `release_day` (int 1..31, NULL when only month known).
+  > - **KEEP** `release_date` (date) — recomputed `before_save` as the lower-bound of what the components describe; used for sorts / ranges / `released?`.
+  > - **ADD** composite index `(release_month, release_day)` for "Christmas in any year"–style queries.
+  >   **Code follow-on (NOT in P8 — future phase):** `Pito::Game::ReleaseDateMapper` service, IGDB adapter update (request `release_dates[].{category,y,m,d,date}` and pick the canonical row), `Game` validations + `before_save :recompute_release_date` + `released?`/`tba?`/`released_in`/`upcoming` + `release_label` presenter. Spec contracts already written; implementation gates the green run.
 - [x] T8.3 Investigate whether `igdb_checksum`/timestamp is used in `Game::Igdb::SyncGame` to skip unchanged. complexity: [high]
   > **Findings — `igdb_checksum` is write-only dead data; no skip-unchanged logic exists.**
   >
@@ -298,15 +315,16 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
   > - **`SyncGame#call` always does a full overwrite.** It unconditionally `fetch_game` + `fetch_time_to_beat`, maps, and last-write-wins every IGDB column (per the file's own header). There is no `if stored_checksum == fetched_checksum; return` guard, and no IGDB-timestamp comparison.
   > - **No IGDB timestamp is even fetched.** `GAME_FIELDS` does **not** request IGDB's row-version field `updated_at`, so the "or an IGDB timestamp" option in the P8 framing has nothing to compare against today.
   > - **Nightly refresh is time-based, not checksum-based.** `GameIgdbNightlyRefresh` selects via `Game.synced.stale` (intended `igdb_synced_at < 7.days.ago`) — unrelated to checksum. (Aside, out of T8.3 scope: those `synced`/`stale` scopes no longer exist on `Game`, so the job is currently broken — flag for a later phase.)
-  > - **Checksum can't save the call it would need to.** The checksum is a field *on* the game row, so you only learn it *after* the full `fetch_game`. Skipping work would require a separate cheaper pre-query (`where id = X & checksum != stored`, id-only) before the full fetch — which the code does not do. As wired, the checksum offers zero call savings.
+  > - **Checksum can't save the call it would need to.** The checksum is a field _on_ the game row, so you only learn it _after_ the full `fetch_game`. Skipping work would require a separate cheaper pre-query (`where id = X & checksum != stored`, id-only) before the full fetch — which the code does not do. As wired, the checksum offers zero call savings.
   >
   > **Recommendation for T8.4: DROP** `igdb_checksum` (column + the `GAME_FIELDS` entry + the mapper line). It is unused, and wiring it for real savings would need a separate lightweight pre-fetch query that isn't designed here. Decision is operator's (T8.4).
 - [x] T8.4 Decide: keep + wire `igdb_checksum`, or DROP; record under the stub below. complexity: [manual]
-  > **Decision (Catalin, 2026-05-31): DROP `igdb_checksum`.** It is write-only dead data (see T8.3 findings) and, as a field *on* the game row, cannot save a fetch without a separate id-only pre-query that isn't designed here. Remove all three sites:
-  >   - **Schema** (T8.5): drop the `games.igdb_checksum` column.
-  >   - **`Client::GAME_FIELDS`** (`client.rb:104`): remove `checksum` from the requested fields.
-  >   - **`GameMapper.map_game`** (`game_mapper.rb:31`): remove the `igdb_checksum: json["checksum"]` line.
-  > No IGDB timestamp gets wired in its place — skip-unchanged remains out of scope; the nightly refresh stays time-based.
+  > **Decision (Catalin, 2026-05-31): DROP `igdb_checksum`.** It is write-only dead data (see T8.3 findings) and, as a field _on_ the game row, cannot save a fetch without a separate id-only pre-query that isn't designed here. Remove all three sites:
+  >
+  > - **Schema** (T8.5): drop the `games.igdb_checksum` column.
+  > - **`Client::GAME_FIELDS`** (`client.rb:104`): remove `checksum` from the requested fields.
+  > - **`GameMapper.map_game`** (`game_mapper.rb:31`): remove the `igdb_checksum: json["checksum"]` line.
+  >   No IGDB timestamp gets wired in its place — skip-unchanged remains out of scope; the nightly refresh stays time-based.
 - [x] T8.5 Migration applying both decisions. complexity: [low]
   > Applied by **amending the single initial schema** in place (`db/migrate/20260530000001_initial_schema.rb`) — keeps the locked "one fresh single-file migration" invariant rather than stacking a follow-on. Changes to the `games` table: dropped `igdb_checksum`; dropped `release_precision`; added `release_quarter`/`release_month`/`release_day` (int, nullable); added composite index `(release_month, release_day)`; kept `release_date` + `release_year` (+ its index). Also dropped the two checksum **code** sites so the mapper doesn't write a now-missing column: `checksum` removed from `Client::GAME_FIELDS`, and `igdb_checksum:` removed from `GameMapper.map_game`. Rebuilt: `db:drop db:create db:migrate` + `db:test:prepare`; `db/schema.rb` regenerated.
   > **Gotcha:** a stale `db/schema.rb` was being loaded by `db:migrate` instead of running the edited migration (both versions got marked done; DB matched old schema.rb). Forced a real run by moving `schema.rb` aside before `db:migrate`, which then re-dumped it correctly.
@@ -320,6 +338,7 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 - [x] T8.12 Commit: `Game release-date components: implementation`. complexity: [manual]
 
 ## P9 — Restore ScoreBar + TimeToBeat (kept-unused)
+
 - [x] T9.1 Restore `pito/score_bar_component.{rb,html.erb}` from history. complexity: [low]
 - [x] T9.2 Restore the TimeToBeat component from history. complexity: [low]
 - [x] T9.3 Update both to conventions (no inline `style=`; `data-accent`); read `game.score` / TTB seconds. complexity: [low]
@@ -329,6 +348,7 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
   > Committed as `4f87c36a` (the box was just left unticked by the parallel run). Specs were later converted to `type: :component` + expanded in `b98628fc`.
 
 ## P10 — ViewComponent CSS freeze
+
 - [x] T10.1 `@keyframes` (shimmer, pulse) → global stylesheet. complexity: [low]
 - [x] T10.2 InProgressComponent: drop inline `<style>`. complexity: [low]
 - [x] T10.3 PostCommandDotsComponent: drop inline `<style>`. complexity: [low]
@@ -340,7 +360,7 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 - [x] T10.9 ChatboxComponent: caret-color via class; px → utilities. complexity: [low]
 - [x] T10.10 MiniStatusComponent: accents via class. complexity: [low]
 - [x] T10.11 Cursor::Component (if kept): via class/attr. complexity: [low]
-- [x] T10.12 Palette::*: inline → utilities. complexity: [low]
+- [x] T10.12 Palette::\*: inline → utilities. complexity: [low]
 - [x] T10.13 Sidebar::Component + SectionComponent: → utilities. complexity: [low]
 - [x] T10.14 StartScreen::Component: colors via class. complexity: [low]
 - [x] T10.15 Confirm `git grep -nE 'style="' app/components` → ideally zero. complexity: [low]
@@ -348,6 +368,7 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 - [ ] T10.17 Commit: `Freeze component CSS`. complexity: [manual]
 
 ## P11 — Factories for every model + traits
+
 - [x] T11.1 Audit `spec/factories/` vs models; list missing. complexity: [low]
 - [x] T11.2 Factory `channel` (+ `:with_videos`, `:on_connection`). complexity: [low]
 - [x] T11.3 Factory `video` (+ `:scheduled`/`:public`/`:private`). complexity: [low]
@@ -365,15 +386,18 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 - [x] T11.14 Commit: `Factories for every model with traits`. complexity: [manual]
 
 ## P12 — Auto-validating factories_spec
+
 - [x] T12.1 `spec/models/factories_spec.rb`: each factory builds valid. complexity: [low]
 - [x] T12.2 Extend: each trait builds valid. complexity: [low]
 - [x] T12.3 Run; fix failures. complexity: [low]
 - [x] T12.4 Commit: `Self-validating factories spec`. complexity: [manual]
 
 ## P13 — Rake reorg + seeds prepare/populate
+
 - [x] T13.1 Empty `db/seeds.rb`. complexity: [low]
 - [x] T13.2 Map surviving tasks → `pito:test:*` / `pito:tools:*`; record tree. complexity: [low]
   > **Surviving / new task tree (6 tasks):**
+  >
   > - `pito:test:seeds:prepare` — snapshot DB rows → YAML seed files + AS file manifest
   > - `pito:test:seeds:populate` — truncate + load seeds (FORCE=yes required)
   > - `pito:tools:auth:enroll` — TOTP enrollment
@@ -409,6 +433,7 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 - [ ] T13.15 Commit: `Rake reorg + seeds prepare/populate`. complexity: [manual]
 
 ## P14 — Rake task specs
+
 - [x] T14.1 Rake-spec helper. complexity: [low]
   > `spec/support/rake_spec_helper.rb` — `suppress_output`, `load_tasks`, `reenable`.
 - [x] T14.2 Spec `pito:test:seeds:prepare`/`populate` (round-trip). complexity: [low]
@@ -424,23 +449,60 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 - [x] T14.7 `rspec` rake specs green. complexity: [manual]
   > Full suite: **519 examples, 0 failures** (stable across seeds 1, 2, 3, 5, 12345, 99999).
   > **DB rebuild verified:** `db:drop db:create db:migrate` + `db:test:prepare` → schema regenerates without `totp_enabled_at`/`totp_disabled_at` → full suite still 519/0.
-- [ ] T14.8 Commit: `Specs for pito:test / pito:tools`. complexity: [manual]
+- [x] T14.8 Commit: `Specs for pito:test / pito:tools`. complexity: [manual]
 
 ## P15 — ffprobe footage probe
-- [ ] T15.1 `Pito::Footage::Probe.call(path:)` → ffprobe JSON + parse. complexity: [high]
-- [ ] T15.2 Map → resolution, fps (eval `r_frame_rate`), bit_depth, duration_seconds, aspect_ratio, orientation. complexity: [high]
-- [ ] T15.3 Compute `needs_grading` (false only for BT.709 + BT.709/SMPTE170M). complexity: [high]
-- [ ] T15.4 Build `audio_track_names` (tags.title/language; fallback `track N`). complexity: [low]
-- [ ] T15.5 Guard missing ffprobe / file. complexity: [low]
-- [ ] T15.6 RSpec `Probe` spec (HDR-4K + SDR-1080p fixtures). complexity: [low]
-- [ ] T15.7 `pito:tools:probe` task: parse `game=N` + path; `File.expand_path`. complexity: [low]
-- [ ] T15.8 Upsert `Footage` by `[game_id, filename]`. complexity: [low]
-- [ ] T15.9 Progress: `==> probing <file>` + summary; `i/total` for globs. complexity: [low]
-- [ ] T15.10 RSpec task spec. complexity: [low]
-- [ ] T15.11 Manual: real clip → row + summary. complexity: [manual]
+
+- [x] T15.1 `Pito::Footage::Probe.call(path:)` → ffprobe JSON + parse. complexity: [high]
+- [x] T15.2 Map → resolution, fps (eval `r_frame_rate`), bit_depth, duration_seconds, aspect_ratio, orientation. complexity: [high]
+  > Probe returns `Result` Data object with all fields. Tested against 3 real clips: HDR10+ (10-bit, needs_grading=true), HLG GoPro (8-bit, needs_grading=true), SDR Tekken (8-bit, needs_grading=false, 2 audio tracks).
+- [x] T15.3 Compute `needs_grading` (false only for BT.709 + BT.709/SMPTE170M). complexity: [high]
+  > `infer_needs_grading`: false when color_space=bt709 AND color_transfer in [bt709, smpte170m] AND color_primaries in [bt709, smpte170m]. All other combinations → true.
+  > **Operator note:** The intended baseline is 8-bit Rec.709 gamma ≈ 2.2 (covered by `bt709` transfer). Any other profile (HLG, PQ, DCI-P3, BT.2020, etc.) flags `needs_grading: true`.
+- [x] T15.4 Build `audio_track_names` (tags.title/language; fallback `track N`). complexity: [low]
+  > Extracted from audio stream `tags.title`, falls back to `tags.language` (unless "und"), else "track N".
+- [x] T15.5 Guard missing ffprobe / file. complexity: [low]
+  > `File.exist?` guard + `Open3.capture2` exit status check + `JSON::ParserError` rescue.
+- [x] T15.6 RSpec `Probe` spec (HDR-4K + SDR-1080p fixtures). complexity: [low]
+  > Uses captured ffprobe JSON fixtures (`spec/fixtures/files/ffprobe/*.json`) — tiny text files, not the actual video clips.
+- [x] T15.7 `pito:tools:probe` task: parse `game=N` + path; `File.expand_path`. complexity: [low]
+- [x] T15.8 Upsert `Footage` by `[game_id, filename]`. complexity: [low]
+  > Uses `Footage.upsert` with `unique_by: :index_footages_on_game_id_and_filename`.
+- [x] T15.9 Progress: `==> probing <file>` + summary; `i/total` for globs. complexity: [low]
+- [x] T15.10 RSpec task spec. complexity: [low]
+  > `spec/lib/tasks/pito_probe_rake_spec.rb` — 3 examples (missing args, missing game, probes + upserts structure).
+- [-] T15.11 Manual: real clip → row + summary. complexity: [manual]
+  > **STOP — waiting for operator.** Test clips in `tmp/clips/` (gitignored). Docs at `docs/footage_probe.md`.
+  >
+  > **Sample outputs captured (operator can delete the files after confirming):**
+  >
+  > `Tekken 7 - 2026-05-13 17-38-33.mkv` (SDR BT.709, 8-bit, 2 audio tracks):
+  >
+  > ```
+  > resolution: "2560x1440", fps: 60.0, bit_depth: 8, duration_seconds: 414,
+  > aspect_ratio: "16:9", orientation: "landscape", needs_grading: false,
+  > audio_track_names: ["Gameplay", "Commentary"]
+  > ```
+  >
+  > `hdr10+test_lake_2021_02_01.mp4` (HDR10+, 10-bit):
+  >
+  > ```
+  > resolution: "3840x2160", fps: 60.0, bit_depth: 10, duration_seconds: 60,
+  > aspect_ratio: "16:9", orientation: "landscape", needs_grading: true,
+  > audio_track_names: ["track 1"]
+  > ```
+  >
+  > `GL012921.MP4` (GoPro HLG HDR, 8-bit, bt2020/arib-std-b67):
+  >
+  > ```
+  > resolution: "768x432", fps: 25.0, bit_depth: 8, duration_seconds: 21,
+  > aspect_ratio: "16:9", orientation: "landscape", needs_grading: true,
+  > audio_track_names: ["track 1"]
+  > ```
 - [ ] T15.12 Commit: `ffprobe probe + pito:tools:probe`. complexity: [manual]
 
 ## P16 — Probe-command copyable snippet component
+
 - [ ] T16.1 Add `Pito::Footage::ProbeCommandComponent` (copyable command block). complexity: [low]
 - [ ] T16.2 `clipboard` Stimulus controller (click + keyboard). complexity: [low]
 - [ ] T16.3 Pin/register. complexity: [low]
@@ -449,6 +511,7 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 - [ ] T16.6 Commit: `Probe-command snippet component`. complexity: [manual]
 
 ## P17 — Conversation uuid + routing
+
 - [ ] T17.1 `GET /` → start screen. complexity: [low]
 - [ ] T17.2 `GET /chat/:uuid` → `ConversationsController#show` (by uuid). complexity: [low]
 - [ ] T17.3 `#show` loads ordered `@events`. complexity: [low]
@@ -459,6 +522,7 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 - [ ] T17.8 Commit: `Conversation uuid + /chat/:uuid routing`. complexity: [manual]
 
 ## P18 — Root start screen
+
 - [ ] T18.1 `/` renders centered chatbox + logo. complexity: [low]
 - [ ] T18.2 No scrollback on `/`. complexity: [low]
 - [ ] T18.3 Chatbox form on `/` posts to `POST /chat`. complexity: [low]
@@ -466,6 +530,7 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 - [ ] T18.5 Commit: `Root / = centered start screen`. complexity: [manual]
 
 ## P19 — Caret rework
+
 - [ ] T19.1 Evaluate `Cursor::Component` vs a real caret; record verdict. complexity: [high]
 - [ ] T19.2 If unsuitable: real caret on the chatbox `<textarea>`/input. complexity: [high]
 - [ ] T19.3 Hint only when empty; caret at the hint's first char when empty. complexity: [high]
@@ -476,6 +541,7 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 - [ ] T19.8 Commit: `Real caret over hint / following input`. complexity: [manual]
 
 ## P20 — Chatbox border-top hack → proper scroll
+
 - [ ] T20.1 Document the 20px border-top hack + why. complexity: [low]
 - [ ] T20.2 Replace with scroll-padding / scroll-margin / spacer. complexity: [high]
 - [ ] T20.3 Remove the hack. complexity: [low]
@@ -483,13 +549,16 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 - [ ] T20.5 Commit: `Proper chatbox/scrollback spacing`. complexity: [manual]
 
 ## P21 — Auto-scroll on send
+
 - [ ] T21.1 On submit + on each appended event, scroll to newest. complexity: [low]
 - [ ] T21.2 Respect "scrolled up". complexity: [high]
 - [ ] T21.3 Smoke. complexity: [manual]
 - [ ] T21.4 Commit: `Auto-scroll scrollback on send`. complexity: [manual]
 
 ## P22 — First-message transition
+
 > Enter → animate → bottom → reveal scrollback → Dots → **URL → /chat/:uuid** → then POST.
+
 - [ ] T22.1 Stimulus `pito--home-transition`: on Enter (empty conversation) `preventDefault`. complexity: [low]
 - [ ] T22.2 Animate the centered chatbox down to the bottom bar. complexity: [high]
 - [ ] T22.3 Reveal the empty scrollback as the chatbox lands. complexity: [low]
@@ -501,7 +570,9 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 - [ ] T22.9 Commit: `Home→chat first-message transition`. complexity: [manual]
 
 ## P23 — Async dispatch + turn timing
+
 > Echo immediate; result via a job; backend elapsed. **Persist-before-broadcast** so refresh conserves the conversation.
+
 - [ ] T23.1 On POST: create Conversation (if new) + Turn; stamp `started_at`; **persist the echo Event first**. complexity: [high]
 - [ ] T23.2 Then broadcast the echo to cable. complexity: [low]
 - [ ] T23.3 Read TAB channel + Shift+TAB period from params; pass as context. complexity: [low]
@@ -514,14 +585,18 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 - [ ] T23.10 Commit: `Async dispatch, persist-before-broadcast, turn timing + context`. complexity: [manual]
 
 ## P24 — Echo confirmation Segment
+
 > Appears only after the transition + URL change (P22).
+
 - [ ] T24.1 Echo renders as a Segment with the proper accent (slash vs chat). complexity: [low]
 - [ ] T24.2 Content = the exact submitted command/message. complexity: [low]
 - [ ] T24.3 Verify it appears only post-transition. complexity: [manual]
 - [ ] T24.4 Commit: `Echo confirmation Segment`. complexity: [manual]
 
 ## P25 — Braille thinking indicator + dictionaries
+
 > Under the echo; cycles words; resolves to "<Word> for <backend elapsed>s".
+
 - [ ] T25.1 Stimulus `pito--thinking`: Braille spinner + status word, from echo until result. complexity: [high]
 - [ ] T25.2 **Slash** dictionary: Executing, Dispatching, Running, Resolving, Fetching, Querying, Computing, Crunching, Assembling, Routing, Parsing, Processing. complexity: [low]
 - [ ] T25.3 **Chat** dictionary: Thinkering, Pondering, Digesting, Musing, Reasoning, Contemplating, Deliberating, Ruminating, Considering, Reflecting, Brewing, Wondering. complexity: [low]
@@ -534,12 +609,14 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 - [ ] T25.10 Commit: `Braille thinking indicator + dictionaries`. complexity: [manual]
 
 ## P26 — Result Segment
+
 - [ ] T26.1 Result broadcasts a Segment with a distinct accent. complexity: [low]
 - [ ] T26.2 Appears after the thinking indicator resolves. complexity: [low]
 - [ ] T26.3 Refresh `/chat/:uuid` → echo + result persist in order. complexity: [manual]
 - [ ] T26.4 Commit: `Distinct-accent result Segment`. complexity: [manual]
 
 ## P27 — `/connect` (OAuth, multi-channel)
+
 - [ ] T27.1 `/connect` starts Google OAuth (reuse omniauth init). complexity: [high]
 - [ ] T27.2 Callback finds-or-creates `YoutubeConnection` by `google_subject_id`. complexity: [low]
 - [ ] T27.3 Fetch the account's manageable channels (YouTube API). complexity: [high]
@@ -552,6 +629,7 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 - [ ] T27.10 Commit: `/connect OAuth + multi-channel picker`. complexity: [manual]
 
 ## P28 — `/disconnect @handle|id`
+
 - [ ] T28.1 Resolve target channel by `@handle` or id. complexity: [low]
 - [ ] T28.2 `confirmation_prompt` Segment describing the cascade. complexity: [low]
 - [ ] T28.3 Wire `/confirm` / `/cancel`. complexity: [high]
@@ -563,6 +641,7 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 - [ ] T28.9 Commit: `/disconnect with confirmation + cascade`. complexity: [manual]
 
 ## P29 — TAB channel cycling
+
 - [ ] T29.1 Provide the channel list (`@all` + each `@handle`) to the chatbox. complexity: [low]
 - [ ] T29.2 Stimulus: TAB cycles `@all → @handle1 → … → @all`. complexity: [high]
 - [ ] T29.3 Render the active channel token in the chatbox slot. complexity: [low]
@@ -571,6 +650,7 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 - [ ] T29.6 Commit: `TAB channel cycling`. complexity: [manual]
 
 ## P30 — Shift+TAB period cycling (UI only)
+
 - [ ] T30.1 Stimulus: Shift+TAB cycles `7d → 28d → 1m → 3m → 1y → lifetime → 7d`. complexity: [low]
 - [ ] T30.2 Render the active period token. complexity: [low]
 - [ ] T30.3 Include the period in params (unwired downstream). complexity: [low]
@@ -578,7 +658,9 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 - [ ] T30.5 Commit: `Shift+TAB period cycling (UI only)`. complexity: [manual]
 
 ## P31 — `/import videos` (smart incremental pull)
+
 > Pull YouTube → `Video` (read-only mirror). Quota-aware. Channel from TAB; period is dead data (carried only).
+
 - [ ] T31.1 `/import videos` handler reads the selected channels (TAB). (Period is carried but unused.) complexity: [low]
 - [ ] T31.2 `@all` → one `ImportVideosJob` per channel; single channel → one. complexity: [low]
 - [ ] T31.3 Per job: persist + broadcast a per-channel progress Segment. complexity: [low]
@@ -593,7 +675,9 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 - [ ] T31.12 Commit: `/import videos: smart incremental pull`. complexity: [manual]
 
 ## P32 — VideoPreview model + edit UI
+
 > Stage edits without touching `Video`. Full edit experience this plan.
+
 - [ ] T32.1 Confirm the `VideoPreview` model + `has_one_attached :thumbnail` (from P6). complexity: [low]
 - [ ] T32.2 Edit surface: `/edit video <id>` opens the edit form for that video (or `/edit video` with no id opens the video picker, reusing P34's). complexity: [high]
 - [ ] T32.3 Form fields (YouTube Studio parity): title, description, tags, category + game title, made-for-kids (Yes/No), paid promotion, AI/altered-content (Yes/No), allow embedding, allow automatic chapters, allow automatic places, allow automatic concepts, notify subscribers, Shorts remixing, thumbnail upload (Active Storage). complexity: [high]
@@ -607,7 +691,9 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 - [ ] T32.11 Commit: `VideoPreview model + edit UI`. complexity: [manual]
 
 ## P33 — `/update videos` (publish previews → re-import)
+
 > Push pending VideoPreviews to YouTube; on success re-import that video. Per-channel fan-out + progress Segments.
+
 - [ ] T33.1 `/update videos` handler reads channels + period; collects pending (`draft`) previews in scope. complexity: [low]
 - [ ] T33.2 Per channel → one `PublishPreviewsJob` + one progress Segment (reuse P31's fan-out helper). complexity: [low]
 - [ ] T33.3 Job maps the preview → the **API-supported fields** and publishes (`videos.update` snippet/status + `thumbnails.set`); flags staged Studio-only fields as not-published; status `publishing` → `published`/`failed`. complexity: [high]
@@ -619,7 +705,9 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 - [ ] T33.9 Commit: `/update videos: publish previews → re-import`. complexity: [manual]
 
 ## P34 — Video lifecycle (`/publish` `/schedule` `/unlist` `/delete`)
+
 > Each command opens a **sidebar picker** of eligible videos → select → echo + async job → Braille → result Segment **with a link to the video**. Direct YouTube state changes (not via VideoPreview); re-import after; `/delete` removes the local mirror.
+
 - [ ] T34.1 Shared video-picker sidebar: backend returns the eligible set for the command; render with keyboard + mouse selection (reuse the `Pito::Sidebar` picker pattern). complexity: [high]
 - [ ] T34.2 `/publish` → picker of publishable videos (private/draft, unlisted, scheduled). complexity: [low]
 - [ ] T34.3 On select → set privacy `public` on YouTube (`videos.update`). complexity: [high]
@@ -634,7 +722,9 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 - [ ] T34.12 Commit: `Video lifecycle via picker (publish/schedule/unlist/delete)`. complexity: [manual]
 
 ## P35 — Re-wire IGDB services
+
 > Backend mostly in tree (`game/igdb/*`, `game/search_service`, `pito/search/search_games`, jobs).
+
 - [ ] T35.1 Verify IGDB credentials path (`Game::Igdb::TokenCache` / AppSetting / credentials). complexity: [low]
 - [ ] T35.2 Smoke `Game::Igdb` client search (or stubbed spec). complexity: [high]
 - [ ] T35.3 Confirm `Game::Igdb::SyncGame` populates a Game + recompute `score`. complexity: [high]
@@ -643,7 +733,9 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 - [ ] T35.6 Commit: `Re-wire + verify IGDB search/sync services`. complexity: [manual]
 
 ## P36 — `/add game` + sidebar search UI
+
 > Rebuild the dropped search UI as a sidebar. Adds to the global game library.
+
 - [ ] T36.1 `/add game` opens the sidebar in "game search" mode. complexity: [low]
 - [ ] T36.2 Sidebar search box; min-char gate; debounce. complexity: [low]
 - [ ] T36.3 Search endpoint returns IGDB matches (+ flag already-in-DB). complexity: [high]
@@ -656,6 +748,7 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 - [ ] T36.10 Commit: `/add game sidebar search UI`. complexity: [manual]
 
 ## P37 — Add → async sync-once
+
 - [ ] T37.1 "Add" creates a Game stub from the IGDB result (igdb_id, title) in the global library. complexity: [low]
 - [ ] T37.2 Enqueue `GameIgdbSync(game)` **once** (full details + score + Voyage index). complexity: [low]
 - [ ] T37.3 Dedupe: adding an already-in-DB game is a no-op (marker informs the UI). complexity: [low]
@@ -665,6 +758,7 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 - [ ] T37.7 Commit: `Add game → async one-shot IGDB sync`. complexity: [manual]
 
 ## P38 — Daily unreleased-games refresh
+
 - [ ] T38.1 Confirm `game_igdb_nightly_refresh.rb`; scope to **not-yet-released** games (P8 fields). complexity: [high]
 - [ ] T38.2 Register as a recurring daily job (SolidQueue `config/recurring.yml`). complexity: [low]
 - [ ] T38.3 On refresh: re-sync release info + recompute `score`; stop once released. complexity: [low]
@@ -673,6 +767,7 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 - [ ] T38.6 Commit: `Daily refresh for unreleased games`. complexity: [manual]
 
 ## P39 — `/new`
+
 - [ ] T39.1 `/new` creates a fresh Conversation (uuid, "Unnamed N"). complexity: [low]
 - [ ] T39.2 Navigate to its `/chat/:uuid` (empty). complexity: [low]
 - [ ] T39.3 Spec. complexity: [low]
@@ -680,6 +775,7 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 - [ ] T39.5 Commit: `/new conversation`. complexity: [manual]
 
 ## P40 — `/resume` (sidebar picker)
+
 - [ ] T40.1 `/resume` opens the sidebar listing conversations. complexity: [low]
 - [ ] T40.2 Keyboard (↑/↓ + Enter) + mouse selection. complexity: [high]
 - [ ] T40.3 Current conversation marked; picking it is a no-op. complexity: [low]
@@ -688,6 +784,7 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 - [ ] T40.6 Commit: `/resume conversation picker`. complexity: [manual]
 
 ## P41 — Sidebar conversation list (grouping + timestamps)
+
 - [ ] T41.1 Query: conversations by last activity. complexity: [low]
 - [ ] T41.2 "Recent" = within 24h of the most recent conversation's last activity; hairline; then the rest. complexity: [high]
 - [ ] T41.3 Render each row: `display_name` + timestamp. complexity: [low]
@@ -696,6 +793,7 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 - [ ] T41.6 Commit: `Sidebar conversation list with recency grouping`. complexity: [manual]
 
 ## P42 — Conversation rename + "Unnamed N"
+
 - [ ] T42.1 New conversations default `title` to `"Unnamed #{next_index}"`. complexity: [low]
 - [ ] T42.2 Inline rename affordance (keyboard + mouse). complexity: [high]
 - [ ] T42.3 `PATCH /chat/:uuid` updates `title`. complexity: [low]
@@ -704,6 +802,7 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 - [ ] T42.6 Commit: `Conversation rename + Unnamed N`. complexity: [manual]
 
 ## P43 — AGENTS.md conventions
+
 - [ ] T43.1 Add `## Auth` section — cookie session (24h idle, no hard max), no Session model, TOTP retained. complexity: [low]
 - [ ] T43.2 Add `## Factories` section — every model; `factories_spec` auto-validates. complexity: [low]
 - [ ] T43.3 Add `## Rake` section — `pito:test:*` / `pito:tools:*`; seeds prepare/populate; specced. complexity: [low]
@@ -718,6 +817,7 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 - [ ] T43.12 Commit: `AGENTS.md conventions`. complexity: [manual]
 
 ## P44 — Verification & cleanup
+
 - [ ] T44.1 `rspec` green everywhere. complexity: [manual]
 - [ ] T44.2 `bin/rails -T pito` → only `pito:test:*` + `pito:tools:*`. complexity: [manual]
 - [ ] T44.3 `git grep -nE 'style="' app/components` → zero/documented. complexity: [manual]

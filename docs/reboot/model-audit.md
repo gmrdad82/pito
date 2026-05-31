@@ -15,28 +15,28 @@
 
 ### Domain (10 models)
 
-| # | Model | Notes |
-|---|---|---|
-| 1 | **Channel** | YouTube channel; no `star`, no `summary_embedding` |
-| 2 | **Video** | YouTube video; has `summary_embedding` (Voyage) |
-| 3 | **Game** | IGDB game; 3 ratings + 3 TTBs + `platforms` text[] + `summary_embedding` |
-| 4 | **Genre** | IGDB ref table |
-| 5 | **GameGenre** | join, with `position` for picker |
-| 6 | **Company** | IGDB ref table (developer / publisher) |
-| 7 | **GameDeveloper** | join |
-| 8 | **GamePublisher** | join |
-| 9 | **GamePlatformOwnership** | lean: `(game_id, platform_token)` only |
-| 10 | **Footage** | local clips; no `recorded_at` |
-| 11 | **VideoGameLink** | video ↔ game |
+| #   | Model                     | Notes                                                                    |
+| --- | ------------------------- | ------------------------------------------------------------------------ |
+| 1   | **Channel**               | YouTube channel; no `star`, no `summary_embedding`                       |
+| 2   | **Video**                 | YouTube video; has `summary_embedding` (Voyage)                          |
+| 3   | **Game**                  | IGDB game; 3 ratings + 3 TTBs + `platforms` text[] + `summary_embedding` |
+| 4   | **Genre**                 | IGDB ref table                                                           |
+| 5   | **GameGenre**             | join, with `position` for picker                                         |
+| 6   | **Company**               | IGDB ref table (developer / publisher)                                   |
+| 7   | **GameDeveloper**         | join                                                                     |
+| 8   | **GamePublisher**         | join                                                                     |
+| 9   | **GamePlatformOwnership** | lean: `(game_id, platform_token)` only                                   |
+| 10  | **Footage**               | local clips; no `recorded_at`                                            |
+| 11  | **VideoGameLink**         | video ↔ game                                                             |
 
 ### Auth + config (4 models)
 
-| # | Model | Notes |
-|---|---|---|
-| 12 | **YoutubeConnection** | OAuth2 grant |
-| 13 | **Session** | TOTP session row |
-| 14 | **TotpBackupCode** | backup codes |
-| 15 | **AppSetting** | singleton + key/value, TOTP fields, pre-allocated API key columns |
+| #   | Model                 | Notes                                                             |
+| --- | --------------------- | ----------------------------------------------------------------- |
+| 12  | **YoutubeConnection** | OAuth2 grant                                                      |
+| 13  | **Session**           | TOTP session row                                                  |
+| 14  | **TotpBackupCode**    | backup codes                                                      |
+| 15  | **AppSetting**        | singleton + key/value, TOTP fields, pre-allocated API key columns |
 
 ---
 
@@ -70,7 +70,7 @@ Dropped vs old: `star`, `country`, `default_language`, `keywords`, `watermark_*`
 - `summary_embedding` (vector 1024)
 - `created_at`, `updated_at`
 
-Dropped vs old: pre_publish_* booleans, `last_sync_error`, `etag`, `embeddable`,
+Dropped vs old: pre*publish*\* booleans, `last_sync_error`, `etag`, `embeddable`,
 `public_stats_viewable`, `made_for_kids_effective`, `last_diff_checked_at`,
 `contains_synthetic_media`, `self_declared_made_for_kids`, `star`, thumbnail Active Storage attachment.
 
@@ -134,6 +134,7 @@ Dropped vs old: pre_publish_* booleans, `last_sync_error`, `etag`, `embeddable`,
 - Unique: `(game_id, platform_token)`
 
 Distinction recap:
+
 - `Game.platforms` text[] = where the game ships (IGDB sync-driven, read-only)
 - `GamePlatformOwnership` rows = where I own it (user-driven, write-driven)
 
@@ -218,41 +219,41 @@ credentials gradually without a forced migration.
 
 ## Models to DROP (delete the file in T7.3)
 
-| Model | File |
-|---|---|
-| ApiToken | `app/models/api_token.rb` |
-| BulkOperation | `app/models/bulk_operation.rb` |
-| BulkOperationItem | `app/models/bulk_operation_item.rb` |
-| CalendarEntry | `app/models/calendar_entry.rb` |
-| ChannelChangeLog | `app/models/channel_change_log.rb` |
-| ChannelDaily | `app/models/channel_daily.rb` |
-| ChannelWindowSummary | `app/models/channel_window_summary.rb` |
-| ImportJob | `app/models/import_job.rb` |
-| MilestoneRule | `app/models/milestone_rule.rb` |
-| Notification | `app/models/notification.rb` |
-| NotificationDeliveryChannel | `app/models/notification_delivery_channel.rb` |
-| Playlist | `app/models/playlist.rb` |
-| PlaylistVideo | `app/models/playlist_video.rb` |
-| RejectedVideoImport | `app/models/rejected_video_import.rb` |
-| SavedView | `app/models/saved_view.rb` |
-| TopVideosWindow | `app/models/top_videos_window.rb` |
-| VideoChangeLog | `app/models/video_change_log.rb` |
-| VideoChapter | `app/models/video_chapter.rb` |
-| VideoDaily | `app/models/video_daily.rb` |
-| VideoDailyByAgeGroupGender | `app/models/video_daily_by_age_group_gender.rb` |
-| VideoDailyByCountry | `app/models/video_daily_by_country.rb` |
-| VideoDailyByDeviceType | `app/models/video_daily_by_device_type.rb` |
-| VideoDailyByOperatingSystem | `app/models/video_daily_by_operating_system.rb` |
+| Model                        | File                                             |
+| ---------------------------- | ------------------------------------------------ |
+| ApiToken                     | `app/models/api_token.rb`                        |
+| BulkOperation                | `app/models/bulk_operation.rb`                   |
+| BulkOperationItem            | `app/models/bulk_operation_item.rb`              |
+| CalendarEntry                | `app/models/calendar_entry.rb`                   |
+| ChannelChangeLog             | `app/models/channel_change_log.rb`               |
+| ChannelDaily                 | `app/models/channel_daily.rb`                    |
+| ChannelWindowSummary         | `app/models/channel_window_summary.rb`           |
+| ImportJob                    | `app/models/import_job.rb`                       |
+| MilestoneRule                | `app/models/milestone_rule.rb`                   |
+| Notification                 | `app/models/notification.rb`                     |
+| NotificationDeliveryChannel  | `app/models/notification_delivery_channel.rb`    |
+| Playlist                     | `app/models/playlist.rb`                         |
+| PlaylistVideo                | `app/models/playlist_video.rb`                   |
+| RejectedVideoImport          | `app/models/rejected_video_import.rb`            |
+| SavedView                    | `app/models/saved_view.rb`                       |
+| TopVideosWindow              | `app/models/top_videos_window.rb`                |
+| VideoChangeLog               | `app/models/video_change_log.rb`                 |
+| VideoChapter                 | `app/models/video_chapter.rb`                    |
+| VideoDaily                   | `app/models/video_daily.rb`                      |
+| VideoDailyByAgeGroupGender   | `app/models/video_daily_by_age_group_gender.rb`  |
+| VideoDailyByCountry          | `app/models/video_daily_by_country.rb`           |
+| VideoDailyByDeviceType       | `app/models/video_daily_by_device_type.rb`       |
+| VideoDailyByOperatingSystem  | `app/models/video_daily_by_operating_system.rb`  |
 | VideoDailyBySubscribedStatus | `app/models/video_daily_by_subscribed_status.rb` |
-| VideoDailyByTrafficSource | `app/models/video_daily_by_traffic_source.rb` |
-| VideoDiff | `app/models/video_diff.rb` |
-| VideoEndScreen | `app/models/video_end_screen.rb` |
-| VideoRetention | `app/models/video_retention.rb` |
-| VideoStat | `app/models/video_stat.rb` |
-| VideoUpload | `app/models/video_upload.rb` |
-| VideoViewerTimeBucket | `app/models/video_viewer_time_bucket.rb` |
-| VideoWindowSummary | `app/models/video_window_summary.rb` |
-| YoutubeApiCall | `app/models/youtube_api_call.rb` |
+| VideoDailyByTrafficSource    | `app/models/video_daily_by_traffic_source.rb`    |
+| VideoDiff                    | `app/models/video_diff.rb`                       |
+| VideoEndScreen               | `app/models/video_end_screen.rb`                 |
+| VideoRetention               | `app/models/video_retention.rb`                  |
+| VideoStat                    | `app/models/video_stat.rb`                       |
+| VideoUpload                  | `app/models/video_upload.rb`                     |
+| VideoViewerTimeBucket        | `app/models/video_viewer_time_bucket.rb`         |
+| VideoWindowSummary           | `app/models/video_window_summary.rb`             |
+| YoutubeApiCall               | `app/models/youtube_api_call.rb`                 |
 
 **33 files deleted** in T7.3.
 
@@ -267,7 +268,7 @@ at dropped columns and dropped associations. T7.8 trims each to match the locked
 column spec above:
 
 - `app/models/channel.rb` — drop `star`, watermark, links, change-log assoc, calendar derivation, etc.
-- `app/models/video.rb` — drop pre_publish_*, diff/changelog assocs, calendar derivation, thumbnail attachment, viewer-time buckets, retention, dailies, etc.
+- `app/models/video.rb` — drop pre*publish*\*, diff/changelog assocs, calendar derivation, thumbnail attachment, viewer-time buckets, retention, dailies, etc.
 - `app/models/game.rb` — drop calendar derivation, cover_art Active Storage, edition/version_parent system, etc.
 - `app/models/genre.rb` — strip to bare bones
 - `app/models/game_genre.rb` — drop primary-genre recompute callbacks (rebuild via picker service)
@@ -285,11 +286,11 @@ column spec above:
 
 ## Concerns (T7.4)
 
-| File | Verdict |
-|---|---|
-| `app/models/concerns/calendar_derivable.rb` | **drop** — CalendarEntry is gone |
-| `app/models/concerns/searchable.rb` | **drop** — Meilisearch was removed in P6 |
-| `app/models/concerns/timezoned.rb` | **drop** — User model was dropped pre-reboot |
+| File                                        | Verdict                                      |
+| ------------------------------------------- | -------------------------------------------- |
+| `app/models/concerns/calendar_derivable.rb` | **drop** — CalendarEntry is gone             |
+| `app/models/concerns/searchable.rb`         | **drop** — Meilisearch was removed in P6     |
+| `app/models/concerns/timezoned.rb`          | **drop** — User model was dropped pre-reboot |
 
 ---
 
@@ -297,16 +298,16 @@ column spec above:
 
 All decorators are dropped. The web terminal UI uses ViewComponents (P10), not decorators.
 
-| File | Verdict |
-|---|---|
-| `app/decorators/analytics/` (dir) | **drop** |
-| `app/decorators/application_decorator.rb` | **drop** |
+| File                                         | Verdict  |
+| -------------------------------------------- | -------- |
+| `app/decorators/analytics/` (dir)            | **drop** |
+| `app/decorators/application_decorator.rb`    | **drop** |
 | `app/decorators/calendar_entry_decorator.rb` | **drop** |
-| `app/decorators/channel_decorator.rb` | **drop** |
-| `app/decorators/game_decorator.rb` | **drop** |
-| `app/decorators/notification_decorator.rb` | **drop** |
-| `app/decorators/video_decorator.rb` | **drop** |
-| `app/decorators/video_stat_decorator.rb` | **drop** |
+| `app/decorators/channel_decorator.rb`        | **drop** |
+| `app/decorators/game_decorator.rb`           | **drop** |
+| `app/decorators/notification_decorator.rb`   | **drop** |
+| `app/decorators/video_decorator.rb`          | **drop** |
+| `app/decorators/video_stat_decorator.rb`     | **drop** |
 
 The entire `app/decorators/` directory is removed.
 
@@ -316,8 +317,8 @@ The entire `app/decorators/` directory is removed.
 
 All policies dropped. Single-user app — no policies for v1.
 
-| File | Verdict |
-|---|---|
+| File                           | Verdict  |
+| ------------------------------ | -------- |
 | `app/policies/video_policy.rb` | **drop** |
 
 The entire `app/policies/` directory is removed.
@@ -329,6 +330,7 @@ The entire `app/policies/` directory is removed.
 Beyond the 15 domain tables, the baseline migration also creates / enables:
 
 ### Extensions
+
 - `pgcrypto` (existing, keep)
 - `citext` (existing — saved_views was dropped, but harmless to keep)
 - `vector` (pgvector, keep)
@@ -336,6 +338,7 @@ Beyond the 15 domain tables, the baseline migration also creates / enables:
 - `unaccent` — **enable** (P8 FTS for accent-insensitive search)
 
 ### Enums (Postgres-side)
+
 - `release_precision_enum` — `day`, `month`, `quarter`, `year`, `tba` (or use integer enum at AR layer — TBD in T7.8)
 - `privacy_status_enum` — `private`, `public`, `unlisted` (or integer enum)
 - `session_state_enum` — `active`, `expired`, `revoked` (or integer enum)
@@ -345,18 +348,22 @@ match existing Rails conventions; we'll go with integers unless there's a clear
 reason to use PG enums.
 
 ### Vectors (1024 dim, HNSW indexes)
+
 - `games.summary_embedding`
 - `videos.summary_embedding`
 - (no `channels.summary_embedding` — derived from Videos at query time)
 
 ### Vector indexes (HNSW, cosine)
+
 - `index_games_on_summary_embedding_hnsw` — `using: :hnsw, opclass: :vector_cosine_ops`
 - `index_videos_on_summary_embedding_hnsw` — same
 
 ### ActiveStorage tables
+
 **Dropped from baseline.** Will be added when Video.thumbnail upload arrives in a later phase.
 
 ### SolidQueue / SolidCache / SolidCable tables
+
 **Kept** (already in schema via P4/P5 installers). The baseline migration leaves
 these alone — they're managed by their respective install generators.
 

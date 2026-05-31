@@ -1,6 +1,7 @@
 # P1.5 — pito chat shell gap + padding refinements (v0.dev edit prompt)
 
 > **How to use this file**
+>
 > - Same v0.dev project as P1 / P1.1 / P1.2 / P1.3 / P1.4.
 > - Model: **v0 Auto** (these are number swaps — Mini territory).
 > - Attach this file and paste the one-liner below in the chat input.

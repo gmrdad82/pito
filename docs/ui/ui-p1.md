@@ -1,6 +1,7 @@
 # P1 — pito chat shell foundation (v0.dev prompt)
 
 > **How to use this file**
+>
 > - Open v0.dev, select **v0 Max**.
 > - Paste the prompt block below verbatim.
 > - Attach the reference screenshots: the full chat layout, the Tokyo Night palette reference, and the input-with-block-cursor closeup.

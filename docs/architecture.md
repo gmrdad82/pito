@@ -6,17 +6,17 @@ Plan 1 delivers the static visual chassis — no wiring, no real data, no Stimul
 
 ### Production routes
 
-| Path | Controller#action | Description |
-|---|---|---|
-| `/` | `terminal#show` | Chat shell with hardcoded sample messages. Main pito interface. |
+| Path     | Controller#action    | Description                                                                     |
+| -------- | -------------------- | ------------------------------------------------------------------------------- |
+| `/`      | `terminal#show`      | Chat shell with hardcoded sample messages. Main pito interface.                 |
 | `/start` | `start_screens#show` | Start screen for unauthenticated entry. Centered chatbox, ASCII logo, tip line. |
 
 ### Review-only routes (removed in Plan 2+)
 
-| Path | Controller#action | Description |
-|---|---|---|
-| `/_ui/palettes` | `_ui/palettes#show` | Static preview of slash and Ctrl+P command palettes. |
-| `/_ui/sidebar` | `_ui/sidebar#show` | Static preview of the game-detail sidebar as a right-edge overlay. |
+| Path            | Controller#action   | Description                                                        |
+| --------------- | ------------------- | ------------------------------------------------------------------ |
+| `/_ui/palettes` | `_ui/palettes#show` | Static preview of slash and Ctrl+P command palettes.               |
+| `/_ui/sidebar`  | `_ui/sidebar#show`  | Static preview of the game-detail sidebar as a right-edge overlay. |
 
 These review routes exist only for visual inspection during development. In Plan 2+, palettes and sidebar become interaction-driven overlays and the `/_ui/*` routes are removed.
 
@@ -67,26 +67,26 @@ Pito stores a game's release date as **independent precision components**, not a
 
 ### Columns on `games`
 
-| Column | Type | Meaning |
-|---|---|---|
-| `release_year` | integer | NULL when truly TBA / unknown. |
-| `release_quarter` | integer (1..4) | NULL unless precision is specifically a quarter (e.g. "Q3 2026"). Mutually exclusive with `release_month`. |
-| `release_month` | integer (1..12) | NULL when only the year (or quarter) is known. |
-| `release_day` | integer (1..31) | NULL when only the month is known. Requires `release_month`. |
-| `release_date` | date | **Derived** lower-bound of what we know. NULL when `release_year` is NULL. Used for sorts, range queries, and the "is it released?" predicate. |
+| Column            | Type            | Meaning                                                                                                                                        |
+| ----------------- | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `release_year`    | integer         | NULL when truly TBA / unknown.                                                                                                                 |
+| `release_quarter` | integer (1..4)  | NULL unless precision is specifically a quarter (e.g. "Q3 2026"). Mutually exclusive with `release_month`.                                     |
+| `release_month`   | integer (1..12) | NULL when only the year (or quarter) is known.                                                                                                 |
+| `release_day`     | integer (1..31) | NULL when only the month is known. Requires `release_month`.                                                                                   |
+| `release_date`    | date            | **Derived** lower-bound of what we know. NULL when `release_year` is NULL. Used for sorts, range queries, and the "is it released?" predicate. |
 
 `release_date` is recomputed from the components on every save (`before_save :recompute_release_date` on `Game`). It is **not** the source of truth — the components are. The single column exists purely so existing index-friendly queries (`release_date <= today`, `BETWEEN ? AND ?`) keep working.
 
 ### What each combination means
 
-| Real-world fact | year | quarter | month | day | date (derived) |
-|---|---|---|---|---|---|
-| Released Oct 15, 2026 | 2026 | – | 10 | 15 | 2026-10-15 |
-| Coming October 2026 | 2026 | – | 10 | – | 2026-10-01 |
-| Coming Q3 2026 | 2026 | 3 | – | – | 2026-07-01 |
-| Coming 2026 | 2026 | – | – | – | 2026-01-01 |
-| TBA | – | – | – | – | NULL |
-| "Christmas, year unknown" (manual) | – | – | 12 | 25 | NULL |
+| Real-world fact                    | year | quarter | month | day | date (derived) |
+| ---------------------------------- | ---- | ------- | ----- | --- | -------------- |
+| Released Oct 15, 2026              | 2026 | –       | 10    | 15  | 2026-10-15     |
+| Coming October 2026                | 2026 | –       | 10    | –   | 2026-10-01     |
+| Coming Q3 2026                     | 2026 | 3       | –     | –   | 2026-07-01     |
+| Coming 2026                        | 2026 | –       | –     | –   | 2026-01-01     |
+| TBA                                | –    | –       | –     | –   | NULL           |
+| "Christmas, year unknown" (manual) | –    | –       | 12    | 25  | NULL           |
 
 ### Validations
 
@@ -104,13 +104,13 @@ A consistency violation raises `Pito::Error::ReleaseDateInconsistent` (defined i
 
 - **IGDB** (`Game::Igdb::GameMapper`): pulls `first_release_date` + the `release_dates[]` association (`category, y, m, d`), picks the canonical row (the one whose `date == first_release_date`, falling back to the most-precise category when null), and maps IGDB's `category` enum (0..7) into `{year:, quarter:, month:, day:}`. The IGDB→pito enum table:
 
-  | IGDB `category` | Pito components |
-  |---|---|
-  | 0 (day) | `{year:y, month:m, day:d}` |
-  | 1 (month) | `{year:y, month:m}` |
-  | 2 (year) | `{year:y}` |
-  | 3..6 (Q1..Q4) | `{year:y, quarter:cat-2}` |
-  | 7 (TBD) | `{}` |
+  | IGDB `category` | Pito components            |
+  | --------------- | -------------------------- |
+  | 0 (day)         | `{year:y, month:m, day:d}` |
+  | 1 (month)       | `{year:y, month:m}`        |
+  | 2 (year)        | `{year:y}`                 |
+  | 3..6 (Q1..Q4)   | `{year:y, quarter:cat-2}`  |
+  | 7 (TBD)         | `{}`                       |
 
 - **Manual / future sources** would write directly through `ReleaseDateMapper.call(...)` with the same input shape.
 

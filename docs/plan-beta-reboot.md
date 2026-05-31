@@ -13,13 +13,14 @@
 
 Stopped after P10.4. Plan 1's U0 pre-flight forced us back here for the
 gem-install prereqs: (Tailwind install + scan paths) — done as Plan 1 U0
-  prereq.** Tailwind 4.x via `tailwindcss-rails` 4.4.0. Scan paths
-  expressed as `@source "../../views"` + `@source "../../components"`
-  in `app/assets/tailwind/application.css` (TW4 inline-CSS config,
-  no `tailwind.config.js`). `bin/rails tailwindcss:install` couldn't
-  patch the existing `application.html.erb` (pre-reboot xterm layout
-  is still in place; the installer's anchor wasn't there). Plan 1 U2
-  rewrites that layout from scratch, so the missed insert is moot.
+prereq.\*\* Tailwind 4.x via `tailwindcss-rails` 4.4.0. Scan paths
+expressed as `@source "../../views"` + `@source "../../components"`
+in `app/assets/tailwind/application.css` (TW4 inline-CSS config,
+no `tailwind.config.js`). `bin/rails tailwindcss:install` couldn't
+patch the existing `application.html.erb` (pre-reboot xterm layout
+is still in place; the installer's anchor wasn't there). Plan 1 U2
+rewrites that layout from scratch, so the missed insert is moot.
+
 - **P9.5–P9.7 (palette, font stack, body type rules) — superseded by
   `docs/plan-beta-reboot-01-ui.md`** (Plan 1 supplies the exhaustive
   token set + the 16px / 1.4 typography lock).
@@ -52,38 +53,38 @@ recommendations. PostgreSQL handles search via `to_tsvector` + `pg_trgm`.
 
 ## Locked decisions
 
-| Topic | Decision |
-|---|---|
-| UI stack | Turbo + Stimulus + importmap-rails (zero node) |
-| CSS | tailwindcss-rails (standalone CLI, zero node) |
-| Components | `view_component` gem, no Lookbook |
-| Jobs | SolidQueue (Postgres) |
-| Cache | SolidCache (Postgres) |
-| Cable | SolidCable (Postgres) |
-| Redis | dropped entirely |
-| Search | PostgreSQL FTS (`to_tsvector`) + `pg_trgm` |
-| Vectors | `neighbor` + pgvector (Voyage embeddings) |
-| Auth | TOTP-only (rotp + rqrcode), single user (me) |
-| YouTube | omniauth-google-oauth2 + omniauth-rails_csrf_protection |
-| Test framework | RSpec retained, all specs wiped |
-| Image variants | image_processing + ruby-vips kept |
-| Rust CLI | deleted |
-| Astro site | kept (extras/website/) |
-| Streaming | Turbo Streams over Action Cable |
-| i18n | All copy + keybindings in `config/locales/**.yml` |
-| Brand | `pito` lowercase except sentence start |
-| DB | safe to drop and rebuild (dev only, no real data) |
+| Topic          | Decision                                                |
+| -------------- | ------------------------------------------------------- |
+| UI stack       | Turbo + Stimulus + importmap-rails (zero node)          |
+| CSS            | tailwindcss-rails (standalone CLI, zero node)           |
+| Components     | `view_component` gem, no Lookbook                       |
+| Jobs           | SolidQueue (Postgres)                                   |
+| Cache          | SolidCache (Postgres)                                   |
+| Cable          | SolidCable (Postgres)                                   |
+| Redis          | dropped entirely                                        |
+| Search         | PostgreSQL FTS (`to_tsvector`) + `pg_trgm`              |
+| Vectors        | `neighbor` + pgvector (Voyage embeddings)               |
+| Auth           | TOTP-only (rotp + rqrcode), single user (me)            |
+| YouTube        | omniauth-google-oauth2 + omniauth-rails_csrf_protection |
+| Test framework | RSpec retained, all specs wiped                         |
+| Image variants | image_processing + ruby-vips kept                       |
+| Rust CLI       | deleted                                                 |
+| Astro site     | kept (extras/website/)                                  |
+| Streaming      | Turbo Streams over Action Cable                         |
+| i18n           | All copy + keybindings in `config/locales/**.yml`       |
+| Brand          | `pito` lowercase except sentence start                  |
+| DB             | safe to drop and rebuild (dev only, no real data)       |
 
 ## Complexity hints
 
 Each task carries a `complexity:` hint. The hint signals effort and reasoning depth — pick whichever model fits the tier.
 
-| Hint | When |
-|---|---|
-| `[manual]` | You, by hand — GitHub UI, credentials, design choices, sketches, smoke tests |
-| `[low]` | Renames, deletions, file audits, gemfile edits, locale YAML, single-file refactors, small ViewComponents, basic controllers |
-| `[medium]` | Multi-file refactors, command router, ActionCable plumbing, FTS queries |
-| `[high]` | Architecture, security, schema audit, command DSL design |
+| Hint       | When                                                                                                                        |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `[manual]` | You, by hand — GitHub UI, credentials, design choices, sketches, smoke tests                                                |
+| `[low]`    | Renames, deletions, file audits, gemfile edits, locale YAML, single-file refactors, small ViewComponents, basic controllers |
+| `[medium]` | Multi-file refactors, command router, ActionCable plumbing, FTS queries                                                     |
+| `[high]`   | Architecture, security, schema audit, command DSL design                                                                    |
 
 `[manual]` = no agent; you do it. `[low]` is the default workhorse.
 

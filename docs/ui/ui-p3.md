@@ -1,6 +1,7 @@
 # P3 — pito command palettes (v0.dev prompt)
 
 > **How to use this file**
+>
 > - Same v0.dev project. Creates a NEW route `/palettes` for visual review.
 > - Model: **v0 Max** — new route + two new structural components. Worth the credits to land it cleanly.
 > - Attach this file and paste the one-liner below in the chat input.

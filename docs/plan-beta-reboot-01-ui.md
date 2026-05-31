@@ -11,6 +11,7 @@
 - [x] Audited — 2026-05-27
 
 > **Plan 1 completed 2026-05-28.** Notable divergences from spec:
+>
 > - **T11.7 (tag) skipped** — no tagging in this repo's workflow.
 > - **Start-screen ASCII logo included** (was listed as Plan 2+ follow-up).
 >   A 6-row ASCII "pito" in `--brand-pito` added during U7. The
@@ -28,12 +29,12 @@ Plan 2+ will layer wiring (Stimulus, Cable, commands, persistence, auth). Plan 1
 
 ## Supersedes from Plan 0
 
-| Plan 0 reference | Plan 0 says | Plan 1 supersedes with |
-|---|---|---|
-| P9.7 | `font-size: 13px`, `line-height: 1` | `font-size: 16px`, `line-height: 1.4` |
-| P9.6 | `ui-monospace, "Cascadia Code", "JetBrains Mono", Menlo, Consolas, monospace` | `ui-monospace, monospace` only (no web fonts, no `@font-face`) |
-| P9.5 | "Tokyo Night palette as CSS custom properties" (no hex enumerated) | Exhaustive named tokens defined in U1 below, including `pito-blue` `#5170ff` |
-| P10 + P11 | Component list (`HeaderComponent`, `FooterComponent`, `Event::TextLine/Table/Error/Progress`) and shell layout (header + scrollback + input) | Full v0-aligned inventory (see Component Inventory section) and shell layout (scroll area + bottom row only — no header, no footer) |
+| Plan 0 reference | Plan 0 says                                                                                                                                  | Plan 1 supersedes with                                                                                                              |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| P9.7             | `font-size: 13px`, `line-height: 1`                                                                                                          | `font-size: 16px`, `line-height: 1.4`                                                                                               |
+| P9.6             | `ui-monospace, "Cascadia Code", "JetBrains Mono", Menlo, Consolas, monospace`                                                                | `ui-monospace, monospace` only (no web fonts, no `@font-face`)                                                                      |
+| P9.5             | "Tokyo Night palette as CSS custom properties" (no hex enumerated)                                                                           | Exhaustive named tokens defined in U1 below, including `pito-blue` `#5170ff`                                                        |
+| P10 + P11        | Component list (`HeaderComponent`, `FooterComponent`, `Event::TextLine/Table/Error/Progress`) and shell layout (header + scrollback + input) | Full v0-aligned inventory (see Component Inventory section) and shell layout (scroll area + bottom row only — no header, no footer) |
 
 P0–P8 and P12–P19 of Plan 0 are unaffected. Plan 0 stands as written; Plan 1 layers on top.
 
@@ -41,27 +42,27 @@ P0–P8 and P12–P19 of Plan 0 are unaffected. Plan 0 stands as written; Plan 1
 
 Carry forward from Plan 0:
 
-| Topic | Decision |
-|---|---|
-| UI stack | Turbo + Stimulus + importmap-rails (zero node) — Plan 1 uses none of these yet |
-| CSS | `tailwindcss-rails` (standalone CLI, zero node) |
-| Components | `view_component`, no Lookbook |
-| Brand | `pito` lowercase except sentence start |
-| i18n | All copy in `config/locales/**/en.yml` |
+| Topic      | Decision                                                                       |
+| ---------- | ------------------------------------------------------------------------------ |
+| UI stack   | Turbo + Stimulus + importmap-rails (zero node) — Plan 1 uses none of these yet |
+| CSS        | `tailwindcss-rails` (standalone CLI, zero node)                                |
+| Components | `view_component`, no Lookbook                                                  |
+| Brand      | `pito` lowercase except sentence start                                         |
+| i18n       | All copy in `config/locales/**/en.yml`                                         |
 
 New for Plan 1:
 
-| Topic | Decision |
-|---|---|
-| Typography | `font-size: 16px`, `line-height: 1.4`, `font-family: ui-monospace, monospace`. No web fonts, no Google Fonts, no `@font-face`. Single font-size everywhere — no `text-sm`, `text-lg`, `text-xl`. |
-| Color tokens | Full Tokyo Night palette + `pito-blue` `#5170ff`, exposed as CSS custom properties scoped under `[data-theme="tokyo-night"]` |
-| Theme system | `data-theme` attribute on `<html>`. CSS vars per theme. Tokyo Night is Plan 1's only theme; adding others (catppuccin, gruvbox) means adding a `[data-theme="..."]` CSS block with the same var names — no Ruby or template changes |
-| Visual primitive | Bar + gap + content pattern: 4px colored (or transparent) bar + 6px gap (shows root bg) + content area with internal padding `10px 16px 10px 12px`. The bar always renders (transparent when no border color) so borderless content aligns horizontally with bordered content. Used by every segment AND the chatbox. |
-| Component namespace | `Pito::*` (continuing Plan 0's convention) |
-| Copy | All user-facing strings via `t(".key")` in components. No inline strings. Locale files organized as `config/locales/pito/<area>/en.yml`. |
-| Sample data | Hardcoded sample content in `lib/pito/sample/` or controllers, clearly marked as `SAMPLE` so production wiring later replaces it without confusion |
-| Routes | `/` and `/start` are real production routes. `/_ui/palettes` and `/_ui/sidebar` are review-only — production removes them (palettes and sidebar become overlays opened via interaction in Plan 2+) |
-| New gems | None beyond Plan 0's locked set. Vanilla Tailwind + ViewComponent only. No markdown renderer, no syntax highlighter, no animation library. |
+| Topic               | Decision                                                                                                                                                                                                                                                                                                              |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Typography          | `font-size: 16px`, `line-height: 1.4`, `font-family: ui-monospace, monospace`. No web fonts, no Google Fonts, no `@font-face`. Single font-size everywhere — no `text-sm`, `text-lg`, `text-xl`.                                                                                                                      |
+| Color tokens        | Full Tokyo Night palette + `pito-blue` `#5170ff`, exposed as CSS custom properties scoped under `[data-theme="tokyo-night"]`                                                                                                                                                                                          |
+| Theme system        | `data-theme` attribute on `<html>`. CSS vars per theme. Tokyo Night is Plan 1's only theme; adding others (catppuccin, gruvbox) means adding a `[data-theme="..."]` CSS block with the same var names — no Ruby or template changes                                                                                   |
+| Visual primitive    | Bar + gap + content pattern: 4px colored (or transparent) bar + 6px gap (shows root bg) + content area with internal padding `10px 16px 10px 12px`. The bar always renders (transparent when no border color) so borderless content aligns horizontally with bordered content. Used by every segment AND the chatbox. |
+| Component namespace | `Pito::*` (continuing Plan 0's convention)                                                                                                                                                                                                                                                                            |
+| Copy                | All user-facing strings via `t(".key")` in components. No inline strings. Locale files organized as `config/locales/pito/<area>/en.yml`.                                                                                                                                                                              |
+| Sample data         | Hardcoded sample content in `lib/pito/sample/` or controllers, clearly marked as `SAMPLE` so production wiring later replaces it without confusion                                                                                                                                                                    |
+| Routes              | `/` and `/start` are real production routes. `/_ui/palettes` and `/_ui/sidebar` are review-only — production removes them (palettes and sidebar become overlays opened via interaction in Plan 2+)                                                                                                                    |
+| New gems            | None beyond Plan 0's locked set. Vanilla Tailwind + ViewComponent only. No markdown renderer, no syntax highlighter, no animation library.                                                                                                                                                                            |
 
 ## Reference materials
 
@@ -77,12 +78,12 @@ Read these while executing Plan 1 — they are the visual contract:
 
 Same as Plan 0:
 
-| Hint | When |
-|---|---|
-| `[manual]` | You, by hand — branches, commits, visual review, design choices |
-| `[low]` | YAML, renames, file audits, locale entries, single-file ViewComponents, small ERB templates, controllers |
-| `[medium]` | Multi-file refactors, layout files, CSS architecture |
-| `[high]` | Architecture decisions (rare in Plan 1; mostly token system) |
+| Hint       | When                                                                                                     |
+| ---------- | -------------------------------------------------------------------------------------------------------- |
+| `[manual]` | You, by hand — branches, commits, visual review, design choices                                          |
+| `[low]`    | YAML, renames, file audits, locale entries, single-file ViewComponents, small ERB templates, controllers |
+| `[medium]` | Multi-file refactors, layout files, CSS architecture                                                     |
+| `[high]`   | Architecture decisions (rare in Plan 1; mostly token system)                                             |
 
 ## Tokens & theme system
 
@@ -90,35 +91,35 @@ In `app/assets/tailwind/application.css`, define one theme block. All CSS custom
 
 ```css
 [data-theme="tokyo-night"] {
-  --bg-root:         #1a1b26;
-  --bg-surface:      #1f2335;
-  --bg-elevated:     #24283b;
-  --border-default:  #292e42;
-  --border-faded:    #414868;
-  --fg-default:      #c0caf5;
-  --fg-dim:          #565f89;
-  --fg-faded:        #414868;
-  --accent-purple:   #bb9af7;
-  --accent-blue:     #7aa2f7;
-  --accent-cyan:     #7dcfff;
-  --accent-green:    #9ece6a;
-  --accent-yellow:   #e0af68;
-  --accent-orange:   #ff9e64;
-  --accent-red:      #f7768e;
-  --brand-pito:      #5170ff;
+  --bg-root: #1a1b26;
+  --bg-surface: #1f2335;
+  --bg-elevated: #24283b;
+  --border-default: #292e42;
+  --border-faded: #414868;
+  --fg-default: #c0caf5;
+  --fg-dim: #565f89;
+  --fg-faded: #414868;
+  --accent-purple: #bb9af7;
+  --accent-blue: #7aa2f7;
+  --accent-cyan: #7dcfff;
+  --accent-green: #9ece6a;
+  --accent-yellow: #e0af68;
+  --accent-orange: #ff9e64;
+  --accent-red: #f7768e;
+  --brand-pito: #5170ff;
 }
 ```
 
 Tailwind utility aliases (extend `theme.extend.colors` in `tailwind.config.js`, or use the `@theme` block in Tailwind 4):
 
-| Utility name | CSS var |
-|---|---|
-| `bg-root`, `bg-surface`, `bg-elevated` | `--bg-*` |
-| `border-line-default`, `border-line-faded` | `--border-*` (TW4 @theme strips `--color-line-` prefix, producing `border-line-*`) |
-| `text-fg`, `text-fg-dim`, `text-fg-faded` | `--fg-*` |
-| `text-purple`, `text-blue`, `text-cyan`, `text-green`, `text-yellow`, `text-orange`, `text-red` | `--accent-*` |
-| `bg-purple`, `bg-orange` (etc.) | `--accent-*` |
-| `text-pito`, `bg-pito` | `--brand-pito` |
+| Utility name                                                                                    | CSS var                                                                            |
+| ----------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `bg-root`, `bg-surface`, `bg-elevated`                                                          | `--bg-*`                                                                           |
+| `border-line-default`, `border-line-faded`                                                      | `--border-*` (TW4 @theme strips `--color-line-` prefix, producing `border-line-*`) |
+| `text-fg`, `text-fg-dim`, `text-fg-faded`                                                       | `--fg-*`                                                                           |
+| `text-purple`, `text-blue`, `text-cyan`, `text-green`, `text-yellow`, `text-orange`, `text-red` | `--accent-*`                                                                       |
+| `bg-purple`, `bg-orange` (etc.)                                                                 | `--accent-*`                                                                       |
+| `text-pito`, `bg-pito`                                                                          | `--brand-pito`                                                                     |
 
 Adding a new theme (future, not Plan 1 scope): drop another `[data-theme="catppuccin-mocha"] { ... }` block with the same var names. Theme switching (Plan 2+) flips the attribute and persists in `localStorage`.
 
@@ -158,7 +159,7 @@ Every component below is a static renderer — no Stimulus, no state, no JS. All
 - i18n keys: `pito.shell.chatbox.placeholder.*`, `pito.shell.chatbox.filter.channel_label`, `pito.shell.chatbox.filter.period_label`
 - Markup: wraps `Pito::Segment::Component` with `border: var(--accent-purple), background: var(--bg-surface)`. Inside content area, a flex column:
   - Line 1: `Pito::Cursor::Component` rendering first character of placeholder + remainder of placeholder in `text-fg-dim`
-  - Line 2 (only if `state == :default`): filter context — `Channel:` label dim, channel value in `text-cyan`, ` · `, `Period:` label dim, period value in `text-cyan`. 10px breathing room above this line.
+  - Line 2 (only if `state == :default`): filter context — `Channel:` label dim, channel value in `text-cyan`, `·`, `Period:` label dim, period value in `text-cyan`. 10px breathing room above this line.
 - v0 reference: `ui-p1.5.md`
 - Dependencies: `Pito::Segment::Component`, `Pito::Cursor::Component`
 
@@ -173,7 +174,7 @@ Every component below is a static renderer — no Stimulus, no state, no JS. All
   - Optional ` · N notifications` in `text-cyan` (only when `show_notifications` and `notifications > 0`)
   - ` · ctrl+p` in `text-yellow font-bold`
   - `commands` in `text-fg-dim`
-  - All ` · ` separators in `text-fg-dim`
+  - All `·` separators in `text-fg-dim`
 - v0 reference: `ui-p1.2.md` (chat shell variant) + `ui-p2.1.md` (start screen variant)
 - Dependencies: none
 
@@ -343,12 +344,12 @@ Every component below is a static renderer — no Stimulus, no state, no JS. All
 
 ## Route inventory
 
-| Path | Controller#action | Purpose | Production? |
-|---|---|---|---|
-| `/` | `terminal#show` | Chat shell with hardcoded sample messages | Yes |
-| `/start` | `start_screens#show` | Start screen for unauthenticated entry | Yes |
-| `/_ui/palettes` | `_ui/palettes#show` | Review page rendering both palette designs | No — removed in Plan 2+ |
-| `/_ui/sidebar` | `_ui/sidebar#show` | Review page rendering chat shell + sidebar overlay | No — production opens sidebar via interaction |
+| Path            | Controller#action    | Purpose                                            | Production?                                   |
+| --------------- | -------------------- | -------------------------------------------------- | --------------------------------------------- |
+| `/`             | `terminal#show`      | Chat shell with hardcoded sample messages          | Yes                                           |
+| `/start`        | `start_screens#show` | Start screen for unauthenticated entry             | Yes                                           |
+| `/_ui/palettes` | `_ui/palettes#show`  | Review page rendering both palette designs         | No — removed in Plan 2+                       |
+| `/_ui/sidebar`  | `_ui/sidebar#show`   | Review page rendering chat shell + sidebar overlay | No — production opens sidebar via interaction |
 
 `/_ui/*` routes are grouped under one namespace so they're easy to grep and remove later.
 
@@ -458,14 +459,13 @@ config/locales/pito/
 
 - [x] T0.1 Confirm every Plan 0 phase (P0–P19) is checked off. complexity: [manual]
       → P0–P8 complete; P9.1–P9.4 + P10.1–P10.4 done as U0 prereqs;
-        P9.5+, P10.5+, P11 superseded by this plan; P12–P19 deferred
-        to plan-beta-reboot-02+. See Plan 0 Status block.
+      P9.5+, P10.5+, P11 superseded by this plan; P12–P19 deferred
+      to plan-beta-reboot-02+. See Plan 0 Status block.
 - [x] T0.2 `bin/rails runner "puts Rails.version"` prints the expected Rails 8.x version. complexity: [manual]
       → Rails 8.1.3.
 - [x] T0.3 `bin/dev` starts cleanly — Puma + Tailwind watcher up, no errors. complexity: [manual]
       → Procfile.dev now has `css: bin/rails tailwindcss:watch`
-        (installer added it). Rails boot verified via tailwindcss:build
-        + runner; full `bin/dev` run deferred to first U1+ visit.
+      (installer added it). Rails boot verified via tailwindcss:build + runner; full `bin/dev` run deferred to first U1+ visit.
 - [x] T0.4 `bin/rails tailwindcss:build` succeeds. complexity: [manual]
       → "Done in 234ms".
 - [x] T0.5 `ApplicationComponent` exists under `app/components/`; render `ApplicationComponent.new` in a console without error. complexity: [manual]
@@ -592,8 +592,9 @@ config/locales/pito/
 - [x] T9.5 Create `app/views/_ui/sidebar/show.html.erb`. Two children of a root wrapper with `overflow: hidden`:
   - `<main>` containing the SAME content as `TerminalController#show` (reuse the sample messages module from U6). No max-width, no padding-right. Chat shell renders at full viewport width.
   - `<aside>` rendered via `Pito::Sidebar::Component` with `title: "Hollow Knight"`, `subtitle_key: "pito.sidebar.game.subtitle"`, `subtitle_args: { date: "2026-05-18" }`. Inside the body slot, render each game-detail section via `Pito::Sidebar::SectionComponent`.
-  
+
   Note: the chat shell extends full width on purpose — the sidebar is an overlay that covers the right ~480px by design. Some chat content goes behind the sidebar; that's the intended behavior. complexity: [medium]
+
 - [x] T9.6 In `config/routes.rb`, add `namespace :_ui do get "sidebar", to: "sidebar#show" end`. complexity: [low]
 - [x] T9.7 Visit `/_ui/sidebar`. Verify: no horizontal page scroll, chat shell renders at full viewport width (identical to `/`), sidebar floats fixed on the right at 480px, sticky header, scrollable body inside the sidebar. complexity: [manual]
 - [x] T9.8 Commit: `U9: sidebar overlay component + review page`. complexity: [manual]

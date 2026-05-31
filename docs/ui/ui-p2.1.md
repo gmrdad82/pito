@@ -1,6 +1,7 @@
 # P2.1 — pito start screen refinements (v0.dev edit prompt)
 
 > **How to use this file**
+>
 > - Same v0.dev project. The start screen lives at the `/start` route (in `app/start/page.tsx`).
 > - Model: **v0 Auto** is fine.
 > - Attach this file and paste the one-liner below in the chat input.

@@ -11,6 +11,7 @@
 - [x] Audited — 2026-05-27
 
 > **Plan 3 completed 2026-05-29.** Notable divergence from spec:
+>
 > - **T10.9 (tag `v0.3.0-chat-core`) skipped** — user will handle separately.
 
 ## North star
@@ -25,60 +26,60 @@ The shared foundation (Conversation/Turn/Event, `Pito::Lex`, `Pito::Stream::*`, 
 
 Plan 2 already superseded Plan 0's P12 and P13. Plan 3 supersedes nothing further from Plan 0 (its scope is entirely additive). It does extend two pieces from Plan 2:
 
-| Plan 2 reference | Plan 2 says | Plan 3 extends with |
-|---|---|---|
-| S7.2 | "Otherwise, return 204 No Content for now (Plan 3 will wire the Chat branch)." | Wires the Chat branch: input not starting with `/` dispatches via `Pito::Chat::Dispatcher`. |
-| S7.3 | Materializes Slash's `Result::Ok/Error/NeedsConfirmation` into Events within one Turn. | Adds materialization of Chat's `Result::Ok/Error/Refine`. The `Refine` variant attaches Events to the **existing** open Turn instead of creating a new one. |
+| Plan 2 reference | Plan 2 says                                                                            | Plan 3 extends with                                                                                                                                         |
+| ---------------- | -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| S7.2             | "Otherwise, return 204 No Content for now (Plan 3 will wire the Chat branch)."         | Wires the Chat branch: input not starting with `/` dispatches via `Pito::Chat::Dispatcher`.                                                                 |
+| S7.3             | Materializes Slash's `Result::Ok/Error/NeedsConfirmation` into Events within one Turn. | Adds materialization of Chat's `Result::Ok/Error/Refine`. The `Refine` variant attaches Events to the **existing** open Turn instead of creating a new one. |
 
 ## Locked decisions
 
 Carry forward from Plan 0 + Plan 1 + Plan 2:
 
-| Topic | Decision |
-|---|---|
-| UI stack | Turbo + Stimulus + importmap-rails |
-| Components | view_component |
-| Endpoint | Single `POST /chat` |
-| Persistence | Conversation/Turn/Event (built in Plan 2 S1) |
-| Broadcasting | `Pito::Stream::Broadcaster` (built in Plan 2 S3) |
+| Topic         | Decision                                          |
+| ------------- | ------------------------------------------------- |
+| UI stack      | Turbo + Stimulus + importmap-rails                |
+| Components    | view_component                                    |
+| Endpoint      | Single `POST /chat`                               |
+| Persistence   | Conversation/Turn/Event (built in Plan 2 S1)      |
+| Broadcasting  | `Pito::Stream::Broadcaster` (built in Plan 2 S3)  |
 | Stimulus form | `pito--chat-form` controller (built in Plan 2 S7) |
-| Lexer | `Pito::Lex::Lexer` (built in Plan 2 S2) |
-| i18n | All copy in `config/locales/pito/<area>/en.yml` |
+| Lexer         | `Pito::Lex::Lexer` (built in Plan 2 S2)           |
+| i18n          | All copy in `config/locales/pito/<area>/en.yml`   |
 
 New for Plan 3:
 
-| Topic | Decision |
-|---|---|
-| Chat verbs | A small fixed set of recognized opening words: `list`, `show`, `find`. Plan 3 implements only `list` end-to-end; `show` and `find` are reserved (parser recognizes them but dispatcher returns "no handler yet"). |
+| Topic                  | Decision                                                                                                                                                                                                                                                                             |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Chat verbs             | A small fixed set of recognized opening words: `list`, `show`, `find`. Plan 3 implements only `list` end-to-end; `show` and `find` are reserved (parser recognizes them but dispatcher returns "no handler yet").                                                                    |
 | New-turn vs refinement | The parser classifies the message as **new** if it starts with a recognized verb, **refinement** otherwise (and a Turn is already open in this conversation). When no Turn is open and the message isn't a recognized verb, it's classified **unknown** and produces an error event. |
-| Refinement target | Refinements attach to the most recent Turn in the conversation. They produce additional Events on that Turn — Plan 3 keeps it simple by **appending** new Events (Plan 4+ may add replace-the-result-block semantics; out of scope here). |
-| Open turn lifetime | A Turn is "open" if `Turn.last_for(conversation)` exists and was created in the last 30 minutes. Beyond that, refinements become unknown-input errors. Configurable later; hardcoded for Plan 3. |
-| Result types | `Pito::Chat::Result::Ok(events:)`, `Pito::Chat::Result::Error(message_key:, message_args:)`, `Pito::Chat::Result::Refine(events:)`. `Ok` opens a new turn; `Refine` extends the current one. Distinct from Slash's Result types — different namespace, no cross-import. |
-| Unknown handler | A dedicated handler `Pito::Chat::Handlers::Unknown` returns `Result::Error(message_key: "pito.chat.errors.unknown_input", message_args: { input: <raw> })`. Invoked by the dispatcher when no verb matches AND the input doesn't qualify as a refinement. |
-| Example handler scope | `Pito::Chat::Handlers::List` returns one `assistant_text` event with hardcoded fake content (a short string mentioning what would normally be listed). No DB, no domain models, no real list of videos. Just enough to prove the end-to-end pipeline works. |
-| Refinement example | None in Plan 3 beyond the structural support. The `Refine` Result type is defined and wired, but no handler returns it. A demo fixture handler `Pito::Chat::Handlers::RefineDemo` (similar to Plan 2's `EchoConfirm`) exists as the canonical example. |
-| Tests | RSpec lib specs for the chat parser and dispatcher; RSpec service specs for the example handlers; RSpec request specs extending Plan 2's `chat_spec.rb` with the chat branch. |
+| Refinement target      | Refinements attach to the most recent Turn in the conversation. They produce additional Events on that Turn — Plan 3 keeps it simple by **appending** new Events (Plan 4+ may add replace-the-result-block semantics; out of scope here).                                            |
+| Open turn lifetime     | A Turn is "open" if `Turn.last_for(conversation)` exists and was created in the last 30 minutes. Beyond that, refinements become unknown-input errors. Configurable later; hardcoded for Plan 3.                                                                                     |
+| Result types           | `Pito::Chat::Result::Ok(events:)`, `Pito::Chat::Result::Error(message_key:, message_args:)`, `Pito::Chat::Result::Refine(events:)`. `Ok` opens a new turn; `Refine` extends the current one. Distinct from Slash's Result types — different namespace, no cross-import.              |
+| Unknown handler        | A dedicated handler `Pito::Chat::Handlers::Unknown` returns `Result::Error(message_key: "pito.chat.errors.unknown_input", message_args: { input: <raw> })`. Invoked by the dispatcher when no verb matches AND the input doesn't qualify as a refinement.                            |
+| Example handler scope  | `Pito::Chat::Handlers::List` returns one `assistant_text` event with hardcoded fake content (a short string mentioning what would normally be listed). No DB, no domain models, no real list of videos. Just enough to prove the end-to-end pipeline works.                          |
+| Refinement example     | None in Plan 3 beyond the structural support. The `Refine` Result type is defined and wired, but no handler returns it. A demo fixture handler `Pito::Chat::Handlers::RefineDemo` (similar to Plan 2's `EchoConfirm`) exists as the canonical example.                               |
+| Tests                  | RSpec lib specs for the chat parser and dispatcher; RSpec service specs for the example handlers; RSpec request specs extending Plan 2's `chat_spec.rb` with the chat branch.                                                                                                        |
 
 ## Cross-plan invariants (reinforced)
 
-| Invariant | Rationale |
-|---|---|
-| `lib/pito/chat/**` does NOT `require` or reference `Pito::Slash::*`. | Parallel expansion. (Plan 2 mirrored this from its side.) |
-| `app/services/pito/chat/handlers/**` does NOT reference `Pito::Slash::*`. | Same. |
-| Both systems share **only** `Pito::Lex` and `Pito::Stream::*`. | Minimum shared surface. |
+| Invariant                                                                                                   | Rationale                                                                                                                                      |
+| ----------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `lib/pito/chat/**` does NOT `require` or reference `Pito::Slash::*`.                                        | Parallel expansion. (Plan 2 mirrored this from its side.)                                                                                      |
+| `app/services/pito/chat/handlers/**` does NOT reference `Pito::Slash::*`.                                   | Same.                                                                                                                                          |
+| Both systems share **only** `Pito::Lex` and `Pito::Stream::*`.                                              | Minimum shared surface.                                                                                                                        |
 | Chat handlers never mutate domain data (no AR writes, no API calls that change state). Slash owns mutation. | Conceptual cleanliness — chat reads, slash writes. (Plan 3's `List` handler doesn't even read; later chat handlers will read but never write.) |
-| Events stored by chat handlers use the same `Event::KINDS` from Plan 2. No new kinds in Plan 3. | Consistent rendering pipeline. |
+| Events stored by chat handlers use the same `Event::KINDS` from Plan 2. No new kinds in Plan 3.             | Consistent rendering pipeline.                                                                                                                 |
 
 ## Complexity hints
 
 Same as previous plans:
 
-| Hint | When |
-|---|---|
-| `[manual]` | You, by hand — branches, commits, visual review, design choices |
-| `[low]` | YAML, renames, file audits, locale entries, single-file Ruby classes, value objects, small handlers |
-| `[medium]` | Multi-file work: parser, dispatcher, controller integration |
-| `[high]` | Architectural calls (rare — most decisions inherited from Plan 2) |
+| Hint       | When                                                                                                |
+| ---------- | --------------------------------------------------------------------------------------------------- |
+| `[manual]` | You, by hand — branches, commits, visual review, design choices                                     |
+| `[low]`    | YAML, renames, file audits, locale entries, single-file Ruby classes, value objects, small handlers |
+| `[medium]` | Multi-file work: parser, dispatcher, controller integration                                         |
+| `[high]`   | Architectural calls (rare — most decisions inherited from Plan 2)                                   |
 
 ## Module map
 

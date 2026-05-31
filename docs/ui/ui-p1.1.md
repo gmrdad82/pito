@@ -1,6 +1,7 @@
 # P1.1 — pito chat shell revisions (v0.dev edit prompt)
 
 > **How to use this file**
+>
 > - Open the same v0.dev project where P1 was rendered.
 > - Model: **v0 Auto** (recommended) — Mini may struggle with the segment refactor + animations; Max isn't needed since aesthetic is locked.
 > - Paste the prompt block below verbatim as a follow-up message on the existing component (v0 keeps the prior code in context).

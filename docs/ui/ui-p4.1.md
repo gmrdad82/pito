@@ -1,6 +1,7 @@
 # P4.1 — pito sidebar restructure to overlay (v0.dev edit prompt)
 
 > **How to use this file**
+>
 > - Same v0.dev project. Edits the existing `/sidebar` route.
 > - Model: **v0 Max** — structural restructure (columns → overlay). Mini will stumble.
 > - Attach this file and paste the one-liner below in the chat input.
