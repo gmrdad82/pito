@@ -320,8 +320,8 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 - [x] T8.12 Commit: `Game release-date components: implementation`. complexity: [manual]
 
 ## P9 — Restore ScoreBar + TimeToBeat (kept-unused)
-- [ ] T9.1 Restore `pito/score_bar_component.{rb,html.erb}` from history. complexity: [low]
-- [ ] T9.2 Restore the TimeToBeat component from history. complexity: [low]
+- [x] T9.1 Restore `pito/score_bar_component.{rb,html.erb}` from history. complexity: [low]
+- [-] T9.2 Restore the TimeToBeat component from history. complexity: [low]
 - [ ] T9.3 Update both to conventions (no inline `style=`; `data-accent`); read `game.score` / TTB seconds. complexity: [low]
 - [ ] T9.4 Mark both `# KEPT BUT UNUSED — no host screen yet`. complexity: [low]
 - [ ] T9.5 Restore/refresh their specs. complexity: [low]
