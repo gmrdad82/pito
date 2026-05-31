@@ -24,15 +24,12 @@ class Game
       def map_game(json, ttb_json = nil)
         json ||= {}
 
-        release_date = unix_to_date(json["first_release_date"])
         attrs = {
           igdb_id:                 json["id"],
           igdb_slug:               json["slug"],
           title:                   json["name"],
           summary:                 json["summary"],
           cover_image_id:          json.dig("cover", "image_id"),
-          release_date:            release_date,
-          release_year:            release_date&.year,
           igdb_rating:             round_rating(json["rating"]),
           igdb_rating_count:       json["rating_count"],
           aggregated_rating:       round_rating(json["aggregated_rating"]),
@@ -40,6 +37,8 @@ class Game
           total_rating:            round_rating(json["total_rating"]),
           total_rating_count:      json["total_rating_count"]
         }
+
+        attrs.merge!(map_release_date(json))
 
         # Phase 28 §01a — IGDB's `version_title` stamps the edition row.
         # `version_parent_id` is NOT mapped here: the IGDB payload's
@@ -86,6 +85,81 @@ class Game
           ttb_extras_seconds:        json["normally"],
           ttb_completionist_seconds: json["completely"]
         }
+      end
+
+      # IGDB release_dates[] → pito 5-column component hash.
+      #
+      # 1. Picks the canonical row — the one whose `date` equals
+      #    `first_release_date`, falling back to the most-precise
+      #    non-TBD row when `first_release_date` is null.
+      # 2. Translates IGDB `category` (0..7) into the component shape.
+      # 3. Delegates to `Pito::Game::ReleaseDateMapper` for the
+      #    canonical 5-column output.
+      def map_release_date(json)
+        first_release_date = unix_to_date(json["first_release_date"])
+        rows = Array(json["release_dates"])
+
+        components = if rows.any?
+                       canonical_row(first_release_date, rows)
+        elsif first_release_date
+                       # No release_dates association — fall back to
+                       # treating first_release_date as day precision.
+                       {
+                         year:  first_release_date.year,
+                         month: first_release_date.month,
+                         day:   first_release_date.day
+                       }
+        else
+                       {}
+        end
+
+        Pito::Game::ReleaseDateMapper.call(components)
+      end
+
+      # Precision rank: lower = more precise.
+      # 0 day | 1 month | 3..6 quarters | 2 year | 7 TBD
+      RELEASE_DATE_PRECISION = {
+        0 => 0, 1 => 1,
+        3 => 2, 4 => 2, 5 => 2, 6 => 2,
+        2 => 3,
+        7 => 4
+      }.freeze
+
+      def canonical_row(first_release_date, rows)
+        row = if first_release_date
+                # Pick the row whose date matches first_release_date.
+                target_unix = Time.utc(first_release_date.year, first_release_date.month, first_release_date.day).to_i
+                rows.find { |r| r["date"] == target_unix }
+        else
+                # first_release_date is null — pick the most-precise
+                # non-TBD row (lowest precision rank, excluding 7).
+                non_tbd = rows.reject { |r| r["category"] == 7 }
+                non_tbd.min_by { |r| RELEASE_DATE_PRECISION[r["category"].to_i] }
+        end
+
+        return {} unless row
+
+        translate_igdb_category(row)
+      end
+
+      def translate_igdb_category(row)
+        category = row["category"].to_i
+        year     = row["y"]
+
+        case category
+        when 0 # day
+          { year: year, month: row["m"], day: row["d"] }
+        when 1 # month
+          { year: year, month: row["m"] }
+        when 2 # year
+          { year: year }
+        when 3, 4, 5, 6 # Q1..Q4
+          { year: year, quarter: category - 2 }
+        when 7 # TBD
+          {}
+        else
+          {}
+        end
       end
 
       def map_genre(json)

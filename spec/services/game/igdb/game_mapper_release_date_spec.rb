@@ -32,7 +32,7 @@ RSpec.describe Game::Igdb::GameMapper, ".map_game release-date handling" do
   end
 
   def unix(date)
-    date.to_time.utc.to_i
+    Time.utc(date.year, date.month, date.day).to_i
   end
 
   context "day precision (category 0)" do

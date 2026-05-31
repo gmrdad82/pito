@@ -119,6 +119,7 @@ class Game
         version_title
         alternative_names.id
         alternative_names.name
+        release_dates.category release_dates.y release_dates.m release_dates.d release_dates.date
       ].freeze
 
       def initialize(token_cache: TokenCache.new, rate_limiter: RateLimiter.shared, http: Net::HTTP)
