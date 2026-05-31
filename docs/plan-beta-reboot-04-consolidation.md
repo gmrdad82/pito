@@ -380,6 +380,7 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 - [ ] T13.8 state → `pito:tools:state:*`. complexity: [low]
 - [ ] T13.9 config → `pito:tools:config:*`. complexity: [low]
 - [ ] T13.10 cleanup/assets/cover_arts → `pito:tools:{cleanup,assets,cover_arts}:*`. complexity: [low]
+  > Cover art is slated to move to **Active Storage** (see "Open follow-ups"); revisit the `cover_arts` namespace then — some of it may fold into the AS refactor rather than survive as a standalone rake namespace.
 - [ ] T13.11 `games:backfill_scores` → `pito:tools:games:*`. complexity: [low]
 - [ ] T13.12 `pito:tools:db:dump` + `:restore`. complexity: [low]
 - [ ] T13.13 Update initializers/docs invoking renamed tasks. complexity: [low]
@@ -727,6 +728,7 @@ _Resolved this round:_ video commands = `/import` + `/update` + lifecycle `/publ
 - `Pito::Stats` / `Pito::Analytics` plans; wire TAB/period.
 - Games detail screen; videos list screen.
 - `Calendar`/`CalendarEntry`, `Notification` models — add when needed. (Playlist dropped — not supported.)
+- **Refactor Game cover art to Active Storage.** Replace the bespoke `Game::CoverArt::Normalizer`-to-disk + `public/covers` static-symlink serving (symlink rake task already removed; `ImagesController` is orphaned) with an Active Storage attachment on `Game` (vips-normalized 600×800 master + variants), rendered in the Game-detail Sidebar. Decided 2026-05-31 (supersedes the earlier "keep as plain generated files" stance).
 - Remote footage ingest (script + HTTP endpoint) if/when on Hetzner.
 - At merge: delete `plan-beta-reboot-*.md`; fold durable content into `architecture.md` / `design.md` / `installation.md` / `tools.md`.
 
