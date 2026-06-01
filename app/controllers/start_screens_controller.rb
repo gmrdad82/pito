@@ -4,8 +4,8 @@ class StartScreensController < ApplicationController
 
   def show
     render(Pito::StartScreen::Component.new(
-      version: "0.1.0",
-      marketing_url: ENV["PITO_MARKETING_URL"].presence
+      repo_url: ENV.fetch("PITO_REPO_URL", "https://github.com/gmrdad82/pito"),
+      license_url: ENV.fetch("PITO_LICENSE_URL", "https://www.gnu.org/licenses/agpl-3.0.html")
     ))
   end
 end

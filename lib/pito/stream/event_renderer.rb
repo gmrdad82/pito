@@ -26,17 +26,17 @@ module Pito
       end
 
       def self.component_for(event)
-        build_component(event.kind, indifferent_payload(event))
+        build_component(event.kind, indifferent_payload(event), event:)
       end
 
       # Build the correct component instance for a given kind and payload.
-      def self.build_component(kind, payload)
-        if (component_class = COMPONENT_CLASSES[kind])
-          component_class.new(payload:)
+      # `event:` is passed to components that need it (e.g. EchoComponent for timestamp).
+      def self.build_component(kind, payload, event: nil)
+        if kind == "echo" || kind == "user_message"
+          Pito::Event::EchoComponent.new(payload:, event:)
 
-        elsif kind == "user_message"
-          # Visually identical to echo — orange bar + text
-          Pito::Event::EchoComponent.new(payload:)
+        elsif (component_class = COMPONENT_CLASSES[kind])
+          component_class.new(payload:)
 
         else
           raise ArgumentError,

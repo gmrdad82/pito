@@ -336,6 +336,12 @@ html {
   font-family: ui-monospace, monospace;
 }
 
+/* ── Echo event component ───────────────────────────────────── */
+
+.pito-echo__meta {
+  margin-top: 6px;
+}
+
 /* ── Chatbox component ──────────────────────────────────────── */
 
 .pito-chatbox__input {

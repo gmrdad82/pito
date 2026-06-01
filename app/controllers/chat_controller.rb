@@ -5,6 +5,20 @@ class ChatController < ApplicationController
 
   def create
     input = params[:input].to_s
+
+    # Home→chat transition (T22): blank input + no uuid → create conversation only.
+    # JS calls this first to get the UUID and signed stream name for cable setup,
+    # then calls again with uuid + actual input to process the message.
+    if input.blank? && params[:uuid].blank?
+      conversation = Conversation.create!
+      return render json: {
+        uuid: conversation.uuid,
+        signed_stream_name: Turbo::StreamsChannel.signed_stream_name(
+          "pito:conversation:#{conversation.uuid}"
+        )
+      }, status: :created
+    end
+
     return head :no_content if input.blank?
 
     conversation = resolve_conversation

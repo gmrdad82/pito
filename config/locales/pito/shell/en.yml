@@ -3,6 +3,7 @@ en:
     shell:
       chatbox:
         placeholder: "Type a command or message…"
+        default_channel: "@all"
         hints:
           authenticate: "/authenticate 123456 to authenticate"
           help: "/help to see available commands"

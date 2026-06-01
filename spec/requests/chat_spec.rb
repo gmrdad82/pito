@@ -202,12 +202,73 @@ RSpec.describe "Chat requests", type: :request do
       end
     end
 
-    context "with an empty input" do
-      let(:params) { { input: "" } }
+    context "with an empty input and existing uuid" do
+      let(:params) { { input: "", uuid: conversation.uuid } }
 
       it "returns 204 No Content" do
         post "/chat", params: params
         expect(response).to have_http_status(:no_content)
+      end
+    end
+
+    context "with blank input and no uuid (home→chat transition step 1)" do
+      it "creates a conversation and returns uuid + signed_stream_name as JSON" do
+        post "/chat", params: { input: "" },
+                      headers: { "Accept" => "application/json" }
+        expect(response).to have_http_status(:created)
+        body = response.parsed_body
+        expect(body["uuid"]).to be_present
+        expect(body["signed_stream_name"]).to be_present
+      end
+
+      it "persists a new Conversation" do
+        expect {
+          post "/chat", params: { input: "" },
+                        headers: { "Accept" => "application/json" }
+        }.to change(Conversation, :count).by(1)
+      end
+
+      it "does not create any Turn or Event" do
+        expect {
+          post "/chat", params: { input: "" },
+                        headers: { "Accept" => "application/json" }
+        }.not_to change(Event, :count)
+      end
+
+      it "returns a uuid that resolves to GET /chat/:uuid" do
+        post "/chat", params: { input: "" },
+                      headers: { "Accept" => "application/json" }
+        uuid = response.parsed_body["uuid"]
+        get conversation_path(uuid:)
+        expect(response).to have_http_status(:ok)
+      end
+    end
+
+    context "home→chat transition sequence (server side)" do
+      # Exercises both steps the JS home-transition controller drives:
+      #   Step 1: POST /chat  blank input, no uuid → create conversation
+      #   Step 2: POST /chat  uuid + input         → process message
+      # The animation and DOM morph run client-side; smoke-tested in T22.8.
+
+      it "step 1 then step 2 creates events on the conversation" do
+        post "/chat", params: { input: "" },
+                      headers: { "Accept" => "application/json" }
+        uuid = response.parsed_body["uuid"]
+
+        expect {
+          post "/chat", params: { uuid:, input: "/help" }
+        }.to change(Event, :count).by_at_least(1)
+
+        expect(response).to have_http_status(:no_content)
+      end
+
+      it "events from step 2 belong to the conversation created in step 1" do
+        post "/chat", params: { input: "" },
+                      headers: { "Accept" => "application/json" }
+        uuid = response.parsed_body["uuid"]
+        post "/chat", params: { uuid:, input: "/help" }
+
+        expect(Conversation.find_by!(uuid:).events).not_to be_empty
       end
     end
 

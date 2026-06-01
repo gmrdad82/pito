@@ -1,0 +1,243 @@
+// Pito::HomeTransitionController
+//
+// Drives the start-screen → conversation transition on first message submit.
+//
+// Flow (T22.1–T22.7):
+//   Enter ──► preventDefault + stopImmediatePropagation
+//         ──► atomically fix all visible elements to prevent reflow snaps
+//         ──► [parallel] choreographed chrome fade-out  +  POST /chat blank (get uuid)
+//         ──► chatbox drops straight down (ease-in, accelerates)
+//         ──► chatbox expands symmetrically ← → (ease-in: slow start → accelerate)
+//             mini-status stays glued — it's inside chatboxArea and rides with it
+//         ──► history.pushState /chat/:uuid
+//         ──► inject <turbo-cable-stream-source>
+//         ──► morph DOM → conversation layout
+//         ──► POST the message
+//
+// T22.7: after replaceWith() this controller disconnects; subsequent Enter presses
+// only fire pito--chat-form#handleKeydown through the normal chat path.
+
+import { Controller } from "@hotwired/stimulus"
+
+// ── Timing constants — edit these to tune the feel ───────────────────────────
+const FADE_MS       = 220   // fade/slide duration for chrome elements
+const HEAD_START_MS = 80    // logo gets this head start before the rest begin
+const CORNER_DELAY  = 60    // extra delay before corners start (after the main group)
+const SLIDE_MS      = 240   // chatbox vertical drop
+const EXPAND_MS     = 380   // chatbox horizontal expansion (ease-in: slow → fast)
+
+export default class extends Controller {
+  static targets = ["logoRow", "tip", "corners", "fade", "chatboxArea", "conversationChrome"]
+
+  // ── T22.1 entry point ─────────────────────────────────────────────────────
+
+  async interceptEnter(event) {
+    if (event.key !== "Enter" || event.shiftKey) return
+    const input = event.target.value?.trim()
+    if (!input) return
+
+    event.preventDefault()
+    event.stopImmediatePropagation()
+
+    const [, data] = await Promise.all([
+      this.#runAnimation(),
+      this.#createConversation(),
+    ])
+
+    history.pushState({}, "", `/chat/${data.uuid}`)
+    document.title = "pito"
+    this.#injectTurboStream(data.signed_stream_name)
+    this.#morphToConversation(data.uuid)
+    this.#postMessage(input, data.uuid)
+  }
+
+  // ── T22.2 — animation ─────────────────────────────────────────────────────
+
+  async #runAnimation() {
+    const chatbox = this.chatboxAreaTarget
+
+    // Step 1: capture positions BEFORE any DOM change.
+    const chatboxRect = chatbox.getBoundingClientRect()
+    const fixableEls  = [
+      ...this.logoRowTargets,
+      ...this.tipTargets,
+      ...this.cornersTargets,
+    ]
+    const savedRects = fixableEls.map(el => ({ el, rect: el.getBoundingClientRect() }))
+
+    // Step 2: atomically fix ALL visible animated elements at their current
+    // positions. Doing this in one batch means zero reflow — nothing left in
+    // the normal flow can shift.
+    const pin = (el, rect) => {
+      el.style.position   = "fixed"
+      el.style.top        = `${rect.top}px`
+      el.style.left       = `${rect.left}px`
+      el.style.width      = `${rect.width}px`
+      el.style.height     = `${rect.height}px`  // preserve natural height; prevents flex-1 collapse
+      el.style.margin     = "0"
+      el.style.zIndex     = "100"
+      el.style.transition = "none"
+      // Only inline elements need display:block to be positionable; setting it on
+      // div/flex elements would strip their own display (flex, etc.) causing jumps.
+      if (el.tagName === "SPAN") el.style.display = "block"
+    }
+    savedRects.forEach(({ el, rect }) => pin(el, rect))
+    pin(chatbox, chatboxRect)
+
+    // Single forced reflow commits every fixed position in one paint cycle.
+    chatbox.getBoundingClientRect()
+
+    // Phase 1: choreographed chrome fade-out (logo first, rest staggered).
+    await this.#fadeOutChrome()
+
+    // Phase 2a: drop straight down (ease-in — accelerates toward the bottom).
+    const targetTop = window.innerHeight - chatboxRect.height - 32
+    chatbox.getBoundingClientRect()
+    chatbox.style.transition = `top ${SLIDE_MS}ms cubic-bezier(0.4,0,1,1)`
+    chatbox.style.top = `${targetTop}px`
+    await this.#wait(SLIDE_MS)
+
+    // Phase 2b: remove max-width from chatboxArea so it can expand beyond 600px.
+    chatbox.style.maxWidth = "none"
+
+    // Phase 2c: expand symmetrically ← →.
+    // Re-anchor to center (no transition — was already centered) so animating
+    // only `width` makes both edges move outward equally.
+    // Easing: ease-in (slow start → accelerates) to match the drop feel.
+    const targetWidth = window.innerWidth - 100
+    chatbox.getBoundingClientRect()
+    chatbox.style.transition = "none"
+    chatbox.style.left       = "50%"
+    chatbox.style.transform  = "translateX(-50%)"
+    chatbox.getBoundingClientRect()
+    chatbox.style.transition = `width ${EXPAND_MS}ms cubic-bezier(0.4,0,1,1)`
+    chatbox.style.width = `${targetWidth}px`
+    await this.#wait(EXPAND_MS)
+  }
+
+  // ── T22.2 — chrome choreography ───────────────────────────────────────────
+
+  async #fadeOutChrome() {
+    const animate = (targets, dy, delay) => {
+      targets.forEach(el => {
+        setTimeout(() => {
+          el.style.transition    = `opacity ${FADE_MS}ms ease, transform ${FADE_MS}ms ease`
+          el.style.opacity       = "0"
+          el.style.transform     = `translateY(${dy}px)`
+          el.style.pointerEvents = "none"
+        }, delay)
+      })
+    }
+
+    // Logo rows: random duration/delay/distance within bounds on every visit so
+    // the dissolve feels unstable and alive rather than a uniform block wipe.
+    const rnd = (min, max) => min + Math.random() * (max - min)
+    this.logoRowTargets.forEach(el => {
+      const dur   = rnd(FADE_MS * 0.65, FADE_MS * 1.35)  // ±35% of base
+      const delay = rnd(0, 55)                             // stagger up to 55ms
+      const dy    = -rnd(10, 26)                           // slide 10–26px up
+      setTimeout(() => {
+        el.style.transition    = `opacity ${dur}ms ease, transform ${dur}ms ease`
+        el.style.opacity       = "0"
+        el.style.transform     = `translateY(${dy}px)`
+        el.style.pointerEvents = "none"
+      }, delay)
+    })
+    // After head start: tip slides DOWN (clears the chatbox path), invisible fades.
+    animate(this.tipTargets,     +20, HEAD_START_MS)
+    this.fadeTargets.forEach(el => {
+      setTimeout(() => {
+        el.style.transition    = `opacity ${FADE_MS}ms ease`
+        el.style.opacity       = "0"
+        el.style.pointerEvents = "none"
+      }, HEAD_START_MS)
+    })
+    // Corners last — slides up like the logo but slightly later.
+    animate(this.cornersTargets, -10, HEAD_START_MS + CORNER_DELAY)
+
+    await this.#wait(HEAD_START_MS + CORNER_DELAY + FADE_MS)
+  }
+
+  // ── T22.5 — conversation creation ─────────────────────────────────────────
+
+  async #createConversation() {
+    const token = document.querySelector('meta[name="csrf-token"]')?.content
+    // Blank input + no uuid → chat controller creates the conversation only
+    // and returns {uuid, signed_stream_name}. No message is processed here.
+    const resp  = await fetch("/chat", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Accept":        "application/json",
+        "X-CSRF-Token":  token,
+      },
+      body: JSON.stringify({ input: "" }),
+    })
+    return resp.json()
+  }
+
+  // ── T22.5 — turbo cable subscription ──────────────────────────────────────
+
+  #injectTurboStream(signedStreamName) {
+    const el = document.createElement("turbo-cable-stream-source")
+    el.setAttribute("channel",            "Turbo::StreamsChannel")
+    el.setAttribute("signed-stream-name", signedStreamName)
+    document.body.appendChild(el)
+  }
+
+  // ── T22.3 + T22.4 — DOM morph ─────────────────────────────────────────────
+
+  #morphToConversation(uuid) {
+    // Extract just the form — chatboxArea (and its start-screen mini-status) is discarded.
+    const form   = this.chatboxAreaTarget.querySelector("form.chatbox-form")
+    const chrome = this.conversationChromeTarget
+
+    // Add uuid hidden field so subsequent chat POSTs carry the conversation id.
+    form.prepend(Object.assign(document.createElement("input"), {
+      type: "hidden", name: "uuid", value: uuid,
+    }))
+
+    // Build conversation layout (T22.3 scrollback, T22.4 chrome).
+    const conversationEl = document.createElement("div")
+    conversationEl.className = "flex flex-col"
+    conversationEl.style.height = "100vh"
+
+    const scrollback = document.createElement("div")
+    scrollback.id = "pito-scrollback"
+    scrollback.className = "pito-hide-scrollbar pito-scroll-fade"
+    scrollback.style.cssText = "flex: 1; overflow-y: auto; padding: 32px 50px 20px;"
+    scrollback.dataset.controller = "pito--scrollback"
+
+    const bottomPanel = document.createElement("div")
+    bottomPanel.style.cssText = "padding: 0 50px 32px;"
+    bottomPanel.appendChild(form)
+    chrome.removeAttribute("style")
+    bottomPanel.appendChild(chrome)
+
+    conversationEl.appendChild(scrollback)
+    conversationEl.appendChild(bottomPanel)
+
+    // Replace the start-screen root — disconnects home-transition (T22.7).
+    this.element.replaceWith(conversationEl)
+  }
+
+  // ── T22.6 — submit the message ────────────────────────────────────────────
+
+  #postMessage(input, uuid) {
+    const form        = document.querySelector("form.chatbox-form")
+    const hiddenInput = form.querySelector('[data-pito--chat-form-target="hiddenInput"]')
+    const textarea    = form.querySelector('[data-pito--chat-form-target="inputField"]')
+
+    hiddenInput.value = input
+    form.requestSubmit()
+    textarea.value = ""
+    textarea.dispatchEvent(new Event("input", { bubbles: true }))
+    document.dispatchEvent(new CustomEvent("pito:submitted"))
+  }
+
+  // ── util ──────────────────────────────────────────────────────────────────
+
+  #wait(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms))
+  }
+}

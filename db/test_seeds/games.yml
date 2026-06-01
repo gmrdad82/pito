@@ -1,10 +1,10 @@
 ---
-- id: 1336
+- id: 1895
   aggregated_rating:
   aggregated_rating_count:
   alternative_names: "{}"
   cover_image_id:
-  created_at: 2026-05-31 22:57:09.691186000 Z
+  created_at: 2026-06-01 04:55:26.428547000 Z
   igdb_id:
   igdb_rating:
   igdb_rating_count:
@@ -29,4 +29,4 @@
   ttb_completionist_seconds:
   ttb_extras_seconds:
   ttb_main_seconds:
-  updated_at: 2026-05-31 22:57:09.691186000 Z
+  updated_at: 2026-06-01 04:55:26.428547000 Z

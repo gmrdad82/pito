@@ -3,15 +3,13 @@
 module Pito
   module StartScreen
     class Component < ViewComponent::Base
-      # @param version [String] app version displayed in bottom-right corner.
-      # @param marketing_url [String, nil] URL for the marketing link in the
-      #   bottom-left. When blank the link is omitted.
-      # @param logo [Object] optional logo content (slot — empty in Plan 1).
+      # @param repo_url [String] GitHub source link — bottom-left corner.
+      # @param license_url [String] License link — bottom-right corner.
       renders_one :logo
 
-      def initialize(version:, marketing_url: nil)
-        @version = version
-        @marketing_url = marketing_url
+      def initialize(repo_url:, license_url:)
+        @repo_url = repo_url
+        @license_url = license_url
       end
     end
   end

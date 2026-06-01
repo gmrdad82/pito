@@ -3,3 +3,5 @@ en:
     start_screen:
       tip_prefix: "Tip"
       tip_placeholder: "[placeholder for tip dictionary]"
+      repo_link: "GitHub Source"
+      license_link: "AGPL-3.0"

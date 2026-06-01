@@ -14,7 +14,7 @@ Rails.application.routes.draw do
       as: :youtube_connection_oauth_failure
 
   root "start_screens#show"
-  post "/chat", to: "chat#create"
+  post "/chat", to: "chat#create", as: :chat
   get "/chat/:uuid", to: "conversations#show", as: :conversation
 
   # Health check

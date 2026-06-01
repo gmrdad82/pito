@@ -566,13 +566,20 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 
 > Enter → animate → bottom → reveal scrollback → Dots → **URL → /chat/:uuid** → then POST.
 
-- [ ] T22.1 Stimulus `pito--home-transition`: on Enter (empty conversation) `preventDefault`. complexity: [low]
-- [ ] T22.2 Animate the centered chatbox down to the bottom bar. complexity: [high]
-- [ ] T22.3 Reveal the empty scrollback as the chatbox lands. complexity: [low]
-- [ ] T22.4 Make the bottom-left Dots indicator visible at transition end. complexity: [low]
-- [ ] T22.5 Create the conversation + `history.pushState` to `/chat/:uuid` (keep streamed DOM). complexity: [high]
-- [ ] T22.6 Only AFTER the URL change, POST the message. complexity: [high]
-- [ ] T22.7 Subsequent messages skip the transition. complexity: [low]
+- [x] T22.1 Stimulus `pito--home-transition`: on Enter (empty conversation) `preventDefault`. complexity: [low]
+  > `app/javascript/controllers/pito/home_transition_controller.js` — `interceptEnter` fires before `chat-form#handleKeydown` (listed first in the textarea's `data-action`). `preventDefault` suppresses the Turbo POST; TODOs mark T22.2–T22.6 entry points. Controller wired on the chatbox wrapper `<div>` in `start_screen/component.html.erb`.
+- [x] T22.2 Animate the centered chatbox down to the bottom bar. complexity: [high]
+  > FLIP animation: chatbox fixed at current rect → fade chrome (180ms) → slide to bottom + expand to full 50px-padded width (320ms, cubic-bezier). Bottom links (GitHub Source, AGPL-3.0) are `fadeOut` targets so they animate with the rest of the chrome.
+- [x] T22.3 Reveal the empty scrollback as the chatbox lands. complexity: [low]
+  > DOM morph builds `#pito-scrollback` div with `data-controller="pito--scrollback"` programmatically; appended before the bottom panel.
+- [x] T22.4 Make the bottom-left Dots indicator visible at transition end. complexity: [low]
+  > `PostCommandDotsComponent` + `MiniStatusComponent` pre-rendered hidden in `conversationChrome` target on the start screen; revealed at morph time (`removeAttribute("style")`).
+- [x] T22.5 Create the conversation + `history.pushState` to `/chat/:uuid` (keep streamed DOM). complexity: [high]
+  > `POST /conversations` (new endpoint, JSON) runs in parallel with the animation; returns `{uuid, signed_stream_name}`. After animation: `history.pushState`, then `<turbo-cable-stream-source>` injected using the server-provided signed name — real cable subscription, no homebrew signing.
+- [x] T22.6 Only AFTER the URL change, POST the message. complexity: [high]
+  > `#postMessage` called after `history.pushState` + DOM morph; sets `hiddenInput`, adds uuid hidden field, calls `form.requestSubmit()`.
+- [x] T22.7 Subsequent messages skip the transition. complexity: [low]
+  > `this.element.replaceWith(conversationEl)` removes the home-transition controller from the DOM; textarea then only carries `pito--chat-form#handleKeydown`, so Enter goes through the normal chat path.
 - [ ] T22.8 Smoke. complexity: [manual]
 - [ ] T22.9 Commit: `Home→chat first-message transition`. complexity: [manual]
 

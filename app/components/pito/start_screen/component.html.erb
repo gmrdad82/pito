@@ -1,50 +1,64 @@
 <%# U7 — Start screen. Full-viewport centered layout, no auth required. %>
 <%# ASCII logo per ui-p2.md, chatbox at 50vh, tip line + bottom corners below. %>
+<%# pito--home-transition wired on the outer wrapper so it can reach all targets. %>
 
-<div class="flex flex-col min-h-screen">
+<div class="flex flex-col min-h-screen" data-controller="pito--home-transition">
+
   <%# Top spacer — pushes centered group toward 50vh %>
-  <div class="flex-1"></div>
+  <div class="flex-1" data-pito--home-transition-target="fade"></div>
 
   <%# Centered group %>
   <div class="flex flex-col items-center">
-    <%# ASCII logo — 6 rows, brand-pito blocks + fg-dim shadow chars, 18px %>
+
+    <%# ASCII logo — each row is its own logo-row target so the controller can
+        stagger them independently, creating an unstable / glitchy dissolve. %>
     <pre class="pito-start-screen__logo">
-<span class="text-pito">██████</span><span class="text-fg-dim">╗ </span><span class="text-pito">██</span><span class="text-fg-dim">╗</span><span class="text-pito">████████</span><span class="text-fg-dim">╗ </span><span class="text-pito">██████</span><span class="text-fg-dim">╗ </span>
-<span class="text-pito">██</span><span class="text-fg-dim">╔══</span><span class="text-pito">██</span><span class="text-fg-dim">╗</span><span class="text-pito">██</span><span class="text-fg-dim">║╚══</span><span class="text-pito">██</span><span class="text-fg-dim">╔══╝</span><span class="text-pito">██</span><span class="text-fg-dim">╔═══</span><span class="text-pito">██</span><span class="text-fg-dim">╗</span>
-<span class="text-pito">██████</span><span class="text-fg-dim">╔╝</span><span class="text-pito">██</span><span class="text-fg-dim">║   </span><span class="text-pito">██</span><span class="text-fg-dim">║   </span><span class="text-pito">██</span><span class="text-fg-dim">║   </span><span class="text-pito">██</span><span class="text-fg-dim">║</span>
-<span class="text-pito">██</span><span class="text-fg-dim">╔═══╝ </span><span class="text-pito">██</span><span class="text-fg-dim">║   </span><span class="text-pito">██</span><span class="text-fg-dim">║   </span><span class="text-pito">██</span><span class="text-fg-dim">║   </span><span class="text-pito">██</span><span class="text-fg-dim">║</span>
-<span class="text-pito">██</span><span class="text-fg-dim">║     </span><span class="text-pito">██</span><span class="text-fg-dim">║   </span><span class="text-pito">██</span><span class="text-fg-dim">║   ╚</span><span class="text-pito">██████</span><span class="text-fg-dim">╔╝</span>
-<span class="text-fg-dim">╚═╝     ╚═╝   ╚═╝    ╚═════╝ </span>
+<span data-pito--home-transition-target="logoRow"><span class="text-pito">██████</span><span class="text-fg-dim">╗ </span><span class="text-pito">██</span><span class="text-fg-dim">╗</span><span class="text-pito">████████</span><span class="text-fg-dim">╗ </span><span class="text-pito">██████</span><span class="text-fg-dim">╗ </span></span>
+<span data-pito--home-transition-target="logoRow"><span class="text-pito">██</span><span class="text-fg-dim">╔══</span><span class="text-pito">██</span><span class="text-fg-dim">╗</span><span class="text-pito">██</span><span class="text-fg-dim">║╚══</span><span class="text-pito">██</span><span class="text-fg-dim">╔══╝</span><span class="text-pito">██</span><span class="text-fg-dim">╔═══</span><span class="text-pito">██</span><span class="text-fg-dim">╗</span></span>
+<span data-pito--home-transition-target="logoRow"><span class="text-pito">██████</span><span class="text-fg-dim">╔╝</span><span class="text-pito">██</span><span class="text-fg-dim">║   </span><span class="text-pito">██</span><span class="text-fg-dim">║   </span><span class="text-pito">██</span><span class="text-fg-dim">║   </span><span class="text-pito">██</span><span class="text-fg-dim">║</span></span>
+<span data-pito--home-transition-target="logoRow"><span class="text-pito">██</span><span class="text-fg-dim">╔═══╝ </span><span class="text-pito">██</span><span class="text-fg-dim">║   </span><span class="text-pito">██</span><span class="text-fg-dim">║   </span><span class="text-pito">██</span><span class="text-fg-dim">║   </span><span class="text-pito">██</span><span class="text-fg-dim">║</span></span>
+<span data-pito--home-transition-target="logoRow"><span class="text-pito">██</span><span class="text-fg-dim">║     </span><span class="text-pito">██</span><span class="text-fg-dim">║   </span><span class="text-pito">██</span><span class="text-fg-dim">║   ╚</span><span class="text-pito">██████</span><span class="text-fg-dim">╔╝</span></span>
+<span data-pito--home-transition-target="logoRow"><span class="text-fg-dim">╚═╝     ╚═╝   ╚═╝    ╚═════╝ </span></span>
 </pre>
 
     <%# 32px gap %>
-    <div class="h-8"></div>
+    <div class="h-8" data-pito--home-transition-target="fade"></div>
 
-    <%# Chatbox form — posts to POST /chat (no uuid = new conversation) %>
-    <div class="w-full max-w-[600px] px-4">
-      <%= form_with url: chat_path, method: :post,
-                    data: { controller: "pito--chat-form", turbo: true },
-                    class: "chatbox-form" do |form| %>
-        <%= form.hidden_field :input, data: { pito__chat_form_target: "hiddenInput" } %>
+    <%# chatboxArea: wraps form + mini-status so they animate as a single unit.
+        Width constraint lives here (not on children) so w-full on children resolves
+        correctly in the items-center flex context. %>
+    <div class="w-full max-w-[600px]" data-pito--home-transition-target="chatboxArea">
 
-        <%= render(Pito::Shell::ChatboxComponent.new(
-              state: :start,
-              input_data: { pito__chat_form_target: "inputField" }
-            )) %>
-      <% end %>
-    </div>
+      <div class="px-4">
+        <%= form_with url: chat_path, method: :post,
+                      data: { controller: "pito--chat-form", turbo: true },
+                      class: "chatbox-form" do |form| %>
+          <%= form.hidden_field :input, data: { pito__chat_form_target: "hiddenInput" } %>
 
-    <%# Mini-status row — right-aligned to chatbox right edge %>
-    <div class="mt-2 w-full max-w-[600px] px-4">
-      <div class="flex justify-end">
-        <%= render(Pito::Shell::MiniStatusComponent.new(mode: :start)) %>
+          <%= render(Pito::Shell::ChatboxComponent.new(
+                state: :start,
+                input_data: {
+                  pito__chat_form_target: "inputField",
+                  action: "keydown->pito--home-transition#interceptEnter keydown->pito--chat-form#handleKeydown"
+                }
+              )) %>
+        <% end %>
       </div>
+
+      <%# Mini-status: glued to chatbox bottom-right, rides with the animation %>
+      <div class="mt-2 px-4">
+        <div class="flex justify-end">
+          <%= render(Pito::Shell::MiniStatusComponent.new(mode: :start)) %>
+        </div>
+      </div>
+
     </div>
+
   </div>
 
-  <%# Spacer between centered group and bottom area — tip lives inside this %>
-  <div class="flex-1 flex flex-col justify-center items-center p-4">
-    <%# Tip line — orange bullet + prefix in yellow + dim placeholder text %>
+  <%# Tip — fades + slides DOWN to clear the chatbox path %>
+  <div class="flex-1 flex flex-col justify-center items-center p-4"
+       data-pito--home-transition-target="tip">
     <span class="text-fg-faded">
       <span class="text-orange">●</span>
       <span class="font-bold text-yellow"><%= t("pito.start_screen.tip_prefix") %></span>
@@ -53,13 +67,30 @@
     </span>
   </div>
 
-  <%# Bottom corners %>
-  <div class="flex justify-between px-[50px] pb-8">
-    <% if @marketing_url.present? %>
-      <a href="<%= @marketing_url %>" class="text-fg-dim hover:underline" target="_blank"><%= URI.parse(@marketing_url).host || @marketing_url %></a>
-    <% else %>
-      <span></span>
-    <% end %>
-    <span class="text-fg-dim">v<%= @version %></span>
+  <%# Bottom corners — fades + slides up, delayed after logo %>
+  <div class="flex justify-between px-[50px] pb-8"
+       data-pito--home-transition-target="corners">
+    <a href="<%= @repo_url %>" class="text-fg-dim hover:underline" target="_blank" rel="noopener">
+      <%= t("pito.start_screen.repo_link") %>
+    </a>
+    <a href="<%= @license_url %>" class="text-fg-dim hover:underline" target="_blank" rel="noopener">
+      <%= t("pito.start_screen.license_link") %>
+    </a>
   </div>
+
+  <%# Pre-rendered conversation chrome — hidden until animation completes %>
+  <div data-pito--home-transition-target="conversationChrome" style="display:none;">
+    <div class="flex items-center" style="margin-top: 8px;">
+      <div style="margin-left: 10px;">
+        <%= render(Pito::Shell::PostCommandDotsComponent.new) %>
+      </div>
+      <div style="margin-left: auto;">
+        <%= render(Pito::Shell::MiniStatusComponent.new(
+              mode: :connection,
+              state: Current.session.present?
+            )) %>
+      </div>
+    </div>
+  </div>
+
 </div>
