@@ -47,6 +47,22 @@ RSpec.describe Pito::Shell::ChatboxComponent do
         expect(cyan_texts).to include("30d")
       end
 
+      it "uses mx-2 spacing for the separator dot (matches mini status bar)" do
+        node = render_inline(described_class.new(
+          filter: { channel: "gaming", period: "7d" }
+        ))
+        dot_spans = node.css("span.mx-2").select { |s| s.text.strip == "·" }
+        expect(dot_spans).not_to be_empty
+      end
+
+      it "uses ml-2 spacing for channel and period values (matches mini status bar)" do
+        node = render_inline(described_class.new(
+          filter: { channel: "gaming", period: "7d" }
+        ))
+        cyan_spans = node.css("span.text-cyan")
+        expect(cyan_spans.first["class"]).to include("ml-2")
+      end
+
       it "does NOT render the filter line when state is :start" do
         node = render_inline(described_class.new(
           state: :start,

@@ -3,20 +3,20 @@
     <span class="text-red"><%= t("pito.shell.mini_status.not_authenticated") %></span>
   <% else %>
     <span class="<%= connection_class %>"><%= connection_label %></span>
-  <% end %>
-  <% if @show_notifications && @notifications > 0 %>
+    <% if @show_notifications && @notifications > 0 %>
+      <span class="text-fg-faded mx-2">·</span>
+      <span class="text-cyan"><%= t("pito.shell.mini_status.notifications_count", count: @notifications) %></span>
+    <% end %>
     <span class="text-fg-faded mx-2">·</span>
-    <span class="text-cyan"><%= t("pito.shell.mini_status.notifications_count", count: @notifications) %></span>
+    <span class="font-bold text-yellow"><%= t("pito.shell.mini_status.tab_hint") %></span>
+    <span class="text-fg-dim ml-2"><%= t("pito.shell.mini_status.tab_label") %></span>
+    <span class="text-fg-faded mx-2">·</span>
+    <span class="font-bold text-yellow"><%= t("pito.shell.mini_status.shift_tab_hint") %></span>
+    <span class="text-fg-dim ml-2"><%= t("pito.shell.mini_status.shift_tab_label") %></span>
+    <span class="text-fg-faded mx-2">·</span>
+    <span class="font-bold text-yellow"
+          data-controller="pito--platform-key"
+          data-pito--platform-key-mac-value="<%= t("pito.shell.mini_status.commands_hint_mac") %>"><%= t("pito.shell.mini_status.commands_hint") %></span>
+    <span class="text-fg-dim ml-2"><%= t("pito.shell.mini_status.commands_label") %></span>
   <% end %>
-  <span class="text-fg-faded mx-2">·</span>
-  <span class="font-bold text-yellow"><%= t("pito.shell.mini_status.tab_hint") %></span>
-  <span class="text-fg-dim ml-1"><%= t("pito.shell.mini_status.tab_label") %></span>
-  <span class="text-fg-faded mx-2">·</span>
-  <span class="font-bold text-yellow"><%= t("pito.shell.mini_status.shift_tab_hint") %></span>
-  <span class="text-fg-dim ml-1"><%= t("pito.shell.mini_status.shift_tab_label") %></span>
-  <span class="text-fg-faded mx-2">·</span>
-  <span class="font-bold text-yellow"
-        data-controller="pito--platform-key"
-        data-pito--platform-key-mac-value="<%= t("pito.shell.mini_status.commands_hint_mac") %>"><%= t("pito.shell.mini_status.commands_hint") %></span>
-  <span class="text-fg-dim ml-1"><%= t("pito.shell.mini_status.commands_label") %></span>
 </span>

@@ -20,12 +20,12 @@
     </div>
     <%# Line 2: filter context (only shown in :default state) %>
     <% if @filter && @state != :start %>
-      <div class="flex items-center gap-[4px] text-fg-faded pito-chatbox__filter">
+      <div class="flex items-center text-fg-faded pito-chatbox__filter">
         <span><%= t("pito.shell.chatbox.filter.channel_label") %></span>
-        <span class="text-cyan"><%= @filter[:channel] %></span>
-        <span>·</span>
+        <span class="text-cyan ml-2"><%= @filter[:channel] %></span>
+        <span class="mx-2">·</span>
         <span><%= t("pito.shell.chatbox.filter.period_label") %></span>
-        <span class="text-cyan"><%= @filter[:period] %></span>
+        <span class="text-cyan ml-2"><%= @filter[:period] %></span>
       </div>
     <% end %>
   </div>

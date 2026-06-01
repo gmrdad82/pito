@@ -1,4 +1,4 @@
-<%= render(Pito::Segment::Component.new) do %>
+<%= render(Pito::Segment::Component.new(accent:, background:)) do %>
   <% if @body %>
     <span class="text-fg"><%= @body %></span>
   <% else %>

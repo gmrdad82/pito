@@ -65,4 +65,33 @@ RSpec.describe Pito::Event::AssistantTextComponent do
       expect(node.css(".pito-segment__bar")).to be_empty
     end
   end
+
+  describe "segment_style" do
+    it "renders plain (no accent / no background) for first result" do
+      node = render_inline(described_class.new(payload: { text: "First", segment_style: "plain" }))
+      expect(node.css(".pito-segment__bar")).to be_empty
+      expect(node.css(".pito-segment__content").first["style"]).to be_nil
+    end
+
+    it "renders subsequent (blue accent / no background) for 2nd+ result" do
+      node = render_inline(described_class.new(payload: { text: "Second", segment_style: "subsequent" }))
+      bar = node.css(".pito-segment__bar").first
+      expect(bar).not_to be_nil
+      expect(bar["data-accent"]).to eq("blue")
+      expect(node.css(".pito-segment__content").first["style"]).to be_nil
+    end
+
+    it "renders follow_up (blue accent + surface background)" do
+      node = render_inline(described_class.new(payload: { text: "Upgraded", segment_style: "follow_up" }))
+      bar = node.css(".pito-segment__bar").first
+      expect(bar).not_to be_nil
+      expect(bar["data-accent"]).to eq("blue")
+      expect(node.css(".pito-segment__content").first["style"]).to include("bg-surface")
+    end
+
+    it "defaults to plain when segment_style is absent" do
+      node = render_inline(described_class.new(payload: { text: "Default" }))
+      expect(node.css(".pito-segment__bar")).to be_empty
+    end
+  end
 end

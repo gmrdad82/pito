@@ -5,3 +5,12 @@ en:
       tip_placeholder: "[placeholder for tip dictionary]"
       repo_link: "GitHub Source"
       license_link: "AGPL-3.0"
+      tip_dictionary:
+        - "Type /help to see available commands."
+        - "Use TAB to cycle between channels."
+        - "Shift+TAB to change time periods."
+        - "Type /authenticate <code> to log in."
+        - "All commands start with a forward slash."
+        - "Use ctrl+k to open the command palette."
+        - "Your conversations are saved automatically."
+        - "Type /new to start a fresh conversation."

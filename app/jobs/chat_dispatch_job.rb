@@ -88,7 +88,7 @@ class ChatDispatchJob < ApplicationJob
 
     case result
     when Pito::Slash::Result::Ok, Pito::Chat::Result::Ok, Pito::Chat::Result::Refine
-      result.events.map { |e| { kind: e[:kind], payload: e[:payload].merge(base) } }
+      inject_segment_styles(result.events).map { |e| { kind: e[:kind], payload: e[:payload].merge(base) } }
 
     when Pito::Slash::Result::Error, Pito::Chat::Result::Error
       [ { kind: "error",
@@ -103,6 +103,28 @@ class ChatDispatchJob < ApplicationJob
 
     else
       []
+    end
+  end
+
+  # Inject `segment_style` into assistant_text events based on position:
+  #   first  → "plain" (no accent / no background)
+  #   2nd+   → "subsequent" (blue accent / no background)
+  #   follow_up flag → "follow_up" (blue accent / surface background)
+  def inject_segment_styles(events)
+    assistant_indices = events.each_index.select { |i| events[i][:kind].to_s == "assistant_text" }
+
+    events.each_with_index.map do |e, idx|
+      next e unless e[:kind].to_s == "assistant_text"
+
+      style = if e[:payload][:follow_up] == true || e[:payload]["follow_up"] == true
+        "follow_up"
+      elsif assistant_indices.first == idx
+        "plain"
+      else
+        "subsequent"
+      end
+
+      { kind: e[:kind], payload: e[:payload].merge(segment_style: style) }
     end
   end
 end

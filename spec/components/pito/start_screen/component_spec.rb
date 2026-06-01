@@ -22,8 +22,22 @@ RSpec.describe Pito::StartScreen::Component do
       expect(node.to_html).to include("Tip")
     end
 
-    it "renders the tip placeholder translation" do
-      expect(node.to_html).to include("[placeholder for tip dictionary]")
+    it "renders a random tip from the dictionary" do
+      tips = I18n.t("pito.start_screen.tip_dictionary")
+      expect(tips).not_to be_empty
+      expect(tips.any? { |tip| node.to_html.include?(tip) }).to be true
+    end
+
+    it "does not render the old placeholder text" do
+      expect(node.to_html).not_to include("[placeholder for tip dictionary]")
+    end
+
+    it "preserves the tip colors (orange exclamation, yellow prefix, faded text)" do
+      tip_html = node.css("[data-pito--home-transition-target='tip']").first.to_html
+      expect(tip_html).to include("text-orange") # exclamation mark
+      expect(tip_html).to include("text-yellow")  # "Tip" prefix
+      expect(tip_html).to include("text-fg-faded") # body text
+      expect(tip_html).to include("!") # ASCII exclamation mark
     end
 
     it "renders a full-viewport flex container" do
@@ -86,13 +100,25 @@ RSpec.describe Pito::StartScreen::Component do
 
     it "mini-status is inside chatboxArea so it animates as one unit" do
       chatbox_area = node.css("[data-pito--home-transition-target='chatboxArea']").first
-      expect(chatbox_area.to_html).to include("MiniStatus").or include("not authenticated")
+      expect(chatbox_area.to_html).to include("○ auth")
     end
 
     it "has a hidden conversationChrome target" do
       chrome = node.css("[data-pito--home-transition-target='conversationChrome']").first
       expect(chrome).not_to be_nil
       expect(chrome["style"]).to include("display:none")
+    end
+
+    it "has a miniStatusSlide target inside conversationChrome for the post-expand slide-in" do
+      chrome = node.css("[data-pito--home-transition-target='conversationChrome']").first
+      slide = chrome.css("[data-pito--home-transition-target='miniStatusSlide']").first
+      expect(slide).not_to be_nil
+      expect(slide["style"]).to include("margin-left: auto")
+    end
+
+    it "pre-renders the full mini status with notification placeholder (3) in conversationChrome" do
+      chrome = node.css("[data-pito--home-transition-target='conversationChrome']").first
+      expect(chrome.to_html).to include("(3)")
     end
   end
 end

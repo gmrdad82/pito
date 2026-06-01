@@ -47,6 +47,11 @@ RSpec.describe "Conversation requests", type: :request do
       expect(response.body).to include(conversation.uuid)
     end
 
+    it "renders the mini status with notification placeholder (3)" do
+      get conversation_path(uuid: conversation.uuid)
+      expect(response.body).to include("(3)")
+    end
+
     # ── Dots indicator wiring ───────────────────────────────────────────────────
     # The dots wrapper must carry data-controller="pito--dots" so the Stimulus
     # controller can manage visibility (hidden at rest, shown while the backend

@@ -10,6 +10,12 @@ module Pito
       def initialize(repo_url:, license_url:)
         @repo_url = repo_url
         @license_url = license_url
+        @tip = random_tip
+      end
+
+      def random_tip
+        tips = I18n.t("pito.start_screen.tip_dictionary")
+        tips.sample
       end
     end
   end

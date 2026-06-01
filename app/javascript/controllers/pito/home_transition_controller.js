@@ -27,7 +27,7 @@ const SLIDE_MS      = 240   // chatbox vertical drop
 const EXPAND_MS     = 380   // chatbox horizontal expansion (ease-in: slow → fast)
 
 export default class extends Controller {
-  static targets = ["logoRow", "tip", "corners", "fade", "chatboxArea", "conversationChrome"]
+  static targets = ["logoRow", "tip", "corners", "fade", "chatboxArea", "conversationChrome", "miniStatusSlide"]
 
   // ── T22.1 entry point ─────────────────────────────────────────────────────
 
@@ -200,7 +200,7 @@ export default class extends Controller {
     // Build conversation layout (T22.3 scrollback, T22.4 chrome).
     const conversationEl = document.createElement("div")
     conversationEl.className = "flex flex-col"
-    conversationEl.style.height = "100vh"
+    conversationEl.style.cssText = "height: 100vh; overflow-x: hidden;"
 
     const scrollback = document.createElement("div")
     scrollback.id = "pito-scrollback"
@@ -209,7 +209,7 @@ export default class extends Controller {
     scrollback.dataset.controller = "pito--scrollback"
 
     const bottomPanel = document.createElement("div")
-    bottomPanel.style.cssText = "padding: 0 50px 32px;"
+    bottomPanel.style.cssText = "padding: 0 50px 32px; overflow-x: hidden;"
     bottomPanel.appendChild(form)
     chrome.removeAttribute("style")
     bottomPanel.appendChild(chrome)
@@ -219,6 +219,43 @@ export default class extends Controller {
 
     // Replace the start-screen root — disconnects home-transition (T22.7).
     this.element.replaceWith(conversationEl)
+
+    // ── Animate the chatbox filter line (Channel / Period) sliding up + fading in ──
+    const chatboxWrapper = form.querySelector(".chatbox-wrapper")
+    if (chatboxWrapper) {
+      const filterEl = document.createElement("div")
+      filterEl.className = "flex items-center text-fg-faded pito-chatbox__filter"
+      filterEl.innerHTML = '<span>Channel</span><span class="text-cyan ml-1">@all</span><span class="mx-2">·</span><span>Period</span><span class="text-cyan ml-1">7d</span>'
+
+      const segmentContent = chatboxWrapper.querySelector(".pito-segment__content > .flex.flex-col")
+      if (segmentContent) {
+        segmentContent.appendChild(filterEl)
+
+        filterEl.style.transition = "none"
+        filterEl.style.transform  = "translateY(8px)"
+        filterEl.style.opacity    = "0"
+        filterEl.getBoundingClientRect()
+
+        filterEl.style.transition = "transform 250ms ease-out, opacity 250ms ease-in"
+        filterEl.style.transform  = "translateY(0)"
+        filterEl.style.opacity    = "1"
+      }
+    }
+
+    // Animate the full mini status sliding in from the right after the chatbox
+    // has reached its full width. The auth indicator is already visible from the
+    // start screen; the rest of the bar joins it with a 300 ms ease-out slide.
+    const miniStatus = conversationEl.querySelector('[data-pito--home-transition-target="miniStatusSlide"]')
+    if (miniStatus) {
+      miniStatus.style.transition = "none"
+      miniStatus.style.transform  = "translateX(100%)"
+      miniStatus.style.opacity  = "0"
+      miniStatus.getBoundingClientRect()
+
+      miniStatus.style.transition = "transform 300ms ease-out, opacity 300ms ease-in"
+      miniStatus.style.transform  = "translateX(0)"
+      miniStatus.style.opacity    = "1"
+    }
   }
 
   // ── T22.6 — submit the message ────────────────────────────────────────────

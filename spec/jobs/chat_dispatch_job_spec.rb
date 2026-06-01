@@ -42,6 +42,19 @@ RSpec.describe ChatDispatchJob, type: :job do
         result_event = turn.events.reload.find { |e| e.kind != "echo" }
         expect(result_event.payload["elapsed_seconds"]).not_to be_nil
       end
+
+      it "injects segment_style: plain for the first assistant_text" do
+        described_class.perform_now(turn.id, channel: "@all")
+        assistant_events = turn.events.reload.where(kind: "assistant_text").order(:position)
+        expect(assistant_events.first.payload["segment_style"]).to eq("plain")
+      end
+
+      it "injects segment_style: subsequent for 2nd+ assistant_text" do
+        described_class.perform_now(turn.id, channel: "@all")
+        assistant_events = turn.events.reload.where(kind: "assistant_text").order(:position)
+        expect(assistant_events.count).to be > 1
+        expect(assistant_events.second.payload["segment_style"]).to eq("subsequent")
+      end
     end
 
     context "with an unknown slash verb" do
@@ -66,6 +79,12 @@ RSpec.describe ChatDispatchJob, type: :job do
       it "stamps completed_at" do
         described_class.perform_now(turn.id, channel: "@all")
         expect(turn.reload.completed_at).not_to be_nil
+      end
+
+      it "injects segment_style: plain for the single assistant_text" do
+        described_class.perform_now(turn.id, channel: "@all")
+        event = turn.events.reload.find { |e| e.kind == "assistant_text" }
+        expect(event.payload["segment_style"]).to eq("plain")
       end
     end
 

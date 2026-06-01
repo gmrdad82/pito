@@ -322,6 +322,7 @@ html {
 .pito-segment__bar[data-accent="red"]    { background: var(--accent-red); }
 .pito-segment__bar[data-accent="yellow"]  { background: var(--accent-yellow); }
 .pito-segment__bar[data-accent="purple"]  { background: var(--accent-purple); }
+.pito-segment__bar[data-accent="blue"]    { background: var(--accent-blue); }
 
 .pito-segment__gap {
   width: 6px;

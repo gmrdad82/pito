@@ -81,14 +81,15 @@ RSpec.describe Pito::Stream::Broadcaster do
   end
 
   describe "#emit_thinking" do
-    it "creates a thinking event with a random word_index" do
+    it "creates a thinking event with a random word_index within the dictionary" do
+      words = I18n.t("pito.event.thinking.slash.doing")
       event = broadcaster.emit_thinking(turn:, dictionary: "slash")
 
       expect(event.kind).to eq("thinking")
       expect(event.payload).to include("dictionary" => "slash")
       expect(event.payload).to have_key("word_index")
       expect(event.payload["word_index"]).to be_a(Integer)
-      expect(event.payload["word_index"]).to be_between(0, 11)
+      expect(event.payload["word_index"]).to be_between(0, words.length - 1)
     end
 
     it "broadcasts the thinking event into the turn container" do

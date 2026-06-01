@@ -639,10 +639,10 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 
 ## P26 — Result Segment
 
-- [ ] T26.1 Result broadcasts a Segment with a distinct accent. complexity: [low]
-- [ ] T26.2 Appears after the thinking indicator resolves. complexity: [low]
-- [ ] T26.3 Refresh `/chat/:uuid` → echo + result persist in order. complexity: [manual]
-- [ ] T26.4 Commit: `Distinct-accent result Segment`. complexity: [manual]
+- [x] T26.1 Result broadcasts a Segment with a distinct accent. complexity: [low]
+- [x] T26.2 Appears after the thinking indicator resolves. complexity: [low]
+- [x] T26.3 Refresh `/chat/:uuid` → echo + result persist in order. complexity: [manual]
+- [x] T26.4 Commit: `Distinct-accent result Segment`. complexity: [manual]
 
 ## P27 — `/connect` (OAuth, multi-channel)
 

@@ -20,80 +20,79 @@ RSpec.describe Pito::Shell::MiniStatusComponent do
   describe "rendered output" do
     context "mode: :connection (default)" do
       context "when state is true (authenticated)" do
-        it "renders the 'Authenticated' label" do
+        it "renders the green ● auth label" do
           node = render_inline(described_class.new(state: true))
-          expect(node.to_html).to include("Authenticated")
+          expect(node.to_html).to include("● auth")
+          expect(node.css("span.text-green").text).to include("● auth")
         end
 
-        it "does not render the 'not authenticated' label" do
+        it "does not render the anonymous label" do
           node = render_inline(described_class.new(state: true))
-          expect(node.to_html).not_to include("not authenticated")
-        end
-
-        it "renders the label inside a span element" do
-          node = render_inline(described_class.new(state: true))
-          span_texts = node.css("span").map(&:text)
-          expect(span_texts).to include("Authenticated")
+          expect(node.to_html).not_to include("○ auth")
         end
       end
 
       context "when state is false (anonymous)" do
-        it "renders the 'not authenticated' label" do
+        it "renders the red ○ auth label" do
           node = render_inline(described_class.new(state: false))
-          expect(node.to_html).to include("not authenticated")
+          expect(node.to_html).to include("○ auth")
+          expect(node.css("span.text-red").text).to include("○ auth")
         end
 
-        it "does not render 'Authenticated'" do
+        it "does not render the authenticated label" do
           node = render_inline(described_class.new(state: false))
-          expect(node.to_html).not_to include("Authenticated")
+          expect(node.to_html).not_to include("● auth")
         end
       end
     end
 
     context "mode: :start" do
-      it "renders the not_authenticated label ('not authenticated')" do
+      it "renders only the ○ auth label" do
         node = render_inline(described_class.new(mode: :start))
-        # pito.shell.mini_status.not_authenticated = "not authenticated"
-        expect(node.to_html).to include("not authenticated")
+        expect(node.to_html).to include("○ auth")
+        expect(node.to_html).not_to include("tab")
+        expect(node.to_html).not_to include("channels")
+        expect(node.to_html).not_to include("shift+tab")
+        expect(node.to_html).not_to include("period")
+        expect(node.to_html).not_to include("ctrl+k")
+        expect(node.to_html).not_to include("commands")
       end
 
-      it "does not use connection_label in start mode" do
-        # In :start mode the template renders t("...not_authenticated") directly,
-        # skipping the connection_label method; state:true should not produce "Authenticated"
-        node = render_inline(described_class.new(mode: :start, state: true))
-        expect(node.to_html).not_to include("Authenticated")
+      it "does not render · separators when in start mode" do
+        node = render_inline(described_class.new(mode: :start))
+        expect(node.css("span.text-fg-faded")).to be_empty
       end
     end
 
     context "notifications" do
       it "does not render notification count when show_notifications is false" do
         node = render_inline(described_class.new(notifications: 5, show_notifications: false))
-        expect(node.to_html).not_to include("notification")
+        expect(node.to_html).not_to include("(")
       end
 
       it "does not render notification count when notifications is 0 and show_notifications is true" do
         node = render_inline(described_class.new(notifications: 0, show_notifications: true))
-        expect(node.to_html).not_to include("notification")
+        expect(node.to_html).not_to include("(")
       end
 
-      it "renders singular notification count when count is 1" do
-        node = render_inline(described_class.new(notifications: 1, show_notifications: true))
-        expect(node.to_html).to include("1 notification")
-      end
-
-      it "renders plural notification count when count is greater than 1" do
-        node = render_inline(described_class.new(notifications: 3, show_notifications: true))
-        expect(node.to_html).to include("3 notifications")
-      end
-
-      it "renders the notification count in a .text-cyan span" do
+      it "renders notification count in cyan parentheses" do
         node = render_inline(described_class.new(notifications: 2, show_notifications: true))
         cyan_text = node.css("span.text-cyan").map(&:text).join
-        expect(cyan_text).to include("2 notifications")
+        expect(cyan_text).to eq("(2)")
+      end
+
+      it "renders singular count" do
+        node = render_inline(described_class.new(notifications: 1, show_notifications: true))
+        expect(node.to_html).to include("(1)")
+      end
+
+      it "renders plural count" do
+        node = render_inline(described_class.new(notifications: 3, show_notifications: true))
+        expect(node.to_html).to include("(3)")
       end
     end
 
-    context "always-present elements" do
+    context "always-present elements (connection mode only)" do
       it "renders the commands hint ('ctrl+k') in a bold yellow span" do
         node = render_inline(described_class.new)
         yellow_bold = node.css("span.font-bold.text-yellow")
@@ -106,7 +105,7 @@ RSpec.describe Pito::Shell::MiniStatusComponent do
         expect(dim_text).to include("commands")
       end
 
-      it "renders a separator dot in a faded span" do
+      it "renders separator dots in faded spans" do
         node = render_inline(described_class.new)
         faded_texts = node.css("span.text-fg-faded").map(&:text)
         expect(faded_texts).to include("·")

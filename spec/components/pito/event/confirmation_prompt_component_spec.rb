@@ -61,10 +61,10 @@ RSpec.describe Pito::Event::ConfirmationPromptComponent do
       expect(hint_span.text).to include("/cancel")
     end
 
-    it "renders an accent bar with data-accent='yellow'" do
+    it "renders an accent bar with data-accent='orange'" do
       bar = node.css(".pito-segment__bar").first
       expect(bar).not_to be_nil
-      expect(bar["data-accent"]).to eq("yellow")
+      expect(bar["data-accent"]).to eq("orange")
     end
 
     it "wraps content in a flex column container" do

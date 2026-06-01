@@ -60,10 +60,10 @@
   <div class="flex-1 flex flex-col justify-center items-center p-4"
        data-pito--home-transition-target="tip">
     <span class="text-fg-faded">
-      <span class="text-orange">●</span>
+      <span class="text-orange">!</span>
       <span class="font-bold text-yellow"><%= t("pito.start_screen.tip_prefix") %></span>
       <span> — </span>
-      <span><%= t("pito.start_screen.tip_placeholder") %></span>
+      <span><%= @tip %></span>
     </span>
   </div>
 
@@ -84,10 +84,12 @@
       <div style="margin-left: 10px;" data-controller="pito--dots">
         <%= render(Pito::Shell::PostCommandDotsComponent.new) %>
       </div>
-      <div style="margin-left: auto;">
+      <div data-pito--home-transition-target="miniStatusSlide" style="margin-left: auto;">
         <%= render(Pito::Shell::MiniStatusComponent.new(
               mode: :connection,
-              state: Current.session.present?
+              state: Current.session.present?,
+              notifications: 3,
+              show_notifications: true
             )) %>
       </div>
     </div>
