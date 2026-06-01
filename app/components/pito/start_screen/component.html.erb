@@ -81,7 +81,7 @@
   <%# Pre-rendered conversation chrome — hidden until animation completes %>
   <div data-pito--home-transition-target="conversationChrome" style="display:none;">
     <div class="flex items-center" style="margin-top: 8px;">
-      <div style="margin-left: 10px;">
+      <div style="margin-left: 10px;" data-controller="pito--dots">
         <%= render(Pito::Shell::PostCommandDotsComponent.new) %>
       </div>
       <div style="margin-left: auto;">

@@ -83,12 +83,17 @@ module Pito
       end
 
       # A Turn is "open" (refinement-eligible) when the conversation has a
-      # most-recent Turn that was created within the last 30 minutes.
+      # most-recent Turn that was created within the last 30 minutes AND that
+      # Turn has result events beyond the echo.  An echo-only Turn is still
+      # being dispatched by ChatDispatchJob and must not be treated as a
+      # refinement target for the incoming command.
       OPEN_TURN_TIMEOUT = 30.minutes
 
       def refinement_eligible?
         turn = Turn.last_for(@conversation)
-        turn && turn.created_at >= OPEN_TURN_TIMEOUT.ago
+        return false unless turn && turn.created_at >= OPEN_TURN_TIMEOUT.ago
+
+        turn.events.where.not(kind: "echo").exists?
       end
     end
   end

@@ -42,12 +42,19 @@ RSpec.describe Pito::Chat::Parser do
       expect(result.body_tokens).to eq([])
     end
 
-    it "classifies unrecognised input as :refinement when a recent turn exists" do
-      conversation.turns.create!(
+    it "classifies unrecognised input as :refinement when a recent turn with result events exists" do
+      # A turn is only refinement-eligible when it has result events beyond the echo
+      # (echo-only turns are still dispatching via ChatDispatchJob).
+      turn = conversation.turns.create!(
         input_text: "list videos",
         input_kind: "chat",
         position: 1,
         created_at: 5.minutes.ago
+      )
+      conversation.events.create!(
+        turn:, position: 1,
+        kind: "assistant_text",
+        payload: { message_key: "pito.chat.list.descriptions.list", message_args: {} }
       )
 
       result = described_class.call(lex("more stuff"), raw: "more stuff", conversation:)

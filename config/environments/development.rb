@@ -57,6 +57,13 @@ Rails.application.configure do
   # Highlight code that enqueued background job in logs.
   config.active_job.verbose_enqueue_logs = true
 
+  # Dev runs jobs on an in-process thread pool (no SolidQueue tables / worker
+  # process needed locally — mirrors the async cable adapter). Production keeps
+  # SolidQueue (config.active_job.queue_adapter = :solid_queue in application.rb).
+  # To exercise SolidQueue locally instead: load db/queue_schema.rb and run with
+  # SOLID_QUEUE_IN_PUMA=1 (see config/puma.rb).
+  config.active_job.queue_adapter = :async
+
   # Highlight code that triggered redirect in logs.
   config.action_dispatch.verbose_redirect_logs = true
 

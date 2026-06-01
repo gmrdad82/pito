@@ -86,11 +86,18 @@ RSpec.describe Pito::Chat::Dispatcher do
     end
 
     it "returns a Refine result for refinement input when an open turn exists" do
-      conversation.turns.create!(
+      # A turn is refinement-eligible only when it has result events beyond the echo
+      # (echo-only turns are still dispatching via ChatDispatchJob).
+      turn = conversation.turns.create!(
         input_text: "list videos",
         input_kind: "chat",
         position: 1,
         created_at: 5.minutes.ago
+      )
+      conversation.events.create!(
+        turn:, position: 1,
+        kind: "assistant_text",
+        payload: { message_key: "pito.chat.list.descriptions.list", message_args: {} }
       )
 
       result = described_class.call(input: "more stuff", conversation:)

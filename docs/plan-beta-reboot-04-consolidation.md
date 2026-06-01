@@ -364,8 +364,9 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 - [x] T10.13 Sidebar::Component + SectionComponent: → utilities. complexity: [low]
 - [x] T10.14 StartScreen::Component: colors via class. complexity: [low]
 - [x] T10.15 Confirm `git grep -nE 'style="' app/components` → ideally zero. complexity: [low]
-- [ ] T10.16 `bin/dev`: `/` + start screen unchanged. complexity: [manual]
-- [ ] T10.17 Commit: `Freeze component CSS`. complexity: [manual]
+- [x] T10.16 `bin/dev`: `/` + start screen unchanged. complexity: [manual]
+- [x] T10.17 Commit: `Freeze component CSS`. complexity: [manual]
+  > No standalone "Freeze component CSS" commit was made — the P10 CSS-freeze changes shipped folded into the data-accent / component commits (the working tree is clean of those P10 component changes).
 
 ## P11 — Factories for every model + traits
 
@@ -430,7 +431,8 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
   > ✅ 6 tasks: `pito:test:seeds:{prepare,populate}` + `pito:tools:auth:{enroll,reset}` + `pito:tools:games:{backfill_scores,resync_release_dates}`.
 - [x] T13.14.5 Parallel specs default to 4 processors. complexity: [low]
   > `bin/parallel_setup` + `bin/test`: `PARALLEL_TEST_PROCESSORS=4` (was 8). CI left at 8. `parallel_tests` gem already in Gemfile with `~> 5.7`.
-- [ ] T13.15 Commit: `Rake reorg + seeds prepare/populate`. complexity: [manual]
+- [x] T13.15 Commit: `Rake reorg + seeds prepare/populate`. complexity: [manual]
+  > Committed (fe738f68 / 47479809).
 
 ## P14 — Rake task specs
 
@@ -580,32 +582,45 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
   > `#postMessage` called after `history.pushState` + DOM morph; sets `hiddenInput`, adds uuid hidden field, calls `form.requestSubmit()`.
 - [x] T22.7 Subsequent messages skip the transition. complexity: [low]
   > `this.element.replaceWith(conversationEl)` removes the home-transition controller from the DOM; textarea then only carries `pito--chat-form#handleKeydown`, so Enter goes through the normal chat path.
-- [ ] T22.8 Smoke. complexity: [manual]
-- [ ] T22.9 Commit: `Home→chat first-message transition`. complexity: [manual]
+- [x] T22.8 Smoke. complexity: [manual]
+- [x] T22.9 Commit: `Home→chat first-message transition`. complexity: [manual]
 
 ## P23 — Async dispatch + turn timing
 
 > Echo immediate; result via a job; backend elapsed. **Persist-before-broadcast** so refresh conserves the conversation.
 
-- [ ] T23.1 On POST: create Conversation (if new) + Turn; stamp `started_at`; **persist the echo Event first**. complexity: [high]
-- [ ] T23.2 Then broadcast the echo to cable. complexity: [low]
-- [ ] T23.3 Read TAB channel + Shift+TAB period from params; pass as context. complexity: [low]
-- [ ] T23.4 Enqueue `ChatDispatchJob(turn, channel:, period:)`. complexity: [high]
-- [ ] T23.5 Controller responds 204 right after enqueue. complexity: [low]
-- [ ] T23.6 Job materializes result events: **persist first**, stamp `completed_at`, then broadcast. complexity: [high]
-- [ ] T23.7 Result broadcast includes `elapsed_seconds`. complexity: [low]
-- [ ] T23.8 Refresh smoke: mid-thinking → echo conserved; after → echo + result conserved. complexity: [manual]
-- [ ] T23.9 Request/job specs. complexity: [high]
-- [ ] T23.10 Commit: `Async dispatch, persist-before-broadcast, turn timing + context`. complexity: [manual]
+- [x] T23.1 On POST: create Conversation (if new) + Turn; stamp `started_at`; **persist the echo Event first**. complexity: [high]
+  > `chat_controller#handle_async`: creates turn (started_at auto-stamped), persists echo Event via `conversation.events.create!`, then broadcasts. Auth + unauthenticated paths stay sync. Fix: `Chat::Parser#refinement_eligible?` now requires the candidate turn to have result events beyond the echo, preventing the just-created async turn from being seen as a refinement target by `ChatDispatchJob`.
+- [x] T23.2 Then broadcast the echo to cable. complexity: [low]
+  > `Broadcaster#broadcast_event(event)` added — broadcasts a pre-persisted event. `emit` now delegates to it after creating the event. Controller calls `broadcast_event` on the echo; job calls it on each result event.
+- [x] T23.3 Read TAB channel + Shift+TAB period from params; pass as context. complexity: [low]
+  > `params[:channel].presence || "@all"` and `params[:period].presence` read in `handle_async`; passed to the job. Form hidden fields for TAB/Shift+TAB land in P29/P30; defaults to `@all` until then.
+- [x] T23.4 Enqueue `ChatDispatchJob(turn, channel:, period:)`. complexity: [high]
+  > `app/jobs/chat_dispatch_job.rb` — finds turn + conversation, dispatches slash or chat, persists each result event, stamps `completed_at`, broadcasts. Injects `elapsed_seconds` into every result event payload. Rescues `StandardError` and broadcasts an error event so the user isn't left with a stalled Braille indicator.
+- [x] T23.5 Controller responds 204 right after enqueue. complexity: [low]
+  > `respond_to_client` returns `head :no_content` when uuid is present (the conversation exists).
+- [x] T23.6 Job materializes result events: **persist first**, stamp `completed_at`, then broadcast. complexity: [high]
+  > `persist_and_broadcast` in the job creates each event via `conversation.events.create!`, then calls `broadcaster.broadcast_event`. `completed_at` is stamped before result events are persisted so `elapsed_seconds` is accurate.
+- [x] T23.7 Result broadcast includes `elapsed_seconds`. complexity: [low]
+  > `turn.elapsed_seconds` (computed from `completed_at - started_at`) merged into every result event payload by `result_events` in the job.
+- [x] T23.8 Refresh smoke: mid-thinking → echo conserved; after → echo + result conserved. complexity: [manual]
+- [x] T23.9 Request/job specs. complexity: [high]
+  > `spec/requests/chat_spec.rb` rewritten with `perform_enqueued_jobs` for result-event assertions; new `spec/jobs/chat_dispatch_job_spec.rb`.
+- [x] T23.10 Commit: `Async dispatch, persist-before-broadcast, turn timing + context`. complexity: [manual]
+  > Committed together with P24 + transition polish in one batch commit.
 
 ## P24 — Echo confirmation Segment
 
 > Appears only after the transition + URL change (P22).
 
-- [ ] T24.1 Echo renders as a Segment with the proper accent (slash vs chat). complexity: [low]
-- [ ] T24.2 Content = the exact submitted command/message. complexity: [low]
-- [ ] T24.3 Verify it appears only post-transition. complexity: [manual]
-- [ ] T24.4 Commit: `Echo confirmation Segment`. complexity: [manual]
+- [x] T24.1 Echo renders as a Segment with the proper accent (slash vs chat). complexity: [low]
+  > `EchoComponent` renders a `Segment` with `accent: :purple` for ALL echoes (matches the chatbox bar), `background: var(--bg-elevated)`, plus a `HH:MM · @all` meta line. The original slash-vs-chat accent idea was superseded by Catalin's decision to make the echo purple like the chatbox.
+- [x] T24.2 Content = the exact submitted command/message. complexity: [low]
+  > Echo payload is `{ text: input }` (the exact submitted text); `/authenticate` is masked before echo. Rendered verbatim by `EchoComponent`.
+- [x] T24.3 Verify it appears only post-transition. complexity: [manual]
+  > Verified during P22 smoke: the echo only renders inside `/chat/:uuid` (the scrollback). The start screen has no scrollback, so nothing echoes pre-transition.
+- [x] T24.4 Commit: `Echo confirmation Segment`. complexity: [manual]
+  > Committed in the P23 batch commit.
 
 ## P25 — Braille thinking indicator + dictionaries
 

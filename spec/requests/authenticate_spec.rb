@@ -3,6 +3,8 @@
 require "rails_helper"
 
 RSpec.describe "Authentication via /authenticate", type: :request do
+  include ActiveJob::TestHelper
+
   let(:conversation) { Conversation.singleton }
   let(:seed) { ROTP::Base32.random_base32 }
   let(:totp) { ROTP::TOTP.new(seed) }
@@ -60,25 +62,35 @@ RSpec.describe "Authentication via /authenticate", type: :request do
   end
 
   describe "gating when unauthenticated" do
-    it "refuses a slash command with pito.auth.required" do
-      post "/chat", params: { input: "/help", uuid: conversation.uuid }
+    # Gating is now applied in ChatDispatchJob (async), so the error event only
+    # exists after the job runs. The echo is persisted synchronously by the
+    # controller and is present immediately.
+
+    it "refuses a slash command with pito.auth.required (after the job runs)" do
+      perform_enqueued_jobs { post "/chat", params: { input: "/help", uuid: conversation.uuid } }
 
       error = last_turn_events.find { |e| e.kind == "error" }
       expect(error.payload["message_key"]).to eq("pito.auth.required")
     end
 
-    it "refuses a chat message with pito.auth.required" do
-      post "/chat", params: { input: "list videos", uuid: conversation.uuid }
+    it "refuses a chat message with pito.auth.required (after the job runs)" do
+      perform_enqueued_jobs { post "/chat", params: { input: "list videos", uuid: conversation.uuid } }
 
       error = last_turn_events.find { |e| e.kind == "error" }
       expect(error.payload["message_key"]).to eq("pito.auth.required")
     end
 
-    it "still echoes the refused input" do
+    it "echoes the refused input synchronously (before the job runs)" do
       post "/chat", params: { input: "list videos", uuid: conversation.uuid }
 
       echo = last_turn_events.find { |e| e.kind == "echo" }
       expect(echo.payload["text"]).to eq("list videos")
+    end
+
+    it "enqueues the dispatch job with authenticated: false" do
+      expect {
+        post "/chat", params: { input: "/help", uuid: conversation.uuid }
+      }.to have_enqueued_job(ChatDispatchJob).with(anything, hash_including(authenticated: false))
     end
   end
 end

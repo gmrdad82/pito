@@ -6,9 +6,9 @@ class ChatController < ApplicationController
   def create
     input = params[:input].to_s
 
-    # Home→chat transition (T22): blank input + no uuid → create conversation only.
-    # JS calls this first to get the UUID and signed stream name for cable setup,
-    # then calls again with uuid + actual input to process the message.
+    # T22 / Home-transition: blank input + no uuid → create conversation only.
+    # Returns {uuid, signed_stream_name} so the JS can set up the cable before
+    # posting the actual message.
     if input.blank? && params[:uuid].blank?
       conversation = Conversation.create!
       return render json: {
@@ -24,33 +24,52 @@ class ChatController < ApplicationController
     conversation = resolve_conversation
 
     if authenticate_command?(input)
+      # Auth stays synchronous — it mints the session cookie, which can only be
+      # set on the HTTP response (a background job can't set cookies).
       handle_authenticate(input, conversation)
-    elsif Current.session.present?
-      if input.start_with?("/")
-        handle_slash(input, conversation)
-      else
-        handle_chat(input, conversation)
-      end
-    else
-      handle_unauthenticated(input, conversation)
+      return respond_to_client(conversation)
     end
 
-    if params[:uuid].present?
-      head :no_content
-    elsif html_request?
-      redirect_to conversation_path(uuid: conversation.uuid)
-    else
-      render json: { uuid: conversation.uuid }, status: :created
-    end
+    # Every other command — authenticated or not — goes through the async
+    # pipeline (T23): persist + broadcast the echo now, enqueue the job, 204.
+    # Auth gating is applied inside the job via the `authenticated` flag, because
+    # Current.session is request-scoped and unavailable in the worker.
+    handle_async(input, conversation, authenticated: Current.session.present?)
+    respond_to_client(conversation)
   end
 
   private
 
-  # ── Conversation resolution ─────────────────────────────────────────
+  # ── Async dispatch (P23) ────────────────────────────────────────────────────
 
-  def html_request?
-    request.format.html? || request.headers["Accept"]&.include?("text/html")
+  def handle_async(input, conversation, authenticated:)
+    input_kind = input.start_with?("/") ? "slash" : "chat"
+
+    turn = conversation.turns.create!(
+      position:   Turn.next_position_for(conversation),
+      input_kind:,
+      input_text: input
+    )
+
+    # Persist echo first, then broadcast (T23.1 + T23.2 / T24.1 + T24.2 — the
+    # echo Segment carries the exact submitted text).
+    echo_event = conversation.events.create!(
+      turn:,
+      position: Event.next_position_for(conversation),
+      kind:     "echo",
+      payload:  { text: input }
+    )
+    Pito::Stream::Broadcaster.new(conversation:).broadcast_event(echo_event)
+
+    # T23.3: read channel + period from params (defaults until TAB/Shift+TAB land).
+    channel = params[:channel].presence || "@all"
+    period  = params[:period].presence
+
+    # T23.4: enqueue job — auth gating decided here, applied in the worker.
+    ChatDispatchJob.perform_later(turn.id, channel:, period:, authenticated:)
   end
+
+  # ── Conversation resolution ─────────────────────────────────────────────────
 
   def resolve_conversation
     if params[:uuid].present?
@@ -60,11 +79,23 @@ class ChatController < ApplicationController
     end
   end
 
-  # ── Authentication branch ──────────────────────────────────────────
+  def respond_to_client(conversation)
+    if params[:uuid].present?
+      head :no_content                                           # T23.5
+    elsif html_request?
+      redirect_to conversation_path(uuid: conversation.uuid)
+    else
+      render json: { uuid: conversation.uuid }, status: :created
+    end
+  end
+
+  def html_request?
+    request.format.html? || request.headers["Accept"]&.include?("text/html")
+  end
+
+  # ── Authentication branch ───────────────────────────────────────────────────
   #
-  # `/authenticate <code>` is the single login entry point (no /login
-  # route). The 6-digit code is masked before it is echoed or persisted
-  # so the real code never touches the DB or the scrollback.
+  # Stays synchronous — auth result must be visible before the next command.
 
   def authenticate_command?(input)
     input.strip.match?(%r{\A/authenticate(\s|\z)}i)
@@ -74,7 +105,7 @@ class ChatController < ApplicationController
     masked = mask_secret(input)
 
     turn = conversation.turns.create!(
-      position: Turn.next_position_for(conversation),
+      position:   Turn.next_position_for(conversation),
       input_kind: "slash",
       input_text: masked
     )
@@ -82,26 +113,25 @@ class ChatController < ApplicationController
     broadcaster = Pito::Stream::Broadcaster.new(conversation:)
     broadcaster.emit(turn:, kind: "echo", payload: { text: masked })
 
-    code = input.strip.split(/\s+/, 2)[1].to_s
+    code   = input.strip.split(/\s+/, 2)[1].to_s
     result = Pito::Auth::ChatLogin.call(code:, request:)
 
     if result.authenticated?
       Current.session = result.session_data
       broadcaster.emit(
         turn:,
-        kind: "assistant_text",
+        kind:    "assistant_text",
         payload: { message_key: "pito.auth.authenticated", message_args: {} }
       )
     else
       broadcaster.emit(
         turn:,
-        kind: "error",
+        kind:    "error",
         payload: { message_key: auth_error_key(result.status), message_args: {} }
       )
     end
   end
 
-  # Masks everything after the verb: `/authenticate 123456` → `/authenticate ******`.
   def mask_secret(input)
     verb, rest = input.strip.split(/\s+/, 2)
     return input if rest.blank?
@@ -114,106 +144,6 @@ class ChatController < ApplicationController
     when :throttled    then "pito.auth.throttled"
     when :not_enrolled then "pito.auth.not_enrolled"
     else                    "pito.auth.failed"
-    end
-  end
-
-  # Any non-`/authenticate` command issued without a session is refused.
-  def handle_unauthenticated(input, conversation)
-    turn = conversation.turns.create!(
-      position: Turn.next_position_for(conversation),
-      input_kind: input.start_with?("/") ? "slash" : "chat",
-      input_text: input
-    )
-
-    broadcaster = Pito::Stream::Broadcaster.new(conversation:)
-    broadcaster.emit(turn:, kind: "echo", payload: { text: input })
-    broadcaster.emit(
-      turn:,
-      kind: "error",
-      payload: { message_key: "pito.auth.required", message_args: {} }
-    )
-  end
-
-  # ── Slash branch (Plan 2) ──────────────────────────────────────────
-
-  def handle_slash(input, conversation)
-    turn = conversation.turns.create!(
-      position: Turn.next_position_for(conversation),
-      input_kind: "slash",
-      input_text: input
-    )
-
-    broadcaster = Pito::Stream::Broadcaster.new(conversation:)
-    broadcaster.emit(turn:, kind: "echo", payload: { text: input })
-
-    result = Pito::Slash::Dispatcher.call(input:, conversation:)
-
-    case result
-    when Pito::Slash::Result::Ok
-      result.events.each do |event_params|
-        broadcaster.emit(turn:, kind: event_params[:kind], payload: event_params[:payload])
-      end
-    when Pito::Slash::Result::Error
-      broadcaster.emit(
-        turn:,
-        kind: "error",
-        payload: { message_key: result.message_key, message_args: result.message_args }
-      )
-    when Pito::Slash::Result::NeedsConfirmation
-      broadcaster.emit(
-        turn:,
-        kind: "confirmation_prompt",
-        payload: {
-          prompt_key: result.prompt_key,
-          prompt_args: result.prompt_args,
-          command_text: result.command_text
-        }
-      )
-    end
-  end
-
-  # ── Chat branch (Plan 3) ───────────────────────────────────────────
-
-  def handle_chat(input, conversation)
-    result = Pito::Chat::Dispatcher.call(input:, conversation:)
-
-    case result
-    when Pito::Chat::Result::Ok
-      turn = current_or_new_turn(conversation:, input_text: input, input_kind: "chat")
-      emit_chat_events(conversation, turn, input, result.events)
-    when Pito::Chat::Result::Error
-      turn = current_or_new_turn(conversation:, input_text: input, input_kind: "chat")
-      error_event = { kind: "error", payload: { message_key: result.message_key, message_args: result.message_args } }
-      emit_chat_events(conversation, turn, input, [ error_event ])
-    when Pito::Chat::Result::Refine
-      turn = current_or_new_turn(conversation:, input_text: input, input_kind: "chat", attach_to_existing: true)
-      emit_chat_events(conversation, turn, input, result.events)
-    end
-  end
-
-  # ── Shared helpers ─────────────────────────────────────────────────
-
-  # Returns the Turn to attach events to.
-  # When attach_to_existing is true, uses the most recent open Turn
-  # (must exist — the chat parser already verified refinement eligibility).
-  # Otherwise, creates a new Turn.
-  def current_or_new_turn(conversation:, input_text:, input_kind:, attach_to_existing: false)
-    if attach_to_existing
-      Turn.last_for(conversation)
-    else
-      conversation.turns.create!(
-        position: Turn.next_position_for(conversation),
-        input_kind:,
-        input_text:
-      )
-    end
-  end
-
-  def emit_chat_events(conversation, turn, input, events)
-    broadcaster = Pito::Stream::Broadcaster.new(conversation:)
-    broadcaster.emit(turn:, kind: "echo", payload: { text: input })
-    events.each do |event_params|
-      broadcaster.emit(turn:, kind: event_params[:kind], payload: event_params[:payload])
     end
   end
 end
