@@ -2,14 +2,14 @@
 
 require "rails_helper"
 
-RSpec.describe Pito::Palette::CtrlP::SectionComponent do
+RSpec.describe Pito::Palette::CtrlK::SectionComponent do
   # i18n keys from config/locales/pito/palette/en.yml
-  let(:title_key) { "pito.palette.ctrl_p.sections.suggested" }
+  let(:title_key) { "pito.palette.ctrl_k.sections.suggested" }
   let(:item_with_shortcut) do
-    { label_key: "pito.palette.ctrl_p.commands.new_session", shortcut: "ctrl+n" }
+    { label_key: "pito.palette.ctrl_k.commands.new_session", shortcut: "ctrl+n" }
   end
   let(:item_without_shortcut) do
-    { label_key: "pito.palette.ctrl_p.commands.switch_channel" }
+    { label_key: "pito.palette.ctrl_k.commands.switch_channel" }
   end
 
   # ──────────────────────────────────────────
@@ -49,13 +49,13 @@ RSpec.describe Pito::Palette::CtrlP::SectionComponent do
       node = render_inline(
         described_class.new(title_key: title_key, items: [])
       )
-      # "Suggested" is the en translation for pito.palette.ctrl_p.sections.suggested
+      # "Suggested" is the en translation for pito.palette.ctrl_k.sections.suggested
       expect(node.text).to include("Suggested")
     end
 
     it "renders the session section title" do
       node = render_inline(
-        described_class.new(title_key: "pito.palette.ctrl_p.sections.session", items: [])
+        described_class.new(title_key: "pito.palette.ctrl_k.sections.session", items: [])
       )
       expect(node.text).to include("Session")
     end
@@ -125,9 +125,9 @@ RSpec.describe Pito::Palette::CtrlP::SectionComponent do
   describe "with multiple items" do
     let(:items) do
       [
-        { label_key: "pito.palette.ctrl_p.commands.new_session" },
-        { label_key: "pito.palette.ctrl_p.commands.open_editor" },
-        { label_key: "pito.palette.ctrl_p.commands.toggle_sidebar" }
+        { label_key: "pito.palette.ctrl_k.commands.new_session" },
+        { label_key: "pito.palette.ctrl_k.commands.open_editor" },
+        { label_key: "pito.palette.ctrl_k.commands.toggle_sidebar" }
       ]
     end
 
@@ -151,8 +151,8 @@ RSpec.describe Pito::Palette::CtrlP::SectionComponent do
   describe "selection highlight" do
     let(:items) do
       [
-        { label_key: "pito.palette.ctrl_p.commands.new_session" },
-        { label_key: "pito.palette.ctrl_p.commands.open_editor" }
+        { label_key: "pito.palette.ctrl_k.commands.new_session" },
+        { label_key: "pito.palette.ctrl_k.commands.open_editor" }
       ]
     end
 

@@ -49,11 +49,12 @@ RSpec.describe ChatDispatchJob, type: :job do
         expect(assistant_events.first.payload["segment_style"]).to eq("plain")
       end
 
-      it "injects segment_style: subsequent for 2nd+ assistant_text" do
+      it "injects segment_style: plain for the only assistant_text from /help" do
+        # /help now returns a single consolidated event; all single-event results get "plain".
         described_class.perform_now(turn.id, channel: "@all")
         assistant_events = turn.events.reload.where(kind: "assistant_text").order(:position)
-        expect(assistant_events.count).to be > 1
-        expect(assistant_events.second.payload["segment_style"]).to eq("subsequent")
+        expect(assistant_events.count).to eq(1)
+        expect(assistant_events.first.payload["segment_style"]).to eq("plain")
       end
     end
 

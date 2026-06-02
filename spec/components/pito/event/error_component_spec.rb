@@ -26,15 +26,24 @@ RSpec.describe Pito::Event::ErrorComponent do
       expect(node.css("span.text-fg").text).to include("bad input")
     end
 
-    it "handles missing message_args gracefully (defaults to empty hash)" do
-      # pito.slash.errors.unknown_verb requires :verb — omitting args yields
-      # a missing-interpolation fallback from I18n; we just assert it renders
-      # without raising.
-      expect do
-        render_inline(described_class.new(
-          payload: { message_key: "pito.event.thought.prefix" }
-        ))
-      end.not_to raise_error
+    it "renders text: payload directly without i18n lookup" do
+      node = render_inline(described_class.new(payload: { text: "Direct error text" }))
+      expect(node.css("span.text-fg").text).to include("Direct error text")
+    end
+
+    it "renders detail target when detail: is present" do
+      node = render_inline(described_class.new(payload: { text: "Oops", detail: "raw error detail" }))
+      expect(node.css("[data-pito--expand-target='detail']").text).to include("raw error detail")
+    end
+
+    it "shows ctrl+o hint when detail is present" do
+      node = render_inline(described_class.new(payload: { text: "Oops", detail: "raw" }))
+      expect(node.css("[data-pito--expand-target='hint']")).not_to be_empty
+    end
+
+    it "omits expand UI when no detail" do
+      node = render_inline(described_class.new(payload: { text: "Simple error" }))
+      expect(node.css("[data-pito--expand-target='hint']")).to be_empty
     end
   end
 

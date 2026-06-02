@@ -1,5 +1,26 @@
 <%= render(Pito::Segment::Component.new(accent:, background:)) do %>
-  <% if @body %>
+  <% if expandable? %>
+    <%# /help and other collapsible results — body + visible lines + ctrl+o overflow %>
+    <div data-controller="pito--expand"
+         data-pito--expand-expand-label-value="<%= t('pito.slash.help.more_hint', count: @expand_more_count) %>"
+         data-pito--expand-collapse-label-value="<%= t('pito.slash.help.fewer_hint') %>">
+      <% if @body %>
+        <span class="text-fg"><%= @body %></span>
+      <% end %>
+      <% @expand_lines.each do |line| %>
+        <div class="text-fg"><%= line %></div>
+      <% end %>
+      <div data-pito--expand-target="hint" class="mt-1">
+        <span class="font-bold text-yellow">ctrl+o</span>
+        <span data-pito--expand-target="hintLabel" class="text-fg-dim ml-1"><%= t("pito.slash.help.more_hint", count: @expand_more_count) %></span>
+      </div>
+      <div data-pito--expand-target="detail" class="hidden mt-1.5 border-t border-line-default pt-1.5">
+        <% @expand_detail.each do |line| %>
+          <div class="text-fg"><%= line %></div>
+        <% end %>
+      </div>
+    </div>
+  <% elsif @body %>
     <span class="text-fg"><%= @body %></span>
   <% else %>
     <%= content %>

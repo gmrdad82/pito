@@ -19,6 +19,13 @@ require 'view_component/test_helpers'
 RSpec.configure do |config|
   config.include FactoryBot::Syntax::Methods
 
+  # Load spec-only i18n fixtures — keys like spec.fixtures.* that exist only
+  # in tests and should never appear in production locale files.
+  config.before(:suite) do
+    I18n.load_path += Dir[Rails.root.join("spec/support/locales/**/*.yml")]
+    I18n.backend.reload!
+  end
+
   # ── ViewComponent specs ───────────────────────────────────────────
   # Any spec under spec/components is automatically tagged
   # `type: :component` — no need to write `type:` by hand. That type

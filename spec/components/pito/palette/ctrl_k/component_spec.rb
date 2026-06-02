@@ -2,24 +2,24 @@
 
 require "rails_helper"
 
-RSpec.describe Pito::Palette::CtrlP::Component do
+RSpec.describe Pito::Palette::CtrlK::Component do
   # Minimal reusable section data using real i18n keys
   let(:section_suggested) do
     {
-      title_key: "pito.palette.ctrl_p.sections.suggested",
+      title_key: "pito.palette.ctrl_k.sections.suggested",
       items: [
-        { label_key: "pito.palette.ctrl_p.commands.new_session", shortcut: "ctrl+n" },
-        { label_key: "pito.palette.ctrl_p.commands.open_editor" }
+        { label_key: "pito.palette.ctrl_k.commands.new_session", shortcut: "ctrl+n" },
+        { label_key: "pito.palette.ctrl_k.commands.open_editor" }
       ]
     }
   end
 
   let(:section_session) do
     {
-      title_key: "pito.palette.ctrl_p.sections.session",
+      title_key: "pito.palette.ctrl_k.sections.session",
       items: [
-        { label_key: "pito.palette.ctrl_p.commands.rename_session" },
-        { label_key: "pito.palette.ctrl_p.commands.fork_session" }
+        { label_key: "pito.palette.ctrl_k.commands.rename_session" },
+        { label_key: "pito.palette.ctrl_k.commands.fork_session" }
       ]
     }
   end

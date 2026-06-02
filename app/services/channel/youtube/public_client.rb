@@ -73,10 +73,10 @@ class Channel
 
       private
 
-      # The public API key is sourced from the
-      # PITO_GOOGLE_OAUTH_API_KEY ENV var.
+      # Google API key (non-OAuth) for public YouTube Data API calls.
+      # Set via: /config google api_key=…
       def api_key
-        ENV["PITO_GOOGLE_OAUTH_API_KEY"]
+        Pito::Credentials.google_api_key
       end
 
       def normalize_list(response)

@@ -4,12 +4,34 @@ en:
       help:
         intro: "%{count} commands available."
         entry: "/%{verb} — %{description}"
+        unauthenticated: "Authenticate first — /authenticate <code>. Type /authenticate <6-digit TOTP code> to unlock all commands."
+        more_hint: "ctrl+o to see %{count} more"
+        fewer_hint: "ctrl+o to collapse"
         descriptions:
           help: "Show this command list"
           confirm_demo: "Demo confirmation prompt"
+          config: "Read or write install-wide credentials"
+          connect: "Connect a YouTube channel via Google OAuth"
       errors:
         unknown_verb: "Unknown command: /%{verb}. Type /help for the command list."
         parse_failed: "Couldn't parse command: %{raw}"
       confirm_hint: "type /confirm or /cancel"
       confirm_demo:
         prompt: "Confirm running this demo command?"
+      connect:
+        descriptions:
+          connect: "Connect a YouTube channel via Google OAuth"
+        errors:
+          not_configured: >-
+            Google OAuth credentials are not configured.
+            Set them first: /config google client_id=… client_secret=… redirect_uri=…
+      config:
+        descriptions:
+          config: "Read or write install-wide credentials (/config google|voyage|igdb|webhook)"
+        status:
+          ok: "OK"
+          missing: "MISSING"
+        updated: "Updated %{provider} credentials (%{keys}). Changes take effect immediately (Google OAuth requires restart)."
+        errors:
+          unknown_provider: "Unknown provider '%{provider}'. Supported: google, voyage, igdb, webhook"
+          unknown_keys: "Unknown keys for %{provider}: %{keys}"

@@ -35,35 +35,21 @@ OmniAuth.config.on_failure = proc do |env|
   YoutubeConnections::OauthCallbacksController.action(:failure).call(env)
 end
 
-# YouTube / Google OAuth config is sourced from ENV vars
-# (PITO_GOOGLE_OAUTH_CLIENT_ID / PITO_GOOGLE_OAUTH_CLIENT_SECRET /
-# PITO_GOOGLE_OAUTH_REDIRECT_URI). It is deploy-time config; rotating
-# it requires updating the environment + a Puma restart.
+# YouTube / Google OAuth credentials are sourced from AppSetting via
+# Pito::Credentials (Rails.cache-backed, 5-min TTL). Set credentials
+# with `/config google client_id=… client_secret=… redirect_uri=…`.
 #
-# The resolver is now two-tier:
+# The provider is always registered. Credentials are injected per-request
+# via OmniAuth's `setup` lambda so the initializer doesn't need Zeitwerk
+# autoloading to be active (constants in app/ aren't available until after
+# initializers run). Pito::Credentials IS available at request time.
 #
-#   1. ENV var (PITO_GOOGLE_OAUTH_CLIENT_ID /
-#      PITO_GOOGLE_OAUTH_CLIENT_SECRET) — the source.
-#   2. Test-mode placeholder so request specs boot without any
-#      configured secret.
-
-google_oauth_client_id =
-  ENV["PITO_GOOGLE_OAUTH_CLIENT_ID"].presence ||
-  (Rails.env.test? ? "test-google-oauth-client-id-not-a-secret" : nil)
-
-google_oauth_client_secret =
-  ENV["PITO_GOOGLE_OAUTH_CLIENT_SECRET"].presence ||
-  (Rails.env.test? ? "test-google-oauth-client-secret-not-a-secret" : nil)
-
-google_oauth_redirect_uri =
-  ENV["PITO_GOOGLE_OAUTH_REDIRECT_URI"].presence
-
-# Google OAuth is an optional surface (the YouTube-connection flow). When
-# the client id/secret aren't configured we simply don't register the
-# provider — the app boots normally and the feature stays dormant until
-# the operator supplies the credentials (later, via AppSettings). No raise,
-# no warning: an unconfigured install is a valid state.
-google_oauth_configured = google_oauth_client_id.present? && google_oauth_client_secret.present?
+# If credentials are blank the OAuth request phase will fail — guard
+# against this in ChatController by checking
+# `Pito::Credentials.google_oauth_configured?` before initiating the flow.
+#
+# In test mode Pito::Credentials falls back to hardcoded placeholder strings
+# so the spec suite boots without a real AppSetting row.
 
 # Single scope set requested every time — see the scope strategy
 # block in the file header. Listed as a constant rather than inlined
@@ -91,15 +77,10 @@ PITO_GOOGLE_OAUTH_REQUIRED_YOUTUBE_SCOPES = %w[
 ].freeze
 
 Rails.application.config.middleware.use OmniAuth::Builder do
-  next unless google_oauth_configured
-
   provider :google_oauth2,
-           google_oauth_client_id,
-           google_oauth_client_secret,
+           nil,
+           nil,
            {
-             # Full scope set requested every authorization round.
-             # `Settings::YoutubeController#connect` only stashes an
-             # intent in session — no request-phase scope override.
              scope: PITO_GOOGLE_OAUTH_SCOPES.join(" "),
              access_type: "offline",
              prompt: "consent",
@@ -107,31 +88,21 @@ Rails.application.config.middleware.use OmniAuth::Builder do
              # The Google Cloud Console is registered with the
              # callback URI `<host>/auth/google/callback`
              # (NOT the gem default `/auth/google_oauth2/callback`).
-             # `callback_path` overrides where OmniAuth's middleware
-             # listens for the return; `redirect_uri` (when provided)
-             # is the absolute URL Google sees in the auth request and
-             # must match an entry registered in the OAuth client.
              callback_path: "/auth/google/callback",
-             redirect_uri: (
-               # In test we let OmniAuth derive the redirect URI
-               # from the request host (test_mode never reaches
-               # Google so pin-mismatch doesn't apply). In dev /
-               # production we pin to the resolved value (must match
-               # the URI registered with the Google Cloud Console).
-               # The PITO_GOOGLE_OAUTH_REDIRECT_URI ENV var is
-               # OPTIONAL — when blank we fall back to the local dev
-               # callback URL.
-               if Rails.env.test?
-                 nil
-               else
-                 google_oauth_redirect_uri ||
+             pkce: true,
+             # Inject credentials per-request from AppSetting (via
+             # Pito::Credentials cache). redirect_uri falls back to
+             # the local dev default when blank.
+             setup: lambda { |env|
+               creds = Pito::Credentials
+               env["omniauth.strategy"].options[:client_id]     = creds.google_oauth_client_id
+               env["omniauth.strategy"].options[:client_secret] = creds.google_oauth_client_secret
+               unless Rails.env.test?
+                 env["omniauth.strategy"].options[:redirect_uri] =
+                   creds.google_oauth_redirect_uri ||
                    "http://localhost:3027/auth/google/callback"
                end
-             ),
-             # PKCE is free defense-in-depth; the gem requires
-             # `provider_ignores_state: false` (the default) for state
-             # validation to remain in force.
-             pkce: true
+             }
            }
 end
 

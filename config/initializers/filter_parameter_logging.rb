@@ -5,11 +5,22 @@
 # See the ActiveSupport::ParameterFilter documentation for supported notations and behaviors.
 Rails.application.config.filter_parameters += [
   :passw, :email, :secret, :token, :_key, :crypt, :salt, :certificate, :otp, :ssn, :cvv, :cvc,
-  # 2026-05-17 webhook URL hardening. Discord + Slack webhook URLs are
-  # delivery secrets — anyone with the URL can post to the channel. The
-  # form params (`discord_webhook_url`, `slack_webhook_url`) plus the
-  # model column (`webhook_url`) all match this filter via partial-name
-  # match, so any request-log line touching either surface scrubs the
-  # value as `[FILTERED]` rather than spilling the live URL.
-  :webhook_url
+  # Discord + Slack webhook URLs are delivery secrets.
+  :webhook_url,
+  # Mask sensitive slash-command values in `input` param logs:
+  #   /authenticate <totp_code>  →  /authenticate ******
+  #   /config google client_id=x client_secret=y  →  /config google client_id=*** client_secret=***
+  lambda do |key, value|
+    next unless key.to_s == "input" && value.is_a?(String)
+    # /authenticate — mask everything after the verb
+    if value.strip.match?(%r{\A/authenticate(\s|\z)}i)
+      verb, rest = value.strip.split(/\s+/, 2)
+      value.replace("#{verb} #{'*' * rest.to_s.length}") if rest.present?
+    # /config — mask sensitive kwargs
+    elsif value.strip.match?(%r{\A/config(\s|\z)}i)
+      %w[client_id client_secret api_key].each do |sensitive_key|
+        value.gsub!(/(?<=\b#{sensitive_key}=)\S+/, "***")
+      end
+    end
+  end
 ]

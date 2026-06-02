@@ -28,6 +28,7 @@ export default class extends Controller {
   connect() {
     this.scrollLocked          = false
     this.programmaticScrolling = false
+    this.lastScrollTop         = null
     this.#programmaticScroll({ instant: true })
     this.#bindScroll()
     this.#bindMutation()
@@ -62,13 +63,28 @@ export default class extends Controller {
   }
 
   // Only update scrollLocked from MANUAL user scrolls, not our own animations.
+  // During a programmatic scroll we still honour upward movement — if the user
+  // grabs the scrollbar while we're animating downward, we cancel the lock and
+  // set scrollLocked immediately.  Downward events during animation are ignored.
   #bindScroll() {
     this.abort = new AbortController()
     this.element.addEventListener("scroll", () => {
-      if (this.programmaticScrolling) return
+      const scrollTop    = this.element.scrollTop
+      const movingUp     = this.lastScrollTop !== null && scrollTop < this.lastScrollTop
+      this.lastScrollTop = scrollTop
+
+      if (this.programmaticScrolling) {
+        if (movingUp) {
+          // User interrupted our animation — honour their scroll intent.
+          this.programmaticScrolling = false
+          clearTimeout(this.scrollGraceTimer)
+          this.scrollLocked = true
+        }
+        return
+      }
 
       const distanceFromBottom =
-        this.element.scrollHeight - this.element.scrollTop - this.element.clientHeight
+        this.element.scrollHeight - scrollTop - this.element.clientHeight
       this.scrollLocked = distanceFromBottom > SCROLL_LOCK_THRESHOLD
     }, { signal: this.abort.signal, passive: true })
   }

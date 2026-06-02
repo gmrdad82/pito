@@ -56,6 +56,8 @@ class AppSetting < ApplicationRecord
     singleton_row.totp_seed_encrypted
   end
 
+  after_save { Pito::Credentials.invalidate! }
+
   # ── API keys ───────────────────────────────────────────────────────
 
   def self.google_oauth_client_id
@@ -64,6 +66,63 @@ class AppSetting < ApplicationRecord
 
   def self.google_oauth_client_secret
     singleton_row.google_oauth_client_secret
+  end
+
+  # Fields stored as plain key/value rows — value column is encrypted
+  # (deterministic). Avoids schema migrations for per-service credentials.
+  GOOGLE_OAUTH_REDIRECT_URI_KEY = "google_oauth_redirect_uri"
+  GOOGLE_API_KEY_KEY            = "google_api_key"
+  IGDB_CLIENT_ID_KEY            = "igdb_client_id"
+  IGDB_CLIENT_SECRET_KEY        = "igdb_client_secret"
+  SLACK_WEBHOOK_URL_KEY         = "slack_webhook_url"
+  DISCORD_WEBHOOK_URL_KEY       = "discord_webhook_url"
+
+  def self.google_oauth_redirect_uri
+    get(GOOGLE_OAUTH_REDIRECT_URI_KEY)
+  end
+
+  def self.google_oauth_redirect_uri=(uri)
+    set(GOOGLE_OAUTH_REDIRECT_URI_KEY, uri)
+  end
+
+  def self.google_api_key
+    get(GOOGLE_API_KEY_KEY)
+  end
+
+  def self.google_api_key=(key)
+    set(GOOGLE_API_KEY_KEY, key)
+  end
+
+  def self.igdb_client_id
+    get(IGDB_CLIENT_ID_KEY)
+  end
+
+  def self.igdb_client_id=(id)
+    set(IGDB_CLIENT_ID_KEY, id)
+  end
+
+  def self.igdb_client_secret
+    get(IGDB_CLIENT_SECRET_KEY)
+  end
+
+  def self.igdb_client_secret=(secret)
+    set(IGDB_CLIENT_SECRET_KEY, secret)
+  end
+
+  def self.slack_webhook_url
+    get(SLACK_WEBHOOK_URL_KEY)
+  end
+
+  def self.slack_webhook_url=(url)
+    set(SLACK_WEBHOOK_URL_KEY, url)
+  end
+
+  def self.discord_webhook_url
+    get(DISCORD_WEBHOOK_URL_KEY)
+  end
+
+  def self.discord_webhook_url=(url)
+    set(DISCORD_WEBHOOK_URL_KEY, url)
   end
 
   def self.voyage_api_key

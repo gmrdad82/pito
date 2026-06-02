@@ -13,8 +13,15 @@ module Pito
       #   `"follow_up"`  — blue accent + surface background (upgraded by follow-up)
       def initialize(payload: {}, body: nil)
         payload = payload.with_indifferent_access if payload.respond_to?(:with_indifferent_access)
-        @payload = payload
-        @body = body || resolve_text(payload)
+        @payload      = payload
+        @body         = body || resolve_text(payload)
+        @expand_lines = Array(payload[:expand_lines]).map(&:to_s)
+        @expand_detail = Array(payload[:expand_detail]).map(&:to_s)
+        @expand_more_count = payload[:expand_more_count].to_i
+      end
+
+      def expandable?
+        @expand_detail.any?
       end
 
       def accent

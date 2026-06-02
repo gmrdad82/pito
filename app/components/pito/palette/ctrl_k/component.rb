@@ -2,7 +2,7 @@
 
 module Pito
   module Palette
-    module CtrlP
+    module CtrlK
       class Component < ViewComponent::Base
         # @param sections [Array<Hash>] each with keys :title and :items.
         #   Each item is a Hash with keys :name and optional :shortcut.

@@ -1,3 +1,14 @@
 <%= render(Pito::Segment::Component.new(accent: :red)) do %>
-  <span class="text-fg"><%= @message %></span>
+  <div data-controller="pito--expand"
+       data-pito--expand-expand-label-value="<%= t('pito.event.expand.expand_hint') %>"
+       data-pito--expand-collapse-label-value="<%= t('pito.event.expand.collapse_hint') %>">
+    <span class="text-fg"><%= @text %></span>
+    <% if @detail %>
+      <div data-pito--expand-target="hint" class="mt-1">
+        <span class="font-bold text-yellow">ctrl+o</span>
+        <span data-pito--expand-target="hintLabel" class="text-fg-dim ml-1"><%= t("pito.event.expand.expand_hint") %></span>
+      </div>
+      <div data-pito--expand-target="detail" class="hidden mt-1.5 text-fg-dim font-mono text-xs border-t border-line-default pt-1.5 break-all"><%= @detail %></div>
+    <% end %>
+  </div>
 <% end %>

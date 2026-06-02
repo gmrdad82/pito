@@ -3,11 +3,12 @@
 module Pito
   module Slash
     class Handler
-      attr_reader :invocation, :conversation
+      attr_reader :invocation, :conversation, :authenticated
 
-      def initialize(invocation:, conversation:)
-        @invocation = invocation
-        @conversation = conversation
+      def initialize(invocation:, conversation:, authenticated: true)
+        @invocation    = invocation
+        @conversation  = conversation
+        @authenticated = authenticated
       end
 
       def call

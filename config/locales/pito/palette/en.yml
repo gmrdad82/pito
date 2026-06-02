@@ -1,7 +1,7 @@
 en:
   pito:
     palette:
-      ctrl_p:
+      ctrl_k:
         title: "Commands"
         esc_hint: "esc"
         search_placeholder: "Search"

@@ -26,11 +26,11 @@ class Channel
       def call(youtube_connection)
         raise Channel::Youtube::NeedsReauthError, "no refresh token on file" if youtube_connection.refresh_token.blank?
 
-        # Google OAuth credentials are sourced from ENV vars
-        # (PITO_GOOGLE_OAUTH_CLIENT_ID / PITO_GOOGLE_OAUTH_CLIENT_SECRET).
+        # Google OAuth credentials are sourced from AppSetting via
+        # Pito::Credentials (cached; set via `/config google`).
         response = post_form(
-          client_id:     ENV["PITO_GOOGLE_OAUTH_CLIENT_ID"],
-          client_secret: ENV["PITO_GOOGLE_OAUTH_CLIENT_SECRET"],
+          client_id:     Pito::Credentials.google_oauth_client_id,
+          client_secret: Pito::Credentials.google_oauth_client_secret,
           refresh_token: youtube_connection.refresh_token,
           grant_type:    "refresh_token"
         )

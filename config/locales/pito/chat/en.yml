@@ -1,5 +1,10 @@
 en:
   pito:
+    errors:
+      dispatch_failed:
+        - "Something went sideways on that one."
+        - "That command hit a wall."
+        - "Ran into trouble with that one."
     chat:
       list:
         descriptions:

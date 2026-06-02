@@ -28,13 +28,17 @@ class ChatDispatchJob < ApplicationJob
     # Auth gating: only /authenticate works while unauthenticated (handled
     # synchronously in the controller). Every other command from an
     # unauthenticated session is refused here with the auth-required error.
-    result = if !authenticated
+    result = if !authenticated && !help_command?(input)
+      # /help works unauthenticated (but shows restricted output). Everything else
+      # is blocked. text: passes the already-resolved string to ErrorComponent.
       Pito::Chat::Result::Error.new(
         message_key: I18n.t("pito.auth.mandatories").sample,
         message_args: {}
+        # NOTE: message_key here is already-translated text — ErrorComponent
+        # handles this via the text: fallback path.
       )
     elsif turn.input_kind == "slash"
-      Pito::Slash::Dispatcher.call(input:, conversation:)
+      Pito::Slash::Dispatcher.call(input:, conversation:, authenticated:)
     else
       Pito::Chat::Dispatcher.call(input:, conversation:)
     end
@@ -59,7 +63,11 @@ class ChatDispatchJob < ApplicationJob
     broadcaster.emit(
       turn:,
       kind: "error",
-      payload: { message_key: "pito.errors.dispatch_failed", message_args: { message: e.message }, elapsed_seconds: elapsed }
+      payload: {
+        text:             I18n.t("pito.errors.dispatch_failed").sample,
+        detail:           e.message,
+        elapsed_seconds:  elapsed
+      }
     )
     broadcaster.resolve_thinking(turn:, elapsed_seconds: elapsed)
     raise # re-raise so SolidQueue marks the job failed and can retry
@@ -70,14 +78,18 @@ class ChatDispatchJob < ApplicationJob
   def persist_and_broadcast(result, turn, conversation, broadcaster, elapsed)
     events_to_emit = result_events(result, elapsed)
     events_to_emit.each do |attrs|
-      event = conversation.events.create!(
+      event = Event.create_with_position!(
+        conversation:,
         turn:,
-        position: Event.next_position_for(conversation),
-        kind:     attrs[:kind],
-        payload:  attrs[:payload]
+        kind:    attrs[:kind],
+        payload: attrs[:payload]
       )
       broadcaster.broadcast_event(event)
     end
+  end
+
+  def help_command?(input)
+    input.strip.match?(%r{\A/help(\s|\z)}i)
   end
 
   # Translate a dispatcher Result into an array of { kind:, payload: } hashes.
@@ -91,9 +103,14 @@ class ChatDispatchJob < ApplicationJob
       inject_segment_styles(result.events).map { |e| { kind: e[:kind], payload: e[:payload].merge(base) } }
 
     when Pito::Slash::Result::Error, Pito::Chat::Result::Error
-      [ { kind: "error",
-          payload: { message_key: result.message_key,
-                     message_args: result.message_args }.merge(base) } ]
+      # If message_key looks like already-translated text (e.g. a sampled
+      # mandatory), pass it as text: so ErrorComponent renders it directly.
+      error_payload = if result.message_key.to_s.start_with?("pito.")
+        { message_key: result.message_key, message_args: result.message_args }
+      else
+        { text: result.message_key }
+      end
+      [ { kind: "error", payload: error_payload.merge(base) } ]
 
     when Pito::Slash::Result::NeedsConfirmation
       [ { kind: "confirmation_prompt",

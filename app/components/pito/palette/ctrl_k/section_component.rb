@@ -2,7 +2,7 @@
 
 module Pito
   module Palette
-    module CtrlP
+    module CtrlK
       class SectionComponent < ViewComponent::Base
         # @param title_key [String] i18n key for the section label.
         # @param items [Array<Hash>] each with keys :label_key and optional :shortcut.

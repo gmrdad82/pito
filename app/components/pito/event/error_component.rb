@@ -3,9 +3,13 @@
 module Pito
   module Event
     class ErrorComponent < ViewComponent::Base
-      # @param payload [Hash] event payload with `{ message_key:, message_args: }`.
+      # Payload shapes accepted:
+      #   { text: "friendly message", detail: "raw error (optional)" }
+      #   { message_key: "pito.some.key", message_args: {} }  — legacy, resolved via I18n
       def initialize(payload: {})
-        @message = I18n.t(payload[:message_key], **payload.fetch(:message_args, {}))
+        @text   = payload[:text].presence ||
+                  I18n.t(payload[:message_key].to_s, **payload.fetch(:message_args, {}))
+        @detail = payload[:detail].presence
       end
     end
   end

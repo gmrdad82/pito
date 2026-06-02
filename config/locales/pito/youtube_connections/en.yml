@@ -1,0 +1,19 @@
+en:
+  pito:
+    youtube_connections:
+      callback:
+        stale_intent: "Google sign-in via this route is not supported."
+        partial_grant: >-
+          Google account connected, but some required scopes were not granted.
+          Run /connect again and leave every box checked on the Google consent screen.
+        no_channels: "Google account connected. No channels found under this account."
+        channels_added:
+          one: "Google account connected. 1 channel added (%{titles})."
+          other: "Google account connected. %{count} channels added (%{titles})."
+        already_linked:
+          one: "Google account connected. Channel '%{title}' is already linked."
+          other: "Google account connected. These channels are already linked: %{titles}."
+        mixed: "Google account connected. %{added_summary}. %{dup_summary}."
+        discovery_error: >-
+          Google account connected. Couldn't list channels right now (%{error}).
+          Run /connect again to retry.

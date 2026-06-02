@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 class ChatController < ApplicationController
+  include YoutubeConnectionOauthRedirect
+
   allow_anonymous :create
 
   def create
@@ -30,11 +32,24 @@ class ChatController < ApplicationController
       return respond_to_client(conversation)
     end
 
+    if connect_command?(input)
+      # /connect initiates Google OAuth — synchronous because we need to redirect
+      # the browser to Google's authorization endpoint. Returns the OAuth URL on
+      # success (caller redirects), or nil when credentials are missing (error
+      # Event is broadcast and the normal 204 response is sent).
+      oauth_url = handle_connect(input, conversation)
+      return oauth_url ? redirect_to(oauth_url, allow_other_host: true) : respond_to_client(conversation)
+    end
+
+    # Mask sensitive kwargs before persisting the echo (T27.0.d).
+    # The raw input is dispatched to the job; only the echo text is masked.
+    echo_input = config_command?(input) ? mask_config_credentials(input) : input
+
     # Every other command — authenticated or not — goes through the async
     # pipeline (T23): persist + broadcast the echo now, enqueue the job, 204.
     # Auth gating is applied inside the job via the `authenticated` flag, because
     # Current.session is request-scoped and unavailable in the worker.
-    handle_async(input, conversation, authenticated: Current.session.present?)
+    handle_async(input, conversation, authenticated: Current.session.present?, echo_text: echo_input)
     respond_to_client(conversation)
   end
 
@@ -42,7 +57,7 @@ class ChatController < ApplicationController
 
   # ── Async dispatch (P23) ────────────────────────────────────────────────────
 
-  def handle_async(input, conversation, authenticated:)
+  def handle_async(input, conversation, authenticated:, echo_text: input)
     input_kind = input.start_with?("/") ? "slash" : "chat"
 
     turn = conversation.turns.create!(
@@ -51,14 +66,11 @@ class ChatController < ApplicationController
       input_text: input
     )
 
-    # Persist echo first, then broadcast (T23.1 + T23.2 / T24.1 + T24.2 — the
-    # echo Segment carries the exact submitted text).
-    broadcaster = Pito::Stream::Broadcaster.new(conversation:)
-    echo_event = conversation.events.create!(
-      turn:,
-      position: Event.next_position_for(conversation),
-      kind:     "echo",
-      payload:  { text: input }
+    # Persist echo first, then broadcast (T23.1 + T23.2 / T24.1 + T24.2).
+    # echo_text may differ from input when sensitive kwargs are masked (T27.0.d).
+    broadcaster  = Pito::Stream::Broadcaster.new(conversation:)
+    echo_event   = Event.create_with_position!(
+      conversation:, turn:, kind: "echo", payload: { text: echo_text }
     )
     broadcaster.broadcast_event(echo_event)
 
@@ -141,8 +153,67 @@ class ChatController < ApplicationController
       broadcaster.emit(
         turn:,
         kind:    "error",
-        payload: { message_key: auth_error_key(result.status), message_args: {} }
+        payload: { text: auth_error_key(result.status) }
       )
+    end
+  end
+
+  def connect_command?(input)
+    input.strip.match?(%r{\A/connect(\s|\z)}i)
+  end
+
+  # Returns the OAuth URL string to redirect to, or nil on any error
+  # (an error Event is broadcast and the caller responds 204).
+  def handle_connect(input, conversation)
+    turn = conversation.turns.create!(
+      position:   Turn.next_position_for(conversation),
+      input_kind: "slash",
+      input_text: input
+    )
+    broadcaster = Pito::Stream::Broadcaster.new(conversation:)
+
+    # Auth gating: /connect requires an active session. Check before
+    # touching Pito::Credentials (which hits Rails.cache / SolidCache).
+    unless Current.session.present?
+      broadcaster.emit(
+        turn:,
+        kind:    "error",
+        payload: { text: I18n.t("pito.auth.mandatories").sample }
+      )
+      return nil
+    end
+
+    unless Pito::Credentials.google_oauth_configured?
+      broadcaster.emit(
+        turn:,
+        kind:    "error",
+        payload: {
+          message_key:  "pito.slash.connect.errors.not_configured",
+          message_args: {}
+        }
+      )
+      return nil
+    end
+
+    broadcaster.emit(turn:, kind: "echo", payload: { text: input })
+    stash_youtube_connect_intent
+    stash_connect_conversation_uuid(conversation.uuid)
+
+    "/auth/google_oauth2"
+  end
+
+  def config_command?(input)
+    input.strip.match?(%r{\A/config(\s|\z)}i)
+  end
+
+  # Mask client_id and client_secret kwarg values; redirect_uri is shown as-is.
+  # Example: /config google client_id=abc client_secret=xyz redirect_uri=http://...
+  #       →  /config google client_id=*** client_secret=*** redirect_uri=http://...
+  MASKED_CONFIG_KEYS = %w[client_id client_secret api_key].freeze
+
+  def mask_config_credentials(input)
+    MASKED_CONFIG_KEYS.reduce(input) do |text, key|
+      text.gsub(/(?<=\b#{key}=)\S+/, "***")
     end
   end
 
@@ -153,10 +224,12 @@ class ChatController < ApplicationController
     "#{verb} #{'*' * rest.length}"
   end
 
+  # Returns the already-resolved error text (not an i18n key).
+  # Callers must store it under payload[:text], not payload[:message_key].
   def auth_error_key(status)
     case status
     when :throttled    then I18n.t("pito.auth.throttles").sample
-    when :not_enrolled then "pito.auth.not_enrolled"
+    when :not_enrolled then I18n.t("pito.auth.not_enrolled")
     else                    I18n.t("pito.auth.failures").sample
     end
   end

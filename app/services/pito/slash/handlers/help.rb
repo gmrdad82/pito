@@ -7,34 +7,51 @@ module Pito
         self.verb = :help
         self.description_key = "pito.slash.help.descriptions.help"
 
+        VISIBLE_COUNT = 5
+
         def call
-          events = []
+          authenticated ? full_help : restricted_help
+        end
 
-          # Intro line: "N commands available."
-          events << {
-            kind: "assistant_text",
-            payload: {
-              message_key: "pito.slash.help.intro",
-              message_args: { count: Pito::Slash::Registry.size }
+        private
+
+        # Unauthenticated: only instruct on /authenticate.
+        def restricted_help
+          Pito::Slash::Result::Ok.new(events: [
+            {
+              kind:    "assistant_text",
+              payload: { text: I18n.t("pito.slash.help.unauthenticated") }
             }
-          }
+          ])
+        end
 
-          # One entry per registered handler: "/help — Show this help message"
-          Pito::Slash::Registry.registered_verbs.sort.each do |verb|
-            handler_class = Pito::Slash::Registry.lookup(verb)
-            events << {
-              kind: "assistant_text",
+        # Authenticated: grouped commands, first VISIBLE_COUNT visible,
+        # rest collapsed under ctrl+o (via expand_detail in payload).
+        def full_help
+          grouped = build_grouped_lines
+          visible = grouped.first(VISIBLE_COUNT)
+          overflow = grouped.drop(VISIBLE_COUNT)
+
+          Pito::Slash::Result::Ok.new(events: [
+            {
+              kind:    "assistant_text",
               payload: {
-                message_key: "pito.slash.help.entry",
-                message_args: {
-                  verb: verb.to_s,
-                  description: I18n.t(handler_class.description_key)
-                }
+                text:           I18n.t("pito.slash.help.intro", count: Pito::Slash::Registry.size),
+                expand_lines:   visible.map { |l| l },
+                expand_detail:  overflow.any? ? overflow : nil,
+                expand_more_count: overflow.size
               }
             }
-          end
+          ])
+        end
 
-          Pito::Slash::Result::Ok.new(events:)
+        def build_grouped_lines
+          lines = []
+          Pito::Slash::Registry.registered_verbs.sort.each do |verb|
+            handler_class = Pito::Slash::Registry.lookup(verb)
+            lines << "/#{verb}  —  #{I18n.t(handler_class.description_key)}"
+          end
+          lines
         end
       end
     end

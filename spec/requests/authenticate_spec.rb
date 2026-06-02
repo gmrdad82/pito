@@ -49,7 +49,7 @@ RSpec.describe "Authentication via /authenticate", type: :request do
       post "/chat", params: { input: "/help", uuid: conversation.uuid }
       expect(last_turn_events.pluck(:kind)).to include("echo")
       mandatories = I18n.t("pito.auth.mandatories")
-      expect(last_turn_events.none? { |e| mandatories.include?(e.payload["message_key"]) }).to be true
+      expect(last_turn_events.none? { |e| mandatories.include?(e.payload["text"] || e.payload["message_key"]) }).to be true
     end
   end
 
@@ -59,7 +59,7 @@ RSpec.describe "Authentication via /authenticate", type: :request do
 
       error = last_turn_events.find { |e| e.kind == "error" }
       failures = I18n.t("pito.auth.failures")
-      expect(failures).to include(error.payload["message_key"])
+      expect(failures).to include(error.payload["text"] || error.payload["message_key"])
       expect(cookies[Pito::Auth::SessionCookie::COOKIE_NAME]).to be_blank
     end
   end
@@ -70,11 +70,11 @@ RSpec.describe "Authentication via /authenticate", type: :request do
     # controller and is present immediately.
 
     it "refuses a slash command with an auth-required error (after the job runs)" do
-      perform_enqueued_jobs { post "/chat", params: { input: "/help", uuid: conversation.uuid } }
+      perform_enqueued_jobs { post "/chat", params: { input: "/connect", uuid: conversation.uuid } }
 
       error = last_turn_events.find { |e| e.kind == "error" }
       mandatories = I18n.t("pito.auth.mandatories")
-      expect(mandatories).to include(error.payload["message_key"])
+      expect(mandatories).to include(error.payload["text"] || error.payload["message_key"])
     end
 
     it "refuses a chat message with an auth-required error (after the job runs)" do
@@ -82,7 +82,7 @@ RSpec.describe "Authentication via /authenticate", type: :request do
 
       error = last_turn_events.find { |e| e.kind == "error" }
       mandatories = I18n.t("pito.auth.mandatories")
-      expect(mandatories).to include(error.payload["message_key"])
+      expect(mandatories).to include(error.payload["text"] || error.payload["message_key"])
     end
 
     it "echoes the refused input synchronously (before the job runs)" do

@@ -2,8 +2,8 @@
 <div class="w-[600px] bg-surface border border-line-default p-2.5">
   <%# Title row %>
   <div class="flex justify-between items-center px-1.5">
-    <span class="font-bold text-fg"><%= t("pito.palette.ctrl_p.title") %></span>
-    <span class="text-fg-dim"><%= t("pito.palette.ctrl_p.esc_hint") %></span>
+    <span class="font-bold text-fg"><%= t("pito.palette.ctrl_k.title") %></span>
+    <span class="text-fg-dim"><%= t("pito.palette.ctrl_k.esc_hint") %></span>
   </div>
 
   <%# 12px gap %>
@@ -11,8 +11,8 @@
 
   <%# Search input area %>
   <div class="flex items-center pb-1 border-b border-line-default mx-1.5">
-    <%= render(Pito::Cursor::Component.new(char: t("pito.palette.ctrl_p.search_placeholder")[0])) %>
-    <span class="text-fg-dim"><%= t("pito.palette.ctrl_p.search_placeholder")[1..] %></span>
+    <%= render(Pito::Cursor::Component.new(char: t("pito.palette.ctrl_k.search_placeholder")[0])) %>
+    <span class="text-fg-dim"><%= t("pito.palette.ctrl_k.search_placeholder")[1..] %></span>
   </div>
 
   <%# 16px gap %>
@@ -21,7 +21,7 @@
   <%# Sections container — scrollable, width matches modal, padding creates gap between content and scrollbar %>
   <div class="pito-hide-scrollbar pito-scroll-fade-slim overflow-y-auto" style="max-height: min(80vh, 600px);">
     <% @sections.each_with_index do |section, s_idx| %>
-      <%= render(Pito::Palette::CtrlP::SectionComponent.new(
+      <%= render(Pito::Palette::CtrlK::SectionComponent.new(
             title_key: section[:title_key],
             items: section[:items],
             selected: (s_idx == @selected_section_index),

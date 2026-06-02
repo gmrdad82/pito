@@ -18,8 +18,9 @@
 module YoutubeConnectionOauthRedirect
   extend ActiveSupport::Concern
 
-  SESSION_INTENT_KEY = :youtube_connection_oauth_intent
-  YOUTUBE_CONNECT_INTENT = "youtube_connect"
+  SESSION_INTENT_KEY           = :youtube_connection_oauth_intent
+  SESSION_CONVERSATION_UUID_KEY = :youtube_connect_conversation_uuid
+  YOUTUBE_CONNECT_INTENT       = "youtube_connect"
 
   private
 
@@ -31,16 +32,25 @@ module YoutubeConnectionOauthRedirect
     session[SESSION_INTENT_KEY] = YOUTUBE_CONNECT_INTENT
   end
 
+  def stash_connect_conversation_uuid(uuid)
+    session[SESSION_CONVERSATION_UUID_KEY] = uuid
+  end
+
+  def consume_connect_conversation_uuid
+    session.delete(SESSION_CONVERSATION_UUID_KEY)
+  end
+
   # Resolve the post-callback redirect target for the given intent.
-  #
-  # `youtube_connect` → `/channels` (Phase 24 — Google management UI
-  #                     surface moved from /settings/youtube to /channels).
-  # nil / unknown    → the failure path (no other legitimate intents
-  #                    exist post-ADR 0006).
+  # For `youtube_connect`: returns the originating /chat/:uuid when a
+  # conversation UUID was stashed; falls back to root.
+  # Unknown intents → the failure path.
   def redirect_target_for_intent(intent)
     case intent
-    when YOUTUBE_CONNECT_INTENT then channels_path
-    else youtube_connection_oauth_failure_path
+    when YOUTUBE_CONNECT_INTENT
+      uuid = consume_connect_conversation_uuid
+      uuid.present? ? conversation_path(uuid: uuid) : root_path
+    else
+      youtube_connection_oauth_failure_path
     end
   end
 end

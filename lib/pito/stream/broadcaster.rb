@@ -12,14 +12,7 @@ module Pito
       # happen together in the same controller action.
       def emit(turn:, kind:, payload:)
         Pito::Stream::EventPayload.validate!(kind:, payload:)
-
-        event = @conversation.events.create!(
-          turn:,
-          position: ::Event.next_position_for(@conversation),
-          kind:,
-          payload:
-        )
-
+        event = ::Event.create_with_position!(conversation: @conversation, turn:, kind:, payload:)
         broadcast_event(event)
         event
       end

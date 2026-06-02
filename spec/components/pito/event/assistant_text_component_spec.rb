@@ -14,9 +14,9 @@ RSpec.describe Pito::Event::AssistantTextComponent do
 
     context "when payload has :message_key" do
       it "resolves the key via I18n" do
-        comp = described_class.new(payload: { message_key: "pito.event.thought.prefix" })
+        comp = described_class.new(payload: { message_key: "spec.fixtures.sample_message" })
         node = render_inline(comp)
-        expect(node.css("span.text-fg").text).to include("Thought")
+        expect(node.css("span.text-fg").text).to include("Test message")
       end
 
       it "interpolates message_args into the translation" do

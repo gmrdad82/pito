@@ -3,22 +3,23 @@
 module Pito
   module Slash
     class Dispatcher
-      def self.call(input:, conversation:)
-        new(input, conversation).dispatch
+      def self.call(input:, conversation:, authenticated: true)
+        new(input, conversation, authenticated).dispatch
       end
 
       private_class_method :new
 
-      def initialize(input, conversation)
-        @input = input
-        @conversation = conversation
+      def initialize(input, conversation, authenticated)
+        @input         = input
+        @conversation  = conversation
+        @authenticated = authenticated
       end
 
       def dispatch
         tokens = Pito::Lex::Lexer.call(@input)
 
         invocation = parse(tokens)
-        return invocation if invocation.is_a?(Pito::Slash::Result::Error) # parse error
+        return invocation if invocation.is_a?(Pito::Slash::Result::Error)
 
         handler_class = Pito::Slash::Registry.lookup(invocation.verb)
 
@@ -29,7 +30,11 @@ module Pito
           )
         end
 
-        handler = handler_class.new(invocation:, conversation: @conversation)
+        handler = handler_class.new(
+          invocation:,
+          conversation:  @conversation,
+          authenticated: @authenticated
+        )
         handler.call
       end
 

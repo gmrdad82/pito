@@ -660,15 +660,20 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 
 ## P27 — `/connect` (OAuth, multi-channel)
 
-- [ ] T27.1 `/connect` starts Google OAuth (reuse omniauth init). complexity: [high]
-- [ ] T27.2 Callback finds-or-creates `YoutubeConnection` by `google_subject_id`. complexity: [low]
-- [ ] T27.3 Fetch the account's manageable channels (YouTube API). complexity: [high]
-- [ ] T27.4 Sidebar picker (keyboard + mouse); mark already-added. complexity: [high]
-- [ ] T27.5 On select, create `Channel` under the connection (skip dupes). complexity: [low]
-- [ ] T27.6 Allow multi-select + re-running `/connect` later. complexity: [low]
-- [ ] T27.7 Result Segment confirms added channel(s). complexity: [low]
-- [ ] T27.8 Specs (callback stubbed; created; deduped). complexity: [high]
-- [ ] T27.9 Smoke. complexity: [manual]
+- [x] T27.0.a `Pito::Credentials` module: AppSetting-primary resolver with `Rails.cache` 5-min TTL for `google_oauth_client_id`, `google_oauth_client_secret`, `google_oauth_redirect_uri`, `voyage_api_key`; `google_oauth_configured?` predicate; `invalidate!` called from `AppSetting` after_save; specs. complexity: [low]
+- [x] T27.0.b Wire `Pito::Credentials` into `omniauth.rb` (replace ENV reads; keep test-mode placeholder; update stale "ENV as source" comment + add "restart required" note), `token_refresher.rb` (replace ENV reads; update comment), `voyage/client.rb` (replace ENV read; fix error string referencing ENV var; update header comment). complexity: [low]
+- [x] T27.0.c Fix `YoutubeConnections::OauthCallbacksController`: remove Z1 `user_id:` dead audit args; fix `discover_and_link_channels` — replace non-existent `channel_url` column with `youtube_channel_id` in `find_by`/`create!`; populate correct Channel fields (title, handle, youtube_connection_id, last_synced_at); move hardcoded `STALE_INTENT_FLASH`/`PARTIAL_GRANT_FLASH` constants to i18n under `pito.youtube_connections.callback.*`. complexity: [low]
+- [x] T27.0.d `/config google` slash handler: no-args getter → status Segment (Client ID: OK|MISSING, Client Secret: OK|MISSING, Redirect URI: value|MISSING); kwarg setter accepts any subset of `client_id=` `client_secret=` `redirect_uri=`, writes to AppSetting + invalidates `Pito::Credentials` cache; `ChatController` masks `client_id`/`client_secret` kwarg values to `***` in the echo (redirect_uri shown as-is); i18n all copy; spec. complexity: [low]
+- [x] T27.0.e Error Segment when `/connect` is invoked but no Google credentials are configured: i18n message directing user to `/config google client_id=… client_secret=… redirect_uri=…`. complexity: [low]
+- [x] T27.1 `/connect` handled synchronously in `ChatController` (like `/authenticate`): detect command; check `Pito::Credentials.google_oauth_configured?` (→ T27.0.e error if not); persist echo Event; stash `youtube_connect` intent + `conversation_uuid` in session via `YoutubeConnectionOauthRedirect`; respond 303 to `/auth/google_oauth2`. complexity: [high]
+- [x] T27.2 Callback finds-or-creates `YoutubeConnection` by `google_subject_id` (already wired; verify works after T27.0.c). complexity: [low]
+- [x] T27.3 Callback discovers + links channels via `discover_and_link_channels` (already wired; verify after T27.0.c fix). complexity: [low]
+- [x] T27.4 ~~Sidebar picker~~ — dropped (2026-06-02). Google's standard OAuth consent screen handles account selection; all channels under the connected Google account are linked automatically by the callback. No in-app picker needed. complexity: [high]
+- [x] T27.5 Verify: re-running `/connect` upserts the connection and adds new channels (dupes silently skipped by `youtube_channel_id` unique index). complexity: [low]
+- [x] T27.6 Callback consumes stashed `conversation_uuid`; persists a result Event on the conversation (channel discovery outcome); redirects to `conversation_path(uuid:)` (not `/channels`). Update `YoutubeConnectionOauthRedirect#redirect_target_for_intent`. complexity: [low]
+- [x] T27.7 Result Segment confirms added channel(s) (rendered from the persisted Event when `/chat/:uuid` loads). complexity: [low]
+- [x] T27.8 Specs (callback stubbed; connection created/upserted; channels linked by `youtube_channel_id`; dupes skipped; no-credentials error; `/config google` getter + setter + echo masking). complexity: [high]
+- [-] T27.9 Smoke. complexity: [manual]
 - [ ] T27.10 Commit: `/connect OAuth + multi-channel picker`. complexity: [manual]
 
 ## P28 — `/disconnect @handle|id`
