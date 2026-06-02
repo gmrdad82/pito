@@ -1409,9 +1409,8 @@ declared there overrides the defaults below.
 
 ## Project context
 
-This section documents the unified messaging pipeline introduced in Plan 2.
-It is consumed by both the Slash system (this plan) and the Chat system
-(Plan 3). Read `docs/EXTRA.md` first; anything there overrides the defaults
+This section documents the unified messaging pipeline shared by the Slash and
+Chat systems. Read `docs/EXTRA.md` first; anything there overrides the defaults
 below.
 
 ## Conventions

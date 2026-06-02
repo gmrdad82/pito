@@ -35,18 +35,18 @@ without conflicts, and get game/channel recommendations. your laptop, your data.
 > no roadmap, no support obligation. issues triaged when there's time; PRs
 > welcome but not guaranteed to merge. no hosted service from this repo.
 
-## stack
+## Stack
 
 Rails 8.1 · Postgres 17 (pgvector) · Voyage AI · Hotwire · ViewComponent ·
 Tailwind CSS · Kamal.
 
-## getting started
+## Getting started
 
 Optimized for the author's own machine; setup docs are sparse on purpose during
 the rebuild. To try it anyway, start with
 [`docs/architecture.md`](docs/architecture.md).
 
-## docs
+## Docs
 
 - [`AGENTS.md`](AGENTS.md) — agent instructions (Claude Code / OpenCode)
 - [`docs/EXTRA.md`](docs/EXTRA.md) — pito-specific conventions that override the
@@ -55,14 +55,14 @@ the rebuild. To try it anyway, start with
 - [`docs/design.md`](docs/design.md) — visual contract, keybindings, terminology
 - [`docs/footage_probe.md`](docs/footage_probe.md) — ffprobe integration, grading detection, rake task usage
 
-## sounds
+## Sounds
 
 | event   | file                  | original       | source                                                       | license   |
 | ------- | --------------------- | -------------- | ------------------------------------------------------------ | --------- |
 | send    | `/sounds/send.mp3`    | `vs-pop_5.mp3` | [Pop_5.mp3](https://freesound.org/s/463395/) by Vilkas_Sound | CC BY 4.0 |
 | receive | `/sounds/receive.mp3` | `pop-1.wav`    | [Pop 1](https://freesound.org/s/545201/) by theplax          | CC BY 4.0 |
 
-## license
+## License
 
 AGPL-3.0 — see [LICENSE](LICENSE). Use it for whatever you like — self-host it,
 fork it, learn from it, build on it. Just don't pass it off as your own thing.

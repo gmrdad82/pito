@@ -1,81 +1,138 @@
 # pito — architecture
 
-## Static UI baseline (Plan 1)
+## Routes
 
-Plan 1 delivers the static visual chassis — no wiring, no real data, no Stimulus, no Action Cable.
+| Path                        | Controller#action                            | Description                                            |
+| --------------------------- | -------------------------------------------- | ------------------------------------------------------ |
+| `GET /`                     | `start_screens#show`                         | Start screen — centered chatbox, ASCII logo, tip line. |
+| `POST /chat`                | `chat#create`                                | Submit a message; responds `head :no_content`.         |
+| `GET /chat/:uuid`           | `conversations#show`                         | Conversation view — scrollback + chatbox.              |
+| `GET /connect`              | `youtube_connections#new`                    | YouTube OAuth entry point.                             |
+| `GET /auth/google/callback` | `youtube_connections/oauth_callbacks#create` | OAuth callback; imports channels.                      |
 
-### Production routes
+## UI stack
 
-| Path     | Controller#action    | Description                                                                     |
-| -------- | -------------------- | ------------------------------------------------------------------------------- |
-| `/`      | `terminal#show`      | Chat shell with hardcoded sample messages. Main pito interface.                 |
-| `/start` | `start_screens#show` | Start screen for unauthenticated entry. Centered chatbox, ASCII logo, tip line. |
+- **CSS**: Tailwind v4 via `tailwindcss-rails`. Theme tokens as CSS custom
+  properties under `[data-theme="tokyo-night"]`.
+- **Components**: `view_component` gem. All visual work is a ViewComponent.
+- **i18n**: All user-facing copy in `config/locales/pito/<area>/en.yml`.
+- **JS**: Turbo + Stimulus + importmap-rails. Stimulus controllers under
+  `app/javascript/controllers/pito/`.
 
-### Review-only routes (removed in Plan 2+)
-
-| Path            | Controller#action   | Description                                                        |
-| --------------- | ------------------- | ------------------------------------------------------------------ |
-| `/_ui/palettes` | `_ui/palettes#show` | Static preview of slash and Ctrl+P command palettes.               |
-| `/_ui/sidebar`  | `_ui/sidebar#show`  | Static preview of the game-detail sidebar as a right-edge overlay. |
-
-These review routes exist only for visual inspection during development. In Plan 2+, palettes and sidebar become interaction-driven overlays and the `/_ui/*` routes are removed.
-
-### UI stack
-
-- **CSS**: Tailwind v4 via `tailwindcss-rails` (standalone CLI, zero Node.js). Theme tokens as CSS custom properties under `[data-theme="tokyo-night"]`.
-- **Components**: `view_component` gem. Namespace: `Pito::*`. All visual primitives build on `Pito::Segment::Component` (bar+gap+content pattern).
-- **i18n**: All user-facing copy in `config/locales/pito/<area>/en.yml`. Sample message bodies under `config/locales/pito/sample/en.yml` — replaced when real data is wired.
-- **JS**: None in Plan 1. Turbo + Stimulus + importmap-rails available but unused.
-
-### Component tree
+## Component tree
 
 ```
 Pito::Segment::Component          — bar+gap+content layout primitive
-Pito::Cursor::Component           — inverted-character cursor
+Pito::Cursor::Component           — inverted-character terminal cursor
 
-Pito::Shell::ChatboxComponent     — input area (uses Segment + Cursor)
-Pito::Shell::MiniStatusComponent  — connection/auth status bar
-Pito::Shell::PostCommandDotsComponent — animated comet dots
-Pito::Shell::InProgressComponent  — spinner + shimmer verb
+Pito::Shell::ChatboxComponent     — input area (Segment + Cursor + filter line)
+Pito::Shell::MiniStatusComponent  — connection/auth/audio/shortcut status bar
 
-Pito::Event::UserMessageComponent     — user chat message
-Pito::Event::AssistantTextComponent   — assistant response
-Pito::Event::ThoughtComponent         — "Thought:" prefix + duration
-Pito::Event::ToolOutputComponent      — expandable command output
-Pito::Event::StatusFooterComponent    — mode · agent · duration
+Pito::Event::EchoComponent        — user input echo
+Pito::Event::AssistantTextComponent — assistant response
+Pito::Event::ThinkingComponent    — Braille spinner + cycling word while dispatching
+Pito::Event::ErrorComponent       — error response
+Pito::Event::ConfirmationPromptComponent — confirmation prompt
 
-Pito::StartScreen::Component     — full-viewport start screen
+Pito::StartScreen::Component      — full-viewport start screen
 
-Pito::Palette::Slash::Component        — /-prefixed command palette
-Pito::Palette::CtrlP::Component        — centered modal command palette
-Pito::Palette::CtrlP::SectionComponent — section inside Ctrl+P
+Pito::Palette::CtrlK::Component        — Ctrl+K command palette
+Pito::Palette::CtrlK::SectionComponent — section inside the palette
 
-Pito::Sidebar::Component         — fixed right-edge overlay panel
-Pito::Sidebar::SectionComponent  — labeled section inside sidebar
+Pito::Footage::ProbeCommandComponent — copyable ffprobe rake command block
 ```
 
-### Sample data
+## Dispatch pipeline
 
-Hardcoded sample content lives in `lib/pito/sample/`. Files are marked `# SAMPLE` and will be replaced when Plan 2+ wires real data:
+A single `POST /chat` endpoint handles all input. `ChatController#create` reads
+`params[:input]`:
 
-- `lib/pito/sample/chat_shell.rb` — 17 events across 4 exchanges
-- `lib/pito/sample/game_detail.rb` — Hollow Knight detail with 6 sections
+- Leading `/` → `Pito::Slash::Dispatcher` (slash commands)
+- No leading `/` → `Pito::Chat::Dispatcher` (natural language)
+
+The controller always responds `head :no_content`. All output is delivered via
+Turbo Stream broadcasts over Action Cable. Dispatch is async: the controller
+persists an echo event, emits a thinking indicator, enqueues `ChatDispatchJob`,
+and returns immediately. The job runs the handler, persists the result event, and
+broadcasts it to the scrollback.
+
+### Broadcast pipeline
+
+`Pito::Stream::Broadcaster.new(conversation:)` is the only way to add items to
+the scrollback. It: validates the payload, persists an `Event`, renders the
+matching ViewComponent, and broadcasts a Turbo Stream `append` to
+`"pito:conversation:#{conversation.id}"` targeting `#pito-scrollback`.
+
+### Slash system (`Pito::Slash::*`)
+
+- Infrastructure under `lib/pito/slash/`.
+- Handlers under `app/services/pito/slash/handlers/`.
+- Every handler inherits `Pito::Slash::Handler`, declares `self.verb`, and
+  returns a `Result` (`Ok` / `Error` / `NeedsConfirmation`).
+- `Pito::Slash::Registry` auto-discovers and registers handlers at boot.
+
+### Chat system (`Pito::Chat::*`)
+
+- Infrastructure under `lib/pito/chat/`.
+- Handlers under `app/services/pito/chat/handlers/`.
+- The parser classifies input into `:new_turn`, `:refinement`, or `:unknown`.
+- Every handler returns a `Pito::Chat::Result` (`Ok` / `Error` / `Refine`).
+
+### Cross-system invariants
+
+- `lib/pito/slash/**` does not reference `Pito::Chat::*`. `lib/pito/chat/**`
+  does not reference `Pito::Slash::*`.
+- Both share only `Pito::Lex` and `Pito::Stream::*`.
+- Events store structured payloads (`jsonb`), never rendered HTML. Re-rendering
+  from the payload always produces current timestamps and translations.
+
+### Event kinds
+
+| Kind                  | Payload keys                                            |
+| --------------------- | ------------------------------------------------------- |
+| `echo`                | `text:`                                                 |
+| `assistant_text`      | `message_key:, message_args:` or `text:`                |
+| `error`               | `message_key:, message_args:`                           |
+| `confirmation_prompt` | `prompt_key:, prompt_args:, command_text:`              |
+| `thinking`            | `dictionary:, word_index:, resolved:, elapsed_seconds:` |
+| `logout`              | _(empty)_                                               |
+
+`Pito::Stream::EventRenderer.component_for(event)` is the single source of truth
+for kind → component lookup.
+
+## Conversation model
+
+One conversation per UUID. `POST /chat` with no UUID (blank input on the start
+screen) creates the conversation and returns `{ uuid, signed_stream_name }`.
+Subsequent POSTs carry the UUID. The home → chat transition animates the chatbox
+in place; `history.pushState` sets the `/chat/:uuid` URL without a page reload.
+
+## Namespace policy
+
+- **`Pito::*`** — cross-cutting infrastructure and utilities.
+- **Domain layer**: `Channel::*`, `Video::*`, `Game::*`, `Footage::*`. Each owns
+  its external API integration (YouTube, IGDB), indexers, and services.
+- **`Tui::*`** — legacy panel primitive components (retained from earlier TUI work).
+- `Settings::*` is gone. Don't reintroduce it.
 
 ## Game release-date representation
 
-Pito stores a game's release date as **independent precision components**, not as a single date plus an enum. Nullability of each component encodes how much we know — there is no `release_precision` column, and the design is source-agnostic (IGDB happens to be the primary feeder; Steam, Epic, manual entries follow the same shape).
+Pito stores a game's release date as independent precision components, not as a
+single date plus an enum. Nullability of each component encodes how much we know.
 
 ### Columns on `games`
 
-| Column            | Type            | Meaning                                                                                                                                        |
-| ----------------- | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `release_year`    | integer         | NULL when truly TBA / unknown.                                                                                                                 |
-| `release_quarter` | integer (1..4)  | NULL unless precision is specifically a quarter (e.g. "Q3 2026"). Mutually exclusive with `release_month`.                                     |
-| `release_month`   | integer (1..12) | NULL when only the year (or quarter) is known.                                                                                                 |
-| `release_day`     | integer (1..31) | NULL when only the month is known. Requires `release_month`.                                                                                   |
-| `release_date`    | date            | **Derived** lower-bound of what we know. NULL when `release_year` is NULL. Used for sorts, range queries, and the "is it released?" predicate. |
+| Column            | Type            | Meaning                                                                                   |
+| ----------------- | --------------- | ----------------------------------------------------------------------------------------- |
+| `release_year`    | integer         | NULL when truly TBA / unknown.                                                            |
+| `release_quarter` | integer (1..4)  | NULL unless precision is specifically a quarter. Mutually exclusive with `release_month`. |
+| `release_month`   | integer (1..12) | NULL when only the year (or quarter) is known.                                            |
+| `release_day`     | integer (1..31) | NULL when only the month is known. Requires `release_month`.                              |
+| `release_date`    | date            | Derived lower-bound. NULL when `release_year` is NULL. Used for sorts and range queries.  |
 
-`release_date` is recomputed from the components on every save (`before_save :recompute_release_date` on `Game`). It is **not** the source of truth — the components are. The single column exists purely so existing index-friendly queries (`release_date <= today`, `BETWEEN ? AND ?`) keep working.
+`release_date` is recomputed from the components on every save
+(`before_save :recompute_release_date`). It is not the source of truth — the
+components are. The column exists so index-friendly queries keep working.
 
 ### What each combination means
 
@@ -92,17 +149,18 @@ Pito stores a game's release date as **independent precision components**, not a
 
 `Game` enforces:
 
-- `release_quarter` and `release_month` are **mutually exclusive** — quarter precision means we don't know the month.
-- `release_day` requires `release_month` — you can't have a day without a month.
-- `release_year` in 1900..2100; `release_quarter` in 1..4; `release_month` in 1..12; `release_day` in 1..31.
-
-A consistency violation raises `Pito::Error::ReleaseDateInconsistent` (defined in `app/lib/pito/error.rb`) when triggered from a service path; on `Game#save` it surfaces as a normal `ActiveModel::Errors` entry.
+- `release_quarter` and `release_month` are mutually exclusive.
+- `release_day` requires `release_month`.
+- `release_year` in 1900..2100; `release_quarter` in 1..4; `release_month` in
+  1..12; `release_day` in 1..31.
 
 ### Source adapters
 
-`Pito::Game::ReleaseDateMapper.call(input)` is the single entry point that maps a normalized component hash → the 5-column attribute hash (with `release_date` derived). Source-specific adapters do the translation **into** that input shape:
+`Pito::Game::ReleaseDateMapper.call(input)` is the single entry point that maps a
+normalized component hash → the 5-column attribute hash. Source-specific adapters
+translate into that shape:
 
-- **IGDB** (`Game::Igdb::GameMapper`): pulls `first_release_date` + the `release_dates[]` association (`category, y, m, d`), picks the canonical row (the one whose `date == first_release_date`, falling back to the most-precise category when null), and maps IGDB's `category` enum (0..7) into `{year:, quarter:, month:, day:}`. The IGDB→pito enum table:
+- **IGDB** (`Game::Igdb::GameMapper`): maps `category` enum (0..7) → components.
 
   | IGDB `category` | Pito components            |
   | --------------- | -------------------------- |
@@ -112,27 +170,12 @@ A consistency violation raises `Pito::Error::ReleaseDateInconsistent` (defined i
   | 3..6 (Q1..Q4)   | `{year:y, quarter:cat-2}`  |
   | 7 (TBD)         | `{}`                       |
 
-- **Manual / future sources** would write directly through `ReleaseDateMapper.call(...)` with the same input shape.
+### Scopes and predicates
 
-### Scopes & predicates
-
-Defined on `Game`:
-
-- `Game.released_in(year)` → `where(release_year: year)`.
-- `Game.tba` → `where(release_year: nil)`.
-- `Game.upcoming` → `where("release_date IS NULL OR release_date > ?", Date.current)` — covers both future-dated and TBA cohorts (the daily-refresh job in P38).
-- `Game#released?` → `release_date.present? && release_date <= Date.current`.
-- `Game#tba?` → `release_year.nil? && igdb_synced_at.present?` (synced but no year known; distinguishes from "we haven't synced yet").
-- `Game#release_label` (presenter) → `"Oct 15, 2026"` / `"October 2026"` / `"Q3 2026"` / `"2026"` / `"TBA"` / `"Dec 25"` (year-unknown), driven by component nullability.
-
-### Indexes
-
-- `release_date` — sorts, ranges, "is it released?".
-- `release_year` — fast year-bucket queries.
-- `(release_month, release_day)` composite — "games released on Christmas, any year" and similar month-day queries.
-
-### What this design is NOT
-
-- It's **not** a single-date column with an enum: that approach loses the "Christmas, year unknown" case and conflates "Q3 2026" with "July 1, 2026" at the storage layer.
-- It does **not** fake future dates: writing `1.month.from_now` for a TBA game is data fiction that breaks every consumer downstream.
-- It does **not** depend on IGDB's enum: changing source (or adding a second source) does not change the schema.
+- `Game.released_in(year)` — `where(release_year: year)`.
+- `Game.tba` — `where(release_year: nil)`.
+- `Game.upcoming` — `where("release_date IS NULL OR release_date > ?", Date.current)`.
+- `Game#released?` — `release_date.present? && release_date <= Date.current`.
+- `Game#tba?` — `release_year.nil? && igdb_synced_at.present?`.
+- `Game#release_label` — `"Oct 15, 2026"` / `"October 2026"` / `"Q3 2026"` /
+  `"2026"` / `"TBA"` / `"Dec 25"` (year-unknown), driven by component nullability.
