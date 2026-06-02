@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 class DemoController < ApplicationController
-  allow_anonymous :show
+  skip_before_action :authenticate_session!
   before_action { raise ActionController::RoutingError, "Not Found" unless Rails.env.development? }
 
   FakeEvent = Struct.new(:created_at, :id, :turn)

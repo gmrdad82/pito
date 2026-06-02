@@ -125,9 +125,9 @@
       ) %>
 
   <%#──────────────────────────────────────────────────────────────────────%>
-  <%= section.call("Logout") %>
-  <%= render Pito::Event::LogoutComponent.new(
-        payload: { text: "Session closed. See you on the other side." }
-      ) %>
+  <%= section.call("Logout (static — pito--logout controller omitted to avoid navigation)") %>
+  <%= render Pito::Segment::Component.new(accent: :purple) do %>
+    <span class="text-fg">Session closed. See you on the other side.</span>
+  <% end %>
 
 </div>
