@@ -6,8 +6,9 @@ module Pito
       # @param payload [Hash] event payload with `{ text: }`.
       # @param event [Event, nil] the persisted event — used for timestamp.
       def initialize(payload: {}, event: nil)
-        @text      = payload[:text].to_s
-        @timestamp = event&.created_at
+        @text          = payload[:text].to_s
+        @timestamp     = event&.created_at
+        @authenticated = payload.fetch(:authenticated, true)
       end
 
       def timestamp_line

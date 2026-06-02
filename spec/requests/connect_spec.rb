@@ -60,16 +60,21 @@ RSpec.describe "P27 /connect + OAuth callback", type: :request do
       allow(Pito::Credentials).to receive(:google_oauth_configured?).and_return(false)
     end
 
-    it "returns 204 and persists an error Event" do
+    it "returns 204, emits an echo then an error Event" do
       authenticate_via_totp
       post chat_path, params: { input: "/connect", uuid: conversation.uuid }
 
       expect(response).to have_http_status(:no_content)
+
+      echo = conversation.events.find_by(kind: :echo)
+      expect(echo).to be_present
+      expect(echo.payload["text"]).to eq("/connect")
+
       expect(conversation.events.where(kind: :error).count).to eq(1)
-      error_event = conversation.events.where(kind: :error).first
-      # text: is used for the not_configured error; message_key: may also be set
-      text = error_event.payload["text"] || error_event.payload["message_key"]
-      expect(text).to include("not configured").or include("config")
+      error_event = conversation.events.find_by(kind: :error)
+      expect(error_event.payload["text"]).to include("not configured")
+      expect(error_event.payload["credentials"]).to be_a(Hash)
+      expect(error_event.payload["credentials"].keys).to include("client_id", "client_secret", "redirect_uri")
     end
   end
 

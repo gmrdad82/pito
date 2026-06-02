@@ -77,7 +77,7 @@ class ChatController < ApplicationController
     # echo_text may differ from input when sensitive kwargs are masked (T27.0.d).
     broadcaster  = Pito::Stream::Broadcaster.new(conversation:)
     echo_event   = Event.create_with_position!(
-      conversation:, turn:, kind: :echo, payload: { text: echo_text }
+      conversation:, turn:, kind: :echo, payload: { text: echo_text, authenticated: }
     )
     broadcaster.broadcast_event(echo_event)
 
@@ -135,7 +135,7 @@ class ChatController < ApplicationController
     )
 
     broadcaster = Pito::Stream::Broadcaster.new(conversation:)
-    broadcaster.emit(turn:, kind: :echo, payload: { text: masked })
+    broadcaster.emit(turn:, kind: :echo, payload: { text: masked, authenticated: false })
 
     thinking = broadcaster.emit_thinking(turn:, dictionary: "slash")
     started_at = Time.current
@@ -181,7 +181,7 @@ class ChatController < ApplicationController
     )
 
     broadcaster = Pito::Stream::Broadcaster.new(conversation:)
-    broadcaster.emit(turn:, kind: :echo, payload: { text: input })
+    broadcaster.emit(turn:, kind: :echo, payload: { text: input, authenticated: true })
     broadcaster.emit(
       turn:,
       kind:    :logout,
@@ -208,7 +208,13 @@ class ChatController < ApplicationController
 
     # Auth gating: /connect requires an active session. Check before
     # touching Pito::Credentials (which hits Rails.cache / SolidCache).
-    unless Current.session.present?
+    authenticated = Current.session.present?
+
+    # Echo always comes first so the turn container exists in the DOM before
+    # any subsequent event tries to append into it via Turbo Stream.
+    broadcaster.emit(turn:, kind: :echo, payload: { text: input, authenticated: })
+
+    unless authenticated
       broadcaster.emit(
         turn:,
         kind:    "error",
@@ -222,14 +228,16 @@ class ChatController < ApplicationController
         turn:,
         kind:    "error",
         payload: {
-          message_key:  "pito.slash.connect.errors.not_configured",
-          message_args: {}
+          text:        I18n.t("pito.slash.connect.errors.not_configured"),
+          credentials: {
+            client_id:     Pito::Credentials.google_oauth_client_id.present?,
+            client_secret: Pito::Credentials.google_oauth_client_secret.present?,
+            redirect_uri:  Pito::Credentials.google_oauth_redirect_uri
+          }
         }
       )
       return nil
     end
-
-    broadcaster.emit(turn:, kind: :echo, payload: { text: input })
     stash_youtube_connect_intent
     stash_connect_conversation_uuid(conversation.uuid)
 

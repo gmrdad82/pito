@@ -31,11 +31,23 @@ RSpec.describe Pito::Event::EchoComponent do
     expect(content["style"]).to include("--bg-elevated")
   end
 
-  it "renders the @all channel label in cyan in the meta line" do
+  it "renders the @all channel label when authenticated (default)" do
     node = render_inline(described_class.new(payload: { text: "hello" }))
     meta = node.css(".pito-echo__meta").first
     expect(meta).not_to be_nil
     expect(meta.css("span.text-cyan").text).to include("@all")
+  end
+
+  it "renders the @all channel label when authenticated: true" do
+    node = render_inline(described_class.new(payload: { text: "hello", authenticated: true }))
+    expect(node.css(".pito-echo__meta span.text-cyan").text).to include("@all")
+  end
+
+  it "hides the channel label and separator when authenticated: false" do
+    node = render_inline(described_class.new(payload: { text: "hello", authenticated: false }))
+    meta = node.css(".pito-echo__meta").first
+    expect(meta.css("span.text-cyan")).to be_empty
+    expect(meta.css("span.text-fg-faded").map(&:text)).not_to include("·")
   end
 
   it "uses mx-2 spacing for the separator dot (spans touching, margin via CSS)" do

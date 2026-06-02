@@ -8,8 +8,8 @@ en:
           login: "/login 123456 to log in"
           help: "/help to see available commands"
         filter:
-          channel_label: "Channel"
-          period_label: "Period"
+          channel_label: "channel"
+          period_label: "period"
       mini_status:
         authenticated: "● auth"
         anonymous: "○ auth"
