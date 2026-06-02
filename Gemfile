@@ -23,6 +23,7 @@ gem "solid_cable", "~> 4.0"
 
 # YouTube APIs
 gem "google-apis-youtube_v3", "~> 0.64"
+gem "google-apis-youtube_analytics_v2", "~> 0.18"
 
 # Phase 7 — Step A (7a-google-oauth-and-identity.md). OmniAuth-based
 # Google OAuth flow. `omniauth-rails_csrf_protection` is required by
