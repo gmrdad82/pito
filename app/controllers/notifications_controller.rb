@@ -13,8 +13,8 @@
 class NotificationsController < ApplicationController
   PER_PAGE = 50
 
-  KIND_VALUES     = Notification.kinds.keys.freeze
-  SEVERITY_VALUES = Notification.severities.keys.freeze
+  KIND_VALUES     = [].freeze
+  SEVERITY_VALUES = [].freeze
   FILTER_VALUES   = %w[all unread].freeze
 
   # Phase 16 §3 security fix-forward (F3 — 2026-05-10 audit). Per-user
