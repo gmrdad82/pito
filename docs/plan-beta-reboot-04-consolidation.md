@@ -703,8 +703,17 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 - [x] T28.0.d Chatbox filter labels lowercase (`Channel` → `channel`, `Period` → `period`). complexity: [low]
 - [x] T28.0.e `/config --help` + `/config <provider> --help`; fix URL kwarg parsing (`localhost:3027` no longer treated as kwarg key). complexity: [low]
 - [x] T28.0.f Docker: `bin/boot [--dev]`, named volumes for Postgres + ActiveStorage, `Dockerfile.dev` + `docker-compose.dev.yml`, squash migrations to single baseline. complexity: [low]
+- [x] T28.0.g `/demo` route — visual review of all segment kinds; confirmed orange follow-up design; removed after review. complexity: [low]
 
-- [ ] T28.1 `/demo` route + view: renders one static example of every existing segment kind (echo, assistant_text, error/red, confirmation_prompt/orange pending, confirmation_prompt/orange resolved-cancel, confirmation_prompt/orange resolved-confirm, thinking, logout). Visual review gate before building the real confirmation system. complexity: [low]
+- [ ] T28.0.h Segment refactor — CSS: add `data-accent=surface` (`var(--bg-surface)`) and `data-accent=pito` (`var(--brand-pito)`) to `pito-segment__bar`. complexity: [low]
+
+- [ ] T28.0.i Segment refactor — 9 canonical kinds replacing current set. New `Event::KINDS`: `echo`, `system`, `error`, `enhanced`, `thinking`, `confirmation`, `system_follow_up`, `enhanced_follow_up`, `confirmation_follow_up`. Drop `assistant_text`, `logout`, `confirmation_prompt`. complexity: [low]
+
+- [ ] T28.0.j Segment refactor — new/renamed components: `SystemComponent` (accent: surface, no bg; replaces AssistantTextComponent), `EnhancedComponent` (accent: pito, no bg), `SystemFollowUpComponent` (accent: surface, bg: surface), `EnhancedFollowUpComponent` (accent: pito, bg: surface), `ConfirmationFollowUpComponent` (accent: orange, bg: surface). Rename `ConfirmationPromptComponent` → `ConfirmationComponent`. Drop `LogoutComponent`; fold logout animation into `EchoComponent` via `triggers_logout:` payload flag. complexity: [low]
+
+- [ ] T28.0.k Segment refactor — update `EventRenderer::COMPONENT_CLASSES` map, `ChatDispatchJob` event assembly, `ChatController` all emit call sites, `YoutubeConnections::OauthCallbacksController`. Update all affected specs. complexity: [low]
+
+- [ ] T28.0.l Segment refactor — commit. complexity: [manual]
 
 - [ ] T28.2 `/disconnect` handler skeleton: register in registry, resolve target channel by YouTube `@handle` (partial match) or numeric id. Error segment (red) if not found. complexity: [low]
 
@@ -948,9 +957,6 @@ _Resolved this round:_ video commands = `/import` + `/update` + lifecycle `/publ
 - **Refactor Game cover art to Active Storage.** Replace the bespoke `Game::CoverArt::Normalizer`-to-disk + `public/covers` static-symlink serving (symlink rake task already removed; `ImagesController` is orphaned) with an Active Storage attachment on `Game` (vips-normalized 600×800 master + variants), rendered in the Game-detail Sidebar. Decided 2026-05-31 (supersedes the earlier "keep as plain generated files" stance).
 - Remote footage ingest (script + HTTP endpoint) if/when on Hetzner.
 - At merge: delete `plan-beta-reboot-*.md`; fold durable content into `architecture.md` / `design.md` / `installation.md` / `tools.md`.
-- Simplify Segment type to 2
-- Improved Segements can be upgraded
-- #segment handle will do follow-up
 - ctrl+o expand and collapse (at the bottom)
 - Game im main screen
 - Sidebar only for preview
