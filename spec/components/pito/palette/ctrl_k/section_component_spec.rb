@@ -33,13 +33,15 @@ RSpec.describe Pito::Palette::CtrlK::SectionComponent do
       expect(node.text).to include(I18n.t("pito.palette.ctrl_k.commands.logout"))
     end
 
-    it "renders the shortcut when present" do
-      expect(node.text).to include("ctrl+a")
+    it "renders the insert command on the right" do
+      expect(node.text).to include("/login <code>")
+      expect(node.text).to include("/logout")
     end
 
-    it "omits the shortcut span when absent" do
-      logout_item = node.css("[data-pito--command-palette-target='item']").last
-      expect(logout_item.css("span").length).to eq(1)
+    it "always renders two spans per item (label + insert)" do
+      node.css("[data-pito--command-palette-target='item']").each do |item|
+        expect(item.css("span").length).to eq(2)
+      end
     end
 
     it "sets data-insert on each item" do

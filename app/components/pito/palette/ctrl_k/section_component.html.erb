@@ -11,10 +11,8 @@
          data-insert="<%= item[:insert] %>"
          data-label="<%= "#{t(item[:label_key])} #{item[:insert]}".downcase %>"
          class="flex justify-between py-0.5 px-[7px] cursor-default">
-      <span class="text-fg"><%= t(item[:label_key]) %></span>
-      <% if item[:shortcut] %>
-        <span class="text-fg-dim"><%= item[:shortcut] %></span>
-      <% end %>
+      <span class="text-fg text-base"><%= t(item[:label_key]) %></span>
+      <span class="text-fg-dim text-base"><%= item[:insert] %></span>
     </div>
   <% end %>
 </div>
