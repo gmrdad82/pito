@@ -232,7 +232,8 @@ class ChatController < ApplicationController
           credentials: {
             client_id:     Pito::Credentials.google_oauth_client_id.present?,
             client_secret: Pito::Credentials.google_oauth_client_secret.present?,
-            redirect_uri:  Pito::Credentials.google_oauth_redirect_uri
+            redirect_uri:  Pito::Credentials.google_oauth_redirect_uri,
+            api_key:       Pito::Credentials.google_api_key.present?
           }
         }
       )

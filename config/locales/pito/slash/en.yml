@@ -22,9 +22,7 @@ en:
         descriptions:
           connect: "Connect a YouTube channel via Google OAuth"
         errors:
-          not_configured: >-
-            Google OAuth credentials are not configured.
-            Set them first: /config google client_id=… client_secret=… redirect_uri=…
+          not_configured: "Google OAuth credentials are not configured."
       config:
         descriptions:
           config: "Read or write install-wide credentials (/config google|voyage|igdb|webhook)"

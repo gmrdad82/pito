@@ -18,12 +18,14 @@ module Pito
         return [] unless @credentials
 
         [
-          { label: "client_id",     present: @credentials[:client_id],
-            value: @credentials[:client_id] ? "present" : "not set" },
-          { label: "client_secret", present: @credentials[:client_secret],
-            value: @credentials[:client_secret] ? "present" : "not set" },
-          { label: "redirect_uri",  present: @credentials[:redirect_uri].present?,
-            value: @credentials[:redirect_uri].presence || "not set" }
+          { label: "Client ID",     present: @credentials[:client_id],
+            display: @credentials[:client_id] ? "[set]" : "MISSING" },
+          { label: "Client Secret", present: @credentials[:client_secret],
+            display: @credentials[:client_secret] ? "[set]" : "MISSING" },
+          { label: "Redirect URI",  present: @credentials[:redirect_uri].present?,
+            display: @credentials[:redirect_uri].presence || "MISSING" },
+          { label: "API Key",       present: @credentials[:api_key],
+            display: @credentials[:api_key] ? "[set]" : "MISSING" }
         ]
       end
     end

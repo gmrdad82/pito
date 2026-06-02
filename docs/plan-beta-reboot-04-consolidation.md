@@ -695,6 +695,13 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 
 - [ ] T27.10 Commit: `/connect OAuth + multi-channel picker`. complexity: [manual]
 
+## P28.0 — UX polish (blank-home-v1 branch)
+
+- [x] T28.0.a Auth-aware echo: hide `· @all` channel pill on unauthenticated turns. complexity: [low]
+- [x] T28.0.b `/connect` emit echo before error (fix Turbo silent-drop / must-refresh bug). complexity: [low]
+- [x] T28.0.c `/connect` not-configured error: rich credential-check table (client_id, client_secret, redirect_uri, api_key) with MISSING/[set] colour coding, no expand. complexity: [low]
+- [x] T28.0.d Chatbox filter labels lowercase (`Channel` → `channel`, `Period` → `period`). complexity: [low]
+
 ## P28 — `/disconnect @handle|id`
 
 - [ ] T28.1 Resolve target channel by `@handle` or id. complexity: [low]
@@ -927,6 +934,24 @@ _Resolved this round:_ video commands = `/import` + `/update` + lifecycle `/publ
 - **Refactor Game cover art to Active Storage.** Replace the bespoke `Game::CoverArt::Normalizer`-to-disk + `public/covers` static-symlink serving (symlink rake task already removed; `ImagesController` is orphaned) with an Active Storage attachment on `Game` (vips-normalized 600×800 master + variants), rendered in the Game-detail Sidebar. Decided 2026-05-31 (supersedes the earlier "keep as plain generated files" stance).
 - Remote footage ingest (script + HTTP endpoint) if/when on Hetzner.
 - At merge: delete `plan-beta-reboot-*.md`; fold durable content into `architecture.md` / `design.md` / `installation.md` / `tools.md`.
+- Simplify Segment type to 2
+- Improved Segements can be upgraded
+- #segment handle will do follow-up
+- ctrl+o expand and collapse (at the bottom)
+- Game im main screen
+- Sidebar only for preview
+- History for chat
+- List
+- Show
+- List top channels
+- List top channels by subs|subscribers
+- List top channels by views and watched hours|time
+- List channels ordered by subs|subscribers (count)
+- List first|last 3 channels ordered|sorted by subs|subscribers (count)
+- View|show @handle
+- Channel will be @channel
+- Vocabulary for /help and refactor help to show vocabulary with nested - structure to accomodate vast
+- Autocomplete
 
 ## How to use this plan
 
