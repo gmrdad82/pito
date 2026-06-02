@@ -97,12 +97,19 @@ export default class extends Controller {
     document.addEventListener("pito:result-appended", () => this.#scheduleReceive(), { signal: this.abort.signal })
 
     if (this.element.dataset.audioChatPage === "true") {
-      document.addEventListener("keydown", (e) => {
-        if (e.key === "m" && e.ctrlKey) {
-          e.preventDefault()
-          this.toggleMute()
-        }
-      }, { signal: this.abort.signal })
+      this.#bindMuteKey()
+    } else {
+      document.addEventListener("pito:chat-page-ready", () => this.#bindMuteKey(),
+        { signal: this.abort.signal, once: true })
     }
+  }
+
+  #bindMuteKey() {
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "m" && e.ctrlKey) {
+        e.preventDefault()
+        this.toggleMute()
+      }
+    }, { signal: this.abort.signal })
   }
 }

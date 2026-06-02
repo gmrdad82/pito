@@ -1,9 +1,6 @@
 <span class="inline-flex items-center">
   <% if @mode == :start %>
     <span class="text-red"><%= t("pito.shell.mini_status.not_authenticated") %></span>
-    <span class="text-fg-faded mx-2"><%= t("pito.shell.mini_status.separator") %></span>
-    <span class="font-bold text-yellow"><%= t("pito.shell.mini_status.audio_hint") %></span>
-    <span id="pito-audio-label" class="text-fg-dim ml-2"><%= t("pito.shell.mini_status.audio_label") %></span>
   <% else %>
     <span class="<%= connection_class %>"><%= connection_label %></span>
     <% if @show_notifications && @notifications > 0 %>

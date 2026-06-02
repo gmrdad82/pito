@@ -223,6 +223,10 @@ export default class extends Controller {
     // Replace the start-screen root — disconnects home-transition (T22.7).
     this.element.replaceWith(conversationEl)
 
+    // Signal the audio controller that ctrl+m mute is now active.
+    document.body.dataset.audioChatPage = "true"
+    document.dispatchEvent(new CustomEvent("pito:chat-page-ready"))
+
     // ── Animate the chatbox filter line (Channel / Period) sliding up + fading in ──
     const chatboxWrapper = form.querySelector(".chatbox-wrapper")
     if (chatboxWrapper) {

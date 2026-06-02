@@ -47,11 +47,11 @@ RSpec.describe Pito::Shell::MiniStatusComponent do
     end
 
     context "mode: :start" do
-      it "renders the ○ auth label and audio hint" do
+      it "renders only the auth label — no audio hint" do
         node = render_inline(described_class.new(mode: :start))
         expect(node.to_html).to include("○ auth")
-        expect(node.to_html).to include("ctrl+m")
-        expect(node.to_html).to include("mute")
+        expect(node.to_html).not_to include("ctrl+m")
+        expect(node.to_html).not_to include("mute")
         expect(node.to_html).not_to include("tab")
         expect(node.to_html).not_to include("channels")
         expect(node.to_html).not_to include("shift+tab")
@@ -60,11 +60,9 @@ RSpec.describe Pito::Shell::MiniStatusComponent do
         expect(node.to_html).not_to include("commands")
       end
 
-      it "renders one separator between auth and audio" do
+      it "renders no separators in start mode" do
         node = render_inline(described_class.new(mode: :start))
-        faded = node.css("span.text-fg-faded")
-        expect(faded.length).to eq(1)
-        expect(faded.first.text).to eq("·")
+        expect(node.css("span.text-fg-faded")).to be_empty
       end
     end
 
