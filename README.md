@@ -22,19 +22,8 @@ And hey — if this saves you a headache (or fifty euros), the nicest possible
 "thank you" is a click on one of the channels that dragged this tool into
 existence in the first place:
 
-<p align="center">
-  <a href="https://www.youtube.com/@gmrdad82"><img src="docs/avatars/@gmrdad82.png" width="100" alt="@gmrdad82"><br><sub><b>@gmrdad82</b></sub></a>
-  &nbsp;&nbsp;
-  <a href="https://www.youtube.com/@manfyfighting"><img src="docs/avatars/@manfyfighting.png" width="100" alt="@manfyfighting"><br><sub><b>@manfyfighting</b></sub></a>
-  &nbsp;&nbsp;
-  <a href="https://www.youtube.com/@manfygreats"><img src="docs/avatars/@manfygreats.png" width="100" alt="@manfygreats"><br><sub><b>@manfygreats</b></sub></a>
-  &nbsp;&nbsp;
-  <a href="https://www.youtube.com/@manfyhard"><img src="docs/avatars/@manfyhard.png" width="100" alt="@manfyhard"><br><sub><b>@manfyhard</b></sub></a>
-  &nbsp;&nbsp;
-  <a href="https://www.youtube.com/@manfystrategy"><img src="docs/avatars/@manfystrategy.png" width="100" alt="@manfystrategy"><br><sub><b>@manfystrategy</b></sub></a>
-  &nbsp;&nbsp;
-  <a href="https://www.youtube.com/@manfysurvival"><img src="docs/avatars/@manfysurvival.png" width="100" alt="@manfysurvival"><br><sub><b>@manfysurvival</b></sub></a>
-</p>
+<!-- prettier-ignore -->
+<p align="center"><a href="https://www.youtube.com/@gmrdad82"><img src="docs/avatars/@gmrdad82.png" width="80" alt="@gmrdad82"></a> <a href="https://www.youtube.com/@manfyfighting"><img src="docs/avatars/@manfyfighting.png" width="80" alt="@manfyfighting"></a> <a href="https://www.youtube.com/@manfygreats"><img src="docs/avatars/@manfygreats.png" width="80" alt="@manfygreats"></a> <a href="https://www.youtube.com/@manfyhard"><img src="docs/avatars/@manfyhard.png" width="80" alt="@manfyhard"></a> <a href="https://www.youtube.com/@manfystrategy"><img src="docs/avatars/@manfystrategy.png" width="80" alt="@manfystrategy"></a> <a href="https://www.youtube.com/@manfysurvival"><img src="docs/avatars/@manfysurvival.png" width="80" alt="@manfysurvival"></a></p>
 
 ---
 
