@@ -705,11 +705,11 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 - [x] T28.0.f Docker: `bin/boot [--dev]`, named volumes for Postgres + ActiveStorage, `Dockerfile.dev` + `docker-compose.dev.yml`, squash migrations to single baseline. complexity: [low]
 - [x] T28.0.g `/demo` route — visual review of all segment kinds; confirmed orange follow-up design; removed after review. complexity: [low]
 
-- [ ] T28.0.h Segment refactor — CSS: add `data-accent=surface` (`var(--bg-surface)`) and `data-accent=pito` (`var(--brand-pito)`) to `pito-segment__bar`. complexity: [low]
+- [ ] T28.0.h Segment refactor — CSS: add `data-accent=surface` (`var(--bg-surface)`) and `data-accent=pito` (`var(--brand-pito)`) to `pito-segment__bar`. Unify backgrounds: chatbox + all follow_up segments use `var(--bg-elevated)` (drop `--bg-surface` from segment/chatbox use). complexity: [low]
 
 - [ ] T28.0.i Segment refactor — 9 canonical kinds replacing current set. New `Event::KINDS`: `echo`, `system`, `error`, `enhanced`, `thinking`, `confirmation`, `system_follow_up`, `enhanced_follow_up`, `confirmation_follow_up`. Drop `assistant_text`, `logout`, `confirmation_prompt`. complexity: [low]
 
-- [ ] T28.0.j Segment refactor — new/renamed components: `SystemComponent` (accent: surface, no bg; replaces AssistantTextComponent), `EnhancedComponent` (accent: pito, no bg), `SystemFollowUpComponent` (accent: surface, bg: surface), `EnhancedFollowUpComponent` (accent: pito, bg: surface), `ConfirmationFollowUpComponent` (accent: orange, bg: surface). Rename `ConfirmationPromptComponent` → `ConfirmationComponent`. Drop `LogoutComponent`; fold logout animation into `EchoComponent` via `triggers_logout:` payload flag. complexity: [low]
+- [ ] T28.0.j Segment refactor — new/renamed components: `SystemComponent` (accent: surface, no bg; replaces AssistantTextComponent), `EnhancedComponent` (accent: pito, no bg), `SystemFollowUpComponent` (accent: surface, bg: elevated), `EnhancedFollowUpComponent` (accent: pito, bg: elevated), `ConfirmationFollowUpComponent` (accent: orange, bg: elevated). Rename `ConfirmationPromptComponent` → `ConfirmationComponent`. Drop `LogoutComponent`; fold logout animation into `EchoComponent` via `triggers_logout:` payload flag. complexity: [low]
 
 - [ ] T28.0.k Segment refactor — update `EventRenderer::COMPONENT_CLASSES` map, `ChatDispatchJob` event assembly, `ChatController` all emit call sites, `YoutubeConnections::OauthCallbacksController`. Update all affected specs. complexity: [low]
 
