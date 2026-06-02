@@ -66,7 +66,7 @@ RSpec.describe "P27 /connect + OAuth callback", type: :request do
 
       expect(response).to have_http_status(:no_content)
 
-      echo = conversation.events.find_by(kind: :echo)
+      echo = conversation.events.where(kind: :echo).last
       expect(echo).to be_present
       expect(echo.payload["text"]).to eq("/connect")
 
@@ -143,7 +143,7 @@ RSpec.describe "P27 /connect + OAuth callback", type: :request do
         get "/auth/google/callback"
 
         expect(response).to redirect_to(conversation_path(uuid: conversation.uuid))
-        result_event = conversation.events.where(kind: :assistant_text).last
+        result_event = conversation.events.where(kind: :system).last
         expect(result_event).to be_present
         expect(result_event.payload["text"]).to include("Alpha Channel")
       end
@@ -166,7 +166,7 @@ RSpec.describe "P27 /connect + OAuth callback", type: :request do
           )
 
         expect { get "/auth/google/callback" }.not_to change(Channel, :count)
-        result = conversation.events.where(kind: :assistant_text).last
+        result = conversation.events.where(kind: :system).last
         expect(result.payload["text"]).to include("already linked")
       end
     end

@@ -28,7 +28,7 @@ module Pito
       def show_help
         Pito::Slash::Result::Ok.new(events: [
           {
-            kind:    "assistant_text",
+            kind:    "system",
             payload: { text: "No --help defined for /#{self.class.verb}. Try /help for the command list." }
           }
         ])

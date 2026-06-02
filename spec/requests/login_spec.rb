@@ -27,12 +27,12 @@ RSpec.describe "Authentication via /login", type: :request do
       expect(Turn.pluck(:input_text).join).not_to include(totp.now)
     end
 
-    it "emits a greeting assistant_text event" do
+    it "emits a greeting system event" do
       post "/chat", params: { input: "/login #{totp.now}", uuid: conversation.uuid }
 
       kinds = last_turn_events.pluck(:kind)
-      expect(kinds).to eq(%w[echo thinking assistant_text])
-      success = last_turn_events.find { |e| e.kind == "assistant_text" }
+      expect(kinds).to eq(%w[echo thinking system])
+      success = last_turn_events.find { |e| e.kind == "system" }
       greetings = I18n.t("pito.auth.greetings")
       expect(greetings).to include(success.payload["text"])
     end

@@ -12,7 +12,7 @@ module Pito
         def call
           Pito::Chat::Result::Refine.new(events: [
             {
-              kind: :assistant_text,
+              kind: :system,
               payload: {
                 message_key: "pito.chat.refine_demo.acknowledged",
                 message_args: { input: message.raw }

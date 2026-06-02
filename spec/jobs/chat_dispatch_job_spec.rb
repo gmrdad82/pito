@@ -43,18 +43,18 @@ RSpec.describe ChatDispatchJob, type: :job do
         expect(result_event.payload["elapsed_seconds"]).not_to be_nil
       end
 
-      it "injects segment_style: plain for the first assistant_text" do
+      it "assigns kind: system to the first result event" do
         described_class.perform_now(turn.id, channel: "@all")
-        assistant_events = turn.events.reload.where(kind: :assistant_text).order(:position)
-        expect(assistant_events.first.payload["segment_style"]).to eq("plain")
+        result_events = turn.events.reload.where.not(kind: %w[echo thinking]).order(:position)
+        expect(result_events.first.kind).to eq("system")
       end
 
-      it "injects segment_style: plain for the only assistant_text from /help" do
-        # /help now returns a single consolidated event; all single-event results get "plain".
+      it "assigns kind: system to the single result from /help" do
+        # /help returns one consolidated event; single result gets kind: system.
         described_class.perform_now(turn.id, channel: "@all")
-        assistant_events = turn.events.reload.where(kind: :assistant_text).order(:position)
-        expect(assistant_events.count).to eq(1)
-        expect(assistant_events.first.payload["segment_style"]).to eq("plain")
+        result_events = turn.events.reload.where.not(kind: %w[echo thinking]).order(:position)
+        expect(result_events.count).to eq(1)
+        expect(result_events.first.kind).to eq("system")
       end
     end
 
@@ -82,10 +82,10 @@ RSpec.describe ChatDispatchJob, type: :job do
         expect(turn.reload.completed_at).not_to be_nil
       end
 
-      it "injects segment_style: plain for the single assistant_text" do
+      it "assigns kind: system to the single result event" do
         described_class.perform_now(turn.id, channel: "@all")
-        event = turn.events.reload.find { |e| e.kind == "assistant_text" }
-        expect(event.payload["segment_style"]).to eq("plain")
+        event = turn.events.reload.find { |e| e.kind == "system" }
+        expect(event).to be_present
       end
     end
 

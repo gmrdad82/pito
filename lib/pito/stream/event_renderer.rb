@@ -3,24 +3,17 @@
 module Pito
   module Stream
     class EventRenderer
-      # Maps event kinds to component classes.
-      # Components that accept `payload:` go in COMPONENT_CLASSES.
-      # Components that take keyword args get special treatment in #build_component.
       COMPONENT_CLASSES = {
-        "echo"                => Pito::Event::EchoComponent,
-        "assistant_text"      => Pito::Event::AssistantTextComponent,
-        "error"               => Pito::Event::ErrorComponent,
-        "confirmation_prompt" => Pito::Event::ConfirmationPromptComponent,
-        "thinking"            => Pito::Event::ThinkingComponent,
-        "logout"              => Pito::Event::LogoutComponent
+        "echo"                    => Pito::Event::EchoComponent,
+        "thinking"                => Pito::Event::ThinkingComponent,
+        "system"                  => Pito::Event::SystemComponent,
+        "enhanced"                => Pito::Event::EnhancedComponent,
+        "system_follow_up"        => Pito::Event::SystemFollowUpComponent,
+        "enhanced_follow_up"      => Pito::Event::EnhancedFollowUpComponent,
+        "confirmation"            => Pito::Event::ConfirmationComponent,
+        "confirmation_follow_up"  => Pito::Event::ConfirmationFollowUpComponent,
+        "error"                   => Pito::Event::ErrorComponent
       }.freeze
-
-      PLAN1_COMPONENTS = %w[
-        user_message
-        thought
-        tool_output
-        status_footer
-      ].to_set.freeze
 
       def self.render(event)
         component = component_for(event)
@@ -31,21 +24,11 @@ module Pito
         build_component(event.kind, indifferent_payload(event), event:)
       end
 
-      # Build the correct component instance for a given kind and payload.
-      # `event:` is passed to components that need it (e.g. EchoComponent for timestamp).
       def self.build_component(kind, payload, event: nil)
-        if kind == "echo" || kind == "user_message"
-          Pito::Event::EchoComponent.new(payload:, event:)
-        elsif kind == "thinking"
-          Pito::Event::ThinkingComponent.new(payload:, event:)
-        elsif kind == "confirmation_prompt"
-          Pito::Event::ConfirmationPromptComponent.new(payload:, event:)
-        elsif (component_class = COMPONENT_CLASSES[kind])
-          component_class.new(payload:)
-        else
-          raise ArgumentError,
-            "No component registered for event kind: #{kind.inspect}"
+        component_class = COMPONENT_CLASSES.fetch(kind.to_s) do
+          raise ArgumentError, "No component registered for event kind: #{kind.inspect}"
         end
+        component_class.new(payload:, event:)
       end
 
       def self.indifferent_payload(event)

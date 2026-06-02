@@ -2,7 +2,7 @@
 
 require "rails_helper"
 
-RSpec.describe Pito::Event::ConfirmationPromptComponent do
+RSpec.describe Pito::Event::ConfirmationComponent do
   let(:body_text) { "You're about to disconnect from @gmrdad82." }
 
   let(:pending_payload) do
@@ -114,6 +114,13 @@ RSpec.describe Pito::Event::ConfirmationPromptComponent do
     it "renders the outcome text after a hairline" do
       node = render_inline(described_class.new(payload:))
       expect(node.css(".border-t").first.text).to include("Deleted 42 videos")
+    end
+  end
+
+  describe "ConfirmationFollowUpComponent" do
+    it "has background: var(--bg-elevated)" do
+      comp = Pito::Event::ConfirmationFollowUpComponent.new(payload: pending_payload)
+      expect(comp.background).to eq("var(--bg-elevated)")
     end
   end
 end

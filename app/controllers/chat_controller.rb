@@ -153,7 +153,7 @@ class ChatController < ApplicationController
       greeting = I18n.t("pito.auth.greetings").sample
       broadcaster.emit(
         turn:,
-        kind:    "assistant_text",
+        kind:    :system,
         payload: { text: greeting }
       )
     else
@@ -181,10 +181,10 @@ class ChatController < ApplicationController
     )
 
     broadcaster = Pito::Stream::Broadcaster.new(conversation:)
-    broadcaster.emit(turn:, kind: :echo, payload: { text: input, authenticated: true })
+    broadcaster.emit(turn:, kind: :echo, payload: { text: input, authenticated: true, triggers_logout: true })
     broadcaster.emit(
       turn:,
-      kind:    :logout,
+      kind:    :system,
       payload: { text: I18n.t("pito.auth.logouts").sample }
     )
 

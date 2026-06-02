@@ -32,8 +32,8 @@ RSpec.describe Pito::Shell::ChatboxComponent do
           filter: { channel: "gaming", period: "last 7d" }
         ))
         html = node.to_html
-        expect(html).to include("Channel")
-        expect(html).to include("Period")
+        expect(html).to include("channel")
+        expect(html).to include("period")
         expect(html).to include("gaming")
         expect(html).to include("last 7d")
       end

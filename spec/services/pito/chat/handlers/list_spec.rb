@@ -15,10 +15,10 @@ RSpec.describe Pito::Chat::Handlers::List do
       expect(handler.call).to be_a(Pito::Chat::Result::Ok)
     end
 
-    it "returns Ok with one assistant_text event" do
+    it "returns Ok with one system event" do
       result = handler.call
       expect(result.events.length).to eq(1)
-      expect(result.events.first[:kind]).to eq(:assistant_text)
+      expect(result.events.first[:kind]).to eq(:system)
     end
 
     it "references the expected i18n key in the payload" do

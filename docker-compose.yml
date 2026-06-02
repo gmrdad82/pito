@@ -20,7 +20,7 @@ services:
       - "127.0.0.1:${POSTGRES_PORT:-54327}:5432"
     environment:
       POSTGRES_USER: pito
-      POSTGRES_DB: pito_development
+      POSTGRES_DB: pito_production
       POSTGRES_HOST_AUTH_METHOD: trust
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -44,7 +44,6 @@ services:
       RAILS_MASTER_KEY: ${RAILS_MASTER_KEY}
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
-      REDIS_URL: ${REDIS_URL:-}
     depends_on:
       postgres:
         condition: service_healthy

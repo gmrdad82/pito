@@ -12,7 +12,7 @@ module Pito
         def call
           Pito::Chat::Result::Ok.new(events: [
             {
-              kind: :assistant_text,
+              kind: :system,
               payload: {
                 message_key: "pito.chat.list.fake_response",
                 message_args: { count: 5, sample_title: "Sample video title" }

@@ -83,9 +83,9 @@ RSpec.describe "Conversation requests", type: :request do
       # Interleaved positions mimic concurrent dispatch: both echoes, then both results.
       conversation.events.create!(turn: turn_a, position: 1, kind: :echo, payload: { text: "first" })
       conversation.events.create!(turn: turn_b, position: 2, kind: :echo, payload: { text: "second" })
-      conversation.events.create!(turn: turn_a, position: 3, kind: :assistant_text,
+      conversation.events.create!(turn: turn_a, position: 3, kind: :system,
                                   payload: { message_key: "pito.chat.list.descriptions.list", message_args: {} })
-      conversation.events.create!(turn: turn_b, position: 4, kind: :assistant_text,
+      conversation.events.create!(turn: turn_b, position: 4, kind: :system,
                                   payload: { message_key: "pito.chat.list.descriptions.list", message_args: {} })
 
       get conversation_path(uuid: conversation.uuid)

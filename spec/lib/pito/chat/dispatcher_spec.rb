@@ -22,7 +22,7 @@ RSpec.describe Pito::Chat::Dispatcher do
 
       def call
         Pito::Chat::Result::Ok.new(events: [
-          { kind: :assistant_text, payload: { text: "list ok" } }
+          { kind: :system, payload: { text: "list ok" } }
         ])
       end
     end)
@@ -37,7 +37,7 @@ RSpec.describe Pito::Chat::Dispatcher do
       stub_const("Pito::Chat::Handlers::RefineDemo", Class.new(Pito::Chat::Handler) do
         def call
           Pito::Chat::Result::Refine.new(events: [
-            { kind: :assistant_text, payload: { text: "refine ok" } }
+            { kind: :system, payload: { text: "refine ok" } }
           ])
         end
       end)
@@ -67,7 +67,7 @@ RSpec.describe Pito::Chat::Dispatcher do
     it "returns Ok for a recognised and registered verb" do
       result = described_class.call(input: "list videos", conversation:)
       expect(result).to be_a(Pito::Chat::Result::Ok)
-      expect(result.events).to eq([ { kind: :assistant_text, payload: { text: "list ok" } } ])
+      expect(result.events).to eq([ { kind: :system, payload: { text: "list ok" } } ])
     end
 
     it "returns Error(verb_not_implemented) for a recognised but unregistered verb" do
@@ -96,14 +96,14 @@ RSpec.describe Pito::Chat::Dispatcher do
       )
       conversation.events.create!(
         turn:, position: 1,
-        kind: :assistant_text,
+        kind: :system,
         payload: { message_key: "pito.chat.list.descriptions.list", message_args: {} }
       )
 
       result = described_class.call(input: "more stuff", conversation:)
       expect(result).to be_a(Pito::Chat::Result::Refine)
       expect(result.events).to eq([
-        { kind: :assistant_text, payload: { message_key: "pito.chat.refine_demo.acknowledged", message_args: { input: "more stuff" } } }
+        { kind: :system, payload: { message_key: "pito.chat.refine_demo.acknowledged", message_args: { input: "more stuff" } } }
       ])
     end
 

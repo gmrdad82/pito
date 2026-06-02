@@ -28,29 +28,30 @@ RSpec.describe "Logout via /logout", type: :request do
       expect(cookies[Pito::Auth::SessionCookie::COOKIE_NAME]).to be_blank
     end
 
-    it "emits an echo then a logout event" do
+    it "emits an echo (with triggers_logout) then a system event" do
       login!
       post "/chat", params: { input: "/logout", uuid: conversation.uuid }
 
       kinds = last_turn_events.pluck(:kind)
-      expect(kinds).to include("echo", "logout")
+      expect(kinds).to include("echo", "system")
       echo = last_turn_events.find { |e| e.kind == "echo" }
       expect(echo.payload["text"]).to eq("/logout")
+      expect(echo.payload["triggers_logout"]).to be(true)
     end
 
-    it "logout event payload carries a logout text from the dictionary" do
+    it "system event payload carries a logout text from the dictionary" do
       login!
       post "/chat", params: { input: "/logout", uuid: conversation.uuid }
 
-      logout_event = last_turn_events.find { |e| e.kind == "logout" }
-      expect(I18n.t("pito.auth.logouts")).to include(logout_event.payload["text"])
+      system_event = last_turn_events.find { |e| e.kind == "system" }
+      expect(I18n.t("pito.auth.logouts")).to include(system_event.payload["text"])
     end
 
     it "works even when already unauthenticated (idempotent cookie clear)" do
       post "/chat", params: { input: "/logout", uuid: conversation.uuid }
 
       kinds = last_turn_events.pluck(:kind)
-      expect(kinds).to include("echo", "logout")
+      expect(kinds).to include("echo", "system")
     end
   end
 

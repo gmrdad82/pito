@@ -66,11 +66,10 @@ aliases:
   logs: app logs -f
   dbc: app exec --interactive --reuse "bin/rails dbconsole --include-password"
 
-# Persistent storage volume for local Active Storage files + Pito-managed
-# assets (IGDB cover arts, Video/VideoPreview thumbnails, Channel avatars).
-# Mounted at /var/lib/pito-assets to match config/storage.yml's `local` Disk
-# service root and Pito::AssetsRoot::DEFAULT_ROOT, so assets survive redeploys.
-# Back this volume up off-server. (No SQLite here — this app uses Postgres.)
+# Persistent storage volume for ActiveStorage files (IGDB cover arts,
+# VideoPreview thumbnails, Channel avatars, etc.). Mounted at /var/lib/pito-assets
+# to match config/storage.yml's `local` Disk service root. Back this volume up.
+# (No SQLite here — this app uses Postgres.)
 volumes:
   - "pito-assets:/var/lib/pito-assets"
 

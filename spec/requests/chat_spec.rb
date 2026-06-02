@@ -87,10 +87,10 @@ RSpec.describe "Chat requests", type: :request do
         expect(response).to have_http_status(:no_content)
       end
 
-      it "creates a confirmation_prompt Event after the job runs" do
+      it "creates a confirmation Event after the job runs" do
         perform_enqueued_jobs { post "/chat", params: params }
         turn = Turn.last
-        confirm_event = turn.events.find { |e| e.kind == "confirmation_prompt" }
+        confirm_event = turn.events.find { |e| e.kind == "confirmation" }
         expect(confirm_event).to be_present
         expect(confirm_event.payload["prompt_key"]).to eq("pito.slash.confirm_demo.prompt")
         expect(confirm_event.payload["command_text"]).to eq("/confirm_demo")
@@ -152,10 +152,10 @@ RSpec.describe "Chat requests", type: :request do
         expect { post "/chat", params: params }.to change(Turn, :count).by(1)
       end
 
-      it "creates echo + assistant_text Events after the job runs" do
+      it "creates echo + system Events after the job runs" do
         perform_enqueued_jobs { post "/chat", params: params }
         turn = Turn.last
-        expect(turn.events.map(&:kind)).to include("echo", "assistant_text")
+        expect(turn.events.map(&:kind)).to include("echo", "system")
         expect(turn.events.count).to be >= 2
       end
 

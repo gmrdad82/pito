@@ -125,7 +125,7 @@ class YoutubeConnections::OauthCallbacksController < ApplicationController
     broadcaster = Pito::Stream::Broadcaster.new(conversation:)
     broadcaster.emit(
       turn:,
-      kind:    "assistant_text",
+      kind:    :system,
       payload: { text: message }
     )
     turn.update_columns(completed_at: Time.current)

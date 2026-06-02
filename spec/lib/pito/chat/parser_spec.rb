@@ -53,7 +53,7 @@ RSpec.describe Pito::Chat::Parser do
       )
       conversation.events.create!(
         turn:, position: 1,
-        kind: :assistant_text,
+        kind: :system,
         payload: { message_key: "pito.chat.list.descriptions.list", message_args: {} }
       )
 

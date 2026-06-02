@@ -1,23 +1,17 @@
 #!/usr/bin/env bash
-# bin/boot — Start the pito stack in Docker.
+# bin/boot — Start the pito production stack in Docker.
 #
-#   bin/boot          production mode  (builds from Dockerfile, RAILS_MASTER_KEY required)
-#   bin/boot --dev    development mode (builds from Dockerfile.dev, live code bind-mount)
-#
-# See .env.example for required environment variables.
 # Requires Docker with the Compose plugin (docker compose v2).
+# RAILS_MASTER_KEY must be set in the environment or in .env.
 
 set -euo pipefail
 
-DEV_MODE=0
-
 for arg in "$@"; do
   case "$arg" in
-    --dev)  DEV_MODE=1 ;;
     --help|-h)
-      echo "Usage: bin/boot [--dev]"
-      echo "  (no flag)  production mode — requires RAILS_MASTER_KEY"
-      echo "  --dev      development mode — no master key needed"
+      echo "Usage: bin/boot"
+      echo "  Starts the pito production stack (Postgres + Rails)."
+      echo "  RAILS_MASTER_KEY must be set in the environment or .env."
       exit 0
       ;;
     *)
@@ -28,18 +22,10 @@ for arg in "$@"; do
   esac
 done
 
-if [ "$DEV_MODE" -eq 1 ]; then
-  echo "→ Starting pito in development mode…"
-  exec docker compose \
-    -f docker-compose.yml \
-    -f docker-compose.dev.yml \
-    up --build "$@"
-else
-  if [ -z "${RAILS_MASTER_KEY:-}" ] && [ ! -f config/master.key ]; then
-    echo "ERROR: RAILS_MASTER_KEY env var or config/master.key is required for production."
-    echo "       Run  bin/boot --dev  for development mode."
-    exit 1
-  fi
-  echo "→ Starting pito in production mode…"
-  exec docker compose up --build
+if [ -z "${RAILS_MASTER_KEY:-}" ] && [ ! -f config/master.key ]; then
+  echo "ERROR: RAILS_MASTER_KEY env var or config/master.key is required."
+  exit 1
 fi
+
+echo "→ Starting pito in production mode…"
+exec docker compose up --build "$@"

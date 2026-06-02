@@ -7,7 +7,7 @@ class RegistryTestHandler < Pito::Slash::Handler
   self.description_key = "pito.slash.help.descriptions.testcmd"
 
   def call
-    Pito::Slash::Result::Ok.new(events: [ { kind: :assistant_text, payload: { text: "ok" } } ])
+    Pito::Slash::Result::Ok.new(events: [ { kind: :system, payload: { text: "ok" } } ])
   end
 end
 

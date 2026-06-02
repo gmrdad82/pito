@@ -19,7 +19,7 @@ module Pito
         def restricted_help
           Pito::Slash::Result::Ok.new(events: [
             {
-              kind:    "assistant_text",
+              kind:    "system",
               payload: { text: I18n.t("pito.slash.help.unauthenticated") }
             }
           ])
@@ -34,7 +34,7 @@ module Pito
 
           Pito::Slash::Result::Ok.new(events: [
             {
-              kind:    "assistant_text",
+              kind:    "system",
               payload: {
                 text:           I18n.t("pito.slash.help.intro", count: Pito::Slash::Registry.size),
                 expand_lines:   visible.map { |l| l },

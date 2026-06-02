@@ -15,10 +15,10 @@ RSpec.describe Pito::Chat::Handlers::RefineDemo do
       expect(handler.call).to be_a(Pito::Chat::Result::Refine)
     end
 
-    it "returns Refine with one assistant_text event" do
+    it "returns Refine with one system event" do
       result = handler.call
       expect(result.events.length).to eq(1)
-      expect(result.events.first[:kind]).to eq(:assistant_text)
+      expect(result.events.first[:kind]).to eq(:system)
     end
 
     it "references the acknowledged i18n key" do

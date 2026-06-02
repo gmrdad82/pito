@@ -702,38 +702,40 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 - [x] T28.0.c `/connect` not-configured error: always-visible credential table (client_id, client_secret, redirect_uri, api_key) with MISSING/[set] colour coding. complexity: [low]
 - [x] T28.0.d Chatbox filter labels lowercase (`Channel` → `channel`, `Period` → `period`). complexity: [low]
 - [x] T28.0.e `/config --help` + `/config <provider> --help`; fix URL kwarg parsing (`localhost:3027` no longer treated as kwarg key). complexity: [low]
-- [x] T28.0.f Docker: `bin/boot [--dev]`, named volumes for Postgres + ActiveStorage, `Dockerfile.dev` + `docker-compose.dev.yml`, squash migrations to single baseline. complexity: [low]
+- [x] T28.0.f Docker: two-environment setup — `bin/dev` (local Ruby, local Postgres on port 54327, ActiveStorage in `tmp/storage`) vs `bin/boot` (Docker production, `pito_production` DB in named volume, ActiveStorage in `rails_storage` named volume at `/var/lib/pito-assets`). Dropped `bin/boot --dev`, `docker-compose.dev.yml`, `Dockerfile.dev`. Production credentials added (`postgres.production` in `credentials.yml.enc`). `PITO_ASSETS_PATH` removed; `Pito::AssetsRoot` deleted. WebMock wired globally in `rails_helper.rb`; OmniAuth DEBUG log suppressed in tests. complexity: [low]
 - [x] T28.0.g `/demo` route — visual review of all segment kinds; confirmed orange follow-up design; removed after review. complexity: [low]
 
-- [ ] T28.0.h Segment refactor — CSS: add `data-accent=surface` (`var(--bg-surface)`) and `data-accent=pito` (`var(--brand-pito)`) to `pito-segment__bar`. Unify backgrounds: chatbox + all follow_up segments use `var(--bg-elevated)` (drop `--bg-surface` from segment/chatbox use). complexity: [low]
+- [x] T28.0.h Segment refactor — CSS: add `data-accent=surface` (`var(--bg-surface)`) and `data-accent=pito` (`var(--brand-pito)`) to `pito-segment__bar`. Unify backgrounds: chatbox + all follow_up segments use `var(--bg-elevated)` (drop `--bg-surface` from segment/chatbox use). complexity: [low]
 
-- [ ] T28.0.i Segment refactor — 9 canonical kinds replacing current set. New `Event::KINDS`: `echo`, `system`, `error`, `enhanced`, `thinking`, `confirmation`, `system_follow_up`, `enhanced_follow_up`, `confirmation_follow_up`. Drop `assistant_text`, `logout`, `confirmation_prompt`. complexity: [low]
+- [x] T28.0.i Segment refactor — 9 canonical kinds replacing current set. New `Event::KINDS`: `echo`, `system`, `error`, `enhanced`, `thinking`, `confirmation`, `system_follow_up`, `enhanced_follow_up`, `confirmation_follow_up`. Drop `assistant_text`, `logout`, `confirmation_prompt`. complexity: [low]
 
-- [ ] T28.0.j Segment refactor — new/renamed components: `SystemComponent` (accent: surface, no bg; replaces AssistantTextComponent), `EnhancedComponent` (accent: pito, no bg), `SystemFollowUpComponent` (accent: surface, bg: elevated), `EnhancedFollowUpComponent` (accent: pito, bg: elevated), `ConfirmationFollowUpComponent` (accent: orange, bg: elevated). Rename `ConfirmationPromptComponent` → `ConfirmationComponent`. Drop `LogoutComponent`; fold logout animation into `EchoComponent` via `triggers_logout:` payload flag. complexity: [low]
+- [x] T28.0.j Segment refactor — new/renamed components: `SystemComponent` (accent: surface, no bg; replaces AssistantTextComponent), `EnhancedComponent` (accent: pito, no bg), `SystemFollowUpComponent` (accent: surface, bg: elevated), `EnhancedFollowUpComponent` (accent: pito, bg: elevated), `ConfirmationFollowUpComponent` (accent: orange, bg: elevated). Rename `ConfirmationPromptComponent` → `ConfirmationComponent`. Drop `LogoutComponent`; fold logout animation into `EchoComponent` via `triggers_logout:` payload flag. complexity: [low]
 
-- [ ] T28.0.k Segment refactor — update `EventRenderer::COMPONENT_CLASSES` map, `ChatDispatchJob` event assembly, `ChatController` all emit call sites, `YoutubeConnections::OauthCallbacksController`. Update all affected specs. complexity: [low]
+- [x] T28.0.k Segment refactor — update `EventRenderer::COMPONENT_CLASSES` map, `ChatDispatchJob` event assembly, `ChatController` all emit call sites, `YoutubeConnections::OauthCallbacksController`. Update all affected specs. complexity: [low]
 
 - [ ] T28.0.l Segment refactor — commit. complexity: [manual]
 
+- [x] T28.0.m Cover art → ActiveStorage: `Game` gains `has_one_attached :cover_art`; `Game::CoverArt::Normalizer` rewrites to fetch from IGDB CDN, normalize with vips, and attach via ActiveStorage (temp file + `cover_art.attach`). Idempotency via `attachment.created_at >= igdb_synced_at`. `ImagesController#show_game` updated to use `url_for(game.cover_art)`. `Pito::AssetsRoot` deleted (no remaining consumers). Spec: `spec/services/game/cover_art/normalizer_spec.rb` (5 examples). complexity: [low]
+
 - [ ] T28.2 `/disconnect` handler skeleton: register in registry, resolve target channel by YouTube `@handle` (partial match) or numeric id. Error segment (red) if not found. complexity: [low]
 
-- [ ] T28.3a `#handle` generation module: `GREEK_WORDS` constant (24 names: alpha…omega) + 4-digit random (1000–9999). `HandleGenerator.call(conversation)` generates a handle unique across the DB (queries `confirmation_prompt` payload column). complexity: [low]
+- [ ] T28.3a `#handle` generation module: `GREEK_WORDS` constant (24 names: alpha…omega) + 4-digit random (1000–9999). `HandleGenerator.call(conversation)` generates a handle unique across the DB (queries `confirmation` event payloads in the conversation). complexity: [low]
 
-- [ ] T28.3b Add `confirmation_handle:` to `confirmation_prompt` event payload. Store once on creation, never regenerate. Handle appears in the segment meta line: `14:32 · #alpha-1322 · @all`. complexity: [low]
+- [ ] T28.3b Add `confirmation_handle:` to `confirmation` event payload. Store once on creation, never regenerate. Handle appears in the segment meta line: `14:32 · #alpha-1322 · @all`. complexity: [low]
 
-- [ ] T28.4 `ConfirmationPromptComponent` (orange accent): meta line `timestamp · #handle · @all` at bottom; body text (disconnect warning + channel/video counts); processing state (Braille spinner + new confirmation-verb dictionary inside the segment, above body text); resolved state (original body + hairline separator + outcome text). complexity: [low]
+- [ ] T28.4 `ConfirmationComponent` (orange accent): meta line `timestamp · #handle · @all` at bottom; body text (disconnect warning + channel/video counts); processing state (Braille spinner + new confirmation-verb dictionary inside the segment, above body text); resolved state (original body + hairline separator + outcome text). complexity: [low]
 
 - [ ] T28.5a `ChatController`: detect `#word-digits (confirm|cancel)` pattern. Route to `ConfirmationRouter`. Trigger dots-below-chatbox indicator. Emit NO echo segment. Respond 204. complexity: [low]
 
 - [ ] T28.5b Immediately on receipt: update event payload to `processing: true`, broadcast Turbo Stream replace → segment shows Braille spinner. complexity: [low]
 
-- [ ] T28.5c `ConfirmationRouter`: look up unresolved `confirmation_prompt` by handle in the conversation. Enqueue `ConfirmationDispatchJob(event_id:, action: :confirm|:cancel)`. complexity: [low]
+- [ ] T28.5c `ConfirmationRouter`: look up unresolved `confirmation` event by handle in the conversation. Enqueue `ConfirmationDispatchJob(event_id:, action: :confirm|:cancel)`. complexity: [low]
 
 - [ ] T28.6 `ConfirmationDispatchJob` — cancel path: update payload (`resolved: true, outcome: :cancelled, outcome_text: "Alright, I won't disconnect from this channel."`), broadcast Turbo Stream replace → segment shows original body + hairline + outcome text. complexity: [low]
 
 - [ ] T28.7 `ConfirmationDispatchJob` — confirm path: delete videos, delete channel, optionally delete `YoutubeConnection` (if last channel). Update payload (`resolved: true, outcome: :confirmed, outcome_text: "Disconnected from @handle. Deleted N videos."`), broadcast replace. complexity: [low]
 
-- [ ] T28.8 Smoke (`bin/boot --dev`): `/connect` → add channel → `/disconnect @channel` → `#handle confirm` → verify channel + videos gone from DB. complexity: [manual]
+- [ ] T28.8 Smoke: `bin/boot` → `/connect` → add channel → `/disconnect @channel` → `#handle confirm` → verify channel + videos gone from DB. complexity: [manual]
 
 - [ ] T28.9 Commit: `/disconnect` + `#handle` confirmation system. complexity: [manual]
 
@@ -811,7 +813,7 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 - [ ] T34.4 `/schedule` → same picker + an **additional date step** (pick publish date/time) → set privacy `private` + `status.publishAt`. complexity: [high]
 - [ ] T34.5 `/unlist` → picker of public/unlisted videos → set privacy `unlisted`. complexity: [low]
 - [ ] T34.6 After publish/schedule/unlist success → enqueue a single-video import to refresh `Video`. complexity: [low]
-- [ ] T34.7 `/delete` → picker (any video) → `confirmation_prompt` Segment → on confirm `videos.delete`. complexity: [high]
+- [ ] T34.7 `/delete` → picker (any video) → `confirmation` Segment → on confirm `videos.delete`. complexity: [high]
 - [ ] T34.8 On delete success → remove the local `Video` (+ dependent rows). complexity: [low]
 - [ ] T34.9 Common flow: echo + dispatch async job → Braille thinking → result Segment **with a link to the video** when done. complexity: [low]
 - [ ] T34.10 Specs (eligible-set per command; stubbed API state changes; schedule date; delete confirm). complexity: [high]
@@ -954,7 +956,6 @@ _Resolved this round:_ video commands = `/import` + `/update` + lifecycle `/publ
 - `Pito::Stats` / `Pito::Analytics` plans; wire TAB/period.
 - Games detail screen; videos list screen.
 - `Calendar`/`CalendarEntry`, `Notification` models — add when needed. (Playlist dropped — not supported.)
-- **Refactor Game cover art to Active Storage.** Replace the bespoke `Game::CoverArt::Normalizer`-to-disk + `public/covers` static-symlink serving (symlink rake task already removed; `ImagesController` is orphaned) with an Active Storage attachment on `Game` (vips-normalized 600×800 master + variants), rendered in the Game-detail Sidebar. Decided 2026-05-31 (supersedes the earlier "keep as plain generated files" stance).
 - Remote footage ingest (script + HTTP endpoint) if/when on Hetzner.
 - At merge: delete `plan-beta-reboot-*.md`; fold durable content into `architecture.md` / `design.md` / `installation.md` / `tools.md`.
 - ctrl+o expand and collapse (at the bottom)

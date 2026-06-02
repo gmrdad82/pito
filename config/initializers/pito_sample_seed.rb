@@ -24,7 +24,7 @@ Rails.application.config.after_initialize do
     current_turn = nil
 
     Pito::Sample::ChatShell.events.each do |event_data|
-      if %w[echo user_message].include?(event_data[:kind])
+      if event_data[:kind].to_s == "echo"
         current_turn = conversation.turns.create!(
           position: turn_position,
           input_kind: "slash",

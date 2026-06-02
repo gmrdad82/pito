@@ -2,12 +2,15 @@
 
 module Pito
   module Event
-    class ConfirmationPromptComponent < ViewComponent::Base
+    # Confirmation — destructive action awaiting #handle confirm/cancel.
+    # Orange border, no background. Promotes to ConfirmationFollowUpComponent
+    # after the user responds.
+    class ConfirmationComponent < ViewComponent::Base
       BRAILLE_FRAMES = %w[⠋ ⠙ ⠹ ⠸ ⠼ ⠴ ⠦ ⠧ ⠇ ⠏].freeze
 
       # Payload shapes:
       #
-      #   New destructive commands (/disconnect etc.):
+      #   Destructive commands:
       #     { body:, confirmation_handle:, processing:, processing_word_index:,
       #       resolved:, outcome:, outcome_text:, authenticated: }
       #
@@ -32,6 +35,7 @@ module Pito
       def processing? = @processing && !@resolved
       def resolved?   = @resolved
       def confirmed?  = @outcome == "confirmed"
+      def background  = nil
 
       def processing_word
         words = Array(I18n.t("pito.event.thinking.confirmation.doing"))

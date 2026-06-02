@@ -18,6 +18,8 @@ class Game < ApplicationRecord
 
   has_many :footages, dependent: :destroy
 
+  has_one_attached :cover_art
+
   has_neighbors :summary_embedding
 
   validates :title, presence: true

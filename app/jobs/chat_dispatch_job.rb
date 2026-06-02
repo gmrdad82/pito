@@ -100,7 +100,7 @@ class ChatDispatchJob < ApplicationJob
 
     case result
     when Pito::Slash::Result::Ok, Pito::Chat::Result::Ok, Pito::Chat::Result::Refine
-      inject_segment_styles(result.events).map { |e| { kind: e[:kind], payload: e[:payload].merge(base) } }
+      assign_canonical_kinds(result.events).map { |e| { kind: e[:kind], payload: e[:payload].merge(base) } }
 
     when Pito::Slash::Result::Error, Pito::Chat::Result::Error
       # If message_key looks like already-translated text (e.g. a sampled
@@ -113,7 +113,7 @@ class ChatDispatchJob < ApplicationJob
       [ { kind: :error, payload: error_payload.merge(base) } ]
 
     when Pito::Slash::Result::NeedsConfirmation
-      [ { kind: :confirmation_prompt,
+      [ { kind: :confirmation,
           payload: { prompt_key:    result.prompt_key,
                      prompt_args:   result.prompt_args,
                      command_text:  result.command_text }.merge(base) } ]
@@ -123,25 +123,25 @@ class ChatDispatchJob < ApplicationJob
     end
   end
 
-  # Inject `segment_style` into assistant_text events based on position:
-  #   first  → "plain" (no accent / no background)
-  #   2nd+   → "subsequent" (blue accent / no background)
-  #   follow_up flag → "follow_up" (blue accent / surface background)
-  def inject_segment_styles(events)
-    assistant_indices = events.each_index.select { |i| events[i][:kind].to_s == "assistant_text" }
+  # Assign canonical kinds to events that handlers emit as :system.
+  # First system event → :system, subsequent → :enhanced.
+  # follow_up: true flag → :system_follow_up / :enhanced_follow_up.
+  def assign_canonical_kinds(events)
+    system_indices = events.each_index.select { |i| events[i][:kind].to_s == "system" }
 
     events.each_with_index.map do |e, idx|
-      next e unless e[:kind].to_s == "assistant_text"
+      next e unless e[:kind].to_s == "system"
 
-      style = if e[:payload][:follow_up] == true || e[:payload]["follow_up"] == true
-        "follow_up"
-      elsif assistant_indices.first == idx
-        "plain"
+      follow_up = e.dig(:payload, :follow_up) == true || e.dig(:payload, "follow_up") == true
+      first     = system_indices.first == idx
+
+      new_kind = if follow_up
+        first ? :system_follow_up : :enhanced_follow_up
       else
-        "subsequent"
+        first ? :system : :enhanced
       end
 
-      { kind: e[:kind], payload: e[:payload].merge(segment_style: style) }
+      { kind: new_kind, payload: e[:payload] }
     end
   end
 end

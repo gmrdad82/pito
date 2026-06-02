@@ -92,7 +92,7 @@ module Pito
 
           key = provider.present? ? "pito.slash.config.help.providers.#{provider}" : "pito.slash.config.help.general"
           Pito::Slash::Result::Ok.new(events: [
-            { kind: "assistant_text", payload: { text: I18n.t(key) } }
+            { kind: "system", payload: { text: I18n.t(key) } }
           ])
         end
 
@@ -103,7 +103,7 @@ module Pito
           lines = pairs.map { |label, val| "#{label}: #{val}" }.join(" · ")
 
           Pito::Slash::Result::Ok.new(events: [
-            { kind: :assistant_text, payload: { text: lines } }
+            { kind: :system, payload: { text: lines } }
           ])
         end
 
@@ -123,7 +123,7 @@ module Pito
 
           Pito::Slash::Result::Ok.new(events: [
             {
-              kind:    "assistant_text",
+              kind:    "system",
               payload: {
                 message_key:  "pito.slash.config.updated",
                 message_args: { provider: provider, keys: kwargs.keys.map(&:to_s).join(", ") }

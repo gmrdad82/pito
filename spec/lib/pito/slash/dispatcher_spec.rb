@@ -7,7 +7,7 @@ class DispatcherTestHandler < Pito::Slash::Handler
   self.description_key = "pito.slash.help.descriptions.ping"
 
   def call
-    Pito::Slash::Result::Ok.new(events: [ { kind: :assistant_text, payload: { text: "pong" } } ])
+    Pito::Slash::Result::Ok.new(events: [ { kind: :system, payload: { text: "pong" } } ])
   end
 end
 
@@ -26,7 +26,7 @@ RSpec.describe Pito::Slash::Dispatcher do
     it "returns Result::Ok for a registered verb" do
       result = described_class.call(input: "/ping", conversation:)
       expect(result).to be_a(Pito::Slash::Result::Ok)
-      expect(result.events).to eq([ { kind: :assistant_text, payload: { text: "pong" } } ])
+      expect(result.events).to eq([ { kind: :system, payload: { text: "pong" } } ])
     end
 
     it "returns Result::Error for an unknown verb" do

@@ -74,7 +74,7 @@ RSpec.describe Pito::Slash::Handlers::Config, type: :service do
       expect(result).to be_a(Pito::Slash::Result::Ok)
       expect(result.events.length).to eq(1)
       event = result.events.first
-      expect(event[:kind]).to eq(:assistant_text)
+      expect(event[:kind]).to eq(:system)
       # Text format: "Client ID: OK · Client Secret: OK · ..."
       expect(event[:payload][:text]).to include("Client ID: OK", "Client Secret: OK")
     end

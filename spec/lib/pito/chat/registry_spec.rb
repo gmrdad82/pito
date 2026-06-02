@@ -7,7 +7,7 @@ class ChatRegistryTestHandler < Pito::Chat::Handler
   self.description_key = "pito.chat.test.descriptions.testcmd"
 
   def call
-    Pito::Chat::Result::Ok.new(events: [ { kind: :assistant_text, payload: { text: "ok" } } ])
+    Pito::Chat::Result::Ok.new(events: [ { kind: :system, payload: { text: "ok" } } ])
   end
 end
 

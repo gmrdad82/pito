@@ -20,9 +20,9 @@ RSpec.describe Pito::Slash::Handlers::Help, type: :service do
       expect(result.events.size).to eq(1)
     end
 
-    it "event is assistant_text with a text: intro" do
+    it "event is system with a text: intro" do
       event = build_handler.call.events.first
-      expect(event[:kind]).to eq("assistant_text")
+      expect(event[:kind]).to eq("system")
       expect(event[:payload][:text]).to include(Pito::Slash::Registry.size.to_s)
     end
 

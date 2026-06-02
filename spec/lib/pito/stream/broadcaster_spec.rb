@@ -29,7 +29,7 @@ RSpec.describe Pito::Stream::Broadcaster do
 
     it "increments the position for each event" do
       first = broadcaster.emit(turn:, kind: :echo, payload: { text: "/help" })
-      second = broadcaster.emit(turn:, kind: :assistant_text, payload: { message_key: "pito.slash.help.intro", message_args: { count: 2 } })
+      second = broadcaster.emit(turn:, kind: :system, payload: { message_key: "pito.slash.help.intro", message_args: { count: 2 } })
       expect(first.position).to eq(1)
       expect(second.position).to eq(2)
     end
@@ -68,7 +68,7 @@ RSpec.describe Pito::Stream::Broadcaster do
 
     it "appends a non-echo event INTO its turn container" do
       result = conversation.events.create!(
-        turn:, position: 2, kind: :assistant_text,
+        turn:, position: 2, kind: :system,
         payload: { message_key: "pito.slash.help.intro", message_args: { count: 1 } }
       )
 
