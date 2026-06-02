@@ -1455,7 +1455,7 @@ below.
   `Pito::Stream::Broadcaster.new(conversation: Conversation.singleton).emit(...)`
   to manually inject an event and confirm it appears in the scrollback.
 - Browser DevTools → Network → WS → confirm broadcasts arrive on
-  `"pito:conversation:<id>"`.
+`"pito:conversation:<id>"`.
 <!-- agents:end name=pito-dispatch -->
 
 ---
@@ -1524,7 +1524,7 @@ the defaults below.
   `Pito::Slash::Dispatcher.call(input: "/help", conversation: Conversation.singleton)`
   to exercise the full parse → registry → handler pipeline.
 - `Pito::Slash::Registry.registered_verbs` to inspect the current dispatch
-  table.
+table.
 <!-- agents:end name=pito-slash -->
 
 ---
@@ -1582,7 +1582,7 @@ defaults below.
 
 - `Event.pluck(:kind).uniq` to audit the kinds present in the database.
 - `Event.last.payload` in console to inspect the raw payload of the most
-  recent event.
+recent event.
 <!-- agents:end name=pito-events -->
 
 ---
@@ -1594,14 +1594,14 @@ defaults below.
 These rules keep the Slash and Chat systems decoupled so they can evolve
 independently.
 
-| Invariant | Rationale |
-|---|---|
-| `lib/pito/slash/**` does NOT `require` or reference `Pito::Chat::*`. | Parallel expansion without coupling. |
-| `lib/pito/chat/**` (Plan 3) does NOT `require` or reference `Pito::Slash::*`. | Same. |
-| Both systems share **only** `Pito::Lex` and `Pito::Stream::*`. Nothing else. | Minimum shared surface. |
-| Every handler returns a `Result` value object; the controller never reads handler internals. | Uniform dispatch contract. |
-| Events store structured payloads, never HTML. | Refresh-survives, theme-survives, locale-survives. |
-| Re-rendering an Event from its payload must always produce the current "now" (timestamps re-resolve, "5m ago" recomputes). | Date/time relevance survives time. |
+| Invariant                                                                                                                  | Rationale                                          |
+| -------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
+| `lib/pito/slash/**` does NOT `require` or reference `Pito::Chat::*`.                                                       | Parallel expansion without coupling.               |
+| `lib/pito/chat/**` (Plan 3) does NOT `require` or reference `Pito::Slash::*`.                                              | Same.                                              |
+| Both systems share **only** `Pito::Lex` and `Pito::Stream::*`. Nothing else.                                               | Minimum shared surface.                            |
+| Every handler returns a `Result` value object; the controller never reads handler internals.                               | Uniform dispatch contract.                         |
+| Events store structured payloads, never HTML.                                                                              | Refresh-survives, theme-survives, locale-survives. |
+| Re-rendering an Event from its payload must always produce the current "now" (timestamps re-resolve, "5m ago" recomputes). | Date/time relevance survives time.                 |
 
 ## Commands / verification
 
@@ -1689,29 +1689,29 @@ The parser classifies every chat message into one of three kinds:
 The `ChatController#handle_chat` method materializes the Result from the
 dispatcher:
 
-| Result type | Turn action | Events emitted |
-|---|---|---|
-| `Ok` | Creates a new Turn | echo + result events |
-| `Error` | Creates a new Turn | echo + single error event |
-| `Refine` | Attaches to existing Turn via `Turn.last_for` | echo + result events |
+| Result type | Turn action                                   | Events emitted            |
+| ----------- | --------------------------------------------- | ------------------------- |
+| `Ok`        | Creates a new Turn                            | echo + result events      |
+| `Error`     | Creates a new Turn                            | echo + single error event |
+| `Refine`    | Attaches to existing Turn via `Turn.last_for` | echo + result events      |
 
 The helper `current_or_new_turn(attach_to_existing:)` encapsulates the
 create-vs-reuse decision.
 
 ## Chat vs Slash
 
-| Concern | Chat (`Pito::Chat::*`) | Slash (`Pito::Slash::*`) |
-|---|---|---|
-| Entry point | Input not starting with `/` | Input starting with `/` |
-| Dispatcher | `Pito::Chat::Dispatcher` | `Pito::Slash::Dispatcher` |
-| Parser | `Pito::Chat::Parser` | `Pito::Slash::Parser` |
-| Parser output | `Pito::Chat::Message` | `Pito::Slash::Invocation` |
-| Result types | `Ok`, `Error`, `Refine` | `Ok`, `Error`, `NeedsConfirmation` |
-| Handler base | `Pito::Chat::Handler` | `Pito::Slash::Handler` |
-| Handler location | `app/services/pito/chat/handlers/` | `app/services/pito/slash/handlers/` |
-| Registry | `Pito::Chat::Registry` | `Pito::Slash::Registry` |
-| Shared types | `Pito::Lex`, `Pito::Stream::*` only | (same) |
-| Cross-import | **Forbidden** — no reference to `Pito::Slash::*` | **Forbidden** — no reference to `Pito::Chat::*` |
+| Concern          | Chat (`Pito::Chat::*`)                           | Slash (`Pito::Slash::*`)                        |
+| ---------------- | ------------------------------------------------ | ----------------------------------------------- |
+| Entry point      | Input not starting with `/`                      | Input starting with `/`                         |
+| Dispatcher       | `Pito::Chat::Dispatcher`                         | `Pito::Slash::Dispatcher`                       |
+| Parser           | `Pito::Chat::Parser`                             | `Pito::Slash::Parser`                           |
+| Parser output    | `Pito::Chat::Message`                            | `Pito::Slash::Invocation`                       |
+| Result types     | `Ok`, `Error`, `Refine`                          | `Ok`, `Error`, `NeedsConfirmation`              |
+| Handler base     | `Pito::Chat::Handler`                            | `Pito::Slash::Handler`                          |
+| Handler location | `app/services/pito/chat/handlers/`               | `app/services/pito/slash/handlers/`             |
+| Registry         | `Pito::Chat::Registry`                           | `Pito::Slash::Registry`                         |
+| Shared types     | `Pito::Lex`, `Pito::Stream::*` only              | (same)                                          |
+| Cross-import     | **Forbidden** — no reference to `Pito::Slash::*` | **Forbidden** — no reference to `Pito::Chat::*` |
 
 ## Anti-patterns
 

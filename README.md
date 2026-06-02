@@ -8,7 +8,7 @@
 Picture it: you run a fistful of YouTube channels. YouTube Studio, in its
 infinite wisdom, lets you manage exactly **one channel at a time** — log out, log
 in, log out, log in, repeat until your will to live quietly files for unemployment.
-The third-party tools that *do* juggle multiple channels at once? They'd love
+The third-party tools that _do_ juggle multiple channels at once? They'd love
 **€50+ a month**, please, forever, amen.
 
 So I did the math. The math said "build it yourself, you cheapskate." So I did.
@@ -22,18 +22,19 @@ And hey — if this saves you a headache (or fifty euros), the nicest possible
 "thank you" is a click on one of the channels that dragged this tool into
 existence in the first place:
 
-<div align="center">
-  <table>
-    <tr>
-      <td align="center"><a href="https://www.youtube.com/@gmrdad82"><img src="docs/avatars/@gmrdad82.png" width="100" alt="@gmrdad82"><br><sub><b>@gmrdad82</b></sub></a></td>
-      <td align="center"><a href="https://www.youtube.com/@manfyfighting"><img src="docs/avatars/@manfyfighting.png" width="100" alt="@manfyfighting"><br><sub><b>@manfyfighting</b></sub></a></td>
-      <td align="center"><a href="https://www.youtube.com/@manfygreats"><img src="docs/avatars/@manfygreats.png" width="100" alt="@manfygreats"><br><sub><b>@manfygreats</b></sub></a></td>
-      <td align="center"><a href="https://www.youtube.com/@manfyhard"><img src="docs/avatars/@manfyhard.png" width="100" alt="@manfyhard"><br><sub><b>@manfyhard</b></sub></a></td>
-      <td align="center"><a href="https://www.youtube.com/@manfystrategy"><img src="docs/avatars/@manfystrategy.png" width="100" alt="@manfystrategy"><br><sub><b>@manfystrategy</b></sub></a></td>
-      <td align="center"><a href="https://www.youtube.com/@manfysurvival"><img src="docs/avatars/@manfysurvival.png" width="100" alt="@manfysurvival"><br><sub><b>@manfysurvival</b></sub></a></td>
-    </tr>
-  </table>
-</div>
+<p align="center">
+  <a href="https://www.youtube.com/@gmrdad82"><img src="docs/avatars/@gmrdad82.png" width="100" alt="@gmrdad82"><br><sub><b>@gmrdad82</b></sub></a>
+  &nbsp;&nbsp;
+  <a href="https://www.youtube.com/@manfyfighting"><img src="docs/avatars/@manfyfighting.png" width="100" alt="@manfyfighting"><br><sub><b>@manfyfighting</b></sub></a>
+  &nbsp;&nbsp;
+  <a href="https://www.youtube.com/@manfygreats"><img src="docs/avatars/@manfygreats.png" width="100" alt="@manfygreats"><br><sub><b>@manfygreats</b></sub></a>
+  &nbsp;&nbsp;
+  <a href="https://www.youtube.com/@manfyhard"><img src="docs/avatars/@manfyhard.png" width="100" alt="@manfyhard"><br><sub><b>@manfyhard</b></sub></a>
+  &nbsp;&nbsp;
+  <a href="https://www.youtube.com/@manfystrategy"><img src="docs/avatars/@manfystrategy.png" width="100" alt="@manfystrategy"><br><sub><b>@manfystrategy</b></sub></a>
+  &nbsp;&nbsp;
+  <a href="https://www.youtube.com/@manfysurvival"><img src="docs/avatars/@manfysurvival.png" width="100" alt="@manfysurvival"><br><sub><b>@manfysurvival</b></sub></a>
+</p>
 
 ---
 
@@ -67,10 +68,10 @@ the rebuild. To try it anyway, start with
 
 ## sounds
 
-| event | file | original | source | license |
-|---|---|---|---|---|
-| send | `/sounds/send.mp3` | `vs-pop_5.mp3` | [Pop_5.mp3](https://freesound.org/s/463395/) by Vilkas_Sound | CC BY 4.0 |
-| receive | `/sounds/receive.mp3` | `pop-1.wav` | [Pop 1](https://freesound.org/s/545201/) by theplax | CC BY 4.0 |
+| event   | file                  | original       | source                                                       | license   |
+| ------- | --------------------- | -------------- | ------------------------------------------------------------ | --------- |
+| send    | `/sounds/send.mp3`    | `vs-pop_5.mp3` | [Pop_5.mp3](https://freesound.org/s/463395/) by Vilkas_Sound | CC BY 4.0 |
+| receive | `/sounds/receive.mp3` | `pop-1.wav`    | [Pop 1](https://freesound.org/s/545201/) by theplax          | CC BY 4.0 |
 
 ## license
 

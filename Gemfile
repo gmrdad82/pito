@@ -46,7 +46,7 @@ gem "image_processing", "~> 1.14"
 # libvips at the system level before Phase B's cover-art tests run.
 gem "ruby-vips", "~> 2.2", require: false
 # neighbor: Active Record bridge for pgvector cosine queries on notes.embedding.
-gem "neighbor", "~> 0.6"
+gem "neighbor", "~> 1.1"
 
 group :development, :test do
   gem "pry-rails", "~> 0.3"
@@ -83,4 +83,4 @@ end
 # so the enrollment view can show the QR scan target without an external
 # image service. Both gems are pure Ruby — no native extensions.
 gem "rotp", "~> 6.3"
-gem "rqrcode", "~> 2.2"
+gem "rqrcode", "~> 3.2"
