@@ -12,6 +12,12 @@ module Pito
         self.verb = :disconnect
         self.description_key = "pito.slash.disconnect.descriptions.disconnect"
 
+        grammar do
+          enum :channel, source: :channels, optional: true
+          auth :authenticated_only
+          description_key "pito.grammar.slash.disconnect"
+        end
+
         def call
           target = parse_target
           return missing_target_error if target.blank?

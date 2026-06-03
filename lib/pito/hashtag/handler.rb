@@ -1,8 +1,12 @@
 # frozen_string_literal: true
 
+require_relative "../grammar/handler_dsl"
+
 module Pito
   module Hashtag
     class Handler
+      extend Pito::Grammar::HandlerDsl
+
       attr_reader :message, :conversation
 
       def initialize(message:, conversation:)
@@ -26,6 +30,7 @@ module Pito
         def inherited(subclass)
           super
           subclass.instance_variable_set(:@handle, nil)
+          subclass.reset_grammar_ivars!
         end
       end
     end

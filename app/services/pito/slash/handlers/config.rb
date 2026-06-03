@@ -18,6 +18,13 @@ module Pito
         self.verb = :config
         self.description_key = "pito.slash.config.descriptions.config"
 
+        grammar do
+          literal :provider, source: :config_providers
+          kv :settings, source: :config_keys, repeatable: true, optional: true
+          auth :authenticated_only
+          description_key "pito.grammar.slash.config"
+        end
+
         KNOWN_PROVIDERS = %w[google voyage igdb webhook].freeze
 
         # Maps each provider's supported kwargs to their AppSetting writers.

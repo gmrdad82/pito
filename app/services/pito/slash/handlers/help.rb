@@ -7,6 +7,11 @@ module Pito
         self.verb = :help
         self.description_key = "pito.slash.help.descriptions.help"
 
+        grammar do
+          auth :any
+          description_key "pito.grammar.slash.help"
+        end
+
         def call
           authenticated ? full_help : restricted_help
         end

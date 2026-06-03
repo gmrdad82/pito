@@ -823,19 +823,19 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 
 **Grammar core (`lib/pito/grammar/`)**
 
-- [ ] P31.0.d `Slot = Data.define(:name,:kind,:source,:optional,:repeatable,:synonyms,:introducer)` (`kind ∈ :literal,:enum,:kv,:free,:connective`; `source` = Array | Symbol(vocab) | `:dynamic`) + `Spec = Data.define(:namespace,:name,:aliases,:slots,:description_key,:auth)` (`auth ∈ :any,:unauthenticated_only,:authenticated_only`); shape spec. complexity: [low]
-- [ ] P31.0.e `Vocabulary` (`canonical, synonyms downcased, fillers Set, dynamic, resolver`): `resolve(raw)→canonical|nil`, `filler?`, `members(context:)`, `to_h` (omit dynamic members), `.define`; spec for synonyms + case + fillers. complexity: [low]
-- [ ] P31.0.f `Match = Data.define(:namespace,:name,:values,:kwargs,:leftovers,:unknowns,:confidence,:matched)` + `Registry` (class-level): `register_spec/register_vocabulary/specs(namespace:)/spec/specs_for_alias/vocabulary/vocabularies/register_all!/reset!`; spec. complexity: [low]
-- [ ] P31.0.g Static vocabularies in `vocabularies.rb`: `:slash_verbs`, `:config_providers`, `:config_keys` (+ masked set), `:genres` (fps→Shooter, sim→Simulation…), `:platforms` (ps5/playstation/ps/sony→PlayStation 5, switch→Nintendo Switch, steam/pc→PC), `:release_status`, `:metrics` (subs→subscribers, views count→views, ctr ratio→ctr; fillers count/ratio), `:hashtag_verbs` (drop/delete→remove, include→add), global `:fillers`, `:connectives`; spec resolves each example synonym. complexity: [low]
-- [ ] P31.0.h Dynamic vocab stubs `:channels` (`Channel.pluck(:handle)`), `:conversations`, `:game_titles` (`Game.title` ILIKE) — `dynamic: true`, resolver set, `to_h` emits no members; spec. complexity: [low]
-- [ ] P31.0.i `Normalizer.call(tokens, namespace:, context:) → Match` core: verb/alias resolve, slot walk, filler strip, `:enum` via `Vocabulary#resolve` (non-member→`unknowns`), `:kv` slurp + numeric coercion, `:free` slurp, `confidence`. No connectives yet; spec. complexity: [high]
-- [ ] P31.0.j Normalizer connectives: `and` (join repeatable slot array; else split into ops), `for` introducer, hashtag compound op-splitter; spec: `list upcoming racing and rpg games for playstation` → `{status,genre:[Racing,RPG],platform:PlayStation 5}`; `add ctr and views and remove subs` → 2 ops. complexity: [high]
-- [ ] P31.0.k Chat template specs in `specs.rb`: `:list`,`:show`,`:find` sharing `[status:enum(:release_status,optional), genre:enum(:genres,repeatable,optional), platform:enum(:platforms,optional,introducer: for)]`; spec. complexity: [low]
-- [ ] P31.0.l Hashtag verb specs `:add`/`:remove` `[metric:enum(:metrics,repeatable)]` + aliases; spec (alias `drop`→`:remove`). complexity: [low]
-- [ ] P31.0.m Handler grammar DSL `self.grammar do … end` / `self.slots=` on `Pito::{Slash,Chat,Hashtag}::Handler`; bare spec from `verb`+`description_key` when none declared; spec. complexity: [low]
-- [ ] P31.0.n Slash specs via DSL: `:authenticate [code:free] auth: :unauthenticated_only`, `:config [provider:literal(:config_providers), settings:kv(:config_keys,repeatable,optional)]`, `:disconnect [channel:enum(:channels,optional)]`, other verbs `:authenticated_only` (except help/authenticate); add `config/locales/pito/grammar/en.yml` description keys. complexity: [low]
-- [ ] P31.0.o Boot wiring: call `Pito::Grammar::Registry.register_all!` first in `config/initializers/pito.rb` `to_prepare`; boot spec (registry populated, existing registries unaffected). complexity: [low]
-- [ ] P31.0.p Commit: `Grammar layer: slot/spec/vocab/normalizer + registry`. complexity: [manual]
+- [x] P31.0.d `Slot = Data.define(:name,:kind,:source,:optional,:repeatable,:synonyms,:introducer)` (`kind ∈ :literal,:enum,:kv,:free,:connective`; `source` = Array | Symbol(vocab) | `:dynamic`) + `Spec = Data.define(:namespace,:name,:aliases,:slots,:description_key,:auth)` (`auth ∈ :any,:unauthenticated_only,:authenticated_only`); shape spec. complexity: [low]
+- [x] P31.0.e `Vocabulary` (`canonical, synonyms downcased, fillers Set, dynamic, resolver`): `resolve(raw)→canonical|nil`, `filler?`, `members(context:)`, `to_h` (omit dynamic members), `.define`; spec for synonyms + case + fillers. complexity: [low]
+- [x] P31.0.f `Match = Data.define(:namespace,:name,:values,:kwargs,:leftovers,:unknowns,:confidence,:matched)` + `Registry` (class-level): `register_spec/register_vocabulary/specs(namespace:)/spec/specs_for_alias/vocabulary/vocabularies/register_all!/reset!`; spec. complexity: [low]
+- [x] P31.0.g Static vocabularies in `vocabularies.rb`: `:slash_verbs`, `:config_providers`, `:config_keys` (+ masked set), `:genres` (fps→Shooter, sim→Simulation…), `:platforms` (ps5/playstation/ps/sony→PlayStation 5, switch→Nintendo Switch, steam/pc→PC), `:release_status`, `:metrics` (subs→subscribers, views count→views, ctr ratio→ctr; fillers count/ratio), `:hashtag_verbs` (drop/delete→remove, include→add), global `:fillers`, `:connectives`; spec resolves each example synonym. complexity: [low]
+- [x] P31.0.h Dynamic vocab stubs `:channels` (`Channel.pluck(:handle)`), `:conversations`, `:game_titles` (`Game.title` ILIKE) — `dynamic: true`, resolver set, `to_h` emits no members; spec. complexity: [low]
+- [x] P31.0.i `Normalizer.call(tokens, namespace:, context:) → Match` core: verb/alias resolve, slot walk, filler strip, `:enum` via `Vocabulary#resolve` (non-member→`unknowns`), `:kv` slurp + numeric coercion, `:free` slurp, `confidence`. No connectives yet; spec. complexity: [high]
+- [x] P31.0.j Normalizer connectives: `and` (join repeatable slot array; else split into ops), `for` introducer, hashtag compound op-splitter; spec: `list upcoming racing and rpg games for playstation` → `{status,genre:[Racing,RPG],platform:PlayStation 5}`; `add ctr and views and remove subs` → 2 ops. complexity: [high]
+- [x] P31.0.k Chat template specs in `specs.rb`: `:list`,`:show`,`:find` sharing `[status:enum(:release_status,optional), genre:enum(:genres,repeatable,optional), platform:enum(:platforms,optional,introducer: for)]`; spec. complexity: [low]
+- [x] P31.0.l Hashtag verb specs `:add`/`:remove` `[metric:enum(:metrics,repeatable)]` + aliases; spec (alias `drop`→`:remove`). complexity: [low]
+- [x] P31.0.m Handler grammar DSL `self.grammar do … end` / `self.slots=` on `Pito::{Slash,Chat,Hashtag}::Handler`; bare spec from `verb`+`description_key` when none declared; spec. complexity: [low]
+- [x] P31.0.n Slash specs via DSL: `:authenticate [code:free] auth: :unauthenticated_only`, `:config [provider:literal(:config_providers), settings:kv(:config_keys,repeatable,optional)]`, `:disconnect [channel:enum(:channels,optional)]`, other verbs `:authenticated_only` (except help/authenticate); add `config/locales/pito/grammar/en.yml` description keys. complexity: [low]
+- [x] P31.0.o Boot wiring: call `Pito::Grammar::Registry.register_all!` first in `config/initializers/pito.rb` `to_prepare`; boot spec (registry populated, existing registries unaffected). complexity: [low]
+- [x] P31.0.p Commit: `Grammar layer: slot/spec/vocab/normalizer + registry`. complexity: [manual]
 
 **Parser refactor (shape-preserving adapters)**
 
@@ -1094,7 +1094,6 @@ _Resolved this round:_ video commands = `/import` + `/update` + lifecycle `/publ
 - View|show @handle
 - Channel will be @channel
 - Vocabulary for /help and refactor help to show vocabulary with nested - structure to accomodate vast
-- Autocomplete
 - force / refresh stats with --fresh argument maybe
 - Extract components for kv-tables, tables, stats, etc...
 

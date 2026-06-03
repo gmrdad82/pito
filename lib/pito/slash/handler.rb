@@ -1,8 +1,12 @@
 # frozen_string_literal: true
 
+require_relative "../grammar/handler_dsl"
+
 module Pito
   module Slash
     class Handler
+      extend Pito::Grammar::HandlerDsl
+
       attr_reader :invocation, :conversation, :authenticated
 
       def initialize(invocation:, conversation:, authenticated: true)
@@ -55,6 +59,7 @@ module Pito
           super
           subclass.instance_variable_set(:@verb, nil)
           subclass.instance_variable_set(:@description_key, nil)
+          subclass.reset_grammar_ivars!
         end
       end
     end
