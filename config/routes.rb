@@ -15,6 +15,7 @@ Rails.application.routes.draw do
 
   root "start_screens#show"
   post "/chat", to: "chat#create", as: :chat
+  post "/autocomplete", to: "autocomplete#create", as: :autocomplete
   get "/chat/:uuid", to: "conversations#show", as: :conversation
 
   # Dev helper: clears the session cookie so you can re-test /authenticate

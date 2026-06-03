@@ -120,7 +120,7 @@ module Pito
       GAME_TITLES = Vocabulary.define(
         name:     :game_titles,
         dynamic:  true,
-        resolver: ->(context) { Game.where("title ILIKE ?", "#{context}%").limit(20).pluck(:title) }
+        resolver: ->(context) { ::Game.where("title ILIKE ?", "#{context}%").limit(20).pluck(:title) }
       ).freeze
 
       # ── Public API ───────────────────────────────────────────────────────────

@@ -847,11 +847,11 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 
 **Autocomplete backend (`app/services/pito/autocomplete/`)**
 
-- [ ] P31.0.v `Catalog.to_json(authenticated:)` from `Grammar::Registry`: slash commands auth-filtered (unauth → only `/authenticate`; auth → hide it), hashtag verbs+metrics, chat templates+fillers+connectives, dynamic vocabs as `{endpoint:"/autocomplete"}` pointers; spec verifies filtering + static-embed/dynamic-stub. complexity: [low]
-- [ ] P31.0.w `Engine.call(input:,cursor:,conversation:,authenticated:) → {mode, menu_items:[{label,insert,description,masked}], ghost:{complete_current,next_hint}}` — lex+normalize to find slot at cursor; static slots from vocabs; spec. complexity: [high]
-- [ ] P31.0.x `Engine` dynamic slots: resolve channels/games/conversations (ILIKE + LIMIT), auth-gated (never return channels/conversations to anon); spec. complexity: [high]
-- [ ] P31.0.y `post "/autocomplete"` route + `AutocompleteController#create` (`allow_anonymous`) calling Engine; request spec (works on `/` + 404; auth gating; returns menu/ghost). complexity: [low]
-- [ ] P31.0.z Commit: `Autocomplete catalog + engine + completions endpoint`. complexity: [manual]
+- [x] P31.0.v `Catalog.to_json(authenticated:)` from `Grammar::Registry`: slash commands auth-filtered (unauth → only `/authenticate`; auth → hide it), hashtag verbs+metrics, chat templates+fillers+connectives, dynamic vocabs as `{endpoint:"/autocomplete"}` pointers; spec verifies filtering + static-embed/dynamic-stub. complexity: [low]
+- [x] P31.0.w `Engine.call(input:,cursor:,conversation:,authenticated:) → {mode, menu_items:[{label,insert,description,masked}], ghost:{complete_current,next_hint}}` — lex+normalize to find slot at cursor; static slots from vocabs; spec. complexity: [high]
+- [x] P31.0.x `Engine` dynamic slots: resolve channels/games/conversations (ILIKE + LIMIT), auth-gated (never return channels/conversations to anon); spec. complexity: [high]
+- [x] P31.0.y `post "/autocomplete"` route + `AutocompleteController#create` (`allow_anonymous`) calling Engine; request spec (works on `/` + 404; auth gating; returns menu/ghost). complexity: [low]
+- [x] P31.0.z Commit: `Autocomplete catalog + engine + completions endpoint`. complexity: [manual]
 
 **Slash/hashtag popup palette (float-above)**
 
