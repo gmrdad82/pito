@@ -1597,7 +1597,8 @@ independently.
 | -------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
 | `lib/pito/slash/**` does NOT `require` or reference `Pito::Chat::*`.                                                       | Parallel expansion without coupling.               |
 | `lib/pito/chat/**` (Plan 3) does NOT `require` or reference `Pito::Slash::*`.                                              | Same.                                              |
-| Both systems share **only** `Pito::Lex` and `Pito::Stream::*`. Nothing else.                                               | Minimum shared surface.                            |
+| `lib/pito/hashtag/**` does NOT `require` or reference `Pito::Slash::*` or `Pito::Chat::*`.                                   | Same.                                              |
+| All three systems share **only** `Pito::Lex` and `Pito::Stream::*`. Nothing else.                                          | Minimum shared surface.                            |
 | Every handler returns a `Result` value object; the controller never reads handler internals.                               | Uniform dispatch contract.                         |
 | Events store structured payloads, never HTML.                                                                              | Refresh-survives, theme-survives, locale-survives. |
 | Re-rendering an Event from its payload must always produce the current "now" (timestamps re-resolve, "5m ago" recomputes). | Date/time relevance survives time.                 |
@@ -1729,3 +1730,76 @@ create-vs-reuse decision.
   new-turn classification.
 - `Turn.last_for(conversation)` to check the most recent Turn.
 <!-- agents:end name=pito-chat -->
+
+---
+
+<!-- agents:begin name=pito-hashtag sha=plan04 -->
+
+## Hashtag
+
+### Project context
+
+Read `docs/EXTRA.md` first. It may declare additional hashtag handlers, custom
+result types, or registry loading rules. Anything declared there overrides
+the defaults below.
+
+### Conventions
+
+#### Namespace
+
+- Everything lives under `Pito::Hashtag::*`.
+- Infrastructure (parser, registry, result types, dispatcher) lives under
+  `lib/pito/hashtag/`.
+- Concrete domain handlers live under `app/services/pito/hashtag/handlers/`.
+
+#### Handler contract
+
+- Every handler inherits from `Pito::Hashtag::Handler`.
+- Every handler declares:
+  - `self.handle = :<symbol>` — the handle word it responds to.
+- Every handler implements `#call` and returns a `Pito::Hashtag::Result` value
+  object:
+  - `Result::Ok` — succeeded; carries an array of events to render.
+  - `Result::Error` — failed; carries an i18n key + args.
+
+#### Registry
+
+- `Pito::Hashtag::Registry` is a singleton-style class.
+- `register(handler_class)` adds a handler; `lookup(handle)` returns the class
+  or `nil`.
+- `register_all!` discovers every class under `Pito::Hashtag::Handlers` that
+  inherits from `Handler` **and** has a `handle` set. Handlers without a handle
+  are skipped.
+- Registration runs once at boot in `config/initializers/pito.rb` inside a
+  `to_prepare` block, alongside the existing Slash and Chat registration.
+
+### Hashtag vs Slash vs Chat
+
+| Concern          | Hashtag (`Pito::Hashtag::*`)                     | Chat (`Pito::Chat::*`)                           | Slash (`Pito::Slash::*`)                        |
+| ---------------- | ------------------------------------------------ | ------------------------------------------------ | ----------------------------------------------- |
+| Entry point      | Input starting with `#` (not a confirmation)   | Input not starting with `/`                      | Input starting with `/`                         |
+| Dispatcher       | `Pito::Hashtag::Dispatcher`                      | `Pito::Chat::Dispatcher`                         | `Pito::Slash::Dispatcher`                       |
+| Parser           | `Pito::Hashtag::Parser`                          | `Pito::Chat::Parser`                             | `Pito::Slash::Parser`                           |
+| Parser output    | `Pito::Hashtag::Message`                         | `Pito::Chat::Message`                            | `Pito::Slash::Invocation`                       |
+| Result types     | `Ok`, `Error`                                    | `Ok`, `Error`, `Refine`                          | `Ok`, `Error`, `NeedsConfirmation`              |
+| Handler base     | `Pito::Hashtag::Handler`                         | `Pito::Chat::Handler`                            | `Pito::Slash::Handler`                          |
+| Handler location | `app/services/pito/hashtag/handlers/`            | `app/services/pito/chat/handlers/`               | `app/services/pito/slash/handlers/`             |
+| Registry         | `Pito::Hashtag::Registry`                        | `Pito::Chat::Registry`                           | `Pito::Slash::Registry`                         |
+| Shared types     | `Pito::Lex`, `Pito::Stream::*` only              | (same)                                           | (same)                                          |
+| Cross-import     | **Forbidden** — no reference to `Pito::Slash::*` or `Pito::Chat::*` | **Forbidden** — no reference to `Pito::Slash::*` | **Forbidden** — no reference to `Pito::Chat::*` |
+
+## Anti-patterns
+
+- Don't couple Hashtag handlers to Slash or Chat internals. No `require "pito/slash"`
+  or `require "pito/chat"` inside `lib/pito/hashtag/` or `app/services/pito/hashtag/`.
+- Don't return plain strings from handlers. Always return a `Result`.
+- Don't hardcode user-facing strings. Use i18n keys + args.
+
+## Commands / verification
+
+- `bin/rails console` then
+  `Pito::Hashtag::Dispatcher.call(input: "#reply-1234 hello", conversation: Conversation.singleton)`
+  to exercise the full pipeline.
+- `Pito::Hashtag::Registry.registered_handles` to inspect the dispatch table.
+
+<!-- agents:end name=pito-hashtag -->

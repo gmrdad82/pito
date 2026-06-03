@@ -56,6 +56,11 @@ class ChatController < ApplicationController
       return respond_to_client(conversation)
     end
 
+    if hashtag_message?(input)
+      handle_hashtag(input, conversation)
+      return respond_to_client(conversation)
+    end
+
     # Mask sensitive kwargs before persisting the echo (T27.0.d).
     # The raw input is dispatched to the job; only the echo text is masked.
     echo_input = config_command?(input) ? mask_config_credentials(input) : input
@@ -74,7 +79,16 @@ class ChatController < ApplicationController
 
   def handle_async(input, conversation, authenticated:, echo_text: input)
     input_kind = input.start_with?("/") ? :slash : :chat
+    channel = input_kind == :chat ? (params[:channel].presence || "@all") : nil
+    period  = input_kind == :chat ? params[:period].presence : nil
+    enqueue_turn(input, conversation, input_kind:, authenticated:, echo_text:, channel:, period:)
+  end
 
+  def handle_hashtag(input, conversation)
+    enqueue_turn(input, conversation, input_kind: :hashtag, authenticated: Current.session.present?, echo_text: input, channel: nil, period: nil)
+  end
+
+  def enqueue_turn(input, conversation, input_kind:, authenticated:, echo_text:, channel:, period:)
     turn = conversation.turns.create!(
       position:   Turn.next_position_for(conversation),
       input_kind:,
@@ -83,7 +97,7 @@ class ChatController < ApplicationController
 
     # Persist echo first, then broadcast (T23.1 + T23.2 / T24.1 + T24.2).
     # echo_text may differ from input when sensitive kwargs are masked (T27.0.d).
-    # Slash command echoes never show the channel filter in the meta line.
+    # Slash / hashtag command echoes never show the channel filter in the meta line.
     broadcaster  = Pito::Stream::Broadcaster.new(conversation:)
     echo_event   = Event.create_with_position!(
       conversation:, turn:, kind: :echo,
@@ -93,11 +107,7 @@ class ChatController < ApplicationController
 
     # T25: thinking indicator — one per turn, resolved by the backend when the
     # job completes. The word_index is frozen at creation (survives refresh).
-    broadcaster.emit_thinking(turn:, dictionary: input_kind)
-
-    # Channel + period filters only apply to chat queries, not slash commands.
-    channel = input_kind == :chat ? (params[:channel].presence || "@all") : nil
-    period  = input_kind == :chat ? params[:period].presence : nil
+    broadcaster.emit_thinking(turn:, dictionary: input_kind.to_s)
 
     # T23.4: enqueue job — auth gating decided here, applied in the worker.
     ChatDispatchJob.perform_later(turn.id, channel:, period:, authenticated:)
@@ -279,6 +289,10 @@ class ChatController < ApplicationController
     broadcaster.replace_event(event)
 
     ConfirmationDispatchJob.perform_later(event.id, action: action.to_s)
+  end
+
+  def hashtag_message?(input)
+    input.start_with?("#") && !input.strip.match?(Pito::ConfirmationRouter::PATTERN)
   end
 
   def config_command?(input)

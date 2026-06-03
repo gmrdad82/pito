@@ -29,42 +29,89 @@ RSpec.describe Pito::Shell::ChatboxComponent do
     context "filter line (line 2)" do
       it "shows channel and period values when filter is given and state is :default" do
         node = render_inline(described_class.new(
-          filter: { channel: "gaming", period: "last 7d" }
+          filter: { channel: "@gaming", period: "last 7d" }
         ))
         html = node.to_html
-        expect(html).to include("gaming")
+        expect(html).to include("@gaming")
         expect(html).to include("last 7d")
       end
 
       it "renders channel and period values inside .text-cyan spans" do
         node = render_inline(described_class.new(
-          filter: { channel: "sports", period: "30d" }
+          filter: { channel: "@sports", period: "30d" }
         ))
         cyan_texts = node.css("span.text-cyan").map(&:text)
         expect(cyan_texts).to include("@sports")
         expect(cyan_texts).to include("30d")
       end
 
+      it "renders 'none' in red when no channels are connected" do
+        node = render_inline(described_class.new(
+          filter: { channel: "none", period: "7d" }
+        ))
+        red = node.css("span.text-red").first
+        expect(red).not_to be_nil
+        expect(red.text).to eq("none")
+      end
+
       it "uses mx-2 spacing for the separator dot (matches mini status bar)" do
         node = render_inline(described_class.new(
-          filter: { channel: "gaming", period: "7d" }
+          filter: { channel: "@gaming", period: "7d" }
         ))
         dot_spans = node.css("span.mx-2").select { |s| s.text.strip == "·" }
         expect(dot_spans).not_to be_empty
       end
 
-      it "does NOT render the filter line when state is :start" do
+      it "does NOT render the visible filter line when state is :start" do
         node = render_inline(described_class.new(
           state: :start,
-          filter: { channel: "gaming", period: "7d" }
+          filter: { channel: "@gaming", period: "7d" }
         ))
-        html = node.to_html
-        expect(html).not_to include("gaming")
+        expect(node.css(".pito-chatbox__filter")).to be_empty
       end
 
       it "does NOT render the filter line when filter is nil" do
         node = render_inline(described_class.new(filter: nil))
         expect(node.css("span.text-cyan")).to be_empty
+      end
+
+      it "wraps the filter line with data-pito--chat-form-target attributes" do
+        node = render_inline(described_class.new(
+          filter: { channel: "@all", period: "7d" }
+        ))
+        expect(node.css('[data-pito--chat-form-target="channelDisplay"]')).not_to be_empty
+        expect(node.css('[data-pito--chat-form-target="periodDisplay"]')).not_to be_empty
+      end
+    end
+
+    context "hidden inputs" do
+      it "renders hidden inputs for channel and period when filter is given" do
+        node = render_inline(described_class.new(
+          filter: { channel: "@all", period: "7d" }
+        ))
+        channel_input = node.css('input[name="channel"]').first
+        period_input = node.css('input[name="period"]').first
+        expect(channel_input).not_to be_nil
+        expect(channel_input["value"]).to eq("@all")
+        expect(channel_input["data-pito--chat-form-target"]).to eq("channelInput")
+        expect(period_input).not_to be_nil
+        expect(period_input["value"]).to eq("7d")
+        expect(period_input["data-pito--chat-form-target"]).to eq("periodInput")
+      end
+
+      it "does NOT render hidden inputs when filter is nil" do
+        node = render_inline(described_class.new(filter: nil))
+        expect(node.css('input[name="channel"]')).to be_empty
+        expect(node.css('input[name="period"]')).to be_empty
+      end
+
+      it "renders hidden inputs even when state is :start" do
+        node = render_inline(described_class.new(
+          state: :start,
+          filter: { channel: "@all", period: "7d" }
+        ))
+        expect(node.css('input[name="channel"]')).not_to be_empty
+        expect(node.css('input[name="period"]')).not_to be_empty
       end
     end
 
@@ -74,7 +121,6 @@ RSpec.describe Pito::Shell::ChatboxComponent do
           input_data: { pito__chat_form_target: "inputField" }
         ))
         textarea = node.css("textarea").first
-        # data attributes are hyphenated in HTML
         expect(textarea["data-pito--chat-form-target"]).to eq("inputField")
       end
     end

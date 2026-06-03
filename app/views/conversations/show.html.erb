@@ -18,15 +18,25 @@
   </div>
 
   <div style="padding: 0 50px 32px;">
+    <% filter = Current.session.present? ? {
+         channel: @channels.any? ? "@all" : "none",
+         period: "7d",
+         channels: @channels.any? ? ["@all"] + @channels : []
+       } : nil %>
+    <% form_data = { controller: "pito--chat-form", turbo: true } %>
+    <% if filter %>
+      <% form_data[:pito__chat_form_channels_value] = filter[:channels].to_json %>
+      <% form_data[:pito__chat_form_periods_value] = '["7d","28d","1m","3m","1y","lifetime"]' %>
+    <% end %>
     <%= form_with url: chat_path, method: :post,
-                  data: { controller: "pito--chat-form", turbo: true },
+                  data: form_data,
                   class: "chatbox-form" do |form| %>
       <%= form.hidden_field :uuid, value: @conversation.uuid %>
       <%= form.hidden_field :input, data: { pito__chat_form_target: "hiddenInput" } %>
 
       <%= render(Pito::Shell::ChatboxComponent.new(
             state: :default,
-            filter: Current.session.present? ? { channel: "@all", period: "7d" } : nil,
+            filter: filter,
             input_data: { pito__chat_form_target: "inputField" }
           )) %>
     <% end %>

@@ -1,1 +1,5 @@
-<%= render(Pito::Event::ChannelHandleComponent.new(@channel)) %>
+<% if @channel == "none" %>
+  <span class="text-red"><%= t("pito.shell.chatbox.no_channels") %></span>
+<% else %>
+  <%= render(Pito::Event::ChannelHandleComponent.new(@channel)) %>
+<% end %>

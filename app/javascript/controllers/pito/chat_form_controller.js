@@ -2,20 +2,30 @@
 //
 // Stimulus controller for the terminal chatbox form.
 // Captures Enter (no Shift) on the input target → submits via Turbo, clears input.
+// TAB cycles channels; Shift+TAB cycles periods (authenticated only).
 //
 // Targets:
-//   inputField  — the <textarea> (data-pito--chat-form-target="inputField")
-//                 Must also carry data-action="keydown->pito--chat-form#handleKeydown"
-//   hiddenInput — a hidden <input> whose value gets set before submit
-//                 (so the Rails controller receives params[:input])
+//   inputField     — the <textarea> (data-pito--chat-form-target="inputField")
+//   hiddenInput    — a hidden <input> whose value gets set before submit
+//   channelDisplay — the visible channel token in the filter line
+//   periodDisplay  — the visible period token in the filter line
+//   channelInput   — hidden input carrying params[:channel]
+//   periodInput    — hidden input carrying params[:period]
 //
-// The controller lives on the <form> element — use this.element for the form itself.
-// Enter submits the form; Shift+Enter passes through for multi-line potential.
+// Values:
+//   channels — Array of channel handles (e.g. ["@all", "@gaming"])
+//   periods  — Array of period strings (default: ["7d", "28d", "1m", "3m", "1y", "lifetime"])
 
 import { Controller } from "@hotwired/stimulus"
+import { isAuthenticated } from "pito/auth"
 
 export default class extends Controller {
-  static targets = ["inputField", "hiddenInput"]
+  static targets = ["inputField", "hiddenInput", "channelDisplay", "periodDisplay", "channelInput", "periodInput"]
+
+  static values = {
+    channels: Array,
+    periods: { type: Array, default: ["7d", "28d", "1m", "3m", "1y", "lifetime"] }
+  }
 
   connect() {
     this.#syncHidden()
@@ -23,18 +33,29 @@ export default class extends Controller {
 
   // Click anywhere on the chatbox wrapper → focus the textarea
   focusField(event) {
-    // Only focus if the click wasn't directly on the textarea (it already handles itself)
     if (event.target !== this.inputFieldTarget) {
       this.inputFieldTarget.focus({ preventScroll: true })
     }
   }
 
   handleKeydown(event) {
+    if (!isAuthenticated()) return
+
+    if (event.key === "Tab" && !event.shiftKey) {
+      event.preventDefault()
+      this.#cycleNext(this.channelsValue, "channelInput", "channelDisplay")
+      return
+    }
+
+    if (event.key === "Tab" && event.shiftKey) {
+      event.preventDefault()
+      this.#cycleNext(this.periodsValue, "periodInput", "periodDisplay")
+      return
+    }
+
     if (event.key !== "Enter" || event.shiftKey) return
 
     // Cable dead after inactivity — reload to re-establish the WebSocket
-    // before submitting. Without this, the POST succeeds but Turbo Stream
-    // broadcasts never reach the client and the page appears stuck.
     if (document.body.dataset.pitoCableOffline === "true") {
       event.preventDefault()
       window.location.reload()
@@ -48,9 +69,28 @@ export default class extends Controller {
     this.inputFieldTarget.value = ""
     this.inputFieldTarget.dispatchEvent(new Event("input", { bubbles: true }))
 
-    // Only signal "submitted" when there is actual input — empty Enter is silent.
     if (hasInput) {
       document.dispatchEvent(new CustomEvent("pito:submitted"))
+    }
+  }
+
+  #cycleNext(list, inputTarget, displayTarget) {
+    if (!list || list.length === 0) return
+    if (!this.targets.has(inputTarget) || !this.targets.has(displayTarget)) return
+
+    const input = this.targets.find(inputTarget)
+    const display = this.targets.find(displayTarget)
+    const current = input.value
+    let idx = list.indexOf(current)
+    if (idx === -1) idx = 0
+    const next = list[(idx + 1) % list.length]
+    input.value = next
+
+    const cyan = display.querySelector(".text-cyan")
+    if (cyan) {
+      cyan.textContent = next
+    } else {
+      display.textContent = next
     }
   }
 

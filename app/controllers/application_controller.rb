@@ -13,7 +13,13 @@ class ApplicationController < ActionController::Base
 
   helper_method :current_conversation
 
+  before_action :set_channels, if: -> { request.format.html? }
+
   private
+
+  def set_channels
+    @channels = Channel.order(:handle).pluck(:handle).compact.map { |h| "@#{h}" }
+  end
 
   def current_conversation
     if params[:uuid].present?
@@ -45,7 +51,8 @@ class ApplicationController < ActionController::Base
             tips_key:          "pito.not_found.messages",
             badge_text:        "404",
             badge_class:       "font-bold text-red",
-            exclamation_class: "text-red"
+            exclamation_class: "text-red",
+            channels:          @channels
           ),
           status: :not_found
         )

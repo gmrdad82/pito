@@ -12,6 +12,12 @@
       background: "var(--bg-elevated)"
     )) do %>
   <div class="flex flex-col">
+    <%# Hidden inputs for channel / period (always present when filter is given) %>
+    <% if @filter %>
+      <%= hidden_field_tag :channel, @filter[:channel], data: { pito__chat_form_target: "channelInput" } %>
+      <%= hidden_field_tag :period, @filter[:period], data: { pito__chat_form_target: "periodInput" } %>
+    <% end %>
+
     <%# Line 1: text input + terminal block caret overlay %>
     <div class="pito-chatbox__field-wrap" data-controller="pito--terminal-caret"
          data-pito--terminal-caret-autofocus-value="true">
@@ -21,9 +27,13 @@
     <%# Line 2: filter context (only shown in :default state) %>
     <% if @filter && @state != :start %>
       <div class="flex items-center text-fg-faded pito-chatbox__filter">
-        <%= render(Pito::Shell::Chatbox::ChannelComponent.new(channel: @filter[:channel])) %>
+        <span data-pito--chat-form-target="channelDisplay">
+          <%= render(Pito::Shell::Chatbox::ChannelComponent.new(channel: @filter[:channel])) %>
+        </span>
         <span class="mx-2">·</span>
-        <%= render(Pito::Shell::Chatbox::PeriodComponent.new(period: @filter[:period])) %>
+        <span data-pito--chat-form-target="periodDisplay">
+          <%= render(Pito::Shell::Chatbox::PeriodComponent.new(period: @filter[:period])) %>
+        </span>
       </div>
     <% end %>
   </div>

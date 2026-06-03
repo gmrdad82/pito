@@ -6,8 +6,8 @@ class Turn < ApplicationRecord
 
   before_create :stamp_started_at
 
-  # String-backed enum — DB stores "slash"/"chat", Ruby exposes turn.slash? / turn.chat?
-  enum :input_kind, { slash: "slash", chat: "chat" }, validate: true
+  # String-backed enum — DB stores "slash"/"chat"/"hashtag", Ruby exposes turn.slash? / turn.chat? / turn.hashtag?
+  enum :input_kind, { slash: "slash", chat: "chat", hashtag: "hashtag" }, validate: true
 
   validates :position, presence: true
   validates :input_text, presence: true

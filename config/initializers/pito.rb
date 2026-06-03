@@ -5,4 +5,5 @@
 Rails.application.config.to_prepare do
   Pito::Slash::Registry.register_all!
   Pito::Chat::Registry.register_all!
+  Pito::Hashtag::Registry.register_all!
 end

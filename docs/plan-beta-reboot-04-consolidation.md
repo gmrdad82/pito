@@ -779,22 +779,104 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 
 - [x] T28.9 Commit: `/disconnect` + `#handle` confirmation system. complexity: [manual]
 
+## T29.0 — Hashtag message type (`Pito::Hashtag::*`)
+
+> Parallel namespace to `Pito::Slash::*` and `Pito::Chat::*`. `#handle` messages are replies that follow up a specific Segment identified by its handle. Infrastructure only — full follow-up logic deferred to future plans.
+
+- [x] T29.0.a `Turn` enum: add `hashtag: "hashtag"` to `input_kind`; `ChatController` detects `#<word>-<digits>` prefix (excluding `#handle confirm|cancel` already routed to `ConfirmationRouter`) and routes to `handle_hashtag` async path. complexity: [low]
+- [x] T29.0.b `lib/pito/hashtag/` infrastructure: `Parser`, `Message`, `Dispatcher`, `Handler` base, `Registry`, `Result` (Ok/Error), `register_all!` in `config/initializers/pito.rb`. Follows the same contract as `Pito::Chat::*` and `Pito::Slash::*`. complexity: [low]
+- [x] T29.0.c `Pito::Hashtag::Handlers::Reply`: look up the target event by `confirmation_handle` in the conversation; return a placeholder `system` result (full follow-up logic deferred). complexity: [low]
+- [x] T29.0.d `ChatDispatchJob`: route `:hashtag` turns to `Pito::Hashtag::Dispatcher`; ensure channel/period are nil. complexity: [low]
+- [x] T29.0.e Update AGENTS.md invariants: add `Pito::Hashtag` isolation rule; add `## Hashtag` conventions section. complexity: [low]
+- [x] T29.0.f Specs: Turn enum, Parser, Dispatcher, Handler, Controller routing, Job routing. complexity: [low]
+
 ## P29 — TAB channel cycling
 
-- [ ] T29.1 Provide the channel list (`@all` + each `@handle`) to the chatbox. complexity: [low]
-- [ ] T29.2 Stimulus: TAB cycles `@all → @handle1 → … → @all`. complexity: [high]
-- [ ] T29.3 Render the active channel token in the chatbox slot. complexity: [low]
-- [ ] T29.4 Include the selected channel in submitted params. complexity: [low]
-- [ ] T29.5 Smoke. complexity: [manual]
-- [ ] T29.6 Commit: `TAB channel cycling`. complexity: [manual]
+- [x] T29.1 Provide the channel list (`@all` + each `@handle`) to the chatbox via `@channels` set in `ApplicationController`. complexity: [low]
+- [x] T29.2 Stimulus: TAB cycles `@all → @handle1 → … → @all` (only when channels exist). complexity: [high]
+- [x] T29.3 Render the active channel token in the chatbox slot. complexity: [low]
+- [x] T29.4 Include the selected channel in submitted params. complexity: [low]
+- [x] T29.5 Smoke. complexity: [manual]
+- [x] T29.6 Commit: `TAB channel cycling`. complexity: [manual]
 
 ## P30 — Shift+TAB period cycling (UI only)
 
-- [ ] T30.1 Stimulus: Shift+TAB cycles `7d → 28d → 1m → 3m → 1y → lifetime → 7d`. complexity: [low]
-- [ ] T30.2 Render the active period token. complexity: [low]
-- [ ] T30.3 Include the period in params (unwired downstream). complexity: [low]
-- [ ] T30.4 Smoke. complexity: [manual]
-- [ ] T30.5 Commit: `Shift+TAB period cycling (UI only)`. complexity: [manual]
+- [x] T30.1 Stimulus: Shift+TAB cycles `7d → 28d → 1m → 3m → 1y → lifetime → 7d`. complexity: [low]
+- [x] T30.2 Render the active period token. complexity: [low]
+- [x] T30.3 Include the period in params (unwired downstream). complexity: [low]
+- [x] T30.4 Smoke. complexity: [manual]
+- [x] T30.5 Commit: `Shift+TAB period cycling (UI only)`. complexity: [manual]
+
+## P31.0 — Command grammar + 3-mode chatbox autocomplete
+
+> One declarative **grammar + vocabulary registry** becomes the single source of truth feeding parsers (variant + synonym normalization, grammar-gated free language), validation, `/help`, and autocomplete (embedded JSON catalog + dynamic endpoint). Then 3-mode autocomplete: float-above palette for `/` & `#`, grammar-gated inline ghost-text for free-form. **Locked:** hybrid data delivery; full parser refactor now; grammar-gated free language; palette floats above the existing terminal-caret chatbox. `#hashtag` pipeline is already complete — extend it.
+>
+> **Keybinding remap (supersedes T29.x TAB-channel + P30 Shift+TAB-period):** TAB → autocomplete/ghost accept · SHIFT+TAB → channel cycling · SHIFT+SPACE → period cycling.
+>
+> **Contracts that stay green (never edit their assertions):** `spec/lib/pito/{slash,chat,hashtag}/parser_spec.rb`, dispatcher/registry specs, `spec/jobs/chat_dispatch_job_hashtag_spec.rb`, `spec/requests/chat_hashtag_spec.rb`. Parsers stay shape-preserving adapters — `Slash::Invocation`, `Chat::Message`, `Hashtag::Message` Data shapes unchanged; `body_tokens` stay raw lexer tokens. Reuse: `terminal_caret_controller.js` mirror for caret coords; orphaned `Pito::Palette::Slash::Component`; `#pito-auth-gate[data-authenticated]` for auth. `Pito::Shell::ChatboxComponent` renders on `/`, `/chat/:uuid`, and the 404 page (StartScreen reuse) → embed once, covered everywhere. Boot order: `Grammar::Registry.register_all!` must run first in `config/initializers/pito.rb` `to_prepare` (vocabs → specs → handler registries).
+
+**Keybindings**
+
+- [ ] P31.0.a Remap `chat_form_controller.js#handleKeydown`: channel cycling TAB → **SHIFT+TAB**; period cycling SHIFT+TAB → **SHIFT+SPACE** (`event.code === "Space" && event.shiftKey`); leave plain **TAB unbound here** (autosuggest claims it). Keep channel/period hidden-field + display-target sync. complexity: [low]
+- [ ] P31.0.b Update key hints: grep + edit `app/components/pito/tip/*`, chatbox placeholders, `config/locales/pito/**`, palette/help strings, `AGENTS.md` → "SHIFT+TAB channel · SHIFT+SPACE period · TAB autocomplete"; no stale "TAB = channel". complexity: [low]
+- [ ] P31.0.c Commit: `Remap chatbox keys (TAB autocomplete, SHIFT+TAB channel, SHIFT+SPACE period)`. complexity: [manual]
+
+**Grammar core (`lib/pito/grammar/`)**
+
+- [ ] P31.0.d `Slot = Data.define(:name,:kind,:source,:optional,:repeatable,:synonyms,:introducer)` (`kind ∈ :literal,:enum,:kv,:free,:connective`; `source` = Array | Symbol(vocab) | `:dynamic`) + `Spec = Data.define(:namespace,:name,:aliases,:slots,:description_key,:auth)` (`auth ∈ :any,:unauthenticated_only,:authenticated_only`); shape spec. complexity: [low]
+- [ ] P31.0.e `Vocabulary` (`canonical, synonyms downcased, fillers Set, dynamic, resolver`): `resolve(raw)→canonical|nil`, `filler?`, `members(context:)`, `to_h` (omit dynamic members), `.define`; spec for synonyms + case + fillers. complexity: [low]
+- [ ] P31.0.f `Match = Data.define(:namespace,:name,:values,:kwargs,:leftovers,:unknowns,:confidence,:matched)` + `Registry` (class-level): `register_spec/register_vocabulary/specs(namespace:)/spec/specs_for_alias/vocabulary/vocabularies/register_all!/reset!`; spec. complexity: [low]
+- [ ] P31.0.g Static vocabularies in `vocabularies.rb`: `:slash_verbs`, `:config_providers`, `:config_keys` (+ masked set), `:genres` (fps→Shooter, sim→Simulation…), `:platforms` (ps5/playstation/ps/sony→PlayStation 5, switch→Nintendo Switch, steam/pc→PC), `:release_status`, `:metrics` (subs→subscribers, views count→views, ctr ratio→ctr; fillers count/ratio), `:hashtag_verbs` (drop/delete→remove, include→add), global `:fillers`, `:connectives`; spec resolves each example synonym. complexity: [low]
+- [ ] P31.0.h Dynamic vocab stubs `:channels` (`Channel.pluck(:handle)`), `:conversations`, `:game_titles` (`Game.title` ILIKE) — `dynamic: true`, resolver set, `to_h` emits no members; spec. complexity: [low]
+- [ ] P31.0.i `Normalizer.call(tokens, namespace:, context:) → Match` core: verb/alias resolve, slot walk, filler strip, `:enum` via `Vocabulary#resolve` (non-member→`unknowns`), `:kv` slurp + numeric coercion, `:free` slurp, `confidence`. No connectives yet; spec. complexity: [high]
+- [ ] P31.0.j Normalizer connectives: `and` (join repeatable slot array; else split into ops), `for` introducer, hashtag compound op-splitter; spec: `list upcoming racing and rpg games for playstation` → `{status,genre:[Racing,RPG],platform:PlayStation 5}`; `add ctr and views and remove subs` → 2 ops. complexity: [high]
+- [ ] P31.0.k Chat template specs in `specs.rb`: `:list`,`:show`,`:find` sharing `[status:enum(:release_status,optional), genre:enum(:genres,repeatable,optional), platform:enum(:platforms,optional,introducer: for)]`; spec. complexity: [low]
+- [ ] P31.0.l Hashtag verb specs `:add`/`:remove` `[metric:enum(:metrics,repeatable)]` + aliases; spec (alias `drop`→`:remove`). complexity: [low]
+- [ ] P31.0.m Handler grammar DSL `self.grammar do … end` / `self.slots=` on `Pito::{Slash,Chat,Hashtag}::Handler`; bare spec from `verb`+`description_key` when none declared; spec. complexity: [low]
+- [ ] P31.0.n Slash specs via DSL: `:authenticate [code:free] auth: :unauthenticated_only`, `:config [provider:literal(:config_providers), settings:kv(:config_keys,repeatable,optional)]`, `:disconnect [channel:enum(:channels,optional)]`, other verbs `:authenticated_only` (except help/authenticate); add `config/locales/pito/grammar/en.yml` description keys. complexity: [low]
+- [ ] P31.0.o Boot wiring: call `Pito::Grammar::Registry.register_all!` first in `config/initializers/pito.rb` `to_prepare`; boot spec (registry populated, existing registries unaffected). complexity: [low]
+- [ ] P31.0.p Commit: `Grammar layer: slot/spec/vocab/normalizer + registry`. complexity: [manual]
+
+**Parser refactor (shape-preserving adapters)**
+
+- [ ] P31.0.q `lib/pito/slash/parser.rb` → normalizer-backed adapter mapping to `Invocation`; **keep legacy generic positional/kwarg slurp as default**, apply enum/synonym validation only for spec'd slots. `spec/lib/pito/slash/parser_spec.rb` passes unchanged (URLs, dotted ids, `/publish 42`, `/disconnect @x-y`). complexity: [high]
+- [ ] P31.0.r `lib/pito/chat/parser.rb` → delete `RECOGNIZED_VERBS`; recognized iff a chat spec/alias exists; keep `refinement_eligible?`, raw `body_tokens`, literal `verb`, unknown/refinement branches. `spec/lib/pito/chat/parser_spec.rb` passes unchanged. complexity: [high]
+- [ ] P31.0.s `lib/pito/hashtag/parser.rb` shape confirmed unchanged; `Reply` (or new segment handler) normalizes `body_tokens` via `Normalizer.call(..., namespace: :hashtag)` for segment-edit ops; hashtag parser/job/request specs pass unchanged. complexity: [low]
+- [ ] P31.0.t `app/services/pito/slash/handlers/config.rb` validates provider/keys against `Grammar::Registry.vocabulary(:config_keys)`; **keep `PROVIDER_SETTERS` writers + keep echo masking in `ChatController#mask_config_credentials`**; config specs pass unchanged. complexity: [low]
+- [ ] P31.0.u Commit: `Refactor slash/chat/hashtag parsers onto grammar`. complexity: [manual]
+
+**Autocomplete backend (`app/services/pito/autocomplete/`)**
+
+- [ ] P31.0.v `Catalog.to_json(authenticated:)` from `Grammar::Registry`: slash commands auth-filtered (unauth → only `/authenticate`; auth → hide it), hashtag verbs+metrics, chat templates+fillers+connectives, dynamic vocabs as `{endpoint:"/autocomplete"}` pointers; spec verifies filtering + static-embed/dynamic-stub. complexity: [low]
+- [ ] P31.0.w `Engine.call(input:,cursor:,conversation:,authenticated:) → {mode, menu_items:[{label,insert,description,masked}], ghost:{complete_current,next_hint}}` — lex+normalize to find slot at cursor; static slots from vocabs; spec. complexity: [high]
+- [ ] P31.0.x `Engine` dynamic slots: resolve channels/games/conversations (ILIKE + LIMIT), auth-gated (never return channels/conversations to anon); spec. complexity: [high]
+- [ ] P31.0.y `post "/autocomplete"` route + `AutocompleteController#create` (`allow_anonymous`) calling Engine; request spec (works on `/` + 404; auth gating; returns menu/ghost). complexity: [low]
+- [ ] P31.0.z Commit: `Autocomplete catalog + engine + completions endpoint`. complexity: [manual]
+
+**Slash/hashtag popup palette (float-above)**
+
+- [ ] P31.0.aa Generalize orphaned slash palette → `Pito::Palette::Autocomplete::Component(mode:, items:, selected_index:, typed:)` (port bar+16ch-col+description+cursor-echo; parameterize left column `/verb` vs `#metric` + accent); component spec. complexity: [low]
+- [ ] P31.0.ab `chatbox_component.{rb,html.erb}`: embed `<script type="application/json" data-pito--autosuggest-target="catalog">` (auth-aware), hidden float-above palette container, `data-controller="pito--autosuggest"`, `field` target on textarea. complexity: [low]
+- [ ] P31.0.ac `application.css`: `.pito-autosuggest-palette { position:absolute; bottom:100%; left:0; right:0; margin-bottom:8px; z-index:40 }`, selected-row, `.pito-ghost { color: var(--fg-faded); pointer-events:none }`. complexity: [low]
+- [ ] P31.0.ad `autosuggest_controller.js` skeleton: `connect()` parse catalog + read `isAuthenticated()` + bind input/keydown; `modeFor(value)` → slash/hashtag/free. complexity: [low]
+- [ ] P31.0.ae Slash/hashtag mode: show+filter palette from catalog; Arrows navigate; **Enter/TAB** select → insert `"/verb "`/`"#handle "` (trailing space), dispatch `input`, keep focus, hide on prefix clear; auth-filter slash list. complexity: [high]
+- [ ] P31.0.af Key coordination: `keydown->pito--autosuggest#handleKeydown` **first** in textarea `data-action`; when palette open/ghost active `preventDefault()`+`stopImmediatePropagation()` on Arrows/Enter/TAB/Esc so chat-form Enter-submit + `home-transition#interceptEnter` don't fire; when idle pass through (Enter submits; SHIFT+TAB channel + SHIFT+SPACE period intact). complexity: [high]
+- [ ] P31.0.ag Auth re-filter on Turbo auth-update: observe `#pito-auth-gate` replacement → re-filter slash commands (`/authenticate` disappears post-login; authenticated-only verbs appear) without reload. complexity: [low]
+- [ ] P31.0.ah Commit: `Slash/hashtag float-above autocomplete palette`. complexity: [manual]
+
+**Free-form inline ghost-text (grammar-gated)**
+
+- [ ] P31.0.ai Expose `caretCoords()` / dispatch `pito:caret {left,top}` from `terminal_caret_controller.js` (reuse existing mirror); add `ghost` span target. complexity: [low]
+- [ ] P31.0.aj Free mode (no `/`/`#`, **no palette**): compute `complete_current` (remaining of current token when it uniquely prefixes a vocab member) + dim `next_hint`; position ghost at caret via `pito:caret`; **grammar-gated**; **TAB** accepts + advances; Enter submits. complexity: [high]
+- [ ] P31.0.ak Debounced (~150ms) `POST /autocomplete` only when current slot `source` is `:dynamic`; static slots stay local. complexity: [low]
+- [ ] P31.0.al `engine_spec.rb` ghost cases: `list upcoming RPG games for PS5`, `list upcoming racing and rpg games for playstation`, `list upc`→`oming`, `list `→next_hint, unmatched→empty ghost. complexity: [low]
+- [ ] P31.0.am Commit: `Free-form inline ghost-text autocomplete`. complexity: [manual]
+
+**Cross-cutting + verification**
+
+- [ ] P31.0.an Dynamic 404: `config.exceptions_app = routes` + route framework 404s → action calling `render_not_found`; **delete `public/404.html`**; request spec (bogus URL → StartScreen 404 with working autocomplete). complexity: [low]
+- [ ] P31.0.ao Verify: `bin/rspec` green. Manual — `/` palette auth-filtered + Enter/TAB insert with trailing space; `#tag add ctr and views` metric palette; `list upc`→ghost `oming`→TAB; `… racing and rpg games for playstation`→Enter submits; `/authenticate <TOTP>` updates palette live; bogus URL → 404 autocomplete; SHIFT+TAB channel, SHIFT+SPACE period, plain TAB drives autocomplete only. complexity: [manual]
+- [ ] P31.0.ap Commit: `Wire P31.0 grammar + autocomplete; dynamic 404`. complexity: [manual]
 
 ## P31 — `/import videos` (smart incremental pull)
 

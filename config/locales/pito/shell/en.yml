@@ -10,6 +10,7 @@ en:
         filter:
           channel_label: "channel"
           period_label: "period"
+        no_channels: "none"
       mini_status:
         authenticated: "● auth"
         anonymous: "○ auth"

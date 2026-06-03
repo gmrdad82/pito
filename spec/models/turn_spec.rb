@@ -19,6 +19,11 @@ RSpec.describe Turn, type: :model do
       expect(turn).to be_valid
     end
 
+    it "is valid with hashtag input_kind" do
+      turn = build(:turn, input_kind: :hashtag)
+      expect(turn).to be_valid
+    end
+
     it "is invalid with an unknown input_kind" do
       turn = build(:turn, input_kind: "unknown")
       expect(turn).not_to be_valid

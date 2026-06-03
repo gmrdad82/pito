@@ -39,6 +39,8 @@ class ChatDispatchJob < ApplicationJob
       )
     elsif turn.slash?
       Pito::Slash::Dispatcher.call(input:, conversation:, authenticated:)
+    elsif turn.hashtag?
+      Pito::Hashtag::Dispatcher.call(input:, conversation:)
     else
       Pito::Chat::Dispatcher.call(input:, conversation:)
     end
@@ -89,10 +91,10 @@ class ChatDispatchJob < ApplicationJob
   # Translate a dispatcher Result into an array of { kind:, payload: } hashes.
   def result_events(result)
     case result
-    when Pito::Slash::Result::Ok, Pito::Chat::Result::Ok, Pito::Chat::Result::Refine
+    when Pito::Slash::Result::Ok, Pito::Chat::Result::Ok, Pito::Chat::Result::Refine, Pito::Hashtag::Result::Ok
       assign_canonical_kinds(result.events).map { |e| { kind: e[:kind], payload: e[:payload] } }
 
-    when Pito::Slash::Result::Error, Pito::Chat::Result::Error
+    when Pito::Slash::Result::Error, Pito::Chat::Result::Error, Pito::Hashtag::Result::Error
       # If message_key looks like already-translated text (e.g. a sampled
       # mandatory), pass it as text: so ErrorComponent renders it directly.
       error_payload = if result.message_key.to_s.start_with?("pito.")

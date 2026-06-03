@@ -233,12 +233,30 @@ export default class extends Controller {
     const authenticated = chatboxArea.dataset.authenticated === "true"
     const chatboxWrapper = form.querySelector(".chatbox-wrapper")
     if (authenticated && chatboxWrapper) {
+      // Ensure hidden inputs exist so the chat_form controller can cycle them
+      if (!form.querySelector('input[name="channel"]')) {
+        form.appendChild(Object.assign(document.createElement("input"), {
+          type: "hidden", name: "channel", value: "@all",
+        }))
+      }
+      if (!form.querySelector('input[name="period"]')) {
+        form.appendChild(Object.assign(document.createElement("input"), {
+          type: "hidden", name: "period", value: "7d",
+        }))
+      }
+
       const filterEl = document.createElement("div")
       filterEl.id        = "pito-chatbox-filter"
       filterEl.className = "flex items-center text-fg-faded pito-chatbox__filter"
-      const channelLabel = chatboxArea.dataset.filterChannelLabel || "Channel"
-      const periodLabel  = chatboxArea.dataset.filterPeriodLabel || "Period"
-      filterEl.innerHTML = `<span>${channelLabel}</span><span class="text-cyan ml-1">@all</span><span class="mx-2">·</span><span>${periodLabel}</span><span class="text-cyan ml-1">7d</span>`
+      const periodLabel  = chatboxArea.dataset.filterPeriodLabel || "period"
+      filterEl.innerHTML = `
+        <span data-pito--chat-form-target="channelDisplay"><span class="text-cyan">@all</span></span>
+        <span class="mx-2">·</span>
+        <span data-pito--chat-form-target="periodDisplay">
+          <span>${periodLabel}</span>
+          <span class="text-cyan ml-2">7d</span>
+        </span>
+      `
 
       const segmentContent = chatboxWrapper.querySelector(".pito-segment__content > .flex.flex-col")
       if (segmentContent) {
