@@ -1006,12 +1006,12 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 
 ## P41 — Sidebar conversation list (grouping + timestamps)
 
-- [ ] T41.1 Query: conversations by last activity. complexity: [low]
-- [ ] T41.2 "Recent" = within 24h of the most recent conversation's last activity; hairline; then the rest. complexity: [high]
-- [ ] T41.3 Render each row: `display_name` + timestamp. complexity: [low]
-- [ ] T41.4 Relative wording < 1 week (reuse `Pito::Formatter`); absolute `May 18, 2026` beyond. complexity: [low]
-- [ ] T41.5 Component spec. complexity: [low]
-- [ ] T41.6 Commit: `Sidebar conversation list with recency grouping`. complexity: [manual]
+- [x] T41.1 Query: conversations by last activity. complexity: [low]
+- [x] T41.2 "Recent" = within 24h of the most recent conversation's last activity; hairline; then the rest. complexity: [high]
+- [x] T41.3 Render each row: `display_name` + timestamp. complexity: [low]
+- [x] T41.4 Relative wording < 1 week (reuse `Pito::Formatter`); absolute `May 18, 2026` beyond. complexity: [low]
+- [x] T41.5 Component spec. complexity: [low]
+- [x] T41.6 Commit: `Sidebar conversation list with recency grouping`. complexity: [manual]
 
 ## P42 — Conversation rename + "Unnamed N"
 

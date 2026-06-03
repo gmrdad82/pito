@@ -157,6 +157,23 @@ module Pito
         end
       end
 
+      # Sidebar / conversation-list timestamp.
+      #
+      # - Within the past 7 days: "3 hours ago", "2 days ago", etc.
+      # - Older: absolute "May 18, 2026".
+      #
+      # `now` defaults to `Time.current` and is injectable for specs.
+      def conversation_timestamp(time, now: nil)
+        return nil if time.nil?
+
+        reference = now || Time.current
+        if time >= reference - 7.days
+          ApplicationController.helpers.time_ago_in_words(time) + " ago"
+        else
+          time.strftime("%B %-d, %Y")
+        end
+      end
+
       # Resolve a Notification's `url` attribute to an absolute URL.
       # Leading-slash app paths get the install host prepended; absolute
       # http(s) URLs pass through; nil stays nil.

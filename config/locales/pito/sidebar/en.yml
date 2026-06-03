@@ -5,6 +5,9 @@ en:
   pito:
     sidebar:
       esc_hint: "esc"
+      conversations:
+        recent: "Recent"
+        older: "Older"
       game:
         subtitle: "Game · imported %{date}"
       section:

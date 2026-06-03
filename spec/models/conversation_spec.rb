@@ -71,4 +71,100 @@ RSpec.describe Conversation, type: :model do
       expect { Conversation.singleton }.not_to change(described_class, :count)
     end
   end
+
+  describe ".by_recent_activity" do
+    it "returns conversations ordered most-recently-active first" do
+      old_conv  = create(:conversation)
+      new_conv  = create(:conversation)
+      turn      = create(:turn, conversation: new_conv)
+      # Give the old conversation an older event and new_conv a recent one
+      create(:event, conversation: old_conv, turn: turn, created_at: 3.hours.ago)
+      # new_conv has no events — falls back to its created_at which was just now
+      results = described_class.by_recent_activity.to_a
+      expect(results.first.id).to eq(new_conv.id)
+      expect(results.last.id).to eq(old_conv.id)
+    end
+
+    it "uses the most recent event's created_at as last_activity_at" do
+      conv  = create(:conversation)
+      turn  = create(:turn, conversation: conv)
+      early = create(:event, conversation: conv, turn: turn, created_at: 10.days.ago)
+      late  = create(:event, conversation: conv, turn: turn, created_at: 1.hour.ago,
+                             position: early.position + 1)
+      result = described_class.by_recent_activity.find { |c| c.id == conv.id }
+      expect(result.last_activity_at).to be_within(5.seconds).of(late.created_at)
+    end
+
+    it "falls back to conversation created_at when no events exist" do
+      conv   = create(:conversation)
+      result = described_class.by_recent_activity.find { |c| c.id == conv.id }
+      expect(result.last_activity_at).to be_within(5.seconds).of(conv.created_at)
+    end
+
+    it "exposes last_activity_at on each record" do
+      create(:conversation)
+      results = described_class.by_recent_activity.to_a
+      expect(results).to all(respond_to(:last_activity_at))
+    end
+  end
+
+  describe ".recency_groups" do
+    context "when there are no conversations" do
+      it "returns empty recent and older buckets" do
+        groups = described_class.recency_groups
+        expect(groups[:recent]).to be_empty
+        expect(groups[:older]).to be_empty
+      end
+    end
+
+    context "when there is a single conversation" do
+      it "places it in recent and leaves older empty" do
+        create(:conversation)
+        groups = described_class.recency_groups
+        expect(groups[:recent].size).to eq(1)
+        expect(groups[:older]).to be_empty
+      end
+    end
+
+    context "when all conversations are within 24h of the newest" do
+      it "places all in recent and leaves older empty" do
+        # Create two conversations whose activity is within 1h of each other
+        conv1 = create(:conversation)
+        conv2 = create(:conversation)
+        turn1 = create(:turn, conversation: conv1)
+        turn2 = create(:turn, conversation: conv2)
+        create(:event, conversation: conv1, turn: turn1, created_at: 23.hours.ago)
+        create(:event, conversation: conv2, turn: turn2, created_at: 22.hours.ago)
+        groups = described_class.recency_groups
+        expect(groups[:recent].size).to eq(2)
+        expect(groups[:older]).to be_empty
+      end
+    end
+
+    context "when some conversations are older than 24h from the newest" do
+      it "splits correctly into recent and older buckets" do
+        newest = create(:conversation)
+        old    = create(:conversation)
+        turn_n = create(:turn, conversation: newest)
+        turn_o = create(:turn, conversation: old)
+        create(:event, conversation: newest, turn: turn_n, created_at: 1.hour.ago)
+        create(:event, conversation: old,    turn: turn_o, created_at: 30.hours.ago)
+        groups = described_class.recency_groups
+        expect(groups[:recent].map(&:id)).to include(newest.id)
+        expect(groups[:older].map(&:id)).to include(old.id)
+      end
+    end
+
+    it "orders recent by last_activity_at descending" do
+      conv_a = create(:conversation)
+      conv_b = create(:conversation)
+      turn_a = create(:turn, conversation: conv_a)
+      turn_b = create(:turn, conversation: conv_b)
+      create(:event, conversation: conv_a, turn: turn_a, created_at: 5.hours.ago)
+      create(:event, conversation: conv_b, turn: turn_b, created_at: 1.hour.ago)
+      groups = described_class.recency_groups
+      ids = groups[:recent].map(&:id)
+      expect(ids.index(conv_b.id)).to be < ids.index(conv_a.id)
+    end
+  end
 end
