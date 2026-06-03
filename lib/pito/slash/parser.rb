@@ -68,20 +68,38 @@ module Pito
 
       def read_value
         tok = current_token
-        case tok.type
-        when :number
+
+        # Quoted strings are already complete — return immediately.
+        if tok.type == :string
           advance
-          tok.value.match?(/\A\d+\z/) ? tok.value.to_i : tok.value.to_f
-        when :string
-          advance
-          tok.value
-        when :word
-          advance
-          tok.value
-        else
-          advance
-          tok.value
+          return tok.value
         end
+
+        # Slurp consecutive tokens until we hit a kwarg boundary
+        # (word followed by colon or equals) or EOF.
+        parts = []
+        loop do
+          break if eof?
+          break if kwarg_boundary?
+
+          parts << current_token.value.to_s
+          advance
+        end
+
+        joined = parts.join
+
+        # Preserve numeric return type when the result is a pure number.
+        return joined.to_i if joined.match?(/\A\d+\z/)
+        return joined.to_f if joined.match?(/\A\d+\.\d+\z/)
+
+        joined
+      end
+
+      # True when the current token marks the start of a new kwarg key
+      # (word followed by :colon or :equals).
+      def kwarg_boundary?
+        current_token.type == :word &&
+          @tokens[@pos + 1]&.type.in?([ :colon, :equals ])
       end
     end
   end

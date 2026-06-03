@@ -693,7 +693,7 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 
   > **T27.9.a–m complete (2026-06-02):** All post-smoke follow-ups resolved. 673 examples, 0 failures. Rubocop: 0 offenses. `/authenticate` renamed to `/login` everywhere (copy, code, specs). `/logout` slash command clears session + broadcasts a sampled `logout` event rendered by `LogoutComponent` with `pito--logout` Stimulus reverse-animation controller.
 
-- [ ] T27.10 Commit: `/connect OAuth + multi-channel picker`. complexity: [manual]
+- [x] T27.10 Commit: `/connect OAuth + multi-channel picker`. complexity: [manual]
 
 ## P28 — `/disconnect @handle|id`
 
@@ -713,31 +713,71 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 
 - [x] T28.0.k Segment refactor — update `EventRenderer::COMPONENT_CLASSES` map, `ChatDispatchJob` event assembly, `ChatController` all emit call sites, `YoutubeConnections::OauthCallbacksController`. Update all affected specs. complexity: [low]
 
-- [ ] T28.0.l Segment refactor — commit. complexity: [manual]
+- [x] T28.0.l Segment refactor — commit. complexity: [manual]
 
 - [x] T28.0.m Cover art → ActiveStorage: `Game` gains `has_one_attached :cover_art`; `Game::CoverArt::Normalizer` rewrites to fetch from IGDB CDN, normalize with vips, and attach via ActiveStorage (temp file + `cover_art.attach`). Idempotency via `attachment.created_at >= igdb_synced_at`. `ImagesController#show_game` updated to use `url_for(game.cover_art)`. `Pito::AssetsRoot` deleted (no remaining consumers). Spec: `spec/services/game/cover_art/normalizer_spec.rb` (5 examples). complexity: [low]
 
-- [ ] T28.2 `/disconnect` handler skeleton: register in registry, resolve target channel by YouTube `@handle` (partial match) or numeric id. Error segment (red) if not found. complexity: [low]
+- [x] T28.2 `/disconnect` handler skeleton: register in registry, resolve target channel by YouTube `@handle` (partial match) or numeric id. Error segment (red) if not found. complexity: [low]
 
-- [ ] T28.3a `#handle` generation module: `GREEK_WORDS` constant (24 names: alpha…omega) + 4-digit random (1000–9999). `HandleGenerator.call(conversation)` generates a handle unique across the DB (queries `confirmation` event payloads in the conversation). complexity: [low]
+- [x] T28.3a `#handle` generation module: `GREEK_WORDS` constant (24 names: alpha…omega) + 4-digit random (1000–9999). `HandleGenerator.call(conversation)` generates a handle unique across the DB (queries `confirmation` event payloads in the conversation). complexity: [low]
 
-- [ ] T28.3b Add `confirmation_handle:` to `confirmation` event payload. Store once on creation, never regenerate. Handle appears in the segment meta line: `14:32 · #alpha-1322 · @all`. complexity: [low]
+- [x] T28.3b Add `confirmation_handle:` to `confirmation` event payload. Store once on creation, never regenerate. Handle appears in the segment meta line: `14:32 · #alpha-1322 · @all`. complexity: [low]
+  > Also added `command:` field (e.g. `"disconnect"`) for `ConfirmationDispatchJob` extensibility. Added `expand_detail:` (video breakdown + channel stats) and revised body to not embed counts. Case-sensitive @handle matching. Dropped `echo_confirm` demo handler + `NeedsConfirmation` result type. Dead i18n keys removed. OAuth hardcoded copy moved to i18n.
 
-- [ ] T28.4 `ConfirmationComponent` (orange accent): meta line `timestamp · #handle · @all` at bottom; body text (disconnect warning + channel/video counts); processing state (Braille spinner + new confirmation-verb dictionary inside the segment, above body text); resolved state (original body + hairline separator + outcome text). complexity: [low]
+- [x] T28.4 `ConfirmationComponent` (orange accent): meta line `timestamp · #handle · @all` at bottom; body text (disconnect warning + channel/video counts); processing state (Braille spinner + new confirmation-verb dictionary inside the segment, above body text); resolved state (original body + hairline separator + outcome text). complexity: [low]
+  > Added `dom_id` + `expand_detail` (ctrl+o, hairline). Video breakdown in expand: published/scheduled/unlisted/private counts + subscribers/views. Expand hidden in resolved state.
 
-- [ ] T28.5a `ChatController`: detect `#word-digits (confirm|cancel)` pattern. Route to `ConfirmationRouter`. Trigger dots-below-chatbox indicator. Emit NO echo segment. Respond 204. complexity: [low]
+- [x] T28.5a `ChatController`: detect `#word-digits (confirm|cancel)` pattern. Route to `ConfirmationRouter`. Trigger dots-below-chatbox indicator. Emit NO echo segment. Respond 204. complexity: [low]
 
-- [ ] T28.5b Immediately on receipt: update event payload to `processing: true`, broadcast Turbo Stream replace → segment shows Braille spinner. complexity: [low]
+- [x] T28.5b Immediately on receipt: update event payload to `processing: true`, broadcast Turbo Stream replace → segment shows Braille spinner. complexity: [low]
 
-- [ ] T28.5c `ConfirmationRouter`: look up unresolved `confirmation` event by handle in the conversation. Enqueue `ConfirmationDispatchJob(event_id:, action: :confirm|:cancel)`. complexity: [low]
+- [x] T28.5c `ConfirmationRouter`: look up unresolved `confirmation` event by handle in the conversation. Enqueue `ConfirmationDispatchJob(event_id:, action: :confirm|:cancel)`. complexity: [low]
+  > Generic service at `app/services/pito/confirmation_router.rb`. Routes any `#word-digits confirm|cancel` input; not tied to `/disconnect`. New confirmation types need only add `command: "type"` to their payload.
 
-- [ ] T28.6 `ConfirmationDispatchJob` — cancel path: update payload (`resolved: true, outcome: :cancelled, outcome_text: "Alright, I won't disconnect from this channel."`), broadcast Turbo Stream replace → segment shows original body + hairline + outcome text. complexity: [low]
+- [x] T28.6 `ConfirmationDispatchJob` — cancel path: update payload (`resolved: true, outcome: :cancelled, outcome_text: "Alright, I won't disconnect from this channel."`), broadcast Turbo Stream replace → segment shows original body + hairline + outcome text. complexity: [low]
 
-- [ ] T28.7 `ConfirmationDispatchJob` — confirm path: delete videos, delete channel, optionally delete `YoutubeConnection` (if last channel). Update payload (`resolved: true, outcome: :confirmed, outcome_text: "Disconnected from @handle. Deleted N videos."`), broadcast replace. complexity: [low]
+- [x] T28.7 `ConfirmationDispatchJob` — confirm path: delete videos, delete channel, optionally delete `YoutubeConnection` (if last channel). Update payload (`resolved: true, outcome: :confirmed, outcome_text: "Disconnected from @handle. Deleted N videos."`), broadcast replace. complexity: [low]
+  > Generic dispatch: `command:` field in payload routes to the right executor. Adding a new confirmation type = one `when` case in the job.
 
-- [ ] T28.8 Smoke: `bin/boot` → `/connect` → add channel → `/disconnect @channel` → `#handle confirm` → verify channel + videos gone from DB. complexity: [manual]
+- [-] T28.8 Smoke: `bin/boot` → `/connect` → add channel → `/disconnect @channel` → `#handle confirm` → verify channel + videos gone from DB. complexity: [manual]
 
-- [ ] T28.9 Commit: `/disconnect` + `#handle` confirmation system. complexity: [manual]
+- [x] T28.8.a Fix font size — remove `text-xs` from error component credential rows and detail expand; all app templates use 16px base consistently. complexity: [low]
+
+- [x] T28.8.b Extract `Pito::Tip::Component` from start screen spaghetti HTML — badge + exclamation + tip text inline pattern encapsulated as a reusable component. complexity: [low]
+
+- [x] T28.8.c Add `Pito::Event::SegmentSuggestionComponent` — inline sub-component renderable inside any segment (System/Error/etc.) with inline code span + ctrl+/ shortcut hint + `data-suggestion-command` attribute; `pito--quick-run` Stimulus controller on scrollback handles ctrl+/ to populate the last suggestion into the chatbox. complexity: [low]
+
+- [x] T28.8.d Restructure `/config google --help` response — single `system` event with `body` + `table_rows` (KV table: cyan key, muted value) + `info_lines` + inline `SegmentSuggestionComponent` (no separate segment); `SystemComponent` extended with `table_rows`, `info_lines`, `suggestion` payload fields. complexity: [low]
+
+- [x] T28.8.e Auth state live update — mini status bar and chatbox filter update live after `/login` success via Turbo Stream (`broadcaster.broadcast_auth_update`); `id="pito-chatbox"` and `id="pito-mini-status"` stable IDs added; home transition JS gates filter injection on `data-authenticated`. complexity: [low]
+
+- [x] T28.8.f Fix start screen and not_found auth awareness — `MiniStatusComponent` in `:start` mode now respects `state:` (green ● auth when authenticated, red ○ auth when anonymous); start screen passes `Current.session.present?` as `state:`; specs added for both behaviours. complexity: [low]
+
+- [x] T28.8.g ctrl+o → ctrl+| for expand/collapse toggle (avoids macOS Spotlight conflict); ctrl+/ for `SegmentSuggestionComponent` populate (avoids browser-refresh conflict of ctrl+r). complexity: [low]
+
+- [x] T28.8.h ASCII logo 18px preserved (excluded from font size sweep); `text-xs` sweep confirms no remaining non-16px font sizes in app templates. complexity: [low]
+
+- [x] T28.8.i Extract `Pito::Palette::CtrlK::SearchComponent` (title row + search input, no params) and `Pito::Palette::CtrlK::CommandComponent` (single selectable item row: `label_key:`, `insert:`, renders `data-insert`/`data-label` targets for fuzzy filter) from the command palette spaghetti; `SectionComponent` delegates item rows to `CommandComponent`; `Component` delegates header to `SearchComponent`. complexity: [low]
+
+- [x] T28.8.j Auth gate: add `<div id="pito-auth-gate" data-authenticated="...">` to layout rendered from `Current.session.present?`; create `app/javascript/pito/auth.js` exporting `isAuthenticated()`; gate ctrl+k, ctrl+|, ctrl+/ behind `isAuthenticated()` in their respective Stimulus controllers; `broadcaster.broadcast_auth_update` replaces `pito-auth-gate` alongside mini-status and chatbox. complexity: [low]
+
+- [x] T28.8.k Extract `Pito::Shell::MiniStatus::AuthComponent` (state-aware ● / ○ auth pill), `NotificationsComponent` (cyan count), `KeyHintComponent` (bold-yellow shortcut + dim label, optional `hint_data`/`label_id`) from `MiniStatusComponent`; parent template reduced to pure composition with separators. complexity: [low]
+
+- [x] T28.8.l Extract `Pito::Shell::Chatbox::ChannelComponent` and `Pito::Shell::Chatbox::PeriodComponent` from chatbox filter line; `ChatboxComponent` template delegates to both with a `·` separator. complexity: [low]
+
+- [x] T28.8.m `Pito::Tip::Component` extracted from start-screen spaghetti (badge + exclamation + tip text); used by `StartScreen::Component` and available for 404. complexity: [low]
+
+- [x] T28.8.n Specs: `MiniStatus::AuthComponent`, `NotificationsComponent`, `KeyHintComponent`, `Chatbox::ChannelComponent`, `Chatbox::PeriodComponent`, `CtrlK::SearchComponent`, `CtrlK::CommandComponent` all have dedicated spec files; `MiniStatusComponent` and `ChatboxComponent` parent specs updated. complexity: [low]
+
+- [x] T28.8.o Extract `Pito::Event::MetaLineComponent` — unified `timestamp · #handle · @all` footer that replaces three duplicated variants across all event templates. Params: `timestamp:` (DateTime|nil), `handle:` (String|nil), `authenticated:` (Boolean). Variant A (echo + confirmation): renders timestamp with `strftime`; Variant B (system/enhanced): timestamp always empty string; unified component handles both via the `timestamp:` param. Replaces 6 template instances. Add specs; update existing event component specs. complexity: [low]
+
+- [x] T28.8.p Extract `Pito::Event::ExpandableBodyComponent` — unified `if expandable?` / `pito--expand` block that replaces two duplicated variants. Params: `body:`, `expand_lines:` (Array, default []), `expand_detail:` (Array), `expand_more_count:` (Integer), `expand_label:` (String), `collapse_label:` (String). System/enhanced templates pass `pito.slash.help` i18n + `expand_lines` loop; confirmation templates pass `pito.confirmation` i18n + no `expand_lines`. Replaces 6 template instances (system, enhanced, sys_followup, enh_followup, confirmation, confirm_followup). Add specs. complexity: [low]
+
+- [x] T28.8.q Extract `Pito::Event::ConfirmationSpinnerComponent` (Braille processing indicator: `pito-thinking mb-1` wrapper with shimmer spans) and `Pito::Event::ConfirmationResolvedComponent` (hairline outcome block: `border-t border-line-faded mt-1.5 pt-1.5` + outcome text) from confirmation templates. Move `BRAILLE_FRAMES` constant to a shared `Pito::Event::BrailleFrames` module included by both `ThinkingComponent` and `ConfirmationComponent`. Add specs for each new component. complexity: [low]
+
+- [x] T28.8.r Update all event component templates (echo, system, enhanced, their follow-ups, confirmation, confirmation_follow_up, error) to delegate to the new sub-components: `MetaLineComponent`, `ExpandableBodyComponent`, `ConfirmationSpinnerComponent`, `ConfirmationResolvedComponent`. Remove all inline duplicated HTML. Follow-up component templates that become byte-for-byte identical to their parent can be deleted (ViewComponent falls back to parent template automatically). Update all existing event component specs to match the refactored rendering. complexity: [medium]
+
+- [x] T28.9 Commit: `/disconnect` + `#handle` confirmation system. complexity: [manual]
 
 ## P29 — TAB channel cycling
 
@@ -973,6 +1013,8 @@ _Resolved this round:_ video commands = `/import` + `/update` + lifecycle `/publ
 - Channel will be @channel
 - Vocabulary for /help and refactor help to show vocabulary with nested - structure to accomodate vast
 - Autocomplete
+- force / refresh stats with --fresh argument maybe
+- Extract components for kv-tables, tables, stats, etc...
 
 ## How to use this plan
 

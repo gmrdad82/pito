@@ -45,22 +45,78 @@ module Pito
         event
       end
 
+      # Replace an already-persisted event in-place via Turbo Stream.
+      # The event's segment must have been rendered with id: "event_#{event.id}".
+      # Used by confirmation routing to flip a segment to processing/resolved state.
+      def replace_event(event)
+        html    = Pito::Stream::EventRenderer.render(event)
+        helper  = ApplicationController.helpers
+        content = helper.turbo_stream.replace("event_#{event.id}", html)
+        Turbo::StreamsChannel.broadcast_stream_to(
+          "pito:conversation:#{@conversation.uuid}",
+          content:
+        )
+        event
+      end
+
+      # Broadcast Turbo Stream replacements for the mini status bar and chatbox
+      # after an auth state change (/login success). Both elements carry stable
+      # DOM ids so the replace lands on the right targets.
+      def broadcast_auth_update(authenticated:, channel: "@all", period: "7d")
+        helper = ApplicationController.helpers
+
+        mini_status_html = ApplicationController.renderer.render(
+          Pito::Shell::MiniStatusComponent.new(
+            mode: :connection, state: authenticated, notifications: 3, show_notifications: true
+          ),
+          layout: false
+        )
+        mini_status_wrapper = %(<div id="pito-mini-status" data-pito--home-transition-target="miniStatusSlide" style="margin-left: auto;">#{mini_status_html}</div>).html_safe
+
+        chatbox_html = ApplicationController.renderer.render(
+          Pito::Shell::ChatboxComponent.new(
+            state:        :default,
+            authenticated:,
+            filter:       authenticated ? { channel:, period: } : nil,
+            input_data:   { pito__chat_form_target: "inputField" }
+          ),
+          layout: false
+        ).html_safe
+
+        auth_gate_html = %(<div id="pito-auth-gate" class="hidden" data-authenticated="#{authenticated}"></div>).html_safe
+
+        content = [
+          helper.turbo_stream.replace("pito-mini-status", mini_status_wrapper),
+          helper.turbo_stream.replace("pito-chatbox", chatbox_html),
+          helper.turbo_stream.replace("pito-auth-gate", auth_gate_html)
+        ].join
+
+        Turbo::StreamsChannel.broadcast_stream_to(
+          "pito:conversation:#{@conversation.uuid}",
+          content:
+        )
+      end
+
       # Create and broadcast a thinking indicator for a turn.
       # The word_index is chosen once and frozen in the payload.
       def emit_thinking(turn:, dictionary:)
         words = I18n.t("pito.event.thinking.#{dictionary}.doing")
-        payload = { dictionary:, word_index: rand(words.length) }
+        payload = { dictionary:, word_index: rand(words.length), started_at: Time.current.iso8601 }
         emit(turn:, kind: :thinking, payload:)
       end
 
       # Resolve a thinking indicator: update its payload with the resolved state
-      # and elapsed time, then broadcast a Turbo Stream replace.
-      def resolve_thinking(turn:, elapsed_seconds:)
-        event = turn.events.find_by(kind: :thinking)
+      # and elapsed time (computed from the thinking's own started_at), then
+      # broadcast a Turbo Stream replace.
+      def resolve_thinking(turn:)
+        event = turn.events.where(kind: :thinking).last
         return unless event
 
+        started = event.payload["started_at"]
+        elapsed = started ? (Time.current - Time.parse(started)).round : nil
+
         event.update!(
-          payload: event.payload.merge(resolved: true, elapsed_seconds: elapsed_seconds)
+          payload: event.payload.merge(resolved: true, elapsed_seconds: elapsed)
         )
 
         html    = Pito::Stream::EventRenderer.render(event)
@@ -72,6 +128,20 @@ module Pito
           content:
         )
         event
+      end
+
+      # Mark a turn complete and broadcast the done signal that hides dots.
+      def complete_turn(turn:)
+        turn.update!(completed_at: Time.current)
+
+        helper  = ApplicationController.helpers
+        done_signal = %(<div data-controller="pito--done-dispatch" data-pito--done-dispatch-event-name-value="pito:done"></div>).html_safe
+        content = helper.turbo_stream.append("turn_#{turn.id}", done_signal)
+
+        Turbo::StreamsChannel.broadcast_stream_to(
+          "pito:conversation:#{@conversation.uuid}",
+          content:
+        )
       end
     end
   end

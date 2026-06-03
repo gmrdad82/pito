@@ -3,8 +3,6 @@
 module Pito
   module Event
     class ThinkingComponent < ViewComponent::Base
-      BRAILLE_FRAMES = %w[⠋ ⠙ ⠹ ⠸ ⠼ ⠴ ⠦ ⠧ ⠇ ⠏].freeze
-
       # @param payload [Hash] event payload with `{ dictionary:, word_index:, resolved:, elapsed_seconds: }`.
       # @param event [Event] the persisted event (used for timestamp, turn state).
       def initialize(payload: {}, event: nil)
@@ -18,19 +16,19 @@ module Pito
       end
 
       def resolved?
-        @resolved || turn_completed?
+        @resolved
       end
 
       def resolved_message
         return nil unless resolved?
 
-        word   = done_word
-        elapsed = @elapsed_seconds || @event&.turn&.elapsed_seconds
+        word    = done_word
+        elapsed = @elapsed_seconds
         I18n.t("pito.event.thinking.resolved", word:, elapsed:)
       end
 
       def braille_frames_json
-        BRAILLE_FRAMES.to_json
+        Pito::Event::Concerns::BrailleFrames::FRAMES.to_json
       end
 
       def doing_words_json
@@ -50,10 +48,6 @@ module Pito
       end
 
       private
-
-      def turn_completed?
-        @event&.turn&.completed_at.present?
-      end
 
       def doing_words
         Array(I18n.t("pito.event.thinking.#{@dictionary}.doing"))

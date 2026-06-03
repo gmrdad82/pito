@@ -18,6 +18,7 @@
 //   </div>
 
 import { Controller } from "@hotwired/stimulus"
+import { isAuthenticated } from "pito/auth"
 
 const SELECTED_CLASS = "pito-palette-selected"
 
@@ -141,7 +142,27 @@ export default class extends Controller {
     const modKey = e.ctrlKey || e.metaKey
     if (modKey && e.key === "k") {
       e.preventDefault()
+      if (!isAuthenticated()) return
       this.element.classList.contains("hidden") ? this.#open() : this.#close()
+      return
+    }
+
+    // "m" → focus chatbox textarea (when palette is closed and not already in an input)
+    if (e.key === "m" && !modKey && this.element.classList.contains("hidden")) {
+      const active = document.activeElement
+      const isInput = active && (
+        active.tagName === "INPUT" ||
+        active.tagName === "TEXTAREA" ||
+        active.isContentEditable
+      )
+      if (!isInput && isAuthenticated()) {
+        e.preventDefault()
+        const chatbox = document.querySelector('[data-pito--chat-form-target="inputField"]')
+        if (chatbox) {
+          chatbox.focus({ preventScroll: true })
+          chatbox.selectionStart = chatbox.selectionEnd = chatbox.value.length
+        }
+      }
       return
     }
 

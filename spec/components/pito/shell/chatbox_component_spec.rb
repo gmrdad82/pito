@@ -27,13 +27,11 @@ RSpec.describe Pito::Shell::ChatboxComponent do
     end
 
     context "filter line (line 2)" do
-      it "shows channel and period labels when filter is given and state is :default" do
+      it "shows channel and period values when filter is given and state is :default" do
         node = render_inline(described_class.new(
           filter: { channel: "gaming", period: "last 7d" }
         ))
         html = node.to_html
-        expect(html).to include("channel")
-        expect(html).to include("period")
         expect(html).to include("gaming")
         expect(html).to include("last 7d")
       end
@@ -43,7 +41,7 @@ RSpec.describe Pito::Shell::ChatboxComponent do
           filter: { channel: "sports", period: "30d" }
         ))
         cyan_texts = node.css("span.text-cyan").map(&:text)
-        expect(cyan_texts).to include("sports")
+        expect(cyan_texts).to include("@sports")
         expect(cyan_texts).to include("30d")
       end
 
@@ -55,21 +53,12 @@ RSpec.describe Pito::Shell::ChatboxComponent do
         expect(dot_spans).not_to be_empty
       end
 
-      it "uses ml-2 spacing for channel and period values (matches mini status bar)" do
-        node = render_inline(described_class.new(
-          filter: { channel: "gaming", period: "7d" }
-        ))
-        cyan_spans = node.css("span.text-cyan")
-        expect(cyan_spans.first["class"]).to include("ml-2")
-      end
-
       it "does NOT render the filter line when state is :start" do
         node = render_inline(described_class.new(
           state: :start,
           filter: { channel: "gaming", period: "7d" }
         ))
         html = node.to_html
-        expect(html).not_to include("Channel")
         expect(html).not_to include("gaming")
       end
 

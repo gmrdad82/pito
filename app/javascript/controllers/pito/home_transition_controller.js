@@ -209,7 +209,7 @@ export default class extends Controller {
     scrollback.id = "pito-scrollback"
     scrollback.className = "pito-hide-scrollbar pito-scroll-fade"
     scrollback.style.cssText = "flex: 1; overflow-y: auto; padding: 32px 50px 20px;"
-    scrollback.dataset.controller = "pito--scrollback"
+    scrollback.dataset.controller = "pito--scrollback pito--quick-run"
 
     const bottomPanel = document.createElement("div")
     bottomPanel.style.cssText = "padding: 0 50px 32px; overflow-x: hidden;"
@@ -228,11 +228,14 @@ export default class extends Controller {
     document.dispatchEvent(new CustomEvent("pito:chat-page-ready"))
 
     // ── Animate the chatbox filter line (Channel / Period) sliding up + fading in ──
+    // Only shown when authenticated — gate on the data attribute set by the server.
+    const chatboxArea = this.chatboxAreaTarget
+    const authenticated = chatboxArea.dataset.authenticated === "true"
     const chatboxWrapper = form.querySelector(".chatbox-wrapper")
-    if (chatboxWrapper) {
+    if (authenticated && chatboxWrapper) {
       const filterEl = document.createElement("div")
+      filterEl.id        = "pito-chatbox-filter"
       filterEl.className = "flex items-center text-fg-faded pito-chatbox__filter"
-      const chatboxArea = this.chatboxAreaTarget
       const channelLabel = chatboxArea.dataset.filterChannelLabel || "Channel"
       const periodLabel  = chatboxArea.dataset.filterPeriodLabel || "Period"
       filterEl.innerHTML = `<span>${channelLabel}</span><span class="text-cyan ml-1">@all</span><span class="mx-2">·</span><span>${periodLabel}</span><span class="text-cyan ml-1">7d</span>`

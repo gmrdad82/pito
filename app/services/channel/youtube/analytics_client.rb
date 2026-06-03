@@ -383,8 +383,9 @@ class Channel
         }
         payload[:error] = error_message if error_message.present?
 
+        return unless defined?(YoutubeApiCall) && YoutubeApiCall.respond_to?(:create!)
+
         YoutubeApiCall.create!(
-          user_id: @connection.user_id,
           youtube_connection_id: @connection.id,
           client_kind: AUDIT_KIND,
           endpoint: AUDIT_ENDPOINT,

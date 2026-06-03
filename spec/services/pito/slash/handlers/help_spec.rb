@@ -15,28 +15,30 @@ RSpec.describe Pito::Slash::Handlers::Help, type: :service do
       expect(build_handler.call).to be_a(Pito::Slash::Result::Ok)
     end
 
-    it "returns exactly 1 event (consolidated expandable format)" do
+    it "returns exactly 1 event" do
       result = build_handler.call
       expect(result.events.size).to eq(1)
     end
 
-    it "event is system with a text: intro" do
+    it "event is system with a body payload" do
       event = build_handler.call.events.first
       expect(event[:kind]).to eq("system")
-      expect(event[:payload][:text]).to include(Pito::Slash::Registry.size.to_s)
+      expect(event[:payload][:body]).to be_present
     end
 
-    it "visible expand_lines covers up to VISIBLE_COUNT commands" do
+    it "includes sections with commands" do
       payload = build_handler.call.events.first[:payload]
-      expect(payload[:expand_lines]).to be_an(Array)
-      expect(payload[:expand_lines].size).to be <= described_class::VISIBLE_COUNT
+      expect(payload[:sections]).to be_an(Array)
+      titles = payload[:sections].map { |s| s[:title] }
+      expect(titles).to include("GENERAL")
+      expect(titles).to include("YOUTUBE")
+      expect(titles).to include("CONFIG")
     end
 
-    it "overflow commands go into expand_detail" do
-      total = Pito::Slash::Registry.size
+    it "sets expand/collapse labels" do
       payload = build_handler.call.events.first[:payload]
-      expected_overflow = [ total - described_class::VISIBLE_COUNT, 0 ].max
-      expect(Array(payload[:expand_detail]).size).to eq(expected_overflow)
+      expect(payload[:expand_label]).to be_present
+      expect(payload[:collapse_label]).to be_present
     end
   end
 
@@ -45,13 +47,14 @@ RSpec.describe Pito::Slash::Handlers::Help, type: :service do
       expect(build_handler(authenticated: false).call).to be_a(Pito::Slash::Result::Ok)
     end
 
-    it "shows only the authentication instruction" do
+    it "shows the authentication instruction" do
       event = build_handler(authenticated: false).call.events.first
-      expect(event[:payload][:text]).to include("/login")
+      expect(event[:payload][:message_key]).to eq("pito.slash.help.unauthenticated")
     end
 
-    it "does not include the full command list" do
+    it "does not include sections or expand_lines" do
       event = build_handler(authenticated: false).call.events.first
+      expect(event[:payload][:sections]).to be_nil
       expect(event[:payload][:expand_lines]).to be_nil
     end
   end

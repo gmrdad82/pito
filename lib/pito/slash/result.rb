@@ -11,12 +11,6 @@ module Pito
         # message_key  — String i18n key
         # message_args — Hash of interpolation args
       end
-
-      NeedsConfirmation = Data.define(:prompt_key, :prompt_args, :command_text) do
-        # prompt_key   — String i18n key for the confirmation prompt
-        # prompt_args  — Hash of interpolation args
-        # command_text — String, the original command text
-      end
     end
   end
 end

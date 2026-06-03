@@ -40,11 +40,11 @@ RSpec.describe Pito::Credentials do
 
   describe ".google_oauth_redirect_uri" do
     context "when AppSetting has a redirect URI" do
-      before { AppSetting.google_oauth_redirect_uri = "https://example.com/auth/google/callback" }
+      before { AppSetting.google_oauth_redirect_uri = "https://example.com/auth/youtube/callback" }
       after  { AppSetting.set(AppSetting::GOOGLE_OAUTH_REDIRECT_URI_KEY, nil) }
 
       it "returns the stored URI" do
-        expect(described_class.google_oauth_redirect_uri).to eq("https://example.com/auth/google/callback")
+        expect(described_class.google_oauth_redirect_uri).to eq("https://example.com/auth/youtube/callback")
       end
     end
 

@@ -6,7 +6,7 @@
                           pito__terminal_caret_target: "field" } }
   input_attrs[:data].merge!(@input_data) if @input_data
 %>
-<div class="chatbox-wrapper">
+<div id="pito-chatbox" class="chatbox-wrapper" data-action="click->pito--chat-form#focusField">
 <%= render(Pito::Segment::Component.new(
       accent: :purple,
       background: "var(--bg-elevated)"
@@ -21,11 +21,9 @@
     <%# Line 2: filter context (only shown in :default state) %>
     <% if @filter && @state != :start %>
       <div class="flex items-center text-fg-faded pito-chatbox__filter">
-        <span><%= t("pito.shell.chatbox.filter.channel_label") %></span>
-        <span class="text-cyan ml-2"><%= @filter[:channel] %></span>
+        <%= render(Pito::Shell::Chatbox::ChannelComponent.new(channel: @filter[:channel])) %>
         <span class="mx-2">·</span>
-        <span><%= t("pito.shell.chatbox.filter.period_label") %></span>
-        <span class="text-cyan ml-2"><%= @filter[:period] %></span>
+        <%= render(Pito::Shell::Chatbox::PeriodComponent.new(period: @filter[:period])) %>
       </div>
     <% end %>
   </div>

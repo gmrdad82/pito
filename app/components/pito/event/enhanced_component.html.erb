@@ -1,36 +1,16 @@
 <%= render(Pito::Segment::Component.new(accent:, background:)) do %>
-  <% if expandable? %>
-    <div data-controller="pito--expand"
-         data-pito--expand-expand-label-value="<%= t('pito.slash.help.more_hint', count: expand_more_count) %>"
-         data-pito--expand-collapse-label-value="<%= t('pito.slash.help.fewer_hint') %>">
-      <% if body %>
-        <span class="text-fg"><%= body %></span>
-      <% end %>
-      <% expand_lines.each do |line| %>
-        <div class="text-fg"><%= line %></div>
-      <% end %>
-      <div data-pito--expand-target="hint" class="mt-1">
-        <span class="font-bold text-yellow">ctrl+o</span>
-        <span data-pito--expand-target="hintLabel" class="text-fg-dim ml-1"><%= t("pito.slash.help.more_hint", count: expand_more_count) %></span>
-      </div>
-      <div data-pito--expand-target="detail" class="hidden mt-1.5 border-t border-line-default pt-1.5">
-        <% expand_detail.each do |line| %>
-          <div class="text-fg"><%= line %></div>
-        <% end %>
-      </div>
-    </div>
-  <% elsif body %>
-    <span class="text-fg"><%= body %></span>
-  <% end %>
-  <% if handle %>
-    <div class="pito-echo__meta">
-      <span class="text-fg-faded"></span>
-      <span class="text-fg-faded mx-2">·</span>
-      <span class="text-fg-dim">#<%= handle %></span>
-      <% if authenticated? %>
-        <span class="text-fg-faded mx-2">·</span>
-        <span class="text-cyan"><%= t("pito.shell.chatbox.default_channel") %></span>
-      <% end %>
-    </div>
+  <%= render(Pito::Event::ExpandableBodyComponent.new(
+        body:              body,
+        expand_lines:      expand_lines,
+        expand_detail:     expand_detail,
+        expand_more_count: expand_more_count,
+        expand_label:      t("pito.slash.help.more_hint", count: expand_more_count),
+        collapse_label:    t("pito.slash.help.fewer_hint")
+      )) %>
+  <% if handle || channel %>
+    <%= render(Pito::Event::MetaLineComponent.new(
+          handle:  handle,
+          channel: channel
+        )) %>
   <% end %>
 <% end %>

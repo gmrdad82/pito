@@ -1,0 +1,2 @@
+<span class="font-bold text-yellow"<% if @shortcut_data.any? %><% @shortcut_data.each do |k, v| %> <%= "data-#{k}=\"#{v}\"".html_safe %><% end %><% end %>><%= @shortcut %></span>
+<span<% if @description_id %> id="<%= @description_id %>"<% end %><% if @description_data.any? %><% @description_data.each do |k, v| %> <%= "data-#{k}=\"#{v}\"".html_safe %><% end %><% end %> class="text-fg-dim ml-2"><%= @description %></span>

@@ -1,0 +1,45 @@
+en:
+  pito:
+    slash:
+      help:
+        unauthenticated: "Login first — /authenticate <6-digit TOTP code>."
+        body: "Slash commands let's you configure pito, start or resume conversations, log in or log out, and more."
+        expand_label: "to expand"
+        collapse_label: "to collapse"
+        descriptions:
+          help: "Show this command reference"
+        sections:
+          general:
+            title: "GENERAL"
+            rows:
+              - key: "/help"
+                value: "Show this message"
+              - key: "/login"
+                value: "Log in"
+              - key: "/logout"
+                value: "Log out"
+          conversations:
+            title: "CONVERSATIONS"
+            rows:
+              - key: "/new"
+                value: "Start new conversation"
+              - key: "/resume"
+                value: "Resume a conversation"
+          youtube:
+            title: "YOUTUBE"
+            rows:
+              - key: "/connect"
+                value: "Connect YouTube channel"
+              - key: "/disconnect"
+                value: "Disconnect channel"
+          config:
+            title: "CONFIG"
+            rows:
+              - key: "/config google"
+                value: "Google OAuth credentials"
+              - key: "/config igdb"
+                value: "IGDB credentials"
+              - key: "/config voyage"
+                value: "Voyage.AI API key"
+              - key: "/config webhook"
+                value: "Slack / Discord webhooks"

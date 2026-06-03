@@ -4,4 +4,5 @@
 // and imports vendored JS modules (@xterm/xterm, actioncable, etc).
 
 import "@hotwired/turbo-rails"
+import "pito/turbo_actions"
 import "controllers"

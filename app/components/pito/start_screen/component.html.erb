@@ -29,6 +29,7 @@
         correctly in the items-center flex context. %>
     <div class="w-full max-w-[600px]"
          data-pito--home-transition-target="chatboxArea"
+         data-authenticated="<%= Current.session.present? %>"
          data-filter-channel-label="<%= t("pito.shell.chatbox.filter.channel_label") %>"
          data-filter-period-label="<%= t("pito.shell.chatbox.filter.period_label") %>">
 
@@ -51,7 +52,7 @@
       <%# Mini-status: glued to chatbox bottom-right, rides with the animation %>
       <div class="mt-2 px-4">
         <div class="flex justify-end">
-          <%= render(Pito::Shell::MiniStatusComponent.new(mode: :start)) %>
+          <%= render(Pito::Shell::MiniStatusComponent.new(mode: :start, state: Current.session.present?)) %>
         </div>
       </div>
 
@@ -62,12 +63,12 @@
   <%# Tip — fades + slides DOWN to clear the chatbox path %>
   <div class="flex-1 flex flex-col justify-center items-center p-4"
        data-pito--home-transition-target="tip">
-    <span class="text-fg-faded">
-      <span class="text-orange">!</span>
-      <span class="font-bold text-yellow"><%= t("pito.start_screen.tip_prefix") %></span>
-      <span> — </span>
-      <span><%= @tip %></span>
-    </span>
+    <%= render(Pito::Tip::Component.new(
+          text:              tip,
+          badge_text:        badge_text,
+          badge_class:       badge_class,
+          exclamation_class: exclamation_class
+        )) %>
   </div>
 
   <%# Bottom corners — fades + slides up, delayed after logo %>
@@ -87,7 +88,7 @@
       <div style="margin-left: 10px;" data-controller="pito--dots">
         <%= render(Pito::Shell::PostCommandDotsComponent.new) %>
       </div>
-      <div data-pito--home-transition-target="miniStatusSlide" style="margin-left: auto;">
+      <div id="pito-mini-status" data-pito--home-transition-target="miniStatusSlide" style="margin-left: auto;">
         <%= render(Pito::Shell::MiniStatusComponent.new(
               mode: :connection,
               state: Current.session.present?,

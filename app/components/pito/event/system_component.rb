@@ -9,20 +9,32 @@ module Pito
         payload       = payload.with_indifferent_access if payload.respond_to?(:with_indifferent_access)
         @payload      = payload
         @body         = payload[:body].presence || resolve_text(payload)
+        @html         = payload[:html] == true || payload[:html] == "true"
         @expand_lines = Array(payload[:expand_lines]).map(&:to_s)
         @expand_detail = Array(payload[:expand_detail]).map(&:to_s)
         @expand_more_count = payload[:expand_more_count].to_i
+        @table_rows   = Array(payload[:table_rows]).map { |r| r.respond_to?(:with_indifferent_access) ? r.with_indifferent_access : r }
+        @info_lines   = Array(payload[:info_lines]).map(&:to_s)
+        @sections     = Array(payload[:sections]).map { |s| s.respond_to?(:with_indifferent_access) ? s.with_indifferent_access : s }
+        @suggestion   = payload[:suggestion]
         @handle       = payload[:handle].to_s.presence
-        @authenticated = payload.fetch(:authenticated, true)
+        @channel      = payload[:channel].to_s.presence
         @timestamp    = event&.created_at
       end
 
-      attr_reader :body, :expand_lines, :expand_detail, :expand_more_count, :handle
+      attr_reader :body, :expand_lines, :expand_detail, :expand_more_count, :table_rows, :info_lines, :handle, :channel, :sections, :html
 
-      def expandable?   = @expand_detail.any?
-      def authenticated? = @authenticated
-      def accent        = :surface
-      def background    = nil
+      def expandable?    = @expand_detail.any? || @sections.any?
+      def accent         = :surface
+      def background     = nil
+
+      def expand_label
+        @payload[:expand_label].presence || I18n.t("pito.slash.help.more_hint", count: expand_more_count)
+      end
+
+      def collapse_label
+        @payload[:collapse_label].presence || I18n.t("pito.slash.help.fewer_hint")
+      end
 
       private
 

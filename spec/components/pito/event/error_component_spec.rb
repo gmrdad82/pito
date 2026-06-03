@@ -36,7 +36,7 @@ RSpec.describe Pito::Event::ErrorComponent do
       expect(node.css("[data-pito--expand-target='detail']").text).to include("raw error detail")
     end
 
-    it "shows ctrl+o hint when detail is present" do
+    it "shows ctrl+| hint when detail is present" do
       node = render_inline(described_class.new(payload: { text: "Oops", detail: "raw" }))
       expect(node.css("[data-pito--expand-target='hint']")).not_to be_empty
     end

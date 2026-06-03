@@ -134,9 +134,9 @@ RSpec.describe Pito::Lex::Lexer do
 
     context "with URL values" do
       it "tokenizes a bare http URL as a single word token" do
-        result = tokens("http://localhost:3027/auth/google_oauth2/callback")
+        result = tokens("http://localhost:3027/auth/youtube/callback")
         expect(result.map(&:type)).to eq(%i[word eof])
-        expect(result.first.value).to eq("http://localhost:3027/auth/google_oauth2/callback")
+        expect(result.first.value).to eq("http://localhost:3027/auth/youtube/callback")
       end
 
       it "tokenizes https URLs as a single word token" do

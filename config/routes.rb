@@ -4,8 +4,8 @@ Rails.application.routes.draw do
   # Auth is TOTP-only via the chatbox (`/authenticate <code>`) — no login
   # or logout routes. See ChatController + Pito::Auth::ChatLogin.
 
-  # Google OAuth callback (YouTube connection)
-  match "/auth/google/callback",
+  # YouTube OAuth callback (Google OAuth 2.0, YouTube-connection only)
+  match "/auth/youtube/callback",
         to: "youtube_connections/oauth_callbacks#create",
         via: %i[get post],
         as: :youtube_connection_oauth_callback

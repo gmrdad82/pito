@@ -3,7 +3,7 @@
 # OAuth dance.
 #
 # After ADR 0006 the only legitimate intent flowing through
-# `/auth/google/callback` is `"youtube_connect"`. The dormant sign-in
+# `/auth/youtube/callback` is `"youtube_connect"`. The dormant sign-in
 # branch is gone; a callback without the intent is treated as stale /
 # replayed and routed to the failure path.
 #

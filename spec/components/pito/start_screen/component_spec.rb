@@ -70,6 +70,56 @@ RSpec.describe Pito::StartScreen::Component do
     end
   end
 
+  describe "mini status auth state" do
+    context "when the session is absent (anonymous)" do
+      before { allow(Current).to receive(:session).and_return(nil) }
+
+      it "renders ○ auth (red) in the start-mode mini status" do
+        node = render_inline(described_class.new(**defaults))
+        chatbox_area = node.css("[data-pito--home-transition-target='chatboxArea']").first
+        expect(chatbox_area.to_html).to include("○ auth")
+        expect(chatbox_area.css("span.text-red").map(&:text).join).to include("○ auth")
+      end
+
+      it "does not render ● auth in the start-mode mini status" do
+        node = render_inline(described_class.new(**defaults))
+        chatbox_area = node.css("[data-pito--home-transition-target='chatboxArea']").first
+        expect(chatbox_area.to_html).not_to include("● auth")
+      end
+
+      it "sets data-authenticated to false on chatboxArea" do
+        node = render_inline(described_class.new(**defaults))
+        chatbox_area = node.css("[data-pito--home-transition-target='chatboxArea']").first
+        expect(chatbox_area["data-authenticated"]).to eq("false")
+      end
+    end
+
+    context "when the session is present (authenticated)" do
+      let(:fake_session) { double("Session") }
+
+      before { allow(Current).to receive(:session).and_return(fake_session) }
+
+      it "renders ● auth (green) in the start-mode mini status" do
+        node = render_inline(described_class.new(**defaults))
+        chatbox_area = node.css("[data-pito--home-transition-target='chatboxArea']").first
+        expect(chatbox_area.to_html).to include("● auth")
+        expect(chatbox_area.css("span.text-green").map(&:text).join).to include("● auth")
+      end
+
+      it "does not render ○ auth in the start-mode mini status" do
+        node = render_inline(described_class.new(**defaults))
+        chatbox_area = node.css("[data-pito--home-transition-target='chatboxArea']").first
+        expect(chatbox_area.to_html).not_to include("○ auth")
+      end
+
+      it "sets data-authenticated to true on chatboxArea" do
+        node = render_inline(described_class.new(**defaults))
+        chatbox_area = node.css("[data-pito--home-transition-target='chatboxArea']").first
+        expect(chatbox_area["data-authenticated"]).to eq("true")
+      end
+    end
+  end
+
   describe "home-transition wiring" do
     subject(:node) { render_inline(described_class.new(**defaults)) }
 

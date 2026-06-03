@@ -1,13 +1,14 @@
-# Bridge networking restored after Docker iptables rebuild on 2026-05-01.
+# Production stack — used by bin/boot (full Docker: Rails + Postgres).
+# name: pito-boot gives this stack its own project namespace, completely
+# isolated from the dev stack (different container names, different volumes).
 #
-# Host-side ports use the "27" suffix (3027 web, 54327 postgres)
-# so this stack can run alongside other local projects without collisions.
-# Container-side ports stay default — only the host mapping shifts.
-# All host bindings are pinned to 127.0.0.1 (never 0.0.0.0).
+# Ports use the "28" suffix so both stacks can run simultaneously:
+#   dev:  web 3027 (host Puma), postgres 54327
+#   boot: web 3028 (Docker),    postgres 54328
 #
-# Named volumes:
-#   postgres_data  — Postgres WAL / data directory (survives docker compose down)
-#   rails_storage  — ActiveStorage uploads at /var/lib/pito-assets
+# Point cloudflared at 127.0.0.1:3028 for the production tunnel.
+
+name: pito-boot
 
 volumes:
   postgres_data:
@@ -17,7 +18,7 @@ services:
   postgres:
     image: pgvector/pgvector:pg17
     ports:
-      - "127.0.0.1:${POSTGRES_PORT:-54327}:5432"
+      - "127.0.0.1:54328:5432"
     environment:
       POSTGRES_USER: pito
       POSTGRES_DB: pito_production
@@ -36,7 +37,7 @@ services:
       dockerfile: Dockerfile
     image: pito:latest
     ports:
-      - "127.0.0.1:${WEB_PORT:-3027}:80"
+      - "127.0.0.1:3028:80"
     volumes:
       - rails_storage:/var/lib/pito-assets
     environment:

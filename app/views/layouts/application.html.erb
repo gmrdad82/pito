@@ -6,10 +6,15 @@
   <title>pito</title>
   <%= csrf_meta_tags %>
   <%= csp_meta_tag %>
+  <%# Prevent Turbo from showing a stale cached snapshot (no-preview) while the
+      fresh page loads. Auth state (○/● auth, auth-gate) must always reflect the
+      current server-side session — never a cached pre-login DOM. %>
+  <meta name="turbo-cache-control" content="no-preview">
   <%= stylesheet_link_tag "tailwind", media: "all" %>
   <%= javascript_importmap_tags %>
 </head>
 <body class="bg-root text-fg font-mono" data-controller="pito--audio" <%= "data-audio-chat-page=\"true\"".html_safe if controller_name == "conversations" %>>
+  <div id="pito-auth-gate" class="hidden" data-authenticated="<%= Current.session.present? %>"></div>
   <%= yield %>
 
   <%# Global Ctrl+K command palette — always in DOM, toggled by pito--command-palette controller %>

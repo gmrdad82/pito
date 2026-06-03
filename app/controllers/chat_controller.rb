@@ -40,12 +40,20 @@ class ChatController < ApplicationController
     end
 
     if connect_command?(input)
-      # /connect initiates Google OAuth — synchronous because we need to redirect
-      # the browser to Google's authorization endpoint. Returns the OAuth URL on
-      # success (caller redirects), or nil when credentials are missing (error
-      # Event is broadcast and the normal 204 response is sent).
+      # /connect initiates Google OAuth. Returns the OAuth URL on success, or nil
+      # when credentials are missing (error Event is broadcast + normal 204 sent).
+      # We respond with a Turbo Stream `navigate` action rather than redirect_to,
+      # because Turbo submits forms via fetch — fetch follows the redirect chain
+      # internally and can't trigger a real browser navigation to accounts.google.com.
       oauth_url = handle_connect(input, conversation)
-      return oauth_url ? redirect_to(oauth_url, allow_other_host: true) : respond_to_client(conversation)
+      return oauth_url ? render_turbo_navigate(oauth_url) : respond_to_client(conversation)
+    end
+
+    if confirmation_response?(input)
+      # #handle confirm|cancel — no echo; updates the existing confirmation
+      # segment to processing state, then enqueues ConfirmationDispatchJob.
+      handle_confirmation(input, conversation)
+      return respond_to_client(conversation)
     end
 
     # Mask sensitive kwargs before persisting the echo (T27.0.d).
@@ -75,9 +83,11 @@ class ChatController < ApplicationController
 
     # Persist echo first, then broadcast (T23.1 + T23.2 / T24.1 + T24.2).
     # echo_text may differ from input when sensitive kwargs are masked (T27.0.d).
+    # Slash command echoes never show the channel filter in the meta line.
     broadcaster  = Pito::Stream::Broadcaster.new(conversation:)
     echo_event   = Event.create_with_position!(
-      conversation:, turn:, kind: :echo, payload: { text: echo_text, authenticated: }
+      conversation:, turn:, kind: :echo,
+      payload: { text: echo_text, authenticated: input_kind == :chat ? authenticated : false }
     )
     broadcaster.broadcast_event(echo_event)
 
@@ -85,9 +95,9 @@ class ChatController < ApplicationController
     # job completes. The word_index is frozen at creation (survives refresh).
     broadcaster.emit_thinking(turn:, dictionary: input_kind)
 
-    # T23.3: read channel + period from params (defaults until TAB/Shift+TAB land).
-    channel = params[:channel].presence || "@all"
-    period  = params[:period].presence
+    # Channel + period filters only apply to chat queries, not slash commands.
+    channel = input_kind == :chat ? (params[:channel].presence || "@all") : nil
+    period  = input_kind == :chat ? params[:period].presence : nil
 
     # T23.4: enqueue job — auth gating decided here, applied in the worker.
     ChatDispatchJob.perform_later(turn.id, channel:, period:, authenticated:)
@@ -117,6 +127,13 @@ class ChatController < ApplicationController
     request.format.html? || request.headers["Accept"]&.include?("text/html")
   end
 
+  def render_turbo_navigate(url)
+    render(
+      body: %(<turbo-stream action="navigate" target="#{CGI.escapeHTML(url)}"></turbo-stream>),
+      content_type: "text/vnd.turbo-stream.html"
+    )
+  end
+
   # ── Authentication branch ───────────────────────────────────────────────────
   #
   # Stays synchronous — auth result must be visible before the next command.
@@ -137,16 +154,12 @@ class ChatController < ApplicationController
     broadcaster = Pito::Stream::Broadcaster.new(conversation:)
     broadcaster.emit(turn:, kind: :echo, payload: { text: masked, authenticated: false })
 
-    thinking = broadcaster.emit_thinking(turn:, dictionary: "slash")
-    started_at = Time.current
+    broadcaster.emit_thinking(turn:, dictionary: "slash")
 
     code   = input.strip.split(/\s+/, 2)[1].to_s
     result = Pito::Auth::ChatLogin.call(code:, request:)
 
-    broadcaster.resolve_thinking(
-      turn:,
-      elapsed_seconds: (Time.current - started_at).round(1)
-    )
+    broadcaster.resolve_thinking(turn:)
 
     if result.authenticated?
       Current.session = result.session_data
@@ -156,6 +169,7 @@ class ChatController < ApplicationController
         kind:    :system,
         payload: { text: greeting }
       )
+      broadcaster.broadcast_auth_update(authenticated: true)
     else
       broadcaster.emit(
         turn:,
@@ -181,7 +195,7 @@ class ChatController < ApplicationController
     )
 
     broadcaster = Pito::Stream::Broadcaster.new(conversation:)
-    broadcaster.emit(turn:, kind: :echo, payload: { text: input, authenticated: true, triggers_logout: true })
+    broadcaster.emit(turn:, kind: :echo, payload: { text: input, authenticated: false, triggers_logout: true })
     broadcaster.emit(
       turn:,
       kind:    :system,
@@ -212,7 +226,7 @@ class ChatController < ApplicationController
 
     # Echo always comes first so the turn container exists in the DOM before
     # any subsequent event tries to append into it via Turbo Stream.
-    broadcaster.emit(turn:, kind: :echo, payload: { text: input, authenticated: })
+    broadcaster.emit(turn:, kind: :echo, payload: { text: input, authenticated: false })
 
     unless authenticated
       broadcaster.emit(
@@ -243,6 +257,28 @@ class ChatController < ApplicationController
     stash_connect_conversation_uuid(conversation.uuid)
 
     "/auth/google_oauth2"
+  end
+
+  def confirmation_response?(input)
+    input.strip.match?(Pito::ConfirmationRouter::PATTERN)
+  end
+
+  # T28.5a-b: No echo. Flip the confirmation segment to processing immediately,
+  # then enqueue the job. Auth required — silently 204 if unauthenticated.
+  def handle_confirmation(input, conversation)
+    return unless Current.session.present?
+
+    routing = Pito::ConfirmationRouter.call(input:, conversation:)
+    return if routing[:error]
+
+    event  = routing[:event]
+    action = routing[:action]
+
+    event.update!(payload: event.payload.merge("processing" => true))
+    broadcaster = Pito::Stream::Broadcaster.new(conversation:)
+    broadcaster.replace_event(event)
+
+    ConfirmationDispatchJob.perform_later(event.id, action: action.to_s)
   end
 
   def config_command?(input)

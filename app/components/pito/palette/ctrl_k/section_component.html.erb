@@ -1,18 +1,10 @@
-<%# Section: orange-bold title + item rows.
-    data-section-title: searchable title text for hiding empty sections.
-    Item rows:  data-pito--command-palette-target="item"
-                data-insert: text pre-filled into the chatbox on Enter
-                data-label:  searchable text (label + insert) for fuzzy filter %>
 <div data-pito--command-palette-target="section"
      data-section-title="<%= t(@title_key) %>">
-  <div class="text-orange font-bold mb-1 px-[7px]" data-pito--command-palette-target="sectionTitle"><%= t(@title_key) %></div>
+  <div class="text-yellow font-bold mb-1 px-[7px]" data-pito--command-palette-target="sectionTitle"><%= t(@title_key) %></div>
   <% @items.each do |item| %>
-    <div data-pito--command-palette-target="item"
-         data-insert="<%= item[:insert] %>"
-         data-label="<%= "#{t(item[:label_key])} #{item[:insert]}".downcase %>"
-         class="flex justify-between py-0.5 px-[7px] cursor-default">
-      <span class="text-fg text-base"><%= t(item[:label_key]) %></span>
-      <span class="text-fg-dim text-base"><%= item[:insert] %></span>
-    </div>
+    <%= render(Pito::Palette::CtrlK::CommandComponent.new(
+          label_key: item[:label_key],
+          insert:    item[:insert]
+        )) %>
   <% end %>
 </div>

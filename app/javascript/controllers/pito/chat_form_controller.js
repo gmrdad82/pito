@@ -21,8 +21,25 @@ export default class extends Controller {
     this.#syncHidden()
   }
 
+  // Click anywhere on the chatbox wrapper → focus the textarea
+  focusField(event) {
+    // Only focus if the click wasn't directly on the textarea (it already handles itself)
+    if (event.target !== this.inputFieldTarget) {
+      this.inputFieldTarget.focus({ preventScroll: true })
+    }
+  }
+
   handleKeydown(event) {
     if (event.key !== "Enter" || event.shiftKey) return
+
+    // Cable dead after inactivity — reload to re-establish the WebSocket
+    // before submitting. Without this, the POST succeeds but Turbo Stream
+    // broadcasts never reach the client and the page appears stuck.
+    if (document.body.dataset.pitoCableOffline === "true") {
+      event.preventDefault()
+      window.location.reload()
+      return
+    }
 
     const hasInput = this.inputFieldTarget.value.trim().length > 0
     event.preventDefault()

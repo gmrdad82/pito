@@ -1,8 +1,8 @@
 <% if triggers_logout? %><div data-controller="pito--logout"><% end %>
 <%= render(Pito::Segment::Component.new(accent: :purple, background: "var(--bg-elevated)")) do %>
   <span class="text-fg"><%= @text %></span>
-  <div class="pito-echo__meta">
-    <span class="text-fg-faded"><%= @timestamp ? @timestamp.strftime("%-l:%M %p") : "" %></span><% if @authenticated %><span class="text-fg-faded mx-2">·</span><span class="text-cyan"><%= t("pito.shell.chatbox.default_channel") %></span><% end %>
-  </div>
+  <%= render(Pito::Event::MetaLineComponent.new(
+        timestamp: @timestamp
+      )) %>
 <% end %>
 <% if triggers_logout? %></div><% end %>

@@ -90,9 +90,39 @@ module Pito
         def show_help
           provider = invocation.args.find { |a| KNOWN_PROVIDERS.include?(a.to_s.downcase) }
 
+          return google_help_events if provider.to_s == "google"
+
           key = provider.present? ? "pito.slash.config.help.providers.#{provider}" : "pito.slash.config.help.general"
           Pito::Slash::Result::Ok.new(events: [
             { kind: "system", payload: { text: I18n.t(key) } }
+          ])
+        end
+
+        def google_help_events
+          Pito::Slash::Result::Ok.new(events: [
+            {
+              kind:    "system",
+              payload: {
+                body:       "/config google [key=value …]",
+                table_rows: [
+                  { key: "client_id=",     value: I18n.t("pito.slash.config.help.providers.google.keys.client_id") },
+                  { key: "client_secret=", value: I18n.t("pito.slash.config.help.providers.google.keys.client_secret") },
+                  { key: "redirect_uri=",  value: I18n.t("pito.slash.config.help.providers.google.keys.redirect_uri") },
+                  { key: "api_key=",       value: I18n.t("pito.slash.config.help.providers.google.keys.api_key") }
+                ],
+                info_lines: [
+                  I18n.t("pito.slash.config.help.providers.google.omit_hint")
+                ],
+                suggestion: {
+                  pre:       I18n.t("pito.slash.config.help.providers.google.suggestion.pre"),
+                  code:      "/connect",
+                  post:      I18n.t("pito.slash.config.help.providers.google.suggestion.post"),
+                  shortcut:  "ctrl+/",
+                  run_label: I18n.t("pito.event.suggestion.run_label"),
+                  run_cmd:   "/connect"
+                }
+              }
+            }
           ])
         end
 
@@ -100,10 +130,26 @@ module Pito
 
         def show_status(provider)
           pairs = PROVIDER_STATUS[provider].call
-          lines = pairs.map { |label, val| "#{label}: #{val}" }.join(" · ")
+          missing_text = I18n.t("pito.slash.config.status.missing")
+
+          table_rows = pairs.map do |label, val|
+            {
+              key:         "#{label}:",
+              value:       val,
+              key_class:   "text-fg-dim",
+              value_class: val == missing_text ? "text-red" : "text-green"
+            }
+          end
 
           Pito::Slash::Result::Ok.new(events: [
-            { kind: :system, payload: { text: lines } }
+            {
+              kind:    :system,
+              payload: {
+                body:       I18n.t("pito.slash.config.status.section.#{provider}",
+                                   default: "#{provider.capitalize} credentials"),
+                table_rows:
+              }
+            }
           ])
         end
 

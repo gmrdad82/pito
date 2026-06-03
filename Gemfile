@@ -9,6 +9,7 @@ gem "tailwindcss-rails", "~> 4.4"
 gem "view_component", "~> 4.11"
 gem "pg", "~> 1.5"
 gem "puma", ">= 5.0"
+gem "thruster", "~> 0.1", require: false
 gem "jbuilder", "~> 2.14"
 gem "tzinfo-data", platforms: %i[ windows jruby ]
 gem "bootsnap", "~> 1.24", require: false

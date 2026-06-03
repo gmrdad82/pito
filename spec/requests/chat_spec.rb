@@ -79,24 +79,6 @@ RSpec.describe "Chat requests", type: :request do
       end
     end
 
-    context "with the confirm_demo command" do
-      let(:params) { { input: "/confirm_demo", uuid: conversation.uuid } }
-
-      it "returns 204 No Content" do
-        post "/chat", params: params
-        expect(response).to have_http_status(:no_content)
-      end
-
-      it "creates a confirmation Event after the job runs" do
-        perform_enqueued_jobs { post "/chat", params: params }
-        turn = Turn.last
-        confirm_event = turn.events.find { |e| e.kind == "confirmation" }
-        expect(confirm_event).to be_present
-        expect(confirm_event.payload["prompt_key"]).to eq("pito.slash.confirm_demo.prompt")
-        expect(confirm_event.payload["command_text"]).to eq("/confirm_demo")
-      end
-    end
-
     context "with an unknown verb" do
       let(:params) { { input: "/nope", uuid: conversation.uuid } }
 
@@ -158,26 +140,24 @@ RSpec.describe "Chat requests", type: :request do
         expect(turn.events.map(&:kind)).to include("echo", "system")
         expect(turn.events.count).to be >= 2
       end
-
-      it "result events include elapsed_seconds in payload" do
-        perform_enqueued_jobs { post "/chat", params: params }
-        result_event = Turn.last.events.find { |e| e.kind != "echo" }
-        expect(result_event.payload["elapsed_seconds"]).not_to be_nil
-      end
     end
 
     context "channel + period context" do
-      let(:params) { { input: "/help", uuid: conversation.uuid, channel: "@gaming", period: "7d" } }
-
-      it "enqueues the job with the channel parameter" do
+      it "does NOT forward channel/period to the job for slash commands" do
         expect {
-          post "/chat", params: params
-        }.to have_enqueued_job(ChatDispatchJob).with(anything, hash_including(channel: "@gaming"))
+          post "/chat", params: { input: "/help", uuid: conversation.uuid, channel: "@gaming", period: "7d" }
+        }.to have_enqueued_job(ChatDispatchJob).with(anything, hash_including(channel: nil, period: nil))
       end
 
-      it "defaults channel to @all when not provided" do
+      it "forwards channel/period to the job for chat messages" do
         expect {
-          post "/chat", params: { input: "/help", uuid: conversation.uuid }
+          post "/chat", params: { input: "show me stats", uuid: conversation.uuid, channel: "@gaming", period: "7d" }
+        }.to have_enqueued_job(ChatDispatchJob).with(anything, hash_including(channel: "@gaming", period: "7d"))
+      end
+
+      it "defaults channel to @all for chat messages when not provided" do
+        expect {
+          post "/chat", params: { input: "show me stats", uuid: conversation.uuid }
         }.to have_enqueued_job(ChatDispatchJob).with(anything, hash_including(channel: "@all"))
       end
     end
@@ -299,6 +279,60 @@ RSpec.describe "Chat requests", type: :request do
         uuid = response.parsed_body["uuid"]
         perform_enqueued_jobs { post "/chat", params: { uuid:, input: "/help" } }
         expect(Conversation.find_by!(uuid:).events).not_to be_empty
+      end
+    end
+
+    context "with a confirmation response (#handle confirm|cancel)" do
+      let(:conf_turn) do
+        conversation.turns.create!(
+          input_kind: :slash, input_text: "/disconnect @pito", position: 1
+        )
+      end
+      let!(:confirmation_event) do
+        Event.create_with_position!(
+          conversation:, turn: conf_turn,
+          kind: "confirmation",
+          payload: {
+            command: "disconnect",
+            body: "Disconnect from @pito?",
+            confirmation_handle: "gamma-4242",
+            channel_id: 0,
+            authenticated: true
+          }
+        )
+      end
+
+      it "returns 204 No Content" do
+        post "/chat", params: { input: "#gamma-4242 confirm", uuid: conversation.uuid }
+        expect(response).to have_http_status(:no_content)
+      end
+
+      it "does not create a new Turn" do
+        expect {
+          post "/chat", params: { input: "#gamma-4242 confirm", uuid: conversation.uuid }
+        }.not_to change(Turn, :count)
+      end
+
+      it "does not create an echo Event" do
+        expect {
+          post "/chat", params: { input: "#gamma-4242 confirm", uuid: conversation.uuid }
+        }.not_to change(Event, :count)
+      end
+
+      it "flips the confirmation event to processing: true" do
+        post "/chat", params: { input: "#gamma-4242 confirm", uuid: conversation.uuid }
+        expect(confirmation_event.reload.payload["processing"]).to be(true)
+      end
+
+      it "enqueues ConfirmationDispatchJob" do
+        expect {
+          post "/chat", params: { input: "#gamma-4242 confirm", uuid: conversation.uuid }
+        }.to have_enqueued_job(ConfirmationDispatchJob).with(confirmation_event.id, hash_including(action: "confirm"))
+      end
+
+      it "silently 204s when handle is not found" do
+        post "/chat", params: { input: "#nosuch-0000 confirm", uuid: conversation.uuid }
+        expect(response).to have_http_status(:no_content)
       end
     end
 

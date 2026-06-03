@@ -1,0 +1,11 @@
+en:
+  pito:
+    confirmation:
+      expand_hint: "for details"
+      expand_collapse_hint: "to hide"
+      cancelled:
+        default: "Cancelled."
+      confirmed:
+        default: "Done."
+      errors:
+        execution_failed: "Something went wrong. The action may be partially completed."

@@ -1,0 +1,28 @@
+# Pure-ASCII decorations for /connect callback flash messages.
+# Constraints: no Nerd Font glyphs, single row, exactly 40 columns wide.
+# One is sampled and appended beneath the connect/already-connected line.
+en:
+  pito:
+    youtube_connections:
+      callback:
+        ascii_art:
+          - '>>>>>>>>>>>>  uplink stable  <<<<<<<<<<<'
+          - '~~~~~~~~~( now broadcasting )~~~~~~~~~~~'
+          - 'o--o--o--o- channel bridged -o--o--o--o-'
+          - '<( handshake complete, we shook on it )>'
+          - '=-=-=-=- plugged into the void -=-=-=-=-'
+          - '|=|=|=| pipeline pressurized |=|=|=|=|=|'
+          - '----->>> beamed aboard, captain <<<-----'
+          - '.--=[ signal acquired ]=--. .--=^^^=--..'
+          - '*+*+*+*+*+ tubes intertwined +*+*+*+*+*+'
+          - '~^~^~^~^~ riding the data wave ~^~^~^~^~'
+          - '[###################] now 100% you-pload'
+          - '{ }--{ }--{ }--{ } daisy chain of dreams'
+          - '((( . Y . ))) wired into the mothership.'
+          - '\//\//\ crosswired and shipped /\//\//\/'
+          - '+-+-+-+ the algorithm noticed it +-+-+-+'
+          - '._.-=*=-._.-=* link established *=-._.-='
+          - '[>] [>] [>] press play this one [>] [>]>'
+          - "//==// you're on the grid now //==//==//"
+          - '<<-->> two-way pipe is open <<-->><<-->>'
+          - '_/\_/\_/\ pinged and pong-ed /\_/\_/\_/\'

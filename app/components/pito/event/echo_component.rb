@@ -13,12 +13,6 @@ module Pito
       end
 
       def triggers_logout? = @triggers_logout
-
-      def timestamp_line
-        time = @timestamp ? @timestamp.strftime("%-l:%M %p") : ""
-        channel = t("pito.shell.chatbox.default_channel")
-        "#{time} · #{channel}"
-      end
     end
   end
 end

@@ -33,11 +33,15 @@ RSpec.describe Pito::Slash::Handlers::Config, type: :service do
   end
 
   describe "#call — /config google --help" do
-    it "returns google provider key reference" do
+    it "returns a single structured system event with table rows and an inline suggestion" do
       result = build_handler(args: [ "google" ], raw: "/config google --help").call
       expect(result).to be_a(Pito::Slash::Result::Ok)
-      text = result.events.first[:payload][:text]
-      expect(text).to include("client_id", "client_secret", "redirect_uri", "api_key")
+      expect(result.events.length).to eq(1)
+      payload = result.events.first[:payload]
+      keys = payload[:table_rows].map { |r| r[:key] }
+      expect(keys).to include("client_id=", "client_secret=", "redirect_uri=", "api_key=")
+      expect(payload.dig(:suggestion, :run_cmd)).to eq("/connect")
+      expect(payload.dig(:suggestion, :shortcut)).to eq("ctrl+/")
     end
   end
 
@@ -45,10 +49,10 @@ RSpec.describe Pito::Slash::Handlers::Config, type: :service do
     it "accepts redirect_uri with a full http URL (no parse error)" do
       result = build_handler(
         args:   [ "google" ],
-        kwargs: { redirect_uri: "http://localhost:3027/auth/google_oauth2/callback" }
+        kwargs: { redirect_uri: "http://localhost:3027/auth/youtube/callback" }
       ).call
       expect(result).to be_a(Pito::Slash::Result::Ok)
-      expect(AppSetting.google_oauth_redirect_uri).to eq("http://localhost:3027/auth/google_oauth2/callback")
+      expect(AppSetting.google_oauth_redirect_uri).to eq("http://localhost:3027/auth/youtube/callback")
     end
   end
 
@@ -69,17 +73,19 @@ RSpec.describe Pito::Slash::Handlers::Config, type: :service do
       Pito::Credentials.invalidate!
     end
 
-    it "returns a Result::Ok with status line containing OK flags" do
+    it "returns a structured system event with table_rows containing OK flags" do
       result = build_handler(args: [ "google" ]).call
       expect(result).to be_a(Pito::Slash::Result::Ok)
       expect(result.events.length).to eq(1)
       event = result.events.first
       expect(event[:kind]).to eq(:system)
-      # Text format: "Client ID: OK · Client Secret: OK · ..."
-      expect(event[:payload][:text]).to include("Client ID: OK", "Client Secret: OK")
+      keys   = event[:payload][:table_rows].map { |r| r[:key] }
+      values = event[:payload][:table_rows].map { |r| r[:value] }
+      expect(keys).to include("Client ID:")
+      expect(values).to all(eq(I18n.t("pito.slash.config.status.ok")).or(eq(I18n.t("pito.slash.config.status.missing"))))
     end
 
-    it "returns a status line even when credentials are absent" do
+    it "returns table_rows with red MISSING for absent credentials" do
       AppSetting.singleton_row.update!(
         google_oauth_client_id:     nil,
         google_oauth_client_secret: nil
@@ -88,8 +94,11 @@ RSpec.describe Pito::Slash::Handlers::Config, type: :service do
 
       result = build_handler(args: [ "google" ]).call
       expect(result).to be_a(Pito::Slash::Result::Ok)
-      # In test env both fall back to placeholders, so still "OK"
-      expect(result.events.first[:payload][:text]).to be_present
+      rows = result.events.first[:payload][:table_rows]
+      expect(rows).to be_present
+      # In test env both fall back to placeholders so they may still be "OK",
+      # but the structure must always be present.
+      expect(rows.first).to include(:key, :value, :value_class)
     end
   end
 

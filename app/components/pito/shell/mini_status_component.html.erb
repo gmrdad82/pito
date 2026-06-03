@@ -1,25 +1,34 @@
 <span class="inline-flex items-center">
-  <% if @mode == :start %>
-    <span class="text-red"><%= t("pito.shell.mini_status.not_authenticated") %></span>
-  <% else %>
-    <span class="<%= connection_class %>"><%= connection_label %></span>
+  <%= render(Pito::Shell::MiniStatus::AuthComponent.new(state: @state)) %>
+  <% unless @mode == :start %>
     <% if @show_notifications && @notifications > 0 %>
       <span class="text-fg-faded mx-2">·</span>
-      <span class="text-cyan"><%= t("pito.shell.mini_status.notifications_count", count: @notifications) %></span>
+      <%= render(Pito::Shell::MiniStatus::NotificationsComponent.new(count: @notifications)) %>
     <% end %>
     <span class="text-fg-faded mx-2">·</span>
-    <span class="font-bold text-yellow"><%= t("pito.shell.mini_status.tab_hint") %></span>
-    <span class="text-fg-dim ml-2"><%= t("pito.shell.mini_status.tab_label") %></span>
+    <%= render(Pito::Shell::MiniStatus::KeyHintComponent.new(
+          hint:  t("pito.shell.mini_status.tab_hint"),
+          label: t("pito.shell.mini_status.tab_label")
+        )) %>
     <span class="text-fg-faded mx-2">·</span>
-    <span class="font-bold text-yellow"><%= t("pito.shell.mini_status.shift_tab_hint") %></span>
-    <span class="text-fg-dim ml-2"><%= t("pito.shell.mini_status.shift_tab_label") %></span>
-    <span class="text-fg-faded mx-2"><%= t("pito.shell.mini_status.separator") %></span>
-    <span class="font-bold text-yellow"><%= t("pito.shell.mini_status.audio_hint") %></span>
-    <span id="pito-audio-label" class="text-fg-dim ml-2"><%= t("pito.shell.mini_status.audio_label") %></span>
-    <span class="text-fg-faded mx-2"><%= t("pito.shell.mini_status.separator") %></span>
-    <span class="font-bold text-yellow"
-          data-controller="pito--platform-key"
-          data-pito--platform-key-mac-value="<%= t("pito.shell.mini_status.commands_hint_mac") %>"><%= t("pito.shell.mini_status.commands_hint") %></span>
-    <span class="text-fg-dim ml-2"><%= t("pito.shell.mini_status.commands_label") %></span>
+    <%= render(Pito::Shell::MiniStatus::KeyHintComponent.new(
+          hint:  t("pito.shell.mini_status.shift_tab_hint"),
+          label: t("pito.shell.mini_status.shift_tab_label")
+        )) %>
+    <span class="text-fg-faded mx-2">·</span>
+    <%= render(Pito::Shell::MiniStatus::KeyHintComponent.new(
+          hint:     t("pito.shell.mini_status.audio_hint"),
+          label:    t("pito.shell.mini_status.audio_label"),
+          label_id: "pito-audio-label"
+        )) %>
+    <span class="text-fg-faded mx-2">·</span>
+    <%= render(Pito::Shell::MiniStatus::KeyHintComponent.new(
+          hint:      t("pito.shell.mini_status.commands_hint"),
+          label:     t("pito.shell.mini_status.commands_label"),
+          hint_data: {
+            "controller"                          => "pito--platform-key",
+            "pito--platform-key-mac-value" => t("pito.shell.mini_status.commands_hint_mac")
+          }
+        )) %>
   <% end %>
 </span>

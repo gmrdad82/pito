@@ -83,9 +83,12 @@ RSpec.describe "P27 /connect + OAuth callback", type: :request do
 
     before { authenticate_via_totp }
 
-    it "redirects to /auth/google_oauth2" do
+    it "returns a Turbo Stream navigate action targeting /auth/google_oauth2" do
       post chat_path, params: { input: "/connect", uuid: conversation.uuid }
-      expect(response).to redirect_to("/auth/google_oauth2")
+      expect(response).to have_http_status(:ok)
+      expect(response.content_type).to include("text/vnd.turbo-stream.html")
+      expect(response.body).to include('action="navigate"')
+      expect(response.body).to include("/auth/google_oauth2")
     end
 
     it "stashes the youtube_connect intent and conversation_uuid in session" do
@@ -104,7 +107,7 @@ RSpec.describe "P27 /connect + OAuth callback", type: :request do
 
   # ── OAuth callback ─────────────────────────────────────────────────────────
 
-  describe "GET /auth/google/callback" do
+  describe "GET /auth/youtube/callback" do
     before do
       authenticate_via_totp
       # Stash intent + conversation UUID as ChatController would
@@ -130,17 +133,17 @@ RSpec.describe "P27 /connect + OAuth callback", type: :request do
       end
 
       it "creates a YoutubeConnection" do
-        expect { get "/auth/google/callback" }.to change(YoutubeConnection, :count).by(1)
+        expect { get "/auth/youtube/callback" }.to change(YoutubeConnection, :count).by(1)
         expect(YoutubeConnection.last.google_subject_id).to eq("sub-abc")
       end
 
       it "creates Channel rows via youtube_channel_id" do
-        expect { get "/auth/google/callback" }.to change(Channel, :count).by(1)
+        expect { get "/auth/youtube/callback" }.to change(Channel, :count).by(1)
         expect(Channel.last.youtube_channel_id).to eq("UCaaa111")
       end
 
       it "persists a result Event on the conversation and redirects to /chat/:uuid" do
-        get "/auth/google/callback"
+        get "/auth/youtube/callback"
 
         expect(response).to redirect_to(conversation_path(uuid: conversation.uuid))
         result_event = conversation.events.where(kind: :system).last
@@ -148,26 +151,65 @@ RSpec.describe "P27 /connect + OAuth callback", type: :request do
         expect(result_event.payload["text"]).to include("Alpha Channel")
       end
 
+      it "does NOT complete the turn (multi-stage flow: stats job will complete)" do
+        get "/auth/youtube/callback"
+
+        turn = conversation.turns.order(:position).last
+        expect(turn.input_text).to eq("/connect")
+        expect(turn.completed_at).to be_nil
+      end
+
+      it "enqueues ChannelInfoJob for the new connection and turn" do
+        expect {
+          get "/auth/youtube/callback"
+        }.to have_enqueued_job(ChannelInfoJob)
+      end
+
       it "upserts the connection (re-running /connect)" do
-        get "/auth/google/callback"
+        get "/auth/youtube/callback"
 
         # Re-run /connect with same subject_id
         post chat_path, params: { input: "/connect", uuid: conversation.uuid }
-        get "/auth/google/callback"
+        get "/auth/youtube/callback"
 
         expect(YoutubeConnection.where(google_subject_id: "sub-abc").count).to eq(1)
       end
 
-      it "skips duplicate channels" do
+      it "skips duplicate channels and emits an error event" do
         create(:channel, youtube_channel_id: "UCaaa111")
         allow_any_instance_of(YoutubeConnections::OauthCallbacksController)
           .to receive(:discover_and_link_channels).and_return(
             { added: [], duplicates: [ "Alpha Channel" ], error: nil }
           )
 
-        expect { get "/auth/google/callback" }.not_to change(Channel, :count)
-        result = conversation.events.where(kind: :system).last
-        expect(result.payload["text"]).to include("already linked")
+        expect { get "/auth/youtube/callback" }.not_to change(Channel, :count)
+        result = conversation.events.where(kind: :error).last
+        expect(result).to be_present
+        expect(result.payload["text"]).to include("is already connected")
+      end
+
+      it "completes the turn immediately for error cases (no follow-up stats)" do
+        create(:channel, youtube_channel_id: "UCaaa111")
+        allow_any_instance_of(YoutubeConnections::OauthCallbacksController)
+          .to receive(:discover_and_link_channels).and_return(
+            { added: [], duplicates: [ "Alpha Channel" ], error: nil }
+          )
+
+        get "/auth/youtube/callback"
+        turn = conversation.turns.order(:position).last
+        expect(turn.completed_at).to be_present
+      end
+
+      it "does NOT enqueue ChannelInfoJob for error cases" do
+        create(:channel, youtube_channel_id: "UCaaa111")
+        allow_any_instance_of(YoutubeConnections::OauthCallbacksController)
+          .to receive(:discover_and_link_channels).and_return(
+            { added: [], duplicates: [ "Alpha Channel" ], error: nil }
+          )
+
+        expect {
+          get "/auth/youtube/callback"
+        }.not_to have_enqueued_job(ChannelInfoJob)
       end
     end
 
@@ -180,7 +222,7 @@ RSpec.describe "P27 /connect + OAuth callback", type: :request do
       end
 
       it "sets needs_reauth on the connection and redirects to the conversation" do
-        get "/auth/google/callback"
+        get "/auth/youtube/callback"
         expect(YoutubeConnection.last.needs_reauth).to be true
         expect(response).to redirect_to(conversation_path(uuid: conversation.uuid))
       end

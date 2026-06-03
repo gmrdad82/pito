@@ -43,5 +43,76 @@ RSpec.describe Pito::Slash::Parser do
         described_class.call(lex("/"), raw: "/")
       }.to raise_error(described_class::MissingVerb)
     end
+
+    describe "unquoted kwarg values with special characters" do
+      it "slurps dashes and dots into a single kwarg value" do
+        result = described_class.call(
+          lex("/config google client_id=abc-def.ghi"),
+          raw: "/config google client_id=abc-def.ghi"
+        )
+        expect(result.kwargs).to eq({ client_id: "abc-def.ghi" })
+      end
+
+      it "slurps a full Google client_id without quotes" do
+        result = described_class.call(
+          lex("/config google client_id=452280733426-sjasdasdad12123lfh6ckt4vu2.apps.googleusercontent.com"),
+          raw: "/config google client_id=452280733426-sjasdasdad12123lfh6ckt4vu2.apps.googleusercontent.com"
+        )
+        expect(result.kwargs[:client_id]).to eq(
+          "452280733426-sjasdasdad12123lfh6ckt4vu2.apps.googleusercontent.com"
+        )
+      end
+
+      it "slurps a redirect URI with slashes and colons" do
+        result = described_class.call(
+          lex("/config google redirect_uri=http://localhost:3027/auth/youtube/callback"),
+          raw: "/config google redirect_uri=http://localhost:3027/auth/youtube/callback"
+        )
+        expect(result.kwargs[:redirect_uri]).to eq(
+          "http://localhost:3027/auth/youtube/callback"
+        )
+      end
+
+      it "handles multiple kwargs where values contain special chars" do
+        result = described_class.call(
+          lex("/config google client_id=abc-def client_secret=xyz.123"),
+          raw: "/config google client_id=abc-def client_secret=xyz.123"
+        )
+        expect(result.kwargs).to eq({
+          client_id:     "abc-def",
+          client_secret: "xyz.123"
+        })
+      end
+    end
+
+    describe "positional args with special characters" do
+      it "slurps a positional arg containing dashes" do
+        result = described_class.call(
+          lex("/disconnect @gmrdad82-channel"),
+          raw: "/disconnect @gmrdad82-channel"
+        )
+        expect(result.args).to eq([ "@gmrdad82-channel" ])
+      end
+    end
+
+    describe "numeric kwarg values" do
+      it "preserves integer type for pure digit values" do
+        result = described_class.call(
+          lex("/publish 42 privacy=1"),
+          raw: "/publish 42 privacy=1"
+        )
+        expect(result.kwargs[:privacy]).to eq(1)
+        expect(result.kwargs[:privacy]).to be_an(Integer)
+      end
+
+      it "preserves float type for decimal values" do
+        result = described_class.call(
+          lex("/set threshold=3.14"),
+          raw: "/set threshold=3.14"
+        )
+        expect(result.kwargs[:threshold]).to eq(3.14)
+        expect(result.kwargs[:threshold]).to be_a(Float)
+      end
+    end
   end
 end

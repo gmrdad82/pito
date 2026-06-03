@@ -23,7 +23,20 @@ test:
   password: <%= Rails.application.credentials.dig(:postgres, :test, :password) || "" %>
 
 production:
-  <<: *default
-  database: <%= Rails.application.credentials.dig(:postgres, :production, :database) %>
-  username: <%= Rails.application.credentials.dig(:postgres, :production, :username) %>
-  password: <%= Rails.application.credentials.dig(:postgres, :production, :password) %>
+  primary: &production
+    <<: *default
+    database: <%= Rails.application.credentials.dig(:postgres, :production, :database) %>
+    username: <%= Rails.application.credentials.dig(:postgres, :production, :username) %>
+    password: <%= Rails.application.credentials.dig(:postgres, :production, :password) %>
+  # SolidCache, SolidQueue, SolidCable all share the same physical database.
+  # database_tasks: false tells Rails to skip create/migrate/drop for these roles
+  # (the primary manages the schema for all of them).
+  cache:
+    <<: *production
+    database_tasks: false
+  queue:
+    <<: *production
+    database_tasks: false
+  cable:
+    <<: *production
+    database_tasks: false

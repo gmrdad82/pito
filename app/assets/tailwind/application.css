@@ -360,6 +360,8 @@ html {
 /* ── Echo event component ───────────────────────────────────── */
 
 .pito-echo__meta {
+  display: flex;
+  align-items: center;
   margin-top: 6px;
 }
 

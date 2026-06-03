@@ -106,26 +106,39 @@ RSpec.describe Pito::Stream::Broadcaster do
   describe "#resolve_thinking" do
     it "updates the thinking event payload and broadcasts a replace" do
       thinking = broadcaster.emit_thinking(turn:, dictionary: "slash")
-      turn.update!(completed_at: Time.current)
 
       expect {
-        broadcaster.resolve_thinking(turn:, elapsed_seconds: 2.5)
+        broadcaster.resolve_thinking(turn:)
       }.to have_broadcasted_to("pito:conversation:#{conversation.uuid}").with { |msg|
         html = broadcast_html(msg)
         expect(html).to include("action=\"replace\"")
         expect(html).to include(%(target="event_#{thinking.id}"))
-        expect(html).to include("for 2.5s")
       }
 
       thinking.reload
       expect(thinking.payload["resolved"]).to eq(true)
-      expect(thinking.payload["elapsed_seconds"]).to eq(2.5)
+      expect(thinking.payload["elapsed_seconds"]).to be >= 0
     end
 
     it "is a no-op when no thinking event exists" do
       expect {
-        broadcaster.resolve_thinking(turn:, elapsed_seconds: 1.0)
+        broadcaster.resolve_thinking(turn:)
       }.not_to have_broadcasted_to("pito:conversation:#{conversation.uuid}")
+    end
+  end
+
+  describe "#complete_turn" do
+    it "marks the turn complete and broadcasts pito:done" do
+      expect {
+        broadcaster.complete_turn(turn:)
+      }.to have_broadcasted_to("pito:conversation:#{conversation.uuid}").with { |msg|
+        html = broadcast_html(msg)
+        expect(html).to include("action=\"append\"")
+        expect(html).to include("pito--done-dispatch")
+      }
+
+      turn.reload
+      expect(turn.completed_at).to be_present
     end
   end
 end

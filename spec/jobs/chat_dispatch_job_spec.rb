@@ -37,12 +37,6 @@ RSpec.describe ChatDispatchJob, type: :job do
         expect(turn.reload.completed_at).not_to be_nil
       end
 
-      it "adds elapsed_seconds to result event payloads" do
-        described_class.perform_now(turn.id, channel: "@all")
-        result_event = turn.events.reload.find { |e| e.kind != "echo" }
-        expect(result_event.payload["elapsed_seconds"]).not_to be_nil
-      end
-
       it "assigns kind: system to the first result event" do
         described_class.perform_now(turn.id, channel: "@all")
         result_events = turn.events.reload.where.not(kind: %w[echo thinking]).order(:position)

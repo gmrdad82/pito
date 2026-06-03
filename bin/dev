@@ -5,6 +5,9 @@ if ! gem list foreman -i --silent; then
   gem install foreman
 fi
 
+# Ensure the dev Postgres container is up and healthy before Rails starts.
+docker compose -f docker-compose.dev.yml up -d --wait --remove-orphans postgres
+
 # Default to port 3027 if not specified
 export PORT="${PORT:-3027}"
 

@@ -1,0 +1,16 @@
+<%# Title row %>
+<div class="flex justify-between items-center px-1.5">
+  <span class="font-bold text-fg"><%= t("pito.palette.ctrl_k.title") %></span>
+  <span class="text-fg-dim"><%= t("pito.palette.ctrl_k.esc_hint") %></span>
+</div>
+
+<div class="h-3"></div>
+
+<div class="flex items-center pb-1 border-b border-line-default mx-1.5">
+  <input type="text"
+         data-pito--command-palette-target="search"
+         data-action="input->pito--command-palette#filter keydown->pito--command-palette#onSearchKey"
+         placeholder="<%= t('pito.palette.ctrl_k.search_placeholder') %>"
+         autocomplete="off"
+         class="bg-transparent text-fg outline-none w-full placeholder:text-fg-dim font-mono text-base">
+</div>

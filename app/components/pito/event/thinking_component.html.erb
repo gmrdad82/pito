@@ -1,6 +1,6 @@
 <% if resolved? %>
   <%= render(Pito::Segment::Component.new(id: dom_id)) do %>
-    <span class="pito-thinking__message"><%= resolved_message %></span>
+    <span class="pito-thinking__message" data-controller="pito--turn-complete"><%= resolved_message %></span>
   <% end %>
 <% else %>
   <%= render(Pito::Segment::Component.new(id: dom_id)) do %>

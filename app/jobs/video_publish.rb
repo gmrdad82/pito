@@ -53,10 +53,8 @@ class VideoPublish < ApplicationJob
   # UTC instant is the source of truth — the log line documents the
   # render-time context.
   def log_tz_observability(video, utc_instant)
-    user = video.channel&.youtube_connection&.user
-    tz = user&.time_zone.presence || "Etc/UTC"
     Rails.logger.info(
-      "VideoPublish video_id=#{video.id} publish_at_utc=#{utc_instant.iso8601} time_zone=#{tz}"
+      "VideoPublish video_id=#{video.id} publish_at_utc=#{utc_instant.iso8601}"
     )
   rescue StandardError => e
     # Logging must never raise — defensive.

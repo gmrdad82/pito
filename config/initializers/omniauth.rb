@@ -85,11 +85,10 @@ Rails.application.config.middleware.use OmniAuth::Builder do
              access_type: "offline",
              prompt: "consent",
              skip_jwt: true,
-             # The Google Cloud Console is registered with the
-             # callback URI `<host>/auth/google/callback`
-             # (NOT the gem default `/auth/google_oauth2/callback`).
-             callback_path: "/auth/google/callback",
-             pkce: true,
+               # Custom callback path — YouTube-connection only. The
+               # Google Cloud Console must register this exact URI.
+               callback_path: "/auth/youtube/callback",
+               pkce: true,
              # Inject credentials per-request from AppSetting (via
              # Pito::Credentials cache). redirect_uri falls back to
              # the local dev default when blank.
@@ -97,11 +96,11 @@ Rails.application.config.middleware.use OmniAuth::Builder do
                creds = Pito::Credentials
                env["omniauth.strategy"].options[:client_id]     = creds.google_oauth_client_id
                env["omniauth.strategy"].options[:client_secret] = creds.google_oauth_client_secret
-               unless Rails.env.test?
-                 env["omniauth.strategy"].options[:redirect_uri] =
-                   creds.google_oauth_redirect_uri ||
-                   "http://localhost:3027/auth/google/callback"
-               end
+                unless Rails.env.test?
+                  env["omniauth.strategy"].options[:redirect_uri] =
+                    creds.google_oauth_redirect_uri ||
+                    "http://localhost:3027/auth/youtube/callback"
+                end
              }
            }
 end

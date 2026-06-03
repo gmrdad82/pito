@@ -1,7 +1,20 @@
 en:
   pito:
     auth:
-      not_enrolled: "No TOTP enrolled — run bin/rails pito:tools:auth:enroll."
+      not_enrolled: "No TOTP enrolled. Run bin/boot --totp to set one up."
+      enroll:
+        success: |
+          TOTP enrolled.
+
+          To log in, add this code to your TOTP app (Google Authenticator, 1Password, etc.):
+
+            %{otpauth_uri}
+
+          Or enter the secret manually: %{seed}
+
+          Then open pito in your browser and type:
+
+            /login <6-digit code from your app>
       failures:
         - "Authentication failed. So did the vibe."
         - "Nope. The code disagrees."

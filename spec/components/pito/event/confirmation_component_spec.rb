@@ -6,7 +6,7 @@ RSpec.describe Pito::Event::ConfirmationComponent do
   let(:body_text) { "You're about to disconnect from @gmrdad82." }
 
   let(:pending_payload) do
-    { body: body_text, confirmation_handle: "alpha-1322", authenticated: true }
+    { body: body_text, confirmation_handle: "alpha-1322" }
   end
 
   describe "orange accent" do
@@ -21,13 +21,6 @@ RSpec.describe Pito::Event::ConfirmationComponent do
       node = render_inline(described_class.new(payload: pending_payload))
       expect(node.css("span.text-fg").first.text).to include("@gmrdad82")
     end
-
-    it "falls back to prompt_key i18n for legacy payloads" do
-      node = render_inline(described_class.new(
-        payload: { prompt_key: "pito.slash.confirm_demo.prompt" }
-      ))
-      expect(node.css("span.text-fg").first.text).to include("Confirm running this demo command?")
-    end
   end
 
   describe "meta line" do
@@ -37,20 +30,64 @@ RSpec.describe Pito::Event::ConfirmationComponent do
       expect(meta.text).to include("#alpha-1322")
     end
 
-    it "shows @all when authenticated" do
+    it "does not show a channel label" do
       node = render_inline(described_class.new(payload: pending_payload))
-      expect(node.css(".pito-echo__meta span.text-cyan").text).to include("@all")
-    end
-
-    it "hides @all when authenticated: false" do
-      payload = pending_payload.merge(authenticated: false)
-      node = render_inline(described_class.new(payload:))
       expect(node.css(".pito-echo__meta span.text-cyan")).to be_empty
     end
 
     it "shows no handle when confirmation_handle is absent" do
       node = render_inline(described_class.new(payload: { body: body_text }))
       expect(node.css(".pito-echo__meta").text).not_to include("#")
+    end
+  end
+
+  describe "expand_detail (ctrl+|)" do
+    let(:payload_with_detail) do
+      pending_payload.merge(expand_detail: [
+        "3 videos will be deleted",
+        "  Published: 2",
+        "  Unlisted: 1"
+      ])
+    end
+
+    it "renders the pito--expand controller" do
+      node = render_inline(described_class.new(payload: payload_with_detail))
+      expect(node.css("[data-controller='pito--expand']")).not_to be_empty
+    end
+
+    it "renders the detail lines in the hidden detail block" do
+      node = render_inline(described_class.new(payload: payload_with_detail))
+      detail = node.css("[data-pito--expand-target='detail']").first
+      expect(detail.text).to include("Published: 2")
+    end
+
+    it "shows the ctrl+| hint" do
+      node = render_inline(described_class.new(payload: payload_with_detail))
+      expect(node.css("[data-pito--expand-target='hint']").text).to include("ctrl+|")
+    end
+
+    it "does not render expand block when no expand_detail" do
+      node = render_inline(described_class.new(payload: pending_payload))
+      expect(node.css("[data-controller='pito--expand']")).to be_empty
+    end
+
+    it "does not render expand block when resolved" do
+      payload = payload_with_detail.merge(resolved: true, outcome: "confirmed", outcome_text: "Done.")
+      node = render_inline(described_class.new(payload:))
+      expect(node.css("[data-controller='pito--expand']")).to be_empty
+    end
+  end
+
+  describe "dom_id" do
+    it "returns nil when no event is given" do
+      comp = described_class.new(payload: pending_payload)
+      expect(comp.dom_id).to be_nil
+    end
+
+    it "returns event_N when an event is given" do
+      event = build_stubbed_event(id: 99)
+      comp = described_class.new(payload: pending_payload, event: event)
+      expect(comp.dom_id).to eq("event_99")
     end
   end
 
@@ -85,7 +122,7 @@ RSpec.describe Pito::Event::ConfirmationComponent do
       pending_payload.merge(
         resolved: true,
         outcome: "cancelled",
-        outcome_text: "Alright, I won't disconnect from this channel."
+        outcome_text: "Alright, leaving @gmrdad82 connected."
       )
     end
 
@@ -98,7 +135,7 @@ RSpec.describe Pito::Event::ConfirmationComponent do
       node = render_inline(described_class.new(payload:))
       outcome_div = node.css(".border-t").first
       expect(outcome_div).not_to be_nil
-      expect(outcome_div.text).to include("won't disconnect")
+      expect(outcome_div.text).to include("leaving @gmrdad82 connected")
     end
   end
 
@@ -122,5 +159,11 @@ RSpec.describe Pito::Event::ConfirmationComponent do
       comp = Pito::Event::ConfirmationFollowUpComponent.new(payload: pending_payload)
       expect(comp.background).to eq("var(--bg-elevated)")
     end
+  end
+
+  private
+
+  def build_stubbed_event(id:)
+    double("Event", id: id, created_at: Time.zone.now)
   end
 end

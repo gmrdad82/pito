@@ -1,23 +1,10 @@
 en:
   pito:
     slash:
-      help:
-        intro: "%{count} commands available."
-        entry: "/%{verb} — %{description}"
-        unauthenticated: "Login first — /login <code>. Type /login <6-digit TOTP code> to unlock all commands."
-        more_hint: "ctrl+o to see %{count} more"
-        fewer_hint: "ctrl+o to collapse"
-        descriptions:
-          help: "Show this command list"
-          confirm_demo: "Demo confirmation prompt"
-          config: "Read or write install-wide credentials"
-          connect: "Connect a YouTube channel via Google OAuth"
       errors:
         unknown_verb: "Unknown command: /%{verb}. Type /help for the command list."
         parse_failed: "Couldn't parse command: %{raw}"
       confirm_hint: "type /confirm or /cancel"
-      confirm_demo:
-        prompt: "Confirm running this demo command?"
       connect:
         descriptions:
           connect: "Connect a YouTube channel via Google OAuth"
@@ -39,17 +26,16 @@ en:
             /config <provider> --help   for provider-level key reference.
             Omit all keys to show current credential status.
           providers:
-            google: |
-              /config google [key=value …]
-
-              Keys:
-                client_id=      Google OAuth client ID (Google Cloud Console)
-                client_secret=  Google OAuth client secret
-                redirect_uri=   OAuth callback URL (e.g. http://localhost:3027/auth/google_oauth2/callback)
-                api_key=        Google API key (YouTube Data v3)
-
-              Omit all keys to show current credential status.
-              Run /connect after configuring to start the OAuth flow.
+            google:
+              keys:
+                client_id: "Google OAuth client ID (Google Cloud Console)"
+                client_secret: "Google OAuth client secret"
+                redirect_uri: "OAuth callback URL (e.g. http://localhost:3027/auth/youtube/callback)"
+                api_key: "Google API key (YouTube Data v3)"
+              omit_hint: "Omit all keys to show current credential status."
+              suggestion:
+                pre: "Run"
+                post: "after configuring to start the OAuth2 flow"
             voyage: |
               /config voyage [key=value …]
 
@@ -76,7 +62,38 @@ en:
         status:
           ok: "OK"
           missing: "MISSING"
-        updated: "Updated %{provider} credentials (%{keys}). Changes take effect immediately (Google OAuth requires restart)."
+          section:
+            google: "Google credentials"
+            voyage: "Voyage credentials"
+            igdb: "IGDB credentials"
+            webhook: "Webhook URLs"
+        updated: "Updated %{provider} credentials (%{keys}). Changes take effect immediately."
         errors:
           unknown_provider: "Unknown provider '%{provider}'. Supported: google, voyage, igdb, webhook"
           unknown_keys: "Unknown keys for %{provider}: %{keys}"
+      import:
+        imported:
+          one: "Imported 1 video from %{channel}."
+          other: "Imported %{count} videos from %{channel}."
+      disconnect:
+        descriptions:
+          disconnect: "Disconnect a YouTube channel"
+        errors:
+          missing_target: "Usage: /disconnect @handle or /disconnect <id>"
+          not_found: "No channel found matching '%{target}'."
+          already_gone: "Channel no longer exists."
+        confirmation:
+          body: "Disconnect from %{handle_html}? This will also delete all local videos."
+          cancelled: "Alright, leaving %{handle} connected."
+          confirmed:
+            zero: "Disconnected from %{handle}. No videos to delete."
+            one: "Disconnected from %{handle}. 1 video deleted."
+            other: "Disconnected from %{handle}. %{count} videos deleted."
+          expand:
+            total: "Videos"
+            published: "Published"
+            scheduled: "Scheduled"
+            unlisted: "Unlisted"
+            private: "Private"
+            subscribers: "Subscribers"
+            views: "Views"

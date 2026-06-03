@@ -1,0 +1,25 @@
+# Dev database — used by bin/dev (local Ruby + Docker Postgres).
+# No name: field → inherits project name "pito" from the directory,
+# which preserves the existing pito_postgres_data volume.
+#
+# Host port 54327 → container 5432. Only postgres; Rails runs on the host.
+
+volumes:
+  postgres_data:
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    ports:
+      - "127.0.0.1:54327:5432"
+    environment:
+      POSTGRES_USER: pito
+      POSTGRES_DB: pito_development
+      POSTGRES_HOST_AUTH_METHOD: trust
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 5s
+      timeout: 5s
+      retries: 10

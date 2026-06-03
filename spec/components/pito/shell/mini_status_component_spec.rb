@@ -3,20 +3,6 @@
 require "rails_helper"
 
 RSpec.describe Pito::Shell::MiniStatusComponent do
-  # connection_label uses `t(...)` which requires a render context — tested via render_inline below.
-  # connection_class is a pure Ruby method and can be called directly.
-  describe "#connection_class" do
-    it "returns text-green when state is true" do
-      comp = described_class.new(state: true)
-      expect(comp.connection_class).to eq("text-green")
-    end
-
-    it "returns text-red when state is false" do
-      comp = described_class.new(state: false)
-      expect(comp.connection_class).to eq("text-red")
-    end
-  end
-
   describe "rendered output" do
     context "mode: :connection (default)" do
       context "when state is true (authenticated)" do
@@ -48,7 +34,7 @@ RSpec.describe Pito::Shell::MiniStatusComponent do
 
     context "mode: :start" do
       it "renders only the auth label — no audio hint" do
-        node = render_inline(described_class.new(mode: :start))
+        node = render_inline(described_class.new(mode: :start, state: false))
         expect(node.to_html).to include("○ auth")
         expect(node.to_html).not_to include("ctrl+m")
         expect(node.to_html).not_to include("mute")
@@ -60,8 +46,22 @@ RSpec.describe Pito::Shell::MiniStatusComponent do
         expect(node.to_html).not_to include("commands")
       end
 
+      it "renders ○ auth in red when state: false" do
+        node = render_inline(described_class.new(mode: :start, state: false))
+        label = node.css("span.text-red").first
+        expect(label).to be_present
+        expect(label.text).to include("○ auth")
+      end
+
+      it "renders ● auth in green when state: true (authenticated)" do
+        node = render_inline(described_class.new(mode: :start, state: true))
+        label = node.css("span.text-green").first
+        expect(label).to be_present
+        expect(label.text).to include("● auth")
+      end
+
       it "renders no separators in start mode" do
-        node = render_inline(described_class.new(mode: :start))
+        node = render_inline(described_class.new(mode: :start, state: false))
         expect(node.css("span.text-fg-faded")).to be_empty
       end
     end

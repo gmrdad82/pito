@@ -1,11 +1,11 @@
 // pito--expand
 //
-// Generic collapsible content: Ctrl+O toggles the LAST expandable element in
+// Generic collapsible content: Ctrl+| toggles the LAST expandable element in
 // the DOM (expand ↔ collapse). Works for error details and /help overflow.
 //
 // Required targets:
 //   detail     — the hidden/shown content block
-//   hint       — the "ctrl+o …" wrapper line (hidden while expanded)
+//   hint       — the "ctrl+| …" wrapper line (hidden while expanded)
 //   hintLabel  — the text span whose content switches between expand/collapse labels
 //
 // Values (set by server template):
@@ -13,9 +13,10 @@
 //   collapseLabelValue — e.g. "to collapse"
 
 import { Controller } from "@hotwired/stimulus"
+import { isAuthenticated } from "pito/auth"
 
 export default class extends Controller {
-  static targets = ["hint", "hintLabel", "detail"]
+  static targets = ["hint", "hintAfter", "hintLabel", "detail"]
   static values  = { expandLabel: String, collapseLabel: String }
 
   connect() {
@@ -38,6 +39,11 @@ export default class extends Controller {
     const nowExpanded = !this.#isExpanded
     this.element.dataset.expanded = String(nowExpanded)
     this.detailTarget.classList.toggle("hidden", !nowExpanded)
+
+    // Top hint hides when expanded; bottom hint shows when expanded.
+    if (this.hasHintTarget)       this.hintTarget.classList.toggle("hidden", nowExpanded)
+    if (this.hasHintAfterTarget)  this.hintAfterTarget.classList.toggle("hidden", !nowExpanded)
+
     if (this.hasHintLabelTarget) {
       this.hintLabelTarget.textContent = nowExpanded
         ? (this.collapseLabel || "to collapse")
@@ -46,7 +52,8 @@ export default class extends Controller {
   }
 
   #onKeydown(e) {
-    if (!e.ctrlKey || e.key !== "o") return
+    if (!e.ctrlKey || e.key !== "|") return
+    if (!isAuthenticated()) return
     if (!this.#isLastExpandable()) return
     e.preventDefault()
     this.#toggle()

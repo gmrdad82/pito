@@ -14,12 +14,12 @@
 #   1. Apply auth gating — an unauthenticated session is refused here.
 #   2. Otherwise dispatch to the correct handler (slash or chat).
 #   3. Persist each result Event first (so a page refresh mid-job shows the echo).
-#   4. Stamp turn.completed_at and compute elapsed_seconds.
-#   5. Broadcast each result Event (elapsed_seconds included in payload).
+#   4. Resolve the thinking indicator (elapsed computed from its own started_at).
+#   5. Complete the turn (broadcasts pito:done — dots hide).
 class ChatDispatchJob < ApplicationJob
   queue_as :default
 
-  def perform(turn_id, channel:, period: nil, authenticated: true)
+  def perform(turn_id, channel: nil, period: nil, authenticated: true)
     turn         = Turn.find(turn_id)
     conversation = turn.conversation
     input        = turn.input_text
@@ -43,13 +43,9 @@ class ChatDispatchJob < ApplicationJob
       Pito::Chat::Dispatcher.call(input:, conversation:)
     end
 
-    # Stamp completion before persisting result events so elapsed_seconds is
-    # accurate when events are rendered.
-    turn.update!(completed_at: Time.current)
-    elapsed = turn.elapsed_seconds
-
-    persist_and_broadcast(result, turn, conversation, broadcaster, elapsed)
-    broadcaster.resolve_thinking(turn:, elapsed_seconds: elapsed)
+    persist_and_broadcast(result, turn, conversation, broadcaster)
+    broadcaster.resolve_thinking(turn:)
+    broadcaster.complete_turn(turn:)
   rescue StandardError => e
     # Surface the error as a visible event in the scrollback so the user isn't
     # left staring at a spinning Braille indicator (P25).
@@ -57,26 +53,24 @@ class ChatDispatchJob < ApplicationJob
     return unless turn
 
     conversation = turn.conversation
-    turn.update!(completed_at: Time.current) unless turn.completed_at?
-    elapsed = turn.elapsed_seconds
     broadcaster = Pito::Stream::Broadcaster.new(conversation:)
     broadcaster.emit(
       turn:,
       kind: :error,
       payload: {
-        text:             I18n.t("pito.errors.dispatch_failed").sample,
-        detail:           e.message,
-        elapsed_seconds:  elapsed
+        text:   I18n.t("pito.errors.dispatch_failed").sample,
+        detail: e.message
       }
     )
-    broadcaster.resolve_thinking(turn:, elapsed_seconds: elapsed)
+    broadcaster.resolve_thinking(turn:)
+    broadcaster.complete_turn(turn:)
     raise # re-raise so SolidQueue marks the job failed and can retry
   end
 
   private
 
-  def persist_and_broadcast(result, turn, conversation, broadcaster, elapsed)
-    events_to_emit = result_events(result, elapsed)
+  def persist_and_broadcast(result, turn, conversation, broadcaster)
+    events_to_emit = result_events(result)
     events_to_emit.each do |attrs|
       event = Event.create_with_position!(
         conversation:,
@@ -93,14 +87,10 @@ class ChatDispatchJob < ApplicationJob
   end
 
   # Translate a dispatcher Result into an array of { kind:, payload: } hashes.
-  # elapsed_seconds is injected into every result payload so P25 (Braille
-  # indicator) can display "Executed for Ns" without a separate broadcast.
-  def result_events(result, elapsed)
-    base = { elapsed_seconds: elapsed }
-
+  def result_events(result)
     case result
     when Pito::Slash::Result::Ok, Pito::Chat::Result::Ok, Pito::Chat::Result::Refine
-      assign_canonical_kinds(result.events).map { |e| { kind: e[:kind], payload: e[:payload].merge(base) } }
+      assign_canonical_kinds(result.events).map { |e| { kind: e[:kind], payload: e[:payload] } }
 
     when Pito::Slash::Result::Error, Pito::Chat::Result::Error
       # If message_key looks like already-translated text (e.g. a sampled
@@ -110,13 +100,7 @@ class ChatDispatchJob < ApplicationJob
       else
         { text: result.message_key }
       end
-      [ { kind: :error, payload: error_payload.merge(base) } ]
-
-    when Pito::Slash::Result::NeedsConfirmation
-      [ { kind: :confirmation,
-          payload: { prompt_key:    result.prompt_key,
-                     prompt_args:   result.prompt_args,
-                     command_text:  result.command_text }.merge(base) } ]
+      [ { kind: :error, payload: error_payload } ]
 
     else
       []

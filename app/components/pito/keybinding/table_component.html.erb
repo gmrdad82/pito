@@ -1,0 +1,13 @@
+<div class="flex flex-col gap-3">
+  <% @sections.each do |section| %>
+    <div class="flex flex-col gap-1">
+      <span class="text-yellow font-bold"><%= section[:title] %></span>
+      <% Array(section[:rows]).each do |row| %>
+        <div class="flex gap-4">
+          <span class="text-cyan whitespace-nowrap shrink-0 w-44"><%= row[:key] %></span>
+          <span class="text-fg-dim"><%= row[:value] %></span>
+        </div>
+      <% end %>
+    </div>
+  <% end %>
+</div>
