@@ -818,7 +818,7 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 **Keybindings**
 
 - [ ] P31.0.a Remap `chat_form_controller.js#handleKeydown`: channel cycling TAB → **SHIFT+TAB**; period cycling SHIFT+TAB → **SHIFT+SPACE** (`event.code === "Space" && event.shiftKey`); leave plain **TAB unbound here** (autosuggest claims it). Keep channel/period hidden-field + display-target sync. complexity: [low]
-- [ ] P31.0.b Update key hints: grep + edit `app/components/pito/tip/*`, chatbox placeholders, `config/locales/pito/**`, palette/help strings, `AGENTS.md` → "SHIFT+TAB channel · SHIFT+SPACE period · TAB autocomplete"; no stale "TAB = channel". complexity: [low]
+- [ ] P31.0.b Update i18n copy for the remap. **Shell hints** `config/locales/pito/shell/en.yml` (the `tab_hint/tab_label/shift_tab_hint/shift_tab_label` keys, ~lines 21–24): channels → `shift+tab`, period → `shift+space`, and add a hint pair for `tab` → `autocomplete` (rename keys to be key-agnostic, e.g. `channel_hint/period_hint/autocomplete_hint`, and update the shell component that renders them). **Start-screen tips** `config/locales/pito/start_screen/en.yml` (~lines 10–11): rewrite the "TAB cycles channels" / "Shift+TAB changes the time period" lines. Then grep the tree (`tab`, `shift+tab`, `channel`, `period`) for any remaining stale hint in placeholders / palette / help strings / `AGENTS.md`; no "TAB = channel" copy remains. complexity: [low]
 - [ ] P31.0.c Commit: `Remap chatbox keys (TAB autocomplete, SHIFT+TAB channel, SHIFT+SPACE period)`. complexity: [manual]
 
 **Grammar core (`lib/pito/grammar/`)**

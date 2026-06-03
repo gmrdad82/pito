@@ -11,7 +11,7 @@ RSpec.describe Pito::Hashtag::Parser do
     it "parses a valid handle with body tokens" do
       result = described_class.call(lex("#alpha-1234 hello world"), raw: "#alpha-1234 hello world")
       expect(result.handle).to eq(:alpha)
-      expect(result.body_tokens.map(&:value)).to eq(["hello", "world"])
+      expect(result.body_tokens.map(&:value)).to eq([ "hello", "world" ])
       expect(result.raw).to eq("#alpha-1234 hello world")
     end
 

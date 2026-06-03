@@ -74,11 +74,11 @@ module Pito
         mini_status_wrapper = %(<div id="pito-mini-status" data-pito--home-transition-target="miniStatusSlide" style="margin-left: auto;">#{mini_status_html}</div>).html_safe
 
         handles  = authenticated ? Channel.order(:handle).pluck(:handle).compact.map { |h| "@#{h}" } : []
-        channels = authenticated ? (["@all"] + handles) : nil
+        channels = authenticated ? ([ "@all" ] + handles) : nil
         filter   = authenticated ? {
           channel: handles.any? ? "@all" : "none",
           period:,
-          channels: handles.any? ? (["@all"] + handles) : []
+          channels: handles.any? ? ([ "@all" ] + handles) : []
         } : nil
 
         chatbox_html = ApplicationController.renderer.render(
