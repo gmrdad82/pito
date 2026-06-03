@@ -62,5 +62,10 @@ module Pito
     # Settings UI flips it at runtime without a Rails restart. See
     # `AppSetting.voyage_configured?` — credentials presence is the only
     # gate now that the per-target Notes flag is gone (Notes dropped D17).
+
+    # Route 404/422/500 through the Rails app so the 404 page renders the
+    # full start screen with the autocomplete-enabled chatbox, instead of
+    # the static public/404.html fallback.
+    config.exceptions_app = routes
   end
 end

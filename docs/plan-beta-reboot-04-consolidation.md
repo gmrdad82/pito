@@ -874,9 +874,9 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 
 **Cross-cutting + verification**
 
-- [ ] P31.0.an Dynamic 404: `config.exceptions_app = routes` + route framework 404s → action calling `render_not_found`; **delete `public/404.html`**; request spec (bogus URL → StartScreen 404 with working autocomplete). complexity: [low]
-- [ ] P31.0.ao Verify: `bin/rspec` green. Manual — `/` palette auth-filtered + Enter/TAB insert with trailing space; `#tag add ctr and views` metric palette; `list upc`→ghost `oming`→TAB; `… racing and rpg games for playstation`→Enter submits; `/authenticate <TOTP>` updates palette live; bogus URL → 404 autocomplete; SHIFT+TAB channel, SHIFT+SPACE period, plain TAB drives autocomplete only. complexity: [manual]
-- [ ] P31.0.ap Commit: `Wire P31.0 grammar + autocomplete; dynamic 404`. complexity: [manual]
+- [x] P31.0.an Dynamic 404: `config.exceptions_app = routes` + route framework 404s → action calling `render_not_found`; **delete `public/404.html`**; request spec (bogus URL → StartScreen 404 with working autocomplete). complexity: [low]
+- [x] P31.0.ao Verify: `bin/rspec` green. Manual — `/` palette auth-filtered + Enter/TAB insert with trailing space; `#tag add ctr and views` metric palette; `list upc`→ghost `oming`→TAB; `… racing and rpg games for playstation`→Enter submits; `/authenticate <TOTP>` updates palette live; bogus URL → 404 autocomplete; SHIFT+TAB channel, SHIFT+SPACE period, plain TAB drives autocomplete only. complexity: [manual]
+- [x] P31.0.ap Commit: `Wire P31.0 grammar + autocomplete; dynamic 404`. complexity: [manual]
 
 ## P31 — `/import videos` (smart incremental pull)
 

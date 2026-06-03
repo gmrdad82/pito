@@ -23,4 +23,20 @@ Rails.application.routes.draw do
 
   # Health check
   get "up" => "rails/health#show", as: :rails_health_check
+
+  # Dynamic error pages — rendered by exceptions_app = routes so the 404
+  # page shows the full start screen with the autocomplete-enabled chatbox.
+  # /404 is the primary path Rails internally redirects to on a routing error.
+  # The catch-all at the end handles any path that slips through without
+  # raising a RoutingError (e.g. direct navigation to unknown URLs in tests).
+  match "/404", to: "start_screens#not_found", via: :all
+  match "/422", to: "start_screens#not_found", via: :all
+  match "/500", to: "start_screens#not_found", via: :all
+
+  # Catch-all: must be LAST. Excludes /rails/** and /assets/** to avoid
+  # interfering with framework internals and the asset pipeline.
+  match "*path",
+        to: "start_screens#not_found",
+        via: :all,
+        constraints: ->(req) { !req.path.start_with?("/rails/", "/assets/") }
 end
