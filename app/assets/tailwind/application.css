@@ -329,7 +329,7 @@ html {
 .pito-segment__bar[data-accent="yellow"]  { background: var(--accent-yellow); }
 .pito-segment__bar[data-accent="purple"]  { background: var(--accent-purple); }
 .pito-segment__bar[data-accent="blue"]    { background: var(--accent-blue); }
-.pito-segment__bar[data-accent="surface"] { background: var(--bg-surface); } /* system border */
+.pito-segment__bar[data-accent="surface"] { background: var(--bg-elevated); } /* blends into chatbox bg */
 .pito-segment__bar[data-accent="pito"]    { background: var(--brand-pito); }
 
 .pito-segment__gap {

@@ -99,9 +99,29 @@ module Pito
 
           return google_help_events if provider.to_s == "google"
 
-          key = provider.present? ? "pito.slash.config.help.providers.#{provider}" : "pito.slash.config.help.general"
+          return general_help_events if provider.blank?
+
+          key = "pito.slash.config.help.providers.#{provider}"
           Pito::Slash::Result::Ok.new(events: [
             { kind: "system", payload: { text: I18n.t(key) } }
+          ])
+        end
+
+        def general_help_events
+          Pito::Slash::Result::Ok.new(events: [
+            {
+              kind:    "system",
+              payload: {
+                body:       I18n.t("pito.slash.config.help.general.body"),
+                table_rows: KNOWN_PROVIDERS.map do |p|
+                  {
+                    key:   p,
+                    value: I18n.t("pito.slash.config.help.general.providers.#{p}")
+                  }
+                end,
+                info_lines: I18n.t("pito.slash.config.help.general.info_lines")
+              }
+            }
           ])
         end
 

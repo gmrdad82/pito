@@ -36,6 +36,21 @@ module Pito
         @payload[:collapse_label].presence || I18n.t("pito.slash.help.fewer_hint")
       end
 
+      def render_info_line(line)
+        segments = line.to_s.split(/(`[^`]+`)/)
+        html = segments.map do |seg|
+          if seg.start_with?("`") && seg.end_with?("`")
+            content = ERB::Util.html_escape(seg[1..-2])
+            %(<code class="text-fg">#{content}</code>)
+          elsif seg.present?
+            %(<span class="text-fg-dim">#{ERB::Util.html_escape(seg)}</span>)
+          else
+            ""
+          end
+        end.join
+        html.html_safe
+      end
+
       private
 
       def resolve_text(payload)

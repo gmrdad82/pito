@@ -19,11 +19,15 @@ RSpec.describe Pito::Slash::Handlers::Config, type: :service do
   after  { Pito::Credentials.invalidate! }
 
   describe "#call — /config --help (general)" do
-    it "returns general help listing all providers" do
+    it "returns a structured system event with body, table rows, and info lines" do
       result = build_handler(raw: "/config --help").call
       expect(result).to be_a(Pito::Slash::Result::Ok)
-      text = result.events.first[:payload][:text]
-      expect(text).to include("google", "voyage", "igdb", "webhook")
+      expect(result.events.length).to eq(1)
+      payload = result.events.first[:payload]
+      expect(payload[:body]).to include("/config <provider>")
+      rows = payload[:table_rows]
+      expect(rows.map { |r| r[:key] }).to include("google", "voyage", "igdb", "webhook")
+      expect(payload[:info_lines]).to be_present
     end
 
     it "does not treat --help as an unknown provider error" do

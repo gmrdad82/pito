@@ -14,17 +14,16 @@ en:
         descriptions:
           config: "Read or write install-wide credentials (/config google|voyage|igdb|webhook)"
         help:
-          general: |
-            /config <provider> [key=value …]
-
-            Providers:
-              google   — OAuth + YouTube API credentials
-              voyage   — Voyage AI embedding key
-              igdb     — IGDB game database client credentials
-              webhook  — Slack / Discord incoming webhook URLs
-
-            /config <provider> --help   for provider-level key reference.
-            Omit all keys to show current credential status.
+          general:
+            body: "/config <provider> [key=value …]"
+            providers:
+              google: "OAuth + YouTube API credentials"
+              voyage: "Voyage AI embedding key"
+              igdb: "IGDB game database client credentials"
+              webhook: "Slack / Discord incoming webhook URLs"
+            info_lines:
+              - "`/config <provider> --help` for provider-level key reference."
+              - "Omit all keys to show current credential status."
           providers:
             google:
               keys:
