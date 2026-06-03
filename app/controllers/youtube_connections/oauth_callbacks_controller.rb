@@ -120,7 +120,7 @@ class YoutubeConnections::OauthCallbacksController < ApplicationController
              input_text: "/connect"
            )
 
-    payload = kind == :error ? { text: message, html: true } : { text: message }
+    payload = { text: message, html: true }
     broadcaster = Pito::Stream::Broadcaster.new(conversation:)
     broadcaster.emit(
       turn:,

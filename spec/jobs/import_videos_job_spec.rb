@@ -174,6 +174,48 @@ RSpec.describe ImportVideosJob do
     expect(thinking.payload["elapsed_seconds"]).to be >= 4
   end
 
+  it "handles DateTime values from the API client (not just strings)" do
+    # The YouTube client's symbolize_struct passes DateTime objects through
+    # unchanged; parse_time must not crash on them.
+    allow_any_instance_of(Channel::Youtube::Client).to receive(:videos_list).and_return(
+      {
+        items: [
+          {
+            id: "video789",
+            snippet: {
+              title: "Video Three",
+              description: "Third video",
+              published_at: DateTime.new(2024, 3, 1, 12, 0, 0), # DateTime, not String
+              thumbnails: { high: { url: "https://example.com/thumb3.jpg" } },
+              tags: [],
+              category_id: "20"
+            },
+            statistics: {
+              view_count: "300",
+              like_count: "15",
+              comment_count: "3"
+            },
+            content_details: {
+              duration: "PT2M"
+            },
+            status: {
+              privacy_status: "private",
+              publish_at: DateTime.new(2025, 4, 1, 10, 0, 0) # DateTime, not String
+            },
+            etag: "etag789"
+          }
+        ]
+      }
+    )
+
+    described_class.new.perform(connection.id, turn.id)
+
+    video = Video.find_by(youtube_video_id: "video789")
+    expect(video).to be_present
+    expect(video.published_at).to be_within(1.second).of(Time.utc(2024, 3, 1, 12, 0, 0))
+    expect(video.publish_at).to be_within(1.second).of(Time.utc(2025, 4, 1, 10, 0, 0))
+  end
+
   it "marks the turn as completed" do
     described_class.new.perform(connection.id, turn.id)
 

@@ -224,7 +224,8 @@ class ImportVideosJob < ApplicationJob
 
   def parse_time(value)
     return nil if value.blank?
-    Time.parse(value)
+    return value.to_time if value.respond_to?(:to_time)
+    Time.parse(value.to_s)
   rescue ArgumentError
     nil
   end
