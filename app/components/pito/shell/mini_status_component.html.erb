@@ -7,13 +7,18 @@
     <% end %>
     <span class="text-fg-faded mx-2">·</span>
     <%= render(Pito::Shell::MiniStatus::KeyHintComponent.new(
-          hint:  t("pito.shell.mini_status.tab_hint"),
-          label: t("pito.shell.mini_status.tab_label")
+          hint:  t("pito.shell.mini_status.autocomplete_hint"),
+          label: t("pito.shell.mini_status.autocomplete_label")
         )) %>
     <span class="text-fg-faded mx-2">·</span>
     <%= render(Pito::Shell::MiniStatus::KeyHintComponent.new(
-          hint:  t("pito.shell.mini_status.shift_tab_hint"),
-          label: t("pito.shell.mini_status.shift_tab_label")
+          hint:  t("pito.shell.mini_status.channel_hint"),
+          label: t("pito.shell.mini_status.channel_label")
+        )) %>
+    <span class="text-fg-faded mx-2">·</span>
+    <%= render(Pito::Shell::MiniStatus::KeyHintComponent.new(
+          hint:  t("pito.shell.mini_status.period_hint"),
+          label: t("pito.shell.mini_status.period_label")
         )) %>
     <span class="text-fg-faded mx-2">·</span>
     <%= render(Pito::Shell::MiniStatus::KeyHintComponent.new(

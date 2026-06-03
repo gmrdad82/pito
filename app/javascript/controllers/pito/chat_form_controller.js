@@ -2,7 +2,8 @@
 //
 // Stimulus controller for the terminal chatbox form.
 // Captures Enter (no Shift) on the input target → submits via Turbo, clears input.
-// TAB cycles channels; Shift+TAB cycles periods (authenticated only).
+// Shift+TAB cycles channels; Shift+SPACE cycles periods (authenticated only).
+// Plain TAB is reserved for autocomplete (not handled here).
 //
 // Targets:
 //   inputField     — the <textarea> (data-pito--chat-form-target="inputField")
@@ -42,12 +43,17 @@ export default class extends Controller {
     if (!isAuthenticated()) return
 
     if (event.key === "Tab" && !event.shiftKey) {
+      // Reserved for autocomplete — do not preventDefault, do not cycle.
+      return
+    }
+
+    if (event.key === "Tab" && event.shiftKey) {
       event.preventDefault()
       this.#cycleNext(this.channelsValue, "channelInput", "channelDisplay")
       return
     }
 
-    if (event.key === "Tab" && event.shiftKey) {
+    if (event.code === "Space" && event.shiftKey) {
       event.preventDefault()
       this.#cycleNext(this.periodsValue, "periodInput", "periodDisplay")
       return

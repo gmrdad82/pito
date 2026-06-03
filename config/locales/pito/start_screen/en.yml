@@ -7,8 +7,8 @@ en:
       license_link: "AGPL-3.0"
       tips:
         - "Type /help when you inevitably forget everything."
-        - "TAB cycles channels. Like flipping through regrets, but faster."
-        - "Shift+TAB changes the time period. Time travel, basically."
+        - "Shift+TAB cycles channels. Like flipping through regrets, but faster."
+        - "Shift+Space changes the time period. Time travel, basically."
         - "/login <code> — the door doesn't open for strangers."
         - "Every command starts with a slash. Like every argument starts with 'well actually'."
         - "Ctrl+K opens the palette. The K stands for 'knew you'd need this'."
