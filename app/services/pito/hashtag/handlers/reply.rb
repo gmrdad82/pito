@@ -20,15 +20,43 @@ module Pito
             )
           end
 
+          ops = normalize_body_ops
+
           Pito::Hashtag::Result::Ok.new(events: [
             {
               kind: :system,
               payload: {
                 message_key: "pito.hashtag.reply.acknowledged",
-                message_args: { handle: full_handle }
+                message_args: { handle: full_handle },
+                ops: ops
               }
             }
           ])
+        end
+
+        private
+
+        # Normalise body_tokens into structured segment-edit operations.
+        # Returns an Array of op hashes, e.g.:
+        #   [{ name: :add, metric: ["ctr", "views"] }, { name: :remove, metric: ["subscribers"] }]
+        # Returns [] when body is empty or the grammar registry has no hashtag specs.
+        def normalize_body_ops
+          tokens = message.body_tokens
+          return [] if tokens.nil? || tokens.empty?
+
+          matches = Pito::Grammar::Normalizer.call_ops(
+            tokens,
+            namespace: :hashtag,
+            context:   conversation
+          )
+
+          matches.filter_map do |match|
+            next unless match.matched?
+
+            { name: match.name }.merge(match.values)
+          end
+        rescue StandardError
+          []
         end
       end
     end

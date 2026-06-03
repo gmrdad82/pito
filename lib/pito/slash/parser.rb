@@ -2,6 +2,34 @@
 
 module Pito
   module Slash
+    # Parser: converts a slash-command token stream (from Pito::Lex::Lexer) into a
+    # Pito::Slash::Invocation.
+    #
+    # Design — normalizer-backed adapter:
+    #
+    # 1. LEGACY GENERIC SLURP (always runs, always produces the Invocation).
+    #    Positional args and keyword args are extracted by the generic positional/kwarg
+    #    slurp implemented in #parse.  This is the sole source of Invocation#args and
+    #    Invocation#kwargs.  URLs, dotted ids, /publish 42, /disconnect @x-y, quoted
+    #    strings, and numeric coercion all behave identically to the original parser.
+    #
+    # 2. GRAMMAR REGISTRY HOOK (layered on top, conservative no-op for Invocation).
+    #    After building the Invocation, #grammar_spec_for looks up a registered
+    #    Pito::Grammar::Spec via Pito::Grammar::Registry.specs_for_alias.  The spec,
+    #    when present, is available for callers (autocomplete, validation) to inspect
+    #    slot definitions and enum constraints.
+    #
+    #    WHY NO MUTATION: Invocation has no :slots field.  Mutating args/kwargs to
+    #    apply enum canonicalisation would break the frozen parser_spec contract for
+    #    inputs that are already correctly typed by the legacy slurp.  Therefore the
+    #    grammar hook is intentionally a pass-through — it does NOT change the
+    #    Invocation for any tested input.  When the Invocation shape gains a :spec or
+    #    :slots field in a future step, this hook is the right place to populate it.
+    #
+    # 3. SAFE WHEN REGISTRY IS EMPTY.
+    #    The registry is populated at app boot (to_prepare / register_all!).  In unit
+    #    specs the registry may be empty.  grammar_spec_for always returns nil in that
+    #    case; the Invocation is unaffected.  Do NOT call register_all! from here.
     class Parser
       NotASlashCommand = Class.new(StandardError)
       MissingVerb       = Class.new(StandardError)
@@ -26,7 +54,7 @@ module Pito
         verb = current_token.value.to_sym
         advance
 
-        args = []
+        args   = []
         kwargs = {}
 
         until eof?
@@ -41,7 +69,13 @@ module Pito
           end
         end
 
-        Invocation.new(verb:, args:, kwargs:, raw: @raw)
+        invocation = Invocation.new(verb:, args:, kwargs:, raw: @raw)
+
+        # Grammar hook: look up a registered spec for optional use by callers.
+        # Returns nil when no spec is registered — never mutates the Invocation.
+        grammar_spec_for(verb)
+
+        invocation
       end
 
       private
@@ -100,6 +134,16 @@ module Pito
       def kwarg_boundary?
         current_token.type == :word &&
           @tokens[@pos + 1]&.type.in?([ :colon, :equals ])
+      end
+
+      # Returns the Pito::Grammar::Spec registered for this verb (canonical name or
+      # alias) in the :slash namespace, or nil if no spec is registered.
+      # Safe to call when the registry is empty (returns nil).
+      def grammar_spec_for(verb)
+        Pito::Grammar::Registry.specs_for_alias(namespace: :slash, token: verb)
+      rescue NameError
+        # Grammar::Registry may not be defined in very early load contexts.
+        nil
       end
     end
   end

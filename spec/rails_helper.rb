@@ -33,6 +33,17 @@ RSpec.configure do |config|
     I18n.backend.reload!
   end
 
+  # The grammar registry (Pito::Grammar::Registry) is a boot-time global
+  # singleton, populated in config/initializers/pito.rb `to_prepare`. Some
+  # grammar unit specs call `Registry.reset!` (and register throwaway fixture
+  # specs), which would otherwise leak an empty/fixture registry into later
+  # examples in the same parallel worker — breaking parsers and dispatch that
+  # look up command specs by verb. Re-establish boot state before every example;
+  # grammar specs that need a clean slate still reset! in their own `before`.
+  config.before(:each) do
+    Pito::Grammar::Registry.register_all! if defined?(Pito::Grammar::Registry)
+  end
+
   # ── ViewComponent specs ───────────────────────────────────────────
   # Any spec under spec/components is automatically tagged
   # `type: :component` — no need to write `type:` by hand. That type

@@ -83,7 +83,7 @@ module Pito
 
           provider = invocation.args.first.to_s.downcase
 
-          unless KNOWN_PROVIDERS.include?(provider)
+          unless known_providers.include?(provider)
             return Pito::Slash::Result::Error.new(
               message_key:  "pito.slash.config.errors.unknown_provider",
               message_args: { provider: provider.presence || "(none)" }
@@ -95,7 +95,7 @@ module Pito
         end
 
         def show_help
-          provider = invocation.args.find { |a| KNOWN_PROVIDERS.include?(a.to_s.downcase) }
+          provider = invocation.args.find { |a| known_providers.include?(a.to_s.downcase) }
 
           return google_help_events if provider.to_s == "google"
 
@@ -113,7 +113,7 @@ module Pito
               kind:    "system",
               payload: {
                 body:       I18n.t("pito.slash.config.help.general.body"),
-                table_rows: KNOWN_PROVIDERS.map do |p|
+                table_rows: known_providers.map do |p|
                   {
                     key:   p,
                     value: I18n.t("pito.slash.config.help.general.providers.#{p}")
@@ -211,6 +211,15 @@ module Pito
 
         def self.ok_missing(key)
           I18n.t("pito.slash.config.status.#{key}")
+        end
+
+        # Returns the authoritative provider list, preferring the grammar registry
+        # vocabulary when available and falling back to KNOWN_PROVIDERS otherwise.
+        def known_providers
+          vocab = Pito::Grammar::Registry.vocabulary(:config_providers)
+          vocab&.canonical || KNOWN_PROVIDERS
+        rescue StandardError
+          KNOWN_PROVIDERS
         end
       end
     end

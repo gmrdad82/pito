@@ -839,11 +839,11 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 
 **Parser refactor (shape-preserving adapters)**
 
-- [ ] P31.0.q `lib/pito/slash/parser.rb` → normalizer-backed adapter mapping to `Invocation`; **keep legacy generic positional/kwarg slurp as default**, apply enum/synonym validation only for spec'd slots. `spec/lib/pito/slash/parser_spec.rb` passes unchanged (URLs, dotted ids, `/publish 42`, `/disconnect @x-y`). complexity: [high]
-- [ ] P31.0.r `lib/pito/chat/parser.rb` → delete `RECOGNIZED_VERBS`; recognized iff a chat spec/alias exists; keep `refinement_eligible?`, raw `body_tokens`, literal `verb`, unknown/refinement branches. `spec/lib/pito/chat/parser_spec.rb` passes unchanged. complexity: [high]
-- [ ] P31.0.s `lib/pito/hashtag/parser.rb` shape confirmed unchanged; `Reply` (or new segment handler) normalizes `body_tokens` via `Normalizer.call(..., namespace: :hashtag)` for segment-edit ops; hashtag parser/job/request specs pass unchanged. complexity: [low]
-- [ ] P31.0.t `app/services/pito/slash/handlers/config.rb` validates provider/keys against `Grammar::Registry.vocabulary(:config_keys)`; **keep `PROVIDER_SETTERS` writers + keep echo masking in `ChatController#mask_config_credentials`**; config specs pass unchanged. complexity: [low]
-- [ ] P31.0.u Commit: `Refactor slash/chat/hashtag parsers onto grammar`. complexity: [manual]
+- [x] P31.0.q `lib/pito/slash/parser.rb` → normalizer-backed adapter mapping to `Invocation`; **keep legacy generic positional/kwarg slurp as default**, apply enum/synonym validation only for spec'd slots. `spec/lib/pito/slash/parser_spec.rb` passes unchanged (URLs, dotted ids, `/publish 42`, `/disconnect @x-y`). complexity: [high]
+- [x] P31.0.r `lib/pito/chat/parser.rb` → delete `RECOGNIZED_VERBS`; recognized iff a chat spec/alias exists; keep `refinement_eligible?`, raw `body_tokens`, literal `verb`, unknown/refinement branches. `spec/lib/pito/chat/parser_spec.rb` passes unchanged. complexity: [high]
+- [x] P31.0.s `lib/pito/hashtag/parser.rb` shape confirmed unchanged; `Reply` (or new segment handler) normalizes `body_tokens` via `Normalizer.call(..., namespace: :hashtag)` for segment-edit ops; hashtag parser/job/request specs pass unchanged. complexity: [low]
+- [x] P31.0.t `app/services/pito/slash/handlers/config.rb` validates provider/keys against `Grammar::Registry.vocabulary(:config_keys)`; **keep `PROVIDER_SETTERS` writers + keep echo masking in `ChatController#mask_config_credentials`**; config specs pass unchanged. complexity: [low]
+- [x] P31.0.u Commit: `Refactor slash/chat/hashtag parsers onto grammar`. complexity: [manual]
 
 **Autocomplete backend (`app/services/pito/autocomplete/`)**
 

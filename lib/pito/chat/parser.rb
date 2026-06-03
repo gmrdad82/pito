@@ -3,12 +3,6 @@
 module Pito
   module Chat
     class Parser
-      # The set of opening words that trigger a new chat turn.
-      # Extend this array as new verbs are added. This constant lives here
-      # (not in Registry) so the parser can classify independently of
-      # handler registration state.
-      RECOGNIZED_VERBS = %i[list show find].freeze
-
       # Raised when a slash-prefixed input reaches the Chat parser.
       # Slash commands are routed upstream before reaching this parser.
       NotAChatMessage = Class.new(StandardError)
@@ -45,7 +39,7 @@ module Pito
         candidate_verb = first&.type == :word ? first.value.to_sym : nil
         advance if candidate_verb
 
-        if candidate_verb && RECOGNIZED_VERBS.include?(candidate_verb)
+        if candidate_verb && Pito::Grammar::Registry.specs_for_alias(namespace: :chat, token: candidate_verb)
           # Recognised verb → new turn.
           body_tokens = tokens_until_eof
           Message.new(verb: candidate_verb, body_tokens:, kind: :new_turn, raw: @raw)
