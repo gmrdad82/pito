@@ -49,9 +49,32 @@ RSpec.describe Conversation, type: :model do
       expect(conv.display_name).to eq("My Chat")
     end
 
-    it "returns 'Unnamed N' when title is nil" do
-      conv = create(:conversation, title: nil)
-      expect(conv.display_name).to eq("Unnamed #{conv.id}")
+    it "falls back to 'Unnamed <id>' for an in-memory record that skipped before_create" do
+      # Build (not create) so before_create callbacks don't run; title stays nil.
+      conv = build(:conversation, title: nil)
+      # Simulate a saved-but-titleless record by stubbing id.
+      allow(conv).to receive(:id).and_return(99)
+      expect(conv.display_name).to eq("Unnamed 99")
+    end
+  end
+
+  describe "#set_default_title (before_create)" do
+    it "sets a default 'Unnamed N' title on create when title is nil" do
+      conv = create(:conversation)
+      expect(conv.title).to match(/\AUnnamed \d+\z/)
+    end
+
+    it "numbers new conversations sequentially starting at 1" do
+      Conversation.delete_all
+      first  = create(:conversation)
+      second = create(:conversation)
+      expect(first.title).to eq("Unnamed 1")
+      expect(second.title).to eq("Unnamed 2")
+    end
+
+    it "does not overwrite an explicitly provided title" do
+      conv = create(:conversation, title: "My Chat")
+      expect(conv.title).to eq("My Chat")
     end
   end
 

@@ -17,6 +17,7 @@ Rails.application.routes.draw do
   post "/chat", to: "chat#create", as: :chat
   post "/autocomplete", to: "autocomplete#create", as: :autocomplete
   get "/chat/:uuid", to: "conversations#show", as: :conversation
+  patch "/chat/:uuid", to: "conversations#update"
 
   # Dev helper: clears the session cookie so you can re-test /authenticate
   delete "/logout", to: "sessions#destroy", as: :logout

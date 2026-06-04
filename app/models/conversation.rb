@@ -5,6 +5,7 @@ class Conversation < ApplicationRecord
   has_many :events, -> { order(:position) }, dependent: :destroy
 
   before_create :set_uuid
+  before_create :set_default_title
 
   normalizes :uuid, with: ->(value) { value&.downcase }
 
@@ -63,5 +64,9 @@ class Conversation < ApplicationRecord
 
   def set_uuid
     self.uuid ||= SecureRandom.uuid
+  end
+
+  def set_default_title
+    self.title ||= "Unnamed #{self.class.count + 1}"
   end
 end

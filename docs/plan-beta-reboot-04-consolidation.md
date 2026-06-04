@@ -1015,12 +1015,12 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 
 ## P42 — Conversation rename + "Unnamed N"
 
-- [ ] T42.1 New conversations default `title` to `"Unnamed #{next_index}"`. complexity: [low]
-- [ ] T42.2 Inline rename affordance (keyboard + mouse). complexity: [high]
-- [ ] T42.3 `PATCH /chat/:uuid` updates `title`. complexity: [low]
-- [ ] T42.4 Re-render the sidebar row (Turbo). complexity: [low]
-- [ ] T42.5 Spec; smoke. complexity: [manual]
-- [ ] T42.6 Commit: `Conversation rename + Unnamed N`. complexity: [manual]
+- [x] T42.1 New conversations default `title` to `"Unnamed #{next_index}"`. complexity: [low]
+- [x] T42.2 Inline rename affordance (keyboard + mouse). complexity: [high]
+- [x] T42.3 `PATCH /chat/:uuid` updates `title`. complexity: [low]
+- [x] T42.4 Re-render the sidebar row (Turbo). complexity: [low]
+- [x] T42.5 Spec; smoke. complexity: [manual]
+- [x] T42.6 Commit: `Conversation rename + Unnamed N`. complexity: [manual]
 
 ## P43 — AGENTS.md conventions
 

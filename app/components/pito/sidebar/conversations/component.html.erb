@@ -4,11 +4,9 @@
   <div class="mb-2">
     <div class="text-orange font-bold mb-1"><%= t("pito.sidebar.conversations.recent") %></div>
     <% recent.each do |conversation| %>
-      <div class="pito-conversation-row flex justify-between items-baseline py-1 px-2 rounded cursor-pointer hover:bg-bg-hover <%= "is-current" if current?(conversation) %>"
-           data-conversation-uuid="<%= conversation.uuid %>">
-        <span class="text-fg truncate mr-2"><%= conversation.display_name %></span>
-        <span class="text-fg-dim text-xs shrink-0"><%= formatted_timestamp(conversation) %></span>
-      </div>
+      <%= render partial: "conversations/row",
+                 locals: { conversation: conversation, current: current?(conversation),
+                           timestamp: formatted_timestamp(conversation) } %>
     <% end %>
   </div>
 
@@ -20,11 +18,9 @@
     <div class="mb-2">
       <div class="text-orange font-bold mb-1"><%= t("pito.sidebar.conversations.older") %></div>
       <% older.each do |conversation| %>
-        <div class="pito-conversation-row flex justify-between items-baseline py-1 px-2 rounded cursor-pointer hover:bg-bg-hover <%= "is-current" if current?(conversation) %>"
-             data-conversation-uuid="<%= conversation.uuid %>">
-          <span class="text-fg truncate mr-2"><%= conversation.display_name %></span>
-          <span class="text-fg-dim text-xs shrink-0"><%= formatted_timestamp(conversation) %></span>
-        </div>
+        <%= render partial: "conversations/row",
+                   locals: { conversation: conversation, current: current?(conversation),
+                             timestamp: formatted_timestamp(conversation) } %>
       <% end %>
     </div>
   <% end %>
