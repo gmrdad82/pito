@@ -1,6 +1,6 @@
 // pito--command-palette
 //
-// Ctrl+K → open · Esc → close · ↑↓ / k j → navigate · Enter → insert + close.
+// Ctrl+K → open · Esc → close · ↑↓ → navigate · Enter → insert + close.
 //
 // Enter pre-fills the chatbox textarea with the selected command (including
 // <placeholder> markers) but does NOT submit — the user fills in arguments
@@ -50,12 +50,6 @@ export default class extends Controller {
 
     this.#syncSectionVisibility()
     this.#setSelected(firstVisible)
-  }
-
-  onSearchKey(e) {
-    if (e.key === "ArrowDown" || e.key === "j") { e.preventDefault(); this.#move(1) }
-    else if (e.key === "ArrowUp" || e.key === "k") { e.preventDefault(); this.#move(-1) }
-    else if (e.key === "Enter") { e.preventDefault(); this.#commit() }
   }
 
   // ── internals ──────────────────────────────────────────────────────────────

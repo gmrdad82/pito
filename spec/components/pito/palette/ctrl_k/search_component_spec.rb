@@ -16,9 +16,9 @@ RSpec.describe Pito::Palette::CtrlK::SearchComponent do
       expect(input["data-action"]).to include("input->pito--command-palette#filter")
     end
 
-    it "has data-action wired to onSearchKey" do
+    it "does not wire onSearchKey (navigation handled by global keydown listener)" do
       input = node.css("input[data-pito--command-palette-target='search']").first
-      expect(input["data-action"]).to include("pito--command-palette#onSearchKey")
+      expect(input["data-action"]).not_to include("onSearchKey")
     end
 
     it "renders the placeholder from i18n" do
