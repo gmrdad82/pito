@@ -3,6 +3,42 @@
 require "rails_helper"
 
 RSpec.describe "Conversation requests", type: :request do
+  # ── Channel-filter token sanity (Bug: @@handle double-prefix) ───────────────
+  # set_channels builds @channels for every HTML request.  When a Channel's
+  # handle is stored with a leading "@" (the normal case), the old
+  # `"@#{h}"` interpolation produced "@@handle".  at_handle normalises it.
+  describe "channel filter tokens rendered with single @" do
+    let!(:channel_with_at)    { create(:channel, handle: "@gaming") }
+    let!(:channel_without_at) { create(:channel, handle: "esports") }
+
+    before do
+      # Authenticate so the filter / channels JSON is rendered into the page.
+      seed = ROTP::Base32.random_base32
+      AppSetting.enroll_totp!(seed: seed)
+      post "/chat", params: { input: "/login #{ROTP::TOTP.new(seed).now}" }
+
+      get conversation_path(uuid: Conversation.singleton.uuid)
+    end
+
+    it "never emits a double-at token (@@) in the channels data attribute" do
+      expect(response.body).not_to include("@@")
+    end
+
+    it "includes @gaming (single @) in the channels data attribute" do
+      # The JSON array is HTML-attribute-escaped: &quot;@gaming&quot;
+      expect(response.body).to include("@gaming")
+    end
+
+    it "includes @esports (normalised from stored 'esports') in the channels data attribute" do
+      expect(response.body).to include("@esports")
+    end
+
+    it "includes the @all sentinel in the channels data attribute" do
+      expect(response.body).to include("@all")
+    end
+  end
+
+
   describe "GET /chat/:uuid" do
     let(:conversation) { create(:conversation) }
 

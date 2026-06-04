@@ -18,7 +18,7 @@ class ApplicationController < ActionController::Base
   private
 
   def set_channels
-    @channels = Channel.order(:handle).pluck(:handle).compact.map { |h| "@#{h}" }
+    @channels = Channel.order(:handle).compact.map(&:at_handle)
   end
 
   def current_conversation
