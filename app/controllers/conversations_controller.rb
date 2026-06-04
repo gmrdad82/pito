@@ -12,6 +12,23 @@ class ConversationsController < ApplicationController
     @events = @conversation.events.includes(:turn).order(:position)
   end
 
+  # GET /resume — re-render the conversations sidebar (same Turbo Stream as the
+  # /resume command). Used to restore the panel after a reload when the client's
+  # localStorage says it was open. Auth required (not allow_anonymous).
+  def resume
+    respond_to do |format|
+      format.turbo_stream do
+        render partial: "chat/resume_sidebar",
+               formats: [ :turbo_stream ],
+               locals:  {
+                 groups:       Conversation.recency_groups,
+                 current_uuid: params[:uuid].presence
+               }
+      end
+      format.html { redirect_to root_path }
+    end
+  end
+
   def update
     @conversation = Conversation.find_by!(uuid: params[:uuid])
 

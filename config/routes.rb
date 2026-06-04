@@ -18,6 +18,7 @@ Rails.application.routes.draw do
   patch "/notifications/:id", to: "notifications#update", as: :notification
   post "/chat", to: "chat#create", as: :chat
   post "/autocomplete", to: "autocomplete#create", as: :autocomplete
+  get "/resume", to: "conversations#resume", as: :resume
   get "/chat/:uuid", to: "conversations#show", as: :conversation
   patch "/chat/:uuid", to: "conversations#update"
 

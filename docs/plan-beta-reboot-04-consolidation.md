@@ -1073,7 +1073,7 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 - [x] T45.3 Delta render on `input` (common prefix/suffix; animate only the changed run; strip `--new` after animation — O(delta)). complexity: [high]
 - [x] T45.4 Accept-suggestion runs animate via the autosuggest `input` dispatch (no autosuggest edit). complexity: [low]
 - [x] T45.5 IME/paste(>40 instant)/clear-on-submit handling; coexist with block caret + `.pito-ghost`. complexity: [high]
-- [ ] T45.6 Smoke (browser): per-char no lag; accept/paste/IME/selection/backspace; reduced-motion instant; emoji code-unit edge. complexity: [manual]
+- [x] T45.6 Smoke (browser): per-char no lag; accept/paste/IME/selection/backspace; reduced-motion instant; emoji code-unit edge. complexity: [manual]
 - [x] T45.7 Commit: `Chatbox per-character typing phase-in`. complexity: [manual]
 
 ## P46 — Progressive typewriter reveal for assistant responses
@@ -1086,7 +1086,7 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 - [x] T46.4 `typewriter_controller.js` — capture/clear body, enqueue reveal, fast char ticks, cancel+restore on disconnect. complexity: [high]
 - [x] T46.5 Auto-scroll follows the growing body via scrollback's subtree observer, respecting the scroll-up lock. complexity: [low]
 - [x] T46.6 Component specs: system/enhanced animate; confirmation/html/echo do not. complexity: [low]
-- [ ] T46.7 Smoke (browser): live reveal; burst → one-at-a-time + overflow instant; scroll-follow / no-snap when scrolled up; reload + reduced-motion instant. complexity: [manual]
+- [x] T46.7 Smoke (browser): live reveal; burst → one-at-a-time + overflow instant; scroll-follow / no-snap when scrolled up; reload + reduced-motion instant. complexity: [manual]
 - [x] T46.8 Commit: `Progressive typewriter reveal for assistant responses`. complexity: [manual]
 
 ## P47 — Server-persisted chatbox draft
@@ -1099,7 +1099,7 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 - [x] T47.4 `#show` prefills the chatbox via `ChatboxComponent(initial_value:)`; render the draft-uuid wiring ONLY on `/chat/:uuid` (start/404 omit it). complexity: [low]
 - [x] T47.5 `draft_controller.js`: debounced (~600–1000ms) `PATCH /chat/:uuid {draft:}` on `input`; no-op when no conversation uuid (`/`, 404). complexity: [high]
 - [x] T47.6 Specs: PATCH persists draft; `#show` prefills; `create` clears on send; `ChatboxComponent` `initial_value:` + conditional uuid wiring. complexity: [low]
-- [ ] T47.7 Smoke (browser): refresh restores; accepting a suggestion is saved; send clears; `/` + bogus URL never autosave. complexity: [manual]
+- [x] T47.7 Smoke (browser): refresh restores; accepting a suggestion is saved; send clears; `/` + bogus URL never autosave. complexity: [manual]
 - [x] T47.8 Commit: `Server-persisted chatbox draft`. complexity: [manual]
 
 ## P48 — Sound / FX settings via AppSetting + `/config sound|fx`
@@ -1113,7 +1113,7 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 - [x] T48.5 Grammar: add `sound`/`fx` to `:config_providers` + an `:on_off` vocab (on/off + synonyms true/false/enable/disable). (Config grammar on|off slot dropped — it conflicted with `/config` kv autocomplete; sound/fx still listed as providers in catalog/palette; runtime handler parses on|off from args.) complexity: [low]
 - [x] T48.6 Wire consumers: `audio_controller` reads `soundEnabled()` (drop ctrl+m keybinding + localStorage); `type_fx` + `typewriter` gate on `fxEnabled() && !prefers-reduced-motion`; remove the ctrl+m hint from `MiniStatusComponent` + its i18n. complexity: [low]
 - [x] T48.7 Specs: AppSetting flags; `/config sound|fx` getter+setter+broadcast; mini-status no-ctrl+m; request/grammar specs. complexity: [low]
-- [ ] T48.8 Smoke (browser): `/config sound off` silences chirps; `/config fx off` disables animations (and OS reduced-motion still disables when fx on); settings persist across refresh; no ctrl+m. complexity: [manual]
+- [x] T48.8 Smoke (browser): `/config sound off` silences chirps; `/config fx off` disables animations (and OS reduced-motion still disables when fx on); settings persist across refresh; no ctrl+m. complexity: [manual]
 - [x] T48.9 Commit: `Sound/FX settings via AppSetting + /config`. complexity: [manual]
 
 ## P49 — Provider-conditional grammar slots (`/config sound|fx` autosuggest)
@@ -1126,6 +1126,106 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 - [x] T49.4 `:on_off` synonyms: on/off + yes/no + enabled/disabled + enable/disable + true/false. complexity: [low]
 - [x] T49.5 Specs: engine `/config sound `→on/off, `/config google `→keys (4 existing kv specs stay green), `/config `→providers incl sound/fx; normalizer conditional-slot; vocab synonyms. complexity: [low]
 - [x] T49.6 Commit: `Provider-conditional grammar slots (/config sound|fx autosuggest)`. complexity: [manual]
+
+---
+
+# Group M — Notifications, sidebar persistence & chat polish (post-P49)
+
+> Post-P49 round driven by live smoke-testing. P50–P51 shipped together (`63778dc3`). The remaining phases (P52–P56) run one-by-one, Sonnet-first.
+
+## P50 — Notifications (model + ctrl+/ sidebar)
+
+> Simple `Notification` (message, read_at, timestamps). `ctrl+/` opens a sidebar overlay (mirrors `/resume`) into `#pito-sidebar`; real unread count drives the mini-status `ctrl+/ (N)`. Stacked rows (relative time over the full word-wrapped message); ↑/↓ nav + Space toggles read/unread (`pito--notifications-nav` + `PATCH /notifications/:id`). **Committed `63778dc3`.**
+
+- [x] T50.1 Notification model + migration + factory + idempotent seeds (3 samples). complexity: [low]
+- [x] T50.2 `NotificationsController#index` (turbo_stream → `#pito-sidebar`) + GET route; `ctrl+/` in `command_palette_controller` (auth-gated; quick-run `ctrl+/` retired). complexity: [low]
+- [x] T50.3 `Pito::Sidebar::Notifications::Component` stacked rows (CompactTimeAgo + full message + read state). complexity: [low]
+- [x] T50.4 Real unread count wired into mini-status (show / start_screen / broadcaster). complexity: [low]
+- [x] T50.5 `pito--notifications-nav` (↑/↓ + Space toggle, optimistic) + `NotificationsController#update` (`PATCH /notifications/:id {read:}`) + route. complexity: [high]
+- [x] T50.6 Specs: model, request (index + toggle), component (rows / full message / nav). complexity: [low]
+- [ ] T50.7 Smoke (browser): ctrl+/ opens; arrow nav; space toggles read/unread + count updates. complexity: [manual]
+- [x] T50.8 Commit (with P51): `Notifications sidebar + chatbox/sidebar UX polish`. complexity: [manual]
+
+## P51 — Sidebar + chatbox UX polish sweep
+
+> A batch of smoke-test fixes landed together. **Committed `63778dc3`.**
+
+- [x] T51.1 Extracted `Pito::Shell::InlineSeparatorComponent`; swept the ad-hoc `·` spans (filter row, mini status, meta line). complexity: [low]
+- [x] T51.2 Filter row: purple conversation name before the filter (`Conversation#named?`, custom titles only); `gap-2` pair spacing. complexity: [low]
+- [x] T51.3 mini-status: `ctrl+k` hint shown whenever authenticated (incl. `/` + not_found), hidden only when unauthenticated. complexity: [low]
+- [x] T51.4 Sidebar `subtitle` slot (`subtitle_key` now optional) → dropped the duplicate "esc"; "n rename a conversation" + "space toggle read/unread" subtitle hints. complexity: [low]
+- [x] T51.5 Inline rename via `n` on the highlighted row (F2 dropped); input loses bg + orange underline across the full row; renamed row stays highlighted (subtree observer); Turbo-replace carries the timestamp. complexity: [high]
+- [x] T51.6 Copy: `● authenticated` / `○ not authenticated` (dropped redundant `not_authenticated`); wittier unknown-provider. complexity: [low]
+- [x] T51.7 Specs updated (auth copy, gap-2, notifications layout). complexity: [low]
+- [ ] T51.8 Smoke (browser): spacing, rename underline, ctrl+k on `/`, purple name. complexity: [manual]
+
+## P52 — Sidebar panel persistence (localStorage)
+
+> Remember which panel (Conversations / Notifications) was open and re-open it after a reload. Ephemeral per-browser UI state → `localStorage` (`pito:sidebar`), **not** the server. `resume_controller` persists on content-change, clears on close, and on connect re-fetches the matching panel (GET `/notifications` or new GET `/resume`).
+
+- [x] T52.1 GET `/resume` → `ConversationsController#resume` (renders the resume sidebar turbo_stream; auth required) + route. complexity: [low]
+- [x] T52.2 `resume_controller`: write `pito:sidebar` on content-change (conversations|notifications), clear on `#clear`, `#restore()` on connect. complexity: [high]
+- [x] T52.3 Request spec: GET `/resume` (auth → turbo_stream sidebar; anon → redirect). complexity: [low]
+- [ ] T52.4 Smoke (browser): open a panel, refresh → same panel reappears. complexity: [manual]
+- [x] T52.5 Commit: `Persist open sidebar panel across reload (localStorage)`. complexity: [manual]
+
+## P53 — Palette = chatbox continuation (restyle)
+
+> Make the `/command` suggest-palette read as a seamless extension of the chatbox: purple left accent border, the same elevated surface, flush border-to-border / surface-to-surface (no gap/shadow seam). CSS-led (`.pito-autosuggest-palette`), verified against the float-above behavior + ghost/caret coexistence.
+
+- [ ] T53.1 Restyle `.pito-autosuggest-palette` (purple left border, shared surface, flush, square the adjoining corner). complexity: [low]
+- [ ] T53.2 Verify positioning + ghost/caret coexistence; `node --check`. complexity: [low]
+- [ ] T53.3 Smoke + commit: `Style /command palette as a chatbox continuation`. complexity: [manual]
+
+## P54 — Cross-instance cable sync (notification read + rename)
+
+> Broadcast notification read-toggle + conversation rename over ActionCable so other open instances (laptop ↔ mobile) update live. Reuse Turbo Streams (the app already streams). Notification toggle → update the row + the mini-status count on all clients; rename → replace the sidebar row + update the purple name on the renamed conversation's page.
+
+- [ ] T54.1 Subscribe clients to a global stream (`turbo_stream_from "pito:global"`) in the layout (per-conversation stream already exists). complexity: [low]
+- [ ] T54.2 `NotificationsController#update` → broadcast row replace + mini-status count refresh to `pito:global`. complexity: [high]
+- [ ] T54.3 Conversation rename → broadcast sidebar row replace (`pito:global`) + filter-name update on `pito:conversation:<uuid>`. complexity: [high]
+- [ ] T54.4 Specs: `have_broadcasted_to` for toggle + rename. complexity: [low]
+- [ ] T54.5 Smoke (two browsers) + commit: `Live-sync notification read + conversation rename across instances`. complexity: [manual]
+
+## P55 — `ctrl+|` expand/collapse-all (current conversation) + live expand-all
+
+> `ctrl+|` toggles expand/collapse on ALL expandable segments of the current conversation AND flips the `expand_all` AppSetting so newly-arrived cable segments render in the chosen state **without a reload** (the toggle must refresh the client `#pito-settings`). Fixes today's "must reload after toggling".
+
+- [ ] T55.1 `ctrl+|` handler toggles every expandable segment in the scrollback. complexity: [low]
+- [ ] T55.2 Persist `expand_all` + refresh `#pito-settings` (broadcast or local) so new segments obey it immediately (no reload). complexity: [high]
+- [ ] T55.3 New cable segments read the current expand-all at render time. complexity: [low]
+- [ ] T55.4 Specs. complexity: [low]
+- [ ] T55.5 Smoke + commit: `ctrl+| expand/collapse all + live expand-all`. complexity: [manual]
+
+## P56 — Universal `--help` for every command
+
+> Any command supports `--help`, showing that command's help instead of executing (today `/connect --help` runs OAuth). Covers `/login` `/logout` `/new` `/resume` `/connect` `/disconnect` `/config` …, including the sync commands. **Help must be SPECIFIC, not generic** — e.g. `/config igdb --help` lists the keys igdb actually accepts (`client_id=`, `client_secret=`), `/config sound --help` explains on/off, etc. All copy from i18n (no hardcoded strings). Witty `/help --help` edge case.
+
+- [ ] T56.1 Intercept `--help` (any command) in the dispatcher BEFORE handler execution → render the command's help. complexity: [high]
+- [ ] T56.2 Specific per-command help from i18n (reuse `/help` descriptions + per-command usage); special-case sync commands `/new` `/resume`. complexity: [low]
+- [ ] T56.3 Provider-level help: `/config <provider> --help` lists THAT provider's settable keys / values from i18n (igdb→client_id/client_secret, google→…, sound/fx→on|off), not the generic `/config` overview. complexity: [high]
+- [ ] T56.4 Witty `/help --help` (from i18n). complexity: [low]
+- [ ] T56.5 Grammar/autocomplete: offer the `--help` flag for commands. complexity: [low]
+- [ ] T56.6 Specs. complexity: [low]
+- [ ] T56.7 Smoke + commit: `Universal --help for all commands`. complexity: [manual]
+
+## P57 — Autocomplete: partial kv-key completion
+
+> Bug: `/config igdb client_s` offers no ghost — partial credential **keys** aren't completed. Typing a prefix of an allowed kv key should ghost the remainder (`client_s` → `ecret`), like verb/provider completion already does.
+
+- [ ] T57.1 Autocomplete engine: when the active slot is a `kv` key, prefix-match the typed token against the allowed keys and return the completion remainder. complexity: [high]
+- [ ] T57.2 Specs: `/config igdb client_s` → `client_secret`; `/config google redi` → `redirect_uri`; non-matching prefix → no ghost. complexity: [low]
+- [ ] T57.3 Smoke + commit: `Complete partial /config kv keys`. complexity: [manual]
+
+## P58 — Chatbox input history (↑/↓)
+
+> Shell-style history: with the chatbox focused, ↑ steps back through previously-sent messages (one per press), ↓ steps forward. Must not clash with the autosuggest palette (which owns ↑/↓ while open) or the sidebar nav (which owns ↑/↓ while open). Likely gate: history only when the palette is closed and the caret is at the first line (↑) / last line (↓), shell-like; restore the in-progress draft when stepping past the newest entry.
+
+- [ ] T58.1 Decide source: sent inputs for the conversation (Turn `input_text` where `input_kind` user) exposed to the client (data attr / fetch). complexity: [low]
+- [ ] T58.2 `history_controller.js` (or extend chat-form): ↑/↓ cycle entries; preserve the typed draft at index 0; bail when palette/sidebar open or caret not at edge. complexity: [high]
+- [ ] T58.3 Coexist with autosuggest (palette ↑/↓), terminal-caret, type-fx overlay; dispatch `input` so the overlay re-renders. complexity: [high]
+- [ ] T58.4 Specs (view hook + any endpoint). complexity: [low]
+- [ ] T58.5 Smoke + commit: `Chatbox input history (up/down)`. complexity: [manual]
 
 ---
 

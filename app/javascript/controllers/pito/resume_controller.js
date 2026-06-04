@@ -22,6 +22,9 @@ import { Controller } from "@hotwired/stimulus"
 import { Turbo } from "@hotwired/turbo-rails"
 
 const HIGHLIGHT_CLASS = "pito-resume-highlight"
+// Per-browser UI state: which sidebar panel (if any) is open, so a reload
+// restores it. Ephemeral view state → localStorage, not the server.
+const SIDEBAR_KEY = "pito:sidebar"
 
 export default class extends Controller {
   connect() {
@@ -38,6 +41,9 @@ export default class extends Controller {
     // the same position instead of losing it.
     this.observer = new MutationObserver(() => this.#onContentChange())
     this.observer.observe(this.element, { childList: true, subtree: true })
+
+    // Restore a previously-open panel after reload.
+    this.#restore()
   }
 
   disconnect() {
@@ -45,8 +51,39 @@ export default class extends Controller {
     this.observer?.disconnect()
   }
 
+  // Re-open the panel that was open before reload. Skips if the sidebar is
+  // already populated (e.g. a Turbo navigation kept it).
+  #restore() {
+    if (this.element.innerHTML.trim()) return
+    const want = localStorage.getItem(SIDEBAR_KEY)
+    if (!want) return
+
+    let url
+    if (want === "notifications") {
+      url = "/notifications"
+    } else if (want === "conversations") {
+      const m = location.pathname.match(/\/chat\/([0-9a-f-]+)/i)
+      url = "/resume" + (m ? `?uuid=${m[1]}` : "")
+    } else {
+      return
+    }
+
+    fetch(url, { headers: { Accept: "text/vnd.turbo-stream.html" } })
+      .then((r) => (r.ok ? r.text() : null))
+      .then((html) => { if (html) Turbo.renderStreamMessage(html) })
+      .catch(() => {})
+  }
+
   #onContentChange() {
     const rows = this.#rows()
+
+    // Persist which panel is open so a reload can restore it.
+    if (rows.length) {
+      localStorage.setItem(SIDEBAR_KEY, "conversations")
+    } else if (this.element.querySelector(".pito-notification-row")) {
+      localStorage.setItem(SIDEBAR_KEY, "notifications")
+    }
+
     if (!rows.length) {
       this.highlightIndex = -1
       return
