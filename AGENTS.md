@@ -1597,7 +1597,7 @@ independently.
 | -------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
 | `lib/pito/slash/**` does NOT `require` or reference `Pito::Chat::*`.                                                       | Parallel expansion without coupling.               |
 | `lib/pito/chat/**` (Plan 3) does NOT `require` or reference `Pito::Slash::*`.                                              | Same.                                              |
-| `lib/pito/hashtag/**` does NOT `require` or reference `Pito::Slash::*` or `Pito::Chat::*`.                                   | Same.                                              |
+| `lib/pito/hashtag/**` does NOT `require` or reference `Pito::Slash::*` or `Pito::Chat::*`.                                 | Same.                                              |
 | All three systems share **only** `Pito::Lex` and `Pito::Stream::*`. Nothing else.                                          | Minimum shared surface.                            |
 | Every handler returns a `Result` value object; the controller never reads handler internals.                               | Uniform dispatch contract.                         |
 | Events store structured payloads, never HTML.                                                                              | Refresh-survives, theme-survives, locale-survives. |
@@ -1775,17 +1775,17 @@ the defaults below.
 
 ### Hashtag vs Slash vs Chat
 
-| Concern          | Hashtag (`Pito::Hashtag::*`)                     | Chat (`Pito::Chat::*`)                           | Slash (`Pito::Slash::*`)                        |
-| ---------------- | ------------------------------------------------ | ------------------------------------------------ | ----------------------------------------------- |
-| Entry point      | Input starting with `#` (not a confirmation)   | Input not starting with `/`                      | Input starting with `/`                         |
-| Dispatcher       | `Pito::Hashtag::Dispatcher`                      | `Pito::Chat::Dispatcher`                         | `Pito::Slash::Dispatcher`                       |
-| Parser           | `Pito::Hashtag::Parser`                          | `Pito::Chat::Parser`                             | `Pito::Slash::Parser`                           |
-| Parser output    | `Pito::Hashtag::Message`                         | `Pito::Chat::Message`                            | `Pito::Slash::Invocation`                       |
-| Result types     | `Ok`, `Error`                                    | `Ok`, `Error`, `Refine`                          | `Ok`, `Error`, `NeedsConfirmation`              |
-| Handler base     | `Pito::Hashtag::Handler`                         | `Pito::Chat::Handler`                            | `Pito::Slash::Handler`                          |
-| Handler location | `app/services/pito/hashtag/handlers/`            | `app/services/pito/chat/handlers/`               | `app/services/pito/slash/handlers/`             |
-| Registry         | `Pito::Hashtag::Registry`                        | `Pito::Chat::Registry`                           | `Pito::Slash::Registry`                         |
-| Shared types     | `Pito::Lex`, `Pito::Stream::*` only              | (same)                                           | (same)                                          |
+| Concern          | Hashtag (`Pito::Hashtag::*`)                                        | Chat (`Pito::Chat::*`)                           | Slash (`Pito::Slash::*`)                        |
+| ---------------- | ------------------------------------------------------------------- | ------------------------------------------------ | ----------------------------------------------- |
+| Entry point      | Input starting with `#` (not a confirmation)                        | Input not starting with `/`                      | Input starting with `/`                         |
+| Dispatcher       | `Pito::Hashtag::Dispatcher`                                         | `Pito::Chat::Dispatcher`                         | `Pito::Slash::Dispatcher`                       |
+| Parser           | `Pito::Hashtag::Parser`                                             | `Pito::Chat::Parser`                             | `Pito::Slash::Parser`                           |
+| Parser output    | `Pito::Hashtag::Message`                                            | `Pito::Chat::Message`                            | `Pito::Slash::Invocation`                       |
+| Result types     | `Ok`, `Error`                                                       | `Ok`, `Error`, `Refine`                          | `Ok`, `Error`, `NeedsConfirmation`              |
+| Handler base     | `Pito::Hashtag::Handler`                                            | `Pito::Chat::Handler`                            | `Pito::Slash::Handler`                          |
+| Handler location | `app/services/pito/hashtag/handlers/`                               | `app/services/pito/chat/handlers/`               | `app/services/pito/slash/handlers/`             |
+| Registry         | `Pito::Hashtag::Registry`                                           | `Pito::Chat::Registry`                           | `Pito::Slash::Registry`                         |
+| Shared types     | `Pito::Lex`, `Pito::Stream::*` only                                 | (same)                                           | (same)                                          |
 | Cross-import     | **Forbidden** — no reference to `Pito::Slash::*` or `Pito::Chat::*` | **Forbidden** — no reference to `Pito::Slash::*` | **Forbidden** — no reference to `Pito::Chat::*` |
 
 ## Anti-patterns

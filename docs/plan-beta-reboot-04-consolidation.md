@@ -723,9 +723,11 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 - [x] T28.3a `#handle` generation module: `GREEK_WORDS` constant (24 names: alpha…omega) + 4-digit random (1000–9999). `HandleGenerator.call(conversation)` generates a handle unique across the DB (queries `confirmation` event payloads in the conversation). complexity: [low]
 
 - [x] T28.3b Add `confirmation_handle:` to `confirmation` event payload. Store once on creation, never regenerate. Handle appears in the segment meta line: `14:32 · #alpha-1322 · @all`. complexity: [low]
+
   > Also added `command:` field (e.g. `"disconnect"`) for `ConfirmationDispatchJob` extensibility. Added `expand_detail:` (video breakdown + channel stats) and revised body to not embed counts. Case-sensitive @handle matching. Dropped `echo_confirm` demo handler + `NeedsConfirmation` result type. Dead i18n keys removed. OAuth hardcoded copy moved to i18n.
 
 - [x] T28.4 `ConfirmationComponent` (orange accent): meta line `timestamp · #handle · @all` at bottom; body text (disconnect warning + channel/video counts); processing state (Braille spinner + new confirmation-verb dictionary inside the segment, above body text); resolved state (original body + hairline separator + outcome text). complexity: [low]
+
   > Added `dom_id` + `expand_detail` (ctrl+o, hairline). Video breakdown in expand: published/scheduled/unlisted/private counts + subscribers/views. Expand hidden in resolved state.
 
 - [x] T28.5a `ChatController`: detect `#word-digits (confirm|cancel)` pattern. Route to `ConfirmationRouter`. Trigger dots-below-chatbox indicator. Emit NO echo segment. Respond 204. complexity: [low]
@@ -733,11 +735,13 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 - [x] T28.5b Immediately on receipt: update event payload to `processing: true`, broadcast Turbo Stream replace → segment shows Braille spinner. complexity: [low]
 
 - [x] T28.5c `ConfirmationRouter`: look up unresolved `confirmation` event by handle in the conversation. Enqueue `ConfirmationDispatchJob(event_id:, action: :confirm|:cancel)`. complexity: [low]
+
   > Generic service at `app/services/pito/confirmation_router.rb`. Routes any `#word-digits confirm|cancel` input; not tied to `/disconnect`. New confirmation types need only add `command: "type"` to their payload.
 
 - [x] T28.6 `ConfirmationDispatchJob` — cancel path: update payload (`resolved: true, outcome: :cancelled, outcome_text: "Alright, I won't disconnect from this channel."`), broadcast Turbo Stream replace → segment shows original body + hairline + outcome text. complexity: [low]
 
 - [x] T28.7 `ConfirmationDispatchJob` — confirm path: delete videos, delete channel, optionally delete `YoutubeConnection` (if last channel). Update payload (`resolved: true, outcome: :confirmed, outcome_text: "Disconnected from @handle. Deleted N videos."`), broadcast replace. complexity: [low]
+
   > Generic dispatch: `command:` field in payload routes to the right executor. Adding a new confirmation type = one `when` case in the job.
 
 - [-] T28.8 Smoke: `bin/boot` → `/connect` → add channel → `/disconnect @channel` → `#handle confirm` → verify channel + videos gone from DB. complexity: [manual]
