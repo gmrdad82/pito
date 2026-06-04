@@ -6,19 +6,20 @@ class SettingsController < ApplicationController
   # POST /settings/expand_all
   # Body: { expand_all: true|false }
   # Flips AppSetting.expand_all to the requested value, then broadcasts
-  # the updated #pito-settings element over the current conversation's
-  # Turbo Stream so the change propagates to any live listeners.
+  # the updated #pito-settings element to pito:global so every open tab
+  # (including the current one) receives the new data-expand-all attribute.
+  # Newly-arrived cable segments call expandAllEnabled() on connect() and
+  # therefore inherit the correct value without a reload.
   def toggle_expand_all
     new_value = ActiveModel::Type::Boolean.new.cast(params[:expand_all])
     AppSetting.expand_all = new_value
 
-    # Broadcast the settings update over the current conversation stream so
-    # any open cable connections receive the new data-expand-all attribute.
-    uuid = params[:uuid].presence
-    if uuid
-      conversation = Conversation.find_by(uuid:)
-      Pito::Stream::Broadcaster.new(conversation:).broadcast_settings_update if conversation
-    end
+    # P55 — broadcast to pito:global so all open tabs/instances update
+    # #pito-settings immediately. The current tab's expand_controller
+    # already flips existing segments optimistically; the Turbo replace
+    # ensures expandAllEnabled() returns the correct value for future
+    # cable-delivered segments.
+    Pito::Stream::Broadcaster.broadcast_global_settings_update
 
     head :no_content
   end

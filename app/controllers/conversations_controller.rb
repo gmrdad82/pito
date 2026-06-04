@@ -50,6 +50,11 @@ class ConversationsController < ApplicationController
 
     @conversation.update!(title: new_title)
 
+    # P54 — broadcast renamed row to pito:global so other instances' sidebars
+    # update without a page reload. Turbo replace is a no-op on clients where
+    # that row is absent (e.g. the conversations list is not open).
+    Pito::Stream::Broadcaster.broadcast_global_conversation_row(conversation: @conversation)
+
     respond_to do |format|
       format.turbo_stream do
         render turbo_stream: turbo_stream.replace(

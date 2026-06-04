@@ -157,6 +157,63 @@ module Pito
         event
       end
 
+      # ── Class-level global broadcasts (P54) ──────────────────────────────────
+
+      # Broadcast the current mini-status HTML (unread count + auth state) to
+      # the "pito:global" stream so every open browser instance updates its
+      # unread count without a page reload. Called after a notification is
+      # toggled read/unread so the count syncs cross-instance.
+      def self.broadcast_global_mini_status
+        helper = ApplicationController.helpers
+
+        mini_status_html = ApplicationController.renderer.render(
+          Pito::Shell::MiniStatusComponent.new(
+            mode: :connection, state: true,
+            notifications: Notification.unread.count, show_notifications: true
+          ),
+          layout: false
+        )
+        mini_status_wrapper = %(<div id="pito-mini-status" data-pito--home-transition-target="miniStatusSlide" style="margin-left: auto;">#{mini_status_html}</div>).html_safe
+
+        content = helper.turbo_stream.replace("pito-mini-status", mini_status_wrapper)
+        Turbo::StreamsChannel.broadcast_stream_to("pito:global", content:)
+      rescue StandardError => e
+        Rails.logger.warn("[Broadcaster] broadcast_global_mini_status failed: #{e.class}: #{e.message}")
+      end
+
+      # Broadcast a conversation row replacement to "pito:global" so that any
+      # open sidebar on other instances updates when a conversation is renamed.
+      def self.broadcast_global_conversation_row(conversation:)
+        helper = ApplicationController.helpers
+
+        timestamp = Pito::Formatter::CompactTimeAgo.call(
+          conversation.events.maximum(:created_at) || conversation.created_at
+        )
+
+        row_html = ApplicationController.renderer.render(
+          partial: "conversations/row",
+          locals: { conversation:, current: false, timestamp: }
+        )
+
+        content = helper.turbo_stream.replace("conversation_row_#{conversation.uuid}", row_html)
+        Turbo::StreamsChannel.broadcast_stream_to("pito:global", content:)
+      rescue StandardError => e
+        Rails.logger.warn("[Broadcaster] broadcast_global_conversation_row failed: #{e.class}: #{e.message}")
+      end
+
+      # Broadcast updated #pito-settings to "pito:global" so every open tab
+      # reflects the new expand-all (or sound/fx) value immediately — no reload.
+      def self.broadcast_global_settings_update
+        helper = ApplicationController.helpers
+
+        settings_html = %(<div id="pito-settings" class="hidden" data-sound="#{AppSetting.sound_enabled?}" data-fx="#{AppSetting.fx_enabled?}" data-expand-all="#{AppSetting.expand_all?}"></div>).html_safe
+
+        content = helper.turbo_stream.replace("pito-settings", settings_html)
+        Turbo::StreamsChannel.broadcast_stream_to("pito:global", content:)
+      rescue StandardError => e
+        Rails.logger.warn("[Broadcaster] broadcast_global_settings_update failed: #{e.class}: #{e.message}")
+      end
+
       # Mark a turn complete and broadcast the done signal that hides dots.
       def complete_turn(turn:)
         turn.update!(completed_at: Time.current)

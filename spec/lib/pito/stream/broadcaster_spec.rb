@@ -141,4 +141,78 @@ RSpec.describe Pito::Stream::Broadcaster do
       expect(turn.completed_at).to be_present
     end
   end
+
+  # ── P54 + P55 class-level global broadcasts ─────────────────────────────────
+
+  describe ".broadcast_global_mini_status" do
+    it "broadcasts a pito-mini-status replace to pito:global" do
+      expect {
+        described_class.broadcast_global_mini_status
+      }.to have_broadcasted_to("pito:global").with { |msg|
+        html = broadcast_html(msg)
+        expect(html).to include('action="replace"')
+        expect(html).to include("pito-mini-status")
+      }
+    end
+
+    it "does not raise even if ActionCable is unavailable" do
+      allow(Turbo::StreamsChannel).to receive(:broadcast_stream_to).and_raise(StandardError, "boom")
+      expect { described_class.broadcast_global_mini_status }.not_to raise_error
+    end
+  end
+
+  describe ".broadcast_global_conversation_row" do
+    it "broadcasts a conversation_row replace to pito:global" do
+      expect {
+        described_class.broadcast_global_conversation_row(conversation:)
+      }.to have_broadcasted_to("pito:global").with { |msg|
+        html = broadcast_html(msg)
+        expect(html).to include('action="replace"')
+        expect(html).to include("conversation_row_#{conversation.uuid}")
+      }
+    end
+
+    it "does not raise even if ActionCable is unavailable" do
+      allow(Turbo::StreamsChannel).to receive(:broadcast_stream_to).and_raise(StandardError, "boom")
+      expect { described_class.broadcast_global_conversation_row(conversation:) }.not_to raise_error
+    end
+  end
+
+  describe ".broadcast_global_settings_update" do
+    it "broadcasts a pito-settings replace to pito:global" do
+      # Stub AppSetting flags — avoids requiring encryption in pure unit tests.
+      allow(AppSetting).to receive(:expand_all?).and_return(true)
+      allow(AppSetting).to receive(:sound_enabled?).and_return(true)
+      allow(AppSetting).to receive(:fx_enabled?).and_return(true)
+
+      expect {
+        described_class.broadcast_global_settings_update
+      }.to have_broadcasted_to("pito:global").with { |msg|
+        html = broadcast_html(msg)
+        expect(html).to include('action="replace"')
+        expect(html).to include("pito-settings")
+        expect(html).to include('data-expand-all="true"')
+      }
+    end
+
+    it "reflects the current AppSetting values in the broadcast" do
+      allow(AppSetting).to receive(:expand_all?).and_return(false)
+      allow(AppSetting).to receive(:sound_enabled?).and_return(false)
+      allow(AppSetting).to receive(:fx_enabled?).and_return(false)
+
+      expect {
+        described_class.broadcast_global_settings_update
+      }.to have_broadcasted_to("pito:global").with { |msg|
+        html = broadcast_html(msg)
+        expect(html).to include('data-expand-all="false"')
+        expect(html).to include('data-sound="false"')
+        expect(html).to include('data-fx="false"')
+      }
+    end
+
+    it "does not raise even if ActionCable is unavailable" do
+      allow(Turbo::StreamsChannel).to receive(:broadcast_stream_to).and_raise(StandardError, "boom")
+      expect { described_class.broadcast_global_settings_update }.not_to raise_error
+    end
+  end
 end
