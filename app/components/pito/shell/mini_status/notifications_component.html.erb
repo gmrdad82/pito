@@ -1,1 +1,1 @@
-<span class="text-cyan"><%= t("pito.shell.mini_status.notifications_count", count: @count) %></span>
+<span class="inline-flex items-center gap-1"><%= render(Pito::Keybinding::ShortcutComponent.new(keys: t("pito.shell.mini_status.notifications_hint"))) %><span class="text-cyan"><%= t("pito.shell.mini_status.notifications_count", count: @count) %></span></span>

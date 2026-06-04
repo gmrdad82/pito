@@ -51,7 +51,7 @@
         <%= render(Pito::Shell::MiniStatusComponent.new(
               mode: :connection,
               state: Current.session.present?,
-              notifications: 3,
+              notifications: [0, 3].sample,
               show_notifications: true
             )) %>
       </div>

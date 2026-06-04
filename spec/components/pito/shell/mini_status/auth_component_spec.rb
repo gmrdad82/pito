@@ -18,22 +18,21 @@ RSpec.describe Pito::Shell::MiniStatus::AuthComponent do
 
     it "does not render the authenticated disc alone" do
       node = render_inline(described_class.new(state: false))
-      # The authenticated state renders only "●"; unauthenticated renders "○ auth"
       expect(node.css("span.text-green")).to be_empty
     end
   end
 
   describe "state: true (authenticated)" do
-    it "renders only the green disc ● without the 'auth' word" do
+    it "renders the green '● auth' label" do
       node = render_inline(described_class.new(state: true))
       green_span = node.css("span.text-green").first
       expect(green_span).to be_present
-      expect(green_span.text.strip).to eq("●")
+      expect(green_span.text.strip).to eq("● auth")
     end
 
-    it "does not render the 'auth' word when authenticated" do
+    it "renders the 'auth' word when authenticated" do
       node = render_inline(described_class.new(state: true))
-      expect(node.to_html).not_to include("auth")
+      expect(node.to_html).to include("● auth")
     end
 
     it "does not render the anonymous label" do

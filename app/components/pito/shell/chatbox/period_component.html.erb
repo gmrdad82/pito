@@ -1,1 +1,1 @@
-<span class="inline-flex items-center gap-1"><span class="text-fg-faded"><%= t("pito.shell.chatbox.filter.period_label") %></span><span class="text-cyan"><%= @period %></span><span class="font-bold text-yellow"><%= t("pito.shell.chatbox.filter.period_shortcut") %></span></span>
+<%= render(Pito::Shell::Chatbox::FilterComponent.new(shortcut: t("pito.shell.chatbox.filter.period_shortcut"), value: @period)) %>

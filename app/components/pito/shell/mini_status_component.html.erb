@@ -1,24 +1,10 @@
-<span class="inline-flex items-center" data-controller="pito--mini-status">
+<span class="inline-flex items-center">
   <%= render(Pito::Shell::MiniStatus::AuthComponent.new(state: @state)) %>
   <% unless @mode == :start %>
     <% if @show_notifications && @notifications > 0 %>
       <span class="text-fg-faded mx-2">·</span>
       <%= render(Pito::Shell::MiniStatus::NotificationsComponent.new(count: @notifications)) %>
     <% end %>
-    <span data-pito--mini-status-target="suggestHint" class="inline-flex items-center hidden">
-      <span class="text-fg-faded mx-2">·</span>
-      <%= render(Pito::Shell::MiniStatus::KeyHintComponent.new(
-            hint:  t("pito.shell.mini_status.autocomplete_hint"),
-            label: t("pito.shell.mini_status.autocomplete_label")
-          )) %>
-    </span>
-    <span data-pito--mini-status-target="chatHint" class="inline-flex items-center hidden">
-      <span class="text-fg-faded mx-2">·</span>
-      <%= render(Pito::Shell::MiniStatus::KeyHintComponent.new(
-            hint:  t("pito.shell.mini_status.chat_hint"),
-            label: t("pito.shell.mini_status.chat_label")
-          )) %>
-    </span>
     <span class="text-fg-faded mx-2">·</span>
     <%= render(Pito::Shell::MiniStatus::KeyHintComponent.new(
           hint:      t("pito.shell.mini_status.commands_hint"),

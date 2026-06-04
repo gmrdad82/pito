@@ -3,17 +3,10 @@
 require "rails_helper"
 
 RSpec.describe Pito::Shell::Chatbox::PeriodComponent do
-  describe "label text" do
-    it "renders the i18n label 'Period' (capitalized)" do
+  describe "no 'Period' label word" do
+    it "does NOT render the word 'Period' (removed in new design)" do
       node = render_inline(described_class.new(period: "7d"))
-      expect(node.to_html).to include("Period")
-    end
-
-    it "renders the label in a muted span" do
-      node = render_inline(described_class.new(period: "7d"))
-      faded = node.css("span.text-fg-faded").first
-      expect(faded).not_to be_nil
-      expect(faded.text).to include("Period")
+      expect(node.to_html).not_to include("Period")
     end
   end
 
@@ -34,12 +27,21 @@ RSpec.describe Pito::Shell::Chatbox::PeriodComponent do
     end
   end
 
-  describe "shift+space shortcut" do
+  describe "shift+space shortcut (the label)" do
     it "renders the shift+space shortcut in bold yellow" do
       node = render_inline(described_class.new(period: "7d"))
       yellow = node.css("span.font-bold.text-yellow").first
       expect(yellow).not_to be_nil
       expect(yellow.text).to include("shift+space")
+    end
+
+    it "renders shift+space before the period value (shortcut is the label)" do
+      node = render_inline(described_class.new(period: "7d"))
+      spans = node.css("span.inline-flex.items-center.gap-1 > span")
+      first_span = spans.first
+      expect(first_span["class"]).to include("font-bold")
+      expect(first_span["class"]).to include("text-yellow")
+      expect(first_span.text).to include("shift+space")
     end
   end
 

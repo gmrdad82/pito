@@ -54,11 +54,11 @@ RSpec.describe Pito::Shell::ChatboxComponent do
         expect(red.text).to eq("none")
       end
 
-      it "uses mx-2 spacing for the separator dot (matches mini status bar)" do
+      it "renders a muted separator dot between channel and period groups" do
         node = render_inline(described_class.new(
           filter: { channel: "@gaming", period: "7d" }
         ))
-        dot_spans = node.css("span.mx-2").select { |s| s.text.strip == "·" }
+        dot_spans = node.css("span.text-fg-faded").select { |s| s.text.strip == "·" }
         expect(dot_spans).not_to be_empty
       end
 
@@ -83,13 +83,13 @@ RSpec.describe Pito::Shell::ChatboxComponent do
         expect(node.css('[data-pito--chat-form-target="periodDisplay"]')).not_to be_empty
       end
 
-      it "renders 'Channel' and 'Period' muted labels in the filter row" do
+      it "does NOT render 'Channel' or 'Period' as label words (removed in new design)" do
         node = render_inline(described_class.new(
           filter: { channel: "@all", period: "7d" }
         ))
         faded_texts = node.css("span.text-fg-faded").map(&:text)
-        expect(faded_texts).to include("Channel")
-        expect(faded_texts).to include("Period")
+        expect(faded_texts).not_to include("Channel")
+        expect(faded_texts).not_to include("Period")
       end
 
       it "renders shift+tab and shift+space in bold yellow within the filter row" do
@@ -117,6 +117,28 @@ RSpec.describe Pito::Shell::ChatboxComponent do
         period_display = node.css('[data-pito--chat-form-target="periodDisplay"]').first
         expect(period_display).not_to be_nil
         expect(period_display.css("span.text-cyan").first).not_to be_nil
+      end
+
+      it "renders the suggestHint target wrapper hidden by default" do
+        node = render_inline(described_class.new(
+          filter: { channel: "@all", period: "7d" }
+        ))
+        suggest = node.css('[data-pito--chatbox-hints-target="suggestHint"]').first
+        expect(suggest).not_to be_nil
+        expect(suggest["class"]).to include("hidden")
+        expect(suggest.to_html).to include("tab")
+        expect(suggest.to_html).to include("suggest")
+      end
+
+      it "renders the chatHint target wrapper hidden by default" do
+        node = render_inline(described_class.new(
+          filter: { channel: "@all", period: "7d" }
+        ))
+        chat = node.css('[data-pito--chatbox-hints-target="chatHint"]').first
+        expect(chat).not_to be_nil
+        expect(chat["class"]).to include("hidden")
+        expect(chat.to_html).to include(">m<")
+        expect(chat.to_html).to include("chat")
       end
     end
 
@@ -211,6 +233,13 @@ RSpec.describe Pito::Shell::ChatboxComponent do
         wrapper = node.css("div#pito-chatbox").first
         expect(wrapper).not_to be_nil
         expect(wrapper["data-controller"]).to include("pito--autosuggest")
+      end
+
+      it "renders #pito-chatbox with the pito--chatbox-hints Stimulus controller" do
+        node = render_inline(described_class.new)
+        wrapper = node.css("div#pito-chatbox").first
+        expect(wrapper).not_to be_nil
+        expect(wrapper["data-controller"]).to include("pito--chatbox-hints")
       end
 
       it "contains a catalog script tag with parseable JSON including slash and vocabularies keys" do

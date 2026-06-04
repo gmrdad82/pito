@@ -14,12 +14,13 @@ en:
           period_shortcut: "shift+space"
         no_channels: "none"
       mini_status:
-        authenticated: "●"
+        authenticated: "● auth"
         anonymous: "○ auth"
         not_authenticated: "○ auth"
         notifications_count:
           one: "(%{count})"
           other: "(%{count})"
+        notifications_hint: "ctrl+/"
         autocomplete_hint: "tab"
         autocomplete_label: "suggest"
         chat_hint: "m"

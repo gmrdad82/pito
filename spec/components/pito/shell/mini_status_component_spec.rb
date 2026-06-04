@@ -6,16 +6,11 @@ RSpec.describe Pito::Shell::MiniStatusComponent do
   describe "rendered output" do
     context "mode: :connection (default)" do
       context "when state is true (authenticated)" do
-        it "renders only the green disc ● without the 'auth' word" do
+        it "renders '● auth' in green" do
           node = render_inline(described_class.new(state: true))
           green_span = node.css("span.text-green").first
           expect(green_span).to be_present
-          expect(green_span.text.strip).to eq("●")
-        end
-
-        it "does not render the 'auth' word when authenticated" do
-          node = render_inline(described_class.new(state: true))
-          expect(node.to_html).not_to include("auth")
+          expect(green_span.text.strip).to eq("● auth")
         end
 
         it "does not render the anonymous label" do
@@ -61,12 +56,12 @@ RSpec.describe Pito::Shell::MiniStatusComponent do
         expect(label.text).to include("○ auth")
       end
 
-      it "renders only ● in green when state: true (authenticated)" do
+      it "renders ● auth in green when state: true (authenticated)" do
         node = render_inline(described_class.new(mode: :start, state: true))
         label = node.css("span.text-green").first
         expect(label).to be_present
-        expect(label.text.strip).to eq("●")
-        expect(node.to_html).not_to include("auth")
+        expect(label.text.strip).to eq("● auth")
+        expect(node.to_html).to include("● auth")
       end
 
       it "renders no separators in start mode" do
@@ -89,10 +84,12 @@ RSpec.describe Pito::Shell::MiniStatusComponent do
         expect(node.to_html).not_to include("(")
       end
 
-      it "renders notification count in cyan parentheses" do
+      it "renders notifications as ctrl+/ (yellow) + count (cyan)" do
         node = render_inline(described_class.new(notifications: 2, show_notifications: true))
+        yellow = node.css("span.font-bold.text-yellow")
+        expect(yellow.map(&:text)).to include("ctrl+/")
         cyan_text = node.css("span.text-cyan").map(&:text).join
-        expect(cyan_text).to eq("(2)")
+        expect(cyan_text).to include("(2)")
       end
 
       it "renders singular count" do
@@ -139,55 +136,20 @@ RSpec.describe Pito::Shell::MiniStatusComponent do
         expect(html).not_to include("channels")
         expect(html).not_to include("shift+space")
       end
-    end
 
-    context "suggest hint (tab suggest)" do
-      it "renders the suggest hint markup (initially hidden)" do
+      it "does not render suggest or chat hints (moved to chatbox filter row)" do
         node = render_inline(described_class.new)
-        suggest_wrapper = node.css('[data-pito--mini-status-target="suggestHint"]').first
-        expect(suggest_wrapper).to be_present
-        expect(suggest_wrapper["class"]).to include("hidden")
-      end
-
-      it "includes 'tab' as the shortcut key in the suggest hint" do
-        node = render_inline(described_class.new)
-        suggest_wrapper = node.css('[data-pito--mini-status-target="suggestHint"]').first
-        expect(suggest_wrapper.to_html).to include("tab")
-      end
-
-      it "includes 'suggest' as the label in the suggest hint" do
-        node = render_inline(described_class.new)
-        suggest_wrapper = node.css('[data-pito--mini-status-target="suggestHint"]').first
-        expect(suggest_wrapper.to_html).to include("suggest")
+        html = node.to_html
+        expect(html).not_to include("suggest")
+        expect(html).not_to include(">chat<")
       end
     end
 
-    context "m chat hint" do
-      it "renders the m-chat hint markup (initially hidden)" do
-        node = render_inline(described_class.new)
-        chat_wrapper = node.css('[data-pito--mini-status-target="chatHint"]').first
-        expect(chat_wrapper).to be_present
-        expect(chat_wrapper["class"]).to include("hidden")
-      end
-
-      it "includes 'm' as the shortcut key in the chat hint" do
-        node = render_inline(described_class.new)
-        chat_wrapper = node.css('[data-pito--mini-status-target="chatHint"]').first
-        expect(chat_wrapper.to_html).to include(">m<")
-      end
-
-      it "includes 'chat' as the label in the chat hint" do
-        node = render_inline(described_class.new)
-        chat_wrapper = node.css('[data-pito--mini-status-target="chatHint"]').first
-        expect(chat_wrapper.to_html).to include("chat")
-      end
-    end
-
-    context "stimulus controller" do
-      it "mounts pito--mini-status controller on the outer span" do
+    context "no Stimulus controller on the outer span" do
+      it "does not mount pito--mini-status controller on the outer span" do
         node = render_inline(described_class.new)
         outer = node.css('[data-controller="pito--mini-status"]').first
-        expect(outer).to be_present
+        expect(outer).to be_nil
       end
     end
   end
