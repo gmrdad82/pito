@@ -48,6 +48,9 @@ export default class extends Controller {
     if (this.autofocusValue) this.field.focus({ preventScroll: true })
     this.#setActive(document.activeElement === this.field)
     this.render()
+    // Emit initial focus state so a late-connecting chatbox-hints controller
+    // gets the correct value even if it missed the autofocus event.
+    this.#emitFocus(document.activeElement === this.field)
   }
 
   disconnect() {
@@ -102,13 +105,22 @@ export default class extends Controller {
     )
   }
 
+  // Dispatch a bubbling pito:focus event so chatbox-hints (and any other listener)
+  // knows the current focus state of the chatbox field.
+  #emitFocus(focused) {
+    document.dispatchEvent(new CustomEvent("pito:focus", {
+      bubbles: false,
+      detail: { focused: !!focused },
+    }))
+  }
+
   #bind() {
     this.abort = new AbortController()
     const { signal } = this.abort
     const onCaretMove = () => { this.render(); this.#emitCaret() }
     const onInput = () => { this.autosize(); this.render(); this.#emitCaret() }
-    const onFocus = () => { this.#setActive(true); this.render(); this.#emitCaret() }
-    const onBlur = () => { this.#setActive(false); this.render() }
+    const onFocus = () => { this.#setActive(true); this.#emitFocus(true); this.render(); this.#emitCaret() }
+    const onBlur = () => { this.#setActive(false); this.#emitFocus(false); this.render() }
 
     this.field.addEventListener("input", onInput, { signal })
     this.field.addEventListener("keyup", onCaretMove, { signal })

@@ -190,6 +190,16 @@ export default class extends Controller {
       return
     }
 
+    // ── PLAIN TAB WITH NO SUGGESTION ────────────────────────────────────────
+    // Always swallow plain Tab (no modifier) so it never moves focus out of the
+    // chatbox to the browser address bar or the next focusable element.
+    // Shift+Tab must pass through so chat-form#handleKeydown can cycle channels.
+    if (event.key === "Tab" && !event.shiftKey) {
+      event.preventDefault()
+      event.stopImmediatePropagation()
+      return
+    }
+
     // All other keys pass through to chat-form#handleKeydown and
     // home-transition#interceptEnter without suppression.
   }
