@@ -5,4 +5,5 @@
 
 import "@hotwired/turbo-rails"
 import "pito/turbo_actions"
+import "pito/ready"
 import "controllers"

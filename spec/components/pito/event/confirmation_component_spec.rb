@@ -154,6 +154,13 @@ RSpec.describe Pito::Event::ConfirmationComponent do
     end
   end
 
+  describe "typewriter — never on confirmation" do
+    it "does NOT add the typewriter controller to the body span" do
+      node = render_inline(described_class.new(payload: pending_payload))
+      expect(node.css("[data-controller~='pito--typewriter']")).to be_empty
+    end
+  end
+
   describe "ConfirmationFollowUpComponent" do
     it "has background: var(--bg-elevated)" do
       comp = Pito::Event::ConfirmationFollowUpComponent.new(payload: pending_payload)

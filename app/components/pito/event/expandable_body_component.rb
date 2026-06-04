@@ -15,9 +15,10 @@ module Pito
     class ExpandableBodyComponent < ViewComponent::Base
       def initialize(body: nil, expand_lines: [], expand_detail: [],
                      expand_more_count: 0, expand_label: "", collapse_label: "",
-                     html: false)
+                     html: false, typewriter: false)
         @body              = body
         @html              = html == true || html == "true"
+        @typewriter        = typewriter && !@html
         @expand_lines      = expand_lines
         @expand_detail     = expand_detail
         @expand_more_count = expand_more_count
@@ -25,8 +26,9 @@ module Pito
         @collapse_label    = collapse_label
       end
 
-      def expandable? = @expand_detail.any?
-      def html?         = @html
+      def expandable?  = @expand_detail.any?
+      def html?        = @html
+      def typewriter?  = @typewriter
     end
   end
 end

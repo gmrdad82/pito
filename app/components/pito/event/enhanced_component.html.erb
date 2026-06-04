@@ -6,7 +6,8 @@
         expand_detail:     expand_detail,
         expand_more_count: expand_more_count,
         expand_label:      t("pito.slash.help.more_hint", count: expand_more_count),
-        collapse_label:    t("pito.slash.help.fewer_hint")
+        collapse_label:    t("pito.slash.help.fewer_hint"),
+        typewriter:        true
       )) %>
   <% if handle || channel %>
     <%= render(Pito::Event::MetaLineComponent.new(

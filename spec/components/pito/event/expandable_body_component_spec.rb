@@ -3,6 +3,47 @@
 require "rails_helper"
 
 RSpec.describe Pito::Event::ExpandableBodyComponent do
+  describe "typewriter: param" do
+    context "when typewriter: true and plain-text body" do
+      it "adds data-controller~='pito--typewriter' to the plain body span" do
+        node = render_inline(described_class.new(body: "Typewriter text", typewriter: true))
+        span = node.css("span.text-fg[data-controller~='pito--typewriter']").first
+        expect(span).not_to be_nil
+        expect(span.text).to include("Typewriter text")
+      end
+
+      it "adds data-pito--typewriter-target='body' to the plain body span" do
+        node = render_inline(described_class.new(body: "Typewriter text", typewriter: true))
+        expect(node.css("[data-pito--typewriter-target='body']")).not_to be_empty
+      end
+
+      it "adds typewriter controller inside the expand wrapper when expandable" do
+        node = render_inline(described_class.new(
+          body: "Expand text",
+          expand_detail: [ "detail line" ],
+          expand_label: "Show",
+          collapse_label: "Hide",
+          typewriter: true
+        ))
+        expect(node.css("[data-controller~='pito--typewriter']")).not_to be_empty
+      end
+    end
+
+    context "when typewriter: true but html: true" do
+      it "does NOT add typewriter controller (html bodies are not animated)" do
+        node = render_inline(described_class.new(body: "<b>bold</b>", html: true, typewriter: true))
+        expect(node.css("[data-controller~='pito--typewriter']")).to be_empty
+      end
+    end
+
+    context "when typewriter: false (default)" do
+      it "does NOT add typewriter controller" do
+        node = render_inline(described_class.new(body: "Plain text"))
+        expect(node.css("[data-controller~='pito--typewriter']")).to be_empty
+      end
+    end
+  end
+
   describe "#expandable?" do
     it "returns false when expand_detail is empty" do
       comp = described_class.new(body: "Hello", expand_detail: [])

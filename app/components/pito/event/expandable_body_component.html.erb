@@ -3,7 +3,11 @@
        data-pito--expand-expand-label-value="<%= @expand_label %>"
        data-pito--expand-collapse-label-value="<%= @collapse_label %>">
     <% if @body %>
-      <span class="text-fg"><%= html? ? raw(@body) : @body %></span>
+      <% if typewriter? %>
+        <span class="text-fg" data-controller="pito--typewriter" data-pito--typewriter-target="body"><%= @body %></span>
+      <% else %>
+        <span class="text-fg"><%= html? ? raw(@body) : @body %></span>
+      <% end %>
     <% end %>
     <% @expand_lines.each do |line| %>
       <div class="text-fg"><%= line %></div>
@@ -35,5 +39,9 @@
     </div>
   </div>
 <% elsif @body %>
-  <span class="text-fg"><%= html? ? raw(@body) : @body %></span>
+  <% if typewriter? %>
+    <span class="text-fg" data-controller="pito--typewriter" data-pito--typewriter-target="body"><%= @body %></span>
+  <% else %>
+    <span class="text-fg"><%= html? ? raw(@body) : @body %></span>
+  <% end %>
 <% end %>
