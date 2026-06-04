@@ -45,8 +45,8 @@
         <span data-pito--chat-form-target="periodDisplay">
           <%= render(Pito::Shell::Chatbox::PeriodComponent.new(period: @filter[:period])) %>
         </span>
-        <span data-pito--chatbox-hints-target="suggestHint" class="inline-flex items-center gap-1 hidden"><span class="text-fg-faded">·</span><%= render(Pito::Keybinding::HintComponent.new(shortcut: "tab", description: "suggest")) %></span>
-        <span data-pito--chatbox-hints-target="chatHint" class="inline-flex items-center gap-1 hidden"><span class="text-fg-faded">·</span><%= render(Pito::Keybinding::HintComponent.new(shortcut: "m", description: "chat")) %></span>
+        <span data-pito--chatbox-hints-target="suggestHint" class="items-center gap-1 hidden"><span class="text-fg-faded">·</span><%= render(Pito::Keybinding::HintComponent.new(shortcut: "tab", description: "suggest")) %></span>
+        <span data-pito--chatbox-hints-target="chatHint" class="items-center gap-1 hidden"><span class="text-fg-faded">·</span><%= render(Pito::Keybinding::HintComponent.new(shortcut: "m", description: "chat")) %></span>
       </div>
     <% end %>
   </div>
