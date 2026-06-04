@@ -997,12 +997,12 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 
 ## P40 — `/resume` (sidebar picker)
 
-- [ ] T40.1 `/resume` opens the sidebar listing conversations. complexity: [low]
-- [ ] T40.2 Keyboard (↑/↓ + Enter) + mouse selection. complexity: [high]
-- [ ] T40.3 Current conversation marked; picking it is a no-op. complexity: [low]
-- [ ] T40.4 Picking another navigates to its `/chat/:uuid`. complexity: [low]
-- [ ] T40.5 Spec/manual. complexity: [manual]
-- [ ] T40.6 Commit: `/resume conversation picker`. complexity: [manual]
+- [x] T40.1 `/resume` opens the sidebar listing conversations. complexity: [low]
+- [x] T40.2 Keyboard (↑/↓ + Enter) + mouse selection. complexity: [high]
+- [x] T40.3 Current conversation marked; picking it is a no-op. complexity: [low]
+- [x] T40.4 Picking another navigates to its `/chat/:uuid`. complexity: [low]
+- [x] T40.5 Spec/manual. complexity: [manual]
+- [x] T40.6 Commit: `/resume conversation picker`. complexity: [manual]
 
 ## P41 — Sidebar conversation list (grouping + timestamps)
 

@@ -59,6 +59,12 @@ class ChatController < ApplicationController
       return result ? render_turbo_navigate(result) : respond_to_client(conversation)
     end
 
+    if resume_command?(input)
+      # /resume populates the #pito-sidebar with a conversation list (Turbo Stream
+      # update). Auth gating: requires an active session. No echo, no job dispatch.
+      return handle_resume(conversation)
+    end
+
     if confirmation_response?(input)
       # #handle confirm|cancel — no echo; updates the existing confirmation
       # segment to processing state, then enqueues ConfirmationDispatchJob.
@@ -281,6 +287,38 @@ class ChatController < ApplicationController
 
   def new_command?(input)
     input.strip.match?(%r{\A/new(\s|\z)}i)
+  end
+
+  def resume_command?(input)
+    input.strip.match?(%r{\A/resume(\s|\z)}i)
+  end
+
+  # Renders a Turbo Stream that populates #pito-sidebar with the conversation list.
+  # Auth gating: unauthenticated → mandatory-auth error event broadcast + 204.
+  # No echo, no Turn, no async job.
+  def handle_resume(conversation)
+    unless Current.session.present?
+      broadcaster = Pito::Stream::Broadcaster.new(conversation:)
+      broadcaster.emit(
+        turn:    conversation.turns.create!(
+          position:   Turn.next_position_for(conversation),
+          input_kind: :slash,
+          input_text: "/resume"
+        ),
+        kind:    "error",
+        payload: { text: I18n.t("pito.auth.mandatories").sample }
+      )
+      return respond_to_client(conversation)
+    end
+
+    current_uuid = params[:uuid].presence
+    render turbo_stream: turbo_stream.update(
+      "pito-sidebar",
+      Pito::Sidebar::Conversations::Component.new(
+        groups:       Conversation.recency_groups,
+        current_uuid: current_uuid
+      )
+    )
   end
 
   # Creates a fresh Conversation and returns its path for a Turbo Stream navigate,

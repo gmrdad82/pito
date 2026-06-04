@@ -15,6 +15,7 @@
 </head>
 <body class="bg-root text-fg font-mono" data-controller="pito--audio" <%= "data-audio-chat-page=\"true\"".html_safe if controller_name == "conversations" %>>
   <div id="pito-auth-gate" class="hidden" data-authenticated="<%= Current.session.present? %>"></div>
+  <div id="pito-sidebar" data-controller="pito--resume"></div>
   <%= yield %>
 
   <%# Global Ctrl+K command palette — always in DOM, toggled by pito--command-palette controller %>

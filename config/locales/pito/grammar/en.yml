@@ -8,6 +8,7 @@ en:
         config: "Read or write install-wide credentials"
         connect: "Connect a YouTube channel via Google OAuth"
         new: "Start fresh — opens a brand-new conversation"
+        resume: "Browse and switch to a previous conversation"
         disconnect: "Disconnect a YouTube channel"
       chat:
         list: "List videos matching filters"
