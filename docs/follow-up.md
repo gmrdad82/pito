@@ -149,25 +149,46 @@ here so Plan 4 contains only what ships in the Beta. Pick these up after merge.
 ## D. Playlists (future — full management)
 
 > **Dropped for the Beta** — no `Playlist` model in the DB yet. Confirmed feasible
-> via the **YouTube Data API v3** (all five requested operations are supported):
+> end-to-end via the **YouTube Data API v3**. API mapping (all OAuth, `youtube` scope):
 >
-> 1. **Create a playlist** — `playlists.insert` (snippet.title/description). ✅
-> 2. **Add a video** — `playlistItems.insert` (snippet.playlistId + resourceId.videoId). ✅
-> 3. **Remove a video** — `playlistItems.delete` (by playlistItem id). ✅
-> 4. **Public / private** — `playlists.insert`/`playlists.update` `status.privacyStatus` (`public` | `unlisted` | `private`). ✅
-> 5. **Order** — each item has `snippet.position`; set on insert and reorder via `playlistItems.update` with a new `position`. ✅
+> | Operation | Endpoint | Notes |
+> |---|---|---|
+> | Create playlist | `playlists.insert` | `snippet.title/description`, `status.privacyStatus`. ~50 units. |
+> | Update playlist (title/desc/privacy) | `playlists.update` | full `snippet`+`status` (read-modify-write). ~50. |
+> | **Delete playlist** | `playlists.delete` | by playlist id; removes the whole playlist (items go with it). ~50. |
+> | List playlists | `playlists.list` (`mine=true`) | paginate; ~1 unit/page. |
+> | Add video | `playlistItems.insert` | `snippet.playlistId` + `resourceId{kind:youtube#video, videoId}` (+ optional `position`). ~50. |
+> | Remove video | `playlistItems.delete` | by **playlistItem id** (not videoId) — must look it up first. ~50. |
+> | List items | `playlistItems.list` | paginate; gives each item's id + `position`. ~1/page. |
+> | Reorder | `playlistItems.update` | set `snippet.position` (0-based); reordering N items = N updates. ~50 each. |
+> | Public/Private/Unlisted | `status.privacyStatus` on insert/update | `public` \| `unlisted` \| `private`. |
 >
-> Quota note: writes cost ~50 units each (insert/update/delete); a full reorder of N items is N updates — batch/debounce.
+> Quota: a single playlist is cheap; **bulk reorder / bulk add is expensive** (50 units/write) — batch + debounce, and consider a "dirty position" diff so only moved items update. Watch the daily 10k-unit default quota.
 
-- [ ] PL.1 `Playlist` + `PlaylistItem` models (mirror YouTube ids; `privacy_status`; item `position`; `dependent: :destroy`). complexity: [high]
-- [ ] PL.2 `Channel::Youtube::Client` playlist methods: `create_playlist`, `update_playlist`, `list_playlists`, `insert_item`, `delete_item`, `update_item_position`. complexity: [high]
-- [ ] PL.3 `/playlist new <title> [public|private|unlisted]` → create on YouTube + mirror. complexity: [high]
-- [ ] PL.4 `/playlist add <video> [to <playlist>]` and `/playlist remove <video>` (sidebar pickers for video + playlist). complexity: [high]
-- [ ] PL.5 Reorder UI: drag/keyboard reorder in a playlist sidebar → `playlistItems.update` position; persist mirror. complexity: [high]
-- [ ] PL.6 `/playlist privacy <playlist> <public|private|unlisted>`. complexity: [low]
-- [ ] PL.7 Import existing playlists (`playlists.list` + `playlistItems.list`) into the mirror. complexity: [high]
-- [ ] PL.8 Specs (stubbed API for every op; ordering; privacy; dedupe). complexity: [high]
-- [ ] PL.9 Commit(s): `Playlist management (create/add/remove/order/privacy)`. complexity: [manual]
+### Data model
+- [ ] PL.1 `Playlist` model: `youtube_playlist_id` (unique, nullable until created), `title`, `description`, `privacy_status` (enum public/unlisted/private), `position` (channel ordering, optional), `belongs_to :channel`, `last_synced_at`. complexity: [high]
+- [ ] PL.2 `PlaylistItem` model: `belongs_to :playlist`, `belongs_to :video` (or `youtube_video_id` mirror), `youtube_playlist_item_id` (needed for delete/reorder), `position` (0-based), unique on (playlist, video); `playlist has_many :playlist_items, -> { order(:position) }, dependent: :destroy`. complexity: [high]
+- [ ] PL.3 Factories + `factories_spec` coverage. complexity: [low]
+
+### API client
+- [ ] PL.4 `Channel::Youtube::Client` playlist methods: `create_playlist`, `update_playlist`, `delete_playlist`, `list_playlists`, `list_playlist_items`, `insert_item`, `delete_item`, `update_item_position`. WebMock-stubbed specs for each. complexity: [high]
+
+### Commands (chat/slash) — each: echo → async job → Braille → result Segment
+- [ ] PL.5 `/playlist new <title> [public|private|unlisted]` → `playlists.insert` + mirror a `Playlist`. complexity: [high]
+- [ ] PL.6 `/playlist rename <playlist> <title>` and `/playlist privacy <playlist> <public|private|unlisted>` → `playlists.update`. complexity: [low]
+- [ ] PL.7 **`/playlist delete <playlist>`** → `confirmation` Segment ("Delete playlist '<title>' (<N> videos)? This removes it on YouTube.") → on confirm `playlists.delete` → destroy the local `Playlist` (+ items). complexity: [high]
+- [ ] PL.8 `/playlist add <video> [to <playlist>]` → sidebar pickers (video + target playlist) → `playlistItems.insert` (append at end) → mirror item. complexity: [high]
+- [ ] PL.9 `/playlist remove <video> [from <playlist>]` → picker → look up the `playlistItem id` → `playlistItems.delete` → drop the mirror item → renumber positions. complexity: [high]
+- [ ] PL.10 Reorder UI: a playlist sidebar with keyboard (↑/↓ to move a selected item) + drag → diff changed positions → minimal `playlistItems.update` calls → persist mirror order. complexity: [high]
+
+### Sync
+- [ ] PL.11 Import existing playlists: `playlists.list(mine)` + `playlistItems.list` per playlist → upsert mirror (id/title/privacy/items/positions); run on connect + via `/playlist sync`. complexity: [high]
+- [ ] PL.12 Optional: include playlist sync in the daily channel sync (P60) cadence. complexity: [low]
+
+### Quality
+- [ ] PL.13 Specs: every command (stubbed API), confirmation on delete, position renumber on remove, reorder diff, privacy round-trip, dedupe on add. complexity: [high]
+- [ ] PL.14 i18n all copy (incl. the delete confirmation + witty empty/error states). complexity: [low]
+- [ ] PL.15 Commit(s), one per cohesive slice: models → client → create/update/delete → add/remove → reorder → sync. complexity: [manual]
 
 ---
 
