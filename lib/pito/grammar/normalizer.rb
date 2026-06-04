@@ -132,8 +132,9 @@ module Pito
         free_parts         = []   # ordered unconsumed tokens for :free slot
         pending_introducer = nil
 
-        enum_slots = spec.slots.select { |s| s.kind == :enum }
-        free_slot  = spec.slots.find   { |s| s.kind == :free }
+        enum_slots    = spec.slots.select { |s| s.kind == :enum }
+        literal_slots = spec.slots.select { |s| s.kind == :literal }
+        free_slot     = spec.slots.find   { |s| s.kind == :free }
 
         # Mutable index; kv parsing consumes multiple tokens at once
         idx = 0
@@ -183,6 +184,16 @@ module Pito
               Registry.vocabulary(sl.source)&.filler?(raw_val)
             end
             next if global_filler || active_enum_filler
+          end
+
+          # ── literal slot resolution ─────────────────────────────────────────
+          if tok.type == :word || tok.type == :number || tok.type == :string
+            raw_val = tok.value
+            lit_slot = resolve_literal(raw_val, literal_slots, values)
+            if lit_slot
+              values[lit_slot.name] = raw_val.downcase
+              next
+            end
           end
 
           # ── enum resolution ─────────────────────────────────────────────────
@@ -242,7 +253,8 @@ module Pito
       # ── Enum resolution helper ───────────────────────────────────────────────
 
       # Returns [slot, canonical_value] or [nil, nil].
-      # Respects: introducer gating, already-filled non-repeatable slots.
+      # Respects: introducer gating, already-filled non-repeatable slots, and
+      # conditional eligibility (slot.eligible?(values)).
       def resolve_enum(raw_val, enum_slots, values, pending_introducer)
         downcased = raw_val.to_s.downcase
 
@@ -250,6 +262,7 @@ module Pito
         if pending_introducer
           gated_slots = enum_slots.select { |s| s.introducer == pending_introducer }
           gated_slots.each do |sl|
+            next unless sl.eligible?(values)
             next if slot_filled_non_repeatable?(sl, values)
             next unless sl.source.is_a?(Symbol)
             canon = Registry.vocabulary(sl.source)&.resolve(downcased)
@@ -260,6 +273,7 @@ module Pito
         # Then try un-gated (no introducer) slots in order
         enum_slots.each do |sl|
           next if sl.introducer && sl.introducer != pending_introducer
+          next unless sl.eligible?(values)
           next if slot_filled_non_repeatable?(sl, values)
           next unless sl.source.is_a?(Symbol)
           canon = Registry.vocabulary(sl.source)&.resolve(downcased)
@@ -271,6 +285,24 @@ module Pito
 
       def slot_filled_non_repeatable?(slot, values)
         !slot.repeatable? && values.key?(slot.name)
+      end
+
+      # ── Literal slot resolution helper ───────────────────────────────────────
+
+      # Returns the first unfilled literal slot whose vocabulary resolves raw_val,
+      # or nil if none. Used to track literal values in the `values` hash so that
+      # conditional (when:) enum/kv slots can check eligibility.
+      def resolve_literal(raw_val, literal_slots, values)
+        downcased = raw_val.to_s.downcase
+        literal_slots.each do |sl|
+          next if values.key?(sl.name)  # already filled
+          next unless sl.source.is_a?(Symbol)
+          vocab = Registry.vocabulary(sl.source)
+          next unless vocab
+          resolved = vocab.resolve(downcased) || (vocab.canonical.include?(raw_val) ? raw_val : nil)
+          return sl if resolved
+        end
+        nil
       end
 
       # ── KV value reader ──────────────────────────────────────────────────────

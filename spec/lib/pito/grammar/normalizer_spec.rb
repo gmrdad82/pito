@@ -367,4 +367,75 @@ RSpec.describe Pito::Grammar::Normalizer do
       expect(match.unknowns).not_to include("for")
     end
   end
+
+  # ── Conditional slots (when: / eligible?) ─────────────────────────────────
+
+  describe "conditional slots — when: condition" do
+    before do
+      # Register a :slash :toggle spec with conditional slots:
+      #   literal :mode   — source: :config_providers
+      #   enum    :state  — source: :on_off, condition: { mode: %w[sound fx] }
+      #   kv      :cfg    — source: :config_keys, condition: { mode: %w[google voyage] }
+      Pito::Grammar::Registry.register_spec(
+        Pito::Grammar::Spec.new(
+          namespace: :slash,
+          name: :toggle,
+          slots: [
+            Pito::Grammar::Slot.new(name: :mode, kind: :literal, source: :config_providers),
+            Pito::Grammar::Slot.new(name: :state, kind: :enum, source: :on_off,
+                                    optional: true,
+                                    condition: { mode: %w[sound fx] }),
+            Pito::Grammar::Slot.new(name: :cfg, kind: :kv, source: :config_keys,
+                                    optional: true, repeatable: true,
+                                    condition: { mode: %w[google voyage] })
+          ]
+        )
+      )
+    end
+
+    describe "when prior literal resolves to a toggle provider (sound)" do
+      subject(:match) { described_class.call(lex("toggle sound on"), namespace: :slash) }
+
+      it "resolves the verb to :toggle" do
+        expect(match.name).to eq(:toggle)
+      end
+
+      it "captures state as 'on'" do
+        expect(match.values[:state]).to eq("on")
+      end
+
+      it "does not fill :cfg (ineligible for sound)" do
+        expect(match.values[:cfg]).to be_nil
+      end
+
+      it "has no unknowns" do
+        expect(match.unknowns).to be_empty
+      end
+    end
+
+    describe "when prior literal resolves to a credential provider (google)" do
+      subject(:match) { described_class.call(lex("toggle google"), namespace: :slash) }
+
+      it "resolves the verb to :toggle" do
+        expect(match.name).to eq(:toggle)
+      end
+
+      it "does not fill :state (ineligible for google)" do
+        expect(match.values[:state]).to be_nil
+      end
+    end
+
+    describe "on/off synonym resolution via condition-gated enum" do
+      it "resolves 'off' to canonical 'off' for a toggle provider" do
+        match = described_class.call(lex("toggle fx off"), namespace: :slash)
+        expect(match.values[:state]).to eq("off")
+      end
+
+      it "does not accidentally fill :state for a credential provider with an on/off-like word" do
+        # 'on' is in on_off vocab; but for google the :state slot is ineligible
+        match = described_class.call(lex("toggle google on"), namespace: :slash)
+        expect(match.values[:state]).to be_nil
+      end
+    end
+  end
 end

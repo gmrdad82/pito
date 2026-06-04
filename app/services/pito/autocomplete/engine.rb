@@ -154,26 +154,34 @@ module Pito
         # Determine which slot the cursor is currently in.
         # Walk consumed_args through the slot list using a greedy match.
         # The first slot that isn't filled is the active slot.
+        # Tracks resolved_values so that conditional slots (slot.eligible?) are
+        # honoured — e.g. after "/config sound " only the :state enum is active,
+        # after "/config google " only the :settings kv is active.
         def find_active_slot(spec, consumed_args)
           slots = spec.slots.reject { |s| s.kind == :free || s.kind == :connective }
-          return slots.first if consumed_args.empty?
+          return eligible_slots(slots, {}).first if consumed_args.empty?
 
-          remaining_args = consumed_args.dup
-          filled_slots   = []
+          remaining_args  = consumed_args.dup
+          filled_slots    = []
+          resolved_values = {}
 
           slots.each do |slot|
             break if remaining_args.empty?
+            next unless slot.eligible?(resolved_values)
+
             case slot.kind
             when :literal, :enum
               # Consume one arg for a single-value slot (or one for each occurrence
               # of a repeatable slot as long as the arg could belong to this slot).
               if slot.repeatable?
                 while remaining_args.any? && slot_matches_arg?(slot, remaining_args.first)
+                  resolved_values[slot.name] = remaining_args.first
                   remaining_args.shift
                   filled_slots << slot
                 end
               else
                 if slot_matches_arg?(slot, remaining_args.first)
+                  resolved_values[slot.name] = remaining_args.first
                   remaining_args.shift
                   filled_slots << slot
                 end
@@ -187,13 +195,17 @@ module Pito
             end
           end
 
-          # The active slot is the first unfilled non-optional-but-active slot.
-          # Simpler approach: the next slot after what we consumed is the active one.
-          # Find the first slot not marked as filled.
+          # The active slot is the first unfilled slot that is eligible given
+          # the resolved values accumulated so far.
           consumed_slot_names = filled_slots.map(&:name)
-          slots.find do |s|
+          eligible_slots(slots, resolved_values).find do |s|
             !consumed_slot_names.include?(s.name) || s.repeatable?
-          end || slots.last
+          end || eligible_slots(slots, resolved_values).last
+        end
+
+        # Returns slots that pass eligibility for the given resolved_values.
+        def eligible_slots(slots, resolved_values)
+          slots.select { |s| s.eligible?(resolved_values) }
         end
 
         # Check if a consumed arg string belongs to the given slot.

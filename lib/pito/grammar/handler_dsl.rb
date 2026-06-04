@@ -26,14 +26,15 @@ module Pito
           @_description_key = nil
         end
 
-        def enum(name, source:, optional: false, repeatable: false, introducer: nil)
+        def enum(name, source:, optional: false, repeatable: false, introducer: nil, when: nil)
           @_slots << Pito::Grammar::Slot.new(
             name:        name,
             kind:        :enum,
             source:      source,
             optional:    optional,
             repeatable:  repeatable,
-            introducer:  introducer
+            introducer:  introducer,
+            condition:   binding.local_variable_get(:when)
           )
         end
 
@@ -48,13 +49,14 @@ module Pito
           )
         end
 
-        def kv(name, source:, optional: false, repeatable: false)
+        def kv(name, source:, optional: false, repeatable: false, when: nil)
           @_slots << Pito::Grammar::Slot.new(
             name:       name,
             kind:       :kv,
             source:     source,
             optional:   optional,
-            repeatable: repeatable
+            repeatable: repeatable,
+            condition:  binding.local_variable_get(:when)
           )
         end
 

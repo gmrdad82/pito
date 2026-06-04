@@ -20,7 +20,8 @@ module Pito
 
         grammar do
           literal :provider, source: :config_providers
-          kv :settings, source: :config_keys, repeatable: true, optional: true
+          enum    :state,    source: :on_off,      optional: true,              when: { provider: %w[sound fx] }
+          kv      :settings, source: :config_keys, repeatable: true, optional: true, when: { provider: %w[google voyage igdb webhook] }
           auth :authenticated_only
           description_key "pito.grammar.slash.config"
         end

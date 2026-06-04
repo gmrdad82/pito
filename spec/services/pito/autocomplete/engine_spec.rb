@@ -154,6 +154,53 @@ RSpec.describe Pito::Autocomplete::Engine, type: :service do
         expect(item[:insert]).to end_with("=")
       end
     end
+
+    it "does NOT suggest on/off after /config google (credential provider)" do
+      result = call(input: "/config google ", cursor: 15, authenticated: true)
+      labels = result[:menu_items].map { |i| i[:label] }
+      expect(labels).not_to include("on", "off")
+    end
+  end
+
+  describe "slash mode — arg stage (/config sound|fx on/off slot)" do
+    it "suggests on and off after '/config sound '" do
+      result = call(input: "/config sound ", cursor: 14, authenticated: true)
+      labels = result[:menu_items].map { |i| i[:label] }
+      expect(labels).to include("on", "off")
+    end
+
+    it "suggests on and off after '/config fx '" do
+      result = call(input: "/config fx ", cursor: 11, authenticated: true)
+      labels = result[:menu_items].map { |i| i[:label] }
+      expect(labels).to include("on", "off")
+    end
+
+    it "does NOT suggest kv keys after '/config sound '" do
+      result = call(input: "/config sound ", cursor: 14, authenticated: true)
+      labels = result[:menu_items].map { |i| i[:label] }
+      expect(labels).not_to include("client_id", "client_secret", "api_key")
+    end
+
+    it "filters on/off by prefix after '/config sound o'" do
+      result = call(input: "/config sound o", cursor: 15, authenticated: true)
+      labels = result[:menu_items].map { |i| i[:label] }
+      expect(labels).to include("on", "off")
+    end
+
+    it "insert for on/off ends with a space" do
+      result = call(input: "/config sound ", cursor: 14, authenticated: true)
+      result[:menu_items].each do |item|
+        expect(item[:insert]).to end_with(" ")
+      end
+    end
+  end
+
+  describe "slash mode — arg stage (/config provider slot)" do
+    it "suggests providers including sound and fx after '/config '" do
+      result = call(input: "/config ", cursor: 8, authenticated: true)
+      labels = result[:menu_items].map { |i| i[:label] }
+      expect(labels).to include("sound", "fx")
+    end
   end
 
   # ── SLASH — unknown verb ─────────────────────────────────────────────────────

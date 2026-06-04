@@ -88,6 +88,22 @@ RSpec.describe Pito::Grammar::Vocabularies do
     it 'resolves "disable" to "off"' do
       expect(on_off.resolve("disable")).to eq("off")
     end
+
+    it 'resolves "yes" to "on"' do
+      expect(on_off.resolve("yes")).to eq("on")
+    end
+
+    it 'resolves "no" to "off"' do
+      expect(on_off.resolve("no")).to eq("off")
+    end
+
+    it 'resolves "enabled" to "on"' do
+      expect(on_off.resolve("enabled")).to eq("on")
+    end
+
+    it 'resolves "disabled" to "off"' do
+      expect(on_off.resolve("disabled")).to eq("off")
+    end
   end
 
   # ── Static vocab: :genres ──────────────────────────────────────────────────

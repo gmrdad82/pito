@@ -115,7 +115,7 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 
 ## Phase index
 
-> Phases are the `## P0`–`## P48` headings below (each is an independently-committable unit). **A–L are organizational group labels only**, and the names listed here are abbreviated — the `## P<N> — …` headings are canonical.
+> Phases are the `## P0`–`## P49` headings below (each is an independently-committable unit). **A–L are organizational group labels only**, and the names listed here are abbreviated — the `## P<N> — …` headings are canonical.
 
 **A — Cleanup:** P0 Pre-flight · P1 Remove dead surfaces · P2 Auth → cookie · P3 Stale rake · P4 Dead-code sweep
 **B — Schema/models:** P5 Single migration · P6 Model updates · P7 Game score · P8 IGDB sync investigation
@@ -128,7 +128,7 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 **I — Games:** P35 Re-wire IGDB · P36 `/add game` sidebar · P37 Add → async sync · P38 Daily unreleased refresh
 **J — Conversations:** P39 `/new` · P40 `/resume` · P41 Sidebar list · P42 Rename
 **K — Docs/verify:** P43 AGENTS.md · P44 Verification
-**L — Chat-UI polish (post-P42, after `/new`/`/resume`):** P45 Typing phase-in · P46 Typewriter reveal · P47 Draft persistence · P48 Sound/FX settings
+**L — Chat-UI polish (post-P42, after `/new`/`/resume`):** P45 Typing phase-in · P46 Typewriter reveal · P47 Draft persistence · P48 Sound/FX settings · P49 Conditional grammar slots
 
 ---
 
@@ -1112,6 +1112,17 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 - [ ] T48.8 Smoke (browser): `/config sound off` silences chirps; `/config fx off` disables animations (and OS reduced-motion still disables when fx on); settings persist across refresh; no ctrl+m. complexity: [manual]
 - [x] T48.9 Commit: `Sound/FX settings via AppSetting + /config`. complexity: [manual]
 
+## P49 — Provider-conditional grammar slots (`/config sound|fx` autosuggest)
+
+> Make `/config` autocomplete branch by provider: **on/off after `sound`/`fx`**, **key= after credential providers** — without breaking the credential kv autocomplete. Mechanism: a `when:` condition on `Slot`, honored by the Normalizer + autocomplete Engine (a slot is eligible only when a prior slot resolved to allowed values). Broaden `:on_off` synonyms. **Committed (group).**
+
+- [x] T49.1 `Slot` gains `when:`/`condition` + `eligible?(resolved_values)`; DSL `when:` keyword; spec. complexity: [high]
+- [x] T49.2 Normalizer (literal-resolution pass + skip ineligible slots) and Engine `find_active_slot` (track resolved values + `eligible_slots`) honor the condition; spec. complexity: [high]
+- [x] T49.3 Re-gate `/config` grammar: `enum :state, source: :on_off, when: {provider: [sound,fx]}`; `kv :settings, …, when: {provider: [credentials]}`. complexity: [low]
+- [x] T49.4 `:on_off` synonyms: on/off + yes/no + enabled/disabled + enable/disable + true/false. complexity: [low]
+- [x] T49.5 Specs: engine `/config sound `→on/off, `/config google `→keys (4 existing kv specs stay green), `/config `→providers incl sound/fx; normalizer conditional-slot; vocab synonyms. complexity: [low]
+- [x] T49.6 Commit: `Provider-conditional grammar slots (/config sound|fx autosuggest)`. complexity: [manual]
+
 ---
 
 ## Open questions / needs clarification
@@ -1139,7 +1150,7 @@ _Resolved this round:_ video commands = `/import` + `/update` + lifecycle `/publ
 - `Calendar`/`CalendarEntry`, `Notification` models — add when needed. (Playlist dropped — not supported.)
 - Remote footage ingest (script + HTTP endpoint) if/when on Hetzner.
 - At merge: delete `plan-beta-reboot-*.md`; fold durable content into `architecture.md` / `design.md` / `installation.md` / `tools.md`.
-- ctrl+o expand and collapse (at the bottom)
+- ctrl+| expand and collapse all
 - Game im main screen
 - Sidebar only for preview
 - History for chat
@@ -1155,6 +1166,7 @@ _Resolved this round:_ video commands = `/import` + `/update` + lifecycle `/publ
 - Vocabulary for /help and refactor help to show vocabulary with nested - structure to accomodate vast
 - force / refresh stats with --fresh argument maybe
 - Extract components for kv-tables, tables, stats, etc...
+- Implement /rename
 
 ## How to use this plan
 

@@ -86,10 +86,14 @@ module Pito
         name:      :on_off,
         canonical: %w[on off],
         synonyms:  {
-          "true"    => "on",
-          "false"   => "off",
-          "enable"  => "on",
-          "disable" => "off"
+          "true"     => "on",
+          "false"    => "off",
+          "enable"   => "on",
+          "disable"  => "off",
+          "yes"      => "on",
+          "no"       => "off",
+          "enabled"  => "on",
+          "disabled" => "off"
         }
       ).freeze
 
