@@ -19,6 +19,9 @@ Rails.application.routes.draw do
   get "/chat/:uuid", to: "conversations#show", as: :conversation
   patch "/chat/:uuid", to: "conversations#update"
 
+  # Settings toggle endpoints — require authentication (no allow_anonymous).
+  post "/settings/expand_all", to: "settings#toggle_expand_all", as: :settings_toggle_expand_all
+
   # Dev helper: clears the session cookie so you can re-test /authenticate
   delete "/logout", to: "sessions#destroy", as: :logout
 

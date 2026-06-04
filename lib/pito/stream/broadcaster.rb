@@ -112,7 +112,7 @@ module Pito
         helper = ApplicationController.helpers
 
         settings_html = %(
-          <div id="pito-settings" class="hidden" data-sound="#{AppSetting.sound_enabled?}" data-fx="#{AppSetting.fx_enabled?}"></div>
+          <div id="pito-settings" class="hidden" data-sound="#{AppSetting.sound_enabled?}" data-fx="#{AppSetting.fx_enabled?}" data-expand-all="#{AppSetting.expand_all?}"></div>
         ).html_safe
 
         content = helper.turbo_stream.replace("pito-settings", settings_html)
