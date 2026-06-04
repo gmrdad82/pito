@@ -99,11 +99,11 @@ RSpec.describe Pito::StartScreen::Component do
 
       before { allow(Current).to receive(:session).and_return(fake_session) }
 
-      it "renders ● auth (green) in the start-mode mini status" do
+      it "renders ● (green) in the start-mode mini status" do
         node = render_inline(described_class.new(**defaults))
         chatbox_area = node.css("[data-pito--home-transition-target='chatboxArea']").first
-        expect(chatbox_area.to_html).to include("● auth")
-        expect(chatbox_area.css("span.text-green").map(&:text).join).to include("● auth")
+        expect(chatbox_area.to_html).to include("●")
+        expect(chatbox_area.css("span.text-green").map(&:text).join).to include("●")
       end
 
       it "does not render ○ auth in the start-mode mini status" do

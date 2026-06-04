@@ -282,6 +282,17 @@ export default class extends Controller {
     this._renderPalette()
   }
 
+  // ── pito:suggest dispatch ──────────────────────────────────────────────────
+
+  // Notify the mini-status controller (and any other listener) that a suggestion
+  // (ghost text or palette) is now shown or hidden.
+  _dispatchSuggest(active) {
+    document.dispatchEvent(new CustomEvent("pito:suggest", {
+      bubbles: false,
+      detail: { active: !!active },
+    }))
+  }
+
   // Render the palette DOM rows inside the palette target element.
   _renderPalette() {
     const palette = this.paletteTarget
@@ -315,6 +326,7 @@ export default class extends Controller {
 
     palette.classList.remove("hidden")
     this._paletteOpen = true
+    this._dispatchSuggest(true)
   }
 
   // Move selection by delta (+1 down, -1 up), wrapping within bounds.
@@ -350,6 +362,7 @@ export default class extends Controller {
 
   // Hide and reset the palette.
   _closePalette() {
+    const wasOpen = this._paletteOpen
     if (this.hasPaletteTarget) {
       this.paletteTarget.classList.add("hidden")
       this.paletteTarget.innerHTML = ""
@@ -357,6 +370,7 @@ export default class extends Controller {
     this._paletteOpen = false
     this._paletteRows = []
     this._selectedIdx = 0
+    if (wasOpen) this._dispatchSuggest(false)
   }
 
   // ae: returns true when the cursor is past the verb + at least one space
@@ -754,6 +768,7 @@ export default class extends Controller {
 
     if (!hasContent) {
       span.textContent = ""
+      this._dispatchSuggest(false)
       return
     }
 
@@ -769,6 +784,7 @@ export default class extends Controller {
     }
 
     this._positionGhost()
+    this._dispatchSuggest(true)
   }
 
   // Position the ghost span at the current caret coords.
@@ -780,12 +796,14 @@ export default class extends Controller {
 
   // Clear ghost text and reset state.
   _clearGhost() {
+    const hadGhost = !!this._ghostComplete
     this._ghostComplete = ""
     this._ghostInsert   = null
     this._cancelDynamicFetch()
     if (this._ghostSpan) {
       this._ghostSpan.textContent = ""
     }
+    if (hadGhost) this._dispatchSuggest(false)
   }
 
   // aj/ae: TAB accept (ghost) — insert the ghost completion into the field.
