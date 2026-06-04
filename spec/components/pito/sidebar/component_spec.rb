@@ -58,6 +58,42 @@ RSpec.describe Pito::Sidebar::Component do
     end
   end
 
+  describe "subtitle slot (rich subtitle overrides subtitle_key)" do
+    it "renders custom subtitle slot content" do
+      node = render_inline(
+        described_class.new(
+          title:        "Game",
+          subtitle_key: "pito.sidebar.game.subtitle",
+          subtitle_args: { date: "Jan 1" }
+        )
+      ) do |c|
+        c.with_subtitle { "custom rich subtitle" }
+      end
+      expect(node.to_html).to include("custom rich subtitle")
+    end
+
+    it "does NOT render the subtitle_key translation when a subtitle slot is provided" do
+      node = render_inline(
+        described_class.new(
+          title:        "Game",
+          subtitle_key: "pito.sidebar.game.subtitle",
+          subtitle_args: { date: "Jan 1" }
+        )
+      ) do |c|
+        c.with_subtitle { "custom rich subtitle" }
+      end
+      # subtitle_key would produce "Game · imported Jan 1" — that text must be absent
+      expect(node.to_html).not_to include("imported Jan 1")
+    end
+
+    it "renders without a subtitle when neither subtitle slot nor subtitle_key is given" do
+      node = render_inline(described_class.new(title: "Game"))
+      # No subtitle div with text should appear (only the always-present esc hint span)
+      subtitle_divs = node.css("div.text-fg-dim")
+      expect(subtitle_divs).to be_empty
+    end
+  end
+
   describe "body slot" do
     it "renders body slot content when provided" do
       node = render_inline(described_class.new(title: "Game", subtitle_key: "pito.sidebar.esc_hint")) do |c|

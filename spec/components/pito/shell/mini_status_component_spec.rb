@@ -71,6 +71,17 @@ RSpec.describe Pito::Shell::MiniStatusComponent do
         }
         expect(visible_faded).to be_empty
       end
+
+      it "renders ctrl+k when authenticated and in start mode" do
+        node = render_inline(described_class.new(mode: :start, state: true))
+        yellow_bold = node.css("span.font-bold.text-yellow")
+        expect(yellow_bold.map(&:text)).to include("ctrl+k")
+      end
+
+      it "does NOT render ctrl+k when unauthenticated and in start mode" do
+        node = render_inline(described_class.new(mode: :start, state: false))
+        expect(node.to_html).not_to include("ctrl+k")
+      end
     end
 
     context "notifications" do

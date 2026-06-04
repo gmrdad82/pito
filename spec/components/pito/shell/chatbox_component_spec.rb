@@ -142,6 +142,50 @@ RSpec.describe Pito::Shell::ChatboxComponent do
       end
     end
 
+    context "conversation_title (purple name in filter row)" do
+      it "renders the conversation name in purple when conversation_title is present" do
+        node = render_inline(described_class.new(
+          filter:             { channel: "@all", period: "7d" },
+          conversation_title: "My Gaming Session"
+        ))
+        purple_span = node.css("span.text-purple").first
+        expect(purple_span).not_to be_nil
+        expect(purple_span.text).to eq("My Gaming Session")
+      end
+
+      it "does NOT render a purple name span when conversation_title is nil" do
+        node = render_inline(described_class.new(
+          filter:             { channel: "@all", period: "7d" },
+          conversation_title: nil
+        ))
+        expect(node.css("span.text-purple")).to be_empty
+      end
+
+      it "does NOT render a purple name span when conversation_title is blank" do
+        node = render_inline(described_class.new(
+          filter:             { channel: "@all", period: "7d" },
+          conversation_title: "   "
+        ))
+        expect(node.css("span.text-purple")).to be_empty
+      end
+
+      it "renders a separator after the title and before the channel display" do
+        node = render_inline(described_class.new(
+          filter:             { channel: "@all", period: "7d" },
+          conversation_title: "My Chat"
+        ))
+        html = node.to_html
+        title_idx    = html.index("My Chat")
+        channel_idx  = html.index("channelDisplay")
+        expect(title_idx).not_to be_nil
+        expect(channel_idx).not_to be_nil
+        # Separator (·) must appear between title and channel display
+        separator_idx = html.index("·", title_idx)
+        expect(separator_idx).not_to be_nil
+        expect(separator_idx).to be < channel_idx
+      end
+    end
+
     context "hidden inputs" do
       it "renders hidden inputs for channel and period when filter is given" do
         node = render_inline(described_class.new(

@@ -56,6 +56,16 @@ RSpec.describe "PATCH /chat/:uuid", type: :request do
       expect(response.body).to include("My chat")
     end
 
+    it "includes a non-nil CompactTimeAgo timestamp in the replaced row (regression: was nil)" do
+      patch conversation_path(uuid: conversation.uuid),
+            params: { title: "Renamed Chat" },
+            headers: { "Accept" => "text/vnd.turbo-stream.html" }
+
+      # The turbo-stream replace must include a formatted timestamp (e.g. "~Xm ago")
+      # so the sidebar row shows the last-activity time rather than blank.
+      expect(response.body).to match(/~\d+\w+ ago/)
+    end
+
     it "rejects a blank title with 422" do
       patch conversation_path(uuid: conversation.uuid),
             params: { title: "" },

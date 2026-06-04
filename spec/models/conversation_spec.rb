@@ -78,6 +78,33 @@ RSpec.describe Conversation, type: :model do
     end
   end
 
+  describe "#named?" do
+    it "returns false for an auto-generated 'Unnamed N' title" do
+      conv = build(:conversation, title: "Unnamed 3")
+      expect(conv.named?).to be false
+    end
+
+    it "returns false when title is nil" do
+      conv = build(:conversation, title: nil)
+      expect(conv.named?).to be false
+    end
+
+    it "returns true when the title is user-chosen (not 'Unnamed …')" do
+      conv = build(:conversation, title: "My Gaming Session")
+      expect(conv.named?).to be true
+    end
+
+    it "returns false for a title starting with 'Unnamed ' (word boundary)" do
+      conv = build(:conversation, title: "Unnamed but extended title")
+      expect(conv.named?).to be false
+    end
+
+    it "returns false for a blank title" do
+      conv = build(:conversation, title: "")
+      expect(conv.named?).to be false
+    end
+  end
+
   describe ".singleton" do
     it "creates a conversation when none exists" do
       expect { Conversation.singleton }.to change(described_class, :count).by(1)
