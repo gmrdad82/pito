@@ -228,4 +228,32 @@ RSpec.describe "P27 /connect + OAuth callback", type: :request do
       end
     end
   end
+
+  # ── P56 — /connect --help does NOT start OAuth ────────────────────────────
+
+  describe "POST /chat with /connect --help (P56)" do
+    before { authenticate_via_totp }
+
+    it "returns 204 No Content (not a Turbo Stream navigate)" do
+      post chat_path, params: { input: "/connect --help", uuid: conversation.uuid }
+      expect(response).to have_http_status(:no_content)
+    end
+
+    it "does NOT produce a Turbo Stream navigate response" do
+      post chat_path, params: { input: "/connect --help", uuid: conversation.uuid }
+      # 204 No Content responses have no body and no turbo-stream content type.
+      expect(response.body).to be_empty
+    end
+
+    it "does NOT stash OAuth intent in session" do
+      post chat_path, params: { input: "/connect --help", uuid: conversation.uuid }
+      expect(session[:youtube_connection_oauth_intent]).to be_nil
+    end
+
+    it "emits a system Event with help content (not OAuth redirect)" do
+      perform_enqueued_jobs { post chat_path, params: { input: "/connect --help", uuid: conversation.uuid } }
+      system_events = conversation.events.where(kind: :system)
+      expect(system_events).not_to be_empty
+    end
+  end
 end

@@ -8,6 +8,21 @@ en:
         collapse_label: "to collapse"
         descriptions:
           help: "Show this command reference"
+        help:
+          usage: "/help"
+          description: "Show this command reference"
+        nonsense_title: "Congratulations. You've reached the manual's manual."
+        nonsense:
+          "/uninstall reality": "Schedules a 6-week migration to a worse timeline."
+          "--help --help": "You've summoned the manual's manual. It resents you."
+          "set brain.cells=∞": "Ignored. We checked your command history."
+          "/optimize feelings": "Deprecated. Use /suppress instead."
+          "config universe big_bang=no": "Already ran. No rollback support. You're welcome."
+          "/undo last_mistake": "Ambiguous target. Too many candidates."
+          "verbose_mode=on": "You're already talking to a computer at midnight. Too late."
+          "/predict future": "Returns the same answer as /config igdb status. Also: no."
+          "--dry-run everything": "Your entire career has been a dry run."
+          "/help --help --help": "Recursion limit reached. Please touch grass and try again."
         sections:
           general:
             title: "GENERAL"

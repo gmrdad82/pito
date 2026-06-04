@@ -25,44 +25,48 @@ class ChatController < ApplicationController
 
     conversation = resolve_conversation
 
-    if login_command?(input)
-      # Auth stays synchronous — it mints the session cookie, which can only be
-      # set on the HTTP response (a background job can't set cookies).
-      handle_login(input, conversation)
-      return respond_to_client(conversation)
-    end
+    # P56: --help / -h is a universal flag. Intercept it before any fast-path
+    # handler so that e.g. `/connect --help` never starts OAuth.
+    unless help_flag?(input)
+      if login_command?(input)
+        # Auth stays synchronous — it mints the session cookie, which can only be
+        # set on the HTTP response (a background job can't set cookies).
+        handle_login(input, conversation)
+        return respond_to_client(conversation)
+      end
 
-    if logout_command?(input)
-      # Logout stays synchronous — it clears the session cookie, which can only
-      # be done on the HTTP response.
-      handle_logout(input, conversation)
-      return respond_to_client(conversation)
-    end
+      if logout_command?(input)
+        # Logout stays synchronous — it clears the session cookie, which can only
+        # be done on the HTTP response.
+        handle_logout(input, conversation)
+        return respond_to_client(conversation)
+      end
 
-    if connect_command?(input)
-      # /connect initiates Google OAuth. Returns the OAuth URL on success, or nil
-      # when credentials are missing (error Event is broadcast + normal 204 sent).
-      # We respond with a Turbo Stream `navigate` action rather than redirect_to,
-      # because Turbo submits forms via fetch — fetch follows the redirect chain
-      # internally and can't trigger a real browser navigation to accounts.google.com.
-      oauth_url = handle_connect(input, conversation)
-      return oauth_url ? render_turbo_navigate(oauth_url) : respond_to_client(conversation)
-    end
+      if connect_command?(input)
+        # /connect initiates Google OAuth. Returns the OAuth URL on success, or nil
+        # when credentials are missing (error Event is broadcast + normal 204 sent).
+        # We respond with a Turbo Stream `navigate` action rather than redirect_to,
+        # because Turbo submits forms via fetch — fetch follows the redirect chain
+        # internally and can't trigger a real browser navigation to accounts.google.com.
+        oauth_url = handle_connect(input, conversation)
+        return oauth_url ? render_turbo_navigate(oauth_url) : respond_to_client(conversation)
+      end
 
-    if new_command?(input)
-      # /new creates a fresh Conversation and navigates the browser to it.
-      # Auth gating: mirrors /connect — requires an active session; returns a
-      # mandatory-auth error event (broadcast to the current conversation) if not.
-      # Uses render_turbo_navigate so Turbo's fetch-based form submission triggers
-      # a real browser navigation rather than an in-fetch redirect.
-      result = handle_new(input, conversation)
-      return result ? render_turbo_navigate(result) : respond_to_client(conversation)
-    end
+      if new_command?(input)
+        # /new creates a fresh Conversation and navigates the browser to it.
+        # Auth gating: mirrors /connect — requires an active session; returns a
+        # mandatory-auth error event (broadcast to the current conversation) if not.
+        # Uses render_turbo_navigate so Turbo's fetch-based form submission triggers
+        # a real browser navigation rather than an in-fetch redirect.
+        result = handle_new(input, conversation)
+        return result ? render_turbo_navigate(result) : respond_to_client(conversation)
+      end
 
-    if resume_command?(input)
-      # /resume populates the #pito-sidebar with a conversation list (Turbo Stream
-      # update). Auth gating: requires an active session. No echo, no job dispatch.
-      return handle_resume(conversation)
+      if resume_command?(input)
+        # /resume populates the #pito-sidebar with a conversation list (Turbo Stream
+        # update). Auth gating: requires an active session. No echo, no job dispatch.
+        return handle_resume(conversation)
+      end
     end
 
     if confirmation_response?(input)
@@ -165,6 +169,13 @@ class ChatController < ApplicationController
   # ── Authentication branch ───────────────────────────────────────────────────
   #
   # Stays synchronous — auth result must be visible before the next command.
+
+  # True when the input carries a --help or -h flag anywhere after the verb.
+  # Used to bypass fast-path handlers (login/logout/connect/new/resume) so
+  # that --help never triggers side effects.
+  def help_flag?(input)
+    input.match?(/\s--help\b|\s-h\b/)
+  end
 
   def login_command?(input)
     input.strip.match?(%r{\A/login(\s|\z)}i)

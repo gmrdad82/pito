@@ -5,9 +5,28 @@ en:
         unknown_verb: "Unknown command: /%{verb}. Type /help for the command list."
         parse_failed: "Couldn't parse command: %{raw}"
       confirm_hint: "type /confirm or /cancel"
+      login:
+        help:
+          usage: "/login <6-digit TOTP code>"
+          description: "Sign in with a one-time verification code."
+      logout:
+        help:
+          usage: "/logout"
+          description: "Sign out and clear your session."
+      new:
+        help:
+          usage: "/new"
+          description: "Start a fresh conversation."
+      resume:
+        help:
+          usage: "/resume"
+          description: "Browse and switch to a previous conversation."
       connect:
         descriptions:
           connect: "Connect a YouTube channel via Google OAuth"
+        help:
+          usage: "/connect"
+          description: "Initiate Google OAuth to connect a YouTube channel."
         errors:
           not_configured: "Google OAuth credentials are not configured."
       config:
@@ -37,29 +56,21 @@ en:
               suggestion:
                 pre: "Run"
                 post: "after configuring to start the OAuth2 flow"
-            voyage: |
-              /config voyage [key=value …]
-
-              Keys:
-                api_key=   Voyage AI API key
-
-              Omit to show current status.
-            igdb: |
-              /config igdb [key=value …]
-
-              Keys:
-                client_id=     IGDB / Twitch client ID
-                client_secret= IGDB / Twitch client secret
-
-              Omit to show current status.
-            webhook: |
-              /config webhook [key=value …]
-
-              Keys:
-                slack=    Slack incoming webhook URL
-                discord=  Discord webhook URL
-
-              Omit to show current status.
+            voyage:
+              keys:
+                api_key: "Voyage AI API key"
+            igdb:
+              keys:
+                client_id: "IGDB / Twitch client ID"
+                client_secret: "IGDB / Twitch client secret"
+            webhook:
+              keys:
+                slack: "Slack incoming webhook URL"
+                discord: "Discord webhook URL"
+            sound:
+              keys: {}
+            fx:
+              keys: {}
         status:
           ok: "OK"
           missing: "MISSING"
@@ -90,6 +101,9 @@ en:
       disconnect:
         descriptions:
           disconnect: "Disconnect a YouTube channel"
+        help:
+          usage: "/disconnect @handle"
+          description: "Disconnect a YouTube channel and delete its local data."
         errors:
           missing_target: "Usage: /disconnect @handle or /disconnect <id>"
           not_found: "No channel found matching '%{target}'."

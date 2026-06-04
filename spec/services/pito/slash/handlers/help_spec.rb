@@ -58,4 +58,43 @@ RSpec.describe Pito::Slash::Handlers::Help, type: :service do
       expect(event[:payload][:expand_lines]).to be_nil
     end
   end
+
+  # ── P56 — /help --help (nonsense dictionary, via HelpRenderer) ──────────────
+  # The dispatcher intercepts --help before the handler runs; we test the
+  # HelpRenderer directly here to verify the nonsense table is rendered.
+
+  describe "P56 /help --help (nonsense kv-table via HelpRenderer)" do
+    def build_help_invocation
+      Pito::Slash::Invocation.new(verb: :help, args: [], kwargs: {}, raw: "/help --help")
+    end
+
+    subject(:result) do
+      Pito::Slash::HelpRenderer.call(invocation: build_help_invocation, authenticated: true)
+    end
+
+    it "returns Result::Ok" do
+      expect(result).to be_a(Pito::Slash::Result::Ok)
+    end
+
+    it "renders exactly 1 system event" do
+      expect(result.events.size).to eq(1)
+      expect(result.events.first[:kind]).to eq("system")
+    end
+
+    it "includes 10 nonsense table_rows" do
+      rows = result.events.first[:payload][:table_rows]
+      expect(rows.size).to eq(10)
+    end
+
+    it "table_rows include expected nonsense keys" do
+      keys = result.events.first[:payload][:table_rows].map { |r| r[:key] }
+      expect(keys).to include("/uninstall reality", "--help --help", "set brain.cells=∞")
+    end
+
+    it "body is the nonsense title" do
+      body = result.events.first[:payload][:body]
+      expect(body).to be_present
+      expect(body).to include("manual")
+    end
+  end
 end

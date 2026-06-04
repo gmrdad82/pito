@@ -21,6 +21,14 @@ module Pito
         invocation = parse(tokens)
         return invocation if invocation.is_a?(Pito::Slash::Result::Error)
 
+        # P56: universal --help / -h flag — intercept before the handler executes.
+        # This fires for every command, including ones without a handler class
+        # (login, logout, connect, new, resume), so no command can silently eat
+        # the flag and produce side effects.
+        if help_requested?(invocation)
+          return Pito::Slash::HelpRenderer.call(invocation:, authenticated: @authenticated)
+        end
+
         handler_class = Pito::Slash::Registry.lookup(invocation.verb)
 
         if handler_class.nil?
@@ -47,6 +55,10 @@ module Pito
           message_key: "pito.slash.errors.parse_failed",
           message_args: { raw: @input }
         )
+      end
+
+      def help_requested?(invocation)
+        invocation.raw.match?(/\s--help\b|\s-h\b/)
       end
     end
   end
