@@ -56,6 +56,7 @@ import { isAuthenticated } from "pito/auth"
 
 // ── Dynamic fetch debounce delay (ms) ─────────────────────────────────────────
 const DYNAMIC_DEBOUNCE_MS = 150
+const ARG_DEBOUNCE_MS     = 120
 
 export default class extends Controller {
   // ── Targets ────────────────────────────────────────────────────────────────
@@ -80,10 +81,15 @@ export default class extends Controller {
     this._caretLeft          = 0
     this._caretTop           = 0
 
-    // ak: dynamic fetch state
+    // ak: dynamic fetch state (free-mode ghost)
     this._dynamicTimer       = null   // debounce timer id
     this._dynamicRequestId   = 0      // monotonic counter to ignore stale responses
     this._dynamicAbort       = null   // AbortController for in-flight fetch
+
+    // arg-stage fetch state (slash/hashtag arg completion via /autocomplete)
+    this._argTimer           = null
+    this._argRequestId       = 0
+    this._argAbort           = null
 
     // aj: listen for caret position events from terminal-caret controller
     this._onCaret = (e) => {
@@ -112,6 +118,7 @@ export default class extends Controller {
     document.removeEventListener("turbo:before-stream-render", this._onTurboStream)
     this.element.removeEventListener("pito:caret", this._onCaret)
     this._cancelDynamicFetch()
+    this._cancelArgFetch()
     // Remove ghost span if it was created
     if (this._ghostSpan && this._ghostSpan.parentNode) {
       this._ghostSpan.parentNode.removeChild(this._ghostSpan)
@@ -137,11 +144,17 @@ export default class extends Controller {
           this._move(1)
           return
 
-        case "Enter":
         case "Tab":
+          // Tab accepts the highlighted suggestion (B)
           event.preventDefault()
           event.stopImmediatePropagation()
           this._accept()
+          return
+
+        case "Enter":
+          // Enter closes the palette and falls through to chat-form#handleKeydown
+          // so the message is submitted as-is — do NOT accept, do NOT suppress (B)
+          this._close()
           return
 
         case "Escape":
@@ -195,16 +208,29 @@ export default class extends Controller {
     const cursor = field.selectionStart ?? value.length
 
     if (this._mode === "slash") {
+      this._clearGhost()
+      this._cancelDynamicFetch()
+      if (this._isArgStage(value, cursor)) {
+        // Arg-stage: delegate to debounced /autocomplete endpoint (A)
+        this._scheduleArgFetch(value, cursor)
+        return
+      }
+      this._cancelArgFetch()
       this._items = this._buildSlashItems(value, cursor)
-      this._clearGhost()
-      this._cancelDynamicFetch()
     } else if (this._mode === "hashtag") {
-      this._items = this._buildHashtagItems(value, cursor)
       this._clearGhost()
       this._cancelDynamicFetch()
+      if (this._isArgStage(value, cursor)) {
+        // Arg-stage: delegate to debounced /autocomplete endpoint (A)
+        this._scheduleArgFetch(value, cursor)
+        return
+      }
+      this._cancelArgFetch()
+      this._items = this._buildHashtagItems(value, cursor)
     } else if (this._mode === "free") {
       // aj: free mode — no palette, only ghost text
       this._items = []
+      this._cancelArgFetch()
       this._close()
       this._refreshGhost(value, cursor)
       return
@@ -213,6 +239,7 @@ export default class extends Controller {
       this._items = []
       this._clearGhost()
       this._cancelDynamicFetch()
+      this._cancelArgFetch()
     }
 
     if (this._items.length === 0) {
@@ -255,6 +282,103 @@ export default class extends Controller {
         description: entry.description || "",
         insert:      "#" + entry.insert, // insert already contains the verb; prefix # so it replaces correctly
       }))
+  }
+
+  // A: returns true when the cursor is past the verb + at least one space
+  // i.e. the user has typed "/config " or "/config goo" (space exists after verb)
+  _isArgStage(value, cursor) {
+    const before = value.slice(0, cursor)
+    // After the trigger char (/ or #), look for at least one space
+    return before.length > 1 && before.slice(1).includes(" ")
+  }
+
+  // ── A: arg-stage palette fetch (debounced POST /autocomplete) ─────────────
+
+  _scheduleArgFetch(value, cursor) {
+    // Cancel previous pending timer or in-flight request
+    this._cancelArgFetch()
+
+    this._argTimer = setTimeout(() => {
+      this._argTimer = null
+      this._fetchArgSuggestions(value, cursor)
+    }, ARG_DEBOUNCE_MS)
+  }
+
+  async _fetchArgSuggestions(value, cursor) {
+    const myRequestId = ++this._argRequestId
+
+    const abortCtrl    = new AbortController()
+    this._argAbort     = abortCtrl
+
+    const csrfToken      = document.querySelector('meta[name="csrf-token"]')?.content
+    const uuidInput      = document.querySelector('input[name="uuid"]')
+    const conversationId = uuidInput ? uuidInput.value : undefined
+
+    const body = { input: value, cursor }
+    if (conversationId) body.uuid = conversationId
+
+    try {
+      const resp = await fetch("/autocomplete", {
+        method:  "POST",
+        signal:  abortCtrl.signal,
+        headers: {
+          "Content-Type": "application/json",
+          "Accept":        "application/json",
+          ...(csrfToken ? { "X-CSRF-Token": csrfToken } : {}),
+        },
+        body: JSON.stringify(body),
+      })
+
+      if (myRequestId !== this._argRequestId) return
+
+      if (!resp.ok) {
+        this._items = []
+        this._close()
+        return
+      }
+
+      const data = await resp.json()
+
+      if (myRequestId !== this._argRequestId) return
+
+      const menuItems = data.menu_items || []
+      this._items = menuItems.map(item => ({
+        label:       item.label       || item.insert || "",
+        description: item.description || "",
+        insert:      item.insert      || "",
+        masked:      item.masked      || false,
+      }))
+
+      if (this._items.length === 0) {
+        this._close()
+        return
+      }
+
+      if (this._selectedIndex >= this._items.length) {
+        this._selectedIndex = 0
+      }
+
+      this._renderRows()
+      this._open = true
+      this.paletteTarget.classList.remove("hidden")
+    } catch (err) {
+      if (myRequestId === this._argRequestId) {
+        this._items = []
+        this._close()
+      }
+    }
+  }
+
+  _cancelArgFetch() {
+    if (this._argTimer !== null) {
+      clearTimeout(this._argTimer)
+      this._argTimer = null
+    }
+    if (this._argAbort) {
+      this._argAbort.abort()
+      this._argAbort = null
+    }
+    this._argRequestId++
   }
 
   // ae: render rows matching the server component's classes exactly
@@ -311,28 +435,46 @@ export default class extends Controller {
   }
 
   // ae: replace the active token (the prefix that triggered the palette) with insert
+  //
+  // Verb-stage (no space after trigger char yet):
+  //   Replace from position 0 up to the cursor — the whole "/foo" partial — with
+  //   insertText (e.g. "/config " which already has a trailing space).
+  //
+  // Arg-stage (space exists between trigger and cursor):
+  //   The verb is already finalised. Replace only the current partial arg token
+  //   (from after the last space before the cursor to the cursor) with insertText.
+  //   The engine's insert value already contains a trailing space, so we never
+  //   inject an extra one — just splice in insertText and keep text after the cursor.
   _insertToken(insertText) {
     const field  = this.fieldTarget
     const value  = field.value
     const cursor = field.selectionStart ?? value.length
     const mode   = this._mode
 
-    let tokenStart = 0
-    if (mode === "slash" || mode === "hashtag") {
-      // The token begins at position 0 (slash/hashtag always start the field for now).
-      // Find the end of the current token = next whitespace or end.
-      const afterTrigger = value.slice(1, cursor)
-      const spaceIdx     = afterTrigger.indexOf(" ")
-      const tokenEnd     = spaceIdx === -1 ? cursor : 1 + spaceIdx
-      tokenStart         = 0
+    let tokenStart, tokenEnd
 
-      field.value = insertText + value.slice(tokenEnd)
+    if (mode === "slash" || mode === "hashtag") {
+      if (this._isArgStage(value, cursor)) {
+        // Arg-stage: find the last space before the cursor — that is where the
+        // current partial arg token begins.
+        const beforeCursor = value.slice(0, cursor)
+        const lastSpace    = beforeCursor.lastIndexOf(" ")
+        tokenStart = lastSpace + 1          // char after the last space
+        tokenEnd   = cursor                 // replace up to the cursor only
+      } else {
+        // Verb-stage: replace from position 0 (the trigger char) to cursor.
+        tokenStart = 0
+        tokenEnd   = cursor
+      }
     } else {
-      field.value = insertText + value.slice(cursor)
+      tokenStart = cursor
+      tokenEnd   = cursor
     }
 
+    field.value = value.slice(0, tokenStart) + insertText + value.slice(tokenEnd)
+
     // Place cursor at end of inserted text
-    const newPos = insertText.length
+    const newPos = tokenStart + insertText.length
     field.selectionStart = field.selectionEnd = newPos
 
     // Notify other controllers (chat-form hiddenInput sync, etc.)

@@ -513,6 +513,15 @@ html {
   right: 0;
   margin-bottom: 8px;
   z-index: 40;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: 4px;
+  padding-block: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.pito-autosuggest-row {
+  padding-inline: 12px;
 }
 
 /* Selected row in the autosuggest palette */
