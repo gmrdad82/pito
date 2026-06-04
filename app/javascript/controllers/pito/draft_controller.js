@@ -91,6 +91,9 @@ export default class extends Controller {
     // Skip empty→empty on first save (no draft existed, nothing to clear).
     if (this._lastSaved === null && normalizedValue === "") return
 
+    // Skip bare trigger chars — a lone "/" or "#" is not a meaningful draft.
+    if (normalizedValue.trim() === "/" || normalizedValue.trim() === "#") return
+
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content
 
     try {
