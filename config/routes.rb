@@ -14,6 +14,8 @@ Rails.application.routes.draw do
       as: :youtube_connection_oauth_failure
 
   root "start_screens#show"
+  get   "/notifications",     to: "notifications#index",  as: :notifications
+  patch "/notifications/:id", to: "notifications#update", as: :notification
   post "/chat", to: "chat#create", as: :chat
   post "/autocomplete", to: "autocomplete#create", as: :autocomplete
   get "/chat/:uuid", to: "conversations#show", as: :conversation

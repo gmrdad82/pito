@@ -41,7 +41,9 @@ class ConversationsController < ApplicationController
           locals: {
             conversation: @conversation,
             current:      false,
-            timestamp:    nil
+            timestamp:    Pito::Formatter::CompactTimeAgo.call(
+              @conversation.events.maximum(:created_at) || @conversation.created_at
+            )
           }
         )
       end

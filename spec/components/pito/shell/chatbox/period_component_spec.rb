@@ -17,9 +17,9 @@ RSpec.describe Pito::Shell::Chatbox::PeriodComponent do
       expect(cyan_texts).to include("7d")
     end
 
-    it "uses tight gap-1 spacing (inline-flex wrapper) instead of ml-2" do
+    it "uses gap-2 spacing (inline-flex wrapper) instead of ml-2" do
       node = render_inline(described_class.new(period: "7d"))
-      wrapper = node.css("span.inline-flex.items-center.gap-1").first
+      wrapper = node.css("span.inline-flex.items-center.gap-2").first
       expect(wrapper).not_to be_nil
       cyan_span = wrapper.css("span.text-cyan").first
       expect(cyan_span).not_to be_nil
@@ -37,7 +37,7 @@ RSpec.describe Pito::Shell::Chatbox::PeriodComponent do
 
     it "renders shift+space before the period value (shortcut is the label)" do
       node = render_inline(described_class.new(period: "7d"))
-      spans = node.css("span.inline-flex.items-center.gap-1 > span")
+      spans = node.css("span.inline-flex.items-center.gap-2 > span")
       first_span = spans.first
       expect(first_span["class"]).to include("font-bold")
       expect(first_span["class"]).to include("text-yellow")

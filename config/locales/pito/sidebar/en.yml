@@ -5,10 +5,14 @@ en:
   pito:
     sidebar:
       esc_hint: "esc"
+      notifications:
+        title: "Notifications"
+        toggle_hint: "toggle read/unread"
       conversations:
         title: "Conversations"
         recent: "Recent"
         older: "Older"
+        rename_hint: "rename a conversation"
       game:
         subtitle: "Game · imported %{date}"
       section:

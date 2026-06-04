@@ -14,7 +14,9 @@ module Pito
       # @param draft_uuid [String, nil] when present, wires the pito--draft
       #   Stimulus controller + uuid value on #pito-chatbox so the JS can
       #   autosave. When nil (start screen, 404) the draft controller is omitted.
-      def initialize(state: :default, placeholder_key: nil, filter: nil, input_data: nil, authenticated: nil, initial_value: "", draft_uuid: nil)
+      # @param conversation_title [String, nil] when present (a user-named
+      #   conversation), rendered in purple at the start of the filter row.
+      def initialize(state: :default, placeholder_key: nil, filter: nil, input_data: nil, authenticated: nil, initial_value: "", draft_uuid: nil, conversation_title: nil)
         @state = state
         @placeholder_key = placeholder_key
         @filter = filter
@@ -22,6 +24,7 @@ module Pito
         @authenticated = authenticated
         @initial_value = initial_value.to_s
         @draft_uuid = draft_uuid
+        @conversation_title = conversation_title.presence
       end
 
       # The placeholder hint. An explicit `placeholder_key` wins (static override);

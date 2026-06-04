@@ -1,9 +1,10 @@
 // pito--rename
 //
 // Mounted on each conversation row in the sidebar list.
-// Provides inline rename: double-click the name label (or press F2 when the
-// row is focused) to replace it with an <input>. Enter / blur submit a PATCH
-// to /chat/:uuid with { title: <new value> }. Escape cancels without saving.
+// Provides inline rename: double-click the name label — or press "n" while the
+// row is highlighted (pito--resume dispatches "pito:rename:start") — to replace
+// it with an <input>. Enter / blur submit a PATCH to /chat/:uuid with
+// { title: <new value> }. Escape cancels without saving.
 //
 // Values:
 //   url  — the PATCH endpoint, e.g. "/chat/<uuid>" (required)
@@ -26,15 +27,16 @@ export default class extends Controller {
   static values = { url: String }
 
   connect() {
-    this._onDblClick = this.#startRename.bind(this)
-    this._onKeydown  = this.#onRowKeydown.bind(this)
+    this._onDblClick    = this.#startRename.bind(this)
+    this._onRenameStart = this.#startRename.bind(this)
     this.element.addEventListener("dblclick", this._onDblClick)
-    this.element.addEventListener("keydown", this._onRowKeydown)
+    // Dispatched by pito--resume when "n" is pressed on the highlighted row.
+    this.element.addEventListener("pito:rename:start", this._onRenameStart)
   }
 
   disconnect() {
     this.element.removeEventListener("dblclick", this._onDblClick)
-    this.element.removeEventListener("keydown", this._onKeydown)
+    this.element.removeEventListener("pito:rename:start", this._onRenameStart)
     this.#cancelRename()
   }
 
@@ -55,11 +57,17 @@ export default class extends Controller {
 
     const currentTitle = span.textContent.trim()
 
-    // Build the input
+    // Build the input — borderless/transparent; the orange underline is drawn
+    // on the whole row via .pito-row-editing (see application.css).
     const input = document.createElement("input")
     input.type      = "text"
     input.value     = currentTitle
-    input.className = "pito--rename-input text-fg bg-transparent border-b border-orange outline-none w-full"
+    input.className = "pito--rename-input text-fg bg-transparent outline-none w-full"
+
+    // Grow the name so the input + row underline span the full width, and flag
+    // the row as editing (drops the highlight bg, draws the orange underline).
+    span.classList.add("flex-1", "min-w-0")
+    this.element.classList.add("pito-row-editing")
 
     // Replace span content with input
     span.textContent = ""
@@ -87,11 +95,10 @@ export default class extends Controller {
     })
   }
 
-  #onRowKeydown(e) {
-    if (e.key === "F2") {
-      e.preventDefault()
-      this.#startRename(e)
-    }
+  // Restore the row to its non-editing visual state (drops the grow/underline).
+  #endEditing() {
+    this.element.classList.remove("pito-row-editing")
+    this.#displaySpan?.classList.remove("flex-1", "min-w-0")
   }
 
   #cancelRename(input, restoreTitle) {
@@ -106,6 +113,7 @@ export default class extends Controller {
       const orphan = span.querySelector("input.pito--rename-input")
       if (orphan) orphan.remove()
     }
+    this.#endEditing()
   }
 
   async #commitRename(input) {
@@ -115,6 +123,7 @@ export default class extends Controller {
     if (!newTitle) {
       // Blank — restore original text and bail without a network call.
       if (span) span.textContent = input.dataset.originalTitle || input.defaultValue
+      this.#endEditing()
       return
     }
 

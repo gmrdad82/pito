@@ -34,8 +34,10 @@ export default class extends Controller {
     // stays connected). Watch for it: when rows appear we (a) hide the command
     // dots — /resume is a sync command and never fires pito:done otherwise — and
     // (b) highlight the first row so arrow-nav is immediately visible.
+    // subtree:true so a row REPLACE (e.g. after rename) re-pins the highlight to
+    // the same position instead of losing it.
     this.observer = new MutationObserver(() => this.#onContentChange())
-    this.observer.observe(this.element, { childList: true })
+    this.observer.observe(this.element, { childList: true, subtree: true })
   }
 
   disconnect() {
@@ -45,14 +47,21 @@ export default class extends Controller {
 
   #onContentChange() {
     const rows = this.#rows()
-    if (rows.length && this.highlightIndex === -1) {
+    if (!rows.length) {
+      this.highlightIndex = -1
+      return
+    }
+
+    if (this.highlightIndex === -1) {
       // Sidebar just opened — stop the command dots and highlight the first row.
       document.dispatchEvent(new CustomEvent("pito:done", { bubbles: true }))
       this.highlightIndex = 0
-      rows.forEach((r, i) => r.classList.toggle(HIGHLIGHT_CLASS, i === 0))
-    } else if (!rows.length) {
-      this.highlightIndex = -1
+    } else {
+      // Content changed (e.g. a row was renamed → Turbo-replaced) — keep the
+      // highlight pinned to the same position so it stays selected.
+      this.highlightIndex = Math.min(this.highlightIndex, rows.length - 1)
     }
+    rows.forEach((r, i) => r.classList.toggle(HIGHLIGHT_CLASS, i === this.highlightIndex))
   }
 
   // Called by Turbo after the sidebar content is updated so we can initialise
@@ -84,6 +93,14 @@ export default class extends Controller {
     } else if (e.key === "Escape") {
       e.preventDefault()
       this.#clear()
+    } else if (e.key === "n" || e.key === "N") {
+      // Inline-rename the highlighted conversation. The pito--rename controller
+      // on that row listens for this event and swaps the name for an <input>.
+      const highlighted = rows[this.highlightIndex]
+      if (highlighted) {
+        e.preventDefault()
+        highlighted.dispatchEvent(new CustomEvent("pito:rename:start"))
+      }
     }
   }
 

@@ -21,12 +21,12 @@ RSpec.describe Pito::Keybinding::HintComponent do
   end
 
   describe "description span" do
-    it "renders the description in dim text with gap-1 wrapper" do
+    it "renders the description in dim text with gap-2 wrapper" do
       node = render_inline(described_class.new(shortcut: "ctrl+|", description: "to expand"))
       desc_span = node.css("span.text-fg-dim").first
       expect(desc_span.text).to include("to expand")
       expect(desc_span["class"]).not_to include("ml-")
-      wrapper = node.css("span.inline-flex.items-center.gap-1").first
+      wrapper = node.css("span.inline-flex.items-center.gap-2").first
       expect(wrapper).not_to be_nil
     end
 

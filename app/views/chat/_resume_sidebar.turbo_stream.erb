@@ -2,9 +2,14 @@
     wrapped in the Sidebar shell (fixed overlay panel). %>
 <%= turbo_stream.update "pito-sidebar" do %>
   <%= render(Pito::Sidebar::Component.new(
-        title:        t("pito.sidebar.conversations.title"),
-        subtitle_key: "pito.sidebar.esc_hint"
+        title: t("pito.sidebar.conversations.title")
       )) do |sidebar| %>
+    <% sidebar.with_subtitle do %>
+      <%= render(Pito::Keybinding::HintComponent.new(
+            shortcut: "n",
+            description: t("pito.sidebar.conversations.rename_hint")
+          )) %>
+    <% end %>
     <% sidebar.with_body do %>
       <%= render(Pito::Sidebar::Conversations::Component.new(
             groups:       groups,

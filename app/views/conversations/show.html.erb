@@ -39,7 +39,8 @@
             filter: filter,
             input_data: { pito__chat_form_target: "inputField" },
             initial_value: @conversation.draft.to_s,
-            draft_uuid: @conversation.uuid
+            draft_uuid: @conversation.uuid,
+            conversation_title: (@conversation.named? ? @conversation.display_name : nil)
           )) %>
     <% end %>
 
@@ -51,7 +52,7 @@
         <%= render(Pito::Shell::MiniStatusComponent.new(
               mode: :connection,
               state: Current.session.present?,
-              notifications: [0, 3].sample,
+              notifications: Notification.unread.count,
               show_notifications: true
             )) %>
       </div>

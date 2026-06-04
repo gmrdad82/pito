@@ -14,9 +14,8 @@ en:
           period_shortcut: "shift+space"
         no_channels: "none"
       mini_status:
-        authenticated: "● auth"
-        anonymous: "○ auth"
-        not_authenticated: "○ auth"
+        authenticated: "● authenticated"
+        anonymous: "○ not authenticated"
         notifications_count:
           one: "(%{count})"
           other: "(%{count})"

@@ -80,7 +80,7 @@ en:
           status: "%{label}: %{state}"
           confirmed: "%{label} %{state}."
         errors:
-          unknown_provider: "Unknown provider '%{provider}'. Supported: google, voyage, igdb, webhook, sound, fx"
+          unknown_provider: "'%{provider}'? Never heard of it. I answer to: google, voyage, igdb, webhook, sound, fx."
           unknown_keys: "Unknown keys for %{provider}: %{keys}"
           invalid_toggle_value: "Invalid value '%{value}'. Use on or off."
       import:

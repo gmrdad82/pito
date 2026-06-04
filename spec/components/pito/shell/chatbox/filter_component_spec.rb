@@ -4,9 +4,9 @@ require "rails_helper"
 
 RSpec.describe Pito::Shell::Chatbox::FilterComponent do
   describe "rendered output" do
-    it "renders inside an inline-flex gap-1 wrapper" do
+    it "renders inside an inline-flex gap-2 wrapper" do
       node = render_inline(described_class.new(shortcut: "shift+tab", value: "@all"))
-      wrapper = node.css("span.inline-flex.items-center.gap-1").first
+      wrapper = node.css("span.inline-flex.items-center.gap-2").first
       expect(wrapper).not_to be_nil
     end
 
@@ -26,7 +26,7 @@ RSpec.describe Pito::Shell::Chatbox::FilterComponent do
 
     it "renders the shortcut before the value" do
       node = render_inline(described_class.new(shortcut: "shift+tab", value: "@sports"))
-      spans = node.css("span.inline-flex.items-center.gap-1 > span")
+      spans = node.css("span.inline-flex.items-center.gap-2 > span")
       expect(spans.first["class"]).to include("font-bold")
       expect(spans.first["class"]).to include("text-yellow")
       expect(spans.last["class"]).to include("text-cyan")

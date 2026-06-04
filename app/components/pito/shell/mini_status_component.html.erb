@@ -1,16 +1,19 @@
 <span class="inline-flex items-center">
   <%= render(Pito::Shell::MiniStatus::AuthComponent.new(state: @state)) %>
-  <% unless @mode == :start %>
-    <% if @show_notifications && @notifications > 0 %>
-      <span class="text-fg-faded mx-2">·</span>
-      <%= render(Pito::Shell::MiniStatus::NotificationsComponent.new(count: @notifications)) %>
-    <% end %>
-    <span class="text-fg-faded mx-2">·</span>
+  <%# Notifications — only in conversation chrome, never on the start screen. %>
+  <% if @show_notifications && @notifications > 0 && @mode != :start %>
+    <%= render(Pito::Shell::InlineSeparatorComponent.new) %>
+    <%= render(Pito::Shell::MiniStatus::NotificationsComponent.new(count: @notifications)) %>
+  <% end %>
+  <%# ctrl+k commands — shown whenever authenticated (all modes incl. start /
+      not_found); hidden only for unauthenticated users. %>
+  <% if @state %>
+    <%= render(Pito::Shell::InlineSeparatorComponent.new) %>
     <%= render(Pito::Shell::MiniStatus::KeyHintComponent.new(
           hint:      t("pito.shell.mini_status.commands_hint"),
           label:     t("pito.shell.mini_status.commands_label"),
           hint_data: {
-            "controller"                          => "pito--platform-key",
+            "controller"                   => "pito--platform-key",
             "pito--platform-key-mac-value" => t("pito.shell.mini_status.commands_hint_mac")
           }
         )) %>

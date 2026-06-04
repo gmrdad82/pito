@@ -22,6 +22,13 @@ class Conversation < ApplicationRecord
     title.presence || "Unnamed #{id}"
   end
 
+  # True when the conversation carries a user-chosen name (i.e. not the
+  # auto-assigned "Unnamed N" default). Drives the purple name shown in the
+  # chatbox filter row.
+  def named?
+    title.present? && !title.match?(/\AUnnamed\b/)
+  end
+
   # ── Query helpers ────────────────────────────────────────────
   def self.singleton
     first_or_create!

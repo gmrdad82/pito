@@ -54,6 +54,19 @@ export default class extends Controller {
 
   // ── internals ──────────────────────────────────────────────────────────────
 
+  #openNotifications() {
+    const csrf = document.querySelector('meta[name="csrf-token"]')?.content || ""
+    fetch("/notifications", {
+      headers: {
+        Accept: "text/vnd.turbo-stream.html",
+        "X-CSRF-Token": csrf
+      }
+    })
+      .then(r => r.text())
+      .then(html => window.Turbo.renderStreamMessage(html))
+      .catch(err => console.warn("[pito] notifications fetch failed:", err))
+  }
+
   #open() {
     this.element.classList.remove("hidden")
     this.searchTarget.value = ""
@@ -132,12 +145,20 @@ export default class extends Controller {
   }
 
   #onGlobalKey(e) {
-    // Ctrl+K (or Cmd+K on Mac) → toggle
+    // Ctrl+K (or Cmd+K on Mac) → toggle command palette
     const modKey = e.ctrlKey || e.metaKey
     if (modKey && e.key === "k") {
       e.preventDefault()
       if (!isAuthenticated()) return
       this.element.classList.contains("hidden") ? this.#open() : this.#close()
+      return
+    }
+
+    // Ctrl+/ (or Cmd+/ on Mac) → open notifications sidebar
+    if (modKey && e.key === "/") {
+      e.preventDefault()
+      if (!isAuthenticated()) return
+      this.#openNotifications()
       return
     }
 

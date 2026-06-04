@@ -67,7 +67,8 @@ module Pito
 
         mini_status_html = ApplicationController.renderer.render(
           Pito::Shell::MiniStatusComponent.new(
-            mode: :connection, state: authenticated, notifications: 3, show_notifications: true
+            mode: :connection, state: authenticated,
+            notifications: Notification.unread.count, show_notifications: true
           ),
           layout: false
         )

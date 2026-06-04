@@ -4,13 +4,13 @@
   <% end %>
   <% if @handle %>
     <% if formatted_timestamp %>
-      <span class="text-fg-faded mx-2">·</span>
+      <%= render(Pito::Shell::InlineSeparatorComponent.new) %>
     <% end %>
     <%= render(Pito::Event::HandleComponent.new(@handle)) %>
   <% end %>
   <% if @channel.present? %>
     <% if formatted_timestamp || @handle %>
-      <span class="text-fg-faded mx-2">·</span>
+      <%= render(Pito::Shell::InlineSeparatorComponent.new) %>
     <% end %>
     <%= render(Pito::Event::ChannelHandleComponent.new(@channel)) %>
   <% end %>

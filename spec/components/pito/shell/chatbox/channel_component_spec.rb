@@ -40,16 +40,16 @@ RSpec.describe Pito::Shell::Chatbox::ChannelComponent do
 
   it "renders shift+tab before the channel value (shortcut is the label)" do
     node = render_inline(described_class.new(channel: "@all"))
-    spans = node.css("span.inline-flex.items-center.gap-1 > span")
+    spans = node.css("span.inline-flex.items-center.gap-2 > span")
     first_span = spans.first
     expect(first_span["class"]).to include("font-bold")
     expect(first_span["class"]).to include("text-yellow")
     expect(first_span.text).to include("shift+tab")
   end
 
-  it "uses tight gap-1 spacing (inline-flex wrapper)" do
+  it "uses gap-2 spacing (inline-flex wrapper)" do
     node = render_inline(described_class.new(channel: "@all"))
-    wrapper = node.css("span.inline-flex.items-center.gap-1").first
+    wrapper = node.css("span.inline-flex.items-center.gap-2").first
     expect(wrapper).not_to be_nil
   end
 end

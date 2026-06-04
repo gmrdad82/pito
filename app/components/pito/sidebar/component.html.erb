@@ -5,7 +5,11 @@
     <div class="flex justify-between items-start">
       <div>
         <div class="text-cyan font-bold"><%= @title %></div>
-        <div class="text-fg-dim"><%= t(@subtitle_key, **@subtitle_args) %></div>
+        <% if subtitle? %>
+          <div class="text-fg-dim"><%= subtitle %></div>
+        <% elsif @subtitle_key %>
+          <div class="text-fg-dim"><%= t(@subtitle_key, **@subtitle_args) %></div>
+        <% end %>
       </div>
       <span class="text-fg-dim shrink-0"><%= t("pito.sidebar.esc_hint") %></span>
     </div>

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_04_000001) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_04_212707) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -215,6 +215,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_04_000001) do
     t.string "slug"
     t.datetime "updated_at", null: false
     t.index ["igdb_id"], name: "index_genres_on_igdb_id", unique: true
+  end
+
+  create_table "notifications", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.text "message", null: false
+    t.datetime "read_at"
+    t.datetime "updated_at", null: false
   end
 
   create_table "solid_cable_messages", force: :cascade do |t|

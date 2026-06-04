@@ -548,6 +548,14 @@ html {
   background: var(--border-default);
 }
 
+/* Inline conversation rename — orange underline spanning the whole row,
+   no highlight background, square corners (see pito--rename). */
+.pito-conversation-row.pito-row-editing {
+  background: transparent;
+  border-radius: 0;
+  border-bottom: 1px solid var(--accent-orange);
+}
+
 /* Hide when JS toggles via class (hidden attribute is handled natively) */
 .pito-autosuggest-palette.hidden {
   display: none;

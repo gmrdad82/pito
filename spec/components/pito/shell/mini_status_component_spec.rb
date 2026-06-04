@@ -6,24 +6,24 @@ RSpec.describe Pito::Shell::MiniStatusComponent do
   describe "rendered output" do
     context "mode: :connection (default)" do
       context "when state is true (authenticated)" do
-        it "renders '● auth' in green" do
+        it "renders '● authenticated' in green" do
           node = render_inline(described_class.new(state: true))
           green_span = node.css("span.text-green").first
           expect(green_span).to be_present
-          expect(green_span.text.strip).to eq("● auth")
+          expect(green_span.text.strip).to eq("● authenticated")
         end
 
         it "does not render the anonymous label" do
           node = render_inline(described_class.new(state: true))
-          expect(node.to_html).not_to include("○ auth")
+          expect(node.to_html).not_to include("○ not authenticated")
         end
       end
 
       context "when state is false (anonymous)" do
-        it "renders the red ○ auth label" do
+        it "renders the red ○ not authenticated label" do
           node = render_inline(described_class.new(state: false))
-          expect(node.to_html).to include("○ auth")
-          expect(node.css("span.text-red").text).to include("○ auth")
+          expect(node.to_html).to include("○ not authenticated")
+          expect(node.css("span.text-red").text).to include("○ not authenticated")
         end
 
         it "does not render the authenticated label" do
@@ -36,7 +36,7 @@ RSpec.describe Pito::Shell::MiniStatusComponent do
     context "mode: :start" do
       it "renders only the auth label — no hints" do
         node = render_inline(described_class.new(mode: :start, state: false))
-        expect(node.to_html).to include("○ auth")
+        expect(node.to_html).to include("○ not authenticated")
         expect(node.to_html).not_to include("ctrl+m")
         expect(node.to_html).not_to include("mute")
         expect(node.to_html).not_to include("tab")
@@ -49,19 +49,19 @@ RSpec.describe Pito::Shell::MiniStatusComponent do
         expect(node.to_html).not_to include("chat")
       end
 
-      it "renders ○ auth in red when state: false" do
+      it "renders ○ not authenticated in red when state: false" do
         node = render_inline(described_class.new(mode: :start, state: false))
         label = node.css("span.text-red").first
         expect(label).to be_present
-        expect(label.text).to include("○ auth")
+        expect(label.text).to include("○ not authenticated")
       end
 
-      it "renders ● auth in green when state: true (authenticated)" do
+      it "renders ● authenticated in green when state: true (authenticated)" do
         node = render_inline(described_class.new(mode: :start, state: true))
         label = node.css("span.text-green").first
         expect(label).to be_present
-        expect(label.text.strip).to eq("● auth")
-        expect(node.to_html).to include("● auth")
+        expect(label.text.strip).to eq("● authenticated")
+        expect(node.to_html).to include("● authenticated")
       end
 
       it "renders no separators in start mode" do
