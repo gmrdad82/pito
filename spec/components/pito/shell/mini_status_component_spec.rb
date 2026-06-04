@@ -131,6 +131,14 @@ RSpec.describe Pito::Shell::MiniStatusComponent do
         expect(node.to_html).not_to include("mute")
         expect(node.css("span#pito-audio-label").first).to be_nil
       end
+
+      it "does not render the channel/period keybind hints (moved to filter row)" do
+        node = render_inline(described_class.new)
+        html = node.to_html
+        expect(html).not_to include("shift+tab")
+        expect(html).not_to include("channels")
+        expect(html).not_to include("shift+space")
+      end
     end
 
     context "suggest hint (tab suggest)" do

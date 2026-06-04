@@ -8,8 +8,10 @@ en:
           login: "/login 123456 to log in"
           help: "/help to see available commands"
         filter:
-          channel_label: "channel"
-          period_label: "period"
+          channel_label: "Channel"
+          period_label: "Period"
+          channel_shortcut: "shift+tab"
+          period_shortcut: "shift+space"
         no_channels: "none"
       mini_status:
         authenticated: "●"
@@ -18,10 +20,6 @@ en:
         notifications_count:
           one: "(%{count})"
           other: "(%{count})"
-        channel_hint: "shift+tab"
-        channel_label: "channels"
-        period_hint: "shift+space"
-        period_label: "period"
         autocomplete_hint: "tab"
         autocomplete_label: "suggest"
         chat_hint: "m"

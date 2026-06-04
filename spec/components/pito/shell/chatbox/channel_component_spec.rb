@@ -3,6 +3,13 @@
 require "rails_helper"
 
 RSpec.describe Pito::Shell::Chatbox::ChannelComponent do
+  it "renders the 'Channel' muted label" do
+    node = render_inline(described_class.new(channel: "@all"))
+    faded = node.css("span.text-fg-faded").first
+    expect(faded).not_to be_nil
+    expect(faded.text).to include("Channel")
+  end
+
   it "renders the channel as a cyan @handle via ChannelHandleComponent" do
     node = render_inline(described_class.new(channel: "@all"))
     cyan = node.css("span.text-cyan").first
@@ -25,8 +32,16 @@ RSpec.describe Pito::Shell::Chatbox::ChannelComponent do
     expect(node.css("span.text-cyan")).to be_empty
   end
 
-  it "renders nothing when channel is blank" do
-    node = render_inline(described_class.new(channel: ""))
-    expect(node.text).to be_blank
+  it "renders the shift+tab shortcut in bold yellow" do
+    node = render_inline(described_class.new(channel: "@all"))
+    yellow = node.css("span.font-bold.text-yellow").first
+    expect(yellow).not_to be_nil
+    expect(yellow.text).to include("shift+tab")
+  end
+
+  it "uses tight gap-1 spacing (inline-flex wrapper)" do
+    node = render_inline(described_class.new(channel: "@all"))
+    wrapper = node.css("span.inline-flex.items-center.gap-1").first
+    expect(wrapper).not_to be_nil
   end
 end

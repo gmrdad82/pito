@@ -82,6 +82,42 @@ RSpec.describe Pito::Shell::ChatboxComponent do
         expect(node.css('[data-pito--chat-form-target="channelDisplay"]')).not_to be_empty
         expect(node.css('[data-pito--chat-form-target="periodDisplay"]')).not_to be_empty
       end
+
+      it "renders 'Channel' and 'Period' muted labels in the filter row" do
+        node = render_inline(described_class.new(
+          filter: { channel: "@all", period: "7d" }
+        ))
+        faded_texts = node.css("span.text-fg-faded").map(&:text)
+        expect(faded_texts).to include("Channel")
+        expect(faded_texts).to include("Period")
+      end
+
+      it "renders shift+tab and shift+space in bold yellow within the filter row" do
+        node = render_inline(described_class.new(
+          filter: { channel: "@all", period: "7d" }
+        ))
+        yellow_texts = node.css("span.font-bold.text-yellow").map(&:text)
+        expect(yellow_texts).to include("shift+tab")
+        expect(yellow_texts).to include("shift+space")
+      end
+
+      it "keeps .text-cyan inside channelDisplay for the cycling hook" do
+        node = render_inline(described_class.new(
+          filter: { channel: "@all", period: "7d" }
+        ))
+        channel_display = node.css('[data-pito--chat-form-target="channelDisplay"]').first
+        expect(channel_display).not_to be_nil
+        expect(channel_display.css("span.text-cyan").first).not_to be_nil
+      end
+
+      it "keeps .text-cyan inside periodDisplay for the cycling hook" do
+        node = render_inline(described_class.new(
+          filter: { channel: "@all", period: "7d" }
+        ))
+        period_display = node.css('[data-pito--chat-form-target="periodDisplay"]').first
+        expect(period_display).not_to be_nil
+        expect(period_display.css("span.text-cyan").first).not_to be_nil
+      end
     end
 
     context "hidden inputs" do

@@ -4,9 +4,16 @@ require "rails_helper"
 
 RSpec.describe Pito::Shell::Chatbox::PeriodComponent do
   describe "label text" do
-    it "renders the i18n label 'period'" do
+    it "renders the i18n label 'Period' (capitalized)" do
       node = render_inline(described_class.new(period: "7d"))
-      expect(node.to_html).to include("period")
+      expect(node.to_html).to include("Period")
+    end
+
+    it "renders the label in a muted span" do
+      node = render_inline(described_class.new(period: "7d"))
+      faded = node.css("span.text-fg-faded").first
+      expect(faded).not_to be_nil
+      expect(faded.text).to include("Period")
     end
   end
 
@@ -24,6 +31,15 @@ RSpec.describe Pito::Shell::Chatbox::PeriodComponent do
       cyan_span = wrapper.css("span.text-cyan").first
       expect(cyan_span).not_to be_nil
       expect(cyan_span["class"]).not_to include("ml-2")
+    end
+  end
+
+  describe "shift+space shortcut" do
+    it "renders the shift+space shortcut in bold yellow" do
+      node = render_inline(described_class.new(period: "7d"))
+      yellow = node.css("span.font-bold.text-yellow").first
+      expect(yellow).not_to be_nil
+      expect(yellow.text).to include("shift+space")
     end
   end
 
