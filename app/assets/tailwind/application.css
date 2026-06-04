@@ -521,7 +521,21 @@ html {
 }
 
 .pito-autosuggest-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 2rem;
   padding-inline: 12px;
+}
+
+/* Command name (left) + muted right-aligned description */
+.pito-autosuggest-cmd {
+  white-space: nowrap;
+}
+
+.pito-autosuggest-desc {
+  color: var(--fg-faded);
+  white-space: nowrap;
 }
 
 /* Selected row in the autosuggest palette */

@@ -272,8 +272,9 @@ export default class extends Controller {
       return
     }
 
-    this._paletteRows   = entries
-    this._selectedIdx   = 0
+    this._paletteRows    = entries
+    this._paletteTrigger = triggerChar
+    this._selectedIdx    = 0
     this._renderPalette()
   }
 
@@ -285,7 +286,16 @@ export default class extends Controller {
     this._paletteRows.forEach((entry, idx) => {
       const row = document.createElement("div")
       row.className = "pito-autosuggest-row" + (idx === this._selectedIdx ? " is-selected" : "")
-      row.textContent = (entry.name || "") + (entry.description ? "  " + entry.description : "")
+      const cmd = document.createElement("span")
+      cmd.className   = "pito-autosuggest-cmd"
+      cmd.textContent = (this._paletteTrigger || "/") + (entry.name || "")
+      row.appendChild(cmd)
+      if (entry.description) {
+        const desc = document.createElement("span")
+        desc.className   = "pito-autosuggest-desc"
+        desc.textContent = entry.description
+        row.appendChild(desc)
+      }
       row.dataset.idx = String(idx)
 
       // Click to accept
