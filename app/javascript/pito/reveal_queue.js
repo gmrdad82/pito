@@ -21,10 +21,17 @@ export function enqueue(revealFn) {
   const instant = waiting > CAP
   waiting++
 
-  tail = tail.then(() => {
+  const job = tail.then(() => {
     waiting = Math.max(0, waiting - 1)
     return revealFn({ instant })
   })
 
-  return tail
+  // Never let one failed/slow reveal poison the chain — a rejected `tail` would
+  // skip the `.then` of every later job, so messages would clear but never type
+  // until a refresh. Keep the chain on a resolved branch.
+  tail = job.catch((err) => {
+    console.warn("[pito reveal] job failed:", err)
+  })
+
+  return job
 }

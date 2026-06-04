@@ -55,9 +55,13 @@ export default class extends Controller {
 
     enqueue(({ instant } = {}) => {
       return new Promise(resolve => {
+        // Store the resolver so disconnect() can settle a mid-reveal job and
+        // unblock the FIFO (otherwise a removed segment hangs the whole queue).
+        this._resolve = () => { this._resolve = null; resolve() }
+
         if (instant || cancelled()) {
           target.textContent = fullText
-          resolve()
+          this._resolve()
           return
         }
 
@@ -66,7 +70,7 @@ export default class extends Controller {
         const tick = () => {
           if (cancelled()) {
             target.textContent = fullText
-            resolve()
+            this._resolve?.()
             return
           }
 
@@ -74,7 +78,7 @@ export default class extends Controller {
           target.textContent = fullText.slice(0, pos)
 
           if (pos >= fullText.length) {
-            resolve()
+            this._resolve?.()
           } else {
             this._timer = setTimeout(tick, TICK_MS)
           }
@@ -88,6 +92,10 @@ export default class extends Controller {
   disconnect() {
     this._cancelled = true
     clearTimeout(this._timer)
+
+    // Settle any in-flight reveal promise so the shared queue isn't left hanging
+    // (a stalled FIFO would stop every later message from typing).
+    this._resolve?.()
 
     // Restore full text so a removed/swapped element isn't left truncated.
     if (this._fullText !== undefined && this.hasBodyTarget) {
