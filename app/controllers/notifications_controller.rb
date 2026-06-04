@@ -17,11 +17,16 @@ class NotificationsController < ApplicationController
 
   # PATCH /notifications/:id { read: <bool> }
   # Toggles a notification's read state. The sidebar updates the row
-  # optimistically, so we just persist and return 204.
+  # optimistically. After persisting, broadcast the updated mini-status (unread
+  # count) to pito:global so every open browser instance reflects the new count.
   def update
     notification = Notification.find(params[:id])
     read = ActiveModel::Type::Boolean.new.cast(params[:read])
     notification.update!(read_at: read ? Time.current : nil)
+
+    # P54 — cross-instance unread-count sync.
+    Pito::Stream::Broadcaster.broadcast_global_mini_status
+
     head :no_content
   end
 end
