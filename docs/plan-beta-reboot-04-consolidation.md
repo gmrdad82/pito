@@ -1256,9 +1256,11 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 ## P61 — Align typewriter reveal speed with the chatbox typing (System/Enhanced)
 
 > P46 already queues System/Enhanced + their follow-ups through the client reveal queue and types them out character-by-character. This phase TUNES it so the reveal cadence matches the chatbox per-character phase-in (the pulsing characters) — same speed or a touch faster — so the response "types" at the same rhythm the user does, Claude/ChatGPT-mobile style.
+>
+> **Scope (confirmed):** the typewriter reveal is **main message body ONLY**. kv-tables and all other chrome (bar, meta, tables, hints, follow-up tables like the `/help --help` nonsense table) render **instantly** — only the prose body animates. This is already P46's behaviour (e.g. `/help --help` animates "Congratulations…" then the kv-table appears whole); P61 must NOT extend the reveal to tables.
 
 - [ ] T61.1 Factor the per-char interval into a shared constant so `type_fx` (chatbox phase-in) and `typewriter` (reveal) use one source of truth; reveal tick = chatbox tick (or slightly faster). complexity: [low]
-- [ ] T61.2 Verify the reveal stays smooth under the queue + backpressure at the new cadence; reduced-motion still instant. complexity: [low]
+- [ ] T61.2 Keep the reveal body-only — confirm kv-tables/chrome stay instant; reveal stays smooth under the queue + backpressure; reduced-motion still instant. complexity: [low]
 - [ ] T61.3 Commit: `Match typewriter reveal speed to chatbox typing`. complexity: [manual]
 
 ---
