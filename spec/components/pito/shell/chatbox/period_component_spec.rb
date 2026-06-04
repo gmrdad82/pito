@@ -17,10 +17,13 @@ RSpec.describe Pito::Shell::Chatbox::PeriodComponent do
       expect(cyan_texts).to include("7d")
     end
 
-    it "applies ml-2 class to the value span" do
+    it "uses tight gap-1 spacing (inline-flex wrapper) instead of ml-2" do
       node = render_inline(described_class.new(period: "7d"))
-      cyan_span = node.css("span.text-cyan").first
-      expect(cyan_span["class"]).to include("ml-2")
+      wrapper = node.css("span.inline-flex.items-center.gap-1").first
+      expect(wrapper).not_to be_nil
+      cyan_span = wrapper.css("span.text-cyan").first
+      expect(cyan_span).not_to be_nil
+      expect(cyan_span["class"]).not_to include("ml-2")
     end
   end
 
