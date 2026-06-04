@@ -19,6 +19,12 @@ production:
     schedule: "0 1 * * *"
     description: "Delete notifications read more than 7 days ago"
 
+  # P60 — Channel general stats sync — daily at 01:00 UTC
+  sync_channel_stats:
+    class: SyncChannelStatsJob
+    schedule: "0 1 * * *"
+    description: "Sync subscriber count, view count, and watch hours for all connected channels"
+
   # SolidQueue housekeeping — clear finished jobs every hour
   clear_solid_queue_finished_jobs:
     command: "SolidQueue::Job.clear_finished_in_batches(sleep_between_batches: 0.3)"
@@ -66,3 +72,16 @@ production:
     class: CloudflareTrustedProxiesRefresherJob
     schedule: "0 9 * * 1"
     description: "Weekly drift check between production.rb trusted_proxies and Cloudflare's published lists"
+
+development:
+  # P59 — Notifications cleanup — daily at 01:00
+  cleanup_notifications:
+    class: CleanupNotificationsJob
+    schedule: "0 1 * * *"
+    description: "Delete notifications read more than 7 days ago"
+
+  # P60 — Channel general stats sync — daily at 01:00
+  sync_channel_stats:
+    class: SyncChannelStatsJob
+    schedule: "0 1 * * *"
+    description: "Sync subscriber count, view count, and watch hours for all connected channels"
