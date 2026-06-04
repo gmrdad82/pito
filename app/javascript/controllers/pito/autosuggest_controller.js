@@ -263,8 +263,12 @@ export default class extends Controller {
       entries = (this._catalog.slash || [])
         .filter(e => e.name.toLowerCase().startsWith(partial))
     } else {
-      entries = (this._catalog.hashtag || [])
-        .filter(e => e.name.toLowerCase().startsWith(partial))
+      // Collect available segment handles from the scrollback DOM (unique, sorted).
+      const handleEls = document.querySelectorAll("#pito-scrollback [data-pito-handle]")
+      const uniqueHandles = [...new Set([...handleEls].map(el => el.dataset.pitoHandle))]
+      entries = uniqueHandles
+        .filter(h => h.toLowerCase().startsWith(partial))
+        .map(h => ({ name: h, insert: "#" + h + " " }))
     }
 
     if (entries.length === 0) {

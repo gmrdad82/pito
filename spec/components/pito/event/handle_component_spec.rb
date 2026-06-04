@@ -9,6 +9,13 @@ RSpec.describe Pito::Event::HandleComponent do
     expect(node.css("span.text-purple")).to be_present
   end
 
+  it "renders data-pito-handle attribute for client handle collection" do
+    node = render_inline(described_class.new("alpha-1322"))
+    span = node.css("span[data-pito-handle]").first
+    expect(span).to be_present
+    expect(span["data-pito-handle"]).to eq("alpha-1322")
+  end
+
   it "renders nothing when handle is blank" do
     node = render_inline(described_class.new(""))
     expect(node.text).to be_blank

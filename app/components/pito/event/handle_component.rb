@@ -14,7 +14,7 @@ module Pito
       end
 
       def call
-        tag.span("##{@handle}", class: "text-purple")
+        tag.span("##{@handle}", class: "text-purple", data: { pito_handle: @handle })
       end
     end
   end
