@@ -16,7 +16,10 @@ module Pito
       #   autosave. When nil (start screen, 404) the draft controller is omitted.
       # @param conversation_title [String, nil] when present (a user-named
       #   conversation), rendered in purple at the start of the filter row.
-      def initialize(state: :default, placeholder_key: nil, filter: nil, input_data: nil, authenticated: nil, initial_value: "", draft_uuid: nil, conversation_title: nil)
+      # @param history [Array<String>] previously-sent input_text values (newest
+      #   first, capped to ~50) exposed to the history Stimulus controller.
+      #   Empty on the start screen / 404; populated on the conversation page.
+      def initialize(state: :default, placeholder_key: nil, filter: nil, input_data: nil, authenticated: nil, initial_value: "", draft_uuid: nil, conversation_title: nil, history: [])
         @state = state
         @placeholder_key = placeholder_key
         @filter = filter
@@ -25,6 +28,7 @@ module Pito
         @initial_value = initial_value.to_s
         @draft_uuid = draft_uuid
         @conversation_title = conversation_title.presence
+        @history = Array(history)
       end
 
       # The placeholder hint. An explicit `placeholder_key` wins (static override);

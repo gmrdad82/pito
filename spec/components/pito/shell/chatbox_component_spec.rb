@@ -341,5 +341,37 @@ RSpec.describe Pito::Shell::ChatboxComponent do
         expect(wrapper["data-controller"]).to include("pito--autosuggest")
       end
     end
+
+    # ── P58 — Input history (up/down) ──────────────────────────────────────────
+
+    context "history param" do
+      it "always mounts pito--history on #pito-chatbox" do
+        node = render_inline(described_class.new)
+        wrapper = node.css("div#pito-chatbox").first
+        expect(wrapper["data-controller"]).to include("pito--history")
+      end
+
+      it "encodes an empty JSON array when history is omitted" do
+        node = render_inline(described_class.new)
+        wrapper = node.css("div#pito-chatbox").first
+        raw = wrapper["data-pito--history-entries-value"]
+        expect(JSON.parse(raw)).to eq([])
+      end
+
+      it "encodes the given history array as JSON in data-pito--history-entries-value" do
+        history = [ "/help", "what is my top channel?", "/config sound off" ]
+        node = render_inline(described_class.new(history: history))
+        wrapper = node.css("div#pito-chatbox").first
+        raw = wrapper["data-pito--history-entries-value"]
+        expect(JSON.parse(raw)).to eq(history)
+      end
+
+      it "still renders an empty JSON array on the start screen (no history passed)" do
+        node = render_inline(described_class.new(state: :start))
+        wrapper = node.css("div#pito-chatbox").first
+        raw = wrapper["data-pito--history-entries-value"]
+        expect(JSON.parse(raw)).to eq([])
+      end
+    end
   end
 end

@@ -8,8 +8,8 @@
                           pito__type_fx_target: "field" } }
   input_attrs[:data].merge!(@input_data) if @input_data
 
-  chatbox_controllers = "pito--autosuggest pito--chatbox-hints"
-  chatbox_data = {}
+  chatbox_controllers = "pito--autosuggest pito--chatbox-hints pito--history"
+  chatbox_data = { "pito--history-entries-value": @history.to_json }
   if @draft_uuid.present?
     chatbox_controllers += " pito--draft"
     chatbox_data[:"pito--draft-uuid-value"] = @draft_uuid

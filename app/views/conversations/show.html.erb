@@ -34,13 +34,21 @@
       <%= form.hidden_field :uuid, value: @conversation.uuid %>
       <%= form.hidden_field :input, data: { pito__chat_form_target: "hiddenInput" } %>
 
+      <%
+        sent_history = @conversation.turns
+                         .where(input_kind: [ :slash, :chat, :hashtag ])
+                         .order(position: :desc)
+                         .limit(50)
+                         .pluck(:input_text)
+      %>
       <%= render(Pito::Shell::ChatboxComponent.new(
             state: :default,
             filter: filter,
             input_data: { pito__chat_form_target: "inputField" },
             initial_value: @conversation.draft.to_s,
             draft_uuid: @conversation.uuid,
-            conversation_title: (@conversation.named? ? @conversation.display_name : nil)
+            conversation_title: (@conversation.named? ? @conversation.display_name : nil),
+            history: sent_history
           )) %>
     <% end %>
 

@@ -115,6 +115,37 @@ RSpec.describe "Conversation requests", type: :request do
     end
   end
 
+  # ── P58 — Input history data attribute ─────────────────────────────────────
+  # The conversation page must embed sent input_text values (newest first) as a
+  # JSON array in data-pito--history-entries-value on #pito-chatbox so the
+  # history Stimulus controller can restore them with ↑/↓.
+
+  describe "GET /chat/:uuid — history entries attribute" do
+    let(:conversation) { create(:conversation) }
+
+    it "renders an empty JSON array when the conversation has no turns" do
+      get conversation_path(uuid: conversation.uuid)
+      expect(response.body).to include("data-pito--history-entries-value")
+      # An empty JSON array encoded as an HTML attribute value.
+      expect(response.body).to include("data-pito--history-entries-value=\"[]\"")
+    end
+
+    it "includes sent input_text values (newest first) in the history attribute" do
+      conversation.turns.create!(position: 1, input_kind: :slash, input_text: "/help")
+      conversation.turns.create!(position: 2, input_kind: :chat,  input_text: "what is my top channel?")
+      conversation.turns.create!(position: 3, input_kind: :slash, input_text: "/config sound off")
+
+      get conversation_path(uuid: conversation.uuid)
+
+      attr_match = response.body.match(/data-pito--history-entries-value="([^"]*)"/)
+      expect(attr_match).not_to be_nil
+      raw = CGI.unescapeHTML(attr_match[1])
+      parsed = JSON.parse(raw)
+      # Newest first
+      expect(parsed).to eq([ "/config sound off", "what is my top channel?", "/help" ])
+    end
+  end
+
   # ── Per-turn grouping ───────────────────────────────────────────────────────
   # Events are grouped into #turn_<id> containers so each turn's result stays
   # under its echo regardless of async-job completion order. The show view must
