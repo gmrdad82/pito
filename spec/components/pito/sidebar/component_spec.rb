@@ -34,8 +34,8 @@ RSpec.describe Pito::Sidebar::Component do
     end
 
     it "renders the translated esc_hint subtitle" do
-      # pito.sidebar.esc_hint => "esc"
-      expect(node.to_html).to include("esc")
+      # pito.sidebar.esc_hint => "Esc"
+      expect(node.to_html).to include("Esc")
     end
 
     it "renders an aside element" do

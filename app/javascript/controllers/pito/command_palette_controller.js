@@ -54,6 +54,18 @@ export default class extends Controller {
 
   // ── internals ──────────────────────────────────────────────────────────────
 
+  // ctrl+/ toggles the notifications panel: if it's already showing, close it;
+  // otherwise open it (replacing whatever the sidebar held).
+  #toggleNotifications() {
+    const sidebar = document.getElementById("pito-sidebar")
+    if (sidebar && sidebar.querySelector(".pito-notification-row")) {
+      sidebar.innerHTML = ""
+      localStorage.removeItem("pito:sidebar")
+      return
+    }
+    this.#openNotifications()
+  }
+
   #openNotifications() {
     const csrf = document.querySelector('meta[name="csrf-token"]')?.content || ""
     fetch("/notifications", {
@@ -154,11 +166,11 @@ export default class extends Controller {
       return
     }
 
-    // Ctrl+/ (or Cmd+/ on Mac) → open notifications sidebar
+    // Ctrl+/ (or Cmd+/ on Mac) → toggle notifications sidebar
     if (modKey && e.key === "/") {
       e.preventDefault()
       if (!isAuthenticated()) return
-      this.#openNotifications()
+      this.#toggleNotifications()
       return
     }
 

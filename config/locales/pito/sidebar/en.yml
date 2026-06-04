@@ -4,7 +4,7 @@
 en:
   pito:
     sidebar:
-      esc_hint: "esc"
+      esc_hint: "Esc"
       notifications:
         title: "Notifications"
         toggle_hint: "toggle read/unread"

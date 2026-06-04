@@ -30,6 +30,12 @@ export default class extends Controller {
   connect() {
     this.abort = new AbortController()
     document.addEventListener("keydown", this.#onKey.bind(this), { signal: this.abort.signal })
+    // Sequential Esc: capture-phase so it runs BEFORE the chatbox's autosuggest
+    // Esc. When the sidebar is open it closes the sidebar and swallows the event
+    // (so a /command palette underneath survives); the next Esc reaches the
+    // palette. Also makes Esc close the notifications panel (which has no
+    // conversation rows and so isn't handled by #onKey).
+    document.addEventListener("keydown", this.#onEscapeCapture.bind(this), { capture: true, signal: this.abort.signal })
     this.element.addEventListener("click", this.#onClick.bind(this), { signal: this.abort.signal })
     this.highlightIndex = -1
 
@@ -111,6 +117,14 @@ export default class extends Controller {
 
   #rows() {
     return Array.from(this.element.querySelectorAll(".pito-conversation-row"))
+  }
+
+  #onEscapeCapture(e) {
+    if (e.key !== "Escape") return
+    if (!this.element.innerHTML.trim()) return // nothing open — let it pass through
+    e.preventDefault()
+    e.stopImmediatePropagation()
+    this.#clear()
   }
 
   #onKey(e) {

@@ -3,7 +3,7 @@ en:
     palette:
       ctrl_k:
         title: "Commands"
-        esc_hint: "esc"
+        esc_hint: "Esc"
         search_placeholder: "Search"
         sections:
           youtube: "YouTube"
