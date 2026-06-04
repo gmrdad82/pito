@@ -314,13 +314,12 @@ class ChatController < ApplicationController
     end
 
     current_uuid = params[:uuid].presence
-    render turbo_stream: turbo_stream.update(
-      "pito-sidebar",
-      Pito::Sidebar::Conversations::Component.new(
-        groups:       Conversation.recency_groups,
-        current_uuid: current_uuid
-      )
-    )
+    render partial: "chat/resume_sidebar",
+           formats: [ :turbo_stream ],
+           locals:  {
+             groups:       Conversation.recency_groups,
+             current_uuid: current_uuid
+           }
   end
 
   # Creates a fresh Conversation and returns its path for a Turbo Stream navigate,

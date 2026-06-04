@@ -1,0 +1,15 @@
+<%# Turbo Stream partial — populates #pito-sidebar with the conversation list
+    wrapped in the Sidebar shell (fixed overlay panel). %>
+<%= turbo_stream.update "pito-sidebar" do %>
+  <%= render(Pito::Sidebar::Component.new(
+        title:        t("pito.sidebar.conversations.title"),
+        subtitle_key: "pito.sidebar.esc_hint"
+      )) do |sidebar| %>
+    <% sidebar.with_body do %>
+      <%= render(Pito::Sidebar::Conversations::Component.new(
+            groups:       groups,
+            current_uuid: current_uuid
+          )) %>
+    <% end %>
+  <% end %>
+<% end %>

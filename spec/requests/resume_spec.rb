@@ -64,6 +64,13 @@ RSpec.describe "POST /chat with /resume", type: :request do
       expect(response.body).to include("is-current")
       expect(response.body).to include(conversation.uuid)
     end
+
+    it "wraps the conversation list in the Sidebar shell (aside element)" do
+      post chat_path, params: { input: "/resume", uuid: conversation.uuid }
+      # Pito::Sidebar::Component renders an <aside> — verify it is present so the
+      # list is shown as a side panel, not a full-width block.
+      expect(response.body).to include("<aside")
+    end
   end
 
   # ── Unauthenticated path ───────────────────────────────────────────────────

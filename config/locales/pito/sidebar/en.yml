@@ -6,6 +6,7 @@ en:
     sidebar:
       esc_hint: "esc"
       conversations:
+        title: "Conversations"
         recent: "Recent"
         older: "Older"
       game:
