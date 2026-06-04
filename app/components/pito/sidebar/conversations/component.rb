@@ -27,9 +27,7 @@ module Pito
         end
 
         def formatted_timestamp(conversation)
-          Pito::Notifications::Formatter.conversation_timestamp(
-            conversation.last_activity_at
-          )
+          Pito::Formatter::CompactTimeAgo.call(conversation.last_activity_at)
         end
 
         def current?(conversation)

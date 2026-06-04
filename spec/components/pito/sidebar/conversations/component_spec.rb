@@ -39,8 +39,8 @@ RSpec.describe Pito::Sidebar::Conversations::Component do
 
     it "includes a formatted timestamp in the row" do
       node = render_inline(described_class.new(groups: groups(recent: [ recent_conv ])))
-      # 2 hours ago — should contain "ago"
-      expect(node.to_html).to include("ago")
+      # 2 hours ago — CompactTimeAgo renders "~2h ago"
+      expect(node.to_html).to match(/~\d+h ago/)
     end
   end
 
@@ -103,12 +103,12 @@ RSpec.describe Pito::Sidebar::Conversations::Component do
       expect(node.to_html).to include("Old Chat")
     end
 
-    it "shows absolute date format for conversations older than 7 days" do
+    it "shows compact relative timestamp for older conversations" do
       node = render_inline(
         described_class.new(groups: groups(recent: [], older: [ older_conv ]))
       )
-      # 10.days.ago → absolute date like "May 25, 2026"
-      expect(node.to_html).to match(/\w+ \d+, \d{4}/)
+      # 10.days.ago → CompactTimeAgo renders "~10d ago"
+      expect(node.to_html).to match(/~\d+d ago/)
     end
   end
 
