@@ -17,8 +17,8 @@ en:
         authenticated: "● authenticated"
         anonymous: "○ not authenticated"
         notifications_count:
-          one: "(%{count})"
-          other: "(%{count})"
+          one: "%{count} notification"
+          other: "%{count} notifications"
         notifications_hint: "ctrl+/"
         autocomplete_hint: "tab"
         autocomplete_label: "suggest"

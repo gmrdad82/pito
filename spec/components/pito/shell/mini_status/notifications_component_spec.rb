@@ -18,12 +18,12 @@ RSpec.describe Pito::Shell::MiniStatus::NotificationsComponent do
 
     it "renders a singular count using the notifications_count i18n key" do
       node = render_inline(described_class.new(count: 1))
-      expect(node.css("span.text-cyan").text).to eq("(1)")
+      expect(node.css("span.text-cyan").text).to eq("1 notification")
     end
 
     it "renders a plural count using the notifications_count i18n key" do
       node = render_inline(described_class.new(count: 5))
-      expect(node.css("span.text-cyan").text).to eq("(5)")
+      expect(node.css("span.text-cyan").text).to eq("5 notifications")
     end
 
     it "renders inside an inline-flex gap-1 wrapper" do

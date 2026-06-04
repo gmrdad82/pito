@@ -87,12 +87,12 @@ RSpec.describe Pito::Shell::MiniStatusComponent do
     context "notifications" do
       it "does not render notification count when show_notifications is false" do
         node = render_inline(described_class.new(notifications: 5, show_notifications: false))
-        expect(node.to_html).not_to include("(")
+        expect(node.to_html).not_to include("notification")
       end
 
       it "does not render notification count when notifications is 0 and show_notifications is true" do
         node = render_inline(described_class.new(notifications: 0, show_notifications: true))
-        expect(node.to_html).not_to include("(")
+        expect(node.to_html).not_to include("notification")
       end
 
       it "renders notifications as ctrl+/ (yellow) + count (cyan)" do
@@ -100,17 +100,18 @@ RSpec.describe Pito::Shell::MiniStatusComponent do
         yellow = node.css("span.font-bold.text-yellow")
         expect(yellow.map(&:text)).to include("ctrl+/")
         cyan_text = node.css("span.text-cyan").map(&:text).join
-        expect(cyan_text).to include("(2)")
+        expect(cyan_text).to include("2 notifications")
       end
 
       it "renders singular count" do
         node = render_inline(described_class.new(notifications: 1, show_notifications: true))
-        expect(node.to_html).to include("(1)")
+        expect(node.to_html).to include("1 notification")
+        expect(node.to_html).not_to include("1 notifications")
       end
 
       it "renders plural count" do
         node = render_inline(described_class.new(notifications: 3, show_notifications: true))
-        expect(node.to_html).to include("(3)")
+        expect(node.to_html).to include("3 notifications")
       end
     end
 
