@@ -189,5 +189,7 @@ export default class extends Controller {
   #clear() {
     this.element.innerHTML = ""
     this.highlightIndex = -1
+    // Forget the persisted panel so a reload doesn't re-open a dismissed sidebar.
+    localStorage.removeItem(SIDEBAR_KEY)
   }
 }
