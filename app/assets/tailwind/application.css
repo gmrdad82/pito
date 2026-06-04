@@ -543,6 +543,11 @@ html {
   background: var(--border-default);
 }
 
+/* Highlighted row in the /resume sidebar (keyboard nav) */
+.pito-resume-highlight {
+  background: var(--border-default);
+}
+
 /* Hide when JS toggles via class (hidden attribute is handled natively) */
 .pito-autosuggest-palette.hidden {
   display: none;

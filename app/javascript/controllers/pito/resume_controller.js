@@ -29,10 +29,30 @@ export default class extends Controller {
     document.addEventListener("keydown", this.#onKey.bind(this), { signal: this.abort.signal })
     this.element.addEventListener("click", this.#onClick.bind(this), { signal: this.abort.signal })
     this.highlightIndex = -1
+
+    // The sidebar content is injected via a Turbo Stream UPDATE (this controller
+    // stays connected). Watch for it: when rows appear we (a) hide the command
+    // dots — /resume is a sync command and never fires pito:done otherwise — and
+    // (b) highlight the first row so arrow-nav is immediately visible.
+    this.observer = new MutationObserver(() => this.#onContentChange())
+    this.observer.observe(this.element, { childList: true })
   }
 
   disconnect() {
     this.abort?.abort()
+    this.observer?.disconnect()
+  }
+
+  #onContentChange() {
+    const rows = this.#rows()
+    if (rows.length && this.highlightIndex === -1) {
+      // Sidebar just opened — stop the command dots and highlight the first row.
+      document.dispatchEvent(new CustomEvent("pito:done", { bubbles: true }))
+      this.highlightIndex = 0
+      rows.forEach((r, i) => r.classList.toggle(HIGHLIGHT_CLASS, i === 0))
+    } else if (!rows.length) {
+      this.highlightIndex = -1
+    }
   }
 
   // Called by Turbo after the sidebar content is updated so we can initialise
