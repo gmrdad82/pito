@@ -1293,13 +1293,11 @@ _Resolved this round:_ video commands = `/import` + `/update` + lifecycle `/publ
 
 - `Pito::Stats` / `Pito::Analytics` plans; wire TAB/period.
 - Games detail screen; videos list screen.
-- `Calendar`/`CalendarEntry`, `Notification` models — add when needed. (Playlist dropped — not supported.)
+- `Calendar`/`CalendarEntry` models — add when needed. (Playlist dropped — not supported.)
 - Remote footage ingest (script + HTTP endpoint) if/when on Hetzner.
 - At merge: delete `plan-beta-reboot-*.md`; fold durable content into `architecture.md` / `design.md` / `installation.md` / `tools.md`.
-- ctrl+| expand and collapse all
 - Game im main screen
 - Sidebar only for preview
-- History for chat
 - List
 - Show
 - List top channels
@@ -1308,11 +1306,7 @@ _Resolved this round:_ video commands = `/import` + `/update` + lifecycle `/publ
 - List channels ordered by subs|subscribers (count)
 - List first|last 3 channels ordered|sorted by subs|subscribers (count)
 - View|show @handle
-- Channel will be @channel
-- Vocabulary for /help and refactor help to show vocabulary with nested - structure to accomodate vast
 - force / refresh stats with --fresh argument maybe
-- Extract components for kv-tables, tables, stats, etc...
-- Implement /rename
 
 ## How to use this plan
 
