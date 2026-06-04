@@ -48,6 +48,11 @@ function _onGlobalKeydown(e) {
 // Toggle ALL segments + persist to server.
 function toggleAll() {
   const newState = !expandAllEnabled()
+  // Update the #pito-settings data attribute immediately so expandAllEnabled()
+  // returns the new value for any cable segment that connects before the Turbo
+  // Stream replace arrives from pito:global.
+  const settingsEl = document.getElementById("pito-settings")
+  if (settingsEl) settingsEl.dataset.expandAll = String(newState)
   // Flip every rendered segment immediately (optimistic).
   document.querySelectorAll('[data-controller~="pito--expand"]').forEach(el => {
     const instance = el.__pito_expand_instance
