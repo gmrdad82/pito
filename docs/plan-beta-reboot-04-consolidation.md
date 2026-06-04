@@ -115,7 +115,7 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 
 ## Phase index
 
-> Phases are the `## P0`–`## P44` headings below (each is an independently-committable unit). **A–K are organizational group labels only**, and the names listed here are abbreviated — the `## P<N> — …` headings are canonical.
+> Phases are the `## P0`–`## P47` headings below (each is an independently-committable unit). **A–L are organizational group labels only**, and the names listed here are abbreviated — the `## P<N> — …` headings are canonical.
 
 **A — Cleanup:** P0 Pre-flight · P1 Remove dead surfaces · P2 Auth → cookie · P3 Stale rake · P4 Dead-code sweep
 **B — Schema/models:** P5 Single migration · P6 Model updates · P7 Game score · P8 IGDB sync investigation
@@ -128,6 +128,7 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 **I — Games:** P35 Re-wire IGDB · P36 `/add game` sidebar · P37 Add → async sync · P38 Daily unreleased refresh
 **J — Conversations:** P39 `/new` · P40 `/resume` · P41 Sidebar list · P42 Rename
 **K — Docs/verify:** P43 AGENTS.md · P44 Verification
+**L — Chat-UI polish (post-P42, after `/new`/`/resume`):** P45 Typing phase-in · P46 Typewriter reveal · P47 Draft persistence
 
 ---
 
@@ -1052,6 +1053,50 @@ migration, every model factoried + auto-validated, rake split, `pito:tools:probe
 - [ ] T44.11 `/new`/`/resume`/rename work; sidebar grouping correct. complexity: [manual]
 - [ ] T44.12 `pito:tools:probe` populates a Footage. complexity: [manual]
 - [ ] T44.13 Commit: `Plan 4 verification`. complexity: [manual]
+
+---
+
+# Group L — Chat-UI polish (post-P42)
+
+> Added after the conversation phases (`/new` P39, `/resume` P40, sidebar P41, rename P42) at the user's request. Three independent UI features. Mobile-app feel (Claude/Gemini/ChatGPT). P45 + P46 are **client-side animation only**; P47 touches the backend. All respect `prefers-reduced-motion`. Full design lives in `~/.claude/plans/sonet-i-want-you-cheerful-book.md`.
+
+## P45 — Chatbox per-character typing phase-in
+
+> Every-keystroke overlay: each typed/accepted character fades + rises in. A visible `.pito-type-layer` (mirror technique from `terminal_caret_controller.js`) renders over a transparent native textarea; the textarea stays the source of truth (overlay is decorative, never lags input). Reduced-motion → native instant. **Committed `7234285e`.** (Fallback paths if browser smoke rejects the overlay: accept-only, or caret-glow.)
+
+- [x] T45.1 CSS: `.pito-type-layer`, `.pito-chatbox__input.is-fx` (transparent), `@keyframes pito-char-in`, `.pito-type-char(--new)`, reduced-motion neutralizer. complexity: [low]
+- [x] T45.2 `type_fx_controller.js`: reduced-motion bail; build visible mirror layer; initial render; ResizeObserver. complexity: [high]
+- [x] T45.3 Delta render on `input` (common prefix/suffix; animate only the changed run; strip `--new` after animation — O(delta)). complexity: [high]
+- [x] T45.4 Accept-suggestion runs animate via the autosuggest `input` dispatch (no autosuggest edit). complexity: [low]
+- [x] T45.5 IME/paste(>40 instant)/clear-on-submit handling; coexist with block caret + `.pito-ghost`. complexity: [high]
+- [ ] T45.6 Smoke (browser): per-char no lag; accept/paste/IME/selection/backspace; reduced-motion instant; emoji code-unit edge. complexity: [manual]
+- [x] T45.7 Commit: `Chatbox per-character typing phase-in`. complexity: [manual]
+
+## P46 — Progressive typewriter reveal for assistant responses
+
+> Client-side typewriter on **system + enhanced** bodies (+ their follow-ups) only; chrome (bar, meta, tables, hints) instant; echo/error/confirmation/html bodies excluded. A shared **reveal queue** (`reveal_queue.js`, FIFO + backpressure) serializes concurrent segments so bursts type one-at-a-time (overflow snaps in) — no backend streaming needed (results are computed whole). Live-only (reload shows full text); reduced-motion instant. **Committed `d1d43e79`.**
+
+- [x] T46.1 `app/javascript/pito/reveal_queue.js` — shared FIFO; backpressure (depth > 3 → `{instant:true}`). complexity: [high]
+- [x] T46.2 `app/javascript/pito/ready.js` — `window.__pitoReady` on first `turbo:load` (live-vs-reload gate). complexity: [low]
+- [x] T46.3 View hooks: typewriter controller+`body` target on system/enhanced body; `ExpandableBodyComponent` gains `typewriter:` flag (false for confirmation); skip when `html`. complexity: [low]
+- [x] T46.4 `typewriter_controller.js` — capture/clear body, enqueue reveal, fast char ticks, cancel+restore on disconnect. complexity: [high]
+- [x] T46.5 Auto-scroll follows the growing body via scrollback's subtree observer, respecting the scroll-up lock. complexity: [low]
+- [x] T46.6 Component specs: system/enhanced animate; confirmation/html/echo do not. complexity: [low]
+- [ ] T46.7 Smoke (browser): live reveal; burst → one-at-a-time + overflow instant; scroll-follow / no-snap when scrolled up; reload + reduced-motion instant. complexity: [manual]
+- [x] T46.8 Commit: `Progressive typewriter reveal for assistant responses`. complexity: [manual]
+
+## P47 — Server-persisted chatbox draft
+
+> The unsent textarea is preserved across refresh / browser crash by storing it **server-side at the conversation level** (`conversations.draft`). Autosaves on change (typing or accepting a suggestion — both fire `input`), debounced. **Conversation-only:** the start screen (`/`) and 404 are ignored (no draft there). Restore on `/chat/:uuid`; clear on send.
+
+- [ ] T47.1 Migration: add `draft` (text, nullable) to `conversations`. complexity: [low]
+- [ ] T47.2 `ConversationsController#update` permits + persists `:draft` (alongside `:title`). complexity: [low]
+- [ ] T47.3 `ChatController#create` clears the conversation's `draft` when a message is sent. complexity: [low]
+- [ ] T47.4 `#show` prefills the chatbox via `ChatboxComponent(initial_value:)`; render the draft-uuid wiring ONLY on `/chat/:uuid` (start/404 omit it). complexity: [low]
+- [ ] T47.5 `draft_controller.js`: debounced (~600–1000ms) `PATCH /chat/:uuid {draft:}` on `input`; no-op when no conversation uuid (`/`, 404). complexity: [high]
+- [ ] T47.6 Specs: PATCH persists draft; `#show` prefills; `create` clears on send; `ChatboxComponent` `initial_value:` + conditional uuid wiring. complexity: [low]
+- [ ] T47.7 Smoke (browser): refresh restores; accepting a suggestion is saved; send clears; `/` + bogus URL never autosave. complexity: [manual]
+- [ ] T47.8 Commit: `Server-persisted chatbox draft`. complexity: [manual]
 
 ---
 
