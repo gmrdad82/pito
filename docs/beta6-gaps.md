@@ -53,6 +53,7 @@ PR; squash-merge at the end.
 ## Phases
 
 ### [x] Phase A — Language core: lex / grammar / parse / autocomplete
+
 - Doc-blocks: `Lex::Lexer` (token types, URL/@/string/whitespace, `preceded_by_space`),
   `Grammar::Registry` (dual specs+vocabularies store, boot), `Grammar::Vocabulary`
   (resolution canonical→synonym→dynamic→nil, fillers, members), `Grammar::HandlerDsl`.
@@ -64,6 +65,7 @@ PR; squash-merge at the end.
 - JS: `autosuggest_controller`.
 
 ### [ ] Phase B — Command dispatch: handlers + action bus
+
 - Doc-blocks: `Slash::Handler` base + subclasses (config/help/disconnect) + chat/
   hashtag handler bases/subclasses.
 - Rails specs: config (getter/setter/toggle + provider `--help`), disconnect, help;
@@ -71,12 +73,14 @@ PR; squash-merge at the end.
 - JS: `command_palette`, `chat_form`, `rename`, `draft`.
 
 ### [ ] Phase C — Stream / broadcast / events + sidebar JS
+
 - Doc-blocks: `Stream::Broadcaster`, `Stream::EventRenderer`.
 - Rails specs: broadcaster (emit/replace/auth/settings/global + `have_broadcasted_to`),
   event_renderer (each kind, unknown raises); cross-instance broadcast assertions.
 - JS: `resume`, `notifications_nav`, `scrollback`, `dots`/`done_dispatch`/`turn_complete`.
 
 ### [ ] Phase D — Notifications: delivery + formatter + model + jobs
+
 - Doc-blocks: `DeliveryChannel::Base` (override contract + 2xx/429+5xx/4xx semantics),
   `Formatter::Templates::Base` (title/body/url; payload-only), `Notifications::Source`.
 - Rails specs: delivery channels (404/timeout/429/5xx/4xx/malformed, WebMock);
@@ -85,6 +89,7 @@ PR; squash-merge at the end.
 - JS: `chatbox_hints`.
 
 ### [ ] Phase E — Auth / session
+
 - Doc-blocks: `auth/*` base/contract; `Current`.
 - Rails specs: `TotpVerifier` (valid/format/replay/drift/seed-missing), `TotpEnroller`,
   `SessionCookie`, `ChatLogin` (throttle), `backoff_calculator`; login/logout/OAuth
@@ -92,6 +97,7 @@ PR; squash-merge at the end.
 - JS: `auth.js`, `cable_health`.
 
 ### [ ] Phase F — Domain models + sync jobs
+
 - Doc-blocks: `ApplicationRecord`/`ApplicationJob` brief; `Current`.
 - Rails specs: `YoutubeConnection`, `Video`, `Genre`, `Company`, join tables,
   `Current`; jobs `ChannelInfoJob`, `ChannelAnalyticsSync`, `VideoAnalyticsSync`,
@@ -99,6 +105,7 @@ PR; squash-merge at the end.
   deepen `SyncChannelStatsJob`.
 
 ### [ ] Phase G — Component base + remaining services + remaining JS
+
 - Doc-blocks: `ApplicationComponent` (component conventions) + key event components
   (system/error/echo).
 - Rails specs: `recommendation/*`, `search/engine`, `schedule`, remaining formatters
@@ -117,6 +124,6 @@ PR; squash-merge at the end.
 - No git worktrees for agents (stale-base bug); on-branch sequential, verify HEAD,
   never reset/force-push.
 - Some services may be genuine no-ops/stubs — confirm behavior before specing; skip
-  + note rather than testing emptiness.
+  - note rather than testing emptiness.
 - JS tests stay logic-focused; browser-only animation/layout is out of unit scope.
 - Phases independent / re-orderable; A→G is roughly highest-risk core first.
