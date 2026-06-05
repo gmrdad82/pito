@@ -144,7 +144,7 @@ export default class extends Controller {
     } else if (e.key === "Escape") {
       e.preventDefault()
       this.#clear()
-    } else if (e.key === "n" || e.key === "N") {
+    } else if (e.key === "`") {
       // Inline-rename the highlighted conversation. The pito--rename controller
       // on that row listens for this event and swaps the name for an <input>.
       const highlighted = rows[this.highlightIndex]

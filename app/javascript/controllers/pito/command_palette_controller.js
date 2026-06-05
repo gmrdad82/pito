@@ -79,6 +79,77 @@ export default class extends Controller {
       .catch(err => console.warn("[pito] notifications fetch failed:", err))
   }
 
+  // Ctrl+` — open the conversations sidebar (showing the current conversation
+  // highlighted) and start an inline rename on it.
+  //
+  // Timing: the sidebar is rendered via a Turbo Stream fetch so the DOM isn't
+  // ready immediately. We use a MutationObserver on #pito-sidebar to wait for
+  // the `.is-current` row to appear, then dispatch `pito:rename:start` on it.
+  // The observer is disconnected once the row is found (or after a short
+  // timeout so we never leak).
+  #renameCurrentConversation() {
+    const m = location.pathname.match(/\/chat\/([0-9a-f-]+)/i)
+    if (!m) return // not on a conversation page — no-op
+
+    const uuid = m[1]
+    const csrf = document.querySelector('meta[name="csrf-token"]')?.content || ""
+
+    // If the sidebar already shows the conversation list, skip the fetch and
+    // just find + trigger the current row directly.
+    const sidebar = document.getElementById("pito-sidebar")
+    if (sidebar && sidebar.querySelector(".pito-conversation-row")) {
+      this.#triggerRenameOnCurrentRow(sidebar)
+      return
+    }
+
+    fetch(`/resume?uuid=${uuid}`, {
+      headers: {
+        Accept: "text/vnd.turbo-stream.html",
+        "X-CSRF-Token": csrf
+      }
+    })
+      .then(r => r.text())
+      .then(html => {
+        window.Turbo.renderStreamMessage(html)
+        // Wait for the sidebar DOM to contain the current row, then rename.
+        this.#waitForCurrentRow(sidebar || document.getElementById("pito-sidebar"))
+      })
+      .catch(err => console.warn("[pito] rename-current fetch failed:", err))
+  }
+
+  // Dispatch `pito:rename:start` on the `.is-current` conversation row.
+  // Called when the row is already present in the sidebar.
+  #triggerRenameOnCurrentRow(sidebar) {
+    const row = sidebar.querySelector(".pito-conversation-row.is-current")
+    if (row) row.dispatchEvent(new CustomEvent("pito:rename:start"))
+  }
+
+  // Use a MutationObserver to wait for `.pito-conversation-row.is-current`
+  // to appear inside the sidebar element, then fire the rename event.
+  // Gives up after ~2 s (20 × 100 ms) to avoid leaking observers.
+  #waitForCurrentRow(sidebar) {
+    if (!sidebar) return
+    let attempts = 0
+    const MAX = 20
+
+    const tryNow = () => {
+      const row = sidebar.querySelector(".pito-conversation-row.is-current")
+      if (row) { row.dispatchEvent(new CustomEvent("pito:rename:start")); return true }
+      return false
+    }
+
+    if (tryNow()) return
+
+    const observer = new MutationObserver(() => {
+      attempts++
+      if (tryNow() || attempts >= MAX) observer.disconnect()
+    })
+    observer.observe(sidebar, { childList: true, subtree: true })
+
+    // Safety net: disconnect after 2 s even if no rows ever appear.
+    setTimeout(() => observer.disconnect(), 2000)
+  }
+
   #open() {
     this.element.classList.remove("hidden")
     this.searchTarget.value = ""
@@ -171,6 +242,14 @@ export default class extends Controller {
       e.preventDefault()
       if (!isAuthenticated()) return
       this.#toggleNotifications()
+      return
+    }
+
+    // Ctrl+` (or Cmd+` on Mac) → open sidebar and start renaming current conversation
+    if (modKey && e.key === "`") {
+      e.preventDefault()
+      if (!isAuthenticated()) return
+      this.#renameCurrentConversation()
       return
     }
 
