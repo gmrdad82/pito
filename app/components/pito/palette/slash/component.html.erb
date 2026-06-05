@@ -16,7 +16,7 @@
 
       <%# 8px gap + divider + 8px gap %>
       <div class="h-2"></div>
-      <div class="h-px bg-line-default"></div>
+      <%= render(Pito::Separator::DividerLineComponent.new(hairline: true)) %>
       <div class="h-2"></div>
 
       <%# Input echo line %>

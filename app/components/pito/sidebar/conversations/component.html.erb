@@ -2,7 +2,7 @@
 <div class="flex flex-col">
   <%# Recent section %>
   <div class="mb-2">
-    <div class="text-orange font-bold mb-1"><%= t("pito.sidebar.conversations.recent") %></div>
+    <%= render(Pito::Section::SectionHeaderComponent.new(text: t("pito.sidebar.conversations.recent"), color: :orange)) %>
     <% recent.each do |conversation| %>
       <%= render partial: "conversations/row",
                  locals: { conversation: conversation, current: current?(conversation),
@@ -16,7 +16,7 @@
 
     <%# Older section %>
     <div class="mb-2">
-      <div class="text-orange font-bold mb-1"><%= t("pito.sidebar.conversations.older") %></div>
+      <%= render(Pito::Section::SectionHeaderComponent.new(text: t("pito.sidebar.conversations.older"), color: :orange)) %>
       <% older.each do |conversation| %>
         <%= render partial: "conversations/row",
                    locals: { conversation: conversation, current: current?(conversation),

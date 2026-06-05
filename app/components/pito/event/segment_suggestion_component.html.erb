@@ -1,8 +1,8 @@
-<div class="mt-2 border-t border-line-default pt-2" data-suggestion-command="<%= @run_cmd %>">
+<%= render(Pito::Separator::DividerLineComponent.new(spacing: "2", extra_attrs: { "data-suggestion-command" => @run_cmd })) do %>
   <% if @pre.present? %><span class="text-fg-dim"><%= @pre %></span> <% end -%>
   <% if @code.present? %><span class="bg-elevated px-1.5 border border-line-default text-fg"><%= @code %></span><% end -%>
   <% if @post.present? %> <span class="text-fg-dim"><%= @post %></span><% end -%>
   <% if @shortcut.present? %>
     <span class="text-fg-faded mx-2">—</span><span class="font-bold text-yellow"><%= @shortcut %></span><% if @run_label.present? %> <span class="text-fg-dim"><%= @run_label %></span><% end %>
   <% end %>
-</div>
+<% end %>

@@ -1,11 +1,15 @@
 <div class="flex flex-col gap-3">
   <% @sections.each do |section| %>
     <div class="flex flex-col gap-1">
-      <span class="text-yellow font-bold"><%= section[:title] %></span>
+      <%= render(Pito::Section::SectionHeaderComponent.new(text: section[:title], color: :yellow)) %>
       <% Array(section[:rows]).each do |row| %>
         <div class="flex gap-4">
-          <span class="text-cyan whitespace-nowrap shrink-0 w-44"><%= row[:key] %></span>
-          <span class="text-fg-dim"><%= row[:value] %></span>
+          <%= render(Pito::Table::KeyValueRowComponent.new(
+                key_text:    row[:key],
+                value_text:  row[:value],
+                key_class:   "text-cyan whitespace-nowrap shrink-0 w-44",
+                value_class: "text-fg-dim"
+              )) %>
         </div>
       <% end %>
     </div>

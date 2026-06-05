@@ -4,14 +4,17 @@
        data-pito--expand-collapse-label-value="<%= t('pito.event.expand.collapse_hint') %>"<% end %>>
     <span class="text-fg"><%= @text %></span>
     <% if @credentials %>
-      <div class="mt-1.5 flex flex-col gap-1 font-mono border-t border-line-default pt-1.5">
+      <%= render(Pito::Separator::DividerLineComponent.new(extra_classes: "flex flex-col gap-1 font-mono")) do %>
         <% credential_rows.each do |row| %>
-          <div class="flex items-center gap-1">
-            <span class="text-fg-dim whitespace-nowrap shrink-0"><%= row[:label] %>:</span>
-            <span class="<%= row[:present] ? 'text-green' : 'text-red' %> break-all"><%= row[:display] %></span>
-          </div>
+          <%= render(Pito::Table::KeyValueRowComponent.new(
+                key_text:      "#{row[:label]}:",
+                value_text:    row[:display],
+                key_class:     "text-fg-dim whitespace-nowrap shrink-0",
+                value_class:   "#{row[:present] ? 'text-green' : 'text-red'} break-all",
+                wrapper_class: "flex items-center gap-1"
+              )) %>
         <% end %>
-      </div>
+      <% end %>
     <% elsif @detail %>
       <div data-pito--expand-target="hint" class="mt-1">
         <%= render(Pito::Keybinding::HintComponent.new(

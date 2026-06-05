@@ -35,8 +35,12 @@
           <% key_class = line[:key_class] || line["key_class"] || "text-cyan" %>
           <% value_class = line[:value_class] || line["value_class"] || "text-fg" %>
           <div class="flex gap-4">
-            <span class="<%= key_class %> whitespace-nowrap shrink-0 w-40"><%= key %></span>
-            <span class="<%= value_class %> text-right w-20"><%= value %></span>
+            <%= render(Pito::Table::KeyValueRowComponent.new(
+                  key_text:    key,
+                  value_text:  value,
+                  key_class:   "#{key_class} whitespace-nowrap shrink-0 w-40",
+                  value_class: "#{value_class} text-right w-20"
+                )) %>
           </div>
         <% elsif line.present? %>
           <div class="text-fg"><%= line %></div>

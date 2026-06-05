@@ -23,7 +23,7 @@ RSpec.describe Pito::Keybinding::TableComponent do
 
   it "renders yellow section titles" do
     node = render_inline(described_class.new(sections: sections))
-    titles = node.css("span.text-yellow.font-bold").map(&:text)
+    titles = node.css(".text-yellow.font-bold").map(&:text)
     expect(titles).to eq([ "GENERAL", "CONFIG" ])
   end
 
