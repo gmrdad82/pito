@@ -96,7 +96,7 @@ PR; squash-merge at the end.
   request edges.
 - JS: `auth.js`, `cable_health`.
 
-### [ ] Phase F — Domain models + sync jobs
+### [x] Phase F — Domain models + sync jobs
 
 - Doc-blocks: `ApplicationRecord`/`ApplicationJob` brief; `Current`.
 - Rails specs: `YoutubeConnection`, `Video`, `Genre`, `Company`, join tables,
