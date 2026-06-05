@@ -88,7 +88,7 @@ PR; squash-merge at the end.
   `NotificationDeliver` + deepen `CleanupNotificationsJob`.
 - JS: `chatbox_hints`.
 
-### [ ] Phase E — Auth / session
+### [x] Phase E — Auth / session
 
 - Doc-blocks: `auth/*` base/contract; `Current`.
 - Rails specs: `TotpVerifier` (valid/format/replay/drift/seed-missing), `TotpEnroller`,
