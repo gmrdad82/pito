@@ -1,14 +1,12 @@
-# 2026-05-11 — Fresh-TOTP gate for sensitive write actions.
+# Encrypted-cookie TOTP gate for sensitive write actions.
 #
-# When `Current.user.totp_enabled?` is true, sensitive destructive
-# write actions require a fresh 6-digit TOTP code on the same form.
-# Read-only views are NOT gated — only the writes.
+# Checks `Current.session.totp_verified_at` — if recent enough the gate
+# passes without re-entering the code. Otherwise the user must supply a
+# fresh 6-digit code on the form.
 #
-# 2026-05-16 — scope narrowed. The only surviving gated surface is
-# `Settings::UserController#update` (the /settings Row 1 Left
-# profile pane's `[ update ]` button — username + password change).
-# The previously-gated webhook surfaces (Slack / Discord) lost the
-# gate; webhook saves are plain saves now.
+# The 15-minute window avoids annoying re-prompting for rapid edits while
+# still requiring a fresh TOTP after a gap. On successful verification
+# the cookie's `totp_verified_at` is updated.
 #
 # Pattern:
 #
@@ -16,46 +14,37 @@
 #     include RecentTotpVerification
 #
 #     def update
-#       return unless require_recent_totp_if_enabled!
+#       return unless require_recent_totp!
 #       # ...write path...
 #     end
 #   end
 #
-# `require_recent_totp_if_enabled!` returns `true` when the user has
-# no 2FA enabled OR when the submitted code verifies. It returns
-# `false` after rendering / redirecting with a generic flash, so the
-# caller MUST short-circuit on `false`.
+# `require_recent_totp!` returns `true` when:
+#   - `totp_verified_at` on the session cookie is < 15 min old, OR
+#   - the submitted code verifies.
+# It returns `false` after rendering / redirecting so the caller MUST
+# short-circuit on `false`.
 #
 # Failure copy is intentionally generic — `credentials don't match.`
-# — and the response must not reveal whether the password / code /
-# both was the failing field on flows that bundle multiple
-# credentials.
-#
-# Internal use of `Pito::Auth::TotpVerifier` triggers the replay-defense
-# watermark on success — a code consumed by a write here cannot be
-# replayed against a different sensitive action in the same drift
-# window. That is the locked, install-wide replay contract (RFC 6238
-# §5.2 — see `Pito::Auth::TotpVerifier` header comment).
 module RecentTotpVerification
   extend ActiveSupport::Concern
 
   GENERIC_FLASH = "credentials don't match."
+  TOTP_FRESH_WINDOW = 15.minutes
 
   private
 
-  # Returns `true` when the gate is satisfied (user has no 2FA OR the
-  # submitted code verifies). Returns `false` after rendering or
-  # redirecting; the caller MUST short-circuit on `false`.
-  #
-  # @param redirect_on_failure [Symbol, String, nil] when present,
-  #   render is bypassed in favor of `redirect_to`. Useful for
-  #   flow-style controllers (e.g. webhook panes) that PATCH and
-  #   redirect back to /settings.
-  def require_recent_totp_if_enabled!(redirect_on_failure: nil, render_action: nil)
-    return true unless Current.user&.totp_enabled?
+  def require_recent_totp!(redirect_on_failure: nil, render_action: nil)
+    if totp_recently_verified?
+      return true
+    end
 
     code = params[:totp_code].to_s.strip
-    return true if Pito::Auth::TotpVerifier.call(user: Current.user, code: code) == :ok
+    if Pito::Auth::TotpVerifier.call(code: code) == :ok
+      cookie_manager = Pito::Auth::SessionCookie.new(request)
+      Current.session = cookie_manager.mark_totp_verified!(Current.session, at: Time.current)
+      return true
+    end
 
     if redirect_on_failure
       redirect_to redirect_on_failure, alert: GENERIC_FLASH
@@ -68,5 +57,12 @@ module RecentTotpVerification
       end
     end
     false
+  end
+
+  def totp_recently_verified?
+    session_data = Current.session
+    return false unless session_data&.totp_verified_at
+
+    session_data.totp_verified_at > TOTP_FRESH_WINDOW.ago
   end
 end

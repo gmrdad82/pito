@@ -14,10 +14,8 @@
 # latter pushes a locally-edited video back to YouTube post-edit; the
 # former pulls YouTube state and surfaces divergence. They are NOT
 # the same path.
-class VideoSync
-  include Sidekiq::Job
-
-  sidekiq_options queue: "default", retry: 3
+class VideoSync < ApplicationJob
+  queue_as :default
 
   def perform(video_id)
     VideoDiffCheckJob.new.perform(video_id)

@@ -37,8 +37,8 @@ class Channels::AnalyticsRefreshController < ApplicationController
       return
     end
 
-    ChannelAnalyticsSync.perform_async(channel.id)
-    channel.videos.find_each { |video| VideoAnalyticsSync.perform_async(video.id) }
+    ChannelAnalyticsSync.perform_later(channel.id)
+    channel.videos.find_each { |video| VideoAnalyticsSync.perform_later(video.id) }
 
     redirect_to channel_analytics_path(channel), notice: "syncing..."
   end

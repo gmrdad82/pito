@@ -1,40 +1,26 @@
+# frozen_string_literal: true
+
+# Handles toggle endpoints for install-wide AppSetting flags.
+# All actions require authentication (no allow_anonymous).
 class SettingsController < ApplicationController
-  # C19e (2026-05-22) — orphan trim. SettingsController#index was
-  # unreachable after C18 (GET /settings → 301 redirect to /). All ivar
-  # setup, session-sort helpers, and probe helpers have been removed.
-  #
-  # Remaining routed actions:
-  #   PATCH  /settings               → update  (legacy passthrough; redirect)
-  #   POST   /settings/stack/meilisearch/reindex → meilisearch_reindex
-  #   POST   /settings/stack/voyage/reindex      → voyage_reindex
+  # POST /settings/expand_all
+  # Body: { expand_all: true|false }
+  # Flips AppSetting.expand_all to the requested value, then broadcasts
+  # the updated #pito-settings element to pito:global so every open tab
+  # (including the current one) receives the new data-expand-all attribute.
+  # Newly-arrived cable segments call expandAllEnabled() on connect() and
+  # therefore inherit the correct value without a reload.
+  def toggle_expand_all
+    new_value = ActiveModel::Type::Boolean.new.cast(params[:expand_all])
+    AppSetting.expand_all = new_value
 
-  # Phase 29 (settings refactor) — legacy passthrough. The multi-section
-  # dispatcher is gone. Scripted PATCH callers still hitting `/settings`
-  # get a clean redirect + notice — no 500s, no silent writes.
-  def update
-    redirect_to settings_path, notice: t("settings.flash.saved")
-  end
+    # P55 — broadcast to pito:global so all open tabs/instances update
+    # #pito-settings immediately. The current tab's expand_controller
+    # already flips existing segments optimistically; the Turbo replace
+    # ensures expandAllEnabled() returns the correct value for future
+    # cable-delivered segments.
+    Pito::Stream::Broadcaster.broadcast_global_settings_update
 
-  # FB-63 (2026-05-20) — split reindex actions. The combined
-  # `[reindex]` action is gone; each subsystem tile now owns its own
-  # `[reindex]` link.
-  #
-  # FB-138 (2026-05-21). Returns `head :no_content` (HTTP 204) so Turbo
-  # does nothing on success — the cable broadcast drives the in-place UI
-  # swap. FB-149: conflicts also return 204.
-  def meilisearch_reindex
-    unless AppSetting.reindex_running?
-      AppSetting.start_reindex!
-      MeilisearchReindexJob.perform_later
-    end
-    head :no_content
-  end
-
-  def voyage_reindex
-    unless AppSetting.reindex_running?
-      AppSetting.start_reindex!
-      VoyageReindexJob.perform_later
-    end
     head :no_content
   end
 end

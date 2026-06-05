@@ -17,9 +17,9 @@
 #
 # Phase 26 refactor: subclasses now resolve `webhook_url` via the AR
 # model first (`NotificationDeliveryChannel.send(kind)`) and fall back
-# to `Rails.application.credentials.notifications.<kind>_webhook_url`.
-# This preserves backward compatibility with existing installs that
-# wired the URL through credentials only.
+# to `ENV["PITO_<KIND>_WEBHOOK_URL"]`. This preserves backward
+# compatibility with installs that wired the URL through the
+# environment only.
 require "net/http"
 
 module Pito

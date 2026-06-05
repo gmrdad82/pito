@@ -1,0 +1,22 @@
+<%# Sidebar — fixed overlay panel on the right edge of viewport %>
+<aside class="fixed right-0 top-0 bottom-0 w-[480px] bg-root border-l border-line-default z-50 overflow-hidden flex flex-col">
+  <%# Sticky header %>
+  <div class="pt-4 px-4">
+    <div class="flex justify-between items-start">
+      <div>
+        <div class="text-cyan font-bold"><%= @title %></div>
+        <% if subtitle? %>
+          <div class="text-fg-dim"><%= subtitle %></div>
+        <% elsif @subtitle_key %>
+          <div class="text-fg-dim"><%= t(@subtitle_key, **@subtitle_args) %></div>
+        <% end %>
+      </div>
+      <span class="text-fg-dim shrink-0"><%= t("pito.sidebar.esc_hint") %></span>
+    </div>
+  </div>
+
+  <%# Scrollable body — hidden scrollbar, keep scrolling %>
+  <div class="pito-hide-scrollbar pito-scroll-fade-slim flex-1 overflow-y-auto p-4">
+    <%= body %>
+  </div>
+</aside>

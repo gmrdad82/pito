@@ -1,6 +1,6 @@
 # Phase 23 — Step 23a + 23d (Video Sync + Diff Dialog).
 #
-# Sidekiq job. Accepts a single `video_id` arg for targeted re-checks
+# Accepts a single `video_id` arg for targeted re-checks
 # (called from the user-triggered `[sync]` path); without args, the
 # bulk fan-out scheduler walks the catalogue.
 #
@@ -16,12 +16,10 @@
 #      `kind: video_diff_detected, severity: info` (Phase 16 surface).
 #
 # Quota / auth / 5xx errors raised by `Channel::Youtube::Client` re-raise so
-# Sidekiq's retry policy handles backoff. The job intentionally does
+# the retry policy handles backoff. The job intentionally does
 # NOT catch them — silent quota exhaustion would hide a real problem.
-class VideoDiffCheckJob
-  include Sidekiq::Job
-
-  sidekiq_options queue: "default", retry: 3
+class VideoDiffCheckJob < ApplicationJob
+  queue_as :default
 
   def perform(video_id)
     video = Video.find_by(id: video_id)

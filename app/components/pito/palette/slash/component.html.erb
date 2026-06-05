@@ -1,0 +1,28 @@
+<%# Slash command palette — bar+gap+content laid out manually (not using Segment helper)
+    so padding: 10px 6px only applies here, not globally. %>
+<div class="flex">
+  <div class="pito-segment__bar" data-accent="purple"></div>
+  <div class="pito-segment__gap"></div>
+  <div class="flex-1 min-w-0 bg-surface py-2.5 px-1.5">
+    <div class="flex flex-col">
+      <%# Command list — verb displayed in fixed-width column so descriptions align %>
+      <% @commands.each_with_index do |cmd, i| %>
+        <% selected = i == @selected_index %>
+        <div class="py-0.5 px-2.5" style="<%= 'background: var(--border-default);' if selected %>">
+          <span class="text-fg inline-block" style="width: 16ch;"><%= "/#{cmd[:verb]}" %></span>
+          <span class="text-fg-dim"><%= t(cmd[:description_key]) %></span>
+        </div>
+      <% end %>
+
+      <%# 8px gap + divider + 8px gap %>
+      <div class="h-2"></div>
+      <%= render(Pito::Separator::DividerLineComponent.new(hairline: true)) %>
+      <div class="h-2"></div>
+
+      <%# Input echo line %>
+      <div class="flex items-center px-2.5">
+        <%= render(Pito::Cursor::Component.new(char: "/")) %>
+      </div>
+    </div>
+  </div>
+</div>

@@ -20,10 +20,6 @@ module Pito
     class Omnisearch
       AREAS = {
         games: Pito::Search::SearchGames
-        # videos: Meilisearch::SearchVideos,        # future
-        # projects: Meilisearch::SearchProjects,    # future
-        # channels: Meilisearch::SearchChannels,    # future
-        # notifications: Meilisearch::SearchNotifications, # future
       }.freeze
 
       def self.call(area:, query:, **kwargs)

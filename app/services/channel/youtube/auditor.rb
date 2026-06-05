@@ -11,12 +11,14 @@ class Channel
       private
 
       # Persist a single `YoutubeApiCall` row.
+      # NO-OP when the model is not loaded (schema reset dropped the table).
       def write_audit_row(endpoint:, http_method:, outcome:,
-                          kind:, connection:,
-                          http_status: nil, error_message: nil,
-                          duration_ms: nil, user: nil)
+                           kind:, connection:,
+                           http_status: nil, error_message: nil,
+                           duration_ms: nil, user: nil)
+        return unless defined?(YoutubeApiCall) && YoutubeApiCall.respond_to?(:create!)
+
         YoutubeApiCall.create!(
-          user_id: user&.id || connection&.user_id,
           youtube_connection_id: connection&.id,
           client_kind: kind,
           endpoint: endpoint,

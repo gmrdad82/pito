@@ -11,8 +11,8 @@
 #   2. Call `Voyage::Client#embed` for that text (when the API key
 #      is configured). Persist the returned 1024-dim vector to
 #      `channels.summary_embedding` via `update_column` (skip
-#      callbacks — avoid re-firing the Meilisearch reindex /
-#      Voyage callback / calendar derivation chain on every embed).
+# callbacks — avoid re-firing the Voyage callback / calendar
+# derivation chain on every embed).
 #
 # Today vs future text composition:
 #
@@ -76,14 +76,15 @@ class Channel
         # Operators can also see the underlying cause in the
         # `[Voyage::Client] embed failed` log line emitted from
         # the client.
-        raise "Voyage embedding returned nil for channel ##{@channel.id} " \
-              "(api key configured but call failed — see prior log lines)"
+        raise Pito::Error::VoyageEmbeddingNil.new(
+          resource_type: "channel", resource_id: @channel.id
+        )
       end
 
       # `update_column` skips validations + callbacks so this write
       # does not re-trigger the `after_save_commit` chain on
-      # Channel (Meilisearch reindex, Voyage reindex, calendar
-      # derivation). The pgvector column accepts the array directly.
+      # Channel (Voyage reindex, calendar derivation). The pgvector
+      # column accepts the array directly.
       @channel.update_column(:summary_embedding, vector)
     end
 

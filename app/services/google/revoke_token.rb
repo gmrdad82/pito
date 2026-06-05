@@ -88,8 +88,9 @@ module Google
 
     def write_audit_row(youtube_connection:, outcome:, http_status:,
                         error_message:, duration_ms:)
+      return unless defined?(YoutubeApiCall) && YoutubeApiCall.respond_to?(:create!)
+
       YoutubeApiCall.create!(
-        user_id: youtube_connection.user_id,
         youtube_connection_id: youtube_connection.id,
         client_kind: "oauth",
         endpoint: "oauth2.revoke",

@@ -1,10 +1,5 @@
-# Phase 12 — Step A (6a-sessions-and-login-ui.md) — failed-login bucket.
-#
-# Mirrors `ApiAuthThrottle` shape (10 / 5min) but with a separate cache
-# key prefix so the failed-login bucket doesn't share state with the
-# failed-bearer-token bucket. `SessionsController#create` calls
-# `record_failure(ip)` on every failure path; the rack-attack
-# `blocklist` block reads the same counter via `exhausted?`.
+# Failed-login bucket (10 / 5min per IP). `Pito::Auth::ChatLogin` calls
+# `record_failure(ip)` on every failed `/authenticate` attempt.
 module SessionThrottle
   LIMIT  = 10
   WINDOW = 5.minutes
@@ -20,7 +15,7 @@ module SessionThrottle
     return if ip.to_s.empty?
 
     key = bucket_key(ip)
-    Rack::Attack.cache.store.increment(key, 1, expires_in: WINDOW)
+    Rails.cache.increment(key, 1, expires_in: WINDOW)
   rescue StandardError
     nil
   end
@@ -29,7 +24,7 @@ module SessionThrottle
     return false if ip.to_s.empty?
 
     key = bucket_key(ip)
-    count = Rack::Attack.cache.store.read(key).to_i
+    count = Rails.cache.read(key).to_i
     count >= LIMIT
   rescue StandardError
     false

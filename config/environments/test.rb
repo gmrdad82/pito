@@ -28,6 +28,11 @@ Rails.application.configure do
   # Disable request forgery protection in test environment.
   config.action_controller.allow_forgery_protection = false
 
+  # Leave config.hosts empty in test. Rails disables host authorization when
+  # the list is empty, so Rack::Test's default host (www.example.com) is
+  # accepted. Adding any entry here turns the allowlist ON and then blocks
+  # every host not explicitly listed — including the default test host.
+
   # Store uploaded files on the local file system in a temporary directory.
   config.active_storage.service = :test
 

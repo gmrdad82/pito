@@ -66,10 +66,12 @@ aliases:
   logs: app logs -f
   dbc: app exec --interactive --reuse "bin/rails dbconsole --include-password"
 
-# Use a persistent storage volume for sqlite database files and local Active Storage files.
-# Recommended to change this to a mounted volume path that is backed up off server.
+# Persistent storage volume for ActiveStorage files (IGDB cover arts,
+# VideoPreview thumbnails, Channel avatars, etc.). Mounted at /var/lib/pito-assets
+# to match config/storage.yml's `local` Disk service root. Back this volume up.
+# (No SQLite here — this app uses Postgres.)
 volumes:
-  - "pito_storage:/rails/storage"
+  - "pito-assets:/var/lib/pito-assets"
 
 # Bridge fingerprinted assets, like JS and CSS, between versions to avoid
 # hitting 404 on in-flight requests. Combines all files from new and old

@@ -345,6 +345,21 @@ class Channel
         end
       end
 
+      # GET /youtube/v3/playlistItems
+      def playlist_items_list(playlist_id:, parts: %i[snippet],
+                              max_results: 50, page_token: nil)
+        perform("playlistItems.list", "GET") do
+          svc = data_service
+          response = svc.list_playlist_items(
+            parts.map(&:to_s).join(","),
+            playlist_id: playlist_id,
+            max_results: max_results,
+            page_token: page_token
+          )
+          normalize_list(response)
+        end
+      end
+
       # GET /youtubeAnalytics/v2/reports
       def analytics_query(ids:, metrics:, start_date:, end_date:,
                           dimensions: nil, filters: nil, sort: nil)
@@ -409,7 +424,6 @@ class Channel
             http_method: http_method,
             kind: KIND,
             connection: @connection,
-            user: @connection.user,
             outcome: outcome,
             http_status: http_status,
             error_message: error_message,

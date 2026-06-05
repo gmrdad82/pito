@@ -2,8 +2,8 @@
 #
 # Internally pito stores booleans as Postgres booleans and Ruby true/false
 # values. At every external boundary (URL filter params, JSON request bodies,
-# JSON response bodies, MCP tool inputs, MCP tool outputs) the value is
-# expressed as the string "yes" or "no" — never `true`/`false`/`1`/`0`.
+# JSON response bodies) the value is expressed as the string "yes" or "no" —
+# never `true`/`false`/`1`/`0`.
 #
 # Use this module to convert in both directions and to validate inbound
 # values. Strict semantics: only the literal strings "yes" and "no" (any

@@ -1,8 +1,0 @@
----
-:queues:
-  - default
-  - bulk_deletion
-  - bulk_sync
-  - search
-  - analytics
-:concurrency: 5

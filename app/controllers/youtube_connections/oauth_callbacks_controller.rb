@@ -2,14 +2,13 @@
 # rename (ADR 0006). Google OAuth callback handler — narrowed to the
 # YouTube-connection flow only.
 #
-# The single endpoint at `/auth/google/callback` (URL fixed by the
-# Google Cloud Console registration) handles ONLY the YouTube-connect
-# flow (intent = "youtube_connect"; kicked off by Settings → YouTube's
-# [ connect ] button). The Phase 7 sign-in branch — a `TODO(phase-12)`
-# placeholder that redirected to root — is permanently retired per
-# ADR 0006: pito will never offer sign-in-with-Google.
+# The single endpoint at `/auth/youtube/callback` (registered in the
+# Google Cloud Console) handles ONLY the YouTube-connect flow
+# (intent = "youtube_connect"; kicked off by `/connect`). The Phase 7
+# sign-in branch is permanently retired per ADR 0006: pito will never
+# offer sign-in-with-Google.
 #
-# Any callback hitting `/auth/google/callback` without the
+# Any callback hitting `/auth/youtube/callback` without the
 # `youtube_connect` intent in session is treated as a stale / replayed
 # callback and redirected to the failure path with a generic flash
 # explaining that sign-in via Google is not supported.
@@ -22,24 +21,13 @@
 class YoutubeConnections::OauthCallbacksController < ApplicationController
   include YoutubeConnectionOauthRedirect
 
-  STALE_INTENT_FLASH = "sign-in via Google is not supported. log in with email and password.".freeze
-
-  # Flash copy for the partial-grant sad path. The user reached the
-  # Google consent screen and dismissed one or more YouTube scopes;
-  # the token we received works for whatever was granted, but pito's
-  # YouTube surfaces need the full required set. Tone mirrors the
-  # missing-scopes copy in `_needs_reauth_banner.html.erb`.
-  PARTIAL_GRANT_FLASH = "Google account connected, but some required " \
-                        "scopes were not granted. click [reconnect] " \
-                        "and leave every box checked on the Google " \
-                        "consent screen.".freeze
 
   # `failure` is allowed before sign-in (auth flow can fail upstream
   # of any session creation). `create` is NOT allow_anonymous: the
-  # YouTube-connect path expects `Current.user` to be set (the user
-  # was signed in to pito BEFORE clicking [ connect ]; the cookie
-  # stays through the OAuth round-trip because the redirect bounces
-  # through the same domain).
+  # YouTube-connect path expects an active session (the user was signed
+  # in to pito BEFORE clicking [ connect ]; the cookie stays through
+  # the OAuth round-trip because the redirect bounces through the same
+  # domain). Z1: Current.user is gone; guard is now Current.session.
   allow_anonymous :failure
 
   # OmniAuth's middleware does its own state-parameter check before
@@ -47,7 +35,7 @@ class YoutubeConnections::OauthCallbacksController < ApplicationController
   # from Google so the CSRF token round-trip does not apply.
   skip_before_action :verify_authenticity_token, only: %i[create failure]
 
-  # GET (or POST) /auth/google/callback
+  # GET (or POST) /auth/youtube/callback
   def create
     auth_hash = request.env["omniauth.auth"]
     intent = consume_oauth_intent
@@ -65,14 +53,19 @@ class YoutubeConnections::OauthCallbacksController < ApplicationController
       audit("youtube_connection.callback.stale_intent",
             intent: intent.to_s.presence)
       return redirect_to(youtube_connection_oauth_failure_path,
-                         alert: STALE_INTENT_FLASH)
+                         alert: t("pito.youtube_connections.callback.stale_intent"))
     end
+
+    # Consume the conversation UUID stashed by ChatController#handle_connect.
+    # Used to persist a result Event and to redirect back to the chat.
+    conversation_uuid = consume_connect_conversation_uuid
+    conversation = conversation_uuid.present? ? Conversation.find_by(uuid: conversation_uuid) : nil
 
     connection = upsert_youtube_connection_for_current_user(auth_hash)
     if connection.nil?
-      audit("youtube_connection.callback.failed", reason: "no_current_user")
+      audit("youtube_connection.callback.failed", reason: "no_active_session")
       return redirect_to(youtube_connection_oauth_failure_path,
-                         alert: "session expired. please sign in and retry.")
+                         alert: t("pito.youtube_connections.callback.session_expired"))
     end
 
     missing = missing_required_scopes(connection)
@@ -80,49 +73,77 @@ class YoutubeConnections::OauthCallbacksController < ApplicationController
       # Partial grant — Google's consent screen lets the user uncheck
       # individual scopes, so a "success" callback can still leave the
       # token unable to drive the YouTube surfaces. Flip needs_reauth
-      # back on (the upsert defaulted it false) so the manage page
-      # renders the missing-scopes banner copy, and explain in flash.
+      # back on (the upsert defaulted it false) and explain in flash.
       connection.update_columns(needs_reauth: true)
       audit("youtube_connection.callback.partial_grant",
-            user_id: connection.user_id,
             connection_id: connection.id,
             missing_scopes: missing)
-      flash[:alert] = PARTIAL_GRANT_FLASH
-      return redirect_to redirect_target_for_intent(intent)
+      persist_connect_result(conversation, t("pito.youtube_connections.callback.partial_grant"), connection:)
+      return redirect_to(conversation ? conversation_path(uuid: conversation.uuid) : root_path)
     end
 
     audit("youtube_connection.callback.succeeded",
-          user_id: connection.user_id,
           connection_id: connection.id)
 
-    # Channel discovery — the `[add]` flow on /settings/youtube wants
-    # the callback to enumerate the channels visible under this grant
-    # and add any non-duplicates as Channel rows under the connection.
-    # Duplicates (by UC id) are silently skipped; the flash composes
-    # an "already linked" note if EVERY returned channel was already
-    # in pito. API failures (quota, transient) surface as a flash but
-    # do NOT roll back the connection itself — the user can retry the
-    # discovery from /settings/youtube without re-doing OAuth.
+    # Channel discovery — auto-links all channels accessible under this
+    # Google account. Duplicates (by youtube_channel_id) are skipped.
+    # API failures surface as a flash note but do NOT roll back the
+    # connection — the user can re-run /connect to retry discovery.
     discovery = discover_and_link_channels(connection)
-    flash[:notice] = compose_callback_flash(discovery)
-    redirect_to redirect_target_for_intent(intent)
+    message   = compose_callback_flash(discovery)
+    kind      = Array(discovery[:duplicates]).any? && Array(discovery[:added]).empty? ? :error : :system
+    persist_connect_result(conversation, message, kind: kind, connection:)
+    redirect_to(conversation ? conversation_path(uuid: conversation.uuid) : root_path)
   end
 
   # GET /auth/failure
   def failure
     @reason = params[:message].to_s.presence || "auth_failed"
-    flash.now[:alert] ||= "Google sign-in failed (#{@reason})."
-    render plain: "Google sign-in failed: #{@reason}", status: :unauthorized
+    flash.now[:alert] ||= t("pito.youtube_connections.callback.auth_failed", reason: @reason)
+    render plain: t("pito.youtube_connections.callback.auth_failed", reason: @reason),
+           status: :unauthorized
   end
 
   private
+
+  # Persist a result Event on the conversation. For successful connects
+  # (kind: :system), the turn stays open so a background job can append
+  # channel stats later. Errors and partial grants complete immediately.
+  def persist_connect_result(conversation, message, kind: :system, connection: nil)
+    return unless conversation
+    return if message.blank?
+
+    turn = conversation.turns.where(completed_at: nil).order(:position).last ||
+           conversation.turns.create!(
+             position:   Turn.next_position_for(conversation),
+             input_kind: :slash,
+             input_text: "/connect"
+           )
+
+    payload = { text: message, html: true }
+    broadcaster = Pito::Stream::Broadcaster.new(conversation:)
+    broadcaster.emit(
+      turn:,
+      kind:    kind,
+      payload: payload
+    )
+
+    if kind == :system && connection.present?
+      # Multi-stage flow: keep turn open, enqueue channel info job (stage 1)
+      ChannelInfoJob.perform_later(connection.id, turn.id)
+    else
+      # Error / partial grant: complete immediately
+      turn.update_columns(completed_at: Time.current)
+    end
+  end
 
   # Find or create the YoutubeConnection row for `Current.user` keyed
   # on `google_subject_id` (install-wide unique). Returns nil if no
   # current user is in scope (the connect flow expects a logged-in
   # pito user).
   def upsert_youtube_connection_for_current_user(auth_hash)
-    return nil unless Current.user.present?
+    # Z1: User model gone; guard on active session instead.
+    return nil unless Current.session.present?
 
     info = auth_hash.respond_to?(:info) ? auth_hash.info : auth_hash["info"] || {}
     creds = auth_hash.respond_to?(:credentials) ? auth_hash.credentials : auth_hash["credentials"] || {}
@@ -134,8 +155,6 @@ class YoutubeConnections::OauthCallbacksController < ApplicationController
     connection = YoutubeConnection.find_or_initialize_by(
       google_subject_id: subject_id
     )
-
-    connection.user             ||= Current.user
     connection.email              = info["email"] || connection.email
     connection.access_token       = creds["token"]
     connection.refresh_token      = creds["refresh_token"] || connection.refresh_token
@@ -211,19 +230,13 @@ class YoutubeConnections::OauthCallbacksController < ApplicationController
   #
   #   { added: [titles…], duplicates: [titles…], error: nil | "quota exceeded" | … }
   #
-  # Duplicate detection is keyed on the UC channel URL
-  # (`https://www.youtube.com/channel/<UC id>`) — the existing
-  # `channel_url` UNIQUE index in the DB is the source of truth for
-  # "this channel is already linked to pito". A duplicate match that
-  # points at a different YoutubeConnection (or has a nil connection)
-  # is still treated as duplicate — re-attaching it via the callback
-  # would silently steal it out of the user's other connection,
-  # which is not a "discovery" behavior the user expects from `[add]`.
+  # Duplicate detection is keyed on `youtube_channel_id` (the UC id,
+  # e.g. "UCxxxxxx") — the unique index on `channels.youtube_channel_id`
+  # is the source of truth. A duplicate match pointing at a different
+  # connection is still treated as duplicate (no silent re-attachment).
   #
-  # Errors surfacing from the YouTube client (quota, transient, needs
-  # reauth) are caught here so the OAuth-success redirect still
-  # completes; the manage page will show the connection but no new
-  # channels until the user retries.
+  # Errors from the YouTube client (quota, transient, needs reauth) are
+  # caught here so the OAuth-success redirect still completes.
   def discover_and_link_channels(connection)
     items = []
     begin
@@ -234,15 +247,15 @@ class YoutubeConnections::OauthCallbacksController < ApplicationController
     rescue Channel::Youtube::QuotaExhaustedError
       audit("youtube_connection.callback.discovery_failed",
             connection_id: connection.id, reason: "quota_exhausted")
-      return { added: [], duplicates: [], error: "quota exceeded" }
+      return { added: [], duplicates: [], error: t("pito.youtube_connections.callback.errors.quota_exceeded") }
     rescue Channel::Youtube::NeedsReauthError
       audit("youtube_connection.callback.discovery_failed",
             connection_id: connection.id, reason: "needs_reauth")
-      return { added: [], duplicates: [], error: "needs reauth" }
+      return { added: [], duplicates: [], error: t("pito.youtube_connections.callback.errors.needs_reauth") }
     rescue Channel::Youtube::TransientError
       audit("youtube_connection.callback.discovery_failed",
             connection_id: connection.id, reason: "transient")
-      return { added: [], duplicates: [], error: "service temporarily unavailable" }
+      return { added: [], duplicates: [], error: t("pito.youtube_connections.callback.errors.transient") }
     end
 
     added = []
@@ -252,21 +265,22 @@ class YoutubeConnections::OauthCallbacksController < ApplicationController
       uc_id = item[:id].to_s
       next if uc_id.blank?
 
-      title = item.dig(:snippet, :title).to_s
-      channel_url = "https://www.youtube.com/channel/#{uc_id}"
+      title  = item.dig(:snippet, :title).to_s.presence
+      handle = item.dig(:snippet, :custom_url).to_s.presence
 
-      existing = Channel.find_by(channel_url: channel_url)
-      if existing
-        duplicates << title.presence || uc_id
+      if Channel.exists?(youtube_channel_id: uc_id)
+        duplicates << title || uc_id
         next
       end
 
       Channel.create!(
-        channel_url: channel_url,
-        youtube_connection_id: connection.id,
-        last_synced_at: Time.current
+        youtube_channel_id:     uc_id,
+        title:                  title,
+        handle:                 handle,
+        youtube_connection_id:  connection.id,
+        last_synced_at:         Time.current
       )
-      added << (title.presence || uc_id)
+      added << { title: title || uc_id, handle: handle }
     end
 
     audit("youtube_connection.callback.discovery_succeeded",
@@ -276,61 +290,57 @@ class YoutubeConnections::OauthCallbacksController < ApplicationController
     { added: added, duplicates: duplicates, error: nil }
   end
 
-  # Compose the user-visible flash from a `discover_and_link_channels`
-  # result. The copy reads as a continuation of "Google account
-  # connected." — concise, one short sentence per outcome bucket.
-  #
-  # Output examples (the discovery hash drives which line appears):
-  #
-  #   { added: [], duplicates: [] }
-  #     → "Google account connected. no channels found under this Google account."
-  #   { added: ["Alpha"], duplicates: [] }
-  #     → "Google account connected. 1 channel added (Alpha)."
-  #   { added: ["Alpha", "Beta"], duplicates: [] }
-  #     → "Google account connected. 2 channels added (Alpha, Beta)."
-  #   { added: [], duplicates: ["Alpha"] }
-  #     → "Google account connected. channel 'Alpha' is already linked."
-  #   { added: [], duplicates: ["Alpha", "Beta"] }
-  #     → "Google account connected. these channels are already linked: Alpha, Beta."
-  #   { added: ["Alpha"], duplicates: ["Beta"] }
-  #     → "Google account connected. 1 channel added (Alpha). channel 'Beta' is already linked."
-  #   { added: [], duplicates: [], error: "quota exceeded" }
-  #     → "Google account connected. couldn't list channels right now (quota exceeded). open /channels and click [+] to retry."
   def compose_callback_flash(discovery)
-    parts = [ "Google account connected." ]
+    ns = "pito.youtube_connections.callback"
 
     if discovery[:error].present?
-      parts << "couldn't list channels right now (#{discovery[:error]}). open /channels and click [+] to retry."
-      return parts.join(" ")
+      return t("#{ns}.channel_lookup_error", error: discovery[:error])
     end
 
-    added = Array(discovery[:added])
+    added      = Array(discovery[:added])
     duplicates = Array(discovery[:duplicates])
 
+    if added.empty? && duplicates.empty?
+      return t("#{ns}.no_channels")
+    end
+
+    parts = []
+
     if added.any?
-      noun = added.length == 1 ? "channel" : "channels"
-      parts << "#{added.length} #{noun} added (#{added.join(', ')})."
+      if added.length == 1
+        ch = added.first
+        title  = ch.is_a?(Hash) ? ch[:title]  : ch
+        handle = ch.is_a?(Hash) ? ch[:handle] : nil
+        main = t("#{ns}.channel_connected",
+                 title:  title,
+                 handle: handle || "no-handle")
+        extra = Array(I18n.t("#{ns}.connected_extras")).sample
+        art   = Array(I18n.t("#{ns}.ascii_art")).sample
+        parts << [ main, extra, art ].compact.join("<br>").html_safe
+      else
+        titles = added.map { |ch| ch.is_a?(Hash) ? ch[:title] : ch }.join(", ")
+        parts << t("#{ns}.channels_added", count: added.length, titles: titles)
+      end
     end
 
     if duplicates.length == 1
-      parts << "channel '#{duplicates.first}' is already linked."
-    elsif duplicates.length > 1
-      parts << "these channels are already linked: #{duplicates.join(', ')}."
-    end
-
-    if added.empty? && duplicates.empty?
-      parts << "no channels found under this Google account."
+      ch = duplicates.first
+      title = ch.is_a?(Hash) ? ch[:title] : ch
+      handle = ch.is_a?(Hash) ? ch[:handle] : nil
+      main  = t("#{ns}.already_linked.one",
+                title:  title,
+                handle: handle || "no-handle")
+      extra = Array(I18n.t("#{ns}.already_connected_extras")).sample
+      art   = Array(I18n.t("#{ns}.ascii_art")).sample
+      parts << [ main, extra, art ].compact.join("<br>").html_safe
     end
 
     parts.join(" ")
   end
 
-  # Phase 9 — audit trail for callback outcomes. Mirrors the helper
-  # pattern in `SessionsController#audit` (one structured JSON line
-  # per event via the AUTH_AUDIT_LOGGER), gated on the logger being
-  # defined. Audit-row keys are locked in
-  # `docs/plans/beta/09-login-with-google-drop/specs/01-google-identity-rename.md`
-  # under "Master agent decisions → Copy decisions §5".
+  # Phase 9 — audit trail for callback outcomes. One structured JSON
+  # line per event via the AUTH_AUDIT_LOGGER, gated on the logger being
+  # defined.
   def audit(event, **payload)
     return unless defined?(AUTH_AUDIT_LOGGER)
 

@@ -1,8 +1,7 @@
 # Loads the unified keybindings schema (`config/keybindings.yml`)
 # into `Rails.application.config.keybindings` so layout helpers /
 # Stimulus controllers can read it without re-parsing on every
-# request. The CLI (extras/cli/) reads the same file via serde_yaml;
-# both stacks share the YAML on disk as the source of truth.
+# request. The YAML on disk is the source of truth.
 #
 # The schema is treated as an immutable hash — callers are expected
 # to mutate copies. Rendering pipelines that emit JSON for the front

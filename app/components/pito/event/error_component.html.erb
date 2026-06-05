@@ -1,0 +1,28 @@
+<%= render(Pito::Segment::Component.new(accent: :red)) do %>
+  <div<% if @detail %> data-controller="pito--expand"
+       data-pito--expand-expand-label-value="<%= t('pito.event.expand.expand_hint') %>"
+       data-pito--expand-collapse-label-value="<%= t('pito.event.expand.collapse_hint') %>"<% end %>>
+    <span class="text-fg"><%= @text %></span>
+    <% if @credentials %>
+      <%= render(Pito::Separator::DividerLineComponent.new(extra_classes: "flex flex-col gap-1 font-mono")) do %>
+        <% credential_rows.each do |row| %>
+          <%= render(Pito::Table::KeyValueRowComponent.new(
+                key_text:      "#{row[:label]}:",
+                value_text:    row[:display],
+                key_class:     "text-fg-dim whitespace-nowrap shrink-0",
+                value_class:   "#{row[:present] ? 'text-green' : 'text-red'} break-all",
+                wrapper_class: "flex items-center gap-1"
+              )) %>
+        <% end %>
+      <% end %>
+    <% elsif @detail %>
+      <div data-pito--expand-target="hint" class="mt-1">
+        <%= render(Pito::Keybinding::HintComponent.new(
+              shortcut:    "ctrl+|",
+              description: t("pito.event.expand.expand_hint")
+            )) %>
+      </div>
+      <div data-pito--expand-target="detail" class="hidden mt-1.5 text-fg-dim font-mono border-t border-line-default pt-1.5 break-all"><%= @detail %></div>
+    <% end %>
+  </div>
+<% end %>

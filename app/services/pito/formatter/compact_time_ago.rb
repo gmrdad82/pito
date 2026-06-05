@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # Pure function. Renders a Time value as a compact relative string.
 #
 # Rounding rule: always ROUND DOWN (integer division floors for

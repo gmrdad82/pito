@@ -1,0 +1,17 @@
+<div class="pito-echo__meta">
+  <% if formatted_timestamp %>
+    <span class="text-fg-faded"><%= formatted_timestamp %></span>
+  <% end %>
+  <% if @handle %>
+    <% if formatted_timestamp %>
+      <%= render(Pito::Shell::InlineSeparatorComponent.new) %>
+    <% end %>
+    <%= render(Pito::Event::HandleComponent.new(@handle)) %>
+  <% end %>
+  <% if @channel.present? %>
+    <% if formatted_timestamp || @handle %>
+      <%= render(Pito::Shell::InlineSeparatorComponent.new) %>
+    <% end %>
+    <%= render(Pito::Event::ChannelHandleComponent.new(@channel)) %>
+  <% end %>
+</div>

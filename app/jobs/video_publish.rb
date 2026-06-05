@@ -6,13 +6,11 @@
 #
 # In the steady state the controller `#publish` / `#schedule` actions
 # perform this synchronously (no enqueue) so the user sees the badge
-# update in the same response. The Sidekiq job entry point is reserved
-# for MCP-driven flows and any future scheduler that needs to fire a
+# update in the same response. The job entry point is reserved
+# for any future scheduler that needs to fire a
 # pre-checked publish in the background.
-class VideoPublish
-  include Sidekiq::Job
-
-  sidekiq_options queue: "default", retry: 3
+class VideoPublish < ApplicationJob
+  queue_as :default
 
   # `target_privacy_status` may be "public" / "unlisted".
   # `publish_at_iso8601` may be nil (publish flow) or an ISO 8601 string
@@ -55,10 +53,8 @@ class VideoPublish
   # UTC instant is the source of truth — the log line documents the
   # render-time context.
   def log_tz_observability(video, utc_instant)
-    user = video.channel&.youtube_connection&.user
-    tz = user&.time_zone.presence || "Etc/UTC"
     Rails.logger.info(
-      "VideoPublish video_id=#{video.id} publish_at_utc=#{utc_instant.iso8601} time_zone=#{tz}"
+      "VideoPublish video_id=#{video.id} publish_at_utc=#{utc_instant.iso8601}"
     )
   rescue StandardError => e
     # Logging must never raise — defensive.

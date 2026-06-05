@@ -1,0 +1,60 @@
+name: JS CI
+
+# JavaScript unit-test gate (Vitest + jsdom). Runs the spec/javascript/**
+# test suite against the app's importmap JS source without any Ruby/Rails
+# dependencies. Kept in its own workflow (separate from ci.yml) because:
+#   • ci.yml paths are narrowly scoped to Rails inputs (no package.json /
+#     vitest.config.js / spec/javascript/**) — extending it would require
+#     duplicating all Ruby service wiring for a Node-only job.
+#   • The JS suite has no Postgres/Redis/bundler requirements, so a
+#     lightweight standalone workflow is the right altitude.
+#
+# Commit-message guard: include the literal token `[skipci]` (lowercase, no
+# space) in the commit message OR pull-request title to skip every job in
+# this workflow.
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "app/javascript/**"
+      - "spec/javascript/**"
+      - "package.json"
+      - "package-lock.json"
+      - "vitest.config.js"
+      - ".github/workflows/js-ci.yml"
+  push:
+    branches: [main]
+    paths:
+      - "app/javascript/**"
+      - "spec/javascript/**"
+      - "package.json"
+      - "package-lock.json"
+      - "vitest.config.js"
+      - ".github/workflows/js-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  js:
+    if: |
+      !contains(github.event.head_commit.message, '[skipci]') &&
+      !contains(github.event.pull_request.title, '[skipci]')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+
+      - name: Install JS dependencies
+        run: npm ci
+
+      - name: Run Vitest suite
+        run: npm test

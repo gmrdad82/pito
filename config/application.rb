@@ -39,14 +39,18 @@ module Pito
     # Don't generate system test files.
     config.generators.system_tests = nil
 
-    # Postgres timezone defaults — Phase 2.
+    # ViewComponent preview paths (Plan 0 P10.4). Plan 1 doesn't use
+    # Lookbook or previews, but the path is wired now so future previews
+    # under spec/components/previews/ work without further config.
+    config.view_component.preview_paths = [ Rails.root.join("spec/components/previews").to_s ]
+
     # Postgres stores timestamps as timestamptz; pin Rails to UTC so Groupdate
-    # aggregates render predictably across both Pumas and Sidekiq workers.
+    # aggregates render predictably.
     config.time_zone = "UTC"
     config.active_record.default_timezone = :utc
 
-    # Use Sidekiq for background jobs
-    config.active_job.queue_adapter = :sidekiq
+    # Use SolidQueue for background jobs (runs in-process in Puma in dev)
+    config.active_job.queue_adapter = :solid_queue
 
     # Active Storage variant processor — Phase 4 §5. Use ruby-vips (libvips)
     # explicitly. ImageMagick v7.1.2 deprecated the `convert` alias that
@@ -58,5 +62,10 @@ module Pito
     # Settings UI flips it at runtime without a Rails restart. See
     # `AppSetting.voyage_configured?` — credentials presence is the only
     # gate now that the per-target Notes flag is gone (Notes dropped D17).
+
+    # Route 404/422/500 through the Rails app so the 404 page renders the
+    # full start screen with the autocomplete-enabled chatbox, instead of
+    # the static public/404.html fallback.
+    config.exceptions_app = routes
   end
 end

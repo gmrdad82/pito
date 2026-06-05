@@ -67,6 +67,8 @@ class Channel
       # OAuth-client units only (PublicClient has its own bucket
       # under `client_kind: "public"`, deferred to a later phase).
       def budget_remaining(youtube_connection)
+        return daily_budget_units unless defined?(YoutubeApiCall) && YoutubeApiCall.respond_to?(:today)
+
         used = YoutubeApiCall.today
           .where(
             youtube_connection_id: youtube_connection.id,

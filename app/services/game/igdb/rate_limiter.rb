@@ -6,7 +6,7 @@
 #
 # Process-local. Per spec Open Question #4, multi-process Sidekiq
 # deploys may need a Redis-backed limiter; v1 trusts the
-# `:concurrency: 5` cap in `config/sidekiq.yml` to keep aggregate
+# `:concurrency: 5` cap to keep aggregate
 # throughput well under 4 req/s.
 #
 # `acquire(&block)` blocks until a window slot AND a concurrency

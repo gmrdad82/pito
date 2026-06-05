@@ -1,366 +1,181 @@
-# Architecture
+# pito — architecture
 
-## System topology
+## Routes
 
-pito is a single Rails monolith with two companion clients. Hosted
-locally on the owner's laptop, exposed via cloudflared tunnels.
+| Path                        | Controller#action                            | Description                                            |
+| --------------------------- | -------------------------------------------- | ------------------------------------------------------ |
+| `GET /`                     | `start_screens#show`                         | Start screen — centered chatbox, ASCII logo, tip line. |
+| `POST /chat`                | `chat#create`                                | Submit a message; responds `head :no_content`.         |
+| `GET /chat/:uuid`           | `conversations#show`                         | Conversation view — scrollback + chatbox.              |
+| `GET /connect`              | `youtube_connections#new`                    | YouTube OAuth entry point.                             |
+| `GET /auth/google/callback` | `youtube_connections/oauth_callbacks#create` | OAuth callback; imports channels.                      |
 
-- **app.pitomd.com** — Rails Puma serving the primary web surface
-- **mcp.pitomd.com** — separate Rails Puma serving the MCP HTTP transport
-  (parked; future revisit)
-- **pitomd.com** — Astro static landing page on Cloudflare Pages
+## UI stack
 
-Companion clients:
+- **CSS**: Tailwind v4 via `tailwindcss-rails`. Theme tokens as CSS custom
+  properties under `[data-theme="tokyo-night"]`.
+- **Components**: `view_component` gem. All visual work is a ViewComponent.
+- **i18n**: All user-facing copy in `config/locales/pito/<area>/en.yml`.
+- **JS**: Turbo + Stimulus + importmap-rails. Stimulus controllers under
+  `app/javascript/controllers/pito/`.
 
-- **`pito` CLI** at `extras/cli/` — Rust + Ratatui. Default mode is the
-  TUI. CLI implements 100% of what the web app does. Subcommands handle
-  footage upload (`pito footage`) + helpers (`pito help`, `pito version`).
-- **Astro website** at `extras/website/`.
-
-Future deployment target: Hetzner via Kamal.
-
-## Tech stack
-
-- Rails 8.1 with Hotwire (Turbo + Stimulus)
-- Postgres 17 + pgvector + pgcrypto + citext (Docker)
-- Redis 7 (Docker) — Sidekiq queue + Rails cache
-- Sidekiq + sidekiq-cron
-- Meilisearch — keyword search
-- Voyage AI — embeddings
-- RSpec + FactoryBot + Faker + Shoulda Matchers + WebMock
-- ViewComponent for HTML
-- MCP via the `mcp` gem
-- Rust + Ratatui for the `pito` CLI
-- Astro 4 for the Cloudflare Pages landing
-
-## Layout
+## Component tree
 
 ```
-.
-├── app/, bin/, config/, db/, public/, spec/, vendor/   # Rails at root
-├── lib/                                                 # Rails-only library
-├── extras/
-│   ├── cli/                                             # Rust binary
-│   └── website/                                         # Astro landing
-├── docs/                                                # canonical docs
-├── .claude-config/                                      # agent definitions
-└── tmp/                                                 # demo HTMLs (gitignored)
+Pito::Segment::Component          — bar+gap+content layout primitive
+Pito::Cursor::Component           — inverted-character terminal cursor
+
+Pito::Shell::ChatboxComponent     — input area (Segment + Cursor + filter line)
+Pito::Shell::MiniStatusComponent  — connection/auth/audio/shortcut status bar
+
+Pito::Event::EchoComponent        — user input echo
+Pito::Event::AssistantTextComponent — assistant response
+Pito::Event::ThinkingComponent    — Braille spinner + cycling word while dispatching
+Pito::Event::ErrorComponent       — error response
+Pito::Event::ConfirmationPromptComponent — confirmation prompt
+
+Pito::StartScreen::Component      — full-viewport start screen
+
+Pito::Palette::CtrlK::Component        — Ctrl+K command palette
+Pito::Palette::CtrlK::SectionComponent — section inside the palette
+
+Pito::Footage::ProbeCommandComponent — copyable ffprobe rake command block
 ```
 
-## Commands
+## Dispatch pipeline
+
+A single `POST /chat` endpoint handles all input. `ChatController#create` reads
+`params[:input]`:
 
-```
-bin/setup            # install deps, start Docker, prepare DB
-bin/dev              # Docker + Puma + Sidekiq + Tailwind watcher
-bin/mcp              # MCP stdio server
-bin/mcp-web          # MCP HTTP server on :3001
-bin/test             # fast spec loop (system specs excluded — no Capybara)
-bin/test failed      # re-run only failures from the last run
-bin/test path/...    # focused spec run
-bundle exec rubocop  # lint
-```
+- Leading `/` → `Pito::Slash::Dispatcher` (slash commands)
+- No leading `/` → `Pito::Chat::Dispatcher` (natural language)
 
-## Auth
+The controller always responds `head :no_content`. All output is delivered via
+Turbo Stream broadcasts over Action Cable. Dispatch is async: the controller
+persists an echo event, emits a thinking indicator, enqueues `ChatDispatchJob`,
+and returns immediately. The job runs the handler, persists the result event, and
+broadcasts it to the scrollback.
 
-- **Web:** username + password + mandatory TOTP. Browser only. Post-login
-  redirect via `Sessions::AuthConcern` to `/settings/security/totp` if
-  the user hasn't enrolled. `Current.user` carries the authenticated user.
-  `User.last_login_at` is stamped on TOTP success — used for "since last
-  login" deltas on Home.
-- **MCP + CLI:** bearer tokens scoped to the user. Mandatory-2FA gate
-  exempt by design (a bearer credential cannot complete TOTP enrollment).
-- **YouTube channel access:** OAuth2 per channel. Google `client_id` +
-  `client_secret` in `Rails.application.credentials.google_oauth`. Each
-  `Channel` row has a nullable FK to `youtube_connections`.
+### Broadcast pipeline
 
-## Datastore
+`Pito::Stream::Broadcaster.new(conversation:)` is the only way to add items to
+the scrollback. It: validates the payload, persists an `Event`, renders the
+matching ViewComponent, and broadcasts a Turbo Stream `append` to
+`"pito:conversation:#{conversation.id}"` targeting `#pito-scrollback`.
 
-- **Postgres 17** — primary store. Single-install, multi-user — no
-  `tenant_id` columns. Anyone authenticated has full read/write access.
-- **pgvector** — embedding storage for Voyage-AI-vectorized fields.
-- **pgcrypto** — column-level encryption via Rails 8 active record
-  encryption.
-- **citext** — case-insensitive uniqueness (`users.username`).
-- **Redis 7** — Sidekiq queue + Rails cache.
-- **Meilisearch** — keyword search.
-- **Filesystem volume:**
-  - `/assets` — game cover art, bundle compound cover art, future video
-    thumbnails
+### Slash system (`Pito::Slash::*`)
 
-(`/notes` volume removed per the Notes drop.)
+- Infrastructure under `lib/pito/slash/`.
+- Handlers under `app/services/pito/slash/handlers/`.
+- Every handler inherits `Pito::Slash::Handler`, declares `self.verb`, and
+  returns a `Result` (`Ok` / `Error` / `NeedsConfirmation`).
+- `Pito::Slash::Registry` auto-discovers and registers handlers at boot.
 
-## Models
+### Chat system (`Pito::Chat::*`)
 
-### User
+- Infrastructure under `lib/pito/chat/`.
+- Handlers under `app/services/pito/chat/handlers/`.
+- The parser classifies input into `:new_turn`, `:refinement`, or `:unknown`.
+- Every handler returns a `Pito::Chat::Result` (`Ok` / `Error` / `Refine`).
 
-Auth-only owner of sessions and tokens. Columns:
-
-- `id`, `username` (citext, unique, NOT NULL), `password_digest`,
-  `totp_secret`, `totp_enrolled_at`, **`last_login_at`** (added for Home
-  deltas), `created_at`, `updated_at`
-
-### Session
-
-Issued per browser login. Columns:
-
-- `id`, `user_id`, `last_seen_at`, `ip` (inet), `device`, `browser`,
-  `created_at`, `updated_at`
-
-### Channel
-
-Read-only mirror from YouTube. URL locked after create. Columns:
-
-- `id`, `channel_url` (locked after create), `star`, `handle`, `name`,
-  `description`, `keywords`, `summary_embedding` (pgvector),
-  `last_synced_at`, `youtube_connection_id`
-
-`Channel#genre` is derived from videos' category + subcategory.
-
-### Video
-
-Belongs to one channel. Many-to-many with games. Editable in pito:
-title, description, thumbnail, playlist, visibility. Carries embedding +
-analytics rollup associations.
-
-### Game
-
-Sourced from IGDB plus owner-added fields:
-
-- `igdb_id`, IGDB-mirrored fields (name, summary, cover, release dates,
-  platforms, genres, etc.)
-- Owner-added: `owned`, `played`
-- `summary_embedding` (pgvector)
-
-Many-to-many with bundles. Many-to-many with videos. Has many footage
-(direct association — no Project intermediary).
-
-### Bundle
-
-A group of games. `name`, `slug`, `composite_cover_checksum`,
-`summary_embedding`. Cover compound generated from member games' cover
-art via `Bundle::Composite::*`.
-
-### Footage
-
-Captured material associated with a game. Columns:
-
-- `hdr_or_sdr`, `fps`, `resolution`, `duration`, `source`
-  (camera | obs), `aspect_ratio`, `orientation`, `recorded_at`
-- `game_id` (direct FK; max one game per footage; nullable for non-game
-  footage)
-
-CLI uploads footage metadata from a local path to a game.
-
-### AppSetting
-
-Singleton-style settings table for non-secret runtime flags
-(theme, indexing toggles, timezone, notifications toggles, reindex
-running state).
-
-### NotificationDeliveryChannel
-
-Discord + Slack webhook URLs (one row each).
-
-### Dropped
-
-- **`Project`** model dropped. Footage attaches to Game directly.
-- **`Note`** model dropped (+ `/notes` filesystem volume + embedding +
-  search index entries).
-
-## Action bus
-
-Every user-triggerable action — web click, `:` command palette, leader
-menu, MCP tool call, CLI subcommand — flows through one registry.
-
-```ruby
-# config/initializers/pito_actions.rb
-Pito::ActionRegistry.define(:reindex_meilisearch,
-  path:         -> { settings_stack_meilisearch_reindex_path },
-  method:       :post,
-  confirmation: { brand: "Meilisearch", danger: true },
-  i18n_key:     "tui.commands.reindex_meilisearch",
-  cable_panel:  "pito:settings:stack:meilisearch")
-```
-
-**JS dispatcher:** `window.Pito.dispatchAction(name)` reads
-`<meta name="pito-actions">` (registry JSON shipped to the browser at
-layout render), opens the canonical confirmation dialog if the action
-has `confirmation:`, then POSTs via Turbo form. Expects `204 no_content`
-— cable handles all UI updates.
-
-**Ruby dispatcher:** `Pito::ActionDispatcher` — same flow for MCP / CLI
-callers (in-process). Symmetric to the JS dispatcher so any client uses
-one entry point per stack.
-
-**Stimulus controller:** `action-trigger`
-(`data-controller="action-trigger" data-action="click->action-trigger#dispatch"
-data-action-name="<key>"`). Used by `Tui::ActionButtonComponent` — the
-canonical bracketed-button VC.
-
-## Cable channels
-
-| Channel | Scope | Subscribers | Payload kinds |
-|---|---|---|---|
-| `pito:status_bar` | Global | TST controller | `data` (`{sync_state, workers, sidekiq{b,e,r,s,d}, clock}`) |
-| `pito:<screen>:<panel>` | Panel | Panel VC via `turbo_stream_from` | panel-specific |
-| `pito:<screen>:<panel>:<sub_panel>` | Sub-panel | Sub-panel VC | sub-panel-specific |
-
-**Subscription on paint:** every panel VC subscribes to its own stream
-when rendered. Re-renders re-subscribe automatically.
-
-**Broadcasts:**
-
-- `StatusBarBroadcastMiddleware` (Sidekiq middleware) fires START + END
-  for every Sidekiq job → `pito:status_bar`.
-- `StatusBarBroadcastJob` — trailing-edge ~1s after each Sidekiq job to
-  repaint with accurate worker count.
-- `Pito::CableBroadcaster.broadcast_panel(channel, kind:, payload:)` —
-  canonical panel-scoped emitter used by job code.
-
-**Envelope:** `{ kind: <string>, payload: <hash>, ts: <ISO8601> }`.
-
-## Background jobs
-
-- **Sidekiq** with sidekiq-cron for schedules.
-- **Locking** — long-running / non-idempotent jobs acquire a Sidekiq lock
-  (e.g., `MeilisearchReindexJob`, `VoyageReindexJob`, `Channel::SyncJob`).
-  Two instances of the same job cannot run in parallel.
-- **CRON jobs** — schedule defined in `config/sidekiq_cron.yml`.
-
-## Canonical namespace taxonomy
-
-See `CLAUDE.md` § Canonical namespace policy for the full taxonomy.
-Summary:
-
-### Cross-cutting (`Pito::*`) — default for non-domain, non-screen
-
-`Pito::ActionRegistry`, `Pito::ActionDispatcher`, `Pito::CableBroadcaster`,
-`Pito::Theme` (incl. `Pito::Theme::Sections`), `Pito::GitRevision`,
-`Pito::Auth::*`, `Pito::Formatter::*`, `Pito::Notifications::*`,
-`Pito::Search::*` (Engine, Omnisearch, Everywhere), `Pito::Calendar::*`,
-`Pito::Analytics::*` (primitives: DataFreshness, WindowSummary,
-Backfill, TimeBucketAggregator), `Pito::Recommendation::*` (primitives:
-VectorSimilarity, TopK, HmsScorer, WeightedBlend),
-`Pito::ExternalApiTracker::*` (Youtube, Igdb, Voyage),
-`Pito::Schedule::Conflict`, `Pito::SlugBuilder`, `Pito::TimeZone`, etc.
-
-### Home services live under `Pito::*`
-
-Home is not a domain — it's the dashboard + system-monitoring surface.
-No `Home::*` namespace. Home's services live under `Pito::*` (same
-namespace as cross-cutting infrastructure). Ex-settings services
-(`Pito::Stack::HealthState`, etc.) live here.
-
-`Settings::*` is gone for good (Settings screen + namespace both
-dropped).
-
-### Domain layer (singular)
-
-**`Channel::*`** — `Channel::Youtube::*`, `Channel::Analytics::*`,
-`Channel::GameRecommendation`, `Channel::BundleRecommendation`,
-`Channel::VoyageIndexer`, `Channel::MeilisearchIndexer`
-
-**`Video::*`** — `Video::Analytics::*`, `Video::ThumbnailPreview`,
-`Video::DiffComputer`, `Video::PublishWorkflow`
-
-**`Game::*`** — `Game::Igdb::*`, `Game::ChannelRecommendation`,
-`Game::BundleRecommendation`, `Game::SimilarGames`, `Game::VoyageIndexer`,
-`Game::MeilisearchIndexer`
-
-**`Bundle::*`** — `Bundle::Composite::*` (cover composite),
-`Bundle::ChannelRecommendation`, `Bundle::SuggestedFor`,
-`Bundle::VoyageIndexer`, `Bundle::MeilisearchIndexer`
-
-**`Footage::*`** — `Footage::FrameExtractor`, `Footage::Cache`
-
-### Screen layer
-
-Three screens. Panel-as-VC per `CLAUDE.md`:
-
-- **Home (`/`)** → `Pito::*PanelComponent` (no `Screen::Home::` wrapper)
-- **Videos (`/videos`)** → `Screen::Videos::*PanelComponent`
-- **Games (`/games`)** → `Screen::Games::*PanelComponent`
-
-### UI primitive layer
-
-`Tui::*` — checkbox, dialog, palette, sortable header, charts, etc.
-
-## Recommendation layer (bidirectional)
-
-Pattern: `<Subject>::<Object>Recommendation`. Each direction is a
-separate service because the question + algorithm differ.
-
-| Service | Question | Input | Output |
-|---|---|---|---|
-| `Game::ChannelRecommendation` | "Which channels should cover this game?" | Game | List of Channels (ranked) |
-| `Channel::GameRecommendation` | "Which games should this channel cover?" | Channel | List of Games (ranked) |
-| `Bundle::ChannelRecommendation` | "Which channels would best cover this bundle?" | Bundle | List of Channels |
-| `Channel::BundleRecommendation` | "Which bundles should this channel consider?" | Channel | List of Bundles |
-| `Game::BundleRecommendation` | "Which bundles include this game (ranked)?" | Game | List of Bundles |
-
-Shared primitives under `Pito::Recommendation::*`:
-`VectorSimilarity` (cosine over Voyage embeddings), `TopK` (ranking
-with score thresholds), `HmsScorer` (Heat Map Score: hard-stop color
-buckets), `WeightedBlend` (combine multiple ranking signals).
-
-## Three-layer analytics
-
-| Layer | Namespace | Purpose | Examples |
-|---|---|---|---|
-| Primitives | `Pito::Analytics::*` | Cross-cutting: freshness, window aggregation, time-bucket rollups, backfill | `Pito::Analytics::DataFreshness`, `Pito::Analytics::WindowSummary`, `Pito::Analytics::Backfill`, `Pito::Analytics::TimeBucketAggregator` |
-| Channel analytics | `Channel::Analytics::*` | Channel-specific queries / rollups | `Channel::Analytics::DailyRollup`, `Channel::Analytics::DemographicsBucket`, `Channel::Analytics::TrafficSourcesSummary` |
-| Video analytics | `Video::Analytics::*` | Video-specific queries / rollups | `Video::Analytics::RetentionCurve`, `Video::Analytics::EndScreenStats`, `Video::Analytics::ViewerTimeBuckets` |
-
-MCP exposes the domain layer (`Channel::Analytics::*` +
-`Video::Analytics::*`); primitives stay infrastructure.
-
-## ViewComponent architecture
-
-Every visible HTML structure is a `ViewComponent`. Each:
-
-1. `.rb` class file
-2. `.html.erb` template
-3. Spec at `spec/components/<path>/<name>_component_spec.rb`
-4. Class-level docblock header documenting kwargs, variants,
-   focusables, mode behavior, cable subscriptions, related dependencies
-   (for TUI re-derivation)
-
-Data transformations live in `Pito::Formatter::*` under
-`app/services/pito/formatter/`.
-
-Helpers reserved for single-purpose pure logic. Partials allowed only
-for ≤ 5 lines of static markup with no parameter-driven branching.
-
-## Panel-as-ViewComponent
-
-Every panel = one VC under `Screen::<screen>::<name>PanelComponent`.
-
-Each Panel VC owns:
-
-- `focusables` method (ordered Ruby array of `{key:, style:}`)
-- `CABLE_CHANNEL` constant (e.g., `"pito:settings:security"`)
-- `keybinds` method (panel-local; i18n-resolved for TUI sharing)
-- Sub-panel VC composition (explicit `<%= render Screen::...::SubPanelComponent.new(...) %>`)
-- Data fetched in `initialize` / `before_render` via domain / screen
-  services
-
-This makes the panel-by-name discoverability the user expects: open the
-file, see the data sources, see the cable channel, see the keybinds.
-
-## Turbo + cable per panel
-
-- Every form is Turbo-default. Never `data-turbo="false"`.
-- Panel-scoped controller actions return `head :no_content` /
-  `render turbo_stream:` / `turbo_frame:`. Never `redirect_to`.
-- Each panel ViewComponent subscribes to its own
-  `pito:<screen>:<panel>` stream.
-
-Page navigation is initial paint only; after that, every panel update
-flows through cable broadcasts.
-
-## Deployment
-
-- **Now:** local on owner's laptop + cloudflared tunnels.
-- **Soon:** GitHub Actions for CI (2000 credits/month; `[skipci]`
-  default; user signals "unblocked" when CI should run).
-- **Eventually:** Hetzner box, Kamal-deployed Docker.
+### Cross-system invariants
+
+- `lib/pito/slash/**` does not reference `Pito::Chat::*`. `lib/pito/chat/**`
+  does not reference `Pito::Slash::*`.
+- Both share only `Pito::Lex` and `Pito::Stream::*`.
+- Events store structured payloads (`jsonb`), never rendered HTML. Re-rendering
+  from the payload always produces current timestamps and translations.
+
+### Event kinds
+
+| Kind                  | Payload keys                                            |
+| --------------------- | ------------------------------------------------------- |
+| `echo`                | `text:`                                                 |
+| `assistant_text`      | `message_key:, message_args:` or `text:`                |
+| `error`               | `message_key:, message_args:`                           |
+| `confirmation_prompt` | `prompt_key:, prompt_args:, command_text:`              |
+| `thinking`            | `dictionary:, word_index:, resolved:, elapsed_seconds:` |
+| `logout`              | _(empty)_                                               |
+
+`Pito::Stream::EventRenderer.component_for(event)` is the single source of truth
+for kind → component lookup.
+
+## Conversation model
+
+One conversation per UUID. `POST /chat` with no UUID (blank input on the start
+screen) creates the conversation and returns `{ uuid, signed_stream_name }`.
+Subsequent POSTs carry the UUID. The home → chat transition animates the chatbox
+in place; `history.pushState` sets the `/chat/:uuid` URL without a page reload.
+
+## Namespace policy
+
+- **`Pito::*`** — cross-cutting infrastructure and utilities.
+- **Domain layer**: `Channel::*`, `Video::*`, `Game::*`, `Footage::*`. Each owns
+  its external API integration (YouTube, IGDB), indexers, and services.
+- **`Tui::*`** — legacy panel primitive components (retained from earlier TUI work).
+- `Settings::*` is gone. Don't reintroduce it.
+
+## Game release-date representation
+
+Pito stores a game's release date as independent precision components, not as a
+single date plus an enum. Nullability of each component encodes how much we know.
+
+### Columns on `games`
+
+| Column            | Type            | Meaning                                                                                   |
+| ----------------- | --------------- | ----------------------------------------------------------------------------------------- |
+| `release_year`    | integer         | NULL when truly TBA / unknown.                                                            |
+| `release_quarter` | integer (1..4)  | NULL unless precision is specifically a quarter. Mutually exclusive with `release_month`. |
+| `release_month`   | integer (1..12) | NULL when only the year (or quarter) is known.                                            |
+| `release_day`     | integer (1..31) | NULL when only the month is known. Requires `release_month`.                              |
+| `release_date`    | date            | Derived lower-bound. NULL when `release_year` is NULL. Used for sorts and range queries.  |
+
+`release_date` is recomputed from the components on every save
+(`before_save :recompute_release_date`). It is not the source of truth — the
+components are. The column exists so index-friendly queries keep working.
+
+### What each combination means
+
+| Real-world fact                    | year | quarter | month | day | date (derived) |
+| ---------------------------------- | ---- | ------- | ----- | --- | -------------- |
+| Released Oct 15, 2026              | 2026 | –       | 10    | 15  | 2026-10-15     |
+| Coming October 2026                | 2026 | –       | 10    | –   | 2026-10-01     |
+| Coming Q3 2026                     | 2026 | 3       | –     | –   | 2026-07-01     |
+| Coming 2026                        | 2026 | –       | –     | –   | 2026-01-01     |
+| TBA                                | –    | –       | –     | –   | NULL           |
+| "Christmas, year unknown" (manual) | –    | –       | 12    | 25  | NULL           |
+
+### Validations
+
+`Game` enforces:
+
+- `release_quarter` and `release_month` are mutually exclusive.
+- `release_day` requires `release_month`.
+- `release_year` in 1900..2100; `release_quarter` in 1..4; `release_month` in
+  1..12; `release_day` in 1..31.
+
+### Source adapters
+
+`Pito::Game::ReleaseDateMapper.call(input)` is the single entry point that maps a
+normalized component hash → the 5-column attribute hash. Source-specific adapters
+translate into that shape:
+
+- **IGDB** (`Game::Igdb::GameMapper`): maps `category` enum (0..7) → components.
+
+  | IGDB `category` | Pito components            |
+  | --------------- | -------------------------- |
+  | 0 (day)         | `{year:y, month:m, day:d}` |
+  | 1 (month)       | `{year:y, month:m}`        |
+  | 2 (year)        | `{year:y}`                 |
+  | 3..6 (Q1..Q4)   | `{year:y, quarter:cat-2}`  |
+  | 7 (TBD)         | `{}`                       |
+
+### Scopes and predicates
+
+- `Game.released_in(year)` — `where(release_year: year)`.
+- `Game.tba` — `where(release_year: nil)`.
+- `Game.upcoming` — `where("release_date IS NULL OR release_date > ?", Date.current)`.
+- `Game#released?` — `release_date.present? && release_date <= Date.current`.
+- `Game#tba?` — `release_year.nil? && igdb_synced_at.present?`.
+- `Game#release_label` — `"Oct 15, 2026"` / `"October 2026"` / `"Q3 2026"` /
+  `"2026"` / `"TBA"` / `"Dec 25"` (year-unknown), driven by component nullability.

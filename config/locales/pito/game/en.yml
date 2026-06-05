@@ -1,0 +1,24 @@
+en:
+  pito:
+    game:
+      release_label:
+        # User-facing presenter labels for `Game#release_label`. Branch is
+        # picked by component nullability — see
+        # `docs/architecture.md` § "Game release-date representation".
+        #
+        # Date / month formatting goes through `I18n.l` and the standard
+        # `:long` / `:month_year` formats; only the precision-specific
+        # text lives here.
+        day: "%{date}"                  # e.g. "October 15, 2026"
+        month_year: "%{month} %{year}"  # e.g. "October 2026"
+        quarter_year: "Q%{quarter} %{year}"
+        year: "%{year}"
+        month_day_unknown_year: "%{month} %{day}"
+        tba: "TBA"
+      ttb:
+        main: "main"
+        extras: "extras"
+        completionist: "completionist"
+        footage: "footage"
+        hours_short: "%{n}h"
+        em_dash: "—"

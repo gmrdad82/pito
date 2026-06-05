@@ -4,7 +4,7 @@
 # `last_synced_at`, `etag`, and `made_for_kids_effective`; clears
 # `last_sync_error`. On failure, surfaces the error to the Video row
 # via `last_sync_error` and (depending on the failure class) re-raises
-# so Sidekiq retries with backoff.
+# so the job retries with backoff.
 #
 # Per locked decision Q9: read-modify-write the full snippet+status
 # parts every save (Note 1's destructive-PUT-per-part warning). The
@@ -13,10 +13,8 @@
 # Per locked decision Q10: failure is OPTIMISTIC. The local
 # `privacy_status` is NOT rolled back on sync-back failure — the
 # user sees `last_sync_error` and re-edits.
-class VideoSyncBack
-  include Sidekiq::Job
-
-  sidekiq_options queue: "default", retry: 3
+class VideoSyncBack < ApplicationJob
+  queue_as :default
 
   def perform(video_id)
     video = Video.find_by(id: video_id)
@@ -47,7 +45,7 @@ class VideoSyncBack
     )
   rescue Channel::Youtube::QuotaExhaustedError => e
     record_error(video, "youtube quota exceeded; will retry: #{e.message}")
-    raise # let Sidekiq retry with backoff
+    raise
   rescue Channel::Youtube::AuthRevokedError => e
     connection&.update_columns(needs_reauth: true) if connection
     record_error(video, "youtube connection needs re-auth: #{e.message}")
@@ -59,10 +57,10 @@ class VideoSyncBack
     # Non-retriable.
   rescue Channel::Youtube::ServerError => e
     record_error(video, "youtube server error: #{e.message}")
-    raise # let Sidekiq retry
+    raise
   rescue *network_error_classes => e
     record_error(video, "network error: #{e.class}: #{e.message}")
-    raise # let Sidekiq retry
+    raise
   end
 
   private

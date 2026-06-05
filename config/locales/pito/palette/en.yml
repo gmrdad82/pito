@@ -1,0 +1,39 @@
+en:
+  pito:
+    palette:
+      ctrl_k:
+        title: "Commands"
+        esc_hint: "Esc"
+        search_placeholder: "Search"
+        sections:
+          youtube: "YouTube"
+          config: "Config"
+          conversations: "Conversations"
+          general: "General"
+        commands:
+          connect: "Connect YouTube channel"
+          disconnect: "Disconnect channel"
+          config_google: "Google OAuth credentials"
+          config_voyage: "Voyage AI API key"
+          config_igdb: "IGDB credentials"
+          config_webhook: "Slack / Discord webhooks"
+          new: "Start new conversation"
+          resume: "Resume a conversation"
+          help: "Show command reference"
+          login: "Log in"
+          logout: "Log out"
+      slash:
+        descriptions:
+          login: "Log in to access pito"
+          channels: "List your YouTube channels"
+          videos: "List videos for a channel"
+          import: "Import channel or video metadata"
+          export: "Export session transcript"
+          help: "Show help and command reference"
+          clear: "Clear the current session"
+          new: "Start a new session"
+    ui:
+      palettes:
+        page_title: "pito — command palettes preview"
+        slash_subheading: "Slash command palette  ·  opens above chatbox when / is typed"
+        ctrlp_subheading: "ctrl+k command palette  ·  centered modal overlay"

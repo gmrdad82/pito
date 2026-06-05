@@ -1,0 +1,5 @@
+<%# Sidebar section — orange-bold label + content + 24px bottom margin %>
+<div class="mb-6">
+  <%= render(Pito::Section::SectionHeaderComponent.new(text: t(@title_key), color: :orange)) %>
+  <%= body %>
+</div>

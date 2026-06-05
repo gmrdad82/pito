@@ -4,10 +4,10 @@
 # Provision per-process Postgres test databases used by `parallel_rspec`.
 #
 # parallel_tests creates one DB per process suffixed by TEST_ENV_NUMBER
-# (`pito_test`, `pito_test_2`, ..., `pito_test_<N>`). We cap N at 8 via
-# PARALLEL_TEST_PROCESSORS so local machines with high core counts (and
-# GitHub CI runners) don't over-provision DBs the suite never uses. The
-# same cap is applied in `.github/workflows/ci.yml` and `bin/test`.
+# (`pito_test`, `pito_test_2`, ..., `pito_test_<N>`). We cap N at 4 via
+# PARALLEL_TEST_PROCESSORS so local machines with high core counts don't
+# over-provision DBs the suite never uses. The same cap is applied in
+# `bin/test`.
 #
 # After running this once the parallel runner is good to go:
 #
@@ -17,7 +17,7 @@
 
 set -euo pipefail
 
-export PARALLEL_TEST_PROCESSORS=8
+export PARALLEL_TEST_PROCESSORS=4
 
 cd "$(dirname "$0")/.."
 

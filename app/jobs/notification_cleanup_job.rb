@@ -1,6 +1,6 @@
 # Phase 16 §3 UX restructure 2026-05-10 — read-notification cleanup.
 #
-# Sidekiq cron entry (`config/sidekiq_cron.yml` → `notification_cleanup`):
+# SolidQueue recurring entry.
 # runs daily at 03:30 UTC. Hard-deletes every Notification whose
 # `in_app_read_at` is non-NULL and older than 7 days.
 #

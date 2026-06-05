@@ -1,0 +1,32 @@
+---
+- id: 198
+  aggregated_rating:
+  aggregated_rating_count:
+  alternative_names: "{}"
+  cover_image_id:
+  created_at: 2026-06-03 13:46:25.459429000 Z
+  igdb_id:
+  igdb_rating:
+  igdb_rating_count:
+  igdb_slug:
+  igdb_synced_at:
+  notes:
+  platforms: "{}"
+  played_at:
+  primary_genre_id:
+  release_date:
+  release_day:
+  release_month:
+  release_quarter:
+  release_year:
+  score:
+  search_vector: "'34':2 'game':1"
+  summary:
+  summary_embedding:
+  title: Game 34
+  total_rating:
+  total_rating_count:
+  ttb_completionist_seconds:
+  ttb_extras_seconds:
+  ttb_main_seconds:
+  updated_at: 2026-06-03 13:46:25.459429000 Z

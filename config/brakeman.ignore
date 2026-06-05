@@ -1,5 +1,18 @@
 {
-  "ignored_warnings": [],
-  "updated": "2026-05-19",
+  "ignored_warnings": [
+    {
+      "fingerprint": "9af4dc7081f0cca592e39a28b53177084d1632c7c30973604a972b5f9b91854c",
+      "note": "column is a symbol from app code (:search_vector), never user input. query is properly quoted via connection.quote."
+    },
+    {
+      "fingerprint": "050af47121b0c4251d18c5b722e529807edb8a9852128f6fa384c768d47e0317",
+      "note": "HEAD requests do not need intended-URL stashing; the behaviour is intentional."
+    },
+    {
+      "fingerprint": "f6447e4dd2a52cba99eb199ef848434d1b0505b41435303749813ab86416d8ca",
+      "note": "allow_other_host is required for Google OAuth redirect to accounts.google.com."
+    }
+  ],
+  "updated": "2026-06-02",
   "brakeman_version": "8.0.4"
 }

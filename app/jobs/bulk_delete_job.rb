@@ -1,6 +1,5 @@
-class BulkDeleteJob
-  include Sidekiq::Job
-  sidekiq_options queue: "bulk_deletion"
+class BulkDeleteJob < ApplicationJob
+  queue_as :bulk_deletion
 
   def perform(bulk_operation_id)
     operation = BulkOperation.find(bulk_operation_id)
@@ -9,9 +8,7 @@ class BulkDeleteJob
     operation.update!(status: :running)
     broadcast_progress(operation, 0, items.size)
 
-    # 2026-05-11 polish (Games list-mode bulk actions, Fix 5) — when a
-    # per-type Sidekiq job exists (`<TargetType>Deletion`), the bulk job
-    # hands each row off async so deletions run in parallel with their
+    # 2026-05-11 polish (Games list-mode bulk actions, Fix 5) — hands each row off async so deletions run in parallel with their
     # own advisory locks + graceful-failure handling. Each per-row job
     # is responsible for marking its own `BulkOperationItem` and
     # invoking the "last-one-out" finalizer on the parent operation.
@@ -65,13 +62,12 @@ class BulkDeleteJob
     klass if klass.respond_to?(:perform_async)
   end
 
-  # Fan out one Sidekiq job per row. Returns immediately — the per-row
   # jobs themselves call `BulkDeleteJob.finalize_if_complete` once they
   # are terminal.
   def dispatch_async_per_row(items)
     items.each do |op_item|
       klass = per_type_async_class(op_item.target_type)
-      klass.perform_async(op_item.target_id, op_item.id) if klass
+      klass.perform_later(op_item.target_id, op_item.id) if klass
     end
   end
 

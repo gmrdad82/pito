@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # bin/test
 #
-# Local test runner with shortcuts. Caps parallel workers at 8 to match CI
-# and `bin/parallel_setup`. Skips the per-run `db:test:prepare` when the schema
-# has not changed (see `bin/test-prepare`).
+# Local test runner with shortcuts. Caps parallel workers at 4.
+# Skips the per-run `db:test:prepare` when the schema has not changed
+# (see `bin/test-prepare`).
 #
 # Shortcuts:
 #
@@ -34,7 +34,7 @@ usage() {
   sed -n '2,28p' "$0" | sed 's/^#$//; s/^# //'
 }
 
-export PARALLEL_TEST_PROCESSORS=8
+export PARALLEL_TEST_PROCESSORS=4
 
 cmd="${1-}"
 

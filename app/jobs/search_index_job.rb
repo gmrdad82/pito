@@ -6,5 +6,7 @@ class SearchIndexJob < ApplicationJob
     return unless record
 
     Pito::Search.engine.index(record)
+  rescue StandardError
+    nil
   end
 end

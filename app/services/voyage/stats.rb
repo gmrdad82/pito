@@ -10,18 +10,13 @@
 #
 # Consumed by the `/settings` stack pane next to the [reindex] action
 # so operators can see at a glance how the index is doing without
-# leaving the settings page. Wired into a view in a later dispatch
-# (DR); this service is the data source only.
+# leaving the settings page.
+#
+# R1 (2026-05-25) — bundle stats removed; games only.
 #
 # Performance: pure SQL counts + a single max() — sub-millisecond on
 # realistic catalog sizes. No caching needed. If this ever shows up
 # in a profile, a 30 s `Rails.cache.fetch` wrap is the cheap fix.
-#
-# Bundle stats: `Bundle` does not currently carry a
-# `summary_embedding` column (the DH dispatch adds it). When the
-# column is absent, the bundle-related keys return nil so the view
-# can render "—" without raising. When it lands, the same code path
-# starts returning real numbers — no edit required here.
 module Voyage
   class Stats
     def self.call
@@ -32,8 +27,6 @@ module Voyage
       games_embedded = Game.where.not(summary_embedding: nil).count
       games_total    = Game.count
 
-      bundles_embedded, bundles_total = bundle_counts
-
       {
         configured: AppSetting.voyage_configured?,
         model: Voyage::Client::DEFAULT_MODEL,
@@ -41,14 +34,6 @@ module Voyage
         total_games_count: games_total,
         coverage_pct: coverage_pct(games_embedded, games_total),
         last_indexed_at: Game.where.not(summary_embedding: nil).maximum(:updated_at),
-        embedded_bundles_count: bundles_embedded,
-        total_bundles_count: bundles_total,
-        # 2026-05-18 — bundle coverage percentage mirrors `coverage_pct` for
-        # the games row. Returns nil when the `bundles.summary_embedding`
-        # column is absent (pre-DH installs) so the view can omit the
-        # parenthetical without crashing; the live-stats JSON endpoint
-        # surfaces nil too and the JS setter no-ops.
-        bundle_coverage_pct: bundle_coverage_pct(bundles_embedded, bundles_total),
         storage_kb: compute_storage_kb,
         embeddings_last_24h: compute_recent_count
       }
@@ -56,30 +41,21 @@ module Voyage
 
     private
 
-    # 2026-05-18 (follow-up) — Sum `pg_total_relation_size` of the HNSW
-    # vector indexes on `games.summary_embedding` (and `bundles.summary_embedding`
-    # when that column is present). The HNSW index dominates the storage cost
+    # Sum `pg_total_relation_size` of the HNSW vector index on
+    # `games.summary_embedding`. The HNSW index dominates the storage cost
     # of the embedding column itself, so this is a reasonable proxy for "how
     # much disk is the Voyage pipeline consuming on this install".
     #
     # Returns kilobytes (integer). Returns `nil` on any SQL error — the view
     # treats nil as "hide the cell" so a transient failure never blanks the
     # surrounding line.
-    # Frozen allowlist of HNSW index names the storage query is allowed to
-    # inspect. Kept as a constant so the SQL builder never interpolates an
-    # attacker-controlled string into the `IN (...)` clause — Brakeman
-    # otherwise flags the interpolation as a possible SQL injection even
-    # when the values are quoted, because it cannot statically prove the
-    # source is a literal array.
     KNOWN_HNSW_INDEXES = {
-      games: "index_games_on_summary_embedding_hnsw",
-      bundles: "index_bundles_on_summary_embedding_hnsw"
+      games: "index_games_on_summary_embedding_hnsw"
     }.freeze
     private_constant :KNOWN_HNSW_INDEXES
 
     def compute_storage_kb
       index_names = [ KNOWN_HNSW_INDEXES[:games] ]
-      index_names << KNOWN_HNSW_INDEXES[:bundles] if bundle_embedding_supported?
 
       sql = <<~SQL
         SELECT COALESCE(SUM(pg_total_relation_size(quote_ident(indexname)::regclass)), 0) AS total
@@ -96,21 +72,14 @@ module Voyage
       nil
     end
 
-    # Count of Game + Bundle rows that currently carry an embedding AND
-    # were `updated_at` in the last 24 h. Proxy for "how active is the
-    # embed pipeline right now" — surfaces a non-zero number when a
-    # reindex / backfill ran recently. Returns 0 when nothing has happened
+    # Count of Game rows that currently carry an embedding AND were
+    # `updated_at` in the last 24 h. Proxy for "how active is the embed
+    # pipeline right now" — surfaces a non-zero number when a reindex /
+    # backfill ran recently. Returns 0 when nothing has happened
     # (the view hides the cell on 0).
     def compute_recent_count
       cutoff = 24.hours.ago
-      games = Game.where.not(summary_embedding: nil).where("updated_at > ?", cutoff).count
-      bundles =
-        if bundle_embedding_supported?
-          Bundle.where.not(summary_embedding: nil).where("updated_at > ?", cutoff).count
-        else
-          0
-        end
-      games + bundles
+      Game.where.not(summary_embedding: nil).where("updated_at > ?", cutoff).count
     rescue StandardError => e
       Rails.logger.warn "[Voyage::Stats] recent count query failed: #{e.message}"
       0
@@ -119,26 +88,6 @@ module Voyage
     def coverage_pct(embedded, total)
       return 0 if total.to_i.zero?
       (embedded.to_f / total * 100).round
-    end
-
-    # Same shape as `coverage_pct`, but returns nil when the bundle
-    # embedding column is absent so the caller / view can distinguish
-    # "the bundles column does not exist yet" from "0% coverage".
-    def bundle_coverage_pct(embedded, total)
-      return nil if embedded.nil? || total.nil?
-      return 0 if total.to_i.zero?
-      (embedded.to_f / total * 100).round
-    end
-
-    def bundle_counts
-      return [ nil, nil ] unless bundle_embedding_supported?
-      [ Bundle.where.not(summary_embedding: nil).count, Bundle.count ]
-    end
-
-    def bundle_embedding_supported?
-      Bundle.table_exists? && Bundle.column_names.include?("summary_embedding")
-    rescue NameError, ActiveRecord::StatementInvalid
-      false
     end
   end
 end

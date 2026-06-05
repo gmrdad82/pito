@@ -44,8 +44,7 @@ class SavedViewsController < ApplicationController
     kind = @saved_view.kind
     @saved_view.destroy!
 
-    redirect_path = kind == "channels" ? channels_path : videos_path
-    redirect_to redirect_path, notice: "view deleted."
+    redirect_to root_path, notice: "view deleted."
   end
 
   private
@@ -54,9 +53,9 @@ class SavedViewsController < ApplicationController
     params.require(:saved_view).permit(:kind, :url, :name)
   end
 
-  # Minimal JSON shape consumed by the pito CLI. Matches the Rust `SavedView`
-  # model: id, kind, name, url. SavedView#ordered scope (position asc,
-  # created_at desc) is preserved for stable client rendering.
+  # Minimal JSON shape for external API consumers: id, kind, name, url.
+  # SavedView#ordered scope (position asc, created_at desc) is preserved
+  # for stable client rendering.
   def saved_view_json(view)
     {
       id: view.id,

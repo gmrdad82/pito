@@ -1,13 +1,11 @@
-# Pool sizing rule: max(Web Puma threads, MCP Puma threads, Sidekiq concurrency).
-# Defaults today: Web Puma 3 (config/puma.rb), MCP Puma 5 (config/puma_mcp.rb),
-# Sidekiq concurrency 5 (config/sidekiq.yml). The formula resolves to 5.
-# Tune by setting RAILS_MAX_THREADS / MCP_THREADS / SIDEKIQ_CONCURRENCY env vars.
+# Pool sizing rule: at least the Web Puma thread count (config/puma.rb), with
+# headroom for SolidQueue's in-process worker. Tune via RAILS_MAX_THREADS.
 default: &default
   adapter: postgresql
   encoding: unicode
   host: <%= ENV.fetch("POSTGRES_HOST", "127.0.0.1") %>
   port: <%= ENV.fetch("POSTGRES_PORT", 54327).to_i %>
-  pool: <%= [ENV.fetch("RAILS_MAX_THREADS", 5).to_i, ENV.fetch("MCP_THREADS", 5).to_i, ENV.fetch("SIDEKIQ_CONCURRENCY", 5).to_i].max %>
+  pool: <%= ENV.fetch("RAILS_MAX_THREADS", 5).to_i %>
 
 development:
   <<: *default
@@ -25,7 +23,20 @@ test:
   password: <%= Rails.application.credentials.dig(:postgres, :test, :password) || "" %>
 
 production:
-  <<: *default
-  database: <%= Rails.application.credentials.dig(:postgres, :production, :database) %>
-  username: <%= Rails.application.credentials.dig(:postgres, :production, :username) %>
-  password: <%= Rails.application.credentials.dig(:postgres, :production, :password) %>
+  primary: &production
+    <<: *default
+    database: <%= Rails.application.credentials.dig(:postgres, :production, :database) %>
+    username: <%= Rails.application.credentials.dig(:postgres, :production, :username) %>
+    password: <%= Rails.application.credentials.dig(:postgres, :production, :password) %>
+  # SolidCache, SolidQueue, SolidCable all share the same physical database.
+  # database_tasks: false tells Rails to skip create/migrate/drop for these roles
+  # (the primary manages the schema for all of them).
+  cache:
+    <<: *production
+    database_tasks: false
+  queue:
+    <<: *production
+    database_tasks: false
+  cable:
+    <<: *production
+    database_tasks: false

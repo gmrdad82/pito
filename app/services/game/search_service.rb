@@ -1,16 +1,13 @@
 # Omnisearch dispatcher — drives the shared `_omnisearch_modal`
-# across the three modes documented in the modal partial:
+# across the two modes:
 #
 #   :game_index   — IGDB only. Add-from-IGDB flow on `/games`.
 #                   Result row action is `[add]` which POSTs `/games`
 #                   with the IGDB id.
-#   :bundle_add   — Local games (Meilisearch) + IGDB, with already-in-
-#                   bundle games filtered out of the local half. Result
-#                   row action is `[add]` which POSTs to
-#                   `/bundles/:id/members` to associate the game.
-#   :games_search — Local games + bundles + IGDB. Result rows navigate
-#                   (game → `/games/:id`, bundle → opens the bundles
-#                   modal on `/games` via deep-link).
+#   :games_search — Local games + IGDB. Result rows navigate
+#                   (game → `/games/:id`).
+#
+# R1 (2026-05-25) — `:bundle_add` mode removed with bundles.
 #
 # Returns a Hash keyed by record-type symbol so the per-mode results
 # partial can read each pane independently. Unknown modes raise so the
@@ -18,16 +15,15 @@
 # silently returning an empty envelope.
 class Game
   class SearchService
-    MODES = %i[game_index bundle_add games_search].freeze
+    MODES = %i[game_index games_search].freeze
 
-    Result = Struct.new(:mode, :query, :local_games, :local_bundles, :igdb, :igdb_error, keyword_init: true)
+    Result = Struct.new(:mode, :query, :local_games, :igdb, :igdb_error, keyword_init: true)
 
-    def self.call(query:, mode:, bundle: nil)
+    def self.call(query:, mode:)
       raise ArgumentError, "unknown mode: #{mode.inspect}" unless MODES.include?(mode)
 
       query = query.to_s.strip
       local_games = []
-      local_bundles = []
       igdb = []
       igdb_error = nil
 
@@ -35,21 +31,14 @@ class Game
       when :game_index
         # IGDB-only mode — no local corpus to gate against.
         igdb, igdb_error = call_igdb(query)
-      when :bundle_add
-        local = Pito::Search::Omnisearch.call(area: :games, query: query, exclude_bundle: bundle)
+      when :games_search
+        local = Pito::Search::Omnisearch.call(area: :games, query: query)
         local_games = local[:games]
         # 2026-05-19 — Reverse lazy IGDB. We always query both halves
         # so the user can compare the local row(s) against any IGDB
         # rows that match the same query. The Rule 1 dedup below
         # filters IGDB rows whose `id` is already the `igdb_id` of a
         # local hit, so duplicates don't double-render.
-        igdb, igdb_error = call_igdb(query)
-      when :games_search
-        local = Pito::Search::Omnisearch.call(area: :games, query: query, include_bundles: true)
-        local_games = local[:games]
-        local_bundles = local[:bundles]
-        # 2026-05-19 — Reverse lazy IGDB (see :bundle_add note above).
-        # The dedup-by-igdb_id post-filter still hides duplicates.
         igdb, igdb_error = call_igdb(query)
       end
 
@@ -68,7 +57,6 @@ class Game
         mode: mode,
         query: query,
         local_games: local_games,
-        local_bundles: local_bundles,
         igdb: igdb,
         igdb_error: igdb_error
       )

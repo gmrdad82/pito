@@ -22,7 +22,7 @@
 # vocabulary, and the urgent severity is what the operator needs).
 # The fix is a manual edit + redeploy.
 #
-# Schedule: weekly at Monday 09:00 UTC (`config/sidekiq_cron.yml` →
+# Schedule: weekly at Monday 09:00 UTC.
 # `cloudflare_trusted_proxies_refresher`).
 #
 # Fetch failures: defensive — Cloudflare's endpoint going dark must

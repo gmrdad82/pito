@@ -17,7 +17,7 @@
 # 6. Parse the rows-and-headers response shape into
 #    attribute-hashes ready for the caller's upsert.
 #
-# Retry policy lives in Sidekiq (`sidekiq_options retry: 5,
+# Retry policy (`sidekiq_options retry: 5,
 # retry_in: ...`). The client itself raises on the first
 # transient failure; the job-side `perform` lets Sidekiq requeue.
 require "google/apis/youtube_analytics_v2"
@@ -43,7 +43,7 @@ class Channel
       class TransientError < Error; end
       class PermanentError < Error; end
 
-      AUDIT_KIND = YoutubeApiCall::KIND_ANALYTICS_V2
+      AUDIT_KIND = "analytics_v2".freeze
       AUDIT_ENDPOINT = "reports.query".freeze
 
       OUTCOME_OK = "succeeded".freeze
@@ -383,8 +383,9 @@ class Channel
         }
         payload[:error] = error_message if error_message.present?
 
+        return unless defined?(YoutubeApiCall) && YoutubeApiCall.respond_to?(:create!)
+
         YoutubeApiCall.create!(
-          user_id: @connection.user_id,
           youtube_connection_id: @connection.id,
           client_kind: AUDIT_KIND,
           endpoint: AUDIT_ENDPOINT,

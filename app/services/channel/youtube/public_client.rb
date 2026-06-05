@@ -73,13 +73,10 @@ class Channel
 
       private
 
-      # Phase 29 — Unit A1. The public API key lives exclusively in
-      # `Rails.application.credentials.google_oauth.api_key` again (the
-      # project's configuration strategy — secrets in credentials only).
-      # The AppSetting read and the dead `:youtube, :public_api_key`
-      # transitional path are both gone.
+      # Google API key (non-OAuth) for public YouTube Data API calls.
+      # Set via: /config google api_key=…
       def api_key
-        Rails.application.credentials.dig(:google_oauth, :api_key)
+        Pito::Credentials.google_api_key
       end
 
       def normalize_list(response)

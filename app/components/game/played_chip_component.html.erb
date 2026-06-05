@@ -1,6 +1,0 @@
-<%# Wave C4 stub — single `[played]` chip. Non-functional placeholder
-    (visual state only); the editable surface stays on the game edit
-    page until a dedicated toggle slice ships. %>
-<span class="platform-chip platform-chip--md ownership-chip-static"
-      style="color: <%= chip_color %>;"
-      title="<%= played? ? t("games.played_chip.played_title", date: game.played_at.to_fs(:long)) : t("games.played_chip.not_played_title") %>"><%= t("games.played_chip.label") %></span>

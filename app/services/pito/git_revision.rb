@@ -55,7 +55,7 @@ module Pito
 
     # Canonical GitHub commit URL for the running process, or `nil`
     # when the SHA could not be captured at boot. Callers MUST handle
-    # the `nil` case (see `AboutModalComponent#commit_url`).
+    # the `nil` case (see `Tui::AboutDialogComponent#commit_url`).
     def self.commit_url
       return nil unless SHA
 

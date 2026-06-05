@@ -1,6 +1,5 @@
-class BulkSyncJob
-  include Sidekiq::Job
-  sidekiq_options queue: "bulk_sync", retry: 3
+class BulkSyncJob < ApplicationJob
+  queue_as :bulk_sync
 
   def perform(bulk_operation_id)
     operation = BulkOperation.find(bulk_operation_id)
@@ -34,7 +33,7 @@ class BulkSyncJob
 
       if sync_class
         begin
-          sync_class.perform_async(op_item.target_id)
+          sync_class.perform_later(op_item.target_id)
           op_item.update!(status: :succeeded)
           broadcast_item_status(operation, op_item.id, "succeeded")
         rescue StandardError => e

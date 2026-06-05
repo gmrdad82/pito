@@ -1,9 +1,8 @@
 # Phase 13.2 — Analytics sync engine. Per-video V7 retention curve.
 # Fired by `VideoRetentionSyncOrchestrator` weekly (Mondays at 05:00
 # UTC) and on-demand from the dashboard.
-class VideoRetentionSync
-  include Sidekiq::Job
-  sidekiq_options queue: "analytics", retry: 5
+class VideoRetentionSync < ApplicationJob
+  queue_as :analytics
 
   def perform(video_id)
     video = Video.find_by(id: video_id)

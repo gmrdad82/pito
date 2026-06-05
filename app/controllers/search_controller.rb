@@ -21,12 +21,12 @@ class SearchController < ApplicationController
 
   private
 
-  # Flat shape consumed by the pito CLI's `SearchResults` Rust struct:
+  # Flat shape for external API consumers:
   #   { query, videos: [SearchHit<Video>], video_total, took_ms }
   # where each SearchHit is { record: <Video summary>, highlights }.
-  # Hits whose backing Video row no longer exists are dropped — the Rust
-  # `SearchHit::record` field is non-nullable, so emitting `null` would
-  # break deserialization on the client.
+  # Hits whose backing Video row no longer exists are dropped so the
+  # `record` field is never null, which would break strict client
+  # deserialization.
   def search_json_payload
     hits = (@videos[:hits] || []).filter_map { |hit| search_hit_json(hit) }
     {
@@ -46,11 +46,8 @@ class SearchController < ApplicationController
     }
   end
 
-  # Meilisearch's `_formatted` payload echoes the document fields with the same
-  # types as stored (arrays for tags, strings for everything else). The Rust
-  # `SearchHit::highlights` field is `HashMap<String, String>`, so any non-string
-  # values must be coerced. Arrays are joined with commas; everything else is
-  # converted via `to_s`.
+  # The search payload echoes document fields — arrays are joined with commas;
+  # everything else is converted via `to_s`.
   def stringify_highlights(raw)
     return {} unless raw.is_a?(Hash)
     raw.each_with_object({}) do |(k, v), out|

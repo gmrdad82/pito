@@ -38,7 +38,7 @@ class ChannelsController < ApplicationController
   # picker prefetch) is dropped FROM THIS ACTION ONLY. Real data
   # wiring returns in Wave B once the layout is signed off.
   # `Channel::MockData.channels` feeds the avatar shelf via
-  # `@channels`. JSON branch is preserved for CLI / MCP callers and
+  # `@channels`. JSON branch is preserved and
   # still serves the real DB rows decorated by `ChannelDecorator` so
   # downstream surfaces don't regress on the layout-iteration phase.
   # See `docs/orchestration/handoff-2026-05-19-channels-and-live-updates.md`
@@ -162,10 +162,9 @@ class ChannelsController < ApplicationController
 
   # GET /channels/:id/videos(.json)
   #
-  # Returns the videos belonging to the given channel. Used by the pito CLI
-  # to populate per-channel video lists. JSON shape mirrors
-  # VideosController#index so the same Rust `Video` struct decodes either
-  # response.
+  # Returns the videos belonging to the given channel. JSON shape mirrors
+  # VideosController#index so external API consumers can decode either
+  # response with the same Video shape.
   def videos
     @channel = Channel.friendly.find(params[:id])
     @videos = @channel.videos

@@ -1,0 +1,14 @@
+<% if resolved? %>
+  <%= render(Pito::Segment::Component.new(id: dom_id)) do %>
+    <span class="pito-thinking__message" data-controller="pito--turn-complete"><%= resolved_message %></span>
+  <% end %>
+<% else %>
+  <%= render(Pito::Segment::Component.new(id: dom_id)) do %>
+    <span class="pito-thinking"
+          data-controller="pito--thinking"
+          data-pito--thinking-frames-value="<%= braille_frames_json %>">
+      <span class="pito-thinking__braille pito-shimmer" data-pito--thinking-target="braille">⠋</span>
+      <span class="pito-thinking__word pito-shimmer"><%= current_word %>…</span>
+    </span>
+  <% end %>
+<% end %>

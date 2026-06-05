@@ -1,8 +1,7 @@
 class Current < ActiveSupport::CurrentAttributes
-  # Phase 8 — tenant drop. After ADR 0003, `Current.tenant` is gone:
-  # pito is a single-install, multi-user surface and tenant scoping
-  # collapses. The only request-scoped attributes left are the cookie
-  # session pin (`:session`), the resolved user (`:user`), and the
-  # bearer token (`:token`) for API surfaces.
-  attribute :user, :token, :session
+  # Z1 (2026-05-25) — `user` dropped with the `users` table. pito is
+  # single-install; the owner is identified solely by the active session.
+  # `token` is kept for API (Bearer) surfaces; `session` is the cookie
+  # session pin.
+  attribute :session, :token
 end

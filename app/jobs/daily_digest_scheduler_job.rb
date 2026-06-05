@@ -1,6 +1,6 @@
 # Phase 26 — 01e. Daily digest scheduler — hourly cron tick.
 #
-# Fires every hour at minute 0 (`config/sidekiq_cron.yml` →
+# Fires every hour at minute 0.
 # `daily_digest_scheduler`). On each tick:
 #
 #   1. Resolve the install's "anchor" user — the user with the lowest

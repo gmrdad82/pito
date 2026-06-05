@@ -1,7 +1,7 @@
 # Phase 25 — 01g (LD-11). Exponential backoff calculator for the
 # login throttle.
 #
-# Builds on top of `Rack::Attack`'s per-IP and per-account throttles.
+# Builds per-IP and per-account throttles via Rails.cache.
 # When a throttle bucket trips, the controller calls `record_trip!`
 # with the discriminant (a normalized IP or email-digest key). The
 # next trip on the same key doubles the backoff window, capped at
@@ -9,8 +9,7 @@
 # trip again within `MAX_BACKOFF`, the bucket forgets the history and
 # the next trip starts from `BASE_BACKOFF`.
 #
-# Storage: `Rack::Attack.cache.store` (the shared Redis / MemoryStore
-# backing the rest of the throttle bookkeeping). Fail-open on cache
+# Storage: `Rails.cache` (SolidCache in production). Fail-open on cache
 # errors — a logging glitch must not deadlock the auth path.
 #
 # Contract:
@@ -93,7 +92,7 @@ module Pito
       end
 
       def self.cache
-        Rack::Attack.cache.store
+        Rails.cache
       end
     end
   end

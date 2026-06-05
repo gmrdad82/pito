@@ -221,7 +221,6 @@ class Channel
             http_method: HTTP_METHOD,
             kind: KIND,
             connection: @connection,
-            user: @connection.user,
             outcome: outcome,
             http_status: http_status,
             error_message: error_message&.to_s,

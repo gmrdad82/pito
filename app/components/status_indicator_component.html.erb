@@ -1,1 +1,0 @@
-<span class="<%= css_class %>" <%= "style=\"#{style_attr}\"".html_safe if style_attr %> <% data_attrs.each do |k, v| %>data-<%= k.to_s.dasherize %>="<%= v %>"<% end %>><%= @kind == :loading ? "" : @text %></span>

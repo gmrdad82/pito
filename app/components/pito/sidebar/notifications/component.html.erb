@@ -1,0 +1,20 @@
+<%# Sidebar notifications list — stacked rows: relative time, then the full
+    (word-wrapped) message. Arrow up/down move the highlight; Space toggles
+    read/unread (pito--notifications-nav). %>
+<div class="flex flex-col gap-2" data-controller="pito--notifications-nav">
+  <% if notifications.empty? %>
+    <div class="text-fg-dim py-2">No notifications</div>
+  <% else %>
+    <% notifications.each do |notification| %>
+      <div class="pito-notification-row py-1 px-2 rounded cursor-pointer"
+           data-notification-id="<%= notification.id %>"
+           data-read="<%= notification.read? %>">
+        <div class="text-fg-dim text-xs"><%= formatted_timestamp(notification) %></div>
+        <div class="flex items-baseline gap-2">
+          <span class="pito-notification-dot shrink-0 <%= notification.unread? ? "text-cyan" : "text-fg-faded" %>"><%= notification.unread? ? "●" : "○" %></span>
+          <span class="pito-notification-message <%= notification.unread? ? "text-fg font-bold" : "text-fg-dim" %>"><%= notification.message %></span>
+        </div>
+      </div>
+    <% end %>
+  <% end %>
+</div>

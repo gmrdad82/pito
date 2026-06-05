@@ -1,0 +1,77 @@
+# frozen_string_literal: true
+
+module Pito
+  module Palette
+    # Builds the grouped command list for the Ctrl+K palette.
+    # Each section has a title_key and an array of items.
+    # Each item carries:
+    #   label_key  — i18n key displayed in the palette
+    #   insert     — text pre-filled into the chatbox on Enter (may include <placeholders>)
+    #   shortcut   — optional keyboard hint shown on the right (String or nil)
+    class CommandCatalog
+      def self.sections
+        new.sections
+      end
+
+      def sections
+        [
+          {
+            title_key: "pito.palette.ctrl_k.sections.youtube",
+            items:     youtube_items
+          },
+          {
+            title_key: "pito.palette.ctrl_k.sections.config",
+            items:     config_items
+          },
+          {
+            title_key: "pito.palette.ctrl_k.sections.conversations",
+            items:     conversation_items
+          },
+          {
+            title_key: "pito.palette.ctrl_k.sections.general",
+            items:     general_items
+          }
+        ]
+      end
+
+      private
+
+      def youtube_items
+        [
+          { label_key: "pito.palette.ctrl_k.commands.connect",
+            insert:    "/connect" },
+          { label_key: "pito.palette.ctrl_k.commands.disconnect",
+            insert:    "/disconnect <@handle>" }
+        ]
+      end
+
+      def config_items
+        [
+          { label_key: "pito.palette.ctrl_k.commands.config_google",
+            insert:    "/config google" },
+          { label_key: "pito.palette.ctrl_k.commands.config_voyage",
+            insert:    "/config voyage" },
+          { label_key: "pito.palette.ctrl_k.commands.config_igdb",
+            insert:    "/config igdb" },
+          { label_key: "pito.palette.ctrl_k.commands.config_webhook",
+            insert:    "/config webhook" }
+        ]
+      end
+
+      def conversation_items
+        [
+          { label_key: "pito.palette.ctrl_k.commands.new",    insert: "/new" },
+          { label_key: "pito.palette.ctrl_k.commands.resume", insert: "/resume" }
+        ]
+      end
+
+      def general_items
+        [
+          { label_key: "pito.palette.ctrl_k.commands.help",         insert: "/help" },
+          { label_key: "pito.palette.ctrl_k.commands.login",  insert: "/login <code>" },
+          { label_key: "pito.palette.ctrl_k.commands.logout",        insert: "/logout" }
+        ]
+      end
+    end
+  end
+end

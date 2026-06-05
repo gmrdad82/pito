@@ -1,0 +1,59 @@
+<% if expandable? %>
+  <div data-controller="pito--expand"
+       data-pito--expand-expand-label-value="<%= @expand_label %>"
+       data-pito--expand-collapse-label-value="<%= @collapse_label %>">
+    <%# Prose wrapper — typewriter controller covers body + expand_lines so the
+        whole prose region reveals together when expanded. The kv-detail and
+        hints outside this wrapper always render instantly. %>
+    <% if @body || @expand_lines.any? %>
+      <% if typewriter? %>
+        <div data-controller="pito--typewriter">
+          <span class="text-fg" data-pito--typewriter-target="body"><%= @body %></span>
+          <% @expand_lines.each do |line| %>
+            <div class="text-fg" data-pito--typewriter-target="prose"><%= line %></div>
+          <% end %>
+        </div>
+      <% else %>
+        <span class="text-fg"><%= html? ? raw(@body) : @body %></span>
+        <% @expand_lines.each do |line| %>
+          <div class="text-fg"><%= line %></div>
+        <% end %>
+      <% end %>
+    <% end %>
+    <div data-pito--expand-target="hint" class="mt-1">
+      <%= render(Pito::Keybinding::HintComponent.new(
+            shortcut:         "ctrl+|",
+            description:      @expand_label,
+            description_data: { "pito--expand-target" => "hintLabel" }
+          )) %>
+    </div>
+    <div data-pito--expand-target="detail" class="hidden mt-1.5 border-t border-line-default pt-1.5">
+      <% @expand_detail.each do |line| %>
+        <% if line.is_a?(Hash) && (line[:key].present? || line["key"].present?) %>
+          <% key = line[:key] || line["key"] %>
+          <% value = line[:value] || line["value"] %>
+          <% key_class = line[:key_class] || line["key_class"] || "text-cyan" %>
+          <% value_class = line[:value_class] || line["value_class"] || "text-fg" %>
+          <div class="flex gap-4">
+            <%= render(Pito::Table::KeyValueRowComponent.new(
+                  key_text:    key,
+                  value_text:  value,
+                  key_class:   "#{key_class} whitespace-nowrap shrink-0 w-40",
+                  value_class: "#{value_class} text-right w-20"
+                )) %>
+          </div>
+        <% elsif line.present? %>
+          <div class="text-fg"><%= line %></div>
+        <% elsif line == "" %>
+          <br>
+        <% end %>
+      <% end %>
+    </div>
+  </div>
+<% elsif @body %>
+  <% if typewriter? %>
+    <span class="text-fg" data-controller="pito--typewriter" data-pito--typewriter-target="body"><%= @body %></span>
+  <% else %>
+    <span class="text-fg"><%= html? ? raw(@body) : @body %></span>
+  <% end %>
+<% end %>

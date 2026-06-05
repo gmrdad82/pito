@@ -8,16 +8,6 @@
 # as `Rails.application.config.x.pito.<key>`. Changes require a Puma
 # restart to take effect.
 #
-# Manage via the `pito:config:*` rake tasks instead of editing by hand:
-#
-#   bin/rails pito:config:show
-#   bin/rails pito:config:max_panes:get
-#   bin/rails pito:config:max_panes:set[5]
-#   bin/rails pito:config:pane_title_length:get
-#   bin/rails pito:config:pane_title_length:set[18]
-#   bin/rails pito:config:timezone:get
-#   bin/rails pito:config:timezone:set[Europe/Bucharest]
-
 # How many panes a workspace page (channels, videos) can render
 # side-by-side. Integer; min 1, max 10. Default: 3.
 max_panes: 3

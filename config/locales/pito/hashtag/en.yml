@@ -1,0 +1,9 @@
+en:
+  pito:
+    hashtag:
+      reply:
+        acknowledged: "Reply to #%{handle} acknowledged."
+        not_found: "No pending confirmation found for #%{handle}."
+      errors:
+        unknown_handle: "Unknown hashtag handle: %{handle}."
+        parse_failed: "Could not parse hashtag command: %{raw}."

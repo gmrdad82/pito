@@ -1,5 +1,4 @@
-# Phase 13.2 — Analytics sync engine. Top-level Sidekiq orchestrator
-# fired by sidekiq-cron at 04:00 UTC. Iterates every active
+# Phase 13.2 — Analytics sync engine. Iterates every active
 # `YoutubeConnection`, enqueues per-channel and per-video child jobs.
 #
 # Per the master-agent decisions:
@@ -7,9 +6,8 @@
 # - Dedicated `analytics` queue.
 # - `info`-level start / finish logs; `warn` on auth failure.
 # - The 3-day refresh window is `(today_pt - 3 .. today_pt - 1)`.
-class YoutubeAnalyticsSync
-  include Sidekiq::Job
-  sidekiq_options queue: "analytics", retry: false
+class YoutubeAnalyticsSync < ApplicationJob
+  queue_as :analytics
 
   LOGGER_TAG = "[analytics-sync]".freeze
 
@@ -41,11 +39,11 @@ class YoutubeAnalyticsSync
 
     if retention_only
       active_videos = videos.find_each.select { |v| Channel::Youtube::ActiveVideoClassifier.active?(v) }
-      active_videos.each { |v| VideoRetentionSync.perform_async(v.id) }
+      active_videos.each { |v| VideoRetentionSync.perform_later(v.id) }
       return
     end
 
-    channels.each { |c| ChannelAnalyticsSync.perform_async(c.id) }
-    videos.find_each { |v| VideoAnalyticsSync.perform_async(v.id) }
+    channels.each { |c| ChannelAnalyticsSync.perform_later(c.id) }
+    videos.find_each { |v| VideoAnalyticsSync.perform_later(v.id) }
   end
 end

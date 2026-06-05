@@ -10,11 +10,10 @@
 # Changing the model requires a migration to widen / narrow the
 # columns; do that as a coordinated change, not in passing.
 #
-# API key resolution: `Rails.application.credentials.dig(:voyage,
-# :api_key)`. The flat `voyage:` block is shared across environments
-# (per `CLAUDE.md` Configuration strategy). Blank key returns nil
-# from `#embed` (no HTTP call, no raise) so callers can no-op
-# cleanly when credentials are not configured.
+# API key resolution: AppSetting.voyage_api_key via Pito::Credentials
+# (cached; set via `/config voyage api_key=…`). Blank key returns nil
+# from `#embed` (no HTTP call, no raise) so callers can no-op cleanly
+# when the key is not configured.
 #
 # Error contract: any non-2xx response, JSON parse failure, or
 # network error returns nil (the per-input slot in the batch is nil).
@@ -101,7 +100,7 @@ module Voyage
       end
 
       api_key = resolve_api_key
-      raise Error, "Voyage API key not configured (Rails.application.credentials.dig(:voyage, :api_key))" if api_key.blank?
+      raise Error, "Voyage API key not configured (use /config voyage api_key=… to set it)" if api_key.blank?
 
       response_data = post_embeddings_strict(list, model: model, api_key: api_key)
 
@@ -170,7 +169,7 @@ module Voyage
     end
 
     def resolve_api_key
-      Rails.application.credentials.dig(:voyage, :api_key)
+      Pito::Credentials.voyage_api_key
     end
   end
 end

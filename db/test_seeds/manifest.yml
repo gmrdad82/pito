@@ -1,0 +1,36 @@
+---
+:tables:
+  active_storage_attachments: 0
+  active_storage_blobs: 0
+  active_storage_variant_records: 0
+  app_settings: 0
+  channels: 2
+  companies: 0
+  conversations: 0
+  events: 0
+  footages: 0
+  game_developers: 0
+  game_genres: 0
+  game_platform_ownerships: 0
+  game_publishers: 0
+  games: 1
+  genres: 0
+  solid_cable_messages: 0
+  solid_cache_entries: 0
+  solid_queue_blocked_executions: 0
+  solid_queue_claimed_executions: 0
+  solid_queue_failed_executions: 0
+  solid_queue_jobs: 0
+  solid_queue_pauses: 0
+  solid_queue_processes: 0
+  solid_queue_ready_executions: 0
+  solid_queue_recurring_executions: 0
+  solid_queue_recurring_tasks: 0
+  solid_queue_scheduled_executions: 0
+  solid_queue_semaphores: 0
+  turns: 0
+  video_game_links: 0
+  video_previews: 0
+  videos: 0
+  youtube_connections: 0
+:active_storage_files: {}

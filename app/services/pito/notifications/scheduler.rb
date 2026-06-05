@@ -103,9 +103,9 @@ module Pito
       end
 
       def enqueue_deliveries(notification)
-        NotificationDeliver.perform_async(notification.id, "in_app")
-        NotificationDeliver.perform_async(notification.id, "discord") if AppSetting.discord_delivery_enabled?
-        NotificationDeliver.perform_async(notification.id, "slack")   if AppSetting.slack_delivery_enabled?
+        NotificationDeliver.perform_later(notification.id, "in_app")
+        NotificationDeliver.perform_later(notification.id, "discord") if AppSetting.discord_delivery_enabled?
+        NotificationDeliver.perform_later(notification.id, "slack")   if AppSetting.slack_delivery_enabled?
       end
 
       # Spec 02 will replace this with a per-event-type renderer. For Spec

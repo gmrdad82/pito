@@ -1,0 +1,20 @@
+<%# Ctrl+K command palette — selection and filtering managed by pito--command-palette controller %>
+<div class="w-[600px] bg-surface border border-line-default p-2.5">
+  <%= render(Pito::Palette::CtrlK::SearchComponent.new) %>
+
+  <div class="h-4"></div>
+
+  <div data-pito--command-palette-target="list"
+       class="pito-hide-scrollbar overflow-y-auto"
+       style="max-height: min(80vh, 500px);">
+    <% @sections.each_with_index do |section, s_idx| %>
+      <%= render(Pito::Palette::CtrlK::SectionComponent.new(
+            title_key: section[:title_key],
+            items:     section[:items]
+          )) %>
+      <% if s_idx < @sections.length - 1 %>
+        <div class="h-3" data-pito--command-palette-target="sectionGap"></div>
+      <% end %>
+    <% end %>
+  </div>
+</div>

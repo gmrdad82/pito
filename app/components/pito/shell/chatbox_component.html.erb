@@ -1,0 +1,58 @@
+<%# Chatbox — bar+gap+content via Pito::Segment, two-line layout %>
+<%
+  input_attrs = { placeholder: placeholder, autocomplete: "off", rows: 1,
+                  class: "text-fg placeholder:text-fg-faded bg-transparent outline-none border-none w-full pito-chatbox__input",
+                  data: { action: "keydown->pito--autosuggest#handleKeydown keydown->pito--chat-form#handleKeydown input->pito--autosuggest#onInput",
+                          pito__autosuggest_target: "field",
+                          pito__terminal_caret_target: "field",
+                          pito__type_fx_target: "field" } }
+  input_attrs[:data].merge!(@input_data) if @input_data
+
+  chatbox_controllers = "pito--autosuggest pito--chatbox-hints pito--history"
+  chatbox_data = { "pito--history-entries-value": @history.to_json }
+  if @draft_uuid.present?
+    chatbox_controllers += " pito--draft"
+    chatbox_data[:"pito--draft-uuid-value"] = @draft_uuid
+  end
+%>
+<div id="pito-chatbox" class="chatbox-wrapper" data-controller="<%= chatbox_controllers %>" data-action="click->pito--chat-form#focusField"<% chatbox_data.each do |k, v| %> data-<%= k %>="<%= v %>"<% end %>>
+<script type="application/json" data-pito--autosuggest-target="catalog"><%= catalog_json.html_safe %></script>
+<div data-pito--autosuggest-target="palette" class="pito-autosuggest-palette hidden"></div>
+<%= render(Pito::Segment::Component.new(
+      accent: :purple,
+      background: "var(--bg-elevated)"
+    )) do %>
+  <div class="flex flex-col">
+    <%# Hidden inputs for channel / period (always present when filter is given) %>
+    <% if @filter %>
+      <%= hidden_field_tag :channel, @filter[:channel], data: { pito__chat_form_target: "channelInput" } %>
+      <%= hidden_field_tag :period, @filter[:period], data: { pito__chat_form_target: "periodInput" } %>
+    <% end %>
+
+    <%# Line 1: text input + terminal block caret overlay %>
+    <div class="pito-chatbox__field-wrap" data-controller="pito--terminal-caret pito--type-fx"
+         data-pito--terminal-caret-autofocus-value="true">
+      <%= text_area_tag :input_field, @initial_value, **input_attrs %>
+      <span class="terminal-caret" data-pito--terminal-caret-target="block" aria-hidden="true"></span>
+    </div>
+    <%# Line 2: filter context (only shown in :default state) %>
+    <% if @filter && @state != :start %>
+      <div class="flex items-center text-fg-faded pito-chatbox__filter">
+        <% if @conversation_title %>
+          <span class="text-purple pito-chatbox__name"><%= @conversation_title %></span>
+          <%= render(Pito::Shell::InlineSeparatorComponent.new) %>
+        <% end %>
+        <span data-pito--chat-form-target="channelDisplay">
+          <%= render(Pito::Shell::Chatbox::ChannelComponent.new(channel: @filter[:channel])) %>
+        </span>
+        <%= render(Pito::Shell::InlineSeparatorComponent.new) %>
+        <span data-pito--chat-form-target="periodDisplay">
+          <%= render(Pito::Shell::Chatbox::PeriodComponent.new(period: @filter[:period])) %>
+        </span>
+        <span data-pito--chatbox-hints-target="suggestHint" class="items-center hidden"><%= render(Pito::Shell::InlineSeparatorComponent.new) %><%= render(Pito::Keybinding::HintComponent.new(shortcut: "tab", description: "suggest")) %></span>
+        <span data-pito--chatbox-hints-target="chatHint" class="items-center hidden"><%= render(Pito::Shell::InlineSeparatorComponent.new) %><%= render(Pito::Keybinding::HintComponent.new(shortcut: "m", description: "chat")) %></span>
+      </div>
+    <% end %>
+  </div>
+<% end %>
+</div>

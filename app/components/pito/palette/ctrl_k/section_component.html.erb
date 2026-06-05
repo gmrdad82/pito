@@ -1,0 +1,15 @@
+<div data-pito--command-palette-target="section"
+     data-section-title="<%= t(@title_key) %>">
+  <%= render(Pito::Section::SectionHeaderComponent.new(
+        text:        t(@title_key),
+        color:       :yellow,
+        px:          "[7px]",
+        extra_attrs: { "data-pito--command-palette-target" => "sectionTitle" }
+      )) %>
+  <% @items.each do |item| %>
+    <%= render(Pito::Palette::CtrlK::CommandComponent.new(
+          label_key: item[:label_key],
+          insert:    item[:insert]
+        )) %>
+  <% end %>
+</div>

@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
 # bin/test-prepare
 #
-# Conditional `db:test:prepare` shim. Skips the rake task when `db/schema.rb`
-# has not changed since the last successful prepare, saving ~10-15s per local
-# spec run.
+# Conditional parallel test DB setup. Skips when `db/schema.rb` has not
+# changed since the last successful prepare, saving ~10-15s per local run.
 #
 # State file: `tmp/.test_db_prepared_at`. We compare its mtime to `db/schema.rb`
 # and re-prepare only when the schema is newer (or the marker is missing).
@@ -18,6 +17,8 @@
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
+
+export PARALLEL_TEST_PROCESSORS="${PARALLEL_TEST_PROCESSORS:-4}"
 
 SCHEMA="db/schema.rb"
 MARKER="tmp/.test_db_prepared_at"
@@ -34,6 +35,6 @@ if [[ -f "$MARKER" && "$MARKER" -nt "$SCHEMA" ]]; then
   exit 0
 fi
 
-echo "bin/test-prepare: schema changed (or no marker); running db:test:prepare..." >&2
-bin/rails db:test:prepare
+echo "bin/test-prepare: preparing parallel test databases..." >&2
+bundle exec rake parallel:create parallel:load_schema
 touch "$MARKER"

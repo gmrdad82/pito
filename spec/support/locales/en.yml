@@ -1,0 +1,9 @@
+en:
+  spec:
+    fixtures:
+      sample_message: "Test message"
+      sample_key: "Test value"
+  pito:
+    event:
+      thought:
+        prefix: "Thought"

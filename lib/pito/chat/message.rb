@@ -1,0 +1,12 @@
+# frozen_string_literal: true
+
+module Pito
+  module Chat
+    Message = Data.define(:verb, :body_tokens, :kind, :raw) do
+      # verb        — Symbol (:list, :show, :find) or nil for refinement/unknown
+      # body_tokens — Array of Pito::Lex::Token (the remainder after the verb)
+      # kind        — Symbol :new_turn, :refinement, or :unknown
+      # raw         — String, the original input
+    end
+  end
+end
