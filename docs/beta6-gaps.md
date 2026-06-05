@@ -79,7 +79,7 @@ PR; squash-merge at the end.
   event_renderer (each kind, unknown raises); cross-instance broadcast assertions.
 - JS: `resume`, `notifications_nav`, `scrollback`, `dots`/`done_dispatch`/`turn_complete`.
 
-### [ ] Phase D — Notifications: delivery + formatter + model + jobs
+### [x] Phase D — Notifications: delivery + formatter + model + jobs
 
 - Doc-blocks: `DeliveryChannel::Base` (override contract + 2xx/429+5xx/4xx semantics),
   `Formatter::Templates::Base` (title/body/url; payload-only), `Notifications::Source`.
