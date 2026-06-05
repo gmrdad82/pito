@@ -52,7 +52,7 @@ PR; squash-merge at the end.
 
 ## Phases
 
-### [ ] Phase A — Language core: lex / grammar / parse / autocomplete
+### [x] Phase A — Language core: lex / grammar / parse / autocomplete
 - Doc-blocks: `Lex::Lexer` (token types, URL/@/string/whitespace, `preceded_by_space`),
   `Grammar::Registry` (dual specs+vocabularies store, boot), `Grammar::Vocabulary`
   (resolution canonical→synonym→dynamic→nil, fillers, members), `Grammar::HandlerDsl`.
