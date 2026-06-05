@@ -151,29 +151,32 @@ here so Plan 4 contains only what ships in the Beta. Pick these up after merge.
 > **Dropped for the Beta** — no `Playlist` model in the DB yet. Confirmed feasible
 > end-to-end via the **YouTube Data API v3**. API mapping (all OAuth, `youtube` scope):
 >
-> | Operation | Endpoint | Notes |
-> |---|---|---|
-> | Create playlist | `playlists.insert` | `snippet.title/description`, `status.privacyStatus`. ~50 units. |
-> | Update playlist (title/desc/privacy) | `playlists.update` | full `snippet`+`status` (read-modify-write). ~50. |
-> | **Delete playlist** | `playlists.delete` | by playlist id; removes the whole playlist (items go with it). ~50. |
-> | List playlists | `playlists.list` (`mine=true`) | paginate; ~1 unit/page. |
-> | Add video | `playlistItems.insert` | `snippet.playlistId` + `resourceId{kind:youtube#video, videoId}` (+ optional `position`). ~50. |
-> | Remove video | `playlistItems.delete` | by **playlistItem id** (not videoId) — must look it up first. ~50. |
-> | List items | `playlistItems.list` | paginate; gives each item's id + `position`. ~1/page. |
-> | Reorder | `playlistItems.update` | set `snippet.position` (0-based); reordering N items = N updates. ~50 each. |
-> | Public/Private/Unlisted | `status.privacyStatus` on insert/update | `public` \| `unlisted` \| `private`. |
+> | Operation                            | Endpoint                                | Notes                                                                                          |
+> | ------------------------------------ | --------------------------------------- | ---------------------------------------------------------------------------------------------- |
+> | Create playlist                      | `playlists.insert`                      | `snippet.title/description`, `status.privacyStatus`. ~50 units.                                |
+> | Update playlist (title/desc/privacy) | `playlists.update`                      | full `snippet`+`status` (read-modify-write). ~50.                                              |
+> | **Delete playlist**                  | `playlists.delete`                      | by playlist id; removes the whole playlist (items go with it). ~50.                            |
+> | List playlists                       | `playlists.list` (`mine=true`)          | paginate; ~1 unit/page.                                                                        |
+> | Add video                            | `playlistItems.insert`                  | `snippet.playlistId` + `resourceId{kind:youtube#video, videoId}` (+ optional `position`). ~50. |
+> | Remove video                         | `playlistItems.delete`                  | by **playlistItem id** (not videoId) — must look it up first. ~50.                             |
+> | List items                           | `playlistItems.list`                    | paginate; gives each item's id + `position`. ~1/page.                                          |
+> | Reorder                              | `playlistItems.update`                  | set `snippet.position` (0-based); reordering N items = N updates. ~50 each.                    |
+> | Public/Private/Unlisted              | `status.privacyStatus` on insert/update | `public` \| `unlisted` \| `private`.                                                           |
 >
 > Quota: a single playlist is cheap; **bulk reorder / bulk add is expensive** (50 units/write) — batch + debounce, and consider a "dirty position" diff so only moved items update. Watch the daily 10k-unit default quota.
 
 ### Data model
+
 - [ ] PL.1 `Playlist` model: `youtube_playlist_id` (unique, nullable until created), `title`, `description`, `privacy_status` (enum public/unlisted/private), `position` (channel ordering, optional), `belongs_to :channel`, `last_synced_at`. complexity: [high]
 - [ ] PL.2 `PlaylistItem` model: `belongs_to :playlist`, `belongs_to :video` (or `youtube_video_id` mirror), `youtube_playlist_item_id` (needed for delete/reorder), `position` (0-based), unique on (playlist, video); `playlist has_many :playlist_items, -> { order(:position) }, dependent: :destroy`. complexity: [high]
 - [ ] PL.3 Factories + `factories_spec` coverage. complexity: [low]
 
 ### API client
+
 - [ ] PL.4 `Channel::Youtube::Client` playlist methods: `create_playlist`, `update_playlist`, `delete_playlist`, `list_playlists`, `list_playlist_items`, `insert_item`, `delete_item`, `update_item_position`. WebMock-stubbed specs for each. complexity: [high]
 
 ### Commands (chat/slash) — each: echo → async job → Braille → result Segment
+
 - [ ] PL.5 `/playlist new <title> [public|private|unlisted]` → `playlists.insert` + mirror a `Playlist`. complexity: [high]
 - [ ] PL.6 `/playlist rename <playlist> <title>` and `/playlist privacy <playlist> <public|private|unlisted>` → `playlists.update`. complexity: [low]
 - [ ] PL.7 **`/playlist delete <playlist>`** → `confirmation` Segment ("Delete playlist '<title>' (<N> videos)? This removes it on YouTube.") → on confirm `playlists.delete` → destroy the local `Playlist` (+ items). complexity: [high]
@@ -182,10 +185,12 @@ here so Plan 4 contains only what ships in the Beta. Pick these up after merge.
 - [ ] PL.10 Reorder UI: a playlist sidebar with keyboard (↑/↓ to move a selected item) + drag → diff changed positions → minimal `playlistItems.update` calls → persist mirror order. complexity: [high]
 
 ### Sync
+
 - [ ] PL.11 Import existing playlists: `playlists.list(mine)` + `playlistItems.list` per playlist → upsert mirror (id/title/privacy/items/positions); run on connect + via `/playlist sync`. complexity: [high]
 - [ ] PL.12 Optional: include playlist sync in the daily channel sync (P60) cadence. complexity: [low]
 
 ### Quality
+
 - [ ] PL.13 Specs: every command (stubbed API), confirmation on delete, position renumber on remove, reorder diff, privacy round-trip, dedupe on add. complexity: [high]
 - [ ] PL.14 i18n all copy (incl. the delete confirmation + witty empty/error states). complexity: [low]
 - [ ] PL.15 Commit(s), one per cohesive slice: models → client → create/update/delete → add/remove → reorder → sync. complexity: [manual]
