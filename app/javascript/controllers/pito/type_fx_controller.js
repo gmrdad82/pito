@@ -38,6 +38,7 @@
 
 import { Controller } from "@hotwired/stimulus"
 import { fxEnabled } from "pito/settings"
+import { TICK_MS } from "pito/typing"  // shared cadence reference (animation itself is CSS-driven)
 
 // Computed styles to copy onto the overlay so wrapping matches the textarea.
 // Identical list to terminal_caret_controller.js — keep in sync.
@@ -213,7 +214,8 @@ export default class extends Controller {
       const strip = () => span.classList.remove("pito-type-char--new")
       span.addEventListener("animationend", strip, { once: true })
       // Safety: strip even if the animation never fires (e.g. tab hidden).
-      setTimeout(strip, 150)
+      // ~150 ms — roughly TICK_MS * 12 — long enough for the CSS animation.
+      setTimeout(strip, TICK_MS * 12)
     }
 
     return span

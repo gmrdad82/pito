@@ -3,6 +3,13 @@
 // Progressively reveals the text content of its `body` target character-by-
 // character (typewriter effect) when a segment arrives live over the cable.
 //
+// Expand-state aware:
+//   • COLLAPSED (default): only the `body` target is animated.
+//   • EXPANDED (expand_all on at render): the `body` target is animated first,
+//     then each `prose` target in order (these wrap the always-visible
+//     expand_lines that sit above the kv-detail).
+//   KV-tables and all chrome (hints, bars, meta) always render instantly.
+//
 // Conditions that skip animation (instant full-text):
 //   • prefers-reduced-motion media query matches.
 //   • window.__pitoReady is falsy (initial server-rendered page load — the
@@ -24,33 +31,42 @@
 
 import { Controller } from "@hotwired/stimulus"
 import { enqueue } from "pito/reveal_queue"
-import { fxEnabled } from "pito/settings"
-
-const TICK_MS     = 12   // ms per tick
-const CHARS_TICK  = 2    // characters per tick (fast reveal)
+import { fxEnabled, expandAllEnabled } from "pito/settings"
+import { TICK_MS, CHARS_TICK } from "pito/typing"
 
 export default class extends Controller {
-  static targets = ["body"]
+  static targets = ["body", "prose"]
 
   connect() {
     if (this.#skipAnimation()) return
     if (!this.hasBodyTarget) return
 
-    const fullText = this.bodyTarget.textContent
-    if (!fullText) return
+    const bodyText = this.bodyTarget.textContent
+    if (!bodyText) return
 
     // Guard double-run (e.g. Turbo re-connects same element).
     if (this._connected) return
     this._connected = true
-
-    this._fullText  = fullText
     this._cancelled = false
 
-    // Blank the span immediately so it appears empty while queued.
-    this.bodyTarget.textContent = ""
+    // Collect all prose targets to animate:
+    //   • always: the body target (summary prose)
+    //   • when expanded: any `prose` targets (expand_lines prose divs)
+    //     Tables / hints are never in prose targets — they're always instant.
+    const items = [{ el: this.bodyTarget, text: bodyText }]
+    if (expandAllEnabled() && this.hasProseTargets) {
+      for (const el of this.proseTargets) {
+        const text = el.textContent
+        if (text) items.push({ el, text })
+      }
+    }
 
-    // Capture a stable reference to the target for the closure.
-    const target    = this.bodyTarget
+    // Capture full texts and blank all targets immediately so they appear
+    // empty while the job is waiting in the queue.
+    this._items = items
+    for (const item of items) item.el.textContent = ""
+
+    // Keep a stable cancelled ref for the closure.
     const cancelled = () => this._cancelled
 
     enqueue(({ instant } = {}) => {
@@ -60,24 +76,40 @@ export default class extends Controller {
         this._resolve = () => { this._resolve = null; resolve() }
 
         if (instant || cancelled()) {
-          target.textContent = fullText
+          for (const { el, text } of items) el.textContent = text
           this._resolve()
           return
         }
 
-        let pos = 0
+        let itemIdx = 0
+        let pos     = 0
 
         const tick = () => {
           if (cancelled()) {
-            target.textContent = fullText
+            for (const { el, text } of items) el.textContent = text
             this._resolve?.()
             return
           }
 
-          pos = Math.min(pos + CHARS_TICK, fullText.length)
-          target.textContent = fullText.slice(0, pos)
+          // Advance CHARS_TICK characters, crossing element boundaries as needed.
+          let charsLeft = CHARS_TICK
+          while (charsLeft > 0 && itemIdx < items.length) {
+            const { el, text } = items[itemIdx]
+            const remaining = text.length - pos
+            if (charsLeft >= remaining) {
+              // Finish this element and move to the next.
+              el.textContent = text
+              charsLeft -= remaining
+              itemIdx++
+              pos = 0
+            } else {
+              pos += charsLeft
+              el.textContent = text.slice(0, pos)
+              charsLeft = 0
+            }
+          }
 
-          if (pos >= fullText.length) {
+          if (itemIdx >= items.length) {
             this._resolve?.()
           } else {
             this._timer = setTimeout(tick, TICK_MS)
@@ -98,8 +130,10 @@ export default class extends Controller {
     this._resolve?.()
 
     // Restore full text so a removed/swapped element isn't left truncated.
-    if (this._fullText !== undefined && this.hasBodyTarget) {
-      this.bodyTarget.textContent = this._fullText
+    if (this._items) {
+      for (const { el, text } of this._items) {
+        if (el.isConnected) el.textContent = text
+      }
     }
   }
 

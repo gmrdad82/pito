@@ -5,15 +5,23 @@
     <div data-controller="pito--expand"
          data-pito--expand-expand-label-value="<%= expand_label %>"
          data-pito--expand-collapse-label-value="<%= collapse_label %>">
-      <% if body %>
+      <%# Prose wrapper — typewriter controller covers body + expand_lines so
+          the whole prose region reveals together when expanded. Tables/hints
+          outside this wrapper always render instantly. %>
+      <% if body || expand_lines.any? %>
         <% if html %>
           <span class="text-fg"><%= raw(body) %></span>
+          <% expand_lines.each do |line| %>
+            <div class="text-fg"><%= line %></div>
+          <% end %>
         <% else %>
-          <span class="text-fg" data-controller="pito--typewriter" data-pito--typewriter-target="body"><%= body %></span>
+          <div data-controller="pito--typewriter">
+            <span class="text-fg" data-pito--typewriter-target="body"><%= body %></span>
+            <% expand_lines.each do |line| %>
+              <div class="text-fg" data-pito--typewriter-target="prose"><%= line %></div>
+            <% end %>
+          </div>
         <% end %>
-      <% end %>
-      <% expand_lines.each do |line| %>
-        <div class="text-fg"><%= line %></div>
       <% end %>
       <%# Top hint — hidden when expanded %>
       <div data-pito--expand-target="hint" class="mt-1">

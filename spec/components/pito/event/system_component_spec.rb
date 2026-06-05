@@ -52,8 +52,10 @@ RSpec.describe Pito::Event::SystemComponent do
       }))
     end
 
-    it "adds pito--typewriter controller to the inline body span in sections mode" do
-      span = node.css("span.text-fg[data-controller~='pito--typewriter']").first
+    it "adds pito--typewriter controller to the prose wrapper div in sections mode" do
+      wrapper = node.css("div[data-controller~='pito--typewriter']").first
+      expect(wrapper).not_to be_nil
+      span = wrapper.css("span[data-pito--typewriter-target='body']").first
       expect(span).not_to be_nil
       expect(span.text).to include("Sections body text")
     end
