@@ -1,7 +1,10 @@
 # frozen_string_literal: true
 
-# FAKE DATA — returns hardcoded placeholder content.
-# Real list logic arrives in a domain plan.
+# Handler for the `list` chat verb.
+#
+# **FAKE DATA** — returns hardcoded placeholder content keyed at
+# `pito.chat.list.fake_response`.  Real list logic (querying the conversation's
+# video/channel scope) arrives in a domain plan.
 module Pito
   module Chat
     module Handlers

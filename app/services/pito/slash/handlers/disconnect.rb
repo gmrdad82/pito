@@ -3,11 +3,21 @@
 module Pito
   module Slash
     module Handlers
-      # /disconnect @handle   — case-sensitive partial match on Channel#handle
-      # /disconnect <id>      — local numeric id
+      # Handler for `/disconnect @handle|<id>`.
       #
-      # Returns an error event if the channel cannot be resolved.
-      # Returns a confirmation event with expand_detail breakdown if found.
+      # Resolves the target channel via two strategies (in order):
+      # - `@handle` (with or without `@` prefix) — `LIKE %fragment%` match on
+      #   `Channel#handle`; **case-sensitive** (`@Foo` ≠ `@foo`).
+      # - Bare integer — exact `Channel.find_by(id:)`.
+      #
+      # Returns `Result::Ok` with:
+      # - `kind: "confirmation"` and `expand_detail` (channel stats + video breakdown)
+      #   when the channel is found.
+      # - `kind: "error"` (not `Result::Error`) when the target is missing or
+      #   the channel is not found, so the error appears inline in the scrollback.
+      #
+      # The confirmation payload is consumed by `ConfirmationRouter` / the
+      # `#reply-<handle>` hashtag path to actually perform the disconnection.
       class Disconnect < Pito::Slash::Handler
         self.verb = :disconnect
         self.description_key = "pito.slash.disconnect.descriptions.disconnect"

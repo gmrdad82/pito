@@ -3,6 +3,19 @@
 module Pito
   module Slash
     module Handlers
+      # Handler for `/help`.
+      #
+      # Behaviour varies by authentication state:
+      # - **Authenticated**: returns a full sectioned help response (body + expand/collapse
+      #   labels + sections array pulled from `pito.slash.help.sections` I18n data).
+      # - **Unauthenticated**: returns a single `message_key: "pito.slash.help.unauthenticated"`
+      #   event with the login instruction only.
+      #
+      # The `grammar` block declares `auth :any` so the dispatcher does not block
+      # unauthenticated users — the handler itself branches on `authenticated`.
+      #
+      # `/help --help` is intercepted by the dispatcher and routed to
+      # `Pito::Slash::HelpRenderer` which renders the witty nonsense dictionary.
       class Help < Pito::Slash::Handler
         self.verb = :help
         self.description_key = "pito.slash.help.descriptions.help"
