@@ -72,7 +72,7 @@ PR; squash-merge at the end.
   chat/hashtag dispatch edges; `ActionDispatcher`/`ActionRegistry`.
 - JS: `command_palette`, `chat_form`, `rename`, `draft`.
 
-### [ ] Phase C — Stream / broadcast / events + sidebar JS
+### [x] Phase C — Stream / broadcast / events + sidebar JS
 
 - Doc-blocks: `Stream::Broadcaster`, `Stream::EventRenderer`.
 - Rails specs: broadcaster (emit/replace/auth/settings/global + `have_broadcasted_to`),
