@@ -85,10 +85,13 @@ module Pito
 
           provider = invocation.args.first.to_s.downcase
 
+          # Bare /config with no provider shows the general overview.
+          return general_help_events if provider.blank?
+
           unless known_providers.include?(provider)
             return Pito::Slash::Result::Error.new(
               message_key:  "pito.slash.config.errors.unknown_provider",
-              message_args: { provider: provider.presence || "(none)" }
+              message_args: { provider: provider }
             )
           end
 

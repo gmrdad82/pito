@@ -109,15 +109,24 @@ module Pito
           return tok.value
         end
 
-        # Slurp consecutive tokens until we hit a kwarg boundary
-        # (word followed by colon or equals) or EOF.
+        # Slurp consecutive (non-whitespace-separated) tokens until we hit:
+        #   - EOF
+        #   - a kwarg boundary (word followed by colon/equals)
+        #   - a token that was preceded by whitespace in the source (i.e. a new
+        #     space-separated argument starts here — stop before it).
+        # Exception: the very first token of a value is always consumed regardless
+        # of its preceded_by_space flag (it's already been "chosen" as the start of
+        # this value by the main loop).
         parts = []
+        first = true
         loop do
           break if eof?
           break if kwarg_boundary?
+          break if !first && current_token.preceded_by_space
 
           parts << current_token.value.to_s
           advance
+          first = false
         end
 
         joined = parts.join

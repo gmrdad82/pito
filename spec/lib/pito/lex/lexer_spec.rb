@@ -180,5 +180,57 @@ RSpec.describe Pito::Lex::Lexer do
         expect(result[1].position).to eq(3) # help at column 3
       end
     end
+
+    describe "preceded_by_space field" do
+      it "is false for the first token in the stream" do
+        result = tokens("/help")
+        expect(result[0].preceded_by_space).to be(false)
+      end
+
+      it "is false for tokens immediately following another token (no gap)" do
+        # "/config" → slash, word — the word follows slash with no space
+        result = tokens("/config")
+        slash_tok = result[0]
+        word_tok  = result[1]
+        expect(slash_tok.preceded_by_space).to be(false)
+        expect(word_tok.preceded_by_space).to be(false)
+      end
+
+      it "is true for a token that follows a whitespace run" do
+        # "/config fx" → slash, word(config), word(fx)
+        # "fx" is space-separated from "config"
+        result = tokens("/config fx")
+        expect(result[0].preceded_by_space).to be(false) # /
+        expect(result[1].preceded_by_space).to be(false) # config (no space before)
+        expect(result[2].preceded_by_space).to be(true)  # fx (space before)
+      end
+
+      it "is true for each space-separated token in a multi-word input" do
+        result = tokens("fx on")
+        expect(result[0].preceded_by_space).to be(false) # fx
+        expect(result[1].preceded_by_space).to be(true)  # on
+      end
+
+      it "is false for contiguous special-char tokens (dot, colon, etc.)" do
+        # "a.b.c" → word, dot, word, dot, word — no whitespace between them
+        result = tokens("a.b.c")
+        result.reject { |t| t.type == :eof }.each do |tok|
+          expect(tok.preceded_by_space).to be(false)
+        end
+      end
+
+      it "is false on the EOF token even after trailing whitespace" do
+        result = tokens("hi ")
+        eof_tok = result.last
+        expect(eof_tok.type).to eq(:eof)
+        expect(eof_tok.preceded_by_space).to be(false)
+      end
+
+      it "is false on the EOF token for whitespace-only input" do
+        result = tokens("   ")
+        eof_tok = result.last
+        expect(eof_tok.preceded_by_space).to be(false)
+      end
+    end
   end
 end

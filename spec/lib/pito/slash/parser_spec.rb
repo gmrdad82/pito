@@ -85,6 +85,61 @@ RSpec.describe Pito::Slash::Parser do
       end
     end
 
+    describe "space-separated positional args" do
+      it "produces two separate args for /config fx on" do
+        result = described_class.call(lex("/config fx on"), raw: "/config fx on")
+        expect(result.args).to eq(%w[fx on])
+      end
+
+      it "produces two separate args for /config sound off" do
+        result = described_class.call(lex("/config sound off"), raw: "/config sound off")
+        expect(result.args).to eq(%w[sound off])
+      end
+
+      it "produces three separate args when three space-separated words follow the verb" do
+        result = described_class.call(lex("/cmd a b c"), raw: "/cmd a b c")
+        expect(result.args).to eq(%w[a b c])
+      end
+
+      it "treats a bare /config (no args) as empty args list" do
+        result = described_class.call(lex("/config"), raw: "/config")
+        expect(result.args).to eq([])
+      end
+    end
+
+    describe "regression: contiguous tokens still join (no space between)" do
+      it "slurps a dotted id into a single arg" do
+        result = described_class.call(lex("/cmd a.b.c"), raw: "/cmd a.b.c")
+        expect(result.args).to eq([ "a.b.c" ])
+      end
+
+      it "slurps @handle with dash into a single arg" do
+        result = described_class.call(
+          lex("/disconnect @gmr-dad"),
+          raw: "/disconnect @gmr-dad"
+        )
+        expect(result.args).to eq([ "@gmr-dad" ])
+      end
+
+      it "slurps a URL into a single kwarg value" do
+        result = described_class.call(
+          lex("/config google redirect_uri=http://localhost:3027/auth/callback"),
+          raw: "/config google redirect_uri=http://localhost:3027/auth/callback"
+        )
+        expect(result.args).to eq([ "google" ])
+        expect(result.kwargs[:redirect_uri]).to eq("http://localhost:3027/auth/callback")
+      end
+
+      it "keeps space-separated kwargs correctly split" do
+        result = described_class.call(
+          lex("/config google client_id=x redirect_uri=y"),
+          raw: "/config google client_id=x redirect_uri=y"
+        )
+        expect(result.args).to eq([ "google" ])
+        expect(result.kwargs).to eq({ client_id: "x", redirect_uri: "y" })
+      end
+    end
+
     describe "positional args with special characters" do
       it "slurps a positional arg containing dashes" do
         result = described_class.call(

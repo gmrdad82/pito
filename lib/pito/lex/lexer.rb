@@ -15,6 +15,7 @@ module Pito
         @input = string
         @pos = 0
         @tokens = []
+        @space_pending = false  # set true after skipping whitespace
       end
 
       def tokenize
@@ -42,6 +43,7 @@ module Pito
             read_string
           when /\s/
             advance
+            @space_pending = true
           when /[a-zA-Z]/
             read_word
           when /\d/
@@ -71,10 +73,14 @@ module Pito
       end
 
       def emit(type, value, position = nil)
+        # EOF is a sentinel — preceded_by_space is always false (it's never slurped).
+        preceded = (type != :eof) && @space_pending
+        @space_pending = false
         @tokens << Pito::Lex::Token.new(
           type:,
           value:,
-          position: position || @pos
+          position:          position || @pos,
+          preceded_by_space: preceded
         )
       end
 
