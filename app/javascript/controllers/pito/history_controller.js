@@ -38,16 +38,55 @@ export default class extends Controller {
 
     this._onKeydown = this.#onKeydown.bind(this)
     this.element.addEventListener("keydown", this._onKeydown)
+
+    // Capture the submitted value before the chat-form clears the textarea.
+    // We listen on the nearest ancestor <form> in capture phase so we run
+    // before the chat-form's submit handler empties the field.
+    this._form = this.element.closest("form")
+    if (this._form) {
+      this._onSubmit = this.#onSubmit.bind(this)
+      this._form.addEventListener("submit", this._onSubmit, { capture: true })
+    }
   }
 
   disconnect() {
     this.element.removeEventListener("keydown", this._onKeydown)
+    if (this._form && this._onSubmit) {
+      this._form.removeEventListener("submit", this._onSubmit, { capture: true })
+    }
   }
 
   // ── Private ────────────────────────────────────────────────────────────────
 
+  // Live entries: starts as the server-rendered value; prepended on each send.
+  // We keep our own _entries array so we don't mutate the Stimulus value object
+  // on every keystroke and to allow deduplication / cap logic.
   get #entries() {
-    return this.entriesValue || []
+    // Initialise once from the server-rendered Stimulus value.
+    if (!this._entries) {
+      this._entries = this.entriesValue || []
+    }
+    return this._entries
+  }
+
+  #onSubmit() {
+    const field = this.element.querySelector("textarea")
+    if (!field) return
+
+    const text = field.value.trim()
+    if (!text) return
+
+    const entries = this.#entries
+
+    // Dedupe consecutive duplicates (don't add if identical to the current newest).
+    if (entries.length > 0 && entries[0] === text) return
+
+    // Prepend newest-first; cap at 50.
+    this._entries = [text, ...entries].slice(0, 50)
+
+    // Reset cursor so the next ↑ starts from this freshly-sent command.
+    this._index = -1
+    this._draft = ""
   }
 
   #onKeydown(event) {
