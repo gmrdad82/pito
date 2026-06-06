@@ -30,6 +30,8 @@ module Pito
           case command.to_s
           when "disconnect"
             confirm_disconnect(payload)
+          when "game_delete"
+            confirm_game_delete(payload)
           else
             Pito::Copy.render("pito.copy.confirmation.confirmed")
           end
@@ -54,6 +56,13 @@ module Pito
         end
 
         private
+
+        def confirm_game_delete(payload)
+          payload = payload.with_indifferent_access
+          title   = payload[:game_title].to_s
+          ::Game.find_by(id: payload[:game_id])&.destroy!
+          Pito::Copy.render("pito.copy.games.deleted", { title: title })
+        end
 
         def confirm_disconnect(payload)
           payload       = payload.with_indifferent_access

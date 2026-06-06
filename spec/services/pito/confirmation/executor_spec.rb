@@ -85,4 +85,20 @@ RSpec.describe Pito::Confirmation::Executor, type: :service do
       expect(text).to be_present
     end
   end
+
+  describe ".confirm — game_delete" do
+    it "destroys the game and returns outcome text with the title" do
+      game = create(:game, title: "Lies of P")
+      text = nil
+      expect {
+        text = described_class.confirm("game_delete", { "game_id" => game.id, "game_title" => "Lies of P" })
+      }.to change(Game, :count).by(-1)
+      expect(text).to include("Lies of P")
+    end
+
+    it "is a no-op (still returns text) when the game is already gone" do
+      text = described_class.confirm("game_delete", { "game_id" => 0, "game_title" => "Gone" })
+      expect(text).to include("Gone")
+    end
+  end
 end
