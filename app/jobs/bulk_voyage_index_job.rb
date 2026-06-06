@@ -75,18 +75,8 @@ class BulkVoyageIndexJob < ApplicationJob
     end
   end
 
-  # Mirrors `Game::VoyageIndexer#combined_text` — keep in sync.
-  # 2026-05-19 — `alternative_names` joins the embedding input so the
-  # similar-games clustering picks up alt-name signal (series identifiers,
-  # localized names, marketing aliases).
+  # Shared multi-field builder — single source of truth (see Game::EmbedText).
   def game_text(game)
-    parts = []
-    parts << game.title.to_s.strip if game.title.present?
-    if game.respond_to?(:alternative_names) && game.alternative_names.present?
-      alt = Array(game.alternative_names).map { |n| n.to_s.strip }.reject(&:blank?)
-      parts << alt.join(" ") if alt.any?
-    end
-    parts << game.summary.to_s.strip if game.summary.present?
-    parts.join(" — ")
+    Game::EmbedText.call(game)
   end
 end

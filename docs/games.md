@@ -165,7 +165,7 @@ No production data exists → destructive migrations are free.
 
 ## P8 — Multi-field game embedding + channel embedding + diff-gated reindex
 
-- [ ] T8.1 `Game::EmbedText` (title+genres+dev+pub+description+platforms+ttb+ratings) in VoyageIndexer + BulkVoyageIndexJob. complexity: [high]
+- [x] T8.1 `Game::EmbedText` (title+genres+dev+pub+description+platforms+ttb+ratings) in VoyageIndexer + BulkVoyageIndexJob. complexity: [high]
 - [ ] T8.2 Migration `games.embedded_digest`; VoyageIndexer no-ops when digest unchanged. complexity: [high]
 - [ ] T8.3 `SyncGame`: reindex only when digest changed. complexity: [low]
 - [ ] T8.4 Migration: `channels.summary_embedding`(HNSW) + `keywords` + `tags`; `has_neighbors`. complexity: [low]

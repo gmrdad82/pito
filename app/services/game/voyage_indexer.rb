@@ -74,14 +74,7 @@ class Game
     # (they are short tokens, not prose) before being em-dash-joined
     # with the title + summary slots.
     def combined_text
-      parts = []
-      parts << @game.title.to_s.strip if @game.title.present?
-      if @game.respond_to?(:alternative_names) && @game.alternative_names.present?
-        alt = Array(@game.alternative_names).map { |n| n.to_s.strip }.reject(&:blank?)
-        parts << alt.join(" ") if alt.any?
-      end
-      parts << @game.summary.to_s.strip if @game.summary.present?
-      parts.join(" — ")
+      Game::EmbedText.call(@game)
     end
   end
 end
