@@ -75,21 +75,13 @@ class ChatController < ApplicationController
       end
     end
 
-    # Follow-up engine (P13) — BEFORE the legacy confirmation branch.
-    # Resolves `#<handle> <rest>` against events stamped with `reply_handle`.
-    # Only fires when a live (non-consumed) event carries the matched handle.
-    # Confirmation events use `confirmation_handle` (not `reply_handle`), so
-    # they always fall through to :not_found here and the old path handles them.
+    # Follow-up engine (P13/P14) — handles `#<handle> <rest>` replies for any
+    # event stamped with `reply_handle` + `reply_target` (including confirmations
+    # since P14).  Only fires when a live (non-consumed) event carries the handle.
+    # :not_found / :not_a_follow_up fall through to the hashtag path below.
     ff = Pito::FollowUp::Router.call(input:, conversation:)
     if ff[:status] == :ok
       handle_follow_up(input, conversation, ff)
-      return respond_to_client(conversation)
-    end
-
-    if confirmation_response?(input)
-      # #handle confirm|cancel — no echo; updates the existing confirmation
-      # segment to processing state, then enqueues ConfirmationDispatchJob.
-      handle_confirmation(input, conversation)
       return respond_to_client(conversation)
     end
 
@@ -448,30 +440,8 @@ class ChatController < ApplicationController
     end
   end
 
-  def confirmation_response?(input)
-    input.strip.match?(Pito::ConfirmationRouter::PATTERN)
-  end
-
-  # T28.5a-b: No echo. Flip the confirmation segment to processing immediately,
-  # then enqueue the job. Auth required — silently 204 if unauthenticated.
-  def handle_confirmation(input, conversation)
-    return unless Current.session.present?
-
-    routing = Pito::ConfirmationRouter.call(input:, conversation:)
-    return if routing[:error]
-
-    event  = routing[:event]
-    action = routing[:action]
-
-    event.update!(payload: event.payload.merge("processing" => true))
-    broadcaster = Pito::Stream::Broadcaster.new(conversation:)
-    broadcaster.replace_event(event)
-
-    ConfirmationDispatchJob.perform_later(event.id, action: action.to_s)
-  end
-
   def hashtag_message?(input)
-    input.start_with?("#") && !input.strip.match?(Pito::ConfirmationRouter::PATTERN)
+    input.start_with?("#")
   end
 
   def config_command?(input)

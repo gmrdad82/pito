@@ -17,15 +17,16 @@
           collapse_label: t("pito.confirmation.expand_collapse_hint")
         )) %>
 
-    <%# Resolved outcome appended below a hairline %>
-    <% if resolved? %>
-      <%= render(Pito::Event::ConfirmationResolvedComponent.new(outcome_text: @outcome_text)) %>
+    <%# Follow-up affordance (#<handle> confirm · cancel) — hidden once consumed %>
+    <% if reply_handle.present? && !resolved? %>
+      <%= render(Pito::FollowUp::AffordanceComponent.new(
+            handle:   reply_handle,
+            usage:    affordance_usage,
+            consumed: reply_consumed?
+          )) %>
     <% end %>
 
-    <%# Meta line: timestamp · #handle %>
-    <%= render(Pito::Event::MetaLineComponent.new(
-          timestamp: @timestamp,
-          handle:    @handle
-        )) %>
+    <%# Meta line: timestamp only (no handle — shown via affordance above) %>
+    <%= render(Pito::Event::MetaLineComponent.new(timestamp: @timestamp)) %>
   </div>
 <% end %>

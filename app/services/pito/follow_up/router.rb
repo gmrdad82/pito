@@ -27,10 +27,9 @@ module Pito
     #     receives :not_found, not :ok.
     #   - The router does NOT know about specific handlers; it only finds the
     #     event.  The controller reads the target and asks the Registry for the mode.
-    #   - Works alongside Pito::ConfirmationRouter during the P13 transition:
-    #     confirmation events carry `confirmation_handle`, not `reply_handle`, so
-    #     they always fall through to :not_found here and the old confirmation
-    #     branch handles them.
+    #   - Since P14, confirmation events are stamped with `reply_handle` and routed
+    #     here like any other follow-up.  A re-reply to a consumed confirmation
+    #     returns :not_found and falls through to hashtag routing (acceptable).
     class Router
       PATTERN = /\A#([a-z]+-\d{4})\s+(.+)\z/im
 

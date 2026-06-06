@@ -63,8 +63,14 @@ RSpec.describe Pito::Slash::Handlers::Disconnect, "extended coverage", type: :se
       expect(payload[:html]).to be true
     end
 
-    it "includes confirmation_handle matching the expected format" do
-      expect(payload[:confirmation_handle]).to match(/\A[a-z]+-\d{4}\z/)
+    it "includes reply_handle matching the expected format" do
+      handle = payload[:reply_handle] || payload["reply_handle"]
+      expect(handle).to match(/\A[a-z]+-\d{4}\z/)
+    end
+
+    it "includes reply_target: 'confirmation'" do
+      target = payload[:reply_target] || payload["reply_target"]
+      expect(target).to eq("confirmation")
     end
 
     it "includes expand_detail as an Array" do

@@ -16,8 +16,10 @@ module Pito
       # - `kind: "error"` (not `Result::Error`) when the target is missing or
       #   the channel is not found, so the error appears inline in the scrollback.
       #
-      # The confirmation payload is consumed by `ConfirmationRouter` / the
-      # `#reply-<handle>` hashtag path to actually perform the disconnection.
+      # The confirmation payload is follow-up-able: stamped with
+      # `reply_handle` + `reply_target:"confirmation"` so the follow-up engine
+      # routes `#<handle> confirm|cancel` to
+      # `Pito::FollowUp::Handlers::Confirmation`.
       class Disconnect < Pito::Slash::Handler
         self.verb = :disconnect
         self.description_key = "pito.slash.disconnect.descriptions.disconnect"
@@ -76,20 +78,20 @@ module Pito
         end
 
         def confirmation_event(channel)
-          handle     = channel.handle.presence || channel.title.to_s
-          conf_handle = Pito::HandleGenerator.call(conversation)
+          handle  = channel.handle.presence || channel.title.to_s
+          payload = {
+            command:       "disconnect",
+            body:          I18n.t("pito.slash.disconnect.confirmation.body", handle_html: %(<span class="text-cyan">@#{handle.delete_prefix("@")}</span>)),
+            html:          true,
+            channel_id:    channel.id,
+            expand_detail: build_expand_detail(channel)
+          }
+          Pito::FollowUp.make_followupable!(payload, target: "confirmation", conversation:)
 
           Pito::Slash::Result::Ok.new(events: [
             {
               kind:    "confirmation",
-              payload: {
-                command:             "disconnect",
-                body:                I18n.t("pito.slash.disconnect.confirmation.body", handle_html: %(<span class="text-cyan">@#{handle.delete_prefix("@")}</span>)),
-                html:                true,
-                confirmation_handle: conf_handle,
-                channel_id:          channel.id,
-                expand_detail:       build_expand_detail(channel)
-              }
+              payload: payload
             }
           ])
         end

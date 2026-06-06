@@ -132,43 +132,37 @@ RSpec.describe "Follow-up engine — controller routing", type: :request do
     end
   end
 
-  # ── Regression: existing confirmation path still works ─────────────────────
+  # ── Re-reply to a consumed confirmation falls through gracefully ──────────
 
-  context "legacy confirmation (#handle confirm|cancel with confirmation_handle)" do
+  context "re-reply to a consumed confirmation (reply_consumed: true)" do
     let(:conf_turn) do
       conversation.turns.create!(input_kind: :slash, input_text: "/disconnect @foo", position: 99)
     end
-    let!(:conf_event) do
+    let!(:consumed_event) do
       Event.create_with_position!(
         conversation:, turn: conf_turn,
         kind: "confirmation",
         payload: {
-          "command"             => "disconnect",
-          "body"                => "Disconnect?",
-          "confirmation_handle" => "theta-9090",
-          "channel_id"          => 0,
-          "authenticated"       => true
+          "command"        => "disconnect",
+          "body"           => "Disconnect?",
+          "reply_handle"   => "theta-9090",
+          "reply_target"   => "confirmation",
+          "reply_consumed" => true,
+          "channel_id"     => 0
         }
       )
     end
 
-    it "does NOT route via the follow-up engine (no FollowUpDispatchJob enqueued)" do
+    it "does NOT route via the follow-up engine (consumed → :not_found)" do
       expect {
         post "/chat", params: { input: "#theta-9090 confirm", uuid: conversation.uuid }
       }.not_to have_enqueued_job(FollowUpDispatchJob)
     end
 
-    it "still enqueues ConfirmationDispatchJob" do
+    it "does NOT raise — falls through to hashtag routing (creates a Turn)" do
       expect {
         post "/chat", params: { input: "#theta-9090 confirm", uuid: conversation.uuid }
-      }.to have_enqueued_job(ConfirmationDispatchJob).with(
-        conf_event.id, hash_including(action: "confirm")
-      )
-    end
-
-    it "flips processing to true on the confirmation event" do
-      post "/chat", params: { input: "#theta-9090 confirm", uuid: conversation.uuid }
-      expect(conf_event.reload.payload["processing"]).to be true
+      }.to change(Turn, :count).by(1)
     end
   end
 

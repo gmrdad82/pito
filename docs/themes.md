@@ -338,13 +338,13 @@ independent of P14.
 
 ### P14 — Confirmations on the engine (echo + append; consume original)
 
-- [ ] T14.1 `Pito::FollowUp::Handlers::Confirmation` (actions `confirm`/`cancel`) — delegate to the existing executors (disconnect …); return an `Append` of a `confirmation_follow_up` outcome message. complexity: [high]
-- [ ] T14.2 Migrate stampers: `disconnect.rb` (+ any confirmation emitter) → stamp via the helper (`reply_handle` + `reply_target:"confirmation"`, keep `command`). complexity: [low]
-- [ ] T14.3 Consume-on-reply: set `reply_consumed:true` on the original confirmation (affordance hidden; handle reserved); body kept; re-reply → not routable. complexity: [low]
-- [ ] T14.4 `ConfirmationFollowUpComponent`: orange border (like confirmation) + **surface** background (was `--bg-elevated`). complexity: [low]
-- [ ] T14.5 Retire `Pito::ConfirmationRouter` + old mutate-in-place `handle_confirmation` + the mutating branch of `ConfirmationDispatchJob` (fold its executors into the Confirmation follow-up handler). complexity: [high]
-- [ ] T14.6 Update confirmation flows/specs (disconnect request + job specs) to the echo + append + consume model. complexity: [low]
-- [ ] T14.7 Commit: `P14: confirmations via the follow-up engine (echo + append, consume)`. complexity: [manual]
+- [x] T14.1 `Pito::FollowUp::Handlers::Confirmation` (actions `confirm`/`cancel`) — delegate to the existing executors (disconnect …); return an `Append` of a `confirmation_follow_up` outcome message. complexity: [high]
+- [x] T14.2 Migrate stampers: `disconnect.rb` (+ any confirmation emitter) → stamp via the helper (`reply_handle` + `reply_target:"confirmation"`, keep `command`). complexity: [low]
+- [x] T14.3 Consume-on-reply: set `reply_consumed:true` on the original confirmation (affordance hidden; handle reserved); body kept; re-reply → not routable. complexity: [low]
+- [x] T14.4 `ConfirmationFollowUpComponent`: orange border (like confirmation) + **surface** background (was `--bg-elevated`). complexity: [low]
+- [x] T14.5 Retire `Pito::ConfirmationRouter` + old mutate-in-place `handle_confirmation` + the mutating branch of `ConfirmationDispatchJob` (fold its executors into the Confirmation follow-up handler). complexity: [high]
+- [x] T14.6 Update confirmation flows/specs (disconnect request + job specs) to the echo + append + consume model. complexity: [low]
+- [x] T14.7 Commit: `P14: confirmations via the follow-up engine (echo + append, consume)`. complexity: [manual]
 
 ### P15 — Theme list on the engine (mutate path) — supersedes P12a targeting
 

@@ -1,25 +1,8 @@
 <%= render(Pito::Segment::Component.new(accent: :orange, background:, id: dom_id)) do %>
   <div class="flex flex-col">
-    <%# Processing indicator (Braille + verb, inside segment above body) %>
-    <% if processing? %>
-      <%= render(Pito::Event::ConfirmationSpinnerComponent.new(
-            frames_json: braille_frames_json,
-            word:        processing_word
-          )) %>
-    <% end %>
-
-    <%# Body + optional expand detail (pending state only) %>
-    <%= render(Pito::Event::ExpandableBodyComponent.new(
-          body:           body,
-          html:           html?,
-          expand_detail:  expandable? ? expand_detail : [],
-          expand_label:   t("pito.confirmation.expand_hint"),
-          collapse_label: t("pito.confirmation.expand_collapse_hint")
-        )) %>
-
-    <%# Resolved outcome appended below a hairline %>
-    <% if resolved? %>
-      <%= render(Pito::Event::ConfirmationResolvedComponent.new(outcome_text: @outcome_text)) %>
+    <%# Outcome text — standalone follow-up message; no original body, no hairline %>
+    <% if outcome_text.present? %>
+      <span class="text-fg"><%= outcome_text %></span>
     <% end %>
   </div>
 <% end %>

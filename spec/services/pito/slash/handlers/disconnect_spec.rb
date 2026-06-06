@@ -73,10 +73,18 @@ RSpec.describe Pito::Slash::Handlers::Disconnect, type: :service do
       expect(result.events.first[:payload][:channel_id]).to eq(channel.id)
     end
 
-    it "includes a confirmation_handle" do
+    it "includes a reply_handle (follow-up engine stamp)" do
       result = build_handler(raw: "/disconnect @gaming").call
-      handle = result.events.first[:payload][:confirmation_handle]
+      payload = result.events.first[:payload]
+      handle = payload[:reply_handle] || payload["reply_handle"]
       expect(handle).to match(/\A[a-z]+-\d{4}\z/)
+    end
+
+    it "includes reply_target: 'confirmation'" do
+      result = build_handler(raw: "/disconnect @gaming").call
+      payload = result.events.first[:payload]
+      target = payload[:reply_target] || payload["reply_target"]
+      expect(target).to eq("confirmation")
     end
 
     it "includes a body with the cyan-wrapped handle" do
