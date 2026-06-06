@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_04_212707) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_06_155838) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -175,6 +175,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_04_212707) do
     t.integer "igdb_rating_count"
     t.string "igdb_slug"
     t.datetime "igdb_synced_at"
+    t.text "last_sync_error"
     t.text "notes"
     t.text "platforms", default: [], null: false, array: true
     t.date "played_at"
@@ -184,6 +185,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_04_212707) do
     t.integer "release_month"
     t.integer "release_quarter"
     t.integer "release_year"
+    t.boolean "resyncing", default: false, null: false
     t.integer "score"
     t.virtual "search_vector", type: :tsvector, as: "to_tsvector('english'::regconfig, (((COALESCE(title, ''::character varying))::text || ' '::text) || COALESCE(summary, ''::text)))", stored: true
     t.text "summary"
