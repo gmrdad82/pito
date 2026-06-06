@@ -101,7 +101,7 @@ No production data exists → destructive migrations are free.
 - [x] T2.6 `GameMapper`: remove `version_title` + `hours_of_footage_manual`; keep `game_genres.position`. complexity: [low]
 - [x] T2.7 Delete orphaned `app/queries/games/filter.rb`. complexity: [low]
 - [x] T2.8 `Game`: define only the used scopes (`upcoming`/`unreleased`); remove dead scope callers. complexity: [low]
-- [ ] T2.9 Fix `ScoreBarComponent` `resyncing?`. complexity: [low]
+- [x] T2.9 Fix `ScoreBarComponent` `resyncing?`. complexity: [low]
 - [ ] T2.10 `db:migrate`; update specs; `bundle exec rspec` + `bin/rubocop` + `zeitwerk:check` green. complexity: [manual]
 - [ ] T2.11 Commit: `Games schema reconcile + store all genres + remove games dead code`. complexity: [manual]
 
