@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require "rails_helper"
-require_relative "../../support/copy"
 
 RSpec.describe Pito::Copy, type: :service do
   # Register isolated fixture keys directly into the backend so these tests
