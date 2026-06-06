@@ -15,6 +15,9 @@ en:
         rename_hint: "rename a conversation"
       game:
         subtitle: "Game · imported %{date}"
+      games:
+        title: "Games"
+        hint: "↑/↓ move · Enter select"
       themes:
         title: "Themes"
         hint: "↑/↓ preview · Enter apply"

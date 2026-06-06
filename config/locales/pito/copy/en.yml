@@ -1911,8 +1911,59 @@ en:
           - "Gone. %{game} and %{video} no longer share a record."
           - "Unlinked and updated: %{game} from %{video}."
           - "Removed: %{game} ↔ %{video}. Clean break."
+        picker_empty:
+          - “No games in the library yet. Import one to begin.”
+          - “Nothing to pick from. /games import to add a game.”
+          - “Empty shelf — import a game and it'll appear here.”
+          - “No games found. Try /games import.”
+          - “Your library is empty. Add a game to populate this list.”
+          - “Nothing here yet. /games import is waiting.”
+          - “The picker is lonely. /games import to the rescue.”
+          - “No games on file. /games import first.”
+          - “Empty collection. Import a game and come back.”
+          - “No games to choose from. /games import.”
+          - “The list is bare. /games import to fill it.”
+          - “Not a single game yet. Import one.”
+          - “Zero games. /games import adds the first.”
+          - “Nothing catalogued. Add a game via /games import.”
+          - “The vault is empty. /games import to stock it.”
+          - “No games in residence. /games import.”
+          - “Empty library. /games import and return.”
+          - “No entries to pick. /games import.”
+          - “The roster is bare — /games import.”
+          - “No games here. Import one to get started.”
+          - “Nothing to see. /games import fills this.”
+          - “Your game list is empty. /games import.”
+          - “No games available to pick. Try /games import.”
+          - “Empty. /games import changes that.”
+          - “No games on the books. /games import.”
+          - “The shelf is empty — /games import.”
+          - “Nothing in the collection yet. /games import.”
+          - “No games filed. /games import to begin.”
+          - “Blank picker. /games import adds rows.”
+          - “The library awaits its first game. /games import.”
+          - “No games tracked yet. /games import.”
+          - “Nothing to list. /games import.”
+          - “Empty. Add a game first.”
+          - “No games to choose. /games import.”
+          - “The collection's empty. /games import.”
+          - “Nada. /games import your first.”
+          - “No games yet — /games import awaits.”
+          - “Blank library. /games import to fill it in.”
+          - “Nothing to show. /games import.”
+          - “No games stored. /games import to start.”
+          - “Empty stacks. /games import.”
+          - “Zilch. /games import your first.”
+          - “No games in the system. /games import.”
+          - “The roster's empty. /games import.”
+          - “Nothing here. /games import to change it.”
+          - “No games catalogued. /games import.”
+          - “Your shelf is empty. /games import.”
+          - “Not yet — /games import to add a game.”
+          - “No games on display. /games import.”
+          - “Library empty — /games import to begin.”
         deleted:
-          - "Deleted “%{title}”."
+          - “Deleted “%{title}”.”
           - "“%{title}” is gone."
           - "Removed “%{title}”."
           - "“%{title}” — deleted."
