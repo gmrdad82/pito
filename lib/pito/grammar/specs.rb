@@ -71,19 +71,22 @@ module Pito
             description_key: "pito.grammar.chat.list"
           ),
           # `show` / `delete` take a single game reference (ID or title). The
-          # `:title` free slot slurps the remaining tokens (the noun word
-          # `game`/`games` is dropped as a FILLER), e.g. `show game lies of p`.
+          # `:title` enum slot with source `:game_titles` enables dynamic ghost
+          # completion (typing "show game li" ghosts a matching library title).
+          # The noun words `game`/`games` are FILLERS, so the resolver skips them.
+          # Handlers do their own body-token extraction so the slot kind here only
+          # affects the suggestions engine — no handler change needed.
           Spec.new(
             namespace:       :chat,
             name:            :show,
-            slots:           [ Slot.new(name: :title, kind: :free, optional: true) ],
+            slots:           [ Slot.new(name: :title, kind: :enum, source: :game_titles, optional: true) ],
             description_key: "pito.grammar.chat.show"
           ),
           Spec.new(
             namespace:       :chat,
             name:            :delete,
             aliases:         [ :rm ],
-            slots:           [ Slot.new(name: :title, kind: :free, optional: true) ],
+            slots:           [ Slot.new(name: :title, kind: :enum, source: :game_titles, optional: true) ],
             description_key: "pito.grammar.chat.delete"
           ),
           Spec.new(

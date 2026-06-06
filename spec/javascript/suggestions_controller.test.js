@@ -55,13 +55,16 @@ const CATALOG_JSON = JSON.stringify({
   ],
   hashtag: [],
   chat: [
-    { name: "list", slots: [] },
+    { name: "list",   insert: "list ",   description: "List games",    slots: [] },
+    { name: "show",   insert: "show ",   description: "Show a game",   slots: [{ name: "title", source: "game_titles" }] },
+    { name: "delete", insert: "delete ", description: "Delete a game", slots: [{ name: "title", source: "game_titles" }] },
   ],
   vocabularies: {
     release_status: { canonical: ["released", "upcoming", "tba"], synonyms: {}, fillers: [], dynamic: false },
     genres:         { canonical: ["RPG", "Racing", "Shooter"],     synonyms: {}, fillers: [], dynamic: false },
     platforms:      { canonical: ["PlayStation 5", "PC", "Xbox"],  synonyms: {}, fillers: [], dynamic: false },
-    fillers:        { canonical: [], fillers: ["the", "a", "an"],  synonyms: {}, dynamic: false },
+    game_titles:    { dynamic: true, endpoint: "/suggestions" },
+    fillers:        { canonical: [], fillers: ["the", "a", "an", "game", "games"], synonyms: {}, dynamic: false },
   },
 })
 
@@ -463,6 +466,54 @@ describe("pito--suggestions controller", () => {
 
       // Ghost not accepted — value unchanged
       expect(textarea.value).toBe("list upc")
+    })
+  })
+
+  // ── _chatEnumSlots verb-awareness (T10.5) ───────────────────────────────
+
+  describe("_chatEnumSlots — verb-aware slot derivation", () => {
+    let ctrl
+
+    beforeEach(async () => {
+      await waitForConnect()
+      ctrl = app.getControllerForElementAndIdentifier(chatbox, "pito--suggestions")
+    })
+
+    it("returns game_titles slot for the 'show' spec (from catalog.slots)", () => {
+      const showSpec = ctrl._findChatSpec("show")
+      expect(showSpec).toBeTruthy()
+      const slots = ctrl._chatEnumSlots(showSpec)
+      expect(slots).toHaveLength(1)
+      expect(slots[0].name).toBe("title")
+      expect(slots[0].source).toBe("game_titles")
+    })
+
+    it("returns game_titles slot for the 'delete' spec", () => {
+      const deleteSpec = ctrl._findChatSpec("delete")
+      expect(deleteSpec).toBeTruthy()
+      const slots = ctrl._chatEnumSlots(deleteSpec)
+      expect(slots).toHaveLength(1)
+      expect(slots[0].source).toBe("game_titles")
+    })
+
+    it("returns empty array for 'list' spec (no enum slots)", () => {
+      const listSpec = ctrl._findChatSpec("list")
+      expect(listSpec).toBeTruthy()
+      const slots = ctrl._chatEnumSlots(listSpec)
+      expect(slots).toHaveLength(0)
+    })
+
+    it("returns legacy fallback slots when chatSpec is null", () => {
+      const slots = ctrl._chatEnumSlots(null)
+      expect(slots.map(s => s.name)).toEqual(["status", "genre", "platform"])
+    })
+
+    it("dynamic game_titles slot causes _computeLocalGhost to return null (→ dynamic fetch)", () => {
+      // 'show game li' — 'game' is a filler, 'li' is the partial for game_titles (dynamic)
+      // _computeLocalGhost should return null to trigger the dynamic fetch path
+      const result = ctrl._computeLocalGhost("show game li", 12)
+      // null means "defer to dynamic fetch"
+      expect(result).toBeNull()
     })
   })
 

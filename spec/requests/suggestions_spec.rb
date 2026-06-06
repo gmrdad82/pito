@@ -73,4 +73,31 @@ RSpec.describe "POST /suggestions", type: :request do
       expect(body["ghost"]["complete_current"]).to eq("oming")
     end
   end
+
+  describe "game-title ghost (T10.5)" do
+    before { sign_in! }
+
+    let!(:lies_of_p) { create(:game, title: "Lies of P") }
+
+    it "returns ghost completing 'li' → 'es of P' for 'show game li'" do
+      input = "show game li"
+      post "/suggestions", params: { input: input, cursor: input.length }
+      body = response.parsed_body
+      expect(body["ghost"]["complete_current"]).to eq("es of P")
+    end
+
+    it "returns ghost completing 'li' → 'es of P' for 'delete game li'" do
+      input = "delete game li"
+      post "/suggestions", params: { input: input, cursor: input.length }
+      body = response.parsed_body
+      expect(body["ghost"]["complete_current"]).to eq("es of P")
+    end
+
+    it "returns empty ghost when partial matches nothing" do
+      input = "show game zzz"
+      post "/suggestions", params: { input: input, cursor: input.length }
+      body = response.parsed_body
+      expect(body["ghost"]["complete_current"]).to eq("")
+    end
+  end
 end

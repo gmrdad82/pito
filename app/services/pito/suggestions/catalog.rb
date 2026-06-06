@@ -78,8 +78,19 @@ module Pito
           {
             name:        spec.name.to_s,
             insert:      "#{spec.name} ",
-            description: description_for(spec)
+            description: description_for(spec),
+            slots:       slots_for(spec)
           }
+        end
+
+        # Emit enum slots for a chat spec so the client ghost-logic can be
+        # verb-aware without a hardcoded verb→slot mapping on the JS side.
+        # Only :enum slots with a :source are included (free/kv/connective slots
+        # carry no completion info the client can use).
+        def slots_for(spec)
+          spec.slots
+              .select { |s| s.kind == :enum && s.source.is_a?(Symbol) }
+              .map { |s| { name: s.name.to_s, source: s.source.to_s } }
         end
 
         # ── Vocabularies ─────────────────────────────────────────────────────

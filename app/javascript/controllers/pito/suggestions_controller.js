@@ -595,8 +595,8 @@ export default class extends Controller {
     const typedSlotWords = endsWithSpace ? words.slice(1) : words.slice(1, -1)
     const currentPartial = endsWithSpace ? "" : (words[words.length - 1] || "")
 
-    // Get enum slots from chat spec (mirrors engine.rb chat_shared_slots)
-    const enumSlots = this._chatEnumSlots()
+    // Get enum slots from the matched chat spec (server-provided via catalog).
+    const enumSlots = this._chatEnumSlots(chatSpec)
 
     // Walk already-typed words to track which slots are consumed
     const alreadyFilled = {}
@@ -659,12 +659,18 @@ export default class extends Controller {
     return chatSpecs.find(s => s.name.toLowerCase() === verbWord) || null
   }
 
-  // Extract the ordered enum slots from the chat grammar.
-  // Mirrors chat_shared_slots from specs.rb:
-  //   status   → release_status
-  //   genre    → genres (repeatable)
-  //   platform → platforms
-  _chatEnumSlots() {
+  // Extract the ordered enum slots for a chat spec.
+  // If the spec includes a `slots` array (injected by the catalog builder),
+  // use it directly — this makes ghost logic verb-aware (e.g. `show`/`delete`
+  // expose a `{ name: "title", source: "game_titles" }` slot while `list`/
+  // `find` expose status/genre/platform).
+  // Falls back to the shared list ONLY when the spec provides no `slots` field
+  // at all (i.e. older catalog shape without the server-side slot injection).
+  _chatEnumSlots(chatSpec) {
+    if (chatSpec && Array.isArray(chatSpec.slots)) {
+      return chatSpec.slots   // already { name, source } — may be empty (no completions)
+    }
+    // Legacy fallback: shared status/genre/platform slots for list/find verbs.
     return [
       { name: "status",   source: "release_status", repeatable: false },
       { name: "genre",    source: "genres",          repeatable: true  },

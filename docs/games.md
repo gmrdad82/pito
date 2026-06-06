@@ -234,7 +234,7 @@ No production data exists → destructive migrations are free.
 - [x] T10.2 `Chat::Handlers::List` (rewrite): real query → list System message **showing each game's ID**; stamp `make_followupable!(target:"game_list")`; follow-up affordances key off **ID**. complexity: [low]
 - [x] T10.3 `Chat::Handlers::Show`: accept **ID** (or title) → `Game.find` / `find_by ILIKE` → detail message; not-found witty error. complexity: [high]
 - [x] T10.4 `Chat::Handlers::Delete`: accept **ID** (or title) → confirmation event (`reply_target:"game_delete"`). complexity: [low]
-- [ ] T10.5 `Pito::Suggestions`: wire `:game_title` ghost (server resolves dynamic; add to JS `_chatEnumSlots()`) → `show game li` ghosts `es of P`. complexity: [high]
+- [x] T10.5 `Pito::Suggestions`: wire `:game_title` ghost (server resolves dynamic; add to JS `_chatEnumSlots()`) → `show game li` ghosts `es of P`. complexity: [high]
 - [x] T10.6 `FollowUp::Handlers::GameList` (`:append`): `#<h> show <title>` → detail message. complexity: [low]
 - [x] T10.7 `FollowUp::Handlers::GameDelete` (confirmation): destroy + outcome. complexity: [low]
 - [ ] T10.8 `Sidebar::Games::Component` + `pito--games-nav`; no-arg picker → populate chatbox + submit. complexity: [high]
