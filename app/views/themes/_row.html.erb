@@ -6,6 +6,6 @@
      data-theme-name="<%= definition.slug %>">
   <span class="text-fg truncate mr-2"><%= definition.label %></span>
   <% if current %>
-    <span class="text-cyan shrink-0">●</span>
+    <span class="text-cyan shrink-0"><%= Pito::Copy.render("pito.copy.theme.current_marker") %></span>
   <% end %>
 </div>

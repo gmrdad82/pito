@@ -186,12 +186,14 @@ RSpec.describe Pito::Slash::Handlers::Theme, type: :service do
       expect(all_keys.any? { |k| k.include?("dracula") }).to be(true)
     end
 
-    it "marks the current theme with ●" do
+    it "marks the current theme with a '← this one' suffix (no bullet)" do
       AppSetting.theme = "dracula"
       res      = build_handler(args: %w[list]).call
       sections = res.events.first[:payload][:sections]
-      all_keys = sections.flat_map { |s| s[:rows].map { |r| r[:key] } }
-      expect(all_keys.any? { |k| k.start_with?("● ") && k.include?("dracula") }).to be(true)
+      rows     = sections.flat_map { |s| s[:rows] }
+      current  = rows.find { |r| r[:key] == "dracula" }
+      expect(current[:value]).to include("← this one")
+      expect(rows.none? { |r| r[:key].to_s.include?("●") }).to be(true)
     end
 
     it "stamps the payload with reply_handle (follow-up engine)" do

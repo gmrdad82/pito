@@ -84,14 +84,15 @@ RSpec.describe Pito::Sidebar::Themes::Component do
       expect(current_rows.first["data-theme-name"]).to eq("dracula")
     end
 
-    it "renders the ● marker on the current theme row" do
+    it "renders a cyan '← this one' marker on the current theme row (no bullet)" do
       node = render_inline(
         described_class.new(
           groups:        groups(dark: [ tokyo_night, dracula ]),
           current_theme: "tokyo-night"
         )
       )
-      expect(node.to_html).to include("●")
+      expect(node.to_html).to include("this one")
+      expect(node.to_html).not_to include("●")
     end
 
     it "does not add is-current when current_theme matches no row" do

@@ -209,12 +209,16 @@ module Pito
           ])
         end
 
-        # Build kv rows for a group of theme definitions.
-        # The current theme's key is marked with a bullet (●).
+        # Build kv rows for a group of theme definitions. The current theme is
+        # marked with a "← this one" suffix on the right (no leading bullet).
         def build_theme_rows(definitions, current_slug)
           definitions.map do |d|
-            marker = d.slug == current_slug ? "● " : "  "
-            { key: "#{marker}#{d.slug}", value: d.label }
+            value = d.label
+            if d.slug == current_slug
+              marker = Pito::Copy.render("pito.copy.theme.current_marker")
+              value  = "#{d.label}   #{marker}"
+            end
+            { key: d.slug, value: value }
           end
         end
 
