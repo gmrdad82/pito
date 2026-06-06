@@ -19,24 +19,24 @@ the unaltered default.
 
 ## Locked decisions
 
-| Topic                                           | Decision                                                                                                                              |
-| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| Command                                         | `/themes` (renamed from `/theme` in games P0)                                                                                         |
-| Engine                                          | one Ruby file per theme → registry/loader → `rake pito:themes:export` → committed `themes.css`                                        |
-| Shades                                          | auto-derive surface/elevated, fg-dim/faded, borders via `mix()`; per-theme overrides allowed                                          |
-| Default                                         | Tokyo Night, **unaltered**; Dracula + the other 16 are extra                                                                          |
-| pito blue                                       | `--brand-pito` #5170ff — identical on every theme                                                                                     |
-| Persistence                                     | global via `AppSetting.theme` + `#pito-settings` + `broadcast_global_settings_update`                                                 |
-| `/themes` (bare)                                | opens the preview sidebar (↑/↓ preview, Enter apply, Esc revert, current marked, witty hint)                                         |
-| `/themes list` (alias `ls`)                     | does NOT open the sidebar — lists themes in a **System message** with `#preview`/`#apply` hints                                       |
-| `#<handle> preview/apply <name>`                | follow-up replies routed by the message's unique hashtag (P13–P15); preview/apply that theme                                          |
-| Follow-up engine                                | opt-in `reply_handle`+`reply_target`; reply by `#<handle> <action>`; confirmation→echo+append+consume, system/enhanced→no-echo+mutate |
-| `/themes preview <name>` / `/themes apply <name>` | distinct slash subcommands (same effect as the hashtags, but are commands, not replies)                                             |
-| `/themes <name>`                                | shorthand → apply that theme                                                                                                          |
-| default / reset                                 | `default` resolves to Tokyo Night; `/themes reset` → reset to default; preview/apply `default` work                                   |
-| Aliases                                         | real slash alias system; first one shipped: `list` ↔ `ls`; production-ready                                                           |
-| Branch / merge                                  | branch `themes`, no worktrees, sequential; squash-merge at the end after validation                                                   |
-| Specs                                           | Rails + JS (Vitest) — including the alias, the hashtag replies, and the rake task                                                     |
+| Topic                                             | Decision                                                                                                                              |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Command                                           | `/themes` (renamed from `/theme` in games P0)                                                                                         |
+| Engine                                            | one Ruby file per theme → registry/loader → `rake pito:themes:export` → committed `themes.css`                                        |
+| Shades                                            | auto-derive surface/elevated, fg-dim/faded, borders via `mix()`; per-theme overrides allowed                                          |
+| Default                                           | Tokyo Night, **unaltered**; Dracula + the other 16 are extra                                                                          |
+| pito blue                                         | `--brand-pito` #5170ff — identical on every theme                                                                                     |
+| Persistence                                       | global via `AppSetting.theme` + `#pito-settings` + `broadcast_global_settings_update`                                                 |
+| `/themes` (bare)                                  | opens the preview sidebar (↑/↓ preview, Enter apply, Esc revert, current marked, witty hint)                                          |
+| `/themes list` (alias `ls`)                       | does NOT open the sidebar — lists themes in a **System message** with `#preview`/`#apply` hints                                       |
+| `#<handle> preview/apply <name>`                  | follow-up replies routed by the message's unique hashtag (P13–P15); preview/apply that theme                                          |
+| Follow-up engine                                  | opt-in `reply_handle`+`reply_target`; reply by `#<handle> <action>`; confirmation→echo+append+consume, system/enhanced→no-echo+mutate |
+| `/themes preview <name>` / `/themes apply <name>` | distinct slash subcommands (same effect as the hashtags, but are commands, not replies)                                               |
+| `/themes <name>`                                  | shorthand → apply that theme                                                                                                          |
+| default / reset                                   | `default` resolves to Tokyo Night; `/themes reset` → reset to default; preview/apply `default` work                                   |
+| Aliases                                           | real slash alias system; first one shipped: `list` ↔ `ls`; production-ready                                                           |
+| Branch / merge                                    | branch `themes`, no worktrees, sequential; squash-merge at the end after validation                                                   |
+| Specs                                             | Rails + JS (Vitest) — including the alias, the hashtag replies, and the rake task                                                     |
 
 ## Complexity hints
 
