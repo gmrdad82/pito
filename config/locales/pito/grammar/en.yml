@@ -10,6 +10,7 @@ en:
         new: "Start fresh — opens a brand-new conversation"
         resume: "Browse and switch to a previous conversation"
         disconnect: "Disconnect a YouTube channel"
+        theme: "Switch the UI theme (apply / preview / reset)"
       chat:
         list: "List videos matching filters"
         show: "Show details for a video or channel"

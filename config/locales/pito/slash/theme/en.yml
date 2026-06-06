@@ -1,0 +1,23 @@
+en:
+  pito:
+    slash:
+      theme:
+        descriptions:
+          theme: "Switch the UI theme (/theme apply|preview|reset|list <name>)"
+        help:
+          usage: "/theme [apply|preview|reset|list] [<name>]"
+          description: "Apply a theme permanently, preview it without saving, or reset to the default. Use /theme list to see all 18 options grouped by Dark / Light."
+        apply:
+          confirmed: "Theme dialed in. %{name} is now the look. (/theme reset to undo)"
+        preview:
+          confirmed: "Heads-up: this is a preview of %{name} — not saved yet. Run %{apply} to keep it or %{reset} to go back."
+        reset:
+          confirmed: "Back to basics. Tokyo Night is live again."
+        list:
+          placeholder: "Theme list coming via /theme list — P7. For now: /theme apply <name> or /theme --help for the full list."
+        sidebar:
+          placeholder: "Theme sidebar coming in P8. For now: /theme apply <name> or /theme --help."
+        errors:
+          unknown_target: "No theme called '%{name}'. Try /theme list (or /theme --help) to see what's on the menu."
+          missing_name_for_preview: "Usage: /theme preview <name>. Not sure which one? /theme list."
+          missing_name_for_apply: "Usage: /theme apply <name>. Not sure which one? /theme list."

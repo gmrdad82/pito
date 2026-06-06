@@ -60,6 +60,19 @@ module Pito
           find(DEFAULT_SLUG) or raise "Default theme '#{DEFAULT_SLUG}' not found in registry"
         end
 
+        # Resolves a slug OR the token "default" to a Definition.
+        # "default" is a special alias that always resolves to Registry.default.
+        # Returns nil when the token matches no registered slug and is not "default".
+        #
+        # @param token [String, Symbol]
+        # @return [Definition, nil]
+        def resolve_target(token)
+          slug = token.to_s.strip.downcase
+          return default if slug == "default"
+
+          find(slug)
+        end
+
         private
 
         def load_definitions

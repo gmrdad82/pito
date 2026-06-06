@@ -257,6 +257,20 @@ module Pito
         Rails.logger.warn("[Broadcaster] broadcast_global_settings_update failed: #{e.class}: #{e.message}")
       end
 
+      # Broadcast a custom `set-theme` Turbo Stream action to "pito:global" so that
+      # every open browser tab recolors immediately when a theme is applied or
+      # previewed via the `/theme` command. The action reads the `theme` attribute
+      # from the stream element and sets `document.documentElement.dataset.theme`.
+      #
+      # apply persists THEN broadcasts; preview broadcasts only; reset persists
+      # the default THEN broadcasts.
+      def self.broadcast_global_theme(slug)
+        content = %(<turbo-stream action="set-theme" theme="#{slug}"></turbo-stream>)
+        Turbo::StreamsChannel.broadcast_stream_to("pito:global", content:)
+      rescue StandardError => e
+        Rails.logger.warn("[Broadcaster] broadcast_global_theme failed: #{e.class}: #{e.message}")
+      end
+
       # Mark a turn complete and broadcast the done signal that hides dots.
       def complete_turn(turn:)
         turn.update!(completed_at: Time.current)

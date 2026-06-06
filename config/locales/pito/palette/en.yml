@@ -10,6 +10,7 @@ en:
           config: "Config"
           conversations: "Conversations"
           general: "General"
+          themes: "Themes"
         commands:
           connect: "Connect YouTube channel"
           disconnect: "Disconnect channel"
@@ -22,6 +23,11 @@ en:
           help: "Show command reference"
           login: "Log in"
           logout: "Log out"
+          theme: "Browse or switch themes"
+          theme_apply: "Apply a theme"
+          theme_preview: "Preview a theme without saving"
+          theme_reset: "Reset to Tokyo Night"
+          theme_list: "List all themes"
       slash:
         descriptions:
           login: "Log in to access pito"

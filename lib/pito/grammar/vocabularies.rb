@@ -12,7 +12,7 @@ module Pito
 
       SLASH_VERBS = Vocabulary.define(
         name:      :slash_verbs,
-        canonical: %w[config disconnect help]
+        canonical: %w[config disconnect help theme]
       ).freeze
 
       CONFIG_PROVIDERS = Vocabulary.define(
@@ -118,6 +118,17 @@ module Pito
         canonical: %w[and for]
       ).freeze
 
+      # ── Theme vocabulary ─────────────────────────────────────────────────────
+
+      # All registered theme slugs plus the special alias "default" (→ tokyo-night).
+      # Backed by the theme Registry so adding a new definition file automatically
+      # extends the vocabulary on next boot — no manual wiring needed.
+      THEME_NAMES = Vocabulary.define(
+        name:      :theme_names,
+        dynamic:   true,
+        resolver:  ->(_context) { Pito::Themes::Registry.names + [ "default" ] }
+      ).freeze
+
       # ── Dynamic vocabulary stubs ─────────────────────────────────────────────
 
       CHANNELS = Vocabulary.define(
@@ -172,7 +183,8 @@ module Pito
           CONNECTIVES,
           CHANNELS,
           CONVERSATIONS,
-          GAME_TITLES
+          GAME_TITLES,
+          THEME_NAMES
         ]
       end
 

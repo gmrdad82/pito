@@ -47,6 +47,19 @@ en:
                 value: "Connect YouTube channel"
               - key: "/disconnect"
                 value: "Disconnect channel"
+          themes:
+            title: "THEMES"
+            rows:
+              - key: "/theme"
+                value: "Browse themes (sidebar)"
+              - key: "/theme apply <name>"
+                value: "Apply a theme"
+              - key: "/theme preview <name>"
+                value: "Preview without saving"
+              - key: "/theme reset"
+                value: "Reset to Tokyo Night"
+              - key: "/theme list"
+                value: "List all themes"
           config:
             title: "CONFIG"
             rows:

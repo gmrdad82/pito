@@ -133,20 +133,20 @@ the unaltered default.
 > a dynamic `theme_names` vocab. (The sidebar + list-message + hashtag replies
 > are P7/P8; this phase wires the command spine + the apply/preview/reset paths.)
 
-- [ ] T5.1 `Pito::Themes::Registry.names` + a `resolve_target(token)` helper that maps a slug OR `"default"` → a Definition (nil if unknown). complexity: [low]
-- [ ] T5.2 Dynamic vocabulary `theme_names` (slugs + `default`) backed by the registry; register it in `Vocabularies`/`Registry`. complexity: [high]
-- [ ] T5.3 `Pito::Slash::Handlers::Theme` skeleton: `verb = :theme`, `description_key`, `grammar do … end` (a `subcommand`/`name` slot from `theme_names` + the subcommand keywords), auth gate. complexity: [high]
-- [ ] T5.4 Parse the first arg: subcommand (`list/ls/preview/apply/reset`) vs theme name vs empty; dispatch accordingly. complexity: [high]
-- [ ] T5.5 `apply` path: `AppSetting.theme = slug` → broadcast → System confirm (witty i18n). Covers `/theme apply <name>`, `/theme <name>`. complexity: [low]
-- [ ] T5.6 `reset` path: apply the default (Tokyo Night) + confirm. complexity: [low]
-- [ ] T5.7 `preview` path (no sidebar): apply-for-this-render semantics — emit a System message instructing how to keep it (or persist on confirm). Decide preview-vs-apply persistence and document inline. complexity: [high]
-- [ ] T5.8 Unknown target → witty error (i18n) listing valid names / pointing to `/theme list`. complexity: [low]
-- [ ] T5.9 `--help`: per-command usage + a grouped theme list via `HelpRenderer`/`show_help` (i18n). complexity: [low]
-- [ ] T5.10 i18n: `pito.slash.theme.*` (descriptions, help usage/description, confirmations, errors) — witty voice. complexity: [low]
-- [ ] T5.11 Autocomplete: `/the…`→`/theme`; `/theme <partial>` ghost/menu from `theme_names`; subcommands suggested. complexity: [low]
-- [ ] T5.12 List `/theme` in `/help` sections + the ctrl+k command palette (i18n). complexity: [low]
-- [ ] T5.13 Specs: handler (apply/reset/preview/unknown/default), request spec (apply persists + broadcasts), grammar + autocomplete (theme_names), `--help`. complexity: [low]
-- [ ] T5.14 Commit: `P5: /theme command core (apply/preview/reset + vocab + autocomplete + --help)`. complexity: [manual]
+- [x] T5.1 `Pito::Themes::Registry.names` + a `resolve_target(token)` helper that maps a slug OR `"default"` → a Definition (nil if unknown). complexity: [low]
+- [x] T5.2 Dynamic vocabulary `theme_names` (slugs + `default`) backed by the registry; register it in `Vocabularies`/`Registry`. complexity: [high]
+- [x] T5.3 `Pito::Slash::Handlers::Theme` skeleton: `verb = :theme`, `description_key`, `grammar do … end` (a `subcommand`/`name` slot from `theme_names` + the subcommand keywords), auth gate. complexity: [high]
+- [x] T5.4 Parse the first arg: subcommand (`list/ls/preview/apply/reset`) vs theme name vs empty; dispatch accordingly. complexity: [high]
+- [x] T5.5 `apply` path: `AppSetting.theme = slug` → broadcast → System confirm (witty i18n). Covers `/theme apply <name>`, `/theme <name>`. complexity: [low]
+- [x] T5.6 `reset` path: apply the default (Tokyo Night) + confirm. complexity: [low]
+- [x] T5.7 `preview` path (no sidebar): apply-for-this-render semantics — emit a System message instructing how to keep it (or persist on confirm). Decide preview-vs-apply persistence and document inline. complexity: [high]
+- [x] T5.8 Unknown target → witty error (i18n) listing valid names / pointing to `/theme list`. complexity: [low]
+- [x] T5.9 `--help`: per-command usage + a grouped theme list via `HelpRenderer`/`show_help` (i18n). complexity: [low]
+- [x] T5.10 i18n: `pito.slash.theme.*` (descriptions, help usage/description, confirmations, errors) — witty voice. complexity: [low]
+- [x] T5.11 Autocomplete: `/the…`→`/theme`; `/theme <partial>` ghost/menu from `theme_names`; subcommands suggested. complexity: [low]
+- [x] T5.12 List `/theme` in `/help` sections + the ctrl+k command palette (i18n). complexity: [low]
+- [x] T5.13 Specs: handler (apply/reset/preview/unknown/default), request spec (apply persists + broadcasts), grammar + autocomplete (theme_names), `--help`. complexity: [low]
+- [x] T5.14 Commit: `P5: /theme command core (apply/preview/reset + vocab + autocomplete + --help)`. complexity: [manual]
 
 ## P6 — Slash alias system (`list` ↔ `ls`)
 
