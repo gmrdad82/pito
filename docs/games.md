@@ -303,10 +303,10 @@ No production data exists → destructive migrations are free.
 
 ## P15 — Extract, document, finalize
 
-- [ ] T15.1 (done at plan time) `docs/games.md` created. complexity: [low]
-- [ ] T15.2 Finish pulling remaining game items out of `docs/follow-up.md` (Section E games-detail, Section C `## Games`/`## Footage`). complexity: [low]
-- [ ] T15.3 `AGENTS.md`: `## Games`, `## Footage / ffprobe`, `## Engines` (`Copy`/`FollowUp`/`Suggestions`/`Stack`/`Stats`/`Search`). complexity: [low]
-- [ ] T15.4 Update `docs/validations.md` + PR #62 description. complexity: [low]
+- [x] T15.1 (done at plan time) `docs/games.md` created. complexity: [low]
+- [x] T15.2 Finish pulling remaining game items out of `docs/follow-up.md` (Section E games-detail, Section C `## Games`/`## Footage`). complexity: [low]
+- [x] T15.3 `AGENTS.md`: `## Games`, `## Footage / ffprobe`, `## Engines` (`Copy`/`FollowUp`/`Suggestions`/`Stack`/`Stats`/`Search`). complexity: [low]
+- [x] T15.4 Update `docs/validations.md` + PR #62 description — handled by orchestrator. complexity: [low]
 - [ ] T15.5 Full suite + `npm test` + `bin/rubocop` + `zeitwerk:check` green; poll PR #62 CI green. complexity: [manual]
 - [ ] T15.6 Commit: `Document games domain (docs/games.md + AGENTS) + finalize`. complexity: [manual]
 

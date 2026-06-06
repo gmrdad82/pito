@@ -76,34 +76,34 @@ here so Plan 4 contains only what ships in the Beta. Pick these up after merge.
 
 ---
 
-## B. Games pipeline → promoted to `docs/games.md`
+## B. Games domain → `docs/games.md` (shipped on PR #62)
 
-The games pipeline (formerly P35–P38: IGDB re-wire, search UI, add→sync, nightly
-refresh) is **promoted to its own plan** at `docs/games.md` — expanded into the
-full games domain (chat verbs + `/games import` sidebar + follow-ups +
-recommendations), plus the `Stat`/`Pito::Stack`/`Pito::Suggestions` engines and
-the phantom video/analytics dead-code removal. In progress on PR #62.
+The games domain (chat verbs + `/games import` sidebar + follow-ups +
+recommendations + embeddings + nightly sync) is **fully built and documented**
+in `docs/games.md`. The engines it introduced (`Pito::Stats`,
+`Pito::Stack`, `Pito::Suggestions`, `Pito::Search`, `Pito::Recommendations`,
+`Pito::Copy`, `Pito::FollowUp`) are documented in `AGENTS.md` under **Games**,
+**Footage / ffprobe**, and **Engines & shared components**.
+
+Nothing in this section is deferred. See `docs/games.md` for the full plan.
 
 ---
 
-## C. AGENTS.md conventions (deferred — P43)
+## C. AGENTS.md conventions (partial — remaining items deferred)
 
-> Document the conventions established across the reboot. Do once the video/game
-> pipelines land (several sections describe them).
+> The games + engines sections (T43.5 / T43.10 / T43.12 partial) shipped in
+> `docs/games.md` P15. Remaining items below are still deferred.
 
 - [ ] T43.1 `## Auth` — cookie session (24h idle, no hard max), no Session model, TOTP retained. complexity: [low]
 - [ ] T43.2 `## Factories` — every model; `factories_spec` auto-validates. complexity: [low]
 - [ ] T43.3 `## Rake` — `pito:test:*` / `pito:tools:*`; seeds prepare/populate; specced. complexity: [low]
 - [ ] T43.4 `## Component CSS` — `data-accent`; no inline `style=`; **extract components, no spaghetti** (see InlineSeparator/Shortcut/Hint/Filter precedent). complexity: [low]
-- [ ] T43.5 `## Footage / ffprobe` — Probe, `pito:tools:probe`, needs_grading/orientation. complexity: [low]
 - [ ] T43.6 `## Dispatch` — async, persist-before-broadcast, turn timing, backend elapsed, command context. complexity: [low]
 - [ ] T43.7 `## Conversations` — uuid routing, naming, sidebar grouping, `/new`/`/resume`, rename, history (↑/↓), localStorage panel persistence, cross-instance cable sync. complexity: [low]
 - [ ] T43.8 `## Chatbox` — TAB channels, Shift+TAB periods (dead), thinking indicator + dictionaries, autocomplete (palette + ghost), typing phase-in, typewriter reveal. complexity: [low]
 - [ ] T43.9 `## Videos` — read-only mirror; `/import`; `VideoPreview` + `/edit video`; `/update`; lifecycle. complexity: [low]
-- [ ] T43.10 `## Games` — IGDB search sidebar, `/add game`, async sync, nightly refresh. complexity: [low]
 - [ ] T43.11 `## Notifications` — model, `ctrl+/` sidebar, daily cleanup job, cross-instance sync. complexity: [low]
-- [ ] T43.12 `## Analytics namespaces` — `Pito::Stats` vs `Pito::Analytics` (directional). complexity: [low]
-- [ ] T43.13 Commit: `AGENTS.md conventions`. complexity: [manual]
+- [ ] T43.13 Commit: `AGENTS.md conventions (remaining)`. complexity: [manual]
 
 ---
 
@@ -173,12 +173,9 @@ the phantom video/analytics dead-code removal. In progress on PR #62.
   needed now (HNSW NN is sub-ms; the filtered game↔game `similar` path can't be
   materialized anyway). See `docs/games.md` P9.5.
 - Further UI enhancements beyond those listed.
-- `Pito::Stats` design (daily snapshot tables/jobs for channel + video totals) — pairs with P60.
+- `Pito::Stats` daily snapshot tables/jobs (channel + video totals over time).
 - `Pito::Analytics` (wire TAB channel + Shift+TAB period into real queries).
 - Real chat/slash domain handlers (list videos, channel overview…).
-- ~~Centralized message-generation engine~~ → promoted to its own plan:
-  `docs/copy-engine.md` (in progress on PR #62).
-- Games detail screen (host for ScoreBar + TTB + probe snippet + `/add game` detail pane).
 - A **videos list screen** (host for `/edit video` + lifecycle actions + a friendlier video picker).
 - `Calendar` / `CalendarEntry` models — add when needed.
 - Remote footage ingest (script + HTTP endpoint) if/when on Hetzner.

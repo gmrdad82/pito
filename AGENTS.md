@@ -1855,3 +1855,248 @@ audit rake task to inspect the registry and find migration candidates.
 - `bundle exec rspec spec/services/pito/copy/` to run copy-engine specs.
 
 <!-- agents:end name=pito-copy -->
+
+---
+
+<!-- agents:begin name=pito-games sha=games-p15 -->
+
+## Games
+
+### Project context
+
+Full domain documented in `docs/games.md`. This section captures the conventions
+agents need to reuse when touching the games surface.
+
+### Chat verbs
+
+| Verb                                     | Notes                                                               |
+| ---------------------------------------- | ------------------------------------------------------------------- |
+| `list games` / `ls games`                | Shows each game's **ID** — follow-ups key off the ID                |
+| `show game <id\|title>`                  | No-arg opens the games picker sidebar via `ChatController`          |
+| `delete game <id\|title>` / `rm game …`  | No-arg opens picker; confirmation before destroy                    |
+| `update game ownership <id> <platforms>` | Tolerant parse (`,` `.` `*` + whitespace); synonyms ps/switch/steam |
+| `link game <id> to video <id\|title>`    | Creates `video_game_links` HABTM; `unlink` destroys it              |
+
+IDs are surfaced in `list games` so follow-up affordances (rm/resync/link) can
+refer to a stable key rather than a title-match.
+
+Game-title ghosting in the chatbox uses the `:game_titles` dynamic vocabulary
+(server resolves, JS picks it up via `_chatEnumSlots()`).
+
+### `/games import` sidebar
+
+`/games import [title]` opens the IGDB search sidebar. Flow:
+
+1. Debounced search → `Pito::Search::Modules::IgdbGames` (main titles only,
+   `game_type=(0)` + `version_parent = null`).
+2. Results show cover thumbnail + "already in Library" marker.
+3. Select → `GameImportJob` streams **5 progress steps in the sidebar** (shimmer
+   - random per-step delay offsets via `Pito::Shell::ShimmerTextComponent`):
+     main info → cover art → score → Voyage reindex → recommendations (dummy).
+4. After step 3: standard detail chat message (`Pito::Event::SystemComponent`).
+5. After step 5: enhanced chat message (`Pito::Event::EnhancedComponent`), stamped
+   `make_followupable!(target: "game_enhanced")`. Sidebar stays open (Esc to close).
+
+### Game messages and follow-ups
+
+Both messages carry `Pito::FollowUp` stamps. Follow-up affordances:
+
+- **Detail message** (`reply_target: "game_detail"`): `rm`/`delete` →
+  confirmation; `resync` → confirmation (`GameIgdbSync`); `update ownership
+<platforms>` → mutates the message; `link to video <id|title>` → creates link.
+- **Enhanced message** (`reply_target: "game_enhanced"`): `reindex` →
+  confirmation (force Voyage reindex); `similar [filters]` → renders
+  `Pito::Recommendations.similar_games` via `ScoreBarComponent`; `channel` →
+  `Pito::Recommendations.channels_for`.
+
+Confirmation branches (delete / resync / reindex) are dispatched through the
+generic `Pito::Confirmation::Executor` (`confirm` / `cancel` class methods);
+add a new `when "command_name"` clause there when adding a new game confirmation.
+
+### Recommendations (3-way)
+
+`Pito::Recommendations` is the single entry point:
+
+| Call                                    | Direction      | Backing service               |
+| --------------------------------------- | -------------- | ----------------------------- |
+| `similar_games(game, limit:, filters:)` | game ↔ game    | `Game::SimilarGames`          |
+| `channels_for(game, limit:)`            | game → channel | `Game::ChannelRecommendation` |
+| `games_for(channel, limit:)`            | channel → game | `Channel::GameRecommendation` |
+
+**Design B (locked):** channels have NO embedding. A channel is its videos.
+Both cross-domain directions derive on demand from video vectors:
+
+- game→channel: `Video.nearest_neighbors(game)` grouped by `channel_id`.
+- channel→game: top-M videos by views probe `Game.nearest_neighbors`, merged.
+
+### Embeddings and indexing
+
+- `Game::EmbedText.call(game)` — multi-field text (title + genres + dev + pub +
+  description + platforms + ttb + ratings); consumed by `Game::VoyageIndexer`.
+- `Video::EmbedText.call(video)` — title — description — tags — category_name
+  (static `YOUTUBE_CATEGORIES` map); consumed by `Video::VoyageIndexer`.
+- Both indexers are **digest-gated** (no-op when content hash unchanged).
+  Cover-art changes do NOT reindex.
+- Backfill rakes: `pito:voyage:reindex_videos`.
+
+### Nightly sync — two stages, ≥1h gap (UTC)
+
+| Stage | Cron        | Job                 | Work                                                                          |
+| ----- | ----------- | ------------------- | ----------------------------------------------------------------------------- |
+| 1     | `0 1 * * *` | `NightlySyncJob`    | Channel sync → video sync → IGDB game sync → stats refresh                    |
+| 2     | `0 2 * * *` | `NightlyReindexJob` | Digest-gated fan-out: `GameVoyageIndexJob` + `VideoVoyageIndexJob` per entity |
+
+Stage 2 NEVER recomputes channel centroids (design B: no channel vectors).
+Reindex is per-entity fan-out, not `BulkVoyageIndexJob`'s monolithic loop
+(which stays for manual operator runs only).
+
+### Game stats
+
+`views` for a game = sum of `linked_videos` views; materialized by
+`GameStatsRefreshJob` (enqueued on import / sync / link change and at Stage 1
+tail). Read via `Pito::Stats.get(game, :views)`.
+
+### Anti-patterns
+
+- Don't parse hashtags from video titles/descriptions to infer game links (that
+  is the creator's YouTube convention, not pito's). Use explicit `link`/`unlink`.
+- Don't add a channel vector or centroid — design B is locked.
+- Don't skip the `game_type=(0)` + `version_parent = null` filter on IGDB
+  searches — pito stores main titles only.
+- Don't compute recommendations outside `Pito::Recommendations` — it is the
+  single entry point for all three directions.
+
+<!-- agents:end name=pito-games -->
+
+---
+
+<!-- agents:begin name=pito-footage sha=games-p15 -->
+
+## Footage / ffprobe
+
+### Project context
+
+`Footage` records are attached to a channel and represent raw video clips
+captured before upload. `pito:tools:probe` measures them via ffprobe.
+
+### Conventions
+
+- `Pito::Footage::Probe.call(path:)` — wraps ffprobe in `Open3.capture2`;
+  returns a `Result` Data struct with: `resolution`, `fps`, `bit_depth`,
+  `duration_seconds`, `aspect_ratio`, `orientation`, `needs_grading`,
+  `audio_track_names`, `success`, `error_message`.
+- `orientation` maps to `Footage::ORIENTATIONS` (`:landscape`/`:portrait`/`:square`).
+- `needs_grading` is true whenever color space / transfer / primaries are not
+  bt709 (HDR / LOG footage that still needs a grade pass).
+- Footage hours displayed in `Pito::TimeToBeatComponent` as the **4th tick**:
+  `sum(footages.duration_seconds) / 3600`. This is distinct from the three IGDB
+  TTB ticks (main story / extras / completionist).
+
+### Commands / verification
+
+- `rake pito:tools:probe` — runs `Pito::Footage::Probe` against the configured
+  footage directory and persists results into `Footage` rows.
+- Specs live in `spec/services/pito/footage/`.
+
+<!-- agents:end name=pito-footage -->
+
+---
+
+<!-- agents:begin name=pito-engines sha=games-p15 -->
+
+## Engines & shared components
+
+**Reuse these. Do not reinvent them.**
+
+### `Pito::Copy`
+
+All user-facing strings route through `Pito::Copy.render(key, vars = {})`.
+Dictionaries are 50-variant pools under `pito.copy.*` in
+`config/locales/pito/copy/en.yml`. `rake pito:copy:audit` lists every key.
+See the **Copy engine** section for the full contract.
+
+### `Pito::FollowUp`
+
+Opt-in reply mechanism for messages that accept hashtag follow-ups.
+
+- Stamp with `Pito::FollowUp.make_followupable!(payload, target: "handler_id", conversation:)`.
+- `reply_target` must be registered in `Pito::FollowUp::Registry`.
+- Concrete handlers live in `app/services/pito/follow_up/handlers/`.
+- The generic `Pito::Confirmation::Executor` handles `confirm`/`cancel` for
+  confirmation-style follow-ups. Add a `when "command_name"` clause there for
+  each new game (or other domain) confirmation command.
+
+### `Pito::Suggestions`
+
+Autocomplete/ghost engine for the chatbox.
+
+- `Pito::Suggestions::Catalog.to_h(authenticated:)` — builds the static catalog
+  (slash/hashtag/chat verbs + vocabulary pointers) embedded in the page.
+- Dynamic (DB-backed) vocabularies (e.g. `:game_titles`, `:theme_names`) are
+  represented as endpoint pointers only; the server resolves them on `POST
+/suggestions`.
+- The JS controller (`pito--suggestions`) ghosts enum-slot completions using
+  `_chatEnumSlots()` — add a new dynamic slot by registering a vocabulary in
+  `Pito::Grammar::Registry` and wiring the server-side resolver.
+
+### `Pito::Stack`
+
+Per-provider API request tracking (no UI).
+
+- `Pito::Stack.usage` — full snapshot: Voyage / YouTube / IGDB (24h + month
+  request counts) + local Postgres footprint (MB + record counts).
+- `Pito::Stack.track(provider, endpoint:, units:)` — called by the
+  instrumentation shims at each client chokepoint; never lets tracking break the
+  API call.
+- Log lives in the `api_requests` table (indexed on `(provider, created_at)`).
+
+### `Pito::Stats`
+
+Polymorphic counter store (kinds: `subscribers`, `views`).
+
+- `Pito::Stats.get(entity, :views)` / `.set(entity, :views, n)` / `.for(entity)`.
+- `Channel`, `Video`, and `Game` all do `has_many :stats, as: :entity`.
+- Game `views` = sum of linked-video views; materialized by `GameStatsRefreshJob`.
+
+### `Pito::Search`
+
+Modular search registry.
+
+- `Pito::Search::Registry` — `register` / `for` / `reset!`.
+- `Pito::Search::Modules::IgdbGames` wraps `Client#search_games` with the
+  main-only filter and an error envelope (`{ hits:, total:, error: }`).
+- Local chat-verb search (`SearchGames`) is the deferred path; do not conflate
+  with the IGDB module.
+
+### `Pito::Recommendations`
+
+See the **Games** section above for the full contract. Three directions:
+`similar_games` / `channels_for` / `games_for`.
+
+### Shared ViewComponents
+
+| Component                           | Purpose                                                                           |
+| ----------------------------------- | --------------------------------------------------------------------------------- |
+| `Pito::Table::KeyValueRowComponent` | Canonical kv-table row (cyan key + dim value spans). Use for all key/value grids. |
+| `Pito::ScoreBarComponent`           | Renders a 0–100 score bar with the multi-stop pane gradient.                      |
+| `Pito::TimeToBeatComponent`         | Four-tick TTB display: main / extras / completionist / footage.                   |
+| `Pito::Shell::ShimmerTextComponent` | `.pito-shimmer` span; pass `delay:` for staggered shimmer rows.                   |
+| `Pito::Shell::InProgressComponent`  | "Thinking…" / in-progress indicator for async operations.                         |
+| `Pito::Event::MetaLineComponent`    | Timestamp + handle + channel meta line (above each message).                      |
+| `Pito::Event::SystemComponent`      | Standard (system) message rendering.                                              |
+| `Pito::Event::EnhancedComponent`    | Enhanced message rendering (richer layout, e.g. game detail).                     |
+
+Sidebar and picker controllers: `pito--games-nav` (games picker sidebar),
+`pito--theme-nav` (theme preview/apply sidebar), `chat_form#fillAndSubmit`
+(populate chatbox + submit — used by pickers to trigger commands on row click).
+
+### Anti-patterns
+
+- Don't build user-facing strings inline — use `Pito::Copy`.
+- Don't re-implement a confirmation flow — extend `Pito::Confirmation::Executor`.
+- Don't write raw inline styles on components — use `data-accent` tokens and
+  Tailwind classes; extract to a component when a pattern recurs.
+- Don't add a new sidebar controller when `pito--games-nav` / `pito--theme-nav`
+  patterns already cover the need.
+
+<!-- agents:end name=pito-engines -->
