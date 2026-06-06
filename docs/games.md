@@ -109,7 +109,7 @@ No production data exists → destructive migrations are free.
 
 - [x] T3.1 Re-confirm each phantom target has no table/model (grep vs schema). complexity: [low]
 - [x] T3.2 Remove analytics-sync chain + specs (`ChannelAnalyticsSync`, `VideoAnalyticsSync`, `VideoRetentionSync`(+Orchestrator), `VideoViewerTimeSyncJob`, `ViewerTimeDailyRefreshJob`, `YoutubeAnalyticsSync`). complexity: [high]
-- [ ] T3.3 Remove `Pito::Analytics::ViewerTimeRollup` + `VideoViewerTimeBucket`/`time_zone` refs; clean/remove `CrossVideoLocals`/`DataFreshness`. complexity: [high]
+- [x] T3.3 Remove `Pito::Analytics::ViewerTimeRollup` + `VideoViewerTimeBucket`/`time_zone` refs; clean/remove `CrossVideoLocals`/`DataFreshness`. complexity: [high]
 - [ ] T3.4 Remove `AnalyticsController` + `channels/analytics_controller.rb` + routes/views. complexity: [low]
 - [ ] T3.5 Remove phantom import stack (`ImportJob`/`RejectedVideoImport` refs, `Channel::ImportVideosJob`, `Channel::VideoImporter`, `imports/channels_controller.rb` + route); keep `ImportVideosJob`. complexity: [high]
 - [ ] T3.6 Remove `Video::ThumbnailPreview`. complexity: [low]
