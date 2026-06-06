@@ -225,6 +225,8 @@ the unaltered default.
 - [x] T11.2 `npm test` green; `bin/rubocop` clean; `prettier --write` on `docs/themes.md`. complexity: [manual]
 - [ ] T11.3 Smoke: `/theme` sidebar (↑/↓ preview, Enter apply, Esc revert, current marked); `/theme list` + `ls` System message + `#preview`/`#apply`; `/theme apply one-dark`; `/theme reset`; `/theme --help`; reload persists; pito blue constant; light themes readable. complexity: [manual]
 - [ ] T11.4 PR #62 CI green; **await user validation — do not merge**. complexity: [manual]
+- [x] T11.5 Fix Zeitwerk eager-load (CI red): theme `definitions/*.rb` define no constant (they call `Registry.register`), so eager-load raises `Zeitwerk::NameError`. Make Zeitwerk ignore the definitions dir (Registry requires them explicitly); verify `bin/rails zeitwerk:check`. complexity: [high]
+- [-] T11.6 Commit: `Fix Zeitwerk eager-load: ignore theme definitions dir`. complexity: [manual]
 
 ## Per-phase Definition of Done
 
