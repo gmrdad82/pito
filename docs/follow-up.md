@@ -197,3 +197,15 @@ Estra:
 - for each /slash command I should have in the help the possible Follow-ups
 - list commands should have filter, rm, show
 - show should have rm, update
+
+## I. Revisit & tighten `/help`
+
+> Deferred during the games build. Once games + chat verbs land, do a focused
+> pass on `/help`: make it accurate and complete for the new surface.
+
+- [ ] Audit `/help` against the live command surface (slash + chat verbs +
+      follow-ups): `/themes`, `/games import`, `list games`/`show game`/`delete
+    game`, and each message's `#<handle>` follow-ups.
+- [ ] For each command/message, list its possible follow-ups in `/help` (per the
+      Extra notes above: list → filter/rm/show; show → rm/update/resync/owned/…).
+- [ ] Tighten formatting/grouping; ensure copy goes through `Pito::Copy`.
