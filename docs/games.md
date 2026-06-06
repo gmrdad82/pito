@@ -240,12 +240,12 @@ No production data exists → destructive migrations are free.
 - [x] T10.8 `Sidebar::Games::Component` + `pito--games-nav`; no-arg picker → populate chatbox + submit. complexity: [high]
 - [x] T10.9 Extend `chat_form_controller` with a public set-value+submit action. complexity: [low]
 - [x] T10.10 `ChatController`: fast-path to open the games picker on no-title `show game`/`rm game`. complexity: [low]
-- [ ] T10.11 i18n via `Pito::Copy`; handler/request/component/JS specs. complexity: [low]
+- [x] T10.11 i18n via `Pito::Copy`; handler/request/component/JS specs. complexity: [low]
 - [x] T10.14 `update` verb: `update game ownership <id> <platforms>` → tolerant list parse (split on `,` `.` `*` + whitespace) → synonyms→`ps`/`switch`/`steam` → set `GamePlatformOwnership`; echo updated detail. complexity: [high]
 - [x] T10.15 `link`/`unlink` verbs: `link game <id> to video <id|title>` / `link video <id|title> to game <id>` (+ `unlink`) → create/destroy `video_game_links` (HABTM); witty confirm; not-found errors. complexity: [high]
 - [x] T10.16 Grammar + `Pito::Suggestions` + i18n (`Pito::Copy`) for `update`/`link`/`unlink`; specs. complexity: [low]
-- [ ] T10.12 `bundle exec rspec` + `npm test` + `bin/rubocop` + `node --check` green. complexity: [manual]
-- [ ] T10.13 Commit: `Chat verbs list/show/delete/update/link games + ids + ghost + picker + follow-ups`. complexity: [manual]
+- [x] T10.12 `bundle exec rspec` + `npm test` + `bin/rubocop` + `node --check` green. complexity: [manual]
+- [x] T10.13 Commit: `Chat verbs list/show/delete/update/link games + ids + ghost + picker + follow-ups`. complexity: [manual]
 
 ## P11 — `/games import` sidebar (search → 5-step progress → 2 messages)
 
