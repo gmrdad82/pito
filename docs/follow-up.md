@@ -165,6 +165,13 @@ the phantom video/analytics dead-code removal. In progress on PR #62.
   automatic on-demand enqueue (import path) and the nightly 1:00 UTC orchestration
   (`docs/games.md` P14). Likely surfaces: `#<handle> reindex`/`resync` follow-ups
   and/or `reindex`/`resync` chat verbs. Deferred during the games build.
+- **Materialized view for channel↔game recommendations** (optimization): the
+  `game→channel` / `channel→game` directions are computed on demand from video
+  vectors (design B). If those queries get hot once there's a UI, precompute them
+  into a MV (`(game_id, channel_id, score)` + inverse) via a pgvector lateral NN,
+  `REFRESH`'d nightly after the reindex stage. Reads become O(1) lookups. NOT
+  needed now (HNSW NN is sub-ms; the filtered game↔game `similar` path can't be
+  materialized anyway). See `docs/games.md` P9.5.
 - Further UI enhancements beyond those listed.
 - `Pito::Stats` design (daily snapshot tables/jobs for channel + video totals) — pairs with P60.
 - `Pito::Analytics` (wire TAB channel + Shift+TAB period into real queries).

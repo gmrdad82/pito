@@ -1,8 +1,6 @@
 # frozen_string_literal: true
 
 class Channel < ApplicationRecord
-  has_neighbors :summary_embedding
-
   belongs_to :youtube_connection, optional: true, inverse_of: :channels
   has_many :videos, dependent: :destroy
   has_many :stats, as: :entity, dependent: :destroy

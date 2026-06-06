@@ -60,34 +60,12 @@ RSpec.describe ChannelInfoJob do
     expect(channel.last_synced_at).to be_within(5.seconds).of(Time.current)
   end
 
-  it "fills in missing channel info (avatar, banner, description)" do
+  it "fills in missing channel info (avatar, banner)" do
     described_class.new.perform(connection.id, turn.id)
 
     channel.reload
-    expect(channel.description).to eq("A test channel")
     expect(channel.avatar_url).to eq("https://example.com/avatar.jpg")
     expect(channel.banner_url).to eq("https://example.com/banner.jpg")
-  end
-
-  it "persists branding keywords from brandingSettings.channel.keywords" do
-    allow_any_instance_of(Channel::Youtube::Client).to receive(:channels_list).and_return(
-      {
-        items: [
-          {
-            snippet: { title: "Alpha Channel", custom_url: "@alpha", description: "A test channel" },
-            statistics: { subscriber_count: "1500", view_count: "2300000", video_count: "42" },
-            branding_settings: {
-              image:   { banner_external_url: "https://example.com/banner.jpg" },
-              channel: { keywords: "soulslike \"action rpg\" bosses" }
-            }
-          }
-        ]
-      }
-    )
-
-    described_class.new.perform(connection.id, turn.id)
-
-    expect(channel.reload.keywords).to eq("soulslike \"action rpg\" bosses")
   end
 
   it "emits an enhanced event with formatted stats" do

@@ -95,8 +95,6 @@ class ChannelInfoJob < ApplicationJob
         channel.update_columns(
           title:            normalized[:title],
           handle:           normalized[:handle],
-          description:      normalized[:description],
-          keywords:         normalized[:keywords],
           avatar_url:       normalized[:avatar_url],
           banner_url:       normalized[:banner_url],
           video_count:      normalized[:video_count],
@@ -133,15 +131,12 @@ class ChannelInfoJob < ApplicationJob
     stats    = item[:statistics]         || {}
     branding = item[:branding_settings]  || {}
     branding_image   = branding[:image]   || {}
-    branding_channel = branding[:channel] || {}
     thumbnails = snippet[:thumbnails] || {}
     default_thumb = thumbnails[:default] || {}
 
     {
       title: snippet[:title],
       handle: snippet[:custom_url],
-      description: snippet[:description],
-      keywords: branding_channel[:keywords],
       avatar_url: default_thumb[:url],
       banner_url: branding_image[:banner_external_url],
       subscriber_count: stats[:subscriber_count]&.to_i,

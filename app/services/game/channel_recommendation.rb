@@ -1,33 +1,22 @@
-# Phase 34+ (2026-05-19) — Channels a game's audience overlaps with.
+# Channels a game's content overlaps with — the **game→channel** direction.
 #
-# Returns the CHANNELS whose Voyage `summary_embedding` sits closest
-# (cosine distance) to a given game's `summary_embedding`. Backs the
-# "channels covering this game" right shelf on the game show page.
+# Design B: channels have no embedding of their own. A channel IS its videos, so
+# this finds the VIDEOS nearest (cosine) to the game's `summary_embedding`, then
+# groups them by `channel_id` — the channel's best (closest) video is its score.
+# One HNSW query over videos + an in-memory group; no synthetic channel vector,
+# and a channel covering many games surfaces on whichever video matches (no
+# centroid blur).
 #
-# Mirrors `Bundle::SuggestedFor` and `Game::SimilarGames` in query
-# shape — the cosine ORDER BY rides on the `neighbor` gem's
-# `nearest_neighbors` helper (declared via `has_neighbors
-# :summary_embedding` on `Channel`), hitting the pgvector HNSW index
-# (`vector_cosine_ops`).
+# Returns an Array of `Result` structs (channel, 0–100 score, cosine distance),
+# ranked best-first, dropping channels below `THRESHOLD_SCORE`. The score maps
+# distance via `((1 - distance) * 100)`.
 #
-# Departs from those two services in its return shape: instead of an
-# ActiveRecord relation, this service returns an Array of `Result`
-# structs carrying the channel, the raw cosine distance, and a
-# 0–100 score linearly mapped from distance. Results below
-# `THRESHOLD_SCORE` are dropped — the shelf renders nothing when the
-# embedding space puts no channel within a meaningful neighborhood.
-#
-# Cosine distance ranges 0 (identical) → 2 (opposite); for normalized
-# Voyage embeddings practical hits sit in [0, 1]. The score formula
-# `((1 - distance) * 100).round.clamp(0, 100)` maps that to 100 → 0.
-#
-# Empty / unembedded input → `[]`. Channels without an embedding are
-# skipped via the `where.not(summary_embedding: nil)` guard so the
-# `neighbor` gem never sees a NULL vector.
+# Empty / unembedded game → `[]`. Videos without an embedding are skipped.
 class Game
   class ChannelRecommendation
-    DEFAULT_LIMIT = 8
-    THRESHOLD_SCORE = 25 # drop hits below this 0–100 score floor
+    DEFAULT_LIMIT   = 8
+    THRESHOLD_SCORE = 25  # drop hits below this 0–100 score floor
+    VIDEO_POOL      = 50  # nearest videos scanned before grouping by channel
 
     Result = Struct.new(:channel, :score, :distance, keyword_init: true)
 
@@ -36,7 +25,7 @@ class Game
     end
 
     def initialize(game, limit: DEFAULT_LIMIT)
-      @game = game
+      @game  = game
       @limit = limit
     end
 
@@ -44,20 +33,33 @@ class Game
       return [] if @game.nil?
       return [] if @game.summary_embedding.blank?
 
-      candidates = Channel
-        .where.not(summary_embedding: nil)
-        .nearest_neighbors(:summary_embedding, @game.summary_embedding, distance: "cosine")
-        .first(@limit)
+      best = {} # channel_id => smallest cosine distance among its videos
+      nearest_videos.each do |video|
+        distance = video.neighbor_distance
+        if best[video.channel_id].nil? || distance < best[video.channel_id]
+          best[video.channel_id] = distance
+        end
+      end
+      return [] if best.empty?
 
-      candidates
-        .map { |channel| build_result(channel) }
+      channels = ::Channel.where(id: best.keys).index_by(&:id)
+      best
+        .filter_map { |cid, dist| channels[cid] && build_result(channels[cid], dist) }
         .select { |result| result.score >= THRESHOLD_SCORE }
+        .sort_by { |result| -result.score }
+        .first(@limit)
     end
 
     private
 
-    def build_result(channel)
-      distance = channel.neighbor_distance
+    def nearest_videos
+      ::Video
+        .where.not(summary_embedding: nil)
+        .nearest_neighbors(:summary_embedding, @game.summary_embedding, distance: "cosine")
+        .first(VIDEO_POOL)
+    end
+
+    def build_result(channel, distance)
       score = ((1 - distance) * 100).round.clamp(0, 100)
       Result.new(channel: channel, score: score, distance: distance)
     end
