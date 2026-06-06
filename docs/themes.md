@@ -19,23 +19,24 @@ the unaltered default.
 
 ## Locked decisions
 
-| Topic                                           | Decision                                                                                           |
-| ----------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| Command                                         | `/theme` (singular) for everything                                                                 |
-| Engine                                          | one Ruby file per theme → registry/loader → `rake pito:themes:export` → committed `themes.css`     |
-| Shades                                          | auto-derive surface/elevated, fg-dim/faded, borders via `mix()`; per-theme overrides allowed       |
-| Default                                         | Tokyo Night, **unaltered**; Dracula + the other 16 are extra                                       |
-| pito blue                                       | `--brand-pito` #5170ff — identical on every theme                                                  |
-| Persistence                                     | global via `AppSetting.theme` + `#pito-settings` + `broadcast_global_settings_update`              |
-| `/theme` (bare)                                 | opens the preview sidebar (↑/↓ preview, Enter apply, Esc revert, current marked, witty hint)       |
-| `/theme list` (alias `ls`)                      | does NOT open the sidebar — lists themes in a **System message** with `#preview`/`#apply` hints    |
-| `#preview <name>` / `#apply <name>`             | hashtag **replies** (follow-ups to the list message) — preview/apply that theme                    |
-| `/theme preview <name>` / `/theme apply <name>` | distinct slash subcommands (same effect as the hashtags, but are commands, not replies)            |
-| `/theme <name>`                                 | shorthand → apply that theme                                                                       |
-| default / reset                                 | `default` resolves to Tokyo Night; `/theme reset` → reset to default; preview/apply `default` work |
-| Aliases                                         | real slash alias system; first one shipped: `list` ↔ `ls`; production-ready                        |
-| Branch / merge                                  | branch `themes`, no worktrees, sequential; squash-merge at the end after validation                |
-| Specs                                           | Rails + JS (Vitest) — including the alias, the hashtag replies, and the rake task                  |
+| Topic                                           | Decision                                                                                                                              |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Command                                         | `/theme` (singular) for everything                                                                                                    |
+| Engine                                          | one Ruby file per theme → registry/loader → `rake pito:themes:export` → committed `themes.css`                                        |
+| Shades                                          | auto-derive surface/elevated, fg-dim/faded, borders via `mix()`; per-theme overrides allowed                                          |
+| Default                                         | Tokyo Night, **unaltered**; Dracula + the other 16 are extra                                                                          |
+| pito blue                                       | `--brand-pito` #5170ff — identical on every theme                                                                                     |
+| Persistence                                     | global via `AppSetting.theme` + `#pito-settings` + `broadcast_global_settings_update`                                                 |
+| `/theme` (bare)                                 | opens the preview sidebar (↑/↓ preview, Enter apply, Esc revert, current marked, witty hint)                                          |
+| `/theme list` (alias `ls`)                      | does NOT open the sidebar — lists themes in a **System message** with `#preview`/`#apply` hints                                       |
+| `#<handle> preview/apply <name>`                | follow-up replies routed by the message's unique hashtag (P13–P15); preview/apply that theme                                          |
+| Follow-up engine                                | opt-in `reply_handle`+`reply_target`; reply by `#<handle> <action>`; confirmation→echo+append+consume, system/enhanced→no-echo+mutate |
+| `/theme preview <name>` / `/theme apply <name>` | distinct slash subcommands (same effect as the hashtags, but are commands, not replies)                                               |
+| `/theme <name>`                                 | shorthand → apply that theme                                                                                                          |
+| default / reset                                 | `default` resolves to Tokyo Night; `/theme reset` → reset to default; preview/apply `default` work                                    |
+| Aliases                                         | real slash alias system; first one shipped: `list` ↔ `ls`; production-ready                                                           |
+| Branch / merge                                  | branch `themes`, no worktrees, sequential; squash-merge at the end after validation                                                   |
+| Specs                                           | Rails + JS (Vitest) — including the alias, the hashtag replies, and the rake task                                                     |
 
 ## Complexity hints
 
@@ -59,6 +60,9 @@ the unaltered default.
 - P10 — Light-theme hardcoded-color audit + fix
 - P11 — Finalize (full suite green, PR ready)
 - P12 — `#preview`/`#apply` transform the list message in place (reusable diff-reveal engine)
+- P13 — Follow-up engine core (generator / router / registry / dispatch)
+- P14 — Confirmations on the engine (echo + append; consume original)
+- P15 — Theme list on the engine (mutate path) — supersedes P12a targeting
 
 ---
 
@@ -263,6 +267,13 @@ the unaltered default.
 
 ### P12a — backend + rendering (correct & reload-safe; no animation yet)
 
+> **SUPERSEDED (targeting only).** P12a shipped (commit `18d06e5a`) but uses the
+> `theme_list:true` + "most-recent list" + echo approach. P13–P15 replace that
+> with the unique-hashtag follow-up engine (per-message handle, no echo, mutate).
+> The reusable bits P12a built — `theme_diff` kind, `ThemeDiffComponent`, quips,
+> `Switch.apply_only/preview_only`, the `pito--diff-reveal` wiring — are kept and
+> reused by P15. P12b (the diff-reveal engine) is unchanged and runs after P15.
+
 - [x] T12.1 Tag + anchor the list message: `Theme#list_themes` payload gains `theme_list: true`; `Pito::Event::SystemComponent` emits `id="event_<id>"` on its root Segment when the payload is anchorable (`theme_list`/`theme_diff`). complexity: [low]
 - [x] T12.2 New event kind `theme_diff`: add to `Event::KINDS` + map it in `Pito::Stream::EventRenderer` → `Pito::Event::ThemeDiffComponent`. complexity: [low]
 - [x] T12.3 `Pito::Themes::Switch`: split side-effect from event-building — add `apply_only(def)` / `preview_only(def)` (persist/set-theme broadcast, no events); existing `apply`/`preview` delegate to them. complexity: [low]
@@ -280,6 +291,62 @@ the unaltered default.
 - [ ] T12.12 Commit: `P12b: reusable diff-reveal engine (dual granularity)`. complexity: [manual]
 - [ ] T12.13 Smoke (operator): `/theme list`; `#preview dracula` (row marks, marker types in, page recolors); `#preview nord` (dracula unmarks, nord marks); `#apply nord` (list reverse-types, confirmation types in, persists, survives reload). Compare dark (char) vs light (line) granularity; **pick the keeper**. complexity: [manual]
 - [ ] T12.14 (DEFERRED — after T12.13) Clean up the losing granularity branch; add diff-engine + reveal-controller specs (Vitest) for the kept approach; commit `P12c: settle diff-reveal granularity (<approach>) + specs`. complexity: [manual]
+
+## P13–P15 — Reusable follow-up engine (folded into PR #62)
+
+> Generalizes the confirmation-reply machinery into a reusable **follow-up
+> engine**. A message opts in to being follow-up-able: it is stamped with a
+> unique hashtag (`reply_handle`) + a domain id (`reply_target`) and renders the
+> hashtag as its reply affordance. The user replies `#<handle> <action> [args]`;
+> the backend resolves the target event by `reply_handle` and acts by the
+> target's KIND:
+>
+> - `confirmation` → **echo + append** a new background outcome message; the
+>   original is **consumed** (`reply_consumed:true` → hashtag hidden, not
+>   routable) but kept, and its handle stays reserved so the generator never
+>   re-picks it. The original's body is not transformed.
+> - `system` / `enhanced` → **no echo, mutate** the target in place + replace.
+>
+> Payload contract on any follow-up-able message: `reply_handle` (unique
+> hashtag), `reply_target` (handler id), `reply_consumed` (bool). Future: a
+> `*_follow_up` message can itself be stamped → follow-up-to-follow-up, no level
+> assumptions. Existing pieces reused: `Pito::HandleGenerator` (generalized), the
+> `*_follow_up` kinds + their `--bg-elevated`/surface backgrounds.
+
+### P13 — Follow-up engine core
+
+- [ ] T13.1 Generalize `Pito::HandleGenerator`: uniqueness across ANY event carrying a `reply_handle` (query `payload->>'reply_handle'`, incl. consumed); keep the `<greek>-<4d>` format; doc-block. complexity: [low]
+- [ ] T13.2 Payload contract + a stamping helper (e.g. `Pito::FollowUp.make_followupable!(payload, target:, conversation:)`) that injects `reply_handle` + `reply_target`; doc-block. complexity: [low]
+- [ ] T13.3 `Pito::FollowUp::Router` — parse `#<handle> <rest>`, find the non-consumed event by `reply_handle`, return `{event:, rest:}` / `:not_found` / `:not_a_follow_up`. (Replaces `Pito::ConfirmationRouter`.) complexity: [high]
+- [ ] T13.4 `Pito::FollowUp::Registry` (`reply_target` → handler) + `Pito::FollowUp::Handler` base (`actions`, `#call(event:, rest:, conversation:)` → result) + `Pito::FollowUp::Result` value types: `Mutation(kind:, payload:)`, `Append(events:)`, `Error(message_key:, message_args:)`. complexity: [high]
+- [ ] T13.5 `Pito::FollowUp::AffordanceComponent` — renders `#<handle> <usage>`; hidden when `reply_consumed`. complexity: [low]
+- [ ] T13.6 Controller wiring: replace `confirmation_response?`/`handle_confirmation` with generic follow-up detection (`Router.classify`); if a target is found, branch by kind — mutate path (no echo/turn) vs append path (echo + turn). Unresolved `#…` → existing hashtag fallback. complexity: [high]
+- [ ] T13.7 `FollowUpDispatchJob` — run the domain handler: `Mutation` → `event.update!` + `replace_event`; `Append` → persist `*_follow_up` events + broadcast; consume the source per its kind. complexity: [high]
+- [ ] T13.8 Specs: generator uniqueness incl. consumed; router resolve/not-found/consumed; registry + handler base; affordance hidden-when-consumed; controller echo-vs-no-echo branch by target kind. complexity: [low]
+- [ ] T13.9 Commit: `P13: reusable follow-up engine (generator/router/registry/dispatch)`. complexity: [manual]
+
+### P14 — Confirmations on the engine (echo + append; consume original)
+
+- [ ] T14.1 `Pito::FollowUp::Handlers::Confirmation` (actions `confirm`/`cancel`) — delegate to the existing executors (disconnect …); return an `Append` of a `confirmation_follow_up` outcome message. complexity: [high]
+- [ ] T14.2 Migrate stampers: `disconnect.rb` (+ any confirmation emitter) → stamp via the helper (`reply_handle` + `reply_target:"confirmation"`, keep `command`). complexity: [low]
+- [ ] T14.3 Consume-on-reply: set `reply_consumed:true` on the original confirmation (affordance hidden; handle reserved); body kept; re-reply → not routable. complexity: [low]
+- [ ] T14.4 `ConfirmationFollowUpComponent`: orange border (like confirmation) + **surface** background (was `--bg-elevated`). complexity: [low]
+- [ ] T14.5 Retire `Pito::ConfirmationRouter` + old mutate-in-place `handle_confirmation` + the mutating branch of `ConfirmationDispatchJob` (fold its executors into the Confirmation follow-up handler). complexity: [high]
+- [ ] T14.6 Update confirmation flows/specs (disconnect request + job specs) to the echo + append + consume model. complexity: [low]
+- [ ] T14.7 Commit: `P14: confirmations via the follow-up engine (echo + append, consume)`. complexity: [manual]
+
+### P15 — Theme list on the engine (mutate path) — supersedes P12a targeting
+
+- [ ] T15.1 Stamp the list message: `reply_target:"theme_list"` + `reply_handle` (drop `theme_list:true` + the most-recent heuristic). complexity: [low]
+- [ ] T15.2 `Pito::FollowUp::Handlers::ThemeList` (actions `preview`/`apply`): resolve theme; preview → `Switch.preview_only` + `Mutation` to `theme_diff` (preview-marked, stays follow-up-able); apply → `Switch.apply_only` + `Mutation` to `theme_diff` (quip, consume). complexity: [high]
+- [ ] T15.3 List affordance shows `#<handle> preview <name>` / `#<handle> apply <name>` (AffordanceComponent + i18n). complexity: [low]
+- [ ] T15.4 Remove P12a's echo + the `:preview`/`:apply` stem handlers (`Hashtag::Handlers::Theme`/`ThemeApply`); route via the engine. complexity: [low]
+- [ ] T15.5 Update theme specs to the handle-based mutate flow (no echo; repeatable preview; apply consumes). complexity: [low]
+- [ ] T15.6 Commit: `P15: theme list follow-up via the engine (#<handle> preview/apply)`. complexity: [manual]
+
+> After P15, run **P12b** (the `pito/diff.js` + `pito--diff-reveal` engine) on top
+> of the `theme_diff` payloads, then P12b's smoke (T12.13) compares dark/char vs
+> light/line granularity.
 
 ## Per-phase Definition of Done
 
