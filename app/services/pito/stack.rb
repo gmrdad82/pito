@@ -21,5 +21,10 @@ module Pito
         igdb:    Igdb.to_h
       }
     end
+
+    # Full snapshot: per-provider request usage + local Postgres footprint.
+    def usage
+      providers.merge(local: Local.to_h)
+    end
   end
 end
