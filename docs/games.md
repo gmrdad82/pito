@@ -231,7 +231,7 @@ No production data exists → destructive migrations are free.
 ## P10 — Chat verbs `list/show/delete games` + grammar + title ghost + list follow-up + picker
 
 - [ ] T10.1 Grammar: noun vocab (`game`/`games`/`videos`) + `:game_title` slot (source `:game_titles`) on `show`; `list`(ls)/`show`/`delete`(rm) specs/aliases; adjust FILLERS. complexity: [high]
-- [ ] T10.2 `Chat::Handlers::List` (rewrite): real query → list System message **showing each game's ID**; stamp `make_followupable!(target:"game_list")`; follow-up affordances key off **ID**. complexity: [low]
+- [x] T10.2 `Chat::Handlers::List` (rewrite): real query → list System message **showing each game's ID**; stamp `make_followupable!(target:"game_list")`; follow-up affordances key off **ID**. complexity: [low]
 - [ ] T10.3 `Chat::Handlers::Show`: accept **ID** (or title) → `Game.find` / `find_by ILIKE` → detail message; not-found witty error. complexity: [high]
 - [ ] T10.4 `Chat::Handlers::Delete`: accept **ID** (or title) → confirmation event (`reply_target:"game_delete"`). complexity: [low]
 - [ ] T10.5 `Pito::Suggestions`: wire `:game_title` ghost (server resolves dynamic; add to JS `_chatEnumSlots()`) → `show game li` ghosts `es of P`. complexity: [high]
