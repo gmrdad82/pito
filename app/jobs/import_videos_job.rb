@@ -207,11 +207,17 @@ class ImportVideosJob < ApplicationJob
   def upsert_video(attrs, channel)
     return if attrs[:youtube_video_id].blank?
 
+    # P4 — view_count moved off the videos column onto the polymorphic
+    # `stats` table; pull it out of the AR attrs and persist via the facade.
+    views = attrs.delete(:view_count)
+
     video = Video.find_or_initialize_by(youtube_video_id: attrs[:youtube_video_id])
     video.channel = channel
     video.assign_attributes(attrs)
     video.last_synced_at = Time.current
     video.save!
+
+    Pito::Stats.set(video, :views, views)
   end
 
   def map_privacy(status)

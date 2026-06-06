@@ -124,7 +124,7 @@ RSpec.describe ImportVideosJob do
     expect(video.title).to eq("Video One")
     expect(video.description).to eq("First video")
     expect(video.duration_seconds).to eq(630) # 10m30s
-    expect(video.view_count).to eq(1000)
+    expect(Pito::Stats.get(video, :views)).to eq(1000) # P4 — via stats table
     expect(video.like_count).to eq(50)
     expect(video.comment_count).to eq(10)
     expect(video.privacy_status).to eq("public")
