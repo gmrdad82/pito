@@ -18,7 +18,7 @@ module Pito
     # == Error handling
     #
     # Callers should rescue StandardError and emit an error outcome_text via the
-    # `pito.confirmation.errors.execution_failed` i18n key.
+    # `pito.copy.confirmation.execution_failed` i18n key.
     class Executor
       class << self
         # Execute the confirm branch for the given command + payload.
@@ -31,7 +31,7 @@ module Pito
           when "disconnect"
             confirm_disconnect(payload)
           else
-            Pito::Copy.render("pito.confirmation.confirmed.default")
+            Pito::Copy.render("pito.copy.confirmation.confirmed")
           end
         end
 
@@ -46,10 +46,10 @@ module Pito
             payload = payload.with_indifferent_access
             channel = Channel.find_by(id: payload[:channel_id])
             handle  = channel&.handle&.presence || channel&.title.to_s
-            Pito::Copy.render("pito.slash.disconnect.confirmation.cancelled",
+            Pito::Copy.render("pito.copy.disconnect.cancelled",
                               { handle: handle.presence || "the channel" })
           else
-            Pito::Copy.render("pito.confirmation.cancelled.default")
+            Pito::Copy.render("pito.copy.confirmation.cancelled")
           end
         end
 
@@ -58,7 +58,7 @@ module Pito
         def confirm_disconnect(payload)
           payload       = payload.with_indifferent_access
           channel       = Channel.find_by(id: payload[:channel_id])
-          return Pito::Copy.render("pito.slash.disconnect.errors.already_gone") if channel.nil?
+          return Pito::Copy.render("pito.copy.disconnect.already_gone") if channel.nil?
 
           handle        = channel.handle.presence || channel.title.to_s
           video_count   = channel.videos.count

@@ -103,7 +103,7 @@ change, so copy can be grown, shrunk, audited, and kept on-voice in one place.
 > keeps specs stable. (`youtube.ascii_art` is multi-line art — keep additions
 > small, consistent-width, tasteful; quality over filler.)
 
-- [ ] T5.1 Relocate the 13 single-entry wired keys to `pito.copy.*` (new keys + update each `Pito::Copy.render` call site + move/remove old YAML), still 1-entry; suite green. complexity: [low]
+- [x] T5.1 Relocate the 13 single-entry wired keys to `pito.copy.*` (new keys + update each `Pito::Copy.render` call site + move/remove old YAML), still 1-entry; suite green. complexity: [low]
 - [ ] T5.2 Enrich auth/confirmation/connect copy to 50 each (`not_enrolled`, `confirmation.confirmed/cancelled/execution_failed`, `connect.not_configured`). complexity: [low]
 - [ ] T5.3 Enrich disconnect copy to 50 each (`confirmation.body` %{handle_html}, `confirmation.cancelled` %{handle}, `errors.already_gone/missing_target/not_found` %{target}). complexity: [low]
 - [ ] T5.4 Enrich help/theme copy to 50 each (`help.body`, `theme.list.intro`, `theme.sidebar.placeholder`). complexity: [low]

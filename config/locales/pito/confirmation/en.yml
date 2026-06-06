@@ -4,10 +4,5 @@ en:
       expand_hint: "for details"
       expand_collapse_hint: "to hide"
       affordance_usage: "confirm · cancel"
-      cancelled:
-        default: "Cancelled."
-      confirmed:
-        default: "Done."
       errors:
-        execution_failed: "Something went wrong. The action may be partially completed."
         invalid_action: "Unknown action '%{action}'. Reply with confirm or cancel."

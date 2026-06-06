@@ -115,7 +115,7 @@ RSpec.describe Pito::FollowUp::Handlers::Confirmation, type: :service do
     it "returns a Result::Append (not Error) with execution_failed text" do
       expect(result).to be_a(Pito::FollowUp::Result::Append)
       text = result.events.first[:payload][:outcome_text]
-      expect(text).to include(Pito::Copy.render("pito.confirmation.errors.execution_failed"))
+      expect(text).to include(Pito::Copy.render("pito.copy.confirmation.execution_failed"))
     end
   end
 

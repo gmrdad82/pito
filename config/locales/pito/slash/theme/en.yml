@@ -21,12 +21,9 @@ en:
         reset:
           confirmed: "Back to basics. Tokyo Night is live again."
         list:
-          intro: "18 themes, two vibes. Pick one below — or just type its name."
           dark_header: "Dark"
           light_header: "Light"
           hint: "Type #preview <name> to try it live, or #apply <name> to make it permanent."
-        sidebar:
-          placeholder: "Theme sidebar coming in P8. For now: /theme apply <name> or /theme --help."
         errors:
           unknown_target: "No theme called '%{name}'. Try /theme list (or /theme --help) to see what's on the menu."
           missing_name_for_preview: "Usage: /theme preview <name>. Not sure which one? /theme list."

@@ -1,7 +1,6 @@
 en:
   pito:
     auth:
-      not_enrolled: "No TOTP enrolled. Run bin/boot --totp to set one up."
       enroll:
         success: |
           TOTP enrolled.

@@ -193,7 +193,7 @@ module Pito
           light_rows = build_theme_rows(grouped[:light] || [], current_slug)
 
           payload = {
-            body:     Pito::Copy.render("pito.slash.theme.list.intro"),
+            body:     Pito::Copy.render("pito.copy.theme.list_intro"),
             sections: [
               { title: I18n.t("pito.slash.theme.list.dark_header"),  rows: dark_rows },
               { title: I18n.t("pito.slash.theme.list.light_header"), rows: light_rows }
@@ -223,7 +223,7 @@ module Pito
             {
               kind:    "system",
               payload: {
-                text: Pito::Copy.render("pito.slash.theme.sidebar.placeholder")
+                text: Pito::Copy.render("pito.copy.theme.sidebar_placeholder")
               }
             }
           ])

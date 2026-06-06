@@ -32,6 +32,8 @@ en:
           - "Painted over everything with %{theme}. Worth it."
           - "%{theme} loaded. You may now admire the results."
           - "The terminal has spoken. %{theme} is the way."
+        list_intro: "18 themes, two vibes. Pick one below — or just type its name."
+        sidebar_placeholder: "Theme sidebar coming in P8. For now: /theme apply <name> or /theme --help."
 
       thinking:
         slash:
@@ -368,6 +370,7 @@ en:
             - "Made it up"
 
       auth:
+        not_enrolled: "No TOTP enrolled. Run bin/boot --totp to set one up."
         failures:
           - "Authentication failed. So did the vibe."
           - "Nope. The code disagrees."
@@ -623,6 +626,24 @@ en:
           - "Farewell. May your CTR be high and your strikes be zero."
           - "Signed off. The void resumes its regularly scheduled emptiness."
           - "Logged out. The end. Roll credits."
+
+      confirmation:
+        confirmed: "Done."
+        cancelled: "Cancelled."
+        execution_failed: "Something went wrong. The action may be partially completed."
+
+      connect:
+        not_configured: "Google OAuth credentials are not configured."
+
+      disconnect:
+        confirmation_body: "Disconnect from %{handle_html}? This will also delete all local videos."
+        cancelled: "Alright, leaving %{handle} connected."
+        already_gone: "Channel no longer exists."
+        missing_target: "Usage: /disconnect @handle or /disconnect <id>"
+        not_found: "No channel found matching '%{target}'."
+
+      help:
+        body: "Slash commands let's you configure pito, start or resume conversations, log in or log out, and more."
 
       errors:
         dispatch_failed:

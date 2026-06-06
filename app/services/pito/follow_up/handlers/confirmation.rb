@@ -48,7 +48,7 @@ module Pito
             begin
               Pito::Confirmation::Executor.public_send(action, command, payload)
             rescue StandardError
-              Pito::Copy.render("pito.confirmation.errors.execution_failed")
+              Pito::Copy.render("pito.copy.confirmation.execution_failed")
             end
 
           Pito::FollowUp::Result::Append.new(

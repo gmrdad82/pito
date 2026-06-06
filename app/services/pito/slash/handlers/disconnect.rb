@@ -63,7 +63,7 @@ module Pito
           Pito::Slash::Result::Ok.new(events: [
             {
               kind:    "error",
-              payload: { text: Pito::Copy.render("pito.slash.disconnect.errors.missing_target") }
+              payload: { text: Pito::Copy.render("pito.copy.disconnect.missing_target") }
             }
           ])
         end
@@ -72,7 +72,7 @@ module Pito
           Pito::Slash::Result::Ok.new(events: [
             {
               kind:    "error",
-              payload: { text: Pito::Copy.render("pito.slash.disconnect.errors.not_found", { target: target }) }
+              payload: { text: Pito::Copy.render("pito.copy.disconnect.not_found", { target: target }) }
             }
           ])
         end
@@ -81,7 +81,7 @@ module Pito
           handle  = channel.handle.presence || channel.title.to_s
           payload = {
             command:       "disconnect",
-            body:          Pito::Copy.render("pito.slash.disconnect.confirmation.body", { handle_html: %(<span class="text-cyan">@#{handle.delete_prefix("@")}</span>) }),
+            body:          Pito::Copy.render("pito.copy.disconnect.confirmation_body", { handle_html: %(<span class="text-cyan">@#{handle.delete_prefix("@")}</span>) }),
             html:          true,
             channel_id:    channel.id,
             expand_detail: build_expand_detail(channel)

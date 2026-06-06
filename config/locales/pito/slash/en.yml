@@ -28,8 +28,6 @@ en:
         help:
           usage: "/connect"
           description: "Initiate Google OAuth to connect a YouTube channel."
-        errors:
-          not_configured: "Google OAuth credentials are not configured."
       config:
         descriptions:
           config: "Read or write install-wide credentials or toggle sound/fx (/config google|voyage|igdb|webhook|sound|fx)"
@@ -105,13 +103,7 @@ en:
         help:
           usage: "/disconnect @handle"
           description: "Disconnect a YouTube channel and delete its local data."
-        errors:
-          missing_target: "Usage: /disconnect @handle or /disconnect <id>"
-          not_found: "No channel found matching '%{target}'."
-          already_gone: "Channel no longer exists."
         confirmation:
-          body: "Disconnect from %{handle_html}? This will also delete all local videos."
-          cancelled: "Alright, leaving %{handle} connected."
           confirmed:
             zero: "Disconnected from %{handle}. No videos to delete."
             one: "Disconnected from %{handle}. 1 video deleted."
