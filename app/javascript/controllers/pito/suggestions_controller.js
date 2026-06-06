@@ -404,6 +404,11 @@ export default class extends Controller {
   }
 
   async _fetchArgSuggestions(value, cursor) {
+    // Guard: a debounced fetch can fire after the controller's page (or the
+    // test environment) has been torn down; bail rather than touch a vanished
+    // `document`. Harmless in the browser (document always defined).
+    if (typeof document === "undefined") return
+
     const myRequestId = ++this._argRequestId
 
     const abortCtrl    = new AbortController()
@@ -868,6 +873,11 @@ export default class extends Controller {
   }
 
   async _fetchDynamicGhost(value, cursor) {
+    // Guard: a debounced fetch can fire after the controller's page (or the
+    // test environment) has been torn down; bail rather than touch a vanished
+    // `document`. Harmless in the browser (document always defined).
+    if (typeof document === "undefined") return
+
     // Increment request id so any older response can be discarded
     const myRequestId = ++this._dynamicRequestId
 
