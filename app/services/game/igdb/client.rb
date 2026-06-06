@@ -132,7 +132,7 @@ class Game
 
         builder = Apicalypse.new
           .search(query)
-          .fields("id", "name", "slug", "cover.image_id", "first_release_date", "game_type")
+          .fields("id", "name", "slug", "cover.image_id", "first_release_date", "game_type", "version_parent")
           .limit(limit)
 
         unless include_editions
@@ -146,7 +146,15 @@ class Game
           #
           # Null-tolerant just in case IGDB ever ships a freshly
           # indexed row before `game_type` is populated.
-          builder = builder.where("game_type = (#{DEFAULT_SEARCH_GAME_TYPES.join(",")}) | game_type = null")
+          #
+          # 2026-06-07 — also filter `version_parent = null` (T16.7).
+          # IGDB populates `version_parent` on "edition" entries
+          # (e.g. "Red Dead Redemption 2: Special Edition") pointing to
+          # the parent game id. Filtering it null excludes these edition
+          # variants even when they are mis-tagged as game_type = 0.
+          builder = builder
+            .where("game_type = (#{DEFAULT_SEARCH_GAME_TYPES.join(",")}) | game_type = null")
+            .where("version_parent = null")
         end
 
         hits = post("games", builder.to_s)

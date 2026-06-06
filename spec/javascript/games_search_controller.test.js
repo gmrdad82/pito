@@ -2,8 +2,8 @@
 //
 // Vitest suite for pito--games-search Stimulus controller.
 //
-// Strategy: mount the real controller on a jsdom document.
-// Tests cover: prefill search, debounce, keyboard navigation, disconnect.
+// Covers: connect() auto-focus, prefill search, shimmer toggle,
+// debounce, ↑/↓/Enter navigation, step rows on import, disconnect.
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest"
 import { Application } from "@hotwired/stimulus"
@@ -20,12 +20,23 @@ function buildScaffold({ prefill = "", uuid = "test-uuid" } = {}) {
   wrapper.setAttribute("data-controller", "pito--games-search")
   wrapper.setAttribute("data-pito--games-search-conversation-uuid-value", uuid)
   wrapper.setAttribute("data-pito--games-search-prefill-value", prefill)
+  wrapper.setAttribute("data-pito--games-search-i18n-searching-value", "Searching IGDB…")
+  wrapper.setAttribute("data-pito--games-search-i18n-no-results-value", "Nothing found.")
+  wrapper.setAttribute("data-pito--games-search-i18n-error-value", "IGDB failed.")
+  wrapper.setAttribute("data-pito--games-search-i18n-in-library-value", "In Library")
+  wrapper.setAttribute("data-pito--games-search-i18n-in-library-hint-value", "(will resync)")
 
   const input = document.createElement("input")
   input.type = "text"
   input.value = prefill
   input.setAttribute("data-pito--games-search-target", "input")
   wrapper.appendChild(input)
+
+  const shimmer = document.createElement("p")
+  shimmer.setAttribute("data-pito--games-search-target", "shimmer")
+  shimmer.classList.add("hidden")
+  shimmer.innerHTML = '<span class="pito-shimmer">. . . . .</span>'
+  wrapper.appendChild(shimmer)
 
   const status = document.createElement("p")
   status.setAttribute("data-pito--games-search-target", "status")
@@ -37,7 +48,7 @@ function buildScaffold({ prefill = "", uuid = "test-uuid" } = {}) {
   wrapper.appendChild(results)
 
   sidebar.appendChild(wrapper)
-  return { wrapper, input, status, results, sidebar }
+  return { wrapper, input, shimmer, status, results, sidebar }
 }
 
 function addRow(results, { igdbId, title }) {
@@ -72,12 +83,35 @@ describe("pito--games-search controller", () => {
     global.fetch = undefined
   })
 
-  // Flush Stimulus mutation-observer callbacks + microtasks
+  // Flush Stimulus mutation-observer callbacks + microtasks + rAF
   function tick(ms = 50) {
     return new Promise((r) => setTimeout(r, ms))
   }
 
-  // ── Prefill ───────────────────────────────────────────────────────────────
+  // ── T16.1: connect() auto-focus ───────────────────────────────────────────
+
+  it("focuses the input after connect()", async () => {
+    const { input } = buildScaffold()
+    const focusSpy = vi.spyOn(input, "focus")
+    await tick()
+    expect(focusSpy).toHaveBeenCalled()
+  })
+
+  it("calls select() on the input when prefill is non-empty", async () => {
+    const { input } = buildScaffold({ prefill: "Hollow Knight" })
+    const selectSpy = vi.spyOn(input, "select")
+    await tick()
+    expect(selectSpy).toHaveBeenCalled()
+  })
+
+  it("does NOT call select() when prefill is empty", async () => {
+    const { input } = buildScaffold({ prefill: "" })
+    const selectSpy = vi.spyOn(input, "select")
+    await tick()
+    expect(selectSpy).not.toHaveBeenCalled()
+  })
+
+  // ── Prefill search ────────────────────────────────────────────────────────
 
   it("triggers an immediate search when prefill is non-empty", async () => {
     const mockFetch = vi.fn().mockResolvedValue({
@@ -102,6 +136,33 @@ describe("pito--games-search controller", () => {
     await tick()
 
     expect(mockFetch).not.toHaveBeenCalled()
+  })
+
+  // ── T16.5: shimmer toggle during search ──────────────────────────────────
+
+  it("shows shimmer while search is in flight", async () => {
+    let resolveFetch
+    global.fetch = vi.fn().mockReturnValue(
+      new Promise((r) => { resolveFetch = r })
+    )
+
+    const { input, shimmer } = buildScaffold()
+    await tick()
+
+    input.value = "Celeste"
+    input.dispatchEvent(new Event("input", { bubbles: true }))
+
+    // Before debounce fires, shimmer should still be hidden
+    expect(shimmer.classList.contains("hidden")).toBe(true)
+
+    // After debounce fires, shimmer should appear
+    await tick(300)
+    expect(shimmer.classList.contains("hidden")).toBe(false)
+
+    // Resolve the fetch — shimmer should hide again
+    resolveFetch({ ok: true, json: () => Promise.resolve({ hits: [], library_ids: [] }) })
+    await tick()
+    expect(shimmer.classList.contains("hidden")).toBe(true)
   })
 
   // ── Input event → search ──────────────────────────────────────────────────
@@ -148,6 +209,24 @@ describe("pito--games-search controller", () => {
     expect(results.children.length).toBe(0)
   })
 
+  // ── T16.5: witty copy via data attr ──────────────────────────────────────
+
+  it("shows the i18n no-results text when IGDB returns empty hits", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok:   true,
+      json: () => Promise.resolve({ hits: [], error: null, library_ids: [] }),
+    })
+    const { input, status } = buildScaffold()
+    await tick()
+
+    input.value = "Something"
+    input.dispatchEvent(new Event("input", { bubbles: true }))
+    await tick(350)
+
+    expect(status.textContent).toBe("Nothing found.")
+    expect(status.classList.contains("hidden")).toBe(false)
+  })
+
   // ── Keyboard navigation ───────────────────────────────────────────────────
 
   it("ArrowDown highlights first row (from no selection)", async () => {
@@ -184,32 +263,151 @@ describe("pito--games-search controller", () => {
     expect(row1.classList.contains("pito-resume-highlight")).toBe(true)
   })
 
+  // ── T16.8: step rows rendered on import (sidebar stays open) ─────────────
+
+  // Helper: trigger a search that returns one hit, then use ArrowDown+Enter to select it.
+  async function selectFirstResult({ fetch: mockFetch, results, input }) {
+    global.fetch = mockFetch
+
+    // Trigger a search
+    input.value = "Elden Ring"
+    input.dispatchEvent(new Event("input", { bubbles: true }))
+    await tick(350)  // wait for debounce + fetch
+
+    // Manually render a result row as the controller would (after a real fetch)
+    // The controller's #renderResults attaches click listeners — simulate via keyboard.
+    // Arrow down to highlight row 0, then Enter to select.
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true, cancelable: true }))
+    await tick()
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }))
+    await tick()
+  }
+
+  it("replaces results with 5 step rows after ArrowDown+Enter import", async () => {
+    // First fetch = search results with one hit; second fetch = /games/import 204
+    let callCount = 0
+    global.fetch = vi.fn().mockImplementation((url) => {
+      callCount++
+      if (url.includes("/games/search")) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            hits: [ { id: 42, name: "Elden Ring", cover: { image_id: "abc123" } } ],
+            library_ids: [],
+          }),
+        })
+      }
+      return Promise.resolve({ ok: true, json: async () => ({}) })
+    })
+
+    const { input, results } = buildScaffold()
+    await tick()
+
+    // Trigger search
+    input.value = "Elden Ring"
+    input.dispatchEvent(new Event("input", { bubbles: true }))
+    await tick(350)
+
+    // ArrowDown to select first result
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true, cancelable: true }))
+    await tick()
+
+    // Enter triggers import
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }))
+    await tick()
+
+    // Results region should now have 5 step rows
+    const stepRows = results.querySelectorAll("[id^='import-step-']")
+    expect(stepRows.length).toBe(5)
+    expect(Array.from(stepRows).map((r) => r.id)).toEqual([
+      "import-step-1", "import-step-2", "import-step-3", "import-step-4", "import-step-5",
+    ])
+  })
+
+  it("does NOT clear the sidebar element on import (keeps sidebar open)", async () => {
+    global.fetch = vi.fn().mockImplementation((url) => {
+      if (url.includes("/games/search")) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            hits: [ { id: 1, name: "Celeste", cover: { image_id: "xyz" } } ],
+            library_ids: [],
+          }),
+        })
+      }
+      return Promise.resolve({ ok: true, json: async () => ({}) })
+    })
+
+    const { input, sidebar, results } = buildScaffold()
+    await tick()
+
+    input.value = "Celeste"
+    input.dispatchEvent(new Event("input", { bubbles: true }))
+    await tick(350)
+
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true, cancelable: true }))
+    await tick()
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }))
+    await tick()
+
+    // The sidebar element itself should still have content
+    expect(sidebar.innerHTML).not.toBe("")
+  })
+
+  it("each step row has a .pito-shimmer span with an animation-delay", async () => {
+    global.fetch = vi.fn().mockImplementation((url) => {
+      if (url.includes("/games/search")) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            hits: [ { id: 1, name: "Test Game", cover: { image_id: "img1" } } ],
+            library_ids: [],
+          }),
+        })
+      }
+      return Promise.resolve({ ok: true, json: async () => ({}) })
+    })
+
+    const { input, results } = buildScaffold()
+    await tick()
+
+    input.value = "Test Game"
+    input.dispatchEvent(new Event("input", { bubbles: true }))
+    await tick(350)
+
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true, cancelable: true }))
+    await tick()
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }))
+    await tick()
+
+    const stepRows = Array.from(results.querySelectorAll("[id^='import-step-']"))
+    expect(stepRows.length).toBe(5)
+    stepRows.forEach((r, i) => {
+      const dot = r.querySelector(".pito-shimmer")
+      expect(dot, `step ${i + 1} should have .pito-shimmer`).not.toBeNull()
+      // animationDelay should be set (stagger)
+      expect(dot.style.animationDelay).toBeTruthy()
+    })
+  })
+
   // ── Enter with no rows is a no-op ─────────────────────────────────────────
 
   it("does NOT call /games/search when Enter is pressed (not ArrowDown+Enter)", async () => {
-    // The controller only calls #importGame from #selectHighlighted, which is
-    // only called from #onKey when rows.length > 0 and _highlightIdx >= 0.
-    // With an empty results container, Enter is a no-op for the import path.
-    // We verify by asserting the results container has no rows.
     const { results } = buildScaffold({ prefill: "" })
     await tick()
 
     // No rows in results → Enter should do nothing
     expect(results.querySelectorAll(".pito-igdb-row").length).toBe(0)
-    // Pressing Enter with no rows and no highlight doesn't throw
     document.dispatchEvent(new KeyboardEvent("keydown", {
       key: "Enter", bubbles: true, cancelable: true
     }))
     await tick()
-    // Still no rows
     expect(results.querySelectorAll(".pito-igdb-row").length).toBe(0)
   })
 
   // ── Disconnect cleanup ────────────────────────────────────────────────────
 
   it("controller disconnects cleanly without throwing", async () => {
-    // Verify disconnect() (called by app.stop()) runs without errors,
-    // even when a debounce timer is pending.
     const { input } = buildScaffold()
     await tick()
 

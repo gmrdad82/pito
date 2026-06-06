@@ -4,21 +4,30 @@
 // IGDB import sidebar injects into #pito-sidebar.
 //
 // BEHAVIOUR
-//   - On connect(): if prefill is non-empty, populate the input and fire an
+//   - On connect(): auto-focus the search input; if prefill is non-empty,
+//     select() so the user can type immediately to replace, and fire an
 //     immediate search (no debounce delay for the pre-filled query).
 //   - On input events: debounce 250ms + AbortController to cancel stale requests.
+//   - Shows .pito-shimmer row while waiting for IGDB (search + import).
 //   - Renders results as .pito-igdb-row elements inside the results target.
+//     Each row has a small SQUARE cover-art thumbnail (t_thumb → t_cover_small).
 //   - ↑ / ↓ moves highlight through rows.
 //   - Enter on a highlighted row sends POST /games/import with the igdb_id +
-//     title + conversation UUID.  Shows progress feedback in the status line.
+//     title + conversation UUID. The sidebar is NOT cleared — instead the
+//     results region is replaced with 5 step rows that shimmer while the job
+//     broadcasts step completions back via Turbo Stream.
 //   - Escape: handled by pito--resume's capture-phase listener (clears sidebar).
 //
 // DOM contract (set by GamesImport::Component ERB):
 //   Controller: pito--games-search  on  .flex.flex-col wrapper
-//   Values:     conversation-uuid (String), prefill (String)
+//   Values:     conversation-uuid (String), prefill (String),
+//               i18n-searching (String), i18n-no-results (String),
+//               i18n-error (String), i18n-in-library (String),
+//               i18n-in-library-hint (String)
 //   Targets:    input   — <input type="text">
-//               status  — <p> for status text
-//               results — <div> container for result rows
+//               shimmer — <p> for shimmer loading indicator (dots row)
+//               status  — <p> for witty status text (no-results / error)
+//               results — <div> container for result rows / step rows
 //
 // Auto-registered via eagerLoadControllersFrom.
 
@@ -27,11 +36,33 @@ import { Controller } from "@hotwired/stimulus"
 const DEBOUNCE_MS   = 250
 const HIGHLIGHT_CLS = "pito-resume-highlight"
 
+// Step labels are rendered server-side and broadcast via Turbo Stream replace
+// (the job uses Broadcaster#broadcast_import_step). The JS sets up the
+// initial shimmer rows with these English strings as a fallback — the server
+// i18n overrides them on first broadcast.
+const STEP_LABELS = [
+  "Fetching game info…",
+  "Downloading cover art…",
+  "Computing score…",
+  "Indexing for recommendations…",
+  "Preparing recommendations…",
+]
+
+// Per-step shimmer animation-delay offsets (stagger).  No new CSS needed —
+// we inject inline animation-delay on each .pito-shimmer span so each step
+// starts its sweep at a different phase.
+const STEP_DELAYS = ["0s", "0.15s", "0.30s", "0.45s", "0.60s"]
+
 export default class extends Controller {
-  static targets = ["input", "status", "results"]
+  static targets = ["input", "shimmer", "status", "results"]
   static values  = {
-    conversationUuid: String,
-    prefill:          { type: String, default: "" },
+    conversationUuid:    String,
+    prefill:             { type: String, default: "" },
+    i18nSearching:       { type: String, default: "" },
+    i18nNoResults:       { type: String, default: "" },
+    i18nError:           { type: String, default: "" },
+    i18nInLibrary:       { type: String, default: "" },
+    i18nInLibraryHint:   { type: String, default: "" },
   }
 
   connect() {
@@ -55,7 +86,13 @@ export default class extends Controller {
       this.#doSearch(pre)
     }
 
-    this.inputTarget.focus()
+    // Auto-focus on spawn; requestAnimationFrame defers until the sidebar
+    // is fully painted so the focus isn't swallowed by any transition.
+    requestAnimationFrame(() => {
+      this.inputTarget.focus()
+      // Select prefilled text so the user can replace it by typing.
+      if (pre.length > 0) this.inputTarget.select()
+    })
   }
 
   disconnect() {
@@ -71,6 +108,7 @@ export default class extends Controller {
 
     if (q.length === 0) {
       this.#setStatus("")
+      this.#hideShimmer()
       this.resultsTarget.innerHTML = ""
       this._highlightIdx = -1
       return
@@ -83,7 +121,8 @@ export default class extends Controller {
   }
 
   async #doSearch(query) {
-    this.#setStatus(this.#t("searching"))
+    this.#showShimmer()
+    this.#setStatus("")
     this.resultsTarget.innerHTML = ""
     this._highlightIdx = -1
 
@@ -106,9 +145,10 @@ export default class extends Controller {
       })
 
       if (myId !== this._requestId) return
+      this.#hideShimmer()
 
       if (!resp.ok) {
-        this.#setStatus(this.#t("error"))
+        this.#setStatus(this.i18nErrorValue || "IGDB search failed.")
         return
       }
 
@@ -116,13 +156,13 @@ export default class extends Controller {
       if (myId !== this._requestId) return
 
       if (data.error) {
-        this.#setStatus(this.#t("error"))
+        this.#setStatus(this.i18nErrorValue || "IGDB search failed.")
         return
       }
 
       const hits = data.hits || []
       if (hits.length === 0) {
-        this.#setStatus(this.#t("no_results"))
+        this.#setStatus(this.i18nNoResultsValue || "No results.")
         return
       }
 
@@ -134,7 +174,8 @@ export default class extends Controller {
       this.#paintHighlight()
     } catch (err) {
       if (err.name !== "AbortError" && myId === this._requestId) {
-        this.#setStatus(this.#t("error"))
+        this.#hideShimmer()
+        this.#setStatus(this.i18nErrorValue || "IGDB search failed.")
       }
     }
   }
@@ -147,26 +188,26 @@ export default class extends Controller {
       const igdbId   = hit.id ?? hit["id"]
       const title    = hit.name ?? hit["name"] ?? ""
       const inLib    = libraryIds.includes(igdbId)
-      const coverUrl = hit.cover?.url ?? hit["cover"]?.["url"] ?? null
+      const imageId  = hit.cover?.image_id ?? hit["cover"]?.["image_id"] ?? null
 
       const row = document.createElement("div")
       row.className     = "pito-igdb-row flex gap-2 items-center py-1 px-2 rounded cursor-pointer hover:bg-bg-hover"
       row.dataset.igdbId = String(igdbId)
       row.dataset.title  = title
 
-      // Cover thumbnail
-      if (coverUrl) {
+      // Cover thumbnail — SQUARE (t_cover_small = 90×90).
+      // Build the URL from the IGDB image_id (T16.4: small square).
+      if (imageId) {
         const img = document.createElement("img")
-        // Replace IGDB thumbnail size token with t_thumb (90×128 ~)
-        img.src    = coverUrl.replace("t_thumb", "t_thumb")
+        img.src    = `https://images.igdb.com/igdb/image/upload/t_cover_small/${imageId}.jpg`
         img.alt    = title
-        img.width  = 30
-        img.height = 40
+        img.width  = 32
+        img.height = 32
         img.className = "object-cover shrink-0 rounded-sm"
         row.appendChild(img)
       } else {
         const ph = document.createElement("div")
-        ph.className = "w-[30px] h-[40px] shrink-0 rounded-sm bg-bg-hover"
+        ph.className = "w-8 h-8 shrink-0 rounded-sm bg-bg-hover"
         row.appendChild(ph)
       }
 
@@ -182,7 +223,7 @@ export default class extends Controller {
       if (inLib) {
         const badge = document.createElement("span")
         badge.className   = "text-xs text-accent"
-        badge.textContent = this.#t("in_library") + " " + this.#t("in_library_hint")
+        badge.textContent = (this.i18nInLibraryValue || "In Library") + " " + (this.i18nInLibraryHintValue || "(will resync)")
         info.appendChild(badge)
       }
 
@@ -237,10 +278,16 @@ export default class extends Controller {
     this.#importGame(igdbId, title)
   }
 
+  // T16.8: When a game is selected, replace the results region with 5 shimmer
+  // step rows and keep the sidebar open.  The job broadcasts Turbo Stream
+  // `replace` actions targeting each `import-step-N` DOM id.
   async #importGame(igdbId, title) {
-    // Clear sidebar immediately so the user knows selection was registered.
-    const sidebar = document.getElementById("pito-sidebar")
-    if (sidebar) sidebar.innerHTML = ""
+    // Disable input + hide status; show step rows in results region.
+    this.inputTarget.disabled = true
+    this.inputTarget.classList.add("opacity-50")
+    this.#setStatus("")
+    this.#hideShimmer()
+    this.#renderStepRows()
 
     const csrf = document.querySelector('meta[name="csrf-token"]')?.content
     const uuid = this.conversationUuidValue
@@ -255,11 +302,43 @@ export default class extends Controller {
         },
         body: JSON.stringify({ igdb_id: igdbId, title, uuid }),
       })
-      // The job streams progress + messages over ActionCable — no need to handle
-      // the response body here (the job always returns 204 on success).
+      // The job broadcasts step updates + messages over ActionCable.
+      // The sidebar stays open; Esc closes it when done.
     } catch (_err) {
-      // Network failure: swallow — user will notice the lack of progress events.
+      // Network failure — swallow; job will not run.
     }
+  }
+
+  // Render 5 shimmer step rows into the results region.
+  // Each row has a stable id="import-step-N" so Turbo Stream replace can
+  // update them as the job completes each step.
+  #renderStepRows() {
+    const container = this.resultsTarget
+    container.innerHTML = ""
+
+    STEP_LABELS.forEach((label, i) => {
+      const step = i + 1
+      const delay = STEP_DELAYS[i] || "0s"
+
+      const row = document.createElement("div")
+      row.id        = `import-step-${step}`
+      row.className = "flex items-center gap-2 py-1 px-2 text-sm"
+
+      // Shimmer dot — reuses .pito-shimmer; stagger via inline animation-delay.
+      const dot = document.createElement("span")
+      dot.className = "pito-shimmer shrink-0"
+      dot.style.animationDelay = delay
+      dot.textContent = "●"
+      row.appendChild(dot)
+
+      // Step label text
+      const lbl = document.createElement("span")
+      lbl.className   = "text-fg-dim"
+      lbl.textContent = label
+      row.appendChild(lbl)
+
+      container.appendChild(row)
+    })
   }
 
   #rows() {
@@ -274,24 +353,18 @@ export default class extends Controller {
     }
   }
 
+  #showShimmer() {
+    this.shimmerTarget.classList.remove("hidden")
+  }
+
+  #hideShimmer() {
+    this.shimmerTarget.classList.add("hidden")
+  }
+
   #setStatus(msg) {
     const el = this.statusTarget
     el.textContent = msg
     el.classList.toggle("hidden", !msg)
-  }
-
-  // Simple inline i18n bridge — reads from data attributes if available,
-  // falls back to English literals.  The sidebar ERB renders i18n into data
-  // attributes on the controller element for zero-JS-bundle-size i18n.
-  #t(key) {
-    const map = {
-      searching:      "Searching…",
-      no_results:     "No results. Try a different title.",
-      error:          "IGDB search failed. Check credentials.",
-      in_library:     "In Library",
-      in_library_hint: "(will resync)",
-    }
-    return this.element.dataset[`i18n${key.charAt(0).toUpperCase() + key.slice(1)}`] ?? map[key] ?? key
   }
 
   #cancelPending() {

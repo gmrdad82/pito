@@ -2,29 +2,44 @@
     The outer div mounts pito--games-search, which drives:
       - Debounced IGDB search via POST /games/search
       - ↑/↓/Enter keyboard navigation through .pito-igdb-row elements
-      - Enter on a row → POST /games/import → 5-step progress broadcast
+      - Enter on a row → POST /games/import → 5-step progress in this sidebar
     The conversation UUID is carried as a data attribute so the controller
-    can tell the backend which conversation to stream progress to. %>
+    can tell the backend which conversation to stream progress to.
+    The i18n copy strings for searching/no-results are embedded as data
+    attributes so the JS can render server-side witty randomised copy. %>
 <div class="flex flex-col gap-3"
      data-controller="pito--games-search"
      data-pito--games-search-conversation-uuid-value="<%= conversation_uuid %>"
-     data-pito--games-search-prefill-value="<%= prefill %>">
+     data-pito--games-search-prefill-value="<%= prefill %>"
+     data-pito--games-search-i18n-searching-value="<%= Pito::Copy.render('pito.copy.games.igdb_searching') %>"
+     data-pito--games-search-i18n-no-results-value="<%= Pito::Copy.render('pito.copy.games.igdb_no_results') %>"
+     data-pito--games-search-i18n-error-value="<%= t('pito.sidebar.games_import.error') %>"
+     data-pito--games-search-i18n-in-library-value="<%= t('pito.sidebar.games_import.in_library') %>"
+     data-pito--games-search-i18n-in-library-hint-value="<%= t('pito.sidebar.games_import.in_library_hint') %>">
 
-  <%# Search input %>
+  <%# Search input — styled like the conversation-rename input %>
   <input type="text"
-         class="w-full bg-bg border border-line-default rounded px-3 py-2 text-fg text-sm
-                placeholder:text-fg-faded focus:outline-none focus:border-accent"
+         class="w-full bg-transparent outline-none border-b border-line-default
+                text-fg text-sm pb-1 placeholder:text-fg-faded
+                focus:border-accent"
          placeholder="<%= t('pito.sidebar.games_import.search_placeholder') %>"
          autocomplete="off"
          data-pito--games-search-target="input"
          value="<%= prefill %>">
 
-  <%# Status line (shows "Searching…" / error / empty message) %>
+  <%# Shimmer indicator — shown while talking to IGDB (search or import). %>
+  <%# Uses .pito-shimmer directly; no new keyframes. %>
+  <p class="text-sm hidden"
+     data-pito--games-search-target="shimmer">
+    <span class="pito-shimmer">. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .</span>
+  </p>
+
+  <%# Status line (shows witty no-results / error copy) %>
   <p class="text-fg-dim text-xs hidden"
      data-pito--games-search-target="status"></p>
 
-  <%# Results list — populated by the controller %>
-  <div class="flex flex-col"
+  <%# Results list — populated by the controller OR replaced by step rows on import %>
+  <div class="flex flex-col gap-1"
        data-pito--games-search-target="results">
   </div>
 </div>

@@ -318,15 +318,15 @@ No production data exists → destructive migrations are free.
 
 ### Group A — `/games import` sidebar
 
-- [ ] T16.1 Auto-focus the "Search IGDB…" field when the sidebar spawns. complexity: [low]
-- [ ] T16.2 Style the search input like the conversation-rename input. complexity: [low]
-- [ ] T16.3 NO thinking/dots indicator on sidebar spawn (nothing sent to backend — just a sidebar spawn). complexity: [low]
-- [ ] T16.4 Result rows: small **square** cover-art thumbnail. complexity: [low]
-- [ ] T16.5 Shimmer loading indicator — a row of `.` spanning the input width using `.pito-shimmer`, shown while talking to IGDB (search + import). complexity: [low]
-- [ ] T16.6 Witty `Pito::Copy` (50-pools) for the no-results + searching messages. complexity: [low]
-- [ ] T16.7 IGDB search MAIN-game only — exclude edition variants (add `version_parent = null` to `search_games`). complexity: [low]
-- [ ] T16.8 The **5 steps run IN the sidebar** (shimmer + **random per-step offset**), sidebar is NOT dismissed and STAYS open with the 5 steps marked done (Esc to close). complexity: [high]
-- [ ] T16.9 Standard message after steps 1–3 (info+cover+score); Enhanced message after steps 4–5 (indexing+recommendations) — both into the main chat. complexity: [high]
+- [x] T16.1 Auto-focus the "Search IGDB…" field when the sidebar spawns. complexity: [low]
+- [x] T16.2 Style the search input like the conversation-rename input. complexity: [low]
+- [x] T16.3 NO thinking/dots indicator on sidebar spawn (nothing sent to backend — just a sidebar spawn). complexity: [low]
+- [x] T16.4 Result rows: small **square** cover-art thumbnail. complexity: [low]
+- [x] T16.5 Shimmer loading indicator — a row of `.` spanning the input width using `.pito-shimmer`, shown while talking to IGDB (search + import). complexity: [low]
+- [x] T16.6 Witty `Pito::Copy` (50-pools) for the no-results + searching messages. complexity: [low]
+- [x] T16.7 IGDB search MAIN-game only — exclude edition variants (add `version_parent = null` to `search_games`). complexity: [low]
+- [x] T16.8 The **5 steps run IN the sidebar** (shimmer + **random per-step offset**), sidebar is NOT dismissed and STAYS open with the 5 steps marked done (Esc to close). complexity: [high]
+- [x] T16.9 Standard message after steps 1–3 (info+cover+score); Enhanced message after steps 4–5 (indexing+recommendations) — both into the main chat. complexity: [high]
 
 ### Group B — game-message rendering
 

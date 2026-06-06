@@ -38,5 +38,48 @@ RSpec.describe Game::Igdb::Client, type: :service do
         )
       expect(described_class.new.search_games("nc")).to eq([])
     end
+
+    # T16.7 — version_parent = null filter in the Apicalypse query body.
+    it "sends version_parent = null in the query body to exclude edition variants" do
+      captured_body = nil
+      stub_request(:post, "https://api.igdb.com/v4/games")
+        .with { |req| captured_body = req.body; true }
+        .to_return(
+          status:  200,
+          body:    [ { "id" => 3, "name" => "RDR2", "cover" => { "image_id" => "xyz" } } ].to_json,
+          headers: { "Content-Type" => "application/json" }
+        )
+
+      described_class.new.search_games("red dead")
+      expect(captured_body).to include("version_parent = null")
+    end
+
+    it "includes version_parent in the fields request (needed for filter)" do
+      captured_body = nil
+      stub_request(:post, "https://api.igdb.com/v4/games")
+        .with { |req| captured_body = req.body; true }
+        .to_return(
+          status:  200,
+          body:    [].to_json,
+          headers: { "Content-Type" => "application/json" }
+        )
+
+      described_class.new.search_games("some game")
+      expect(captured_body).to include("version_parent")
+    end
+
+    it "does NOT apply version_parent filter when include_editions: true" do
+      captured_body = nil
+      stub_request(:post, "https://api.igdb.com/v4/games")
+        .with { |req| captured_body = req.body; true }
+        .to_return(
+          status:  200,
+          body:    [].to_json,
+          headers: { "Content-Type" => "application/json" }
+        )
+
+      described_class.new.search_games("some game", include_editions: true)
+      expect(captured_body).not_to include("version_parent = null")
+    end
   end
 end

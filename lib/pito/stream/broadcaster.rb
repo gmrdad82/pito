@@ -271,6 +271,37 @@ module Pito
         Rails.logger.warn("[Broadcaster] broadcast_global_theme failed: #{e.class}: #{e.message}")
       end
 
+      # Broadcast a Turbo Stream `replace` for a single import step row inside
+      # #pito-sidebar.  The JS pre-renders 5 shimmer rows with ids
+      # `import-step-1` through `import-step-5`; this method replaces each row
+      # as the job completes the corresponding step.
+      #
+      # When done: true the step label renders with a checkmark and no shimmer.
+      # When done: false (error) it renders with an error indicator.
+      def broadcast_import_step(step:, label:, done: true)
+        dot_html =
+          if done
+            %(<span class="text-accent shrink-0">✓</span>)
+          else
+            %(<span class="pito-shimmer shrink-0">●</span>)
+          end
+
+        row_html = <<~HTML.html_safe
+          <div id="import-step-#{step}" class="flex items-center gap-2 py-1 px-2 text-sm">
+            #{dot_html}
+            <span class="#{done ? "text-fg" : "text-fg-dim"}">#{ERB::Util.html_escape(label)}</span>
+          </div>
+        HTML
+
+        helper  = ApplicationController.helpers
+        content = helper.turbo_stream.replace("import-step-#{step}", row_html)
+
+        Turbo::StreamsChannel.broadcast_stream_to(
+          "pito:conversation:#{@conversation.uuid}",
+          content:
+        )
+      end
+
       # Mark a turn complete and broadcast the done signal that hides dots.
       def complete_turn(turn:)
         turn.update!(completed_at: Time.current)

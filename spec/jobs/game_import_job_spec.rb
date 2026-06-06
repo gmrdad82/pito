@@ -16,6 +16,9 @@ RSpec.describe GameImportJob, type: :job do
   # Stub SyncGame so we don't hit the IGDB API
   let(:sync_game_double) { instance_double(Game::Igdb::SyncGame, call: game) }
 
+  # Track sidebar broadcast_import_step calls
+  let(:sidebar_steps) { [] }
+
   before do
     # Stub SyncGame
     allow(Game::Igdb::SyncGame).to receive(:new).and_return(sync_game_double)
@@ -42,6 +45,12 @@ RSpec.describe GameImportJob, type: :job do
     allow(Game).to receive(:where).with(id: game.id).and_return(
       double(update_all: nil)
     )
+
+    # Stub broadcast_import_step to capture sidebar step calls and avoid
+    # actual ActionCable broadcast (T16.8: steps go to sidebar, not chat).
+    allow_any_instance_of(Pito::Stream::Broadcaster).to receive(:broadcast_import_step) do |_broadcaster, step:, label:, done:|
+      sidebar_steps << { step: step, label: label, done: done }
+    end
   end
 
   def perform
@@ -59,22 +68,38 @@ RSpec.describe GameImportJob, type: :job do
       .not_to raise_error
   end
 
-  # ── Step broadcasts ──────────────────────────────────────────────────────────
+  # ── T16.8: step broadcasts go to SIDEBAR (broadcast_import_step), NOT chat ──
 
-  it "broadcasts 5 progress events (one per step)" do
+  it "calls broadcast_import_step 10 times (pending+done for each of the 5 steps)" do
     perform
-    step_events = conversation.events.where("payload->>'import_step' IS NOT NULL")
-    expect(step_events.count).to eq(5)
-    expect(step_events.map { |e| e.payload["import_step"] }.sort).to eq([ 1, 2, 3, 4, 5 ])
+    expect(sidebar_steps.length).to eq(10)
   end
 
-  it "broadcasts a detail message event (html: true, after step 3)" do
+  it "broadcasts a pending then done for each step 1–5" do
+    perform
+    (1..5).each do |step|
+      pending_calls = sidebar_steps.select { |s| s[:step] == step && s[:done] == false }
+      done_calls    = sidebar_steps.select { |s| s[:step] == step && s[:done] == true }
+      expect(pending_calls.count).to eq(1), "expected 1 pending for step #{step}"
+      expect(done_calls.count).to eq(1),    "expected 1 done for step #{step}"
+    end
+  end
+
+  it "does NOT create step events in the conversation (steps stay in sidebar)" do
+    perform
+    step_events = conversation.events.where("payload->>'import_step' IS NOT NULL")
+    expect(step_events.count).to eq(0)
+  end
+
+  # ── T16.9: exactly 2 messages go to the main chat ────────────────────────────
+
+  it "streams a detail message event (html: true, after step 3)" do
     perform
     detail = conversation.events.find { |e| e.payload["html"] == true && e.payload["body"]&.include?("detail") }
     expect(detail).to be_present
   end
 
-  it "broadcasts an enhanced message event (html: true, game_enhanced followup)" do
+  it "streams an enhanced message event (html: true, game_enhanced followup)" do
     perform
     enhanced = conversation.events.find { |e|
       e.payload["html"] == true && e.payload["reply_target"] == "game_enhanced"
@@ -117,13 +142,12 @@ RSpec.describe GameImportJob, type: :job do
                                                    .and_return({ game: game, action: :resync })
     end
 
-    it "still runs all 5 steps" do
+    it "still broadcasts all 5 steps to the sidebar" do
       perform
-      step_events = conversation.events.where("payload->>'import_step' IS NOT NULL")
-      expect(step_events.count).to eq(5)
+      expect(sidebar_steps.map { |s| s[:step] }.uniq.sort).to eq([ 1, 2, 3, 4, 5 ])
     end
 
-    it "still streams both messages" do
+    it "still streams both chat messages" do
       perform
       detail   = conversation.events.find { |e| e.payload["html"] == true && e.payload["body"]&.include?("detail") }
       enhanced = conversation.events.find { |e| e.payload["reply_target"] == "game_enhanced" }
