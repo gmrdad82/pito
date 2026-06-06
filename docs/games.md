@@ -135,7 +135,7 @@ No production data exists → destructive migrations are free.
 ## P5 — `Pito::Stack` engine + tracking (no UI)
 
 - [x] T5.1 Migration: `api_requests`(`provider`,`endpoint`,`units:integer null`,`created_at`); index `(provider, created_at)`. complexity: [low]
-- [ ] T5.2 `ApiRequest` model + scopes `last_24h`/`this_month` + prune helper. complexity: [low]
+- [x] T5.2 `ApiRequest` model + scopes `last_24h`/`this_month` + prune helper. complexity: [low]
 - [ ] T5.3 `Pito::Stack` + `Stack::{Voyage,YouTube,IGDB}`: `requests_24h`, `requests_month`. complexity: [high]
 - [ ] T5.4 `Pito::Stack::Local`: `db_size_mb` + record counts `{videos:,games:}`. complexity: [low]
 - [ ] T5.5 Instrument chokepoints (Voyage `post_embeddings*`; IGDB `Client#post`; YouTube `Auditor#write_audit_row` + direct writers) → `ApiRequest`. complexity: [high]
