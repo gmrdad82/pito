@@ -73,11 +73,11 @@ change, so copy can be grown, shrunk, audited, and kept on-voice in one place.
 > Move the dictionaries that already exist onto the engine + namespace, behavior
 > unchanged. Use the P2 audit to find them all.
 
-- [ ] T3.1 Migrate the theme apply quips (`Pito::Themes::Quips` + `pito.hashtag.theme.apply.quips`) to `Pito::Copy` + `pito.copy.theme.applied`. complexity: [low]
-- [ ] T3.2 Migrate the thinking-word dictionaries (the `emit_thinking(dictionary:)` source) to `Pito::Copy` + `pito.copy.thinking.*`. complexity: [low]
-- [ ] T3.3 Migrate any other array-valued copy the audit surfaces to the engine + namespace. complexity: [low]
-- [ ] T3.4 Specs: migrated callers still pass; audit reports them under `pito.copy.*` with zero remaining legacy candidates from this set. complexity: [low]
-- [ ] T3.5 Commit: `Migrate existing dictionaries onto the copy engine`. complexity: [manual]
+- [x] T3.1 Migrate the theme apply quips (`Pito::Themes::Quips` + `pito.hashtag.theme.apply.quips`) to `Pito::Copy` + `pito.copy.theme.applied`. complexity: [low]
+- [x] T3.2 Migrate the thinking-word dictionaries (the `emit_thinking(dictionary:)` source) to `Pito::Copy` + `pito.copy.thinking.*`. complexity: [low]
+- [x] T3.3 Migrate any other array-valued copy the audit surfaces to the engine + namespace. complexity: [low]
+- [x] T3.4 Specs: migrated callers still pass; audit reports them under `pito.copy.*` with zero remaining legacy candidates from this set. complexity: [low]
+- [x] T3.5 Commit: `Migrate existing dictionaries onto the copy engine`. complexity: [manual]
 
 ## P4 — Always-wire fixed replies (audit + migrate by surface)
 

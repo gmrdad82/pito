@@ -40,7 +40,7 @@ module Pito
       end
 
       def processing_word
-        words = Array(I18n.t("pito.event.thinking.confirmation.doing"))
+        words = Array(I18n.t("pito.copy.thinking.confirmation.doing"))
         words[@word_index] || words.first
       end
 

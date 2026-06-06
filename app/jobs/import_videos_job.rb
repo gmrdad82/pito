@@ -66,7 +66,7 @@ class ImportVideosJob < ApplicationJob
       turn:,
       kind:    :error,
       payload: {
-        text:   I18n.t("pito.errors.dispatch_failed").sample,
+        text:   Pito::Copy.render("pito.copy.errors.dispatch_failed"),
         detail: error.message
       }
     )

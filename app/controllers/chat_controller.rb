@@ -211,7 +211,7 @@ class ChatController < ApplicationController
 
     if result.authenticated?
       Current.session = result.session_data
-      greeting = I18n.t("pito.auth.greetings").sample
+      greeting = Pito::Copy.render("pito.copy.auth.greetings")
       broadcaster.emit(
         turn:,
         kind:    :system,
@@ -247,7 +247,7 @@ class ChatController < ApplicationController
     broadcaster.emit(
       turn:,
       kind:    :system,
-      payload: { text: I18n.t("pito.auth.logouts").sample }
+      payload: { text: Pito::Copy.render("pito.copy.auth.logouts") }
     )
 
     Pito::Auth::SessionCookie.new(request).clear!
@@ -280,7 +280,7 @@ class ChatController < ApplicationController
       broadcaster.emit(
         turn:,
         kind:    "error",
-        payload: { text: I18n.t("pito.auth.mandatories").sample }
+        payload: { text: Pito::Copy.render("pito.copy.auth.mandatories") }
       )
       return nil
     end
@@ -334,7 +334,7 @@ class ChatController < ApplicationController
           input_text: "/resume"
         ),
         kind:    "error",
-        payload: { text: I18n.t("pito.auth.mandatories").sample }
+        payload: { text: Pito::Copy.render("pito.copy.auth.mandatories") }
       )
       return respond_to_client(conversation)
     end
@@ -361,7 +361,7 @@ class ChatController < ApplicationController
           input_text: "/theme"
         ),
         kind:    "error",
-        payload: { text: I18n.t("pito.auth.mandatories").sample }
+        payload: { text: Pito::Copy.render("pito.copy.auth.mandatories") }
       )
       return respond_to_client(conversation)
     end
@@ -387,7 +387,7 @@ class ChatController < ApplicationController
           input_text: input
         ),
         kind:    "error",
-        payload: { text: I18n.t("pito.auth.mandatories").sample }
+        payload: { text: Pito::Copy.render("pito.copy.auth.mandatories") }
       )
       return nil
     end
@@ -470,9 +470,9 @@ class ChatController < ApplicationController
   # Callers must store it under payload[:text], not payload[:message_key].
   def auth_error_key(status)
     case status
-    when :throttled    then I18n.t("pito.auth.throttles").sample
+    when :throttled    then Pito::Copy.render("pito.copy.auth.throttles")
     when :not_enrolled then I18n.t("pito.auth.not_enrolled")
-    else                    I18n.t("pito.auth.failures").sample
+    else                    Pito::Copy.render("pito.copy.auth.failures")
     end
   end
 end

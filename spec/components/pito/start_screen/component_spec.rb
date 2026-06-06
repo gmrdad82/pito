@@ -23,7 +23,7 @@ RSpec.describe Pito::StartScreen::Component do
     end
 
     it "renders a random tip from the dictionary" do
-      tips = I18n.t("pito.start_screen.tips")
+      tips = I18n.t("pito.copy.start_screen.tips")
       expect(tips).not_to be_empty
       expect(tips.any? { |tip| node.to_html.include?(tip) }).to be true
     end

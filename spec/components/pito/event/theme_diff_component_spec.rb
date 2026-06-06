@@ -181,27 +181,26 @@ RSpec.describe Pito::Event::ThemeDiffComponent do
     end
   end
 
-  # ── Quips sampler determinism (T12.4) ────────────────────────────────────────
+  # ── Quips via copy engine (T3.1) ─────────────────────────────────────────────
 
-  describe "Pito::Themes::Quips.applied" do
+  describe "Pito::Themes::Quips.applied (delegates to Pito::Copy)" do
     it "returns a non-empty string containing the label" do
       quip = Pito::Themes::Quips.applied("Dracula")
       expect(quip).to be_a(String).and be_present
       expect(quip).to include("Dracula")
     end
 
-    it "is deterministic with a seeded rng" do
-      rng = Random.new(42)
-      q1  = Pito::Themes::Quips.applied("Nord", rng: Random.new(42))
-      q2  = Pito::Themes::Quips.applied("Nord", rng: rng.clone)
-      expect(q1).to eq(q2)
+    it "interpolates the theme label into the quip" do
+      quip = Pito::Themes::Quips.applied("Tokyo Night")
+      expect(quip).to include("Tokyo Night")
     end
 
-    it "varies with different seeds" do
-      entries = I18n.t("pito.hashtag.theme.apply.quips")
-      # With 25 entries two seeds close together are likely to differ
-      results = (0..24).map { |seed| Pito::Themes::Quips.applied("Dracula", rng: Random.new(seed)) }
-      expect(results.uniq.size).to be > 1
+    it "returns a variant from the pito.copy.theme.applied pool" do
+      entries = I18n.t("pito.copy.theme.applied")
+      quip    = Pito::Themes::Quips.applied("Dracula")
+      # Strip out the %{theme} interpolation to compare pool membership
+      candidates = entries.map { |e| e % { theme: "Dracula" } }
+      expect(candidates).to include(quip)
     end
   end
 end

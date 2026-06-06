@@ -151,7 +151,7 @@ module Pito
           {
             "phase"          => "apply",
             "granularity"    => granularity,
-            "body"           => Pito::Themes::Quips.applied(definition.label),
+            "body"           => Pito::Copy.render("pito.copy.theme.applied", { theme: definition.label }),
             "from_text"      => from_text,
             "reply_handle"   => handle,
             "reply_target"   => "theme_list",

@@ -170,7 +170,7 @@ module Pito
       # Create and broadcast a thinking indicator for a turn.
       # The word_index is chosen once and frozen in the payload.
       def emit_thinking(turn:, dictionary:)
-        words = I18n.t("pito.event.thinking.#{dictionary}.doing")
+        words = I18n.t("pito.copy.thinking.#{dictionary}.doing")
         payload = { dictionary:, word_index: rand(words.length), started_at: Time.current.iso8601 }
         emit(turn:, kind: :thinking, payload:)
       end
