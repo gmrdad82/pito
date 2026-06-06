@@ -23,6 +23,23 @@ module Pito
       #
       # The `name` arg accepts any registered slug OR the special token "default"
       # (→ Registry.default). Resolution is delegated to Registry.resolve_target.
+      #
+      # ALIAS SURFACE  (`ls` ≡ `list`)
+      # ────────────────────────────────
+      # Subcommand aliasing is implemented via the `:theme_subcommands` vocabulary
+      # synonym mechanism (see Pito::Grammar::Vocabularies::THEME_SUBCOMMANDS).
+      # `first_arg` is resolved through that vocabulary before dispatch, so `"ls"`
+      # canonicalizes to `"list"` and the case statement sees only canonical names.
+      #
+      # WHY vocabulary synonyms?
+      #   Spec.aliases maps alternative *verb* names to a Spec (verb-level routing).
+      #   Subcommands are *values* inside invocation.args, not verbs.  Using a
+      #   Vocabulary with synonyms is the production-correct layer: it's already
+      #   used by every enum/literal slot in the grammar engine for the same purpose
+      #   (e.g. "fps" → "Shooter", "ps5" → "PlayStation 5").  The synonym is
+      #   declared once in the vocabulary constant; the handler, grammar, and
+      #   autocomplete engine need no special-case logic.  Future commands add
+      #   subcommand aliases by declaring their own static vocabulary.
       class Theme < Pito::Slash::Handler
         self.verb        = :theme
         self.description_key = "pito.slash.theme.descriptions.theme"
@@ -36,20 +53,28 @@ module Pito
           description_key "pito.grammar.slash.theme"
         end
 
-        # Subcommand keywords routed before the theme-name lookup.
-        SUBCOMMANDS = %w[list ls preview apply reset].freeze
+        # Canonical subcommand keywords.  `ls` is NOT listed here because it is
+        # a synonym resolved to `list` by THEME_SUBCOMMANDS before dispatch.
+        # Autocomplete suggests canonical names only (`list`); `ls` is
+        # hidden-but-accepted — it works but won't appear in the palette.
+        SUBCOMMANDS = %w[list preview apply reset].freeze
+
+        # Vocabulary used to canonicalize the first arg before dispatch.
+        # Resolves synonyms such as "ls" → "list".
+        SUBCOMMAND_VOCAB = Pito::Grammar::Vocabularies::THEME_SUBCOMMANDS
 
         def call
           return show_help if help?
 
-          first_arg = invocation.args.first.to_s.strip.downcase
+          raw_arg   = invocation.args.first.to_s.strip.downcase
+          first_arg = SUBCOMMAND_VOCAB.resolve(raw_arg) || raw_arg
 
           case first_arg
-          when ""                     then placeholder_sidebar
-          when "list", "ls"           then placeholder_list
-          when "preview"              then dispatch_preview
-          when "apply"                then dispatch_apply
-          when "reset"                then dispatch_reset
+          when ""        then placeholder_sidebar
+          when "list"    then placeholder_list
+          when "preview" then dispatch_preview
+          when "apply"   then dispatch_apply
+          when "reset"   then dispatch_reset
           else
             # Bare theme name (shorthand apply) or unknown target.
             definition = Pito::Themes::Registry.resolve_target(first_arg)

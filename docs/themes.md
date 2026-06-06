@@ -154,11 +154,11 @@ the unaltered default.
 > `/theme ls` ≡ `/theme list`. (Leverage the grammar `Spec.aliases` /
 > `specs_for_alias` infra; extend to subcommand-keyword aliasing if needed.)
 
-- [ ] T6.1 Decide + implement the alias surface: `ls` as an alias of the `list` subcommand (vocabulary synonym OR spec alias — pick the production-correct one and doc-block it). complexity: [high]
-- [ ] T6.2 Wire the alias so the dispatcher routes `/theme ls` → the list path. complexity: [low]
-- [ ] T6.3 Autocomplete/help reflect the alias (or intentionally hide `ls` — document the choice). complexity: [low]
-- [ ] T6.4 Specs: `/theme ls` behaves identically to `/theme list`; the alias is registered/resolvable; an alias-mechanism unit spec. complexity: [low]
-- [ ] T6.5 Commit: `P6: slash alias system + /theme ls alias of /theme list`. complexity: [manual]
+- [x] T6.1 Decide + implement the alias surface: `ls` as an alias of the `list` subcommand (vocabulary synonym OR spec alias — pick the production-correct one and doc-block it). complexity: [high]
+- [x] T6.2 Wire the alias so the dispatcher routes `/theme ls` → the list path. complexity: [low]
+- [x] T6.3 Autocomplete/help reflect the alias (or intentionally hide `ls` — document the choice). complexity: [low]
+- [x] T6.4 Specs: `/theme ls` behaves identically to `/theme list`; the alias is registered/resolvable; an alias-mechanism unit spec. complexity: [low]
+- [x] T6.5 Commit: `P6: slash alias system + /theme ls alias of /theme list`. complexity: [manual]
 
 ## P7 — `/theme list` System message + `#preview`/`#apply` hashtag replies
 

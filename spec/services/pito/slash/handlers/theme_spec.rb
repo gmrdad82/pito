@@ -287,4 +287,134 @@ RSpec.describe Pito::Slash::Handlers::Theme, type: :service do
       }
     end
   end
+
+  # ── P6: /theme ls alias of /theme list ──────────────────────────────────────
+  #
+  # `ls` is a vocabulary synonym for `list` in THEME_SUBCOMMANDS.  The handler
+  # resolves the raw arg before dispatch, so `/theme ls` routes identically to
+  # `/theme list`.  These specs confirm parity and guard the synonym registration.
+
+  describe "#call — /theme ls (alias of /theme list)" do
+    it "returns Result::Ok — same as /theme list" do
+      result_ls   = build_handler(args: %w[ls]).call
+      result_list = build_handler(args: %w[list]).call
+      expect(result_ls).to be_a(Pito::Slash::Result::Ok)
+      expect(result_list).to be_a(Pito::Slash::Result::Ok)
+    end
+
+    it "returns the same payload text as /theme list" do
+      text_ls   = build_handler(args: %w[ls]).call.events.first[:payload][:text]
+      text_list = build_handler(args: %w[list]).call.events.first[:payload][:text]
+      expect(text_ls).to eq(text_list)
+    end
+
+    it "does NOT persist a theme (it is a list operation, not apply)" do
+      AppSetting.theme = "tokyo-night"
+      build_handler(args: %w[ls]).call
+      expect(AppSetting.theme).to eq("tokyo-night")
+    end
+  end
+
+  # ── THEME_SUBCOMMANDS vocabulary unit spec (alias mechanism) ─────────────────
+  #
+  # These are the grammar-level unit specs for the vocabulary synonym mechanism
+  # itself — independent of the handler dispatch path.
+
+  describe "Pito::Grammar::Vocabularies::THEME_SUBCOMMANDS" do
+    subject(:vocab) { Pito::Grammar::Vocabularies::THEME_SUBCOMMANDS }
+
+    it "is a Pito::Grammar::Vocabulary" do
+      expect(vocab).to be_a(Pito::Grammar::Vocabulary)
+    end
+
+    it "is static (not dynamic)" do
+      expect(vocab.dynamic?).to be(false)
+    end
+
+    it "has canonical subcommand names" do
+      expect(vocab.canonical).to include("list", "preview", "apply", "reset")
+    end
+
+    it "does NOT include ls in canonical (it is a synonym)" do
+      expect(vocab.canonical).not_to include("ls")
+    end
+
+    it 'resolves "ls" to "list"' do
+      expect(vocab.resolve("ls")).to eq("list")
+    end
+
+    it 'resolves "LS" to "list" (case-insensitive)' do
+      expect(vocab.resolve("LS")).to eq("list")
+    end
+
+    it 'resolves "list" to "list" (canonical pass-through)' do
+      expect(vocab.resolve("list")).to eq("list")
+    end
+
+    it 'resolves "preview" to "preview"' do
+      expect(vocab.resolve("preview")).to eq("preview")
+    end
+
+    it 'resolves "apply" to "apply"' do
+      expect(vocab.resolve("apply")).to eq("apply")
+    end
+
+    it 'resolves "reset" to "reset"' do
+      expect(vocab.resolve("reset")).to eq("reset")
+    end
+
+    it "returns nil for an unknown token" do
+      expect(vocab.resolve("unknown-cmd")).to be_nil
+    end
+
+    it "is registered in the grammar registry after register_all!" do
+      Pito::Grammar::Registry.reset!
+      Pito::Grammar::Registry.register_all!
+      expect(Pito::Grammar::Registry.vocabulary(:theme_subcommands)).to eq(vocab)
+      Pito::Grammar::Registry.reset!
+    end
+
+    it "is included in Vocabularies.all" do
+      expect(Pito::Grammar::Vocabularies.all).to include(vocab)
+    end
+  end
+
+  # ── P6: Autocomplete — ls hidden, list offered via theme_names ───────────────
+  #
+  # The handler's grammar slot is sourced from :theme_names (slugs + "default"),
+  # not :theme_subcommands.  Autocomplete for `/theme <partial>` suggests theme
+  # slugs and "default", never the subcommand keywords.  `ls` does not appear.
+  # This is intentional: subcommands are handler-internal dispatch tokens,
+  # not vocabulary members surfaced to the user via autocomplete.
+
+  describe "autocomplete — /theme arg stage" do
+    before { Pito::Grammar::Registry.reset!; Pito::Grammar::Registry.register_all! }
+    after  { Pito::Grammar::Registry.reset! }
+
+    def autocomplete(input)
+      Pito::Autocomplete::Engine.call(
+        input:         input,
+        cursor:        input.length,
+        authenticated: true
+      )
+    end
+
+    it "suggests theme slugs (not ls) when typing after /theme " do
+      result = autocomplete("/theme ")
+      labels = result[:menu_items].map { |i| i[:label] }
+      expect(labels).to include("dracula", "tokyo-night")
+    end
+
+    it "does not suggest ls as an autocomplete item" do
+      result = autocomplete("/theme l")
+      labels = result[:menu_items].map { |i| i[:label] }
+      expect(labels).not_to include("ls")
+    end
+
+    it "does not suggest list as an autocomplete item (not a theme slug)" do
+      result = autocomplete("/theme l")
+      labels = result[:menu_items].map { |i| i[:label] }
+      expect(labels).not_to include("list")
+    end
+  end
 end
