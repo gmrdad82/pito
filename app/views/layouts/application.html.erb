@@ -26,8 +26,7 @@
   <%# Global Ctrl+K command palette — always in DOM, toggled by pito--command-palette controller %>
   <div id="pito-command-palette"
        data-controller="pito--command-palette"
-       class="hidden fixed inset-0 z-50 flex items-center justify-center"
-       style="background: rgba(0,0,0,0.45);">
+       class="pito-modal-overlay hidden fixed inset-0 z-50 flex items-center justify-center">
     <%= render(Pito::Palette::CtrlK::Component.new(
           sections: Pito::Palette::CommandCatalog.sections
         )) %>

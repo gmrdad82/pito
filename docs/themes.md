@@ -213,11 +213,11 @@ the unaltered default.
 
 ## P10 — Light-theme hardcoded-color audit + fix
 
-- [ ] T10.1 Grep components + CSS for literal hex / non-token color utilities (`text-[#…]`, raw `#…` in ERB/CSS, fixed `bg-*`/`text-*` that should be tokens). complexity: [low]
-- [ ] T10.2 Route the offenders through semantic tokens; confirm `--brand-pito` is the ONLY constant color (same on every theme). complexity: [low]
+- [x] T10.1 Grep components + CSS for literal hex / non-token color utilities (`text-[#…]`, raw `#…` in ERB/CSS, fixed `bg-*`/`text-*` that should be tokens). complexity: [low]
+- [x] T10.2 Route the offenders through semantic tokens; confirm `--brand-pito` is the ONLY constant color (same on every theme). complexity: [low]
 - [ ] T10.3 Spot-check a light theme (e.g. github-light) renders readable: chatbox, segments, sidebar, palette, mini-status. complexity: [manual]
-- [ ] T10.4 Adjust/add specs where a token hook changed. complexity: [low]
-- [ ] T10.5 Commit: `P10: route hardcoded colors through tokens (light-theme readiness)`. complexity: [manual]
+- [x] T10.4 Adjust/add specs where a token hook changed. complexity: [low]
+- [x] T10.5 Commit: `P10: route hardcoded colors through tokens (light-theme readiness)`. complexity: [manual]
 
 ## P11 — Finalize
 
