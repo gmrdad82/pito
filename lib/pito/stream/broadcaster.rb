@@ -283,7 +283,10 @@ module Pito
           if done
             %(<span class="text-accent shrink-0">✓</span>)
           else
-            %(<span class="pito-shimmer shrink-0">●</span>)
+            ApplicationController.renderer.render(
+              Pito::Shell::ShimmerTextComponent.new(text: "●", extra_classes: "shrink-0"),
+              layout: false
+            ).strip
           end
 
         row_html = <<~HTML.html_safe

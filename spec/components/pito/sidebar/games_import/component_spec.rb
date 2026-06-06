@@ -59,4 +59,23 @@ RSpec.describe Pito::Sidebar::GamesImport::Component do
       expect(node.css("[data-pito--games-search-target='input']")).not_to be_empty
     end
   end
+
+  describe "shimmer indicator" do
+    it "renders the shimmer target element" do
+      node = render_inline(described_class.new(prefill: "", conversation_uuid: uuid))
+      expect(node.css("[data-pito--games-search-target='shimmer']")).not_to be_empty
+    end
+
+    it "renders a .pito-shimmer span inside the shimmer target (via ShimmerTextComponent)" do
+      node = render_inline(described_class.new(prefill: "", conversation_uuid: uuid))
+      shimmer_p = node.css("[data-pito--games-search-target='shimmer']").first
+      expect(shimmer_p.css("span.pito-shimmer")).not_to be_empty
+    end
+
+    it "renders the shimmer target hidden by default" do
+      node = render_inline(described_class.new(prefill: "", conversation_uuid: uuid))
+      shimmer_p = node.css("[data-pito--games-search-target='shimmer']").first
+      expect(shimmer_p["class"]).to include("hidden")
+    end
+  end
 end

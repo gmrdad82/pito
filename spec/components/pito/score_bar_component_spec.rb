@@ -128,5 +128,39 @@ RSpec.describe Pito::ScoreBarComponent do
       html = render_inline(comp).to_html
       expect(html).to include("87")
     end
+
+    it "sets data-tier=missing on the muted bar when score is nil" do
+      node = render_inline(described_class.new)
+      bar  = node.css("[data-tier='missing']")
+      expect(bar).not_to be_empty
+    end
+
+    it "sets the correct data-tier for each score tier boundary" do
+      {
+        95 => "excellent",
+        85 => "good",
+        75 => "fair",
+        65 => "meh",
+        55 => "poor",
+        30 => "bad",
+        10 => "very_bad"
+      }.each do |score, tier|
+        node = render_inline(described_class.new(score:))
+        bar  = node.css("[data-tier='#{tier}']")
+        expect(bar).not_to be_empty, "expected data-tier=#{tier} for score #{score}"
+      end
+    end
+
+    it "sets data-score on the bar element" do
+      node = render_inline(described_class.new(score: 82))
+      bar  = node.css("[data-score='82']")
+      expect(bar).not_to be_empty
+    end
+
+    it "positions the bubble arrow at the score percent (left: N%)" do
+      node = render_inline(described_class.new(score: 50))
+      html = node.to_html
+      expect(html).to include("left: 50.0%")
+    end
   end
 end

@@ -28,10 +28,10 @@
          value="<%= prefill %>">
 
   <%# Shimmer indicator — shown while talking to IGDB (search or import). %>
-  <%# Uses .pito-shimmer directly; no new keyframes. %>
+  <%# Rendered via ShimmerTextComponent; reuses .pito-shimmer, no new keyframes. %>
   <p class="text-sm hidden"
      data-pito--games-search-target="shimmer">
-    <span class="pito-shimmer">. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .</span>
+    <%= render(Pito::Shell::ShimmerTextComponent.new(text: ". " * 30)) %>
   </p>
 
   <%# Status line (shows witty no-results / error copy) %>
