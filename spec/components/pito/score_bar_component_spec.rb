@@ -101,4 +101,32 @@ RSpec.describe Pito::ScoreBarComponent do
       expect(comp.fill_text).to eq("=" * 60)
     end
   end
+
+  describe "render_inline — gradient structure" do
+    it "renders the pito-score-bar__fill element" do
+      comp = described_class.new(score: 75)
+      html = render_inline(comp).to_html
+      expect(html).to include("pito-score-bar__fill")
+    end
+
+    it "renders the tick and bubble when score is present" do
+      comp = described_class.new(score: 75)
+      html = render_inline(comp).to_html
+      expect(html).to include("pito-score-bar__tick")
+      expect(html).to include("pito-score-bar__bubble")
+    end
+
+    it "renders the muted variant when score is nil and not resyncing" do
+      comp = described_class.new
+      html = render_inline(comp).to_html
+      expect(html).to include("pito-score-bar--muted")
+      expect(html).not_to include("pito-score-bar__tick")
+    end
+
+    it "includes the score value in the bubble" do
+      comp = described_class.new(score: 87)
+      html = render_inline(comp).to_html
+      expect(html).to include("87")
+    end
+  end
 end

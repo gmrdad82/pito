@@ -11,19 +11,18 @@
     <% end %>
   </div>
 
-  <%# Row 2 — the bar. %>
+  <%# Row 2 — the bar.
+      The bar element carries the per-game adaptive gradient via an inline
+      `background-image` computed by `gradient_stops` (HEAT_THRESHOLDS
+      projected onto `max_x`). The `=` fill glyphs paint via the static
+      `.pito-ttb__fill` CSS (background-clip: text), while the bar's own
+      background carries the adaptive ramp. Recovered from commit 991f86fb. %>
   <div class="pito-ttb__bar-row">
-    <span class="pito-ttb__bar">
-      <% breaks = gradient_break_positions %>
+    <span class="pito-ttb__bar"
+          style="background-image: linear-gradient(to right, <%= gradient_stops %>);">
       <span class="pito-ttb__track">
         <span class="pito-ttb__bracket">[</span>
-        <span class="pito-ttb__fill"
-              data-p1="<%= breaks[:p1] %>"
-              data-p2="<%= breaks[:p2] %>"
-              data-p3="<%= breaks[:p3] %>"
-              data-p4="<%= breaks[:p4] %>"
-              data-p5="<%= breaks[:p5] %>"
-              data-p6="<%= breaks[:p6] %>">
+        <span class="pito-ttb__fill">
           ===============================================================================
         </span>
         <span class="pito-ttb__bracket">]</span>

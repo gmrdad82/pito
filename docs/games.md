@@ -336,7 +336,7 @@ No production data exists → destructive migrations are free.
 
 ### Group C — score / ttb components
 
-- [ ] T16.13 Revive `ScoreBarComponent` + `TimeToBeatComponent` with the EXACT pane-layout multi-stop gradient colors (recover from git history). complexity: [high]
+- [x] T16.13 Revive `ScoreBarComponent` + `TimeToBeatComponent` with the EXACT pane-layout multi-stop gradient colors (recover from git history). complexity: [high]
 
 ## Per-phase Definition of Done
 

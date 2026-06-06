@@ -132,4 +132,75 @@ RSpec.describe Pito::TimeToBeatComponent do
       end
     end
   end
+
+  describe "HEAT_THRESHOLDS" do
+    it "has 4 stops (0 / 10 / 40 / 100 hours)" do
+      hours = described_class::HEAT_THRESHOLDS.map(&:first)
+      expect(hours).to eq([ 0, 10, 40, 100 ])
+    end
+
+    it "uses the exact hex colors from commit 991f86fb" do
+      colors = described_class::HEAT_THRESHOLDS.map(&:last)
+      expect(colors).to eq(%w[#4CAF50 #CDDC39 #FFB74D #E91E63])
+    end
+  end
+
+  describe "#gradient_stops" do
+    it "returns a CSS stop string" do
+      comp = described_class.new(game: game)
+      stops = comp.gradient_stops
+      expect(stops).to include("#4CAF50")   # green — low
+      expect(stops).to include("#CDDC39")   # lime  — some
+      expect(stops).to include("#FFB74D")   # amber — commitment
+      expect(stops).to include("#E91E63")   # pink  — insanity
+    end
+
+    it "ends with 100% so the bar extends fully" do
+      comp = described_class.new(game: game)
+      expect(comp.gradient_stops).to end_with("100%")
+    end
+
+    it "projects small max_x so lime/amber/pink are clamped" do
+      # max_x ≈ 10h → 10h threshold projects to 100%, 40h and 100h > 100%
+      tiny = described_class.new(hours: { main: 5, extras: 8, completionist: 10 }, footage_hours: 0)
+      stops = tiny.gradient_stops
+      # The first stop (0h → green) should be at 0% (any precision)
+      expect(stops).to match(/\A#4CAF50 0(\.0+)?%/)
+    end
+
+    it "projects large max_x (Crimson-Desert scale) so pink dominates" do
+      # completionist = 738h → max_x ≈ 775h; 100h projects to ~12.9%
+      crimson = described_class.new(
+        hours:         { main: 31, extras: 71, completionist: 738 },
+        footage_hours: 0
+      )
+      stops = crimson.gradient_stops
+      # The 100h pink stop should project to well below 20%
+      pct_str = stops.split(", ").last(2).first  # second-to-last stop is the 100h pink
+      pct = pct_str.scan(/[\d.]+%/).last&.to_f
+      expect(pct).to be < 20.0
+    end
+  end
+
+  describe "render_inline — gradient structure" do
+    it "renders the pito-ttb__fill element" do
+      comp = described_class.new(game: game)
+      html = render_inline(comp).to_html
+      expect(html).to include("pito-ttb__fill")
+    end
+
+    it "renders the bar with an inline adaptive gradient" do
+      comp = described_class.new(game: game)
+      html = render_inline(comp).to_html
+      expect(html).to include("linear-gradient(to right")
+      expect(html).to include("#4CAF50")
+      expect(html).to include("#E91E63")
+    end
+
+    it "renders four ticks (3 pillars + footage)" do
+      comp = described_class.new(game: game, footage_hours: 50)
+      html = render_inline(comp).to_html
+      expect(html.scan("pito-ttb__tick").size).to eq(4)
+    end
+  end
 end

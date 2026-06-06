@@ -15,6 +15,26 @@ module Pito
     SAMPLE_HOURS = { main: 31, extras: 71, completionist: 124 }.freeze
     PILLAR_KEYS  = %i[main extras completionist].freeze
 
+    # Heat-map gradient stops, anchored to FIXED HOUR thresholds (not
+    # percentages). Each stop's percentage is computed per-game by
+    # projecting its hour value onto `max_x`. The adaptive gradient means:
+    #
+    #   - small max_x (e.g. ~23h) → thresholds at 40/100h project past 100%
+    #     and get clamped, so the bar is mostly green/lime.
+    #   - mid max_x (~100h) → all four stops land at 0/10/40/100% and the
+    #     full ramp is visible.
+    #   - large max_x (e.g. ~775h) → 100h projects to ~13%, so green/lime/
+    #     orange compress into the left ~13% and pink dominates.
+    #
+    # Pink (#E91E63) stays distinct from destructive red — this is an
+    # "effort intensity" signal. Recovered verbatim from commit 991f86fb.
+    HEAT_THRESHOLDS = [
+      [ 0,   "#4CAF50" ],   # low         — green
+      [ 10,  "#CDDC39" ],   # some        — lime
+      [ 40,  "#FFB74D" ],   # commitment  — amber
+      [ 100, "#E91E63" ]    # insanity    — pink
+    ].freeze
+
     # Bottom-label collision model.
     BOTTOM_LABEL_COLLISION_THRESHOLD_PCT = 10.0
     NUDGE_PCT = 1.3
@@ -185,6 +205,22 @@ module Pito
         p5: format("%.2f%%", extras_p + comp_third),
         p6: format("%.2f%%", extras_p + 2 * comp_third)
       }
+    end
+
+    # CSS gradient-stops string for the bar's inline `background-image`.
+    # Projects HEAT_THRESHOLDS hour values onto `max_x` so the visible
+    # color spread reflects each game's actual effort scale. Each
+    # threshold's percentage is clamped to 100% so over-projecting stops
+    # don't break the CSS gradient syntax. A trailing stop at 100% is
+    # appended whenever the last threshold projects below 100% so the bar
+    # extends fully to its right edge. Recovered from commit 991f86fb.
+    def gradient_stops
+      stops = HEAT_THRESHOLDS.map do |hours_threshold, color|
+        pct = [ (hours_threshold.to_f / max_x * 100).round(2), 100 ].min
+        "#{color} #{pct}%"
+      end
+      stops << "#{HEAT_THRESHOLDS.last[1]} 100%" unless stops.last.end_with?("100%")
+      stops.join(", ")
     end
 
     private

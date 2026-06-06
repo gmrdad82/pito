@@ -600,6 +600,280 @@ html {
   background: color-mix(in oklch, var(--bg-root) 80%, transparent);
 }
 
+/* ── Pito::ScoreBarComponent ────────────────────────────────────
+ *
+ * Continuous rating bar: brackets [ ] + a 60-cell `=` run carrying a
+ * red→green gradient via background-clip:text, plus an absolute-
+ * positioned `|` tick + floating score bubble when `overlay?` is true.
+ *
+ * Gradient stops recovered verbatim from commits f8013975 + d7c26094
+ * (Dracula-theme dark-mode palette, locked 2026-05-17):
+ *
+ *   very-bad  #7a2020  0%–25%   (dark muddy red, solid zone)
+ *   bad       #ff5555  25%–50%  (clear red, solid zone)
+ *   poor      #c08454  50%      (transition starts)
+ *   meh       #ffb86c  65%
+ *   fair      #f1fa8c  75%
+ *   good      #a8e063  85%
+ *   excellent #50fa7b  90%–100% (solid zone)
+ *
+ * The hard edges at 25%, 50%, and 90% are zero-distance stops (same
+ * percentage repeated) so those zones read as solid blocks.
+ */
+
+/* Outer wrapper — inline so it flows inside message text. */
+.pito-score-bar {
+  position: relative;
+  display: inline-block;
+}
+
+/* Track: brackets + fill side-by-side. */
+.pito-score-bar__track {
+  display: inline-flex;
+  align-items: baseline;
+}
+
+.pito-score-bar__bracket {
+  flex: 0 0 auto;
+}
+
+/* The `=` glyph run carries the multi-stop gradient via background-clip:text.
+   Solid-zone hard edges at 0–25% (very-bad), 25–50% (bad), 90–100%
+   (excellent); smooth ramp through poor→meh→fair→good in between.
+   Literal hex — identical look across all themes. */
+.pito-score-bar__fill {
+  flex: 1 1 auto;
+  overflow: hidden;
+  background-image: linear-gradient(
+    to right,
+    #7a2020    0%,    /* dark very-bad — hard left edge */
+    #7a2020   25%,    /* solid very-bad zone */
+    #ff5555   25%,    /* hard edge → bad */
+    #ff5555   50%,    /* solid bad zone */
+    #c08454   50%,    /* hard edge → transition starts */
+    #ffb86c   65%,    /* meh */
+    #f1fa8c   75%,    /* fair */
+    #a8e063   85%,    /* good */
+    #50fa7b   90%,    /* excellent */
+    #50fa7b  100%     /* solid excellent zone */
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Muted state (no score, not resyncing) — dim the bar, suppress gradient. */
+.pito-score-bar--muted .pito-score-bar__fill {
+  background-image: none;
+  color: var(--fg-faded);
+}
+
+/* Absolute `|` tick overlaid at the score position. */
+.pito-score-bar__tick {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  color: var(--fg-default);
+  font-weight: 700;
+  pointer-events: none;
+}
+
+/* Score bubble floating above the tick (▼ arrow glyph connects the two). */
+.pito-score-bar__bubble {
+  position: absolute;
+  bottom: calc(100% + 2px);
+  transform: translateX(-50%);
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1;
+  color: var(--fg-default);
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.pito-score-bar__bubble-num {
+  font-weight: 700;
+}
+
+.pito-score-bar__bubble-arrow {
+  font-size: 0.6em;
+  line-height: 1;
+}
+
+/* ── Pito::TimeToBeatComponent ──────────────────────────────────
+ *
+ * Fuel-gauge bar: brackets [ ] + a continuous `=` run + four absolute
+ * ticks (main / extras / completionist / footage).
+ *
+ * TWO gradient layers:
+ *
+ * 1. Bar background — adaptive per-game, inlined as
+ *    `style="background-image: linear-gradient(to right, ...)"` by
+ *    `Pito::TimeToBeatComponent#gradient_stops`. HEAT_THRESHOLDS:
+ *      #4CAF50  0h   — low (green)
+ *      #CDDC39  10h  — some (lime)
+ *      #FFB74D  40h  — commitment (amber)
+ *      #E91E63  100h — insanity (pink)
+ *    Each hour value is projected onto `max_x` so small games stay
+ *    green and long games shift pink. Recovered from commit 991f86fb.
+ *
+ * 2. Fill text (`=` glyphs) — static cool-spectrum ramp painted via
+ *    background-clip:text. Same 4-color sequence, no percentages, so
+ *    the glyph gradient always spans the full bar width regardless of
+ *    game length. Recovered from commit f8013975 (ttb-fuel-gauge__fill).
+ */
+
+.pito-ttb {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Row wrapper for the bar + ticks. */
+.pito-ttb__bar-row {
+  position: relative;
+}
+
+/* The bar element itself. Gets the per-game adaptive gradient via
+   inline `background-image` from `gradient_stops`. */
+.pito-ttb__bar {
+  position: relative;
+  display: inline-block;
+  width: 100%;
+  background-color: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  overflow: visible;
+}
+
+.pito-ttb__track {
+  display: inline-flex;
+  align-items: baseline;
+  width: 100%;
+}
+
+.pito-ttb__bracket {
+  flex: 0 0 auto;
+}
+
+/* The `=` glyphs carry a static cool-spectrum gradient via
+   background-clip:text — green→lime→amber→pink — so the text
+   always reads the full ramp regardless of max_x. */
+.pito-ttb__fill {
+  flex: 1 1 auto;
+  overflow: hidden;
+  white-space: nowrap;
+  background-image: linear-gradient(
+    to right,
+    #4CAF50,   /* low         — green  */
+    #CDDC39,   /* some        — lime   */
+    #FFB74D,   /* commitment  — amber  */
+    #E91E63    /* insanity    — pink   */
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Tick overlays — `|` chars positioned absolutely on the bar. */
+.pito-ttb__tick {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  color: var(--fg-default);
+  font-weight: 700;
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* Top / bottom value rows. */
+.pito-ttb__values {
+  position: relative;
+  display: flex;
+}
+
+.pito-ttb__values--top {
+  min-height: 1.2em;
+}
+
+/* Footage bubble above the bar. */
+.pito-ttb__footage-bubble {
+  position: absolute;
+  bottom: 0;
+  transform: translateX(-50%);
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1;
+  color: var(--fg-default);
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.pito-ttb__footage-bubble-num {
+  font-weight: 700;
+}
+
+.pito-ttb__footage-bubble-arrow {
+  font-size: 0.6em;
+  line-height: 1;
+}
+
+/* Pillar value labels below the bar. */
+.pito-ttb__value {
+  position: absolute;
+  color: var(--fg-faded);
+  white-space: nowrap;
+}
+
+.pito-ttb__value--pillar {
+  bottom: 0;
+}
+
+/* Edge-label clamping modifiers. */
+.ttb-label--at-start {
+  transform: translateX(0);
+}
+
+.ttb-label--centered {
+  transform: translateX(-50%);
+}
+
+.ttb-label--at-end {
+  transform: translateX(-100%);
+}
+
+/* Legend row. */
+.pito-ttb__legend {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.pito-ttb__legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pito-ttb__legend-tick {
+  font-weight: 700;
+  color: var(--fg-default);
+}
+
+.pito-ttb__legend-label {
+  color: var(--fg-faded);
+  font-size: 0.85em;
+}
+
+/* Per-pillar / footage tick accent colors (data-accent attribute). */
+[data-accent="main"]          { color: #4CAF50; }
+[data-accent="extras"]        { color: #CDDC39; }
+[data-accent="completionist"] { color: #E91E63; }
+[data-accent="footage"]       { color: var(--fg-default); }
+
 /* ── Theme system ──────────────────────────────────────────────
  *
  * Theme tokens are generated by `rake pito:themes:export` and
