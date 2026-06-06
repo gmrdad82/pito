@@ -3,8 +3,15 @@ en:
     chat:
       list:
         descriptions:
-          list: "List items (videos, games, playlists)"
-        fake_response: "[FAKE] Would list %{count} items here. Example: %{sample_title}"
+          list: "List games in your library"
+      show:
+        descriptions:
+          show: "Show a game's details (by id or title)"
+        needs_ref: "Which game? Use `list games` to see ids, then `show game <id>`."
+      delete:
+        descriptions:
+          delete: "Delete a game (by id or title)"
+        needs_ref: "Which game? Use `list games` to see ids, then `rm game <id>`."
       errors:
         unknown_input: "Didn't understand %{input}. Try /help for available commands."
         verb_not_implemented: "The chat verb %{verb} isn't wired yet."
