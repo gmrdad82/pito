@@ -111,7 +111,7 @@ No production data exists → destructive migrations are free.
 - [x] T3.2 Remove analytics-sync chain + specs (`ChannelAnalyticsSync`, `VideoAnalyticsSync`, `VideoRetentionSync`(+Orchestrator), `VideoViewerTimeSyncJob`, `ViewerTimeDailyRefreshJob`, `YoutubeAnalyticsSync`). complexity: [high]
 - [x] T3.3 Remove `Pito::Analytics::ViewerTimeRollup` + `VideoViewerTimeBucket`/`time_zone` refs; clean/remove `CrossVideoLocals`/`DataFreshness`. complexity: [high]
 - [x] T3.4 Remove `AnalyticsController` + `channels/analytics_controller.rb` + routes/views. complexity: [low]
-- [ ] T3.5 Remove phantom import stack (`ImportJob`/`RejectedVideoImport` refs, `Channel::ImportVideosJob`, `Channel::VideoImporter`, `imports/channels_controller.rb` + route); keep `ImportVideosJob`. complexity: [high]
+- [x] T3.5 Remove phantom import stack (`ImportJob`/`RejectedVideoImport` refs, `Channel::ImportVideosJob`, `Channel::VideoImporter`, `imports/channels_controller.rb` + route); keep `ImportVideosJob`. complexity: [high]
 - [ ] T3.6 Remove `Video::ThumbnailPreview`. complexity: [low]
 - [ ] T3.7 Strip phantom-column writes (`videos.last_sync_error`/`made_for_kids_effective`; `video_stats` refs). complexity: [high]
 - [ ] T3.8 Remove the phantom `YoutubeApiCall`-based tracker/quota reads (superseded by P5) or guard; clean `config/recurring.yml`. complexity: [high]
