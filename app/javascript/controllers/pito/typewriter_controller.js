@@ -3,12 +3,13 @@
 // Progressively reveals the text content of its `body` target character-by-
 // character (typewriter effect) when a segment arrives live over the cable.
 //
-// Expand-state aware:
-//   • COLLAPSED (default): only the `body` target is animated.
-//   • EXPANDED (expand_all on at render): the `body` target is animated first,
-//     then each `prose` target in order (these wrap the always-visible
-//     expand_lines that sit above the kv-detail).
-//   KV-tables and all chrome (hints, bars, meta) always render instantly.
+// EXPERIMENT (full-content reveal):
+//   ALL prose targets are animated sequentially in DOM order — body first,
+//   then every `prose` target (expand_lines, kv-table key/value spans, section
+//   header divs, section row key/value spans).  expand state is ignored so the
+//   whole visible card types out regardless of whether expand_all is enabled.
+//   Chrome elements (accent bar, hints, meta-line, info-lines) are not tagged
+//   as targets and always render instantly.
 //
 // Conditions that skip animation (instant full-text):
 //   • prefers-reduced-motion media query matches.
@@ -31,7 +32,7 @@
 
 import { Controller } from "@hotwired/stimulus"
 import { enqueue } from "pito/reveal_queue"
-import { fxEnabled, expandAllEnabled } from "pito/settings"
+import { fxEnabled } from "pito/settings"
 import { TICK_MS, CHARS_TICK } from "pito/typing"
 
 export default class extends Controller {
@@ -49,12 +50,13 @@ export default class extends Controller {
     this._connected = true
     this._cancelled = false
 
-    // Collect all prose targets to animate:
-    //   • always: the body target (summary prose)
-    //   • when expanded: any `prose` targets (expand_lines prose divs)
-    //     Tables / hints are never in prose targets — they're always instant.
+    // Collect all items to animate in DOM order:
+    //   1. the body target (summary prose)
+    //   2. every prose target — expand_lines, kv-table key/value spans, section
+    //      header divs, section row key/value spans — all in document order.
+    // Expand state is intentionally ignored: the whole visible card types out.
     const items = [{ el: this.bodyTarget, text: bodyText }]
-    if (expandAllEnabled() && this.hasProseTargets) {
+    if (this.hasProseTargets) {
       for (const el of this.proseTargets) {
         const text = el.textContent
         if (text) items.push({ el, text })

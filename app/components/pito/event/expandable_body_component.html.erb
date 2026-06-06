@@ -2,12 +2,12 @@
   <div data-controller="pito--expand"
        data-pito--expand-expand-label-value="<%= @expand_label %>"
        data-pito--expand-collapse-label-value="<%= @collapse_label %>">
-    <%# Prose wrapper — typewriter controller covers body + expand_lines so the
-        whole prose region reveals together when expanded. The kv-detail and
-        hints outside this wrapper always render instantly. %>
+    <%# Prose wrapper — when typewriter? the body + expand_lines get target annotations.
+        owns_controller? controls whether the typewriter controller lives here or on a
+        parent wrapper (system_component uses owner_controller: false to hoist it). %>
     <% if @body || @expand_lines.any? %>
       <% if typewriter? %>
-        <div data-controller="pito--typewriter">
+        <div<% if owns_controller? %> data-controller="pito--typewriter"<% end %>>
           <span class="text-fg" data-pito--typewriter-target="body"><%= @body %></span>
           <% @expand_lines.each do |line| %>
             <div class="text-fg" data-pito--typewriter-target="prose"><%= line %></div>
@@ -52,7 +52,7 @@
   </div>
 <% elsif @body %>
   <% if typewriter? %>
-    <span class="text-fg" data-controller="pito--typewriter" data-pito--typewriter-target="body"><%= @body %></span>
+    <span class="text-fg"<% if owns_controller? %> data-controller="pito--typewriter"<% end %> data-pito--typewriter-target="body"><%= @body %></span>
   <% else %>
     <span class="text-fg"><%= html? ? raw(@body) : @body %></span>
   <% end %>
