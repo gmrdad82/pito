@@ -12,24 +12,24 @@ RSpec.describe Pito::Event::ThemeDiffComponent do
 
   let(:preview_payload) do
     {
-      theme_diff:     true,
-      theme_list:     true,
-      phase:          "preview",
-      granularity:    "char",
-      previewed_slug: "dracula",
-      from_text:      "Old list text",
-      sections: [
+      "phase"          => "preview",
+      "granularity"    => "char",
+      "previewed_slug" => "dracula",
+      "from_text"      => "Old list text",
+      "reply_handle"   => "beta-1234",
+      "reply_target"   => "theme_list",
+      "sections"       => [
         {
-          title: "Dark",
-          rows: [
-            { key: "  dracula",    value: "Dracula" },
-            { key: "  tokyo-night", value: "Tokyo Night" }
+          "title" => "Dark",
+          "rows"  => [
+            { "key" => "  dracula",     "value" => "Dracula" },
+            { "key" => "  tokyo-night", "value" => "Tokyo Night" }
           ]
         },
         {
-          title: "Light",
-          rows: [
-            { key: "  github-light", value: "GitHub Light" }
+          "title" => "Light",
+          "rows"  => [
+            { "key" => "  github-light", "value" => "GitHub Light" }
           ]
         }
       ]
@@ -38,11 +38,13 @@ RSpec.describe Pito::Event::ThemeDiffComponent do
 
   let(:apply_payload) do
     {
-      theme_diff:  true,
-      phase:       "apply",
-      granularity: "line",
-      body:        "Your eyes are now glazed by Dracula.",
-      from_text:   "Pick a theme\nDark\n  dracula Dracula\n  tokyo-night Tokyo Night\nLight\n  github-light GitHub Light"
+      "phase"          => "apply",
+      "granularity"    => "line",
+      "body"           => "Your eyes are now glazed by Dracula.",
+      "from_text"      => "Pick a theme\nDark\n  dracula Dracula\n  tokyo-night Tokyo Night\nLight\n  github-light GitHub Light",
+      "reply_handle"   => "beta-1234",
+      "reply_target"   => "theme_list",
+      "reply_consumed" => true
     }
   end
 
@@ -156,6 +158,26 @@ RSpec.describe Pito::Event::ThemeDiffComponent do
 
     it "does NOT render section rows (apply phase is a single confirmation)" do
       expect(node.text).not_to include("GitHub Light")
+    end
+  end
+
+  # ── T15.3: follow-up affordance ──────────────────────────────────────────────
+
+  describe "follow-up affordance" do
+    it "renders the affordance in preview phase (reply_handle present, not consumed)" do
+      node = render_inline(described_class.new(payload: preview_payload, event: base_event))
+      expect(node.text).to include("beta-1234")
+    end
+
+    it "does NOT render the affordance in apply phase (reply_consumed: true)" do
+      node = render_inline(described_class.new(payload: apply_payload, event: base_event))
+      expect(node.css("div.mt-1.text-fg-faded")).to be_empty
+    end
+
+    it "does NOT render the affordance when reply_handle is absent" do
+      payload = preview_payload.except("reply_handle", "reply_target")
+      node = render_inline(described_class.new(payload:, event: base_event))
+      expect(node.css("div.mt-1.text-fg-faded")).to be_empty
     end
   end
 

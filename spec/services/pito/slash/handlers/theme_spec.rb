@@ -194,9 +194,23 @@ RSpec.describe Pito::Slash::Handlers::Theme, type: :service do
       expect(all_keys.any? { |k| k.start_with?("● ") && k.include?("dracula") }).to be(true)
     end
 
-    it "has an info_line hinting #preview / #apply" do
-      info = result.events.first[:payload][:info_lines]
-      expect(info.join).to include("#preview").or include("#apply")
+    it "stamps the payload with reply_handle (follow-up engine)" do
+      payload = result.events.first[:payload]
+      # make_followupable! writes string keys; support both symbol and string access.
+      value = payload[:reply_handle] || payload["reply_handle"]
+      expect(value).to be_present
+    end
+
+    it "stamps the payload with reply_target: 'theme_list'" do
+      payload = result.events.first[:payload]
+      value = payload[:reply_target] || payload["reply_target"]
+      expect(value).to eq("theme_list")
+    end
+
+    it "does NOT include the old theme_list: true flag" do
+      payload = result.events.first[:payload]
+      expect(payload[:theme_list]).to be_nil
+      expect(payload["theme_list"]).to be_nil
     end
   end
 

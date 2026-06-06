@@ -348,12 +348,12 @@ independent of P14.
 
 ### P15 — Theme list on the engine (mutate path) — supersedes P12a targeting
 
-- [ ] T15.1 Stamp the list message: `reply_target:"theme_list"` + `reply_handle` (drop `theme_list:true` + the most-recent heuristic). complexity: [low]
-- [ ] T15.2 `Pito::FollowUp::Handlers::ThemeList` (actions `preview`/`apply`): resolve theme; preview → `Switch.preview_only` + `Mutation` to `theme_diff` (preview-marked, stays follow-up-able); apply → `Switch.apply_only` + `Mutation` to `theme_diff` (quip, consume). complexity: [high]
-- [ ] T15.3 List affordance shows `#<handle> preview <name>` / `#<handle> apply <name>` (AffordanceComponent + i18n). complexity: [low]
-- [ ] T15.4 Remove P12a's echo + the `:preview`/`:apply` stem handlers (`Hashtag::Handlers::Theme`/`ThemeApply`); route via the engine. complexity: [low]
-- [ ] T15.5 Update theme specs to the handle-based mutate flow (no echo; repeatable preview; apply consumes). complexity: [low]
-- [ ] T15.6 Commit: `P15: theme list follow-up via the engine (#<handle> preview/apply)`. complexity: [manual]
+- [x] T15.1 Stamp the list message: `reply_target:"theme_list"` + `reply_handle` (drop `theme_list:true` + the most-recent heuristic). complexity: [low]
+- [x] T15.2 `Pito::FollowUp::Handlers::ThemeList` (actions `preview`/`apply`): resolve theme; preview → `Switch.preview_only` + `Mutation` to `theme_diff` (preview-marked, stays follow-up-able); apply → `Switch.apply_only` + `Mutation` to `theme_diff` (quip, consume). complexity: [high]
+- [x] T15.3 List affordance shows `#<handle> preview <name>` / `#<handle> apply <name>` (AffordanceComponent + i18n). complexity: [low]
+- [x] T15.4 Remove P12a's echo + the `:preview`/`:apply` stem handlers (`Hashtag::Handlers::Theme`/`ThemeApply`); route via the engine. complexity: [low]
+- [x] T15.5 Update theme specs to the handle-based mutate flow (no echo; repeatable preview; apply consumes). complexity: [low]
+- [x] T15.6 Commit: `P15: theme list follow-up via the engine (#<handle> preview/apply)`. complexity: [manual]
 
 > After P15, run **P12b** (the `pito/diff.js` + `pito--diff-reveal` engine) on top
 > of the `theme_diff` payloads, then P12b's smoke (T12.13) compares dark/char vs

@@ -1,5 +1,12 @@
 en:
   pito:
+    follow_up:
+      theme_list:
+        usage: "preview <name> · apply <name>"
+        errors:
+          invalid_action: "Unknown action '%{action}'. Try: #<handle> preview <name> or #<handle> apply <name>."
+          missing_name: "Usage: #<handle> %{action} <theme-name>. Run /theme list to browse themes."
+          unknown_target: "No theme called '%{name}'. Run /theme list to see what's available."
     slash:
       theme:
         descriptions:

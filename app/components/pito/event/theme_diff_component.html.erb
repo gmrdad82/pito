@@ -48,4 +48,14 @@
       <span class="text-fg"><%= @body.presence || @from_text %></span>
     <% end %>
   </div>
+
+  <%# Follow-up affordance — shown in preview phase only (apply is consumed).
+      Allows the user to run another #<handle> preview <name> or #<handle> apply. %>
+  <% if followupable? && affordance_usage.present? %>
+    <%= render(Pito::FollowUp::AffordanceComponent.new(
+          handle:   @reply_handle,
+          usage:    affordance_usage,
+          consumed: @reply_consumed
+        )) %>
+  <% end %>
 <% end %>

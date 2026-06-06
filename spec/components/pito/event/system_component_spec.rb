@@ -134,25 +134,22 @@ RSpec.describe Pito::Event::SystemComponent do
     end
   end
 
-  # ── T12.1: dom_id — id emitted for theme_list/theme_diff payloads ─────────────
+  # ── T15.4: dom_id — generalized to reply_handle (follow-up engine) ──────────
 
-  describe "dom_id — id on root Segment for anchorable payloads" do
+  describe "dom_id — id on root Segment for follow-up-able messages" do
     let(:conversation) { Conversation.create! }
     let(:turn) { create(:turn, conversation:) }
 
-    let(:event) do
-      create(:event, conversation:, turn:, kind: "system", position: 1,
-             payload: { "theme_list" => true, "body" => "Pick a theme" })
-    end
-
-    it "renders id='event_<id>' when payload has theme_list: true and event is present" do
+    it "renders id='event_<id>' when payload has reply_handle present" do
+      event = create(:event, conversation:, turn:, kind: "system", position: 1,
+                     payload: { "reply_handle" => "beta-1234", "reply_target" => "theme_list", "body" => "Pick a theme" })
       node = render_inline(described_class.new(payload: event.payload.with_indifferent_access, event:))
       segment = node.css(".pito-segment").first
       expect(segment).not_to be_nil
       expect(segment["id"]).to eq("event_#{event.id}")
     end
 
-    it "renders id='event_<id>' when payload has theme_diff: true and event is present" do
+    it "renders id='event_<id>' when payload has theme_diff: true (backward compat)" do
       diff_event = create(:event, conversation:, turn:, kind: "theme_diff", position: 2,
                           payload: { "theme_diff" => true, "phase" => "apply", "body" => "Done!" })
       node = render_inline(described_class.new(payload: diff_event.payload.with_indifferent_access, event: diff_event))
@@ -160,7 +157,7 @@ RSpec.describe Pito::Event::SystemComponent do
       expect(segment["id"]).to eq("event_#{diff_event.id}")
     end
 
-    it "does NOT render an id for a plain system message (no theme_list/theme_diff)" do
+    it "does NOT render an id for a plain system message (no reply_handle or theme_diff)" do
       plain_event = create(:event, conversation:, turn:, kind: "system", position: 3,
                            payload: { "body" => "Regular system message" })
       node = render_inline(described_class.new(payload: plain_event.payload.with_indifferent_access, event: plain_event))
@@ -168,10 +165,47 @@ RSpec.describe Pito::Event::SystemComponent do
       expect(segment["id"]).to be_nil
     end
 
-    it "does NOT render an id when event is nil even if payload has theme_list" do
-      node = render_inline(described_class.new(payload: { theme_list: true, body: "Pick" }, event: nil))
+    it "does NOT render an id when event is nil even if payload has reply_handle" do
+      node = render_inline(described_class.new(payload: { reply_handle: "beta-1234", body: "Pick" }, event: nil))
       segment = node.css(".pito-segment").first
       expect(segment["id"]).to be_nil
+    end
+  end
+
+  # ── T15.3: affordance rendered for follow-up-able system messages ─────────────
+
+  describe "follow-up affordance" do
+    let(:conversation) { Conversation.create! }
+    let(:turn) { create(:turn, conversation:) }
+
+    it "renders the affordance when payload has reply_handle + reply_target" do
+      event = create(:event, conversation:, turn:, kind: "system", position: 1,
+                     payload: {
+                       "reply_handle" => "beta-1234",
+                       "reply_target" => "theme_list",
+                       "body" => "Pick a theme",
+                       "sections" => []
+                     })
+      node = render_inline(described_class.new(payload: event.payload.with_indifferent_access, event:))
+      expect(node.text).to include("beta-1234")
+    end
+
+    it "does NOT render the affordance when reply_consumed is true" do
+      event = create(:event, conversation:, turn:, kind: "system", position: 1,
+                     payload: {
+                       "reply_handle"   => "beta-1234",
+                       "reply_target"   => "theme_list",
+                       "reply_consumed" => true,
+                       "body"           => "Consumed message"
+                     })
+      node = render_inline(described_class.new(payload: event.payload.with_indifferent_access, event:))
+      # The affordance should not render (followupable? is false)
+      expect(node.css("div.mt-1.text-fg-faded")).to be_empty
+    end
+
+    it "does NOT render the affordance for plain system messages" do
+      node = render_inline(described_class.new(payload: { body: "Regular system message" }))
+      expect(node.css("div.mt-1.text-fg-faded")).to be_empty
     end
   end
 end

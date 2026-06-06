@@ -180,8 +180,11 @@ module Pito
 
         # ── list ──────────────────────────────────────────────────────────────
 
-        # Emits a System message with Dark/Light sections, current theme marked,
-        # and follow-up hints for #preview <name> / #apply <name>.
+        # Emits a System message with Dark/Light sections, current theme marked.
+        # The message is stamped as follow-up-able (reply_target: "theme_list") so
+        # the user can reply `#<handle> preview <name>` / `#<handle> apply <name>`.
+        # The old `theme_list: true` flag and the "most-recent list" heuristic are
+        # replaced by the unique-handle routing provided by the follow-up engine.
         def list_themes
           grouped      = Pito::Themes::Registry.grouped
           current_slug = AppSetting.theme
@@ -189,18 +192,19 @@ module Pito
           dark_rows  = build_theme_rows(grouped[:dark]  || [], current_slug)
           light_rows = build_theme_rows(grouped[:light] || [], current_slug)
 
+          payload = {
+            body:     I18n.t("pito.slash.theme.list.intro"),
+            sections: [
+              { title: I18n.t("pito.slash.theme.list.dark_header"),  rows: dark_rows },
+              { title: I18n.t("pito.slash.theme.list.light_header"), rows: light_rows }
+            ]
+          }
+          Pito::FollowUp.make_followupable!(payload, target: "theme_list", conversation:)
+
           Pito::Slash::Result::Ok.new(events: [
             {
               kind:    "system",
-              payload: {
-                theme_list: true,
-                body:       I18n.t("pito.slash.theme.list.intro"),
-                sections:   [
-                  { title: I18n.t("pito.slash.theme.list.dark_header"),  rows: dark_rows },
-                  { title: I18n.t("pito.slash.theme.list.light_header"), rows: light_rows }
-                ],
-                info_lines: [ I18n.t("pito.slash.theme.list.hint") ]
-              }
+              payload: payload
             }
           ])
         end

@@ -96,21 +96,8 @@ module Pito
             aliases:         [ :drop, :delete ],
             slots:           hashtag_metric_slots,
             description_key: "pito.grammar.hashtag.remove"
-          ),
-
-          # P7 — hashtag theme specs: #preview <name> / #apply <name>
-          Spec.new(
-            namespace:       :hashtag,
-            name:            :preview,
-            slots:           [ Slot.new(name: :theme_name, kind: :enum, source: :theme_names) ],
-            description_key: "pito.grammar.hashtag.theme_preview"
-          ),
-          Spec.new(
-            namespace:       :hashtag,
-            name:            :apply,
-            slots:           [ Slot.new(name: :theme_name, kind: :enum, source: :theme_names) ],
-            description_key: "pito.grammar.hashtag.theme_apply"
           )
+
         ]
       end
 

@@ -18,5 +18,3 @@ en:
       hashtag:
         add: "Track a metric in this conversation"
         remove: "Stop tracking a metric"
-        theme_preview: "Preview a theme without saving"
-        theme_apply: "Apply a theme permanently"

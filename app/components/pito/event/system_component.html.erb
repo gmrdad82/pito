@@ -159,6 +159,15 @@
   <% if @suggestion %>
     <%= render(Pito::Event::SegmentSuggestionComponent.new(suggestion: @suggestion)) %>
   <% end %>
+  <%# Follow-up affordance — shown when the message has a reply_handle and is
+      not yet consumed. Generic: works for any follow-up-able system message. %>
+  <% if followupable? && affordance_usage.present? %>
+    <%= render(Pito::FollowUp::AffordanceComponent.new(
+          handle:   reply_handle,
+          usage:    affordance_usage,
+          consumed: reply_consumed
+        )) %>
+  <% end %>
   <% if handle || channel %>
     <%= render(Pito::Event::MetaLineComponent.new(
           handle:  handle,

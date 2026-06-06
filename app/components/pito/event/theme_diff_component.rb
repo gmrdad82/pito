@@ -18,16 +18,16 @@ module Pito
     #                         (used as data-from on the outermost diff cell or
     #                          on the per-row marker cell for preview phase)
     #
-    # Preview phase keys (theme_list: true is also retained so re-finds work):
+    # Preview phase keys (reply_handle/reply_target retained so re-finds work via the follow-up engine):
     #   previewed_slug [String]   slug of the theme being previewed
     #   sections       [Array]    Dark/Light section arrays from the list payload
     #                             Each section: { title:, rows: [{key:, value:}] }
-    #   theme_list     [Boolean]  retained so subsequent #preview/#apply re-finds
-    #                             the same event
+    #   reply_handle   [String]   RETAINED — message stays follow-up-able (repeatable)
+    #   reply_target   [String]   "theme_list" — retained so the engine re-routes replies
     #
     # Apply phase keys:
     #   body           [String]   the witty confirmation quip (final text)
-    #   (theme_list is dropped for apply — the list is consumed)
+    #   reply_consumed [Boolean]  true — handle reserved but event no longer routable
     #
     # Rendering structure (both phases share the same root Segment wiring):
     #   - Root Segment id: "event_<event.id>" (stable DOM anchor)
@@ -57,10 +57,19 @@ module Pito
 
         # Apply-specific fields
         @body = payload[:body].to_s
+
+        # Follow-up affordance fields (reply_handle / reply_consumed).
+        @reply_handle   = payload[:reply_handle].to_s.presence
+        @reply_consumed = Pito::FollowUp.consumed?(payload)
       end
 
       def accent     = :surface
       def background = nil
+
+      # Usage string for the follow-up affordance hint.
+      def affordance_usage
+        I18n.t("pito.follow_up.theme_list.usage", default: "")
+      end
 
       private
 
@@ -70,6 +79,12 @@ module Pito
 
       def preview? = @phase == "preview"
       def apply?   = @phase == "apply"
+
+      # True when the message has a live follow-up handle (preview phase only;
+      # apply is consumed).
+      def followupable?
+        @reply_handle.present? && !@reply_consumed
+      end
     end
   end
 end
