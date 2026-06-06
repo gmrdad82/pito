@@ -176,12 +176,12 @@ No production data exists → destructive migrations are free.
 
 ## P9 — Game detail message component (ScoreBar + TTB-with-footage + cover)
 
-- [ ] T9.1 `Pito::Game::DetailComponent`: cover (600×800), title, dev, pub, release_label, platforms available, owned platforms, description, all genres. complexity: [high]
-- [ ] T9.2 Wire `TimeToBeatComponent` main/extras/completionist + **footage** 4th tick = `sum(footages.duration_seconds)/3600`. complexity: [low]
-- [ ] T9.3 Wire `ScoreBarComponent` with `game.score`. complexity: [low]
-- [ ] T9.4 Prose via `Pito::Copy`; stamp `make_followupable!(target:"game_detail")`. complexity: [low]
-- [ ] T9.5 Component specs. complexity: [low]
-- [ ] T9.6 Commit: `Game detail message component (score + ttb-with-footage + cover)`. complexity: [manual]
+- [x] T9.1 `Pito::Game::DetailComponent`: cover (600×800), title, dev, pub, release_label, platforms available, owned platforms, description, all genres. complexity: [high]
+- [x] T9.2 Wire `TimeToBeatComponent` main/extras/completionist + **footage** 4th tick = `sum(footages.duration_seconds)/3600`. complexity: [low]
+- [x] T9.3 Wire `ScoreBarComponent` with `game.score`. complexity: [low]
+- [x] T9.4 Prose via `Pito::Copy`; stamp `make_followupable!(target:"game_detail")`. complexity: [low]
+- [x] T9.5 Component specs. complexity: [low]
+- [x] T9.6 Commit: `Game detail message component (score + ttb-with-footage + cover)`. complexity: [manual]
 
 ## P10 — Chat verbs `list/show/delete games` + grammar + title ghost + list follow-up + picker
 
