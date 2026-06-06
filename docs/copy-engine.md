@@ -51,11 +51,11 @@ change, so copy can be grown, shrunk, audited, and kept on-voice in one place.
 > (random, or a forced index), and interpolates `%{}` placeholders. The single
 > seam every caller uses.
 
-- [ ] T1.1 `Pito::Copy.render(key, vars = {}, variant: nil)` — resolve `I18n.t(key)`, normalize String|Array → Array, pick (forced `variant` index else via the sampler), interpolate `%{…}` from `vars`; doc-block the contract. complexity: [high]
-- [ ] T1.2 Define missing-data behavior: missing key surfaces the I18n missing-translation (never a silent `""`); a `%{…}` with no matching var raises a clear error; document both. complexity: [low]
-- [ ] T1.3 Swappable sampler: `Pito::Copy.sampler` (default random) so specs can force determinism globally; add the RSpec support hook (deterministic sampler in test env). complexity: [low]
-- [ ] T1.4 Specs: String entry; Array entry (within-set); forced `variant:`; interpolation; missing key raises; missing placeholder raises; single/one-element array. complexity: [low]
-- [ ] T1.5 Commit: `Copy engine core (Pito::Copy.render: string|array, interpolation, deterministic sampler)`. complexity: [manual]
+- [x] T1.1 `Pito::Copy.render(key, vars = {}, variant: nil)` — resolve `I18n.t(key)`, normalize String|Array → Array, pick (forced `variant` index else via the sampler), interpolate `%{…}` from `vars`; doc-block the contract. complexity: [high]
+- [x] T1.2 Define missing-data behavior: missing key surfaces the I18n missing-translation (never a silent `""`); a `%{…}` with no matching var raises a clear error; document both. complexity: [low]
+- [x] T1.3 Swappable sampler: `Pito::Copy.sampler` (default random) so specs can force determinism globally; add the RSpec support hook (deterministic sampler in test env). complexity: [low]
+- [x] T1.4 Specs: String entry; Array entry (within-set); forced `variant:`; interpolation; missing key raises; missing placeholder raises; single/one-element array. complexity: [low]
+- [x] T1.5 Commit: `Copy engine core (Pito::Copy.render: string|array, interpolation, deterministic sampler)`. complexity: [manual]
 
 ## P2 — `pito.copy` namespace + audit rake
 
