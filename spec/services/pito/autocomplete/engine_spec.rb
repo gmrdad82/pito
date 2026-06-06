@@ -646,19 +646,19 @@ RSpec.describe Pito::Autocomplete::Engine, type: :service do
     before { Pito::Grammar::Registry.reset!; Pito::Grammar::Registry.register_all! }
     after  { Pito::Grammar::Registry.reset! }
 
-    context "/theme — single optional enum slot" do
-      it "suggests theme names after '/theme '" do
-        result = call(input: "/theme ", cursor: 7, authenticated: true)
+    context "/themes — single optional enum slot" do
+      it "suggests theme names after '/themes '" do
+        result = call(input: "/themes ", cursor: 8, authenticated: true)
         expect(result[:menu_items]).not_to be_empty
       end
 
-      it "yields NO suggestions after '/theme ayu-dark ' (slot is filled, no repeatable fallback)" do
-        result = call(input: "/theme ayu-dark ", cursor: 16, authenticated: true)
+      it "yields NO suggestions after '/themes ayu-dark ' (slot is filled, no repeatable fallback)" do
+        result = call(input: "/themes ayu-dark ", cursor: 17, authenticated: true)
         expect(result[:menu_items]).to be_empty
       end
 
-      it "yields NO suggestions after '/theme tokyo-night ' (slot is filled)" do
-        result = call(input: "/theme tokyo-night ", cursor: 19, authenticated: true)
+      it "yields NO suggestions after '/themes tokyo-night ' (slot is filled)" do
+        result = call(input: "/themes tokyo-night ", cursor: 20, authenticated: true)
         expect(result[:menu_items]).to be_empty
       end
     end

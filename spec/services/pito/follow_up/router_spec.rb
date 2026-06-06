@@ -28,7 +28,7 @@ RSpec.describe Pito::FollowUp::Router, type: :service do
     end
 
     it "returns :not_a_follow_up for a slash command" do
-      expect(route("/theme list")[:status]).to eq(:not_a_follow_up)
+      expect(route("/themes list")[:status]).to eq(:not_a_follow_up)
     end
 
     it "returns :not_a_follow_up for a #handle with no trailing text" do

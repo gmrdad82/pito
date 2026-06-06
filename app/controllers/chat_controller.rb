@@ -68,8 +68,8 @@ class ChatController < ApplicationController
         return handle_resume(conversation)
       end
 
-      if bare_theme_command?(input)
-        # Bare /theme (no args) opens the theme picker sidebar (Turbo Stream update).
+      if bare_themes_command?(input)
+        # Bare /themes (no args) opens the theme picker sidebar (Turbo Stream update).
         # Auth gating: requires an active session. No echo, no Turn, no async job.
         return handle_theme_sidebar(conversation)
       end
@@ -315,10 +315,10 @@ class ChatController < ApplicationController
     input.strip.match?(%r{\A/resume(\s|\z)}i)
   end
 
-  # True only for bare `/theme` with no arguments (the sidebar path).
-  # `/theme apply <name>` and other subcommands go through the async pipeline.
-  def bare_theme_command?(input)
-    input.strip.match?(%r{\A/theme\z}i)
+  # True only for bare `/themes` with no arguments (the sidebar path).
+  # `/themes apply <name>` and other subcommands go through the async pipeline.
+  def bare_themes_command?(input)
+    input.strip.match?(%r{\A/themes\z}i)
   end
 
   # Renders a Turbo Stream that populates #pito-sidebar with the conversation list.
@@ -358,7 +358,7 @@ class ChatController < ApplicationController
         turn:    conversation.turns.create!(
           position:   Turn.next_position_for(conversation),
           input_kind: :slash,
-          input_text: "/theme"
+          input_text: "/themes"
         ),
         kind:    "error",
         payload: { text: Pito::Copy.render("pito.copy.auth.mandatories") }

@@ -110,18 +110,18 @@ RSpec.describe Pito::Slash::Dispatcher, "arity guard (P5.5)", type: :service do
     end
   end
 
-  # ── /theme — validates_own_arity = true → dispatcher skips guard ──────────────
+  # ── /themes — validates_own_arity = true → dispatcher skips guard ────────────
 
-  describe "/theme — dispatcher skips generic guard (validates_own_arity)" do
-    it "routes /theme ayu-dark to the handler (not rejected by dispatcher guard)" do
-      result = dispatch("/theme ayu-dark")
+  describe "/themes — dispatcher skips generic guard (validates_own_arity)" do
+    it "routes /themes ayu-dark to the handler (not rejected by dispatcher guard)" do
+      result = dispatch("/themes ayu-dark")
       # The handler accepts it (valid 1-arg form); result is Ok.
       expect(result).to be_a(Pito::Slash::Result::Ok)
     end
 
-    it "routes /theme ayu-dark ayu-dark to the handler for self-validation" do
+    it "routes /themes ayu-dark ayu-dark to the handler for self-validation" do
       # Dispatcher guard is skipped; theme handler rejects with its own error.
-      result = dispatch("/theme ayu-dark ayu-dark")
+      result = dispatch("/themes ayu-dark ayu-dark")
       expect(result).to be_a(Pito::Slash::Result::Error)
       expect(result.message_key).to eq("pito.slash.theme.errors.too_many_args")
     end

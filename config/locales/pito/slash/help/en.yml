@@ -49,15 +49,15 @@ en:
           themes:
             title: "THEMES"
             rows:
-              - key: "/theme"
+              - key: "/themes"
                 value: "Browse themes (sidebar)"
-              - key: "/theme apply <name>"
+              - key: "/themes apply <name>"
                 value: "Apply a theme"
-              - key: "/theme preview <name>"
+              - key: "/themes preview <name>"
                 value: "Preview without saving"
-              - key: "/theme reset"
+              - key: "/themes reset"
                 value: "Reset to Tokyo Night"
-              - key: "/theme list"
+              - key: "/themes list"
                 value: "List all themes"
           config:
             title: "CONFIG"

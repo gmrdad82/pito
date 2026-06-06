@@ -12,7 +12,7 @@ module Pito
 
       SLASH_VERBS = Vocabulary.define(
         name:      :slash_verbs,
-        canonical: %w[config disconnect help theme]
+        canonical: %w[config disconnect help themes]
       ).freeze
 
       CONFIG_PROVIDERS = Vocabulary.define(

@@ -1,4 +1,4 @@
-# Themes — multi-theme system + `/theme` command
+# Themes — multi-theme system + `/themes` command
 
 > Status: in progress. Branch `themes` (no worktrees, sequential). PR #62 — **do
 > not merge until the user validates**. No co-author trailers; no `[skipci]`.
@@ -10,9 +10,9 @@
 
 ## North star
 
-`/theme` lets you switch among 18 light/dark themes — a preview sidebar, a
+`/themes` lets you switch among 18 light/dark themes — a preview sidebar, a
 listed System message with `#preview`/`#apply` follow-ups, and direct
-`/theme apply <name>`. Themes are data-driven (one Ruby file each → loader →
+`/themes apply <name>`. Themes are data-driven (one Ruby file each → loader →
 rake-generated CSS), global via `AppSetting`, and **every theme keeps pito brand
 blue (`--brand-pito` #5170ff)**; only the other tokens change. Tokyo Night stays
 the unaltered default.
@@ -21,19 +21,19 @@ the unaltered default.
 
 | Topic                                           | Decision                                                                                                                              |
 | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| Command                                         | `/theme` (singular) for everything                                                                                                    |
+| Command                                         | `/themes` (renamed from `/theme` in games P0)                                                                                         |
 | Engine                                          | one Ruby file per theme → registry/loader → `rake pito:themes:export` → committed `themes.css`                                        |
 | Shades                                          | auto-derive surface/elevated, fg-dim/faded, borders via `mix()`; per-theme overrides allowed                                          |
 | Default                                         | Tokyo Night, **unaltered**; Dracula + the other 16 are extra                                                                          |
 | pito blue                                       | `--brand-pito` #5170ff — identical on every theme                                                                                     |
 | Persistence                                     | global via `AppSetting.theme` + `#pito-settings` + `broadcast_global_settings_update`                                                 |
-| `/theme` (bare)                                 | opens the preview sidebar (↑/↓ preview, Enter apply, Esc revert, current marked, witty hint)                                          |
-| `/theme list` (alias `ls`)                      | does NOT open the sidebar — lists themes in a **System message** with `#preview`/`#apply` hints                                       |
+| `/themes` (bare)                                | opens the preview sidebar (↑/↓ preview, Enter apply, Esc revert, current marked, witty hint)                                         |
+| `/themes list` (alias `ls`)                     | does NOT open the sidebar — lists themes in a **System message** with `#preview`/`#apply` hints                                       |
 | `#<handle> preview/apply <name>`                | follow-up replies routed by the message's unique hashtag (P13–P15); preview/apply that theme                                          |
 | Follow-up engine                                | opt-in `reply_handle`+`reply_target`; reply by `#<handle> <action>`; confirmation→echo+append+consume, system/enhanced→no-echo+mutate |
-| `/theme preview <name>` / `/theme apply <name>` | distinct slash subcommands (same effect as the hashtags, but are commands, not replies)                                               |
-| `/theme <name>`                                 | shorthand → apply that theme                                                                                                          |
-| default / reset                                 | `default` resolves to Tokyo Night; `/theme reset` → reset to default; preview/apply `default` work                                    |
+| `/themes preview <name>` / `/themes apply <name>` | distinct slash subcommands (same effect as the hashtags, but are commands, not replies)                                             |
+| `/themes <name>`                                | shorthand → apply that theme                                                                                                          |
+| default / reset                                 | `default` resolves to Tokyo Night; `/themes reset` → reset to default; preview/apply `default` work                                   |
 | Aliases                                         | real slash alias system; first one shipped: `list` ↔ `ls`; production-ready                                                           |
 | Branch / merge                                  | branch `themes`, no worktrees, sequential; squash-merge at the end after validation                                                   |
 | Specs                                           | Rails + JS (Vitest) — including the alias, the hashtag replies, and the rake task                                                     |
@@ -51,11 +51,11 @@ the unaltered default.
 - P2 — CSS generation (generator + rake + wire-in) — **done**
 - P4 — Persistence (AppSetting.theme + data-theme + endpoint) — **done**
 - P3 — The 16 remaining theme palettes + regenerate
-- P5 — `/theme` command core (subcommands, vocab, autocomplete, --help)
+- P5 — `/themes` command core (subcommands, vocab, autocomplete, --help)
 - P5.5 — Argument-arity validation + autocomplete stop (general command fix)
 - P6 — Slash alias system (`list` ↔ `ls`)
-- P7 — `/theme list` System message + `#preview`/`#apply` hashtag replies
-- P8 — `/theme` (bare) preview sidebar
+- P7 — `/themes list` System message + `#preview`/`#apply` hashtag replies
+- P8 — `/themes` (bare) preview sidebar
 - P9 — Preview/apply JS (`theme_nav_controller`) + Vitest
 - P10 — Light-theme hardcoded-color audit + fix
 - P11 — Finalize (full suite green, PR ready)
@@ -71,7 +71,7 @@ the unaltered default.
 - [x] T0.1 Create branch `themes` off `main`. complexity: [manual]
 - [x] T0.2 Write `docs/themes.md` (this plan). complexity: [low]
 - [x] T0.3 Open PR #62 (base `main`), marked do-not-merge. complexity: [manual]
-- [x] T0.4 Commit: `Plan: themes — multi-theme system + /theme command`. complexity: [manual]
+- [x] T0.4 Commit: `Plan: themes — multi-theme system + /themes command`. complexity: [manual]
 
 ## P1 — Theme engine core _(done)_
 
@@ -132,27 +132,28 @@ the unaltered default.
 - [x] T3.19 Confirm `bin/rails tailwindcss:build` compiles with all 18 blocks. complexity: [low]
 - [x] T3.20 Commit: `P3: 16 remaining theme palettes + regenerate themes.css`. complexity: [manual]
 
-## P5 — `/theme` command core
+## P5 — `/themes` command core
 
 > Handler with subcommands `list`/`ls`/`preview`/`apply`/`reset` + a bare theme
 > name (= apply). `default` resolves to Tokyo Night. `--help`. Autocomplete from
 > a dynamic `theme_names` vocab. (The sidebar + list-message + hashtag replies
 > are P7/P8; this phase wires the command spine + the apply/preview/reset paths.)
+> Verb renamed to `:themes` in games P0.
 
 - [x] T5.1 `Pito::Themes::Registry.names` + a `resolve_target(token)` helper that maps a slug OR `"default"` → a Definition (nil if unknown). complexity: [low]
 - [x] T5.2 Dynamic vocabulary `theme_names` (slugs + `default`) backed by the registry; register it in `Vocabularies`/`Registry`. complexity: [high]
-- [x] T5.3 `Pito::Slash::Handlers::Theme` skeleton: `verb = :theme`, `description_key`, `grammar do … end` (a `subcommand`/`name` slot from `theme_names` + the subcommand keywords), auth gate. complexity: [high]
+- [x] T5.3 `Pito::Slash::Handlers::Theme` skeleton: `verb = :themes` (was `:theme`, renamed in games P0), `description_key`, `grammar do … end` (a `subcommand`/`name` slot from `theme_names` + the subcommand keywords), auth gate. complexity: [high]
 - [x] T5.4 Parse the first arg: subcommand (`list/ls/preview/apply/reset`) vs theme name vs empty; dispatch accordingly. complexity: [high]
-- [x] T5.5 `apply` path: `AppSetting.theme = slug` → broadcast → System confirm (witty i18n). Covers `/theme apply <name>`, `/theme <name>`. complexity: [low]
+- [x] T5.5 `apply` path: `AppSetting.theme = slug` → broadcast → System confirm (witty i18n). Covers `/themes apply <name>`, `/themes <name>`. complexity: [low]
 - [x] T5.6 `reset` path: apply the default (Tokyo Night) + confirm. complexity: [low]
 - [x] T5.7 `preview` path (no sidebar): apply-for-this-render semantics — emit a System message instructing how to keep it (or persist on confirm). Decide preview-vs-apply persistence and document inline. complexity: [high]
-- [x] T5.8 Unknown target → witty error (i18n) listing valid names / pointing to `/theme list`. complexity: [low]
+- [x] T5.8 Unknown target → witty error (i18n) listing valid names / pointing to `/themes list`. complexity: [low]
 - [x] T5.9 `--help`: per-command usage + a grouped theme list via `HelpRenderer`/`show_help` (i18n). complexity: [low]
 - [x] T5.10 i18n: `pito.slash.theme.*` (descriptions, help usage/description, confirmations, errors) — witty voice. complexity: [low]
-- [x] T5.11 Autocomplete: `/the…`→`/theme`; `/theme <partial>` ghost/menu from `theme_names`; subcommands suggested. complexity: [low]
-- [x] T5.12 List `/theme` in `/help` sections + the ctrl+k command palette (i18n). complexity: [low]
+- [x] T5.11 Autocomplete: `/them…`→`/themes`; `/themes <partial>` ghost/menu from `theme_names`; subcommands suggested. complexity: [low]
+- [x] T5.12 List `/themes` in `/help` sections + the ctrl+k command palette (i18n). complexity: [low]
 - [x] T5.13 Specs: handler (apply/reset/preview/unknown/default), request spec (apply persists + broadcasts), grammar + autocomplete (theme_names), `--help`. complexity: [low]
-- [x] T5.14 Commit: `P5: /theme command core (apply/preview/reset + vocab + autocomplete + --help)`. complexity: [manual]
+- [x] T5.14 Commit: `P5: /themes command core (apply/preview/reset + vocab + autocomplete + --help)`. complexity: [manual]
 
 ## P5.5 — Argument-arity validation + autocomplete stop (general command fix)
 
@@ -165,7 +166,7 @@ the unaltered default.
 - [x] T5.5.1 Autocomplete: in `engine.rb#find_active_slot_with_context`, when all non-repeatable slots are filled return NO active slot (drop the `|| eligible_slots(...).last` fallback); repeatable/kv paths unchanged. complexity: [high]
 - [x] T5.5.2 Spec: `/theme ayu-dark ` → no further suggestions; `/config google k=v ` still suggests keys (repeatable). complexity: [low]
 - [x] T5.5.3 Dispatcher arity guard: reject an invocation with more positional args than its grammar spec can consume (no repeatable/`free` slot to absorb) → witty "too many arguments" error (i18n); skip specless commands. complexity: [high]
-- [x] T5.5.4 Audit every command (config/disconnect/help/login/logout/connect/new/resume/theme + chat/hashtag) so valid forms still pass; decide + handle `/help --help --help` (extra flags) sensibly; document. complexity: [high]
+- [x] T5.5.4 Audit every command (config/disconnect/help/login/logout/connect/new/resume/themes + chat/hashtag) so valid forms still pass; decide + handle `/help --help --help` (extra flags) sensibly; document. complexity: [high]
 - [x] T5.5.5 Specs: `/theme x y` → invalid; `/theme x` → valid; representative excess-arg cases per command shape; full suite green. complexity: [low]
 - [x] T5.5.6 Commit: `Reject excess command arguments + stop autocomplete after slots filled`. complexity: [manual]
 
@@ -176,14 +177,14 @@ the unaltered default.
 > `specs_for_alias` infra; extend to subcommand-keyword aliasing if needed.)
 
 - [x] T6.1 Decide + implement the alias surface: `ls` as an alias of the `list` subcommand (vocabulary synonym OR spec alias — pick the production-correct one and doc-block it). complexity: [high]
-- [x] T6.2 Wire the alias so the dispatcher routes `/theme ls` → the list path. complexity: [low]
+- [x] T6.2 Wire the alias so the dispatcher routes `/themes ls` → the list path. complexity: [low]
 - [x] T6.3 Autocomplete/help reflect the alias (or intentionally hide `ls` — document the choice). complexity: [low]
-- [x] T6.4 Specs: `/theme ls` behaves identically to `/theme list`; the alias is registered/resolvable; an alias-mechanism unit spec. complexity: [low]
-- [x] T6.5 Commit: `P6: slash alias system + /theme ls alias of /theme list`. complexity: [manual]
+- [x] T6.4 Specs: `/themes ls` behaves identically to `/themes list`; the alias is registered/resolvable; an alias-mechanism unit spec. complexity: [low]
+- [x] T6.5 Commit: `P6: slash alias system + /themes ls alias of /themes list`. complexity: [manual]
 
-## P7 — `/theme list` System message + `#preview`/`#apply` hashtag replies
+## P7 — `/themes list` System message + `#preview`/`#apply` hashtag replies
 
-> `/theme list` (and `ls`) emits a System message listing themes grouped
+> `/themes list` (and `ls`) emits a System message listing themes grouped
 > Dark/Light, with hints to follow up via `#preview <name>` / `#apply <name>`.
 > Those hashtags are reply commands that preview/apply, mirroring P5's logic.
 
@@ -192,21 +193,21 @@ the unaltered default.
 - [x] T7.3 `Pito::Hashtag::Handlers` — a handler resolving `#preview <name>` and `#apply <name>` (reuse P5's resolve_target + apply/preview). complexity: [high]
 - [x] T7.4 Hashtag grammar/vocab: `preview`/`apply` stems + `theme_names` arg; register. complexity: [low]
 - [x] T7.5 i18n for the list message + hashtag confirmations/errors. complexity: [low]
-- [x] T7.6 Specs: `/theme list` (+ `ls`) renders the grouped System message; `#preview <name>` previews; `#apply <name>` applies (persist) — reply paths. complexity: [low]
-- [x] T7.7 Commit: `P7: /theme list System message + #preview/#apply hashtag replies`. complexity: [manual]
+- [x] T7.6 Specs: `/themes list` (+ `ls`) renders the grouped System message; `#preview <name>` previews; `#apply <name>` applies (persist) — reply paths. complexity: [low]
+- [x] T7.7 Commit: `P7: /themes list System message + #preview/#apply hashtag replies`. complexity: [manual]
 
-## P8 — `/theme` (bare) preview sidebar
+## P8 — `/themes` (bare) preview sidebar
 
-> Bare `/theme` opens the right-side sidebar (mirror `/resume`), themes grouped
+> Bare `/themes` opens the right-side sidebar (mirror `/resume`), themes grouped
 > Dark/Light, current theme marked with a cursor, witty subtitle hint.
 
 - [x] T8.1 `Pito::Sidebar::Themes::Component` (`groups`, `current_theme`) — reuse `Sidebar::Component` + `Section::SectionHeaderComponent`. complexity: [low]
 - [x] T8.2 `themes/_row.html.erb` — `.pito-theme-row[data-theme-name]`, label, current marker/cursor (`is-current`). complexity: [low]
 - [x] T8.3 `chat/_theme_sidebar.turbo_stream.erb` (or themes view) — `turbo_stream.update "pito-sidebar"` wrapping the component + the witty subtitle hint ("↑/↓ preview · Enter apply"). complexity: [low]
-- [x] T8.4 Bare `/theme` path renders the sidebar turbo_stream (mirror `chat#handle_resume`). complexity: [low]
+- [x] T8.4 Bare `/themes` path renders the sidebar turbo_stream (mirror `chat#handle_resume`). complexity: [low]
 - [x] T8.5 i18n: sidebar title + hint. complexity: [low]
-- [x] T8.6 Specs: component (grouping + current marker) + request (`/theme` returns the sidebar turbo_stream targeting `pito-sidebar`). complexity: [low]
-- [x] T8.7 Commit: `P8: /theme preview sidebar (grouped, current marker, hint)`. complexity: [manual]
+- [x] T8.6 Specs: component (grouping + current marker) + request (`/themes` returns the sidebar turbo_stream targeting `pito-sidebar`). complexity: [low]
+- [x] T8.7 Commit: `P8: /themes preview sidebar (grouped, current marker, hint)`. complexity: [manual]
 
 ## P9 — Preview/apply JS (`theme_nav_controller`) + Vitest
 
@@ -228,7 +229,7 @@ the unaltered default.
 
 - [x] T11.1 Full `bundle exec rspec` green. complexity: [manual]
 - [x] T11.2 `npm test` green; `bin/rubocop` clean; `prettier --write` on `docs/themes.md`. complexity: [manual]
-- [ ] T11.3 Smoke: `/theme` sidebar (↑/↓ preview, Enter apply, Esc revert, current marked); `/theme list` + `ls` System message + `#preview`/`#apply`; `/theme apply one-dark`; `/theme reset`; `/theme --help`; reload persists; pito blue constant; light themes readable. complexity: [manual]
+- [ ] T11.3 Smoke: `/themes` sidebar (↑/↓ preview, Enter apply, Esc revert, current marked); `/themes list` + `ls` System message + `#preview`/`#apply`; `/themes apply one-dark`; `/themes reset`; `/themes --help`; reload persists; pito blue constant; light themes readable. complexity: [manual]
 - [ ] T11.4 PR #62 CI green; **await user validation — do not merge**. complexity: [manual]
 - [x] T11.5 Fix Zeitwerk eager-load (CI red): theme `definitions/*.rb` define no constant (they call `Registry.register`), so eager-load raises `Zeitwerk::NameError`. Make Zeitwerk ignore the definitions dir (Registry requires them explicitly); verify `bin/rails zeitwerk:check`. complexity: [high]
 - [x] T11.6 Commit: `Fix Zeitwerk eager-load: ignore theme definitions dir`. complexity: [manual]
@@ -289,7 +290,7 @@ the unaltered default.
 - [x] T12.10 Reusable `pito--diff-reveal` controller (`app/javascript/controllers/pito/diff_reveal_controller.js`): for each `[data-pito--diff-reveal-target="cell"]` (with `data-from` = old text, textContent = new text), play a **global** two-phase reveal — phase 1 delete every cell's subtraction, phase 2 type every cell's addition — using `pito/diff` + `pito/typing` (TICK_MS/CHARS_TICK) + the reveal queue; granularity + reduced-motion/`__pitoReady`/`fxEnabled` skip → show final instantly. Generic, no theme knowledge. `node --check`. complexity: [high]
 - [x] T12.11 Verify: `bundle exec rspec` + `npm test` (existing) + `bin/rubocop` + `node --check` green; `prettier --write docs/themes.md`. complexity: [manual]
 - [x] T12.12 Commit: `P12b: reusable diff-reveal engine (dual granularity)`. complexity: [manual]
-- [ ] T12.13 Smoke (operator): `/theme list`; `#preview dracula` (row marks, marker types in, page recolors); `#preview nord` (dracula unmarks, nord marks); `#apply nord` (list reverse-types, confirmation types in, persists, survives reload). Compare dark (char) vs light (line) granularity; **pick the keeper**. complexity: [manual]
+- [ ] T12.13 Smoke (operator): `/themes list`; `#preview dracula` (row marks, marker types in, page recolors); `#preview nord` (dracula unmarks, nord marks); `#apply nord` (list reverse-types, confirmation types in, persists, survives reload). Compare dark (char) vs light (line) granularity; **pick the keeper**. complexity: [manual]
 - [ ] T12.14 (DEFERRED — after T12.13) Clean up the losing granularity branch; add diff-engine + reveal-controller specs (Vitest) for the kept approach; commit `P12c: settle diff-reveal granularity (<approach>) + specs`. complexity: [manual]
 
 ## P13–P15 — Reusable follow-up engine (folded into PR #62)

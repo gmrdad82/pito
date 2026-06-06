@@ -6,7 +6,7 @@
 
 ## Decisions pending (I act once you pick)
 
-- [ ] **Diff-reveal granularity — char vs line.** Run `/theme list`, grab the
+- [ ] **Diff-reveal granularity — char vs line.** Run `/themes list`, grab the
       message handle, then on a **dark** theme `#<handle> apply dracula` (char:
       list reverse-deletes char-by-char, quip types in) vs a **light** theme
       `#<handle> apply github-light` (line: chunkier, line-at-a-time). Pick the
@@ -17,10 +17,10 @@
 
 ## Behaviour to smoke-test
 
-- [ ] **/theme sidebar** — bare `/theme`: ↑/↓ live-preview, Enter applies, Esc
+- [ ] **/themes sidebar** — bare `/themes`: ↑/↓ live-preview, Enter applies, Esc
       reverts the preview to the saved theme, current theme marked ●.
-- [ ] **/theme command** — `list` + `ls` (System message, grouped Dark/Light),
-      `preview`/`apply`/`reset`, `/theme <name>` shorthand, `default`, `--help`.
+- [ ] **/themes command** — `list` + `ls` (System message, grouped Dark/Light),
+      `preview`/`apply`/`reset`, `/themes <name>` shorthand, `default`, `--help`.
 - [ ] **Persistence + brand** — applied theme survives reload; pito brand blue
       identical on every theme; light themes readable (chatbox, segments,
       sidebar, palette, mini-status).

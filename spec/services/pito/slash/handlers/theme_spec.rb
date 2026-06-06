@@ -9,9 +9,9 @@ RSpec.describe Pito::Slash::Handlers::Theme, type: :service do
   let(:conversation) { Conversation.create! }
 
   def build_handler(args: [], raw: nil)
-    raw ||= "/theme #{args.join(' ')}".strip
+    raw ||= "/themes #{args.join(' ')}".strip
     invocation = Pito::Slash::Invocation.new(
-      verb:   :theme,
+      verb:   :themes,
       args:   args,
       kwargs: {},
       raw:    raw
@@ -19,9 +19,9 @@ RSpec.describe Pito::Slash::Handlers::Theme, type: :service do
     described_class.new(invocation:, conversation:)
   end
 
-  # ── /theme apply <name> ──────────────────────────────────────────────────────
+  # ── /themes apply <name> ─────────────────────────────────────────────────────
 
-  describe "#call — /theme apply dracula" do
+  describe "#call — /themes apply dracula" do
     it "returns Result::Ok" do
       expect(build_handler(args: %w[apply dracula]).call).to be_a(Pito::Slash::Result::Ok)
     end
@@ -50,9 +50,9 @@ RSpec.describe Pito::Slash::Handlers::Theme, type: :service do
     end
   end
 
-  # ── /theme <name> (bare shorthand → apply) ──────────────────────────────────
+  # ── /themes <name> (bare shorthand → apply) ─────────────────────────────────
 
-  describe "#call — bare /theme dracula (shorthand apply)" do
+  describe "#call — bare /themes dracula (shorthand apply)" do
     it "persists dracula in AppSetting" do
       AppSetting.theme = "tokyo-night"
       build_handler(args: %w[dracula]).call
@@ -73,9 +73,9 @@ RSpec.describe Pito::Slash::Handlers::Theme, type: :service do
     end
   end
 
-  # ── /theme apply default ─────────────────────────────────────────────────────
+  # ── /themes apply default ────────────────────────────────────────────────────
 
-  describe "#call — /theme apply default (resolves to tokyo-night)" do
+  describe "#call — /themes apply default (resolves to tokyo-night)" do
     it "persists 'tokyo-night' (the default)" do
       AppSetting.theme = "dracula"
       build_handler(args: %w[apply default]).call
@@ -83,9 +83,9 @@ RSpec.describe Pito::Slash::Handlers::Theme, type: :service do
     end
   end
 
-  # ── /theme preview <name> ────────────────────────────────────────────────────
+  # ── /themes preview <name> ───────────────────────────────────────────────────
 
-  describe "#call — /theme preview dracula" do
+  describe "#call — /themes preview dracula" do
     it "returns Result::Ok" do
       expect(build_handler(args: %w[preview dracula]).call).to be_a(Pito::Slash::Result::Ok)
     end
@@ -109,14 +109,14 @@ RSpec.describe Pito::Slash::Handlers::Theme, type: :service do
     it "returns a system event hinting apply/reset" do
       result  = build_handler(args: %w[preview dracula]).call
       text    = result.events.first[:payload][:text]
-      expect(text).to include("/theme apply dracula").or include("apply")
-      expect(text).to include("/theme reset").or include("reset")
+      expect(text).to include("/themes apply dracula").or include("apply")
+      expect(text).to include("/themes reset").or include("reset")
     end
   end
 
-  # ── /theme reset ────────────────────────────────────────────────────────────
+  # ── /themes reset ────────────────────────────────────────────────────────────
 
-  describe "#call — /theme reset" do
+  describe "#call — /themes reset" do
     it "returns Result::Ok" do
       expect(build_handler(args: %w[reset]).call).to be_a(Pito::Slash::Result::Ok)
     end
@@ -137,7 +137,7 @@ RSpec.describe Pito::Slash::Handlers::Theme, type: :service do
     end
   end
 
-  # ── /theme <unknown> ────────────────────────────────────────────────────────
+  # ── /themes <unknown> ────────────────────────────────────────────────────────
 
   describe "#call — unknown target" do
     it "returns Result::Error" do
@@ -156,9 +156,9 @@ RSpec.describe Pito::Slash::Handlers::Theme, type: :service do
     end
   end
 
-  # ── /theme list — P7 System message ─────────────────────────────────────────
+  # ── /themes list — P7 System message ────────────────────────────────────────
 
-  describe "#call — /theme list" do
+  describe "#call — /themes list" do
     subject(:result) { build_handler(args: %w[list]).call }
 
     it "returns Result::Ok" do
@@ -214,9 +214,9 @@ RSpec.describe Pito::Slash::Handlers::Theme, type: :service do
     end
   end
 
-  # ── /theme (bare) — sidebar placeholder ────────────────────────────────────
+  # ── /themes (bare) — sidebar placeholder ───────────────────────────────────
 
-  describe "#call — bare /theme (no args)" do
+  describe "#call — bare /themes (no args)" do
     it "returns Result::Ok with a placeholder message" do
       result = build_handler(args: []).call
       expect(result).to be_a(Pito::Slash::Result::Ok)
@@ -224,18 +224,18 @@ RSpec.describe Pito::Slash::Handlers::Theme, type: :service do
     end
   end
 
-  # ── /theme --help ────────────────────────────────────────────────────────────
+  # ── /themes --help ───────────────────────────────────────────────────────────
 
   describe "#show_help" do
     it "returns Result::Ok" do
-      handler = build_handler(raw: "/theme --help")
+      handler = build_handler(raw: "/themes --help")
       expect(handler.show_help).to be_a(Pito::Slash::Result::Ok)
     end
 
     it "returns a system event with a usage body and table_rows" do
-      handler  = build_handler(raw: "/theme --help")
+      handler  = build_handler(raw: "/themes --help")
       payload  = handler.show_help.events.first[:payload]
-      expect(payload[:body]).to include("/theme")
+      expect(payload[:body]).to include("/themes")
       expect(payload[:table_rows]).to be_an(Array)
       expect(payload[:table_rows]).not_to be_empty
     end
@@ -256,17 +256,17 @@ RSpec.describe Pito::Slash::Handlers::Theme, type: :service do
     after   { Pito::Grammar::Registry.reset! }
 
     it "is registered under :slash namespace" do
-      spec = Pito::Grammar::Registry.spec(namespace: :slash, name: :theme)
+      spec = Pito::Grammar::Registry.spec(namespace: :slash, name: :themes)
       expect(spec).not_to be_nil
     end
 
     it "has auth :authenticated_only" do
-      spec = Pito::Grammar::Registry.spec(namespace: :slash, name: :theme)
+      spec = Pito::Grammar::Registry.spec(namespace: :slash, name: :themes)
       expect(spec.auth).to eq(:authenticated_only)
     end
 
     it "has a :subcommand enum slot sourced from :theme_names" do
-      spec = Pito::Grammar::Registry.spec(namespace: :slash, name: :theme)
+      spec = Pito::Grammar::Registry.spec(namespace: :slash, name: :themes)
       slot = spec.slot(:subcommand)
       expect(slot).not_to be_nil
       expect(slot.kind).to eq(:enum)
@@ -336,13 +336,13 @@ RSpec.describe Pito::Slash::Handlers::Theme, type: :service do
     end
   end
 
-  # ── P6: /theme ls alias of /theme list ──────────────────────────────────────
+  # ── P6: /themes ls alias of /themes list ────────────────────────────────────
   #
   # `ls` is a vocabulary synonym for `list` in THEME_SUBCOMMANDS.  The handler
-  # resolves the raw arg before dispatch, so `/theme ls` routes identically to
-  # `/theme list`.  These specs confirm parity and guard the synonym registration.
+  # resolves the raw arg before dispatch, so `/themes ls` routes identically to
+  # `/themes list`.  These specs confirm parity and guard the synonym registration.
 
-  describe "#call — /theme ls (alias of /theme list)" do
+  describe "#call — /themes ls (alias of /themes list)" do
     it "returns Result::Ok — same as /theme list" do
       result_ls   = build_handler(args: %w[ls]).call
       result_list = build_handler(args: %w[list]).call
@@ -435,11 +435,11 @@ RSpec.describe Pito::Slash::Handlers::Theme, type: :service do
 
   # ── P5.5: Self-validation (validates_own_arity = true) ──────────────────────
   #
-  # /theme validates its own arity because its first arg is polymorphic
+  # /themes validates its own arity because its first arg is polymorphic
   # (subcommand keyword OR theme name). The generic dispatcher guard is bypassed.
 
   describe "P5.5 arity self-validation" do
-    describe "0-arg form (/theme)" do
+    describe "0-arg form (/themes)" do
       it "returns Result::Ok (sidebar placeholder)" do
         expect(build_handler(args: []).call).to be_a(Pito::Slash::Result::Ok)
       end
@@ -538,12 +538,12 @@ RSpec.describe Pito::Slash::Handlers::Theme, type: :service do
   # ── P6: Autocomplete — ls hidden, list offered via theme_names ───────────────
   #
   # The handler's grammar slot is sourced from :theme_names (slugs + "default"),
-  # not :theme_subcommands.  Autocomplete for `/theme <partial>` suggests theme
+  # not :theme_subcommands.  Autocomplete for `/themes <partial>` suggests theme
   # slugs and "default", never the subcommand keywords.  `ls` does not appear.
   # This is intentional: subcommands are handler-internal dispatch tokens,
   # not vocabulary members surfaced to the user via autocomplete.
 
-  describe "autocomplete — /theme arg stage" do
+  describe "autocomplete — /themes arg stage" do
     before { Pito::Grammar::Registry.reset!; Pito::Grammar::Registry.register_all! }
     after  { Pito::Grammar::Registry.reset! }
 
@@ -555,20 +555,20 @@ RSpec.describe Pito::Slash::Handlers::Theme, type: :service do
       )
     end
 
-    it "suggests theme slugs (not ls) when typing after /theme " do
-      result = autocomplete("/theme ")
+    it "suggests theme slugs (not ls) when typing after /themes " do
+      result = autocomplete("/themes ")
       labels = result[:menu_items].map { |i| i[:label] }
       expect(labels).to include("dracula", "tokyo-night")
     end
 
     it "does not suggest ls as an autocomplete item" do
-      result = autocomplete("/theme l")
+      result = autocomplete("/themes l")
       labels = result[:menu_items].map { |i| i[:label] }
       expect(labels).not_to include("ls")
     end
 
     it "does not suggest list as an autocomplete item (not a theme slug)" do
-      result = autocomplete("/theme l")
+      result = autocomplete("/themes l")
       labels = result[:menu_items].map { |i| i[:label] }
       expect(labels).not_to include("list")
     end

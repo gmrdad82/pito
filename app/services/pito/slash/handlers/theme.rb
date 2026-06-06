@@ -3,23 +3,23 @@
 module Pito
   module Slash
     module Handlers
-      # Handler for `/theme [subcommand] [name]`.
+      # Handler for `/themes [subcommand] [name]`.
       #
       # Subcommands / dispatch table
       # ─────────────────────────────
-      # `/theme apply <name>`  — persist + broadcast; also bare `/theme <name>`.
-      # `/theme preview <name>`— broadcast only (no persist); System message with
-      #                          apply/revert hints. Preview-vs-apply rule:
-      #                          preview does NOT write AppSetting; it only sends
-      #                          the set-theme Turbo Stream so the current tab
-      #                          recolors immediately. The caller must explicitly
-      #                          run `/theme apply <name>` or `/theme reset` to
-      #                          make the change permanent.
-      # `/theme reset`         — apply the registry default (tokyo-night) + confirm.
-      # `/theme list` / `ls`   — placeholder (full System message in P7).
-      # `/theme`  (bare)       — placeholder (sidebar in P8).
-      # `/theme <unknown>`     — witty error pointing to `/theme list`.
-      # `/theme --help`        — per-command usage + grouped theme list.
+      # `/themes apply <name>`  — persist + broadcast; also bare `/themes <name>`.
+      # `/themes preview <name>`— broadcast only (no persist); System message with
+      #                           apply/revert hints. Preview-vs-apply rule:
+      #                           preview does NOT write AppSetting; it only sends
+      #                           the set-theme Turbo Stream so the current tab
+      #                           recolors immediately. The caller must explicitly
+      #                           run `/themes apply <name>` or `/themes reset` to
+      #                           make the change permanent.
+      # `/themes reset`         — apply the registry default (tokyo-night) + confirm.
+      # `/themes list` / `ls`   — placeholder (full System message in P7).
+      # `/themes`  (bare)       — placeholder (sidebar in P8).
+      # `/themes <unknown>`     — witty error pointing to `/themes list`.
+      # `/themes --help`        — per-command usage + grouped theme list.
       #
       # The `name` arg accepts any registered slug OR the special token "default"
       # (→ Registry.default). Resolution is delegated to Registry.resolve_target.
@@ -41,7 +41,7 @@ module Pito
       #   autocomplete engine need no special-case logic.  Future commands add
       #   subcommand aliases by declaring their own static vocabulary.
       class Theme < Pito::Slash::Handler
-        self.verb        = :theme
+        self.verb        = :themes
         self.description_key = "pito.slash.theme.descriptions.theme"
 
         # The first positional arg is polymorphic — it may be a subcommand keyword
@@ -52,7 +52,7 @@ module Pito
 
         # Grammar: first positional arg is either a subcommand keyword or a theme
         # name from the :theme_names vocab. Both slots are optional so bare
-        # `/theme` is valid (→ sidebar placeholder).
+        # `/themes` is valid (→ sidebar placeholder).
         grammar do
           enum :subcommand, source: :theme_names, optional: true
           auth :authenticated_only
@@ -72,7 +72,7 @@ module Pito
         def call
           return show_help if help?
 
-          # Self-validation: /theme accepts 0, 1, or 2 args (preview/apply + name).
+          # Self-validation: /themes accepts 0, 1, or 2 args (preview/apply + name).
           # 3+ args are always too many. 2 args are only valid when the first is
           # preview or apply and the second resolves to a theme.
           return too_many_args_error if invocation.args.size >= 3

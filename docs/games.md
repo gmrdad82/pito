@@ -70,14 +70,14 @@ No production data exists → destructive migrations are free.
 
 ## P0 — Rename `/theme` → `/themes`
 
-- [ ] T0.1 Set `Pito::Slash::Handlers::Theme.verb = :themes`; update verb literals + `description_key`. complexity: [low]
-- [ ] T0.2 Update the slash vocabulary/registry + `Pito::Suggestions` catalog so `/themes` resolves; `/theme` no longer resolves. complexity: [low]
-- [ ] T0.3 `ChatController`: rename `bare_theme_command?` → `bare_themes_command?`, regex `\A/themes\z`. complexity: [low]
-- [ ] T0.4 Update `/help` sections + ctrl+k palette + descriptions i18n → `/themes`. complexity: [low]
-- [ ] T0.5 Update theme specs → `/themes`; keep `list/ls/preview/apply/reset` + `#<handle>` follow-ups passing. complexity: [low]
-- [ ] T0.6 Update `docs/themes.md` + `docs/validations.md` references → `/themes`. complexity: [low]
-- [ ] T0.7 `bundle exec rspec` + `bin/rubocop` green. complexity: [manual]
-- [ ] T0.8 Commit: `Rename /theme command to /themes`. complexity: [manual]
+- [x] T0.1 Set `Pito::Slash::Handlers::Theme.verb = :themes`; update verb literals + `description_key`. complexity: [low]
+- [x] T0.2 Update the slash vocabulary/registry + `Pito::Suggestions` catalog so `/themes` resolves; `/theme` no longer resolves. complexity: [low]
+- [x] T0.3 `ChatController`: rename `bare_theme_command?` → `bare_themes_command?`, regex `\A/themes\z`. complexity: [low]
+- [x] T0.4 Update `/help` sections + ctrl+k palette + descriptions i18n → `/themes`. complexity: [low]
+- [x] T0.5 Update theme specs → `/themes`; keep `list/ls/preview/apply/reset` + `#<handle>` follow-ups passing. complexity: [low]
+- [x] T0.6 Update `docs/themes.md` + `docs/validations.md` references → `/themes`. complexity: [low]
+- [x] T0.7 `bundle exec rspec` + `bin/rubocop` green. complexity: [manual]
+- [x] T0.8 Commit: `Rename /theme command to /themes`. complexity: [manual]
 
 ## P1 — Rename autocomplete engine → `Pito::Suggestions` (full)
 
