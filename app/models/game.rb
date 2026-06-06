@@ -31,6 +31,12 @@ class Game < ApplicationRecord
   scope :tba, -> { where(release_year: nil) }
   scope :upcoming, -> { where("release_date > ? OR release_year IS NULL", Date.current) }
 
+  # Nightly-refresh scopes — used by GameIgdbNightlyRefresh.
+  # `synced`  → has been synced at least once from IGDB.
+  # `stale`   → synced more than 7 days ago (due for a re-sync).
+  scope :synced, -> { where.not(igdb_synced_at: nil) }
+  scope :stale,  -> { where(igdb_synced_at: ..7.days.ago) }
+
   # ── Score (vote-weighted average of IGDB rating triplets) ─────
   RATING_FIELDS = %i[
     igdb_rating igdb_rating_count
