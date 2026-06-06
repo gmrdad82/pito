@@ -290,7 +290,7 @@ class ChatController < ApplicationController
         turn:,
         kind:    "error",
         payload: {
-          text:        I18n.t("pito.slash.connect.errors.not_configured"),
+          text:        Pito::Copy.render("pito.slash.connect.errors.not_configured"),
           credentials: {
             client_id:     Pito::Credentials.google_oauth_client_id.present?,
             client_secret: Pito::Credentials.google_oauth_client_secret.present?,
@@ -471,7 +471,7 @@ class ChatController < ApplicationController
   def auth_error_key(status)
     case status
     when :throttled    then Pito::Copy.render("pito.copy.auth.throttles")
-    when :not_enrolled then I18n.t("pito.auth.not_enrolled")
+    when :not_enrolled then Pito::Copy.render("pito.auth.not_enrolled")
     else                    Pito::Copy.render("pito.copy.auth.failures")
     end
   end
