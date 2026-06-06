@@ -115,8 +115,6 @@ class Game
         involved_companies.company.id
         involved_companies.company.name
         involved_companies.company.slug
-        version_parent
-        version_title
         alternative_names.id
         alternative_names.name
         release_dates.category release_dates.y release_dates.m release_dates.d release_dates.date

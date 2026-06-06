@@ -13,9 +13,8 @@
 #     `ttb_{main,extras,completionist}_seconds`
 #
 # `map_game` returns ONLY IGDB-sourced columns. Local-only columns
-# (`played_at`, `notes`, `hours_of_footage_manual`) are intentionally
-# absent so a caller can `update!(map_game(...))` without clobbering
-# local edits.
+# are intentionally absent so a caller can `update!(map_game(...))`
+# without clobbering local edits.
 class Game
   module Igdb
     module GameMapper
@@ -39,15 +38,6 @@ class Game
         }
 
         attrs.merge!(map_release_date(json))
-
-        # Phase 28 §01a — IGDB's `version_title` stamps the edition row.
-        # `version_parent_id` is NOT mapped here: the IGDB payload's
-        # `version_parent` field is an IGDB-side game id that needs
-        # local resolution (create-or-update the parent first). See
-        # `Game::Igdb::SyncGame#resolve_version_parent_id`.
-        if json.key?("version_title") && json["version_title"].present?
-          attrs[:version_title] = json["version_title"]
-        end
 
         # 2026-05-19 — IGDB `alternative_names` is an array of
         # `{id, name, comment}` hashes. We persist only the `name`
