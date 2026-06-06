@@ -168,8 +168,19 @@ No production data exists → destructive migrations are free.
 - [x] T8.1 `Game::EmbedText` (title+genres+dev+pub+description+platforms+ttb+ratings) in VoyageIndexer + BulkVoyageIndexJob. complexity: [high]
 - [x] T8.2 Migration `games.embedded_digest`; VoyageIndexer no-ops when digest unchanged. complexity: [high]
 - [x] T8.3 `SyncGame`: reindex only when digest changed. complexity: [low]
-- [x] T8.4 Migration: `channels.summary_embedding`(HNSW) + `keywords` + `tags`; `has_neighbors`. complexity: [low]
-- [x] T8.5 `Channel::VoyageIndexer`: title+desc+handle+keywords+tags + digest gate; backfill. complexity: [low]
+- [x] T8.4 Migration: `channels.summary_embedding`(HNSW) + `keywords`; `has_neighbors`. (`tags` was added then dropped — channels have no native tags from the YouTube API; only videos do. The future video aggregate folds in `videos.tags`, not a channel field.) complexity: [low]
+- [x] T8.5 `Channel::VoyageIndexer`: title+desc+handle+keywords + digest gate; backfill. Also wired `keywords` into `ChannelInfoJob` (`brandingSettings.channel.keywords`) — the client extracted it but it was never persisted, so the index had no keyword signal until now. complexity: [low]
+
+> Channel embedding & the video→game influence chain: game/channel/(future) video
+> embeddings share one Voyage space; `Game::ChannelRecommendation` is cosine NN
+> across it. Today the channel embedding is channel-level only (title/handle/
+> description/keywords). When `/videos` returns, the channel embedding TEXT gains
+> a second slot = aggregate of the channel's top-N videos by views (each
+> title+tags+description). Since those videos link to games via `video_game_links`,
+> a game's topical signal rides its videos into the channel embedding, pulling the
+> channel vector near the game in the shared space. It folds video TEXT (not video
+> vectors) — matching `Bundle::VoyageIndexer`.
+
 - [x] T8.6 Confirm `SimilarGames` + `ChannelRecommendation` work. complexity: [low]
 - [x] T8.7 Specs; `bundle exec rspec` + `bin/rubocop` green. complexity: [low]
 - [x] T8.8 Commit: `Multi-field game + channel embeddings + diff-gated reindex`. complexity: [manual]

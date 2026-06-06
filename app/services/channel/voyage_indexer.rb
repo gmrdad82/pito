@@ -101,11 +101,14 @@ class Channel
     end
 
     # Today: channel-level text only — title, handle, description,
-    # keywords, tags. Stripped + blank-filtered, em-dash-joined to match
-    # the natural visual order operators see on the channel show page and
-    # the affordance used elsewhere (Games / Bundles indexers). `tags` is
-    # a Postgres text[]; its members are space-joined into a single slot
-    # before the em-dash join (they are short tokens, not prose).
+    # keywords. Stripped + blank-filtered, em-dash-joined to match the
+    # natural visual order operators see on the channel show page and the
+    # affordance used elsewhere (Games / Bundles indexers).
+    #
+    # NO `tags` slot: channels have no native tags from the YouTube Data
+    # API (only videos do, via `video.snippet.tags`). The future video
+    # aggregate (see comment above) folds in the channel's VIDEOS' tags
+    # — `videos.tags` — not a channel-level field.
     #
     # Future (when /videos returns): wrap this in
     # `[channel_text, video_aggregate_text].compact.join(" — ")`,
@@ -117,8 +120,7 @@ class Channel
     # #aggregated_member_summaries` for the equivalent pattern on
     # the Bundle side.
     def composite_text
-      tags_slot = Array(@channel.tags).map { |t| t.to_s.strip }.reject(&:blank?).join(" ")
-      parts = [ @channel.title, @channel.handle, @channel.description, @channel.keywords, tags_slot ]
+      parts = [ @channel.title, @channel.handle, @channel.description, @channel.keywords ]
       parts.compact.map { |p| p.to_s.strip }.reject(&:blank?).join(" — ")
     end
   end

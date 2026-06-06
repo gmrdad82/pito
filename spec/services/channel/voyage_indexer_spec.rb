@@ -9,8 +9,7 @@ RSpec.describe Channel::VoyageIndexer, type: :service do
       title:       "Soulslike Central",
       handle:      "@soulslike",
       description: "Deep dives on hard games.",
-      keywords:    "soulslike, action rpg",
-      tags:        %w[bosses lore]
+      keywords:    "soulslike, action rpg"
     )
   end
   let(:client) { instance_double(Voyage::Client) }
@@ -26,14 +25,13 @@ RSpec.describe Channel::VoyageIndexer, type: :service do
     expect(channel.summary_embedding).to be_present
   end
 
-  it "includes title, handle, description, keywords, and tags in the embedded text" do
+  it "includes title, handle, description, and keywords in the embedded text" do
     expect(client).to receive(:embed) do |inputs|
       text = inputs.first
       expect(text).to include("Soulslike Central")
       expect(text).to include("@soulslike")
       expect(text).to include("Deep dives on hard games.")
       expect(text).to include("soulslike, action rpg")
-      expect(text).to include("bosses lore")
       [ Array.new(1024, 0.1) ]
     end
     described_class.call(channel)
@@ -65,7 +63,7 @@ RSpec.describe Channel::VoyageIndexer, type: :service do
   end
 
   it "no-ops when every indexed field is blank" do
-    blank = create(:channel, title: nil, handle: nil, description: nil, keywords: nil, tags: [])
+    blank = create(:channel, title: nil, handle: nil, description: nil, keywords: nil)
     expect(client).not_to receive(:embed)
     described_class.call(blank)
   end
