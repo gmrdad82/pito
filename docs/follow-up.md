@@ -76,52 +76,13 @@ here so Plan 4 contains only what ships in the Beta. Pick these up after merge.
 
 ---
 
-## B. Games pipeline (deferred — P35–P38)
+## B. Games pipeline → promoted to `docs/games.md`
 
-### P35 — Re-wire IGDB services
-
-> Backend mostly in tree (`game/igdb/*`, `game/search_service`, `pito/search/search_games`, jobs).
-
-- [ ] T35.1 Verify IGDB credentials path (`Game::Igdb::TokenCache` / AppSetting / credentials). complexity: [low]
-- [ ] T35.2 Smoke `Game::Igdb` client search (or stubbed spec). complexity: [high]
-- [ ] T35.3 Confirm `Game::Igdb::SyncGame` populates a Game + recompute `score`. complexity: [high]
-- [ ] T35.4 Confirm `Game::SearchService` / `Pito::Search::SearchGames` work. complexity: [low]
-- [ ] T35.5 Add/fix specs (WebMock stubbed IGDB). complexity: [low]
-- [ ] T35.6 Commit: `Re-wire + verify IGDB search/sync services`. complexity: [manual]
-
-### P36 — `/add game` + sidebar search UI
-
-> Rebuild the dropped search UI as a sidebar. Adds to the global game library.
-
-- [ ] T36.1 `/add game` opens the sidebar in "game search" mode. complexity: [low]
-- [ ] T36.2 Sidebar search box; min-char gate; debounce. complexity: [low]
-- [ ] T36.3 Search endpoint returns IGDB matches (+ flag already-in-DB). complexity: [high]
-- [ ] T36.4 Render results; in-DB rows get a marker. complexity: [low]
-- [ ] T36.5 Keyboard nav (↑/↓ + Enter) + mouse click. complexity: [high]
-- [ ] T36.6 Selecting a result shows its game details in the sidebar. complexity: [high]
-- [ ] T36.7 Reuse `Pito::Sidebar::*`; i18n all copy. complexity: [low]
-- [ ] T36.8 Component/request specs. complexity: [low]
-- [ ] T36.9 Smoke. complexity: [manual]
-- [ ] T36.10 Commit: `/add game sidebar search UI`. complexity: [manual]
-
-### P37 — Add → async sync-once
-
-- [ ] T37.1 "Add" creates a Game stub from the IGDB result (igdb_id, title). complexity: [low]
-- [ ] T37.2 Enqueue `GameIgdbSync(game)` **once** (full details + score + Voyage index). complexity: [low]
-- [ ] T37.3 Dedupe: adding an already-in-DB game is a no-op. complexity: [low]
-- [ ] T37.4 Confirmation Segment / sidebar update on completion. complexity: [low]
-- [ ] T37.5 Job spec. complexity: [low]
-- [ ] T37.6 Smoke. complexity: [manual]
-- [ ] T37.7 Commit: `Add game → async one-shot IGDB sync`. complexity: [manual]
-
-### P38 — Daily unreleased-games refresh
-
-- [ ] T38.1 Confirm `game_igdb_nightly_refresh.rb`; scope to **not-yet-released** games. complexity: [high]
-- [ ] T38.2 Register as a recurring daily job (SolidQueue `config/recurring.yml`). complexity: [low]
-- [ ] T38.3 On refresh: re-sync release info + recompute `score`; stop once released. complexity: [low]
-- [ ] T38.4 Job spec. complexity: [low]
-- [ ] T38.5 Smoke. complexity: [manual]
-- [ ] T38.6 Commit: `Daily refresh for unreleased games`. complexity: [manual]
+The games pipeline (formerly P35–P38: IGDB re-wire, search UI, add→sync, nightly
+refresh) is **promoted to its own plan** at `docs/games.md` — expanded into the
+full games domain (chat verbs + `/games import` sidebar + follow-ups +
+recommendations), plus the `Stat`/`Pito::Stack`/`Pito::Suggestions` engines and
+the phantom video/analytics dead-code removal. In progress on PR #62.
 
 ---
 
@@ -230,3 +191,9 @@ here so Plan 4 contains only what ships in the Beta. Pick these up after merge.
 ## H. At merge
 
 - Delete `docs/plan-beta-reboot-*.md` once Beta is merged; fold durable content into `architecture.md` / `design.md` / `installation.md` / `tools.md`.
+
+Estra:
+
+- for each /slash command I should have in the help the possible Follow-ups
+- list commands should have filter, rm, show
+- show should have rm, update
