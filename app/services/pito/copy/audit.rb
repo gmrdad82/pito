@@ -24,9 +24,10 @@ module Pito
       # Returned by .call — carries both result lists.
       Result = Data.define(:registered, :legacy_candidates)
 
-      COPY_NAMESPACE  = "pito.copy"
-      PITO_NAMESPACE  = "pito"
-      PLACEHOLDER_RE  = /%\{(\w+)\}/
+      COPY_NAMESPACE      = "pito.copy"
+      PITO_NAMESPACE      = "pito"
+      PLACEHOLDER_RE      = /%\{(\w+)\}/
+      STANDARD_MIN_SIZE   = 50
 
       module_function
 
@@ -60,10 +61,11 @@ module Pito
         walk_leaves(copy_root, COPY_NAMESPACE) do |key, values|
           entries = Array(values)
           leaves << {
-            key:          key,
-            variants:     entries.size,
-            placeholders: extract_placeholders(entries),
-            single:       entries.size == 1
+            key:             key,
+            variants:        entries.size,
+            placeholders:    extract_placeholders(entries),
+            single:          entries.size == 1,
+            below_standard:  entries.size < STANDARD_MIN_SIZE
           }
         end
         leaves.sort_by { |r| r[:key] }

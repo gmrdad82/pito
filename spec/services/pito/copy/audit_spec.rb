@@ -5,6 +5,10 @@ require "rails_helper"
 RSpec.describe Pito::Copy::Audit, type: :service do
   # We store fixture translations directly into the I18n backend so the specs
   # are fully isolated from the real locale files.
+  #
+  # - greeting  (1 variant)   → single, below_standard
+  # - farewell  (2 variants)  → multi,  below_standard
+  # - full_pool (50 variants) → multi,  NOT below_standard
   around do |example|
     I18n.backend.store_translations(:en,
       pito: {
@@ -12,7 +16,8 @@ RSpec.describe Pito::Copy::Audit, type: :service do
           greeting:  "Hello!",
           farewell:  [ "See you.", "Later." ],
           tagged:    [ "Hey %{name}!", "Hi there, %{name}." ],
-          dual_var:  [ "From %{sender} to %{receiver}." ]
+          dual_var:  [ "From %{sender} to %{receiver}." ],
+          full_pool: Array.new(50) { |i| "Variant #{i}" }
         },
         legacy_array:   [ "old one", "old two", "old three" ],
         nested_legacy: {
@@ -98,6 +103,36 @@ RSpec.describe Pito::Copy::Audit, type: :service do
 
         it "extracts all unique placeholder names sorted" do
           expect(entry[:placeholders]).to eq(%w[receiver sender])
+        end
+      end
+    end
+
+    # ── below_standard flag ────────────────────────────────────────────────
+
+    describe "below_standard flag" do
+      subject(:registered) { described_class.call.registered }
+
+      context "with a pool below 50 variants (farewell: 2)" do
+        subject(:entry) { registered.find { |r| r[:key] == "pito.copy.farewell" } }
+
+        it "flags it as below_standard: true" do
+          expect(entry[:below_standard]).to be(true)
+        end
+      end
+
+      context "with a single-string entry (greeting: 1)" do
+        subject(:entry) { registered.find { |r| r[:key] == "pito.copy.greeting" } }
+
+        it "flags it as below_standard: true" do
+          expect(entry[:below_standard]).to be(true)
+        end
+      end
+
+      context "with exactly 50 variants (full_pool)" do
+        subject(:entry) { registered.find { |r| r[:key] == "pito.copy.full_pool" } }
+
+        it "does NOT flag it as below_standard" do
+          expect(entry[:below_standard]).to be(false)
         end
       end
     end

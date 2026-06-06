@@ -107,11 +107,11 @@ change, so copy can be grown, shrunk, audited, and kept on-voice in one place.
 - [x] T5.2 Enrich auth/confirmation/connect copy to 50 each (`not_enrolled`, `confirmation.confirmed/cancelled/execution_failed`, `connect.not_configured`). complexity: [low]
 - [x] T5.3 Enrich disconnect copy to 50 each (`confirmation.body` %{handle_html}, `confirmation.cancelled` %{handle}, `errors.already_gone/missing_target/not_found` %{target}). complexity: [low]
 - [x] T5.4 Enrich help/theme copy to 50 each (`help.body`, `theme.list.intro`, `theme.sidebar.placeholder`). complexity: [low]
-- [ ] T5.5 Top up `pito.copy.theme.applied` 25 → 50 (%{theme}). complexity: [low]
-- [ ] T5.6 Top up `pito.copy.thinking.confirmation.doing` + `.done` 10 → 50 as INDEX-ALIGNED pairs. complexity: [low]
-- [ ] T5.7 Top up `pito.copy.youtube.ascii_art` 20 → 50 (small, consistent-width arts). complexity: [low]
-- [ ] T5.8 Extend `pito:copy:audit` to flag any `pito.copy.*` pool below 50 ("below standard") + spec it; full suite green. complexity: [low]
-- [ ] T5.9 Commit (per cohesive group): relocate, enrich, top-ups, audit. complexity: [manual]
+- [x] T5.5 Top up `pito.copy.theme.applied` 25 → 50 (%{theme}). complexity: [low]
+- [x] T5.6 Top up `pito.copy.thinking.confirmation.doing` + `.done` 10 → 50 as INDEX-ALIGNED pairs. complexity: [low]
+- [x] T5.7 Top up `pito.copy.youtube.ascii_art` 20 → 50 (small, consistent-width arts). complexity: [low]
+- [x] T5.8 Extend `pito:copy:audit` to flag any `pito.copy.*` pool below 50 ("below standard") + spec it; full suite green. complexity: [low]
+- [x] T5.9 Commit (per cohesive group): relocate, enrich, top-ups, audit. complexity: [manual]
 
 ## How to use this plan
 

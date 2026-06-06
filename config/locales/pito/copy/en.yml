@@ -32,6 +32,31 @@ en:
           - "Painted over everything with %{theme}. Worth it."
           - "%{theme} loaded. You may now admire the results."
           - "The terminal has spoken. %{theme} is the way."
+          - "%{theme}: applied, sealed, non-negotiable."
+          - "The interface blinked. Now it's %{theme}."
+          - "Tastefully repainted in %{theme}. Bold choice."
+          - "%{theme} dropped. No survivors."
+          - "Fresh coat of %{theme}. You're welcome."
+          - "Your UI is now fluent in %{theme}."
+          - "%{theme} — committed. Can't uncommit. Well, you can. But still."
+          - "Aesthetic update: %{theme}. Effective immediately."
+          - "The pixels have been briefed. %{theme} is the vibe."
+          - "Splash of %{theme}. Tasteful. Or bold. Hard to say."
+          - "%{theme} has the floor now."
+          - "Interface redecorated with %{theme}. The old look is not coming back."
+          - "Done. %{theme} is wearing you now. Or you're wearing it. Either way."
+          - "Locked onto %{theme}. Coordinates confirmed."
+          - "%{theme} in. Everything else: out."
+          - "The transition to %{theme} was seamless. You're welcome."
+          - "Theme: %{theme}. Applied with minimal fanfare, maximum effect."
+          - "Switched. You're now broadcasting in %{theme}."
+          - "%{theme} rolled out. Rolled in. Looks great, honestly."
+          - "New coat: %{theme}. Old coat: somewhere in the logs."
+          - "The interface just got %{theme}-ified."
+          - "%{theme}. Applied. The vibe: certified."
+          - "Your eyes will adjust to %{theme}. Give them a moment."
+          - "Everything is %{theme} now. This is not a drill."
+          - "Palette of record: %{theme}."
         list_intro:
           - "18 themes, two vibes. Pick one below — or just type its name."
           - "18 themes. Dark or light. You know what you like."
@@ -251,6 +276,46 @@ en:
             - "Preparing to execute"
             - "Considering consequences"
             - "Accounting for the wreckage"
+            - "Surveying the blast radius"
+            - "Computing the fallout"
+            - "Measuring the collateral"
+            - "Assessing the situation"
+            - "Bracing for impact"
+            - "Sizing up the consequences"
+            - "Evaluating the exit strategy"
+            - "Running the numbers"
+            - "Mapping the damage"
+            - "Calculating the odds"
+            - "Inspecting the wreckage"
+            - "Taking inventory of regrets"
+            - "Staging the intervention"
+            - "Briefing the stakeholders"
+            - "Confirming the order"
+            - "Pulling the pin"
+            - "Consulting the blast manual"
+            - "Noting the point of no return"
+            - "Locking in the decision"
+            - "Issuing the final warning"
+            - "Signing off on the deed"
+            - "Stamping it approved"
+            - "Marking it irreversible"
+            - "Preparing the audit trail"
+            - "Checking the safety off"
+            - "Reviewing the fine print"
+            - "Committing to the bit"
+            - "Holding the line"
+            - "Authorising the sequence"
+            - "Pulling the trigger"
+            - "Setting the clock"
+            - "Dispatching the order"
+            - "Sending the signal"
+            - "Crossing the Rubicon"
+            - "Initiating the sequence"
+            - "Greenlighting the action"
+            - "Releasing the hounds"
+            - "Executing the playbook"
+            - "Closing the loop"
+            - "Burning the bridge"
           done:
             - "Weighed"
             - "Deliberated"
@@ -262,6 +327,46 @@ en:
             - "Executed"
             - "Considered consequences"
             - "Accounted for the wreckage"
+            - "Surveyed the blast radius"
+            - "Computed the fallout"
+            - "Measured the collateral"
+            - "Assessed the situation"
+            - "Braced for impact"
+            - "Sized up the consequences"
+            - "Evaluated the exit strategy"
+            - "Ran the numbers"
+            - "Mapped the damage"
+            - "Calculated the odds"
+            - "Inspected the wreckage"
+            - "Took inventory of regrets"
+            - "Staged the intervention"
+            - "Briefed the stakeholders"
+            - "Confirmed the order"
+            - "Pulled the pin"
+            - "Consulted the blast manual"
+            - "Noted the point of no return"
+            - "Locked in the decision"
+            - "Issued the final warning"
+            - "Signed off on the deed"
+            - "Stamped it approved"
+            - "Marked it irreversible"
+            - "Prepared the audit trail"
+            - "Checked the safety off"
+            - "Reviewed the fine print"
+            - "Committed to the bit"
+            - "Held the line"
+            - "Authorised the sequence"
+            - "Pulled the trigger"
+            - "Set the clock"
+            - "Dispatched the order"
+            - "Sent the signal"
+            - "Crossed the Rubicon"
+            - "Initiated the sequence"
+            - "Greenlighted the action"
+            - "Released the hounds"
+            - "Executed the playbook"
+            - "Closed the loop"
+            - "Burned the bridge"
         importing:
           doing:
             - "Importing"
@@ -1577,3 +1682,33 @@ en:
           - "//==// you're on the grid now //==//==//"
           - '<<-->> two-way pipe is open <<-->><<-->>'
           - '_/\_/\_/\ pinged and pong-ed /\_/\_/\_/\'
+          - '=====( channel locked and loaded )======'
+          - '++++++++ authentication: complete +++++++'
+          - ':::::::[ you are now connected ]:::::::::'
+          - '>>-->>-- data flowing both ways --<<--<<'
+          - '[ OK ] [ OK ] [ OK ] uplink confirmed  .'
+          - '-~-~-~- feed is live and kicking -~-~-~-'
+          - '########### sync successful ############'
+          - '(((((((( the tube is uncorked )))))))))) '
+          - '---[*]--- channel online ---[*]---[*]---'
+          - '>>=====>> streaming payload inbound <<==='
+          - '~-~-~-~-~ signal is loud and clear ~-~-~'
+          - ':::::::::> we have a connection <:::::::::'
+          - '|--[]--|--[]--| bridged at last |--[]--|'
+          - '((--((--  handoff received  --))--))--'
+          - '####[ live feed acquired ]####[========]'
+          - '^v^v^v^v^v uplink bouncing ^v^v^v^v^v^v'
+          - '.oOo.oOo.oOo. channel warm .oOo.oOo.oOo'
+          - '~~[  wired into the feed stream  ]~~~~~~'
+          - '*--*--*-- oauth accepted --*--*--*--*--*'
+          - '---=[ latched onto the upload pipe ]=---'
+          - '>>>===>>> credentials shook hands <<<<==='
+          - '(=)(=)(=)(=) synced up solid (=)(=)(=)(='
+          - '//--\\--//  pipeline open  \\--//--\\--/'
+          - '.~.~.~.~.~. now receiving data .~.~.~.~.'
+          - '|>|>|>|>|> streaming in progress |>|>|>|'
+          - '-^-^-^- connection ceremony complete -^-^'
+          - '[ LINK ] [ LINK ] [ LINK ] all green ===.'
+          - '+++[---]+++[---]+++ synced +++[---]+++[-]'
+          - '~ ~ ~ ~ ~  the channel is alive  ~ ~ ~ ~'
+          - '=-=-=-=-=- the bridge has been built =-=-'

@@ -14,14 +14,18 @@ namespace :pito do
       puts "Registered keys (pito.copy.*):"
       puts ""
 
+      below_standard_keys = []
+
       if result.registered.empty?
         puts "  (none — no leaf keys under pito.copy.* yet)"
       else
         result.registered.each do |entry|
           kind         = entry[:single] ? "single" : "multi"
           placeholders = entry[:placeholders].empty? ? "—" : entry[:placeholders].map { |p| "%{#{p}}" }.join(", ")
-          puts format("  %-60s  variants=%-3d  placeholders=%-25s  %s",
-                      entry[:key], entry[:variants], placeholders, kind)
+          flag         = entry[:below_standard] ? "  ⚠ BELOW STANDARD (<50)" : ""
+          below_standard_keys << entry[:key] if entry[:below_standard]
+          puts format("  %-60s  variants=%-3d  placeholders=%-25s  %s%s",
+                      entry[:key], entry[:variants], placeholders, kind, flag)
         end
       end
 
@@ -43,10 +47,19 @@ namespace :pito do
 
       puts ""
 
+      # ── Below-standard summary ─────────────────────────────────────────────
+      if below_standard_keys.any?
+        puts "Below-standard pools (< #{Pito::Copy::Audit::STANDARD_MIN_SIZE} variants):"
+        puts ""
+        below_standard_keys.each { |k| puts "  #{k}" }
+        puts ""
+      end
+
       # ── Summary ────────────────────────────────────────────────────────────
       puts "── Summary ──────────────────────────────────────────────────────"
       puts "  Registered keys:      #{result.registered.size}"
       puts "  Legacy candidates:    #{result.legacy_candidates.size}"
+      puts "  Below standard (<#{Pito::Copy::Audit::STANDARD_MIN_SIZE}): #{below_standard_keys.size}"
       puts "=================================================================="
       puts ""
     end
