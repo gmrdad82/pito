@@ -232,7 +232,19 @@ class ImportVideosJob < ApplicationJob
     video.save!
 
     Pito::Stats.set(video, :views, views)
+
+    # P9.5 — (re)embed the video when it's new or an embedded field changed.
+    # `Video::VoyageIndexer` is digest-gated, and `VideoVoyageIndexJob` only
+    # refreshes the channel centroid when the video actually re-embeds, so an
+    # unchanged re-import enqueues nothing wasteful here.
+    if video.previously_new_record? || video.saved_changes.keys.intersect?(EMBED_FIELDS)
+      VideoVoyageIndexJob.perform_later(video.id)
+    end
   end
+
+  # Video fields that feed `Video::EmbedText` — a change to any of these is the
+  # only reason to re-embed (and thus recompute the channel centroid).
+  EMBED_FIELDS = %w[title description tags category_id].freeze
 
   def map_privacy(status)
     case status.to_s.downcase

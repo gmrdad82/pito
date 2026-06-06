@@ -2,14 +2,14 @@
 
 namespace :pito do
   namespace :voyage do
-    desc "Backfill channel embeddings (one ChannelVoyageIndexJob per channel)"
-    task reindex_channels: :environment do
+    desc "Backfill video embeddings (one VideoVoyageIndexJob per video)"
+    task reindex_videos: :environment do
       count = 0
-      Channel.find_each do |channel|
-        ChannelVoyageIndexJob.perform_later(channel.id)
+      Video.find_each do |video|
+        VideoVoyageIndexJob.perform_later(video.id)
         count += 1
       end
-      puts "Enqueued #{count} ChannelVoyageIndexJob(s)."
+      puts "Enqueued #{count} VideoVoyageIndexJob(s)."
     end
   end
 end

@@ -117,6 +117,20 @@ RSpec.describe ImportVideosJob do
     }.to change(Video, :count).by(2)
   end
 
+  it "enqueues a VideoVoyageIndexJob for each newly imported video" do
+    expect {
+      described_class.new.perform(connection.id, turn.id)
+    }.to have_enqueued_job(VideoVoyageIndexJob).twice
+  end
+
+  it "does NOT re-enqueue indexing for an unchanged re-import" do
+    described_class.new.perform(connection.id, turn.id)
+
+    expect {
+      described_class.new.perform(connection.id, turn.id)
+    }.not_to have_enqueued_job(VideoVoyageIndexJob)
+  end
+
   it "stores correct video attributes" do
     described_class.new.perform(connection.id, turn.id)
 
