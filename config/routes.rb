@@ -17,7 +17,7 @@ Rails.application.routes.draw do
   get   "/notifications",     to: "notifications#index",  as: :notifications
   patch "/notifications/:id", to: "notifications#update", as: :notification
   post "/chat", to: "chat#create", as: :chat
-  post "/autocomplete", to: "autocomplete#create", as: :autocomplete
+  post "/suggestions", to: "suggestions#create", as: :suggestions
   get "/resume", to: "conversations#resume", as: :resume
   get "/chat/:uuid", to: "conversations#show", as: :conversation
   patch "/chat/:uuid", to: "conversations#update"
@@ -33,7 +33,7 @@ Rails.application.routes.draw do
   get "up" => "rails/health#show", as: :rails_health_check
 
   # Dynamic error pages — rendered by exceptions_app = routes so the 404
-  # page shows the full start screen with the autocomplete-enabled chatbox.
+  # page shows the full start screen with the suggestions-enabled chatbox.
   # /404 is the primary path Rails internally redirects to on a routing error.
   # The catch-all at the end handles any path that slips through without
   # raising a RoutingError (e.g. direct navigation to unknown URLs in tests).

@@ -60,8 +60,8 @@ RSpec.describe "Dynamic 404 page", type: :request do
       expect(response).to have_http_status(:ok)
     end
 
-    it "POST /autocomplete still returns a response (not 404)" do
-      post "/autocomplete", params: { input: "/help" }
+    it "POST /suggestions still returns a response (not 404)" do
+      post "/suggestions", params: { input: "/help" }
       expect(response.status).not_to eq(404)
     end
   end

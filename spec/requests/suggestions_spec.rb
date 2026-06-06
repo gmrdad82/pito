@@ -2,7 +2,7 @@
 
 require "rails_helper"
 
-RSpec.describe "POST /autocomplete", type: :request do
+RSpec.describe "POST /suggestions", type: :request do
   # Helper: enroll TOTP and sign in so subsequent requests carry the session cookie.
   def sign_in!
     seed = ROTP::Base32.random_base32
@@ -14,12 +14,12 @@ RSpec.describe "POST /autocomplete", type: :request do
     before { sign_in! }
 
     it "returns 200 with JSON" do
-      post "/autocomplete", params: { input: "/co", cursor: 3 }
+      post "/suggestions", params: { input: "/co", cursor: 3 }
       expect(response).to have_http_status(:ok)
     end
 
     it "includes /config in menu_items labels for /co prefix" do
-      post "/autocomplete", params: { input: "/co", cursor: 3 }
+      post "/suggestions", params: { input: "/co", cursor: 3 }
       body = response.parsed_body
       labels = body["menu_items"].map { |i| i["label"] }
       expect(labels).to include("/config")
@@ -28,12 +28,12 @@ RSpec.describe "POST /autocomplete", type: :request do
 
   describe "unauthenticated user (no session)" do
     it "returns 200 — allow_anonymous is applied" do
-      post "/autocomplete", params: { input: "/", cursor: 1 }
+      post "/suggestions", params: { input: "/", cursor: 1 }
       expect(response).to have_http_status(:ok)
     end
 
     it "slash menu contains only /login for unauthenticated users" do
-      post "/autocomplete", params: { input: "/", cursor: 1 }
+      post "/suggestions", params: { input: "/", cursor: 1 }
       body = response.parsed_body
       labels = body["menu_items"].map { |i| i["label"] }
       expect(labels).to eq([ "/login" ])
@@ -47,7 +47,7 @@ RSpec.describe "POST /autocomplete", type: :request do
       before { sign_in! }
 
       it "returns the channel in menu_items" do
-        post "/autocomplete", params: { input: "/disconnect @", cursor: 13 }
+        post "/suggestions", params: { input: "/disconnect @", cursor: 13 }
         body = response.parsed_body
         labels = body["menu_items"].map { |i| i["label"] }
         expect(labels).to include("@testchan")
@@ -56,7 +56,7 @@ RSpec.describe "POST /autocomplete", type: :request do
 
     context "when unauthenticated" do
       it "does NOT return channels in menu_items" do
-        post "/autocomplete", params: { input: "/disconnect @", cursor: 13 }
+        post "/suggestions", params: { input: "/disconnect @", cursor: 13 }
         body = response.parsed_body
         labels = body["menu_items"].map { |i| i["label"] }
         expect(labels).not_to include("@testchan")
@@ -68,7 +68,7 @@ RSpec.describe "POST /autocomplete", type: :request do
     before { sign_in! }
 
     it "returns ghost.complete_current == 'oming' for 'list upc'" do
-      post "/autocomplete", params: { input: "list upc", cursor: 8 }
+      post "/suggestions", params: { input: "list upc", cursor: 8 }
       body = response.parsed_body
       expect(body["ghost"]["complete_current"]).to eq("oming")
     end

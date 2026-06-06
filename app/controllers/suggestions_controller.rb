@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-class AutocompleteController < ApplicationController
+class SuggestionsController < ApplicationController
   allow_anonymous :create
 
   def create
