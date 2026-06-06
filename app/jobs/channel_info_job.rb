@@ -6,7 +6,7 @@
 # Flow:
 #   1. OAuth callback links channels, emits "connected" system event
 #   2. This job fetches fresh channel stats
-#   3. Emits enhanced #1 with subscriber/view/watched-hours counts
+#   3. Emits enhanced #1 with subscriber/view counts
 #   4. Resolves thinking #1
 #   5. Emits thinking #2
 #   6. Enqueues ImportVideosJob for stage 2
@@ -91,7 +91,6 @@ class ChannelInfoJob < ApplicationJob
         next unless item
 
         normalized = normalize_channel_item(item)
-        watched_hours = fetch_watched_hours(client, channel)
 
         channel.update_columns(
           title:            normalized[:title],
@@ -99,20 +98,18 @@ class ChannelInfoJob < ApplicationJob
           description:      normalized[:description],
           avatar_url:       normalized[:avatar_url],
           banner_url:       normalized[:banner_url],
-          subscriber_count: normalized[:subscriber_count],
-          view_count:       normalized[:view_count],
           video_count:      normalized[:video_count],
-          watched_hours:    watched_hours,
           last_synced_at:   Time.current
         )
+        Pito::Stats.set(channel, :subscribers, normalized[:subscriber_count])
+        Pito::Stats.set(channel, :views, normalized[:view_count])
 
         stats << {
           title:         normalized[:title] || channel.title,
           handle:        normalized[:handle] || channel.handle,
           subscribers:   normalized[:subscriber_count],
           views:         normalized[:view_count],
-          videos:        normalized[:video_count],
-          watched_hours: watched_hours
+          videos:        normalized[:video_count]
         }
       rescue Channel::Youtube::QuotaExhaustedError,
              Channel::Youtube::NeedsReauthError,
@@ -150,21 +147,6 @@ class ChannelInfoJob < ApplicationJob
     }
   end
 
-  def fetch_watched_hours(client, channel)
-    analytics = client.analytics_query(
-      ids:         "channel==#{channel.youtube_channel_id}",
-      metrics:     "estimatedMinutesWatched",
-      start_date:  "2000-01-01",
-      end_date:    Date.today.to_s
-    )
-
-    rows = analytics[:rows] || []
-    minutes = rows.first&.first&.to_i || 0
-    (minutes / 60.0).round
-  rescue StandardError
-    nil
-  end
-
   def stats_text(stats)
     parts = stats.map do |s|
       if s[:error]
@@ -172,8 +154,7 @@ class ChannelInfoJob < ApplicationJob
       else
         subs = format_number(s[:subscribers])
         views = format_number(s[:views])
-        watched = format_number(s[:watched_hours])
-        %(#{channel_label(s)}<br><span class="text-fg-dim">Subscribers:</span> <span class="text-cyan">#{subs}</span> · <span class="text-fg-dim">Views:</span> <span class="text-cyan">#{views}</span> · <span class="text-fg-dim">Watched hours:</span> <span class="text-cyan">#{watched}</span>)
+        %(#{channel_label(s)}<br><span class="text-fg-dim">Subscribers:</span> <span class="text-cyan">#{subs}</span> · <span class="text-fg-dim">Views:</span> <span class="text-cyan">#{views}</span>)
       end
     end
 

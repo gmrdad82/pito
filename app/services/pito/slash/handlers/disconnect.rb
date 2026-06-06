@@ -111,7 +111,6 @@ module Pito
             # Channel stats first
             { key: t.call(:subscribers),   value: v.call(channel.subscriber_count.to_i) },
             { key: t.call(:views),           value: v.call(channel.view_count.to_i) },
-            { key: t.call(:watched_hours),   value: v.call(channel.watched_hours) },
             # Separator
             "",
             # Video breakdown

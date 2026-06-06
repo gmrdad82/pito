@@ -20,12 +20,14 @@ class ChannelsController < ApplicationController
     "last_synced_at" => "channels.last_synced_at",
     "channel_url" => "channels.channel_url",
     "starred" => "channels.star",
-    # 2026-05-11 ergonomics — surface the cached `subscriber_count` and
-    # `video_count` columns as sortable keys. Both columns are nullable
-    # (pre-sync rows render the muted em-dash); Postgres default NULL
-    # ordering — NULLS LAST on asc, NULLS FIRST on desc — matches the
-    # convention the rest of the index uses for `last_synced_at`.
-    "subscriber_count" => "channels.subscriber_count",
+    # 2026-05-11 ergonomics — surface the cached `video_count` column as a
+    # sortable key. Nullable (pre-sync rows render the muted em-dash);
+    # Postgres default NULL ordering — NULLS LAST on asc, NULLS FIRST on
+    # desc — matches the convention the index uses for `last_synced_at`.
+    #
+    # P4 — `subscriber_count` moved off `channels` into the polymorphic
+    # `stats` table, so it is no longer a sortable channels column (the
+    # JSON branch that consumed it is dead pending its own follow-up).
     "video_count" => "channels.video_count"
   }.freeze
   ALLOWED_DIRS = %w[asc desc].freeze

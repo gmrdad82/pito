@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_06_165421) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_06_165904) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -67,12 +67,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_06_165421) do
     t.text "description"
     t.string "handle"
     t.datetime "last_synced_at"
-    t.bigint "subscriber_count"
     t.string "title"
     t.datetime "updated_at", null: false
     t.integer "video_count"
-    t.bigint "view_count"
-    t.bigint "watched_hours"
     t.string "youtube_channel_id", null: false
     t.bigint "youtube_connection_id"
     t.index ["last_synced_at"], name: "index_channels_on_last_synced_at"
