@@ -55,8 +55,8 @@ export default class extends Controller {
 
     dbg("connect", {
       element: this.element.className,
-      hasProseTargets: this.hasProseTargets,
-      proseCount: this.hasProseTargets ? this.proseTargets.length : 0
+      hasProseTarget: this.hasProseTarget,
+      proseCount: this.hasProseTarget ? this.proseTargets.length : 0
     })
 
     // Guard double-run (e.g. Turbo re-connects same element).
@@ -70,7 +70,7 @@ export default class extends Controller {
     //      header divs, section row key/value spans — all in document order.
     // Expand state is intentionally ignored: the whole visible card types out.
     const items = [{ el: this.bodyTarget, text: bodyText }]
-    if (this.hasProseTargets) {
+    if (this.hasProseTarget) {
       for (const el of this.proseTargets) {
         const text = el.textContent
         if (text) items.push({ el, text })
