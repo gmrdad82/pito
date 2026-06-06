@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_06_160125) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_06_160322) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -176,9 +176,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_06_160125) do
     t.string "igdb_slug"
     t.datetime "igdb_synced_at"
     t.text "last_sync_error"
-    t.text "notes"
     t.text "platforms", default: [], null: false, array: true
-    t.date "played_at"
     t.date "release_date"
     t.integer "release_day"
     t.integer "release_month"
