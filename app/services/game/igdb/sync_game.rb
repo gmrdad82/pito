@@ -8,9 +8,8 @@
 #      — delete-and-create semantics.
 #   5. Stamp `igdb_synced_at`, clear `last_sync_error`.
 #
-# Last-write-wins per spec Q5: every IGDB-sourced column is in the
-# `attrs` hash. Local-only columns (`played_at`, `notes`,
-# `hours_of_footage_manual`) are NEVER written here.
+# Last-write-wins: every IGDB-sourced column is in the `attrs` hash.
+# Local-only columns are NEVER written here.
 #
 # The whole flow runs in a single transaction so a partial failure
 # rolls back the IGDB-sourced overwrite.
@@ -34,9 +33,6 @@ class Game
         Game.transaction do
           assign_with_slug_collision_guard(game, attrs)
           sync_genres(game, game_json["genres"])
-          # Phase 27 v2 spec 01 — re-evaluate the canonical primary genre
-          # on EVERY sync. `update_column` writes the FK without callbacks.
-          re_assign_primary_genre(game)
           sync_developers(game, game_json["involved_companies"])
           sync_publishers(game, game_json["involved_companies"])
           game.update!(igdb_synced_at: Time.current, last_sync_error: nil)
@@ -96,30 +92,6 @@ class Game
           join = GameGenre.where(game_id: game.id, genre_id: g.id).first_or_create!
           join.update_column(:position, index) unless join.position == index
         end
-      end
-
-      # Phase 27 v2 spec 01 — explicit re-pick on every sync. The
-      # `Game::PrimaryGenrePicker` rule 1 honors an existing
-      # `primary_genre_id` pin (so user-set pins survive). IGDB sync
-      # deliberately bypasses that pin honor: a re-sync is the canonical
-      # moment to re-derive from IGDB's current metadata, so we clear
-      # the pointer in memory FIRST, then run the picker so its rule 2
-      # (alphabetical) drives the choice. Reloads first so
-      # `game.genres` reflects the post-`sync_genres` set rather than a
-      # cached pre-sync snapshot. Writes via `update_column` to skip
-      # the `before_save` hook so the caller's `game.update!
-      # (igdb_synced_at: ...)` still detects the `igdb_synced_at`
-      # change cleanly without a double-write loop. Writes `nil` when
-      # the post-sync set is empty (IGDB dropped every previously-
-      # linked genre) so the pointer never stays stale.
-      def re_assign_primary_genre(game)
-        game.reload
-        # In-memory clear so the picker's rule-1 pin guard short-circuits
-        # to the alphabetical pick. The actual DB write that follows
-        # carries the freshly-derived id (or nil).
-        game.primary_genre_id = nil
-        pick = Game::PrimaryGenrePicker.new.pick(game)
-        game.update_column(:primary_genre_id, pick&.id)
       end
 
       def sync_developers(game, involved_companies)

@@ -1,8 +1,6 @@
 # frozen_string_literal: true
 
 class Game < ApplicationRecord
-  belongs_to :primary_genre, class_name: "Genre", optional: true
-
   has_many :game_genres, dependent: :destroy
   has_many :genres, through: :game_genres
 

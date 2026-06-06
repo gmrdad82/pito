@@ -93,10 +93,10 @@ No production data exists → destructive migrations are free.
 
 ## P2 — Games schema reconcile + genre→genres + games dead-code
 
-- [ ] T2.1 Migration: drop `games.primary_genre_id` (+ index + FK), `games.notes`, `games.played_at`. complexity: [low]
+- [x] T2.1 Migration: drop `games.primary_genre_id` (+ index + FK), `games.notes`, `games.played_at`. complexity: [low]
 - [x] T2.2 Migration: add `games.last_sync_error:text`, `games.resyncing:boolean null:false default:false`. complexity: [low]
-- [ ] T2.3 Remove `app/services/game/primary_genre_picker.rb` + refs. complexity: [low]
-- [ ] T2.4 `Game`: remove `belongs_to :primary_genre`; keep `has_many :genres, through: :game_genres`. complexity: [low]
+- [x] T2.3 Remove `app/services/game/primary_genre_picker.rb` + refs. complexity: [low]
+- [x] T2.4 `Game`: remove `belongs_to :primary_genre`; keep `has_many :genres, through: :game_genres`. complexity: [low]
 - [x] T2.5 `SyncGame`: remove `re_assign_primary_genre` + `resolve_version_parent_id`/`attrs[:version_parent_id]`. complexity: [high]
 - [x] T2.6 `GameMapper`: remove `version_title` + `hours_of_footage_manual`; keep `game_genres.position`. complexity: [low]
 - [ ] T2.7 Delete orphaned `app/queries/games/filter.rb`. complexity: [low]

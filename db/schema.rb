@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_06_155838) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_06_160125) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -179,7 +179,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_06_155838) do
     t.text "notes"
     t.text "platforms", default: [], null: false, array: true
     t.date "played_at"
-    t.bigint "primary_genre_id"
     t.date "release_date"
     t.integer "release_day"
     t.integer "release_month"
@@ -201,7 +200,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_06_155838) do
     t.index ["igdb_id"], name: "index_games_on_igdb_id", unique: true, where: "(igdb_id IS NOT NULL)"
     t.index ["igdb_slug"], name: "index_games_on_igdb_slug", unique: true, where: "(igdb_slug IS NOT NULL)"
     t.index ["igdb_synced_at"], name: "index_games_on_igdb_synced_at"
-    t.index ["primary_genre_id"], name: "index_games_on_primary_genre_id"
     t.index ["release_month", "release_day"], name: "index_games_on_release_month_and_release_day"
     t.index ["release_year"], name: "index_games_on_release_year"
     t.index ["score"], name: "index_games_on_score"
@@ -473,7 +471,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_06_155838) do
   add_foreign_key "game_platform_ownerships", "games", on_delete: :cascade
   add_foreign_key "game_publishers", "companies", on_delete: :cascade
   add_foreign_key "game_publishers", "games", on_delete: :cascade
-  add_foreign_key "games", "genres", column: "primary_genre_id", on_delete: :nullify
   add_foreign_key "solid_queue_blocked_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade
   add_foreign_key "solid_queue_claimed_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade
   add_foreign_key "solid_queue_failed_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade
