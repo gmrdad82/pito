@@ -310,6 +310,34 @@ No production data exists → destructive migrations are free.
 - [ ] T15.5 Full suite + `npm test` + `bin/rubocop` + `zeitwerk:check` green; poll PR #62 CI green. complexity: [manual]
 - [ ] T15.6 Commit: `Document games domain (docs/games.md + AGENTS) + finalize`. complexity: [manual]
 
+## P16 — Validation fixes (2026-06-07 session)
+
+> Operator validation of the games surface surfaced these. Three disjoint groups
+> (A import sidebar · B game-message rendering · C score/ttb components) so they
+> can run in parallel.
+
+### Group A — `/games import` sidebar
+
+- [ ] T16.1 Auto-focus the "Search IGDB…" field when the sidebar spawns. complexity: [low]
+- [ ] T16.2 Style the search input like the conversation-rename input. complexity: [low]
+- [ ] T16.3 NO thinking/dots indicator on sidebar spawn (nothing sent to backend — just a sidebar spawn). complexity: [low]
+- [ ] T16.4 Result rows: small **square** cover-art thumbnail. complexity: [low]
+- [ ] T16.5 Shimmer loading indicator — a row of `.` spanning the input width using `.pito-shimmer`, shown while talking to IGDB (search + import). complexity: [low]
+- [ ] T16.6 Witty `Pito::Copy` (50-pools) for the no-results + searching messages. complexity: [low]
+- [ ] T16.7 IGDB search MAIN-game only — exclude edition variants (add `version_parent = null` to `search_games`). complexity: [low]
+- [ ] T16.8 The **5 steps run IN the sidebar** (shimmer + **random per-step offset**), sidebar is NOT dismissed and STAYS open with the 5 steps marked done (Esc to close). complexity: [high]
+- [ ] T16.9 Standard message after steps 1–3 (info+cover+score); Enhanced message after steps 4–5 (indexing+recommendations) — both into the main chat. complexity: [high]
+
+### Group B — game-message rendering
+
+- [ ] T16.10 Game detail + enhanced messages render with the standard message chrome (TIMESTAMP) like every message; keep the `#hashtag` affordance AS-IS (do not redesign the copy). complexity: [high]
+- [ ] T16.11 Detail card: properly aligned **KV table** (label/value columns). complexity: [low]
+- [ ] T16.12 Detail card: Platforms shown ONLY as the owned-token set — PlayStation / Switch / Steam — as **chips** (map IGDB platform names → ps/switch/steam; reuse the existing platform chip styling). complexity: [low]
+
+### Group C — score / ttb components
+
+- [ ] T16.13 Revive `ScoreBarComponent` + `TimeToBeatComponent` with the EXACT pane-layout multi-stop gradient colors (recover from git history). complexity: [high]
+
 ## Per-phase Definition of Done
 
 Doc-blocks on new classes; new + edge-case specs (Rails + JS); `bundle exec rspec`
