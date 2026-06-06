@@ -18,6 +18,11 @@ Pito::Themes::Registry.register(
   },
   overrides: {
     surface:  "#ccd0da",
-    elevated: "#bcc0cc"
+    elevated: "#bcc0cc",
+    # The darker surface override pushes the derived fg-dim/fg-faded too close
+    # to the surface (low-contrast chatbox text + timestamps). Pin them to
+    # Catppuccin Latte's canonical subtext1 / overlay2 for readable muted text.
+    fg_dim:   "#5c5f77",
+    fg_faded: "#7c7f93"
   }
 )
