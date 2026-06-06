@@ -156,13 +156,47 @@ RSpec.describe Pito::Slash::Handlers::Theme, type: :service do
     end
   end
 
-  # ── /theme list (placeholder) ────────────────────────────────────────────────
+  # ── /theme list — P7 System message ─────────────────────────────────────────
 
   describe "#call — /theme list" do
-    it "returns Result::Ok with a placeholder system message" do
-      result = build_handler(args: %w[list]).call
+    subject(:result) { build_handler(args: %w[list]).call }
+
+    it "returns Result::Ok" do
       expect(result).to be_a(Pito::Slash::Result::Ok)
-      expect(result.events.first[:payload][:text]).to be_present
+    end
+
+    it "returns a system event" do
+      expect(result.events.first[:kind]).to eq("system")
+    end
+
+    it "has a body intro" do
+      expect(result.events.first[:payload][:body]).to be_present
+    end
+
+    it "has a Dark and a Light section" do
+      sections = result.events.first[:payload][:sections]
+      titles   = sections.map { |s| s[:title] }
+      expect(titles).to include("Dark", "Light")
+    end
+
+    it "includes slug + label rows in each section" do
+      sections = result.events.first[:payload][:sections]
+      all_keys = sections.flat_map { |s| s[:rows].map { |r| r[:key] } }
+      expect(all_keys.any? { |k| k.include?("tokyo-night") }).to be(true)
+      expect(all_keys.any? { |k| k.include?("dracula") }).to be(true)
+    end
+
+    it "marks the current theme with ●" do
+      AppSetting.theme = "dracula"
+      res      = build_handler(args: %w[list]).call
+      sections = res.events.first[:payload][:sections]
+      all_keys = sections.flat_map { |s| s[:rows].map { |r| r[:key] } }
+      expect(all_keys.any? { |k| k.start_with?("● ") && k.include?("dracula") }).to be(true)
+    end
+
+    it "has an info_line hinting #preview / #apply" do
+      info = result.events.first[:payload][:info_lines]
+      expect(info.join).to include("#preview").or include("#apply")
     end
   end
 
@@ -302,10 +336,16 @@ RSpec.describe Pito::Slash::Handlers::Theme, type: :service do
       expect(result_list).to be_a(Pito::Slash::Result::Ok)
     end
 
-    it "returns the same payload text as /theme list" do
-      text_ls   = build_handler(args: %w[ls]).call.events.first[:payload][:text]
-      text_list = build_handler(args: %w[list]).call.events.first[:payload][:text]
-      expect(text_ls).to eq(text_list)
+    it "returns the same sections as /theme list" do
+      sections_ls   = build_handler(args: %w[ls]).call.events.first[:payload][:sections]
+      sections_list = build_handler(args: %w[list]).call.events.first[:payload][:sections]
+      expect(sections_ls).to eq(sections_list)
+    end
+
+    it "has a Dark and a Light section" do
+      sections = build_handler(args: %w[ls]).call.events.first[:payload][:sections]
+      titles   = sections.map { |s| s[:title] }
+      expect(titles).to include("Dark", "Light")
     end
 
     it "does NOT persist a theme (it is a list operation, not apply)" do

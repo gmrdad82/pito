@@ -89,7 +89,7 @@ module Pito
 
           case first_arg
           when ""        then placeholder_sidebar
-          when "list"    then placeholder_list
+          when "list"    then list_themes
           when "preview" then dispatch_preview
           when "apply"   then dispatch_apply
           when "reset"   then dispatch_reset
@@ -159,67 +159,58 @@ module Pito
         end
 
         def dispatch_reset
-          apply(Pito::Themes::Registry.default, reset: true)
+          Pito::Slash::Result::Ok.new(events: Pito::Themes::Switch.reset)
         end
 
         # ── apply ─────────────────────────────────────────────────────────────
 
-        # Persists AppSetting.theme, broadcasts to all clients, returns confirm.
+        # Delegates to Pito::Themes::Switch.apply for persist + broadcast.
         # @param definition [Pito::Themes::Definition]
         # @param reset [Boolean] use the reset confirmation string instead of apply
         def apply(definition, reset: false)
-          AppSetting.theme = definition.slug
-          Pito::Stream::Broadcaster.broadcast_global_theme(definition.slug)
-
-          msg_key = reset ? "pito.slash.theme.reset.confirmed" : "pito.slash.theme.apply.confirmed"
-
-          Pito::Slash::Result::Ok.new(events: [
-            {
-              kind:    "system",
-              payload: {
-                text: I18n.t(msg_key, name: definition.label, slug: definition.slug)
-              }
-            }
-          ])
+          Pito::Slash::Result::Ok.new(events: Pito::Themes::Switch.apply(definition, reset:))
         end
 
         # ── preview ───────────────────────────────────────────────────────────
 
-        # Broadcasts the theme WITHOUT persisting. Documents the rule inline:
-        #   - Only the Turbo Stream set-theme action fires (recolors the page).
-        #   - AppSetting.theme is NOT written.
-        #   - The caller must `/theme apply <name>` to keep it or `/theme reset`
-        #     to revert to the persisted theme.
+        # Delegates to Pito::Themes::Switch.preview (broadcast only, no persist).
         def preview(definition)
-          Pito::Stream::Broadcaster.broadcast_global_theme(definition.slug)
+          Pito::Slash::Result::Ok.new(events: Pito::Themes::Switch.preview(definition))
+        end
+
+        # ── list ──────────────────────────────────────────────────────────────
+
+        # Emits a System message with Dark/Light sections, current theme marked,
+        # and follow-up hints for #preview <name> / #apply <name>.
+        def list_themes
+          grouped      = Pito::Themes::Registry.grouped
+          current_slug = AppSetting.theme
+
+          dark_rows  = build_theme_rows(grouped[:dark]  || [], current_slug)
+          light_rows = build_theme_rows(grouped[:light] || [], current_slug)
 
           Pito::Slash::Result::Ok.new(events: [
             {
               kind:    "system",
               payload: {
-                text: I18n.t(
-                  "pito.slash.theme.preview.confirmed",
-                  name:  definition.label,
-                  slug:  definition.slug,
-                  apply: "/theme apply #{definition.slug}",
-                  reset: "/theme reset"
-                )
+                body:       I18n.t("pito.slash.theme.list.intro"),
+                sections:   [
+                  { title: I18n.t("pito.slash.theme.list.dark_header"),  rows: dark_rows },
+                  { title: I18n.t("pito.slash.theme.list.light_header"), rows: light_rows }
+                ],
+                info_lines: [ I18n.t("pito.slash.theme.list.hint") ]
               }
             }
           ])
         end
 
-        # ── placeholder paths (P7 / P8) ───────────────────────────────────────
-
-        def placeholder_list
-          Pito::Slash::Result::Ok.new(events: [
-            {
-              kind:    "system",
-              payload: {
-                text: I18n.t("pito.slash.theme.list.placeholder")
-              }
-            }
-          ])
+        # Build kv rows for a group of theme definitions.
+        # The current theme's key is marked with a bullet (●).
+        def build_theme_rows(definitions, current_slug)
+          definitions.map do |d|
+            marker = d.slug == current_slug ? "● " : "  "
+            { key: "#{marker}#{d.slug}", value: d.label }
+          end
         end
 
         def placeholder_sidebar

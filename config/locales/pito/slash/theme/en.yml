@@ -14,7 +14,10 @@ en:
         reset:
           confirmed: "Back to basics. Tokyo Night is live again."
         list:
-          placeholder: "Theme list coming via /theme list — P7. For now: /theme apply <name> or /theme --help for the full list."
+          intro: "18 themes, two vibes. Pick one below — or just type its name."
+          dark_header: "Dark"
+          light_header: "Light"
+          hint: "Type #preview <name> to try it live, or #apply <name> to make it permanent."
         sidebar:
           placeholder: "Theme sidebar coming in P8. For now: /theme apply <name> or /theme --help."
         errors:

@@ -182,13 +182,13 @@ the unaltered default.
 > Dark/Light, with hints to follow up via `#preview <name>` / `#apply <name>`.
 > Those hashtags are reply commands that preview/apply, mirroring P5's logic.
 
-- [ ] T7.1 `list` path builds a System message: themes grouped Dark/Light (kv-style rows: slug + label), current theme marked. complexity: [low]
-- [ ] T7.2 Append follow-up affordance to that message: `#preview <name>` / `#apply <name>` hints (witty i18n). complexity: [low]
-- [ ] T7.3 `Pito::Hashtag::Handlers` — a handler resolving `#preview <name>` and `#apply <name>` (reuse P5's resolve_target + apply/preview). complexity: [high]
-- [ ] T7.4 Hashtag grammar/vocab: `preview`/`apply` stems + `theme_names` arg; register. complexity: [low]
-- [ ] T7.5 i18n for the list message + hashtag confirmations/errors. complexity: [low]
-- [ ] T7.6 Specs: `/theme list` (+ `ls`) renders the grouped System message; `#preview <name>` previews; `#apply <name>` applies (persist) — reply paths. complexity: [low]
-- [ ] T7.7 Commit: `P7: /theme list System message + #preview/#apply hashtag replies`. complexity: [manual]
+- [x] T7.1 `list` path builds a System message: themes grouped Dark/Light (kv-style rows: slug + label), current theme marked. complexity: [low]
+- [x] T7.2 Append follow-up affordance to that message: `#preview <name>` / `#apply <name>` hints (witty i18n). complexity: [low]
+- [x] T7.3 `Pito::Hashtag::Handlers` — a handler resolving `#preview <name>` and `#apply <name>` (reuse P5's resolve_target + apply/preview). complexity: [high]
+- [x] T7.4 Hashtag grammar/vocab: `preview`/`apply` stems + `theme_names` arg; register. complexity: [low]
+- [x] T7.5 i18n for the list message + hashtag confirmations/errors. complexity: [low]
+- [x] T7.6 Specs: `/theme list` (+ `ls`) renders the grouped System message; `#preview <name>` previews; `#apply <name>` applies (persist) — reply paths. complexity: [low]
+- [x] T7.7 Commit: `P7: /theme list System message + #preview/#apply hashtag replies`. complexity: [manual]
 
 ## P8 — `/theme` (bare) preview sidebar
 

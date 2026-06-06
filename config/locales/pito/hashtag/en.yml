@@ -4,6 +4,15 @@ en:
       reply:
         acknowledged: "Reply to #%{handle} acknowledged."
         not_found: "No pending confirmation found for #%{handle}."
+      theme:
+        preview:
+          confirmed: "Heads-up: this is a preview of %{name} — not saved yet. Run /theme apply %{slug} to keep it or /theme reset to go back."
+        apply:
+          confirmed: "Done. %{name} is now your theme. (/theme reset to undo)"
+        errors:
+          missing_name: "Usage: #%{verb} <theme-name>. Not sure which? /theme list."
+          unknown_target: "No theme called '%{name}'. Run /theme list to see what's on the menu."
+          unknown_verb: "Unknown theme action: %{verb}."
       errors:
         unknown_handle: "Unknown hashtag handle: %{handle}."
         parse_failed: "Could not parse hashtag command: %{raw}."
