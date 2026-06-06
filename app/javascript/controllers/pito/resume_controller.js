@@ -30,7 +30,7 @@ export default class extends Controller {
   connect() {
     this.abort = new AbortController()
     document.addEventListener("keydown", this.#onKey.bind(this), { signal: this.abort.signal })
-    // Sequential Esc: capture-phase so it runs BEFORE the chatbox's autosuggest
+    // Sequential Esc: capture-phase so it runs BEFORE the chatbox's suggestions
     // Esc. When the sidebar is open it closes the sidebar and swallows the event
     // (so a /command palette underneath survives); the next Esc reaches the
     // palette. Also makes Esc close the notifications panel (which has no

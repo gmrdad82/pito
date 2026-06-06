@@ -87,7 +87,7 @@ export default class extends Controller {
   }
 
   // Returns the current caret pixel position { left, top } relative to the
-  // field's border box. Public so sibling controllers (e.g. pito--autosuggest)
+  // field's border box. Public so sibling controllers (e.g. pito--suggestions)
   // can read it on demand.
   caretCoords() {
     const value = this.field.value

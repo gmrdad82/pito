@@ -29,12 +29,12 @@ RSpec.describe "Dynamic 404 page", type: :request do
       expect(response).to have_http_status(:not_found)
     end
 
-    it "renders the autocomplete chatbox (catalog script tag)" do
-      expect(response.body).to include('data-pito--autosuggest-target="catalog"')
+    it "renders the suggestions chatbox (catalog script tag)" do
+      expect(response.body).to include('data-pito--suggestions-target="catalog"')
     end
 
     it "renders the autosuggest palette div" do
-      expect(response.body).to include("pito-autosuggest-palette")
+      expect(response.body).to include("pito-suggestions-palette")
     end
 
     it "renders the chatbox wrapper" do
@@ -49,8 +49,8 @@ RSpec.describe "Dynamic 404 page", type: :request do
       expect(response).to have_http_status(:not_found)
     end
 
-    it "renders the autocomplete chatbox (catalog script tag)" do
-      expect(response.body).to include('data-pito--autosuggest-target="catalog"')
+    it "renders the suggestions chatbox (catalog script tag)" do
+      expect(response.body).to include('data-pito--suggestions-target="catalog"')
     end
   end
 

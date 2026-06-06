@@ -123,15 +123,15 @@ describe("pito--history controller", () => {
     expect(textarea.value).toBe("only")
   })
 
-  // ── Guard: autosuggest palette open ───────────────────────────────────────
+  // ── Guard: suggestions palette open ───────────────────────────────────────
 
-  it("ignores ArrowUp when the autosuggest palette is visible", async () => {
+  it("ignores ArrowUp when the suggestions palette is visible", async () => {
     const { chatbox, textarea } = buildScaffold(JSON.stringify(["blocked"]))
     await waitForConnect()
 
-    // Insert a visible (not hidden) autosuggest palette.
+    // Insert a visible (not hidden) suggestions palette.
     const palette = document.createElement("div")
-    palette.className = "pito-autosuggest-palette"  // no "hidden" class → visible
+    palette.className = "pito-suggestions-palette"  // no "hidden" class → visible
     document.body.appendChild(palette)
 
     textarea.value = "initial"

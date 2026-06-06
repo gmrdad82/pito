@@ -1,6 +1,6 @@
-// pito--autosuggest
+// pito--suggestions
 //
-// Chatbox autosuggest: stage-dependent UX for slash, hashtag, and free-form input.
+// Chatbox suggestions: stage-dependent UX for slash, hashtag, and free-form input.
 //
 // STAGE DETECTION
 //   Slash/hashtag VERB stage (no space yet after trigger):  PALETTE
@@ -9,7 +9,7 @@
 //   None (empty):                                           nothing
 //
 // VERB STAGE (palette)
-//   Float-above .pito-autosuggest-palette lists matching catalog entries.
+//   Float-above .pito-suggestions-palette lists matching catalog entries.
 //   ArrowUp/ArrowDown → navigate rows (single step).
 //   Enter  → accept highlighted item (_insertToken), no submit.
 //   Space  → dismiss palette; space types normally → field becomes "/cmd " → arg stage.
@@ -18,7 +18,7 @@
 //   Other  → type normally; onInput re-filters the palette.
 //
 // ARG STAGE (ghost)
-//   Debounced POST /autocomplete → top hit shown as inline ghost.
+//   Debounced POST /suggestions → top hit shown as inline ghost.
 //   Tab → accept ghost (_insertToken, no submit).
 //   Enter → pass through → form submits.
 //
@@ -41,15 +41,15 @@
 //   ak — debounced dynamic fetch for dynamic vocab slots (e.g. game_titles)
 //
 // DOM Contract (set by chatbox ERB — build against this exactly):
-//   Controller:  pito--autosuggest  on  #pito-chatbox
-//   Target field:    <textarea>  (data-pito--autosuggest-target="field")
-//   Target catalog:  <script type="application/json">  (data-pito--autosuggest-target="catalog")
-//   Target palette:  <div class="pito-autosuggest-palette hidden">  (data-pito--autosuggest-target="palette")
+//   Controller:  pito--suggestions  on  #pito-chatbox
+//   Target field:    <textarea>  (data-pito--suggestions-target="field")
+//   Target catalog:  <script type="application/json">  (data-pito--suggestions-target="catalog")
+//   Target palette:  <div class="pito-suggestions-palette hidden">  (data-pito--suggestions-target="palette")
 //
-//   data-action order on the textarea (autosuggest FIRST so handleKeydown fires first):
-//     keydown->pito--autosuggest#handleKeydown
+//   data-action order on the textarea (suggestions FIRST so handleKeydown fires first):
+//     keydown->pito--suggestions#handleKeydown
 //     keydown->pito--chat-form#handleKeydown
-//     input->pito--autosuggest#onInput
+//     input->pito--suggestions#onInput
 
 import { Controller } from "@hotwired/stimulus"
 import { isAuthenticated } from "pito/auth"
@@ -310,14 +310,14 @@ export default class extends Controller {
 
     this._paletteRows.forEach((entry, idx) => {
       const row = document.createElement("div")
-      row.className = "pito-autosuggest-row" + (idx === this._selectedIdx ? " is-selected" : "")
+      row.className = "pito-suggestions-row" + (idx === this._selectedIdx ? " is-selected" : "")
       const cmd = document.createElement("span")
-      cmd.className   = "pito-autosuggest-cmd"
+      cmd.className   = "pito-suggestions-cmd"
       cmd.textContent = (this._paletteTrigger || "/") + (entry.name || "")
       row.appendChild(cmd)
       if (entry.description) {
         const desc = document.createElement("span")
-        desc.className   = "pito-autosuggest-desc"
+        desc.className   = "pito-suggestions-desc"
         desc.textContent = entry.description
         row.appendChild(desc)
       }
@@ -353,7 +353,7 @@ export default class extends Controller {
   // Update the .is-selected class on palette rows without a full re-render.
   _highlightSelected() {
     const palette = this.paletteTarget
-    const rows    = palette.querySelectorAll(".pito-autosuggest-row")
+    const rows    = palette.querySelectorAll(".pito-suggestions-row")
     rows.forEach((row, idx) => {
       row.classList.toggle("is-selected", idx === this._selectedIdx)
     })
@@ -417,7 +417,7 @@ export default class extends Controller {
     if (conversationId) body.uuid = conversationId
 
     try {
-      const resp = await fetch("/autocomplete", {
+      const resp = await fetch("/suggestions", {
         method:  "POST",
         signal:  abortCtrl.signal,
         headers: {
@@ -548,7 +548,7 @@ export default class extends Controller {
     try {
       return JSON.parse(this.catalogTarget.textContent)
     } catch (e) {
-      console.warn("[pito--autosuggest] Failed to parse catalog JSON:", e)
+      console.warn("[pito--suggestions] Failed to parse catalog JSON:", e)
       return { slash: [], hashtag: [], chat: [], vocabularies: {} }
     }
   }
@@ -884,7 +884,7 @@ export default class extends Controller {
     if (conversationId) body.uuid = conversationId
 
     try {
-      const resp = await fetch("/autocomplete", {
+      const resp = await fetch("/suggestions", {
         method:  "POST",
         signal:  abortCtrl.signal,
         headers: {

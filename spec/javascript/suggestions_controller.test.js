@@ -1,6 +1,6 @@
-// spec/javascript/autosuggest_controller.test.js
+// spec/javascript/suggestions_controller.test.js
 //
-// Vitest suite for pito--autosuggest Stimulus controller.
+// Vitest suite for pito--suggestions Stimulus controller.
 //
 // Strategy: mount the real controller on a jsdom document using the same
 // Stimulus-Application pattern as history_controller.test.js.  We mock
@@ -15,7 +15,7 @@
 //   Ghost (arg-stage / free-form):
 //     - Tab accepts free-form ghost
 //     - Enter passes through (does not accept ghost)
-//     - debounced /autocomplete fetch: mock fetch → ghost set from response
+//     - debounced /suggestions fetch: mock fetch → ghost set from response
 //     - stale-response guard: rapid input → only last fetch applies
 //   Misc:
 //     - modeFor classification
@@ -28,7 +28,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest"
 import { Application } from "@hotwired/stimulus"
-import AutosuggestController from "controllers/pito/autosuggest_controller"
+import SuggestionsController from "controllers/pito/suggestions_controller"
 
 // ── Auth mock ────────────────────────────────────────────────────────────────
 // The controller imports isAuthenticated from "pito/auth" which reads a DOM element.
@@ -71,7 +71,7 @@ function buildScaffold() {
   // Chatbox root — controller attaches here
   const chatbox = document.createElement("div")
   chatbox.id = "pito-chatbox"
-  chatbox.setAttribute("data-controller", "pito--autosuggest")
+  chatbox.setAttribute("data-controller", "pito--suggestions")
 
   // field-wrap (needed for ghost span creation)
   const fieldWrap = document.createElement("div")
@@ -80,23 +80,23 @@ function buildScaffold() {
 
   // textarea (field target)
   const textarea = document.createElement("textarea")
-  textarea.setAttribute("data-pito--autosuggest-target", "field")
+  textarea.setAttribute("data-pito--suggestions-target", "field")
   textarea.setAttribute("data-action", [
-    "keydown->pito--autosuggest#handleKeydown",
-    "input->pito--autosuggest#onInput",
+    "keydown->pito--suggestions#handleKeydown",
+    "input->pito--suggestions#onInput",
   ].join(" "))
   fieldWrap.appendChild(textarea)
 
   // catalog script (catalog target)
   const catalog = document.createElement("script")
   catalog.type = "application/json"
-  catalog.setAttribute("data-pito--autosuggest-target", "catalog")
+  catalog.setAttribute("data-pito--suggestions-target", "catalog")
   catalog.textContent = CATALOG_JSON
 
   // palette div (palette target)
   const palette = document.createElement("div")
-  palette.className = "pito-autosuggest-palette hidden"
-  palette.setAttribute("data-pito--autosuggest-target", "palette")
+  palette.className = "pito-suggestions-palette hidden"
+  palette.setAttribute("data-pito--suggestions-target", "palette")
 
   chatbox.appendChild(fieldWrap)
   chatbox.appendChild(catalog)
@@ -119,13 +119,13 @@ function input(el, value) {
 
 // ── Test suite ────────────────────────────────────────────────────────────────
 
-describe("pito--autosuggest controller", () => {
+describe("pito--suggestions controller", () => {
   let app, textarea, palette, chatbox
 
   beforeEach(() => {
     setAuthenticated(true)
     app = Application.start()
-    app.register("pito--autosuggest", AutosuggestController)
+    app.register("pito--suggestions", SuggestionsController)
     ;({ chatbox, textarea, palette } = buildScaffold())
   })
 
@@ -148,7 +148,7 @@ describe("pito--autosuggest controller", () => {
       await waitForConnect()
       // Access the controller instance via the element's __stimulusController
       // convention (Stimulus stores it on the element)
-      ctrl = app.getControllerForElementAndIdentifier(chatbox, "pito--autosuggest")
+      ctrl = app.getControllerForElementAndIdentifier(chatbox, "pito--suggestions")
     })
 
     it("returns 'slash' for input starting with /", () => {
@@ -193,7 +193,7 @@ describe("pito--autosuggest controller", () => {
     it("filters entries by prefix — '/co' shows config and connect", async () => {
       input(textarea, "/co")
       await waitForConnect()
-      const labels = [...palette.querySelectorAll(".pito-autosuggest-cmd")].map(el => el.textContent)
+      const labels = [...palette.querySelectorAll(".pito-suggestions-cmd")].map(el => el.textContent)
       expect(labels).toContain("/config")
       expect(labels).toContain("/connect")
     })
@@ -201,14 +201,14 @@ describe("pito--autosuggest controller", () => {
     it("does not show /disconnect for '/co'", async () => {
       input(textarea, "/co")
       await waitForConnect()
-      const labels = [...palette.querySelectorAll(".pito-autosuggest-cmd")].map(el => el.textContent)
+      const labels = [...palette.querySelectorAll(".pito-suggestions-cmd")].map(el => el.textContent)
       expect(labels).not.toContain("/disconnect")
     })
 
     it("first row has is-selected class", async () => {
       input(textarea, "/co")
       await waitForConnect()
-      const rows = palette.querySelectorAll(".pito-autosuggest-row")
+      const rows = palette.querySelectorAll(".pito-suggestions-row")
       expect(rows[0].classList.contains("is-selected")).toBe(true)
     })
 
@@ -216,7 +216,7 @@ describe("pito--autosuggest controller", () => {
       input(textarea, "/co")
       await waitForConnect()
       key(textarea, "ArrowDown")
-      const rows = palette.querySelectorAll(".pito-autosuggest-row")
+      const rows = palette.querySelectorAll(".pito-suggestions-row")
       expect(rows[1].classList.contains("is-selected")).toBe(true)
     })
 
@@ -224,7 +224,7 @@ describe("pito--autosuggest controller", () => {
       input(textarea, "/co")
       await waitForConnect()
       key(textarea, "ArrowUp")
-      const rows = palette.querySelectorAll(".pito-autosuggest-row")
+      const rows = palette.querySelectorAll(".pito-suggestions-row")
       expect(rows[0].classList.contains("is-selected")).toBe(true)
     })
 
@@ -304,7 +304,7 @@ describe("pito--autosuggest controller", () => {
     })
   })
 
-  // ── Arg-stage ghost — debounced /autocomplete fetch ───────────────────────
+  // ── Arg-stage ghost — debounced /suggestions fetch ───────────────────────
   //
   // We test the debounce and stale-response guard by calling controller methods
   // directly (bypassing Stimulus event wiring) and using vi.useFakeTimers with
@@ -312,15 +312,15 @@ describe("pito--autosuggest controller", () => {
   // we wait for it to connect with real timers first, then activate fake timers
   // just for the setTimeout-based debounce inside the test body.
 
-  describe("arg-stage ghost — debounced fetch", () => {
+  describe("arg-stage ghost — debounced /suggestions fetch", () => {
     let ctrl
 
     beforeEach(async () => {
       await waitForConnect()
-      ctrl = app.getControllerForElementAndIdentifier(chatbox, "pito--autosuggest")
+      ctrl = app.getControllerForElementAndIdentifier(chatbox, "pito--suggestions")
     })
 
-    it("calls /autocomplete after the debounce interval fires", async () => {
+    it("calls /suggestions after the debounce interval fires", async () => {
       const fetchMock = vi.fn().mockResolvedValue({
         ok: true,
         json: async () => ({
@@ -345,7 +345,7 @@ describe("pito--autosuggest controller", () => {
 
         expect(fetchMock).toHaveBeenCalledTimes(1)
         const callArgs = fetchMock.mock.calls[0]
-        expect(callArgs[0]).toBe("/autocomplete")
+        expect(callArgs[0]).toBe("/suggestions")
         expect(JSON.parse(callArgs[1].body)).toMatchObject({ input: "/config " })
       } finally {
         vi.useRealTimers()
@@ -409,7 +409,7 @@ describe("pito--autosuggest controller", () => {
 
     beforeEach(async () => {
       await waitForConnect()
-      ctrl = app.getControllerForElementAndIdentifier(chatbox, "pito--autosuggest")
+      ctrl = app.getControllerForElementAndIdentifier(chatbox, "pito--suggestions")
     })
 
     it("Tab with no ghost active is a no-op (field unchanged)", async () => {
@@ -471,7 +471,7 @@ describe("pito--autosuggest controller", () => {
   describe("lifecycle", () => {
     it("controller connects and initialises without error", async () => {
       await waitForConnect()
-      const ctrl = app.getControllerForElementAndIdentifier(chatbox, "pito--autosuggest")
+      const ctrl = app.getControllerForElementAndIdentifier(chatbox, "pito--suggestions")
       expect(ctrl).toBeTruthy()
       expect(ctrl._mode).toBe("none")
       expect(ctrl._paletteOpen).toBe(false)
@@ -479,7 +479,7 @@ describe("pito--autosuggest controller", () => {
 
     it("disconnect clears ghost span and removes event listeners", async () => {
       await waitForConnect()
-      const ctrl = app.getControllerForElementAndIdentifier(chatbox, "pito--autosuggest")
+      const ctrl = app.getControllerForElementAndIdentifier(chatbox, "pito--suggestions")
       // Should not throw on disconnect
       expect(() => ctrl.disconnect()).not.toThrow()
     })

@@ -272,11 +272,11 @@ RSpec.describe Pito::Shell::ChatboxComponent do
     end
 
     context "autosuggest integration" do
-      it "renders #pito-chatbox with the pito--autosuggest Stimulus controller" do
+      it "renders #pito-chatbox with the pito--suggestions Stimulus controller" do
         node = render_inline(described_class.new)
         wrapper = node.css("div#pito-chatbox").first
         expect(wrapper).not_to be_nil
-        expect(wrapper["data-controller"]).to include("pito--autosuggest")
+        expect(wrapper["data-controller"]).to include("pito--suggestions")
       end
 
       it "renders #pito-chatbox with the pito--chatbox-hints Stimulus controller" do
@@ -288,7 +288,7 @@ RSpec.describe Pito::Shell::ChatboxComponent do
 
       it "contains a catalog script tag with parseable JSON including slash and vocabularies keys" do
         node = render_inline(described_class.new)
-        script = node.css("script[type='application/json'][data-pito--autosuggest-target='catalog']").first
+        script = node.css("script[type='application/json'][data-pito--suggestions-target='catalog']").first
         expect(script).not_to be_nil
         catalog = JSON.parse(script.text)
         expect(catalog).to have_key("slash")
@@ -298,7 +298,7 @@ RSpec.describe Pito::Shell::ChatboxComponent do
       context "authenticated: false" do
         it "embeds a catalog whose slash list includes /login" do
           node = render_inline(described_class.new(authenticated: false))
-          script = node.css("script[type='application/json'][data-pito--autosuggest-target='catalog']").first
+          script = node.css("script[type='application/json'][data-pito--suggestions-target='catalog']").first
           catalog = JSON.parse(script.text)
           slash_inserts = catalog["slash"].map { |e| e["insert"] }
           expect(slash_inserts).to include("/login ")
@@ -308,7 +308,7 @@ RSpec.describe Pito::Shell::ChatboxComponent do
       context "authenticated: true" do
         it "embeds a catalog whose slash list includes /config" do
           node = render_inline(described_class.new(authenticated: true))
-          script = node.css("script[type='application/json'][data-pito--autosuggest-target='catalog']").first
+          script = node.css("script[type='application/json'][data-pito--suggestions-target='catalog']").first
           catalog = JSON.parse(script.text)
           slash_inserts = catalog["slash"].map { |e| e["insert"] }
           expect(slash_inserts).to include("/config ")
@@ -317,14 +317,14 @@ RSpec.describe Pito::Shell::ChatboxComponent do
 
       it "contains the hidden palette container with the correct target and classes" do
         node = render_inline(described_class.new)
-        palette = node.css("div.pito-autosuggest-palette[data-pito--autosuggest-target='palette']").first
+        palette = node.css("div.pito-suggestions-palette[data-pito--suggestions-target='palette']").first
         expect(palette).not_to be_nil
         expect(palette["class"]).to include("hidden")
       end
 
       it "renders the textarea with the autosuggest field target" do
         node = render_inline(described_class.new)
-        textarea = node.css("textarea[data-pito--autosuggest-target='field']").first
+        textarea = node.css("textarea[data-pito--suggestions-target='field']").first
         expect(textarea).not_to be_nil
       end
 
@@ -332,9 +332,9 @@ RSpec.describe Pito::Shell::ChatboxComponent do
         node = render_inline(described_class.new)
         textarea = node.css("textarea").first
         action = textarea["data-action"]
-        expect(action).to start_with("keydown->pito--autosuggest#handleKeydown")
+        expect(action).to start_with("keydown->pito--suggestions#handleKeydown")
         expect(action).to include("keydown->pito--chat-form#handleKeydown")
-        expect(action).to include("input->pito--autosuggest#onInput")
+        expect(action).to include("input->pito--suggestions#onInput")
       end
     end
 
@@ -379,10 +379,10 @@ RSpec.describe Pito::Shell::ChatboxComponent do
         expect(wrapper["data-pito--draft-uuid-value"]).to be_nil
       end
 
-      it "still includes pito--autosuggest in data-controller with draft_uuid" do
+      it "still includes pito--suggestions in data-controller with draft_uuid" do
         node = render_inline(described_class.new(draft_uuid: "abc-123"))
         wrapper = node.css("div#pito-chatbox").first
-        expect(wrapper["data-controller"]).to include("pito--autosuggest")
+        expect(wrapper["data-controller"]).to include("pito--suggestions")
       end
     end
 
