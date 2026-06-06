@@ -1,0 +1,12 @@
+en:
+  pito:
+    copy:
+      # Centralized home for pito.copy.* dictionary entries.
+      # Each key resolves to a String (single line) or Array (variants).
+      # Real copy entries are migrated here in P3/P4.
+      # Example single-line entry:
+      #   greeting: "Welcome."
+      # Example multi-variant entry:
+      #   farewell:
+      #     - "See you around."
+      #     - "Don't be a stranger."

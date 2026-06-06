@@ -62,11 +62,11 @@ change, so copy can be grown, shrunk, audited, and kept on-voice in one place.
 > A centralized home + a tool to audit copy: variant counts, placeholders, and
 > legacy dictionaries still living outside the namespace.
 
-- [ ] T2.1 Establish `config/locales/pito/copy/` under `pito.copy.*` as the engine's copy home; document the convention in `AGENTS.md`. complexity: [low]
-- [ ] T2.2 `rake pito:copy:audit` — list every `pito.copy.*` key with its variant count + placeholder names; mark single-entry vs multi. complexity: [high]
-- [ ] T2.3 Extend the audit to scan array-valued i18n leaves OUTSIDE `pito.copy.*` and list them as migration candidates. complexity: [low]
-- [ ] T2.4 Specs: audit output (counts, placeholder extraction, legacy-candidate detection) against a fixture locale. complexity: [low]
-- [ ] T2.5 Commit: `pito.copy namespace + pito:copy:audit rake`. complexity: [manual]
+- [x] T2.1 Establish `config/locales/pito/copy/` under `pito.copy.*` as the engine's copy home; document the convention in `AGENTS.md`. complexity: [low]
+- [x] T2.2 `rake pito:copy:audit` — list every `pito.copy.*` key with its variant count + placeholder names; mark single-entry vs multi. complexity: [high]
+- [x] T2.3 Extend the audit to scan array-valued i18n leaves OUTSIDE `pito.copy.*` and list them as migration candidates. complexity: [low]
+- [x] T2.4 Specs: audit output (counts, placeholder extraction, legacy-candidate detection) against a fixture locale. complexity: [low]
+- [x] T2.5 Commit: `pito.copy namespace + pito:copy:audit rake`. complexity: [manual]
 
 ## P3 — Migrate existing dictionaries
 

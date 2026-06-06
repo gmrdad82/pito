@@ -1803,3 +1803,55 @@ the defaults below.
 - `Pito::Hashtag::Registry.registered_handles` to inspect the dispatch table.
 
 <!-- agents:end name=pito-hashtag -->
+
+---
+
+<!-- agents:begin name=pito-copy sha=copy-engine-p2 -->
+
+## Copy engine
+
+### Project context
+
+All user-facing copy routes through `Pito::Copy.render`. Dictionaries live under
+the `pito.copy.*` i18n namespace in `config/locales/pito/copy/*.yml`. Use the
+audit rake task to inspect the registry and find migration candidates.
+
+### Conventions
+
+- **Single entry point** — callers use `Pito::Copy.render(key, vars = {}, variant: nil)`.
+  Do NOT build strings inline when a copy key exists or should exist.
+- **Dictionary = data** — an i18n key under `pito.copy.*` resolving to a `String`
+  (one line) or an `Array` of strings (variants). Engine treats both uniformly.
+- **Placeholders** — use i18n `%{name}` tokens; pass values via `vars` hash (symbol
+  keys). A token with no matching key raises `Pito::Copy::MissingPlaceholder`.
+- **Uniform-random selection** — production picks a random variant; specs use the
+  deterministic sampler installed by `spec/support/copy.rb` (first element).
+- **Namespace** — migrated copy lives under `pito.copy.*` in
+  `config/locales/pito/copy/*.yml`. The load path already globs `config/locales/**/*.yml`.
+- **Audit** — `rake pito:copy:audit` prints every registered `pito.copy.*` key
+  (variant count + placeholders + single/multi) and lists legacy array-valued
+  leaves outside the namespace as migration candidates for P3/P4.
+
+### Adding copy
+
+1. Add a YAML key under `pito.copy.*` in `config/locales/pito/copy/en.yml` (or a
+   new file in that directory — the glob picks it up automatically).
+2. Call `Pito::Copy.render("pito.copy.<your.key>", vars)` at the call site.
+3. Run `rake pito:copy:audit` to confirm the key appears in the registered list.
+
+### Anti-patterns
+
+- Don't hardcode user-facing strings in handlers or views. Use i18n keys.
+- Don't bypass `Pito::Copy.render` and call `I18n.t` directly on copy keys.
+  `render` enforces the missing-placeholder contract and the sampler.
+- Don't put copy under arbitrary i18n namespaces when a `pito.copy.*` key would do.
+  Uncentralized copy is invisible to the audit and hard to voice-check.
+
+### Commands / verification
+
+- `rake pito:copy:audit` — full audit: registered keys + legacy candidates.
+- `bin/rails console` then `Pito::Copy.render("pito.copy.<key>", vars: ...)` to
+  test a key interactively.
+- `bundle exec rspec spec/services/pito/copy/` to run copy-engine specs.
+
+<!-- agents:end name=pito-copy -->
