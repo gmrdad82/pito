@@ -203,13 +203,8 @@ here so Plan 4 contains only what ships in the Beta. Pick these up after merge.
 - `Pito::Stats` design (daily snapshot tables/jobs for channel + video totals) — pairs with P60.
 - `Pito::Analytics` (wire TAB channel + Shift+TAB period into real queries).
 - Real chat/slash domain handlers (list videos, channel overview…).
-- **Centralized message-generation engine.** Witty copy "dictionaries" are
-  accreting ad-hoc across i18n (thinking dictionaries, slash/hashtag
-  confirmations + errors, the `/theme apply` quip list, empty/error states).
-  Audit every such dictionary and design a single reusable engine for message
-  generation — consistent voice, weighted/seeded sampling (testable
-  determinism), categories/tags, and one place to add copy — then migrate the
-  scattered lists onto it. (Surfaced while building the theme `#apply` quips.)
+- ~~Centralized message-generation engine~~ → promoted to its own plan:
+  `docs/copy-engine.md` (in progress on PR #62).
 - Games detail screen (host for ScoreBar + TTB + probe snippet + `/add game` detail pane).
 - A **videos list screen** (host for `/edit video` + lifecycle actions + a friendlier video picker).
 - `Calendar` / `CalendarEntry` models — add when needed.
