@@ -42,7 +42,6 @@ class Channel
       ].freeze
 
       DISPLAY_ONLY_FIELDS = %w[
-        made_for_kids_effective
         view_count like_count comment_count
         duration_seconds published_at
         thumbnail_url
@@ -56,7 +55,7 @@ class Channel
 
       BOOLEAN_FIELDS = %w[
         self_declared_made_for_kids contains_synthetic_media
-        embeddable public_stats_viewable made_for_kids_effective
+        embeddable public_stats_viewable
       ].freeze
 
       TIME_FIELDS = %w[publish_at published_at].freeze
@@ -105,7 +104,7 @@ class Channel
           from_snippet("published_at")
         when "privacy_status", "publish_at", "embeddable",
              "public_stats_viewable", "self_declared_made_for_kids",
-             "contains_synthetic_media", "made_for_kids_effective"
+             "contains_synthetic_media"
           from_status(field)
         when "view_count", "like_count", "comment_count"
           from_statistics(field)
@@ -148,10 +147,6 @@ class Channel
         when "contains_synthetic_media"
           read_indifferent(status, :contains_synthetic_media) ||
             read_indifferent(status, :containsSyntheticMedia)
-        when "made_for_kids_effective"
-          # YouTube exposes this as `madeForKids` (no `_effective` suffix).
-          v = read_indifferent(status, :made_for_kids)
-          v.nil? ? read_indifferent(status, :madeForKids) : v
         end
       end
 

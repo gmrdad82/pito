@@ -91,16 +91,7 @@ module Confirmable
       # Phase 7 Path A2 — Video has no `title` to order by. Order by
       # youtube_video_id (stable, monotonic enough for preview rows).
       Video.includes(:channel)
-           .left_joins(:video_stats)
-           .select(
-             "videos.*",
-             "COALESCE(SUM(video_stats.views), 0) AS total_views",
-             "COALESCE(SUM(video_stats.likes), 0) AS total_likes",
-             "COALESCE(SUM(video_stats.comments), 0) AS total_comments",
-             "COALESCE(CAST(SUM(video_stats.watch_time_minutes) AS BIGINT), 0) AS total_watch_time"
-           )
            .where(id: ids)
-           .group("videos.id")
            .order(youtube_video_id: :asc)
     when "game"
       Game.where(id: ids).order(title: :asc)
