@@ -379,6 +379,108 @@ RSpec.describe Pito::Slash::Handlers::Theme, type: :service do
     end
   end
 
+  # ── P5.5: Self-validation (validates_own_arity = true) ──────────────────────
+  #
+  # /theme validates its own arity because its first arg is polymorphic
+  # (subcommand keyword OR theme name). The generic dispatcher guard is bypassed.
+
+  describe "P5.5 arity self-validation" do
+    describe "0-arg form (/theme)" do
+      it "returns Result::Ok (sidebar placeholder)" do
+        expect(build_handler(args: []).call).to be_a(Pito::Slash::Result::Ok)
+      end
+    end
+
+    describe "1-arg valid forms" do
+      it "accepts a theme name (/theme dracula)" do
+        expect(build_handler(args: %w[dracula]).call).to be_a(Pito::Slash::Result::Ok)
+      end
+
+      it "accepts 'list'" do
+        expect(build_handler(args: %w[list]).call).to be_a(Pito::Slash::Result::Ok)
+      end
+
+      it "accepts 'ls'" do
+        expect(build_handler(args: %w[ls]).call).to be_a(Pito::Slash::Result::Ok)
+      end
+
+      it "accepts 'reset'" do
+        expect(build_handler(args: %w[reset]).call).to be_a(Pito::Slash::Result::Ok)
+      end
+    end
+
+    describe "2-arg valid forms" do
+      it "accepts /theme apply dracula" do
+        result = build_handler(args: %w[apply dracula]).call
+        expect(result).to be_a(Pito::Slash::Result::Ok)
+      end
+
+      it "accepts /theme preview dracula" do
+        result = build_handler(args: %w[preview dracula]).call
+        expect(result).to be_a(Pito::Slash::Result::Ok)
+      end
+
+      it "accepts /theme apply default" do
+        result = build_handler(args: %w[apply default]).call
+        expect(result).to be_a(Pito::Slash::Result::Ok)
+      end
+    end
+
+    describe "2-arg invalid forms — first arg is not preview/apply" do
+      it "rejects /theme ayu-dark ayu-dark (two theme names)" do
+        result = build_handler(args: %w[ayu-dark ayu-dark]).call
+        expect(result).to be_a(Pito::Slash::Result::Error)
+        expect(result.message_key).to eq("pito.slash.theme.errors.too_many_args")
+      end
+
+      it "rejects /theme list extra (list doesn't take an arg)" do
+        result = build_handler(args: %w[list extra]).call
+        expect(result).to be_a(Pito::Slash::Result::Error)
+        expect(result.message_key).to eq("pito.slash.theme.errors.too_many_args")
+      end
+
+      it "rejects /theme reset extra" do
+        result = build_handler(args: %w[reset extra]).call
+        expect(result).to be_a(Pito::Slash::Result::Error)
+        expect(result.message_key).to eq("pito.slash.theme.errors.too_many_args")
+      end
+    end
+
+    describe "1-arg incomplete forms — preview/apply need a second arg" do
+      it "rejects /theme preview (no name)" do
+        result = build_handler(args: %w[preview]).call
+        expect(result).to be_a(Pito::Slash::Result::Error)
+        expect(result.message_key).to eq("pito.slash.theme.errors.missing_name_for_preview")
+      end
+
+      it "rejects /theme apply (no name)" do
+        result = build_handler(args: %w[apply]).call
+        expect(result).to be_a(Pito::Slash::Result::Error)
+        expect(result.message_key).to eq("pito.slash.theme.errors.missing_name_for_apply")
+      end
+    end
+
+    describe "3+ arg forms — always too many" do
+      it "rejects /theme apply dracula x" do
+        result = build_handler(args: %w[apply dracula x]).call
+        expect(result).to be_a(Pito::Slash::Result::Error)
+        expect(result.message_key).to eq("pito.slash.theme.errors.too_many_args")
+      end
+
+      it "rejects /theme a b c" do
+        result = build_handler(args: %w[a b c]).call
+        expect(result).to be_a(Pito::Slash::Result::Error)
+        expect(result.message_key).to eq("pito.slash.theme.errors.too_many_args")
+      end
+    end
+
+    describe "class predicate" do
+      it "has validates_own_arity = true" do
+        expect(described_class.validates_own_arity).to be(true)
+      end
+    end
+  end
+
   # ── P6: Autocomplete — ls hidden, list offered via theme_names ───────────────
   #
   # The handler's grammar slot is sourced from :theme_names (slugs + "default"),

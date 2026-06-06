@@ -206,10 +206,14 @@ module Pito
 
           # The active slot is the first unfilled slot that is eligible given
           # the resolved values accumulated so far.
+          # We do NOT fall back to .last — when all non-repeatable slots are
+          # consumed the result is nil, which stops further suggestions.
+          # Repeatable slots re-appear because s.repeatable? is true even after
+          # they have been seen in filled_slots.
           consumed_slot_names = filled_slots.map(&:name)
           active = eligible_slots(slots, resolved_values).find do |s|
             !consumed_slot_names.include?(s.name) || s.repeatable?
-          end || eligible_slots(slots, resolved_values).last
+          end
 
           [ active, resolved_values ]
         end

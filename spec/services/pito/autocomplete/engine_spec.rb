@@ -639,4 +639,44 @@ RSpec.describe Pito::Autocomplete::Engine, type: :service do
       end
     end
   end
+
+  # ── P5.5 — Autocomplete stop when all non-repeatable slots are filled ─────────
+
+  describe "P5.5 — autocomplete stop after single-slot commands are satisfied" do
+    before { Pito::Grammar::Registry.reset!; Pito::Grammar::Registry.register_all! }
+    after  { Pito::Grammar::Registry.reset! }
+
+    context "/theme — single optional enum slot" do
+      it "suggests theme names after '/theme '" do
+        result = call(input: "/theme ", cursor: 7, authenticated: true)
+        expect(result[:menu_items]).not_to be_empty
+      end
+
+      it "yields NO suggestions after '/theme ayu-dark ' (slot is filled, no repeatable fallback)" do
+        result = call(input: "/theme ayu-dark ", cursor: 16, authenticated: true)
+        expect(result[:menu_items]).to be_empty
+      end
+
+      it "yields NO suggestions after '/theme tokyo-night ' (slot is filled)" do
+        result = call(input: "/theme tokyo-night ", cursor: 19, authenticated: true)
+        expect(result[:menu_items]).to be_empty
+      end
+    end
+
+    context "/config google kv slot — repeatable, continues to suggest keys" do
+      it "still suggests kv keys after '/config google client_id=x '" do
+        result = call(input: "/config google client_id=x ", cursor: 27, authenticated: true)
+        labels = result[:menu_items].map { |i| i[:label] }
+        expect(labels).not_to be_empty
+        expect(labels).to include("client_secret", "redirect_uri", "api_key")
+      end
+    end
+
+    context "/config sound — non-repeatable enum slot" do
+      it "yields NO suggestions after '/config sound on '" do
+        result = call(input: "/config sound on ", cursor: 17, authenticated: true)
+        expect(result[:menu_items]).to be_empty
+      end
+    end
+  end
 end

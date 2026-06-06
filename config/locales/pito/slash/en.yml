@@ -4,6 +4,7 @@ en:
       errors:
         unknown_verb: "Unknown command: /%{verb}. Type /help for the command list."
         parse_failed: "Couldn't parse command: %{raw}"
+        too_many_args: "/%{verb} doesn't take that many arguments. You're overloading it — try /help."
       confirm_hint: "type /confirm or /cancel"
       login:
         help:

@@ -51,6 +51,7 @@ the unaltered default.
 - P4 — Persistence (AppSetting.theme + data-theme + endpoint) — **done**
 - P3 — The 16 remaining theme palettes + regenerate
 - P5 — `/theme` command core (subcommands, vocab, autocomplete, --help)
+- P5.5 — Argument-arity validation + autocomplete stop (general command fix)
 - P6 — Slash alias system (`list` ↔ `ls`)
 - P7 — `/theme list` System message + `#preview`/`#apply` hashtag replies
 - P8 — `/theme` (bare) preview sidebar
@@ -147,6 +148,21 @@ the unaltered default.
 - [x] T5.12 List `/theme` in `/help` sections + the ctrl+k command palette (i18n). complexity: [low]
 - [x] T5.13 Specs: handler (apply/reset/preview/unknown/default), request spec (apply persists + broadcasts), grammar + autocomplete (theme_names), `--help`. complexity: [low]
 - [x] T5.14 Commit: `P5: /theme command core (apply/preview/reset + vocab + autocomplete + --help)`. complexity: [manual]
+
+## P5.5 — Argument-arity validation + autocomplete stop (general command fix)
+
+> Reported during theme testing but general: commands silently accept excess
+> arguments (`/theme ayu-dark ayu-dark`, `/help --help --help`) and the
+> autosuggest re-offers a filled single slot forever. Enforce grammar arity at
+> dispatch + stop suggesting once slots are full. Cross-cutting — must not
+> regress config (repeatable kv), disconnect (free target), or flag commands.
+
+- [x] T5.5.1 Autocomplete: in `engine.rb#find_active_slot_with_context`, when all non-repeatable slots are filled return NO active slot (drop the `|| eligible_slots(...).last` fallback); repeatable/kv paths unchanged. complexity: [high]
+- [x] T5.5.2 Spec: `/theme ayu-dark ` → no further suggestions; `/config google k=v ` still suggests keys (repeatable). complexity: [low]
+- [x] T5.5.3 Dispatcher arity guard: reject an invocation with more positional args than its grammar spec can consume (no repeatable/`free` slot to absorb) → witty "too many arguments" error (i18n); skip specless commands. complexity: [high]
+- [x] T5.5.4 Audit every command (config/disconnect/help/login/logout/connect/new/resume/theme + chat/hashtag) so valid forms still pass; decide + handle `/help --help --help` (extra flags) sensibly; document. complexity: [high]
+- [x] T5.5.5 Specs: `/theme x y` → invalid; `/theme x` → valid; representative excess-arg cases per command shape; full suite green. complexity: [low]
+- [x] T5.5.6 Commit: `Reject excess command arguments + stop autocomplete after slots filled`. complexity: [manual]
 
 ## P6 — Slash alias system (`list` ↔ `ls`)
 

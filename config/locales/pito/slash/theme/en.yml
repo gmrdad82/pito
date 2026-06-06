@@ -21,3 +21,4 @@ en:
           unknown_target: "No theme called '%{name}'. Try /theme list (or /theme --help) to see what's on the menu."
           missing_name_for_preview: "Usage: /theme preview <name>. Not sure which one? /theme list."
           missing_name_for_apply: "Usage: /theme apply <name>. Not sure which one? /theme list."
+          too_many_args: "Too many arguments for /theme. Try: /theme <name>, /theme apply <name>, or /theme --help."

@@ -44,6 +44,12 @@ module Pito
         self.verb        = :theme
         self.description_key = "pito.slash.theme.descriptions.theme"
 
+        # The first positional arg is polymorphic — it may be a subcommand keyword
+        # (list/ls/preview/apply/reset) OR a bare theme name (shorthand apply).
+        # The generic dispatcher arity guard cannot model this, so we opt out and
+        # validate arity ourselves inside #call.
+        self.validates_own_arity = true
+
         # Grammar: first positional arg is either a subcommand keyword or a theme
         # name from the :theme_names vocab. Both slots are optional so bare
         # `/theme` is valid (→ sidebar placeholder).
@@ -66,8 +72,20 @@ module Pito
         def call
           return show_help if help?
 
+          # Self-validation: /theme accepts 0, 1, or 2 args (preview/apply + name).
+          # 3+ args are always too many. 2 args are only valid when the first is
+          # preview or apply and the second resolves to a theme.
+          return too_many_args_error if invocation.args.size >= 3
+
           raw_arg   = invocation.args.first.to_s.strip.downcase
           first_arg = SUBCOMMAND_VOCAB.resolve(raw_arg) || raw_arg
+
+          if invocation.args.size == 2
+            # 2-arg form: first must be `preview` or `apply`.
+            unless %w[preview apply].include?(first_arg)
+              return too_many_args_error
+            end
+          end
 
           case first_arg
           when ""        then placeholder_sidebar
@@ -114,7 +132,8 @@ module Pito
           name = invocation.args[1].to_s.strip.downcase
           if name.empty?
             return Pito::Slash::Result::Error.new(
-              message_key:  "pito.slash.theme.errors.missing_name_for_preview"
+              message_key:  "pito.slash.theme.errors.missing_name_for_preview",
+              message_args: {}
             )
           end
 
@@ -128,7 +147,8 @@ module Pito
           name = invocation.args[1].to_s.strip.downcase
           if name.empty?
             return Pito::Slash::Result::Error.new(
-              message_key:  "pito.slash.theme.errors.missing_name_for_apply"
+              message_key:  "pito.slash.theme.errors.missing_name_for_apply",
+              message_args: {}
             )
           end
 
@@ -219,6 +239,13 @@ module Pito
           Pito::Slash::Result::Error.new(
             message_key:  "pito.slash.theme.errors.unknown_target",
             message_args: { name: name }
+          )
+        end
+
+        def too_many_args_error
+          Pito::Slash::Result::Error.new(
+            message_key:  "pito.slash.theme.errors.too_many_args",
+            message_args: {}
           )
         end
       end
