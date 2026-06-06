@@ -293,13 +293,13 @@ No production data exists → destructive migrations are free.
 > LAST (depend on fresh video embeddings). Reindex is digest-gated (cheap).
 > Analytics is NOT here — it's a separate future nightly job.
 
-- [ ] T14.1 `NightlySyncJob` (Stage 1, queue `:default`): (1) channel-info sync, (2) video sync (per channel `ImportVideosJob`), (3) game sync (`GameIgdbNightlyRefresh`: unreleased → re-sync + rescore, stop once released). complexity: [high]
-- [ ] T14.2 `GameStatsRefreshJob` for affected games after the video sync (Stage 1 tail). complexity: [low]
-- [ ] T14.3 `NightlyReindexJob` (Stage 2): bulk **digest-gated** reindex — games + videos via `BulkVoyageIndexJob` (batched ≤128/Voyage call). complexity: [low]
-- [ ] T14.4 Stage 2 LAST: recompute channel centroids (`ChannelEmbeddingRefreshJob` per channel) — depends on the video reindex above. complexity: [low]
-- [ ] T14.5 `config/recurring.yml`: `NightlySyncJob` at `0 1 * * *` and `NightlyReindexJob` at `0 2 * * *` (UTC; ≥1h gap). complexity: [low]
-- [ ] T14.6 Job specs (stage order, ≥1h gap, digest-gate no-op, centroid-after-video); `bundle exec rspec` + `bin/rubocop` green. complexity: [low]
-- [ ] T14.7 Commit: `Nightly two-stage sync (1:00) + reindex (2:00) orchestration`. complexity: [manual]
+- [x] T14.1 `NightlySyncJob` (Stage 1, queue `:default`): (1) `ChannelSync` per connected channel (turn-less, already exists); (2) `NightlyVideoSyncJob` per channel (thin turn-less video import path — `ImportVideosJob` is turn-coupled and cannot be reused; new job extracts the pure data path: playlist fetch → video upsert → `VideoVoyageIndexJob` per changed video → `GameStatsRefreshJob` for linked games); (3) `GameIgdbNightlyRefresh.perform_later` (fans out per-stale-game IGDB sync). complexity: [high]
+- [x] T14.2 `GameStatsRefreshJob` for affected games after the video sync (Stage 1 tail): handled inside `NightlyVideoSyncJob#enqueue_game_stats_refreshes` — queries `VideoGameLink` for games linked to the channel's videos and enqueues one `GameStatsRefreshJob` per game_id. complexity: [low]
+- [x] T14.3 `NightlyReindexJob` (Stage 2): atomic digest-gated fan-out — `GameVoyageIndexJob.perform_later(id)` per game + `VideoVoyageIndexJob.perform_later(id)` per video. Per the atomic-jobs locked decision, uses per-entity fan-out (not `BulkVoyageIndexJob`'s monolithic loop); `BulkVoyageIndexJob` stays for manual operator full-reindex runs. complexity: [low]
+- [x] T14.4 (design-B correction) NO channel-centroid step. Under design B channels have NO embedding — channel↔game recommendations are computed on demand from video vectors. The original plan text ("recompute channel centroids / `ChannelEmbeddingRefreshJob`") was OBSOLETE; Stage 2 reindexes games + videos ONLY. complexity: [low]
+- [x] T14.5 `config/recurring.yml`: `NightlySyncJob` at `0 1 * * *` and `NightlyReindexJob` at `0 2 * * *` (UTC; ≥1h gap). complexity: [low]
+- [x] T14.6 Job specs (stage order, ≥1h gap, digest-gate no-op, centroid-after-video); `bundle exec rspec` + `bin/rubocop` green. complexity: [low]
+- [x] T14.7 Commit: `Nightly two-stage sync (1:00) + reindex (2:00) orchestration`. complexity: [manual]
 
 ## P15 — Extract, document, finalize
 
