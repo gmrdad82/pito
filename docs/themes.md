@@ -285,10 +285,10 @@ the unaltered default.
 
 ### P12b — reusable diff-reveal engine (the animation)
 
-- [ ] T12.9 Reusable diff engine — `app/javascript/pito/diff.js`: pure functions computing a two-phase diff between `from` and `to` (common prefix/suffix; the differing middle = subtraction + addition) at `line` or `char` granularity. Theme-agnostic, unit-friendly. complexity: [high]
-- [ ] T12.10 Reusable `pito--diff-reveal` controller (`app/javascript/controllers/pito/diff_reveal_controller.js`): for each `[data-pito--diff-reveal-target="cell"]` (with `data-from` = old text, textContent = new text), play a **global** two-phase reveal — phase 1 delete every cell's subtraction, phase 2 type every cell's addition — using `pito/diff` + `pito/typing` (TICK_MS/CHARS_TICK) + the reveal queue; granularity + reduced-motion/`__pitoReady`/`fxEnabled` skip → show final instantly. Generic, no theme knowledge. `node --check`. complexity: [high]
-- [ ] T12.11 Verify: `bundle exec rspec` + `npm test` (existing) + `bin/rubocop` + `node --check` green; `prettier --write docs/themes.md`. complexity: [manual]
-- [ ] T12.12 Commit: `P12b: reusable diff-reveal engine (dual granularity)`. complexity: [manual]
+- [x] T12.9 Reusable diff engine — `app/javascript/pito/diff.js`: pure functions computing a two-phase diff between `from` and `to` (common prefix/suffix; the differing middle = subtraction + addition) at `line` or `char` granularity. Theme-agnostic, unit-friendly. complexity: [high]
+- [x] T12.10 Reusable `pito--diff-reveal` controller (`app/javascript/controllers/pito/diff_reveal_controller.js`): for each `[data-pito--diff-reveal-target="cell"]` (with `data-from` = old text, textContent = new text), play a **global** two-phase reveal — phase 1 delete every cell's subtraction, phase 2 type every cell's addition — using `pito/diff` + `pito/typing` (TICK_MS/CHARS_TICK) + the reveal queue; granularity + reduced-motion/`__pitoReady`/`fxEnabled` skip → show final instantly. Generic, no theme knowledge. `node --check`. complexity: [high]
+- [x] T12.11 Verify: `bundle exec rspec` + `npm test` (existing) + `bin/rubocop` + `node --check` green; `prettier --write docs/themes.md`. complexity: [manual]
+- [x] T12.12 Commit: `P12b: reusable diff-reveal engine (dual granularity)`. complexity: [manual]
 - [ ] T12.13 Smoke (operator): `/theme list`; `#preview dracula` (row marks, marker types in, page recolors); `#preview nord` (dracula unmarks, nord marks); `#apply nord` (list reverse-types, confirmation types in, persists, survives reload). Compare dark (char) vs light (line) granularity; **pick the keeper**. complexity: [manual]
 - [ ] T12.14 (DEFERRED — after T12.13) Clean up the losing granularity branch; add diff-engine + reveal-controller specs (Vitest) for the kept approach; commit `P12c: settle diff-reveal granularity (<approach>) + specs`. complexity: [manual]
 
