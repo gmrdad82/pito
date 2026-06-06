@@ -1,9 +1,9 @@
 module Pito
   # `Pito::ExternalApiTracker` — unified quota-tracking namespace.
   #
-  # Each external API client (YouTube, IGDB, Voyage) has its own tracker
+  # Each external API client (IGDB, Voyage) has its own tracker
   # sub-module that knows how to report current usage + quota cap.
-  # Home's API quota panel + Settings' stack stats panel both read here.
+  # Superseded for YouTube by P5 `Pito::Stack`.
   #
   # ## Contract per tracker
   #
