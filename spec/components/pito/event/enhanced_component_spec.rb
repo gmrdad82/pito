@@ -6,19 +6,19 @@ RSpec.describe Pito::Event::EnhancedComponent do
   describe "typewriter hook — plain-text body" do
     subject(:node) { render_inline(described_class.new(payload: { body: "Enhanced response" })) }
 
-    it "annotates the body span with data-controller including pito--typewriter" do
-      span = node.css("span.text-fg[data-controller]").first
-      expect(span).not_to be_nil
-      expect(span["data-controller"]).to include("pito--typewriter")
+    it "wraps content in a div with data-controller='pito--typewriter'" do
+      wrapper = node.css("div[data-controller~='pito--typewriter']").first
+      expect(wrapper).not_to be_nil
     end
 
-    it "sets data-pito--typewriter-target='body' on the body span" do
-      span = node.css("span.text-fg[data-pito--typewriter-target='body']").first
+    it "sets data-pito--typewriter-target='body' on the body span inside the wrapper" do
+      span = node.css("[data-controller~='pito--typewriter'] span[data-pito--typewriter-target='body']").first
       expect(span).not_to be_nil
     end
 
-    it "includes the body text in the span" do
+    it "includes the body text in the body span" do
       span = node.css("span.text-fg[data-pito--typewriter-target='body']").first
+      expect(span).not_to be_nil
       expect(span.text).to include("Enhanced response")
     end
   end

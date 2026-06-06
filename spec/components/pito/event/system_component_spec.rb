@@ -6,19 +6,19 @@ RSpec.describe Pito::Event::SystemComponent do
   describe "typewriter hook — plain-text body" do
     subject(:node) { render_inline(described_class.new(payload: { body: "Hello world" })) }
 
-    it "annotates the body span with data-controller including pito--typewriter" do
-      span = node.css("span.text-fg[data-controller]").first
-      expect(span).not_to be_nil
-      expect(span["data-controller"]).to include("pito--typewriter")
+    it "wraps content in a div with data-controller='pito--typewriter'" do
+      wrapper = node.css("div[data-controller~='pito--typewriter']").first
+      expect(wrapper).not_to be_nil
     end
 
-    it "sets data-pito--typewriter-target='body' on the body span" do
-      span = node.css("span.text-fg[data-pito--typewriter-target='body']").first
+    it "sets data-pito--typewriter-target='body' on the body span inside the wrapper" do
+      span = node.css("[data-controller~='pito--typewriter'] span[data-pito--typewriter-target='body']").first
       expect(span).not_to be_nil
     end
 
-    it "includes the body text in the span" do
+    it "includes the body text in the body span" do
       span = node.css("span.text-fg[data-pito--typewriter-target='body']").first
+      expect(span).not_to be_nil
       expect(span.text).to include("Hello world")
     end
   end
@@ -44,6 +44,29 @@ RSpec.describe Pito::Event::SystemComponent do
     end
   end
 
+  describe "typewriter hook — table_rows with plain-text body" do
+    subject(:node) do
+      render_inline(described_class.new(payload: {
+        body: "Result",
+        table_rows: [ { key: "Status", value: "OK" } ]
+      }))
+    end
+
+    it "includes kv key span tagged as prose target inside the typewriter wrapper" do
+      wrapper = node.css("div[data-controller~='pito--typewriter']").first
+      expect(wrapper).not_to be_nil
+      key_span = wrapper.css("span[data-pito--typewriter-target='prose']").first
+      expect(key_span).not_to be_nil
+    end
+
+    it "key and value spans are both tagged as prose targets" do
+      prose_spans = node.css("span[data-pito--typewriter-target='prose']")
+      texts = prose_spans.map(&:text)
+      expect(texts).to include("Status")
+      expect(texts).to include("OK")
+    end
+  end
+
   describe "sections mode — plain-text body" do
     subject(:node) do
       render_inline(described_class.new(payload: {
@@ -58,6 +81,35 @@ RSpec.describe Pito::Event::SystemComponent do
       span = wrapper.css("span[data-pito--typewriter-target='body']").first
       expect(span).not_to be_nil
       expect(span.text).to include("Sections body text")
+    end
+
+    it "tags section header as a prose target" do
+      header = node.css("[data-pito--typewriter-target='prose']").first
+      expect(header).not_to be_nil
+    end
+  end
+
+  describe "sections mode — section rows tagged as prose targets" do
+    subject(:node) do
+      render_inline(described_class.new(payload: {
+        body: "Help",
+        sections: [ {
+          title: "Navigation",
+          rows: [ { key: "ctrl+l", value: "focus input" } ]
+        } ]
+      }))
+    end
+
+    it "tags section row key span as prose target" do
+      key_span = node.css("span[data-pito--typewriter-target='prose']").first
+      expect(key_span).not_to be_nil
+      expect(key_span.text).to eq("ctrl+l")
+    end
+
+    it "tags section row value span as prose target" do
+      value_span = node.css("span[data-pito--typewriter-target='prose']").last
+      expect(value_span).not_to be_nil
+      expect(value_span.text).to eq("focus input")
     end
   end
 
