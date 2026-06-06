@@ -155,13 +155,13 @@ No production data exists → destructive migrations are free.
 
 ## P7 — IGDB sync repair + verification (+ sync-on-add)
 
-- [ ] T7.1 Make `SyncGame#call` run end-to-end on the reconciled schema. complexity: [high]
-- [ ] T7.2 `GameMapper.map_game`: populate `platforms[]`. complexity: [low]
-- [ ] T7.3 Already-in-Library resolver (find by `igdb_id` → resync; else create + sync). complexity: [high]
-- [ ] T7.4 `GameIgdbSync`: fix `resyncing`; ensure cover-art + Voyage chain. complexity: [low]
-- [ ] T7.5 WebMock specs: Client, SyncGame, GameIgdbSync. complexity: [low]
-- [ ] T7.6 `bundle exec rspec` + `bin/rubocop` green. complexity: [manual]
-- [ ] T7.7 Commit: `Repair IGDB sync end-to-end + specs`. complexity: [manual]
+- [x] T7.1 Make `SyncGame#call` run end-to-end on the reconciled schema. complexity: [high]
+- [x] T7.2 `GameMapper.map_game`: populate `platforms[]`. complexity: [low]
+- [x] T7.3 Already-in-Library resolver (find by `igdb_id` → resync; else create + sync). complexity: [high]
+- [x] T7.4 `GameIgdbSync`: fix `resyncing`; ensure cover-art + Voyage chain. complexity: [low]
+- [x] T7.5 WebMock specs: Client, SyncGame, GameIgdbSync. complexity: [low]
+- [x] T7.6 `bundle exec rspec` + `bin/rubocop` green. complexity: [manual]
+- [x] T7.7 Commit: `Repair IGDB sync end-to-end + specs`. complexity: [manual]
 
 ## P8 — Multi-field game embedding + channel embedding + diff-gated reindex
 
