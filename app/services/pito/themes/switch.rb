@@ -70,7 +70,7 @@ module Pito
       # Preview-vs-apply rule:
       #   - Only the Turbo Stream set-theme action fires (recolors the page).
       #   - AppSetting.theme is NOT written.
-      #   - The caller must run `/theme apply <name>` or `/theme reset` to make it permanent.
+      #   - The caller must run `/themes apply <name>` or `/themes reset` to make it permanent.
       #
       # @param definition [Pito::Themes::Definition]
       # @param i18n_key [String] override the i18n key (callers may use their own namespace)
@@ -87,8 +87,8 @@ module Pito
                 {
                   name:  definition.label,
                   slug:  definition.slug,
-                  apply: "/theme apply #{definition.slug}",
-                  reset: "/theme reset"
+                  apply: "/themes apply #{definition.slug}",
+                  reset: "/themes reset"
                 }
               )
             }

@@ -120,7 +120,7 @@ module Pito
 
       # ── Theme vocabularies ───────────────────────────────────────────────────
 
-      # Subcommand keywords for `/theme`, with vocabulary synonyms providing the
+      # Subcommand keywords for `/themes`, with vocabulary synonyms providing the
       # production-correct alias surface.
       #
       # WHY vocabulary synonyms (not Spec.aliases)?

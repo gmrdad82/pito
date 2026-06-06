@@ -100,7 +100,7 @@ module Pito
           end
         end
 
-        # `/theme --help` — usage + grouped theme list.
+        # `/themes --help` — usage + grouped theme list.
         def show_help
           grouped = Pito::Themes::Registry.grouped
 

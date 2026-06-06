@@ -259,7 +259,7 @@ module Pito
 
       # Broadcast a custom `set-theme` Turbo Stream action to "pito:global" so that
       # every open browser tab recolors immediately when a theme is applied or
-      # previewed via the `/theme` command. The action reads the `theme` attribute
+      # previewed via the `/themes` command. The action reads the `theme` attribute
       # from the stream element and sets `document.documentElement.dataset.theme`.
       #
       # apply persists THEN broadcasts; preview broadcasts only; reset persists
