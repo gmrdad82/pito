@@ -5,15 +5,55 @@ module Pito
     # Shared DSL mixed into the singleton class of each Handler base class
     # (Pito::Slash::Handler, Pito::Chat::Handler, Pito::Hashtag::Handler).
     #
-    # Usage inside a handler subclass:
+    # PURPOSE
+    #   Provides the `grammar do … end` class-level DSL that lets handler
+    #   authors declare slot definitions, aliases, auth requirements, and
+    #   description keys without writing raw Pito::Grammar::Spec constructors.
     #
+    # USAGE
     #   grammar do
-    #     enum   :status, source: :release_status, optional: true
-    #     aliases :my_alias
-    #     auth   :authenticated_only
+    #     literal :provider, source: :config_providers
+    #     enum    :state,    source: :on_off,  optional: true, when: { provider: %w[sound fx] }
+    #     kv      :cfg,      source: :config_keys, optional: true, repeatable: true,
+    #                        when: { provider: %w[google voyage igdb webhook] }
+    #     aliases :cfg, :configuration
+    #     auth    :authenticated_only
+    #     description_key "pito.grammar.slash.config"
     #   end
     #
-    # Then call `grammar_spec` to retrieve a Pito::Grammar::Spec (or nil).
+    # SLOT DECLARATIONS (produce Pito::Grammar::Slot objects)
+    #   literal(name, source:, optional:, repeatable:, synonyms:)
+    #     — exact-match slot; value must be a member of the named vocabulary.
+    #       Also used as a sentinel to gate conditional slots via `when:`.
+    #   enum(name, source:, optional:, repeatable:, introducer:, when:)
+    #     — vocabulary-backed slot; resolved through Vocabulary#resolve.
+    #       `introducer:` — a connective symbol (:for) that must precede the value.
+    #       `when:` — Hash condition; slot is eligible only when a prior slot's
+    #                 resolved value is in the allowed list.
+    #   kv(name, source:, optional:, repeatable:, when:)
+    #     — key=value / key:value slot; key matched against the named vocabulary.
+    #   free(name, optional:)
+    #     — free-text slot; slurps remaining tokens as a single string.
+    #   connective(name)
+    #     — reserved connector word slot (rarely used directly).
+    #
+    # OTHER DSL METHODS
+    #   aliases(*names)     — register extra names for this command in the registry
+    #   auth(value)         — :any | :authenticated_only | :unauthenticated_only
+    #   description_key(key)— I18n key for the command's help blurb
+    #
+    # SPEC CONSTRUCTION  (grammar_spec -> Pito::Grammar::Spec | nil)
+    #   When a grammar block was declared AND the handler defines a command name:
+    #     → full Spec with all declared slots, aliases, auth, and description_key.
+    #   When no grammar block was declared:
+    #     → slash handlers that define both verb AND description_key get a bare Spec
+    #       (slots: []) so they still appear in the autocomplete menu.
+    #     → chat/hashtag handlers with nothing declared → nil.
+    #   When the handler returns nil from verb/handle → nil (abstract base classes).
+    #
+    # INHERITANCE SAFETY
+    #   reset_grammar_ivars! is called from each base class's `inherited` hook so
+    #   the parent's grammar declaration is never accidentally inherited by a subclass.
     module HandlerDsl
       # Small builder object used inside `grammar do ... end` blocks.
       class Builder

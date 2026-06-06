@@ -1,7 +1,14 @@
 # frozen_string_literal: true
 
-# DEMO — Proves the Refine result type round-trips.
-# Replace with proper routing when real refinement-capable handlers exist.
+# Demonstration handler for the `Refine` result type.
+#
+# **DEMO** — Proves that `Pito::Chat::Result::Refine` round-trips through the
+# dispatcher and job pipeline.  It does NOT register a verb (`self.verb` is
+# intentionally absent) and is invoked directly by the dispatcher's
+# `:refinement` branch when the current conversation has an open turn.
+#
+# Replace this handler with proper refinement-capable handlers once the
+# domain model for incremental turn refinement is implemented.
 module Pito
   module Chat
     module Handlers

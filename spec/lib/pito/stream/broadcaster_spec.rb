@@ -54,6 +54,85 @@ RSpec.describe Pito::Stream::Broadcaster do
     end
   end
 
+  describe "#replace_event" do
+    it "broadcasts a Turbo Stream replace targeting event_<id>" do
+      event = broadcaster.emit(turn:, kind: :echo, payload: { text: "/help" })
+
+      expect { broadcaster.replace_event(event) }
+        .to have_broadcasted_to("pito:conversation:#{conversation.uuid}").with { |msg|
+          html = broadcast_html(msg)
+          expect(html).to include('action="replace"')
+          expect(html).to include(%(target="event_#{event.id}"))
+        }
+    end
+
+    it "returns the event" do
+      event = broadcaster.emit(turn:, kind: :echo, payload: { text: "/help" })
+      result = broadcaster.replace_event(event)
+      expect(result).to eq(event)
+    end
+  end
+
+  describe "#broadcast_auth_update" do
+    before do
+      allow(Channel).to receive(:order).with(:handle).and_return([])
+      allow(Notification).to receive_message_chain(:unread, :count).and_return(0)
+    end
+
+    it "broadcasts to the conversation stream" do
+      expect {
+        broadcaster.broadcast_auth_update(authenticated: true)
+      }.to have_broadcasted_to("pito:conversation:#{conversation.uuid}")
+    end
+
+    it "broadcasts a replace for pito-auth-gate" do
+      expect {
+        broadcaster.broadcast_auth_update(authenticated: true)
+      }.to have_broadcasted_to("pito:conversation:#{conversation.uuid}").with { |msg|
+        html = broadcast_html(msg)
+        expect(html).to include("pito-auth-gate")
+        expect(html).to include('data-authenticated="true"')
+      }
+    end
+
+    it "broadcasts a replace for pito-chatbox" do
+      expect {
+        broadcaster.broadcast_auth_update(authenticated: false)
+      }.to have_broadcasted_to("pito:conversation:#{conversation.uuid}").with { |msg|
+        html = broadcast_html(msg)
+        expect(html).to include("pito-chatbox")
+      }
+    end
+
+    it "broadcasts a replace for pito-mini-status" do
+      expect {
+        broadcaster.broadcast_auth_update(authenticated: true)
+      }.to have_broadcasted_to("pito:conversation:#{conversation.uuid}").with { |msg|
+        html = broadcast_html(msg)
+        expect(html).to include("pito-mini-status")
+      }
+    end
+  end
+
+  describe "#broadcast_settings_update" do
+    it "broadcasts a replace for pito-settings to the conversation stream" do
+      allow(AppSetting).to receive(:sound_enabled?).and_return(true)
+      allow(AppSetting).to receive(:fx_enabled?).and_return(false)
+      allow(AppSetting).to receive(:expand_all?).and_return(true)
+
+      expect {
+        broadcaster.broadcast_settings_update
+      }.to have_broadcasted_to("pito:conversation:#{conversation.uuid}").with { |msg|
+        html = broadcast_html(msg)
+        expect(html).to include('action="replace"')
+        expect(html).to include("pito-settings")
+        expect(html).to include('data-sound="true"')
+        expect(html).to include('data-fx="false"')
+        expect(html).to include('data-expand-all="true"')
+      }
+    end
+  end
+
   describe "#broadcast_event turn grouping" do
     it "wraps an echo in a #turn_<id> container appended to the scrollback" do
       echo = conversation.events.create!(turn:, position: 1, kind: :echo, payload: { text: "/help" })

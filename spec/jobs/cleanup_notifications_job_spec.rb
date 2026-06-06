@@ -49,5 +49,25 @@ RSpec.describe CleanupNotificationsJob do
 
       expect { job.perform }.not_to(change { Notification.count })
     end
+
+    it "deletes notifications read EXACTLY at the 7-day cutoff" do
+      # read_at: exactly 7.days.ago — on the boundary, so the inclusive
+      # `..cutoff` range captures it and it IS deleted.
+      exactly_7 = create(:notification, read_at: 7.days.ago)
+      job.perform
+      expect(Notification.exists?(exactly_7.id)).to be false
+    end
+
+    it "keeps notifications read 1 second inside the 7-day window" do
+      just_inside = create(:notification, read_at: 7.days.ago + 1.second)
+      job.perform
+      expect(Notification.exists?(just_inside.id)).to be true
+    end
+
+    it "logs the deleted count" do
+      expect(Rails.logger).to receive(:info)
+        .with(/CleanupNotificationsJob: deleted 2 read notifications/)
+      job.perform
+    end
   end
 end

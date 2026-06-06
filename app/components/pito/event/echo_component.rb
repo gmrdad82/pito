@@ -2,6 +2,18 @@
 
 module Pito
   module Event
+    # Renders the user's own message echoed back into the conversation stream.
+    #
+    # Payload keys:
+    #   text:             [String]  — the raw input text to display (required)
+    #   authenticated:    [Boolean] — whether the user was authenticated when the
+    #                                 message was sent (defaults to true)
+    #   triggers_logout:  [Boolean] — true when this echo is the final event
+    #                                 before a logout choreography fires; the
+    #                                 template wires the `pito--logout` controller
+    #
+    # Rendered inside a `Pito::Segment` with a purple accent bar and an
+    # elevated background.  The meta line shows the formatted timestamp.
     class EchoComponent < ViewComponent::Base
       # @param payload [Hash] event payload with `{ text: }`.
       # @param event [Event, nil] the persisted event — used for timestamp.

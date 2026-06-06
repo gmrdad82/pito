@@ -368,6 +368,64 @@ RSpec.describe Pito::Grammar::Normalizer do
     end
   end
 
+  # ── Repeatable enum accumulation ──────────────────────────────────────────
+
+  describe "repeatable enum accumulation" do
+    it "collects all matching genre tokens into an Array in order" do
+      match = described_class.call(lex("list racing rpg shooter"), namespace: :chat)
+      expect(match.values[:genre]).to eq([ "Racing", "RPG", "Shooter" ])
+    end
+
+    it "genre and status can coexist — each fills its own slot" do
+      match = described_class.call(lex("list upcoming rpg racing"), namespace: :chat)
+      expect(match.values[:status]).to eq("upcoming")
+      expect(match.values[:genre]).to eq([ "RPG", "Racing" ])
+    end
+
+    it "a single repeatable value is still stored as an Array" do
+      match = described_class.call(lex("list rpg"), namespace: :chat)
+      expect(match.values[:genre]).to eq([ "RPG" ])
+      expect(match.values[:genre]).to be_an(Array)
+    end
+  end
+
+  # ── Filler-word stripping (deep) ──────────────────────────────────────────
+
+  describe "filler-word stripping" do
+    it "strips multiple consecutive global filler words" do
+      match = described_class.call(lex("list the a an games upcoming rpg"), namespace: :chat)
+      expect(match.values[:status]).to eq("upcoming")
+      expect(match.values[:genre]).to eq([ "RPG" ])
+      expect(match.unknowns).to be_empty
+    end
+
+    it "strips genre-specific filler (metrics:count and ratio)" do
+      match = described_class.call(lex("add ctr count views ratio"), namespace: :hashtag)
+      expect(match.values[:metric]).to eq([ "ctr", "views" ])
+    end
+
+    it "filler words are not counted in confidence penalty" do
+      match = described_class.call(lex("list the upcoming rpg games"), namespace: :chat)
+      expect(match.confidence).to eq(1.0)
+    end
+  end
+
+  # ── Introducer-gated slots (deeper) ───────────────────────────────────────
+
+  describe "introducer-gated slot — platform only allowed after `for`" do
+    it "platform word without `for` goes to unknowns" do
+      match = described_class.call(lex("list switch"), namespace: :chat)
+      expect(match.values[:platform]).to be_nil
+      expect(match.unknowns).to include("switch")
+    end
+
+    it "platform word after `for` is resolved and not in unknowns" do
+      match = described_class.call(lex("list for switch"), namespace: :chat)
+      expect(match.values[:platform]).to eq("Nintendo Switch")
+      expect(match.unknowns).to be_empty
+    end
+  end
+
   # ── Conditional slots (when: / eligible?) ─────────────────────────────────
 
   describe "conditional slots — when: condition" do
@@ -435,6 +493,76 @@ RSpec.describe Pito::Grammar::Normalizer do
         # 'on' is in on_off vocab; but for google the :state slot is ineligible
         match = described_class.call(lex("toggle google on"), namespace: :slash)
         expect(match.values[:state]).to be_nil
+      end
+    end
+
+    describe "on/off synonyms resolve to canonical via eligible condition" do
+      it "resolves 'enable' (synonym of 'on') for a sound-like provider" do
+        match = described_class.call(lex("toggle sound enable"), namespace: :slash)
+        expect(match.values[:state]).to eq("on")
+      end
+
+      it "resolves 'disable' (synonym of 'off') for fx provider" do
+        match = described_class.call(lex("toggle fx disable"), namespace: :slash)
+        expect(match.values[:state]).to eq("off")
+      end
+    end
+  end
+
+  # ── Config-like slash spec: sound→on/off, google→kv ──────────────────────
+
+  describe "config-like spec with conditional slots" do
+    before do
+      Pito::Grammar::Registry.register_spec(
+        Pito::Grammar::Spec.new(
+          namespace: :slash,
+          name: :config,
+          slots: [
+            Pito::Grammar::Slot.new(name: :provider, kind: :literal, source: :config_providers),
+            Pito::Grammar::Slot.new(name: :state, kind: :enum, source: :on_off,
+                                    optional: true,
+                                    condition: { provider: %w[sound fx] }),
+            Pito::Grammar::Slot.new(name: :setting, kind: :kv, source: :config_keys,
+                                    optional: true, repeatable: true,
+                                    condition: { provider: %w[google voyage igdb webhook] })
+          ]
+        )
+      )
+    end
+
+    context "when provider is 'sound'" do
+      subject(:match) { described_class.call(lex("config sound on"), namespace: :slash) }
+
+      it "resolves provider to 'sound'" do
+        expect(match.values[:provider]).to eq("sound")
+      end
+
+      it "resolves state to 'on' (condition met)" do
+        expect(match.values[:state]).to eq("on")
+      end
+
+      it "has no unknowns" do
+        expect(match.unknowns).to be_empty
+      end
+    end
+
+    context "when provider is 'google' (credential provider)" do
+      subject(:match) { described_class.call(lex("config google"), namespace: :slash) }
+
+      it "resolves provider to 'google'" do
+        expect(match.values[:provider]).to eq("google")
+      end
+
+      it "does not fill :state (ineligible for credential provider)" do
+        expect(match.values[:state]).to be_nil
+      end
+    end
+
+    context "when provider is 'fx' and value is 'off'" do
+      subject(:match) { described_class.call(lex("config fx off"), namespace: :slash) }
+
+      it "resolves state to 'off'" do
+        expect(match.values[:state]).to eq("off")
       end
     end
   end

@@ -2,6 +2,35 @@
 
 module Pito
   module Grammar
+    # Singleton class-level store for grammar Specs and Vocabularies.
+    # Centralises registration so every consumer (normalizer, autocomplete engine,
+    # dispatcher help renderer) queries a single authoritative catalog.
+    #
+    # DUAL STORE
+    #   Specs     — keyed by [namespace, canonical_name] (nested Hash).
+    #               A second alias_index maps [namespace, alias_sym] → Spec for
+    #               O(1) lookup of commands by any of their registered names.
+    #   Vocabularies — keyed by name Symbol (flat Hash).
+    #
+    # KEY METHODS
+    #   register_spec(spec)              — add a Spec; also indexes all its aliases
+    #   specs_for_alias(namespace:, token:) — canonical-name lookup first, then alias
+    #   register_vocabulary(vocab)       — add a Vocabulary
+    #   vocabulary(name)                 — fetch a Vocabulary by name (Symbol or String)
+    #
+    # BOOT CONTRACT
+    #   register_all! resets all stores, then populates in order:
+    #     1. Pito::Grammar::Vocabularies.register_all!(self)  — static + dynamic vocabs
+    #     2. Pito::Grammar::Specs.register_all!(self)         — hand-authored Spec objects
+    #     3. register_handler_specs                           — auto-registers specs declared
+    #        via the `grammar do … end` DSL on handler classes, skipping any that already
+    #        exist (hand-authored specs take precedence).
+    #   Call register_all! once at app boot (config/initializers or to_prepare).
+    #   Do NOT call it from within parsers or normalizers.
+    #
+    # TEST ISOLATION
+    #   reset! nils all three stores.  Call it in after { } hooks so each spec
+    #   starts with a clean registry without polluting other tests.
     class Registry
       class << self
         # Register a Pito::Grammar::Spec, keyed by [namespace, canonical name].

@@ -2,8 +2,26 @@
 
 module Pito
   module Event
-    # System — default backend response. Surface-colored left bar, no background.
-    # First segment emitted per turn. Supports expandable overflow (e.g. /help).
+    # Renders a system-response event: surface-colored left bar, no background.
+    # This is the default segment type emitted by slash command handlers.
+    #
+    # Payload keys (all optional unless noted):
+    #   body:             [String]  — plain-text body rendered via typewriter reveal
+    #   html:             [Boolean] — when true, `body` is pre-formatted HTML (no typewriter)
+    #   text:             [String]  — fallback plain body when `body` is absent
+    #   message_key:      [String]  — I18n key; resolved with `message_args` when `body`/`text` absent
+    #   message_args:     [Hash]    — interpolation args for the I18n translation
+    #   expand_lines:     [Array]   — condensed lines shown before expanding
+    #   expand_detail:    [Array]   — additional lines shown after expanding
+    #   expand_more_count:[Integer] — shown in "N more…" hint
+    #   expand_label:     [String]  — overrides default expand hint text
+    #   collapse_label:   [String]  — overrides default collapse hint text
+    #   table_rows:       [Array]   — key/value rows rendered as a definition table
+    #   info_lines:       [Array]   — lines rendered with inline `code` highlighting
+    #   sections:         [Array]   — titled section blocks (title + rows)
+    #   suggestion:       [Object]  — segment suggestion payload forwarded to SegmentSuggestionComponent
+    #   handle:           [String]  — channel handle shown in the meta line
+    #   channel:          [String]  — channel name shown in the meta line
     class SystemComponent < ViewComponent::Base
       def initialize(payload: {}, event: nil)
         payload       = payload.with_indifferent_access if payload.respond_to?(:with_indifferent_access)

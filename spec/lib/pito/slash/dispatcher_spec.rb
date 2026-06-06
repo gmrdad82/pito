@@ -96,5 +96,60 @@ RSpec.describe Pito::Slash::Dispatcher do
         expect(keys).to include("client_id=", "client_secret=")
       end
     end
+
+    # ── Subcommand --help (args before the flag) ─────────────────────────────
+
+    context "with /config google --help (args before the flag)" do
+      before { Pito::Slash::Registry.register_all! }
+
+      it "intercepts --help and returns Ok" do
+        result = described_class.call(input: "/config google --help", conversation:)
+        expect(result).to be_a(Pito::Slash::Result::Ok)
+      end
+
+      it "returns a system event" do
+        result = described_class.call(input: "/config google --help", conversation:)
+        expect(result.events.first[:kind]).to eq("system")
+      end
+    end
+
+    # ── -h shorthand (explicit coverage) ────────────────────────────────────
+
+    it "intercepts -h shorthand for a registered verb" do
+      result = described_class.call(input: "/ping -h", conversation:)
+      expect(result).to be_a(Pito::Slash::Result::Ok)
+    end
+
+    # ── --help mid-arg (flag appears between args) ───────────────────────────
+
+    it "intercepts --help even when it appears mid-input (between args)" do
+      # e.g. "/ping --help extra" — the regex matches \s--help anywhere
+      result = described_class.call(input: "/ping --help extra", conversation:)
+      expect(result).to be_a(Pito::Slash::Result::Ok)
+    end
+
+    # ── Unknown verb with --help (must not crash) ────────────────────────────
+
+    it "intercepts --help for a completely unknown verb without crashing" do
+      result = described_class.call(input: "/doesnotexist --help", conversation:)
+      # Expected: Ok (help renderer handles unknown verbs gracefully)
+      expect(result).to be_a(Pito::Slash::Result::Ok)
+    end
+
+    # ── Case sensitivity — --HELP and -H are NOT intercepted ────────────────
+    #
+    # The regex is /\s--help\b|\s-h\b/ which is case-sensitive.
+    # --HELP / -H are therefore treated as regular arguments, not help flags.
+
+    it "does NOT intercept --HELP (uppercase) — handler runs normally" do
+      # /ping --HELP → not intercepted → executes the ping handler → returns "pong"
+      result = described_class.call(input: "/ping --HELP", conversation:)
+      expect(result.events.first[:payload][:text]).to eq("pong")
+    end
+
+    it "does NOT intercept -H (uppercase) — handler runs normally" do
+      result = described_class.call(input: "/ping -H", conversation:)
+      expect(result.events.first[:payload][:text]).to eq("pong")
+    end
   end
 end

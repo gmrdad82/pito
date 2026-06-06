@@ -468,6 +468,99 @@ RSpec.describe Pito::Autocomplete::Engine, type: :service do
     end
   end
 
+  # ── GHOST — cursor position variants ─────────────────────────────────────────
+
+  describe "ghost text — cursor position variants" do
+    context "cursor at end of a partial word" do
+      it "completes 'upc' at end-of-input → 'oming'" do
+        result = call(input: "list upc", cursor: 8, authenticated: true)
+        expect(result[:ghost][:complete_current]).to eq("oming")
+      end
+    end
+
+    context "cursor at end of a fully-typed word (no partial suffix)" do
+      it "returns empty complete_current for 'list upcoming'" do
+        result = call(input: "list upcoming", cursor: 13, authenticated: true)
+        expect(result[:ghost][:complete_current]).to eq("")
+      end
+    end
+
+    context "cursor mid-word (user placed cursor inside a token)" do
+      # When cursor is at position 6 in "list upcoming" (after "upc" but before "oming"),
+      # the engine sees input[0..5] = "list u" — completes "pcoming"
+      it "completes using only text before cursor" do
+        result = call(input: "list upcoming", cursor: 6, authenticated: true)
+        expect(result[:ghost][:complete_current]).to eq("pcoming")
+      end
+    end
+
+    context "no partial word typed (cursor at trailing space)" do
+      it "returns empty complete_current and non-empty next_hint" do
+        result = call(input: "list ", cursor: 5, authenticated: true)
+        expect(result[:ghost][:complete_current]).to eq("")
+        expect(result[:ghost][:next_hint]).not_to be_empty
+      end
+    end
+
+    context "no match for the partial" do
+      it "returns empty ghost when partial matches nothing" do
+        result = call(input: "list zzz", cursor: 8, authenticated: true)
+        expect(result[:ghost][:complete_current]).to eq("")
+        expect(result[:ghost][:next_hint]).to eq("")
+      end
+    end
+  end
+
+  # ── GHOST — provider-name menu items in slash arg stage ──────────────────
+
+  describe "slash mode — provider prefix menu_items (/config goo → google)" do
+    # In slash arg-stage the ghost text comes from the debounced server fetch
+    # (not locally computed), so Engine#call returns ghost: "" — the JS controller
+    # overlays the ghost after receiving the fetch response.
+    # The engine does however produce menu_items for the prefix; that is what we
+    # assert here.
+
+    it "suggests 'google' via menu_items for '/config goo'" do
+      result = call(input: "/config goo", cursor: 11, authenticated: true)
+      labels = result[:menu_items].map { |i| i[:label] }
+      expect(labels).to include("google")
+    end
+
+    it "does not include 'voyage' for '/config goo'" do
+      result = call(input: "/config goo", cursor: 11, authenticated: true)
+      labels = result[:menu_items].map { |i| i[:label] }
+      expect(labels).not_to include("voyage")
+    end
+
+    it "suggests 'google' via menu_items for '/config g'" do
+      result = call(input: "/config g", cursor: 9, authenticated: true)
+      labels = result[:menu_items].map { |i| i[:label] }
+      expect(labels).to include("google")
+    end
+
+    it "slash arg-stage ghost is empty (ghost is server-side in arg stage)" do
+      # Engine does not compute ghost locally for slash arg-stage; the debounced
+      # /autocomplete fetch fills this after the response arrives.
+      result = call(input: "/config goo", cursor: 11, authenticated: true)
+      expect(result[:ghost][:complete_current]).to eq("")
+    end
+
+    it "insert for the provider ends with a space" do
+      result = call(input: "/config goo", cursor: 11, authenticated: true)
+      item = result[:menu_items].find { |i| i[:label] == "google" }
+      expect(item[:insert]).to end_with(" ")
+    end
+  end
+
+  # ── GHOST — kv-key ghost from Engine (P57, already covered above + cursor tests) ──
+
+  describe "slash mode — kv-key ghost (/config igdb client_s → ecret)" do
+    it "ghost complete_current is 'ecret' for '/config igdb client_s'" do
+      result = call(input: "/config igdb client_s", cursor: 21, authenticated: true)
+      expect(result[:ghost][:complete_current]).to eq("ecret")
+    end
+  end
+
   # ── P57 — Partial kv-key ghost completion ─────────────────────────────────────
 
   describe "slash mode — P57 partial kv-key ghost completion" do

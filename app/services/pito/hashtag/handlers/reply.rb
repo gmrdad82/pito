@@ -3,6 +3,18 @@
 module Pito
   module Hashtag
     module Handlers
+      # Handler for `#<confirmation-handle> [ops …]` hashtag input.
+      #
+      # Resolves the confirmation handle against `conversation.events` (matching on
+      # `payload->>'confirmation_handle'`).  If no event is found, returns
+      # `Result::Error` with key `pito.hashtag.reply.not_found`.
+      #
+      # When found, body tokens (the words after the handle) are normalised into
+      # structured segment-edit operations via `Pito::Grammar::Normalizer.call_ops`
+      # (`:hashtag` namespace) and included in the `ops:` payload field.
+      #
+      # Returns `Result::Ok` with `kind: :system` and the ops array (may be empty
+      # when the body is blank or unrecognised by the grammar).
       class Reply < Pito::Hashtag::Handler
         self.handle = :reply
 

@@ -4,6 +4,32 @@ require_relative "../grammar/handler_dsl"
 
 module Pito
   module Chat
+    # Base class for all chat-input handlers.
+    #
+    # ## Contract
+    #
+    # Every concrete subclass MUST:
+    # - Set `self.verb = :symbol` — the verb word that identifies this handler
+    #   (e.g. `:list`, `:show`).
+    # - Set `self.description_key = "pito.chat.<verb>.descriptions.<verb>"` — I18n key.
+    # - Implement `#call` → returning one of:
+    #   - `Pito::Chat::Result::Ok`     — command handled, events ready.
+    #   - `Pito::Chat::Result::Error`  — handler-level error.
+    #   - `Pito::Chat::Result::Refine` — input is a refinement of an open turn.
+    #
+    # Unlike slash handlers, chat handlers do NOT receive an `authenticated` flag —
+    # they are only reachable after the dispatcher confirms the message is not a
+    # slash command and is not refinement input for an open turn.
+    #
+    # ## Instance accessors
+    #
+    # - `message` (`Pito::Chat::Message`) — parsed message (verb, body_tokens, raw).
+    # - `conversation` (`Conversation`) — the active conversation record.
+    #
+    # ## `inherited` reset semantics
+    #
+    # Same as `Pito::Slash::Handler`: `@verb`, `@description_key`, and grammar ivars
+    # are reset on every subclass to prevent cross-handler bleed.
     class Handler
       extend Pito::Grammar::HandlerDsl
 

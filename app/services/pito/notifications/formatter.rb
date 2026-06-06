@@ -1,6 +1,11 @@
 # Phase 16 §2 — Notification formatter.
 #
-# Translates a `Notification` row into a per-channel payload. Four
+# Translates a `Notification` row into a per-channel payload. The
+# module-level `.for(kind)` factory (via `template_for`) resolves the
+# per-event-type template class from `Templates::REGISTRY[event_type]`
+# and delegates `title`/`body`/`url` production to it. The three
+# channel-level formatters then consume those strings and apply
+# channel-specific escaping, link rewriting, and truncation. Three
 # concrete formatters live under this namespace:
 #
 # - `Pito::Notifications::Formatter::Discord` — JSON for the Discord

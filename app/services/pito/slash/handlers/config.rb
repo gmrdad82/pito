@@ -3,17 +3,30 @@
 module Pito
   module Slash
     module Handlers
-      # /config <provider> [key=value ...]
+      # Handler for `/config <provider> [key=value …]`.
       #
-      # Getter (no kwargs):
-      #   /config google  →  shows credential status (present/missing)
+      # Providers fall into two categories:
       #
-      # Setter (one or more kwargs):
-      #   /config google client_id=xxx client_secret=xxx redirect_uri=xxx
+      # **Credential providers** (`google`, `voyage`, `igdb`, `webhook`):
+      # - **Getter** (no kwargs): `/config google` → status table (OK/MISSING per key).
+      # - **Setter** (≥1 kwarg): `/config google client_id=x` → writes via `AppSetting` writers
+      #   and invalidates the `Pito::Credentials` cache.
+      # - Unknown kwargs return `Result::Error` with key `pito.slash.config.errors.unknown_keys`.
       #
-      # Any subset of kwargs is accepted for the setter (min 1).
-      # Sensitive values (client_id, client_secret) are masked to *** in
-      # the echo by ChatController before this handler runs.
+      # **Toggle providers** (`sound`, `fx`):
+      # - **Getter** (no arg): `/config sound` → current on/off state.
+      # - **Setter**: `/config sound on|off` (synonyms: true/false/enable/disable/enabled/disabled)
+      #   → writes via `AppSetting` and broadcasts a settings-update cable event.
+      # - Invalid toggle value → `Result::Error` with key `pito.slash.config.errors.invalid_toggle_value`.
+      #
+      # Bare `/config` (no provider) → general overview table of all providers.
+      # Unknown provider → `Result::Error` with key `pito.slash.config.errors.unknown_provider`.
+      #
+      # Sensitive keys (`client_id`, `client_secret`, `api_key`) are masked to `***`
+      # in the echo by `ChatController#mask_config_credentials` *before* this handler runs.
+      #
+      # `show_help` is overridden: `/config --help` renders the general provider table;
+      # `/config google --help` renders Google-specific key table with `/connect` suggestion.
       class Config < Pito::Slash::Handler
         self.verb = :config
         self.description_key = "pito.slash.config.descriptions.config"

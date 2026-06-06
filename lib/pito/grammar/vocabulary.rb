@@ -4,6 +4,38 @@ require "set"
 
 module Pito
   module Grammar
+    # Immutable value object representing a named set of allowed vocabulary members.
+    # Used by the normalizer and autocomplete engine to validate and canonicalize
+    # token values.
+    #
+    # CONSTRUCTION
+    #   Vocabulary.define(name:, canonical: [], synonyms: {}, fillers: [],
+    #                     dynamic: false, resolver: nil) -> Vocabulary
+    #   All attributes are frozen on construction.  Do not subclass; use .define.
+    #
+    # RESOLUTION ORDER  (Vocabulary#resolve(raw) -> String | nil)
+    #   1. Canonical match — case-insensitive comparison against the canonical array.
+    #      Returns the canonical form (preserving its original casing).
+    #   2. Synonym match   — looks up raw.downcase in the synonyms hash.
+    #      Returns the canonical form the synonym maps to.
+    #   3. Dynamic resolver — for dynamic: true vocabs, calls resolver.call(nil)
+    #      to obtain the member list, then applies step-1 logic on those results.
+    #   4. nil              — token is not a member of this vocabulary.
+    #
+    # MEMBERS
+    #   members(context:) — for static vocabs, returns the canonical array.
+    #     For dynamic vocabs, calls resolver.call(context); context is passed
+    #     through unchanged (e.g. the current user or conversation record).
+    #
+    # FILLER WORDS
+    #   filler?(raw) — returns true when raw.downcase is in the fillers set.
+    #   Filler words are silently dropped by the normalizer during slot walking.
+    #   They are stored in a frozen Set (O(1) lookup).
+    #
+    # SERIALIZATION
+    #   to_h — produces a Hash suitable for JSON serialization into the frontend
+    #     catalog.  Dynamic vocabs omit the canonical array (resolver output is
+    #     not static and must be fetched at runtime).
     class Vocabulary
       attr_reader :name, :canonical, :synonyms, :fillers, :resolver
 

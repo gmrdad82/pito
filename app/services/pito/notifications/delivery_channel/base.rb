@@ -9,11 +9,71 @@
 # (`Pito::Notifications::DeliveryChannel::Base`) so the canonical
 # constant `NotificationDeliveryChannel` can be the AR model.
 #
-# Subclasses implement `enabled?`, `webhook_url`, `delivered_at_column`,
-# `payload_for(notification)`, and `perform_post(url, payload)`. The
-# base owns retry-aware bookkeeping (stamping `*_delivered_at`,
-# recording `last_error`, bumping `retry_count`) and the
-# 2xx / 4xx / 5xx classification.
+# ── SUBCLASS CONTRACT ────────────────────────────────────────────────
+#
+# Required overrides — every concrete channel MUST implement all five:
+#
+#   enabled?(→ Boolean)
+#     Return false to opt out of delivery for this channel. The base
+#     `deliver` returns Result(status: :skipped, reason: :disabled)
+#     without building a payload or touching the row.
+#
+#   webhook_url(→ String | nil)
+#     Resolve the outbound URL. Convention: check the AR row first
+#     (`NotificationDeliveryChannel.<kind>&.webhook_url`), then fall
+#     back to the ENV var. Subclasses MUST also call
+#     `deliverable_url?(webhook_url)` inside `enabled?` to validate the
+#     host against the per-channel allowlist (security gate F3).
+#
+#   delivered_at_column(→ Symbol | nil)
+#     Column name stamped when delivery succeeds (e.g.
+#     `:discord_delivered_at`). The InApp channel returns `nil` because
+#     it overrides `deliver` entirely.
+#
+#   payload_for(notification → Hash)
+#     Build the JSON-serialisable payload hash for the outbound POST.
+#     Delegates to the channel-specific formatter.
+#
+#   perform_post(url String, payload Hash → Net::HTTPResponse)
+#     Execute the HTTP POST. Must return a response whose `#code` is a
+#     String-encoded integer. Network errors MUST propagate as
+#     exceptions (the base class catch-all records the failure and
+#     re-raises for Sidekiq retry).
+#
+# Optional override:
+#
+#   deliverable_url?(url → Boolean)
+#     Validates that `url` points at a trusted host for this channel.
+#     The default implementation returns `false` — every concrete
+#     channel must override this with an explicit host allowlist or all
+#     deliveries will be silently skipped.
+#
+# ── HTTP RESULT SEMANTICS ─────────────────────────────────────────────
+#
+#   2xx     → success: stamps the `delivered_at_column`, clears
+#             `last_error`, returns Result(status: :ok).
+#
+#   429     → transient: calls `record_failure!` then raises
+#             `TransientFailure` so Sidekiq retries. Callers (jobs)
+#             should configure a Retry-After-aware back-off.
+#
+#   5xx     → transient: same as 429 — record + raise.
+#
+#   4xx (not 429) → terminal: calls `record_failure!` and returns
+#             Result(status: :failed, reason: :terminal). Sidekiq does
+#             NOT retry; the operator must fix the webhook credential
+#             or event payload manually.
+#
+# ── BOOKKEEPING HELPERS ───────────────────────────────────────────────
+#
+#   stamp_delivered!(notification)
+#     Sets `delivered_at_column = Time.current` and clears `last_error`
+#     in a single `update!`. Called only on 2xx.
+#
+#   record_failure!(notification, message)
+#     Writes `last_error` (capped at 1 000 chars) and increments
+#     `retry_count`. Called before every raise or terminal return so
+#     the row always reflects the most-recent failure reason.
 #
 # Phase 26 refactor: subclasses now resolve `webhook_url` via the AR
 # model first (`NotificationDeliveryChannel.send(kind)`) and fall back

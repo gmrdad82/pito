@@ -2,6 +2,18 @@
 
 module Pito
   module Event
+    # Renders a command-error event: red accent bar, human-readable message,
+    # and an optional expandable detail block.
+    #
+    # Payload shapes accepted:
+    #   { text: "friendly message", detail: "raw error (optional)" }
+    #   { message_key: "pito.some.key", message_args: {} }  — resolved via I18n
+    #   { credentials: { client_id:, client_secret:, redirect_uri:, api_key: } }
+    #       — when present, renders a credential-status table (set / MISSING)
+    #
+    # The `detail` key enables the expand/collapse UI (`pito--expand` controller)
+    # so the user can reveal the raw backtrace or machine error without cluttering
+    # the default view.
     class ErrorComponent < ViewComponent::Base
       # Payload shapes accepted:
       #   { text: "friendly message", detail: "raw error (optional)" }

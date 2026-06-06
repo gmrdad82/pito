@@ -58,4 +58,45 @@ RSpec.describe Notification, type: :model do
       expect(read.unread?).to be false
     end
   end
+
+  describe "#mark_read!" do
+    it "sets read_at to the current time" do
+      n = create(:notification)
+      before = Time.current
+      n.mark_read!
+      expect(n.reload.read_at).to be >= before
+    end
+
+    it "persists the change" do
+      n = create(:notification)
+      n.mark_read!
+      expect(n.reload.read?).to be true
+    end
+
+    it "is idempotent (calling twice does not raise)" do
+      n = create(:notification)
+      n.mark_read!
+      expect { n.mark_read! }.not_to raise_error
+    end
+  end
+
+  describe "#mark_unread!" do
+    it "clears read_at" do
+      n = create(:notification, :read)
+      n.mark_unread!
+      expect(n.reload.read_at).to be_nil
+    end
+
+    it "makes #read? false" do
+      n = create(:notification, :read)
+      n.mark_unread!
+      expect(n.reload.read?).to be false
+    end
+
+    it "is idempotent (calling twice does not raise)" do
+      n = create(:notification)
+      n.mark_unread!
+      expect { n.mark_unread! }.not_to raise_error
+    end
+  end
 end

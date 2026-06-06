@@ -231,6 +231,100 @@ RSpec.describe Pito::Lex::Lexer do
         eof_tok = result.last
         expect(eof_tok.preceded_by_space).to be(false)
       end
+
+      # ── Whitespace edge cases ──────────────────────────────────────────────
+
+      it "multiple consecutive spaces count as one boundary (preceded_by_space still true)" do
+        # "fx   on" — three spaces between words should set preceded_by_space on "on"
+        result = tokens("fx   on")
+        fx_tok = result[0]
+        on_tok = result[1]
+        expect(fx_tok.preceded_by_space).to be(false)
+        expect(on_tok.preceded_by_space).to be(true)
+      end
+
+      it "a tab character sets preceded_by_space on the following token" do
+        result = tokens("fx\ton")
+        expect(result[0].preceded_by_space).to be(false) # fx
+        expect(result[1].preceded_by_space).to be(true)  # on (tab = whitespace)
+      end
+
+      it "NBSP (\u00A0) is NOT treated as whitespace by the lexer" do
+        # Ruby /\s/ does not match U+00A0 (NBSP) — the lexer emits :unknown for it.
+        # This is the documented actual behavior; callers that need to handle NBSP
+        # must normalize input before lexing.
+        nbsp = " "
+        result = tokens("fx#{nbsp}on")
+        # NBSP is emitted as :unknown, not consumed silently as whitespace
+        expect(result.map(&:type)).to include(:unknown)
+        # "on" is therefore NOT preceded_by_space (the :unknown was not whitespace)
+        on_tok = result.find { |t| t.type == :word && t.value == "on" }
+        expect(on_tok&.preceded_by_space).to be(false)
+      end
+
+      it "the last real token before :eof retains its preceded_by_space correctly (trailing space)" do
+        # "hi " — word then trailing space; :eof has false; word has false
+        result = tokens("hi ")
+        word_tok = result.find { |t| t.type == :word }
+        eof_tok  = result.last
+        expect(word_tok.preceded_by_space).to be(false)
+        expect(eof_tok.type).to eq(:eof)
+        expect(eof_tok.preceded_by_space).to be(false)
+      end
+
+      # ── Regression guard: two space-separated words stay TWO tokens ───────
+      #
+      # This guards against a past bug where "/config fx on" was tokenised such that
+      # "fx" and "on" were merged because preceded_by_space was lost.  The parser
+      # relies on preceded_by_space to treat them as separate arguments.
+
+      it "regression: '/config fx on' produces slash, word(config), word(fx), word(on), eof — NOT merged" do
+        result = tokens("/config fx on")
+        expect(result.map(&:type)).to eq(%i[slash word word word eof])
+        expect(result[2].value).to eq("fx")
+        expect(result[3].value).to eq("on")
+        expect(result[2].preceded_by_space).to be(true)
+        expect(result[3].preceded_by_space).to be(true)
+      end
+
+      it "regression: space-separated words produce distinct tokens (never merged)" do
+        result = tokens("hello world")
+        expect(result.map(&:type)).to eq(%i[word word eof])
+        expect(result[0].value).to eq("hello")
+        expect(result[1].value).to eq("world")
+      end
+    end
+
+    # ── Single-token guarantee for special inputs ──────────────────────────────
+
+    context "single-token guarantee" do
+      it "a URL with port stays a single :word token" do
+        result = tokens("http://localhost:3027/auth/callback")
+        expect(result.first.type).to eq(:word)
+        expect(result.map(&:type)).to eq(%i[word eof])
+      end
+
+      it "@handle-with-hyphen stays a single :at + :word pair (not split)" do
+        # "@x-y" → :at, :word("x-y") — the word reader includes hyphens
+        result = tokens("@x-y")
+        expect(result.map(&:type)).to eq(%i[at word eof])
+        expect(result[1].value).to eq("x-y")
+      end
+
+      it "dotted-id stays connected without spaces (a.b.c)" do
+        # "a.b.c" → word, dot, word, dot, word — all contiguous (no spaces)
+        result = tokens("a.b.c")
+        result.reject { |t| t.type == :eof }.each do |tok|
+          expect(tok.preceded_by_space).to be(false)
+        end
+      end
+
+      it "a quoted string with spaces is a single :string token" do
+        result = tokens('"hello world"')
+        expect(result.first.type).to eq(:string)
+        expect(result.first.value).to eq("hello world")
+        expect(result.map(&:type)).to eq(%i[string eof])
+      end
     end
   end
 end

@@ -2,6 +2,49 @@
 
 module Pito
   module Stream
+    # Broadcaster — per-conversation Turbo Stream gateway.
+    #
+    # Responsible for all cable writes that originate from a single conversation.
+    # Instantiated with one conversation and closed over it; never shared across
+    # requests.
+    #
+    # Cable stream identifiers
+    # ─────────────────────────
+    # Per-conversation:  "pito:conversation:<uuid>"
+    #   All instance-level methods write to this stream.  Subscribing clients are
+    #   the browser tabs currently viewing that conversation.
+    #
+    # Global:            "pito:global"
+    #   Class-level methods broadcast here.  Every open browser instance
+    #   subscribes, allowing cross-instance UI sync (unread count, sidebar rows,
+    #   settings) without a page reload.
+    #
+    # Turn grouping (append semantics)
+    # ──────────────────────────────────
+    # The echo event for a turn OPENS a `<div id="turn_<id>" class="pito-turn">`
+    # container appended to `#pito-scrollback`.  Every subsequent event in the
+    # same turn is appended INTO that container.  This keeps results visually
+    # grouped under their prompt even when async jobs finish out-of-order.
+    #
+    # Instance methods
+    # ─────────────────
+    # emit                — validate + create Event + broadcast_event in one step.
+    # broadcast_event     — broadcast an already-persisted Event (turn grouping).
+    # replace_event       — Turbo Stream *replace* targeting `event_<id>`.
+    # broadcast_auth_update   — replace mini-status, chatbox, and auth-gate after login.
+    # broadcast_settings_update — replace #pito-settings with current AppSetting flags.
+    # emit_thinking       — create + broadcast a thinking indicator for a turn.
+    # resolve_thinking    — mark thinking resolved, compute elapsed time, broadcast replace.
+    # complete_turn       — mark turn complete + append done-dispatch signal.
+    #
+    # Class methods (global stream)
+    # ──────────────────────────────
+    # broadcast_global_mini_status         — replace #pito-mini-status on pito:global.
+    # broadcast_global_conversation_row    — replace sidebar row on pito:global after rename.
+    # broadcast_global_settings_update     — replace #pito-settings on pito:global.
+    #
+    # All class-level methods rescue StandardError and log a warning rather than
+    # raising, so a cable failure never breaks the originating request.
     class Broadcaster
       def initialize(conversation:)
         @conversation = conversation

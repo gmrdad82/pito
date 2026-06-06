@@ -4,6 +4,49 @@ require_relative "../grammar/handler_dsl"
 
 module Pito
   module Slash
+    # Base class for all slash-command handlers.
+    #
+    # ## Contract
+    #
+    # Every concrete subclass MUST:
+    # - Set `self.verb = :symbol` — the command word (e.g. `:config`, `:help`).
+    # - Set `self.description_key = "pito.slash.<verb>.descriptions.<verb>"` — I18n key.
+    # - Implement `#call` → returning `Pito::Slash::Result::Ok` or `Pito::Slash::Result::Error`.
+    #
+    # ## Class-level DSL (via `Pito::Grammar::HandlerDsl`)
+    #
+    # ```ruby
+    # grammar do
+    #   literal :provider, source: :config_providers
+    #   enum    :state,    source: :on_off, optional: true, when: { provider: %w[sound fx] }
+    #   auth    :authenticated_only   # or :any
+    #   description_key "pito.grammar.slash.<verb>"
+    # end
+    # ```
+    #
+    # - `auth :authenticated_only` — callers gate the handler; the dispatcher
+    #   checks the grammar spec's `auth` field before calling `#call`.
+    # - `auth :any` — accessible without authentication (e.g. `/help`).
+    #
+    # ## Instance accessors (available in `#call`)
+    #
+    # - `invocation` (`Pito::Slash::Invocation`) — verb, args, kwargs, raw string.
+    # - `conversation` (`Conversation`) — the active conversation record.
+    # - `authenticated` (Boolean) — whether the request was authenticated.
+    #
+    # ## `--help` / `-h` intercept path
+    #
+    # The dispatcher intercepts `--help` / `-h` in the raw input *before* constructing
+    # the handler and delegates to `Pito::Slash::HelpRenderer`.  Handlers that also
+    # want to respond to provider-scoped help (e.g. `/config google --help`) should
+    # override `#show_help`.  The invariant: **`#call` is never invoked when the raw
+    # input contains `--help` or `-h`** — no side effects occur on help requests.
+    #
+    # ## `inherited` reset semantics
+    #
+    # `Handler.inherited` clears `@verb`, `@description_key`, and all grammar ivars on
+    # every subclass so that class-level DSL assignments in one handler never bleed into
+    # another, even when both inherit from the same base.
     class Handler
       extend Pito::Grammar::HandlerDsl
 

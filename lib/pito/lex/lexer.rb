@@ -1,9 +1,41 @@
 # frozen_string_literal: true
 
-# Pure function. No knowledge of slash or chat. Both Pito::Slash::Parser
-# and Pito::Chat::Parser consume this.
 module Pito
   module Lex
+    # Pure function — no knowledge of slash, hashtag, or chat grammar.
+    # Both Pito::Slash::Parser and the normalizer pipeline consume this.
+    #
+    # CONTRACT
+    #   self.call(string) -> Array<Pito::Lex::Token>
+    #   Always ends with exactly one :eof sentinel token.
+    #
+    # TOKEN TYPES EMITTED
+    #   :slash    — the "/" character
+    #   :colon    — the ":" character
+    #   :equals   — the "=" character
+    #   :comma    — the "," character
+    #   :at       — the "@" character (bare; handle fusion is done by downstream consumers)
+    #   :dot      — the "." character
+    #   :word     — a sequence of [a-zA-Z][a-zA-Z0-9_-]*
+    #               URL-slurp rule: when immediately followed by "://" the word is
+    #               extended to consume all characters up to the next whitespace,
+    #               keeping "http://host:port/path" as a single :word token so that
+    #               the port colon isn't mistaken for a kwarg separator.
+    #   :number   — a sequence of [0-9]+
+    #   :string   — a double-quoted literal with \" escape support;
+    #               the value field holds the unescaped content (quotes stripped)
+    #   :unknown  — any character not matched by the rules above
+    #   :eof      — sentinel; value is always ""; never has preceded_by_space=true
+    #
+    # WHITESPACE CONTRACT
+    #   Whitespace characters are consumed and DROPPED — they never appear as tokens.
+    #   Instead, the next non-whitespace token carries preceded_by_space: true.
+    #   Downstream parsers use this flag to detect argument boundaries without
+    #   needing to insert explicit separator tokens.
+    #   The :eof sentinel always has preceded_by_space: false (it is never a real token).
+    #
+    # @!attribute [r] @space_pending
+    #   Set true after consuming whitespace; cleared (and transferred to next token) on emit.
     class Lexer
       def self.call(string)
         new(string).tokenize
