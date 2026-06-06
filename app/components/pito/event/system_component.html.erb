@@ -1,76 +1,158 @@
 <%= render(Pito::Segment::Component.new(accent:, background:)) do %>
   <% if sections.any? %>
     <%# Sections mode: body + top hint visible when collapsed;
-        sections + bottom hint visible when expanded. %>
+        sections + bottom hint visible when expanded.
+        Full-content typewriter: outer div owns the controller so body,
+        expand_lines, section headers, and all kv leaf spans type in order. %>
     <div data-controller="pito--expand"
          data-pito--expand-expand-label-value="<%= expand_label %>"
          data-pito--expand-collapse-label-value="<%= collapse_label %>">
-      <%# Prose wrapper — typewriter controller covers body + expand_lines so
-          the whole prose region reveals together when expanded. Tables/hints
-          outside this wrapper always render instantly. %>
-      <% if body || expand_lines.any? %>
-        <% if html %>
+      <% if html %>
+        <%# html: true — no typewriter, render everything instantly %>
+        <% if body || expand_lines.any? %>
           <span class="text-fg"><%= raw(body) %></span>
           <% expand_lines.each do |line| %>
             <div class="text-fg"><%= line %></div>
           <% end %>
-        <% else %>
-          <div data-controller="pito--typewriter">
+        <% end %>
+        <div data-pito--expand-target="hint" class="mt-1">
+          <%= render(Pito::Keybinding::HintComponent.new(
+                shortcut:    "ctrl+|",
+                description: expand_label
+              )) %>
+        </div>
+        <div data-pito--expand-target="detail" class="hidden mt-1.5 border-t border-line-default pt-1.5">
+          <%= render(Pito::Keybinding::TableComponent.new(sections: sections)) %>
+        </div>
+        <div data-pito--expand-target="hintAfter" class="hidden mt-1.5 border-t border-line-faded pt-1.5">
+          <%= render(Pito::Keybinding::HintComponent.new(
+                shortcut:       "ctrl+|",
+                description:    expand_label,
+                description_data: { "pito--expand-target" => "hintLabel" }
+              )) %>
+        </div>
+      <% else %>
+        <%# Plain-text: typewriter controller covers the full content region %>
+        <div data-controller="pito--typewriter">
+          <% if body || expand_lines.any? %>
             <span class="text-fg" data-pito--typewriter-target="body"><%= body %></span>
             <% expand_lines.each do |line| %>
               <div class="text-fg" data-pito--typewriter-target="prose"><%= line %></div>
             <% end %>
+          <% end %>
+          <%# Top hint — chrome, renders instantly (no prose target) %>
+          <div data-pito--expand-target="hint" class="mt-1">
+            <%= render(Pito::Keybinding::HintComponent.new(
+                  shortcut:    "ctrl+|",
+                  description: expand_label
+                )) %>
           </div>
-        <% end %>
+          <%# Detail — section headers + kv rows tagged as prose targets so they
+              type in place inside their own grid/flex cells %>
+          <div data-pito--expand-target="detail" class="hidden mt-1.5 border-t border-line-default pt-1.5">
+            <div class="flex flex-col gap-3">
+              <% sections.each do |section| %>
+                <div class="flex flex-col gap-1">
+                  <div class="text-yellow font-bold mb-1" data-pito--typewriter-target="prose"><%= section[:title] %></div>
+                  <% Array(section[:rows]).each do |row| %>
+                    <div class="flex gap-4">
+                      <%= render(Pito::Table::KeyValueRowComponent.new(
+                            key_text:    row[:key],
+                            value_text:  row[:value],
+                            key_class:   "text-cyan whitespace-nowrap shrink-0 w-44",
+                            value_class: "text-fg-dim",
+                            key_data:    { "pito--typewriter-target" => "prose" },
+                            value_data:  { "pito--typewriter-target" => "prose" }
+                          )) %>
+                    </div>
+                  <% end %>
+                </div>
+              <% end %>
+            </div>
+          </div>
+          <%# Bottom hint — chrome, renders instantly %>
+          <div data-pito--expand-target="hintAfter" class="hidden mt-1.5 border-t border-line-faded pt-1.5">
+            <%= render(Pito::Keybinding::HintComponent.new(
+                  shortcut:       "ctrl+|",
+                  description:    expand_label,
+                  description_data: { "pito--expand-target" => "hintLabel" }
+                )) %>
+          </div>
+        </div>
       <% end %>
-      <%# Top hint — hidden when expanded %>
-      <div data-pito--expand-target="hint" class="mt-1">
-        <%= render(Pito::Keybinding::HintComponent.new(
-              shortcut:    "ctrl+|",
-              description: expand_label
-            )) %>
-      </div>
-      <%# Detail — hidden when collapsed %>
-      <div data-pito--expand-target="detail" class="hidden mt-1.5 border-t border-line-default pt-1.5">
-        <%= render(Pito::Keybinding::TableComponent.new(sections: sections)) %>
-      </div>
-      <%# Bottom hint — hidden when collapsed; description carries hintLabel for text swap. %>
-      <div data-pito--expand-target="hintAfter" class="hidden mt-1.5 border-t border-line-faded pt-1.5">
-        <%= render(Pito::Keybinding::HintComponent.new(
-              shortcut:       "ctrl+|",
-              description:    expand_label,
-              description_data: { "pito--expand-target" => "hintLabel" }
-            )) %>
-      </div>
     </div>
   <% else %>
-    <%= render(Pito::Event::ExpandableBodyComponent.new(
-          body:              body,
-          html:              html,
-          expand_lines:      expand_lines,
-          expand_detail:     expand_detail,
-          expand_more_count: expand_more_count,
-          expand_label:      expand_label,
-          collapse_label:    collapse_label,
-          typewriter:        true
-        )) %>
-  <% end %>
-  <% if table_rows.any? %>
-    <div class="grid grid-cols-[max-content_1fr] gap-x-2 gap-y-1<%= body ? ' mt-2 border-t border-line-default pt-2' : '' %>">
-      <% table_rows.each do |row| %>
-        <%= render(Pito::Table::KeyValueRowComponent.new(
-              key_text:    row[:key],
-              value_text:  row[:value],
-              key_class:   "#{row.fetch(:key_class, 'text-cyan')} whitespace-nowrap",
-              value_class: row.fetch(:value_class, "text-fg-dim")
+    <%# No sections: outer typewriter wrapper covers body (via ExpandableBodyComponent
+        with owner_controller: false) AND the table_rows grid below it.
+        info_lines contain HTML code highlights so they render instantly.
+        Only emit the typewriter wrapper when there IS a plain-text body to
+        anchor it (controller guards against empty body targets internally,
+        but the spec also checks that no controller appears on nil-body renders). %>
+    <% if !html && body %>
+      <div data-controller="pito--typewriter">
+        <%= render(Pito::Event::ExpandableBodyComponent.new(
+              body:              body,
+              html:              html,
+              expand_lines:      expand_lines,
+              expand_detail:     expand_detail,
+              expand_more_count: expand_more_count,
+              expand_label:      expand_label,
+              collapse_label:    collapse_label,
+              typewriter:        true,
+              owner_controller:  false
             )) %>
+        <% if table_rows.any? %>
+          <div class="grid grid-cols-[max-content_1fr] gap-x-2 gap-y-1<%= body ? ' mt-2 border-t border-line-default pt-2' : '' %>">
+            <% table_rows.each do |row| %>
+              <%= render(Pito::Table::KeyValueRowComponent.new(
+                    key_text:    row[:key],
+                    value_text:  row[:value],
+                    key_class:   "#{row.fetch(:key_class, 'text-cyan')} whitespace-nowrap",
+                    value_class: row.fetch(:value_class, "text-fg-dim"),
+                    key_data:    { "pito--typewriter-target" => "prose" },
+                    value_data:  { "pito--typewriter-target" => "prose" }
+                  )) %>
+            <% end %>
+          </div>
+        <% end %>
+        <% if info_lines.any? %>
+          <%= render(Pito::Separator::DividerLineComponent.new(spacing: "2")) do %>
+            <% info_lines.each do |line| %>
+              <div><%= render_info_line(line) %></div>
+            <% end %>
+          <% end %>
+        <% end %>
+      </div>
+    <% else %>
+      <%# html: true — render everything instantly, no typewriter %>
+      <%= render(Pito::Event::ExpandableBodyComponent.new(
+            body:              body,
+            html:              html,
+            expand_lines:      expand_lines,
+            expand_detail:     expand_detail,
+            expand_more_count: expand_more_count,
+            expand_label:      expand_label,
+            collapse_label:    collapse_label,
+            typewriter:        false
+          )) %>
+      <% if table_rows.any? %>
+        <div class="grid grid-cols-[max-content_1fr] gap-x-2 gap-y-1<%= body ? ' mt-2 border-t border-line-default pt-2' : '' %>">
+          <% table_rows.each do |row| %>
+            <%= render(Pito::Table::KeyValueRowComponent.new(
+                  key_text:    row[:key],
+                  value_text:  row[:value],
+                  key_class:   "#{row.fetch(:key_class, 'text-cyan')} whitespace-nowrap",
+                  value_class: row.fetch(:value_class, "text-fg-dim")
+                )) %>
+          <% end %>
+        </div>
       <% end %>
-    </div>
-  <% end %>
-  <% if info_lines.any? %>
-    <%= render(Pito::Separator::DividerLineComponent.new(spacing: "2")) do %>
-      <% info_lines.each do |line| %>
-        <div><%= render_info_line(line) %></div>
+      <% if info_lines.any? %>
+        <%= render(Pito::Separator::DividerLineComponent.new(spacing: "2")) do %>
+          <% info_lines.each do |line| %>
+            <div><%= render_info_line(line) %></div>
+          <% end %>
+        <% end %>
       <% end %>
     <% end %>
   <% end %>
