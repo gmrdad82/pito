@@ -12,8 +12,9 @@ en:
         disconnect: "Disconnect a YouTube channel"
         theme: "Switch the UI theme (apply / preview / reset)"
       chat:
-        list: "List videos matching filters"
-        show: "Show details for a video or channel"
+        list: "List games in your library"
+        show: "Show a game's details (by id or title)"
+        delete: "Delete a game (by id or title)"
         find: "Search videos by title, genre, or platform"
       hashtag:
         add: "Track a metric in this conversation"

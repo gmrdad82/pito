@@ -66,14 +66,25 @@ module Pito
           Spec.new(
             namespace:       :chat,
             name:            :list,
+            aliases:         [ :ls ],
             slots:           chat_shared_slots,
             description_key: "pito.grammar.chat.list"
           ),
+          # `show` / `delete` take a single game reference (ID or title). The
+          # `:title` free slot slurps the remaining tokens (the noun word
+          # `game`/`games` is dropped as a FILLER), e.g. `show game lies of p`.
           Spec.new(
             namespace:       :chat,
             name:            :show,
-            slots:           chat_shared_slots,
+            slots:           [ Slot.new(name: :title, kind: :free, optional: true) ],
             description_key: "pito.grammar.chat.show"
+          ),
+          Spec.new(
+            namespace:       :chat,
+            name:            :delete,
+            aliases:         [ :rm ],
+            slots:           [ Slot.new(name: :title, kind: :free, optional: true) ],
+            description_key: "pito.grammar.chat.delete"
           ),
           Spec.new(
             namespace:       :chat,
