@@ -156,7 +156,7 @@ module Pito
         helper = ApplicationController.helpers
 
         settings_html = %(
-          <div id="pito-settings" class="hidden" data-sound="#{AppSetting.sound_enabled?}" data-fx="#{AppSetting.fx_enabled?}" data-expand-all="#{AppSetting.expand_all?}"></div>
+          <div id="pito-settings" class="hidden" data-sound="#{AppSetting.sound_enabled?}" data-fx="#{AppSetting.fx_enabled?}" data-expand-all="#{AppSetting.expand_all?}" data-theme="#{AppSetting.theme}"></div>
         ).html_safe
 
         content = helper.turbo_stream.replace("pito-settings", settings_html)
@@ -249,7 +249,7 @@ module Pito
       def self.broadcast_global_settings_update
         helper = ApplicationController.helpers
 
-        settings_html = %(<div id="pito-settings" class="hidden" data-sound="#{AppSetting.sound_enabled?}" data-fx="#{AppSetting.fx_enabled?}" data-expand-all="#{AppSetting.expand_all?}"></div>).html_safe
+        settings_html = %(<div id="pito-settings" class="hidden" data-sound="#{AppSetting.sound_enabled?}" data-fx="#{AppSetting.fx_enabled?}" data-expand-all="#{AppSetting.expand_all?}" data-theme="#{AppSetting.theme}"></div>).html_safe
 
         content = helper.turbo_stream.replace("pito-settings", settings_html)
         Turbo::StreamsChannel.broadcast_stream_to("pito:global", content:)
