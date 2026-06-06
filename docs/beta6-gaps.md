@@ -104,7 +104,7 @@ PR; squash-merge at the end.
   `BulkSync`, `BulkDelete`, `GameIgdbSync`, `VideoPublish`, `ConfirmationDispatch`;
   deepen `SyncChannelStatsJob`.
 
-### [ ] Phase G — Component base + remaining services + remaining JS
+### [x] Phase G — Component base + remaining services + remaining JS
 
 - Doc-blocks: `ApplicationComponent` (component conventions) + key event components
   (system/error/echo).
