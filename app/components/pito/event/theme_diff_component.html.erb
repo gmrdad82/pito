@@ -1,0 +1,51 @@
+<%= render(Pito::Segment::Component.new(accent:, background:, id: segment_id)) do %>
+  <div data-controller="pito--diff-reveal"
+       data-pito--diff-reveal-granularity-value="<%= @granularity %>"
+       data-pito--diff-reveal-phase-value="<%= @phase %>">
+
+    <% if preview? %>
+      <%# Preview phase: render the full themes list (Dark/Light sections).
+          The previewed row gets a bordered surface-background highlight and its
+          marker is a diff cell (data-from = row without marker, textContent =
+          with marker). Non-previewed rows are plain spans — no diff cell. %>
+      <div class="flex flex-col gap-3">
+        <% @sections.each do |section| %>
+          <div class="flex flex-col gap-1">
+            <%= render(Pito::Section::SectionHeaderComponent.new(text: section[:title])) %>
+            <% Array(section[:rows]).each do |row| %>
+              <% slug = row[:key].to_s.lstrip.delete_prefix("● ").delete_prefix("  ").strip %>
+              <% is_previewed = slug == @previewed_slug %>
+              <% if is_previewed %>
+                <%# Highlighted row: border + surface background, marker as diff cell %>
+                <div class="flex gap-4 border border-line-default bg-surface rounded px-1">
+                  <span class="text-cyan whitespace-nowrap shrink-0 w-44">
+                    <span data-pito--diff-reveal-target="cell"
+                          data-from="<%= row[:key] %>"><%= row[:key] %> ‹preview›</span>
+                  </span>
+                  <span class="text-fg-dim"><%= row[:value] %></span>
+                </div>
+              <% else %>
+                <%# Plain row — not a diff cell %>
+                <div class="flex gap-4">
+                  <span class="text-cyan whitespace-nowrap shrink-0 w-44"><%= row[:key] %></span>
+                  <span class="text-fg-dim"><%= row[:value] %></span>
+                </div>
+              <% end %>
+            <% end %>
+          </div>
+        <% end %>
+      </div>
+
+    <% elsif apply? %>
+      <%# Apply phase: single confirmation line as one diff cell.
+          data-from = the old list's plain text; textContent = the quip. %>
+      <span class="text-fg"
+            data-pito--diff-reveal-target="cell"
+            data-from="<%= @from_text %>"><%= @body %></span>
+
+    <% else %>
+      <%# Fallback: render body as plain text if phase is unrecognized %>
+      <span class="text-fg"><%= @body.presence || @from_text %></span>
+    <% end %>
+  </div>
+<% end %>

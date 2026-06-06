@@ -9,13 +9,40 @@ module Pito
     #
     # Contract
     # --------
-    # Switch.apply(definition)    — persist AppSetting.theme + broadcast → events
-    # Switch.preview(definition)  — broadcast only (no persist) → events
-    # Switch.reset                — apply the registry default → events
+    # Switch.apply_only(definition)  — persist AppSetting.theme + broadcast; no events returned
+    # Switch.preview_only(definition)— broadcast only (no persist); no events returned
+    # Switch.apply(definition)       — apply_only + return event hashes
+    # Switch.preview(definition)     — preview_only + return event hashes
+    # Switch.reset                   — apply the registry default → events
     #
-    # Both methods return an Array of event hashes ({ kind:, payload: }) ready
-    # to be wrapped in a Pito::Slash::Result::Ok or Pito::Hashtag::Result::Ok.
+    # The `_only` variants perform only the side-effect and return nil. They are
+    # intended for callers (e.g. the hashtag handler) that handle their own
+    # response building (e.g. a Turbo Stream replace rather than a new event).
+    #
+    # `apply` and `preview` return an Array of event hashes ({ kind:, payload: })
+    # ready to be wrapped in a Pito::Slash::Result::Ok or Pito::Hashtag::Result::Ok.
     module Switch
+      # Persist a theme change and broadcast the set-theme Turbo Stream.
+      # Does NOT return events — callers that need event hashes use `apply`.
+      #
+      # @param definition [Pito::Themes::Definition]
+      # @return [nil]
+      def self.apply_only(definition)
+        AppSetting.theme = definition.slug
+        Pito::Stream::Broadcaster.broadcast_global_theme(definition.slug)
+        nil
+      end
+
+      # Broadcast a set-theme Turbo Stream WITHOUT persisting.
+      # Does NOT return events — callers that need event hashes use `preview`.
+      #
+      # @param definition [Pito::Themes::Definition]
+      # @return [nil]
+      def self.preview_only(definition)
+        Pito::Stream::Broadcaster.broadcast_global_theme(definition.slug)
+        nil
+      end
+
       # Persist + broadcast a theme change. Returns event hashes.
       #
       # @param definition [Pito::Themes::Definition]
@@ -23,8 +50,7 @@ module Pito
       # @param i18n_key [String, nil] override the default i18n key
       # @return [Array<Hash>]
       def self.apply(definition, reset: false, i18n_key: nil)
-        AppSetting.theme = definition.slug
-        Pito::Stream::Broadcaster.broadcast_global_theme(definition.slug)
+        apply_only(definition)
 
         msg_key = i18n_key ||
                   (reset ? "pito.slash.theme.reset.confirmed" : "pito.slash.theme.apply.confirmed")
@@ -39,7 +65,7 @@ module Pito
         ]
       end
 
-      # Broadcast a theme WITHOUT persisting.
+      # Broadcast a theme WITHOUT persisting. Returns event hashes.
       #
       # Preview-vs-apply rule:
       #   - Only the Turbo Stream set-theme action fires (recolors the page).
@@ -50,7 +76,7 @@ module Pito
       # @param i18n_key [String] override the i18n key (callers may use their own namespace)
       # @return [Array<Hash>]
       def self.preview(definition, i18n_key: "pito.slash.theme.preview.confirmed")
-        Pito::Stream::Broadcaster.broadcast_global_theme(definition.slug)
+        preview_only(definition)
 
         [
           {

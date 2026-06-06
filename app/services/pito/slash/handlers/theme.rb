@@ -193,6 +193,7 @@ module Pito
             {
               kind:    "system",
               payload: {
+                theme_list: true,
                 body:       I18n.t("pito.slash.theme.list.intro"),
                 sections:   [
                   { title: I18n.t("pito.slash.theme.list.dark_header"),  rows: dark_rows },

@@ -26,6 +26,7 @@ module Pito
       def initialize(payload: {}, event: nil)
         payload       = payload.with_indifferent_access if payload.respond_to?(:with_indifferent_access)
         @payload      = payload
+        @event        = event
         @body         = payload[:body].presence || resolve_text(payload)
         @html         = payload[:html] == true || payload[:html] == "true"
         @expand_lines = Array(payload[:expand_lines]).map(&:to_s)
@@ -70,6 +71,17 @@ module Pito
       end
 
       private
+
+      # Returns a stable DOM id for anchorable system messages (theme_list or
+      # theme_diff payloads), so the hashtag handler can target them with a
+      # Turbo Stream replace. Returns nil for all other system messages.
+      def dom_id
+        return nil unless @event
+
+        anchorable = @payload[:theme_list] == true || @payload[:theme_list] == "true" ||
+                     @payload[:theme_diff] == true || @payload[:theme_diff] == "true"
+        "event_#{@event.id}" if anchorable
+      end
 
       def resolve_text(payload)
         if payload[:message_key]

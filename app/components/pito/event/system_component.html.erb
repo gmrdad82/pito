@@ -1,4 +1,4 @@
-<%= render(Pito::Segment::Component.new(accent:, background:)) do %>
+<%= render(Pito::Segment::Component.new(accent:, background:, id: dom_id)) do %>
   <% if sections.any? %>
     <%# Sections mode: body + top hint visible when collapsed;
         sections + bottom hint visible when expanded.

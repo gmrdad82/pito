@@ -133,4 +133,45 @@ RSpec.describe Pito::Event::SystemComponent do
       expect(node.css("[data-controller~='pito--typewriter']")).not_to be_empty
     end
   end
+
+  # ── T12.1: dom_id — id emitted for theme_list/theme_diff payloads ─────────────
+
+  describe "dom_id — id on root Segment for anchorable payloads" do
+    let(:conversation) { Conversation.create! }
+    let(:turn) { create(:turn, conversation:) }
+
+    let(:event) do
+      create(:event, conversation:, turn:, kind: "system", position: 1,
+             payload: { "theme_list" => true, "body" => "Pick a theme" })
+    end
+
+    it "renders id='event_<id>' when payload has theme_list: true and event is present" do
+      node = render_inline(described_class.new(payload: event.payload.with_indifferent_access, event:))
+      segment = node.css(".pito-segment").first
+      expect(segment).not_to be_nil
+      expect(segment["id"]).to eq("event_#{event.id}")
+    end
+
+    it "renders id='event_<id>' when payload has theme_diff: true and event is present" do
+      diff_event = create(:event, conversation:, turn:, kind: "theme_diff", position: 2,
+                          payload: { "theme_diff" => true, "phase" => "apply", "body" => "Done!" })
+      node = render_inline(described_class.new(payload: diff_event.payload.with_indifferent_access, event: diff_event))
+      segment = node.css(".pito-segment").first
+      expect(segment["id"]).to eq("event_#{diff_event.id}")
+    end
+
+    it "does NOT render an id for a plain system message (no theme_list/theme_diff)" do
+      plain_event = create(:event, conversation:, turn:, kind: "system", position: 3,
+                           payload: { "body" => "Regular system message" })
+      node = render_inline(described_class.new(payload: plain_event.payload.with_indifferent_access, event: plain_event))
+      segment = node.css(".pito-segment").first
+      expect(segment["id"]).to be_nil
+    end
+
+    it "does NOT render an id when event is nil even if payload has theme_list" do
+      node = render_inline(described_class.new(payload: { theme_list: true, body: "Pick" }, event: nil))
+      segment = node.css(".pito-segment").first
+      expect(segment["id"]).to be_nil
+    end
+  end
 end
