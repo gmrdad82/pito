@@ -140,9 +140,9 @@ No production data exists → destructive migrations are free.
 - [x] T5.4 `Pito::Stack::Local`: `db_size_mb` + record counts `{videos:,games:}`. complexity: [low]
 - [x] T5.5 Instrument chokepoints (Voyage `post_embeddings*`; IGDB `Client#post`; YouTube `Auditor#write_audit_row` + direct writers) → `ApiRequest`. complexity: [high]
 - [x] T5.6 Replace `Pito::ExternalApiTracker::*` with `Pito::Stack` reads (or remove + repoint). complexity: [low]
-- [ ] T5.7 Specs: scopes, module counts, Local size/counts, instrumentation (stubbed HTTP). complexity: [low]
-- [ ] T5.8 `bundle exec rspec` + `bin/rubocop` + `zeitwerk:check` green. complexity: [manual]
-- [ ] T5.9 Commit: `Pito::Stack: API-usage + local Postgres tracking`. complexity: [manual]
+- [x] T5.7 Specs: scopes, module counts, Local size/counts, instrumentation (stubbed HTTP). complexity: [low]
+- [x] T5.8 `bundle exec rspec` + `bin/rubocop` + `zeitwerk:check` green. complexity: [manual]
+- [x] T5.9 Commit: `Pito::Stack: API-usage + local Postgres tracking`. complexity: [manual]
 
 ## P6 — Modular search + IGDB game-search module
 
