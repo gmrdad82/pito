@@ -101,12 +101,10 @@ RSpec.describe Pito::FollowUp::Router, type: :service do
       )
     end
 
-    it "returns :not_a_follow_up for #handle confirm (confirmation pattern)" do
-      # confirmation events have confirmation_handle, not reply_handle →
-      # the Router sees no reply_handle match.
+    it "returns :not_found when the handle matches the pattern but no event carries it" do
+      # The handle matches the #<word>-<digits> pattern, so the Router runs the DB
+      # lookup, but no event in the conversation has this reply_handle.
       result = route("#alpha-1111 confirm")
-      # The handle does match the pattern so it hits the DB lookup, but no reply_handle
-      # event exists → :not_found (falls through to ConfirmationRouter in the controller).
       expect(result[:status]).to eq(:not_found)
     end
   end
