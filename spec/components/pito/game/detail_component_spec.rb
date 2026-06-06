@@ -43,11 +43,36 @@ RSpec.describe Pito::Game::DetailComponent do
     end
   end
 
-  describe "available platforms" do
-    it "renders the available platforms from game.platforms" do
-      node = render_inline(described_class.new(game: game))
-      expect(node.text).to include("PS5")
-      expect(node.text).to include("Switch")
+  describe "available platforms (T16.12 — operator token chips)" do
+    it "maps IGDB 'PlayStation 4' and 'PC (Microsoft Windows)' to PlayStation + Steam chips" do
+      g = create(:game, platforms: [ "PlayStation 4", "PC (Microsoft Windows)", "Xbox One" ])
+      node = render_inline(described_class.new(game: g))
+      chip_texts = node.css("span.border").map(&:text).map(&:strip)
+      expect(chip_texts).to include("PlayStation")
+      expect(chip_texts).to include("Steam")
+      # Xbox One has no matching token — should not appear as a chip
+      expect(chip_texts).not_to include("Xbox One")
+    end
+
+    it "de-dupes tokens when multiple IGDB names map to the same token" do
+      g = create(:game, platforms: [ "Steam", "GOG", "Nintendo Switch" ])
+      node = render_inline(described_class.new(game: g))
+      chip_texts = node.css("span.border").map(&:text).map(&:strip)
+      expect(chip_texts.count("Steam")).to eq(1)
+      expect(chip_texts).to include("Nintendo Switch")
+    end
+
+    it "renders a dash placeholder row label when no platform matches any token" do
+      g = create(:game, platforms: [ "Xbox One", "Stadia" ])
+      node = render_inline(described_class.new(game: g))
+      # No platform chips should be rendered
+      expect(node.css("span.border")).to be_empty
+    end
+
+    it "renders no platforms section when game.platforms is empty" do
+      g = create(:game, platforms: [])
+      node = render_inline(described_class.new(game: g))
+      expect(node.text).not_to include(I18n.t("pito.game.detail.platforms"))
     end
   end
 
@@ -71,6 +96,30 @@ RSpec.describe Pito::Game::DetailComponent do
 
       node = render_inline(described_class.new(game: game))
       expect(node.text).to include("Action RPG")
+    end
+  end
+
+  describe "KV table (T16.11 — KeyValueRowComponent grid)" do
+    it "renders developer row using KeyValueRowComponent (key + value spans)" do
+      company = create(:company, name: "Grid Dev")
+      create(:game_developer, game: game, company: company)
+      game.reload
+
+      node = render_inline(described_class.new(game: game))
+      # The grid container must be present
+      grid = node.css("div.grid.grid-cols-\\[max-content_1fr\\]").first
+      expect(grid).not_to be_nil
+      expect(grid.text).to include("Developer")
+      expect(grid.text).to include("Grid Dev")
+    end
+
+    it "renders description row inside the grid" do
+      g = create(:game, summary: "An epic tale.")
+      node = render_inline(described_class.new(game: g))
+      grid = node.css("div.grid.grid-cols-\\[max-content_1fr\\]").first
+      expect(grid).not_to be_nil
+      expect(grid.text).to include("Description")
+      expect(grid.text).to include("An epic tale.")
     end
   end
 

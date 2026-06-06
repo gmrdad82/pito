@@ -18,54 +18,77 @@
   <%# Title %>
   <div class="text-fg font-bold"><%= @game.title %></div>
 
-  <%# Developer %>
-  <% if developer_names.present? %>
-    <div class="flex gap-2">
-      <span class="text-fg-dim"><%=t "pito.game.detail.developer" %>:</span><span class="text-fg"><%= developer_names %></span>
-    </div>
-  <% end %>
+  <%# KV table — Developer / Publisher / Release / Platforms / Owned / Description / Genres %>
+  <div class="grid grid-cols-[max-content_1fr] gap-x-2 gap-y-1">
 
-  <%# Publisher %>
-  <% if publisher_names.present? %>
-    <div class="flex gap-2">
-      <span class="text-fg-dim"><%=t "pito.game.detail.publisher" %>:</span><span class="text-fg"><%= publisher_names %></span>
-    </div>
-  <% end %>
+    <% if developer_names.present? %>
+      <%= render(Pito::Table::KeyValueRowComponent.new(
+            key_text:   t("pito.game.detail.developer"),
+            value_text: developer_names,
+            key_class:  "text-fg-dim whitespace-nowrap",
+            value_class: "text-fg"
+          )) %>
+    <% end %>
 
-  <%# Release %>
-  <% if release_label.present? %>
-    <div class="flex gap-2">
-      <span class="text-fg-dim"><%=t "pito.game.detail.release" %>:</span><span class="text-fg"><%= release_label %></span>
-    </div>
-  <% end %>
+    <% if publisher_names.present? %>
+      <%= render(Pito::Table::KeyValueRowComponent.new(
+            key_text:   t("pito.game.detail.publisher"),
+            value_text: publisher_names,
+            key_class:  "text-fg-dim whitespace-nowrap",
+            value_class: "text-fg"
+          )) %>
+    <% end %>
 
-  <%# Available platforms %>
-  <% if platforms_label.present? %>
-    <div class="flex gap-2">
-      <span class="text-fg-dim"><%=t "pito.game.detail.platforms" %>:</span><span class="text-fg"><%= platforms_label %></span>
-    </div>
-  <% end %>
+    <% if release_label.present? %>
+      <%= render(Pito::Table::KeyValueRowComponent.new(
+            key_text:   t("pito.game.detail.release"),
+            value_text: release_label,
+            key_class:  "text-fg-dim whitespace-nowrap",
+            value_class: "text-fg"
+          )) %>
+    <% end %>
 
-  <%# Owned platforms %>
-  <% if owned_platforms_label.present? %>
-    <div class="flex gap-2">
-      <span class="text-fg-dim"><%=t "pito.game.detail.owned" %>:</span><span class="text-fg"><%= owned_platforms_label %></span>
-    </div>
-  <% end %>
+    <%# Platforms — operator tokens as chips (PlayStation / Switch / Steam) %>
+    <% chips = platform_tokens %>
+    <% if chips.any? %>
+      <span class="text-fg-dim whitespace-nowrap"><%=t "pito.game.detail.platforms" %></span>
+      <span class="flex gap-1 flex-wrap">
+        <% chips.each do |token| %>
+          <span class="border border-line-default px-1 text-fg-dim text-xs">
+            <%=t "pito.game.detail.platform_label.#{token}" %>
+          </span>
+        <% end %>
+      </span>
+    <% end %>
 
-  <%# Description %>
-  <% if summary.present? %>
-    <div class="flex gap-2">
-      <span class="text-fg-dim"><%=t "pito.game.detail.description" %>:</span><span class="text-fg"><%= summary %></span>
-    </div>
-  <% end %>
+    <% if owned_platforms_label.present? %>
+      <%= render(Pito::Table::KeyValueRowComponent.new(
+            key_text:   t("pito.game.detail.owned"),
+            value_text: owned_platforms_label,
+            key_class:  "text-fg-dim whitespace-nowrap",
+            value_class: "text-fg"
+          )) %>
+    <% end %>
 
-  <%# Genres %>
-  <% if genres_label.present? %>
-    <div class="flex gap-2">
-      <span class="text-fg-dim"><%=t "pito.game.detail.genres" %>:</span><span class="text-fg"><%= genres_label %></span>
-    </div>
-  <% end %>
+    <% if summary.present? %>
+      <%= render(Pito::Table::KeyValueRowComponent.new(
+            key_text:   t("pito.game.detail.description"),
+            value_text: summary,
+            key_class:  "text-fg-dim whitespace-nowrap",
+            value_class: "text-fg"
+          )) %>
+    <% end %>
+
+    <% if genres_label.present? %>
+      <%= render(Pito::Table::KeyValueRowComponent.new(
+            key_text:   t("pito.game.detail.genres"),
+            value_text: genres_label,
+            key_class:  "text-fg-dim whitespace-nowrap",
+            value_class: "text-fg"
+          )) %>
+    <% end %>
+
+  </div>
 
   <%# Time-to-beat %>
   <div class="pito-game-detail__ttb">

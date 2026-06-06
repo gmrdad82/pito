@@ -330,9 +330,9 @@ No production data exists → destructive migrations are free.
 
 ### Group B — game-message rendering
 
-- [ ] T16.10 Game detail + enhanced messages render with the standard message chrome (TIMESTAMP) like every message; keep the `#hashtag` affordance AS-IS (do not redesign the copy). complexity: [high]
-- [ ] T16.11 Detail card: properly aligned **KV table** (label/value columns). complexity: [low]
-- [ ] T16.12 Detail card: Platforms shown ONLY as the owned-token set — PlayStation / Switch / Steam — as **chips** (map IGDB platform names → ps/switch/steam; reuse the existing platform chip styling). complexity: [low]
+- [x] T16.10 Game detail + enhanced messages render with the standard message chrome (TIMESTAMP) like every message; keep the `#hashtag` affordance AS-IS (do not redesign the copy). complexity: [high]
+- [x] T16.11 Detail card: properly aligned **KV table** (label/value columns). complexity: [low]
+- [x] T16.12 Detail card: Platforms shown ONLY as the owned-token set — PlayStation / Switch / Steam — as **chips** (map IGDB platform names → ps/switch/steam; reuse the existing platform chip styling). complexity: [low]
 
 ### Group C — score / ttb components
 

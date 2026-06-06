@@ -168,10 +168,11 @@
           consumed: reply_consumed
         )) %>
   <% end %>
-  <% if handle || channel %>
+  <% if @timestamp || handle || channel %>
     <%= render(Pito::Event::MetaLineComponent.new(
-          handle:  handle,
-          channel: channel
+          timestamp: @timestamp,
+          handle:    handle,
+          channel:   channel
         )) %>
   <% end %>
 <% end %>
