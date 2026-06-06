@@ -2,7 +2,7 @@
 
 require "rails_helper"
 
-RSpec.describe Pito::Palette::Autocomplete::Component, type: :component do
+RSpec.describe Pito::Palette::Suggestions::Component, type: :component do
   let(:items) do
     [
       { label: "/config", description: "Configure settings", masked: false },

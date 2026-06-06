@@ -2,7 +2,7 @@
 
 module Pito
   module Palette
-    module Autocomplete
+    module Suggestions
       class Component < ViewComponent::Base
         # @param mode [Symbol] :slash or :hashtag — controls bar accent and echo-char.
         # @param items [Array<Hash>] each with keys :label, :description, :masked.

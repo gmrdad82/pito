@@ -2,7 +2,7 @@
 
 require "rails_helper"
 
-RSpec.describe Pito::Autocomplete::Catalog, type: :service do
+RSpec.describe Pito::Suggestions::Catalog, type: :service do
   # Registry is already populated by the before(:each) in rails_helper.
 
   # ── Helpers ────────────────────────────────────────────────────────────────
@@ -177,8 +177,8 @@ RSpec.describe Pito::Autocomplete::Catalog, type: :service do
       expect(channels[:dynamic]).to be(true)
     end
 
-    it "has endpoint pointing to /autocomplete" do
-      expect(channels[:endpoint]).to eq("/autocomplete")
+    it "has endpoint pointing to /suggestions" do
+      expect(channels[:endpoint]).to eq("/suggestions")
     end
 
     it "does not embed member data (no :canonical key)" do
@@ -189,18 +189,18 @@ RSpec.describe Pito::Autocomplete::Catalog, type: :service do
   describe ".to_h vocabularies[:conversations]" do
     subject(:conversations) { described_class.to_h(authenticated: true)[:vocabularies][:conversations] }
 
-    it "has dynamic: true and endpoint: /autocomplete" do
+    it "has dynamic: true and endpoint: /suggestions" do
       expect(conversations[:dynamic]).to be(true)
-      expect(conversations[:endpoint]).to eq("/autocomplete")
+      expect(conversations[:endpoint]).to eq("/suggestions")
     end
   end
 
   describe ".to_h vocabularies[:game_titles]" do
     subject(:game_titles) { described_class.to_h(authenticated: true)[:vocabularies][:game_titles] }
 
-    it "has dynamic: true and endpoint: /autocomplete" do
+    it "has dynamic: true and endpoint: /suggestions" do
       expect(game_titles[:dynamic]).to be(true)
-      expect(game_titles[:endpoint]).to eq("/autocomplete")
+      expect(game_titles[:endpoint]).to eq("/suggestions")
     end
   end
 

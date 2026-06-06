@@ -9,7 +9,7 @@ class AutocompleteController < ApplicationController
     conversation = params[:conversation].present? ? Conversation.find_by(uuid: params[:conversation]) : nil
     authenticated = Current.session.present?
 
-    result = Pito::Autocomplete::Engine.call(
+    result = Pito::Suggestions::Engine.call(
       input:,
       cursor:,
       conversation:,

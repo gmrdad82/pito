@@ -1,18 +1,18 @@
 # frozen_string_literal: true
 
 module Pito
-  module Autocomplete
-    # Builds the static autocomplete catalog embedded in the page.
+  module Suggestions
+    # Builds the static suggestions catalog embedded in the page.
     #
     # The catalog lets the client filter slash/hashtag/chat completions offline
     # without a round-trip. Dynamic (DB-backed) vocabularies are NOT embedded —
     # they appear as endpoint pointers only.
     #
     # Usage:
-    #   Pito::Autocomplete::Catalog.to_h(authenticated: true)
-    #   Pito::Autocomplete::Catalog.to_json(authenticated: false)
+    #   Pito::Suggestions::Catalog.to_h(authenticated: true)
+    #   Pito::Suggestions::Catalog.to_json(authenticated: false)
     module Catalog
-      DYNAMIC_ENDPOINT = "/autocomplete"
+      DYNAMIC_ENDPOINT = "/suggestions"
 
       class << self
         # Returns the full catalog Hash.

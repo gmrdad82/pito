@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 module Pito
-  module Autocomplete
+  module Suggestions
     # Computes autocomplete suggestions for a given input and cursor position.
     #
     # call(input:, cursor:, conversation: nil, authenticated: false) →

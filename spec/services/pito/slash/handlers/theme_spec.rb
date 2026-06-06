@@ -548,7 +548,7 @@ RSpec.describe Pito::Slash::Handlers::Theme, type: :service do
     after  { Pito::Grammar::Registry.reset! }
 
     def autocomplete(input)
-      Pito::Autocomplete::Engine.call(
+      Pito::Suggestions::Engine.call(
         input:         input,
         cursor:        input.length,
         authenticated: true

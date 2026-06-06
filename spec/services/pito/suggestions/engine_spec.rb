@@ -2,7 +2,7 @@
 
 require "rails_helper"
 
-RSpec.describe Pito::Autocomplete::Engine, type: :service do
+RSpec.describe Pito::Suggestions::Engine, type: :service do
   # Registry is populated before every example by rails_helper before(:each).
 
   def call(**kwargs)
