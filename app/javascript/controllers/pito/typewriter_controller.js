@@ -39,28 +39,14 @@ export default class extends Controller {
   static targets = ["body", "prose"]
 
   connect() {
-    const dbg = (...a) => console.log("[tw-dbg]", ...a)
-    if (this.#skipAnimation()) {
-      dbg("SKIP", {
-        reducedMotion: window.matchMedia("(prefers-reduced-motion: reduce)").matches,
-        pitoReady: window.__pitoReady,
-        fxEnabled: fxEnabled()
-      })
-      return
-    }
-    if (!this.hasBodyTarget) { dbg("no body target on", this.element.className); return }
+    if (this.#skipAnimation()) return
+    if (!this.hasBodyTarget) return
 
     const bodyText = this.bodyTarget.textContent
-    if (!bodyText) { dbg("empty body text"); return }
-
-    dbg("connect", {
-      element: this.element.className,
-      hasProseTarget: this.hasProseTarget,
-      proseCount: this.hasProseTarget ? this.proseTargets.length : 0
-    })
+    if (!bodyText) return
 
     // Guard double-run (e.g. Turbo re-connects same element).
-    if (this._connected) { dbg("already connected — skipping"); return }
+    if (this._connected) return
     this._connected = true
     this._cancelled = false
 
@@ -76,13 +62,6 @@ export default class extends Controller {
         if (text) items.push({ el, text })
       }
     }
-
-    dbg("items", items.length, items.map(it => ({
-      tag: it.el.tagName,
-      cls: (it.el.className || "").slice(0, 36),
-      len: it.text.length,
-      visible: !!it.el.offsetParent
-    })))
 
     // Capture full texts and blank all targets immediately so they appear
     // empty while the job is waiting in the queue.
