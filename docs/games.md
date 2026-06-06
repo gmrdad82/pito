@@ -149,9 +149,9 @@ No production data exists → destructive migrations are free.
 - [ ] T6.1 `Pito::Search::Module` base (`#call(query:, **opts)` → `{hits:,total:,error:}`). complexity: [low]
 - [ ] T6.2 `Pito::Search::Registry` (register/for/reset!) replacing `Omnisearch::AREAS`. complexity: [high]
 - [ ] T6.3 `Pito::Search::Modules::IgdbGames` wrapping `Client#search_games` + error envelope. complexity: [high]
-- [ ] T6.4 Fold/retire `Game::SearchService`; leave local `SearchGames` for the deferred path. complexity: [low]
-- [ ] T6.5 Specs (WebMock): main-only, coverless, denoise, error envelope, registry. complexity: [low]
-- [ ] T6.6 Commit: `Modular search registry + IGDB game-search module`. complexity: [manual]
+- [x] T6.4 Fold/retire `Game::SearchService`; leave local `SearchGames` for the deferred path. complexity: [low]
+- [x] T6.5 Specs (WebMock): main-only, coverless, denoise, error envelope, registry. complexity: [low]
+- [x] T6.6 Commit: `Modular search registry + IGDB game-search module`. complexity: [manual]
 
 ## P7 — IGDB sync repair + verification (+ sync-on-add)
 
