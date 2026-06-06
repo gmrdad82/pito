@@ -47,25 +47,34 @@
 # pgvector insert replaces the prior value.
 class Channel
   class VoyageIndexer
-    def self.call(channel)
-      new(channel).call
+    def self.call(channel, force: false)
+      new(channel, force: force).call
     end
 
-    def initialize(channel)
+    def initialize(channel, force: false)
       @channel = channel
+      @force   = force
     end
 
     def call
-      return if composite_text.blank?
+      text = composite_text
+      return if text.blank?
       return unless AppSetting.voyage_configured?
 
-      embed_and_persist
+      digest = Digest::SHA256.hexdigest(text)
+      # Diff-gate: skip re-embedding when the indexed fields are unchanged, so a
+      # routine channel sync that only bumps `last_synced_at` (or a stats write)
+      # does NOT burn a Voyage call. `force:` bypasses the gate. Mirrors
+      # `Game::VoyageIndexer`.
+      return if !@force && digest == @channel.embedded_digest
+
+      embed_and_persist(text, digest)
     end
 
     private
 
-    def embed_and_persist
-      vector = Voyage::Client.new.embed([ composite_text ]).first
+    def embed_and_persist(text, digest)
+      vector = Voyage::Client.new.embed([ text ]).first
       if vector.nil?
         # 2026-05-19 — surface the silent-failure case. The Voyage
         # HTTP client (`Voyage::Client#post_embeddings`) rescues
@@ -84,14 +93,19 @@ class Channel
       # `update_column` skips validations + callbacks so this write
       # does not re-trigger the `after_save_commit` chain on
       # Channel (Voyage reindex, calendar derivation). The pgvector
-      # column accepts the array directly.
+      # column accepts the array directly. The digest is persisted in
+      # the same skip-callback fashion so the diff-gate can short-circuit
+      # the next call.
       @channel.update_column(:summary_embedding, vector)
+      @channel.update_column(:embedded_digest, digest)
     end
 
     # Today: channel-level text only — title, handle, description,
-    # keywords. Stripped + blank-filtered, em-dash-joined to match the
-    # natural visual order operators see on the channel show page and
-    # the affordance used elsewhere (Games / Bundles indexers).
+    # keywords, tags. Stripped + blank-filtered, em-dash-joined to match
+    # the natural visual order operators see on the channel show page and
+    # the affordance used elsewhere (Games / Bundles indexers). `tags` is
+    # a Postgres text[]; its members are space-joined into a single slot
+    # before the em-dash join (they are short tokens, not prose).
     #
     # Future (when /videos returns): wrap this in
     # `[channel_text, video_aggregate_text].compact.join(" — ")`,
@@ -103,7 +117,8 @@ class Channel
     # #aggregated_member_summaries` for the equivalent pattern on
     # the Bundle side.
     def composite_text
-      parts = [ @channel.title, @channel.handle, @channel.description, @channel.keywords ]
+      tags_slot = Array(@channel.tags).map { |t| t.to_s.strip }.reject(&:blank?).join(" ")
+      parts = [ @channel.title, @channel.handle, @channel.description, @channel.keywords, tags_slot ]
       parts.compact.map { |p| p.to_s.strip }.reject(&:blank?).join(" — ")
     end
   end

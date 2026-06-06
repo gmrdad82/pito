@@ -169,7 +169,7 @@ No production data exists → destructive migrations are free.
 - [x] T8.2 Migration `games.embedded_digest`; VoyageIndexer no-ops when digest unchanged. complexity: [high]
 - [x] T8.3 `SyncGame`: reindex only when digest changed. complexity: [low]
 - [x] T8.4 Migration: `channels.summary_embedding`(HNSW) + `keywords` + `tags`; `has_neighbors`. complexity: [low]
-- [ ] T8.5 `Channel::VoyageIndexer`: title+desc+handle+keywords+tags + digest gate; backfill. complexity: [low]
+- [x] T8.5 `Channel::VoyageIndexer`: title+desc+handle+keywords+tags + digest gate; backfill. complexity: [low]
 - [ ] T8.6 Confirm `SimilarGames` + `ChannelRecommendation` work. complexity: [low]
 - [ ] T8.7 Specs; `bundle exec rspec` + `bin/rubocop` green. complexity: [low]
 - [ ] T8.8 Commit: `Multi-field game + channel embeddings + diff-gated reindex`. complexity: [manual]
