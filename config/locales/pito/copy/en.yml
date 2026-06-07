@@ -2476,56 +2476,158 @@ en:
           - “Closest I've got: /games import [title]. Give it a go.”
           - “Command not recognised. /games import [title] is the one.”
         enhanced_intro:
-          - “Here's the full picture on this one.”
-          - “This game has more to it than the card shows.”
-          - “A bit more context on what you just imported.”
-          - “Let's dig into the details.”
-          - “Here's everything worth knowing.”
-          - “More on this title, since you asked.”
-          - “A closer look at the game you just added.”
-          - “Full read on the import — here you go.”
-          - “Let's unpack this one properly.”
-          - “The extended take on your new library entry.”
-          - “Since it's now in your library, here's the deeper cut.”
-          - “A little more background on this one.”
-          - “Full context, now that it's in the collection.”
-          - “Here's the broader picture for your new import.”
-          - “The quick version was the card — here's the rest.”
-          - “More signal, less noise — here's the full import breakdown.”
-          - “Good import. Here's the rest of what you should know.”
-          - “Now that it's in pito, here's the extended view.”
-          - “The card's the summary — this is the detail layer.”
-          - “Here's what sits beneath the cover art.”
-          - “A fuller read on the title you just brought in.”
-          - “More on this one, now that it's yours.”
-          - “The import went fine — here's the full context.”
-          - “Imported and indexed. Here's the breakdown.”
-          - “The game's in — here's what that actually means.”
-          - “Let's talk about what you just imported.”
-          - “Context on your new library entry follows.”
-          - “The card is the short version — here's the long one.”
-          - “Game locked in. Here's the extended picture.”
-          - “Here's a fuller read, since it's now in your collection.”
-          - “The game is yours. Here's the extra layer.”
-          - “Good call on the import. Here's what I know about it.”
-          - “Now in your library — let's look at it properly.”
-          - “The import's done. Here's the narrative.”
-          - “A broader view on the game you just added.”
-          - “Here's more colour on your latest import.”
-          - “Extended breakdown of the game you brought in.”
-          - “The big picture, now that the import's done.”
-          - “Freshly imported — here's everything else.”
-          - “Good addition. Here's the supplementary read.”
-          - “The card shows the surface. Here's below it.”
-          - “Imported. Let's get into it.”
-          - “Here's what the card didn't have room for.”
-          - “More detail on your latest library addition.”
-          - “Now that it's imported, here's the full story.”
-          - “The game's in the vault. Here's the context.”
-          - “A richer read on your newest entry.”
-          - “Here's the additional layer on this one.”
-          - “Full import done — here's what you should know.”
-          - “Context and colour for your newest library game.”
+          - Here's the full picture on this one.
+          - This game has more to it than the card shows.
+          - A bit more context on what you just imported.
+          - Let's dig into the details.
+          - Here's everything worth knowing.
+          - More on this title, since you asked.
+          - A closer look at the game you just added.
+          - Full read on the import — here you go.
+          - Let's unpack this one properly.
+          - The extended take on your new library entry.
+          - Since it's now in your library, here's the deeper cut.
+          - A little more background on this one.
+          - Full context, now that it's in the collection.
+          - Here's the broader picture for your new import.
+          - The quick version was the card — here's the rest.
+          - More signal, less noise — here's the full import breakdown.
+          - Good import. Here's the rest of what you should know.
+          - Now that it's in pito, here's the extended view.
+          - The card's the summary — this is the detail layer.
+          - Here's what sits beneath the cover art.
+          - A fuller read on the title you just brought in.
+          - More on this one, now that it's yours.
+          - The import went fine — here's the full context.
+          - Imported and indexed. Here's the breakdown.
+          - The game's in — here's what that actually means.
+          - Let's talk about what you just imported.
+          - Context on your new library entry follows.
+          - The card is the short version — here's the long one.
+          - Game locked in. Here's the extended picture.
+          - Here's a fuller read, since it's now in your collection.
+          - The game is yours. Here's the extra layer.
+          - Good call on the import. Here's what I know about it.
+          - Now in your library — let's look at it properly.
+          - The import's done. Here's the narrative.
+          - A broader view on the game you just added.
+          - Here's more colour on your latest import.
+          - Extended breakdown of the game you brought in.
+          - The big picture, now that the import's done.
+          - Freshly imported — here's everything else.
+          - Good addition. Here's the supplementary read.
+          - The card shows the surface. Here's below it.
+          - Imported. Let's get into it.
+          - Here's what the card didn't have room for.
+          - More detail on your latest library addition.
+          - Now that it's imported, here's the full story.
+          - The game's in the vault. Here's the context.
+          - A richer read on your newest entry.
+          - Here's the additional layer on this one.
+          - Full import done — here's what you should know.
+          - Context and colour for your newest library game.
+        channels_match_header:
+          - Channels that would match this game
+          - Channels with a feel for this one
+          - Where this game lives on YouTube
+          - Channels in this game's orbit
+          - Channels that'd cover this
+          - The channels this game calls home
+          - Channels that speak this game's language
+          - Where this one gets screen time
+          - Channels that have a taste for this
+          - This game's natural YouTube habitat
+          - Channels likely to feature this title
+          - Who covers games like this
+          - Channels tuned to this kind of game
+          - The YouTube neighbourhood for this title
+          - Channels this game would feel at home in
+          - Where this game tends to show up
+          - Channels with skin in this game
+          - The channels this title gravitates toward
+          - Channels that get what this game is
+          - Who plays games like this on YouTube
+          - Channels this game belongs on
+          - The right channels for this kind of title
+          - Where this game finds its audience
+          - Channels that vibe with this one
+          - Channels that play in this space
+          - The YouTube spots for games like this
+          - Channels this title fits right into
+          - Channels already in this game's world
+          - The channels this game should appear on
+          - Where games like this find their people
+          - Channels with an eye for this genre
+          - The creators this game calls to
+          - Channels that naturally cover this
+          - Who on YouTube would love this
+          - Channels that run in the same circles
+          - This game's likely YouTube territory
+          - Channels this title resonates with
+          - The YouTubers who'd be into this
+          - Channels already playing in this space
+          - Where this game's audience lives
+          - Channels aligned with this game's vibe
+          - The kind of channels that love this
+          - Channels that track well with this game
+          - Where this game would get a good reception
+          - Channels that match this game's energy
+          - The YouTube crowd this one speaks to
+          - Channels this game fits neatly into
+          - Who else covers games in this lane
+          - Channels that feel right for this title
+          - The channels most likely to review this
+        similar_games_header:
+          - Similar games
+          - Games cut from the same cloth
+          - More of the same, in a good way
+          - Siblings in spirit
+          - You might also lose hours to these
+          - Games that share the same DNA
+          - The family resemblance is strong
+          - Games that run in the same circles
+          - These could fill the same void
+          - More where that came from
+          - Games that feel like home too
+          - The cousins of this title
+          - You'd probably enjoy these too
+          - Games that scratch the same itch
+          - Related by more than genre
+          - The rest of the bloodline
+          - Games this one is in good company with
+          - Titles with a familiar feel
+          - More games in that direction
+          - Cut from similar cloth
+          - Same vibe, different name
+          - The neighbourhood this game grew up in
+          - Games that overlap with this one
+          - Titles that share the essence
+          - The overlap is not a coincidence
+          - Games that move in the same pack
+          - The crew this game rolls with
+          - Titles you'd pivot to next
+          - More games with that energy
+          - The extended universe of this title
+          - Games this one would recommend
+          - The same flavour, slightly different recipe
+          - You'd call these kindred
+          - Games that orbit the same idea
+          - Titles in the same league
+          - The close relatives of this one
+          - Games that would feel familiar
+          - More of that particular thing
+          - The games that share your taste
+          - Adjacent titles worth your time
+          - Games that resonate the same way
+          - Titles this game has things in common with
+          - The natural next steps from here
+          - More games with the same pull
+          - The rest of the gang
+          - Games that live nearby
+          - Titles cast from the same mould
+          - The overlap worth exploring
+          - Games that get the same instinct going
+          - More titles you'd probably dig
         deleted:
           - “Deleted “%{title}”.”
           - "“%{title}” is gone."

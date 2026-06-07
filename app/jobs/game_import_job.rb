@@ -160,9 +160,10 @@ class GameImportJob < ApplicationJob
   end
 
   def enhanced_body(game)
-    intro = Pito::Copy.render("pito.copy.games.enhanced_intro")
-    intro_html = %(<p class="text-fg mb-2">#{ERB::Util.html_escape(intro)}</p>)
-    %(<div class="pito-game-enhanced-message">#{intro_html}</div>)
+    ApplicationController.renderer.render(
+      Pito::Game::EnhancedComponent.new(game: game),
+      layout: false
+    )
   end
 
   def handle_error(conversation, error)
