@@ -328,6 +328,21 @@ describe("pito--chat-form controller", () => {
     expect(channelInput.value).toBe("@all") // not cycled
   })
 
+  it("Enter STILL submits when unauthenticated (so /login can be sent)", async () => {
+    const { form, inputField } = buildScaffold({ authenticated: false })
+    await waitForConnect()
+
+    inputField.value = "/login 558183"
+
+    let submitted = 0
+    form.addEventListener("submit", () => submitted++)
+
+    keydown(inputField, "Enter")
+
+    expect(submitted).toBeGreaterThan(0)
+    expect(inputField.value).toBe("")
+  })
+
   // ── fillAndSubmit (T10.9) ─────────────────────────────────────────────────────
 
   describe("fillAndSubmit", () => {

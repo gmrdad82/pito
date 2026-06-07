@@ -71,23 +71,26 @@ export default class extends Controller {
   }
 
   handleKeydown(event) {
-    if (!isAuthenticated()) return
+    // Tab autocomplete + channel/period cycling are authenticated-only
+    // conveniences. Enter-to-submit must work for EVERYONE — an unauthenticated
+    // visitor has to be able to send `/login <code>`.
+    if (isAuthenticated()) {
+      if (event.key === "Tab" && !event.shiftKey) {
+        // Reserved for autocomplete — do not preventDefault, do not cycle.
+        return
+      }
 
-    if (event.key === "Tab" && !event.shiftKey) {
-      // Reserved for autocomplete — do not preventDefault, do not cycle.
-      return
-    }
+      if (event.key === "Tab" && event.shiftKey) {
+        event.preventDefault()
+        this.#cycleNext(this.channelsValue, "channelInput", "channelDisplay")
+        return
+      }
 
-    if (event.key === "Tab" && event.shiftKey) {
-      event.preventDefault()
-      this.#cycleNext(this.channelsValue, "channelInput", "channelDisplay")
-      return
-    }
-
-    if (event.code === "Space" && event.shiftKey) {
-      event.preventDefault()
-      this.#cycleNext(this.periodsValue, "periodInput", "periodDisplay")
-      return
+      if (event.code === "Space" && event.shiftKey) {
+        event.preventDefault()
+        this.#cycleNext(this.periodsValue, "periodInput", "periodDisplay")
+        return
+      }
     }
 
     if (event.key !== "Enter" || event.shiftKey) return
