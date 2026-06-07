@@ -53,6 +53,56 @@ RSpec.describe Pito::TimeToBeatComponent do
     end
   end
 
+  describe "BAR_CELLS" do
+    it "is 40 (each = spans a 2.5% slice of 0..completionist)" do
+      expect(described_class::BAR_CELLS).to eq(40)
+    end
+  end
+
+  describe "#fill_text" do
+    it "returns 40 = characters" do
+      expect(described_class.new(game: game).fill_text).to eq("=" * 40)
+    end
+  end
+
+  describe "#color_axis_max" do
+    it "is the completionist hour count" do
+      expect(described_class.new(game: game).color_axis_max).to eq(200)
+    end
+
+    it "floors at 10h so a tiny game can't divide by zero" do
+      tiny = described_class.new(hours: { main: 1, extras: 2, completionist: 3 })
+      expect(tiny.color_axis_max).to eq(10)
+    end
+  end
+
+  describe "#tick_position" do
+    let(:comp) { described_class.new(hours: { main: 50, extras: 100, completionist: 200 }) }
+
+    it "always pins completionist to the last-cell midpoint (98.75%)" do
+      expect(comp.tick_position(200)).to eq(98.75)
+    end
+
+    it "snaps main/extras to their cell midpoints" do
+      # main 50/200 = 25% → cell 10 → 26.25%; extras 100/200 = 50% → cell 20 → 51.25%
+      expect(comp.tick_position(50)).to eq(26.25)
+      expect(comp.tick_position(100)).to eq(51.25)
+    end
+
+    it "snaps a zero value to the first cell midpoint (1.25%)" do
+      expect(comp.tick_position(0)).to eq(1.25)
+    end
+
+    it "clamps a value beyond completionist to 98.75%" do
+      expect(comp.tick_position(500)).to eq(98.75)
+    end
+
+    it "returns 0 when completionist is zero" do
+      bare = described_class.new(hours: { main: 0, extras: 0, completionist: 0 })
+      expect(bare.tick_position(5)).to eq(0.0)
+    end
+  end
+
   describe "#max_x" do
     it "is completionist * 1.05 rounded" do
       comp = described_class.new(game: game, footage_hours: 50)
@@ -180,8 +230,8 @@ RSpec.describe Pito::TimeToBeatComponent do
       expect(comp.gradient_stops).to end_with("100%")
     end
 
-    it "projects small max_x so lime/amber/pink are clamped" do
-      # max_x ≈ 10h → 10h threshold projects to 100%, 40h and 100h > 100%
+    it "projects a small completionist axis so amber/pink clamp away" do
+      # color_axis_max = 10h → 40h + 100h thresholds project past 100% and clamp
       tiny = described_class.new(hours: { main: 5, extras: 8, completionist: 10 }, footage_hours: 0)
       stops = tiny.gradient_stops
       # The first stop (0h → green, now wrapped in the T17.1 fg-mix) sits at
@@ -191,8 +241,8 @@ RSpec.describe Pito::TimeToBeatComponent do
       expect(stops).to match(/\A#{Regexp.escape(green)} 0(\.0+)?%/)
     end
 
-    it "projects large max_x (Crimson-Desert scale) so pink dominates" do
-      # completionist = 738h → max_x ≈ 775h; 100h projects to ~12.9%
+    it "projects a large completionist axis (Crimson-Desert scale) so pink dominates" do
+      # completionist = 738h → 100h projects to ~13.6%, pink fills the rest
       crimson = described_class.new(
         hours:         { main: 31, extras: 71, completionist: 738 },
         footage_hours: 0

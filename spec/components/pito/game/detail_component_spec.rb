@@ -131,12 +131,13 @@ RSpec.describe Pito::Game::DetailComponent do
   end
 
   describe "time-to-beat component with footage tick" do
-    it "embeds the TTB component including the footage tick" do
+    it "embeds the TTB component including the footage mark" do
       Footage.create!(game: game, filename: "clip.mov", duration_seconds: 7200)
       game.reload
 
       node = render_inline(described_class.new(game: game))
-      expect(node.css(".ttb-tick--footage").first).not_to be_nil
+      # Footage uses the ScoreBar-style ▼ value bubble (T17.4), not a | tick.
+      expect(node.css(".pito-ttb__footage-bubble").first).not_to be_nil
     end
   end
 
