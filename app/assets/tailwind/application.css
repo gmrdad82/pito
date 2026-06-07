@@ -633,17 +633,30 @@ html {
 
 /* Outer wrapper — inline so it flows inside message text. */
 .pito-score-bar {
-  position: relative;
-  display: inline-block;
-  /* Breathing room above so the needle bubble never touches the component
-     above it (the TTB legend / prior message). */
-  margin-top: 0.75rem;
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  width: 100%;
+  /* Extra breathing room above so the floating score bubble (sits a line above
+     the bar) never touches the component above it (the TTB legend). */
+  margin-top: 1.75rem;
 }
 
-/* Track: brackets + fill side-by-side. */
+/* Witty label before the bar (e.g. "People Score"), on the same line. */
+.pito-score-bar__label {
+  flex: 0 0 auto;
+  color: var(--fg-dim);
+  white-space: nowrap;
+}
+
+/* Track: brackets + fill, full-width. position:relative so the absolute tick +
+   bubble map their left:% across the bar. */
 .pito-score-bar__track {
-  display: inline-flex;
+  position: relative;
+  flex: 1 1 auto;
+  display: flex;
   align-items: baseline;
+  min-width: 0;
 }
 
 .pito-score-bar__bracket {
@@ -667,6 +680,7 @@ html {
 .pito-score-bar__fill {
   flex: 1 1 auto;
   overflow: hidden;
+  white-space: nowrap;
   background-image: linear-gradient(
     to right,
     color-mix(in oklch, color-mix(in oklch, var(--accent-red) 60%, var(--fg-faded)) 75%, var(--fg-default))    0%,   /* dark very-bad — hard left edge */

@@ -49,9 +49,9 @@ RSpec.describe Pito::ScoreBarComponent do
     end
   end
 
-  describe "BAR_CELLS" do
-    it "is 20 (each = spans a 5% score slice)" do
-      expect(described_class::BAR_CELLS).to eq(20)
+  describe "FILL_CELLS" do
+    it "emits more = than can fit (full-width bar, CSS-clipped)" do
+      expect(described_class::FILL_CELLS).to be >= 100
     end
   end
 
@@ -89,30 +89,28 @@ RSpec.describe Pito::ScoreBarComponent do
       expect(comp.overlay_left_percent).to be_nil
     end
 
-    it "snaps to the middle of the 5% cell the score falls in" do
-      # score 50 → cell [50,55) → midpoint 52.5
-      comp = described_class.new(score: 50)
-      expect(comp.overlay_left_percent).to eq(52.5)
+    it "is the precise score percent (no cell snapping)" do
+      expect(described_class.new(score: 50).overlay_left_percent).to eq(50.0)
+      expect(described_class.new(score: 81).overlay_left_percent).to eq(81.0)
+      expect(described_class.new(score: 92).overlay_left_percent).to eq(92.0)
     end
 
-    it "snaps a 90-95 score to 92.5% (the documented example)" do
-      expect(described_class.new(score: 92).overlay_left_percent).to eq(92.5)
-      expect(described_class.new(score: 90).overlay_left_percent).to eq(92.5)
-    end
-
-    it "snaps a perfect 100 into the last cell midpoint (97.5%)" do
-      expect(described_class.new(score: 100).overlay_left_percent).to eq(97.5)
-    end
-
-    it "snaps a 0 score to the first cell midpoint (2.5%)" do
-      expect(described_class.new(score: 0).overlay_left_percent).to eq(2.5)
+    it "clamps to 0..100" do
+      expect(described_class.new(score: 100).overlay_left_percent).to eq(100.0)
+      expect(described_class.new(score: 0).overlay_left_percent).to eq(0.0)
     end
   end
 
   describe "#fill_text" do
-    it "returns 20 = characters" do
+    it "returns FILL_CELLS = characters (overflow, CSS-clipped to full width)" do
       comp = described_class.new
-      expect(comp.fill_text).to eq("=" * 20)
+      expect(comp.fill_text).to eq("=" * described_class::FILL_CELLS)
+    end
+  end
+
+  describe "#score_label" do
+    it "returns a non-empty witty label via Pito::Copy" do
+      expect(described_class.new(score: 80).score_label).to be_a(String).and be_present
     end
   end
 
@@ -218,11 +216,23 @@ RSpec.describe Pito::ScoreBarComponent do
       expect(bar).not_to be_empty
     end
 
-    it "positions the bubble + needle at the snapped cell midpoint (left: N%)" do
-      # score 50 snaps to the [50,55) cell midpoint = 52.5%
-      node = render_inline(described_class.new(score: 50))
+    it "positions the bubble + needle at the precise score percent (left: N%)" do
+      node = render_inline(described_class.new(score: 81))
       html = node.to_html
-      expect(html).to include("left: 52.5%")
+      expect(html).to include("left: 81.0%")
+    end
+  end
+
+  describe "label + full-width structure" do
+    it "renders the witty label before the track" do
+      node = render_inline(described_class.new(score: 80))
+      expect(node.css(".pito-score-bar__label").text).to be_present
+    end
+
+    it "places the tick inside the track so its left:% maps across the bar" do
+      node = render_inline(described_class.new(score: 81))
+      tick = node.css(".pito-score-bar__track .pito-score-bar__tick").first
+      expect(tick).not_to be_nil
     end
   end
 end
