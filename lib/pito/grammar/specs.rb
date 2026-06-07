@@ -79,11 +79,14 @@ module Pito
           ),
 
           # Task k — chat command specs
+          # `list`/`ls` takes a single noun (channels/videos/games). The enum slot
+          # drives the suggestion ghost (`list ` → channels) and recognises the
+          # noun; the handler reads message.raw to route, so this is suggestions-only.
           Spec.new(
             namespace:       :chat,
             name:            :list,
             aliases:         [ :ls ],
-            slots:           chat_shared_slots,
+            slots:           [ Slot.new(name: :noun, kind: :enum, source: :nouns, optional: true) ],
             description_key: "pito.grammar.chat.list"
           ),
           # `show` / `delete` take a single game reference (ID or title). The

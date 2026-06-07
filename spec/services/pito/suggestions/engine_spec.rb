@@ -226,17 +226,22 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
     end
 
     describe "complete_current" do
-      it "completes 'upc' → 'oming' for the :status slot in 'list upc'" do
-        result = call(input: "list upc", cursor: 8, authenticated: true)
+      it "completes 'upc' → 'oming' for the :status slot in 'find upc'" do
+        result = call(input: "find upc", cursor: 8, authenticated: true)
         expect(result[:ghost][:complete_current]).to eq("oming")
       end
 
-      it "returns '' when the partial is ambiguous" do
-        # "r" could match "released", "RPG", "Racing" etc. — actually :status vocab
-        # has 'released', 'upcoming', 'tba'. "r" matches only "released".
-        # BUT "u" only matches "upcoming" in release_status → complete "pcoming"
-        result = call(input: "list u", cursor: 6, authenticated: true)
+      it "completes the unambiguous :status partial in 'find u'" do
+        # :status vocab has 'released', 'upcoming', 'tba'. "u" matches only
+        # "upcoming" → complete "pcoming". (`find` keeps the release-status slot;
+        # `list` now ghosts nouns instead.)
+        result = call(input: "find u", cursor: 6, authenticated: true)
         expect(result[:ghost][:complete_current]).to eq("pcoming")
+      end
+
+      it "completes the :noun slot for the list verb ('list cha' → 'nnels')" do
+        result = call(input: "list cha", cursor: 8, authenticated: true)
+        expect(result[:ghost][:complete_current]).to eq("nnels")
       end
 
       it "returns '' when no chat spec matches the first word" do
@@ -294,8 +299,8 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
     end
 
     # Case 3: partial token — unique prefix completion
-    it "returns 'oming' for complete_current when input is 'list upc'" do
-      input = "list upc"
+    it "returns 'oming' for complete_current when input is 'find upc'" do
+      input = "find upc"
       result = call(input: input, cursor: input.length, authenticated: true)
       expect(result[:ghost][:complete_current]).to eq("oming")
     end
@@ -473,7 +478,7 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
   describe "ghost text — cursor position variants" do
     context "cursor at end of a partial word" do
       it "completes 'upc' at end-of-input → 'oming'" do
-        result = call(input: "list upc", cursor: 8, authenticated: true)
+        result = call(input: "find upc", cursor: 8, authenticated: true)
         expect(result[:ghost][:complete_current]).to eq("oming")
       end
     end
@@ -486,10 +491,10 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
     end
 
     context "cursor mid-word (user placed cursor inside a token)" do
-      # When cursor is at position 6 in "list upcoming" (after "upc" but before "oming"),
-      # the engine sees input[0..5] = "list u" — completes "pcoming"
+      # When cursor is at position 6 in "find upcoming" (after "upc" but before "oming"),
+      # the engine sees input[0..5] = "find u" — completes "pcoming"
       it "completes using only text before cursor" do
-        result = call(input: "list upcoming", cursor: 6, authenticated: true)
+        result = call(input: "find upcoming", cursor: 6, authenticated: true)
         expect(result[:ghost][:complete_current]).to eq("pcoming")
       end
     end

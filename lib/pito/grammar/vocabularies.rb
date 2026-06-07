@@ -97,6 +97,19 @@ module Pito
         }
       ).freeze
 
+      # Listable entity nouns for the `list`/`ls` verb. Order matters — this is
+      # the suggestion order shown after `list `. (videos not listable yet, but
+      # offered so the noun is recognised and the ghost is honest.)
+      NOUNS = Vocabulary.define(
+        name:      :nouns,
+        canonical: %w[channels videos games],
+        synonyms:  {
+          "channel" => "channels",
+          "video"   => "videos",
+          "game"    => "games"
+        }
+      ).freeze
+
       HASHTAG_VERBS = Vocabulary.define(
         name:      :hashtag_verbs,
         canonical: %w[add remove],
@@ -210,6 +223,7 @@ module Pito
           PLATFORMS,
           RELEASE_STATUS,
           METRICS,
+          NOUNS,
           HASHTAG_VERBS,
           FILLERS,
           CONNECTIVES,
