@@ -216,3 +216,10 @@ Total commits: **172**
 204. [x] `125dcf44` (2026-06-07) — Spec: ScoreBar gradient now 12 color-mix stops
 205. [ ] `605ce8b9` (2026-06-07) — Migrate IGDB import step labels to Pito::Copy 50-variant pools
 206. [ ] `755e1f48` (2026-06-07) — Build Pito::Game::EnhancedComponent: channel matches + similar games
+207. [ ] `103c67bf` (2026-06-07) — validations.md: log the smoke-test session commits + mark validated
+208. [ ] `b24b5e0f` (2026-06-07) — Enhanced game message is no longer follow-up-able (no #hashtag)
+209. [ ] `f2f147b9` (2026-06-07) — TTB: handle partial IGDB data (axis = largest pillar; skip absent ticks/labels)
+210. [ ] `60c70c58` (2026-06-07) — Enhanced game message: pito-blue accent border (superseded by 598947f3)
+211. [ ] `71676715` (2026-06-07) — Import: step 2 (cover) broadcasts done-only (fixes stuck shimmer)
+212. [ ] `598947f3` (2026-06-07) — Enhanced game message uses kind: :enhanced (pito chrome); revert accent hack
+213. [ ] `059d1379` (2026-06-07) — Game-list follow-up: delete/rm spawns delete confirmation; confirm/cancel accept yes/no
