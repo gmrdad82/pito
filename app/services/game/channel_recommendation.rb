@@ -1,43 +1,36 @@
-# Channels a game's content overlaps with — the **game→channel** direction.
+# Channels best suited to a game — the **game→channel** direction.
 #
-# Design B: channels have no embedding of their own. A channel IS its videos, so
-# a channel matches a game on TWO signals, whichever is stronger:
+# "Which of my channels suits this game/video?" Design B: a channel has no
+# embedding of its own; it IS its videos and the games those videos are linked
+# to. A channel's score for game `g` is the strongest of three signals:
 #
-#   1. Explicit link — a video the channel owns is linked to the game
-#      (`video_game_links`). This is a definitive, human-asserted match, so it
-#      scores 100 regardless of embedding proximity.
-#   2. Semantic proximity — the channel's VIDEO nearest (cosine) to the game's
-#      `summary_embedding`. The channel's best (closest) video is its score.
+#   K  — explicit link: the channel owns a video linked to `g`. Definitive,
+#        human-asserted → LINK_SCORE (100), regardless of facets/embedding.
+#   GG — composed game→game similarity: the best `Pito::Recommendation::
+#        GameSimilarity.between(g, linked_game)` across the games the channel
+#        already covers. THIS is the Dead Space hop — a never-recorded game
+#        routes to the channel whose covered games are most like it.
+#   E  — video-embedding cold-start fallback: the channel's video nearest `g`
+#        (cosine), for relevant-but-not-yet-linked content.
 #
-# Per channel we keep the better of the two (a linked channel is pinned at 100).
+#   channel_score = max(K, GG, E)
 #
-# Returns an Array of `Result` structs (channel, 0–100 score, cosine distance),
-# ranked best-first. There is no count cap — every channel scoring at or above
-# `THRESHOLD_SCORE` is returned, each rendering its own ScoreBarComponent.
-# Below the floor is just a "bad" score (mirrors the game-score tiers where 25
-# is the worst meaningful tier), so it's dropped. Score maps distance via
-# `((1 - distance) * 100)`.
+# Ranked best-first; no count cap. Below FLOOR is a "bad" score and dropped
+# (unless `include_all:`). `limit:` optionally takes a top-N slice.
 #
-# `limit:` is optional — nil (default) returns all qualifying channels; pass an
-# Integer only when a caller deliberately wants a top-N slice.
-#
-# Videos without an embedding are skipped by the semantic path (but still count
-# via an explicit link). A game with no embedding AND no links → `[]`.
+# `include_all: true` returns EVERY channel — ones with no relevant videos/links
+# score 0 and sort last — so the user always sees their full channel slate.
 class Game
   class ChannelRecommendation
-    THRESHOLD_SCORE = 25 # drop hits below this 0–100 score floor ("bad")
-    LINKED_DISTANCE = 0.0 # explicit video→game link → perfect match (score 100)
+    FLOOR      = Pito::Recommendation::Weights::FLOOR
+    LINK_SCORE = Pito::Recommendation::Weights::LINK_SCORE
 
-    Result = Struct.new(:channel, :score, :distance, keyword_init: true)
+    Result = Struct.new(:channel, :score, :breakdown, keyword_init: true)
 
     def self.call(game, limit: nil, include_all: false)
       new(game, limit: limit, include_all: include_all).call
     end
 
-    # @param include_all [Boolean] when true, EVERY channel is returned —
-    #   channels with no relevant videos/links score 0 and sort last. The
-    #   "which of my channels suits this game?" surface uses this so the user
-    #   sees all their channels, not only the ones that already match.
     def initialize(game, limit: nil, include_all: false)
       @game        = game
       @limit       = limit
@@ -47,33 +40,47 @@ class Game
     def call
       return [] if @game.nil?
 
-      best = {} # channel_id => smallest cosine distance among its videos
+      scores = Hash.new(0.0) # channel_id => best score so far (0–100 float)
 
-      if @game.summary_embedding.present?
-        embedded_videos.each do |video|
-          distance = video.neighbor_distance
-          if best[video.channel_id].nil? || distance < best[video.channel_id]
-            best[video.channel_id] = distance
-          end
-        end
-      end
+      apply_embedding_signal(scores) # E
+      apply_similarity_signal(scores) # GG
+      linked_channel_ids.each { |cid| scores[cid] = LINK_SCORE.to_f } # K (definitive)
 
-      # Channels with a video explicitly linked to this game are definitive
-      # matches — pin them at distance 0 (score 100), beating any embedding score.
-      linked_channel_ids.each { |cid| best[cid] = LINKED_DISTANCE }
-
-      channel_ids = @include_all ? ::Channel.pluck(:id) : best.keys
+      channel_ids = @include_all ? ::Channel.pluck(:id) : scores.keys
       return [] if channel_ids.empty?
 
       channels = ::Channel.where(id: channel_ids).index_by(&:id)
-      ranked = channel_ids
-        .filter_map { |cid| channels[cid] && build_result(channels[cid], best[cid]) }
-        .select { |result| @include_all || result.score >= THRESHOLD_SCORE }
-        .sort_by { |result| [ -result.score, result.channel.id ] }
+      ranked = channel_ids.filter_map { |cid|
+        channel = channels[cid] or next
+        score = scores[cid].round
+        next if !@include_all && score < FLOOR
+
+        Result.new(channel: channel, score: score, breakdown: nil)
+      }.sort_by { |result| [ -result.score, result.channel.id ] }
+
       @limit ? ranked.first(@limit) : ranked
     end
 
     private
+
+    # E — best video-embedding similarity per channel.
+    def apply_embedding_signal(scores)
+      return if @game.summary_embedding.blank?
+
+      embedded_videos.each do |video|
+        e = Pito::Recommendation::Signals.embedding(video.neighbor_distance)
+        scores[video.channel_id] = e if e > scores[video.channel_id]
+      end
+    end
+
+    # GG — best composed game→game similarity between the target and each
+    # channel's already-linked games.
+    def apply_similarity_signal(scores)
+      linked_games_by_channel.each do |channel_id, games|
+        gg = games.map { |lg| Pito::Recommendation::GameSimilarity.between(@game, lg)[:score] }.max
+        scores[channel_id] = gg if gg && gg > scores[channel_id]
+      end
+    end
 
     # Channel ids that own at least one video explicitly linked to this game.
     def linked_channel_ids
@@ -84,20 +91,30 @@ class Game
         .pluck(:channel_id)
     end
 
-    # All embedded videos, ordered nearest-first, grouped by channel above so
-    # every channel surfaces on its best-matching video. No pool cap: a cap
-    # could hide a channel whose closest video falls outside the top-N. (At
-    # scale this could move to a DISTINCT ON (channel_id) query.)
+    # { channel_id => [linked Game, …] } across all channels' videos, with the
+    # games' facets preloaded so `GameSimilarity.between` does no extra queries.
+    def linked_games_by_channel
+      pairs = ::VideoGameLink
+        .joins(:video)
+        .pluck(Arel.sql("videos.channel_id"), :game_id)
+      return {} if pairs.empty?
+
+      games = ::Game
+        .where(id: pairs.map(&:last).uniq)
+        .includes(:genres, :developer_companies, :publisher_companies)
+        .index_by(&:id)
+
+      pairs.each_with_object(Hash.new { |h, k| h[k] = [] }) do |(channel_id, game_id), acc|
+        game = games[game_id] and acc[channel_id] << game
+      end
+    end
+
+    # All embedded videos, ordered nearest-first; grouped by channel above so
+    # each channel surfaces on its best-matching video.
     def embedded_videos
       ::Video
         .where.not(summary_embedding: nil)
         .nearest_neighbors(:summary_embedding, @game.summary_embedding, distance: "cosine")
-    end
-
-    def build_result(channel, distance)
-      # No signal (no relevant video/link) → distance nil → score 0.
-      score = distance.nil? ? 0 : ((1 - distance) * 100).round.clamp(0, 100)
-      Result.new(channel: channel, score: score, distance: distance)
     end
   end
 end

@@ -134,4 +134,46 @@ RSpec.describe Pito::Recommendation::GameSimilarity, type: :service do
     3.times { make_game(embedding: vec(0)) }
     expect(described_class.call(target, limit: 2).size).to eq(2)
   end
+
+  # ── pairwise .between (the composition primitive, no pool / no floor) ───────
+
+  describe ".between" do
+    it "blends two specific games and is not floored (genre+developer = 32)" do
+      g1 = make_game(embedding: nil, genres: [ genre_x ], developers: [ dev_a ])
+      g2 = make_game(embedding: nil, genres: [ genre_x ], developers: [ dev_a ])
+      out = described_class.between(g1, g2)
+      expect(out[:score]).to eq(32)
+      expect(out[:breakdown]).to eq(e: 0.0, g: 100.0, d: 100.0, p: 0.0, s: 0.0)
+    end
+
+    it "computes cosine embedding similarity in Ruby (identical = E 100)" do
+      g1 = make_game(embedding: vec(0))
+      g2 = make_game(embedding: vec(0))
+      expect(described_class.between(g1, g2)[:breakdown][:e]).to eq(100.0)
+    end
+
+    it "is 0 when the two games share nothing and have no embedding" do
+      g1 = make_game(embedding: nil)
+      g2 = make_game(embedding: nil)
+      expect(described_class.between(g1, g2)[:score]).to eq(0)
+    end
+
+    it "is symmetric" do
+      g1 = make_game(embedding: vec(0), genres: [ genre_x ], score: 80)
+      g2 = make_game(embedding: vec(1), score: 60)
+      expect(described_class.between(g1, g2)[:score]).to eq(described_class.between(g2, g1)[:score])
+    end
+  end
+
+  describe ".cosine_distance" do
+    it "is 0 for identical vectors and ~1 for orthogonal" do
+      expect(described_class.cosine_distance([ 1.0, 0.0 ], [ 1.0, 0.0 ])).to be_within(1e-9).of(0.0)
+      expect(described_class.cosine_distance([ 1.0, 0.0 ], [ 0.0, 1.0 ])).to be_within(1e-9).of(1.0)
+    end
+
+    it "returns nil when a vector is missing or zero" do
+      expect(described_class.cosine_distance(nil, [ 1.0 ])).to be_nil
+      expect(described_class.cosine_distance([ 0.0, 0.0 ], [ 1.0, 0.0 ])).to be_nil
+    end
+  end
 end
