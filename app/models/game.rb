@@ -1,8 +1,6 @@
 # frozen_string_literal: true
 
 class Game < ApplicationRecord
-  belongs_to :primary_genre, class_name: "Genre", optional: true
-
   has_many :game_genres, dependent: :destroy
   has_many :genres, through: :game_genres
 
@@ -17,6 +15,7 @@ class Game < ApplicationRecord
   has_many :linked_videos, through: :video_game_links, source: :video
 
   has_many :footages, dependent: :destroy
+  has_many :stats, as: :entity, dependent: :destroy
 
   has_one_attached :cover_art
 
@@ -32,6 +31,12 @@ class Game < ApplicationRecord
   scope :released_in, ->(year) { where(release_year: year) }
   scope :tba, -> { where(release_year: nil) }
   scope :upcoming, -> { where("release_date > ? OR release_year IS NULL", Date.current) }
+
+  # Nightly-refresh scopes — used by GameIgdbNightlyRefresh.
+  # `synced`  → has been synced at least once from IGDB.
+  # `stale`   → synced more than 7 days ago (due for a re-sync).
+  scope :synced, -> { where.not(igdb_synced_at: nil) }
+  scope :stale,  -> { where(igdb_synced_at: ..7.days.ago) }
 
   # ── Score (vote-weighted average of IGDB rating triplets) ─────
   RATING_FIELDS = %i[

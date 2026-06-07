@@ -1,8 +1,10 @@
-<%# Sidebar conversation list — Recent section + optional Older section %>
-<div class="flex flex-col">
+<%# Sidebar conversation list — Recent section + optional Older section.
+    data-delete-prompt carries a witty Pito::Copy "press d again" variant the
+    resume controller shows when a row is armed (orange = confirmation). %>
+<div class="flex flex-col" data-delete-prompt="<%= Pito::Copy.render("pito.copy.conversations.delete_confirm") %>">
   <%# Recent section %>
   <div class="mb-2">
-    <%= render(Pito::Section::SectionHeaderComponent.new(text: t("pito.sidebar.conversations.recent"), color: :orange)) %>
+    <%= render(Pito::Section::SectionHeaderComponent.new(text: t("pito.sidebar.conversations.recent"), color: :yellow)) %>
     <% recent.each do |conversation| %>
       <%= render partial: "conversations/row",
                  locals: { conversation: conversation, current: current?(conversation),
@@ -16,7 +18,7 @@
 
     <%# Older section %>
     <div class="mb-2">
-      <%= render(Pito::Section::SectionHeaderComponent.new(text: t("pito.sidebar.conversations.older"), color: :orange)) %>
+      <%= render(Pito::Section::SectionHeaderComponent.new(text: t("pito.sidebar.conversations.older"), color: :yellow)) %>
       <% older.each do |conversation| %>
         <%= render partial: "conversations/row",
                    locals: { conversation: conversation, current: current?(conversation),

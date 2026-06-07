@@ -1,0 +1,18 @@
+<%# Turbo Stream partial — populates #pito-sidebar with the theme picker
+    wrapped in the Sidebar shell (fixed overlay panel). %>
+<%= render partial: "chat/done_signal" %>
+<%= turbo_stream.update "pito-sidebar" do %>
+  <%= render(Pito::Sidebar::Component.new(
+        title: t("pito.sidebar.themes.title")
+      )) do |sidebar| %>
+    <% sidebar.with_subtitle do %>
+      <span><%= t("pito.sidebar.themes.hint") %></span>
+    <% end %>
+    <% sidebar.with_body do %>
+      <%= render(Pito::Sidebar::Themes::Component.new(
+            groups:        groups,
+            current_theme: current_theme
+          )) %>
+    <% end %>
+  <% end %>
+<% end %>

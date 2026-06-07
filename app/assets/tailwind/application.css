@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./themes.css";
 
 @source "../../views";
 @source "../../components";
@@ -163,9 +164,14 @@ html {
   100% { content: "⠋"; }
 }
 
+/* Ping-pong sweep: left→right over the first 75% of the cycle, then
+   right→left over the last 25% — same distance in a third of the time, so the
+   return leg is 3× faster. `linear` timing (set on .pito-shimmer) keeps each
+   leg's speed constant so the 3:1 ratio is exact. */
 @keyframes pito-shimmer-sweep {
   0%   { background-position: -100% 0; }
-  100% { background-position: 100% 0; }
+  75%  { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
 }
 
 /* ── Shared component classes (moved from inline <style>) ───── */
@@ -181,7 +187,7 @@ html {
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
-  animation: pito-shimmer-sweep 1.4s infinite;
+  animation: pito-shimmer-sweep 1.4s linear infinite;
 }
 
 .pito-comet {
@@ -350,7 +356,7 @@ html {
 /* ── Start screen ───────────────────────────────────────────── */
 
 .pito-start-screen__logo {
-  font-size: 18px;
+  font-size: 18px; /* sole 16px-rule exception: the wordmark logo */
   line-height: 1;
   margin: 0;
   white-space: pre;
@@ -511,7 +517,7 @@ html {
    gap showing the page bg, then the surface), flush against the chatbox top,
    with a hairline at the bottom to separate the two. Drawn with inset shadows
    so no DOM/JS change is needed. Sits BELOW the sidebar (see z-index there). */
-.pito-autosuggest-palette {
+.pito-suggestions-palette {
   position: absolute;
   bottom: 100%;
   left: 0;
@@ -528,7 +534,7 @@ html {
 
 /* Hairline divider vs the chatbox — only under the surface (starts after the
    bar+gap), never crossing the purple bar. */
-.pito-autosuggest-palette::after {
+.pito-suggestions-palette::after {
   content: "";
   position: absolute;
   left: 10px;
@@ -538,7 +544,7 @@ html {
   background: var(--border-default);
 }
 
-.pito-autosuggest-row {
+.pito-suggestions-row {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
@@ -550,17 +556,17 @@ html {
 }
 
 /* Command name (left) + muted right-aligned description */
-.pito-autosuggest-cmd {
+.pito-suggestions-cmd {
   white-space: nowrap;
 }
 
-.pito-autosuggest-desc {
+.pito-suggestions-desc {
   color: var(--fg-faded);
   white-space: nowrap;
 }
 
-/* Selected row in the autosuggest palette */
-.pito-autosuggest-palette .is-selected {
+/* Selected row in the suggestions palette */
+.pito-suggestions-palette .is-selected {
   background: var(--border-default);
 }
 
@@ -578,7 +584,7 @@ html {
 }
 
 /* Hide when JS toggles via class (hidden attribute is handled natively) */
-.pito-autosuggest-palette.hidden {
+.pito-suggestions-palette.hidden {
   display: none;
 }
 
@@ -588,33 +594,562 @@ html {
   pointer-events: none;
 }
 
-/* ── Theme system ──────────────────────────────────────────────
+/* ── Modal overlay backdrop ─────────────────────────────────── */
+
+/* Semi-transparent scrim behind modals (command palette, etc.).
+ * Uses --bg-root at reduced opacity so the backdrop tints correctly
+ * on both dark themes (near-black) and light themes (near-white).
+ * Fallback keeps the classic 45% black for browsers without CSS
+ * color() / color-mix() level-4 support. */
+.pito-modal-overlay {
+  background: color-mix(in oklch, var(--bg-root) 80%, transparent);
+}
+
+/* ── Pito::ScoreBarComponent ────────────────────────────────────
  *
- * Add a new theme: drop another `[data-theme="<name>"]` block
- * with the same var names. Theme switching (Plan 2+) flips the
- * `data-theme` attribute on `<html>` and persists in localStorage.
- * No Ruby or template changes needed.
+ * Continuous rating bar: brackets [ ] + a 60-cell `=` run carrying a
+ * red→green gradient via background-clip:text, plus an absolute-
+ * positioned `|` tick + floating score bubble when `overlay?` is true.
+ *
+ * THEME-AWARE heat map. Every stop is derived from the active theme's
+ * 7-accent palette (--accent-* in themes.css), so the bar reads well on
+ * all 18 themes (dark + light) instead of being locked to Dracula hex.
+ * Dracula remains the *visual reference* for INTENT (red→green "heat"),
+ * but no literal hex appears in the gradient anymore.
+ *
+ * Mapping (tier → stop color), keeping the revive's % breakpoints:
+ *
+ *   very-bad  0%–25%   = mix(red 60%, fg-faded)   — dim/muddy red
+ *   bad       25%–50%  = --accent-red             — clear red
+ *   poor      50%      = mix(red 50%, orange)     — red→orange blend
+ *   meh       65%      = --accent-orange
+ *   fair      75%      = --accent-yellow
+ *   good      85%      = mix(yellow 45%, green)   — yellow→green blend
+ *   excellent 90%–100% = --accent-green
+ *
+ * Intermediate hues the 7-accent palette lacks (the muddy very-bad red and
+ * the poor / good blends) are produced with color-mix(in oklch, …) for
+ * perceptually smooth, theme-adaptive transitions. The hard edges at 25%,
+ * 50%, and 90% are zero-distance stops (same percentage repeated) so those
+ * zones read as solid blocks. On Dracula these resolve to the original
+ * #ff5555 … #50fa7b look; on light themes (catppuccin-latte, github-light)
+ * each theme's own legible accents drive the colors instead.
  */
 
-[data-theme="tokyo-night"] {
-  --bg-root:         #1a1b26;
-  --bg-surface:      #1f2335;
-  --bg-elevated:     #24283b;
-
-  --border-default:  #292e42;
-  --border-faded:    #414868;
-
-  --fg-default:      #c0caf5;
-  --fg-dim:          #565f89;
-  --fg-faded:        #414868;
-
-  --accent-purple:   #bb9af7;
-  --accent-blue:     #7aa2f7;
-  --accent-cyan:     #7dcfff;
-  --accent-green:    #9ece6a;
-  --accent-yellow:   #e0af68;
-  --accent-orange:   #ff9e64;
-  --accent-red:      #f7768e;
-
-  --brand-pito:      #5170ff;
+/* Outer wrapper — inline so it flows inside message text. */
+.pito-score-bar {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  width: 100%;
+  /* Extra breathing room above so the floating score bubble (sits a line above
+     the bar) never touches the component above it (the TTB legend). */
+  margin-top: 1.75rem;
 }
+
+/* Witty label before the bar (e.g. "People Score"), on the same line. */
+.pito-score-bar__label {
+  flex: 0 0 auto;
+  color: var(--fg-dim);
+  white-space: nowrap;
+}
+
+/* Track: brackets + fill, full-width. position:relative so the absolute tick +
+   bubble map their left:% across the bar. */
+.pito-score-bar__track {
+  position: relative;
+  flex: 1 1 auto;
+  display: flex;
+  align-items: baseline;
+  min-width: 0;
+}
+
+.pito-score-bar__bracket {
+  flex: 0 0 auto;
+}
+
+/* The `=` glyph run carries the multi-stop gradient via background-clip:text.
+   Solid-zone hard edges at 0–25% (very-bad), 25–50% (bad), 90–100%
+   (excellent); smooth ramp through poor→meh→fair→good in between.
+
+   THEME-ADAPTIVE CONTRAST (T17.1): every stop is mixed toward
+   `--fg-default` (dark on light themes, light on dark themes) so the bar
+   reads on ALL 18 themes. Pre-fix the yellow "fair" stop washed out to
+   ~1.62:1 on `tomorrow`; the per-stop fg-mix below caps the worst case at
+   2.56:1 (catppuccin-latte / "good"), while dark themes stay 4–8:1 and
+   keep their vivid accents (the mix weight on already-vivid stops is
+   small). The lightest, intrinsically-low-contrast stops (yellow "fair"
+   ≈42%, "good" ≈35%, green "excellent" ≈30%) carry a heavier fg-mix; the
+   inherently dark red stops carry only ≈15–25%. Mix weights resolved with
+   the OKLab+WCAG sweep script (see Plan P17 / docs/games.md). */
+.pito-score-bar__fill {
+  flex: 1 1 auto;
+  /* min-width:0 lets the flex item shrink below its (overflowing) 160-char
+     content to the visible width, so the gradient is sized to the visible box
+     and maps 0→100% across it (dark-red low on the left → green high on the
+     right). Without it the box stays 160ch wide and only the left slice shows. */
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  background-image: linear-gradient(
+    to right,
+    color-mix(in oklch, var(--accent-red) 72%, var(--fg-faded))    0%,   /* DARKEST red — worst score (mixed toward the dim faded fg, so it's darker than the bad zone, not lighter) */
+    color-mix(in oklch, var(--accent-red) 72%, var(--fg-faded))   25%,   /* solid very-bad zone (darkest) */
+    color-mix(in oklch, var(--accent-red) 85%, var(--fg-default))   25%,                                             /* hard edge → bad (lighter than very-bad — monotonic toward green) */
+    color-mix(in oklch, var(--accent-red) 85%, var(--fg-default))   50%,                                             /* solid bad zone */
+    color-mix(in oklch, color-mix(in oklch, var(--accent-red), var(--accent-orange)) 82%, var(--fg-default))   50%,  /* hard edge → poor (red→orange) */
+    color-mix(in oklch, var(--accent-orange) 70%, var(--fg-default))   65%,                                          /* meh */
+    color-mix(in oklch, var(--accent-yellow) 58%, var(--fg-default))   75%,                                          /* fair */
+    color-mix(in oklch, color-mix(in oklch, var(--accent-yellow) 45%, var(--accent-green)) 65%, var(--fg-default))   85%,  /* good (yellow→green) */
+    color-mix(in oklch, var(--accent-green) 70%, var(--fg-default))   90%,                                           /* excellent */
+    color-mix(in oklch, var(--accent-green) 70%, var(--fg-default))  100%                                            /* solid excellent zone */
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Muted state (no score, not resyncing) — dim the bar, suppress gradient. */
+.pito-score-bar--muted .pito-score-bar__fill {
+  background-image: none;
+  color: var(--fg-faded);
+}
+
+/* Absolute `|` tick overlaid at the score position. */
+.pito-score-bar__tick {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  color: var(--fg-default);
+  font-weight: 700;
+  pointer-events: none;
+}
+
+/* Score bubble floating above the tick (▼ arrow glyph connects the two). */
+.pito-score-bar__bubble {
+  position: absolute;
+  bottom: calc(100% + 2px);
+  transform: translateX(-50%);
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1;
+  color: var(--fg-default);
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.pito-score-bar__bubble-num {
+  font-weight: 700;
+}
+
+.pito-score-bar__bubble-arrow {
+  line-height: 1;
+}
+
+/* ── Pito::TimeToBeatComponent ──────────────────────────────────
+ *
+ * Fuel-gauge bar: brackets [ ] + a continuous `=` run + four absolute
+ * ticks (main / extras / completionist / footage).
+ *
+ * THEME-AWARE effort ramp. Both gradient layers derive every stop from
+ * the active theme's 7-accent palette (--accent-* in themes.css), so the
+ * gauge reads well on all 18 themes. Dracula is the *visual reference* for
+ * INTENT (green→amber→pink "effort ramp"); no literal hex is used.
+ *
+ * Mapping (effort tier → stop color):
+ *
+ *   low         0h   = --accent-green
+ *   some        10h  = mix(green, yellow)            — lime
+ *   commitment  40h  = mix(orange 60%, yellow)       — amber
+ *   insanity    100h = mix(red, purple)              — magenta/pink
+ *
+ * There is no --accent-pink in the palette, so the magenta/pink "insanity"
+ * end is synthesized as color-mix(in oklch, --accent-red, --accent-purple);
+ * the lime + amber mids are likewise color-mixed (in oklch for smooth,
+ * non-muddy blends). On Dracula this resolves close to the original
+ * green→pink look; on light themes (catppuccin-latte, github-light) each
+ * theme's own accents drive the ramp instead.
+ *
+ * TWO gradient layers:
+ *
+ * 1. Bar background — adaptive per-game, inlined as
+ *    `style="background-image: linear-gradient(to right, ...)"` by
+ *    `Pito::TimeToBeatComponent#gradient_stops`. HEAT_THRESHOLDS uses the
+ *    var()/color-mix() stops above, each projected onto `max_x` so small
+ *    games stay green and long games shift pink.
+ *
+ * 2. Fill text (`=` glyphs) — static effort-ramp painted via
+ *    background-clip:text. Same 4-color sequence, no percentages, so the
+ *    glyph gradient always spans the full bar width regardless of length.
+ */
+
+.pito-ttb {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+/* Witty label left of the bar. margin-top pushes it down past row 1 (the
+   footage bubble row) so it sits on the bar's line, mirroring the ScoreBar
+   label. */
+.pito-ttb__label {
+  flex: 0 0 auto;
+  color: var(--fg-dim);
+  white-space: nowrap;
+  margin-top: 2.4em;
+}
+
+/* The rows column (footage / bar / values / legend). flex:1 + min-width:0 so
+   the bar (and every %-positioned row) shares one full-width coordinate space
+   to the right of the label. */
+.pito-ttb__body {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Row wrapper for the bar + ticks. */
+.pito-ttb__bar-row {
+  position: relative;
+}
+
+/* The bar element itself. Gets the per-game adaptive gradient via
+   inline `background-image` from `gradient_stops`. */
+.pito-ttb__bar {
+  position: relative;
+  display: inline-block;
+  width: 100%;
+  overflow: visible;
+}
+
+.pito-ttb__track {
+  display: inline-flex;
+  align-items: baseline;
+  width: 100%;
+}
+
+/* Brackets are solid fg — they bound the `=` run and must stay legible
+   regardless of the bar's background gradient sitting behind them. */
+.pito-ttb__bracket {
+  flex: 0 0 auto;
+  color: var(--fg-default);
+}
+
+/* The `=` glyphs carry the per-game ADAPTIVE heat ramp (T17.5): the
+   `background-image` linear-gradient is set INLINE on the element by
+   `Pito::TimeToBeatComponent#gradient_stops` (HEAT_THRESHOLDS projected onto
+   0..completionist), and clipped to the glyphs here. A short game reads
+   mostly green/lime; a marathon reads mostly pink. Theme-aware + contrast-
+   safe: every stop is a fg-mixed accent color-mix (see HEAT_THRESHOLDS / the
+   T17.1 sweep) — no literal hex. */
+.pito-ttb__fill {
+  flex: 1 1 auto;
+  /* See .pito-score-bar__fill — shrink to the visible width so the heat
+     gradient maps across the full bar, not the 160-char overflow box. */
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Tick overlays — `|` chars positioned absolutely on the bar. */
+.pito-ttb__tick {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  color: var(--fg-default);
+  font-weight: 700;
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* Top / bottom value rows.
+ *
+ * Each row is a POSITIONED STRIP, not a flex container: every child
+ * (the footage bubble, the pillar hour labels) is `position: absolute`
+ * with an inline `left: N%`, so the row must (a) be the positioning
+ * context (`position: relative`) and (b) RESERVE its own height — an
+ * absolutely-positioned child contributes nothing to layout, so a
+ * zero-height row would let the labels collapse onto the bar / legend.
+ * That collapse was the original jumble; the explicit row height
+ * (recovered from the pre-reboot fuel-gauge CSS, commit 991f86fb) is
+ * what keeps the bubble above the bar and the hour labels on their own
+ * line below it. */
+.pito-ttb__values {
+  position: relative;
+}
+
+/* Top row holds the footage ▼ bubble, which stacks a number ABOVE an
+   arrow (two lines). Reserve enough height for both so the bubble sits
+   fully above the bar instead of overlapping it; the bubble is pinned
+   to this row's bottom edge (`bottom: 0`) so its arrow kisses the bar. */
+.pito-ttb__values--top {
+  height: 2.4em;
+}
+
+/* Bottom row holds the three pillar hour labels (one line each).
+   Reserve a single line's height so they render cleanly below the bar
+   and never ride up onto it or down onto the legend. */
+.pito-ttb__values--bottom {
+  height: 1.4em;
+  margin-top: 2px;
+}
+
+/* Footage bubble above the bar. */
+.pito-ttb__footage-bubble {
+  position: absolute;
+  bottom: 0;
+  transform: translateX(-50%);
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1;
+  color: var(--fg-default);
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.pito-ttb__footage-bubble-num {
+  font-weight: 700;
+}
+
+.pito-ttb__footage-bubble-arrow {
+  line-height: 1;
+}
+
+/* Pillar value labels below the bar. */
+.pito-ttb__value {
+  position: absolute;
+  color: var(--fg-faded);
+  white-space: nowrap;
+}
+
+.pito-ttb__value--pillar {
+  top: 0;
+}
+
+/* Edge-label clamping modifiers. */
+.ttb-label--at-start {
+  transform: translateX(0);
+}
+
+.ttb-label--centered {
+  transform: translateX(-50%);
+}
+
+.ttb-label--at-end {
+  transform: translateX(-100%);
+}
+
+/* Legend row. */
+.pito-ttb__legend {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.pito-ttb__legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pito-ttb__legend-tick {
+  font-weight: 700;
+  color: var(--fg-default);
+}
+
+.pito-ttb__legend-label {
+  color: var(--fg-faded);
+}
+
+/* Per-pillar / footage tick accent colors (data-accent attribute).
+   Theme-aware, matching the contrast-safe effort-ramp stops above
+   (T17.1 fg-mix so the legend swatch ⇔ bar color identity holds on all
+   18 themes): main = green (low), extras = lime (mix green→yellow),
+   completionist = pink (mix red→purple). */
+[data-accent="main"]          { color: color-mix(in oklch, var(--accent-green) 70%, var(--fg-default)); }
+[data-accent="extras"]        { color: color-mix(in oklch, color-mix(in oklch, var(--accent-green), var(--accent-yellow)) 58%, var(--fg-default)); }
+[data-accent="completionist"] { color: color-mix(in oklch, color-mix(in oklch, var(--accent-red), var(--accent-purple)) 82%, var(--fg-default)); }
+[data-accent="footage"]       { color: var(--fg-default); }
+
+/* ── Pito::Game::EnhancedComponent ─────────────────────────────
+ *
+ * Rich recommendations message rendered after Voyage indexing.
+ * Layout:
+ *   - Intro line (plain text)
+ *   - Channel grid (up to 4 columns, 3 stacked rows each)
+ *   - Similar-games strip (inline wrapping small cover cards)
+ */
+
+.pito-game-enhanced-message {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.pito-game-enhanced-message__intro {
+  margin: 0;
+}
+
+.pito-game-enhanced-message__section-header {
+  margin: 0;
+  font-style: italic;
+}
+
+/* Spacer between channel and similar-games sections. */
+.pito-game-enhanced-message__spacer {
+  height: 0.5rem;
+}
+
+/* Channel grid: auto-fill columns, min 120px each, aligned by the
+   three row tracks (handle / title / score bar). */
+.pito-game-enhanced-message__channel-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 0.75rem 1rem;
+  align-items: start;
+}
+
+.pito-game-enhanced-message__channel-col {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.pito-game-enhanced-message__channel-handle {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pito-game-enhanced-message__channel-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The ScoreBarComponent inside a channel column inherits the column
+   width naturally (it is full-width by design). Override the large
+   top margin the standalone bar uses so it sits flush in the grid. */
+.pito-game-enhanced-message__channel-score .pito-score-bar {
+  margin-top: 0.25rem;
+}
+
+/* Similar-games strip: inline, wrapping. */
+.pito-game-enhanced-message__similar-games-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+/* Each card: narrow cover + title + id stacked. Cover is the 150%-scaled
+   small variant (240x318); the main detail cover (DetailComponent) is 600px. */
+.pito-game-enhanced-message__similar-game-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  width: 240px;
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
+.pito-game-enhanced-message__similar-game-cover {
+  width: 240px;
+  height: 318px;
+  object-fit: cover;
+  display: block;
+}
+
+/* Placeholder when no cover art is attached. */
+.pito-game-enhanced-message__similar-game-cover--placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-faded);
+  background: var(--bg-elevated);
+}
+
+.pito-game-enhanced-message__similar-game-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 240px;
+}
+
+/* ── Channel list strip ────────────────────────────────────────
+ *
+ * Pito::Channel::ListComponent — horizontal, wrapping card strip
+ * rendered by `list channels`.
+ */
+
+/* Strip: inline, wrapping — mirrors the similar-games strip. The top margin
+ * adds an empty-line gap between the intro copy and the avatar row. */
+.pito-channel-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+/* Each card: avatar + title + handle + view + id stacked, centered. Wide enough
+ * for the full @handle on one line; the avatar stays 120px (does not grow). */
+.pito-channel-list__card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.2rem;
+  width: 240px;
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
+/* Avatar image. */
+.pito-channel-list__avatar {
+  width: 120px;
+  height: 120px;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+/* Placeholder when no avatar is set. */
+.pito-channel-list__avatar--placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-faded);
+  background: var(--bg-elevated);
+}
+
+/* Title: truncated to one line (ellipsis) so it never wraps. */
+.pito-channel-list__title {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Handle + view link on the same line; link follows handle inline. */
+.pito-channel-list__handle {
+  word-break: break-all;
+}
+
+.pito-channel-list__view-link {
+  display: inline-block;
+}
+
+/* ── Theme system ──────────────────────────────────────────────
+ *
+ * Theme tokens are generated by `rake pito:themes:export` and
+ * imported via themes.css above. Theme switching flips the
+ * `data-theme` attribute on `<html>`. No manual edits needed here.
+ */

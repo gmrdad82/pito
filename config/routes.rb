@@ -17,13 +17,26 @@ Rails.application.routes.draw do
   get   "/notifications",     to: "notifications#index",  as: :notifications
   patch "/notifications/:id", to: "notifications#update", as: :notification
   post "/chat", to: "chat#create", as: :chat
-  post "/autocomplete", to: "autocomplete#create", as: :autocomplete
+  post "/suggestions", to: "suggestions#create", as: :suggestions
+  # IGDB game search + import endpoints (used by the /games import sidebar).
+  # POST /games/search — query IGDB; returns JSON { hits:, error: }
+  # POST /games/import — enqueue GameImportJob; returns 204
+  scope "/games", module: "games" do
+    post "search", to: "search#create", as: :games_search
+    post "import", to: "import#create", as: :games_import
+  end
+  # Marks a channel-visit event consumed: the pito--auto-visit controller POSTs
+  # here after its one-time click so the event flips to its :visited (follow-up)
+  # state and never auto-clicks again on refresh.
+  post "/channels/visit_consume", to: "channels/visits#consume", as: :channel_visit_consume
   get "/resume", to: "conversations#resume", as: :resume
-  get "/chat/:uuid", to: "conversations#show", as: :conversation
-  patch "/chat/:uuid", to: "conversations#update"
+  get    "/chat/:uuid", to: "conversations#show",    as: :conversation
+  patch  "/chat/:uuid", to: "conversations#update"
+  delete "/chat/:uuid", to: "conversations#destroy"
 
   # Settings toggle endpoints — require authentication (no allow_anonymous).
-  post "/settings/expand_all", to: "settings#toggle_expand_all", as: :settings_toggle_expand_all
+  post   "/settings/expand_all", to: "settings#toggle_expand_all", as: :settings_toggle_expand_all
+  patch  "/settings/theme",      to: "settings#theme",             as: :settings_theme
 
   # Dev helper: clears the session cookie so you can re-test /authenticate
   delete "/logout", to: "sessions#destroy", as: :logout
@@ -32,7 +45,7 @@ Rails.application.routes.draw do
   get "up" => "rails/health#show", as: :rails_health_check
 
   # Dynamic error pages — rendered by exceptions_app = routes so the 404
-  # page shows the full start screen with the autocomplete-enabled chatbox.
+  # page shows the full start screen with the suggestions-enabled chatbox.
   # /404 is the primary path Rails internally redirects to on a routing error.
   # The catch-all at the end handles any path that slips through without
   # raising a RoutingError (e.g. direct navigation to unknown URLs in tests).

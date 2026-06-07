@@ -45,7 +45,14 @@ export default class extends Controller {
     this.#syncBlockMetrics()
     this.#bind()
     this.autosize()
-    if (this.autofocusValue) this.field.focus({ preventScroll: true })
+    if (this.autofocusValue) {
+      this.field.focus({ preventScroll: true })
+      // Restored drafts (and conversation switches) re-render the field with its
+      // saved text; focus() alone leaves the caret at position 0. Move it to the
+      // end so the user continues typing from where they left off.
+      const end = this.field.value.length
+      this.field.selectionStart = this.field.selectionEnd = end
+    }
     this.#setActive(document.activeElement === this.field)
     this.render()
     // Emit initial focus state so a late-connecting chatbox-hints controller
@@ -87,7 +94,7 @@ export default class extends Controller {
   }
 
   // Returns the current caret pixel position { left, top } relative to the
-  // field's border box. Public so sibling controllers (e.g. pito--autosuggest)
+  // field's border box. Public so sibling controllers (e.g. pito--suggestions)
   // can read it on demand.
   caretCoords() {
     const value = this.field.value

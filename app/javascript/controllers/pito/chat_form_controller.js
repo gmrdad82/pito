@@ -16,6 +16,12 @@
 // Values:
 //   channels — Array of channel handles (e.g. ["@all", "@gaming"])
 //   periods  — Array of period strings (default: ["7d", "28d", "1m", "3m", "1y", "lifetime"])
+//
+// Picker integration (T10.9):
+//   Listens for `pito:picker:select` on `document`.  When fired the event's
+//   `detail.command` is written into the textarea and the form is submitted
+//   immediately, so picker selections drive a full chat submission without the
+//   user having to type anything.
 
 import { Controller } from "@hotwired/stimulus"
 import { isAuthenticated } from "pito/auth"
@@ -30,6 +36,31 @@ export default class extends Controller {
 
   connect() {
     this.#syncHidden()
+    // T10.9: listen for picker selections and drive form submission.
+    this._onPickerSelect = (e) => this.fillAndSubmit(e)
+    document.addEventListener("pito:picker:select", this._onPickerSelect)
+  }
+
+  disconnect() {
+    document.removeEventListener("pito:picker:select", this._onPickerSelect)
+  }
+
+  // T10.9 — Public action for pickers (games, future IGDB picker, etc.).
+  // Sets the textarea to `event.detail.command` and submits the form exactly
+  // as if the user had typed the command and pressed Enter.
+  fillAndSubmit(event) {
+    const command = event?.detail?.command
+    if (!command) return
+
+    const field = this.inputFieldTarget
+    field.value = command
+    // Fire input so pito--suggestions and pito--draft see the change.
+    field.dispatchEvent(new Event("input", { bubbles: true }))
+    this.#syncHidden()
+    this.element.requestSubmit()
+    field.value = ""
+    field.dispatchEvent(new Event("input", { bubbles: true }))
+    document.dispatchEvent(new CustomEvent("pito:submitted"))
   }
 
   // Click anywhere on the chatbox wrapper → focus the textarea
@@ -40,23 +71,26 @@ export default class extends Controller {
   }
 
   handleKeydown(event) {
-    if (!isAuthenticated()) return
+    // Tab autocomplete + channel/period cycling are authenticated-only
+    // conveniences. Enter-to-submit must work for EVERYONE — an unauthenticated
+    // visitor has to be able to send `/login <code>`.
+    if (isAuthenticated()) {
+      if (event.key === "Tab" && !event.shiftKey) {
+        // Reserved for autocomplete — do not preventDefault, do not cycle.
+        return
+      }
 
-    if (event.key === "Tab" && !event.shiftKey) {
-      // Reserved for autocomplete — do not preventDefault, do not cycle.
-      return
-    }
+      if (event.key === "Tab" && event.shiftKey) {
+        event.preventDefault()
+        this.#cycleNext(this.channelsValue, "channelInput", "channelDisplay")
+        return
+      }
 
-    if (event.key === "Tab" && event.shiftKey) {
-      event.preventDefault()
-      this.#cycleNext(this.channelsValue, "channelInput", "channelDisplay")
-      return
-    }
-
-    if (event.code === "Space" && event.shiftKey) {
-      event.preventDefault()
-      this.#cycleNext(this.periodsValue, "periodInput", "periodDisplay")
-      return
+      if (event.code === "Space" && event.shiftKey) {
+        event.preventDefault()
+        this.#cycleNext(this.periodsValue, "periodInput", "periodDisplay")
+        return
+      }
     }
 
     if (event.key !== "Enter" || event.shiftKey) return

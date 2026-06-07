@@ -4,6 +4,7 @@ class Event < ApplicationRecord
   KINDS = %w[
     echo system error enhanced thinking confirmation
     system_follow_up enhanced_follow_up confirmation_follow_up
+    theme_diff
   ].freeze
 
   belongs_to :conversation

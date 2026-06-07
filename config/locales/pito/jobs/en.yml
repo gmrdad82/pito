@@ -1,0 +1,15 @@
+en:
+  pito:
+    jobs:
+      import_videos:
+        breakdown:
+          videos_total: "Videos total"
+          published: "Published"
+          scheduled: "Scheduled"
+          unlisted: "Unlisted"
+          drafts: "Drafts"
+      channel_info:
+        stats:
+          subscribers: "Subscribers:"
+          views: "Views:"
+        channel_fallback: "Channel"

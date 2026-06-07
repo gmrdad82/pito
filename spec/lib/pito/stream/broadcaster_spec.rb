@@ -161,7 +161,7 @@ RSpec.describe Pito::Stream::Broadcaster do
 
   describe "#emit_thinking" do
     it "creates a thinking event with a random word_index within the dictionary" do
-      words = I18n.t("pito.event.thinking.slash.doing")
+      words = I18n.t("pito.copy.thinking.slash.doing")
       event = broadcaster.emit_thinking(turn:, dictionary: "slash")
 
       expect(event.kind).to eq("thinking")

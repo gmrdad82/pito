@@ -16,6 +16,8 @@ class Channel
                            kind:, connection:,
                            http_status: nil, error_message: nil,
                            duration_ms: nil, user: nil)
+        Pito::Stack.track("youtube", endpoint: endpoint, units: Channel::Youtube::Quota.cost_for(endpoint))
+
         return unless defined?(YoutubeApiCall) && YoutubeApiCall.respond_to?(:create!)
 
         YoutubeApiCall.create!(

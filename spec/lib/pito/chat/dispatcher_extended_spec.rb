@@ -50,11 +50,11 @@ RSpec.describe Pito::Chat::Dispatcher, "edge cases" do
   # ── Unregistered verb (recognised by parser but no handler) ──────────────────
 
   describe ".call — recognised verb with no handler" do
-    it "returns verb_not_implemented for :show" do
-      result = described_class.call(input: "show something", conversation:)
+    it "returns verb_not_implemented for :find" do
+      result = described_class.call(input: "find something", conversation:)
       expect(result).to be_a(Pito::Chat::Result::Error)
       expect(result.message_key).to eq("pito.chat.errors.verb_not_implemented")
-      expect(result.message_args[:verb]).to eq(:show)
+      expect(result.message_args[:verb]).to eq(:find)
     end
   end
 

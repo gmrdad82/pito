@@ -35,6 +35,10 @@ class ImportVideosJob < ApplicationJob
       total_imported += imported
     end
 
+    # P4 — linked videos' view counts may have changed; refresh the
+    # materialized `views` stat on every affected game.
+    enqueue_game_stats_refreshes(channels)
+
     # Emit enhanced #2 with video breakdown
     broadcaster.emit(
       turn:,
@@ -66,12 +70,22 @@ class ImportVideosJob < ApplicationJob
       turn:,
       kind:    :error,
       payload: {
-        text:   I18n.t("pito.errors.dispatch_failed").sample,
+        text:   Pito::Copy.render("pito.copy.errors.dispatch_failed"),
         detail: error.message
       }
     )
     broadcaster.resolve_thinking(turn:)
     broadcaster.complete_turn(turn:)
+  end
+
+  def enqueue_game_stats_refreshes(channels)
+    game_ids = VideoGameLink
+      .joins(:video)
+      .where(videos: { channel_id: channels.pluck(:id) })
+      .distinct
+      .pluck(:game_id)
+
+    game_ids.each { |id| GameStatsRefreshJob.perform_later(id) }
   end
 
   def import_channel_videos(channel)
@@ -109,16 +123,16 @@ class ImportVideosJob < ApplicationJob
 
     # Build KV rows
     rows = [
-      { key: "Videos total",   value: total.to_s },
-      { key: "Published",      value: published.to_s },
-      { key: "Scheduled",      value: scheduled.to_s },
-      { key: "Unlisted",       value: unlisted.to_s },
-      { key: "Drafts",         value: drafts.to_s }
+      { key: I18n.t("pito.jobs.import_videos.breakdown.videos_total"), bold: true,  value: total.to_s },
+      { key: I18n.t("pito.jobs.import_videos.breakdown.published"),    bold: false, value: published.to_s },
+      { key: I18n.t("pito.jobs.import_videos.breakdown.scheduled"),    bold: false, value: scheduled.to_s },
+      { key: I18n.t("pito.jobs.import_videos.breakdown.unlisted"),     bold: false, value: unlisted.to_s },
+      { key: I18n.t("pito.jobs.import_videos.breakdown.drafts"),       bold: false, value: drafts.to_s }
     ]
 
     # Render as compact key/value lines
     lines = rows.map do |row|
-      key_class = row[:key] == "Videos total" ? "text-fg font-bold" : "text-cyan"
+      key_class = row[:bold] ? "text-fg font-bold" : "text-cyan"
       %(<div class="flex gap-2"><span class="#{key_class} w-32">#{row[:key]}</span><span class="text-fg">#{row[:value]}</span></div>)
     end
 
@@ -207,12 +221,34 @@ class ImportVideosJob < ApplicationJob
   def upsert_video(attrs, channel)
     return if attrs[:youtube_video_id].blank?
 
+    # P4 — view_count moved off the videos column onto the polymorphic
+    # `stats` table; pull it out of the AR attrs and persist via the facade.
+    views = attrs.delete(:view_count)
+    # Thumbnails are cached as OUR ActiveStorage copy (not a column) — pull the
+    # source URL out of the AR attrs and ingest it off the import path.
+    thumb_url = attrs.delete(:thumbnail_url)
+
     video = Video.find_or_initialize_by(youtube_video_id: attrs[:youtube_video_id])
     video.channel = channel
     video.assign_attributes(attrs)
     video.last_synced_at = Time.current
     video.save!
+
+    Pito::Stats.set(video, :views, views)
+    VideoThumbnailJob.perform_later(video.id, thumb_url) if thumb_url.present?
+
+    # P9.5 — (re)embed the video when it's new or an embedded field changed.
+    # `Video::VoyageIndexer` is digest-gated, and `VideoVoyageIndexJob` only
+    # refreshes the channel centroid when the video actually re-embeds, so an
+    # unchanged re-import enqueues nothing wasteful here.
+    if video.previously_new_record? || video.saved_changes.keys.intersect?(EMBED_FIELDS)
+      VideoVoyageIndexJob.perform_later(video.id)
+    end
   end
+
+  # Video fields that feed `Video::EmbedText` — a change to any of these is the
+  # only reason to re-embed (and thus recompute the channel centroid).
+  EMBED_FIELDS = %w[title description tags category_id].freeze
 
   def map_privacy(status)
     case status.to_s.downcase

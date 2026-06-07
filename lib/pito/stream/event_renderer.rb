@@ -44,7 +44,8 @@ module Pito
         "enhanced_follow_up"      => Pito::Event::EnhancedFollowUpComponent,
         "confirmation"            => Pito::Event::ConfirmationComponent,
         "confirmation_follow_up"  => Pito::Event::ConfirmationFollowUpComponent,
-        "error"                   => Pito::Event::ErrorComponent
+        "error"                   => Pito::Event::ErrorComponent,
+        "theme_diff"              => Pito::Event::ThemeDiffComponent
       }.freeze
 
       def self.render(event)

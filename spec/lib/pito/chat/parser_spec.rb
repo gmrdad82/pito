@@ -35,6 +35,17 @@ RSpec.describe Pito::Chat::Parser do
       expect(result.kind).to eq(:new_turn)
     end
 
+    it "canonicalizes the `rm` alias to the :delete verb" do
+      result = described_class.call(lex("rm Elden Ring"), raw: "rm Elden Ring", conversation:)
+      expect(result.verb).to eq(:delete)
+      expect(result.kind).to eq(:new_turn)
+    end
+
+    it "canonicalizes the `ls` alias to the :list verb" do
+      result = described_class.call(lex("ls games"), raw: "ls games", conversation:)
+      expect(result.verb).to eq(:list)
+    end
+
     it "classifies unrecognised input as :unknown when no recent turn exists" do
       result = described_class.call(lex("hello"), raw: "hello", conversation:)
       expect(result.verb).to be_nil

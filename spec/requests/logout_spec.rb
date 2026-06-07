@@ -44,7 +44,7 @@ RSpec.describe "Logout via /logout", type: :request do
       post "/chat", params: { input: "/logout", uuid: conversation.uuid }
 
       system_event = last_turn_events.find { |e| e.kind == "system" }
-      expect(I18n.t("pito.auth.logouts")).to include(system_event.payload["text"])
+      expect(I18n.t("pito.copy.auth.logouts")).to include(system_event.payload["text"])
     end
 
     it "works even when already unauthenticated (idempotent cookie clear)" do

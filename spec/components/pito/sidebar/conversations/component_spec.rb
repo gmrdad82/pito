@@ -80,6 +80,42 @@ RSpec.describe Pito::Sidebar::Conversations::Component do
       non_current = node.css(".pito-conversation-row:not(.is-current)")
       expect(non_current.map { |el| el["data-conversation-uuid"] }).to include(older_conv.uuid)
     end
+
+    it "renders the cyan current marker on the current row" do
+      node = render_inline(
+        described_class.new(
+          groups:       groups(recent: [ recent_conv ]),
+          current_uuid: recent_conv.uuid
+        )
+      )
+      current_row = node.css(".pito-conversation-row.is-current").first
+      # The marker is rendered in a text-cyan span starting with "<- "
+      marker_span = current_row.css("span.text-cyan").first
+      expect(marker_span).not_to be_nil
+      expect(marker_span.text).to start_with("<- ")
+    end
+
+    it "does not render the cyan marker on non-current rows" do
+      node = render_inline(
+        described_class.new(
+          groups:       groups(recent: [ recent_conv, older_conv ]),
+          current_uuid: recent_conv.uuid
+        )
+      )
+      non_current_row = node.css(".pito-conversation-row:not(.is-current)").first
+      expect(non_current_row.css("span.text-cyan")).to be_empty
+    end
+
+    it "renders timestamp on non-current rows (not the marker)" do
+      node = render_inline(
+        described_class.new(
+          groups:       groups(recent: [ recent_conv, older_conv ]),
+          current_uuid: recent_conv.uuid
+        )
+      )
+      non_current_row = node.css(".pito-conversation-row:not(.is-current)").first
+      expect(non_current_row.css("span.text-fg-dim").first).not_to be_nil
+    end
   end
 
   describe "older section / hairline divider" do

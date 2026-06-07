@@ -26,6 +26,22 @@ module Pito
       def self.all
         [
           # Handler-less slash command specs (login/logout/connect have no handler class)
+          # `/games import [title]` — slash spec for the IGDB import sidebar.
+          # The `:games_subcommands` vocab has a single canonical entry "import"
+          # so the palette shows "/games import" with a description.  The title
+          # arg is free-form (any string); it is parsed directly in the handler.
+          Spec.new(
+            namespace:       :slash,
+            name:            :games,
+            slots:           [
+              Slot.new(name: :subcommand, kind: :enum, source: :games_subcommands, optional: true),
+              Slot.new(name: :title, kind: :free, optional: true)
+            ],
+            auth:            :authenticated_only,
+            description_key: "pito.grammar.slash.games"
+          ),
+
+          # Handler-less slash command specs (login/logout/connect have no handler class)
           Spec.new(
             namespace:       :slash,
             name:            :login,
@@ -63,23 +79,62 @@ module Pito
           ),
 
           # Task k — chat command specs
+          # `list`/`ls` takes a single noun (channels/videos/games). The enum slot
+          # drives the suggestion ghost (`list ` → channels) and recognises the
+          # noun; the handler reads message.raw to route, so this is suggestions-only.
           Spec.new(
             namespace:       :chat,
             name:            :list,
-            slots:           chat_shared_slots,
+            aliases:         [ :ls ],
+            slots:           [ Slot.new(name: :noun, kind: :enum, source: :nouns, optional: true) ],
             description_key: "pito.grammar.chat.list"
           ),
+          # `show` / `delete` take a single game reference (ID or title). The
+          # `:title` enum slot with source `:game_titles` enables dynamic ghost
+          # completion (typing "show game li" ghosts a matching library title).
+          # The noun words `game`/`games` are FILLERS, so the resolver skips them.
+          # Handlers do their own body-token extraction so the slot kind here only
+          # affects the suggestions engine — no handler change needed.
           Spec.new(
             namespace:       :chat,
             name:            :show,
-            slots:           chat_shared_slots,
+            slots:           [ Slot.new(name: :title, kind: :enum, source: :game_titles, optional: true) ],
             description_key: "pito.grammar.chat.show"
+          ),
+          Spec.new(
+            namespace:       :chat,
+            name:            :delete,
+            aliases:         [ :rm ],
+            slots:           [ Slot.new(name: :title, kind: :enum, source: :game_titles, optional: true) ],
+            description_key: "pito.grammar.chat.delete"
           ),
           Spec.new(
             namespace:       :chat,
             name:            :find,
             slots:           chat_shared_slots,
             description_key: "pito.grammar.chat.find"
+          ),
+          # `update` takes a free body — the handler parses ownership subcommand
+          # and platform tokens from the remaining body tokens.
+          Spec.new(
+            namespace:       :chat,
+            name:            :update,
+            slots:           [ Slot.new(name: :title, kind: :free, optional: true) ],
+            description_key: "pito.grammar.chat.update"
+          ),
+          # `link` / `unlink` take a free body — the handler splits on ` to `
+          # to extract the game and video refs.
+          Spec.new(
+            namespace:       :chat,
+            name:            :link,
+            slots:           [ Slot.new(name: :title, kind: :free, optional: true) ],
+            description_key: "pito.grammar.chat.link"
+          ),
+          Spec.new(
+            namespace:       :chat,
+            name:            :unlink,
+            slots:           [ Slot.new(name: :title, kind: :free, optional: true) ],
+            description_key: "pito.grammar.chat.unlink"
           ),
 
           # Task l — hashtag command specs
@@ -97,6 +152,7 @@ module Pito
             slots:           hashtag_metric_slots,
             description_key: "pito.grammar.hashtag.remove"
           )
+
         ]
       end
 

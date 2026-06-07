@@ -39,10 +39,13 @@ module Pito
         candidate_verb = first&.type == :word ? first.value.to_sym : nil
         advance if candidate_verb
 
-        if candidate_verb && Pito::Grammar::Registry.specs_for_alias(namespace: :chat, token: candidate_verb)
-          # Recognised verb → new turn.
+        spec = candidate_verb && Pito::Grammar::Registry.specs_for_alias(namespace: :chat, token: candidate_verb)
+        if spec
+          # Recognised verb → new turn. Canonicalize the verb to the spec's name
+          # so aliases dispatch correctly (e.g. `rm` → :delete, `ls` → :list);
+          # the handler registry only knows canonical verbs.
           body_tokens = tokens_until_eof
-          Message.new(verb: candidate_verb, body_tokens:, kind: :new_turn, raw: @raw)
+          Message.new(verb: spec.name, body_tokens:, kind: :new_turn, raw: @raw)
         elsif refinement_eligible?
           # No recognised verb, but a recent Turn exists → refinement.
           body_tokens = tokens_until_eof

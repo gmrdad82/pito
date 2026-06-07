@@ -84,6 +84,11 @@ RSpec.describe "Conversation requests", type: :request do
     end
 
     it "renders the mini status notification count from real unread notifications" do
+      # The notification count only renders for an authenticated session.
+      seed = ROTP::Base32.random_base32
+      AppSetting.enroll_totp!(seed: seed)
+      post "/chat", params: { input: "/login #{ROTP::TOTP.new(seed).now}" }
+
       create(:notification)
       create(:notification)
       get conversation_path(uuid: conversation.uuid)

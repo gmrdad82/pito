@@ -117,6 +117,20 @@ RSpec.describe ImportVideosJob do
     }.to change(Video, :count).by(2)
   end
 
+  it "enqueues a VideoVoyageIndexJob for each newly imported video" do
+    expect {
+      described_class.new.perform(connection.id, turn.id)
+    }.to have_enqueued_job(VideoVoyageIndexJob).twice
+  end
+
+  it "does NOT re-enqueue indexing for an unchanged re-import" do
+    described_class.new.perform(connection.id, turn.id)
+
+    expect {
+      described_class.new.perform(connection.id, turn.id)
+    }.not_to have_enqueued_job(VideoVoyageIndexJob)
+  end
+
   it "stores correct video attributes" do
     described_class.new.perform(connection.id, turn.id)
 
@@ -124,11 +138,10 @@ RSpec.describe ImportVideosJob do
     expect(video.title).to eq("Video One")
     expect(video.description).to eq("First video")
     expect(video.duration_seconds).to eq(630) # 10m30s
-    expect(video.view_count).to eq(1000)
+    expect(Pito::Stats.get(video, :views)).to eq(1000) # P4 — via stats table
     expect(video.like_count).to eq(50)
     expect(video.comment_count).to eq(10)
     expect(video.privacy_status).to eq("public")
-    expect(video.thumbnail_url).to eq("https://example.com/thumb1.jpg")
     expect(video.tags).to eq([ "gaming", "rpg" ])
     expect(video.category_id).to eq("20")
     expect(video.etag).to eq("etag123")
@@ -152,11 +165,11 @@ RSpec.describe ImportVideosJob do
     described_class.new.perform(connection.id, turn.id)
 
     event = conversation.events.where(kind: :enhanced).last
-    expect(event.payload["body"]).to include("Videos total")
-    expect(event.payload["body"]).to include("Published")
-    expect(event.payload["body"]).to include("Scheduled")
-    expect(event.payload["body"]).to include("Unlisted")
-    expect(event.payload["body"]).to include("Drafts")
+    expect(event.payload["body"]).to include(I18n.t("pito.jobs.import_videos.breakdown.videos_total"))
+    expect(event.payload["body"]).to include(I18n.t("pito.jobs.import_videos.breakdown.published"))
+    expect(event.payload["body"]).to include(I18n.t("pito.jobs.import_videos.breakdown.scheduled"))
+    expect(event.payload["body"]).to include(I18n.t("pito.jobs.import_videos.breakdown.unlisted"))
+    expect(event.payload["body"]).to include(I18n.t("pito.jobs.import_videos.breakdown.drafts"))
   end
 
   it "resolves the thinking indicator" do

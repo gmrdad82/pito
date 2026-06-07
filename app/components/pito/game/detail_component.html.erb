@@ -1,0 +1,100 @@
+<%# Pito::Game::DetailComponent — game detail card for chat messages %>
+<div class="pito-game-detail flex flex-col gap-3">
+
+  <%# Cover art or placeholder %>
+  <div class="pito-game-detail__cover">
+    <% if cover_art_attached? %>
+      <% url = cover_art_url %>
+      <% if url %>
+        <%= image_tag url, alt: @game.title, class: "block max-w-full" %>
+      <% else %>
+        <div class="text-fg-dim"><%=t "pito.game.detail.no_cover" %></div>
+      <% end %>
+    <% else %>
+      <div class="text-fg-dim"><%=t "pito.game.detail.no_cover" %></div>
+    <% end %>
+  </div>
+
+  <%# Title %>
+  <div class="text-fg font-bold"><%= @game.title %></div>
+
+  <%# KV table — Developer / Publisher / Release / Platforms / Owned / Description / Genres %>
+  <div class="grid grid-cols-[max-content_1fr] gap-x-2 gap-y-1">
+
+    <% if developer_names.present? %>
+      <%= render(Pito::Table::KeyValueRowComponent.new(
+            key_text:   t("pito.game.detail.developer"),
+            value_text: developer_names,
+            key_class:  "text-fg-dim whitespace-nowrap",
+            value_class: "text-fg"
+          )) %>
+    <% end %>
+
+    <% if publisher_names.present? %>
+      <%= render(Pito::Table::KeyValueRowComponent.new(
+            key_text:   t("pito.game.detail.publisher"),
+            value_text: publisher_names,
+            key_class:  "text-fg-dim whitespace-nowrap",
+            value_class: "text-fg"
+          )) %>
+    <% end %>
+
+    <% if release_label.present? %>
+      <%= render(Pito::Table::KeyValueRowComponent.new(
+            key_text:   t("pito.game.detail.release"),
+            value_text: release_label,
+            key_class:  "text-fg-dim whitespace-nowrap",
+            value_class: "text-fg"
+          )) %>
+    <% end %>
+
+    <%# Platforms — plain text (PlayStation / Switch / Steam), like every other row %>
+    <% if platforms_label.present? %>
+      <%= render(Pito::Table::KeyValueRowComponent.new(
+            key_text:   t("pito.game.detail.platforms"),
+            value_text: platforms_label,
+            key_class:  "text-fg-dim whitespace-nowrap",
+            value_class: "text-fg"
+          )) %>
+    <% end %>
+
+    <% if owned_platforms_label.present? %>
+      <%= render(Pito::Table::KeyValueRowComponent.new(
+            key_text:   t("pito.game.detail.owned"),
+            value_text: owned_platforms_label,
+            key_class:  "text-fg-dim whitespace-nowrap",
+            value_class: "text-fg"
+          )) %>
+    <% end %>
+
+    <% if summary.present? %>
+      <%= render(Pito::Table::KeyValueRowComponent.new(
+            key_text:   t("pito.game.detail.description"),
+            value_text: summary,
+            key_class:  "text-fg-dim whitespace-nowrap",
+            value_class: "text-fg"
+          )) %>
+    <% end %>
+
+    <% if genres_label.present? %>
+      <%= render(Pito::Table::KeyValueRowComponent.new(
+            key_text:   t("pito.game.detail.genres"),
+            value_text: genres_label,
+            key_class:  "text-fg-dim whitespace-nowrap",
+            value_class: "text-fg"
+          )) %>
+    <% end %>
+
+  </div>
+
+  <%# Time-to-beat %>
+  <div class="pito-game-detail__ttb">
+    <%= render(Pito::TimeToBeatComponent.new(game: @game, footage_hours: footage_hours)) %>
+  </div>
+
+  <%# Score bar %>
+  <div class="pito-game-detail__score">
+    <%= render(Pito::ScoreBarComponent.new(game: @game)) %>
+  </div>
+
+</div>

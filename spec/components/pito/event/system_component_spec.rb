@@ -133,4 +133,124 @@ RSpec.describe Pito::Event::SystemComponent do
       expect(node.css("[data-controller~='pito--typewriter']")).not_to be_empty
     end
   end
+
+  # ── T15.4: dom_id — generalized to reply_handle (follow-up engine) ──────────
+
+  describe "dom_id — id on root Segment for follow-up-able messages" do
+    let(:conversation) { Conversation.create! }
+    let(:turn) { create(:turn, conversation:) }
+
+    it "renders id='event_<id>' when payload has reply_handle present" do
+      event = create(:event, conversation:, turn:, kind: "system", position: 1,
+                     payload: { "reply_handle" => "beta-1234", "reply_target" => "theme_list", "body" => "Pick a theme" })
+      node = render_inline(described_class.new(payload: event.payload.with_indifferent_access, event:))
+      segment = node.css(".pito-segment").first
+      expect(segment).not_to be_nil
+      expect(segment["id"]).to eq("event_#{event.id}")
+    end
+
+    it "renders id='event_<id>' when payload has theme_diff: true (backward compat)" do
+      diff_event = create(:event, conversation:, turn:, kind: "theme_diff", position: 2,
+                          payload: { "theme_diff" => true, "phase" => "apply", "body" => "Done!" })
+      node = render_inline(described_class.new(payload: diff_event.payload.with_indifferent_access, event: diff_event))
+      segment = node.css(".pito-segment").first
+      expect(segment["id"]).to eq("event_#{diff_event.id}")
+    end
+
+    it "does NOT render an id for a plain system message (no reply_handle or theme_diff)" do
+      plain_event = create(:event, conversation:, turn:, kind: "system", position: 3,
+                           payload: { "body" => "Regular system message" })
+      node = render_inline(described_class.new(payload: plain_event.payload.with_indifferent_access, event: plain_event))
+      segment = node.css(".pito-segment").first
+      expect(segment["id"]).to be_nil
+    end
+
+    it "does NOT render an id when event is nil even if payload has reply_handle" do
+      node = render_inline(described_class.new(payload: { reply_handle: "beta-1234", body: "Pick" }, event: nil))
+      segment = node.css(".pito-segment").first
+      expect(segment["id"]).to be_nil
+    end
+  end
+
+  # ── T15.3: affordance rendered for follow-up-able system messages ─────────────
+
+  # ── T16.10: html:true game messages render the standard timestamp ────────────
+
+  describe "timestamp on html:true payload (game detail / enhanced messages)" do
+    let(:conversation) { Conversation.create! }
+    let(:turn) { create(:turn, conversation:) }
+
+    it "renders the meta line (with timestamp) when event has created_at, even with no handle/channel" do
+      event = create(:event, conversation:, turn:, kind: "system", position: 1,
+                     payload: { "body" => "<b>game card</b>", "html" => true })
+      node = render_inline(described_class.new(payload: event.payload.with_indifferent_access, event:))
+      expect(node.css(".pito-echo__meta").first).not_to be_nil
+    end
+
+    it "does NOT render a meta line when event is nil and no handle/channel" do
+      node = render_inline(described_class.new(payload: { body: "plain", html: true }, event: nil))
+      expect(node.css(".pito-echo__meta")).to be_empty
+    end
+  end
+
+  describe "table_rows with a third column (value2)" do
+    subject(:node) do
+      render_inline(described_class.new(payload: {
+        body: "Channels",
+        table_rows: [ { key: "#1", value: "Alpha Tube", value2: "@alpha" } ]
+      }))
+    end
+
+    it "uses a 3-track grid when any row carries value2" do
+      grid = node.css("div.grid").first
+      expect(grid["class"]).to include("grid-cols-[max-content_max-content_1fr]")
+    end
+
+    it "renders the third-column value" do
+      expect(node.text).to include("@alpha")
+    end
+  end
+
+  describe "follow-up handle in the single meta line (no usage/affordance line)" do
+    let(:conversation) { Conversation.create! }
+    let(:turn) { create(:turn, conversation:) }
+
+    it "shows the #handle in the meta line for a follow-up-able message" do
+      event = create(:event, conversation:, turn:, kind: "system", position: 1,
+                     payload: {
+                       "reply_handle" => "beta-1234",
+                       "reply_target" => "game_detail",
+                       "body" => "<b>game card</b>",
+                       "html" => true
+                     })
+      node = render_inline(described_class.new(payload: event.payload.with_indifferent_access, event:))
+      expect(node.css(".pito-echo__meta").text).to include("beta-1234")
+    end
+
+    it "NEVER renders a separate usage/affordance line" do
+      event = create(:event, conversation:, turn:, kind: "system", position: 1,
+                     payload: {
+                       "reply_handle" => "beta-1234",
+                       "reply_target" => "game_detail",
+                       "body" => "<b>card</b>", "html" => true
+                     })
+      node = render_inline(described_class.new(payload: event.payload.with_indifferent_access, event:))
+      expect(node.css("div.mt-1.text-fg-faded")).to be_empty
+      # no game usage tokens leak into the message
+      expect(node.text).not_to include("resync")
+      expect(node.text).not_to include("update ownership")
+    end
+
+    it "does NOT show the handle once the message is consumed" do
+      event = create(:event, conversation:, turn:, kind: "system", position: 1,
+                     payload: {
+                       "reply_handle"   => "beta-1234",
+                       "reply_target"   => "game_detail",
+                       "reply_consumed" => true,
+                       "body"           => "Consumed", "html" => true
+                     })
+      node = render_inline(described_class.new(payload: event.payload.with_indifferent_access, event:))
+      expect(node.css(".pito-echo__meta").text).not_to include("beta-1234")
+    end
+  end
 end

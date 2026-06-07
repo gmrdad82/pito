@@ -71,11 +71,11 @@ RSpec.describe Pito::Chat::Dispatcher do
     end
 
     it "returns Error(verb_not_implemented) for a recognised but unregistered verb" do
-      # :show is in RECOGNIZED_VERBS but no handler is registered for it.
-      result = described_class.call(input: "show something", conversation:)
+      # :find has a chat grammar spec but no handler registered.
+      result = described_class.call(input: "find something", conversation:)
       expect(result).to be_a(Pito::Chat::Result::Error)
       expect(result.message_key).to eq("pito.chat.errors.verb_not_implemented")
-      expect(result.message_args).to eq({ verb: :show })
+      expect(result.message_args).to eq({ verb: :find })
     end
 
     it "returns Error(unknown_input) for unrecognised input with no open turn" do

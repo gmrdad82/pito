@@ -48,7 +48,7 @@ class ApplicationController < ActionController::Base
           Pito::StartScreen::Component.new(
             repo_url:          ENV.fetch("PITO_REPO_URL", "https://github.com/gmrdad82/pito"),
             license_url:       ENV.fetch("PITO_LICENSE_URL", "https://www.gnu.org/licenses/agpl-3.0.html"),
-            tips_key:          "pito.not_found.messages",
+            tips_key:          "pito.copy.not_found",
             badge_text:        "404",
             badge_class:       "font-bold text-red",
             exclamation_class: "text-red",
@@ -57,7 +57,7 @@ class ApplicationController < ActionController::Base
           status: :not_found
         )
       end
-      format.any { render json: { error: "Not found" }, status: :not_found }
+      format.any { render json: { error: I18n.t("pito.not_found.error") }, status: :not_found }
     end
   end
 end

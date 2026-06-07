@@ -1,0 +1,10 @@
+<%# Hides the post-command dots for synchronous fast-paths that open a sidebar
+    and run no async job (themes/resume/games-import/game-picker). The dots
+    appear on `pito:submitted`; without an async ChatDispatchJob nothing
+    broadcasts `pito:done`, so we emit it here. The pito--done-dispatch
+    controller fires the event on connect; the element is ephemeral (cleared
+    the next time #pito-sidebar is updated). %>
+<%= turbo_stream.append "pito-sidebar" do %>
+  <div data-controller="pito--done-dispatch"
+       data-pito--done-dispatch-event-name-value="pito:done"></div>
+<% end %>

@@ -33,7 +33,7 @@ RSpec.describe "Authentication via /login", type: :request do
       kinds = last_turn_events.pluck(:kind)
       expect(kinds).to eq(%w[echo thinking system])
       success = last_turn_events.find { |e| e.kind == "system" }
-      greetings = I18n.t("pito.auth.greetings")
+      greetings = I18n.t("pito.copy.auth.greetings")
       expect(greetings).to include(success.payload["text"])
     end
 
@@ -42,13 +42,18 @@ RSpec.describe "Authentication via /login", type: :request do
       expect(cookies[Pito::Auth::SessionCookie::COOKIE_NAME]).to be_present
     end
 
+    it "completes the turn so the dots fade out (pito:done)" do
+      post "/chat", params: { input: "/login #{totp.now}", uuid: conversation.uuid }
+      expect(Turn.last_for(conversation).completed_at).to be_present
+    end
+
     it "lets subsequent commands through" do
       post "/chat", params: { input: "/login #{totp.now}", uuid: conversation.uuid }
       conversation.turns.destroy_all
 
       post "/chat", params: { input: "/help", uuid: conversation.uuid }
       expect(last_turn_events.pluck(:kind)).to include("echo")
-      mandatories = I18n.t("pito.auth.mandatories")
+      mandatories = I18n.t("pito.copy.auth.mandatories")
       expect(last_turn_events.none? { |e| mandatories.include?(e.payload["text"] || e.payload["message_key"]) }).to be true
     end
   end
@@ -58,9 +63,14 @@ RSpec.describe "Authentication via /login", type: :request do
       post "/chat", params: { input: "/login 000000", uuid: conversation.uuid }
 
       error = last_turn_events.find { |e| e.kind == "error" }
-      failures = I18n.t("pito.auth.failures")
+      failures = I18n.t("pito.copy.auth.failures")
       expect(failures).to include(error.payload["text"] || error.payload["message_key"])
       expect(cookies[Pito::Auth::SessionCookie::COOKIE_NAME]).to be_blank
+    end
+
+    it "completes the turn so the dots fade out even on failure (pito:done)" do
+      post "/chat", params: { input: "/login 000000", uuid: conversation.uuid }
+      expect(Turn.last_for(conversation).completed_at).to be_present
     end
   end
 
@@ -73,7 +83,7 @@ RSpec.describe "Authentication via /login", type: :request do
       perform_enqueued_jobs { post "/chat", params: { input: "/connect", uuid: conversation.uuid } }
 
       error = last_turn_events.find { |e| e.kind == "error" }
-      mandatories = I18n.t("pito.auth.mandatories")
+      mandatories = I18n.t("pito.copy.auth.mandatories")
       expect(mandatories).to include(error.payload["text"] || error.payload["message_key"])
     end
 
@@ -81,7 +91,7 @@ RSpec.describe "Authentication via /login", type: :request do
       perform_enqueued_jobs { post "/chat", params: { input: "list videos", uuid: conversation.uuid } }
 
       error = last_turn_events.find { |e| e.kind == "error" }
-      mandatories = I18n.t("pito.auth.mandatories")
+      mandatories = I18n.t("pito.copy.auth.mandatories")
       expect(mandatories).to include(error.payload["text"] || error.payload["message_key"])
     end
 

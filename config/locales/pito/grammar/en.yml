@@ -10,10 +10,16 @@ en:
         new: "Start fresh — opens a brand-new conversation"
         resume: "Browse and switch to a previous conversation"
         disconnect: "Disconnect a YouTube channel"
+        theme: "Switch the UI theme (apply / preview / reset)"
+        games: "Import a game from IGDB into your library"
       chat:
-        list: "List videos matching filters"
-        show: "Show details for a video or channel"
+        list: "List games in your library"
+        show: "Show a game's details (by id or title)"
+        delete: "Delete a game (by id or title)"
         find: "Search videos by title, genre, or platform"
+        update: "Update game ownership platforms (by id)"
+        link: "Link a video to a game"
+        unlink: "Unlink a video from a game"
       hashtag:
         add: "Track a metric in this conversation"
         remove: "Stop tracking a metric"

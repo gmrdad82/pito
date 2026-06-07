@@ -12,8 +12,11 @@
 #   game:  (Game, optional) — source record for score synthesis.
 #   score: (Integer, optional) — explicit override score; bypasses synthesis.
 class Pito::ScoreBarComponent < ViewComponent::Base
-  # Cell count of the continuous `=` run between the brackets.
-  BAR_CELLS = 60
+  # The bar is full-width (CSS flex, like the TTB bar). We emit MORE `=` than
+  # can ever fit and let CSS clip the overflow, so the `=` run fills 100% of
+  # the available width at any container size. The red→green gradient is a CSS
+  # background-clip:text over the visible box, so it scales with the width.
+  FILL_CELLS = 300
 
   TIERS = [
     [ 90, "excellent" ],
@@ -62,10 +65,16 @@ class Pito::ScoreBarComponent < ViewComponent::Base
     self.class.tier_for(score)
   end
 
+  def resyncing?
+    @game&.resyncing?
+  end
+
   def overlay?
     !score.nil?
   end
 
+  # Left offset (%) for the needle + bubble — the PRECISE score percent across
+  # the full-width bar (0–100). No cell-snapping: an 81 sits at 81%.
   def overlay_left_percent
     return nil if score.nil?
 
@@ -73,6 +82,11 @@ class Pito::ScoreBarComponent < ViewComponent::Base
   end
 
   def fill_text
-    "=" * BAR_CELLS
+    "=" * FILL_CELLS
+  end
+
+  # Witty label rendered before the bar (e.g. "People Score"), via Pito::Copy.
+  def score_label
+    Pito::Copy.render("pito.copy.game.score_label")
   end
 end

@@ -209,10 +209,9 @@ module Pito
             {
               kind:    "system",
               payload: {
-                text: I18n.t(
+                text: Pito::Copy.render(
                   "pito.slash.config.toggle.confirmed",
-                  label: label,
-                  state: state_str
+                  { label: label, state: state_str }
                 )
               }
             }
@@ -228,10 +227,9 @@ module Pito
             {
               kind:    "system",
               payload: {
-                text: I18n.t(
+                text: Pito::Copy.render(
                   "pito.slash.config.toggle.status",
-                  label: label,
-                  state: state
+                  { label: label, state: state }
                 )
               }
             }

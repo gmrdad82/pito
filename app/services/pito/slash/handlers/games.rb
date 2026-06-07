@@ -1,0 +1,103 @@
+# frozen_string_literal: true
+
+module Pito
+  module Slash
+    module Handlers
+      # Handler for `/games [subcommand] [title]`.
+      #
+      # Subcommands / dispatch table
+      # ─────────────────────────────
+      # `/games import [title]` — open the IGDB search import sidebar, prefilling
+      #                           the search box with `title` if supplied.
+      # `/games`  (bare)        — witty usage hint pointing to `/games import`.
+      # `/games <unknown>`      — witty usage hint.
+      # `/games --help`         — per-command usage text.
+      #
+      # The handler is `authenticated_only`: matching behaviour of all game/YouTube
+      # commands (a user must be signed in to import a game).
+      #
+      # Opening the sidebar is done via a Turbo Stream fast-path in ChatController
+      # (mirroring the `/themes` bare path). The handler returns a `sidebar_open`
+      # system event that the ChatDispatchJob → Broadcaster renders.  The controller
+      # intercepts `/games import` before the async pipeline and renders the partial
+      # directly, so the handler itself is only exercised by the job path (e.g. tests).
+      class Games < Pito::Slash::Handler
+        self.verb            = :games
+        self.description_key = "pito.slash.games.descriptions.games"
+        self.validates_own_arity = true
+
+        grammar do
+          enum :subcommand, source: :games_subcommands, optional: true
+          auth :authenticated_only
+          description_key "pito.grammar.slash.games"
+        end
+
+        SUBCOMMANDS = %w[import].freeze
+
+        def call
+          return show_help if help?
+
+          raw_arg = invocation.args.first.to_s.strip.downcase
+
+          case raw_arg
+          when ""       then usage_hint
+          when "import" then open_import_sidebar
+          else
+            # Unknown subcommand — witty usage
+            usage_hint
+          end
+        end
+
+        def show_help
+          Pito::Slash::Result::Ok.new(events: [
+            {
+              kind:    "system",
+              payload: {
+                body:       I18n.t("pito.slash.games.help.usage"),
+                info_lines: [ I18n.t("pito.slash.games.help.description") ]
+              }
+            }
+          ])
+        end
+
+        private
+
+        # Extract the title arg: everything after "import" in the raw string,
+        # or from args[1..] if args are parsed.
+        def import_title
+          if invocation.args.size >= 2
+            invocation.args[1..].join(" ").strip
+          else
+            # Fall back to parsing from raw: "/games import <title>"
+            invocation.raw.to_s.strip.sub(%r{\A/games\s+import\s*}i, "").strip
+          end
+        end
+
+        def open_import_sidebar
+          title = import_title
+          Pito::Slash::Result::Ok.new(events: [
+            {
+              kind:    "system",
+              payload: {
+                sidebar_open:    "games_import",
+                prefill:         title,
+                text:            I18n.t("pito.slash.games.import.opening")
+              }
+            }
+          ])
+        end
+
+        def usage_hint
+          Pito::Slash::Result::Ok.new(events: [
+            {
+              kind:    "system",
+              payload: {
+                text: Pito::Copy.render("pito.copy.games.import_usage")
+              }
+            }
+          ])
+        end
+      end
+    end
+  end
+end

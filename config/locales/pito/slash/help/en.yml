@@ -3,7 +3,6 @@ en:
     slash:
       help:
         unauthenticated: "Login first — /authenticate <6-digit TOTP code>."
-        body: "Slash commands let's you configure pito, start or resume conversations, log in or log out, and more."
         expand_label: "to expand"
         collapse_label: "to collapse"
         descriptions:
@@ -47,6 +46,19 @@ en:
                 value: "Connect YouTube channel"
               - key: "/disconnect"
                 value: "Disconnect channel"
+          themes:
+            title: "THEMES"
+            rows:
+              - key: "/themes"
+                value: "Browse themes (sidebar)"
+              - key: "/themes apply <name>"
+                value: "Apply a theme"
+              - key: "/themes preview <name>"
+                value: "Preview without saving"
+              - key: "/themes reset"
+                value: "Reset to Tokyo Night"
+              - key: "/themes list"
+                value: "List all themes"
           config:
             title: "CONFIG"
             rows:

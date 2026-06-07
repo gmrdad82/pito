@@ -123,7 +123,9 @@ RSpec.describe "Chat requests", type: :request do
     end
 
     context "with a recognised chat verb (list)" do
-      let(:params) { { input: "list videos", uuid: conversation.uuid } }
+      # `list games` is a fully-wired chat verb that yields a system event;
+      # `list videos` is recognised but not listable yet (videos deferred).
+      let(:params) { { input: "list games", uuid: conversation.uuid } }
 
       it "returns 204 No Content" do
         post "/chat", params: params
@@ -282,7 +284,7 @@ RSpec.describe "Chat requests", type: :request do
       end
     end
 
-    context "with a confirmation response (#handle confirm|cancel)" do
+    context "with a confirmation response (#handle confirm|cancel) via the follow-up engine" do
       let(:conf_turn) do
         conversation.turns.create!(
           input_kind: :slash, input_text: "/disconnect @pito", position: 1
@@ -293,13 +295,20 @@ RSpec.describe "Chat requests", type: :request do
           conversation:, turn: conf_turn,
           kind: "confirmation",
           payload: {
-            command: "disconnect",
-            body: "Disconnect from @pito?",
-            confirmation_handle: "gamma-4242",
-            channel_id: 0,
-            authenticated: true
+            "command"       => "disconnect",
+            "body"          => "Disconnect from @pito?",
+            "reply_handle"  => "gamma-4242",
+            "reply_target"  => "confirmation",
+            "channel_id"    => 0,
+            "authenticated" => true
           }
         )
+      end
+
+      before do
+        # Ensure the handler is loaded + registered (lazy-load in test env).
+        Pito::FollowUp::Handlers::Confirmation
+        Pito::FollowUp::Registry.register(Pito::FollowUp::Handlers::Confirmation)
       end
 
       it "returns 204 No Content" do
@@ -307,30 +316,28 @@ RSpec.describe "Chat requests", type: :request do
         expect(response).to have_http_status(:no_content)
       end
 
-      it "does not create a new Turn" do
+      it "creates a new echo Turn (append mode)" do
         expect {
           post "/chat", params: { input: "#gamma-4242 confirm", uuid: conversation.uuid }
-        }.not_to change(Turn, :count)
+        }.to change(Turn, :count).by(1)
       end
 
-      it "does not create an echo Event" do
-        expect {
-          post "/chat", params: { input: "#gamma-4242 confirm", uuid: conversation.uuid }
-        }.not_to change(Event, :count)
-      end
-
-      it "flips the confirmation event to processing: true" do
+      it "creates an echo Event" do
         post "/chat", params: { input: "#gamma-4242 confirm", uuid: conversation.uuid }
-        expect(confirmation_event.reload.payload["processing"]).to be(true)
+        echo = Turn.last.events.find { |e| e.kind == "echo" }
+        expect(echo).to be_present
       end
 
-      it "enqueues ConfirmationDispatchJob" do
-        expect {
-          post "/chat", params: { input: "#gamma-4242 confirm", uuid: conversation.uuid }
-        }.to have_enqueued_job(ConfirmationDispatchJob).with(confirmation_event.id, hash_including(action: "confirm"))
+      it "enqueues FollowUpDispatchJob with the event id and rest" do
+        post "/chat", params: { input: "#gamma-4242 confirm", uuid: conversation.uuid }
+        turn_id = Turn.last.id
+        expect(FollowUpDispatchJob).to have_been_enqueued.with(
+          confirmation_event.id,
+          hash_including(rest: "confirm", turn_id: turn_id)
+        )
       end
 
-      it "silently 204s when handle is not found" do
+      it "silently 204s when handle is not found (consumed or unknown)" do
         post "/chat", params: { input: "#nosuch-0000 confirm", uuid: conversation.uuid }
         expect(response).to have_http_status(:no_content)
       end

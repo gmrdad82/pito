@@ -17,24 +17,32 @@
 # pgvector insert replaces the prior value.
 class Game
   class VoyageIndexer
-    def self.call(game)
-      new(game).call
+    def self.call(game, force: false)
+      new(game, force: force).call
     end
 
-    def initialize(game)
-      @game = game
+    def initialize(game, force: false)
+      @game  = game
+      @force = force
     end
 
     def call
-      return if @game.title.to_s.strip.blank? && @game.summary.to_s.strip.blank?
+      text = combined_text
+      return if text.strip.blank?
+      return unless AppSetting.voyage_configured?
 
-      embed_and_persist if AppSetting.voyage_configured?
+      digest = Digest::SHA256.hexdigest(text)
+      # Diff-gate: skip re-embedding when the indexed fields are unchanged, so a
+      # cover-art-only resync does NOT burn a Voyage call. `force:` bypasses it.
+      return if !@force && digest == @game.embedded_digest
+
+      embed_and_persist(text, digest)
     end
 
     private
 
-    def embed_and_persist
-      vector = Voyage::Client.new.embed([ combined_text ]).first
+    def embed_and_persist(text, digest)
+      vector = Voyage::Client.new.embed([ text ]).first
       if vector.nil?
         # 2026-05-18 (DR) — surface the silent-failure case. The
         # Voyage HTTP client (`Voyage::Client#post_embeddings`)
@@ -58,6 +66,7 @@ class Game
       # already invoked) or any other model side effect. The
       # pgvector column accepts the array directly.
       @game.update_column(:summary_embedding, vector)
+      @game.update_column(:embedded_digest, digest)
     end
 
     # `title — alt_names — summary` matches the natural reading order
@@ -74,14 +83,7 @@ class Game
     # (they are short tokens, not prose) before being em-dash-joined
     # with the title + summary slots.
     def combined_text
-      parts = []
-      parts << @game.title.to_s.strip if @game.title.present?
-      if @game.respond_to?(:alternative_names) && @game.alternative_names.present?
-        alt = Array(@game.alternative_names).map { |n| n.to_s.strip }.reject(&:blank?)
-        parts << alt.join(" ") if alt.any?
-      end
-      parts << @game.summary.to_s.strip if @game.summary.present?
-      parts.join(" — ")
+      Game::EmbedText.call(@game)
     end
   end
 end

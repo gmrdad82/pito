@@ -314,8 +314,8 @@ class YoutubeConnections::OauthCallbacksController < ApplicationController
         main = t("#{ns}.channel_connected",
                  title:  title,
                  handle: handle || "no-handle")
-        extra = Array(I18n.t("#{ns}.connected_extras")).sample
-        art   = Array(I18n.t("#{ns}.ascii_art")).sample
+        extra = Pito::Copy.render("pito.copy.youtube.connected_extras")
+        art   = Pito::Copy.render("pito.copy.youtube.ascii_art")
         parts << [ main, extra, art ].compact.join("<br>").html_safe
       else
         titles = added.map { |ch| ch.is_a?(Hash) ? ch[:title] : ch }.join(", ")
@@ -330,8 +330,8 @@ class YoutubeConnections::OauthCallbacksController < ApplicationController
       main  = t("#{ns}.already_linked.one",
                 title:  title,
                 handle: handle || "no-handle")
-      extra = Array(I18n.t("#{ns}.already_connected_extras")).sample
-      art   = Array(I18n.t("#{ns}.ascii_art")).sample
+      extra = Pito::Copy.render("pito.copy.youtube.already_connected_extras")
+      art   = Pito::Copy.render("pito.copy.youtube.ascii_art")
       parts << [ main, extra, art ].compact.join("<br>").html_safe
     end
 

@@ -2,6 +2,15 @@ class ConversationsController < ApplicationController
   # Chat shell for a specific conversation (/chat/:uuid).
   allow_anonymous :show
 
+  # DELETE /chat/:uuid
+  # Destroys the conversation and all dependent turns/events. Requires
+  # authentication (no allow_anonymous). Responds 204 No Content on success.
+  def destroy
+    conversation = Conversation.find_by!(uuid: params[:uuid])
+    conversation.destroy!
+    head :no_content
+  end
+
   # PATCH /chat/:uuid
   # Updates a conversation's title. Requires authentication (no allow_anonymous).
   # Blank titles are rejected with 422 — the client should keep the old title.
@@ -44,7 +53,7 @@ class ConversationsController < ApplicationController
     new_title = conversation_params[:title]
 
     if new_title.blank?
-      render json: { error: "title cannot be blank" }, status: :unprocessable_entity
+      render json: { error: I18n.t("pito.chat.conversations.errors.title_blank") }, status: :unprocessable_entity
       return
     end
 

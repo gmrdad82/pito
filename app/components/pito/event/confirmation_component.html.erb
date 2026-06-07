@@ -17,15 +17,12 @@
           collapse_label: t("pito.confirmation.expand_collapse_hint")
         )) %>
 
-    <%# Resolved outcome appended below a hairline %>
-    <% if resolved? %>
-      <%= render(Pito::Event::ConfirmationResolvedComponent.new(outcome_text: @outcome_text)) %>
-    <% end %>
-
-    <%# Meta line: timestamp · #handle %>
+    <%# Single meta line — `timestamp · #handle` while still awaiting a reply
+        (#<handle> confirm / cancel). Handle drops once consumed/resolved.
+        There is NO separate usage/affordance line. %>
     <%= render(Pito::Event::MetaLineComponent.new(
           timestamp: @timestamp,
-          handle:    @handle
+          handle:    (reply_handle.present? && !resolved? && !reply_consumed? ? reply_handle : nil)
         )) %>
   </div>
 <% end %>

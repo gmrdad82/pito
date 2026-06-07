@@ -4,6 +4,7 @@ en:
       errors:
         unknown_verb: "Unknown command: /%{verb}. Type /help for the command list."
         parse_failed: "Couldn't parse command: %{raw}"
+        too_many_args: "/%{verb} doesn't take that many arguments. You're overloading it — try /help."
       confirm_hint: "type /confirm or /cancel"
       login:
         help:
@@ -27,8 +28,6 @@ en:
         help:
           usage: "/connect"
           description: "Initiate Google OAuth to connect a YouTube channel."
-        errors:
-          not_configured: "Google OAuth credentials are not configured."
       config:
         descriptions:
           config: "Read or write install-wide credentials or toggle sound/fx (/config google|voyage|igdb|webhook|sound|fx)"
@@ -94,6 +93,14 @@ en:
           unknown_provider: "'%{provider}'? Never heard of it. I answer to: google, voyage, igdb, webhook, sound, fx."
           unknown_keys: "Unknown keys for %{provider}: %{keys}"
           invalid_toggle_value: "Invalid value '%{value}'. Use on or off."
+      games:
+        descriptions:
+          games: "Import a game from IGDB (/games import [title])"
+        help:
+          usage: "/games import [<title>]"
+          description: "Search IGDB for a game and import it into your library. Optionally prefill the search box with a title."
+        import:
+          opening: "Opening the IGDB import sidebar…"
       import:
         imported:
           one: "Imported 1 video from %{channel}."
@@ -104,13 +111,7 @@ en:
         help:
           usage: "/disconnect @handle"
           description: "Disconnect a YouTube channel and delete its local data."
-        errors:
-          missing_target: "Usage: /disconnect @handle or /disconnect <id>"
-          not_found: "No channel found matching '%{target}'."
-          already_gone: "Channel no longer exists."
         confirmation:
-          body: "Disconnect from %{handle_html}? This will also delete all local videos."
-          cancelled: "Alright, leaving %{handle} connected."
           confirmed:
             zero: "Disconnected from %{handle}. No videos to delete."
             one: "Disconnected from %{handle}. 1 video deleted."

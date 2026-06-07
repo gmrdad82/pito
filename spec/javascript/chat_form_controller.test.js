@@ -327,4 +327,78 @@ describe("pito--chat-form controller", () => {
 
     expect(channelInput.value).toBe("@all") // not cycled
   })
+
+  it("Enter STILL submits when unauthenticated (so /login can be sent)", async () => {
+    const { form, inputField } = buildScaffold({ authenticated: false })
+    await waitForConnect()
+
+    inputField.value = "/login 558183"
+
+    let submitted = 0
+    form.addEventListener("submit", () => submitted++)
+
+    keydown(inputField, "Enter")
+
+    expect(submitted).toBeGreaterThan(0)
+    expect(inputField.value).toBe("")
+  })
+
+  // ── fillAndSubmit (T10.9) ─────────────────────────────────────────────────────
+
+  describe("fillAndSubmit", () => {
+    it("sets the textarea value to the given command and submits", async () => {
+      const { form, inputField } = buildScaffold()
+      await waitForConnect()
+
+      let submitted = 0
+      form.addEventListener("submit", () => submitted++)
+
+      document.dispatchEvent(new CustomEvent("pito:picker:select", {
+        detail: { command: "show game #7" }
+      }))
+
+      expect(submitted).toBeGreaterThan(0)
+    })
+
+    it("clears the textarea after submitting", async () => {
+      const { form, inputField } = buildScaffold()
+      await waitForConnect()
+      form.addEventListener("submit", (e) => e.preventDefault())
+
+      document.dispatchEvent(new CustomEvent("pito:picker:select", {
+        detail: { command: "show game #7" }
+      }))
+
+      expect(inputField.value).toBe("")
+    })
+
+    it("dispatches pito:submitted after submitting", async () => {
+      const { form } = buildScaffold()
+      await waitForConnect()
+      form.addEventListener("submit", (e) => e.preventDefault())
+
+      const submitted = []
+      document.addEventListener("pito:submitted", () => submitted.push(true))
+
+      document.dispatchEvent(new CustomEvent("pito:picker:select", {
+        detail: { command: "show game #7" }
+      }))
+
+      expect(submitted.length).toBeGreaterThan(0)
+      document.removeEventListener("pito:submitted", () => {})
+    })
+
+    it("is a no-op when event has no command", async () => {
+      const { form } = buildScaffold()
+      await waitForConnect()
+      let submitted = 0
+      form.addEventListener("submit", () => submitted++)
+
+      document.dispatchEvent(new CustomEvent("pito:picker:select", {
+        detail: {}
+      }))
+
+      expect(submitted).toBe(0)
+    })
+  })
 })

@@ -47,7 +47,7 @@ module Pito
             {
               kind:    "system",
               payload: {
-                body:           I18n.t("pito.slash.help.body"),
+                body:           Pito::Copy.render("pito.copy.help.body"),
                 expand_label:   I18n.t("pito.slash.help.expand_label"),
                 collapse_label: I18n.t("pito.slash.help.collapse_label"),
                 sections:       help_sections

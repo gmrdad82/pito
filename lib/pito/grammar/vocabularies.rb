@@ -12,7 +12,7 @@ module Pito
 
       SLASH_VERBS = Vocabulary.define(
         name:      :slash_verbs,
-        canonical: %w[config disconnect help]
+        canonical: %w[config disconnect help themes]
       ).freeze
 
       CONFIG_PROVIDERS = Vocabulary.define(
@@ -97,6 +97,19 @@ module Pito
         }
       ).freeze
 
+      # Listable entity nouns for the `list`/`ls` verb. Order matters — this is
+      # the suggestion order shown after `list `. (videos not listable yet, but
+      # offered so the noun is recognised and the ghost is honest.)
+      NOUNS = Vocabulary.define(
+        name:      :nouns,
+        canonical: %w[channels videos games],
+        synonyms:  {
+          "channel" => "channels",
+          "video"   => "videos",
+          "game"    => "games"
+        }
+      ).freeze
+
       HASHTAG_VERBS = Vocabulary.define(
         name:      :hashtag_verbs,
         canonical: %w[add remove],
@@ -118,12 +131,55 @@ module Pito
         canonical: %w[and for]
       ).freeze
 
+      # ── Theme vocabularies ───────────────────────────────────────────────────
+
+      # Subcommand keywords for `/themes`, with vocabulary synonyms providing the
+      # production-correct alias surface.
+      #
+      # WHY vocabulary synonyms (not Spec.aliases)?
+      #   Spec.aliases operate at the *verb* level — they map one top-level slash
+      #   verb name to another (e.g. `/cfg` → same Spec as `/config`).  The theme
+      #   subcommands (`list`, `preview`, `apply`, `reset`) are *values* parsed from
+      #   `invocation.args`, not separate verbs.  The Vocabulary synonym mechanism
+      #   is exactly the right layer: the handler resolves `args.first` through this
+      #   vocabulary, `"ls"` canonicalizes to `"list"`, and the dispatcher sees only
+      #   canonical forms.  No verb-level alias is registered or needed.
+      #
+      # REUSABILITY
+      #   Any future command with its own keyword subcommands and synonyms follows
+      #   the same pattern: define a static Vocabulary with canonical names + a
+      #   synonyms Hash, register it in `Vocabularies.all`, and call
+      #   `vocab.resolve(arg)` in the handler before dispatching.  The grammar,
+      #   registry, and autocomplete engine are unchanged.
+      THEME_SUBCOMMANDS = Vocabulary.define(
+        name:      :theme_subcommands,
+        canonical: %w[list preview apply reset],
+        synonyms:  {
+          "ls" => "list"
+        }
+      ).freeze
+
+      # Subcommand keywords for `/games`.
+      GAMES_SUBCOMMANDS = Vocabulary.define(
+        name:      :games_subcommands,
+        canonical: %w[import]
+      ).freeze
+
+      # All registered theme slugs plus the special alias "default" (→ tokyo-night).
+      # Backed by the theme Registry so adding a new definition file automatically
+      # extends the vocabulary on next boot — no manual wiring needed.
+      THEME_NAMES = Vocabulary.define(
+        name:      :theme_names,
+        dynamic:   true,
+        resolver:  ->(_context) { Pito::Themes::Registry.names + [ "default" ] }
+      ).freeze
+
       # ── Dynamic vocabulary stubs ─────────────────────────────────────────────
 
       CHANNELS = Vocabulary.define(
         name:     :channels,
         dynamic:  true,
-        resolver: ->(context) { Channel.pluck(:handle) }
+        resolver: ->(context) { ::Channel.pluck(:handle) }
       ).freeze
 
       CONVERSATIONS = Vocabulary.define(
@@ -167,12 +223,16 @@ module Pito
           PLATFORMS,
           RELEASE_STATUS,
           METRICS,
+          NOUNS,
           HASHTAG_VERBS,
           FILLERS,
           CONNECTIVES,
           CHANNELS,
           CONVERSATIONS,
-          GAME_TITLES
+          GAME_TITLES,
+          THEME_SUBCOMMANDS,
+          THEME_NAMES,
+          GAMES_SUBCOMMANDS
         ]
       end
 

@@ -129,6 +129,12 @@ class AppSetting < ApplicationRecord
     singleton_row.voyage_api_key
   end
 
+  # True when a Voyage API key is configured — gates every Voyage embedding call
+  # (Game/Channel VoyageIndexer, Voyage::Stats).
+  def self.voyage_configured?
+    voyage_api_key.present?
+  end
+
   # ── Sound / FX toggles ────────────────────────────────────────────────
   #
   # Stored as plain key/value rows ("sound_enabled", "fx_enabled").
@@ -168,5 +174,21 @@ class AppSetting < ApplicationRecord
 
   def self.expand_all=(bool)
     set(EXPAND_ALL_KEY, bool.to_s)
+  end
+
+  # ── Theme ─────────────────────────────────────────────────────────────────
+  #
+  # Stored as a plain key/value row ("theme").
+  # Default is "tokyo-night" — returned whenever no row has been stored yet.
+
+  THEME_KEY         = "theme"
+  THEME_DEFAULT     = "tokyo-night"
+
+  def self.theme
+    get(THEME_KEY).presence || THEME_DEFAULT
+  end
+
+  def self.theme=(slug)
+    set(THEME_KEY, slug.to_s)
   end
 end

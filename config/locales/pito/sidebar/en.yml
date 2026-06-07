@@ -15,6 +15,25 @@ en:
         rename_hint: "rename a conversation"
       game:
         subtitle: "Game · imported %{date}"
+      games:
+        title: "Games"
+        hint: "↑/↓ move · Enter select"
+      games_import:
+        title: "Import from IGDB"
+        hint: "Search · ↑/↓ move · Enter import"
+        search_placeholder: "Search IGDB…"
+        in_library: "In Library"
+        in_library_hint: "(will resync)"
+        searching: "Searching…"
+        no_results: "No results. Try a different title."
+        error: "IGDB search failed. Check credentials."
+        progress:
+          done: "Import complete!"
+      themes:
+        title: "Themes"
+        hint: "↑/↓ preview · Enter apply"
+        dark: "Dark"
+        light: "Light"
       section:
         overview: "Overview"
         channels: "Channels covering this game"

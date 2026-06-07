@@ -2,13 +2,13 @@
 <%
   input_attrs = { placeholder: placeholder, autocomplete: "off", rows: 1,
                   class: "text-fg placeholder:text-fg-faded bg-transparent outline-none border-none w-full pito-chatbox__input",
-                  data: { action: "keydown->pito--autosuggest#handleKeydown keydown->pito--chat-form#handleKeydown input->pito--autosuggest#onInput",
-                          pito__autosuggest_target: "field",
+                  data: { action: "keydown->pito--suggestions#handleKeydown keydown->pito--chat-form#handleKeydown input->pito--suggestions#onInput",
+                          pito__suggestions_target: "field",
                           pito__terminal_caret_target: "field",
                           pito__type_fx_target: "field" } }
   input_attrs[:data].merge!(@input_data) if @input_data
 
-  chatbox_controllers = "pito--autosuggest pito--chatbox-hints pito--history"
+  chatbox_controllers = "pito--suggestions pito--chatbox-hints pito--history"
   chatbox_data = { "pito--history-entries-value": @history.to_json }
   if @draft_uuid.present?
     chatbox_controllers += " pito--draft"
@@ -16,8 +16,8 @@
   end
 %>
 <div id="pito-chatbox" class="chatbox-wrapper" data-controller="<%= chatbox_controllers %>" data-action="click->pito--chat-form#focusField"<% chatbox_data.each do |k, v| %> data-<%= k %>="<%= v %>"<% end %>>
-<script type="application/json" data-pito--autosuggest-target="catalog"><%= catalog_json.html_safe %></script>
-<div data-pito--autosuggest-target="palette" class="pito-autosuggest-palette hidden"></div>
+<script type="application/json" data-pito--suggestions-target="catalog"><%= catalog_json.html_safe %></script>
+<div data-pito--suggestions-target="palette" class="pito-suggestions-palette hidden"></div>
 <%= render(Pito::Segment::Component.new(
       accent: :purple,
       background: "var(--bg-elevated)"

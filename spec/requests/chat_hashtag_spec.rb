@@ -71,10 +71,12 @@ RSpec.describe "Chat requests", type: :request do
         }.to have_enqueued_job(ChatDispatchJob).with(anything, hash_including(channel: nil, period: nil))
       end
 
-      it "excludes confirmation responses from hashtag routing" do
+      it "routes #<handle> confirm to hashtag when the event has no reply_handle (unknown handle)" do
+        # Events created via the old confirmation_handle path (no reply_handle) are
+        # not routable by the follow-up engine, so they fall through to hashtag routing.
         expect {
           post "/chat", params: { input: "#alpha-1234 confirm", uuid: conversation.uuid }
-        }.not_to change(Turn, :count)
+        }.to change(Turn, :count).by(1)
       end
     end
   end

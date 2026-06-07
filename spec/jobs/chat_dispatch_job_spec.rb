@@ -63,7 +63,7 @@ RSpec.describe ChatDispatchJob, type: :job do
     end
 
     context "with a chat message" do
-      let(:turn) { setup_turn(input_text: "list videos", input_kind: :chat) }
+      let(:turn) { setup_turn(input_text: "list games", input_kind: :chat) }
 
       it "creates result events" do
         expect {

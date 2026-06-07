@@ -15,7 +15,7 @@ RSpec.describe Pito::Event::ThinkingComponent do
     expect(node.css(".pito-thinking[data-controller='pito--thinking']")).not_to be_empty
     expect(node.css(".pito-thinking__braille").text).to eq("⠋")
     expect(node.css(".pito-thinking__word").text).to eq(
-      "#{I18n.t('pito.event.thinking.slash.doing')[2]}…"
+      "#{I18n.t('pito.copy.thinking.slash.doing')[2]}…"
     )
   end
 
@@ -25,7 +25,7 @@ RSpec.describe Pito::Event::ThinkingComponent do
 
     node = render_inline(described_class.new(payload: event.payload, event:))
 
-    done_word = I18n.t("pito.event.thinking.slash.done")[2]
+    done_word = I18n.t("pito.copy.thinking.slash.done")[2]
     expect(node.css(".pito-thinking__message").text).to eq(
       I18n.t("pito.event.thinking.resolved", word: done_word, elapsed: 3.0)
     )
@@ -40,7 +40,7 @@ RSpec.describe Pito::Event::ThinkingComponent do
   end
 
   it "uses the word_index from payload (idempotent)" do
-    expected_word = "#{I18n.t('pito.event.thinking.slash.doing')[2]}…"
+    expected_word = "#{I18n.t('pito.copy.thinking.slash.doing')[2]}…"
 
     node1 = render_inline(described_class.new(payload: event.payload, event:))
     expect(node1.css(".pito-thinking__word").text).to eq(expected_word)

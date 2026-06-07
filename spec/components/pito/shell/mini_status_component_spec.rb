@@ -113,6 +113,12 @@ RSpec.describe Pito::Shell::MiniStatusComponent do
         node = render_inline(described_class.new(notifications: 3, show_notifications: true))
         expect(node.to_html).to include("3 notifications")
       end
+
+      it "does NOT render notifications when unauthenticated (state: false)" do
+        node = render_inline(described_class.new(notifications: 3, show_notifications: true, state: false))
+        expect(node.to_html).not_to include("notifications")
+        expect(node.css("span.font-bold.text-yellow").map(&:text)).not_to include("ctrl+/")
+      end
     end
 
     context "always-present elements (connection mode only)" do

@@ -12,7 +12,7 @@ require "rails_helper"
 #
 #  1. Direct route hit — GET /404 reaches start_screens#not_found directly
 #     (this route always exists regardless of exceptions_app routing). This is
-#     the canonical assertion that the action renders the autocomplete chatbox
+#     the canonical assertion that the action renders the suggestions chatbox
 #     with status 404.
 #
 #  2. Catch-all route — GET /some-unknown-path is matched by the wildcard
@@ -29,12 +29,12 @@ RSpec.describe "Dynamic 404 page", type: :request do
       expect(response).to have_http_status(:not_found)
     end
 
-    it "renders the autocomplete chatbox (catalog script tag)" do
-      expect(response.body).to include('data-pito--autosuggest-target="catalog"')
+    it "renders the suggestions chatbox (catalog script tag)" do
+      expect(response.body).to include('data-pito--suggestions-target="catalog"')
     end
 
     it "renders the autosuggest palette div" do
-      expect(response.body).to include("pito-autosuggest-palette")
+      expect(response.body).to include("pito-suggestions-palette")
     end
 
     it "renders the chatbox wrapper" do
@@ -49,8 +49,8 @@ RSpec.describe "Dynamic 404 page", type: :request do
       expect(response).to have_http_status(:not_found)
     end
 
-    it "renders the autocomplete chatbox (catalog script tag)" do
-      expect(response.body).to include('data-pito--autosuggest-target="catalog"')
+    it "renders the suggestions chatbox (catalog script tag)" do
+      expect(response.body).to include('data-pito--suggestions-target="catalog"')
     end
   end
 
@@ -60,8 +60,8 @@ RSpec.describe "Dynamic 404 page", type: :request do
       expect(response).to have_http_status(:ok)
     end
 
-    it "POST /autocomplete still returns a response (not 404)" do
-      post "/autocomplete", params: { input: "/help" }
+    it "POST /suggestions still returns a response (not 404)" do
+      post "/suggestions", params: { input: "/help" }
       expect(response.status).not_to eq(404)
     end
   end
