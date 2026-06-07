@@ -321,10 +321,12 @@ export default class extends Controller {
       dot.textContent = "●"
       row.appendChild(dot)
 
-      // Step label text
+      // Step label text — shimmers too, in sync with the dot (same per-row
+      // delay) so the whole row pulses together, staggered against other rows.
       const lbl = document.createElement("span")
-      lbl.className   = "text-fg-dim"
-      lbl.textContent = label
+      lbl.className          = "pito-shimmer"
+      lbl.style.animationDelay = delay
+      lbl.textContent        = label
       row.appendChild(lbl)
 
       container.appendChild(row)
