@@ -2119,107 +2119,107 @@ en:
           - "No games found. /games import to add one."
           - "Library empty — /games import to begin."
         not_found:
-          - "No game matching “%{ref}”."
-          - "Couldn't find “%{ref}”."
-          - "“%{ref}”? Not in your library."
-          - "No such game: “%{ref}”."
-          - "“%{ref}” isn't here."
-          - "Nothing matches “%{ref}”."
-          - "“%{ref}” drew a blank."
-          - "Can't find “%{ref}”."
-          - "“%{ref}” — no match."
-          - "No game called “%{ref}”."
-          - "“%{ref}” isn't in the library."
-          - "Don't have “%{ref}”."
-          - "“%{ref}” not found."
-          - "No hit for “%{ref}”."
-          - "“%{ref}”? Never heard of it."
-          - "That's not a game I know: “%{ref}”."
-          - "“%{ref}” turned up nothing."
-          - "No game by that name: “%{ref}”."
-          - "“%{ref}” isn't on the shelf."
-          - "Searched for “%{ref}” — empty-handed."
-          - "“%{ref}” doesn't ring a bell."
-          - "No “%{ref}” in here."
-          - "“%{ref}”: not in the collection."
-          - "Couldn't match “%{ref}” to a game."
-          - "“%{ref}” — nothing found."
-          - "No game tagged “%{ref}”."
-          - "“%{ref}” isn't one of yours."
-          - "Nope, no “%{ref}”."
-          - "“%{ref}” missing from the library."
-          - "I have no “%{ref}”."
-          - "“%{ref}” — no such entry."
-          - "Nothing here named “%{ref}”."
-          - "“%{ref}” didn't match a game."
-          - "No record of “%{ref}”."
-          - "“%{ref}”? Doesn't exist here."
-          - "Can't locate “%{ref}”."
-          - "“%{ref}” isn't catalogued."
-          - "No game found for “%{ref}”."
-          - "“%{ref}” — not on file."
-          - "That game (“%{ref}”) isn't here."
-          - "“%{ref}” yielded nothing."
-          - "No match for “%{ref}” in the library."
-          - "“%{ref}” is a stranger to pito."
-          - "Couldn't dig up “%{ref}”."
-          - "“%{ref}” — zero results."
-          - "No game answers to “%{ref}”."
-          - "“%{ref}” isn't tracked."
-          - "Nothing by “%{ref}”."
-          - "“%{ref}” not in your collection."
-          - "Can't show “%{ref}” — it's not here."
+          - "No game matching %{ref}."
+          - "Couldn't find %{ref}."
+          - "%{ref}? Not in your library."
+          - "No such game: %{ref}."
+          - "%{ref} isn't here."
+          - "Nothing matches %{ref}."
+          - "%{ref} drew a blank."
+          - "Can't find %{ref}."
+          - "%{ref} — no match."
+          - "No game called %{ref}."
+          - "%{ref} isn't in the library."
+          - "Don't have %{ref}."
+          - "%{ref} not found."
+          - "No hit for %{ref}."
+          - "%{ref}? Never heard of it."
+          - "That's not a game I know: %{ref}."
+          - "%{ref} turned up nothing."
+          - "No game by that name: %{ref}."
+          - "%{ref} isn't on the shelf."
+          - "Searched for %{ref} — empty-handed."
+          - "%{ref} doesn't ring a bell."
+          - "No %{ref} in here."
+          - "%{ref}: not in the collection."
+          - "Couldn't match %{ref} to a game."
+          - "%{ref} — nothing found."
+          - "No game tagged %{ref}."
+          - "%{ref} isn't one of yours."
+          - "Nope, no %{ref}."
+          - "%{ref} missing from the library."
+          - "I have no %{ref}."
+          - "%{ref} — no such entry."
+          - "Nothing here named %{ref}."
+          - "%{ref} didn't match a game."
+          - "No record of %{ref}."
+          - "%{ref}? Doesn't exist here."
+          - "Can't locate %{ref}."
+          - "%{ref} isn't catalogued."
+          - "No game found for %{ref}."
+          - "%{ref} — not on file."
+          - "That game (%{ref}) isn't here."
+          - "%{ref} yielded nothing."
+          - "No match for %{ref} in the library."
+          - "%{ref} is a stranger to pito."
+          - "Couldn't dig up %{ref}."
+          - "%{ref} — zero results."
+          - "No game answers to %{ref}."
+          - "%{ref} isn't tracked."
+          - "Nothing by %{ref}."
+          - "%{ref} not in your collection."
+          - "Can't show %{ref} — it's not here."
         delete_confirm:
-          - "Delete “%{title}”?"
-          - "Remove “%{title}” for good?"
-          - "Drop “%{title}” from the library?"
-          - "Really delete “%{title}”?"
-          - "Delete “%{title}” — sure?"
-          - "Wipe “%{title}” from the shelf?"
-          - "Say goodbye to “%{title}”?"
-          - "Remove “%{title}”?"
-          - "Toss “%{title}”?"
-          - "Delete “%{title}” permanently?"
-          - "Get rid of “%{title}”?"
-          - "“%{title}” — delete it?"
-          - "Confirm: delete “%{title}”?"
-          - "Banish “%{title}” from the library?"
-          - "Delete “%{title}” for real?"
-          - "Erase “%{title}”?"
-          - "Pull “%{title}” from your collection?"
-          - "Scrap “%{title}”?"
-          - "Delete “%{title}”, no take-backs?"
-          - "Remove “%{title}” from your games?"
-          - "“%{title}” — gone for good?"
-          - "Delete “%{title}” from pito?"
-          - "Sure you want “%{title}” gone?"
-          - "Yeet “%{title}”?"
-          - "Delete the “%{title}” entry?"
-          - "Cut “%{title}” loose?"
-          - "Remove “%{title}” entirely?"
-          - "Delete “%{title}” — last chance?"
-          - "Off with “%{title}”?"
-          - "Clear “%{title}” from the library?"
-          - "Delete the record for “%{title}”?"
-          - "Drop “%{title}”?"
-          - "Send “%{title}” to the void?"
-          - "Delete “%{title}” now?"
-          - "Lose “%{title}” from the shelf?"
-          - "Remove “%{title}” for keeps?"
-          - "Confirm removal of “%{title}”?"
-          - "Delete “%{title}”, you're sure?"
-          - "Purge “%{title}”?"
-          - "Strike “%{title}” from the list?"
-          - "Delete “%{title}” from the collection?"
-          - "Wave goodbye to “%{title}”?"
-          - "Remove “%{title}” from the vault?"
-          - "Delete “%{title}” — confirm?"
-          - "Ditch “%{title}”?"
-          - "Take “%{title}” off the shelf?"
-          - "Delete “%{title}” and its data?"
-          - "Retire “%{title}” from the library?"
-          - "Delete “%{title}”? This can't be undone."
-          - "Remove “%{title}” permanently?"
+          - "Delete %{title}?"
+          - "Remove %{title} for good?"
+          - "Drop %{title} from the library?"
+          - "Really delete %{title}?"
+          - "Delete %{title} — sure?"
+          - "Wipe %{title} from the shelf?"
+          - "Say goodbye to %{title}?"
+          - "Remove %{title}?"
+          - "Toss %{title}?"
+          - "Delete %{title} permanently?"
+          - "Get rid of %{title}?"
+          - "%{title} — delete it?"
+          - "Confirm: delete %{title}?"
+          - "Banish %{title} from the library?"
+          - "Delete %{title} for real?"
+          - "Erase %{title}?"
+          - "Pull %{title} from your collection?"
+          - "Scrap %{title}?"
+          - "Delete %{title}, no take-backs?"
+          - "Remove %{title} from your games?"
+          - "%{title} — gone for good?"
+          - "Delete %{title} from pito?"
+          - "Sure you want %{title} gone?"
+          - "Yeet %{title}?"
+          - "Delete the %{title} entry?"
+          - "Cut %{title} loose?"
+          - "Remove %{title} entirely?"
+          - "Delete %{title} — last chance?"
+          - "Off with %{title}?"
+          - "Clear %{title} from the library?"
+          - "Delete the record for %{title}?"
+          - "Drop %{title}?"
+          - "Send %{title} to the void?"
+          - "Delete %{title} now?"
+          - "Lose %{title} from the shelf?"
+          - "Remove %{title} for keeps?"
+          - "Confirm removal of %{title}?"
+          - "Delete %{title}, you're sure?"
+          - "Purge %{title}?"
+          - "Strike %{title} from the list?"
+          - "Delete %{title} from the collection?"
+          - "Wave goodbye to %{title}?"
+          - "Remove %{title} from the vault?"
+          - "Delete %{title} — confirm?"
+          - "Ditch %{title}?"
+          - "Take %{title} off the shelf?"
+          - "Delete %{title} and its data?"
+          - "Retire %{title} from the library?"
+          - "Delete %{title}? This can't be undone."
+          - "Remove %{title} permanently?"
         ownership_set:
           - "Ownership updated: %{title} → %{platforms}."
           - "%{title} is now on %{platforms}."
@@ -2374,107 +2374,107 @@ en:
           - "Unlinked and updated: %{game} from %{video}."
           - "Removed: %{game} ↔ %{video}. Clean break."
         picker_empty:
-          - “No games in the library yet. Import one to begin.”
-          - “Nothing to pick from. /games import to add a game.”
-          - “Empty shelf — import a game and it'll appear here.”
-          - “No games found. Try /games import.”
-          - “Your library is empty. Add a game to populate this list.”
-          - “Nothing here yet. /games import is waiting.”
-          - “The picker is lonely. /games import to the rescue.”
-          - “No games on file. /games import first.”
-          - “Empty collection. Import a game and come back.”
-          - “No games to choose from. /games import.”
-          - “The list is bare. /games import to fill it.”
-          - “Not a single game yet. Import one.”
-          - “Zero games. /games import adds the first.”
-          - “Nothing catalogued. Add a game via /games import.”
-          - “The vault is empty. /games import to stock it.”
-          - “No games in residence. /games import.”
-          - “Empty library. /games import and return.”
-          - “No entries to pick. /games import.”
-          - “The roster is bare — /games import.”
-          - “No games here. Import one to get started.”
-          - “Nothing to see. /games import fills this.”
-          - “Your game list is empty. /games import.”
-          - “No games available to pick. Try /games import.”
-          - “Empty. /games import changes that.”
-          - “No games on the books. /games import.”
-          - “The shelf is empty — /games import.”
-          - “Nothing in the collection yet. /games import.”
-          - “No games filed. /games import to begin.”
-          - “Blank picker. /games import adds rows.”
-          - “The library awaits its first game. /games import.”
-          - “No games tracked yet. /games import.”
-          - “Nothing to list. /games import.”
-          - “Empty. Add a game first.”
-          - “No games to choose. /games import.”
-          - “The collection's empty. /games import.”
-          - “Nada. /games import your first.”
-          - “No games yet — /games import awaits.”
-          - “Blank library. /games import to fill it in.”
-          - “Nothing to show. /games import.”
-          - “No games stored. /games import to start.”
-          - “Empty stacks. /games import.”
-          - “Zilch. /games import your first.”
-          - “No games in the system. /games import.”
-          - “The roster's empty. /games import.”
-          - “Nothing here. /games import to change it.”
-          - “No games catalogued. /games import.”
-          - “Your shelf is empty. /games import.”
-          - “Not yet — /games import to add a game.”
-          - “No games on display. /games import.”
-          - “Library empty — /games import to begin.”
+          - "No games in the library yet. Import one to begin."
+          - "Nothing to pick from. /games import to add a game."
+          - "Empty shelf — import a game and it'll appear here."
+          - "No games found. Try /games import."
+          - "Your library is empty. Add a game to populate this list."
+          - "Nothing here yet. /games import is waiting."
+          - "The picker is lonely. /games import to the rescue."
+          - "No games on file. /games import first."
+          - "Empty collection. Import a game and come back."
+          - "No games to choose from. /games import."
+          - "The list is bare. /games import to fill it."
+          - "Not a single game yet. Import one."
+          - "Zero games. /games import adds the first."
+          - "Nothing catalogued. Add a game via /games import."
+          - "The vault is empty. /games import to stock it."
+          - "No games in residence. /games import."
+          - "Empty library. /games import and return."
+          - "No entries to pick. /games import."
+          - "The roster is bare — /games import."
+          - "No games here. Import one to get started."
+          - "Nothing to see. /games import fills this."
+          - "Your game list is empty. /games import."
+          - "No games available to pick. Try /games import."
+          - "Empty. /games import changes that."
+          - "No games on the books. /games import."
+          - "The shelf is empty — /games import."
+          - "Nothing in the collection yet. /games import."
+          - "No games filed. /games import to begin."
+          - "Blank picker. /games import adds rows."
+          - "The library awaits its first game. /games import."
+          - "No games tracked yet. /games import."
+          - "Nothing to list. /games import."
+          - "Empty. Add a game first."
+          - "No games to choose. /games import."
+          - "The collection's empty. /games import."
+          - "Nada. /games import your first."
+          - "No games yet — /games import awaits."
+          - "Blank library. /games import to fill it in."
+          - "Nothing to show. /games import."
+          - "No games stored. /games import to start."
+          - "Empty stacks. /games import."
+          - "Zilch. /games import your first."
+          - "No games in the system. /games import."
+          - "The roster's empty. /games import."
+          - "Nothing here. /games import to change it."
+          - "No games catalogued. /games import."
+          - "Your shelf is empty. /games import."
+          - "Not yet — /games import to add a game."
+          - "No games on display. /games import."
+          - "Library empty — /games import to begin."
         import_usage:
-          - “Try /games import [title] to search IGDB and add a game.”
-          - “/games import [title] — search IGDB and drop a game in your library.”
-          - “Looking to add a game? /games import [title] searches IGDB.”
-          - “Use /games import [title] to pull a game from IGDB.”
-          - “The import door is /games import [title]. Knock away.”
-          - “/games import [title] — your IGDB search shortcut.”
-          - “To add a game: /games import [title]. That's the move.”
-          - “Hint: /games import [title] opens the IGDB picker.”
-          - “/games import [title] fetches from IGDB. Go ahead.”
-          - “The only subcommand here is import. /games import [title].”
-          - “Try /games import — it opens an IGDB search sidebar.”
-          - “/games import [title] is the one. I'll wait.”
-          - “Not sure what you meant. /games import [title] searches IGDB.”
-          - “To bring in a game: /games import [title].”
-          - “Your move: /games import [title] — searches IGDB live.”
-          - “/games import [title]. That's the command you're after.”
-          - “The import sidebar awaits: /games import [title].”
-          - “One subcommand, one job: /games import [title].”
-          - “Import games via IGDB with /games import [title].”
-          - “Ready when you are: /games import [title].”
-          - “/games import [title] — opens the IGDB search sidebar.”
-          - “Bring in a game: /games import [title] does it.”
-          - “/games import [title] is how you stock the library.”
-          - “The path to a new game: /games import [title].”
-          - “IGDB search is at /games import [title].”
-          - “Add to your library with /games import [title].”
-          - “/games import [title] — no fuss, just IGDB.”
-          - “To search and import: /games import [title].”
-          - “Usage: /games import [title]. Short and sweet.”
-          - “/games import [title] finds the game and imports it.”
-          - “One command: /games import [title]. That's all.”
-          - “The importer is ready at /games import [title].”
-          - “Go ahead: /games import [title] to search IGDB.”
-          - “/games import — the only subcommand that matters right now.”
-          - “To add a game to your library: /games import [title].”
-          - “/games import [title] pops the IGDB search sidebar.”
-          - “Library too quiet? /games import [title].”
-          - “Typed something I didn't catch. Try /games import [title].”
-          - “/games import [title] — the game import door.”
-          - “Unknown subcommand. The right one: /games import [title].”
-          - “Import a game from IGDB: /games import [title].”
-          - “/games import [title] — search first, import after.”
-          - “Not quite. /games import [title] is what you need.”
-          - “The import sidebar opens with /games import [title].”
-          - “Add games via IGDB: /games import [title].”
-          - “/games import [title] — IGDB search, right in chat.”
-          - “That command isn't one I know. Try /games import [title].”
-          - “/games import [title]: searches IGDB, imports the pick.”
-          - “Closest I've got: /games import [title]. Give it a go.”
-          - “Command not recognised. /games import [title] is the one.”
+          - "Try /games import [title] to search IGDB and add a game."
+          - "/games import [title] — search IGDB and drop a game in your library."
+          - "Looking to add a game? /games import [title] searches IGDB."
+          - "Use /games import [title] to pull a game from IGDB."
+          - "The import door is /games import [title]. Knock away."
+          - "/games import [title] — your IGDB search shortcut."
+          - "To add a game: /games import [title]. That's the move."
+          - "Hint: /games import [title] opens the IGDB picker."
+          - "/games import [title] fetches from IGDB. Go ahead."
+          - "The only subcommand here is import. /games import [title]."
+          - "Try /games import — it opens an IGDB search sidebar."
+          - "/games import [title] is the one. I'll wait."
+          - "Not sure what you meant. /games import [title] searches IGDB."
+          - "To bring in a game: /games import [title]."
+          - "Your move: /games import [title] — searches IGDB live."
+          - "/games import [title]. That's the command you're after."
+          - "The import sidebar awaits: /games import [title]."
+          - "One subcommand, one job: /games import [title]."
+          - "Import games via IGDB with /games import [title]."
+          - "Ready when you are: /games import [title]."
+          - "/games import [title] — opens the IGDB search sidebar."
+          - "Bring in a game: /games import [title] does it."
+          - "/games import [title] is how you stock the library."
+          - "The path to a new game: /games import [title]."
+          - "IGDB search is at /games import [title]."
+          - "Add to your library with /games import [title]."
+          - "/games import [title] — no fuss, just IGDB."
+          - "To search and import: /games import [title]."
+          - "Usage: /games import [title]. Short and sweet."
+          - "/games import [title] finds the game and imports it."
+          - "One command: /games import [title]. That's all."
+          - "The importer is ready at /games import [title]."
+          - "Go ahead: /games import [title] to search IGDB."
+          - "/games import — the only subcommand that matters right now."
+          - "To add a game to your library: /games import [title]."
+          - "/games import [title] pops the IGDB search sidebar."
+          - "Library too quiet? /games import [title]."
+          - "Typed something I didn't catch. Try /games import [title]."
+          - "/games import [title] — the game import door."
+          - "Unknown subcommand. The right one: /games import [title]."
+          - "Import a game from IGDB: /games import [title]."
+          - "/games import [title] — search first, import after."
+          - "Not quite. /games import [title] is what you need."
+          - "The import sidebar opens with /games import [title]."
+          - "Add games via IGDB: /games import [title]."
+          - "/games import [title] — IGDB search, right in chat."
+          - "That command isn't one I know. Try /games import [title]."
+          - "/games import [title]: searches IGDB, imports the pick."
+          - "Closest I've got: /games import [title]. Give it a go."
+          - "Command not recognised. /games import [title] is the one."
         enhanced_intro:
           - Here's the full picture on this one.
           - This game has more to it than the card shows.
@@ -2629,415 +2629,415 @@ en:
           - Games that get the same instinct going
           - More titles you'd probably dig
         deleted:
-          - “Deleted “%{title}”.”
-          - "“%{title}” is gone."
-          - "Removed “%{title}”."
-          - "“%{title}” — deleted."
-          - "Gone: “%{title}”."
-          - "“%{title}” wiped from the library."
-          - "Dropped “%{title}”."
-          - "“%{title}” has left the building."
-          - "Erased “%{title}”."
-          - "“%{title}” removed."
-          - "Done — “%{title}” deleted."
-          - "“%{title}” is no more."
-          - "Tossed “%{title}”."
-          - "“%{title}” off the shelf."
-          - "“%{title}” deleted from pito."
-          - "Cleared “%{title}”."
-          - "“%{title}” — removed for good."
-          - "Purged “%{title}”."
-          - "“%{title}” gone from the collection."
-          - "Scrapped “%{title}”."
-          - "“%{title}” struck from the list."
-          - "Removed “%{title}” from your games."
-          - "“%{title}” deleted. Poof."
-          - "“%{title}” is history."
-          - "Banished “%{title}”."
-          - "“%{title}” cleared out."
-          - "Deleted: “%{title}”."
-          - "“%{title}” pulled from the library."
-          - "Bye, “%{title}”."
-          - "“%{title}” removed from the vault."
-          - "“%{title}” retired."
-          - "Cut “%{title}” loose."
-          - "“%{title}” gone for good."
-          - "Done. No more “%{title}”."
-          - "“%{title}” deleted, no trace left."
-          - "Wiped “%{title}”."
-          - "“%{title}” off the books."
-          - "Removed every trace of “%{title}”."
-          - "“%{title}” — sent to the void."
-          - "Ditched “%{title}”."
-          - "“%{title}” is out of the library."
-          - "Deleted “%{title}” and its data."
-          - "“%{title}” gone."
-          - "“%{title}” — removed."
-          - "Yeeted “%{title}”."
-          - "“%{title}” deleted successfully."
-          - "Took “%{title}” off the shelf."
-          - "“%{title}” cleared from pito."
-          - "“%{title}” deleted. Onward."
-          - “”%{title}” removed from the collection.”
+          - "Deleted %{title}."
+          - "%{title} is gone."
+          - "Removed %{title}."
+          - "%{title} — deleted."
+          - "Gone: %{title}."
+          - "%{title} wiped from the library."
+          - "Dropped %{title}."
+          - "%{title} has left the building."
+          - "Erased %{title}."
+          - "%{title} removed."
+          - "Done — %{title} deleted."
+          - "%{title} is no more."
+          - "Tossed %{title}."
+          - "%{title} off the shelf."
+          - "%{title} deleted from pito."
+          - "Cleared %{title}."
+          - "%{title} — removed for good."
+          - "Purged %{title}."
+          - "%{title} gone from the collection."
+          - "Scrapped %{title}."
+          - "%{title} struck from the list."
+          - "Removed %{title} from your games."
+          - "%{title} deleted. Poof."
+          - "%{title} is history."
+          - "Banished %{title}."
+          - "%{title} cleared out."
+          - "Deleted: %{title}."
+          - "%{title} pulled from the library."
+          - "Bye, %{title}."
+          - "%{title} removed from the vault."
+          - "%{title} retired."
+          - "Cut %{title} loose."
+          - "%{title} gone for good."
+          - "Done. No more %{title}."
+          - "%{title} deleted, no trace left."
+          - "Wiped %{title}."
+          - "%{title} off the books."
+          - "Removed every trace of %{title}."
+          - "%{title} — sent to the void."
+          - "Ditched %{title}."
+          - "%{title} is out of the library."
+          - "Deleted %{title} and its data."
+          - "%{title} gone."
+          - "%{title} — removed."
+          - "Yeeted %{title}."
+          - "%{title} deleted successfully."
+          - "Took %{title} off the shelf."
+          - "%{title} cleared from pito."
+          - "%{title} deleted. Onward."
+          - "%{title} removed from the collection."
         resync_confirm:
-          - “Resync “%{title}” from IGDB?”
-          - “Pull fresh IGDB data for “%{title}”?”
-          - “Re-fetch “%{title}” from IGDB?”
-          - “Resync “%{title}” — sure?”
-          - “Refresh “%{title}” from IGDB?”
-          - “Re-pull “%{title}” from IGDB?”
-          - “Update “%{title}” from IGDB?”
-          - “Resync “%{title}”?”
-          - “Fetch latest IGDB data for “%{title}”?”
-          - “Queue a resync for “%{title}”?”
-          - “Trigger IGDB resync for “%{title}”?”
-          - “Pull fresh data for “%{title}” from IGDB?”
-          - “Resync “%{title}” with IGDB?”
-          - “Re-import “%{title}” from IGDB?”
-          - “Refresh “%{title}” data from IGDB?”
-          - “Get updated IGDB info for “%{title}”?”
-          - “Pull the latest on “%{title}” from IGDB?”
-          - “Resync “%{title}” with fresh IGDB data?”
-          - “Fetch updated metadata for “%{title}”?”
-          - “Trigger a fresh IGDB pull for “%{title}”?”
-          - “Re-run IGDB sync for “%{title}”?”
-          - “Re-fetch “%{title}” details from IGDB?”
-          - “Get fresh IGDB metadata for “%{title}”?”
-          - “Pull latest IGDB data for “%{title}”?”
-          - “Trigger resync of “%{title}” from IGDB?”
-          - “Queue IGDB resync for “%{title}”?”
-          - “Refresh IGDB data for “%{title}”?”
-          - “Re-pull IGDB metadata for “%{title}”?”
-          - “Fetch fresh “%{title}” data from IGDB?”
-          - “Resync “%{title}” — last chance to reconsider?”
-          - “Trigger IGDB data refresh for “%{title}”?”
-          - “Re-fetch IGDB info for “%{title}”?”
-          - “Pull IGDB update for “%{title}”?”
-          - “Queue a fresh pull for “%{title}” from IGDB?”
-          - “Resync “%{title}” with current IGDB data?”
-          - “Re-import fresh IGDB data for “%{title}”?”
-          - “Refresh the IGDB record for “%{title}”?”
-          - “Pull the latest IGDB metadata for “%{title}”?”
-          - “Run an IGDB resync for “%{title}”?”
-          - “Trigger IGDB metadata update for “%{title}”?”
-          - “Get fresh data from IGDB for “%{title}”?”
-          - “Resync the IGDB record for “%{title}”?”
-          - “Queue an IGDB refresh for “%{title}”?”
-          - “Fetch latest metadata for “%{title}” from IGDB?”
-          - “Pull “%{title}” details from IGDB again?”
-          - “Re-run IGDB metadata sync for “%{title}”?”
-          - “Resync “%{title}” data with IGDB?”
-          - “Pull new IGDB data for “%{title}”?”
-          - “Trigger a fresh IGDB sync for “%{title}”?”
-          - “Re-fetch the IGDB record for “%{title}”?”
+          - "Resync %{title} from IGDB?"
+          - "Pull fresh IGDB data for %{title}?"
+          - "Re-fetch %{title} from IGDB?"
+          - "Resync %{title} — sure?"
+          - "Refresh %{title} from IGDB?"
+          - "Re-pull %{title} from IGDB?"
+          - "Update %{title} from IGDB?"
+          - "Resync %{title}?"
+          - "Fetch latest IGDB data for %{title}?"
+          - "Queue a resync for %{title}?"
+          - "Trigger IGDB resync for %{title}?"
+          - "Pull fresh data for %{title} from IGDB?"
+          - "Resync %{title} with IGDB?"
+          - "Re-import %{title} from IGDB?"
+          - "Refresh %{title} data from IGDB?"
+          - "Get updated IGDB info for %{title}?"
+          - "Pull the latest on %{title} from IGDB?"
+          - "Resync %{title} with fresh IGDB data?"
+          - "Fetch updated metadata for %{title}?"
+          - "Trigger a fresh IGDB pull for %{title}?"
+          - "Re-run IGDB sync for %{title}?"
+          - "Re-fetch %{title} details from IGDB?"
+          - "Get fresh IGDB metadata for %{title}?"
+          - "Pull latest IGDB data for %{title}?"
+          - "Trigger resync of %{title} from IGDB?"
+          - "Queue IGDB resync for %{title}?"
+          - "Refresh IGDB data for %{title}?"
+          - "Re-pull IGDB metadata for %{title}?"
+          - "Fetch fresh %{title} data from IGDB?"
+          - "Resync %{title} — last chance to reconsider?"
+          - "Trigger IGDB data refresh for %{title}?"
+          - "Re-fetch IGDB info for %{title}?"
+          - "Pull IGDB update for %{title}?"
+          - "Queue a fresh pull for %{title} from IGDB?"
+          - "Resync %{title} with current IGDB data?"
+          - "Re-import fresh IGDB data for %{title}?"
+          - "Refresh the IGDB record for %{title}?"
+          - "Pull the latest IGDB metadata for %{title}?"
+          - "Run an IGDB resync for %{title}?"
+          - "Trigger IGDB metadata update for %{title}?"
+          - "Get fresh data from IGDB for %{title}?"
+          - "Resync the IGDB record for %{title}?"
+          - "Queue an IGDB refresh for %{title}?"
+          - "Fetch latest metadata for %{title} from IGDB?"
+          - "Pull %{title} details from IGDB again?"
+          - "Re-run IGDB metadata sync for %{title}?"
+          - "Resync %{title} data with IGDB?"
+          - "Pull new IGDB data for %{title}?"
+          - "Trigger a fresh IGDB sync for %{title}?"
+          - "Re-fetch the IGDB record for %{title}?"
         resync_queued:
-          - “Resync queued for “%{title}”.”
-          - “”%{title}” queued for IGDB resync.”
-          - “IGDB resync queued. “%{title}” will update shortly.”
-          - “”%{title}”: resync is on the way.”
-          - “Queued a fresh pull for “%{title}” from IGDB.”
-          - “”%{title}” resync enqueued.”
-          - “IGDB sync queued for “%{title}”.”
-          - “”%{title}” is heading to IGDB for a refresh.”
-          - “Fresh IGDB data for “%{title}” is on the way.”
-          - “”%{title}” resync scheduled.”
-          - “The IGDB refresh for “%{title}” is in the queue.”
-          - “”%{title}” is queued for a resync.”
-          - “Resync enqueued for “%{title}”. Standby.”
-          - “”%{title}” will refresh from IGDB soon.”
-          - “IGDB resync for “%{title}” is queued.”
-          - “”%{title}” heading into IGDB sync.”
-          - “Resync queued. “%{title}” gets fresh IGDB data soon.”
-          - “”%{title}”: IGDB resync is in flight.”
-          - “Queued. “%{title}” will get fresh IGDB data.”
-          - “”%{title}” resync is scheduled and queued.”
-          - “IGDB re-pull queued for “%{title}”.”
-          - “”%{title}” queued. IGDB sync incoming.”
-          - “”%{title}” is in the resync queue.”
-          - “Queued a resync for “%{title}”. On its way.”
-          - “”%{title}” IGDB resync: queued and running.”
-          - “Resync job dispatched for “%{title}”.”
-          - “”%{title}” will resync from IGDB. Check back soon.”
-          - “IGDB sync dispatched for “%{title}”.”
-          - “”%{title}” refresh: queued.”
-          - “Resync started for “%{title}”. IGDB is on it.”
-          - “”%{title}” IGDB resync queued. Won't be long.”
-          - “The queue has “%{title}”. IGDB refresh on the way.”
-          - “”%{title}” resync is in progress.”
-          - “Queued an IGDB refresh for “%{title}”.”
-          - “”%{title}” data refresh: queued and dispatched.”
-          - “IGDB resync for “%{title}”: queued.”
-          - “”%{title}” heading to IGDB. Resync queued.”
-          - “Queued. “%{title}” will get updated IGDB data.”
-          - “”%{title}” fresh from IGDB — soon.”
-          - “Resync dispatched for “%{title}”. IGDB has it.”
-          - “”%{title}” queued for a fresh IGDB sync.”
-          - “IGDB refresh queued for “%{title}”. Incoming.”
-          - “”%{title}” resync: in the queue.”
-          - “Resync queued. “%{title}” will update from IGDB.”
-          - “”%{title}” is resync-bound. IGDB is ready.”
-          - “IGDB re-fetch queued for “%{title}”.”
-          - “”%{title}” resync is live in the queue.”
-          - “Queued “%{title}” for IGDB metadata refresh.”
-          - “”%{title}” resync queued and dispatched.”
-          - “IGDB sync for “%{title}”: queued and good to go.”
+          - "Resync queued for %{title}."
+          - "%{title} queued for IGDB resync."
+          - "IGDB resync queued. %{title} will update shortly."
+          - "%{title}: resync is on the way."
+          - "Queued a fresh pull for %{title} from IGDB."
+          - "%{title} resync enqueued."
+          - "IGDB sync queued for %{title}."
+          - "%{title} is heading to IGDB for a refresh."
+          - "Fresh IGDB data for %{title} is on the way."
+          - "%{title} resync scheduled."
+          - "The IGDB refresh for %{title} is in the queue."
+          - "%{title} is queued for a resync."
+          - "Resync enqueued for %{title}. Standby."
+          - "%{title} will refresh from IGDB soon."
+          - "IGDB resync for %{title} is queued."
+          - "%{title} heading into IGDB sync."
+          - "Resync queued. %{title} gets fresh IGDB data soon."
+          - "%{title}: IGDB resync is in flight."
+          - "Queued. %{title} will get fresh IGDB data."
+          - "%{title} resync is scheduled and queued."
+          - "IGDB re-pull queued for %{title}."
+          - "%{title} queued. IGDB sync incoming."
+          - "%{title} is in the resync queue."
+          - "Queued a resync for %{title}. On its way."
+          - "%{title} IGDB resync: queued and running."
+          - "Resync job dispatched for %{title}."
+          - "%{title} will resync from IGDB. Check back soon."
+          - "IGDB sync dispatched for %{title}."
+          - "%{title} refresh: queued."
+          - "Resync started for %{title}. IGDB is on it."
+          - "%{title} IGDB resync queued. Won't be long."
+          - "The queue has %{title}. IGDB refresh on the way."
+          - "%{title} resync is in progress."
+          - "Queued an IGDB refresh for %{title}."
+          - "%{title} data refresh: queued and dispatched."
+          - "IGDB resync for %{title}: queued."
+          - "%{title} heading to IGDB. Resync queued."
+          - "Queued. %{title} will get updated IGDB data."
+          - "%{title} fresh from IGDB — soon."
+          - "Resync dispatched for %{title}. IGDB has it."
+          - "%{title} queued for a fresh IGDB sync."
+          - "IGDB refresh queued for %{title}. Incoming."
+          - "%{title} resync: in the queue."
+          - "Resync queued. %{title} will update from IGDB."
+          - "%{title} is resync-bound. IGDB is ready."
+          - "IGDB re-fetch queued for %{title}."
+          - "%{title} resync is live in the queue."
+          - "Queued %{title} for IGDB metadata refresh."
+          - "%{title} resync queued and dispatched."
+          - "IGDB sync for %{title}: queued and good to go."
         reindex_confirm:
-          - “Reindex “%{title}” in Voyage?”
-          - “Re-embed “%{title}” for recommendations?”
-          - “Trigger a reindex for “%{title}”?”
-          - “Reindex “%{title}” — sure?”
-          - “Force re-embed “%{title}”?”
-          - “Queue a reindex for “%{title}”?”
-          - “Trigger Voyage reindex for “%{title}”?”
-          - “Reindex “%{title}”?”
-          - “Re-embed “%{title}” with fresh vectors?”
-          - “Reindex “%{title}” in the embeddings store?”
-          - “Force embedding refresh for “%{title}”?”
-          - “Queue a Voyage re-embed for “%{title}”?”
-          - “Reindex “%{title}” — update recommendation vectors?”
-          - “Trigger fresh Voyage embed for “%{title}”?”
-          - “Re-embed “%{title}” to refresh recommendations?”
-          - “Update recommendation index for “%{title}”?”
-          - “Force reindex of “%{title}” in Voyage?”
-          - “Queue a fresh embedding for “%{title}”?”
-          - “Reindex “%{title}” with updated vectors?”
-          - “Trigger recommendation reindex for “%{title}”?”
-          - “Re-embed “%{title}” — update the index?”
-          - “Queue Voyage reindex for “%{title}”?”
-          - “Force “%{title}” through Voyage again?”
-          - “Reindex “%{title}” in the Voyage store?”
-          - “Queue a Voyage embed refresh for “%{title}”?”
-          - “Trigger “%{title}” reindex — confirm?”
-          - “Reindex “%{title}” — update its embedding?”
-          - “Queue a fresh Voyage embed for “%{title}”?”
-          - “Force-reindex “%{title}” in Voyage?”
-          - “Reindex “%{title}” — refresh recommendation vectors?”
-          - “Re-embed “%{title}” in Voyage?”
-          - “Queue a recommendation reindex for “%{title}”?”
-          - “Trigger Voyage re-embedding for “%{title}”?”
-          - “Reindex “%{title}” to update its place in recommendations?”
-          - “Queue Voyage embedding refresh for “%{title}”?”
-          - “Force-reindex the “%{title}” embedding?”
-          - “Re-embed “%{title}” for better recommendations?”
-          - “Trigger reindex: update “%{title}”'s Voyage embedding?”
-          - “Queue a fresh Voyage reindex for “%{title}”?”
-          - “Force a Voyage re-embed for “%{title}”?”
-          - “Reindex “%{title}” and refresh its recommendation vector?”
-          - “Trigger “%{title}” Voyage reindex — confirm?”
-          - “Queue Voyage re-embedding for “%{title}”?”
-          - “Force fresh Voyage vectors for “%{title}”?”
-          - “Reindex “%{title}” — queue the Voyage embed?”
-          - “Trigger a fresh embed for “%{title}” in Voyage?”
-          - “Queue a fresh Voyage reindex for “%{title}”?”
-          - “Re-embed “%{title}” for Voyage recommendations?”
-          - “Reindex “%{title}” — trigger Voyage embed?”
-          - “Force Voyage reindex for “%{title}”?”
+          - "Reindex %{title} in Voyage?"
+          - "Re-embed %{title} for recommendations?"
+          - "Trigger a reindex for %{title}?"
+          - "Reindex %{title} — sure?"
+          - "Force re-embed %{title}?"
+          - "Queue a reindex for %{title}?"
+          - "Trigger Voyage reindex for %{title}?"
+          - "Reindex %{title}?"
+          - "Re-embed %{title} with fresh vectors?"
+          - "Reindex %{title} in the embeddings store?"
+          - "Force embedding refresh for %{title}?"
+          - "Queue a Voyage re-embed for %{title}?"
+          - "Reindex %{title} — update recommendation vectors?"
+          - "Trigger fresh Voyage embed for %{title}?"
+          - "Re-embed %{title} to refresh recommendations?"
+          - "Update recommendation index for %{title}?"
+          - "Force reindex of %{title} in Voyage?"
+          - "Queue a fresh embedding for %{title}?"
+          - "Reindex %{title} with updated vectors?"
+          - "Trigger recommendation reindex for %{title}?"
+          - "Re-embed %{title} — update the index?"
+          - "Queue Voyage reindex for %{title}?"
+          - "Force %{title} through Voyage again?"
+          - "Reindex %{title} in the Voyage store?"
+          - "Queue a Voyage embed refresh for %{title}?"
+          - "Trigger %{title} reindex — confirm?"
+          - "Reindex %{title} — update its embedding?"
+          - "Queue a fresh Voyage embed for %{title}?"
+          - "Force-reindex %{title} in Voyage?"
+          - "Reindex %{title} — refresh recommendation vectors?"
+          - "Re-embed %{title} in Voyage?"
+          - "Queue a recommendation reindex for %{title}?"
+          - "Trigger Voyage re-embedding for %{title}?"
+          - "Reindex %{title} to update its place in recommendations?"
+          - "Queue Voyage embedding refresh for %{title}?"
+          - "Force-reindex the %{title} embedding?"
+          - "Re-embed %{title} for better recommendations?"
+          - "Trigger reindex: update %{title}'s Voyage embedding?"
+          - "Queue a fresh Voyage reindex for %{title}?"
+          - "Force a Voyage re-embed for %{title}?"
+          - "Reindex %{title} and refresh its recommendation vector?"
+          - "Trigger %{title} Voyage reindex — confirm?"
+          - "Queue Voyage re-embedding for %{title}?"
+          - "Force fresh Voyage vectors for %{title}?"
+          - "Reindex %{title} — queue the Voyage embed?"
+          - "Trigger a fresh embed for %{title} in Voyage?"
+          - "Queue a fresh Voyage reindex for %{title}?"
+          - "Re-embed %{title} for Voyage recommendations?"
+          - "Reindex %{title} — trigger Voyage embed?"
+          - "Force Voyage reindex for %{title}?"
         reindexed:
-          - “Reindex queued for “%{title}”.”
-          - “”%{title}” queued for Voyage reindex.”
-          - “Voyage reindex queued. “%{title}” will get fresh vectors.”
-          - “”%{title}”: reindex is on the way.”
-          - “Queued a Voyage reindex for “%{title}”.”
-          - “”%{title}” reindex enqueued.”
-          - “Voyage embed queued for “%{title}”.”
-          - “”%{title}” is heading into Voyage for a fresh embed.”
-          - “Fresh Voyage vectors for “%{title}” are on the way.”
-          - “”%{title}” reindex scheduled.”
-          - “The Voyage reindex for “%{title}” is in the queue.”
-          - “”%{title}” is queued for a reindex.”
-          - “Reindex enqueued for “%{title}”. Standby.”
-          - “”%{title}” will get fresh Voyage vectors soon.”
-          - “Voyage reindex for “%{title}” is queued.”
-          - “”%{title}” heading into Voyage reindex.”
-          - “Reindex queued. “%{title}” gets fresh vectors soon.”
-          - “”%{title}”: Voyage reindex is in flight.”
-          - “Queued. “%{title}” will get fresh Voyage vectors.”
-          - “”%{title}” reindex is scheduled and queued.”
-          - “Voyage re-embed queued for “%{title}”.”
-          - “”%{title}” queued. Voyage reindex incoming.”
-          - “”%{title}” is in the reindex queue.”
-          - “Queued a reindex for “%{title}”. On its way.”
-          - “”%{title}” Voyage reindex: queued and running.”
-          - “Reindex job dispatched for “%{title}”.”
-          - “”%{title}” will get fresh Voyage vectors. Check back soon.”
-          - “Voyage embed dispatched for “%{title}”.”
-          - “”%{title}” reindex: queued.”
-          - “Reindex started for “%{title}”. Voyage is on it.”
-          - “”%{title}” Voyage reindex queued. Won't be long.”
-          - “The queue has “%{title}”. Voyage reindex on the way.”
-          - “”%{title}” reindex is in progress.”
-          - “Queued a Voyage reindex for “%{title}”.”
-          - “”%{title}” vector refresh: queued and dispatched.”
-          - “Voyage reindex for “%{title}”: queued.”
-          - “”%{title}” heading to Voyage. Reindex queued.”
-          - “Queued. “%{title}” will get updated Voyage vectors.”
-          - “”%{title}” fresh Voyage vectors — soon.”
-          - “Reindex dispatched for “%{title}”. Voyage has it.”
-          - “”%{title}” queued for a fresh Voyage reindex.”
-          - “Voyage reindex queued for “%{title}”. Incoming.”
-          - “”%{title}” reindex: in the queue.”
-          - “Reindex queued. “%{title}” will get fresh Voyage vectors.”
-          - “”%{title}” is reindex-bound. Voyage is ready.”
-          - “Voyage re-embed queued for “%{title}”.”
-          - “”%{title}” reindex is live in the queue.”
-          - “Queued “%{title}” for Voyage embedding refresh.”
-          - “”%{title}” reindex queued and dispatched.”
-          - “Voyage reindex for “%{title}”: queued and good to go.”
+          - "Reindex queued for %{title}."
+          - "%{title} queued for Voyage reindex."
+          - "Voyage reindex queued. %{title} will get fresh vectors."
+          - "%{title}: reindex is on the way."
+          - "Queued a Voyage reindex for %{title}."
+          - "%{title} reindex enqueued."
+          - "Voyage embed queued for %{title}."
+          - "%{title} is heading into Voyage for a fresh embed."
+          - "Fresh Voyage vectors for %{title} are on the way."
+          - "%{title} reindex scheduled."
+          - "The Voyage reindex for %{title} is in the queue."
+          - "%{title} is queued for a reindex."
+          - "Reindex enqueued for %{title}. Standby."
+          - "%{title} will get fresh Voyage vectors soon."
+          - "Voyage reindex for %{title} is queued."
+          - "%{title} heading into Voyage reindex."
+          - "Reindex queued. %{title} gets fresh vectors soon."
+          - "%{title}: Voyage reindex is in flight."
+          - "Queued. %{title} will get fresh Voyage vectors."
+          - "%{title} reindex is scheduled and queued."
+          - "Voyage re-embed queued for %{title}."
+          - "%{title} queued. Voyage reindex incoming."
+          - "%{title} is in the reindex queue."
+          - "Queued a reindex for %{title}. On its way."
+          - "%{title} Voyage reindex: queued and running."
+          - "Reindex job dispatched for %{title}."
+          - "%{title} will get fresh Voyage vectors. Check back soon."
+          - "Voyage embed dispatched for %{title}."
+          - "%{title} reindex: queued."
+          - "Reindex started for %{title}. Voyage is on it."
+          - "%{title} Voyage reindex queued. Won't be long."
+          - "The queue has %{title}. Voyage reindex on the way."
+          - "%{title} reindex is in progress."
+          - "Queued a Voyage reindex for %{title}."
+          - "%{title} vector refresh: queued and dispatched."
+          - "Voyage reindex for %{title}: queued."
+          - "%{title} heading to Voyage. Reindex queued."
+          - "Queued. %{title} will get updated Voyage vectors."
+          - "%{title} fresh Voyage vectors — soon."
+          - "Reindex dispatched for %{title}. Voyage has it."
+          - "%{title} queued for a fresh Voyage reindex."
+          - "Voyage reindex queued for %{title}. Incoming."
+          - "%{title} reindex: in the queue."
+          - "Reindex queued. %{title} will get fresh Voyage vectors."
+          - "%{title} is reindex-bound. Voyage is ready."
+          - "Voyage re-embed queued for %{title}."
+          - "%{title} reindex is live in the queue."
+          - "Queued %{title} for Voyage embedding refresh."
+          - "%{title} reindex queued and dispatched."
+          - "Voyage reindex for %{title}: queued and good to go."
         similar_empty:
-          - “No similar games found — %{title} is in a league of its own.”
-          - “Nothing quite like %{title} in the index.”
-          - “%{title} appears to be one of a kind. No matches.”
-          - “Searched for games similar to %{title}. Came up empty.”
-          - “The recommendations are speechless about %{title}.”
-          - “%{title} has no obvious neighbors. Unique game.”
-          - “No similar games turned up. %{title} stands alone.”
-          - “The index found nothing similar to %{title}.”
-          - “Zero similar games. %{title} is sui generis.”
-          - “Nothing similar emerged. %{title} defies categorisation.”
-          - “No matches for %{title}. Truly one of a kind.”
-          - “%{title} — no similar games. Try removing filters.”
-          - “Recommendation engine shrugged. Nothing like %{title}.”
-          - “No similar games found. %{title} is a category of one.”
-          - “The vectors are silent on this one. No games like %{title}.”
-          - “%{title} has no peers in the index.”
-          - “Nothing surfaced. %{title} is genre-agnostic in the best way.”
-          - “No similar games — either a unique title or filters are too tight.”
-          - “Empty result. %{title} is apparently unclonable.”
-          - “%{title}: unmatched. Nothing similar in the library.”
-          - “No games emerged as similar to %{title}. Try fewer filters.”
-          - “The index came back empty on %{title}. Unique entry.”
-          - “Nothing like %{title} exists in the recommendation set.”
-          - “No similar games surfaced. %{title} is in its own lane.”
-          - “Came up empty. %{title} has no indexed twins.”
-          - “Similar games: none. %{title} walks alone.”
-          - “No matches. Maybe %{title} is ahead of its time.”
-          - “The recommendation system has no comps for %{title}.”
-          - “Nothing similar. %{title} is a hard act to follow — or find.”
-          - “No similar games. Either filters are tight or %{title} is unique.”
-          - “Empty. %{title} apparently owns its niche.”
-          - “No games are close enough to %{title}. Outstanding.”
-          - “The index drew a blank on %{title}. Truly original.”
-          - “Searched hard. No games like %{title} found.”
-          - “Nothing comparable. %{title} is in a class of one.”
-          - “No similar results. %{title} is either niche or extraordinary.”
-          - “Zero matches. %{title} resists categorisation.”
-          - “The recommendation engine returned nothing for %{title}.”
-          - “No similar games found. %{title} may need broader search params.”
-          - “Nothing emerged from the index. %{title} is genuinely unusual.”
-          - “Empty. %{title} has no recommendation peers.”
-          - “No similar games. The index is stumped by %{title}.”
-          - “Came up empty on %{title}. Loosen those filters.”
-          - “No games like %{title} surfaced. One of a kind.”
-          - “The similar-games pool is empty for %{title}.”
-          - “Nada. %{title} is without peers in the index.”
-          - “No similar games. %{title} is a singular entry.”
-          - “Searched for %{title} peers. Found none.”
-          - “Nothing similar. %{title} — uncategorisable, apparently.”
-          - “Empty recommendation set. %{title} is alone at the top.”
+          - "No similar games found — %{title} is in a league of its own."
+          - "Nothing quite like %{title} in the index."
+          - "%{title} appears to be one of a kind. No matches."
+          - "Searched for games similar to %{title}. Came up empty."
+          - "The recommendations are speechless about %{title}."
+          - "%{title} has no obvious neighbors. Unique game."
+          - "No similar games turned up. %{title} stands alone."
+          - "The index found nothing similar to %{title}."
+          - "Zero similar games. %{title} is sui generis."
+          - "Nothing similar emerged. %{title} defies categorisation."
+          - "No matches for %{title}. Truly one of a kind."
+          - "%{title} — no similar games. Try removing filters."
+          - "Recommendation engine shrugged. Nothing like %{title}."
+          - "No similar games found. %{title} is a category of one."
+          - "The vectors are silent on this one. No games like %{title}."
+          - "%{title} has no peers in the index."
+          - "Nothing surfaced. %{title} is genre-agnostic in the best way."
+          - "No similar games — either a unique title or filters are too tight."
+          - "Empty result. %{title} is apparently unclonable."
+          - "%{title}: unmatched. Nothing similar in the library."
+          - "No games emerged as similar to %{title}. Try fewer filters."
+          - "The index came back empty on %{title}. Unique entry."
+          - "Nothing like %{title} exists in the recommendation set."
+          - "No similar games surfaced. %{title} is in its own lane."
+          - "Came up empty. %{title} has no indexed twins."
+          - "Similar games: none. %{title} walks alone."
+          - "No matches. Maybe %{title} is ahead of its time."
+          - "The recommendation system has no comps for %{title}."
+          - "Nothing similar. %{title} is a hard act to follow — or find."
+          - "No similar games. Either filters are tight or %{title} is unique."
+          - "Empty. %{title} apparently owns its niche."
+          - "No games are close enough to %{title}. Outstanding."
+          - "The index drew a blank on %{title}. Truly original."
+          - "Searched hard. No games like %{title} found."
+          - "Nothing comparable. %{title} is in a class of one."
+          - "No similar results. %{title} is either niche or extraordinary."
+          - "Zero matches. %{title} resists categorisation."
+          - "The recommendation engine returned nothing for %{title}."
+          - "No similar games found. %{title} may need broader search params."
+          - "Nothing emerged from the index. %{title} is genuinely unusual."
+          - "Empty. %{title} has no recommendation peers."
+          - "No similar games. The index is stumped by %{title}."
+          - "Came up empty on %{title}. Loosen those filters."
+          - "No games like %{title} surfaced. One of a kind."
+          - "The similar-games pool is empty for %{title}."
+          - "Nada. %{title} is without peers in the index."
+          - "No similar games. %{title} is a singular entry."
+          - "Searched for %{title} peers. Found none."
+          - "Nothing similar. %{title} — uncategorisable, apparently."
+          - "Empty recommendation set. %{title} is alone at the top."
         channel_empty:
-          - “No channels found for %{title}.”
-          - “%{title} has no matching channels yet.”
-          - “No channel recommendations for %{title}.”
-          - “The index found no channels for %{title}.”
-          - “No channels cover %{title}.”
-          - “Nothing surfaced. No channels linked to %{title}.”
-          - “No channel matches for %{title}.”
-          - “%{title} has no YouTube coverage in the index.”
-          - “Channel search came up empty for %{title}.”
-          - “No channels emerged for %{title}.”
-          - “Couldn't find a channel for %{title}.”
-          - “%{title} — no channels in the recommendation set.”
-          - “No channel recommendations. %{title} is uncovered.”
-          - “The index returned no channels for %{title}.”
-          - “No channels matched %{title}.”
-          - “%{title} has no channel coverage in the library.”
-          - “Nothing. No channels for %{title}.”
-          - “Channel recommendations: empty for %{title}.”
-          - “No channels found. %{title} may not be covered yet.”
-          - “Empty channel results for %{title}.”
-          - “No channels surfaced for %{title}.”
-          - “%{title}: no channel recommendations in the index.”
-          - “No matching channels. %{title} is uncovered.”
-          - “The channel search drew a blank for %{title}.”
-          - “No channel results for %{title}.”
-          - “%{title} has no indexed channels.”
-          - “Searched for channels covering %{title}. Found none.”
-          - “No channels cover %{title} yet.”
-          - “Nothing came back. No channels for %{title}.”
-          - “Empty. %{title} has no channel matches.”
-          - “No channels returned for %{title}.”
-          - “%{title} — no channel coverage detected.”
-          - “Zero channel results. %{title} is uncovered.”
-          - “No channels found for %{title} in the index.”
-          - “Channel result: empty. No coverage for %{title}.”
-          - “The channel recommendation is empty for %{title}.”
-          - “No matching channels for %{title}.”
-          - “%{title} has no channel recommendations.”
-          - “Couldn't surface any channels for %{title}.”
-          - “Channel recommendations came up empty for %{title}.”
-          - “No channels matched %{title} in the library.”
-          - “%{title}: zero channel matches.”
-          - “No channels emerged. %{title} may need more video links.”
-          - “Empty channel set for %{title}.”
-          - “No channel results. %{title} is without coverage.”
-          - “%{title} — no channels in the index.”
-          - “Channel search: empty for %{title}.”
-          - “No channels surfaced. %{title} is uncovered for now.”
-          - “Zero matches. %{title} has no channel peers.”
-          - “No channels. %{title} is waiting to be covered.”
+          - "No channels found for %{title}."
+          - "%{title} has no matching channels yet."
+          - "No channel recommendations for %{title}."
+          - "The index found no channels for %{title}."
+          - "No channels cover %{title}."
+          - "Nothing surfaced. No channels linked to %{title}."
+          - "No channel matches for %{title}."
+          - "%{title} has no YouTube coverage in the index."
+          - "Channel search came up empty for %{title}."
+          - "No channels emerged for %{title}."
+          - "Couldn't find a channel for %{title}."
+          - "%{title} — no channels in the recommendation set."
+          - "No channel recommendations. %{title} is uncovered."
+          - "The index returned no channels for %{title}."
+          - "No channels matched %{title}."
+          - "%{title} has no channel coverage in the library."
+          - "Nothing. No channels for %{title}."
+          - "Channel recommendations: empty for %{title}."
+          - "No channels found. %{title} may not be covered yet."
+          - "Empty channel results for %{title}."
+          - "No channels surfaced for %{title}."
+          - "%{title}: no channel recommendations in the index."
+          - "No matching channels. %{title} is uncovered."
+          - "The channel search drew a blank for %{title}."
+          - "No channel results for %{title}."
+          - "%{title} has no indexed channels."
+          - "Searched for channels covering %{title}. Found none."
+          - "No channels cover %{title} yet."
+          - "Nothing came back. No channels for %{title}."
+          - "Empty. %{title} has no channel matches."
+          - "No channels returned for %{title}."
+          - "%{title} — no channel coverage detected."
+          - "Zero channel results. %{title} is uncovered."
+          - "No channels found for %{title} in the index."
+          - "Channel result: empty. No coverage for %{title}."
+          - "The channel recommendation is empty for %{title}."
+          - "No matching channels for %{title}."
+          - "%{title} has no channel recommendations."
+          - "Couldn't surface any channels for %{title}."
+          - "Channel recommendations came up empty for %{title}."
+          - "No channels matched %{title} in the library."
+          - "%{title}: zero channel matches."
+          - "No channels emerged. %{title} may need more video links."
+          - "Empty channel set for %{title}."
+          - "No channel results. %{title} is without coverage."
+          - "%{title} — no channels in the index."
+          - "Channel search: empty for %{title}."
+          - "No channels surfaced. %{title} is uncovered for now."
+          - "Zero matches. %{title} has no channel peers."
+          - "No channels. %{title} is waiting to be covered."
 
       videos:
         not_found:
-          - "No video matching “%{ref}”."
-          - "Couldn't find “%{ref}”."
-          - "”%{ref}”? Not in the library."
-          - "No such video: “%{ref}”."
-          - "”%{ref}” isn't here."
-          - "Nothing matches “%{ref}”."
-          - "”%{ref}” drew a blank."
-          - "Can't find “%{ref}”."
-          - "”%{ref}” — no match."
-          - "No video called “%{ref}”."
-          - "”%{ref}” isn't in the library."
-          - "Don't have “%{ref}”."
-          - "”%{ref}” not found."
-          - "No hit for “%{ref}”."
-          - "”%{ref}”? Never heard of it."
-          - "That's not a video I know: “%{ref}”."
-          - "”%{ref}” turned up nothing."
-          - "No video by that name: “%{ref}”."
-          - "”%{ref}” isn't on the shelf."
-          - "Searched for “%{ref}” — empty-handed."
-          - "”%{ref}” doesn't ring a bell."
-          - "No “%{ref}” in here."
-          - "”%{ref}”: not in the collection."
-          - "Couldn't match “%{ref}” to a video."
-          - "”%{ref}” — nothing found."
-          - "No video tagged “%{ref}”."
-          - "”%{ref}” isn't one of yours."
-          - "Nope, no “%{ref}”."
-          - "”%{ref}” missing from the library."
-          - "I have no “%{ref}”."
-          - "”%{ref}” — no such entry."
-          - "Nothing here named “%{ref}”."
-          - "”%{ref}” didn't match a video."
-          - "No record of “%{ref}”."
-          - "”%{ref}”? Doesn't exist here."
-          - "Can't locate “%{ref}”."
-          - "”%{ref}” isn't catalogued."
-          - "No video found for “%{ref}”."
-          - "”%{ref}” — not on file."
-          - "That video (“%{ref}”) isn't here."
-          - "”%{ref}” yielded nothing."
-          - "No match for “%{ref}” in the library."
-          - "”%{ref}” is a stranger to pito."
-          - "Couldn't dig up “%{ref}”."
-          - "”%{ref}” — zero results."
-          - "No video answers to “%{ref}”."
-          - "”%{ref}” isn't tracked."
-          - "Nothing by “%{ref}”."
-          - "”%{ref}” not in your collection."
-          - "Can't show “%{ref}” — it's not here."
+          - "No video matching %{ref}."
+          - "Couldn't find %{ref}."
+          - "%{ref}? Not in the library."
+          - "No such video: %{ref}."
+          - "%{ref} isn't here."
+          - "Nothing matches %{ref}."
+          - "%{ref} drew a blank."
+          - "Can't find %{ref}."
+          - "%{ref} — no match."
+          - "No video called %{ref}."
+          - "%{ref} isn't in the library."
+          - "Don't have %{ref}."
+          - "%{ref} not found."
+          - "No hit for %{ref}."
+          - "%{ref}? Never heard of it."
+          - "That's not a video I know: %{ref}."
+          - "%{ref} turned up nothing."
+          - "No video by that name: %{ref}."
+          - "%{ref} isn't on the shelf."
+          - "Searched for %{ref} — empty-handed."
+          - "%{ref} doesn't ring a bell."
+          - "No %{ref} in here."
+          - "%{ref}: not in the collection."
+          - "Couldn't match %{ref} to a video."
+          - "%{ref} — nothing found."
+          - "No video tagged %{ref}."
+          - "%{ref} isn't one of yours."
+          - "Nope, no %{ref}."
+          - "%{ref} missing from the library."
+          - "I have no %{ref}."
+          - "%{ref} — no such entry."
+          - "Nothing here named %{ref}."
+          - "%{ref} didn't match a video."
+          - "No record of %{ref}."
+          - "%{ref}? Doesn't exist here."
+          - "Can't locate %{ref}."
+          - "%{ref} isn't catalogued."
+          - "No video found for %{ref}."
+          - "%{ref} — not on file."
+          - "That video (%{ref}) isn't here."
+          - "%{ref} yielded nothing."
+          - "No match for %{ref} in the library."
+          - "%{ref} is a stranger to pito."
+          - "Couldn't dig up %{ref}."
+          - "%{ref} — zero results."
+          - "No video answers to %{ref}."
+          - "%{ref} isn't tracked."
+          - "Nothing by %{ref}."
+          - "%{ref} not in your collection."
+          - "Can't show %{ref} — it's not here."
 
       errors:
         dispatch_failed:
