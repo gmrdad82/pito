@@ -31,7 +31,7 @@ module Pito
       def cover_art_url
         return nil unless cover_art_attached?
 
-        @game.cover_art.variant(resize_to_limit: [ 600, 800 ])
+        @game.cover_art.variant(::Game::COVER_VARIANT)
       rescue StandardError
         nil
       end

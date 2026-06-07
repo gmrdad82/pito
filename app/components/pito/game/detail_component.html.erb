@@ -1,25 +1,26 @@
 <%# Pito::Game::DetailComponent — game detail card for chat messages %>
 <div class="pito-game-detail flex flex-col gap-3">
 
-  <%# Cover art or placeholder %>
-  <div class="pito-game-detail__cover">
-    <% if cover_art_attached? %>
-      <% url = cover_art_url %>
-      <% if url %>
-        <%= image_tag url, alt: @game.title, class: "block max-w-full" %>
+  <%# Head: cover art (small, left column) + title and KV details (right column) %>
+  <div class="pito-game-detail__head flex gap-3 items-start">
+
+    <%# Cover art or placeholder — single small variant, fixed-width left column %>
+    <div class="pito-game-detail__cover w-32 shrink-0">
+      <% if cover_art_attached? && (url = cover_art_url) %>
+        <%= image_tag url, alt: @game.title, class: "block w-full" %>
       <% else %>
         <div class="text-fg-dim"><%=t "pito.game.detail.no_cover" %></div>
       <% end %>
-    <% else %>
-      <div class="text-fg-dim"><%=t "pito.game.detail.no_cover" %></div>
-    <% end %>
-  </div>
+    </div>
 
-  <%# Title %>
-  <div class="text-fg font-bold"><%= @game.title %></div>
+    <%# Right column: title + KV table %>
+    <div class="pito-game-detail__meta flex flex-col gap-2 min-w-0">
 
-  <%# KV table — Developer / Publisher / Release / Platforms / Owned / Description / Genres %>
-  <div class="grid grid-cols-[max-content_1fr] gap-x-2 gap-y-1">
+      <%# Title %>
+      <div class="text-fg font-bold"><%= @game.title %></div>
+
+      <%# KV table — Developer / Publisher / Release / Platforms / Owned / Description / Genres %>
+      <div class="grid grid-cols-[max-content_1fr] gap-x-2 gap-y-1">
 
     <% if developer_names.present? %>
       <%= render(Pito::Table::KeyValueRowComponent.new(
@@ -85,16 +86,18 @@
           )) %>
     <% end %>
 
+      </div>
+    </div>
   </div>
 
-  <%# Time-to-beat %>
-  <div class="pito-game-detail__ttb">
-    <%= render(Pito::TimeToBeatComponent.new(game: @game, footage_hours: footage_hours)) %>
-  </div>
-
-  <%# Score bar %>
+  <%# Score bar — full-width row, breaks below the cover/meta head (no float) %>
   <div class="pito-game-detail__score">
     <%= render(Pito::ScoreBarComponent.new(game: @game)) %>
+  </div>
+
+  <%# Time-to-beat — full-width row %>
+  <div class="pito-game-detail__ttb">
+    <%= render(Pito::TimeToBeatComponent.new(game: @game, footage_hours: footage_hours)) %>
   </div>
 
 </div>
