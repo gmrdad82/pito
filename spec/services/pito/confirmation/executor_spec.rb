@@ -137,4 +137,81 @@ RSpec.describe Pito::Confirmation::Executor, type: :service do
       expect(text).to be_present
     end
   end
+
+  # ── cancel / game_delete ──────────────────────────────────────────────────
+
+  describe ".cancel — game_delete" do
+    let!(:game) { create(:game, title: "Cancelled Game") }
+
+    it "does NOT destroy the game" do
+      expect {
+        described_class.cancel("game_delete", { "game_id" => game.id, "game_title" => "Cancelled Game" })
+      }.not_to change(Game, :count)
+    end
+
+    it "returns a non-empty cancelled message" do
+      text = described_class.cancel("game_delete", { "game_id" => game.id, "game_title" => "Cancelled Game" })
+      expect(text).to be_present
+    end
+  end
+
+  # ── cancel / game_resync ──────────────────────────────────────────────────
+
+  describe ".cancel — game_resync" do
+    let!(:game) { create(:game, title: "Resync Target") }
+
+    it "does NOT enqueue GameIgdbSync" do
+      expect(GameIgdbSync).not_to receive(:perform_later)
+      described_class.cancel("game_resync", { "game_id" => game.id, "game_title" => "Resync Target" })
+    end
+
+    it "returns a non-empty cancelled message" do
+      text = described_class.cancel("game_resync", { "game_id" => game.id, "game_title" => "Resync Target" })
+      expect(text).to be_present
+    end
+  end
+
+  # ── cancel / game_reindex ─────────────────────────────────────────────────
+
+  describe ".cancel — game_reindex" do
+    let!(:game) { create(:game, title: "Reindex Target") }
+
+    it "does NOT call Game::VoyageIndexer" do
+      expect(::Game::VoyageIndexer).not_to receive(:call)
+      described_class.cancel("game_reindex", { "game_id" => game.id, "game_title" => "Reindex Target" })
+    end
+
+    it "returns a non-empty cancelled message" do
+      text = described_class.cancel("game_reindex", { "game_id" => game.id, "game_title" => "Reindex Target" })
+      expect(text).to be_present
+    end
+  end
+
+  # ── confirm / disconnect — zero-video case ────────────────────────────────
+
+  describe ".confirm — disconnect with zero videos" do
+    let(:empty_connection) { create(:youtube_connection) }
+    let!(:empty_channel)   { create(:channel, handle: "@bare", youtube_connection: empty_connection) }
+
+    it "returns text that covers the zero-video case (no crash, non-empty)" do
+      text = described_class.confirm("disconnect", { "channel_id" => empty_channel.id })
+      expect(text).to be_present
+    end
+  end
+
+  # ── cancel / disconnect — blank-handle fallback ───────────────────────────
+
+  describe ".cancel — disconnect with blank handle" do
+    let(:bare_connection) { create(:youtube_connection) }
+    let!(:bare_channel) do
+      create(:channel, title: "No Handle Channel", youtube_connection: bare_connection).tap do |ch|
+        ch.update_column(:handle, nil)
+      end
+    end
+
+    it "falls back to a non-empty cancelled message" do
+      text = described_class.cancel("disconnect", { "channel_id" => bare_channel.id })
+      expect(text).to be_present
+    end
+  end
 end
