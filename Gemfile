@@ -39,7 +39,7 @@ gem "bcrypt", "~> 3.1.7"
 # image_processing: Active Storage variant pipeline (Game cover art).
 # Backed by ruby-vips (libvips) — see config.active_storage.variant_processor
 # in config/application.rb. Spec §5 explicitly forbids mini_magick.
-gem "image_processing", "~> 1.14"
+gem "image_processing", "~> 2.0"
 # ruby-vips eagerly opens libvips.so.42 at require time. We pin it for the
 # bundle (image_processing transitively requires it), but skip the auto-
 # require: image_processing/vips.rb pulls it on-demand the moment a variant
