@@ -37,9 +37,11 @@ module Pito
                  .strip
         end
 
-        # ID form (`#5`/`5`) → find by id; otherwise case-insensitive title.
+        # ID form (`#5`/`5`/`# 5`) → find by id; otherwise case-insensitive title.
+        # The lexer splits `#9` into `#` + `9`, so the joined ref can be `# 9` —
+        # strip a leading `#` plus any whitespace before the digit check.
         def resolve_game(ref)
-          id = ref.delete_prefix("#")
+          id = ref.sub(/\A#\s*/, "")
           return ::Game.find_by(id: id) if id.match?(/\A\d+\z/)
 
           ::Game.find_by("title ILIKE ?", ref)

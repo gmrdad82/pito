@@ -36,8 +36,9 @@ module Pito
                  .strip
         end
 
+        # Strip a leading `#` + whitespace — the lexer splits `#9` into `# 9`.
         def resolve_game(ref)
-          id = ref.delete_prefix("#")
+          id = ref.sub(/\A#\s*/, "")
           return ::Game.find_by(id: id) if id.match?(/\A\d+\z/)
 
           ::Game.find_by("title ILIKE ?", ref)
