@@ -131,11 +131,19 @@ RSpec.describe Pito::ScoreBarComponent do
       end
     end
 
-    it "uses color-mix(in oklch) for the intermediate hues the palette lacks" do
+    it "mixes every stop toward --fg-default for theme-adaptive contrast (T17.1)" do
+      # The fg-mix darkens stops on light themes and lightens them on dark
+      # themes, so the worst-case stop (yellow 'fair') rises from ~1.62:1 to
+      # ~2.56:1 across all 18 themes. See Plan P17 / the OKLab+WCAG sweep.
+      expect(fill_rule).to include("var(--fg-default)")
+    end
+
+    it "uses color-mix(in oklch) for both the hue blends and the fg-mix" do
       expect(fill_rule).to include("color-mix(in oklch")
-      # very-bad (dim red, repeated at 0% + 25% hard-edge zone), poor
-      # (red→orange), good (yellow→green) = 4 color-mix occurrences.
-      expect(fill_rule.scan("color-mix(in oklch").size).to eq(4)
+      # Every stop is wrapped in an fg-mix color-mix; the very-bad / poor /
+      # good stops nest a second hue-blend color-mix inside. The gradient
+      # carries 14 color-mix(in oklch) occurrences in total.
+      expect(fill_rule.scan("color-mix(in oklch").size).to eq(14)
     end
 
     it "keeps the revive tier breakpoints (25/50/65/75/85/90%)" do

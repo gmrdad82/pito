@@ -38,11 +38,18 @@ module Pito
     # color-mix uses oklch for smooth, non-muddy blends. The pink "insanity"
     # end stays distinct from destructive red — it is an "effort intensity"
     # signal, not an error. Mirrors the `.pito-ttb__fill` CSS ramp.
+    #
+    # THEME-ADAPTIVE CONTRAST (T17.1): each stop is mixed toward
+    # `--fg-default` so the bar reads on ALL 18 themes. The light lime/amber
+    # mids carry a heavier fg-mix (≈58%); the inherently-dark pink end only
+    # ≈18%. Worst-case after the fix is 2.59:1 (catppuccin-latte / "low"),
+    # vs 1.83:1 before; dark themes stay 3–8:1 and keep vivid accents. Mix
+    # weights resolved with the OKLab+WCAG sweep script (Plan P17).
     HEAT_THRESHOLDS = [
-      [ 0,   "var(--accent-green)" ],                                                # low        — green
-      [ 10,  "color-mix(in oklch, var(--accent-green), var(--accent-yellow))" ],     # some       — lime
-      [ 40,  "color-mix(in oklch, var(--accent-orange) 60%, var(--accent-yellow))" ], # commitment — amber
-      [ 100, "color-mix(in oklch, var(--accent-red), var(--accent-purple))" ]        # insanity   — pink
+      [ 0,   "color-mix(in oklch, var(--accent-green) 70%, var(--fg-default))" ],                                                 # low        — green
+      [ 10,  "color-mix(in oklch, color-mix(in oklch, var(--accent-green), var(--accent-yellow)) 58%, var(--fg-default))" ],      # some       — lime
+      [ 40,  "color-mix(in oklch, color-mix(in oklch, var(--accent-orange) 60%, var(--accent-yellow)) 58%, var(--fg-default))" ], # commitment — amber
+      [ 100, "color-mix(in oklch, color-mix(in oklch, var(--accent-red), var(--accent-purple)) 82%, var(--fg-default))" ]         # insanity   — pink
     ].freeze
 
     # Bottom-label collision model.

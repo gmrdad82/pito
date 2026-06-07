@@ -147,12 +147,15 @@ RSpec.describe Pito::TimeToBeatComponent do
       end
     end
 
-    it "maps low/some/commitment/insanity to the documented accent expression" do
+    it "maps low/some/commitment/insanity to the contrast-safe accent expression (T17.1)" do
+      # Each stop is the documented hue, wrapped in a fg-mix color-mix so the
+      # bar reads on all 18 themes (worst case 2.59:1, was 1.83:1). See the
+      # OKLab+WCAG sweep in Plan P17.
       colors = described_class::HEAT_THRESHOLDS.map(&:last)
-      expect(colors[0]).to eq("var(--accent-green)")                                                # low — green
-      expect(colors[1]).to eq("color-mix(in oklch, var(--accent-green), var(--accent-yellow))")     # some — lime
-      expect(colors[2]).to eq("color-mix(in oklch, var(--accent-orange) 60%, var(--accent-yellow))") # commitment — amber
-      expect(colors[3]).to eq("color-mix(in oklch, var(--accent-red), var(--accent-purple))")        # insanity — pink
+      expect(colors[0]).to eq("color-mix(in oklch, var(--accent-green) 70%, var(--fg-default))")                                                 # low — green
+      expect(colors[1]).to eq("color-mix(in oklch, color-mix(in oklch, var(--accent-green), var(--accent-yellow)) 58%, var(--fg-default))")      # some — lime
+      expect(colors[2]).to eq("color-mix(in oklch, color-mix(in oklch, var(--accent-orange) 60%, var(--accent-yellow)) 58%, var(--fg-default))") # commitment — amber
+      expect(colors[3]).to eq("color-mix(in oklch, color-mix(in oklch, var(--accent-red), var(--accent-purple)) 82%, var(--fg-default))")         # insanity — pink
     end
   end
 
@@ -160,10 +163,11 @@ RSpec.describe Pito::TimeToBeatComponent do
     it "returns a CSS stop string sourced from theme accents" do
       comp = described_class.new(game: game)
       stops = comp.gradient_stops
-      expect(stops).to include("var(--accent-green)")                                          # green — low
-      expect(stops).to include("color-mix(in oklch, var(--accent-green), var(--accent-yellow))") # lime  — some
-      expect(stops).to include("var(--accent-orange)")                                         # amber — commitment
-      expect(stops).to include("var(--accent-purple)")                                         # pink  — insanity
+      expect(stops).to include("var(--accent-green)")  # green — low
+      expect(stops).to include("var(--accent-yellow)") # lime  — some
+      expect(stops).to include("var(--accent-orange)") # amber — commitment
+      expect(stops).to include("var(--accent-purple)") # pink  — insanity
+      expect(stops).to include("var(--fg-default)")    # T17.1 contrast fg-mix
     end
 
     it "contains no literal hex colors" do
@@ -180,8 +184,11 @@ RSpec.describe Pito::TimeToBeatComponent do
       # max_x ≈ 10h → 10h threshold projects to 100%, 40h and 100h > 100%
       tiny = described_class.new(hours: { main: 5, extras: 8, completionist: 10 }, footage_hours: 0)
       stops = tiny.gradient_stops
-      # The first stop (0h → green) should be at 0% (any precision)
-      expect(stops).to match(/\Avar\(--accent-green\) 0(\.0+)?%/)
+      # The first stop (0h → green, now wrapped in the T17.1 fg-mix) sits at
+      # 0% (any precision).
+      green = "color-mix(in oklch, var(--accent-green) 70%, var(--fg-default))"
+      expect(stops).to start_with("#{green} 0")
+      expect(stops).to match(/\A#{Regexp.escape(green)} 0(\.0+)?%/)
     end
 
     it "projects large max_x (Crimson-Desert scale) so pink dominates" do
@@ -191,10 +198,10 @@ RSpec.describe Pito::TimeToBeatComponent do
         footage_hours: 0
       )
       stops = crimson.gradient_stops
-      # The 100h pink stop is the red→purple mix; grab the percentage that
-      # immediately follows it (color-mix expressions contain commas, so we
-      # can't naively split on ", ").
-      pink = "color-mix(in oklch, var(--accent-red), var(--accent-purple))"
+      # The 100h pink stop is the red→purple mix wrapped in the T17.1 fg-mix;
+      # grab the percentage that immediately follows it (color-mix
+      # expressions contain commas, so we can't naively split on ", ").
+      pink = "color-mix(in oklch, color-mix(in oklch, var(--accent-red), var(--accent-purple)) 82%, var(--fg-default))"
       pct = stops[/#{Regexp.escape(pink)} ([\d.]+)%/, 1]&.to_f
       expect(pct).to be < 20.0
     end

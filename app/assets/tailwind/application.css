@@ -650,23 +650,32 @@ html {
 /* The `=` glyph run carries the multi-stop gradient via background-clip:text.
    Solid-zone hard edges at 0–25% (very-bad), 25–50% (bad), 90–100%
    (excellent); smooth ramp through poor→meh→fair→good in between.
-   Every stop is a theme accent or a color-mix of two accents (see block
-   comment above), so the bar adapts to all 18 themes. */
+
+   THEME-ADAPTIVE CONTRAST (T17.1): every stop is mixed toward
+   `--fg-default` (dark on light themes, light on dark themes) so the bar
+   reads on ALL 18 themes. Pre-fix the yellow "fair" stop washed out to
+   ~1.62:1 on `tomorrow`; the per-stop fg-mix below caps the worst case at
+   2.56:1 (catppuccin-latte / "good"), while dark themes stay 4–8:1 and
+   keep their vivid accents (the mix weight on already-vivid stops is
+   small). The lightest, intrinsically-low-contrast stops (yellow "fair"
+   ≈42%, "good" ≈35%, green "excellent" ≈30%) carry a heavier fg-mix; the
+   inherently dark red stops carry only ≈15–25%. Mix weights resolved with
+   the OKLab+WCAG sweep script (see Plan P17 / docs/games.md). */
 .pito-score-bar__fill {
   flex: 1 1 auto;
   overflow: hidden;
   background-image: linear-gradient(
     to right,
-    color-mix(in oklch, var(--accent-red) 60%, var(--fg-faded))    0%,   /* dark very-bad — hard left edge */
-    color-mix(in oklch, var(--accent-red) 60%, var(--fg-faded))   25%,   /* solid very-bad zone */
-    var(--accent-red)   25%,                                             /* hard edge → bad */
-    var(--accent-red)   50%,                                             /* solid bad zone */
-    color-mix(in oklch, var(--accent-red), var(--accent-orange))   50%,  /* hard edge → poor (red→orange) */
-    var(--accent-orange)   65%,                                          /* meh */
-    var(--accent-yellow)   75%,                                          /* fair */
-    color-mix(in oklch, var(--accent-yellow) 45%, var(--accent-green))   85%,  /* good (yellow→green) */
-    var(--accent-green)   90%,                                           /* excellent */
-    var(--accent-green)  100%                                            /* solid excellent zone */
+    color-mix(in oklch, color-mix(in oklch, var(--accent-red) 60%, var(--fg-faded)) 75%, var(--fg-default))    0%,   /* dark very-bad — hard left edge */
+    color-mix(in oklch, color-mix(in oklch, var(--accent-red) 60%, var(--fg-faded)) 75%, var(--fg-default))   25%,   /* solid very-bad zone */
+    color-mix(in oklch, var(--accent-red) 85%, var(--fg-default))   25%,                                             /* hard edge → bad */
+    color-mix(in oklch, var(--accent-red) 85%, var(--fg-default))   50%,                                             /* solid bad zone */
+    color-mix(in oklch, color-mix(in oklch, var(--accent-red), var(--accent-orange)) 82%, var(--fg-default))   50%,  /* hard edge → poor (red→orange) */
+    color-mix(in oklch, var(--accent-orange) 70%, var(--fg-default))   65%,                                          /* meh */
+    color-mix(in oklch, var(--accent-yellow) 58%, var(--fg-default))   75%,                                          /* fair */
+    color-mix(in oklch, color-mix(in oklch, var(--accent-yellow) 45%, var(--accent-green)) 65%, var(--fg-default))   85%,  /* good (yellow→green) */
+    color-mix(in oklch, var(--accent-green) 70%, var(--fg-default))   90%,                                           /* excellent */
+    color-mix(in oklch, var(--accent-green) 70%, var(--fg-default))  100%                                            /* solid excellent zone */
   );
   -webkit-background-clip: text;
   background-clip: text;
@@ -792,10 +801,10 @@ html {
   white-space: nowrap;
   background-image: linear-gradient(
     to right,
-    var(--accent-green),                                                   /* low        — green */
-    color-mix(in oklch, var(--accent-green), var(--accent-yellow)),        /* some       — lime  */
-    color-mix(in oklch, var(--accent-orange) 60%, var(--accent-yellow)),   /* commitment — amber */
-    color-mix(in oklch, var(--accent-red), var(--accent-purple))           /* insanity   — pink  */
+    color-mix(in oklch, var(--accent-green) 70%, var(--fg-default)),                                                  /* low        — green */
+    color-mix(in oklch, color-mix(in oklch, var(--accent-green), var(--accent-yellow)) 58%, var(--fg-default)),       /* some       — lime  */
+    color-mix(in oklch, color-mix(in oklch, var(--accent-orange) 60%, var(--accent-yellow)) 58%, var(--fg-default)),  /* commitment — amber */
+    color-mix(in oklch, color-mix(in oklch, var(--accent-red), var(--accent-purple)) 82%, var(--fg-default))          /* insanity   — pink  */
   );
   -webkit-background-clip: text;
   background-clip: text;
@@ -895,12 +904,13 @@ html {
 }
 
 /* Per-pillar / footage tick accent colors (data-accent attribute).
-   Theme-aware, matching the effort-ramp stops above:
-   main = green (low), extras = lime (mix green→yellow),
+   Theme-aware, matching the contrast-safe effort-ramp stops above
+   (T17.1 fg-mix so the legend swatch ⇔ bar color identity holds on all
+   18 themes): main = green (low), extras = lime (mix green→yellow),
    completionist = pink (mix red→purple). */
-[data-accent="main"]          { color: var(--accent-green); }
-[data-accent="extras"]        { color: color-mix(in oklch, var(--accent-green), var(--accent-yellow)); }
-[data-accent="completionist"] { color: color-mix(in oklch, var(--accent-red), var(--accent-purple)); }
+[data-accent="main"]          { color: color-mix(in oklch, var(--accent-green) 70%, var(--fg-default)); }
+[data-accent="extras"]        { color: color-mix(in oklch, color-mix(in oklch, var(--accent-green), var(--accent-yellow)) 58%, var(--fg-default)); }
+[data-accent="completionist"] { color: color-mix(in oklch, color-mix(in oklch, var(--accent-red), var(--accent-purple)) 82%, var(--fg-default)); }
 [data-accent="footage"]       { color: var(--fg-default); }
 
 /* ── Theme system ──────────────────────────────────────────────
