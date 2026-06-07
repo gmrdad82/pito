@@ -42,6 +42,15 @@ RSpec.describe Pito::Chat::Handlers::Show do
     expect(payload["reply_target"]).to eq("game_detail")
   end
 
+  it "also emits the Enhanced message (kind :enhanced, not follow-up-able)" do
+    events = handler_for("##{game.id}").call.events
+    enhanced = events.find { |e| e[:kind] == :enhanced }
+    expect(enhanced).to be_present
+    expect(enhanced[:payload]["html"]).to be(true)
+    expect(enhanced[:payload]["reply_handle"]).to be_blank
+    expect(enhanced[:payload]["body"]).to include("pito-game-enhanced-message")
+  end
+
   it "returns a witty not-found for an unknown reference" do
     result = handler_for("game", "nonexistent").call
     expect(result).to be_a(Pito::Chat::Result::Ok)

@@ -115,16 +115,10 @@ class GameImportJob < ApplicationJob
     # After Step 5 — stream the enhanced chat message to main chat (T16.9).
     # kind: :enhanced → renders via Pito::Event::EnhancedComponent (the pito
     # brand-blue border chrome). NOT follow-up-able: only the standard detail
-    # message carries a #handle. The body content is game-specific.
-    enhanced_payload = {
-      "body"    => enhanced_body(game),
-      "html"    => true,
-      "game_id" => game.id
-    }
-
+    # message carries a #handle. Shared builder with `show game <ref>`.
     enhanced_event = Event.create_with_position!(
       conversation:, turn:, kind: :enhanced,
-      payload: enhanced_payload
+      payload: Pito::Game::EnhancedMessage.call(game)
     )
     broadcaster.broadcast_event(enhanced_event)
 
@@ -160,13 +154,6 @@ class GameImportJob < ApplicationJob
     )
     broadcaster.broadcast_event(event)
     broadcaster.complete_turn(turn:)
-  end
-
-  def enhanced_body(game)
-    ApplicationController.renderer.render(
-      Pito::Game::EnhancedComponent.new(game: game),
-      layout: false
-    )
   end
 
   def handle_error(conversation, error)

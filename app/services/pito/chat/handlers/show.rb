@@ -23,8 +23,12 @@ module Pito
           game = resolve_game(ref)
           return not_found(ref) unless game
 
-          payload = Pito::Game::DetailMessage.call(game, conversation:)
-          Pito::Chat::Result::Ok.new(events: [ { kind: :system, payload: payload } ])
+          # Mirror an import: the Standard detail message (follow-up-able) plus the
+          # Enhanced recommendations message (pito chrome, not follow-up-able).
+          Pito::Chat::Result::Ok.new(events: [
+            { kind: :system,   payload: Pito::Game::DetailMessage.call(game, conversation:) },
+            { kind: :enhanced, payload: Pito::Game::EnhancedMessage.call(game) }
+          ])
         end
 
         private
