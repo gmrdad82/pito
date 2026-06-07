@@ -79,4 +79,25 @@ RSpec.describe Game::ChannelRecommendation, type: :service do
     end
     expect(described_class.call(game, limit: 2).size).to eq(2)
   end
+
+  describe "explicit video→game links" do
+    it "scores a channel 100 when one of its videos is linked to the game (beats weak embedding)" do
+      ch = create(:channel, title: "Linked")
+      v  = video_for(ch, vec(1)) # orthogonal → embedding score 0
+      VideoGameLink.create!(video: v, game: game)
+
+      result = described_class.call(game).find { |r| r.channel == ch }
+      expect(result).to be_present
+      expect(result.score).to eq(100)
+    end
+
+    it "surfaces a linked channel even when the game has no embedding" do
+      game.update_column(:summary_embedding, nil)
+      ch = create(:channel, title: "Linked-only")
+      v  = create(:video, channel: ch) # no embedding
+      VideoGameLink.create!(video: v, game: game)
+
+      expect(described_class.call(game).map(&:channel)).to eq([ ch ])
+    end
+  end
 end
