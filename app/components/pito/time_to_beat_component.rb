@@ -54,7 +54,7 @@ module Pito
       [ 0,   "color-mix(in oklch, var(--accent-green) 70%, var(--fg-default))" ],                                                 # low        — green
       [ 10,  "color-mix(in oklch, color-mix(in oklch, var(--accent-green), var(--accent-yellow)) 58%, var(--fg-default))" ],      # some       — lime
       [ 40,  "color-mix(in oklch, color-mix(in oklch, var(--accent-orange) 60%, var(--accent-yellow)) 58%, var(--fg-default))" ], # commitment — amber
-      [ 100, "color-mix(in oklch, color-mix(in oklch, var(--accent-red), var(--accent-purple)) 82%, var(--fg-default))" ]         # insanity   — pink
+      [ 100, "color-mix(in oklch, var(--accent-red), var(--accent-purple))" ]                                                    # insanity   — vivid pink (NOT fg-dimmed: the red+purple mix reads as the intended bright magenta on every theme)
     ].freeze
 
     # Terminal gradient colors for partial-data cases (rule 5). These are the

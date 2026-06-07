@@ -977,7 +977,7 @@ html {
    completionist = pink (mix red→purple). */
 [data-accent="main"]          { color: color-mix(in oklch, var(--accent-green) 70%, var(--fg-default)); }
 [data-accent="extras"]        { color: color-mix(in oklch, color-mix(in oklch, var(--accent-green), var(--accent-yellow)) 58%, var(--fg-default)); }
-[data-accent="completionist"] { color: color-mix(in oklch, color-mix(in oklch, var(--accent-red), var(--accent-purple)) 82%, var(--fg-default)); }
+[data-accent="completionist"] { color: color-mix(in oklch, var(--accent-red), var(--accent-purple)); }
 [data-accent="footage"]       { color: var(--fg-default); }
 
 /* ── Pito::Game::EnhancedComponent ─────────────────────────────
