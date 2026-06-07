@@ -60,8 +60,9 @@ RSpec.describe Pito::TimeToBeatComponent do
   end
 
   describe "#fill_text" do
-    it "returns 40 = characters" do
-      expect(described_class.new(game: game).fill_text).to eq("=" * 40)
+    it "returns FILL_CELLS = characters (overflow, CSS-clipped to full width)" do
+      expect(described_class.new(game: game).fill_text).to eq("=" * described_class::FILL_CELLS)
+      expect(described_class::FILL_CELLS).to be >= 100
     end
   end
 

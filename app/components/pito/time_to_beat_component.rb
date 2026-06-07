@@ -129,8 +129,14 @@ module Pito
       I18n.t("pito.game.ttb.hours_short", n: h)
     end
 
+    # Emit MORE `=` than can fit so the run fills 100% of the (full-width,
+    # CSS-clipped) bar — not capped at BAR_CELLS. BAR_CELLS still drives the
+    # tick cell-snap math (so completionist lands just inside the `]` bracket
+    # rather than on it); the visible fill is continuous and full-width.
+    FILL_CELLS = 160
+
     def fill_text
-      "=" * BAR_CELLS
+      "=" * FILL_CELLS
     end
 
     def footage_value_label
