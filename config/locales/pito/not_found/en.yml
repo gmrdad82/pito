@@ -1,3 +1,4 @@
 en:
   pito:
-    not_found: {}
+    not_found:
+      error: "Not found"

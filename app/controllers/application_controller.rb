@@ -57,7 +57,7 @@ class ApplicationController < ActionController::Base
           status: :not_found
         )
       end
-      format.any { render json: { error: "Not found" }, status: :not_found }
+      format.any { render json: { error: I18n.t("pito.not_found.error") }, status: :not_found }
     end
   end
 end

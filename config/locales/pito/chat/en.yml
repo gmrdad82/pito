@@ -29,5 +29,8 @@ en:
         unknown_input: "Didn't understand %{input}. Try /help for available commands."
         verb_not_implemented: "The chat verb %{verb} isn't wired yet."
         misrouted_slash: "Internal: slash command %{raw} reached the chat parser."
+      conversations:
+        errors:
+          title_blank: "title cannot be blank"
       refine_demo:
         acknowledged: "[DEMO refinement] Received: %{input}"
