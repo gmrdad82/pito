@@ -39,6 +39,39 @@ RSpec.describe Game::Igdb::Client, type: :service do
       expect(described_class.new.search_games("nc")).to eq([])
     end
 
+    # Smoke #16 — IGDB's search endpoint mis-tags editions/DLC (null game_type /
+    # version_parent), so they slip past the API filter. The name-level net drops
+    # them: searching "Elden Ring" returns only the distinct games.
+    it "drops edition / DLC / bundle rows by name (keeps distinct titles)" do
+      cover = { "image_id" => "img" }
+      body = [
+        { "id" => 1,  "name" => "Elden Ring Nightreign",                              "cover" => cover },
+        { "id" => 2,  "name" => "Elden Ring",                                          "cover" => cover },
+        { "id" => 3,  "name" => "Elden Ring: Collector's Edition",                     "cover" => cover },
+        { "id" => 4,  "name" => "Elden Ring GB",                                       "cover" => cover },
+        { "id" => 5,  "name" => "Elden Ring: Shadow of the Erdtree - Premium Bundle",  "cover" => cover },
+        { "id" => 6,  "name" => "Elden Ring: Deluxe Edition",                          "cover" => cover },
+        { "id" => 7,  "name" => "Elden Ring: Launch Edition",                          "cover" => cover }
+      ]
+      stub_request(:post, "https://api.igdb.com/v4/games")
+        .to_return(status: 200, body: body.to_json, headers: { "Content-Type" => "application/json" })
+
+      names = described_class.new.search_games("Elden Ring").map { |h| h["name"] }
+      expect(names).to contain_exactly("Elden Ring Nightreign", "Elden Ring", "Elden Ring GB")
+    end
+
+    it "keeps editions when the query explicitly asks for one" do
+      cover = { "image_id" => "img" }
+      body = [
+        { "id" => 1, "name" => "Elden Ring: Deluxe Edition", "cover" => cover }
+      ]
+      stub_request(:post, "https://api.igdb.com/v4/games")
+        .to_return(status: 200, body: body.to_json, headers: { "Content-Type" => "application/json" })
+
+      names = described_class.new.search_games("elden ring deluxe edition").map { |h| h["name"] }
+      expect(names).to eq([ "Elden Ring: Deluxe Edition" ])
+    end
+
     # T16.7 — version_parent = null filter in the Apicalypse query body.
     it "sends version_parent = null in the query body to exclude edition variants" do
       captured_body = nil

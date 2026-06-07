@@ -168,7 +168,7 @@ class Game
         # Game::SearchService, Search::Everywhere) gets the same clean
         # payload. `include_editions: true` callers bypass this — same
         # discipline as `denoise_by_name`.
-        denoise_by_name(reject_coverless(hits))
+        reject_editions(denoise_by_name(reject_coverless(hits)), query)
       end
 
       def fetch_game(igdb_id)
@@ -304,6 +304,22 @@ class Game
         return rows if top_name.empty?
         prefix = "#{top_name}:"
         rows.reject { |row| !row.equal?(top) && row["name"].to_s.start_with?(prefix) }
+      end
+
+      # Edition / DLC / bundle name markers. IGDB's SEARCH endpoint does not
+      # reliably hydrate `game_type` / `version_parent` for these rows, so the
+      # API-side filter misses them — this is the name-level safety net.
+      # Catches "Elden Ring: Collector's Edition", "… Deluxe Edition",
+      # "… Premium Bundle", "… Season Pass", etc. Keeps the base game + distinct
+      # titles ("Elden Ring", "Elden Ring Nightreign", "Elden Ring GB").
+      EDITION_NOISE = /\b(edition|deluxe|premium|collector'?s|complete|definitive|goty|game of the year|season pass|bundle|pack|anniversary|upgrade)\b/i
+
+      # Drop edition/DLC/bundle rows by name. Skipped when the user's query
+      # itself names an edition term (an explicit edition search should return
+      # the editions).
+      def reject_editions(rows, query)
+        return rows if query.to_s.match?(EDITION_NOISE)
+        rows.reject { |row| row["name"].to_s.match?(EDITION_NOISE) }
       end
 
       def valid_igdb_id?(value)
