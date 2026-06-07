@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_04_212707) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_07_182924) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -47,6 +47,14 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_04_212707) do
     t.index ["blob_id", "variation_digest"], name: "index_active_storage_variant_records_uniqueness", unique: true
   end
 
+  create_table "api_requests", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "endpoint"
+    t.string "provider", null: false
+    t.integer "units"
+    t.index ["provider", "created_at"], name: "index_api_requests_on_provider_and_created_at"
+  end
+
   create_table "app_settings", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.text "google_oauth_client_id"
@@ -61,18 +69,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_04_212707) do
   end
 
   create_table "channels", force: :cascade do |t|
-    t.string "avatar_url"
-    t.string "banner_url"
     t.datetime "created_at", null: false
-    t.text "description"
     t.string "handle"
     t.datetime "last_synced_at"
-    t.bigint "subscriber_count"
     t.string "title"
     t.datetime "updated_at", null: false
     t.integer "video_count"
-    t.bigint "view_count"
-    t.bigint "watched_hours"
     t.string "youtube_channel_id", null: false
     t.bigint "youtube_connection_id"
     t.index ["last_synced_at"], name: "index_channels_on_last_synced_at"
@@ -170,20 +172,20 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_04_212707) do
     t.text "alternative_names", default: [], null: false, array: true
     t.string "cover_image_id"
     t.datetime "created_at", null: false
+    t.string "embedded_digest"
     t.bigint "igdb_id"
     t.decimal "igdb_rating", precision: 5, scale: 2
     t.integer "igdb_rating_count"
     t.string "igdb_slug"
     t.datetime "igdb_synced_at"
-    t.text "notes"
+    t.text "last_sync_error"
     t.text "platforms", default: [], null: false, array: true
-    t.date "played_at"
-    t.bigint "primary_genre_id"
     t.date "release_date"
     t.integer "release_day"
     t.integer "release_month"
     t.integer "release_quarter"
     t.integer "release_year"
+    t.boolean "resyncing", default: false, null: false
     t.integer "score"
     t.virtual "search_vector", type: :tsvector, as: "to_tsvector('english'::regconfig, (((COALESCE(title, ''::character varying))::text || ' '::text) || COALESCE(summary, ''::text)))", stored: true
     t.text "summary"
@@ -199,7 +201,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_04_212707) do
     t.index ["igdb_id"], name: "index_games_on_igdb_id", unique: true, where: "(igdb_id IS NOT NULL)"
     t.index ["igdb_slug"], name: "index_games_on_igdb_slug", unique: true, where: "(igdb_slug IS NOT NULL)"
     t.index ["igdb_synced_at"], name: "index_games_on_igdb_synced_at"
-    t.index ["primary_genre_id"], name: "index_games_on_primary_genre_id"
     t.index ["release_month", "release_day"], name: "index_games_on_release_month_and_release_day"
     t.index ["release_year"], name: "index_games_on_release_year"
     t.index ["score"], name: "index_games_on_score"
@@ -366,6 +367,17 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_04_212707) do
     t.index ["key"], name: "index_solid_queue_semaphores_on_key", unique: true
   end
 
+  create_table "stats", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.bigint "entity_id", null: false
+    t.string "entity_type", null: false
+    t.string "kind", null: false
+    t.datetime "synced_at"
+    t.datetime "updated_at", null: false
+    t.bigint "value"
+    t.index ["entity_type", "entity_id", "kind"], name: "index_stats_on_entity_and_kind", unique: true
+  end
+
   create_table "turns", force: :cascade do |t|
     t.datetime "completed_at"
     t.bigint "conversation_id", null: false
@@ -388,30 +400,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_04_212707) do
     t.index ["video_id", "game_id"], name: "index_video_game_links_on_video_id_and_game_id", unique: true
   end
 
-  create_table "video_previews", force: :cascade do |t|
-    t.boolean "allow_embedding"
-    t.boolean "automatic_chapters"
-    t.boolean "automatic_concepts"
-    t.boolean "automatic_places"
-    t.string "category_id"
-    t.boolean "contains_altered_content"
-    t.datetime "created_at", null: false
-    t.text "description"
-    t.text "error_message"
-    t.string "game_title"
-    t.boolean "made_for_kids"
-    t.boolean "notify_subscribers"
-    t.boolean "paid_promotion"
-    t.datetime "published_at"
-    t.integer "shorts_remixing"
-    t.integer "status", default: 0, null: false
-    t.text "tags", array: true
-    t.string "title"
-    t.datetime "updated_at", null: false
-    t.bigint "video_id", null: false
-    t.index ["video_id"], name: "index_video_previews_on_video_id"
-  end
-
   create_table "videos", force: :cascade do |t|
     t.string "category_id"
     t.bigint "channel_id", null: false
@@ -419,6 +407,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_04_212707) do
     t.datetime "created_at", null: false
     t.text "description"
     t.integer "duration_seconds"
+    t.string "embedded_digest"
     t.string "etag"
     t.datetime "last_synced_at"
     t.bigint "like_count", default: 0, null: false
@@ -428,10 +417,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_04_212707) do
     t.virtual "search_vector", type: :tsvector, as: "to_tsvector('english'::regconfig, (((COALESCE(title, ''::character varying))::text || ' '::text) || COALESCE(description, ''::text)))", stored: true
     t.vector "summary_embedding", limit: 1024
     t.text "tags", default: [], null: false, array: true
-    t.string "thumbnail_url"
     t.string "title", null: false
     t.datetime "updated_at", null: false
-    t.bigint "view_count", default: 0, null: false
     t.string "youtube_video_id", null: false
     t.index ["channel_id"], name: "index_videos_on_channel_id"
     t.index ["privacy_status"], name: "index_videos_on_privacy_status"
@@ -471,7 +458,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_04_212707) do
   add_foreign_key "game_platform_ownerships", "games", on_delete: :cascade
   add_foreign_key "game_publishers", "companies", on_delete: :cascade
   add_foreign_key "game_publishers", "games", on_delete: :cascade
-  add_foreign_key "games", "genres", column: "primary_genre_id", on_delete: :nullify
   add_foreign_key "solid_queue_blocked_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade
   add_foreign_key "solid_queue_claimed_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade
   add_foreign_key "solid_queue_failed_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade
@@ -481,6 +467,5 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_04_212707) do
   add_foreign_key "turns", "conversations"
   add_foreign_key "video_game_links", "games", on_delete: :cascade
   add_foreign_key "video_game_links", "videos", on_delete: :cascade
-  add_foreign_key "video_previews", "videos", on_delete: :cascade
   add_foreign_key "videos", "channels"
 end

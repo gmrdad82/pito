@@ -6,7 +6,7 @@
 # Flow:
 #   1. OAuth callback links channels, emits "connected" system event
 #   2. This job fetches fresh channel stats
-#   3. Emits enhanced #1 with subscriber/view/watched-hours counts
+#   3. Emits enhanced #1 with subscriber/view counts
 #   4. Resolves thinking #1
 #   5. Emits thinking #2
 #   6. Enqueues ImportVideosJob for stage 2
@@ -68,7 +68,7 @@ class ChannelInfoJob < ApplicationJob
       turn:,
       kind:    :error,
       payload: {
-        text:   I18n.t("pito.errors.dispatch_failed").sample,
+        text:   Pito::Copy.render("pito.copy.errors.dispatch_failed"),
         detail: error.message
       }
     )
@@ -91,28 +91,28 @@ class ChannelInfoJob < ApplicationJob
         next unless item
 
         normalized = normalize_channel_item(item)
-        watched_hours = fetch_watched_hours(client, channel)
 
         channel.update_columns(
           title:            normalized[:title],
           handle:           normalized[:handle],
-          description:      normalized[:description],
-          avatar_url:       normalized[:avatar_url],
-          banner_url:       normalized[:banner_url],
-          subscriber_count: normalized[:subscriber_count],
-          view_count:       normalized[:view_count],
           video_count:      normalized[:video_count],
-          watched_hours:    watched_hours,
           last_synced_at:   Time.current
         )
+        Pito::Stats.set(channel, :subscribers, normalized[:subscriber_count])
+        Pito::Stats.set(channel, :views, normalized[:view_count])
+
+        # Cache OUR copy of the avatar (ActiveStorage) off the sync path so we
+        # never hotlink the YouTube CDN (429). Skipped when no source URL.
+        if normalized[:avatar_url].present?
+          ChannelAvatarJob.perform_later(channel.id, normalized[:avatar_url])
+        end
 
         stats << {
           title:         normalized[:title] || channel.title,
           handle:        normalized[:handle] || channel.handle,
           subscribers:   normalized[:subscriber_count],
           views:         normalized[:view_count],
-          videos:        normalized[:video_count],
-          watched_hours: watched_hours
+          videos:        normalized[:video_count]
         }
       rescue Channel::Youtube::QuotaExhaustedError,
              Channel::Youtube::NeedsReauthError,
@@ -131,38 +131,21 @@ class ChannelInfoJob < ApplicationJob
   def normalize_channel_item(item)
     return {} if item.nil?
 
-    snippet  = item[:snippet]            || {}
-    stats    = item[:statistics]         || {}
-    branding = item[:branding_settings]  || {}
-    branding_image   = branding[:image]   || {}
+    snippet  = item[:snippet]   || {}
+    stats    = item[:statistics] || {}
     thumbnails = snippet[:thumbnails] || {}
-    default_thumb = thumbnails[:default] || {}
+    # Prefer the highest-res avatar available (high=800, medium=240, default=88)
+    # — we normalize down to 240, so a larger source keeps it crisp.
+    avatar_thumb = thumbnails[:high] || thumbnails[:medium] || thumbnails[:default] || {}
 
     {
       title: snippet[:title],
       handle: snippet[:custom_url],
-      description: snippet[:description],
-      avatar_url: default_thumb[:url],
-      banner_url: branding_image[:banner_external_url],
+      avatar_url: avatar_thumb[:url],
       subscriber_count: stats[:subscriber_count]&.to_i,
       view_count: stats[:view_count]&.to_i,
       video_count: stats[:video_count]&.to_i
     }
-  end
-
-  def fetch_watched_hours(client, channel)
-    analytics = client.analytics_query(
-      ids:         "channel==#{channel.youtube_channel_id}",
-      metrics:     "estimatedMinutesWatched",
-      start_date:  "2000-01-01",
-      end_date:    Date.today.to_s
-    )
-
-    rows = analytics[:rows] || []
-    minutes = rows.first&.first&.to_i || 0
-    (minutes / 60.0).round
-  rescue StandardError
-    nil
   end
 
   def stats_text(stats)
@@ -172,8 +155,7 @@ class ChannelInfoJob < ApplicationJob
       else
         subs = format_number(s[:subscribers])
         views = format_number(s[:views])
-        watched = format_number(s[:watched_hours])
-        %(#{channel_label(s)}<br><span class="text-fg-dim">Subscribers:</span> <span class="text-cyan">#{subs}</span> · <span class="text-fg-dim">Views:</span> <span class="text-cyan">#{views}</span> · <span class="text-fg-dim">Watched hours:</span> <span class="text-cyan">#{watched}</span>)
+        %(#{channel_label(s)}<br><span class="text-fg-dim">#{I18n.t("pito.jobs.channel_info.stats.subscribers")}</span> <span class="text-cyan">#{subs}</span> · <span class="text-fg-dim">#{I18n.t("pito.jobs.channel_info.stats.views")}</span> <span class="text-cyan">#{views}</span>)
       end
     end
 
@@ -181,7 +163,7 @@ class ChannelInfoJob < ApplicationJob
   end
 
   def channel_label(s)
-    title = s[:title].to_s.presence || "Channel"
+    title = s[:title].to_s.presence || I18n.t("pito.jobs.channel_info.channel_fallback")
     handle = s[:handle].to_s.presence
     if handle
       %(#{channel_title_html(title)} — #{channel_handle_html(handle)})

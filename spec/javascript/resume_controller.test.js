@@ -290,6 +290,86 @@ describe("pito--resume controller", () => {
     expect(allRows[1].classList.contains("pito-resume-highlight")).toBe(true)
   })
 
+  // ── d-key: arm then delete ────────────────────────────────────────────────
+
+  it("pressing d arms the highlighted row with a confirm prompt", async () => {
+    const sidebar = buildSidebar()
+    await waitForConnect()
+    const row = addRow(sidebar, { uuid: "del-1" })
+    await waitForMO()
+
+    fireKey("d")
+
+    // Row should now show the confirm prompt text (not its original empty content).
+    expect(row.innerHTML).toContain("press d again to delete")
+  })
+
+  it("pressing d twice deletes the conversation via fetch DELETE", async () => {
+    const sidebar = buildSidebar()
+    await waitForConnect()
+    addRow(sidebar, { uuid: "del-2" })
+    await waitForMO()
+
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({ ok: true })
+
+    fireKey("d")  // arm
+    fireKey("d")  // confirm delete
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      "/chat/del-2",
+      expect.objectContaining({ method: "DELETE" })
+    )
+  })
+
+  it("pressing d a second time removes the row on success", async () => {
+    const sidebar = buildSidebar()
+    await waitForConnect()
+    const row = addRow(sidebar, { uuid: "del-3" })
+    await waitForMO()
+
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({ ok: true })
+
+    fireKey("d")
+    fireKey("d")
+
+    // Give the async fetch promise a tick to resolve.
+    await new Promise((r) => setTimeout(r, 20))
+
+    expect(sidebar.contains(row)).toBe(false)
+  })
+
+  it("pressing ArrowDown disarms the armed row", async () => {
+    const sidebar = buildSidebar()
+    await waitForConnect()
+    const row = addRow(sidebar, { uuid: "u1" })
+    addRow(sidebar, { uuid: "u2" })
+    await waitForMO()
+
+    fireKey("d")
+    // Row should be armed.
+    expect(row.innerHTML).toContain("press d again to delete")
+
+    fireKey("ArrowDown")
+    // Row should be disarmed (original HTML restored — was empty div).
+    expect(row.innerHTML).not.toContain("press d again to delete")
+  })
+
+  it("pressing Escape disarms the row without clearing the sidebar", async () => {
+    const sidebar = buildSidebar()
+    await waitForConnect()
+    const row = addRow(sidebar, { uuid: "u1" })
+    await waitForMO()
+
+    fireKey("d")
+    expect(row.innerHTML).toContain("press d again to delete")
+
+    fireKey("Escape")
+    // Row should be disarmed.
+    expect(row.innerHTML).not.toContain("press d again to delete")
+    // Sidebar should still have the row (not cleared).
+    expect(sidebar.contains(row)).toBe(true)
+  })
+
   // ── localStorage persist on content-change ────────────────────────────────
 
   it("persists 'conversations' to localStorage when conversation rows appear", async () => {

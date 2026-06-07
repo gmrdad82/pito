@@ -249,13 +249,11 @@ class Channel
       # UploadedFile`) that responds to `read`, plus optionally
       # `content_type` and `original_filename`.
       #
-      # Returns the cached `banner_external_url` string from the
-      # `channels.update` response so the controller can persist it
-      # into `channels.banner_url`. On any failure (auth, quota,
-      # transient, dimensions rejected by YouTube despite the
-      # client-side check), raises the structured Channel::Youtube::* error
-      # the `perform` chokepoint produces so the controller can
-      # surface a message.
+      # Returns the `banner_external_url` string from the upload so the
+      # caller can use it (e.g. display or log). On any failure (auth, quota,
+      # transient, dimensions rejected by YouTube despite the client-side
+      # check), raises the structured Channel::Youtube::* error the `perform`
+      # chokepoint produces so the controller can surface a message.
       def upload_banner(channel, io)
         raise ArgumentError, "channel required" if channel.nil?
         raise ArgumentError, "io required" if io.nil?
@@ -309,9 +307,8 @@ class Channel
             id: youtube_channel_id,
             branding_settings: branding_settings
           )
-          response = svc.update_channel("brandingSettings", channel_object)
-          normalized = normalize_channel_item(symbolize_struct(response))
-          normalized[:banner_url] || insert_url
+          svc.update_channel("brandingSettings", channel_object)
+          insert_url
         end
       end
 
@@ -613,7 +610,6 @@ class Channel
           country: snippet[:country],
           default_language: snippet[:default_language],
           keywords: branding_channel[:keywords],
-          banner_url: branding_image[:banner_external_url],
           avatar_url: default_thumb[:url],
           # `watermarks.set` is a separate Data API call; the
           # `channels.list#brandingSettings` payload does NOT carry
@@ -638,7 +634,7 @@ class Channel
       def empty_channel_hash
         {
           title: nil, handle: nil, description: nil, country: nil,
-          default_language: nil, keywords: nil, banner_url: nil,
+          default_language: nil, keywords: nil,
           avatar_url: nil, watermark_url: nil, watermark_timing: nil,
           watermark_offset_ms: nil, links: [], subscriber_count: nil,
           view_count: nil, video_count: nil, hidden_subscriber_count: false,

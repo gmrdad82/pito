@@ -42,11 +42,11 @@ module Pito
         Pito::Shell::ChatboxHint.sample(authenticated: auth)
       end
 
-      # Returns the autocomplete catalog as a JSON string for embedding in the page.
+      # Returns the suggestions catalog as a JSON string for embedding in the page.
       # Respects the same `authenticated` resolution as #placeholder.
       def catalog_json
         auth = @authenticated.nil? ? Current.session.present? : @authenticated
-        Pito::Autocomplete::Catalog.to_json(authenticated: auth)
+        Pito::Suggestions::Catalog.to_json(authenticated: auth)
       end
     end
   end

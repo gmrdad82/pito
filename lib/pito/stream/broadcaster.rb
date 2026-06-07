@@ -117,7 +117,7 @@ module Pito
         )
         mini_status_wrapper = %(<div id="pito-mini-status" data-pito--home-transition-target="miniStatusSlide" style="margin-left: auto;">#{mini_status_html}</div>).html_safe
 
-        handles  = authenticated ? Channel.order(:handle).compact.map(&:at_handle) : []
+        handles  = authenticated ? ::Channel.order(:handle).compact.map(&:at_handle) : []
         channels = authenticated ? ([ "@all" ] + handles) : nil
         filter   = authenticated ? {
           channel: handles.any? ? "@all" : "none",
@@ -156,7 +156,7 @@ module Pito
         helper = ApplicationController.helpers
 
         settings_html = %(
-          <div id="pito-settings" class="hidden" data-sound="#{AppSetting.sound_enabled?}" data-fx="#{AppSetting.fx_enabled?}" data-expand-all="#{AppSetting.expand_all?}"></div>
+          <div id="pito-settings" class="hidden" data-sound="#{AppSetting.sound_enabled?}" data-fx="#{AppSetting.fx_enabled?}" data-expand-all="#{AppSetting.expand_all?}" data-theme="#{AppSetting.theme}"></div>
         ).html_safe
 
         content = helper.turbo_stream.replace("pito-settings", settings_html)
@@ -170,7 +170,7 @@ module Pito
       # Create and broadcast a thinking indicator for a turn.
       # The word_index is chosen once and frozen in the payload.
       def emit_thinking(turn:, dictionary:)
-        words = I18n.t("pito.event.thinking.#{dictionary}.doing")
+        words = I18n.t("pito.copy.thinking.#{dictionary}.doing")
         payload = { dictionary:, word_index: rand(words.length), started_at: Time.current.iso8601 }
         emit(turn:, kind: :thinking, payload:)
       end
@@ -249,7 +249,7 @@ module Pito
       def self.broadcast_global_settings_update
         helper = ApplicationController.helpers
 
-        settings_html = %(<div id="pito-settings" class="hidden" data-sound="#{AppSetting.sound_enabled?}" data-fx="#{AppSetting.fx_enabled?}" data-expand-all="#{AppSetting.expand_all?}"></div>).html_safe
+        settings_html = %(<div id="pito-settings" class="hidden" data-sound="#{AppSetting.sound_enabled?}" data-fx="#{AppSetting.fx_enabled?}" data-expand-all="#{AppSetting.expand_all?}" data-theme="#{AppSetting.theme}"></div>).html_safe
 
         content = helper.turbo_stream.replace("pito-settings", settings_html)
         Turbo::StreamsChannel.broadcast_stream_to("pito:global", content:)
@@ -257,13 +257,68 @@ module Pito
         Rails.logger.warn("[Broadcaster] broadcast_global_settings_update failed: #{e.class}: #{e.message}")
       end
 
+      # Broadcast a custom `set-theme` Turbo Stream action to "pito:global" so that
+      # every open browser tab recolors immediately when a theme is applied or
+      # previewed via the `/themes` command. The action reads the `theme` attribute
+      # from the stream element and sets `document.documentElement.dataset.theme`.
+      #
+      # apply persists THEN broadcasts; preview broadcasts only; reset persists
+      # the default THEN broadcasts.
+      def self.broadcast_global_theme(slug)
+        content = %(<turbo-stream action="set-theme" theme="#{slug}"></turbo-stream>)
+        Turbo::StreamsChannel.broadcast_stream_to("pito:global", content:)
+      rescue StandardError => e
+        Rails.logger.warn("[Broadcaster] broadcast_global_theme failed: #{e.class}: #{e.message}")
+      end
+
+      # Broadcast a Turbo Stream `replace` for a single import step row inside
+      # #pito-sidebar.  The JS pre-renders 5 shimmer rows with ids
+      # `import-step-1` through `import-step-5`; this method replaces each row
+      # as the job completes the corresponding step.
+      #
+      # When done: true the step label renders with a checkmark and no shimmer.
+      # When done: false (error) it renders with an error indicator.
+      def broadcast_import_step(step:, label:, done: true)
+        dot_html =
+          if done
+            %(<span class="text-accent shrink-0">✓</span>)
+          else
+            ApplicationController.renderer.render(
+              Pito::Shell::ShimmerTextComponent.new(text: "●", extra_classes: "shrink-0"),
+              layout: false
+            ).strip
+          end
+
+        row_html = <<~HTML.html_safe
+          <div id="import-step-#{step}" class="flex items-center gap-2 py-1 px-2 text-sm">
+            #{dot_html}
+            <span class="#{done ? "text-fg" : "text-fg-dim"}">#{ERB::Util.html_escape(label)}</span>
+          </div>
+        HTML
+
+        helper  = ApplicationController.helpers
+        content = helper.turbo_stream.replace("import-step-#{step}", row_html)
+
+        Turbo::StreamsChannel.broadcast_stream_to(
+          "pito:conversation:#{@conversation.uuid}",
+          content:
+        )
+      end
+
       # Mark a turn complete and broadcast the done signal that hides dots.
       def complete_turn(turn:)
         turn.update!(completed_at: Time.current)
+        broadcast_done(dom_id: "turn_#{turn.id}")
+      end
 
-        helper  = ApplicationController.helpers
+      # Broadcast the done signal (hides the post-command dots) appended to an
+      # arbitrary stable DOM id — used by turn-less flows such as :mutate
+      # follow-ups, where the work targets an existing event rather than a turn.
+      # The pito--done-dispatch controller fires `pito:done` on connect; the
+      # element is ephemeral (cleared when the target is next replaced).
+      def broadcast_done(dom_id:)
         done_signal = %(<div data-controller="pito--done-dispatch" data-pito--done-dispatch-event-name-value="pito:done"></div>).html_safe
-        content = helper.turbo_stream.append("turn_#{turn.id}", done_signal)
+        content     = ApplicationController.helpers.turbo_stream.append(dom_id, done_signal)
 
         Turbo::StreamsChannel.broadcast_stream_to(
           "pito:conversation:#{@conversation.uuid}",

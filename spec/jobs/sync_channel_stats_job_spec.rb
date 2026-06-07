@@ -10,34 +10,29 @@ RSpec.describe SyncChannelStatsJob do
   let!(:channel_a) do
     create(:channel,
            youtube_connection: active_connection,
-           youtube_channel_id: "UCaaa111",
-           subscriber_count: 0,
-           view_count: 0,
-           watched_hours: 0)
+           youtube_channel_id: "UCaaa111")
   end
 
   let!(:channel_b) do
     create(:channel,
            youtube_connection: active_connection,
-           youtube_channel_id: "UCbbb222",
-           subscriber_count: 0,
-           view_count: 0,
-           watched_hours: 0)
+           youtube_channel_id: "UCbbb222")
   end
 
   let!(:reauth_channel) do
     create(:channel,
            youtube_connection: reauth_connection,
-           youtube_channel_id: "UCreauth333",
-           subscriber_count: 999,
-           view_count: 999)
+           youtube_channel_id: "UCreauth333").tap do |ch|
+      Pito::Stats.set(ch, :subscribers, 999)
+      Pito::Stats.set(ch, :views, 999)
+    end
   end
 
   let(:fetched_stats_a) do
-    { subscriber_count: 10_000, view_count: 500_000, watched_hours: 2_000, last_synced_at: Time.current }
+    { subscriber_count: 10_000, view_count: 500_000, last_synced_at: Time.current }
   end
   let(:fetched_stats_b) do
-    { subscriber_count: 50_000, view_count: 1_000_000, watched_hours: 8_000, last_synced_at: Time.current }
+    { subscriber_count: 50_000, view_count: 1_000_000, last_synced_at: Time.current }
   end
 
   before do
@@ -56,27 +51,24 @@ RSpec.describe SyncChannelStatsJob do
       job.perform
 
       channel_a.reload
-      expect(channel_a.subscriber_count).to eq(10_000)
-      expect(channel_a.view_count).to eq(500_000)
-      expect(channel_a.watched_hours).to eq(2_000)
+      expect(Pito::Stats.get(channel_a, :subscribers)).to eq(10_000)
+      expect(Pito::Stats.get(channel_a, :views)).to eq(500_000)
       expect(channel_a.last_synced_at).to be_within(5.seconds).of(Time.current)
     end
 
     it "syncs all channels on the active connection" do
       job.perform
 
-      channel_b.reload
-      expect(channel_b.subscriber_count).to eq(50_000)
-      expect(channel_b.view_count).to eq(1_000_000)
+      expect(Pito::Stats.get(channel_b, :subscribers)).to eq(50_000)
+      expect(Pito::Stats.get(channel_b, :views)).to eq(1_000_000)
     end
 
     it "skips channels whose connection needs_reauth" do
       job.perform
 
-      reauth_channel.reload
       # stats should be unchanged
-      expect(reauth_channel.subscriber_count).to eq(999)
-      expect(reauth_channel.view_count).to eq(999)
+      expect(Pito::Stats.get(reauth_channel, :subscribers)).to eq(999)
+      expect(Pito::Stats.get(reauth_channel, :views)).to eq(999)
     end
 
     it "skips channels with no youtube_connection" do
@@ -87,9 +79,7 @@ RSpec.describe SyncChannelStatsJob do
 
     context "when StatsFetcher raises for one channel" do
       before do
-        call_count = 0
         allow(Channel::Youtube::StatsFetcher).to receive(:call) do |ch|
-          call_count += 1
           if ch.youtube_channel_id == "UCaaa111"
             raise Channel::Youtube::TransientError, "quota exceeded"
           end
@@ -102,8 +92,7 @@ RSpec.describe SyncChannelStatsJob do
 
         job.perform
 
-        channel_b.reload
-        expect(channel_b.subscriber_count).to eq(50_000)
+        expect(Pito::Stats.get(channel_b, :subscribers)).to eq(50_000)
       end
 
       it "does not update the failing channel" do
@@ -111,8 +100,7 @@ RSpec.describe SyncChannelStatsJob do
 
         job.perform
 
-        channel_a.reload
-        expect(channel_a.subscriber_count).to eq(0)  # unchanged
+        expect(Pito::Stats.get(channel_a, :subscribers)).to be_nil  # unchanged
       end
     end
   end

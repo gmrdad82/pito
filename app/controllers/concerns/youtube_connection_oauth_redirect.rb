@@ -8,13 +8,13 @@
 # replayed and routed to the failure path.
 #
 # The intent is stashed in `session[:youtube_connection_oauth_intent]`
-# by the request-phase entry point (`ChannelsController#connect_google`)
-# and consumed once by the callback controller — `session.delete`
-# semantics keep the next callback from silently honoring an old intent.
+# by the chat `/connect` flow (`ChatController#handle_connect` →
+# `stash_youtube_connect_intent`) and consumed once by the callback
+# controller — `session.delete` semantics keep the next callback from
+# silently honoring an old intent.
 #
-# Phase 24 — the request-phase entry point moved from
-# `Settings::YoutubeController` to `ChannelsController`. The post-OAuth
-# redirect target moved with it: `/channels` (was `/settings/youtube`).
+# The post-OAuth redirect returns to the originating conversation (its
+# uuid is stashed in the session alongside the intent).
 module YoutubeConnectionOauthRedirect
   extend ActiveSupport::Concern
 

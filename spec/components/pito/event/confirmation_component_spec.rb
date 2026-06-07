@@ -6,7 +6,7 @@ RSpec.describe Pito::Event::ConfirmationComponent do
   let(:body_text) { "You're about to disconnect from @gmrdad82." }
 
   let(:pending_payload) do
-    { body: body_text, confirmation_handle: "alpha-1322" }
+    { body: body_text, reply_handle: "alpha-1322" }
   end
 
   describe "orange accent" do
@@ -23,21 +23,34 @@ RSpec.describe Pito::Event::ConfirmationComponent do
     end
   end
 
-  describe "meta line" do
-    it "shows the #handle in the meta line" do
+  describe "follow-up handle in the single meta line (no usage/affordance line)" do
+    it "shows the #handle in the meta line when not consumed" do
       node = render_inline(described_class.new(payload: pending_payload))
-      meta = node.css(".pito-echo__meta").first
-      expect(meta.text).to include("#alpha-1322")
+      expect(node.css(".pito-echo__meta").text).to include("#alpha-1322")
     end
 
+    it "NEVER renders a usage/affordance line (no confirm · cancel hint)" do
+      node = render_inline(described_class.new(payload: pending_payload))
+      expect(node.text).not_to include("confirm · cancel")
+      expect(node.text).not_to include("cancel")
+    end
+
+    it "drops the #handle when reply_consumed is true" do
+      payload = pending_payload.merge(reply_consumed: true)
+      node = render_inline(described_class.new(payload:))
+      expect(node.text).not_to include("#alpha-1322")
+    end
+
+    it "shows no handle when reply_handle is absent" do
+      node = render_inline(described_class.new(payload: { body: body_text }))
+      expect(node.text).not_to include("#")
+    end
+  end
+
+  describe "meta line" do
     it "does not show a channel label" do
       node = render_inline(described_class.new(payload: pending_payload))
       expect(node.css(".pito-echo__meta span.text-cyan")).to be_empty
-    end
-
-    it "shows no handle when confirmation_handle is absent" do
-      node = render_inline(described_class.new(payload: { body: body_text }))
-      expect(node.css(".pito-echo__meta").text).not_to include("#")
     end
   end
 
@@ -96,11 +109,6 @@ RSpec.describe Pito::Event::ConfirmationComponent do
       node = render_inline(described_class.new(payload: pending_payload))
       expect(node.css(".pito-thinking")).to be_empty
     end
-
-    it "renders no outcome section" do
-      node = render_inline(described_class.new(payload: pending_payload))
-      expect(node.css(".border-t")).to be_empty
-    end
   end
 
   describe "processing state" do
@@ -117,43 +125,6 @@ RSpec.describe Pito::Event::ConfirmationComponent do
     end
   end
 
-  describe "resolved: cancelled" do
-    let(:payload) do
-      pending_payload.merge(
-        resolved: true,
-        outcome: "cancelled",
-        outcome_text: "Alright, leaving @gmrdad82 connected."
-      )
-    end
-
-    it "renders no processing indicator" do
-      node = render_inline(described_class.new(payload:))
-      expect(node.css(".pito-thinking")).to be_empty
-    end
-
-    it "renders the outcome text after a hairline" do
-      node = render_inline(described_class.new(payload:))
-      outcome_div = node.css(".border-t").first
-      expect(outcome_div).not_to be_nil
-      expect(outcome_div.text).to include("leaving @gmrdad82 connected")
-    end
-  end
-
-  describe "resolved: confirmed" do
-    let(:payload) do
-      pending_payload.merge(
-        resolved: true,
-        outcome: "confirmed",
-        outcome_text: "Disconnected from @gmrdad82. Deleted 42 videos."
-      )
-    end
-
-    it "renders the outcome text after a hairline" do
-      node = render_inline(described_class.new(payload:))
-      expect(node.css(".border-t").first.text).to include("Deleted 42 videos")
-    end
-  end
-
   describe "typewriter — never on confirmation" do
     it "does NOT add the typewriter controller to the body span" do
       node = render_inline(described_class.new(payload: pending_payload))
@@ -161,10 +132,16 @@ RSpec.describe Pito::Event::ConfirmationComponent do
     end
   end
 
-  describe "ConfirmationFollowUpComponent" do
-    it "has background: var(--bg-elevated)" do
-      comp = Pito::Event::ConfirmationFollowUpComponent.new(payload: pending_payload)
-      expect(comp.background).to eq("var(--bg-elevated)")
+  describe "handle hidden once consumed (resolved path)" do
+    let(:payload) do
+      pending_payload.merge(
+        reply_consumed: true
+      )
+    end
+
+    it "does not render the handle" do
+      node = render_inline(described_class.new(payload:))
+      expect(node.text).not_to include("#alpha-1322")
     end
   end
 

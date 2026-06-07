@@ -38,6 +38,37 @@ module Pito
           )
         end
 
+        # Generic positional-arity guard — rejects invocations that pass more
+        # positional args than the grammar spec can absorb.
+        #
+        # Opt-out: handlers with `self.validates_own_arity = true` are skipped
+        # here because their first arg is polymorphic (e.g. Theme — subcommand
+        # keyword OR theme name) and they perform their own arity validation.
+        #
+        # Capacity rules:
+        #   - kv slots do NOT count — they consume key=value kwargs, not positional args.
+        #   - If any positional slot is repeatable? or kind :free → capacity = unbounded.
+        #   - Otherwise capacity = number of positional slots.
+        #
+        # Commands with no grammar spec are silently skipped (not validated).
+        unless handler_class.validates_own_arity
+          spec = Pito::Grammar::Registry.specs_for_alias(namespace: :slash, token: invocation.verb)
+          if spec
+            positional_slots = spec.slots.reject { |s| s.kind == :kv || s.kind == :connective }
+            unbounded = positional_slots.any? { |s| s.repeatable? || s.kind == :free }
+
+            unless unbounded
+              capacity = positional_slots.size
+              if invocation.args.size > capacity
+                return Pito::Slash::Result::Error.new(
+                  message_key:  "pito.slash.errors.too_many_args",
+                  message_args: { verb: invocation.verb }
+                )
+              end
+            end
+          end
+        end
+
         handler = handler_class.new(
           invocation:,
           conversation:  @conversation,

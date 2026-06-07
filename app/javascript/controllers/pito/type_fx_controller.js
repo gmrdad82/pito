@@ -34,7 +34,7 @@
 //
 // Coexistence (F1.5):
 //   z-order: textarea (auto) < .pito-type-layer (1) < .terminal-caret / .pito-ghost (higher)
-//   The terminal-caret and autosuggest controllers are unmodified.
+//   The terminal-caret and suggestions controllers are unmodified.
 
 import { Controller } from "@hotwired/stimulus"
 import { fxEnabled } from "pito/settings"

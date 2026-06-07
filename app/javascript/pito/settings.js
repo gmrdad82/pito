@@ -14,3 +14,8 @@ export function fxEnabled() {
 export function expandAllEnabled() {
   return document.getElementById("pito-settings")?.dataset.expandAll === "true"
 }
+
+export function currentTheme() {
+  return document.getElementById("pito-settings")?.dataset.theme ||
+    document.documentElement.dataset.theme
+}

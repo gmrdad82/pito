@@ -15,6 +15,55 @@ module Pito
     SAMPLE_HOURS = { main: 31, extras: 71, completionist: 124 }.freeze
     PILLAR_KEYS  = %i[main extras completionist].freeze
 
+    # Cell count of the continuous `=` run between the brackets. 40 cells
+    # span 0..completionist, so each `=` is a 2.5% slice and the
+    # completionist tick lands in the middle of the last cell (98.75%).
+    BAR_CELLS = 40
+
+    # Heat-map gradient stops, anchored to FIXED HOUR thresholds (not
+    # percentages). Each stop's percentage is computed per-game by
+    # projecting its hour value onto `max_x`. The adaptive gradient means:
+    #
+    #   - small max_x (e.g. ~23h) → thresholds at 40/100h project past 100%
+    #     and get clamped, so the bar is mostly green/lime.
+    #   - mid max_x (~100h) → all four stops land at 0/10/40/100% and the
+    #     full ramp is visible.
+    #   - large max_x (e.g. ~775h) → 100h projects to ~13%, so green/lime/
+    #     orange compress into the left ~13% and pink dominates.
+    #
+    # THEME-AWARE: each color is expressed against the active theme's accent
+    # palette (--accent-* in themes.css) rather than literal hex, so the bar
+    # adapts to all 18 themes. The mapping (effort tier → CSS color):
+    #
+    #   low         0h   → var(--accent-green)
+    #   some        10h  → mix(green, yellow)        — lime
+    #   commitment  40h  → mix(orange 60%, yellow)   — amber
+    #   insanity    100h → mix(red, purple)          — magenta/pink
+    #
+    # color-mix uses oklch for smooth, non-muddy blends. The pink "insanity"
+    # end stays distinct from destructive red — it is an "effort intensity"
+    # signal, not an error. Mirrors the `.pito-ttb__fill` CSS ramp.
+    #
+    # THEME-ADAPTIVE CONTRAST (T17.1): each stop is mixed toward
+    # `--fg-default` so the bar reads on ALL 18 themes. The light lime/amber
+    # mids carry a heavier fg-mix (≈58%); the inherently-dark pink end only
+    # ≈18%. Worst-case after the fix is 2.59:1 (catppuccin-latte / "low"),
+    # vs 1.83:1 before; dark themes stay 3–8:1 and keep vivid accents. Mix
+    # weights resolved with the OKLab+WCAG sweep script (Plan P17).
+    HEAT_THRESHOLDS = [
+      [ 0,   "color-mix(in oklch, var(--accent-green) 70%, var(--fg-default))" ],                                                 # low        — green
+      [ 10,  "color-mix(in oklch, color-mix(in oklch, var(--accent-green), var(--accent-yellow)) 58%, var(--fg-default))" ],      # some       — lime
+      [ 40,  "color-mix(in oklch, color-mix(in oklch, var(--accent-orange) 60%, var(--accent-yellow)) 58%, var(--fg-default))" ], # commitment — amber
+      [ 100, "color-mix(in oklch, color-mix(in oklch, var(--accent-red), var(--accent-purple)) 82%, var(--fg-default))" ]         # insanity   — pink
+    ].freeze
+
+    # Terminal gradient colors for partial-data cases (rule 5). These are the
+    # same theme-aware color-mix pattern as HEAT_THRESHOLDS — no literal hex.
+    #   extras-max  → ramp stops at yellow (no amber/pink past it)
+    #   main-max    → ramp stops at green  (short-game all-green-ish fill)
+    GRADIENT_TERMINAL_YELLOW = "color-mix(in oklch, var(--accent-yellow) 70%, var(--fg-default))"
+    GRADIENT_TERMINAL_GREEN  = HEAT_THRESHOLDS[0][1]
+
     # Bottom-label collision model.
     BOTTOM_LABEL_COLLISION_THRESHOLD_PCT = 10.0
     NUDGE_PCT = 1.3
@@ -49,15 +98,55 @@ module Pito
       @footage_hours.to_i
     end
 
+    # The largest PRESENT (positive) pillar hour value; 0 if all absent.
+    # Used as the pillar-side base for effective_axis.
+    def pillar_axis
+      PILLAR_KEYS.filter_map { |k| hours[k].to_i.positive? ? hours[k].to_i : nil }.max || 0
+    end
+
+    # Effective scaling axis: the largest of (present pillars, footage if
+    # present). All tick positions and gradient projections share this axis so
+    # ticks, gradient, and footage bubble stay aligned (rule 4).
+    def effective_axis
+      candidates = [ pillar_axis ]
+      candidates << footage_hours if footage_hours.positive?
+      candidates.max
+    end
+
     def max_x
-      ceiling = [ hours[:completionist].to_i, footage_hours, 10 ].max
+      ceiling = [ effective_axis, 10 ].max
       (ceiling * 1.05).round
     end
 
+    # Color-projection axis (0..max_x). Used by `gradient_stops` so the heat
+    # ramp reflects each game's absolute hour scale; see T17.5.
     def position(value)
       return 0.0 if max_x.zero?
 
       ((value.to_f / max_x) * 100).clamp(0.0, 100.0).round(3)
+    end
+
+    # Width of one `=` cell as a percentage of the bar (40 cells → 2.5%).
+    CELL_WIDTH_PCT = 100.0 / BAR_CELLS
+
+    # Tick axis end = effective_axis (largest present pillar or footage if
+    # footage exceeds the pillars). When all pillars AND footage are absent,
+    # returns 0 so tick_position short-circuits to 0.0 for everything.
+    def tick_axis
+      effective_axis
+    end
+
+    # Tick axis (0..tick_axis). 40 cells split that span into 2.5% slices; a
+    # tick snaps to the MIDDLE of the cell its hour value falls in, so the
+    # largest pillar lands at 98.75% — the middle of the last cell — rather than
+    # flush against the closing bracket. Mirrors the ScoreBar needle snap (T17.3).
+    def tick_position(value)
+      axis = tick_axis
+      return 0.0 if axis.zero?
+
+      raw  = (value.to_f / axis) * 100
+      cell = (raw / CELL_WIDTH_PCT).floor.clamp(0, BAR_CELLS - 1)
+      ((cell * CELL_WIDTH_PCT) + (CELL_WIDTH_PCT / 2.0)).round(3)
     end
 
     def label_for(key)
@@ -65,6 +154,21 @@ module Pito
       return I18n.t("pito.game.ttb.em_dash") unless h.positive?
 
       I18n.t("pito.game.ttb.hours_short", n: h)
+    end
+
+    # Emit MORE `=` than can fit so the run fills 100% of the (full-width,
+    # CSS-clipped) bar — not capped at BAR_CELLS. BAR_CELLS still drives the
+    # tick cell-snap math (so completionist lands just inside the `]` bracket
+    # rather than on it); the visible fill is continuous and full-width.
+    FILL_CELLS = 300
+
+    def fill_text
+      "=" * FILL_CELLS
+    end
+
+    # Witty label rendered before the bar (e.g. "Hours needed"), via Pito::Copy.
+    def bar_label
+      Pito::Copy.render("pito.copy.game.ttb_label")
     end
 
     def footage_value_label
@@ -90,11 +194,15 @@ module Pito
     }.freeze
 
     def tick_overlays
-      pillar_ticks = PILLAR_KEYS.map do |key|
+      # Only render a tick for pillars IGDB actually returned — an absent
+      # extras/completionist (0h) would otherwise pin a stray tick at the left.
+      pillar_ticks = PILLAR_KEYS.filter_map do |key|
         h = hours[key].to_i
+        next if h.zero?
+
         {
           key:         key,
-          position:    position(h),
+          position:    tick_position(h),
           token_class: TICK_TOKEN_CLASS[key]
         }
       end
@@ -102,7 +210,7 @@ module Pito
       if render_footage_tick?
         pillar_ticks << {
           key:         :footage,
-          position:    position(footage_hours),
+          position:    tick_position(footage_hours),
           token_class: TICK_TOKEN_CLASS[:footage]
         }
       end
@@ -134,13 +242,16 @@ module Pito
     end
 
     def pillar_label_data
-      ordered = PILLAR_KEYS.map do |key|
+      # Skip absent pillars (0h) — no value label for data IGDB didn't return.
+      ordered = PILLAR_KEYS.filter_map do |key|
         h = hours[key].to_i
+        next if h.zero?
+
         {
           key:      key,
           hours:    h,
           label:    label_for(key),
-          position: position(h),
+          position: tick_position(h),
           nudge:    nil
         }
       end
@@ -167,7 +278,7 @@ module Pito
     end
 
     def footage_position
-      position(footage_hours)
+      tick_position(footage_hours)
     end
 
     def gradient_break_positions
@@ -185,6 +296,78 @@ module Pito
         p5: format("%.2f%%", extras_p + comp_third),
         p6: format("%.2f%%", extras_p + 2 * comp_third)
       }
+    end
+
+    # Color-ramp axis for gradient projection.
+    #
+    # When completionist is present: axis = completionist (full ramp to pink).
+    # When extras is the max-present pillar: axis = extras (ramp ends yellow).
+    # When only main is present: axis = main (ramp ends green).
+    # When all pillars absent: axis = 10 (safe minimum, footage-only or empty).
+    #
+    # The effective_axis may include footage (when footage > pillar max) so the
+    # gradient and ticks share the same span, keeping them aligned.
+    def color_axis_max
+      [ effective_axis, 10 ].max
+    end
+
+    # Which pillar (if any) is the max-present pillar driving the gradient
+    # terminal color. Returns :completionist, :extras, :main, or nil.
+    def gradient_terminal_pillar
+      PILLAR_KEYS.reverse.find { |k| hours[k].to_i.positive? }
+    end
+
+    # Terminal color for the gradient ramp (rule 5):
+    #   - completionist present → full ramp → pink (current behavior)
+    #   - extras is max (no completionist) → yellow
+    #   - main is max (no extras/completionist) → green
+    #   - all absent → green (fallback; bar is essentially empty)
+    def gradient_terminal_color
+      case gradient_terminal_pillar
+      when :completionist
+        HEAT_THRESHOLDS.last[1]
+      when :extras
+        GRADIENT_TERMINAL_YELLOW
+      else
+        GRADIENT_TERMINAL_GREEN
+      end
+    end
+
+    # The HEAT_THRESHOLDS stops to include in the gradient, based on the
+    # highest present pillar. When completionist is absent, we truncate at
+    # the appropriate tier so hotter colors don't bleed through:
+    #   - completionist present → all 4 stops (up to pink)
+    #   - extras max → stops 0..2 (green/lime/amber), then cap with yellow at 100%
+    #   - main max / all absent → stop 0 only (green), then cap with green at 100%
+    def gradient_threshold_stops
+      case gradient_terminal_pillar
+      when :completionist
+        HEAT_THRESHOLDS
+      when :extras
+        HEAT_THRESHOLDS[0..2]
+      else
+        HEAT_THRESHOLDS[0..0]
+      end
+    end
+
+    # CSS gradient-stops string for the fill's inline `background-image`
+    # (clipped to the `=` glyphs). Projects HEAT_THRESHOLDS hour values onto
+    # `color_axis_max` so the visible color spread reflects each game's actual
+    # effort scale. When partial data is present the ramp is truncated so no
+    # hotter colors appear past the highest present pillar (rule 5). Colors
+    # are the T17.1 contrast-safe accent var()/color-mix() expressions — no hex.
+    def gradient_stops
+      stops = gradient_threshold_stops.map do |hours_threshold, color|
+        pct = [ (hours_threshold.to_f / color_axis_max * 100).round(2), 100 ].min
+        "#{color} #{pct}%"
+      end
+
+      # Append the terminal color at 100% (ensures the ramp reaches the right
+      # edge with the correct partial-data color, not the last threshold's color
+      # which may have been clamped short of 100%).
+      terminal = "#{gradient_terminal_color} 100%"
+      stops << terminal unless stops.last == terminal
+      stops.join(", ")
     end
 
     private

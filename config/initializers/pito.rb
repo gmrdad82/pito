@@ -11,4 +11,9 @@ Rails.application.config.to_prepare do
   Pito::Slash::Registry.register_all!
   Pito::Chat::Registry.register_all!
   Pito::Hashtag::Registry.register_all!
+
+  # Follow-up handlers auto-register via an `inherited` hook when loaded; force
+  # them to load so the registry is populated for callers that may run before any
+  # follow-up reply (e.g. the suggestions engine resolving #handle → actions).
+  Pito::FollowUp::Registry.register_all!
 end

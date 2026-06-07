@@ -3,6 +3,7 @@
 <% if s.nil? && !resyncing? %>
   <span class="pito-score-bar pito-score-bar--muted"
         data-tier="missing">
+    <span class="pito-score-bar__label"><%= score_label %></span>
     <span class="pito-score-bar__track">
       <span class="pito-score-bar__bracket">[</span>
       <span class="pito-score-bar__fill"><%= fill_text %></span>
@@ -14,18 +15,21 @@
         data-score="<%= s %>"
         data-tier="<%= tier %>"
         data-resyncing="<%= resyncing? ? "yes" : "no" %>">
+    <span class="pito-score-bar__label"><%= score_label %></span>
+    <%# Tick + bubble live INSIDE the track so their left:% maps across the
+        full-width bar (not the label). %>
     <span class="pito-score-bar__track">
       <span class="pito-score-bar__bracket">[</span>
       <span class="pito-score-bar__fill"><%= fill_text %></span>
       <span class="pito-score-bar__bracket">]</span>
+      <% if overlay? %>
+        <% pct = overlay_left_percent %>
+        <span class="pito-score-bar__bubble" data-accent="score" style="left: <%= pct %>%;">
+          <span class="pito-score-bar__bubble-num"><%= s %></span>
+          <span class="pito-score-bar__bubble-arrow">&#9660;</span>
+        </span>
+        <span class="pito-score-bar__tick" data-accent="score" style="left: <%= pct %>%;">|</span>
+      <% end %>
     </span>
-    <% if overlay? %>
-      <% pct = overlay_left_percent %>
-      <span class="pito-score-bar__bubble" data-accent="score" style="left: <%= pct %>%;">
-        <span class="pito-score-bar__bubble-num"><%= s %></span>
-        <span class="pito-score-bar__bubble-arrow">&#9660;</span>
-      </span>
-      <span class="pito-score-bar__tick" data-accent="score" style="left: <%= pct %>%;">|</span>
-    <% end %>
   </span>
 <% end %>

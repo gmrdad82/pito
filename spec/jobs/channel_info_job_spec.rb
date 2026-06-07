@@ -48,38 +48,22 @@ RSpec.describe ChannelInfoJob do
         ]
       }
     )
-
-    allow_any_instance_of(Channel::Youtube::Client).to receive(:analytics_query).and_return(
-      {
-        rows: [ [ "90000" ] ]  # 90,000 minutes = 1,500 hours
-      }
-    )
   end
 
   it "updates channel stats from YouTube API" do
     described_class.new.perform(connection.id, turn.id)
 
     channel.reload
-    expect(channel.subscriber_count).to eq(1500)
-    expect(channel.view_count).to eq(2_300_000)
+    expect(Pito::Stats.get(channel, :subscribers)).to eq(1500)
+    expect(Pito::Stats.get(channel, :views)).to eq(2_300_000)
     expect(channel.video_count).to eq(42)
     expect(channel.last_synced_at).to be_within(5.seconds).of(Time.current)
   end
 
-  it "fills in missing channel info (avatar, banner, description)" do
-    described_class.new.perform(connection.id, turn.id)
-
-    channel.reload
-    expect(channel.description).to eq("A test channel")
-    expect(channel.avatar_url).to eq("https://example.com/avatar.jpg")
-    expect(channel.banner_url).to eq("https://example.com/banner.jpg")
-  end
-
-  it "fetches and stores watched_hours from Analytics API" do
-    described_class.new.perform(connection.id, turn.id)
-
-    channel.reload
-    expect(channel.watched_hours).to eq(1500) # 90000 minutes / 60 = 1500 hours
+  it "enqueues a ChannelAvatarJob to cache the avatar locally" do
+    expect {
+      described_class.new.perform(connection.id, turn.id)
+    }.to have_enqueued_job(ChannelAvatarJob).with(channel.id, "https://example.com/avatar.jpg")
   end
 
   it "emits an enhanced event with formatted stats" do
@@ -91,7 +75,6 @@ RSpec.describe ChannelInfoJob do
     expect(event.payload["body"]).to include("Alpha Channel")
     expect(event.payload["body"]).to include("1.5K")  # subscribers
     expect(event.payload["body"]).to include("2.3M")  # views
-    expect(event.payload["body"]).to include("1.5K")  # watched hours
   end
 
   it "does NOT mark the turn as completed (ImportVideosJob does that)" do
@@ -184,10 +167,8 @@ RSpec.describe ChannelInfoJob do
     it "fetches stats for all channels" do
       described_class.new.perform(connection.id, turn.id)
 
-      channel.reload
-      channel_b.reload
-      expect(channel.subscriber_count).to eq(1500)
-      expect(channel_b.subscriber_count).to eq(50_000)
+      expect(Pito::Stats.get(channel, :subscribers)).to eq(1500)
+      expect(Pito::Stats.get(channel_b, :subscribers)).to eq(50_000)
     end
 
     it "emits one enhanced event with all channels" do
@@ -219,22 +200,6 @@ RSpec.describe ChannelInfoJob do
 
       turn.reload
       expect(turn.completed_at).to be_present
-    end
-  end
-
-  context "when analytics query fails" do
-    before do
-      allow_any_instance_of(Channel::Youtube::Client).to receive(:analytics_query).and_raise(
-        StandardError.new("analytics unavailable")
-      )
-    end
-
-    it "still stores basic stats and leaves watched_hours nil" do
-      described_class.new.perform(connection.id, turn.id)
-
-      channel.reload
-      expect(channel.subscriber_count).to eq(1500)
-      expect(channel.watched_hours).to be_nil
     end
   end
 end

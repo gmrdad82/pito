@@ -8,6 +8,9 @@
 //   ↑ / ↓   — move highlight through rows
 //   Enter   — select highlighted row
 //   Escape  — clear (empty) the sidebar
+//   d       — arm the highlighted row for deletion (shows confirm prompt)
+//             a second d while armed deletes the conversation via DELETE /chat/<uuid>
+//             moving the highlight or pressing Escape disarms
 //
 // Mouse:
 //   click .pito-conversation-row — select that row
@@ -30,7 +33,7 @@ export default class extends Controller {
   connect() {
     this.abort = new AbortController()
     document.addEventListener("keydown", this.#onKey.bind(this), { signal: this.abort.signal })
-    // Sequential Esc: capture-phase so it runs BEFORE the chatbox's autosuggest
+    // Sequential Esc: capture-phase so it runs BEFORE the chatbox's suggestions
     // Esc. When the sidebar is open it closes the sidebar and swallows the event
     // (so a /command palette underneath survives); the next Esc reaches the
     // palette. Also makes Esc close the notifications panel (which has no
@@ -38,6 +41,7 @@ export default class extends Controller {
     document.addEventListener("keydown", this.#onEscapeCapture.bind(this), { capture: true, signal: this.abort.signal })
     this.element.addEventListener("click", this.#onClick.bind(this), { signal: this.abort.signal })
     this.highlightIndex = -1
+    this.armedRow = null
 
     // The sidebar content is injected via a Turbo Stream UPDATE (this controller
     // stays connected). Watch for it: when rows appear we (a) hide the command
@@ -121,6 +125,9 @@ export default class extends Controller {
 
   #onEscapeCapture(e) {
     if (e.key !== "Escape") return
+    // When a row is armed, let the bubbling #onKey handler disarm it instead —
+    // we don't swallow the event here so #onKey can decide.
+    if (this.armedRow) return
     if (!this.element.innerHTML.trim()) return // nothing open — let it pass through
     e.preventDefault()
     e.stopImmediatePropagation()
@@ -133,9 +140,11 @@ export default class extends Controller {
 
     if (e.key === "ArrowDown") {
       e.preventDefault()
+      this.#disarm()
       this.#move(rows, 1)
     } else if (e.key === "ArrowUp") {
       e.preventDefault()
+      this.#disarm()
       this.#move(rows, -1)
     } else if (e.key === "Enter") {
       e.preventDefault()
@@ -143,7 +152,23 @@ export default class extends Controller {
       if (highlighted) this.#select(highlighted)
     } else if (e.key === "Escape") {
       e.preventDefault()
-      this.#clear()
+      if (this.armedRow) {
+        this.#disarm()
+      } else {
+        this.#clear()
+      }
+    } else if (e.key === "d") {
+      const highlighted = rows[this.highlightIndex]
+      if (!highlighted) return
+      e.preventDefault()
+      if (this.armedRow === highlighted) {
+        // Second d — confirm delete
+        this.#deleteConversation(highlighted)
+      } else {
+        // First d — arm the row
+        this.#disarm()
+        this.#arm(highlighted)
+      }
     } else if (e.key === "`") {
       // Inline-rename the highlighted conversation. The pito--rename controller
       // on that row listens for this event and swaps the name for an <input>.
@@ -187,9 +212,60 @@ export default class extends Controller {
   }
 
   #clear() {
+    this.#disarm()
     this.element.innerHTML = ""
     this.highlightIndex = -1
     // Forget the persisted panel so a reload doesn't re-open a dismissed sidebar.
     localStorage.removeItem(SIDEBAR_KEY)
+  }
+
+  // Arms a row for deletion: saves its original inner HTML and replaces the
+  // visible content with a confirm prompt. Only one row is armed at a time.
+  #arm(row) {
+    this.armedRow = row
+    row._resumeSavedHtml = row.innerHTML
+    // Witty confirm copy injected server-side (Pito::Copy); orange = confirmation,
+    // 16px (no size class — the app is 16px-only), italic.
+    const prompt = this.element.querySelector("[data-delete-prompt]")?.dataset.deletePrompt
+                   || "press d again to delete"
+    row.innerHTML = `<span class="text-orange italic px-1">${prompt}</span>`
+  }
+
+  // Disarms any currently armed row, restoring its original HTML.
+  #disarm() {
+    if (!this.armedRow) return
+    if (this.armedRow._resumeSavedHtml !== undefined) {
+      this.armedRow.innerHTML = this.armedRow._resumeSavedHtml
+      delete this.armedRow._resumeSavedHtml
+    }
+    this.armedRow = null
+  }
+
+  // Sends DELETE /chat/<uuid>, then removes the row from the list or redirects
+  // to "/" if the deleted conversation is the currently-open one.
+  #deleteConversation(row) {
+    const uuid = row.dataset.conversationUuid
+    if (!uuid) return
+
+    const csrfToken = document.querySelector("meta[name=csrf-token]")?.content
+    const headers = { "X-CSRF-Token": csrfToken || "" }
+
+    // Determine the current conversation uuid from the hidden input on the chat page.
+    const currentUuidInput = document.querySelector("input[name=uuid]")
+    const currentUuid = currentUuidInput?.value
+
+    fetch(`/chat/${uuid}`, { method: "DELETE", headers })
+      .then((r) => {
+        if (!r.ok) return
+        if (currentUuid && uuid === currentUuid) {
+          window.location.href = "/"
+        } else {
+          row.remove()
+        }
+      })
+      .catch(() => {})
+
+    // Clear armed state immediately (row will be removed or page will navigate).
+    this.armedRow = null
   }
 }

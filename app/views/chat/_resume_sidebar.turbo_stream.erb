@@ -1,5 +1,6 @@
 <%# Turbo Stream partial — populates #pito-sidebar with the conversation list
     wrapped in the Sidebar shell (fixed overlay panel). %>
+<%= render partial: "chat/done_signal" %>
 <%= turbo_stream.update "pito-sidebar" do %>
   <%= render(Pito::Sidebar::Component.new(
         title: t("pito.sidebar.conversations.title")

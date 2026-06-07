@@ -2,7 +2,7 @@
 //
 // Shell-style input history for the chatbox textarea (↑ = older, ↓ = newer).
 //
-// Mounted on #pito-chatbox alongside pito--autosuggest and pito--draft.
+// Mounted on #pito-chatbox alongside pito--suggestions and pito--draft.
 // On the start screen the history value will be an empty array, making the
 // controller effectively inert.
 //
@@ -15,7 +15,7 @@
 //   - ArrowDown: step toward newer entries (lower index), restoring the
 //     preserved draft when the index returns to -1.
 //   - Guards (let event pass without consuming it):
-//       • The autosuggest palette is open (.pito-autosuggest-palette:not(.hidden)).
+//       • The suggestions palette is open (.pito-suggestions-palette:not(.hidden)).
 //       • The sidebar is open (#pito-sidebar has child elements).
 //       • For ArrowUp: caret is NOT on the first visual line (i.e. textarea
 //         contains a newline AND caret position > 0).
@@ -96,7 +96,7 @@ export default class extends Controller {
     if (!field) return
 
     // Guard: autosuggest palette is open.
-    if (document.querySelector(".pito-autosuggest-palette:not(.hidden)")) return
+    if (document.querySelector(".pito-suggestions-palette:not(.hidden)")) return
 
     // Guard: sidebar is open (has child elements).
     const sidebar = document.getElementById("pito-sidebar")

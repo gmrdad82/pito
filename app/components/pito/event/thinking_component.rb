@@ -32,11 +32,11 @@ module Pito
       end
 
       def doing_words_json
-        I18n.t("pito.event.thinking.#{@dictionary}.doing").to_json
+        I18n.t("pito.copy.thinking.#{@dictionary}.doing").to_json
       end
 
       def done_words_json
-        I18n.t("pito.event.thinking.#{@dictionary}.done").to_json
+        I18n.t("pito.copy.thinking.#{@dictionary}.done").to_json
       end
 
       def current_word
@@ -50,11 +50,11 @@ module Pito
       private
 
       def doing_words
-        Array(I18n.t("pito.event.thinking.#{@dictionary}.doing"))
+        Array(I18n.t("pito.copy.thinking.#{@dictionary}.doing"))
       end
 
       def done_word
-        Array(I18n.t("pito.event.thinking.#{@dictionary}.done"))[@word_index] || doing_words.first
+        Array(I18n.t("pito.copy.thinking.#{@dictionary}.done"))[@word_index] || doing_words.first
       end
     end
   end

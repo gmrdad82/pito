@@ -128,6 +128,7 @@ module Voyage
       request["Content-Type"]  = "application/json"
       request.body = JSON.generate(input: inputs, model: model)
 
+      Pito::Stack.track("voyage", endpoint: "embeddings", units: Array(inputs).size)
       response = Net::HTTP.start(uri.hostname, uri.port, use_ssl: true) do |http|
         http.request(request)
       end
@@ -153,6 +154,7 @@ module Voyage
       request["Content-Type"]  = "application/json"
       request.body = JSON.generate(input: inputs, model: model)
 
+      Pito::Stack.track("voyage", endpoint: "embeddings", units: Array(inputs).size)
       response = Net::HTTP.start(uri.hostname, uri.port, use_ssl: true) do |http|
         http.request(request)
       end

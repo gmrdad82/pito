@@ -103,6 +103,11 @@ export default class extends Controller {
           document.dispatchEvent(new CustomEvent(
             isEcho ? "pito:echo-appended" : "pito:result-appended"
           ))
+          // Cover art (game detail message) loads AFTER this scroll fires and
+          // grows the segment height, leaving the scroll stuck mid-image. Re-
+          // scroll once each late-loading image settles so the newest message
+          // (e.g. the Enhanced one) ends up fully in view.
+          this.#rescrollOnImageLoad(node)
         }
       }
       // Scroll now (catches most segments) + after layout (catches variable-height ones).
@@ -112,6 +117,21 @@ export default class extends Controller {
     // subtree: true because results append INTO per-turn containers (nested),
     // not as direct children of the scrollback.
     this.mutationObserver.observe(this.element, { childList: true, subtree: true })
+  }
+
+  // Re-scroll to bottom once each not-yet-loaded image inside `node` finishes
+  // loading. Honours scrollLocked (won't yank a user who scrolled up).
+  #rescrollOnImageLoad(node) {
+    const imgs = []
+    if (node.tagName === "IMG") imgs.push(node)
+    node.querySelectorAll?.("img").forEach(img => imgs.push(img))
+
+    for (const img of imgs) {
+      if (img.complete) continue
+      const rescroll = () => this.#programmaticScroll()
+      img.addEventListener("load",  rescroll, { once: true, signal: this.abort.signal })
+      img.addEventListener("error", rescroll, { once: true, signal: this.abort.signal })
+    }
   }
 
   // On submit always unlock + scroll (the user just acted).

@@ -1,0 +1,19 @@
+<%# Games sidebar body — flat list of games (id + title), keyboard-selectable.
+    The outer div mounts pito--games-nav and carries the picker mode as a
+    data attribute so the controller knows which command to build on Enter. %>
+<div class="flex flex-col"
+     data-controller="pito--games-nav"
+     data-pito--games-nav-mode-value="<%= mode %>">
+  <% if empty? %>
+    <p class="text-fg-dim py-2"><%= empty_state_text %></p>
+  <% else %>
+    <% games.each do |game| %>
+      <div class="pito-game-row flex gap-2 items-center py-1 px-2 rounded cursor-pointer hover:bg-bg-hover"
+           data-game-id="<%= game.id %>"
+           data-game-title="<%= game.title %>">
+        <span class="text-fg-faded shrink-0 tabular-nums w-12 text-right">#<%= game.id %></span>
+        <span class="text-fg truncate"><%= game.title %></span>
+      </div>
+    <% end %>
+  <% end %>
+</div>

@@ -1,0 +1,20 @@
+<%# Themes sidebar body — Dark + Light sections, current theme marked %>
+<div class="flex flex-col" data-controller="pito--theme-nav">
+  <%# Dark section %>
+  <div class="mb-4">
+    <%= render(Pito::Section::SectionHeaderComponent.new(text: t("pito.sidebar.themes.dark"), color: :orange)) %>
+    <% dark.each do |definition| %>
+      <%= render partial: "themes/row",
+                 locals: { definition: definition, current: current?(definition) } %>
+    <% end %>
+  </div>
+
+  <%# Light section %>
+  <div class="mb-4">
+    <%= render(Pito::Section::SectionHeaderComponent.new(text: t("pito.sidebar.themes.light"), color: :orange)) %>
+    <% light.each do |definition| %>
+      <%= render partial: "themes/row",
+                 locals: { definition: definition, current: current?(definition) } %>
+    <% end %>
+  </div>
+</div>

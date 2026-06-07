@@ -50,10 +50,11 @@ RSpec.describe Pito::Grammar::Specs do
     before { described_class.register_all!(Pito::Grammar::Registry) }
 
     describe "chat namespace" do
-      it "registers the :list spec with 3 slots" do
+      it "registers the :list spec with a single :noun slot" do
         spec = Pito::Grammar::Registry.spec(namespace: :chat, name: :list)
         expect(spec).not_to be_nil
-        expect(spec.slots.length).to eq(3)
+        expect(spec.slots.length).to eq(1)
+        expect(spec.slot(:noun).source).to eq(:nouns)
       end
 
       it "registers :show and :find specs" do
@@ -79,19 +80,19 @@ RSpec.describe Pito::Grammar::Specs do
       end
     end
 
-    describe "shared chat slot set details" do
-      let(:list_spec) { Pito::Grammar::Registry.spec(namespace: :chat, name: :list) }
+    describe "shared chat slot set details (now on :find)" do
+      let(:find_spec) { Pito::Grammar::Registry.spec(namespace: :chat, name: :find) }
 
       it "has :platform slot with introducer :for" do
-        expect(list_spec.slot(:platform).introducer).to eq(:for)
+        expect(find_spec.slot(:platform).introducer).to eq(:for)
       end
 
       it "has :genre slot with repeatable? true" do
-        expect(list_spec.slot(:genre).repeatable?).to be(true)
+        expect(find_spec.slot(:genre).repeatable?).to be(true)
       end
 
       it "has :status slot that is optional" do
-        expect(list_spec.slot(:status).optional?).to be(true)
+        expect(find_spec.slot(:status).optional?).to be(true)
       end
     end
   end

@@ -1,0 +1,11 @@
+<%# Single theme row — used in the themes sidebar.
+    Locals:
+      definition    — Pito::Themes::Definition (responds to #slug, #label)
+      current       — Boolean, true when this is the active theme %>
+<div class="pito-theme-row flex items-center justify-between py-1 px-2 rounded cursor-pointer hover:bg-bg-hover <%= "is-current" if current %>"
+     data-theme-name="<%= definition.slug %>">
+  <span class="text-fg truncate mr-2"><%= definition.label %></span>
+  <% if current %>
+    <span class="text-cyan shrink-0"><%= Pito::Copy.render("pito.copy.theme.current_marker") %></span>
+  <% end %>
+</div>

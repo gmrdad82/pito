@@ -1,10 +1,11 @@
 # frozen_string_literal: true
 
-# P60 — Daily sync of general channel stats (subscribers, views, watch hours).
+# P60 — Daily sync of general channel stats (subscribers, views).
 #
 # Iterates every Channel that has a connected, non-reauth YoutubeConnection
 # and calls Channel::Youtube::StatsFetcher to pull fresh stats from the
-# YouTube Data API v3 (subscribers + views) and Analytics API (watch hours).
+# YouTube Data API v3 (subscribers + views). P4 — watch hours dropped
+# (Analytics-sourced; returns with a future Pito::Analytics).
 #
 # Error posture: errors for one channel are rescued and logged so a single
 # failing channel never aborts the rest of the batch.
@@ -27,12 +28,9 @@ class SyncChannelStatsJob < ApplicationJob
 
   def sync_one(channel)
     stats = Channel::Youtube::StatsFetcher.call(channel)
-    channel.update_columns(
-      subscriber_count: stats[:subscriber_count],
-      view_count:       stats[:view_count],
-      watched_hours:    stats[:watched_hours],
-      last_synced_at:   stats[:last_synced_at]
-    )
+    Pito::Stats.set(channel, :subscribers, stats[:subscriber_count])
+    Pito::Stats.set(channel, :views, stats[:view_count])
+    channel.update_columns(last_synced_at: stats[:last_synced_at])
   rescue StandardError => e
     Rails.logger.error(
       "SyncChannelStatsJob: failed for channel=#{channel.id} " \

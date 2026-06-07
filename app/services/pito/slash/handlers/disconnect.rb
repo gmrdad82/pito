@@ -16,8 +16,10 @@ module Pito
       # - `kind: "error"` (not `Result::Error`) when the target is missing or
       #   the channel is not found, so the error appears inline in the scrollback.
       #
-      # The confirmation payload is consumed by `ConfirmationRouter` / the
-      # `#reply-<handle>` hashtag path to actually perform the disconnection.
+      # The confirmation payload is follow-up-able: stamped with
+      # `reply_handle` + `reply_target:"confirmation"` so the follow-up engine
+      # routes `#<handle> confirm|cancel` to
+      # `Pito::FollowUp::Handlers::Confirmation`.
       class Disconnect < Pito::Slash::Handler
         self.verb = :disconnect
         self.description_key = "pito.slash.disconnect.descriptions.disconnect"
@@ -49,11 +51,11 @@ module Pito
         def resolve_channel(target)
           if target.start_with?("@")
             fragment = target.delete_prefix("@")
-            Channel.where("handle LIKE ?", "%#{fragment}%").first
+            ::Channel.where("handle LIKE ?", "%#{fragment}%").first
           elsif target.match?(/\A\d+\z/)
-            Channel.find_by(id: target.to_i)
+            ::Channel.find_by(id: target.to_i)
           else
-            Channel.where("handle LIKE ?", "%#{target}%").first
+            ::Channel.where("handle LIKE ?", "%#{target}%").first
           end
         end
 
@@ -61,7 +63,7 @@ module Pito
           Pito::Slash::Result::Ok.new(events: [
             {
               kind:    "error",
-              payload: { text: I18n.t("pito.slash.disconnect.errors.missing_target") }
+              payload: Pito::MessageBuilder::Text.call("pito.copy.disconnect.missing_target")
             }
           ])
         end
@@ -70,55 +72,20 @@ module Pito
           Pito::Slash::Result::Ok.new(events: [
             {
               kind:    "error",
-              payload: { text: I18n.t("pito.slash.disconnect.errors.not_found", target: target) }
+              payload: Pito::MessageBuilder::Text.call("pito.copy.disconnect.not_found", target: target)
             }
           ])
         end
 
         def confirmation_event(channel)
-          handle     = channel.handle.presence || channel.title.to_s
-          conf_handle = Pito::HandleGenerator.call(conversation)
+          payload = Pito::MessageBuilder::Channel::DisconnectConfirmation.call(channel, conversation:)
 
           Pito::Slash::Result::Ok.new(events: [
             {
               kind:    "confirmation",
-              payload: {
-                command:             "disconnect",
-                body:                I18n.t("pito.slash.disconnect.confirmation.body", handle_html: %(<span class="text-cyan">@#{handle.delete_prefix("@")}</span>)),
-                html:                true,
-                confirmation_handle: conf_handle,
-                channel_id:          channel.id,
-                expand_detail:       build_expand_detail(channel)
-              }
+              payload: payload
             }
           ])
-        end
-
-        def build_expand_detail(channel)
-          published   = channel.videos.privacy_status_public.count
-          private_all = channel.videos.privacy_status_private.count
-          scheduled   = channel.videos.privacy_status_private.where.not(publish_at: nil).count
-          private_v   = private_all - scheduled
-          unlisted    = channel.videos.privacy_status_unlisted.count
-          total       = published + private_all + unlisted
-
-          t = ->(key) { I18n.t("pito.slash.disconnect.confirmation.expand.#{key}") }
-          v = ->(n) { Pito::Formatter::CompactCount.call(n) }
-
-          [
-            # Channel stats first
-            { key: t.call(:subscribers),   value: v.call(channel.subscriber_count.to_i) },
-            { key: t.call(:views),           value: v.call(channel.view_count.to_i) },
-            { key: t.call(:watched_hours),   value: v.call(channel.watched_hours) },
-            # Separator
-            "",
-            # Video breakdown
-            { key: t.call(:total),    value: total.to_s },
-            { key: t.call(:published), value: v.call(published) },
-            { key: t.call(:scheduled), value: v.call(scheduled) },
-            { key: t.call(:unlisted),  value: v.call(unlisted) },
-            { key: t.call(:private),   value: v.call(private_v) }
-          ]
         end
       end
     end

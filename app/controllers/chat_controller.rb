@@ -67,12 +67,34 @@ class ChatController < ApplicationController
         # update). Auth gating: requires an active session. No echo, no job dispatch.
         return handle_resume(conversation)
       end
+
+      if bare_themes_command?(input)
+        # Bare /themes (no args) opens the theme picker sidebar (Turbo Stream update).
+        # Auth gating: requires an active session. No echo, no Turn, no async job.
+        return handle_theme_sidebar(conversation)
+      end
+
+      if (picker_mode = bare_game_picker_command?(input))
+        # `show game` / `rm game` / `delete game` with no title/id → open the
+        # games picker sidebar (Turbo Stream update).
+        # Auth gating: requires an active session.  No echo, no Turn, no async job.
+        return handle_game_picker_sidebar(conversation, mode: picker_mode)
+      end
+
+      if (import_title = games_import_command?(input))
+        # `/games import [title]` — opens the IGDB import sidebar (Turbo Stream update).
+        # Auth gating: requires an active session. No echo, no Turn, no async job.
+        return handle_games_import_sidebar(conversation, prefill: import_title)
+      end
     end
 
-    if confirmation_response?(input)
-      # #handle confirm|cancel — no echo; updates the existing confirmation
-      # segment to processing state, then enqueues ConfirmationDispatchJob.
-      handle_confirmation(input, conversation)
+    # Follow-up engine (P13/P14) — handles `#<handle> <rest>` replies for any
+    # event stamped with `reply_handle` + `reply_target` (including confirmations
+    # since P14).  Only fires when a live (non-consumed) event carries the handle.
+    # :not_found / :not_a_follow_up fall through to the hashtag path below.
+    ff = Pito::FollowUp::Router.call(input:, conversation:)
+    if ff[:status] == :ok
+      handle_follow_up(input, conversation, ff)
       return respond_to_client(conversation)
     end
 
@@ -202,7 +224,7 @@ class ChatController < ApplicationController
 
     if result.authenticated?
       Current.session = result.session_data
-      greeting = I18n.t("pito.auth.greetings").sample
+      greeting = Pito::Copy.render("pito.copy.auth.greetings")
       broadcaster.emit(
         turn:,
         kind:    :system,
@@ -216,6 +238,10 @@ class ChatController < ApplicationController
         payload: { text: auth_error_key(result.status) }
       )
     end
+
+    # Synchronous flow — emit the done signal ourselves so the dots fade out
+    # (no ChatDispatchJob runs to call complete_turn for login).
+    broadcaster.complete_turn(turn:)
   end
 
   # ── Logout branch ────────────────────────────────────────────────────────────
@@ -238,7 +264,7 @@ class ChatController < ApplicationController
     broadcaster.emit(
       turn:,
       kind:    :system,
-      payload: { text: I18n.t("pito.auth.logouts").sample }
+      payload: { text: Pito::Copy.render("pito.copy.auth.logouts") }
     )
 
     Pito::Auth::SessionCookie.new(request).clear!
@@ -271,7 +297,7 @@ class ChatController < ApplicationController
       broadcaster.emit(
         turn:,
         kind:    "error",
-        payload: { text: I18n.t("pito.auth.mandatories").sample }
+        payload: { text: Pito::Copy.render("pito.copy.auth.mandatories") }
       )
       return nil
     end
@@ -281,7 +307,7 @@ class ChatController < ApplicationController
         turn:,
         kind:    "error",
         payload: {
-          text:        I18n.t("pito.slash.connect.errors.not_configured"),
+          text:        Pito::Copy.render("pito.copy.connect.not_configured"),
           credentials: {
             client_id:     Pito::Credentials.google_oauth_client_id.present?,
             client_secret: Pito::Credentials.google_oauth_client_secret.present?,
@@ -306,6 +332,73 @@ class ChatController < ApplicationController
     input.strip.match?(%r{\A/resume(\s|\z)}i)
   end
 
+  # True only for bare `/themes` with no arguments (the sidebar path).
+  # `/themes apply <name>` and other subcommands go through the async pipeline.
+  def bare_themes_command?(input)
+    input.strip.match?(%r{\A/themes\z}i)
+  end
+
+  # Detects `show game(s)?` / `delete game(s)?` / `rm game(s)?` with NO
+  # trailing title or ID — i.e. the user wants the picker, not a lookup.
+  # Returns the picker mode Symbol (:show or :delete) or nil.
+  # The noun words `game`/`games` are optional (user may type just `show`).
+  GAME_NOUN_PATTERN = /\A(?:game|games)\z/i.freeze
+
+  def bare_game_picker_command?(input)
+    words = input.to_s.strip.downcase.split
+    return nil if words.empty?
+
+    verb = words.first
+    # After the verb, any remaining words must be only noun tokens.
+    rest_words = words.drop(1)
+    rest_only_nouns = rest_words.all? { |w| GAME_NOUN_PATTERN.match?(w) }
+    return nil unless rest_only_nouns
+
+    case verb
+    when "show"  then :show
+    when "delete" then :delete
+    when "rm"    then :delete
+    end
+  end
+
+  # Detects `/games import [title]` and returns the title string (may be "").
+  # Returns nil if the input doesn't match.
+  # The fast-path covers all `/games import` variants (with or without a title).
+  # Other `/games` subcommands / unknown args go through the async pipeline so
+  # the handler can return the witty usage hint.
+  def games_import_command?(input)
+    m = input.to_s.strip.match(%r{\A/games\s+import(?:\s+(.*))?\z}i)
+    return nil unless m
+    m[1].to_s.strip
+  end
+
+  # Renders a Turbo Stream that populates #pito-sidebar with the IGDB import sidebar.
+  # prefill: optional title string to pre-fill the search box with.
+  # Auth gating: unauthenticated → mandatory-auth error event broadcast + 204.
+  # No echo, no Turn, no async job.
+  def handle_games_import_sidebar(conversation, prefill:)
+    unless Current.session.present?
+      broadcaster = Pito::Stream::Broadcaster.new(conversation:)
+      broadcaster.emit(
+        turn:    conversation.turns.create!(
+          position:   Turn.next_position_for(conversation),
+          input_kind: :slash,
+          input_text: "/games import"
+        ),
+        kind:    "error",
+        payload: { text: Pito::Copy.render("pito.copy.auth.mandatories") }
+      )
+      return respond_to_client(conversation)
+    end
+
+    render partial: "chat/games_import_sidebar",
+           formats: [ :turbo_stream ],
+           locals:  {
+             prefill:          prefill.to_s,
+             conversation_uuid: conversation.uuid
+           }
+  end
+
   # Renders a Turbo Stream that populates #pito-sidebar with the conversation list.
   # Auth gating: unauthenticated → mandatory-auth error event broadcast + 204.
   # No echo, no Turn, no async job.
@@ -319,7 +412,7 @@ class ChatController < ApplicationController
           input_text: "/resume"
         ),
         kind:    "error",
-        payload: { text: I18n.t("pito.auth.mandatories").sample }
+        payload: { text: Pito::Copy.render("pito.copy.auth.mandatories") }
       )
       return respond_to_client(conversation)
     end
@@ -330,6 +423,59 @@ class ChatController < ApplicationController
            locals:  {
              groups:       Conversation.recency_groups,
              current_uuid: current_uuid
+           }
+  end
+
+  # Renders a Turbo Stream that populates #pito-sidebar with the theme picker.
+  # Auth gating: unauthenticated → mandatory-auth error event broadcast + 204.
+  # No echo, no Turn, no async job.
+  def handle_theme_sidebar(conversation)
+    unless Current.session.present?
+      broadcaster = Pito::Stream::Broadcaster.new(conversation:)
+      broadcaster.emit(
+        turn:    conversation.turns.create!(
+          position:   Turn.next_position_for(conversation),
+          input_kind: :slash,
+          input_text: "/themes"
+        ),
+        kind:    "error",
+        payload: { text: Pito::Copy.render("pito.copy.auth.mandatories") }
+      )
+      return respond_to_client(conversation)
+    end
+
+    render partial: "chat/theme_sidebar",
+           formats: [ :turbo_stream ],
+           locals:  {
+             groups:        Pito::Themes::Registry.grouped,
+             current_theme: AppSetting.theme
+           }
+  end
+
+  # Renders a Turbo Stream that populates #pito-sidebar with the games picker.
+  # mode: :show or :delete — controls the command built on selection.
+  # Auth gating: unauthenticated → mandatory-auth error event broadcast + 204.
+  # No echo, no Turn, no async job.
+  def handle_game_picker_sidebar(conversation, mode:)
+    unless Current.session.present?
+      broadcaster = Pito::Stream::Broadcaster.new(conversation:)
+      broadcaster.emit(
+        turn:    conversation.turns.create!(
+          position:   Turn.next_position_for(conversation),
+          input_kind: :chat,
+          input_text: mode == :delete ? "delete game" : "show game"
+        ),
+        kind:    "error",
+        payload: { text: Pito::Copy.render("pito.copy.auth.mandatories") }
+      )
+      return respond_to_client(conversation)
+    end
+
+    render partial: "chat/game_picker_sidebar",
+           formats: [ :turbo_stream ],
+           locals:  {
+             games: Game.order(:title).all,
+             mode:  mode
            }
   end
 
@@ -346,7 +492,7 @@ class ChatController < ApplicationController
           input_text: input
         ),
         kind:    "error",
-        payload: { text: I18n.t("pito.auth.mandatories").sample }
+        payload: { text: Pito::Copy.render("pito.copy.auth.mandatories") }
       )
       return nil
     end
@@ -355,30 +501,52 @@ class ChatController < ApplicationController
     conversation_path(new_conversation)
   end
 
-  def confirmation_response?(input)
-    input.strip.match?(Pito::ConfirmationRouter::PATTERN)
-  end
+  # ── Follow-up engine dispatch (P13) ──────────────────────────────────────────
 
-  # T28.5a-b: No echo. Flip the confirmation segment to processing immediately,
-  # then enqueue the job. Auth required — silently 204 if unauthenticated.
-  def handle_confirmation(input, conversation)
-    return unless Current.session.present?
+  # Dispatch a matched follow-up reply to the appropriate path by mode.
+  #
+  # :mutate — no echo, no turn.  Enqueue FollowUpDispatchJob without a turn_id.
+  # :append — echo + turn (like confirmations).  Requires an active session;
+  #           silently falls through if unauthenticated.
+  #           NOTE: no thinking indicator is emitted in the append path for now.
+  def handle_follow_up(input, conversation, ff)
+    event  = ff[:event]
+    target = event.payload["reply_target"].to_s
+    mode   = Pito::FollowUp::Registry.mode_for(target)
 
-    routing = Pito::ConfirmationRouter.call(input:, conversation:)
-    return if routing[:error]
+    case mode
+    when :mutate
+      FollowUpDispatchJob.perform_later(event.id, rest: ff[:rest])
 
-    event  = routing[:event]
-    action = routing[:action]
+    when :append
+      return unless Current.session.present?
 
-    event.update!(payload: event.payload.merge("processing" => true))
-    broadcaster = Pito::Stream::Broadcaster.new(conversation:)
-    broadcaster.replace_event(event)
+      turn = conversation.turns.create!(
+        position:   Turn.next_position_for(conversation),
+        input_kind: :hashtag,
+        input_text: input
+      )
 
-    ConfirmationDispatchJob.perform_later(event.id, action: action.to_s)
+      broadcaster = Pito::Stream::Broadcaster.new(conversation:)
+      echo_event  = Event.create_with_position!(
+        conversation:, turn:, kind: :echo,
+        payload: { text: input, authenticated: false }
+      )
+      broadcaster.broadcast_event(echo_event)
+
+      # No thinking indicator for append follow-ups (to be added if needed).
+      FollowUpDispatchJob.perform_later(event.id, rest: ff[:rest], turn_id: turn.id)
+
+    else
+      # Unknown mode (handler not registered, or handler has no mode).
+      # Silently return — fall-through to next branches already prevented by
+      # the caller's `return respond_to_client`.
+      Rails.logger.warn("[FollowUp] Unknown mode #{mode.inspect} for target #{target.inspect}")
+    end
   end
 
   def hashtag_message?(input)
-    input.start_with?("#") && !input.strip.match?(Pito::ConfirmationRouter::PATTERN)
+    input.start_with?("#")
   end
 
   def config_command?(input)
@@ -407,9 +575,9 @@ class ChatController < ApplicationController
   # Callers must store it under payload[:text], not payload[:message_key].
   def auth_error_key(status)
     case status
-    when :throttled    then I18n.t("pito.auth.throttles").sample
-    when :not_enrolled then I18n.t("pito.auth.not_enrolled")
-    else                    I18n.t("pito.auth.failures").sample
+    when :throttled    then Pito::Copy.render("pito.copy.auth.throttles")
+    when :not_enrolled then Pito::Copy.render("pito.copy.auth.not_enrolled")
+    else                    Pito::Copy.render("pito.copy.auth.failures")
     end
   end
 end

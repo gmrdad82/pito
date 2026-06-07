@@ -23,7 +23,7 @@ RSpec.describe Pito::StartScreen::Component do
     end
 
     it "renders a random tip from the dictionary" do
-      tips = I18n.t("pito.start_screen.tips")
+      tips = I18n.t("pito.copy.start_screen.tips")
       expect(tips).not_to be_empty
       expect(tips.any? { |tip| node.to_html.include?(tip) }).to be true
     end
@@ -167,6 +167,8 @@ RSpec.describe Pito::StartScreen::Component do
     end
 
     it "pre-renders the full mini status (with real notification count) in conversationChrome" do
+      # The notification count only renders for an authenticated session.
+      allow(Current).to receive(:session).and_return(double("Session"))
       create(:notification)
       create(:notification)
       # Re-render after creating 2 unread notifications so the count is real.

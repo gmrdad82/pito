@@ -17,6 +17,12 @@ require 'view_component/test_helpers'
 require 'webmock/rspec'
 # Add additional requires below this line. Rails is not loaded until this point!
 
+# Global support hooks. Loaded here (not via a per-spec require_relative) so they
+# apply in EVERY parallel test process — e.g. Pito::Copy's deterministic sampler,
+# which otherwise leaves copy rendering random in processes that don't load
+# copy_spec.rb.
+require_relative 'support/copy'
+
 # Allow localhost connections (Rack::Test, ActionCable) but block all external HTTP.
 WebMock.disable_net_connect!(allow_localhost: true)
 
@@ -42,6 +48,9 @@ RSpec.configure do |config|
   # grammar specs that need a clean slate still reset! in their own `before`.
   config.before(:each) do
     Pito::Grammar::Registry.register_all! if defined?(Pito::Grammar::Registry)
+    # Follow-up handlers register lazily; ensure they're loaded so the registry
+    # (used by the suggestions engine for #handle → target actions) is populated.
+    Pito::FollowUp::Registry.register_all! if defined?(Pito::FollowUp::Registry)
   end
 
   # ── ViewComponent specs ───────────────────────────────────────────

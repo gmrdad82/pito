@@ -1,7 +1,8 @@
 <span class="inline-flex items-center">
   <%= render(Pito::Shell::MiniStatus::AuthComponent.new(state: @state)) %>
-  <%# Notifications — only in conversation chrome, never on the start screen. %>
-  <% if @show_notifications && @notifications > 0 && @mode != :start %>
+  <%# Notifications — authenticated users only (the ctrl+/ keybinding is dead
+      for strangers), in conversation chrome, never on the start screen. %>
+  <% if @state && @show_notifications && @notifications > 0 && @mode != :start %>
     <%= render(Pito::Shell::InlineSeparatorComponent.new) %>
     <%= render(Pito::Shell::MiniStatus::NotificationsComponent.new(count: @notifications)) %>
   <% end %>

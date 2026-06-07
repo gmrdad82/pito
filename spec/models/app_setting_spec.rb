@@ -92,4 +92,35 @@ RSpec.describe AppSetting, type: :model do
       expect(AppSetting.get(AppSetting::EXPAND_ALL_KEY)).to eq("false")
     end
   end
+
+  describe ".theme" do
+    it "returns the default slug when no row is stored" do
+      AppSetting.where(key: AppSetting::THEME_KEY).delete_all
+      expect(AppSetting.theme).to eq("tokyo-night")
+    end
+
+    it "returns the stored slug after assignment" do
+      AppSetting.theme = "dracula"
+      expect(AppSetting.theme).to eq("dracula")
+    end
+
+    it "round-trips back to the default after re-assignment" do
+      AppSetting.theme = "dracula"
+      AppSetting.theme = "tokyo-night"
+      expect(AppSetting.theme).to eq("tokyo-night")
+    end
+  end
+
+  describe ".theme=" do
+    it "persists the slug as a string" do
+      AppSetting.theme = "dracula"
+      expect(AppSetting.get(AppSetting::THEME_KEY)).to eq("dracula")
+    end
+
+    it "overwrites a previous value" do
+      AppSetting.theme = "dracula"
+      AppSetting.theme = "tokyo-night"
+      expect(AppSetting.get(AppSetting::THEME_KEY)).to eq("tokyo-night")
+    end
+  end
 end

@@ -13,9 +13,8 @@
 #     `ttb_{main,extras,completionist}_seconds`
 #
 # `map_game` returns ONLY IGDB-sourced columns. Local-only columns
-# (`played_at`, `notes`, `hours_of_footage_manual`) are intentionally
-# absent so a caller can `update!(map_game(...))` without clobbering
-# local edits.
+# are intentionally absent so a caller can `update!(map_game(...))`
+# without clobbering local edits.
 class Game
   module Igdb
     module GameMapper
@@ -40,15 +39,6 @@ class Game
 
         attrs.merge!(map_release_date(json))
 
-        # Phase 28 §01a — IGDB's `version_title` stamps the edition row.
-        # `version_parent_id` is NOT mapped here: the IGDB payload's
-        # `version_parent` field is an IGDB-side game id that needs
-        # local resolution (create-or-update the parent first). See
-        # `Game::Igdb::SyncGame#resolve_version_parent_id`.
-        if json.key?("version_title") && json["version_title"].present?
-          attrs[:version_title] = json["version_title"]
-        end
-
         # 2026-05-19 — IGDB `alternative_names` is an array of
         # `{id, name, comment}` hashes. We persist only the `name`
         # strings (deduplicated, blanks dropped) into the local
@@ -58,6 +48,13 @@ class Game
         # were removed upstream stays in sync.
         if json.key?("alternative_names")
           attrs[:alternative_names] = extract_alternative_names(json["alternative_names"])
+        end
+
+        # IGDB `platforms` is an array of {id, name, slug}; we persist the
+        # display names into the local `platforms` text[] column (shown as
+        # "platforms available" in the game detail message).
+        if json.key?("platforms")
+          attrs[:platforms] = extract_platform_names(json["platforms"])
         end
 
         attrs.merge!(map_time_to_beat(ttb_json))
@@ -70,6 +67,17 @@ class Game
       # is nil / not an array / empty — never nil, so the `null: false`
       # constraint on the column always holds.
       def extract_alternative_names(payload)
+        Array(payload)
+          .select { |row| row.is_a?(Hash) }
+          .map { |row| row["name"].to_s.strip }
+          .reject(&:empty?)
+          .uniq
+      end
+
+      # Pulls non-blank, deduplicated platform `name` strings out of the IGDB
+      # `platforms` payload. Returns `[]` (never nil) so the `null: false`
+      # column constraint always holds.
+      def extract_platform_names(payload)
         Array(payload)
           .select { |row| row.is_a?(Hash) }
           .map { |row| row["name"].to_s.strip }

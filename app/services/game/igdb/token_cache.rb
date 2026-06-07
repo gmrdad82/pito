@@ -48,8 +48,8 @@ class Game
         creds = Igdb.credentials!
         uri = URI(TWITCH_TOKEN_URL)
         uri.query = URI.encode_www_form(
-          client_id: creds.client_id,
-          client_secret: creds.client_secret,
+          client_id: creds[:client_id],
+          client_secret: creds[:client_secret],
           grant_type: "client_credentials"
         )
 

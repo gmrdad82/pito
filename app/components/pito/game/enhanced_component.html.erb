@@ -1,0 +1,64 @@
+<%# Pito::Game::EnhancedComponent — rich recommendations message after Voyage indexing %>
+<div class="pito-game-enhanced-message">
+
+  <%# 1. Intro line %>
+  <p class="pito-game-enhanced-message__intro text-fg"><%= intro %></p>
+
+  <% if channels? %>
+    <%# 2. Spacer + channel section header %>
+    <p class="pito-game-enhanced-message__section-header text-fg-dim"><%= channels_header %></p>
+
+    <%# Channel grid: one column per channel, three stacked rows (handle / title / score bar) %>
+    <div class="pito-game-enhanced-message__channel-grid">
+      <% channel_results.each do |result| %>
+        <div class="pito-game-enhanced-message__channel-col">
+          <div class="pito-game-enhanced-message__channel-handle text-fg-dim">
+            <%= result.channel.at_handle %>
+          </div>
+          <div class="pito-game-enhanced-message__channel-title text-fg">
+            <%= result.channel.title %>
+          </div>
+          <div class="pito-game-enhanced-message__channel-score">
+            <%= render(Pito::ScoreBarComponent.new(score: result.score)) %>
+          </div>
+        </div>
+      <% end %>
+    </div>
+  <% end %>
+
+  <% if similar_games? %>
+    <%# Spacer between sections (only shown when we have something above) %>
+    <% if channels? %>
+      <div class="pito-game-enhanced-message__spacer" aria-hidden="true"></div>
+    <% end %>
+
+    <%# 3. Similar games section header %>
+    <p class="pito-game-enhanced-message__section-header text-fg-dim"><%= similar_games_header %></p>
+
+    <%# Similar games strip: inline wrapping small cover cards %>
+    <div class="pito-game-enhanced-message__similar-games-strip">
+      <% similar_game_results.each do |result| %>
+        <div class="pito-game-enhanced-message__similar-game-card"
+             data-game-id="<%= result.game.id %>">
+          <% url = cover_art_url_for(result.game) %>
+          <% if url %>
+            <%= image_tag url,
+                          alt: result.game.title,
+                          class: "pito-game-enhanced-message__similar-game-cover block" %>
+          <% else %>
+            <div class="pito-game-enhanced-message__similar-game-cover pito-game-enhanced-message__similar-game-cover--placeholder text-fg-faded">
+              ?
+            </div>
+          <% end %>
+          <div class="pito-game-enhanced-message__similar-game-title text-fg">
+            <%= result.game.title %>
+          </div>
+          <div class="pito-game-enhanced-message__similar-game-id text-fg-faded">
+            <%= result.game.id %>
+          </div>
+        </div>
+      <% end %>
+    </div>
+  <% end %>
+
+</div>

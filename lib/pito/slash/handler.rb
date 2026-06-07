@@ -98,10 +98,23 @@ module Pito
           @description_key = value
         end
 
+        # When true, the dispatcher skips the generic positional-arity guard and
+        # lets the handler validate its own argument count (opt-out mechanism).
+        # Set `self.validates_own_arity = true` on handlers whose first positional
+        # arg is polymorphic (e.g. Theme — subcommand OR theme name).
+        def validates_own_arity
+          @validates_own_arity || false
+        end
+
+        def validates_own_arity=(value)
+          @validates_own_arity = value
+        end
+
         def inherited(subclass)
           super
           subclass.instance_variable_set(:@verb, nil)
           subclass.instance_variable_set(:@description_key, nil)
+          subclass.instance_variable_set(:@validates_own_arity, false)
           subclass.reset_grammar_ivars!
         end
       end

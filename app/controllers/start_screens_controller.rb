@@ -10,7 +10,7 @@ class StartScreensController < ApplicationController
     ))
   end
 
-  # Dynamic 404 — renders the start screen with the autocomplete-enabled
+  # Dynamic 404 — renders the start screen with the suggestions-enabled
   # chatbox so unknown URLs never land on the static public/404.html fallback.
   # Delegates to ApplicationController#render_not_found which already handles
   # auth-awareness via the session cookie.

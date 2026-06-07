@@ -3,7 +3,7 @@
 # Namespace for non-calendar notification sources.
 #
 # Each concrete source module (SyncError, YoutubeReauthNeeded,
-# ImportJobCompleted, …) exposes a single `module_function`:
+# …) exposes a single `module_function`:
 #
 #   report!(…domain args…) → Notification
 #

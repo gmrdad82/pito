@@ -32,7 +32,7 @@ class ChatDispatchJob < ApplicationJob
       # /help works unauthenticated (but shows restricted output). Everything else
       # is blocked. text: passes the already-resolved string to ErrorComponent.
       Pito::Chat::Result::Error.new(
-        message_key: I18n.t("pito.auth.mandatories").sample,
+        message_key: Pito::Copy.render("pito.copy.auth.mandatories"),
         message_args: {}
         # NOTE: message_key here is already-translated text — ErrorComponent
         # handles this via the text: fallback path.
@@ -60,7 +60,7 @@ class ChatDispatchJob < ApplicationJob
       turn:,
       kind: :error,
       payload: {
-        text:   I18n.t("pito.errors.dispatch_failed").sample,
+        text:   Pito::Copy.render("pito.copy.errors.dispatch_failed"),
         detail: e.message
       }
     )

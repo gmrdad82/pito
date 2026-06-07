@@ -3,7 +3,7 @@
 // Autosaves the chatbox textarea to the server on every input event (typing OR
 // suggestion-accept — both dispatch `input`), debounced ~800ms.
 //
-// Mounted on #pito-chatbox (the same element as pito--autosuggest) via the
+// Mounted on #pito-chatbox (the same element as pito--suggestions) via the
 // conversation show view only. The start screen and 404 page do NOT include
 // this controller, so they never autosave.
 //

@@ -124,6 +124,14 @@ them. Data-source integrations are claimed by the domain they feed.
 
 ## Hard rules
 
+- **One font size: 16px. Everywhere. No exceptions but the start-screen logo.**
+  The body sets the 16px base and `* { font-size: inherit }` propagates it. Never
+  add a `font-size` declaration in CSS and never use a Tailwind text-size utility
+  (`text-xs`/`text-sm`/`text-lg`/`text-xl`/… — `text-base` is redundant, omit it).
+  No `em`/`rem`/`px` font sizes, no sub-em shrinking for "secondary" text — make
+  it dim (`text-fg-dim`/`text-fg-faded`), not small. The sole exemption is
+  `.pito-start-screen__logo` (18px wordmark). Use weight, color, and spacing for
+  hierarchy — never size.
 - **Read the canonical doc, don't paraphrase it.** When acting on architecture,
   read `docs/architecture.md`. When acting on visual / keybinding work, read
   `docs/design.md`. Never repeat their content in commit messages or PR bodies.
