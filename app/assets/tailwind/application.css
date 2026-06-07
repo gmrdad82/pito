@@ -356,7 +356,7 @@ html {
 /* ── Start screen ───────────────────────────────────────────── */
 
 .pito-start-screen__logo {
-  font-size: 18px;
+  font-size: 18px; /* sole 16px-rule exception: the wordmark logo */
   line-height: 1;
   margin: 0;
   white-space: pre;
@@ -745,7 +745,6 @@ html {
 }
 
 .pito-score-bar__bubble-arrow {
-  font-size: 0.6em;
   line-height: 1;
 }
 
@@ -922,7 +921,6 @@ html {
 }
 
 .pito-ttb__footage-bubble-arrow {
-  font-size: 0.6em;
   line-height: 1;
 }
 
@@ -970,7 +968,6 @@ html {
 
 .pito-ttb__legend-label {
   color: var(--fg-faded);
-  font-size: 0.85em;
 }
 
 /* Per-pillar / footage tick accent colors (data-accent attribute).
@@ -1029,7 +1026,6 @@ html {
 }
 
 .pito-game-enhanced-message__channel-handle {
-  font-size: 0.85em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1055,20 +1051,20 @@ html {
   gap: 0.75rem;
 }
 
-/* Each card: narrow cover + title + id stacked. ~25% the size of the
-   main detail cover (DetailComponent uses 600px; we cap at 150px). */
+/* Each card: narrow cover + title + id stacked. Cover is the 150%-scaled
+   small variant (240x318); the main detail cover (DetailComponent) is 600px. */
 .pito-game-enhanced-message__similar-game-card {
   display: flex;
   flex-direction: column;
   gap: 0.2rem;
-  width: 160px;
+  width: 240px;
   flex: 0 0 auto;
   min-width: 0;
 }
 
 .pito-game-enhanced-message__similar-game-cover {
-  width: 160px;
-  height: 212px;
+  width: 240px;
+  height: 318px;
   object-fit: cover;
   display: block;
 }
@@ -1083,15 +1079,10 @@ html {
 }
 
 .pito-game-enhanced-message__similar-game-title {
-  font-size: 0.75em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  width: 80px;
-}
-
-.pito-game-enhanced-message__similar-game-id {
-  font-size: 0.7em;
+  width: 240px;
 }
 
 /* ── Channel list strip ────────────────────────────────────────
@@ -1100,19 +1091,24 @@ html {
  * rendered by `list channels`.
  */
 
-/* Strip: inline, wrapping — mirrors the similar-games strip. */
+/* Strip: inline, wrapping — mirrors the similar-games strip. The top margin
+ * adds an empty-line gap between the intro copy and the avatar row. */
 .pito-channel-list {
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
+  margin-top: 1rem;
 }
 
-/* Each card: avatar + title + handle/link + id stacked. */
+/* Each card: avatar + title + handle + view + id stacked, centered. Wide enough
+ * for the full @handle on one line; the avatar stays 120px (does not grow). */
 .pito-channel-list__card {
   display: flex;
   flex-direction: column;
+  align-items: center;
+  text-align: center;
   gap: 0.2rem;
-  width: 120px;
+  width: 240px;
   flex: 0 0 auto;
   min-width: 0;
 }
@@ -1134,26 +1130,21 @@ html {
   background: var(--bg-elevated);
 }
 
-/* Title: word-wrapped so multi-word names stack naturally. */
+/* Title: truncated to one line (ellipsis) so it never wraps. */
 .pito-channel-list__title {
-  font-size: 0.75em;
-  word-break: break-word;
-  overflow-wrap: break-word;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Handle + view link on the same line; link follows handle inline. */
 .pito-channel-list__handle {
-  font-size: 0.7em;
   word-break: break-all;
 }
 
 .pito-channel-list__view-link {
-  margin-left: 0.25rem;
-}
-
-/* Channel id: small and dim, no # prefix. */
-.pito-channel-list__id {
-  font-size: 0.65em;
+  display: inline-block;
 }
 
 /* ── Theme system ──────────────────────────────────────────────

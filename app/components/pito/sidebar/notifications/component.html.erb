@@ -9,7 +9,7 @@
       <div class="pito-notification-row py-1 px-2 rounded cursor-pointer"
            data-notification-id="<%= notification.id %>"
            data-read="<%= notification.read? %>">
-        <div class="text-fg-dim text-xs"><%= formatted_timestamp(notification) %></div>
+        <div class="text-fg-dim"><%= formatted_timestamp(notification) %></div>
         <div class="flex items-baseline gap-2">
           <span class="pito-notification-dot shrink-0 <%= notification.unread? ? "text-cyan" : "text-fg-faded" %>"><%= notification.unread? ? "●" : "○" %></span>
           <span class="pito-notification-message <%= notification.unread? ? "text-fg font-bold" : "text-fg-dim" %>"><%= notification.message %></span>

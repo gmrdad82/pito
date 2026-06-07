@@ -21,9 +21,9 @@ RSpec.describe Pito::MessageBuilder::Game::List do
       expect(payload["table_rows"].size).to eq(2)
     end
 
-    it "uses game id as key and title as value" do
+    it "uses the #-prefixed game id as key and title as value" do
       rows = payload["table_rows"]
-      expect(rows.map { |r| r[:key] }).to include(lies.id.to_s, zelda.id.to_s)
+      expect(rows.map { |r| r[:key] }).to include("##{lies.id}", "##{zelda.id}")
       expect(rows.map { |r| r[:value] }).to include("Lies of P", "Tears of the Kingdom")
     end
 

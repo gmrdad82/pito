@@ -21,7 +21,7 @@
   <%# Search input — styled like the conversation-rename input %>
   <input type="text"
          class="w-full bg-transparent outline-none border-b border-line-default
-                text-fg text-sm pb-1 placeholder:text-fg-faded
+                text-fg pb-1 placeholder:text-fg-faded
                 focus:border-accent"
          placeholder="<%= t('pito.sidebar.games_import.search_placeholder') %>"
          autocomplete="off"
@@ -30,13 +30,13 @@
 
   <%# Shimmer indicator — shown while talking to IGDB (search or import). %>
   <%# Rendered via ShimmerTextComponent; reuses .pito-shimmer, no new keyframes. %>
-  <p class="text-sm hidden"
+  <p class="hidden"
      data-pito--games-search-target="shimmer">
     <%= render(Pito::Shell::ShimmerTextComponent.new(text: ". " * 27)) %>
   </p>
 
   <%# Status line (shows witty no-results / error copy) %>
-  <p class="text-fg-dim text-xs hidden"
+  <p class="text-fg-dim hidden"
      data-pito--games-search-target="status"></p>
 
   <%# Results list — populated by the controller OR replaced by step rows on import %>

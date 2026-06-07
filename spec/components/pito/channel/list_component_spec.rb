@@ -66,12 +66,11 @@ RSpec.describe Pito::Channel::ListComponent do
   end
 
   describe "channel id" do
-    it "renders the plain channel id (no # prefix)" do
+    it "renders the #-prefixed channel id" do
       channel = build_channel(id: 42)
       node = render_inline(described_class.new(channels: [ channel ]))
       id_element = node.css(".pito-channel-list__id").first
-      expect(id_element.text.strip).to eq("42")
-      expect(id_element.text).not_to include("#")
+      expect(id_element.text.strip).to eq("#42")
     end
   end
 

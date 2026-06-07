@@ -18,18 +18,22 @@
         <%= channel.title.to_s %>
       </div>
 
-      <%# Handle + view link %>
-      <div class="pito-channel-list__handle text-fg-dim">
+      <%# Handle %>
+      <div class="pito-channel-list__handle text-cyan">
         <%= channel.at_handle %>
+      </div>
+
+      <%# View link on its own line %>
+      <div class="pito-channel-list__view">
         <a href="<%= youtube_url_for(channel) %>"
            target="_blank"
            rel="noopener"
-           class="pito-channel-list__view-link text-cyan">[view]</a>
+           class="pito-channel-list__view-link text-yellow">[view]</a>
       </div>
 
-      <%# Channel id (plain number, no #) %>
+      <%# Channel id (# prefix) %>
       <div class="pito-channel-list__id text-fg-faded">
-        <%= channel.id %>
+        #<%= channel.id %>
       </div>
     </div>
   <% end %>

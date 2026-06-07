@@ -34,13 +34,12 @@ RSpec.describe Pito::Sidebar::Games::Component do
       expect(node.to_html).to include("Celeste")
     end
 
-    it "renders the bare game id (no #) right-aligned" do
+    it "renders the #-prefixed game id right-aligned" do
       node = render_inline(
         described_class.new(games: [ lies_of_p ], mode: :show)
       )
       id_cell = node.css("span.tabular-nums.text-right").first
-      expect(id_cell.text.strip).to eq("1")
-      expect(id_cell.text).not_to include("#")
+      expect(id_cell.text.strip).to eq("##{lies_of_p.id}")
     end
   end
 

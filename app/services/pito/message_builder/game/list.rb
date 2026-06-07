@@ -18,7 +18,7 @@ module Pito
           payload = {
             "body"       => Pito::Copy.render("pito.copy.games.list_intro", { count: games.size }),
             "table_rows" => games.map { |game|
-              { key: game.id.to_s, value: game.title, key_class: "text-cyan tabular-nums text-right" }
+              { key: "##{game.id}", value: game.title, key_class: "text-cyan tabular-nums text-right" }
             }
           }
           Pito::FollowUp.make_followupable!(payload, target: "game_list", conversation: conversation)
