@@ -139,20 +139,36 @@ RSpec.describe Pito::TimeToBeatComponent do
       expect(hours).to eq([ 0, 10, 40, 100 ])
     end
 
-    it "uses the exact hex colors from commit 991f86fb" do
+    it "sources every stop from theme accent vars (no literal hex)" do
       colors = described_class::HEAT_THRESHOLDS.map(&:last)
-      expect(colors).to eq(%w[#4CAF50 #CDDC39 #FFB74D #E91E63])
+      colors.each do |c|
+        expect(c).to include("var(--accent-")
+        expect(c).not_to match(/#[0-9a-fA-F]{3,8}\b/)
+      end
+    end
+
+    it "maps low/some/commitment/insanity to the documented accent expression" do
+      colors = described_class::HEAT_THRESHOLDS.map(&:last)
+      expect(colors[0]).to eq("var(--accent-green)")                                                # low — green
+      expect(colors[1]).to eq("color-mix(in oklch, var(--accent-green), var(--accent-yellow))")     # some — lime
+      expect(colors[2]).to eq("color-mix(in oklch, var(--accent-orange) 60%, var(--accent-yellow))") # commitment — amber
+      expect(colors[3]).to eq("color-mix(in oklch, var(--accent-red), var(--accent-purple))")        # insanity — pink
     end
   end
 
   describe "#gradient_stops" do
-    it "returns a CSS stop string" do
+    it "returns a CSS stop string sourced from theme accents" do
       comp = described_class.new(game: game)
       stops = comp.gradient_stops
-      expect(stops).to include("#4CAF50")   # green — low
-      expect(stops).to include("#CDDC39")   # lime  — some
-      expect(stops).to include("#FFB74D")   # amber — commitment
-      expect(stops).to include("#E91E63")   # pink  — insanity
+      expect(stops).to include("var(--accent-green)")                                          # green — low
+      expect(stops).to include("color-mix(in oklch, var(--accent-green), var(--accent-yellow))") # lime  — some
+      expect(stops).to include("var(--accent-orange)")                                         # amber — commitment
+      expect(stops).to include("var(--accent-purple)")                                         # pink  — insanity
+    end
+
+    it "contains no literal hex colors" do
+      comp = described_class.new(game: game)
+      expect(comp.gradient_stops).not_to match(/#[0-9a-fA-F]{3,8}\b/)
     end
 
     it "ends with 100% so the bar extends fully" do
@@ -165,7 +181,7 @@ RSpec.describe Pito::TimeToBeatComponent do
       tiny = described_class.new(hours: { main: 5, extras: 8, completionist: 10 }, footage_hours: 0)
       stops = tiny.gradient_stops
       # The first stop (0h → green) should be at 0% (any precision)
-      expect(stops).to match(/\A#4CAF50 0(\.0+)?%/)
+      expect(stops).to match(/\Avar\(--accent-green\) 0(\.0+)?%/)
     end
 
     it "projects large max_x (Crimson-Desert scale) so pink dominates" do
@@ -175,9 +191,11 @@ RSpec.describe Pito::TimeToBeatComponent do
         footage_hours: 0
       )
       stops = crimson.gradient_stops
-      # The 100h pink stop should project to well below 20%
-      pct_str = stops.split(", ").last(2).first  # second-to-last stop is the 100h pink
-      pct = pct_str.scan(/[\d.]+%/).last&.to_f
+      # The 100h pink stop is the red→purple mix; grab the percentage that
+      # immediately follows it (color-mix expressions contain commas, so we
+      # can't naively split on ", ").
+      pink = "color-mix(in oklch, var(--accent-red), var(--accent-purple))"
+      pct = stops[/#{Regexp.escape(pink)} ([\d.]+)%/, 1]&.to_f
       expect(pct).to be < 20.0
     end
   end
@@ -189,12 +207,12 @@ RSpec.describe Pito::TimeToBeatComponent do
       expect(html).to include("pito-ttb__fill")
     end
 
-    it "renders the bar with an inline adaptive gradient" do
+    it "renders the bar with an inline adaptive gradient sourced from theme accents" do
       comp = described_class.new(game: game)
       html = render_inline(comp).to_html
       expect(html).to include("linear-gradient(to right")
-      expect(html).to include("#4CAF50")
-      expect(html).to include("#E91E63")
+      expect(html).to include("var(--accent-green)")  # low end
+      expect(html).to include("var(--accent-purple)") # insanity end (red→purple mix)
     end
 
     it "renders four ticks (3 pillars + footage)" do

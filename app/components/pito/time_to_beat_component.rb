@@ -26,13 +26,23 @@ module Pito
     #   - large max_x (e.g. ~775h) → 100h projects to ~13%, so green/lime/
     #     orange compress into the left ~13% and pink dominates.
     #
-    # Pink (#E91E63) stays distinct from destructive red — this is an
-    # "effort intensity" signal. Recovered verbatim from commit 991f86fb.
+    # THEME-AWARE: each color is expressed against the active theme's accent
+    # palette (--accent-* in themes.css) rather than literal hex, so the bar
+    # adapts to all 18 themes. The mapping (effort tier → CSS color):
+    #
+    #   low         0h   → var(--accent-green)
+    #   some        10h  → mix(green, yellow)        — lime
+    #   commitment  40h  → mix(orange 60%, yellow)   — amber
+    #   insanity    100h → mix(red, purple)          — magenta/pink
+    #
+    # color-mix uses oklch for smooth, non-muddy blends. The pink "insanity"
+    # end stays distinct from destructive red — it is an "effort intensity"
+    # signal, not an error. Mirrors the `.pito-ttb__fill` CSS ramp.
     HEAT_THRESHOLDS = [
-      [ 0,   "#4CAF50" ],   # low         — green
-      [ 10,  "#CDDC39" ],   # some        — lime
-      [ 40,  "#FFB74D" ],   # commitment  — amber
-      [ 100, "#E91E63" ]    # insanity    — pink
+      [ 0,   "var(--accent-green)" ],                                                # low        — green
+      [ 10,  "color-mix(in oklch, var(--accent-green), var(--accent-yellow))" ],     # some       — lime
+      [ 40,  "color-mix(in oklch, var(--accent-orange) 60%, var(--accent-yellow))" ], # commitment — amber
+      [ 100, "color-mix(in oklch, var(--accent-red), var(--accent-purple))" ]        # insanity   — pink
     ].freeze
 
     # Bottom-label collision model.
@@ -213,7 +223,8 @@ module Pito
     # threshold's percentage is clamped to 100% so over-projecting stops
     # don't break the CSS gradient syntax. A trailing stop at 100% is
     # appended whenever the last threshold projects below 100% so the bar
-    # extends fully to its right edge. Recovered from commit 991f86fb.
+    # extends fully to its right edge. Colors are theme accent var()/
+    # color-mix() expressions (see HEAT_THRESHOLDS) — no literal hex.
     def gradient_stops
       stops = HEAT_THRESHOLDS.map do |hours_threshold, color|
         pct = [ (hours_threshold.to_f / max_x * 100).round(2), 100 ].min

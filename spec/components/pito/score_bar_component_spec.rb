@@ -109,6 +109,45 @@ RSpec.describe Pito::ScoreBarComponent do
       expect(html).to include("pito-score-bar__fill")
     end
 
+    # The heat gradient lives in `.pito-score-bar__fill` CSS (application.css),
+    # not inline on the element, so the rendered HTML only carries the class.
+    # The theme-var sourcing of the gradient stops is asserted against the
+    # stylesheet directly below.
+  end
+
+  describe "heat gradient (application.css) — theme-aware stops" do
+    let(:css) do
+      Rails.root.join("app/assets/tailwind/application.css").read
+    end
+
+    let(:fill_rule) do
+      # Isolate the `.pito-score-bar__fill { … }` declaration block.
+      css[/\.pito-score-bar__fill\s*\{.*?\}/m]
+    end
+
+    it "sources stops from theme accent vars" do
+      %w[--accent-red --accent-orange --accent-yellow --accent-green].each do |token|
+        expect(fill_rule).to include("var(#{token})")
+      end
+    end
+
+    it "uses color-mix(in oklch) for the intermediate hues the palette lacks" do
+      expect(fill_rule).to include("color-mix(in oklch")
+      # very-bad (dim red, repeated at 0% + 25% hard-edge zone), poor
+      # (red→orange), good (yellow→green) = 4 color-mix occurrences.
+      expect(fill_rule.scan("color-mix(in oklch").size).to eq(4)
+    end
+
+    it "keeps the revive tier breakpoints (25/50/65/75/85/90%)" do
+      %w[25% 50% 65% 75% 85% 90% 100%].each do |pct|
+        expect(fill_rule).to include(pct)
+      end
+    end
+
+    it "contains no literal hex colors in the gradient" do
+      expect(fill_rule).not_to match(/#[0-9a-fA-F]{3,8}\b/)
+    end
+
     it "renders the tick and bubble when score is present" do
       comp = described_class.new(score: 75)
       html = render_inline(comp).to_html

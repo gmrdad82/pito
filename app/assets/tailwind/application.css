@@ -606,19 +606,29 @@ html {
  * red→green gradient via background-clip:text, plus an absolute-
  * positioned `|` tick + floating score bubble when `overlay?` is true.
  *
- * Gradient stops recovered verbatim from commits f8013975 + d7c26094
- * (Dracula-theme dark-mode palette, locked 2026-05-17):
+ * THEME-AWARE heat map. Every stop is derived from the active theme's
+ * 7-accent palette (--accent-* in themes.css), so the bar reads well on
+ * all 18 themes (dark + light) instead of being locked to Dracula hex.
+ * Dracula remains the *visual reference* for INTENT (red→green "heat"),
+ * but no literal hex appears in the gradient anymore.
  *
- *   very-bad  #7a2020  0%–25%   (dark muddy red, solid zone)
- *   bad       #ff5555  25%–50%  (clear red, solid zone)
- *   poor      #c08454  50%      (transition starts)
- *   meh       #ffb86c  65%
- *   fair      #f1fa8c  75%
- *   good      #a8e063  85%
- *   excellent #50fa7b  90%–100% (solid zone)
+ * Mapping (tier → stop color), keeping the revive's % breakpoints:
  *
- * The hard edges at 25%, 50%, and 90% are zero-distance stops (same
- * percentage repeated) so those zones read as solid blocks.
+ *   very-bad  0%–25%   = mix(red 60%, fg-faded)   — dim/muddy red
+ *   bad       25%–50%  = --accent-red             — clear red
+ *   poor      50%      = mix(red 50%, orange)     — red→orange blend
+ *   meh       65%      = --accent-orange
+ *   fair      75%      = --accent-yellow
+ *   good      85%      = mix(yellow 45%, green)   — yellow→green blend
+ *   excellent 90%–100% = --accent-green
+ *
+ * Intermediate hues the 7-accent palette lacks (the muddy very-bad red and
+ * the poor / good blends) are produced with color-mix(in oklch, …) for
+ * perceptually smooth, theme-adaptive transitions. The hard edges at 25%,
+ * 50%, and 90% are zero-distance stops (same percentage repeated) so those
+ * zones read as solid blocks. On Dracula these resolve to the original
+ * #ff5555 … #50fa7b look; on light themes (catppuccin-latte, github-light)
+ * each theme's own legible accents drive the colors instead.
  */
 
 /* Outer wrapper — inline so it flows inside message text. */
@@ -640,22 +650,23 @@ html {
 /* The `=` glyph run carries the multi-stop gradient via background-clip:text.
    Solid-zone hard edges at 0–25% (very-bad), 25–50% (bad), 90–100%
    (excellent); smooth ramp through poor→meh→fair→good in between.
-   Literal hex — identical look across all themes. */
+   Every stop is a theme accent or a color-mix of two accents (see block
+   comment above), so the bar adapts to all 18 themes. */
 .pito-score-bar__fill {
   flex: 1 1 auto;
   overflow: hidden;
   background-image: linear-gradient(
     to right,
-    #7a2020    0%,    /* dark very-bad — hard left edge */
-    #7a2020   25%,    /* solid very-bad zone */
-    #ff5555   25%,    /* hard edge → bad */
-    #ff5555   50%,    /* solid bad zone */
-    #c08454   50%,    /* hard edge → transition starts */
-    #ffb86c   65%,    /* meh */
-    #f1fa8c   75%,    /* fair */
-    #a8e063   85%,    /* good */
-    #50fa7b   90%,    /* excellent */
-    #50fa7b  100%     /* solid excellent zone */
+    color-mix(in oklch, var(--accent-red) 60%, var(--fg-faded))    0%,   /* dark very-bad — hard left edge */
+    color-mix(in oklch, var(--accent-red) 60%, var(--fg-faded))   25%,   /* solid very-bad zone */
+    var(--accent-red)   25%,                                             /* hard edge → bad */
+    var(--accent-red)   50%,                                             /* solid bad zone */
+    color-mix(in oklch, var(--accent-red), var(--accent-orange))   50%,  /* hard edge → poor (red→orange) */
+    var(--accent-orange)   65%,                                          /* meh */
+    var(--accent-yellow)   75%,                                          /* fair */
+    color-mix(in oklch, var(--accent-yellow) 45%, var(--accent-green))   85%,  /* good (yellow→green) */
+    var(--accent-green)   90%,                                           /* excellent */
+    var(--accent-green)  100%                                            /* solid excellent zone */
   );
   -webkit-background-clip: text;
   background-clip: text;
@@ -707,22 +718,36 @@ html {
  * Fuel-gauge bar: brackets [ ] + a continuous `=` run + four absolute
  * ticks (main / extras / completionist / footage).
  *
+ * THEME-AWARE effort ramp. Both gradient layers derive every stop from
+ * the active theme's 7-accent palette (--accent-* in themes.css), so the
+ * gauge reads well on all 18 themes. Dracula is the *visual reference* for
+ * INTENT (green→amber→pink "effort ramp"); no literal hex is used.
+ *
+ * Mapping (effort tier → stop color):
+ *
+ *   low         0h   = --accent-green
+ *   some        10h  = mix(green, yellow)            — lime
+ *   commitment  40h  = mix(orange 60%, yellow)       — amber
+ *   insanity    100h = mix(red, purple)              — magenta/pink
+ *
+ * There is no --accent-pink in the palette, so the magenta/pink "insanity"
+ * end is synthesized as color-mix(in oklch, --accent-red, --accent-purple);
+ * the lime + amber mids are likewise color-mixed (in oklch for smooth,
+ * non-muddy blends). On Dracula this resolves close to the original
+ * green→pink look; on light themes (catppuccin-latte, github-light) each
+ * theme's own accents drive the ramp instead.
+ *
  * TWO gradient layers:
  *
  * 1. Bar background — adaptive per-game, inlined as
  *    `style="background-image: linear-gradient(to right, ...)"` by
- *    `Pito::TimeToBeatComponent#gradient_stops`. HEAT_THRESHOLDS:
- *      #4CAF50  0h   — low (green)
- *      #CDDC39  10h  — some (lime)
- *      #FFB74D  40h  — commitment (amber)
- *      #E91E63  100h — insanity (pink)
- *    Each hour value is projected onto `max_x` so small games stay
- *    green and long games shift pink. Recovered from commit 991f86fb.
+ *    `Pito::TimeToBeatComponent#gradient_stops`. HEAT_THRESHOLDS uses the
+ *    var()/color-mix() stops above, each projected onto `max_x` so small
+ *    games stay green and long games shift pink.
  *
- * 2. Fill text (`=` glyphs) — static cool-spectrum ramp painted via
- *    background-clip:text. Same 4-color sequence, no percentages, so
- *    the glyph gradient always spans the full bar width regardless of
- *    game length. Recovered from commit f8013975 (ttb-fuel-gauge__fill).
+ * 2. Fill text (`=` glyphs) — static effort-ramp painted via
+ *    background-clip:text. Same 4-color sequence, no percentages, so the
+ *    glyph gradient always spans the full bar width regardless of length.
  */
 
 .pito-ttb {
@@ -757,19 +782,20 @@ html {
   flex: 0 0 auto;
 }
 
-/* The `=` glyphs carry a static cool-spectrum gradient via
-   background-clip:text — green→lime→amber→pink — so the text
-   always reads the full ramp regardless of max_x. */
+/* The `=` glyphs carry a static effort-ramp gradient via
+   background-clip:text — green→lime→amber→pink — so the text always reads
+   the full ramp regardless of max_x. Theme-aware: every stop is an accent
+   var or a color-mix of two accents (see block comment above). */
 .pito-ttb__fill {
   flex: 1 1 auto;
   overflow: hidden;
   white-space: nowrap;
   background-image: linear-gradient(
     to right,
-    #4CAF50,   /* low         — green  */
-    #CDDC39,   /* some        — lime   */
-    #FFB74D,   /* commitment  — amber  */
-    #E91E63    /* insanity    — pink   */
+    var(--accent-green),                                                   /* low        — green */
+    color-mix(in oklch, var(--accent-green), var(--accent-yellow)),        /* some       — lime  */
+    color-mix(in oklch, var(--accent-orange) 60%, var(--accent-yellow)),   /* commitment — amber */
+    color-mix(in oklch, var(--accent-red), var(--accent-purple))           /* insanity   — pink  */
   );
   -webkit-background-clip: text;
   background-clip: text;
@@ -868,10 +894,13 @@ html {
   font-size: 0.85em;
 }
 
-/* Per-pillar / footage tick accent colors (data-accent attribute). */
-[data-accent="main"]          { color: #4CAF50; }
-[data-accent="extras"]        { color: #CDDC39; }
-[data-accent="completionist"] { color: #E91E63; }
+/* Per-pillar / footage tick accent colors (data-accent attribute).
+   Theme-aware, matching the effort-ramp stops above:
+   main = green (low), extras = lime (mix green→yellow),
+   completionist = pink (mix red→purple). */
+[data-accent="main"]          { color: var(--accent-green); }
+[data-accent="extras"]        { color: color-mix(in oklch, var(--accent-green), var(--accent-yellow)); }
+[data-accent="completionist"] { color: color-mix(in oklch, var(--accent-red), var(--accent-purple)); }
 [data-accent="footage"]       { color: var(--fg-default); }
 
 /* ── Theme system ──────────────────────────────────────────────
