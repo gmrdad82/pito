@@ -70,19 +70,23 @@ RSpec.describe GameImportJob, type: :job do
 
   # ── T16.8: step broadcasts go to SIDEBAR (broadcast_import_step), NOT chat ──
 
-  it "calls broadcast_import_step 10 times (pending+done for each of the 5 steps)" do
+  it "calls broadcast_import_step 9 times (pending+done for 1/3/4/5; done-only for 2)" do
     perform
-    expect(sidebar_steps.length).to eq(10)
+    expect(sidebar_steps.length).to eq(9)
   end
 
-  it "broadcasts a pending then done for each step 1–5" do
+  it "broadcasts pending then done for steps 1,3,4,5; done-only for step 2" do
     perform
-    (1..5).each do |step|
+    [ 1, 3, 4, 5 ].each do |step|
       pending_calls = sidebar_steps.select { |s| s[:step] == step && s[:done] == false }
       done_calls    = sidebar_steps.select { |s| s[:step] == step && s[:done] == true }
       expect(pending_calls.count).to eq(1), "expected 1 pending for step #{step}"
       expect(done_calls.count).to eq(1),    "expected 1 done for step #{step}"
     end
+    # Step 2 (cover, already fetched in step 1) is done-only — no pending, which
+    # raced over the cable and left the shimmer stuck.
+    expect(sidebar_steps.select { |s| s[:step] == 2 && s[:done] == false }).to be_empty
+    expect(sidebar_steps.select { |s| s[:step] == 2 && s[:done] == true }.count).to eq(1)
   end
 
   it "does NOT create step events in the conversation (steps stay in sidebar)" do

@@ -78,8 +78,9 @@ class GameImportJob < ApplicationJob
 
     broadcast_step_done(broadcaster, step: 1)
 
-    # Step 2 — Cover art (already fetched by SyncGame above; just report it).
-    broadcast_step_pending(broadcaster, step: 2)
+    # Step 2 — Cover art (already fetched by SyncGame above). The client already
+    # pre-renders this row as a shimmer, so we ONLY broadcast `done` — emitting a
+    # back-to-back pending+done raced over the cable and left the shimmer stuck.
     broadcast_step_done(broadcaster, step: 2)
 
     # Step 3 — Score
