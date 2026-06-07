@@ -40,7 +40,7 @@ RSpec.describe Pito::Chat::Handlers::Delete do
 
   it "returns a witty not-found for an unknown reference" do
     result = handler_for("game", "nope").call
-    expect(result.events.first[:payload][:text]).to include("nope")
+    expect(result.events.first[:payload]["text"]).to include("nope")
   end
 
   it "returns a usage hint when no reference is given" do

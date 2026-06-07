@@ -28,7 +28,7 @@ RSpec.describe Pito::FollowUp::Handlers::GameList do
 
   it "appends a witty not-found for an unknown reference" do
     result = handler.call(event: nil, rest: "show 9999", conversation: conversation)
-    expect(result.events.first[:payload][:text]).to include("9999")
+    expect(result.events.first[:payload]["text"]).to include("9999")
   end
 
   it "errors on an invalid action" do

@@ -40,8 +40,9 @@ module Pito
 
           VideoGameLink.find_or_create_by!(video: video, game: game)
 
-          text = Pito::Copy.render("pito.copy.games.linked", { game: game.title, video: video.title })
-          Pito::Chat::Result::Ok.new(events: [ { kind: :system, payload: { text: text } } ])
+          Pito::Chat::Result::Ok.new(events: [
+            { kind: :system, payload: Pito::MessageBuilder::Text.call("pito.copy.games.linked", game: game.title, video: video.title) }
+          ])
         end
 
         private
@@ -95,13 +96,13 @@ module Pito
 
         def not_found_game(ref)
           Pito::Chat::Result::Ok.new(events: [
-            { kind: :system, payload: { text: Pito::Copy.render("pito.copy.games.not_found", { ref: ref }) } }
+            { kind: :system, payload: Pito::MessageBuilder::Text.call("pito.copy.games.not_found", ref: ref) }
           ])
         end
 
         def not_found_video(ref)
           Pito::Chat::Result::Ok.new(events: [
-            { kind: :system, payload: { text: Pito::Copy.render("pito.copy.videos.not_found", { ref: ref }) } }
+            { kind: :system, payload: Pito::MessageBuilder::Text.call("pito.copy.videos.not_found", ref: ref) }
           ])
         end
 

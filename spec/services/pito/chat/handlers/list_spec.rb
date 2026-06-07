@@ -46,7 +46,7 @@ RSpec.describe Pito::Chat::Handlers::List do
       result = handler.call
       expect(result).to be_a(Pito::Chat::Result::Ok)
       payload = result.events.first[:payload]
-      expect(payload[:text]).to be_present
+      expect(payload["text"]).to be_present
       expect(payload[:table_rows]).to be_nil
     end
   end
@@ -135,7 +135,7 @@ RSpec.describe Pito::Chat::Handlers::List do
     it "returns a witty empty-state when no channels are connected" do
       Channel.delete_all
       payload = handler_for("list channels").call.events.first[:payload]
-      expect(payload[:text]).to be_present
+      expect(payload["text"]).to be_present
       expect(payload[:table_rows]).to be_nil
     end
   end

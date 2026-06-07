@@ -57,7 +57,7 @@ module Pito
 
         def not_found(ref)
           Pito::Chat::Result::Ok.new(events: [
-            { kind: :system, payload: { text: Pito::Copy.render("pito.copy.games.not_found", { ref: ref }) } }
+            { kind: :system, payload: Pito::MessageBuilder::Text.call("pito.copy.games.not_found", ref: ref) }
           ])
         end
       end

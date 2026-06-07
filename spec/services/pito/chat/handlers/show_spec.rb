@@ -54,7 +54,7 @@ RSpec.describe Pito::Chat::Handlers::Show do
   it "returns a witty not-found for an unknown reference" do
     result = handler_for("game", "nonexistent").call
     expect(result).to be_a(Pito::Chat::Result::Ok)
-    expect(result.events.first[:payload][:text]).to include("nonexistent")
+    expect(result.events.first[:payload]["text"]).to include("nonexistent")
   end
 
   it "returns a usage hint when no reference is given" do
@@ -78,7 +78,7 @@ RSpec.describe Pito::Chat::Handlers::Show do
 
     it "returns a not-found result for a ref that matches neither game" do
       result = handler_for("lies", "of", "z").call
-      text = result.events.first[:payload][:text]
+      text = result.events.first[:payload]["text"]
       expect(text).to be_present
     end
   end

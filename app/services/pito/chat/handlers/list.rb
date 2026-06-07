@@ -47,7 +47,7 @@ module Pito
           channels = ::Channel.order(:title)
           if channels.empty?
             return Pito::Chat::Result::Ok.new(events: [
-              { kind: :system, payload: { text: Pito::Copy.render("pito.copy.channels.list_empty") } }
+              { kind: :system, payload: Pito::MessageBuilder::Text.call("pito.copy.channels.list_empty") }
             ])
           end
 
@@ -58,7 +58,7 @@ module Pito
 
         def games_empty
           Pito::Chat::Result::Ok.new(events: [
-            { kind: :system, payload: { text: Pito::Copy.render("pito.copy.games.list_empty") } }
+            { kind: :system, payload: Pito::MessageBuilder::Text.call("pito.copy.games.list_empty") }
           ])
         end
       end

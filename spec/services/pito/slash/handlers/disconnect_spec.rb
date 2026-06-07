@@ -20,7 +20,7 @@ RSpec.describe Pito::Slash::Handlers::Disconnect, type: :service do
       result = build_handler(raw: "/disconnect").call
       expect(result).to be_a(Pito::Slash::Result::Ok)
       expect(result.events.first[:kind]).to eq("error")
-      expect(result.events.first[:payload][:text]).to include("Usage")
+      expect(result.events.first[:payload]["text"]).to include("Usage")
     end
   end
 
@@ -28,7 +28,7 @@ RSpec.describe Pito::Slash::Handlers::Disconnect, type: :service do
     it "returns an error event" do
       result = build_handler(raw: "/disconnect @nobody").call
       expect(result.events.first[:kind]).to eq("error")
-      expect(result.events.first[:payload][:text]).to include("@nobody")
+      expect(result.events.first[:payload]["text"]).to include("@nobody")
     end
   end
 
@@ -36,7 +36,7 @@ RSpec.describe Pito::Slash::Handlers::Disconnect, type: :service do
     it "returns an error event" do
       result = build_handler(raw: "/disconnect 99999").call
       expect(result.events.first[:kind]).to eq("error")
-      expect(result.events.first[:payload][:text]).to include("99999")
+      expect(result.events.first[:payload]["text"]).to include("99999")
     end
   end
 

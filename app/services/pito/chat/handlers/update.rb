@@ -69,7 +69,7 @@ module Pito
           display = tokens.map { |t| I18n.t("pito.game.detail.platform_label.#{t}") }.join(", ")
           text    = Pito::Copy.render("pito.copy.games.ownership_set", { title: game.title, platforms: display })
 
-          Pito::Chat::Result::Ok.new(events: [ { kind: :system, payload: { text: text } } ])
+          Pito::Chat::Result::Ok.new(events: [ { kind: :system, payload: Pito::MessageBuilder::Text.call(text) } ])
         end
 
         private
@@ -109,7 +109,7 @@ module Pito
 
         def not_found(ref)
           Pito::Chat::Result::Ok.new(events: [
-            { kind: :system, payload: { text: Pito::Copy.render("pito.copy.games.not_found", { ref: ref }) } }
+            { kind: :system, payload: Pito::MessageBuilder::Text.call("pito.copy.games.not_found", ref: ref) }
           ])
         end
       end

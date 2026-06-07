@@ -51,7 +51,7 @@ RSpec.describe Pito::Chat::Handlers::Link do
   it "returns Ok with a witty success message" do
     result = handler_for("game", game.id.to_s, "to", "video", video.id.to_s).call
     expect(result).to be_a(Pito::Chat::Result::Ok)
-    text = result.events.first[:payload][:text]
+    text = result.events.first[:payload]["text"]
     expect(text).to include("Lies of P")
     expect(text).to include("Lies of P Review")
   end
@@ -66,13 +66,13 @@ RSpec.describe Pito::Chat::Handlers::Link do
   it "returns a not-found result for an unknown game" do
     result = handler_for("game", "99999", "to", "video", video.id.to_s).call
     expect(result).to be_a(Pito::Chat::Result::Ok)
-    expect(result.events.first[:payload][:text]).to include("99999")
+    expect(result.events.first[:payload]["text"]).to include("99999")
   end
 
   it "returns a not-found result for an unknown video" do
     result = handler_for("game", game.id.to_s, "to", "video", "99999").call
     expect(result).to be_a(Pito::Chat::Result::Ok)
-    expect(result.events.first[:payload][:text]).to include("99999")
+    expect(result.events.first[:payload]["text"]).to include("99999")
   end
 
   it "returns a usage hint when no 'to' separator is given" do

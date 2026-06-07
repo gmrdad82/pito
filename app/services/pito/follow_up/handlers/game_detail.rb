@@ -176,7 +176,7 @@ module Pito
               events: [
                 {
                   kind:    "system",
-                  payload: { text: Pito::Copy.render("pito.copy.videos.not_found", { ref: ref }) }
+                  payload: Pito::MessageBuilder::Text.call("pito.copy.videos.not_found", ref: ref)
                 }
               ]
             )
@@ -186,7 +186,7 @@ module Pito
 
           text = Pito::Copy.render("pito.copy.games.linked", { game: game.title, video: video.title })
           Pito::FollowUp::Result::Append.new(
-            events: [ { kind: "system", payload: { text: text } } ]
+            events: [ { kind: "system", payload: Pito::MessageBuilder::Text.call(text) } ]
           )
         end
 

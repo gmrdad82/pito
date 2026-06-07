@@ -63,7 +63,7 @@ module Pito
           Pito::Slash::Result::Ok.new(events: [
             {
               kind:    "error",
-              payload: { text: Pito::Copy.render("pito.copy.disconnect.missing_target") }
+              payload: Pito::MessageBuilder::Text.call("pito.copy.disconnect.missing_target")
             }
           ])
         end
@@ -72,7 +72,7 @@ module Pito
           Pito::Slash::Result::Ok.new(events: [
             {
               kind:    "error",
-              payload: { text: Pito::Copy.render("pito.copy.disconnect.not_found", { target: target }) }
+              payload: Pito::MessageBuilder::Text.call("pito.copy.disconnect.not_found", target: target)
             }
           ])
         end

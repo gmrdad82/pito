@@ -93,7 +93,7 @@ RSpec.describe Pito::Chat::Handlers::Update do
   it "returns a witty not-found for an unknown game id" do
     result = handler_for("game", "ownership", "99999", "ps").call
     expect(result).to be_a(Pito::Chat::Result::Ok)
-    expect(result.events.first[:payload][:text]).to include("99999")
+    expect(result.events.first[:payload]["text"]).to include("99999")
   end
 
   it "returns needs_id when the first token is not a numeric id" do
@@ -116,7 +116,7 @@ RSpec.describe Pito::Chat::Handlers::Update do
 
   it "emits a system message containing the game title and platforms" do
     result = handler_for("game", "ownership", game.id.to_s, "ps").call
-    text = result.events.first[:payload][:text]
+    text = result.events.first[:payload]["text"]
     expect(text).to include("Lies of P")
     expect(text).to include("PlayStation")
   end

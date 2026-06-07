@@ -222,7 +222,7 @@ RSpec.describe Pito::FollowUp::Handlers::GameDetail, type: :service do
       end
 
       it "appends a witty ack text" do
-        text = result.events.first[:payload][:text]
+        text = result.events.first[:payload]["text"]
         expect(text).to be_present
       end
     end
@@ -239,7 +239,7 @@ RSpec.describe Pito::FollowUp::Handlers::GameDetail, type: :service do
       it "returns a not-found append with witty text" do
         result = handler.call(event: source_event, rest: "link to video 99999", conversation:)
         expect(result).to be_a(Pito::FollowUp::Result::Append)
-        text = result.events.first[:payload][:text]
+        text = result.events.first[:payload]["text"]
         expect(text).to be_present
       end
     end

@@ -41,7 +41,7 @@ module Pito
             text = "#{game.title} and #{video.title} are already not linked."
           end
 
-          Pito::Chat::Result::Ok.new(events: [ { kind: :system, payload: { text: text } } ])
+          Pito::Chat::Result::Ok.new(events: [ { kind: :system, payload: Pito::MessageBuilder::Text.call(text) } ])
         end
 
         private
@@ -93,13 +93,13 @@ module Pito
 
         def not_found_game(ref)
           Pito::Chat::Result::Ok.new(events: [
-            { kind: :system, payload: { text: Pito::Copy.render("pito.copy.games.not_found", { ref: ref }) } }
+            { kind: :system, payload: Pito::MessageBuilder::Text.call("pito.copy.games.not_found", ref: ref) }
           ])
         end
 
         def not_found_video(ref)
           Pito::Chat::Result::Ok.new(events: [
-            { kind: :system, payload: { text: Pito::Copy.render("pito.copy.videos.not_found", { ref: ref }) } }
+            { kind: :system, payload: Pito::MessageBuilder::Text.call("pito.copy.videos.not_found", ref: ref) }
           ])
         end
 

@@ -91,11 +91,11 @@ a pure function of the builder. The two never mix.
 - [x] T5.5 Commit: `Extract Game::EnhancedSegments mutation builder`. complexity: [manual]
 
 ## P6 — Text / Error message helpers + sweep remaining inline payloads
-- [ ] T6.1 Add `Pito::MessageBuilder::Text.call(key_or_text, **args)` → `{ "text" => resolved }`. complexity: [low]
-- [ ] T6.2 Add `Pito::MessageBuilder::Error.call(message_key:, message_args: {})` → error payload. complexity: [low]
-- [ ] T6.3 Replace inline `{ text: Pito::Copy.render(...) }` / error payloads across chat/slash/follow-up handlers with the helpers. complexity: [high]
-- [ ] T6.4 Run `bundle exec rspec`. complexity: [manual]
-- [ ] T6.5 Commit: `Add Text/Error message helpers; sweep inline text payloads`. complexity: [manual]
+- [x] T6.1 Add `Pito::MessageBuilder::Text.call(key_or_text, **args)` → `{ "text" => resolved }`. complexity: [low]
+- [x] T6.2 Add `Pito::MessageBuilder::Error.call(message_key:, message_args: {})` → error payload. complexity: [low]
+- [x] T6.3 Replace inline `{ text: Pito::Copy.render(...) }` / error payloads across chat/slash/follow-up handlers with the helpers. complexity: [high]
+- [x] T6.4 Run `bundle exec rspec`. complexity: [manual]
+- [x] T6.5 Commit: `Add Text/Error message helpers; sweep inline text payloads`. complexity: [manual]
 
 ## P7 — Gate (no inline payloads) + finalize
 - [ ] T7.1 Grep-gate: no `payload:\s*{` / `payload\s*=\s*{` carrying body/html/sections/table_rows outside `app/services/pito/message_builder/`. complexity: [low]
