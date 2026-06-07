@@ -92,5 +92,36 @@ RSpec.describe Pito::Channel::VisitComponent do
       anchor = node.css("##{link_id}").first
       expect(anchor).not_to be_nil
     end
+
+    it "sets the consume-url-value so the controller can persist consumption" do
+      channel = build_channel
+      node = render_inline(described_class.new(channel:))
+      wrapper = node.css("[data-controller='pito--auto-visit']").first
+      expect(wrapper["data-pito--auto-visit-consume-url-value"]).to be_present
+    end
+  end
+
+  describe "visited (consumed) state" do
+    it "does NOT mount the auto-visit controller (no auto-click on refresh)" do
+      channel = build_channel
+      node = render_inline(described_class.new(channel:, state: :visited))
+      expect(node.css("[data-controller='pito--auto-visit']")).to be_empty
+    end
+
+    it "renders no shimmer" do
+      channel = build_channel
+      html = render_inline(described_class.new(channel:, state: :visited)).to_html
+      expect(html).not_to include("pito-shimmer")
+    end
+
+    it "renders a visible manual [view] link to the YouTube page" do
+      channel = build_channel(handle: "@testhandle")
+      node = render_inline(described_class.new(channel:, state: :visited))
+      link = node.css("a[href*='youtube.com']").first
+      expect(link).not_to be_nil
+      expect(link.text).to include("[view]")
+      expect(link["target"]).to eq("_blank")
+      expect(link["class"]).not_to include("hidden")
+    end
   end
 end

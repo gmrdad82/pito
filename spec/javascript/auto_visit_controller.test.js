@@ -107,6 +107,41 @@ describe("pito--auto-visit controller", () => {
     expect(clickSpy).toHaveBeenCalledOnce()
   })
 
+  it("POSTs to the consume endpoint with the event id after the click", async () => {
+    const fetchSpy = vi.fn(() => Promise.resolve({ ok: true }))
+    global.fetch = fetchSpy
+
+    // Wrap the controller element in an event_<id> container.
+    const wrapper = document.createElement("div")
+    wrapper.id = "event_123"
+    const { div } = buildDOM({ delay: 1000 })
+    div.setAttribute("data-pito--auto-visit-consume-url-value", "/channels/visit_consume")
+    wrapper.appendChild(div) // re-parent under the event wrapper
+    document.body.appendChild(wrapper)
+    await Promise.resolve()
+
+    vi.advanceTimersByTime(1000)
+    await Promise.resolve()
+
+    expect(fetchSpy).toHaveBeenCalledOnce()
+    const [url, opts] = fetchSpy.mock.calls[0]
+    expect(url).toBe("/channels/visit_consume")
+    expect(opts.method).toBe("POST")
+    expect(JSON.parse(opts.body)).toEqual({ event_id: "123" })
+  })
+
+  it("does not POST consume when no consume-url is set", async () => {
+    const fetchSpy = vi.fn(() => Promise.resolve({ ok: true }))
+    global.fetch = fetchSpy
+    buildDOM({ delay: 1000 })
+    await Promise.resolve()
+
+    vi.advanceTimersByTime(1000)
+    await Promise.resolve()
+
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
   it("does not click after disconnect", async () => {
     const { div, link } = buildDOM({ delay: 1000 })
     await Promise.resolve()

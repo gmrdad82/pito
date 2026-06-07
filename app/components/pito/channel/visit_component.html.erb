@@ -1,13 +1,29 @@
 <%# Pito::Channel::VisitComponent — auto-visit redirect for a channel %>
-<div data-controller="pito--auto-visit"
-     data-pito--auto-visit-delay-value="1000"
-     data-pito--auto-visit-link-id-value="<%= unique_id %>">
-  <span class="pito-shimmer"
-        data-pito--auto-visit-target="copy"><%= copy_text %></span>
-  <a id="<%= unique_id %>"
-     href="<%= youtube_url %>"
-     target="_blank"
-     rel="noopener"
-     class="hidden"
-     data-pito--auto-visit-target="link">Visit <%= channel.at_handle %></a>
-</div>
+<% if visited? %>
+  <%# Consumed state: past-tense line + a manual [view] link. No controller,
+      no shimmer, no auto-click — safe to re-render on every page refresh. %>
+  <div class="pito-channel-visit pito-channel-visit--visited">
+    <span class="text-fg-dim"><%= copy_text %></span>
+    <a href="<%= youtube_url %>"
+       target="_blank"
+       rel="noopener"
+       class="pito-channel-visit__view-link text-yellow">[view]</a>
+  </div>
+<% else %>
+  <%# Active state: shimmer copy + hidden anchor. pito--auto-visit clicks it
+      once after the delay, then POSTs to consume so the persisted event flips
+      to :visited and never auto-clicks again. %>
+  <div data-controller="pito--auto-visit"
+       data-pito--auto-visit-delay-value="1000"
+       data-pito--auto-visit-link-id-value="<%= unique_id %>"
+       data-pito--auto-visit-consume-url-value="<%= Rails.application.routes.url_helpers.channel_visit_consume_path %>">
+    <span class="pito-shimmer"
+          data-pito--auto-visit-target="copy"><%= copy_text %></span>
+    <a id="<%= unique_id %>"
+       href="<%= youtube_url %>"
+       target="_blank"
+       rel="noopener"
+       class="hidden"
+       data-pito--auto-visit-target="link">Visit <%= channel.at_handle %></a>
+  </div>
+<% end %>

@@ -27,5 +27,26 @@ RSpec.describe Pito::MessageBuilder::Channel::Visit do
     it "renders without raising" do
       expect { payload }.not_to raise_error
     end
+
+    it "carries the channel_id for the consume endpoint" do
+      expect(payload["channel_id"]).to eq(channel.id)
+    end
+
+    it "defaults to the visiting state" do
+      expect(payload["visit_state"]).to eq("visiting")
+    end
+  end
+
+  describe ".call with state: :visited" do
+    subject(:payload) { described_class.call(channel, state: :visited) }
+
+    it "marks visit_state visited" do
+      expect(payload["visit_state"]).to eq("visited")
+    end
+
+    it "renders the consumed copy with no shimmer but a manual link" do
+      expect(payload["body"]).not_to include("pito-shimmer")
+      expect(payload["body"]).to include("youtube.com")
+    end
   end
 end
