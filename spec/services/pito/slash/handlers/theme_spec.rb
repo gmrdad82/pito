@@ -170,17 +170,17 @@ RSpec.describe Pito::Slash::Handlers::Theme, type: :service do
     end
 
     it "has a body intro" do
-      expect(result.events.first[:payload][:body]).to be_present
+      expect(result.events.first[:payload]["body"]).to be_present
     end
 
     it "has a Dark and a Light section" do
-      sections = result.events.first[:payload][:sections]
+      sections = result.events.first[:payload]["sections"]
       titles   = sections.map { |s| s[:title] }
       expect(titles).to include("Dark", "Light")
     end
 
     it "includes slug + label rows in each section" do
-      sections = result.events.first[:payload][:sections]
+      sections = result.events.first[:payload]["sections"]
       all_keys = sections.flat_map { |s| s[:rows].map { |r| r[:key] } }
       expect(all_keys.any? { |k| k.include?("tokyo-night") }).to be(true)
       expect(all_keys.any? { |k| k.include?("dracula") }).to be(true)
@@ -189,7 +189,7 @@ RSpec.describe Pito::Slash::Handlers::Theme, type: :service do
     it "marks the current theme with an ASCII '<-' marker in value2 (cyan column, no bullet, no unicode arrow)" do
       AppSetting.theme = "dracula"
       res      = build_handler(args: %w[list]).call
-      sections = res.events.first[:payload][:sections]
+      sections = res.events.first[:payload]["sections"]
       rows     = sections.flat_map { |s| s[:rows] }
       current  = rows.find { |r| r[:key] == "dracula" }
       expect(current[:value]).to eq("Dracula")          # label only — marker is separate
@@ -356,13 +356,13 @@ RSpec.describe Pito::Slash::Handlers::Theme, type: :service do
     end
 
     it "returns the same sections as /theme list" do
-      sections_ls   = build_handler(args: %w[ls]).call.events.first[:payload][:sections]
-      sections_list = build_handler(args: %w[list]).call.events.first[:payload][:sections]
+      sections_ls   = build_handler(args: %w[ls]).call.events.first[:payload]["sections"]
+      sections_list = build_handler(args: %w[list]).call.events.first[:payload]["sections"]
       expect(sections_ls).to eq(sections_list)
     end
 
     it "has a Dark and a Light section" do
-      sections = build_handler(args: %w[ls]).call.events.first[:payload][:sections]
+      sections = build_handler(args: %w[ls]).call.events.first[:payload]["sections"]
       titles   = sections.map { |s| s[:title] }
       expect(titles).to include("Dark", "Light")
     end

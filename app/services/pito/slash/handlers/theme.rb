@@ -189,17 +189,9 @@ module Pito
           grouped      = Pito::Themes::Registry.grouped
           current_slug = AppSetting.theme
 
-          dark_rows  = build_theme_rows(grouped[:dark]  || [], current_slug)
-          light_rows = build_theme_rows(grouped[:light] || [], current_slug)
-
-          payload = {
-            body:     Pito::Copy.render("pito.copy.theme.list_intro"),
-            sections: [
-              { title: I18n.t("pito.slash.theme.list.dark_header"),  rows: dark_rows },
-              { title: I18n.t("pito.slash.theme.list.light_header"), rows: light_rows }
-            ]
-          }
-          Pito::FollowUp.make_followupable!(payload, target: "theme_list", conversation:)
+          payload = Pito::MessageBuilder::Theme::List.call(
+            grouped: grouped, current_slug: current_slug, conversation:
+          )
 
           Pito::Slash::Result::Ok.new(events: [
             {
@@ -207,18 +199,6 @@ module Pito
               payload: payload
             }
           ])
-        end
-
-        # Build kv rows for a group of theme definitions. The current theme is
-        # marked with a "← this one" suffix on the right (no leading bullet).
-        def build_theme_rows(definitions, current_slug)
-          definitions.map do |d|
-            row = { key: d.slug, value: d.label }
-            # Current theme: the marker rides in value2 so it renders cyan,
-            # not dimmed alongside the label.
-            row[:value2] = Pito::Copy.render("pito.copy.theme.current_marker") if d.slug == current_slug
-            row
-          end
         end
 
         def placeholder_sidebar

@@ -77,11 +77,11 @@ a pure function of the builder. The two never mix.
 - [x] T3.7 Commit: `Extract resync/reindex/disconnect confirmation builders; reuse delete-confirm`. complexity: [manual]
 
 ## P4 — Theme list message builder
-- [ ] T4.1 Create `Pito::MessageBuilder::Theme::List` (body + Dark/Light `sections` + marker value2 + `make_followupable!(theme_list)`). complexity: [low]
-- [ ] T4.2 Reduce `Slash::Handlers::Theme#list_themes` to call the builder. complexity: [low]
-- [ ] T4.3 Update `spec/services/pito/slash/handlers/theme_spec.rb`. complexity: [low]
-- [ ] T4.4 Run `bundle exec rspec`. complexity: [manual]
-- [ ] T4.5 Commit: `Extract Theme::List message builder`. complexity: [manual]
+- [x] T4.1 Create `Pito::MessageBuilder::Theme::List` (body + Dark/Light `sections` + marker value2 + `make_followupable!(theme_list)`). complexity: [low]
+- [x] T4.2 Reduce `Slash::Handlers::Theme#list_themes` to call the builder. complexity: [low]
+- [x] T4.3 Update `spec/services/pito/slash/handlers/theme_spec.rb`. complexity: [low]
+- [x] T4.4 Run `bundle exec rspec`. complexity: [manual]
+- [x] T4.5 Commit: `Extract Theme::List message builder`. complexity: [manual]
 
 ## P5 — Enhanced recommendations mutation builder
 - [ ] T5.1 Extract the game_enhanced `similar`/`channel` segment rebuild (score-bar segments + `rebuild_enhanced_payload`) into `Pito::MessageBuilder::Game::EnhancedSegments`. complexity: [high]
