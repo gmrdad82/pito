@@ -114,7 +114,7 @@
                     value_data:  { "pito--typewriter-target" => "prose" }
                   )) %>
               <% if three_col %>
-                <span class="text-fg-faded whitespace-nowrap" data-pito--typewriter-target="prose"><%= row[:value2] %></span>
+                <span class="text-cyan whitespace-nowrap" data-pito--typewriter-target="prose"><%= row[:value2] %></span>
               <% end %>
             <% end %>
           </div>
@@ -150,7 +150,7 @@
                   value_class: "#{row.fetch(:value_class, 'text-fg-dim')}#{three_col ? ' whitespace-nowrap' : ''}"
                 )) %>
             <% if three_col %>
-              <span class="text-fg-faded whitespace-nowrap"><%= row[:value2] %></span>
+              <span class="text-cyan whitespace-nowrap"><%= row[:value2] %></span>
             <% end %>
           <% end %>
         </div>
