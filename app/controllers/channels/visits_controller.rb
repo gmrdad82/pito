@@ -5,30 +5,20 @@ module Channels
   #
   # Consumes a channel-visit event after its one-time auto-click. The
   # pito--auto-visit Stimulus controller POSTs `{ event_id: }` here once it has
-  # fired the click. We flip the event to its :visited (follow-up) state:
-  #   - rebuild the body via Pito::MessageBuilder::Channel::Visit(state: :visited)
-  #   - change the kind to system_follow_up (the surface-background chrome)
-  #   - persist + broadcast a replace so the live view updates in place.
+  # fired the click. We run the consume THROUGH the standard follow-up dispatch
+  # path (FollowUpDispatchJob, :mutate mode), exactly as a `#<handle> consume`
+  # reply would — the Pito::FollowUp::Handlers::ChannelVisit handler flips the
+  # event to its :visited (system_follow_up / surface) state, and the job
+  # persists + broadcasts replace_event so the System component updates live and
+  # on refresh. No echo turn is created (mutate mode), so the conversation stays
+  # clean.
   #
-  # On every later page refresh the event renders in its :visited state (no
-  # controller, no auto-click), so the link is never re-clicked automatically.
-  #
-  # Idempotent: a second POST (race / double-fire) is a no-op.
+  # Idempotent: once consumed the payload is no longer follow-up-able, so a
+  # repeat POST resolves no handler and no-ops.
   class VisitsController < ApplicationController
     def consume
       event = Event.find(params[:event_id])
-
-      if event.payload["visit_state"].to_s != "visited"
-        channel = ::Channel.find_by(id: event.payload["channel_id"])
-        if channel
-          event.update!(
-            kind:    "system_follow_up",
-            payload: Pito::MessageBuilder::Channel::Visit.call(channel, state: :visited)
-          )
-          Pito::Stream::Broadcaster.new(conversation: event.conversation).replace_event(event)
-        end
-      end
-
+      FollowUpDispatchJob.perform_now(event.id, rest: "consume")
       head :ok
     end
   end

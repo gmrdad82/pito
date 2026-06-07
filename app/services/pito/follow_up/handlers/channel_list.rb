@@ -40,7 +40,7 @@ module Pito
           end
 
           Pito::FollowUp::Result::Append.new(events: [
-            { kind: "system", payload: Pito::MessageBuilder::Channel::Visit.call(channel) }
+            { kind: "system", payload: Pito::MessageBuilder::Channel::Visit.call(channel, conversation: conversation) }
           ])
         end
 

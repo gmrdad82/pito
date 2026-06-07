@@ -21,11 +21,11 @@ RSpec.describe Pito::Chat::Handlers::List do
       expect(result.events.first[:kind]).to eq(:system)
     end
 
-    it "lists each game with its bare ID (no #) as the row key, sorted by title" do
+    it "lists each game with its #-prefixed ID as the row key, sorted by title" do
       rows = handler.call.events.first[:payload]["table_rows"]
       expect(rows.map { |r| { key: r[:key], value: r[:value] } }).to eq([
-        { key: lies.id.to_s,  value: "Lies of P" },
-        { key: zelda.id.to_s, value: "Tears of the Kingdom" }
+        { key: "##{lies.id}",  value: "Lies of P" },
+        { key: "##{zelda.id}", value: "Tears of the Kingdom" }
       ])
     end
 

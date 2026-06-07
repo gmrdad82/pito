@@ -132,10 +132,10 @@ RSpec.describe Pito::Game::EnhancedComponent do
       expect(titles).to include("Ico", "The Last Guardian")
     end
 
-    it "renders the internal db id for each similar game" do
+    it "renders the bare internal db id (no #) for each similar game" do
       node = render_component
       ids = node.css(".pito-game-enhanced-message__similar-game-id").map(&:text).map(&:strip)
-      expect(ids).to include("##{sg1.id}", "##{sg2.id}")
+      expect(ids).to include(sg1.id.to_s, sg2.id.to_s)
     end
 
     it "renders a data-game-id attribute on each card" do

@@ -20,7 +20,7 @@ RSpec.describe Pito::MessageBuilder::Channel::Visit do
       expect(payload["body"]).to be_present
     end
 
-    it "is NOT follow-up-able" do
+    it "is NOT follow-up-able without a conversation" do
       expect(Pito::FollowUp.followupable?(payload)).to be false
     end
 
@@ -34,6 +34,17 @@ RSpec.describe Pito::MessageBuilder::Channel::Visit do
 
     it "defaults to the visiting state" do
       expect(payload["visit_state"]).to eq("visiting")
+    end
+  end
+
+  describe ".call with a conversation (visiting)" do
+    let(:conversation) { Conversation.singleton }
+
+    subject(:payload) { described_class.call(channel, conversation: conversation) }
+
+    it "is follow-up-able with the channel_visit target (anchorable)" do
+      expect(Pito::FollowUp.followupable?(payload)).to be true
+      expect(payload["reply_target"]).to eq("channel_visit")
     end
   end
 

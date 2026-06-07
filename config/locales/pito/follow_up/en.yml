@@ -14,6 +14,10 @@ en:
         errors:
           invalid_action: "Unknown action '%{action}'. Try: #<handle> visit @<handle>."
           not_found: "No channel found matching %{ref}."
+      channel_visit:
+        errors:
+          invalid_action: "Unknown action %{action}."
+          channel_not_found: "Could not find the channel for this visit."
       game_enhanced:
         errors:
           invalid_action: "Unknown action '%{action}'. Try: reindex, similar [filters], or channel."

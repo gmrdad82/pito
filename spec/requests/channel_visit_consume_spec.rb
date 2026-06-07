@@ -21,7 +21,7 @@ RSpec.describe "Channel visit consume endpoint", type: :request do
     )
     Event.create_with_position!(
       conversation:, turn:, kind: "system",
-      payload: Pito::MessageBuilder::Channel::Visit.call(channel)
+      payload: Pito::MessageBuilder::Channel::Visit.call(channel, conversation: conversation)
     )
   end
 
