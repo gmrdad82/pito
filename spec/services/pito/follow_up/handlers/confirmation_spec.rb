@@ -63,6 +63,23 @@ RSpec.describe Pito::FollowUp::Handlers::Confirmation, type: :service do
     end
   end
 
+  # ── aliases: yes → confirm, no → cancel ──────────────────────────────────────
+
+  describe "#call — action aliases" do
+    it "treats 'yes' as confirm" do
+      expect(call("yes").events.first[:payload][:outcome]).to eq("confirm")
+    end
+
+    it "treats 'no' as cancel" do
+      expect(call("no").events.first[:payload][:outcome]).to eq("cancel")
+    end
+
+    it "treats 'y'/'n' as confirm/cancel" do
+      expect(call("y").events.first[:payload][:outcome]).to eq("confirm")
+      expect(call("n").events.first[:payload][:outcome]).to eq("cancel")
+    end
+  end
+
   # ── action: cancel ────────────────────────────────────────────────────────
 
   describe "#call — cancel" do

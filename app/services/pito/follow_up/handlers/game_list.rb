@@ -15,25 +15,34 @@ module Pito
       class GameList < Pito::FollowUp::Handler
         self.target "game_list"
         self.mode   :append
-        self.actions "show"
+        self.actions "show", "delete"
+
+        DELETE_ACTIONS = %w[delete rm].freeze
 
         def call(event:, rest:, conversation:) # rubocop:disable Lint/UnusedMethodArgument
           action, ref = parse_rest(rest)
+          ref  = ref.to_s.strip
+          game = resolve_game(ref)
 
-          unless action == "show"
-            return Pito::FollowUp::Result::Error.new(
+          if action == "show"
+            return not_found(ref) unless game
+
+            Pito::FollowUp::Result::Append.new(events: [
+              { kind: "system", payload: Pito::Game::DetailMessage.call(game, conversation:) }
+            ])
+          elsif DELETE_ACTIONS.include?(action)
+            # Spawn the SAME delete confirmation as `delete game <id>`.
+            return not_found(ref) unless game
+
+            Pito::FollowUp::Result::Append.new(events: [
+              { kind: "confirmation", payload: Pito::Game::DeleteConfirmation.call(game, conversation:) }
+            ])
+          else
+            Pito::FollowUp::Result::Error.new(
               message_key:  "pito.follow_up.game_list.errors.invalid_action",
               message_args: { action: action }
             )
           end
-
-          ref  = ref.to_s.strip
-          game = resolve_game(ref)
-          return not_found(ref) unless game
-
-          Pito::FollowUp::Result::Append.new(events: [
-            { kind: "system", payload: Pito::Game::DetailMessage.call(game, conversation:) }
-          ])
         end
 
         private

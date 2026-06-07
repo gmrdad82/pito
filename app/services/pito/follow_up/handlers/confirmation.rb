@@ -27,6 +27,8 @@ module Pito
         self.actions "confirm", "cancel"
 
         VALID_ACTIONS = %w[confirm cancel].freeze
+        # Friendly synonyms → canonical action.
+        ACTION_ALIASES = { "yes" => "confirm", "y" => "confirm", "no" => "cancel", "n" => "cancel" }.freeze
 
         # @param event        [Event]        the source confirmation event.
         # @param rest         [String]       the text after `#<handle> ` — e.g. "confirm".
@@ -34,6 +36,7 @@ module Pito
         # @return [Pito::FollowUp::Result::Append | Result::Error]
         def call(event:, rest:, conversation:)
           action, _args = parse_rest(rest)
+          action = ACTION_ALIASES.fetch(action, action)   # yes→confirm, no→cancel
 
           unless VALID_ACTIONS.include?(action)
             return Pito::FollowUp::Result::Error.new(

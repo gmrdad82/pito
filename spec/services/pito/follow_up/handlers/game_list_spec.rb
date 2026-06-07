@@ -36,6 +36,20 @@ RSpec.describe Pito::FollowUp::Handlers::GameList do
     expect(result).to be_a(Pito::FollowUp::Result::Error)
   end
 
+  it "spawns the same delete confirmation for `delete <id>`" do
+    result = handler.call(event: nil, rest: "delete ##{game.id}", conversation: conversation)
+    expect(result).to be_a(Pito::FollowUp::Result::Append)
+    ev = result.events.first
+    expect(ev[:kind]).to eq("confirmation")
+    expect(ev[:payload][:command]).to eq("game_delete")
+    expect(ev[:payload][:game_id]).to eq(game.id)
+  end
+
+  it "accepts `rm <id>` as an alias for delete" do
+    result = handler.call(event: nil, rest: "rm ##{game.id}", conversation: conversation)
+    expect(result.events.first[:kind]).to eq("confirmation")
+  end
+
   it "stamps game_id in the appended detail event payload" do
     result = handler.call(event: nil, rest: "show ##{game.id}", conversation: conversation)
     payload = result.events.first[:payload]
