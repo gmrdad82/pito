@@ -49,13 +49,12 @@
     <% end %>
   </div>
 
-  <%# Follow-up affordance — shown in preview phase only (apply is consumed).
-      Allows the user to run another #<handle> preview <name> or #<handle> apply. %>
-  <% if followupable? && affordance_usage.present? %>
-    <%= render(Pito::FollowUp::AffordanceComponent.new(
-          handle:   @reply_handle,
-          usage:    affordance_usage,
-          consumed: @reply_consumed
+  <%# Single meta line — `timestamp · #handle` (handle only while still
+      routable, i.e. preview phase; apply is consumed). No usage line. %>
+  <% if @event&.created_at || followupable? %>
+    <%= render(Pito::Event::MetaLineComponent.new(
+          timestamp: @event&.created_at,
+          handle:    (followupable? ? @reply_handle : nil)
         )) %>
   <% end %>
 <% end %>

@@ -43,29 +43,23 @@ RSpec.describe Pito::Game::DetailComponent do
     end
   end
 
-  describe "available platforms (T16.12 — operator token chips)" do
-    it "maps IGDB 'PlayStation 4' and 'PC (Microsoft Windows)' to PlayStation + Steam chips" do
+  describe "available platforms (operator tokens as plain text — no chips)" do
+    it "maps IGDB 'PlayStation 4' and 'PC (Microsoft Windows)' to PlayStation + Steam (plain text)" do
       g = create(:game, platforms: [ "PlayStation 4", "PC (Microsoft Windows)", "Xbox One" ])
       node = render_inline(described_class.new(game: g))
-      chip_texts = node.css("span.border").map(&:text).map(&:strip)
-      expect(chip_texts).to include("PlayStation")
-      expect(chip_texts).to include("Steam")
-      # Xbox One has no matching token — should not appear as a chip
-      expect(chip_texts).not_to include("Xbox One")
+      expect(node.text).to include("PlayStation")
+      expect(node.text).to include("Steam")
+      # Xbox One has no matching token — should not appear
+      expect(node.text).not_to include("Xbox One")
+      # No bordered chips — plain KV value only
+      expect(node.css("span.border")).to be_empty
     end
 
     it "de-dupes tokens when multiple IGDB names map to the same token" do
       g = create(:game, platforms: [ "Steam", "GOG", "Nintendo Switch" ])
       node = render_inline(described_class.new(game: g))
-      chip_texts = node.css("span.border").map(&:text).map(&:strip)
-      expect(chip_texts.count("Steam")).to eq(1)
-      expect(chip_texts).to include("Nintendo Switch")
-    end
-
-    it "renders a dash placeholder row label when no platform matches any token" do
-      g = create(:game, platforms: [ "Xbox One", "Stadia" ])
-      node = render_inline(described_class.new(game: g))
-      # No platform chips should be rendered
+      expect(node.text.scan("Steam").count).to eq(1)
+      expect(node.text).to include("Nintendo Switch")
       expect(node.css("span.border")).to be_empty
     end
 

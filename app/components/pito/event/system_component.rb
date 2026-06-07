@@ -55,13 +55,12 @@ module Pito
         @reply_handle.present? && !@reply_consumed
       end
 
-      # Usage text shown in the affordance hint.  Delegated to i18n keyed on
-      # reply_target so each target type can provide its own usage string.
-      def affordance_usage
-        return "" unless @reply_target.present?
-
-        key = "pito.follow_up.#{@reply_target}.usage"
-        I18n.t(key, default: "")
+      # Every follow-up-able message renders as a SINGLE meta line —
+      # `timestamp · #handle`. There is NO separate usage/affordance line.
+      # The reply handle flows into the meta line so the user sees the hashtag
+      # to reply to; available actions live in /help, not in the message.
+      def meta_handle
+        handle.presence || (followupable? ? reply_handle : nil)
       end
 
       def expand_label

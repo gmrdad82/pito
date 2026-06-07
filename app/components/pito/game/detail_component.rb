@@ -59,6 +59,15 @@ module Pito
         end.uniq
       end
 
+      # Plain comma-joined platform display names (PlayStation / Switch / Steam),
+      # rendered as a normal KV value — no chips.
+      def platforms_label
+        tokens = platform_tokens
+        return nil if tokens.blank?
+
+        tokens.map { |token| I18n.t("pito.game.detail.platform_label.#{token}") }.join(", ")
+      end
+
       def owned_platform_tokens
         @game.game_platform_ownerships.map(&:platform_token)
       end

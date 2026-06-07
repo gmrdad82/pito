@@ -28,10 +28,10 @@
           typewriter:        false
         )) %>
   <% end %>
-  <% if @timestamp || handle || channel %>
+  <% if @timestamp || meta_handle || channel %>
     <%= render(Pito::Event::MetaLineComponent.new(
           timestamp: @timestamp,
-          handle:    handle,
+          handle:    meta_handle,
           channel:   channel
         )) %>
   <% end %>

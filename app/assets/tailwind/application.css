@@ -635,6 +635,9 @@ html {
 .pito-score-bar {
   position: relative;
   display: inline-block;
+  /* Breathing room above so the needle bubble never touches the component
+     above it (the TTB legend / prior message). */
+  margin-top: 0.75rem;
 }
 
 /* Track: brackets + fill side-by-side. */

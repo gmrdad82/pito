@@ -193,38 +193,46 @@ RSpec.describe Pito::Event::SystemComponent do
     end
   end
 
-  describe "follow-up affordance" do
+  describe "follow-up handle in the single meta line (no usage/affordance line)" do
     let(:conversation) { Conversation.create! }
     let(:turn) { create(:turn, conversation:) }
 
-    it "renders the affordance when payload has reply_handle + reply_target" do
+    it "shows the #handle in the meta line for a follow-up-able message" do
       event = create(:event, conversation:, turn:, kind: "system", position: 1,
                      payload: {
                        "reply_handle" => "beta-1234",
-                       "reply_target" => "theme_list",
-                       "body" => "Pick a theme",
-                       "sections" => []
+                       "reply_target" => "game_detail",
+                       "body" => "<b>game card</b>",
+                       "html" => true
                      })
       node = render_inline(described_class.new(payload: event.payload.with_indifferent_access, event:))
-      expect(node.text).to include("beta-1234")
+      expect(node.css(".pito-echo__meta").text).to include("beta-1234")
     end
 
-    it "does NOT render the affordance when reply_consumed is true" do
+    it "NEVER renders a separate usage/affordance line" do
+      event = create(:event, conversation:, turn:, kind: "system", position: 1,
+                     payload: {
+                       "reply_handle" => "beta-1234",
+                       "reply_target" => "game_detail",
+                       "body" => "<b>card</b>", "html" => true
+                     })
+      node = render_inline(described_class.new(payload: event.payload.with_indifferent_access, event:))
+      expect(node.css("div.mt-1.text-fg-faded")).to be_empty
+      # no game usage tokens leak into the message
+      expect(node.text).not_to include("resync")
+      expect(node.text).not_to include("update ownership")
+    end
+
+    it "does NOT show the handle once the message is consumed" do
       event = create(:event, conversation:, turn:, kind: "system", position: 1,
                      payload: {
                        "reply_handle"   => "beta-1234",
-                       "reply_target"   => "theme_list",
+                       "reply_target"   => "game_detail",
                        "reply_consumed" => true,
-                       "body"           => "Consumed message"
+                       "body"           => "Consumed", "html" => true
                      })
       node = render_inline(described_class.new(payload: event.payload.with_indifferent_access, event:))
-      # The affordance should not render (followupable? is false)
-      expect(node.css("div.mt-1.text-fg-faded")).to be_empty
-    end
-
-    it "does NOT render the affordance for plain system messages" do
-      node = render_inline(described_class.new(payload: { body: "Regular system message" }))
-      expect(node.css("div.mt-1.text-fg-faded")).to be_empty
+      expect(node.css(".pito-echo__meta").text).not_to include("beta-1234")
     end
   end
 end

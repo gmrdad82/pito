@@ -48,17 +48,14 @@
           )) %>
     <% end %>
 
-    <%# Platforms — operator tokens as chips (PlayStation / Switch / Steam) %>
-    <% chips = platform_tokens %>
-    <% if chips.any? %>
-      <span class="text-fg-dim whitespace-nowrap"><%=t "pito.game.detail.platforms" %></span>
-      <span class="flex gap-1 flex-wrap">
-        <% chips.each do |token| %>
-          <span class="border border-line-default px-1 text-fg-dim text-xs">
-            <%=t "pito.game.detail.platform_label.#{token}" %>
-          </span>
-        <% end %>
-      </span>
+    <%# Platforms — plain text (PlayStation / Switch / Steam), like every other row %>
+    <% if platforms_label.present? %>
+      <%= render(Pito::Table::KeyValueRowComponent.new(
+            key_text:   t("pito.game.detail.platforms"),
+            value_text: platforms_label,
+            key_class:  "text-fg-dim whitespace-nowrap",
+            value_class: "text-fg"
+          )) %>
     <% end %>
 
     <% if owned_platforms_label.present? %>
