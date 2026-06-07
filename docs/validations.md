@@ -4,7 +4,7 @@
 > commit history (oldest → newest) — every commit lands here for evaluation.
 > Tick a box once validated. Inspect any commit with `git show <sha>`.
 
-Total commits: **165**
+Total commits: **172**
 
 ## Commits
 
@@ -173,3 +173,10 @@ Total commits: **165**
 163. [ ] `806bde61` (2026-06-07) — Spec: DetailComponent cover_art_url rescue path + nil-score rendering
 164. [ ] `eac1f14f` (2026-06-07) — Spec: NightlyVideoSyncJob no GameStatsRefreshJob when no game links
 165. [ ] `4d63c8bb` (2026-06-07) — Spec: Pito::Stack.track rescue + provider to_h shape
+166. [ ] `c81d6199` (2026-06-07) — Plan P17 (ScoreBar/TTB widths + ticks + theme-adaptive contrast) + refresh validations checklist
+167. [ ] `7a68d178` (2026-06-07) — Theme-adaptive contrast fix for ScoreBar + TTB gradients
+168. [ ] `b8702f3a` (2026-06-07) — Resize ScoreBar to 20 cells and TTB to 40 cells
+169. [ ] `c735d6e3` (2026-06-07) — Snap ScoreBar needle to its 5% cell midpoint
+170. [ ] `b667fd64` (2026-06-07) — Fix TTB tick positioning, brackets, and footage mark
+171. [ ] `53675595` (2026-06-07) — Project TTB heat ramp onto the = glyphs over 0..completionist
+172. [ ] `25476d38` (2026-06-07) — Round out ScoreBar/TTB specs for the P17 revamp
