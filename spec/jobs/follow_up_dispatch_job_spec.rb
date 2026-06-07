@@ -62,7 +62,7 @@ RSpec.describe FollowUpDispatchJob, type: :job do
 
     before do
       allow(Pito::Stream::Broadcaster).to receive(:new).and_return(
-        instance_double(Pito::Stream::Broadcaster, replace_event: nil, broadcast_event: nil)
+        instance_double(Pito::Stream::Broadcaster, replace_event: nil, broadcast_event: nil, broadcast_done: nil, complete_turn: nil)
       )
     end
 
@@ -82,10 +82,17 @@ RSpec.describe FollowUpDispatchJob, type: :job do
     end
 
     it "calls broadcaster.replace_event" do
-      broadcaster = instance_double(Pito::Stream::Broadcaster, replace_event: nil, broadcast_event: nil)
+      broadcaster = instance_double(Pito::Stream::Broadcaster, replace_event: nil, broadcast_event: nil, broadcast_done: nil, complete_turn: nil)
       allow(Pito::Stream::Broadcaster).to receive(:new).and_return(broadcaster)
       described_class.perform_now(source_event.id, rest: "do-it")
       expect(broadcaster).to have_received(:replace_event).with(source_event)
+    end
+
+    it "emits pito:done so the dots fade out (turn-less mutate)" do
+      broadcaster = instance_double(Pito::Stream::Broadcaster, replace_event: nil, broadcast_event: nil, broadcast_done: nil, complete_turn: nil)
+      allow(Pito::Stream::Broadcaster).to receive(:new).and_return(broadcaster)
+      described_class.perform_now(source_event.id, rest: "do-it")
+      expect(broadcaster).to have_received(:broadcast_done).with(dom_id: "event_#{source_event.id}")
     end
   end
 
@@ -123,7 +130,7 @@ RSpec.describe FollowUpDispatchJob, type: :job do
     end
 
     it "broadcasts replace_event on the (now-consumed) source" do
-      broadcaster = instance_double(Pito::Stream::Broadcaster, replace_event: nil, broadcast_event: nil)
+      broadcaster = instance_double(Pito::Stream::Broadcaster, replace_event: nil, broadcast_event: nil, broadcast_done: nil, complete_turn: nil)
       allow(Pito::Stream::Broadcaster).to receive(:new).and_return(broadcaster)
       described_class.perform_now(source_event.id, rest: "hello", turn_id: echo_turn.id)
       expect(broadcaster).to have_received(:replace_event).with(source_event)

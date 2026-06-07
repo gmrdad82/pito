@@ -308,10 +308,17 @@ module Pito
       # Mark a turn complete and broadcast the done signal that hides dots.
       def complete_turn(turn:)
         turn.update!(completed_at: Time.current)
+        broadcast_done(dom_id: "turn_#{turn.id}")
+      end
 
-        helper  = ApplicationController.helpers
+      # Broadcast the done signal (hides the post-command dots) appended to an
+      # arbitrary stable DOM id — used by turn-less flows such as :mutate
+      # follow-ups, where the work targets an existing event rather than a turn.
+      # The pito--done-dispatch controller fires `pito:done` on connect; the
+      # element is ephemeral (cleared when the target is next replaced).
+      def broadcast_done(dom_id:)
         done_signal = %(<div data-controller="pito--done-dispatch" data-pito--done-dispatch-event-name-value="pito:done"></div>).html_safe
-        content = helper.turbo_stream.append("turn_#{turn.id}", done_signal)
+        content     = ApplicationController.helpers.turbo_stream.append(dom_id, done_signal)
 
         Turbo::StreamsChannel.broadcast_stream_to(
           "pito:conversation:#{@conversation.uuid}",

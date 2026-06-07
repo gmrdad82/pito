@@ -50,6 +50,9 @@ class FollowUpDispatchJob < ApplicationJob
     when Pito::FollowUp::Result::Mutation
       event.update!(kind: result.kind.to_s, payload: result.payload)
       broadcaster.replace_event(event)
+      # Turn-less flow — emit pito:done against the mutated event so the
+      # post-command dots fade out (no Turn is created for :mutate replies).
+      broadcaster.broadcast_done(dom_id: "event_#{event.id}")
 
     when Pito::FollowUp::Result::Append
       turn = Turn.find(turn_id)
@@ -65,6 +68,7 @@ class FollowUpDispatchJob < ApplicationJob
       # Consume the source so its affordance is hidden + handle stays reserved.
       event.update!(payload: event.payload.merge("reply_consumed" => true))
       broadcaster.replace_event(event)
+      broadcaster.complete_turn(turn:)
 
     when Pito::FollowUp::Result::Error
       error_payload = if result.message_key.to_s.start_with?("pito.")
@@ -91,6 +95,7 @@ class FollowUpDispatchJob < ApplicationJob
         )
         broadcaster.broadcast_event(err_event)
       end
+      broadcaster.complete_turn(turn:)
     end
   rescue StandardError => e
     Rails.logger.error("[FollowUpDispatchJob] Error processing event #{event_id}: #{e.class}: #{e.message}")
