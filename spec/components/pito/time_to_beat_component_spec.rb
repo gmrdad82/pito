@@ -307,4 +307,207 @@ RSpec.describe Pito::TimeToBeatComponent do
       expect(html).to include("left: 98.75%")
     end
   end
+
+  # ── NEW PARTIAL-DATA SPECS (rules 1-5) ──────────────────────────────────
+
+  describe "all three pillars present — completionist at max (rule 1/2/5)" do
+    subject(:comp) { described_class.new(hours: { main: 50, extras: 100, completionist: 200 }) }
+
+    it "completionist is the axis max (tick_axis = completionist)" do
+      expect(comp.tick_axis).to eq(200)
+    end
+
+    it "completionist tick lands at the right end (98.75%)" do
+      expect(comp.tick_position(200)).to eq(98.75)
+    end
+
+    it "other pillars scale proportionally" do
+      # main 50/200 = 25% → cell 10 → 26.25%
+      expect(comp.tick_position(50)).to eq(26.25)
+      # extras 100/200 = 50% → cell 20 → 51.25%
+      expect(comp.tick_position(100)).to eq(51.25)
+    end
+
+    it "gradient goes full ramp to pink (completionist present)" do
+      stops = comp.gradient_stops
+      expect(stops).to include("var(--accent-purple)")
+    end
+
+    it "gradient_terminal_pillar is :completionist" do
+      expect(comp.gradient_terminal_pillar).to eq(:completionist)
+    end
+  end
+
+  describe "completionist missing — extras is max (rule 1/2/3/5)" do
+    subject(:comp) { described_class.new(hours: { main: 40, extras: 80, completionist: 0 }) }
+
+    it "tick_axis equals extras" do
+      expect(comp.tick_axis).to eq(80)
+    end
+
+    it "extras tick lands at the right end (98.75%)" do
+      expect(comp.tick_position(80)).to eq(98.75)
+    end
+
+    it "main tick scales proportionally on the extras axis" do
+      # main 40/80 = 50% → cell 20 → 51.25%
+      expect(comp.tick_position(40)).to eq(51.25)
+    end
+
+    it "no completionist tick in tick_overlays" do
+      keys = comp.tick_overlays.map { |t| t[:key] }
+      expect(keys).not_to include(:completionist)
+    end
+
+    it "no completionist value label in pillar_label_data" do
+      keys = comp.pillar_label_data.map { |d| d[:key] }
+      expect(keys).not_to include(:completionist)
+    end
+
+    it "gradient_terminal_pillar is :extras" do
+      expect(comp.gradient_terminal_pillar).to eq(:extras)
+    end
+
+    it "gradient terminal color is yellow (not pink)" do
+      terminal_color = described_class::GRADIENT_TERMINAL_YELLOW
+      stops = comp.gradient_stops
+      expect(stops).to include(terminal_color)
+      expect(stops).not_to include("var(--accent-purple)")
+    end
+
+    it "gradient ends at 100% with yellow" do
+      terminal_color = described_class::GRADIENT_TERMINAL_YELLOW
+      stops = comp.gradient_stops
+      expect(stops).to end_with("#{terminal_color} 100%")
+    end
+
+    it "renders no completionist legend item in HTML" do
+      html = render_inline(comp).to_html
+      # The completionist legend tick is keyed on data-accent="completionist"
+      # inside pito-ttb__legend-tick; look for the combination
+      expect(html).not_to include('data-accent="completionist"')
+    end
+
+    it "renders main and extras legend items in HTML" do
+      html = render_inline(comp).to_html
+      expect(html).to include('data-accent="main"')
+      expect(html).to include('data-accent="extras"')
+    end
+  end
+
+  describe "only main present — main is max (rule 1/2/3/5)" do
+    subject(:comp) { described_class.new(hours: { main: 43, extras: 0, completionist: 0 }) }
+
+    it "tick_axis equals main" do
+      expect(comp.tick_axis).to eq(43)
+    end
+
+    it "main tick lands at the right end (98.75%)" do
+      expect(comp.tick_position(43)).to eq(98.75)
+    end
+
+    it "no extras or completionist ticks" do
+      keys = comp.tick_overlays.map { |t| t[:key] }
+      expect(keys).not_to include(:extras, :completionist)
+    end
+
+    it "only main appears in pillar_label_data" do
+      keys = comp.pillar_label_data.map { |d| d[:key] }
+      expect(keys).to eq([ :main ])
+    end
+
+    it "gradient_terminal_pillar is :main" do
+      expect(comp.gradient_terminal_pillar).to eq(:main)
+    end
+
+    it "gradient terminal color is green (not yellow/pink)" do
+      terminal_color = described_class::GRADIENT_TERMINAL_GREEN
+      stops = comp.gradient_stops
+      expect(stops).to end_with("#{terminal_color} 100%")
+      expect(stops).not_to include("var(--accent-yellow)")
+      expect(stops).not_to include("var(--accent-purple)")
+    end
+
+    it "renders only the main legend item in HTML" do
+      html = render_inline(comp).to_html
+      expect(html).to include('data-accent="main"')
+      expect(html).not_to include('data-accent="extras"')
+      expect(html).not_to include('data-accent="completionist"')
+    end
+  end
+
+  describe "all pillars missing — no pillar ticks or labels (rule 1/3)" do
+    subject(:comp) { described_class.new(hours: { main: 0, extras: 0, completionist: 0 }) }
+
+    it "pillar_axis is 0" do
+      expect(comp.pillar_axis).to eq(0)
+    end
+
+    it "tick_overlays contains only the footage entry (no pillar ticks)" do
+      keys = comp.tick_overlays.map { |t| t[:key] }
+      expect(keys).to eq([ :footage ])
+    end
+
+    it "pillar_label_data is empty" do
+      expect(comp.pillar_label_data).to be_empty
+    end
+
+    it "no pillar legend items in HTML" do
+      html = render_inline(comp).to_html
+      expect(html).not_to include('data-accent="main"')
+      expect(html).not_to include('data-accent="extras"')
+      expect(html).not_to include('data-accent="completionist"')
+    end
+  end
+
+  describe "footage absent — mark at left with em-dash label (rule 4)" do
+    subject(:comp) { described_class.new(hours: { main: 50, extras: 100, completionist: 200 }, footage_hours: 0) }
+
+    it "footage_label_alignment_class is at-start" do
+      expect(comp.footage_label_alignment_class).to eq("ttb-label--at-start")
+    end
+
+    it "footage_value_label returns em-dash" do
+      expect(comp.footage_value_label).to eq("—")
+    end
+
+    it "footage tick position is at the first cell midpoint (1.25%)" do
+      expect(comp.footage_position).to eq(1.25)
+    end
+  end
+
+  describe "footage > pillar max — footage becomes axis max (rule 4)" do
+    # footage=300 exceeds completionist=200, so footage drives the axis
+    subject(:comp) { described_class.new(hours: { main: 50, extras: 100, completionist: 200 }, footage_hours: 300) }
+
+    it "effective_axis equals footage_hours" do
+      expect(comp.effective_axis).to eq(300)
+    end
+
+    it "tick_axis equals footage_hours" do
+      expect(comp.tick_axis).to eq(300)
+    end
+
+    it "footage tick lands at the right end (98.75%)" do
+      expect(comp.footage_position).to eq(98.75)
+    end
+
+    it "completionist rescales to its proportional position on the footage axis" do
+      # comp=200, axis=300 → 66.66% → cell 26 → 66.25%
+      expect(comp.tick_position(200)).to eq(66.25)
+    end
+
+    it "max_x is based on footage (footage * 1.05)" do
+      # effective_axis=300; max(300,10)*1.05=315
+      expect(comp.max_x).to eq(315)
+    end
+
+    it "gradient_stops also uses the footage-based axis (color_axis_max=300)" do
+      expect(comp.color_axis_max).to eq(300)
+    end
+
+    it "gradient terminal is still completionist-driven (completionist present)" do
+      expect(comp.gradient_terminal_pillar).to eq(:completionist)
+    end
+  end
 end
