@@ -62,12 +62,6 @@ module Pito
           "pc"          => "steam"
         }.freeze
 
-        DISPLAY_NAMES = {
-          "ps"     => "PlayStation",
-          "switch" => "Nintendo Switch",
-          "steam"  => "Steam"
-        }.freeze
-
         # @param event        [Event]        the game-detail event.
         # @param rest         [String]       text after `#<handle> `.
         # @param conversation [Conversation] the owning conversation.

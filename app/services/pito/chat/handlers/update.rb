@@ -41,13 +41,6 @@ module Pito
           "pc"          => "steam"
         }.freeze
 
-        # Human-readable display names for canonical tokens.
-        DISPLAY_NAMES = {
-          "ps"     => "PlayStation",
-          "switch" => "Nintendo Switch",
-          "steam"  => "Steam"
-        }.freeze
-
         def call
           words = message.body_tokens.map(&:value)
 
@@ -73,7 +66,7 @@ module Pito
 
           apply_ownership(game, tokens)
 
-          display = tokens.map { |t| DISPLAY_NAMES.fetch(t) }.join(", ")
+          display = tokens.map { |t| I18n.t("pito.game.detail.platform_label.#{t}") }.join(", ")
           text    = Pito::Copy.render("pito.copy.games.ownership_set", { title: game.title, platforms: display })
 
           Pito::Chat::Result::Ok.new(events: [ { kind: :system, payload: { text: text } } ])
