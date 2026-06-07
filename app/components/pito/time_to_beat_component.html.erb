@@ -1,5 +1,10 @@
 <%# Pito::TimeToBeatComponent — KEPT BUT UNUSED — no host screen yet. %>
 <div class="pito-ttb" data-component="time-to-beat">
+  <%# Witty label, left of the bar (aligned to the bar row via CSS margin-top).
+      A left gutter keeps the bar + all the %-positioned rows in one shared
+      coordinate space so ticks and hour labels stay aligned. %>
+  <span class="pito-ttb__label"><%= bar_label %></span>
+  <div class="pito-ttb__body">
   <%# Row 1 — Footage value bubble. %>
   <div class="pito-ttb__values pito-ttb__values--top">
     <% if render_footage_tick? %>
@@ -74,5 +79,6 @@
         <span class="pito-ttb__legend-label"><%= footage_caption %></span>
       </span>
     <% end %>
+  </div>
   </div>
 </div>

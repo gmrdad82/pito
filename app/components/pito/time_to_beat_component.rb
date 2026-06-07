@@ -133,10 +133,15 @@ module Pito
     # CSS-clipped) bar — not capped at BAR_CELLS. BAR_CELLS still drives the
     # tick cell-snap math (so completionist lands just inside the `]` bracket
     # rather than on it); the visible fill is continuous and full-width.
-    FILL_CELLS = 160
+    FILL_CELLS = 300
 
     def fill_text
       "=" * FILL_CELLS
+    end
+
+    # Witty label rendered before the bar (e.g. "Hours needed"), via Pito::Copy.
+    def bar_label
+      Pito::Copy.render("pito.copy.game.ttb_label")
     end
 
     def footage_value_label

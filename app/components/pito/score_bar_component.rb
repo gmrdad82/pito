@@ -16,7 +16,7 @@ class Pito::ScoreBarComponent < ViewComponent::Base
   # can ever fit and let CSS clip the overflow, so the `=` run fills 100% of
   # the available width at any container size. The red→green gradient is a CSS
   # background-clip:text over the visible box, so it scales with the width.
-  FILL_CELLS = 160
+  FILL_CELLS = 300
 
   TIERS = [
     [ 90, "excellent" ],

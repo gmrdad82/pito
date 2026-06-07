@@ -788,6 +788,27 @@ html {
 
 .pito-ttb {
   display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+/* Witty label left of the bar. margin-top pushes it down past row 1 (the
+   footage bubble row) so it sits on the bar's line, mirroring the ScoreBar
+   label. */
+.pito-ttb__label {
+  flex: 0 0 auto;
+  color: var(--fg-dim);
+  white-space: nowrap;
+  margin-top: 2.4em;
+}
+
+/* The rows column (footage / bar / values / legend). flex:1 + min-width:0 so
+   the bar (and every %-positioned row) shares one full-width coordinate space
+   to the right of the label. */
+.pito-ttb__body {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
   flex-direction: column;
   gap: 2px;
 }
