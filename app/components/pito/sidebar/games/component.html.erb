@@ -11,7 +11,7 @@
       <div class="pito-game-row flex gap-2 items-center py-1 px-2 rounded cursor-pointer hover:bg-bg-hover"
            data-game-id="<%= game.id %>"
            data-game-title="<%= game.title %>">
-        <span class="text-fg-faded shrink-0 tabular-nums w-8 text-right">#<%= game.id %></span>
+        <span class="text-fg-faded shrink-0 tabular-nums w-8 text-right"><%= game.id %></span>
         <span class="text-fg truncate"><%= game.title %></span>
       </div>
     <% end %>
