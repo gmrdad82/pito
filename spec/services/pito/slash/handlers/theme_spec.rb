@@ -186,13 +186,16 @@ RSpec.describe Pito::Slash::Handlers::Theme, type: :service do
       expect(all_keys.any? { |k| k.include?("dracula") }).to be(true)
     end
 
-    it "marks the current theme with a '← this one' suffix (no bullet)" do
+    it "marks the current theme with an ASCII '<-' marker in value2 (cyan column, no bullet, no unicode arrow)" do
       AppSetting.theme = "dracula"
       res      = build_handler(args: %w[list]).call
       sections = res.events.first[:payload][:sections]
       rows     = sections.flat_map { |s| s[:rows] }
       current  = rows.find { |r| r[:key] == "dracula" }
-      expect(current[:value]).to include("← this one")
+      expect(current[:value]).to eq("Dracula")          # label only — marker is separate
+      expect(current[:value2]).to start_with("<-")
+      expect(current[:value2]).not_to include("←")
+      expect(rows.none? { |r| r[:value2].present? && r[:key] != "dracula" }).to be(true)
       expect(rows.none? { |r| r[:key].to_s.include?("●") }).to be(true)
     end
 

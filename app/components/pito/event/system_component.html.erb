@@ -64,6 +64,9 @@
                             key_data:    { "pito--typewriter-target" => "prose" },
                             value_data:  { "pito--typewriter-target" => "prose" }
                           )) %>
+                      <% if row[:value2].present? %>
+                        <span class="text-cyan whitespace-nowrap" data-pito--typewriter-target="prose"><%= row[:value2] %></span>
+                      <% end %>
                     </div>
                   <% end %>
                 </div>

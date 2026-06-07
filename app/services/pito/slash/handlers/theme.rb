@@ -213,12 +213,11 @@ module Pito
         # marked with a "← this one" suffix on the right (no leading bullet).
         def build_theme_rows(definitions, current_slug)
           definitions.map do |d|
-            value = d.label
-            if d.slug == current_slug
-              marker = Pito::Copy.render("pito.copy.theme.current_marker")
-              value  = "#{d.label}   #{marker}"
-            end
-            { key: d.slug, value: value }
+            row = { key: d.slug, value: d.label }
+            # Current theme: the marker rides in value2 so it renders cyan,
+            # not dimmed alongside the label.
+            row[:value2] = Pito::Copy.render("pito.copy.theme.current_marker") if d.slug == current_slug
+            row
           end
         end
 
