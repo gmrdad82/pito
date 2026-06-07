@@ -47,9 +47,7 @@ module Pito
       attr_reader :body, :expand_lines, :expand_detail, :expand_more_count, :table_rows, :info_lines, :handle, :channel, :sections, :html, :reply_handle, :reply_consumed
 
       def expandable?    = @expand_detail.any? || @sections.any?
-      # Accent bar color — defaults to :surface; payload may override (e.g. the
-      # enhanced game message uses :pito for a distinct brand-blue border).
-      def accent         = (@payload[:accent].presence || :surface).to_sym
+      def accent         = :surface
       def background     = nil
 
       # True when this system message has a follow-up handle and is not yet consumed.

@@ -193,18 +193,6 @@ RSpec.describe Pito::Event::SystemComponent do
     end
   end
 
-  describe "accent override (enhanced message uses pito-blue border)" do
-    it "defaults to the surface accent bar" do
-      node = render_inline(described_class.new(payload: { body: "x" }))
-      expect(node.css(".pito-segment__bar").first["data-accent"]).to eq("surface")
-    end
-
-    it "renders the pito accent bar when payload accent is 'pito'" do
-      node = render_inline(described_class.new(payload: { body: "x", accent: "pito" }))
-      expect(node.css(".pito-segment__bar").first["data-accent"]).to eq("pito")
-    end
-  end
-
   describe "table_rows with a third column (value2)" do
     subject(:node) do
       render_inline(described_class.new(payload: {

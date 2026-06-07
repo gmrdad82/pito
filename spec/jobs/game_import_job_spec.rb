@@ -103,12 +103,14 @@ RSpec.describe GameImportJob, type: :job do
     expect(detail).to be_present
   end
 
-  it "streams an enhanced message event (html: true) that is NOT follow-up-able" do
+  it "streams an enhanced message event (kind: enhanced) that is NOT follow-up-able" do
     perform
     enhanced = conversation.events.find { |e|
-      e.payload["html"] == true && e.payload["body"].to_s.include?("pito-game-enhanced-message")
+      e.payload["body"].to_s.include?("pito-game-enhanced-message")
     }
     expect(enhanced).to be_present
+    # Renders via the Enhanced chrome (pito-blue border), not a System message.
+    expect(enhanced.kind).to eq("enhanced")
     # The enhanced message carries no #handle — only the standard detail does.
     expect(enhanced.payload["reply_handle"]).to be_blank
     expect(enhanced.payload["reply_target"]).to be_blank
