@@ -1,0 +1,36 @@
+<%# Pito::Channel::ItemComponent — shared channel item: handle / title / id,
+    with optional [view] link (show_visit: true) and/or ScoreBarComponent (score: N). %>
+<div class="pito-channel-item">
+  <%# Handle %>
+  <div class="pito-channel-item__handle text-cyan">
+    <%= channel.at_handle %>
+  </div>
+
+  <%# View link — plain manual anchor (new tab), only when show_visit: true.
+      Deliberately NOT VisitComponent: that auto-clicks/navigates on render. %>
+  <% if show_visit? %>
+    <div class="pito-channel-item__visit">
+      <a href="<%= youtube_url %>"
+         target="_blank"
+         rel="noopener"
+         class="pito-channel-item__visit-link text-yellow">[view]</a>
+    </div>
+  <% end %>
+
+  <%# Title %>
+  <div class="pito-channel-item__title text-fg">
+    <%= channel.title.to_s %>
+  </div>
+
+  <%# Channel id (#-prefixed) %>
+  <div class="pito-channel-item__id text-fg-faded">
+    #<%= channel.id %>
+  </div>
+
+  <%# Score bar — only when a score is provided %>
+  <% if score? %>
+    <div class="pito-channel-item__score">
+      <%= render(Pito::ScoreBarComponent.new(score: score)) %>
+    </div>
+  <% end %>
+</div>

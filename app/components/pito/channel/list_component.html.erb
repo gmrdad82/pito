@@ -14,28 +14,8 @@
         </div>
       <% end %>
 
-      <%# Title %>
-      <div class="pito-channel-list__title text-fg">
-        <%= channel.title.to_s %>
-      </div>
-
-      <%# Handle %>
-      <div class="pito-channel-list__handle text-cyan">
-        <%= channel.at_handle %>
-      </div>
-
-      <%# View link on its own line %>
-      <div class="pito-channel-list__view">
-        <a href="<%= youtube_url_for(channel) %>"
-           target="_blank"
-           rel="noopener"
-           class="pito-channel-list__view-link text-yellow">[view]</a>
-      </div>
-
-      <%# Channel id (# prefix) %>
-      <div class="pito-channel-list__id text-fg-faded">
-        #<%= channel.id %>
-      </div>
+      <%# Shared channel item: handle / title / #id + [visit] link %>
+      <%= render(Pito::Channel::ItemComponent.new(channel: channel, show_visit: true)) %>
     </div>
   <% end %>
 </div>

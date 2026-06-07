@@ -1009,11 +1009,14 @@ html {
   height: 0.5rem;
 }
 
-/* Channel grid: auto-fill columns, min 120px each, aligned by the
-   three row tracks (handle / title / score bar). */
+/* Channel grid: auto-fit columns, min 200px each. auto-fit (not auto-fill)
+   so a lone channel stretches to full width instead of staying a starved
+   120px track; the 200px floor guarantees the inline ScoreBarComponent
+   (label + needle bar) has room — at 120px the "Crowd Score" label ate the
+   row and the `=` track collapsed to nothing ("[]"). */
 .pito-game-enhanced-message__channel-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 0.75rem 1rem;
   align-items: start;
 }
@@ -1023,25 +1026,6 @@ html {
   flex-direction: column;
   gap: 0.25rem;
   min-width: 0;
-}
-
-.pito-game-enhanced-message__channel-handle {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.pito-game-enhanced-message__channel-title {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* The ScoreBarComponent inside a channel column inherits the column
-   width naturally (it is full-width by design). Override the large
-   top margin the standalone bar uses so it sits flush in the grid. */
-.pito-game-enhanced-message__channel-score .pito-score-bar {
-  margin-top: 0.25rem;
 }
 
 /* Similar-games strip: inline, wrapping. */
@@ -1145,6 +1129,38 @@ html {
 
 .pito-channel-list__view-link {
   display: inline-block;
+}
+
+/* ── Channel item (Pito::Channel::ItemComponent) ────────────────────────────
+ *
+ * Shared single-channel item: handle / title / id, with optional [visit]
+ * link (via VisitComponent) and/or ScoreBarComponent below the id.
+ * Used in ListComponent (show_visit: true, no score) and in the enhanced
+ * game message channel grid (show_visit: false, with score bar).
+ */
+.pito-channel-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+/* Handle: allow wrapping on narrow columns (game enhanced grid). */
+.pito-channel-item__handle {
+  word-break: break-all;
+}
+
+/* Title: truncate to one line in list context; inherit in grid context. */
+.pito-channel-item__title {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Score bar: sits below the #id with a small top gap. */
+.pito-channel-item__score .pito-score-bar {
+  margin-top: 0.25rem;
 }
 
 /* ── Theme system ──────────────────────────────────────────────
