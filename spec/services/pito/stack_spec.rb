@@ -26,5 +26,22 @@ RSpec.describe Pito::Stack, type: :service do
       expect(summary.keys).to contain_exactly(:voyage, :youtube, :igdb)
       expect(summary[:voyage]).to eq(requests_24h: 1, requests_month: Pito::Stack::Voyage.requests_month)
     end
+
+    it "each provider's to_h carries :requests_24h and :requests_month keys" do
+      [ Pito::Stack::Voyage, Pito::Stack::Youtube, Pito::Stack::Igdb ].each do |mod|
+        expect(mod.to_h.keys).to contain_exactly(:requests_24h, :requests_month)
+      end
+    end
+  end
+
+  describe ".track" do
+    it "records an ApiRequest and does not raise" do
+      expect { Pito::Stack.track("voyage", endpoint: "embed", units: 1) }.not_to raise_error
+    end
+
+    it "rescues StandardError so a failing record write never raises to the caller" do
+      allow(ApiRequest).to receive(:record!).and_raise(StandardError, "DB down")
+      expect { Pito::Stack.track("voyage") }.not_to raise_error
+    end
   end
 end
