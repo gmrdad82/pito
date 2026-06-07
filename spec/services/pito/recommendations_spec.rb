@@ -247,6 +247,32 @@ RSpec.describe Pito::Recommendations, type: :service do
       end
     end
 
+    context "combined filters (genre + year)" do
+      let(:genre_rpg) { create(:genre, slug: "rpg", name: "RPG") }
+
+      it "intersects both filters (only games passing ALL conditions are returned)" do
+        # Passes both: RPG + 2024
+        both_pass = create(:game, title: "Both pass", release_year: 2024)
+        both_pass.update_column(:summary_embedding, vec(0))
+        create(:game_genre, game: both_pass, genre: genre_rpg)
+
+        # Only genre passes, wrong year
+        wrong_year = create(:game, title: "Wrong year", release_year: 2020)
+        wrong_year.update_column(:summary_embedding, vec(0, value: 0.99))
+        create(:game_genre, game: wrong_year, genre: genre_rpg)
+
+        # Only year passes, wrong genre
+        wrong_genre = create(:game, title: "Wrong genre", release_year: 2024)
+        wrong_genre.update_column(:summary_embedding, vec(0, value: 0.98))
+
+        results = described_class.similar_games(game, filters: { genre: "rpg", year: 2024 })
+        returned = results.map(&:game)
+        expect(returned).to include(both_pass)
+        expect(returned).not_to include(wrong_year)
+        expect(returned).not_to include(wrong_genre)
+      end
+    end
+
     context "when all candidates are filtered out" do
       it "returns []" do
         fps_game = create(:game, title: "FPS")
