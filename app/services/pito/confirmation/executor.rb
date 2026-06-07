@@ -53,7 +53,7 @@ module Pito
             channel = Channel.find_by(id: payload[:channel_id])
             handle  = channel&.handle&.presence || channel&.title.to_s
             Pito::Copy.render("pito.copy.disconnect.cancelled",
-                              { handle: handle.presence || "the channel" })
+                              { handle: handle.presence || I18n.t("pito.confirmation.channel_fallback") })
           else
             Pito::Copy.render("pito.copy.confirmation.cancelled")
           end
@@ -110,6 +110,8 @@ module Pito
             end
           end
 
+          # Intentional i18n (not Pito::Copy): pluralization requires count:, which
+          # Pito::Copy.render does not support. This is the one exception in this executor.
           I18n.t("pito.slash.disconnect.confirmation.confirmed",
                  handle: handle, count: video_count)
         end
