@@ -2108,6 +2108,7 @@ All chat / slash / hashtag / follow-up message payloads are produced by
 payload.
 
 **Chrome (kind) vs. content separation:**
+
 - **Chrome** (the border/wrapper style — system, enhanced, confirmation, error)
   is a pure function of the event `kind` set by the **caller** (handler or job).
 - **Content** (body, html, table_rows, sections, text, follow-up stamps) is a
@@ -2120,10 +2121,12 @@ object, call the builder, and emit an event with the correct kind.
 builder for follow-up-able messages. Handlers do NOT call it directly.
 
 **Shared helpers** in `Pito::MessageBuilder::Helpers`:
+
 - `render_component(component)` — renders a ViewComponent to HTML
 - `html_payload(body:, **extra)` — returns `{ "body" => body, "html" => true, ... }`
 
 **Registered builders:**
+
 - `Game::Detail` — game detail card (system, follow-up-able: game_detail)
 - `Game::Enhanced` — recommendations card (enhanced, not follow-up-able)
 - `Game::List` — game library list (system, follow-up-able: game_list)

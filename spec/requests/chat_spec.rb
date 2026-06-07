@@ -123,7 +123,9 @@ RSpec.describe "Chat requests", type: :request do
     end
 
     context "with a recognised chat verb (list)" do
-      let(:params) { { input: "list videos", uuid: conversation.uuid } }
+      # `list games` is a fully-wired chat verb that yields a system event;
+      # `list videos` is recognised but not listable yet (videos deferred).
+      let(:params) { { input: "list games", uuid: conversation.uuid } }
 
       it "returns 204 No Content" do
         post "/chat", params: params
