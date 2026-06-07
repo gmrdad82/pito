@@ -50,4 +50,32 @@ RSpec.describe Pito::Chat::Handlers::List do
       expect(payload[:table_rows]).to be_nil
     end
   end
+
+  describe "#call with a non-games noun (channels / videos)" do
+    let!(:game) { create(:game, title: "Lies of P") }
+
+    def handler_for(raw)
+      described_class.new(
+        message: Pito::Chat::Message.new(verb: :list, body_tokens: [], kind: :new_turn, raw:),
+        conversation: Conversation.singleton
+      )
+    end
+
+    it "does NOT return the games shelf for `list channels`" do
+      result = handler_for("list channels").call
+      expect(result).to be_a(Pito::Chat::Result::Error)
+      expect(result.message_key).to eq("pito.chat.errors.cannot_list")
+      expect(result.message_args[:noun]).to eq("channels")
+    end
+
+    it "does NOT return the games shelf for `list videos`" do
+      result = handler_for("list videos").call
+      expect(result).to be_a(Pito::Chat::Result::Error)
+      expect(result.message_args[:noun]).to eq("videos")
+    end
+
+    it "still lists games for `list games`" do
+      expect(handler_for("list games").call).to be_a(Pito::Chat::Result::Ok)
+    end
+  end
 end

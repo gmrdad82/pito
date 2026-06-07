@@ -29,6 +29,7 @@ en:
         unknown_input: "Didn't understand %{input}. Try /help for available commands."
         verb_not_implemented: "The chat verb %{verb} isn't wired yet."
         misrouted_slash: "Internal: slash command %{raw} reached the chat parser."
+        cannot_list: "Can't list %{noun} yet — only games. Try: list games."
       conversations:
         errors:
           title_blank: "title cannot be blank"

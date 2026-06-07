@@ -8,8 +8,9 @@
 # library returns a witty empty-state. All copy via `Pito::Copy`.
 #
 # NOTE: `game`/`games` are FILLER words in the grammar, so `list` and
-# `list games` parse identically — both land here. (Noun disambiguation for
-# `list videos`/`list channels` is future work.)
+# `list games` parse identically — both land here. Other nouns (`list videos`,
+# `list channels`) are not listable yet, so we surface a clear error rather than
+# silently returning the games shelf.
 module Pito
   module Chat
     module Handlers
@@ -17,7 +18,17 @@ module Pito
         self.verb = :list
         self.description_key = "pito.chat.list.descriptions.list"
 
+        # Recognised-but-not-yet-listable nouns. Only games can be listed today.
+        UNSUPPORTED_NOUN = /\b(channels?|videos?)\b/i
+
         def call
+          if (noun = message.raw[UNSUPPORTED_NOUN, 0])
+            return Pito::Chat::Result::Error.new(
+              message_key:  "pito.chat.errors.cannot_list",
+              message_args: { noun: noun.downcase }
+            )
+          end
+
           games = ::Game.order(:title)
           return empty_result if games.empty?
 
