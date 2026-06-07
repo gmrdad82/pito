@@ -164,9 +164,14 @@ html {
   100% { content: "⠋"; }
 }
 
+/* Ping-pong sweep: left→right over the first 75% of the cycle, then
+   right→left over the last 25% — same distance in a third of the time, so the
+   return leg is 3× faster. `linear` timing (set on .pito-shimmer) keeps each
+   leg's speed constant so the 3:1 ratio is exact. */
 @keyframes pito-shimmer-sweep {
   0%   { background-position: -100% 0; }
-  100% { background-position: 100% 0; }
+  75%  { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
 }
 
 /* ── Shared component classes (moved from inline <style>) ───── */
@@ -182,7 +187,7 @@ html {
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
-  animation: pito-shimmer-sweep 1.4s infinite;
+  animation: pito-shimmer-sweep 1.4s linear infinite;
 }
 
 .pito-comet {
