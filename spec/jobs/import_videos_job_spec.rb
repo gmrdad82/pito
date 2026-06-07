@@ -166,11 +166,11 @@ RSpec.describe ImportVideosJob do
     described_class.new.perform(connection.id, turn.id)
 
     event = conversation.events.where(kind: :enhanced).last
-    expect(event.payload["body"]).to include("Videos total")
-    expect(event.payload["body"]).to include("Published")
-    expect(event.payload["body"]).to include("Scheduled")
-    expect(event.payload["body"]).to include("Unlisted")
-    expect(event.payload["body"]).to include("Drafts")
+    expect(event.payload["body"]).to include(I18n.t("pito.jobs.import_videos.breakdown.videos_total"))
+    expect(event.payload["body"]).to include(I18n.t("pito.jobs.import_videos.breakdown.published"))
+    expect(event.payload["body"]).to include(I18n.t("pito.jobs.import_videos.breakdown.scheduled"))
+    expect(event.payload["body"]).to include(I18n.t("pito.jobs.import_videos.breakdown.unlisted"))
+    expect(event.payload["body"]).to include(I18n.t("pito.jobs.import_videos.breakdown.drafts"))
   end
 
   it "resolves the thinking indicator" do

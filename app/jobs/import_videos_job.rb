@@ -123,16 +123,16 @@ class ImportVideosJob < ApplicationJob
 
     # Build KV rows
     rows = [
-      { key: "Videos total",   value: total.to_s },
-      { key: "Published",      value: published.to_s },
-      { key: "Scheduled",      value: scheduled.to_s },
-      { key: "Unlisted",       value: unlisted.to_s },
-      { key: "Drafts",         value: drafts.to_s }
+      { key: I18n.t("pito.jobs.import_videos.breakdown.videos_total"), bold: true,  value: total.to_s },
+      { key: I18n.t("pito.jobs.import_videos.breakdown.published"),    bold: false, value: published.to_s },
+      { key: I18n.t("pito.jobs.import_videos.breakdown.scheduled"),    bold: false, value: scheduled.to_s },
+      { key: I18n.t("pito.jobs.import_videos.breakdown.unlisted"),     bold: false, value: unlisted.to_s },
+      { key: I18n.t("pito.jobs.import_videos.breakdown.drafts"),       bold: false, value: drafts.to_s }
     ]
 
     # Render as compact key/value lines
     lines = rows.map do |row|
-      key_class = row[:key] == "Videos total" ? "text-fg font-bold" : "text-cyan"
+      key_class = row[:bold] ? "text-fg font-bold" : "text-cyan"
       %(<div class="flex gap-2"><span class="#{key_class} w-32">#{row[:key]}</span><span class="text-fg">#{row[:value]}</span></div>)
     end
 
