@@ -159,5 +159,14 @@ RSpec.describe NightlyVideoSyncJob, type: :job do
       expect(Rails.logger).to receive(:error).with(/NightlyVideoSyncJob.*channel=#{channel.id}.*DB connection lost/)
       expect { job.perform(channel.id) }.not_to raise_error
     end
+
+    it "does not enqueue GameStatsRefreshJob when videos are fetched but none linked to a game" do
+      # Import produces videos, but no VideoGameLink records exist → no game refresh
+      clear_enqueued_jobs
+      job.perform(channel.id)
+
+      game_refresh_jobs = enqueued_jobs.select { |j| j["job_class"] == "GameStatsRefreshJob" }
+      expect(game_refresh_jobs).to be_empty
+    end
   end
 end
