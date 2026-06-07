@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_06_201000) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_07_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -403,19 +403,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_06_201000) do
   end
 
   create_table "video_previews", force: :cascade do |t|
-    t.boolean "allow_embedding"
-    t.boolean "automatic_chapters"
-    t.boolean "automatic_concepts"
-    t.boolean "automatic_places"
     t.string "category_id"
-    t.boolean "contains_altered_content"
     t.datetime "created_at", null: false
     t.text "description"
     t.text "error_message"
     t.string "game_title"
-    t.boolean "made_for_kids"
-    t.boolean "notify_subscribers"
-    t.boolean "paid_promotion"
     t.datetime "published_at"
     t.integer "shorts_remixing"
     t.integer "status", default: 0, null: false
