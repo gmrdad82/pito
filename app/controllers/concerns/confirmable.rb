@@ -31,7 +31,7 @@ module Confirmable
 
     unless TYPES.include?(@type)
       respond_to do |format|
-        format.html { redirect_to root_path, alert: "unknown type." }
+        format.html { redirect_to root_path, alert: I18n.t("pito.confirmable.alerts.unknown_type") }
         format.json { render json: { error: "unknown type" }, status: :unprocessable_content }
       end
       return
@@ -41,7 +41,7 @@ module Confirmable
 
     if ids.empty?
       respond_to do |format|
-        format.html { redirect_to cancel_path, alert: "nothing to #{action_verb}." }
+        format.html { redirect_to cancel_path, alert: I18n.t("pito.confirmable.alerts.nothing_to", action: action_verb) }
         # Phase 21 — JSON envelope is normative ("no_ids_supplied" rather than
         # the free-form HTML alert text).
         format.json { render json: { error: "no_ids_supplied" }, status: :unprocessable_content }
@@ -51,7 +51,7 @@ module Confirmable
 
     if @items.blank? || (@items.respond_to?(:empty?) && @items.empty?)
       respond_to do |format|
-        format.html { redirect_to cancel_path, alert: "nothing to #{action_verb}." }
+        format.html { redirect_to cancel_path, alert: I18n.t("pito.confirmable.alerts.nothing_to", action: action_verb) }
         format.json { render json: { error: "nothing to #{action_verb}" }, status: :unprocessable_content }
       end
       return
