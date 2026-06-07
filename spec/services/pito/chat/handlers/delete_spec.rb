@@ -23,9 +23,9 @@ RSpec.describe Pito::Chat::Handlers::Delete do
     expect(result).to be_a(Pito::Chat::Result::Ok)
     event = result.events.first
     expect(event[:kind]).to eq("confirmation")
-    expect(event[:payload][:command]).to eq("game_delete")
-    expect(event[:payload][:game_id]).to eq(game.id)
-    expect(event[:payload][:game_title]).to eq("Lies of P")
+    expect(event[:payload]["command"]).to eq("game_delete")
+    expect(event[:payload]["game_id"]).to eq(game.id)
+    expect(event[:payload]["game_title"]).to eq("Lies of P")
   end
 
   it "resolves by id and stamps the confirmation follow-up-able" do

@@ -26,8 +26,8 @@ module Pito
           # Mirror an import: the Standard detail message (follow-up-able) plus the
           # Enhanced recommendations message (pito chrome, not follow-up-able).
           Pito::Chat::Result::Ok.new(events: [
-            { kind: :system,   payload: Pito::Game::DetailMessage.call(game, conversation:) },
-            { kind: :enhanced, payload: Pito::Game::EnhancedMessage.call(game) }
+            { kind: :system,   payload: Pito::MessageBuilder::Game::Detail.call(game, conversation:) },
+            { kind: :enhanced, payload: Pito::MessageBuilder::Game::Enhanced.call(game) }
           ])
         end
 

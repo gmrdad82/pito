@@ -50,13 +50,13 @@ a pure function of the builder. The two never mix.
 - [x] T0.5 Commit: `Add Pito::MessageBuilder namespace + shared helpers`. complexity: [manual]
 
 ## P1 — Migrate the 3 existing builders into the namespace
-- [ ] T1.1 Move `Pito::Game::DetailMessage` → `Pito::MessageBuilder::Game::Detail` (file + module). complexity: [low]
-- [ ] T1.2 Move `Pito::Game::EnhancedMessage` → `Pito::MessageBuilder::Game::Enhanced`. complexity: [low]
-- [ ] T1.3 Move `Pito::Game::DeleteConfirmation` → `Pito::MessageBuilder::Game::DeleteConfirmation`. complexity: [low]
-- [ ] T1.4 Repoint callers: `chat/handlers/show.rb`, `chat/handlers/list.rb`, `chat/handlers/delete.rb`, `follow_up/handlers/game_detail.rb`, `follow_up/handlers/game_list.rb`, `jobs/game_import_job.rb`. complexity: [high]
-- [ ] T1.5 Rename the moved specs + update constant references. complexity: [low]
-- [ ] T1.6 Run `bundle exec rspec` + `bin/rails zeitwerk:check`. complexity: [manual]
-- [ ] T1.7 Commit: `Move Game detail/enhanced/delete-confirm builders under Pito::MessageBuilder`. complexity: [manual]
+- [x] T1.1 Move `Pito::Game::DetailMessage` → `Pito::MessageBuilder::Game::Detail` (file + module). complexity: [low]
+- [x] T1.2 Move `Pito::Game::EnhancedMessage` → `Pito::MessageBuilder::Game::Enhanced`. complexity: [low]
+- [x] T1.3 Move `Pito::Game::DeleteConfirmation` → `Pito::MessageBuilder::Game::DeleteConfirmation`. complexity: [low]
+- [x] T1.4 Repoint callers: `chat/handlers/show.rb`, `chat/handlers/list.rb`, `chat/handlers/delete.rb`, `follow_up/handlers/game_detail.rb`, `follow_up/handlers/game_list.rb`, `jobs/game_import_job.rb`. complexity: [high]
+- [x] T1.5 Rename the moved specs + update constant references. complexity: [low]
+- [x] T1.6 Run `bundle exec rspec` + `bin/rails zeitwerk:check`. complexity: [manual]
+- [x] T1.7 Commit: `Move Game detail/enhanced/delete-confirm builders under Pito::MessageBuilder`. complexity: [manual]
 
 ## P2 — List message builders (games, channels)
 - [ ] T2.1 Create `Pito::MessageBuilder::Game::List` (intro + id/title `table_rows` + `make_followupable!(game_list)`). complexity: [low]

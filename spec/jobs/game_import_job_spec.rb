@@ -35,7 +35,7 @@ RSpec.describe GameImportJob, type: :job do
     allow(Pito::Game::ScoreCalculator).to receive(:call).and_return(80.0)
 
     # Stub DetailMessage
-    allow(Pito::Game::DetailMessage).to receive(:call)
+    allow(Pito::MessageBuilder::Game::Detail).to receive(:call)
       .and_return({ "body" => "<div>detail</div>", "html" => true })
 
     # Stub update_column for all column names (resyncing, score, igdb_synced_at, etc.)

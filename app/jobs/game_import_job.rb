@@ -91,7 +91,7 @@ class GameImportJob < ApplicationJob
     broadcast_step_done(broadcaster, step: 3)
 
     # After Step 3 — stream the standard P9 detail message to main chat (T16.9).
-    detail_payload = Pito::Game::DetailMessage.call(game.reload, conversation:)
+    detail_payload = Pito::MessageBuilder::Game::Detail.call(game.reload, conversation:)
     detail_event = Event.create_with_position!(
       conversation:, turn:, kind: :system,
       payload: detail_payload
@@ -118,7 +118,7 @@ class GameImportJob < ApplicationJob
     # message carries a #handle. Shared builder with `show game <ref>`.
     enhanced_event = Event.create_with_position!(
       conversation:, turn:, kind: :enhanced,
-      payload: Pito::Game::EnhancedMessage.call(game)
+      payload: Pito::MessageBuilder::Game::Enhanced.call(game)
     )
     broadcaster.broadcast_event(enhanced_event)
 

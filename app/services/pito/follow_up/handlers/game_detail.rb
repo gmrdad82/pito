@@ -152,7 +152,7 @@ module Pito
           # Re-render the detail message with the same handle + target so the card
           # remains follow-up-able (chainable, not consumed).
           original_handle = event.payload["reply_handle"].to_s
-          new_payload = Pito::Game::DetailMessage.call(game.reload, conversation:)
+          new_payload = Pito::MessageBuilder::Game::Detail.call(game.reload, conversation:)
           # Override the freshly generated handle with the original so Turbo replace
           # finds the correct DOM element (event id stays the same; handle must match).
           new_payload["reply_handle"] = original_handle

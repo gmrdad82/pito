@@ -2,7 +2,7 @@
 
 require "rails_helper"
 
-RSpec.describe Pito::Game::DetailMessage do
+RSpec.describe Pito::MessageBuilder::Game::Detail do
   let(:conversation) { create(:conversation) }
   let(:game) { create(:game, title: "Portal 2", summary: "A puzzle game.") }
 
@@ -13,7 +13,7 @@ RSpec.describe Pito::Game::DetailMessage do
       expect(payload).to be_a(Hash)
     end
 
-    it "sets html: true" do
+    it "sets html true" do
       expect(payload["html"]).to be true
     end
 
@@ -22,7 +22,6 @@ RSpec.describe Pito::Game::DetailMessage do
     end
 
     it "includes the rendered card HTML in body" do
-      # The card renders the game title inside a div with class pito-game-detail
       expect(payload["body"]).to include("pito-game-detail")
     end
 
@@ -35,10 +34,7 @@ RSpec.describe Pito::Game::DetailMessage do
     end
 
     it "includes the witty intro with the game title in body" do
-      # The copy sampler is deterministic in tests (returns first variant).
-      # First variant: "Here's everything pito knows about %{title}."
       expect(payload["body"]).to include("Portal 2")
-      # The intro is rendered in a <p> tag
       expect(payload["body"]).to include("<p")
     end
 
@@ -48,6 +44,10 @@ RSpec.describe Pito::Game::DetailMessage do
 
     it "stamps game_id in the payload" do
       expect(payload["game_id"]).to eq(game.id)
+    end
+
+    it "renders without raising" do
+      expect { payload }.not_to raise_error
     end
   end
 end

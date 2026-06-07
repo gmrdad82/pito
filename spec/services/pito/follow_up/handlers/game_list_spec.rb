@@ -41,8 +41,8 @@ RSpec.describe Pito::FollowUp::Handlers::GameList do
     expect(result).to be_a(Pito::FollowUp::Result::Append)
     ev = result.events.first
     expect(ev[:kind]).to eq("confirmation")
-    expect(ev[:payload][:command]).to eq("game_delete")
-    expect(ev[:payload][:game_id]).to eq(game.id)
+    expect(ev[:payload]["command"]).to eq("game_delete")
+    expect(ev[:payload]["game_id"]).to eq(game.id)
   end
 
   it "accepts `rm <id>` as an alias for delete" do

@@ -28,14 +28,14 @@ module Pito
             return not_found(ref) unless game
 
             Pito::FollowUp::Result::Append.new(events: [
-              { kind: "system", payload: Pito::Game::DetailMessage.call(game, conversation:) }
+              { kind: "system", payload: Pito::MessageBuilder::Game::Detail.call(game, conversation:) }
             ])
           elsif DELETE_ACTIONS.include?(action)
             # Spawn the SAME delete confirmation as `delete game <id>`.
             return not_found(ref) unless game
 
             Pito::FollowUp::Result::Append.new(events: [
-              { kind: "confirmation", payload: Pito::Game::DeleteConfirmation.call(game, conversation:) }
+              { kind: "confirmation", payload: Pito::MessageBuilder::Game::DeleteConfirmation.call(game, conversation:) }
             ])
           else
             Pito::FollowUp::Result::Error.new(

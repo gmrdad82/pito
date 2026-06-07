@@ -45,7 +45,7 @@ module Pito
         end
 
         def confirmation_event(game)
-          payload = Pito::Game::DeleteConfirmation.call(game, conversation:)
+          payload = Pito::MessageBuilder::Game::DeleteConfirmation.call(game, conversation:)
           Pito::Chat::Result::Ok.new(events: [ { kind: "confirmation", payload: payload } ])
         end
 
