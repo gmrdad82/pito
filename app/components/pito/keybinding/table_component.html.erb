@@ -2,16 +2,19 @@
   <% @sections.each do |section| %>
     <div class="flex flex-col gap-1">
       <%= render(Pito::Section::SectionHeaderComponent.new(text: section[:title], color: :yellow)) %>
-      <% Array(section[:rows]).each do |row| %>
-        <div class="flex gap-4">
+      <%# Grid so the command column auto-sizes to the widest entry (e.g.
+          `/themes preview <name>`) and all rows stay aligned — the old fixed
+          w-44 column let long commands overflow into the description. %>
+      <div class="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1">
+        <% Array(section[:rows]).each do |row| %>
           <%= render(Pito::Table::KeyValueRowComponent.new(
                 key_text:    row[:key],
                 value_text:  row[:value],
-                key_class:   "text-cyan whitespace-nowrap shrink-0 w-44",
+                key_class:   "text-cyan whitespace-nowrap",
                 value_class: "text-fg-dim"
               )) %>
-        </div>
-      <% end %>
+        <% end %>
+      </div>
     </div>
   <% end %>
 </div>
