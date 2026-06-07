@@ -69,13 +69,16 @@ module Pito
         end
 
         # Enqueue a full IGDB resync for the game.
+        # When `conversation_id` is present in the payload (chat-initiated path),
+        # passes it through so GameIgdbSync broadcasts detail+enhanced on completion.
         def confirm_game_resync(payload)
-          payload = payload.with_indifferent_access
-          title   = payload[:game_title].to_s
-          game    = ::Game.find_by(id: payload[:game_id])
+          payload         = payload.with_indifferent_access
+          title           = payload[:game_title].to_s
+          game            = ::Game.find_by(id: payload[:game_id])
           return Pito::Copy.render("pito.copy.games.not_found", { ref: title }) if game.nil?
 
-          GameIgdbSync.perform_later(game.id)
+          conversation_id = payload[:conversation_id].presence
+          GameIgdbSync.perform_later(game.id, conversation_id: conversation_id)
           Pito::Copy.render("pito.copy.games.resync_queued", { title: title })
         end
 
