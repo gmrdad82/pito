@@ -25,6 +25,16 @@ function buildScaffold({ prefill = "", uuid = "test-uuid" } = {}) {
   wrapper.setAttribute("data-pito--games-search-i18n-error-value", "IGDB failed.")
   wrapper.setAttribute("data-pito--games-search-i18n-in-library-value", "In Library")
   wrapper.setAttribute("data-pito--games-search-i18n-in-library-hint-value", "(will resync)")
+  wrapper.setAttribute(
+    "data-pito--games-search-i18n-step-labels-value",
+    JSON.stringify([
+      "Fetching game info…",
+      "Downloading cover art…",
+      "Computing score…",
+      "Indexing for recommendations…",
+      "Preparing recommendations…",
+    ])
+  )
 
   const input = document.createElement("input")
   input.type = "text"

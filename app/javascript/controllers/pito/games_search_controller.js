@@ -23,7 +23,8 @@
 //   Values:     conversation-uuid (String), prefill (String),
 //               i18n-searching (String), i18n-no-results (String),
 //               i18n-error (String), i18n-in-library (String),
-//               i18n-in-library-hint (String)
+//               i18n-in-library-hint (String),
+//               i18n-step-labels (Array) — JSON array of 5 step label strings
 //   Targets:    input   — <input type="text">
 //               shimmer — <p> for shimmer loading indicator (dots row)
 //               status  — <p> for witty status text (no-results / error)
@@ -35,18 +36,6 @@ import { Controller } from "@hotwired/stimulus"
 
 const DEBOUNCE_MS   = 250
 const HIGHLIGHT_CLS = "pito-resume-highlight"
-
-// Step labels are rendered server-side and broadcast via Turbo Stream replace
-// (the job uses Broadcaster#broadcast_import_step). The JS sets up the
-// initial shimmer rows with these English strings as a fallback — the server
-// i18n overrides them on first broadcast.
-const STEP_LABELS = [
-  "Fetching game info…",
-  "Downloading cover art…",
-  "Computing score…",
-  "Indexing for recommendations…",
-  "Preparing recommendations…",
-]
 
 // Per-step shimmer animation-delay offsets (stagger).  No new CSS needed —
 // we inject inline animation-delay on each .pito-shimmer span so each step
@@ -63,6 +52,7 @@ export default class extends Controller {
     i18nError:           { type: String, default: "" },
     i18nInLibrary:       { type: String, default: "" },
     i18nInLibraryHint:   { type: String, default: "" },
+    i18nStepLabels:      { type: Array,  default: [] },
   }
 
   connect() {
@@ -316,7 +306,7 @@ export default class extends Controller {
     const container = this.resultsTarget
     container.innerHTML = ""
 
-    STEP_LABELS.forEach((label, i) => {
+    this.i18nStepLabelsValue.forEach((label, i) => {
       const step = i + 1
       const delay = STEP_DELAYS[i] || "0s"
 

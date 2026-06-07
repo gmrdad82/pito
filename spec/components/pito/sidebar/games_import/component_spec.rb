@@ -60,6 +60,17 @@ RSpec.describe Pito::Sidebar::GamesImport::Component do
     end
   end
 
+  describe "step labels" do
+    it "passes i18n step labels as a JSON array via data attribute" do
+      node = render_inline(described_class.new(prefill: "", conversation_uuid: uuid))
+      el   = node.css("[data-pito--games-search-i18n-step-labels-value]").first
+      labels = JSON.parse(el["data-pito--games-search-i18n-step-labels-value"])
+      expect(labels.length).to eq(5)
+      expect(labels).to include(I18n.t("pito.sidebar.games_import.progress.step1"))
+      expect(labels).to include(I18n.t("pito.sidebar.games_import.progress.step5"))
+    end
+  end
+
   describe "shimmer indicator" do
     it "renders the shimmer target element" do
       node = render_inline(described_class.new(prefill: "", conversation_uuid: uuid))
