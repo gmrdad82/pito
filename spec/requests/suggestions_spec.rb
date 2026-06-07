@@ -24,6 +24,23 @@ RSpec.describe "POST /suggestions", type: :request do
       labels = body["menu_items"].map { |i| i["label"] }
       expect(labels).to include("/config")
     end
+
+    # Smoke #6 root cause: the chatbox posts the conversation as `uuid`. The
+    # controller must resolve it so the engine can map a #handle to its
+    # follow-up target — otherwise it falls back to the legacy "add" verbs.
+    it "suggests the follow-up target's actions (not legacy add) for a live #handle via uuid" do
+      conversation = Conversation.create!
+      turn = conversation.turns.create!(input_kind: :chat, input_text: "show game x", position: 1)
+      Event.create_with_position!(
+        conversation:, turn:, kind: "system",
+        payload: { "reply_handle" => "upsilon-7576", "reply_target" => "game_detail", "body" => "x" }
+      )
+
+      post "/suggestions", params: { input: "#upsilon-7576 ", cursor: 14, uuid: conversation.uuid }
+      labels = response.parsed_body["menu_items"].map { |i| i["label"] }
+      expect(labels).to include("rm", "resync")
+      expect(labels).not_to include("add")
+    end
   end
 
   describe "unauthenticated user (no session)" do
@@ -67,8 +84,8 @@ RSpec.describe "POST /suggestions", type: :request do
   describe "free-mode ghost text" do
     before { sign_in! }
 
-    it "returns ghost.complete_current == 'oming' for 'list upc'" do
-      post "/suggestions", params: { input: "list upc", cursor: 8 }
+    it "returns ghost.complete_current == 'oming' for 'find upc'" do
+      post "/suggestions", params: { input: "find upc", cursor: 8 }
       body = response.parsed_body
       expect(body["ghost"]["complete_current"]).to eq("oming")
     end
