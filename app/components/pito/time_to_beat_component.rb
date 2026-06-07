@@ -96,10 +96,30 @@ module Pito
       (ceiling * 1.05).round
     end
 
+    # Color-projection axis (0..max_x). Used by `gradient_stops` so the heat
+    # ramp reflects each game's absolute hour scale; see T17.5.
     def position(value)
       return 0.0 if max_x.zero?
 
       ((value.to_f / max_x) * 100).clamp(0.0, 100.0).round(3)
+    end
+
+    # Width of one `=` cell as a percentage of the bar (40 cells → 2.5%).
+    CELL_WIDTH_PCT = 100.0 / BAR_CELLS
+
+    # Tick axis (0..completionist). 40 cells split that span into 2.5%
+    # slices; a tick snaps to the MIDDLE of the cell its hour value falls in,
+    # so completionist (the right end) always lands at 98.75% — the middle of
+    # the last cell — rather than flush against the closing bracket. main +
+    # extras snap the same way: round((hours/completionist)*100) onto a cell
+    # midpoint. Mirrors the ScoreBar needle snap (T17.3) on the 40-wide bar.
+    def tick_position(value)
+      comp = hours[:completionist].to_i
+      return 0.0 if comp.zero?
+
+      raw  = (value.to_f / comp) * 100
+      cell = (raw / CELL_WIDTH_PCT).floor.clamp(0, BAR_CELLS - 1)
+      ((cell * CELL_WIDTH_PCT) + (CELL_WIDTH_PCT / 2.0)).round(3)
     end
 
     def label_for(key)
@@ -140,7 +160,7 @@ module Pito
         h = hours[key].to_i
         {
           key:         key,
-          position:    position(h),
+          position:    tick_position(h),
           token_class: TICK_TOKEN_CLASS[key]
         }
       end
@@ -148,7 +168,7 @@ module Pito
       if render_footage_tick?
         pillar_ticks << {
           key:         :footage,
-          position:    position(footage_hours),
+          position:    tick_position(footage_hours),
           token_class: TICK_TOKEN_CLASS[:footage]
         }
       end
@@ -186,7 +206,7 @@ module Pito
           key:      key,
           hours:    h,
           label:    label_for(key),
-          position: position(h),
+          position: tick_position(h),
           nudge:    nil
         }
       end
@@ -213,7 +233,7 @@ module Pito
     end
 
     def footage_position
-      position(footage_hours)
+      tick_position(footage_hours)
     end
 
     def gradient_break_positions

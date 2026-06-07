@@ -3,8 +3,12 @@
   <%# Row 1 — Footage value bubble. %>
   <div class="pito-ttb__values pito-ttb__values--top">
     <% if render_footage_tick? %>
+      <%# Footage uses the SAME mark as the ScoreBar needle: a value bubble
+          with a ▼ arrow, snapped to its cell midpoint on the 0..completionist
+          axis (T17.4). %>
       <div class="pito-ttb__footage-bubble"
-           data-position="<%= footage_position %>">
+           data-accent="footage"
+           style="left: <%= footage_position %>%;">
         <span class="pito-ttb__footage-bubble-num"><%= footage_value_label %></span>
         <span class="pito-ttb__footage-bubble-arrow">&#9660;</span>
       </div>
@@ -25,10 +29,14 @@
         <span class="pito-ttb__fill"><%= fill_text %></span>
         <span class="pito-ttb__bracket">]</span>
       </span>
-      <% tick_overlays.each do |tick| %>
+      <%# Pillar ticks: a `|` mark per pillar, snapped to its cell midpoint on
+          the 0..completionist axis and absolutely positioned via left:%
+          (completionist always at 98.75%). The footage tick is drawn as the
+          ▼ bubble above, so only the three pillars render a `|` here. %>
+      <% tick_overlays.reject { |t| t[:key] == :footage }.each do |tick| %>
         <span class="pito-ttb__tick <%= tick[:token_class] %>"
               data-accent="<%= tick[:key] %>"
-              data-position="<%= tick[:position] %>">|</span>
+              style="left: <%= tick[:position] %>%;">|</span>
       <% end %>
     </span>
   </div>
@@ -38,7 +46,7 @@
     <% pillar_label_data.each do |label_data| %>
       <span class="pito-ttb__value pito-ttb__value--pillar <%= pillar_bottom_label_alignment_class %>"
             data-pillar="<%= label_data[:key] %>"
-            data-position="<%= label_data[:effective_position] %>">
+            style="left: <%= label_data[:effective_position] %>%;">
         <%= label_data[:label] %>
       </span>
     <% end %>

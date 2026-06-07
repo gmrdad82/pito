@@ -787,8 +787,11 @@ html {
   width: 100%;
 }
 
+/* Brackets are solid fg — they bound the `=` run and must stay legible
+   regardless of the bar's background gradient sitting behind them. */
 .pito-ttb__bracket {
   flex: 0 0 auto;
+  color: var(--fg-default);
 }
 
 /* The `=` glyphs carry a static effort-ramp gradient via
