@@ -76,7 +76,7 @@ RSpec.describe Pito::Chat::Handlers::List do
   end
 
   describe "#call with the channels noun" do
-    let!(:beta)  { create(:channel, title: "Beta Cast", handle: "@beta", youtube_channel_id: "UCb", avatar_url: "https://example.com/beta.jpg") }
+    let!(:beta)  { create(:channel, title: "Beta Cast", handle: "@beta", youtube_channel_id: "UCb") }
     let!(:alpha) { create(:channel, title: "Alpha Tube", handle: "@alpha", youtube_channel_id: "UCa") }
 
     def handler_for(raw)

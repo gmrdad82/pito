@@ -2,9 +2,10 @@
 <div class="pito-channel-list">
   <% channels.each do |channel| %>
     <div class="pito-channel-list__card">
-      <%# Avatar %>
-      <% if channel.avatar_url.present? %>
-        <%= image_tag channel.avatar_url,
+      <%# Avatar — OUR locally-cached ActiveStorage copy (never the YouTube CDN). %>
+      <% avatar = channel.avatar_variant_url %>
+      <% if avatar %>
+        <%= image_tag avatar,
                       alt: channel.title.to_s,
                       class: "pito-channel-list__avatar block" %>
       <% else %>

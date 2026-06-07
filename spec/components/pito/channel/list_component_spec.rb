@@ -8,20 +8,21 @@ RSpec.describe Pito::Channel::ListComponent do
       id:                  1,
       title:               "Test Channel",
       handle:              "@testhandle",
-      youtube_channel_id:  "UCtest123",
-      avatar_url:          "https://example.com/avatar.jpg"
+      youtube_channel_id:  "UCtest123"
     }.merge(attrs))
   end
 
   describe "avatar" do
-    it "renders the avatar image when avatar_url is present" do
-      channel = build_channel(avatar_url: "https://example.com/avatar.jpg")
+    it "renders the avatar image from our local variant when attached" do
+      channel = build_channel
+      allow(channel).to receive(:avatar_variant_url).and_return("/rails/active_storage/blobs/avatar.jpg")
       html = render_inline(described_class.new(channels: [ channel ])).to_html
-      expect(html).to include("https://example.com/avatar.jpg")
+      expect(html).to include("/rails/active_storage/blobs/avatar.jpg")
     end
 
-    it "renders a placeholder when avatar_url is blank" do
-      channel = build_channel(avatar_url: nil)
+    it "renders a placeholder when no avatar is attached" do
+      channel = build_channel
+      allow(channel).to receive(:avatar_variant_url).and_return(nil)
       html = render_inline(described_class.new(channels: [ channel ])).to_html
       expect(html).to include("pito-channel-list__avatar--placeholder")
       expect(html).not_to include("<img")

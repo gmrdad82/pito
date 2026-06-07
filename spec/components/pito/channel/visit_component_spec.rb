@@ -8,8 +8,7 @@ RSpec.describe Pito::Channel::VisitComponent do
       id:                 42,
       title:              "Test Channel",
       handle:             "@testhandle",
-      youtube_channel_id: "UCtest123",
-      avatar_url:         nil
+      youtube_channel_id: "UCtest123"
     }.merge(attrs))
   end
 

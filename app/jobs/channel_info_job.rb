@@ -95,12 +95,17 @@ class ChannelInfoJob < ApplicationJob
         channel.update_columns(
           title:            normalized[:title],
           handle:           normalized[:handle],
-          avatar_url:       normalized[:avatar_url],
           video_count:      normalized[:video_count],
           last_synced_at:   Time.current
         )
         Pito::Stats.set(channel, :subscribers, normalized[:subscriber_count])
         Pito::Stats.set(channel, :views, normalized[:view_count])
+
+        # Cache OUR copy of the avatar (ActiveStorage) off the sync path so we
+        # never hotlink the YouTube CDN (429). Skipped when no source URL.
+        if normalized[:avatar_url].present?
+          ChannelAvatarJob.perform_later(channel.id, normalized[:avatar_url])
+        end
 
         stats << {
           title:         normalized[:title] || channel.title,
@@ -129,12 +134,14 @@ class ChannelInfoJob < ApplicationJob
     snippet  = item[:snippet]   || {}
     stats    = item[:statistics] || {}
     thumbnails = snippet[:thumbnails] || {}
-    default_thumb = thumbnails[:default] || {}
+    # Prefer the highest-res avatar available (high=800, medium=240, default=88)
+    # — we normalize down to 240, so a larger source keeps it crisp.
+    avatar_thumb = thumbnails[:high] || thumbnails[:medium] || thumbnails[:default] || {}
 
     {
       title: snippet[:title],
       handle: snippet[:custom_url],
-      avatar_url: default_thumb[:url],
+      avatar_url: avatar_thumb[:url],
       subscriber_count: stats[:subscriber_count]&.to_i,
       view_count: stats[:view_count]&.to_i,
       video_count: stats[:video_count]&.to_i

@@ -5,7 +5,7 @@ require "rails_helper"
 RSpec.describe Pito::MessageBuilder::Channel::List do
   let(:conversation) { create(:conversation) }
   let!(:alpha) { create(:channel, title: "Alpha Tube", handle: "@alpha", youtube_channel_id: "UCa") }
-  let!(:beta)  { create(:channel, title: "Beta Cast", handle: "@beta", youtube_channel_id: "UCb", avatar_url: "https://example.com/beta.jpg") }
+  let!(:beta)  { create(:channel, title: "Beta Cast", handle: "@beta", youtube_channel_id: "UCb") }
 
   describe ".call" do
     let(:channels) { ::Channel.order(:title) }
