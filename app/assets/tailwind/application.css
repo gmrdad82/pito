@@ -679,6 +679,11 @@ html {
    the OKLab+WCAG sweep script (see Plan P17 / docs/games.md). */
 .pito-score-bar__fill {
   flex: 1 1 auto;
+  /* min-width:0 lets the flex item shrink below its (overflowing) 160-char
+     content to the visible width, so the gradient is sized to the visible box
+     and maps 0→100% across it (dark-red low on the left → green high on the
+     right). Without it the box stays 160ch wide and only the left slice shows. */
+  min-width: 0;
   overflow: hidden;
   white-space: nowrap;
   background-image: linear-gradient(
@@ -820,6 +825,9 @@ html {
    T17.1 sweep) — no literal hex. */
 .pito-ttb__fill {
   flex: 1 1 auto;
+  /* See .pito-score-bar__fill — shrink to the visible width so the heat
+     gradient maps across the full bar, not the 160-char overflow box. */
+  min-width: 0;
   overflow: hidden;
   white-space: nowrap;
   -webkit-background-clip: text;
