@@ -84,11 +84,11 @@ a pure function of the builder. The two never mix.
 - [x] T4.5 Commit: `Extract Theme::List message builder`. complexity: [manual]
 
 ## P5 — Enhanced recommendations mutation builder
-- [ ] T5.1 Extract the game_enhanced `similar`/`channel` segment rebuild (score-bar segments + `rebuild_enhanced_payload`) into `Pito::MessageBuilder::Game::EnhancedSegments`. complexity: [high]
-- [ ] T5.2 Reduce the game_enhanced handler mutations to call the builder. complexity: [low]
-- [ ] T5.3 Update `spec/services/pito/follow_up/handlers/game_enhanced_spec.rb`. complexity: [low]
-- [ ] T5.4 Run `bundle exec rspec`. complexity: [manual]
-- [ ] T5.5 Commit: `Extract Game::EnhancedSegments mutation builder`. complexity: [manual]
+- [x] T5.1 Extract the game_enhanced `similar`/`channel` segment rebuild (score-bar segments + `rebuild_enhanced_payload`) into `Pito::MessageBuilder::Game::EnhancedSegments`. complexity: [high]
+- [x] T5.2 Reduce the game_enhanced handler mutations to call the builder. complexity: [low]
+- [x] T5.3 Update `spec/services/pito/follow_up/handlers/game_enhanced_spec.rb`. complexity: [low]
+- [x] T5.4 Run `bundle exec rspec`. complexity: [manual]
+- [x] T5.5 Commit: `Extract Game::EnhancedSegments mutation builder`. complexity: [manual]
 
 ## P6 — Text / Error message helpers + sweep remaining inline payloads
 - [ ] T6.1 Add `Pito::MessageBuilder::Text.call(key_or_text, **args)` → `{ "text" => resolved }`. complexity: [low]
