@@ -22,8 +22,8 @@ RSpec.describe Pito::Chat::Handlers::List do
     end
 
     it "lists each game with its bare ID (no #) as the row key, sorted by title" do
-      rows = handler.call.events.first[:payload][:table_rows]
-      expect(rows.map { |r| r.slice(:key, :value) }).to eq([
+      rows = handler.call.events.first[:payload]["table_rows"]
+      expect(rows.map { |r| { key: r[:key], value: r[:value] } }).to eq([
         { key: lies.id.to_s,  value: "Lies of P" },
         { key: zelda.id.to_s, value: "Tears of the Kingdom" }
       ])
@@ -37,7 +37,7 @@ RSpec.describe Pito::Chat::Handlers::List do
 
     it "renders the intro via Pito::Copy with the count" do
       payload = handler.call.events.first[:payload]
-      expect(payload[:body]).to include("2")
+      expect(payload["body"]).to include("2")
     end
   end
 
@@ -71,7 +71,7 @@ RSpec.describe Pito::Chat::Handlers::List do
     it "still lists games for `list games`" do
       result = handler_for("list games").call
       expect(result).to be_a(Pito::Chat::Result::Ok)
-      expect(result.events.first[:payload][:table_rows].first[:value2]).to be_nil
+      expect(result.events.first[:payload]["table_rows"].first[:value2]).to be_nil
     end
   end
 
@@ -87,38 +87,38 @@ RSpec.describe Pito::Chat::Handlers::List do
     end
 
     it "returns an html body including each channel title" do
-      body = handler_for("list channels").call.events.first[:payload][:body]
+      body = handler_for("list channels").call.events.first[:payload]["body"]
       expect(body).to include("Alpha Tube")
       expect(body).to include("Beta Cast")
     end
 
     it "includes each channel @handle in the body" do
-      body = handler_for("list channels").call.events.first[:payload][:body]
+      body = handler_for("list channels").call.events.first[:payload]["body"]
       expect(body).to include("@alpha")
       expect(body).to include("@beta")
     end
 
     it "includes a youtube.com link with target=_blank for each channel" do
-      body = handler_for("list channels").call.events.first[:payload][:body]
+      body = handler_for("list channels").call.events.first[:payload]["body"]
       expect(body).to include("https://www.youtube.com/@alpha")
       expect(body).to include("https://www.youtube.com/@beta")
       expect(body).to include('target="_blank"')
     end
 
     it "includes the plain channel id (no # prefix) in the body" do
-      body = handler_for("list channels").call.events.first[:payload][:body]
+      body = handler_for("list channels").call.events.first[:payload]["body"]
       expect(body).to include(alpha.id.to_s)
       expect(body).to include(beta.id.to_s)
     end
 
     it "sets html: true on the payload" do
       payload = handler_for("list channels").call.events.first[:payload]
-      expect(payload[:html]).to be(true)
+      expect(payload["html"]).to be(true)
     end
 
     it "renders the channels intro via Pito::Copy with the count" do
       payload = handler_for("list channels").call.events.first[:payload]
-      expect(payload[:body]).to include("2")
+      expect(payload["body"]).to include("2")
     end
 
     it "is stamped follow-up-able for channel_list" do

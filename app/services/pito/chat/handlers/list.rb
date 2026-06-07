@@ -34,11 +34,7 @@ module Pito
           games = ::Game.order(:title)
           return games_empty if games.empty?
 
-          payload = {
-            body:       Pito::Copy.render("pito.copy.games.list_intro", { count: games.size }),
-            table_rows: games.map { |game| { key: game.id.to_s, value: game.title, key_class: "text-cyan tabular-nums text-right" } }
-          }
-          Pito::FollowUp.make_followupable!(payload, target: "game_list", conversation:)
+          payload = Pito::MessageBuilder::Game::List.call(games, conversation:)
 
           Pito::Chat::Result::Ok.new(events: [ { kind: :system, payload: payload } ])
         end
@@ -55,14 +51,7 @@ module Pito
             ])
           end
 
-          intro = Pito::Copy.render("pito.copy.channels.list_intro", { count: channels.size })
-          strip_html = ApplicationController.renderer.render(
-            Pito::Channel::ListComponent.new(channels:),
-            layout: false
-          )
-
-          payload = { body: "#{intro}\n#{strip_html}", html: true }
-          Pito::FollowUp.make_followupable!(payload, target: "channel_list", conversation:)
+          payload = Pito::MessageBuilder::Channel::List.call(channels, conversation:)
 
           Pito::Chat::Result::Ok.new(events: [ { kind: :system, payload: payload } ])
         end

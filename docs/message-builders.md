@@ -59,13 +59,13 @@ a pure function of the builder. The two never mix.
 - [x] T1.7 Commit: `Move Game detail/enhanced/delete-confirm builders under Pito::MessageBuilder`. complexity: [manual]
 
 ## P2 — List message builders (games, channels)
-- [ ] T2.1 Create `Pito::MessageBuilder::Game::List` (intro + id/title `table_rows` + `make_followupable!(game_list)`). complexity: [low]
-- [ ] T2.2 Create `Pito::MessageBuilder::Channel::List` (intro + `Channel::ListComponent` html via helper). complexity: [low]
-- [ ] T2.3 Reduce `Chat::Handlers::List#call` games branch to call the builder. complexity: [low]
-- [ ] T2.4 Reduce `Chat::Handlers::List#list_channels` to call the builder. complexity: [low]
-- [ ] T2.5 Update `spec/services/pito/chat/handlers/list_spec.rb` + add the two builder specs. complexity: [low]
-- [ ] T2.6 Run `bundle exec rspec`. complexity: [manual]
-- [ ] T2.7 Commit: `Extract Game::List + Channel::List message builders`. complexity: [manual]
+- [x] T2.1 Create `Pito::MessageBuilder::Game::List` (intro + id/title `table_rows` + `make_followupable!(game_list)`). complexity: [low]
+- [x] T2.2 Create `Pito::MessageBuilder::Channel::List` (intro + `Channel::ListComponent` html via helper). complexity: [low]
+- [x] T2.3 Reduce `Chat::Handlers::List#call` games branch to call the builder. complexity: [low]
+- [x] T2.4 Reduce `Chat::Handlers::List#list_channels` to call the builder. complexity: [low]
+- [x] T2.5 Update `spec/services/pito/chat/handlers/list_spec.rb` + add the two builder specs. complexity: [low]
+- [x] T2.6 Run `bundle exec rspec`. complexity: [manual]
+- [x] T2.7 Commit: `Extract Game::List + Channel::List message builders`. complexity: [manual]
 
 ## P3 — Confirmation builders (delete reuse, resync, reindex, disconnect)
 - [ ] T3.1 Replace the inline rm/delete confirmation in `follow_up/handlers/game_detail.rb` with `MessageBuilder::Game::DeleteConfirmation`. complexity: [low]
