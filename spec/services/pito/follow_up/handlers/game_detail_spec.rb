@@ -72,6 +72,19 @@ RSpec.describe Pito::FollowUp::Handlers::GameDetail, type: :service do
     end
   end
 
+  describe "#call — rm when game is missing/deleted" do
+    let(:source_event) { build_detail_event("game_id" => 0) }
+
+    it "returns a Result::Error (not-found)" do
+      result = handler.call(event: source_event, rest: "rm", conversation:)
+      expect(result).to be_a(Pito::FollowUp::Result::Error)
+    end
+
+    it "does not raise" do
+      expect { handler.call(event: source_event, rest: "rm", conversation:) }.not_to raise_error
+    end
+  end
+
   # ── resync ───────────────────────────────────────────────────────────────────
 
   describe "#call — resync" do
@@ -91,6 +104,19 @@ RSpec.describe Pito::FollowUp::Handlers::GameDetail, type: :service do
       payload = result.events.first[:payload]
       expect(payload[:game_id]).to eq(game.id)
       expect(payload[:game_title]).to eq("Lies of P")
+    end
+  end
+
+  describe "#call — resync when game is missing/deleted" do
+    let(:source_event) { build_detail_event("game_id" => 0) }
+
+    it "returns a Result::Error (not-found)" do
+      result = handler.call(event: source_event, rest: "resync", conversation:)
+      expect(result).to be_a(Pito::FollowUp::Result::Error)
+    end
+
+    it "does not raise" do
+      expect { handler.call(event: source_event, rest: "resync", conversation:) }.not_to raise_error
     end
   end
 

@@ -35,4 +35,10 @@ RSpec.describe Pito::FollowUp::Handlers::GameList do
     result = handler.call(event: nil, rest: "destroy 5", conversation: conversation)
     expect(result).to be_a(Pito::FollowUp::Result::Error)
   end
+
+  it "stamps game_id in the appended detail event payload" do
+    result = handler.call(event: nil, rest: "show ##{game.id}", conversation: conversation)
+    payload = result.events.first[:payload]
+    expect(payload["game_id"]).to eq(game.id)
+  end
 end
