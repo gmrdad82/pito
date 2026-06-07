@@ -18,6 +18,24 @@ IS its videos, so every channel signal is derived by traversing
 into a single score, then a thin Ruby wrapper builds `Result`s. Every signal is
 independently spec'd, in isolation and in combination.
 
+## Core use case (the product goal)
+
+"I play many games and record them, then make videos. **Which of my channels is
+best suited for this video / game?**" A channel suits a game when it already
+covers games *like* it. So the engine must route a **brand-new, never-recorded
+game** to the right channel by similarity, not just by existing links.
+
+Worked example — adding **Dead Space** (no one has recorded it yet):
+`Dead Space —(game↔game similarity)→ Pragmata —(video_game_links)→ "Manfy Plays
+the Greats"`. Even with zero Dead Space videos/links, Manfy wins because it
+covers Pragmata, which is similar to Dead Space (embedding + genre + developer +
+publisher + score). This transitive hop is the heart of the app.
+
+Consequence: **game↔game similarity is the primitive**; game→channel and
+channel→game **compose** it over the link graph (max similarity between the
+target game and the games a channel already covers). Build order therefore is
+R1 → game→game (R4) → game↔channel (R2/R3) → specs (R5) → surfaces (R6).
+
 ## Why this rewrite (the missing thing)
 
 A channel with 6 Pragmata videos scored only 75 (best video's cosine sim) until
@@ -44,31 +62,31 @@ Each signal yields a 0–100 sub-score; the final score is a weighted blend
 - **P (publisher overlap)** — shares ≥1 publisher company → Jaccard × 100.
 - **S (score proximity)** — `(1 - abs(a.score - b.score) / 100) * 100`.
 
-### game → channel (recommend channels for game `g`)
+### game → channel (recommend channels for game `g`) — "which channel suits this game?"
 
-The whole chain is connected: `channel → videos → linked games →
-{genre, developer, publisher, score}`. Per channel, aggregate across its videos
-and the games those videos are linked to, then take the strongest:
+A channel suits `g` if it already covers games *like* `g`. This **composes the
+game→game primitive over the link graph**: `channel → videos → linked games`,
+scored by how similar each linked game is to `g`.
 
-- K: channel owns a video linked to `g` → 100.
-- E: max over the channel's videos of `embed(video, g)`.
-- G/D/P/S: over the games linked to the channel's videos, the best
-  genre / developer / publisher / score-proximity overlap with `g`
-  (`channel → videos → video_game_links → games → {game_genres, game_developers, game_publishers, score}`).
+- K: channel owns a video linked to `g` → 100 (already covers this exact game).
+- GG (primary): `max` over the channel's linked games `g_link` of
+  `game_similarity(g, g_link)` — the full game→game blend (E_game + G + D + P + S).
+  This is the Dead Space hop: a never-recorded game routes to the channel whose
+  covered games are most similar.
+- E_video (cold-start fallback): `max` over the channel's videos of
+  `embed(video_text, g)`, for relevant-but-not-yet-linked content.
 
-`channel_score = GREATEST(100·has_link, w_E·E + w_G·G + w_D·D + w_P·P + w_S·S)`
+`channel_score = GREATEST(100·has_link, max_glink GG, w_vid·E_video)`
 
-### channel → game (recommend games for channel `c`)
+### channel → game (recommend games for channel `c`) — "what should this channel cover next?"
 
-Symmetric — per candidate game `g`, across the channel's (top-by-views) videos
-and the games already linked to them:
+Symmetric — a candidate game `g` suits `c` if `c` already covers games like `g`:
 
 - K: `g` is linked to one of `c`'s videos → 100.
-- E: max over `c`'s probe videos of `embed(video, g)`.
-- G/D/P/S: `g`'s genre / developer / publisher / score overlap with the games
-  already linked to `c`'s videos.
+- GG (primary): `max` over `c`'s linked games `g_link` of `game_similarity(g, g_link)`.
+- E_video (fallback): `max` over `c`'s top-by-views videos of `embed(video_text, g)`.
 
-`game_score = GREATEST(100·has_link, w_E·E + w_G·G + w_D·D + w_P·P + w_S·S)`
+`game_score = GREATEST(100·has_link, max_glink GG, w_vid·E_video)`
 
 ### game → game (similar games to `g`)
 
