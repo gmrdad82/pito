@@ -11,5 +11,15 @@ namespace :pito do
       end
       puts "Enqueued #{count} VideoVoyageIndexJob(s)."
     end
+
+    desc "Backfill game embeddings (one GameVoyageIndexJob per game)"
+    task reindex_games: :environment do
+      count = 0
+      Game.find_each do |game|
+        GameVoyageIndexJob.perform_later(game.id)
+        count += 1
+      end
+      puts "Enqueued #{count} GameVoyageIndexJob(s)."
+    end
   end
 end
