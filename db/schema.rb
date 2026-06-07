@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_07_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_07_123000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -402,22 +402,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_07_120000) do
     t.index ["video_id", "game_id"], name: "index_video_game_links_on_video_id_and_game_id", unique: true
   end
 
-  create_table "video_previews", force: :cascade do |t|
-    t.string "category_id"
-    t.datetime "created_at", null: false
-    t.text "description"
-    t.text "error_message"
-    t.string "game_title"
-    t.datetime "published_at"
-    t.integer "shorts_remixing"
-    t.integer "status", default: 0, null: false
-    t.text "tags", array: true
-    t.string "title"
-    t.datetime "updated_at", null: false
-    t.bigint "video_id", null: false
-    t.index ["video_id"], name: "index_video_previews_on_video_id"
-  end
-
   create_table "videos", force: :cascade do |t|
     t.string "category_id"
     t.bigint "channel_id", null: false
@@ -486,6 +470,5 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_07_120000) do
   add_foreign_key "turns", "conversations"
   add_foreign_key "video_game_links", "games", on_delete: :cascade
   add_foreign_key "video_game_links", "videos", on_delete: :cascade
-  add_foreign_key "video_previews", "videos", on_delete: :cascade
   add_foreign_key "videos", "channels"
 end

@@ -1,9 +1,8 @@
 # frozen_string_literal: true
 
-# Read-only mirror of a YouTube video. Never edited directly — the
-# Video table is populated solely by `/import videos` (smart pull)
-# and re-populated after VideoPreview publishes succeed. Edits are
-# staged in `VideoPreview` and applied through the YouTube Data API.
+# Read-only mirror of a YouTube video, populated by `/import videos`
+# (smart pull) + the nightly sync. A video-edit/publish pipeline is
+# deferred and will be (re)designed later (see docs/follow-up.md).
 class Video < ApplicationRecord
   belongs_to :channel
 
