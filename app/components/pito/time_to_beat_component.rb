@@ -107,17 +107,23 @@ module Pito
     # Width of one `=` cell as a percentage of the bar (40 cells → 2.5%).
     CELL_WIDTH_PCT = 100.0 / BAR_CELLS
 
-    # Tick axis (0..completionist). 40 cells split that span into 2.5%
-    # slices; a tick snaps to the MIDDLE of the cell its hour value falls in,
-    # so completionist (the right end) always lands at 98.75% — the middle of
-    # the last cell — rather than flush against the closing bracket. main +
-    # extras snap the same way: round((hours/completionist)*100) onto a cell
-    # midpoint. Mirrors the ScoreBar needle snap (T17.3) on the 40-wide bar.
-    def tick_position(value)
-      comp = hours[:completionist].to_i
-      return 0.0 if comp.zero?
+    # Tick axis end = the LARGEST available pillar (normally completionist, but
+    # when IGDB only returns a partial TTB — e.g. Crusader Kings 3 has main but
+    # no extras/completionist — it falls back to the largest value present so
+    # ticks don't all collapse to 0% from dividing by a zero completionist).
+    def tick_axis
+      [ hours[:main].to_i, hours[:extras].to_i, hours[:completionist].to_i ].max
+    end
 
-      raw  = (value.to_f / comp) * 100
+    # Tick axis (0..tick_axis). 40 cells split that span into 2.5% slices; a
+    # tick snaps to the MIDDLE of the cell its hour value falls in, so the
+    # largest pillar lands at 98.75% — the middle of the last cell — rather than
+    # flush against the closing bracket. Mirrors the ScoreBar needle snap (T17.3).
+    def tick_position(value)
+      axis = tick_axis
+      return 0.0 if axis.zero?
+
+      raw  = (value.to_f / axis) * 100
       cell = (raw / CELL_WIDTH_PCT).floor.clamp(0, BAR_CELLS - 1)
       ((cell * CELL_WIDTH_PCT) + (CELL_WIDTH_PCT / 2.0)).round(3)
     end
@@ -167,8 +173,12 @@ module Pito
     }.freeze
 
     def tick_overlays
-      pillar_ticks = PILLAR_KEYS.map do |key|
+      # Only render a tick for pillars IGDB actually returned — an absent
+      # extras/completionist (0h) would otherwise pin a stray tick at the left.
+      pillar_ticks = PILLAR_KEYS.filter_map do |key|
         h = hours[key].to_i
+        next if h.zero?
+
         {
           key:         key,
           position:    tick_position(h),
@@ -211,8 +221,11 @@ module Pito
     end
 
     def pillar_label_data
-      ordered = PILLAR_KEYS.map do |key|
+      # Skip absent pillars (0h) — no value label for data IGDB didn't return.
+      ordered = PILLAR_KEYS.filter_map do |key|
         h = hours[key].to_i
+        next if h.zero?
+
         {
           key:      key,
           hours:    h,

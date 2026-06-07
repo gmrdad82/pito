@@ -22,6 +22,25 @@ RSpec.describe Pito::TimeToBeatComponent do
     end
   end
 
+  describe "partial IGDB TTB (only main — e.g. Crusader Kings 3)" do
+    subject(:comp) { described_class.new(hours: { main: 43, extras: 0, completionist: 0 }) }
+
+    it "anchors the lone main pillar to the right (does NOT collapse to 0%)" do
+      main = comp.tick_overlays.find { |t| t[:key] == :main }
+      expect(main[:position]).to be > 90.0
+    end
+
+    it "renders no tick for absent extras / completionist" do
+      keys = comp.tick_overlays.map { |t| t[:key] }
+      expect(keys).not_to include(:extras, :completionist)
+    end
+
+    it "renders only the main value label (absent pillars omitted)" do
+      keys = comp.pillar_label_data.map { |d| d[:key] }
+      expect(keys).to eq([ :main ])
+    end
+  end
+
   describe "#hours" do
     it "reads IGDB seconds from the game" do
       comp = described_class.new(game: game)
