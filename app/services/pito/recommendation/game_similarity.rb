@@ -102,7 +102,7 @@ module Pito
           next if score < Weights::FLOOR
 
           Result.new(game: cand, score: score, breakdown: breakdown)
-        }.sort_by { |r| [ -r.score, r.game.id ] }.first(@limit)
+        }.sort_by { |r| [ -r.score, r.game.id ] }.then { |ranked| @limit ? ranked.first(@limit) : ranked }
       end
 
       private

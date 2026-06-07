@@ -14,9 +14,9 @@ module Pito
   #
   # ## similar_games filter layer
   #
-  # `SimilarGames` fetches a larger candidate pool (CANDIDATE_MULTIPLIER × limit,
-  # floored at MIN_CANDIDATE_POOL) so the filter layer has room to prune. Each
-  # candidate game is then tested against every active filter key:
+  # `similar_games` ranks via the multi-signal blend
+  # (`Pito::Recommendation::GameSimilarity`). When `filters` are given, the
+  # blended results are pruned (post-filter) by every active filter key:
   #
   #   :genre      — game shares at least one genre slug with the filter value
   #                 (String slug or Array of slugs)
@@ -30,11 +30,9 @@ module Pito
   #                 in that bucket (short: <5h, medium: 5–20h, long: >20h)
   #   :complexity — alias for :ttb (same bucket logic)
   #
-  # After filtering, candidates are converted to Result structs. The distance
-  # comes from `neighbor_distance` (pgvector HNSW), converted to a 0–100 score
-  # via `((1 - distance) * 100).round.clamp(0, 100)` — identical to the
-  # ChannelRecommendation convention so all three directions are comparable.
-  # TopK selects the final limit from the filtered list.
+  # Results are `Pito::Recommendation::GameSimilarity::Result`s (game + 0–100
+  # score + signal breakdown), already ranked best-first; filtering only removes
+  # entries, it does not re-rank.
   module Recommendations
     module_function
 
@@ -46,24 +44,24 @@ module Pito
     # named methods below. DO NOT add side-effects here.
     def call(*) = true
 
-    # Games most similar to `game` (game↔game direction).
+    # Games most similar to `game` (game↔game direction) — the multi-signal
+    # blend (embedding + genre + developer + publisher + score) from
+    # Pito::Recommendation::GameSimilarity. Optional `filters` prune the blended
+    # results by explicit constraints (see module doc above).
     #
     # @param game   [::Game]
     # @param limit  [Integer] maximum results (default 10)
     # @param filters [Hash] optional filter keys (see module doc above)
-    # @return [Array<Result>] best-first, each carrying game + score + distance
-    def similar_games(game, limit: ::Game::SimilarGames::DEFAULT_LIMIT, filters: {})
+    # @return [Array<Pito::Recommendation::GameSimilarity::Result>] best-first,
+    #   each carrying game + score + breakdown.
+    def similar_games(game, limit: ::Pito::Recommendation::GameSimilarity::DEFAULT_LIMIT, filters: {})
       return [] if game.nil?
-      return [] if game.summary_embedding.blank?
 
-      pool_size = [ limit * CANDIDATE_MULTIPLIER, MIN_CANDIDATE_POOL ].max
-      candidates = ::Game::SimilarGames.call(game, limit: pool_size).to_a
+      results = ::Pito::Recommendation::GameSimilarity.call(game, limit: filters.empty? ? limit : nil)
+      return results if filters.empty?
 
-      filtered = filters.empty? ? candidates : apply_filters(candidates, filters)
-
-      scored = filtered.map { |g| build_result(g) }
-      Pito::Recommendation::TopK.call(items: scored.map(&:to_h), k: limit)
-        .filter_map { |h| scored.find { |r| r.game.id == h[:id] } }
+      allowed = apply_filters(results.map(&:game), filters).map(&:id).to_set
+      results.select { |result| allowed.include?(result.game.id) }.first(limit)
     end
 
     # Channels whose videos overlap with `game` (game→channel direction).
@@ -87,22 +85,7 @@ module Pito
       ::Channel::GameRecommendation.call(channel, limit: limit)
     end
 
-    # ---------- Result struct -----------------------------------------------
-
-    # Carries a game record, a 0–100 score, and the raw cosine distance so
-    # renderers (e.g. ScoreBarComponent) receive all three fields consistently
-    # with Game::ChannelRecommendation::Result and Channel::GameRecommendation::Result.
-    Result = Struct.new(:game, :score, :distance, keyword_init: true) do
-      def to_h
-        { id: game.id, score: score }
-      end
-    end
-
     # ---------- private helpers ---------------------------------------------
-
-    # How many candidates to fetch from SimilarGames before applying filters.
-    CANDIDATE_MULTIPLIER = 5
-    MIN_CANDIDATE_POOL   = 50
 
     # TTB bucket definitions (ttb_main_seconds).
     TTB_BUCKETS = {
@@ -111,13 +94,7 @@ module Pito
       "long"   => ((20 * 3600)..Float::INFINITY)
     }.freeze
 
-    private_constant :CANDIDATE_MULTIPLIER, :MIN_CANDIDATE_POOL, :TTB_BUCKETS
-
-    def build_result(game)
-      distance = game.neighbor_distance.to_f
-      score    = ((1 - distance) * 100).round.clamp(0, 100)
-      Result.new(game: game, score: score, distance: distance)
-    end
+    private_constant :TTB_BUCKETS
 
     def apply_filters(candidates, filters)
       candidates.select { |g| passes_all?(g, filters) }

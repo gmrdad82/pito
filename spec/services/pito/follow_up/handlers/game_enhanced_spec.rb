@@ -67,7 +67,7 @@ RSpec.describe Pito::FollowUp::Handlers::GameEnhanced, type: :service do
 
     context "when recommendations are found" do
       let(:similar_game) { create(:game, title: "Sekiro") }
-      let(:sim_result)   { Pito::Recommendations::Result.new(game: similar_game, score: 88, distance: 0.12) }
+      let(:sim_result)   { Pito::Recommendation::GameSimilarity::Result.new(game: similar_game, score: 88, breakdown: nil) }
 
       before do
         allow(Pito::Recommendations).to receive(:similar_games).and_return([ sim_result ])

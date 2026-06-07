@@ -42,17 +42,17 @@ RSpec.describe Pito::Recommendations, type: :service do
     end
 
     context "with no filters" do
-      it "returns Result structs (game + score + distance) in best-first order" do
+      it "returns blended Result structs (game + score + breakdown) best-first" do
         near = create(:game, title: "Near Game")
-        near.update_column(:summary_embedding, vec(0, value: 0.99))
-        far = create(:game, title: "Far Game")
-        far.update_column(:summary_embedding, vec(1))
+        near.update_column(:summary_embedding, vec(0))
+        # An orthogonal game with no shared facets scores 0 and is floored out.
+        create(:game, title: "Far Game").update_column(:summary_embedding, vec(1))
 
         results = described_class.similar_games(game, limit: 10)
-        expect(results).to all(be_a(Pito::Recommendations::Result))
-        expect(results.map(&:game)).to eq([ near, far ])
-        expect(results.first.score).to eq(100)
-        expect(results.first.distance).to be_within(0.01).of(0.0)
+        expect(results).to all(be_a(Pito::Recommendation::GameSimilarity::Result))
+        expect(results.map(&:game)).to eq([ near ])
+        expect(results.first.score).to eq(45) # embedding-only blend (E .45 × 100)
+        expect(results.first.breakdown[:e]).to eq(100.0)
       end
 
       it "honours the limit" do
@@ -284,7 +284,7 @@ RSpec.describe Pito::Recommendations, type: :service do
     end
 
     context "Result struct" do
-      it "carries game, score (0–100 Integer), and raw distance" do
+      it "carries game, score (0–100 Integer), and a signal breakdown" do
         near = create(:game, title: "Near")
         near.update_column(:summary_embedding, vec(0))
 
@@ -292,7 +292,7 @@ RSpec.describe Pito::Recommendations, type: :service do
         expect(result.game).to eq(near)
         expect(result.score).to be_a(Integer)
         expect(result.score).to be_between(0, 100)
-        expect(result.distance).to be_a(Float)
+        expect(result.breakdown).to include(:e, :g, :d, :p, :s)
       end
     end
   end
