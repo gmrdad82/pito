@@ -60,12 +60,11 @@ RSpec.describe ChannelInfoJob do
     expect(channel.last_synced_at).to be_within(5.seconds).of(Time.current)
   end
 
-  it "fills in missing channel info (avatar, banner)" do
+  it "fills in missing channel info (avatar)" do
     described_class.new.perform(connection.id, turn.id)
 
     channel.reload
     expect(channel.avatar_url).to eq("https://example.com/avatar.jpg")
-    expect(channel.banner_url).to eq("https://example.com/banner.jpg")
   end
 
   it "emits an enhanced event with formatted stats" do

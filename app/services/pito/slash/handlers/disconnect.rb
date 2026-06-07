@@ -51,11 +51,11 @@ module Pito
         def resolve_channel(target)
           if target.start_with?("@")
             fragment = target.delete_prefix("@")
-            Channel.where("handle LIKE ?", "%#{fragment}%").first
+            ::Channel.where("handle LIKE ?", "%#{fragment}%").first
           elsif target.match?(/\A\d+\z/)
-            Channel.find_by(id: target.to_i)
+            ::Channel.find_by(id: target.to_i)
           else
-            Channel.where("handle LIKE ?", "%#{target}%").first
+            ::Channel.where("handle LIKE ?", "%#{target}%").first
           end
         end
 

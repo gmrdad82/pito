@@ -1,0 +1,36 @@
+<%# Pito::Channel::ListComponent — wrapping strip of channel cards %>
+<div class="pito-channel-list">
+  <% channels.each do |channel| %>
+    <div class="pito-channel-list__card">
+      <%# Avatar %>
+      <% if channel.avatar_url.present? %>
+        <%= image_tag channel.avatar_url,
+                      alt: channel.title.to_s,
+                      class: "pito-channel-list__avatar block" %>
+      <% else %>
+        <div class="pito-channel-list__avatar pito-channel-list__avatar--placeholder text-fg-faded">
+          ?
+        </div>
+      <% end %>
+
+      <%# Title %>
+      <div class="pito-channel-list__title text-fg">
+        <%= channel.title.to_s %>
+      </div>
+
+      <%# Handle + view link %>
+      <div class="pito-channel-list__handle text-fg-dim">
+        <%= channel.at_handle %>
+        <a href="<%= youtube_url_for(channel) %>"
+           target="_blank"
+           rel="noopener"
+           class="pito-channel-list__view-link text-cyan">[view]</a>
+      </div>
+
+      <%# Channel id (plain number, no #) %>
+      <div class="pito-channel-list__id text-fg-faded">
+        <%= channel.id %>
+      </div>
+    </div>
+  <% end %>
+</div>

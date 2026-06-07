@@ -117,7 +117,7 @@ module Pito
         )
         mini_status_wrapper = %(<div id="pito-mini-status" data-pito--home-transition-target="miniStatusSlide" style="margin-left: auto;">#{mini_status_html}</div>).html_safe
 
-        handles  = authenticated ? Channel.order(:handle).compact.map(&:at_handle) : []
+        handles  = authenticated ? ::Channel.order(:handle).compact.map(&:at_handle) : []
         channels = authenticated ? ([ "@all" ] + handles) : nil
         filter   = authenticated ? {
           channel: handles.any? ? "@all" : "none",

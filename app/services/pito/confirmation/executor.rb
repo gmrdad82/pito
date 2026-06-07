@@ -50,7 +50,7 @@ module Pito
           case command.to_s
           when "disconnect"
             payload = payload.with_indifferent_access
-            channel = Channel.find_by(id: payload[:channel_id])
+            channel = ::Channel.find_by(id: payload[:channel_id])
             handle  = channel&.handle&.presence || channel&.title.to_s
             Pito::Copy.render("pito.copy.disconnect.cancelled",
                               { handle: handle.presence || I18n.t("pito.confirmation.channel_fallback") })
@@ -96,7 +96,7 @@ module Pito
 
         def confirm_disconnect(payload)
           payload       = payload.with_indifferent_access
-          channel       = Channel.find_by(id: payload[:channel_id])
+          channel       = ::Channel.find_by(id: payload[:channel_id])
           return Pito::Copy.render("pito.copy.disconnect.already_gone") if channel.nil?
 
           handle        = channel.handle.presence || channel.title.to_s
@@ -105,7 +105,7 @@ module Pito
 
           ActiveRecord::Base.transaction do
             channel.destroy!
-            if connection_id && !Channel.exists?(youtube_connection_id: connection_id)
+            if connection_id && !::Channel.exists?(youtube_connection_id: connection_id)
               YoutubeConnection.find_by(id: connection_id)&.destroy
             end
           end

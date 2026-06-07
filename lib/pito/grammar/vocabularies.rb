@@ -179,7 +179,7 @@ module Pito
       CHANNELS = Vocabulary.define(
         name:     :channels,
         dynamic:  true,
-        resolver: ->(context) { Channel.pluck(:handle) }
+        resolver: ->(context) { ::Channel.pluck(:handle) }
       ).freeze
 
       CONVERSATIONS = Vocabulary.define(

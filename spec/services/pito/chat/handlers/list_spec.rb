@@ -76,7 +76,7 @@ RSpec.describe Pito::Chat::Handlers::List do
   end
 
   describe "#call with the channels noun" do
-    let!(:beta)  { create(:channel, title: "Beta Cast", handle: "@beta", youtube_channel_id: "UCb") }
+    let!(:beta)  { create(:channel, title: "Beta Cast", handle: "@beta", youtube_channel_id: "UCb", avatar_url: "https://example.com/beta.jpg") }
     let!(:alpha) { create(:channel, title: "Alpha Tube", handle: "@alpha", youtube_channel_id: "UCa") }
 
     def handler_for(raw)
@@ -86,12 +86,34 @@ RSpec.describe Pito::Chat::Handlers::List do
       )
     end
 
-    it "lists channels as 3-column rows (id, name, handle), sorted by name" do
-      rows = handler_for("list channels").call.events.first[:payload][:table_rows]
-      expect(rows).to eq([
-        { key: "##{alpha.id}", value: "Alpha Tube", value2: "@alpha" },
-        { key: "##{beta.id}",  value: "Beta Cast",  value2: "@beta" }
-      ])
+    it "returns an html body including each channel title" do
+      body = handler_for("list channels").call.events.first[:payload][:body]
+      expect(body).to include("Alpha Tube")
+      expect(body).to include("Beta Cast")
+    end
+
+    it "includes each channel @handle in the body" do
+      body = handler_for("list channels").call.events.first[:payload][:body]
+      expect(body).to include("@alpha")
+      expect(body).to include("@beta")
+    end
+
+    it "includes a youtube.com link with target=_blank for each channel" do
+      body = handler_for("list channels").call.events.first[:payload][:body]
+      expect(body).to include("https://www.youtube.com/@alpha")
+      expect(body).to include("https://www.youtube.com/@beta")
+      expect(body).to include('target="_blank"')
+    end
+
+    it "includes the plain channel id (no # prefix) in the body" do
+      body = handler_for("list channels").call.events.first[:payload][:body]
+      expect(body).to include(alpha.id.to_s)
+      expect(body).to include(beta.id.to_s)
+    end
+
+    it "sets html: true on the payload" do
+      payload = handler_for("list channels").call.events.first[:payload]
+      expect(payload[:html]).to be(true)
     end
 
     it "renders the channels intro via Pito::Copy with the count" do

@@ -45,8 +45,8 @@ module Pito
 
         private
 
-        # `list channels` → the same kv-grid as games, expanded to three columns
-        # (#id · name · handle). The third column rides on each row's `:value2`.
+        # `list channels` → inline channel cards rendered by Pito::Channel::ListComponent.
+        # Returns a :system event with an html body (intro line + wrapping card strip).
         def list_channels
           channels = ::Channel.order(:title)
           if channels.empty?
@@ -55,13 +55,13 @@ module Pito
             ])
           end
 
-          payload = {
-            body:       Pito::Copy.render("pito.copy.channels.list_intro", { count: channels.size }),
-            table_rows: channels.map do |channel|
-              { key: "##{channel.id}", value: channel.title.to_s, value2: channel.handle.to_s }
-            end
-          }
+          intro = Pito::Copy.render("pito.copy.channels.list_intro", { count: channels.size })
+          strip_html = ApplicationController.renderer.render(
+            Pito::Channel::ListComponent.new(channels:),
+            layout: false
+          )
 
+          payload = { body: "#{intro}\n#{strip_html}", html: true }
           Pito::Chat::Result::Ok.new(events: [ { kind: :system, payload: payload } ])
         end
 

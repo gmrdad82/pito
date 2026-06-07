@@ -96,7 +96,6 @@ class ChannelInfoJob < ApplicationJob
           title:            normalized[:title],
           handle:           normalized[:handle],
           avatar_url:       normalized[:avatar_url],
-          banner_url:       normalized[:banner_url],
           video_count:      normalized[:video_count],
           last_synced_at:   Time.current
         )
@@ -127,10 +126,8 @@ class ChannelInfoJob < ApplicationJob
   def normalize_channel_item(item)
     return {} if item.nil?
 
-    snippet  = item[:snippet]            || {}
-    stats    = item[:statistics]         || {}
-    branding = item[:branding_settings]  || {}
-    branding_image   = branding[:image]   || {}
+    snippet  = item[:snippet]   || {}
+    stats    = item[:statistics] || {}
     thumbnails = snippet[:thumbnails] || {}
     default_thumb = thumbnails[:default] || {}
 
@@ -138,7 +135,6 @@ class ChannelInfoJob < ApplicationJob
       title: snippet[:title],
       handle: snippet[:custom_url],
       avatar_url: default_thumb[:url],
-      banner_url: branding_image[:banner_external_url],
       subscriber_count: stats[:subscriber_count]&.to_i,
       view_count: stats[:view_count]&.to_i,
       video_count: stats[:video_count]&.to_i
