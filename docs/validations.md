@@ -187,15 +187,14 @@ Total commits: **172**
 177. [ ] `6ab918fd` (2026-06-07) — Refresh validations checklist (meta-line + TTB + affordance-removal commits)
 
 <!-- ── Smoke-test session (2026-06-07): bugs found + fixed while validating ── -->
-178. [x] `e39f6e55` (2026-06-07) — Enter submits chatbox for unauthenticated users (unblocks /login)
-179. [x] `a9022cbd` (2026-06-07) — Hide notifications indicator for unauthenticated users
-180. [x] `3437a743` (2026-06-07) — Hide post-command dots after synchronous /login (complete the turn)
+<!-- Group A (auth/unauth chat) — VALIDATED & removed: e39f6e55, a9022cbd, 3437a743 -->
 181. [ ] `2aafed3f` (2026-06-07) — list channels/videos no longer returns the games shelf
 182. [ ] `b6f170d7` (2026-06-07) — Add list channels (3-column kv-grid: id, name, handle)
 183. [ ] `12c1429a` (2026-06-07) — Channel handle column in cyan
 184. [x] `0d764eaa` (2026-06-07) — list verb suggests nouns (channels/videos/games), not release-status
 185. [x] `dd61fae9` (2026-06-07) — Hide post-command dots for sidebar fast-paths (emit pito:done)
-186. [x] `1182001c` (2026-06-07) — Theme current marker: ASCII '<-' in cyan (chat list + sidebar)
+<!-- Group E (themes) — VALIDATED & removed: 1182001c (theme marker '<-' cyan) -->
+
 187. [ ] `8a26233f` (2026-06-07) — Hide post-command dots after follow-up replies (broadcast pito:done)
 188. [x] `6db6597a` (2026-06-07) — ayu-mirage: lighten foreground for better chatbox contrast
 189. [x] `ba09cef5` (2026-06-07) — Help table: auto-size command column (no overflow)
