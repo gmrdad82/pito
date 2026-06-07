@@ -1,10 +1,10 @@
 # PR #62 — validation queue (every commit on `themes`)
 
 > Branch `themes` (PR #62, **do not merge until validated**). COMPLETE ordered
-> commit history (oldest → newest) so each change can be reviewed individually.
+> commit history (oldest → newest) — every commit lands here for evaluation.
 > Tick a box once validated. Inspect any commit with `git show <sha>`.
 
-Total commits: **134**
+Total commits: **165**
 
 ## Commits
 
@@ -142,20 +142,34 @@ Total commits: **134**
 132. [ ] `3d2cdc10` (2026-06-07) — Fix /games import flow: sidebar UX + steps in sidebar + version_parent filter (P16 Group A)
 133. [ ] `0028840c` (2026-06-07) — Extract ShimmerTextComponent + strengthen ScoreBar/TTB specs
 134. [ ] `4346d6c7` (2026-06-07) — Document games domain (AGENTS.md + follow-up.md + games.md P15)
-
-## Validation feedback (2026-06-07 session) — all SHIPPED in P16
-
-- [x] `/games import`: auto-focus search field on spawn
-- [x] search input styled like the conversation-rename input
-- [x] no thinking/dots indicator on sidebar spawn
-- [x] result rows show a small square cover-art thumbnail
-- [x] shimmer loading indicator (ShimmerTextComponent / `.pito-shimmer`) while talking to IGDB
-- [x] witty `Pito::Copy` for no-results + searching states
-- [x] IGDB search MAIN game only (`version_parent = null`) — editions excluded
-- [x] 5 steps run IN the sidebar (shimmer + random offset), sidebar not dismissed, stays open (Esc)
-- [x] Standard message after steps 1–3; Enhanced message after steps 4–5
-- [x] game detail/enhanced messages render with the standard timestamp chrome
-- [x] detail card uses the current kv-table (`Pito::Table::KeyValueRowComponent`)
-- [x] detail card Platforms = PlayStation/Switch/Steam chips (token-mapped)
-- [x] ScoreBar + TTB revived with exact pane-layout multi-stop gradients (+ specs)
-- [x] shimmering text extracted to `Pito::Shell::ShimmerTextComponent` (+ spec)
+135. [ ] `71c42cc6` (2026-06-07) — validations.md: refresh full commit checklist + mark P16 feedback shipped
+136. [ ] `b74a1e60` (2026-06-07) — Make ScoreBar + TimeToBeat gradients theme-aware
+137. [ ] `406376f9` (2026-06-07) — i18n: inline-copy fix 1 — ImportVideosJob breakdown labels
+138. [ ] `f122a96f` (2026-06-07) — i18n: inline-copy fix 2 — ChannelInfoJob stats labels
+139. [ ] `eac047d8` (2026-06-07) — i18n: inline-copy fix 3 — inject step labels from server into games-search controller
+140. [ ] `80c97d6b` (2026-06-07) — i18n: inline-copy fix 4 — Confirmation::Executor channel fallback + i18n-exception comment
+141. [ ] `c7c7f629` (2026-06-07) — i18n: inline-copy fix 5 — Confirmable flash alerts via plain i18n
+142. [ ] `4995fcd3` (2026-06-07) — i18n: inline-copy fix 6 — ConversationsController + ApplicationController errors
+143. [ ] `795941c4` (2026-06-07) — i18n: inline-copy fix 7 — dedupe DISPLAY_NAMES via pito.game.detail.platform_label
+144. [ ] `4f14937a` (2026-06-07) — Remove pre-chat-reboot dead controllers (no routes)
+145. [ ] `6fc71200` (2026-06-07) — Remove dead controller concerns (Confirmable, RecentTotpVerification, FriendlyRedirect)
+146. [ ] `3cba86c8` (2026-06-07) — Remove dead search services (Everywhere, SearchGames)
+147. [ ] `40ab811b` (2026-06-07) — Revert pito.confirmable.\* i18n keys (Confirmable concern deleted)
+148. [ ] `6088353d` (2026-06-07) — Remove code-only orphan jobs (zero live callers)
+149. [ ] `e44a09e2` (2026-06-07) — Remove dead jobs referencing non-existent constants
+150. [ ] `2bff09c7` (2026-06-07) — Purge stranded bulk-op job shims + broken notification-cleanup duplicate (GameDeletion/GameSync/VideoSync/NotificationCleanupJob)
+151. [ ] `e22c7fa8` (2026-06-07) — Fix stale doc-comment referencing purged ChannelsController (intent now stashed by chat /connect)
+152. [ ] `e5ee39f8` (2026-06-07) — Drop 8 unused video_previews boolean flags (dead scaffolding; keep footages.aspect_ratio — it's probe-populated)
+153. [ ] `5da8a59c` (2026-06-07) — Purge unwired VideoPreview (model + table + factory + spec); to be redesigned later
+154. [ ] `b19a0ca1` (2026-06-07) — Drop video_previews table + migration + video.rb comment (completes VideoPreview purge)
+155. [ ] `beca6c9e` (2026-06-07) — Spec: Voyage nil-embedding raise path + GameImportJob emit_error branch
+156. [ ] `4b87e5be` (2026-06-07) — Spec: Game::EmbedText alt_names + ttb_extras + ttb_completionist slots
+157. [ ] `0e150f0d` (2026-06-07) — Spec: Channel/Game recommendation limit, views ordering, threshold boundary
+158. [ ] `d4e9486a` (2026-06-07) — Spec: GameDetail not-found paths for rm/resync + GameList game_id stamp
+159. [ ] `7d16be68` (2026-06-07) — Spec: Executor cancel branches + zero-video disconnect + blank-handle fallback
+160. [ ] `0ac38e39` (2026-06-07) — Spec: GameVoyageIndexJob no-op + delegate coverage
+161. [ ] `6dbfc2eb` (2026-06-07) — Spec: Pito::Recommendations.similar_games combined genre+year filter intersection
+162. [ ] `e0c02007` (2026-06-07) — Spec: Show#resolve_game ILIKE partial-vs-exact prefix behavior
+163. [ ] `806bde61` (2026-06-07) — Spec: DetailComponent cover_art_url rescue path + nil-score rendering
+164. [ ] `eac1f14f` (2026-06-07) — Spec: NightlyVideoSyncJob no GameStatsRefreshJob when no game links
+165. [ ] `4d63c8bb` (2026-06-07) — Spec: Pito::Stack.track rescue + provider to_h shape

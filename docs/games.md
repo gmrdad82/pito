@@ -338,6 +338,25 @@ No production data exists → destructive migrations are free.
 
 - [x] T16.13 Revive `ScoreBarComponent` + `TimeToBeatComponent` with the EXACT pane-layout multi-stop gradient colors (recover from git history). complexity: [high]
 
+## P17 — ScoreBar + TTB: theme-adaptive contrast + new widths + precise ticks (2026-06-07)
+
+> Queued after the spec-gap fills (✅) and the theme-adaptive contrast fix (T17.1
+> below). Opus owns this (color math + precision). Every requirement from the
+> operator is captured literally — do not summarize away any sentence.
+>
+> Contrast sweep finding (computed, OKLab + WCAG vs `--bg-surface`): dark themes
+> read well (3–7:1); LIGHT themes wash out — worst stop (yellow "fair") ~1.62:1
+> on `tomorrow`, ~1.70 catppuccin-latte, ~1.75 ayu-light, ~1.81 gruvbox-light.
+> Mixing each stop toward `--fg-default` helps but caps ~2.31:1 at 30% (yellow is
+> intrinsically near a light bg). Reusable check lives in the sweep script.
+
+- [ ] T17.1 **Theme-adaptive contrast fix ("theme revisit")** — keep the multi-stop `var(--accent-*)` + `color-mix(in oklch)` gradients but make them read on ALL 18 themes (esp. light). Approach: mix each stop toward `var(--fg-default)` (theme-adaptive: darkens on light, lightens on dark) and/or a per-stop lightness floor — pick the approach/ratio that reads best without muddying; keep dark themes vivid. Re-run the contrast computation to verify the new worst-case. complexity: [high]
+- [ ] T17.2 **Widths** — `ScoreBarComponent` = `[` + **20** `=` + `]`; `TimeToBeatComponent` = `[` + **40** `=` + `]` (the `[ ]` are the margins/brackets). Keep multi-stop gradients, applied across the new widths. complexity: [high]
+- [ ] T17.3 **ScoreBar needle/indicator** — the needle (a `|` / ticker bar on top of the `=`, absolute-positioned) looks fine; keep that approach. Each `=` = 5% (20 chars over 0–100). Precision: do NOT use the exact score % for the left offset; snap the needle to the MIDDLE of the 5% cell the score falls in — e.g. a 90–95 score → **92.5%** (`floor(score/5)*5 + 2.5`). It looks better. ScoreBar ONLY. complexity: [low]
+- [ ] T17.4 **TTB layout/ticks** — the 40 `=` represent 0..completionist hours; completionist ALWAYS sits at 100% (right end). 40 chars = 100% → 1 char = 2.5%. Tick % = `(hours / completionist) * 100`, snapped to the cell midpoint. completionist tick ALWAYS at **98.75%** (middle of the last cell). main tick = `(main/comp)*100` snapped; extras/side tick = `(extras/comp)*100` snapped. Fix the bracket ENDINGS (not looking great). Fix tick/pillar positioning (currently bad — possibly missing CSS; recover from git history `991f86fb`, `be1d11a6`, `f59ad2af`, `d7c26094`). Use the SAME footage-tick approach as `ScoreBarComponent` (arrow mark) for the 4th (footage) tick. complexity: [high]
+- [ ] T17.5 **TTB adaptive multi-stop gradient (absolute-hours edge cases)** — color ramp driven by actual hour magnitude via heat thresholds so: (1) main 20 / side 25 / completionist 30 → mostly GREEN; (2) main 30 / side 100 / completionist 700 (e.g. Crimson Desert — verify real IGDB numbers) → mostly RED; (3) balanced ~main 20 / side 40 / completionist 80 → green→amber. Bar spans 0..completionist across 40 chars; color at each position = the heat color for that absolute hour count. complexity: [high]
+- [ ] T17.6 Update component specs (new widths; needle cell-mid 92.5%; completionist 98.75% + main/extras snapped ticks; footage arrow tick; adaptive gradient stops); full `bundle exec rspec` + `bin/rubocop` (+ npm if JS) green; atomic commits; push. complexity: [manual]
+
 ## Per-phase Definition of Done
 
 Doc-blocks on new classes; new + edge-case specs (Rails + JS); `bundle exec rspec`
