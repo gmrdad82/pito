@@ -42,6 +42,11 @@ RSpec.describe "Authentication via /login", type: :request do
       expect(cookies[Pito::Auth::SessionCookie::COOKIE_NAME]).to be_present
     end
 
+    it "completes the turn so the dots fade out (pito:done)" do
+      post "/chat", params: { input: "/login #{totp.now}", uuid: conversation.uuid }
+      expect(Turn.last_for(conversation).completed_at).to be_present
+    end
+
     it "lets subsequent commands through" do
       post "/chat", params: { input: "/login #{totp.now}", uuid: conversation.uuid }
       conversation.turns.destroy_all
@@ -61,6 +66,11 @@ RSpec.describe "Authentication via /login", type: :request do
       failures = I18n.t("pito.copy.auth.failures")
       expect(failures).to include(error.payload["text"] || error.payload["message_key"])
       expect(cookies[Pito::Auth::SessionCookie::COOKIE_NAME]).to be_blank
+    end
+
+    it "completes the turn so the dots fade out even on failure (pito:done)" do
+      post "/chat", params: { input: "/login 000000", uuid: conversation.uuid }
+      expect(Turn.last_for(conversation).completed_at).to be_present
     end
   end
 

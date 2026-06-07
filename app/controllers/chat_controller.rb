@@ -238,6 +238,10 @@ class ChatController < ApplicationController
         payload: { text: auth_error_key(result.status) }
       )
     end
+
+    # Synchronous flow — emit the done signal ourselves so the dots fade out
+    # (no ChatDispatchJob runs to call complete_turn for login).
+    broadcaster.complete_turn(turn:)
   end
 
   # ── Logout branch ────────────────────────────────────────────────────────────
