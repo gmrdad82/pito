@@ -19,11 +19,11 @@ class Game < ApplicationRecord
 
   has_one_attached :cover_art
 
-  # The single canonical cover-art display variant. There is ONE version: the
-  # detail message, the enhanced message, and any future surface all render this
-  # size (the larger 600×800 variant was dropped). The 600×800 master stays the
-  # source of truth; only this variant is ever generated.
-  COVER_VARIANT = { resize_to_limit: [ 450, 600 ] }.freeze
+  # The single canonical cover-art display variant, sized to its ACTUAL display
+  # dimensions (240×320, 3:4) so nothing is downscaled in CSS. The detail
+  # message, enhanced message, and any future surface all render this size; the
+  # 600×800 master stays the source of truth and only this variant is generated.
+  COVER_VARIANT = { resize_to_limit: [ 240, 320 ] }.freeze
 
   has_neighbors :summary_embedding
 

@@ -1017,7 +1017,9 @@ html {
 .pito-game-enhanced-message__channel-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 0.75rem 1rem;
+  /* Generous row gap: each score bar floats its bubble above itself, so wrapped
+     rows need clearance or the next row's handle crowds the bubble. */
+  gap: 2rem 1rem;
   align-items: start;
 }
 
@@ -1046,11 +1048,21 @@ html {
   min-width: 0;
 }
 
-.pito-game-enhanced-message__similar-game-cover {
+/* Cover art display size — shared by the enhanced similar-game card and the
+   game detail message. Matches Game::COVER_VARIANT (240×320) so the variant is
+   the display size: no HTML/CSS downscaling of a larger image. */
+.pito-game-enhanced-message__similar-game-cover,
+.pito-game-detail__cover img {
   width: 240px;
-  height: 318px;
+  height: 320px;
   object-fit: cover;
   display: block;
+}
+
+/* Detail cover column: fixed width, never shrinks in the flex head. */
+.pito-game-detail__cover {
+  flex: 0 0 auto;
+  width: 240px;
 }
 
 /* Placeholder when no cover art is attached. */

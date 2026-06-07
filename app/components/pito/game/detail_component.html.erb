@@ -4,10 +4,11 @@
   <%# Head: cover art (small, left column) + title and KV details (right column) %>
   <div class="pito-game-detail__head flex gap-3 items-start">
 
-    <%# Cover art or placeholder — single small variant, fixed-width left column %>
-    <div class="pito-game-detail__cover w-32 shrink-0">
+    <%# Cover art or placeholder — same dimensions as the enhanced similar-game
+        cover (240×318), fixed-width left column %>
+    <div class="pito-game-detail__cover">
       <% if cover_art_attached? && (url = cover_art_url) %>
-        <%= image_tag url, alt: @game.title, class: "block w-full" %>
+        <%= image_tag url, alt: @game.title, class: "block" %>
       <% else %>
         <div class="text-fg-dim"><%=t "pito.game.detail.no_cover" %></div>
       <% end %>
