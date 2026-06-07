@@ -152,10 +152,10 @@ RSpec.describe Pito::ScoreBarComponent do
 
     it "uses color-mix(in oklch) for both the hue blends and the fg-mix" do
       expect(fill_rule).to include("color-mix(in oklch")
-      # Every stop is wrapped in an fg-mix color-mix; the very-bad / poor /
-      # good stops nest a second hue-blend color-mix inside. The gradient
-      # carries 14 color-mix(in oklch) occurrences in total.
-      expect(fill_rule.scan("color-mix(in oklch").size).to eq(14)
+      # Most stops are a single fg-mix color-mix; the poor + good stops nest a
+      # second hue-blend color-mix inside. (The very-bad stops are now a single
+      # mix toward --fg-faded so the worst end is the DARKEST red.) 12 total.
+      expect(fill_rule.scan("color-mix(in oklch").size).to eq(12)
     end
 
     it "keeps the revive tier breakpoints (25/50/65/75/85/90%)" do
