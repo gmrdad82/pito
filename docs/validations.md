@@ -184,3 +184,35 @@ Total commits: **172**
 174. [ ] `89e1fe65` (2026-06-07) — Messages: one meta line (timestamp · #handle) — drop usage/affordance line; platforms plain text not chips; ScoreBar top spacing
 175. [ ] `3832c059` (2026-06-07) — Fix TimeToBeat label rows collapsing onto bar and legend
 176. [ ] `164c8a41` (2026-06-07) — Remove follow-up usage/affordance line everywhere (single meta line)
+177. [ ] `6ab918fd` (2026-06-07) — Refresh validations checklist (meta-line + TTB + affordance-removal commits)
+
+<!-- ── Smoke-test session (2026-06-07): bugs found + fixed while validating ── -->
+178. [x] `e39f6e55` (2026-06-07) — Enter submits chatbox for unauthenticated users (unblocks /login)
+179. [x] `a9022cbd` (2026-06-07) — Hide notifications indicator for unauthenticated users
+180. [x] `3437a743` (2026-06-07) — Hide post-command dots after synchronous /login (complete the turn)
+181. [ ] `2aafed3f` (2026-06-07) — list channels/videos no longer returns the games shelf
+182. [ ] `b6f170d7` (2026-06-07) — Add list channels (3-column kv-grid: id, name, handle)
+183. [ ] `12c1429a` (2026-06-07) — Channel handle column in cyan
+184. [x] `0d764eaa` (2026-06-07) — list verb suggests nouns (channels/videos/games), not release-status
+185. [x] `dd61fae9` (2026-06-07) — Hide post-command dots for sidebar fast-paths (emit pito:done)
+186. [x] `1182001c` (2026-06-07) — Theme current marker: ASCII '<-' in cyan (chat list + sidebar)
+187. [ ] `8a26233f` (2026-06-07) — Hide post-command dots after follow-up replies (broadcast pito:done)
+188. [x] `6db6597a` (2026-06-07) — ayu-mirage: lighten foreground for better chatbox contrast
+189. [x] `ba09cef5` (2026-06-07) — Help table: auto-size command column (no overflow)
+190. [ ] `5dcc9177` (2026-06-07) — Follow-up-aware #handle suggestions (target actions, not legacy add/metrics)
+191. [ ] `aeb5a224` (2026-06-07) — Suggestions: ghost first enum value (TAB-completable) instead of <placeholder>
+192. [ ] `ab9d22a0` (2026-06-07) — Place caret at end of restored chatbox text (draft + conversation restore)
+193. [ ] `4d04a6c3` (2026-06-07) — IGDB search: drop edition/DLC/bundle rows by name (main titles only)
+194. [ ] `8f6304a9` (2026-06-07) — Import progress: shimmer the label too (whole row, per-row offset)
+195. [ ] `a06d5779` (2026-06-07) — Suggestions: read conversation from uuid param (fixes "add subscribers")
+196. [x] `959d85d1` (2026-06-07) — ScoreBar: full-width = fill, precise tick, Pito::Copy label, top spacing
+197. [x] `e92c1485` (2026-06-07) — TTB: fill = full-width (no 40 cap)
+198. [x] `6a22b50c` (2026-06-07) — ScoreBar/TTB: shrink fill (min-width:0) so gradient spans full width
+199. [ ] `47827d4f` (2026-06-07) — IGDB sidebar: shorten shimmer dots (30 → 8; superseded by 27)
+200. [x] `9e1fb843` (2026-06-07) — IGDB sidebar: remove exactly 3 shimmer dots (30 → 27)
+201. [ ] `ae2bbc4b` (2026-06-07) — Shimmer: ping-pong sweep, return leg 3× faster (75/25, linear)
+202. [x] `099135ed` (2026-06-07) — TTB: witty Copy label + guarantee full-width = fill
+203. [x] `637e0cf7` (2026-06-07) — ScoreBar gradient: darkest red at the worst end (no light-then-dark jump)
+204. [x] `125dcf44` (2026-06-07) — Spec: ScoreBar gradient now 12 color-mix stops
+205. [ ] `605ce8b9` (2026-06-07) — Migrate IGDB import step labels to Pito::Copy 50-variant pools
+206. [ ] `755e1f48` (2026-06-07) — Build Pito::Game::EnhancedComponent: channel matches + similar games
