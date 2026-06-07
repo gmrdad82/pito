@@ -3,7 +3,7 @@
   "devDependencies": {
     "@hotwired/stimulus": "^3.2.2",
     "jsdom": "^26.1.0",
-    "vitest": "^3.2.0"
+    "vitest": "^4.1.0"
   },
   "scripts": {
     "test": "vitest run"
