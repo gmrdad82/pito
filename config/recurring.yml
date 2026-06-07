@@ -11,6 +11,8 @@
 #   - youtube_analytics_sync      — Analytics deferred (post-reboot)
 #   - youtube_analytics_retention — Analytics deferred (post-reboot)
 #   - daily_digest_scheduler      — Digest deferred (post-reboot)
+#   - milestone_evaluator         — Pito::Calendar::MilestoneEvaluator never built (dead job removed)
+#   - calendar_occurred_flipper   — Pito::Calendar::OccurredFlipper never built (dead job removed)
 
 production:
   # P59 — Notifications cleanup — daily at 01:00 UTC
@@ -42,18 +44,6 @@ production:
     class: SyncStarredChannelsJob
     schedule: "0 0 * * *"
     description: "Re-sync every starred channel daily"
-
-  # Milestone evaluator — daily at 02:00 UTC
-  milestone_evaluator:
-    class: MilestoneEvaluatorJob
-    schedule: "0 2 * * *"
-    description: "Evaluate milestone rules; fire milestone_auto entries on threshold crossings"
-
-  # Calendar occurred flipper — every hour at minute 5
-  calendar_occurred_flipper:
-    class: CalendarOccurredFlipperJob
-    schedule: "5 * * * *"
-    description: "Flip ripe :scheduled calendar entries to :occurred"
 
   # P14 — Nightly sync Stage 1 — daily at 01:00 UTC
   # Fans out ChannelSync + NightlyVideoSyncJob per connected channel + GameIgdbNightlyRefresh.
