@@ -693,9 +693,9 @@ html {
   white-space: nowrap;
   background-image: linear-gradient(
     to right,
-    color-mix(in oklch, color-mix(in oklch, var(--accent-red) 60%, var(--fg-faded)) 75%, var(--fg-default))    0%,   /* dark very-bad — hard left edge */
-    color-mix(in oklch, color-mix(in oklch, var(--accent-red) 60%, var(--fg-faded)) 75%, var(--fg-default))   25%,   /* solid very-bad zone */
-    color-mix(in oklch, var(--accent-red) 85%, var(--fg-default))   25%,                                             /* hard edge → bad */
+    color-mix(in oklch, var(--accent-red) 72%, var(--fg-faded))    0%,   /* DARKEST red — worst score (mixed toward the dim faded fg, so it's darker than the bad zone, not lighter) */
+    color-mix(in oklch, var(--accent-red) 72%, var(--fg-faded))   25%,   /* solid very-bad zone (darkest) */
+    color-mix(in oklch, var(--accent-red) 85%, var(--fg-default))   25%,                                             /* hard edge → bad (lighter than very-bad — monotonic toward green) */
     color-mix(in oklch, var(--accent-red) 85%, var(--fg-default))   50%,                                             /* solid bad zone */
     color-mix(in oklch, color-mix(in oklch, var(--accent-red), var(--accent-orange)) 82%, var(--fg-default))   50%,  /* hard edge → poor (red→orange) */
     color-mix(in oklch, var(--accent-orange) 70%, var(--fg-default))   65%,                                          /* meh */
