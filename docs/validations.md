@@ -180,3 +180,7 @@ Total commits: **172**
 170. [ ] `b667fd64` (2026-06-07) — Fix TTB tick positioning, brackets, and footage mark
 171. [ ] `53675595` (2026-06-07) — Project TTB heat ramp onto the = glyphs over 0..completionist
 172. [ ] `25476d38` (2026-06-07) — Round out ScoreBar/TTB specs for the P17 revamp
+173. [ ] `02669cf6` (2026-06-07) — Refresh validations checklist (P17 ScoreBar/TTB commits)
+174. [ ] `89e1fe65` (2026-06-07) — Messages: one meta line (timestamp · #handle) — drop usage/affordance line; platforms plain text not chips; ScoreBar top spacing
+175. [ ] `3832c059` (2026-06-07) — Fix TimeToBeat label rows collapsing onto bar and legend
+176. [ ] `164c8a41` (2026-06-07) — Remove follow-up usage/affordance line everywhere (single meta line)
