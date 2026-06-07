@@ -98,11 +98,11 @@ a pure function of the builder. The two never mix.
 - [x] T6.5 Commit: `Add Text/Error message helpers; sweep inline text payloads`. complexity: [manual]
 
 ## P7 — Gate (no inline payloads) + finalize
-- [ ] T7.1 Grep-gate: no `payload:\s*{` / `payload\s*=\s*{` carrying body/html/sections/table_rows outside `app/services/pito/message_builder/`. complexity: [low]
-- [ ] T7.2 Verify `jobs/game_import_job.rb` no longer calls `make_followupable!` directly (it lives in the builders). complexity: [low]
-- [ ] T7.3 Run full `bundle exec rspec` + `bin/rubocop` + `bin/rails zeitwerk:check` + `rake pito:copy:audit` (0-below). complexity: [manual]
-- [ ] T7.4 Add an `## Message builders` note to `AGENTS.md` (chrome=kind, content=`MessageBuilder::*`, one builder per message type). complexity: [low]
-- [ ] T7.5 Commit: `Document the MessageBuilder paradigm in AGENTS.md`. complexity: [manual]
+- [x] T7.1 Grep-gate: no `payload:\s*{` / `payload\s*=\s*{` carrying body/html/sections/table_rows outside `app/services/pito/message_builder/`. complexity: [low]
+- [x] T7.2 Verify `jobs/game_import_job.rb` no longer calls `make_followupable!` directly (it lives in the builders). complexity: [low]
+- [x] T7.3 Run full `bundle exec rspec` + `bin/rubocop` + `bin/rails zeitwerk:check` + `rake pito:copy:audit` (0-below). complexity: [manual]
+- [x] T7.4 Add an `## Message builders` note to `AGENTS.md` (chrome=kind, content=`MessageBuilder::*`, one builder per message type). complexity: [low]
+- [x] T7.5 Commit: `Document the MessageBuilder paradigm in AGENTS.md`. complexity: [manual]
 
 ## Critical files
 

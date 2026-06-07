@@ -2099,4 +2099,43 @@ Sidebar and picker controllers: `pito--games-nav` (games picker sidebar),
 - Don't add a new sidebar controller when `pito--games-nav` / `pito--theme-nav`
   patterns already cover the need.
 
+## Message builders
+
+All chat / slash / hashtag / follow-up message payloads are produced by
+`Pito::MessageBuilder::*` builders — one per message type — living under
+`app/services/pito/message_builder/`. Each builder is a module with
+`module_function`; its public `.call(...) -> Hash` returns a string-keyed
+payload.
+
+**Chrome (kind) vs. content separation:**
+- **Chrome** (the border/wrapper style — system, enhanced, confirmation, error)
+  is a pure function of the event `kind` set by the **caller** (handler or job).
+- **Content** (body, html, table_rows, sections, text, follow-up stamps) is a
+  pure function of the **builder**.
+
+Builders NEVER choose the `kind`. Handlers and jobs ONLY: resolve the domain
+object, call the builder, and emit an event with the correct kind.
+
+**Follow-up stamping:** `Pito::FollowUp.make_followupable!` is called INSIDE the
+builder for follow-up-able messages. Handlers do NOT call it directly.
+
+**Shared helpers** in `Pito::MessageBuilder::Helpers`:
+- `render_component(component)` — renders a ViewComponent to HTML
+- `html_payload(body:, **extra)` — returns `{ "body" => body, "html" => true, ... }`
+
+**Registered builders:**
+- `Game::Detail` — game detail card (system, follow-up-able: game_detail)
+- `Game::Enhanced` — recommendations card (enhanced, not follow-up-able)
+- `Game::List` — game library list (system, follow-up-able: game_list)
+- `Game::DeleteConfirmation` — delete confirmation (confirmation)
+- `Game::ResyncConfirmation` — resync confirmation (confirmation)
+- `Game::ReindexConfirmation` — reindex confirmation (confirmation)
+- `Game::EnhancedSegments` — similar/channel mutation builder (mutation payload)
+- `Channel::List` — channel card strip (system, follow-up-able: channel_list)
+- `Channel::Visit` — channel visit redirect (system)
+- `Channel::DisconnectConfirmation` — disconnect confirmation (confirmation)
+- `Theme::List` — theme list with Dark/Light sections (system, follow-up-able: theme_list)
+- `Text` — plain text payload `{ "text" => ... }`
+- `Error` — error payload `{ "message_key" => ..., "message_args" => ... }`
+
 <!-- agents:end name=pito-engines -->
