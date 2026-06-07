@@ -167,6 +167,8 @@ RSpec.describe Pito::StartScreen::Component do
     end
 
     it "pre-renders the full mini status (with real notification count) in conversationChrome" do
+      # The notification count only renders for an authenticated session.
+      allow(Current).to receive(:session).and_return(double("Session"))
       create(:notification)
       create(:notification)
       # Re-render after creating 2 unread notifications so the count is real.
