@@ -46,13 +46,13 @@ RSpec.describe Pito::FollowUp::Handlers::GameEnhanced, type: :service do
     end
 
     it "appends a confirmation with command game_reindex" do
-      expect(result.events.first[:payload][:command]).to eq("game_reindex")
+      expect(result.events.first[:payload]["command"]).to eq("game_reindex")
     end
 
     it "carries game_id and game_title" do
       payload = result.events.first[:payload]
-      expect(payload[:game_id]).to eq(game.id)
-      expect(payload[:game_title]).to eq("Elden Ring")
+      expect(payload["game_id"]).to eq(game.id)
+      expect(payload["game_title"]).to eq("Elden Ring")
     end
 
     it "stamps the confirmation as followupable" do

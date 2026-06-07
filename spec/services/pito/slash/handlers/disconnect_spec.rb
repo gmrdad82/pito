@@ -65,12 +65,12 @@ RSpec.describe Pito::Slash::Handlers::Disconnect, type: :service do
 
     it "includes command: disconnect in the payload" do
       result = build_handler(raw: "/disconnect @gaming").call
-      expect(result.events.first[:payload][:command]).to eq("disconnect")
+      expect(result.events.first[:payload]["command"]).to eq("disconnect")
     end
 
     it "includes the channel_id in the payload" do
       result = build_handler(raw: "/disconnect @gaming").call
-      expect(result.events.first[:payload][:channel_id]).to eq(channel.id)
+      expect(result.events.first[:payload]["channel_id"]).to eq(channel.id)
     end
 
     it "includes a reply_handle (follow-up engine stamp)" do
@@ -89,14 +89,14 @@ RSpec.describe Pito::Slash::Handlers::Disconnect, type: :service do
 
     it "includes a body with the cyan-wrapped handle" do
       result = build_handler(raw: "/disconnect @gaming").call
-      body = result.events.first[:payload][:body]
+      body = result.events.first[:payload]["body"]
       expect(body).to include("<span class=\"text-cyan\">@gamingchannel</span>")
-      expect(result.events.first[:payload][:html]).to be(true)
+      expect(result.events.first[:payload]["html"]).to be(true)
     end
 
     it "includes expand_detail with channel stats (subscribers, views) first" do
       result = build_handler(raw: "/disconnect @gaming").call
-      detail = result.events.first[:payload][:expand_detail]
+      detail = result.events.first[:payload]["expand_detail"]
       expect(detail).to be_an(Array)
       expect(detail).not_to be_empty
 
@@ -118,7 +118,7 @@ RSpec.describe Pito::Slash::Handlers::Disconnect, type: :service do
 
     it "includes video breakdown after the spacer" do
       result = build_handler(raw: "/disconnect @gaming").call
-      detail = result.events.first[:payload][:expand_detail]
+      detail = result.events.first[:payload]["expand_detail"]
       # Find the spacer
       spacer_idx = detail.index { |item| item == "" }
       expect(spacer_idx).to be_present
@@ -138,7 +138,7 @@ RSpec.describe Pito::Slash::Handlers::Disconnect, type: :service do
     it "resolves the channel by local id" do
       result = build_handler(raw: "/disconnect #{channel.id}").call
       expect(result.events.first[:kind]).to eq("confirmation")
-      expect(result.events.first[:payload][:channel_id]).to eq(channel.id)
+      expect(result.events.first[:payload]["channel_id"]).to eq(channel.id)
     end
   end
 
@@ -147,7 +147,7 @@ RSpec.describe Pito::Slash::Handlers::Disconnect, type: :service do
 
     it "includes total video count in the video section" do
       result = build_handler(raw: "/disconnect @vidchan").call
-      detail = result.events.first[:payload][:expand_detail]
+      detail = result.events.first[:payload]["expand_detail"]
       spacer_idx = detail.index { |item| item == "" }
       video_rows = detail[(spacer_idx + 1)..]
       total_row = video_rows.find { |r| r.is_a?(Hash) && r[:key] == "Videos" }

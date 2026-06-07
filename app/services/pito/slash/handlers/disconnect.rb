@@ -78,15 +78,7 @@ module Pito
         end
 
         def confirmation_event(channel)
-          handle  = channel.handle.presence || channel.title.to_s
-          payload = {
-            command:       "disconnect",
-            body:          Pito::Copy.render("pito.copy.disconnect.confirmation_body", { handle_html: %(<span class="text-cyan">@#{handle.delete_prefix("@")}</span>) }),
-            html:          true,
-            channel_id:    channel.id,
-            expand_detail: build_expand_detail(channel)
-          }
-          Pito::FollowUp.make_followupable!(payload, target: "confirmation", conversation:)
+          payload = Pito::MessageBuilder::Channel::DisconnectConfirmation.call(channel, conversation:)
 
           Pito::Slash::Result::Ok.new(events: [
             {
@@ -94,32 +86,6 @@ module Pito
               payload: payload
             }
           ])
-        end
-
-        def build_expand_detail(channel)
-          published   = channel.videos.privacy_status_public.count
-          private_all = channel.videos.privacy_status_private.count
-          scheduled   = channel.videos.privacy_status_private.where.not(publish_at: nil).count
-          private_v   = private_all - scheduled
-          unlisted    = channel.videos.privacy_status_unlisted.count
-          total       = published + private_all + unlisted
-
-          t = ->(key) { I18n.t("pito.slash.disconnect.confirmation.expand.#{key}") }
-          v = ->(n) { Pito::Formatter::CompactCount.call(n) }
-
-          [
-            # Channel stats first
-            { key: t.call(:subscribers),   value: v.call(channel.subscriber_count.to_i) },
-            { key: t.call(:views),           value: v.call(channel.view_count.to_i) },
-            # Separator
-            "",
-            # Video breakdown
-            { key: t.call(:total),    value: total.to_s },
-            { key: t.call(:published), value: v.call(published) },
-            { key: t.call(:scheduled), value: v.call(scheduled) },
-            { key: t.call(:unlisted),  value: v.call(unlisted) },
-            { key: t.call(:private),   value: v.call(private_v) }
-          ]
         end
       end
     end

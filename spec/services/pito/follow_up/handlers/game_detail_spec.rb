@@ -48,13 +48,13 @@ RSpec.describe Pito::FollowUp::Handlers::GameDetail, type: :service do
     end
 
     it "uses the game_delete command" do
-      expect(result.events.first[:payload][:command]).to eq("game_delete")
+      expect(result.events.first[:payload]["command"]).to eq("game_delete")
     end
 
     it "carries game_id and game_title" do
       payload = result.events.first[:payload]
-      expect(payload[:game_id]).to eq(game.id)
-      expect(payload[:game_title]).to eq("Lies of P")
+      expect(payload["game_id"]).to eq(game.id)
+      expect(payload["game_title"]).to eq("Lies of P")
     end
 
     it "stamps the confirmation as followupable (confirmation target)" do
@@ -68,7 +68,7 @@ RSpec.describe Pito::FollowUp::Handlers::GameDetail, type: :service do
 
     it "also emits a game_delete confirmation" do
       result = handler.call(event: source_event, rest: "delete", conversation:)
-      expect(result.events.first[:payload][:command]).to eq("game_delete")
+      expect(result.events.first[:payload]["command"]).to eq("game_delete")
     end
   end
 
@@ -97,13 +97,13 @@ RSpec.describe Pito::FollowUp::Handlers::GameDetail, type: :service do
     end
 
     it "appends a confirmation with command game_resync" do
-      expect(result.events.first[:payload][:command]).to eq("game_resync")
+      expect(result.events.first[:payload]["command"]).to eq("game_resync")
     end
 
     it "carries game_id and game_title" do
       payload = result.events.first[:payload]
-      expect(payload[:game_id]).to eq(game.id)
-      expect(payload[:game_title]).to eq("Lies of P")
+      expect(payload["game_id"]).to eq(game.id)
+      expect(payload["game_title"]).to eq("Lies of P")
     end
   end
 

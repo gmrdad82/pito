@@ -29,7 +29,7 @@ RSpec.describe Pito::Slash::Handlers::Disconnect, "extended coverage", type: :se
     it "resolves via LIKE match and returns confirmation" do
       result = build_handler(raw: "/disconnect plainchan").call
       expect(result.events.first[:kind]).to eq("confirmation")
-      expect(result.events.first[:payload][:channel_id]).to eq(channel.id)
+      expect(result.events.first[:payload]["channel_id"]).to eq(channel.id)
     end
   end
 
@@ -56,11 +56,11 @@ RSpec.describe Pito::Slash::Handlers::Disconnect, "extended coverage", type: :se
     end
 
     it "includes command: 'disconnect'" do
-      expect(payload[:command]).to eq("disconnect")
+      expect(payload["command"]).to eq("disconnect")
     end
 
     it "includes html: true" do
-      expect(payload[:html]).to be true
+      expect(payload["html"]).to be true
     end
 
     it "includes reply_handle matching the expected format" do
@@ -74,11 +74,11 @@ RSpec.describe Pito::Slash::Handlers::Disconnect, "extended coverage", type: :se
     end
 
     it "includes expand_detail as an Array" do
-      expect(payload[:expand_detail]).to be_an(Array)
+      expect(payload["expand_detail"]).to be_an(Array)
     end
 
     it "expand_detail contains a separator string at the expected index" do
-      spacer_idx = payload[:expand_detail].index { |item| item == "" }
+      spacer_idx = payload["expand_detail"].index { |item| item == "" }
       expect(spacer_idx).to be_present
     end
   end
@@ -90,7 +90,7 @@ RSpec.describe Pito::Slash::Handlers::Disconnect, "extended coverage", type: :se
 
     it "includes Published, Scheduled, Unlisted, and Private rows after spacer" do
       result = build_handler(raw: "/disconnect @keycheck").call
-      detail = result.events.first[:payload][:expand_detail]
+      detail = result.events.first[:payload]["expand_detail"]
       spacer_idx = detail.index { |item| item == "" }
       video_rows = detail[(spacer_idx + 1)..]
       kv_keys = video_rows.select { |r| r.is_a?(Hash) }.map { |r| r[:key] }

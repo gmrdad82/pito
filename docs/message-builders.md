@@ -68,13 +68,13 @@ a pure function of the builder. The two never mix.
 - [x] T2.7 Commit: `Extract Game::List + Channel::List message builders`. complexity: [manual]
 
 ## P3 — Confirmation builders (delete reuse, resync, reindex, disconnect)
-- [ ] T3.1 Replace the inline rm/delete confirmation in `follow_up/handlers/game_detail.rb` with `MessageBuilder::Game::DeleteConfirmation`. complexity: [low]
-- [ ] T3.2 Create `Pito::MessageBuilder::Game::ResyncConfirmation`; use it in game_detail resync. complexity: [low]
-- [ ] T3.3 Create `Pito::MessageBuilder::Game::ReindexConfirmation`; use it in `follow_up/handlers/game_enhanced.rb` reindex. complexity: [low]
-- [ ] T3.4 Create `Pito::MessageBuilder::Channel::DisconnectConfirmation`; use it in `slash/handlers/disconnect.rb`. complexity: [low]
-- [ ] T3.5 Update the four handlers' specs. complexity: [low]
-- [ ] T3.6 Run `bundle exec rspec`. complexity: [manual]
-- [ ] T3.7 Commit: `Extract resync/reindex/disconnect confirmation builders; reuse delete-confirm`. complexity: [manual]
+- [x] T3.1 Replace the inline rm/delete confirmation in `follow_up/handlers/game_detail.rb` with `MessageBuilder::Game::DeleteConfirmation`. complexity: [low]
+- [x] T3.2 Create `Pito::MessageBuilder::Game::ResyncConfirmation`; use it in game_detail resync. complexity: [low]
+- [x] T3.3 Create `Pito::MessageBuilder::Game::ReindexConfirmation`; use it in `follow_up/handlers/game_enhanced.rb` reindex. complexity: [low]
+- [x] T3.4 Create `Pito::MessageBuilder::Channel::DisconnectConfirmation`; use it in `slash/handlers/disconnect.rb`. complexity: [low]
+- [x] T3.5 Update the four handlers' specs. complexity: [low]
+- [x] T3.6 Run `bundle exec rspec`. complexity: [manual]
+- [x] T3.7 Commit: `Extract resync/reindex/disconnect confirmation builders; reuse delete-confirm`. complexity: [manual]
 
 ## P4 — Theme list message builder
 - [ ] T4.1 Create `Pito::MessageBuilder::Theme::List` (body + Dark/Light `sections` + marker value2 + `make_followupable!(theme_list)`). complexity: [low]

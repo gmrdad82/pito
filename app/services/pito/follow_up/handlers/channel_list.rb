@@ -39,13 +39,8 @@ module Pito
             )
           end
 
-          html = ApplicationController.renderer.render(
-            Pito::Channel::VisitComponent.new(channel:),
-            layout: false
-          )
-
           Pito::FollowUp::Result::Append.new(events: [
-            { kind: "system", payload: { "body" => html, "html" => true } }
+            { kind: "system", payload: Pito::MessageBuilder::Channel::Visit.call(channel) }
           ])
         end
 

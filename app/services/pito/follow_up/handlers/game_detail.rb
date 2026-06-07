@@ -95,14 +95,7 @@ module Pito
           game = resolve_game_from_event(event)
           return game_not_found_error if game.nil?
 
-          payload = {
-            command:    "game_delete",
-            body:       Pito::Copy.render("pito.copy.games.delete_confirm", { title: game.title }),
-            html:       false,
-            game_id:    game.id,
-            game_title: game.title
-          }
-          Pito::FollowUp.make_followupable!(payload, target: "confirmation", conversation:)
+          payload = Pito::MessageBuilder::Game::DeleteConfirmation.call(game, conversation:)
 
           Pito::FollowUp::Result::Append.new(
             events: [ { kind: "confirmation", payload: payload } ]
@@ -115,14 +108,7 @@ module Pito
           game = resolve_game_from_event(event)
           return game_not_found_error if game.nil?
 
-          payload = {
-            command:    "game_resync",
-            body:       Pito::Copy.render("pito.copy.games.resync_confirm", { title: game.title }),
-            html:       false,
-            game_id:    game.id,
-            game_title: game.title
-          }
-          Pito::FollowUp.make_followupable!(payload, target: "confirmation", conversation:)
+          payload = Pito::MessageBuilder::Game::ResyncConfirmation.call(game, conversation:)
 
           Pito::FollowUp::Result::Append.new(
             events: [ { kind: "confirmation", payload: payload } ]

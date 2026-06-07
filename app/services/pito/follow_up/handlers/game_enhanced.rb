@@ -97,14 +97,7 @@ module Pito
         # ── reindex ────────────────────────────────────────────────────────────
 
         def handle_reindex(event, game, conversation)
-          payload = {
-            command:    "game_reindex",
-            body:       Pito::Copy.render("pito.copy.games.reindex_confirm", { title: game.title }),
-            html:       false,
-            game_id:    game.id,
-            game_title: game.title
-          }
-          Pito::FollowUp.make_followupable!(payload, target: "confirmation", conversation:)
+          payload = Pito::MessageBuilder::Game::ReindexConfirmation.call(game, conversation:)
 
           Pito::FollowUp::Result::Append.new(
             events: [ { kind: "confirmation", payload: payload } ]
