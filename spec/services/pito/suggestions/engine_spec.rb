@@ -357,6 +357,38 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
     end
   end
 
+  # ── HASHTAG — follow-up-target aware ──────────────────────────────────────────
+  describe "hashtag mode for a live follow-up handle", :db do
+    let(:conversation) { Conversation.create! }
+    let(:turn) { conversation.turns.create!(input_kind: :slash, input_text: "/themes list", position: 1) }
+
+    before do
+      Event.create_with_position!(
+        conversation:, turn:, kind: "system",
+        payload: { "reply_handle" => "alpha-1266", "reply_target" => "theme_list", "body" => "themes" }
+      )
+    end
+
+    it "suggests the target's actions (preview/apply), NOT the legacy add/remove" do
+      result = call(input: "#alpha-1266 ", cursor: 12, conversation:)
+      labels = result[:menu_items].map { |i| i[:label] }
+      expect(labels).to eq(%w[preview apply])
+      expect(labels).not_to include("add", "remove")
+    end
+
+    it "ghosts the first action so TAB completes it (no <brackets>)" do
+      result = call(input: "#alpha-1266 ", cursor: 12, conversation:)
+      expect(result[:ghost][:complete_current]).to eq("preview")
+      expect(result[:ghost][:next_hint]).to eq("")
+    end
+
+    it "falls back to legacy hashtag verbs when the handle isn't a live follow-up" do
+      result = call(input: "#unknown-9999 ", cursor: 14, conversation:)
+      labels = result[:menu_items].map { |i| i[:label] }
+      expect(labels).to include("add", "remove")
+    end
+  end
+
   # ── DYNAMIC SLOTS — :channels ─────────────────────────────────────────────────
 
   describe "dynamic slot — :channels (/disconnect)", :db do

@@ -67,6 +67,18 @@ module Pito
       class << self
         attr_reader :target_id, :handler_mode
 
+        # Declare (or read) the action words this follow-up accepts, in the
+        # order they should be suggested when the user types `#<handle> `.
+        # Used by the suggestions engine to offer target-aware completions
+        # (e.g. theme_list → preview/apply) instead of generic hashtag verbs.
+        def actions(*list)
+          if list.any?
+            @handler_actions = list.flatten.map(&:to_s)
+          else
+            @handler_actions || []
+          end
+        end
+
         # Declare the handler's id (stored in reply_target).
         def target(id = nil)
           if id

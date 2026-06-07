@@ -15,6 +15,7 @@ module Pito
       class GameList < Pito::FollowUp::Handler
         self.target "game_list"
         self.mode   :append
+        self.actions "show"
 
         def call(event:, rest:, conversation:) # rubocop:disable Lint/UnusedMethodArgument
           action, ref = parse_rest(rest)

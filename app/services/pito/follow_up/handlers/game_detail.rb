@@ -42,6 +42,7 @@ module Pito
       class GameDetail < Pito::FollowUp::Handler
         self.target "game_detail"
         self.mode   :append
+        self.actions "rm", "resync", "owned", "link"
 
         # Maps user-supplied synonyms to canonical platform tokens.
         # Shared constants from Pito::Chat::Handlers::Update — if extracted to a

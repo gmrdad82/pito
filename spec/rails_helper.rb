@@ -48,6 +48,9 @@ RSpec.configure do |config|
   # grammar specs that need a clean slate still reset! in their own `before`.
   config.before(:each) do
     Pito::Grammar::Registry.register_all! if defined?(Pito::Grammar::Registry)
+    # Follow-up handlers register lazily; ensure they're loaded so the registry
+    # (used by the suggestions engine for #handle → target actions) is populated.
+    Pito::FollowUp::Registry.register_all! if defined?(Pito::FollowUp::Registry)
   end
 
   # ── ViewComponent specs ───────────────────────────────────────────

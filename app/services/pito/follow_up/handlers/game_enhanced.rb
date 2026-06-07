@@ -46,6 +46,7 @@ module Pito
       class GameEnhanced < Pito::FollowUp::Handler
         self.target "game_enhanced"
         self.mode   :mutate
+        self.actions "reindex", "similar", "channel"
 
         # Key-value filter tokens accepted by `similar [filters]`.
         # Maps the user-facing key (or alias) to the canonical key expected by

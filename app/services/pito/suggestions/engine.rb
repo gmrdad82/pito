@@ -37,7 +37,7 @@ module Pito
 
           result = case mode
           when :slash    then slash_completions(text, authenticated:)
-          when :hashtag  then hashtag_completions(text)
+          when :hashtag  then hashtag_completions(text, conversation:)
           when :free     then free_completions(text, authenticated:)
           else           { menu_items: [], ghost: EMPTY_GHOST }
           end
@@ -375,46 +375,71 @@ module Pito
 
         # ── HASHTAG mode ─────────────────────────────────────────────────────
 
-        def hashtag_completions(text)
-          # Hashtag input looks like "#handle verb metric"
-          # Tokens (skipping the leading #):
-          #   #handle — a :hash token or :unknown "#" + word
-          #   verb    — add/remove
-          #   metric  — subscribers/views/...
-          tokens = Pito::Lex::Lexer.call(text)
-          # Filter out eof, unknown (#), and slash tokens.
-          meaningful = tokens.reject { |t| %i[eof unknown hash].include?(t.type) }
+        def hashtag_completions(text, conversation: nil)
+          # Input looks like "#handle verb metric". The handle can contain a
+          # hyphen (e.g. follow-up handles `alpha-1266`), which the lexer would
+          # split — so extract the full `#<handle>` directly from the raw text.
+          m = text.match(/\A\s*#(\S+)(.*)\z/m)
+          return { menu_items: [], ghost: EMPTY_GHOST } unless m
 
-          # The first :word token after the leading "#word" block is the handle.
-          # Lexer emits: :unknown "#", :word "handle", :word "verb", :word "metric" ...
-          # OR if handle starts with @, :at "@", :word "handle"
-          # Actually for "#handle": :unknown "#", :word "handle"
-          # Let's collect :word tokens.
-          word_tokens = meaningful.select { |t| t.type == :word }
-
-          # word_tokens[0] = handle, word_tokens[1] = verb (optional), word_tokens[2] = metric (optional)
-          handle_tok = word_tokens[0]  # The #handle itself (the word after "#")
-          verb_tok   = word_tokens[1]
-          metric_tok = word_tokens[2]
-
-          # Determine what the cursor is on.
-          # The text ends in a space → cursor is on next (empty) token.
+          handle = m[1]
+          after  = m[2]                     # everything after the handle chars
           ends_with_space = text.end_with?(" ")
 
-          if handle_tok.nil? || (word_tokens.size == 1 && !ends_with_space)
-            # Still typing the handle — no verb stage yet.
-            return { menu_items: [], ghost: EMPTY_GHOST }
+          # No space after the handle yet → still typing the handle.
+          return { menu_items: [], ghost: EMPTY_GHOST } unless after.match?(/\A\s/)
+
+          after_words = after.split(/\s+/).reject(&:empty?)
+          # Verb stage: nothing typed after the handle yet, or still typing the
+          # first word (the action/verb).
+          at_verb_stage = after_words.empty? || (after_words.size == 1 && !ends_with_space)
+          partial = ends_with_space ? "" : (after_words.last || "")
+
+          # Follow-up-aware: if this handle belongs to a live follow-up-able event,
+          # suggest THAT target's actions (e.g. theme_list → preview/apply) rather
+          # than the generic hashtag verbs. Falls through to the legacy path only
+          # when the handle isn't a live follow-up.
+          actions = follow_up_actions(handle, conversation)
+          if actions
+            return at_verb_stage ? follow_up_action_completions(actions, partial) : { menu_items: [], ghost: EMPTY_GHOST }
           end
 
-          if verb_tok.nil? || (!ends_with_space && word_tokens.size == 2)
-            # Verb stage: suggest hashtag verbs.
-            partial = ends_with_space ? "" : (verb_tok&.value || "")
-            return hashtag_verb_completions(partial)
-          end
+          return hashtag_verb_completions(partial) if at_verb_stage
 
-          # Metric stage.
-          partial = ends_with_space ? "" : (metric_tok&.value || "")
+          # Metric stage (legacy hashtag-metric feature).
           hashtag_metric_completions(partial)
+        end
+
+        # Returns the declared action words for a live follow-up event carrying
+        # `handle` in its reply_handle, or nil when the handle isn't a live
+        # follow-up (so the caller falls back to the legacy hashtag path).
+        def follow_up_actions(handle, conversation)
+          return nil if handle.blank? || conversation.nil?
+
+          event = conversation.events
+            .where("payload->>'reply_handle' = ?", handle.to_s.downcase)
+            .where("(payload->>'reply_consumed') IS NULL OR (payload->>'reply_consumed') = 'false'")
+            .last
+          return nil unless event
+
+          Pito::FollowUp::Registry.actions_for(event.payload["reply_target"].to_s).presence
+        end
+
+        # Build completions for a follow-up handle's actions: a palette of all
+        # actions plus an inline ghost (the first action, or the unique prefix
+        # completion of the partial) so TAB accepts it.
+        def follow_up_action_completions(actions, partial)
+          menu_items = actions.map { |a| { label: a, insert: "#{a} ", description: "", masked: false } }
+
+          ghost = if partial.empty?
+                    { complete_current: actions.first.to_s, next_hint: "" }
+          else
+                    matches = actions.select { |a| a.to_s.start_with?(partial.downcase) }
+                    completion = matches.size == 1 ? matches.first.to_s[partial.length..] : ""
+                    { complete_current: completion, next_hint: "" }
+          end
+
+          { menu_items: menu_items, ghost: ghost }
         end
 
         def hashtag_verb_completions(partial)

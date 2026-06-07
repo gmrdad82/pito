@@ -50,6 +50,7 @@ module Pito
       class ThemeList < Pito::FollowUp::Handler
         self.target "theme_list"
         self.mode   :mutate
+        self.actions "preview", "apply"
 
         VALID_ACTIONS = %w[preview apply].freeze
 

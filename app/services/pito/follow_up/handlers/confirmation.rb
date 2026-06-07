@@ -24,6 +24,7 @@ module Pito
       class Confirmation < Pito::FollowUp::Handler
         self.target "confirmation"
         self.mode   :append
+        self.actions "confirm", "cancel"
 
         VALID_ACTIONS = %w[confirm cancel].freeze
 

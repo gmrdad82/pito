@@ -40,6 +40,26 @@ module Pito
           @handlers[target_id.to_s]&.handler_mode
         end
 
+        # Returns the declared action words for the given target id (the verbs a
+        # user can type after `#<handle> `), or [] if unknown. Used by the
+        # suggestions engine to offer target-aware follow-up completions.
+        def actions_for(target_id)
+          @handlers[target_id.to_s]&.actions || []
+        end
+
+        # Force-load every handler under Pito::FollowUp::Handlers so the
+        # `inherited` hook registers them. Handlers otherwise register lazily
+        # (only when their file is first referenced), which left the registry
+        # empty for callers like the suggestions engine that run before any
+        # follow-up reply. Idempotent — safe to call on every to_prepare.
+        def register_all!
+          return unless Pito::FollowUp.const_defined?(:Handlers)
+
+          Pito::FollowUp::Handlers.constants.each do |c|
+            Pito::FollowUp::Handlers.const_get(c)
+          end
+        end
+
         # Snapshot of all registered handlers.
         def all
           @handlers.dup
