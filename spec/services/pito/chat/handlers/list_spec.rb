@@ -121,6 +121,17 @@ RSpec.describe Pito::Chat::Handlers::List do
       expect(payload[:body]).to include("2")
     end
 
+    it "is stamped follow-up-able for channel_list" do
+      payload = handler_for("list channels").call.events.first[:payload]
+      expect(Pito::FollowUp.followupable?(payload)).to be(true)
+      expect(payload["reply_target"]).to eq("channel_list")
+    end
+
+    it "includes a reply_handle in the channel list payload" do
+      payload = handler_for("list channels").call.events.first[:payload]
+      expect(payload["reply_handle"]).to be_present
+    end
+
     it "returns a witty empty-state when no channels are connected" do
       Channel.delete_all
       payload = handler_for("list channels").call.events.first[:payload]

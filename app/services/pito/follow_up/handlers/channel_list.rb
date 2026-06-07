@@ -1,0 +1,73 @@
+# frozen_string_literal: true
+
+module Pito
+  module FollowUp
+    module Handlers
+      # Follow-up handler for `list channels` messages (reply_target: "channel_list").
+      #
+      # The list stamps each channel card with its id and @handle, so the user
+      # can reply:
+      #
+      #   #<handle> visit @<channel_handle>   — open the channel's YouTube page
+      #                                         via a delayed auto-click.
+      #   #<handle> visit <id>                — same, resolved by numeric id.
+      #
+      # Mode :append — adds a new visit message below; the list stays
+      # follow-up-able so the user can visit several channels in turn.
+      class ChannelList < Pito::FollowUp::Handler
+        self.target "channel_list"
+        self.mode   :append
+        self.actions "visit"
+
+        def call(event:, rest:, conversation:) # rubocop:disable Lint/UnusedMethodArgument
+          action, ref = parse_rest(rest)
+          ref = ref.to_s.strip
+
+          unless action == "visit"
+            return Pito::FollowUp::Result::Error.new(
+              message_key:  "pito.follow_up.channel_list.errors.invalid_action",
+              message_args: { action: action }
+            )
+          end
+
+          channel = resolve_channel(ref)
+
+          unless channel
+            return Pito::FollowUp::Result::Error.new(
+              message_key:  "pito.follow_up.channel_list.errors.not_found",
+              message_args: { ref: ref }
+            )
+          end
+
+          html = ApplicationController.renderer.render(
+            Pito::Channel::VisitComponent.new(channel:),
+            layout: false
+          )
+
+          Pito::FollowUp::Result::Append.new(events: [
+            { kind: "system", payload: { "body" => html, "html" => true } }
+          ])
+        end
+
+        private
+
+        # Resolve a channel from a ref string.
+        #   @handle or handle (with/without @) → find by handle
+        #   digits                              → find by id
+        def resolve_channel(ref)
+          # Strip leading # and whitespace (lexer may split "#9" → "# 9")
+          clean = ref.sub(/\A#\s*/, "").strip
+
+          if clean.match?(/\A\d+\z/)
+            ::Channel.find_by(id: clean)
+          else
+            # Try the exact value (may or may not have @), then without @, then with @
+            handle_bare = clean.sub(/\A@+/, "")
+            ::Channel.find_by(handle: "@#{handle_bare}") ||
+              ::Channel.find_by(handle: handle_bare)
+          end
+        end
+      end
+    end
+  end
+end

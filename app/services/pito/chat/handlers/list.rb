@@ -62,6 +62,8 @@ module Pito
           )
 
           payload = { body: "#{intro}\n#{strip_html}", html: true }
+          Pito::FollowUp.make_followupable!(payload, target: "channel_list", conversation:)
+
           Pito::Chat::Result::Ok.new(events: [ { kind: :system, payload: payload } ])
         end
 

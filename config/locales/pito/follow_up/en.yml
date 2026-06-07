@@ -10,6 +10,10 @@ en:
           missing_platforms: "No platforms found. Try: update ownership ps switch steam."
           video_not_found: "No video matching \"%{ref}\"."
           missing_video_ref: "Specify a video. Try: link to video <id|title>."
+      channel_list:
+        errors:
+          invalid_action: "Unknown action '%{action}'. Try: #<handle> visit @<handle>."
+          not_found: "No channel found matching %{ref}."
       game_enhanced:
         errors:
           invalid_action: "Unknown action '%{action}'. Try: reindex, similar [filters], or channel."
