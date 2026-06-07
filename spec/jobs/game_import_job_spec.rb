@@ -99,17 +99,20 @@ RSpec.describe GameImportJob, type: :job do
     expect(detail).to be_present
   end
 
-  it "streams an enhanced message event (html: true, game_enhanced followup)" do
+  it "streams an enhanced message event (html: true) that is NOT follow-up-able" do
     perform
     enhanced = conversation.events.find { |e|
-      e.payload["html"] == true && e.payload["reply_target"] == "game_enhanced"
+      e.payload["html"] == true && e.payload["body"].to_s.include?("pito-game-enhanced-message")
     }
     expect(enhanced).to be_present
+    # The enhanced message carries no #handle — only the standard detail does.
+    expect(enhanced.payload["reply_handle"]).to be_blank
+    expect(enhanced.payload["reply_target"]).to be_blank
   end
 
   it "stamps game_id in the enhanced message payload" do
     perform
-    enhanced = conversation.events.find { |e| e.payload["reply_target"] == "game_enhanced" }
+    enhanced = conversation.events.find { |e| e.payload["body"].to_s.include?("pito-game-enhanced-message") }
     expect(enhanced.payload["game_id"]).to be_present
   end
 
@@ -151,7 +154,7 @@ RSpec.describe GameImportJob, type: :job do
     it "does NOT stream the detail or enhanced messages" do
       perform
       detail   = conversation.events.find { |e| e.payload["reply_target"] == "game_detail" }
-      enhanced = conversation.events.find { |e| e.payload["reply_target"] == "game_enhanced" }
+      enhanced = conversation.events.find { |e| e.payload["body"].to_s.include?("pito-game-enhanced-message") }
       expect(detail).to be_nil
       expect(enhanced).to be_nil
     end
@@ -179,7 +182,7 @@ RSpec.describe GameImportJob, type: :job do
     it "still streams both chat messages" do
       perform
       detail   = conversation.events.find { |e| e.payload["html"] == true && e.payload["body"]&.include?("detail") }
-      enhanced = conversation.events.find { |e| e.payload["reply_target"] == "game_enhanced" }
+      enhanced = conversation.events.find { |e| e.payload["body"].to_s.include?("pito-game-enhanced-message") }
       expect(detail).to be_present
       expect(enhanced).to be_present
     end

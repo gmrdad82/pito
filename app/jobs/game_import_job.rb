@@ -112,12 +112,13 @@ class GameImportJob < ApplicationJob
     broadcast_step_done(broadcaster, step: 5)
 
     # After Step 5 — stream the enhanced chat message to main chat (T16.9).
+    # NOT follow-up-able: only the standard detail message carries a #handle.
+    # The enhanced message is informational (recommendations) — no #hashtag.
     enhanced_payload = {
       "body"    => enhanced_body(game),
       "html"    => true,
       "game_id" => game.id
     }
-    Pito::FollowUp.make_followupable!(enhanced_payload, target: "game_enhanced", conversation:)
 
     enhanced_event = Event.create_with_position!(
       conversation:, turn:, kind: :system,
