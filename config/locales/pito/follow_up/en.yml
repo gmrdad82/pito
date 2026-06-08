@@ -10,9 +10,13 @@ en:
           video_not_found: "No video matching \"%{ref}\"."
           missing_video_ref: "Specify a video. Try: link to video <id|title>."
           missing_path: "Specify a footage folder. Try: import <path>."
+      video_detail:
+        errors:
+          invalid_action: "Unknown action '%{action}'. Try: reindex."
+          video_not_found: "Couldn't find the video for this message."
       channel_list:
         errors:
-          invalid_action: "Unknown action '%{action}'. Try: #<handle> visit @<handle>."
+          invalid_action: "Unknown action '%{action}'. Try: #<handle> visit @<handle> or reindex @<handle>."
           not_found: "No channel found matching %{ref}."
       channel_visit:
         errors:

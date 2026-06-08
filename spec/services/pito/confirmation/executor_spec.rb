@@ -225,6 +225,94 @@ RSpec.describe Pito::Confirmation::Executor, type: :service do
     end
   end
 
+  # ── confirm / video_reindex ───────────────────────────────────────────────
+
+  describe ".confirm — video_reindex" do
+    let!(:v_channel) { create(:channel) }
+    let!(:video)     { create(:video, channel: v_channel, title: "Let's Play Bloodborne") }
+
+    it "calls Video::VoyageIndexer with force: true and returns outcome text" do
+      allow(::Video::VoyageIndexer).to receive(:call)
+      text = described_class.confirm("video_reindex", { "video_id" => video.id, "video_title" => "Let's Play Bloodborne" })
+      expect(::Video::VoyageIndexer).to have_received(:call).with(video, force: true)
+      expect(text).to include("Let's Play Bloodborne")
+    end
+
+    it "returns a not-found text when the video does not exist" do
+      text = described_class.confirm("video_reindex", { "video_id" => 0, "video_title" => "Vanished Video" })
+      expect(text).to be_present
+    end
+  end
+
+  # ── cancel / video_reindex ────────────────────────────────────────────────
+
+  describe ".cancel — video_reindex" do
+    let!(:v_channel) { create(:channel) }
+    let!(:video)     { create(:video, channel: v_channel, title: "Video Reindex Target") }
+
+    it "does NOT call Video::VoyageIndexer" do
+      expect(::Video::VoyageIndexer).not_to receive(:call)
+      described_class.cancel("video_reindex", { "video_id" => video.id, "video_title" => "Video Reindex Target" })
+    end
+
+    it "returns a non-empty cancelled message" do
+      text = described_class.cancel("video_reindex", { "video_id" => video.id, "video_title" => "Video Reindex Target" })
+      expect(text).to be_present
+    end
+  end
+
+  # ── confirm / channel_reindex ─────────────────────────────────────────────
+
+  describe ".confirm — channel_reindex" do
+    let(:reindex_connection) { create(:youtube_connection) }
+    let!(:reindex_channel) do
+      create(:channel, handle: "@reindex_chan", youtube_connection: reindex_connection)
+    end
+    let!(:vid_a) { create(:video, channel: reindex_channel) }
+    let!(:vid_b) { create(:video, channel: reindex_channel) }
+
+    it "enqueues VideoVoyageIndexJob for each channel video" do
+      expect {
+        described_class.confirm("channel_reindex", { "channel_id" => reindex_channel.id, "channel_handle" => "@reindex_chan" })
+      }.to have_enqueued_job(VideoVoyageIndexJob).exactly(2).times
+    end
+
+    it "enqueues the correct video ids" do
+      described_class.confirm("channel_reindex", { "channel_id" => reindex_channel.id, "channel_handle" => "@reindex_chan" })
+      expect(VideoVoyageIndexJob).to have_been_enqueued.with(vid_a.id)
+      expect(VideoVoyageIndexJob).to have_been_enqueued.with(vid_b.id)
+    end
+
+    it "returns a queued outcome text mentioning the channel handle" do
+      text = described_class.confirm("channel_reindex", { "channel_id" => reindex_channel.id, "channel_handle" => "@reindex_chan" })
+      expect(text).to be_present
+    end
+
+    it "returns a not-found text when the channel does not exist" do
+      text = described_class.confirm("channel_reindex", { "channel_id" => 0, "channel_handle" => "@gone" })
+      expect(text).to be_present
+    end
+  end
+
+  # ── cancel / channel_reindex ──────────────────────────────────────────────
+
+  describe ".cancel — channel_reindex" do
+    let(:cancel_connection) { create(:youtube_connection) }
+    let!(:cancel_channel) do
+      create(:channel, handle: "@cancel_chan", youtube_connection: cancel_connection)
+    end
+
+    it "does NOT enqueue VideoVoyageIndexJob" do
+      expect(VideoVoyageIndexJob).not_to receive(:perform_later)
+      described_class.cancel("channel_reindex", { "channel_id" => cancel_channel.id, "channel_handle" => "@cancel_chan" })
+    end
+
+    it "returns a non-empty cancelled message" do
+      text = described_class.cancel("channel_reindex", { "channel_id" => cancel_channel.id, "channel_handle" => "@cancel_chan" })
+      expect(text).to be_present
+    end
+  end
+
   # ── confirm / disconnect — zero-video case ────────────────────────────────
 
   describe ".confirm — disconnect with zero videos" do

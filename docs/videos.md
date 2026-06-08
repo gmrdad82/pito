@@ -123,18 +123,18 @@ feed that engine.
 
 ## Phase 3 — Reindex messages + follow-up (tasks 1, 2)
 
-- [ ] T3.1 Add a `reindex channel <ref>` grammar spec entry mirroring game reindex. complexity: [high]
-- [ ] T3.2 Add a `reindex video <ref>` grammar spec entry. complexity: [high]
-- [ ] T3.3 Add reindex copy keys for channel + video to `config/locales/pito/copy/en.yml`. complexity: [low]
-- [ ] T3.4 Add a `confirm_channel_reindex` branch to `Pito::Confirmation::Executor`. complexity: [high]
-- [ ] T3.5 Add a `confirm_video_reindex` branch to `Pito::Confirmation::Executor`. complexity: [high]
-- [ ] T3.6 Broadcast a reindex result message for channel via `Pito::Stream::Broadcaster`. complexity: [high]
-- [ ] T3.7 Broadcast a reindex result message for video. complexity: [high]
-- [ ] T3.8 Add a reindex follow-up handler entry for channel messages. complexity: [high]
-- [ ] T3.9 Add a reindex follow-up handler entry for video messages. complexity: [high]
-- [ ] T3.10 Add specs for channel + video reindex confirm + follow-up. complexity: [high]
-- [ ] T3.11 Run the new specs; make green. complexity: [low]
-- [ ] T3.12 Commit: "Add reindex messages + follow-up for channel and video". complexity: [manual]
+- [x] T3.1 ~~reindex channel <ref> grammar verb~~ DESCOPED → follow-up `#<handle> reindex @<handle>` on channel_list (mirrors game reindex's follow-up UX). complexity: [high]
+- [x] T3.2 ~~reindex video <ref> grammar verb~~ DESCOPED → follow-up `#<handle> reindex` on video_detail. complexity: [high]
+- [x] T3.3 Add reindex copy keys for channel + video to `config/locales/pito/copy/en.yml`. complexity: [low]
+- [x] T3.4 Add a `confirm_channel_reindex` branch to `Pito::Confirmation::Executor` (enqueues VideoVoyageIndexJob per video). complexity: [high]
+- [x] T3.5 Add a `confirm_video_reindex` branch to `Pito::Confirmation::Executor` (sync Video::VoyageIndexer force). complexity: [high]
+- [x] T3.6 Reindex result message for channel broadcast via the confirmation flow's outcome text. complexity: [high]
+- [x] T3.7 Reindex result message for video broadcast via the confirmation flow's outcome text. complexity: [high]
+- [x] T3.8 Add a reindex follow-up action to `channel_list` (`reindex @<handle>`). complexity: [high]
+- [x] T3.9 Add a `video_detail` follow-up handler with a `reindex` action. complexity: [high]
+- [x] T3.10 Add specs for channel + video reindex confirm + follow-up. complexity: [high]
+- [x] T3.11 Run the new specs; make green. complexity: [low]
+- [x] T3.12 Commit: "Add reindex messages + follow-up for channel and video". complexity: [manual]
 
 ## Phase 4 — Video verbs: show / delete / publish / schedule / unlist (task 5)
 

@@ -38,6 +38,10 @@ module Pito
             confirm_game_resync(payload)
           when "game_reindex"
             confirm_game_reindex(payload)
+          when "video_reindex"
+            confirm_video_reindex(payload)
+          when "channel_reindex"
+            confirm_channel_reindex(payload)
           else
             Pito::Copy.render("pito.copy.confirmation.confirmed")
           end
@@ -104,6 +108,34 @@ module Pito
 
           ::Game::VoyageIndexer.call(game, force: true)
           Pito::Copy.render("pito.copy.games.reindexed", { title: title })
+        end
+
+        # Force a synchronous Voyage reindex for the video (digest-bypassed).
+        # Mirrors confirm_game_reindex: we call the indexer inline rather than
+        # enqueuing so the confirmation outcome text is accurate — "reindexed" means
+        # it's already done. The executor runs inside FollowUpDispatchJob (on a
+        # worker), so a brief Voyage HTTP call is acceptable.
+        def confirm_video_reindex(payload)
+          payload = payload.with_indifferent_access
+          title   = payload[:video_title].to_s
+          video   = ::Video.find_by(id: payload[:video_id])
+          return Pito::Copy.render("pito.copy.videos.not_found", { ref: title }) if video.nil?
+
+          ::Video::VoyageIndexer.call(video, force: true)
+          Pito::Copy.render("pito.copy.videos.reindexed", { title: title })
+        end
+
+        # Re-embed ALL videos in the channel by enqueuing VideoVoyageIndexJob for
+        # each one (async/batch). Because we only enqueue rather than block, the
+        # outcome text reflects "queued" rather than "done".
+        def confirm_channel_reindex(payload)
+          payload = payload.with_indifferent_access
+          handle  = payload[:channel_handle].to_s
+          channel = ::Channel.find_by(id: payload[:channel_id])
+          return Pito::Copy.render("pito.copy.channels.not_found", { handle: handle }) if channel.nil?
+
+          channel.videos.each { |v| VideoVoyageIndexJob.perform_later(v.id) }
+          Pito::Copy.render("pito.copy.channels.reindex_queued", { handle: handle })
         end
 
         def confirm_disconnect(payload)
