@@ -158,16 +158,18 @@ feed that engine.
 
 ## Phase 5 — Game↔Video link both directions (tasks 5 link, 6)
 
-- [ ] T5.1 Add `link video <ref> <game-ref>` grammar entry. complexity: [high]
-- [ ] T5.2 Add `link game <ref> <video-ref>` grammar entry. complexity: [high]
-- [ ] T5.3 Implement video→game linking in `handlers/link.rb` (find-or-create `VideoGameLink`). complexity: [high]
-- [ ] T5.4 Implement game→video linking in `handlers/link.rb` (same row, reversed args). complexity: [high]
-- [ ] T5.5 Add `unlink` support for both directions in `handlers/unlink.rb`. complexity: [high]
-- [ ] T5.6 Register video + game actions in `config/initializers/pito_actions.rb` (scopes `:videos`/`:games`). complexity: [high]
-- [ ] T5.7 Add link/unlink result copy keys. complexity: [low]
-- [ ] T5.8 Add specs for link/unlink both directions + idempotency. complexity: [high]
-- [ ] T5.9 Run the new specs; make green. complexity: [low]
-- [ ] T5.10 Commit: "Add bidirectional game↔video link verb + actions". complexity: [manual]
+> Already satisfied by existing `handlers/link.rb` + `handlers/unlink.rb` (the `link/unlink <noun> <ref> to/from <noun> <ref>` forms split on `to`/`from` and resolve either side). Grammar `:link`/`:unlink` specs exist; discoverability is automatic (suggestions catalog derives from `Pito::Grammar::Registry.specs`). Verified: 23 link/unlink specs green.
+
+- [x] T5.1 `link video <ref> … to game <ref>` parses via the existing `:link` grammar spec (the `to` keyword separates the two refs). complexity: [high]
+- [x] T5.2 `link game <ref> … to video <ref>` — same `:link` spec, reversed nouns. complexity: [high]
+- [x] T5.3 video→game linking in `handlers/link.rb` (find-or-create `VideoGameLink`). complexity: [high]
+- [x] T5.4 game→video linking in `handlers/link.rb` (same row, reversed args). complexity: [high]
+- [x] T5.5 `unlink` both directions in `handlers/unlink.rb`. complexity: [high]
+- [x] T5.6 ~~`pito_actions.rb` `:videos`/`:games` scopes~~ N/A — that's unused pre-reboot palette legacy; chat-action registration is the grammar Registry (present) → auto-surfaced in suggestions. complexity: [high]
+- [x] T5.7 link/unlink result copy keys (present: `games.linked`/`games.unlinked`). complexity: [low]
+- [x] T5.8 Specs for link/unlink both directions + idempotency (present). complexity: [high]
+- [x] T5.9 Run the specs; green (23 examples). complexity: [low]
+- [x] T5.10 Commit: "Add bidirectional game↔video link verb + actions". complexity: [manual]
 
 ## Phase 6 — `list games upcoming [genres] [platforms]` (task 9)
 
