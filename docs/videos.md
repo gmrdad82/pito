@@ -429,11 +429,11 @@ Locked decisions (from the design discussion, 2026-06-08):
 > dictionary key up to ≥50 now. This replaces the old end-of-run copy sweep, and
 > every later phase's "50-variant Pito::Copy" task inherits this guard.
 
-- [ ] TC.1 Ensure `Pito::Copy` exposes a discoverable registry of every key (for the guard to enumerate). complexity: [high]
-- [ ] TC.2 Add a spec guard: each key's variant count is `== 1` OR `>= 50` (single copy or full dictionary); fail otherwise, naming the offending keys. complexity: [high]
-- [ ] TC.3 Audit existing keys; bring every dictionary key up to ≥50 variants (leave deliberate single-copy keys at 1). complexity: [high]
-- [ ] TC.4 Run the guard + suite green. complexity: [low]
-- [ ] TC.5 Commit. complexity: [manual]
+- [x] TC.1 Ensure `Pito::Copy` exposes a discoverable registry of every key (for the guard to enumerate). — DONE: `Pito::Copy::Audit.call.registered` already gives `{key, variants, single, below_standard}` per leaf under `pito.copy.*`. complexity: [high]
+- [x] TC.2 Fill the 10 sub-50 dictionary offenders up to ≥50 variants (preserve each key's placeholders + tone); single-copy keys stay at 1. complexity: [high]
+- [x] TC.3 Add a spec guard: each registered key's variant count is `== 1` OR `>= 50`; fail otherwise, naming the offending keys + counts. complexity: [high]
+- [x] TC.4 Run the guard + suite green. complexity: [low]
+- [x] TC.5 Commit. complexity: [manual]
 
 ## Phase 17 — Lists v2: N-column kv-table + headings + `with`/`sorted by` + channel scope
 

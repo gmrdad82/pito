@@ -27,6 +27,11 @@ RSpec.describe Pito::Copy::Audit, type: :service do
       }
     )
     example.run
+  ensure
+    # Fixtures are merged into the shared I18n backend; reload so they don't
+    # leak real-file pollution into specs that run after this one (e.g. the
+    # 1-or-50 dictionary guard, which would see farewell/tagged as offenders).
+    I18n.reload!
   end
 
   describe ".call" do
