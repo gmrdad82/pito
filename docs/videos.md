@@ -460,7 +460,7 @@ Locked decisions (from the design discussion, 2026-06-08):
 - [x] T17.7 `list channels` — STAYS avatar cards (`Channel::ListComponent`), the kv-table exception: NO kv-table, NO heading row, NO `with`/`sorted by` (decided 2026-06-08). Ignore/reject any such clause. complexity: [low]
 - [x] T17.8 `sorted by|ordered by <col> [asc|desc]` — asc implicit; desc explicit; ERROR when the column isn't VISIBLE. complexity: [high]
 - [x] T17.9 `list games` channel scope from the shift+tab `channel` param (`@all`/none → all; `@handle` → games with ≥1 video on that channel). complexity: [high]
-- [ ] T17.10 Stamp every list message follow-up-able (`game_list`/`video_list`/`channel_list`). complexity: [low]
+- [x] T17.10 Stamp the list messages that HAVE follow-up handlers: `game_list` + `channel_list` are already stamped (handlers exist). `video_list` stamping is DEFERRED to Phase 19 — it has no follow-up handler yet, and stamping now would render a dangling reply handle (router finds the event, but the controller's Registry lookup for `video_list` would miss). Decided 2026-06-08. complexity: [low]
 - [ ] T17.11 Autosuggest: after `with ` → per-list columns; after `sorted by`/`ordered by ` → the visible columns. complexity: [high]
 - [ ] T17.12 Specs: N-col kv-table + heading row, both `with` sets, channels-excluded, sort (asc/desc + not-visible error), list-games channel scope, duration format, autosuggest. complexity: [high]
 - [ ] T17.13 Run the new specs; make green. complexity: [low]
@@ -491,6 +491,7 @@ Locked decisions (from the design discussion, 2026-06-08):
 
 - [ ] T19.1 `show game` (verb + `game_list` show) → one handler, Standard + Enhanced. complexity: [high]
 - [ ] T19.2 `show video` (verb + `video_list` show) → one handler, Standard + Enhanced (Enhanced = `Pito::Copy` intro placeholder). complexity: [high]
+- [ ] T19.2b Stamp `list videos` follow-up-able (`reply_target: "video_list"`) NOW that the `video_list` handler exists (deferred from T17.10); flip the video/list builder + its "NOT follow-up-able" spec. complexity: [low]
 - [ ] T19.3 `delete|rm game|video` (verb + `game_list` delete + `game_detail` rm) → one handler (Confirmable). complexity: [high]
 - [ ] T19.4 `link game|video` (verb + `game_detail` link) → one handler. complexity: [high]
 - [ ] T19.5 `unlink game|video` (verb + new detail/list action) → one handler. complexity: [high]
