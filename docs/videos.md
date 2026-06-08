@@ -454,7 +454,7 @@ Locked decisions (from the design discussion, 2026-06-08):
 - [x] T17.1b Migrate `list videos` onto the kv-table (`table_rows`), replacing the separate `Video::ListComponent` grid. Base columns: title, `@handle` (cyan), privacy, `#id` (for follow-up). complexity: [high]
 - [x] T17.2 Add a heading row to the kv-table lists — **games + videos only** (channels stay avatar cards, see T17.7). complexity: [low]
 - [x] T17.3 Extract `Pito::Video::DurationFormat` (`H:MM:SS`/`M:SS`: 9:34 / 1:02:22 / 43:23 / 1:00:32); reuse in `Video::DetailComponent`. complexity: [low]
-- [ ] T17.4 Shared `with <cols>` parser: magic word `with`, comma enumerator (`,` and `, `, split `/\s*,\s*/`), order-preserving, dedup, unknown-ignored. complexity: [high]
+- [x] T17.4 Shared `with <cols>` parser: magic word `with`, comma enumerator (`,` and `, `, split `/\s*,\s*/`), order-preserving, dedup, unknown-ignored. complexity: [high]
 - [ ] T17.5 `list games with` → columns: platform, genre, developer, publisher, release date, year (release date + year are TWO columns). complexity: [high]
 - [ ] T17.6 `list videos with` → columns: game, duration, views, likes, comments (counts via Stats; `@handle` cyan; duration via DurationFormat). complexity: [high]
 - [ ] T17.7 `list channels` — STAYS avatar cards (`Channel::ListComponent`), the kv-table exception: NO kv-table, NO heading row, NO `with`/`sorted by` (decided 2026-06-08). Ignore/reject any such clause. complexity: [low]
