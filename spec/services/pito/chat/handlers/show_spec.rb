@@ -165,10 +165,22 @@ RSpec.describe Pito::Chat::Handlers::Show do
       expect(payload["video_id"]).to eq(video.id)
     end
 
-    it "emits only the system event (no enhanced event)" do
+    it "emits two events — :system detail then :enhanced placeholder" do
       events = handler_for("video", "##{video.id}").call.events
-      expect(events.length).to eq(1)
-      expect(events.first[:kind]).to eq(:system)
+      expect(events.map { |e| e[:kind] }).to eq([ :system, :enhanced ])
+    end
+
+    it "the :system event payload has the video title and video_id" do
+      events = handler_for("video", "##{video.id}").call.events
+      system_payload = events.first[:payload]
+      expect(system_payload["body"]).to include("My Gaming Highlights")
+      expect(system_payload["video_id"]).to eq(video.id)
+    end
+
+    it "the :enhanced event payload body includes the video title" do
+      events = handler_for("video", "##{video.id}").call.events
+      enhanced_payload = events.last[:payload]
+      expect(enhanced_payload["body"]).to include("My Gaming Highlights")
     end
 
     it "returns a witty not-found for an unknown video reference" do

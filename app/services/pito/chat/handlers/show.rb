@@ -37,22 +37,17 @@ module Pito
         end
 
         def handle_video
-          ref = extract_ref(VIDEO_NOUN_FILLERS)
-          return needs_ref if ref.blank?
+          video = resolve_target(::Video, id_key: :video_id, noun_fillers: VIDEO_NOUN_FILLERS)
+          return needs_ref if video == :needs_ref
+          return video_not_found(target_ref(VIDEO_NOUN_FILLERS, id_key: :video_id)) if video.nil?
 
-          video = resolve_video(ref)
-          return video_not_found(ref) unless video
-
+          # Standard detail card (follow-up-able) + an Enhanced message. The video
+          # Enhanced is a Pito::Copy intro placeholder for now (Analytics later).
+          # Identical events whether typed in free chat or via a `#<handle>` reply.
           Pito::Chat::Result::Ok.new(events: [
-            { kind: :system, payload: Pito::MessageBuilder::Video::Detail.call(video, conversation:) }
+            { kind: :system,   payload: Pito::MessageBuilder::Video::Detail.call(video, conversation:) },
+            { kind: :enhanced, payload: Pito::MessageBuilder::Video::Enhanced.call(video) }
           ])
-        end
-
-        def resolve_video(ref)
-          id = ref.sub(/\A#\s*/, "")
-          return ::Video.find_by(id: id) if id.match?(/\A\d+\z/)
-
-          ::Video.find_by("title ILIKE ?", ref)
         end
 
         def video_not_found(ref)
@@ -84,16 +79,6 @@ module Pito
         end
 
         # ── Shared helpers ─────────────────────────────────────────────────────
-
-        # Rebuild the ref from the RAW input so punctuation the lexer splits
-        # into its own tokens — a colon in "Stellar Blade: Blood Rain", an
-        # apostrophe, etc. — and the exact spacing survive. Joining lexer token
-        # VALUES inserts spaces around those tokens ("Stellar Blade : Blood
-        # Rain") and breaks the title ILIKE match.
-        def extract_ref(noun_fillers)
-          rest = message.raw.to_s.strip.sub(/\A\S+\s*/, "")          # drop the verb word
-          rest.sub(/\A(?:#{noun_fillers.join('|')})\b\s*/i, "").strip # drop a leading noun filler
-        end
 
         def needs_ref
           Pito::Chat::Result::Error.new(message_key: "pito.chat.show.needs_ref", message_args: {})
