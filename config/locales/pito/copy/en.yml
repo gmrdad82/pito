@@ -2943,6 +2943,8 @@ en:
           - "Gone. %{game} and %{video} no longer share a record."
           - "Unlinked and updated: %{game} from %{video}."
           - "Removed: %{game} ↔ %{video}. Clean break."
+        not_linked:
+          - "%{game} and %{video} are already not linked."
         picker_empty:
           - "No games in the library yet. Import one to begin."
           - "Nothing to pick from. /games import to add a game."

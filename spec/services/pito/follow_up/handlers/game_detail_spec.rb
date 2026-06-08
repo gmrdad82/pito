@@ -120,6 +120,12 @@ RSpec.describe Pito::FollowUp::Handlers::GameDetail, type: :service do
     end
   end
 
+  # ── actions list ─────────────────────────────────────────────────────────────
+
+  it "declares rm, delete, resync, link, unlink, and import actions" do
+    expect(described_class.actions).to eq([ "rm", "delete", "resync", "link", "unlink", "import" ])
+  end
+
   # ── link to video (delegated to Chat::Handlers::Link) ───────────────────────
 
   describe "#call — link to video" do
@@ -176,6 +182,33 @@ RSpec.describe Pito::FollowUp::Handlers::GameDetail, type: :service do
         expect(result).to be_a(Pito::FollowUp::Result::Error)
         expect(result.message_key).to eq("pito.chat.link.usage")
       end
+    end
+  end
+
+  # ── unlink from video (delegated to Chat::Handlers::Unlink) ─────────────────
+
+  describe "#call — unlink from video" do
+    let(:source_event)  { build_detail_event }
+    let(:connection)    { create(:youtube_connection) }
+    let(:channel)       { create(:channel, youtube_connection: connection) }
+    let!(:video)        { create(:video, channel: channel, title: "Let's Play Lies of P") }
+    let!(:vgl)          { create(:video_game_link, video: video, game: game) }
+
+    it "returns a Result::Append" do
+      result = handler.call(event: source_event, rest: "unlink from video ##{video.id}", conversation:)
+      expect(result).to be_a(Pito::FollowUp::Result::Append)
+    end
+
+    it "destroys the VideoGameLink" do
+      expect {
+        handler.call(event: source_event, rest: "unlink from video ##{video.id}", conversation:)
+      }.to change(VideoGameLink, :count).by(-1)
+    end
+
+    it "appends a witty unlinked ack text" do
+      result = handler.call(event: source_event, rest: "unlink from video ##{video.id}", conversation:)
+      text = result.events.first[:payload]["text"]
+      expect(text).to be_present
     end
   end
 

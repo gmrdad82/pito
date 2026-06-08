@@ -7,6 +7,10 @@
 # so users can write either form naturally. Destroys the `VideoGameLink` join
 # if present; missing link → gentle "already not linked" message (idempotent).
 # The model's `after_commit` already enqueues game-stats refresh — not duplicated.
+#
+# Follow-up: ONE side is the source card's entity (read from the payload);
+# the OTHER side is parsed from `follow_up.rest` — drop a leading `to` or
+# `from`, drop a leading noun filler, the remainder is the ref.
 module Pito
   module Chat
     module Handlers
@@ -18,6 +22,8 @@ module Pito
         VIDEO_NOUNS = %w[video videos].freeze
 
         def call
+          return follow_up_unlink if follow_up?
+
           raw = message.body_tokens.map(&:value).join(" ")
           parts = raw.split(/\b(?:to|from)\b/i, 2)
 
@@ -32,19 +38,61 @@ module Pito
           return game  if game.is_a?(Pito::Chat::Result::Ok)
           return video if video.is_a?(Pito::Chat::Result::Ok)
 
-          link = VideoGameLink.find_by(video: video, game: game)
-
-          if link
-            link.destroy!
-            text = Pito::Copy.render("pito.copy.games.unlinked", { game: game.title, video: video.title })
-          else
-            text = "#{game.title} and #{video.title} are already not linked."
-          end
-
-          Pito::Chat::Result::Ok.new(events: [ { kind: :system, payload: Pito::MessageBuilder::Text.call(text) } ])
+          destroy_link(game, video)
         end
 
         private
+
+        # ── Follow-up branch ───────────────────────────────────────────────────
+
+        # ONE side comes from the source card's payload; the OTHER from follow_up.rest.
+        # `video_target?` delegates to reply_target, so video_detail → video branch.
+        def follow_up_unlink
+          if video_target?(VIDEO_NOUNS)
+            video = resolve_target(::Video, id_key: :video_id, noun_fillers: VIDEO_NOUNS)
+            return not_found_video("") if video.nil?
+
+            game = resolve_other_side(::Game, GAME_NOUNS)
+            return game if result?(game)
+
+            destroy_link(game, video)
+          else
+            game = resolve_target(::Game, id_key: :game_id, noun_fillers: GAME_NOUNS)
+            return not_found_game("") if game.nil?
+
+            video = resolve_other_side(::Video, VIDEO_NOUNS)
+            return video if result?(video)
+
+            destroy_link(game, video)
+          end
+        end
+
+        # Parse the other side from follow_up.rest: drop a leading "to" or "from",
+        # drop a leading noun filler (game/games/video/videos), the remainder is the ref.
+        # Returns a record on success; a Result::Ok (not-found) on nil; a
+        # Result::Error (usage hint) when the ref is blank.
+        def resolve_other_side(entity_class, nouns)
+          words = follow_up.rest.to_s.strip.split
+          words = words.drop(1) if %w[to from].include?(words.first&.downcase)
+          words = words.drop(1) if nouns.include?(words.first&.downcase)
+          ref   = words.join(" ").strip
+
+          return usage_hint if ref.blank?
+
+          id     = ref.delete_prefix("#")
+          record = if id.match?(/\A\d+\z/)
+                     entity_class.find_by(id: id)
+          else
+                     entity_class.find_by("title ILIKE ?", ref)
+          end
+
+          return not_found_game(ref)  if record.nil? && entity_class == ::Game
+          return not_found_video(ref) if record.nil? && entity_class == ::Video
+
+          record
+        end
+
+        # ── Free-chat helpers ──────────────────────────────────────────────────
 
         def resolve_sides(left_words, right_words)
           left_noun  = left_words.first.downcase
@@ -91,6 +139,23 @@ module Pito
           record || not_found_video(ref)
         end
 
+        # ── Shared helpers ─────────────────────────────────────────────────────
+
+        def destroy_link(game, video)
+          link = VideoGameLink.find_by(video: video, game: game)
+
+          if link
+            link.destroy!
+            Pito::Chat::Result::Ok.new(events: [
+              { kind: :system, payload: Pito::MessageBuilder::Text.call("pito.copy.games.unlinked", game: game.title, video: video.title) }
+            ])
+          else
+            Pito::Chat::Result::Ok.new(events: [
+              { kind: :system, payload: Pito::MessageBuilder::Text.call("pito.copy.games.not_linked", game: game.title, video: video.title) }
+            ])
+          end
+        end
+
         def not_found_game(ref)
           Pito::Chat::Result::Ok.new(events: [
             { kind: :system, payload: Pito::MessageBuilder::Text.call("pito.copy.games.not_found", ref: ref) }
@@ -108,6 +173,12 @@ module Pito
             message_key:  "pito.chat.unlink.usage",
             message_args: {}
           )
+        end
+
+        # True when the value is a Chat::Result (Ok or Error) rather than a record.
+        # Used to short-circuit after resolve_other_side.
+        def result?(value)
+          value.is_a?(Pito::Chat::Result::Ok) || value.is_a?(Pito::Chat::Result::Error)
         end
       end
     end

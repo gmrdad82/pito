@@ -32,8 +32,8 @@ RSpec.describe Pito::FollowUp::Handlers::VideoDetail, type: :service do
     expect(described_class.mode).to eq(:append)
   end
 
-  it "declares rm, delete, reindex, and link actions" do
-    expect(described_class.actions).to eq([ "rm", "delete", "reindex", "link" ])
+  it "declares rm, delete, reindex, link, and unlink actions" do
+    expect(described_class.actions).to eq([ "rm", "delete", "reindex", "link", "unlink" ])
   end
 
   # ── reindex ───────────────────────────────────────────────────────────────────
@@ -68,7 +68,7 @@ RSpec.describe Pito::FollowUp::Handlers::VideoDetail, type: :service do
     end
 
     it "emits a confirmation kind event" do
-      expect(result.events.first[:kind]).to eq("confirmation")
+      expect(result.events.first[:kind]).to eq(:confirmation)
     end
   end
 
@@ -161,6 +161,31 @@ RSpec.describe Pito::FollowUp::Handlers::VideoDetail, type: :service do
       result = handler.call(event: source_event, rest: "link to game", conversation:)
       expect(result).to be_a(Pito::FollowUp::Result::Error)
       expect(result.message_key).to eq("pito.chat.link.usage")
+    end
+  end
+
+  # ── unlink from game (delegated to Chat::Handlers::Unlink) ──────────────────
+
+  describe "#call — unlink from game" do
+    let(:source_event) { build_video_detail_event }
+    let!(:game)        { create(:game, title: "Elden Ring") }
+    let!(:vgl)         { create(:video_game_link, video: video, game: game) }
+
+    it "returns a Result::Append" do
+      result = handler.call(event: source_event, rest: "unlink from game ##{game.id}", conversation:)
+      expect(result).to be_a(Pito::FollowUp::Result::Append)
+    end
+
+    it "destroys the VideoGameLink" do
+      expect {
+        handler.call(event: source_event, rest: "unlink from game ##{game.id}", conversation:)
+      }.to change(VideoGameLink, :count).by(-1)
+    end
+
+    it "appends a witty unlinked ack text" do
+      result = handler.call(event: source_event, rest: "unlink from game ##{game.id}", conversation:)
+      text = result.events.first[:payload]["text"]
+      expect(text).to be_present
     end
   end
 

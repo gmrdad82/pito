@@ -26,7 +26,7 @@ module Pito
       class VideoDetail < Pito::FollowUp::Handler
         self.target "video_detail"
         self.mode   :append
-        self.actions "rm", "delete", "reindex", "link"
+        self.actions "rm", "delete", "reindex", "link", "unlink"
 
         # @param event        [Event]        the video-detail event.
         # @param rest         [String]       text after `#<handle> `.
@@ -35,7 +35,7 @@ module Pito
         def call(event:, rest:, conversation:)
           action, _args = parse_rest(rest)
 
-          if %w[rm delete link].include?(action)
+          if %w[rm delete link unlink].include?(action)
             return Pito::FollowUp::VerbDelegator.call(source_event: event, rest:, conversation:)
           end
 
@@ -66,7 +66,7 @@ module Pito
           payload = Pito::MessageBuilder::Video::ReindexConfirmation.call(video, conversation:)
 
           Pito::FollowUp::Result::Append.new(
-            events: [ { kind: "confirmation", payload: payload } ]
+            events: [ { kind: :confirmation, payload: payload } ]
           )
         end
 
