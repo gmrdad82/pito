@@ -1,0 +1,81 @@
+# frozen_string_literal: true
+
+module Pito
+  module Video
+    # Renders a full video detail card for use in chat messages.
+    #
+    # NAMESPACE GOTCHA: inside Pito::Video::*, the bareword `Video` resolves to
+    # the Pito::Video MODULE. Use the fully-qualified ::Video constant to reference
+    # the model — or simply receive the record as a param (preferred here).
+    class DetailComponent < ViewComponent::Base
+      def initialize(video:)
+        @video = video
+      end
+
+      def thumbnail_url
+        @video.thumbnail_variant_url
+      rescue StandardError
+        nil
+      end
+
+      def thumbnail_attached?
+        @video.thumbnail.attached?
+      end
+
+      def tags_label
+        tags = Array(@video.tags).reject(&:blank?)
+        tags.join(", ").presence
+      end
+
+      def category_label
+        @video.category_name.presence
+      end
+
+      def privacy_label
+        return nil if @video.privacy_status.blank?
+
+        I18n.t("pito.video.detail.privacy_status.#{@video.privacy_status}", default: @video.privacy_status.to_s.capitalize)
+      end
+
+      # Format duration as M:SS or H:MM:SS.
+      def duration_label
+        secs = @video.duration_seconds
+        return nil unless secs.present? && secs >= 0
+
+        hours   = secs / 3600
+        minutes = (secs % 3600) / 60
+        seconds = secs % 60
+
+        if hours.positive?
+          format("%d:%02d:%02d", hours, minutes, seconds)
+        else
+          format("%d:%02d", minutes, seconds)
+        end
+      end
+
+      def view_count_label
+        format_count(@video.view_count)
+      end
+
+      def like_count_label
+        format_count(@video.like_count)
+      end
+
+      def comment_count_label
+        format_count(@video.comment_count)
+      end
+
+      def description
+        @video.description.presence
+      end
+
+      private
+
+      def format_count(value)
+        return "—" if value.nil?
+
+        value.to_s
+      end
+    end
+  end
+end

@@ -194,6 +194,12 @@ module Pito
         resolver: ->(context) { ::Game.where("title ILIKE ?", "#{context}%").limit(20).pluck(:title) }
       ).freeze
 
+      VIDEO_TITLES = Vocabulary.define(
+        name:     :video_titles,
+        dynamic:  true,
+        resolver: ->(context) { ::Video.where("title ILIKE ?", "#{context}%").limit(20).pluck(:title) }
+      ).freeze
+
       # Per-provider kv key lists — single source of truth for autocomplete.
       # These mirror the keys in Pito::Slash::Handlers::Config::PROVIDER_SETTERS.
       PROVIDER_KEYS = {
@@ -230,6 +236,7 @@ module Pito
           CHANNELS,
           CONVERSATIONS,
           GAME_TITLES,
+          VIDEO_TITLES,
           THEME_SUBCOMMANDS,
           THEME_NAMES,
           GAMES_SUBCOMMANDS

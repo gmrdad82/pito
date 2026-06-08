@@ -106,4 +106,87 @@ RSpec.describe Pito::Chat::Handlers::Show do
       expect(text).to be_present
     end
   end
+
+  # ── Video branch ─────────────────────────────────────────────────────────────
+
+  context "show video" do
+    let!(:channel) { create(:channel) }
+    let!(:video) { create(:video, channel: channel, title: "My Gaming Highlights") }
+
+    it "shows a video by title (ILIKE), dropping the noun filler" do
+      result = handler_for("video", "my", "gaming", "highlights").call
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      payload = result.events.first[:payload]
+      expect(payload["html"]).to be(true)
+      expect(payload["body"]).to include("My Gaming Highlights")
+    end
+
+    it "shows a video with plural noun filler 'videos'" do
+      result = handler_for("videos", "my", "gaming", "highlights").call
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      payload = result.events.first[:payload]
+      expect(payload["body"]).to include("My Gaming Highlights")
+    end
+
+    it "shows a video by id (#N)" do
+      payload = handler_for("video", "##{video.id}").call.events.first[:payload]
+      expect(payload["body"]).to include("My Gaming Highlights")
+    end
+
+    it "shows a video by bare id" do
+      payload = handler_for("video", video.id.to_s).call.events.first[:payload]
+      expect(payload["body"]).to include("My Gaming Highlights")
+    end
+
+    it "stamps the detail message follow-up-able (video_detail)" do
+      payload = handler_for("video", "##{video.id}").call.events.first[:payload]
+      expect(Pito::FollowUp.followupable?(payload)).to be(true)
+      expect(payload["reply_target"]).to eq("video_detail")
+    end
+
+    it "stamps video_id in the payload" do
+      payload = handler_for("video", "##{video.id}").call.events.first[:payload]
+      expect(payload["video_id"]).to eq(video.id)
+    end
+
+    it "emits only the system event (no enhanced event)" do
+      events = handler_for("video", "##{video.id}").call.events
+      expect(events.length).to eq(1)
+      expect(events.first[:kind]).to eq(:system)
+    end
+
+    it "returns a witty not-found for an unknown video reference" do
+      result = handler_for("video", "nonexistent").call
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(result.events.first[:payload]["text"]).to include("nonexistent")
+    end
+
+    it "returns a usage hint when only the noun is given (no ref)" do
+      result = handler_for("video").call
+      expect(result).to be_a(Pito::Chat::Result::Error)
+      expect(result.message_key).to eq("pito.chat.show.needs_ref")
+    end
+
+    context "video title with apostrophe resolved via real lexer/parser" do
+      let!(:apos_video) { create(:video, channel: channel, title: "Let's Play Dark Souls") }
+
+      it "resolves the video when typed naturally through the real lexer/parser" do
+        result = show_real("show video Let's Play Dark Souls")
+        expect(result).to be_a(Pito::Chat::Result::Ok)
+        expect(result.events.first[:payload]["video_id"]).to eq(apos_video.id)
+      end
+
+      it "still resolves with the plural 'videos' noun filler" do
+        result = show_real("show videos Let's Play Dark Souls")
+        expect(result.events.first[:payload]["video_id"]).to eq(apos_video.id)
+      end
+    end
+
+    it "game show STILL works unchanged when no video noun present" do
+      result = handler_for("game", "lies", "of", "p").call
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      payload = result.events.first[:payload]
+      expect(payload["reply_target"]).to eq("game_detail")
+    end
+  end
 end

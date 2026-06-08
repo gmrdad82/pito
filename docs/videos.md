@@ -138,10 +138,10 @@ feed that engine.
 
 ## Phase 4 — Video verbs: show / delete / publish / schedule / unlist (task 5)
 
-- [ ] T4.1 Add `show video <ref>` grammar spec entry. complexity: [high]
-- [ ] T4.2 Implement `show video` in `app/services/pito/chat/handlers/show.rb`. complexity: [high]
-- [ ] T4.3 Build a `Pito::MessageBuilder::Video::Detail` payload. complexity: [high]
-- [ ] T4.4 Build a `Pito::Video::DetailComponent` (title/description/tags/thumbnail + stats). complexity: [high]
+- [x] T4.1 Add `show video <ref>` grammar spec entry. complexity: [high]
+- [x] T4.2 Implement `show video` in `app/services/pito/chat/handlers/show.rb`. complexity: [high]
+- [x] T4.3 Build a `Pito::MessageBuilder::Video::Detail` payload. complexity: [high]
+- [x] T4.4 Build a `Pito::Video::DetailComponent` (title/description/tags/thumbnail + stats). complexity: [high]
 - [ ] T4.5 Add `delete|rm video <ref>` grammar + confirm branch. complexity: [high]
 - [ ] T4.6 Implement `delete video` in `handlers/delete.rb` with confirmation. complexity: [high]
 - [ ] T4.7 Add `publish video <ref>` grammar entry. complexity: [low]
