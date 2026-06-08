@@ -457,7 +457,7 @@ Locked decisions (from the design discussion, 2026-06-08):
 - [x] T17.4 Shared `with <cols>` parser: magic word `with`, comma enumerator (`,` and `, `, split `/\s*,\s*/`), order-preserving, dedup, unknown-ignored. complexity: [high]
 - [x] T17.5 `list games with` → columns: platform, genre, developer, publisher, release date, year (release date + year are TWO columns). complexity: [high]
 - [x] T17.6 `list videos with` → columns: game, duration, views, likes, comments (counts via Stats; `@handle` cyan; duration via DurationFormat). complexity: [high]
-- [ ] T17.7 `list channels` — STAYS avatar cards (`Channel::ListComponent`), the kv-table exception: NO kv-table, NO heading row, NO `with`/`sorted by` (decided 2026-06-08). Ignore/reject any such clause. complexity: [low]
+- [x] T17.7 `list channels` — STAYS avatar cards (`Channel::ListComponent`), the kv-table exception: NO kv-table, NO heading row, NO `with`/`sorted by` (decided 2026-06-08). Ignore/reject any such clause. complexity: [low]
 - [ ] T17.8 `sorted by|ordered by <col> [asc|desc]` — asc implicit; desc explicit; ERROR when the column isn't VISIBLE. complexity: [high]
 - [ ] T17.9 `list games` channel scope from the shift+tab `channel` param (`@all`/none → all; `@handle` → games with ≥1 video on that channel). complexity: [high]
 - [ ] T17.10 Stamp every list message follow-up-able (`game_list`/`video_list`/`channel_list`). complexity: [low]

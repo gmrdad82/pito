@@ -138,6 +138,18 @@ RSpec.describe Pito::Chat::Handlers::List do
       expect(payload["reply_target"]).to eq("channel_list")
     end
 
+    # Channels are the kv-table exception: they stay avatar cards, so `with`/
+    # `sorted by` clauses are simply ignored — no kv-table, no heading row.
+    it "ignores `with` / `sorted by` clauses and stays avatar cards (no kv-table)" do
+      [ "list channels with foo", "list channels sorted by title" ].each do |raw|
+        payload = handler_for(raw).call.events.first[:payload]
+        expect(payload["html"]).to be(true)
+        expect(payload["table_heading"]).to be_nil
+        expect(payload["table_rows"]).to be_nil
+        expect(payload["body"]).to include("Alpha Tube").and include("Beta Cast")
+      end
+    end
+
     it "includes a reply_handle in the channel list payload" do
       payload = handler_for("list channels").call.events.first[:payload]
       expect(payload["reply_handle"]).to be_present
