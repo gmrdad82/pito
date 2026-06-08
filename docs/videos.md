@@ -200,13 +200,13 @@ feed that engine.
 
 ## Phase 8 — Nightly: Video stats sync + Game upcoming-only (tasks 7, 8)
 
-- [ ] T8.1 Add a `Pito::Stats` views snapshot step to `NightlyVideoSyncJob` (per video). complexity: [high]
-- [ ] T8.2 Confirm the nightly stats snapshot runs under the 01:00 UTC fan-out (`NightlySyncJob`). complexity: [low]
-- [ ] T8.3 Add an `upcoming` (unreleased) filter to `GameIgdbNightlyRefresh`. complexity: [high]
-- [ ] T8.4 Limit the nightly Game refresh to upcoming/unreleased games only. complexity: [high]
-- [ ] T8.5 Add specs for the nightly video stats snapshot + game upcoming-only filter. complexity: [high]
-- [ ] T8.6 Run the new specs; make green. complexity: [low]
-- [ ] T8.7 Commit: "Nightly: snapshot video stats + refresh only upcoming games". complexity: [manual]
+- [x] T8.1 `NightlyVideoSyncJob` snapshots views/likes/comments to `Pito::Stats` per video (done in Phase 2). complexity: [high]
+- [x] T8.2 Confirmed: `NightlySyncJob` (01:00 UTC) fans out `NightlyVideoSyncJob` per connected channel. complexity: [low]
+- [x] T8.3 Add `.upcoming` to `GameIgdbNightlyRefresh`'s `Game.synced.stale` scope. complexity: [high]
+- [x] T8.4 Nightly Game refresh now iterates `Game.synced.stale.upcoming` only (released games skip — data final). complexity: [high]
+- [x] T8.5 Spec the upcoming-only filter (upcoming enqueued; released/fresh/never-synced skipped). complexity: [high]
+- [x] T8.6 Run the new specs; make green. complexity: [low]
+- [x] T8.7 Commit: "Nightly: snapshot video stats + refresh only upcoming games". complexity: [manual]
 
 ## Phase 9 — Intraday Video stats cadence (task 11) [decision D2]
 
