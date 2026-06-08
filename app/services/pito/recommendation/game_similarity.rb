@@ -125,7 +125,7 @@ module Pito
         candidates = candidate_games
         return [] if candidates.empty?
 
-        distances     = embedding_distances(candidates.map(&:id))
+        distances     = embedding_distances(candidates)
         target_facets = self.class.facets_of(@game)
 
         candidates.filter_map { |cand|
@@ -174,13 +174,18 @@ module Pito
       end
 
       # Cosine distance per candidate id (nil for candidates with no embedding).
-      def embedding_distances(ids)
-        return {} if @game.summary_embedding.blank? || ids.empty?
+      # Computed EXACTLY in Ruby (same path as `.between`) over the already-loaded
+      # candidates — NOT via the approximate HNSW `nearest_neighbors`. HNSW stays
+      # in `embedding_pool_ids` for pool *selection* (approximation is fine there),
+      # but scoring must be exact and deterministic: an approximate distance miss
+      # would drop the `e` signal from a candidate's breakdown and flip its score.
+      def embedding_distances(candidates)
+        return {} if @game.summary_embedding.blank?
 
-        ::Game.where(id: ids)
-              .where.not(summary_embedding: nil)
-              .nearest_neighbors(:summary_embedding, @game.summary_embedding, distance: "cosine")
-              .each_with_object({}) { |row, acc| acc[row.id] = row.neighbor_distance }
+        candidates.each_with_object({}) do |cand, acc|
+          dist = self.class.cosine_distance(@game.summary_embedding, cand.summary_embedding)
+          acc[cand.id] = dist unless dist.nil?
+        end
       end
     end
   end
