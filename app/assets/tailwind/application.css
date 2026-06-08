@@ -1159,6 +1159,9 @@ html {
   align-items: center;
   text-align: center;
   gap: 0.2rem;
+  /* Fill the column width so the single-row title clips to it (otherwise the
+     centered item shrinks to content and the title never truncates). */
+  width: 100%;
   min-width: 0;
 }
 

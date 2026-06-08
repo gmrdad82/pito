@@ -38,10 +38,7 @@
     <%# Line 2: filter context (only shown in :default state) %>
     <% if @filter && @state != :start %>
       <div class="flex items-center text-fg-faded pito-chatbox__filter">
-        <% if @conversation_title %>
-          <span class="text-purple pito-chatbox__name"><%= @conversation_title %></span>
-          <%= render(Pito::Shell::InlineSeparatorComponent.new) %>
-        <% end %>
+        <%= render(Pito::Shell::Chatbox::NameComponent.new(title: @conversation_title)) %>
         <span data-pito--chat-form-target="channelDisplay">
           <%= render(Pito::Shell::Chatbox::ChannelComponent.new(channel: @filter[:channel])) %>
         </span>
