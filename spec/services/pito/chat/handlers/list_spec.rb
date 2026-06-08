@@ -446,6 +446,28 @@ RSpec.describe Pito::Chat::Handlers::List do
       end
     end
 
+    # The shift+tab channel scope composes with the `with` columns and `sorted by`
+    # in one pipeline (scope → columns → sort).
+    context "combined with `with <cols>` and `sorted by`" do
+      let!(:action) { create(:genre, name: "Action") }
+      before { create(:game_genre, game: game_a, genre: action) }
+
+      it "scopes to the channel AND renders the requested column" do
+        payload = handler_for("list games with genre", channel: "@gchana").call.events.first[:payload]
+        expect(payload["table_heading"]).to eq([ "#", "Game", "Genre" ])
+        rows = payload["table_rows"]
+        expect(rows.map { |r| r[:cells][1][:text] }).to eq([ "Alpha Game" ]) # channel-scoped
+        expect(rows.first[:cells][2][:text]).to eq("Action")                 # with-column rendered
+      end
+
+      it "scope + with + sorted by a visible column all compose" do
+        payload = handler_for("list games with genre sorted by genre desc", channel: "@gchana")
+          .call.events.first[:payload]
+        expect(payload["table_heading"]).to include("Genre")
+        expect(payload["table_rows"].map { |r| r[:cells][1][:text] }).to eq([ "Alpha Game" ])
+      end
+    end
+
     context "with an unknown channel handle" do
       it "returns a not-found error event whose text includes the handle" do
         result  = handler_for("list games", channel: "@nope").call
