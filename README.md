@@ -37,7 +37,7 @@ and get game/channel recommendations. your laptop, your data.
 
 ## Stack
 
-Rails 8 · Hotwire · Postgres · Voyage AI · Tailwind CSS.
+Rails 8 · Hotwire · Postgres · Voyage AI · IGDB · YouTube API · Tailwind CSS.
 
 ## Getting started
 
