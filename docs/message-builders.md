@@ -28,6 +28,7 @@ a pure function of the builder. The two never mix.
 | Follow-up stamping | `Pito::FollowUp.make_followupable!` lives INSIDE the builder for follow-up-able messages (handlers stop calling it directly).                                     |
 | Existing builders  | Migrate `Game::DetailMessage`, `Game::EnhancedMessage`, `Game::DeleteConfirmation` INTO the namespace (rename + repoint).                                         |
 | Copy               | All user-facing strings stay `Pito::Copy` (unchanged).                                                                                                            |
+| Enhanced = HTML    | `kind: :enhanced` payloads are ALWAYS HTML (`html_payload` / `html: true`) — the Enhanced slot renders rich HTML chrome, never a plain typewriter line. (Decided 2026-06-09.) `Game::Enhanced` (card), `Video::Enhanced` (placeholder div), and the job-emitted enhanced events all comply. |
 | Helpers            | `MessageBuilder::Helpers` provides `render_component(c)` + `html_payload(body:, **extra)` to kill duplication.                                                    |
 | Verify             | Per phase: `bundle exec rspec` (NOT bin/rspec) + `bin/rubocop` + `bin/rails zeitwerk:check` + `rake pito:copy:audit` 0-below.                                     |
 
