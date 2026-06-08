@@ -1,11 +1,11 @@
 # Videos domain: commands, sync, reindex, recommendations
 
-> Status: Signed off 2026-06-08 — executing on `beta-videos`. Phase 9 still gates on D2.
+> Status: Signed off 2026-06-08 — executing on `beta-videos`. Phases 1/10/2/4/3/5/6 done. Phase 9 gates on D2; Phase 11 (added post-audit) gates on α/β anchors.
 
 ## Sign-off
 
 - [x] Drafted
-- [x] Audited — 2026-06-08 (clean for Phases 1, 10, 2–8; Phase 9 gates on D2 — intraday cadence)
+- [x] Audited — 2026-06-08 (clean for Phases 1, 10, 2–8; Phase 9 gates on D2). **Phase 11 added 2026-06-08 post-audit — re-audit + α/β anchors required before executing it.**
 
 ## North star
 
@@ -81,6 +81,7 @@ feed that engine.
 - Phase 7 — `list videos published|unlisted` scoped by shift+tab channel (task 10)
 - Phase 8 — Nightly: Video stats sync + Game upcoming-only refresh (tasks 7, 8)
 - Phase 9 — Intraday Video stats cadence (task 11) [decision D2]
+- Phase 11 — Dynamic graded-link channel scoring (game↔channel both ways) [needs α/β anchors]
 - Help A — `/help` for commands (keep) [TO DISCUSS]
 - Help B — `#help` + `help` for hashtags & free messages [TO DISCUSS]
 
@@ -236,6 +237,54 @@ only the diff-specific files go. There is no `VideoDiff` model/table to drop.
 - [x] T10.10 Grep `DiffComputer`/`VideoDiff`/`video_diff` for stragglers; scrub dead refs + comments. complexity: [low]
 - [x] T10.11 Run `bundle exec rspec` for the channel/youtube + notifications slices; make green. complexity: [low]
 - [x] T10.12 Commit: "Purge pre-reboot video-diff system". complexity: [manual]
+
+## Phase 11 — Dynamic graded-link channel scoring (game↔channel both ways)
+
+North star: the **game↔game kernel stays frozen** (intrinsic facets + embedding;
+locked weights; golden fixtures NEVER touched). All time-variance lives in the
+two channel directions, driven by the live video corpus — recomputed on read, no
+re-embedding (pure Postgres counts + already-stored vectors; zero new Voyage cost).
+
+Replace the flat `K = LINK_SCORE (100)` hard-override with a **graded, channel-
+normalized link score**:
+
+```
+K(game, channel) = 100 × d / (d + α + β·o)
+  d = PUBLISHED videos on the channel linked to THIS game   (depth)
+  o = PUBLISHED videos on the channel linked to OTHER games (competing breadth)
+  α = depth smoothing (1 video ≠ max);  β = dilution strength
+```
+
+Locked design decisions (override before execution if needed):
+- **Composition unchanged:** `score = max(K, GG, E)`, but K is now graded — a
+  diluted link can legitimately lose to a strong GG similar-fit. **No floor.**
+- **Dilution unit = videos** (effort-weighted), not game count.
+- **Published only:** scheduled/unlisted videos do NOT count toward K.
+- **Symmetric:** applies to BOTH `Game::ChannelRecommendation` (game→channel) and
+  `Channel::GameRecommendation` (channel→game).
+- **α/β** fitted by grid-search against user anchors — GATE: needs anchors before
+  T11.15 (e.g. "Pragmata-alone ≈ 90", "lone diluted video ≈ 15", "3-video vs
+  1-video home ≈ 25pt apart"). [like decision D2]
+
+Companion engine spec: **[docs/recommendations.md](recommendations.md)**.
+
+- [ ] T11.1 Add `DEPTH_ALPHA` (α) + `DILUTION_BETA` (β) constants to `Pito::Recommendation::Weights`. complexity: [low]
+- [ ] T11.2 Add `Pito::Recommendation::LinkScore.call(depth:, other:)` returning `100·d/(d+α+β·o)`. complexity: [high]
+- [ ] T11.3 Add a `Video.published` scope (privacy_status public) if missing. complexity: [low]
+- [ ] T11.4 Query per-channel published-link depth/other for a target game in `Game::ChannelRecommendation`. complexity: [high]
+- [ ] T11.5 Replace the flat `LINK_SCORE` K with graded `LinkScore` in `Game::ChannelRecommendation`. complexity: [high]
+- [ ] T11.6 Keep `max(K, GG, E)`; remove the unconditional 100 override. complexity: [high]
+- [ ] T11.7 Apply the same graded K in `Channel::GameRecommendation` (reverse direction). complexity: [high]
+- [ ] T11.8 Build a diverse recommendation fixture: focused channel, broad channel, a game linked to two channels at different depths, plus unpublished videos. complexity: [high]
+- [ ] T11.9 Spec: a game on a 3-video channel scores higher than the same game on a 1-video channel. complexity: [high]
+- [ ] T11.10 Spec: publishing+linking a new game's videos dilutes a pre-existing game's channel score (before/after). complexity: [high]
+- [ ] T11.11 Spec: unpublished (scheduled/unlisted) linked videos do NOT contribute to K. complexity: [high]
+- [ ] T11.12 Spec: a diluted weak link is overtaken by a strong GG similar-fit (max composition holds). complexity: [high]
+- [ ] T11.13 Spec: symmetric graded behavior in the channel→game direction. complexity: [high]
+- [ ] T11.14 Spec: game↔game golden fixtures still pass unchanged (frozen-kernel regression guard). complexity: [low]
+- [ ] T11.15 Grid-search α/β against the agreed anchors; lock the constants. complexity: [manual]
+- [ ] T11.16 Run the recommendation specs; make green. complexity: [low]
+- [ ] T11.17 Commit: "Graded video-driven channel link scoring (replaces flat 100)". complexity: [manual]
 
 ---
 
