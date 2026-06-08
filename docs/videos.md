@@ -459,7 +459,7 @@ Locked decisions (from the design discussion, 2026-06-08):
 - [x] T17.6 `list videos with` → columns: game, duration, views, likes, comments (counts via Stats; `@handle` cyan; duration via DurationFormat). complexity: [high]
 - [x] T17.7 `list channels` — STAYS avatar cards (`Channel::ListComponent`), the kv-table exception: NO kv-table, NO heading row, NO `with`/`sorted by` (decided 2026-06-08). Ignore/reject any such clause. complexity: [low]
 - [x] T17.8 `sorted by|ordered by <col> [asc|desc]` — asc implicit; desc explicit; ERROR when the column isn't VISIBLE. complexity: [high]
-- [ ] T17.9 `list games` channel scope from the shift+tab `channel` param (`@all`/none → all; `@handle` → games with ≥1 video on that channel). complexity: [high]
+- [x] T17.9 `list games` channel scope from the shift+tab `channel` param (`@all`/none → all; `@handle` → games with ≥1 video on that channel). complexity: [high]
 - [ ] T17.10 Stamp every list message follow-up-able (`game_list`/`video_list`/`channel_list`). complexity: [low]
 - [ ] T17.11 Autosuggest: after `with ` → per-list columns; after `sorted by`/`ordered by ` → the visible columns. complexity: [high]
 - [ ] T17.12 Specs: N-col kv-table + heading row, both `with` sets, channels-excluded, sort (asc/desc + not-visible error), list-games channel scope, duration format, autosuggest. complexity: [high]

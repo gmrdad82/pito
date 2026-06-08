@@ -377,6 +377,98 @@ RSpec.describe Pito::Chat::Handlers::List do
     end
   end
 
+  # ── Games — channel scope ─────────────────────────────────────────────────
+
+  describe "#call `list games` channel scope" do
+    let!(:chan_a) { create(:channel, title: "Channel A", handle: "@gchana", youtube_channel_id: "UCga1") }
+    let!(:chan_b) { create(:channel, title: "Channel B", handle: "@gchanb", youtube_channel_id: "UCgb1") }
+
+    let!(:game_a) { create(:game, title: "Alpha Game") }
+    let!(:game_b) { create(:game, title: "Beta Game") }
+    let!(:game_c) { create(:game, title: "No Videos Game") }
+
+    let!(:video_a) { create(:video, :public, title: "Video A", channel: chan_a) }
+    let!(:video_b) { create(:video, :public, title: "Video B", channel: chan_b) }
+
+    before do
+      create(:video_game_link, video: video_a, game: game_a)
+      create(:video_game_link, video: video_b, game: game_b)
+    end
+
+    def game_titles(payload)
+      Array(payload["table_rows"]).map { |r| r[:cells][1][:text] }
+    end
+
+    context "with a specific channel handle" do
+      it "lists only games linked to videos on that channel" do
+        payload = handler_for("list games", channel: "@gchana").call.events.first[:payload]
+        titles  = game_titles(payload)
+        expect(titles).to include("Alpha Game")
+        expect(titles).not_to include("Beta Game")
+        expect(titles).not_to include("No Videos Game")
+      end
+
+      it "scopes to channel B when @gchanb is requested" do
+        payload = handler_for("list games", channel: "@gchanb").call.events.first[:payload]
+        titles  = game_titles(payload)
+        expect(titles).to include("Beta Game")
+        expect(titles).not_to include("Alpha Game")
+      end
+    end
+
+    context "with @all or no channel scope" do
+      it "lists all games when channel is @all" do
+        payload = handler_for("list games", channel: "@all").call.events.first[:payload]
+        titles  = game_titles(payload)
+        expect(titles).to include("Alpha Game")
+        expect(titles).to include("Beta Game")
+        expect(titles).to include("No Videos Game")
+      end
+
+      it "lists all games when channel is nil" do
+        payload = handler_for("list games", channel: nil).call.events.first[:payload]
+        titles  = game_titles(payload)
+        expect(titles).to include("Alpha Game")
+        expect(titles).to include("Beta Game")
+        expect(titles).to include("No Videos Game")
+      end
+    end
+
+    context "with a game that has no videos" do
+      it "excludes video-less game when a specific channel is requested" do
+        payload = handler_for("list games", channel: "@gchana").call.events.first[:payload]
+        expect(game_titles(payload)).not_to include("No Videos Game")
+      end
+
+      it "includes video-less game under @all" do
+        payload = handler_for("list games", channel: "@all").call.events.first[:payload]
+        expect(game_titles(payload)).to include("No Videos Game")
+      end
+    end
+
+    context "with an unknown channel handle" do
+      it "returns a not-found error event whose text includes the handle" do
+        result  = handler_for("list games", channel: "@nope").call
+        expect(result).to be_a(Pito::Chat::Result::Ok)
+        payload = result.events.first[:payload]
+        expect(payload["text"]).to include("@nope")
+        expect(payload["table_rows"]).to be_nil
+      end
+    end
+
+    context "when channel-scoped result is empty" do
+      it "returns filter-empty copy (not plain-empty)" do
+        create(:channel, title: "Empty Chan", handle: "@gempty", youtube_channel_id: "UCgempty")
+        payload = handler_for("list games", channel: "@gempty").call.events.first[:payload]
+        expect(payload["text"]).to be_present
+        expect(payload["table_rows"]).to be_nil
+        # filter-empty copy key differs from plain-empty; both have "text" but
+        # the filter-empty message does not include "/games import" (plain-empty does)
+        expect(payload["text"]).not_to include("/games import")
+      end
+    end
+  end
+
   # ── Channel threading ──────────────────────────────────────────────────────
 
   describe "channel: threading — backward compatibility" do

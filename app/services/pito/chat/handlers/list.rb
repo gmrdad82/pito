@@ -53,10 +53,16 @@ module Pito
             vocabulary: Pito::MessageBuilder::Game::ListColumns.vocabulary
           )
           games    = Pito::Chat::GameListFilter.call(message.raw)
-          games    = games.includes(:genres, :developer_companies, :publisher_companies) if columns.any?
+
+          games, error = scope_games_to_channel(games)
+          return error if error
+
+          channel_scoped = resolved_channel_handle.present?
+
+          games = games.includes(:genres, :developer_companies, :publisher_companies) if columns.any?
 
           if games.empty?
-            return filtered ? games_filter_empty : games_empty
+            return (filtered || channel_scoped) ? games_filter_empty : games_empty
           end
 
           sort = Pito::Chat::SortClause.parse(message.raw)
@@ -134,6 +140,28 @@ module Pito
 
           payload = Pito::MessageBuilder::Video::List.call(videos, conversation:, columns:)
           Pito::Chat::Result::Ok.new(events: [ { kind: :system, payload: payload } ])
+        end
+
+        # Returns [relation, nil] or [nil, Result::Ok(error event)] for unknown handle.
+        # Scopes a games relation to only games with ≥1 linked video on the resolved channel.
+        def scope_games_to_channel(games)
+          handle = resolved_channel_handle
+          return [ games, nil ] if handle.nil?
+
+          norm = normalized_handle(handle)
+          ch   = ::Channel.find_by("LOWER(REPLACE(handle, '@', '')) = LOWER(?)", norm)
+          if ch.nil?
+            error_payload = Pito::MessageBuilder::Text.call(
+              "pito.copy.channels.not_found",
+              handle: handle
+            )
+            return [ nil, Pito::Chat::Result::Ok.new(events: [
+              { kind: :system, payload: error_payload }
+            ]) ]
+          end
+
+          scoped = games.joins(video_game_links: :video).where(videos: { channel_id: ch.id }).distinct
+          [ scoped, nil ]
         end
 
         # Returns [relation, nil] or [nil, Result::Ok(error event)] for unknown handle.
