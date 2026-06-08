@@ -120,7 +120,7 @@ RSpec.describe Pito::FollowUp::Handlers::GameDetail, type: :service do
     end
   end
 
-  # ── link to video ────────────────────────────────────────────────────────────
+  # ── link to video (delegated to Chat::Handlers::Link) ───────────────────────
 
   describe "#call — link to video" do
     let(:source_event)  { build_detail_event }
@@ -171,10 +171,10 @@ RSpec.describe Pito::FollowUp::Handlers::GameDetail, type: :service do
     end
 
     context "with missing video ref" do
-      it "returns a Result::Error" do
+      it "returns a Result::Error (usage hint from Link handler)" do
         result = handler.call(event: source_event, rest: "link to video", conversation:)
         expect(result).to be_a(Pito::FollowUp::Result::Error)
-        expect(result.message_key).to eq("pito.follow_up.game_detail.errors.missing_video_ref")
+        expect(result.message_key).to eq("pito.chat.link.usage")
       end
     end
   end
@@ -188,7 +188,7 @@ RSpec.describe Pito::FollowUp::Handlers::GameDetail, type: :service do
 
     it "returns a Result::Append with a system event" do
       expect(result).to be_a(Pito::FollowUp::Result::Append)
-      expect(result.events.first[:kind]).to eq("system")
+      expect(result.events.first[:kind]).to eq(:system)
     end
 
     it "emits the copyable probe command for the segment's game and path" do

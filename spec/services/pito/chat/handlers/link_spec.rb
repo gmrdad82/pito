@@ -21,6 +21,18 @@ RSpec.describe Pito::Chat::Handlers::Link do
     )
   end
 
+  def follow_up_handler(payload:, rest:)
+    ctx = Pito::Chat::FollowUpContext.new(
+      source_event: instance_double(Event, payload: payload),
+      rest:         rest
+    )
+    described_class.new(
+      message:      instance_double(Pito::Chat::Message),
+      conversation: Conversation.singleton,
+      follow_up:    ctx
+    )
+  end
+
   let!(:game)  { create(:game,  title: "Lies of P") }
   let!(:video) { create(:video, title: "Lies of P Review") }
 
@@ -97,5 +109,96 @@ RSpec.describe Pito::Chat::Handlers::Link do
     expect {
       handler_for("game", game.id.to_s, "to", "video", "##{video.id}").call
     }.to change(VideoGameLink, :count).by(1)
+  end
+
+  # ── Follow-up branch ─────────────────────────────────────────────────────────
+
+  describe "follow-up from a game_detail card" do
+    let(:game_detail_payload) do
+      { "reply_target" => "game_detail", "game_id" => game.id }
+    end
+
+    it "links game to video by id ref (with leading 'to video')" do
+      handler = follow_up_handler(payload: game_detail_payload, rest: "to video ##{video.id}")
+      expect { handler.call }.to change(VideoGameLink, :count).by(1)
+    end
+
+    it "links game to video without leading noun words" do
+      handler = follow_up_handler(payload: game_detail_payload, rest: "##{video.id}")
+      expect { handler.call }.to change(VideoGameLink, :count).by(1)
+    end
+
+    it "links game to video by title (ILIKE)" do
+      handler = follow_up_handler(payload: game_detail_payload, rest: "to video lies of p review")
+      expect { handler.call }.to change(VideoGameLink, :count).by(1)
+    end
+
+    it "returns Ok with the linked ack" do
+      result = follow_up_handler(payload: game_detail_payload, rest: "to video ##{video.id}").call
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      text = result.events.first[:payload]["text"]
+      expect(text).to include("Lies of P")
+      expect(text).to include("Lies of P Review")
+    end
+
+    it "is idempotent" do
+      create(:video_game_link, video: video, game: game)
+      expect {
+        follow_up_handler(payload: game_detail_payload, rest: "to video ##{video.id}").call
+      }.not_to change(VideoGameLink, :count)
+    end
+
+    it "returns not-found when the video ref is unknown" do
+      result = follow_up_handler(payload: game_detail_payload, rest: "to video 99999").call
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(result.events.first[:payload]["text"]).to include("99999")
+    end
+
+    it "returns a usage hint when the ref is blank" do
+      result = follow_up_handler(payload: game_detail_payload, rest: "to video").call
+      expect(result).to be_a(Pito::Chat::Result::Error)
+      expect(result.message_key).to eq("pito.chat.link.usage")
+    end
+  end
+
+  describe "follow-up from a video_detail card" do
+    let(:video_detail_payload) do
+      { "reply_target" => "video_detail", "video_id" => video.id }
+    end
+
+    it "links video to game by id ref (with leading 'to game')" do
+      handler = follow_up_handler(payload: video_detail_payload, rest: "to game ##{game.id}")
+      expect { handler.call }.to change(VideoGameLink, :count).by(1)
+    end
+
+    it "links video to game without leading noun words" do
+      handler = follow_up_handler(payload: video_detail_payload, rest: "##{game.id}")
+      expect { handler.call }.to change(VideoGameLink, :count).by(1)
+    end
+
+    it "links video to game by title (ILIKE)" do
+      handler = follow_up_handler(payload: video_detail_payload, rest: "to game lies of p")
+      expect { handler.call }.to change(VideoGameLink, :count).by(1)
+    end
+
+    it "returns Ok with the linked ack" do
+      result = follow_up_handler(payload: video_detail_payload, rest: "to game ##{game.id}").call
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      text = result.events.first[:payload]["text"]
+      expect(text).to include("Lies of P")
+      expect(text).to include("Lies of P Review")
+    end
+
+    it "returns not-found when the game ref is unknown" do
+      result = follow_up_handler(payload: video_detail_payload, rest: "to game 99999").call
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(result.events.first[:payload]["text"]).to include("99999")
+    end
+
+    it "returns a usage hint when the ref is blank" do
+      result = follow_up_handler(payload: video_detail_payload, rest: "to game").call
+      expect(result).to be_a(Pito::Chat::Result::Error)
+      expect(result.message_key).to eq("pito.chat.link.usage")
+    end
   end
 end

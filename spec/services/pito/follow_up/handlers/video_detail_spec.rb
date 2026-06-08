@@ -32,8 +32,8 @@ RSpec.describe Pito::FollowUp::Handlers::VideoDetail, type: :service do
     expect(described_class.mode).to eq(:append)
   end
 
-  it "declares rm, delete, and reindex actions" do
-    expect(described_class.actions).to eq([ "rm", "delete", "reindex" ])
+  it "declares rm, delete, reindex, and link actions" do
+    expect(described_class.actions).to eq([ "rm", "delete", "reindex", "link" ])
   end
 
   # ── reindex ───────────────────────────────────────────────────────────────────
@@ -125,6 +125,42 @@ RSpec.describe Pito::FollowUp::Handlers::VideoDetail, type: :service do
     it "also emits a video_delete confirmation" do
       result = handler.call(event: source_event, rest: "delete", conversation:)
       expect(result.events.first[:payload]["command"]).to eq("video_delete")
+    end
+  end
+
+  # ── link to game (delegated to Chat::Handlers::Link) ─────────────────────────
+
+  describe "#call — link to game" do
+    let(:source_event) { build_video_detail_event }
+    let!(:game)        { create(:game, title: "Elden Ring") }
+
+    subject(:result) do
+      handler.call(event: source_event, rest: "link to game ##{game.id}", conversation:)
+    end
+
+    it "returns a Result::Append" do
+      expect(result).to be_a(Pito::FollowUp::Result::Append)
+    end
+
+    it "creates a VideoGameLink" do
+      expect { result }.to change(VideoGameLink, :count).by(1)
+    end
+
+    it "appends a witty ack text" do
+      text = result.events.first[:payload]["text"]
+      expect(text).to be_present
+    end
+
+    it "returns not-found when the game ref is unknown" do
+      result = handler.call(event: source_event, rest: "link to game 99999", conversation:)
+      expect(result).to be_a(Pito::FollowUp::Result::Append)
+      expect(result.events.first[:payload]["text"]).to be_present
+    end
+
+    it "returns a usage hint when the ref is blank" do
+      result = handler.call(event: source_event, rest: "link to game", conversation:)
+      expect(result).to be_a(Pito::FollowUp::Result::Error)
+      expect(result.message_key).to eq("pito.chat.link.usage")
     end
   end
 

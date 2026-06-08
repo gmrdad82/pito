@@ -13,13 +13,20 @@ module Pito
       #       branch calls `Video::VoyageIndexer.call(video, force: true)`.
       #       Mode: :append — the confirmation lands as a new event below the card.
       #
+      #   #<handle> rm / delete
+      #     → Delegated to Chat::Handlers::Delete via VerbDelegator.
+      #
+      #   #<handle> link [to] [game] <id|title>
+      #     → Delegated to Chat::Handlers::Link via VerbDelegator. The handler
+      #       reads video_id from the source event and the game ref from rest.
+      #
       # NAMESPACE GOTCHA: Inside Pito::FollowUp::Handlers::*, the bare constant
       # `Game` resolves to the Pito::Game MODULE (not the ActiveRecord model).
       # Always use `::Video` for the model.
       class VideoDetail < Pito::FollowUp::Handler
         self.target "video_detail"
         self.mode   :append
-        self.actions "rm", "delete", "reindex"
+        self.actions "rm", "delete", "reindex", "link"
 
         # @param event        [Event]        the video-detail event.
         # @param rest         [String]       text after `#<handle> `.
@@ -28,7 +35,7 @@ module Pito
         def call(event:, rest:, conversation:)
           action, _args = parse_rest(rest)
 
-          if %w[rm delete].include?(action)
+          if %w[rm delete link].include?(action)
             return Pito::FollowUp::VerbDelegator.call(source_event: event, rest:, conversation:)
           end
 

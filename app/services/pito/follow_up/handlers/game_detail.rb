@@ -9,17 +9,15 @@ module Pito
       # `Pito::Game::DetailMessage.call`. The user can reply:
       #
       #   #<handle> rm / delete
-      #     → Emit a confirmation event (`command: "game_delete"`) using the
-      #       existing executor branch that already destroys the Game row.
-      #       Mode: :append — the confirmation lands as a new event below the card.
+      #     → Delegated to Chat::Handlers::Delete via VerbDelegator.
       #
       #   #<handle> resync
       #     → Emit a confirmation event (`command: "game_resync"`) whose executor
       #       branch enqueues `GameIgdbSync`. The card stays follow-up-able.
       #
-      #   #<handle> link to video <id|title>
-      #     → Resolve the video (id `#N`/`N` or title ILIKE),
-      #       `VideoGameLink.find_or_create_by!`, append a witty ack.
+      #   #<handle> link [to] [video] <id|title>
+      #     → Delegated to Chat::Handlers::Link via VerbDelegator. The handler
+      #       reads game_id from the source event and the video ref from rest.
       #
       #   #<handle> import <path>
       #     → Append the copyable `pito:tools:probe` snippet for this game +
@@ -41,15 +39,13 @@ module Pito
         def call(event:, rest:, conversation:)
           action, args = parse_rest(rest)
 
-          if %w[rm delete].include?(action)
+          if %w[rm delete link].include?(action)
             return Pito::FollowUp::VerbDelegator.call(source_event: event, rest:, conversation:)
           end
 
           case action
           when "resync"
             handle_resync(event, conversation)
-          when "link"
-            handle_link(event, args, conversation)
           when "import"
             handle_import(event, args, conversation)
           else
@@ -71,46 +67,7 @@ module Pito
           payload = Pito::MessageBuilder::Game::ResyncConfirmation.call(game, conversation:)
 
           Pito::FollowUp::Result::Append.new(
-            events: [ { kind: "confirmation", payload: payload } ]
-          )
-        end
-
-        # ── link to video <id|title> ───────────────────────────────────────────
-
-        def handle_link(event, args, conversation)
-          # Drop the word "to" and "video"/"videos"
-          words = args.to_s.strip.split
-          words = words.drop(1) if words.first&.downcase == "to"
-          words = words.drop(1) if %w[video videos].include?(words.first&.downcase)
-          ref   = words.join(" ").strip
-
-          if ref.blank?
-            return Pito::FollowUp::Result::Error.new(
-              message_key:  "pito.follow_up.game_detail.errors.missing_video_ref",
-              message_args: {}
-            )
-          end
-
-          game = resolve_game_from_event(event)
-          return game_not_found_error if game.nil?
-
-          video = resolve_video(ref)
-          if video.nil?
-            return Pito::FollowUp::Result::Append.new(
-              events: [
-                {
-                  kind:    "system",
-                  payload: Pito::MessageBuilder::Text.call("pito.copy.videos.not_found", ref: ref)
-                }
-              ]
-            )
-          end
-
-          VideoGameLink.find_or_create_by!(video: video, game: game)
-
-          text = Pito::Copy.render("pito.copy.games.linked", { game: game.title, video: video.title })
-          Pito::FollowUp::Result::Append.new(
-            events: [ { kind: "system", payload: Pito::MessageBuilder::Text.call(text) } ]
+            events: [ { kind: :confirmation, payload: payload } ]
           )
         end
 
@@ -133,7 +90,7 @@ module Pito
           end
 
           Pito::FollowUp::Result::Append.new(
-            events: [ { kind: "system", payload: Pito::MessageBuilder::Game::FootageImport.call(game, path: path) } ]
+            events: [ { kind: :system, payload: Pito::MessageBuilder::Game::FootageImport.call(game, path: path) } ]
           )
         end
 
@@ -147,15 +104,6 @@ module Pito
           return nil unless game_id.present?
 
           ::Game.find_by(id: game_id)
-        end
-
-        def resolve_video(ref)
-          id = ref.delete_prefix("#")
-          if id.match?(/\A\d+\z/)
-            ::Video.find_by(id: id)
-          else
-            ::Video.find_by("title ILIKE ?", ref)
-          end
         end
 
         def game_not_found_error
