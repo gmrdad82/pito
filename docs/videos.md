@@ -87,7 +87,8 @@ feed that engine.
 - Phase 14 — Recommendation v2: channel personality profile (TF-weighted aggregate)
 - Phase 15 — Recommendation v2: channel recommendation rebuild (profile-fit + graded-K, both ways; validate)
 - Phase 16 — Recommendation v2: golden scenario matrix + harden the flaky pool spec
-- Phase 17 — Polish: `list videos` UI (column alignment, `with <cols>` magic word, follow-up `show video`)
+- Phase 17 — Unified kv-table for lists: `with <cols>` (games + videos) + `list games` channel scope
+- Phase 18 — Dispatcher unification: one command, any entry (kill show/delete/link duplication)
 - Help A — `/help` for commands (keep) [TO DISCUSS]
 - Help B — `#help` + `help` for hashtags & free messages [TO DISCUSS]
 
@@ -357,45 +358,74 @@ Locked decisions (from the design discussion, 2026-06-08):
 - [x] T16.2 Harden the order-dependent `GameSimilarity` pool/limit spec (deterministic clean slate). complexity: [high]
 - [x] T16.3 Run the FULL suite to completion green (no abort, deterministic count); commit. complexity: [manual]
 
-## Phase 17 — Polish: `list videos` UI (AFTER Recommendation v2)
+## Phase 17 — Unified kv-table for lists: `with <cols>` + `list games` channel scope
 
-> Deferred until Phases 12–16 ship. Bring the `list videos` message to `list
-> games` parity and make it interactive.
+> The lists render via the system component's `table_rows` **kv-table** (a CSS
+> grid of `KeyValueRowComponent` spans — VERIFIED: there is NO `<table>`). Today
+> it caps at 3 columns (key/value/value2). Extend it past 3, add a `with <cols>`
+> magic word to **`list games`** and **`list videos`** (NOT `list channels`), and
+> scope `list games` by the shift+tab channel.
+>
+> NOTE: discard the prior one-shot Phase-17 attempt (a separate `pito-video-list`
+> CSS grid — it diverged from the kv-table). Rebuild on the kv-table, atomically.
 
-Requirements (from the user, with screenshot):
-- **Column alignment** — render rows in an aligned grid / KV-table like the games
-  list (today they're a ragged `#id title @handle privacy` line). The KV-table
-  must be able to **expand to more columns** when extra ones are requested.
-- **`@handle` cyan** — the channel handle renders in cyan (matches the meta-line
-  channel colour), not the default fg.
-- **Follow-up-able** — stamp the list message follow-up-able (`reply_target:
-  "video_list"`) and add a `Pito::FollowUp::Handlers::VideoList` with a `show`
-  action so `#<handle> show video <id|title>` opens the video detail (mirrors the
-  game list's `#<handle> show <id>`).
-- **Optional columns via the `with` magic word** — `list videos … with <col>[,<col>…]`
-  appends columns, chosen from: **game** (linked game title), **duration**,
-  **views**, **likes**, **comments** (the last three from `Pito::Stats`). One or
-  more, **comma-separated** — accept both `,` and `, ` as the enumerator
-  (e.g. `list videos with game,duration,views` or `… with game, duration, views`);
-  order preserved.
-- **Autosuggestions** — after `with `, offer the column names
-  (game/duration/views/likes/comments) as tab-completable suggestions (wire a
-  column vocabulary into the suggestions catalog).
-- **Duration format** — `H:MM:SS` / `M:SS` (e.g. `9:34`, `1:02:22`, `43:23`,
-  `1:00:32`). Reuse / extract the existing `Pito::Video::DetailComponent`
-  duration formatter into a shared helper.
+Requirements:
+- **No `<table>`** — extend the existing `table_rows` kv-table to N columns. Both
+  lists feed the SAME mechanism.
+- **`with` magic word, comma enumerator** — `list … with <col>[,<col>…]`, accept
+  `,` and `, ` (split `/\s*,\s*/`), order preserved, dedup, unknown ignored.
+- **`list games with`** columns: `platform`, `genre`, `developer`, `publisher`,
+  `release date`, `year` (release date and year are **two distinct** columns).
+- **`list videos with`** columns: `game` (linked game title), `duration`, `views`,
+  `likes`, `comments` (counts via `Pito::Stats`). `@handle` renders **cyan**;
+  `duration` via the extracted `H:MM:SS`/`M:SS` formatter (`9:34`, `1:02:22`,
+  `43:23`, `1:00:32`).
+- **`list channels`** — NO `with` extension.
+- **`list games` shift+tab channel scope** — read the threaded `channel` param:
+  `@all` (or none) → no channel filter; `@<handle>` → only games that have **≥1
+  video on that channel**. (Mirrors how `list videos` already scopes by channel.)
+- **Autosuggest** — after `with `, tab-complete the column names for THAT list
+  (games' set vs videos' set).
 
-- [ ] T17.1 Extract the duration formatter (`H:MM:SS`/`M:SS`) from `Video::DetailComponent` into a shared helper. complexity: [low]
-- [ ] T17.2 Rebuild the videos-list component as an aligned, expandable KV-table grid (parity with the games list). complexity: [high]
-- [ ] T17.3 Render the `@handle` in cyan. complexity: [low]
-- [ ] T17.4 Stamp the list message follow-up-able (`reply_target: "video_list"`). complexity: [low]
-- [ ] T17.5 Add `Pito::FollowUp::Handlers::VideoList` with a `show` action → `#<handle> show video <id|title>` opens the video detail. complexity: [high]
-- [ ] T17.6 Parse `list videos … with <columns>` — `with` magic word, comma-separated (`,` and `, `), one+; order preserved. complexity: [high]
-- [ ] T17.7 Render the requested extra columns in the expanded KV-table (counts via `Pito::Stats`). complexity: [high]
-- [ ] T17.8 Add a column vocabulary to the suggestions catalog so `with ` tab-completes the column names. complexity: [high]
-- [ ] T17.9 Add specs: alignment/columns, `@handle` cyan, follow-up `show video`, duration format, `with` parsing (comma enumerator) + autosuggest. complexity: [high]
-- [ ] T17.10 Run the new specs; make green. complexity: [low]
-- [ ] T17.11 Commit: "Polish list videos: aligned KV-table, `with` columns, show-video follow-up". complexity: [manual]
+- [ ] T17.1 Extend `table_rows` + the system component to render N columns (row = ordered cells `{ text:, class: }`); keep 2/3-col back-compat. complexity: [high]
+- [ ] T17.2 Extract the duration formatter into `Pito::Video::DurationFormat` (`H:MM:SS`/`M:SS`); reuse in `Video::DetailComponent`. complexity: [low]
+- [ ] T17.3 Add a shared `with <cols>` parser (magic word `with`, `,`/`, ` enumerator, order-preserving, dedup, unknown-ignored). complexity: [high]
+- [ ] T17.4 `list games with` → kv-table columns: platform, genre, developer, publisher, release date, year. complexity: [high]
+- [ ] T17.5 `list videos with` → kv-table columns: game, duration, views, likes, comments (counts via Stats; `@handle` cyan; duration via DurationFormat). complexity: [high]
+- [ ] T17.6 `list channels` — explicitly NO `with` (ignore/reject the clause). complexity: [low]
+- [ ] T17.7 `list games` channel scope from the shift+tab `channel` param (`@all`→all; `@handle`→games with ≥1 video on that channel). complexity: [high]
+- [ ] T17.8 Make the video list follow-up-able (`reply_target: "video_list"`) — `show video` wired via the UNIFIED handler (Phase 18). complexity: [low]
+- [ ] T17.9 Autosuggest the `with` column names per list type (games cols vs videos cols). complexity: [high]
+- [ ] T17.10 Specs: N-col kv-table, both `with` sets, channels-excluded, list-games channel scope, duration format, autosuggest. complexity: [high]
+- [ ] T17.11 Run the new specs; make green. complexity: [low]
+- [ ] T17.12 Commit: "Lists: N-column kv-table + `with <cols>` (games/videos) + list-games channel scope". complexity: [manual]
+
+## Phase 18 — Dispatcher unification: one command, any entry point
+
+> AUDIT (2026-06-08): `show`, `delete`/`rm`, and `link` are implemented TWICE —
+> the chat VERB and a FOLLOW-UP action that REIMPLEMENTS resolve + build.
+> `#<handle> <cmd>` is the SAME command from a different location; the follow-up
+> should resolve only its CONTEXT (the entity behind the handle) and delegate to
+> the same verb logic. `import` already does this (shared `FootageImport`
+> builder) — the model to copy.
+>
+> Offenders:
+> - **show** — `show` verb + `game_list` `show` (+ the would-be video_list `show`); already DRIFTED (the follow-up forgot the Enhanced message — patched, not fixed).
+> - **delete/rm** — `delete` verb + `game_list` `delete` + `game_detail` `rm` (3 resolve+wrap copies; they share the `DeleteConfirmation` builder but nothing else).
+> - **link (game↔video)** — `link` verb + `game_detail` `link` (both resolve the other side + `VideoGameLink.find_or_create_by!` + ack).
+>
+> Clean (follow-up-only or already delegating — leave alone): `import`, `resync`,
+> `reindex`, `similar`, `channel`, `visit`, `consume`, `preview`/`apply`,
+> `confirm`/`cancel`.
+
+- [ ] T18.1 Decide the unification approach: (1) shared command core per verb that both the verb handler and the follow-up call, vs (2) follow-up normalizes to the command + routes through the real verb handler with context attached. complexity: [manual]
+- [ ] T18.2 `show` — one core that builds `[Detail(system), Enhanced(enhanced)]` for a game; point the `show` verb + `game_list` `show` at it (free-chat ≡ `#<handle>`). complexity: [high]
+- [ ] T18.3 `show video` — one core that builds `[Detail(system)]`; point the `show video` verb + the `video_list` `show` at it. complexity: [high]
+- [ ] T18.4 `delete` — one core that builds the `game_delete` confirmation; point the `delete` verb + `game_list`/`game_detail` delete actions at it. complexity: [high]
+- [ ] T18.5 `link` — one core that resolves + `find_or_create` + acks; point the `link` verb + `game_detail` `link` at it. complexity: [high]
+- [ ] T18.6 Delete the now-dead duplicated resolve/build logic from the follow-up handlers. complexity: [high]
+- [ ] T18.7 Specs: free-chat and `#<handle> …` emit IDENTICAL events for show / show video / delete / link. complexity: [high]
+- [ ] T18.8 Run the suite green; commit. complexity: [manual]
 
 ---
 
