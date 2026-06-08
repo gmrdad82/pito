@@ -81,6 +81,29 @@ RSpec.describe Pito::Game::DetailComponent do
     end
   end
 
+  describe "themes + perspective" do
+    it "renders the themes row when present" do
+      g = create(:game, themes: [ "Horror", "Survival" ])
+      node = render_inline(described_class.new(game: g))
+      expect(node.text).to include("Themes")
+      expect(node.text).to include("Horror, Survival")
+    end
+
+    it "renders the perspective row when present" do
+      g = create(:game, player_perspectives: [ "Third person", "First person" ])
+      node = render_inline(described_class.new(game: g))
+      expect(node.text).to include("Perspective")
+      expect(node.text).to include("Third person, First person")
+    end
+
+    it "omits both rows when empty" do
+      g = create(:game, themes: [], player_perspectives: [])
+      node = render_inline(described_class.new(game: g))
+      expect(node.text).not_to include("Themes")
+      expect(node.text).not_to include("Perspective")
+    end
+  end
+
   describe "KV table (T16.11 — KeyValueRowComponent grid)" do
     it "renders developer row using KeyValueRowComponent (key + value spans)" do
       company = create(:company, name: "Grid Dev")

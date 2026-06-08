@@ -77,6 +77,14 @@ module Pito
         names.join(", ").presence
       end
 
+      def themes_label
+        Array(@game.themes).reject(&:blank?).join(", ").presence
+      end
+
+      def perspectives_label
+        Array(@game.player_perspectives).reject(&:blank?).join(", ").presence
+      end
+
       def footage_hours
         @footage_hours ||= @game.footages.sum(:duration_seconds).to_i / 3600
       end

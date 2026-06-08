@@ -82,6 +82,24 @@
           )) %>
     <% end %>
 
+    <% if themes_label.present? %>
+      <%= render(Pito::Table::KeyValueRowComponent.new(
+            key_text:   t("pito.game.detail.themes"),
+            value_text: themes_label,
+            key_class:  "text-fg-dim whitespace-nowrap",
+            value_class: "text-fg"
+          )) %>
+    <% end %>
+
+    <% if perspectives_label.present? %>
+      <%= render(Pito::Table::KeyValueRowComponent.new(
+            key_text:   t("pito.game.detail.perspective"),
+            value_text: perspectives_label,
+            key_class:  "text-fg-dim whitespace-nowrap",
+            value_class: "text-fg"
+          )) %>
+    <% end %>
+
       </div>
     </div>
   </div>

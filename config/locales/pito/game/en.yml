@@ -9,6 +9,8 @@ en:
         platforms: "Platforms"
         description: "Description"
         genres: "Genres"
+        themes: "Themes"
+        perspective: "Perspective"
         no_cover: "No cover art"
         platform_label:
           ps: "PlayStation"
