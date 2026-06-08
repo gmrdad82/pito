@@ -35,12 +35,12 @@ RSpec.describe Pito::Chat::Handlers::List do
       expect(result.events.first[:kind]).to eq(:system)
     end
 
-    it "lists each game with its #-prefixed ID as the row key, sorted by title" do
+    it "lists each game with its #-prefixed ID and title as the first two cells, sorted by title" do
       rows = handler.call.events.first[:payload]["table_rows"]
-      expect(rows.map { |r| { key: r[:key], value: r[:value] } }).to eq([
-        { key: "##{lies.id}",  value: "Lies of P" },
-        { key: "##{zelda.id}", value: "Tears of the Kingdom" }
-      ])
+      id_texts    = rows.map { |r| r[:cells][0][:text] }
+      title_texts = rows.map { |r| r[:cells][1][:text] }
+      expect(id_texts).to eq([ "##{lies.id}", "##{zelda.id}" ])
+      expect(title_texts).to eq([ "Lies of P", "Tears of the Kingdom" ])
     end
 
     it "is stamped follow-up-able for game_list" do
@@ -68,10 +68,26 @@ RSpec.describe Pito::Chat::Handlers::List do
   describe "#call with `list games` (regression)" do
     let!(:game) { create(:game, title: "Lies of P") }
 
-    it "still lists games for `list games`" do
+    it "still lists games for `list games` with two cells per row" do
       result = handler_for("list games").call
       expect(result).to be_a(Pito::Chat::Result::Ok)
-      expect(result.events.first[:payload]["table_rows"].first[:value2]).to be_nil
+      expect(result.events.first[:payload]["table_rows"].first[:cells].size).to eq(2)
+    end
+  end
+
+  describe "#call with `list games with genre`" do
+    let!(:rpg_genre) { create(:genre, name: "Role-playing") }
+    let!(:game)      { create(:game, title: "Elden Ring") }
+    before           { create(:game_genre, game: game, genre: rpg_genre) }
+
+    it "includes 'Genre' in the table_heading" do
+      payload = handler_for("list games with genre").call.events.first[:payload]
+      expect(payload["table_heading"]).to include("Genre")
+    end
+
+    it "returns three columns in the heading (# Game Genre)" do
+      payload = handler_for("list games with genre").call.events.first[:payload]
+      expect(payload["table_heading"]).to eq([ "#", "Game", "Genre" ])
     end
   end
 

@@ -18,7 +18,8 @@ RSpec.describe Pito::Chat::GameListFilter do
     payload = result.events.first[:payload]
     return [] unless payload["table_rows"]
 
-    payload["table_rows"].map { |r| r[:value] }
+    # Game-list rows use the kv-table :cells form — title is the 2nd cell.
+    payload["table_rows"].map { |r| r[:cells][1][:text] }
   end
 
   # ── Fixtures ──────────────────────────────────────────────────────────────

@@ -48,13 +48,18 @@ module Pito
           return list_videos   if message.raw.match?(/\bvideos?\b/i)
 
           filtered = Pito::Chat::GameListFilter.filtered?(message.raw)
+          columns  = Pito::Chat::WithColumns.parse(
+            message.raw,
+            vocabulary: Pito::MessageBuilder::Game::ListColumns.vocabulary
+          )
           games    = Pito::Chat::GameListFilter.call(message.raw)
+          games    = games.includes(:genres, :developer_companies, :publisher_companies) if columns.any?
 
           if games.empty?
             return filtered ? games_filter_empty : games_empty
           end
 
-          payload = Pito::MessageBuilder::Game::List.call(games, conversation:)
+          payload = Pito::MessageBuilder::Game::List.call(games, conversation:, columns:)
 
           Pito::Chat::Result::Ok.new(events: [ { kind: :system, payload: payload } ])
         end

@@ -13,13 +13,20 @@ module Pito
 
         # @param games        [ActiveRecord::Relation | Array<::Game>] pre-fetched, sorted games.
         # @param conversation [Conversation] used to generate the reply handle.
+        # @param columns      [Array<Symbol>] extra canonical column keys (from ListColumns).
         # @return [Hash] string-keyed payload with body, table_rows, and follow-up fields.
-        def call(games, conversation:)
+        def call(games, conversation:, columns: [])
           payload = {
             "body"          => Pito::Copy.render("pito.copy.games.list_intro", { count: games.size }),
-            "table_heading" => [ "#", "Game" ],
+            "table_heading" => [ "#", "Game", *ListColumns.headings(columns) ],
             "table_rows"    => games.map { |game|
-              { key: "##{game.id}", value: game.title, key_class: "text-cyan tabular-nums text-right" }
+              {
+                cells: [
+                  { text: "##{game.id}", class: "text-cyan tabular-nums text-right whitespace-nowrap" },
+                  { text: game.title,    class: "text-fg" },
+                  *ListColumns.cells(game, columns)
+                ]
+              }
             }
           }
           Pito::FollowUp.make_followupable!(payload, target: "game_list", conversation: conversation)
