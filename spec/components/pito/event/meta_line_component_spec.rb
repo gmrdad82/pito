@@ -36,6 +36,21 @@ RSpec.describe Pito::Event::MetaLineComponent do
     end
   end
 
+  describe "shift+r affordance" do
+    it "renders a hidden, yellow `shift+r` hint when a handle is present" do
+      node = render_inline(described_class.new(handle: "alpha-42"))
+      hint = node.css("[data-pito-lasthashtag-hint]").first
+      expect(hint).not_to be_nil
+      expect(hint["class"]).to include("hidden")
+      expect(hint.css("span.text-yellow").map(&:text)).to include("shift+r")
+    end
+
+    it "does not render the hint when there is no handle" do
+      node = render_inline(described_class.new(timestamp: Time.current, channel: "all"))
+      expect(node.css("[data-pito-lasthashtag-hint]")).to be_empty
+    end
+  end
+
   describe "separator (·)" do
     it "renders a · separator before the handle when timestamp is also present" do
       ts = Time.zone.parse("2026-06-01 19:58:00")

@@ -33,7 +33,7 @@ RSpec.describe Pito::Slash::Handlers::Help, type: :service do
       expect(titles).to include("GENERAL")
       expect(titles).to include("YOUTUBE")
       expect(titles).to include("CONFIG")
-      expect(titles).to include("KEYS")
+      expect(titles).not_to include("KEYS")
     end
 
     it "sets expand/collapse labels" do

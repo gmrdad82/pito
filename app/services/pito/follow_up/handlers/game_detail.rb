@@ -21,13 +21,18 @@ module Pito
       #     → Resolve the video (id `#N`/`N` or title ILIKE),
       #       `VideoGameLink.find_or_create_by!`, append a witty ack.
       #
+      #   #<handle> import <path>
+      #     → Append the copyable `pito:tools:probe` snippet for this game +
+      #       footage folder (shared FootageImport builder with the `import`
+      #       chat verb). Reachable via shift+r, which seeds `#<handle> `.
+      #
       # NAMESPACE GOTCHA: Inside Pito::FollowUp::Handlers::*, the bare constant
       # `Game` resolves to the Pito::Game MODULE (not the ActiveRecord model).
       # Always use `::Game` for the model.
       class GameDetail < Pito::FollowUp::Handler
         self.target "game_detail"
         self.mode   :append
-        self.actions "rm", "resync", "link"
+        self.actions "rm", "resync", "link", "import"
 
         # @param event        [Event]        the game-detail event.
         # @param rest         [String]       text after `#<handle> `.
@@ -43,6 +48,8 @@ module Pito
             handle_resync(event, conversation)
           when "link"
             handle_link(event, args, conversation)
+          when "import"
+            handle_import(event, args, conversation)
           else
             Pito::FollowUp::Result::Error.new(
               message_key:  "pito.follow_up.game_detail.errors.invalid_action",
@@ -115,6 +122,29 @@ module Pito
           text = Pito::Copy.render("pito.copy.games.linked", { game: game.title, video: video.title })
           Pito::FollowUp::Result::Append.new(
             events: [ { kind: "system", payload: Pito::MessageBuilder::Text.call(text) } ]
+          )
+        end
+
+        # ── import <path> ────────────────────────────────────────────────────────
+
+        # `#<handle> import <path>` — the game is already known from the segment,
+        # so the whole `args` tail is the footage folder. Emits the same copyable
+        # probe-command snippet as the `import <ref> <path>` chat verb (shared
+        # FootageImport builder, different dispatch).
+        def handle_import(event, args, conversation)
+          game = resolve_game_from_event(event)
+          return game_not_found_error if game.nil?
+
+          path = args.to_s.strip
+          if path.blank?
+            return Pito::FollowUp::Result::Error.new(
+              message_key:  "pito.follow_up.game_detail.errors.missing_path",
+              message_args: {}
+            )
+          end
+
+          Pito::FollowUp::Result::Append.new(
+            events: [ { kind: "system", payload: Pito::MessageBuilder::Game::FootageImport.call(game, path: path) } ]
           )
         end
 
