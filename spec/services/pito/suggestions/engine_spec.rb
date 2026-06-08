@@ -680,6 +680,20 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
     end
   end
 
+  # ── FREE MODE — list clause ghost (integration) ──────────────────────────────
+
+  describe "free mode — list clause ghost integration" do
+    it "returns 'platform' as complete_current for 'list games with '" do
+      result = call(input: "list games with ", cursor: 16)
+      expect(result[:ghost][:complete_current]).to eq("platform")
+    end
+
+    it "returns 'ration' as complete_current for 'list videos with du'" do
+      result = call(input: "list videos with du", cursor: 19)
+      expect(result[:ghost][:complete_current]).to eq("ration")
+    end
+  end
+
   # ── P5.5 — Suggestions stop when all non-repeatable slots are filled ─────────
 
   describe "P5.5 — suggestions stop after single-slot commands are satisfied" do

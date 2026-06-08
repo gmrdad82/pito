@@ -83,6 +83,28 @@ module Pito
           }
         }.freeze
 
+        # Display tokens in COLUMNS order — the primary alias for each column.
+        # Used by ListClauseGhost to build autocomplete candidates.
+        def suggestion_tokens
+          COLUMNS.keys.map { |canonical| DISPLAY_TOKEN_MAP[canonical] }
+        end
+
+        # Returns the display token String for a canonical Symbol.
+        #   display_token(:release_date) # => "release date"
+        def display_token(canonical)
+          DISPLAY_TOKEN_MAP[canonical]
+        end
+
+        # Base sort tokens — always-visible columns (requires_with: false).
+        def base_sort_tokens
+          %w[id title]
+        end
+
+        # Maps canonical Symbol → primary display token (first alias).
+        DISPLAY_TOKEN_MAP = COLUMNS.each_with_object({}) do |(canonical, cfg), map|
+          map[canonical] = cfg[:aliases].first
+        end.freeze
+
         # Maps every alias (downcased) → its canonical column Symbol.
         # Memoised so the Hash is built once.
         def vocabulary

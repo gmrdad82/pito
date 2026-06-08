@@ -479,6 +479,10 @@ module Pito
           spec = Pito::Grammar::Registry.specs_for_alias(namespace: :chat, token: first_word)
           return { menu_items: [], ghost: EMPTY_GHOST } unless spec
 
+          if spec.name == :list && (g = Pito::Suggestions::ListClauseGhost.ghost(text))
+            return { menu_items: [], ghost: g }
+          end
+
           ghost = compute_ghost(text, spec, tokens, authenticated:)
           { menu_items: [], ghost: ghost }
         end

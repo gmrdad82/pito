@@ -461,7 +461,7 @@ Locked decisions (from the design discussion, 2026-06-08):
 - [x] T17.8 `sorted by|ordered by <col> [asc|desc]` — asc implicit; desc explicit; ERROR when the column isn't VISIBLE. complexity: [high]
 - [x] T17.9 `list games` channel scope from the shift+tab `channel` param (`@all`/none → all; `@handle` → games with ≥1 video on that channel). complexity: [high]
 - [x] T17.10 Stamp the list messages that HAVE follow-up handlers: `game_list` + `channel_list` are already stamped (handlers exist). `video_list` stamping is DEFERRED to Phase 19 — it has no follow-up handler yet, and stamping now would render a dangling reply handle (router finds the event, but the controller's Registry lookup for `video_list` would miss). Decided 2026-06-08. complexity: [low]
-- [ ] T17.11 Autosuggest: after `with ` → per-list columns; after `sorted by`/`ordered by ` → the visible columns. complexity: [high]
+- [x] T17.11 Autosuggest: after `with ` → per-list columns; after `sorted by`/`ordered by ` → the visible columns. complexity: [high]
 - [ ] T17.12 Specs: N-col kv-table + heading row, both `with` sets, channels-excluded, sort (asc/desc + not-visible error), list-games channel scope, duration format, autosuggest. complexity: [high]
 - [ ] T17.13 Run the new specs; make green. complexity: [low]
 - [ ] T17.14 Commit: "Lists v2: N-col kv-table + headings + `with`/`sorted by` + list-games channel scope". complexity: [manual]
