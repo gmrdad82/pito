@@ -91,6 +91,9 @@ export default class extends Controller {
 
   #onKeydown(event) {
     if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return
+    // Shift+Arrow is reserved for paging the scrollback (pito--scrollback) —
+    // it must NOT also step through input history.
+    if (event.shiftKey) return
 
     const field = this.element.querySelector("textarea")
     if (!field) return
