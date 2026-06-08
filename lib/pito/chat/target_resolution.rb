@@ -35,6 +35,18 @@ module Pito
         end
       end
 
+      # The display reference for user-facing messages (e.g. not-found copy),
+      # mirroring the three modes `resolve_target` uses: the typed ref (free-chat
+      # or list reply), or the source card's entity id (detail reply).
+      def target_ref(noun_fillers, id_key:)
+        return extract_ref_from(message.raw, noun_fillers) unless follow_up?
+
+        payload = follow_up.source_event.payload.to_h.with_indifferent_access
+        return payload[id_key].to_s if payload[id_key].present?
+
+        strip_noun(follow_up.rest, noun_fillers)
+      end
+
       private
 
       def resolve_free_chat(entity_class, noun_fillers)

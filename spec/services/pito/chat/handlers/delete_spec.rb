@@ -24,7 +24,7 @@ RSpec.describe Pito::Chat::Handlers::Delete do
     result = handler_for("game", "lies", "of", "p").call
     expect(result).to be_a(Pito::Chat::Result::Ok)
     event = result.events.first
-    expect(event[:kind]).to eq("confirmation")
+    expect(event[:kind]).to eq(:confirmation)
     expect(event[:payload]["command"]).to eq("game_delete")
     expect(event[:payload]["game_id"]).to eq(game.id)
     expect(event[:payload]["game_title"]).to eq("Lies of P")
@@ -59,7 +59,7 @@ RSpec.describe Pito::Chat::Handlers::Delete do
       result = handler_for("video", "let's", "play", "elden", "ring").call
       expect(result).to be_a(Pito::Chat::Result::Ok)
       event = result.events.first
-      expect(event[:kind]).to eq("confirmation")
+      expect(event[:kind]).to eq(:confirmation)
       expect(event[:payload]["command"]).to eq("video_delete")
       expect(event[:payload]["video_id"]).to eq(video.id)
       expect(event[:payload]["video_title"]).to eq("Let's Play Elden Ring")

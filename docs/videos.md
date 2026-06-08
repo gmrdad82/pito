@@ -489,7 +489,7 @@ Locked decisions (from the design discussion, 2026-06-08):
 > then DELETE the reimplementations. `show video` now emits Standard + Enhanced
 > (Enhanced = `Pito::Copy` intro placeholder — Analytics later).
 
-- [ ] T19.1 `show game` (verb + `game_list` show) → one handler, Standard + Enhanced. complexity: [high]
+- [x] T19.1 `show game` (verb + `game_list` show) → one handler, Standard + Enhanced. — `game_list` is now a `VerbDelegator` shim (covers show + delete/rm); `Show#handle_game` uses `resolve_target`/`target_ref`; `delete.rb` kinds symbolized. complexity: [high]
 - [ ] T19.2 `show video` (verb + `video_list` show) → one handler, Standard + Enhanced (Enhanced = `Pito::Copy` intro placeholder). complexity: [high]
 - [ ] T19.2b Stamp `list videos` follow-up-able (`reply_target: "video_list"`) NOW that the `video_list` handler exists (deferred from T17.10); flip the video/list builder + its "NOT follow-up-able" spec. complexity: [low]
 - [ ] T19.3 `delete|rm game|video` (verb + `game_list` delete + `game_detail` rm) → one handler (Confirmable). complexity: [high]

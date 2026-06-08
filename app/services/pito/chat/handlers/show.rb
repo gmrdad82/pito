@@ -64,28 +64,17 @@ module Pito
         # ── Game branch ────────────────────────────────────────────────────────
 
         def handle_game
-          ref = extract_ref(GAME_NOUN_FILLERS)
-          return needs_ref if ref.blank?
-
-          game = resolve_game(ref)
-          return game_not_found(ref) unless game
+          game = resolve_target(::Game, id_key: :game_id, noun_fillers: GAME_NOUN_FILLERS)
+          return needs_ref if game == :needs_ref
+          return game_not_found(target_ref(GAME_NOUN_FILLERS, id_key: :game_id)) if game.nil?
 
           # Mirror an import: the Standard detail message (follow-up-able) plus the
           # Enhanced recommendations message (pito chrome, not follow-up-able).
+          # Identical events whether typed in free chat or via a `#<handle>` reply.
           Pito::Chat::Result::Ok.new(events: [
             { kind: :system,   payload: Pito::MessageBuilder::Game::Detail.call(game, conversation:) },
             { kind: :enhanced, payload: Pito::MessageBuilder::Game::Enhanced.call(game) }
           ])
-        end
-
-        # ID form (`#5`/`5`/`# 5`) → find by id; otherwise case-insensitive title.
-        # The lexer splits `#9` into `#` + `9`, so the joined ref can be `# 9` —
-        # strip a leading `#` plus any whitespace before the digit check.
-        def resolve_game(ref)
-          id = ref.sub(/\A#\s*/, "")
-          return ::Game.find_by(id: id) if id.match?(/\A\d+\z/)
-
-          ::Game.find_by("title ILIKE ?", ref)
         end
 
         def game_not_found(ref)

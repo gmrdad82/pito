@@ -53,7 +53,7 @@ module Pito
 
         def video_confirmation_event(video)
           payload = Pito::MessageBuilder::Video::DeleteConfirmation.call(video, conversation:)
-          Pito::Chat::Result::Ok.new(events: [ { kind: "confirmation", payload: payload } ])
+          Pito::Chat::Result::Ok.new(events: [ { kind: :confirmation, payload: payload } ])
         end
 
         def video_not_found(ref)
@@ -84,7 +84,7 @@ module Pito
 
         def game_confirmation_event(game)
           payload = Pito::MessageBuilder::Game::DeleteConfirmation.call(game, conversation:)
-          Pito::Chat::Result::Ok.new(events: [ { kind: "confirmation", payload: payload } ])
+          Pito::Chat::Result::Ok.new(events: [ { kind: :confirmation, payload: payload } ])
         end
 
         def game_not_found(ref)
