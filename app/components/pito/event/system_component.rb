@@ -86,6 +86,32 @@ module Pito
         html.html_safe
       end
 
+      # Returns table_rows as an array of cell arrays: each row becomes an ordered
+      # Array of { text:, class: } hashes. Supports the new `:cells` key (arbitrary
+      # N columns) and falls back to the legacy { key:, value:, value2: } shape so
+      # every existing caller renders identically.
+      def normalized_table_rows
+        @normalized_table_rows ||= table_rows.map do |row|
+          if row[:cells].present?
+            row[:cells].map { |c| { text: c[:text].to_s, class: c[:class].presence || "text-fg-dim" } }
+          else
+            cells = [
+              { text: row[:key].to_s,   class: "#{row.fetch(:key_class, 'text-cyan')} whitespace-nowrap" },
+              { text: row[:value].to_s, class: row.fetch(:value_class, "text-fg-dim").to_s }
+            ]
+            cells << { text: row[:value2].to_s, class: "text-cyan whitespace-nowrap" } if row[:value2].present?
+            cells
+          end
+        end
+      end
+
+      # Returns the CSS grid-template-columns string for N columns.
+      # First N-1 are max-content, last is 1fr. N must be >= 2.
+      def table_grid_cols(n)
+        cols = ([ "max-content" ] * [ n - 1, 1 ].max) + [ "1fr" ]
+        "grid-cols-[#{cols.join('_')}]"
+      end
+
       private
 
       # Returns a stable DOM id for anchorable system messages — those carrying

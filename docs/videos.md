@@ -444,7 +444,7 @@ Locked decisions (from the design discussion, 2026-06-08):
 > `list games` by the shift+tab channel. Discard the prior one-shot grid attempt.
 > Repliable actions on these lists are wired by the unified handler (Phases 18–19).
 
-- [ ] T17.1 Extend `table_rows` + the system component to render N ordered cells per row; keep 2/3-col back-compat. complexity: [high]
+- [x] T17.1 Extend `table_rows` + the system component to render N ordered cells per row; keep 2/3-col back-compat. complexity: [high]
 - [ ] T17.2 Add a heading row to EVERY list kv-table (games/videos/channels), even with no extra columns. complexity: [low]
 - [ ] T17.3 Extract `Pito::Video::DurationFormat` (`H:MM:SS`/`M:SS`: 9:34 / 1:02:22 / 43:23 / 1:00:32); reuse in `Video::DetailComponent`. complexity: [low]
 - [ ] T17.4 Shared `with <cols>` parser: magic word `with`, comma enumerator (`,` and `, `, split `/\s*,\s*/`), order-preserving, dedup, unknown-ignored. complexity: [high]
