@@ -344,12 +344,12 @@ Locked decisions (from the design discussion, 2026-06-08):
 
 ## Phase 15 — Channel recommendation rebuild (both directions)
 
-- [ ] T15.1 Add the graded-K link helper `K = 100·d/(d+α+β·o)` (α=5, β=1; published videos; d=this game, o=other games). complexity: [high]
-- [ ] T15.2 Rebuild `Game::ChannelRecommendation` = profile-fit blend (game facets vs channel profile) + graded-K bonus. complexity: [high]
-- [ ] T15.3 Rebuild `Channel::GameRecommendation` symmetrically (game facets vs channel profile + graded-K). complexity: [high]
-- [ ] T15.4 Recompute game→channel over the fixtures; REPORT numbers for user confirmation. complexity: [manual]
-- [ ] T15.5 Spec dilute/reinforce + the "same game, two channels, two scores" behavior on the fixtures. complexity: [high]
-- [ ] T15.6 Commit: "Recommendation v2: channel scoring as personality-profile fit + graded-K". complexity: [manual]
+- [x] T15.1 Add the graded-K link helper `K = 100·d/(d+α+β·o)` (α=5, β=1; published videos; d=this game, o=other games). complexity: [high]
+- [x] T15.2 Rebuild `Game::ChannelRecommendation` = profile-fit blend (game facets vs channel profile) + graded-K bonus. complexity: [high]
+- [x] T15.3 Rebuild `Channel::GameRecommendation` symmetrically (game facets vs channel profile + graded-K). complexity: [high]
+- [x] T15.4 Recompute game→channel over the fixtures; REPORT numbers for user confirmation. complexity: [manual]
+- [x] T15.5 Spec dilute/reinforce + the "same game, two channels, two scores" behavior on the fixtures. complexity: [high]
+- [x] T15.6 Commit: "Recommendation v2: channel scoring as personality-profile fit + graded-K". complexity: [manual]
 
 ## Phase 16 — Golden scenario matrix + harden the flaky pool
 

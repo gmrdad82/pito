@@ -1,29 +1,25 @@
-# Channels best suited to a game — the **game→channel** direction.
+# frozen_string_literal: true
+
+# Channels best suited to a game — the **game→channel** direction. (v2)
 #
-# "Which of my channels suits this game/video?" Design B: a channel has no
-# embedding of its own; it IS its videos and the games those videos are linked
-# to. A channel's score for game `g` is the strongest of three signals:
+# "Which of my channels should this game's video go on?" A channel is a
+# PERSONALITY (good / hard / survival / …), distilled into an aggregate
+# `Pito::Recommendation::ChannelProfile` from the games its published videos
+# link to. The score is the game's fit to that profile, plus a small graded-K
+# link bonus:
 #
-#   K  — explicit link: the channel owns a video linked to `g`. Definitive,
-#        human-asserted → LINK_SCORE (100), regardless of facets/embedding.
-#   GG — composed game→game similarity: the best `Pito::Recommendation::
-#        GameSimilarity.between(g, linked_game)` across the games the channel
-#        already covers. THIS is the Dead Space hop — a never-recorded game
-#        routes to the channel whose covered games are most like it.
-#   E  — video-embedding cold-start fallback: the channel's video nearest `g`
-#        (cosine), for relevant-but-not-yet-linked content.
+#   channel_score = clamp(ProfileFit(game, profile) + gradedK(depth, other), 0, 100)
+#     ProfileFit — how well the game's facets match the channel's personality
+#     gradedK    — α=5/β=1 bonus for a game already published on the channel
+#                  (depth = its published videos there, other = the rest); 0 when
+#                  unlinked, so it never dominates the fit.
 #
-#   channel_score = max(K, GG, E)
-#
-# Ranked best-first; no count cap. Below FLOOR is a "bad" score and dropped
-# (unless `include_all:`). `limit:` optionally takes a top-N slice.
-#
-# `include_all: true` returns EVERY channel — ones with no relevant videos/links
-# score 0 and sort last — so the user always sees their full channel slate.
+# Ranked best-first, dropped below FLOOR (unless `include_all:`). `include_all:`
+# returns EVERY channel (empty-profile ones score 0 and sort last) so the user
+# always sees their full slate. `limit:` takes a top-N slice.
 class Game
   class ChannelRecommendation
-    FLOOR      = Pito::Recommendation::Weights::FLOOR
-    LINK_SCORE = Pito::Recommendation::Weights::LINK_SCORE
+    FLOOR = Pito::Recommendation::Weights::FLOOR
 
     Result = Struct.new(:channel, :score, :breakdown, keyword_init: true)
 
@@ -40,22 +36,24 @@ class Game
     def call
       return [] if @game.nil?
 
-      scores = Hash.new(0.0) # channel_id => best score so far (0–100 float)
-
-      apply_embedding_signal(scores) # E
-      apply_similarity_signal(scores) # GG
-      linked_channel_ids.each { |cid| scores[cid] = LINK_SCORE.to_f } # K (definitive)
-
-      channel_ids = @include_all ? ::Channel.pluck(:id) : scores.keys
+      channel_ids = @include_all ? ::Channel.pluck(:id) : profiled_channel_ids
       return [] if channel_ids.empty?
 
+      counts   = link_counts
+      totals   = channel_totals(counts)
       channels = ::Channel.where(id: channel_ids).index_by(&:id)
+
       ranked = channel_ids.filter_map { |cid|
         channel = channels[cid] or next
-        score = scores[cid].round
+
+        profile = Pito::Recommendation::ChannelProfile.call(channel)
+        fit     = Pito::Recommendation::ProfileFit.call(@game, profile)
+        depth   = counts[[ cid, @game.id ]] || 0
+        link    = Pito::Recommendation::Weights.graded_link(depth, (totals[cid] || 0) - depth).round
+        score   = [ fit + link, 100 ].min
         next if !@include_all && score < FLOOR
 
-        Result.new(channel: channel, score: score, breakdown: nil)
+        Result.new(channel: channel, score: score, breakdown: { fit: fit, link: link })
       }.sort_by { |result| [ -result.score, result.channel.id ] }
 
       @limit ? ranked.first(@limit) : ranked
@@ -63,58 +61,23 @@ class Game
 
     private
 
-    # E — best video-embedding similarity per channel.
-    def apply_embedding_signal(scores)
-      return if @game.summary_embedding.blank?
+    def published = ::Video.privacy_statuses[:public]
 
-      embedded_videos.each do |video|
-        e = Pito::Recommendation::Signals.embedding(video.neighbor_distance)
-        scores[video.channel_id] = e if e > scores[video.channel_id]
-      end
+    # Channels that have at least one published video linked to a game.
+    def profiled_channel_ids
+      ::Video.where(privacy_status: published).joins(:video_game_links).distinct.pluck(:channel_id)
     end
 
-    # GG — best composed game→game similarity between the target and each
-    # channel's already-linked games.
-    def apply_similarity_signal(scores)
-      linked_games_by_channel.each do |channel_id, games|
-        gg = games.map { |lg| Pito::Recommendation::GameSimilarity.between(@game, lg)[:score] }.max
-        scores[channel_id] = gg if gg && gg > scores[channel_id]
-      end
+    # { [channel_id, game_id] => published_video_count }
+    def link_counts
+      ::Video.where(privacy_status: published)
+             .joins(:video_game_links)
+             .group(:channel_id, "video_game_links.game_id")
+             .count
     end
 
-    # Channel ids that own at least one video explicitly linked to this game.
-    def linked_channel_ids
-      ::Video
-        .joins(:video_game_links)
-        .where(video_game_links: { game_id: @game.id })
-        .distinct
-        .pluck(:channel_id)
-    end
-
-    # { channel_id => [linked Game, …] } across all channels' videos, with the
-    # games' facets preloaded so `GameSimilarity.between` does no extra queries.
-    def linked_games_by_channel
-      pairs = ::VideoGameLink
-        .joins(:video)
-        .pluck(Arel.sql("videos.channel_id"), :game_id)
-      return {} if pairs.empty?
-
-      games = ::Game
-        .where(id: pairs.map(&:last).uniq)
-        .includes(:genres, :developer_companies, :publisher_companies)
-        .index_by(&:id)
-
-      pairs.each_with_object(Hash.new { |h, k| h[k] = [] }) do |(channel_id, game_id), acc|
-        game = games[game_id] and acc[channel_id] << game
-      end
-    end
-
-    # All embedded videos, ordered nearest-first; grouped by channel above so
-    # each channel surfaces on its best-matching video.
-    def embedded_videos
-      ::Video
-        .where.not(summary_embedding: nil)
-        .nearest_neighbors(:summary_embedding, @game.summary_embedding, distance: "cosine")
+    def channel_totals(counts)
+      counts.each_with_object(Hash.new(0)) { |((cid, _gid), c), acc| acc[cid] += c }
     end
   end
 end

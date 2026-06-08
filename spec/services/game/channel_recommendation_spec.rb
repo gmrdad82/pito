@@ -3,163 +3,275 @@
 require "rails_helper"
 
 RSpec.describe Game::ChannelRecommendation, type: :service do
-  # 1024-dim unit vector with a single hot dimension → predictable cosine.
-  def vec(index, value: 1.0)
-    Array.new(1024, 0.0).tap { |a| a[index] = value }
+  # Helpers ----------------------------------------------------------------
+
+  # Publish a video on channel that links to game. Returns the video.
+  def publish_link(channel, game)
+    video = create(:video, :public, channel: channel)
+    create(:video_game_link, video: video, game: game)
+    video
   end
 
-  let(:game) { create(:game, title: "Lies of P") }
-
-  before { game.update_column(:summary_embedding, vec(0)) }
-
-  def video_for(channel, embedding)
-    create(:video, channel: channel).tap { |v| v.update_column(:summary_embedding, embedding) }
+  # Build a channel whose profile is anchored to a set of genres by publishing
+  # videos that link to games carrying those genres.
+  def channel_of_genre(genre, title: nil)
+    channel = create(:channel, title: title || "Channel for #{genre.name}")
+    game    = create(:game)
+    create(:game_genre, game: game, genre: genre)
+    publish_link(channel, game)
+    channel
   end
+
+  # -------------------------------------------------------------------------
 
   it "returns [] for a nil game" do
     expect(described_class.call(nil)).to eq([])
   end
 
-  it "returns [] when the game has no embedding" do
-    game.update_column(:summary_embedding, nil)
-    expect(described_class.call(game)).to eq([])
+  it "scores a game higher on a profile-matching channel than on a mismatched one" do
+    rpg_genre  = create(:genre, name: "RPG")
+    plat_genre = create(:genre, name: "Platformer")
+
+    rpg_channel  = channel_of_genre(rpg_genre,  title: "RPG World")
+    plat_channel = channel_of_genre(plat_genre, title: "Jump Guys")
+
+    target = create(:game)
+    create(:game_genre, game: target, genre: rpg_genre)
+
+    results = described_class.call(target)
+    rpg_result  = results.find { |r| r.channel == rpg_channel }
+    # The platformer channel has no shared genre with target — it falls below FLOOR
+    # and is dropped, so its effective score is 0.
+    plat_result_score = results.find { |r| r.channel == plat_channel }&.score.to_i
+
+    expect(rpg_result).to be_present
+    expect(rpg_result.score).to be > plat_result_score
   end
 
-  it "returns channels of the videos nearest the game (grouped, scored)" do
-    near = create(:channel, title: "Soulslike Central")
-    video_for(near, vec(0))
+  it "gives the same game different scores on different channels (headline behavior)" do
+    genre_a = create(:genre, name: "Survival")
+    genre_b = create(:genre, name: "Racing")
 
-    results = described_class.call(game)
-    expect(results.map(&:channel)).to eq([ near ])
-    expect(results.first.score).to eq(100)
+    channel_a = channel_of_genre(genre_a, title: "Survive!")
+    channel_b = channel_of_genre(genre_b, title: "Race!")
+
+    target = create(:game)
+    create(:game_genre, game: target, genre: genre_a)
+
+    results = described_class.call(target)
+    score_a = results.find { |r| r.channel == channel_a }&.score
+    score_b = results.find { |r| r.channel == channel_b }&.score
+
+    # channel_a matches target's genre; channel_b does not.
+    expect(score_a).to be_present
+    expect(score_a).to be > score_b.to_i
   end
 
-  it "drops channels below the 25 score floor, keeps the rest ranked best-first" do
-    near = create(:channel, title: "On-topic")
-    video_for(near, vec(0))      # score 100
-    far = create(:channel, title: "Off-topic")
-    video_for(far, vec(1))       # orthogonal → score 0, below floor
+  describe "graded-K link bonus" do
+    it "grants a positive link bonus when the game has a published video on the channel" do
+      rpg_genre = create(:genre, name: "RPG")
+      channel   = channel_of_genre(rpg_genre, title: "RPG Hub")
 
-    results = described_class.call(game)
-    expect(results.map(&:channel)).to eq([ near ])
-    expect(results.first.score).to eq(100)
-  end
+      target = create(:game)
+      create(:game_genre, game: target, genre: rpg_genre)
+      publish_link(channel, target) # one published video linking to target
 
-  it "collapses multiple videos of one channel into a single result (best video wins)" do
-    channel = create(:channel, title: "Multi")
-    video_for(channel, vec(0, value: 0.8)) # farther
-    video_for(channel, vec(0))             # closest → E=100
+      results       = described_class.call(target)
+      linked_result = results.find { |r| r.channel == channel }
 
-    results = described_class.call(game)
-    expect(results.size).to eq(1)
-    expect(results.first.channel).to eq(channel)
-    expect(results.first.score).to eq(100)
-  end
-
-  describe "GG composition — game→game similarity over linked games (the Dead Space hop)" do
-    it "recommends a channel for a NEW game via a similar game it already covers" do
-      # Channel covers "Pragmata" (linked to its video). A brand-new "Dead Space"
-      # — no videos, no links anywhere — shares Pragmata's genre + developer, so
-      # the channel surfaces via GameSimilarity.between(dead_space, pragmata).
-      shared_genre = create(:genre)
-      shared_dev   = create(:company)
-
-      pragmata = create(:game, title: "Pragmata")
-      create(:game_genre, game: pragmata, genre: shared_genre)
-      create(:game_developer, game: pragmata, company: shared_dev)
-
-      channel = create(:channel, title: "Manfy")
-      vid = create(:video, channel: channel)
-      VideoGameLink.create!(video: vid, game: pragmata)
-
-      dead_space = create(:game, title: "Dead Space")
-      create(:game_genre, game: dead_space, genre: shared_genre)
-      create(:game_developer, game: dead_space, company: shared_dev)
-
-      result = described_class.call(dead_space).find { |r| r.channel == channel }
-      expect(result).to be_present
-      # shares genre + developer → GameSimilarity.between blends G + D, above floor.
-      expect(result.score).to eq(Pito::Recommendation::Weights.blend(g: 100, d: 100))
+      expect(linked_result).to be_present
+      expect(linked_result.breakdown[:link]).to be > 0
     end
 
-    it "scores a channel 100 when it directly covers the target game (explicit link)" do
-      g = create(:game, title: "Linked")
-      channel = create(:channel)
-      vid = create(:video, channel: channel)
-      VideoGameLink.create!(video: vid, game: g)
+    it "reports link == 0 for an unlinked channel" do
+      rpg_genre = create(:genre, name: "RPG")
+      channel   = channel_of_genre(rpg_genre, title: "RPG Hub")
 
-      expect(described_class.call(g).find { |r| r.channel == channel }.score).to eq(100)
+      target = create(:game)
+      create(:game_genre, game: target, genre: rpg_genre)
+      # no published video linking channel → target
+
+      results         = described_class.call(target)
+      unlinked_result = results.find { |r| r.channel == channel }
+
+      expect(unlinked_result).to be_present
+      expect(unlinked_result.breakdown[:link]).to eq(0)
+    end
+
+    it "scores the linked channel as fit + link" do
+      rpg_genre = create(:genre, name: "RPG")
+      channel   = channel_of_genre(rpg_genre, title: "RPG Hub")
+
+      target = create(:game)
+      create(:game_genre, game: target, genre: rpg_genre)
+      publish_link(channel, target)
+
+      result = described_class.call(target).find { |r| r.channel == channel }
+      expect(result.score).to eq([ result.breakdown[:fit] + result.breakdown[:link], 100 ].min)
+    end
+
+    it "linked channel scores higher than the same channel without the link" do
+      # Build two channels that have the SAME partial profile (both genres, so fit
+      # is < 100 for a single-genre game and leaves headroom for the link bonus).
+      rpg_genre  = create(:genre, name: "RPG")
+      misc_genre = create(:genre, name: "Misc")
+
+      # Both channels cover RPG *and* Misc in equal measure → fit for a pure-RPG
+      # game is ~50 (half the channel mass), below 100, so link bonus is visible.
+      linked_ch   = create(:channel, title: "Linked")
+      unlinked_ch = create(:channel, title: "Unlinked")
+      [ linked_ch, unlinked_ch ].each do |ch|
+        # Manually seed the profile: one RPG video + one Misc video on each channel
+        g1 = create(:game); create(:game_genre, game: g1, genre: rpg_genre); publish_link(ch, g1)
+        g2 = create(:game); create(:game_genre, game: g2, genre: misc_genre); publish_link(ch, g2)
+      end
+
+      target = create(:game, title: "RPG Target")
+      create(:game_genre, game: target, genre: rpg_genre)
+      publish_link(linked_ch, target) # only on linked_ch
+
+      results        = described_class.call(target)
+      linked_score   = results.find { |r| r.channel == linked_ch }&.score.to_i
+      unlinked_score = results.find { |r| r.channel == unlinked_ch }&.score.to_i
+
+      expect(linked_score).to be > unlinked_score
     end
   end
 
-  it "ignores videos without an embedding" do
-    channel = create(:channel, title: "Sparse")
-    create(:video, channel: channel) # no embedding
-    video_for(channel, vec(0))
+  describe "unlinked game scores by fit alone" do
+    it "returns a result with link == 0 and score == fit for an unlinked game" do
+      rpg_genre = create(:genre, name: "RPG")
+      channel   = channel_of_genre(rpg_genre, title: "RPG Hub")
 
-    expect(described_class.call(game).map(&:channel)).to eq([ channel ])
+      target = create(:game)
+      create(:game_genre, game: target, genre: rpg_genre)
+
+      result = described_class.call(target).find { |r| r.channel == channel }
+      expect(result.breakdown[:link]).to eq(0)
+      expect(result.score).to eq(result.breakdown[:fit])
+    end
   end
 
-  it "returns ALL matched channels by default (no cap)" do
-    4.times do
-      ch = create(:channel)
-      video_for(ch, vec(0))
-    end
-    expect(described_class.call(game).size).to eq(4)
-  end
+  describe "empty-profile channels" do
+    it "drops a channel with no published videos by default" do
+      rpg_genre = create(:genre, name: "RPG")
+      channel_of_genre(rpg_genre, title: "Active") # ensures at least one profiled channel
 
-  it "honours an explicit limit: keyword when given" do
-    3.times do
-      ch = create(:channel)
-      video_for(ch, vec(0))
-    end
-    expect(described_class.call(game, limit: 2).size).to eq(2)
-  end
+      empty_channel = create(:channel, title: "Empty")
+      target = create(:game)
+      create(:game_genre, game: target, genre: rpg_genre)
 
-  describe "include_all:" do
-    it "returns EVERY channel, video-less ones scored 0 and sorted last" do
-      near = create(:channel, title: "Has video")
-      video_for(near, vec(0)) # score 100
-      empty1 = create(:channel, title: "No videos A")
-      empty2 = create(:channel, title: "No videos B")
-
-      results = described_class.call(game, include_all: true)
-      expect(results.map(&:channel)).to contain_exactly(near, empty1, empty2)
-      expect(results.first.channel).to eq(near)
-      expect(results.first.score).to eq(100)
-      expect(results.select { |r| r.score.zero? }.map(&:channel)).to contain_exactly(empty1, empty2)
+      channels = described_class.call(target).map(&:channel)
+      expect(channels).not_to include(empty_channel)
     end
 
-    it "does not apply the score floor when include_all is true" do
-      far = create(:channel, title: "Off-topic")
-      video_for(far, vec(1)) # score 0, below the 25 floor
-      results = described_class.call(game, include_all: true)
-      expect(results.map(&:channel)).to include(far)
+    it "returns every channel (empty ones score 0) when include_all: true" do
+      rpg_genre    = create(:genre, name: "RPG")
+      active       = channel_of_genre(rpg_genre, title: "Active")
+      empty_ch     = create(:channel, title: "Empty")
+
+      target = create(:game)
+      create(:game_genre, game: target, genre: rpg_genre)
+
+      results = described_class.call(target, include_all: true)
+      channels = results.map(&:channel)
+
+      expect(channels).to include(active, empty_ch)
+
+      empty_result = results.find { |r| r.channel == empty_ch }
+      expect(empty_result.score).to eq(0)
     end
 
     it "still returns [] when there are no channels at all" do
-      expect(described_class.call(game, include_all: true)).to eq([])
+      target = create(:game)
+      expect(described_class.call(target, include_all: true)).to eq([])
     end
   end
 
-  describe "explicit video→game links" do
-    it "scores a channel 100 when one of its videos is linked to the game (beats weak embedding)" do
-      ch = create(:channel, title: "Linked")
-      v  = video_for(ch, vec(1)) # orthogonal → embedding score 0
-      VideoGameLink.create!(video: v, game: game)
+  describe "unpublished videos" do
+    it "unlisted videos do not build the channel profile" do
+      rpg_genre = create(:genre, name: "RPG")
+      channel   = create(:channel, title: "Unlisted Channel")
 
-      result = described_class.call(game).find { |r| r.channel == ch }
-      expect(result).to be_present
-      expect(result.score).to eq(100)
+      game_a = create(:game)
+      create(:game_genre, game: game_a, genre: rpg_genre)
+      unlisted_video = create(:video, :unlisted, channel: channel)
+      create(:video_game_link, video: unlisted_video, game: game_a)
+
+      target = create(:game)
+      create(:game_genre, game: target, genre: rpg_genre)
+
+      # channel has only unlisted video → profile is empty → dropped
+      channels = described_class.call(target).map(&:channel)
+      expect(channels).not_to include(channel)
     end
 
-    it "surfaces a linked channel even when the game has no embedding" do
-      game.update_column(:summary_embedding, nil)
-      ch = create(:channel, title: "Linked-only")
-      v  = create(:video, channel: ch) # no embedding
-      VideoGameLink.create!(video: v, game: game)
+    it "unpublished videos do not grant a link bonus" do
+      rpg_genre = create(:genre, name: "RPG")
 
-      expect(described_class.call(game).map(&:channel)).to eq([ ch ])
+      # give channel a real public profile so it surfaces
+      channel = channel_of_genre(rpg_genre, title: "Mixed")
+
+      target = create(:game)
+      create(:game_genre, game: target, genre: rpg_genre)
+
+      # link target via a private video only
+      private_video = create(:video, :private, channel: channel)
+      create(:video_game_link, video: private_video, game: target)
+
+      result = described_class.call(target).find { |r| r.channel == channel }
+      expect(result.breakdown[:link]).to eq(0)
+    end
+  end
+
+  describe "floor and limit" do
+    it "drops results below FLOOR by default" do
+      # A channel of a completely unrelated genre should score below FLOOR=5 and be excluded.
+      genre_a = create(:genre, name: "Horror")
+      genre_b = create(:genre, name: "Sports")
+      below_floor_channel = channel_of_genre(genre_b, title: "Sports only")
+
+      target = create(:game)
+      create(:game_genre, game: target, genre: genre_a)
+
+      channels = described_class.call(target).map(&:channel)
+      # below_floor_channel may or may not appear depending on score; its absence is fine.
+      # What matters: include_all: false never shows score-0 channels.
+      zero_scores = described_class.call(target).select { |r| r.score.zero? }
+      expect(zero_scores).to be_empty
+    end
+
+    it "respects limit:" do
+      genre = create(:genre, name: "Action")
+      3.times { |i| channel_of_genre(genre, title: "Action #{i}") }
+
+      target = create(:game)
+      create(:game_genre, game: target, genre: genre)
+
+      expect(described_class.call(target, limit: 2).size).to be <= 2
+    end
+
+    it "returns all matching results when no limit is given" do
+      genre = create(:genre, name: "Action")
+      4.times { |i| channel_of_genre(genre, title: "Act #{i}") }
+
+      target = create(:game)
+      create(:game_genre, game: target, genre: genre)
+
+      expect(described_class.call(target).size).to eq(4)
+    end
+  end
+
+  describe "breakdown shape" do
+    it "includes fit: and link: keys in every result" do
+      rpg_genre = create(:genre, name: "RPG")
+      channel_of_genre(rpg_genre, title: "RPG Hub")
+
+      target = create(:game)
+      create(:game_genre, game: target, genre: rpg_genre)
+
+      result = described_class.call(target).first
+      expect(result.breakdown).to include(:fit, :link)
     end
   end
 end

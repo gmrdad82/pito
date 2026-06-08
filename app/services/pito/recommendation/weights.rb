@@ -44,8 +44,28 @@ module Pito
 
       BLEND = { e: E, g: G, t: T, pp: PP, s: S, ttb: TTB, era: ERA, platform: PLATFORM, d: D, p: P }.freeze
 
-      LINK_SCORE = 100 # explicit link → definitive match
+      LINK_SCORE = 100 # explicit link → definitive match (legacy whole-link)
       FLOOR      = 5   # drop blended scores below this (near-noise only)
+
+      # Graded link bonus for genre-channels (D-rec-2). A channel is a
+      # personality, not a game's home, so one video must NOT pin it to 100:
+      #
+      #   K = 100 · d / (d + α + β·o)
+      #     d = PUBLISHED videos on the channel linked to THIS game (depth)
+      #     o = PUBLISHED videos on the channel linked to OTHER games (breadth)
+      #
+      # α=5 keeps a lone video small (~17 on a focused channel, ~6 on a busy
+      # one); β=1 dilutes hard as the channel broadens. Added as a small bonus on
+      # top of the profile-fit, never the whole score.
+      DEPTH_ALPHA   = 5.0
+      DILUTION_BETA = 1.0
+
+      def self.graded_link(depth, other)
+        d = depth.to_f
+        return 0.0 if d <= 0
+
+        100.0 * d / (d + DEPTH_ALPHA + DILUTION_BETA * other.to_f)
+      end
 
       # Normalized weighted blend over ONLY the signals the caller put in
       # `breakdown` (each 0–100). Absent facets are omitted upstream — NOT scored

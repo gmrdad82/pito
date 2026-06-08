@@ -59,4 +59,20 @@ RSpec.describe Pito::Recommendation::Weights do
       expect(described_class.blend(e: 100)).to eq(100)
     end
   end
+
+  describe ".graded_link (α=5, β=1)" do
+    it "is 0 when the game has no published video on the channel" do
+      expect(described_class.graded_link(0, 10)).to eq(0.0)
+    end
+
+    it "keeps a lone video small on a focused channel and smaller on a busy one" do
+      expect(described_class.graded_link(1, 0)).to be_within(0.1).of(16.7)  # 100/(1+5)
+      expect(described_class.graded_link(1, 10)).to be_within(0.1).of(6.25) # 100/(1+5+10)
+    end
+
+    it "rises with depth and falls with breadth" do
+      expect(described_class.graded_link(3, 0)).to be > described_class.graded_link(1, 0)
+      expect(described_class.graded_link(1, 20)).to be < described_class.graded_link(1, 5)
+    end
+  end
 end
