@@ -87,7 +87,7 @@ feed that engine.
 - Phase 14 — Recommendation v2: channel personality profile (TF-weighted aggregate)
 - Phase 15 — Recommendation v2: channel recommendation rebuild (profile-fit + graded-K, both ways; validate)
 - Phase 16 — Recommendation v2: golden scenario matrix + harden the flaky pool spec
-- Phase 17 — Polish: `list videos` UI (column alignment, optional `add` columns, follow-up `show video`)
+- Phase 17 — Polish: `list videos` UI (column alignment, `with <cols>` magic word, follow-up `show video`)
 - Help A — `/help` for commands (keep) [TO DISCUSS]
 - Help B — `#help` + `help` for hashtags & free messages [TO DISCUSS]
 
@@ -372,11 +372,13 @@ Requirements (from the user, with screenshot):
   "video_list"`) and add a `Pito::FollowUp::Handlers::VideoList` with a `show`
   action so `#<handle> show video <id|title>` opens the video detail (mirrors the
   game list's `#<handle> show <id>`).
-- **Optional columns via `add`** — `list videos … add <col> [<col> …]` appends
-  columns to the table, chosen from: **game** (linked game title), **duration**,
+- **Optional columns via the `with` magic word** — `list videos … with <col>[,<col>…]`
+  appends columns, chosen from: **game** (linked game title), **duration**,
   **views**, **likes**, **comments** (the last three from `Pito::Stats`). One or
-  more columns; order as typed.
-- **Autosuggestions** — the `add` keyword offers the column names
+  more, **comma-separated** — accept both `,` and `, ` as the enumerator
+  (e.g. `list videos with game,duration,views` or `… with game, duration, views`);
+  order preserved.
+- **Autosuggestions** — after `with `, offer the column names
   (game/duration/views/likes/comments) as tab-completable suggestions (wire a
   column vocabulary into the suggestions catalog).
 - **Duration format** — `H:MM:SS` / `M:SS` (e.g. `9:34`, `1:02:22`, `43:23`,
@@ -388,12 +390,12 @@ Requirements (from the user, with screenshot):
 - [ ] T17.3 Render the `@handle` in cyan. complexity: [low]
 - [ ] T17.4 Stamp the list message follow-up-able (`reply_target: "video_list"`). complexity: [low]
 - [ ] T17.5 Add `Pito::FollowUp::Handlers::VideoList` with a `show` action → `#<handle> show video <id|title>` opens the video detail. complexity: [high]
-- [ ] T17.6 Parse `list videos … add <columns>` (game/duration/views/likes/comments, one+; order preserved). complexity: [high]
+- [ ] T17.6 Parse `list videos … with <columns>` — `with` magic word, comma-separated (`,` and `, `), one+; order preserved. complexity: [high]
 - [ ] T17.7 Render the requested extra columns in the expanded KV-table (counts via `Pito::Stats`). complexity: [high]
-- [ ] T17.8 Add a column vocabulary to the suggestions catalog so `add ` tab-completes the column names. complexity: [high]
-- [ ] T17.9 Add specs: alignment/columns, `@handle` cyan, follow-up `show video`, duration format, `add` parsing + autosuggest. complexity: [high]
+- [ ] T17.8 Add a column vocabulary to the suggestions catalog so `with ` tab-completes the column names. complexity: [high]
+- [ ] T17.9 Add specs: alignment/columns, `@handle` cyan, follow-up `show video`, duration format, `with` parsing (comma enumerator) + autosuggest. complexity: [high]
 - [ ] T17.10 Run the new specs; make green. complexity: [low]
-- [ ] T17.11 Commit: "Polish list videos: aligned KV-table, add-columns, show-video follow-up". complexity: [manual]
+- [ ] T17.11 Commit: "Polish list videos: aligned KV-table, `with` columns, show-video follow-up". complexity: [manual]
 
 ---
 
