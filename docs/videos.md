@@ -1,11 +1,11 @@
 # Videos domain: commands, sync, reindex, recommendations
 
-> Status: Drafting — not signed off. Implementation waits for explicit go-ahead.
+> Status: Signed off 2026-06-08 — executing on `beta-videos`. Phase 9 still gates on D2.
 
 ## Sign-off
 
 - [x] Drafted
-- [ ] Audited
+- [x] Audited — 2026-06-08 (clean for Phases 1, 10, 2–8; Phase 9 gates on D2 — intraday cadence)
 
 ## North star
 
@@ -22,13 +22,18 @@ linked games (built on `beta-videos`).
 
 These shape several tasks; flagged here so they can be corrected before work begins.
 
-- **D1 — Video columns to drop (Phase 2).** "Keep only title, description, tags,
-  thumbnail" is read as: keep those 4 **content** fields plus the **operational**
-  columns the new features require (`channel_id`, `youtube_video_id`,
-  `privacy_status`, `publish_at`, `published_at`, `last_synced_at`,
-  `summary_embedding`, `embedded_digest`, `search_vector`). **Drop:** `category_id`,
-  `comment_count`, `like_count`, `duration_seconds`, `etag`. Views/likes/comments
-  live in `Pito::Stats`, not on the row. Confirm the drop set.
+- **D1 — Video columns (Phase 2) — RESOLVED 2026-06-08.** Keep the content fields
+  (`title`, `description`, `tags`; thumbnail is derived from `youtube_video_id`)
+  and the operational columns (`channel_id`, `youtube_video_id`, `privacy_status`,
+  `publish_at`, `published_at`, `last_synced_at`, `summary_embedding`,
+  `embedded_digest`, `search_vector`). **Also keep** `duration_seconds` (intrinsic,
+  not a stat) and `category_id` (surfaced via a new id→name map: Gaming,
+  People & Blogs, …). **Migrate** `comment_count` → `Pito::Stats` (`comments` kind)
+  and `like_count` → `Pito::Stats` (`likes` kind) — both come from the Data API
+  (`videos.list?part=statistics`), so they belong in Stats next to `views`.
+  **Drop** `etag` (dead — `Video#etag_changed?` has zero callers; re-embed is
+  digest-gated) and scrub its references. Net column drops: `etag`,
+  `comment_count`, `like_count` (the last two only after their Stats backfill).
 - **D2 — Intraday Video stats cadence (Phase 9 / task 11).** 6 channels, ~N videos,
   10K units/day YouTube quota. `videos.list` is 1 unit per call (up to 50 ids per
   call), so snapshotting all videos 3×/day (01:00 / 09:00 / 17:00 UTC) is cheap
@@ -67,6 +72,7 @@ feed that engine.
 ## Phase index
 
 - Phase 1 — Drop Game ownership (task 3)
+- Phase 10 — Purge pre-reboot video-diff legacy (independent — recommended next)
 - Phase 2 — Slim the Video model (task 4)
 - Phase 3 — Reindex messages + follow-up for channel & game (tasks 1, 2)
 - Phase 4 — Video verbs: show / delete / publish / schedule / unlist (task 5)
@@ -98,18 +104,22 @@ feed that engine.
 - [x] T1.14 Run `bundle exec rspec` for game model/handler/component specs; make green. complexity: [low]
 - [x] T1.15 Commit: "Drop Game platform ownership". complexity: [manual]
 
-## Phase 2 — Slim the Video model (task 4) [decision D1]
+## Phase 2 — Slim the Video model (task 4) [D1 resolved]
 
-- [ ] T2.1 Write a reversible migration dropping `category_id`, `comment_count`, `like_count`, `duration_seconds`, `etag` from `videos`. complexity: [low]
-- [ ] T2.2 Remove dropped attributes from `app/models/video.rb` (validations, scopes, methods). complexity: [high]
-- [ ] T2.3 Remove dropped fields from `Video::Sync` / `ImportVideosJob` YouTube mapping. complexity: [high]
-- [ ] T2.4 Remove dropped fields from `app/services/video/embed_text.rb` if referenced. complexity: [low]
-- [ ] T2.5 Confirm `Video::EmbedText` uses only title + description + tags. complexity: [low]
-- [ ] T2.6 Remove dropped fields from any video view/component. complexity: [low]
-- [ ] T2.7 Update video factory + specs to the slim column set. complexity: [high]
-- [ ] T2.8 Reindex one video locally to confirm the embed text is unchanged. complexity: [low]
-- [ ] T2.9 Run `bundle exec rspec` for video model/job/component specs; make green. complexity: [low]
-- [ ] T2.10 Commit: "Slim Video to title/description/tags/thumbnail + operational fields". complexity: [manual]
+- [ ] T2.1 Add `comments` + `likes` to `Stat::KINDS` in `app/models/stat.rb`. complexity: [low]
+- [ ] T2.2 Write `comment_count`/`like_count` to `Pito::Stats` (`comments`/`likes`) in `ImportVideosJob`. complexity: [high]
+- [ ] T2.3 Write `comment_count`/`like_count` to `Pito::Stats` in `NightlyVideoSyncJob`. complexity: [high]
+- [ ] T2.4 Write a data migration backfilling existing `videos.comment_count`/`like_count` into `stats`. complexity: [high]
+- [ ] T2.5 Add a `Video::YOUTUBE_CATEGORIES` id→name constant + `Video#category_name`. complexity: [low]
+- [ ] T2.6 Remove `etag` from `app/models/video.rb` (drop `etag_changed?`). complexity: [low]
+- [ ] T2.7 Remove `etag` writes from `ImportVideosJob`, `NightlyVideoSyncJob`, `VideoSyncBack`. complexity: [high]
+- [ ] T2.8 Remove `comment_count`/`like_count` column reads/writes from model + components. complexity: [high]
+- [ ] T2.9 Write a reversible migration dropping `etag`, `comment_count`, `like_count` from `videos`. complexity: [low]
+- [ ] T2.10 Confirm `Video::EmbedText` uses only title + description + tags. complexity: [low]
+- [ ] T2.11 Update the video factory + specs to the slim column set (counts via Stats). complexity: [high]
+- [ ] T2.12 Reindex one video locally to confirm the embed text is unchanged. complexity: [low]
+- [ ] T2.13 Run `bundle exec rspec` for video model/job/component specs; make green. complexity: [low]
+- [ ] T2.14 Commit: "Slim Video: migrate comments/likes to Stats, add category map, drop etag". complexity: [manual]
 
 ## Phase 3 — Reindex messages + follow-up (tasks 1, 2)
 
@@ -203,6 +213,27 @@ feed that engine.
 - [ ] T9.4 Add specs for the intraday stats job + batching. complexity: [high]
 - [ ] T9.5 Run the new specs; make green. complexity: [low]
 - [ ] T9.6 Commit: "Add 3×/day video stats snapshot (01:00 / 09:00 / 17:00 UTC)". complexity: [manual]
+
+## Phase 10 — Purge pre-reboot video-diff legacy (independent — recommended next)
+
+The bidirectional video-diff dialog is Phase-23 (pre-reboot, ~2026-05-11) code the
+chat-first reboot inherited but never wired into its surface. Purge the diff layer
+whole. KEEP the shared OAuth `VideosClient` + youtube error classes +
+`ServiceFactory` + `VideoSyncBack` (write-back primitive used by publish/schedule);
+only the diff-specific files go. There is no `VideoDiff` model/table to drop.
+
+- [ ] T10.1 Delete `app/jobs/bulk_video_diff_check_job.rb`. complexity: [low]
+- [ ] T10.2 Delete `app/jobs/video_diff_check_job.rb`. complexity: [low]
+- [ ] T10.3 Delete `app/services/channel/youtube/diff_computer.rb`. complexity: [low]
+- [ ] T10.4 Delete `app/services/channel/youtube/video_diff_apply.rb`. complexity: [low]
+- [ ] T10.5 Delete `app/services/channel/youtube/video_diff_persister.rb`. complexity: [low]
+- [ ] T10.6 Remove the `video_diff_check_bulk` recurring entry from `config/recurring.yml`. complexity: [low]
+- [ ] T10.7 Delete the `video_diff_detected` notification template + unregister it in `templates.rb`. complexity: [low]
+- [ ] T10.8 Remove `video_diff_detected` keys from the notifications locale files. complexity: [low]
+- [ ] T10.9 Delete the diff specs under `spec/` (diff_computer, video_diff_apply/persister, video_diff_detected). complexity: [low]
+- [ ] T10.10 Grep `DiffComputer`/`VideoDiff`/`video_diff` for stragglers; scrub dead refs + comments. complexity: [low]
+- [ ] T10.11 Run `bundle exec rspec` for the channel/youtube + notifications slices; make green. complexity: [low]
+- [ ] T10.12 Commit: "Purge pre-reboot video-diff system". complexity: [manual]
 
 ---
 
