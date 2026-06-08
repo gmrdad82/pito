@@ -68,17 +68,6 @@ module Pito
         tokens.map { |token| I18n.t("pito.game.detail.platform_label.#{token}") }.join(", ")
       end
 
-      def owned_platform_tokens
-        @game.game_platform_ownerships.map(&:platform_token)
-      end
-
-      def owned_platforms_label
-        tokens = owned_platform_tokens
-        return nil if tokens.blank?
-
-        tokens.map { |token| I18n.t("pito.game.detail.platform_label.#{token}") }.join(", ")
-      end
-
       def summary
         @game.summary.presence
       end

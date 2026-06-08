@@ -6,8 +6,7 @@ en:
           invalid_action: "Unknown action '%{action}'. Try: #<handle> show <id>."
       game_detail:
         errors:
-          invalid_action: "Unknown action '%{action}'. Try: rm, resync, update ownership <platforms>, or link to video <id|title>."
-          missing_platforms: "No platforms found. Try: update ownership ps switch steam."
+          invalid_action: "Unknown action '%{action}'. Try: rm, resync, or link to video <id|title>."
           video_not_found: "No video matching \"%{ref}\"."
           missing_video_ref: "Specify a video. Try: link to video <id|title>."
       channel_list:

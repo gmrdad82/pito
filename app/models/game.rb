@@ -10,7 +10,6 @@ class Game < ApplicationRecord
   has_many :game_publishers, dependent: :destroy
   has_many :publisher_companies, through: :game_publishers, source: :company
 
-  has_many :game_platform_ownerships, dependent: :destroy
   has_many :video_game_links, dependent: :destroy
   has_many :linked_videos, through: :video_game_links, source: :video
 

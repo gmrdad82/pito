@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_08_000001) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_08_003432) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -146,15 +146,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_08_000001) do
     t.index ["game_id", "genre_id"], name: "index_game_genres_on_game_id_and_genre_id", unique: true
     t.index ["game_id", "position"], name: "index_game_genres_on_game_id_and_position"
     t.index ["genre_id"], name: "index_game_genres_on_genre_id"
-  end
-
-  create_table "game_platform_ownerships", force: :cascade do |t|
-    t.datetime "created_at", null: false
-    t.bigint "game_id", null: false
-    t.text "platform_token", null: false
-    t.datetime "updated_at", null: false
-    t.index ["game_id", "platform_token"], name: "index_game_platform_ownerships_on_game_id_and_platform_token", unique: true
-    t.check_constraint "platform_token = ANY (ARRAY['ps'::text, 'switch'::text, 'steam'::text])", name: "game_platform_ownerships_platform_token_allowlist"
   end
 
   create_table "game_publishers", force: :cascade do |t|
@@ -459,7 +450,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_08_000001) do
   add_foreign_key "game_developers", "games", on_delete: :cascade
   add_foreign_key "game_genres", "games", on_delete: :cascade
   add_foreign_key "game_genres", "genres", on_delete: :cascade
-  add_foreign_key "game_platform_ownerships", "games", on_delete: :cascade
   add_foreign_key "game_publishers", "companies", on_delete: :cascade
   add_foreign_key "game_publishers", "games", on_delete: :cascade
   add_foreign_key "solid_queue_blocked_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade

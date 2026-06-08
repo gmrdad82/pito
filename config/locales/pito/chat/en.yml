@@ -12,11 +12,6 @@ en:
         descriptions:
           delete: "Delete a game (by id or title)"
         needs_ref: "Which game? Use `list games` to see ids, then `rm game <id>`."
-      update:
-        descriptions:
-          update: "Update game ownership platforms (by id)"
-        needs_id: "Ownership update needs a game ID. Use `list games` to see IDs, then `update game ownership <id> <platforms>`."
-        needs_platforms: "No valid platforms given. Use `update game ownership <id> ps/switch/steam` (any combo)."
       link:
         descriptions:
           link: "Link a video to a game"

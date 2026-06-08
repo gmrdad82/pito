@@ -7,7 +7,6 @@ en:
         publisher: "Publisher"
         release: "Release"
         platforms: "Platforms"
-        owned: "Owned on"
         description: "Description"
         genres: "Genres"
         no_cover: "No cover art"

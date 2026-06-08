@@ -64,15 +64,6 @@
           )) %>
     <% end %>
 
-    <% if owned_platforms_label.present? %>
-      <%= render(Pito::Table::KeyValueRowComponent.new(
-            key_text:   t("pito.game.detail.owned"),
-            value_text: owned_platforms_label,
-            key_class:  "text-fg-dim whitespace-nowrap",
-            value_class: "text-fg"
-          )) %>
-    <% end %>
-
     <% if summary.present? %>
       <%= render(Pito::Table::KeyValueRowComponent.new(
             key_text:   t("pito.game.detail.description"),

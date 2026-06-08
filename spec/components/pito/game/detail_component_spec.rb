@@ -70,18 +70,6 @@ RSpec.describe Pito::Game::DetailComponent do
     end
   end
 
-  describe "owned platforms" do
-    it "renders owned platform display labels" do
-      GamePlatformOwnership.create!(game: game, platform_token: "ps")
-      GamePlatformOwnership.create!(game: game, platform_token: "steam")
-      game.reload
-
-      node = render_inline(described_class.new(game: game))
-      expect(node.text).to include("PlayStation")
-      expect(node.text).to include("Steam")
-    end
-  end
-
   describe "genres" do
     it "renders genre names" do
       genre = create(:genre, name: "Action RPG")
@@ -187,11 +175,6 @@ RSpec.describe Pito::Game::DetailComponent do
     it "omits the genres row when no genres" do
       node = render_inline(described_class.new(game: game))
       expect(node.text).not_to include(I18n.t("pito.game.detail.genres"))
-    end
-
-    it "omits the owned row when no platform ownerships" do
-      node = render_inline(described_class.new(game: game))
-      expect(node.text).not_to include(I18n.t("pito.game.detail.owned"))
     end
   end
 end

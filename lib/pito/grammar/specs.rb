@@ -114,14 +114,6 @@ module Pito
             slots:           chat_shared_slots,
             description_key: "pito.grammar.chat.find"
           ),
-          # `update` takes a free body — the handler parses ownership subcommand
-          # and platform tokens from the remaining body tokens.
-          Spec.new(
-            namespace:       :chat,
-            name:            :update,
-            slots:           [ Slot.new(name: :title, kind: :free, optional: true) ],
-            description_key: "pito.grammar.chat.update"
-          ),
           # `link` / `unlink` take a free body — the handler splits on ` to `
           # to extract the game and video refs.
           Spec.new(
