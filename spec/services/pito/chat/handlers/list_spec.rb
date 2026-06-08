@@ -18,6 +18,10 @@ RSpec.describe Pito::Chat::Handlers::List do
     )
   end
 
+  def video_titles(payload)
+    Array(payload["table_rows"]).map { |row| row[:cells][1][:text] }
+  end
+
   # ── Games ─────────────────────────────────────────────────────────────────
 
   describe "#call with games in the library" do
@@ -145,24 +149,27 @@ RSpec.describe Pito::Chat::Handlers::List do
       it "lists all videos when channel is @all" do
         result = handler_for("list videos", channel: "@all").call
         expect(result).to be_a(Pito::Chat::Result::Ok)
-        body = result.events.first[:payload]["body"]
-        expect(body).to include("Alpha Public")
-        expect(body).to include("Alpha Unlisted")
-        expect(body).to include("Beta Public")
+        payload = result.events.first[:payload]
+        titles  = video_titles(payload)
+        expect(titles).to include("Alpha Public")
+        expect(titles).to include("Alpha Unlisted")
+        expect(titles).to include("Beta Public")
       end
 
       it "lists all videos when channel is nil" do
         result = handler_for("list videos", channel: nil).call
         expect(result).to be_a(Pito::Chat::Result::Ok)
-        body = result.events.first[:payload]["body"]
-        expect(body).to include("Alpha Public")
-        expect(body).to include("Alpha Unlisted")
-        expect(body).to include("Beta Public")
+        payload = result.events.first[:payload]
+        titles  = video_titles(payload)
+        expect(titles).to include("Alpha Public")
+        expect(titles).to include("Alpha Unlisted")
+        expect(titles).to include("Beta Public")
       end
 
-      it "returns html: true" do
+      it "renders as a table_rows kv-table (not html)" do
         payload = handler_for("list videos", channel: "@all").call.events.first[:payload]
-        expect(payload["html"]).to be(true)
+        expect(payload["table_rows"]).to be_present
+        expect(payload["html"]).to be_falsey
       end
 
       it "is NOT follow-up-able (no video_list follow-up engine)" do
@@ -175,18 +182,20 @@ RSpec.describe Pito::Chat::Handlers::List do
       it "scopes to that channel only" do
         result = handler_for("list videos", channel: "@chana").call
         expect(result).to be_a(Pito::Chat::Result::Ok)
-        body = result.events.first[:payload]["body"]
-        expect(body).to include("Alpha Public")
-        expect(body).to include("Alpha Unlisted")
-        expect(body).not_to include("Beta Public")
+        payload = result.events.first[:payload]
+        titles  = video_titles(payload)
+        expect(titles).to include("Alpha Public")
+        expect(titles).to include("Alpha Unlisted")
+        expect(titles).not_to include("Beta Public")
       end
 
       it "scopes to a channel whose handle lacks the leading @ in the DB" do
         # channel factory stores handle as "@chana" — verify normalisation works
         result = handler_for("list videos", channel: "@chanb").call
-        body = result.events.first[:payload]["body"]
-        expect(body).to include("Beta Public")
-        expect(body).not_to include("Alpha Public")
+        payload = result.events.first[:payload]
+        titles  = video_titles(payload)
+        expect(titles).to include("Beta Public")
+        expect(titles).not_to include("Alpha Public")
       end
 
       it "returns a clear not-found event for an unknown handle" do
@@ -200,20 +209,22 @@ RSpec.describe Pito::Chat::Handlers::List do
     context "with `published` filter" do
       it "returns only public videos" do
         result = handler_for("list videos published", channel: "@all").call
-        body = result.events.first[:payload]["body"]
-        expect(body).to include("Alpha Public")
-        expect(body).to include("Beta Public")
-        expect(body).not_to include("Alpha Unlisted")
+        payload = result.events.first[:payload]
+        titles  = video_titles(payload)
+        expect(titles).to include("Alpha Public")
+        expect(titles).to include("Beta Public")
+        expect(titles).not_to include("Alpha Unlisted")
       end
     end
 
     context "with `unlisted` filter" do
       it "returns only unlisted videos" do
         result = handler_for("list videos unlisted", channel: "@all").call
-        body = result.events.first[:payload]["body"]
-        expect(body).to include("Alpha Unlisted")
-        expect(body).not_to include("Alpha Public")
-        expect(body).not_to include("Beta Public")
+        payload = result.events.first[:payload]
+        titles  = video_titles(payload)
+        expect(titles).to include("Alpha Unlisted")
+        expect(titles).not_to include("Alpha Public")
+        expect(titles).not_to include("Beta Public")
       end
     end
 
