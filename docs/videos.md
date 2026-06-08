@@ -1,6 +1,6 @@
 # Videos domain: commands, sync, reindex, recommendations
 
-> Status: Signed off 2026-06-08 — executing on `beta-videos`. Phases 1/10/2/3/4/5/6/7/8/9 DONE. Phase 11 SUPERSEDED. **Recommendation v2 (Phases 12–16) is the active workstream** — channel-personality model; validated by reporting recomputed numbers on the 7-game fixtures. D2 resolved → 3×/day.
+> Status: Signed off 2026-06-08 — executing on `beta-videos`. Phases 1–10 + 12–16 DONE (Recommendation v2 complete: channel-personality model, user-validated). Phase 11 SUPERSEDED. Remaining: Phase 17 (list videos UI polish) + Help A/B. D2 → 3×/day.
 
 ## Sign-off
 
@@ -353,9 +353,9 @@ Locked decisions (from the design discussion, 2026-06-08):
 
 ## Phase 16 — Golden scenario matrix + harden the flaky pool
 
-- [ ] T16.1 Build the exhaustive golden matrix (game↔game + game→channel) over the fixtures, locked to confirmed numbers. complexity: [high]
-- [ ] T16.2 Harden the order-dependent `GameSimilarity` pool/limit spec (deterministic clean slate). complexity: [high]
-- [ ] T16.3 Run the FULL suite to completion green (no abort, deterministic count); commit. complexity: [manual]
+- [x] T16.1 Build the exhaustive golden matrix (game↔game + game→channel) over the fixtures, locked to confirmed numbers. complexity: [high]
+- [x] T16.2 Harden the order-dependent `GameSimilarity` pool/limit spec (deterministic clean slate). complexity: [high]
+- [x] T16.3 Run the FULL suite to completion green (no abort, deterministic count); commit. complexity: [manual]
 
 ## Phase 17 — Polish: `list videos` UI (AFTER Recommendation v2)
 

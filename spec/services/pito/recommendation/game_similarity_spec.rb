@@ -154,8 +154,13 @@ RSpec.describe Pito::Recommendation::GameSimilarity, type: :service do
   end
 
   it "honours the limit: keyword" do
-    target = make_game(embedding: vec(0))
-    3.times { make_game(embedding: vec(0)) }
+    # Pin the candidates to the target via a SHARED GENRE so they land in the
+    # deterministic facet pool, not just the approximate embedding pool — this
+    # keeps the test order-independent (it used to flake under suite ordering
+    # when the HNSW pool crowded the vec(0) twins out).
+    genre  = create(:genre, name: "Shared Pool Genre")
+    target = make_game(embedding: vec(0), genres: [ genre ])
+    3.times { make_game(embedding: vec(0), genres: [ genre ]) }
     expect(described_class.call(target, limit: 2).size).to eq(2)
   end
 
