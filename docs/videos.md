@@ -188,15 +188,15 @@ feed that engine.
 
 ## Phase 7 — `list videos published|unlisted` by shift+tab channel (task 10)
 
-- [ ] T7.1 Add a `list videos [published|unlisted]` grammar entry. complexity: [high]
-- [ ] T7.2 Read the shift+tab channel from the request `channel` param in `ChatController`. complexity: [high]
-- [ ] T7.3 Resolve `@all` → all channels; `@handle` → that channel only. complexity: [high]
-- [ ] T7.4 Implement `list videos` filtering in `handlers/list.rb` by privacy_status + channel scope (local only). complexity: [high]
-- [ ] T7.5 Build a videos-list message/component (no pagination, list all). complexity: [high]
-- [ ] T7.6 Add copy keys for the videos list + empty state. complexity: [low]
-- [ ] T7.7 Add specs: @all lists all, @handle scopes to one channel, published vs unlisted filter. complexity: [high]
-- [ ] T7.8 Run the new specs; make green. complexity: [low]
-- [ ] T7.9 Commit: "Add list videos published/unlisted scoped by channel". complexity: [manual]
+- [x] T7.1 `list videos [published|unlisted]` handled in the list handler (free-body parse). complexity: [high]
+- [x] T7.2 Thread the `channel` param through `ChatDispatchJob → Chat::Dispatcher → Handler` (optional kwarg). complexity: [high]
+- [x] T7.3 Resolve `@all`/nil → all channels; `@<handle>` → that channel (handle-normalized); unknown → not-found copy. complexity: [high]
+- [x] T7.4 Implement `list videos` filtering in `handlers/list.rb` by privacy_status + channel scope (local only). complexity: [high]
+- [x] T7.5 Build `Video::List` message + `Pito::Video::ListComponent` (id/title/@channel/privacy, list all). complexity: [high]
+- [x] T7.6 Add copy keys for the videos list + empty states. complexity: [low]
+- [x] T7.7 Add specs: @all lists all, @handle scopes to one channel, published vs unlisted, threading regression. complexity: [high]
+- [x] T7.8 Run the new specs; make green. complexity: [low]
+- [x] T7.9 Commit: "Add list videos published/unlisted scoped by channel". complexity: [manual]
 
 ## Phase 8 — Nightly: Video stats sync + Game upcoming-only (tasks 7, 8)
 

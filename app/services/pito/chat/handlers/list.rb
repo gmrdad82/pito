@@ -1,20 +1,36 @@
 # frozen_string_literal: true
 
-# Handler for the `list` chat verb → the game library.
+# Handler for the `list` chat verb — games, channels, and videos.
 #
-# Emits a System message listing every game (title-sorted) with its **ID** as the
-# key, so the follow-up affordances (`#<handle> show <id>` / `rm <id>`) key off
-# the stable id, not the title. Stamped follow-up-able (`game_list`). Empty
-# library returns a witty empty-state. All copy via `Pito::Copy`.
+# Dispatches based on the noun in the raw input:
+#   `list` / `list games`   → game library (title-sorted, filterable, follow-up-able)
+#   `list channels`         → connected channel cards
+#   `list videos [filter]`  → video list, scoped by channel filter + optional privacy
+#
+# ## Video listing
+#
+# Syntax: `list videos [published|unlisted]`
+#
+# Channel scope comes from `self.channel` (the param threaded through the
+# dispatcher, e.g. "@all" or "@handle"):
+#   "@all" (or nil/blank) → all channels.
+#   "@<handle>"           → videos for that channel only; unknown handle → error.
+#
+# Privacy filter:
+#   "published" → Video.published (public)
+#   "unlisted"  → Video.unlisted
+#   (none)      → all videos regardless of privacy_status
+#
+# Ordering: title ASC (consistent with games + channels listing).
+#
+# Follow-up: NOT stamped (no video_list follow-up handler; simplest consistent
+# choice matching the absence of a `video_list` follow-up engine).
 #
 # NOTE: `game`/`games` are FILLER words in the grammar, so `list` and
-# `list games` parse identically — both land here. Other nouns (`list videos`,
-# `list channels`) are not listable yet, so we surface a clear error rather than
-# silently returning the games shelf.
+# `list games` parse identically — both land here.
 #
-# Filtering syntax: `list games [upcoming] [<genres>…] [<platforms>…]`
-# All parts optional, order-independent. See Pito::Chat::GameListFilter for the
-# synonym maps and filter semantics.
+# Filtering syntax for games: `list games [upcoming] [<genres>…] [<platforms>…]`
+# All parts optional, order-independent. See Pito::Chat::GameListFilter.
 module Pito
   module Chat
     module Handlers
@@ -22,18 +38,14 @@ module Pito
         self.verb = :list
         self.description_key = "pito.chat.list.descriptions.list"
 
-        # Nouns we recognise but can't list yet (only games + channels work today).
-        UNSUPPORTED_NOUN = /\bvideos?\b/i
+        PRIVACY_FILTERS = {
+          "published" => :published,
+          "unlisted"  => :unlisted
+        }.freeze
 
         def call
           return list_channels if message.raw.match?(/\bchannels?\b/i)
-
-          if (noun = message.raw[UNSUPPORTED_NOUN, 0])
-            return Pito::Chat::Result::Error.new(
-              message_key:  "pito.chat.errors.cannot_list",
-              message_args: { noun: noun.downcase }
-            )
-          end
+          return list_videos   if message.raw.match?(/\bvideos?\b/i)
 
           filtered = Pito::Chat::GameListFilter.filtered?(message.raw)
           games    = Pito::Chat::GameListFilter.call(message.raw)
@@ -48,6 +60,95 @@ module Pito
         end
 
         private
+
+        # `list videos [published|unlisted]`
+        #
+        # 1. Resolve channel scope from `self.channel`.
+        # 2. Apply privacy filter from raw input.
+        # 3. Order by title ASC.
+        def list_videos
+          # Resolve channel scope.
+          scoped, error = channel_scoped_videos
+          return error if error
+
+          # Apply privacy filter.
+          filter_key = privacy_filter_from(message.raw)
+          scoped     = scoped.public_send(filter_key) if filter_key
+
+          # Order.
+          videos = scoped.includes(:channel).order(:title)
+
+          if videos.empty?
+            return videos_empty(channel)
+          end
+
+          payload = Pito::MessageBuilder::Video::List.call(videos, conversation:)
+          Pito::Chat::Result::Ok.new(events: [ { kind: :system, payload: payload } ])
+        end
+
+        # Returns [relation, nil] or [nil, Result::Ok(error event)] for unknown handle.
+        def channel_scoped_videos
+          handle = resolved_channel_handle
+
+          if handle.nil?
+            # @all or blank → all channels
+            return [ ::Video.all, nil ]
+          end
+
+          # Channel handles may be stored with or without leading "@".
+          # Normalise both sides by stripping leading "@" before comparing.
+          norm = normalized_handle(handle)
+          ch   = ::Channel.find_by("LOWER(REPLACE(handle, '@', '')) = LOWER(?)", norm)
+          if ch.nil?
+            error_payload = Pito::MessageBuilder::Text.call(
+              "pito.copy.videos.channel_not_found",
+              handle: handle
+            )
+            return [ nil, Pito::Chat::Result::Ok.new(events: [
+              { kind: :system, payload: error_payload }
+            ]) ]
+          end
+
+          [ ch.videos, nil ]
+        end
+
+        # Returns the handle string when the channel filter is a specific channel,
+        # or nil when it is "@all" / blank / nil (meaning no channel scope).
+        def resolved_channel_handle
+          ch = channel.to_s.strip
+          return nil if ch.blank? || ch.casecmp("@all").zero?
+
+          ch
+        end
+
+        # Normalise a handle for DB lookup: strip leading @-signs.
+        def normalized_handle(handle)
+          handle.to_s.sub(/\A@+/, "")
+        end
+
+        # Returns the Symbol scope name (:published / :unlisted) or nil.
+        def privacy_filter_from(raw)
+          PRIVACY_FILTERS.each do |word, scope|
+            return scope if raw.match?(/\b#{Regexp.escape(word)}\b/i)
+          end
+          nil
+        end
+
+        # Empty-state for videos — distinct copy per channel-scoped vs. global.
+        def videos_empty(ch)
+          handle = resolved_channel_handle
+
+          if handle
+            payload = Pito::MessageBuilder::Text.call(
+              "pito.copy.videos.list_empty_channel",
+              channel: ch.to_s
+            )
+          else
+            payload = Pito::MessageBuilder::Text.call("pito.copy.videos.list_empty")
+          end
+
+          Pito::Chat::Result::Ok.new(events: [ { kind: :system, payload: payload } ])
+        end
 
         # `list channels` → inline channel cards rendered by Pito::Channel::ListComponent.
         # Returns a :system event with an html body (intro line + wrapping card strip).

@@ -3,15 +3,16 @@
 module Pito
   module Chat
     class Dispatcher
-      def self.call(input:, conversation:)
-        new(input, conversation).dispatch
+      def self.call(input:, conversation:, channel: nil)
+        new(input, conversation, channel).dispatch
       end
 
       private_class_method :new
 
-      def initialize(input, conversation)
+      def initialize(input, conversation, channel = nil)
         @input = input
         @conversation = conversation
+        @channel = channel
       end
 
       def dispatch
@@ -48,12 +49,12 @@ module Pito
           )
         end
 
-        handler = handler_class.new(message:, conversation: @conversation)
+        handler = handler_class.new(message:, conversation: @conversation, channel: @channel)
         handler.call
       end
 
       def dispatch_unknown(message)
-        handler = Pito::Chat::Handlers::Unknown.new(message:, conversation: @conversation)
+        handler = Pito::Chat::Handlers::Unknown.new(message:, conversation: @conversation, channel: @channel)
         handler.call
       end
     end

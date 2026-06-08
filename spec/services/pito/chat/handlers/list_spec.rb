@@ -10,6 +10,16 @@ RSpec.describe Pito::Chat::Handlers::List do
     )
   end
 
+  def handler_for(raw, channel: nil)
+    described_class.new(
+      message:      Pito::Chat::Message.new(verb: :list, body_tokens: [], kind: :new_turn, raw:),
+      conversation: Conversation.singleton,
+      channel:      channel
+    )
+  end
+
+  # ── Games ─────────────────────────────────────────────────────────────────
+
   describe "#call with games in the library" do
     let!(:zelda) { create(:game, title: "Tears of the Kingdom") }
     let!(:lies)  { create(:game, title: "Lies of P") }
@@ -51,22 +61,8 @@ RSpec.describe Pito::Chat::Handlers::List do
     end
   end
 
-  describe "#call with a non-games noun" do
+  describe "#call with `list games` (regression)" do
     let!(:game) { create(:game, title: "Lies of P") }
-
-    def handler_for(raw)
-      described_class.new(
-        message: Pito::Chat::Message.new(verb: :list, body_tokens: [], kind: :new_turn, raw:),
-        conversation: Conversation.singleton
-      )
-    end
-
-    it "does NOT return the games shelf for `list videos` (not listable yet)" do
-      result = handler_for("list videos").call
-      expect(result).to be_a(Pito::Chat::Result::Error)
-      expect(result.message_key).to eq("pito.chat.errors.cannot_list")
-      expect(result.message_args[:noun]).to eq("videos")
-    end
 
     it "still lists games for `list games`" do
       result = handler_for("list games").call
@@ -75,16 +71,11 @@ RSpec.describe Pito::Chat::Handlers::List do
     end
   end
 
-  describe "#call with the channels noun" do
-    let!(:beta)  { create(:channel, title: "Beta Cast", handle: "@beta", youtube_channel_id: "UCb") }
-    let!(:alpha) { create(:channel, title: "Alpha Tube", handle: "@alpha", youtube_channel_id: "UCa") }
+  # ── Channels ──────────────────────────────────────────────────────────────
 
-    def handler_for(raw)
-      described_class.new(
-        message: Pito::Chat::Message.new(verb: :list, body_tokens: [], kind: :new_turn, raw:),
-        conversation: Conversation.singleton
-      )
-    end
+  describe "#call with the channels noun" do
+    let!(:beta)  { create(:channel, title: "Beta Cast",  handle: "@beta",  youtube_channel_id: "UCb") }
+    let!(:alpha) { create(:channel, title: "Alpha Tube", handle: "@alpha", youtube_channel_id: "UCa") }
 
     it "returns an html body including each channel title" do
       body = handler_for("list channels").call.events.first[:payload]["body"]
@@ -137,6 +128,136 @@ RSpec.describe Pito::Chat::Handlers::List do
       payload = handler_for("list channels").call.events.first[:payload]
       expect(payload["text"]).to be_present
       expect(payload[:table_rows]).to be_nil
+    end
+  end
+
+  # ── Videos ────────────────────────────────────────────────────────────────
+
+  describe "#call with `list videos`" do
+    let!(:chan_a) { create(:channel, title: "Channel A", handle: "@chana", youtube_channel_id: "UCa1") }
+    let!(:chan_b) { create(:channel, title: "Channel B", handle: "@chanb", youtube_channel_id: "UCb1") }
+
+    let!(:pub_a)  { create(:video, :public,   title: "Alpha Public",   channel: chan_a) }
+    let!(:unl_a)  { create(:video, :unlisted, title: "Alpha Unlisted", channel: chan_a) }
+    let!(:pub_b)  { create(:video, :public,   title: "Beta Public",    channel: chan_b) }
+
+    context "with @all (or no channel scope)" do
+      it "lists all videos when channel is @all" do
+        result = handler_for("list videos", channel: "@all").call
+        expect(result).to be_a(Pito::Chat::Result::Ok)
+        body = result.events.first[:payload]["body"]
+        expect(body).to include("Alpha Public")
+        expect(body).to include("Alpha Unlisted")
+        expect(body).to include("Beta Public")
+      end
+
+      it "lists all videos when channel is nil" do
+        result = handler_for("list videos", channel: nil).call
+        expect(result).to be_a(Pito::Chat::Result::Ok)
+        body = result.events.first[:payload]["body"]
+        expect(body).to include("Alpha Public")
+        expect(body).to include("Alpha Unlisted")
+        expect(body).to include("Beta Public")
+      end
+
+      it "returns html: true" do
+        payload = handler_for("list videos", channel: "@all").call.events.first[:payload]
+        expect(payload["html"]).to be(true)
+      end
+
+      it "is NOT follow-up-able (no video_list follow-up engine)" do
+        payload = handler_for("list videos", channel: "@all").call.events.first[:payload]
+        expect(Pito::FollowUp.followupable?(payload)).to be(false)
+      end
+    end
+
+    context "with a specific @channel handle" do
+      it "scopes to that channel only" do
+        result = handler_for("list videos", channel: "@chana").call
+        expect(result).to be_a(Pito::Chat::Result::Ok)
+        body = result.events.first[:payload]["body"]
+        expect(body).to include("Alpha Public")
+        expect(body).to include("Alpha Unlisted")
+        expect(body).not_to include("Beta Public")
+      end
+
+      it "scopes to a channel whose handle lacks the leading @ in the DB" do
+        # channel factory stores handle as "@chana" — verify normalisation works
+        result = handler_for("list videos", channel: "@chanb").call
+        body = result.events.first[:payload]["body"]
+        expect(body).to include("Beta Public")
+        expect(body).not_to include("Alpha Public")
+      end
+
+      it "returns a clear not-found event for an unknown handle" do
+        result = handler_for("list videos", channel: "@nope").call
+        expect(result).to be_a(Pito::Chat::Result::Ok)
+        payload = result.events.first[:payload]
+        expect(payload["text"]).to include("@nope")
+      end
+    end
+
+    context "with `published` filter" do
+      it "returns only public videos" do
+        result = handler_for("list videos published", channel: "@all").call
+        body = result.events.first[:payload]["body"]
+        expect(body).to include("Alpha Public")
+        expect(body).to include("Beta Public")
+        expect(body).not_to include("Alpha Unlisted")
+      end
+    end
+
+    context "with `unlisted` filter" do
+      it "returns only unlisted videos" do
+        result = handler_for("list videos unlisted", channel: "@all").call
+        body = result.events.first[:payload]["body"]
+        expect(body).to include("Alpha Unlisted")
+        expect(body).not_to include("Alpha Public")
+        expect(body).not_to include("Beta Public")
+      end
+    end
+
+    context "empty states" do
+      it "returns distinct empty-state copy for @all when no videos exist" do
+        ::Video.delete_all
+        payload = handler_for("list videos", channel: "@all").call.events.first[:payload]
+        expect(payload["text"]).to be_present
+      end
+
+      it "returns channel-specific empty-state copy when channel has no videos" do
+        create(:channel, title: "Empty Chan", handle: "@empty", youtube_channel_id: "UCempty")
+        payload = handler_for("list videos", channel: "@empty").call.events.first[:payload]
+        expect(payload["text"]).to be_present
+        expect(payload["text"]).to include("@empty")
+      end
+
+      it "returns empty-state when published filter yields nothing" do
+        ::Video.delete_all
+        create(:video, :unlisted, title: "Only Unlisted", channel: chan_a)
+        payload = handler_for("list videos published", channel: "@all").call.events.first[:payload]
+        expect(payload["text"]).to be_present
+      end
+    end
+  end
+
+  # ── Channel threading ──────────────────────────────────────────────────────
+
+  describe "channel: threading — backward compatibility" do
+    it "constructs without channel: and works fine (default nil)" do
+      h = described_class.new(
+        message:      Pito::Chat::Message.new(verb: :list, body_tokens: [], kind: :new_turn, raw: "list games"),
+        conversation: Conversation.singleton
+      )
+      expect { h.call }.not_to raise_error
+    end
+
+    it "exposes channel via attr_reader" do
+      h = described_class.new(
+        message:      Pito::Chat::Message.new(verb: :list, body_tokens: [], kind: :new_turn, raw: "list games"),
+        conversation: Conversation.singleton,
+        channel:      "@beta"
+      )
+      expect(h.channel).to eq("@beta")
     end
   end
 end

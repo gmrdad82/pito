@@ -50,6 +50,9 @@ class Video < ApplicationRecord
        { private: 0, public: 1, unlisted: 2 },
        prefix: true
 
+  scope :published, -> { privacy_status_public }
+  scope :unlisted,  -> { privacy_status_unlisted }
+
   validates :youtube_video_id, presence: true, uniqueness: true
   validates :title, presence: true
 end

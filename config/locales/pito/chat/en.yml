@@ -3,7 +3,7 @@ en:
     chat:
       list:
         descriptions:
-          list: "List games in your library"
+          list: "List games, channels, or videos"
       show:
         descriptions:
           show: "Show a game's details (by id or title)"
@@ -41,7 +41,7 @@ en:
         unknown_input: "Didn't understand %{input}. Try /help for available commands."
         verb_not_implemented: "The chat verb %{verb} isn't wired yet."
         misrouted_slash: "Internal: slash command %{raw} reached the chat parser."
-        cannot_list: "Can't list %{noun} yet — only games. Try: list games."
+        cannot_list: "Can't list %{noun} yet. Try: list games, list channels, or list videos."
       conversations:
         errors:
           title_blank: "title cannot be blank"

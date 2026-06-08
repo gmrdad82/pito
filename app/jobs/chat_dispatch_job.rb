@@ -42,7 +42,7 @@ class ChatDispatchJob < ApplicationJob
     elsif turn.hashtag?
       Pito::Hashtag::Dispatcher.call(input:, conversation:)
     else
-      Pito::Chat::Dispatcher.call(input:, conversation:)
+      Pito::Chat::Dispatcher.call(input:, conversation:, channel:)
     end
 
     persist_and_broadcast(result, turn, conversation, broadcaster)

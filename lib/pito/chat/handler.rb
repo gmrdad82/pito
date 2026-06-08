@@ -32,11 +32,12 @@ module Pito
     class Handler
       extend Pito::Grammar::HandlerDsl
 
-      attr_reader :message, :conversation
+      attr_reader :message, :conversation, :channel
 
-      def initialize(message:, conversation:)
+      def initialize(message:, conversation:, channel: nil)
         @message = message
         @conversation = conversation
+        @channel = channel
       end
 
       def call
