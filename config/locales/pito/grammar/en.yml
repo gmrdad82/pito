@@ -17,6 +17,7 @@ en:
         show: "Show a game or video's details (by id or title)"
         import: "Get the footage probe command for a game (by id or title)"
         delete: "Delete a game or video (by id or title)"
+        reindex: "Re-embed a game or video in Voyage (by id or title)"
         publish: "Publish a video locally (set public, clear schedule)"
         unlist: "Unlist a video locally"
         schedule: "Schedule a video for future publishing"

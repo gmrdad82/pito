@@ -32,7 +32,7 @@ RSpec.describe Pito::FollowUp::Handlers::GameEnhanced, type: :service do
     expect(described_class.mode).to eq(:mutate)
   end
 
-  # ── reindex ──────────────────────────────────────────────────────────────────
+  # ── reindex (delegated to Chat::Handlers::Reindex) ───────────────────────────
 
   describe "#call — reindex" do
     let(:source_event) { build_enhanced_event }

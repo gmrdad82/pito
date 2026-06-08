@@ -77,9 +77,11 @@ module Pito
             )
           end
 
+          if action == "reindex"
+            return Pito::FollowUp::VerbDelegator.call(source_event: event, rest:, conversation:)
+          end
+
           case action
-          when "reindex"
-            handle_reindex(event, game, conversation)
           when "similar"
             handle_similar(event, game, args, conversation)
           when "channel"
@@ -93,16 +95,6 @@ module Pito
         end
 
         private
-
-        # ── reindex ────────────────────────────────────────────────────────────
-
-        def handle_reindex(event, game, conversation)
-          payload = Pito::MessageBuilder::Game::ReindexConfirmation.call(game, conversation:)
-
-          Pito::FollowUp::Result::Append.new(
-            events: [ { kind: "confirmation", payload: payload } ]
-          )
-        end
 
         # ── similar [filters] ──────────────────────────────────────────────────
 

@@ -16,6 +16,10 @@ en:
         descriptions:
           delete: "Delete a game or video (by id or title)"
         needs_ref: "Which game or video? Use `list games` to see ids, then `rm game <id>` or `rm video <id>`."
+      reindex:
+        descriptions:
+          reindex: "Re-embed a game or video in Voyage (by id or title)"
+        needs_ref: "Which game or video? Use `list games` to see ids, then `reindex game <id>` or `reindex video <id>`."
       publish:
         descriptions:
           publish: "Publish a video locally (set public, clear schedule)"

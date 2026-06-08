@@ -508,12 +508,18 @@ Locked decisions (from the design discussion, 2026-06-08):
 > embed text changed). NO IGDB/YouTube refetch, NO `Pito::Stats` — the full refresh
 > lives in `sync` (Phase 24). Drop the `resync` verb/alias entirely. **Confirmable.**
 
-- [ ] T20.1 Keep `reindex <game|video> <ref>` as the Voyage re-embed verb; remove the `resync` verb/alias + its grammar. complexity: [high]
-- [ ] T20.2 Confirmable: emit a confirmation event; on confirm, enqueue the Voyage re-embed. complexity: [high]
-- [ ] T20.3 Point the existing follow-up `reindex` actions (`game_enhanced` / `video_detail`) at the unified handler; delete any `resync` follow-up action. complexity: [high]
-- [ ] T20.4 50-variant `Pito::Copy` for the reindex confirm + outcome. complexity: [low]
-- [ ] T20.5 Specs: confirm → reindex enqueues the Voyage re-embed; `resync` is gone; chat ≡ `#<handle>`. complexity: [high]
-- [ ] T20.6 Commit. complexity: [manual]
+> NOTE (2026-06-09): `reindex` was follow-up-only (game_enhanced/video_detail/
+> channel_list); Phase 20 promotes it to a unified CHAT verb. `resync` removal is
+> DEFERRED to Phase 24 — `sync` replaces its IGDB full-refresh there, so dropping
+> it now would leave a feature gap. channel reindex (channel_list) stays separate
+> (channel entity, not the game|video reindex verb).
+
+- [x] T20.1 Create `reindex <game|video> <ref>` as a unified CHAT verb (Voyage re-embed; `resolve_target`/`video_target?`/`target_ref`); grammar Spec + auto-register. complexity: [high]
+- [x] T20.2 Confirmable: emit the existing `game_reindex`/`video_reindex` confirmation (executor branches already do the Voyage re-embed). complexity: [high]
+- [x] T20.3 Delegate the follow-up `reindex` actions (`game_enhanced` / `video_detail`) via VerbDelegator. (`resync` deferred to Phase 24; channel reindex untouched.) complexity: [high]
+- [x] T20.4 50-variant `Pito::Copy` for the reindex grammar description + any new outcome line. complexity: [low]
+- [x] T20.5 Specs: chat `reindex game|video <ref>` → confirmation; follow-up reindex delegates; chat ≡ `#<handle>`. complexity: [high]
+- [x] T20.6 Commit. complexity: [manual]
 
 ## Phase 21 — YouTube write-through: delete / publish / unlist / schedule (Confirmable)
 

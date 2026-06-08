@@ -36,7 +36,7 @@ RSpec.describe Pito::FollowUp::Handlers::VideoDetail, type: :service do
     expect(described_class.actions).to eq([ "rm", "delete", "reindex", "link", "unlink" ])
   end
 
-  # ── reindex ───────────────────────────────────────────────────────────────────
+  # ── reindex (delegated to Chat::Handlers::Reindex) ────────────────────────────
 
   describe "#call — reindex" do
     let(:source_event) { build_video_detail_event }
@@ -72,24 +72,24 @@ RSpec.describe Pito::FollowUp::Handlers::VideoDetail, type: :service do
     end
   end
 
-  # ── video_not_found ───────────────────────────────────────────────────────────
+  # ── video_not_found (delegated — Reindex handler's not-found paths) ───────────
 
   describe "#call — video_id missing from payload" do
-    it "returns a Result::Error" do
+    it "returns a Result::Error (needs_ref from Reindex handler)" do
       event  = build_video_detail_event("video_id" => nil)
       result = handler.call(event: event, rest: "reindex", conversation:)
       expect(result).to be_a(Pito::FollowUp::Result::Error)
-      expect(result.message_key).to eq("pito.follow_up.video_detail.errors.video_not_found")
+      expect(result.message_key).to eq("pito.chat.reindex.needs_ref")
     end
   end
 
   describe "#call — video no longer in DB" do
-    it "returns a Result::Error when video is deleted" do
+    it "returns a Result::Append with a not-found system event when video is deleted" do
       event = build_video_detail_event("video_id" => video.id)
       video.destroy!
       result = handler.call(event: event, rest: "reindex", conversation:)
-      expect(result).to be_a(Pito::FollowUp::Result::Error)
-      expect(result.message_key).to eq("pito.follow_up.video_detail.errors.video_not_found")
+      expect(result).to be_a(Pito::FollowUp::Result::Append)
+      expect(result.events.first[:kind].to_s).to eq("system")
     end
   end
 

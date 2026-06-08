@@ -35,49 +35,14 @@ module Pito
         def call(event:, rest:, conversation:)
           action, _args = parse_rest(rest)
 
-          if %w[rm delete link unlink].include?(action)
+          if %w[rm delete reindex link unlink].include?(action)
             return Pito::FollowUp::VerbDelegator.call(source_event: event, rest:, conversation:)
           end
 
-          case action
-          when "reindex"
-            handle_reindex(event, conversation)
-          else
-            Pito::FollowUp::Result::Error.new(
-              message_key:  "pito.follow_up.video_detail.errors.invalid_action",
-              message_args: { action: action }
-            )
-          end
-        end
-
-        private
-
-        # ── reindex ────────────────────────────────────────────────────────────
-
-        def handle_reindex(event, conversation)
-          video = resolve_video_from_event(event)
-          if video.nil?
-            return Pito::FollowUp::Result::Error.new(
-              message_key:  "pito.follow_up.video_detail.errors.video_not_found",
-              message_args: {}
-            )
-          end
-
-          payload = Pito::MessageBuilder::Video::ReindexConfirmation.call(video, conversation:)
-
-          Pito::FollowUp::Result::Append.new(
-            events: [ { kind: :confirmation, payload: payload } ]
+          Pito::FollowUp::Result::Error.new(
+            message_key:  "pito.follow_up.video_detail.errors.invalid_action",
+            message_args: { action: action }
           )
-        end
-
-        # ── helpers ────────────────────────────────────────────────────────────
-
-        def resolve_video_from_event(event)
-          payload = event.payload.with_indifferent_access
-          video_id = payload[:video_id]
-          return nil unless video_id.present?
-
-          ::Video.find_by(id: video_id)
         end
       end
     end

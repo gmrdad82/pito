@@ -116,6 +116,12 @@ module Pito
           ),
           Spec.new(
             namespace:       :chat,
+            name:            :reindex,
+            slots:           [ Slot.new(name: :title, kind: :enum, source: :game_titles, optional: true) ],
+            description_key: "pito.grammar.chat.reindex"
+          ),
+          Spec.new(
+            namespace:       :chat,
             name:            :publish,
             slots:           [ Slot.new(name: :title, kind: :free, optional: true) ],
             description_key: "pito.grammar.chat.publish"
