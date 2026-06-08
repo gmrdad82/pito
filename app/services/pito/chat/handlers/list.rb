@@ -66,11 +66,12 @@ module Pito
 
         private
 
-        # `list videos [published|unlisted]`
+        # `list videos [published|unlisted] [with <col>, …]`
         #
         # 1. Resolve channel scope from `self.channel`.
         # 2. Apply privacy filter from raw input.
-        # 3. Order by title ASC.
+        # 3. Parse extra columns from `with` clause.
+        # 4. Order by title ASC; eager-load associations needed for columns.
         def list_videos
           # Resolve channel scope.
           scoped, error = channel_scoped_videos
@@ -80,14 +81,26 @@ module Pito
           filter_key = privacy_filter_from(message.raw)
           scoped     = scoped.public_send(filter_key) if filter_key
 
-          # Order.
-          videos = scoped.includes(:channel).order(:title)
+          # Parse extra columns.
+          columns = Pito::Chat::WithColumns.parse(
+            message.raw,
+            vocabulary: Pito::MessageBuilder::Video::ListColumns.vocabulary
+          )
+
+          # Order; always eager-load :channel; also load :linked_games and :stats
+          # when extra columns are requested to avoid N+1 queries.
+          includes_args = [ :channel ]
+          if columns.any?
+            includes_args << :linked_games
+            includes_args << :stats
+          end
+          videos = scoped.includes(*includes_args).order(:title)
 
           if videos.empty?
             return videos_empty(channel)
           end
 
-          payload = Pito::MessageBuilder::Video::List.call(videos, conversation:)
+          payload = Pito::MessageBuilder::Video::List.call(videos, conversation:, columns:)
           Pito::Chat::Result::Ok.new(events: [ { kind: :system, payload: payload } ])
         end
 

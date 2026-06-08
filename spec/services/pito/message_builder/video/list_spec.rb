@@ -101,4 +101,45 @@ RSpec.describe Pito::MessageBuilder::Video::List do
       expect { payload }.not_to raise_error
     end
   end
+
+  describe ".call with columns: [:game, :duration]" do
+    let(:game) { create(:game, title: "Elden Ring") }
+
+    let!(:video_with_game) do
+      v = create(:video, :public, channel: channel, title: "Gamma Video",
+                                  duration_seconds: 3742)
+      create(:video_game_link, video: v, game: game)
+      v.reload
+      v
+    end
+
+    let(:videos_with_game) { ::Video.where(id: video_with_game.id) }
+
+    subject(:payload_with_cols) do
+      described_class.call(videos_with_game, conversation: conversation,
+                           columns: [ :game, :duration ])
+    end
+
+    it "includes 'Game' and 'Duration' in the table_heading" do
+      expect(payload_with_cols["table_heading"]).to eq(
+        [ "#", "Title", "Channel", "Privacy", "Game", "Duration" ]
+      )
+    end
+
+    it "each row has 6 cells" do
+      payload_with_cols["table_rows"].each do |row|
+        expect(row[:cells].size).to eq(6)
+      end
+    end
+
+    it "cell 5 contains the linked game title" do
+      cell = payload_with_cols["table_rows"].first[:cells][4]
+      expect(cell[:text]).to include("Elden Ring")
+    end
+
+    it "cell 6 contains the formatted duration" do
+      cell = payload_with_cols["table_rows"].first[:cells][5]
+      expect(cell[:text]).to eq("1:02:22")
+    end
+  end
 end

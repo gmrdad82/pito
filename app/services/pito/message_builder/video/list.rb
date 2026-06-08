@@ -18,22 +18,24 @@ module Pito
 
         # @param videos       [ActiveRecord::Relation | Array<::Video>] non-empty, pre-fetched.
         # @param conversation [Conversation] used for future follow-up stamping (unused now).
+        # @param columns      [Array<Symbol>] extra canonical column keys (from ListColumns).
         # @return [Hash] string-keyed payload with body and table_rows.
-        def call(videos, conversation:)
+        def call(videos, conversation:, columns: [])
           {
             "body"          => Pito::Copy.render("pito.copy.videos.list_intro", { count: videos.size }),
-            "table_heading" => [ "#", "Title", "Channel", "Privacy" ],
-            "table_rows"    => videos.map { |video| row_for(video) }
+            "table_heading" => [ "#", "Title", "Channel", "Privacy", *ListColumns.headings(columns) ],
+            "table_rows"    => videos.map { |video| row_for(video, columns) }
           }
         end
 
-        def row_for(video)
+        def row_for(video, columns = [])
           {
             cells: [
               { text: "##{video.id}",           class: "text-cyan tabular-nums text-right whitespace-nowrap" },
               { text: video.title,              class: "text-fg" },
               { text: video.channel.at_handle,  class: "text-cyan whitespace-nowrap" },
-              { text: privacy_label(video),     class: "text-fg-faded whitespace-nowrap" }
+              { text: privacy_label(video),     class: "text-fg-faded whitespace-nowrap" },
+              *ListColumns.cells(video, columns)
             ]
           }
         end

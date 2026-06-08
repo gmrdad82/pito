@@ -244,6 +244,23 @@ RSpec.describe Pito::Chat::Handlers::List do
       end
     end
 
+    context "with `list videos with duration`" do
+      let!(:dur_video) do
+        create(:video, :public, title: "Duration Video", channel: chan_a,
+                                duration_seconds: 300)
+      end
+
+      it "includes 'Duration' in the table_heading" do
+        payload = handler_for("list videos with duration", channel: "@all").call.events.first[:payload]
+        expect(payload["table_heading"]).to include("Duration")
+      end
+
+      it "returns a full heading row with the Duration column appended" do
+        payload = handler_for("list videos with duration", channel: "@all").call.events.first[:payload]
+        expect(payload["table_heading"]).to eq([ "#", "Title", "Channel", "Privacy", "Duration" ])
+      end
+    end
+
     context "empty states" do
       it "returns distinct empty-state copy for @all when no videos exist" do
         ::Video.delete_all
