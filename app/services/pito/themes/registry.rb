@@ -27,10 +27,16 @@ module Pito
       @loaded      = false
 
       class << self
-        # Called by each definition file to self-register.
+        # Called by each definition file to self-register. Idempotent by slug:
+        # a definition file can be evaluated more than once in a single process
+        # (the registry's own glob-`load` plus Zeitwerk autoload of the same
+        # file), so re-registering a slug REPLACES it rather than appending a
+        # duplicate — otherwise `all` doubles and counts/groupings drift.
         # @param raw [Hash] the raw theme hash accepted by Definition.from_raw
         def register(raw)
-          @definitions << Definition.from_raw(raw)
+          definition = Definition.from_raw(raw)
+          @definitions.reject! { |d| d.slug == definition.slug }
+          @definitions << definition
         end
 
         # @return [Array<Definition>] all registered themes, stable order
