@@ -33,6 +33,7 @@ module Pito
         @expand_detail = Array(payload[:expand_detail]).map(&:to_s)
         @expand_more_count = payload[:expand_more_count].to_i
         @table_rows   = Array(payload[:table_rows]).map { |r| r.respond_to?(:with_indifferent_access) ? r.with_indifferent_access : r }
+        @table_heading = payload[:table_heading].presence
         @info_lines   = Array(payload[:info_lines]).map(&:to_s)
         @sections     = Array(payload[:sections]).map { |s| s.respond_to?(:with_indifferent_access) ? s.with_indifferent_access : s }
         @suggestion      = payload[:suggestion]
@@ -44,7 +45,7 @@ module Pito
         @timestamp       = event&.created_at
       end
 
-      attr_reader :body, :expand_lines, :expand_detail, :expand_more_count, :table_rows, :info_lines, :handle, :channel, :sections, :html, :reply_handle, :reply_consumed
+      attr_reader :body, :expand_lines, :expand_detail, :expand_more_count, :table_rows, :table_heading, :info_lines, :handle, :channel, :sections, :html, :reply_handle, :reply_consumed
 
       def expandable?    = @expand_detail.any? || @sections.any?
       def accent         = :surface
@@ -110,6 +111,14 @@ module Pito
       def table_grid_cols(n)
         cols = ([ "max-content" ] * [ n - 1, 1 ].max) + [ "1fr" ]
         "grid-cols-[#{cols.join('_')}]"
+      end
+
+      # Returns heading cell hashes (one per label) when table_heading is present,
+      # or an empty array when absent. Heading cells render instantly (no typewriter).
+      def table_heading_cells
+        return [] if table_heading.blank?
+
+        Array(table_heading).map { |label| { text: label.to_s, class: "text-fg-faded font-bold whitespace-nowrap" } }
       end
 
       private

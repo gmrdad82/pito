@@ -93,6 +93,10 @@ RSpec.describe Pito::MessageBuilder::Video::List do
       end
     end
 
+    it "includes table_heading with #, Title, Channel, Privacy labels" do
+      expect(payload["table_heading"]).to eq([ "#", "Title", "Channel", "Privacy" ])
+    end
+
     it "renders without raising" do
       expect { payload }.not_to raise_error
     end

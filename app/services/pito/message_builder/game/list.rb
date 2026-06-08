@@ -16,8 +16,9 @@ module Pito
         # @return [Hash] string-keyed payload with body, table_rows, and follow-up fields.
         def call(games, conversation:)
           payload = {
-            "body"       => Pito::Copy.render("pito.copy.games.list_intro", { count: games.size }),
-            "table_rows" => games.map { |game|
+            "body"          => Pito::Copy.render("pito.copy.games.list_intro", { count: games.size }),
+            "table_heading" => [ "#", "Game" ],
+            "table_rows"    => games.map { |game|
               { key: "##{game.id}", value: game.title, key_class: "text-cyan tabular-nums text-right" }
             }
           }

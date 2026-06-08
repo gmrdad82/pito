@@ -40,6 +40,10 @@ RSpec.describe Pito::MessageBuilder::Game::List do
       expect(payload["reply_handle"]).to be_present
     end
 
+    it "includes table_heading with # and Game labels" do
+      expect(payload["table_heading"]).to eq([ "#", "Game" ])
+    end
+
     it "renders without raising" do
       expect { payload }.not_to raise_error
     end

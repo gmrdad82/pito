@@ -309,6 +309,69 @@ RSpec.describe Pito::Event::SystemComponent do
     end
   end
 
+  # ── table_heading — heading row in the kv-table grid ──────────────────────────
+
+  describe "table_heading — present" do
+    subject(:node) do
+      render_inline(described_class.new(payload: {
+        body: "Results",
+        table_heading: [ "A", "B", "C" ],
+        table_rows: [ { cells: [
+          { text: "v1", class: "text-fg" },
+          { text: "v2", class: "text-fg" },
+          { text: "v3", class: "text-fg" }
+        ] } ]
+      }))
+    end
+
+    it "renders 3 heading spans with text-fg-faded and font-bold" do
+      grid = node.css("div.grid").first
+      heading_spans = grid.css("span").first(3)
+      expect(heading_spans.map(&:text)).to eq(%w[A B C])
+      heading_spans.each do |span|
+        expect(span["class"]).to include("text-fg-faded")
+        expect(span["class"]).to include("font-bold")
+      end
+    end
+
+    it "positions heading spans before the data-row spans" do
+      grid = node.css("div.grid").first
+      all_spans = grid.css("span")
+      expect(all_spans[0].text).to eq("A")
+      expect(all_spans[1].text).to eq("B")
+      expect(all_spans[2].text).to eq("C")
+      expect(all_spans[3].text).to eq("v1")
+    end
+
+    it "heading spans do NOT carry a typewriter prose target" do
+      grid = node.css("div.grid").first
+      heading_spans = grid.css("span").first(3)
+      heading_spans.each do |span|
+        expect(span["data-pito--typewriter-target"]).to be_nil
+      end
+    end
+
+    it "uses a 3-track grid that accounts for the heading width" do
+      grid = node.css("div.grid").first
+      expect(grid["class"]).to include("grid-cols-[max-content_max-content_1fr]")
+    end
+  end
+
+  describe "table_heading — absent (back-compat)" do
+    subject(:node) do
+      render_inline(described_class.new(payload: {
+        body: "Results",
+        table_rows: [ { key: "Status", value: "OK" } ]
+      }))
+    end
+
+    it "emits no heading spans (no text-fg-faded font-bold span in the grid)" do
+      grid = node.css("div.grid").first
+      heading_spans = grid.css("span").select { |s| s["class"]&.include?("font-bold") }
+      expect(heading_spans).to be_empty
+    end
+  end
+
   describe "follow-up handle in the single meta line (no usage/affordance line)" do
     let(:conversation) { Conversation.create! }
     let(:turn) { create(:turn, conversation:) }

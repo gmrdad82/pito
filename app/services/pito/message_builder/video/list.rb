@@ -21,8 +21,9 @@ module Pito
         # @return [Hash] string-keyed payload with body and table_rows.
         def call(videos, conversation:)
           {
-            "body"       => Pito::Copy.render("pito.copy.videos.list_intro", { count: videos.size }),
-            "table_rows" => videos.map { |video| row_for(video) }
+            "body"          => Pito::Copy.render("pito.copy.videos.list_intro", { count: videos.size }),
+            "table_heading" => [ "#", "Title", "Channel", "Privacy" ],
+            "table_rows"    => videos.map { |video| row_for(video) }
           }
         end
 
