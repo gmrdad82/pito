@@ -439,18 +439,25 @@ Locked decisions (from the design discussion, 2026-06-08):
 
 > Lists render via the system component's `table_rows` **kv-table** (a CSS grid of
 > `KeyValueRowComponent` spans — VERIFIED: NO `<table>`), capped at 3 cols today.
-> Extend to N, add a heading row to EVERY kv-table, add `with <cols>` +
-> `sorted by|ordered by` to `list games`/`list videos` (NOT channels), scope
-> `list games` by the shift+tab channel. Discard the prior one-shot grid attempt.
-> Repliable actions on these lists are wired by the unified handler (Phases 18–19).
+> Extend to N, add a heading row, add `with <cols>` + `sorted by|ordered by` to
+> `list games`/`list videos`, scope `list games` by the shift+tab channel.
+> Discard the prior one-shot grid attempt. Repliable actions on these lists are
+> wired by the unified handler (Phases 18–19).
+>
+> SCOPE (discovered + decided 2026-06-08): today only `list games` is a kv-table;
+> `list videos` is a separate `Video::ListComponent` grid (migrate it — T17.1b) and
+> `list channels` is rich avatar cards (`Channel::ListComponent`). **Channels STAY
+> avatar cards** — the kv-table machinery (heading/`with`/`sorted by`) applies to
+> **games + videos only**. So "every kv-table" = games + videos.
 
 - [x] T17.1 Extend `table_rows` + the system component to render N ordered cells per row; keep 2/3-col back-compat. complexity: [high]
-- [ ] T17.2 Add a heading row to EVERY list kv-table (games/videos/channels), even with no extra columns. complexity: [low]
+- [ ] T17.1b Migrate `list videos` onto the kv-table (`table_rows`), replacing the separate `Video::ListComponent` grid. Base columns: title, `@handle` (cyan), privacy, `#id` (for follow-up). complexity: [high]
+- [ ] T17.2 Add a heading row to the kv-table lists — **games + videos only** (channels stay avatar cards, see T17.7). complexity: [low]
 - [ ] T17.3 Extract `Pito::Video::DurationFormat` (`H:MM:SS`/`M:SS`: 9:34 / 1:02:22 / 43:23 / 1:00:32); reuse in `Video::DetailComponent`. complexity: [low]
 - [ ] T17.4 Shared `with <cols>` parser: magic word `with`, comma enumerator (`,` and `, `, split `/\s*,\s*/`), order-preserving, dedup, unknown-ignored. complexity: [high]
 - [ ] T17.5 `list games with` → columns: platform, genre, developer, publisher, release date, year (release date + year are TWO columns). complexity: [high]
 - [ ] T17.6 `list videos with` → columns: game, duration, views, likes, comments (counts via Stats; `@handle` cyan; duration via DurationFormat). complexity: [high]
-- [ ] T17.7 `list channels` — explicitly NO `with`/`sorted by` (ignore/reject). complexity: [low]
+- [ ] T17.7 `list channels` — STAYS avatar cards (`Channel::ListComponent`), the kv-table exception: NO kv-table, NO heading row, NO `with`/`sorted by` (decided 2026-06-08). Ignore/reject any such clause. complexity: [low]
 - [ ] T17.8 `sorted by|ordered by <col> [asc|desc]` — asc implicit; desc explicit; ERROR when the column isn't VISIBLE. complexity: [high]
 - [ ] T17.9 `list games` channel scope from the shift+tab `channel` param (`@all`/none → all; `@handle` → games with ≥1 video on that channel). complexity: [high]
 - [ ] T17.10 Stamp every list message follow-up-able (`game_list`/`video_list`/`channel_list`). complexity: [low]
