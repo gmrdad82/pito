@@ -76,6 +76,18 @@ production:
     schedule: "0 9 * * 1"
     description: "Weekly drift check between production.rb trusted_proxies and Cloudflare's published lists"
 
+  # Intraday video-stats snapshots — 09:00 and 17:00 UTC
+  # (The 01:00 full sync via NightlySyncJob/NightlyVideoSyncJob is the third daily slot.)
+  video_stats_snapshot_morning:
+    class: VideoStatsSnapshotJob
+    schedule: "0 9 * * *"
+    description: "Intraday stats-only refresh for existing videos (morning slot)"
+
+  video_stats_snapshot_afternoon:
+    class: VideoStatsSnapshotJob
+    schedule: "0 17 * * *"
+    description: "Intraday stats-only refresh for existing videos (afternoon slot)"
+
 development:
   # P59 — Notifications cleanup — daily at 01:00
   cleanup_notifications:

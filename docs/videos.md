@@ -1,6 +1,6 @@
 # Videos domain: commands, sync, reindex, recommendations
 
-> Status: Signed off 2026-06-08 — executing on `beta-videos`. Phases 1/10/2/4/3/5/6 done. Phase 9 gates on D2; Phase 11 (added post-audit) gates on α/β anchors.
+> Status: Signed off 2026-06-08 — executing on `beta-videos`. Phases 1/10/2/3/4/5/6/7/8/9 DONE. Only Phase 11 remains (gated on α/β anchors). D2 resolved → 3×/day.
 
 ## Sign-off
 
@@ -208,14 +208,14 @@ feed that engine.
 - [x] T8.6 Run the new specs; make green. complexity: [low]
 - [x] T8.7 Commit: "Nightly: snapshot video stats + refresh only upcoming games". complexity: [manual]
 
-## Phase 9 — Intraday Video stats cadence (task 11) [decision D2]
+## Phase 9 — Intraday Video stats cadence (task 11) [D2 resolved → 3×/day]
 
-- [ ] T9.1 Add recurring entries for video stats at 09:00 and 17:00 UTC in `config/recurring.yml`. complexity: [low]
-- [ ] T9.2 Extract the video-stats snapshot into a job callable by all three slots. complexity: [high]
-- [ ] T9.3 Add a YouTube quota guard / batch (≤50 ids per `videos.list` call). complexity: [high]
-- [ ] T9.4 Add specs for the intraday stats job + batching. complexity: [high]
-- [ ] T9.5 Run the new specs; make green. complexity: [low]
-- [ ] T9.6 Commit: "Add 3×/day video stats snapshot (01:00 / 09:00 / 17:00 UTC)". complexity: [manual]
+- [x] T9.1 Add recurring entries for `VideoStatsSnapshotJob` at 09:00 + 17:00 UTC (01:00 full sync covers the third). complexity: [low]
+- [x] T9.2 `VideoStatsSnapshotJob` — lightweight stats-only snapshot for existing videos (no upsert/embed). complexity: [high]
+- [x] T9.3 Batch ≤50 youtube_video_ids per `videos.list` call (1 quota unit each); per-channel error isolation. complexity: [high]
+- [x] T9.4 Specs: batching (51 → 2 calls), stats written, skip reauth/empty, per-channel error resilience. complexity: [high]
+- [x] T9.5 Run the new specs; make green (14 examples). complexity: [low]
+- [x] T9.6 Commit: "Add 3×/day video stats snapshot (01:00 / 09:00 / 17:00 UTC)". complexity: [manual]
 
 ## Phase 10 — Purge pre-reboot video-diff legacy (independent — recommended next)
 
