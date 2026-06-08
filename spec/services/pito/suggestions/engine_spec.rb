@@ -392,6 +392,36 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
     end
   end
 
+  # T19.6 — a detail card offers link XOR unlink based on whether its entity is
+  # already linked (gating still permits both; only the suggestions are shaped).
+  describe "hashtag follow-up: link XOR unlink by existence", :db do
+    let(:conversation) { Conversation.create! }
+    let(:turn)         { conversation.turns.create!(input_kind: :chat, input_text: "show game x", position: 1) }
+    let(:game)         { create(:game, title: "Dead Space") }
+
+    before do
+      Event.create_with_position!(
+        conversation:, turn:, kind: "system",
+        payload: { "reply_handle" => "dead-1000", "reply_target" => "game_detail", "game_id" => game.id, "body" => "card" }
+      )
+    end
+
+    def labels
+      call(input: "#dead-1000 ", cursor: 11, conversation:)[:menu_items].map { |i| i[:label] }
+    end
+
+    it "suggests `link` (not `unlink`) when the game has no link" do
+      expect(labels).to include("link")
+      expect(labels).not_to include("unlink")
+    end
+
+    it "suggests `unlink` (not `link`) when the game is already linked" do
+      create(:video_game_link, game:, video: create(:video, :public, channel: create(:channel)))
+      expect(labels).to include("unlink")
+      expect(labels).not_to include("link")
+    end
+  end
+
   # ── DYNAMIC SLOTS — :channels ─────────────────────────────────────────────────
 
   describe "dynamic slot — :channels (/disconnect)", :db do

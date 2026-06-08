@@ -422,7 +422,30 @@ module Pito
             .last
           return nil unless event
 
-          Pito::FollowUp::Registry.actions_for(event.payload["reply_target"].to_s).presence
+          actions = Pito::FollowUp::Registry.actions_for(event.payload["reply_target"].to_s).presence
+          return nil unless actions
+
+          filter_link_unlink(actions, event)
+        end
+
+        # link XOR unlink by existence (T19.6): when a detail card offers BOTH,
+        # suggest `unlink` if the entity already has a VideoGameLink, else `link`.
+        # Gating (VerbDelegator) still permits both — this only shapes the menu/ghost.
+        def filter_link_unlink(actions, event)
+          return actions unless actions.include?("link") && actions.include?("unlink")
+
+          actions - [ entity_linked?(event) ? "link" : "unlink" ]
+        end
+
+        def entity_linked?(event)
+          payload = event.payload
+          if payload["game_id"].present?
+            VideoGameLink.exists?(game_id: payload["game_id"])
+          elsif payload["video_id"].present?
+            VideoGameLink.exists?(video_id: payload["video_id"])
+          else
+            false
+          end
         end
 
         # Build completions for a follow-up handle's actions: a palette of all
