@@ -44,11 +44,19 @@ RSpec.describe Pito::Footage::ProbeCommandComponent, type: :component do
     expect(node.css('[tabindex="0"]')).not_to be_empty
   end
 
-  it "code element uses text-yellow class (not text-fg)" do
+  it "code element uses text-fg class for readable contrast" do
     node = render_inline(described_class.new(game_id: game.id, path: "/clips"))
     code = node.css("code").first
-    expect(code["class"]).to include("text-yellow")
-    expect(code["class"]).not_to include("text-fg ")
+    expect(code["class"]).to include("text-fg")
+  end
+
+  it "places the alt+c hint outside the bordered box" do
+    node = render_inline(described_class.new(game_id: game.id, path: "/clips"))
+    box = node.css(".pito-footage-import__box").first
+    expect(box).not_to be_nil
+    # The hint text lives on the root, not inside the bordered box.
+    expect(box.text).not_to include("alt+c")
+    expect(node.text).to include("alt+c to copy")
   end
 
   it "has an overlay target element" do

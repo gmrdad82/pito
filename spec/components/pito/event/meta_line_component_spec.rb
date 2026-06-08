@@ -37,12 +37,13 @@ RSpec.describe Pito::Event::MetaLineComponent do
   end
 
   describe "shift+r affordance" do
-    it "renders a hidden, yellow `shift+r` hint when a handle is present" do
+    it "renders a hidden, yellow `shift+r` hint (no leading dot) when a handle is present" do
       node = render_inline(described_class.new(handle: "alpha-42"))
       hint = node.css("[data-pito-lasthashtag-hint]").first
       expect(hint).not_to be_nil
       expect(hint["class"]).to include("hidden")
-      expect(hint.css("span.text-yellow").map(&:text)).to include("shift+r")
+      expect(hint["class"]).to include("text-yellow")
+      expect(hint.text.strip).to eq("shift+r")
     end
 
     it "does not render the hint when there is no handle" do

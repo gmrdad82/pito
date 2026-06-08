@@ -4,6 +4,9 @@
 //   (a) the user submits a command (chat-form dispatches "pito:submitted"),
 //   (b) a new event segment is appended by Turbo (MutationObserver).
 //
+// Also binds Shift+ArrowUp / Shift+ArrowDown to page the scrollback up/down
+// (global keydown; scrolls ~85% of the viewport height per press).
+//
 // T21.2 — "Respect scrolled up": if the user has scrolled up more than
 // SCROLL_LOCK_THRESHOLD px from the bottom, auto-scroll is suppressed until
 // they scroll back down (at which point the lock is released).
@@ -33,6 +36,7 @@ export default class extends Controller {
     this.#bindScroll()
     this.#bindMutation()
     this.#bindSubmit()
+    this.#bindKeyScroll()
   }
 
   disconnect() {
@@ -132,6 +136,21 @@ export default class extends Controller {
       img.addEventListener("load",  rescroll, { once: true, signal: this.abort.signal })
       img.addEventListener("error", rescroll, { once: true, signal: this.abort.signal })
     }
+  }
+
+  // Shift+ArrowUp / Shift+ArrowDown page the scrollback up/down. Global so it
+  // works regardless of focus; we deliberately scroll directly (not via
+  // #programmaticScroll) so the natural scroll listener updates scrollLocked —
+  // paging up locks auto-scroll, paging back to the bottom releases it.
+  #bindKeyScroll() {
+    window.addEventListener("keydown", (e) => {
+      if (!e.shiftKey) return
+      if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return
+
+      e.preventDefault()
+      const step = Math.round(this.element.clientHeight * 0.85)
+      this.element.scrollBy({ top: e.key === "ArrowUp" ? -step : step, behavior: "smooth" })
+    }, { signal: this.abort.signal })
   }
 
   // On submit always unlock + scroll (the user just acted).
