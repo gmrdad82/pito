@@ -13,31 +13,18 @@ module Pito
       #       branch calls `Game::VoyageIndexer.call(game, force: true)`.
       #       Mode: append — the confirmation lands as a new event below the card.
       #
-      #   #<handle> similar [filters]
-      #     → Parse optional `key=value` filters (genre/year/developer/publisher/
-      #       platform/score/ttb/complexity), call `Pito::Recommendations.similar_games`,
-      #       render a ScoreBarComponent segment per hit, and MUTATE the enhanced
-      #       message body to show the results. Does NOT consume (chainable; running
-      #       `channel` next swaps/updates the segment area).
-      #
       #   #<handle> channel
       #     → `Pito::Recommendations.channels_for(game)`, render a ScoreBarComponent
       #       per channel result, and MUTATE the enhanced message body.
-      #       Also chainable (running `similar` after `channel` works).
+      #       Chainable: retains `reply_handle` + `reply_target` and does NOT set
+      #       `reply_consumed`. The `game_id` is preserved in the mutation payload
+      #       so subsequent calls can still resolve the game.
       #
       # == Mode
       #
       # Declared as `:mutate`.  The `reindex` action returns `Result::Append`
       # directly — the dispatch job inspects the result type and dispatches
       # accordingly.
-      #
-      # == Chaining
-      #
-      # Both `similar` and `channel` retain `reply_handle` + `reply_target` and
-      # do NOT set `reply_consumed`, so the message stays repliable after each
-      # call. Running `similar` after `channel` (or vice-versa) replaces the
-      # rendered segment area. The `game_id` is also preserved in each mutation
-      # payload so subsequent calls can still resolve the game.
       #
       # NAMESPACE GOTCHA: Inside Pito::FollowUp::Handlers::*, the bare constant
       # `Game` resolves to the Pito::Game MODULE (not the ActiveRecord model).
@@ -46,21 +33,7 @@ module Pito
       class GameEnhanced < Pito::FollowUp::Handler
         self.target "game_enhanced"
         self.mode   :mutate
-        self.actions "reindex", "similar", "channel"
-
-        # Key-value filter tokens accepted by `similar [filters]`.
-        # Maps the user-facing key (or alias) to the canonical key expected by
-        # `Pito::Recommendations.similar_games(game, filters:)`.
-        FILTER_KEY_MAP = {
-          "genre"       => :genre,
-          "year"        => :year,
-          "developer"   => :developer,
-          "publisher"   => :publisher,
-          "platform"    => :platform,
-          "score"       => :score,
-          "ttb"         => :ttb,
-          "complexity"  => :complexity
-        }.freeze
+        self.actions "reindex", "channel"
 
         # @param event        [Event]        the game-enhanced event.
         # @param rest         [String]       text after `#<handle> `.
@@ -82,8 +55,6 @@ module Pito
           end
 
           case action
-          when "similar"
-            handle_similar(event, game, args, conversation)
           when "channel"
             handle_channel(event, game, conversation)
           else
@@ -95,21 +66,6 @@ module Pito
         end
 
         private
-
-        # ── similar [filters] ──────────────────────────────────────────────────
-
-        def handle_similar(event, game, args, conversation)
-          filters = parse_filters(args)
-          results = Pito::Recommendations.similar_games(game, filters: filters)
-          original_handle = event.payload["reply_handle"].to_s
-
-          new_payload = Pito::MessageBuilder::Game::EnhancedSegments.call(
-            event: event, game: game, results: results,
-            result_type: :similar, original_handle: original_handle
-          )
-
-          Pito::FollowUp::Result::Mutation.new(kind: "system", payload: new_payload)
-        end
 
         # ── channel ────────────────────────────────────────────────────────────
 
@@ -133,18 +89,6 @@ module Pito
           return nil unless game_id.present?
 
           ::Game.find_by(id: game_id)
-        end
-
-        # Parse `key=value` tokens from the filter string.
-        # Unrecognised keys are silently ignored (future-proof per Recommendations doc).
-        # "similar genre=action year=2020 score=70" → { genre: "action", year: "2020", score: "70" }
-        def parse_filters(args)
-          return {} if args.blank?
-
-          args.to_s.scan(/(\w+)=(\S+)/).each_with_object({}) do |(raw_key, value), hash|
-            canonical = FILTER_KEY_MAP[raw_key.downcase]
-            hash[canonical] = value if canonical
-          end
         end
       end
     end

@@ -24,5 +24,5 @@ en:
           channel_not_found: "Could not find the channel for this visit."
       game_enhanced:
         errors:
-          invalid_action: "Unknown action '%{action}'. Try: reindex, similar [filters], or channel."
+          invalid_action: "Unknown action '%{action}'. Try: reindex or channel."
           game_not_found: "Couldn't find the game for this message."

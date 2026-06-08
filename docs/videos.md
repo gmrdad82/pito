@@ -568,11 +568,11 @@ Locked decisions (from the design discussion, 2026-06-08):
 > onto one path. `similar` is DROPPED + cleaned. Every command's copy = a
 > 50-variant `Pito::Copy` dictionary — audit + fill gaps.
 
-- [ ] T23.1 Extract the theme preview/apply logic into one path; point both the `/themes` slash and the `theme_list` follow-up at it. complexity: [high]
-- [ ] T23.2 Drop the `similar` follow-up action (`game_enhanced`) + its copy/specs; scrub references. complexity: [high]
-- [ ] T23.3 Final copy check: the Phase Copy guard is green across ALL commands (every key 1-or-≥50); fill any remaining gaps. complexity: [low]
-- [ ] T23.4 Specs: themes preview/apply identical via both entries; `similar` gone; copy audit green. complexity: [high]
-- [ ] T23.5 Commit. complexity: [manual]
+- [x] T23.1 Extract the theme preview/apply logic into one path; point both the `/themes` slash and the `theme_list` follow-up at it. complexity: [high]
+- [x] T23.2 Drop the `similar` follow-up action (`game_enhanced`) + its copy/specs; scrub references. complexity: [high]
+- [x] T23.3 Final copy check: the Phase Copy guard is green across ALL commands (every key 1-or-≥50); fill any remaining gaps. complexity: [low]
+- [x] T23.4 Specs: themes preview/apply identical via both entries; `similar` gone; copy audit green. complexity: [high]
+- [x] T23.5 Commit. complexity: [manual]
 
 ## Phase 24 — `sync` family (full refresh) + `import videos`; Confirmable, done-only broadcast
 
