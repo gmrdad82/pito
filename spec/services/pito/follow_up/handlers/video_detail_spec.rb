@@ -32,8 +32,8 @@ RSpec.describe Pito::FollowUp::Handlers::VideoDetail, type: :service do
     expect(described_class.mode).to eq(:append)
   end
 
-  it "declares the reindex action" do
-    expect(described_class.actions).to eq([ "reindex" ])
+  it "declares rm, delete, and reindex actions" do
+    expect(described_class.actions).to eq([ "rm", "delete", "reindex" ])
   end
 
   # ── reindex ───────────────────────────────────────────────────────────────────
@@ -93,6 +93,41 @@ RSpec.describe Pito::FollowUp::Handlers::VideoDetail, type: :service do
     end
   end
 
+  # ── rm / delete ───────────────────────────────────────────────────────────────
+
+  describe "#call — rm" do
+    let(:source_event) { build_video_detail_event }
+
+    subject(:result) { handler.call(event: source_event, rest: "rm", conversation:) }
+
+    it "returns a Result::Append" do
+      expect(result).to be_a(Pito::FollowUp::Result::Append)
+    end
+
+    it "appends a confirmation event" do
+      expect(result.events.first[:kind].to_s).to eq("confirmation")
+    end
+
+    it "uses the video_delete command" do
+      expect(result.events.first[:payload]["command"]).to eq("video_delete")
+    end
+
+    it "carries video_id and video_title" do
+      payload = result.events.first[:payload]
+      expect(payload["video_id"]).to eq(video.id)
+      expect(payload["video_title"]).to eq("Elden Ring Playthrough")
+    end
+  end
+
+  describe "#call — delete (alias for rm)" do
+    let(:source_event) { build_video_detail_event }
+
+    it "also emits a video_delete confirmation" do
+      result = handler.call(event: source_event, rest: "delete", conversation:)
+      expect(result.events.first[:payload]["command"]).to eq("video_delete")
+    end
+  end
+
   # ── unknown action ────────────────────────────────────────────────────────────
 
   describe "#call — unknown action" do
@@ -102,11 +137,6 @@ RSpec.describe Pito::FollowUp::Handlers::VideoDetail, type: :service do
       result = handler.call(event: source_event, rest: "bogus", conversation:)
       expect(result).to be_a(Pito::FollowUp::Result::Error)
       expect(result.message_key).to eq("pito.follow_up.video_detail.errors.invalid_action")
-    end
-
-    it "includes the unrecognised action in message_args" do
-      result = handler.call(event: source_event, rest: "delete", conversation:)
-      expect(result.message_args[:action]).to eq("delete")
     end
   end
 

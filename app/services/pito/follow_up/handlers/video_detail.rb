@@ -19,7 +19,7 @@ module Pito
       class VideoDetail < Pito::FollowUp::Handler
         self.target "video_detail"
         self.mode   :append
-        self.actions "reindex"
+        self.actions "rm", "delete", "reindex"
 
         # @param event        [Event]        the video-detail event.
         # @param rest         [String]       text after `#<handle> `.
@@ -27,6 +27,10 @@ module Pito
         # @return [Result::Append | Result::Error]
         def call(event:, rest:, conversation:)
           action, _args = parse_rest(rest)
+
+          if %w[rm delete].include?(action)
+            return Pito::FollowUp::VerbDelegator.call(source_event: event, rest:, conversation:)
+          end
 
           case action
           when "reindex"

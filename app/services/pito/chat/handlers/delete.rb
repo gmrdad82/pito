@@ -31,20 +31,11 @@ module Pito
         # ── Video branch ────────────────────────────────────────────────────────
 
         def handle_video
-          ref = extract_ref(VIDEO_NOUN_FILLERS)
-          return needs_ref if ref.blank?
-
-          video = resolve_video(ref)
-          return video_not_found(ref) unless video
+          video = resolve_target(::Video, id_key: :video_id, noun_fillers: VIDEO_NOUN_FILLERS)
+          return needs_ref if video == :needs_ref
+          return video_not_found(target_ref(VIDEO_NOUN_FILLERS, id_key: :video_id)) if video.nil?
 
           video_confirmation_event(video)
-        end
-
-        def resolve_video(ref)
-          id = ref.sub(/\A#\s*/, "")
-          return ::Video.find_by(id: id) if id.match?(/\A\d+\z/)
-
-          ::Video.find_by("title ILIKE ?", ref)
         end
 
         def video_confirmation_event(video)
@@ -61,21 +52,11 @@ module Pito
         # ── Game branch ─────────────────────────────────────────────────────────
 
         def handle_game
-          ref = extract_ref(GAME_NOUN_FILLERS)
-          return needs_ref if ref.blank?
-
-          game = resolve_game(ref)
-          return game_not_found(ref) unless game
+          game = resolve_target(::Game, id_key: :game_id, noun_fillers: GAME_NOUN_FILLERS)
+          return needs_ref if game == :needs_ref
+          return game_not_found(target_ref(GAME_NOUN_FILLERS, id_key: :game_id)) if game.nil?
 
           game_confirmation_event(game)
-        end
-
-        # Strip a leading `#` + whitespace — the lexer splits `#9` into `# 9`.
-        def resolve_game(ref)
-          id = ref.sub(/\A#\s*/, "")
-          return ::Game.find_by(id: id) if id.match?(/\A\d+\z/)
-
-          ::Game.find_by("title ILIKE ?", ref)
         end
 
         def game_confirmation_event(game)
@@ -90,14 +71,6 @@ module Pito
         end
 
         # ── Shared helpers ──────────────────────────────────────────────────────
-
-        def extract_ref(noun_fillers)
-          message.body_tokens
-                 .map(&:value)
-                 .reject { |w| noun_fillers.include?(w.to_s.downcase) }
-                 .join(" ")
-                 .strip
-        end
 
         def needs_ref
           Pito::Chat::Result::Error.new(message_key: "pito.chat.delete.needs_ref", message_args: {})

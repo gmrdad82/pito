@@ -32,7 +32,7 @@ module Pito
       class GameDetail < Pito::FollowUp::Handler
         self.target "game_detail"
         self.mode   :append
-        self.actions "rm", "resync", "link", "import"
+        self.actions "rm", "delete", "resync", "link", "import"
 
         # @param event        [Event]        the game-detail event.
         # @param rest         [String]       text after `#<handle> `.
@@ -41,9 +41,11 @@ module Pito
         def call(event:, rest:, conversation:)
           action, args = parse_rest(rest)
 
+          if %w[rm delete].include?(action)
+            return Pito::FollowUp::VerbDelegator.call(source_event: event, rest:, conversation:)
+          end
+
           case action
-          when "rm", "delete"
-            handle_delete(event, conversation)
           when "resync"
             handle_resync(event, conversation)
           when "link"
@@ -59,19 +61,6 @@ module Pito
         end
 
         private
-
-        # ── rm / delete ────────────────────────────────────────────────────────
-
-        def handle_delete(event, conversation)
-          game = resolve_game_from_event(event)
-          return game_not_found_error if game.nil?
-
-          payload = Pito::MessageBuilder::Game::DeleteConfirmation.call(game, conversation:)
-
-          Pito::FollowUp::Result::Append.new(
-            events: [ { kind: "confirmation", payload: payload } ]
-          )
-        end
 
         # ── resync ─────────────────────────────────────────────────────────────
 

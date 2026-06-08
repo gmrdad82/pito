@@ -492,7 +492,7 @@ Locked decisions (from the design discussion, 2026-06-08):
 - [x] T19.1 `show game` (verb + `game_list` show) → one handler, Standard + Enhanced. — `game_list` is now a `VerbDelegator` shim (covers show + delete/rm); `Show#handle_game` uses `resolve_target`/`target_ref`; `delete.rb` kinds symbolized. complexity: [high]
 - [x] T19.2 `show video` (verb + `video_list` show) → one handler, Standard + Enhanced (Enhanced = `Pito::Copy` intro placeholder). — `Show#handle_video` uses `resolve_target`; new `Video::Enhanced` placeholder (50-variant copy) renders via the EnhancedComponent typewriter branch. complexity: [high]
 - [x] T19.2b Stamp `list videos` follow-up-able (`reply_target: "video_list"`) NOW that the `video_list` handler exists (deferred from T17.10); flip the video/list builder + its "NOT follow-up-able" spec. — `video_list` shim added; `video_target?`/`reply_target` derive entity type from the source event (Show + Delete now context-aware, not noun-based); Video::Enhanced switched to HTML. complexity: [low]
-- [ ] T19.3 `delete|rm game|video` (verb + `game_list` delete + `game_detail` rm) → one handler (Confirmable). complexity: [high]
+- [x] T19.3 `delete|rm game|video` (verb + `game_list` delete + `game_detail` rm) → one handler (Confirmable). — `Delete` migrated to `resolve_target` (detail-context rm now works); `game_detail` + `video_detail` delegate rm/delete via `VerbDelegator`. complexity: [high]
 - [ ] T19.4 `link game|video` (verb + `game_detail` link) → one handler. complexity: [high]
 - [ ] T19.5 `unlink game|video` (verb + new detail/list action) → one handler. complexity: [high]
 - [ ] T19.6 Autosuggest `link` vs `unlink` by link existence (offer the one that applies). complexity: [high]

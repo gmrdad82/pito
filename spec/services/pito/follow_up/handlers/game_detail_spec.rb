@@ -44,7 +44,7 @@ RSpec.describe Pito::FollowUp::Handlers::GameDetail, type: :service do
     end
 
     it "appends a confirmation event" do
-      expect(result.events.first[:kind]).to eq("confirmation")
+      expect(result.events.first[:kind].to_s).to eq("confirmation")
     end
 
     it "uses the game_delete command" do
@@ -75,9 +75,9 @@ RSpec.describe Pito::FollowUp::Handlers::GameDetail, type: :service do
   describe "#call — rm when game is missing/deleted" do
     let(:source_event) { build_detail_event("game_id" => 0) }
 
-    it "returns a Result::Error (not-found)" do
+    it "returns a Result::Append with a not-found message (delegated path)" do
       result = handler.call(event: source_event, rest: "rm", conversation:)
-      expect(result).to be_a(Pito::FollowUp::Result::Error)
+      expect(result).to be_a(Pito::FollowUp::Result::Append)
     end
 
     it "does not raise" do
