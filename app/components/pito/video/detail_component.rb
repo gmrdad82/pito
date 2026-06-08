@@ -37,20 +37,9 @@ module Pito
         I18n.t("pito.video.detail.privacy_status.#{@video.privacy_status}", default: @video.privacy_status.to_s.capitalize)
       end
 
-      # Format duration as M:SS or H:MM:SS.
+      # Format duration as M:SS or H:MM:SS (shared formatter).
       def duration_label
-        secs = @video.duration_seconds
-        return nil unless secs.present? && secs >= 0
-
-        hours   = secs / 3600
-        minutes = (secs % 3600) / 60
-        seconds = secs % 60
-
-        if hours.positive?
-          format("%d:%02d:%02d", hours, minutes, seconds)
-        else
-          format("%d:%02d", minutes, seconds)
-        end
+        Pito::Video::DurationFormat.call(@video.duration_seconds)
       end
 
       def view_count_label
