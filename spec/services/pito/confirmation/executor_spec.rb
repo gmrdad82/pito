@@ -105,8 +105,11 @@ RSpec.describe Pito::Confirmation::Executor, type: :service do
   # ── confirm / video_delete ───────────────────────────────────────────────
 
   describe ".confirm — video_delete" do
-    let!(:v_channel) { create(:channel) }
-    let!(:video)     { create(:video, channel: v_channel, title: "My Let's Play") }
+    let(:del_connection) { create(:youtube_connection) }
+    let!(:v_channel)     { create(:channel, youtube_connection: del_connection) }
+    let!(:video)         { create(:video, channel: v_channel, title: "My Let's Play") }
+
+    before { allow(VideoRemoteDelete).to receive(:perform_later) }
 
     it "destroys the video and returns outcome text with the title" do
       text = nil
@@ -116,9 +119,23 @@ RSpec.describe Pito::Confirmation::Executor, type: :service do
       expect(text).to include("My Let's Play")
     end
 
+    it "enqueues VideoRemoteDelete with the youtube id and connection id" do
+      yt_id   = video.youtube_video_id
+      conn_id = del_connection.id
+      described_class.confirm("video_delete", { "video_id" => video.id, "video_title" => "My Let's Play" })
+      expect(VideoRemoteDelete).to have_received(:perform_later).with(yt_id, conn_id)
+    end
+
     it "is a no-op (still returns text) when the video is already gone" do
       text = described_class.confirm("video_delete", { "video_id" => 0, "video_title" => "Vanished" })
       expect(text).to include("Vanished")
+      expect(VideoRemoteDelete).not_to have_received(:perform_later)
+    end
+
+    it "does NOT enqueue VideoRemoteDelete when the channel has no connection" do
+      no_conn_video = create(:video, channel: create(:channel), title: "Orphan Clip")
+      described_class.confirm("video_delete", { "video_id" => no_conn_video.id, "video_title" => "Orphan Clip" })
+      expect(VideoRemoteDelete).not_to have_received(:perform_later)
     end
   end
 
@@ -310,6 +327,127 @@ RSpec.describe Pito::Confirmation::Executor, type: :service do
     it "returns a non-empty cancelled message" do
       text = described_class.cancel("channel_reindex", { "channel_id" => cancel_channel.id, "channel_handle" => "@cancel_chan" })
       expect(text).to be_present
+    end
+  end
+
+  # ── confirm / video_publish ───────────────────────────────────────────────
+
+  describe ".confirm — video_publish" do
+    let!(:pub_channel) { create(:channel) }
+    let!(:pub_video)   { create(:video, channel: pub_channel, title: "Speed Run Gold", privacy_status: :private, publish_at: 1.day.from_now) }
+
+    before { allow(VideoRemoteStatusSync).to receive(:perform_later) }
+
+    it "sets privacy_status to public" do
+      described_class.confirm("video_publish", { "video_id" => pub_video.id, "video_title" => "Speed Run Gold" })
+      expect(pub_video.reload.privacy_status).to eq("public")
+    end
+
+    it "clears publish_at" do
+      described_class.confirm("video_publish", { "video_id" => pub_video.id, "video_title" => "Speed Run Gold" })
+      expect(pub_video.reload.publish_at).to be_nil
+    end
+
+    it "enqueues VideoRemoteStatusSync" do
+      described_class.confirm("video_publish", { "video_id" => pub_video.id, "video_title" => "Speed Run Gold" })
+      expect(VideoRemoteStatusSync).to have_received(:perform_later).with(pub_video.id)
+    end
+
+    it "returns outcome text mentioning the title" do
+      text = described_class.confirm("video_publish", { "video_id" => pub_video.id, "video_title" => "Speed Run Gold" })
+      expect(text).to include("Speed Run Gold")
+    end
+
+    it "returns not_found text when the video is missing" do
+      text = described_class.confirm("video_publish", { "video_id" => 0, "video_title" => "Ghost" })
+      expect(text).to be_present
+      expect(VideoRemoteStatusSync).not_to have_received(:perform_later)
+    end
+  end
+
+  # ── confirm / video_unlist ────────────────────────────────────────────────
+
+  describe ".confirm — video_unlist" do
+    let!(:ul_channel) { create(:channel) }
+    let!(:ul_video)   { create(:video, channel: ul_channel, title: "Boss Fight Compilation", privacy_status: :public) }
+
+    before { allow(VideoRemoteStatusSync).to receive(:perform_later) }
+
+    it "sets privacy_status to unlisted" do
+      described_class.confirm("video_unlist", { "video_id" => ul_video.id, "video_title" => "Boss Fight Compilation" })
+      expect(ul_video.reload.privacy_status).to eq("unlisted")
+    end
+
+    it "enqueues VideoRemoteStatusSync" do
+      described_class.confirm("video_unlist", { "video_id" => ul_video.id, "video_title" => "Boss Fight Compilation" })
+      expect(VideoRemoteStatusSync).to have_received(:perform_later).with(ul_video.id)
+    end
+
+    it "returns outcome text mentioning the title" do
+      text = described_class.confirm("video_unlist", { "video_id" => ul_video.id, "video_title" => "Boss Fight Compilation" })
+      expect(text).to include("Boss Fight Compilation")
+    end
+
+    it "returns not_found text when the video is missing" do
+      text = described_class.confirm("video_unlist", { "video_id" => 0, "video_title" => "Ghost" })
+      expect(text).to be_present
+      expect(VideoRemoteStatusSync).not_to have_received(:perform_later)
+    end
+  end
+
+  # ── confirm / video_schedule ──────────────────────────────────────────────
+
+  describe ".confirm — video_schedule" do
+    let!(:sc_channel) { create(:channel) }
+    let!(:sc_video)   { create(:video, channel: sc_channel, title: "Dungeon Clear", privacy_status: :public, publish_at: nil) }
+    let(:publish_at)  { 7.days.from_now.utc }
+
+    before { allow(VideoRemoteStatusSync).to receive(:perform_later) }
+
+    it "sets privacy_status to private" do
+      described_class.confirm("video_schedule", {
+        "video_id"    => sc_video.id,
+        "video_title" => "Dungeon Clear",
+        "publish_at"  => publish_at.iso8601
+      })
+      expect(sc_video.reload.privacy_status).to eq("private")
+    end
+
+    it "sets publish_at from the ISO8601 payload value" do
+      described_class.confirm("video_schedule", {
+        "video_id"    => sc_video.id,
+        "video_title" => "Dungeon Clear",
+        "publish_at"  => publish_at.iso8601
+      })
+      expect(sc_video.reload.publish_at).to be_within(1.second).of(publish_at)
+    end
+
+    it "enqueues VideoRemoteStatusSync" do
+      described_class.confirm("video_schedule", {
+        "video_id"    => sc_video.id,
+        "video_title" => "Dungeon Clear",
+        "publish_at"  => publish_at.iso8601
+      })
+      expect(VideoRemoteStatusSync).to have_received(:perform_later).with(sc_video.id)
+    end
+
+    it "returns outcome text mentioning the title" do
+      text = described_class.confirm("video_schedule", {
+        "video_id"    => sc_video.id,
+        "video_title" => "Dungeon Clear",
+        "publish_at"  => publish_at.iso8601
+      })
+      expect(text).to include("Dungeon Clear")
+    end
+
+    it "returns not_found text when the video is missing" do
+      text = described_class.confirm("video_schedule", {
+        "video_id"    => 0,
+        "video_title" => "Ghost",
+        "publish_at"  => publish_at.iso8601
+      })
+      expect(text).to be_present
+      expect(VideoRemoteStatusSync).not_to have_received(:perform_later)
     end
   end
 

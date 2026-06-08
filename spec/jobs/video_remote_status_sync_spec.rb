@@ -1,0 +1,65 @@
+# frozen_string_literal: true
+
+require "rails_helper"
+
+RSpec.describe VideoRemoteStatusSync, type: :job do
+  let(:connection) { create(:youtube_connection) }
+  let!(:channel)   { create(:channel, youtube_connection: connection) }
+  let!(:video)     { create(:video, channel: channel, privacy_status: :public) }
+
+  let(:reader) { instance_double(Channel::Youtube::VideosReader) }
+  let(:client) { instance_double(Channel::Youtube::VideosClient) }
+  let(:fresh)  { { snippet: { title: "remote" }, status: { privacyStatus: "private" } } }
+
+  before do
+    allow(Channel::Youtube::VideosReader).to receive(:new).with(connection).and_return(reader)
+    allow(Channel::Youtube::VideosClient).to receive(:new).with(connection).and_return(client)
+    allow(reader).to receive(:read_video).with(video).and_return(fresh)
+    allow(client).to receive(:update_video)
+  end
+
+  it "overlays ONLY privacy_status and publish_at on the fresh snapshot" do
+    described_class.perform_now(video.id)
+    expect(client).to have_received(:update_video).with(
+      video, fresh: fresh, fields: [ :privacy_status, :publish_at ]
+    )
+  end
+
+  it "stamps last_synced_at on success" do
+    described_class.perform_now(video.id)
+    expect(video.reload.last_synced_at).to be_within(5.seconds).of(Time.current)
+  end
+
+  it "is a no-op when the video does not exist" do
+    expect { described_class.perform_now(0) }.not_to raise_error
+    expect(Channel::Youtube::VideosClient).not_to have_received(:new)
+  end
+
+  it "is a no-op when the connection is missing" do
+    connless = create(:video, channel: create(:channel))
+    described_class.perform_now(connless.id)
+    expect(Channel::Youtube::VideosClient).not_to have_received(:new)
+  end
+
+  it "is a no-op when the connection needs reauth" do
+    connection.update!(needs_reauth: true)
+    described_class.perform_now(video.id)
+    expect(Channel::Youtube::VideosClient).not_to have_received(:new)
+  end
+
+  it "re-raises on quota exhaustion" do
+    allow(reader).to receive(:read_video).and_raise(Channel::Youtube::QuotaExhaustedError, "quota")
+    expect { described_class.perform_now(video.id) }.to raise_error(Channel::Youtube::QuotaExhaustedError)
+  end
+
+  it "marks the connection needs_reauth on AuthRevokedError without re-raising" do
+    allow(reader).to receive(:read_video).and_raise(Channel::Youtube::AuthRevokedError, "revoked")
+    expect { described_class.perform_now(video.id) }.not_to raise_error
+    expect(connection.reload.needs_reauth).to be(true)
+  end
+
+  it "swallows ValidationError (non-retriable)" do
+    allow(client).to receive(:update_video).and_raise(Channel::Youtube::ValidationError, "bad")
+    expect { described_class.perform_now(video.id) }.not_to raise_error
+  end
+end

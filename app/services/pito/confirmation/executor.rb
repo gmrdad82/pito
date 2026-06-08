@@ -34,6 +34,12 @@ module Pito
             confirm_game_delete(payload)
           when "video_delete"
             confirm_video_delete(payload)
+          when "video_publish"
+            confirm_video_publish(payload)
+          when "video_unlist"
+            confirm_video_unlist(payload)
+          when "video_schedule"
+            confirm_video_schedule(payload)
           when "game_resync"
             confirm_game_resync(payload)
           when "game_reindex"
@@ -77,8 +83,51 @@ module Pito
         def confirm_video_delete(payload)
           payload = payload.with_indifferent_access
           title   = payload[:video_title].to_s
-          ::Video.find_by(id: payload[:video_id])&.destroy!
-          Pito::Copy.render("pito.copy.videos.deleted", { title: title })
+          video   = ::Video.find_by(id: payload[:video_id])
+
+          if video
+            yt_id   = video.youtube_video_id
+            conn_id = video.channel&.youtube_connection_id
+            video.destroy!
+            VideoRemoteDelete.perform_later(yt_id, conn_id) if yt_id.present? && conn_id.present?
+          end
+
+          Pito::Copy.render("pito.copy.videos.deleted_remote", { title: title })
+        end
+
+        def confirm_video_publish(payload)
+          payload = payload.with_indifferent_access
+          title   = payload[:video_title].to_s
+          video   = ::Video.find_by(id: payload[:video_id])
+          return Pito::Copy.render("pito.copy.videos.not_found", { ref: title }) if video.nil?
+
+          video.update!(privacy_status: :public, publish_at: nil)
+          VideoRemoteStatusSync.perform_later(video.id)
+          Pito::Copy.render("pito.copy.videos.published", { title: title })
+        end
+
+        def confirm_video_unlist(payload)
+          payload = payload.with_indifferent_access
+          title   = payload[:video_title].to_s
+          video   = ::Video.find_by(id: payload[:video_id])
+          return Pito::Copy.render("pito.copy.videos.not_found", { ref: title }) if video.nil?
+
+          video.update!(privacy_status: :unlisted)
+          VideoRemoteStatusSync.perform_later(video.id)
+          Pito::Copy.render("pito.copy.videos.unlisted", { title: title })
+        end
+
+        def confirm_video_schedule(payload)
+          payload    = payload.with_indifferent_access
+          title      = payload[:video_title].to_s
+          video      = ::Video.find_by(id: payload[:video_id])
+          return Pito::Copy.render("pito.copy.videos.not_found", { ref: title }) if video.nil?
+
+          publish_at = Time.iso8601(payload[:publish_at].to_s)
+          video.update!(privacy_status: :private, publish_at: publish_at)
+          VideoRemoteStatusSync.perform_later(video.id)
+          Pito::Copy.render("pito.copy.videos.scheduled",
+                            { title: title, when: publish_at.strftime("%Y-%m-%d %H:%M UTC") })
         end
 
         # Enqueue a full IGDB resync for the game.

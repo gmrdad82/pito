@@ -2,8 +2,8 @@
 
 # Handler for the `publish video <id|title>` chat verb.
 #
-# LOCAL-ONLY: sets privacy_status: :public and clears publish_at.
-# Returns a :system Standard message with witty confirmation copy.
+# Emits a :confirmation event so the user can confirm before the change
+# is applied locally and written through to YouTube via VideoRemoteStatusSync.
 module Pito
   module Chat
     module Handlers
@@ -20,10 +20,9 @@ module Pito
           video = resolve_video(ref)
           return not_found(ref) unless video
 
-          video.update!(privacy_status: :public, publish_at: nil)
-
           Pito::Chat::Result::Ok.new(events: [
-            { kind: :system, payload: Pito::MessageBuilder::Text.call("pito.copy.videos.published", title: video.title) }
+            { kind: :confirmation,
+              payload: Pito::MessageBuilder::Video::PublishConfirmation.call(video, conversation: conversation) }
           ])
         end
 

@@ -530,13 +530,23 @@ Locked decisions (from the design discussion, 2026-06-08):
 > `unlist video` → unlisted on YouTube; `schedule video <when>` → private +
 > `publishAt` on YouTube, `<when>` must be ≥ 30 minutes in the future (else error).
 
-- [ ] T21.1 `delete video` executor: destroy locally + `videos.delete` on YouTube; copy says so. complexity: [high]
-- [ ] T21.2 `publish video` → Confirmable; executor sets public locally + pushes privacy to YouTube. complexity: [high]
-- [ ] T21.3 `unlist video` → Confirmable; executor sets unlisted locally + pushes to YouTube. complexity: [high]
-- [ ] T21.4 `schedule video <when>` → Confirmable; validate `<when>` ≥ 30m future; set private + publishAt locally + push to YouTube. complexity: [high]
-- [ ] T21.5 50-variant `Pito::Copy` for each confirm + outcome (delete/publish/unlist/schedule) — delete copy states YouTube deletion. complexity: [low]
-- [ ] T21.6 Specs: each writes through (stub the YouTube client), ≥30m guard, confirm flow, chat ≡ `#<handle>`. complexity: [high]
-- [ ] T21.7 Commit. complexity: [manual]
+- [x] T21.1 `delete video` executor: destroy locally + `videos.delete` on YouTube; copy says so. complexity: [high]
+- [x] T21.2 `publish video` → Confirmable; executor sets public locally + pushes privacy to YouTube. complexity: [high]
+- [x] T21.3 `unlist video` → Confirmable; executor sets unlisted locally + pushes to YouTube. complexity: [high]
+- [x] T21.4 `schedule video <when>` → Confirmable; validate `<when>` ≥ 30m future; set private + publishAt locally + push to YouTube. complexity: [high]
+- [x] T21.5 50-variant `Pito::Copy` for each confirm + outcome (delete/publish/unlist/schedule) — delete copy states YouTube deletion. complexity: [low]
+- [x] T21.6 Specs: each writes through (stub the YouTube client), ≥30m guard, confirm flow, chat ≡ `#<handle>`. complexity: [high]
+- [x] T21.7 Commit. complexity: [manual]
+
+> DESIGN (2026-06-09): `VideoSyncBack` (full-subset read-modify-write — title/desc
+> too) was DEAD (no real callers; the `after_update_commit` its comments claimed
+> never existed) and is REMOVED. Each action is DELIBERATE — on confirm the
+> executor explicitly enqueues a FOCUSED YouTube op: `VideoRemoteStatusSync`
+> (status-only: `update_video(fields: [:privacy_status, :publish_at])` — never
+> writes title/desc) for publish/unlist/schedule, `VideoRemoteDelete`
+> (`videos.delete`) for delete. No auto-sync. publish/unlist/schedule stay
+> free-chat verbs for now (backbone migration deferred), so T21.6 chat≡#hashtag is
+> N/A for them.
 
 ## Phase 22 — `import game` (IGDB sidebar → dispatch `show game`) + `footage` only
 

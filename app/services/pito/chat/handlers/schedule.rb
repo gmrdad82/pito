@@ -2,7 +2,8 @@
 
 # Handler for the `schedule video <id|title> <when>` chat verb.
 #
-# LOCAL-ONLY: sets privacy_status: :private and publish_at = parsed <when>.
+# Emits a :confirmation event so the user can confirm before the change
+# is applied locally and written through to YouTube via VideoRemoteStatusSync.
 #
 # == When parsing
 #
@@ -55,14 +56,16 @@ module Pito
             ])
           end
 
-          video.update!(privacy_status: :private, publish_at: publish_time)
+          if publish_time < 30.minutes.from_now
+            return Pito::Chat::Result::Error.new(message_key: "pito.chat.schedule.too_soon", message_args: {})
+          end
 
           Pito::Chat::Result::Ok.new(events: [
-            { kind: :system,
-              payload: Pito::MessageBuilder::Text.call(
-                "pito.copy.videos.scheduled",
-                title: video.title,
-                when: publish_time.strftime("%Y-%m-%d %H:%M UTC")
+            { kind: :confirmation,
+              payload: Pito::MessageBuilder::Video::ScheduleConfirmation.call(
+                video,
+                conversation: conversation,
+                when: publish_time
               ) }
           ])
         end

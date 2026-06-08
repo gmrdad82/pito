@@ -30,6 +30,8 @@ class Channel
       KIND = "oauth"
       ENDPOINT = "videos.update".freeze
       HTTP_METHOD = "PUT".freeze
+      DELETE_ENDPOINT = "videos.delete".freeze
+      DELETE_HTTP_METHOD = "DELETE".freeze
 
       # Track the last payload the test surface can introspect. Module
       # state is per-instance — never set in production code paths.
@@ -78,6 +80,23 @@ class Channel
           )
           response = svc.update_video("snippet,status", body)
           symbolize_response(response)
+        end
+      end
+
+      # Hard-delete the video on YouTube (`videos.delete`, 50 units).
+      # Mirrors `update_video`'s token-freshness + `perform` audit wrapper,
+      # but issues the gem's `delete_video(id)` instead of a PUT. `video`
+      # only needs to respond to `youtube_video_id` — `VideoRemoteDelete`
+      # passes a throwaway struct because the local row is already gone.
+      def delete_video(video)
+        begin
+          ensure_token_fresh!(@connection)
+        rescue Channel::Youtube::NeedsReauthError => e
+          raise Channel::Youtube::AuthRevokedError, "token refresh failed: #{e.message}"
+        end
+
+        perform(endpoint: DELETE_ENDPOINT, http_method: DELETE_HTTP_METHOD, label: "videos.delete") do
+          data_service.delete_video(video.youtube_video_id)
         end
       end
 
@@ -147,7 +166,7 @@ class Channel
         )
       end
 
-      def perform
+      def perform(endpoint: ENDPOINT, http_method: HTTP_METHOD, label: "videos.update")
         started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
         outcome = "success"
         http_status = 200
@@ -172,24 +191,24 @@ class Channel
               outcome = "auth_failed"
               http_status = 401
               error_message = refresh_err.message
-              raised = Channel::Youtube::AuthRevokedError.new("401 + refresh failed (videos.update): #{refresh_err.message}")
+              raised = Channel::Youtube::AuthRevokedError.new("401 + refresh failed (#{label}): #{refresh_err.message}")
             rescue Channel::Youtube::TransientError => refresh_err
               outcome = "server_error"
               http_status = nil
               error_message = refresh_err.message
-              raised = Channel::Youtube::ServerError.new("token refresh transient (videos.update): #{refresh_err.message}")
+              raised = Channel::Youtube::ServerError.new("token refresh transient (#{label}): #{refresh_err.message}")
             end
           else
             outcome = "auth_failed"
             http_status = 401
             error_message = e.message
-            raised = Channel::Youtube::AuthRevokedError.new("401 after refresh (videos.update): #{e.message}")
+            raised = Channel::Youtube::AuthRevokedError.new("401 after refresh (#{label}): #{e.message}")
           end
         rescue Google::Apis::RateLimitError => e
           outcome = "quota_exceeded"
           http_status = 403
           error_message = e.message
-          raised = Channel::Youtube::QuotaExhaustedError.new("rate-limited from videos.update: #{e.message}")
+          raised = Channel::Youtube::QuotaExhaustedError.new("rate-limited from #{label}: #{e.message}")
         rescue Google::Apis::ClientError => e
           status = status_from(e)
           outcome = if status == 403 && quota_exhausted?(e)
@@ -202,7 +221,7 @@ class Channel
           raised = if outcome == "quota_exceeded"
                      Channel::Youtube::QuotaExhaustedError.new("403 quota exhausted: #{e.message}")
           elsif status == 401
-                     Channel::Youtube::AuthRevokedError.new("401 from videos.update: #{e.message}")
+                     Channel::Youtube::AuthRevokedError.new("401 from #{label}: #{e.message}")
           else
                      Channel::Youtube::ValidationError.new(e.message)
           end
@@ -210,12 +229,12 @@ class Channel
           outcome = "server_error"
           http_status = status_from(e)
           error_message = e.message
-          raised = Channel::Youtube::ServerError.new("5xx from videos.update: #{e.message}")
+          raised = Channel::Youtube::ServerError.new("5xx from #{label}: #{e.message}")
         ensure
           elapsed_ms = ((Process.clock_gettime(Process::CLOCK_MONOTONIC) - started) * 1000).to_i
           write_audit_row(
-            endpoint: ENDPOINT,
-            http_method: HTTP_METHOD,
+            endpoint: endpoint,
+            http_method: http_method,
             kind: KIND,
             connection: @connection,
             outcome: outcome,
