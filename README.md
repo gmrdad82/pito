@@ -37,8 +37,7 @@ without conflicts, and get game/channel recommendations. your laptop, your data.
 
 ## Stack
 
-Rails 8.1 · Postgres 17 (pgvector) · Voyage AI · Hotwire · ViewComponent ·
-Tailwind CSS · Kamal.
+Rails 8 · Hotwire · Postgres · Voyage AI · Tailwind CSS.
 
 ## Getting started
 
