@@ -496,8 +496,8 @@ Locked decisions (from the design discussion, 2026-06-08):
 - [x] T19.4 `link game|video` (verb + `game_detail` link) → one handler. — `Link` gains a follow-up branch (context side via `resolve_target`, other side via `resolve_other_side` from the reply rest); `game_detail`/`video_detail` delegate `link`. complexity: [high]
 - [x] T19.5 `unlink game|video` (verb + new detail/list action) → one handler. — `Unlink` mirrors `Link`'s follow-up branch (splits `to`/`from`); `unlink` delegated on game_detail + video_detail; `pito.copy.games.not_linked` added. complexity: [high]
 - [x] T19.6 Autosuggest `link` vs `unlink` by link existence (offer the one that applies). — suggestion engine offers `unlink` if the card's entity has a VideoGameLink, else `link`; gating still permits both. complexity: [high]
-- [ ] T19.7 Delete the dead duplicated resolve/build logic from the follow-up handlers. complexity: [high]
-- [ ] T19.8 50-variant `Pito::Copy` for any new/changed outcome lines. complexity: [low]
+- [x] T19.7 Delete the dead duplicated resolve/build logic from the follow-up handlers. — done incrementally: game_list/video_list are pure VerbDelegator shims; game_detail/video_detail delegate the migrated verbs (rm/delete/link/unlink) and keep only LIVE reimplementations for not-yet-migrated verbs (resync/import/reindex). No dead duplication remains. complexity: [high]
+- [x] T19.8 50-variant `Pito::Copy` for any new/changed outcome lines. — `not_linked` expanded 1→50 (sibling of `linked`/`unlinked`); `video.enhanced_placeholder` already 50. complexity: [low]
 - [ ] T19.9 Specs: chat ≡ `#<handle>` identical for show / show video / delete / link / unlink. complexity: [high]
 - [ ] T19.10 Commit. complexity: [manual]
 
