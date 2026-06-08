@@ -41,6 +41,18 @@ module Pito
       def self.blend(breakdown)
         BLEND.sum { |key, weight| weight * breakdown[key].to_f }.round
       end
+
+      # v2 — embedding is a dynamic fallback (D-rec-4): minimal weight when a game
+      # is richly tagged, rising toward the cap as structured facets go missing,
+      # but capped so it never outranks the important structured signals.
+      # @param facet_presence [Float] 0..1 — fraction of structured facets present.
+      E_FALLBACK_BASE = 0.05
+      E_FALLBACK_CAP  = 0.18
+
+      def self.dynamic_embedding_weight(facet_presence)
+        p = facet_presence.to_f.clamp(0.0, 1.0)
+        E_FALLBACK_BASE + (E_FALLBACK_CAP - E_FALLBACK_BASE) * (1.0 - p)
+      end
     end
   end
 end

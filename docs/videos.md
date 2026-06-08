@@ -318,13 +318,13 @@ Locked decisions (from the design discussion, 2026-06-08):
 
 ## Phase 12 — Signal library v2 (game-facet signal helpers)
 
-- [ ] T12.1 Add `Signals.score_smile(a, b)` — same-side extremity-amplified score similarity (>90 / <60 tails ≫ mid). complexity: [high]
-- [ ] T12.2 Add `Signals.ttb_smile(a_seconds, b_seconds)` — log-hours similarity, extremity-amplified (short / ≥150h tails). complexity: [high]
-- [ ] T12.3 Add `Signals.era(year_a, year_b)` — release-year proximity (0–100). complexity: [low]
-- [ ] T12.4 Add `Signals.platform_overlap(a, b)` — platform Jaccard (reuse `jaccard`). complexity: [low]
-- [ ] T12.5 Add a dynamic-embedding weight helper — E weight scales with facet sparsity, capped below the important signals. complexity: [high]
-- [ ] T12.6 Spec each helper: curve shape, tail monotonicity, same-side gating, nil/edge, cap behavior. complexity: [high]
-- [ ] T12.7 Commit: "Recommendation v2: signal library (score/TTB smile, era, platform, dynamic embedding)". complexity: [manual]
+- [x] T12.1 Add `Signals.score_smile(a, b)` — same-side extremity-amplified score similarity (>90 / <60 tails ≫ mid). complexity: [high]
+- [x] T12.2 Add `Signals.ttb_smile(a_seconds, b_seconds)` — log-hours similarity, extremity-amplified (short / ≥150h tails). complexity: [high]
+- [x] T12.3 Add `Signals.era(year_a, year_b)` — release-year proximity (0–100). complexity: [low]
+- [x] T12.4 Add `Signals.platform_overlap(a, b)` — platform Jaccard (reuse `jaccard`). complexity: [low]
+- [x] T12.5 Add a dynamic-embedding weight helper — E weight scales with facet sparsity, capped below the important signals. complexity: [high]
+- [x] T12.6 Spec each helper: curve shape, tail monotonicity, same-side gating, nil/edge, cap behavior. complexity: [high]
+- [x] T12.7 Commit: "Recommendation v2: signal library (score/TTB smile, era, platform, dynamic embedding)". complexity: [manual]
 
 ## Phase 13 — Kernel re-weight (game↔game) + recompute baseline
 
