@@ -27,9 +27,9 @@ existence in the first place:
 
 ---
 
-self-hosted YouTube channel management for creators who run multiple channels —
-track channels, videos, and analytics in one place, schedule across channels
-without conflicts, and get game/channel recommendations. your laptop, your data.
+self-hosted YouTube tool for creators who run multiple channels — track channels,
+videos, and analytics in one place, schedule across channels without conflicts,
+and get game/channel recommendations. your laptop, your data.
 
 > **alpha, actively rebuilding.** one person's tool, open-sourced as-is. no SLA,
 > no roadmap, no support obligation. issues triaged when there's time; PRs
