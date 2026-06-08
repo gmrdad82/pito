@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_08_003432) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_08_103500) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -398,14 +398,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_08_003432) do
   create_table "videos", force: :cascade do |t|
     t.string "category_id"
     t.bigint "channel_id", null: false
-    t.bigint "comment_count", default: 0, null: false
     t.datetime "created_at", null: false
     t.text "description"
     t.integer "duration_seconds"
     t.string "embedded_digest"
-    t.string "etag"
     t.datetime "last_synced_at"
-    t.bigint "like_count", default: 0, null: false
     t.integer "privacy_status", default: 0, null: false
     t.datetime "publish_at"
     t.datetime "published_at"

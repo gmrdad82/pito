@@ -25,10 +25,24 @@ class Video < ApplicationRecord
     nil
   end
 
-  # Stat reader — sourced from the polymorphic `stats` table via the
-  # `Pito::Stats` facade (P4). Returns nil when no stat row exists.
+  # Stat readers — sourced from the polymorphic `stats` table via the
+  # `Pito::Stats` facade (P4). Each returns nil when no stat row exists.
   def view_count
     Pito::Stats.get(self, :views)
+  end
+
+  def like_count
+    Pito::Stats.get(self, :likes)
+  end
+
+  def comment_count
+    Pito::Stats.get(self, :comments)
+  end
+
+  # Human name for the YouTube category id (Gaming, People & Blogs, …), or
+  # nil when the id is blank/unknown. Reuses the canonical id→name table.
+  def category_name
+    Video::EmbedText::YOUTUBE_CATEGORIES[category_id]
   end
 
   attribute :privacy_status, :integer
@@ -38,12 +52,4 @@ class Video < ApplicationRecord
 
   validates :youtube_video_id, presence: true, uniqueness: true
   validates :title, presence: true
-
-  # ── Change detection (smart import) ──────────────────────────
-  # Returns true when the given etag differs from the stored value
-  # (or when no etag is stored yet), indicating the video should be
-  # re-fetched from YouTube.
-  def etag_changed?(new_etag)
-    etag.blank? || etag != new_etag
-  end
 end

@@ -1,7 +1,7 @@
 # Phase 12 — write-side video sync job. Pulls a Video, reads the
 # YouTube-side state via VideosReader (1 unit), then PUTs the local
 # writable subset via VideosClient (50 units). On success, stamps
-# `last_synced_at` and `etag`. On failure, logs the error and
+# `last_synced_at`. On failure, logs the error and
 # (depending on the failure class) re-raises so the job retries with
 # backoff.
 #
@@ -30,14 +30,9 @@ class VideoSyncBack < ApplicationJob
     # local-only via Active Storage; this comment is the bookmark.
 
     fresh = Channel::Youtube::VideosReader.new(connection).read_video(video)
-    payload = Channel::Youtube::VideosClient.new(connection).update_video(video, fresh: fresh)
+    Channel::Youtube::VideosClient.new(connection).update_video(video, fresh: fresh)
 
-    new_etag = payload.is_a?(Hash) ? payload[:etag] : nil
-
-    video.update_columns(
-      etag: new_etag.presence || video.etag,
-      last_synced_at: Time.current
-    )
+    video.update_columns(last_synced_at: Time.current)
   rescue Channel::Youtube::QuotaExhaustedError => e
     Rails.logger.warn("[video-sync-back] quota exceeded for video #{video_id}: #{e.message}")
     raise
