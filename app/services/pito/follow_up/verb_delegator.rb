@@ -14,6 +14,11 @@ module Pito
     #
     #   VerbDelegator.call(source_event: ev, rest: "show 5", conversation: c)
     #   # → runs Chat::Handlers::Show with follow_up context → FollowUp::Result::Append
+    #
+    # GATING (T18.5): the verb must be one of the source event's allowed reply
+    # actions (the `reply_target`'s declared `actions`, the canonical matrix). A
+    # disallowed verb is rejected with that target's `invalid_action` copy — never
+    # delegated. (An empty/unknown action list means "not gated".)
     module VerbDelegator
       module_function
 
@@ -24,8 +29,18 @@ module Pito
       # @return [Pito::FollowUp::Result::Append, Pito::FollowUp::Result::Error]
       def call(source_event:, rest:, conversation:, channel: nil)
         input = rest.to_s.strip
-        args  = input.sub(/\A\S+\s*/, "") # everything after the verb word
+        verb  = input[/\A\S+/].to_s.downcase
 
+        reply_target = source_event.payload.to_h.with_indifferent_access[:reply_target].to_s
+        allowed      = Pito::FollowUp::Registry.actions_for(reply_target).map(&:to_s)
+        if allowed.any? && !allowed.include?(verb)
+          return Pito::FollowUp::Result::Error.new(
+            message_key:  "pito.follow_up.#{reply_target}.errors.invalid_action",
+            message_args: { action: verb }
+          )
+        end
+
+        args    = input.sub(/\A\S+\s*/, "") # everything after the verb word
         context = Pito::Chat::FollowUpContext.new(source_event:, rest: args)
         result  = Pito::Chat::Dispatcher.call(
           input:        input,

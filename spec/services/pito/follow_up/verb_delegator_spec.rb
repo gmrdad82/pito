@@ -4,7 +4,8 @@ require "rails_helper"
 
 RSpec.describe Pito::FollowUp::VerbDelegator, type: :service do
   let(:conversation) { Conversation.singleton }
-  let(:source_event) { instance_double(Event) }
+  # A game_list source event — its declared actions ("show", "delete") gate replies.
+  let(:source_event) { instance_double(Event, payload: { "reply_target" => "game_list" }) }
   let!(:game)        { create(:game, title: "Dead Space") }
 
   describe ".call" do
@@ -31,6 +32,15 @@ RSpec.describe Pito::FollowUp::VerbDelegator, type: :service do
 
       expect(result).to be_a(Pito::FollowUp::Result::Append)
       expect(result.events.first[:kind]).to eq(:system)
+    end
+
+    it "rejects a verb that isn't an allowed reply action for the source message (T18.5)" do
+      # game_list allows show/delete — `publish` is not in its matrix.
+      result = described_class.call(source_event:, rest: "publish #{game.id}", conversation:)
+
+      expect(result).to be_a(Pito::FollowUp::Result::Error)
+      expect(result.message_key).to eq("pito.follow_up.game_list.errors.invalid_action")
+      expect(result.message_args).to eq({ action: "publish" })
     end
   end
 end
