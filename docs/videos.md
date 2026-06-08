@@ -222,18 +222,18 @@ whole. KEEP the shared OAuth `VideosClient` + youtube error classes +
 `ServiceFactory` + `VideoSyncBack` (write-back primitive used by publish/schedule);
 only the diff-specific files go. There is no `VideoDiff` model/table to drop.
 
-- [ ] T10.1 Delete `app/jobs/bulk_video_diff_check_job.rb`. complexity: [low]
-- [ ] T10.2 Delete `app/jobs/video_diff_check_job.rb`. complexity: [low]
-- [ ] T10.3 Delete `app/services/channel/youtube/diff_computer.rb`. complexity: [low]
-- [ ] T10.4 Delete `app/services/channel/youtube/video_diff_apply.rb`. complexity: [low]
-- [ ] T10.5 Delete `app/services/channel/youtube/video_diff_persister.rb`. complexity: [low]
-- [ ] T10.6 Remove the `video_diff_check_bulk` recurring entry from `config/recurring.yml`. complexity: [low]
-- [ ] T10.7 Delete the `video_diff_detected` notification template + unregister it in `templates.rb`. complexity: [low]
-- [ ] T10.8 Remove `video_diff_detected` keys from the notifications locale files. complexity: [low]
-- [ ] T10.9 Delete the diff specs under `spec/` (diff_computer, video_diff_apply/persister, video_diff_detected). complexity: [low]
-- [ ] T10.10 Grep `DiffComputer`/`VideoDiff`/`video_diff` for stragglers; scrub dead refs + comments. complexity: [low]
-- [ ] T10.11 Run `bundle exec rspec` for the channel/youtube + notifications slices; make green. complexity: [low]
-- [ ] T10.12 Commit: "Purge pre-reboot video-diff system". complexity: [manual]
+- [x] T10.1 Delete `app/jobs/bulk_video_diff_check_job.rb`. complexity: [low]
+- [x] T10.2 Delete `app/jobs/video_diff_check_job.rb`. complexity: [low]
+- [x] T10.3 Delete `app/services/channel/youtube/diff_computer.rb`. complexity: [low]
+- [x] T10.4 Delete `app/services/channel/youtube/video_diff_apply.rb`. complexity: [low]
+- [x] T10.5 Delete `app/services/channel/youtube/video_diff_persister.rb`. complexity: [low]
+- [x] T10.6 Remove the `video_diff_check_bulk` recurring entry from `config/recurring.yml`. complexity: [low]
+- [x] T10.7 Delete the `video_diff_detected` notification template + unregister it in `templates.rb`. complexity: [low]
+- [x] T10.8 Remove `video_diff_detected` keys from the notifications locale files (none present). complexity: [low]
+- [x] T10.9 Delete the diff specs under `spec/` (diff_computer, video_diff_apply/persister, video_diff_detected). complexity: [low]
+- [x] T10.10 Grep `DiffComputer`/`VideoDiff`/`video_diff` for stragglers; scrub dead refs + comments. complexity: [low]
+- [x] T10.11 Run `bundle exec rspec` for the channel/youtube + notifications slices; make green. complexity: [low]
+- [x] T10.12 Commit: "Purge pre-reboot video-diff system". complexity: [manual]
 
 ---
 

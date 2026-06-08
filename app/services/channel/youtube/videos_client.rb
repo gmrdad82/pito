@@ -48,15 +48,12 @@ class Channel
       # the source of truth; everything pito doesn't model passes
       # through unchanged.
       #
-      # Phase 23 §23c — `fields:` optional kwarg restricts which Pito
-      # columns the writer overlays on the fresh snapshot. When nil
-      # (the Phase 12 default), the full writable set is pushed — same
-      # behavior as before. When supplied as a Symbol or Array of
-      # Symbols (e.g., `fields: [:title]` from `Channel::Youtube::VideoDiffApply`),
+      # `fields:` optional kwarg restricts which Pito columns the writer
+      # overlays on the fresh snapshot. When nil (the Phase 12 default),
+      # the full writable set is pushed — same behavior as before. When
+      # supplied as a Symbol or Array of Symbols (e.g., `fields: [:title]`),
       # only those fields are overlaid; everything else stays as the
-      # YouTube-side snapshot returned. This is the surface the diff
-      # apply orchestrator uses to push selected Pito-wins fields
-      # without inadvertently dragging unrelated local state along.
+      # YouTube-side snapshot returned.
       def update_video(video, fresh:, fields: nil)
         payload = build_payload(video, fresh, fields: fields)
         @last_payload = payload

@@ -70,12 +70,6 @@ production:
     schedule: "0 3 * * *"
     description: "Re-sync every Game whose igdb_synced_at is older than 7 days"
 
-  # Video diff check — daily at 01:30 UTC
-  video_diff_check_bulk:
-    class: BulkVideoDiffCheckJob
-    schedule: "30 1 * * *"
-    description: "Fan-out daily YouTube video diff check across the catalogue"
-
   # Cloudflare trusted proxies — weekly Monday at 09:00 UTC
   cloudflare_trusted_proxies_refresher:
     class: CloudflareTrustedProxiesRefresherJob
