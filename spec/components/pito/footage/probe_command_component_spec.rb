@@ -7,7 +7,7 @@ RSpec.describe Pito::Footage::ProbeCommandComponent, type: :component do
 
   it "renders the probe command with game id" do
     node = render_inline(described_class.new(game_id: game.id))
-    expect(node.css("code").text).to include("cd /path/to/footage && rails pito:tools:probe game=42 .")
+    expect(node.css("code").text).to include('cd /path/to/footage && rails pito:tools:probe game=42 path="*"')
   end
 
   it "shows the keyboard shortcut hint" do
@@ -32,6 +32,6 @@ RSpec.describe Pito::Footage::ProbeCommandComponent, type: :component do
 
   it "uses the custom path when provided" do
     node = render_inline(described_class.new(game_id: game.id, path: "/custom"))
-    expect(node.css("code").text).to include("cd /custom && rails pito:tools:probe game=42 .")
+    expect(node.css("code").text).to include('cd /custom && rails pito:tools:probe game=42 path="*"')
   end
 end

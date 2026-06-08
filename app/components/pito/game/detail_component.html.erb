@@ -96,4 +96,10 @@
     <%= render(Pito::TimeToBeatComponent.new(game: @game, footage_hours: footage_hours)) %>
   </div>
 
+  <%# Footage probe — copyable command to attach local recordings to this game %>
+  <div class="pito-game-detail__footage flex flex-col gap-1">
+    <p class="text-fg-dim"><%= Pito::Copy.render("pito.copy.footage.probe_prompt") %></p>
+    <%= render(Pito::Footage::ProbeCommandComponent.new(game_id: @game.id)) %>
+  </div>
+
 </div>

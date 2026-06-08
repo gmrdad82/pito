@@ -16,7 +16,7 @@ module Pito
       end
 
       def command_text
-        "cd #{@path} && rails pito:tools:probe game=#{@game_id} ."
+        %(cd #{@path} && rails pito:tools:probe game=#{@game_id} path="*")
       end
 
       private
