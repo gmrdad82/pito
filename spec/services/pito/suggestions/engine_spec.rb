@@ -722,6 +722,16 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
       result = call(input: "list videos with du", cursor: 19)
       expect(result[:ghost][:complete_current]).to eq("ration")
     end
+
+    it "returns 'with' as complete_current for 'list games ' (connector branch)" do
+      result = call(input: "list games ", cursor: 11)
+      expect(result[:ghost][:complete_current]).to eq("with")
+    end
+
+    it "still ghosts 'channels' (first noun) for bare 'list '" do
+      result = call(input: "list ", cursor: 5)
+      expect(result[:ghost][:complete_current]).to eq("channels")
+    end
   end
 
   # ── P5.5 — Suggestions stop when all non-repeatable slots are filled ─────────

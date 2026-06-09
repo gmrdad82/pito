@@ -95,6 +95,7 @@ dates read "June 09, 2026"; and the input ghosts ` with` → field tokens as you
 - **Phase 2 — Release date via `Pito::Formatter`**
 - **Phase 3 — Wrapping multi-column table grid**
 - **Phase 4 — `list games` autocomplete: ` with` connector + field tokens**
+- **Phase 5 — Help message rewrite + `list games --help`**
 
 ---
 
@@ -139,14 +140,32 @@ dates read "June 09, 2026"; and the input ghosts ` with` → field tokens as you
 
 (No noun-vocab reorder — bare `list ` "channels" default is intentional and untouched.)
 
-- [ ] T4.1 Extend `Pito::Suggestions::ListClauseGhost.ghost`: when registry present and no `with`/`sorted by` clause, add a connector branch that ghosts `with` after a completed noun (require noun + `\s+`; partial = last token; non-connector partials → no ghost). complexity: [high]
-- [ ] T4.2 In `suggestions_controller.js` `_computeLocalGhost`, after the chat-spec gate, `return null` when `chatSpec.name === "list"` so the client always defers the `list` verb to `POST /suggestions`. complexity: [low]
-- [ ] T4.3 Verify `_fetchDynamicGhost` applies `data.ghost.complete_current` (it does, line ~943) — no client ghost-apply change needed. complexity: [low]
-- [ ] T4.4 Add `list_clause_ghost_spec.rb` examples: `list games ` → ghost "with"; `list games w` → "ith"; `list games with ` → "platform"; `list games with d` → "eveloper"; `list games rpg` (filter partial) → no connector ghost. complexity: [low]
-- [ ] T4.5 Add `engine_spec.rb` example: `free_completions("list games ")` returns ghost "with" (server is the source of truth); confirm bare `list ` still ghosts "channels" (unchanged). complexity: [low]
-- [ ] T4.6 Add vitest cases to `spec/javascript/suggestions_controller.test.js`: typing `list games with ` defers to fetch and renders the mocked server ghost "platform"; `list games ` renders mocked "with"; assert the client does not locally resolve the `list` noun slot (defers instead). complexity: [high]
-- [ ] T4.7 Run `bundle exec rspec` (suggestions specs) and `npm test` (vitest); `bin/rubocop` clean; `node --check app/javascript/controllers/pito/suggestions_controller.js`. complexity: [low]
-- [ ] T4.8 Commit: "Drive list-games autocomplete from the server: with connector + field tokens". complexity: [manual]
+- [x] T4.1 Extend `Pito::Suggestions::ListClauseGhost.ghost`: when registry present and no `with`/`sorted by` clause, add a connector branch that ghosts `with` after a completed noun (require noun + `\s+`; partial = last token; non-connector partials → no ghost). complexity: [high]
+- [x] T4.2 In `suggestions_controller.js` `_computeLocalGhost`, after the chat-spec gate, `return null` when `chatSpec.name === "list"` so the client always defers the `list` verb to `POST /suggestions`. complexity: [low]
+- [x] T4.3 Verify `_fetchDynamicGhost` applies `data.ghost.complete_current` (it does, line ~944) — no client ghost-apply change needed. complexity: [low]
+- [x] T4.4 Add `list_clause_ghost_spec.rb` examples: `list games ` → ghost "with"; `list games w` → "ith"; `list games with ` → "platform"; `list games with d` → "eveloper"; `list games rpg` (filter partial) → no connector ghost. complexity: [low]
+- [x] T4.5 Add `engine_spec.rb` example: `free_completions("list games ")` returns ghost "with" (server is the source of truth); confirm bare `list ` still ghosts "channels" (unchanged). complexity: [low]
+- [x] T4.6 Add vitest cases to `spec/javascript/suggestions_controller.test.js`: typing `list games with ` defers to fetch and renders the mocked server ghost "platform"; `list games ` renders mocked "with"; assert the client does not locally resolve the `list` noun slot (defers instead). complexity: [high]
+- [x] T4.7 Run `bundle exec rspec` (suggestions specs) and `npm test` (vitest); `bin/rubocop` clean; `node --check app/javascript/controllers/pito/suggestions_controller.js`. complexity: [low]
+- [x] T4.8 Commit: "Drive list-games autocomplete from the server: with connector + field tokens". complexity: [manual]
+
+## Phase 5 — Help message rewrite + `list games --help`
+
+North star: the standard `help` message is a Standard (system) message with ONE
+group for now — **GAMES** (yellow title) — containing a single kv-table row
+`list games` → `use --help for more info`. And `list games --help` returns a
+Standard message explaining the optional `with` columns and their aliases. **All
+user-facing text comes from `Pito::Copy`** (`config/locales/pito/copy/en.yml` under
+`pito.copy.*`). No inline style.
+
+- [ ] T5.1 Inspect `Pito::MessageBuilder::Help::FollowUpActions`, `Pito::Chat::Handlers::Help`, the `sections`/yellow rendering in `system_component.html.erb`, and the `Pito::Copy.render` API + copy-key layout. complexity: [low]
+- [ ] T5.2 Add `Pito::Copy` keys for the help message under `pito.copy.help.*` (e.g. `games_group_title` → "GAMES", `list_games_label` → "list games", `list_games_hint` → "use --help for more info"). complexity: [low]
+- [ ] T5.3 Rewrite `Pito::Chat::Handlers::Help#call` to build a Standard system payload with one visible **GAMES** group (yellow title) and a single kv-table row (`list games` → `use --help for more info`), all text via `Pito::Copy`. complexity: [high]
+- [ ] T5.4 Detect `--help` on the `list` verb: in `Pito::Chat::Handlers::List#call`, when `message.raw` matches `--help` (after a games noun), short-circuit to a help payload instead of listing. complexity: [low]
+- [ ] T5.5 Add `Pito::Copy` keys (`pito.copy.list.games_help.*`) describing each optional `with` column + aliases (platform|platforms, genre|genres, developer|dev, publisher, release date, year); build a Standard message (kv-table: column ↔ aliases/description). complexity: [high]
+- [ ] T5.6 Specs: help handler renders a GAMES group + the `list games` row; `list games --help` returns the columns explanation (asserts each of the 6 columns appears); `list games` (no flag) still lists normally. complexity: [low]
+- [ ] T5.7 Run `bundle exec rspec` for the touched specs; `bin/rubocop` clean. complexity: [low]
+- [ ] T5.8 Commit: "Rewrite help message (GAMES group) + add list games --help columns guide". complexity: [manual]
 
 ## Verification (end-to-end)
 

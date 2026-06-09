@@ -105,14 +105,41 @@ RSpec.describe Pito::Suggestions::ListClauseGhost do
     end
   end
 
-  # ── Non-clause input — returns nil ───────────────────────────────────────────
+  # ── CONNECTOR branch — ghosts `with` after the noun ─────────────────────────
 
-  describe "non-clause input" do
-    it "returns nil for 'list games ' (no with/sort clause)" do
-      expect(ghost("list games ")).to be_nil
+  describe "connector branch — `with` after noun" do
+    it "ghosts 'with' for 'list games ' (trailing space)" do
+      result = ghost("list games ")
+      expect(result).not_to be_nil
+      expect(result[:complete_current]).to eq("with")
     end
 
-    it "returns nil for 'list videos' (no clause)" do
+    it "ghosts 'ith' for 'list games w' (partial match)" do
+      result = ghost("list games w")
+      expect(result[:complete_current]).to eq("ith")
+    end
+
+    it "ghosts 'with' for 'list games with ' — with-branch wins, not connector" do
+      result = ghost("list games with ")
+      expect(result[:complete_current]).to eq("platform")
+    end
+
+    it "ghosts 'eveloper' for 'list games with d' — with-branch still wins" do
+      result = ghost("list games with d")
+      expect(result[:complete_current]).to eq("eveloper")
+    end
+
+    it "returns complete_current '' for 'list games rpg' (partial matches no connector)" do
+      result = ghost("list games rpg")
+      expect(result).not_to be_nil
+      expect(result[:complete_current]).to eq("")
+    end
+
+    it "returns nil for 'list games' (no trailing space — noun not yet completed)" do
+      expect(ghost("list games")).to be_nil
+    end
+
+    it "returns nil for 'list videos' (no trailing space)" do
       expect(ghost("list videos")).to be_nil
     end
   end

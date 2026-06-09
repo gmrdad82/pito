@@ -40,6 +40,21 @@ module Pito
           return build_ghost(candidates, partial)
         end
 
+        # CONNECTOR context — suggest the `with` connector after the noun.
+        #
+        # Matches when the user has typed the noun and at least one space
+        # (e.g. "list games ").  The tail is everything after the noun; the
+        # partial is the last whitespace-delimited token in that tail (or ""
+        # when the tail is empty / ends with whitespace).
+        #
+        # The `with` and `sorted by` branches above take priority because they
+        # are checked first — typing "list games with " still ghosts "platform".
+        if (m = text.match(/\b(?:games?|videos?)\b\s+(.*)\z/i))
+          tail    = m[1]
+          partial = tail.end_with?(" ") || tail.empty? ? "" : tail.split(/\s+/).last.to_s.downcase
+          return build_ghost(%w[with], partial)
+        end
+
         nil
       end
 
