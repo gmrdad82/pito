@@ -74,7 +74,7 @@ module Pito
           release_date: {
             aliases: [ "release date" ],
             heading: "Release",
-            value:   ->(g) { g.release_label.to_s }
+            value:   ->(g) { Pito::Formatter::ReleaseDate.call(g).to_s }
           },
           year:         {
             aliases: %w[year],

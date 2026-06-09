@@ -116,12 +116,12 @@ dates read "June 09, 2026"; and the input ghosts ` with` → field tokens as you
 
 ## Phase 2 — Release date via Pito::Formatter
 
-- [ ] T2.1 Create `app/services/pito/formatter/release_date.rb` — `Pito::Formatter::ReleaseDate.call(game)` returning the precision-aware label (full date → `I18n.l(date, format: :long)` = "June 09, 2026"; month/quarter/year fallbacks; "TBA"). complexity: [low]
-- [ ] T2.2 Move the body of `Game#release_label` into the formatter; make `release_label` delegate to `Pito::Formatter::ReleaseDate.call(self)`. complexity: [low]
-- [ ] T2.3 Change the `:release_date` column `value:` proc in `list_columns.rb` to `->(g) { Pito::Formatter::ReleaseDate.call(g) }`. complexity: [low]
-- [ ] T2.4 Create `spec/services/pito/formatter/release_date_spec.rb` covering full date "June 09, 2026", month-year, quarter, year-only, and TBA. complexity: [low]
-- [ ] T2.5 Run `bundle exec rspec` for the touched specs (incl. existing `Game#release_label` spec); `bin/rubocop` clean. complexity: [low]
-- [ ] T2.6 Commit: "Route release date through Pito::Formatter::ReleaseDate". complexity: [manual]
+- [x] T2.1 Create `app/services/pito/formatter/release_date.rb` — `Pito::Formatter::ReleaseDate.call(game)` returning the precision-aware label (full date → `I18n.l(date, format: :long)` = "June 09, 2026"; month/quarter/year fallbacks; "TBA"). complexity: [low]
+- [x] T2.2 Move the body of `Game#release_label` into the formatter; make `release_label` delegate to `Pito::Formatter::ReleaseDate.call(self)`. complexity: [low]
+- [x] T2.3 Change the `:release_date` column `value:` proc in `list_columns.rb` to `->(g) { Pito::Formatter::ReleaseDate.call(g).to_s }`. complexity: [low]
+- [x] T2.4 Create `spec/services/pito/formatter/release_date_spec.rb` covering full date "June 09, 2026", month-year, quarter, year-only, and TBA. complexity: [low]
+- [x] T2.5 Run `bundle exec rspec` for the touched specs (incl. existing `Game#release_label` spec); `bin/rubocop` clean. complexity: [low]
+- [x] T2.6 Commit: "Route release date through Pito::Formatter::ReleaseDate". complexity: [manual]
 
 ## Phase 3 — Wrapping multi-column table grid
 
