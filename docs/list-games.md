@@ -185,7 +185,7 @@ Iterative refinements from live review. No inline style (data attributes only).
 - [x] T6.12 Bug: `list games --h` ghosts `elp` (`--help` added as a connector candidate). complexity: [low]
 - [x] T6.13 Bug: `list games so` ghosts `rted by` (`sorted by` added to connector candidates). complexity: [low]
 - [x] T6.14 Bug: TBA looked oversized — left-aligned the Release column (variable-length date phrases read left-to-right; short values no longer float against a right edge). Year stays right-aligned; both remain fixed-width trailing tracks. complexity: [low]
-- [ ] T6.15 Show `shift+tab` / `shift+space` affordances ONLY when the chatbox is focused; they're the inverse of the `m` indicator (mutually exclusive); drop the middle-dot separator when `m` is shown. Same behaviour for `/` (slash palette) and `/not_found`. complexity: [high]
+- [x] T6.15 `shift+tab`/`shift+space` cyclers wrapped in a focus-gated `filterHints` target (visible ⟺ focused); `m chat` hint is its inverse (visible ⟺ not focused) — mutually exclusive; dropped the leading separator before `m`. Shared `pito--chatbox-hints` controller covers `/` and `/not_found` via the same focus tracking. complexity: [high]
 
 ## Verification (end-to-end)
 
