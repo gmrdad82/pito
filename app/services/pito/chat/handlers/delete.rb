@@ -1,10 +1,11 @@
 # frozen_string_literal: true
 
-# Handler for the `delete game <id|title>` / `rm game <id|title>` and
-# `delete video <id|title>` / `rm video <id|title>` chat verbs.
+# Handler for the `delete game <id>` / `rm game <id>` and
+# `delete video <id>` / `rm video <id>` chat verbs.
 #
-# Resolves a single game or video by **ID** (`#123`/`123`) or title (ILIKE)
-# and emits a confirmation event. The destroy happens in
+# Resolves a single game or video by **ID only** (`#123`/`123`) — title
+# lookup is intentionally disabled (id_only_resolution!). Emits a
+# confirmation event; the destroy happens in
 # `Pito::Confirmation::Executor` on `#<handle> confirm`.
 # The title is carried in the payload so the outcome text survives the
 # row's deletion. Unknown reference → witty not-found; no reference → usage hint.
@@ -14,6 +15,7 @@ module Pito
       class Delete < Pito::Chat::Handler
         self.verb = :delete
         self.description_key = "pito.chat.delete.descriptions.delete"
+        id_only_resolution!
 
         GAME_NOUN_FILLERS  = %w[game games].freeze
         VIDEO_NOUN_FILLERS = %w[video videos].freeze

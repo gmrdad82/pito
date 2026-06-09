@@ -21,9 +21,32 @@ module Pito
     #
     #   resolve_target(::Game, id_key: :game_id, noun_fillers: %w[game games])
     #
+    # Per-verb opt-in: call `id_only_resolution!` in a handler subclass to restrict
+    # `find_by_ref` to numeric ids only (strips a leading `#`, then requires digits).
+    # Title (ILIKE) lookup is skipped entirely. Default is id-and-title.
+    #
+    #   class Delete < Pito::Chat::Handler
+    #     id_only_resolution!
+    #   end
+    #
     # @return the record, or nil (not found / not in the list's scope), or
     #   :needs_ref when free-chat / a list reply supplied no reference at all.
     module TargetResolution
+      def self.included(base)
+        base.extend(ClassMethods)
+      end
+
+      module ClassMethods
+        # Restrict this handler to id-only resolution (no ILIKE title lookup).
+        def id_only_resolution!
+          @id_only_resolution = true
+        end
+
+        def id_only_resolution?
+          @id_only_resolution || false
+        end
+      end
+
       def resolve_target(entity_class, id_key:, noun_fillers:)
         return resolve_free_chat(entity_class, noun_fillers) unless follow_up?
 
@@ -86,9 +109,12 @@ module Pito
 
       # ID form (`#5`/`5`/`# 5`) → by id; otherwise case-insensitive title.
       # The lexer splits `#9` into `#` + `9`, so strip a leading `#` + whitespace.
+      # When the handler has opted into id-only resolution, non-numeric refs
+      # return nil immediately — no ILIKE title lookup is performed.
       def find_by_ref(entity_class, ref)
         id = ref.sub(/\A#\s*/, "")
         return entity_class.find_by(id: id) if id.match?(/\A\d+\z/)
+        return nil if self.class.id_only_resolution?
 
         entity_class.find_by("title ILIKE ?", ref)
       end

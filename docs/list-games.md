@@ -430,8 +430,8 @@ man pages only for now.)
 Current `delete` accepts title or `#id` — not aligned. Rework to **local id only** (plain
 number, never title). Drop title resolution + misaligned copy/specs per the global rule.
 
-- [ ] T18.1 Rework `delete game <id>` — resolve by local id only (drop title); align copy/specs.
-- [ ] T18.2 Rework `delete video <id>` — resolve by local id only (drop title); align copy/specs.
+- [x] T18.1 Rework `delete game <id>` — resolve by local id only (drop title); align copy/specs. (Added reusable `id_only_resolution!` flag to `TargetResolution`.)
+- [x] T18.2 Rework `delete video <id>` — resolve by local id only (drop title); align copy/specs.
 
 ## Phase 19 — `reindex game --help` / `reindex video --help`
 
