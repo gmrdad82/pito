@@ -184,7 +184,7 @@ Iterative refinements from live review. No inline style (data attributes only).
 - [x] T6.11 Bug: `Ctrl+Shift+R` (browser reload) no longer hijacked by the `shift+r` reply prefix (plain Shift+R only). complexity: [low]
 - [x] T6.12 Bug: `list games --h` ghosts `elp` (`--help` added as a connector candidate). complexity: [low]
 - [x] T6.13 Bug: `list games so` ghosts `rted by` (`sorted by` added to connector candidates). complexity: [low]
-- [x] T6.14 Bug: TBA looked oversized — left-aligned the Release column (variable-length date phrases read left-to-right; short values no longer float against a right edge). Year stays right-aligned; both remain fixed-width trailing tracks. complexity: [low]
+- [x] T6.14 Bug: TBA **sorting** — TBA (no date/year) now sorts AFTER all known dates ascending (and first descending) by treating unknown as the far future (`Date.new(9999,12,31)` / year `9999`) instead of `Date.new(0)`/`0`. Release stays **right-aligned** (correct). complexity: [low]
 - [x] T6.15 `shift+tab`/`shift+space` cyclers wrapped in a focus-gated `filterHints` target (visible ⟺ focused); `m chat` hint is its inverse (visible ⟺ not focused) — mutually exclusive; dropped the leading separator before `m`. Shared `pito--chatbox-hints` controller covers `/` and `/not_found` via the same focus tracking. complexity: [high]
 
 ## Verification (end-to-end)

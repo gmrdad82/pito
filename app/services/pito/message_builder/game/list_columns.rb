@@ -29,8 +29,10 @@ module Pito
           genre:        { key: ->(g) { g.genres.map(&:name).join(", ").downcase },              requires_with: true },
           developer:    { key: ->(g) { g.developer_companies.map(&:name).join(", ").downcase }, requires_with: true },
           publisher:    { key: ->(g) { g.publisher_companies.map(&:name).join(", ").downcase }, requires_with: true },
-          release_date: { key: ->(g) { g.release_date || Date.new(0) },                         requires_with: true },
-          year:         { key: ->(g) { g.release_year || 0 },                                   requires_with: true }
+          # TBA (no date/year) sorts AFTER all known dates ascending (and first
+          # descending) — treat unknown as the far future, not Date.new(0).
+          release_date: { key: ->(g) { g.release_date || Date.new(9999, 12, 31) },              requires_with: true },
+          year:         { key: ->(g) { g.release_year || 9999 },                                requires_with: true }
         }.freeze
 
         # Maps every sort token (downcased) → canonical column Symbol.
@@ -73,11 +75,9 @@ module Pito
             value:   ->(g) { g.publisher_companies.map(&:name).join(", ") }
           },
           release_date: {
-            # Left-aligned: variable-length date phrases ("December 2020" vs "TBA")
-            # look ragged when right-aligned — short values float against the
-            # column's right edge. Still a fixed-width trailing track (max-content).
             aliases: [ "release date" ],
             heading: "Release",
+            align:   :right,
             value:   ->(g) { Pito::Formatter::ReleaseDate.call(g).to_s }
           },
           year:         {

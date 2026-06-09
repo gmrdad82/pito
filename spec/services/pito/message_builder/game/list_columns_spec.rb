@@ -123,6 +123,22 @@ RSpec.describe Pito::MessageBuilder::Game::ListColumns do
       key = described_class.sort_key_for("TITLE", selected_columns: [])
       expect(key).to be_a(Proc)
     end
+
+    # TBA games (no release date / year) must sort AFTER known dates ascending
+    # (and first descending) — the key treats unknown as the far future.
+    it "sorts a TBA game (nil release_date) after a known date ascending" do
+      tba   = create(:game, release_year: nil, release_month: nil, release_day: nil)
+      known = create(:game, release_year: 2015, release_month: 3, release_day: 1)
+      key   = described_class.sort_key_for("release date", selected_columns: [ :release_date ])
+      expect(key.call(tba)).to be > key.call(known)
+    end
+
+    it "sorts a TBA game (nil year) after a known year ascending" do
+      tba   = build(:game, release_year: nil)
+      known = build(:game, release_year: 2015)
+      key   = described_class.sort_key_for("year", selected_columns: [ :year ])
+      expect(key.call(tba)).to be > key.call(known)
+    end
   end
 
   # ── cells ────────────────────────────────────────────────────────────────────
@@ -216,9 +232,9 @@ RSpec.describe Pito::MessageBuilder::Game::ListColumns do
       expect(result[1][:text]).to include("From Software")
     end
 
-    it "left-aligns the :release_date cell (date phrases read left-to-right)" do
+    it "right-aligns the :release_date cell" do
       result = described_class.cells(game, [ :release_date ])
-      expect(result.first[:class]).not_to include("text-right")
+      expect(result.first[:class]).to include("text-right")
     end
 
     it "right-aligns the :year cell" do
@@ -232,7 +248,7 @@ RSpec.describe Pito::MessageBuilder::Game::ListColumns do
     end
 
     it "does NOT add text-right to left-aligned columns" do
-      %i[platform genre developer publisher release_date].each do |col|
+      %i[platform genre developer publisher].each do |col|
         result = described_class.cells(game, [ col ])
         expect(result.first[:class]).not_to include("text-right"), "expected #{col} not to be right-aligned"
       end
@@ -246,8 +262,9 @@ RSpec.describe Pito::MessageBuilder::Game::ListColumns do
       expect(described_class.heading_cells([ :genre ])).to eq([ "Genre" ])
     end
 
-    it "returns a plain String for :release_date (left-aligned date phrases)" do
-      expect(described_class.heading_cells([ :release_date ])).to eq([ "Release" ])
+    it "returns a right-align hash for :release_date" do
+      result = described_class.heading_cells([ :release_date ])
+      expect(result.first).to eq({ "text" => "Release", "class" => "text-right" })
     end
 
     it "returns a right-align hash for :year" do
