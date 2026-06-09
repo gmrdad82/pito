@@ -159,11 +159,11 @@ RSpec.describe Pito::FollowUp::Handlers::GameDetail, type: :service do
       end
     end
 
-    context "with a video title reference" do
-      it "resolves by ILIKE title" do
+    context "with a video title reference (now id-only)" do
+      it "returns a usage hint and does not link (titles no longer resolve)" do
         result = handler.call(event: source_event, rest: "link to video let's play lies of p", conversation:)
-        expect(result).to be_a(Pito::FollowUp::Result::Append)
-        expect(VideoGameLink.where(video:, game:).exists?).to be true
+        expect(result).to be_a(Pito::FollowUp::Result::Error)
+        expect(VideoGameLink.where(video:, game:).exists?).to be false
       end
     end
 
