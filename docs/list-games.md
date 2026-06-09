@@ -180,7 +180,7 @@ Iterative refinements from live review. No inline style (data attributes only).
 - [x] T6.7 SVGs moved to `public/platforms/{playstation,switch,steam}.svg`; logos render at ≤16px height via `.pito-platform-icon`; used in BOTH the list table (html cell) AND the detail card. complexity: [high]
 - [x] T6.8 Specs for pluralization, alignment, fixed-width attribute, platform order, html-cell, and logo rendering. complexity: [low]
 - [x] T6.9 Commit(s) per cohesive change. complexity: [manual]
-- [ ] T6.10 `/help` content: stop mentioning `ctrl+|`, `shift+r`, `Esc`, backtick, and space. complexity: [low]
+- [x] T6.10 `/help` content: removed `ctrl+|`, `shift+r`, `esc`, backtick, and `space` from `pito.slash.help.keybindings`. complexity: [low]
 - [x] T6.11 Bug: `Ctrl+Shift+R` (browser reload) no longer hijacked by the `shift+r` reply prefix (plain Shift+R only). complexity: [low]
 - [x] T6.12 Bug: `list games --h` ghosts `elp` (`--help` added as a connector candidate). complexity: [low]
 - [x] T6.13 Bug: `list games so` ghosts `rted by` (`sorted by` added to connector candidates). complexity: [low]
