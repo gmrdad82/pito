@@ -10,13 +10,15 @@ RSpec.describe "pito:tools:probe", type: :rake do
 
   before do
     reenable("pito:tools:probe")
-    @old_game = ENV["game"]
-    @old_path = ENV["path"]
+    @old_game  = ENV["game"]
+    @old_path  = ENV["path"]
+    @old_force = ENV["force"]
   end
 
   after do
-    ENV["game"] = @old_game
-    ENV["path"] = @old_path
+    ENV["game"]  = @old_game
+    ENV["path"]  = @old_path
+    ENV["force"] = @old_force
   end
 
   it "requires game= and path=" do
@@ -65,6 +67,43 @@ RSpec.describe "pito:tools:probe", type: :rake do
       suppress_output { Rake::Task["pito:tools:probe"].invoke }
 
       expect(Footage.where(game: game)).to be_empty
+    end
+  end
+
+  describe "incremental (only new files)" do
+    it "skips a file already imported for the game — does NOT re-probe it" do
+      game = create(:game)
+
+      Dir.mktmpdir do |dir|
+        File.write(File.join(dir, "clip.mp4"), "x")
+        Footage.create!(game: game, filename: "clip.mp4") # already imported
+
+        ENV["game"] = game.id.to_s
+        ENV["path"] = File.join(dir, "*.mp4")
+
+        # Incremental skip means the prober is never invoked for this file.
+        expect(Pito::Footage::Probe).not_to receive(:call)
+        suppress_output { Rake::Task["pito:tools:probe"].invoke }
+
+        expect(Footage.where(game: game).count).to eq(1)
+      end
+    end
+
+    it "force=1 re-probes an already-imported file" do
+      game = create(:game)
+
+      Dir.mktmpdir do |dir|
+        File.write(File.join(dir, "clip.mp4"), "x")
+        Footage.create!(game: game, filename: "clip.mp4")
+
+        ENV["game"]  = game.id.to_s
+        ENV["path"]  = File.join(dir, "*.mp4")
+        ENV["force"] = "1"
+
+        # With force, the prober IS called even though the row exists.
+        expect(Pito::Footage::Probe).to receive(:call).and_call_original
+        suppress_output { Rake::Task["pito:tools:probe"].invoke }
+      end
     end
   end
 end

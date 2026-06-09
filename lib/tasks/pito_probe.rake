@@ -9,14 +9,19 @@
 #
 # The task expands the path (supports globs), runs `Pito::Footage::Probe`
 # against each file, and upserts a `Footage` row per file keyed by
-# `[game_id, filename]`. Probed attributes are written; existing rows are
-# overwritten in full.
+# `[game_id, filename]`.
+#
+# INCREMENTAL by default: a file whose `[game_id, filename]` already has a
+# Footage row is SKIPPED (ffprobe is NOT re-run) — so re-running on the same
+# folder only picks up NEW files. Pass `force=1` to re-probe + overwrite every
+# matched file.
 namespace :pito do
   namespace :tools do
-    desc "Probe video files with ffprobe and upsert Footage rows. game=N path=PATTERN"
+    desc "Probe video files with ffprobe and upsert Footage rows. game=N path=PATTERN [force=1]"
     task probe: :environment do
       game_id = ENV["game"]
       path_pattern = ENV["path"]
+      force = ENV["force"].to_s == "1"
 
       abort "Usage: bin/rails pito:tools:probe game=N path=PATTERN" if game_id.blank? || path_pattern.blank?
 
@@ -30,28 +35,38 @@ namespace :pito do
                  .sort
       abort "No mp4/mkv/mov files matched: #{path_pattern}" if files.empty?
 
-      puts "==> Probing #{files.length} file(s) for game '#{game.title}' (id=#{game.id})"
+      puts "==> Probing #{files.length} file(s) for game '#{game.title}' (id=#{game.id})#{force ? ' [force]' : ''}"
       puts ""
 
       probed = 0
-      skipped = 0
+      already = 0
+      failed = 0
       errors = []
 
       files.each_with_index do |file, i|
-        puts "  [#{i + 1}/#{files.length}] #{File.basename(file)}"
+        filename = File.basename(file)
+
+        # Incremental: skip files already imported for this game (unless force).
+        if !force && Footage.exists?(game_id: game.id, filename: filename)
+          already += 1
+          puts "  [#{i + 1}/#{files.length}] #{filename} — already imported, skipping"
+          next
+        end
+
+        puts "  [#{i + 1}/#{files.length}] #{filename}"
 
         result = Pito::Footage::Probe.call(path: file)
 
         unless result.success
-          errors << "#{File.basename(file)}: #{result.error_message}"
-          skipped += 1
+          errors << "#{filename}: #{result.error_message}"
+          failed += 1
           next
         end
 
         Footage.upsert(
           {
             game_id: game.id,
-            filename: File.basename(file),
+            filename: filename,
             resolution: result.resolution,
             fps: result.fps,
             duration_seconds: result.duration_seconds,
@@ -68,7 +83,7 @@ namespace :pito do
       end
 
       puts ""
-      puts "Done. #{probed} probed, #{skipped} skipped."
+      puts "Done. #{probed} probed, #{already} already imported (skipped), #{failed} failed."
 
       if errors.any?
         puts ""
