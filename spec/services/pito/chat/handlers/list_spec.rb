@@ -502,72 +502,36 @@ RSpec.describe Pito::Chat::Handlers::List do
       expect(result.events.first[:kind]).to eq(:system)
     end
 
-    it "does NOT list games (no table_rows from the game library)" do
-      # The --help payload's table_rows are column guide rows, not game rows.
-      # A game-library row has cells[0] with a #-prefixed id; help rows use :cells with option labels.
+    it "is an html payload (nvim-style man page), not a game table" do
       create(:game, title: "Elden Ring")
       payload = handler_for("list games --help").call.events.first[:payload]
-      rows    = Array(payload["table_rows"])
-      # No row should have a "#" prefixed id cell (sign of a game-library row)
-      game_row = rows.find do |r|
-        cells = r[:cells] || r["cells"]
-        cells&.first&.dig(:text)&.start_with?("#") ||
-          cells&.first&.dig("text")&.start_with?("#")
-      end
-      expect(game_row).to be_nil
+      expect(payload["html"]).to be(true)
+      expect(payload["table_rows"]).to be_nil
+      expect(payload["body"]).not_to include("Elden Ring")
     end
 
-    it "payload body mentions the intro text" do
-      payload = handler_for("list games --help").call.events.first[:payload]
-      expect(payload["body"]).to include("list games with")
+    it "renders Usage / Options / Columns sections" do
+      body = handler_for("list games --help").call.events.first[:payload]["body"]
+      expect(body).to include("Usage:")
+      expect(body).to include("Options:")
+      expect(body).to include("Columns:")
     end
 
-    it "payload table_rows include a row for platform" do
-      rows = handler_for("list games --help").call.events.first[:payload]["table_rows"]
-      texts = rows.flat_map { |r| (r[:cells] || r["cells"] || []).map { |c| c[:text] || c["text"] } }
-      expect(texts.map(&:downcase)).to include("platform")
+    it "documents the with / sorted by / --help options" do
+      body = handler_for("list games --help").call.events.first[:payload]["body"]
+      expect(body).to include("sorted by")
+      expect(body).to include("--help")
+      # `with <columns>` is html-escaped in the body
+      expect(body).to include("with &lt;columns&gt;")
     end
 
-    it "payload table_rows include a row for genre" do
-      rows = handler_for("list games --help").call.events.first[:payload]["table_rows"]
-      texts = rows.flat_map { |r| (r[:cells] || r["cells"] || []).map { |c| c[:text] || c["text"] } }
-      expect(texts.map(&:downcase)).to include("genre")
-    end
-
-    it "payload table_rows include a row for developer" do
-      rows = handler_for("list games --help").call.events.first[:payload]["table_rows"]
-      texts = rows.flat_map { |r| (r[:cells] || r["cells"] || []).map { |c| c[:text] || c["text"] } }
-      expect(texts.map(&:downcase)).to include("developer")
-    end
-
-    it "payload table_rows include a row for publisher" do
-      rows = handler_for("list games --help").call.events.first[:payload]["table_rows"]
-      texts = rows.flat_map { |r| (r[:cells] || r["cells"] || []).map { |c| c[:text] || c["text"] } }
-      expect(texts.map(&:downcase)).to include("publisher")
-    end
-
-    it "payload table_rows include a row for release date" do
-      rows = handler_for("list games --help").call.events.first[:payload]["table_rows"]
-      texts = rows.flat_map { |r| (r[:cells] || r["cells"] || []).map { |c| c[:text] || c["text"] } }
-      expect(texts.map(&:downcase)).to include("release")
-    end
-
-    it "payload table_rows include a row for year" do
-      rows = handler_for("list games --help").call.events.first[:payload]["table_rows"]
-      texts = rows.flat_map { |r| (r[:cells] || r["cells"] || []).map { |c| c[:text] || c["text"] } }
-      expect(texts.map(&:downcase)).to include("year")
-    end
-
-    it "table_rows aliases cell for platform includes 'platforms'" do
-      rows = handler_for("list games --help").call.events.first[:payload]["table_rows"]
-      texts = rows.flat_map { |r| (r[:cells] || r["cells"] || []).map { |c| c[:text] || c["text"] } }
-      expect(texts.join(" ")).to include("platforms")
-    end
-
-    it "table_rows aliases cell for developer includes 'dev'" do
-      rows = handler_for("list games --help").call.events.first[:payload]["table_rows"]
-      texts = rows.flat_map { |r| (r[:cells] || r["cells"] || []).map { |c| c[:text] || c["text"] } }
-      expect(texts.join(" ")).to include("dev")
+    it "lists every optional column with its aliases" do
+      body = handler_for("list games --help").call.events.first[:payload]["body"]
+      %w[platform genre developer publisher year].each { |col| expect(body).to include(col) }
+      expect(body).to include("release date")
+      # aliases are present too
+      expect(body).to include("platforms")
+      expect(body).to include("dev")
     end
   end
 

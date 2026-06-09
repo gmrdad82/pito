@@ -2232,9 +2232,22 @@ en:
       list:
         sort_column_not_visible: "Can't sort by \"%{column}\" — that column isn't visible. Add it with `with %{column}` first, or sort by a shown column."
         games_help:
-          intro: "Optional columns for `list games with …`:"
-          option_heading: "Option"
-          aliases_heading: "Aliases"
+          usage_title: "Usage:"
+          usage: "list games [with <columns>] [sorted by <column>]"
+          options_title: "Options:"
+          columns_title: "Columns:"
+          opt_with: "with <columns>"
+          opt_with_desc: "Append columns to the table (comma-separated)"
+          opt_sorted: "sorted by <column>"
+          opt_sorted_desc: "Sort by a visible column (append desc to reverse)"
+          opt_help: "--help"
+          opt_help_desc: "Print this help message"
+          col_platform_desc: "PlayStation / Switch / Steam"
+          col_genre_desc: "Genres"
+          col_developer_desc: "Developer studio"
+          col_publisher_desc: "Publisher"
+          col_release_date_desc: "Release date, e.g. June 09, 2026"
+          col_year_desc: "Release year"
 
       games:
         import:
