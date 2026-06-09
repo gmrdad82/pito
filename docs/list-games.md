@@ -445,8 +445,8 @@ Same man style. Copy from `Pito::Copy`. Both accept a **local id only** (plain n
 
 Rework to **local id only** (never title). Drop title resolution + misaligned copy/specs.
 
-- [ ] T20.1 Rework `reindex game <id>` — resolve by local id only (drop title); align copy/specs.
-- [ ] T20.2 Rework `reindex video <id>` — resolve by local id only (drop title); align copy/specs.
+- [x] T20.1 Rework `reindex game <id>` — resolve by local id only (drop title); align copy/specs.
+- [x] T20.2 Rework `reindex video <id>` — resolve by local id only (drop title); align copy/specs.
 
 ## Phase 21 — `publish` / `unlist` / `schedule` video `--help`
 

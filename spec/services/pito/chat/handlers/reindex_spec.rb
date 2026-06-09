@@ -21,13 +21,19 @@ RSpec.describe Pito::Chat::Handlers::Reindex do
   let!(:game) { create(:game, title: "Lies of P") }
 
   it "emits a confirmation event carrying the game_reindex command + id + title" do
-    result = handler_for("game", "lies", "of", "p").call
+    result = handler_for("game", game.id.to_s).call
     expect(result).to be_a(Pito::Chat::Result::Ok)
     event = result.events.first
     expect(event[:kind]).to eq(:confirmation)
     expect(event[:payload]["command"]).to eq("game_reindex")
     expect(event[:payload]["game_id"]).to eq(game.id)
     expect(event[:payload]["game_title"]).to eq("Lies of P")
+  end
+
+  it "returns not-found when a title ref is given (id-only resolution)" do
+    result = handler_for("game", "lies", "of", "p").call
+    expect(result).to be_a(Pito::Chat::Result::Ok)
+    expect(result.events.first[:payload]["text"]).to include("lies")
   end
 
   it "resolves by id and stamps the confirmation follow-up-able" do
@@ -57,13 +63,19 @@ RSpec.describe Pito::Chat::Handlers::Reindex do
     let!(:video)   { create(:video, channel: channel, title: "Let's Play Elden Ring") }
 
     it "emits a confirmation event carrying the video_reindex command + id + title" do
-      result = handler_for("video", "let's", "play", "elden", "ring").call
+      result = handler_for("video", video.id.to_s).call
       expect(result).to be_a(Pito::Chat::Result::Ok)
       event = result.events.first
       expect(event[:kind]).to eq(:confirmation)
       expect(event[:payload]["command"]).to eq("video_reindex")
       expect(event[:payload]["video_id"]).to eq(video.id)
       expect(event[:payload]["video_title"]).to eq("Let's Play Elden Ring")
+    end
+
+    it "returns not-found when a title ref is given (id-only resolution)" do
+      result = handler_for("video", "let's", "play", "elden", "ring").call
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(result.events.first[:payload]["text"]).to include("let's")
     end
 
     it "resolves video by #id and stamps follow-up-able (reply_target: confirmation)" do
@@ -94,15 +106,15 @@ RSpec.describe Pito::Chat::Handlers::Reindex do
     end
 
     it "game reindex STILL works unchanged when the video noun is absent" do
-      result = handler_for("game", "lies", "of", "p").call
+      result = handler_for("game", game.id.to_s).call
       expect(result.events.first[:payload]["command"]).to eq("game_reindex")
     end
 
-    context "video title with apostrophe resolved via real lexer/parser" do
+    context "video id resolved via real lexer/parser" do
       it "resolves via real lexer/parser" do
         result = Pito::Chat::Parser.call(
-          Pito::Lex::Lexer.call("reindex video Let's Play Elden Ring"),
-          raw: "reindex video Let's Play Elden Ring",
+          Pito::Lex::Lexer.call("reindex video #{video.id}"),
+          raw: "reindex video #{video.id}",
           conversation: Conversation.singleton
         )
         handler = described_class.new(message: result, conversation: Conversation.singleton)
