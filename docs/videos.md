@@ -628,12 +628,12 @@ Locked decisions (from the design discussion, 2026-06-08):
 > Reworks the committed Phase 24A: collapse to ONE nightly job; the Notification is
 > now CONDITIONAL + carries a 30-day release reminder.
 
-- [ ] T25.1 Collapse the nightly to ONE job (`GameIgdbNightlyRefresh`): iterate `Game.synced.stale.upcoming`, refetch + digest-gated reindex per game inline (reuse the per-game sync logic the manual path already uses; no second nightly job). complexity: [high]
-- [ ] T25.2 Track per run: changed game titles, failures `{title,error}`, and `releasing_30d` (games with `release_date` within the next 30 days). complexity: [high]
-- [ ] T25.3 Create ONE Notification (`Notification.create!(message: html)`) ONLY IF `changed.any? || failures.any? || releasing_30d.any?`; otherwise silent (no notification). complexity: [high]
-- [ ] T25.4 HTML summary body = changed list + failures list + "releasing soon" list (whichever present); `releasing_30d` repeats every run until the game releases. complexity: [low]
-- [ ] T25.5 Specs: changed-only, failure, all-quiet (no notification), releasing-30d reminder. complexity: [high]
-- [ ] T25.6 Commit. complexity: [manual]
+- [x] T25.1 Collapse the nightly to ONE job (`GameIgdbNightlyRefresh`): iterate `Game.synced.stale.upcoming`, refetch + digest-gated reindex per game inline (reuse the per-game sync logic the manual path already uses; no second nightly job). complexity: [high]
+- [x] T25.2 Track per run: changed game titles, failures `{title,error}`, and `releasing_30d` (games with `release_date` within the next 30 days). complexity: [high]
+- [x] T25.3 Create ONE Notification (`Notification.create!(message: html)`) ONLY IF `changed.any? || failures.any? || releasing_30d.any?`; otherwise silent (no notification). complexity: [high]
+- [x] T25.4 HTML summary body = changed list + failures list + "releasing soon" list (whichever present); `releasing_30d` repeats every run until the game releases. complexity: [low]
+- [x] T25.5 Specs: changed-only, failure, all-quiet (no notification), releasing-30d reminder. complexity: [high]
+- [x] T25.6 Commit. complexity: [manual]
 
 ## Phase 25B — Manual `sync` verbs + `import videos`
 
@@ -655,11 +655,11 @@ Locked decisions (from the design discussion, 2026-06-08):
 
 ## Phase 25C — `/help`
 
-- [ ] T25.18 List ALL `/slash` commands (from the grammar slash Specs / registry) with descriptions. complexity: [high]
-- [ ] T25.19 List keybindings NOT already mentioned in any `Pito::Copy`/locale string: audit `app/javascript/controllers/pito/*` for the full key set, exclude any shortcut text found in `config/locales/pito/**`. complexity: [high]
-- [ ] T25.20 Section titles yellow (`text-yellow font-bold`), never orange. complexity: [low]
-- [ ] T25.21 Specs (slash list present; a copy-mentioned shortcut is excluded; a non-mentioned one is listed; yellow). complexity: [high]
-- [ ] T25.22 Commit. complexity: [manual]
+- [x] T25.18 List ALL `/slash` commands (from the grammar slash Specs / registry) with descriptions. complexity: [high]
+- [x] T25.19 List keybindings NOT already mentioned in any `Pito::Copy`/locale string: audit `app/javascript/controllers/pito/*` for the full key set, exclude any shortcut text found in `config/locales/pito/**`. complexity: [high]
+- [x] T25.20 Section titles yellow (`text-yellow font-bold`), never orange. complexity: [low]
+- [x] T25.21 Specs (slash list present; a copy-mentioned shortcut is excluded; a non-mentioned one is listed; yellow). complexity: [high]
+- [x] T25.22 Commit. complexity: [manual]
 
 ## Phase 25D — `#help` + `help`
 

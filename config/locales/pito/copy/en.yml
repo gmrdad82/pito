@@ -5052,3 +5052,5 @@ en:
         nightly_games_sync:
           summary: "IGDB nightly sync: checked %{checked} upcoming game(s), updated %{updated}"
           failures_header: "%{count} game(s) failed to sync"
+          releasing_soon_header: "%{count} game(s) releasing within 30 days"
+          releasing_soon_item: "%{title} — %{release_date}"

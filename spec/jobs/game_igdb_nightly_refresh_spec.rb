@@ -39,27 +39,85 @@ RSpec.describe GameIgdbNightlyRefresh, type: :job do
     expect(GameIgdbSync).not_to have_received(:perform_now).with(never.id)
   end
 
-  # ── Notification creation ────────────────────────────────────────────────────
+  # ── no chat broadcast ────────────────────────────────────────────────────────
 
-  it "creates exactly ONE Notification on a successful run (even with no games)" do
-    expect { run! }.to change(Notification, :count).by(1)
-  end
-
-  it "creates exactly ONE Notification when there are stale upcoming games" do
-    create(:game, igdb_synced_at: 10.days.ago, release_year: nil)
-    expect { run! }.to change(Notification, :count).by(1)
-  end
-
-  it "Notification message contains the checked and updated counts" do
+  it "does NOT pass a conversation_id to GameIgdbSync (no chat broadcast)" do
     create(:game, igdb_synced_at: 10.days.ago, release_year: nil)
     run!
+    expect(GameIgdbSync).to have_received(:perform_now).with(Integer)
+    expect(GameIgdbSync).not_to have_received(:perform_now).with(anything, conversation_id: anything)
+  end
+
+  # ── Notification creation — conditional ─────────────────────────────────────
+
+  # (a) changed-only → notification created
+  it "(a) creates ONE Notification when games were updated" do
+    game = create(:game, igdb_synced_at: 10.days.ago, release_year: nil)
+
+    # Simulate a DB write by advancing updated_at after perform_now is called
+    allow(GameIgdbSync).to receive(:perform_now) do |id|
+      Game.where(id: id).update_all(updated_at: Time.current + 1.second) # rubocop:disable Rails/SkipsModelValidations
+    end
+
+    expect { run! }.to change(Notification, :count).by(1)
+  end
+
+  # (b) failure → notification created
+  it "(b) creates ONE Notification when at least one game fails" do
+    game = create(:game, title: "Broken Game", igdb_synced_at: 10.days.ago, release_year: nil)
+    allow(GameIgdbSync).to receive(:perform_now).with(game.id).and_raise(RuntimeError, "boom")
+
+    expect { run! }.to change(Notification, :count).by(1)
     msg = Notification.last.message
-    expect(msg).to include("1")   # checked count
+    expect(msg).to include("Broken Game")
+    expect(msg).to include("boom")
+  end
+
+  # (c) all-quiet, nothing releasing → NO notification
+  it "(c) creates NO Notification when nothing changed, no failures, nothing releasing within 30 days" do
+    # A stale upcoming game exists but sync produces no change and no failure
+    create(:game, igdb_synced_at: 10.days.ago, release_year: nil)
+    # GameIgdbSync is stubbed to return nil (no write) → updated_at does not advance
+
+    expect { run! }.not_to change(Notification, :count)
+  end
+
+  # (c) also: completely empty scope → no notification
+  it "(c) creates NO Notification when there are no stale upcoming games at all" do
+    expect { run! }.not_to change(Notification, :count)
+  end
+
+  # (d) game releasing within 30 days → notification even with 0 changed / 0 failed
+  it "(d) creates ONE Notification when a game releases within 30 days (even with 0 changed, 0 failed)" do
+    future_date = Date.current + 15.days
+    create(:game,
+           igdb_synced_at: 10.days.ago,
+           release_year:   future_date.year,
+           release_month:  future_date.month,
+           release_day:    future_date.day)
+    # Sync stub returns nil — no DB change, no failure
+
+    expect { run! }.to change(Notification, :count).by(1)
+    msg = Notification.last.message
+    expect(msg).to include("30 days")
+  end
+
+  # (e) game releasing in 60 days → NOT in releasing_30d → no notification (assuming no other activity)
+  it "(e) does NOT create a Notification for a game releasing in 60 days when nothing else changed" do
+    far_date = Date.current + 60.days
+    create(:game,
+           igdb_synced_at: 10.days.ago,
+           release_year:   far_date.year,
+           release_month:  far_date.month,
+           release_day:    far_date.day)
+    # Sync stub returns nil — no DB change, no failure, not within 30 days
+
+    expect { run! }.not_to change(Notification, :count)
   end
 
   # ── failure handling ─────────────────────────────────────────────────────────
 
-  it "continues syncing other games when one raises, still creates ONE Notification" do
+  it "continues syncing other games when one raises" do
     game1 = create(:game, igdb_synced_at: 10.days.ago, release_year: nil)
     game2 = create(:game, igdb_synced_at: 10.days.ago, release_year: nil)
 
@@ -71,7 +129,6 @@ RSpec.describe GameIgdbNightlyRefresh, type: :job do
 
     expect { run! }.not_to raise_error
     expect(call_count).to eq(2)
-    expect(Notification.count).to eq(1)
   end
 
   it "Notification message includes failure info when a game fails" do
@@ -84,13 +141,20 @@ RSpec.describe GameIgdbNightlyRefresh, type: :job do
     expect(msg).to include("boom")
   end
 
-  # ── no chat broadcast ────────────────────────────────────────────────────────
+  # ── releasing_30d section in message ────────────────────────────────────────
 
-  it "does NOT pass a conversation_id to GameIgdbSync (no chat broadcast)" do
-    create(:game, igdb_synced_at: 10.days.ago, release_year: nil)
+  it "Notification message includes title and release date of soon-releasing games" do
+    future_date = Date.current + 10.days
+    game = create(:game,
+                  title:         "Soon Game",
+                  igdb_synced_at: 10.days.ago,
+                  release_year:   future_date.year,
+                  release_month:  future_date.month,
+                  release_day:    future_date.day)
+
     run!
-    # perform_now is called with only the game id (no conversation_id keyword)
-    expect(GameIgdbSync).to have_received(:perform_now).with(Integer)
-    expect(GameIgdbSync).not_to have_received(:perform_now).with(anything, conversation_id: anything)
+    msg = Notification.last.message
+    expect(msg).to include("Soon Game")
+    expect(msg).to include(future_date.to_s)
   end
 end

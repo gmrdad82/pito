@@ -1,4 +1,4 @@
-# Phase 14 §1 — nightly IGDB refresh job.
+# Phase 14 §1 / Phase 25A — nightly IGDB refresh job.
 #
 # Iterates `Game.synced.stale.upcoming` and runs `GameIgdbSync.perform_now`
 # for each game SEQUENTIALLY so we have a single "done" point for a summary
@@ -23,18 +23,31 @@
 # that was never written (e.g. `ValidationError` swallowed by the job) does
 # not advance `updated_at`.
 #
-# After the loop ONE Notification is always created summarising the run
-# via `Pito::Notifications::Source::NightlyGamesSync.report!`.
+# Notification is created ONLY IF there is something noteworthy:
+# changed games, failures, or a game releasing within 30 days.
+# A completely quiet run (nothing changed, no failures, nothing releasing
+# soon) is silent — no Notification is created.
 class GameIgdbNightlyRefresh < ApplicationJob
   queue_as :default
 
-  def perform
-    checked  = 0
-    updated  = 0
-    changed_titles = []
-    failures = []
+  RELEASING_SOON_WINDOW = 30.days
 
-    Game.synced.stale.upcoming.find_each do |game|
+  def perform
+    checked        = 0
+    changed        = []
+    failures       = []
+    releasing_30d  = []
+
+    upcoming_games = Game.synced.stale.upcoming
+
+    # Collect games releasing within 30 days BEFORE the sync loop so we
+    # report on the scope as it exists at run time.
+    window_end = Date.current + RELEASING_SOON_WINDOW
+    upcoming_games.where(release_date: Date.current..window_end).find_each do |game|
+      releasing_30d << { title: game.title, release_date: game.release_date }
+    end
+
+    upcoming_games.find_each do |game|
       checked += 1
       before_updated_at = game.updated_at
 
@@ -43,8 +56,7 @@ class GameIgdbNightlyRefresh < ApplicationJob
 
         after_updated_at = Game.where(id: game.id).pick(:updated_at)
         if after_updated_at && after_updated_at > before_updated_at
-          updated += 1
-          changed_titles << game.title
+          changed << game.title
         end
       rescue StandardError => e
         Rails.logger.error("[GameIgdbNightlyRefresh] game id=#{game.id} (#{game.title}) failed: #{e.class}: #{e.message}")
@@ -52,11 +64,13 @@ class GameIgdbNightlyRefresh < ApplicationJob
       end
     end
 
+    return if changed.none? && failures.none? && releasing_30d.none?
+
     Pito::Notifications::Source::NightlyGamesSync.report!(
-      checked: checked,
-      updated: updated,
-      changed_titles: changed_titles,
-      failures: failures
+      checked:      checked,
+      changed:      changed,
+      failures:     failures,
+      releasing_30d: releasing_30d
     )
   end
 end
