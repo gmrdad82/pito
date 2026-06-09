@@ -36,8 +36,19 @@ module Pito
         end
 
         # Returns the mode (:mutate / :append) for the given target id, or nil.
-        def mode_for(target_id)
-          @handlers[target_id.to_s]&.handler_mode
+        #
+        # When +action+ is provided, first checks whether the handler declares a
+        # per-action mode override (via `action_modes`); falls back to the
+        # handler's default mode when no override exists.
+        #
+        # @param target_id [String] the reply_target string.
+        # @param action    [String, nil] the action word (first token of rest), or nil.
+        # @return [Symbol, nil] :mutate, :append, or nil if the target is unknown.
+        def mode_for(target_id, action: nil)
+          handler = @handlers[target_id.to_s]
+          return nil unless handler
+
+          handler.mode_for_action(action)
         end
 
         # Returns the declared action words for the given target id (the verbs a

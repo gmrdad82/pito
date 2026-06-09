@@ -100,6 +100,34 @@ module Pito
           end
         end
 
+        # Declare per-action overrides for the processing mode.
+        # Takes a Hash of action_name (String/Symbol) → mode (Symbol).
+        # Actions not listed here fall back to the class-level `self.mode`.
+        #
+        #   self.action_modes(add: :mutate, remove: :mutate)
+        #
+        # @param map [Hash{Symbol, String => Symbol}] action → mode overrides.
+        def action_modes(map = nil)
+          if map
+            map.each_value do |m|
+              unless %i[mutate append].include?(m.to_sym)
+                raise ArgumentError, "action_modes: mode must be :mutate or :append, got: #{m.inspect}"
+              end
+            end
+            @action_modes = map.transform_keys(&:to_s).transform_values(&:to_sym)
+          else
+            @action_modes || {}
+          end
+        end
+
+        # Returns the effective mode for a given action (String or nil).
+        # Falls back to the handler's default mode when the action has no override.
+        def mode_for_action(action)
+          return handler_mode if action.nil?
+
+          action_modes[action.to_s] || handler_mode
+        end
+
         # Mark this handler as internal — it is never user-facing.
         # Internal handlers:
         #   - emit no #hashtag handle (no reply_handle in the visit payload)

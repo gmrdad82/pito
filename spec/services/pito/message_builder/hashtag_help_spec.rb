@@ -147,6 +147,14 @@ RSpec.describe Pito::MessageBuilder::HashtagHelp do
         it "body includes the rm action" do
           expect(result["body"]).to include("rm")
         end
+
+        it "body includes the add action" do
+          expect(result["body"]).to include("add")
+        end
+
+        it "body includes the remove action" do
+          expect(result["body"]).to include("remove")
+        end
       end
 
       context "action-level page (action: 'show')" do
@@ -172,6 +180,44 @@ RSpec.describe Pito::MessageBuilder::HashtagHelp do
 
         it "body includes id wording" do
           expect(result["body"]).to include("id")
+        end
+      end
+
+      context "action-level page (action: 'add')" do
+        subject(:result) { described_class.call(target: "game_list", action: "add") }
+
+        it "returns an html payload" do
+          expect(result).to be_a(Hash)
+          expect(result["html"]).to be(true)
+        end
+
+        it "body mentions columns" do
+          expect(result["body"]).to include("columns")
+        end
+
+        it "body mentions game column vocab (platform)" do
+          expect(result["body"]).to include("platform")
+        end
+
+        it "body mentions game column vocab (genre)" do
+          expect(result["body"]).to include("genre")
+        end
+      end
+
+      context "action-level page (action: 'remove')" do
+        subject(:result) { described_class.call(target: "game_list", action: "remove") }
+
+        it "returns an html payload" do
+          expect(result).to be_a(Hash)
+          expect(result["html"]).to be(true)
+        end
+
+        it "body mentions columns" do
+          expect(result["body"]).to include("columns")
+        end
+
+        it "body mentions game column vocab (publisher)" do
+          expect(result["body"]).to include("publisher")
         end
       end
     end
@@ -249,6 +295,52 @@ RSpec.describe Pito::MessageBuilder::HashtagHelp do
 
         it "body includes the delete action" do
           expect(result["body"]).to include("delete")
+        end
+
+        it "body includes the add action" do
+          expect(result["body"]).to include("add")
+        end
+
+        it "body includes the remove action" do
+          expect(result["body"]).to include("remove")
+        end
+      end
+
+      context "action-level page (action: 'add')" do
+        subject(:result) { described_class.call(target: "video_list", action: "add") }
+
+        it "returns an html payload" do
+          expect(result).to be_a(Hash)
+          expect(result["html"]).to be(true)
+        end
+
+        it "body mentions columns" do
+          expect(result["body"]).to include("columns")
+        end
+
+        it "body mentions video column vocab (duration)" do
+          expect(result["body"]).to include("duration")
+        end
+
+        it "body mentions video column vocab (views)" do
+          expect(result["body"]).to include("views")
+        end
+      end
+
+      context "action-level page (action: 'remove')" do
+        subject(:result) { described_class.call(target: "video_list", action: "remove") }
+
+        it "returns an html payload" do
+          expect(result).to be_a(Hash)
+          expect(result["html"]).to be(true)
+        end
+
+        it "body mentions columns" do
+          expect(result["body"]).to include("columns")
+        end
+
+        it "body mentions video column vocab (comments)" do
+          expect(result["body"]).to include("comments")
         end
       end
     end

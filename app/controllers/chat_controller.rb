@@ -554,7 +554,11 @@ class ChatController < ApplicationController
       return
     end
 
-    mode = Pito::FollowUp::Registry.mode_for(target)
+    # Extract the first word of rest as the action name for per-action mode lookup.
+    # This allows handlers to declare different modes per action (e.g. add: :mutate,
+    # show: :append) while sharing a single handler class.
+    action = ff[:rest].to_s.split(/\s+/).first&.downcase
+    mode = Pito::FollowUp::Registry.mode_for(target, action:)
 
     case mode
     when :mutate

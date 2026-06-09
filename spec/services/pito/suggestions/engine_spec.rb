@@ -372,11 +372,10 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
       )
     end
 
-    it "suggests the target's actions (show/delete/rm), NOT the legacy add/remove" do
+    it "suggests the target's actions (show/delete/rm/add/remove)" do
       result = call(input: "#alpha-1266 ", cursor: 12, conversation:)
       labels = result[:menu_items].map { |i| i[:label] }
-      expect(labels).to include("show", "delete")
-      expect(labels).not_to include("add", "remove")
+      expect(labels).to include("show", "delete", "rm", "add", "remove")
     end
 
     it "ghosts the first action so TAB completes it (no <brackets>)" do

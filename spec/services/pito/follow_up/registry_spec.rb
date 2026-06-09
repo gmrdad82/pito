@@ -61,6 +61,42 @@ RSpec.describe Pito::FollowUp::Registry, type: :service do
     it "returns nil for an unknown target" do
       expect(described_class.mode_for("nonexistent")).to be_nil
     end
+
+    context "with per-action mode overrides (action_modes DSL)" do
+      let(:mixed_handler_class) do
+        Class.new(Pito::FollowUp::Handler) do
+          target "spec_mixed"
+          mode   :append
+          action_modes add: :mutate, remove: :mutate
+
+          def call(event:, rest:, conversation:)
+            Pito::FollowUp::Result::Append.new(events: [])
+          end
+        end
+      end
+
+      before { described_class.register(mixed_handler_class) }
+
+      it "returns :mutate for an action with a :mutate override" do
+        expect(described_class.mode_for("spec_mixed", action: "add")).to eq(:mutate)
+      end
+
+      it "returns :mutate for remove action override" do
+        expect(described_class.mode_for("spec_mixed", action: "remove")).to eq(:mutate)
+      end
+
+      it "falls back to class-level :append for unlisted actions" do
+        expect(described_class.mode_for("spec_mixed", action: "show")).to eq(:append)
+      end
+
+      it "falls back to class-level :append when action is nil" do
+        expect(described_class.mode_for("spec_mixed", action: nil)).to eq(:append)
+      end
+
+      it "falls back to class-level :append when action is not provided" do
+        expect(described_class.mode_for("spec_mixed")).to eq(:append)
+      end
+    end
   end
 
   describe ".all" do
@@ -82,6 +118,51 @@ RSpec.describe Pito::FollowUp::Handler, type: :service do
       expect {
         Class.new(Pito::FollowUp::Handler) { self.mode(:invalid) }
       }.to raise_error(ArgumentError, /mode must be/)
+    end
+  end
+
+  describe "action_modes DSL" do
+    it "stores action → mode overrides as string keys and symbol values" do
+      klass = Class.new(Pito::FollowUp::Handler) do
+        target "spec_am"
+        mode   :append
+        action_modes add: :mutate, remove: :mutate
+      end
+      expect(klass.action_modes["add"]).to eq(:mutate)
+      expect(klass.action_modes["remove"]).to eq(:mutate)
+    end
+
+    it "raises ArgumentError for an invalid action mode" do
+      expect {
+        Class.new(Pito::FollowUp::Handler) { action_modes(add: :invalid) }
+      }.to raise_error(ArgumentError, /action_modes/)
+    end
+
+    it "mode_for_action returns the override for a listed action" do
+      klass = Class.new(Pito::FollowUp::Handler) do
+        target "spec_am2"
+        mode   :append
+        action_modes add: :mutate
+      end
+      expect(klass.mode_for_action("add")).to eq(:mutate)
+    end
+
+    it "mode_for_action falls back to class mode for unlisted action" do
+      klass = Class.new(Pito::FollowUp::Handler) do
+        target "spec_am3"
+        mode   :append
+        action_modes add: :mutate
+      end
+      expect(klass.mode_for_action("show")).to eq(:append)
+    end
+
+    it "mode_for_action falls back to class mode when action is nil" do
+      klass = Class.new(Pito::FollowUp::Handler) do
+        target "spec_am4"
+        mode   :mutate
+        action_modes add: :append
+      end
+      expect(klass.mode_for_action(nil)).to eq(:mutate)
     end
   end
 

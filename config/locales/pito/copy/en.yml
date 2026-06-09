@@ -2356,6 +2356,20 @@ en:
                   "<id>": "Row number from the list (alias: delete)"
                 Options:
                   "--help": "Print this help message"
+            add:
+              usage: "#<list-games-hashtag> add <columns>"
+              sections:
+                Arguments:
+                  "<columns>": "Comma-separated column names to add: platform, genre, developer, publisher, release date, year"
+                Options:
+                  "--help": "Print this help message"
+            remove:
+              usage: "#<list-games-hashtag> remove <columns>"
+              sections:
+                Arguments:
+                  "<columns>": "Comma-separated column names to remove: platform, genre, developer, publisher, release date, year"
+                Options:
+                  "--help": "Print this help message"
 
         show-video:
           target_usage: "#<show-video-hashtag> <action>"
@@ -2418,6 +2432,20 @@ en:
               sections:
                 Arguments:
                   "<id>": "Row number from the list (alias: delete)"
+                Options:
+                  "--help": "Print this help message"
+            add:
+              usage: "#<list-videos-hashtag> add <columns>"
+              sections:
+                Arguments:
+                  "<columns>": "Comma-separated column names to add: game, duration, views, likes, comments"
+                Options:
+                  "--help": "Print this help message"
+            remove:
+              usage: "#<list-videos-hashtag> remove <columns>"
+              sections:
+                Arguments:
+                  "<columns>": "Comma-separated column names to remove: game, duration, views, likes, comments"
                 Options:
                   "--help": "Print this help message"
 

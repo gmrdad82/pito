@@ -504,11 +504,11 @@ Ordering: do T25.1/T25.2 **with or right after** Phases 31 & 33 (game_list/video
 follow-up handlers) so those handlers are edited once; T25.4 after Phase 35 (hashtag `--help`
 infra).
 
-- [ ] T25.1 Implement `add <columns>` / `remove <columns>` as `game_list` + `video_list` follow-up actions (`:mutate`, non-consuming) that re-render the SAME list message with columns added/removed; columns via the `with`-column vocab (game vs video by kind); ignore unknown/dupes. complexity: [high]
-- [ ] T25.2 Extend follow-up dispatch for **per-action** consume behavior — one target (`game_list`/`video_list`) carries `:append` consuming actions (show/delete) AND `:mutate` non-consuming actions (add/remove). complexity: [high]
+- [x] T25.1 Implement `add <columns>` / `remove <columns>` as `game_list` + `video_list` follow-up actions (`:mutate`, non-consuming) that re-render the SAME list message with columns added/removed; columns via the `with`-column vocab (game vs video by kind); ignore unknown/dupes. complexity: [high]
+- [x] T25.2 Extend follow-up dispatch for **per-action** consume behavior — one target (`game_list`/`video_list`) carries `:append` consuming actions (show/delete) AND `:mutate` non-consuming actions (add/remove). complexity: [high]
 - [ ] T25.3 Ghost: after `#<list-handle> add ` / `remove `, suggest the exact `with` columns (reuse the `with`-column ghost vocab; game vs video by kind). complexity: [high]
-- [ ] T25.4 `add --help` / `remove --help` (man style, hashtag copy) on `#list-games-hashtag` + `#list-videos-hashtag` — `Usage: add <columns>` / `remove <columns>`, columns = the with-column list. (Depends on Phase 35.) complexity: [low]
-- [ ] T25.5 Specs: repeated add/remove mutate columns WITHOUT consuming the handle; show/delete still consume; ghost suggests columns; `--help` renders; game vs video vocab correct. complexity: [high]
+- [x] T25.4 `add --help` / `remove --help` (man style, hashtag copy) on `#list-games-hashtag` + `#list-videos-hashtag` — `Usage: add <columns>` / `remove <columns>`, columns = the with-column list. (Depends on Phase 35.) complexity: [low]
+- [x] T25.5 Specs: repeated add/remove mutate columns WITHOUT consuming the handle; show/delete still consume; ghost suggests columns; `--help` renders; game vs video vocab correct. complexity: [high]
 - [ ] T25.6 Drop the legacy `Normalizer`/`confirmation_handle` add/remove-**metrics** segment-edit ops if dead (verify unused first) — separate from the column add/remove and from confirm/cancel; no leftovers. complexity: [high]
 
 ## Phase 26 — Remove themes from chat verbs (`/themes` Sidebar stays)
