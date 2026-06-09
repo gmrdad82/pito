@@ -11,8 +11,7 @@ module Pito
       #
       # tokens       — Array of Pito::Lex::Token from the lexer.
       # raw:         — The original input string.
-      # conversation — The Conversation record, needed to probe whether a
-      #                refinement-eligible Turn exists.
+      # conversation — The Conversation record (reserved for future use).
       #
       # Returns a Pito::Chat::Message.
       # Raises NotAChatMessage if the input starts with a slash.
@@ -46,12 +45,8 @@ module Pito
           # the handler registry only knows canonical verbs.
           body_tokens = tokens_until_eof
           Message.new(verb: spec.name, body_tokens:, kind: :new_turn, raw: @raw)
-        elsif refinement_eligible?
-          # No recognised verb, but a recent Turn exists → refinement.
-          body_tokens = tokens_until_eof
-          Message.new(verb: nil, body_tokens:, kind: :refinement, raw: @raw)
         else
-          # No recognised verb and no open Turn → unknown.
+          # No recognised verb → unknown.
           Message.new(verb: nil, body_tokens: [], kind: :unknown, raw: @raw)
         end
       end
@@ -77,22 +72,6 @@ module Pito
           advance
         end
         result
-      end
-
-      # A Turn is "open" (refinement-eligible) when the conversation has a
-      # most-recent Turn that was created within the last 30 minutes AND that
-      # Turn has result events beyond the echo.  An echo-only Turn is still
-      # being dispatched by ChatDispatchJob and must not be treated as a
-      # refinement target for the incoming command.
-      OPEN_TURN_TIMEOUT = 30.minutes
-
-      def refinement_eligible?
-        turn = Turn.last_for(@conversation)
-        return false unless turn && turn.created_at >= OPEN_TURN_TIMEOUT.ago
-
-        # A turn is refinement-eligible only if it has actual result events
-        # (beyond echo + thinking).  The thinking indicator is not a result.
-        turn.events.where.not(kind: %w[echo thinking]).exists?
       end
     end
   end

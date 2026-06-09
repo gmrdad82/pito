@@ -24,7 +24,7 @@ module Games
       uuid     = params[:uuid].to_s.strip
 
       conversation = Conversation.find_by(uuid: uuid)
-      return head :unprocessable_entity if conversation.nil?
+      return head :unprocessable_content if conversation.nil?
 
       GameImportJob.perform_later(
         igdb_id:,
@@ -34,7 +34,7 @@ module Games
 
       head :no_content
     rescue ArgumentError, TypeError
-      head :unprocessable_entity
+      head :unprocessable_content
     end
   end
 end

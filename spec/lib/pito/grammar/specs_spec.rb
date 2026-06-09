@@ -17,6 +17,24 @@ RSpec.describe Pito::Grammar::Specs do
       expect(all_specs.map(&:name)).to include(:show)
     end
 
+    it "includes the :import chat spec" do
+      expect(all_specs.map(&:name)).to include(:import)
+    end
+
+    it "includes the :sync chat spec" do
+      expect(all_specs.map(&:name)).to include(:sync)
+    end
+
+    it "assigns the :chat namespace to :sync" do
+      sync_spec = all_specs.find { |s| s.name == :sync && s.namespace == :chat }
+      expect(sync_spec).not_to be_nil
+      expect(sync_spec.namespace).to eq(:chat)
+    end
+
+    it "includes the :footage chat spec" do
+      expect(all_specs.map(&:name)).to include(:footage)
+    end
+
     it "includes the :find chat spec" do
       expect(all_specs.map(&:name)).to include(:find)
     end
@@ -29,9 +47,9 @@ RSpec.describe Pito::Grammar::Specs do
       expect(all_specs.map(&:name)).to include(:remove)
     end
 
-    it "assigns the :chat namespace to :list, :show, :find" do
+    it "assigns the :chat namespace to :list, :show, :footage, :find" do
       chat_names = all_specs.select { |s| s.namespace == :chat }.map(&:name)
-      expect(chat_names).to include(:list, :show, :find)
+      expect(chat_names).to include(:list, :show, :footage, :find)
     end
 
     it "assigns the :hashtag namespace to :add, :remove" do
@@ -57,9 +75,25 @@ RSpec.describe Pito::Grammar::Specs do
         expect(spec.slot(:noun).source).to eq(:nouns)
       end
 
-      it "registers :show and :find specs" do
+      it "registers :show, :import, :footage and :find specs" do
         names = Pito::Grammar::Registry.specs(namespace: :chat).map(&:name)
-        expect(names).to include(:list, :show, :find)
+        expect(names).to include(:list, :show, :import, :footage, :find)
+      end
+
+      it "registers :import with a :noun slot (import_nouns) and an optional :title free slot" do
+        spec = Pito::Grammar::Registry.spec(namespace: :chat, name: :import)
+        expect(spec).not_to be_nil
+        expect(spec.slots.length).to eq(2)
+        expect(spec.slot(:noun).source).to eq(:import_nouns)
+        expect(spec.slot(:title).optional?).to be(true)
+      end
+
+      it "registers :footage with a single optional :title enum slot sourced from game_titles" do
+        spec = Pito::Grammar::Registry.spec(namespace: :chat, name: :footage)
+        expect(spec).not_to be_nil
+        expect(spec.slots.length).to eq(1)
+        expect(spec.slot(:title).source).to eq(:game_titles)
+        expect(spec.slot(:title).optional?).to be(true)
       end
     end
 

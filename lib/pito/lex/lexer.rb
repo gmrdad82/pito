@@ -16,7 +16,9 @@ module Pito
     #   :comma    — the "," character
     #   :at       — the "@" character (bare; handle fusion is done by downstream consumers)
     #   :dot      — the "." character
-    #   :word     — a sequence of [a-zA-Z][a-zA-Z0-9_-]*
+    #   :word     — a sequence of [a-zA-Z][a-zA-Z0-9_-']* (an apostrophe may also
+    #               LEAD a word when a letter follows, e.g. "'n" in "Ghosts 'n
+    #               Goblins"; "don't" / "Ghosts'" keep their apostrophe too)
     #               URL-slurp rule: when immediately followed by "://" the word is
     #               extended to consume all characters up to the next whitespace,
     #               keeping "http://host:port/path" as a single :word token so that
@@ -78,6 +80,15 @@ module Pito
             @space_pending = true
           when /[a-zA-Z]/
             read_word
+          when "'"
+            # Apostrophe-led word like "'n" / "'em" / "'tis" — only when a letter
+            # follows, so a lone/closing apostrophe still falls through to :unknown.
+            if peek&.match?(/[a-zA-Z]/)
+              read_word
+            else
+              emit(:unknown, c)
+              advance
+            end
           when /\d/
             read_number
           else
@@ -119,7 +130,7 @@ module Pito
       def read_word
         start_pos = @pos
         @pos += 1
-        @pos += 1 while @pos < @input.length && current_char.match?(/[a-zA-Z0-9_-]/)
+        @pos += 1 while @pos < @input.length && current_char.match?(/[a-zA-Z0-9_\-']/)
 
         # URL detection: word immediately followed by "://" (e.g. http://, https://).
         # Consume everything up to the next whitespace as one token so that

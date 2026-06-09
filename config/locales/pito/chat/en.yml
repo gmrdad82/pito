@@ -3,20 +3,46 @@ en:
     chat:
       list:
         descriptions:
-          list: "List games in your library"
+          list: "List games, channels, or videos"
       show:
         descriptions:
           show: "Show a game's details (by id or title)"
         needs_ref: "Which game? Use `list games` to see ids, then `show game <id>`."
+      import:
+        descriptions:
+          import: "Import a game from IGDB, or import new videos from a channel"
+        usage_hint: "To import a game from IGDB, type `import game <title>`. To import new videos, type `import videos`."
+      footage:
+        descriptions:
+          footage: "Get the footage probe command for a game (by id or title)"
+        needs_ref: "Which game? Use `list games` to see ids, then `footage <id> <path>`."
       delete:
         descriptions:
-          delete: "Delete a game (by id or title)"
-        needs_ref: "Which game? Use `list games` to see ids, then `rm game <id>`."
-      update:
+          delete: "Delete a game or video (by id or title)"
+        needs_ref: "Which game or video? Use `list games` to see ids, then `rm game <id>` or `rm video <id>`."
+      reindex:
         descriptions:
-          update: "Update game ownership platforms (by id)"
-        needs_id: "Ownership update needs a game ID. Use `list games` to see IDs, then `update game ownership <id> <platforms>`."
-        needs_platforms: "No valid platforms given. Use `update game ownership <id> ps/switch/steam` (any combo)."
+          reindex: "Re-embed a game or video in Voyage (by id or title)"
+        needs_ref: "Which game or video? Use `list games` to see ids, then `reindex game <id>` or `reindex video <id>`."
+      publish:
+        descriptions:
+          publish: "Publish a video locally (set public, clear schedule)"
+        needs_ref: "Which video? Use `list videos` to see ids, then `publish video <id>`."
+      unlist:
+        descriptions:
+          unlist: "Unlist a video locally"
+        needs_ref: "Which video? Use `list videos` to see ids, then `unlist video <id>`."
+      schedule:
+        descriptions:
+          schedule: "Schedule a video for future publishing"
+        needs_ref: "Usage: `schedule video <id|title> YYYY-MM-DD` or `schedule video <id|title> YYYY-MM-DD HH:MM`."
+        bad_when: "Couldn't parse that date. Use `YYYY-MM-DD` or `YYYY-MM-DD HH:MM` (UTC)."
+        too_soon: "YouTube requires a publish time at least 30 minutes in the future. Pick a later time."
+      sync:
+        descriptions:
+          sync: "Sync a game, video, channel, or all channel videos from YouTube/IGDB"
+        needs_ref: "Usage: `sync game <id|title>`, `sync video <id|title>`, `sync videos`, `sync channel`, or `sync channel with videos`."
+        unknown_channel: "Unknown channel %{handle}. Use `list channels` to see handles."
       link:
         descriptions:
           link: "Link a video to a game"
@@ -25,13 +51,14 @@ en:
         descriptions:
           unlink: "Unlink a video from a game"
         usage: "Usage: `unlink game <id|title> from video <id|title>` or `unlink video <id|title> from game <id|title>`."
+      help:
+        descriptions:
+          help: "List follow-up targets and their accepted actions"
       errors:
         unknown_input: "Didn't understand %{input}. Try /help for available commands."
         verb_not_implemented: "The chat verb %{verb} isn't wired yet."
         misrouted_slash: "Internal: slash command %{raw} reached the chat parser."
-        cannot_list: "Can't list %{noun} yet — only games. Try: list games."
+        cannot_list: "Can't list %{noun} yet. Try: list games, list channels, or list videos."
       conversations:
         errors:
           title_blank: "title cannot be blank"
-      refine_demo:
-        acknowledged: "[DEMO refinement] Received: %{input}"

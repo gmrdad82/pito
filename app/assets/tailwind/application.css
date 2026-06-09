@@ -977,7 +977,7 @@ html {
    completionist = pink (mix red→purple). */
 [data-accent="main"]          { color: color-mix(in oklch, var(--accent-green) 70%, var(--fg-default)); }
 [data-accent="extras"]        { color: color-mix(in oklch, color-mix(in oklch, var(--accent-green), var(--accent-yellow)) 58%, var(--fg-default)); }
-[data-accent="completionist"] { color: color-mix(in oklch, color-mix(in oklch, var(--accent-red), var(--accent-purple)) 82%, var(--fg-default)); }
+[data-accent="completionist"] { color: color-mix(in oklch, var(--accent-red), var(--accent-purple)); }
 [data-accent="footage"]       { color: var(--fg-default); }
 
 /* ── Pito::Game::EnhancedComponent ─────────────────────────────
@@ -1009,12 +1009,17 @@ html {
   height: 0.5rem;
 }
 
-/* Channel grid: auto-fill columns, min 120px each, aligned by the
-   three row tracks (handle / title / score bar). */
+/* Channel grid: auto-fit columns, min 200px each. auto-fit (not auto-fill)
+   so a lone channel stretches to full width instead of staying a starved
+   120px track; the 200px floor guarantees the inline ScoreBarComponent
+   (label + needle bar) has room — at 120px the "Crowd Score" label ate the
+   row and the `=` track collapsed to nothing ("[]"). */
 .pito-game-enhanced-message__channel-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  gap: 0.75rem 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  /* Generous row gap: each score bar floats its bubble above itself, so wrapped
+     rows need clearance or the next row's handle crowds the bubble. */
+  gap: 2rem 1rem;
   align-items: start;
 }
 
@@ -1023,25 +1028,6 @@ html {
   flex-direction: column;
   gap: 0.25rem;
   min-width: 0;
-}
-
-.pito-game-enhanced-message__channel-handle {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.pito-game-enhanced-message__channel-title {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* The ScoreBarComponent inside a channel column inherits the column
-   width naturally (it is full-width by design). Override the large
-   top margin the standalone bar uses so it sits flush in the grid. */
-.pito-game-enhanced-message__channel-score .pito-score-bar {
-  margin-top: 0.25rem;
 }
 
 /* Similar-games strip: inline, wrapping. */
@@ -1062,11 +1048,21 @@ html {
   min-width: 0;
 }
 
-.pito-game-enhanced-message__similar-game-cover {
+/* Cover art display size — shared by the enhanced similar-game card and the
+   game detail message. Matches Game::COVER_VARIANT (240×320) so the variant is
+   the display size: no HTML/CSS downscaling of a larger image. */
+.pito-game-enhanced-message__similar-game-cover,
+.pito-game-detail__cover img {
   width: 240px;
-  height: 318px;
+  height: 320px;
   object-fit: cover;
   display: block;
+}
+
+/* Detail cover column: fixed width, never shrinks in the flex head. */
+.pito-game-detail__cover {
+  flex: 0 0 auto;
+  width: 240px;
 }
 
 /* Placeholder when no cover art is attached. */
@@ -1145,6 +1141,74 @@ html {
 
 .pito-channel-list__view-link {
   display: inline-block;
+}
+
+/* ── Channel item (Pito::Channel::ItemComponent) ────────────────────────────
+ *
+ * Shared single-channel item: handle / title / id, with optional plain [view]
+ * link (show_visit:) and/or ScoreBarComponent below the id (score:).
+ * Used in ListComponent (show_visit: true, no score) and in the enhanced
+ * game message channel grid (show_visit: false, with score bar).
+ */
+/* The ONE channel item, identical everywhere (list channels + recommended
+   channels). Centered column, 120px circular avatar — only [view] vs the
+   ScoreBarComponent differ, controlled by ItemComponent kwargs. */
+.pito-channel-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.2rem;
+  /* Fill the column width so the single-row title clips to it (otherwise the
+     centered item shrinks to content and the title never truncates). */
+  width: 100%;
+  min-width: 0;
+}
+
+.pito-channel-item__avatar {
+  width: 120px;
+  height: 120px;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.pito-channel-item__avatar--placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-faded);
+  background: var(--bg-elevated);
+}
+
+/* Title: trimmed to a single row (…) so it never wraps. */
+.pito-channel-item__title {
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Score bar sits below the #id with a little breathing room. */
+.pito-channel-item__score {
+  margin-top: 0.5rem;
+  width: 100%;
+}
+
+/* ── Footage import probe block ────────────────────────────────
+ *
+ * The copy-confirmation overlay is absolutely centered over the
+ * command block. The JS controller toggles `hidden` on it.
+ */
+.pito-footage-import__overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in oklch, var(--bg-surface) 85%, transparent);
+  color: var(--accent-yellow);
+  font-weight: bold;
+  pointer-events: none;
 }
 
 /* ── Theme system ──────────────────────────────────────────────

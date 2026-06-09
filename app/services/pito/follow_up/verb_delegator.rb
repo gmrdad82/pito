@@ -1,0 +1,56 @@
+# frozen_string_literal: true
+
+module Pito
+  module FollowUp
+    # Delegates a `#<handle> <verb> <rest>` reply to the SAME chat verb handler
+    # that serves `<verb> <rest>` in free chat (Phase 18, T18.4).
+    #
+    # A follow-up handler (game_list, game_detail, …) becomes a thin shim: it
+    # passes the live source event + the reply's `rest` here. We reconstruct the
+    # chat invocation, run it through `Chat::Dispatcher` with a `FollowUpContext`
+    # attached (so resolution can scope to the source list's rows or read the
+    # source card's entity — T18.2), then adapt the chat result into a follow-up
+    # result (T18.3). One code path builds + sends; no duplication.
+    #
+    #   VerbDelegator.call(source_event: ev, rest: "show 5", conversation: c)
+    #   # → runs Chat::Handlers::Show with follow_up context → FollowUp::Result::Append
+    #
+    # GATING (T18.5): the verb must be one of the source event's allowed reply
+    # actions (the `reply_target`'s declared `actions`, the canonical matrix). A
+    # disallowed verb is rejected with that target's `invalid_action` copy — never
+    # delegated. (An empty/unknown action list means "not gated".)
+    module VerbDelegator
+      module_function
+
+      # @param source_event [Event]        the live event being replied to.
+      # @param rest         [String]       text after `#<handle> ` (e.g. "show 5", "rm").
+      # @param conversation [Conversation]
+      # @param channel      [String, nil]  shift+tab channel scope, if any.
+      # @return [Pito::FollowUp::Result::Append, Pito::FollowUp::Result::Error]
+      def call(source_event:, rest:, conversation:, channel: nil)
+        input = rest.to_s.strip
+        verb  = input[/\A\S+/].to_s.downcase
+
+        reply_target = source_event.payload.to_h.with_indifferent_access[:reply_target].to_s
+        allowed      = Pito::FollowUp::Registry.actions_for(reply_target).map(&:to_s)
+        if allowed.any? && !allowed.include?(verb)
+          return Pito::FollowUp::Result::Error.new(
+            message_key:  "pito.follow_up.#{reply_target}.errors.invalid_action",
+            message_args: { action: verb }
+          )
+        end
+
+        args    = input.sub(/\A\S+\s*/, "") # everything after the verb word
+        context = Pito::Chat::FollowUpContext.new(source_event:, rest: args)
+        result  = Pito::Chat::Dispatcher.call(
+          input:        input,
+          conversation: conversation,
+          channel:      channel,
+          follow_up:    context
+        )
+
+        Pito::FollowUp::ChatResultAdapter.call(result)
+      end
+    end
+  end
+end

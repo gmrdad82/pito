@@ -29,6 +29,17 @@ RSpec.describe Pito::Chat::Parser do
       expect(result.kind).to eq(:new_turn)
     end
 
+    it "recognises :import as a new-turn verb" do
+      result = described_class.call(lex("import Pragmata"), raw: "import Pragmata", conversation:)
+      expect(result.verb).to eq(:import)
+      expect(result.kind).to eq(:new_turn)
+    end
+
+    it "parses `import <id>` to verb :import" do
+      result = described_class.call(lex("import 1"), raw: "import 1", conversation:)
+      expect(result.verb).to eq(:import)
+    end
+
     it "recognises :find as a new-turn verb" do
       result = described_class.call(lex("find items"), raw: "find items", conversation:)
       expect(result.verb).to eq(:find)
@@ -53,9 +64,8 @@ RSpec.describe Pito::Chat::Parser do
       expect(result.body_tokens).to eq([])
     end
 
-    it "classifies unrecognised input as :refinement when a recent turn with result events exists" do
-      # A turn is only refinement-eligible when it has result events beyond the echo
-      # (echo-only turns are still dispatching via ChatDispatchJob).
+    it "classifies unrecognised input as :unknown even when a recent turn with result events exists" do
+      # Refinement machinery has been removed — no-verb messages always fall through to :unknown.
       turn = conversation.turns.create!(
         input_text: "list videos",
         input_kind: :chat,
@@ -70,24 +80,10 @@ RSpec.describe Pito::Chat::Parser do
 
       result = described_class.call(lex("more stuff"), raw: "more stuff", conversation:)
       expect(result.verb).to be_nil
-      expect(result.kind).to eq(:refinement)
-      expect(result.body_tokens.map(&:value)).to eq([ "stuff" ])
-    end
-
-    it "classifies as :unknown when the only turn is older than 30 minutes" do
-      conversation.turns.create!(
-        input_text: "list videos",
-        input_kind: :chat,
-        position: 1,
-        created_at: 45.minutes.ago
-      )
-
-      result = described_class.call(lex("more stuff"), raw: "more stuff", conversation:)
-      expect(result.verb).to be_nil
       expect(result.kind).to eq(:unknown)
     end
 
-    it "classifies an unrecognised verb as :unknown (not :refinement) with no open turn" do
+    it "classifies an unrecognised verb as :unknown with no open turn" do
       result = described_class.call(lex("madeup verb"), raw: "madeup verb", conversation:)
       expect(result.verb).to be_nil
       expect(result.kind).to eq(:unknown)

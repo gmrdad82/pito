@@ -9,8 +9,8 @@
 # done (Esc to close).
 #
 # T16.9: only TWO messages go to the main chat —
-#   (a) the standard detail message (Pito::Game::DetailMessage) after steps 1–3.
-#   (b) the enhanced message (Pito::Copy body + make_followupable!) after steps 4–5.
+#   (a) the standard detail message (Pito::MessageBuilder::Game::Detail) after steps 1–3.
+#   (b) the enhanced message (Pito::MessageBuilder::Game::Enhanced) after steps 4–5.
 # Both land inside the job's Turn so they get the normal timestamp + follow-up chrome.
 #
 # Flow:
@@ -25,8 +25,29 @@
 #   9. Complete the turn.
 #
 # All 5 stages run inline (synchronous orchestration — no sub-job fan-out).
+#
+# Retry policy (BUG A fix):
+#   Voyage transiently returning nil raises Pito::Error::VoyageEmbeddingNil.
+#   Rather than swallowing the error (old behaviour, left games without embeddings),
+#   we retry the WHOLE job up to 5 times with polynomial backoff.
+#   On exhaustion, `degrade_after_voyage_exhaustion` emits the enhanced message
+#   (intro-only is acceptable) and completes the turn so it isn't left stuck open.
+#
+# Idempotency:
+#   `perform` is re-entrant — a retry re-uses the existing open turn and skips
+#   already-emitted events (echo / detail / enhanced) so they are never duplicated.
 class GameImportJob < ApplicationJob
+  include GameBroadcastHelpers
+
   queue_as :default
+
+  # Retry up to 5 times on a transient Voyage nil-embedding failure.
+  # On exhaustion the block degrades gracefully (emit enhanced if needed, close turn).
+  retry_on Pito::Error::VoyageEmbeddingNil,
+           wait: :polynomially_longer,
+           attempts: 5 do |job, _error|
+    job.send(:degrade_after_voyage_exhaustion)
+  end
 
   STEP_COPY_KEYS = [
     nil,                                 # 1-indexed; index 0 unused
@@ -38,93 +59,76 @@ class GameImportJob < ApplicationJob
   ].freeze
 
   def perform(igdb_id:, title:, conversation_id:)
-    conversation = Conversation.find_by(id: conversation_id)
-    return unless conversation
+    @conversation = Conversation.find_by(id: conversation_id)
+    return unless @conversation
 
-    broadcaster = Pito::Stream::Broadcaster.new(conversation:)
+    @title        = title
+    @broadcaster  = Pito::Stream::Broadcaster.new(conversation: @conversation)
 
-    # Create a turn so the 2 chat messages are grouped under their own turn
-    # container in #pito-scrollback with the correct timestamp.
-    turn = conversation.turns.create!(
-      position:   Turn.next_position_for(conversation),
-      input_kind: :slash,
-      input_text: "/games import #{title}".strip
-    )
+    # Find or create the open import turn (idempotent on retry).
+    turn = import_turn(@conversation, title)
 
     # Echo the import invocation so the user sees what triggered the flow.
-    echo_event = Event.create_with_position!(
-      conversation:, turn:, kind: :echo,
-      payload: { text: "/games import #{title}".strip, authenticated: true }
-    )
-    broadcaster.broadcast_event(echo_event)
+    emit_echo_once(@broadcaster, turn: turn, title: title, conversation: @conversation)
 
     # Step 1 — Resolve/create Game + fetch IGDB main info (shimmer shown by JS).
-    broadcast_step_pending(broadcaster, step: 1)
+    broadcast_step_pending(@broadcaster, step: 1)
 
     result = Game::Igdb::Importer.call(igdb_id: igdb_id, title: title)
-    game   = result[:game]
+    @game  = result[:game]
 
     # Run SyncGame synchronously so we have the full payload for step 2+.
-    game.update_column(:resyncing, true)
+    @game.update_column(:resyncing, true)
     begin
-      Game::Igdb::SyncGame.new.call(game)
+      Game::Igdb::SyncGame.new.call(@game)
     rescue Game::Igdb::Client::ValidationError => e
-      emit_error(broadcaster, turn:, conversation:, message: e.message)
+      emit_error(@broadcaster, turn: turn, conversation: @conversation, message: e.message)
       return
     ensure
-      Game.where(id: game.id).update_all(resyncing: false)
+      Game.where(id: @game.id).update_all(resyncing: false)
     end
-    game.reload
+    @game.reload
 
-    broadcast_step_done(broadcaster, step: 1)
+    broadcast_step_done(@broadcaster, step: 1)
 
     # Step 2 — Cover art (already fetched by SyncGame above). The client already
     # pre-renders this row as a shimmer, so we ONLY broadcast `done` — emitting a
     # back-to-back pending+done raced over the cable and left the shimmer stuck.
-    broadcast_step_done(broadcaster, step: 2)
+    broadcast_step_done(@broadcaster, step: 2)
 
     # Step 3 — Score
-    broadcast_step_pending(broadcaster, step: 3)
-    game.reload
-    score = Pito::Game::ScoreCalculator.call(game)
-    game.update_column(:score, score) if score != game.score
-    broadcast_step_done(broadcaster, step: 3)
+    broadcast_step_pending(@broadcaster, step: 3)
+    @game.reload
+    score = Pito::Game::ScoreCalculator.call(@game)
+    @game.update_column(:score, score) if score != @game.score
+    broadcast_step_done(@broadcaster, step: 3)
 
     # After Step 3 — stream the standard P9 detail message to main chat (T16.9).
-    detail_payload = Pito::MessageBuilder::Game::Detail.call(game.reload, conversation:)
-    detail_event = Event.create_with_position!(
-      conversation:, turn:, kind: :system,
-      payload: detail_payload
-    )
-    broadcaster.broadcast_event(detail_event)
+    emit_detail_once(@broadcaster, turn: turn, game: @game.reload, conversation: @conversation)
 
     # Step 4 — Voyage index (digest-gated; no-op if already fresh).
-    broadcast_step_pending(broadcaster, step: 4)
-    begin
-      ::Game::VoyageIndexer.call(game)
-    rescue StandardError => e
-      Rails.logger.warn("[GameImportJob] Voyage index failed for game id=#{game.id}: #{e.class}: #{e.message}")
-    end
-    broadcast_step_done(broadcaster, step: 4)
+    broadcast_step_pending(@broadcaster, step: 4)
+    # VoyageEmbeddingNil propagates to retry_on — not swallowed here.
+    ::Game::VoyageIndexer.call(@game)
+    broadcast_step_done(@broadcaster, step: 4)
 
     # Step 5 — Recommendations (dummy placeholder; real logic in P13).
-    broadcast_step_pending(broadcaster, step: 5)
-    Pito::Recommendations.call(game)
-    broadcast_step_done(broadcaster, step: 5)
+    broadcast_step_pending(@broadcaster, step: 5)
+    Pito::Recommendations.call(@game)
+    broadcast_step_done(@broadcaster, step: 5)
 
     # After Step 5 — stream the enhanced chat message to main chat (T16.9).
     # kind: :enhanced → renders via Pito::Event::EnhancedComponent (the pito
     # brand-blue border chrome). NOT follow-up-able: only the standard detail
     # message carries a #handle. Shared builder with `show game <ref>`.
-    enhanced_event = Event.create_with_position!(
-      conversation:, turn:, kind: :enhanced,
-      payload: Pito::MessageBuilder::Game::Enhanced.call(game)
-    )
-    broadcaster.broadcast_event(enhanced_event)
+    emit_enhanced_once(@broadcaster, turn: turn, game: @game, conversation: @conversation)
 
-    broadcaster.complete_turn(turn:)
+    @broadcaster.complete_turn(turn: turn)
+  rescue Pito::Error::VoyageEmbeddingNil
+    # Let retry_on handle this — do NOT log as a hard job error on each attempt.
+    raise
   rescue StandardError => e
-    handle_error(conversation, e)
+    handle_error(@conversation, e)
     raise
   end
 
@@ -161,5 +165,24 @@ class GameImportJob < ApplicationJob
     Rails.logger.error("[GameImportJob] #{error.class}: #{error.message}")
   rescue StandardError
     nil
+  end
+
+  # Called by the retry_on exhaustion block (runs on the same job instance).
+  # Instance vars @conversation, @broadcaster, @game, @title were set in
+  # `perform` before the VoyageEmbeddingNil was raised, so they're available here.
+  # Emits the enhanced message in intro-only mode (empty embedding → no recs)
+  # and completes the turn so it isn't left stuck open.
+  def degrade_after_voyage_exhaustion
+    return unless @conversation && @game
+
+    turn = import_turn(@conversation, @title)
+
+    # Emit enhanced-once (intro-only is acceptable without embeddings).
+    emit_enhanced_once(@broadcaster, turn: turn, game: @game, conversation: @conversation)
+
+    @broadcaster.complete_turn(turn: turn)
+    Rails.logger.warn("[GameImportJob] Voyage embedding exhausted for game id=#{@game.id}; degrading to intro-only enhanced message")
+  rescue StandardError => e
+    Rails.logger.warn("[GameImportJob] degrade_after_voyage_exhaustion failed: #{e.class}: #{e.message}")
   end
 end

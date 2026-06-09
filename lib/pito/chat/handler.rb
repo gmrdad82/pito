@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 require_relative "../grammar/handler_dsl"
+require_relative "follow_up_context"
+require_relative "target_resolution"
 
 module Pito
   module Chat
@@ -13,18 +15,21 @@ module Pito
     #   (e.g. `:list`, `:show`).
     # - Set `self.description_key = "pito.chat.<verb>.descriptions.<verb>"` — I18n key.
     # - Implement `#call` → returning one of:
-    #   - `Pito::Chat::Result::Ok`     — command handled, events ready.
-    #   - `Pito::Chat::Result::Error`  — handler-level error.
-    #   - `Pito::Chat::Result::Refine` — input is a refinement of an open turn.
+    #   - `Pito::Chat::Result::Ok`    — command handled, events ready.
+    #   - `Pito::Chat::Result::Error` — handler-level error.
     #
     # Unlike slash handlers, chat handlers do NOT receive an `authenticated` flag —
     # they are only reachable after the dispatcher confirms the message is not a
-    # slash command and is not refinement input for an open turn.
+    # slash command.
     #
     # ## Instance accessors
     #
     # - `message` (`Pito::Chat::Message`) — parsed message (verb, body_tokens, raw).
     # - `conversation` (`Conversation`) — the active conversation record.
+    # - `follow_up` (`Pito::Chat::FollowUpContext`, or nil) — present when this verb
+    #   was reached via a `#<handle>` reply instead of free chat. Same verb logic
+    #   runs either way; only reference resolution (T18.2) and result-wrapping
+    #   (T18.3) consult it. `follow_up?` is the predicate.
     #
     # ## `inherited` reset semantics
     #
@@ -32,12 +37,22 @@ module Pito
     # are reset on every subclass to prevent cross-handler bleed.
     class Handler
       extend Pito::Grammar::HandlerDsl
+      include Pito::Chat::TargetResolution
 
-      attr_reader :message, :conversation
+      attr_reader :message, :conversation, :channel, :follow_up
 
-      def initialize(message:, conversation:)
+      def initialize(message:, conversation:, channel: nil, follow_up: nil)
         @message = message
         @conversation = conversation
+        @channel = channel
+        @follow_up = follow_up
+      end
+
+      # True when this verb was invoked from a `#<handle>` follow-up reply rather
+      # than a free-chat message. The verb logic is identical; only resolution and
+      # result-wrapping branch on it.
+      def follow_up?
+        !@follow_up.nil?
       end
 
       def call

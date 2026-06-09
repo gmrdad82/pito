@@ -30,20 +30,6 @@ RSpec.describe Pito::Chat::Dispatcher do
     Pito::Chat::Registry.register(Pito::Chat::Handlers::ListTest)
   end
 
-  # Stub the refinement demo handler (doesn't exist yet in C3 but is needed
-  # for the :refinement branch).
-  before do
-    unless Pito::Chat::Handlers.const_defined?(:RefineDemo)
-      stub_const("Pito::Chat::Handlers::RefineDemo", Class.new(Pito::Chat::Handler) do
-        def call
-          Pito::Chat::Result::Refine.new(events: [
-            { kind: :system, payload: { text: "refine ok" } }
-          ])
-        end
-      end)
-    end
-  end
-
   # Stub the unknown handler (doesn't exist yet in C3).
   before do
     unless Pito::Chat::Handlers.const_defined?(:Unknown)
@@ -85,9 +71,8 @@ RSpec.describe Pito::Chat::Dispatcher do
       expect(result.message_args).to eq({ input: "hello" })
     end
 
-    it "returns a Refine result for refinement input when an open turn exists" do
-      # A turn is refinement-eligible only when it has result events beyond the echo
-      # (echo-only turns are still dispatching via ChatDispatchJob).
+    it "returns Error(unknown_input) for no-verb input even when an open turn exists" do
+      # Refinement machinery has been removed — no-verb messages always fall through to :unknown.
       turn = conversation.turns.create!(
         input_text: "list videos",
         input_kind: :chat,
@@ -101,10 +86,8 @@ RSpec.describe Pito::Chat::Dispatcher do
       )
 
       result = described_class.call(input: "more stuff", conversation:)
-      expect(result).to be_a(Pito::Chat::Result::Refine)
-      expect(result.events).to eq([
-        { kind: :system, payload: { message_key: "pito.chat.refine_demo.acknowledged", message_args: { input: "more stuff" } } }
-      ])
+      expect(result).to be_a(Pito::Chat::Result::Error)
+      expect(result.message_key).to eq("pito.chat.errors.unknown_input")
     end
 
     it "returns Error(misrouted_slash) for slash-prefixed input" do

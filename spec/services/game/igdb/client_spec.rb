@@ -114,5 +114,29 @@ RSpec.describe Game::Igdb::Client, type: :service do
       described_class.new.search_games("some game", include_editions: true)
       expect(captured_body).not_to include("version_parent = null")
     end
+
+    it "keeps main games + remakes + remasters in the game_type filter (remakes not filtered out)" do
+      captured_body = nil
+      stub_request(:post, "https://api.igdb.com/v4/games")
+        .with { |req| captured_body = req.body; true }
+        .to_return(status: 200, body: [].to_json, headers: { "Content-Type" => "application/json" })
+
+      described_class.new.search_games("demon souls")
+      expect(captured_body).to include("game_type = (0,8,9)")
+    end
+
+    it "returns BOTH the original (main) and the remake for a same-named game" do
+      stub_request(:post, "https://api.igdb.com/v4/games").to_return(
+        status:  200,
+        body:    [
+          { "id" => 1, "name" => "Demon's Souls", "game_type" => 0, "cover" => { "image_id" => "orig" },   "first_release_date" => 1_257_206_400 },
+          { "id" => 2, "name" => "Demon's Souls", "game_type" => 8, "cover" => { "image_id" => "remake" }, "first_release_date" => 1_605_571_200 }
+        ].to_json,
+        headers: { "Content-Type" => "application/json" }
+      )
+
+      hits = described_class.new.search_games("demon souls")
+      expect(hits.map { |h| h["id"] }).to contain_exactly(1, 2)
+    end
   end
 end

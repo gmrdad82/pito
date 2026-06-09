@@ -44,7 +44,7 @@ RSpec.describe Pito::FollowUp::Handlers::GameDetail, type: :service do
     end
 
     it "appends a confirmation event" do
-      expect(result.events.first[:kind]).to eq("confirmation")
+      expect(result.events.first[:kind].to_s).to eq("confirmation")
     end
 
     it "uses the game_delete command" do
@@ -75,9 +75,9 @@ RSpec.describe Pito::FollowUp::Handlers::GameDetail, type: :service do
   describe "#call — rm when game is missing/deleted" do
     let(:source_event) { build_detail_event("game_id" => 0) }
 
-    it "returns a Result::Error (not-found)" do
+    it "returns a Result::Append with a not-found message (delegated path)" do
       result = handler.call(event: source_event, rest: "rm", conversation:)
-      expect(result).to be_a(Pito::FollowUp::Result::Error)
+      expect(result).to be_a(Pito::FollowUp::Result::Append)
     end
 
     it "does not raise" do
@@ -120,81 +120,13 @@ RSpec.describe Pito::FollowUp::Handlers::GameDetail, type: :service do
     end
   end
 
-  # ── update ownership ─────────────────────────────────────────────────────────
+  # ── actions list ─────────────────────────────────────────────────────────────
 
-  describe "#call — update ownership" do
-    let(:source_event) { build_detail_event }
-
-    context "with valid platform tokens" do
-      subject(:result) do
-        handler.call(event: source_event, rest: "update ownership ps switch", conversation:)
-      end
-
-      it "returns a Result::Mutation" do
-        expect(result).to be_a(Pito::FollowUp::Result::Mutation)
-      end
-
-      it "sets ownership records" do
-        result
-        tokens = game.reload.game_platform_ownerships.pluck(:platform_token)
-        expect(tokens).to match_array(%w[ps switch])
-      end
-
-      it "retains the original reply_handle in the mutation payload" do
-        expect(result.payload["reply_handle"]).to eq("detail-1234")
-      end
-
-      it "retains reply_target: game_detail" do
-        expect(result.payload["reply_target"]).to eq("game_detail")
-      end
-
-      it "does NOT set reply_consumed" do
-        expect(result.payload["reply_consumed"]).to be_nil
-      end
-
-      it "sets kind: system" do
-        expect(result.kind).to eq("system")
-      end
-
-      it "re-renders the game's HTML in body" do
-        expect(result.payload["body"]).to include("Lies of P")
-      end
-    end
-
-    context "with platform synonyms" do
-      subject(:result) do
-        handler.call(event: source_event, rest: "update ownership playstation nintendo pc", conversation:)
-      end
-
-      it "normalises synonyms to canonical tokens" do
-        result
-        tokens = game.reload.game_platform_ownerships.pluck(:platform_token)
-        expect(tokens).to match_array(%w[ps switch steam])
-      end
-    end
-
-    context "with empty platform list" do
-      it "returns a Result::Error" do
-        result = handler.call(event: source_event, rest: "update ownership", conversation:)
-        expect(result).to be_a(Pito::FollowUp::Result::Error)
-        expect(result.message_key).to eq("pito.follow_up.game_detail.errors.missing_platforms")
-      end
-    end
-
-    context "replacing an existing ownership set" do
-      before do
-        game.game_platform_ownerships.create!(platform_token: "steam")
-      end
-
-      it "replaces steam with ps" do
-        handler.call(event: source_event, rest: "update ownership ps", conversation:)
-        tokens = game.reload.game_platform_ownerships.pluck(:platform_token)
-        expect(tokens).to eq([ "ps" ])
-      end
-    end
+  it "declares rm, delete, resync, link, unlink, and footage actions" do
+    expect(described_class.actions).to eq([ "rm", "delete", "resync", "link", "unlink", "footage" ])
   end
 
-  # ── link to video ────────────────────────────────────────────────────────────
+  # ── link to video (delegated to Chat::Handlers::Link) ───────────────────────
 
   describe "#call — link to video" do
     let(:source_event)  { build_detail_event }
@@ -245,15 +177,77 @@ RSpec.describe Pito::FollowUp::Handlers::GameDetail, type: :service do
     end
 
     context "with missing video ref" do
-      it "returns a Result::Error" do
+      it "returns a Result::Error (usage hint from Link handler)" do
         result = handler.call(event: source_event, rest: "link to video", conversation:)
         expect(result).to be_a(Pito::FollowUp::Result::Error)
-        expect(result.message_key).to eq("pito.follow_up.game_detail.errors.missing_video_ref")
+        expect(result.message_key).to eq("pito.chat.link.usage")
       end
     end
   end
 
+  # ── unlink from video (delegated to Chat::Handlers::Unlink) ─────────────────
+
+  describe "#call — unlink from video" do
+    let(:source_event)  { build_detail_event }
+    let(:connection)    { create(:youtube_connection) }
+    let(:channel)       { create(:channel, youtube_connection: connection) }
+    let!(:video)        { create(:video, channel: channel, title: "Let's Play Lies of P") }
+    let!(:vgl)          { create(:video_game_link, video: video, game: game) }
+
+    it "returns a Result::Append" do
+      result = handler.call(event: source_event, rest: "unlink from video ##{video.id}", conversation:)
+      expect(result).to be_a(Pito::FollowUp::Result::Append)
+    end
+
+    it "destroys the VideoGameLink" do
+      expect {
+        handler.call(event: source_event, rest: "unlink from video ##{video.id}", conversation:)
+      }.to change(VideoGameLink, :count).by(-1)
+    end
+
+    it "appends a witty unlinked ack text" do
+      result = handler.call(event: source_event, rest: "unlink from video ##{video.id}", conversation:)
+      text = result.events.first[:payload]["text"]
+      expect(text).to be_present
+    end
+  end
+
   # ── unknown action ───────────────────────────────────────────────────────────
+
+  describe "#call — footage <path>" do
+    let(:source_event) { build_detail_event }
+
+    subject(:result) { handler.call(event: source_event, rest: "footage /mnt/clips", conversation:) }
+
+    it "returns a Result::Append with a system event" do
+      expect(result).to be_a(Pito::FollowUp::Result::Append)
+      expect(result.events.first[:kind]).to eq(:system)
+    end
+
+    it "emits the copyable probe command for the segment's game and path" do
+      body = result.events.first[:payload]["body"]
+      expect(body).to include("pito:tools:probe game=#{game.id}")
+      expect(body).to include("path=&quot;/mnt/clips/*&quot;")
+    end
+
+    it "keeps a multi-word folder path whole" do
+      result = handler.call(event: source_event, rest: "footage /mnt/Ghosts n Goblins", conversation:)
+      expect(result.events.first[:payload]["body"]).to include("path=&quot;/mnt/Ghosts n Goblins/*&quot;")
+    end
+
+    it "errors with missing_path when no path is given" do
+      result = handler.call(event: source_event, rest: "footage", conversation:)
+      expect(result).to be_a(Pito::FollowUp::Result::Error)
+      expect(result.message_key).to eq("pito.follow_up.game_detail.errors.missing_path")
+    end
+
+    it "errors when the segment's game no longer exists" do
+      event = build_detail_event("game_id" => game.id)
+      game.destroy
+      result = handler.call(event: event, rest: "footage /mnt/clips", conversation:)
+      expect(result).to be_a(Pito::FollowUp::Result::Error)
+    end
+  end
 
   describe "#call — unknown action" do
     let(:source_event) { build_detail_event }

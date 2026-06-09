@@ -32,10 +32,34 @@ module Pito
             confirm_disconnect(payload)
           when "game_delete"
             confirm_game_delete(payload)
+          when "video_delete"
+            confirm_video_delete(payload)
+          when "video_publish"
+            confirm_video_publish(payload)
+          when "video_unlist"
+            confirm_video_unlist(payload)
+          when "video_schedule"
+            confirm_video_schedule(payload)
           when "game_resync"
             confirm_game_resync(payload)
           when "game_reindex"
             confirm_game_reindex(payload)
+          when "video_reindex"
+            confirm_video_reindex(payload)
+          when "channel_reindex"
+            confirm_channel_reindex(payload)
+          when "sync_game"
+            confirm_sync_game(payload)
+          when "sync_video"
+            confirm_sync_video(payload)
+          when "sync_videos"
+            confirm_sync_videos(payload)
+          when "sync_channel"
+            confirm_sync_channel(payload)
+          when "sync_channel_videos"
+            confirm_sync_channel_videos(payload)
+          when "import_videos"
+            confirm_import_videos(payload)
           else
             Pito::Copy.render("pito.copy.confirmation.confirmed")
           end
@@ -68,14 +92,67 @@ module Pito
           Pito::Copy.render("pito.copy.games.deleted", { title: title })
         end
 
-        # Enqueue a full IGDB resync for the game.
-        def confirm_game_resync(payload)
+        def confirm_video_delete(payload)
           payload = payload.with_indifferent_access
-          title   = payload[:game_title].to_s
-          game    = ::Game.find_by(id: payload[:game_id])
+          title   = payload[:video_title].to_s
+          video   = ::Video.find_by(id: payload[:video_id])
+
+          if video
+            yt_id   = video.youtube_video_id
+            conn_id = video.channel&.youtube_connection_id
+            video.destroy!
+            VideoRemoteDelete.perform_later(yt_id, conn_id) if yt_id.present? && conn_id.present?
+          end
+
+          Pito::Copy.render("pito.copy.videos.deleted_remote", { title: title })
+        end
+
+        def confirm_video_publish(payload)
+          payload = payload.with_indifferent_access
+          title   = payload[:video_title].to_s
+          video   = ::Video.find_by(id: payload[:video_id])
+          return Pito::Copy.render("pito.copy.videos.not_found", { ref: title }) if video.nil?
+
+          video.update!(privacy_status: :public, publish_at: nil)
+          VideoRemoteStatusSync.perform_later(video.id)
+          Pito::Copy.render("pito.copy.videos.published", { title: title })
+        end
+
+        def confirm_video_unlist(payload)
+          payload = payload.with_indifferent_access
+          title   = payload[:video_title].to_s
+          video   = ::Video.find_by(id: payload[:video_id])
+          return Pito::Copy.render("pito.copy.videos.not_found", { ref: title }) if video.nil?
+
+          video.update!(privacy_status: :unlisted)
+          VideoRemoteStatusSync.perform_later(video.id)
+          Pito::Copy.render("pito.copy.videos.unlisted", { title: title })
+        end
+
+        def confirm_video_schedule(payload)
+          payload    = payload.with_indifferent_access
+          title      = payload[:video_title].to_s
+          video      = ::Video.find_by(id: payload[:video_id])
+          return Pito::Copy.render("pito.copy.videos.not_found", { ref: title }) if video.nil?
+
+          publish_at = Time.iso8601(payload[:publish_at].to_s)
+          video.update!(privacy_status: :private, publish_at: publish_at)
+          VideoRemoteStatusSync.perform_later(video.id)
+          Pito::Copy.render("pito.copy.videos.scheduled",
+                            { title: title, when: publish_at.strftime("%Y-%m-%d %H:%M UTC") })
+        end
+
+        # Enqueue a full IGDB resync for the game.
+        # When `conversation_id` is present in the payload (chat-initiated path),
+        # passes it through so GameIgdbSync broadcasts detail+enhanced on completion.
+        def confirm_game_resync(payload)
+          payload         = payload.with_indifferent_access
+          title           = payload[:game_title].to_s
+          game            = ::Game.find_by(id: payload[:game_id])
           return Pito::Copy.render("pito.copy.games.not_found", { ref: title }) if game.nil?
 
-          GameIgdbSync.perform_later(game.id)
+          conversation_id = payload[:conversation_id].presence
+          GameIgdbSync.perform_later(game.id, conversation_id: conversation_id)
           Pito::Copy.render("pito.copy.games.resync_queued", { title: title })
         end
 
@@ -92,6 +169,105 @@ module Pito
 
           ::Game::VoyageIndexer.call(game, force: true)
           Pito::Copy.render("pito.copy.games.reindexed", { title: title })
+        end
+
+        # Force a synchronous Voyage reindex for the video (digest-bypassed).
+        # Mirrors confirm_game_reindex: we call the indexer inline rather than
+        # enqueuing so the confirmation outcome text is accurate — "reindexed" means
+        # it's already done. The executor runs inside FollowUpDispatchJob (on a
+        # worker), so a brief Voyage HTTP call is acceptable.
+        def confirm_video_reindex(payload)
+          payload = payload.with_indifferent_access
+          title   = payload[:video_title].to_s
+          video   = ::Video.find_by(id: payload[:video_id])
+          return Pito::Copy.render("pito.copy.videos.not_found", { ref: title }) if video.nil?
+
+          ::Video::VoyageIndexer.call(video, force: true)
+          Pito::Copy.render("pito.copy.videos.reindexed", { title: title })
+        end
+
+        # Re-embed ALL videos in the channel by enqueuing VideoVoyageIndexJob for
+        # each one (async/batch). Because we only enqueue rather than block, the
+        # outcome text reflects "queued" rather than "done".
+        def confirm_channel_reindex(payload)
+          payload = payload.with_indifferent_access
+          handle  = payload[:channel_handle].to_s
+          channel = ::Channel.find_by(id: payload[:channel_id])
+          return Pito::Copy.render("pito.copy.channels.not_found", { handle: handle }) if channel.nil?
+
+          channel.videos.each { |v| VideoVoyageIndexJob.perform_later(v.id) }
+          Pito::Copy.render("pito.copy.channels.reindex_queued", { handle: handle })
+        end
+
+        # ── sync_game ──────────────────────────────────────────────────────────────
+        # Enqueues SyncGameJob (IGDB sync + chat broadcast). Returns queued copy
+        # so the confirmation resolves immediately without blocking.
+        def confirm_sync_game(payload)
+          payload         = payload.with_indifferent_access
+          title           = payload[:game_title].to_s
+          game            = ::Game.find_by(id: payload[:game_id])
+          return Pito::Copy.render("pito.copy.games.not_found", { ref: title }) if game.nil?
+
+          conversation_id = payload[:conversation_id].presence
+          SyncGameJob.perform_later(game.id, conversation_id: conversation_id)
+          Pito::Copy.render("pito.copy.games.resync_queued", { title: title })
+        end
+
+        # ── sync_video ─────────────────────────────────────────────────────────────
+        # Enqueues SyncVideoJob (YouTube field + stats sync + chat broadcast).
+        def confirm_sync_video(payload)
+          payload         = payload.with_indifferent_access
+          title           = payload[:video_title].to_s
+          video           = ::Video.find_by(id: payload[:video_id])
+          return Pito::Copy.render("pito.copy.videos.not_found", { ref: title }) if video.nil?
+
+          conversation_id = payload[:conversation_id].presence
+          SyncVideoJob.perform_later(video.id, conversation_id: conversation_id)
+          Pito::Copy.render("pito.copy.sync.video_done", { title: title })
+        end
+
+        # ── sync_videos ────────────────────────────────────────────────────────────
+        # Enqueues SyncVideosJob for the resolved channel scope.
+        def confirm_sync_videos(payload)
+          payload         = payload.with_indifferent_access
+          scope_label     = payload[:scope_label].to_s
+          channel_ids     = Array(payload[:channel_ids])
+          conversation_id = payload[:conversation_id].presence
+          SyncVideosJob.perform_later(channel_ids, scope_label, conversation_id: conversation_id)
+          Pito::Copy.render("pito.copy.sync.videos_done", { scope: scope_label, count: "?" })
+        end
+
+        # ── sync_channel ───────────────────────────────────────────────────────────
+        # Enqueues SyncChannelJob for the resolved channel scope.
+        def confirm_sync_channel(payload)
+          payload         = payload.with_indifferent_access
+          scope_label     = payload[:scope_label].to_s
+          channel_ids     = Array(payload[:channel_ids])
+          conversation_id = payload[:conversation_id].presence
+          SyncChannelJob.perform_later(channel_ids, scope_label, conversation_id: conversation_id)
+          Pito::Copy.render("pito.copy.sync.channel_done", { scope: scope_label })
+        end
+
+        # ── sync_channel_videos ────────────────────────────────────────────────────
+        # Enqueues SyncChannelVideosJob for the resolved channel scope.
+        def confirm_sync_channel_videos(payload)
+          payload         = payload.with_indifferent_access
+          scope_label     = payload[:scope_label].to_s
+          channel_ids     = Array(payload[:channel_ids])
+          conversation_id = payload[:conversation_id].presence
+          SyncChannelVideosJob.perform_later(channel_ids, scope_label, conversation_id: conversation_id)
+          Pito::Copy.render("pito.copy.sync.channel_videos_done", { scope: scope_label, count: "?" })
+        end
+
+        # ── import_videos ──────────────────────────────────────────────────────────
+        # Enqueues ChatImportVideosJob for the resolved channel scope.
+        def confirm_import_videos(payload)
+          payload         = payload.with_indifferent_access
+          scope_label     = payload[:scope_label].to_s
+          channel_ids     = Array(payload[:channel_ids])
+          conversation_id = payload[:conversation_id].presence
+          ChatImportVideosJob.perform_later(channel_ids, scope_label, conversation_id: conversation_id)
+          Pito::Copy.render("pito.copy.import_videos.done", { scope: scope_label, count: "?" })
         end
 
         def confirm_disconnect(payload)

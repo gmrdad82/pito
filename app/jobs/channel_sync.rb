@@ -2,7 +2,7 @@
 # fetch + persist path. One call to `Channel::Youtube::Client#fetch_channel`,
 # one transaction to cache the normalized hash + stamp `last_synced_at`.
 #
-# Error posture (uniform with VideoSyncBack):
+# Error posture (uniform with VideoRemoteStatusSync):
 #   - RecordInvalid (API returned a value that fails a Channel
 #     validator — e.g. a 101-char title) → re-raise; transaction rolls
 #     back so the channel keeps its prior state and `last_synced_at`

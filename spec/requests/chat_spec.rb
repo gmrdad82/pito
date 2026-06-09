@@ -164,9 +164,8 @@ RSpec.describe "Chat requests", type: :request do
       end
     end
 
-    context "with refinement input (open turn exists)" do
+    context "with no-verb input (unknown classification)" do
       before do
-        # Create a recent turn so the parser classifies input as :refinement
         conversation.turns.create!(
           input_text: "list videos",
           input_kind: :chat,

@@ -229,6 +229,18 @@ RSpec.describe Pito::ScoreBarComponent do
       expect(node.css(".pito-score-bar__label").text).to be_present
     end
 
+    it "renders the label by default (show_label omitted)" do
+      node = render_inline(described_class.new(score: 80))
+      expect(node.css(".pito-score-bar__label")).not_to be_empty
+    end
+
+    it "omits the label when show_label: false (recommendation surfaces)" do
+      node = render_inline(described_class.new(score: 80, show_label: false))
+      expect(node.css(".pito-score-bar__label")).to be_empty
+      # The bar itself still renders.
+      expect(node.css(".pito-score-bar")).not_to be_empty
+    end
+
     it "places the tick inside the track so its left:% maps across the bar" do
       node = render_inline(described_class.new(score: 81))
       tick = node.css(".pito-score-bar__track .pito-score-bar__tick").first

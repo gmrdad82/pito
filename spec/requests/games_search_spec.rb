@@ -59,6 +59,27 @@ RSpec.describe "Games search endpoint", type: :request do
       end
     end
 
+    describe "POST /games/search — re-release type notes" do
+      before do
+        allow_any_instance_of(Game::Igdb::Client)
+          .to receive(:search_games)
+          .and_return([
+            { "id" => 1, "name" => "Demon's Souls",        "game_type" => 0 },
+            { "id" => 2, "name" => "Demon's Souls",        "game_type" => 8 },
+            { "id" => 3, "name" => "Dark Souls Remastered", "game_type" => 9 }
+          ])
+      end
+
+      it "stamps a (remake)/(remaster) note on re-releases, none on main games" do
+        post "/games/search", params: { query: "souls" }, as: :json
+        hits = json["hits"].index_by { |h| h["id"] }
+
+        expect(hits[1]).not_to have_key("type_note")
+        expect(I18n.t("pito.copy.search.remake")).to include(hits[2]["type_note"])
+        expect(I18n.t("pito.copy.search.remaster")).to include(hits[3]["type_note"])
+      end
+    end
+
     describe "POST /games/search — in-library marker" do
       let!(:existing_game) { create(:game, igdb_id: 1020) }
 

@@ -31,7 +31,7 @@ module Pito
       def cover_art_url
         return nil unless cover_art_attached?
 
-        @game.cover_art.variant(resize_to_limit: [ 600, 800 ])
+        @game.cover_art.variant(::Game::COVER_VARIANT)
       rescue StandardError
         nil
       end
@@ -68,17 +68,6 @@ module Pito
         tokens.map { |token| I18n.t("pito.game.detail.platform_label.#{token}") }.join(", ")
       end
 
-      def owned_platform_tokens
-        @game.game_platform_ownerships.map(&:platform_token)
-      end
-
-      def owned_platforms_label
-        tokens = owned_platform_tokens
-        return nil if tokens.blank?
-
-        tokens.map { |token| I18n.t("pito.game.detail.platform_label.#{token}") }.join(", ")
-      end
-
       def summary
         @game.summary.presence
       end
@@ -86,6 +75,14 @@ module Pito
       def genres_label
         names = Array(@game.genres.map(&:name)).reject(&:blank?)
         names.join(", ").presence
+      end
+
+      def themes_label
+        Array(@game.themes).reject(&:blank?).join(", ").presence
+      end
+
+      def perspectives_label
+        Array(@game.player_perspectives).reject(&:blank?).join(", ").presence
       end
 
       def footage_hours

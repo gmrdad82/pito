@@ -12,7 +12,9 @@
         <div class="text-fg-dim"><%= formatted_timestamp(notification) %></div>
         <div class="flex items-baseline gap-2">
           <span class="pito-notification-dot shrink-0 <%= notification.unread? ? "text-cyan" : "text-fg-faded" %>"><%= notification.unread? ? "●" : "○" %></span>
-          <span class="pito-notification-message <%= notification.unread? ? "text-fg font-bold" : "text-fg-dim" %>"><%= notification.message %></span>
+          <%# Notifications render HTML — sanitized so only safe tags survive (the
+              message is built with escaped dynamic parts at the source). %>
+          <div class="pito-notification-message <%= notification.unread? ? "text-fg font-bold" : "text-fg-dim" %>"><%= sanitize(notification.message) %></div>
         </div>
       </div>
     <% end %>

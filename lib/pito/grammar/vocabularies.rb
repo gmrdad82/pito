@@ -165,6 +165,15 @@ module Pito
         canonical: %w[import]
       ).freeze
 
+      # Noun for the `import` chat verb (drives ghost completion: `import ` → `game`).
+      # `videos` is also recognized so `import videos` routes to the confirmable
+      # video-import path rather than the IGDB game-import fast-path.
+      IMPORT_NOUNS = Vocabulary.define(
+        name:      :import_nouns,
+        canonical: %w[game videos],
+        synonyms:  { "games" => "game", "video" => "videos" }
+      ).freeze
+
       # All registered theme slugs plus the special alias "default" (→ tokyo-night).
       # Backed by the theme Registry so adding a new definition file automatically
       # extends the vocabulary on next boot — no manual wiring needed.
@@ -192,6 +201,12 @@ module Pito
         name:     :game_titles,
         dynamic:  true,
         resolver: ->(context) { ::Game.where("title ILIKE ?", "#{context}%").limit(20).pluck(:title) }
+      ).freeze
+
+      VIDEO_TITLES = Vocabulary.define(
+        name:     :video_titles,
+        dynamic:  true,
+        resolver: ->(context) { ::Video.where("title ILIKE ?", "#{context}%").limit(20).pluck(:title) }
       ).freeze
 
       # Per-provider kv key lists — single source of truth for autocomplete.
@@ -230,9 +245,11 @@ module Pito
           CHANNELS,
           CONVERSATIONS,
           GAME_TITLES,
+          VIDEO_TITLES,
           THEME_SUBCOMMANDS,
           THEME_NAMES,
-          GAMES_SUBCOMMANDS
+          GAMES_SUBCOMMANDS,
+          IMPORT_NOUNS
         ]
       end
 

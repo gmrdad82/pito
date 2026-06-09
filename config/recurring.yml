@@ -13,6 +13,15 @@
 #   - daily_digest_scheduler      — Digest deferred (post-reboot)
 #   - milestone_evaluator         — Pito::Calendar::MilestoneEvaluator never built (dead job removed)
 #   - calendar_occurred_flipper   — Pito::Calendar::OccurredFlipper never built (dead job removed)
+#
+# Manual-only (chat verbs, not scheduled):
+#   - NightlySyncJob              — triggered via chat `sync` verb
+#   - SyncChannelStatsJob         — triggered via chat `sync` verb
+#   - NightlyVideoSyncJob         — triggered via chat `sync` verb
+#   - NightlyReindexJob           — triggered via chat `sync` verb
+#   - VideoStatsSnapshotJob       — triggered via chat `sync` verb
+#   - SyncStarredChannelsJob      — triggered via chat `sync` verb
+#   - VoyageReindexJob            — triggered via chat `sync` verb
 
 production:
   # P59 — Notifications cleanup — daily at 01:00 UTC
@@ -21,60 +30,18 @@ production:
     schedule: "0 1 * * *"
     description: "Delete notifications read more than 7 days ago"
 
-  # P60 — Channel general stats sync — daily at 01:00 UTC
-  sync_channel_stats:
-    class: SyncChannelStatsJob
+  # IGDB nightly refresh — daily at 01:00 UTC
+  # Iterates Game.synced.stale.upcoming, re-fetches each from IGDB sequentially,
+  # and emits ONE summary Notification on completion.
+  game_igdb_nightly_refresh:
+    class: GameIgdbNightlyRefresh
     schedule: "0 1 * * *"
-    description: "Sync subscriber count, view count, and watch hours for all connected channels"
+    description: "Re-sync every upcoming Game whose igdb_synced_at is older than 7 days"
 
   # SolidQueue housekeeping — clear finished jobs every hour
   clear_solid_queue_finished_jobs:
     command: "SolidQueue::Job.clear_finished_in_batches(sleep_between_batches: 0.3)"
     schedule: every hour at minute 12
-
-  # Voyage AI reindex — daily at 04:05 UTC (5 min after the old Meilisearch slot)
-  reindex_voyage:
-    class: VoyageReindexJob
-    queue: search
-    schedule: "5 4 * * *"
-    description: "Re-embed Game + Bundle corpora through Voyage AI"
-
-  # Starred channel sync — daily at midnight UTC
-  sync_starred_channels:
-    class: SyncStarredChannelsJob
-    schedule: "0 0 * * *"
-    description: "Re-sync every starred channel daily"
-
-  # P14 — Nightly sync Stage 1 — daily at 01:00 UTC
-  # Fans out ChannelSync + NightlyVideoSyncJob per connected channel + GameIgdbNightlyRefresh.
-  # NOTE: the existing cleanup_notifications + sync_channel_stats entries already occupy 01:00;
-  # SolidQueue schedules by class name so multiple entries at the same minute are fine.
-  nightly_sync:
-    class: NightlySyncJob
-    schedule: "0 1 * * *"
-    description: "Stage 1: fan out channel sync + video sync + IGDB game refresh"
-
-  # P14 — Nightly reindex Stage 2 — daily at 02:00 UTC (≥1h after Stage 1)
-  # Fans out GameVoyageIndexJob + VideoVoyageIndexJob per entity (digest-gated).
-  # Separate entry so a long Stage-1 backlog cannot compress the gap.
-  nightly_reindex:
-    class: NightlyReindexJob
-    schedule: "0 2 * * *"
-    description: "Stage 2: fan out digest-gated Voyage reindex for all games + videos (design B: no channel centroids)"
-
-  # IGDB nightly refresh — every day at 03:00 UTC
-  # NOTE: GameIgdbNightlyRefresh is also enqueued by NightlySyncJob (Stage 1).
-  # This standalone entry is kept as a safety net / independent trigger.
-  game_igdb_nightly_refresh:
-    class: GameIgdbNightlyRefresh
-    schedule: "0 3 * * *"
-    description: "Re-sync every Game whose igdb_synced_at is older than 7 days"
-
-  # Video diff check — daily at 01:30 UTC
-  video_diff_check_bulk:
-    class: BulkVideoDiffCheckJob
-    schedule: "30 1 * * *"
-    description: "Fan-out daily YouTube video diff check across the catalogue"
 
   # Cloudflare trusted proxies — weekly Monday at 09:00 UTC
   cloudflare_trusted_proxies_refresher:
@@ -89,8 +56,8 @@ development:
     schedule: "0 1 * * *"
     description: "Delete notifications read more than 7 days ago"
 
-  # P60 — Channel general stats sync — daily at 01:00
-  sync_channel_stats:
-    class: SyncChannelStatsJob
+  # IGDB nightly refresh — daily at 01:00
+  game_igdb_nightly_refresh:
+    class: GameIgdbNightlyRefresh
     schedule: "0 1 * * *"
-    description: "Sync subscriber count, view count, and watch hours for all connected channels"
+    description: "Re-sync every upcoming Game whose igdb_synced_at is older than 7 days"

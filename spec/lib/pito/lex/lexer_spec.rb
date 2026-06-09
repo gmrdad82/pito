@@ -132,6 +132,33 @@ RSpec.describe Pito::Lex::Lexer do
       end
     end
 
+    context "with apostrophes in words" do
+      def values(input)
+        tokens(input).reject { |t| t.type == :eof }.map(&:value)
+      end
+
+      it "keeps an apostrophe-led word like \"'n\" as one :word token" do
+        expect(values("Ghosts 'n Goblins")).to eq([ "Ghosts", "'n", "Goblins" ])
+        expect(types("Ghosts 'n Goblins")).to eq(%i[word word word eof])
+      end
+
+      it "keeps a mid-word apostrophe (contraction) attached" do
+        expect(values("don't")).to eq([ "don't" ])
+      end
+
+      it "keeps a trailing (possessive) apostrophe attached" do
+        expect(values("Ghosts'")).to eq([ "Ghosts'" ])
+      end
+
+      it "handles repeated apostrophes inside a word" do
+        expect(values("rock'n'roll")).to eq([ "rock'n'roll" ])
+      end
+
+      it "still marks a lone apostrophe (no following letter) as :unknown" do
+        expect(types("lone ' apostrophe")).to eq(%i[word unknown word eof])
+      end
+    end
+
     context "with URL values" do
       it "tokenizes a bare http URL as a single word token" do
         result = tokens("http://localhost:3027/auth/youtube/callback")

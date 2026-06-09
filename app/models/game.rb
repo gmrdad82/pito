@@ -10,7 +10,6 @@ class Game < ApplicationRecord
   has_many :game_publishers, dependent: :destroy
   has_many :publisher_companies, through: :game_publishers, source: :company
 
-  has_many :game_platform_ownerships, dependent: :destroy
   has_many :video_game_links, dependent: :destroy
   has_many :linked_videos, through: :video_game_links, source: :video
 
@@ -18,6 +17,12 @@ class Game < ApplicationRecord
   has_many :stats, as: :entity, dependent: :destroy
 
   has_one_attached :cover_art
+
+  # The single canonical cover-art display variant, sized to its ACTUAL display
+  # dimensions (240×320, 3:4) so nothing is downscaled in CSS. The detail
+  # message, enhanced message, and any future surface all render this size; the
+  # 600×800 master stays the source of truth and only this variant is generated.
+  COVER_VARIANT = { resize_to_limit: [ 240, 320 ] }.freeze
 
   has_neighbors :summary_embedding
 

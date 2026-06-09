@@ -13,6 +13,12 @@
 class VideoVoyageIndexJob < ApplicationJob
   queue_as :search
 
+  # A nil embedding from Voyage (transient network blip, or — the common case —
+  # a rate-limit the client swallows into nil) raises VoyageEmbeddingNil. Retry
+  # with backoff rather than leaving the video permanently unembedded (which
+  # makes it invisible to Game::ChannelRecommendation). Mirrors GameImportJob.
+  retry_on Pito::Error::VoyageEmbeddingNil, wait: :polynomially_longer, attempts: 5
+
   def perform(video_id)
     video = Video.find_by(id: video_id)
     return unless video

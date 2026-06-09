@@ -18,6 +18,7 @@ class Channel
         "channels.update"    => 50, # Phase 7.5 §11c — channel-edit destructive PUT.
         "videos.list"        => 1,
         "videos.update"      => 50, # Phase 12 — read-modify-write sync-back cost.
+        "videos.delete"      => 50, # Phase 21 — hard-delete from YouTube.
         "playlists.list"     => 1,
         "playlistItems.list" => 1,
         "search.list"        => 100,

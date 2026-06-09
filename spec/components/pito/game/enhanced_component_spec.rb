@@ -58,7 +58,7 @@ RSpec.describe Pito::Game::EnhancedComponent do
     end
 
     before do
-      allow(Pito::Recommendations).to receive(:channels_for).with(game, limit: 4)
+      allow(Pito::Recommendations).to receive(:channels_for).with(game, include_all: true)
                                                             .and_return(channel_results)
       allow(Pito::Recommendations).to receive(:similar_games).and_return([])
     end
@@ -69,29 +69,34 @@ RSpec.describe Pito::Game::EnhancedComponent do
       expect(headers).not_to be_empty
     end
 
-    it "renders the @handle for each channel" do
+    it "renders the @handle for each channel (via ItemComponent)" do
       node = render_component
-      handles = node.css(".pito-game-enhanced-message__channel-handle").map(&:text).map(&:strip)
+      handles = node.css(".pito-channel-item__handle").map(&:text).map(&:strip)
       expect(handles).to include("@gamegrumps", "@markiplier")
     end
 
-    it "renders the title for each channel" do
+    it "renders the title for each channel (via ItemComponent)" do
       node = render_component
-      titles = node.css(".pito-game-enhanced-message__channel-title").map(&:text).map(&:strip)
+      titles = node.css(".pito-channel-item__title").map(&:text).map(&:strip)
       expect(titles).to include("Game Grumps", "Markiplier")
     end
 
-    it "renders a .pito-score-bar element for each channel" do
+    it "renders a .pito-score-bar element for each channel (via ItemComponent)" do
       node = render_component
-      score_bars = node.css(".pito-game-enhanced-message__channel-score .pito-score-bar")
+      score_bars = node.css(".pito-channel-item__score .pito-score-bar")
       expect(score_bars.length).to eq(2)
     end
 
-    it "passes the result score to each ScoreBarComponent" do
+    it "passes the result score to each ScoreBarComponent (Part 1 regression guard)" do
       node = render_component
-      score_bars = node.css(".pito-game-enhanced-message__channel-score .pito-score-bar")
+      score_bars = node.css(".pito-channel-item__score .pito-score-bar")
       scores = score_bars.map { |el| el["data-score"] }
       expect(scores).to include("78", "65")
+    end
+
+    it "does not render a [visit] link in the channel grid (show_visit: false)" do
+      node = render_component
+      expect(node.css(".pito-game-enhanced-message__channel-grid .pito-channel-visit")).to be_empty
     end
   end
 
@@ -110,7 +115,7 @@ RSpec.describe Pito::Game::EnhancedComponent do
 
     before do
       allow(Pito::Recommendations).to receive(:channels_for).and_return([])
-      allow(Pito::Recommendations).to receive(:similar_games).with(game, limit: 8)
+      allow(Pito::Recommendations).to receive(:similar_games).with(game, limit: 5)
                                                              .and_return(similar_results)
     end
 
@@ -132,10 +137,10 @@ RSpec.describe Pito::Game::EnhancedComponent do
       expect(titles).to include("Ico", "The Last Guardian")
     end
 
-    it "renders the bare internal db id (no #) for each similar game" do
+    it "renders the #-prefixed db id for each similar game" do
       node = render_component
       ids = node.css(".pito-game-enhanced-message__similar-game-id").map(&:text).map(&:strip)
-      expect(ids).to include(sg1.id.to_s, sg2.id.to_s)
+      expect(ids).to include("##{sg1.id}", "##{sg2.id}")
     end
 
     it "renders a data-game-id attribute on each card" do

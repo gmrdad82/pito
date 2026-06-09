@@ -210,6 +210,16 @@ export default class extends Controller {
       titleEl.textContent = title
       info.appendChild(titleEl)
 
+      // Re-release note — "(remake)" / "(remaster)" in cyan, stamped server-side
+      // (Pito::Copy) so the original and its remake are distinguishable.
+      const typeNote = hit.type_note ?? hit["type_note"]
+      if (typeNote) {
+        const note = document.createElement("span")
+        note.className   = "text-xs text-cyan"
+        note.textContent = typeNote
+        info.appendChild(note)
+      }
+
       if (inLib) {
         const badge = document.createElement("span")
         badge.className   = "text-xs text-accent"

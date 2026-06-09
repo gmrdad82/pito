@@ -86,6 +86,13 @@ class ChatController < ApplicationController
         # Auth gating: requires an active session. No echo, no Turn, no async job.
         return handle_games_import_sidebar(conversation, prefill: import_title)
       end
+
+      if (import_title = import_game_command?(input))
+        # Free-chat `import game[s] [title]` — same IGDB import sidebar as above.
+        # Auth gating: identical to the /games import path (session required).
+        # No echo, no Turn, no async job.
+        return handle_games_import_sidebar(conversation, prefill: import_title)
+      end
     end
 
     # Follow-up engine (P13/P14) — handles `#<handle> <rest>` replies for any
@@ -283,6 +290,10 @@ class ChatController < ApplicationController
       input_kind: :slash,
       input_text: input
     )
+    # The /connect input is consumed into the turn echo here. Clear any
+    # persisted draft (mirrors handle_async) so the chatbox doesn't rehydrate
+    # "/connect" when the OAuth round-trip reloads the conversation page.
+    conversation.update_column(:draft, nil) if conversation.draft.present?
     broadcaster = Pito::Stream::Broadcaster.new(conversation:)
 
     # Auth gating: /connect requires an active session. Check before
@@ -368,6 +379,16 @@ class ChatController < ApplicationController
   # the handler can return the witty usage hint.
   def games_import_command?(input)
     m = input.to_s.strip.match(%r{\A/games\s+import(?:\s+(.*))?\z}i)
+    return nil unless m
+    m[1].to_s.strip
+  end
+
+  # Detects free-chat `import game[s] [title]` and returns the title string
+  # (may be ""). Returns nil if the input doesn't match.
+  # Case-insensitive; captures everything after "game"/"games" as the prefill.
+  # Slash commands (`/import …`) never match — they start with `/`.
+  def import_game_command?(input)
+    m = input.to_s.strip.match(/\Aimport\s+games?(?:\s+(.*))?\z/i)
     return nil unless m
     m[1].to_s.strip
   end

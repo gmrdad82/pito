@@ -103,6 +103,31 @@ module Pito
           ),
           Spec.new(
             namespace:       :chat,
+            name:            :import,
+            slots:           [
+              Slot.new(name: :noun,  kind: :enum, source: :import_nouns, optional: false),
+              Slot.new(name: :title, kind: :free,  optional: true)
+            ],
+            description_key: "pito.grammar.chat.import"
+          ),
+          # `sync` — noun-discriminated at the handler level from message.raw:
+          #   sync game <ref>  /  sync video <ref>  /  sync videos  /
+          #   sync channel  /  sync channel with videos
+          # The slot is free/optional so any noun phrase is accepted.
+          Spec.new(
+            namespace:       :chat,
+            name:            :sync,
+            slots:           [ Slot.new(name: :target, kind: :free, optional: true) ],
+            description_key: "pito.grammar.chat.sync"
+          ),
+          Spec.new(
+            namespace:       :chat,
+            name:            :footage,
+            slots:           [ Slot.new(name: :title, kind: :enum, source: :game_titles, optional: true) ],
+            description_key: "pito.grammar.chat.footage"
+          ),
+          Spec.new(
+            namespace:       :chat,
             name:            :delete,
             aliases:         [ :rm ],
             slots:           [ Slot.new(name: :title, kind: :enum, source: :game_titles, optional: true) ],
@@ -110,17 +135,36 @@ module Pito
           ),
           Spec.new(
             namespace:       :chat,
+            name:            :reindex,
+            slots:           [ Slot.new(name: :title, kind: :enum, source: :game_titles, optional: true) ],
+            description_key: "pito.grammar.chat.reindex"
+          ),
+          Spec.new(
+            namespace:       :chat,
+            name:            :publish,
+            slots:           [ Slot.new(name: :title, kind: :free, optional: true) ],
+            description_key: "pito.grammar.chat.publish"
+          ),
+          Spec.new(
+            namespace:       :chat,
+            name:            :unlist,
+            slots:           [ Slot.new(name: :title, kind: :free, optional: true) ],
+            description_key: "pito.grammar.chat.unlist"
+          ),
+          Spec.new(
+            namespace:       :chat,
+            name:            :schedule,
+            slots:           [
+              Slot.new(name: :title, kind: :free, optional: true),
+              Slot.new(name: :when,  kind: :free, optional: true)
+            ],
+            description_key: "pito.grammar.chat.schedule"
+          ),
+          Spec.new(
+            namespace:       :chat,
             name:            :find,
             slots:           chat_shared_slots,
             description_key: "pito.grammar.chat.find"
-          ),
-          # `update` takes a free body — the handler parses ownership subcommand
-          # and platform tokens from the remaining body tokens.
-          Spec.new(
-            namespace:       :chat,
-            name:            :update,
-            slots:           [ Slot.new(name: :title, kind: :free, optional: true) ],
-            description_key: "pito.grammar.chat.update"
           ),
           # `link` / `unlink` take a free body — the handler splits on ` to `
           # to extract the game and video refs.
@@ -135,6 +179,13 @@ module Pito
             name:            :unlink,
             slots:           [ Slot.new(name: :title, kind: :free, optional: true) ],
             description_key: "pito.grammar.chat.unlink"
+          ),
+          # `help` — no slots; displays all follow-up targets grouped by entity.
+          Spec.new(
+            namespace:       :chat,
+            name:            :help,
+            slots:           [],
+            description_key: "pito.grammar.chat.help"
           ),
 
           # Task l — hashtag command specs

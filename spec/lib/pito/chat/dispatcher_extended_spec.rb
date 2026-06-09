@@ -69,25 +69,19 @@ RSpec.describe Pito::Chat::Dispatcher, "edge cases" do
     end
   end
 
-  # ── Refinement path only fires when open turn has result events ───────────────
+  # ── No-verb input always falls through to :unknown ───────────────────────────
 
-  describe ".call — refinement requires a turn with non-echo events" do
-    context "when the only event is the echo" do
-      it "falls through to unknown_input (not a refinement)" do
-        turn = conversation.turns.create!(
-          input_text: "list videos",
-          input_kind: :chat,
-          position: 1
-        )
-        # No events → not refinement-eligible → unknown
+  describe ".call — no-verb input always classifies as :unknown" do
+    context "when no turn exists" do
+      it "returns unknown_input" do
         result = described_class.call(input: "more details", conversation:)
         expect(result).to be_a(Pito::Chat::Result::Error)
         expect(result.message_key).to eq("pito.chat.errors.unknown_input")
       end
     end
 
-    context "when the turn has a system result event" do
-      it "routes to the refine path" do
+    context "when a recent turn with system result events exists" do
+      it "still returns unknown_input (refinement machinery removed)" do
         turn = conversation.turns.create!(
           input_text: "list videos",
           input_kind: :chat,
@@ -100,8 +94,9 @@ RSpec.describe Pito::Chat::Dispatcher, "edge cases" do
           payload: { message_key: "pito.chat.list.descriptions.list", message_args: {} }
         )
 
-        result = described_class.call(input: "refine with x", conversation:)
-        expect(result).to be_a(Pito::Chat::Result::Refine)
+        result = described_class.call(input: "more details", conversation:)
+        expect(result).to be_a(Pito::Chat::Result::Error)
+        expect(result.message_key).to eq("pito.chat.errors.unknown_input")
       end
     end
   end

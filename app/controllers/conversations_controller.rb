@@ -53,11 +53,17 @@ class ConversationsController < ApplicationController
     new_title = conversation_params[:title]
 
     if new_title.blank?
-      render json: { error: I18n.t("pito.chat.conversations.errors.title_blank") }, status: :unprocessable_entity
+      render json: { error: I18n.t("pito.chat.conversations.errors.title_blank") }, status: :unprocessable_content
       return
     end
 
     @conversation.update!(title: new_title)
+
+    # Update the chatbox conversation-name slot live on the conversation's own
+    # stream (Unnamed→named makes the purple name appear; a rename updates it).
+    Pito::Stream::Broadcaster.new(conversation: @conversation).broadcast_conversation_name(
+      title: (@conversation.named? ? @conversation.display_name : nil)
+    )
 
     # P54 — broadcast renamed row to pito:global so other instances' sidebars
     # update without a page reload. Turbo replace is a no-op on clients where

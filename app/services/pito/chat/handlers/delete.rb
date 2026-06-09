@@ -1,12 +1,13 @@
 # frozen_string_literal: true
 
-# Handler for the `delete game <id|title>` / `rm game <id|title>` chat verb.
+# Handler for the `delete game <id|title>` / `rm game <id|title>` and
+# `delete video <id|title>` / `rm video <id|title>` chat verbs.
 #
-# Resolves a single game by **ID** (`#123`/`123`) or title (ILIKE) and emits a
-# confirmation event (`command: "game_delete"`, follow-up-able `confirmation`).
-# The destroy happens in `Pito::Confirmation::Executor` on `#<handle> confirm`.
-# The game title is carried in the payload so the outcome text survives the row's
-# deletion. Unknown reference → witty not-found; no reference → usage hint.
+# Resolves a single game or video by **ID** (`#123`/`123`) or title (ILIKE)
+# and emits a confirmation event. The destroy happens in
+# `Pito::Confirmation::Executor` on `#<handle> confirm`.
+# The title is carried in the payload so the outcome text survives the
+# row's deletion. Unknown reference → witty not-found; no reference → usage hint.
 module Pito
   module Chat
     module Handlers
@@ -14,49 +15,65 @@ module Pito
         self.verb = :delete
         self.description_key = "pito.chat.delete.descriptions.delete"
 
-        NOUN_FILLERS = %w[game games].freeze
+        GAME_NOUN_FILLERS  = %w[game games].freeze
+        VIDEO_NOUN_FILLERS = %w[video videos].freeze
 
         def call
-          ref = extract_ref
-          return needs_ref if ref.blank?
-
-          game = resolve_game(ref)
-          return not_found(ref) unless game
-
-          confirmation_event(game)
+          if video_target?(VIDEO_NOUN_FILLERS)
+            handle_video
+          else
+            handle_game
+          end
         end
 
         private
 
-        def extract_ref
-          message.body_tokens
-                 .map(&:value)
-                 .reject { |w| NOUN_FILLERS.include?(w.to_s.downcase) }
-                 .join(" ")
-                 .strip
+        # ── Video branch ────────────────────────────────────────────────────────
+
+        def handle_video
+          video = resolve_target(::Video, id_key: :video_id, noun_fillers: VIDEO_NOUN_FILLERS)
+          return needs_ref if video == :needs_ref
+          return video_not_found(target_ref(VIDEO_NOUN_FILLERS, id_key: :video_id)) if video.nil?
+
+          video_confirmation_event(video)
         end
 
-        # Strip a leading `#` + whitespace — the lexer splits `#9` into `# 9`.
-        def resolve_game(ref)
-          id = ref.sub(/\A#\s*/, "")
-          return ::Game.find_by(id: id) if id.match?(/\A\d+\z/)
-
-          ::Game.find_by("title ILIKE ?", ref)
+        def video_confirmation_event(video)
+          payload = Pito::MessageBuilder::Video::DeleteConfirmation.call(video, conversation:)
+          Pito::Chat::Result::Ok.new(events: [ { kind: :confirmation, payload: payload } ])
         end
 
-        def confirmation_event(game)
+        def video_not_found(ref)
+          Pito::Chat::Result::Ok.new(events: [
+            { kind: :system, payload: Pito::MessageBuilder::Text.call("pito.copy.videos.not_found", ref: ref) }
+          ])
+        end
+
+        # ── Game branch ─────────────────────────────────────────────────────────
+
+        def handle_game
+          game = resolve_target(::Game, id_key: :game_id, noun_fillers: GAME_NOUN_FILLERS)
+          return needs_ref if game == :needs_ref
+          return game_not_found(target_ref(GAME_NOUN_FILLERS, id_key: :game_id)) if game.nil?
+
+          game_confirmation_event(game)
+        end
+
+        def game_confirmation_event(game)
           payload = Pito::MessageBuilder::Game::DeleteConfirmation.call(game, conversation:)
-          Pito::Chat::Result::Ok.new(events: [ { kind: "confirmation", payload: payload } ])
+          Pito::Chat::Result::Ok.new(events: [ { kind: :confirmation, payload: payload } ])
         end
 
-        def needs_ref
-          Pito::Chat::Result::Error.new(message_key: "pito.chat.delete.needs_ref", message_args: {})
-        end
-
-        def not_found(ref)
+        def game_not_found(ref)
           Pito::Chat::Result::Ok.new(events: [
             { kind: :system, payload: Pito::MessageBuilder::Text.call("pito.copy.games.not_found", ref: ref) }
           ])
+        end
+
+        # ── Shared helpers ──────────────────────────────────────────────────────
+
+        def needs_ref
+          Pito::Chat::Result::Error.new(message_key: "pito.chat.delete.needs_ref", message_args: {})
         end
       end
     end

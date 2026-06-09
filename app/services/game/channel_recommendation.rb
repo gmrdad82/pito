@@ -1,67 +1,83 @@
-# Channels a game's content overlaps with — the **game→channel** direction.
+# frozen_string_literal: true
+
+# Channels best suited to a game — the **game→channel** direction. (v2)
 #
-# Design B: channels have no embedding of their own. A channel IS its videos, so
-# this finds the VIDEOS nearest (cosine) to the game's `summary_embedding`, then
-# groups them by `channel_id` — the channel's best (closest) video is its score.
-# One HNSW query over videos + an in-memory group; no synthetic channel vector,
-# and a channel covering many games surfaces on whichever video matches (no
-# centroid blur).
+# "Which of my channels should this game's video go on?" A channel is a
+# PERSONALITY (good / hard / survival / …), distilled into an aggregate
+# `Pito::Recommendation::ChannelProfile` from the games its published videos
+# link to. The score is the game's fit to that profile, plus a small graded-K
+# link bonus:
 #
-# Returns an Array of `Result` structs (channel, 0–100 score, cosine distance),
-# ranked best-first, dropping channels below `THRESHOLD_SCORE`. The score maps
-# distance via `((1 - distance) * 100)`.
+#   channel_score = clamp(ProfileFit(game, profile) + gradedK(depth, other), 0, 100)
+#     ProfileFit — how well the game's facets match the channel's personality
+#     gradedK    — α=5/β=1 bonus for a game already published on the channel
+#                  (depth = its published videos there, other = the rest); 0 when
+#                  unlinked, so it never dominates the fit.
 #
-# Empty / unembedded game → `[]`. Videos without an embedding are skipped.
+# Ranked best-first, dropped below FLOOR (unless `include_all:`). `include_all:`
+# returns EVERY channel (empty-profile ones score 0 and sort last) so the user
+# always sees their full slate. `limit:` takes a top-N slice.
 class Game
   class ChannelRecommendation
-    DEFAULT_LIMIT   = 8
-    THRESHOLD_SCORE = 25  # drop hits below this 0–100 score floor
-    VIDEO_POOL      = 50  # nearest videos scanned before grouping by channel
+    FLOOR = Pito::Recommendation::Weights::FLOOR
 
-    Result = Struct.new(:channel, :score, :distance, keyword_init: true)
+    Result = Struct.new(:channel, :score, :breakdown, keyword_init: true)
 
-    def self.call(game, limit: DEFAULT_LIMIT)
-      new(game, limit: limit).call
+    def self.call(game, limit: nil, include_all: false)
+      new(game, limit: limit, include_all: include_all).call
     end
 
-    def initialize(game, limit: DEFAULT_LIMIT)
-      @game  = game
-      @limit = limit
+    def initialize(game, limit: nil, include_all: false)
+      @game        = game
+      @limit       = limit
+      @include_all = include_all
     end
 
     def call
       return [] if @game.nil?
-      return [] if @game.summary_embedding.blank?
 
-      best = {} # channel_id => smallest cosine distance among its videos
-      nearest_videos.each do |video|
-        distance = video.neighbor_distance
-        if best[video.channel_id].nil? || distance < best[video.channel_id]
-          best[video.channel_id] = distance
-        end
-      end
-      return [] if best.empty?
+      channel_ids = @include_all ? ::Channel.pluck(:id) : profiled_channel_ids
+      return [] if channel_ids.empty?
 
-      channels = ::Channel.where(id: best.keys).index_by(&:id)
-      best
-        .filter_map { |cid, dist| channels[cid] && build_result(channels[cid], dist) }
-        .select { |result| result.score >= THRESHOLD_SCORE }
-        .sort_by { |result| -result.score }
-        .first(@limit)
+      counts   = link_counts
+      totals   = channel_totals(counts)
+      channels = ::Channel.where(id: channel_ids).index_by(&:id)
+
+      ranked = channel_ids.filter_map { |cid|
+        channel = channels[cid] or next
+
+        profile = Pito::Recommendation::ChannelProfile.call(channel)
+        fit     = Pito::Recommendation::ProfileFit.call(@game, profile)
+        depth   = counts[[ cid, @game.id ]] || 0
+        link    = Pito::Recommendation::Weights.graded_link(depth, (totals[cid] || 0) - depth).round
+        score   = [ fit + link, 100 ].min
+        next if !@include_all && score < FLOOR
+
+        Result.new(channel: channel, score: score, breakdown: { fit: fit, link: link })
+      }.sort_by { |result| [ -result.score, result.channel.id ] }
+
+      @limit ? ranked.first(@limit) : ranked
     end
 
     private
 
-    def nearest_videos
-      ::Video
-        .where.not(summary_embedding: nil)
-        .nearest_neighbors(:summary_embedding, @game.summary_embedding, distance: "cosine")
-        .first(VIDEO_POOL)
+    def published = ::Video.privacy_statuses[:public]
+
+    # Channels that have at least one published video linked to a game.
+    def profiled_channel_ids
+      ::Video.where(privacy_status: published).joins(:video_game_links).distinct.pluck(:channel_id)
     end
 
-    def build_result(channel, distance)
-      score = ((1 - distance) * 100).round.clamp(0, 100)
-      Result.new(channel: channel, score: score, distance: distance)
+    # { [channel_id, game_id] => published_video_count }
+    def link_counts
+      ::Video.where(privacy_status: published)
+             .joins(:video_game_links)
+             .group(:channel_id, "video_game_links.game_id")
+             .count
+    end
+
+    def channel_totals(counts)
+      counts.each_with_object(Hash.new(0)) { |((cid, _gid), c), acc| acc[cid] += c }
     end
   end
 end

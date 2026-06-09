@@ -33,7 +33,7 @@ class SettingsController < ApplicationController
     slug = params[:theme].to_s
 
     unless Pito::Themes::Registry.find(slug)
-      head :unprocessable_entity
+      head :unprocessable_content
       return
     end
 

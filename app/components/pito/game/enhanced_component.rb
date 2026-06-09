@@ -6,7 +6,7 @@ module Pito
     #
     # Sections (each omitted when data is absent):
     #   1. Intro line      — Pito::Copy.render("pito.copy.games.enhanced_intro")
-    #   2. Channel matches — up to 4 channels from Pito::Recommendations.channels_for,
+    #   2. Channel matches — ALL matched channels from Pito::Recommendations.channels_for,
     #                        displayed as a CSS grid with handle / title / ScoreBar.
     #   3. Similar games   — up to 8 games from Pito::Recommendations.similar_games,
     #                        displayed as an inline strip of small cover cards.
@@ -31,11 +31,14 @@ module Pito
       end
 
       def channel_results
-        @channel_results ||= Pito::Recommendations.channels_for(@game, limit: 4)
+        # Every channel the user has, ranked best-first — each gets its own
+        # ScoreBarComponent. Channels with no relevant videos/links score 0 and
+        # sort last, so the user always sees the full slate to pick from.
+        @channel_results ||= Pito::Recommendations.channels_for(@game, include_all: true)
       end
 
       def similar_game_results
-        @similar_game_results ||= Pito::Recommendations.similar_games(@game, limit: 8)
+        @similar_game_results ||= Pito::Recommendations.similar_games(@game, limit: 5)
       end
 
       def channels?
@@ -51,7 +54,7 @@ module Pito
       def cover_art_url_for(game)
         return nil unless game.cover_art.attached?
 
-        game.cover_art.variant(resize_to_limit: [ 450, 600 ])
+        game.cover_art.variant(::Game::COVER_VARIANT)
       rescue StandardError
         nil
       end

@@ -1,0 +1,18 @@
+en:
+  pito:
+    video:
+      detail:
+        title: "Title"
+        category: "Category"
+        duration: "Duration"
+        privacy: "Privacy"
+        tags: "Tags"
+        description: "Description"
+        views: "Views"
+        likes: "Likes"
+        comments: "Comments"
+        no_thumbnail: "No thumbnail"
+        privacy_status:
+          private: "Private"
+          public: "Public"
+          unlisted: "Unlisted"
