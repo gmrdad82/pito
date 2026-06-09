@@ -62,8 +62,8 @@ RSpec.describe Pito::MessageBuilder::HashtagHelp do
           expect(result["body"]).to include("unlink")
         end
 
-        it "body lists the resync action" do
-          expect(result["body"]).to include("resync")
+        it "body lists the reindex action" do
+          expect(result["body"]).to include("reindex")
         end
 
         it "body includes --help option" do

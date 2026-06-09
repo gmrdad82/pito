@@ -157,24 +157,6 @@ RSpec.describe Pito::Confirmation::Executor, type: :service do
     end
   end
 
-  # ── confirm / game_resync ─────────────────────────────────────────────────
-
-  describe ".confirm — game_resync" do
-    let!(:game) { create(:game, title: "Sekiro") }
-
-    it "enqueues GameIgdbSync and returns outcome text mentioning the title" do
-      allow(GameIgdbSync).to receive(:perform_later)
-      text = described_class.confirm("game_resync", { "game_id" => game.id, "game_title" => "Sekiro" })
-      expect(GameIgdbSync).to have_received(:perform_later).with(game.id, conversation_id: nil)
-      expect(text).to include("Sekiro")
-    end
-
-    it "returns a not-found text when the game does not exist" do
-      text = described_class.confirm("game_resync", { "game_id" => 0, "game_title" => "Ghost" })
-      expect(text).to be_present
-    end
-  end
-
   # ── confirm / game_reindex ────────────────────────────────────────────────
 
   describe ".confirm — game_reindex" do
@@ -206,22 +188,6 @@ RSpec.describe Pito::Confirmation::Executor, type: :service do
 
     it "returns a non-empty cancelled message" do
       text = described_class.cancel("game_delete", { "game_id" => game.id, "game_title" => "Cancelled Game" })
-      expect(text).to be_present
-    end
-  end
-
-  # ── cancel / game_resync ──────────────────────────────────────────────────
-
-  describe ".cancel — game_resync" do
-    let!(:game) { create(:game, title: "Resync Target") }
-
-    it "does NOT enqueue GameIgdbSync" do
-      expect(GameIgdbSync).not_to receive(:perform_later)
-      described_class.cancel("game_resync", { "game_id" => game.id, "game_title" => "Resync Target" })
-    end
-
-    it "returns a non-empty cancelled message" do
-      text = described_class.cancel("game_resync", { "game_id" => game.id, "game_title" => "Resync Target" })
       expect(text).to be_present
     end
   end

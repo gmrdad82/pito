@@ -609,17 +609,17 @@ Game **detail** — the game is the subject (implied by the target), so actions 
 primary id**; only the cross-entity `video` id stays in link/unlink. `link` uses `to`,
 `unlink` uses `from`.
 
-- [ ] T34.1 `#show-game-hashtag delete --help` — `Usage: delete` (alias `rm`); deletes this game.
-- [ ] T34.2 `#show-game-hashtag footage --help` — `Usage: footage <path>`; local footage path for this game.
-- [ ] T34.3 `#show-game-hashtag link --help` — `Usage: link to video <id>`; links this game to a video (local id, e.g. `link to video 5`).
-- [ ] T34.4 `#show-game-hashtag unlink --help` — `Usage: unlink from video <id>`; local video id.
-- [ ] T34.5 Drop the `resync` action from `game_detail` — remove the action + the `game_resync` confirmation/executor path + copy/specs/comments (per the global drop rule). Keep rm/delete, footage, link, unlink, reindex.
-- [ ] T34.6 Impl `delete` / `rm` — delete the detail's game (resolved from the source event); align copy/specs.
-- [ ] T34.7 Impl `footage <path>` — set the footage path for the detail's game; align copy/specs.
-- [ ] T34.8 Impl `link to video <id>` — link the detail's game to the given local video id; align copy/specs.
-- [ ] T34.9 Impl `unlink from video <id>` — local video id; align copy/specs.
-- [ ] T34.10 `#show-game-hashtag reindex --help` — `Usage: reindex`; Voyage re-embed of this game.
-- [ ] T34.11 Impl `reindex` as a `game_detail` action — re-embed the detail's game in Voyage (reuse the existing reindex/Voyage confirmation path); align copy/specs.
+- [x] T34.1 `#show-game-hashtag delete --help` — `Usage: delete` (alias `rm`); deletes this game.
+- [x] T34.2 `#show-game-hashtag footage --help` — `Usage: footage <path>`; local footage path for this game.
+- [x] T34.3 `#show-game-hashtag link --help` — `Usage: link to video <id>`; links this game to a video (local id, e.g. `link to video 5`).
+- [x] T34.4 `#show-game-hashtag unlink --help` — `Usage: unlink from video <id>`; local video id.
+- [x] T34.5 Drop the `resync` action from `game_detail` — remove the action + the `game_resync` confirmation/executor path + copy/specs/comments (per the global drop rule). Keep rm/delete, footage, link, unlink, reindex.
+- [x] T34.6 Impl `delete` / `rm` — delete the detail's game (resolved from the source event); align copy/specs.
+- [x] T34.7 Impl `footage <path>` — set the footage path for the detail's game; align copy/specs.
+- [x] T34.8 Impl `link to video <id>` — link the detail's game to the given local video id; align copy/specs.
+- [x] T34.9 Impl `unlink from video <id>` — local video id; align copy/specs.
+- [x] T34.10 `#show-game-hashtag reindex --help` — `Usage: reindex`; Voyage re-embed of this game.
+- [x] T34.11 Impl `reindex` as a `game_detail` action — re-embed the detail's game in Voyage (reuse the existing reindex/Voyage confirmation path); align copy/specs.
 
 ## Phase 35 — Hashtag `--help` infra (prerequisite for 27/31–34)
 

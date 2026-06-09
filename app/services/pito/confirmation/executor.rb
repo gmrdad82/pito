@@ -40,8 +40,6 @@ module Pito
             confirm_video_unlist(payload)
           when "video_schedule"
             confirm_video_schedule(payload)
-          when "game_resync"
-            confirm_game_resync(payload)
           when "game_reindex"
             confirm_game_reindex(payload)
           when "video_reindex"
@@ -136,20 +134,6 @@ module Pito
           VideoRemoteStatusSync.perform_later(video.id)
           Pito::Copy.render("pito.copy.videos.scheduled",
                             { title: title, when: publish_at.strftime("%Y-%m-%d %H:%M UTC") })
-        end
-
-        # Enqueue a full IGDB resync for the game.
-        # When `conversation_id` is present in the payload (chat-initiated path),
-        # passes it through so GameIgdbSync broadcasts detail+enhanced on completion.
-        def confirm_game_resync(payload)
-          payload         = payload.with_indifferent_access
-          title           = payload[:game_title].to_s
-          game            = ::Game.find_by(id: payload[:game_id])
-          return Pito::Copy.render("pito.copy.games.not_found", { ref: title }) if game.nil?
-
-          conversation_id = payload[:conversation_id].presence
-          GameIgdbSync.perform_later(game.id, conversation_id: conversation_id)
-          Pito::Copy.render("pito.copy.games.resync_queued", { title: title })
         end
 
         # Force a synchronous Voyage reindex for the game (digest-bypassed).

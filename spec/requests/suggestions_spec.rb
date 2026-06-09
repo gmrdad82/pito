@@ -38,7 +38,7 @@ RSpec.describe "POST /suggestions", type: :request do
 
       post "/suggestions", params: { input: "#upsilon-7576 ", cursor: 14, uuid: conversation.uuid }
       labels = response.parsed_body["menu_items"].map { |i| i["label"] }
-      expect(labels).to include("rm", "resync")
+      expect(labels).to include("rm", "reindex")
       expect(labels).not_to include("add")
     end
   end
