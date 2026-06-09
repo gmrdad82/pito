@@ -49,10 +49,11 @@ module Pito
         #
         # The `with` and `sorted by` branches above take priority because they
         # are checked first — typing "list games with " still ghosts "platform".
+        # Candidates include `--help`, so "list games --h" ghosts "elp".
         if (m = text.match(/\b(?:games?|videos?)\b\s+(.*)\z/i))
           tail    = m[1]
           partial = tail.end_with?(" ") || tail.empty? ? "" : tail.split(/\s+/).last.to_s.downcase
-          return build_ghost(%w[with], partial)
+          return build_ghost(%w[with --help], partial)
         end
 
         nil

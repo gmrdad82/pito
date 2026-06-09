@@ -142,5 +142,15 @@ RSpec.describe Pito::Suggestions::ListClauseGhost do
     it "returns nil for 'list videos' (no trailing space)" do
       expect(ghost("list videos")).to be_nil
     end
+
+    it "ghosts 'elp' for 'list games --h' (--help is a connector candidate)" do
+      result = ghost("list games --h")
+      expect(result[:complete_current]).to eq("elp")
+    end
+
+    it "ghosts '-help' for 'list games -' (completes toward --help)" do
+      result = ghost("list games -")
+      expect(result[:complete_current]).to eq("-help")
+    end
   end
 end
