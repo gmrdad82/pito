@@ -381,8 +381,8 @@ Same man style. Copy from `Pito::Copy`.
 
 Real behavior is currently wrong (hallucinated). Fix to match the above.
 
-- [ ] T12.1 Fix `import videos` — honor shift+tab scope (`@all` → all channels, selected channel → that one) and `for @handle` override.
-- [ ] T12.2 Fix `import game` — open the Sidebar with the optional title prefilled and perform the IGDB search.
+- [x] T12.1 Fix `import videos` — implemented the missing `for @handle` override (parses `for @handle`, overrides shift+tab scope; unknown → error); @all/blank → all channels. complexity: [high]
+- [x] T12.2 Fix `import game` — added the game branch → opens the IGDB import Sidebar with the optional title prefilled (mirrors `/games import`; chat-controller fast-path opens it in prod). complexity: [high]
 
 ## Phase 13 — `sync videos --help` / `sync channels --help`
 

@@ -4,14 +4,18 @@
 #
 # Two sub-forms:
 #
-#   import game[s] [title]  — the IGDB import sidebar fast-path. In practice the
-#                              ChatController intercepts this before it reaches
-#                              this handler, but we fall through gracefully with a
-#                              usage hint.
-#   import videos           — channel-scoped YouTube newer-only import. Emits a
+#   import game[s] [title]  — open the IGDB import sidebar (fast-path). The
+#                              ChatController intercepts this before the async
+#                              pipeline; this handler handles the job-path
+#                              fallback by returning the same sidebar_open event
+#                              that the slash /games import handler uses.
+#   import videos [for @handle]
+#                           — channel-scoped YouTube newer-only import. Emits a
 #                              `:confirmation` event; the executor enqueues
-#                              ChatImportVideosJob on confirm. Channel scope from
-#                              `self.channel` (same resolution as List handler).
+#                              ChatImportVideosJob on confirm. Channel scope:
+#                              shift+tab @all/blank → all channels; @handle →
+#                              that channel. The optional `for @handle` clause in
+#                              the raw text OVERRIDES the shift+tab scope.
 #
 # Bare `import` with no noun → usage hint.
 module Pito
@@ -21,11 +25,16 @@ module Pito
         self.verb = :import
         self.description_key = "pito.chat.import.descriptions.import"
 
+        # `for @handle` override clause: captures the handle after `for`.
+        FOR_HANDLE_RE = /\bfor\s+(@\S+)/i
+
         def call
           raw = message.raw.to_s
 
-          if raw.match?(/\bvideos?\b/i)
-            handle_import_videos
+          if raw.match?(/\bgames?\b/i)
+            handle_import_game(raw)
+          elsif raw.match?(/\bvideos?\b/i)
+            handle_import_videos(raw)
           else
             Pito::Chat::Result::Error.new(
               message_key:  "pito.chat.import.usage_hint",
@@ -36,8 +45,30 @@ module Pito
 
         private
 
-        def handle_import_videos
-          scope_label, channel_ids, error = resolve_scope
+        # Open the IGDB import sidebar, with an optional prefill title.
+        # Mirrors Pito::Slash::Handlers::Games#open_import_sidebar.
+        def handle_import_game(raw)
+          title = parse_import_game_title(raw)
+          Pito::Chat::Result::Ok.new(events: [
+            {
+              kind:    :system,
+              payload: {
+                sidebar_open: "games_import",
+                prefill:      title,
+                text:         I18n.t("pito.slash.games.import.opening")
+              }
+            }
+          ])
+        end
+
+        # Extract the title from `import game[s] [title]`.
+        # Strips leading `import` + optional `game`/`games` to get the rest.
+        def parse_import_game_title(raw)
+          raw.to_s.strip.sub(/\Aimport\s+games?\s*/i, "").strip
+        end
+
+        def handle_import_videos(raw)
+          scope_label, channel_ids, error = resolve_scope(raw)
           return error if error
 
           payload = Pito::MessageBuilder::Sync::ImportVideosConfirmation.call(
@@ -46,9 +77,16 @@ module Pito
           Pito::Chat::Result::Ok.new(events: [ { kind: :confirmation, payload: payload } ])
         end
 
-        # Mirrors List / Sync handlers: @all/blank → all channels, @handle → one.
-        def resolve_scope
-          handle = resolved_channel_handle
+        # Resolves channel scope for `import videos`.
+        #
+        # Priority:
+        #   1. `for @handle` clause in raw text → that channel (overrides shift+tab)
+        #   2. shift+tab channel filter        → specific channel or all
+        #
+        # Returns [scope_label, channel_ids, nil] on success,
+        #         [nil, nil, Result::Ok(error event)] on unknown handle.
+        def resolve_scope(raw)
+          handle = for_handle_override(raw) || resolved_channel_handle
 
           if handle.nil?
             return [ "all channels", [], nil ]
@@ -68,6 +106,12 @@ module Pito
           end
 
           [ ch.handle.presence || handle, [ ch.id ], nil ]
+        end
+
+        # Returns the handle from a `for @handle` clause in raw, or nil.
+        def for_handle_override(raw)
+          m = FOR_HANDLE_RE.match(raw.to_s)
+          m ? m[1] : nil
         end
 
         def resolved_channel_handle
