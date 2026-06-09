@@ -2249,6 +2249,24 @@ en:
           col_release_date_desc: "Release date, e.g. June 09, 2026"
           col_year_desc: "Release year"
 
+      chat_help:
+        show:
+          usage: "show <title>"
+          sections:
+            Arguments:
+              "<title>": "Game or video to show (fuzzy title match or #id)"
+            Options:
+              "--help": "Print this help message"
+        find:
+          usage: "find [status] [genre…] [for <platform>]"
+          sections:
+            Arguments:
+              "released, upcoming, tba": "Filter by release status"
+              "<genre>": "Filter by genre (repeatable, e.g. RPG action)"
+              "for <platform>": "Filter by platform (e.g. for PlayStation 5)"
+            Options:
+              "--help": "Print this help message"
+
       games:
         import:
           step1:

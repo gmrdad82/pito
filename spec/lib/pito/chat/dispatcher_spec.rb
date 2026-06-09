@@ -96,5 +96,29 @@ RSpec.describe Pito::Chat::Dispatcher do
       expect(result.message_key).to eq("pito.chat.errors.misrouted_slash")
       expect(result.message_args).to eq({ raw: "/help" })
     end
+
+    # ── --help interception ────────────────────────────────────────────────────
+
+    describe "--help interception" do
+      it "returns a system event with an html man page for 'show --help'" do
+        result = described_class.call(input: "show --help", conversation:)
+        expect(result).to be_a(Pito::Chat::Result::Ok)
+        event = result.events.first
+        expect(event[:kind]).to eq(:system)
+        expect(event[:payload]["html"]).to be(true)
+      end
+
+      it "the show --help body includes 'Usage:'" do
+        result = described_class.call(input: "show --help", conversation:)
+        body = result.events.first[:payload]["body"]
+        expect(body).to include("Usage:")
+      end
+
+      it "the show --help body includes the show usage line" do
+        result = described_class.call(input: "show --help", conversation:)
+        body = result.events.first[:payload]["body"]
+        expect(body).to include("show")
+      end
+    end
   end
 end

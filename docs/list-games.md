@@ -187,6 +187,34 @@ Iterative refinements from live review. No inline style (data attributes only).
 - [x] T6.14 Bug: TBA **sorting** — TBA (no date/year) now sorts AFTER all known dates ascending (and first descending) by treating unknown as the far future (`Date.new(9999,12,31)` / year `9999`) instead of `Date.new(0)`/`0`. Release stays **right-aligned** (correct). complexity: [low]
 - [x] T6.15 `shift+tab`/`shift+space` cyclers wrapped in a focus-gated `filterHints` target (visible ⟺ focused); `m chat` hint is its inverse (visible ⟺ not focused) — mutually exclusive; dropped the leading separator before `m`. Shared `pito--chatbox-hints` controller covers `/` and `/not_found` via the same focus tracking. complexity: [high]
 
+## Phase 7 — `--help` man page for every chat verb
+
+North star: every chat verb supports `<verb> --help`, returning the SAME nvim/Linux
+man-page format as `list games --help` (`Usage:` + `Arguments:`/`Options:` sections,
+aliases included, `Columns:` only where a `with` clause exists). Typing `-` (or part
+of `--help`) after a recognised verb ghosts `--help`. ALL copy from `Pito::Copy`.
+
+Infra (shared, do first):
+- [x] T7.1 Shared `Pito::MessageBuilder::ManPage.render(usage:, groups:)` renderer (extracted from `Game::ListHelp`, which now delegates to it — `list games --help` byte-identical). complexity: [high]
+- [x] T7.2 `Pito::MessageBuilder::CommandHelp.call(verb:)` (:list→ListHelp; others read `pito.copy.chat_help.<verb>`) + dispatcher intercepts `/(?:\A|\s)--help(?:\s|\z)/` → CommandHelp. complexity: [high]
+- [x] T7.3 Generic `--help` ghost hint: `-`/`--h` after a recognised verb ghosts `--help` (JS `_computeLocalGhost` + server `compute_ghost`; `list` via `ListClauseGhost`). complexity: [high]
+
+Per-verb man pages (one atomic task each — author `pito.copy.chat_help.<verb>` + confirm the handler routes `--help`):
+- [x] T7.4 `show --help` — copy added (`pito.copy.chat_help.show`); routes via dispatcher. complexity: [low]
+- [x] T7.5 `find --help` — copy added; NOTE: `find` has no handler registered yet, so routing is blocked until a `find` handler lands (copy ready). complexity: [high]
+- [ ] T7.6 `import --help` — `Usage: import <noun> [title]`; Arguments: `<noun>`, `[title]`. complexity: [low]
+- [ ] T7.7 `sync --help` — `Usage: sync [target]`; Arguments: `[target]`. complexity: [low]
+- [ ] T7.8 `footage --help` — `Usage: footage <title>`; Arguments: `<title>`. complexity: [low]
+- [ ] T7.9 `delete --help` — `Usage: delete <title>`; Arguments: `<title>`. complexity: [low]
+- [ ] T7.10 `reindex --help` — `Usage: reindex <title>`; Arguments: `<title>`. complexity: [low]
+- [ ] T7.11 `publish --help` — `Usage: publish <title>`; Arguments: `<title>`. complexity: [low]
+- [ ] T7.12 `unlist --help` — `Usage: unlist <title>`; Arguments: `<title>`. complexity: [low]
+- [ ] T7.13 `schedule --help` — `Usage: schedule <title> <when>`; Arguments: `<title>`, `<when>`. complexity: [low]
+- [ ] T7.14 `link --help` — `Usage: link <title>`; Arguments: `<title>`. complexity: [low]
+- [ ] T7.15 `unlink --help` — `Usage: unlink <title>`; Arguments: `<title>`. complexity: [low]
+- [ ] T7.16 Specs: shared `CommandHelp` renderer; per-verb `--help` returns an html man page mentioning the verb's args + `--help` (and Columns for `find`); the `-`→`--help` ghost hint (Rails + vitest). complexity: [high]
+- [ ] T7.17 Commit(s) per cohesive change. complexity: [manual]
+
 ## Verification (end-to-end)
 
 - `bundle exec rspec` green; `bin/rubocop` clean; `npm test` (vitest) green; `node --check` on the touched JS.

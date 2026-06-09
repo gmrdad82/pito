@@ -560,6 +560,11 @@ module Pito
               { complete_current: completion, next_hint: "" }
             end
           else
+            # `--help` ghost: any partial starting with "-" that prefixes "--help".
+            if current_partial.start_with?("-") && "--help".start_with?(current_partial.downcase)
+              return { complete_current: "--help"[current_partial.length..], next_hint: "" }
+            end
+
             # complete_current: if current partial uniquely prefixes one vocab member.
             completion = compute_current_completion(active_slot, current_partial, authenticated:)
             { complete_current: completion, next_hint: "" }

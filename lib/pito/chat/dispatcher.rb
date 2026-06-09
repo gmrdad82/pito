@@ -50,6 +50,11 @@ module Pito
           )
         end
 
+        if message.raw.match?(/(?:\A|\s)--help(?:\s|\z)/)
+          payload = Pito::MessageBuilder::CommandHelp.call(verb: message.verb)
+          return Pito::Chat::Result::Ok.new(events: [ { kind: :system, payload: } ]) if payload
+        end
+
         handler = handler_class.new(message:, conversation: @conversation, channel: @channel, follow_up: @follow_up)
         handler.call
       end

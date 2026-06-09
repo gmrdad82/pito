@@ -600,6 +600,52 @@ describe("pito--suggestions controller", () => {
     })
   })
 
+  // ── --help ghost hint ─────────────────────────────────────────────────────
+  //
+  // For any non-list chat verb, typing a "-" partial should ghost "--help".
+
+  describe("--help ghost hint", () => {
+    let ctrl
+
+    beforeEach(async () => {
+      await waitForConnect()
+      ctrl = app.getControllerForElementAndIdentifier(chatbox, "pito--suggestions")
+    })
+
+    it("'show -' ghosts '-help' (complete_current = '-help')", () => {
+      const result = ctrl._computeLocalGhost("show -", 6)
+      expect(result).not.toBeNull()
+      expect(result.complete_current).toBe("-help")
+      expect(result.next_hint).toBe("")
+    })
+
+    it("'show --' ghosts 'help' (complete_current = 'help')", () => {
+      const result = ctrl._computeLocalGhost("show --", 7)
+      expect(result).not.toBeNull()
+      expect(result.complete_current).toBe("help")
+      expect(result.next_hint).toBe("")
+    })
+
+    it("'show --h' ghosts 'elp' (complete_current = 'elp')", () => {
+      const result = ctrl._computeLocalGhost("show --h", 8)
+      expect(result).not.toBeNull()
+      expect(result.complete_current).toBe("elp")
+    })
+
+    it("'show --help' produces empty complete_current (exact match)", () => {
+      const result = ctrl._computeLocalGhost("show --help", 11)
+      // "--help" fully typed — no remaining chars to ghost
+      expect(result).not.toBeNull()
+      expect(result.complete_current).toBe("")
+    })
+
+    it("'delete -' also ghosts '-help'", () => {
+      const result = ctrl._computeLocalGhost("delete -", 8)
+      expect(result).not.toBeNull()
+      expect(result.complete_current).toBe("-help")
+    })
+  })
+
   // ── Lifecycle ────────────────────────────────────────────────────────────
 
   describe("lifecycle", () => {

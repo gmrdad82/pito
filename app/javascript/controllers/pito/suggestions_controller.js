@@ -643,6 +643,11 @@ export default class extends Controller {
       // complete_current: if currentPartial uniquely prefixes one vocab member
       if (!currentPartial) return { complete_current: "", next_hint: "" }
 
+      // `--help` ghost: any partial starting with "-" that prefixes "--help"
+      if (currentPartial.startsWith("-") && "--help".startsWith(currentPartial.toLowerCase())) {
+        return { complete_current: "--help".slice(currentPartial.length), next_hint: "" }
+      }
+
       // Check if the active slot's vocab is dynamic
       if (activeSlot) {
         const vocab = this._getVocab(activeSlot.source)
