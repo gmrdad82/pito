@@ -5047,3 +5047,8 @@ en:
           - '+++[---]+++[---]+++ synced +++[---]+++[-]'
           - '~ ~ ~ ~ ~  the channel is alive  ~ ~ ~ ~'
           - '=-=-=-=-=- the bridge has been built =-=-'
+
+      notifications:
+        nightly_games_sync:
+          summary: "IGDB nightly sync: checked %{checked} upcoming game(s), updated %{updated}"
+          failures_header: "%{count} game(s) failed to sync"

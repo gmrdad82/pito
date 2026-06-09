@@ -599,8 +599,8 @@ Locked decisions (from the design discussion, 2026-06-08):
 > - `sync channel with videos [scope]` — the channel AND all its videos.
 > - `import videos [scope]` — import NEWER-only YouTube videos + Voyage index.
 
-- [ ] T24.1 Simplify the nightly cron (`config/recurring.yml`) to ONLY the upcoming-games IGDB sync; remove the `ChannelSync` / `NightlyVideoSyncJob` (stats/video-sync) crons. complexity: [high]
-- [ ] T24.2 Upcoming-games nightly job → emits ONE Notification (HTML summary) on success AND failure; on field change updates + digest-gated Voyage reindex; silent on no change; NO chat broadcast. complexity: [high]
+- [x] T24.1 Simplify the nightly cron (`config/recurring.yml`) to ONLY the upcoming-games IGDB sync; remove the `ChannelSync` / `NightlyVideoSyncJob` (stats/video-sync) crons. complexity: [high]
+- [x] T24.2 Upcoming-games nightly job → emits ONE Notification (HTML summary) on success AND failure; on field change updates + digest-gated Voyage reindex; silent on no change; NO chat broadcast. complexity: [high]
 - [ ] T24.3 `sync game|video <ref>` verb → Confirmable; on confirm one job refetches + reindex-if-changed (+ video `Pito::Stats`) → ONE Standard summary. complexity: [high]
 - [ ] T24.4 `sync videos [scope]` → Confirmable; one job over the scoped channel(s) → ONE Standard summary. complexity: [high]
 - [ ] T24.5 `sync channel [scope]` → Confirmable; channel fields + channel `Pito::Stats` → ONE Standard summary. complexity: [high]

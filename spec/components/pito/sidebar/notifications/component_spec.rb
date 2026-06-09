@@ -41,6 +41,21 @@ RSpec.describe Pito::Sidebar::Notifications::Component do
       node = render_inline(described_class.new(notifications: [ unread_notification ]))
       expect(node.to_html).to include("Sync completed")
     end
+
+    it "renders HTML in the message (safe tags survive, not escaped)" do
+      html_note = build(:notification, message: "<strong>Done</strong><ul><li>Game A</li></ul>", read_at: nil)
+      node = render_inline(described_class.new(notifications: [ html_note ]))
+      expect(node.css("strong").map(&:text)).to include("Done")
+      expect(node.css("li").map(&:text)).to include("Game A")
+      expect(node.to_html).not_to include("&lt;strong&gt;")
+    end
+
+    it "strips unsafe tags (no XSS)" do
+      evil = build(:notification, message: "<script>alert(1)</script><strong>ok</strong>", read_at: nil)
+      node = render_inline(described_class.new(notifications: [ evil ]))
+      expect(node.to_html).not_to include("<script>")
+      expect(node.css("strong").map(&:text)).to include("ok")
+    end
   end
 
   describe "unread indicator" do
