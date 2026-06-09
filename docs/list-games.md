@@ -75,10 +75,10 @@ dates read "June 09, 2026"; and the input ghosts ` with` → field tokens as you
   Everything else is **dropped** from display — Xbox*, Google Stadia, Mac, etc. Generation-
   specific labels rejected (buckets are coarse).
 - **Platforms stored unchanged.** Only display + the platform sort key normalize.
-- **Table grid uses a CSS class + a dynamic CSS custom property** (`--pito-cols`) set via an
-  inline `style` attribute — the same dynamic-style precedent already used by
-  `Pito::ScoreBarComponent` / `Pito::TimeToBeatComponent` (`gradient_stops`). No runtime
-  Tailwind arbitrary classes. Non-`#` columns are wrap-capable, not `max-content`.
+- **Table grid uses a CSS class + a `data-cols` attribute** (like `data-accent`) selecting
+  static, compiled `.pito-data-grid[data-cols="N"]` rules. **No inline style, no runtime
+  Tailwind arbitrary classes.** First two columns (`#`, Game/key) are content-sized
+  defaults; every extra `with` column is an equally-spaced, wrap-capable `1fr` track.
 - **Single source of truth for `list` ghosts is the server.** The JS client defers the whole
   `list` verb to `POST /suggestions` (returns `null` from `_computeLocalGhost`); the server's
   `ListClauseGhost` + `compute_ghost` drive noun completion, the ` with` connector, the
@@ -125,15 +125,15 @@ dates read "June 09, 2026"; and the input ghosts ` with` → field tokens as you
 
 ## Phase 3 — Wrapping multi-column table grid
 
-- [ ] T3.1 Add a `.pito-data-grid` rule to `app/assets/tailwind/application.css`: `display:grid; grid-template-columns: max-content repeat(calc(var(--pito-cols) - 1), minmax(0, 1fr)); column-gap:0.5rem; row-gap:0.25rem;` (first col `#` sized to content; rest wrap-capable equal tracks). complexity: [low]
-- [ ] T3.2 Delete `SystemComponent#table_grid_cols`; add `table_cols_style(n)` returning `"--pito-cols: #{[n,2].max}"`. complexity: [low]
-- [ ] T3.3 In `system_component.html.erb` (line ~111) replace the grid `class`/`<%= table_grid_cols %>` with `class="pito-data-grid mt-2 border-t border-line-default pt-2" style="<%= table_cols_style(n_cols) %>"` (keep border/mt only when `body`). complexity: [low]
-- [ ] T3.4 Apply the same replacement at the second grid site (line ~146, html branch). complexity: [low]
-- [ ] T3.5 Confirm non-`#` cells have no `whitespace-nowrap` so values wrap; leave heading cells nowrap (single-word headings). complexity: [low]
-- [ ] T3.6 Update `spec/components/pito/event/system_component_spec.rb` expectations that assert the old `grid-cols-[…]` class → assert `pito-data-grid` + `--pito-cols:` style and N spans. complexity: [low]
-- [ ] T3.7 Add an 8-column example (`#`, Game + 6 with-cols) asserting one `pito-data-grid` container and 8 heading spans (no vertical-stack regression). complexity: [low]
-- [ ] T3.8 Run `bundle exec rspec spec/components`; `bin/rubocop` clean. complexity: [low]
-- [ ] T3.9 Commit: "Render list/data tables with a wrapping CSS-var grid". complexity: [manual]
+- [x] T3.1 Add `.pito-data-grid` to `app/assets/tailwind/application.css`: base `display:grid; column-gap:0.5rem; row-gap:0.25rem;` + per-count rules `.pito-data-grid[data-cols="N"]` (N=2..8) where the first two columns are `max-content` and the rest are `repeat(N-2, minmax(0,1fr))` equally-spaced wrap-capable tracks. complexity: [low]
+- [x] T3.2 Delete `SystemComponent#table_grid_cols`; add `table_col_count(n)` returning `[n,2].max` for the `data-cols` attribute (no inline style). complexity: [low]
+- [x] T3.3 In `system_component.html.erb` (line ~111) replace the grid `class`/`<%= table_grid_cols %>` with `class="pito-data-grid<%= body ? ' mt-2 border-t border-line-default pt-2' : '' %>" data-cols="<%= table_col_count(n_cols) %>"`. complexity: [low]
+- [x] T3.4 Apply the same replacement at the second grid site (line ~146, html branch). complexity: [low]
+- [x] T3.5 Confirm non-`#` cells have no `whitespace-nowrap` so values wrap; leave heading cells nowrap (single-word headings). complexity: [low]
+- [x] T3.6 Update `spec/components/pito/event/system_component_spec.rb` expectations that asserted the old `grid-cols-[…]`/`--pito-cols` → assert `pito-data-grid` + `data-cols="N"` and N spans. complexity: [low]
+- [x] T3.7 Add an 8-column example (`#`, Game + 6 with-cols) asserting one `pito-data-grid` container, `data-cols="8"`, and 8 heading spans (no vertical-stack regression). complexity: [low]
+- [x] T3.8 Run `bundle exec rspec spec/components`; `bin/rubocop` clean. complexity: [low]
+- [x] T3.9 Commit: "Render list/data tables with a wrapping data-cols grid". complexity: [manual]
 
 ## Phase 4 — list games autocomplete: with connector + field tokens
 

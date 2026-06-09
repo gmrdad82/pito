@@ -106,11 +106,11 @@ module Pito
         end
       end
 
-      # Returns the CSS grid-template-columns string for N columns.
-      # First N-1 are max-content, last is 1fr. N must be >= 2.
-      def table_grid_cols(n)
-        cols = ([ "max-content" ] * [ n - 1, 1 ].max) + [ "1fr" ]
-        "grid-cols-[#{cols.join('_')}]"
+      # Returns the data-grid column count (clamped to a 2-column minimum) for
+      # the `data-cols` attribute, which selects the matching static CSS rule
+      # in `.pito-data-grid[data-cols="N"]`. No inline style.
+      def table_col_count(n)
+        [ n, 2 ].max
       end
 
       # Returns heading cell hashes (one per label) when table_heading is present,

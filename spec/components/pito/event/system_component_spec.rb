@@ -202,8 +202,8 @@ RSpec.describe Pito::Event::SystemComponent do
     end
 
     it "uses a 3-track grid when any row carries value2" do
-      grid = node.css("div.grid").first
-      expect(grid["class"]).to include("grid-cols-[max-content_max-content_1fr]")
+      grid = node.css("div.pito-data-grid").first
+      expect(grid["data-cols"]).to eq("3")
     end
 
     it "renders the third-column value" do
@@ -228,24 +228,24 @@ RSpec.describe Pito::Event::SystemComponent do
       }))
     end
 
-    it "uses a 4-track grid (3 max-content + 1fr)" do
-      grid = node.css("div.grid").first
-      expect(grid["class"]).to include("grid-cols-[max-content_max-content_max-content_1fr]")
+    it "uses a 4-track grid" do
+      grid = node.css("div.pito-data-grid").first
+      expect(grid["data-cols"]).to eq("4")
     end
 
     it "renders 4 spans inside the grid" do
-      grid = node.css("div.grid").first
+      grid = node.css("div.pito-data-grid").first
       expect(grid.css("span").size).to eq(4)
     end
 
     it "renders the cell texts in order" do
-      grid = node.css("div.grid").first
+      grid = node.css("div.pito-data-grid").first
       texts = grid.css("span").map(&:text)
       expect(texts).to eq(%w[Label Value1 Value2 Extra])
     end
 
     it "applies the supplied classes to each cell" do
-      grid = node.css("div.grid").first
+      grid = node.css("div.pito-data-grid").first
       spans = grid.css("span")
       expect(spans[0]["class"]).to include("text-cyan")
       expect(spans[1]["class"]).to include("text-fg-dim")
@@ -262,12 +262,12 @@ RSpec.describe Pito::Event::SystemComponent do
     end
 
     it "uses a 3-track grid" do
-      grid = node.css("div.grid").first
-      expect(grid["class"]).to include("grid-cols-[max-content_max-content_1fr]")
+      grid = node.css("div.pito-data-grid").first
+      expect(grid["data-cols"]).to eq("3")
     end
 
     it "renders key span with text-cyan and whitespace-nowrap" do
-      grid = node.css("div.grid").first
+      grid = node.css("div.pito-data-grid").first
       key_span = grid.css("span").first
       expect(key_span["class"]).to include("text-cyan")
       expect(key_span["class"]).to include("whitespace-nowrap")
@@ -275,14 +275,14 @@ RSpec.describe Pito::Event::SystemComponent do
     end
 
     it "renders value span with text-fg-dim" do
-      grid = node.css("div.grid").first
+      grid = node.css("div.pito-data-grid").first
       value_span = grid.css("span")[1]
       expect(value_span["class"]).to include("text-fg-dim")
       expect(value_span.text).to eq("Alpha Tube")
     end
 
     it "renders value2 span with text-cyan and whitespace-nowrap" do
-      grid = node.css("div.grid").first
+      grid = node.css("div.pito-data-grid").first
       value2_span = grid.css("span")[2]
       expect(value2_span["class"]).to include("text-cyan")
       expect(value2_span["class"]).to include("whitespace-nowrap")
@@ -298,14 +298,14 @@ RSpec.describe Pito::Event::SystemComponent do
       }))
     end
 
-    it "uses a 2-track grid (max-content 1fr)" do
-      grid = node.css("div.grid").first
-      expect(grid["class"]).to include("grid-cols-[max-content_1fr]")
+    it "uses a 2-track grid" do
+      grid = node.css("div.pito-data-grid").first
+      expect(grid["data-cols"]).to eq("2")
     end
 
     it "does NOT use a 3-track grid" do
-      grid = node.css("div.grid").first
-      expect(grid["class"]).not_to include("grid-cols-[max-content_max-content_1fr]")
+      grid = node.css("div.pito-data-grid").first
+      expect(grid["data-cols"]).not_to eq("3")
     end
   end
 
@@ -325,7 +325,7 @@ RSpec.describe Pito::Event::SystemComponent do
     end
 
     it "renders 3 heading spans with text-fg-faded and font-bold" do
-      grid = node.css("div.grid").first
+      grid = node.css("div.pito-data-grid").first
       heading_spans = grid.css("span").first(3)
       expect(heading_spans.map(&:text)).to eq(%w[A B C])
       heading_spans.each do |span|
@@ -335,7 +335,7 @@ RSpec.describe Pito::Event::SystemComponent do
     end
 
     it "positions heading spans before the data-row spans" do
-      grid = node.css("div.grid").first
+      grid = node.css("div.pito-data-grid").first
       all_spans = grid.css("span")
       expect(all_spans[0].text).to eq("A")
       expect(all_spans[1].text).to eq("B")
@@ -344,7 +344,7 @@ RSpec.describe Pito::Event::SystemComponent do
     end
 
     it "heading spans do NOT carry a typewriter prose target" do
-      grid = node.css("div.grid").first
+      grid = node.css("div.pito-data-grid").first
       heading_spans = grid.css("span").first(3)
       heading_spans.each do |span|
         expect(span["data-pito--typewriter-target"]).to be_nil
@@ -352,8 +352,8 @@ RSpec.describe Pito::Event::SystemComponent do
     end
 
     it "uses a 3-track grid that accounts for the heading width" do
-      grid = node.css("div.grid").first
-      expect(grid["class"]).to include("grid-cols-[max-content_max-content_1fr]")
+      grid = node.css("div.pito-data-grid").first
+      expect(grid["data-cols"]).to eq("3")
     end
   end
 
@@ -366,9 +366,58 @@ RSpec.describe Pito::Event::SystemComponent do
     end
 
     it "emits no heading spans (no text-fg-faded font-bold span in the grid)" do
-      grid = node.css("div.grid").first
+      grid = node.css("div.pito-data-grid").first
       heading_spans = grid.css("span").select { |s| s["class"]&.include?("font-bold") }
       expect(heading_spans).to be_empty
+    end
+  end
+
+  # ── T3.7: wide table — 8 columns, no vertical-stack regression ───────────────
+
+  describe "table_heading with 8 columns" do
+    subject(:node) do
+      render_inline(described_class.new(payload: {
+        body: "Wide table",
+        table_heading: [ "#", "Game", "Developer", "Publisher", "Genre", "Release", "Year", "Platform" ],
+        table_rows: [
+          { cells: [
+            { text: "1",    class: "text-cyan whitespace-nowrap" },
+            { text: "Hades",         class: "text-fg" },
+            { text: "Supergiant",    class: "text-fg-dim" },
+            { text: "Supergiant",    class: "text-fg-dim" },
+            { text: "Roguelike",     class: "text-fg-dim" },
+            { text: "2020-09-17",    class: "text-fg-dim" },
+            { text: "2020",          class: "text-fg-dim" },
+            { text: "PC",            class: "text-fg-dim" }
+          ] },
+          { cells: [
+            { text: "2",    class: "text-cyan whitespace-nowrap" },
+            { text: "Celeste",       class: "text-fg" },
+            { text: "Maddy Thorson", class: "text-fg-dim" },
+            { text: "Maddy Thorson", class: "text-fg-dim" },
+            { text: "Platformer",    class: "text-fg-dim" },
+            { text: "2018-01-25",    class: "text-fg-dim" },
+            { text: "2018",          class: "text-fg-dim" },
+            { text: "Switch",        class: "text-fg-dim" }
+          ] }
+        ]
+      }))
+    end
+
+    it "renders exactly one .pito-data-grid container" do
+      grids = node.css("div.pito-data-grid")
+      expect(grids.size).to eq(1)
+    end
+
+    it "sets data-cols=8 on the grid container" do
+      grid = node.css("div.pito-data-grid").first
+      expect(grid["data-cols"]).to eq("8")
+    end
+
+    it "renders 8 heading spans" do
+      grid = node.css("div.pito-data-grid").first
+      heading_spans = grid.css("span").first(8)
+      expect(heading_spans.map(&:text)).to eq(%w[# Game Developer Publisher Genre Release Year Platform])
     end
   end
 
