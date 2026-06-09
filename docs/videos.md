@@ -95,7 +95,7 @@ feed that engine.
 - Phase 21 — YouTube write-through: delete / publish / unlist / schedule (Confirmable)
 - Phase 22 — `import game` (IGDB sidebar → dispatch show game) + `footage` only
 - Phase 23 — Cleanup: unify `/themes preview|apply`, drop `similar`, Pito::Copy 50-variant sweep
-- Phase 24 — `sync` family (full refresh) + `import videos`; Confirmable, done-only broadcast
+- Phase 24 — Nightly upcoming-games Notification + manual `sync`/`import videos` (one Standard summary)
 - Help A — `/help` for commands (keep) [TO DISCUSS]
 - Help B — `#help` + `help` for hashtags & free messages [TO DISCUSS]
 
@@ -574,39 +574,43 @@ Locked decisions (from the design discussion, 2026-06-08):
 - [x] T23.4 Specs: themes preview/apply identical via both entries; `similar` gone; copy audit green. complexity: [high]
 - [x] T23.5 Commit. complexity: [manual]
 
-## Phase 24 — `sync` family (full refresh) + `import videos`; Confirmable, done-only broadcast
+## Phase 24 — Nightly upcoming-games Notification + manual `sync` / `import videos`
 
-> `sync` does EVERYTHING for its target: refetch fields from IGDB (game) / YouTube
-> (video, channel), then — IF indexable (embedded) fields changed — **dispatch the
-> `reindex` op** for that entity (reuse it; do NOT re-embed inline), AND refresh
-> `Pito::Stats` (views/likes/comments for videos; subscribers/views for channels).
-> Message count follows from this: **indexable fields changed → ≥2 Standard
-> messages** (one from `sync`, one from the dispatched `reindex`); **only
-> `Pito::Stats` changed → 1 Standard message** now (possibly +1 Enhanced later);
-> nothing changed → still 1 Standard message (the invariant). Every form is
-> **Confirmable** and runs in the BACKGROUND, publishing its Standard **"done"**
-> result on completion (no up-front ack, no page refresh — "everything produces and
-> publishes"). Scope by the shift+tab channel
-> (`@all`/none → all connected channels; `@<handle>` → that one). `import videos`
-> is the YouTube import (vs `import game` = IGDB sidebar, Phase 22). 50-variant
-> `Pito::Copy`. Forms:
-> - `sync game <ref>` — IGDB fields + conditional Voyage re-embed.
-> - `sync video <ref>` — YouTube fields + conditional Voyage re-embed + `Pito::Stats`.
-> - `sync videos [scope]` — full sync of every video on the scoped channel(s).
-> - `sync channel [scope]` — channel fields + `Pito::Stats` for the scoped channel(s).
+> LOCKED 2026-06-09 (simplified). TWO surfaces over the same work:
+>
+> **A. Scheduled (cron) — ONE job only.** Upcoming-games IGDB sync, daily 1am UTC.
+> Check games scheduled to release; refetch IGDB. No change → SILENT. Any local
+> field changed → update the row + Voyage reindex (digest-gated re-embed). Produces
+> **one Notification** (summary) — on BOTH success and failure. NO Standard/Enhanced,
+> NO chat broadcast. Remove the OTHER nightly crons (stats snapshot, video sync) —
+> stats/imports are manual-only now. Notifications render **HTML** + use Pito::Copy
+> 1-or-50.
+>
+> **B. Chat verbs (manual) — one Standard message** (Enhanced later for Analytics),
+> Confirmable. ONE background orchestrating job per command (sequential) → ONE
+> Standard "done" summary on completion (no up-front ack). Scope by shift+tab
+> channel (`@all`/none → all connected; `@<handle>` → that one).
+> `Pito::Stats`: channel = **views + subscribers**; video = **views + likes +
+> comments**. Forms:
+> - `sync game <ref>` — refetch IGDB + reindex-if-changed.
+> - `sync video <ref>` — refetch YouTube fields + reindex-if-changed + its `Pito::Stats`.
+> - `sync videos [scope]` — every video on the scoped channel(s).
+> - `sync channel [scope]` — channel fields + channel `Pito::Stats`.
 > - `sync channel with videos [scope]` — the channel AND all its videos.
-> - `import videos [scope]` — import only NEWER videos from YouTube for the scoped channel(s).
+> - `import videos [scope]` — import NEWER-only YouTube videos + Voyage index.
 
-- [ ] T24.1 `sync game|video <ref>` verb → Confirmable; executor refetches fields, dispatches `reindex` IFF indexable fields changed (≥2 Standard msgs), + (video) `Pito::Stats` (stats-only → 1 Standard msg). complexity: [high]
-- [ ] T24.2 `sync videos [scope]` → Confirmable; full sync of every video on the scoped channel(s). complexity: [high]
-- [ ] T24.3 `sync channel [scope]` → Confirmable; channel fields + `Pito::Stats` for the scoped channel(s). complexity: [high]
-- [ ] T24.4 `sync channel with videos [scope]` → Confirmable; channel + all its videos. complexity: [high]
-- [ ] T24.5 `import videos [scope]` → Confirmable; import NEWER-only YouTube videos for the scoped channel(s). complexity: [high]
-- [ ] T24.6 Resolve the shift+tab channel scope (`@all`/none → all connected; `@<handle>` → that one). complexity: [high]
-- [ ] T24.7 Background execution publishes EXACTLY ONE Standard summary message on completion (via `Pito::Stream::Broadcaster`) with affected counts — per-entity messages SUPPRESSED in bulk (40 videos → 1 message); no up-front ack. complexity: [high]
-- [ ] T24.8 50-variant `Pito::Copy` for each verb's confirm + done message. complexity: [low]
-- [ ] T24.9 Specs: each verb confirms → enqueues the right job for the scope; the job broadcasts the done message; chat ≡ `#<handle>`. complexity: [high]
-- [ ] T24.10 Commit. complexity: [manual]
+- [ ] T24.1 Simplify the nightly cron (`config/recurring.yml`) to ONLY the upcoming-games IGDB sync; remove the `ChannelSync` / `NightlyVideoSyncJob` (stats/video-sync) crons. complexity: [high]
+- [ ] T24.2 Upcoming-games nightly job → emits ONE Notification (HTML summary) on success AND failure; on field change updates + digest-gated Voyage reindex; silent on no change; NO chat broadcast. complexity: [high]
+- [ ] T24.3 `sync game|video <ref>` verb → Confirmable; on confirm one job refetches + reindex-if-changed (+ video `Pito::Stats`) → ONE Standard summary. complexity: [high]
+- [ ] T24.4 `sync videos [scope]` → Confirmable; one job over the scoped channel(s) → ONE Standard summary. complexity: [high]
+- [ ] T24.5 `sync channel [scope]` → Confirmable; channel fields + channel `Pito::Stats` → ONE Standard summary. complexity: [high]
+- [ ] T24.6 `sync channel with videos [scope]` → Confirmable; channel + all its videos → ONE Standard summary. complexity: [high]
+- [ ] T24.7 `import videos [scope]` → Confirmable; import NEWER-only videos + Voyage index → ONE Standard summary. complexity: [high]
+- [ ] T24.8 Resolve the shift+tab channel scope (`@all`/none → all connected; `@<handle>` → that one). complexity: [high]
+- [ ] T24.9 One orchestrating job per command (sequential) → ONE Standard "done" summary on completion; no up-front ack. complexity: [high]
+- [ ] T24.10 50-variant `Pito::Copy` for each verb's confirm + done summary AND the nightly Notification copy. complexity: [low]
+- [ ] T24.11 Specs: nightly → one Notification (success+failure); each chat verb confirms → one job → one Standard summary; scope resolution. complexity: [high]
+- [ ] T24.12 Commit. complexity: [manual]
 
 ---
 
