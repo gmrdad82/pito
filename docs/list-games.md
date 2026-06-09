@@ -201,7 +201,7 @@ Infra (shared, do first):
 
 Per-verb man pages (one atomic task each — author `pito.copy.chat_help.<verb>` + confirm the handler routes `--help`):
 - [x] T7.4 `show --help` — copy added (`pito.copy.chat_help.show`); routes via dispatcher. complexity: [low]
-- [x] T7.5 `find --help` — copy added; NOTE: `find` has no handler registered yet, so routing is blocked until a `find` handler lands (copy ready). complexity: [high]
+- [x] T7.5 `find --help` — DROPPED. `find` is a grammar spec with NO handler (dead verb → `verb_not_implemented`); the speculative `chat_help.find` copy was removed. A dispatcher spec documents the `find`-has-no-handler behaviour. complexity: [high]
 - [x] T7.6 `import --help` — copy added (accurate: `import <noun> [title]`, videos/game forms). complexity: [low]
 - [x] T7.7 `sync --help` — copy added (all five sync sub-forms listed). complexity: [low]
 - [x] T7.8 `footage --help` — copy added (`footage <title> <path>`). complexity: [low]

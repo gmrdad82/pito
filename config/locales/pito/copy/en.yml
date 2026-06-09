@@ -2257,15 +2257,6 @@ en:
               "<title>": "Game or video to show (fuzzy title match or #id)"
             Options:
               "--help": "Print this help message"
-        find:
-          usage: "find [status] [genre…] [for <platform>]"
-          sections:
-            Arguments:
-              "released, upcoming, tba": "Filter by release status"
-              "<genre>": "Filter by genre (repeatable, e.g. RPG action)"
-              "for <platform>": "Filter by platform (e.g. for PlayStation 5)"
-            Options:
-              "--help": "Print this help message"
         import:
           usage: "import <noun> [title]"
           sections:
