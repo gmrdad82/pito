@@ -51,6 +51,9 @@ en:
         descriptions:
           unlink: "Unlink a video from a game"
         usage: "Usage: `unlink game <id|title> from video <id|title>` or `unlink video <id|title> from game <id|title>`."
+      help:
+        descriptions:
+          help: "List follow-up targets and their accepted actions"
       errors:
         unknown_input: "Didn't understand %{input}. Try /help for available commands."
         verb_not_implemented: "The chat verb %{verb} isn't wired yet."

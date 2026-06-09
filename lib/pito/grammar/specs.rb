@@ -180,6 +180,13 @@ module Pito
             slots:           [ Slot.new(name: :title, kind: :free, optional: true) ],
             description_key: "pito.grammar.chat.unlink"
           ),
+          # `help` — no slots; displays all follow-up targets grouped by entity.
+          Spec.new(
+            namespace:       :chat,
+            name:            :help,
+            slots:           [],
+            description_key: "pito.grammar.chat.help"
+          ),
 
           # Task l — hashtag command specs
           Spec.new(

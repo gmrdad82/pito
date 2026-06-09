@@ -663,11 +663,11 @@ Locked decisions (from the design discussion, 2026-06-08):
 
 ## Phase 25D — `#help` + `help`
 
-- [ ] T25.23 `#help` (hashtag) and bare `help` (free chat) → SAME output: the possible follow-up verbs/actions for each follow-up target, grouped per entity (game list/detail/enhanced, video list/detail, channel list/visit, theme list, confirmation), from `Pito::FollowUp::Registry.actions_for` / each handler's `self.actions`. complexity: [high]
-- [ ] T25.24 Section titles yellow. complexity: [low]
-- [ ] T25.25 Grammar + copy for `help` (chat verb) + `#help` (hashtag). complexity: [low]
-- [ ] T25.26 Specs (`help` ≡ `#help` content; grouped per entity; yellow). complexity: [high]
-- [ ] T25.27 Commit. complexity: [manual]
+- [x] T25.23 `#help` (hashtag) and bare `help` (free chat) → SAME output: the possible follow-up verbs/actions for each follow-up target, grouped per entity (game list/detail/enhanced, video list/detail, channel list/visit, theme list, confirmation), from `Pito::FollowUp::Registry.actions_for` / each handler's `self.actions`. complexity: [high]
+- [x] T25.24 Section titles yellow. complexity: [low]
+- [x] T25.25 Grammar + copy for `help` (chat verb) + `#help` (hashtag). complexity: [low]
+- [x] T25.26 Specs (`help` ≡ `#help` content; grouped per entity; yellow). complexity: [high]
+- [x] T25.27 Commit. complexity: [manual]
 
 ---
 

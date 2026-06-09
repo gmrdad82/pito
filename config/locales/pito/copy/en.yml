@@ -1762,6 +1762,8 @@ en:
           - "Every slash command pito understands, neatly listed."
           - "Start here. Or start fresh. /new for fresh, /help for here."
           - "This is the help screen. The commands are below. Off you go."
+        chat:
+          body: "Follow-up targets and accepted actions, grouped by entity. Type any listed action after a #handle reply."
         more_hint:
           - "more…"
           - "show the rest"

@@ -27,6 +27,7 @@ en:
         unlink: "Unlink a video from a game"
         sync: "Sync a game, video, channel, or all channel videos from YouTube/IGDB"
         import: "Import a game from IGDB, or import new videos from a channel"
+        help: "List all follow-up targets and their accepted actions"
       hashtag:
         add: "Track a metric in this conversation"
         remove: "Stop tracking a metric"
