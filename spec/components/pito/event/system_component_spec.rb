@@ -482,6 +482,69 @@ RSpec.describe Pito::Event::SystemComponent do
     end
   end
 
+  # ── html cells in :cells rows ────────────────────────────────────────────────
+
+  describe "table_rows with :cells — html: true cell renders raw (no typewriter target)" do
+    let(:img_html) { '<span class="pito-platform-icons"><img class="pito-platform-icon" src="/platforms/playstation.svg" alt="PlayStation" title="PlayStation" loading="lazy"></span>' }
+
+    subject(:node) do
+      render_inline(described_class.new(payload: {
+        body: "Games",
+        table_rows: [
+          { cells: [
+            { text: "The Game",   class: "text-fg" },
+            { text: img_html,     class: "text-fg-dim", html: true }
+          ] }
+        ]
+      }))
+    end
+
+    it "renders the html cell without escaping (img tag is present)" do
+      grid = node.css("div.pito-data-grid").first
+      expect(grid.css("img.pito-platform-icon").first).not_to be_nil
+    end
+
+    it "does NOT add a typewriter prose target to the html cell span" do
+      grid = node.css("div.pito-data-grid").first
+      spans = grid.css("span")
+      html_span = spans.find { |s| s.css("img").any? }
+      expect(html_span).not_to be_nil
+      expect(html_span["data-pito--typewriter-target"]).to be_nil
+    end
+
+    it "still adds typewriter prose target to the plain-text cell span" do
+      grid = node.css("div.pito-data-grid").first
+      text_span = grid.css("span[data-pito--typewriter-target='prose']").first
+      expect(text_span).not_to be_nil
+      expect(text_span.text).to include("The Game")
+    end
+  end
+
+  describe "table_rows with :cells — html: false cell escapes and keeps typewriter target" do
+    subject(:node) do
+      render_inline(described_class.new(payload: {
+        body: "Test",
+        table_rows: [
+          { cells: [
+            { text: "<b>escaped</b>", class: "text-fg" }
+          ] }
+        ]
+      }))
+    end
+
+    it "escapes the text (no b tag in the DOM)" do
+      grid = node.css("div.pito-data-grid").first
+      expect(grid.css("b").first).to be_nil
+      expect(grid.text).to include("<b>escaped</b>")
+    end
+
+    it "keeps the typewriter prose target on the span" do
+      grid = node.css("div.pito-data-grid").first
+      span = grid.css("span[data-pito--typewriter-target='prose']").first
+      expect(span).not_to be_nil
+    end
+  end
+
   describe "follow-up handle in the single meta line (no usage/affordance line)" do
     let(:conversation) { Conversation.create! }
     let(:turn) { create(:turn, conversation:) }

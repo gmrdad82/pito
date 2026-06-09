@@ -169,16 +169,27 @@ RSpec.describe Pito::MessageBuilder::Game::ListColumns do
       expect(result.first[:text]).to include("Bandai Namco")
     end
 
-    it "returns normalised platform labels (Xbox dropped)" do
-      g = create(:game, platforms: [ "PlayStation 5", "Xbox One", "Steam" ])
-      result = described_class.cells(g, [ :platform ])
-      expect(result.first[:text]).to eq("PlayStation, Steam")
+    it "returns platform cell with html: true" do
+      result = described_class.cells(game, [ :platform ])
+      expect(result.first[:html]).to be(true)
     end
 
-    it "returns platform strings joined by ', '" do
+    it "returns platform cell text containing <img tags" do
       result = described_class.cells(game, [ :platform ])
-      expect(result.first[:text]).to include("PlayStation")
-      expect(result.first[:text]).to include("Steam")
+      expect(result.first[:text]).to include("<img")
+    end
+
+    it "returns platform cell text containing /platforms/ SVG srcs" do
+      result = described_class.cells(game, [ :platform ])
+      expect(result.first[:text]).to include("/platforms/")
+    end
+
+    it "returns platform cell text with PlayStation and Steam icons (Xbox dropped)" do
+      g = create(:game, platforms: [ "PlayStation 5", "Xbox One", "Steam" ])
+      result = described_class.cells(g, [ :platform ])
+      expect(result.first[:text]).to include("/platforms/playstation.svg")
+      expect(result.first[:text]).to include("/platforms/steam.svg")
+      expect(result.first[:text]).not_to include("Xbox")
     end
 
     it "returns the release year as a string" do

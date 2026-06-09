@@ -54,7 +54,8 @@ module Pito
           platform:     {
             aliases: %w[platform platforms],
             heading: "Platform",
-            value:   ->(g) { Pito::Game::PlatformTokens.labels(g.platforms).to_s }
+            html:    true,
+            value:   ->(g) { Pito::Game::PlatformTokens.icons_html(g.platforms) }
           },
           genre:        {
             aliases: %w[genre genres],
@@ -155,7 +156,7 @@ module Pito
         #
         # @param game [::Game]
         # @param cols [Array<Symbol>] ordered canonical column keys
-        # @return [Array<{ text: String, class: String }>]
+        # @return [Array<{ text: String, class: String, html: Boolean }>]
         def cells(game, cols)
           cols.map do |col|
             cfg  = COLUMNS.fetch(col)
@@ -167,7 +168,7 @@ module Pito
               else
                 "text-fg-dim"
               end
-            { text:, class: cell_class }
+            { text:, class: cell_class, html: cfg[:html] == true }
           end
         end
 

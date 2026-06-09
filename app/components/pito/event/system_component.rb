@@ -97,7 +97,7 @@ module Pito
       def normalized_table_rows
         @normalized_table_rows ||= table_rows.map do |row|
           if row[:cells].present?
-            row[:cells].map { |c| { text: c[:text].to_s, class: c[:class].presence || "text-fg-dim" } }
+            row[:cells].map { |c| { text: c[:text].to_s, class: c[:class].presence || "text-fg-dim", html: c[:html] == true } }
           else
             cells = [
               { text: row[:key].to_s,   class: "#{row.fetch(:key_class, 'text-cyan')} whitespace-nowrap" },

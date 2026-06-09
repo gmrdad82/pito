@@ -74,6 +74,22 @@ RSpec.describe Pito::Game::PlatformTokens do
     it "de-dupes tokens when multiple IGDB names map to the same bucket" do
       expect(described_class.tokens([ "PlayStation 4", "PlayStation 5" ])).to eq([ "ps" ])
     end
+
+    # ORDER — always PS → Switch → Steam regardless of input order
+    it "returns tokens in PS → Switch → Steam order regardless of input order" do
+      result = described_class.tokens([ "Steam", "Nintendo Switch", "PlayStation 5" ])
+      expect(result).to eq(%w[ps switch steam])
+    end
+
+    it "returns PS before Steam when input lists Steam first" do
+      result = described_class.tokens([ "Steam", "PlayStation 4" ])
+      expect(result).to eq(%w[ps steam])
+    end
+
+    it "returns Switch before Steam when input lists Steam first" do
+      result = described_class.tokens([ "GOG", "Nintendo Switch" ])
+      expect(result).to eq(%w[switch steam])
+    end
   end
 
   # ── labels ──────────────────────────────────────────────────────────────────
@@ -90,6 +106,67 @@ RSpec.describe Pito::Game::PlatformTokens do
 
     it "returns nil for platforms that all drop (e.g. Xbox-only)" do
       expect(described_class.labels([ "Xbox Series X|S", "Xbox One" ])).to be_nil
+    end
+  end
+
+  # ── icons_html ───────────────────────────────────────────────────────────────
+
+  describe ".icons_html" do
+    let(:all_platforms) { [ "Steam", "Nintendo Switch", "PlayStation 5" ] }
+
+    subject(:html) { described_class.icons_html(all_platforms) }
+
+    it "returns an html_safe string" do
+      expect(html).to be_html_safe
+    end
+
+    it "wraps icons in a span.pito-platform-icons" do
+      expect(html).to include('class="pito-platform-icons"')
+    end
+
+    it "contains three img tags" do
+      expect(html.scan("<img").size).to eq(3)
+    end
+
+    it "includes the playstation SVG src" do
+      expect(html).to include('src="/platforms/playstation.svg"')
+    end
+
+    it "includes the switch SVG src" do
+      expect(html).to include('src="/platforms/switch.svg"')
+    end
+
+    it "includes the steam SVG src" do
+      expect(html).to include('src="/platforms/steam.svg"')
+    end
+
+    it "uses pito-platform-icon class on each img" do
+      expect(html.scan('class="pito-platform-icon"').size).to eq(3)
+    end
+
+    it "sets alt to the label text" do
+      expect(html).to include('alt="PlayStation"')
+      expect(html).to include('alt="Switch"')
+      expect(html).to include('alt="Steam"')
+    end
+
+    it "emits icons in PS → Switch → Steam order regardless of input order" do
+      ps_pos     = html.index("/platforms/playstation.svg")
+      switch_pos = html.index("/platforms/switch.svg")
+      steam_pos  = html.index("/platforms/steam.svg")
+      expect(ps_pos).to be < switch_pos
+      expect(switch_pos).to be < steam_pos
+    end
+
+    it "returns blank html_safe string for empty platforms" do
+      result = described_class.icons_html([])
+      expect(result).to be_blank
+      expect(result).to be_html_safe
+    end
+
+    it "returns blank html_safe string for Xbox-only platforms" do
+      result = described_class.icons_html([ "Xbox Series X|S" ])
+      expect(result).to be_blank
     end
   end
 end

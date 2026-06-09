@@ -43,30 +43,39 @@ RSpec.describe Pito::Game::DetailComponent do
     end
   end
 
-  describe "available platforms (operator tokens as plain text — no chips)" do
-    it "maps IGDB 'PlayStation 4' and 'PC (Microsoft Windows)' to PlayStation + Steam (plain text)" do
+  describe "available platforms (SVG logo icons)" do
+    it "renders <img> platform icons for 'PlayStation 4' and 'PC (Microsoft Windows)' (Xbox dropped)" do
       g = create(:game, platforms: [ "PlayStation 4", "PC (Microsoft Windows)", "Xbox One" ])
       node = render_inline(described_class.new(game: g))
-      expect(node.text).to include("PlayStation")
-      expect(node.text).to include("Steam")
-      # Xbox One has no matching token — should not appear
-      expect(node.text).not_to include("Xbox One")
-      # No bordered chips — plain KV value only
+      expect(node.css("img.pito-platform-icon").map { |i| i["src"] }).to include("/platforms/playstation.svg")
+      expect(node.css("img.pito-platform-icon").map { |i| i["src"] }).to include("/platforms/steam.svg")
+      # Xbox One has no matching token — no Xbox icon
+      xbox_icons = node.css("img.pito-platform-icon").select { |i| i["src"].include?("xbox") }
+      expect(xbox_icons).to be_empty
+      # No bordered chips
       expect(node.css("span.border")).to be_empty
     end
 
-    it "de-dupes tokens when multiple IGDB names map to the same token" do
+    it "de-dupes tokens and renders icons for Switch + Steam" do
       g = create(:game, platforms: [ "Steam", "GOG", "Nintendo Switch" ])
       node = render_inline(described_class.new(game: g))
-      expect(node.text.scan("Steam").count).to eq(1)
-      expect(node.text).to include("Switch")
+      srcs = node.css("img.pito-platform-icon").map { |i| i["src"] }
+      expect(srcs.count("/platforms/steam.svg")).to eq(1)
+      expect(srcs).to include("/platforms/switch.svg")
       expect(node.css("span.border")).to be_empty
     end
 
-    it "renders no platforms section when game.platforms is empty" do
+    it "renders no platforms row when game.platforms is empty" do
       g = create(:game, platforms: [])
       node = render_inline(described_class.new(game: g))
       expect(node.text).not_to include(I18n.t("pito.game.detail.platforms"))
+    end
+
+    it "renders icons inside the KV grid" do
+      g = create(:game, platforms: [ "PlayStation 5", "Nintendo Switch" ])
+      node = render_inline(described_class.new(game: g))
+      grid = node.css("div.grid.grid-cols-\\[max-content_1fr\\]").first
+      expect(grid.css("img.pito-platform-icon").first).not_to be_nil
     end
   end
 

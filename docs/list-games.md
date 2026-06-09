@@ -176,10 +176,16 @@ Iterative refinements from live review. No inline style (data attributes only).
 - [x] T6.3 Right-align the `#` column heading (heading now a `{text,class:"text-right"}` cell; cells already right-aligned). complexity: [low]
 - [x] T6.4 Right-align the Release + Year columns — headings (`heading_cells`) + row cells (`text-right`, year `tabular-nums`). complexity: [low]
 - [x] T6.5 Release + Year as content-hugging trailing tracks (canonical order via `ListColumns.canonical_order`); others split `1fr`. `data-fixed-trailing` attribute + static CSS rules. complexity: [high]
-- [ ] T6.6 Centralize all platform output in one engine/module (extend `Pito::Game::PlatformTokens`): single place that decides text label vs short code vs SVG logo, and enforces output order **PS → Switch → Steam**. complexity: [high]
-- [ ] T6.7 Move `tmp/{playstation,nintendo-switch,steam}.svg` into the asset path; render platform logos at ≤16px height (no line-height impact) via the engine; use in BOTH the games list table AND the game detail card. complexity: [high]
-- [ ] T6.8 Specs (RSpec) for pluralization, alignment, fixed-width attribute, platform order, and logo rendering. complexity: [low]
-- [ ] T6.9 Commit(s) per cohesive change. complexity: [manual]
+- [x] T6.6 Centralized platform engine (`Pito::Game::PlatformTokens`): groups PS4/PS5→`ps`, Switch variants→`switch`, PC/Steam/GOG/Epic/Amazon/Battle.net→`steam`; single source that outputs labels or SVG (`icons_html`); enforces order **PS → Switch → Steam**. complexity: [high]
+- [x] T6.7 SVGs moved to `public/platforms/{playstation,switch,steam}.svg`; logos render at ≤16px height via `.pito-platform-icon`; used in BOTH the list table (html cell) AND the detail card. complexity: [high]
+- [x] T6.8 Specs for pluralization, alignment, fixed-width attribute, platform order, html-cell, and logo rendering. complexity: [low]
+- [x] T6.9 Commit(s) per cohesive change. complexity: [manual]
+- [ ] T6.10 `/help` content: stop mentioning `ctrl+|`, `shift+r`, `Esc`, backtick, and space. complexity: [low]
+- [x] T6.11 Bug: `Ctrl+Shift+R` (browser reload) no longer hijacked by the `shift+r` reply prefix (plain Shift+R only). complexity: [low]
+- [x] T6.12 Bug: `list games --h` ghosts `elp` (`--help` added as a connector candidate). complexity: [low]
+- [ ] T6.13 Bug: `list games so` should ghost `rted by` (add `sorted by` to connector candidates). complexity: [low]
+- [ ] T6.14 Bug: TBA column wider/more prominent than known dates — make TBA render consistently (dim, same width treatment) in the Release column. complexity: [low]
+- [ ] T6.15 Show `shift+tab` / `shift+space` affordances ONLY when the chatbox is focused; they're the inverse of the `m` indicator (mutually exclusive); drop the middle-dot separator when `m` is shown. Same behaviour for `/` (slash palette) and `/not_found`. complexity: [high]
 
 ## Verification (end-to-end)
 

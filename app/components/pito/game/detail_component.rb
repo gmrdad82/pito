@@ -52,6 +52,12 @@ module Pito
         PlatformTokens.labels(@game.platforms)
       end
 
+      # html_safe String of inline SVG logo <img> tags for each matched platform,
+      # in PS → Switch → Steam order. Returns "".html_safe when none match.
+      def platforms_icons
+        PlatformTokens.icons_html(@game.platforms)
+      end
+
       def summary
         @game.summary.presence
       end
