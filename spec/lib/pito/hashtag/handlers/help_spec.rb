@@ -61,18 +61,18 @@ RSpec.describe Pito::Hashtag::Handlers::Help do
     expect(detail_row["value"]).to include("rm").or include("delete")
   end
 
-  # ── Identical output to the `help` chat verb ─────────────────────────────────
+  # ── Delegates to the FollowUpActions builder ─────────────────────────────────
+  #
+  # NOTE: the chat `help` verb deliberately DIVERGED — it now renders a simple
+  # always-visible GAMES group via Pito::MessageBuilder::Help::Commands. The
+  # hashtag `#help` still surfaces the full follow-up action map, so we assert
+  # against that builder (the source of truth) rather than the chat handler.
 
-  it "produces the same sections as the chat Help handler" do
-    chat_handler = Pito::Chat::Handlers::Help.new(
-      message:      Pito::Chat::Message.new(verb: :help, body_tokens: [], kind: :new_turn, raw: "help"),
-      conversation: conversation
-    )
-
+  it "produces the same sections as the FollowUpActions builder" do
     hashtag_payload = handler.call.events.first[:payload]
-    chat_payload    = chat_handler.call.events.first[:payload]
+    builder_payload = Pito::MessageBuilder::Help::FollowUpActions.call
 
-    expect(hashtag_payload["sections"]).to eq(chat_payload["sections"])
+    expect(hashtag_payload["sections"]).to eq(builder_payload["sections"])
   end
 
   # ── Dynamic — reads the live Registry ───────────────────────────────────────
