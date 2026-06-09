@@ -33,6 +33,16 @@ RSpec.describe Pito::FollowUp::Handlers::GameList do
     expect(enhanced["body"]).to include("pito-game-enhanced-message")
   end
 
+  it "resolves `show <id>` by GAME id (not video) — reply_target fixes entity type" do
+    # Even without the 'game' noun in rest, the entity type is GAME
+    # because reply_target = 'game_list' does not start with 'video', so
+    # video_target? returns false and the Show handler takes the game branch.
+    result = handler.call(event:, rest: "show ##{game.id}", conversation:)
+    detail = result.events.find { |e| e[:kind] == :system }[:payload]
+    expect(detail["game_id"]).to eq(game.id)
+    expect(detail["reply_target"]).to eq("game_detail")
+  end
+
   it "resolves by title too" do
     result = handler.call(event:, rest: "show lies of p", conversation:)
     expect(result.events.first[:payload]["body"]).to include("Lies of P")
@@ -60,6 +70,11 @@ RSpec.describe Pito::FollowUp::Handlers::GameList do
   it "accepts `rm <id>` as an alias for delete" do
     result = handler.call(event:, rest: "rm ##{game.id}", conversation:)
     expect(result.events.first[:kind].to_s).to eq("confirmation")
+  end
+
+  it "stamps game_id in the delete confirmation payload" do
+    result = handler.call(event:, rest: "rm ##{game.id}", conversation:)
+    expect(result.events.first[:payload]["game_id"]).to eq(game.id)
   end
 
   it "stamps game_id in the appended detail event payload" do

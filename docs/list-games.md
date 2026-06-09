@@ -567,10 +567,10 @@ Hashtag replies to a video list. Actions: `show`, `delete`/`rm`. Entity (video) 
 from the target — usage omits the noun. Both take a **local id only** (plain number, never
 title). Man-style `--help`, hashtag copy (`pito.copy.hashtag_help.*`).
 
-- [ ] T31.1 `#list-videos-hashtag show --help` — `Usage: show <id>`; `<id>` = local video id (never title).
-- [ ] T31.2 `#list-videos-hashtag delete --help` — `Usage: delete <id>` (alias `rm`); `<id>` = local video id (never title).
-- [ ] T31.3 Impl `show <id>` — resolve the video by local id only (never title); align copy/specs.
-- [ ] T31.4 Impl `delete <id>` / `rm` — resolve the video by local id only (never title); align copy/specs.
+- [x] T31.1 `#list-videos-hashtag show --help` — `Usage: show <id>`; `<id>` = local video id (never title).
+- [x] T31.2 `#list-videos-hashtag delete --help` — `Usage: delete <id>` (alias `rm`); `<id>` = local video id (never title).
+- [x] T31.3 Impl `show <id>` — resolve the video by local id only (never title); align copy/specs.
+- [x] T31.4 Impl `delete <id>` / `rm` — resolve the video by local id only (never title); align copy/specs.
 
 ## Phase 32 — `#show-video-hashtag` (delete / reindex / link / unlink video)
 
@@ -578,24 +578,24 @@ Hashtag replies to a video **detail** — the video is the subject (implied by t
 so actions take **NO primary id**; only the cross-entity `game` id stays in link/unlink.
 `link` uses `to`, `unlink` uses `from`. Man-style `--help`, hashtag copy.
 
-- [ ] T32.1 `#show-video-hashtag delete --help` — `Usage: delete` (alias `rm`); deletes this video.
-- [ ] T32.2 `#show-video-hashtag reindex --help` — `Usage: reindex`; Voyage re-embed of this video.
-- [ ] T32.3 `#show-video-hashtag link --help` — `Usage: link to game <id>`; links this video to a game (local id, e.g. `link to game 7`).
-- [ ] T32.4 `#show-video-hashtag unlink --help` — `Usage: unlink from game <id>`; local game id.
-- [ ] T32.5 Impl `delete` / `rm` — delete the detail's video (resolved from the source event); align copy/specs.
-- [ ] T32.6 Impl `reindex` — re-embed the detail's video; align copy/specs.
-- [ ] T32.7 Impl `link to game <id>` — link the detail's video to the given local game id; align copy/specs.
-- [ ] T32.8 Impl `unlink from game <id>` — local game id; align copy/specs.
+- [x] T32.1 `#show-video-hashtag delete --help` — `Usage: delete` (alias `rm`); deletes this video.
+- [x] T32.2 `#show-video-hashtag reindex --help` — `Usage: reindex`; Voyage re-embed of this video.
+- [x] T32.3 `#show-video-hashtag link --help` — `Usage: link to game <id>`; links this video to a game (local id, e.g. `link to game 7`).
+- [x] T32.4 `#show-video-hashtag unlink --help` — `Usage: unlink from game <id>`; local game id.
+- [x] T32.5 Impl `delete` / `rm` — delete the detail's video (resolved from the source event); align copy/specs.
+- [x] T32.6 Impl `reindex` — re-embed the detail's video; align copy/specs.
+- [x] T32.7 Impl `link to game <id>` — link the detail's video to the given local game id; align copy/specs.
+- [x] T32.8 Impl `unlink from game <id>` — local game id; align copy/specs.
 
 ## Phase 33 — `#list-games-hashtag` (show / delete)
 
 Hashtag replies to a game list. Actions: `show`, `delete`/`rm`. Both take a **local game id
 only** (plain number, never title). Man-style `--help`, copy from `Pito::Copy`.
 
-- [ ] T33.1 `#list-games-hashtag show --help` — `Usage: show <id>`; `<id>` = local game id (never title).
-- [ ] T33.2 `#list-games-hashtag delete --help` — `Usage: delete <id>` (alias `rm`); `<id>` = local game id (never title).
-- [ ] T33.3 Impl `show <id>` — resolve by local game id only (never title); align copy/specs.
-- [ ] T33.4 Impl `delete <id>` / `rm` — resolve by local game id only (never title); align copy/specs.
+- [x] T33.1 `#list-games-hashtag show --help` — `Usage: show <id>`; `<id>` = local game id (never title).
+- [x] T33.2 `#list-games-hashtag delete --help` — `Usage: delete <id>` (alias `rm`); `<id>` = local game id (never title).
+- [x] T33.3 Impl `show <id>` — resolve by local game id only (never title); align copy/specs.
+- [x] T33.4 Impl `delete <id>` / `rm` — resolve by local game id only (never title); align copy/specs.
 
 ## Phase 34 — `#show-game-hashtag` (delete / footage / link / unlink; drop resync)
 
@@ -640,8 +640,8 @@ The hashtag equivalent of Phase 7's chat infra. Reuses the shared `ManPage` rend
 other hashtag `--help` (via `HashtagHelp` / `ManPage`) — not witty. Copy from
 `pito.copy.hashtag_help.confirmation`. (Depends on Phase 35.)
 
-- [ ] T36.1 `#confirmation-hashtag --help` — man style; `Usage: confirm | cancel`; Actions: `confirm` (run the pending action; aliases yes/ok/approve/true), `cancel` (abort it; aliases no/false/discard). No args; list the aliases. Copy from `Pito::Copy`. complexity: [low]
-- [ ] T36.2 Expand `ACTION_ALIASES` in `follow_up/handlers/confirmation.rb` — confirm ← {confirm, yes, ok, approve, true, y}; cancel ← {cancel, no, false, discard, n}. Update specs. complexity: [low]
+- [x] T36.1 `#confirmation-hashtag --help` — man style; `Usage: confirm | cancel`; Actions: `confirm` (run the pending action; aliases yes/ok/approve/true), `cancel` (abort it; aliases no/false/discard). No args; list the aliases. Copy from `Pito::Copy`. complexity: [low]
+- [x] T36.2 Expand `ACTION_ALIASES` in `follow_up/handlers/confirmation.rb` — confirm ← {confirm, yes, ok, approve, true, y}; cancel ← {cancel, no, false, discard, n}. Update specs. complexity: [low]
 
 ## Phase 37 — Final verification (CI runs the WHOLE suite)
 
