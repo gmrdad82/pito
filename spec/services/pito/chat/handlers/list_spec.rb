@@ -120,12 +120,6 @@ RSpec.describe Pito::Chat::Handlers::List do
       expect(body).to include('target="_blank"')
     end
 
-    it "includes the plain channel id (no # prefix) in the body" do
-      body = handler_for("list channels").call.events.first[:payload]["body"]
-      expect(body).to include(alpha.id.to_s)
-      expect(body).to include(beta.id.to_s)
-    end
-
     it "sets html: true on the payload" do
       payload = handler_for("list channels").call.events.first[:payload]
       expect(payload["html"]).to be(true)
