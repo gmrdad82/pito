@@ -18,7 +18,7 @@ module Pito
 
         # @param event          [Event]    the original game-enhanced event.
         # @param game           [::Game]   the game for this enhanced message.
-        # @param results        [Array]    Pito::Recommendations::Result or
+        # @param results        [Array]    Pito::Recommendation::GameSimilarity::Result or
         #                                  Game::ChannelRecommendation::Result items.
         # @param result_type    [Symbol]   :similar or :channel.
         # @param original_handle [String]  the reply_handle from the original event.

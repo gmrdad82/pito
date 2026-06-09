@@ -16,11 +16,12 @@ module Pito
         # @return [Hash] a follow-up-able confirmation payload (target: confirmation).
         def call(game, conversation:)
           payload = {
-            "command"    => "game_resync",
-            "body"       => Pito::Copy.render("pito.copy.games.resync_confirm", { title: game.title }),
-            "html"       => false,
-            "game_id"    => game.id,
-            "game_title" => game.title
+            "command"         => "game_resync",
+            "body"            => Pito::Copy.render("pito.copy.games.resync_confirm", { title: game.title }),
+            "html"            => false,
+            "game_id"         => game.id,
+            "game_title"      => game.title,
+            "conversation_id" => conversation.id
           }
           Pito::FollowUp.make_followupable!(payload, target: "confirmation", conversation:)
           payload

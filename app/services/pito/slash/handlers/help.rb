@@ -57,12 +57,38 @@ module Pito
         end
 
         def help_sections
-          I18n.t("pito.slash.help.sections").values.map do |section|
-            {
-              title: section[:title],
-              rows:  section[:rows]
-            }
+          slash_section + keybindings_section
+        end
+
+        # Build one section per auth group from the grammar registry.
+        # Iterates Pito::Grammar::Registry.specs(namespace: :slash) so new slash
+        # verbs appear automatically — no manual YAML sync required.
+        def slash_section
+          specs = Pito::Grammar::Registry.specs(namespace: :slash)
+          rows  = specs.map do |spec|
+            desc = spec.description_key.present? ? I18n.t(spec.description_key, default: "") : ""
+            { key: "/#{spec.name}", value: desc }
+          end.sort_by { |r| r[:key] }
+
+          [ {
+            title: I18n.t("pito.slash.help.sections.commands.title"),
+            rows:  rows
+          } ]
+        end
+
+        # Keybindings that are NOT already surfaced in copy/locales.
+        # Sourced from pito.slash.help.keybindings locale key so the list
+        # is maintainable without touching Ruby.
+        def keybindings_section
+          rows = I18n.t("pito.slash.help.keybindings").map do |shortcut, description|
+            { key: shortcut.to_s, value: description }
           end
+          return [] if rows.empty?
+
+          [ {
+            title: I18n.t("pito.slash.help.sections.keybindings.title"),
+            rows:  rows
+          } ]
         end
       end
     end

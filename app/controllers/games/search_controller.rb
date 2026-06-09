@@ -33,7 +33,7 @@ module Games
       library_ids = igdb_ids_in_library(result[:hits])
 
       render json: {
-        hits:        result[:hits],
+        hits:        annotate_type_notes(result[:hits]),
         error:       result[:error],
         library_ids: library_ids
       }
@@ -45,6 +45,20 @@ module Games
       ids = hits.map { |h| h["id"] || h[:id] }.compact
       return [] if ids.empty?
       ::Game.where(igdb_id: ids).pluck(:igdb_id)
+    end
+
+    # Stamp a witty "(remake)" / "(remaster)" note on re-release hits so the
+    # client can flag them in cyan — the original and its remake both surface
+    # now (see Game::Igdb::Client::DEFAULT_SEARCH_GAME_TYPES), so the user can
+    # tell them apart at a glance. Main games get no note.
+    def annotate_type_notes(hits)
+      Array(hits).map do |hit|
+        note = case hit["game_type"] || hit[:game_type]
+        when ::Game::Igdb::Client::GAME_TYPE_REMAKE   then Pito::Copy.render("pito.copy.search.remake")
+        when ::Game::Igdb::Client::GAME_TYPE_REMASTER then Pito::Copy.render("pito.copy.search.remaster")
+        end
+        note ? hit.merge("type_note" => note) : hit
+      end
     end
   end
 end

@@ -70,18 +70,6 @@ RSpec.describe Pito::Game::DetailComponent do
     end
   end
 
-  describe "owned platforms" do
-    it "renders owned platform display labels" do
-      GamePlatformOwnership.create!(game: game, platform_token: "ps")
-      GamePlatformOwnership.create!(game: game, platform_token: "steam")
-      game.reload
-
-      node = render_inline(described_class.new(game: game))
-      expect(node.text).to include("PlayStation")
-      expect(node.text).to include("Steam")
-    end
-  end
-
   describe "genres" do
     it "renders genre names" do
       genre = create(:genre, name: "Action RPG")
@@ -90,6 +78,29 @@ RSpec.describe Pito::Game::DetailComponent do
 
       node = render_inline(described_class.new(game: game))
       expect(node.text).to include("Action RPG")
+    end
+  end
+
+  describe "themes + perspective" do
+    it "renders the themes row when present" do
+      g = create(:game, themes: [ "Horror", "Survival" ])
+      node = render_inline(described_class.new(game: g))
+      expect(node.text).to include("Themes")
+      expect(node.text).to include("Horror, Survival")
+    end
+
+    it "renders the perspective row when present" do
+      g = create(:game, player_perspectives: [ "Third person", "First person" ])
+      node = render_inline(described_class.new(game: g))
+      expect(node.text).to include("Perspective")
+      expect(node.text).to include("Third person, First person")
+    end
+
+    it "omits both rows when empty" do
+      g = create(:game, themes: [], player_perspectives: [])
+      node = render_inline(described_class.new(game: g))
+      expect(node.text).not_to include("Themes")
+      expect(node.text).not_to include("Perspective")
     end
   end
 
@@ -187,11 +198,6 @@ RSpec.describe Pito::Game::DetailComponent do
     it "omits the genres row when no genres" do
       node = render_inline(described_class.new(game: game))
       expect(node.text).not_to include(I18n.t("pito.game.detail.genres"))
-    end
-
-    it "omits the owned row when no platform ownerships" do
-      node = render_inline(described_class.new(game: game))
-      expect(node.text).not_to include(I18n.t("pito.game.detail.owned"))
     end
   end
 end

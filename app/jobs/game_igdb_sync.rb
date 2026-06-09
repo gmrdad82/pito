@@ -27,10 +27,20 @@
 # control surface.
 #
 # R1 (2026-05-25) — bundle cover-art fan-out removed with bundles.
+#
+# BUG B fix (2026-06-07) — optional `conversation_id:` keyword.
+# When set (chat-initiated resync via Pito::Confirmation::Executor),
+# after a successful sync + Voyage reindex the job broadcasts the
+# updated standard detail + enhanced messages to that conversation
+# under a fresh "/games resync <title>" slash turn.
+# When nil (page-path resync via nightly job, console, or missing
+# controller), behaviour is unchanged — no chat events are created.
 class GameIgdbSync < ApplicationJob
+  include GameBroadcastHelpers
+
   queue_as :default
 
-  def perform(game_id)
+  def perform(game_id, conversation_id: nil)
     game = Game.find_by(id: game_id)
     return unless game
 
@@ -63,5 +73,47 @@ class GameIgdbSync < ApplicationJob
       # regardless of the in-memory state.
       Game.where(id: game.id).update_all(resyncing: false)
     end
+
+    # Chat-path broadcast — only when a conversation_id was supplied and the
+    # sync succeeded (ValidationError sets success=false and skips this block).
+    return unless success && conversation_id.present?
+
+    conversation = Conversation.find_by(id: conversation_id)
+    return unless conversation
+
+    game.reload
+
+    # Reindex with Voyage so recommendations are fresh before the enhanced message.
+    begin
+      ::Game::VoyageIndexer.call(game)
+    rescue Pito::Error::VoyageEmbeddingNil => e
+      Rails.logger.warn("[GameIgdbSync] Voyage embedding failed after resync for game id=#{game.id}: #{e.message}")
+      # Continue — enhanced message will render intro-only (no recs). Acceptable.
+    end
+
+    broadcaster = Pito::Stream::Broadcaster.new(conversation: conversation)
+    title = game.title
+
+    # Create a fresh slash turn for this resync broadcast.
+    turn = create_resync_turn(conversation, title)
+
+    emit_echo_once(broadcaster, turn: turn, title: title, conversation: conversation)
+    emit_detail_once(broadcaster, turn: turn, game: game.reload, conversation: conversation)
+    emit_enhanced_once(broadcaster, turn: turn, game: game, conversation: conversation)
+
+    broadcaster.complete_turn(turn: turn)
+  end
+
+  private
+
+  # Create a new (always fresh) slash turn for a chat-initiated resync.
+  # Unlike import_turn (which is idempotent/retryable), resync turns are
+  # always new — there is no retry path that needs to re-enter the same turn.
+  def create_resync_turn(conversation, title)
+    conversation.turns.create!(
+      position:   Turn.next_position_for(conversation),
+      input_kind: :slash,
+      input_text: "/games resync #{title}".strip
+    )
   end
 end

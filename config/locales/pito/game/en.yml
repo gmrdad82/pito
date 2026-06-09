@@ -2,13 +2,15 @@ en:
   pito:
     game:
       detail:
+        title: "Title"
         developer: "Developer"
         publisher: "Publisher"
         release: "Release"
         platforms: "Platforms"
-        owned: "Owned on"
         description: "Description"
         genres: "Genres"
+        themes: "Themes"
+        perspective: "Perspective"
         no_cover: "No cover art"
         platform_label:
           ps: "PlayStation"

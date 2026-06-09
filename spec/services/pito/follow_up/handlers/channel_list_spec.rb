@@ -18,8 +18,8 @@ RSpec.describe Pito::FollowUp::Handlers::ChannelList do
     expect(described_class.mode).to eq(:append)
   end
 
-  it "declares the visit action" do
-    expect(described_class.actions).to eq([ "visit" ])
+  it "declares the visit and reindex actions" do
+    expect(described_class.actions).to eq([ "visit", "reindex" ])
   end
 
   describe "visit by @handle" do
@@ -110,6 +110,54 @@ RSpec.describe Pito::FollowUp::Handlers::ChannelList do
     it "builds a /channel/ URL when handle is blank" do
       result = handler.call(event: nil, rest: "visit #{no_handle_channel.id}", conversation:)
       expect(result.events.first[:payload]["body"]).to include("https://www.youtube.com/channel/UCnohandle")
+    end
+  end
+
+  # ── reindex @handle ───────────────────────────────────────────────────────────
+
+  describe "reindex @handle" do
+    subject(:result) do
+      handler.call(event: nil, rest: "reindex @alpha", conversation:)
+    end
+
+    it "returns a Result::Append" do
+      expect(result).to be_a(Pito::FollowUp::Result::Append)
+    end
+
+    it "appends one confirmation event" do
+      expect(result.events.length).to eq(1)
+      expect(result.events.first[:kind]).to eq("confirmation")
+    end
+
+    it "emits a channel_reindex confirmation" do
+      expect(result.events.first[:payload]["command"]).to eq("channel_reindex")
+    end
+
+    it "carries channel_id and channel_handle" do
+      payload = result.events.first[:payload]
+      expect(payload["channel_id"]).to eq(channel.id)
+      expect(payload["channel_handle"]).to eq("@alpha")
+    end
+
+    it "stamps the confirmation as followupable" do
+      expect(result.events.first[:payload]["reply_target"]).to eq("confirmation")
+    end
+  end
+
+  describe "reindex by handle without @ prefix" do
+    it "resolves the channel when @ is omitted" do
+      result = handler.call(event: nil, rest: "reindex alpha", conversation:)
+      expect(result).to be_a(Pito::FollowUp::Result::Append)
+      expect(result.events.first[:payload]["command"]).to eq("channel_reindex")
+    end
+  end
+
+  describe "reindex — unknown channel" do
+    it "returns Result::Error when the channel is not found" do
+      result = handler.call(event: nil, rest: "reindex @nonexistent_xyz", conversation:)
+      expect(result).to be_a(Pito::FollowUp::Result::Error)
+      expect(result.message_key).to eq("pito.follow_up.channel_list.errors.not_found")
+      expect(result.message_args[:ref]).to include("nonexistent_xyz")
     end
   end
 end

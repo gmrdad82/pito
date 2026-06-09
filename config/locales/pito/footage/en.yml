@@ -2,6 +2,5 @@ en:
   pito:
     footage:
       probe_command:
-        copy_hint: "Ctrl+C to copy"
+        copy_hint: "alt+c to copy"
         aria_label: "Copy probe command to clipboard"
-        default_path: "/path/to/footage"

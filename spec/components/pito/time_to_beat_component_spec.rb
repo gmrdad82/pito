@@ -217,15 +217,15 @@ RSpec.describe Pito::TimeToBeatComponent do
       end
     end
 
-    it "maps low/some/commitment/insanity to the contrast-safe accent expression (T17.1)" do
-      # Each stop is the documented hue, wrapped in a fg-mix color-mix so the
-      # bar reads on all 18 themes (worst case 2.59:1, was 1.83:1). See the
-      # OKLab+WCAG sweep in Plan P17.
+    it "maps low/some/commitment to the contrast-safe fg-mix, and insanity to the vivid red+purple mix" do
+      # The light mids stay wrapped in a fg-mix color-mix so the bar reads on all
+      # 18 themes. The insanity/pink end is the un-dimmed red+purple mix: it's the
+      # intended bright magenta and the fg wash was muting it (#c0699f vs #f182ae).
       colors = described_class::HEAT_THRESHOLDS.map(&:last)
       expect(colors[0]).to eq("color-mix(in oklch, var(--accent-green) 70%, var(--fg-default))")                                                 # low — green
       expect(colors[1]).to eq("color-mix(in oklch, color-mix(in oklch, var(--accent-green), var(--accent-yellow)) 58%, var(--fg-default))")      # some — lime
       expect(colors[2]).to eq("color-mix(in oklch, color-mix(in oklch, var(--accent-orange) 60%, var(--accent-yellow)) 58%, var(--fg-default))") # commitment — amber
-      expect(colors[3]).to eq("color-mix(in oklch, color-mix(in oklch, var(--accent-red), var(--accent-purple)) 82%, var(--fg-default))")         # insanity — pink
+      expect(colors[3]).to eq("color-mix(in oklch, var(--accent-red), var(--accent-purple))")                                                    # insanity — vivid pink
     end
   end
 
@@ -271,7 +271,7 @@ RSpec.describe Pito::TimeToBeatComponent do
       # The 100h pink stop is the red→purple mix wrapped in the T17.1 fg-mix;
       # grab the percentage that immediately follows it (color-mix
       # expressions contain commas, so we can't naively split on ", ").
-      pink = "color-mix(in oklch, color-mix(in oklch, var(--accent-red), var(--accent-purple)) 82%, var(--fg-default))"
+      pink = "color-mix(in oklch, var(--accent-red), var(--accent-purple))"
       pct = stops[/#{Regexp.escape(pink)} ([\d.]+)%/, 1]&.to_f
       expect(pct).to be < 20.0
     end

@@ -213,17 +213,18 @@ class ImportVideosJob < ApplicationJob
       comment_count:    stats[:comment_count]&.to_i || 0,
       thumbnail_url:    high[:url],
       tags:             Array(snippet[:tags]),
-      category_id:      snippet[:category_id],
-      etag:             item[:etag]
+      category_id:      snippet[:category_id]
     }
   end
 
   def upsert_video(attrs, channel)
     return if attrs[:youtube_video_id].blank?
 
-    # P4 — view_count moved off the videos column onto the polymorphic
-    # `stats` table; pull it out of the AR attrs and persist via the facade.
-    views = attrs.delete(:view_count)
+    # P4 — view/like/comment counts live on the polymorphic `stats` table, not
+    # video columns; pull them out of the AR attrs and persist via the facade.
+    views    = attrs.delete(:view_count)
+    likes    = attrs.delete(:like_count)
+    comments = attrs.delete(:comment_count)
     # Thumbnails are cached as OUR ActiveStorage copy (not a column) — pull the
     # source URL out of the AR attrs and ingest it off the import path.
     thumb_url = attrs.delete(:thumbnail_url)
@@ -235,6 +236,8 @@ class ImportVideosJob < ApplicationJob
     video.save!
 
     Pito::Stats.set(video, :views, views)
+    Pito::Stats.set(video, :likes, likes)
+    Pito::Stats.set(video, :comments, comments)
     VideoThumbnailJob.perform_later(video.id, thumb_url) if thumb_url.present?
 
     # P9.5 — (re)embed the video when it's new or an embedded field changed.

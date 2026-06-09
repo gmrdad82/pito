@@ -91,6 +91,25 @@ export default class extends Controller {
         this.#cycleNext(this.periodsValue, "periodInput", "periodDisplay")
         return
       }
+
+      // Shift+R at the very start of the field → prepend the most recent
+      // hashtag handle (`#<handle> `) so you can act on the last segment
+      // without retyping it. Only fires when the caret is at position 0 so it
+      // never hijacks a literal "R" mid-line.
+      if (event.shiftKey && event.code === "KeyR") {
+        const field = this.inputFieldTarget
+        if (field.selectionStart === 0 && field.selectionEnd === 0) {
+          const handle = this.#lastHandle()
+          if (handle) {
+            event.preventDefault()
+            const insert = `#${handle} `
+            field.value = insert + field.value
+            field.selectionStart = field.selectionEnd = insert.length
+            field.dispatchEvent(new Event("input", { bubbles: true }))
+          }
+        }
+        return
+      }
     }
 
     if (event.key !== "Enter" || event.shiftKey) return
@@ -132,6 +151,15 @@ export default class extends Controller {
     } else {
       display.textContent = next
     }
+  }
+
+  // The handle of the most recent hashtag-bearing segment in the scrollback,
+  // or null if there is none. Kept in sync with the `· shift+r` affordance the
+  // pito--lasthashtag controller paints on that same (last) segment.
+  #lastHandle() {
+    const nodes = document.querySelectorAll("[data-pito-handle]")
+    const last = nodes[nodes.length - 1]
+    return last?.dataset.pitoHandle || null
   }
 
   #syncHidden() {

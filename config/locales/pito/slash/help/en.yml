@@ -23,67 +23,17 @@ en:
           "--dry-run everything": "Your entire career has been a dry run."
           "/help --help --help": "Recursion limit reached. Please touch grass and try again."
         sections:
-          general:
-            title: "GENERAL"
-            rows:
-              - key: "/help"
-                value: "Show this message"
-              - key: "/login"
-                value: "Log in"
-              - key: "/logout"
-                value: "Log out"
-          conversations:
-            title: "CONVERSATIONS"
-            rows:
-              - key: "/new"
-                value: "Start new conversation"
-              - key: "/resume"
-                value: "Resume a conversation"
-          youtube:
-            title: "YOUTUBE"
-            rows:
-              - key: "/connect"
-                value: "Connect YouTube channel"
-              - key: "/disconnect"
-                value: "Disconnect channel"
-          themes:
-            title: "THEMES"
-            rows:
-              - key: "/themes"
-                value: "Browse themes (sidebar)"
-              - key: "/themes apply <name>"
-                value: "Apply a theme"
-              - key: "/themes preview <name>"
-                value: "Preview without saving"
-              - key: "/themes reset"
-                value: "Reset to Tokyo Night"
-              - key: "/themes list"
-                value: "List all themes"
-          config:
-            title: "CONFIG"
-            rows:
-              - key: "/config google"
-                value: "Google OAuth credentials"
-              - key: "/config igdb"
-                value: "IGDB credentials"
-              - key: "/config voyage"
-                value: "Voyage.AI API key"
-              - key: "/config webhook"
-                value: "Slack / Discord webhooks"
-          keys:
-            title: "KEYS"
-            rows:
-              - key: "ctrl+/"
-                value: "Toggle notifications panel (space = read/unread)"
-              - key: "/ or #"
-                value: "Open command palette (tab accepts suggestion)"
-              - key: "m"
-                value: "Focus chatbox"
-              - key: "ctrl+|"
-                value: "Expand / collapse all messages"
-              - key: "↑ / ↓"
-                value: "Cycle chatbox history"
-              - key: "ctrl+`"
-                value: "Rename current conversation"
-              - key: "` (sidebar)"
-                value: "Rename highlighted conversation"
+          commands:
+            title: "COMMANDS"
+          keybindings:
+            title: "KEYBINDINGS"
+        keybindings:
+          "ctrl+|": "Expand / collapse all messages"
+          "shift+↑ / shift+↓": "Scroll through chat history"
+          "↑ / ↓": "Browse input history in chatbox"
+          "shift+r": "Prepend last hashtag to input"
+          "ctrl+`": "Rename current conversation inline"
+          "esc": "Close sidebar panel"
+          "d / d d": "Arm / confirm conversation delete (sidebar)"
+          "`": "Rename highlighted conversation (sidebar)"
+          "space": "Toggle read / unread notification (sidebar)"

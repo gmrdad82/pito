@@ -45,6 +45,19 @@ RSpec.describe "PATCH /chat/:uuid — global cable sync on rename", type: :reque
       }
     end
 
+    it "broadcasts the chatbox conversation-name slot to the conversation's own stream" do
+      expect {
+        patch conversation_path(uuid: conversation.uuid),
+              params:  { title: "Renamed Chat" },
+              headers: { "Accept" => "text/vnd.turbo-stream.html" }
+      }.to have_broadcasted_to("pito:conversation:#{conversation.uuid}").with { |msg|
+        html = msg.is_a?(Hash) ? msg.values.join : msg.to_s
+        expect(html).to include('action="replace"')
+        expect(html).to include("pito-chatbox-conversation-name")
+        expect(html).to include("Renamed Chat")
+      }
+    end
+
     it "does NOT broadcast to pito:global when the title is blank (422 path)" do
       expect {
         patch conversation_path(uuid: conversation.uuid),

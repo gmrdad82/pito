@@ -42,17 +42,17 @@ RSpec.describe Pito::Recommendations, type: :service do
     end
 
     context "with no filters" do
-      it "returns Result structs (game + score + distance) in best-first order" do
+      it "returns blended Result structs (game + score + breakdown) best-first" do
         near = create(:game, title: "Near Game")
-        near.update_column(:summary_embedding, vec(0, value: 0.99))
-        far = create(:game, title: "Far Game")
-        far.update_column(:summary_embedding, vec(1))
+        near.update_column(:summary_embedding, vec(0))
+        # An orthogonal game with no shared facets scores 0 and is floored out.
+        create(:game, title: "Far Game").update_column(:summary_embedding, vec(1))
 
         results = described_class.similar_games(game, limit: 10)
-        expect(results).to all(be_a(Pito::Recommendations::Result))
-        expect(results.map(&:game)).to eq([ near, far ])
-        expect(results.first.score).to eq(100)
-        expect(results.first.distance).to be_within(0.01).of(0.0)
+        expect(results).to all(be_a(Pito::Recommendation::GameSimilarity::Result))
+        expect(results.map(&:game)).to eq([ near ])
+        expect(results.first.score).to eq(Pito::Recommendation::Weights.blend(e: 100)) # embedding-only blend
+        expect(results.first.breakdown[:e]).to eq(100.0)
       end
 
       it "honours the limit" do
@@ -284,7 +284,7 @@ RSpec.describe Pito::Recommendations, type: :service do
     end
 
     context "Result struct" do
-      it "carries game, score (0–100 Integer), and raw distance" do
+      it "carries game, score (0–100 Integer), and a signal breakdown" do
         near = create(:game, title: "Near")
         near.update_column(:summary_embedding, vec(0))
 
@@ -292,7 +292,10 @@ RSpec.describe Pito::Recommendations, type: :service do
         expect(result.game).to eq(near)
         expect(result.score).to be_a(Integer)
         expect(result.score).to be_between(0, 100)
-        expect(result.distance).to be_a(Float)
+        # v2: breakdown carries ONLY the signals present for the pair (here the
+        # shared embedding); every value is a 0–100 float.
+        expect(result.breakdown).to be_a(Hash).and include(:e)
+        expect(result.breakdown.values).to all(be_a(Float))
       end
     end
   end
@@ -301,22 +304,25 @@ RSpec.describe Pito::Recommendations, type: :service do
 
   describe ".channels_for" do
     let(:game) { create(:game, title: "Lies of P") }
+    let(:rpg_genre) { create(:genre, name: "RPG") }
 
-    before { game.update_column(:summary_embedding, vec(0)) }
+    before { create(:game_genre, game: game, genre: rpg_genre) }
 
     it "returns [] for nil game" do
       expect(described_class.channels_for(nil)).to eq([])
     end
 
-    it "returns [] when game has no embedding" do
-      game.update_column(:summary_embedding, nil)
+    it "returns [] when no channel has a published profile" do
+      create(:channel, title: "Empty") # no published videos with game links
       expect(described_class.channels_for(game)).to eq([])
     end
 
     it "delegates to Game::ChannelRecommendation and returns its Results" do
       channel = create(:channel, title: "Soulslike Central")
-      vid = create(:video, channel: channel)
-      vid.update_column(:summary_embedding, vec(0))
+      profile_game = create(:game)
+      create(:game_genre, game: profile_game, genre: rpg_genre)
+      video = create(:video, :public, channel: channel)
+      create(:video_game_link, video: video, game: profile_game)
 
       results = described_class.channels_for(game)
       expect(results).to all(be_a(Game::ChannelRecommendation::Result))
@@ -327,8 +333,9 @@ RSpec.describe Pito::Recommendations, type: :service do
     it "respects the limit keyword" do
       3.times do
         ch = create(:channel)
-        vid = create(:video, channel: ch)
-        vid.update_column(:summary_embedding, vec(0))
+        pg = create(:game); create(:game_genre, game: pg, genre: rpg_genre)
+        vid = create(:video, :public, channel: ch)
+        create(:video_game_link, video: vid, game: pg)
       end
       expect(described_class.channels_for(game, limit: 1).size).to eq(1)
     end
@@ -338,27 +345,28 @@ RSpec.describe Pito::Recommendations, type: :service do
 
   describe ".games_for" do
     let(:channel) { create(:channel, title: "Soulslike Central") }
+    let(:rpg_genre) { create(:genre, name: "RPG") }
 
-    def probe_video(embedding, views: 100)
-      create(:video, channel: channel).tap do |v|
-        v.update_column(:summary_embedding, embedding)
-        Pito::Stats.set(v, :views, views)
-      end
+    # Publish a video on channel linked to a game carrying rpg_genre.
+    def seed_channel_profile
+      pg = create(:game); create(:game_genre, game: pg, genre: rpg_genre)
+      vid = create(:video, :public, channel: channel)
+      create(:video_game_link, video: vid, game: pg)
     end
 
     it "returns [] for nil channel" do
       expect(described_class.games_for(nil)).to eq([])
     end
 
-    it "returns [] when channel has no embedded videos" do
-      create(:video, channel: channel) # no embedding
+    it "returns [] when the channel has no published videos with game links" do
+      create(:video, :public, channel: channel) # public but no link → empty profile
       expect(described_class.games_for(channel)).to eq([])
     end
 
     it "delegates to Channel::GameRecommendation and returns its Results" do
-      probe_video(vec(0))
+      seed_channel_profile
       g = create(:game, title: "Elden Ring")
-      g.update_column(:summary_embedding, vec(0))
+      create(:game_genre, game: g, genre: rpg_genre)
 
       results = described_class.games_for(channel)
       expect(results).to all(be_a(Channel::GameRecommendation::Result))
@@ -367,8 +375,11 @@ RSpec.describe Pito::Recommendations, type: :service do
     end
 
     it "respects the limit keyword" do
-      probe_video(vec(0))
-      3.times { |i| create(:game).update_column(:summary_embedding, vec(0, value: 0.5 + i * 0.1)) }
+      seed_channel_profile
+      3.times do |i|
+        g = create(:game, title: "Cand #{i}")
+        create(:game_genre, game: g, genre: rpg_genre)
+      end
       expect(described_class.games_for(channel, limit: 1).size).to eq(1)
     end
   end

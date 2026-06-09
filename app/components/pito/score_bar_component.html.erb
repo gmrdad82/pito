@@ -3,7 +3,7 @@
 <% if s.nil? && !resyncing? %>
   <span class="pito-score-bar pito-score-bar--muted"
         data-tier="missing">
-    <span class="pito-score-bar__label"><%= score_label %></span>
+    <% if show_label? %><span class="pito-score-bar__label"><%= score_label %></span><% end %>
     <span class="pito-score-bar__track">
       <span class="pito-score-bar__bracket">[</span>
       <span class="pito-score-bar__fill"><%= fill_text %></span>
@@ -15,7 +15,7 @@
         data-score="<%= s %>"
         data-tier="<%= tier %>"
         data-resyncing="<%= resyncing? ? "yes" : "no" %>">
-    <span class="pito-score-bar__label"><%= score_label %></span>
+    <% if show_label? %><span class="pito-score-bar__label"><%= score_label %></span><% end %>
     <%# Tick + bubble live INSIDE the track so their left:% maps across the
         full-width bar (not the label). %>
     <span class="pito-score-bar__track">

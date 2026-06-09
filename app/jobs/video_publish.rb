@@ -1,5 +1,5 @@
 # Phase 12 — wraps the video publish-state transition. Distinct from
-# VideoSyncBack because it has additional invariants (the four
+# VideoRemoteStatusSync because it has additional invariants (the four
 # pre-publish booleans must be true) and because it stamps the
 # `pre_publish_checked_at` timestamp atomically with the
 # privacy_status flip.
@@ -39,8 +39,10 @@ class VideoPublish < ApplicationJob
       video.update!(privacy_status: target_privacy_status)
     end
 
-    # The Video model's after_update_commit hook enqueues VideoSyncBack
-    # automatically when writable fields change.
+    # This job only flips local publish state. Pushing the new
+    # privacy_status / publish_at to YouTube is a separate, explicit step:
+    # the confirmation executor enqueues VideoRemoteStatusSync after the
+    # local update. There is no model-level after_update_commit hook.
   end
 
   private

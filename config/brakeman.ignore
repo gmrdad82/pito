@@ -11,8 +11,12 @@
     {
       "fingerprint": "f6447e4dd2a52cba99eb199ef848434d1b0505b41435303749813ab86416d8ca",
       "note": "allow_other_host is required for Google OAuth redirect to accounts.google.com."
+    },
+    {
+      "fingerprint": "9ea997b0cb677c31fa4f8a92bba0eac8e37cc7cc89febd139072b700a03b845b",
+      "note": "list games platform filter: the interpolated fragment is only static `p ILIKE ?` placeholders (one per platform token); user values are bound via *args, so the query is fully parameterized. False positive."
     }
   ],
-  "updated": "2026-06-02",
+  "updated": "2026-06-09",
   "brakeman_version": "8.0.4"
 }

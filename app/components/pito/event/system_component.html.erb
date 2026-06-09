@@ -105,19 +105,16 @@
               owner_controller:  false
             )) %>
         <% if table_rows.any? %>
-          <% three_col = table_rows.any? { |r| r[:value2].present? } %>
-          <div class="grid <%= three_col ? "grid-cols-[max-content_max-content_1fr]" : "grid-cols-[max-content_1fr]" %> gap-x-2 gap-y-1<%= body ? ' mt-2 border-t border-line-default pt-2' : '' %>">
-            <% table_rows.each do |row| %>
-              <%= render(Pito::Table::KeyValueRowComponent.new(
-                    key_text:    row[:key],
-                    value_text:  row[:value],
-                    key_class:   "#{row.fetch(:key_class, 'text-cyan')} whitespace-nowrap",
-                    value_class: "#{row.fetch(:value_class, 'text-fg-dim')}#{three_col ? ' whitespace-nowrap' : ''}",
-                    key_data:    { "pito--typewriter-target" => "prose" },
-                    value_data:  { "pito--typewriter-target" => "prose" }
-                  )) %>
-              <% if three_col %>
-                <span class="text-cyan whitespace-nowrap" data-pito--typewriter-target="prose"><%= row[:value2] %></span>
+          <% norm_rows = normalized_table_rows %>
+          <% heading_cells = table_heading_cells %>
+          <% n_cols = [ heading_cells.size, norm_rows.map(&:size).max.to_i, 2 ].max %>
+          <div class="grid <%= table_grid_cols(n_cols) %> gap-x-2 gap-y-1<%= body ? ' mt-2 border-t border-line-default pt-2' : '' %>">
+            <% heading_cells.each do |cell| %>
+              <span class="<%= cell[:class] %>"><%= cell[:text] %></span>
+            <% end %>
+            <% norm_rows.each do |cells| %>
+              <% cells.each do |cell| %>
+                <span class="<%= cell[:class] %>" data-pito--typewriter-target="prose"><%= cell[:text] %></span>
               <% end %>
             <% end %>
           </div>
@@ -143,17 +140,16 @@
             typewriter:        false
           )) %>
       <% if table_rows.any? %>
-        <% three_col = table_rows.any? { |r| r[:value2].present? } %>
-        <div class="grid <%= three_col ? "grid-cols-[max-content_max-content_1fr]" : "grid-cols-[max-content_1fr]" %> gap-x-2 gap-y-1<%= body ? ' mt-2 border-t border-line-default pt-2' : '' %>">
-          <% table_rows.each do |row| %>
-            <%= render(Pito::Table::KeyValueRowComponent.new(
-                  key_text:    row[:key],
-                  value_text:  row[:value],
-                  key_class:   "#{row.fetch(:key_class, 'text-cyan')} whitespace-nowrap",
-                  value_class: "#{row.fetch(:value_class, 'text-fg-dim')}#{three_col ? ' whitespace-nowrap' : ''}"
-                )) %>
-            <% if three_col %>
-              <span class="text-cyan whitespace-nowrap"><%= row[:value2] %></span>
+        <% norm_rows = normalized_table_rows %>
+        <% heading_cells = table_heading_cells %>
+        <% n_cols = [ heading_cells.size, norm_rows.map(&:size).max.to_i, 2 ].max %>
+        <div class="grid <%= table_grid_cols(n_cols) %> gap-x-2 gap-y-1<%= body ? ' mt-2 border-t border-line-default pt-2' : '' %>">
+          <% heading_cells.each do |cell| %>
+            <span class="<%= cell[:class] %>"><%= cell[:text] %></span>
+          <% end %>
+          <% norm_rows.each do |cells| %>
+            <% cells.each do |cell| %>
+              <span class="<%= cell[:class] %>"><%= cell[:text] %></span>
             <% end %>
           <% end %>
         </div>

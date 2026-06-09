@@ -87,7 +87,13 @@ class Game
       GAME_TYPE_EXPANDED_GAME  = 10
       GAME_TYPE_PORT           = 11
       GAME_TYPE_PACK           = 13
-      DEFAULT_SEARCH_GAME_TYPES = [ GAME_TYPE_MAIN_GAME ].freeze
+      # Main games PLUS remakes/remasters — a remake (e.g. Demon's Souls 2020)
+      # is a distinct, importable title the user may legitimately want instead
+      # of (or alongside) the original, so it must NOT be filtered out. Bundles,
+      # DLC, packs, ports, expansions etc. still drop at the API layer.
+      DEFAULT_SEARCH_GAME_TYPES = [
+        GAME_TYPE_MAIN_GAME, GAME_TYPE_REMAKE, GAME_TYPE_REMASTER
+      ].freeze
 
       # Back-compat aliases for any callers / specs referencing the
       # old constant names. The values match the new `game_type` enum
@@ -106,6 +112,8 @@ class Game
         total_rating total_rating_count
         cover.id cover.image_id
         genres.id genres.name genres.slug
+        themes.id themes.name
+        player_perspectives.id player_perspectives.name
         platforms.id platforms.name platforms.slug
         involved_companies.id
         involved_companies.developer
@@ -139,10 +147,11 @@ class Game
           # 2026-05-18 — single-pass `game_type` filter. IGDB's search
           # endpoint hydrates `game_type` reliably for every row
           # (unlike `category`, which is null for almost every search
-          # hit). `game_type = (0)` keeps only main games; bundles
-          # (3), DLC (1), packs (13), costumes / pack subtypes, ports
-          # (11), expanded-game variants (10), etc. drop out at the
-          # API layer. No second pass needed.
+          # hit). `game_type = (0,8,9)` keeps main games + remakes +
+          # remasters (distinct importable titles the user may want);
+          # bundles (3), DLC (1), packs (13), costumes / pack subtypes,
+          # ports (11), expanded-game variants (10), etc. drop out at
+          # the API layer. No second pass needed.
           #
           # Null-tolerant just in case IGDB ever ships a freshly
           # indexed row before `game_type` is populated.

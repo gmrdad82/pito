@@ -193,4 +193,85 @@ RSpec.describe GameImportJob, type: :job do
       expect(enhanced).to be_present
     end
   end
+
+  # ── BUG A: VoyageEmbeddingNil propagates (not swallowed) ─────────────────────
+
+  context "when Game::VoyageIndexer raises VoyageEmbeddingNil" do
+    before do
+      allow(::Game::VoyageIndexer).to receive(:call)
+        .and_raise(Pito::Error::VoyageEmbeddingNil.new(resource_type: "game", resource_id: game.id))
+    end
+
+    it "raises VoyageEmbeddingNil (not swallowed) so retry_on can handle it" do
+      expect { perform }.to raise_error(Pito::Error::VoyageEmbeddingNil)
+    end
+
+    it "does NOT raise StandardError (the generic rescue does not eat embedding failures)" do
+      # retry_on only intercepts VoyageEmbeddingNil; it must not be re-wrapped
+      begin
+        perform
+      rescue Pito::Error::VoyageEmbeddingNil
+        # expected
+      rescue StandardError => e
+        raise "Unexpected StandardError raised instead of VoyageEmbeddingNil: #{e.class}: #{e.message}"
+      end
+    end
+  end
+
+  # ── BUG A: idempotency — calling perform twice does not duplicate events ──────
+
+  context "idempotency on retry (perform called twice simulating a re-enqueue)" do
+    it "reuses the same open turn on the second call" do
+      perform
+      # The first call leaves the turn open (completed) but let us simulate
+      # a retry by re-opening it: set completed_at = nil on the existing turn.
+      turn = conversation.turns.last
+      turn.update_column(:completed_at, nil)
+
+      perform
+
+      # Still only one turn with this input_text.
+      expect(conversation.turns.where(input_text: "/games import #{title}").count).to eq(1)
+    end
+
+    it "does not duplicate echo events on retry" do
+      perform
+      turn = conversation.turns.last
+      turn.update_column(:completed_at, nil)
+
+      perform
+
+      expect(conversation.events.where(kind: "echo").count).to eq(1)
+    end
+
+    it "does not duplicate detail (system) events on retry" do
+      perform
+      turn = conversation.turns.last
+      turn.update_column(:completed_at, nil)
+
+      perform
+
+      expect(conversation.events.where(kind: "system").count).to eq(1)
+    end
+
+    it "does not duplicate enhanced events on retry" do
+      perform
+      turn = conversation.turns.last
+      turn.update_column(:completed_at, nil)
+
+      perform
+
+      expect(conversation.events.where(kind: "enhanced").count).to eq(1)
+    end
+
+    it "completes the turn after the successful retry" do
+      perform
+      turn = conversation.turns.last
+      turn.update_column(:completed_at, nil)
+
+      perform
+
+      expect(turn.reload.completed_at).to be_present
+    end
+  end
 end

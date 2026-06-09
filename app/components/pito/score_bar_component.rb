@@ -27,9 +27,17 @@ class Pito::ScoreBarComponent < ViewComponent::Base
     [ 25, "bad"       ]
   ].freeze
 
-  def initialize(game: nil, score: nil)
-    @game     = game
-    @override = score
+  def initialize(game: nil, score: nil, show_label: true)
+    @game       = game
+    @override   = score
+    @show_label = show_label
+  end
+
+  # Whether to render the witty Pito::Copy label before the bar. The game
+  # detail message keeps it (default); recommendation surfaces (channel item)
+  # pass false since the surrounding context already names the score.
+  def show_label?
+    @show_label
   end
 
   def score

@@ -211,6 +211,167 @@ RSpec.describe Pito::Event::SystemComponent do
     end
   end
 
+  # ── N-column :cells rows ──────────────────────────────────────────────────────
+
+  describe "table_rows with :cells — 4-column row" do
+    subject(:node) do
+      render_inline(described_class.new(payload: {
+        body: "Stats",
+        table_rows: [
+          { cells: [
+            { text: "Label",  class: "text-cyan whitespace-nowrap" },
+            { text: "Value1", class: "text-fg-dim" },
+            { text: "Value2", class: "text-fg-dim" },
+            { text: "Extra",  class: "text-yellow" }
+          ] }
+        ]
+      }))
+    end
+
+    it "uses a 4-track grid (3 max-content + 1fr)" do
+      grid = node.css("div.grid").first
+      expect(grid["class"]).to include("grid-cols-[max-content_max-content_max-content_1fr]")
+    end
+
+    it "renders 4 spans inside the grid" do
+      grid = node.css("div.grid").first
+      expect(grid.css("span").size).to eq(4)
+    end
+
+    it "renders the cell texts in order" do
+      grid = node.css("div.grid").first
+      texts = grid.css("span").map(&:text)
+      expect(texts).to eq(%w[Label Value1 Value2 Extra])
+    end
+
+    it "applies the supplied classes to each cell" do
+      grid = node.css("div.grid").first
+      spans = grid.css("span")
+      expect(spans[0]["class"]).to include("text-cyan")
+      expect(spans[1]["class"]).to include("text-fg-dim")
+      expect(spans[3]["class"]).to include("text-yellow")
+    end
+  end
+
+  describe "table_rows legacy {key, value, value2} — 3-column back-compat" do
+    subject(:node) do
+      render_inline(described_class.new(payload: {
+        body: "Channels",
+        table_rows: [ { key: "#1", value: "Alpha Tube", value2: "@alpha" } ]
+      }))
+    end
+
+    it "uses a 3-track grid" do
+      grid = node.css("div.grid").first
+      expect(grid["class"]).to include("grid-cols-[max-content_max-content_1fr]")
+    end
+
+    it "renders key span with text-cyan and whitespace-nowrap" do
+      grid = node.css("div.grid").first
+      key_span = grid.css("span").first
+      expect(key_span["class"]).to include("text-cyan")
+      expect(key_span["class"]).to include("whitespace-nowrap")
+      expect(key_span.text).to eq("#1")
+    end
+
+    it "renders value span with text-fg-dim" do
+      grid = node.css("div.grid").first
+      value_span = grid.css("span")[1]
+      expect(value_span["class"]).to include("text-fg-dim")
+      expect(value_span.text).to eq("Alpha Tube")
+    end
+
+    it "renders value2 span with text-cyan and whitespace-nowrap" do
+      grid = node.css("div.grid").first
+      value2_span = grid.css("span")[2]
+      expect(value2_span["class"]).to include("text-cyan")
+      expect(value2_span["class"]).to include("whitespace-nowrap")
+      expect(value2_span.text).to eq("@alpha")
+    end
+  end
+
+  describe "table_rows legacy {key, value} — 2-column back-compat" do
+    subject(:node) do
+      render_inline(described_class.new(payload: {
+        body: "Result",
+        table_rows: [ { key: "Status", value: "OK" } ]
+      }))
+    end
+
+    it "uses a 2-track grid (max-content 1fr)" do
+      grid = node.css("div.grid").first
+      expect(grid["class"]).to include("grid-cols-[max-content_1fr]")
+    end
+
+    it "does NOT use a 3-track grid" do
+      grid = node.css("div.grid").first
+      expect(grid["class"]).not_to include("grid-cols-[max-content_max-content_1fr]")
+    end
+  end
+
+  # ── table_heading — heading row in the kv-table grid ──────────────────────────
+
+  describe "table_heading — present" do
+    subject(:node) do
+      render_inline(described_class.new(payload: {
+        body: "Results",
+        table_heading: [ "A", "B", "C" ],
+        table_rows: [ { cells: [
+          { text: "v1", class: "text-fg" },
+          { text: "v2", class: "text-fg" },
+          { text: "v3", class: "text-fg" }
+        ] } ]
+      }))
+    end
+
+    it "renders 3 heading spans with text-fg-faded and font-bold" do
+      grid = node.css("div.grid").first
+      heading_spans = grid.css("span").first(3)
+      expect(heading_spans.map(&:text)).to eq(%w[A B C])
+      heading_spans.each do |span|
+        expect(span["class"]).to include("text-fg-faded")
+        expect(span["class"]).to include("font-bold")
+      end
+    end
+
+    it "positions heading spans before the data-row spans" do
+      grid = node.css("div.grid").first
+      all_spans = grid.css("span")
+      expect(all_spans[0].text).to eq("A")
+      expect(all_spans[1].text).to eq("B")
+      expect(all_spans[2].text).to eq("C")
+      expect(all_spans[3].text).to eq("v1")
+    end
+
+    it "heading spans do NOT carry a typewriter prose target" do
+      grid = node.css("div.grid").first
+      heading_spans = grid.css("span").first(3)
+      heading_spans.each do |span|
+        expect(span["data-pito--typewriter-target"]).to be_nil
+      end
+    end
+
+    it "uses a 3-track grid that accounts for the heading width" do
+      grid = node.css("div.grid").first
+      expect(grid["class"]).to include("grid-cols-[max-content_max-content_1fr]")
+    end
+  end
+
+  describe "table_heading — absent (back-compat)" do
+    subject(:node) do
+      render_inline(described_class.new(payload: {
+        body: "Results",
+        table_rows: [ { key: "Status", value: "OK" } ]
+      }))
+    end
+
+    it "emits no heading spans (no text-fg-faded font-bold span in the grid)" do
+      grid = node.css("div.grid").first
+      heading_spans = grid.css("span").select { |s| s["class"]&.include?("font-bold") }
+      expect(heading_spans).to be_empty
+    end
+  end
+
   describe "follow-up handle in the single meta line (no usage/affordance line)" do
     let(:conversation) { Conversation.create! }
     let(:turn) { create(:turn, conversation:) }

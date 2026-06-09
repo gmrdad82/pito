@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_07_182924) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_08_103500) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -148,15 +148,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_07_182924) do
     t.index ["genre_id"], name: "index_game_genres_on_genre_id"
   end
 
-  create_table "game_platform_ownerships", force: :cascade do |t|
-    t.datetime "created_at", null: false
-    t.bigint "game_id", null: false
-    t.text "platform_token", null: false
-    t.datetime "updated_at", null: false
-    t.index ["game_id", "platform_token"], name: "index_game_platform_ownerships_on_game_id_and_platform_token", unique: true
-    t.check_constraint "platform_token = ANY (ARRAY['ps'::text, 'switch'::text, 'steam'::text])", name: "game_platform_ownerships_platform_token_allowlist"
-  end
-
   create_table "game_publishers", force: :cascade do |t|
     t.bigint "company_id", null: false
     t.datetime "created_at", null: false
@@ -180,6 +171,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_07_182924) do
     t.datetime "igdb_synced_at"
     t.text "last_sync_error"
     t.text "platforms", default: [], null: false, array: true
+    t.text "player_perspectives", default: [], null: false, array: true
     t.date "release_date"
     t.integer "release_day"
     t.integer "release_month"
@@ -190,6 +182,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_07_182924) do
     t.virtual "search_vector", type: :tsvector, as: "to_tsvector('english'::regconfig, (((COALESCE(title, ''::character varying))::text || ' '::text) || COALESCE(summary, ''::text)))", stored: true
     t.text "summary"
     t.vector "summary_embedding", limit: 1024
+    t.text "themes", default: [], null: false, array: true
     t.string "title", default: "Untitled game", null: false
     t.decimal "total_rating", precision: 5, scale: 2
     t.integer "total_rating_count"
@@ -201,11 +194,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_07_182924) do
     t.index ["igdb_id"], name: "index_games_on_igdb_id", unique: true, where: "(igdb_id IS NOT NULL)"
     t.index ["igdb_slug"], name: "index_games_on_igdb_slug", unique: true, where: "(igdb_slug IS NOT NULL)"
     t.index ["igdb_synced_at"], name: "index_games_on_igdb_synced_at"
+    t.index ["player_perspectives"], name: "index_games_on_player_perspectives", using: :gin
     t.index ["release_month", "release_day"], name: "index_games_on_release_month_and_release_day"
     t.index ["release_year"], name: "index_games_on_release_year"
     t.index ["score"], name: "index_games_on_score"
     t.index ["search_vector"], name: "index_games_on_search_vector", using: :gin
     t.index ["summary_embedding"], name: "index_games_on_summary_embedding_hnsw", opclass: :vector_cosine_ops, using: :hnsw
+    t.index ["themes"], name: "index_games_on_themes", using: :gin
     t.index ["title"], name: "index_games_on_title_trigram", opclass: :gin_trgm_ops, using: :gin
   end
 
@@ -403,14 +398,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_07_182924) do
   create_table "videos", force: :cascade do |t|
     t.string "category_id"
     t.bigint "channel_id", null: false
-    t.bigint "comment_count", default: 0, null: false
     t.datetime "created_at", null: false
     t.text "description"
     t.integer "duration_seconds"
     t.string "embedded_digest"
-    t.string "etag"
     t.datetime "last_synced_at"
-    t.bigint "like_count", default: 0, null: false
     t.integer "privacy_status", default: 0, null: false
     t.datetime "publish_at"
     t.datetime "published_at"
@@ -455,7 +447,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_07_182924) do
   add_foreign_key "game_developers", "games", on_delete: :cascade
   add_foreign_key "game_genres", "games", on_delete: :cascade
   add_foreign_key "game_genres", "genres", on_delete: :cascade
-  add_foreign_key "game_platform_ownerships", "games", on_delete: :cascade
   add_foreign_key "game_publishers", "companies", on_delete: :cascade
   add_foreign_key "game_publishers", "games", on_delete: :cascade
   add_foreign_key "solid_queue_blocked_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade

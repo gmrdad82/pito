@@ -33,6 +33,7 @@ module Pito
         @expand_detail = Array(payload[:expand_detail]).map(&:to_s)
         @expand_more_count = payload[:expand_more_count].to_i
         @table_rows   = Array(payload[:table_rows]).map { |r| r.respond_to?(:with_indifferent_access) ? r.with_indifferent_access : r }
+        @table_heading = payload[:table_heading].presence
         @info_lines   = Array(payload[:info_lines]).map(&:to_s)
         @sections     = Array(payload[:sections]).map { |s| s.respond_to?(:with_indifferent_access) ? s.with_indifferent_access : s }
         @suggestion      = payload[:suggestion]
@@ -44,7 +45,7 @@ module Pito
         @timestamp       = event&.created_at
       end
 
-      attr_reader :body, :expand_lines, :expand_detail, :expand_more_count, :table_rows, :info_lines, :handle, :channel, :sections, :html, :reply_handle, :reply_consumed
+      attr_reader :body, :expand_lines, :expand_detail, :expand_more_count, :table_rows, :table_heading, :info_lines, :handle, :channel, :sections, :html, :reply_handle, :reply_consumed
 
       def expandable?    = @expand_detail.any? || @sections.any?
       def accent         = :surface
@@ -84,6 +85,40 @@ module Pito
           end
         end.join
         html.html_safe
+      end
+
+      # Returns table_rows as an array of cell arrays: each row becomes an ordered
+      # Array of { text:, class: } hashes. Supports the new `:cells` key (arbitrary
+      # N columns) and falls back to the legacy { key:, value:, value2: } shape so
+      # every existing caller renders identically.
+      def normalized_table_rows
+        @normalized_table_rows ||= table_rows.map do |row|
+          if row[:cells].present?
+            row[:cells].map { |c| { text: c[:text].to_s, class: c[:class].presence || "text-fg-dim" } }
+          else
+            cells = [
+              { text: row[:key].to_s,   class: "#{row.fetch(:key_class, 'text-cyan')} whitespace-nowrap" },
+              { text: row[:value].to_s, class: row.fetch(:value_class, "text-fg-dim").to_s }
+            ]
+            cells << { text: row[:value2].to_s, class: "text-cyan whitespace-nowrap" } if row[:value2].present?
+            cells
+          end
+        end
+      end
+
+      # Returns the CSS grid-template-columns string for N columns.
+      # First N-1 are max-content, last is 1fr. N must be >= 2.
+      def table_grid_cols(n)
+        cols = ([ "max-content" ] * [ n - 1, 1 ].max) + [ "1fr" ]
+        "grid-cols-[#{cols.join('_')}]"
+      end
+
+      # Returns heading cell hashes (one per label) when table_heading is present,
+      # or an empty array when absent. Heading cells render instantly (no typewriter).
+      def table_heading_cells
+        return [] if table_heading.blank?
+
+        Array(table_heading).map { |label| { text: label.to_s, class: "text-fg-faded font-bold whitespace-nowrap" } }
       end
 
       private

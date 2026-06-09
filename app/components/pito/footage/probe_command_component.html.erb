@@ -1,14 +1,20 @@
-<div class="border border-line-default bg-surface"
-     data-controller="clipboard"
-     data-clipboard-text-value="<%= command_text %>"
-     data-action="click->clipboard#copy keydown.ctrl+c@window->clipboard#copy keydown.meta+c@window->clipboard#copy"
-     tabindex="0"
-     role="button"
-     aria-label="<%= t("pito.footage.probe_command.aria_label") %>">
-  <div class="py-2 px-3">
-    <code class="text-fg select-all whitespace-nowrap overflow-x-auto pito-hide-scrollbar"><%= command_text %></code>
+<div class="pito-footage-import"
+     data-controller="pito--footage-import"
+     data-pito--footage-import-command-value="<%= command_text %>"
+     data-pito--footage-import-feedback-value="<%= feedback_variants_json %>">
+  <div class="pito-footage-import__box border border-line-default bg-surface relative"
+       data-action="click->pito--footage-import#copy"
+       tabindex="0"
+       role="button"
+       aria-label="<%= t("pito.footage.probe_command.aria_label") %>">
+    <div class="py-2 px-3">
+      <code class="text-fg select-all whitespace-nowrap overflow-x-auto pito-hide-scrollbar"><%= command_text %></code>
+    </div>
+    <div data-pito--footage-import-target="overlay"
+         class="pito-footage-import__overlay hidden">
+    </div>
   </div>
-</div>
-<div class="text-right text-fg-dim mt-1" data-clipboard-target="feedback">
-  <%= t("pito.footage.probe_command.copy_hint") %>
+  <div class="text-right text-yellow mt-1">
+    <%= t("pito.footage.probe_command.copy_hint") %>
+  </div>
 </div>

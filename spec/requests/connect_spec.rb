@@ -103,6 +103,12 @@ RSpec.describe "P27 /connect + OAuth callback", type: :request do
       expect(echo).to be_present
       expect(echo.payload["text"]).to eq("/connect")
     end
+
+    it "clears the persisted draft so the chatbox doesn't rehydrate /connect after the OAuth round-trip" do
+      conversation.update!(draft: "/connect")
+      post chat_path, params: { input: "/connect", uuid: conversation.uuid }
+      expect(conversation.reload.draft).to be_nil
+    end
   end
 
   # ── OAuth callback ─────────────────────────────────────────────────────────

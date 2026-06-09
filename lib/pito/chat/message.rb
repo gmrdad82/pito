@@ -3,9 +3,9 @@
 module Pito
   module Chat
     Message = Data.define(:verb, :body_tokens, :kind, :raw) do
-      # verb        — Symbol (:list, :show, :find) or nil for refinement/unknown
+      # verb        — Symbol (:list, :show, :find) or nil for unknown
       # body_tokens — Array of Pito::Lex::Token (the remainder after the verb)
-      # kind        — Symbol :new_turn, :refinement, or :unknown
+      # kind        — Symbol :new_turn or :unknown
       # raw         — String, the original input
     end
   end

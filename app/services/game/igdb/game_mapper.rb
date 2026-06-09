@@ -57,6 +57,15 @@ class Game
           attrs[:platforms] = extract_platform_names(json["platforms"])
         end
 
+        # IGDB `themes` (Action, Science fiction, Horror…) and
+        # `player_perspectives` (Third person, Side view…) — name strings into
+        # the local text[] columns; they drive the recommendation engine's
+        # theme + perspective signals.
+        attrs[:themes] = extract_platform_names(json["themes"]) if json.key?("themes")
+        if json.key?("player_perspectives")
+          attrs[:player_perspectives] = extract_platform_names(json["player_perspectives"])
+        end
+
         attrs.merge!(map_time_to_beat(ttb_json))
         attrs
       end

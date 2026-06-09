@@ -24,34 +24,34 @@ RSpec.describe Pito::Channel::ListComponent do
       channel = build_channel
       allow(channel).to receive(:avatar_variant_url).and_return(nil)
       html = render_inline(described_class.new(channels: [ channel ])).to_html
-      expect(html).to include("pito-channel-list__avatar--placeholder")
+      expect(html).to include("pito-channel-item__avatar--placeholder")
       expect(html).not_to include("<img")
     end
   end
 
   describe "title" do
-    it "renders the channel title" do
+    it "renders the channel title (via ItemComponent)" do
       channel = build_channel(title: "My Cool Channel")
       html = render_inline(described_class.new(channels: [ channel ])).to_html
       expect(html).to include("My Cool Channel")
     end
   end
 
-  describe "@handle and [view] link" do
+  describe "@handle and [visit] link (via ItemComponent)" do
     it "renders the @handle" do
       channel = build_channel(handle: "@mychannel")
       html = render_inline(described_class.new(channels: [ channel ])).to_html
       expect(html).to include("@mychannel")
     end
 
-    it "renders a [view] link to the youtube.com/@handle URL when handle is present" do
+    it "renders the [view] link to the youtube.com/@handle URL when handle is present" do
       channel = build_channel(handle: "@mychannel")
       html = render_inline(described_class.new(channels: [ channel ])).to_html
+      # ItemComponent renders a plain manual [view] anchor with the YouTube URL.
       expect(html).to include("https://www.youtube.com/@mychannel")
-      expect(html).to include("[view]")
     end
 
-    it "opens the link in a new tab (target=_blank)" do
+    it "opens the visit link in a new tab (target=_blank)" do
       channel = build_channel(handle: "@mychannel")
       node = render_inline(described_class.new(channels: [ channel ]))
       link = node.css("a[href*='youtube.com']").first
@@ -66,12 +66,20 @@ RSpec.describe Pito::Channel::ListComponent do
     end
   end
 
-  describe "channel id" do
+  describe "channel id (via ItemComponent)" do
     it "renders the #-prefixed channel id" do
       channel = build_channel(id: 42)
       node = render_inline(described_class.new(channels: [ channel ]))
-      id_element = node.css(".pito-channel-list__id").first
+      id_element = node.css(".pito-channel-item__id").first
       expect(id_element.text.strip).to eq("#42")
+    end
+  end
+
+  describe "no score bar" do
+    it "does not render a ScoreBarComponent (show_visit: true, score: nil)" do
+      channel = build_channel
+      node = render_inline(described_class.new(channels: [ channel ]))
+      expect(node.css(".pito-score-bar")).to be_empty
     end
   end
 

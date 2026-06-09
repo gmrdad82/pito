@@ -66,7 +66,9 @@ class NightlyVideoSyncJob < ApplicationJob
   def upsert_video(attrs, channel)
     return if attrs[:youtube_video_id].blank?
 
-    views = attrs.delete(:view_count)
+    views    = attrs.delete(:view_count)
+    likes    = attrs.delete(:like_count)
+    comments = attrs.delete(:comment_count)
     # Thumbnails are cached as OUR ActiveStorage copy (not a column).
     thumb_url = attrs.delete(:thumbnail_url)
 
@@ -77,6 +79,8 @@ class NightlyVideoSyncJob < ApplicationJob
     video.save!
 
     ::Pito::Stats.set(video, :views, views)
+    ::Pito::Stats.set(video, :likes, likes)
+    ::Pito::Stats.set(video, :comments, comments)
     ::VideoThumbnailJob.perform_later(video.id, thumb_url) if thumb_url.present?
 
     if video.previously_new_record? || video.saved_changes.keys.intersect?(EMBED_FIELDS)
@@ -166,8 +170,7 @@ class NightlyVideoSyncJob < ApplicationJob
       comment_count:    stats[:comment_count]&.to_i || 0,
       thumbnail_url:    high[:url],
       tags:             Array(snippet[:tags]),
-      category_id:      snippet[:category_id],
-      etag:             item[:etag]
+      category_id:      snippet[:category_id]
     }
   end
 

@@ -66,34 +66,33 @@ RSpec.describe Video, type: :model do
     end
   end
 
-  # ── #etag_changed? ───────────────────────────────────────────────
-  describe "#etag_changed?" do
-    context "when stored etag is nil" do
-      it "returns true regardless of new etag" do
-        video.etag = nil
-        expect(video.etag_changed?("any_etag")).to be(true)
-      end
+  # ── stat readers (Pito::Stats-backed) ────────────────────────────
+  describe "stat readers" do
+    let(:saved) { create(:video) }
+
+    it "reads like_count / comment_count from Pito::Stats" do
+      Pito::Stats.set(saved, :likes, 42)
+      Pito::Stats.set(saved, :comments, 7)
+      expect(saved.like_count).to eq(42)
+      expect(saved.comment_count).to eq(7)
     end
 
-    context "when stored etag is blank" do
-      it "returns true for any new etag" do
-        video.etag = ""
-        expect(video.etag_changed?("W/\"new-etag\"")).to be(true)
-      end
+    it "returns nil when a stat has no row" do
+      expect(saved.like_count).to be_nil
+      expect(saved.comment_count).to be_nil
+    end
+  end
+
+  # ── #category_name ───────────────────────────────────────────────
+  describe "#category_name" do
+    it "maps a known YouTube category id to its name" do
+      expect(build(:video, category_id: "20").category_name).to eq("Gaming")
+      expect(build(:video, category_id: "22").category_name).to eq("People & Blogs")
     end
 
-    context "when new etag equals stored etag" do
-      it "returns false" do
-        video.etag = "W/\"abc123\""
-        expect(video.etag_changed?("W/\"abc123\"")).to be(false)
-      end
-    end
-
-    context "when new etag differs from stored etag" do
-      it "returns true" do
-        video.etag = "W/\"old-etag\""
-        expect(video.etag_changed?("W/\"new-etag\"")).to be(true)
-      end
+    it "returns nil for an unknown or blank id" do
+      expect(build(:video, category_id: "99999").category_name).to be_nil
+      expect(build(:video, category_id: nil).category_name).to be_nil
     end
   end
 end

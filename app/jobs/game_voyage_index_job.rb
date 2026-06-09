@@ -16,6 +16,11 @@
 class GameVoyageIndexJob < ApplicationJob
   queue_as :search
 
+  # Transient Voyage nil (network blip / swallowed rate-limit) raises
+  # VoyageEmbeddingNil. Retry with backoff rather than leaving the game
+  # permanently unembedded. Mirrors VideoVoyageIndexJob + GameImportJob.
+  retry_on Pito::Error::VoyageEmbeddingNil, wait: :polynomially_longer, attempts: 5
+
   def perform(game_id)
     game = Game.find_by(id: game_id)
     return unless game

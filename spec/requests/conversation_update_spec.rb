@@ -71,7 +71,7 @@ RSpec.describe "PATCH /chat/:uuid", type: :request do
             params: { title: "" },
             headers: { "Accept" => "application/json" }
 
-      expect(response).to have_http_status(:unprocessable_entity)
+      expect(response).to have_http_status(:unprocessable_content)
       expect(conversation.reload.title).to eq("Old Title")
     end
 
@@ -80,7 +80,7 @@ RSpec.describe "PATCH /chat/:uuid", type: :request do
             params: { title: "   " },
             headers: { "Accept" => "application/json" }
 
-      expect(response).to have_http_status(:unprocessable_entity)
+      expect(response).to have_http_status(:unprocessable_content)
       expect(conversation.reload.title).to eq("Old Title")
     end
 

@@ -14,8 +14,10 @@
 #   kinds:
 #     subscribers — Channel subscriber count (YouTube Data API)
 #     views       — Channel / Video / Game view count
+#     likes       — Video like count (YouTube Data API)
+#     comments    — Video comment count (YouTube Data API)
 class Stat < ApplicationRecord
-  KINDS = %w[subscribers views].freeze
+  KINDS = %w[subscribers views likes comments].freeze
 
   belongs_to :entity, polymorphic: true
 

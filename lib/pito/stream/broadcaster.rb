@@ -88,6 +88,24 @@ module Pito
         event
       end
 
+      # Replace the chatbox conversation-name slot live (rename / Unnamed→named).
+      # `title` is the display name when named, or nil to clear it. Broadcasts to
+      # the conversation's stream so the open chatbox reflects the new name
+      # without a reload.
+      def broadcast_conversation_name(title:)
+        slot_html = ApplicationController.renderer.render(
+          Pito::Shell::Chatbox::NameComponent.new(title:),
+          layout: false
+        ).html_safe
+        content = ApplicationController.helpers.turbo_stream.replace(
+          Pito::Shell::Chatbox::NameComponent::SLOT_ID, slot_html
+        )
+        Turbo::StreamsChannel.broadcast_stream_to(
+          "pito:conversation:#{@conversation.uuid}",
+          content:
+        )
+      end
+
       # Replace an already-persisted event in-place via Turbo Stream.
       # The event's segment must have been rendered with id: "event_#{event.id}".
       # Used by confirmation routing to flip a segment to processing/resolved state.
