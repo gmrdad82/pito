@@ -2387,6 +2387,178 @@ en:
               Options:
                 "--help": "Print this help message"
 
+      hashtag_help:
+        show-game:
+          target_usage: "#<show-game-hashtag> <action>"
+          actions:
+            delete:
+              usage: "#<show-game-hashtag> delete"
+              sections:
+                Description:
+                  "delete": "Delete this game (alias: rm)"
+                Options:
+                  "--help": "Print this help message"
+            rm:
+              usage: "#<show-game-hashtag> rm"
+              sections:
+                Description:
+                  "rm": "Delete this game (alias: delete)"
+                Options:
+                  "--help": "Print this help message"
+            footage:
+              usage: "#<show-game-hashtag> footage <path>"
+              sections:
+                Arguments:
+                  "<path>": "Local footage folder path (absolute or ~/…)"
+                Options:
+                  "--help": "Print this help message"
+            link:
+              usage: "#<show-game-hashtag> link to video <id>"
+              sections:
+                Arguments:
+                  "to video <id>": "Local numeric video id to link to"
+                Options:
+                  "--help": "Print this help message"
+            unlink:
+              usage: "#<show-game-hashtag> unlink from video <id>"
+              sections:
+                Arguments:
+                  "from video <id>": "Local numeric video id to unlink from"
+                Options:
+                  "--help": "Print this help message"
+            resync:
+              usage: "#<show-game-hashtag> resync"
+              sections:
+                Description:
+                  "resync": "Re-sync this game's metadata from IGDB"
+                Options:
+                  "--help": "Print this help message"
+
+        list-games:
+          target_usage: "#<list-games-hashtag> <action>"
+          actions:
+            show:
+              usage: "#<list-games-hashtag> show <id>"
+              sections:
+                Arguments:
+                  "<id>": "Row number from the list"
+                Options:
+                  "--help": "Print this help message"
+            delete:
+              usage: "#<list-games-hashtag> delete <id>"
+              sections:
+                Arguments:
+                  "<id>": "Row number from the list (alias: rm)"
+                Options:
+                  "--help": "Print this help message"
+            rm:
+              usage: "#<list-games-hashtag> rm <id>"
+              sections:
+                Arguments:
+                  "<id>": "Row number from the list (alias: delete)"
+                Options:
+                  "--help": "Print this help message"
+
+        show-video:
+          target_usage: "#<show-video-hashtag> <action>"
+          actions:
+            delete:
+              usage: "#<show-video-hashtag> delete"
+              sections:
+                Description:
+                  "delete": "Delete this video (alias: rm)"
+                Options:
+                  "--help": "Print this help message"
+            rm:
+              usage: "#<show-video-hashtag> rm"
+              sections:
+                Description:
+                  "rm": "Delete this video (alias: delete)"
+                Options:
+                  "--help": "Print this help message"
+            reindex:
+              usage: "#<show-video-hashtag> reindex"
+              sections:
+                Description:
+                  "reindex": "Re-embed this video in the Voyage index"
+                Options:
+                  "--help": "Print this help message"
+            link:
+              usage: "#<show-video-hashtag> link to game <id>"
+              sections:
+                Arguments:
+                  "to game <id>": "Local numeric game id to link to"
+                Options:
+                  "--help": "Print this help message"
+            unlink:
+              usage: "#<show-video-hashtag> unlink from game <id>"
+              sections:
+                Arguments:
+                  "from game <id>": "Local numeric game id to unlink from"
+                Options:
+                  "--help": "Print this help message"
+
+        list-videos:
+          target_usage: "#<list-videos-hashtag> <action>"
+          actions:
+            show:
+              usage: "#<list-videos-hashtag> show <id>"
+              sections:
+                Arguments:
+                  "<id>": "Row number from the list"
+                Options:
+                  "--help": "Print this help message"
+            delete:
+              usage: "#<list-videos-hashtag> delete <id>"
+              sections:
+                Arguments:
+                  "<id>": "Row number from the list (alias: rm)"
+                Options:
+                  "--help": "Print this help message"
+            rm:
+              usage: "#<list-videos-hashtag> rm <id>"
+              sections:
+                Arguments:
+                  "<id>": "Row number from the list (alias: delete)"
+                Options:
+                  "--help": "Print this help message"
+
+        list-channels:
+          target_usage: "#<list-channels-hashtag> <action>"
+          actions:
+            visit:
+              usage: "#<list-channels-hashtag> visit @handle"
+              sections:
+                Arguments:
+                  "@handle": "Channel handle (or numeric id) — opens the YouTube page"
+                Options:
+                  "--help": "Print this help message"
+            reindex:
+              usage: "#<list-channels-hashtag> reindex @handle"
+              sections:
+                Arguments:
+                  "@handle": "Channel handle (or numeric id) — re-embeds all channel videos"
+                Options:
+                  "--help": "Print this help message"
+
+        confirm:
+          target_usage: "#<confirm-hashtag> <action>"
+          actions:
+            confirm:
+              usage: "#<confirm-hashtag> confirm"
+              sections:
+                Description:
+                  "confirm": "Confirm the pending action (aliases: yes, ok, approve, true)"
+                Options:
+                  "--help": "Print this help message"
+            cancel:
+              usage: "#<confirm-hashtag> cancel"
+              sections:
+                Description:
+                  "cancel": "Cancel the pending action (aliases: no, false, discard)"
+                Options:
+                  "--help": "Print this help message"
+
       games:
         import:
           step1:

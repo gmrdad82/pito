@@ -401,7 +401,13 @@ module Pito
           # when the handle isn't a live follow-up.
           actions = follow_up_actions(handle, conversation)
           if actions
-            return at_verb_stage ? follow_up_action_completions(actions, partial) : { menu_items: [], ghost: EMPTY_GHOST }
+            if at_verb_stage
+              return follow_up_action_completions(actions, partial)
+            else
+              # Arg stage: no action completions, but offer --help ghost when
+              # the partial starts with "-" and prefixes "--help".
+              return hashtag_arg_help_completions(partial)
+            end
           end
 
           return hashtag_verb_completions(partial) if at_verb_stage
@@ -451,7 +457,15 @@ module Pito
         # Build completions for a follow-up handle's actions: a palette of all
         # actions plus an inline ghost (the first action, or the unique prefix
         # completion of the partial) so TAB accepts it.
+        # When the partial starts with "-" and prefixes "--help", returns the
+        # --help ghost/menu item instead of action completions (mirrors free-mode
+        # engine.rb:563-566).
         def follow_up_action_completions(actions, partial)
+          # --help ghost: any partial starting with "-" that prefixes "--help".
+          if partial.start_with?("-") && "--help".start_with?(partial.downcase)
+            return hashtag_arg_help_completions(partial)
+          end
+
           menu_items = actions.map { |a| { label: a, insert: "#{a} ", description: "", masked: false } }
 
           ghost = if partial.empty?
@@ -463,6 +477,19 @@ module Pito
           end
 
           { menu_items: menu_items, ghost: ghost }
+        end
+
+        # Returns a --help ghost + menu item when `partial` starts with "-" and
+        # prefixes "--help".  Used in both verb-stage and arg-stage hashtag paths.
+        # Returns EMPTY_GHOST when the partial doesn't qualify.
+        def hashtag_arg_help_completions(partial)
+          if partial.start_with?("-") && "--help".start_with?(partial.downcase)
+            completion = "--help"[partial.length..]
+            help_item  = { label: "--help", insert: "--help ", description: "Print this help message", masked: false }
+            { menu_items: [ help_item ], ghost: { complete_current: completion, next_hint: "" } }
+          else
+            { menu_items: [], ghost: EMPTY_GHOST }
+          end
         end
 
         def hashtag_verb_completions(partial)

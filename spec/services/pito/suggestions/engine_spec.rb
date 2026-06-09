@@ -392,6 +392,97 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
     end
   end
 
+  # T35.3 — hashtag --help ghost: when the partial starts with "-" and prefixes
+  # "--help", the engine returns a --help ghost + menu item.
+  describe "hashtag follow-up: --help ghost", :db do
+    let(:conversation) { Conversation.create! }
+    let(:turn) { conversation.turns.create!(input_kind: :slash, input_text: "/list games", position: 1) }
+
+    before do
+      Pito::FollowUp::Registry.register_all!
+      Event.create_with_position!(
+        conversation:, turn:, kind: "system",
+        payload: { "reply_handle" => "glist-5555", "reply_target" => "game_list", "body" => "games" }
+      )
+    end
+
+    context "verb-stage partial: -" do
+      subject(:result) { call(input: "#glist-5555 -", cursor: 13, conversation:) }
+
+      it "returns :hashtag mode" do
+        expect(result[:mode]).to eq(:hashtag)
+      end
+
+      it "ghost completes toward --help ('-help' remaining)" do
+        expect(result[:ghost][:complete_current]).to eq("-help")
+      end
+
+      it "menu includes --help item" do
+        expect(result[:menu_items].map { |i| i[:label] }).to include("--help")
+      end
+    end
+
+    context "verb-stage partial: --" do
+      subject(:result) { call(input: "#glist-5555 --", cursor: 14, conversation:) }
+
+      it "ghost completes 'help'" do
+        expect(result[:ghost][:complete_current]).to eq("help")
+      end
+    end
+
+    context "verb-stage partial: --h" do
+      subject(:result) { call(input: "#glist-5555 --h", cursor: 15, conversation:) }
+
+      it "ghost completes 'elp'" do
+        expect(result[:ghost][:complete_current]).to eq("elp")
+      end
+    end
+
+    context "verb-stage partial: --help (fully typed)" do
+      subject(:result) { call(input: "#glist-5555 --help", cursor: 18, conversation:) }
+
+      it "ghost complete_current is empty (exact match)" do
+        expect(result[:ghost][:complete_current]).to eq("")
+      end
+    end
+
+    context "arg-stage: #handle show -" do
+      subject(:result) { call(input: "#glist-5555 show -", cursor: 18, conversation:) }
+
+      it "returns :hashtag mode" do
+        expect(result[:mode]).to eq(:hashtag)
+      end
+
+      it "ghost completes toward --help ('-help' remaining)" do
+        expect(result[:ghost][:complete_current]).to eq("-help")
+      end
+
+      it "menu includes --help item" do
+        expect(result[:menu_items].map { |i| i[:label] }).to include("--help")
+      end
+    end
+
+    context "arg-stage: #handle show --" do
+      subject(:result) { call(input: "#glist-5555 show --", cursor: 19, conversation:) }
+
+      it "ghost completes 'help'" do
+        expect(result[:ghost][:complete_current]).to eq("help")
+      end
+    end
+
+    context "normal verb-stage partial with no dash (no change)" do
+      subject(:result) { call(input: "#glist-5555 sho", cursor: 15, conversation:) }
+
+      it "ghost completes 'w' (prefix match on show)" do
+        expect(result[:ghost][:complete_current]).to eq("w")
+      end
+
+      it "does NOT include --help in menu" do
+        expect(result[:menu_items].map { |i| i[:label] }).not_to include("--help")
+      end
+    end
+  end
+
   # T19.6 — a detail card offers link XOR unlink based on whether its entity is
   # already linked (gating still permits both; only the suggestions are shaped).
   describe "hashtag follow-up: link XOR unlink by existence", :db do

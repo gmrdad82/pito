@@ -534,7 +534,27 @@ class ChatController < ApplicationController
   def handle_follow_up(input, conversation, ff)
     event  = ff[:event]
     target = event.payload["reply_target"].to_s
-    mode   = Pito::FollowUp::Registry.mode_for(target)
+
+    # --help intercept: `#<handle> --help` → target page;
+    # `#<handle> <action> --help` → action page.
+    # Renders synchronously (like login/logout) and returns early.
+    help_payload = follow_up_help_payload(target, ff[:rest])
+    if help_payload
+      return unless Current.session.present?
+
+      turn = conversation.turns.create!(
+        position:   Turn.next_position_for(conversation),
+        input_kind: :hashtag,
+        input_text: input
+      )
+      broadcaster = Pito::Stream::Broadcaster.new(conversation:)
+      broadcaster.emit(turn:, kind: :echo,   payload: { text: input, authenticated: false })
+      broadcaster.emit(turn:, kind: :system, payload: help_payload)
+      broadcaster.complete_turn(turn:)
+      return
+    end
+
+    mode = Pito::FollowUp::Registry.mode_for(target)
 
     case mode
     when :mutate
@@ -564,6 +584,20 @@ class ChatController < ApplicationController
       # Silently return — fall-through to next branches already prevented by
       # the caller's `return respond_to_client`.
       Rails.logger.warn("[FollowUp] Unknown mode #{mode.inspect} for target #{target.inspect}")
+    end
+  end
+
+  # Returns a HashtagHelp payload Hash (or nil) for the --help flag in a follow-up rest string.
+  # `rest` is everything after `#<handle> `.
+  #   "--help"              → target-level page
+  #   "<action> --help"     → action-level page
+  #   anything else         → nil (fall through to normal dispatch)
+  def follow_up_help_payload(target, rest)
+    stripped = rest.to_s.strip
+    if stripped == "--help"
+      Pito::MessageBuilder::HashtagHelp.call(target:)
+    elsif (m = stripped.match(/\A(\S+)\s+--help\z/i))
+      Pito::MessageBuilder::HashtagHelp.call(target:, action: m[1])
     end
   end
 
