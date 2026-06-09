@@ -1,27 +1,28 @@
 # frozen_string_literal: true
 
-# Handler for the `schedule video <id|title> <when>` chat verb.
+# Handler for the `schedule video <id> <when>` chat verb.
 #
 # Emits a :confirmation event so the user can confirm before the change
 # is applied locally and written through to YouTube via VideoRemoteStatusSync.
 #
 # == When parsing
 #
-# The lexer splits `2026-06-15` into [:number "2026"], [:unknown "-"],
-# [:number "06"], [:unknown "-"], [:number "15"] — five raw tokens.
-# For `2026-06-15 14:30` there are eight tokens (the HH:MM part is
+# The lexer splits `15-06-2026` into [:number "15"], [:unknown "-"],
+# [:number "06"], [:unknown "-"], [:number "2026"] — five raw tokens.
+# For `15-06-2026 14:30` there are eight tokens (the HH:MM part is
 # [:number "14"], [:colon ":"], [:number "30"]).
 #
 # Supported forms (detected by tail-pattern matching on the raw body_tokens):
 #
-#   YYYY-MM-DD HH:MM  →  8 tail tokens: N - N - N N : N (where the two date
+#   DD-MM-YYYY HH:MM  →  8 tail tokens: N - N - N N : N (where the two date
 #                         and time groups are separated by preceded_by_space)
-#   YYYY-MM-DD         →  5 tail tokens: N - N - N
+#   DD-MM-YYYY         →  5 tail tokens: N - N - N
 #
-# Timezone: all parsed times are treated as UTC.
+# Timezone: parsed times are interpreted in the app local zone (Time.zone).
+# UTC conversion happens only at the YouTube API boundary.
 # Invalid calendrical values (e.g. month 99) → Result::Error.
 # Publish times in the past → witty Result::Ok error event.
-# No new gems required — uses Time.utc directly.
+# No new gems required — uses Time.zone.local directly.
 module Pito
   module Chat
     module Handlers
@@ -78,26 +79,30 @@ module Pito
         # Detection patterns (matched against tail token types, where type is :number/:unknown/:colon):
         #   datetime (8 tail): N - N - N  N : N   (space before the HH part)
         #   date     (5 tail): N - N - N
+        #
+        # Format: DD-MM-YYYY for the date part (day first).
         def extract_when(tokens)
           # Try datetime pattern: tail [N,"-",N,"-",N, N,":",N]
           # with the 6th token having preceded_by_space=true (date vs time separator)
+          # Positions: [0]=DD, [1]=-, [2]=MM, [3]=-, [4]=YYYY, [5]=HH, [6]=:, [7]=MM
           if tokens.length >= 8
             tail = tokens[-8..]
             if datetime_tail?(tail)
-              yr, mo, dy, hh, mm = tail[0].value.to_i, tail[2].value.to_i,
+              dy, mo, yr, hh, mm = tail[0].value.to_i, tail[2].value.to_i,
                                    tail[4].value.to_i, tail[5].value.to_i,
                                    tail[7].value.to_i
-              t = safe_utc(yr, mo, dy, hh, mm)
+              t = safe_local(yr, mo, dy, hh, mm)
               return [ :ok, t, tokens[0..-9] ] if t
             end
           end
 
           # Try date-only pattern: tail [N,"-",N,"-",N]
+          # Positions: [0]=DD, [1]=-, [2]=MM, [3]=-, [4]=YYYY
           if tokens.length >= 5
             tail = tokens[-5..]
             if date_tail?(tail)
-              yr, mo, dy = tail[0].value.to_i, tail[2].value.to_i, tail[4].value.to_i
-              t = safe_utc(yr, mo, dy, 0, 0)
+              dy, mo, yr = tail[0].value.to_i, tail[2].value.to_i, tail[4].value.to_i
+              t = safe_local(yr, mo, dy, 0, 0)
               return [ :ok, t, tokens[0..-6] ] if t
             end
           end
@@ -142,9 +147,10 @@ module Pito
           t.type == :colon
         end
 
-        # Build a UTC Time safely; return nil for invalid calendar values.
-        def safe_utc(yr, mo, dy, hh, mm)
-          Time.utc(yr, mo, dy, hh, mm)
+        # Build a local-zone Time safely; return nil for invalid calendar values.
+        # The result is a TimeWithZone in Time.zone (app local zone).
+        def safe_local(yr, mo, dy, hh, mm)
+          Time.zone.local(yr, mo, dy, hh, mm)
         rescue ArgumentError
           nil
         end
@@ -153,7 +159,7 @@ module Pito
           id = ref.sub(/\A#\s*/, "")
           return ::Video.find_by(id: id) if id.match?(/\A\d+\z/)
 
-          ::Video.find_by("title ILIKE ?", ref)
+          nil
         end
 
         def needs_ref

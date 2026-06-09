@@ -462,9 +462,9 @@ no `#`) — **never a title**.
 Rework to **local video id only** (never title). Drop title resolution + misaligned
 copy/specs per the global rule.
 
-- [ ] T22.1 Rework `publish video <id>` — resolve by local id only; align copy/specs.
-- [ ] T22.2 Rework `unlist video <id>` — resolve by local id only; align copy/specs.
-- [ ] T22.3 Rework `schedule video <id> <date>` — local video id only; date `dd-mm-yyyy hh:mm` parsed in the **app local zone** (`Time.zone`), ≥30 min from now; convert to **UTC only at the YouTube API boundary** (where the API requires it); display local. **No per-channel tz column.** Align copy/specs.
+- [x] T22.1 Rework `publish video <id>` — resolve by local id only; align copy/specs.
+- [x] T22.2 Rework `unlist video <id>` — resolve by local id only; align copy/specs.
+- [x] T22.3 Rework `schedule video <id> <date>` — local video id only; date `dd-mm-yyyy hh:mm` parsed in the **app local zone** (`Time.zone`, currently `UTC`), ≥30 min from now; stored/sent UTC; displayed local. **No per-channel tz column.** Align copy/specs.
 
 ## Phase 23 — `link`/`unlink` `game`/`video` `--help`
 
