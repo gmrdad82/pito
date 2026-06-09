@@ -26,14 +26,12 @@ RSpec.describe Pito::Slash::Handlers::Help, type: :service do
       expect(event[:payload][:body]).to be_present
     end
 
-    it "includes sections with commands" do
+    it "includes sections with commands and keybindings" do
       payload = build_handler.call.events.first[:payload]
       expect(payload[:sections]).to be_an(Array)
       titles = payload[:sections].map { |s| s[:title] }
-      expect(titles).to include("GENERAL")
-      expect(titles).to include("YOUTUBE")
-      expect(titles).to include("CONFIG")
-      expect(titles).not_to include("KEYS")
+      expect(titles).to include("COMMANDS")
+      expect(titles).to include("KEYBINDINGS")
     end
 
     it "sets expand/collapse labels" do
