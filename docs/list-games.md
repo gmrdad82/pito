@@ -158,14 +158,14 @@ Standard message explaining the optional `with` columns and their aliases. **All
 user-facing text comes from `Pito::Copy`** (`config/locales/pito/copy/en.yml` under
 `pito.copy.*`). No inline style.
 
-- [ ] T5.1 Inspect `Pito::MessageBuilder::Help::FollowUpActions`, `Pito::Chat::Handlers::Help`, the `sections`/yellow rendering in `system_component.html.erb`, and the `Pito::Copy.render` API + copy-key layout. complexity: [low]
-- [ ] T5.2 Add `Pito::Copy` keys for the help message under `pito.copy.help.*` (e.g. `games_group_title` → "GAMES", `list_games_label` → "list games", `list_games_hint` → "use --help for more info"). complexity: [low]
-- [ ] T5.3 Rewrite `Pito::Chat::Handlers::Help#call` to build a Standard system payload with one visible **GAMES** group (yellow title) and a single kv-table row (`list games` → `use --help for more info`), all text via `Pito::Copy`. complexity: [high]
-- [ ] T5.4 Detect `--help` on the `list` verb: in `Pito::Chat::Handlers::List#call`, when `message.raw` matches `--help` (after a games noun), short-circuit to a help payload instead of listing. complexity: [low]
-- [ ] T5.5 Add `Pito::Copy` keys (`pito.copy.list.games_help.*`) describing each optional `with` column + aliases (platform|platforms, genre|genres, developer|dev, publisher, release date, year); build a Standard message (kv-table: column ↔ aliases/description). complexity: [high]
-- [ ] T5.6 Specs: help handler renders a GAMES group + the `list games` row; `list games --help` returns the columns explanation (asserts each of the 6 columns appears); `list games` (no flag) still lists normally. complexity: [low]
-- [ ] T5.7 Run `bundle exec rspec` for the touched specs; `bin/rubocop` clean. complexity: [low]
-- [ ] T5.8 Commit: "Rewrite help message (GAMES group) + add list games --help columns guide". complexity: [manual]
+- [x] T5.1 Inspect `Pito::MessageBuilder::Help::FollowUpActions`, `Pito::Chat::Handlers::Help`, the `sections`/yellow rendering in `system_component.html.erb`, and the `Pito::Copy.render` API + copy-key layout. complexity: [low]
+- [x] T5.2 Add `Pito::Copy` keys for the help message under `pito.copy.help.*` (`games_group_title` → "GAMES", `list_games_label` → "list games", `list_games_hint` → "use --help for more info"). complexity: [low]
+- [x] T5.3 Rewrite `Pito::Chat::Handlers::Help#call` to use new `Pito::MessageBuilder::Help::Commands` — a visible `html: true` payload: yellow bold **GAMES** title + a kv-table row (`list games` → `use --help for more info`), all text via `Pito::Copy`. complexity: [high]
+- [x] T5.4 Detect `--help` on the `list` verb: in `Pito::Chat::Handlers::List#call`, when `message.raw` matches `/(?:\A|\s)--help(?:\s|\z)/`, short-circuit to `games_list_help` instead of listing. complexity: [low]
+- [x] T5.5 Add `Pito::Copy` keys (`pito.copy.list.games_help.*`) + `Pito::MessageBuilder::Game::ListHelp` building an "Option/Aliases" kv-table whose rows derive from `ListColumns::COLUMNS` (aliases stay in sync). complexity: [high]
+- [x] T5.6 Specs: help handler renders a GAMES group + the `list games` row; `list games --help` returns the columns explanation (asserts each of the 6 columns appears); `list games` (no flag) still lists normally. complexity: [low]
+- [x] T5.7 Run `bundle exec rspec` for the touched specs; `bin/rubocop` clean. complexity: [low]
+- [x] T5.8 Commit: "Rewrite help message (GAMES group) + add list games --help columns guide". complexity: [manual]
 
 ## Verification (end-to-end)
 

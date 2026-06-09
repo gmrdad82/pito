@@ -1762,6 +1762,9 @@ en:
           - "Every slash command pito understands, neatly listed."
           - "Start here. Or start fresh. /new for fresh, /help for here."
           - "This is the help screen. The commands are below. Off you go."
+        games_group_title: "GAMES"
+        list_games_label: "list games"
+        list_games_hint: "use --help for more info"
         chat:
           body: "Follow-up targets and accepted actions, grouped by entity. Type any listed action after a #handle reply."
         more_hint:
@@ -2228,6 +2231,10 @@ en:
 
       list:
         sort_column_not_visible: "Can't sort by \"%{column}\" — that column isn't visible. Add it with `with %{column}` first, or sort by a shown column."
+        games_help:
+          intro: "Optional columns for `list games with …`:"
+          option_heading: "Option"
+          aliases_heading: "Aliases"
 
       games:
         import:

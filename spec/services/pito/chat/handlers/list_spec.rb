@@ -492,6 +492,96 @@ RSpec.describe Pito::Chat::Handlers::List do
     end
   end
 
+  # ── list games --help ─────────────────────────────────────────────────────
+
+  describe "#call with `list games --help`" do
+    it "returns a Result::Ok with one system event" do
+      result = handler_for("list games --help").call
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(result.events.length).to eq(1)
+      expect(result.events.first[:kind]).to eq(:system)
+    end
+
+    it "does NOT list games (no table_rows from the game library)" do
+      # The --help payload's table_rows are column guide rows, not game rows.
+      # A game-library row has cells[0] with a #-prefixed id; help rows use :cells with option labels.
+      create(:game, title: "Elden Ring")
+      payload = handler_for("list games --help").call.events.first[:payload]
+      rows    = Array(payload["table_rows"])
+      # No row should have a "#" prefixed id cell (sign of a game-library row)
+      game_row = rows.find do |r|
+        cells = r[:cells] || r["cells"]
+        cells&.first&.dig(:text)&.start_with?("#") ||
+          cells&.first&.dig("text")&.start_with?("#")
+      end
+      expect(game_row).to be_nil
+    end
+
+    it "payload body mentions the intro text" do
+      payload = handler_for("list games --help").call.events.first[:payload]
+      expect(payload["body"]).to include("list games with")
+    end
+
+    it "payload table_rows include a row for platform" do
+      rows = handler_for("list games --help").call.events.first[:payload]["table_rows"]
+      texts = rows.flat_map { |r| (r[:cells] || r["cells"] || []).map { |c| c[:text] || c["text"] } }
+      expect(texts.map(&:downcase)).to include("platform")
+    end
+
+    it "payload table_rows include a row for genre" do
+      rows = handler_for("list games --help").call.events.first[:payload]["table_rows"]
+      texts = rows.flat_map { |r| (r[:cells] || r["cells"] || []).map { |c| c[:text] || c["text"] } }
+      expect(texts.map(&:downcase)).to include("genre")
+    end
+
+    it "payload table_rows include a row for developer" do
+      rows = handler_for("list games --help").call.events.first[:payload]["table_rows"]
+      texts = rows.flat_map { |r| (r[:cells] || r["cells"] || []).map { |c| c[:text] || c["text"] } }
+      expect(texts.map(&:downcase)).to include("developer")
+    end
+
+    it "payload table_rows include a row for publisher" do
+      rows = handler_for("list games --help").call.events.first[:payload]["table_rows"]
+      texts = rows.flat_map { |r| (r[:cells] || r["cells"] || []).map { |c| c[:text] || c["text"] } }
+      expect(texts.map(&:downcase)).to include("publisher")
+    end
+
+    it "payload table_rows include a row for release date" do
+      rows = handler_for("list games --help").call.events.first[:payload]["table_rows"]
+      texts = rows.flat_map { |r| (r[:cells] || r["cells"] || []).map { |c| c[:text] || c["text"] } }
+      expect(texts.map(&:downcase)).to include("release")
+    end
+
+    it "payload table_rows include a row for year" do
+      rows = handler_for("list games --help").call.events.first[:payload]["table_rows"]
+      texts = rows.flat_map { |r| (r[:cells] || r["cells"] || []).map { |c| c[:text] || c["text"] } }
+      expect(texts.map(&:downcase)).to include("year")
+    end
+
+    it "table_rows aliases cell for platform includes 'platforms'" do
+      rows = handler_for("list games --help").call.events.first[:payload]["table_rows"]
+      texts = rows.flat_map { |r| (r[:cells] || r["cells"] || []).map { |c| c[:text] || c["text"] } }
+      expect(texts.join(" ")).to include("platforms")
+    end
+
+    it "table_rows aliases cell for developer includes 'dev'" do
+      rows = handler_for("list games --help").call.events.first[:payload]["table_rows"]
+      texts = rows.flat_map { |r| (r[:cells] || r["cells"] || []).map { |c| c[:text] || c["text"] } }
+      expect(texts.join(" ")).to include("dev")
+    end
+  end
+
+  describe "#call with `list games` (no --help flag) still lists games" do
+    let!(:elden) { create(:game, title: "Elden Ring") }
+
+    it "returns normal game list rows (not help content)" do
+      payload = handler_for("list games").call.events.first[:payload]
+      rows    = Array(payload["table_rows"])
+      titles  = rows.map { |r| (r[:cells] || r["cells"] || [])[1]&.dig(:text) || (r[:cells] || r["cells"] || [])[1]&.dig("text") }
+      expect(titles).to include("Elden Ring")
+    end
+  end
+
   # ── Channel threading ──────────────────────────────────────────────────────
 
   describe "channel: threading — backward compatibility" do
