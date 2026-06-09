@@ -614,6 +614,63 @@ Locked decisions (from the design discussion, 2026-06-08):
 
 ---
 
+# Phase 25 — Finish: nightly rework + manual sync verbs + Help (EXECUTION SECTION)
+
+> LOCKED 2026-06-09. This is the section to run on "go" (one task at a time,
+> commit per group). It refines + supersedes Phase 24's task list and the Help A/B
+> placeholders below. Notification stays the bare `message`-only model (renders
+> HTML; sidebar sanitizes). The dead `Pito::Notifications::{PayloadBuilder,Formatter,
+> Scheduler,Source}` subsystem is LEFT UNTOUCHED. Manual GAME sync (on add / manual)
+> stays as-is — out of scope.
+
+## Phase 25A — Nightly upcoming-games sync (ONE job)
+
+> Reworks the committed Phase 24A: collapse to ONE nightly job; the Notification is
+> now CONDITIONAL + carries a 30-day release reminder.
+
+- [ ] T25.1 Collapse the nightly to ONE job (`GameIgdbNightlyRefresh`): iterate `Game.synced.stale.upcoming`, refetch + digest-gated reindex per game inline (reuse the per-game sync logic the manual path already uses; no second nightly job). complexity: [high]
+- [ ] T25.2 Track per run: changed game titles, failures `{title,error}`, and `releasing_30d` (games with `release_date` within the next 30 days). complexity: [high]
+- [ ] T25.3 Create ONE Notification (`Notification.create!(message: html)`) ONLY IF `changed.any? || failures.any? || releasing_30d.any?`; otherwise silent (no notification). complexity: [high]
+- [ ] T25.4 HTML summary body = changed list + failures list + "releasing soon" list (whichever present); `releasing_30d` repeats every run until the game releases. complexity: [low]
+- [ ] T25.5 Specs: changed-only, failure, all-quiet (no notification), releasing-30d reminder. complexity: [high]
+- [ ] T25.6 Commit. complexity: [manual]
+
+## Phase 25B — Manual `sync` verbs + `import videos`
+
+> Confirmable → ONE orchestrating job (sequential) → ONE Standard summary. Scope by
+> shift+tab channel. `Pito::Stats`: channel = views + subscribers; video = views +
+> likes + comments.
+
+- [ ] T25.7 `Sync` chat verb handler (noun-discriminated: game / video / videos / channel / "channel with videos") + grammar Spec (multi-word noun) + auto-register. complexity: [high]
+- [ ] T25.8 `sync game|video <ref>` → Confirmable; on confirm one job refetches + reindex-if-changed (+ video `Pito::Stats`) → ONE Standard summary. complexity: [high]
+- [ ] T25.9 `sync videos [scope]` → Confirmable; one orchestrating job over scoped channel(s) → ONE Standard summary. complexity: [high]
+- [ ] T25.10 `sync channel [scope]` → Confirmable; channel fields + channel `Pito::Stats` (views, subscribers) → ONE Standard summary. complexity: [high]
+- [ ] T25.11 `sync channel with videos [scope]` → Confirmable; channel + all its videos → ONE Standard summary. complexity: [high]
+- [ ] T25.12 `import videos [scope]` → Confirmable; import NEWER-only YouTube videos + Voyage index → ONE Standard summary. complexity: [high]
+- [ ] T25.13 Resolve the shift+tab channel scope (`@all`/none → all connected; `@<handle>` → that one). complexity: [high]
+- [ ] T25.14 One orchestrating job per command (sequential) → ONE Standard "done" summary via `Broadcaster` (no up-front ack); reuse `GameIgdbSync`/`SyncChannelStatsJob`/`VideoStatsSnapshotJob`(scoped)/`NightlyVideoSyncJob`(scoped)/`ImportVideosJob` as the work. complexity: [high]
+- [ ] T25.15 50-variant `Pito::Copy` for each verb's confirm + done summary. complexity: [low]
+- [ ] T25.16 Specs: each verb confirms → enqueues the right job for the scope → one Standard summary; scope resolution. complexity: [high]
+- [ ] T25.17 Commit. complexity: [manual]
+
+## Phase 25C — `/help`
+
+- [ ] T25.18 List ALL `/slash` commands (from the grammar slash Specs / registry) with descriptions. complexity: [high]
+- [ ] T25.19 List keybindings NOT already mentioned in any `Pito::Copy`/locale string: audit `app/javascript/controllers/pito/*` for the full key set, exclude any shortcut text found in `config/locales/pito/**`. complexity: [high]
+- [ ] T25.20 Section titles yellow (`text-yellow font-bold`), never orange. complexity: [low]
+- [ ] T25.21 Specs (slash list present; a copy-mentioned shortcut is excluded; a non-mentioned one is listed; yellow). complexity: [high]
+- [ ] T25.22 Commit. complexity: [manual]
+
+## Phase 25D — `#help` + `help`
+
+- [ ] T25.23 `#help` (hashtag) and bare `help` (free chat) → SAME output: the possible follow-up verbs/actions for each follow-up target, grouped per entity (game list/detail/enhanced, video list/detail, channel list/visit, theme list, confirmation), from `Pito::FollowUp::Registry.actions_for` / each handler's `self.actions`. complexity: [high]
+- [ ] T25.24 Section titles yellow. complexity: [low]
+- [ ] T25.25 Grammar + copy for `help` (chat verb) + `#help` (hashtag). complexity: [low]
+- [ ] T25.26 Specs (`help` ≡ `#help` content; grouped per entity; yellow). complexity: [high]
+- [ ] T25.27 Commit. complexity: [manual]
+
+---
+
 ## Help A — `/help` for commands (keep) — TO DISCUSS
 
 > Placeholder. Flesh out when we reach this phase.
