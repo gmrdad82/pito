@@ -1,18 +1,19 @@
 # frozen_string_literal: true
 
-# Handler for the `sync` chat verb — noun-discriminated.
+# Handler for the `sync` chat verb — exactly two target forms.
 #
-# Parses the noun phrase from `message.raw`:
+#   sync videos [only <id>,<id>,…]
+#     Sync YouTube data for videos scoped by the shift+tab channel:
+#       @all / blank → all channels; @handle → that channel.
+#     The optional `only <ids>` clause restricts the sync to the given local
+#     video ids (comma-separated plain integers).
 #
-#   sync game <ref>            → IGDB sync for one game
-#   sync video <ref>           → YouTube sync for one video
-#   sync videos                → YouTube sync for all videos on scoped channel(s)
-#   sync channel               → channel fields + stats for scoped channel(s)
-#   sync channel with videos   → channel + all their videos for scoped channel(s)
-#
-# Each path emits a `:confirmation` event carrying the relevant command and
-# scope.  The actual work runs in the orchestrating job enqueued from
-# `Pito::Confirmation::Executor`.
+#   sync channels [with <item>[,<item>…]]
+#     Sync channel fields + stats scoped by the shift+tab channel:
+#       @all → all channels; @handle → one channel.
+#     The optional `with <items>` clause is a generic comma-list of sync
+#     targets — today only `videos` is acted upon, but `analytics` and
+#     others parse without error (built to extend).
 #
 # Channel scope is read from `self.channel` (@all/blank = all channels,
 # @handle = one channel; unknown handle = error message).
@@ -23,22 +24,23 @@ module Pito
         self.verb = :sync
         self.description_key = "pito.chat.sync.descriptions.sync"
 
-        GAME_NOUN_FILLERS  = %w[game games].freeze
-        VIDEO_NOUN_FILLERS = %w[video videos].freeze
+        # Vocabulary for `with <items>` — mirrors WithColumns pattern.
+        # Unknown tokens are silently dropped; new items can be added here
+        # without touching the parser.
+        WITH_ITEMS_VOCAB = {
+          "video"     => :videos,
+          "videos"    => :videos,
+          "analytic"  => :analytics,
+          "analytics" => :analytics
+        }.freeze
 
         def call
           raw = message.raw.to_s
 
-          if channel_with_videos_form?(raw)
-            handle_channel_videos
-          elsif channel_form?(raw)
-            handle_channel
+          if channels_form?(raw)
+            handle_channels(raw)
           elsif videos_form?(raw)
-            handle_videos
-          elsif video_form?(raw)
-            handle_video
-          elsif game_form?(raw)
-            handle_game
+            handle_videos(raw)
           else
             needs_ref
           end
@@ -48,87 +50,80 @@ module Pito
 
         # ── Noun-form predicates ─────────────────────────────────────────────────
 
-        # "sync channel with videos" — must be checked before channel_form?
-        def channel_with_videos_form?(raw)
-          raw.match?(/\bchannels?\s+with\s+videos?\b/i)
-        end
-
-        def channel_form?(raw)
+        def channels_form?(raw)
           raw.match?(/\bchannels?\b/i)
         end
 
         def videos_form?(raw)
-          # "sync videos" — plural only; "sync video <ref>" is the single-entity path
-          raw.match?(/\bvideos\b/i)
-        end
-
-        def video_form?(raw)
           raw.match?(/\bvideos?\b/i)
         end
 
-        def game_form?(raw)
-          raw.match?(/\bgames?\b/i)
-        end
+        # ── sync videos [only <ids>] ─────────────────────────────────────────────
 
-        # ── Single-entity: game ──────────────────────────────────────────────────
-
-        def handle_game
-          game = resolve_target(::Game, id_key: :game_id, noun_fillers: GAME_NOUN_FILLERS)
-          return needs_ref if game == :needs_ref
-          return game_not_found(target_ref(GAME_NOUN_FILLERS, id_key: :game_id)) if game.nil?
-
-          payload = Pito::MessageBuilder::Game::SyncConfirmation.call(game, conversation:)
-          Pito::Chat::Result::Ok.new(events: [ { kind: :confirmation, payload: payload } ])
-        end
-
-        # ── Single-entity: video ─────────────────────────────────────────────────
-
-        def handle_video
-          video = resolve_target(::Video, id_key: :video_id, noun_fillers: VIDEO_NOUN_FILLERS)
-          return needs_ref if video == :needs_ref
-          return video_not_found(target_ref(VIDEO_NOUN_FILLERS, id_key: :video_id)) if video.nil?
-
-          payload = Pito::MessageBuilder::Video::SyncConfirmation.call(video, conversation:)
-          Pito::Chat::Result::Ok.new(events: [ { kind: :confirmation, payload: payload } ])
-        end
-
-        # ── Channel-scoped: sync videos ──────────────────────────────────────────
-
-        def handle_videos
+        def handle_videos(raw)
           scope_label, channel_ids, error = resolve_scope
           return error if error
+
+          video_ids = parse_only_ids(raw)
 
           payload = Pito::MessageBuilder::Sync::VideosConfirmation.call(
-            scope_label, channel_ids: channel_ids, conversation:
+            scope_label, channel_ids: channel_ids, video_ids: video_ids, conversation:
           )
           Pito::Chat::Result::Ok.new(events: [ { kind: :confirmation, payload: payload } ])
         end
 
-        # ── Channel-scoped: sync channel ─────────────────────────────────────────
+        # ── sync channels [with <items>] ─────────────────────────────────────────
 
-        def handle_channel
+        def handle_channels(raw)
           scope_label, channel_ids, error = resolve_scope
           return error if error
 
-          payload = Pito::MessageBuilder::Sync::ChannelConfirmation.call(
-            scope_label, channel_ids: channel_ids, conversation:
-          )
+          with_items = parse_with_items(raw)
+
+          if with_items.include?(:videos)
+            payload = Pito::MessageBuilder::Sync::ChannelVideosConfirmation.call(
+              scope_label, channel_ids: channel_ids, with_items: with_items, conversation:
+            )
+          else
+            payload = Pito::MessageBuilder::Sync::ChannelConfirmation.call(
+              scope_label, channel_ids: channel_ids, with_items: with_items, conversation:
+            )
+          end
           Pito::Chat::Result::Ok.new(events: [ { kind: :confirmation, payload: payload } ])
         end
 
-        # ── Channel-scoped: sync channel with videos ─────────────────────────────
+        # ── Clause parsers ───────────────────────────────────────────────────────
 
-        def handle_channel_videos
-          scope_label, channel_ids, error = resolve_scope
-          return error if error
+        # Parses `only <id>[,<id>…]` → Array<Integer> of local video ids.
+        # Returns [] when the clause is absent.
+        ONLY_RE = /\bonly\b\s+([\d,\s]+)/i
 
-          payload = Pito::MessageBuilder::Sync::ChannelVideosConfirmation.call(
-            scope_label, channel_ids: channel_ids, conversation:
-          )
-          Pito::Chat::Result::Ok.new(events: [ { kind: :confirmation, payload: payload } ])
+        def parse_only_ids(raw)
+          match = ONLY_RE.match(raw.to_s)
+          return [] unless match
+
+          match[1].split(/\s*,\s*/).filter_map { |token|
+            int = Integer(token.strip, 10, exception: false)
+            int if int&.positive?
+          }
         end
 
-        # ── Scope resolution (mirrors List handler's channel_scoped_videos) ───────
+        # Parses `with <item>[,<item>…]` using WITH_ITEMS_VOCAB.
+        # Mirrors WithColumns: split on commas, map through vocabulary, uniq.
+        # Returns [] when the clause is absent or all tokens are unknown.
+        WITH_RE = /\bwith\b\s+(.+?)(?:\z)/i
+
+        def parse_with_items(raw)
+          match = WITH_RE.match(raw.to_s)
+          return [] unless match
+
+          match[1]
+            .split(/\s*,\s*/)
+            .filter_map { |token| WITH_ITEMS_VOCAB[token.strip.downcase] }
+            .uniq
+        end
+
+        # ── Scope resolution ─────────────────────────────────────────────────────
         #
         # Returns [scope_label, channel_ids_array, nil] on success
         # or [nil, nil, Result::Ok(error event)] on unknown handle.
@@ -176,18 +171,6 @@ module Pito
             message_key:  "pito.chat.sync.needs_ref",
             message_args: {}
           )
-        end
-
-        def game_not_found(ref)
-          Pito::Chat::Result::Ok.new(events: [
-            { kind: :system, payload: Pito::MessageBuilder::Text.call("pito.copy.games.not_found", ref: ref) }
-          ])
-        end
-
-        def video_not_found(ref)
-          Pito::Chat::Result::Ok.new(events: [
-            { kind: :system, payload: Pito::MessageBuilder::Text.call("pito.copy.videos.not_found", ref: ref) }
-          ])
         end
       end
     end

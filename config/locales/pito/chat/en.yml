@@ -40,8 +40,8 @@ en:
         too_soon: "YouTube requires a publish time at least 30 minutes in the future. Pick a later time."
       sync:
         descriptions:
-          sync: "Sync a game, video, channel, or all channel videos from YouTube/IGDB"
-        needs_ref: "Usage: `sync game <id|title>`, `sync video <id|title>`, `sync videos`, `sync channel`, or `sync channel with videos`."
+          sync: "Sync videos or channels from YouTube (scope via shift+tab channel)"
+        needs_ref: "Usage: `sync videos [only <id>,<id>,…]` or `sync channels [with videos]`."
         unknown_channel: "Unknown channel %{handle}. Use `list channels` to see handles."
       link:
         descriptions:

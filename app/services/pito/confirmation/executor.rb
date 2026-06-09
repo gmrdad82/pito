@@ -48,10 +48,6 @@ module Pito
             confirm_video_reindex(payload)
           when "channel_reindex"
             confirm_channel_reindex(payload)
-          when "sync_game"
-            confirm_sync_game(payload)
-          when "sync_video"
-            confirm_sync_video(payload)
           when "sync_videos"
             confirm_sync_videos(payload)
           when "sync_channel"
@@ -197,33 +193,6 @@ module Pito
 
           channel.videos.each { |v| VideoVoyageIndexJob.perform_later(v.id) }
           Pito::Copy.render("pito.copy.channels.reindex_queued", { handle: handle })
-        end
-
-        # ── sync_game ──────────────────────────────────────────────────────────────
-        # Enqueues SyncGameJob (IGDB sync + chat broadcast). Returns queued copy
-        # so the confirmation resolves immediately without blocking.
-        def confirm_sync_game(payload)
-          payload         = payload.with_indifferent_access
-          title           = payload[:game_title].to_s
-          game            = ::Game.find_by(id: payload[:game_id])
-          return Pito::Copy.render("pito.copy.games.not_found", { ref: title }) if game.nil?
-
-          conversation_id = payload[:conversation_id].presence
-          SyncGameJob.perform_later(game.id, conversation_id: conversation_id)
-          Pito::Copy.render("pito.copy.games.resync_queued", { title: title })
-        end
-
-        # ── sync_video ─────────────────────────────────────────────────────────────
-        # Enqueues SyncVideoJob (YouTube field + stats sync + chat broadcast).
-        def confirm_sync_video(payload)
-          payload         = payload.with_indifferent_access
-          title           = payload[:video_title].to_s
-          video           = ::Video.find_by(id: payload[:video_id])
-          return Pito::Copy.render("pito.copy.videos.not_found", { ref: title }) if video.nil?
-
-          conversation_id = payload[:conversation_id].presence
-          SyncVideoJob.perform_later(video.id, conversation_id: conversation_id)
-          Pito::Copy.render("pito.copy.sync.video_done", { title: title })
         end
 
         # ── sync_videos ────────────────────────────────────────────────────────────

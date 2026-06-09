@@ -399,8 +399,8 @@ confirmations): `sync game <ref>` (use `import game` to resync instead), the sin
 `sync video <ref>` path, and the hardcoded `sync channel` / `sync channel with videos`
 forms.
 
-- [ ] T14.1 `sync videos [only id,id,id]` — scope by shift+tab (`@all` = all channels); optional `only <ids>` = local numeric ids (comma-separated, no titles). Remove the old single-video path.
-- [ ] T14.2 `sync channels [with <items>]` — scope by shift+tab (`@all` = all channels); optional `with <items>` parsed as a comma-list (today `videos`; **not hardcoded**, extensible to `analytics`). Remove the old hardcoded channel forms + `sync game`.
+- [x] T14.1 `sync videos [only id,id,id]` — scope by shift+tab (`@all` = all channels); optional `only <ids>` = local numeric ids (comma-separated, no titles). Removed the old single-video path. complexity: [high]
+- [x] T14.2 `sync channels [with <items>]` — scope by shift+tab; optional `with <items>` parsed via a vocab map (today `videos`; extensible to `analytics`, not hardcoded). Removed the old hardcoded channel forms + `sync game` (confirmation builders + executor branches + copy). complexity: [high]
 
 ## Phase 15 — `footage game --help`
 
