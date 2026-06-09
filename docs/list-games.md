@@ -414,7 +414,7 @@ Current `footage <ref> <path>` accepts a title and uses a bare ref — not align
 the explicit `footage game <id> <path>` form: require a **local game id** (drop title ILIKE
 resolution); keep the path. Drop misaligned code/specs/comments/copy per the global rule.
 
-- [ ] T16.1 Rework `footage game <id> <path>` — resolve game by local id only (no title); keep the local footage path; drop the title-resolution path and align copy/specs.
+- [x] T16.1 Rework `footage game <id> <path>` — resolve game by local id only (no title); keep the local footage path; drop the title-resolution path and align copy/specs.
 
 ## Phase 17 — `delete game --help` / `delete video --help`
 
