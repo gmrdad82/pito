@@ -527,9 +527,9 @@ channel **@handle** (never an id). `consume` (channel_visit) stays internal — 
 `visit`, never exposed as a verb/grammar/help. Man-style `--help`, copy from `Pito::Copy`.
 (Depends on shared hashtag `--help` routing/ghost infra — see note below.)
 
-- [ ] T27.1 `#list-channels-hashtag visit --help` — man style; `Usage: visit @handle`; `@handle` = channel handle (**never id**). Copy from `Pito::Copy`.
-- [ ] T27.2 Drop the `reindex` action from `channel_list` — code, specs, comments, copy, grammar. Leaves `visit` as the only action.
-- [ ] T27.3 `visit @handle` impl — resolve by channel **@handle** only (never id); visit as today; keep `consume` internal/hidden behind `visit`; align wording (visit, not consume).
+- [x] T27.1 `#list-channels-hashtag visit --help` — man style; `Usage: visit @handle`; `@handle` = channel handle (**never id**). Copy from `Pito::Copy`.
+- [x] T27.2 Drop the `reindex` action from `channel_list` — code, specs, comments, copy, grammar. Leaves `visit` as the only action.
+- [x] T27.3 `visit @handle` impl — resolve by channel **@handle** only (never id); visit as today; keep `consume` internal/hidden behind `visit`; align wording (visit, not consume).
 
 ## Phase 28 — Drop `#id` row from `Channel::ItemComponent`
 

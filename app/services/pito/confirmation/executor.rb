@@ -44,8 +44,6 @@ module Pito
             confirm_game_reindex(payload)
           when "video_reindex"
             confirm_video_reindex(payload)
-          when "channel_reindex"
-            confirm_channel_reindex(payload)
           when "sync_videos"
             confirm_sync_videos(payload)
           when "sync_channel"
@@ -164,19 +162,6 @@ module Pito
 
           ::Video::VoyageIndexer.call(video, force: true)
           Pito::Copy.render("pito.copy.videos.reindexed", { title: title })
-        end
-
-        # Re-embed ALL videos in the channel by enqueuing VideoVoyageIndexJob for
-        # each one (async/batch). Because we only enqueue rather than block, the
-        # outcome text reflects "queued" rather than "done".
-        def confirm_channel_reindex(payload)
-          payload = payload.with_indifferent_access
-          handle  = payload[:channel_handle].to_s
-          channel = ::Channel.find_by(id: payload[:channel_id])
-          return Pito::Copy.render("pito.copy.channels.not_found", { handle: handle }) if channel.nil?
-
-          channel.videos.each { |v| VideoVoyageIndexJob.perform_later(v.id) }
-          Pito::Copy.render("pito.copy.channels.reindex_queued", { handle: handle })
         end
 
         # ── sync_videos ────────────────────────────────────────────────────────────

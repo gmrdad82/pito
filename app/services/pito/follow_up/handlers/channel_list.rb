@@ -5,23 +5,17 @@ module Pito
     module Handlers
       # Follow-up handler for `list channels` messages (reply_target: "channel_list").
       #
-      # The list stamps each channel card with its id and @handle, so the user
-      # can reply:
+      # The list stamps each channel card with its @handle, so the user can reply:
       #
-      #   #<handle> visit @<channel_handle>   — open the channel's YouTube page
-      #                                         via a delayed auto-click.
-      #   #<handle> visit <id>                — same, resolved by numeric id.
-      #
-      #   #<handle> reindex @<channel_handle> — re-embed ALL of the channel's videos
-      #                                         by enqueuing VideoVoyageIndexJob for
-      #                                         each one (async batch). Mode: :append.
+      #   #<handle> visit @<channel_handle> — open the channel's YouTube page
+      #                                       via a delayed auto-click.
       #
       # Mode :append — adds a new message below; the list stays follow-up-able so
-      # the user can visit or reindex several channels in turn.
+      # the user can visit several channels in turn.
       class ChannelList < Pito::FollowUp::Handler
         self.target "channel_list"
         self.mode   :append
-        self.actions "visit", "reindex"
+        self.actions "visit"
 
         def call(event:, rest:, conversation:)
           action, ref = parse_rest(rest)
@@ -30,8 +24,6 @@ module Pito
           case action
           when "visit"
             handle_visit(ref, conversation)
-          when "reindex"
-            handle_reindex(ref, conversation)
           else
             Pito::FollowUp::Result::Error.new(
               message_key:  "pito.follow_up.channel_list.errors.invalid_action",
@@ -59,42 +51,17 @@ module Pito
           ])
         end
 
-        # ── reindex ────────────────────────────────────────────────────────────
-
-        def handle_reindex(ref, conversation)
-          channel = resolve_channel(ref)
-
-          unless channel
-            return Pito::FollowUp::Result::Error.new(
-              message_key:  "pito.follow_up.channel_list.errors.not_found",
-              message_args: { ref: ref }
-            )
-          end
-
-          payload = Pito::MessageBuilder::Channel::ReindexConfirmation.call(channel, conversation:)
-
-          Pito::FollowUp::Result::Append.new(
-            events: [ { kind: "confirmation", payload: payload } ]
-          )
-        end
-
         # ── helpers ────────────────────────────────────────────────────────────
 
-        # Resolve a channel from a ref string.
-        #   @handle or handle (with/without @) → find by handle
-        #   digits                              → find by id
+        # Resolve a channel from a ref string by its @handle.
+        #   @handle or handle (with/without leading @) → find by handle (case-insensitive)
         def resolve_channel(ref)
           # Strip leading # and whitespace (lexer may split "#9" → "# 9")
           clean = ref.sub(/\A#\s*/, "").strip
+          handle_bare = clean.sub(/\A@+/, "")
 
-          if clean.match?(/\A\d+\z/)
-            ::Channel.find_by(id: clean)
-          else
-            # Try the exact value (may or may not have @), then without @, then with @
-            handle_bare = clean.sub(/\A@+/, "")
-            ::Channel.find_by(handle: "@#{handle_bare}") ||
-              ::Channel.find_by(handle: handle_bare)
-          end
+          ::Channel.find_by(handle: "@#{handle_bare}") ||
+            ::Channel.find_by(handle: handle_bare)
         end
       end
     end

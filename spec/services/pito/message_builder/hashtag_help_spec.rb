@@ -268,8 +268,8 @@ RSpec.describe Pito::MessageBuilder::HashtagHelp do
           expect(result["body"]).to include("visit")
         end
 
-        it "body includes the reindex action" do
-          expect(result["body"]).to include("reindex")
+        it "body does NOT include the reindex action" do
+          expect(result["body"]).not_to include("reindex")
         end
       end
 
