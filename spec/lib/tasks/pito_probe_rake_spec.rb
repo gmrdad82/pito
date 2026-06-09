@@ -103,7 +103,9 @@ RSpec.describe "pito:tools:probe", type: :rake do
         # With force, the prober IS called even though the row exists. Stub the
         # result (no real ffprobe) so the assertion is deterministic.
         probe_failure = double(success: false, error_message: "stub")
-        expect(Pito::Footage::Probe).to receive(:call).and_return(probe_failure)
+        # Intent: force probes (doesn't skip the already-imported file) — count is
+        # incidental (other specs can leave the shared ENV path pointing elsewhere).
+        expect(Pito::Footage::Probe).to receive(:call).at_least(:once).and_return(probe_failure)
         suppress_output { Rake::Task["pito:tools:probe"].invoke }
       end
     end
