@@ -100,8 +100,10 @@ RSpec.describe "pito:tools:probe", type: :rake do
         ENV["path"]  = File.join(dir, "*.mp4")
         ENV["force"] = "1"
 
-        # With force, the prober IS called even though the row exists.
-        expect(Pito::Footage::Probe).to receive(:call).and_call_original
+        # With force, the prober IS called even though the row exists. Stub the
+        # result (no real ffprobe) so the assertion is deterministic.
+        probe_failure = double(success: false, error_message: "stub")
+        expect(Pito::Footage::Probe).to receive(:call).and_return(probe_failure)
         suppress_output { Rake::Task["pito:tools:probe"].invoke }
       end
     end
