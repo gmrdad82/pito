@@ -483,8 +483,8 @@ Current `link`/`unlink` take a free body (titles/refs) — not aligned. Rework t
 `unlink game <id> from video <id>` / `unlink video <id> from game <id>`. Drop title/ref
 resolution + misaligned copy/specs per the global rule.
 
-- [ ] T24.1 Rework `link` — parse `game <id> to video <id>` / `video <id> to game <id>` (local ids only); link the pair; align copy/specs.
-- [ ] T24.2 Rework `unlink` — parse `game <id> from video <id>` / `video <id> from game <id>` (local ids only); unlink the pair; align copy/specs.
+- [x] T24.1 Rework `link` — parse `game <id> to video <id>` / `video <id> to game <id>` (local ids only); link the pair; align copy/specs.
+- [x] T24.2 Rework `unlink` — parse `game <id> from video <id>` / `video <id> from game <id>` (local ids only); unlink the pair; align copy/specs.
 
 ## Phase 25 — Repurpose `add` / `remove` → list-column mutation (game_list/video_list)
 
