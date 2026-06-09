@@ -87,7 +87,11 @@ RSpec.describe Pito::Chat::Handlers::List do
 
     it "returns three columns in the heading (# Game Genre)" do
       payload = handler_for("list games with genre").call.events.first[:payload]
-      expect(payload["table_heading"]).to eq([ "#", "Game", "Genre" ])
+      expect(payload["table_heading"]).to eq([
+        { "text" => "#", "class" => "text-right" },
+        "Game",
+        "Genre"
+      ])
     end
   end
 
@@ -455,7 +459,11 @@ RSpec.describe Pito::Chat::Handlers::List do
 
       it "scopes to the channel AND renders the requested column" do
         payload = handler_for("list games with genre", channel: "@gchana").call.events.first[:payload]
-        expect(payload["table_heading"]).to eq([ "#", "Game", "Genre" ])
+        expect(payload["table_heading"]).to eq([
+          { "text" => "#", "class" => "text-right" },
+          "Game",
+          "Genre"
+        ])
         rows = payload["table_rows"]
         expect(rows.map { |r| r[:cells][1][:text] }).to eq([ "Alpha Game" ]) # channel-scoped
         expect(rows.first[:cells][2][:text]).to eq("Action")                 # with-column rendered

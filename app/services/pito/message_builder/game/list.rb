@@ -16,15 +16,25 @@ module Pito
         # @param columns      [Array<Symbol>] extra canonical column keys (from ListColumns).
         # @return [Hash] string-keyed payload with body, table_rows, and follow-up fields.
         def call(games, conversation:, columns: [])
+          cols    = ListColumns.canonical_order(columns)
           payload = {
-            "body"          => Pito::Copy.render("pito.copy.games.list_intro", { count: games.size }),
-            "table_heading" => [ "#", "Game", *ListColumns.headings(columns) ],
+            "body"          => Pito::Copy.render(
+              "pito.copy.games.list_intro",
+              count: games.size,
+              noun:  games.size == 1 ? "game" : "games"
+            ),
+            "table_heading" => [
+              { "text" => "#", "class" => "text-right" },
+              "Game",
+              *ListColumns.heading_cells(cols)
+            ],
+            "fixed_trailing" => (cols & %i[release_date year]).size,
             "table_rows"    => games.map { |game|
               {
                 cells: [
                   { text: "##{game.id}", class: "text-cyan tabular-nums text-right whitespace-nowrap" },
                   { text: game.title,    class: "text-fg" },
-                  *ListColumns.cells(game, columns)
+                  *ListColumns.cells(game, cols)
                 ]
               }
             }

@@ -33,7 +33,8 @@ module Pito
         @expand_detail = Array(payload[:expand_detail]).map(&:to_s)
         @expand_more_count = payload[:expand_more_count].to_i
         @table_rows   = Array(payload[:table_rows]).map { |r| r.respond_to?(:with_indifferent_access) ? r.with_indifferent_access : r }
-        @table_heading = payload[:table_heading].presence
+        @table_heading    = payload[:table_heading].presence
+        @fixed_trailing   = payload[:fixed_trailing].to_i
         @info_lines   = Array(payload[:info_lines]).map(&:to_s)
         @sections     = Array(payload[:sections]).map { |s| s.respond_to?(:with_indifferent_access) ? s.with_indifferent_access : s }
         @suggestion      = payload[:suggestion]
@@ -45,7 +46,9 @@ module Pito
         @timestamp       = event&.created_at
       end
 
-      attr_reader :body, :expand_lines, :expand_detail, :expand_more_count, :table_rows, :table_heading, :info_lines, :handle, :channel, :sections, :html, :reply_handle, :reply_consumed
+      attr_reader :body, :expand_lines, :expand_detail, :expand_more_count, :table_rows, :table_heading,
+                  :info_lines, :handle, :channel, :sections, :html, :reply_handle, :reply_consumed,
+                  :fixed_trailing
 
       def expandable?    = @expand_detail.any? || @sections.any?
       def accent         = :surface
@@ -115,10 +118,24 @@ module Pito
 
       # Returns heading cell hashes (one per label) when table_heading is present,
       # or an empty array when absent. Heading cells render instantly (no typewriter).
+      #
+      # Each entry in +table_heading+ may be either:
+      #   - a String   → base class only
+      #   - a Hash with "text" / "class" keys → extra class appended to the base class
       def table_heading_cells
         return [] if table_heading.blank?
 
-        Array(table_heading).map { |label| { text: label.to_s, class: "text-fg-faded font-bold whitespace-nowrap" } }
+        base = "text-fg-faded font-bold whitespace-nowrap"
+        Array(table_heading).map do |entry|
+          if entry.is_a?(Hash)
+            h    = entry.respond_to?(:with_indifferent_access) ? entry.with_indifferent_access : entry
+            text = h["text"].to_s
+            extra = h["class"].presence
+            { text:, class: extra ? "#{base} #{extra}" : base }
+          else
+            { text: entry.to_s, class: base }
+          end
+        end
       end
 
       private

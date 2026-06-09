@@ -421,6 +421,67 @@ RSpec.describe Pito::Event::SystemComponent do
     end
   end
 
+  # ── table_heading_cells — Hash entries (right-aligned headings) ───────────────
+
+  describe "table_heading_cells — Hash entry merges extra class" do
+    subject(:component) do
+      described_class.new(payload: {
+        body: "Results",
+        table_heading: [ { "text" => "#", "class" => "text-right" }, "Game" ],
+        table_rows: [ { cells: [
+          { text: "1", class: "text-cyan" },
+          { text: "Alpha", class: "text-fg" }
+        ] } ]
+      })
+    end
+
+    it "merges the extra class into the heading cell for a Hash entry" do
+      cells = component.table_heading_cells
+      expect(cells.first[:class]).to include("text-right")
+      expect(cells.first[:class]).to include("text-fg-faded")
+      expect(cells.first[:class]).to include("font-bold")
+      expect(cells.first[:text]).to eq("#")
+    end
+
+    it "keeps the base class only for a String entry" do
+      cells = component.table_heading_cells
+      expect(cells[1][:class]).to eq("text-fg-faded font-bold whitespace-nowrap")
+      expect(cells[1][:text]).to eq("Game")
+    end
+  end
+
+  # ── data-fixed-trailing on the grid div ───────────────────────────────────────
+
+  describe "data-fixed-trailing from payload" do
+    subject(:node) do
+      render_inline(described_class.new(payload: {
+        body: "List",
+        fixed_trailing: 2,
+        table_heading: [ "#", "Game", "Release", "Year" ],
+        table_rows: [ { cells: [
+          { text: "#1", class: "text-cyan" },
+          { text: "Alpha", class: "text-fg" },
+          { text: "2024-01-01", class: "text-fg-dim text-right" },
+          { text: "2024", class: "text-fg-dim text-right tabular-nums" }
+        ] } ]
+      }))
+    end
+
+    it "renders data-fixed-trailing on the pito-data-grid div" do
+      grid = node.css("div.pito-data-grid").first
+      expect(grid["data-fixed-trailing"]).to eq("2")
+    end
+
+    it "renders data-fixed-trailing=0 when not provided in payload" do
+      node2 = render_inline(described_class.new(payload: {
+        body: "Plain",
+        table_rows: [ { key: "A", value: "B" } ]
+      }))
+      grid = node2.css("div.pito-data-grid").first
+      expect(grid["data-fixed-trailing"]).to eq("0")
+    end
+  end
+
   describe "follow-up handle in the single meta line (no usage/affordance line)" do
     let(:conversation) { Conversation.create! }
     let(:turn) { create(:turn, conversation:) }

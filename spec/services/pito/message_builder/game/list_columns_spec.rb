@@ -204,5 +204,74 @@ RSpec.describe Pito::MessageBuilder::Game::ListColumns do
       expect(result[0][:text]).to eq("2022")
       expect(result[1][:text]).to include("From Software")
     end
+
+    it "right-aligns the :release_date cell" do
+      result = described_class.cells(game, [ :release_date ])
+      expect(result.first[:class]).to include("text-right")
+    end
+
+    it "right-aligns the :year cell" do
+      result = described_class.cells(game, [ :year ])
+      expect(result.first[:class]).to include("text-right")
+    end
+
+    it "adds tabular-nums to the :year cell" do
+      result = described_class.cells(game, [ :year ])
+      expect(result.first[:class]).to include("tabular-nums")
+    end
+
+    it "does NOT add text-right to left-aligned columns" do
+      %i[platform genre developer publisher].each do |col|
+        result = described_class.cells(game, [ col ])
+        expect(result.first[:class]).not_to include("text-right"), "expected #{col} not to be right-aligned"
+      end
+    end
+  end
+
+  # ── heading_cells ─────────────────────────────────────────────────────────────
+
+  describe ".heading_cells" do
+    it "returns a plain String for a left-aligned column" do
+      expect(described_class.heading_cells([ :genre ])).to eq([ "Genre" ])
+    end
+
+    it "returns a right-align hash for :release_date" do
+      result = described_class.heading_cells([ :release_date ])
+      expect(result.first).to eq({ "text" => "Release", "class" => "text-right" })
+    end
+
+    it "returns a right-align hash for :year" do
+      result = described_class.heading_cells([ :year ])
+      expect(result.first).to eq({ "text" => "Year", "class" => "text-right" })
+    end
+
+    it "mixes plain strings and hashes when both types are present" do
+      result = described_class.heading_cells([ :developer, :year ])
+      expect(result[0]).to eq("Developer")
+      expect(result[1]).to eq({ "text" => "Year", "class" => "text-right" })
+    end
+  end
+
+  # ── canonical_order ───────────────────────────────────────────────────────────
+
+  describe ".canonical_order" do
+    it "returns an empty array for empty input" do
+      expect(described_class.canonical_order([])).to eq([])
+    end
+
+    it "keeps a single column unchanged" do
+      expect(described_class.canonical_order([ :genre ])).to eq([ :genre ])
+    end
+
+    it "sorts columns by their COLUMNS order" do
+      expect(described_class.canonical_order([ :year, :platform, :developer ]))
+        .to eq([ :platform, :developer, :year ])
+    end
+
+    it "ensures :release_date and :year always trail the other columns" do
+      all = %i[release_date year platform genre developer publisher]
+      result = described_class.canonical_order(all)
+      expect(result.last(2)).to eq(%i[release_date year])
+    end
   end
 end

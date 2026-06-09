@@ -172,10 +172,10 @@ user-facing text comes from `Pito::Copy`** (`config/locales/pito/copy/en.yml` un
 Iterative refinements from live review. No inline style (data attributes only).
 
 - [x] T6.1 Rework `list games --help` into an `nvim --help` man page (`Usage:` / `Options:` / `Columns:`, aligned token→description), drop the intro line + the Option/Aliases table. New `.pito-help-block` CSS + `pito.copy.list.games_help.*` keys. complexity: [high]
-- [ ] T6.2 Pluralize the list intro copy: "1 game" not "1 games" (count-aware). complexity: [low]
-- [ ] T6.3 Right-align the `#` column heading (cells already right-aligned). complexity: [low]
-- [ ] T6.4 Right-align the Release + Year columns — both headings and row cells. complexity: [low]
-- [ ] T6.5 Give Release + Year fixed/predictable-width tracks (canonical column order so they trail); the other `with` columns split the rest equally (`1fr`). Driven by a `data-fixed-trailing` attribute + static CSS rules. complexity: [high]
+- [x] T6.2 Pluralize the list intro copy: "1 game" not "1 games" — `%{noun}` placeholder in all list_intro variants, builder passes `noun:`. complexity: [low]
+- [x] T6.3 Right-align the `#` column heading (heading now a `{text,class:"text-right"}` cell; cells already right-aligned). complexity: [low]
+- [x] T6.4 Right-align the Release + Year columns — headings (`heading_cells`) + row cells (`text-right`, year `tabular-nums`). complexity: [low]
+- [x] T6.5 Release + Year as content-hugging trailing tracks (canonical order via `ListColumns.canonical_order`); others split `1fr`. `data-fixed-trailing` attribute + static CSS rules. complexity: [high]
 - [ ] T6.6 Centralize all platform output in one engine/module (extend `Pito::Game::PlatformTokens`): single place that decides text label vs short code vs SVG logo, and enforces output order **PS → Switch → Steam**. complexity: [high]
 - [ ] T6.7 Move `tmp/{playstation,nintendo-switch,steam}.svg` into the asset path; render platform logos at ≤16px height (no line-height impact) via the engine; use in BOTH the games list table AND the game detail card. complexity: [high]
 - [ ] T6.8 Specs (RSpec) for pluralization, alignment, fixed-width attribute, platform order, and logo rendering. complexity: [low]

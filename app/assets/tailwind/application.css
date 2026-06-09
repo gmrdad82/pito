@@ -1231,6 +1231,19 @@ html {
 .pito-data-grid[data-cols="7"] { grid-template-columns: max-content max-content repeat(5, minmax(0, 1fr)); }
 .pito-data-grid[data-cols="8"] { grid-template-columns: max-content max-content repeat(6, minmax(0, 1fr)); }
 
+/* Release/Year trail as content-hugging fixed columns; the rest split 1fr. */
+.pito-data-grid[data-cols="3"][data-fixed-trailing="1"] { grid-template-columns: max-content max-content max-content; }
+.pito-data-grid[data-cols="4"][data-fixed-trailing="1"] { grid-template-columns: max-content max-content minmax(0,1fr) max-content; }
+.pito-data-grid[data-cols="5"][data-fixed-trailing="1"] { grid-template-columns: max-content max-content repeat(2,minmax(0,1fr)) max-content; }
+.pito-data-grid[data-cols="6"][data-fixed-trailing="1"] { grid-template-columns: max-content max-content repeat(3,minmax(0,1fr)) max-content; }
+.pito-data-grid[data-cols="7"][data-fixed-trailing="1"] { grid-template-columns: max-content max-content repeat(4,minmax(0,1fr)) max-content; }
+.pito-data-grid[data-cols="8"][data-fixed-trailing="1"] { grid-template-columns: max-content max-content repeat(5,minmax(0,1fr)) max-content; }
+.pito-data-grid[data-cols="4"][data-fixed-trailing="2"] { grid-template-columns: max-content max-content max-content max-content; }
+.pito-data-grid[data-cols="5"][data-fixed-trailing="2"] { grid-template-columns: max-content max-content minmax(0,1fr) max-content max-content; }
+.pito-data-grid[data-cols="6"][data-fixed-trailing="2"] { grid-template-columns: max-content max-content repeat(2,minmax(0,1fr)) max-content max-content; }
+.pito-data-grid[data-cols="7"][data-fixed-trailing="2"] { grid-template-columns: max-content max-content repeat(3,minmax(0,1fr)) max-content max-content; }
+.pito-data-grid[data-cols="8"][data-fixed-trailing="2"] { grid-template-columns: max-content max-content repeat(4,minmax(0,1fr)) max-content max-content; }
+
 /* ── Help block (nvim --help style man page) ───────────────────
    Preformatted monospace block for `list games --help`: preserves the
    builder's space-padding so the Usage/Options/Columns rows align, while
