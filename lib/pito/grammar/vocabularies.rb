@@ -166,10 +166,12 @@ module Pito
       ).freeze
 
       # Noun for the `import` chat verb (drives ghost completion: `import ` → `game`).
+      # `videos` is also recognized so `import videos` routes to the confirmable
+      # video-import path rather than the IGDB game-import fast-path.
       IMPORT_NOUNS = Vocabulary.define(
         name:      :import_nouns,
-        canonical: %w[game],
-        synonyms:  { "games" => "game" }
+        canonical: %w[game videos],
+        synonyms:  { "games" => "game", "video" => "videos" }
       ).freeze
 
       # All registered theme slugs plus the special alias "default" (→ tokyo-night).

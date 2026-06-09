@@ -478,4 +478,113 @@ RSpec.describe Pito::Confirmation::Executor, type: :service do
       expect(text).to be_present
     end
   end
+
+  # ── confirm / sync_game ───────────────────────────────────────────────────
+
+  describe ".confirm — sync_game" do
+    let!(:sync_game) { create(:game, title: "Shadow of the Colossus") }
+
+    it "enqueues SyncGameJob and returns outcome text mentioning the title" do
+      allow(SyncGameJob).to receive(:perform_later)
+      text = described_class.confirm("sync_game", { "game_id" => sync_game.id, "game_title" => "Shadow of the Colossus" })
+      expect(SyncGameJob).to have_received(:perform_later).with(sync_game.id, conversation_id: nil)
+      expect(text).to include("Shadow of the Colossus")
+    end
+
+    it "returns a not-found text when the game does not exist" do
+      text = described_class.confirm("sync_game", { "game_id" => 0, "game_title" => "Ghost" })
+      expect(text).to be_present
+    end
+  end
+
+  # ── confirm / sync_video ──────────────────────────────────────────────────
+
+  describe ".confirm — sync_video" do
+    let!(:sv_channel) { create(:channel) }
+    let!(:sv_video)   { create(:video, channel: sv_channel, title: "First Playthrough") }
+
+    it "enqueues SyncVideoJob and returns outcome text mentioning the title" do
+      allow(SyncVideoJob).to receive(:perform_later)
+      text = described_class.confirm("sync_video", { "video_id" => sv_video.id, "video_title" => "First Playthrough" })
+      expect(SyncVideoJob).to have_received(:perform_later).with(sv_video.id, conversation_id: nil)
+      expect(text).to include("First Playthrough")
+    end
+
+    it "returns a not-found text when the video does not exist" do
+      text = described_class.confirm("sync_video", { "video_id" => 0, "video_title" => "Missing" })
+      expect(text).to be_present
+    end
+  end
+
+  # ── confirm / sync_videos ─────────────────────────────────────────────────
+
+  describe ".confirm — sync_videos" do
+    it "enqueues SyncVideosJob with channel_ids and scope_label" do
+      allow(SyncVideosJob).to receive(:perform_later)
+      described_class.confirm("sync_videos", {
+        "channel_ids" => [ 1, 2 ], "scope_label" => "all channels"
+      })
+      expect(SyncVideosJob).to have_received(:perform_later).with([ 1, 2 ], "all channels", conversation_id: nil)
+    end
+
+    it "returns non-empty outcome text" do
+      allow(SyncVideosJob).to receive(:perform_later)
+      text = described_class.confirm("sync_videos", { "channel_ids" => [], "scope_label" => "@test" })
+      expect(text).to be_present
+    end
+  end
+
+  # ── confirm / sync_channel ────────────────────────────────────────────────
+
+  describe ".confirm — sync_channel" do
+    it "enqueues SyncChannelJob with channel_ids and scope_label" do
+      allow(SyncChannelJob).to receive(:perform_later)
+      described_class.confirm("sync_channel", {
+        "channel_ids" => [ 3 ], "scope_label" => "@pito"
+      })
+      expect(SyncChannelJob).to have_received(:perform_later).with([ 3 ], "@pito", conversation_id: nil)
+    end
+
+    it "returns non-empty outcome text" do
+      allow(SyncChannelJob).to receive(:perform_later)
+      text = described_class.confirm("sync_channel", { "channel_ids" => [], "scope_label" => "@pito" })
+      expect(text).to be_present
+    end
+  end
+
+  # ── confirm / sync_channel_videos ─────────────────────────────────────────
+
+  describe ".confirm — sync_channel_videos" do
+    it "enqueues SyncChannelVideosJob with channel_ids and scope_label" do
+      allow(SyncChannelVideosJob).to receive(:perform_later)
+      described_class.confirm("sync_channel_videos", {
+        "channel_ids" => [ 4 ], "scope_label" => "@aurora"
+      })
+      expect(SyncChannelVideosJob).to have_received(:perform_later).with([ 4 ], "@aurora", conversation_id: nil)
+    end
+
+    it "returns non-empty outcome text" do
+      allow(SyncChannelVideosJob).to receive(:perform_later)
+      text = described_class.confirm("sync_channel_videos", { "channel_ids" => [], "scope_label" => "@all" })
+      expect(text).to be_present
+    end
+  end
+
+  # ── confirm / import_videos ───────────────────────────────────────────────
+
+  describe ".confirm — import_videos" do
+    it "enqueues ChatImportVideosJob with channel_ids and scope_label" do
+      allow(ChatImportVideosJob).to receive(:perform_later)
+      described_class.confirm("import_videos", {
+        "channel_ids" => [ 5 ], "scope_label" => "@pito"
+      })
+      expect(ChatImportVideosJob).to have_received(:perform_later).with([ 5 ], "@pito", conversation_id: nil)
+    end
+
+    it "returns non-empty outcome text" do
+      allow(ChatImportVideosJob).to receive(:perform_later)
+      text = described_class.confirm("import_videos", { "channel_ids" => [], "scope_label" => "all channels" })
+      expect(text).to be_present
+    end
+  end
 end

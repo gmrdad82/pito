@@ -110,6 +110,16 @@ module Pito
             ],
             description_key: "pito.grammar.chat.import"
           ),
+          # `sync` — noun-discriminated at the handler level from message.raw:
+          #   sync game <ref>  /  sync video <ref>  /  sync videos  /
+          #   sync channel  /  sync channel with videos
+          # The slot is free/optional so any noun phrase is accepted.
+          Spec.new(
+            namespace:       :chat,
+            name:            :sync,
+            slots:           [ Slot.new(name: :target, kind: :free, optional: true) ],
+            description_key: "pito.grammar.chat.sync"
+          ),
           Spec.new(
             namespace:       :chat,
             name:            :footage,

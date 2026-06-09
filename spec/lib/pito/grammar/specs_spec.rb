@@ -21,6 +21,16 @@ RSpec.describe Pito::Grammar::Specs do
       expect(all_specs.map(&:name)).to include(:import)
     end
 
+    it "includes the :sync chat spec" do
+      expect(all_specs.map(&:name)).to include(:sync)
+    end
+
+    it "assigns the :chat namespace to :sync" do
+      sync_spec = all_specs.find { |s| s.name == :sync && s.namespace == :chat }
+      expect(sync_spec).not_to be_nil
+      expect(sync_spec.namespace).to eq(:chat)
+    end
+
     it "includes the :footage chat spec" do
       expect(all_specs.map(&:name)).to include(:footage)
     end

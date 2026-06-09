@@ -641,17 +641,17 @@ Locked decisions (from the design discussion, 2026-06-08):
 > shift+tab channel. `Pito::Stats`: channel = views + subscribers; video = views +
 > likes + comments.
 
-- [ ] T25.7 `Sync` chat verb handler (noun-discriminated: game / video / videos / channel / "channel with videos") + grammar Spec (multi-word noun) + auto-register. complexity: [high]
-- [ ] T25.8 `sync game|video <ref>` → Confirmable; on confirm one job refetches + reindex-if-changed (+ video `Pito::Stats`) → ONE Standard summary. complexity: [high]
-- [ ] T25.9 `sync videos [scope]` → Confirmable; one orchestrating job over scoped channel(s) → ONE Standard summary. complexity: [high]
-- [ ] T25.10 `sync channel [scope]` → Confirmable; channel fields + channel `Pito::Stats` (views, subscribers) → ONE Standard summary. complexity: [high]
-- [ ] T25.11 `sync channel with videos [scope]` → Confirmable; channel + all its videos → ONE Standard summary. complexity: [high]
-- [ ] T25.12 `import videos [scope]` → Confirmable; import NEWER-only YouTube videos + Voyage index → ONE Standard summary. complexity: [high]
-- [ ] T25.13 Resolve the shift+tab channel scope (`@all`/none → all connected; `@<handle>` → that one). complexity: [high]
-- [ ] T25.14 One orchestrating job per command (sequential) → ONE Standard "done" summary via `Broadcaster` (no up-front ack); reuse `GameIgdbSync`/`SyncChannelStatsJob`/`VideoStatsSnapshotJob`(scoped)/`NightlyVideoSyncJob`(scoped)/`ImportVideosJob` as the work. complexity: [high]
-- [ ] T25.15 50-variant `Pito::Copy` for each verb's confirm + done summary. complexity: [low]
-- [ ] T25.16 Specs: each verb confirms → enqueues the right job for the scope → one Standard summary; scope resolution. complexity: [high]
-- [ ] T25.17 Commit. complexity: [manual]
+- [x] T25.7 `Sync` chat verb handler (noun-discriminated: game / video / videos / channel / "channel with videos") + grammar Spec (multi-word noun) + auto-register. complexity: [high]
+- [x] T25.8 `sync game|video <ref>` → Confirmable; on confirm one job refetches + reindex-if-changed (+ video `Pito::Stats`) → ONE Standard summary. complexity: [high]
+- [x] T25.9 `sync videos [scope]` → Confirmable; one orchestrating job over scoped channel(s) → ONE Standard summary. complexity: [high]
+- [x] T25.10 `sync channel [scope]` → Confirmable; channel fields + channel `Pito::Stats` (views, subscribers) → ONE Standard summary. complexity: [high]
+- [x] T25.11 `sync channel with videos [scope]` → Confirmable; channel + all its videos → ONE Standard summary. complexity: [high]
+- [x] T25.12 `import videos [scope]` → Confirmable; import NEWER-only YouTube videos + Voyage index → ONE Standard summary. complexity: [high]
+- [x] T25.13 Resolve the shift+tab channel scope (`@all`/none → all connected; `@<handle>` → that one). complexity: [high]
+- [x] T25.14 One orchestrating job per command (sequential) → ONE Standard "done" summary via `Broadcaster` (no up-front ack); reuse `GameIgdbSync`/`SyncChannelStatsJob`/`VideoStatsSnapshotJob`(scoped)/`NightlyVideoSyncJob`(scoped)/`ImportVideosJob` as the work. complexity: [high]
+- [x] T25.15 50-variant `Pito::Copy` for each verb's confirm + done summary. complexity: [low]
+- [x] T25.16 Specs: each verb confirms → enqueues the right job for the scope → one Standard summary; scope resolution. complexity: [high]
+- [x] T25.17 Commit. complexity: [manual]
 
 ## Phase 25C — `/help`
 
