@@ -518,7 +518,7 @@ This phase ONLY removes themes from the chat/hashtag side — the `theme_list` f
 (preview/apply on a chat message) + its chat message + confirmation. The `/themes` Sidebar is
 untouched and remains the sole preview/apply UX.
 
-- [ ] T26.1 Drop the `theme_list` follow-up handler (preview/apply) + the theme-list chat message + confirmation/reply-handle flow; drop related code, specs, comments, copy. Leave the `/themes` Sidebar untouched. complexity: [high]
+- [x] T26.1 Verified the `/themes` Sidebar does preview+apply on its own; dropped the `theme_list` follow-up + `Theme::List` builder + the `/themes list` chat path (now opens the Sidebar) + copy/grammar/specs. Bare/`list`/`ls` `/themes` all open the Sidebar. complexity: [high]
 
 ## Phase 27 — `#list-channels-hashtag` (visit only; drop reindex)
 

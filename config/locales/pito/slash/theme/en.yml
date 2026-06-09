@@ -1,31 +1,25 @@
 en:
   pito:
-    follow_up:
-      theme_list:
-        usage: "preview <name> · apply <name>"
-        errors:
-          invalid_action: "Unknown action '%{action}'. Try: #<handle> preview <name> or #<handle> apply <name>."
-          missing_name: "Usage: #<handle> %{action} <theme-name>. Run /themes list to browse themes."
-          unknown_target: "No theme called '%{name}'. Run /themes list to see what's available."
     slash:
       theme:
         descriptions:
-          theme: "Switch the UI theme (/themes apply|preview|reset|list <name>)"
+          theme: "Switch the UI theme (/themes apply|preview|reset <name>)"
         help:
-          usage: "/themes [apply|preview|reset|list] [<name>]"
-          description: "Apply a theme permanently, preview it without saving, or reset to the default. Use /themes list to see all 18 options grouped by Dark / Light."
+          usage: "/themes [apply|preview|reset] [<name>]"
+          description: "Apply a theme permanently, preview it without saving, or reset to the default. Use /themes (or /themes list) to open the theme picker sidebar."
         apply:
           confirmed: "Theme dialed in. %{name} is now the look. (/themes reset to undo)"
         preview:
           confirmed: "Heads-up: this is a preview of %{name} — not saved yet. Run %{apply} to keep it or %{reset} to go back."
         reset:
           confirmed: "Back to basics. Tokyo Night is live again."
+        sidebar:
+          opening: "Opening the theme picker sidebar…"
         list:
           dark_header: "Dark"
           light_header: "Light"
-          hint: "Type #preview <name> to try it live, or #apply <name> to make it permanent."
         errors:
-          unknown_target: "No theme called '%{name}'. Try /themes list (or /themes --help) to see what's on the menu."
-          missing_name_for_preview: "Usage: /themes preview <name>. Not sure which one? /themes list."
-          missing_name_for_apply: "Usage: /themes apply <name>. Not sure which one? /themes list."
+          unknown_target: "No theme called '%{name}'. Try /themes --help to see what's on the menu."
+          missing_name_for_preview: "Usage: /themes preview <name>. Not sure which one? /themes (sidebar) or /themes --help."
+          missing_name_for_apply: "Usage: /themes apply <name>. Not sure which one? /themes (sidebar) or /themes --help."
           too_many_args: "Too many arguments for /themes. Try: /themes <name>, /themes apply <name>, or /themes --help."

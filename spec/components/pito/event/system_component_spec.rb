@@ -142,7 +142,7 @@ RSpec.describe Pito::Event::SystemComponent do
 
     it "renders id='event_<id>' when payload has reply_handle present" do
       event = create(:event, conversation:, turn:, kind: "system", position: 1,
-                     payload: { "reply_handle" => "beta-1234", "reply_target" => "theme_list", "body" => "Pick a theme" })
+                     payload: { "reply_handle" => "beta-1234", "reply_target" => "game_list", "body" => "Pick a game" })
       node = render_inline(described_class.new(payload: event.payload.with_indifferent_access, event:))
       segment = node.css(".pito-segment").first
       expect(segment).not_to be_nil

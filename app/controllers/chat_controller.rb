@@ -343,10 +343,11 @@ class ChatController < ApplicationController
     input.strip.match?(%r{\A/resume(\s|\z)}i)
   end
 
-  # True only for bare `/themes` with no arguments (the sidebar path).
-  # `/themes apply <name>` and other subcommands go through the async pipeline.
+  # True for `/themes`, `/themes list`, and `/themes ls` — all open the sidebar.
+  # `/themes apply <name>`, `/themes preview <name>`, and other subcommands go
+  # through the async pipeline.
   def bare_themes_command?(input)
-    input.strip.match?(%r{\A/themes\z}i)
+    input.strip.match?(%r{\A/themes(?:\s+(?:list|ls))?\z}i)
   end
 
   # Detects `show game(s)?` / `delete game(s)?` / `rm game(s)?` with NO

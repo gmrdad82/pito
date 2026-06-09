@@ -70,7 +70,7 @@ module Pito
         # Declare (or read) the action words this follow-up accepts, in the
         # order they should be suggested when the user types `#<handle> `.
         # Used by the suggestions engine to offer target-aware completions
-        # (e.g. theme_list → preview/apply) instead of generic hashtag verbs.
+        # (e.g. game_list → show/delete) instead of generic hashtag verbs.
         def actions(*list)
           if list.any?
             @handler_actions = list.flatten.map(&:to_s)

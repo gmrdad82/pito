@@ -156,76 +156,34 @@ RSpec.describe Pito::Slash::Handlers::Theme, type: :service do
     end
   end
 
-  # ── /themes list — P7 System message ────────────────────────────────────────
+  # ── /themes list — opens sidebar ────────────────────────────────────────────
 
-  describe "#call — /themes list" do
+  describe "#call — /themes list (opens sidebar)" do
     subject(:result) { build_handler(args: %w[list]).call }
 
     it "returns Result::Ok" do
       expect(result).to be_a(Pito::Slash::Result::Ok)
     end
 
-    it "returns a system event" do
-      expect(result.events.first[:kind]).to eq("system")
-    end
-
-    it "has a body intro" do
-      expect(result.events.first[:payload]["body"]).to be_present
-    end
-
-    it "has a Dark and a Light section" do
-      sections = result.events.first[:payload]["sections"]
-      titles   = sections.map { |s| s[:title] }
-      expect(titles).to include("Dark", "Light")
-    end
-
-    it "includes slug + label rows in each section" do
-      sections = result.events.first[:payload]["sections"]
-      all_keys = sections.flat_map { |s| s[:rows].map { |r| r[:key] } }
-      expect(all_keys.any? { |k| k.include?("tokyo-night") }).to be(true)
-      expect(all_keys.any? { |k| k.include?("dracula") }).to be(true)
-    end
-
-    it "marks the current theme with an ASCII '<-' marker in value2 (cyan column, no bullet, no unicode arrow)" do
-      AppSetting.theme = "dracula"
-      res      = build_handler(args: %w[list]).call
-      sections = res.events.first[:payload]["sections"]
-      rows     = sections.flat_map { |s| s[:rows] }
-      current  = rows.find { |r| r[:key] == "dracula" }
-      expect(current[:value]).to eq("Dracula")          # label only — marker is separate
-      expect(current[:value2]).to start_with("<-")
-      expect(current[:value2]).not_to include("←")
-      expect(rows.none? { |r| r[:value2].present? && r[:key] != "dracula" }).to be(true)
-      expect(rows.none? { |r| r[:key].to_s.include?("●") }).to be(true)
-    end
-
-    it "stamps the payload with reply_handle (follow-up engine)" do
+    it "returns a system event with sidebar_open: 'theme'" do
       payload = result.events.first[:payload]
-      # make_followupable! writes string keys; support both symbol and string access.
-      value = payload[:reply_handle] || payload["reply_handle"]
-      expect(value).to be_present
+      expect(payload[:sidebar_open]).to eq("theme")
     end
 
-    it "stamps the payload with reply_target: 'theme_list'" do
+    it "does NOT build a theme list (no sections payload)" do
       payload = result.events.first[:payload]
-      value = payload[:reply_target] || payload["reply_target"]
-      expect(value).to eq("theme_list")
-    end
-
-    it "does NOT include the old theme_list: true flag" do
-      payload = result.events.first[:payload]
-      expect(payload[:theme_list]).to be_nil
-      expect(payload["theme_list"]).to be_nil
+      expect(payload[:sections]).to be_nil
+      expect(payload["sections"]).to be_nil
     end
   end
 
-  # ── /themes (bare) — sidebar placeholder ───────────────────────────────────
+  # ── /themes (bare) — opens sidebar ─────────────────────────────────────────
 
   describe "#call — bare /themes (no args)" do
-    it "returns Result::Ok with a placeholder message" do
+    it "returns Result::Ok with sidebar_open: 'theme'" do
       result = build_handler(args: []).call
       expect(result).to be_a(Pito::Slash::Result::Ok)
-      expect(result.events.first[:payload][:text]).to be_present
+      expect(result.events.first[:payload][:sidebar_open]).to eq("theme")
     end
   end
 
@@ -343,31 +301,25 @@ RSpec.describe Pito::Slash::Handlers::Theme, type: :service do
 
   # ── P6: /themes ls alias of /themes list ────────────────────────────────────
   #
-  # `ls` is a vocabulary synonym for `list` in THEME_SUBCOMMANDS.  The handler
-  # resolves the raw arg before dispatch, so `/themes ls` routes identically to
-  # `/themes list`.  These specs confirm parity and guard the synonym registration.
+  # `ls` is a vocabulary synonym for `list` in THEME_SUBCOMMANDS.  Both route
+  # to the sidebar (open_sidebar), same as bare `/themes`.
 
-  describe "#call — /themes ls (alias of /themes list)" do
-    it "returns Result::Ok — same as /theme list" do
+  describe "#call — /themes ls (alias of /themes list, opens sidebar)" do
+    it "returns Result::Ok — same as /themes list" do
       result_ls   = build_handler(args: %w[ls]).call
       result_list = build_handler(args: %w[list]).call
       expect(result_ls).to be_a(Pito::Slash::Result::Ok)
       expect(result_list).to be_a(Pito::Slash::Result::Ok)
     end
 
-    it "returns the same sections as /theme list" do
-      sections_ls   = build_handler(args: %w[ls]).call.events.first[:payload]["sections"]
-      sections_list = build_handler(args: %w[list]).call.events.first[:payload]["sections"]
-      expect(sections_ls).to eq(sections_list)
+    it "returns sidebar_open: 'theme' (same as /themes list)" do
+      payload_ls   = build_handler(args: %w[ls]).call.events.first[:payload]
+      payload_list = build_handler(args: %w[list]).call.events.first[:payload]
+      expect(payload_ls[:sidebar_open]).to eq("theme")
+      expect(payload_list[:sidebar_open]).to eq("theme")
     end
 
-    it "has a Dark and a Light section" do
-      sections = build_handler(args: %w[ls]).call.events.first[:payload]["sections"]
-      titles   = sections.map { |s| s[:title] }
-      expect(titles).to include("Dark", "Light")
-    end
-
-    it "does NOT persist a theme (it is a list operation, not apply)" do
+    it "does NOT persist a theme" do
       AppSetting.theme = "tokyo-night"
       build_handler(args: %w[ls]).call
       expect(AppSetting.theme).to eq("tokyo-night")
@@ -391,7 +343,7 @@ RSpec.describe Pito::Slash::Handlers::Theme, type: :service do
     end
 
     it "has canonical subcommand names" do
-      expect(vocab.canonical).to include("list", "preview", "apply", "reset")
+      expect(vocab.canonical).to include("preview", "apply", "reset")
     end
 
     it "does NOT include ls in canonical (it is a synonym)" do
@@ -455,11 +407,11 @@ RSpec.describe Pito::Slash::Handlers::Theme, type: :service do
         expect(build_handler(args: %w[dracula]).call).to be_a(Pito::Slash::Result::Ok)
       end
 
-      it "accepts 'list'" do
+      it "accepts 'list' (opens sidebar)" do
         expect(build_handler(args: %w[list]).call).to be_a(Pito::Slash::Result::Ok)
       end
 
-      it "accepts 'ls'" do
+      it "accepts 'ls' (opens sidebar)" do
         expect(build_handler(args: %w[ls]).call).to be_a(Pito::Slash::Result::Ok)
       end
 
@@ -492,7 +444,7 @@ RSpec.describe Pito::Slash::Handlers::Theme, type: :service do
         expect(result.message_key).to eq("pito.slash.theme.errors.too_many_args")
       end
 
-      it "rejects /theme list extra (list doesn't take an arg)" do
+      it "rejects /theme list extra (list/sidebar path doesn't take an arg)" do
         result = build_handler(args: %w[list extra]).call
         expect(result).to be_a(Pito::Slash::Result::Error)
         expect(result.message_key).to eq("pito.slash.theme.errors.too_many_args")

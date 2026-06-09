@@ -363,25 +363,25 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
   # ── HASHTAG — follow-up-target aware ──────────────────────────────────────────
   describe "hashtag mode for a live follow-up handle", :db do
     let(:conversation) { Conversation.create! }
-    let(:turn) { conversation.turns.create!(input_kind: :slash, input_text: "/themes list", position: 1) }
+    let(:turn) { conversation.turns.create!(input_kind: :slash, input_text: "/games list", position: 1) }
 
     before do
       Event.create_with_position!(
         conversation:, turn:, kind: "system",
-        payload: { "reply_handle" => "alpha-1266", "reply_target" => "theme_list", "body" => "themes" }
+        payload: { "reply_handle" => "alpha-1266", "reply_target" => "game_list", "body" => "games" }
       )
     end
 
-    it "suggests the target's actions (preview/apply), NOT the legacy add/remove" do
+    it "suggests the target's actions (show/delete/rm), NOT the legacy add/remove" do
       result = call(input: "#alpha-1266 ", cursor: 12, conversation:)
       labels = result[:menu_items].map { |i| i[:label] }
-      expect(labels).to eq(%w[preview apply])
+      expect(labels).to include("show", "delete")
       expect(labels).not_to include("add", "remove")
     end
 
     it "ghosts the first action so TAB completes it (no <brackets>)" do
       result = call(input: "#alpha-1266 ", cursor: 12, conversation:)
-      expect(result[:ghost][:complete_current]).to eq("preview")
+      expect(result[:ghost][:complete_current]).to eq("show")
       expect(result[:ghost][:next_hint]).to eq("")
     end
 

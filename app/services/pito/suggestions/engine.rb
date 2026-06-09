@@ -396,7 +396,7 @@ module Pito
           partial = ends_with_space ? "" : (after_words.last || "")
 
           # Follow-up-aware: if this handle belongs to a live follow-up-able event,
-          # suggest THAT target's actions (e.g. theme_list → preview/apply) rather
+          # suggest THAT target's actions (e.g. game_list → show/delete) rather
           # than the generic hashtag verbs. Falls through to the legacy path only
           # when the handle isn't a live follow-up.
           actions = follow_up_actions(handle, conversation)
