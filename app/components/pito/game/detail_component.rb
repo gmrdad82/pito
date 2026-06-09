@@ -9,16 +9,6 @@ module Pito
     # the model — or simply receive the record as a param (preferred here).
     # Sibling components are referenced by their full name:
     #   Pito::ScoreBarComponent, Pito::TimeToBeatComponent.
-    # Maps IGDB platform name patterns to operator tokens (ps / switch / steam).
-    IGDB_TO_TOKEN = [
-      [ /\APlayStation/i,        "ps"     ],
-      [ /\ANintendo Switch/i,    "switch" ],
-      [ /\ASteam\z/i,            "steam"  ],
-      [ /\APC \(Microsoft/i,     "steam"  ],
-      [ /\AGOG\z/i,              "steam"  ],
-      [ /\AEpic/i,               "steam"  ]
-    ].freeze
-
     class DetailComponent < ViewComponent::Base
       def initialize(game:)
         @game = game
@@ -53,19 +43,13 @@ module Pito
       # Returns the de-duped operator tokens (ps/switch/steam) derived from
       # the IGDB platform names in game.platforms.  Returns [] when none match.
       def platform_tokens
-        Array(@game.platforms).filter_map do |name|
-          _match, token = IGDB_TO_TOKEN.find { |pattern, _| name.match?(pattern) }
-          token
-        end.uniq
+        PlatformTokens.tokens(@game.platforms)
       end
 
       # Plain comma-joined platform display names (PlayStation / Switch / Steam),
       # rendered as a normal KV value — no chips.
       def platforms_label
-        tokens = platform_tokens
-        return nil if tokens.blank?
-
-        tokens.map { |token| I18n.t("pito.game.detail.platform_label.#{token}") }.join(", ")
+        PlatformTokens.labels(@game.platforms)
       end
 
       def summary

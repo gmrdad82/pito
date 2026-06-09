@@ -59,7 +59,7 @@ RSpec.describe Pito::Game::DetailComponent do
       g = create(:game, platforms: [ "Steam", "GOG", "Nintendo Switch" ])
       node = render_inline(described_class.new(game: g))
       expect(node.text.scan("Steam").count).to eq(1)
-      expect(node.text).to include("Nintendo Switch")
+      expect(node.text).to include("Switch")
       expect(node.css("span.border")).to be_empty
     end
 

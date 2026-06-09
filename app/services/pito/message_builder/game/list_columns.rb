@@ -25,7 +25,7 @@ module Pito
         SORT_SPECS = {
           id:           { key: ->(g) { g.id },                                                  requires_with: false },
           title:        { key: ->(g) { g.title.to_s.downcase },                                 requires_with: false },
-          platform:     { key: ->(g) { Array(g.platforms).join(", ").downcase },                requires_with: true },
+          platform:     { key: ->(g) { Pito::Game::PlatformTokens.labels(g.platforms).to_s.downcase }, requires_with: true },
           genre:        { key: ->(g) { g.genres.map(&:name).join(", ").downcase },              requires_with: true },
           developer:    { key: ->(g) { g.developer_companies.map(&:name).join(", ").downcase }, requires_with: true },
           publisher:    { key: ->(g) { g.publisher_companies.map(&:name).join(", ").downcase }, requires_with: true },
@@ -54,7 +54,7 @@ module Pito
           platform:     {
             aliases: %w[platform platforms],
             heading: "Platform",
-            value:   ->(g) { Array(g.platforms).join(", ") }
+            value:   ->(g) { Pito::Game::PlatformTokens.labels(g.platforms).to_s }
           },
           genre:        {
             aliases: %w[genre genres],
