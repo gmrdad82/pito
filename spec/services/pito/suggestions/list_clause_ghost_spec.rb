@@ -148,6 +148,11 @@ RSpec.describe Pito::Suggestions::ListClauseGhost do
       expect(result[:complete_current]).to eq("elp")
     end
 
+    it "ghosts 'rted by' for 'list games so' (sorted by is a connector candidate)" do
+      result = ghost("list games so")
+      expect(result[:complete_current]).to eq("rted by")
+    end
+
     it "ghosts '-help' for 'list games -' (completes toward --help)" do
       result = ghost("list games -")
       expect(result[:complete_current]).to eq("-help")

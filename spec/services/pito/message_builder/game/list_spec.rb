@@ -174,9 +174,8 @@ RSpec.describe Pito::MessageBuilder::Game::List do
       expect(year_entry).to eq({ "text" => "Year", "class" => "text-right" })
     end
 
-    it "Release heading is a right-aligned hash" do
-      release_entry = payload["table_heading"].find { |h| h.is_a?(Hash) && h["text"] == "Release" }
-      expect(release_entry).to eq({ "text" => "Release", "class" => "text-right" })
+    it "Release heading is a plain left-aligned string (date phrases read left-to-right)" do
+      expect(payload["table_heading"]).to include("Release")
     end
 
     it "Year cell is right-aligned with tabular-nums" do
@@ -189,12 +188,12 @@ RSpec.describe Pito::MessageBuilder::Game::List do
       expect(year_cell[:class]).to include("tabular-nums")
     end
 
-    it "Release cell is right-aligned" do
+    it "Release cell is left-aligned (date phrases read left-to-right)" do
       row     = payload["table_rows"].first
       heading_texts = payload["table_heading"].map { |h| h.is_a?(Hash) ? h["text"] : h }
       release_idx = heading_texts.index("Release")
       release_cell = row[:cells][release_idx]
-      expect(release_cell[:class]).to include("text-right")
+      expect(release_cell[:class]).not_to include("text-right")
     end
   end
 end

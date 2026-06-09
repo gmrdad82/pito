@@ -73,9 +73,11 @@ module Pito
             value:   ->(g) { g.publisher_companies.map(&:name).join(", ") }
           },
           release_date: {
+            # Left-aligned: variable-length date phrases ("December 2020" vs "TBA")
+            # look ragged when right-aligned — short values float against the
+            # column's right edge. Still a fixed-width trailing track (max-content).
             aliases: [ "release date" ],
             heading: "Release",
-            align:   :right,
             value:   ->(g) { Pito::Formatter::ReleaseDate.call(g).to_s }
           },
           year:         {

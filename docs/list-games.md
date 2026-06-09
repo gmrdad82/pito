@@ -183,8 +183,8 @@ Iterative refinements from live review. No inline style (data attributes only).
 - [ ] T6.10 `/help` content: stop mentioning `ctrl+|`, `shift+r`, `Esc`, backtick, and space. complexity: [low]
 - [x] T6.11 Bug: `Ctrl+Shift+R` (browser reload) no longer hijacked by the `shift+r` reply prefix (plain Shift+R only). complexity: [low]
 - [x] T6.12 Bug: `list games --h` ghosts `elp` (`--help` added as a connector candidate). complexity: [low]
-- [ ] T6.13 Bug: `list games so` should ghost `rted by` (add `sorted by` to connector candidates). complexity: [low]
-- [ ] T6.14 Bug: TBA column wider/more prominent than known dates — make TBA render consistently (dim, same width treatment) in the Release column. complexity: [low]
+- [x] T6.13 Bug: `list games so` ghosts `rted by` (`sorted by` added to connector candidates). complexity: [low]
+- [x] T6.14 Bug: TBA looked oversized — left-aligned the Release column (variable-length date phrases read left-to-right; short values no longer float against a right edge). Year stays right-aligned; both remain fixed-width trailing tracks. complexity: [low]
 - [ ] T6.15 Show `shift+tab` / `shift+space` affordances ONLY when the chatbox is focused; they're the inverse of the `m` indicator (mutually exclusive); drop the middle-dot separator when `m` is shown. Same behaviour for `/` (slash palette) and `/not_found`. complexity: [high]
 
 ## Verification (end-to-end)
