@@ -2178,15 +2178,16 @@ en:
               Options:
                 "--help": "Print this help message"
         footage:
-          usage: "footage game <id> <path>"
+          usage: "footage game <id> [--force] <path>"
           game:
-            usage: "footage game <id> <path>"
+            usage: "footage game <id> [--force] <path>"
             sections:
               Arguments:
                 "game": "Target noun"
                 "<id>": "Local numeric game id"
                 "<path>": "Local footage folder path (absolute or ~/…)"
               Options:
+                "--force": "Re-probe & overwrite footage already imported (e.g. after re-encoding)"
                 "--help": "Print this help message"
         link:
           usage: "link game <id> to video <id>  |  link video <id> to game <id>"

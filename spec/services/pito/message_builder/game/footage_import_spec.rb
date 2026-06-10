@@ -39,5 +39,19 @@ RSpec.describe Pito::MessageBuilder::Game::FootageImport do
     it "renders without raising" do
       expect { payload }.not_to raise_error
     end
+
+    context "when force: true" do
+      subject(:payload) { described_class.call(game, path: "/clips", force: true) }
+
+      it "body includes -- --force in the probe command" do
+        expect(payload["body"]).to include("-- --force")
+      end
+    end
+
+    context "when force: false (default)" do
+      it "body does not include --force in the probe command" do
+        expect(payload["body"]).not_to include("--force")
+      end
+    end
   end
 end

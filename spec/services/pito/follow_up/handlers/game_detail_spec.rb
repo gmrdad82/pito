@@ -321,6 +321,27 @@ RSpec.describe Pito::FollowUp::Handlers::GameDetail, type: :service do
       result = handler.call(event: event, rest: "footage /mnt/clips", conversation:)
       expect(result).to be_a(Pito::FollowUp::Result::Error)
     end
+
+    it "includes -- --force in the snippet when --force leads the args" do
+      result = handler.call(event: source_event, rest: "footage --force /mnt/footage", conversation:)
+      expect(result).to be_a(Pito::FollowUp::Result::Append)
+      body = result.events.first[:payload]["body"]
+      expect(body).to include("-- --force")
+    end
+
+    it "includes -- --force in the snippet when --force trails the args" do
+      result = handler.call(event: source_event, rest: "footage /mnt/footage --force", conversation:)
+      expect(result).to be_a(Pito::FollowUp::Result::Append)
+      body = result.events.first[:payload]["body"]
+      expect(body).to include("-- --force")
+    end
+
+    it "does not include --force in the snippet when the flag is absent" do
+      result = handler.call(event: source_event, rest: "footage /mnt/footage", conversation:)
+      expect(result).to be_a(Pito::FollowUp::Result::Append)
+      body = result.events.first[:payload]["body"]
+      expect(body).not_to include("--force")
+    end
   end
 
   describe "#call — unknown action" do

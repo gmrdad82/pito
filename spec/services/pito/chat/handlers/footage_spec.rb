@@ -59,6 +59,25 @@ RSpec.describe Pito::Chat::Handlers::Footage do
     expect(payload["body"]).to include("path=&quot;/mnt/clips/*&quot;")
   end
 
+  # ── --force flag ──────────────────────────────────────────────────────────────
+
+  it "includes '-- --force' in the body when --force flag precedes the path" do
+    payload = handler_for("game", game.id.to_s, "--force", "/mnt/footage").call.events.first[:payload]
+    expect(payload["body"]).to include("-- --force")
+  end
+
+  it "includes '-- --force' in the body when --force flag trails the path" do
+    payload = handler_for("game", game.id.to_s, "/mnt/footage", "--force").call.events.first[:payload]
+    expect(payload["body"]).to include("-- --force")
+  end
+
+  it "does not include '--force' in the body when no flag is given" do
+    payload = handler_for("game", game.id.to_s, "/mnt/footage").call.events.first[:payload]
+    expect(payload["body"]).not_to include("--force")
+    expect(payload["body"]).to include("game=#{game.id}")
+    expect(payload["body"]).to include("path=")
+  end
+
   # ── title ref no longer resolves (ILIKE dropped) ─────────────────────────────
 
   it "returns a witty not-found for a title-style reference (ILIKE dropped)" do

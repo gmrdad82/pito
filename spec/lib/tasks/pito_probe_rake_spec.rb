@@ -109,5 +109,38 @@ RSpec.describe "pito:tools:probe", type: :rake do
         suppress_output { Rake::Task["pito:tools:probe"].invoke }
       end
     end
+
+    it "--force in ARGV re-probes and overwrites an already-imported file" do
+      game = create(:game)
+
+      Dir.mktmpdir do |dir|
+        File.write(File.join(dir, "clip.mp4"), "x")
+        Footage.create!(game: game, filename: "clip.mp4",
+                        duration_seconds: 100, resolution: "1920x1080")
+
+        ENV["game"] = game.id.to_s
+        ENV["path"] = File.join(dir, "*.mp4")
+
+        probe_result = double(
+          success: true,
+          error_message: nil,
+          resolution: "3840x2160",
+          fps: 60.0,
+          duration_seconds: 999,
+          aspect_ratio: "16:9",
+          orientation: "landscape",
+          needs_grading: false,
+          audio_track_names: []
+        )
+        allow(Pito::Footage::Probe).to receive(:call).and_return(probe_result)
+
+        stub_const("ARGV", [ "--force" ])
+        suppress_output { Rake::Task["pito:tools:probe"].invoke }
+
+        row = Footage.find_by!(game: game, filename: "clip.mp4")
+        expect(row.duration_seconds).to eq(999)
+        expect(row.resolution).to eq("3840x2160")
+      end
+    end
   end
 end
