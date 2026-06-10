@@ -275,6 +275,30 @@ RSpec.describe Pito::Chat::Handlers::List do
       end
     end
 
+    context "with `scheduled` filter" do
+      let!(:future_vid) { create(:video, :scheduled, title: "Scheduled Future", channel: chan_a) }
+
+      it "returns only scheduled videos (publish_at in the future)" do
+        result  = handler_for("list videos scheduled", channel: "@all").call
+        payload = result.events.first[:payload]
+        titles  = video_titles(payload)
+        expect(titles).to include("Scheduled Future")
+        expect(titles).not_to include("Alpha Public")
+        expect(titles).not_to include("Alpha Unlisted")
+        expect(titles).not_to include("Beta Public")
+      end
+
+      it "composes with `with channel, visibility` — scheduled video listed; heading has Channel + Visibility" do
+        result  = handler_for("list videos scheduled with channel, visibility", channel: "@all").call
+        payload = result.events.first[:payload]
+        titles  = video_titles(payload)
+        expect(titles).to include("Scheduled Future")
+        heading = payload["table_heading"]
+        expect(heading).to include("Channel")
+        expect(heading).to include("Visibility")
+      end
+    end
+
     context "with `list videos with duration`" do
       let!(:dur_video) do
         create(:video, :public, title: "Duration Video", channel: chan_a,
@@ -288,7 +312,7 @@ RSpec.describe Pito::Chat::Handlers::List do
 
       it "returns a full heading row with the Duration column appended" do
         payload = handler_for("list videos with duration", channel: "@all").call.events.first[:payload]
-        expect(payload["table_heading"]).to eq([ "#", "Title", "Channel", "Privacy", "Duration" ])
+        expect(payload["table_heading"]).to eq([ "#", "Title", "Duration" ])
       end
     end
 

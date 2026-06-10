@@ -17,21 +17,21 @@ reads **"Visibility"** (from Pito::Copy). The visibility/state **filters** are
 
 ## Locked decisions
 
-| Topic            | Decision                                                                                  |
-| ---------------- | ----------------------------------------------------------------------------------------- |
-| Default columns  | `# / Title` only. `channel` + `visibility` are `with`-columns.                            |
-| Visibility label | "Visibility" via new `pito.copy.videos.columns.visibility`.                               |
-| `privacy` token  | DROPPED (no alias). Canonical is `visibility`; cell value is the privacy_status label.    |
-| Filters          | `published` / `unlisted` / `scheduled` — three; compose with `with` columns.              |
-| `scheduled`      | `Video.scheduled` = `where("publish_at > ?", Time.current)` (future scheduled publish).   |
-| Branch           | `followup-smart-link` (PR #68), per user.                                                 |
+| Topic            | Decision                                                                                |
+| ---------------- | --------------------------------------------------------------------------------------- |
+| Default columns  | `# / Title` only. `channel` + `visibility` are `with`-columns.                          |
+| Visibility label | "Visibility" via new `pito.copy.videos.columns.visibility`.                             |
+| `privacy` token  | DROPPED (no alias). Canonical is `visibility`; cell value is the privacy_status label.  |
+| Filters          | `published` / `unlisted` / `scheduled` — three; compose with `with` columns.            |
+| `scheduled`      | `Video.scheduled` = `where("publish_at > ?", Time.current)` (future scheduled publish). |
+| Branch           | `followup-smart-link` (PR #68), per user.                                               |
 
 ## Complexity hints
 
-| Hint       | Meaning                                            |
-| ---------- | -------------------------------------------------- |
-| `[low]`    | mechanical / single-file / pattern-following edit  |
-| `[manual]` | operator: verification runs, commits               |
+| Hint       | Meaning                                           |
+| ---------- | ------------------------------------------------- |
+| `[low]`    | mechanical / single-file / pattern-following edit |
+| `[manual]` | operator: verification runs, commits              |
 
 ## Phase index
 
@@ -52,10 +52,10 @@ reads **"Visibility"** (from Pito::Copy). The visibility/state **filters** are
 
 ## P1 — Specs
 
-- [ ] T1.1 Update `spec/services/pito/message_builder/video/list_spec.rb` — default = `# / Title`; `with channel, visibility` shows them with the "Visibility" heading. complexity: [low]
-- [ ] T1.2 Update `spec/services/pito/message_builder/video/list_columns_spec.rb` — `channel`/`visibility` columns; `requires_with` sort; `privacy` token gone. complexity: [low]
-- [ ] T1.3 Update the `list` handler spec — `scheduled` filter scopes correctly and composes with `with` columns. complexity: [low]
-- [ ] T1.4 Add a `Video` model spec for the `scheduled` scope. complexity: [low]
-- [ ] T1.5 Update engine ghost + `list-videos` hashtag-help specs — `channel` + `visibility` offered. complexity: [low]
-- [ ] T1.6 Run full `bundle exec rspec` + `bin/rubocop`; confirm green. complexity: [manual]
-- [ ] T1.7 Commit: `specs: list videos channel/visibility with-columns + scheduled filter`. complexity: [manual]
+- [x] T1.1 Update `spec/services/pito/message_builder/video/list_spec.rb` — default = `# / Title`; `with channel, visibility` shows them with the "Visibility" heading. complexity: [low]
+- [x] T1.2 Update `spec/services/pito/message_builder/video/list_columns_spec.rb` — `channel`/`visibility` columns; `requires_with` sort; `privacy` token gone. complexity: [low]
+- [x] T1.3 Update the `list` handler spec — `scheduled` filter scopes correctly and composes with `with` columns. complexity: [low]
+- [x] T1.4 Add a `Video` model spec for the `scheduled` scope. complexity: [low]
+- [x] T1.5 Update engine ghost + `list-videos` hashtag-help specs — `channel` + `visibility` offered. complexity: [low]
+- [x] T1.6 Run full `bundle exec rspec` + `bin/rubocop`; confirm green. complexity: [manual]
+- [x] T1.7 Commit: `specs: list videos channel/visibility with-columns + scheduled filter`. complexity: [manual]

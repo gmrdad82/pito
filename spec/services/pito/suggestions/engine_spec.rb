@@ -430,17 +430,32 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
 
     it "ghosts the first video column token when '#<handle> add ' (trailing space)" do
       result = call(input: "#vlist-5555 add ", cursor: 16, conversation:)
-      expect(result[:ghost][:complete_current]).to eq("game")
+      expect(result[:ghost][:complete_current]).to eq("channel")
     end
 
-    it "excludes already-typed game and ghosts duration for '#<handle> add game, '" do
+    it "excludes already-typed game and ghosts channel for '#<handle> add game, '" do
       result = call(input: "#vlist-5555 add game, ", cursor: 22, conversation:)
-      expect(result[:ghost][:complete_current]).to eq("duration")
+      expect(result[:ghost][:complete_current]).to eq("channel")
     end
 
     it "remove behaves the same as add (ghosts first video column)" do
       result = call(input: "#vlist-5555 remove ", cursor: 19, conversation:)
-      expect(result[:ghost][:complete_current]).to eq("game")
+      expect(result[:ghost][:complete_current]).to eq("channel")
+    end
+
+    it "ghosts visibility after channel is already typed (channel + visibility are new columns)" do
+      result = call(input: "#vlist-5555 add channel, ", cursor: 25, conversation:)
+      expect(result[:ghost][:complete_current]).to eq("visibility")
+    end
+
+    it "channel and visibility are offered — partial 'ch' completes to 'annel'" do
+      result = call(input: "#vlist-5555 add ch", cursor: 18, conversation:)
+      expect(result[:ghost][:complete_current]).to eq("annel")
+    end
+
+    it "channel and visibility are offered — partial 'vis' completes to 'ibility'" do
+      result = call(input: "#vlist-5555 add vis", cursor: 19, conversation:)
+      expect(result[:ghost][:complete_current]).to eq("ibility")
     end
   end
 
@@ -519,7 +534,7 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
 
     it "ghosts first column after 'sort by '" do
       result = call(input: "#vsort-2222 sort by ", cursor: 20, conversation:)
-      # Base tokens first: id, title, channel, privacy; then views (present with-col)
+      # Base tokens: id, title; then views (present with-col, requires_with: true)
       expect(result[:ghost][:complete_current]).to eq("id")
     end
   end

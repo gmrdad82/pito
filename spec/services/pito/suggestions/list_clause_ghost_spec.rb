@@ -52,14 +52,14 @@ RSpec.describe Pito::Suggestions::ListClauseGhost do
       expect(result[:complete_current]).to eq("ration")
     end
 
-    it "returns 'game' as complete_current for 'list videos with '" do
+    it "returns 'channel' as complete_current for 'list videos with '" do
       result = ghost("list videos with ")
-      expect(result[:complete_current]).to eq("game")
+      expect(result[:complete_current]).to eq("channel")
     end
 
-    it "returns 'duration' (game excluded) for 'list videos with game, '" do
+    it "returns 'channel' (game excluded) for 'list videos with game, '" do
       result = ghost("list videos with game, ")
-      expect(result[:complete_current]).to eq("duration")
+      expect(result[:complete_current]).to eq("channel")
     end
   end
 
@@ -162,11 +162,12 @@ RSpec.describe Pito::Suggestions::ListClauseGhost do
         expect(result[:ghost][:complete_current]).to eq("iews")
       end
 
-      it "base-only columns are not sortable candidates from SORT_SPECS requires_with" do
-        # 'channel' is base sort token (requires_with: false), NOT in COLUMNS → not in present_sortable
-        # but IS in base_sort_tokens
-        result = sort_ghost("video_list", list_columns: [], args_text: "by ch", ends_with_space: false)
-        expect(result[:ghost][:complete_current]).to eq("annel")
+      it "channel now requires its column present (no longer a base sort token)" do
+        # 'channel' moved into COLUMNS with requires_with: true; base tokens are just id/title.
+        absent  = sort_ghost("video_list", list_columns: [], args_text: "by ch", ends_with_space: false)
+        present = sort_ghost("video_list", list_columns: [ "channel" ], args_text: "by ch", ends_with_space: false)
+        expect(absent[:ghost][:complete_current]).to eq("")
+        expect(present[:ghost][:complete_current]).to eq("annel")
       end
     end
 

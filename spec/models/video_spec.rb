@@ -83,6 +83,24 @@ RSpec.describe Video, type: :model do
     end
   end
 
+  # ── Scopes ───────────────────────────────────────────────────────
+  describe ".scheduled" do
+    it "includes a video whose publish_at is in the future" do
+      future = create(:video, publish_at: 1.hour.from_now)
+      expect(described_class.scheduled).to include(future)
+    end
+
+    it "excludes a video whose publish_at is in the past" do
+      past = create(:video, publish_at: 1.hour.ago)
+      expect(described_class.scheduled).not_to include(past)
+    end
+
+    it "excludes a video whose publish_at is nil" do
+      no_date = create(:video, publish_at: nil)
+      expect(described_class.scheduled).not_to include(no_date)
+    end
+  end
+
   # ── #category_name ───────────────────────────────────────────────
   describe "#category_name" do
     it "maps a known YouTube category id to its name" do

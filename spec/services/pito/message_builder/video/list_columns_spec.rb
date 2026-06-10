@@ -12,6 +12,14 @@ RSpec.describe Pito::MessageBuilder::Video::ListColumns do
       expect(vocab).to be_a(Hash)
     end
 
+    it "maps 'channel' to :channel" do
+      expect(vocab["channel"]).to eq(:channel)
+    end
+
+    it "maps 'visibility' to :visibility" do
+      expect(vocab["visibility"]).to eq(:visibility)
+    end
+
     it "maps 'game' to :game" do
       expect(vocab["game"]).to eq(:game)
     end
@@ -41,11 +49,31 @@ RSpec.describe Pito::MessageBuilder::Video::ListColumns do
     end
   end
 
+  # ── base_sort_tokens ─────────────────────────────────────────────────────────
+
+  describe ".base_sort_tokens" do
+    it "returns id and title only" do
+      expect(described_class.base_sort_tokens).to eq(%w[id title])
+    end
+  end
+
   # ── headings ────────────────────────────────────────────────────────────────
 
   describe ".headings" do
     it "returns an empty array for no columns" do
       expect(described_class.headings([])).to eq([])
+    end
+
+    it "returns the heading for :channel" do
+      expect(described_class.headings([ :channel ])).to eq([ "Channel" ])
+    end
+
+    it "returns the heading for :visibility (from copy)" do
+      expect(described_class.headings([ :visibility ])).to eq([ "Visibility" ])
+    end
+
+    it "returns Channel and Visibility in order" do
+      expect(described_class.headings([ :channel, :visibility ])).to eq([ "Channel", "Visibility" ])
     end
 
     it "returns the heading for a single column" do
@@ -56,9 +84,9 @@ RSpec.describe Pito::MessageBuilder::Video::ListColumns do
       expect(described_class.headings([ :views, :likes ])).to eq([ "Views", "Likes" ])
     end
 
-    it "includes all five headings when all columns are requested" do
-      all = %i[game duration views likes comments]
-      expect(described_class.headings(all)).to eq(
+    it "includes headings for the stats columns" do
+      cols = %i[game duration views likes comments]
+      expect(described_class.headings(cols)).to eq(
         [ "Game", "Duration", "Views", "Likes", "Comments" ]
       )
     end
@@ -76,13 +104,28 @@ RSpec.describe Pito::MessageBuilder::Video::ListColumns do
       expect(key.call(vid)).to eq("test video")
     end
 
-    it "returns a proc for 'channel' (base column) with no selected_columns" do
+    it "returns nil for 'channel' when :channel is not in selected_columns" do
       key = described_class.sort_key_for("channel", selected_columns: [])
+      expect(key).to be_nil
+    end
+
+    it "returns a proc for 'channel' when :channel is in selected_columns" do
+      key = described_class.sort_key_for("channel", selected_columns: [ :channel ])
       expect(key).to be_a(Proc)
     end
 
-    it "returns a proc for 'privacy' (base column) with no selected_columns" do
+    it "returns nil for the dropped 'privacy' token" do
       key = described_class.sort_key_for("privacy", selected_columns: [])
+      expect(key).to be_nil
+    end
+
+    it "returns nil for 'visibility' when :visibility is not in selected_columns" do
+      key = described_class.sort_key_for("visibility", selected_columns: [])
+      expect(key).to be_nil
+    end
+
+    it "returns a proc for 'visibility' when :visibility is in selected_columns" do
+      key = described_class.sort_key_for("visibility", selected_columns: [ :visibility ])
       expect(key).to be_a(Proc)
     end
 
@@ -106,8 +149,13 @@ RSpec.describe Pito::MessageBuilder::Video::ListColumns do
       expect(key).to be_nil
     end
 
-    it "returns a proc for 'handle' alias pointing to :channel" do
+    it "returns nil for 'handle' alias when :channel is not in selected_columns" do
       key = described_class.sort_key_for("handle", selected_columns: [])
+      expect(key).to be_nil
+    end
+
+    it "returns a proc for 'handle' alias when :channel is in selected_columns" do
+      key = described_class.sort_key_for("handle", selected_columns: [ :channel ])
       expect(key).to be_a(Proc)
     end
 
@@ -120,7 +168,7 @@ RSpec.describe Pito::MessageBuilder::Video::ListColumns do
   # ── cells ────────────────────────────────────────────────────────────────────
 
   describe ".cells" do
-    let(:channel) { create(:channel, title: "Test Channel") }
+    let(:channel) { create(:channel, title: "Test Channel", handle: "mychannel") }
     let(:game)    { create(:game, title: "Elden Ring") }
 
     let(:video) do
@@ -140,6 +188,21 @@ RSpec.describe Pito::MessageBuilder::Video::ListColumns do
     it "returns cells with text-fg-dim class" do
       result = described_class.cells(video, [ :duration ])
       expect(result.first[:class]).to eq("text-fg-dim")
+    end
+
+    it "returns the channel at-handle for :channel" do
+      result = described_class.cells(video, [ :channel ])
+      expect(result.first[:text]).to eq("@mychannel")
+    end
+
+    it "returns the visibility label for :visibility" do
+      result = described_class.cells(video, [ :visibility ])
+      expect(result.first[:text]).to eq("Public")
+    end
+
+    it "returns channel and visibility cells in order" do
+      result = described_class.cells(video, [ :channel, :visibility ])
+      expect(result.map { |c| c[:text] }).to eq([ "@mychannel", "Public" ])
     end
 
     it "returns the linked game title for :game" do

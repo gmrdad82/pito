@@ -35,10 +35,10 @@ RSpec.describe Pito::MessageBuilder::Video::List do
       expect(payload).not_to have_key(:html)
     end
 
-    it "each row uses the cells format with 4 cells" do
+    it "each row uses the cells format with 2 cells" do
       payload["table_rows"].each do |row|
         expect(row[:cells]).to be_an(Array)
-        expect(row[:cells].size).to eq(4)
+        expect(row[:cells].size).to eq(2)
       end
     end
 
@@ -69,21 +69,52 @@ RSpec.describe Pito::MessageBuilder::Video::List do
       end
     end
 
-    describe "cell 3 — channel handle" do
-      it "shows the channel at_handle with text-cyan class" do
-        row = payload["table_rows"].first
-        cell = row[:cells][2]
-        expect(cell[:text]).to eq(channel.at_handle)
-        expect(cell[:class]).to include("text-cyan")
+    it "includes table_heading with # and Title only" do
+      expect(payload["table_heading"]).to eq([ "#", "Title" ])
+    end
+
+    it "renders without raising" do
+      expect { payload }.not_to raise_error
+    end
+  end
+
+  describe ".call with columns: [:channel, :visibility]" do
+    let(:videos) { ::Video.where(id: [ video1.id, video2.id ]).order(:title) }
+
+    subject(:payload) do
+      described_class.call(videos, conversation: conversation,
+                           columns: [ :channel, :visibility ])
+    end
+
+    it "includes table_heading with #, Title, Channel, Visibility" do
+      expect(payload["table_heading"]).to eq([ "#", "Title", "Channel", "Visibility" ])
+    end
+
+    it "each row has 4 cells" do
+      payload["table_rows"].each do |row|
+        expect(row[:cells].size).to eq(4)
       end
     end
 
-    describe "cell 4 — privacy label" do
-      it "shows the translated privacy label for a video with a privacy_status" do
+    describe "cell 3 — channel handle" do
+      it "shows the channel at_handle" do
+        row = payload["table_rows"].first
+        cell = row[:cells][2]
+        expect(cell[:text]).to eq(channel.at_handle)
+      end
+    end
+
+    describe "cell 4 — visibility label" do
+      it "shows 'Public' for a public video" do
         row = payload["table_rows"].find { |r| r[:cells][1][:text] == "Alpha Video" }
         cell = row[:cells][3]
-        expect(cell[:text]).to be_present
-        expect(cell[:class]).to include("text-fg-faded")
+        expect(cell[:text]).to eq("Public")
+      end
+
+      it "shows 'Private' for a private video" do
+        row = payload["table_rows"].find { |r| r[:cells][1][:text] == "Beta Video" }
+        cell = row[:cells][3]
+        expect(cell[:text]).to eq("Private")
       end
 
       it "emits an empty string when privacy_status is blank" do
@@ -92,19 +123,11 @@ RSpec.describe Pito::MessageBuilder::Video::List do
                                      title: "No Status",
                                      privacy_status: nil,
                                      channel: channel)
-        row = described_class.call([ blank_video ], conversation: conversation)["table_rows"].first
+        row = described_class.call([ blank_video ], conversation: conversation,
+                                   columns: [ :channel, :visibility ])["table_rows"].first
         cell = row[:cells][3]
         expect(cell[:text]).to eq("")
-        expect(cell[:class]).to include("text-fg-faded")
       end
-    end
-
-    it "includes table_heading with #, Title, Channel, Privacy labels" do
-      expect(payload["table_heading"]).to eq([ "#", "Title", "Channel", "Privacy" ])
-    end
-
-    it "renders without raising" do
-      expect { payload }.not_to raise_error
     end
   end
 
@@ -128,23 +151,23 @@ RSpec.describe Pito::MessageBuilder::Video::List do
 
     it "includes 'Game' and 'Duration' in the table_heading" do
       expect(payload_with_cols["table_heading"]).to eq(
-        [ "#", "Title", "Channel", "Privacy", "Game", "Duration" ]
+        [ "#", "Title", "Game", "Duration" ]
       )
     end
 
-    it "each row has 6 cells" do
+    it "each row has 4 cells" do
       payload_with_cols["table_rows"].each do |row|
-        expect(row[:cells].size).to eq(6)
+        expect(row[:cells].size).to eq(4)
       end
     end
 
-    it "cell 5 contains the linked game title" do
-      cell = payload_with_cols["table_rows"].first[:cells][4]
+    it "cell 3 contains the linked game title" do
+      cell = payload_with_cols["table_rows"].first[:cells][2]
       expect(cell[:text]).to include("Elden Ring")
     end
 
-    it "cell 6 contains the formatted duration" do
-      cell = payload_with_cols["table_rows"].first[:cells][5]
+    it "cell 4 contains the formatted duration" do
+      cell = payload_with_cols["table_rows"].first[:cells][3]
       expect(cell[:text]).to eq("1:02:22")
     end
   end

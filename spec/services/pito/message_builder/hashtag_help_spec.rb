@@ -370,6 +370,14 @@ RSpec.describe Pito::MessageBuilder::HashtagHelp do
           expect(result["body"]).to include("columns")
         end
 
+        it "body mentions video column vocab (channel)" do
+          expect(result["body"]).to include("channel")
+        end
+
+        it "body mentions video column vocab (visibility)" do
+          expect(result["body"]).to include("visibility")
+        end
+
         it "body mentions video column vocab (duration)" do
           expect(result["body"]).to include("duration")
         end
@@ -391,6 +399,14 @@ RSpec.describe Pito::MessageBuilder::HashtagHelp do
           expect(result["body"]).to include("columns")
         end
 
+        it "body mentions video column vocab (channel)" do
+          expect(result["body"]).to include("channel")
+        end
+
+        it "body mentions video column vocab (visibility)" do
+          expect(result["body"]).to include("visibility")
+        end
+
         it "body mentions video column vocab (comments)" do
           expect(result["body"]).to include("comments")
         end
@@ -405,6 +421,8 @@ RSpec.describe Pito::MessageBuilder::HashtagHelp do
         end
 
         it "body includes sort-column names" do
+          expect(result["body"]).to include("channel")
+          expect(result["body"]).to include("visibility")
           expect(result["body"]).to include("views")
           expect(result["body"]).to include("likes")
           expect(result["body"]).to include("duration")
