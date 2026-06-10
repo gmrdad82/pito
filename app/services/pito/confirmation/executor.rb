@@ -183,7 +183,7 @@ module Pito
           channel_ids     = Array(payload[:channel_ids])
           conversation_id = payload[:conversation_id].presence
           SyncChannelJob.perform_later(channel_ids, scope_label, conversation_id: conversation_id)
-          Pito::Copy.render("pito.copy.sync.channel_done", { scope: scope_label })
+          Pito::Copy.render("pito.copy.sync.channel_queued", { scope: scope_label })
         end
 
         # ── sync_channel_videos ────────────────────────────────────────────────────
@@ -194,7 +194,7 @@ module Pito
           channel_ids     = Array(payload[:channel_ids])
           conversation_id = payload[:conversation_id].presence
           SyncChannelVideosJob.perform_later(channel_ids, scope_label, conversation_id: conversation_id)
-          Pito::Copy.render("pito.copy.sync.channel_videos_done", { scope: scope_label, count: "?" })
+          Pito::Copy.render("pito.copy.sync.channel_videos_queued", { scope: scope_label })
         end
 
         # ── import_videos ──────────────────────────────────────────────────────────
