@@ -166,13 +166,15 @@ module Pito
 
         # ── sync_videos ────────────────────────────────────────────────────────────
         # Enqueues SyncVideosJob for the resolved channel scope.
+        # Returns a present-tense queued ack; the async job emits the done summary
+        # with the real count once it finishes.
         def confirm_sync_videos(payload)
           payload         = payload.with_indifferent_access
           scope_label     = payload[:scope_label].to_s
           channel_ids     = Array(payload[:channel_ids])
           conversation_id = payload[:conversation_id].presence
           SyncVideosJob.perform_later(channel_ids, scope_label, conversation_id: conversation_id)
-          Pito::Copy.render("pito.copy.sync.videos_done", { scope: scope_label, count: "?" })
+          Pito::Copy.render("pito.copy.sync.videos_queued", { scope: scope_label })
         end
 
         # ── sync_channel ───────────────────────────────────────────────────────────

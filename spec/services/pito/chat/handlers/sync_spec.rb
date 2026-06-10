@@ -197,4 +197,32 @@ RSpec.describe Pito::Chat::Handlers::Sync do
       expect(result.events.first[:kind]).to eq(:system)
     end
   end
+
+  # ── dash-prefixed flags are NOT valid nouns ────────────────────────────────────
+
+  describe "sync --videos (flag, not a noun)" do
+    it "returns a needs_ref error, not a sync_videos confirmation" do
+      result = handler_for("--videos").call
+      expect(result).to be_a(Pito::Chat::Result::Error)
+    end
+
+    it "does not enqueue SyncVideosJob" do
+      allow(SyncVideosJob).to receive(:perform_later)
+      handler_for("--videos").call
+      expect(SyncVideosJob).not_to have_received(:perform_later)
+    end
+  end
+
+  describe "sync --channels (flag, not a noun)" do
+    it "returns a needs_ref error, not a sync_channel confirmation" do
+      result = handler_for("--channels").call
+      expect(result).to be_a(Pito::Chat::Result::Error)
+    end
+
+    it "does not enqueue SyncChannelJob" do
+      allow(SyncChannelJob).to receive(:perform_later)
+      handler_for("--channels").call
+      expect(SyncChannelJob).not_to have_received(:perform_later)
+    end
+  end
 end

@@ -51,11 +51,11 @@ module Pito
         # ── Noun-form predicates ─────────────────────────────────────────────────
 
         def channels_form?(raw)
-          raw.match?(/\bchannels?\b/i)
+          raw.match?(/(?<!-)\bchannels?\b/i)
         end
 
         def videos_form?(raw)
-          raw.match?(/\bvideos?\b/i)
+          raw.match?(/(?<!-)\bvideos?\b/i)
         end
 
         # ── sync videos [only <ids>] ─────────────────────────────────────────────

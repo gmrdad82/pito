@@ -5334,6 +5334,8 @@ en:
           - "Video sync complete for %{scope}: %{count}."
           - "%{count} video(s) on %{scope} synced. Done."
           - "YouTube pull done: %{scope} — %{count} video(s) updated."
+        videos_queued:
+          - "Syncing %{scope} videos from YouTube…"
         channel_confirm:
           - "Sync %{scope} from YouTube?"
         channel_done:

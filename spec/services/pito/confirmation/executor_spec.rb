@@ -404,10 +404,18 @@ RSpec.describe Pito::Confirmation::Executor, type: :service do
       expect(SyncVideosJob).to have_received(:perform_later).with([ 1, 2 ], "all channels", conversation_id: nil)
     end
 
-    it "returns non-empty outcome text" do
+    it "returns a present-tense queued ack (not a done/count string)" do
       allow(SyncVideosJob).to receive(:perform_later)
       text = described_class.confirm("sync_videos", { "channel_ids" => [], "scope_label" => "@test" })
+      # Must be non-empty and must NOT contain a literal "?" count placeholder
       expect(text).to be_present
+      expect(text).not_to include("?")
+    end
+
+    it "includes the scope in the queued ack" do
+      allow(SyncVideosJob).to receive(:perform_later)
+      text = described_class.confirm("sync_videos", { "channel_ids" => [], "scope_label" => "all channels" })
+      expect(text).to include("all channels")
     end
   end
 
