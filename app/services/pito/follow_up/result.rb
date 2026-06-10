@@ -30,7 +30,13 @@ module Pito
     #                     message_args: { action: "foo" })
     module Result
       Mutation = Data.define(:kind, :payload)
-      Append   = Data.define(:events)
+      # Append carries zero or more events to append to the conversation.
+      # `consume:` (default true) controls whether the source event is marked
+      # reply_consumed after appending.  Pass `consume: false` for repeatable
+      # verbs like link/unlink whose source card should stay reusable.
+      Append   = Data.define(:events, :consume) do
+        def initialize(events:, consume: true) = super
+      end
       Error    = Data.define(:message_key, :message_args)
     end
   end

@@ -8,9 +8,14 @@
 # followed by a numeric id (plain or with a leading `#`). Title refs are not
 # supported — only local numeric ids. Connector word = `from`.
 #
-# Follow-up: ONE side is the source card's entity (read from the payload);
-# the OTHER side is parsed from `follow_up.rest` — drop a leading `to` or
-# `from`, drop a leading noun filler, the remainder is the numeric id.
+# Follow-up (detail card — singular video_id/game_id in payload):
+#   Source is implied by the card entity.  Targets are parsed from everything
+#   after the connector word `from`.  Comma or space separated, multi-target.
+#   E.g. `unlink from 1,2` unlinks this video/game from games/videos 1 and 2.
+#
+# Follow-up (list card — video_ids/game_ids in payload):
+#   Source id is on the LEFT of `from`; targets are on the RIGHT.
+#   E.g. `unlink 17 from 1,2` unlinks video/game 17 from games/videos 1 and 2.
 #
 # Destroys the `VideoGameLink` join if present; missing link → gentle
 # "already not linked" message (idempotent).
@@ -19,6 +24,8 @@ module Pito
   module Chat
     module Handlers
       class Unlink < Pito::Chat::Handler
+        include MultiLinkHelpers
+
         self.verb = :unlink
         self.description_key = "pito.chat.unlink.descriptions.unlink"
 
@@ -49,49 +56,28 @@ module Pito
 
         # ── Follow-up branch ───────────────────────────────────────────────────
 
-        # ONE side comes from the source card's payload; the OTHER from follow_up.rest.
-        # `video_target?` delegates to reply_target, so video_detail → video branch.
         def follow_up_unlink
           if video_target?(VIDEO_NOUNS)
-            video = resolve_target(::Video, id_key: :video_id, noun_fillers: VIDEO_NOUNS)
-            return not_found_video("") if video.nil?
-
-            game = resolve_other_side(::Game, GAME_NOUNS)
-            return game if result?(game)
-
-            destroy_link(game, video)
+            follow_up_multi(
+              connector:     "from",
+              source_class:  ::Video,
+              other_class:   ::Game,
+              source_nouns:  VIDEO_NOUNS,
+              other_nouns:   GAME_NOUNS,
+              copy_ok:       "pito.copy.games.unlinked_multi",
+              copy_op:       :unlink
+            )
           else
-            game = resolve_target(::Game, id_key: :game_id, noun_fillers: GAME_NOUNS)
-            return not_found_game("") if game.nil?
-
-            video = resolve_other_side(::Video, VIDEO_NOUNS)
-            return video if result?(video)
-
-            destroy_link(game, video)
+            follow_up_multi(
+              connector:     "from",
+              source_class:  ::Game,
+              other_class:   ::Video,
+              source_nouns:  GAME_NOUNS,
+              other_nouns:   VIDEO_NOUNS,
+              copy_ok:       "pito.copy.games.unlinked_multi",
+              copy_op:       :unlink
+            )
           end
-        end
-
-        # Parse the other side from follow_up.rest: drop a leading "to" or "from",
-        # drop a leading noun filler (game/games/video/videos), the remainder is the id.
-        # Returns a record on success; a Result::Ok (not-found) when the id isn't
-        # found; a Result::Error (usage hint) when the ref is blank or non-numeric.
-        def resolve_other_side(entity_class, nouns)
-          words = follow_up.rest.to_s.strip.split
-          words = words.drop(1) if %w[to from].include?(words.first&.downcase)
-          words = words.drop(1) if nouns.include?(words.first&.downcase)
-          ref   = words.join(" ").strip
-
-          return usage_hint if ref.blank?
-
-          id = ref.delete_prefix("#")
-          return usage_hint unless id.match?(/\A\d+\z/)
-
-          record = entity_class.find_by(id: id)
-
-          return not_found_game(ref)  if record.nil? && entity_class == ::Game
-          return not_found_video(ref) if record.nil? && entity_class == ::Video
-
-          record
         end
 
         # ── Free-chat helpers ──────────────────────────────────────────────────
@@ -170,7 +156,7 @@ module Pito
         end
 
         # True when the value is a Chat::Result (Ok or Error) rather than a record.
-        # Used to short-circuit after resolve_other_side.
+        # Used to short-circuit after resolve_sides.
         def result?(value)
           value.is_a?(Pito::Chat::Result::Ok) || value.is_a?(Pito::Chat::Result::Error)
         end

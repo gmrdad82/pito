@@ -33,7 +33,8 @@ module Pito
           # descending) — treat unknown as the far future, not Date.new(0).
           release_date: { key: ->(g) { g.release_date || Date.new(9999, 12, 31) },              requires_with: true },
           year:         { key: ->(g) { g.release_year || 9999 },                                requires_with: true },
-          channels:     { key: ->(g) { g.linked_videos.map { |v| v.channel&.handle }.compact.uniq.sort.join(",").downcase }, requires_with: true }
+          channels:     { key: ->(g) { g.linked_videos.map { |v| v.channel&.handle }.compact.uniq.sort.join(",").downcase }, requires_with: true },
+          footage:      { key: ->(g) { g.footages.sum { |f| f.duration_seconds.to_i } },        requires_with: true }
         }.freeze
 
         # Maps every sort token (downcased) → canonical column Symbol.
@@ -52,7 +53,8 @@ module Pito
           "release date" => :release_date,
           "year"         => :year,
           "channel"      => :channels,
-          "channels"     => :channels
+          "channels"     => :channels,
+          "footage"      => :footage
         }.freeze
 
         COLUMNS = {
@@ -78,10 +80,11 @@ module Pito
             value:   ->(g) { g.publisher_companies.map(&:name).join(", ") }
           },
           channels:     {
-            aliases: %w[channel channels],
-            heading: "Channels",
-            html:    true,
-            value:   ->(g) { g.linked_videos.map { |v| v.channel&.handle }.compact.uniq.map { |h| ERB::Util.html_escape(h) }.join("<br>") }
+            aliases:    %w[channel channels],
+            heading:    "Channels",
+            html:       true,
+            cell_class: "text-cyan pito-cell-channel",
+            value:      ->(g) { g.linked_videos.map { |v| v.channel&.handle }.compact.uniq.map { |h| ERB::Util.html_escape(h) }.join("<br>") }
           },
           release_date: {
             aliases: [ "release date" ],
@@ -94,6 +97,16 @@ module Pito
             heading: "Year",
             align:   :right,
             value:   ->(g) { g.release_year&.to_s || "—" }
+          },
+          footage:      {
+            aliases:    %w[footage],
+            heading:    "Footage",
+            align:      :right,
+            cell_class: "text-fg-dim text-right tabular-nums pito-cell-duration",
+            value:      ->(g) {
+              total = g.footages.sum { |f| f.duration_seconds.to_i }
+              total.positive? ? Pito::Formatter::Duration.call(total) : "—"
+            }
           }
         }.freeze
 
@@ -173,6 +186,7 @@ module Pito
             cfg  = COLUMNS.fetch(col)
             text = cfg[:value].call(game)
             cell_class =
+              cfg[:cell_class] ||
               case cfg[:align]
               when :right
                 col == :year ? "text-fg-dim text-right tabular-nums" : "text-fg-dim text-right"

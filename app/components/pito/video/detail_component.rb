@@ -37,9 +37,10 @@ module Pito
         I18n.t("pito.video.detail.privacy_status.#{@video.privacy_status}", default: @video.privacy_status.to_s.capitalize)
       end
 
-      # Format duration as M:SS or H:MM:SS (shared formatter).
+      # Format duration via the shared Pito::Formatter::Duration (DD:HH:MM:SS,
+      # leading zero-units trimmed).
       def duration_label
-        Pito::Video::DurationFormat.call(@video.duration_seconds)
+        Pito::Formatter::Duration.call(@video.duration_seconds)
       end
 
       def view_count_label

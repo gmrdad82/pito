@@ -1277,6 +1277,21 @@ html {
 .pito-data-grid[data-cols="8"][data-fixed-leading="1"][data-fixed-trailing="1"] { grid-template-columns: max-content max-content max-content repeat(4,minmax(0,1fr)) max-content; }
 .pito-data-grid[data-cols="8"][data-fixed-leading="1"][data-fixed-trailing="2"] { grid-template-columns: max-content max-content max-content repeat(3,minmax(0,1fr)) max-content max-content; }
 
+/* Clamp the list Title (2nd) column: cap the title cell's width so long titles
+   word-wrap to a second line, instead of the max-content track expanding to fit
+   the widest title. Applied to the title cell in Game/Video::List builders. */
+.pito-cell-title { max-width: 34ch; overflow-wrap: break-word; }
+
+/* Clamp the channel column (list games / list videos): cap at the longest live
+   @handle (14ch) + 1, so handles never widen the column past what they need.
+   Paired with text-cyan on the cell. Applied via cell_class in the ListColumns. */
+.pito-cell-channel { max-width: 15ch; overflow-wrap: break-word; }
+
+/* Clamp the duration / footage columns (list videos / list games): cap at the
+   widest possible value "99:23:59:59" (11ch). Paired with text-right +
+   tabular-nums on the cell. Applied via cell_class in the ListColumns. */
+.pito-cell-duration { max-width: 11ch; overflow-wrap: break-word; }
+
 /* ── Help block (nvim --help style man page) ───────────────────
    Preformatted monospace block for `list games --help`: preserves the
    builder's space-padding so the Usage/Options/Columns rows align, while

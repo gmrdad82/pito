@@ -2050,6 +2050,7 @@ en:
           col_channels_desc: "@handles of channels with linked videos"
           col_release_date_desc: "Release date, e.g. June 09, 2026"
           col_year_desc: "Release year"
+          col_footage_desc: "Total footage duration (d:hh:mm:ss)"
         videos_help:
           usage: "list videos [with <columns>] [sorted by <column>]"
           options_title: "Options:"
@@ -2060,6 +2061,8 @@ en:
           opt_sorted_desc: "Sort by a visible column (append desc to reverse)"
           opt_help: "--help"
           opt_help_desc: "Print this help message"
+          col_channel_desc: "Channel @handle"
+          col_visibility_desc: "Visibility — public / unlisted / private"
           col_game_desc: "Linked game title(s)"
           col_duration_desc: "Video duration (hh:mm:ss)"
           col_views_desc: "View count"
@@ -2175,15 +2178,16 @@ en:
               Options:
                 "--help": "Print this help message"
         footage:
-          usage: "footage game <id> <path>"
+          usage: "footage game <id> [--force] <path>"
           game:
-            usage: "footage game <id> <path>"
+            usage: "footage game <id> [--force] <path>"
             sections:
               Arguments:
                 "game": "Target noun"
                 "<id>": "Local numeric game id"
                 "<path>": "Local footage folder path (absolute or ~/…)"
               Options:
+                "--force": "Re-probe & overwrite footage already imported (e.g. after re-encoding)"
                 "--help": "Print this help message"
         link:
           usage: "link game <id> to video <id>  |  link video <id> to game <id>"
@@ -2319,17 +2323,17 @@ en:
                 Options:
                   "--help": "Print this help message"
             link:
-              usage: "#<show-game-hashtag> link to video <id>"
+              usage: "#<show-game-hashtag> link to video <id>[,id…]"
               sections:
                 Arguments:
-                  "to video <id>": "Local numeric video id to link to"
+                  "to video <id>[,id…]": "One or more local numeric video ids to link to (comma or space separated)"
                 Options:
                   "--help": "Print this help message"
             unlink:
-              usage: "#<show-game-hashtag> unlink from video <id>"
+              usage: "#<show-game-hashtag> unlink from video <id>[,id…]"
               sections:
                 Arguments:
-                  "from video <id>": "Local numeric video id to unlink from"
+                  "from video <id>[,id…]": "One or more local numeric video ids to unlink from (comma or space separated)"
                 Options:
                   "--help": "Print this help message"
             reindex:
@@ -2393,6 +2397,22 @@ en:
                 Options:
                   "[desc]": "Reverse order (descending)"
                   "--help": "Print this help message"
+            link:
+              usage: "#<list-games-hashtag> link <game id> to <video id>[,id…]"
+              sections:
+                Arguments:
+                  "<game id>": "Row id of the game to link"
+                  "to <video id>[,id…]": "One or more local numeric video ids to link to (comma or space separated)"
+                Options:
+                  "--help": "Print this help message"
+            unlink:
+              usage: "#<list-games-hashtag> unlink <game id> from <video id>[,id…]"
+              sections:
+                Arguments:
+                  "<game id>": "Row id of the game to unlink"
+                  "from <video id>[,id…]": "One or more local numeric video ids to unlink from (comma or space separated)"
+                Options:
+                  "--help": "Print this help message"
 
         show-video:
           target_usage: "#<show-video-hashtag> <action>"
@@ -2419,17 +2439,17 @@ en:
                 Options:
                   "--help": "Print this help message"
             link:
-              usage: "#<show-video-hashtag> link to game <id>"
+              usage: "#<show-video-hashtag> link to game <id>[,id…]"
               sections:
                 Arguments:
-                  "to game <id>": "Local numeric game id to link to"
+                  "to game <id>[,id…]": "One or more local numeric game ids to link to (comma or space separated)"
                 Options:
                   "--help": "Print this help message"
             unlink:
-              usage: "#<show-video-hashtag> unlink from game <id>"
+              usage: "#<show-video-hashtag> unlink from game <id>[,id…]"
               sections:
                 Arguments:
-                  "from game <id>": "Local numeric game id to unlink from"
+                  "from game <id>[,id…]": "One or more local numeric game ids to unlink from (comma or space separated)"
                 Options:
                   "--help": "Print this help message"
 
@@ -2461,14 +2481,14 @@ en:
               usage: "#<list-videos-hashtag> add <columns>"
               sections:
                 Arguments:
-                  "<columns>": "Comma-separated column names to add: game, duration, views, likes, comments"
+                  "<columns>": "Comma-separated column names to add: channel, visibility, game, duration, views, likes, comments"
                 Options:
                   "--help": "Print this help message"
             remove:
               usage: "#<list-videos-hashtag> remove <columns>"
               sections:
                 Arguments:
-                  "<columns>": "Comma-separated column names to remove: game, duration, views, likes, comments"
+                  "<columns>": "Comma-separated column names to remove: channel, visibility, game, duration, views, likes, comments"
                 Options:
                   "--help": "Print this help message"
             sort:
@@ -2477,6 +2497,8 @@ en:
                 "Sort columns":
                   "id": "Row number"
                   "title": "Video title (alphabetical)"
+                  "channel": "Channel @handle — requires the channel column to be visible"
+                  "visibility": "Visibility — requires the visibility column to be visible"
                   "game": "Linked game(s) — requires the game column to be visible"
                   "duration": "Video duration — requires the duration column to be visible"
                   "views": "View count — requires the views column to be visible"
@@ -2484,6 +2506,22 @@ en:
                   "comments": "Comment count — requires the comments column to be visible"
                 Options:
                   "[desc]": "Reverse order (descending)"
+                  "--help": "Print this help message"
+            link:
+              usage: "#<list-videos-hashtag> link <video id> to <game id>[,id…]"
+              sections:
+                Arguments:
+                  "<video id>": "Row id of the video to link"
+                  "to <game id>[,id…]": "One or more local numeric game ids to link to (comma or space separated)"
+                Options:
+                  "--help": "Print this help message"
+            unlink:
+              usage: "#<list-videos-hashtag> unlink <video id> from <game id>[,id…]"
+              sections:
+                Arguments:
+                  "<video id>": "Row id of the video to unlink"
+                  "from <game id>[,id…]": "One or more local numeric game ids to unlink from (comma or space separated)"
+                Options:
                   "--help": "Print this help message"
 
         list-channels:
@@ -3282,6 +3320,8 @@ en:
           - "The unlink succeeded vacuously: %{game} and %{video} weren't linked."
           - "No-op: %{game} and %{video} share no link."
           - "%{game} and %{video} are as unlinked as they've ever been."
+        linked_multi: "Linked %{source} to %{targets}."
+        unlinked_multi: "Unlinked %{source} from %{targets}."
         picker_empty:
           - "No games in the library yet. Import one to begin."
           - "Nothing to pick from. /games import to add a game."
@@ -3794,6 +3834,8 @@ en:
           - "No channels. %{title} is waiting to be covered."
 
       videos:
+        columns:
+          visibility: "Visibility"
         not_found:
           - "No video matching %{ref}."
           - "Couldn't find %{ref}."

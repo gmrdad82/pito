@@ -25,8 +25,8 @@ module Pito
         SORT_SPECS = {
           id:       { key: ->(v) { v.id },                                              requires_with: false },
           title:    { key: ->(v) { v.title.to_s.downcase },                             requires_with: false },
-          channel:  { key: ->(v) { v.channel.at_handle.to_s.downcase },                requires_with: false },
-          privacy:  { key: ->(v) { v.privacy_status.to_s },                             requires_with: false },
+          channel:    { key: ->(v) { v.channel.at_handle.to_s.downcase },               requires_with: true },
+          visibility: { key: ->(v) { v.privacy_status.to_s },                           requires_with: true },
           game:     { key: ->(v) { v.linked_games.map(&:title).join(", ").downcase },   requires_with: true },
           duration: { key: ->(v) { v.duration_seconds.to_i },                           requires_with: true },
           views:    { key: ->(v) { v.view_count.to_i },                                 requires_with: true },
@@ -41,7 +41,7 @@ module Pito
           "channel" => :channel,
           "handle"  => :channel,
           "@handle" => :channel,
-          "privacy" => :privacy,
+          "visibility" => :visibility,
           "game"    => :game,
           "games"   => :game,
           "duration" => :duration,
@@ -51,15 +51,28 @@ module Pito
         }.freeze
 
         COLUMNS = {
+          channel:  {
+            aliases:    %w[channel],
+            heading:    "Channel",
+            cell_class: "text-cyan pito-cell-channel",
+            value:      ->(v) { v.channel.at_handle }
+          },
+          visibility: {
+            aliases:     %w[visibility],
+            heading_key: "pito.copy.videos.columns.visibility",
+            value:       ->(v) { visibility_label(v) }
+          },
           game:     {
             aliases: %w[game games],
             heading: "Game",
             value:   ->(v) { v.linked_games.map(&:title).join(", ") }
           },
           duration: {
-            aliases: %w[duration],
-            heading: "Duration",
-            value:   ->(v) { Pito::Video::DurationFormat.call(v.duration_seconds) || "—" }
+            aliases:    %w[duration],
+            heading:    "Duration",
+            align:      :right,
+            cell_class: "text-fg-dim text-right tabular-nums pito-cell-duration",
+            value:      ->(v) { Pito::Formatter::Duration.call(v.duration_seconds) || "—" }
           },
           views:    {
             aliases: %w[views],
@@ -92,7 +105,7 @@ module Pito
 
         # Base sort tokens — always-visible columns (requires_with: false).
         def base_sort_tokens
-          %w[id title channel privacy]
+          %w[id title]
         end
 
         # Maps canonical Symbol → primary display token (first alias).
@@ -113,7 +126,31 @@ module Pito
         # @param cols [Array<Symbol>] ordered canonical column keys
         # @return [Array<String>]
         def headings(cols)
-          cols.map { |col| COLUMNS.fetch(col)[:heading] }
+          cols.map { |col| heading_text(col) }
+        end
+
+        # Returns heading entries for the requested canonical columns. Left-aligned
+        # columns return a plain String; right-aligned columns (align: :right)
+        # return a Hash { "text" => heading, "class" => "text-right" } so
+        # SystemComponent merges the alignment into the heading cell class.
+        #
+        # @param cols [Array<Symbol>] ordered canonical column keys
+        # @return [Array<String, Hash>]
+        def heading_cells(cols)
+          cols.map do |col|
+            cfg = COLUMNS.fetch(col)
+            if cfg[:align] == :right
+              { "text" => heading_text(col), "class" => "text-right" }
+            else
+              heading_text(col)
+            end
+          end
+        end
+
+        # Resolves a single column's heading String (copy-keyed or literal).
+        def heading_text(col)
+          cfg = COLUMNS.fetch(col)
+          cfg[:heading_key] ? Pito::Copy.render(cfg[:heading_key]) : cfg[:heading]
         end
 
         # Returns an Array of cell hashes for the requested canonical columns.
@@ -123,7 +160,8 @@ module Pito
         # @return [Array<{ text: String, class: String }>]
         def cells(video, cols)
           cols.map do |col|
-            { text: COLUMNS.fetch(col)[:value].call(video), class: "text-fg-dim" }
+            cfg = COLUMNS.fetch(col)
+            { text: cfg[:value].call(video), class: cfg[:cell_class] || "text-fg-dim" }
           end
         end
 
@@ -147,7 +185,15 @@ module Pito
         def count_text(n)
           n.nil? ? "—" : n.to_s
         end
-        private :count_text
+
+        # Human label for a video's privacy_status (the "Visibility" column).
+        def visibility_label(video)
+          status = video.privacy_status
+          return "" if status.blank?
+
+          I18n.t("pito.video.detail.privacy_status.#{status}", default: status.to_s.capitalize)
+        end
+        private :count_text, :visibility_label
       end
     end
   end

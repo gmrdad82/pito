@@ -52,6 +52,9 @@ class Video < ApplicationRecord
 
   scope :published, -> { privacy_status_public }
   scope :unlisted,  -> { privacy_status_unlisted }
+  # A future scheduled publish (the `publish_at` column carries the YouTube
+  # scheduled go-live time; cleared/past once it has gone live).
+  scope :scheduled, -> { where("publish_at > ?", Time.current) }
 
   validates :youtube_video_id, presence: true, uniqueness: true
   validates :title, presence: true

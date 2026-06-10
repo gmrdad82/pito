@@ -49,7 +49,15 @@ module Pito
           follow_up:    context
         )
 
-        Pito::FollowUp::ChatResultAdapter.call(result)
+        adapted = Pito::FollowUp::ChatResultAdapter.call(result)
+
+        # link and unlink are repeatable: the source card must NOT be consumed
+        # so the user can keep linking/unlinking additional targets.
+        if %w[link unlink].include?(verb) && adapted.is_a?(Pito::FollowUp::Result::Append)
+          adapted = Pito::FollowUp::Result::Append.new(events: adapted.events, consume: false)
+        end
+
+        adapted
       end
     end
   end

@@ -103,7 +103,13 @@ RSpec.describe Pito::MessageBuilder::Game::List do
 
     it "second cell has text-fg class" do
       cell = payload["table_rows"].first[:cells][1]
-      expect(cell[:class]).to eq("text-fg")
+      expect(cell[:class]).to include("text-fg")
+    end
+
+    it "title cell (index 1) carries the pito-cell-title class" do
+      cell = payload["table_rows"].first[:cells][1]
+      expect(cell[:class]).to include("pito-cell-title")
+      expect(cell[:class]).to include("text-fg")
     end
   end
 
@@ -231,6 +237,39 @@ RSpec.describe Pito::MessageBuilder::Game::List do
       release_idx = heading_texts.index("Release")
       release_cell = row[:cells][release_idx]
       expect(release_cell[:class]).to include("text-right")
+    end
+  end
+
+  describe ".call with columns: [:footage]" do
+    let!(:game) do
+      g = create(:game, title: "Footage Game")
+      create(:footage, game: g, duration_seconds: 3600)
+      create(:footage, game: g, duration_seconds: 3600)
+      g.reload
+    end
+
+    let(:games) { ::Game.includes(:footages).where(id: game.id) }
+
+    subject(:payload) { described_class.call(games, conversation: conversation, columns: [ :footage ]) }
+
+    it "sets fixed_trailing to 1" do
+      expect(payload["fixed_trailing"]).to eq(1)
+    end
+
+    it "includes a right-aligned Footage heading entry" do
+      expect(payload["table_heading"]).to include({ "text" => "Footage", "class" => "text-right" })
+    end
+
+    it "footage cell has text-right, tabular-nums, and pito-cell-duration classes" do
+      footage_cell = payload["table_rows"].first[:cells].last
+      expect(footage_cell[:class]).to include("text-right")
+      expect(footage_cell[:class]).to include("tabular-nums")
+      expect(footage_cell[:class]).to include("pito-cell-duration")
+    end
+
+    it "footage cell shows formatted total duration" do
+      footage_cell = payload["table_rows"].first[:cells].last
+      expect(footage_cell[:text]).to eq("2:00:00")
     end
   end
 end

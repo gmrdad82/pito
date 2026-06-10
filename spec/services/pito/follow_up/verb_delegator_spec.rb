@@ -42,5 +42,52 @@ RSpec.describe Pito::FollowUp::VerbDelegator, type: :service do
       expect(result.message_key).to eq("pito.follow_up.game_list.errors.invalid_action")
       expect(result.message_args).to eq({ action: "publish" })
     end
+
+    context "consume flag — link/unlink are repeatable, show/rm consume the source" do
+      let(:channel)          { create(:channel) }
+      let!(:video)           { create(:video, channel:) }
+      # video_list source event — its declared actions include link and unlink.
+      let(:video_list_event) do
+        instance_double(Event, payload: { "reply_target" => "video_list" })
+      end
+
+      it "link produces Append with consume: false so the source card stays reusable" do
+        result = described_class.call(
+          source_event: video_list_event,
+          rest:         "link #{video.id} to #{game.id}",
+          conversation:
+        )
+
+        expect(result).to be_a(Pito::FollowUp::Result::Append)
+        expect(result.consume).to be(false)
+      end
+
+      it "unlink produces Append with consume: false so the source card stays reusable" do
+        create(:video_game_link, video:, game:)
+
+        result = described_class.call(
+          source_event: video_list_event,
+          rest:         "unlink #{video.id} from #{game.id}",
+          conversation:
+        )
+
+        expect(result).to be_a(Pito::FollowUp::Result::Append)
+        expect(result.consume).to be(false)
+      end
+
+      it "show produces Append with consume: true (default — source is consumed)" do
+        result = described_class.call(source_event:, rest: "show #{game.id}", conversation:)
+
+        expect(result).to be_a(Pito::FollowUp::Result::Append)
+        expect(result.consume).to be(true)
+      end
+
+      it "rm produces Append with consume: true (default — source is consumed)" do
+        result = described_class.call(source_event:, rest: "rm #{game.id}", conversation:)
+
+        expect(result).to be_a(Pito::FollowUp::Result::Append)
+        expect(result.consume).to be(true)
+      end
+    end
   end
 end

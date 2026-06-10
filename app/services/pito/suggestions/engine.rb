@@ -479,24 +479,13 @@ module Pito
           Array(event.payload["list_columns"])
         end
 
-        # link XOR unlink by existence (T19.6): when a detail card offers BOTH,
-        # suggest `unlink` if the entity already has a VideoGameLink, else `link`.
-        # Gating (VerbDelegator) still permits both — this only shapes the menu/ghost.
-        def filter_link_unlink(actions, event)
-          return actions unless actions.include?("link") && actions.include?("unlink")
-
-          actions - [ entity_linked?(event) ? "link" : "unlink" ]
-        end
-
-        def entity_linked?(event)
-          payload = event.payload
-          if payload["game_id"].present?
-            VideoGameLink.exists?(game_id: payload["game_id"])
-          elsif payload["video_id"].present?
-            VideoGameLink.exists?(video_id: payload["video_id"])
-          else
-            false
-          end
+        # Always offer both link and unlink for any target that declares them.
+        # Previously this collapsed them to one based on link-state of a single
+        # entity, but that was wrong for multi-target HABTM (the source could be
+        # partially linked to some targets and not others).  Showing both lets
+        # the user choose; gating (VerbDelegator) still permits both verbs.
+        def filter_link_unlink(actions, _event)
+          actions
         end
 
         # Build completions for a follow-up handle's actions: a palette of all

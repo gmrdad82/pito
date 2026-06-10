@@ -16,31 +16,48 @@ module Pito
         self.description_key = "pito.chat.footage.descriptions.footage"
 
         def call
-          ref, path = parse_args
+          ref, path, force = parse_args
           return needs_ref if ref.blank? || path.blank?
 
           game = resolve_game(ref)
           return not_found(ref) unless game
 
           Pito::Chat::Result::Ok.new(events: [
-            { kind: :system, payload: Pito::MessageBuilder::Game::FootageImport.call(game, path: path) }
+            { kind: :system, payload: Pito::MessageBuilder::Game::FootageImport.call(game, path: path, force: force) }
           ])
         end
 
         private
 
-        # `footage game <id> <path>` — strip the verb, then an optional `game`
-        # noun filler (like other handlers accept), leaving `<id> <path>`. The
-        # path is the tail starting at the first absolute (`/…`) or home
-        # (`~/…`) token. No path token → everything is the ref (ask for a path).
+        # `footage game <id> [--force] <path>` — strip the verb, then an optional
+        # `game` noun filler (like other handlers accept), leaving `<id> <path>`.
+        # An optional `--force` (or bare `force`) flag re-probes + overwrites
+        # already-imported footage; it may sit before the path or trail the line,
+        # never inside the path. The path is the tail starting at the first
+        # absolute (`/…`) or home (`~/…`) token. No path token → everything is the
+        # ref (ask for a path).
         def parse_args
           rest = message.raw.to_s.strip.sub(/\Afootage\b\s*/i, "").strip
           rest = rest.sub(/\Agame\b\s*/i, "").strip
+
+          # Trailing `--force` / `force` (after the path) — strip before splitting.
+          force = !rest.sub!(/\s+(?:--)?force\b\s*\z/i, "").nil?
+
           if (m = rest.match(%r{\s+([~/].*)\z}))
-            [ rest[0...m.begin(0)].strip, m[1].strip ]
+            head = rest[0...m.begin(0)].to_s
+            path = m[1].strip
           else
-            [ rest, nil ]
+            head = rest
+            path = nil
           end
+
+          # `--force` / `force` in the head (leading or between the id and path).
+          if head.match?(/(?:\A|\s)(?:--)?force\b/i)
+            force = true
+            head  = head.gsub(/(?:\A|\s)(?:--)?force\b/i, " ").strip.squeeze(" ")
+          end
+
+          [ head, path, force ]
         end
 
         # Numeric ID only: strip optional leading `#`, require `\A\d+\z`.

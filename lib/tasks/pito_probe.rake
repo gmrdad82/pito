@@ -6,6 +6,7 @@
 # Usage:
 #   bin/rails pito:tools:probe game=42 path=/mnt/media/tekken/*.mkv
 #   bin/rails pito:tools:probe game=42 path=/mnt/media/tekken/round1.mkv
+#   bin/rails pito:tools:probe game=42 path=/mnt/media/tekken/*.mkv -- --force
 #
 # The task expands the path (supports globs), runs `Pito::Footage::Probe`
 # against each file, and upserts a `Footage` row per file keyed by
@@ -13,15 +14,16 @@
 #
 # INCREMENTAL by default: a file whose `[game_id, filename]` already has a
 # Footage row is SKIPPED (ffprobe is NOT re-run) — so re-running on the same
-# folder only picks up NEW files. Pass `force=1` to re-probe + overwrite every
-# matched file.
+# folder only picks up NEW files. Pass `-- --force` (rake needs the `--` to hand
+# the flag through) to re-probe + overwrite every matched file — e.g. after
+# re-encoding the same filenames to a new resolution. (`force=1` also works.)
 namespace :pito do
   namespace :tools do
-    desc "Probe video files with ffprobe and upsert Footage rows. game=N path=PATTERN [force=1]"
+    desc "Probe video files with ffprobe and upsert Footage rows. game=N path=PATTERN [-- --force]"
     task probe: :environment do
       game_id = ENV["game"]
       path_pattern = ENV["path"]
-      force = ENV["force"].to_s == "1"
+      force = ARGV.include?("--force") || ENV["force"].to_s == "1"
 
       abort "Usage: bin/rails pito:tools:probe game=N path=PATTERN" if game_id.blank? || path_pattern.blank?
 
@@ -67,13 +69,7 @@ namespace :pito do
           {
             game_id: game.id,
             filename: filename,
-            resolution: result.resolution,
-            fps: result.fps,
             duration_seconds: result.duration_seconds,
-            aspect_ratio: result.aspect_ratio,
-            orientation: result.orientation,
-            needs_grading: result.needs_grading,
-            audio_track_names: result.audio_track_names,
             updated_at: Time.current
           },
           unique_by: :index_footages_on_game_id_and_filename

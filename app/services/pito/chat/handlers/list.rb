@@ -9,22 +9,23 @@
 #
 # ## Video listing
 #
-# Syntax: `list videos [published|unlisted]`
+# Syntax: `list videos [published|unlisted|scheduled]`
 #
 # Channel scope comes from `self.channel` (the param threaded through the
 # dispatcher, e.g. "@all" or "@handle"):
 #   "@all" (or nil/blank) → all channels.
 #   "@<handle>"           → videos for that channel only; unknown handle → error.
 #
-# Privacy filter:
+# Visibility filter (composes with `with` columns):
 #   "published" → Video.published (public)
 #   "unlisted"  → Video.unlisted
+#   "scheduled" → Video.scheduled (future publish_at)
 #   (none)      → all videos regardless of privacy_status
 #
 # Ordering: title ASC (consistent with games + channels listing).
 #
-# Follow-up: NOT stamped (no video_list follow-up handler; simplest consistent
-# choice matching the absence of a `video_list` follow-up engine).
+# Follow-up: video list IS stamped as `reply_target: "video_list"`, enabling
+# follow-up reply verbs (show, delete, link, unlink, add, remove, sort/order).
 #
 # NOTE: `game`/`games` are FILLER words in the grammar, so `list` and
 # `list games` parse identically — both land here.
@@ -38,9 +39,10 @@ module Pito
         self.verb = :list
         self.description_key = "pito.chat.list.descriptions.list"
 
-        PRIVACY_FILTERS = {
+        VISIBILITY_FILTERS = {
           "published" => :published,
-          "unlisted"  => :unlisted
+          "unlisted"  => :unlisted,
+          "scheduled" => :scheduled
         }.freeze
 
         def call
@@ -68,6 +70,7 @@ module Pito
           if columns.any?
             includes_args = [ :genres, :developer_companies, :publisher_companies ]
             includes_args << { linked_videos: :channel } if columns.include?(:channels)
+            includes_args << :footages if columns.include?(:footage)
             games = games.includes(*includes_args)
           end
 
@@ -106,7 +109,7 @@ module Pito
           raw.to_s.split(/\b(?:with|sorted\s+by|ordered\s+by)\b/i, 2).first.to_s
         end
 
-        # `list videos [published|unlisted] [with <col>, …]`
+        # `list videos [published|unlisted|scheduled] [with <col>, …]`
         #
         # 1. Resolve channel scope from `self.channel`.
         # 2. Apply privacy filter from raw input.
@@ -118,7 +121,7 @@ module Pito
           return error if error
 
           # Apply privacy filter.
-          filter_key = privacy_filter_from(message.raw)
+          filter_key = visibility_filter_from(message.raw)
           scoped     = scoped.public_send(filter_key) if filter_key
 
           # Parse extra columns.
@@ -222,9 +225,9 @@ module Pito
           handle.to_s.sub(/\A@+/, "")
         end
 
-        # Returns the Symbol scope name (:published / :unlisted) or nil.
-        def privacy_filter_from(raw)
-          PRIVACY_FILTERS.each do |word, scope|
+        # Returns the Symbol scope name (:published / :unlisted / :scheduled) or nil.
+        def visibility_filter_from(raw)
+          VISIBILITY_FILTERS.each do |word, scope|
             return scope if raw.match?(/\b#{Regexp.escape(word)}\b/i)
           end
           nil

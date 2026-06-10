@@ -5,8 +5,9 @@ module Pito
     module Video
       # Builds the payload for the video library list message.
       #
-      # Returns a table_rows payload (kv-table via SystemComponent) with a
-      # 4-column cells row per video: id, title, channel @handle, privacy label.
+      # Returns a table_rows payload (kv-table via SystemComponent). The default
+      # row is just id + title; `channel`, `visibility`, and the rest are optional
+      # `with` columns (see Video::ListColumns).
       #
       # Stamped follow-up-able (reply_target: "video_list") so the user can reply
       # `#<handle> show <id>` / `rm <id>` etc. — delegated to the verb handlers.
@@ -24,7 +25,7 @@ module Pito
           cols    = Array(columns).map(&:to_sym)
           payload = {
             "body"          => Pito::Copy.render("pito.copy.videos.list_intro", { count: videos.size }),
-            "table_heading" => [ "#", "Title", "Channel", "Privacy", *ListColumns.headings(cols) ],
+            "table_heading" => [ "#", "Title", *ListColumns.heading_cells(cols) ],
             "table_rows"    => videos.map { |video| row_for(video, cols) },
             # Stamped for add/remove column mutations: allows the handler to
             # reload the same videos and rebuild with an updated column set.
@@ -38,23 +39,14 @@ module Pito
         def row_for(video, columns = [])
           {
             cells: [
-              { text: "##{video.id}",           class: "text-cyan tabular-nums text-right whitespace-nowrap" },
-              { text: video.title,              class: "text-fg" },
-              { text: video.channel.at_handle,  class: "text-cyan whitespace-nowrap" },
-              { text: privacy_label(video),     class: "text-fg-faded whitespace-nowrap" },
+              { text: "##{video.id}", class: "text-cyan tabular-nums text-right whitespace-nowrap" },
+              { text: video.title,    class: "text-fg pito-cell-title" },
               *ListColumns.cells(video, columns)
             ]
           }
         end
 
-        def privacy_label(video)
-          return "" if video.privacy_status.blank?
-
-          I18n.t("pito.video.detail.privacy_status.#{video.privacy_status}",
-                 default: video.privacy_status.to_s.capitalize)
-        end
-
-        private_class_method :row_for, :privacy_label
+        private_class_method :row_for
       end
     end
   end

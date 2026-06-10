@@ -68,4 +68,17 @@ RSpec.describe Pito::Footage::ProbeCommandComponent, type: :component do
     node = render_inline(described_class.new(game_id: game.id, path: "/custom"))
     expect(node.css("code").text).to include('pito:tools:probe game=42 path="/custom/*"')
   end
+
+  it "appends -- --force to command_text when force: true" do
+    node = render_inline(described_class.new(game_id: game.id, path: "/clips", force: true))
+    text = node.css("code").text
+    expect(text).to include('game=42')
+    expect(text).to include('path="/clips/*"')
+    expect(text).to end_with("-- --force")
+  end
+
+  it "does not include --force in command_text when force is omitted" do
+    node = render_inline(described_class.new(game_id: game.id, path: "/clips"))
+    expect(node.css("code").text).not_to include("--force")
+  end
 end

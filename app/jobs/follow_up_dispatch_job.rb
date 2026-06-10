@@ -65,9 +65,13 @@ class FollowUpDispatchJob < ApplicationJob
         )
         broadcaster.broadcast_event(new_event)
       end
-      # Consume the source so its affordance is hidden + handle stays reserved.
-      event.update!(payload: event.payload.merge("reply_consumed" => true))
-      broadcaster.replace_event(event)
+      # Consume the source (hide its affordance + reserve the handle) only when
+      # the result opts in (consume: true, which is the default).  Repeatable
+      # verbs such as link/unlink set consume: false so the card stays reusable.
+      if result.consume
+        event.update!(payload: event.payload.merge("reply_consumed" => true))
+        broadcaster.replace_event(event)
+      end
       broadcaster.complete_turn(turn:)
 
     when Pito::FollowUp::Result::Error

@@ -7,9 +7,14 @@
 # followed by a numeric id (plain or with a leading `#`). Title refs are not
 # supported — only local numeric ids.
 #
-# Follow-up: ONE side is the source card's entity (read from the payload);
-# the OTHER side is parsed from `follow_up.rest` — drop a leading `to`, drop a
-# leading noun filler, the remainder is the numeric id.
+# Follow-up (detail card — singular video_id/game_id in payload):
+#   Source is implied by the card entity.  Targets are parsed from everything
+#   after the connector word `to`.  Comma or space separated, multi-target.
+#   E.g. `link to 1,2,3` links this video/game to games/videos 1, 2, and 3.
+#
+# Follow-up (list card — video_ids/game_ids in payload):
+#   Source id is on the LEFT of `to`; targets are on the RIGHT.
+#   E.g. `link 17 to 1,2,3` links video/game 17 to games/videos 1, 2, and 3.
 #
 # Resolution: id-only — `::Game.find_by(id:)` / `::Video.find_by(id:)`.
 #
@@ -19,6 +24,8 @@ module Pito
   module Chat
     module Handlers
       class Link < Pito::Chat::Handler
+        include MultiLinkHelpers
+
         self.verb = :link
         self.description_key = "pito.chat.link.descriptions.link"
 
@@ -49,49 +56,28 @@ module Pito
 
         # ── Follow-up branch ───────────────────────────────────────────────────
 
-        # ONE side comes from the source card's payload; the OTHER from follow_up.rest.
-        # `video_target?` delegates to reply_target, so video_detail → video branch.
         def follow_up_link
           if video_target?(VIDEO_NOUNS)
-            video = resolve_target(::Video, id_key: :video_id, noun_fillers: VIDEO_NOUNS)
-            return not_found_video("") if video.nil?
-
-            game = resolve_other_side(::Game, GAME_NOUNS)
-            return game if result?(game)
-
-            create_link(game, video)
+            follow_up_multi(
+              connector:     "to",
+              source_class:  ::Video,
+              other_class:   ::Game,
+              source_nouns:  VIDEO_NOUNS,
+              other_nouns:   GAME_NOUNS,
+              copy_ok:       "pito.copy.games.linked_multi",
+              copy_op:       :link
+            )
           else
-            game = resolve_target(::Game, id_key: :game_id, noun_fillers: GAME_NOUNS)
-            return not_found_game("") if game.nil?
-
-            video = resolve_other_side(::Video, VIDEO_NOUNS)
-            return video if result?(video)
-
-            create_link(game, video)
+            follow_up_multi(
+              connector:     "to",
+              source_class:  ::Game,
+              other_class:   ::Video,
+              source_nouns:  GAME_NOUNS,
+              other_nouns:   VIDEO_NOUNS,
+              copy_ok:       "pito.copy.games.linked_multi",
+              copy_op:       :link
+            )
           end
-        end
-
-        # Parse the other side from follow_up.rest: drop a leading "to", drop a
-        # leading noun filler (game/games/video/videos), the remainder is the id.
-        # Returns a record on success; a Result::Ok (not-found) when the id isn't
-        # found; a Result::Error (usage hint) when the ref is blank or non-numeric.
-        def resolve_other_side(entity_class, nouns)
-          words = follow_up.rest.to_s.strip.split
-          words = words.drop(1) if words.first&.downcase == "to"
-          words = words.drop(1) if nouns.include?(words.first&.downcase)
-          ref   = words.join(" ").strip
-
-          return usage_hint if ref.blank?
-
-          id = ref.delete_prefix("#")
-          return usage_hint unless id.match?(/\A\d+\z/)
-
-          record = entity_class.find_by(id: id)
-
-          return not_found_game(ref)  if record.nil? && entity_class == ::Game
-          return not_found_video(ref) if record.nil? && entity_class == ::Video
-
-          record
         end
 
         # ── Free-chat helpers ──────────────────────────────────────────────────

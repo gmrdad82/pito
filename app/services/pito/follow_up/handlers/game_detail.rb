@@ -67,7 +67,7 @@ module Pito
           game = resolve_game_from_event(event)
           return game_not_found_error if game.nil?
 
-          path = args.to_s.strip
+          path, force = parse_footage_args(args)
           if path.blank?
             return Pito::FollowUp::Result::Error.new(
               message_key:  "pito.follow_up.game_detail.errors.missing_path",
@@ -76,8 +76,19 @@ module Pito
           end
 
           Pito::FollowUp::Result::Append.new(
-            events: [ { kind: :system, payload: Pito::MessageBuilder::Game::FootageImport.call(game, path: path) } ]
+            events: [ { kind: :system, payload: Pito::MessageBuilder::Game::FootageImport.call(game, path: path, force: force) } ]
           )
+        end
+
+        # Splits the `footage` args tail into [path, force]. An optional `--force`
+        # (or bare `force`) flag at the start or end re-probes + overwrites
+        # already-imported footage; the remainder is the folder path.
+        def parse_footage_args(args)
+          text  = args.to_s.strip
+          force = false
+          force = true if text.sub!(/\A(?:--)?force\b\s*/i, "")     # leading flag
+          force = true if text.sub!(/\s+(?:--)?force\b\s*\z/i, "")  # trailing flag
+          [ text.strip, force ]
         end
 
         # ── helpers ────────────────────────────────────────────────────────────

@@ -32,6 +32,14 @@ RSpec.describe Pito::MessageBuilder::Video::ListHelp do
       expect(result["body"]).to include("Columns:")
     end
 
+    it "body includes the channel column token" do
+      expect(result["body"]).to include("channel")
+    end
+
+    it "body includes the visibility column token" do
+      expect(result["body"]).to include("visibility")
+    end
+
     it "body includes the game column token" do
       expect(result["body"]).to include("game")
     end
@@ -65,6 +73,8 @@ RSpec.describe Pito::MessageBuilder::Video::ListHelp do
     end
 
     it "body includes column descriptions" do
+      expect(result["body"]).to include("Channel @handle")
+      expect(result["body"]).to include("Visibility")
       expect(result["body"]).to include("View count")
       expect(result["body"]).to include("Like count")
     end

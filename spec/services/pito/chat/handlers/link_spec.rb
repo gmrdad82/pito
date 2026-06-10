@@ -198,5 +198,99 @@ RSpec.describe Pito::Chat::Handlers::Link do
       expect(result).to be_a(Pito::Chat::Result::Error)
       expect(result.message_key).to eq("pito.chat.link.usage")
     end
+
+    # Case 4 — detail source + multi-target
+    it "links this video to multiple games when targets are comma-separated" do
+      g2 = create(:game, title: "Bloodborne")
+      expect {
+        follow_up_handler(payload: video_detail_payload, rest: "to #{game.id},#{g2.id}").call
+      }.to change(VideoGameLink, :count).by(2)
+    end
+
+    it "returns Ok whose summary names all linked games for multi-target" do
+      g2 = create(:game, title: "Bloodborne")
+      result = follow_up_handler(payload: video_detail_payload, rest: "to #{game.id},#{g2.id}").call
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      text = result.events.first[:payload]["text"]
+      expect(text).to include("Lies of P")
+      expect(text).to include("Bloodborne")
+    end
+  end
+
+  # ── Follow-up from a list card (smart / multi-target) ──────────────────────────
+
+  describe "follow-up from a video_list card (smart / multi-target)" do
+    let(:video_list_payload) { { "reply_target" => "video_list" } }
+
+    # Case 1 — list source, single target
+    it "creates one VideoGameLink given a source video id and a single target game id" do
+      handler = follow_up_handler(payload: video_list_payload, rest: "#{video.id} to #{game.id}")
+      expect { handler.call }.to change(VideoGameLink, :count).by(1)
+    end
+
+    it "returns Ok whose text includes the target game title (single target)" do
+      result = follow_up_handler(payload: video_list_payload, rest: "#{video.id} to #{game.id}").call
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(result.events.first[:payload]["text"]).to include("Lies of P")
+    end
+
+    # Case 2 — list source, multi-target (comma-separated)
+    it "creates one link per target for comma-separated game ids" do
+      g2 = create(:game, title: "Bloodborne")
+      g3 = create(:game, title: "Elden Ring")
+      expect {
+        follow_up_handler(payload: video_list_payload,
+                          rest: "#{video.id} to #{game.id},#{g2.id},#{g3.id}").call
+      }.to change(VideoGameLink, :count).by(3)
+    end
+
+    it "summary text names all three linked games" do
+      g2 = create(:game, title: "Bloodborne")
+      g3 = create(:game, title: "Elden Ring")
+      result = follow_up_handler(payload: video_list_payload,
+                                 rest: "#{video.id} to #{game.id},#{g2.id},#{g3.id}").call
+      text = result.events.first[:payload]["text"]
+      expect(text).to include("Lies of P")
+      expect(text).to include("Bloodborne")
+      expect(text).to include("Elden Ring")
+    end
+
+    it "creates all links when targets are space-separated instead of comma-separated" do
+      g2 = create(:game, title: "Bloodborne")
+      expect {
+        follow_up_handler(payload: video_list_payload,
+                          rest: "#{video.id} to #{game.id} #{g2.id}").call
+      }.to change(VideoGameLink, :count).by(2)
+    end
+
+    it "is idempotent — re-linking an existing pair does not raise or add a duplicate" do
+      create(:video_game_link, video: video, game: game)
+      expect {
+        follow_up_handler(payload: video_list_payload, rest: "#{video.id} to #{game.id}").call
+      }.not_to change(VideoGameLink, :count)
+    end
+
+    # Case 3 — not-found target reported
+    it "still links valid targets when one target id does not exist" do
+      result = follow_up_handler(payload: video_list_payload,
+                                 rest: "#{video.id} to #{game.id},99999").call
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(VideoGameLink.count).to eq(1)
+    end
+
+    it "appends a '(not found: ...)' note to the summary for missing target ids" do
+      result = follow_up_handler(payload: video_list_payload,
+                                 rest: "#{video.id} to #{game.id},99999").call
+      text = result.events.first[:payload]["text"]
+      expect(text).to include("Lies of P")
+      expect(text).to include("(not found: 99999)")
+    end
+
+    # Case 5 — list source, missing 'to' connector
+    it "returns a usage error when the 'to' connector is absent" do
+      result = follow_up_handler(payload: video_list_payload, rest: video.id.to_s).call
+      expect(result).to be_a(Pito::Chat::Result::Error)
+      expect(result.message_key).to eq("pito.chat.link.usage")
+    end
   end
 end

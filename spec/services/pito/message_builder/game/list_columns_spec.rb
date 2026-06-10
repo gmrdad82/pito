@@ -56,6 +56,10 @@ RSpec.describe Pito::MessageBuilder::Game::ListColumns do
       expect(vocab["channels"]).to eq(:channels)
     end
 
+    it "maps 'footage' to :footage" do
+      expect(vocab["footage"]).to eq(:footage)
+    end
+
     it "does not include unknown tokens" do
       expect(vocab.key?("unknown_token")).to be(false)
     end
@@ -76,10 +80,14 @@ RSpec.describe Pito::MessageBuilder::Game::ListColumns do
       expect(described_class.headings([ :year, :developer ])).to eq([ "Year", "Developer" ])
     end
 
-    it "includes all seven headings when all columns are requested" do
-      all = %i[platform genre developer publisher channels release_date year]
+    it "returns the heading for footage" do
+      expect(described_class.headings([ :footage ])).to eq([ "Footage" ])
+    end
+
+    it "includes all eight headings when all columns are requested" do
+      all = %i[platform genre developer publisher channels release_date year footage]
       expect(described_class.headings(all)).to eq(
-        [ "Platform", "Genre", "Developer", "Publisher", "Channels", "Release", "Year" ]
+        [ "Platform", "Genre", "Developer", "Publisher", "Channels", "Release", "Year", "Footage" ]
       )
     end
   end
@@ -167,6 +175,16 @@ RSpec.describe Pito::MessageBuilder::Game::ListColumns do
 
     it "returns a proc for 'channels' when :channels IS in selected_columns" do
       key = described_class.sort_key_for("channels", selected_columns: [ :channels ])
+      expect(key).to be_a(Proc)
+    end
+
+    it "returns nil for 'footage' when :footage not in selected_columns" do
+      key = described_class.sort_key_for("footage", selected_columns: [])
+      expect(key).to be_nil
+    end
+
+    it "returns a proc for 'footage' when :footage IS in selected_columns" do
+      key = described_class.sort_key_for("footage", selected_columns: [ :footage ])
       expect(key).to be_a(Proc)
     end
   end
@@ -330,6 +348,11 @@ RSpec.describe Pito::MessageBuilder::Game::ListColumns do
         expect(result.first[:html]).to be(true)
       end
 
+      it "colors and clamps the cell (cyan + pito-cell-channel)" do
+        result = described_class.cells(game_with_channels, [ :channels ])
+        expect(result.first[:class]).to eq("text-cyan pito-cell-channel")
+      end
+
       it "html-escapes handles containing special characters" do
         channel_special = create(:channel, handle: "@foo<bar>")
         video = create(:video, channel: channel_special)
@@ -338,6 +361,30 @@ RSpec.describe Pito::MessageBuilder::Game::ListColumns do
         result = described_class.cells(game_with_channels, [ :channels ])
         expect(result.first[:text]).to include("&lt;")
         expect(result.first[:text]).not_to include("<bar>")
+      end
+    end
+
+    context "footage column" do
+      let(:game_with_footage) { create(:game) }
+
+      it "returns formatted total duration when footages are present" do
+        create(:footage, game: game_with_footage, duration_seconds: 3600)
+        create(:footage, game: game_with_footage, duration_seconds: 3600)
+        game_with_footage.reload
+        result = described_class.cells(game_with_footage, [ :footage ])
+        expect(result.first[:text]).to eq("2:00:00")
+      end
+
+      it "returns '—' when there is no footage" do
+        result = described_class.cells(game_with_footage, [ :footage ])
+        expect(result.first[:text]).to eq("—")
+      end
+
+      it "has text-right, tabular-nums, and pito-cell-duration in cell class" do
+        result = described_class.cells(game_with_footage, [ :footage ])
+        expect(result.first[:class]).to include("text-right")
+        expect(result.first[:class]).to include("tabular-nums")
+        expect(result.first[:class]).to include("pito-cell-duration")
       end
     end
   end
@@ -382,10 +429,10 @@ RSpec.describe Pito::MessageBuilder::Game::ListColumns do
         .to eq([ :platform, :developer, :year ])
     end
 
-    it "ensures :release_date and :year always trail the other columns" do
-      all = %i[release_date year platform genre developer publisher channels]
+    it "ensures :release_date, :year, and :footage always trail the other columns" do
+      all = %i[release_date year platform genre developer publisher channels footage]
       result = described_class.canonical_order(all)
-      expect(result.last(2)).to eq(%i[release_date year])
+      expect(result.last(3)).to eq(%i[release_date year footage])
     end
 
     it "places :channels before :release_date and :year" do
@@ -393,6 +440,11 @@ RSpec.describe Pito::MessageBuilder::Game::ListColumns do
       result = described_class.canonical_order(all)
       expect(result.index(:channels)).to be < result.index(:release_date)
       expect(result.index(:channels)).to be < result.index(:year)
+    end
+
+    it "places :footage after :year" do
+      result = described_class.canonical_order(%i[footage year platform])
+      expect(result.index(:footage)).to be > result.index(:year)
     end
   end
 end

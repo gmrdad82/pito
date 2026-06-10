@@ -29,6 +29,19 @@ class FakeAppendHandler < Pito::FollowUp::Handler
   end
 end
 
+# Fake append handler that passes consume: false so the source event stays live.
+class FakeAppendNoConsumeHandler < Pito::FollowUp::Handler
+  target "fake_append_no_consume"
+  mode   :append
+
+  def call(event:, rest:, conversation:)
+    Pito::FollowUp::Result::Append.new(
+      events:  [ { kind: :system, payload: { text: "no-consume" } } ],
+      consume: false
+    )
+  end
+end
+
 # Fake error handler.
 class FakeErrorHandler < Pito::FollowUp::Handler
   target "fake_error"
@@ -134,6 +147,30 @@ RSpec.describe FollowUpDispatchJob, type: :job do
       allow(Pito::Stream::Broadcaster).to receive(:new).and_return(broadcaster)
       described_class.perform_now(source_event.id, rest: "hello", turn_id: echo_turn.id)
       expect(broadcaster).to have_received(:replace_event).with(source_event)
+    end
+
+    context "consume gate" do
+      it "does NOT set reply_consumed when consume: false — source stays live and events are appended" do
+        no_consume_event = Event.create_with_position!(
+          conversation:, turn: source_turn, kind: "system",
+          payload: {
+            "reply_handle" => "alpha-3333",
+            "reply_target" => "fake_append_no_consume"
+          }
+        )
+        extra_turn = conversation.turns.create!(
+          input_kind: :hashtag, input_text: "#alpha-3333 go", position: 3
+        )
+        expect {
+          described_class.perform_now(no_consume_event.id, rest: "go", turn_id: extra_turn.id)
+        }.to change(Event, :count).by(1)
+        expect(no_consume_event.reload.payload["reply_consumed"]).to be_nil
+      end
+
+      it "sets reply_consumed when consume: true (default) — source is consumed" do
+        described_class.perform_now(source_event.id, rest: "hello", turn_id: echo_turn.id)
+        expect(source_event.reload.payload["reply_consumed"]).to be true
+      end
     end
   end
 

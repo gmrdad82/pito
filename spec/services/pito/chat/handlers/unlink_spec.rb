@@ -134,12 +134,14 @@ RSpec.describe Pito::Chat::Handlers::Unlink do
       expect(text).to include("Lies of P Review")
     end
 
-    it "returns a gentle 'not linked' message when link is already absent" do
+    it "is idempotent — missing link still returns Ok with the unlinked summary" do
       link.destroy!
       result = follow_up_handler(payload: game_detail_payload, rest: "from video ##{video.id}").call
       expect(result).to be_a(Pito::Chat::Result::Ok)
       text = result.events.first[:payload]["text"]
-      expect(text).to include("not linked").or include("already")
+      expect(text).to include("Lies of P")
+      expect(text).to include("Lies of P Review")
+      expect(VideoGameLink.find_by(video: video, game: game)).to be_nil
     end
 
     it "returns not-found when the video id is unknown" do
@@ -184,12 +186,14 @@ RSpec.describe Pito::Chat::Handlers::Unlink do
       expect(text).to include("Lies of P Review")
     end
 
-    it "returns a gentle 'not linked' message when link is already absent" do
+    it "is idempotent — missing link still returns Ok with the unlinked summary" do
       link.destroy!
       result = follow_up_handler(payload: video_detail_payload, rest: "from game ##{game.id}").call
       expect(result).to be_a(Pito::Chat::Result::Ok)
       text = result.events.first[:payload]["text"]
-      expect(text).to include("not linked").or include("already")
+      expect(text).to include("Lies of P")
+      expect(text).to include("Lies of P Review")
+      expect(VideoGameLink.find_by(video: video, game: game)).to be_nil
     end
 
     it "returns not-found when the game id is unknown" do
@@ -206,6 +210,101 @@ RSpec.describe Pito::Chat::Handlers::Unlink do
 
     it "returns a usage hint when the ref is blank" do
       result = follow_up_handler(payload: video_detail_payload, rest: "from game").call
+      expect(result).to be_a(Pito::Chat::Result::Error)
+      expect(result.message_key).to eq("pito.chat.unlink.usage")
+    end
+
+    # Case 4 — detail source + multi-target
+    it "unlinks this video from multiple games when targets are comma-separated" do
+      g2    = create(:game,  title: "Bloodborne")
+      link2 = create(:video_game_link, video: video, game: g2)
+      expect {
+        follow_up_handler(payload: video_detail_payload, rest: "from #{game.id},#{g2.id}").call
+      }.to change(VideoGameLink, :count).by(-2)
+    end
+
+    it "returns Ok whose summary names all unlinked games for multi-target" do
+      g2 = create(:game, title: "Bloodborne")
+      create(:video_game_link, video: video, game: g2)
+      result = follow_up_handler(payload: video_detail_payload, rest: "from #{game.id},#{g2.id}").call
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      text = result.events.first[:payload]["text"]
+      expect(text).to include("Lies of P")
+      expect(text).to include("Bloodborne")
+    end
+  end
+
+  # ── Follow-up from a list card (smart / multi-target) ──────────────────────────
+
+  describe "follow-up from a video_list card (smart / multi-target)" do
+    let(:video_list_payload) { { "reply_target" => "video_list" } }
+
+    # Case 1 — list source, single target
+    it "destroys the VideoGameLink given a source video id and a single target game id" do
+      expect {
+        follow_up_handler(payload: video_list_payload, rest: "#{video.id} from #{game.id}").call
+      }.to change(VideoGameLink, :count).by(-1)
+    end
+
+    it "returns Ok whose text includes the target game title (single target)" do
+      result = follow_up_handler(payload: video_list_payload, rest: "#{video.id} from #{game.id}").call
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(result.events.first[:payload]["text"]).to include("Lies of P")
+    end
+
+    # Case 2 — list source, multi-target (comma-separated and space-separated)
+    it "destroys one link per target for comma-separated game ids" do
+      g2    = create(:game, title: "Bloodborne")
+      g3    = create(:game, title: "Elden Ring")
+      create(:video_game_link, video: video, game: g2)
+      create(:video_game_link, video: video, game: g3)
+      expect {
+        follow_up_handler(payload: video_list_payload,
+                          rest: "#{video.id} from #{game.id},#{g2.id},#{g3.id}").call
+      }.to change(VideoGameLink, :count).by(-3)
+    end
+
+    it "summary text names all three unlinked games" do
+      g2 = create(:game, title: "Bloodborne")
+      g3 = create(:game, title: "Elden Ring")
+      create(:video_game_link, video: video, game: g2)
+      create(:video_game_link, video: video, game: g3)
+      result = follow_up_handler(payload: video_list_payload,
+                                 rest: "#{video.id} from #{game.id},#{g2.id},#{g3.id}").call
+      text = result.events.first[:payload]["text"]
+      expect(text).to include("Lies of P")
+      expect(text).to include("Bloodborne")
+      expect(text).to include("Elden Ring")
+    end
+
+    it "destroys all links when targets are space-separated instead of comma-separated" do
+      g2 = create(:game, title: "Bloodborne")
+      create(:video_game_link, video: video, game: g2)
+      expect {
+        follow_up_handler(payload: video_list_payload,
+                          rest: "#{video.id} from #{game.id} #{g2.id}").call
+      }.to change(VideoGameLink, :count).by(-2)
+    end
+
+    # Case 3 — not-found target reported
+    it "still unlinks valid targets when one target id does not exist" do
+      result = follow_up_handler(payload: video_list_payload,
+                                 rest: "#{video.id} from #{game.id},99999").call
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(VideoGameLink.find_by(video: video, game: game)).to be_nil
+    end
+
+    it "appends a '(not found: ...)' note to the summary for missing target ids" do
+      result = follow_up_handler(payload: video_list_payload,
+                                 rest: "#{video.id} from #{game.id},99999").call
+      text = result.events.first[:payload]["text"]
+      expect(text).to include("Lies of P")
+      expect(text).to include("(not found: 99999)")
+    end
+
+    # Case 5 — list source, missing 'from' connector
+    it "returns a usage error when the 'from' connector is absent" do
+      result = follow_up_handler(payload: video_list_payload, rest: video.id.to_s).call
       expect(result).to be_a(Pito::Chat::Result::Error)
       expect(result.message_key).to eq("pito.chat.unlink.usage")
     end

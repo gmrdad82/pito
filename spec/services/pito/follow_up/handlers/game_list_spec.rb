@@ -82,4 +82,47 @@ RSpec.describe Pito::FollowUp::Handlers::GameList do
     result = handler.call(event:, rest: "show ##{game.id}", conversation:)
     expect(result.events.first[:payload]["game_id"]).to eq(game.id)
   end
+
+  # ── link / unlink (source: game, target: video) ─────────────────────────────
+
+  context "link and unlink verbs (source: game, target: video)" do
+    let(:channel) { create(:channel) }
+    let!(:video)  { create(:video, :public, title: "Boss Rush", channel:) }
+
+    # The outer `event` has reply_target: "game_list" and no singular game_id
+    # in its payload, which correctly signals the list context to follow_up_multi.
+
+    it "link <game_id> to <video_id> creates a VideoGameLink and returns an Append" do
+      result = handler.call(event:, rest: "link #{game.id} to #{video.id}", conversation:)
+      expect(result).to be_a(Pito::FollowUp::Result::Append)
+      expect(VideoGameLink.exists?(video: video, game: game)).to be(true)
+    end
+
+    it "link result has consume: false so the list card stays reusable" do
+      result = handler.call(event:, rest: "link #{game.id} to #{video.id}", conversation:)
+      expect(result.consume).to be(false)
+    end
+
+    it "link <game_id> to <v1>,<v2> creates both VideoGameLinks (multi-target)" do
+      channel2 = create(:channel)
+      video2   = create(:video, :public, title: "Elden Ring LP", channel: channel2)
+      result   = handler.call(event:, rest: "link #{game.id} to #{video.id},#{video2.id}", conversation:)
+      expect(result).to be_a(Pito::FollowUp::Result::Append)
+      expect(VideoGameLink.exists?(video: video, game: game)).to be(true)
+      expect(VideoGameLink.exists?(video: video2, game: game)).to be(true)
+    end
+
+    it "unlink <game_id> from <video_id> destroys the VideoGameLink and returns an Append" do
+      VideoGameLink.create!(video: video, game: game)
+      result = handler.call(event:, rest: "unlink #{game.id} from #{video.id}", conversation:)
+      expect(result).to be_a(Pito::FollowUp::Result::Append)
+      expect(VideoGameLink.exists?(video: video, game: game)).to be(false)
+    end
+
+    it "unlink result has consume: false so the list card stays reusable" do
+      VideoGameLink.create!(video: video, game: game)
+      result = handler.call(event:, rest: "unlink #{game.id} from #{video.id}", conversation:)
+      expect(result.consume).to be(false)
+    end
+  end
 end
