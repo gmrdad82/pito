@@ -1210,9 +1210,19 @@ html {
 
 /* ── Footage import probe block ────────────────────────────────
  *
+ * The block hugs the command text (no trailing whitespace) but never
+ * overflows the message: fit-content sizes it to the command, max-width
+ * caps it at the message width — past which the inner padding div scrolls
+ * horizontally. The hint below right-aligns to this (shrunk) width.
+ *
  * The copy-confirmation overlay is absolutely centered over the
  * command block. The JS controller toggles `hidden` on it.
  */
+.pito-footage-import {
+  width: fit-content;
+  max-width: 100%;
+}
+
 .pito-footage-import__overlay {
   position: absolute;
   inset: 0;
