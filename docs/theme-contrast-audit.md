@@ -2,6 +2,37 @@
 
 > Branch `theme-contrast-audit`. Reproduce: `bundle exec rails runner script/theme_contrast_audit.rb`.
 
+## Our thresholds (enforced)
+
+**Enforced floor: 3.0:1** — applied uniformly to BOTH `bg_root` (full-viewport
+page) and `bg_surface` (cards/panels) for every audited token:
+
+| Token group | Tokens |
+|---|---|
+| Foreground text | `fg_default`, `fg_dim` |
+| Accents (6) | `accent_yellow`, `accent_cyan`, `accent_orange`, `accent_red`, `accent_green`, `accent_purple` |
+| Brand / non-text UI | `brand_pito` (ascii logo + chatbox/echo border — WCAG 1.4.11 non-text bar) |
+
+**`fg_faded` is exempt** — it is a placeholder/disabled tone, never relied on
+for readability, and is deliberately excluded from the audit scope.
+
+**Aspiration (not enforced): 4.5:1 AA** — the WCAG AA text target we aim for on
+primary body text (`fg_default`) and status colours (`accent_green`,
+`accent_red`) wherever the palette allows.  It is recorded as `AA_ASPIRATION`
+in `Pito::Themes::Contrast` for reference and future tooling but is NOT checked
+by `audit`.
+
+**Rationale for 3.0 floor:** 3.0:1 is the WCAG large-text bar (1.4.3) and the
+non-text UI component bar (1.4.11).  Using it as a uniform floor lets
+intentionally low-contrast palettes — Solarized, Nord — remain largely
+passable with minimal nudges, instead of forcing the AA 4.5:1 bar that would
+require altering their defining colours.
+
+**Regression guard:** `Pito::Themes::Contrast` + `spec/services/pito/themes/contrast_spec.rb`
+enforce these thresholds automatically.  The spec contains a hand-verified
+`ACCEPTED_LOW_CONTRAST` allowlist, a regression guard (new failures → loud
+failure), and a staleness guard (fixed pairs left in the list → loud failure).
+
 ## Scope (what's actually used where)
 
 - **Text** uses the `fg` trio (`fg_default`, `fg_dim`, `fg_faded`) plus **every accent
