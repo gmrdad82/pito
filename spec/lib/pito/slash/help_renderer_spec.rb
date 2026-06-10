@@ -54,6 +54,20 @@ RSpec.describe Pito::Slash::HelpRenderer do
     end
   end
 
+  describe ".call — /themes --help (same nonsense easter egg)" do
+    subject(:result) do
+      described_class.call(
+        invocation: build_invocation(raw: "/themes --help"),
+        authenticated: true
+      )
+    end
+
+    it "renders the identical nonsense payload as /help --help (themes is a bare sidebar opener)" do
+      expect(result).to be_a(Pito::Slash::Result::Ok)
+      expect(result.events.first[:payload]).to eq(described_class.nonsense_payload)
+    end
+  end
+
   describe ".call — /config igdb --help (provider key table)" do
     subject(:result) do
       described_class.call(

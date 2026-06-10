@@ -2047,6 +2047,7 @@ en:
           col_genre_desc: "Genres"
           col_developer_desc: "Developer studio"
           col_publisher_desc: "Publisher"
+          col_channels_desc: "@handles of channels with linked videos"
           col_release_date_desc: "Release date, e.g. June 09, 2026"
           col_year_desc: "Release year"
         videos_help:

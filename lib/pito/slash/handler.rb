@@ -101,7 +101,7 @@ module Pito
         # When true, the dispatcher skips the generic positional-arity guard and
         # lets the handler validate its own argument count (opt-out mechanism).
         # Set `self.validates_own_arity = true` on handlers whose first positional
-        # arg is polymorphic (e.g. Theme — subcommand OR theme name).
+        # arg is polymorphic (e.g. Games — subcommand keyword with optional title).
         def validates_own_arity
           @validates_own_arity || false
         end

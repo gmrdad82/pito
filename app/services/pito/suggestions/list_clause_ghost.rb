@@ -165,10 +165,14 @@ module Pito
       # ── Private helpers ────────────────────────────────────────────────────
 
       # Returns the registry module for the noun in text, or nil for channels.
+      # The noun is read from the head (before any `with` / `sorted by` clause) so a
+      # column name inside the clause — e.g. the games `channels` column — is not
+      # mistaken for the `list channels` noun (which would disable the ghost).
       def registry_for(text)
-        return nil if text.match?(/\bchannels?\b/i)
+        head = text.split(/\b(?:with|sorted\s+by|ordered\s+by)\b/i, 2).first.to_s
+        return nil if head.match?(/\bchannels?\b/i)
 
-        if text.match?(/\bvideos?\b/i)
+        if head.match?(/\bvideos?\b/i)
           Pito::MessageBuilder::Video::ListColumns
         else
           Pito::MessageBuilder::Game::ListColumns
