@@ -1282,6 +1282,11 @@ html {
    the widest title. Applied to the title cell in Game/Video::List builders. */
 .pito-cell-title { max-width: 34ch; overflow-wrap: break-word; }
 
+/* Clamp the channel column (list games / list videos): cap at the longest live
+   @handle (14ch) + 1, so handles never widen the column past what they need.
+   Paired with text-cyan on the cell. Applied via cell_class in the ListColumns. */
+.pito-cell-channel { max-width: 15ch; overflow-wrap: break-word; }
+
 /* ── Help block (nvim --help style man page) ───────────────────
    Preformatted monospace block for `list games --help`: preserves the
    builder's space-padding so the Usage/Options/Columns rows align, while

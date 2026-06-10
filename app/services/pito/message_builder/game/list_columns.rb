@@ -78,10 +78,11 @@ module Pito
             value:   ->(g) { g.publisher_companies.map(&:name).join(", ") }
           },
           channels:     {
-            aliases: %w[channel channels],
-            heading: "Channels",
-            html:    true,
-            value:   ->(g) { g.linked_videos.map { |v| v.channel&.handle }.compact.uniq.map { |h| ERB::Util.html_escape(h) }.join("<br>") }
+            aliases:    %w[channel channels],
+            heading:    "Channels",
+            html:       true,
+            cell_class: "text-cyan pito-cell-channel",
+            value:      ->(g) { g.linked_videos.map { |v| v.channel&.handle }.compact.uniq.map { |h| ERB::Util.html_escape(h) }.join("<br>") }
           },
           release_date: {
             aliases: [ "release date" ],
@@ -173,6 +174,7 @@ module Pito
             cfg  = COLUMNS.fetch(col)
             text = cfg[:value].call(game)
             cell_class =
+              cfg[:cell_class] ||
               case cfg[:align]
               when :right
                 col == :year ? "text-fg-dim text-right tabular-nums" : "text-fg-dim text-right"

@@ -52,9 +52,10 @@ module Pito
 
         COLUMNS = {
           channel:  {
-            aliases: %w[channel],
-            heading: "Channel",
-            value:   ->(v) { v.channel.at_handle }
+            aliases:    %w[channel],
+            heading:    "Channel",
+            cell_class: "text-cyan pito-cell-channel",
+            value:      ->(v) { v.channel.at_handle }
           },
           visibility: {
             aliases:     %w[visibility],
@@ -136,7 +137,8 @@ module Pito
         # @return [Array<{ text: String, class: String }>]
         def cells(video, cols)
           cols.map do |col|
-            { text: COLUMNS.fetch(col)[:value].call(video), class: "text-fg-dim" }
+            cfg = COLUMNS.fetch(col)
+            { text: cfg[:value].call(video), class: cfg[:cell_class] || "text-fg-dim" }
           end
         end
 
