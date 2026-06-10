@@ -60,7 +60,11 @@ module Pito
 
           channel_scoped = resolved_channel_handle.present?
 
-          games = games.includes(:genres, :developer_companies, :publisher_companies) if columns.any?
+          if columns.any?
+            includes_args = [ :genres, :developer_companies, :publisher_companies ]
+            includes_args << { linked_videos: :channel } if columns.include?(:channels)
+            games = games.includes(*includes_args)
+          end
 
           if games.empty?
             return (filtered || channel_scoped) ? games_filter_empty : games_empty

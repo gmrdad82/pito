@@ -32,7 +32,8 @@ module Pito
           # TBA (no date/year) sorts AFTER all known dates ascending (and first
           # descending) — treat unknown as the far future, not Date.new(0).
           release_date: { key: ->(g) { g.release_date || Date.new(9999, 12, 31) },              requires_with: true },
-          year:         { key: ->(g) { g.release_year || 9999 },                                requires_with: true }
+          year:         { key: ->(g) { g.release_year || 9999 },                                requires_with: true },
+          channels:     { key: ->(g) { g.linked_videos.map { |v| v.channel&.handle }.compact.uniq.sort.join(",").downcase }, requires_with: true }
         }.freeze
 
         # Maps every sort token (downcased) → canonical column Symbol.
@@ -49,7 +50,9 @@ module Pito
           "dev"          => :developer,
           "publisher"    => :publisher,
           "release date" => :release_date,
-          "year"         => :year
+          "year"         => :year,
+          "channel"      => :channels,
+          "channels"     => :channels
         }.freeze
 
         COLUMNS = {
@@ -73,6 +76,12 @@ module Pito
             aliases: %w[publisher],
             heading: "Publisher",
             value:   ->(g) { g.publisher_companies.map(&:name).join(", ") }
+          },
+          channels:     {
+            aliases: %w[channel channels],
+            heading: "Channels",
+            html:    true,
+            value:   ->(g) { g.linked_videos.map { |v| v.channel&.handle }.compact.uniq.map { |h| ERB::Util.html_escape(h) }.join("<br>") }
           },
           release_date: {
             aliases: [ "release date" ],
