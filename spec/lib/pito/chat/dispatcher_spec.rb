@@ -145,6 +145,27 @@ RSpec.describe Pito::Chat::Dispatcher do
         expect(body).to include("game")
         expect(body).to include("video")
       end
+
+      it "routes 'list --help' (no noun) to the list noun-index page (Forms group)" do
+        result = described_class.call(input: "list --help", conversation:)
+        expect(result).to be_a(Pito::Chat::Result::Ok)
+        body = result.events.first[:payload]["body"]
+        expect(body).to include("Forms")
+        expect(body).to include("list games")
+        expect(body).to include("list videos")
+        expect(body).to include("list channels")
+        expect(body).to include("--help")
+        # Must NOT be the Game::ListHelp noun page (which has Columns:)
+        expect(body).not_to include("Columns:")
+      end
+
+      it "routes 'list games --help' to the Game::ListHelp noun page" do
+        result = described_class.call(input: "list games --help", conversation:)
+        expect(result).to be_a(Pito::Chat::Result::Ok)
+        body = result.events.first[:payload]["body"]
+        games_body = Pito::MessageBuilder::Game::ListHelp.call["body"]
+        expect(body).to eq(games_body)
+      end
     end
   end
 end

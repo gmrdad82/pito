@@ -6,7 +6,7 @@ module Pito
     #
     # CommandHelp.call(:show)                 → verb-level page (lists all noun forms)
     # CommandHelp.call(:show, noun: :game)    → noun-level page for show game
-    # CommandHelp.call(:list)                 → delegates to Game::ListHelp (default)
+    # CommandHelp.call(:list)                 → noun-index page (Forms: games/videos/channels)
     # CommandHelp.call(:list, noun: :games)   → delegates to Game::ListHelp
     # CommandHelp.call(:list, noun: :videos)  → delegates to Video::ListHelp
     # CommandHelp.call(:list, noun: :channels)→ delegates to Channel::ListHelp (witty)
@@ -46,9 +46,10 @@ module Pito
       def call(verb, noun: nil)
         if verb == :list
           case noun
+          when :games    then return Pito::MessageBuilder::Game::ListHelp.call
           when :videos   then return Pito::MessageBuilder::Video::ListHelp.call
           when :channels then return Pito::MessageBuilder::Channel::ListHelp.call
-          else                return Pito::MessageBuilder::Game::ListHelp.call
+          when nil       then return render_list_index
           end
         end
 
@@ -120,6 +121,32 @@ module Pito
         { "html" => true, "body" => body }
       end
       private_class_method :render_multi_noun_verb_page
+
+      # Build the bare `list --help` noun-index page.
+      # Lists all three noun forms (games / videos / channels) with their usage lines,
+      # followed by an Options group with --help.  Mirrors render_multi_noun_verb_page.
+      def render_list_index
+        usage = I18n.t("pito.copy.chat_help.list.usage", default: nil)
+        return nil unless usage.is_a?(String) && usage.present?
+
+        games_usage    = Pito::Copy.render("pito.copy.list.games_help.usage")
+        videos_usage   = Pito::Copy.render("pito.copy.list.videos_help.usage")
+
+        noun_rows = [
+          [ "list games",    games_usage ],
+          [ "list videos",   videos_usage ],
+          [ "list channels", "list channels" ]
+        ]
+
+        groups = [
+          [ "Forms", noun_rows ],
+          [ "Options", [ [ "--help", "Print this help message" ] ] ]
+        ]
+
+        body = Pito::MessageBuilder::ManPage.render(usage:, groups:)
+        { "html" => true, "body" => body }
+      end
+      private_class_method :render_list_index
 
       # Convert I18n sections hash into ManPage groups array.
       def build_groups(sections)

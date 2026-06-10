@@ -7,14 +7,46 @@ RSpec.describe Pito::MessageBuilder::CommandHelp do
     # ── :list delegation ──────────────────────────────────────────────────────
 
     context "when verb is :list" do
-      context "noun: nil (default → games)" do
-        it "delegates to Game::ListHelp and returns its payload" do
-          list_payload = Pito::MessageBuilder::Game::ListHelp.call
-          result = described_class.call(:list)
+      context "noun: nil (bare `list --help` → noun-index page)" do
+        subject(:result) { described_class.call(:list) }
 
+        it "returns an html payload" do
           expect(result).to be_a(Hash)
           expect(result["html"]).to be(true)
-          expect(result["body"]).to eq(list_payload["body"])
+        end
+
+        it "body includes 'Usage:'" do
+          expect(result["body"]).to include("Usage:")
+        end
+
+        it "body includes a Forms group" do
+          expect(result["body"]).to include("Forms")
+        end
+
+        it "body lists 'list games'" do
+          expect(result["body"]).to include("list games")
+        end
+
+        it "body lists 'list videos'" do
+          expect(result["body"]).to include("list videos")
+        end
+
+        it "body lists 'list channels'" do
+          expect(result["body"]).to include("list channels")
+        end
+
+        it "body includes '--help' option" do
+          expect(result["body"]).to include("--help")
+        end
+
+        it "does NOT equal the Game::ListHelp man page (which has a Columns group)" do
+          games_payload = Pito::MessageBuilder::Game::ListHelp.call
+          expect(result["body"]).not_to eq(games_payload["body"])
+        end
+
+        it "body does NOT include 'Columns:'" do
+          # Columns: is a distinguishing feature of the noun-level list pages
+          expect(result["body"]).not_to include("Columns:")
         end
       end
 

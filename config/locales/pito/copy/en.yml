@@ -2112,6 +2112,8 @@ en:
           - "Zero. Absolute zero. The channels are at peace."
 
       chat_help:
+        list:
+          usage: "list games  |  list videos  |  list channels"
         show:
           usage: "show game <title|id>  |  show video <title|id>"
           game:
