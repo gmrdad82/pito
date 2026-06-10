@@ -19,17 +19,17 @@ capped at 11ch (`00:00:00:00`, covers `99:23:59:59`).
 
 ## Locked decisions
 
-| Topic                | Decision                                                                                  |
-| -------------------- | ----------------------------------------------------------------------------------------- |
-| Format               | `DD:HH:MM:SS`, trim leading zero-units, pad inner units to 2 digits (e.g. `1:03:05:09`).  |
-| Minimum unit         | Always at least `M:SS` (e.g. 34s → `0:34`). Seconds always 2 digits.                      |
-| Blank/negative input | Formatter returns `nil`.                                                                  |
-| Formatter home       | `Pito::Formatter::Duration` — replaces `Pito::Video::DurationFormat` (single formatter).  |
-| Footage source       | `game.footages.sum(:duration_seconds)`; `—` when a game has no footage.                   |
-| Column width         | Both columns capped at 11ch via `.pito-cell-duration`; right-aligned; `tabular-nums`.     |
-| games footage place  | Trailing fixed column (after Release/Year), included in `fixed_trailing`.                 |
-| videos duration      | Right-aligned + clamped within its existing (`1fr`) column slot; heading right-aligned.   |
-| Branch               | `followup-smart-link` (PR #68). Do NOT merge — hold for the user's manual validation.     |
+| Topic                | Decision                                                                                 |
+| -------------------- | ---------------------------------------------------------------------------------------- |
+| Format               | `DD:HH:MM:SS`, trim leading zero-units, pad inner units to 2 digits (e.g. `1:03:05:09`). |
+| Minimum unit         | Always at least `M:SS` (e.g. 34s → `0:34`). Seconds always 2 digits.                     |
+| Blank/negative input | Formatter returns `nil`.                                                                 |
+| Formatter home       | `Pito::Formatter::Duration` — replaces `Pito::Video::DurationFormat` (single formatter). |
+| Footage source       | `game.footages.sum(:duration_seconds)`; `—` when a game has no footage.                  |
+| Column width         | Both columns capped at 11ch via `.pito-cell-duration`; right-aligned; `tabular-nums`.    |
+| games footage place  | Trailing fixed column (after Release/Year), included in `fixed_trailing`.                |
+| videos duration      | Right-aligned + clamped within its existing (`1fr`) column slot; heading right-aligned.  |
+| Branch               | `followup-smart-link` (PR #68). Do NOT merge — hold for the user's manual validation.    |
 
 ## Phase index
 
