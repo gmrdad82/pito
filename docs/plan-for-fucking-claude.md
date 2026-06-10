@@ -77,6 +77,6 @@ from context, accepting multiple `to`/`from` ids (HABTM), without consuming the 
 ## P3 — Housekeeping + final verification
 
 - [x] T3.1 Fix the stale `Follow-up: NOT stamped` comment in `app/services/pito/chat/handlers/list.rb`. complexity: [low]
-- [ ] T3.2 Add detail follow-up specs (`game_detail`/`video_detail`) — link/unlink multi-target and the card is NOT consumed afterward. complexity: [low]
-- [ ] T3.3 Run full `bundle exec rspec` + `bin/rubocop` + `npx vitest run`; confirm green (ignore the lone known-flaky scrollback/games_search test). complexity: [manual]
-- [ ] T3.4 Commit: `link/unlink housekeeping + final verification`. complexity: [manual]
+- [x] T3.2 Add detail follow-up specs (`game_detail`/`video_detail`) — link/unlink multi-target and the card is NOT consumed afterward. complexity: [low]
+- [x] T3.3 Run full `bundle exec rspec` + `bin/rubocop` + `npx vitest run`; confirm green (ignore the lone known-flaky scrollback/games_search test). complexity: [manual]
+- [x] T3.4 Commit: `link/unlink housekeeping + final verification`. complexity: [manual]

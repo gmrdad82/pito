@@ -23,8 +23,8 @@
 #
 # Ordering: title ASC (consistent with games + channels listing).
 #
-# Follow-up: NOT stamped (no video_list follow-up handler; simplest consistent
-# choice matching the absence of a `video_list` follow-up engine).
+# Follow-up: video list IS stamped as `reply_target: "video_list"`, enabling
+# follow-up reply verbs (show, delete, link, unlink, add, remove, sort/order).
 #
 # NOTE: `game`/`games` are FILLER words in the grammar, so `list` and
 # `list games` parse identically — both land here.

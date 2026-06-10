@@ -212,6 +212,80 @@ RSpec.describe Pito::FollowUp::Handlers::GameDetail, type: :service do
     end
   end
 
+  # ── multi-target link to videos ──────────────────────────────────────────────
+
+  describe "#call — multi-target link to videos" do
+    let(:source_event) { build_detail_event }
+    let(:connection)   { create(:youtube_connection) }
+    let(:channel)      { create(:channel, youtube_connection: connection) }
+    let!(:video1)      { create(:video, channel: channel, title: "Lies of P Part 1") }
+    let!(:video2)      { create(:video, channel: channel, title: "Lies of P Part 2") }
+
+    subject(:result) do
+      handler.call(event: source_event, rest: "link to ##{video1.id},##{video2.id}", conversation:)
+    end
+
+    it "returns a Result::Append" do
+      expect(result).to be_a(Pito::FollowUp::Result::Append)
+    end
+
+    it "creates VideoGameLinks for both target videos" do
+      expect { result }.to change(VideoGameLink, :count).by(2)
+    end
+
+    it "uses the card's game as source (not parsed from rest)" do
+      result
+      expect(VideoGameLink.where(game: game, video: video1)).to exist
+      expect(VideoGameLink.where(game: game, video: video2)).to exist
+    end
+
+    it "does NOT consume the card (consume: false — card stays reusable)" do
+      expect(result.consume).to be false
+    end
+
+    it "is repeatable — calling again does not raise or duplicate links" do
+      handler.call(event: source_event, rest: "link to ##{video1.id},##{video2.id}", conversation:)
+      expect {
+        handler.call(event: source_event, rest: "link to ##{video1.id},##{video2.id}", conversation:)
+      }.not_to change(VideoGameLink, :count)
+    end
+  end
+
+  # ── multi-target unlink from videos ──────────────────────────────────────────
+
+  describe "#call — multi-target unlink from videos" do
+    let(:source_event) { build_detail_event }
+    let(:connection)   { create(:youtube_connection) }
+    let(:channel)      { create(:channel, youtube_connection: connection) }
+    let!(:video1)      { create(:video, channel: channel, title: "Lies of P Part 1") }
+    let!(:video2)      { create(:video, channel: channel, title: "Lies of P Part 2") }
+    let!(:vgl1)        { create(:video_game_link, video: video1, game: game) }
+    let!(:vgl2)        { create(:video_game_link, video: video2, game: game) }
+
+    subject(:result) do
+      handler.call(event: source_event, rest: "unlink from ##{video1.id},##{video2.id}", conversation:)
+    end
+
+    it "returns a Result::Append" do
+      expect(result).to be_a(Pito::FollowUp::Result::Append)
+    end
+
+    it "destroys links for both target videos" do
+      expect { result }.to change(VideoGameLink, :count).by(-2)
+    end
+
+    it "does NOT consume the card (consume: false — card stays reusable)" do
+      expect(result.consume).to be false
+    end
+
+    it "is repeatable — calling unlink twice does not raise" do
+      result # first call destroys both
+      expect {
+        handler.call(event: source_event, rest: "unlink from ##{video1.id},##{video2.id}", conversation:)
+      }.not_to raise_error
+    end
+  end
+
   # ── unknown action ───────────────────────────────────────────────────────────
 
   describe "#call — footage <path>" do
