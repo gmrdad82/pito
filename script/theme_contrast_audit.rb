@@ -2,7 +2,8 @@
 
 # Theme contrast audit (WCAG 2.x), scoped to ACTUAL token usage in the UI:
 #   * Text:  fg_default / fg_dim / fg_faded  +  accent_yellow / accent_cyan /
-#            accent_orange, evaluated against PAGE (bg_root) and SURFACE
+#            accent_orange / accent_red / accent_green / accent_purple
+#            (every accent EXCEPT blue, which is only brand_pito), evaluated against PAGE (bg_root) and SURFACE
 #            (bg_surface) — the two backgrounds text sits on. Bar: AA 4.5:1
 #            (fg_faded is a placeholder/disabled tone, judged at the 3:1 floor).
 #   * brand_pito (#5170ff): NOT text — it is the ascii logo blocks (on the page)
@@ -36,7 +37,9 @@ module ContrastAudit
     "✅"
   end
 
-  TEXT = %i[fg_default fg_dim fg_faded accent_yellow accent_cyan accent_orange].freeze
+  TEXT = %i[fg_default fg_dim fg_faded
+           accent_yellow accent_cyan accent_orange
+           accent_red accent_green accent_purple].freeze
   PITO = "#5170ff"
 
   def run
@@ -50,8 +53,8 @@ module ContrastAudit
     puts "✅ ≥4.5 · ⚠️ 3–4.5 · ❌ <3.  `fg_faded` is a placeholder tone (3:1 floor).\n"
     %i[light dark].each do |mode|
       puts "\n### #{mode.to_s.upcase} themes\n"
-      puts "| theme | fg | fg-dim | fg-faded | yellow | cyan | orange | AA-fails/5 (surface) |"
-      puts "|---|---|---|---|---|---|---|---:|"
+      puts "| theme | fg | fg-dim | fg-faded | yellow | cyan | orange | red | green | purple | AA-fails/8 (surface) |"
+      puts "|---|---|---|---|---|---|---|---|---|---|---:|"
       defs.select { |d| d.mode == mode }.each do |d|
         t = d.tokens
         cells = TEXT.map do |tok|
@@ -61,7 +64,7 @@ module ContrastAudit
         end
         bad = TEXT.reject { |x| x == :fg_faded }
                   .count { |tok| ratio(t[tok].to_s, t[:bg_surface].to_s) < 4.5 }
-        puts "| **#{d.slug}** | #{cells.join(' | ')} | #{bad}/5 |"
+        puts "| **#{d.slug}** | #{cells.join(' | ')} | #{bad}/8 |"
       end
     end
   end
