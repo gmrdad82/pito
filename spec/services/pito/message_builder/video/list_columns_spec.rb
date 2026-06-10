@@ -195,6 +195,11 @@ RSpec.describe Pito::MessageBuilder::Video::ListColumns do
       expect(result.first[:text]).to eq("@mychannel")
     end
 
+    it "colors and clamps the :channel cell (cyan + pito-cell-channel)" do
+      result = described_class.cells(video, [ :channel ])
+      expect(result.first[:class]).to eq("text-cyan pito-cell-channel")
+    end
+
     it "returns the visibility label for :visibility" do
       result = described_class.cells(video, [ :visibility ])
       expect(result.first[:text]).to eq("Public")

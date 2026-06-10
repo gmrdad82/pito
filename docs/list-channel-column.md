@@ -42,7 +42,7 @@ In `list games` and `list videos`, the channel column (`channel` for videos,
 
 ## Phase 2 — Specs + verify
 
-- [ ] T2.1 Update `video/list_columns_spec.rb`: `:channel` cell class is `"text-cyan pito-cell-channel"`. complexity: [low]
-- [ ] T2.2 Update `game/list_columns_spec.rb`: `:channels` cell class is `"text-cyan pito-cell-channel"`. complexity: [low]
-- [ ] T2.3 Run `bundle exec rspec` (the two list_columns specs) + `bin/rubocop`; green. complexity: [low]
-- [ ] T2.4 Commit: `specs: channel column cyan + clamp` [manual]
+- [x] T2.1 Update `video/list_columns_spec.rb`: `:channel` cell class is `"text-cyan pito-cell-channel"`. complexity: [low]
+- [x] T2.2 Update `game/list_columns_spec.rb`: `:channels` cell class is `"text-cyan pito-cell-channel"`. complexity: [low]
+- [x] T2.3 Run `bundle exec rspec` (the two list_columns specs) + `bin/rubocop`; green. complexity: [low]
+- [x] T2.4 Commit: `specs: channel column cyan + clamp` [manual]

@@ -330,6 +330,11 @@ RSpec.describe Pito::MessageBuilder::Game::ListColumns do
         expect(result.first[:html]).to be(true)
       end
 
+      it "colors and clamps the cell (cyan + pito-cell-channel)" do
+        result = described_class.cells(game_with_channels, [ :channels ])
+        expect(result.first[:class]).to eq("text-cyan pito-cell-channel")
+      end
+
       it "html-escapes handles containing special characters" do
         channel_special = create(:channel, handle: "@foo<bar>")
         video = create(:video, channel: channel_special)
