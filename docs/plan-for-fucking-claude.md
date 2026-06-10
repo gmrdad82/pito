@@ -16,21 +16,21 @@ from context, accepting multiple `to`/`from` ids (HABTM), without consuming the 
 
 ## Locked decisions
 
-| Topic | Decision |
-|---|---|
-| Source side | single id; entity inferred from `reply_target` (`video_*`→video, `game_*`→game) |
-| Target side | one or more ids (`1,2,3` or space-separated); the opposite entity |
-| Repeatable | link/unlink return `Append` with `consume: false`, forced at the VerbDelegator chokepoint |
-| Id resolution | global `find_by(id:)` — not validated as list members |
-| `show` / `delete` / `rm` | unchanged (still consume) |
-| Branch | `followup-smart-link` (already created at user request) |
+| Topic                    | Decision                                                                                  |
+| ------------------------ | ----------------------------------------------------------------------------------------- |
+| Source side              | single id; entity inferred from `reply_target` (`video_*`→video, `game_*`→game)           |
+| Target side              | one or more ids (`1,2,3` or space-separated); the opposite entity                         |
+| Repeatable               | link/unlink return `Append` with `consume: false`, forced at the VerbDelegator chokepoint |
+| Id resolution            | global `find_by(id:)` — not validated as list members                                     |
+| `show` / `delete` / `rm` | unchanged (still consume)                                                                 |
+| Branch                   | `followup-smart-link` (already created at user request)                                   |
 
 ## Complexity hints
 
-| Hint | Meaning |
-|---|---|
-| `[low]` | mechanical / single-file / pattern-following edit |
-| `[high]` | architectural / cross-cutting decision |
+| Hint       | Meaning                                              |
+| ---------- | ---------------------------------------------------- |
+| `[low]`    | mechanical / single-file / pattern-following edit    |
+| `[high]`   | architectural / cross-cutting decision               |
 | `[manual]` | operator: design choices, verification runs, commits |
 
 ## Phase index

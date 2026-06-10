@@ -95,7 +95,7 @@ Every task line:
   - `[manual]` — operator, by hand: GitHub UI, credentials, design choices, smoke tests, commits.
   - `[low]` — mechanical or moderate-judgement work a cheap model can run: deletions, renames, file audits, gemfile edits, locale YAML, single-file classes/refactors, small components, basic controllers, plumbing, queries, multi-file edits that follow an established pattern.
   - `[high]` — architectural / cross-cutting: security, schema design, DSL design, command routers, ActionCable wiring, and any decision a cheap model shouldn't make alone.
-- Each phase ends with a commit task: `- [ ] T<N>.<final> Commit: \`<message>\`. complexity: [manual]`. Commit messages are plain imperatives — **no `[skipci]` prefix**, no co-author trailer. No commit gate → phase is not done.
+- Each phase ends with a commit task: `- [ ] T<N>.<final> Commit: \`<message>\`. complexity: [manual]`. Commit messages are plain imperatives — **no `[skipci]` prefix\*\*, no co-author trailer. No commit gate → phase is not done.
 
 ## Sign-off block
 
