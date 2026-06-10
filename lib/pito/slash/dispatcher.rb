@@ -42,8 +42,8 @@ module Pito
         # positional args than the grammar spec can absorb.
         #
         # Opt-out: handlers with `self.validates_own_arity = true` are skipped
-        # here because their first arg is polymorphic (e.g. Theme — subcommand
-        # keyword OR theme name) and they perform their own arity validation.
+        # here because they validate their own argument count internally
+        # (e.g. Games — subcommand keyword with optional title).
         #
         # Capacity rules:
         #   - kv slots do NOT count — they consume key=value kwargs, not positional args.

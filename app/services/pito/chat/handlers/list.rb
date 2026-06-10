@@ -44,8 +44,13 @@ module Pito
         }.freeze
 
         def call
-          return list_channels  if message.raw.match?(/\bchannels?\b/i)
-          return list_videos    if message.raw.match?(/\bvideos?\b/i)
+          # The noun (channels/videos/games) is whatever precedes the first clause
+          # keyword. A `with <columns>` clause may legitimately contain "channels"
+          # (the games Channels column) or "video", which must NOT be mistaken for
+          # the noun — otherwise `list games with channels` routes to `list channels`.
+          head = noun_head(message.raw)
+          return list_channels  if head.match?(/\bchannels?\b/i)
+          return list_videos    if head.match?(/\bvideos?\b/i)
           return games_list_help if message.raw.match?(/(?:\A|\s)--help(?:\s|\z)/)
 
           filtered = Pito::Chat::GameListFilter.filtered?(message.raw)
@@ -60,7 +65,11 @@ module Pito
 
           channel_scoped = resolved_channel_handle.present?
 
-          games = games.includes(:genres, :developer_companies, :publisher_companies) if columns.any?
+          if columns.any?
+            includes_args = [ :genres, :developer_companies, :publisher_companies ]
+            includes_args << { linked_videos: :channel } if columns.include?(:channels)
+            games = games.includes(*includes_args)
+          end
 
           if games.empty?
             return (filtered || channel_scoped) ? games_filter_empty : games_empty
@@ -88,6 +97,14 @@ module Pito
         end
 
         private
+
+        # Returns the part of the raw input that precedes the first clause keyword
+        # (`with` / `sorted by` / `ordered by`). The noun is detected from this head
+        # so that column names inside a clause (e.g. the games `channels` column)
+        # never get read as the `list channels` / `list videos` noun.
+        def noun_head(raw)
+          raw.to_s.split(/\b(?:with|sorted\s+by|ordered\s+by)\b/i, 2).first.to_s
+        end
 
         # `list videos [published|unlisted] [with <col>, …]`
         #

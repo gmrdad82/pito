@@ -110,20 +110,13 @@ RSpec.describe Pito::Slash::Dispatcher, "arity guard (P5.5)", type: :service do
     end
   end
 
-  # ── /themes — validates_own_arity = true → dispatcher skips guard ────────────
+  # ── /themes — 0 positional slots, dispatcher guard fires for extra args ──────
 
-  describe "/themes — dispatcher skips generic guard (validates_own_arity)" do
-    it "routes /themes ayu-dark to the handler (not rejected by dispatcher guard)" do
-      result = dispatch("/themes ayu-dark")
-      # The handler accepts it (valid 1-arg form); result is Ok.
+  describe "/themes — zero positional slots (generic guard applies)" do
+    it "accepts '/themes' (no args)" do
+      result = dispatch("/themes")
       expect(result).to be_a(Pito::Slash::Result::Ok)
-    end
-
-    it "routes /themes ayu-dark ayu-dark to the handler for self-validation" do
-      # Dispatcher guard is skipped; theme handler rejects with its own error.
-      result = dispatch("/themes ayu-dark ayu-dark")
-      expect(result).to be_a(Pito::Slash::Result::Error)
-      expect(result.message_key).to eq("pito.slash.theme.errors.too_many_args")
+      expect(result.events.first[:payload][:sidebar_open]).to eq("theme")
     end
   end
 end

@@ -51,6 +51,11 @@ module Pito
         end
 
         if message.raw.match?(/(?:\A|\s)--help(?:\s|\z)/)
+          if message.verb == :help
+            payload = Pito::Slash::HelpRenderer.nonsense_payload
+            return Pito::Chat::Result::Ok.new(events: [ { kind: :system, payload: } ])
+          end
+
           noun    = extract_noun(message)
           payload = Pito::MessageBuilder::CommandHelp.call(message.verb, noun:)
           return Pito::Chat::Result::Ok.new(events: [ { kind: :system, payload: } ]) if payload

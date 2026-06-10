@@ -166,6 +166,46 @@ RSpec.describe Pito::Chat::Dispatcher do
         games_body = Pito::MessageBuilder::Game::ListHelp.call["body"]
         expect(body).to eq(games_body)
       end
+
+      # ── help --help → easter-egg nonsense page ────────────────────────────
+
+      it "routes 'help --help' to the nonsense page (easter egg)" do
+        result = described_class.call(input: "help --help", conversation:)
+        expect(result).to be_a(Pito::Chat::Result::Ok)
+      end
+
+      it "'help --help' emits a system event" do
+        result = described_class.call(input: "help --help", conversation:)
+        expect(result.events.first[:kind]).to eq(:system)
+      end
+
+      it "'help --help' payload body contains the manual's manual signature" do
+        result = described_class.call(input: "help --help", conversation:)
+        payload = result.events.first[:payload]
+        expect(payload[:body]).to include("manual's manual")
+      end
+
+      it "'help --help' payload table_rows contains the touch grass entry" do
+        result = described_class.call(input: "help --help", conversation:)
+        payload = result.events.first[:payload]
+        rows = payload[:table_rows]
+        expect(rows.map { |r| r[:value] }.join).to include("touch grass")
+      end
+
+      it "'help --help' payload matches Pito::Slash::HelpRenderer.nonsense_payload exactly" do
+        result = described_class.call(input: "help --help", conversation:)
+        payload = result.events.first[:payload]
+        expect(payload).to eq(Pito::Slash::HelpRenderer.nonsense_payload)
+      end
+
+      it "plain 'help' (no flag) still renders the verb catalogue (GAMES/VIDEOS/CHANNELS)" do
+        result = described_class.call(input: "help", conversation:)
+        expect(result).to be_a(Pito::Chat::Result::Ok)
+        body = result.events.first[:payload]["body"]
+        expect(body).to include("GAMES")
+        expect(body).to include("VIDEOS")
+        expect(body).to include("CHANNELS")
+      end
     end
   end
 end

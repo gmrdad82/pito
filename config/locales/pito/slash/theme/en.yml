@@ -3,23 +3,6 @@ en:
     slash:
       theme:
         descriptions:
-          theme: "Switch the UI theme (/themes apply|preview|reset <name>)"
-        help:
-          usage: "/themes [apply|preview|reset] [<name>]"
-          description: "Apply a theme permanently, preview it without saving, or reset to the default. Use /themes (or /themes list) to open the theme picker sidebar."
-        apply:
-          confirmed: "Theme dialed in. %{name} is now the look. (/themes reset to undo)"
-        preview:
-          confirmed: "Heads-up: this is a preview of %{name} — not saved yet. Run %{apply} to keep it or %{reset} to go back."
-        reset:
-          confirmed: "Back to basics. Tokyo Night is live again."
+          theme: "Open the theme picker sidebar"
         sidebar:
           opening: "Opening the theme picker sidebar…"
-        list:
-          dark_header: "Dark"
-          light_header: "Light"
-        errors:
-          unknown_target: "No theme called '%{name}'. Try /themes --help to see what's on the menu."
-          missing_name_for_preview: "Usage: /themes preview <name>. Not sure which one? /themes (sidebar) or /themes --help."
-          missing_name_for_apply: "Usage: /themes apply <name>. Not sure which one? /themes (sidebar) or /themes --help."
-          too_many_args: "Too many arguments for /themes. Try: /themes <name>, /themes apply <name>, or /themes --help."

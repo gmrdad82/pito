@@ -48,6 +48,14 @@ RSpec.describe Pito::MessageBuilder::Game::ListColumns do
       expect(vocab["year"]).to eq(:year)
     end
 
+    it "maps 'channel' to :channels" do
+      expect(vocab["channel"]).to eq(:channels)
+    end
+
+    it "maps 'channels' to :channels" do
+      expect(vocab["channels"]).to eq(:channels)
+    end
+
     it "does not include unknown tokens" do
       expect(vocab.key?("unknown_token")).to be(false)
     end
@@ -68,10 +76,10 @@ RSpec.describe Pito::MessageBuilder::Game::ListColumns do
       expect(described_class.headings([ :year, :developer ])).to eq([ "Year", "Developer" ])
     end
 
-    it "includes all six headings when all columns are requested" do
-      all = %i[platform genre developer publisher release_date year]
+    it "includes all seven headings when all columns are requested" do
+      all = %i[platform genre developer publisher channels release_date year]
       expect(described_class.headings(all)).to eq(
-        [ "Platform", "Genre", "Developer", "Publisher", "Release", "Year" ]
+        [ "Platform", "Genre", "Developer", "Publisher", "Channels", "Release", "Year" ]
       )
     end
   end
@@ -138,6 +146,28 @@ RSpec.describe Pito::MessageBuilder::Game::ListColumns do
       known = build(:game, release_year: 2015)
       key   = described_class.sort_key_for("year", selected_columns: [ :year ])
       expect(key.call(tba)).to be > key.call(known)
+    end
+
+    it "returns nil for 'channel' when :channels not in selected_columns" do
+      key = described_class.sort_key_for("channel", selected_columns: [])
+      expect(key).to be_nil
+    end
+
+    it "returns nil for 'channels' when :channels not in selected_columns" do
+      key = described_class.sort_key_for("channels", selected_columns: [])
+      expect(key).to be_nil
+    end
+
+    it "returns a proc for 'channel' when :channels IS in selected_columns" do
+      game = create(:game)
+      key  = described_class.sort_key_for("channel", selected_columns: [ :channels ])
+      expect(key).to be_a(Proc)
+      expect(key.call(game)).to be_a(String)
+    end
+
+    it "returns a proc for 'channels' when :channels IS in selected_columns" do
+      key = described_class.sort_key_for("channels", selected_columns: [ :channels ])
+      expect(key).to be_a(Proc)
     end
   end
 
@@ -248,9 +278,66 @@ RSpec.describe Pito::MessageBuilder::Game::ListColumns do
     end
 
     it "does NOT add text-right to left-aligned columns" do
-      %i[platform genre developer publisher].each do |col|
+      %i[platform genre developer publisher channels].each do |col|
         result = described_class.cells(game, [ col ])
         expect(result.first[:class]).not_to include("text-right"), "expected #{col} not to be right-aligned"
+      end
+    end
+
+    context "channels column" do
+      let(:channel1) { create(:channel, handle: "@manfygreats") }
+      let(:channel2) { create(:channel, handle: "@awesomegamer") }
+      let(:game_with_channels) { create(:game) }
+
+      it "returns a single @handle for a game with one linked channel" do
+        video = create(:video, channel: channel1)
+        create(:video_game_link, game: game_with_channels, video: video)
+        game_with_channels.reload
+        result = described_class.cells(game_with_channels, [ :channels ])
+        expect(result.first[:text]).to eq("@manfygreats")
+      end
+
+      it "returns multiple @handles separated by <br> for a game with two channels" do
+        video1 = create(:video, channel: channel1)
+        video2 = create(:video, channel: channel2)
+        create(:video_game_link, game: game_with_channels, video: video1)
+        create(:video_game_link, game: game_with_channels, video: video2)
+        game_with_channels.reload
+        result = described_class.cells(game_with_channels, [ :channels ])
+        expect(result.first[:text]).to include("@manfygreats")
+        expect(result.first[:text]).to include("@awesomegamer")
+        expect(result.first[:text]).to include("<br>")
+      end
+
+      it "de-duplicates handles when multiple videos share the same channel" do
+        video1 = create(:video, channel: channel1)
+        video2 = create(:video, channel: channel1)
+        create(:video_game_link, game: game_with_channels, video: video1)
+        create(:video_game_link, game: game_with_channels, video: video2)
+        game_with_channels.reload
+        result = described_class.cells(game_with_channels, [ :channels ])
+        handles = result.first[:text].split("<br>")
+        expect(handles).to eq([ "@manfygreats" ])
+      end
+
+      it "returns an empty string for a game with no linked videos" do
+        result = described_class.cells(game_with_channels, [ :channels ])
+        expect(result.first[:text]).to eq("")
+      end
+
+      it "returns cell with html: true" do
+        result = described_class.cells(game_with_channels, [ :channels ])
+        expect(result.first[:html]).to be(true)
+      end
+
+      it "html-escapes handles containing special characters" do
+        channel_special = create(:channel, handle: "@foo<bar>")
+        video = create(:video, channel: channel_special)
+        create(:video_game_link, game: game_with_channels, video: video)
+        game_with_channels.reload
+        result = described_class.cells(game_with_channels, [ :channels ])
+        expect(result.first[:text]).to include("&lt;")
+        expect(result.first[:text]).not_to include("<bar>")
       end
     end
   end
@@ -296,9 +383,16 @@ RSpec.describe Pito::MessageBuilder::Game::ListColumns do
     end
 
     it "ensures :release_date and :year always trail the other columns" do
-      all = %i[release_date year platform genre developer publisher]
+      all = %i[release_date year platform genre developer publisher channels]
       result = described_class.canonical_order(all)
       expect(result.last(2)).to eq(%i[release_date year])
+    end
+
+    it "places :channels before :release_date and :year" do
+      all = %i[channels release_date year]
+      result = described_class.canonical_order(all)
+      expect(result.index(:channels)).to be < result.index(:release_date)
+      expect(result.index(:channels)).to be < result.index(:year)
     end
   end
 end
