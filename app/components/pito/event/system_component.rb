@@ -34,6 +34,7 @@ module Pito
         @expand_more_count = payload[:expand_more_count].to_i
         @table_rows   = Array(payload[:table_rows]).map { |r| r.respond_to?(:with_indifferent_access) ? r.with_indifferent_access : r }
         @table_heading    = payload[:table_heading].presence
+        @fixed_leading    = payload[:fixed_leading].to_i
         @fixed_trailing   = payload[:fixed_trailing].to_i
         @info_lines   = Array(payload[:info_lines]).map(&:to_s)
         @sections     = Array(payload[:sections]).map { |s| s.respond_to?(:with_indifferent_access) ? s.with_indifferent_access : s }
@@ -48,7 +49,7 @@ module Pito
 
       attr_reader :body, :expand_lines, :expand_detail, :expand_more_count, :table_rows, :table_heading,
                   :info_lines, :handle, :channel, :sections, :html, :reply_handle, :reply_consumed,
-                  :fixed_trailing
+                  :fixed_leading, :fixed_trailing
 
       def expandable?    = @expand_detail.any? || @sections.any?
       def accent         = :surface

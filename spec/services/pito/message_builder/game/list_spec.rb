@@ -135,6 +135,38 @@ RSpec.describe Pito::MessageBuilder::Game::List do
 
   # ── Full columns (all 6 with-cols) ────────────────────────────────────────────
 
+  describe ".call — fixed_leading" do
+    context "when :platform is among the columns" do
+      let(:games) { ::Game.order(:title) }
+
+      subject(:payload) { described_class.call(games, conversation: conversation, columns: [ :platform ]) }
+
+      it "sets fixed_leading to 1" do
+        expect(payload["fixed_leading"]).to eq(1)
+      end
+    end
+
+    context "when :platform is not among the columns" do
+      let(:games) { ::Game.order(:title) }
+
+      subject(:payload) { described_class.call(games, conversation: conversation, columns: [ :genre ]) }
+
+      it "sets fixed_leading to 0" do
+        expect(payload["fixed_leading"]).to eq(0)
+      end
+    end
+
+    context "when no columns are requested" do
+      let(:games) { ::Game.order(:title) }
+
+      subject(:payload) { described_class.call(games, conversation: conversation) }
+
+      it "sets fixed_leading to 0" do
+        expect(payload["fixed_leading"]).to eq(0)
+      end
+    end
+  end
+
   describe ".call with all 6 columns (developer, publisher, genre, platform, release_date, year)" do
     let(:genre)       { create(:genre, name: "Action") }
     let(:dev_co)      { create(:company, name: "Studio Dev") }
@@ -154,6 +186,10 @@ RSpec.describe Pito::MessageBuilder::Game::List do
     let(:columns) { %i[developer publisher genre platform release_date year] }
 
     subject(:payload) { described_class.call(games, conversation: conversation, columns: columns) }
+
+    it "has fixed_leading == 1 (platform)" do
+      expect(payload["fixed_leading"]).to eq(1)
+    end
 
     it "has fixed_trailing == 2 (release_date + year)" do
       expect(payload["fixed_trailing"]).to eq(2)

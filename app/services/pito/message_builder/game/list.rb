@@ -28,6 +28,7 @@ module Pito
               "Game",
               *ListColumns.heading_cells(cols)
             ],
+            "fixed_leading"  => (cols & %i[platform]).size,
             "fixed_trailing" => (cols & %i[release_date year]).size,
             "table_rows"    => games.map { |game|
               {
