@@ -161,6 +161,26 @@ RSpec.describe Pito::Chat::Handlers::List do
     end
   end
 
+  # ── `list games with channels` (column, NOT the channels noun) ──────────────
+  describe "#call with `list games with channels` (regression: noun vs with-column)" do
+    let(:connection) { create(:youtube_connection) }
+    let!(:channel)   { create(:channel, handle: "@manfy", youtube_connection: connection) }
+    let!(:game)      { create(:game, title: "Pragmata") }
+    let!(:video)     { create(:video, channel: channel, title: "Pragmata gameplay") }
+    before           { create(:video_game_link, game: game, video: video) }
+
+    %w[channels channel].each do |word|
+      it "routes `list games with #{word}` to the games list with a Channels column, not `list channels`" do
+        payload  = handler_for("list games with #{word}").call.events.first[:payload]
+        headings = Array(payload["table_heading"]).map { |c| c.is_a?(Hash) ? c["text"] : c }
+
+        expect(headings.first).to eq("#")          # games kv-table, not channel avatar cards
+        expect(headings).to include("Channels")
+        expect(payload["table_rows"].first[:cells].last[:text]).to include("@manfy")
+      end
+    end
+  end
+
   # ── Videos ────────────────────────────────────────────────────────────────
 
   describe "#call with `list videos`" do
