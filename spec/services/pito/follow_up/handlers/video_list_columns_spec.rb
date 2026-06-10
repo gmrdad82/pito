@@ -166,6 +166,123 @@ RSpec.describe Pito::FollowUp::Handlers::VideoList, "column mutations" do
     end
   end
 
+  # ── sort/order <column> ─────────────────────────────────────────────────────
+
+  describe "#call with sort" do
+    let(:channel2) { create(:channel, handle: "@chan2", youtube_channel_id: "UCvl_col2") }
+    let!(:vid_a)   { create(:video, :public, title: "Aardvark Run",  channel:) }
+    let!(:vid_b)   { create(:video, :public, title: "Zebra Chase",   channel:) }
+
+    let(:two_video_event) do
+      payload = Pito::MessageBuilder::Video::List.call(
+        [ vid_b, vid_a ],   # intentionally out of alpha order
+        conversation:,
+        columns: []
+      )
+      instance_double(Event, payload:, kind: "system")
+    end
+
+    it "returns a Mutation for sort by title" do
+      result = handler.call(event: two_video_event, rest: "sort by title", conversation:)
+      expect(result).to be_a(Pito::FollowUp::Result::Mutation)
+    end
+
+    it "kind is :system (mirrors the source event kind)" do
+      result = handler.call(event: two_video_event, rest: "sort by title", conversation:)
+      expect(result.kind).to eq(:system)
+    end
+
+    it "re-sorts the list ascending by title" do
+      result = handler.call(event: two_video_event, rest: "sort by title", conversation:)
+      expect(result.payload["video_ids"]).to eq([ vid_a.id, vid_b.id ])
+    end
+
+    it "re-sorts descending with `sort by title desc`" do
+      result = handler.call(event: two_video_event, rest: "sort by title desc", conversation:)
+      expect(result.payload["video_ids"]).to eq([ vid_b.id, vid_a.id ])
+    end
+
+    it "accepts `sort title` (without `by`)" do
+      result = handler.call(event: two_video_event, rest: "sort title", conversation:)
+      expect(result.payload["video_ids"]).to eq([ vid_a.id, vid_b.id ])
+    end
+
+    it "`order by title` is an alias for sort" do
+      result = handler.call(event: two_video_event, rest: "order by title", conversation:)
+      expect(result).to be_a(Pito::FollowUp::Result::Mutation)
+      expect(result.payload["video_ids"]).to eq([ vid_a.id, vid_b.id ])
+    end
+
+    it "is a lenient no-op for an unknown column (stamped order preserved)" do
+      result = handler.call(event: two_video_event, rest: "sort by banana", conversation:)
+      expect(result).to be_a(Pito::FollowUp::Result::Mutation)
+      # Stamped order was [vid_b, vid_a] (no key found → unchanged)
+      expect(result.payload["video_ids"]).to eq([ vid_b.id, vid_a.id ])
+    end
+
+    it "is a lenient no-op when sorting by a column not present in the list (views requires with)" do
+      result = handler.call(event: two_video_event, rest: "sort by views", conversation:)
+      expect(result).to be_a(Pito::FollowUp::Result::Mutation)
+      expect(result.payload["video_ids"]).to eq([ vid_b.id, vid_a.id ])
+    end
+
+    it "does NOT set reply_consumed (handle stays live)" do
+      result = handler.call(event: two_video_event, rest: "sort by title", conversation:)
+      expect(result.payload["reply_consumed"]).not_to be_truthy
+    end
+
+    it "preserves the original reply_handle" do
+      original_handle = two_video_event.payload["reply_handle"]
+      result          = handler.call(event: two_video_event, rest: "sort by title", conversation:)
+      expect(result.payload["reply_handle"]).to eq(original_handle)
+    end
+
+    it "preserves reply_target as video_list" do
+      result = handler.call(event: two_video_event, rest: "sort by title", conversation:)
+      expect(result.payload["reply_target"]).to eq("video_list")
+    end
+
+    context "when the views column is present" do
+      before do
+        Pito::Stats.set(vid_a, :views, 100)
+        Pito::Stats.set(vid_b, :views, 9000)
+      end
+
+      let(:views_event) do
+        payload = Pito::MessageBuilder::Video::List.call(
+          [ vid_a, vid_b ],
+          conversation:,
+          columns: [ :views ]
+        )
+        instance_double(Event, payload:, kind: "system")
+      end
+
+      it "sorts by views ascending when the views column is present" do
+        result = handler.call(event: views_event, rest: "sort by views", conversation:)
+        expect(result).to be_a(Pito::FollowUp::Result::Mutation)
+        # vid_a has 100 views, vid_b has 9000 → ascending order: a, b
+        expect(result.payload["video_ids"]).to eq([ vid_a.id, vid_b.id ])
+      end
+
+      it "sorts by views descending" do
+        result = handler.call(event: views_event, rest: "sort by views desc", conversation:)
+        expect(result.payload["video_ids"]).to eq([ vid_b.id, vid_a.id ])
+      end
+    end
+  end
+
+  describe "Pito::FollowUp::Registry.mode_for — sort/order" do
+    before { Pito::FollowUp::Registry.register_all! }
+
+    it "returns :mutate for sort action" do
+      expect(Pito::FollowUp::Registry.mode_for("video_list", action: "sort")).to eq(:mutate)
+    end
+
+    it "returns :mutate for order action" do
+      expect(Pito::FollowUp::Registry.mode_for("video_list", action: "order")).to eq(:mutate)
+    end
+  end
+
   # ── show/delete still go through VerbDelegator (:append, consuming) ─────────
 
   describe "#call with show (still :append, consuming)" do

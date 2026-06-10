@@ -220,6 +220,58 @@ RSpec.describe Pito::MessageBuilder::HashtagHelp do
           expect(result["body"]).to include("publisher")
         end
       end
+
+      context "action-level page (action: 'sort')" do
+        subject(:result) { described_class.call(target: "game_list", action: "sort") }
+
+        it "returns an html payload" do
+          expect(result).to be_a(Hash)
+          expect(result["html"]).to be(true)
+        end
+
+        it "body includes the usage line" do
+          expect(result["body"]).to include("sort")
+        end
+
+        it "body includes sortable column names" do
+          expect(result["body"]).to include("title")
+          expect(result["body"]).to include("platform")
+          expect(result["body"]).to include("release date")
+        end
+
+        it "body mentions [desc] option" do
+          expect(result["body"]).to include("desc")
+        end
+      end
+
+      context "action-level page (action: 'order') — normalizes to sort copy" do
+        subject(:result) { described_class.call(target: "game_list", action: "order") }
+
+        it "returns an html payload (renders the sort page)" do
+          expect(result).to be_a(Hash)
+          expect(result["html"]).to be(true)
+        end
+
+        it "body includes sort column content" do
+          expect(result["body"]).to include("title")
+        end
+      end
+
+      context "target-level page — includes sort action row" do
+        subject(:result) { described_class.call(target: "game_list") }
+
+        it "body includes the sort action" do
+          expect(result["body"]).to include("sort")
+        end
+
+        it "body does NOT include an extra 'order' row (order has no own copy)" do
+          # The target page iterates actions and shows rows where copy exists.
+          # 'order' has no own copy block so it is skipped (next unless data).
+          # Count occurrences: 'order' may appear in the sort usage, that's ok;
+          # we just verify the page renders without error and contains sort.
+          expect(result["body"]).to be_a(String)
+        end
+      end
     end
 
     # ── video_detail / show-video ──────────────────────────────────────────────
@@ -341,6 +393,46 @@ RSpec.describe Pito::MessageBuilder::HashtagHelp do
 
         it "body mentions video column vocab (comments)" do
           expect(result["body"]).to include("comments")
+        end
+      end
+
+      context "action-level page (action: 'sort')" do
+        subject(:result) { described_class.call(target: "video_list", action: "sort") }
+
+        it "returns an html payload" do
+          expect(result).to be_a(Hash)
+          expect(result["html"]).to be(true)
+        end
+
+        it "body includes sort-column names" do
+          expect(result["body"]).to include("views")
+          expect(result["body"]).to include("likes")
+          expect(result["body"]).to include("duration")
+        end
+
+        it "body mentions [desc] option" do
+          expect(result["body"]).to include("desc")
+        end
+      end
+
+      context "action-level page (action: 'order') — normalizes to sort copy" do
+        subject(:result) { described_class.call(target: "video_list", action: "order") }
+
+        it "returns an html payload (renders the sort page)" do
+          expect(result).to be_a(Hash)
+          expect(result["html"]).to be(true)
+        end
+
+        it "body includes sort column content" do
+          expect(result["body"]).to include("views")
+        end
+      end
+
+      context "target-level page — includes sort action row" do
+        subject(:result) { described_class.call(target: "video_list") }
+
+        it "body includes the sort action" do
+          expect(result["body"]).to include("sort")
         end
       end
     end

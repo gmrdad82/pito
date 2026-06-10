@@ -444,6 +444,86 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
     end
   end
 
+  describe "hashtag follow-up: sort/order ghost for game_list", :db do
+    let(:conversation) { Conversation.create! }
+    let(:turn) { conversation.turns.create!(input_kind: :slash, input_text: "/list games", position: 1) }
+
+    before do
+      Pito::FollowUp::Registry.register_all!
+      Event.create_with_position!(
+        conversation:, turn:, kind: "system",
+        payload: { "reply_handle" => "gsort-1111", "reply_target" => "game_list",
+                   "list_columns" => [], "body" => "games" }
+      )
+    end
+
+    it "suggests sort and order in the action palette" do
+      result = call(input: "#gsort-1111 ", cursor: 12, conversation:)
+      labels = result[:menu_items].map { |i| i[:label] }
+      expect(labels).to include("sort", "order")
+    end
+
+    it "ghosts 'by' when nothing is typed after the verb" do
+      result = call(input: "#gsort-1111 sort ", cursor: 17, conversation:)
+      expect(result[:ghost][:complete_current]).to eq("by")
+    end
+
+    it "ghosts 'y' when 'b' is typed after the verb" do
+      result = call(input: "#gsort-1111 sort b", cursor: 18, conversation:)
+      expect(result[:ghost][:complete_current]).to eq("y")
+    end
+
+    it "ghosts the first sort column after 'sort by '" do
+      result = call(input: "#gsort-1111 sort by ", cursor: 20, conversation:)
+      expect(result[:ghost][:complete_current]).to eq("id")
+    end
+
+    it "completes 'tle' after 'sort by ti'" do
+      result = call(input: "#gsort-1111 sort by ti", cursor: 22, conversation:)
+      expect(result[:ghost][:complete_current]).to eq("tle")
+    end
+
+    it "ghosts 'by' for 'order ' (alias)" do
+      result = call(input: "#gsort-1111 order ", cursor: 18, conversation:)
+      expect(result[:ghost][:complete_current]).to eq("by")
+    end
+
+    it "returns empty menu_items (sort ghost has no palette)" do
+      result = call(input: "#gsort-1111 sort by ", cursor: 20, conversation:)
+      expect(result[:menu_items]).to be_empty
+    end
+  end
+
+  describe "hashtag follow-up: sort ghost for video_list with views column", :db do
+    let(:conversation) { Conversation.create! }
+    let(:turn) { conversation.turns.create!(input_kind: :slash, input_text: "/list videos", position: 1) }
+
+    before do
+      Pito::FollowUp::Registry.register_all!
+      Event.create_with_position!(
+        conversation:, turn:, kind: "system",
+        payload: { "reply_handle" => "vsort-2222", "reply_target" => "video_list",
+                   "list_columns" => [ "views" ], "body" => "videos" }
+      )
+    end
+
+    it "ghosts 'by' when nothing after the verb" do
+      result = call(input: "#vsort-2222 sort ", cursor: 17, conversation:)
+      expect(result[:ghost][:complete_current]).to eq("by")
+    end
+
+    it "completes 'iews' after 'sort by v' when views is a present column" do
+      result = call(input: "#vsort-2222 sort by v", cursor: 21, conversation:)
+      expect(result[:ghost][:complete_current]).to eq("iews")
+    end
+
+    it "ghosts first column after 'sort by '" do
+      result = call(input: "#vsort-2222 sort by ", cursor: 20, conversation:)
+      # Base tokens first: id, title, channel, privacy; then views (present with-col)
+      expect(result[:ghost][:complete_current]).to eq("id")
+    end
+  end
+
   # T35.3 — hashtag --help ghost: when the partial starts with "-" and prefixes
   # "--help", the engine returns a --help ghost + menu item.
   describe "hashtag follow-up: --help ghost", :db do

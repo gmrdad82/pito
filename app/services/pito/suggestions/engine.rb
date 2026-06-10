@@ -415,6 +415,20 @@ module Pito
                 return result if result
               end
 
+              # Arg stage: for game_list/video_list sort/order, ghost sort column tokens.
+              if %w[sort order].include?(action) && %w[game_list video_list].include?(target)
+                # args_text = everything after "#<handle> <action> " (the sort clause).
+                args_text    = after.lstrip.sub(/\A\S+\s*/, "")
+                list_columns = follow_up_event_list_columns(handle, conversation)
+                result = Pito::Suggestions::ListClauseGhost.hashtag_list_sort_completions(
+                  target,
+                  list_columns:,
+                  args_text:,
+                  ends_with_space:
+                )
+                return result if result
+              end
+
               # Fallback: offer --help ghost when the partial starts with "-".
               return hashtag_arg_help_completions(partial)
             end
@@ -449,6 +463,20 @@ module Pito
           return [ nil, nil ] unless actions
 
           [ filter_link_unlink(actions, event), target ]
+        end
+
+        # Returns the list_columns array from the live follow-up event payload for
+        # the given handle, or [] when the event cannot be found or has no list_columns.
+        def follow_up_event_list_columns(handle, conversation)
+          return [] if handle.blank? || conversation.nil?
+
+          event = conversation.events
+            .where("payload->>'reply_handle' = ?", handle.to_s.downcase)
+            .where("(payload->>'reply_consumed') IS NULL OR (payload->>'reply_consumed') = 'false'")
+            .last
+          return [] unless event
+
+          Array(event.payload["list_columns"])
         end
 
         # link XOR unlink by existence (T19.6): when a detail card offers BOTH,

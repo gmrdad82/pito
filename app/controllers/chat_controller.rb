@@ -600,7 +600,7 @@ class ChatController < ApplicationController
     stripped = rest.to_s.strip
     if stripped == "--help"
       Pito::MessageBuilder::HashtagHelp.call(target:)
-    elsif (m = stripped.match(/\A(\S+)\s+--help\z/i))
+    elsif (m = stripped.match(/\A(\S+)(?:\s+by)?\s+--help\z/i))
       Pito::MessageBuilder::HashtagHelp.call(target:, action: m[1])
     end
   end

@@ -2373,6 +2373,21 @@ en:
                   "<columns>": "Comma-separated column names to remove: platform, genre, developer, publisher, release date, year"
                 Options:
                   "--help": "Print this help message"
+            sort:
+              usage: "#<list-games-hashtag> sort by <column> [desc]"
+              sections:
+                "Sort columns":
+                  "id": "Row number"
+                  "title": "Game title (alphabetical)"
+                  "platform": "Platform(s) — requires the platform column to be visible"
+                  "genre": "Genre(s) — requires the genre column to be visible"
+                  "developer": "Developer — requires the developer column to be visible"
+                  "publisher": "Publisher — requires the publisher column to be visible"
+                  "release date": "Release date — requires the release date column to be visible"
+                  "year": "Release year — requires the year column to be visible"
+                Options:
+                  "[desc]": "Reverse order (descending)"
+                  "--help": "Print this help message"
 
         show-video:
           target_usage: "#<show-video-hashtag> <action>"
@@ -2450,6 +2465,20 @@ en:
                 Arguments:
                   "<columns>": "Comma-separated column names to remove: game, duration, views, likes, comments"
                 Options:
+                  "--help": "Print this help message"
+            sort:
+              usage: "#<list-videos-hashtag> sort by <column> [desc]"
+              sections:
+                "Sort columns":
+                  "id": "Row number"
+                  "title": "Video title (alphabetical)"
+                  "game": "Linked game(s) — requires the game column to be visible"
+                  "duration": "Video duration — requires the duration column to be visible"
+                  "views": "View count — requires the views column to be visible"
+                  "likes": "Like count — requires the likes column to be visible"
+                  "comments": "Comment count — requires the comments column to be visible"
+                Options:
+                  "[desc]": "Reverse order (descending)"
                   "--help": "Print this help message"
 
         list-channels:

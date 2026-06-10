@@ -93,6 +93,91 @@ RSpec.describe Pito::Suggestions::ListClauseGhost do
     end
   end
 
+  # ── hashtag_list_sort_completions ────────────────────────────────────────────
+
+  describe ".hashtag_list_sort_completions" do
+    def sort_ghost(target, list_columns: [], args_text: "", ends_with_space: false)
+      described_class.hashtag_list_sort_completions(
+        target,
+        list_columns:,
+        args_text:,
+        ends_with_space:
+      )
+    end
+
+    context "unknown target" do
+      it "returns nil for unknown target" do
+        expect(sort_ghost("channel_list")).to be_nil
+      end
+    end
+
+    context "game_list — no columns present (base sort tokens only)" do
+      it "ghosts 'by' when args_text is empty" do
+        result = sort_ghost("game_list", args_text: "", ends_with_space: true)
+        expect(result[:ghost][:complete_current]).to eq("by")
+      end
+
+      it "ghosts 'y' when partial 'b' is typed" do
+        result = sort_ghost("game_list", args_text: "b", ends_with_space: false)
+        expect(result[:ghost][:complete_current]).to eq("y")
+      end
+
+      it "ghosts 'id' (first base token) after 'by '" do
+        result = sort_ghost("game_list", args_text: "by ", ends_with_space: false)
+        expect(result[:ghost][:complete_current]).to eq("id")
+      end
+
+      it "ghosts 'tle' for partial 'ti' after 'by '" do
+        result = sort_ghost("game_list", args_text: "by ti", ends_with_space: false)
+        expect(result[:ghost][:complete_current]).to eq("tle")
+      end
+
+      it "ghosts '' for ambiguous partial 'i' (id vs nothing)" do
+        # 'i' matches only 'id' → 'd' remaining
+        result = sort_ghost("game_list", args_text: "by i", ends_with_space: false)
+        expect(result[:ghost][:complete_current]).to eq("d")
+      end
+
+      it "ghosts '' for partial matching no candidate" do
+        result = sort_ghost("game_list", args_text: "by zzz", ends_with_space: false)
+        expect(result[:ghost][:complete_current]).to eq("")
+      end
+
+      it "returns empty menu_items" do
+        result = sort_ghost("game_list", args_text: "by ", ends_with_space: false)
+        expect(result[:menu_items]).to eq([])
+      end
+    end
+
+    context "game_list — platform column present" do
+      it "includes platform as a sort candidate" do
+        result = sort_ghost("game_list", list_columns: [ "platform" ], args_text: "by pl", ends_with_space: false)
+        expect(result[:ghost][:complete_current]).to eq("atform")
+      end
+    end
+
+    context "video_list — views column present" do
+      it "includes views as a sort candidate" do
+        result = sort_ghost("video_list", list_columns: [ "views" ], args_text: "by v", ends_with_space: false)
+        expect(result[:ghost][:complete_current]).to eq("iews")
+      end
+
+      it "base-only columns are not sortable candidates from SORT_SPECS requires_with" do
+        # 'channel' is base sort token (requires_with: false), NOT in COLUMNS → not in present_sortable
+        # but IS in base_sort_tokens
+        result = sort_ghost("video_list", list_columns: [], args_text: "by ch", ends_with_space: false)
+        expect(result[:ghost][:complete_current]).to eq("annel")
+      end
+    end
+
+    context "video_list — no columns present" do
+      it "ghosts 'id' after 'by '" do
+        result = sort_ghost("video_list", args_text: "by ", ends_with_space: false)
+        expect(result[:ghost][:complete_current]).to eq("id")
+      end
+    end
+  end
+
   # ── Channels — returns nil ────────────────────────────────────────────────────
 
   describe "channels noun" do

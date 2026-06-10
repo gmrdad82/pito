@@ -95,6 +95,73 @@ module Pito
         { menu_items: [], ghost: ghost }
       end
 
+      # ── Hashtag sort/order ghost ────────────────────────────────────────────────
+
+      # Computes a sort-column ghost for `#<handle> sort <partial>` / `order <partial>`
+      # when the resolved follow-up reply_target is "game_list" or "video_list".
+      #
+      # Candidates = base_sort_tokens + display tokens of sortable with-columns present
+      # in +list_columns+.
+      #
+      # Ghost sequence:
+      #   - When args_text is blank (nothing after the verb):    ghost "by"
+      #   - When args_text starts with "b" (typing "by"):        ghost "by" completion
+      #   - When args_text starts with "by " (with space):       ghost the first sort column
+      #   - Otherwise:                                           ghost the sort column partial
+      #
+      # @param target          [String]        "game_list" or "video_list"
+      # @param list_columns    [Array<String>] canonical column keys (strings) stamped in the event
+      # @param args_text       [String]        everything after the action verb (e.g. "by vie")
+      # @param ends_with_space [Boolean]       whether the full input ends with a space
+      # @return [Hash{ menu_items: [], ghost: {complete_current:, next_hint:} }, nil]
+      #         nil when target is not a list target
+      def hashtag_list_sort_completions(target, list_columns:, args_text:, ends_with_space:)
+        registry = case target
+        when "game_list"  then Pito::MessageBuilder::Game::ListColumns
+        when "video_list" then Pito::MessageBuilder::Video::ListColumns
+        else return nil
+        end
+
+        # Build sortable candidates: base tokens + display tokens of present with-columns
+        # that have a SORT_SPECS entry.
+        present_sortable = Array(list_columns).map(&:to_sym).filter_map do |canonical|
+          next unless registry::SORT_SPECS.key?(canonical) &&
+                      registry::SORT_SPECS[canonical][:requires_with]
+
+          registry.display_token(canonical)
+        end.compact
+
+        candidates = registry.base_sort_tokens + present_sortable
+
+        # Determine what has been typed after the verb.
+        tail = args_text.to_s
+
+        # Nothing typed yet → ghost "by"
+        if tail.strip.empty?
+          ghost = { complete_current: "by", next_hint: "" }
+          return { menu_items: [], ghost: ghost }
+        end
+
+        # Check whether "by" has been typed (with trailing space) → ghost column.
+        if (m = tail.match(/\Aby(\s+)(.*)\z/i))
+          col_partial = ends_with_space ? "" : m[2].to_s.strip.downcase
+          ghost = build_ghost(candidates, col_partial)
+          return { menu_items: [], ghost: ghost }
+        end
+
+        # Still typing "by" itself (no trailing space after "by").
+        if tail.downcase.start_with?("b") && !ends_with_space
+          partial = tail.downcase
+          ghost   = build_ghost([ "by" ], partial)
+          return { menu_items: [], ghost: ghost }
+        end
+
+        # Anything else (e.g. user skipped "by" and typed the column directly).
+        col_partial = ends_with_space ? "" : tail.strip.downcase
+        ghost = build_ghost(candidates, col_partial)
+        { menu_items: [], ghost: ghost }
+      end
+
       # ── Private helpers ────────────────────────────────────────────────────
 
       # Returns the registry module for the noun in text, or nil for channels.

@@ -35,6 +35,12 @@ module Pito
       # @param target [String]       the reply_target string (e.g. "game_detail")
       # @param action [String, nil]  an action word (e.g. "footage") or nil for target page
       # @return [Hash, nil]          { "html" => true, "body" => "..." } or nil
+      # Action aliases that share copy with another action.
+      # "order" has no own copy block; it renders the "sort" page instead.
+      ACTION_ALIASES = {
+        "order" => "sort"
+      }.freeze
+
       def call(target:, action: nil)
         handler = Pito::FollowUp::Registry.for(target.to_s)
         return nil unless handler
@@ -44,7 +50,8 @@ module Pito
         return nil unless indicator
 
         if action
-          render_action_page(indicator, action.to_s)
+          normalized = ACTION_ALIASES.fetch(action.to_s, action.to_s)
+          render_action_page(indicator, normalized)
         else
           render_target_page(indicator, handler)
         end
