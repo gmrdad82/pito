@@ -13,9 +13,9 @@
 problems, all traced to root cause in the current branch:
 
 1. **Multi-column table collapses to a vertical list.** `list games with developer,
-   publisher, genres, release date, year, platforms` renders each header on its own
+publisher, genres, release date, year, platforms` renders each header on its own
    line instead of a table. Root cause: `Pito::Event::SystemComponent#table_grid_cols`
-   builds a Tailwind arbitrary class at *runtime* (`grid-cols-[max-content_…_1fr]`).
+   builds a Tailwind arbitrary class at _runtime_ (`grid-cols-[max-content_…_1fr]`).
    Tailwind v4 only compiles classes it scans in source (`@source "../../components"`);
    the only literal in source is the 2-col `grid-cols-[max-content_1fr]`. Any N≥3 string
    is never compiled → the element keeps `display:grid` with **no** `grid-template-columns`
@@ -38,7 +38,7 @@ problems, all traced to root cause in the current branch:
 
 4. **Autocomplete is wrong after `list games`.** After `list games ` the ghost should be
    ` with` but the user sees "channels"; `list games with ` offers no fields. Root cause:
-   the server engine *does* compute clause ghosts (`Pito::Suggestions::ListClauseGhost`)
+   the server engine _does_ compute clause ghosts (`Pito::Suggestions::ListClauseGhost`)
    but the JS client never defers to it for the `list` verb — `_computeLocalGhost` resolves
    the static `:noun` slot locally (`app/javascript/controllers/pito/suggestions_controller.js:583-653`).
    And nothing suggests the ` with` connector after the noun (`ListClauseGhost.ghost`
@@ -72,8 +72,8 @@ dates read "June 09, 2026"; and the input ghosts ` with` → field tokens as you
   - **PlayStation** ← `/playstation|ps\s?\d/i` (PS5, PS4, PlayStation 3, Playstation 4, …).
   - **Switch** ← `/switch/i` (Nintendo Switch, Switch 2, Switch Gen 1, …).
   - **Steam** (PC bucket) ← `/steam|pc|windows|gog|epic|amazon|battle\.?net/i`.
-  Everything else is **dropped** from display — Xbox*, Google Stadia, Mac, etc. Generation-
-  specific labels rejected (buckets are coarse).
+    Everything else is **dropped** from display — Xbox\*, Google Stadia, Mac, etc. Generation-
+    specific labels rejected (buckets are coarse).
 - **Platforms stored unchanged.** Only display + the platform sort key normalize.
 - **Table grid uses a CSS class + a `data-cols` attribute** (like `data-accent`) selecting
   static, compiled `.pito-data-grid[data-cols="N"]` rules. **No inline style, no runtime
@@ -95,19 +95,19 @@ dates read "June 09, 2026"; and the input ghosts ` with` → field tokens as you
   ghost-complete toward `--help` the moment the user types `-` / `--` / `--h` (etc.).
   Universal — chat verbs (done, Phase 7 T7.3) AND hashtag verbs/actions (via the hashtag
   suggestion ghost) AND any future `--help`-accepting input.
-- **Aliases stay active and are preserved across every rework** (id-only changes *argument
-  resolution*, never verb/action aliases). Canonical sets:
+- **Aliases stay active and are preserved across every rework** (id-only changes _argument
+  resolution_, never verb/action aliases). Canonical sets:
   - `list` ← {list, **ls**}; `delete` ← {delete, **rm**}.
   - confirm ← {**confirm, yes, ok, approve, true**, y}; cancel ← {**cancel, no, false, discard**, n}.
   - column `with`-aliases unchanged (platform/platforms, genre/genres, developer/dev, …).
-  `confirm`/`cancel` currently only have yes/y and no/n (`ACTION_ALIASES` in
-  `follow_up/handlers/confirmation.rb`) — the fuller sets (ok/approve/true, false/discard) are
-  ADDED (T36.2).
+    `confirm`/`cancel` currently only have yes/y and no/n (`ACTION_ALIASES` in
+    `follow_up/handlers/confirmation.rb`) — the fuller sets (ok/approve/true, false/discard) are
+    ADDED (T36.2).
 - **Hashtag commands infer from the `#hashtag` target — list vs detail:**
   - **Detail** targets (`#show-game-hashtag`, `#show-video-hashtag`): the subject AND its id
     are implied (the message is about one specific game/video). Actions take **no primary
     id** — `delete`, `reindex`, `footage <path>`, `link to video <id>`, `unlink from
-    video <id>`. Only the **cross-entity** ref stays.
+video <id>`. Only the **cross-entity** ref stays.
   - **List** targets (`#list-games-hashtag`, `#list-videos-hashtag`): you must pick an item,
     so the **id stays** — `show <id>`, `delete <id>` (`#list-channels-hashtag visit @handle`).
   - Chat verbs always keep the explicit noun (app-wide, no context). Two separate copy
@@ -123,8 +123,8 @@ dates read "June 09, 2026"; and the input ghosts ` with` → field tokens as you
   phase's Commit task flips `[x]` immediately before `git commit`; that commit stages this
   doc alongside the code. Plain imperative messages, no co-author trailer.
 - **Tests:** during a task run ONLY the touched specs; run the **full** `bundle exec rspec`
-  + `npm test` at each **phase end** (before the phase commit). Cross-cutting phases
-  (25, 30, 35) always end on a full run.
+  - `npm test` at each **phase end** (before the phase commit). Cross-cutting phases
+    (25, 30, 35) always end on a full run.
 - **Spec count:** record the full-suite baseline ONCE at execution start (T0 below); compare
   ONLY full runs to it; a subset run is labelled "subset", never quoted as the total
   (>4000 examples currently).
@@ -176,7 +176,7 @@ Read-only code investigation done before execution. Drives the task details belo
 6. **shared resolver = per-verb flag (RESOLVED).** `Pito::Chat::TargetResolution#find_by_ref`
    (id OR title ILIKE) is shared by show/delete/sync/reindex (link/unlink resolve manually).
    id-only is safe **per-verb** via a handler flag (e.g. `resolve_by :id_only`); `import game
-   [title]` keeps title (intercepted before the handler). ⇒ **id-only phases (10/16/18/20/22/24)
+[title]` keeps title (intercepted before the handler). ⇒ **id-only phases (10/16/18/20/22/24)
    set the per-verb flag; don't change the shared default globally.**
 7. **schedule = enter LOCAL, convert to UTC at the YouTube boundary (RESOLVED).** Today all times
    are `Time.utc`; `Channel` has no tz column. Decision: input `dd-mm-yyyy hh:mm` is parsed in the
@@ -237,7 +237,7 @@ Read-only code investigation done before execution. Drives the task details belo
 - [x] T1.6 Replace `DetailComponent#platform_tokens`/`#platforms_label` with thin calls to `Pito::Game::PlatformTokens` (pass `@game.platforms`); the template keeps calling `platforms_label`. complexity: [low]
 - [x] T1.7 Change the `:platform` column `value:` proc in `app/services/pito/message_builder/game/list_columns.rb` to `->(g) { Pito::Game::PlatformTokens.labels(g.platforms).to_s }`. complexity: [low]
 - [x] T1.8 Change the `:platform` `SORT_SPECS` key in the same file to sort on `PlatformTokens.labels(g).to_s` so sort matches display. complexity: [low]
-- [x] T1.9 Create `spec/services/pito/game/platform_tokens_spec.rb`: assert each bucket (PS5/PS4/"PlayStation 3"→ps; "Nintendo Switch 2"/"Switch Gen 1"→switch; Steam/"PC (Microsoft Windows)"/GOG/Epic/Amazon/Battle.net→steam), Xbox*/Google Stadia/Mac dropped, and de-dup (PS4+PS5 → one PlayStation). complexity: [low]
+- [x] T1.9 Create `spec/services/pito/game/platform_tokens_spec.rb`: assert each bucket (PS5/PS4/"PlayStation 3"→ps; "Nintendo Switch 2"/"Switch Gen 1"→switch; Steam/"PC (Microsoft Windows)"/GOG/Epic/Amazon/Battle.net→steam), Xbox\*/Google Stadia/Mac dropped, and de-dup (PS4+PS5 → one PlayStation). complexity: [low]
 - [x] T1.10 Add a `list_columns` spec example asserting the platform cell renders normalized labels (no raw IGDB names). complexity: [low]
 - [x] T1.11 Update the detail-component spec for the "Switch" label (was "Nintendo Switch") and the moved locale key. complexity: [low]
 - [x] T1.12 Run `bundle exec rspec` for the touched specs; `bin/rubocop` clean. complexity: [low]
@@ -323,11 +323,13 @@ aliases included, `Columns:` only where a `with` clause exists). Typing `-` (or 
 of `--help`) after a recognised verb ghosts `--help`. ALL copy from `Pito::Copy`.
 
 Infra (shared, do first):
+
 - [x] T7.1 Shared `Pito::MessageBuilder::ManPage.render(usage:, groups:)` renderer (extracted from `Game::ListHelp`, which now delegates to it — `list games --help` byte-identical). complexity: [high]
 - [x] T7.2 `Pito::MessageBuilder::CommandHelp.call(verb:)` (:list→ListHelp; others read `pito.copy.chat_help.<verb>`) + dispatcher intercepts `/(?:\A|\s)--help(?:\s|\z)/` → CommandHelp. complexity: [high]
 - [x] T7.3 Generic `--help` ghost hint: `-`/`--h` after a recognised verb ghosts `--help` (JS `_computeLocalGhost` + server `compute_ghost`; `list` via `ListClauseGhost`). complexity: [high]
 
 Per-verb man pages (one atomic task each — author `pito.copy.chat_help.<verb>` + confirm the handler routes `--help`):
+
 - [x] T7.4 `show --help` — copy added (`pito.copy.chat_help.show`); routes via dispatcher. complexity: [low]
 - [x] T7.5 `find --help` — DROPPED. `find` is a grammar spec with NO handler (dead verb → `verb_not_implemented`); the speculative `chat_help.find` copy was removed. A dispatcher spec documents the `find`-has-no-handler behaviour. complexity: [high]
 - [x] T7.6 `import --help` — copy added (accurate: `import <noun> [title]`, videos/game forms). complexity: [low]
@@ -554,7 +556,7 @@ user: no `#handle` shown on the visit message, `consume` not typeable, and
 `channel_visit`/`consume` excluded from the `#hashtag` palette + `#help`.
 
 Solution = EXTEND the follow-up mechanism (additive), do NOT change the shared path the
-other follow-upables use (game_detail / game_list / video_* / channel_list / confirmation
+other follow-upables use (game*detail / game_list / video*\* / channel_list / confirmation
 keep their hashtags, palette entries, and `#help` untouched):
 
 - [x] T30.1 Added `internal` flag to the follow-up handler DSL (`self.internal true` on `ChannelVisit`); `Help::FollowUpActions` skips internal handlers (gone from `#help`/palette). complexity: [high]
