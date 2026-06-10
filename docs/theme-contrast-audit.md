@@ -526,3 +526,198 @@ Text tokens audited: fg_default, fg_dim, fg_faded, accent_purple, accent_blue, a
 - Real-text FAILs (<3.0): 120
 - Real-text warns (3.0–4.5): 163
 - Of those, on light themes: FAIL 87, warn 78
+
+---
+
+# Dark themes
+
+Most dark themes pass — bright accents on near-black naturally contrast well. But
+several **low-contrast palettes** still fail AA, and `brand_pito` warns/fails on
+**every** dark theme too (confirming it's the universal offender — a mid-blue that
+clears AA on neither extreme).
+
+Worst dark themes: **solarized-dark** (11 FAIL — low-contrast by design, even
+`fg_default` is 4.1 on surface), **dracula** (7), **nord** (4 FAIL + 15 warn — famously
+muted), **gruvbox-dark** (4). Clean: ayu-dark, ayu-mirage, github-dark, one-dark (0).
+
+## Dark themes — real-text FAIL/warn counts (excluding fg_faded)
+| theme | FAIL(<3) | warn(<4.5) | failing tokens (on surface) |
+|---|---:|---:|---|
+| ayu-dark | 0 | 5 | fg-dim 4.1, brand_pito 4.5 |
+| ayu-mirage | 0 | 4 | brand_pito 3.6 |
+| catppuccin-mocha | 2 | 6 | fg-dim 3.8, brand_pito 3.1 |
+| dracula | 7 | 5 | fg-dim 2.5, blue 2.5, red 3.8, brand_pito 2.9 |
+| github-dark | 0 | 3 | brand_pito 4.2 |
+| gruvbox-dark | 4 | 11 | fg-dim 3.8, purple 4.2, blue 4.3, red 3.4, brand_pito 2.8 |
+| nord | 4 | 15 | fg-dim 3.6, purple 3.6, blue 3.7, orange 3.5, red 2.5, brand_pito 2.4 |
+| one-dark | 0 | 9 | fg-dim 3.7, brand_pito 3.7 |
+| solarized-dark | 11 | 15 | fg-default 4.1, fg-dim 2.2, purple 3.0, blue 3.5, cyan 4.1, green 4.1, yellow 4.1, orange 2.8, red 2.8, brand_pito 3.2 |
+| tokyo-night | 3 | 3 | fg-dim 2.5, brand_pito 3.8 |
+| tomorrow-night | 2 | 9 | fg-dim 3.8, red 3.9, brand_pito 3.5 |
+
+## Dark themes — full matrix
+
+### ayu-dark  (page #0b0e14, surface #11151c, elevated #1c212b)
+| text token | page | surface | elevated |
+|---|---:|---:|---:|
+| `fg_default` #bfbdb6 | 10.27 ✅ | 9.73 ✅ | 8.58 ✅ |
+| `fg_dim` #777775 | 4.30 ⚠️ | 4.08 ⚠️ | 3.60 ⚠️ |
+| `fg_faded` #535455 | 2.55 ❌ | 2.41 ❌ | 2.13 ❌ |
+| `accent_purple` #d2a6ff | 9.79 ✅ | 9.27 ✅ | 8.17 ✅ |
+| `accent_blue` #59c2ff | 9.74 ✅ | 9.22 ✅ | 8.13 ✅ |
+| `accent_cyan` #95e6cb | 13.30 ✅ | 12.60 ✅ | 11.11 ✅ |
+| `accent_green` #aad94c | 11.72 ✅ | 11.10 ✅ | 9.79 ✅ |
+| `accent_yellow` #e6b450 | 10.13 ✅ | 9.59 ✅ | 8.46 ✅ |
+| `accent_orange` #ff8f40 | 8.51 ✅ | 8.06 ✅ | 7.11 ✅ |
+| `accent_red` #f07178 | 6.75 ✅ | 6.39 ✅ | 5.64 ✅ |
+| `brand_pito` #5170ff | 4.70 ✅ | 4.45 ⚠️ | 3.93 ⚠️ |
+
+### ayu-mirage  (page #1f2430, surface #232834, elevated #2b3340)
+| text token | page | surface | elevated |
+|---|---:|---:|---:|
+| `fg_default` #e6e3d6 | 12.06 ✅ | 11.46 ✅ | 9.89 ✅ |
+| `fg_dim` #969794 | 5.28 ✅ | 5.02 ✅ | 4.33 ⚠️ |
+| `fg_faded` #6f7072 | 3.13 ⚠️ | 2.97 ❌ | 2.57 ❌ |
+| `accent_purple` #d4bfff | 9.38 ✅ | 8.91 ✅ | 7.69 ✅ |
+| `accent_blue` #73d0ff | 9.01 ✅ | 8.56 ✅ | 7.39 ✅ |
+| `accent_cyan` #95e6cb | 10.68 ✅ | 10.15 ✅ | 8.76 ✅ |
+| `accent_green` #bae67e | 10.87 ✅ | 10.32 ✅ | 8.91 ✅ |
+| `accent_yellow` #ffd580 | 11.14 ✅ | 10.59 ✅ | 9.14 ✅ |
+| `accent_orange` #ffad66 | 8.44 ✅ | 8.02 ✅ | 6.92 ✅ |
+| `accent_red` #f28779 | 6.29 ✅ | 5.98 ✅ | 5.16 ✅ |
+| `brand_pito` #5170ff | 3.78 ⚠️ | 3.59 ⚠️ | 3.10 ⚠️ |
+
+### catppuccin-mocha  (page #1e1e2e, surface #313244, elevated #45475a)
+| text token | page | surface | elevated |
+|---|---:|---:|---:|
+| `fg_default` #cdd6f4 | 11.34 ✅ | 8.69 ✅ | 6.31 ✅ |
+| `fg_dim` #878ca5 | 4.94 ✅ | 3.79 ⚠️ | 2.75 ❌ |
+| `fg_faded` #64687d | 2.98 ❌ | 2.29 ❌ | 1.66 ❌ |
+| `accent_purple` #cba6f7 | 8.07 ✅ | 6.19 ✅ | 4.49 ⚠️ |
+| `accent_blue` #89b4fa | 7.79 ✅ | 5.97 ✅ | 4.33 ⚠️ |
+| `accent_cyan` #94e2d5 | 11.01 ✅ | 8.44 ✅ | 6.12 ✅ |
+| `accent_green` #a6e3a1 | 11.03 ✅ | 8.46 ✅ | 6.14 ✅ |
+| `accent_yellow` #f9e2af | 12.91 ✅ | 9.89 ✅ | 7.18 ✅ |
+| `accent_orange` #fab387 | 9.27 ✅ | 7.10 ✅ | 5.15 ✅ |
+| `accent_red` #f38ba8 | 7.08 ✅ | 5.43 ✅ | 3.94 ⚠️ |
+| `brand_pito` #5170ff | 3.99 ⚠️ | 3.06 ⚠️ | 2.22 ❌ |
+
+### dracula  (page #282a36, surface #343641, elevated #44475a)
+| text token | page | surface | elevated |
+|---|---:|---:|---:|
+| `fg_default` #f8f8f2 | 13.36 ✅ | 11.26 ✅ | 8.59 ✅ |
+| `fg_dim` #6272a4 | 3.03 ⚠️ | 2.55 ❌ | 1.94 ❌ |
+| `fg_faded` #7b7c81 | 3.42 ⚠️ | 2.88 ❌ | 2.20 ❌ |
+| `accent_purple` #bd93f9 | 5.90 ✅ | 4.97 ✅ | 3.79 ⚠️ |
+| `accent_blue` #6272a4 | 3.03 ⚠️ | 2.55 ❌ | 1.94 ❌ |
+| `accent_cyan` #8be9fd | 10.29 ✅ | 8.67 ✅ | 6.61 ✅ |
+| `accent_green` #50fa7b | 10.38 ✅ | 8.74 ✅ | 6.67 ✅ |
+| `accent_yellow` #f1fa8c | 12.74 ✅ | 10.74 ✅ | 8.19 ✅ |
+| `accent_orange` #ffb86c | 8.36 ✅ | 7.04 ✅ | 5.37 ✅ |
+| `accent_red` #ff5555 | 4.53 ✅ | 3.82 ⚠️ | 2.91 ❌ |
+| `brand_pito` #5170ff | 3.47 ⚠️ | 2.92 ❌ | 2.23 ❌ |
+
+### github-dark  (page #0d1117, surface #161b22, elevated #21262d)
+| text token | page | surface | elevated |
+|---|---:|---:|---:|
+| `fg_default` #c9d1d9 | 12.26 ✅ | 11.21 ✅ | 9.86 ✅ |
+| `fg_dim` #7e848b | 5.01 ✅ | 4.58 ✅ | 4.03 ⚠️ |
+| `fg_faded` #585e65 | 2.89 ❌ | 2.64 ❌ | 2.32 ❌ |
+| `accent_purple` #bc8cff | 7.51 ✅ | 6.86 ✅ | 6.04 ✅ |
+| `accent_blue` #58a6ff | 7.49 ✅ | 6.85 ✅ | 6.03 ✅ |
+| `accent_cyan` #39c5cf | 9.07 ✅ | 8.29 ✅ | 7.29 ✅ |
+| `accent_green` #3fb950 | 7.45 ✅ | 6.81 ✅ | 5.99 ✅ |
+| `accent_yellow` #d29922 | 7.50 ✅ | 6.85 ✅ | 6.03 ✅ |
+| `accent_orange` #f0883e | 7.48 ✅ | 6.83 ✅ | 6.01 ✅ |
+| `accent_red` #ff7b72 | 7.51 ✅ | 6.86 ✅ | 6.04 ✅ |
+| `brand_pito` #5170ff | 4.61 ✅ | 4.21 ⚠️ | 3.70 ⚠️ |
+
+### gruvbox-dark  (page #282828, surface #3c3836, elevated #504945)
+| text token | page | surface | elevated |
+|---|---:|---:|---:|
+| `fg_default` #ebdbb2 | 10.75 ✅ | 8.45 ✅ | 6.43 ✅ |
+| `fg_dim` #9d937b | 4.84 ✅ | 3.81 ⚠️ | 2.90 ❌ |
+| `fg_faded` #76705f | 2.99 ❌ | 2.35 ❌ | 1.79 ❌ |
+| `accent_purple` #d3869b | 5.37 ✅ | 4.23 ⚠️ | 3.22 ⚠️ |
+| `accent_blue` #83a598 | 5.48 ✅ | 4.31 ⚠️ | 3.28 ⚠️ |
+| `accent_cyan` #8ec07c | 7.01 ✅ | 5.51 ✅ | 4.19 ⚠️ |
+| `accent_green` #b8bb26 | 7.14 ✅ | 5.62 ✅ | 4.27 ⚠️ |
+| `accent_yellow` #fabd2f | 8.69 ✅ | 6.84 ✅ | 5.20 ✅ |
+| `accent_orange` #fe8019 | 5.84 ✅ | 4.59 ✅ | 3.49 ⚠️ |
+| `accent_red` #fb4934 | 4.29 ⚠️ | 3.37 ⚠️ | 2.56 ❌ |
+| `brand_pito` #5170ff | 3.59 ⚠️ | 2.82 ❌ | 2.15 ❌ |
+
+### nord  (page #2e3440, surface #3b4252, elevated #434c5e)
+| text token | page | surface | elevated |
+|---|---:|---:|---:|
+| `fg_default` #d8dee9 | 9.25 ✅ | 7.45 ✅ | 6.39 ✅ |
+| `fg_dim` #949aa5 | 4.42 ⚠️ | 3.56 ⚠️ | 3.05 ⚠️ |
+| `fg_faded` #727884 | 2.82 ❌ | 2.27 ❌ | 1.95 ❌ |
+| `accent_purple` #b48ead | 4.41 ⚠️ | 3.55 ⚠️ | 3.05 ⚠️ |
+| `accent_blue` #81a1c1 | 4.64 ✅ | 3.74 ⚠️ | 3.21 ⚠️ |
+| `accent_cyan` #88c0d0 | 6.24 ✅ | 5.03 ✅ | 4.31 ⚠️ |
+| `accent_green` #a3be8c | 6.13 ✅ | 4.94 ✅ | 4.23 ⚠️ |
+| `accent_yellow` #ebcb8b | 8.00 ✅ | 6.44 ✅ | 5.52 ✅ |
+| `accent_orange` #d08770 | 4.39 ⚠️ | 3.54 ⚠️ | 3.03 ⚠️ |
+| `accent_red` #bf616a | 3.05 ⚠️ | 2.46 ❌ | 2.11 ❌ |
+| `brand_pito` #5170ff | 3.04 ⚠️ | 2.45 ❌ | 2.10 ❌ |
+
+### one-dark  (page #282c34, surface #21252b, elevated #2c313a)
+| text token | page | surface | elevated |
+|---|---:|---:|---:|
+| `fg_default` #abb2bf | 6.57 ✅ | 7.22 ✅ | 6.13 ✅ |
+| `fg_dim` #777c87 | 3.34 ⚠️ | 3.68 ⚠️ | 3.12 ⚠️ |
+| `fg_faded` #5c626c | 2.28 ❌ | 2.51 ❌ | 2.13 ❌ |
+| `accent_purple` #c678dd | 4.75 ✅ | 5.23 ✅ | 4.44 ⚠️ |
+| `accent_blue` #61afef | 5.92 ✅ | 6.51 ✅ | 5.53 ✅ |
+| `accent_cyan` #56b6c2 | 5.91 ✅ | 6.50 ✅ | 5.52 ✅ |
+| `accent_green` #98c379 | 6.94 ✅ | 7.64 ✅ | 6.48 ✅ |
+| `accent_yellow` #e5c07b | 8.10 ✅ | 8.91 ✅ | 7.56 ✅ |
+| `accent_orange` #d19a66 | 5.68 ✅ | 6.25 ✅ | 5.30 ✅ |
+| `accent_red` #e06c75 | 4.38 ⚠️ | 4.82 ✅ | 4.09 ⚠️ |
+| `brand_pito` #5170ff | 3.41 ⚠️ | 3.75 ⚠️ | 3.18 ⚠️ |
+
+### solarized-dark  (page #002b36, surface #073642, elevated #0a4a59)
+| text token | page | surface | elevated |
+|---|---:|---:|---:|
+| `fg_default` #839496 | 4.75 ✅ | 4.11 ⚠️ | 3.11 ⚠️ |
+| `fg_dim` #4f6a70 | 2.59 ❌ | 2.25 ❌ | 1.70 ❌ |
+| `fg_faded` #34555c | 1.86 ❌ | 1.61 ❌ | 1.22 ❌ |
+| `accent_purple` #6c71c4 | 3.43 ⚠️ | 2.97 ❌ | 2.24 ❌ |
+| `accent_blue` #268bd2 | 4.08 ⚠️ | 3.53 ⚠️ | 2.67 ❌ |
+| `accent_cyan` #2aa198 | 4.75 ✅ | 4.12 ⚠️ | 3.11 ⚠️ |
+| `accent_green` #859900 | 4.69 ✅ | 4.06 ⚠️ | 3.07 ⚠️ |
+| `accent_yellow` #b58900 | 4.68 ✅ | 4.05 ⚠️ | 3.06 ⚠️ |
+| `accent_orange` #cb4b16 | 3.26 ⚠️ | 2.82 ❌ | 2.13 ❌ |
+| `accent_red` #dc322f | 3.25 ⚠️ | 2.81 ❌ | 2.12 ❌ |
+| `brand_pito` #5170ff | 3.65 ⚠️ | 3.16 ⚠️ | 2.39 ❌ |
+
+### tokyo-night  (page #1a1b26, surface #1f2335, elevated #24283b)
+| text token | page | surface | elevated |
+|---|---:|---:|---:|
+| `fg_default` #c0caf5 | 10.59 ✅ | 9.63 ✅ | 9.02 ✅ |
+| `fg_dim` #565f89 | 2.76 ❌ | 2.51 ❌ | 2.35 ❌ |
+| `fg_faded` #414868 | 1.91 ❌ | 1.74 ❌ | 1.63 ❌ |
+| `accent_purple` #bb9af7 | 7.39 ✅ | 6.72 ✅ | 6.30 ✅ |
+| `accent_blue` #7aa2f7 | 6.79 ✅ | 6.18 ✅ | 5.78 ✅ |
+| `accent_cyan` #7dcfff | 9.96 ✅ | 9.07 ✅ | 8.49 ✅ |
+| `accent_green` #9ece6a | 9.35 ✅ | 8.51 ✅ | 7.97 ✅ |
+| `accent_yellow` #e0af68 | 8.55 ✅ | 7.78 ✅ | 7.28 ✅ |
+| `accent_orange` #ff9e64 | 8.40 ✅ | 7.65 ✅ | 7.16 ✅ |
+| `accent_red` #f7768e | 6.46 ✅ | 5.88 ✅ | 5.51 ✅ |
+| `brand_pito` #5170ff | 4.16 ⚠️ | 3.79 ⚠️ | 3.55 ⚠️ |
+
+### tomorrow-night  (page #1d1f21, surface #282a2e, elevated #373b41)
+| text token | page | surface | elevated |
+|---|---:|---:|---:|
+| `fg_default` #c5c8c6 | 9.80 ✅ | 8.52 ✅ | 6.68 ✅ |
+| `fg_dim` #828484 | 4.40 ⚠️ | 3.82 ⚠️ | 2.99 ❌ |
+| `fg_faded` #606363 | 2.73 ❌ | 2.37 ❌ | 1.86 ❌ |
+| `accent_purple` #b294bb | 6.18 ✅ | 5.37 ✅ | 4.21 ⚠️ |
+| `accent_blue` #81a2be | 6.18 ✅ | 5.37 ✅ | 4.21 ⚠️ |
+| `accent_cyan` #8abeb7 | 7.97 ✅ | 6.93 ✅ | 5.43 ✅ |
+| `accent_green` #b5bd68 | 8.22 ✅ | 7.15 ✅ | 5.60 ✅ |
+| `accent_yellow` #f0c674 | 10.26 ✅ | 8.92 ✅ | 6.99 ✅ |
+| `accent_orange` #de935f | 6.65 ✅ | 5.78 ✅ | 4.53 ✅ |
+| `accent_red` #cc6666 | 4.46 ⚠️ | 3.87 ⚠️ | 3.04 ⚠️ |
+| `brand_pito` #5170ff | 4.02 ⚠️ | 3.50 ⚠️ | 2.74 ❌ |
