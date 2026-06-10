@@ -21,24 +21,6 @@ RSpec.describe Pito::Grammar::Normalizer do
       )
     )
 
-    # :hashtag namespace fixture specs
-    Pito::Grammar::Registry.register_spec(
-      Pito::Grammar::Spec.new(
-        namespace: :hashtag,
-        name: :add,
-        aliases: [ :include ],
-        slots: [ Pito::Grammar::Slot.new(name: :metric, kind: :enum, source: :metrics, repeatable: true) ]
-      )
-    )
-    Pito::Grammar::Registry.register_spec(
-      Pito::Grammar::Spec.new(
-        namespace: :hashtag,
-        name: :remove,
-        aliases: [ :drop, :delete ],
-        slots: [ Pito::Grammar::Slot.new(name: :metric, kind: :enum, source: :metrics, repeatable: true) ]
-      )
-    )
-
     # :chat :search — free slot fixture
     Pito::Grammar::Registry.register_spec(
       Pito::Grammar::Spec.new(
@@ -246,20 +228,6 @@ RSpec.describe Pito::Grammar::Normalizer do
       end
     end
 
-    describe "alias resolution (include → :add)" do
-      subject(:match) do
-        described_class.call(lex("include subs"), namespace: :hashtag)
-      end
-
-      it "resolves alias to canonical verb name" do
-        expect(match.name).to eq(:add)
-      end
-
-      it "resolves metric via synonym" do
-        expect(match.values[:metric]).to eq([ "subscribers" ])
-      end
-    end
-
     describe "platform without introducer is not resolved" do
       # 'playstation' without 'for' should NOT fill the platform slot
       # because platform has introducer: :for
@@ -271,79 +239,6 @@ RSpec.describe Pito::Grammar::Normalizer do
 
       it "puts playstation in unknowns (no free slot, has enum slots)" do
         expect(match.unknowns).to include("playstation")
-      end
-    end
-  end
-
-  # ── Task j: connectives and call_ops ──────────────────────────────────────
-
-  describe ".call_ops" do
-    describe "compound hashtag: add ctr and views and remove subs" do
-      subject(:ops) do
-        described_class.call_ops(
-          lex("add ctr and views and remove subs"),
-          namespace: :hashtag
-        )
-      end
-
-      it "returns two matches" do
-        expect(ops.length).to eq(2)
-      end
-
-      it "first op has name :add" do
-        expect(ops[0].name).to eq(:add)
-      end
-
-      it "first op collects ctr and views" do
-        expect(ops[0].values[:metric]).to eq([ "ctr", "views" ])
-      end
-
-      it "second op has name :remove" do
-        expect(ops[1].name).to eq(:remove)
-      end
-
-      it "second op collects subs → subscribers" do
-        expect(ops[1].values[:metric]).to eq([ "subscribers" ])
-      end
-
-      it "both ops are matched" do
-        expect(ops.all?(&:matched?)).to be(true)
-      end
-    end
-
-    describe "single op returns a 1-element array" do
-      subject(:ops) { described_class.call_ops(lex("add views"), namespace: :hashtag) }
-
-      it "returns one match" do
-        expect(ops.length).to eq(1)
-      end
-
-      it "resolves correctly" do
-        expect(ops[0].name).to eq(:add)
-        expect(ops[0].values[:metric]).to eq([ "views" ])
-      end
-    end
-
-    describe "alias splitting (drop is an alias of remove)" do
-      subject(:ops) do
-        described_class.call_ops(
-          lex("add views drop subs"),
-          namespace: :hashtag
-        )
-      end
-
-      it "splits into two ops" do
-        expect(ops.length).to eq(2)
-      end
-
-      it "first op is :add with views" do
-        expect(ops[0].name).to eq(:add)
-        expect(ops[0].values[:metric]).to eq([ "views" ])
-      end
-
-      it "second op is :remove with subscribers" do
-        expect(ops[1].name).to eq(:remove)
-        expect(ops[1].values[:metric]).to eq([ "subscribers" ])
       end
     end
   end
@@ -397,11 +292,6 @@ RSpec.describe Pito::Grammar::Normalizer do
       expect(match.values[:status]).to eq("upcoming")
       expect(match.values[:genre]).to eq([ "RPG" ])
       expect(match.unknowns).to be_empty
-    end
-
-    it "strips genre-specific filler (metrics:count and ratio)" do
-      match = described_class.call(lex("add ctr count views ratio"), namespace: :hashtag)
-      expect(match.values[:metric]).to eq([ "ctr", "views" ])
     end
 
     it "filler words are not counted in confidence penalty" do

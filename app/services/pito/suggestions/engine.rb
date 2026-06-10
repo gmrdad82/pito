@@ -399,13 +399,23 @@ module Pito
           # suggest THAT target's actions (e.g. game_list → show/delete) rather
           # than the generic hashtag verbs. Falls through to the legacy path only
           # when the handle isn't a live follow-up.
-          actions = follow_up_actions(handle, conversation)
+          actions, target = follow_up_actions_with_target(handle, conversation)
           if actions
             if at_verb_stage
               return follow_up_action_completions(actions, partial)
             else
-              # Arg stage: no action completions, but offer --help ghost when
-              # the partial starts with "-" and prefixes "--help".
+              # Arg stage: for game_list/video_list add/remove, ghost column tokens.
+              action = after_words.first&.downcase
+              if %w[add remove].include?(action) && %w[game_list video_list].include?(target)
+                # args_text = everything after "#<handle> <action> " (the comma-list).
+                args_text = after.lstrip.sub(/\A\S+\s+/, "")
+                result = Pito::Suggestions::ListClauseGhost.hashtag_list_action_completions(
+                  target, args_text, ends_with_space
+                )
+                return result if result
+              end
+
+              # Fallback: offer --help ghost when the partial starts with "-".
               return hashtag_arg_help_completions(partial)
             end
           end
@@ -420,18 +430,25 @@ module Pito
         # `handle` in its reply_handle, or nil when the handle isn't a live
         # follow-up (so the caller falls back to the legacy hashtag path).
         def follow_up_actions(handle, conversation)
-          return nil if handle.blank? || conversation.nil?
+          actions, _target = follow_up_actions_with_target(handle, conversation)
+          actions
+        end
+
+        # Returns [actions, reply_target] for a live follow-up event, or [nil, nil].
+        def follow_up_actions_with_target(handle, conversation)
+          return [ nil, nil ] if handle.blank? || conversation.nil?
 
           event = conversation.events
             .where("payload->>'reply_handle' = ?", handle.to_s.downcase)
             .where("(payload->>'reply_consumed') IS NULL OR (payload->>'reply_consumed') = 'false'")
             .last
-          return nil unless event
+          return [ nil, nil ] unless event
 
-          actions = Pito::FollowUp::Registry.actions_for(event.payload["reply_target"].to_s).presence
-          return nil unless actions
+          target  = event.payload["reply_target"].to_s
+          actions = Pito::FollowUp::Registry.actions_for(target).presence
+          return [ nil, nil ] unless actions
 
-          filter_link_unlink(actions, event)
+          [ filter_link_unlink(actions, event), target ]
         end
 
         # link XOR unlink by existence (T19.6): when a detail card offers BOTH,

@@ -14,13 +14,6 @@ module Pito
       end
       private_class_method :chat_shared_slots
 
-      def self.hashtag_metric_slots
-        [
-          Slot.new(name: :metric, kind: :enum, source: :metrics, repeatable: true)
-        ]
-      end
-      private_class_method :hashtag_metric_slots
-
       # ── Public API ───────────────────────────────────────────────────────────
 
       def self.all
@@ -186,22 +179,6 @@ module Pito
             name:            :help,
             slots:           [],
             description_key: "pito.grammar.chat.help"
-          ),
-
-          # Task l — hashtag command specs
-          Spec.new(
-            namespace:       :hashtag,
-            name:            :add,
-            aliases:         [ :include ],
-            slots:           hashtag_metric_slots,
-            description_key: "pito.grammar.hashtag.add"
-          ),
-          Spec.new(
-            namespace:       :hashtag,
-            name:            :remove,
-            aliases:         [ :drop, :delete ],
-            slots:           hashtag_metric_slots,
-            description_key: "pito.grammar.hashtag.remove"
           )
 
         ]

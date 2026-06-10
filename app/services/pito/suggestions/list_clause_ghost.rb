@@ -61,6 +61,40 @@ module Pito
         nil
       end
 
+      # ── Hashtag add/remove column ghost ────────────────────────────────────
+
+      # Computes a column-ghost for `#<handle> add <partial>` / `#<handle> remove <partial>`
+      # when the resolved follow-up reply_target is "game_list" or "video_list".
+      #
+      # @param target       [String]  "game_list" or "video_list"
+      # @param args_text    [String]  everything after the action verb (e.g. "platform, ")
+      # @param ends_with_space [Boolean]  whether the full input ends with a space
+      # @return [Hash{ menu_items: [], ghost: {complete_current:, next_hint:} }, nil]
+      #         nil when target is not a list target
+      def hashtag_list_action_completions(target, args_text, ends_with_space)
+        registry = case target
+        when "game_list"  then Pito::MessageBuilder::Game::ListColumns
+        when "video_list" then Pito::MessageBuilder::Video::ListColumns
+        else return nil
+        end
+
+        # Parse the comma-separated tokens from args_text.
+        # e.g. "platform, " → segments ["platform", ""] (trailing empty = cursor past comma)
+        # e.g. "platform, gen" → segments ["platform", "gen"]
+        # e.g. "" → segments [""]
+        segments = args_text.to_s.split(/\s*,\s*/, -1)
+        partial   = ends_with_space ? "" : segments.last.to_s.lstrip.downcase
+
+        # Tokens before the last segment are fully typed; resolve to canonicals.
+        already_used = already_used_tokens(segments, registry)
+
+        # Candidates = all suggestion tokens minus already-used display tokens.
+        candidates = registry.suggestion_tokens - already_used
+
+        ghost = build_ghost(candidates, partial)
+        { menu_items: [], ghost: ghost }
+      end
+
       # ── Private helpers ────────────────────────────────────────────────────
 
       # Returns the registry module for the noun in text, or nil for channels.

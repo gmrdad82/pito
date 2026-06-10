@@ -333,30 +333,16 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
       expect(result[:mode]).to eq(:hashtag)
     end
 
-    it "suggests hashtag verbs (add, remove) at the verb stage" do
+    it "returns no menu items for a handle that has no live follow-up event (legacy path)" do
+      # The :hashtag grammar add/remove specs have been removed; non-follow-up handles
+      # yield no verb completions.
       result = call(input: "#mychannel ", cursor: 11)
-      labels = result[:menu_items].map { |i| i[:label] }
-      expect(labels).to include("add", "remove")
+      expect(result[:menu_items]).to be_empty
     end
 
-    it "prefix-filters verbs" do
+    it "returns empty ghost for a handle that has no live follow-up event" do
       result = call(input: "#mychannel a", cursor: 12)
-      labels = result[:menu_items].map { |i| i[:label] }
-      expect(labels).to include("add")
-      expect(labels).not_to include("remove")
-    end
-
-    it "suggests metrics after the verb is typed" do
-      result = call(input: "#mychannel add ", cursor: 15)
-      labels = result[:menu_items].map { |i| i[:label] }
-      expect(labels).to include("subscribers", "views")
-    end
-
-    it "prefix-filters metrics" do
-      result = call(input: "#mychannel add sub", cursor: 18)
-      labels = result[:menu_items].map { |i| i[:label] }
-      expect(labels).to include("subscribers")
-      expect(labels).not_to include("views")
+      expect(result[:ghost][:complete_current]).to eq("")
     end
   end
 
@@ -384,10 +370,77 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
       expect(result[:ghost][:next_hint]).to eq("")
     end
 
-    it "falls back to legacy hashtag verbs when the handle isn't a live follow-up" do
+    it "returns no menu items when the handle isn't a live follow-up (no legacy hashtag specs)" do
       result = call(input: "#unknown-9999 ", cursor: 14, conversation:)
-      labels = result[:menu_items].map { |i| i[:label] }
-      expect(labels).to include("add", "remove")
+      expect(result[:menu_items]).to be_empty
+    end
+  end
+
+  # T25.3 — hashtag column ghost for game_list/video_list add/remove actions
+  describe "hashtag follow-up: column ghost for game_list add/remove", :db do
+    let(:conversation) { Conversation.create! }
+    let(:turn) { conversation.turns.create!(input_kind: :slash, input_text: "/list games", position: 1) }
+
+    before do
+      Pito::FollowUp::Registry.register_all!
+      Event.create_with_position!(
+        conversation:, turn:, kind: "system",
+        payload: { "reply_handle" => "glist-4444", "reply_target" => "game_list", "body" => "games" }
+      )
+    end
+
+    it "ghosts the first game column token when '#<handle> add ' (trailing space)" do
+      result = call(input: "#glist-4444 add ", cursor: 16, conversation:)
+      expect(result[:ghost][:complete_current]).to eq("platform")
+      expect(result[:ghost][:next_hint]).to eq("")
+    end
+
+    it "excludes already-typed platform and ghosts the next column for '#<handle> add platform, '" do
+      result = call(input: "#glist-4444 add platform, ", cursor: 26, conversation:)
+      expect(result[:ghost][:complete_current]).to eq("genre")
+    end
+
+    it "completes a partial token: 'gen' → 're'" do
+      result = call(input: "#glist-4444 add platform, gen", cursor: 29, conversation:)
+      expect(result[:ghost][:complete_current]).to eq("re")
+    end
+
+    it "remove behaves the same as add (ghosts first column)" do
+      result = call(input: "#glist-4444 remove ", cursor: 19, conversation:)
+      expect(result[:ghost][:complete_current]).to eq("platform")
+    end
+
+    it "returns empty menu_items (column ghost has no palette)" do
+      result = call(input: "#glist-4444 add ", cursor: 16, conversation:)
+      expect(result[:menu_items]).to be_empty
+    end
+  end
+
+  describe "hashtag follow-up: column ghost for video_list add/remove", :db do
+    let(:conversation) { Conversation.create! }
+    let(:turn) { conversation.turns.create!(input_kind: :slash, input_text: "/list videos", position: 1) }
+
+    before do
+      Pito::FollowUp::Registry.register_all!
+      Event.create_with_position!(
+        conversation:, turn:, kind: "system",
+        payload: { "reply_handle" => "vlist-5555", "reply_target" => "video_list", "body" => "videos" }
+      )
+    end
+
+    it "ghosts the first video column token when '#<handle> add ' (trailing space)" do
+      result = call(input: "#vlist-5555 add ", cursor: 16, conversation:)
+      expect(result[:ghost][:complete_current]).to eq("game")
+    end
+
+    it "excludes already-typed game and ghosts duration for '#<handle> add game, '" do
+      result = call(input: "#vlist-5555 add game, ", cursor: 22, conversation:)
+      expect(result[:ghost][:complete_current]).to eq("duration")
+    end
+
+    it "remove behaves the same as add (ghosts first video column)" do
+      result = call(input: "#vlist-5555 remove ", cursor: 19, conversation:)
+      expect(result[:ghost][:complete_current]).to eq("game")
     end
   end
 

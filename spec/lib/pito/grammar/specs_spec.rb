@@ -39,22 +39,14 @@ RSpec.describe Pito::Grammar::Specs do
       expect(all_specs.map(&:name)).to include(:find)
     end
 
-    it "includes the :add hashtag spec" do
-      expect(all_specs.map(&:name)).to include(:add)
-    end
-
-    it "includes the :remove hashtag spec" do
-      expect(all_specs.map(&:name)).to include(:remove)
-    end
-
     it "assigns the :chat namespace to :list, :show, :footage, :find" do
       chat_names = all_specs.select { |s| s.namespace == :chat }.map(&:name)
       expect(chat_names).to include(:list, :show, :footage, :find)
     end
 
-    it "assigns the :hashtag namespace to :add, :remove" do
+    it "has no :hashtag namespace specs (metric-ops add/remove removed)" do
       hashtag_names = all_specs.select { |s| s.namespace == :hashtag }.map(&:name)
-      expect(hashtag_names).to include(:add, :remove)
+      expect(hashtag_names).to be_empty
     end
 
     it "does not share the same slot array objects across chat specs (mutable state isolation)" do
@@ -98,19 +90,8 @@ RSpec.describe Pito::Grammar::Specs do
     end
 
     describe "hashtag namespace" do
-      it "resolves :drop alias to the :remove spec" do
-        result = Pito::Grammar::Registry.specs_for_alias(namespace: :hashtag, token: :drop)
-        expect(result&.name).to eq(:remove)
-      end
-
-      it "resolves :delete alias to the :remove spec" do
-        result = Pito::Grammar::Registry.specs_for_alias(namespace: :hashtag, token: :delete)
-        expect(result&.name).to eq(:remove)
-      end
-
-      it "resolves :include alias to the :add spec" do
-        result = Pito::Grammar::Registry.specs_for_alias(namespace: :hashtag, token: :include)
-        expect(result&.name).to eq(:add)
+      it "has no :hashtag specs registered (metric-ops add/remove removed)" do
+        expect(Pito::Grammar::Registry.specs(namespace: :hashtag)).to be_empty
       end
     end
 
