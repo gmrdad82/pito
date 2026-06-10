@@ -17,6 +17,19 @@ module Pito
       KNOWN_CONFIG_PROVIDERS = %w[google voyage igdb webhook sound fx].freeze
 
       class << self
+        # Returns the raw payload hash for the /help --help nonsense page.
+        # Shared by the slash dispatcher (via #call) and the chat dispatcher
+        # so both render from the same i18n copy without duplication.
+        def nonsense_payload
+          rows = I18n.t("pito.slash.help.nonsense").map do |key, value|
+            { key: key.to_s, value: value }
+          end
+          {
+            body:       I18n.t("pito.slash.help.nonsense_title"),
+            table_rows: rows
+          }
+        end
+
         def call(invocation:, authenticated:)
           verb = invocation.verb.to_s
 
@@ -42,17 +55,10 @@ module Pito
         # ── /help --help ───────────────────────────────────────────────────────
 
         def nonsense_help
-          rows = I18n.t("pito.slash.help.nonsense").map do |key, value|
-            { key: key.to_s, value: value }
-          end
-
           Pito::Slash::Result::Ok.new(events: [
             {
               kind:    "system",
-              payload: {
-                body:       I18n.t("pito.slash.help.nonsense_title"),
-                table_rows: rows
-              }
+              payload: nonsense_payload
             }
           ])
         end
