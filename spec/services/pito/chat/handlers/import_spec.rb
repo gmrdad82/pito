@@ -16,7 +16,7 @@ RSpec.describe Pito::Chat::Handlers::Import do
     )
   end
 
-  # ── bare import / import game → usage hint ───────────────────────────────────
+  # ── bare import → usage hint ─────────────────────────────────────────────────
 
   it "returns a Result::Error with the usage_hint key for bare import" do
     result = handler_for.call
@@ -24,10 +24,46 @@ RSpec.describe Pito::Chat::Handlers::Import do
     expect(result.message_key).to eq("pito.chat.import.usage_hint")
   end
 
-  it "returns the usage_hint for any non-videos import input" do
+  it "returns the usage_hint for unrecognised nouns" do
     result = handler_for("import something random").call
     expect(result).to be_a(Pito::Chat::Result::Error)
     expect(result.message_key).to eq("pito.chat.import.usage_hint")
+  end
+
+  # ── import game / import games ────────────────────────────────────────────────
+
+  context "import game (sidebar path)" do
+    it "returns Result::Ok for 'import game'" do
+      result = handler_for("import game").call
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+    end
+
+    it "emits a system event with sidebar_open: 'games_import'" do
+      event = handler_for("import game").call.events.first
+      payload = event[:payload]
+      expect(payload[:sidebar_open] || payload["sidebar_open"]).to eq("games_import")
+    end
+
+    it "sets prefill to empty string when no title given" do
+      event = handler_for("import game").call.events.first
+      payload = event[:payload]
+      prefill = payload[:prefill] || payload["prefill"]
+      expect(prefill.to_s).to be_empty
+    end
+
+    it "sets prefill to the title when a title is given" do
+      event = handler_for("import game Hollow Knight").call.events.first
+      payload = event[:payload]
+      prefill = payload[:prefill] || payload["prefill"]
+      expect(prefill).to eq("Hollow Knight")
+    end
+
+    it "handles 'import games' (plural) with a title" do
+      event = handler_for("import games Dead Cells").call.events.first
+      payload = event[:payload]
+      prefill = payload[:prefill] || payload["prefill"]
+      expect(prefill).to eq("Dead Cells")
+    end
   end
 
   # ── import videos — @all scope ────────────────────────────────────────────────
@@ -50,7 +86,7 @@ RSpec.describe Pito::Chat::Handlers::Import do
       expect(payload["scope_label"]).to eq("all channels")
     end
 
-    it "resolves a specific channel handle" do
+    it "scopes to the specific shift+tab channel" do
       payload = handler_for("import videos", channel: "@pito").call.events.first[:payload]
       expect(payload["channel_ids"]).to eq([ channel.id ])
     end
@@ -61,9 +97,36 @@ RSpec.describe Pito::Chat::Handlers::Import do
       expect(payload["reply_target"]).to eq("confirmation")
     end
 
-    it "returns a system error event for unknown handle" do
+    it "returns a system error event for unknown shift+tab handle" do
       result = handler_for("import videos", channel: "@unknown_xyz").call
       expect(result.events.first[:kind]).to eq(:system)
+    end
+
+    # ── for @handle override ──────────────────────────────────────────────────
+
+    context "for @handle override" do
+      it "overrides shift+tab @all scope with the for-handle channel" do
+        payload = handler_for("import videos for @pito", channel: "@all").call.events.first[:payload]
+        expect(payload["channel_ids"]).to eq([ channel.id ])
+      end
+
+      it "overrides a different shift+tab channel with the for-handle channel" do
+        other_connection = create(:youtube_connection)
+        other = create(:channel, handle: "@other", youtube_connection: other_connection)
+        payload = handler_for("import videos for @pito", channel: "@other").call.events.first[:payload]
+        expect(payload["channel_ids"]).to eq([ channel.id ])
+      end
+
+      it "scopes correctly with no shift+tab channel (blank), using for @handle" do
+        payload = handler_for("import videos for @pito").call.events.first[:payload]
+        expect(payload["channel_ids"]).to eq([ channel.id ])
+      end
+
+      it "returns a system error event for an unknown for-handle" do
+        result = handler_for("import videos for @nobody", channel: "@all").call
+        expect(result).to be_a(Pito::Chat::Result::Ok)
+        expect(result.events.first[:kind]).to eq(:system)
+      end
     end
   end
 end

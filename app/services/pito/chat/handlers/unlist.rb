@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# Handler for the `unlist video <id|title>` chat verb.
+# Handler for the `unlist video <id>` chat verb.
 #
 # Emits a :confirmation event so the user can confirm before the change
 # is applied locally and written through to YouTube via VideoRemoteStatusSync.
@@ -40,7 +40,7 @@ module Pito
           id = ref.sub(/\A#\s*/, "")
           return ::Video.find_by(id: id) if id.match?(/\A\d+\z/)
 
-          ::Video.find_by("title ILIKE ?", ref)
+          nil
         end
 
         def needs_ref

@@ -35,9 +35,19 @@ RSpec.describe Pito::FollowUp::Handlers::VideoList do
     expect(enhanced["body"]).to include("Boss Rush")
   end
 
-  it "resolves by title too" do
+  it "resolves `show <id>` by VIDEO id (not game) — reply_target fixes entity type" do
+    # Even without the 'video' noun in rest, the entity type is VIDEO
+    # because reply_target = 'video_list' drives video_target? in the Show handler.
+    result = handler.call(event:, rest: "show ##{video.id}", conversation:)
+    detail = result.events.find { |e| e[:kind] == :system }[:payload]
+    expect(detail["video_id"]).to eq(video.id)
+    expect(detail["reply_target"]).to eq("video_detail")
+  end
+
+  it "returns not-found for a title ref (show is id-only — no title lookup)" do
     result = handler.call(event:, rest: "show boss rush", conversation:)
-    expect(result.events.first[:payload]["body"]).to include("Boss Rush")
+    expect(result.events.first[:payload]["text"]).to be_present
+    expect(result.events.first[:payload]["video_id"]).to be_nil
   end
 
   it "appends a witty not-found for an unknown reference" do
@@ -56,5 +66,14 @@ RSpec.describe Pito::FollowUp::Handlers::VideoList do
     ev = result.events.first
     expect(ev[:kind].to_s).to eq("confirmation")
     expect(ev[:payload]["command"]).to eq("video_delete")
+  end
+
+  it "delegates `delete <id>` to the video delete confirmation (delete alias)" do
+    result = handler.call(event:, rest: "delete ##{video.id}", conversation:)
+    expect(result).to be_a(Pito::FollowUp::Result::Append)
+    ev = result.events.first
+    expect(ev[:kind].to_s).to eq("confirmation")
+    expect(ev[:payload]["command"]).to eq("video_delete")
+    expect(ev[:payload]["video_id"]).to eq(video.id)
   end
 end

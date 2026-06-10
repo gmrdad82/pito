@@ -17,7 +17,7 @@ RSpec.describe Pito::Chat::Handlers::Show do
   end
 
   # Dispatch through the REAL lexer + parser (not hand-built tokens) so that
-  # tokenization regressions — e.g. apostrophes — are exercised end to end.
+  # tokenization regressions are exercised end to end.
   def show_real(input)
     msg = Pito::Chat::Parser.call(
       Pito::Lex::Lexer.call(input), raw: input, conversation: Conversation.singleton
@@ -27,13 +27,7 @@ RSpec.describe Pito::Chat::Handlers::Show do
 
   let!(:game) { create(:game, title: "Lies of P") }
 
-  it "shows a game by title (ILIKE), dropping the noun filler" do
-    result = handler_for("game", "lies", "of", "p").call
-    expect(result).to be_a(Pito::Chat::Result::Ok)
-    payload = result.events.first[:payload]
-    expect(payload["html"]).to be(true)
-    expect(payload["body"]).to include("Lies of P")
-  end
+  # ── Game branch — id resolution ───────────────────────────────────────────────
 
   it "shows a game by id (#N)" do
     payload = handler_for("##{game.id}").call.events.first[:payload]
@@ -42,6 +36,16 @@ RSpec.describe Pito::Chat::Handlers::Show do
 
   it "shows a game by bare id" do
     payload = handler_for(game.id.to_s).call.events.first[:payload]
+    expect(payload["body"]).to include("Lies of P")
+  end
+
+  it "shows a game by id with noun filler 'game'" do
+    payload = handler_for("game", game.id.to_s).call.events.first[:payload]
+    expect(payload["body"]).to include("Lies of P")
+  end
+
+  it "shows a game by id with noun filler 'games'" do
+    payload = handler_for("games", game.id.to_s).call.events.first[:payload]
     expect(payload["body"]).to include("Lies of P")
   end
 
@@ -60,10 +64,28 @@ RSpec.describe Pito::Chat::Handlers::Show do
     expect(enhanced[:payload]["body"]).to include("pito-game-enhanced-message")
   end
 
-  it "returns a witty not-found for an unknown reference" do
-    result = handler_for("game", "nonexistent").call
+  # ── Game branch — title refs are REJECTED (id-only resolution) ───────────────
+
+  it "returns not-found when a title ref is given — NOT a detail card (id-only resolution)" do
+    result = handler_for("game", "lies", "of", "p").call
     expect(result).to be_a(Pito::Chat::Result::Ok)
-    expect(result.events.first[:payload]["text"]).to include("nonexistent")
+    # not-found text is present; no detail card
+    expect(result.events.first[:payload]["text"]).to be_present
+    expect(result.events.first[:payload]["game_id"]).to be_nil
+  end
+
+  it "returns not-found for a double-quoted title (id-only — quotes do not help)" do
+    result = show_real('show game "Lies of P"')
+    expect(result).to be_a(Pito::Chat::Result::Ok)
+    expect(result.events.first[:payload]["text"]).to be_present
+    expect(result.events.first[:payload]["game_id"]).to be_nil
+  end
+
+  it "returns not-found for a multi-word title (no quotes)" do
+    result = show_real("show game Lies of P")
+    expect(result).to be_a(Pito::Chat::Result::Ok)
+    expect(result.events.first[:payload]["text"]).to be_present
+    expect(result.events.first[:payload]["game_id"]).to be_nil
   end
 
   it "returns a usage hint when no reference is given" do
@@ -72,77 +94,17 @@ RSpec.describe Pito::Chat::Handlers::Show do
     expect(result.message_key).to eq("pito.chat.show.needs_ref")
   end
 
-  context "title containing an apostrophe (regression — lexer split ' into :unknown)" do
-    let!(:gng) { create(:game, title: "Ghosts 'n Goblins Resurrection") }
-
-    it "resolves the game when typed naturally through the real lexer/parser" do
-      result = show_real("show Ghosts 'n Goblins Resurrection")
-      expect(result).to be_a(Pito::Chat::Result::Ok)
-      expect(result.events.first[:payload]["game_id"]).to eq(gng.id)
-    end
-
-    it "still resolves with the optional 'game' noun filler" do
-      result = show_real("show game Ghosts 'n Goblins Resurrection")
-      expect(result.events.first[:payload]["game_id"]).to eq(gng.id)
-    end
+  it "resolves by numeric id through the real lexer/parser" do
+    result = show_real("show game #{game.id}")
+    expect(result).to be_a(Pito::Chat::Result::Ok)
+    expect(result.events.first[:payload]["game_id"]).to eq(game.id)
   end
 
-  context "title containing a colon (regression — lexer ':' token mangled the ref)" do
-    let!(:sb) { create(:game, title: "Stellar Blade: Blood Rain") }
-
-    it "resolves the colon title typed naturally through the real lexer/parser" do
-      result = show_real("show Stellar Blade: Blood Rain")
-      expect(result).to be_a(Pito::Chat::Result::Ok)
-      expect(result.events.first[:payload]["game_id"]).to eq(sb.id)
-    end
-
-    it "still resolves the prefix-only title when no colon is typed" do
-      create(:game, title: "Stellar Blade")
-      result = show_real("show Stellar Blade")
-      expect(result.events.first[:payload]["game_id"]).to be_present
-    end
-  end
-
-  context "ILIKE partial vs exact — two games sharing a prefix" do
-    let!(:exact_game)   { create(:game, title: "Lies of P") }
-    let!(:prefix_game)  { create(:game, title: "Lies of P: Expanded") }
-
-    it "finds the first ILIKE match (exact title input returns that game)" do
-      result = handler_for("lies", "of", "p").call
-      # The ILIKE query returns the first match; 'Lies of P' matches exactly
-      expect(result).to be_a(Pito::Chat::Result::Ok)
-      body = result.events.first[:payload]["body"]
-      # At least one of the two games sharing the prefix is found — no crash
-      expect(body).to be_present
-    end
-
-    it "returns a not-found result for a ref that matches neither game" do
-      result = handler_for("lies", "of", "z").call
-      text = result.events.first[:payload]["text"]
-      expect(text).to be_present
-    end
-  end
-
-  # ── Video branch ─────────────────────────────────────────────────────────────
+  # ── Video branch ──────────────────────────────────────────────────────────────
 
   context "show video" do
     let!(:channel) { create(:channel) }
     let!(:video) { create(:video, channel: channel, title: "My Gaming Highlights") }
-
-    it "shows a video by title (ILIKE), dropping the noun filler" do
-      result = handler_for("video", "my", "gaming", "highlights").call
-      expect(result).to be_a(Pito::Chat::Result::Ok)
-      payload = result.events.first[:payload]
-      expect(payload["html"]).to be(true)
-      expect(payload["body"]).to include("My Gaming Highlights")
-    end
-
-    it "shows a video with plural noun filler 'videos'" do
-      result = handler_for("videos", "my", "gaming", "highlights").call
-      expect(result).to be_a(Pito::Chat::Result::Ok)
-      payload = result.events.first[:payload]
-      expect(payload["body"]).to include("My Gaming Highlights")
-    end
 
     it "shows a video by id (#N)" do
       payload = handler_for("video", "##{video.id}").call.events.first[:payload]
@@ -151,6 +113,11 @@ RSpec.describe Pito::Chat::Handlers::Show do
 
     it "shows a video by bare id" do
       payload = handler_for("video", video.id.to_s).call.events.first[:payload]
+      expect(payload["body"]).to include("My Gaming Highlights")
+    end
+
+    it "shows a video with plural noun filler 'videos'" do
+      payload = handler_for("videos", video.id.to_s).call.events.first[:payload]
       expect(payload["body"]).to include("My Gaming Highlights")
     end
 
@@ -183,10 +150,20 @@ RSpec.describe Pito::Chat::Handlers::Show do
       expect(enhanced_payload["body"]).to include("My Gaming Highlights")
     end
 
-    it "returns a witty not-found for an unknown video reference" do
-      result = handler_for("video", "nonexistent").call
+    # ── Video title refs are REJECTED (id-only resolution) ────────────────────
+
+    it "returns not-found when a title ref is given — NOT a detail card (id-only resolution)" do
+      result = handler_for("video", "my", "gaming", "highlights").call
       expect(result).to be_a(Pito::Chat::Result::Ok)
-      expect(result.events.first[:payload]["text"]).to include("nonexistent")
+      expect(result.events.first[:payload]["text"]).to be_present
+      expect(result.events.first[:payload]["video_id"]).to be_nil
+    end
+
+    it "returns not-found for a double-quoted video title (id-only — quotes do not help)" do
+      result = show_real('show video "My Gaming Highlights"')
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(result.events.first[:payload]["text"]).to be_present
+      expect(result.events.first[:payload]["video_id"]).to be_nil
     end
 
     it "returns a usage hint when only the noun is given (no ref)" do
@@ -195,23 +172,14 @@ RSpec.describe Pito::Chat::Handlers::Show do
       expect(result.message_key).to eq("pito.chat.show.needs_ref")
     end
 
-    context "video title with apostrophe resolved via real lexer/parser" do
-      let!(:apos_video) { create(:video, channel: channel, title: "Let's Play Dark Souls") }
-
-      it "resolves the video when typed naturally through the real lexer/parser" do
-        result = show_real("show video Let's Play Dark Souls")
-        expect(result).to be_a(Pito::Chat::Result::Ok)
-        expect(result.events.first[:payload]["video_id"]).to eq(apos_video.id)
-      end
-
-      it "still resolves with the plural 'videos' noun filler" do
-        result = show_real("show videos Let's Play Dark Souls")
-        expect(result.events.first[:payload]["video_id"]).to eq(apos_video.id)
-      end
+    it "resolves by numeric id through the real lexer/parser" do
+      result = show_real("show video #{video.id}")
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(result.events.first[:payload]["video_id"]).to eq(video.id)
     end
 
     it "game show STILL works unchanged when no video noun present" do
-      result = handler_for("game", "lies", "of", "p").call
+      result = handler_for("game", game.id.to_s).call
       expect(result).to be_a(Pito::Chat::Result::Ok)
       payload = result.events.first[:payload]
       expect(payload["reply_target"]).to eq("game_detail")

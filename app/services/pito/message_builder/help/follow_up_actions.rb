@@ -59,6 +59,8 @@ module Pito
             grouped = Hash.new { |h, k| h[k] = [] }
 
             Pito::FollowUp::Registry.all.each do |target_id, handler_class|
+              next if handler_class.respond_to?(:internal?) && handler_class.internal?
+
               entity  = entity_for(target_id)
               actions = handler_class.actions
               label   = actions.any? ? actions.join(", ") : "—"

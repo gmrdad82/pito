@@ -1,8 +1,11 @@
 // pito--chatbox-hints
 //
-// Toggles the two hint filter-row spans inside #pito-chatbox:
+// Toggles the hint filter-row spans inside #pito-chatbox:
 //   suggestHint  visible  ⟺  a suggestion/hint is active (ghost OR palette)  [pito:suggest]
 //   chatHint     visible  ⟺  the chatbox is NOT focused
+//   filterHints  visible  ⟺  the chatbox IS focused  (inverse of chatHint: the
+//                            shift+tab / shift+space cyclers are only actionable
+//                            while focused, so they swap with the `m` chat hint)
 //
 // Focus tracking is belt-and-suspenders: this controller is on #pito-chatbox
 // (the PARENT) and connects BEFORE terminal-caret (a CHILD) runs its autofocus,
@@ -20,7 +23,7 @@
 import { Controller } from "@hotwired/stimulus"
 
 export default class extends Controller {
-  static targets = ["suggestHint", "chatHint"]
+  static targets = ["suggestHint", "chatHint", "filterHints"]
 
   connect() {
     this._suggestActive = false
@@ -66,6 +69,7 @@ export default class extends Controller {
   _apply() {
     if (this.hasSuggestHintTarget) this.#setVisible(this.suggestHintTarget, this._suggestActive)
     if (this.hasChatHintTarget)    this.#setVisible(this.chatHintTarget, !this._focused)
+    if (this.hasFilterHintsTarget) this.#setVisible(this.filterHintsTarget, this._focused)
   }
 
   // Swap display classes (never leave inline-flex + hidden fighting).

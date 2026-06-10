@@ -142,7 +142,7 @@ RSpec.describe Pito::Event::SystemComponent do
 
     it "renders id='event_<id>' when payload has reply_handle present" do
       event = create(:event, conversation:, turn:, kind: "system", position: 1,
-                     payload: { "reply_handle" => "beta-1234", "reply_target" => "theme_list", "body" => "Pick a theme" })
+                     payload: { "reply_handle" => "beta-1234", "reply_target" => "game_list", "body" => "Pick a game" })
       node = render_inline(described_class.new(payload: event.payload.with_indifferent_access, event:))
       segment = node.css(".pito-segment").first
       expect(segment).not_to be_nil
@@ -157,8 +157,17 @@ RSpec.describe Pito::Event::SystemComponent do
       expect(segment["id"]).to eq("event_#{diff_event.id}")
     end
 
-    it "does NOT render an id for a plain system message (no reply_handle or theme_diff)" do
-      plain_event = create(:event, conversation:, turn:, kind: "system", position: 3,
+    it "renders id='event_<id>' when payload has anchor: true (internal machine-flow messages)" do
+      anchor_event = create(:event, conversation:, turn:, kind: "system", position: 3,
+                            payload: { "anchor" => true, "reply_target" => "channel_visit", "body" => "Visiting…" })
+      node = render_inline(described_class.new(payload: anchor_event.payload.with_indifferent_access, event: anchor_event))
+      segment = node.css(".pito-segment").first
+      expect(segment).not_to be_nil
+      expect(segment["id"]).to eq("event_#{anchor_event.id}")
+    end
+
+    it "does NOT render an id for a plain system message (no reply_handle, anchor, or theme_diff)" do
+      plain_event = create(:event, conversation:, turn:, kind: "system", position: 4,
                            payload: { "body" => "Regular system message" })
       node = render_inline(described_class.new(payload: plain_event.payload.with_indifferent_access, event: plain_event))
       segment = node.css(".pito-segment").first
@@ -202,8 +211,8 @@ RSpec.describe Pito::Event::SystemComponent do
     end
 
     it "uses a 3-track grid when any row carries value2" do
-      grid = node.css("div.grid").first
-      expect(grid["class"]).to include("grid-cols-[max-content_max-content_1fr]")
+      grid = node.css("div.pito-data-grid").first
+      expect(grid["data-cols"]).to eq("3")
     end
 
     it "renders the third-column value" do
@@ -228,24 +237,24 @@ RSpec.describe Pito::Event::SystemComponent do
       }))
     end
 
-    it "uses a 4-track grid (3 max-content + 1fr)" do
-      grid = node.css("div.grid").first
-      expect(grid["class"]).to include("grid-cols-[max-content_max-content_max-content_1fr]")
+    it "uses a 4-track grid" do
+      grid = node.css("div.pito-data-grid").first
+      expect(grid["data-cols"]).to eq("4")
     end
 
     it "renders 4 spans inside the grid" do
-      grid = node.css("div.grid").first
+      grid = node.css("div.pito-data-grid").first
       expect(grid.css("span").size).to eq(4)
     end
 
     it "renders the cell texts in order" do
-      grid = node.css("div.grid").first
+      grid = node.css("div.pito-data-grid").first
       texts = grid.css("span").map(&:text)
       expect(texts).to eq(%w[Label Value1 Value2 Extra])
     end
 
     it "applies the supplied classes to each cell" do
-      grid = node.css("div.grid").first
+      grid = node.css("div.pito-data-grid").first
       spans = grid.css("span")
       expect(spans[0]["class"]).to include("text-cyan")
       expect(spans[1]["class"]).to include("text-fg-dim")
@@ -262,12 +271,12 @@ RSpec.describe Pito::Event::SystemComponent do
     end
 
     it "uses a 3-track grid" do
-      grid = node.css("div.grid").first
-      expect(grid["class"]).to include("grid-cols-[max-content_max-content_1fr]")
+      grid = node.css("div.pito-data-grid").first
+      expect(grid["data-cols"]).to eq("3")
     end
 
     it "renders key span with text-cyan and whitespace-nowrap" do
-      grid = node.css("div.grid").first
+      grid = node.css("div.pito-data-grid").first
       key_span = grid.css("span").first
       expect(key_span["class"]).to include("text-cyan")
       expect(key_span["class"]).to include("whitespace-nowrap")
@@ -275,14 +284,14 @@ RSpec.describe Pito::Event::SystemComponent do
     end
 
     it "renders value span with text-fg-dim" do
-      grid = node.css("div.grid").first
+      grid = node.css("div.pito-data-grid").first
       value_span = grid.css("span")[1]
       expect(value_span["class"]).to include("text-fg-dim")
       expect(value_span.text).to eq("Alpha Tube")
     end
 
     it "renders value2 span with text-cyan and whitespace-nowrap" do
-      grid = node.css("div.grid").first
+      grid = node.css("div.pito-data-grid").first
       value2_span = grid.css("span")[2]
       expect(value2_span["class"]).to include("text-cyan")
       expect(value2_span["class"]).to include("whitespace-nowrap")
@@ -298,14 +307,14 @@ RSpec.describe Pito::Event::SystemComponent do
       }))
     end
 
-    it "uses a 2-track grid (max-content 1fr)" do
-      grid = node.css("div.grid").first
-      expect(grid["class"]).to include("grid-cols-[max-content_1fr]")
+    it "uses a 2-track grid" do
+      grid = node.css("div.pito-data-grid").first
+      expect(grid["data-cols"]).to eq("2")
     end
 
     it "does NOT use a 3-track grid" do
-      grid = node.css("div.grid").first
-      expect(grid["class"]).not_to include("grid-cols-[max-content_max-content_1fr]")
+      grid = node.css("div.pito-data-grid").first
+      expect(grid["data-cols"]).not_to eq("3")
     end
   end
 
@@ -325,7 +334,7 @@ RSpec.describe Pito::Event::SystemComponent do
     end
 
     it "renders 3 heading spans with text-fg-faded and font-bold" do
-      grid = node.css("div.grid").first
+      grid = node.css("div.pito-data-grid").first
       heading_spans = grid.css("span").first(3)
       expect(heading_spans.map(&:text)).to eq(%w[A B C])
       heading_spans.each do |span|
@@ -335,7 +344,7 @@ RSpec.describe Pito::Event::SystemComponent do
     end
 
     it "positions heading spans before the data-row spans" do
-      grid = node.css("div.grid").first
+      grid = node.css("div.pito-data-grid").first
       all_spans = grid.css("span")
       expect(all_spans[0].text).to eq("A")
       expect(all_spans[1].text).to eq("B")
@@ -344,7 +353,7 @@ RSpec.describe Pito::Event::SystemComponent do
     end
 
     it "heading spans do NOT carry a typewriter prose target" do
-      grid = node.css("div.grid").first
+      grid = node.css("div.pito-data-grid").first
       heading_spans = grid.css("span").first(3)
       heading_spans.each do |span|
         expect(span["data-pito--typewriter-target"]).to be_nil
@@ -352,8 +361,8 @@ RSpec.describe Pito::Event::SystemComponent do
     end
 
     it "uses a 3-track grid that accounts for the heading width" do
-      grid = node.css("div.grid").first
-      expect(grid["class"]).to include("grid-cols-[max-content_max-content_1fr]")
+      grid = node.css("div.pito-data-grid").first
+      expect(grid["data-cols"]).to eq("3")
     end
   end
 
@@ -366,9 +375,182 @@ RSpec.describe Pito::Event::SystemComponent do
     end
 
     it "emits no heading spans (no text-fg-faded font-bold span in the grid)" do
-      grid = node.css("div.grid").first
+      grid = node.css("div.pito-data-grid").first
       heading_spans = grid.css("span").select { |s| s["class"]&.include?("font-bold") }
       expect(heading_spans).to be_empty
+    end
+  end
+
+  # ── T3.7: wide table — 8 columns, no vertical-stack regression ───────────────
+
+  describe "table_heading with 8 columns" do
+    subject(:node) do
+      render_inline(described_class.new(payload: {
+        body: "Wide table",
+        table_heading: [ "#", "Game", "Developer", "Publisher", "Genre", "Release", "Year", "Platform" ],
+        table_rows: [
+          { cells: [
+            { text: "1",    class: "text-cyan whitespace-nowrap" },
+            { text: "Hades",         class: "text-fg" },
+            { text: "Supergiant",    class: "text-fg-dim" },
+            { text: "Supergiant",    class: "text-fg-dim" },
+            { text: "Roguelike",     class: "text-fg-dim" },
+            { text: "2020-09-17",    class: "text-fg-dim" },
+            { text: "2020",          class: "text-fg-dim" },
+            { text: "PC",            class: "text-fg-dim" }
+          ] },
+          { cells: [
+            { text: "2",    class: "text-cyan whitespace-nowrap" },
+            { text: "Celeste",       class: "text-fg" },
+            { text: "Maddy Thorson", class: "text-fg-dim" },
+            { text: "Maddy Thorson", class: "text-fg-dim" },
+            { text: "Platformer",    class: "text-fg-dim" },
+            { text: "2018-01-25",    class: "text-fg-dim" },
+            { text: "2018",          class: "text-fg-dim" },
+            { text: "Switch",        class: "text-fg-dim" }
+          ] }
+        ]
+      }))
+    end
+
+    it "renders exactly one .pito-data-grid container" do
+      grids = node.css("div.pito-data-grid")
+      expect(grids.size).to eq(1)
+    end
+
+    it "sets data-cols=8 on the grid container" do
+      grid = node.css("div.pito-data-grid").first
+      expect(grid["data-cols"]).to eq("8")
+    end
+
+    it "renders 8 heading spans" do
+      grid = node.css("div.pito-data-grid").first
+      heading_spans = grid.css("span").first(8)
+      expect(heading_spans.map(&:text)).to eq(%w[# Game Developer Publisher Genre Release Year Platform])
+    end
+  end
+
+  # ── table_heading_cells — Hash entries (right-aligned headings) ───────────────
+
+  describe "table_heading_cells — Hash entry merges extra class" do
+    subject(:component) do
+      described_class.new(payload: {
+        body: "Results",
+        table_heading: [ { "text" => "#", "class" => "text-right" }, "Game" ],
+        table_rows: [ { cells: [
+          { text: "1", class: "text-cyan" },
+          { text: "Alpha", class: "text-fg" }
+        ] } ]
+      })
+    end
+
+    it "merges the extra class into the heading cell for a Hash entry" do
+      cells = component.table_heading_cells
+      expect(cells.first[:class]).to include("text-right")
+      expect(cells.first[:class]).to include("text-fg-faded")
+      expect(cells.first[:class]).to include("font-bold")
+      expect(cells.first[:text]).to eq("#")
+    end
+
+    it "keeps the base class only for a String entry" do
+      cells = component.table_heading_cells
+      expect(cells[1][:class]).to eq("text-fg-faded font-bold whitespace-nowrap")
+      expect(cells[1][:text]).to eq("Game")
+    end
+  end
+
+  # ── data-fixed-trailing on the grid div ───────────────────────────────────────
+
+  describe "data-fixed-trailing from payload" do
+    subject(:node) do
+      render_inline(described_class.new(payload: {
+        body: "List",
+        fixed_trailing: 2,
+        table_heading: [ "#", "Game", "Release", "Year" ],
+        table_rows: [ { cells: [
+          { text: "#1", class: "text-cyan" },
+          { text: "Alpha", class: "text-fg" },
+          { text: "2024-01-01", class: "text-fg-dim text-right" },
+          { text: "2024", class: "text-fg-dim text-right tabular-nums" }
+        ] } ]
+      }))
+    end
+
+    it "renders data-fixed-trailing on the pito-data-grid div" do
+      grid = node.css("div.pito-data-grid").first
+      expect(grid["data-fixed-trailing"]).to eq("2")
+    end
+
+    it "renders data-fixed-trailing=0 when not provided in payload" do
+      node2 = render_inline(described_class.new(payload: {
+        body: "Plain",
+        table_rows: [ { key: "A", value: "B" } ]
+      }))
+      grid = node2.css("div.pito-data-grid").first
+      expect(grid["data-fixed-trailing"]).to eq("0")
+    end
+  end
+
+  # ── html cells in :cells rows ────────────────────────────────────────────────
+
+  describe "table_rows with :cells — html: true cell renders raw (no typewriter target)" do
+    let(:img_html) { '<span class="pito-platform-icons"><img class="pito-platform-icon" src="/platforms/playstation.svg" alt="PlayStation" title="PlayStation" loading="lazy"></span>' }
+
+    subject(:node) do
+      render_inline(described_class.new(payload: {
+        body: "Games",
+        table_rows: [
+          { cells: [
+            { text: "The Game",   class: "text-fg" },
+            { text: img_html,     class: "text-fg-dim", html: true }
+          ] }
+        ]
+      }))
+    end
+
+    it "renders the html cell without escaping (img tag is present)" do
+      grid = node.css("div.pito-data-grid").first
+      expect(grid.css("img.pito-platform-icon").first).not_to be_nil
+    end
+
+    it "does NOT add a typewriter prose target to the html cell span" do
+      grid = node.css("div.pito-data-grid").first
+      spans = grid.css("span")
+      html_span = spans.find { |s| s.css("img").any? }
+      expect(html_span).not_to be_nil
+      expect(html_span["data-pito--typewriter-target"]).to be_nil
+    end
+
+    it "still adds typewriter prose target to the plain-text cell span" do
+      grid = node.css("div.pito-data-grid").first
+      text_span = grid.css("span[data-pito--typewriter-target='prose']").first
+      expect(text_span).not_to be_nil
+      expect(text_span.text).to include("The Game")
+    end
+  end
+
+  describe "table_rows with :cells — html: false cell escapes and keeps typewriter target" do
+    subject(:node) do
+      render_inline(described_class.new(payload: {
+        body: "Test",
+        table_rows: [
+          { cells: [
+            { text: "<b>escaped</b>", class: "text-fg" }
+          ] }
+        ]
+      }))
+    end
+
+    it "escapes the text (no b tag in the DOM)" do
+      grid = node.css("div.pito-data-grid").first
+      expect(grid.css("b").first).to be_nil
+      expect(grid.text).to include("<b>escaped</b>")
+    end
+
+    it "keeps the typewriter prose target on the span" do
+      grid = node.css("div.pito-data-grid").first
+      span = grid.css("span[data-pito--typewriter-target='prose']").first
+      expect(span).not_to be_nil
     end
   end
 

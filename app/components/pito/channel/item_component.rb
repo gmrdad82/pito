@@ -3,30 +3,34 @@
 module Pito
   module Channel
     # The ONE channel item, rendered identically everywhere (centered column,
-    # 120px circular avatar, handle / title / #id). Two surfaces share it and
-    # differ ONLY by kwargs: `list channels` shows the [view] link and no score
-    # bar; the recommended-channels grid hides [view] and shows a ScoreBar.
+    # 120px circular avatar, handle / title). Two surfaces share it and differ
+    # ONLY by kwargs: `list channels` shows the [view] link and no score bar;
+    # the recommended-channels grid hides [view] and shows a ScoreBar.
     #
     # kwargs:
     #   channel:      [Channel]      — the channel record to display.
     #   show_avatar:  [Boolean]      — render the cached avatar variant (default false).
     #   show_visit:   [Boolean]      — render a plain [view] link (default false).
     #                                  NOT VisitComponent (that auto-navigates).
-    #   score:        [Integer, nil] — when present, render a ScoreBarComponent
-    #                                  below the #id. nil omits the bar.
+    #   score:        [Integer, nil] — when present, render a ScoreBarComponent.
+    #                                  nil omits the bar.
+    #   show_stats:   [Boolean]      — render subscriber + view count rows (default false).
+    #                                  Used on `list channels` only; NOT in the Game Enhanced
+    #                                  (recommended-channels) message.
     #
     # Usage:
-    #   # list channels — avatar + [view], no score bar:
-    #   render(Pito::Channel::ItemComponent.new(channel:, show_avatar: true, show_visit: true))
+    #   # list channels — avatar + [view] + stats rows, no score bar:
+    #   render(Pito::Channel::ItemComponent.new(channel:, show_avatar: true, show_visit: true, show_stats: true))
     #
-    #   # recommended channels — avatar + score bar, no [view]:
+    #   # recommended channels — avatar + score bar, no [view], no stats:
     #   render(Pito::Channel::ItemComponent.new(channel:, show_avatar: true, score: result.score))
     class ItemComponent < ViewComponent::Base
-      def initialize(channel:, show_visit: false, score: nil, show_avatar: false)
+      def initialize(channel:, show_visit: false, score: nil, show_avatar: false, show_stats: false)
         @channel     = channel
         @show_visit  = show_visit
         @score       = score
         @show_avatar = show_avatar
+        @show_stats  = show_stats
       end
 
       attr_reader :channel
@@ -37,6 +41,10 @@ module Pito
 
       def show_avatar?
         @show_avatar
+      end
+
+      def show_stats?
+        @show_stats
       end
 
       # Our locally-cached avatar variant (never the YouTube CDN). nil → placeholder.
@@ -50,6 +58,23 @@ module Pito
 
       def score
         @score
+      end
+
+      # Rendered label for the subscriber count row, e.g. "1 sub" / "10 subs".
+      # Nil stats treated as zero (matches the disconnect_confirmation.rb precedent).
+      def subscribers_label
+        count = channel.subscriber_count.to_i
+        key   = count == 1 ? "pito.copy.channels.subscribers_count_singular"
+                           : "pito.copy.channels.subscribers_count_plural"
+        Pito::Copy.render(key, count:)
+      end
+
+      # Rendered label for the view count row, e.g. "1 view" / "10 views".
+      def views_label
+        count = channel.view_count.to_i
+        key   = count == 1 ? "pito.copy.channels.views_count_singular"
+                           : "pito.copy.channels.views_count_plural"
+        Pito::Copy.render(key, count:)
       end
 
       # YouTube page URL for the [view] link.

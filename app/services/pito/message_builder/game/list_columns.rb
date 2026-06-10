@@ -25,12 +25,14 @@ module Pito
         SORT_SPECS = {
           id:           { key: ->(g) { g.id },                                                  requires_with: false },
           title:        { key: ->(g) { g.title.to_s.downcase },                                 requires_with: false },
-          platform:     { key: ->(g) { Array(g.platforms).join(", ").downcase },                requires_with: true },
+          platform:     { key: ->(g) { Pito::Game::PlatformTokens.labels(g.platforms).to_s.downcase }, requires_with: true },
           genre:        { key: ->(g) { g.genres.map(&:name).join(", ").downcase },              requires_with: true },
           developer:    { key: ->(g) { g.developer_companies.map(&:name).join(", ").downcase }, requires_with: true },
           publisher:    { key: ->(g) { g.publisher_companies.map(&:name).join(", ").downcase }, requires_with: true },
-          release_date: { key: ->(g) { g.release_date || Date.new(0) },                         requires_with: true },
-          year:         { key: ->(g) { g.release_year || 0 },                                   requires_with: true }
+          # TBA (no date/year) sorts AFTER all known dates ascending (and first
+          # descending) — treat unknown as the far future, not Date.new(0).
+          release_date: { key: ->(g) { g.release_date || Date.new(9999, 12, 31) },              requires_with: true },
+          year:         { key: ->(g) { g.release_year || 9999 },                                requires_with: true }
         }.freeze
 
         # Maps every sort token (downcased) → canonical column Symbol.
@@ -54,7 +56,8 @@ module Pito
           platform:     {
             aliases: %w[platform platforms],
             heading: "Platform",
-            value:   ->(g) { Array(g.platforms).join(", ") }
+            html:    true,
+            value:   ->(g) { Pito::Game::PlatformTokens.icons_html(g.platforms) }
           },
           genre:        {
             aliases: %w[genre genres],
@@ -74,11 +77,13 @@ module Pito
           release_date: {
             aliases: [ "release date" ],
             heading: "Release",
-            value:   ->(g) { g.release_label.to_s }
+            align:   :right,
+            value:   ->(g) { Pito::Formatter::ReleaseDate.call(g).to_s }
           },
           year:         {
             aliases: %w[year],
             heading: "Year",
+            align:   :right,
             value:   ->(g) { g.release_year&.to_s || "—" }
           }
         }.freeze
@@ -113,6 +118,16 @@ module Pito
           end.freeze
         end
 
+        # Returns +cols+ sorted by their order in COLUMNS.keys — so
+        # release_date and year always trail the other with-columns.
+        #
+        # @param cols [Array<Symbol>] canonical column keys in any order
+        # @return [Array<Symbol>]
+        def canonical_order(cols)
+          order = COLUMNS.keys
+          cols.sort_by { |col| order.index(col) || order.size }
+        end
+
         # Returns an Array of heading strings for the requested canonical columns.
         #
         # @param cols [Array<Symbol>] ordered canonical column keys
@@ -121,14 +136,41 @@ module Pito
           cols.map { |col| COLUMNS.fetch(col)[:heading] }
         end
 
+        # Returns an Array of heading entries for the requested canonical columns.
+        # Left-aligned columns return a plain String; right-aligned columns return
+        # a Hash { "text" => heading, "class" => "text-right" } for SystemComponent
+        # to merge into the heading cell class.
+        #
+        # @param cols [Array<Symbol>] ordered canonical column keys
+        # @return [Array<String, Hash>]
+        def heading_cells(cols)
+          cols.map do |col|
+            cfg = COLUMNS.fetch(col)
+            if cfg[:align] == :right
+              { "text" => cfg[:heading], "class" => "text-right" }
+            else
+              cfg[:heading]
+            end
+          end
+        end
+
         # Returns an Array of cell hashes for the requested canonical columns.
         #
         # @param game [::Game]
         # @param cols [Array<Symbol>] ordered canonical column keys
-        # @return [Array<{ text: String, class: String }>]
+        # @return [Array<{ text: String, class: String, html: Boolean }>]
         def cells(game, cols)
           cols.map do |col|
-            { text: COLUMNS.fetch(col)[:value].call(game), class: "text-fg-dim" }
+            cfg  = COLUMNS.fetch(col)
+            text = cfg[:value].call(game)
+            cell_class =
+              case cfg[:align]
+              when :right
+                col == :year ? "text-fg-dim text-right tabular-nums" : "text-fg-dim text-right"
+              else
+                "text-fg-dim"
+              end
+            { text:, class: cell_class, html: cfg[:html] == true }
           end
         end
 

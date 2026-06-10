@@ -1,9 +1,10 @@
 # frozen_string_literal: true
 
-# Handler for the `show game <id|title>` / `show video <id|title>` chat verb.
+# Handler for the `show game <id>` / `show video <id>` chat verb.
 #
-# Resolves a single game or video by **ID** (`#123` or `123`) or title (ILIKE)
-# and emits the appropriate detail message (follow-up-able).
+# Resolves a single game or video by **ID only** (`#123` or `123`) —
+# title (ILIKE) lookup is intentionally disabled (id_only_resolution!).
+# Emits the appropriate detail message (follow-up-able).
 # Unknown reference → witty not-found via `Pito::Copy`. No reference → a usage
 # hint (the no-arg picker fast-path is wired in `ChatController`, T10.10).
 module Pito
@@ -12,6 +13,7 @@ module Pito
       class Show < Pito::Chat::Handler
         self.verb = :show
         self.description_key = "pito.chat.show.descriptions.show"
+        id_only_resolution!
 
         # `game`/`games` are noun fillers the user types but that carry no value
         # when resolving a game.

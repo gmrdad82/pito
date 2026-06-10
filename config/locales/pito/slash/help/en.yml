@@ -28,12 +28,7 @@ en:
           keybindings:
             title: "KEYBINDINGS"
         keybindings:
-          "ctrl+|": "Expand / collapse all messages"
           "shift+↑ / shift+↓": "Scroll through chat history"
           "↑ / ↓": "Browse input history in chatbox"
-          "shift+r": "Prepend last hashtag to input"
           "ctrl+`": "Rename current conversation inline"
-          "esc": "Close sidebar panel"
           "d / d d": "Arm / confirm conversation delete (sidebar)"
-          "`": "Rename highlighted conversation (sidebar)"
-          "space": "Toggle read / unread notification (sidebar)"

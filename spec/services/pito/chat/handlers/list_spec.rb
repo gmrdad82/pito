@@ -87,7 +87,11 @@ RSpec.describe Pito::Chat::Handlers::List do
 
     it "returns three columns in the heading (# Game Genre)" do
       payload = handler_for("list games with genre").call.events.first[:payload]
-      expect(payload["table_heading"]).to eq([ "#", "Game", "Genre" ])
+      expect(payload["table_heading"]).to eq([
+        { "text" => "#", "class" => "text-right" },
+        "Game",
+        "Genre"
+      ])
     end
   end
 
@@ -114,12 +118,6 @@ RSpec.describe Pito::Chat::Handlers::List do
       expect(body).to include("https://www.youtube.com/@alpha")
       expect(body).to include("https://www.youtube.com/@beta")
       expect(body).to include('target="_blank"')
-    end
-
-    it "includes the plain channel id (no # prefix) in the body" do
-      body = handler_for("list channels").call.events.first[:payload]["body"]
-      expect(body).to include(alpha.id.to_s)
-      expect(body).to include(beta.id.to_s)
     end
 
     it "sets html: true on the payload" do
@@ -455,7 +453,11 @@ RSpec.describe Pito::Chat::Handlers::List do
 
       it "scopes to the channel AND renders the requested column" do
         payload = handler_for("list games with genre", channel: "@gchana").call.events.first[:payload]
-        expect(payload["table_heading"]).to eq([ "#", "Game", "Genre" ])
+        expect(payload["table_heading"]).to eq([
+          { "text" => "#", "class" => "text-right" },
+          "Game",
+          "Genre"
+        ])
         rows = payload["table_rows"]
         expect(rows.map { |r| r[:cells][1][:text] }).to eq([ "Alpha Game" ]) # channel-scoped
         expect(rows.first[:cells][2][:text]).to eq("Action")                 # with-column rendered
@@ -489,6 +491,60 @@ RSpec.describe Pito::Chat::Handlers::List do
         # the filter-empty message does not include "/games import" (plain-empty does)
         expect(payload["text"]).not_to include("/games import")
       end
+    end
+  end
+
+  # ── list games --help ─────────────────────────────────────────────────────
+
+  describe "#call with `list games --help`" do
+    it "returns a Result::Ok with one system event" do
+      result = handler_for("list games --help").call
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(result.events.length).to eq(1)
+      expect(result.events.first[:kind]).to eq(:system)
+    end
+
+    it "is an html payload (nvim-style man page), not a game table" do
+      create(:game, title: "Elden Ring")
+      payload = handler_for("list games --help").call.events.first[:payload]
+      expect(payload["html"]).to be(true)
+      expect(payload["table_rows"]).to be_nil
+      expect(payload["body"]).not_to include("Elden Ring")
+    end
+
+    it "renders Usage / Options / Columns sections" do
+      body = handler_for("list games --help").call.events.first[:payload]["body"]
+      expect(body).to include("Usage:")
+      expect(body).to include("Options:")
+      expect(body).to include("Columns:")
+    end
+
+    it "documents the with / sorted by / --help options" do
+      body = handler_for("list games --help").call.events.first[:payload]["body"]
+      expect(body).to include("sorted by")
+      expect(body).to include("--help")
+      # `with <columns>` is html-escaped in the body
+      expect(body).to include("with &lt;columns&gt;")
+    end
+
+    it "lists every optional column with its aliases" do
+      body = handler_for("list games --help").call.events.first[:payload]["body"]
+      %w[platform genre developer publisher year].each { |col| expect(body).to include(col) }
+      expect(body).to include("release date")
+      # aliases are present too
+      expect(body).to include("platforms")
+      expect(body).to include("dev")
+    end
+  end
+
+  describe "#call with `list games` (no --help flag) still lists games" do
+    let!(:elden) { create(:game, title: "Elden Ring") }
+
+    it "returns normal game list rows (not help content)" do
+      payload = handler_for("list games").call.events.first[:payload]
+      rows    = Array(payload["table_rows"])
+      titles  = rows.map { |r| (r[:cells] || r["cells"] || [])[1]&.dig(:text) || (r[:cells] || r["cells"] || [])[1]&.dig("text") }
+      expect(titles).to include("Elden Ring")
     end
   end
 

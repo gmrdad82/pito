@@ -98,6 +98,12 @@ RSpec.describe Pito::Game::EnhancedComponent do
       node = render_component
       expect(node.css(".pito-game-enhanced-message__channel-grid .pito-channel-visit")).to be_empty
     end
+
+    it "does not render stat rows in the channel grid (show_stats: false by default)" do
+      node = render_component
+      expect(node.css(".pito-game-enhanced-message__channel-grid .pito-channel-item__stats")).to be_empty
+      expect(node.css(".pito-game-enhanced-message__channel-grid .pito-channel-item__stat")).to be_empty
+    end
   end
 
   # ── Similar games section ──────────────────────────────────────────────────

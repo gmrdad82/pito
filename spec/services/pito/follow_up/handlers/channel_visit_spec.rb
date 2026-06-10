@@ -20,6 +20,10 @@ RSpec.describe Pito::FollowUp::Handlers::ChannelVisit do
     expect(described_class.mode).to eq(:mutate)
   end
 
+  it "is internal (must not appear as a user-typeable #hashtag or in #help)" do
+    expect(described_class.internal?).to be true
+  end
+
   it "declares the consume action" do
     expect(described_class.actions).to eq([ "consume" ])
   end

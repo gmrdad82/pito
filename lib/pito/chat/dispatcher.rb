@@ -50,8 +50,43 @@ module Pito
           )
         end
 
+        if message.raw.match?(/(?:\A|\s)--help(?:\s|\z)/)
+          noun    = extract_noun(message)
+          payload = Pito::MessageBuilder::CommandHelp.call(message.verb, noun:)
+          return Pito::Chat::Result::Ok.new(events: [ { kind: :system, payload: } ]) if payload
+        end
+
         handler = handler_class.new(message:, conversation: @conversation, channel: @channel, follow_up: @follow_up)
         handler.call
+      end
+
+      # Extract the noun token (first plain word after the verb) from the raw input,
+      # skipping the `--help` / `-h` flags.  Returns a Symbol or nil.
+      #
+      # The lexer splits "--help" into :unknown(-) :unknown(-) :word("help"), so we
+      # cannot rely on body_tokens alone.  Instead we scan the raw string for the
+      # first word that is not preceded by one or more "-" dashes.
+      #
+      # Examples:
+      #   "delete game --help"   → :game
+      #   "delete --help"        → nil
+      #   "import videos --help" → :videos
+      def extract_noun(message)
+        # Strip the verb from the front and look for the first bare word token.
+        # A "bare word" starts a word char (no leading dash); we skip -flag tokens.
+        raw_after_verb = message.raw.to_s.sub(/\A\s*\S+\s*/, "")
+
+        # Split on whitespace; return the first token that is a plain word (no leading -)
+        # and is not a number or a quoted arg (we only care about noun words like "game").
+        raw_after_verb.split.each do |token|
+          next if token.start_with?("-")
+          next if token.match?(/\A\d+\z/)   # skip bare numbers
+          next if token.start_with?('"')     # skip quoted strings
+
+          return token.downcase.to_sym
+        end
+
+        nil
       end
 
       def dispatch_unknown(message)

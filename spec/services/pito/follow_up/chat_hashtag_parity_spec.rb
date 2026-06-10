@@ -71,14 +71,6 @@ RSpec.describe "Chat ≡ #hashtag parity (Phase 18/19)", type: :service do
     expect(VideoGameLink.exists?(game:, video:)).to be(false)
   end
 
-  it "`reindex game` → same single confirmation event (free-chat vs game_enhanced reply)" do
-    free  = free_events("reindex #{game.id}")
-    reply = reply_events("game_enhanced", "reindex #{game.id}", game_id: game.id)
-
-    expect(reply.map { |e| e[:kind] }).to eq(free.map { |e| e[:kind] }).and eq([ :confirmation ])
-    expect(reply.first[:payload]["command"]).to eq("game_reindex")
-  end
-
   it "`reindex video` → same single confirmation event (free-chat vs video_detail reply)" do
     free  = free_events("reindex video #{video.id}")
     reply = reply_events("video_detail", "reindex video #{video.id}", video_id: video.id)

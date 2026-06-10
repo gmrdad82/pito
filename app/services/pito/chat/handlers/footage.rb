@@ -1,13 +1,13 @@
 # frozen_string_literal: true
 
-# Handler for the `footage <id|title> <path>` chat verb.
+# Handler for the `footage game <id> <path>` chat verb.
 #
-# Resolves a game by **ID** (`#123`/`123`) or **title** (ILIKE) and a footage
+# Resolves a game by **numeric ID only** (`123` / `#123`) and a footage
 # folder path, then emits a Standard message containing the exact, copyable
 # `bin/rails pito:tools:probe …` command (Pito::Footage::ProbeCommandComponent).
 # Shared with the `#<handle> footage <path>` follow-up (Pito::FollowUp::Handlers::
 # GameDetail) — same FootageImport builder, different dispatch.
-# Unknown reference → witty not-found. Missing ref/path → usage hint.
+# Unknown/non-numeric reference → witty not-found. Missing ref/path → usage hint.
 module Pito
   module Chat
     module Handlers
@@ -29,12 +29,13 @@ module Pito
 
         private
 
-        # `footage <ref> <path>` — the path is the tail starting at the first
-        # absolute (`/…`) or home (`~/…`) token, so a multi-word title before it
-        # stays whole (e.g. `footage Ghosts n Goblins /mnt/clips`). No path token →
-        # everything is the ref (and we ask for a path).
+        # `footage game <id> <path>` — strip the verb, then an optional `game`
+        # noun filler (like other handlers accept), leaving `<id> <path>`. The
+        # path is the tail starting at the first absolute (`/…`) or home
+        # (`~/…`) token. No path token → everything is the ref (ask for a path).
         def parse_args
           rest = message.raw.to_s.strip.sub(/\Afootage\b\s*/i, "").strip
+          rest = rest.sub(/\Agame\b\s*/i, "").strip
           if (m = rest.match(%r{\s+([~/].*)\z}))
             [ rest[0...m.begin(0)].strip, m[1].strip ]
           else
@@ -42,12 +43,13 @@ module Pito
           end
         end
 
-        # ID form (`#5`/`5`/`# 5`) → find by id; otherwise case-insensitive title.
+        # Numeric ID only: strip optional leading `#`, require `\A\d+\z`.
+        # Any non-numeric ref → nil (→ witty not-found).
         def resolve_game(ref)
           id = ref.sub(/\A#\s*/, "")
           return ::Game.find_by(id: id) if id.match?(/\A\d+\z/)
 
-          ::Game.find_by("title ILIKE ?", ref)
+          nil
         end
 
         def needs_ref

@@ -333,62 +333,285 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
       expect(result[:mode]).to eq(:hashtag)
     end
 
-    it "suggests hashtag verbs (add, remove) at the verb stage" do
+    it "returns no menu items for a handle that has no live follow-up event (legacy path)" do
+      # The :hashtag grammar add/remove specs have been removed; non-follow-up handles
+      # yield no verb completions.
       result = call(input: "#mychannel ", cursor: 11)
-      labels = result[:menu_items].map { |i| i[:label] }
-      expect(labels).to include("add", "remove")
+      expect(result[:menu_items]).to be_empty
     end
 
-    it "prefix-filters verbs" do
+    it "returns empty ghost for a handle that has no live follow-up event" do
       result = call(input: "#mychannel a", cursor: 12)
-      labels = result[:menu_items].map { |i| i[:label] }
-      expect(labels).to include("add")
-      expect(labels).not_to include("remove")
-    end
-
-    it "suggests metrics after the verb is typed" do
-      result = call(input: "#mychannel add ", cursor: 15)
-      labels = result[:menu_items].map { |i| i[:label] }
-      expect(labels).to include("subscribers", "views")
-    end
-
-    it "prefix-filters metrics" do
-      result = call(input: "#mychannel add sub", cursor: 18)
-      labels = result[:menu_items].map { |i| i[:label] }
-      expect(labels).to include("subscribers")
-      expect(labels).not_to include("views")
+      expect(result[:ghost][:complete_current]).to eq("")
     end
   end
 
   # ── HASHTAG — follow-up-target aware ──────────────────────────────────────────
   describe "hashtag mode for a live follow-up handle", :db do
     let(:conversation) { Conversation.create! }
-    let(:turn) { conversation.turns.create!(input_kind: :slash, input_text: "/themes list", position: 1) }
+    let(:turn) { conversation.turns.create!(input_kind: :slash, input_text: "/games list", position: 1) }
 
     before do
       Event.create_with_position!(
         conversation:, turn:, kind: "system",
-        payload: { "reply_handle" => "alpha-1266", "reply_target" => "theme_list", "body" => "themes" }
+        payload: { "reply_handle" => "alpha-1266", "reply_target" => "game_list", "body" => "games" }
       )
     end
 
-    it "suggests the target's actions (preview/apply), NOT the legacy add/remove" do
+    it "suggests the target's actions (show/delete/rm/add/remove)" do
       result = call(input: "#alpha-1266 ", cursor: 12, conversation:)
       labels = result[:menu_items].map { |i| i[:label] }
-      expect(labels).to eq(%w[preview apply])
-      expect(labels).not_to include("add", "remove")
+      expect(labels).to include("show", "delete", "rm", "add", "remove")
     end
 
     it "ghosts the first action so TAB completes it (no <brackets>)" do
       result = call(input: "#alpha-1266 ", cursor: 12, conversation:)
-      expect(result[:ghost][:complete_current]).to eq("preview")
+      expect(result[:ghost][:complete_current]).to eq("show")
       expect(result[:ghost][:next_hint]).to eq("")
     end
 
-    it "falls back to legacy hashtag verbs when the handle isn't a live follow-up" do
+    it "returns no menu items when the handle isn't a live follow-up (no legacy hashtag specs)" do
       result = call(input: "#unknown-9999 ", cursor: 14, conversation:)
+      expect(result[:menu_items]).to be_empty
+    end
+  end
+
+  # T25.3 — hashtag column ghost for game_list/video_list add/remove actions
+  describe "hashtag follow-up: column ghost for game_list add/remove", :db do
+    let(:conversation) { Conversation.create! }
+    let(:turn) { conversation.turns.create!(input_kind: :slash, input_text: "/list games", position: 1) }
+
+    before do
+      Pito::FollowUp::Registry.register_all!
+      Event.create_with_position!(
+        conversation:, turn:, kind: "system",
+        payload: { "reply_handle" => "glist-4444", "reply_target" => "game_list", "body" => "games" }
+      )
+    end
+
+    it "ghosts the first game column token when '#<handle> add ' (trailing space)" do
+      result = call(input: "#glist-4444 add ", cursor: 16, conversation:)
+      expect(result[:ghost][:complete_current]).to eq("platform")
+      expect(result[:ghost][:next_hint]).to eq("")
+    end
+
+    it "excludes already-typed platform and ghosts the next column for '#<handle> add platform, '" do
+      result = call(input: "#glist-4444 add platform, ", cursor: 26, conversation:)
+      expect(result[:ghost][:complete_current]).to eq("genre")
+    end
+
+    it "completes a partial token: 'gen' → 're'" do
+      result = call(input: "#glist-4444 add platform, gen", cursor: 29, conversation:)
+      expect(result[:ghost][:complete_current]).to eq("re")
+    end
+
+    it "remove behaves the same as add (ghosts first column)" do
+      result = call(input: "#glist-4444 remove ", cursor: 19, conversation:)
+      expect(result[:ghost][:complete_current]).to eq("platform")
+    end
+
+    it "returns empty menu_items (column ghost has no palette)" do
+      result = call(input: "#glist-4444 add ", cursor: 16, conversation:)
+      expect(result[:menu_items]).to be_empty
+    end
+  end
+
+  describe "hashtag follow-up: column ghost for video_list add/remove", :db do
+    let(:conversation) { Conversation.create! }
+    let(:turn) { conversation.turns.create!(input_kind: :slash, input_text: "/list videos", position: 1) }
+
+    before do
+      Pito::FollowUp::Registry.register_all!
+      Event.create_with_position!(
+        conversation:, turn:, kind: "system",
+        payload: { "reply_handle" => "vlist-5555", "reply_target" => "video_list", "body" => "videos" }
+      )
+    end
+
+    it "ghosts the first video column token when '#<handle> add ' (trailing space)" do
+      result = call(input: "#vlist-5555 add ", cursor: 16, conversation:)
+      expect(result[:ghost][:complete_current]).to eq("game")
+    end
+
+    it "excludes already-typed game and ghosts duration for '#<handle> add game, '" do
+      result = call(input: "#vlist-5555 add game, ", cursor: 22, conversation:)
+      expect(result[:ghost][:complete_current]).to eq("duration")
+    end
+
+    it "remove behaves the same as add (ghosts first video column)" do
+      result = call(input: "#vlist-5555 remove ", cursor: 19, conversation:)
+      expect(result[:ghost][:complete_current]).to eq("game")
+    end
+  end
+
+  describe "hashtag follow-up: sort/order ghost for game_list", :db do
+    let(:conversation) { Conversation.create! }
+    let(:turn) { conversation.turns.create!(input_kind: :slash, input_text: "/list games", position: 1) }
+
+    before do
+      Pito::FollowUp::Registry.register_all!
+      Event.create_with_position!(
+        conversation:, turn:, kind: "system",
+        payload: { "reply_handle" => "gsort-1111", "reply_target" => "game_list",
+                   "list_columns" => [], "body" => "games" }
+      )
+    end
+
+    it "suggests sort and order in the action palette" do
+      result = call(input: "#gsort-1111 ", cursor: 12, conversation:)
       labels = result[:menu_items].map { |i| i[:label] }
-      expect(labels).to include("add", "remove")
+      expect(labels).to include("sort", "order")
+    end
+
+    it "ghosts 'by' when nothing is typed after the verb" do
+      result = call(input: "#gsort-1111 sort ", cursor: 17, conversation:)
+      expect(result[:ghost][:complete_current]).to eq("by")
+    end
+
+    it "ghosts 'y' when 'b' is typed after the verb" do
+      result = call(input: "#gsort-1111 sort b", cursor: 18, conversation:)
+      expect(result[:ghost][:complete_current]).to eq("y")
+    end
+
+    it "ghosts the first sort column after 'sort by '" do
+      result = call(input: "#gsort-1111 sort by ", cursor: 20, conversation:)
+      expect(result[:ghost][:complete_current]).to eq("id")
+    end
+
+    it "completes 'tle' after 'sort by ti'" do
+      result = call(input: "#gsort-1111 sort by ti", cursor: 22, conversation:)
+      expect(result[:ghost][:complete_current]).to eq("tle")
+    end
+
+    it "ghosts 'by' for 'order ' (alias)" do
+      result = call(input: "#gsort-1111 order ", cursor: 18, conversation:)
+      expect(result[:ghost][:complete_current]).to eq("by")
+    end
+
+    it "returns empty menu_items (sort ghost has no palette)" do
+      result = call(input: "#gsort-1111 sort by ", cursor: 20, conversation:)
+      expect(result[:menu_items]).to be_empty
+    end
+  end
+
+  describe "hashtag follow-up: sort ghost for video_list with views column", :db do
+    let(:conversation) { Conversation.create! }
+    let(:turn) { conversation.turns.create!(input_kind: :slash, input_text: "/list videos", position: 1) }
+
+    before do
+      Pito::FollowUp::Registry.register_all!
+      Event.create_with_position!(
+        conversation:, turn:, kind: "system",
+        payload: { "reply_handle" => "vsort-2222", "reply_target" => "video_list",
+                   "list_columns" => [ "views" ], "body" => "videos" }
+      )
+    end
+
+    it "ghosts 'by' when nothing after the verb" do
+      result = call(input: "#vsort-2222 sort ", cursor: 17, conversation:)
+      expect(result[:ghost][:complete_current]).to eq("by")
+    end
+
+    it "completes 'iews' after 'sort by v' when views is a present column" do
+      result = call(input: "#vsort-2222 sort by v", cursor: 21, conversation:)
+      expect(result[:ghost][:complete_current]).to eq("iews")
+    end
+
+    it "ghosts first column after 'sort by '" do
+      result = call(input: "#vsort-2222 sort by ", cursor: 20, conversation:)
+      # Base tokens first: id, title, channel, privacy; then views (present with-col)
+      expect(result[:ghost][:complete_current]).to eq("id")
+    end
+  end
+
+  # T35.3 — hashtag --help ghost: when the partial starts with "-" and prefixes
+  # "--help", the engine returns a --help ghost + menu item.
+  describe "hashtag follow-up: --help ghost", :db do
+    let(:conversation) { Conversation.create! }
+    let(:turn) { conversation.turns.create!(input_kind: :slash, input_text: "/list games", position: 1) }
+
+    before do
+      Pito::FollowUp::Registry.register_all!
+      Event.create_with_position!(
+        conversation:, turn:, kind: "system",
+        payload: { "reply_handle" => "glist-5555", "reply_target" => "game_list", "body" => "games" }
+      )
+    end
+
+    context "verb-stage partial: -" do
+      subject(:result) { call(input: "#glist-5555 -", cursor: 13, conversation:) }
+
+      it "returns :hashtag mode" do
+        expect(result[:mode]).to eq(:hashtag)
+      end
+
+      it "ghost completes toward --help ('-help' remaining)" do
+        expect(result[:ghost][:complete_current]).to eq("-help")
+      end
+
+      it "menu includes --help item" do
+        expect(result[:menu_items].map { |i| i[:label] }).to include("--help")
+      end
+    end
+
+    context "verb-stage partial: --" do
+      subject(:result) { call(input: "#glist-5555 --", cursor: 14, conversation:) }
+
+      it "ghost completes 'help'" do
+        expect(result[:ghost][:complete_current]).to eq("help")
+      end
+    end
+
+    context "verb-stage partial: --h" do
+      subject(:result) { call(input: "#glist-5555 --h", cursor: 15, conversation:) }
+
+      it "ghost completes 'elp'" do
+        expect(result[:ghost][:complete_current]).to eq("elp")
+      end
+    end
+
+    context "verb-stage partial: --help (fully typed)" do
+      subject(:result) { call(input: "#glist-5555 --help", cursor: 18, conversation:) }
+
+      it "ghost complete_current is empty (exact match)" do
+        expect(result[:ghost][:complete_current]).to eq("")
+      end
+    end
+
+    context "arg-stage: #handle show -" do
+      subject(:result) { call(input: "#glist-5555 show -", cursor: 18, conversation:) }
+
+      it "returns :hashtag mode" do
+        expect(result[:mode]).to eq(:hashtag)
+      end
+
+      it "ghost completes toward --help ('-help' remaining)" do
+        expect(result[:ghost][:complete_current]).to eq("-help")
+      end
+
+      it "menu includes --help item" do
+        expect(result[:menu_items].map { |i| i[:label] }).to include("--help")
+      end
+    end
+
+    context "arg-stage: #handle show --" do
+      subject(:result) { call(input: "#glist-5555 show --", cursor: 19, conversation:) }
+
+      it "ghost completes 'help'" do
+        expect(result[:ghost][:complete_current]).to eq("help")
+      end
+    end
+
+    context "normal verb-stage partial with no dash (no change)" do
+      subject(:result) { call(input: "#glist-5555 sho", cursor: 15, conversation:) }
+
+      it "ghost completes 'w' (prefix match on show)" do
+        expect(result[:ghost][:complete_current]).to eq("w")
+      end
+
+      it "does NOT include --help in menu" do
+        expect(result[:menu_items].map { |i| i[:label] }).not_to include("--help")
+      end
     end
   end
 
@@ -721,6 +944,16 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
     it "returns 'ration' as complete_current for 'list videos with du'" do
       result = call(input: "list videos with du", cursor: 19)
       expect(result[:ghost][:complete_current]).to eq("ration")
+    end
+
+    it "returns 'with' as complete_current for 'list games ' (connector branch)" do
+      result = call(input: "list games ", cursor: 11)
+      expect(result[:ghost][:complete_current]).to eq("with")
+    end
+
+    it "still ghosts 'channels' (first noun) for bare 'list '" do
+      result = call(input: "list ", cursor: 5)
+      expect(result[:ghost][:complete_current]).to eq("channels")
     end
   end
 

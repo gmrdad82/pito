@@ -64,15 +64,22 @@ module Pito
       #
       # Events are grouped by TURN so a turn's result lands directly under its
       # echo even when many commands are dispatched concurrently (each async job
-      # finishes at its own pace). The echo (always a turn's first event) opens a
-      # `#turn_<id>` container appended to the scrollback; every later event in
-      # the turn appends INTO that container, not at the end of the scrollback.
+      # finishes at its own pace). The FIRST event in a turn (lowest position)
+      # opens a `#turn_<id>` container appended to the scrollback; every later
+      # event in the turn appends INTO that container, not at the end of the
+      # scrollback.
+      #
+      # We detect "first event" by position rather than kind so that echo-less
+      # async turns (e.g. a lone :system summary from SyncVideosJob) also open
+      # their container live instead of silently no-op-ing into a missing target.
       def broadcast_event(event)
         html   = Pito::Stream::EventRenderer.render(event)
         helper = ApplicationController.helpers
 
+        opens_container = event.turn.events.where("position < ?", event.position).none?
+
         content =
-          if event.kind == "echo"
+          if opens_container
             helper.turbo_stream.append(
               "pito-scrollback",
               %(<div id="turn_#{event.turn_id}" class="pito-turn">#{html}</div>).html_safe

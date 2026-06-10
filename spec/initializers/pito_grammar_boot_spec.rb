@@ -33,9 +33,9 @@ RSpec.describe "Grammar registry boot sequence" do
       expect(names).to include(:list)
     end
 
-    it "registers the :add hashtag spec" do
+    it "has no :hashtag specs (metric-ops add/remove removed)" do
       names = Pito::Grammar::Registry.specs(namespace: :hashtag).map(&:name)
-      expect(names).to include(:add)
+      expect(names).to be_empty
     end
 
     it "registers the :config slash spec" do

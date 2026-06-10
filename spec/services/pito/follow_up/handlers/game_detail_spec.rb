@@ -85,19 +85,19 @@ RSpec.describe Pito::FollowUp::Handlers::GameDetail, type: :service do
     end
   end
 
-  # ── resync ───────────────────────────────────────────────────────────────────
+  # ── reindex ──────────────────────────────────────────────────────────────────
 
-  describe "#call — resync" do
+  describe "#call — reindex" do
     let(:source_event) { build_detail_event }
 
-    subject(:result) { handler.call(event: source_event, rest: "resync", conversation:) }
+    subject(:result) { handler.call(event: source_event, rest: "reindex", conversation:) }
 
     it "returns a Result::Append" do
       expect(result).to be_a(Pito::FollowUp::Result::Append)
     end
 
-    it "appends a confirmation with command game_resync" do
-      expect(result.events.first[:payload]["command"]).to eq("game_resync")
+    it "appends a confirmation with command game_reindex (Voyage re-embed)" do
+      expect(result.events.first[:payload]["command"]).to eq("game_reindex")
     end
 
     it "carries game_id and game_title" do
@@ -107,23 +107,23 @@ RSpec.describe Pito::FollowUp::Handlers::GameDetail, type: :service do
     end
   end
 
-  describe "#call — resync when game is missing/deleted" do
+  describe "#call — reindex when game is missing/deleted" do
     let(:source_event) { build_detail_event("game_id" => 0) }
 
-    it "returns a Result::Error (not-found)" do
-      result = handler.call(event: source_event, rest: "resync", conversation:)
-      expect(result).to be_a(Pito::FollowUp::Result::Error)
+    it "returns a Result::Append with a not-found message (delegated path)" do
+      result = handler.call(event: source_event, rest: "reindex", conversation:)
+      expect(result).to be_a(Pito::FollowUp::Result::Append)
     end
 
     it "does not raise" do
-      expect { handler.call(event: source_event, rest: "resync", conversation:) }.not_to raise_error
+      expect { handler.call(event: source_event, rest: "reindex", conversation:) }.not_to raise_error
     end
   end
 
   # ── actions list ─────────────────────────────────────────────────────────────
 
-  it "declares rm, delete, resync, link, unlink, and footage actions" do
-    expect(described_class.actions).to eq([ "rm", "delete", "resync", "link", "unlink", "footage" ])
+  it "declares rm, delete, reindex, link, unlink, and footage actions" do
+    expect(described_class.actions).to eq([ "rm", "delete", "reindex", "link", "unlink", "footage" ])
   end
 
   # ── link to video (delegated to Chat::Handlers::Link) ───────────────────────
@@ -159,11 +159,11 @@ RSpec.describe Pito::FollowUp::Handlers::GameDetail, type: :service do
       end
     end
 
-    context "with a video title reference" do
-      it "resolves by ILIKE title" do
+    context "with a video title reference (now id-only)" do
+      it "returns a usage hint and does not link (titles no longer resolve)" do
         result = handler.call(event: source_event, rest: "link to video let's play lies of p", conversation:)
-        expect(result).to be_a(Pito::FollowUp::Result::Append)
-        expect(VideoGameLink.where(video:, game:).exists?).to be true
+        expect(result).to be_a(Pito::FollowUp::Result::Error)
+        expect(VideoGameLink.where(video:, game:).exists?).to be false
       end
     end
 

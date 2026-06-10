@@ -1,9 +1,10 @@
 # frozen_string_literal: true
 
-# Handler for the `reindex game <id|title>` / `reindex video <id|title>` chat verb.
+# Handler for the `reindex game <id>` / `reindex video <id>` chat verb.
 #
-# Resolves a single game or video by **ID** (`#123` or `123`) or title (ILIKE)
-# and emits a Voyage re-embed confirmation event. The actual re-index happens in
+# Resolves a single game or video by **ID only** (`#123`/`123`) — title
+# lookup is intentionally disabled (id_only_resolution!). Emits a Voyage
+# re-embed confirmation event. The actual re-index happens in
 # `Pito::Confirmation::Executor` on `#<handle> confirm`.
 # Unknown reference → witty not-found; no reference → usage hint.
 module Pito
@@ -12,6 +13,7 @@ module Pito
       class Reindex < Pito::Chat::Handler
         self.verb = :reindex
         self.description_key = "pito.chat.reindex.descriptions.reindex"
+        id_only_resolution!
 
         GAME_NOUN_FILLERS  = %w[game games].freeze
         VIDEO_NOUN_FILLERS = %w[video videos].freeze
