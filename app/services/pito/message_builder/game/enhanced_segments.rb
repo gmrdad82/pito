@@ -3,12 +3,13 @@
 module Pito
   module MessageBuilder
     module Game
-      # Builds the mutated payload for a game-enhanced event when the user
+      # Builds the segment payload for a game-enhanced message when the user
       # requests similar-game or channel recommendations.
       #
       # The builder renders score-bar segment rows, reconstructs the enhanced
       # message body (preserving the intro paragraph), and returns a new
-      # string-keyed payload ready for a Result::Mutation.
+      # string-keyed payload. The enhanced message carries NO follow-up fields
+      # (no reply_handle, no reply_target) — it is not follow-up-able.
       #
       # The caller is responsible for resolving recommendations and passing the
       # results array and result type to this builder.
@@ -21,8 +22,8 @@ module Pito
         # @param results        [Array]    Pito::Recommendation::GameSimilarity::Result or
         #                                  Game::ChannelRecommendation::Result items.
         # @param result_type    [Symbol]   :similar or :channel.
-        # @param original_handle [String]  the reply_handle from the original event.
-        # @return [Hash] string-keyed payload for a mutation.
+        # @param original_handle [String]  unused — kept for call-site compatibility.
+        # @return [Hash] string-keyed payload (no follow-up fields).
         def call(event:, game:, results:, result_type:, original_handle:)
           empty_copy_key =
             case result_type
@@ -64,20 +65,16 @@ module Pito
         end
 
         # Rebuild the enhanced message payload, replacing/adding the segments area.
-        # Retains reply_handle, reply_target, and game_id; does NOT set
-        # reply_consumed so the message remains chainable.
-        def rebuild_payload(event, game, segments_html, original_handle)
+        # Carries game_id and body only — no follow-up fields (not follow-up-able).
+        def rebuild_payload(event, game, segments_html, _original_handle)
           payload    = event.payload.with_indifferent_access
           intro_html = extract_intro_html(payload[:body].to_s)
           body       = %(<div class="pito-game-enhanced-message">#{intro_html}#{segments_html}</div>)
 
           {
-            "body"         => body,
-            "html"         => true,
-            "game_id"      => game.id,
-            "reply_handle" => original_handle,
-            "reply_target" => "game_enhanced"
-            # reply_consumed deliberately omitted — stays chainable/repliable
+            "body"    => body,
+            "html"    => true,
+            "game_id" => game.id
           }
         end
 

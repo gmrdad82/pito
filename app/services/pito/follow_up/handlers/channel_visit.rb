@@ -20,9 +20,10 @@ module Pito
       # Idempotent: once consumed the payload is no longer follow-up-able, so a
       # repeat dispatch resolves no target and no-ops.
       class ChannelVisit < Pito::FollowUp::Handler
-        self.target "channel_visit"
-        self.mode   :mutate
-        self.actions "consume"
+        self.target   "channel_visit"
+        self.mode     :mutate
+        self.actions  "consume"
+        self.internal true
 
         def call(event:, rest:, conversation:) # rubocop:disable Lint/UnusedMethodArgument
           action, _args = parse_rest(rest)

@@ -40,7 +40,126 @@ module Pito
           return build_ghost(candidates, partial)
         end
 
+        # CONNECTOR context — suggest the `with` connector after the noun.
+        #
+        # Matches when the user has typed the noun and at least one space
+        # (e.g. "list games ").  The tail is everything after the noun; the
+        # partial is the last whitespace-delimited token in that tail (or ""
+        # when the tail is empty / ends with whitespace).
+        #
+        # The `with` and `sorted by` branches above take priority because they
+        # are checked first — typing "list games with " still ghosts "platform".
+        # Candidates: the `with` connector (primary, shown for an empty partial),
+        # `sorted by` (so "list games so" → "rted by"), and `--help`
+        # (so "list games --h" → "elp").
+        if (m = text.match(/\b(?:games?|videos?)\b\s+(.*)\z/i))
+          tail    = m[1]
+          partial = tail.end_with?(" ") || tail.empty? ? "" : tail.split(/\s+/).last.to_s.downcase
+          return build_ghost([ "with", "sorted by", "--help" ], partial)
+        end
+
         nil
+      end
+
+      # ── Hashtag add/remove column ghost ────────────────────────────────────
+
+      # Computes a column-ghost for `#<handle> add <partial>` / `#<handle> remove <partial>`
+      # when the resolved follow-up reply_target is "game_list" or "video_list".
+      #
+      # @param target       [String]  "game_list" or "video_list"
+      # @param args_text    [String]  everything after the action verb (e.g. "platform, ")
+      # @param ends_with_space [Boolean]  whether the full input ends with a space
+      # @return [Hash{ menu_items: [], ghost: {complete_current:, next_hint:} }, nil]
+      #         nil when target is not a list target
+      def hashtag_list_action_completions(target, args_text, ends_with_space)
+        registry = case target
+        when "game_list"  then Pito::MessageBuilder::Game::ListColumns
+        when "video_list" then Pito::MessageBuilder::Video::ListColumns
+        else return nil
+        end
+
+        # Parse the comma-separated tokens from args_text.
+        # e.g. "platform, " → segments ["platform", ""] (trailing empty = cursor past comma)
+        # e.g. "platform, gen" → segments ["platform", "gen"]
+        # e.g. "" → segments [""]
+        segments = args_text.to_s.split(/\s*,\s*/, -1)
+        partial   = ends_with_space ? "" : segments.last.to_s.lstrip.downcase
+
+        # Tokens before the last segment are fully typed; resolve to canonicals.
+        already_used = already_used_tokens(segments, registry)
+
+        # Candidates = all suggestion tokens minus already-used display tokens.
+        candidates = registry.suggestion_tokens - already_used
+
+        ghost = build_ghost(candidates, partial)
+        { menu_items: [], ghost: ghost }
+      end
+
+      # ── Hashtag sort/order ghost ────────────────────────────────────────────────
+
+      # Computes a sort-column ghost for `#<handle> sort <partial>` / `order <partial>`
+      # when the resolved follow-up reply_target is "game_list" or "video_list".
+      #
+      # Candidates = base_sort_tokens + display tokens of sortable with-columns present
+      # in +list_columns+.
+      #
+      # Ghost sequence:
+      #   - When args_text is blank (nothing after the verb):    ghost "by"
+      #   - When args_text starts with "b" (typing "by"):        ghost "by" completion
+      #   - When args_text starts with "by " (with space):       ghost the first sort column
+      #   - Otherwise:                                           ghost the sort column partial
+      #
+      # @param target          [String]        "game_list" or "video_list"
+      # @param list_columns    [Array<String>] canonical column keys (strings) stamped in the event
+      # @param args_text       [String]        everything after the action verb (e.g. "by vie")
+      # @param ends_with_space [Boolean]       whether the full input ends with a space
+      # @return [Hash{ menu_items: [], ghost: {complete_current:, next_hint:} }, nil]
+      #         nil when target is not a list target
+      def hashtag_list_sort_completions(target, list_columns:, args_text:, ends_with_space:)
+        registry = case target
+        when "game_list"  then Pito::MessageBuilder::Game::ListColumns
+        when "video_list" then Pito::MessageBuilder::Video::ListColumns
+        else return nil
+        end
+
+        # Build sortable candidates: base tokens + display tokens of present with-columns
+        # that have a SORT_SPECS entry.
+        present_sortable = Array(list_columns).map(&:to_sym).filter_map do |canonical|
+          next unless registry::SORT_SPECS.key?(canonical) &&
+                      registry::SORT_SPECS[canonical][:requires_with]
+
+          registry.display_token(canonical)
+        end.compact
+
+        candidates = registry.base_sort_tokens + present_sortable
+
+        # Determine what has been typed after the verb.
+        tail = args_text.to_s
+
+        # Nothing typed yet → ghost "by"
+        if tail.strip.empty?
+          ghost = { complete_current: "by", next_hint: "" }
+          return { menu_items: [], ghost: ghost }
+        end
+
+        # Check whether "by" has been typed (with trailing space) → ghost column.
+        if (m = tail.match(/\Aby(\s+)(.*)\z/i))
+          col_partial = ends_with_space ? "" : m[2].to_s.strip.downcase
+          ghost = build_ghost(candidates, col_partial)
+          return { menu_items: [], ghost: ghost }
+        end
+
+        # Still typing "by" itself (no trailing space after "by").
+        if tail.downcase.start_with?("b") && !ends_with_space
+          partial = tail.downcase
+          ghost   = build_ghost([ "by" ], partial)
+          return { menu_items: [], ghost: ghost }
+        end
+
+        # Anything else (e.g. user skipped "by" and typed the column directly).
+        col_partial = ends_with_space ? "" : tail.strip.downcase
+        ghost = build_ghost(candidates, col_partial)
+        { menu_items: [], ghost: ghost }
       end
 
       # ── Private helpers ────────────────────────────────────────────────────

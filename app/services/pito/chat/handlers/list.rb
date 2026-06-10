@@ -44,8 +44,9 @@ module Pito
         }.freeze
 
         def call
-          return list_channels if message.raw.match?(/\bchannels?\b/i)
-          return list_videos   if message.raw.match?(/\bvideos?\b/i)
+          return list_channels  if message.raw.match?(/\bchannels?\b/i)
+          return list_videos    if message.raw.match?(/\bvideos?\b/i)
+          return games_list_help if message.raw.match?(/(?:\A|\s)--help(?:\s|\z)/)
 
           filtered = Pito::Chat::GameListFilter.filtered?(message.raw)
           columns  = Pito::Chat::WithColumns.parse(
@@ -241,6 +242,11 @@ module Pito
           payload = Pito::MessageBuilder::Channel::List.call(channels, conversation:)
 
           Pito::Chat::Result::Ok.new(events: [ { kind: :system, payload: payload } ])
+        end
+
+        def games_list_help
+          payload = Pito::MessageBuilder::Game::ListHelp.call
+          Pito::Chat::Result::Ok.new(events: [ { kind: :system, payload: } ])
         end
 
         def games_empty

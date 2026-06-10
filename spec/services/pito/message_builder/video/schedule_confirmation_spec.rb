@@ -27,8 +27,9 @@ RSpec.describe Pito::MessageBuilder::Video::ScheduleConfirmation do
       expect(payload["body"]).to include("Dungeon Clear")
     end
 
-    it "includes the formatted when in body" do
-      expect(payload["body"]).to include(publish_time.strftime("%Y-%m-%d"))
+    it "includes the formatted when in body (DD-MM-YYYY local format)" do
+      local_time = publish_time.in_time_zone(Time.zone)
+      expect(payload["body"]).to include(local_time.strftime("%d-%m-%Y"))
     end
 
     it "stamps video_id in the payload" do

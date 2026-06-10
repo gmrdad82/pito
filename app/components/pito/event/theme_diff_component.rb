@@ -22,8 +22,8 @@ module Pito
     #   previewed_slug [String]   slug of the theme being previewed
     #   sections       [Array]    Dark/Light section arrays from the list payload
     #                             Each section: { title:, rows: [{key:, value:}] }
-    #   reply_handle   [String]   RETAINED — message stays follow-up-able (repeatable)
-    #   reply_target   [String]   "theme_list" — retained so the engine re-routes replies
+    #   reply_handle   [String]   RETAINED — kept for display purposes only (no longer routable)
+    #   reply_target   [String]   retained in stored events for historical data
     #
     # Apply phase keys:
     #   body           [String]   the witty confirmation quip (final text)

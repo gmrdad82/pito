@@ -3,6 +3,7 @@
 require "rails_helper"
 
 RSpec.describe Pito::Chat::Handlers::Schedule do
+  include ActiveSupport::Testing::TimeHelpers
   # All paths use the real lexer+parser so that token types (number, colon,
   # unknown "-") match what the handler's date-detection logic expects.
   def schedule_real(input)
@@ -17,57 +18,65 @@ RSpec.describe Pito::Chat::Handlers::Schedule do
 
   # ── Happy paths ───────────────────────────────────────────────────────────────
 
-  it "emits a :confirmation event when given YYYY-MM-DD HH:MM" do
-    result = schedule_real("schedule video Episode One #{7.days.from_now.strftime('%Y-%m-%d %H:%M')}")
+  it "emits a :confirmation event when given DD-MM-YYYY HH:MM" do
+    result = schedule_real("schedule video #{video.id} #{7.days.from_now.strftime('%d-%m-%Y %H:%M')}")
     expect(result).to be_a(Pito::Chat::Result::Ok)
     expect(result.events.first[:kind]).to eq(:confirmation)
   end
 
-  it "emits a :confirmation event when given YYYY-MM-DD only" do
-    result = schedule_real("schedule video Episode One #{7.days.from_now.strftime('%Y-%m-%d')}")
+  it "emits a :confirmation event when given DD-MM-YYYY only" do
+    result = schedule_real("schedule video #{video.id} #{7.days.from_now.strftime('%d-%m-%Y')}")
     expect(result).to be_a(Pito::Chat::Result::Ok)
     expect(result.events.first[:kind]).to eq(:confirmation)
   end
 
   it "does NOT update the video directly" do
-    schedule_real("schedule video Episode One #{7.days.from_now.strftime('%Y-%m-%d')}")
+    schedule_real("schedule video #{video.id} #{7.days.from_now.strftime('%d-%m-%Y')}")
     expect(video.reload.privacy_status).to eq("public")
     expect(video.reload.publish_at).to be_nil
   end
 
   it "carries command video_schedule in the confirmation payload" do
-    result = schedule_real("schedule video Episode One #{7.days.from_now.strftime('%Y-%m-%d')}")
+    result = schedule_real("schedule video #{video.id} #{7.days.from_now.strftime('%d-%m-%Y')}")
     expect(result.events.first[:payload]["command"]).to eq("video_schedule")
   end
 
   it "carries publish_at as an ISO8601 string in the confirmation payload" do
-    result = schedule_real("schedule video Episode One #{7.days.from_now.strftime('%Y-%m-%d')}")
+    result = schedule_real("schedule video #{video.id} #{7.days.from_now.strftime('%d-%m-%Y')}")
     payload = result.events.first[:payload]
     expect(payload["publish_at"]).to be_present
     expect { Time.iso8601(payload["publish_at"]) }.not_to raise_error
   end
 
   it "includes the video title in the confirmation body" do
-    result = schedule_real("schedule video Episode One #{7.days.from_now.strftime('%Y-%m-%d')}")
+    result = schedule_real("schedule video #{video.id} #{7.days.from_now.strftime('%d-%m-%Y')}")
     expect(result.events.first[:payload]["body"]).to include("Episode One")
   end
 
   it "resolves by bare id" do
-    result = schedule_real("schedule video #{video.id} #{7.days.from_now.strftime('%Y-%m-%d')}")
+    result = schedule_real("schedule video #{video.id} #{7.days.from_now.strftime('%d-%m-%Y')}")
     expect(result).to be_a(Pito::Chat::Result::Ok)
     expect(result.events.first[:kind]).to eq(:confirmation)
   end
 
   it "resolves by #id" do
-    result = schedule_real("schedule video ##{video.id} #{7.days.from_now.strftime('%Y-%m-%d')}")
+    result = schedule_real("schedule video ##{video.id} #{7.days.from_now.strftime('%d-%m-%Y')}")
     expect(result).to be_a(Pito::Chat::Result::Ok)
     expect(result.events.first[:kind]).to eq(:confirmation)
   end
 
   it "resolves with plural noun filler 'videos'" do
-    result = schedule_real("schedule videos #{video.id} #{7.days.from_now.strftime('%Y-%m-%d')}")
+    result = schedule_real("schedule videos #{video.id} #{7.days.from_now.strftime('%d-%m-%Y')}")
     expect(result).to be_a(Pito::Chat::Result::Ok)
     expect(result.events.first[:kind]).to eq(:confirmation)
+  end
+
+  it "parses the date as app-local zone and stores UTC in publish_at" do
+    travel_to Time.zone.local(2026, 6, 9, 10, 0) do
+      result = schedule_real("schedule video #{video.id} 16-06-2026 12:00")
+      payload = result.events.first[:payload]
+      expect(payload["publish_at"]).to eq(Time.zone.local(2026, 6, 16, 12, 0).utc.iso8601)
+    end
   end
 
   # ── Error paths ───────────────────────────────────────────────────────────────
@@ -87,50 +96,50 @@ RSpec.describe Pito::Chat::Handlers::Schedule do
   end
 
   it "returns a bad_when error for a calendrically invalid date (month 99)" do
-    result = schedule_real("schedule video #{video.id} 2025-99-01")
+    result = schedule_real("schedule video #{video.id} 01-99-2025")
     expect(result).to be_a(Pito::Chat::Result::Error)
     expect(result.message_key).to eq("pito.chat.schedule.bad_when")
   end
 
   it "returns a witty in-past error for a past date" do
-    result = schedule_real("schedule video Episode One 2020-01-01")
+    result = schedule_real("schedule video #{video.id} 01-01-2020")
     expect(result).to be_a(Pito::Chat::Result::Ok)
     expect(result.events.first[:payload]["text"]).to include("Episode One")
   end
 
   it "returns too_soon error for a time less than 30 minutes from now" do
-    soon = 10.minutes.from_now.utc
-    result = schedule_real("schedule video Episode One #{soon.strftime('%Y-%m-%d %H:%M')}")
+    soon = 10.minutes.from_now
+    result = schedule_real("schedule video #{video.id} #{soon.strftime('%d-%m-%Y %H:%M')}")
     expect(result).to be_a(Pito::Chat::Result::Error)
     expect(result.message_key).to eq("pito.chat.schedule.too_soon")
   end
 
   it "emits a confirmation for a time exactly 30 minutes from now (boundary)" do
     # 31 minutes to be safely above the 30m threshold regardless of execution timing
-    future = 31.minutes.from_now.utc
-    result = schedule_real("schedule video Episode One #{future.strftime('%Y-%m-%d %H:%M')}")
+    future = 31.minutes.from_now
+    result = schedule_real("schedule video #{video.id} #{future.strftime('%d-%m-%Y %H:%M')}")
     expect(result).to be_a(Pito::Chat::Result::Ok)
     expect(result.events.first[:kind]).to eq(:confirmation)
   end
 
   it "returns a witty not-found for an unknown video reference" do
-    result = schedule_real("schedule video nonexistent #{7.days.from_now.strftime('%Y-%m-%d')}")
-    expect(result.events.first[:payload]["text"]).to include("nonexistent")
+    result = schedule_real("schedule video 999999 #{7.days.from_now.strftime('%d-%m-%Y')}")
+    expect(result.events.first[:payload]["text"]).to include("999999")
   end
 
-  context "video title with apostrophe resolved via real lexer/parser" do
-    let!(:apos_video) { create(:video, channel: channel, title: "Let's Play Bloodborne") }
+  it "returns not-found for a title reference (id-only resolution)" do
+    result = schedule_real("schedule video Episode One #{7.days.from_now.strftime('%d-%m-%Y')}")
+    expect(result).to be_a(Pito::Chat::Result::Ok)
+    expect(result.events.first[:kind]).to eq(:system)
+  end
 
-    it "resolves the video and emits a confirmation with a date" do
-      result = schedule_real("schedule video Let's Play Bloodborne #{7.days.from_now.strftime('%Y-%m-%d')}")
-      expect(result).to be_a(Pito::Chat::Result::Ok)
-      expect(result.events.first[:kind]).to eq(:confirmation)
-    end
-
-    it "resolves with a datetime HH:MM and emits a confirmation" do
-      result = schedule_real("schedule video Let's Play Bloodborne #{7.days.from_now.strftime('%Y-%m-%d %H:%M')}")
-      expect(result).to be_a(Pito::Chat::Result::Ok)
-      expect(result.events.first[:kind]).to eq(:confirmation)
+  context "confirmation body displays time in local format (DD-MM-YYYY HH:MM)" do
+    it "includes DD-MM-YYYY formatted date in the body" do
+      travel_to Time.zone.local(2026, 6, 9, 10, 0) do
+        result = schedule_real("schedule video #{video.id} 16-06-2026 15:30")
+        body = result.events.first[:payload]["body"]
+        expect(body).to include("16-06-2026")
+      end
     end
   end
 end

@@ -145,7 +145,10 @@ RSpec.describe Pito::Stream::Broadcaster do
         }
     end
 
-    it "appends a non-echo event INTO its turn container" do
+    it "appends a non-echo event INTO its turn container when a preceding event exists" do
+      # The echo occupies position 1 (lower), so the system event at position 2
+      # is NOT the first event in the turn — it appends into the existing container.
+      conversation.events.create!(turn:, position: 1, kind: :echo, payload: { text: "/help" })
       result = conversation.events.create!(
         turn:, position: 2, kind: :system,
         payload: { message_key: "pito.slash.help.intro", message_args: { count: 1 } }
@@ -155,6 +158,23 @@ RSpec.describe Pito::Stream::Broadcaster do
         .to have_broadcasted_to("pito:conversation:#{conversation.uuid}").with { |msg|
           html = broadcast_html(msg)
           expect(html).to include(%(target="turn_#{turn.id}"))
+        }
+    end
+
+    it "opens a #turn_<id> container for a lone :system event with no preceding echo (async summary case)" do
+      # This reproduces the echo-less async-job turn: SyncVideosJob creates a new
+      # turn and emits only a :system summary. Without the fix the append targeted a
+      # missing DOM id; now the first event in the turn always opens its container.
+      system_event = conversation.events.create!(
+        turn:, position: 1, kind: :system,
+        payload: { message_key: "pito.slash.help.intro", message_args: { count: 0 } }
+      )
+
+      expect { broadcaster.broadcast_event(system_event) }
+        .to have_broadcasted_to("pito:conversation:#{conversation.uuid}").with { |msg|
+          html = broadcast_html(msg)
+          expect(html).to include('target="pito-scrollback"')
+          expect(html).to include(%(id="turn_#{turn.id}"))
         }
     end
   end
@@ -172,6 +192,10 @@ RSpec.describe Pito::Stream::Broadcaster do
     end
 
     it "broadcasts the thinking event into the turn container" do
+      # In real flows an echo opens the turn container first; emit_thinking comes
+      # second so its broadcast appends INTO the existing #turn_<id> container.
+      broadcaster.emit(turn:, kind: :echo, payload: { text: "/help" })
+
       expect {
         broadcaster.emit_thinking(turn:, dictionary: "chat")
       }.to have_broadcasted_to("pito:conversation:#{conversation.uuid}").with { |msg|

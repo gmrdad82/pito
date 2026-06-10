@@ -396,12 +396,42 @@ module Pito
           partial = ends_with_space ? "" : (after_words.last || "")
 
           # Follow-up-aware: if this handle belongs to a live follow-up-able event,
-          # suggest THAT target's actions (e.g. theme_list → preview/apply) rather
+          # suggest THAT target's actions (e.g. game_list → show/delete) rather
           # than the generic hashtag verbs. Falls through to the legacy path only
           # when the handle isn't a live follow-up.
-          actions = follow_up_actions(handle, conversation)
+          actions, target = follow_up_actions_with_target(handle, conversation)
           if actions
-            return at_verb_stage ? follow_up_action_completions(actions, partial) : { menu_items: [], ghost: EMPTY_GHOST }
+            if at_verb_stage
+              return follow_up_action_completions(actions, partial)
+            else
+              # Arg stage: for game_list/video_list add/remove, ghost column tokens.
+              action = after_words.first&.downcase
+              if %w[add remove].include?(action) && %w[game_list video_list].include?(target)
+                # args_text = everything after "#<handle> <action> " (the comma-list).
+                args_text = after.lstrip.sub(/\A\S+\s+/, "")
+                result = Pito::Suggestions::ListClauseGhost.hashtag_list_action_completions(
+                  target, args_text, ends_with_space
+                )
+                return result if result
+              end
+
+              # Arg stage: for game_list/video_list sort/order, ghost sort column tokens.
+              if %w[sort order].include?(action) && %w[game_list video_list].include?(target)
+                # args_text = everything after "#<handle> <action> " (the sort clause).
+                args_text    = after.lstrip.sub(/\A\S+\s*/, "")
+                list_columns = follow_up_event_list_columns(handle, conversation)
+                result = Pito::Suggestions::ListClauseGhost.hashtag_list_sort_completions(
+                  target,
+                  list_columns:,
+                  args_text:,
+                  ends_with_space:
+                )
+                return result if result
+              end
+
+              # Fallback: offer --help ghost when the partial starts with "-".
+              return hashtag_arg_help_completions(partial)
+            end
           end
 
           return hashtag_verb_completions(partial) if at_verb_stage
@@ -414,18 +444,39 @@ module Pito
         # `handle` in its reply_handle, or nil when the handle isn't a live
         # follow-up (so the caller falls back to the legacy hashtag path).
         def follow_up_actions(handle, conversation)
-          return nil if handle.blank? || conversation.nil?
+          actions, _target = follow_up_actions_with_target(handle, conversation)
+          actions
+        end
+
+        # Returns [actions, reply_target] for a live follow-up event, or [nil, nil].
+        def follow_up_actions_with_target(handle, conversation)
+          return [ nil, nil ] if handle.blank? || conversation.nil?
 
           event = conversation.events
             .where("payload->>'reply_handle' = ?", handle.to_s.downcase)
             .where("(payload->>'reply_consumed') IS NULL OR (payload->>'reply_consumed') = 'false'")
             .last
-          return nil unless event
+          return [ nil, nil ] unless event
 
-          actions = Pito::FollowUp::Registry.actions_for(event.payload["reply_target"].to_s).presence
-          return nil unless actions
+          target  = event.payload["reply_target"].to_s
+          actions = Pito::FollowUp::Registry.actions_for(target).presence
+          return [ nil, nil ] unless actions
 
-          filter_link_unlink(actions, event)
+          [ filter_link_unlink(actions, event), target ]
+        end
+
+        # Returns the list_columns array from the live follow-up event payload for
+        # the given handle, or [] when the event cannot be found or has no list_columns.
+        def follow_up_event_list_columns(handle, conversation)
+          return [] if handle.blank? || conversation.nil?
+
+          event = conversation.events
+            .where("payload->>'reply_handle' = ?", handle.to_s.downcase)
+            .where("(payload->>'reply_consumed') IS NULL OR (payload->>'reply_consumed') = 'false'")
+            .last
+          return [] unless event
+
+          Array(event.payload["list_columns"])
         end
 
         # link XOR unlink by existence (T19.6): when a detail card offers BOTH,
@@ -451,7 +502,15 @@ module Pito
         # Build completions for a follow-up handle's actions: a palette of all
         # actions plus an inline ghost (the first action, or the unique prefix
         # completion of the partial) so TAB accepts it.
+        # When the partial starts with "-" and prefixes "--help", returns the
+        # --help ghost/menu item instead of action completions (mirrors free-mode
+        # engine.rb:563-566).
         def follow_up_action_completions(actions, partial)
+          # --help ghost: any partial starting with "-" that prefixes "--help".
+          if partial.start_with?("-") && "--help".start_with?(partial.downcase)
+            return hashtag_arg_help_completions(partial)
+          end
+
           menu_items = actions.map { |a| { label: a, insert: "#{a} ", description: "", masked: false } }
 
           ghost = if partial.empty?
@@ -463,6 +522,19 @@ module Pito
           end
 
           { menu_items: menu_items, ghost: ghost }
+        end
+
+        # Returns a --help ghost + menu item when `partial` starts with "-" and
+        # prefixes "--help".  Used in both verb-stage and arg-stage hashtag paths.
+        # Returns EMPTY_GHOST when the partial doesn't qualify.
+        def hashtag_arg_help_completions(partial)
+          if partial.start_with?("-") && "--help".start_with?(partial.downcase)
+            completion = "--help"[partial.length..]
+            help_item  = { label: "--help", insert: "--help ", description: "Print this help message", masked: false }
+            { menu_items: [ help_item ], ghost: { complete_current: completion, next_hint: "" } }
+          else
+            { menu_items: [], ghost: EMPTY_GHOST }
+          end
         end
 
         def hashtag_verb_completions(partial)
@@ -560,6 +632,11 @@ module Pito
               { complete_current: completion, next_hint: "" }
             end
           else
+            # `--help` ghost: any partial starting with "-" that prefixes "--help".
+            if current_partial.start_with?("-") && "--help".start_with?(current_partial.downcase)
+              return { complete_current: "--help"[current_partial.length..], next_hint: "" }
+            end
+
             # complete_current: if current partial uniquely prefixes one vocab member.
             completion = compute_current_completion(active_slot, current_partial, authenticated:)
             { complete_current: completion, next_hint: "" }

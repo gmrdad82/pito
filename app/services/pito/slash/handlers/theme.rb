@@ -16,20 +16,18 @@ module Pito
       #                           run `/themes apply <name>` or `/themes reset` to
       #                           make the change permanent.
       # `/themes reset`         — apply the registry default (tokyo-night) + confirm.
-      # `/themes list` / `ls`   — placeholder (full System message in P7).
-      # `/themes`  (bare)       — placeholder (sidebar in P8).
-      # `/themes <unknown>`     — witty error pointing to `/themes list`.
+      # `/themes`  (bare)       — opens the theme picker Sidebar.
+      # `/themes <unknown>`     — witty error pointing to `/themes --help`.
       # `/themes --help`        — per-command usage + grouped theme list.
       #
       # The `name` arg accepts any registered slug OR the special token "default"
       # (→ Registry.default). Resolution is delegated to Registry.resolve_target.
       #
-      # ALIAS SURFACE  (`ls` ≡ `list`)
-      # ────────────────────────────────
+      # ALIAS SURFACE  (`ls` ≡ `list` — retained for backward compat but `list`
+      # ────────────────────────────────  now falls through to the Sidebar path)
       # Subcommand aliasing is implemented via the `:theme_subcommands` vocabulary
       # synonym mechanism (see Pito::Grammar::Vocabularies::THEME_SUBCOMMANDS).
-      # `first_arg` is resolved through that vocabulary before dispatch, so `"ls"`
-      # canonicalizes to `"list"` and the case statement sees only canonical names.
+      # `first_arg` is resolved through that vocabulary before dispatch.
       #
       # WHY vocabulary synonyms?
       #   Spec.aliases maps alternative *verb* names to a Spec (verb-level routing).
@@ -52,7 +50,7 @@ module Pito
 
         # Grammar: first positional arg is either a subcommand keyword or a theme
         # name from the :theme_names vocab. Both slots are optional so bare
-        # `/themes` is valid (→ sidebar placeholder).
+        # `/themes` is valid (→ Sidebar).
         grammar do
           enum :subcommand, source: :theme_names, optional: true
           auth :authenticated_only
@@ -61,9 +59,7 @@ module Pito
 
         # Canonical subcommand keywords.  `ls` is NOT listed here because it is
         # a synonym resolved to `list` by THEME_SUBCOMMANDS before dispatch.
-        # Autocomplete suggests canonical names only (`list`); `ls` is
-        # hidden-but-accepted — it works but won't appear in the palette.
-        SUBCOMMANDS = %w[list preview apply reset].freeze
+        SUBCOMMANDS = %w[preview apply reset].freeze
 
         # Vocabulary used to canonicalize the first arg before dispatch.
         # Resolves synonyms such as "ls" → "list".
@@ -88,11 +84,10 @@ module Pito
           end
 
           case first_arg
-          when ""        then placeholder_sidebar
-          when "list"    then list_themes
-          when "preview" then dispatch_preview
-          when "apply"   then dispatch_apply
-          when "reset"   then dispatch_reset
+          when "", "list" then open_sidebar
+          when "preview"  then dispatch_preview
+          when "apply"    then dispatch_apply
+          when "reset"    then dispatch_reset
           else
             # Bare theme name (shorthand apply) or unknown target.
             definition = Pito::Themes::Registry.resolve_target(first_arg)
@@ -178,35 +173,19 @@ module Pito
           Pito::Slash::Result::Ok.new(events: Pito::Themes::Switch.preview(definition))
         end
 
-        # ── list ──────────────────────────────────────────────────────────────
+        # ── sidebar ───────────────────────────────────────────────────────────
 
-        # Emits a System message with Dark/Light sections, current theme marked.
-        # The message is stamped as follow-up-able (reply_target: "theme_list") so
-        # the user can reply `#<handle> preview <name>` / `#<handle> apply <name>`.
-        # The old `theme_list: true` flag and the "most-recent list" heuristic are
-        # replaced by the unique-handle routing provided by the follow-up engine.
-        def list_themes
-          grouped      = Pito::Themes::Registry.grouped
-          current_slug = AppSetting.theme
-
-          payload = Pito::MessageBuilder::Theme::List.call(
-            grouped: grouped, current_slug: current_slug, conversation:
-          )
-
-          Pito::Slash::Result::Ok.new(events: [
-            {
-              kind:    "system",
-              payload: payload
-            }
-          ])
-        end
-
-        def placeholder_sidebar
+        # Opens the theme picker Sidebar (Turbo Stream into #pito-sidebar).
+        # Bare `/themes`, `/themes list`, and `/themes ls` all route here.
+        # The controller fast-path intercepts these before the async pipeline;
+        # this method is the fallback for the job path (e.g. test harness).
+        def open_sidebar
           Pito::Slash::Result::Ok.new(events: [
             {
               kind:    "system",
               payload: {
-                text: Pito::Copy.render("pito.copy.theme.sidebar_placeholder")
+                sidebar_open: "theme",
+                text:         I18n.t("pito.slash.theme.sidebar.opening")
               }
             }
           ])

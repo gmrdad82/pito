@@ -123,6 +123,22 @@ RSpec.describe Pito::MessageBuilder::Game::ListColumns do
       key = described_class.sort_key_for("TITLE", selected_columns: [])
       expect(key).to be_a(Proc)
     end
+
+    # TBA games (no release date / year) must sort AFTER known dates ascending
+    # (and first descending) — the key treats unknown as the far future.
+    it "sorts a TBA game (nil release_date) after a known date ascending" do
+      tba   = create(:game, release_year: nil, release_month: nil, release_day: nil)
+      known = create(:game, release_year: 2015, release_month: 3, release_day: 1)
+      key   = described_class.sort_key_for("release date", selected_columns: [ :release_date ])
+      expect(key.call(tba)).to be > key.call(known)
+    end
+
+    it "sorts a TBA game (nil year) after a known year ascending" do
+      tba   = build(:game, release_year: nil)
+      known = build(:game, release_year: 2015)
+      key   = described_class.sort_key_for("year", selected_columns: [ :year ])
+      expect(key.call(tba)).to be > key.call(known)
+    end
   end
 
   # ── cells ────────────────────────────────────────────────────────────────────
@@ -169,10 +185,27 @@ RSpec.describe Pito::MessageBuilder::Game::ListColumns do
       expect(result.first[:text]).to include("Bandai Namco")
     end
 
-    it "returns platform strings joined by ', '" do
+    it "returns platform cell with html: true" do
       result = described_class.cells(game, [ :platform ])
-      expect(result.first[:text]).to include("PlayStation 5")
-      expect(result.first[:text]).to include("PC (Microsoft Windows)")
+      expect(result.first[:html]).to be(true)
+    end
+
+    it "returns platform cell text containing <img tags" do
+      result = described_class.cells(game, [ :platform ])
+      expect(result.first[:text]).to include("<img")
+    end
+
+    it "returns platform cell text containing /platforms/ SVG srcs" do
+      result = described_class.cells(game, [ :platform ])
+      expect(result.first[:text]).to include("/platforms/")
+    end
+
+    it "returns platform cell text with PlayStation and Steam icons (Xbox dropped)" do
+      g = create(:game, platforms: [ "PlayStation 5", "Xbox One", "Steam" ])
+      result = described_class.cells(g, [ :platform ])
+      expect(result.first[:text]).to include("/platforms/playstation.svg")
+      expect(result.first[:text]).to include("/platforms/steam.svg")
+      expect(result.first[:text]).not_to include("Xbox")
     end
 
     it "returns the release year as a string" do
@@ -197,6 +230,75 @@ RSpec.describe Pito::MessageBuilder::Game::ListColumns do
       expect(result.size).to eq(2)
       expect(result[0][:text]).to eq("2022")
       expect(result[1][:text]).to include("From Software")
+    end
+
+    it "right-aligns the :release_date cell" do
+      result = described_class.cells(game, [ :release_date ])
+      expect(result.first[:class]).to include("text-right")
+    end
+
+    it "right-aligns the :year cell" do
+      result = described_class.cells(game, [ :year ])
+      expect(result.first[:class]).to include("text-right")
+    end
+
+    it "adds tabular-nums to the :year cell" do
+      result = described_class.cells(game, [ :year ])
+      expect(result.first[:class]).to include("tabular-nums")
+    end
+
+    it "does NOT add text-right to left-aligned columns" do
+      %i[platform genre developer publisher].each do |col|
+        result = described_class.cells(game, [ col ])
+        expect(result.first[:class]).not_to include("text-right"), "expected #{col} not to be right-aligned"
+      end
+    end
+  end
+
+  # ── heading_cells ─────────────────────────────────────────────────────────────
+
+  describe ".heading_cells" do
+    it "returns a plain String for a left-aligned column" do
+      expect(described_class.heading_cells([ :genre ])).to eq([ "Genre" ])
+    end
+
+    it "returns a right-align hash for :release_date" do
+      result = described_class.heading_cells([ :release_date ])
+      expect(result.first).to eq({ "text" => "Release", "class" => "text-right" })
+    end
+
+    it "returns a right-align hash for :year" do
+      result = described_class.heading_cells([ :year ])
+      expect(result.first).to eq({ "text" => "Year", "class" => "text-right" })
+    end
+
+    it "mixes plain strings and hashes when both types are present" do
+      result = described_class.heading_cells([ :developer, :year ])
+      expect(result[0]).to eq("Developer")
+      expect(result[1]).to eq({ "text" => "Year", "class" => "text-right" })
+    end
+  end
+
+  # ── canonical_order ───────────────────────────────────────────────────────────
+
+  describe ".canonical_order" do
+    it "returns an empty array for empty input" do
+      expect(described_class.canonical_order([])).to eq([])
+    end
+
+    it "keeps a single column unchanged" do
+      expect(described_class.canonical_order([ :genre ])).to eq([ :genre ])
+    end
+
+    it "sorts columns by their COLUMNS order" do
+      expect(described_class.canonical_order([ :year, :platform, :developer ]))
+        .to eq([ :platform, :developer, :year ])
+    end
+
+    it "ensures :release_date and :year always trail the other columns" do
+      all = %i[release_date year platform genre developer publisher]
+      result = described_class.canonical_order(all)
+      expect(result.last(2)).to eq(%i[release_date year])
     end
   end
 end

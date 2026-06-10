@@ -17,7 +17,7 @@ RSpec.describe Pito::Event::ThemeDiffComponent do
       "previewed_slug" => "dracula",
       "from_text"      => "Old list text",
       "reply_handle"   => "beta-1234",
-      "reply_target"   => "theme_list",
+      "reply_target"   => "theme_diff",
       "sections"       => [
         {
           "title" => "Dark",
@@ -43,7 +43,7 @@ RSpec.describe Pito::Event::ThemeDiffComponent do
       "body"           => "Your eyes are now glazed by Dracula.",
       "from_text"      => "Pick a theme\nDark\n  dracula Dracula\n  tokyo-night Tokyo Night\nLight\n  github-light GitHub Light",
       "reply_handle"   => "beta-1234",
-      "reply_target"   => "theme_list",
+      "reply_target"   => "theme_diff",
       "reply_consumed" => true
     }
   end

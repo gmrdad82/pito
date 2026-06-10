@@ -95,8 +95,10 @@ export default class extends Controller {
       // Shift+R at the very start of the field → prepend the most recent
       // hashtag handle (`#<handle> `) so you can act on the last segment
       // without retyping it. Only fires when the caret is at position 0 so it
-      // never hijacks a literal "R" mid-line.
-      if (event.shiftKey && event.code === "KeyR") {
+      // never hijacks a literal "R" mid-line. Plain Shift+R only — never when
+      // Ctrl/Meta/Alt is held, so the browser's Ctrl+Shift+R (hard reload) and
+      // other shortcuts pass straight through.
+      if (event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey && event.code === "KeyR") {
         const field = this.inputFieldTarget
         if (field.selectionStart === 0 && field.selectionEnd === 0) {
           const handle = this.#lastHandle()

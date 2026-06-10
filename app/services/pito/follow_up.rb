@@ -13,14 +13,14 @@ module Pito
   #                              even after the message is consumed the handle is NOT
   #                              recycled.
   #   reply_target   (String)  — handler id registered in Pito::FollowUp::Registry,
-  #                              e.g. "theme_list" or "confirmation".
+  #                              e.g. "game_list" or "confirmation".
   #   reply_consumed (Boolean) — optional.  When true: the affordance is hidden and
   #                              the event is no longer routable.  The handle remains
   #                              reserved.  Omitted / false = still open.
   #
   # == Stamping
   #
-  #   Pito::FollowUp.make_followupable!(payload, target: "theme_list", conversation: conv)
+  #   Pito::FollowUp.make_followupable!(payload, target: "game_list", conversation: conv)
   #
   # Injects `reply_handle` and `reply_target` into *payload* (Hash, string or symbol
   # keys — always written as string keys).  Idempotent: a payload that already has

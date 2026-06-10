@@ -100,26 +100,8 @@ RSpec.describe Pito::Suggestions::Catalog, type: :service do
   describe ".to_h hashtag" do
     subject(:hashtag) { described_class.to_h(authenticated: true)[:hashtag] }
 
-    it "includes add and remove" do
-      names = hashtag.map { |e| e[:name] }
-      expect(names).to include("add", "remove")
-    end
-
-    it "every entry has name, insert, description keys (no auth key)" do
-      hashtag.each do |entry|
-        expect(entry.keys).to include(:name, :insert, :description)
-        expect(entry.keys).not_to include(:auth)
-      end
-    end
-
-    it "insert for add is 'add ' (bare verb token, no leading #)" do
-      add_entry = hashtag.find { |e| e[:name] == "add" }
-      expect(add_entry[:insert]).to eq("add ")
-    end
-
-    it "description for remove resolves via I18n" do
-      remove_entry = hashtag.find { |e| e[:name] == "remove" }
-      expect(remove_entry[:description]).to eq(I18n.t("pito.grammar.hashtag.remove"))
+    it "is empty (metric-ops add/remove specs removed)" do
+      expect(hashtag).to be_empty
     end
   end
 

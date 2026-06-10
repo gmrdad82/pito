@@ -39,15 +39,24 @@
     <% if @filter && @state != :start %>
       <div class="flex items-center text-fg-faded pito-chatbox__filter">
         <%= render(Pito::Shell::Chatbox::NameComponent.new(title: @conversation_title)) %>
-        <span data-pito--chat-form-target="channelDisplay">
-          <%= render(Pito::Shell::Chatbox::ChannelComponent.new(channel: @filter[:channel])) %>
-        </span>
-        <%= render(Pito::Shell::InlineSeparatorComponent.new) %>
-        <span data-pito--chat-form-target="periodDisplay">
-          <%= render(Pito::Shell::Chatbox::PeriodComponent.new(period: @filter[:period])) %>
+        <%# Channel/period cyclers (shift+tab / shift+space) — shown ONLY when the
+            chatbox is focused. Mutually exclusive with the `m chat` hint below
+            (its inverse). The display spans stay in the DOM so chat-form keeps
+            their values in sync while hidden. %>
+        <span data-pito--chatbox-hints-target="filterHints" class="items-center hidden">
+          <span data-pito--chat-form-target="channelDisplay">
+            <%= render(Pito::Shell::Chatbox::ChannelComponent.new(channel: @filter[:channel])) %>
+          </span>
+          <%= render(Pito::Shell::InlineSeparatorComponent.new) %>
+          <span data-pito--chat-form-target="periodDisplay">
+            <%= render(Pito::Shell::Chatbox::PeriodComponent.new(period: @filter[:period])) %>
+          </span>
         </span>
         <span data-pito--chatbox-hints-target="suggestHint" class="items-center hidden"><%= render(Pito::Shell::InlineSeparatorComponent.new) %><%= render(Pito::Keybinding::HintComponent.new(shortcut: "tab", description: "suggest")) %></span>
-        <span data-pito--chatbox-hints-target="chatHint" class="items-center hidden"><%= render(Pito::Shell::InlineSeparatorComponent.new) %><%= render(Pito::Keybinding::HintComponent.new(shortcut: "m", description: "chat")) %></span>
+        <%# `m chat` hint — shown ONLY when the chatbox is NOT focused. No leading
+            separator: when it shows, the filter cyclers are hidden, so there's
+            nothing to separate it from. %>
+        <span data-pito--chatbox-hints-target="chatHint" class="items-center hidden"><%= render(Pito::Keybinding::HintComponent.new(shortcut: "m", description: "chat")) %></span>
       </div>
     <% end %>
   </div>

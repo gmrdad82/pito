@@ -14,7 +14,7 @@ en:
         games: "Import a game from IGDB into your library"
       chat:
         list: "List games in your library"
-        show: "Show a game or video's details (by id or title)"
+        show: "Show a game or video's details (by id)"
         import: "Import a game from IGDB into your library"
         footage: "Get the footage probe command for a game (by id or title)"
         delete: "Delete a game or video (by id or title)"
@@ -25,7 +25,7 @@ en:
         find: "Search videos by title, genre, or platform"
         link: "Link a video to a game"
         unlink: "Unlink a video from a game"
-        sync: "Sync a game, video, channel, or all channel videos from YouTube/IGDB"
+        sync: "Sync videos or channels from YouTube (scope via shift+tab channel)"
         import: "Import a game from IGDB, or import new videos from a channel"
         help: "List all follow-up targets and their accepted actions"
       hashtag:

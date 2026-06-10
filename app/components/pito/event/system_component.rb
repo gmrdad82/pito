@@ -33,7 +33,9 @@ module Pito
         @expand_detail = Array(payload[:expand_detail]).map(&:to_s)
         @expand_more_count = payload[:expand_more_count].to_i
         @table_rows   = Array(payload[:table_rows]).map { |r| r.respond_to?(:with_indifferent_access) ? r.with_indifferent_access : r }
-        @table_heading = payload[:table_heading].presence
+        @table_heading    = payload[:table_heading].presence
+        @fixed_leading    = payload[:fixed_leading].to_i
+        @fixed_trailing   = payload[:fixed_trailing].to_i
         @info_lines   = Array(payload[:info_lines]).map(&:to_s)
         @sections     = Array(payload[:sections]).map { |s| s.respond_to?(:with_indifferent_access) ? s.with_indifferent_access : s }
         @suggestion      = payload[:suggestion]
@@ -45,7 +47,9 @@ module Pito
         @timestamp       = event&.created_at
       end
 
-      attr_reader :body, :expand_lines, :expand_detail, :expand_more_count, :table_rows, :table_heading, :info_lines, :handle, :channel, :sections, :html, :reply_handle, :reply_consumed
+      attr_reader :body, :expand_lines, :expand_detail, :expand_more_count, :table_rows, :table_heading,
+                  :info_lines, :handle, :channel, :sections, :html, :reply_handle, :reply_consumed,
+                  :fixed_leading, :fixed_trailing
 
       def expandable?    = @expand_detail.any? || @sections.any?
       def accent         = :surface
@@ -94,7 +98,7 @@ module Pito
       def normalized_table_rows
         @normalized_table_rows ||= table_rows.map do |row|
           if row[:cells].present?
-            row[:cells].map { |c| { text: c[:text].to_s, class: c[:class].presence || "text-fg-dim" } }
+            row[:cells].map { |c| { text: c[:text].to_s, class: c[:class].presence || "text-fg-dim", html: c[:html] == true } }
           else
             cells = [
               { text: row[:key].to_s,   class: "#{row.fetch(:key_class, 'text-cyan')} whitespace-nowrap" },
@@ -106,34 +110,50 @@ module Pito
         end
       end
 
-      # Returns the CSS grid-template-columns string for N columns.
-      # First N-1 are max-content, last is 1fr. N must be >= 2.
-      def table_grid_cols(n)
-        cols = ([ "max-content" ] * [ n - 1, 1 ].max) + [ "1fr" ]
-        "grid-cols-[#{cols.join('_')}]"
+      # Returns the data-grid column count (clamped to a 2-column minimum) for
+      # the `data-cols` attribute, which selects the matching static CSS rule
+      # in `.pito-data-grid[data-cols="N"]`. No inline style.
+      def table_col_count(n)
+        [ n, 2 ].max
       end
 
       # Returns heading cell hashes (one per label) when table_heading is present,
       # or an empty array when absent. Heading cells render instantly (no typewriter).
+      #
+      # Each entry in +table_heading+ may be either:
+      #   - a String   → base class only
+      #   - a Hash with "text" / "class" keys → extra class appended to the base class
       def table_heading_cells
         return [] if table_heading.blank?
 
-        Array(table_heading).map { |label| { text: label.to_s, class: "text-fg-faded font-bold whitespace-nowrap" } }
+        base = "text-fg-faded font-bold whitespace-nowrap"
+        Array(table_heading).map do |entry|
+          if entry.is_a?(Hash)
+            h    = entry.respond_to?(:with_indifferent_access) ? entry.with_indifferent_access : entry
+            text = h["text"].to_s
+            extra = h["class"].presence
+            { text:, class: extra ? "#{base} #{extra}" : base }
+          else
+            { text: entry.to_s, class: base }
+          end
+        end
       end
 
       private
 
-      # Returns a stable DOM id for anchorable system messages — those carrying
-      # a follow-up engine handle (reply_handle present), which supersedes the old
-      # `theme_list: true` flag. Also preserves `theme_diff: true` as an anchor
-      # gate for backward-compat (ThemeDiffComponent still uses its own id helper,
-      # but SystemComponent may receive a theme_diff payload during reload fallback).
+      # Returns a stable DOM id for anchorable system messages.
       #
-      # Returns nil when neither condition is met or when event is nil.
+      # A message is anchorable when any of the following is true:
+      #   - reply_handle is present (standard user-facing follow-up messages)
+      #   - anchor: true (internal machine-flow messages, e.g. channel_visit)
+      #   - theme_diff: true (backward-compat for ThemeDiffComponent fallback)
+      #
+      # Returns nil when none of the conditions is met or when event is nil.
       def dom_id
         return nil unless @event
 
         anchorable = @reply_handle.present? ||
+                     @payload[:anchor]     == true || @payload[:anchor]     == "true" ||
                      @payload[:theme_diff] == true || @payload[:theme_diff] == "true"
         "event_#{@event.id}" if anchorable
       end

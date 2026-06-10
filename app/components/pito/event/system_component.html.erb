@@ -108,13 +108,17 @@
           <% norm_rows = normalized_table_rows %>
           <% heading_cells = table_heading_cells %>
           <% n_cols = [ heading_cells.size, norm_rows.map(&:size).max.to_i, 2 ].max %>
-          <div class="grid <%= table_grid_cols(n_cols) %> gap-x-2 gap-y-1<%= body ? ' mt-2 border-t border-line-default pt-2' : '' %>">
+          <div class="pito-data-grid<%= body ? ' mt-2 border-t border-line-default pt-2' : '' %>" data-cols="<%= table_col_count(n_cols) %>" data-fixed-leading="<%= fixed_leading %>" data-fixed-trailing="<%= fixed_trailing %>">
             <% heading_cells.each do |cell| %>
               <span class="<%= cell[:class] %>"><%= cell[:text] %></span>
             <% end %>
             <% norm_rows.each do |cells| %>
               <% cells.each do |cell| %>
-                <span class="<%= cell[:class] %>" data-pito--typewriter-target="prose"><%= cell[:text] %></span>
+                <% if cell[:html] %>
+                  <span class="<%= cell[:class] %>"><%= raw cell[:text] %></span>
+                <% else %>
+                  <span class="<%= cell[:class] %>" data-pito--typewriter-target="prose"><%= cell[:text] %></span>
+                <% end %>
               <% end %>
             <% end %>
           </div>
@@ -143,13 +147,17 @@
         <% norm_rows = normalized_table_rows %>
         <% heading_cells = table_heading_cells %>
         <% n_cols = [ heading_cells.size, norm_rows.map(&:size).max.to_i, 2 ].max %>
-        <div class="grid <%= table_grid_cols(n_cols) %> gap-x-2 gap-y-1<%= body ? ' mt-2 border-t border-line-default pt-2' : '' %>">
+        <div class="pito-data-grid<%= body ? ' mt-2 border-t border-line-default pt-2' : '' %>" data-cols="<%= table_col_count(n_cols) %>" data-fixed-leading="<%= fixed_leading %>" data-fixed-trailing="<%= fixed_trailing %>">
           <% heading_cells.each do |cell| %>
             <span class="<%= cell[:class] %>"><%= cell[:text] %></span>
           <% end %>
           <% norm_rows.each do |cells| %>
             <% cells.each do |cell| %>
-              <span class="<%= cell[:class] %>"><%= cell[:text] %></span>
+              <% if cell[:html] %>
+                <span class="<%= cell[:class] %>"><%= raw cell[:text] %></span>
+              <% else %>
+                <span class="<%= cell[:class] %>"><%= cell[:text] %></span>
+              <% end %>
             <% end %>
           <% end %>
         </div>

@@ -14,13 +14,6 @@ module Pito
       end
       private_class_method :chat_shared_slots
 
-      def self.hashtag_metric_slots
-        [
-          Slot.new(name: :metric, kind: :enum, source: :metrics, repeatable: true)
-        ]
-      end
-      private_class_method :hashtag_metric_slots
-
       # ── Public API ───────────────────────────────────────────────────────────
 
       def self.all
@@ -89,16 +82,15 @@ module Pito
             slots:           [ Slot.new(name: :noun, kind: :enum, source: :nouns, optional: true) ],
             description_key: "pito.grammar.chat.list"
           ),
-          # `show` / `delete` take a single game reference (ID or title). The
-          # `:title` enum slot with source `:game_titles` enables dynamic ghost
-          # completion (typing "show game li" ghosts a matching library title).
-          # The noun words `game`/`games` are FILLERS, so the resolver skips them.
-          # Handlers do their own body-token extraction so the slot kind here only
-          # affects the suggestions engine — no handler change needed.
+          # `show` takes a single numeric id (`show game <id>` / `show video <id>`).
+          # Title lookup is disabled (id_only_resolution! in the handler). The slot
+          # is free/optional — the suggestions engine gets no title ghost for `show`.
+          # The noun words `game`/`games`/`video`/`videos` are FILLERS handled by the
+          # resolver; the handler reads message.raw to route.
           Spec.new(
             namespace:       :chat,
             name:            :show,
-            slots:           [ Slot.new(name: :title, kind: :enum, source: :game_titles, optional: true) ],
+            slots:           [ Slot.new(name: :id, kind: :free, optional: true) ],
             description_key: "pito.grammar.chat.show"
           ),
           Spec.new(
@@ -186,22 +178,6 @@ module Pito
             name:            :help,
             slots:           [],
             description_key: "pito.grammar.chat.help"
-          ),
-
-          # Task l — hashtag command specs
-          Spec.new(
-            namespace:       :hashtag,
-            name:            :add,
-            aliases:         [ :include ],
-            slots:           hashtag_metric_slots,
-            description_key: "pito.grammar.hashtag.add"
-          ),
-          Spec.new(
-            namespace:       :hashtag,
-            name:            :remove,
-            aliases:         [ :drop, :delete ],
-            slots:           hashtag_metric_slots,
-            description_key: "pito.grammar.hashtag.remove"
           )
 
         ]

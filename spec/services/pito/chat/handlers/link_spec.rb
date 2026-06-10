@@ -48,18 +48,6 @@ RSpec.describe Pito::Chat::Handlers::Link do
     }.to change(VideoGameLink, :count).by(1)
   end
 
-  it "creates a VideoGameLink when linking game to video by title (ILIKE)" do
-    expect {
-      handler_for("game", "lies", "of", "p", "to", "video", "lies", "of", "p", "review").call
-    }.to change(VideoGameLink, :count).by(1)
-  end
-
-  it "creates a VideoGameLink when linking video to game by title (ILIKE)" do
-    expect {
-      handler_for("video", "lies", "of", "p", "review", "to", "game", "lies", "of", "p").call
-    }.to change(VideoGameLink, :count).by(1)
-  end
-
   it "returns Ok with a witty success message" do
     result = handler_for("game", game.id.to_s, "to", "video", video.id.to_s).call
     expect(result).to be_a(Pito::Chat::Result::Ok)
@@ -75,16 +63,22 @@ RSpec.describe Pito::Chat::Handlers::Link do
     }.not_to change(VideoGameLink, :count)
   end
 
-  it "returns a not-found result for an unknown game" do
+  it "returns a not-found result for an unknown game id" do
     result = handler_for("game", "99999", "to", "video", video.id.to_s).call
     expect(result).to be_a(Pito::Chat::Result::Ok)
     expect(result.events.first[:payload]["text"]).to include("99999")
   end
 
-  it "returns a not-found result for an unknown video" do
+  it "returns a not-found result for an unknown video id" do
     result = handler_for("game", game.id.to_s, "to", "video", "99999").call
     expect(result).to be_a(Pito::Chat::Result::Ok)
     expect(result.events.first[:payload]["text"]).to include("99999")
+  end
+
+  it "returns a usage hint when a title ref is given instead of an id" do
+    result = handler_for("game", "lies", "of", "p", "to", "video", "lies", "of", "p", "review").call
+    expect(result).to be_a(Pito::Chat::Result::Error)
+    expect(result.message_key).to eq("pito.chat.link.usage")
   end
 
   it "returns a usage hint when no 'to' separator is given" do
@@ -128,9 +122,11 @@ RSpec.describe Pito::Chat::Handlers::Link do
       expect { handler.call }.to change(VideoGameLink, :count).by(1)
     end
 
-    it "links game to video by title (ILIKE)" do
+    it "returns a usage hint when a title ref is given instead of an id" do
       handler = follow_up_handler(payload: game_detail_payload, rest: "to video lies of p review")
-      expect { handler.call }.to change(VideoGameLink, :count).by(1)
+      result = handler.call
+      expect(result).to be_a(Pito::Chat::Result::Error)
+      expect(result.message_key).to eq("pito.chat.link.usage")
     end
 
     it "returns Ok with the linked ack" do
@@ -148,7 +144,7 @@ RSpec.describe Pito::Chat::Handlers::Link do
       }.not_to change(VideoGameLink, :count)
     end
 
-    it "returns not-found when the video ref is unknown" do
+    it "returns not-found when the video id is unknown" do
       result = follow_up_handler(payload: game_detail_payload, rest: "to video 99999").call
       expect(result).to be_a(Pito::Chat::Result::Ok)
       expect(result.events.first[:payload]["text"]).to include("99999")
@@ -176,9 +172,11 @@ RSpec.describe Pito::Chat::Handlers::Link do
       expect { handler.call }.to change(VideoGameLink, :count).by(1)
     end
 
-    it "links video to game by title (ILIKE)" do
+    it "returns a usage hint when a title ref is given instead of an id" do
       handler = follow_up_handler(payload: video_detail_payload, rest: "to game lies of p")
-      expect { handler.call }.to change(VideoGameLink, :count).by(1)
+      result = handler.call
+      expect(result).to be_a(Pito::Chat::Result::Error)
+      expect(result.message_key).to eq("pito.chat.link.usage")
     end
 
     it "returns Ok with the linked ack" do
@@ -189,7 +187,7 @@ RSpec.describe Pito::Chat::Handlers::Link do
       expect(text).to include("Lies of P Review")
     end
 
-    it "returns not-found when the game ref is unknown" do
+    it "returns not-found when the game id is unknown" do
       result = follow_up_handler(payload: video_detail_payload, rest: "to game 99999").call
       expect(result).to be_a(Pito::Chat::Result::Ok)
       expect(result.events.first[:payload]["text"]).to include("99999")

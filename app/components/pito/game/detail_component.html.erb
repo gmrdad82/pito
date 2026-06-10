@@ -54,12 +54,12 @@
           )) %>
     <% end %>
 
-    <%# Platforms — plain text (PlayStation / Switch / Steam), like every other row %>
-    <% if platforms_label.present? %>
+    <%# Platforms — SVG logos (PlayStation / Switch / Steam), inline-flex icons %>
+    <% if platforms_icons.present? %>
       <%= render(Pito::Table::KeyValueRowComponent.new(
-            key_text:   t("pito.game.detail.platforms"),
-            value_text: platforms_label,
-            key_class:  "text-fg-dim whitespace-nowrap",
+            key_text:    t("pito.game.detail.platforms"),
+            value_text:  platforms_icons,
+            key_class:   "text-fg-dim whitespace-nowrap",
             value_class: "text-fg"
           )) %>
     <% end %>

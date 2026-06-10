@@ -517,6 +517,151 @@ describe("pito--suggestions controller", () => {
     })
   })
 
+  // ── list verb — server-side ghost deferral ────────────────────────────────
+  //
+  // The `list` verb defers all ghost computation to POST /suggestions so the
+  // server-side ListClauseGhost can handle noun completion, the `with`
+  // connector, and field-token completion uniformly.
+
+  describe("list verb — server-side ghost deferral", () => {
+    let ctrl
+
+    beforeEach(async () => {
+      await waitForConnect()
+      ctrl = app.getControllerForElementAndIdentifier(chatbox, "pito--suggestions")
+    })
+
+    it("_computeLocalGhost returns null for 'list ' (defers to server)", () => {
+      // null signals _refreshGhost to call _scheduleDynamicFetch instead of
+      // applying a static ghost — so the client does NOT resolve 'channels' locally.
+      const result = ctrl._computeLocalGhost("list ", 5)
+      expect(result).toBeNull()
+    })
+
+    it("_computeLocalGhost returns null for 'list games ' (defers to server)", () => {
+      const result = ctrl._computeLocalGhost("list games ", 11)
+      expect(result).toBeNull()
+    })
+
+    it("_computeLocalGhost returns null for 'list games with ' (defers to server)", () => {
+      const result = ctrl._computeLocalGhost("list games with ", 16)
+      expect(result).toBeNull()
+    })
+
+    it("'list games ' → fetch → ghost shows 'with' from server response", async () => {
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ ghost: { complete_current: "with", next_hint: "" } }),
+      })
+      vi.stubGlobal("fetch", fetchMock)
+
+      vi.useFakeTimers()
+      try {
+        ctrl._scheduleDynamicFetch("list games ", 11)
+
+        // Before debounce fires, fetch has not been called
+        expect(fetchMock).not.toHaveBeenCalled()
+
+        // Advance past DYNAMIC_DEBOUNCE_MS (150 ms)
+        vi.advanceTimersByTime(200)
+        await Promise.resolve()
+        await Promise.resolve()
+        await Promise.resolve()
+
+        expect(fetchMock).toHaveBeenCalledTimes(1)
+        expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({ input: "list games " })
+        expect(ctrl._ghostComplete).toBe("with")
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it("'list games with ' → fetch → ghost shows 'platform' from server response", async () => {
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ ghost: { complete_current: "platform", next_hint: "" } }),
+      })
+      vi.stubGlobal("fetch", fetchMock)
+
+      vi.useFakeTimers()
+      try {
+        ctrl._scheduleDynamicFetch("list games with ", 16)
+
+        vi.advanceTimersByTime(200)
+        await Promise.resolve()
+        await Promise.resolve()
+        await Promise.resolve()
+
+        expect(fetchMock).toHaveBeenCalledTimes(1)
+        expect(ctrl._ghostComplete).toBe("platform")
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+  })
+
+  // ── --help ghost hint ─────────────────────────────────────────────────────
+  //
+  // For any non-list chat verb, typing a "-" partial should ghost "--help".
+
+  describe("--help ghost hint", () => {
+    let ctrl
+
+    beforeEach(async () => {
+      await waitForConnect()
+      ctrl = app.getControllerForElementAndIdentifier(chatbox, "pito--suggestions")
+    })
+
+    it("'show -' ghosts '-help' (complete_current = '-help')", () => {
+      const result = ctrl._computeLocalGhost("show -", 6)
+      expect(result).not.toBeNull()
+      expect(result.complete_current).toBe("-help")
+      expect(result.next_hint).toBe("")
+    })
+
+    it("'show --' ghosts 'help' (complete_current = 'help')", () => {
+      const result = ctrl._computeLocalGhost("show --", 7)
+      expect(result).not.toBeNull()
+      expect(result.complete_current).toBe("help")
+      expect(result.next_hint).toBe("")
+    })
+
+    it("'show --h' ghosts 'elp' (complete_current = 'elp')", () => {
+      const result = ctrl._computeLocalGhost("show --h", 8)
+      expect(result).not.toBeNull()
+      expect(result.complete_current).toBe("elp")
+    })
+
+    it("'show --help' produces empty complete_current (exact match)", () => {
+      const result = ctrl._computeLocalGhost("show --help", 11)
+      // "--help" fully typed — no remaining chars to ghost
+      expect(result).not.toBeNull()
+      expect(result.complete_current).toBe("")
+    })
+
+    it("'delete -' also ghosts '-help'", () => {
+      const result = ctrl._computeLocalGhost("delete -", 8)
+      expect(result).not.toBeNull()
+      expect(result.complete_current).toBe("-help")
+    })
+
+    it("'delete game -' ghosts '-help' (verb + noun + partial)", () => {
+      // game_titles slot is dynamic; 'game' is consumed as a dynamic slot word,
+      // then '-' triggers the --help ghost before the dynamic-fetch path.
+      const result = ctrl._computeLocalGhost("delete game -", 13)
+      expect(result).not.toBeNull()
+      expect(result.complete_current).toBe("-help")
+      expect(result.next_hint).toBe("")
+    })
+
+    it("'show video --' ghosts 'help' (verb + noun + partial)", () => {
+      const result = ctrl._computeLocalGhost("show video --", 13)
+      expect(result).not.toBeNull()
+      expect(result.complete_current).toBe("help")
+      expect(result.next_hint).toBe("")
+    })
+  })
+
   // ── Lifecycle ────────────────────────────────────────────────────────────
 
   describe("lifecycle", () => {

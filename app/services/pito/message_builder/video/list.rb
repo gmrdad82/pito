@@ -21,10 +21,15 @@ module Pito
         # @param columns      [Array<Symbol>] extra canonical column keys (from ListColumns).
         # @return [Hash] string-keyed payload with body, table_rows, and follow-up fields.
         def call(videos, conversation:, columns: [])
+          cols    = Array(columns).map(&:to_sym)
           payload = {
             "body"          => Pito::Copy.render("pito.copy.videos.list_intro", { count: videos.size }),
-            "table_heading" => [ "#", "Title", "Channel", "Privacy", *ListColumns.headings(columns) ],
-            "table_rows"    => videos.map { |video| row_for(video, columns) }
+            "table_heading" => [ "#", "Title", "Channel", "Privacy", *ListColumns.headings(cols) ],
+            "table_rows"    => videos.map { |video| row_for(video, cols) },
+            # Stamped for add/remove column mutations: allows the handler to
+            # reload the same videos and rebuild with an updated column set.
+            "video_ids"     => videos.map(&:id),
+            "list_columns"  => cols.map(&:to_s)
           }
           Pito::FollowUp.make_followupable!(payload, target: "video_list", conversation: conversation)
           payload

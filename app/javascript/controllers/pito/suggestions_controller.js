@@ -591,6 +591,11 @@ export default class extends Controller {
     const chatSpec = this._findChatSpec(verbWord)
     if (!chatSpec) return { complete_current: "", next_hint: "" }
 
+    // The `list` verb's ghosts (noun completion, the `with` connector, and
+    // with/sorted-by field tokens) are all computed server-side by
+    // ListClauseGhost — defer the whole verb to POST /suggestions.
+    if (chatSpec.name === "list") return null
+
     const endsWithSpace = before.endsWith(" ")
     const typedSlotWords = endsWithSpace ? words.slice(1) : words.slice(1, -1)
     const currentPartial = endsWithSpace ? "" : (words[words.length - 1] || "")
@@ -637,6 +642,11 @@ export default class extends Controller {
     } else {
       // complete_current: if currentPartial uniquely prefixes one vocab member
       if (!currentPartial) return { complete_current: "", next_hint: "" }
+
+      // `--help` ghost: any partial starting with "-" that prefixes "--help"
+      if (currentPartial.startsWith("-") && "--help".startsWith(currentPartial.toLowerCase())) {
+        return { complete_current: "--help".slice(currentPartial.length), next_hint: "" }
+      }
 
       // Check if the active slot's vocab is dynamic
       if (activeSlot) {

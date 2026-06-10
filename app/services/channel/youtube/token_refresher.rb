@@ -73,8 +73,7 @@ class Channel
 
       def apply_success!(youtube_connection, body)
         attrs = {
-          access_token: body["access_token"],
-          last_refreshed_at: Time.current
+          access_token: body["access_token"]
         }
         if body["expires_in"].present?
           attrs[:expires_at] = body["expires_in"].to_i.seconds.from_now

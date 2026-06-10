@@ -1,6 +1,10 @@
 en:
   pito:
     game:
+      platform_label:
+        ps: "PlayStation"
+        switch: "Switch"
+        steam: "Steam"
       detail:
         title: "Title"
         developer: "Developer"
@@ -12,10 +16,6 @@ en:
         themes: "Themes"
         perspective: "Perspective"
         no_cover: "No cover art"
-        platform_label:
-          ps: "PlayStation"
-          switch: "Nintendo Switch"
-          steam: "Steam"
       release_label:
         # User-facing presenter labels for `Game#release_label`. Branch is
         # picked by component nullability — see

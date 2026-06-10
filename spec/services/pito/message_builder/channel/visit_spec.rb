@@ -20,8 +20,16 @@ RSpec.describe Pito::MessageBuilder::Channel::Visit do
       expect(payload["body"]).to be_present
     end
 
-    it "is NOT follow-up-able without a conversation" do
+    it "is NOT follow-up-able (no reply_handle — never user-facing)" do
       expect(Pito::FollowUp.followupable?(payload)).to be false
+    end
+
+    it "carries anchor: true so the event_<id> DOM anchor is rendered" do
+      expect(payload["anchor"]).to be true
+    end
+
+    it "carries reply_target for FollowUpDispatchJob routing" do
+      expect(payload["reply_target"]).to eq("channel_visit")
     end
 
     it "renders without raising" do
@@ -42,9 +50,16 @@ RSpec.describe Pito::MessageBuilder::Channel::Visit do
 
     subject(:payload) { described_class.call(channel, conversation: conversation) }
 
-    it "is follow-up-able with the channel_visit target (anchorable)" do
-      expect(Pito::FollowUp.followupable?(payload)).to be true
+    it "is NOT follow-up-able (no reply_handle — internal machine flow)" do
+      expect(Pito::FollowUp.followupable?(payload)).to be false
+    end
+
+    it "carries reply_target for FollowUpDispatchJob routing" do
       expect(payload["reply_target"]).to eq("channel_visit")
+    end
+
+    it "carries anchor: true so the event_<id> DOM anchor is rendered" do
+      expect(payload["anchor"]).to be true
     end
   end
 

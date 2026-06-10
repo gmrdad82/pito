@@ -70,8 +70,28 @@ RSpec.describe Pito::FollowUp::Handlers::Confirmation, type: :service do
       expect(call("yes").events.first[:payload][:outcome]).to eq("confirm")
     end
 
+    it "treats 'ok' as confirm" do
+      expect(call("ok").events.first[:payload][:outcome]).to eq("confirm")
+    end
+
+    it "treats 'approve' as confirm" do
+      expect(call("approve").events.first[:payload][:outcome]).to eq("confirm")
+    end
+
+    it "treats 'true' as confirm" do
+      expect(call("true").events.first[:payload][:outcome]).to eq("confirm")
+    end
+
     it "treats 'no' as cancel" do
       expect(call("no").events.first[:payload][:outcome]).to eq("cancel")
+    end
+
+    it "treats 'false' as cancel" do
+      expect(call("false").events.first[:payload][:outcome]).to eq("cancel")
+    end
+
+    it "treats 'discard' as cancel" do
+      expect(call("discard").events.first[:payload][:outcome]).to eq("cancel")
     end
 
     it "treats 'y'/'n' as confirm/cancel" do

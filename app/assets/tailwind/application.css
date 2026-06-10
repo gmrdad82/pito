@@ -1194,6 +1194,20 @@ html {
   width: 100%;
 }
 
+/* Stat rows (subscriber count + view count) — list channels only. */
+.pito-channel-item__stats {
+  margin-top: 0.25rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+  font-size: 0.75rem;
+}
+
+.pito-channel-item__stat {
+  text-align: center;
+}
+
 /* ── Footage import probe block ────────────────────────────────
  *
  * The copy-confirmation overlay is absolutely centered over the
@@ -1210,6 +1224,70 @@ html {
   font-weight: bold;
   pointer-events: none;
 }
+
+/* ── Data table grid (Pito::Event::SystemComponent table_rows) ─────
+   Column template is driven by the `data-cols` attribute (like data-accent) —
+   static, compiled rules, so the template never builds a runtime Tailwind
+   arbitrary class and there is NO inline style. The first two columns
+   (#, Game/key) are content-sized "defaults"; every extra `with` column is an
+   equally-spaced, wrap-capable 1fr track that wraps instead of expanding. */
+.pito-data-grid {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr); /* fallback / 2-col case */
+  column-gap: 0.5rem;   /* was gap-x-2 */
+  row-gap: 0.25rem;     /* was gap-y-1 */
+}
+.pito-data-grid[data-cols="2"] { grid-template-columns: max-content minmax(0, 1fr); }
+.pito-data-grid[data-cols="3"] { grid-template-columns: max-content max-content minmax(0, 1fr); }
+.pito-data-grid[data-cols="4"] { grid-template-columns: max-content max-content repeat(2, minmax(0, 1fr)); }
+.pito-data-grid[data-cols="5"] { grid-template-columns: max-content max-content repeat(3, minmax(0, 1fr)); }
+.pito-data-grid[data-cols="6"] { grid-template-columns: max-content max-content repeat(4, minmax(0, 1fr)); }
+.pito-data-grid[data-cols="7"] { grid-template-columns: max-content max-content repeat(5, minmax(0, 1fr)); }
+.pito-data-grid[data-cols="8"] { grid-template-columns: max-content max-content repeat(6, minmax(0, 1fr)); }
+
+/* Release/Year trail as content-hugging fixed columns; the rest split 1fr. */
+.pito-data-grid[data-cols="3"][data-fixed-trailing="1"] { grid-template-columns: max-content max-content max-content; }
+.pito-data-grid[data-cols="4"][data-fixed-trailing="1"] { grid-template-columns: max-content max-content minmax(0,1fr) max-content; }
+.pito-data-grid[data-cols="5"][data-fixed-trailing="1"] { grid-template-columns: max-content max-content repeat(2,minmax(0,1fr)) max-content; }
+.pito-data-grid[data-cols="6"][data-fixed-trailing="1"] { grid-template-columns: max-content max-content repeat(3,minmax(0,1fr)) max-content; }
+.pito-data-grid[data-cols="7"][data-fixed-trailing="1"] { grid-template-columns: max-content max-content repeat(4,minmax(0,1fr)) max-content; }
+.pito-data-grid[data-cols="8"][data-fixed-trailing="1"] { grid-template-columns: max-content max-content repeat(5,minmax(0,1fr)) max-content; }
+.pito-data-grid[data-cols="4"][data-fixed-trailing="2"] { grid-template-columns: max-content max-content max-content max-content; }
+.pito-data-grid[data-cols="5"][data-fixed-trailing="2"] { grid-template-columns: max-content max-content minmax(0,1fr) max-content max-content; }
+.pito-data-grid[data-cols="6"][data-fixed-trailing="2"] { grid-template-columns: max-content max-content repeat(2,minmax(0,1fr)) max-content max-content; }
+.pito-data-grid[data-cols="7"][data-fixed-trailing="2"] { grid-template-columns: max-content max-content repeat(3,minmax(0,1fr)) max-content max-content; }
+.pito-data-grid[data-cols="8"][data-fixed-trailing="2"] { grid-template-columns: max-content max-content repeat(4,minmax(0,1fr)) max-content max-content; }
+
+/* Platform (first with-column) as content-hugging fixed leading column;
+   symmetric to the fixed-trailing rules above. leading=1 pins grid col 3
+   (platform) to max-content so platform icons never expand to 1fr. */
+.pito-data-grid[data-cols="3"][data-fixed-leading="1"] { grid-template-columns: max-content max-content max-content; }
+.pito-data-grid[data-cols="4"][data-fixed-leading="1"] { grid-template-columns: max-content max-content max-content minmax(0,1fr); }
+.pito-data-grid[data-cols="4"][data-fixed-leading="1"][data-fixed-trailing="1"] { grid-template-columns: max-content max-content max-content max-content; }
+.pito-data-grid[data-cols="5"][data-fixed-leading="1"] { grid-template-columns: max-content max-content max-content repeat(2,minmax(0,1fr)); }
+.pito-data-grid[data-cols="5"][data-fixed-leading="1"][data-fixed-trailing="1"] { grid-template-columns: max-content max-content max-content minmax(0,1fr) max-content; }
+.pito-data-grid[data-cols="5"][data-fixed-leading="1"][data-fixed-trailing="2"] { grid-template-columns: max-content max-content max-content max-content max-content; }
+.pito-data-grid[data-cols="6"][data-fixed-leading="1"] { grid-template-columns: max-content max-content max-content repeat(3,minmax(0,1fr)); }
+.pito-data-grid[data-cols="6"][data-fixed-leading="1"][data-fixed-trailing="1"] { grid-template-columns: max-content max-content max-content repeat(2,minmax(0,1fr)) max-content; }
+.pito-data-grid[data-cols="6"][data-fixed-leading="1"][data-fixed-trailing="2"] { grid-template-columns: max-content max-content max-content minmax(0,1fr) max-content max-content; }
+.pito-data-grid[data-cols="7"][data-fixed-leading="1"] { grid-template-columns: max-content max-content max-content repeat(4,minmax(0,1fr)); }
+.pito-data-grid[data-cols="7"][data-fixed-leading="1"][data-fixed-trailing="1"] { grid-template-columns: max-content max-content max-content repeat(3,minmax(0,1fr)) max-content; }
+.pito-data-grid[data-cols="7"][data-fixed-leading="1"][data-fixed-trailing="2"] { grid-template-columns: max-content max-content max-content repeat(2,minmax(0,1fr)) max-content max-content; }
+.pito-data-grid[data-cols="8"][data-fixed-leading="1"] { grid-template-columns: max-content max-content max-content repeat(5,minmax(0,1fr)); }
+.pito-data-grid[data-cols="8"][data-fixed-leading="1"][data-fixed-trailing="1"] { grid-template-columns: max-content max-content max-content repeat(4,minmax(0,1fr)) max-content; }
+.pito-data-grid[data-cols="8"][data-fixed-leading="1"][data-fixed-trailing="2"] { grid-template-columns: max-content max-content max-content repeat(3,minmax(0,1fr)) max-content max-content; }
+
+/* ── Help block (nvim --help style man page) ───────────────────
+   Preformatted monospace block for `list games --help`: preserves the
+   builder's space-padding so the Usage/Options/Columns rows align, while
+   pre-wrap still lets long lines wrap on narrow widths. */
+.pito-help-block {
+  white-space: pre-wrap;
+}
+
+/* Platform logos — capped at 16px tall so they never affect line-height. */
+.pito-platform-icons { display: inline-flex; align-items: center; gap: 0.35rem; vertical-align: middle; }
+.pito-platform-icon  { height: 16px; width: auto; display: inline-block; vertical-align: middle; }
 
 /* ── Theme system ──────────────────────────────────────────────
  *

@@ -14,11 +14,9 @@ RSpec.describe Pito::MessageBuilder::Game::EnhancedSegments do
   def build_enhanced_event(payload_overrides = {})
     body = %(<div class="pito-game-enhanced-message"><p class="text-fg mb-2">Great import.</p></div>)
     base_payload = {
-      "body"         => body,
-      "html"         => true,
-      "game_id"      => game.id,
-      "reply_handle" => "enh-1234",
-      "reply_target" => "game_enhanced"
+      "body"    => body,
+      "html"    => true,
+      "game_id" => game.id
     }.merge(payload_overrides)
     Event.create_with_position!(
       conversation:, turn:, kind: :system, payload: base_payload
@@ -53,12 +51,12 @@ RSpec.describe Pito::MessageBuilder::Game::EnhancedSegments do
       expect(payload["body"]).to include("pito-game-enhanced-row")
     end
 
-    it "retains the original reply_handle" do
-      expect(payload["reply_handle"]).to eq("enh-1234")
+    it "does NOT set reply_handle" do
+      expect(payload["reply_handle"]).to be_nil
     end
 
-    it "sets reply_target to game_enhanced" do
-      expect(payload["reply_target"]).to eq("game_enhanced")
+    it "does NOT set reply_target" do
+      expect(payload["reply_target"]).to be_nil
     end
 
     it "does NOT set reply_consumed" do
@@ -95,9 +93,9 @@ RSpec.describe Pito::MessageBuilder::Game::EnhancedSegments do
       expect(payload["body"]).to include("@fromsoft")
     end
 
-    it "retains reply_handle and reply_target" do
-      expect(payload["reply_handle"]).to eq("enh-1234")
-      expect(payload["reply_target"]).to eq("game_enhanced")
+    it "does NOT set reply_handle or reply_target" do
+      expect(payload["reply_handle"]).to be_nil
+      expect(payload["reply_target"]).to be_nil
     end
 
     it "renders without raising" do

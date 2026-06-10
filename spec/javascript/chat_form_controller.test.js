@@ -314,6 +314,40 @@ describe("pito--chat-form controller", () => {
     expect(reloadMock).not.toHaveBeenCalled()
   })
 
+  // ── Shift+R reply prefix vs. Ctrl+Shift+R browser reload ──────────────────────
+
+  it("Shift+R at caret 0 prepends the last hashtag handle", async () => {
+    const { inputField } = buildScaffold()
+    await waitForConnect()
+
+    const marker = document.createElement("span")
+    marker.dataset.pitoHandle = "kappa-5874"
+    document.body.appendChild(marker)
+
+    inputField.value = ""
+    inputField.selectionStart = inputField.selectionEnd = 0
+    keydown(inputField, "R", { shiftKey: true, code: "KeyR" })
+
+    expect(inputField.value).toBe("#kappa-5874 ")
+    marker.remove()
+  })
+
+  it("Ctrl+Shift+R does NOT prepend (browser hard-reload passes through)", async () => {
+    const { inputField } = buildScaffold()
+    await waitForConnect()
+
+    const marker = document.createElement("span")
+    marker.dataset.pitoHandle = "kappa-5874"
+    document.body.appendChild(marker)
+
+    inputField.value = ""
+    inputField.selectionStart = inputField.selectionEnd = 0
+    keydown(inputField, "R", { shiftKey: true, ctrlKey: true, code: "KeyR" })
+
+    expect(inputField.value).toBe("")
+    marker.remove()
+  })
+
   // ── Unauthenticated: handleKeydown returns early ──────────────────────────────
 
   it("returns early without cycling when unauthenticated", async () => {

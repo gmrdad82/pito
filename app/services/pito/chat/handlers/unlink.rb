@@ -1,16 +1,20 @@
 # frozen_string_literal: true
 
-# Handler for `unlink game <ref> from video <ref>` /
-# `unlink video <ref> from game <ref>`.
+# Handler for `unlink game <id> from video <id>` /
+# `unlink video <id> from game <id>`.
 #
-# Same parsing as `Link` but splits on ` to ` **or** ` from ` (case-insensitive)
-# so users can write either form naturally. Destroys the `VideoGameLink` join
-# if present; missing link → gentle "already not linked" message (idempotent).
-# The model's `after_commit` already enqueues game-stats refresh — not duplicated.
+# Free-chat: split on ` from ` (case-insensitive) into a left and right half.
+# Each half begins with a noun discriminator (`game`/`games` or `video`/`videos`)
+# followed by a numeric id (plain or with a leading `#`). Title refs are not
+# supported — only local numeric ids. Connector word = `from`.
 #
 # Follow-up: ONE side is the source card's entity (read from the payload);
 # the OTHER side is parsed from `follow_up.rest` — drop a leading `to` or
-# `from`, drop a leading noun filler, the remainder is the ref.
+# `from`, drop a leading noun filler, the remainder is the numeric id.
+#
+# Destroys the `VideoGameLink` join if present; missing link → gentle
+# "already not linked" message (idempotent).
+# The model's `after_commit` already enqueues game-stats refresh — not duplicated.
 module Pito
   module Chat
     module Handlers
@@ -25,7 +29,7 @@ module Pito
           return follow_up_unlink if follow_up?
 
           raw = message.body_tokens.map(&:value).join(" ")
-          parts = raw.split(/\b(?:to|from)\b/i, 2)
+          parts = raw.split(/\bfrom\b/i, 2)
 
           return usage_hint if parts.size < 2
 
@@ -35,8 +39,8 @@ module Pito
           return usage_hint if left_words.empty? || right_words.empty?
 
           game, video = resolve_sides(left_words, right_words)
-          return game  if game.is_a?(Pito::Chat::Result::Ok)
-          return video if video.is_a?(Pito::Chat::Result::Ok)
+          return game  if result?(game)
+          return video if result?(video)
 
           destroy_link(game, video)
         end
@@ -68,9 +72,9 @@ module Pito
         end
 
         # Parse the other side from follow_up.rest: drop a leading "to" or "from",
-        # drop a leading noun filler (game/games/video/videos), the remainder is the ref.
-        # Returns a record on success; a Result::Ok (not-found) on nil; a
-        # Result::Error (usage hint) when the ref is blank.
+        # drop a leading noun filler (game/games/video/videos), the remainder is the id.
+        # Returns a record on success; a Result::Ok (not-found) when the id isn't
+        # found; a Result::Error (usage hint) when the ref is blank or non-numeric.
         def resolve_other_side(entity_class, nouns)
           words = follow_up.rest.to_s.strip.split
           words = words.drop(1) if %w[to from].include?(words.first&.downcase)
@@ -79,12 +83,10 @@ module Pito
 
           return usage_hint if ref.blank?
 
-          id     = ref.delete_prefix("#")
-          record = if id.match?(/\A\d+\z/)
-                     entity_class.find_by(id: id)
-          else
-                     entity_class.find_by("title ILIKE ?", ref)
-          end
+          id = ref.delete_prefix("#")
+          return usage_hint unless id.match?(/\A\d+\z/)
+
+          record = entity_class.find_by(id: id)
 
           return not_found_game(ref)  if record.nil? && entity_class == ::Game
           return not_found_video(ref) if record.nil? && entity_class == ::Video
@@ -113,30 +115,22 @@ module Pito
 
         def resolve_game(ref_words)
           ref = ref_words.join(" ").strip
-          return not_found_game(ref) if ref.blank?
+          return usage_hint if ref.blank?
 
           id = ref.delete_prefix("#")
-          record = if id.match?(/\A\d+\z/)
-                     ::Game.find_by(id: id)
-          else
-                     ::Game.find_by("title ILIKE ?", ref)
-          end
+          return usage_hint unless id.match?(/\A\d+\z/)
 
-          record || not_found_game(ref)
+          ::Game.find_by(id: id) || not_found_game(ref)
         end
 
         def resolve_video(ref_words)
           ref = ref_words.join(" ").strip
-          return not_found_video(ref) if ref.blank?
+          return usage_hint if ref.blank?
 
           id = ref.delete_prefix("#")
-          record = if id.match?(/\A\d+\z/)
-                     ::Video.find_by(id: id)
-          else
-                     ::Video.find_by("title ILIKE ?", ref)
-          end
+          return usage_hint unless id.match?(/\A\d+\z/)
 
-          record || not_found_video(ref)
+          ::Video.find_by(id: id) || not_found_video(ref)
         end
 
         # ── Shared helpers ─────────────────────────────────────────────────────

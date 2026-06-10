@@ -1,4 +1,4 @@
-<%# Pito::Channel::ItemComponent — shared channel item: handle / title / id,
+<%# Pito::Channel::ItemComponent — shared channel item: handle / title,
     with optional [view] link (show_visit: true) and/or ScoreBarComponent (score: N). %>
 <div class="pito-channel-item">
   <%# Avatar (our cached variant) — only when show_avatar: true %>
@@ -31,15 +31,22 @@
     <%= channel.title.to_s %>
   </div>
 
-  <%# Channel id (#-prefixed) %>
-  <div class="pito-channel-item__id text-fg-faded">
-    #<%= channel.id %>
-  </div>
-
   <%# Score bar — only when a score is provided %>
   <% if score? %>
     <div class="pito-channel-item__score">
       <%= render(Pito::ScoreBarComponent.new(score: score, show_label: false)) %>
+    </div>
+  <% end %>
+
+  <%# Stat rows — subscriber count + view count (list channels only, show_stats: true) %>
+  <% if show_stats? %>
+    <div class="pito-channel-item__stats">
+      <div class="pito-channel-item__stat pito-channel-item__stat--subscribers text-fg-dim">
+        <%= subscribers_label %>
+      </div>
+      <div class="pito-channel-item__stat pito-channel-item__stat--views text-fg-dim">
+        <%= views_label %>
+      </div>
     </div>
   <% end %>
 </div>

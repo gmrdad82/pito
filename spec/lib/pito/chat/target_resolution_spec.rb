@@ -12,6 +12,15 @@ RSpec.describe Pito::Chat::TargetResolution, type: :model do
     end
   end
 
+  let(:id_only_handler_class) do
+    Class.new(Pito::Chat::Handler) do
+      self.verb = :test
+      self.description_key = "pito.chat.test.descriptions.test"
+      id_only_resolution!
+      def call = Pito::Chat::Result::Ok.new(events: [])
+    end
+  end
+
   let(:noun) { %w[game games] }
 
   def free_chat(raw)
@@ -65,6 +74,42 @@ RSpec.describe Pito::Chat::TargetResolution, type: :model do
     it "returns nil when the stamped entity no longer exists" do
       handler = follow_up(payload: { "game_id" => 999_999 }, rest: "")
       expect(resolve(handler)).to be_nil
+    end
+  end
+
+  # ── id_only_resolution! opt-in ──────────────────────────────────────────────
+  describe "id_only_resolution!" do
+    let!(:game) { create(:game, title: "Dead Space") }
+
+    def resolve_id_only(handler)
+      handler.resolve_target(::Game, id_key: :game_id, noun_fillers: noun)
+    end
+
+    def id_only_free_chat(raw)
+      id_only_handler_class.new(
+        message:      instance_double(Pito::Chat::Message, raw: raw),
+        conversation: nil
+      )
+    end
+
+    it "resolves by numeric id (no # prefix)" do
+      expect(resolve_id_only(id_only_free_chat("delete game #{game.id}"))).to eq(game)
+    end
+
+    it "resolves by id with a leading # prefix" do
+      expect(resolve_id_only(id_only_free_chat("delete game ##{game.id}"))).to eq(game)
+    end
+
+    it "returns nil for a title ref — no ILIKE lookup" do
+      expect(resolve_id_only(id_only_free_chat("delete game dead space"))).to be_nil
+    end
+
+    it "returns nil for a partial-word ref that looks like a title fragment" do
+      expect(resolve_id_only(id_only_free_chat("delete game dead"))).to be_nil
+    end
+
+    it "does NOT affect the default handler_class (id+title still works there)" do
+      expect(resolve(free_chat("show game dead space"))).to eq(game)
     end
   end
 

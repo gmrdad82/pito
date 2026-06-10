@@ -11,9 +11,10 @@ module Pito
       #   #<handle> rm / delete
       #     → Delegated to Chat::Handlers::Delete via VerbDelegator.
       #
-      #   #<handle> resync
-      #     → Emit a confirmation event (`command: "game_resync"`) whose executor
-      #       branch enqueues `GameIgdbSync`. The card stays follow-up-able.
+      #   #<handle> reindex
+      #     → Delegated to Chat::Handlers::Reindex via VerbDelegator. The
+      #       follow-up context provides the game_id so Reindex resolves the
+      #       game without a ref. Emits a Voyage re-embed confirmation.
       #
       #   #<handle> link [to] [video] <id|title>
       #     → Delegated to Chat::Handlers::Link via VerbDelegator. The handler
@@ -30,7 +31,7 @@ module Pito
       class GameDetail < Pito::FollowUp::Handler
         self.target "game_detail"
         self.mode   :append
-        self.actions "rm", "delete", "resync", "link", "unlink", "footage"
+        self.actions "rm", "delete", "reindex", "link", "unlink", "footage"
 
         # @param event        [Event]        the game-detail event.
         # @param rest         [String]       text after `#<handle> `.
@@ -39,13 +40,11 @@ module Pito
         def call(event:, rest:, conversation:)
           action, args = parse_rest(rest)
 
-          if %w[rm delete link unlink].include?(action)
+          if %w[rm delete reindex link unlink].include?(action)
             return Pito::FollowUp::VerbDelegator.call(source_event: event, rest:, conversation:)
           end
 
           case action
-          when "resync"
-            handle_resync(event, conversation)
           when "footage"
             handle_footage(event, args, conversation)
           else
@@ -57,19 +56,6 @@ module Pito
         end
 
         private
-
-        # ── resync ─────────────────────────────────────────────────────────────
-
-        def handle_resync(event, conversation)
-          game = resolve_game_from_event(event)
-          return game_not_found_error if game.nil?
-
-          payload = Pito::MessageBuilder::Game::ResyncConfirmation.call(game, conversation:)
-
-          Pito::FollowUp::Result::Append.new(
-            events: [ { kind: :confirmation, payload: payload } ]
-          )
-        end
 
         # ── footage <path> ────────────────────────────────────────────────────────
 
@@ -108,7 +94,7 @@ module Pito
 
         def game_not_found_error
           Pito::FollowUp::Result::Error.new(
-            message_key:  "pito.follow_up.game_enhanced.errors.game_not_found",
+            message_key:  "pito.follow_up.game_detail.errors.game_not_found",
             message_args: {}
           )
         end

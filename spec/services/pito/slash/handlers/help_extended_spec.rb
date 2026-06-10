@@ -136,9 +136,13 @@ RSpec.describe Pito::Slash::Handlers::Help, "extended coverage", type: :service 
       expect(keybindings_section).not_to be_nil
     end
 
-    it "lists ctrl+| (expand/collapse — not in copy)" do
+    it "does NOT list ctrl+|, shift+r, esc, backtick, or space (intentionally removed)" do
       keys = keybindings_section[:rows].map { |r| r[:key] }
-      expect(keys).to include("ctrl+|")
+      expect(keys).not_to include("ctrl+|")
+      expect(keys).not_to include("shift+r")
+      expect(keys).not_to include("esc")
+      expect(keys).not_to include("`")
+      expect(keys).not_to include("space")
     end
 
     it "lists shift+↑ / shift+↓ (scroll history — not in copy)" do

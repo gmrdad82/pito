@@ -96,5 +96,76 @@ RSpec.describe Pito::Chat::Dispatcher do
       expect(result.message_key).to eq("pito.chat.errors.misrouted_slash")
       expect(result.message_args).to eq({ raw: "/help" })
     end
+
+    # ── --help interception ────────────────────────────────────────────────────
+
+    describe "--help interception" do
+      it "returns a system event with an html man page for 'show --help'" do
+        result = described_class.call(input: "show --help", conversation:)
+        expect(result).to be_a(Pito::Chat::Result::Ok)
+        event = result.events.first
+        expect(event[:kind]).to eq(:system)
+        expect(event[:payload]["html"]).to be(true)
+      end
+
+      it "the show --help body includes 'Usage:'" do
+        result = described_class.call(input: "show --help", conversation:)
+        body = result.events.first[:payload]["body"]
+        expect(body).to include("Usage:")
+      end
+
+      it "the show --help body includes the show usage line" do
+        result = described_class.call(input: "show --help", conversation:)
+        body = result.events.first[:payload]["body"]
+        expect(body).to include("show")
+      end
+
+      it "routes 'delete game --help' to the delete-game noun page" do
+        result = described_class.call(input: "delete game --help", conversation:)
+        expect(result).to be_a(Pito::Chat::Result::Ok)
+        body = result.events.first[:payload]["body"]
+        # Noun page for delete game uses id-only wording, not title
+        expect(body).to include("delete game")
+        expect(body).not_to include("title")
+      end
+
+      it "routes 'show game --help' to the show-game noun page (id-only)" do
+        result = described_class.call(input: "show game --help", conversation:)
+        expect(result).to be_a(Pito::Chat::Result::Ok)
+        body = result.events.first[:payload]["body"]
+        expect(body).to include("show game")
+        expect(body).not_to include("title")
+      end
+
+      it "routes 'delete --help' (no noun) to the delete verb-level page (lists forms)" do
+        result = described_class.call(input: "delete --help", conversation:)
+        expect(result).to be_a(Pito::Chat::Result::Ok)
+        body = result.events.first[:payload]["body"]
+        # Verb-level page must mention both noun forms
+        expect(body).to include("game")
+        expect(body).to include("video")
+      end
+
+      it "routes 'list --help' (no noun) to the list noun-index page (Forms group)" do
+        result = described_class.call(input: "list --help", conversation:)
+        expect(result).to be_a(Pito::Chat::Result::Ok)
+        body = result.events.first[:payload]["body"]
+        expect(body).to include("Forms")
+        expect(body).to include("list games")
+        expect(body).to include("list videos")
+        expect(body).to include("list channels")
+        expect(body).to include("--help")
+        # Must NOT be the Game::ListHelp noun page (which has Columns:)
+        expect(body).not_to include("Columns:")
+      end
+
+      it "routes 'list games --help' to the Game::ListHelp noun page" do
+        result = described_class.call(input: "list games --help", conversation:)
+        expect(result).to be_a(Pito::Chat::Result::Ok)
+        body = result.events.first[:payload]["body"]
+        games_body = Pito::MessageBuilder::Game::ListHelp.call["body"]
+        expect(body).to eq(games_body)
+      end
+    end
   end
 end

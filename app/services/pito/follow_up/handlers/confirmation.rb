@@ -28,7 +28,17 @@ module Pito
 
         VALID_ACTIONS = %w[confirm cancel].freeze
         # Friendly synonyms → canonical action.
-        ACTION_ALIASES = { "yes" => "confirm", "y" => "confirm", "no" => "cancel", "n" => "cancel" }.freeze
+        ACTION_ALIASES = {
+          "yes"     => "confirm",
+          "y"       => "confirm",
+          "ok"      => "confirm",
+          "approve" => "confirm",
+          "true"    => "confirm",
+          "no"      => "cancel",
+          "n"       => "cancel",
+          "false"   => "cancel",
+          "discard" => "cancel"
+        }.freeze
 
         # @param event        [Event]        the source confirmation event.
         # @param rest         [String]       the text after `#<handle> ` — e.g. "confirm".

@@ -39,24 +39,24 @@ RSpec.describe Pito::Chat::Handlers::Unlink do
 
   it "destroys the VideoGameLink when unlinking game from video by id" do
     expect {
-      handler_for("game", game.id.to_s, "to", "video", video.id.to_s).call
+      handler_for("game", game.id.to_s, "from", "video", video.id.to_s).call
     }.to change(VideoGameLink, :count).by(-1)
   end
 
   it "destroys the VideoGameLink when unlinking video from game by id (reversed order)" do
     expect {
-      handler_for("video", video.id.to_s, "to", "game", game.id.to_s).call
+      handler_for("video", video.id.to_s, "from", "game", game.id.to_s).call
     }.to change(VideoGameLink, :count).by(-1)
   end
 
-  it "accepts 'from' separator as well as 'to'" do
-    expect {
-      handler_for("game", game.id.to_s, "from", "video", video.id.to_s).call
-    }.to change(VideoGameLink, :count).by(-1)
+  it "returns a usage hint when 'to' is used as separator (only 'from' is valid)" do
+    result = handler_for("game", game.id.to_s, "to", "video", video.id.to_s).call
+    expect(result).to be_a(Pito::Chat::Result::Error)
+    expect(result.message_key).to eq("pito.chat.unlink.usage")
   end
 
   it "returns Ok with a witty success message" do
-    result = handler_for("game", game.id.to_s, "to", "video", video.id.to_s).call
+    result = handler_for("game", game.id.to_s, "from", "video", video.id.to_s).call
     expect(result).to be_a(Pito::Chat::Result::Ok)
     text = result.events.first[:payload]["text"]
     expect(text).to include("Lies of P")
@@ -65,25 +65,25 @@ RSpec.describe Pito::Chat::Handlers::Unlink do
 
   it "is idempotent — unlinking a missing link returns a gentle message" do
     link.destroy!
-    result = handler_for("game", game.id.to_s, "to", "video", video.id.to_s).call
+    result = handler_for("game", game.id.to_s, "from", "video", video.id.to_s).call
     expect(result).to be_a(Pito::Chat::Result::Ok)
     text = result.events.first[:payload]["text"]
     expect(text).to include("already not linked").or include("not linked")
   end
 
-  it "returns a not-found result for an unknown game" do
-    result = handler_for("game", "99999", "to", "video", video.id.to_s).call
+  it "returns a not-found result for an unknown game id" do
+    result = handler_for("game", "99999", "from", "video", video.id.to_s).call
     expect(result).to be_a(Pito::Chat::Result::Ok)
     expect(result.events.first[:payload]["text"]).to include("99999")
   end
 
-  it "returns a not-found result for an unknown video" do
-    result = handler_for("game", game.id.to_s, "to", "video", "99999").call
+  it "returns a not-found result for an unknown video id" do
+    result = handler_for("game", game.id.to_s, "from", "video", "99999").call
     expect(result).to be_a(Pito::Chat::Result::Ok)
     expect(result.events.first[:payload]["text"]).to include("99999")
   end
 
-  it "returns a usage hint when no 'to'/'from' separator is given" do
+  it "returns a usage hint when no 'from' separator is given" do
     result = handler_for("game", game.id.to_s, "video", video.id.to_s).call
     expect(result).to be_a(Pito::Chat::Result::Error)
     expect(result.message_key).to eq("pito.chat.unlink.usage")
@@ -95,13 +95,13 @@ RSpec.describe Pito::Chat::Handlers::Unlink do
     expect(result.message_key).to eq("pito.chat.unlink.usage")
   end
 
-  it "unlinks by title (ILIKE) for both game and video" do
-    expect {
-      handler_for("game", "lies", "of", "p", "to", "video", "lies", "of", "p", "review").call
-    }.to change(VideoGameLink, :count).by(-1)
+  it "returns a usage hint when a title ref is given instead of an id" do
+    result = handler_for("game", "lies", "of", "p", "from", "video", "lies", "of", "p", "review").call
+    expect(result).to be_a(Pito::Chat::Result::Error)
+    expect(result.message_key).to eq("pito.chat.unlink.usage")
   end
 
-  it "unlinks when video is named first" do
+  it "unlinks when video is named first (from separator)" do
     link2 = create(:video_game_link, video: video, game: create(:game, title: "Sekiro"))
     result = handler_for("video", video.id.to_s, "from", "game", game.id.to_s).call
     expect(result).to be_a(Pito::Chat::Result::Ok)
@@ -142,10 +142,16 @@ RSpec.describe Pito::Chat::Handlers::Unlink do
       expect(text).to include("not linked").or include("already")
     end
 
-    it "returns not-found when the video ref is unknown" do
+    it "returns not-found when the video id is unknown" do
       result = follow_up_handler(payload: game_detail_payload, rest: "from video 99999").call
       expect(result).to be_a(Pito::Chat::Result::Ok)
       expect(result.events.first[:payload]["text"]).to include("99999")
+    end
+
+    it "returns a usage hint when a title ref is given instead of an id" do
+      result = follow_up_handler(payload: game_detail_payload, rest: "from video lies of p review").call
+      expect(result).to be_a(Pito::Chat::Result::Error)
+      expect(result.message_key).to eq("pito.chat.unlink.usage")
     end
 
     it "returns a usage hint when the ref is blank" do
@@ -186,10 +192,16 @@ RSpec.describe Pito::Chat::Handlers::Unlink do
       expect(text).to include("not linked").or include("already")
     end
 
-    it "returns not-found when the game ref is unknown" do
+    it "returns not-found when the game id is unknown" do
       result = follow_up_handler(payload: video_detail_payload, rest: "from game 99999").call
       expect(result).to be_a(Pito::Chat::Result::Ok)
       expect(result.events.first[:payload]["text"]).to include("99999")
+    end
+
+    it "returns a usage hint when a title ref is given instead of an id" do
+      result = follow_up_handler(payload: video_detail_payload, rest: "from game lies of p").call
+      expect(result).to be_a(Pito::Chat::Result::Error)
+      expect(result.message_key).to eq("pito.chat.unlink.usage")
     end
 
     it "returns a usage hint when the ref is blank" do

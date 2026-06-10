@@ -23,18 +23,20 @@ RSpec.describe Pito::Chat::Handlers::Footage do
 
   let!(:game) { create(:game, title: "Pragmata") }
 
-  it "resolves by title (ILIKE) and returns a :system event" do
-    result = handler_for("Pragmata", "/clips").call
+  # ── new canonical form: footage game <id> <path> ─────────────────────────────
+
+  it "resolves by id with 'game' noun filler and emits a probe-command :system event" do
+    result = handler_for("game", game.id.to_s, "/clips").call
     expect(result).to be_a(Pito::Chat::Result::Ok)
     event = result.events.first
     expect(event[:kind]).to eq(:system)
     expect(event[:payload]["html"]).to be(true)
+    expect(event[:payload]["body"]).to include("pito:tools:probe game=#{game.id}")
   end
 
-  it "resolves by bare id" do
+  it "resolves by bare numeric id (no 'game' filler) and emits the probe command" do
     result = handler_for(game.id.to_s, "/clips").call
     expect(result).to be_a(Pito::Chat::Result::Ok)
-    expect(result.events.first[:kind]).to eq(:system)
     payload = result.events.first[:payload]
     expect(payload["html"]).to be(true)
     expect(payload["body"]).to include("pito:tools:probe")
@@ -47,26 +49,33 @@ RSpec.describe Pito::Chat::Handlers::Footage do
     expect(payload["body"]).to include("game=#{game.id}")
   end
 
-  it "payload body includes the pito-footage-import block" do
-    payload = handler_for("Pragmata", "/clips").call.events.first[:payload]
-    expect(payload["body"]).to include("pito-footage-import")
-  end
-
-  it "payload body includes the probe command for the resolved game" do
-    payload = handler_for("Pragmata", "/clips").call.events.first[:payload]
-    expect(payload["body"]).to include("pito:tools:probe game=#{game.id}")
-  end
-
   it "stamps game_id in the payload" do
-    payload = handler_for("Pragmata", "/clips").call.events.first[:payload]
+    payload = handler_for("game", game.id.to_s, "/clips").call.events.first[:payload]
     expect(payload["game_id"]).to eq(game.id)
   end
 
-  it "returns a witty not-found for an unknown reference" do
-    result = handler_for("nonexistent game xyz", "/clips").call
-    expect(result).to be_a(Pito::Chat::Result::Ok)
-    expect(result.events.first[:payload]["text"]).to include("nonexistent")
+  it "includes the path in the probe command" do
+    payload = handler_for("game", game.id.to_s, "/mnt/clips").call.events.first[:payload]
+    expect(payload["body"]).to include("path=&quot;/mnt/clips/*&quot;")
   end
+
+  # ── title ref no longer resolves (ILIKE dropped) ─────────────────────────────
+
+  it "returns a witty not-found for a title-style reference (ILIKE dropped)" do
+    result = handler_for("Pragmata", "/clips").call
+    expect(result).to be_a(Pito::Chat::Result::Ok)
+    payload = result.events.first[:payload]
+    # not-found path emits a text payload, not a probe command
+    expect(payload["text"]).to be_present
+  end
+
+  it "returns a witty not-found for any non-numeric reference" do
+    result = handler_for("nonexistent", "/clips").call
+    expect(result).to be_a(Pito::Chat::Result::Ok)
+    expect(result.events.first[:payload]["text"]).to be_present
+  end
+
+  # ── missing ref / path → usage hint ──────────────────────────────────────────
 
   it "returns an error with needs_ref key when no reference is given" do
     result = handler_for.call
@@ -75,14 +84,14 @@ RSpec.describe Pito::Chat::Handlers::Footage do
   end
 
   it "returns needs_ref when a reference is given but no path" do
-    result = handler_for("Pragmata").call
+    result = handler_for(game.id.to_s).call
     expect(result).to be_a(Pito::Chat::Result::Error)
     expect(result.message_key).to eq("pito.chat.footage.needs_ref")
   end
 
-  it "keeps a multi-word title whole and uses the trailing path in the command" do
-    create(:game, title: "Ghosts n Goblins")
-    payload = handler_for("Ghosts", "n", "Goblins", "/mnt/clips").call.events.first[:payload]
-    expect(payload["body"]).to include("path=&quot;/mnt/clips/*&quot;")
+  it "returns needs_ref when 'game' filler is given but no id or path" do
+    result = handler_for("game").call
+    expect(result).to be_a(Pito::Chat::Result::Error)
+    expect(result.message_key).to eq("pito.chat.footage.needs_ref")
   end
 end

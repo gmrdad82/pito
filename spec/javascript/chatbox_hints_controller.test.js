@@ -31,12 +31,17 @@ function buildChatbox() {
   chatHint.className = "hidden"
   box.appendChild(chatHint)
 
+  const filterHints = document.createElement("span")
+  filterHints.setAttribute("data-pito--chatbox-hints-target", "filterHints")
+  filterHints.className = "hidden"
+  box.appendChild(filterHints)
+
   // A focusable child to simulate focus events
   const input = document.createElement("input")
   box.appendChild(input)
 
   document.body.appendChild(box)
-  return { box, suggestHint, chatHint, input }
+  return { box, suggestHint, chatHint, filterHints, input }
 }
 
 function fireCustomEvent(name, detail = {}) {
@@ -139,6 +144,29 @@ describe("pito--chatbox-hints controller", () => {
     fireCustomEvent("pito:focus", { focused: false })
     expect(chatHint.classList.contains("inline-flex")).toBe(true)
     expect(chatHint.classList.contains("hidden")).toBe(false)
+  })
+
+  // ── filterHints (shift+tab / shift+space) ⟺ focused (inverse of chatHint) ─────
+
+  it("shows filterHints and hides chatHint when focused", async () => {
+    const { filterHints, chatHint } = buildChatbox()
+    await tick()
+    fireCustomEvent("pito:focus", { focused: true })
+    expect(filterHints.classList.contains("inline-flex")).toBe(true)
+    expect(filterHints.classList.contains("hidden")).toBe(false)
+    expect(chatHint.classList.contains("hidden")).toBe(true)
+  })
+
+  it("hides filterHints and shows chatHint when not focused (mutually exclusive)", async () => {
+    const { filterHints, chatHint } = buildChatbox()
+    await tick()
+    fireCustomEvent("pito:focus", { focused: true })
+    fireCustomEvent("pito:focus", { focused: false })
+    expect(filterHints.classList.contains("hidden")).toBe(true)
+    expect(filterHints.classList.contains("inline-flex")).toBe(false)
+    expect(chatHint.classList.contains("inline-flex")).toBe(true)
+    // never both visible at once
+    expect(filterHints.classList.contains("inline-flex") && chatHint.classList.contains("inline-flex")).toBe(false)
   })
 
   // ── Class swap invariant ────────────────────────────────────────────────────

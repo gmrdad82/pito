@@ -27,7 +27,6 @@ en:
           theme_apply: "Apply a theme"
           theme_preview: "Preview a theme without saving"
           theme_reset: "Reset to Tokyo Night"
-          theme_list: "List all themes"
       slash:
         descriptions:
           login: "Log in to access pito"

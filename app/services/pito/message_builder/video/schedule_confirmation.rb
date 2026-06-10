@@ -12,11 +12,12 @@ module Pito
 
         # @param video        [::Video]
         # @param conversation [Conversation] — used to mint the reply handle.
-        # @param when:        [Time]   the parsed UTC publish time.
+        # @param when:        [Time]   the parsed publish time (local zone).
         # @return [Hash] a follow-up-able confirmation payload (target: confirmation).
         def call(video, conversation:, when: nil)
           publish_time = binding.local_variable_get(:when)
-          when_label   = publish_time.strftime("%Y-%m-%d %H:%M UTC")
+          local_time   = publish_time.in_time_zone(Time.zone)
+          when_label   = local_time.strftime("%d-%m-%Y %H:%M")
           payload = {
             "command"     => "video_schedule",
             "body"        => Pito::Copy.render("pito.copy.videos.schedule_confirm",
