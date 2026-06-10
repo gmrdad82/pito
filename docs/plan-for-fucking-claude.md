@@ -57,10 +57,10 @@ from context, accepting multiple `to`/`from` ids (HABTM), without consuming the 
 - [x] T1.3 Implement the multi-target loop in `link.rb` — resolve each target, `VideoGameLink.find_or_create_by!`, collect linked + not-found. complexity: [low]
 - [x] T1.4 Mirror source resolution + multi-target loop in `app/services/pito/chat/handlers/unlink.rb` (destroy each). complexity: [low]
 - [x] T1.5 Add summary copy `games.linked_multi` / `games.unlinked_multi` (+ a not-found note) to `config/locales/pito/copy/en.yml`. complexity: [low]
-- [ ] T1.6 Add `spec/services/pito/chat/handlers/link_spec.rb` cases — list source, multi-target, not-found, detail source + multi. complexity: [low]
-- [ ] T1.7 Add the mirror cases to `spec/services/pito/chat/handlers/unlink_spec.rb`. complexity: [low]
-- [ ] T1.8 Run `bundle exec rspec` on link/unlink specs + `bin/rubocop`; confirm green. complexity: [manual]
-- [ ] T1.9 Commit: `link/unlink follow-up: list source + multi-target summary`. complexity: [manual]
+- [x] T1.6 Add `spec/services/pito/chat/handlers/link_spec.rb` cases — list source, multi-target, not-found, detail source + multi. complexity: [low]
+- [x] T1.7 Add the mirror cases to `spec/services/pito/chat/handlers/unlink_spec.rb`. complexity: [low]
+- [x] T1.8 Run `bundle exec rspec` on link/unlink specs + `bin/rubocop`; confirm green. complexity: [manual]
+- [x] T1.9 Commit: `link/unlink follow-up: list source + multi-target summary`. complexity: [manual]
 
 ## P2 — Surface link/unlink on lists + suggestions + help
 

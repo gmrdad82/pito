@@ -3282,6 +3282,8 @@ en:
           - "The unlink succeeded vacuously: %{game} and %{video} weren't linked."
           - "No-op: %{game} and %{video} share no link."
           - "%{game} and %{video} are as unlinked as they've ever been."
+        linked_multi: "Linked %{source} to %{targets}."
+        unlinked_multi: "Unlinked %{source} from %{targets}."
         picker_empty:
           - "No games in the library yet. Import one to begin."
           - "Nothing to pick from. /games import to add a game."
