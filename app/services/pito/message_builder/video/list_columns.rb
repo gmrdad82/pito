@@ -68,9 +68,11 @@ module Pito
             value:   ->(v) { v.linked_games.map(&:title).join(", ") }
           },
           duration: {
-            aliases: %w[duration],
-            heading: "Duration",
-            value:   ->(v) { Pito::Formatter::Duration.call(v.duration_seconds) || "—" }
+            aliases:    %w[duration],
+            heading:    "Duration",
+            align:      :right,
+            cell_class: "text-fg-dim text-right tabular-nums pito-cell-duration",
+            value:      ->(v) { Pito::Formatter::Duration.call(v.duration_seconds) || "—" }
           },
           views:    {
             aliases: %w[views],
@@ -124,10 +126,31 @@ module Pito
         # @param cols [Array<Symbol>] ordered canonical column keys
         # @return [Array<String>]
         def headings(cols)
+          cols.map { |col| heading_text(col) }
+        end
+
+        # Returns heading entries for the requested canonical columns. Left-aligned
+        # columns return a plain String; right-aligned columns (align: :right)
+        # return a Hash { "text" => heading, "class" => "text-right" } so
+        # SystemComponent merges the alignment into the heading cell class.
+        #
+        # @param cols [Array<Symbol>] ordered canonical column keys
+        # @return [Array<String, Hash>]
+        def heading_cells(cols)
           cols.map do |col|
             cfg = COLUMNS.fetch(col)
-            cfg[:heading_key] ? Pito::Copy.render(cfg[:heading_key]) : cfg[:heading]
+            if cfg[:align] == :right
+              { "text" => heading_text(col), "class" => "text-right" }
+            else
+              heading_text(col)
+            end
           end
+        end
+
+        # Resolves a single column's heading String (copy-keyed or literal).
+        def heading_text(col)
+          cfg = COLUMNS.fetch(col)
+          cfg[:heading_key] ? Pito::Copy.render(cfg[:heading_key]) : cfg[:heading]
         end
 
         # Returns an Array of cell hashes for the requested canonical columns.

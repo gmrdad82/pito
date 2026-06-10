@@ -63,9 +63,9 @@ capped at 11ch (`00:00:00:00`, covers `99:23:59:59`).
 
 ## P2 — `list videos` duration column alignment + clamp
 
-- [ ] T2.1 Add `heading_cells(cols)` to `Video::ListColumns` (mirrors game: `align: :right` → `{ "text" =>, "class" => "text-right" }`, else plain String). complexity: [low]
-- [ ] T2.2 Add `align: :right` + `cell_class: "text-fg-dim text-right tabular-nums pito-cell-duration"` to the video `:duration` COLUMNS entry. complexity: [low]
-- [ ] T2.3 Switch the extra-columns heading in `app/services/pito/message_builder/video/list.rb` from `ListColumns.headings(cols)` to `ListColumns.heading_cells(cols)`. complexity: [low]
-- [ ] T2.4 Update `spec/services/pito/message_builder/video/list_columns_spec.rb` + `video/list_spec.rb` for duration heading/cell alignment. complexity: [low]
-- [ ] T2.5 Run full `bundle exec rspec` + `bin/rubocop`; green. complexity: [low]
-- [ ] T2.6 Commit: `list videos: right-align + clamp duration column`. complexity: [manual]
+- [x] T2.1 Add `heading_cells(cols)` to `Video::ListColumns` (mirrors game: `align: :right` → `{ "text" =>, "class" => "text-right" }`, else plain String). complexity: [low]
+- [x] T2.2 Add `align: :right` + `cell_class: "text-fg-dim text-right tabular-nums pito-cell-duration"` to the video `:duration` COLUMNS entry. complexity: [low]
+- [x] T2.3 Switch the extra-columns heading in `app/services/pito/message_builder/video/list.rb` from `ListColumns.headings(cols)` to `ListColumns.heading_cells(cols)`. complexity: [low]
+- [x] T2.4 Update `spec/services/pito/message_builder/video/list_columns_spec.rb` + `video/list_spec.rb` for duration heading/cell alignment. complexity: [low]
+- [x] T2.5 Run full `bundle exec rspec` + `bin/rubocop`; green. complexity: [low]
+- [x] T2.6 Commit: `list videos: right-align + clamp duration column`. complexity: [manual]

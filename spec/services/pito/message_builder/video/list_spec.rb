@@ -149,9 +149,9 @@ RSpec.describe Pito::MessageBuilder::Video::List do
                            columns: [ :game, :duration ])
     end
 
-    it "includes 'Game' and 'Duration' in the table_heading" do
+    it "includes 'Game' and a right-aligned 'Duration' in the table_heading" do
       expect(payload_with_cols["table_heading"]).to eq(
-        [ "#", "Title", "Game", "Duration" ]
+        [ "#", "Title", "Game", { "text" => "Duration", "class" => "text-right" } ]
       )
     end
 
@@ -169,6 +169,11 @@ RSpec.describe Pito::MessageBuilder::Video::List do
     it "cell 4 contains the formatted duration" do
       cell = payload_with_cols["table_rows"].first[:cells][3]
       expect(cell[:text]).to eq("1:02:22")
+    end
+
+    it "cell 4 is right-aligned, tabular, and clamped" do
+      cell = payload_with_cols["table_rows"].first[:cells][3]
+      expect(cell[:class]).to eq("text-fg-dim text-right tabular-nums pito-cell-duration")
     end
   end
 end

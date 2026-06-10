@@ -305,14 +305,14 @@ RSpec.describe Pito::Chat::Handlers::List do
                                 duration_seconds: 300)
       end
 
-      it "includes 'Duration' in the table_heading" do
+      it "includes a right-aligned 'Duration' in the table_heading" do
         payload = handler_for("list videos with duration", channel: "@all").call.events.first[:payload]
-        expect(payload["table_heading"]).to include("Duration")
+        expect(payload["table_heading"]).to include({ "text" => "Duration", "class" => "text-right" })
       end
 
-      it "returns a full heading row with the Duration column appended" do
+      it "returns a full heading row with the right-aligned Duration column appended" do
         payload = handler_for("list videos with duration", channel: "@all").call.events.first[:payload]
-        expect(payload["table_heading"]).to eq([ "#", "Title", "Duration" ])
+        expect(payload["table_heading"]).to eq([ "#", "Title", { "text" => "Duration", "class" => "text-right" } ])
       end
     end
 

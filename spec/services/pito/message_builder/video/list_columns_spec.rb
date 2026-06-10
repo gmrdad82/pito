@@ -92,6 +92,26 @@ RSpec.describe Pito::MessageBuilder::Video::ListColumns do
     end
   end
 
+  # ── heading_cells ─────────────────────────────────────────────────────────────
+
+  describe ".heading_cells" do
+    it "returns a plain String heading for a left-aligned column" do
+      expect(described_class.heading_cells([ :channel ])).to eq([ "Channel" ])
+    end
+
+    it "right-aligns the :duration heading via a class Hash" do
+      expect(described_class.heading_cells([ :duration ])).to eq(
+        [ { "text" => "Duration", "class" => "text-right" } ]
+      )
+    end
+
+    it "mixes plain and right-aligned heading entries in order" do
+      expect(described_class.heading_cells([ :channel, :duration ])).to eq(
+        [ "Channel", { "text" => "Duration", "class" => "text-right" } ]
+      )
+    end
+  end
+
   # ── sort_key_for ─────────────────────────────────────────────────────────────
 
   describe ".sort_key_for" do
@@ -186,8 +206,13 @@ RSpec.describe Pito::MessageBuilder::Video::ListColumns do
     end
 
     it "returns cells with text-fg-dim class" do
-      result = described_class.cells(video, [ :duration ])
+      result = described_class.cells(video, [ :game ])
       expect(result.first[:class]).to eq("text-fg-dim")
+    end
+
+    it "right-aligns and clamps the :duration cell (tabular + pito-cell-duration)" do
+      result = described_class.cells(video, [ :duration ])
+      expect(result.first[:class]).to eq("text-fg-dim text-right tabular-nums pito-cell-duration")
     end
 
     it "returns the channel at-handle for :channel" do
