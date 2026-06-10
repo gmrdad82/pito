@@ -10,9 +10,19 @@ RSpec.describe Pito::Footage::ProbeCommandComponent, type: :component do
     expect(node.css("code").text).to include('rails pito:tools:probe game=42 path="/clips/*"')
   end
 
-  it "shows the alt+c keyboard shortcut hint" do
+  it "shows the alt+c keyboard shortcut as a yellow shortcut token" do
     node = render_inline(described_class.new(game_id: game.id, path: "/clips"))
-    expect(node.text).to include("alt+c to copy")
+    shortcut = node.css("span.text-yellow.font-bold").first
+    expect(shortcut).not_to be_nil
+    expect(shortcut.text).to eq("alt+c")
+  end
+
+  it "renders the 'to copy' label muted (text-fg-dim), not yellow" do
+    node = render_inline(described_class.new(game_id: game.id, path: "/clips"))
+    muted = node.css("span.text-fg-dim").find { |s| s.text.strip == "to copy" }
+    expect(muted).not_to be_nil
+    # The label must not carry the yellow accent — that was the bug.
+    expect(muted["class"]).not_to include("text-yellow")
   end
 
   it "includes the pito--footage-import stimulus controller" do
@@ -56,7 +66,8 @@ RSpec.describe Pito::Footage::ProbeCommandComponent, type: :component do
     expect(box).not_to be_nil
     # The hint text lives on the root, not inside the bordered box.
     expect(box.text).not_to include("alt+c")
-    expect(node.text).to include("alt+c to copy")
+    expect(node.text).to include("alt+c")
+    expect(node.text).to include("to copy")
   end
 
   it "has an overlay target element" do
