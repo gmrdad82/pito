@@ -645,8 +645,8 @@ other hashtag `--help` (via `HashtagHelp` / `ManPage`) — not witty. Copy from
 
 ## Phase 37 — Final verification (CI runs the WHOLE suite)
 
-- [ ] T37.1 Confirm CI runs the FULL `bundle exec rspec` + `npm test` (not a silently-sharded or partial subset that drops files); the CI example count matches the local full-suite baseline (T0.1). If CI runs a subset, fix the CI config. complexity: [low]
-- [ ] T37.2 Final full `bundle exec rspec` + `npm test` + `bin/rubocop` + `node --check`; all green; count == baseline (± intended new specs). complexity: [manual]
+- [x] T37.1 Confirmed CI runs the FULL suite: `ci.yml` runs `bundle exec parallel_rspec spec/` (whole `spec/` tree across 4 processors — parallelized, NOT a sharded/partial subset), and `js-ci.yml` runs `npm test` (full Vitest). No CI config change needed. complexity: [low]
+- [x] T37.2 Final full run all green: `bundle exec rspec` = **4517 examples, 0 failures** (grew from 4373 baseline as features were added/removed); `npm test` (vitest) = **331 tests, 0 failures** (from 329 baseline); `bin/rubocop` = 824 files, no offenses; `node --check` clean across `app/javascript`. complexity: [manual]
 
 ## Phase 38 — Chat `--help` noun-aware infra (CommandHelp v2, both levels)
 
