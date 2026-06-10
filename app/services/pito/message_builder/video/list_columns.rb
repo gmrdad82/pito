@@ -70,7 +70,7 @@ module Pito
           duration: {
             aliases: %w[duration],
             heading: "Duration",
-            value:   ->(v) { Pito::Video::DurationFormat.call(v.duration_seconds) || "—" }
+            value:   ->(v) { Pito::Formatter::Duration.call(v.duration_seconds) || "—" }
           },
           views:    {
             aliases: %w[views],
