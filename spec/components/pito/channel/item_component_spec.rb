@@ -169,4 +169,93 @@ RSpec.describe Pito::Channel::ItemComponent do
       expect(node.at_css(".pito-channel-item__visit-link")).to be_present
     end
   end
+
+  # ── show_stats: true ─────────────────────────────────────────────────────────
+
+  describe "show_stats: true" do
+    def channel_with_stats(subscriber_count:, view_count:)
+      ch = build_channel
+      allow(ch).to receive(:subscriber_count).and_return(subscriber_count)
+      allow(ch).to receive(:view_count).and_return(view_count)
+      ch
+    end
+
+    it "renders a .pito-channel-item__stats wrapper" do
+      channel = channel_with_stats(subscriber_count: 5, view_count: 100)
+      node = render_inline(described_class.new(channel: channel, show_stats: true))
+      expect(node.at_css(".pito-channel-item__stats")).to be_present
+    end
+
+    it "renders two distinct stat rows" do
+      channel = channel_with_stats(subscriber_count: 5, view_count: 100)
+      node = render_inline(described_class.new(channel: channel, show_stats: true))
+      expect(node.css(".pito-channel-item__stat").size).to eq(2)
+    end
+
+    it "renders a --subscribers row and a --views row" do
+      channel = channel_with_stats(subscriber_count: 5, view_count: 100)
+      node = render_inline(described_class.new(channel: channel, show_stats: true))
+      expect(node.at_css(".pito-channel-item__stat--subscribers")).to be_present
+      expect(node.at_css(".pito-channel-item__stat--views")).to be_present
+    end
+
+    it "shows '1 sub' (singular) when subscriber_count is 1" do
+      channel = channel_with_stats(subscriber_count: 1, view_count: 0)
+      node = render_inline(described_class.new(channel: channel, show_stats: true))
+      expect(node.at_css(".pito-channel-item__stat--subscribers").text.strip).to eq("1 sub")
+    end
+
+    it "shows '2 subs' (plural) when subscriber_count is 2" do
+      channel = channel_with_stats(subscriber_count: 2, view_count: 0)
+      node = render_inline(described_class.new(channel: channel, show_stats: true))
+      expect(node.at_css(".pito-channel-item__stat--subscribers").text.strip).to eq("2 subs")
+    end
+
+    it "shows '10 subs' (plural) when subscriber_count is 10" do
+      channel = channel_with_stats(subscriber_count: 10, view_count: 0)
+      node = render_inline(described_class.new(channel: channel, show_stats: true))
+      expect(node.at_css(".pito-channel-item__stat--subscribers").text.strip).to eq("10 subs")
+    end
+
+    it "shows '1 view' (singular) when view_count is 1" do
+      channel = channel_with_stats(subscriber_count: 0, view_count: 1)
+      node = render_inline(described_class.new(channel: channel, show_stats: true))
+      expect(node.at_css(".pito-channel-item__stat--views").text.strip).to eq("1 view")
+    end
+
+    it "shows 'N views' (plural) when view_count is N != 1" do
+      channel = channel_with_stats(subscriber_count: 0, view_count: 42)
+      node = render_inline(described_class.new(channel: channel, show_stats: true))
+      expect(node.at_css(".pito-channel-item__stat--views").text.strip).to eq("42 views")
+    end
+
+    it "shows '0 subs' when subscriber_count is nil" do
+      channel = channel_with_stats(subscriber_count: nil, view_count: 5)
+      node = render_inline(described_class.new(channel: channel, show_stats: true))
+      expect(node.at_css(".pito-channel-item__stat--subscribers").text.strip).to eq("0 subs")
+    end
+
+    it "shows '0 views' when view_count is nil" do
+      channel = channel_with_stats(subscriber_count: 5, view_count: nil)
+      node = render_inline(described_class.new(channel: channel, show_stats: true))
+      expect(node.at_css(".pito-channel-item__stat--views").text.strip).to eq("0 views")
+    end
+  end
+
+  # ── show_stats: false (default) ──────────────────────────────────────────────
+
+  describe "show_stats: false (default)" do
+    it "does not render any stat rows" do
+      channel = build_channel
+      node = render_inline(described_class.new(channel: channel))
+      expect(node.css(".pito-channel-item__stats")).to be_empty
+      expect(node.css(".pito-channel-item__stat")).to be_empty
+    end
+
+    it "does not render stat rows when show_stats is explicitly false" do
+      channel = build_channel
+      node = render_inline(described_class.new(channel: channel, show_stats: false))
+      expect(node.css(".pito-channel-item__stats")).to be_empty
+    end
+  end
 end

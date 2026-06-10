@@ -1872,6 +1872,10 @@ en:
           - "Your roster's bare. /connect."
           - "No channels found. /connect to add one."
           - "Roster empty — /connect to begin."
+        subscribers_count_singular: "%{count} sub"
+        subscribers_count_plural:   "%{count} subs"
+        views_count_singular:       "%{count} view"
+        views_count_plural:         "%{count} views"
         visiting:
           - "Visiting %{handle}…"
           - "Off to %{handle}…"

@@ -6,7 +6,7 @@
 <div class="pito-channel-list">
   <% channels.each do |channel| %>
     <div class="pito-channel-list__card">
-      <%= render(Pito::Channel::ItemComponent.new(channel: channel, show_visit: true, show_avatar: true)) %>
+      <%= render(Pito::Channel::ItemComponent.new(channel: channel, show_visit: true, show_avatar: true, show_stats: true)) %>
     </div>
   <% end %>
 </div>

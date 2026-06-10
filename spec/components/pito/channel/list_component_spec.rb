@@ -93,4 +93,31 @@ RSpec.describe Pito::Channel::ListComponent do
       expect(node.css(".pito-channel-list__card").size).to eq(2)
     end
   end
+
+  describe "stat rows (show_stats: true)" do
+    it "renders subscriber and view count rows for each channel" do
+      channel = build_channel
+      allow(channel).to receive(:subscriber_count).and_return(3)
+      allow(channel).to receive(:view_count).and_return(7)
+      node = render_inline(described_class.new(channels: [ channel ]))
+      expect(node.at_css(".pito-channel-item__stat--subscribers")).to be_present
+      expect(node.at_css(".pito-channel-item__stat--views")).to be_present
+    end
+
+    it "shows correct pluralized subscriber label" do
+      channel = build_channel
+      allow(channel).to receive(:subscriber_count).and_return(1)
+      allow(channel).to receive(:view_count).and_return(0)
+      node = render_inline(described_class.new(channels: [ channel ]))
+      expect(node.at_css(".pito-channel-item__stat--subscribers").text.strip).to eq("1 sub")
+    end
+
+    it "shows correct pluralized view label" do
+      channel = build_channel
+      allow(channel).to receive(:subscriber_count).and_return(0)
+      allow(channel).to receive(:view_count).and_return(5)
+      node = render_inline(described_class.new(channels: [ channel ]))
+      expect(node.at_css(".pito-channel-item__stat--views").text.strip).to eq("5 views")
+    end
+  end
 end

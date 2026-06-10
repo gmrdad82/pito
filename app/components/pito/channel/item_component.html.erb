@@ -37,4 +37,16 @@
       <%= render(Pito::ScoreBarComponent.new(score: score, show_label: false)) %>
     </div>
   <% end %>
+
+  <%# Stat rows — subscriber count + view count (list channels only, show_stats: true) %>
+  <% if show_stats? %>
+    <div class="pito-channel-item__stats">
+      <div class="pito-channel-item__stat pito-channel-item__stat--subscribers text-fg-dim">
+        <%= subscribers_label %>
+      </div>
+      <div class="pito-channel-item__stat pito-channel-item__stat--views text-fg-dim">
+        <%= views_label %>
+      </div>
+    </div>
+  <% end %>
 </div>
