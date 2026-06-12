@@ -14,13 +14,13 @@ renders one notch tighter. A test change on the current branch.
 
 ## Locked decisions
 
-| Topic | Decision |
-| --- | --- |
-| Source of size | The `--text-base` token in the `@theme` block of `app/assets/tailwind/application.css`. |
-| Real cause | The token alone is currently a **no-op** for the rendered base: nothing sets a root font-size, so the tree inherits the browser default (16px) through the `* { font-size: inherit }` base rule. The token only feeds the (largely unused) `text-base` utility. |
-| Fix | Two parts — (1) set the token to 14px; (2) anchor `html { font-size: var(--text-base); }` (element selector outranks `*`, so it becomes the single source of truth the whole tree inherits). |
-| Exceptions | Leave the wordmark-logo `font-size: 18px` exception and the comment wording untouched. |
-| Scope | CSS only. No component, ERB, or spec changes — there are no specs asserting a px base. |
+| Topic          | Decision                                                                                                                                                                                                                                                        |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Source of size | The `--text-base` token in the `@theme` block of `app/assets/tailwind/application.css`.                                                                                                                                                                         |
+| Real cause     | The token alone is currently a **no-op** for the rendered base: nothing sets a root font-size, so the tree inherits the browser default (16px) through the `* { font-size: inherit }` base rule. The token only feeds the (largely unused) `text-base` utility. |
+| Fix            | Two parts — (1) set the token to 14px; (2) anchor `html { font-size: var(--text-base); }` (element selector outranks `*`, so it becomes the single source of truth the whole tree inherits).                                                                    |
+| Exceptions     | Leave the wordmark-logo `font-size: 18px` exception and the comment wording untouched.                                                                                                                                                                          |
+| Scope          | CSS only. No component, ERB, or spec changes — there are no specs asserting a px base.                                                                                                                                                                          |
 
 ## Phase index
 

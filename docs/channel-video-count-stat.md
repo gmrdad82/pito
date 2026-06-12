@@ -18,14 +18,14 @@ video count there. The new behaviour is opt-in via a single optional kwarg.
 
 ## Locked decisions
 
-| Topic | Decision |
-| --- | --- |
-| Data source | `channel.videos.count` (local DB; `has_many :videos`). |
+| Topic         | Decision                                                                                                                                                                                        |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Data source   | `channel.videos.count` (local DB; `has_many :videos`).                                                                                                                                          |
 | Pluralisation | `Pito::Copy` keys `videos_count_singular` (`"%{count} video"`) + `videos_count_plural` (`"%{count} videos"`); `0` uses plural. 1-variant keys, mirroring `subscribers_count_*`/`views_count_*`. |
-| Opt-in | New kwarg `show_video_count:` on `ItemComponent#initialize`, default `false`. |
-| Surfaces | `list_component.html.erb` passes `show_video_count: true`. `enhanced_component.html.erb` (show game) passes nothing → unchanged. |
-| Placement | Row order inside the stats block: subscribers → **videos** → views. |
-| Scope | The video row renders only when `show_video_count?` is true; it lives inside the existing `show_stats?` block. |
+| Opt-in        | New kwarg `show_video_count:` on `ItemComponent#initialize`, default `false`.                                                                                                                   |
+| Surfaces      | `list_component.html.erb` passes `show_video_count: true`. `enhanced_component.html.erb` (show game) passes nothing → unchanged.                                                                |
+| Placement     | Row order inside the stats block: subscribers → **videos** → views.                                                                                                                             |
+| Scope         | The video row renders only when `show_video_count?` is true; it lives inside the existing `show_stats?` block.                                                                                  |
 
 ## Phase index
 
