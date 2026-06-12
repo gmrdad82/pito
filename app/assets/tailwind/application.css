@@ -13,7 +13,7 @@
 
 @theme {
   --font-mono:        "ui-monospace", monospace;
-  --text-base:        16px;
+  --text-base:        14px;
   --text-base--line-height: 1.4;
   --color-root:        var(--bg-root);
   --color-surface:     var(--bg-surface);
@@ -69,6 +69,10 @@
 }
 
 html {
+  /* Anchor the base font-size to the --text-base token so the whole tree
+     inherits it (via the `* { font-size: inherit }` base rule above). This
+     element selector outranks `*`, so it is the single source of truth. */
+  font-size: var(--text-base);
   scrollbar-width: thin;
   scrollbar-color: var(--border-default) var(--bg-root);
   scrollbar-gutter: stable;

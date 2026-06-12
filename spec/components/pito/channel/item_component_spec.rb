@@ -258,4 +258,65 @@ RSpec.describe Pito::Channel::ItemComponent do
       expect(node.css(".pito-channel-item__stats")).to be_empty
     end
   end
+
+  # ── show_video_count: true ───────────────────────────────────────────────────
+
+  describe "show_video_count: true" do
+    def channel_with_videos(count)
+      ch = build_channel
+      allow(ch).to receive(:subscriber_count).and_return(0)
+      allow(ch).to receive(:view_count).and_return(0)
+      allow(ch).to receive(:videos).and_return(instance_double(ActiveRecord::Associations::CollectionProxy, count: count))
+      ch
+    end
+
+    def render_with_video_count(channel)
+      render_inline(described_class.new(channel: channel, show_stats: true, show_video_count: true))
+    end
+
+    it "renders a --videos stat row" do
+      node = render_with_video_count(channel_with_videos(3))
+      expect(node.at_css(".pito-channel-item__stat--videos")).to be_present
+    end
+
+    it "shows '1 video' (singular) when the channel has 1 video" do
+      node = render_with_video_count(channel_with_videos(1))
+      expect(node.at_css(".pito-channel-item__stat--videos").text.strip).to eq("1 video")
+    end
+
+    it "shows '0 videos' (plural) when the channel has no videos" do
+      node = render_with_video_count(channel_with_videos(0))
+      expect(node.at_css(".pito-channel-item__stat--videos").text.strip).to eq("0 videos")
+    end
+
+    it "shows 'N videos' (plural) when the channel has N != 1 videos" do
+      node = render_with_video_count(channel_with_videos(12))
+      expect(node.at_css(".pito-channel-item__stat--videos").text.strip).to eq("12 videos")
+    end
+
+    it "orders the rows subscribers → videos → views" do
+      node = render_with_video_count(channel_with_videos(3))
+      modifiers = node.css(".pito-channel-item__stat").map do |el|
+        el["class"].split.find { |c| c.start_with?("pito-channel-item__stat--") }
+      end
+      expect(modifiers).to eq(%w[
+        pito-channel-item__stat--subscribers
+        pito-channel-item__stat--videos
+        pito-channel-item__stat--views
+      ])
+    end
+  end
+
+  # ── show_video_count: false (default) ────────────────────────────────────────
+
+  describe "show_video_count: false (default)" do
+    it "does not render the --videos row even when show_stats: true" do
+      channel = build_channel
+      allow(channel).to receive(:subscriber_count).and_return(5)
+      allow(channel).to receive(:view_count).and_return(100)
+      node = render_inline(described_class.new(channel: channel, show_stats: true))
+      expect(node.css(".pito-channel-item__stat--videos")).to be_empty
+      expect(node.css(".pito-channel-item__stat").size).to eq(2)
+    end
+  end
 end

@@ -38,12 +38,19 @@
     </div>
   <% end %>
 
-  <%# Stat rows — subscriber count + view count (list channels only, show_stats: true) %>
+  <%# Stat rows — subscriber count + (opt-in) video count + view count
+      (list channels only, show_stats: true) %>
   <% if show_stats? %>
     <div class="pito-channel-item__stats">
       <div class="pito-channel-item__stat pito-channel-item__stat--subscribers text-fg-dim">
         <%= subscribers_label %>
       </div>
+      <%# Video count — opt-in (show_video_count: true), sits between subs and views. %>
+      <% if show_video_count? %>
+        <div class="pito-channel-item__stat pito-channel-item__stat--videos text-fg-dim">
+          <%= videos_count_label %>
+        </div>
+      <% end %>
       <div class="pito-channel-item__stat pito-channel-item__stat--views text-fg-dim">
         <%= views_label %>
       </div>

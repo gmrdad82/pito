@@ -17,20 +17,25 @@ module Pito
     #   show_stats:   [Boolean]      — render subscriber + view count rows (default false).
     #                                  Used on `list channels` only; NOT in the Game Enhanced
     #                                  (recommended-channels) message.
+    #   show_video_count: [Boolean]  — render the video-count row (default false), placed
+    #                                  between the subscriber and view rows inside the stats
+    #                                  block. Opt-in for `list channels` only; the Game
+    #                                  Enhanced surface leaves it off.
     #
     # Usage:
-    #   # list channels — avatar + [view] + stats rows, no score bar:
-    #   render(Pito::Channel::ItemComponent.new(channel:, show_avatar: true, show_visit: true, show_stats: true))
+    #   # list channels — avatar + [view] + stats rows (incl. video count), no score bar:
+    #   render(Pito::Channel::ItemComponent.new(channel:, show_avatar: true, show_visit: true, show_stats: true, show_video_count: true))
     #
     #   # recommended channels — avatar + score bar, no [view], no stats:
     #   render(Pito::Channel::ItemComponent.new(channel:, show_avatar: true, score: result.score))
     class ItemComponent < ViewComponent::Base
-      def initialize(channel:, show_visit: false, score: nil, show_avatar: false, show_stats: false)
-        @channel     = channel
-        @show_visit  = show_visit
-        @score       = score
-        @show_avatar = show_avatar
-        @show_stats  = show_stats
+      def initialize(channel:, show_visit: false, score: nil, show_avatar: false, show_stats: false, show_video_count: false)
+        @channel          = channel
+        @show_visit       = show_visit
+        @score            = score
+        @show_avatar      = show_avatar
+        @show_stats       = show_stats
+        @show_video_count = show_video_count
       end
 
       attr_reader :channel
@@ -45,6 +50,10 @@ module Pito
 
       def show_stats?
         @show_stats
+      end
+
+      def show_video_count?
+        @show_video_count
       end
 
       # Our locally-cached avatar variant (never the YouTube CDN). nil → placeholder.
@@ -66,6 +75,15 @@ module Pito
         count = channel.subscriber_count.to_i
         key   = count == 1 ? "pito.copy.channels.subscribers_count_singular"
                            : "pito.copy.channels.subscribers_count_plural"
+        Pito::Copy.render(key, count:)
+      end
+
+      # Rendered label for the video-count row, e.g. "0 videos" / "1 video" / "10 videos".
+      # Counts the local Video rows for this channel (no API call).
+      def videos_count_label
+        count = channel.videos.count
+        key   = count == 1 ? "pito.copy.channels.videos_count_singular"
+                           : "pito.copy.channels.videos_count_plural"
         Pito::Copy.render(key, count:)
       end
 
