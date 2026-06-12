@@ -57,8 +57,10 @@ class Channel
       # only those fields are overlaid; everything else stays as the
       # YouTube-side snapshot returned.
       def update_video(video, fresh:, fields: nil)
+        allowed = build_allowed_set(fields)
+        parts   = parts_for(allowed)
         payload = build_payload(video, fresh, fields: fields)
-        @last_payload = payload
+        @last_payload = payload.merge(parts: parts)
 
         # Phase 15 F1 — proactive refresh: if the access_token is
         # already past (or within the 60s skew of) `expires_at`, refresh
@@ -72,13 +74,15 @@ class Channel
         end
 
         perform do
-          svc = data_service
-          body = Google::Apis::YoutubeV3::Video.new(
-            id: video.youtube_video_id,
-            snippet: build_snippet_object(payload[:snippet]),
-            status: build_status_object(payload[:status])
-          )
-          response = svc.update_video("snippet,status", body)
+          svc  = data_service
+          body = Google::Apis::YoutubeV3::Video.new(id: video.youtube_video_id)
+          # Only PUT the parts whose fields actually changed. A status-only
+          # op (publish / unlist / schedule) sends `part=status` ALONE — we
+          # never touch the snippet, so a stale/invalid categoryId on the
+          # fresh snapshot can't sink the call.
+          body.snippet = build_snippet_object(payload[:snippet]) if parts.include?("snippet")
+          body.status  = build_status_object(payload[:status])   if parts.include?("status")
+          response = svc.update_video(parts.join(","), body)
           symbolize_response(response)
         end
       end
@@ -118,19 +122,33 @@ class Channel
 
         allowed = build_allowed_set(fields)
 
+        # NOTE: keys are snake_case to match BOTH the reader's `.to_h` output
+        # (Google gem objects serialize snake_case) AND the gem's setters, so
+        # the overlay lands on the same key the fresh snapshot already carries
+        # instead of silently adding a duplicate camelCase key.
         snippet[:title]       = video.title              if allowed.include?(:title)
         snippet[:description] = video.description.to_s   if allowed.include?(:description)
         snippet[:tags]        = video.tags || []         if allowed.include?(:tags)
-        snippet[:categoryId]  = video.category_id        if allowed.include?(:category_id)
+        snippet[:category_id] = video.category_id        if allowed.include?(:category_id)
 
-        status[:privacyStatus]            = video.privacy_status                if allowed.include?(:privacy_status)
-        status[:publishAt]                = video.publish_at&.iso8601           if allowed.include?(:publish_at)
-        status[:selfDeclaredMadeForKids]  = video.self_declared_made_for_kids   if allowed.include?(:self_declared_made_for_kids)
-        status[:containsSyntheticMedia]   = video.contains_synthetic_media      if allowed.include?(:contains_synthetic_media)
-        status[:embeddable]               = video.embeddable                    if allowed.include?(:embeddable) && video.respond_to?(:embeddable)
-        status[:publicStatsViewable]      = video.public_stats_viewable         if allowed.include?(:public_stats_viewable) && video.respond_to?(:public_stats_viewable)
+        status[:privacy_status]              = video.privacy_status              if allowed.include?(:privacy_status)
+        status[:publish_at]                  = video.publish_at                  if allowed.include?(:publish_at)
+        status[:self_declared_made_for_kids] = video.self_declared_made_for_kids if allowed.include?(:self_declared_made_for_kids)
+        status[:embeddable]                  = video.embeddable                  if allowed.include?(:embeddable) && video.respond_to?(:embeddable)
+        status[:public_stats_viewable]       = video.public_stats_viewable       if allowed.include?(:public_stats_viewable) && video.respond_to?(:public_stats_viewable)
 
         { snippet: snippet, status: status }
+      end
+
+      # Which `videos.update` parts to PUT, derived from the overlaid fields.
+      # Only the parts whose fields changed are sent — a destructive PUT
+      # replaces each named part wholesale, so sending a part we didn't mean
+      # to touch risks wiping (or, with a stale categoryId, rejecting) it.
+      def parts_for(allowed)
+        parts = []
+        parts << "snippet" if (allowed & SNIPPET_FIELDS.to_set).any?
+        parts << "status"  if (allowed & STATUS_FIELDS.to_set).any?
+        parts.empty? ? %w[snippet status] : parts
       end
 
       # `fields: nil` → all writable fields are overlaid (Phase 12
@@ -151,18 +169,18 @@ class Channel
           title:       hash[:title],
           description: hash[:description],
           tags:        Array(hash[:tags]),
-          category_id: hash[:categoryId]
+          category_id: hash[:category_id]
         )
       end
 
       def build_status_object(hash)
         Google::Apis::YoutubeV3::VideoStatus.new(
-          privacy_status:               hash[:privacyStatus],
-          publish_at:                   hash[:publishAt],
-          self_declared_made_for_kids:  hash[:selfDeclaredMadeForKids],
-          contains_synthetic_media:     hash[:containsSyntheticMedia],
+          privacy_status:               hash[:privacy_status],
+          publish_at:                   hash[:publish_at],
+          self_declared_made_for_kids:  hash[:self_declared_made_for_kids],
           embeddable:                   hash[:embeddable],
-          public_stats_viewable:        hash[:publicStatsViewable]
+          public_stats_viewable:        hash[:public_stats_viewable],
+          license:                      hash[:license]
         )
       end
 

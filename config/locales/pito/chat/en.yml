@@ -26,11 +26,11 @@ en:
         needs_ref: "Which game or video? Use `list games` to see ids, then `reindex game <id>` or `reindex video <id>`."
       publish:
         descriptions:
-          publish: "Publish a video locally (set public, clear schedule)"
+          publish: "Publish a video on YouTube (set public, clear schedule)"
         needs_ref: "Which video? Use `list videos` to see ids, then `publish video <id>`."
       unlist:
         descriptions:
-          unlist: "Unlist a video locally"
+          unlist: "Unlist a video on YouTube"
         needs_ref: "Which video? Use `list videos` to see ids, then `unlist video <id>`."
       schedule:
         descriptions:
