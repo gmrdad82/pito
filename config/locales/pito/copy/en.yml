@@ -1876,6 +1876,8 @@ en:
         subscribers_count_plural:   "%{count} subs"
         views_count_singular:       "%{count} view"
         views_count_plural:         "%{count} views"
+        videos_count_singular:      "%{count} video"
+        videos_count_plural:        "%{count} videos"
         visiting:
           - "Visiting %{handle}…"
           - "Off to %{handle}…"
