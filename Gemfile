@@ -65,7 +65,7 @@ group :development, :test do
   gem "rspec-rails", "~> 8.0"
   gem "factory_bot_rails", "~> 6.5"
   gem "faker", "~> 3.8"
-  gem "shoulda-matchers", "~> 7.0"
+  gem "shoulda-matchers", "~> 8.0"
   gem "webmock", "~> 3.26"
   # parallel_tests: per-CPU Postgres test DBs (`pito_test`, `pito_test_2`, ...)
   # plus the `parallel_rspec` runner. Run `bin/parallel_setup` once after a
