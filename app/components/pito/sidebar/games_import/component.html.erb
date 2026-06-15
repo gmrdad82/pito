@@ -30,9 +30,11 @@
 
   <%# Shimmer indicator — shown while talking to IGDB (search or import). %>
   <%# Rendered via ShimmerTextComponent; reuses .pito-shimmer, no new keyframes. %>
-  <p class="hidden"
+  <%# The dot run is intentionally longer than the panel and clipped, so the line
+      always reaches the input edge on one row regardless of base font size. %>
+  <p class="hidden overflow-hidden whitespace-nowrap"
      data-pito--games-search-target="shimmer">
-    <%= render(Pito::Shell::ShimmerTextComponent.new(text: ". " * 23)) %>
+    <%= render(Pito::Shell::ShimmerTextComponent.new(text: ". " * 60)) %>
   </p>
 
   <%# Status line (shows witty no-results / error copy) %>
