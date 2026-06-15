@@ -16,12 +16,19 @@
 <body class="bg-root text-fg font-mono" data-controller="pito--audio" <%= "data-audio-chat-page=\"true\"".html_safe if controller_name == "conversations" %>>
   <div id="pito-auth-gate" class="hidden" data-authenticated="<%= Current.session.present? %>"></div>
   <div id="pito-settings" class="hidden" data-sound="<%= AppSetting.sound_enabled? %>" data-fx="<%= AppSetting.fx_enabled? %>" data-expand-all="<%= AppSetting.expand_all? %>" data-theme="<%= AppSetting.theme %>"></div>
-  <div id="pito-sidebar" data-controller="pito--resume" class="contents"></div>
   <%# P54 — Global Turbo Stream subscription: receives mini-status and row
       replacements that must propagate to every open browser instance
       (unread-count sync after notification toggle, sidebar row sync after rename). %>
   <%= turbo_stream_from "pito:global" %>
-  <%= yield %>
+  <%# Shell row — main content and the side-by-side sidebar sit in a flex row.
+      The sidebar mount animates its width open/closed (0 → 480px keyed on the
+      injected <aside>), so the main column shrinks to make room rather than
+      being overlaid. %>
+  <div class="flex h-screen overflow-hidden">
+    <main class="flex-1 min-w-0"><%= yield %></main>
+    <div id="pito-sidebar" data-controller="pito--resume"
+         class="shrink-0 overflow-hidden w-0 transition-[width] duration-200 has-[aside]:w-[480px]"></div>
+  </div>
 
   <%# Global Ctrl+K command palette — always in DOM, toggled by pito--command-palette controller %>
   <div id="pito-command-palette"
