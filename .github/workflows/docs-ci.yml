@@ -33,6 +33,9 @@ on:
 
 permissions:
   contents: read
+  # `actions: read` lets the Slack notifier query this run's job/step
+  # conclusions to name the step that failed.
+  actions: read
 
 jobs:
   prettier:
@@ -50,3 +53,12 @@ jobs:
         # The repo's `.prettierrc.json` (proseWrap: always, printWidth: 80)
         # is picked up automatically.
         run: npx --yes prettier@latest --check '**/*.md'
+
+      - name: Notify Slack
+        if: always()
+        continue-on-error: true
+        uses: ./.github/actions/slack-notify
+        with:
+          status: ${{ job.status }}
+          webhook: ${{ secrets.SLACK_WEBHOOK }}
+          github-token: ${{ github.token }}
