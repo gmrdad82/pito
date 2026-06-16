@@ -105,6 +105,9 @@ on:
 
 permissions:
   contents: read
+  # `actions: read` lets the Slack notifier query this run's job/step
+  # conclusions to name the step that failed.
+  actions: read
 
 jobs:
   rails:
@@ -211,6 +214,15 @@ jobs:
         # `File.stat("--options")` as if it were a spec path.
         run: bundle exec parallel_rspec spec/ --test-options "--options /dev/null --require spec_helper"
 
+      - name: Notify Slack
+        if: always()
+        continue-on-error: true
+        uses: ./.github/actions/slack-notify
+        with:
+          status: ${{ job.status }}
+          webhook: ${{ secrets.SLACK_WEBHOOK }}
+          github-token: ${{ github.token }}
+
   audit-only:
     # Weekly bundler-audit-only run, fired by the `schedule:` trigger above.
     # Does NOT run RSpec, Brakeman, RuboCop, or importmap audit — just
@@ -230,3 +242,12 @@ jobs:
 
       - name: Scan for known security vulnerabilities in gems used
         run: bin/bundler-audit
+
+      - name: Notify Slack
+        if: always()
+        continue-on-error: true
+        uses: ./.github/actions/slack-notify
+        with:
+          status: ${{ job.status }}
+          webhook: ${{ secrets.SLACK_WEBHOOK }}
+          github-token: ${{ github.token }}

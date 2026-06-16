@@ -35,6 +35,9 @@ on:
 
 permissions:
   contents: read
+  # `actions: read` lets the Slack notifier query this run's job/step
+  # conclusions to name the step that failed.
+  actions: read
 
 jobs:
   js:
@@ -58,3 +61,12 @@ jobs:
 
       - name: Run Vitest suite
         run: npm test
+
+      - name: Notify Slack
+        if: always()
+        continue-on-error: true
+        uses: ./.github/actions/slack-notify
+        with:
+          status: ${{ job.status }}
+          webhook: ${{ secrets.SLACK_WEBHOOK }}
+          github-token: ${{ github.token }}
