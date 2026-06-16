@@ -20,13 +20,13 @@ description: >-
 
 inputs:
   status:
-    description: "Job status — pass `${{ job.status }}` (success / failure / cancelled)."
+    description: "Job status (success / failure / cancelled). Pass the job.status context."
     required: true
   webhook:
-    description: "Slack incoming-webhook URL. Pass `${{ secrets.SLACK_WEBHOOK }}`. If empty, the step no-ops."
+    description: "Slack incoming-webhook URL (the SLACK_WEBHOOK secret). If empty, the step no-ops."
     required: true
   github-token:
-    description: "Token with `actions: read`. Pass `${{ github.token }}`."
+    description: "Token with actions:read (the github.token). Used to look up the failing step."
     required: true
 
 runs:
