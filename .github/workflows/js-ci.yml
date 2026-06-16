@@ -23,6 +23,7 @@ on:
       - "package-lock.json"
       - "vitest.config.js"
       - ".github/workflows/js-ci.yml"
+      - ".github/actions/**"
   push:
     branches: [main]
     paths:
@@ -32,6 +33,7 @@ on:
       - "package-lock.json"
       - "vitest.config.js"
       - ".github/workflows/js-ci.yml"
+      - ".github/actions/**"
 
 permissions:
   contents: read

@@ -73,6 +73,9 @@ on:
       # Editing the workflow itself must re-run it so changes are validated
       # before they go quiet.
       - ".github/workflows/ci.yml"
+      # Composite actions the workflow invokes (e.g. the Slack notifier).
+      # Not under `workflows/`, so it needs its own entry or edits go quiet.
+      - ".github/actions/**"
       # --- Coordinated release event ---------------------------------------
       # `VERSION` bumps are release events; re-validate Rails alongside them
       # so a release lands on a known-green baseline. The cost is one extra
@@ -97,6 +100,7 @@ on:
       - ".rubocop_todo.yml"
       - "config.ru"
       - ".github/workflows/ci.yml"
+      - ".github/actions/**"
       - "VERSION"
   schedule:
     # Weekly bundler-audit run. Mondays 12:00 UTC. Gated on the `audit-only`

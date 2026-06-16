@@ -23,12 +23,14 @@ on:
       - "docs/**"
       - "**/*.md"
       - ".github/workflows/docs-ci.yml"
+      - ".github/actions/**"
       - "VERSION"
   pull_request:
     paths:
       - "docs/**"
       - "**/*.md"
       - ".github/workflows/docs-ci.yml"
+      - ".github/actions/**"
       - "VERSION"
 
 permissions:
