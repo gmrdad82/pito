@@ -13,7 +13,8 @@
             expand_label:      Pito::Copy.render("pito.copy.help.more_hint"),
             collapse_label:    Pito::Copy.render("pito.copy.help.fewer_hint"),
             typewriter:        true,
-            owner_controller:  false
+            owner_controller:  false,
+            timestamp:         @timestamp
           )) %>
     </div>
   <% else %>
@@ -25,14 +26,14 @@
           expand_more_count: expand_more_count,
           expand_label:      Pito::Copy.render("pito.copy.help.more_hint"),
           collapse_label:    Pito::Copy.render("pito.copy.help.fewer_hint"),
-          typewriter:        false
+          typewriter:        false,
+          timestamp:         @timestamp
         )) %>
   <% end %>
-  <% if @timestamp || meta_handle || channel %>
+  <% if meta_handle || channel %>
     <%= render(Pito::Event::MetaLineComponent.new(
-          timestamp: @timestamp,
-          handle:    meta_handle,
-          channel:   channel
+          handle:  meta_handle,
+          channel: channel
         )) %>
   <% end %>
 <% end %>

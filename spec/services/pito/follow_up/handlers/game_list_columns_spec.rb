@@ -87,6 +87,11 @@ RSpec.describe Pito::FollowUp::Handlers::GameList, "column mutations" do
       expect(result.payload["list_columns"]).to include("platform")
     end
 
+    it "resolves the 'release' alias so `add release` adds release_date" do
+      result = handler.call(event:, rest: "add release", conversation:)
+      expect(result.payload["list_columns"]).to include("release_date")
+    end
+
     it "payload table_heading gains Platform column after add" do
       result = handler.call(event:, rest: "add platform", conversation:)
       headings = result.payload["table_heading"].map { |h| h.is_a?(Hash) ? h["text"] : h }

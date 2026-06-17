@@ -27,10 +27,11 @@ class Pito::ScoreBarComponent < ViewComponent::Base
     [ 25, "bad"       ]
   ].freeze
 
-  def initialize(game: nil, score: nil, show_label: true)
+  def initialize(game: nil, score: nil, show_label: true, label: nil)
     @game       = game
     @override   = score
     @show_label = show_label
+    @label      = label
   end
 
   # Whether to render the witty Pito::Copy label before the bar. The game
@@ -94,7 +95,9 @@ class Pito::ScoreBarComponent < ViewComponent::Base
   end
 
   # Witty label rendered before the bar (e.g. "People Score"), via Pito::Copy.
+  # The caller may pass an explicit `label:` (already space-padded) so the score
+  # bar and the TTB bar in the same message align their brackets.
   def score_label
-    Pito::Copy.render("pito.copy.game.score_label")
+    @label || Pito::Copy.render("pito.copy.game.score_label")
   end
 end

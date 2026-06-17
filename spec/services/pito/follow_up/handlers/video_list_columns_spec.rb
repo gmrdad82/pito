@@ -84,7 +84,8 @@ RSpec.describe Pito::FollowUp::Handlers::VideoList, "column mutations" do
 
     it "payload table_heading gains Game column after add" do
       result = handler.call(event:, rest: "add game", conversation:)
-      expect(result.payload["table_heading"]).to include("Game")
+      heading_texts = result.payload["table_heading"].map { |h| h.is_a?(Hash) ? h["text"] : h }
+      expect(heading_texts).to include("Game")
     end
 
     it "does NOT set reply_consumed (handle is NOT consumed)" do

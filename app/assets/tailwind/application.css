@@ -86,6 +86,20 @@ html {
   padding: 2px 0;
 }
 
+/* Sidebar with `/config fx` off (or prefers-reduced-motion): snap open/closed
+   instead of animating the 200ms width transition. Toggled by the
+   pito--sidebar-fx Stimulus controller. */
+.pito-sidebar--no-anim {
+  transition: none !important;
+}
+
+/* `list videos/games` ADDED column headings — cyan, to distinguish them from the
+   two faded fixed columns (id/title). !important overrides the faded heading
+   base applied in system_component#table_heading_cells. */
+.pito-table-heading--added {
+  color: var(--accent-cyan) !important;
+}
+
 /* ── Scrollback container ────────────────────────────────────── */
 
 #pito-scrollback {
@@ -375,6 +389,13 @@ html {
   margin-top: 6px;
 }
 
+/* "HH:MM ·" timestamp leading a message's first line. Keep the clock intact. */
+.pito-timestamp-prefix {
+  /* The middot + its symmetric spacing come from InlineSeparatorComponent
+     (matching the meta footer); nothing extra needed here. */
+  white-space: nowrap;
+}
+
 /* ── Thinking indicator (P25) ──────────────────────────────── */
 
 .pito-thinking {
@@ -651,11 +672,13 @@ html {
   margin-top: 1.75rem;
 }
 
-/* Witty label before the bar (e.g. "People Score"), on the same line. */
+/* Witty label before the bar (e.g. "People Score"), on the same line. The
+   component space-pads this label (ljust to the longer of the score / TTB
+   label in THIS message); `pre` preserves that padding so both bars' `[` align. */
 .pito-score-bar__label {
   flex: 0 0 auto;
   color: var(--fg-dim);
-  white-space: nowrap;
+  white-space: pre;
 }
 
 /* Track: brackets + fill, full-width. position:relative so the absolute tick +
@@ -801,7 +824,7 @@ html {
 .pito-ttb__label {
   flex: 0 0 auto;
   color: var(--fg-dim);
-  white-space: nowrap;
+  white-space: pre;
   margin-top: 2.4em;
 }
 
@@ -997,6 +1020,9 @@ html {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+  /* The intro now leads inline above this block (so the timestamp shares its
+     row); space the body down from it. */
+  margin-top: 0.5rem;
 }
 
 .pito-game-enhanced-message__intro {
@@ -1013,14 +1039,13 @@ html {
   height: 0.5rem;
 }
 
-/* Channel grid: auto-fit columns, min 200px each. auto-fit (not auto-fill)
-   so a lone channel stretches to full width instead of staying a starved
-   120px track; the 200px floor guarantees the inline ScoreBarComponent
-   (label + needle bar) has room — at 120px the "Crowd Score" label ate the
-   row and the `=` track collapsed to nothing ("[]"). */
+/* Channel grid: fixed 180px columns (NOT 1fr-stretched) so each channel card
+   is exactly the same width as a similar-game cover (180px) — the two enhanced
+   rows line up. auto-fit packs as many 180px cards per row as fit. */
 .pito-game-enhanced-message__channel-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fit, 180px);
+  justify-content: start;
   /* Generous row gap: each score bar floats its bubble above itself, so wrapped
      rows need clearance or the next row's handle crowds the bubble. */
   gap: 2rem 1rem;
@@ -1034,11 +1059,14 @@ html {
   min-width: 0;
 }
 
-/* Similar-games strip: inline, wrapping. */
+/* Similar-games strip: a fixed-180px grid matching the channel grid (same
+   column width + same 1rem column-gap + justify-content: start) so each cover
+   lines up under the channel card above it, even though they're different rows. */
 .pito-game-enhanced-message__similar-games-strip {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, 180px);
+  justify-content: start;
+  gap: 0.75rem 1rem;
 }
 
 /* Each card: narrow cover + title + id stacked. Cover is the 150%-scaled
@@ -1047,27 +1075,62 @@ html {
   display: flex;
   flex-direction: column;
   gap: 0.2rem;
-  width: 240px;
+  width: 180px;
   flex: 0 0 auto;
   min-width: 0;
 }
 
-/* Cover art display size — shared by the enhanced similar-game card and the
-   game detail message. Matches Game::COVER_VARIANT (240×320) so the variant is
-   the display size: no HTML/CSS downscaling of a larger image. */
-.pito-game-enhanced-message__similar-game-cover,
-.pito-game-detail__cover img {
-  width: 240px;
-  height: 320px;
+/* Enhanced similar-game cover (180×240) — the small strip cards. Matches
+   Game::COVER_VARIANT so the variant is the display size (no CSS downscaling). */
+.pito-game-enhanced-message__similar-game-cover {
+  width: 180px;
+  height: 240px;
   object-fit: cover;
   display: block;
 }
 
-/* Detail cover column: fixed width, never shrinks in the flex head. */
-.pito-game-detail__cover {
+/* Game detail: two columns. Left (480px cover + fields) is fixed to the cover
+   width; right (description + bars) takes the rest. */
+.pito-game-detail__left {
   flex: 0 0 auto;
-  width: 240px;
+  width: 374px;
 }
+
+/* Detail cover at its full 480×640 (Game::DETAIL_COVER_VARIANT). */
+.pito-game-detail__cover img {
+  width: 374px;
+  height: 499px;
+  object-fit: cover;
+  display: block;
+}
+
+/* Detail-card hairline spacing: a plain 10px top/bottom gap. */
+.pito-detail-hairline {
+  margin: 10px 0;
+}
+
+/* Video detail: two columns. Left (thumbnail + fields + stats) is fixed to the
+   thumbnail's full width; right (description) takes the remaining space. */
+.pito-video-detail__left {
+  flex: 0 0 auto;
+  width: 374px;
+}
+
+/* Detail-message intro: lives at the top of the card's left column (above the
+   cover/thumbnail), holding the timestamp + the witty intro line. It is a block
+   inside the 374px left column, so it wraps within that width and the right
+   column starts at the top beside it. Shared by the video and game detail. */
+.pito-game-detail__intro,
+.pito-video-detail__intro {
+  max-width: 374px;
+}
+
+/* Thumbnail shows at its full cached size (374×210); never shrinks. */
+.pito-video-detail__thumbnail {
+  flex: 0 0 auto;
+}
+
+/* Description column — fills the rest; min-width:0 (utility) lets it wrap. */
 
 /* Placeholder when no cover art is attached. */
 .pito-game-enhanced-message__similar-game-cover--placeholder {
@@ -1078,11 +1141,25 @@ html {
   background: var(--bg-elevated);
 }
 
+/* id + title share one line ("#12 · Elden Ring"), spanning the card width. */
+.pito-game-enhanced-message__similar-game-line {
+  display: flex;
+  align-items: baseline;
+  width: 180px;
+}
+
+/* id stays intact — never shrinks or truncates. */
+.pito-game-enhanced-message__similar-game-id {
+  flex: 0 0 auto;
+}
+
+/* Title takes the remaining width and truncates with an ellipsis. */
 .pito-game-enhanced-message__similar-game-title {
+  flex: 1 1 auto;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  width: 240px;
 }
 
 /* ── Channel list strip ────────────────────────────────────────
@@ -1108,7 +1185,7 @@ html {
   align-items: center;
   text-align: center;
   gap: 0.2rem;
-  width: 240px;
+  width: 180px;
   flex: 0 0 auto;
   min-width: 0;
 }
@@ -1198,18 +1275,31 @@ html {
   width: 100%;
 }
 
-/* Stat rows (subscriber count + view count) — list channels only. */
+/* Stats — one line "subs · videos · views" (list channels only). Flex row so
+   the monospace inter-element whitespace doesn't add stray gaps; the `·`
+   separators (InlineSeparatorComponent) carry their own horizontal margins. */
 .pito-channel-item__stats {
   margin-top: 0.25rem;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 0.1rem;
+  justify-content: center;
   font-size: 0.75rem;
 }
 
 .pito-channel-item__stat {
   text-align: center;
+}
+
+/* @handle rendered as a YouTube link (list channels) — keep the utility text
+   color; signal interactivity on hover only. */
+.pito-channel-item__handle--link {
+  text-decoration: none;
+}
+
+.pito-channel-item__handle--link:hover {
+  text-decoration: underline;
 }
 
 /* ── Footage import probe block ────────────────────────────────
@@ -1245,66 +1335,52 @@ html {
    arbitrary class and there is NO inline style. The first two columns
    (#, Game/key) are content-sized "defaults"; every extra `with` column is an
    equally-spaced, wrap-capable 1fr track that wraps instead of expanding. */
+/* Every column is content-sized (minmax(0, max-content)): it hugs its content,
+   shrinks when the viewport is tight, and is capped per-cell by the .pito-cell-*
+   max-widths so long text ellipsis-truncates instead of wrapping and short
+   columns (e.g. visibility) stay narrow. */
 .pito-data-grid {
   display: grid;
-  grid-template-columns: max-content minmax(0, 1fr); /* fallback / 2-col case */
-  column-gap: 0.5rem;   /* was gap-x-2 */
-  row-gap: 0.25rem;     /* was gap-y-1 */
+  grid-template-columns: repeat(2, minmax(0, max-content));
+  column-gap: 1.5rem;   /* breathing room between columns */
+  row-gap: 0.25rem;
 }
-.pito-data-grid[data-cols="2"] { grid-template-columns: max-content minmax(0, 1fr); }
-.pito-data-grid[data-cols="3"] { grid-template-columns: max-content max-content minmax(0, 1fr); }
-.pito-data-grid[data-cols="4"] { grid-template-columns: max-content max-content repeat(2, minmax(0, 1fr)); }
-.pito-data-grid[data-cols="5"] { grid-template-columns: max-content max-content repeat(3, minmax(0, 1fr)); }
-.pito-data-grid[data-cols="6"] { grid-template-columns: max-content max-content repeat(4, minmax(0, 1fr)); }
-.pito-data-grid[data-cols="7"] { grid-template-columns: max-content max-content repeat(5, minmax(0, 1fr)); }
-.pito-data-grid[data-cols="8"] { grid-template-columns: max-content max-content repeat(6, minmax(0, 1fr)); }
+.pito-data-grid[data-cols="2"] { grid-template-columns: repeat(2, minmax(0, max-content)); }
+.pito-data-grid[data-cols="3"] { grid-template-columns: repeat(3, minmax(0, max-content)); }
+.pito-data-grid[data-cols="4"] { grid-template-columns: repeat(4, minmax(0, max-content)); }
+.pito-data-grid[data-cols="5"] { grid-template-columns: repeat(5, minmax(0, max-content)); }
+.pito-data-grid[data-cols="6"] { grid-template-columns: repeat(6, minmax(0, max-content)); }
+.pito-data-grid[data-cols="7"] { grid-template-columns: repeat(7, minmax(0, max-content)); }
+.pito-data-grid[data-cols="8"] { grid-template-columns: repeat(8, minmax(0, max-content)); }
 
-/* Release/Year trail as content-hugging fixed columns; the rest split 1fr. */
-.pito-data-grid[data-cols="3"][data-fixed-trailing="1"] { grid-template-columns: max-content max-content max-content; }
-.pito-data-grid[data-cols="4"][data-fixed-trailing="1"] { grid-template-columns: max-content max-content minmax(0,1fr) max-content; }
-.pito-data-grid[data-cols="5"][data-fixed-trailing="1"] { grid-template-columns: max-content max-content repeat(2,minmax(0,1fr)) max-content; }
-.pito-data-grid[data-cols="6"][data-fixed-trailing="1"] { grid-template-columns: max-content max-content repeat(3,minmax(0,1fr)) max-content; }
-.pito-data-grid[data-cols="7"][data-fixed-trailing="1"] { grid-template-columns: max-content max-content repeat(4,minmax(0,1fr)) max-content; }
-.pito-data-grid[data-cols="8"][data-fixed-trailing="1"] { grid-template-columns: max-content max-content repeat(5,minmax(0,1fr)) max-content; }
-.pito-data-grid[data-cols="4"][data-fixed-trailing="2"] { grid-template-columns: max-content max-content max-content max-content; }
-.pito-data-grid[data-cols="5"][data-fixed-trailing="2"] { grid-template-columns: max-content max-content minmax(0,1fr) max-content max-content; }
-.pito-data-grid[data-cols="6"][data-fixed-trailing="2"] { grid-template-columns: max-content max-content repeat(2,minmax(0,1fr)) max-content max-content; }
-.pito-data-grid[data-cols="7"][data-fixed-trailing="2"] { grid-template-columns: max-content max-content repeat(3,minmax(0,1fr)) max-content max-content; }
-.pito-data-grid[data-cols="8"][data-fixed-trailing="2"] { grid-template-columns: max-content max-content repeat(4,minmax(0,1fr)) max-content max-content; }
+/* Text columns render on ONE line and ellipsis-truncate at their cap. The grid
+   column is content-sized, so each column hugs its content up to the cap below;
+   min-width:0 lets the grid item shrink so the ellipsis kicks in. Applied via
+   cell_class (or the title/channel cells in the List builders). */
+.pito-cell-title,
+.pito-cell-channel,
+.pito-cell-genre,
+.pito-cell-developer,
+.pito-cell-publisher,
+.pito-cell-game,
+.pito-cell-visibility {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
 
-/* Platform (first with-column) as content-hugging fixed leading column;
-   symmetric to the fixed-trailing rules above. leading=1 pins grid col 3
-   (platform) to max-content so platform icons never expand to 1fr. */
-.pito-data-grid[data-cols="3"][data-fixed-leading="1"] { grid-template-columns: max-content max-content max-content; }
-.pito-data-grid[data-cols="4"][data-fixed-leading="1"] { grid-template-columns: max-content max-content max-content minmax(0,1fr); }
-.pito-data-grid[data-cols="4"][data-fixed-leading="1"][data-fixed-trailing="1"] { grid-template-columns: max-content max-content max-content max-content; }
-.pito-data-grid[data-cols="5"][data-fixed-leading="1"] { grid-template-columns: max-content max-content max-content repeat(2,minmax(0,1fr)); }
-.pito-data-grid[data-cols="5"][data-fixed-leading="1"][data-fixed-trailing="1"] { grid-template-columns: max-content max-content max-content minmax(0,1fr) max-content; }
-.pito-data-grid[data-cols="5"][data-fixed-leading="1"][data-fixed-trailing="2"] { grid-template-columns: max-content max-content max-content max-content max-content; }
-.pito-data-grid[data-cols="6"][data-fixed-leading="1"] { grid-template-columns: max-content max-content max-content repeat(3,minmax(0,1fr)); }
-.pito-data-grid[data-cols="6"][data-fixed-leading="1"][data-fixed-trailing="1"] { grid-template-columns: max-content max-content max-content repeat(2,minmax(0,1fr)) max-content; }
-.pito-data-grid[data-cols="6"][data-fixed-leading="1"][data-fixed-trailing="2"] { grid-template-columns: max-content max-content max-content minmax(0,1fr) max-content max-content; }
-.pito-data-grid[data-cols="7"][data-fixed-leading="1"] { grid-template-columns: max-content max-content max-content repeat(4,minmax(0,1fr)); }
-.pito-data-grid[data-cols="7"][data-fixed-leading="1"][data-fixed-trailing="1"] { grid-template-columns: max-content max-content max-content repeat(3,minmax(0,1fr)) max-content; }
-.pito-data-grid[data-cols="7"][data-fixed-leading="1"][data-fixed-trailing="2"] { grid-template-columns: max-content max-content max-content repeat(2,minmax(0,1fr)) max-content max-content; }
-.pito-data-grid[data-cols="8"][data-fixed-leading="1"] { grid-template-columns: max-content max-content max-content repeat(5,minmax(0,1fr)); }
-.pito-data-grid[data-cols="8"][data-fixed-leading="1"][data-fixed-trailing="1"] { grid-template-columns: max-content max-content max-content repeat(4,minmax(0,1fr)) max-content; }
-.pito-data-grid[data-cols="8"][data-fixed-leading="1"][data-fixed-trailing="2"] { grid-template-columns: max-content max-content max-content repeat(3,minmax(0,1fr)) max-content max-content; }
+.pito-cell-title      { max-width: 34ch; }
+.pito-cell-channel    { max-width: 15ch; }
+.pito-cell-genre      { max-width: 28ch; }
+.pito-cell-developer  { max-width: 16ch; }
+.pito-cell-publisher  { max-width: 22ch; }
+.pito-cell-game       { max-width: 24ch; }
+.pito-cell-visibility { max-width: 12ch; }
 
-/* Clamp the list Title (2nd) column: cap the title cell's width so long titles
-   word-wrap to a second line, instead of the max-content track expanding to fit
-   the widest title. Applied to the title cell in Game/Video::List builders. */
-.pito-cell-title { max-width: 34ch; overflow-wrap: break-word; }
-
-/* Clamp the channel column (list games / list videos): cap at the longest live
-   @handle (14ch) + 1, so handles never widen the column past what they need.
-   Paired with text-cyan on the cell. Applied via cell_class in the ListColumns. */
-.pito-cell-channel { max-width: 15ch; overflow-wrap: break-word; }
-
-/* Clamp the duration / footage columns (list videos / list games): cap at the
-   widest possible value "99:23:59:59" (11ch). Paired with text-right +
-   tabular-nums on the cell. Applied via cell_class in the ListColumns. */
-.pito-cell-duration { max-width: 11ch; overflow-wrap: break-word; }
+/* Duration / footage: numeric, right-aligned, capped at the widest value
+   "99:23:59:59" (11ch). Short content, so no truncation needed. */
+.pito-cell-duration { max-width: 11ch; }
 
 /* ── Help block (nvim --help style man page) ───────────────────
    Preformatted monospace block for `list games --help`: preserves the

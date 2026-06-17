@@ -10,7 +10,7 @@
       <% if html %>
         <%# html: true — no typewriter, render everything instantly %>
         <% if body || expand_lines.any? %>
-          <span class="text-fg"><%= raw(body) %></span>
+          <%= render(Pito::Event::TimestampPrefixComponent.new(timestamp: @timestamp)) %><span class="text-fg"><%= raw(body) %></span>
           <% expand_lines.each do |line| %>
             <div class="text-fg"><%= line %></div>
           <% end %>
@@ -35,7 +35,7 @@
         <%# Plain-text: typewriter controller covers the full content region %>
         <div data-controller="pito--typewriter">
           <% if body || expand_lines.any? %>
-            <span class="text-fg" data-pito--typewriter-target="body"><%= body %></span>
+            <%= render(Pito::Event::TimestampPrefixComponent.new(timestamp: @timestamp)) %><span class="text-fg" data-pito--typewriter-target="body"><%= body %></span>
             <% expand_lines.each do |line| %>
               <div class="text-fg" data-pito--typewriter-target="prose"><%= line %></div>
             <% end %>
@@ -102,7 +102,8 @@
               expand_label:      expand_label,
               collapse_label:    collapse_label,
               typewriter:        true,
-              owner_controller:  false
+              owner_controller:  false,
+              timestamp:         @timestamp
             )) %>
         <% if table_rows.any? %>
           <% norm_rows = normalized_table_rows %>
@@ -141,7 +142,8 @@
             expand_more_count: expand_more_count,
             expand_label:      expand_label,
             collapse_label:    collapse_label,
-            typewriter:        false
+            typewriter:        false,
+            timestamp:         @timestamp
           )) %>
       <% if table_rows.any? %>
         <% norm_rows = normalized_table_rows %>
@@ -171,14 +173,18 @@
       <% end %>
     <% end %>
   <% end %>
+  <%# Witty italic footer after the table rows (list messages) naming the
+      columns that can still be added — or that everything is shown. %>
+  <% if list_footer %>
+    <div class="pito-list-footer text-fg-dim italic mt-2"><%= list_footer %></div>
+  <% end %>
   <% if @suggestion %>
     <%= render(Pito::Event::SegmentSuggestionComponent.new(suggestion: @suggestion)) %>
   <% end %>
-  <% if @timestamp || meta_handle || channel %>
+  <% if meta_handle || channel %>
     <%= render(Pito::Event::MetaLineComponent.new(
-          timestamp: @timestamp,
-          handle:    meta_handle,
-          channel:   channel
+          handle:  meta_handle,
+          channel: channel
         )) %>
   <% end %>
 <% end %>

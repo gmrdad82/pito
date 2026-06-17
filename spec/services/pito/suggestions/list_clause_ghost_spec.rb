@@ -47,9 +47,9 @@ RSpec.describe Pito::Suggestions::ListClauseGhost do
   # ── WITH clause — videos ─────────────────────────────────────────────────────
 
   describe "WITH clause — videos" do
-    it "returns 'ration' for 'list videos with du'" do
-      result = ghost("list videos with du")
-      expect(result[:complete_current]).to eq("ration")
+    it "returns 'gth' for 'list videos with len'" do
+      result = ghost("list videos with len")
+      expect(result[:complete_current]).to eq("gth")
     end
 
     it "returns 'channel' as complete_current for 'list videos with '" do

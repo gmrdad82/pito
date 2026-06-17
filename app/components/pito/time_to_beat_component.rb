@@ -76,10 +76,11 @@ module Pito
       }.freeze
     end
 
-    def initialize(game: nil, hours: nil, footage_hours: nil)
+    def initialize(game: nil, hours: nil, footage_hours: nil, label: nil)
       @game          = game
       @hours         = hours
       @footage_hours = footage_hours
+      @label         = label
     end
 
     def hours
@@ -167,8 +168,10 @@ module Pito
     end
 
     # Witty label rendered before the bar (e.g. "Hours needed"), via Pito::Copy.
+    # The caller may pass an explicit `label:` (already space-padded) so the TTB
+    # bar and the score bar in the same message align their brackets.
     def bar_label
-      Pito::Copy.render("pito.copy.game.ttb_label")
+      @label || Pito::Copy.render("pito.copy.game.ttb_label")
     end
 
     def footage_value_label

@@ -4,29 +4,32 @@ module Pito
   module Channel
     # The ONE channel item, rendered identically everywhere (centered column,
     # 120px circular avatar, handle / title). Two surfaces share it and differ
-    # ONLY by kwargs: `list channels` shows the [view] link and no score bar;
-    # the recommended-channels grid hides [view] and shows a ScoreBar.
+    # ONLY by kwargs: `list channels` renders the @handle as a yellow YouTube
+    # link plus a one-line stats row; the recommended-channels grid renders a
+    # plain @handle and a ScoreBar.
     #
     # kwargs:
     #   channel:      [Channel]      — the channel record to display.
     #   show_avatar:  [Boolean]      — render the cached avatar variant (default false).
-    #   show_visit:   [Boolean]      — render a plain [view] link (default false).
+    #   show_visit:   [Boolean]      — make the @handle a yellow YouTube link that
+    #                                  opens the channel in a new tab (default false →
+    #                                  plain cyan handle). Used on `list channels`.
     #                                  NOT VisitComponent (that auto-navigates).
     #   score:        [Integer, nil] — when present, render a ScoreBarComponent.
     #                                  nil omits the bar.
-    #   show_stats:   [Boolean]      — render subscriber + view count rows (default false).
-    #                                  Used on `list channels` only; NOT in the Game Enhanced
-    #                                  (recommended-channels) message.
-    #   show_video_count: [Boolean]  — render the video-count row (default false), placed
-    #                                  between the subscriber and view rows inside the stats
-    #                                  block. Opt-in for `list channels` only; the Game
-    #                                  Enhanced surface leaves it off.
+    #   show_stats:   [Boolean]      — render a one-line "subs · videos · views" stats
+    #                                  row (default false). Used on `list channels` only;
+    #                                  NOT in the Game Enhanced (recommended-channels) message.
+    #   show_video_count: [Boolean]  — include the video count in the stats row (default
+    #                                  false), between the subscriber and view counts.
+    #                                  Opt-in for `list channels` only; the Game Enhanced
+    #                                  surface leaves it off.
     #
     # Usage:
-    #   # list channels — avatar + [view] + stats rows (incl. video count), no score bar:
+    #   # list channels — avatar + linked @handle + one-line stats, no score bar:
     #   render(Pito::Channel::ItemComponent.new(channel:, show_avatar: true, show_visit: true, show_stats: true, show_video_count: true))
     #
-    #   # recommended channels — avatar + score bar, no [view], no stats:
+    #   # recommended channels — avatar + score bar, plain handle, no stats:
     #   render(Pito::Channel::ItemComponent.new(channel:, show_avatar: true, score: result.score))
     class ItemComponent < ViewComponent::Base
       def initialize(channel:, show_visit: false, score: nil, show_avatar: false, show_stats: false, show_video_count: false)

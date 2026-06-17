@@ -253,10 +253,12 @@ RSpec.describe Pito::Chat::GameListFilter do
   # ── Unrecognised tokens are ignored ──────────────────────────────────────
 
   describe "unrecognised tokens" do
-    it "ignores tokens that match neither genre nor platform" do
-      # 'ps' is a valid filter; 'garbled' is ignored → same result as `list games ps`
-      expect(result_titles("list games ps garbled").sort)
-        .to eq(result_titles("list games ps").sort)
+    it "are rejected by the list handler (unknown target), not silently ignored" do
+      # 'garbled' matches neither a genre nor a platform → the handler now errors
+      # instead of falling back to the full game list. (GameListFilter.call still
+      # ignores them for direct callers; the rejection lives in the handler.)
+      expect(result_titles("list games ps garbled")).to be_empty
+      expect(result_titles("list games ps")).not_to be_empty
     end
   end
 end

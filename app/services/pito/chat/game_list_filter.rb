@@ -113,6 +113,16 @@ module Pito
           tokens.any? { |t| GENRE_ALIASES.key?(t) || PLATFORM_SYNONYMS.key?(t) }
         end
 
+        # Tokens in `raw` that are neither noise words, `upcoming`, a genre alias,
+        # nor a platform synonym — i.e. unrecognized filter terms (e.g. "asd" in
+        # `list asd`). The list handler uses this to reject an unknown target
+        # instead of silently falling back to the full game list.
+        def unrecognized_tokens(raw)
+          tokenize(raw).reject do |t|
+            t == UPCOMING_TOKEN || GENRE_ALIASES.key?(t) || PLATFORM_SYNONYMS.key?(t)
+          end
+        end
+
         private
 
         def tokenize(raw)

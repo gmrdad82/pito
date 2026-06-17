@@ -146,6 +146,14 @@ module Pito
         synonyms:  { "games" => "game", "video" => "videos" }
       ).freeze
 
+      # Targets for the `sync` chat verb (drives ghost completion: `sync ` →
+      # `channels`/`videos`). Mirrors what Pito::Chat::Handlers::Sync routes on.
+      SYNC_TARGETS = Vocabulary.define(
+        name:      :sync_targets,
+        canonical: %w[channels videos],
+        synonyms:  { "channel" => "channels", "video" => "videos" }
+      ).freeze
+
       # ── Dynamic vocabulary stubs ─────────────────────────────────────────────
 
       CHANNELS = Vocabulary.define(
@@ -210,7 +218,8 @@ module Pito
           GAME_TITLES,
           VIDEO_TITLES,
           GAMES_SUBCOMMANDS,
-          IMPORT_NOUNS
+          IMPORT_NOUNS,
+          SYNC_TARGETS
         ]
       end
 

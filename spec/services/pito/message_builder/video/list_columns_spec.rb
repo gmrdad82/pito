@@ -68,16 +68,16 @@ RSpec.describe Pito::MessageBuilder::Video::ListColumns do
       expect(described_class.headings([ :channel ])).to eq([ "Channel" ])
     end
 
-    it "returns the heading for :visibility (from copy)" do
-      expect(described_class.headings([ :visibility ])).to eq([ "Visibility" ])
+    it "returns the heading for :visibility (from copy, now 'Status')" do
+      expect(described_class.headings([ :visibility ])).to eq([ "Status" ])
     end
 
-    it "returns Channel and Visibility in order" do
-      expect(described_class.headings([ :channel, :visibility ])).to eq([ "Channel", "Visibility" ])
+    it "returns Channel and Status in order" do
+      expect(described_class.headings([ :channel, :visibility ])).to eq([ "Channel", "Status" ])
     end
 
     it "returns the heading for a single column" do
-      expect(described_class.headings([ :duration ])).to eq([ "Duration" ])
+      expect(described_class.headings([ :duration ])).to eq([ "Length" ])
     end
 
     it "returns headings in the requested order" do
@@ -87,7 +87,7 @@ RSpec.describe Pito::MessageBuilder::Video::ListColumns do
     it "includes headings for the stats columns" do
       cols = %i[game duration views likes comments]
       expect(described_class.headings(cols)).to eq(
-        [ "Game", "Duration", "Views", "Likes", "Comments" ]
+        [ "Game", "Length", "Views", "Likes", "Comments" ]
       )
     end
   end
@@ -95,20 +95,39 @@ RSpec.describe Pito::MessageBuilder::Video::ListColumns do
   # ── heading_cells ─────────────────────────────────────────────────────────────
 
   describe ".heading_cells" do
-    it "returns a plain String heading for a left-aligned column" do
-      expect(described_class.heading_cells([ :channel ])).to eq([ "Channel" ])
+    it "tags a left-aligned added column with the cyan --added class" do
+      expect(described_class.heading_cells([ :channel ])).to eq(
+        [ { "text" => "Channel", "class" => "pito-table-heading--added" } ]
+      )
     end
 
-    it "right-aligns the :duration heading via a class Hash" do
+    it "right-aligns and tags the :duration heading" do
       expect(described_class.heading_cells([ :duration ])).to eq(
-        [ { "text" => "Duration", "class" => "text-right" } ]
+        [ { "text" => "Length", "class" => "pito-table-heading--added text-right" } ]
       )
     end
 
-    it "mixes plain and right-aligned heading entries in order" do
+    it "tags both added headings, in order" do
       expect(described_class.heading_cells([ :channel, :duration ])).to eq(
-        [ "Channel", { "text" => "Duration", "class" => "text-right" } ]
+        [
+          { "text" => "Channel", "class" => "pito-table-heading--added" },
+          { "text" => "Length", "class" => "pito-table-heading--added text-right" }
+        ]
       )
+    end
+  end
+
+  describe ".addable_footer" do
+    it "names the still-addable columns when some remain" do
+      footer = described_class.addable_footer([ :channel ])
+      expect(footer).to include("views")
+      expect(footer).to include("comments")
+    end
+
+    it "uses the all-shown variant (no column names) when every column is present" do
+      footer = described_class.addable_footer(described_class::COLUMNS.keys)
+      expect(footer).not_to include("views")
+      expect(footer).not_to include("channel")
     end
   end
 
@@ -205,9 +224,9 @@ RSpec.describe Pito::MessageBuilder::Video::ListColumns do
       expect(described_class.cells(video, [])).to eq([])
     end
 
-    it "returns cells with text-fg-dim class" do
+    it "returns cells with the game cap/truncate class" do
       result = described_class.cells(video, [ :game ])
-      expect(result.first[:class]).to eq("text-fg-dim")
+      expect(result.first[:class]).to eq("text-fg-dim pito-cell-game")
     end
 
     it "right-aligns and clamps the :duration cell (tabular + pito-cell-duration)" do

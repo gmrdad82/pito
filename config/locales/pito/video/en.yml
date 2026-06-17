@@ -4,8 +4,8 @@ en:
       detail:
         title: "Title"
         category: "Category"
-        duration: "Duration"
-        privacy: "Privacy"
+        duration: "Length"
+        privacy: "Status"
         tags: "Tags"
         description: "Description"
         views: "Views"

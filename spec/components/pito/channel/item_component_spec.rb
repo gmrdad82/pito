@@ -79,20 +79,27 @@ RSpec.describe Pito::Channel::ItemComponent do
   # ── show_visit: true ─────────────────────────────────────────────────────────
 
   describe "show_visit: true" do
-    it "renders a plain [view] link (NOT the auto-navigating VisitComponent)" do
-      channel = build_channel
+    it "renders the @handle as a YouTube link (NOT the auto-navigating VisitComponent)" do
+      channel = build_channel(handle: "@visitme")
       node = render_inline(described_class.new(channel: channel, show_visit: true))
       # Must be a plain manual anchor — VisitComponent auto-clicks/navigates on render.
       expect(node.css("[data-controller='pito--auto-visit']")).to be_empty
-      link = node.at_css(".pito-channel-item__visit-link")
+      link = node.at_css("a.pito-channel-item__handle--link")
       expect(link).to be_present
-      expect(link.text.strip).to eq("[view]")
+      expect(link.text.strip).to eq(channel.at_handle)
     end
 
-    it "opens the [view] link in a new tab with the YouTube URL" do
+    it "no longer renders a separate [view] link" do
+      channel = build_channel
+      node = render_inline(described_class.new(channel: channel, show_visit: true))
+      expect(node.css(".pito-channel-item__visit-link")).to be_empty
+      expect(node.text).not_to include("[view]")
+    end
+
+    it "opens the linked handle in a new tab with the YouTube URL" do
       channel = build_channel(handle: "@visitme")
       node = render_inline(described_class.new(channel: channel, show_visit: true))
-      link = node.css("a[href*='youtube.com']").first
+      link = node.at_css("a.pito-channel-item__handle--link")
       expect(link).to be_present
       expect(link["href"]).to include("https://www.youtube.com/@visitme")
       expect(link["target"]).to eq("_blank")
@@ -102,7 +109,7 @@ RSpec.describe Pito::Channel::ItemComponent do
     it "uses the channel_id URL when the handle is blank" do
       channel = build_channel(handle: nil, youtube_channel_id: "UCabc123")
       node = render_inline(described_class.new(channel: channel, show_visit: true))
-      link = node.at_css(".pito-channel-item__visit-link")
+      link = node.at_css("a.pito-channel-item__handle--link")
       expect(link["href"]).to eq("https://www.youtube.com/channel/UCabc123")
     end
   end
@@ -162,11 +169,11 @@ RSpec.describe Pito::Channel::ItemComponent do
   # ── Combined: show_visit: true + score present ───────────────────────────────
 
   describe "show_visit: true AND score present" do
-    it "renders both the [view] link and the ScoreBarComponent" do
+    it "renders both the linked @handle and the ScoreBarComponent" do
       channel = build_channel
       node = render_inline(described_class.new(channel: channel, show_visit: true, score: 70))
       expect(node.css(".pito-channel-item__score .pito-score-bar")).not_to be_empty
-      expect(node.at_css(".pito-channel-item__visit-link")).to be_present
+      expect(node.at_css("a.pito-channel-item__handle--link")).to be_present
     end
   end
 
@@ -186,10 +193,16 @@ RSpec.describe Pito::Channel::ItemComponent do
       expect(node.at_css(".pito-channel-item__stats")).to be_present
     end
 
-    it "renders two distinct stat rows" do
+    it "renders two distinct stat items" do
       channel = channel_with_stats(subscriber_count: 5, view_count: 100)
       node = render_inline(described_class.new(channel: channel, show_stats: true))
       expect(node.css(".pito-channel-item__stat").size).to eq(2)
+    end
+
+    it "joins the stats inline with · separators" do
+      channel = channel_with_stats(subscriber_count: 5, view_count: 100)
+      node = render_inline(described_class.new(channel: channel, show_stats: true, show_video_count: true))
+      expect(node.at_css(".pito-channel-item__stats").text).to include("·")
     end
 
     it "renders a --subscribers row and a --views row" do

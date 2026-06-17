@@ -10,20 +10,16 @@
     <% end %>
   <% end %>
 
-  <%# Handle %>
-  <div class="pito-channel-item__handle text-cyan">
-    <%= channel.at_handle %>
-  </div>
-
-  <%# View link — plain manual anchor (new tab), only when show_visit: true.
-      Deliberately NOT VisitComponent: that auto-clicks/navigates on render. %>
+  <%# Handle — a yellow YouTube link on `list channels` (show_visit: true; opens
+      the channel in a new tab), plain cyan text on the Game Enhanced surface. The
+      link replaces the old separate [view] action. NOT VisitComponent (no auto-nav). %>
   <% if show_visit? %>
-    <div class="pito-channel-item__visit">
-      <a href="<%= youtube_url %>"
-         target="_blank"
-         rel="noopener"
-         class="pito-channel-item__visit-link text-yellow">[view]</a>
-    </div>
+    <a href="<%= youtube_url %>"
+       target="_blank"
+       rel="noopener"
+       class="pito-channel-item__handle pito-channel-item__handle--link text-yellow"><%= channel.at_handle %></a>
+  <% else %>
+    <div class="pito-channel-item__handle text-cyan"><%= channel.at_handle %></div>
   <% end %>
 
   <%# Title %>
@@ -38,22 +34,19 @@
     </div>
   <% end %>
 
-  <%# Stat rows — subscriber count + (opt-in) video count + view count
-      (list channels only, show_stats: true) %>
+  <%# Stats — one line "subs · videos · views" (list channels only, show_stats:
+      true). Flex container suppresses the monospace inter-element whitespace gap;
+      the `·` separators come from the shared InlineSeparatorComponent. %>
   <% if show_stats? %>
-    <div class="pito-channel-item__stats">
-      <div class="pito-channel-item__stat pito-channel-item__stat--subscribers text-fg-dim">
-        <%= subscribers_label %>
-      </div>
+    <div class="pito-channel-item__stats text-fg-dim">
+      <span class="pito-channel-item__stat pito-channel-item__stat--subscribers"><%= subscribers_label %></span>
       <%# Video count — opt-in (show_video_count: true), sits between subs and views. %>
       <% if show_video_count? %>
-        <div class="pito-channel-item__stat pito-channel-item__stat--videos text-fg-dim">
-          <%= videos_count_label %>
-        </div>
+        <%= render(Pito::Shell::InlineSeparatorComponent.new) %>
+        <span class="pito-channel-item__stat pito-channel-item__stat--videos"><%= videos_count_label %></span>
       <% end %>
-      <div class="pito-channel-item__stat pito-channel-item__stat--views text-fg-dim">
-        <%= views_label %>
-      </div>
+      <%= render(Pito::Shell::InlineSeparatorComponent.new) %>
+      <span class="pito-channel-item__stat pito-channel-item__stat--views"><%= views_label %></span>
     </div>
   <% end %>
 </div>

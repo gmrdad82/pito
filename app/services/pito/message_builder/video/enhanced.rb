@@ -21,7 +21,7 @@ module Pito
         def call(video)
           intro = Pito::Copy.render("pito.copy.video.enhanced_placeholder", { title: video.title })
           html_payload(
-            body: %(<div class="pito-video-enhanced-message">#{ERB::Util.html_escape(intro)}</div>)
+            body: %(<span class="pito-video-enhanced-message text-fg">#{ERB::Util.html_escape(intro)}</span>)
           )
         end
       end

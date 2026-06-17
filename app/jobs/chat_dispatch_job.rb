@@ -19,7 +19,7 @@
 class ChatDispatchJob < ApplicationJob
   queue_as :default
 
-  def perform(turn_id, channel: nil, period: nil, authenticated: true)
+  def perform(turn_id, channel: nil, period: nil, authenticated: true, viewport_width: nil)
     turn         = Turn.find(turn_id)
     conversation = turn.conversation
     input        = turn.input_text
@@ -42,7 +42,7 @@ class ChatDispatchJob < ApplicationJob
     elsif turn.hashtag?
       Pito::Hashtag::Dispatcher.call(input:, conversation:)
     else
-      Pito::Chat::Dispatcher.call(input:, conversation:, channel:)
+      Pito::Chat::Dispatcher.call(input:, conversation:, channel:, viewport_width:)
     end
 
     persist_and_broadcast(result, turn, conversation, broadcaster)

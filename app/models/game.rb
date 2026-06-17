@@ -18,11 +18,15 @@ class Game < ApplicationRecord
 
   has_one_attached :cover_art
 
-  # The single canonical cover-art display variant, sized to its ACTUAL display
-  # dimensions (240×320, 3:4) so nothing is downscaled in CSS. The detail
-  # message, enhanced message, and any future surface all render this size; the
-  # 600×800 master stays the source of truth and only this variant is generated.
-  COVER_VARIANT = { resize_to_limit: [ 240, 320 ] }.freeze
+  # Small cover-art display variant (180×240, 3:4) — the enhanced "similar
+  # games" strip and channel-adjacent surfaces. The 374×499 master is the source
+  # of truth; variants only downscale, never upscale.
+  COVER_VARIANT = { resize_to_limit: [ 180, 240 ] }.freeze
+
+  # Larger cover variant for the game detail (Standard) message — 374px wide
+  # (= two 180px similar-game covers + their 1rem gap), rendered at its actual
+  # 374×499 size (it equals the master).
+  DETAIL_COVER_VARIANT = { resize_to_limit: [ 374, 499 ] }.freeze
 
   has_neighbors :summary_embedding
 

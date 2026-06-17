@@ -18,7 +18,12 @@ class ConversationsController < ApplicationController
 
   def show
     @conversation = Conversation.find_by!(uuid: params[:uuid])
-    @events = @conversation.events.includes(:turn).order(:position)
+    @authenticated = Current.session.present?
+
+    # SECURITY: unauthenticated visitors may load this page only to /login — they
+    # must NOT see the conversation's contents. Withhold the scrollback here; the
+    # view likewise withholds the typed-command history, draft, and title.
+    @events = @authenticated ? @conversation.events.includes(:turn).order(:position) : Event.none
   end
 
   # GET /resume — re-render the conversations sidebar (same Turbo Stream as the

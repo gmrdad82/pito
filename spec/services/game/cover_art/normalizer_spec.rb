@@ -72,5 +72,30 @@ RSpec.describe Game::CoverArt::Normalizer do
         expect { normalizer.call }.to raise_error(Pito::Error::ExternalFetchFailed)
       end
     end
+
+    context "when force: true and the cover is already fresh" do
+      subject(:normalizer) { described_class.new(game:, force: true) }
+
+      before do
+        game.cover_art.attach(io: StringIO.new("fake"), filename: "cover.jpg", content_type: "image/jpeg")
+        game.cover_art.attachment.update_columns(created_at: Time.current)
+        stub_request(:get, /images\.igdb\.com.*abc123/)
+          .to_return(status: 200, body: "bytes", headers: { "Content-Type" => "image/jpeg" })
+        allow(normalizer).to receive(:normalize).and_return(double("vips_img"))
+        allow(normalizer).to receive(:attach_to_game)
+      end
+
+      it "re-fetches from the CDN despite the fresh attachment" do
+        normalizer.call
+        expect(a_request(:get, /images\.igdb\.com.*abc123/)).to have_been_made
+      end
+    end
+  end
+
+  describe "master dimensions" do
+    it "are 374×499 (3:4) — the 374px game-detail cover (two 180px covers + gap)" do
+      expect(described_class::MASTER_W).to eq(374)
+      expect(described_class::MASTER_H).to eq(499)
+    end
   end
 end

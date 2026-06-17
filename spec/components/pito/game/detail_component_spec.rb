@@ -6,9 +6,17 @@ RSpec.describe Pito::Game::DetailComponent do
   let(:game) { create(:game, title: "Super Test Game", summary: "A great game.", platforms: %w[PS5 Switch]) }
 
   describe "title" do
-    it "renders the game title" do
+    it "renders a Title label and the game title in the right column" do
+      node  = render_inline(described_class.new(game: game))
+      right = node.css(".pito-game-detail__right").first
+      expect(right).not_to be_nil
+      expect(right.text).to include("Title")
+      expect(right.text).to include("Super Test Game")
+    end
+
+    it "puts no KV grid in the left column (cover only)" do
       node = render_inline(described_class.new(game: game))
-      expect(node.text).to include("Super Test Game")
+      expect(node.css(".pito-game-detail__left div.grid")).to be_empty
     end
   end
 
@@ -127,13 +135,13 @@ RSpec.describe Pito::Game::DetailComponent do
       expect(grid.text).to include("Grid Dev")
     end
 
-    it "renders description row inside the grid" do
+    it "renders the description in the right column under a Description label" do
       g = create(:game, summary: "An epic tale.")
       node = render_inline(described_class.new(game: g))
-      grid = node.css("div.grid.grid-cols-\\[max-content_1fr\\]").first
-      expect(grid).not_to be_nil
-      expect(grid.text).to include("Description")
-      expect(grid.text).to include("An epic tale.")
+      right = node.css(".pito-game-detail__right").first
+      expect(right).not_to be_nil
+      expect(right.text).to include("Description")
+      expect(right.text).to include("An epic tale.")
     end
   end
 

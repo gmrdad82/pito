@@ -58,12 +58,14 @@ const CATALOG_JSON = JSON.stringify({
     { name: "list",   insert: "list ",   description: "List games",    slots: [] },
     { name: "show",   insert: "show ",   description: "Show a game",   slots: [{ name: "title", source: "game_titles" }] },
     { name: "delete", insert: "delete ", description: "Delete a game", slots: [{ name: "title", source: "game_titles" }] },
+    { name: "sync",   insert: "sync ",   description: "Sync data",     slots: [{ name: "target", source: "sync_targets" }] },
   ],
   vocabularies: {
     release_status: { canonical: ["released", "upcoming", "tba"], synonyms: {}, fillers: [], dynamic: false },
     genres:         { canonical: ["RPG", "Racing", "Shooter"],     synonyms: {}, fillers: [], dynamic: false },
     platforms:      { canonical: ["PlayStation 5", "PC", "Xbox"],  synonyms: {}, fillers: [], dynamic: false },
     game_titles:    { dynamic: true, endpoint: "/suggestions" },
+    sync_targets:   { canonical: ["channels", "videos"], synonyms: { channel: "channels", video: "videos" }, fillers: [], dynamic: false },
     fillers:        { canonical: [], fillers: ["the", "a", "an", "game", "games"], synonyms: {}, dynamic: false },
   },
 })
@@ -522,6 +524,39 @@ describe("pito--suggestions controller", () => {
   // The `list` verb defers all ghost computation to POST /suggestions so the
   // server-side ListClauseGhost can handle noun completion, the `with`
   // connector, and field-token completion uniformly.
+
+  describe("free-form verb-stage prefix completion", () => {
+    let ctrl
+
+    beforeEach(async () => {
+      await waitForConnect()
+      ctrl = app.getControllerForElementAndIdentifier(chatbox, "pito--suggestions")
+    })
+
+    it("completes a unique verb prefix ('sy' → 'nc' for 'sync')", () => {
+      expect(ctrl._computeLocalGhost("sy", 2).complete_current).toBe("nc")
+    })
+
+    it("completes 'sh' → 'ow' for 'show'", () => {
+      expect(ctrl._computeLocalGhost("sh", 2).complete_current).toBe("ow")
+    })
+
+    it("stays silent for an ambiguous prefix ('s' matches show and sync)", () => {
+      expect(ctrl._computeLocalGhost("s", 1).complete_current).toBe("")
+    })
+
+    it("does not verb-complete once a trailing space follows the partial", () => {
+      expect(ctrl._computeLocalGhost("sy ", 3).complete_current).toBe("")
+    })
+
+    it("ghosts the first sync target after 'sync ' ('channels')", () => {
+      expect(ctrl._computeLocalGhost("sync ", 5).complete_current).toBe("channels")
+    })
+
+    it("completes 'sync c' → 'hannels'", () => {
+      expect(ctrl._computeLocalGhost("sync c", 6).complete_current).toBe("hannels")
+    })
+  })
 
   describe("list verb — server-side ghost deferral", () => {
     let ctrl

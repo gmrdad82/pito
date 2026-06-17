@@ -10,8 +10,9 @@ module Pito
     # Sibling components are referenced by their full name:
     #   Pito::ScoreBarComponent, Pito::TimeToBeatComponent.
     class DetailComponent < ViewComponent::Base
-      def initialize(game:)
-        @game = game
+      def initialize(game:, intro: nil)
+        @game  = game
+        @intro = intro
       end
 
       def cover_art_attached?
@@ -22,6 +23,15 @@ module Pito
         return nil unless cover_art_attached?
 
         @game.cover_art.variant(::Game::COVER_VARIANT)
+      rescue StandardError
+        nil
+      end
+
+      # Larger 480px-wide cover variant for the detail card's left column.
+      def detail_cover_url
+        return nil unless cover_art_attached?
+
+        @game.cover_art.variant(::Game::DETAIL_COVER_VARIANT)
       rescue StandardError
         nil
       end
@@ -77,6 +87,29 @@ module Pito
 
       def footage_hours
         @footage_hours ||= @game.footages.sum(:duration_seconds).to_i / 3600
+      end
+
+      # The score bar and the TTB bar share one space-padded label width so their
+      # `[` brackets line up. Both labels are generated ONCE here (Pito::Copy
+      # picks a random witty variant per call) and ljust-padded to the longer of
+      # the two — specific to THIS message, not a universal width.
+      def score_bar_label
+        bar_labels.fetch(:score)
+      end
+
+      def ttb_bar_label
+        bar_labels.fetch(:ttb)
+      end
+
+      private
+
+      def bar_labels
+        @bar_labels ||= begin
+          score = Pito::Copy.render("pito.copy.game.score_label").to_s
+          ttb   = Pito::Copy.render("pito.copy.game.ttb_label").to_s
+          width = [ score.length, ttb.length ].max
+          { score: score.ljust(width), ttb: ttb.ljust(width) }
+        end
       end
     end
   end

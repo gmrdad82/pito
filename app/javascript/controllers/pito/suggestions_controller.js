@@ -589,7 +589,9 @@ export default class extends Controller {
 
     const verbWord = words[0].toLowerCase()
     const chatSpec = this._findChatSpec(verbWord)
-    if (!chatSpec) return { complete_current: "", next_hint: "" }
+    // Verb stage: a partial first word that doesn't match a verb exactly →
+    // ghost-complete it to the unique chat verb it prefixes (`sy` → `sync`).
+    if (!chatSpec) return this._freeVerbGhost(before, words)
 
     // The `list` verb's ghosts (noun completion, the `with` connector, and
     // with/sorted-by field tokens) are all computed server-side by
@@ -671,6 +673,28 @@ export default class extends Controller {
   _findChatSpec(verbWord) {
     const chatSpecs = this._catalog.chat || []
     return chatSpecs.find(s => s.name.toLowerCase() === verbWord) || null
+  }
+
+  // Verb-stage ghost: when the first word doesn't match a chat verb exactly,
+  // complete it to the unique chat verb it prefixes (`sy` → `sync`). Mirrors the
+  // server's free_verb_ghost. Silent when ambiguous (matches >1 verb) or when the
+  // user has moved past the verb (more than one word, or a trailing space).
+  _freeVerbGhost(before, words) {
+    const EMPTY = { complete_current: "", next_hint: "" }
+    if (before.endsWith(" ")) return EMPTY
+    if (words.length !== 1) return EMPTY
+
+    const partial = words[0].toLowerCase()
+    if (!partial) return EMPTY
+
+    const names = [...new Set(
+      (this._catalog.chat || [])
+        .map(s => s.name.toLowerCase())
+        .filter(name => name.startsWith(partial) && name !== partial)
+    )]
+    if (names.length !== 1) return EMPTY
+
+    return { complete_current: names[0].slice(partial.length), next_hint: "" }
   }
 
   // Extract the ordered enum slots for a chat spec.

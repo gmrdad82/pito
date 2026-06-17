@@ -74,7 +74,7 @@ RSpec.describe Pito::MessageBuilder::Video::ListHelp do
 
     it "body includes column descriptions" do
       expect(result["body"]).to include("Channel @handle")
-      expect(result["body"]).to include("Visibility")
+      expect(result["body"]).to include("Status")
       expect(result["body"]).to include("View count")
       expect(result["body"]).to include("Like count")
     end

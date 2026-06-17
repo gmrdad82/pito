@@ -10,16 +10,51 @@ RSpec.describe Pito::Chat::Handlers::List do
     )
   end
 
-  def handler_for(raw, channel: nil)
+  def handler_for(raw, channel: nil, viewport_width: nil)
     described_class.new(
-      message:      Pito::Chat::Message.new(verb: :list, body_tokens: [], kind: :new_turn, raw:),
-      conversation: Conversation.singleton,
-      channel:      channel
+      message:        Pito::Chat::Message.new(verb: :list, body_tokens: [], kind: :new_turn, raw:),
+      conversation:   Conversation.singleton,
+      channel:        channel,
+      viewport_width: viewport_width
     )
   end
 
   def video_titles(payload)
     Array(payload["table_rows"]).map { |row| row[:cells][1][:text] }
+  end
+
+  # ── Width-aware default columns ─────────────────────────────────────────────
+
+  describe "width-aware default columns" do
+    let!(:wgame) { create(:game, title: "Width Game") }
+
+    it "auto-adds columns on a wide viewport when no `with` is given" do
+      payload = handler_for("list games", viewport_width: 1300).call.events.first[:payload]
+      expect(payload["list_columns"].size).to be > 2
+    end
+
+    it "keeps the lean id+title default when the width is absent" do
+      payload = handler_for("list games", viewport_width: nil).call.events.first[:payload]
+      expect(payload["list_columns"]).to eq([])
+    end
+
+    it "keeps the lean default on a too-narrow viewport" do
+      payload = handler_for("list games", viewport_width: 300).call.events.first[:payload]
+      expect(payload["list_columns"]).to eq([])
+    end
+
+    it "lets an explicit `with` clause override the auto-fill" do
+      payload = handler_for("list games with genre", viewport_width: 1300).call.events.first[:payload]
+      expect(payload["list_columns"]).to eq([ "genre" ])
+    end
+
+    it "caps the auto-fill at the data-grid's max (6 added) even on a huge viewport" do
+      payload = handler_for("list games", viewport_width: 5000).call.events.first[:payload]
+      all = Pito::MessageBuilder::Game::ListColumns::COLUMNS.keys.map(&:to_s)
+      expect(payload["list_columns"]).to eq(all.first(6))
+      # id + title + added must stay within the grid's data-cols="8" templates.
+      expect(payload["list_columns"].size + 2).to be <= 8
+    end
   end
 
   # ── Games ─────────────────────────────────────────────────────────────────
@@ -55,6 +90,40 @@ RSpec.describe Pito::Chat::Handlers::List do
     end
   end
 
+  # ── Unknown list target ─────────────────────────────────────────────────────
+
+  describe "#call with an unrecognized noun" do
+    let!(:game) { create(:game, title: "Tears of the Kingdom") }
+
+    it "rejects `list asd` with an unknown-target message instead of listing games" do
+      result  = handler_for("list asd").call
+      payload = result.events.first[:payload]
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(payload["text"]).to include("asd")
+      expect(payload["table_rows"]).to be_blank
+    end
+
+    it "still lists games for a bare `list`" do
+      expect(handler_for("list").call.events.first[:payload]["table_rows"]).to be_present
+    end
+
+    it "rejects the singular `list video` (only the plural `list videos` is a noun)" do
+      payload = handler_for("list video").call.events.first[:payload]
+      expect(payload["text"]).to include("video")
+      expect(payload["table_rows"]).to be_blank
+    end
+
+    it "still lists games for `list games`" do
+      expect(handler_for("list games").call.events.first[:payload]["table_rows"]).to be_present
+    end
+
+    it "does not reject a valid filter token like `upcoming`" do
+      payload  = handler_for("list upcoming").call.events.first[:payload]
+      combined = "#{payload['text']}#{payload['body']}"
+      expect(combined).not_to include("Don't know how to list")
+    end
+  end
+
   describe "#call with an empty library" do
     it "returns a witty empty-state system event" do
       result = handler.call
@@ -82,7 +151,8 @@ RSpec.describe Pito::Chat::Handlers::List do
 
     it "includes 'Genre' in the table_heading" do
       payload = handler_for("list games with genre").call.events.first[:payload]
-      expect(payload["table_heading"]).to include("Genre")
+      heading_texts = payload["table_heading"].map { |h| h.is_a?(Hash) ? h["text"] : h }
+      expect(heading_texts).to include("Genre")
     end
 
     it "returns three columns in the heading (# Game Genre)" do
@@ -90,7 +160,7 @@ RSpec.describe Pito::Chat::Handlers::List do
       expect(payload["table_heading"]).to eq([
         { "text" => "#", "class" => "text-right" },
         "Game",
-        "Genre"
+        { "text" => "Genre", "class" => "pito-table-heading--added" }
       ])
     end
   end
@@ -293,9 +363,9 @@ RSpec.describe Pito::Chat::Handlers::List do
         payload = result.events.first[:payload]
         titles  = video_titles(payload)
         expect(titles).to include("Scheduled Future")
-        heading = payload["table_heading"]
-        expect(heading).to include("Channel")
-        expect(heading).to include("Visibility")
+        heading_texts = payload["table_heading"].map { |h| h.is_a?(Hash) ? h["text"] : h }
+        expect(heading_texts).to include("Channel")
+        expect(heading_texts).to include("Status")
       end
     end
 
@@ -305,14 +375,14 @@ RSpec.describe Pito::Chat::Handlers::List do
                                 duration_seconds: 300)
       end
 
-      it "includes a right-aligned 'Duration' in the table_heading" do
+      it "includes a right-aligned 'Length' in the table_heading" do
         payload = handler_for("list videos with duration", channel: "@all").call.events.first[:payload]
-        expect(payload["table_heading"]).to include({ "text" => "Duration", "class" => "text-right" })
+        expect(payload["table_heading"]).to include({ "text" => "Length", "class" => "pito-table-heading--added text-right" })
       end
 
-      it "returns a full heading row with the right-aligned Duration column appended" do
+      it "returns a full heading row with the right-aligned Length column appended" do
         payload = handler_for("list videos with duration", channel: "@all").call.events.first[:payload]
-        expect(payload["table_heading"]).to eq([ "#", "Title", { "text" => "Duration", "class" => "text-right" } ])
+        expect(payload["table_heading"]).to eq([ "#", "Title", { "text" => "Length", "class" => "pito-table-heading--added text-right" } ])
       end
     end
 
@@ -500,7 +570,7 @@ RSpec.describe Pito::Chat::Handlers::List do
         expect(payload["table_heading"]).to eq([
           { "text" => "#", "class" => "text-right" },
           "Game",
-          "Genre"
+          { "text" => "Genre", "class" => "pito-table-heading--added" }
         ])
         rows = payload["table_rows"]
         expect(rows.map { |r| r[:cells][1][:text] }).to eq([ "Alpha Game" ]) # channel-scoped
@@ -510,7 +580,8 @@ RSpec.describe Pito::Chat::Handlers::List do
       it "scope + with + sorted by a visible column all compose" do
         payload = handler_for("list games with genre sorted by genre desc", channel: "@gchana")
           .call.events.first[:payload]
-        expect(payload["table_heading"]).to include("Genre")
+        heading_texts = payload["table_heading"].map { |h| h.is_a?(Hash) ? h["text"] : h }
+        expect(heading_texts).to include("Genre")
         expect(payload["table_rows"].map { |r| r[:cells][1][:text] }).to eq([ "Alpha Game" ])
       end
     end

@@ -21,13 +21,13 @@ module Pito
         # @param conversation [Conversation] used to generate the reply handle.
         # @return [Hash] system event payload with body, html: true, and follow-up fields.
         def call(video, conversation:)
-          card_html = render_component(Pito::Video::DetailComponent.new(video: video))
-
           intro = Pito::Copy.render("pito.copy.video.detail_intro", { title: video.title })
 
-          intro_html = %(<p class="text-fg mb-2">#{ERB::Util.html_escape(intro)}</p>)
-
-          body = %(<div class="pito-video-detail-message">#{intro_html}#{card_html}</div>)
+          # The intro + timestamp live INSIDE the card's left column (above the
+          # thumbnail, capped to the thumbnail width) so the right column starts
+          # at the top beside them. The component embeds a ts-slot the event
+          # component fills with the "HH:MM ·" timestamp.
+          body = render_component(Pito::Video::DetailComponent.new(video: video, intro: intro))
 
           payload = html_payload(body: body, video_id: video.id)
 

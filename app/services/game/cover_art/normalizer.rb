@@ -1,8 +1,9 @@
 # frozen_string_literal: true
 
 # Fetches the largest IGDB cover variant for a Game, normalizes it to a
-# canonical 600×800 (3:4) JPEG via libvips, and attaches it to
-# `game.cover_art` via ActiveStorage.
+# canonical 374×499 (3:4) JPEG via libvips, and attaches it to
+# `game.cover_art` via ActiveStorage. 374px = two 180px similar-game covers
+# plus their 1rem (14px) gap, so the detail cover lines up with two of them.
 #
 # Idempotency: skips re-fetch when the attachment already exists and was
 # created after `game.igdb_synced_at` (re-sync bumps that timestamp, forcing
@@ -17,8 +18,8 @@ require "tempfile"
 class Game
   module CoverArt
     class Normalizer
-      MASTER_W       = 600
-      MASTER_H       = 800
+      MASTER_W       = 374
+      MASTER_H       = 499
       JPEG_QUALITY   = 95
       SOURCE_SIZE    = "t_cover_big_2x"
 
@@ -26,13 +27,18 @@ class Game
       READ_TIMEOUT_SEC  = 10
       WRITE_TIMEOUT_SEC = 5
 
-      def initialize(game:)
-        @game = game
+      def initialize(game:, force: false)
+        @game  = game
+        @force = force
       end
 
       def call
         return nil if @game.cover_image_id.blank?
-        return @game.cover_art if fresh?
+        # force: re-fetch + re-attach even when the current attachment is fresh
+        # (used by the cover_art:regenerate task after a size change). The new
+        # blob replaces the old; a fetch failure raises before attaching, so the
+        # existing cover is never lost.
+        return @game.cover_art if !@force && fresh?
 
         buffer = fetch_source_bytes
         img    = normalize(buffer)

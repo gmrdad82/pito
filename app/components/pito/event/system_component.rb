@@ -44,12 +44,13 @@ module Pito
         @reply_handle    = payload[:reply_handle].to_s.presence
         @reply_consumed  = Pito::FollowUp.consumed?(payload)
         @reply_target    = payload[:reply_target].to_s.presence
+        @list_footer     = payload[:list_footer].to_s.presence
         @timestamp       = event&.created_at
       end
 
       attr_reader :body, :expand_lines, :expand_detail, :expand_more_count, :table_rows, :table_heading,
                   :info_lines, :handle, :channel, :sections, :html, :reply_handle, :reply_consumed,
-                  :fixed_leading, :fixed_trailing
+                  :fixed_leading, :fixed_trailing, :list_footer
 
       def expandable?    = @expand_detail.any? || @sections.any?
       def accent         = :surface

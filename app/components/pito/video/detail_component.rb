@@ -8,8 +8,9 @@ module Pito
     # the Pito::Video MODULE. Use the fully-qualified ::Video constant to reference
     # the model — or simply receive the record as a param (preferred here).
     class DetailComponent < ViewComponent::Base
-      def initialize(video:)
+      def initialize(video:, intro: nil)
         @video = video
+        @intro = intro
       end
 
       def thumbnail_url
@@ -32,6 +33,10 @@ module Pito
       end
 
       def privacy_label
+        if @video.publish_at.present? && @video.publish_at > Time.current
+          return @video.publish_at.strftime("%d-%m-%Y")
+        end
+
         return nil if @video.privacy_status.blank?
 
         I18n.t("pito.video.detail.privacy_status.#{@video.privacy_status}", default: @video.privacy_status.to_s.capitalize)

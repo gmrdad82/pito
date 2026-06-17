@@ -14,15 +14,15 @@
           html:           html?,
           expand_detail:  expandable? ? expand_detail : [],
           expand_label:   t("pito.confirmation.expand_hint"),
-          collapse_label: t("pito.confirmation.expand_collapse_hint")
+          collapse_label: t("pito.confirmation.expand_collapse_hint"),
+          timestamp:      @timestamp
         )) %>
 
     <%# Single meta line — `timestamp · #handle` while still awaiting a reply
         (#<handle> confirm / cancel). Handle drops once consumed/resolved.
         There is NO separate usage/affordance line. %>
     <%= render(Pito::Event::MetaLineComponent.new(
-          timestamp: @timestamp,
-          handle:    (reply_handle.present? && !resolved? && !reply_consumed? ? reply_handle : nil)
+          handle: (reply_handle.present? && !resolved? && !reply_consumed? ? reply_handle : nil)
         )) %>
   </div>
 <% end %>

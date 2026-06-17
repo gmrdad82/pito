@@ -10,8 +10,8 @@ class Video < ApplicationRecord
   has_many :linked_games, through: :video_game_links, source: :game
   has_many :stats, as: :entity, dependent: :destroy
 
-  # Locally-cached thumbnail (480x270 JPEG). Attached during sync/import via
-  # Video::Thumbnail::Ingest instead of hotlinking i.ytimg.com (which 429s).
+  # Locally-cached thumbnail (374x210 JPEG, 16:9). Attached during sync/import
+  # via Video::Thumbnail::Ingest instead of hotlinking i.ytimg.com (which 429s).
   has_one_attached :thumbnail
 
   has_neighbors :summary_embedding
@@ -20,7 +20,7 @@ class Video < ApplicationRecord
   def thumbnail_variant_url
     return nil unless thumbnail.attached?
 
-    thumbnail.variant(resize_to_limit: [ 480, 270 ])
+    thumbnail.variant(resize_to_limit: [ 374, 210 ])
   rescue StandardError
     nil
   end

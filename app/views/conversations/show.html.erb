@@ -33,21 +33,26 @@
                   class: "chatbox-form" do |form| %>
       <%= form.hidden_field :uuid, value: @conversation.uuid %>
       <%= form.hidden_field :input, data: { pito__chat_form_target: "hiddenInput" } %>
+      <%# Scrollback width at send time — lets `list` auto-fill table columns to fit. %>
+      <%= form.hidden_field :viewport_width, data: { pito__chat_form_target: "viewportWidth" } %>
 
+      <%# SECURITY: only an authenticated session may see the conversation's typed
+          history, draft, and title. Unauthenticated visitors get a blank chatbox
+          (so they can /login) with none of the conversation's contents. %>
       <%
-        sent_history = @conversation.turns
+        sent_history = @authenticated ? @conversation.turns
                          .where(input_kind: [ :slash, :chat, :hashtag ])
                          .reorder(position: :desc)
                          .limit(50)
-                         .pluck(:input_text)
+                         .pluck(:input_text) : []
       %>
       <%= render(Pito::Shell::ChatboxComponent.new(
             state: :default,
             filter: filter,
             input_data: { pito__chat_form_target: "inputField" },
-            initial_value: @conversation.draft.to_s,
+            initial_value: @authenticated ? @conversation.draft.to_s : "",
             draft_uuid: @conversation.uuid,
-            conversation_title: (@conversation.named? ? @conversation.display_name : nil),
+            conversation_title: @authenticated ? (@conversation.named? ? @conversation.display_name : nil) : nil,
             history: sent_history
           )) %>
     <% end %>

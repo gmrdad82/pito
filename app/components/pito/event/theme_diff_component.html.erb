@@ -8,6 +8,7 @@
           The previewed row gets a bordered surface-background highlight and its
           marker is a diff cell (data-from = row without marker, textContent =
           with marker). Non-previewed rows are plain spans — no diff cell. %>
+      <%= render(Pito::Event::TimestampPrefixComponent.new(timestamp: @event&.created_at)) %>
       <div class="flex flex-col gap-3">
         <% @sections.each do |section| %>
           <div class="flex flex-col gap-1">
@@ -39,22 +40,21 @@
     <% elsif apply? %>
       <%# Apply phase: single confirmation line as one diff cell.
           data-from = the old list's plain text; textContent = the quip. %>
-      <span class="text-fg"
+      <%= render(Pito::Event::TimestampPrefixComponent.new(timestamp: @event&.created_at)) %><span class="text-fg"
             data-pito--diff-reveal-target="cell"
             data-from="<%= @from_text %>"><%= @body %></span>
 
     <% else %>
       <%# Fallback: render body as plain text if phase is unrecognized %>
-      <span class="text-fg"><%= @body.presence || @from_text %></span>
+      <%= render(Pito::Event::TimestampPrefixComponent.new(timestamp: @event&.created_at)) %><span class="text-fg"><%= @body.presence || @from_text %></span>
     <% end %>
   </div>
 
   <%# Single meta line — `timestamp · #handle` (handle only while still
       routable, i.e. preview phase; apply is consumed). No usage line. %>
-  <% if @event&.created_at || followupable? %>
+  <% if followupable? %>
     <%= render(Pito::Event::MetaLineComponent.new(
-          timestamp: @event&.created_at,
-          handle:    (followupable? ? @reply_handle : nil)
+          handle: (followupable? ? @reply_handle : nil)
         )) %>
   <% end %>
 <% end %>

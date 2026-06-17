@@ -27,7 +27,7 @@ import { Controller } from "@hotwired/stimulus"
 import { isAuthenticated } from "pito/auth"
 
 export default class extends Controller {
-  static targets = ["inputField", "hiddenInput", "channelDisplay", "periodDisplay", "channelInput", "periodInput"]
+  static targets = ["inputField", "hiddenInput", "channelDisplay", "periodDisplay", "channelInput", "periodInput", "viewportWidth"]
 
   static values = {
     channels: Array,
@@ -166,5 +166,12 @@ export default class extends Controller {
 
   #syncHidden() {
     this.hiddenInputTarget.value = this.inputFieldTarget.value
+
+    // Tell the backend how wide the scrollback is right now, so `list` can
+    // auto-fill table columns to fit (the table isn't sparse on a wide screen).
+    if (this.hasViewportWidthTarget) {
+      const scrollback = document.getElementById("pito-scrollback")
+      this.viewportWidthTarget.value = scrollback ? scrollback.clientWidth : ""
+    }
   }
 }

@@ -21,13 +21,13 @@ module Pito
         # @param conversation [Conversation] used to generate the reply handle.
         # @return [Hash] system event payload with body, html: true, and follow-up fields.
         def call(game, conversation:)
-          card_html = render_component(Pito::Game::DetailComponent.new(game: game))
-
           intro = Pito::Copy.render("pito.copy.game.detail_intro", { title: game.title })
 
-          intro_html = %(<p class="text-fg mb-2">#{ERB::Util.html_escape(intro)}</p>)
-
-          body = %(<div class="pito-game-detail-message">#{intro_html}#{card_html}</div>)
+          # The intro + timestamp live INSIDE the card's left column (above the
+          # cover, capped to the cover width) so the right column starts at the
+          # top beside them. The component embeds a ts-slot the event component
+          # fills with the "HH:MM ·" timestamp.
+          body = render_component(Pito::Game::DetailComponent.new(game: game, intro: intro))
 
           payload = html_payload(body: body, game_id: game.id)
 
