@@ -65,19 +65,22 @@ module Pito
             value:   ->(g) { Pito::Game::PlatformTokens.icons_html(g.platforms) }
           },
           genre:        {
-            aliases: %w[genre genres],
-            heading: "Genre",
-            value:   ->(g) { g.genres.map(&:name).join(", ") }
+            aliases:    %w[genre genres],
+            heading:    "Genre",
+            cell_class: "text-fg-dim pito-cell-genre",
+            value:      ->(g) { g.genres.map(&:name).join(", ") }
           },
           developer:    {
-            aliases: %w[developer dev],
-            heading: "Developer",
-            value:   ->(g) { g.developer_companies.map(&:name).join(", ") }
+            aliases:    %w[developer dev],
+            heading:    "Developer",
+            cell_class: "text-fg-dim pito-cell-developer",
+            value:      ->(g) { g.developer_companies.map(&:name).join(", ") }
           },
           publisher:    {
-            aliases: %w[publisher],
-            heading: "Publisher",
-            value:   ->(g) { g.publisher_companies.map(&:name).join(", ") }
+            aliases:    %w[publisher],
+            heading:    "Publisher",
+            cell_class: "text-fg-dim pito-cell-publisher",
+            value:      ->(g) { g.publisher_companies.map(&:name).join(", ") }
           },
           channels:     {
             aliases:    %w[channel channels],
@@ -87,7 +90,7 @@ module Pito
             value:      ->(g) { g.linked_videos.map { |v| v.channel&.handle }.compact.uniq.map { |h| ERB::Util.html_escape(h) }.join("<br>") }
           },
           release_date: {
-            aliases: [ "release date" ],
+            aliases: [ "release", "release date" ],
             heading: "Release",
             align:   :right,
             value:   ->(g) { Pito::Formatter::ReleaseDate.call(g).to_s }
@@ -165,14 +168,28 @@ module Pito
         #
         # @param cols [Array<Symbol>] ordered canonical column keys
         # @return [Array<String, Hash>]
+        # Added columns get the cyan `--added` heading class so they read as
+        # distinct from the two faded fixed columns (id/title).
         def heading_cells(cols)
           cols.map do |col|
-            cfg = COLUMNS.fetch(col)
-            if cfg[:align] == :right
-              { "text" => cfg[:heading], "class" => "text-right" }
-            else
-              cfg[:heading]
-            end
+            cfg   = COLUMNS.fetch(col)
+            klass = "pito-table-heading--added"
+            klass += " text-right" if cfg[:align] == :right
+            { "text" => cfg[:heading], "class" => klass }
+          end
+        end
+
+        # Witty footer copy naming the columns that can still be added — or the
+        # "everything's shown" variant when none remain. `shown` is the canonical
+        # added columns currently in the table (id/title excluded). Recomputes on
+        # every List.call, so add/remove follow-ups update it automatically.
+        def addable_footer(shown)
+          addable = COLUMNS.keys - shown
+          if addable.any?
+            names = addable.map { |c| COLUMNS.fetch(c)[:heading].to_s.downcase }.join(", ")
+            Pito::Copy.render("pito.copy.list.addable_columns_hint", columns: names)
+          else
+            Pito::Copy.render("pito.copy.list.all_columns_shown")
           end
         end
 

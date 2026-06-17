@@ -92,8 +92,17 @@ module Pito
         candidates = registry.suggestion_tokens - already_used
 
         ghost = build_ghost(candidates, partial)
-        { menu_items: [], ghost: ghost }
+        { menu_items: action_menu_items(candidates, partial), ghost: ghost }
       end
+
+      # Menu palette of the column candidates that match the partial (all of them
+      # when the partial is empty) — mirrors the verb-stage follow-up menu so
+      # `#<handle> add `/`remove ` surface a picker, not just an inline ghost.
+      def action_menu_items(candidates, partial)
+        matching = partial.empty? ? candidates : candidates.select { |c| c.to_s.start_with?(partial) }
+        matching.map { |c| { label: c.to_s, insert: "#{c} ", description: "", masked: false } }
+      end
+      private_class_method :action_menu_items
 
       # ── Hashtag sort/order ghost ────────────────────────────────────────────────
 

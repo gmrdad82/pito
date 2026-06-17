@@ -45,6 +45,20 @@ module Pito
           "scheduled" => :scheduled
         }.freeze
 
+        # Width-aware column auto-fill. With no `with` clause, `list` fills
+        # canonical-order columns to a budget derived from the scrollback width
+        # (`viewport_width`, px) so the table isn't sparse — more columns on a
+        # wider viewport. COLUMN_BASE_PX is the room the fixed id+title columns
+        # want; COLUMN_PER_PX is one added column's rough share of the rest.
+        #
+        # MAX_AUTOFILL_COLS caps the count at what the `.pito-data-grid` CSS can
+        # render: it defines templates only up to data-cols="8" (id + title +
+        # SIX added). Going past that drops to the 2-column fallback and the grid
+        # visibly busts — so auto-fill never exceeds six added columns.
+        MAX_AUTOFILL_COLS = 6
+        COLUMN_BASE_PX    = 360
+        COLUMN_PER_PX     = 200
+
         def call
           # The noun (channels/videos/games) is whatever precedes the first clause
           # keyword. A `with <columns>` clause may legitimately contain "channels"
@@ -52,14 +66,23 @@ module Pito
           # the noun — otherwise `list games with channels` routes to `list channels`.
           head = noun_head(message.raw)
           return list_channels  if head.match?(/\bchannels?\b/i)
-          return list_videos    if head.match?(/\bvideos?\b/i)
+          # Require the plural "videos" — "list video" (singular) is NOT a valid
+          # noun and falls through to the unknown-noun handler below.
+          return list_videos    if head.match?(/\bvideos\b/i)
           return games_list_help if message.raw.match?(/(?:\A|\s)--help(?:\s|\z)/)
+
+          # Reject an unrecognized noun (e.g. `list asd`) instead of silently
+          # listing all games. Checked against the head only, so `with <columns>`
+          # / `sorted by` clauses never trip it.
+          unknown = Pito::Chat::GameListFilter.unrecognized_tokens(head)
+          return unknown_list_target(unknown) if unknown.any?
 
           filtered = Pito::Chat::GameListFilter.filtered?(message.raw)
           columns  = Pito::Chat::WithColumns.parse(
             message.raw,
             vocabulary: Pito::MessageBuilder::Game::ListColumns.vocabulary
           )
+          columns  = auto_filled_columns(Pito::MessageBuilder::Game::ListColumns) if columns.empty?
           games    = Pito::Chat::GameListFilter.call(message.raw)
 
           games, error = scope_games_to_channel(games)
@@ -109,6 +132,25 @@ module Pito
           raw.to_s.split(/\b(?:with|sorted\s+by|ordered\s+by)\b/i, 2).first.to_s
         end
 
+        # With no `with` clause, auto-fill the first N canonical columns, where N
+        # is the width-derived budget. COLUMNS.keys is already canonical order, so
+        # this respects it. Explicit `with` columns bypass this entirely.
+        def auto_filled_columns(list_columns)
+          all_cols = list_columns::COLUMNS.keys
+          cap      = [ all_cols.size, MAX_AUTOFILL_COLS ].min
+          all_cols.first(column_budget(cap))
+        end
+
+        # Number of columns the scrollback width can hold — 0 when the width is
+        # unknown or too narrow (keeps the lean id+title default), capped at `max`
+        # so a very wide viewport simply shows them all.
+        def column_budget(max)
+          width = viewport_width.to_i
+          return 0 if width <= 0
+
+          ((width - COLUMN_BASE_PX) / COLUMN_PER_PX).clamp(0, max)
+        end
+
         # `list videos [published|unlisted|scheduled] [with <col>, …]`
         #
         # 1. Resolve channel scope from `self.channel`.
@@ -129,6 +171,7 @@ module Pito
             message.raw,
             vocabulary: Pito::MessageBuilder::Video::ListColumns.vocabulary
           )
+          columns = auto_filled_columns(Pito::MessageBuilder::Video::ListColumns) if columns.empty?
 
           # Order; always eager-load :channel; also load :linked_games and :stats
           # when extra columns are requested to avoid N+1 queries.
@@ -279,6 +322,16 @@ module Pito
           Pito::Chat::Result::Ok.new(events: [
             { kind: :system, payload: Pito::MessageBuilder::Text.call("pito.copy.games.list_filter_empty") }
           ])
+        end
+
+        # `list <unknown>` — the noun is neither channels/videos/games nor a
+        # recognized games filter term. Surface an error instead of all games.
+        def unknown_list_target(tokens)
+          payload = Pito::MessageBuilder::Text.call(
+            "pito.copy.list.unknown_target",
+            target: tokens.join(" ")
+          )
+          Pito::Chat::Result::Ok.new(events: [ { kind: :system, payload: } ])
         end
       end
     end

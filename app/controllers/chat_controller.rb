@@ -31,7 +31,17 @@ class ChatController < ApplicationController
       if login_command?(input)
         # Auth stays synchronous — it mints the session cookie, which can only be
         # set on the HTTP response (a background job can't set cookies).
+        was_authenticated = Current.session.present?
         handle_login(input, conversation)
+
+        # On a conversation page, a successful login flips the visitor from
+        # unauthenticated to authenticated. The scrollback was withheld while
+        # unauthenticated and a live broadcast can't backfill the existing
+        # history — so reload the conversation to render it now.
+        if params[:uuid].present? && !was_authenticated && Current.session.present?
+          return render_turbo_navigate(conversation_path(uuid: conversation.uuid))
+        end
+
         return respond_to_client(conversation)
       end
 
@@ -130,16 +140,18 @@ class ChatController < ApplicationController
     input_kind = input.start_with?("/") ? :slash : :chat
     channel = input_kind == :chat ? (params[:channel].presence || "@all") : nil
     period  = input_kind == :chat ? params[:period].presence : nil
+    # Scrollback width at send time, so `list` can auto-fill columns to fit.
+    viewport_width = input_kind == :chat ? params[:viewport_width].presence : nil
     # T47.3: clear any persisted draft when a real message is sent.
     conversation.update_column(:draft, nil) if conversation.draft.present?
-    enqueue_turn(input, conversation, input_kind:, authenticated:, echo_text:, channel:, period:)
+    enqueue_turn(input, conversation, input_kind:, authenticated:, echo_text:, channel:, period:, viewport_width:)
   end
 
   def handle_hashtag(input, conversation)
-    enqueue_turn(input, conversation, input_kind: :hashtag, authenticated: Current.session.present?, echo_text: input, channel: nil, period: nil)
+    enqueue_turn(input, conversation, input_kind: :hashtag, authenticated: Current.session.present?, echo_text: input, channel: nil, period: nil, viewport_width: nil)
   end
 
-  def enqueue_turn(input, conversation, input_kind:, authenticated:, echo_text:, channel:, period:)
+  def enqueue_turn(input, conversation, input_kind:, authenticated:, echo_text:, channel:, period:, viewport_width: nil)
     turn = conversation.turns.create!(
       position:   Turn.next_position_for(conversation),
       input_kind:,
@@ -161,7 +173,7 @@ class ChatController < ApplicationController
     broadcaster.emit_thinking(turn:, dictionary: input_kind.to_s)
 
     # T23.4: enqueue job — auth gating decided here, applied in the worker.
-    ChatDispatchJob.perform_later(turn.id, channel:, period:, authenticated:)
+    ChatDispatchJob.perform_later(turn.id, channel:, period:, authenticated:, viewport_width:)
   end
 
   # ── Conversation resolution ─────────────────────────────────────────────────

@@ -36,7 +36,9 @@ RSpec.describe Pito::MessageBuilder::Video::Detail do
 
     it "includes the witty intro with the video title in body" do
       expect(payload["body"]).to include("Test Video")
-      expect(payload["body"]).to include("<p")
+      # Intro now lives inside the card's left column, with a timestamp slot.
+      expect(payload["body"]).to include("pito-video-detail__intro")
+      expect(payload["body"]).to include("data-pito-ts-slot")
     end
 
     it "has a reply_handle in the payload" do

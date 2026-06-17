@@ -39,13 +39,14 @@ module Pito
       extend Pito::Grammar::HandlerDsl
       include Pito::Chat::TargetResolution
 
-      attr_reader :message, :conversation, :channel, :follow_up
+      attr_reader :message, :conversation, :channel, :follow_up, :viewport_width
 
-      def initialize(message:, conversation:, channel: nil, follow_up: nil)
+      def initialize(message:, conversation:, channel: nil, follow_up: nil, viewport_width: nil)
         @message = message
         @conversation = conversation
         @channel = channel
         @follow_up = follow_up
+        @viewport_width = viewport_width
       end
 
       # True when this verb was invoked from a `#<handle>` follow-up reply rather

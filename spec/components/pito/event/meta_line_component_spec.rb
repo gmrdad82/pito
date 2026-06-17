@@ -3,24 +3,8 @@
 require "rails_helper"
 
 RSpec.describe Pito::Event::MetaLineComponent do
-  describe "timestamp" do
-    it "renders a formatted time span when timestamp is present" do
-      ts = Time.zone.parse("2026-06-01 19:58:00")
-      node = render_inline(described_class.new(timestamp: ts))
-      expect(node.css("span.text-fg-faded").map(&:text)).to include("7:58 PM")
-    end
-
-    it "does not render a timestamp span when timestamp is nil" do
-      node = render_inline(described_class.new(timestamp: nil))
-      expect(node.css("span.text-fg-faded").map(&:text)).not_to include(match(/\d+:\d+/))
-    end
-
-    it "formats single-digit hours without leading zero" do
-      ts = Time.zone.parse("2026-06-01 09:05:00")
-      node = render_inline(described_class.new(timestamp: ts))
-      expect(node.css("span.text-fg-faded").map(&:text)).to include("9:05 AM")
-    end
-  end
+  # The timestamp now rides inline on the first line via TimestampPrefixComponent;
+  # this footer carries only handle/channel (see timestamp_prefix_component_spec).
 
   describe "handle" do
     it "renders the handle in purple via HandleComponent when present" do
@@ -30,7 +14,7 @@ RSpec.describe Pito::Event::MetaLineComponent do
       expect(purple.text).to eq("#alpha-42")
     end
 
-    it "does not render a handle span when handle is nil" do
+    it "does not render anything when handle is nil and no channel" do
       node = render_inline(described_class.new(handle: nil))
       expect(node.css("span.text-purple")).to be_empty
     end
@@ -47,28 +31,26 @@ RSpec.describe Pito::Event::MetaLineComponent do
     end
 
     it "does not render the hint when there is no handle" do
-      node = render_inline(described_class.new(timestamp: Time.current, channel: "all"))
+      node = render_inline(described_class.new(channel: "all"))
       expect(node.css("[data-pito-lasthashtag-hint]")).to be_empty
     end
   end
 
   describe "separator (·)" do
-    it "renders a · separator before the handle when timestamp is also present" do
-      ts = Time.zone.parse("2026-06-01 19:58:00")
-      node = render_inline(described_class.new(timestamp: ts, handle: "beta-1"))
-      expect(node.to_html).to include("·")
-    end
-
-    it "renders a · separator before @channel when timestamp is also present" do
-      ts = Time.zone.parse("2026-06-01 19:58:00")
-      node = render_inline(described_class.new(timestamp: ts, channel: "all"))
-      expect(node.to_html).to include("·")
-    end
-
     it "renders a · separator between handle and @channel when both are present" do
       node = render_inline(described_class.new(handle: "gamma-5", channel: "manfyhard"))
       separators = node.to_html.scan("·")
       expect(separators.size).to be >= 1
+    end
+
+    it "renders no separator when only a handle is present" do
+      node = render_inline(described_class.new(handle: "beta-1"))
+      expect(node.to_html).not_to include("·")
+    end
+
+    it "renders no separator when only a channel is present" do
+      node = render_inline(described_class.new(channel: "all"))
+      expect(node.to_html).not_to include("·")
     end
   end
 
@@ -91,14 +73,9 @@ RSpec.describe Pito::Event::MetaLineComponent do
     end
   end
 
-  describe "all three present" do
+  describe "handle and channel present" do
     subject(:node) do
-      ts = Time.zone.parse("2026-06-01 14:30:00")
-      render_inline(described_class.new(timestamp: ts, handle: "delta-9", channel: "all"))
-    end
-
-    it "renders the formatted timestamp" do
-      expect(node.css("span.text-fg-faded").map(&:text)).to include("2:30 PM")
+      render_inline(described_class.new(handle: "delta-9", channel: "all"))
     end
 
     it "renders the handle in purple" do
@@ -109,15 +86,14 @@ RSpec.describe Pito::Event::MetaLineComponent do
       expect(node.css("span.text-cyan").first.text).to eq("@all")
     end
 
-    it "includes at least two separators" do
-      expect(node.to_html.scan("·").size).to be >= 2
+    it "includes at least one separator" do
+      expect(node.to_html.scan("·").size).to be >= 1
     end
   end
 
   describe "all nil (empty)" do
-    it "renders nothing meaningful — no timestamp, handle, or channel spans" do
+    it "renders nothing — no handle or channel spans" do
       node = render_inline(described_class.new)
-      expect(node.css("span.text-fg-faded")).to be_empty
       expect(node.css("span.text-purple")).to be_empty
       expect(node.css("span.text-cyan")).to be_empty
     end

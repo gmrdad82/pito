@@ -19,7 +19,8 @@ module Pito
     class ExpandableBodyComponent < ViewComponent::Base
       def initialize(body: nil, expand_lines: [], expand_detail: [],
                      expand_more_count: 0, expand_label: "", collapse_label: "",
-                     html: false, typewriter: false, owner_controller: true)
+                     html: false, typewriter: false, owner_controller: true,
+                     timestamp: nil)
         @body              = body
         @html              = html == true || html == "true"
         @typewriter        = typewriter && !@html
@@ -29,6 +30,35 @@ module Pito
         @expand_more_count = expand_more_count
         @expand_label      = expand_label
         @collapse_label    = collapse_label
+        @timestamp         = timestamp
+      end
+
+      # Inline "HH:MM ·" prefix rendered before the body's first line. Renders
+      # nothing when no timestamp was supplied (the common case for non-event callers).
+      def timestamp_prefix
+        @timestamp_prefix ||= render(Pito::Event::TimestampPrefixComponent.new(timestamp: @timestamp))
+      end
+
+      # Detail cards embed `<span data-pito-ts-slot></span>` inside their left
+      # column so the timestamp lands THERE (beside the intro, within the cover
+      # column) instead of leading the whole card. When the body carries that
+      # slot, fill it and suppress the leading prefix.
+      TS_SLOT = "<span data-pito-ts-slot></span>"
+
+      def ts_slot?
+        @body.to_s.include?("data-pito-ts-slot")
+      end
+
+      # The prefix shown BEFORE the body — empty when the body fills its own slot.
+      def leading_prefix
+        ts_slot? ? "".html_safe : timestamp_prefix
+      end
+
+      # The body with the timestamp slot filled (no-op when there is no slot).
+      def filled_body
+        return @body unless ts_slot?
+
+        @body.to_s.sub(TS_SLOT, timestamp_prefix.to_s).html_safe
       end
 
       def expandable?      = @expand_detail.any?

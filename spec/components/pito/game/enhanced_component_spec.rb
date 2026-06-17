@@ -155,6 +155,15 @@ RSpec.describe Pito::Game::EnhancedComponent do
       expect(data_ids).to include(sg1.id.to_s, sg2.id.to_s)
     end
 
+    it "puts the id and title on one line separated by ·" do
+      node = render_component
+      lines = node.css(".pito-game-enhanced-message__similar-game-line")
+      expect(lines).not_to be_empty
+      lines.each do |line|
+        expect(line.text.gsub(/\s+/, " ").strip).to match(/\A#\d+ · .+/)
+      end
+    end
+
     context "when a similar game has no cover art attached" do
       it "renders a placeholder div instead of an img tag" do
         node = render_component

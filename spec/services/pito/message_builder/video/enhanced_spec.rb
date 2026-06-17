@@ -23,7 +23,7 @@ RSpec.describe Pito::MessageBuilder::Video::Enhanced do
 
     it "is an HTML payload (the Enhanced slot always renders HTML)" do
       expect(payload["html"]).to be(true)
-      expect(payload["body"]).to include('class="pito-video-enhanced-message"')
+      expect(payload["body"]).to include("pito-video-enhanced-message")
     end
   end
 end

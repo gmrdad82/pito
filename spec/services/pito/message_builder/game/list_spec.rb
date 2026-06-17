@@ -62,8 +62,8 @@ RSpec.describe Pito::MessageBuilder::Game::List do
       expect(payload["table_heading"]).to eq([
         { "text" => "#", "class" => "text-right" },
         "Game",
-        "Genre",
-        { "text" => "Year", "class" => "text-right" }
+        { "text" => "Genre", "class" => "pito-table-heading--added" },
+        { "text" => "Year", "class" => "pito-table-heading--added text-right" }
       ])
     end
 
@@ -213,12 +213,12 @@ RSpec.describe Pito::MessageBuilder::Game::List do
 
     it "Year heading is a right-aligned hash" do
       year_entry = payload["table_heading"].find { |h| h.is_a?(Hash) && h["text"] == "Year" }
-      expect(year_entry).to eq({ "text" => "Year", "class" => "text-right" })
+      expect(year_entry).to eq({ "text" => "Year", "class" => "pito-table-heading--added text-right" })
     end
 
     it "Release heading is a right-aligned hash" do
       release_entry = payload["table_heading"].find { |h| h.is_a?(Hash) && h["text"] == "Release" }
-      expect(release_entry).to eq({ "text" => "Release", "class" => "text-right" })
+      expect(release_entry).to eq({ "text" => "Release", "class" => "pito-table-heading--added text-right" })
     end
 
     it "Year cell is right-aligned with tabular-nums" do
@@ -257,7 +257,7 @@ RSpec.describe Pito::MessageBuilder::Game::List do
     end
 
     it "includes a right-aligned Footage heading entry" do
-      expect(payload["table_heading"]).to include({ "text" => "Footage", "class" => "text-right" })
+      expect(payload["table_heading"]).to include({ "text" => "Footage", "class" => "pito-table-heading--added text-right" })
     end
 
     it "footage cell has text-right, tabular-nums, and pito-cell-duration classes" do

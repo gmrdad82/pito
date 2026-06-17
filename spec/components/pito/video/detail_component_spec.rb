@@ -120,12 +120,38 @@ RSpec.describe Pito::Video::DetailComponent do
     end
   end
 
-  describe "KV table" do
-    it "renders a grid KV table" do
+  describe "KV table (left column)" do
+    it "renders a grid KV table without the title (title moved to the right column)" do
       node = render_inline(described_class.new(video: video))
-      grid = node.css("div.grid.grid-cols-\\[max-content_1fr\\]").first
+      grid = node.css(".pito-video-detail__left div.grid.grid-cols-\\[max-content_1fr\\]").first
       expect(grid).not_to be_nil
-      expect(grid.text).to include("Title")
+      expect(grid.text).not_to include("Title")
+    end
+  end
+
+  describe "right column" do
+    it "renders the title in the right column" do
+      node  = render_inline(described_class.new(video: video))
+      right = node.css(".pito-video-detail__right").first
+      expect(right).not_to be_nil
+      expect(right.text).to include("My Awesome Let's Play")
+    end
+
+    it "renders a Description label above the description" do
+      node  = render_inline(described_class.new(video: video))
+      right = node.css(".pito-video-detail__right").first
+      expect(right.text).to include("Description")
+      expect(right.text).to include("A test description.")
+    end
+  end
+
+  describe "stats (one row)" do
+    it "renders views/likes/comments on one line with · separators" do
+      node  = render_inline(described_class.new(video: video))
+      stats = node.css(".pito-video-detail__stats").first
+      expect(stats).not_to be_nil
+      expect(stats.text).to include("·")
+      expect(stats.text).to include("Views")
     end
   end
 

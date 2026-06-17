@@ -1,8 +1,9 @@
 <%# Pito::Game::EnhancedComponent — rich recommendations message after Voyage indexing %>
+<%# Intro leads inline (outside the flex wrapper) so the event timestamp
+    ("HH:MM ·", rendered before the body) sits on the SAME row as it; the rest of
+    the enhanced message follows as a block below. %>
+<span class="pito-game-enhanced-message__intro text-fg"><%= intro %></span>
 <div class="pito-game-enhanced-message">
-
-  <%# 1. Intro line %>
-  <p class="pito-game-enhanced-message__intro text-fg"><%= intro %></p>
 
   <% if channels? %>
     <%# 2. Spacer + channel section header %>
@@ -47,11 +48,13 @@
               ?
             </div>
           <% end %>
-          <div class="pito-game-enhanced-message__similar-game-title text-fg">
-            <%= result.game.title %>
-          </div>
-          <div class="pito-game-enhanced-message__similar-game-id text-fg-faded">
-            #<%= result.game.id %>
+          <%# id and title on one line: "#12 · Elden Ring". Flex keeps the id and
+              · fixed while the title truncates; flex also suppresses the monospace
+              inter-element whitespace gap. %>
+          <div class="pito-game-enhanced-message__similar-game-line">
+            <span class="pito-game-enhanced-message__similar-game-id text-fg-faded">#<%= result.game.id %></span>
+            <%= render(Pito::Shell::InlineSeparatorComponent.new) %>
+            <span class="pito-game-enhanced-message__similar-game-title text-fg"><%= result.game.title %></span>
           </div>
         </div>
       <% end %>

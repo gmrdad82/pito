@@ -561,7 +561,11 @@ module Pito
           return { menu_items: [], ghost: EMPTY_GHOST } unless first_word
 
           spec = Pito::Grammar::Registry.specs_for_alias(namespace: :chat, token: first_word)
-          return { menu_items: [], ghost: EMPTY_GHOST } unless spec
+          unless spec
+            # Verb stage: the first word doesn't resolve to a chat verb yet —
+            # ghost-complete it to the unique verb it prefixes (`sy` → `sync`).
+            return { menu_items: [], ghost: free_verb_ghost(text, word_tokens) }
+          end
 
           if spec.name == :list && (g = Pito::Suggestions::ListClauseGhost.ghost(text))
             return { menu_items: [], ghost: g }
@@ -569,6 +573,29 @@ module Pito
 
           ghost = compute_ghost(text, spec, tokens, authenticated:)
           { menu_items: [], ghost: ghost }
+        end
+
+        # Verb-stage ghost for free (non-slash) input. When the user is still
+        # typing the first word (single token, no trailing space) and it doesn't
+        # resolve to a chat verb, complete it to the unique chat verb it prefixes.
+        # Mirrors the slash verb-stage prefix match (`verb_stage_completions`),
+        # expressed as ghost text instead of a palette. Stays silent when the
+        # prefix is ambiguous (matches more than one verb).
+        def free_verb_ghost(text, word_tokens)
+          return EMPTY_GHOST if text.end_with?(" ")
+          return EMPTY_GHOST unless word_tokens.size == 1
+
+          partial = word_tokens.first.value.to_s.downcase
+          return EMPTY_GHOST if partial.empty?
+
+          names = Pito::Grammar::Registry.specs(namespace: :chat)
+            .map { |spec| spec.name.to_s }
+            .select { |name| name.start_with?(partial) && name != partial }
+            .uniq
+
+          return EMPTY_GHOST unless names.size == 1
+
+          { complete_current: names.first[partial.length..], next_hint: "" }
         end
 
         # Compute ghost text for a matched chat spec.

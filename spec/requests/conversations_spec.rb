@@ -140,6 +140,11 @@ RSpec.describe "Conversation requests", type: :request do
       conversation.turns.create!(position: 2, input_kind: :chat,  input_text: "what is my top channel?")
       conversation.turns.create!(position: 3, input_kind: :slash, input_text: "/config sound off")
 
+      # History is only exposed to an authenticated session (security).
+      seed = ROTP::Base32.random_base32
+      AppSetting.enroll_totp!(seed: seed)
+      post "/chat", params: { input: "/login #{ROTP::TOTP.new(seed).now}" }
+
       get conversation_path(uuid: conversation.uuid)
 
       attr_match = response.body.match(/data-pito--history-entries-value="([^"]*)"/)
@@ -169,6 +174,11 @@ RSpec.describe "Conversation requests", type: :request do
       conversation.events.create!(turn: turn_b, position: 4, kind: :system,
                                   payload: { message_key: "pito.chat.list.descriptions.list", message_args: {} })
 
+      # The scrollback is only rendered to an authenticated session (security).
+      seed = ROTP::Base32.random_base32
+      AppSetting.enroll_totp!(seed: seed)
+      post "/chat", params: { input: "/login #{ROTP::TOTP.new(seed).now}" }
+
       get conversation_path(uuid: conversation.uuid)
 
       expect(response.body).to include(%(id="turn_#{turn_a.id}"))
@@ -176,6 +186,64 @@ RSpec.describe "Conversation requests", type: :request do
       # turn_a container appears before turn_b container.
       expect(response.body.index(%(id="turn_#{turn_a.id}")))
         .to be < response.body.index(%(id="turn_#{turn_b.id}"))
+    end
+  end
+
+  # ── Security: an UNAUTHENTICATED visitor must NOT see a conversation's contents ─
+  # /chat/:uuid stays reachable (so a visitor can /login), but the scrollback,
+  # typed-command history, and draft are withheld until authenticated.
+  describe "GET /chat/:uuid — unauthenticated visitors get no contents" do
+    let(:conversation) { create(:conversation, draft: "secret draft text") }
+
+    before do
+      turn = conversation.turns.create!(position: 1, input_kind: :chat, input_text: "secret typed command")
+      conversation.events.create!(turn:, position: 1, kind: :echo,   payload: { text: "secret echo" })
+      conversation.events.create!(turn:, position: 2, kind: :system, payload: { text: "secret result body" })
+      get conversation_path(uuid: conversation.uuid) # no /login → unauthenticated
+    end
+
+    it "renders no scrollback turn containers or event bodies" do
+      expect(response.body).not_to include("pito-turn")
+      expect(response.body).not_to include("secret result body")
+      expect(response.body).not_to include("secret echo")
+    end
+
+    it "withholds the typed-command history (empty array)" do
+      expect(response.body).not_to include("secret typed command")
+      expect(response.body).to include('data-pito--history-entries-value="[]"')
+    end
+
+    it "withholds the draft" do
+      expect(response.body).not_to include("secret draft text")
+    end
+
+    it "still renders the login chatbox so the visitor can authenticate" do
+      expect(response.body).to include("chatbox-form")
+    end
+  end
+
+  # ── /login on a conversation page reloads it so the scrollback appears ───────
+  describe "POST /chat — /login on /chat/:uuid reloads the conversation" do
+    it "responds with a Turbo navigate to the conversation after a successful login" do
+      conversation = create(:conversation)
+      seed = ROTP::Base32.random_base32
+      AppSetting.enroll_totp!(seed: seed)
+
+      post "/chat", params: { input: "/login #{ROTP::TOTP.new(seed).now}", uuid: conversation.uuid }
+
+      expect(response.media_type).to eq("text/vnd.turbo-stream.html")
+      expect(response.body).to include('action="navigate"')
+      expect(response.body).to include(conversation_path(uuid: conversation.uuid))
+    end
+
+    it "does NOT navigate for a failed login (wrong code) — stays put" do
+      conversation = create(:conversation)
+      seed = ROTP::Base32.random_base32
+      AppSetting.enroll_totp!(seed: seed)
+
+      post "/chat", params: { input: "/login 000000", uuid: conversation.uuid }
+
+      expect(response.body).not_to include('action="navigate"')
     end
   end
 

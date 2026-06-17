@@ -12,7 +12,9 @@ module Pito
     #      The `spacing:` param controls the mt/pt value (default "1.5").
     #
     #   2. **Standalone hairline** (`hairline: true`):
-    #      Renders a `div.h-px bg-line-default` with optional `my-{my}` spacing.
+    #      Renders a 1px rule (`div.h-px`) with optional `my-{my}` spacing. The
+    #      `tone:` param picks the colour — `:faded` (bg-line-faded) reads as a
+    #      barely-there hairline; `:default` (bg-line-default) is the firmer rule.
     #
     # Tones:
     #   :default — border-line-default  (opaque divider)
@@ -62,8 +64,10 @@ module Pito
       private
 
       def hairline_tag
-        classes = [ "h-px", "bg-line-default" ]
+        bg = @tone == :faded ? "bg-line-faded" : "bg-line-default"
+        classes = [ "h-px", bg ]
         classes << "my-#{@my}" if @my.present?
+        classes << @extra_classes if @extra_classes.present?
         tag.div(class: classes.join(" "))
       end
 

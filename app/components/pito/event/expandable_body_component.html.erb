@@ -8,13 +8,13 @@
     <% if @body || @expand_lines.any? %>
       <% if typewriter? %>
         <div<% if owns_controller? %> data-controller="pito--typewriter"<% end %>>
-          <span class="text-fg" data-pito--typewriter-target="body"><%= @body %></span>
+          <%= leading_prefix %><span class="text-fg" data-pito--typewriter-target="body"><%= @body %></span>
           <% @expand_lines.each do |line| %>
             <div class="text-fg" data-pito--typewriter-target="prose"><%= line %></div>
           <% end %>
         </div>
       <% else %>
-        <span class="text-fg"><%= html? ? raw(@body) : @body %></span>
+        <%= leading_prefix %><span class="text-fg"><%= html? ? raw(filled_body) : @body %></span>
         <% @expand_lines.each do |line| %>
           <div class="text-fg"><%= line %></div>
         <% end %>
@@ -52,8 +52,8 @@
   </div>
 <% elsif @body %>
   <% if typewriter? %>
-    <span class="text-fg"<% if owns_controller? %> data-controller="pito--typewriter"<% end %> data-pito--typewriter-target="body"><%= @body %></span>
+    <%= leading_prefix %><span class="text-fg"<% if owns_controller? %> data-controller="pito--typewriter"<% end %> data-pito--typewriter-target="body"><%= @body %></span>
   <% else %>
-    <span class="text-fg"><%= html? ? raw(@body) : @body %></span>
+    <%= leading_prefix %><span class="text-fg"><%= html? ? raw(filled_body) : @body %></span>
   <% end %>
 <% end %>

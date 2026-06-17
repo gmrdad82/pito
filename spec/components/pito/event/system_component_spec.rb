@@ -189,11 +189,12 @@ RSpec.describe Pito::Event::SystemComponent do
     let(:conversation) { Conversation.create! }
     let(:turn) { create(:turn, conversation:) }
 
-    it "renders the meta line (with timestamp) when event has created_at, even with no handle/channel" do
+    it "renders the inline timestamp prefix (not a meta line) when event has created_at, even with no handle/channel" do
       event = create(:event, conversation:, turn:, kind: "system", position: 1,
                      payload: { "body" => "<b>game card</b>", "html" => true })
       node = render_inline(described_class.new(payload: event.payload.with_indifferent_access, event:))
-      expect(node.css(".pito-echo__meta").first).not_to be_nil
+      expect(node.css("span.pito-timestamp-prefix")).not_to be_empty
+      expect(node.css(".pito-echo__meta")).to be_empty
     end
 
     it "does NOT render a meta line when event is nil and no handle/channel" do

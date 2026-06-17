@@ -105,11 +105,13 @@ module Pito
           # `sync` — noun-discriminated at the handler level from message.raw:
           #   sync game <ref>  /  sync video <ref>  /  sync videos  /
           #   sync channel  /  sync channel with videos
-          # The slot is free/optional so any noun phrase is accepted.
+          # The enum slot drives the suggestion ghost (`sync ` → channels/videos)
+          # and recognises the noun; the handler still reads message.raw to route,
+          # so this is suggestions-only — any noun phrase is still accepted.
           Spec.new(
             namespace:       :chat,
             name:            :sync,
-            slots:           [ Slot.new(name: :target, kind: :free, optional: true) ],
+            slots:           [ Slot.new(name: :target, kind: :enum, source: :sync_targets, optional: true) ],
             description_key: "pito.grammar.chat.sync"
           ),
           Spec.new(

@@ -3,17 +3,18 @@
 module Pito
   module Chat
     class Dispatcher
-      def self.call(input:, conversation:, channel: nil, follow_up: nil)
-        new(input, conversation, channel, follow_up).dispatch
+      def self.call(input:, conversation:, channel: nil, follow_up: nil, viewport_width: nil)
+        new(input, conversation, channel, follow_up, viewport_width).dispatch
       end
 
       private_class_method :new
 
-      def initialize(input, conversation, channel = nil, follow_up = nil)
+      def initialize(input, conversation, channel = nil, follow_up = nil, viewport_width = nil)
         @input = input
         @conversation = conversation
         @channel = channel
         @follow_up = follow_up
+        @viewport_width = viewport_width
       end
 
       def dispatch
@@ -61,7 +62,7 @@ module Pito
           return Pito::Chat::Result::Ok.new(events: [ { kind: :system, payload: } ]) if payload
         end
 
-        handler = handler_class.new(message:, conversation: @conversation, channel: @channel, follow_up: @follow_up)
+        handler = handler_class.new(message:, conversation: @conversation, channel: @channel, follow_up: @follow_up, viewport_width: @viewport_width)
         handler.call
       end
 
@@ -95,7 +96,7 @@ module Pito
       end
 
       def dispatch_unknown(message)
-        handler = Pito::Chat::Handlers::Unknown.new(message:, conversation: @conversation, channel: @channel, follow_up: @follow_up)
+        handler = Pito::Chat::Handlers::Unknown.new(message:, conversation: @conversation, channel: @channel, follow_up: @follow_up, viewport_width: @viewport_width)
         handler.call
       end
     end

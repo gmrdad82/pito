@@ -212,9 +212,9 @@ RSpec.describe Pito::MessageBuilder::Game::ListColumns do
       expect(described_class.cells(game, [])).to eq([])
     end
 
-    it "returns cells with text-fg-dim class" do
+    it "returns cells with the genre cap/truncate class" do
       result = described_class.cells(game, [ :genre ])
-      expect(result.first[:class]).to eq("text-fg-dim")
+      expect(result.first[:class]).to eq("text-fg-dim pito-cell-genre")
     end
 
     it "returns genre names joined by ', '" do
@@ -392,24 +392,42 @@ RSpec.describe Pito::MessageBuilder::Game::ListColumns do
   # ── heading_cells ─────────────────────────────────────────────────────────────
 
   describe ".heading_cells" do
-    it "returns a plain String for a left-aligned column" do
-      expect(described_class.heading_cells([ :genre ])).to eq([ "Genre" ])
+    it "tags a left-aligned added column with the cyan --added class" do
+      expect(described_class.heading_cells([ :genre ])).to eq(
+        [ { "text" => "Genre", "class" => "pito-table-heading--added" } ]
+      )
     end
 
-    it "returns a right-align hash for :release_date" do
+    it "right-aligns and tags :release_date" do
       result = described_class.heading_cells([ :release_date ])
-      expect(result.first).to eq({ "text" => "Release", "class" => "text-right" })
+      expect(result.first).to eq({ "text" => "Release", "class" => "pito-table-heading--added text-right" })
     end
 
-    it "returns a right-align hash for :year" do
+    it "right-aligns and tags :year" do
       result = described_class.heading_cells([ :year ])
-      expect(result.first).to eq({ "text" => "Year", "class" => "text-right" })
+      expect(result.first).to eq({ "text" => "Year", "class" => "pito-table-heading--added text-right" })
     end
 
-    it "mixes plain strings and hashes when both types are present" do
+    it "tags every added heading, in order" do
       result = described_class.heading_cells([ :developer, :year ])
-      expect(result[0]).to eq("Developer")
-      expect(result[1]).to eq({ "text" => "Year", "class" => "text-right" })
+      expect(result[0]).to eq({ "text" => "Developer", "class" => "pito-table-heading--added" })
+      expect(result[1]).to eq({ "text" => "Year", "class" => "pito-table-heading--added text-right" })
+    end
+  end
+
+  # ── addable_footer ────────────────────────────────────────────────────────────
+
+  describe ".addable_footer" do
+    it "names the still-addable columns when some remain" do
+      footer = described_class.addable_footer([ :genre ])
+      expect(footer).to include("platform")
+      expect(footer).to include("developer")
+    end
+
+    it "uses the all-shown variant (no column names) when every column is present" do
+      footer = described_class.addable_footer(described_class::COLUMNS.keys)
+      expect(footer).not_to include("platform")
+      expect(footer).not_to include("genre")
     end
   end
 

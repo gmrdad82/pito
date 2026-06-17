@@ -282,6 +282,45 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
     end
   end
 
+  describe "free mode — verb stage prefix completion" do
+    it "completes a unique verb prefix ('sy' → 'nc' for 'sync')" do
+      result = call(input: "sy", cursor: 2, authenticated: true)
+      expect(result[:ghost][:complete_current]).to eq("nc")
+    end
+
+    it "completes 'syn' → 'c' for 'sync'" do
+      result = call(input: "syn", cursor: 3, authenticated: true)
+      expect(result[:ghost][:complete_current]).to eq("c")
+    end
+
+    it "stays silent for an ambiguous verb prefix ('s' matches show and sync)" do
+      result = call(input: "s", cursor: 1, authenticated: true)
+      expect(result[:ghost][:complete_current]).to eq("")
+    end
+
+    it "does not verb-complete once a trailing space follows the partial" do
+      result = call(input: "sy ", cursor: 3, authenticated: true)
+      expect(result[:ghost][:complete_current]).to eq("")
+    end
+  end
+
+  describe "free mode — sync target slot" do
+    it "ghosts the first sync target at a trailing space ('sync ' → 'channels')" do
+      result = call(input: "sync ", cursor: 5, authenticated: true)
+      expect(result[:ghost][:complete_current]).to eq("channels")
+    end
+
+    it "completes 'sync c' → 'hannels'" do
+      result = call(input: "sync c", cursor: 6, authenticated: true)
+      expect(result[:ghost][:complete_current]).to eq("hannels")
+    end
+
+    it "completes 'sync v' → 'ideos'" do
+      result = call(input: "sync v", cursor: 6, authenticated: true)
+      expect(result[:ghost][:complete_current]).to eq("ideos")
+    end
+  end
+
   # ── FREE MODE — ghost text (P31.0.al required cases) ────────────────────────
 
   describe "free-mode ghost" do
@@ -410,9 +449,9 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
       expect(result[:ghost][:complete_current]).to eq("platform")
     end
 
-    it "returns empty menu_items (column ghost has no palette)" do
+    it "offers a column menu palette for add/remove" do
       result = call(input: "#glist-4444 add ", cursor: 16, conversation:)
-      expect(result[:menu_items]).to be_empty
+      expect(result[:menu_items].map { |i| i[:label] }).to include("platform", "genre", "release")
     end
   end
 
@@ -443,19 +482,19 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
       expect(result[:ghost][:complete_current]).to eq("channel")
     end
 
-    it "ghosts visibility after channel is already typed (channel + visibility are new columns)" do
+    it "ghosts the next column (status) after channel is already typed" do
       result = call(input: "#vlist-5555 add channel, ", cursor: 25, conversation:)
-      expect(result[:ghost][:complete_current]).to eq("visibility")
+      expect(result[:ghost][:complete_current]).to eq("status")
     end
 
-    it "channel and visibility are offered — partial 'ch' completes to 'annel'" do
+    it "channel is offered — partial 'ch' completes to 'annel'" do
       result = call(input: "#vlist-5555 add ch", cursor: 18, conversation:)
       expect(result[:ghost][:complete_current]).to eq("annel")
     end
 
-    it "channel and visibility are offered — partial 'vis' completes to 'ibility'" do
-      result = call(input: "#vlist-5555 add vis", cursor: 19, conversation:)
-      expect(result[:ghost][:complete_current]).to eq("ibility")
+    it "status column is offered — partial 'stat' completes to 'us'" do
+      result = call(input: "#vlist-5555 add stat", cursor: 20, conversation:)
+      expect(result[:ghost][:complete_current]).to eq("us")
     end
   end
 
@@ -994,9 +1033,9 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
       expect(result[:ghost][:complete_current]).to eq("platform")
     end
 
-    it "returns 'ration' as complete_current for 'list videos with du'" do
-      result = call(input: "list videos with du", cursor: 19)
-      expect(result[:ghost][:complete_current]).to eq("ration")
+    it "returns 'gth' as complete_current for 'list videos with len'" do
+      result = call(input: "list videos with len", cursor: 20)
+      expect(result[:ghost][:complete_current]).to eq("gth")
     end
 
     it "returns 'with' as complete_current for 'list games ' (connector branch)" do

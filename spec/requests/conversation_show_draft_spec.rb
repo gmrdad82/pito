@@ -10,6 +10,11 @@ RSpec.describe "Conversation show draft restore and scoping", type: :request do
     let(:conversation) { create(:conversation, draft: "my saved draft") }
 
     it "renders the draft value in the textarea" do
+      # The draft is only exposed to an authenticated session (security).
+      seed = ROTP::Base32.random_base32
+      AppSetting.enroll_totp!(seed: seed)
+      post "/chat", params: { input: "/login #{ROTP::TOTP.new(seed).now}" }
+
       get conversation_path(uuid: conversation.uuid)
       expect(response.body).to include("my saved draft")
     end

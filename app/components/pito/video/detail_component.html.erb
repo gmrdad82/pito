@@ -1,8 +1,14 @@
-<%# Pito::Video::DetailComponent — video detail card for chat messages %>
-<div class="pito-video-detail flex flex-col gap-3">
+<%# Pito::Video::DetailComponent — video detail card for chat messages.
+    Two columns: LEFT = thumbnail + KV fields (no title/description) + hairline +
+    one-line stats; RIGHT = title, "Description" label, and the description text. %>
+<div class="pito-video-detail flex gap-4 items-start">
 
-  <%# Head: thumbnail (left column) + title and KV details (right column) %>
-  <div class="pito-video-detail__head flex gap-3 items-start">
+  <%# ── Left column: intro (with timestamp slot), thumbnail, fields, stats ─── %>
+  <div class="pito-video-detail__left flex flex-col gap-3">
+
+    <% if @intro.present? %>
+      <div class="pito-video-detail__intro text-fg"><span data-pito-ts-slot></span><%= @intro %></div>
+    <% end %>
 
     <%# Thumbnail or placeholder %>
     <div class="pito-video-detail__thumbnail">
@@ -13,89 +19,70 @@
       <% end %>
     </div>
 
-    <%# Right column: KV table %>
-    <div class="pito-video-detail__meta flex flex-col gap-2 min-w-0">
+    <%# KV fields — title and description now live in the right column %>
+    <div class="grid grid-cols-[max-content_1fr] gap-x-2 gap-y-1">
+      <% if category_label.present? %>
+        <%= render(Pito::Table::KeyValueRowComponent.new(
+              key_text:    t("pito.video.detail.category"),
+              value_text:  category_label,
+              key_class:   "text-fg-dim whitespace-nowrap",
+              value_class: "text-fg"
+            )) %>
+      <% end %>
 
-      <div class="grid grid-cols-[max-content_1fr] gap-x-2 gap-y-1">
+      <% if duration_label.present? %>
+        <%= render(Pito::Table::KeyValueRowComponent.new(
+              key_text:    t("pito.video.detail.duration"),
+              value_text:  duration_label,
+              key_class:   "text-fg-dim whitespace-nowrap",
+              value_class: "text-fg"
+            )) %>
+      <% end %>
 
-    <%= render(Pito::Table::KeyValueRowComponent.new(
-          key_text:    t("pito.video.detail.title"),
-          value_text:  @video.title,
-          key_class:   "text-fg-dim whitespace-nowrap",
-          value_class: "text-fg"
-        )) %>
+      <% if privacy_label.present? %>
+        <%= render(Pito::Table::KeyValueRowComponent.new(
+              key_text:    t("pito.video.detail.privacy"),
+              value_text:  privacy_label,
+              key_class:   "text-fg-dim whitespace-nowrap",
+              value_class: "text-fg"
+            )) %>
+      <% end %>
 
-    <% if category_label.present? %>
-      <%= render(Pito::Table::KeyValueRowComponent.new(
-            key_text:    t("pito.video.detail.category"),
-            value_text:  category_label,
-            key_class:   "text-fg-dim whitespace-nowrap",
-            value_class: "text-fg"
-          )) %>
-    <% end %>
+      <% if tags_label.present? %>
+        <%= render(Pito::Table::KeyValueRowComponent.new(
+              key_text:    t("pito.video.detail.tags"),
+              value_text:  tags_label,
+              key_class:   "text-fg-dim whitespace-nowrap",
+              value_class: "text-fg"
+            )) %>
+      <% end %>
+    </div>
 
-    <% if duration_label.present? %>
-      <%= render(Pito::Table::KeyValueRowComponent.new(
-            key_text:    t("pito.video.detail.duration"),
-            value_text:  duration_label,
-            key_class:   "text-fg-dim whitespace-nowrap",
-            value_class: "text-fg"
-          )) %>
-    <% end %>
+    <%# Hairline separating the fields from the stats %>
+    <%= render(Pito::Separator::DividerLineComponent.new(hairline: true, tone: :faded)) %>
 
-    <% if privacy_label.present? %>
-      <%= render(Pito::Table::KeyValueRowComponent.new(
-            key_text:    t("pito.video.detail.privacy"),
-            value_text:  privacy_label,
-            key_class:   "text-fg-dim whitespace-nowrap",
-            value_class: "text-fg"
-          )) %>
-    <% end %>
-
-    <% if tags_label.present? %>
-      <%= render(Pito::Table::KeyValueRowComponent.new(
-            key_text:    t("pito.video.detail.tags"),
-            value_text:  tags_label,
-            key_class:   "text-fg-dim whitespace-nowrap",
-            value_class: "text-fg"
-          )) %>
-    <% end %>
-
-    <% if description.present? %>
-      <%= render(Pito::Table::KeyValueRowComponent.new(
-            key_text:    t("pito.video.detail.description"),
-            value_text:  description,
-            key_class:   "text-fg-dim whitespace-nowrap",
-            value_class: "text-fg"
-          )) %>
-    <% end %>
-
-      </div>
+    <%# Stats — one line: dim label + value, · separated %>
+    <div class="pito-video-detail__stats flex flex-wrap items-center">
+      <span><span class="text-fg-dim"><%= t("pito.video.detail.views") %></span> <span class="text-fg"><%= view_count_label %></span></span>
+      <%= render(Pito::Shell::InlineSeparatorComponent.new) %>
+      <span><span class="text-fg-dim"><%= t("pito.video.detail.likes") %></span> <span class="text-fg"><%= like_count_label %></span></span>
+      <%= render(Pito::Shell::InlineSeparatorComponent.new) %>
+      <span><span class="text-fg-dim"><%= t("pito.video.detail.comments") %></span> <span class="text-fg"><%= comment_count_label %></span></span>
     </div>
   </div>
 
-  <%# Stats row — views / likes / comments %>
-  <div class="pito-video-detail__stats flex gap-4">
-    <div class="grid grid-cols-[max-content_1fr] gap-x-2 gap-y-1">
-      <%= render(Pito::Table::KeyValueRowComponent.new(
-            key_text:    t("pito.video.detail.views"),
-            value_text:  view_count_label,
-            key_class:   "text-fg-dim whitespace-nowrap",
-            value_class: "text-fg"
-          )) %>
-      <%= render(Pito::Table::KeyValueRowComponent.new(
-            key_text:    t("pito.video.detail.likes"),
-            value_text:  like_count_label,
-            key_class:   "text-fg-dim whitespace-nowrap",
-            value_class: "text-fg"
-          )) %>
-      <%= render(Pito::Table::KeyValueRowComponent.new(
-            key_text:    t("pito.video.detail.comments"),
-            value_text:  comment_count_label,
-            key_class:   "text-fg-dim whitespace-nowrap",
-            value_class: "text-fg"
-          )) %>
+  <%# ── Right column: title, "Description" label, description ───────────────
+      whitespace-pre-wrap preserves the YouTube description's line breaks. %>
+  <div class="pito-video-detail__right flex flex-col gap-1 flex-1 min-w-0">
+    <%# Title — label and value on one row %>
+    <div class="flex gap-2">
+      <span class="text-fg-dim whitespace-nowrap"><%= t("pito.video.detail.title") %></span>
+      <span class="pito-video-detail__title text-fg"><%= @video.title %></span>
     </div>
+    <% if description.present? %>
+      <div class="text-fg-dim mt-1"><%= t("pito.video.detail.description") %></div>
+      <div class="pito-video-detail__description text-fg whitespace-pre-wrap"><%= description %></div>
+    <% end %>
   </div>
 
 </div>

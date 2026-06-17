@@ -31,16 +31,14 @@ RSpec.describe Pito::Event::EchoComponent do
     expect(content["style"]).to include("--bg-elevated")
   end
 
-  it "does not render a channel label in the meta line" do
+  it "does not render a channel label" do
     node = render_inline(described_class.new(payload: { text: "hello" }))
-    meta = node.css(".pito-echo__meta").first
-    expect(meta).not_to be_nil
-    expect(meta.css("span.text-cyan")).to be_empty
+    expect(node.css("span.text-cyan")).to be_empty
   end
 
-  it "renders a formatted timestamp when event is given" do
+  it "renders the timestamp inline (24-hour) on the first line when event is given" do
     event = build(:event, created_at: Time.zone.parse("2026-06-01 23:45:00"))
     node  = render_inline(described_class.new(payload: { text: "hi" }, event:))
-    expect(node.css(".pito-echo__meta").first.to_html).to include("11:45 PM")
+    expect(node.css("span.pito-timestamp-prefix").text).to include("23:45")
   end
 end

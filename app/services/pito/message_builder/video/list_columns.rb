@@ -58,36 +58,44 @@ module Pito
             value:      ->(v) { v.channel.at_handle }
           },
           visibility: {
-            aliases:     %w[visibility],
+            aliases:     %w[status visibility],
             heading_key: "pito.copy.videos.columns.visibility",
+            cell_class:  "text-fg-dim pito-cell-visibility",
             value:       ->(v) { visibility_label(v) }
           },
           game:     {
-            aliases: %w[game games],
-            heading: "Game",
-            value:   ->(v) { v.linked_games.map(&:title).join(", ") }
+            aliases:    %w[game games],
+            heading:    "Game",
+            cell_class: "text-fg-dim pito-cell-game",
+            value:      ->(v) { v.linked_games.map(&:title).join(", ") }
           },
           duration: {
-            aliases:    %w[duration],
-            heading:    "Duration",
+            aliases:    %w[length duration],
+            heading:    "Length",
             align:      :right,
             cell_class: "text-fg-dim text-right tabular-nums pito-cell-duration",
             value:      ->(v) { Pito::Formatter::Duration.call(v.duration_seconds) || "—" }
           },
           views:    {
-            aliases: %w[views],
-            heading: "Views",
-            value:   ->(v) { count_text(v.view_count) }
+            aliases:    %w[views],
+            heading:    "Views",
+            align:      :right,
+            cell_class: "text-fg-dim text-right tabular-nums",
+            value:      ->(v) { count_text(v.view_count) }
           },
           likes:    {
-            aliases: %w[likes],
-            heading: "Likes",
-            value:   ->(v) { count_text(v.like_count) }
+            aliases:    %w[likes],
+            heading:    "Likes",
+            align:      :right,
+            cell_class: "text-fg-dim text-right tabular-nums",
+            value:      ->(v) { count_text(v.like_count) }
           },
           comments: {
-            aliases: %w[comments],
-            heading: "Comments",
-            value:   ->(v) { count_text(v.comment_count) }
+            aliases:    %w[comments],
+            heading:    "Comments",
+            align:      :right,
+            cell_class: "text-fg-dim text-right tabular-nums",
+            value:      ->(v) { count_text(v.comment_count) }
           }
         }.freeze
 
@@ -138,12 +146,24 @@ module Pito
         # @return [Array<String, Hash>]
         def heading_cells(cols)
           cols.map do |col|
-            cfg = COLUMNS.fetch(col)
-            if cfg[:align] == :right
-              { "text" => heading_text(col), "class" => "text-right" }
-            else
-              heading_text(col)
-            end
+            cfg   = COLUMNS.fetch(col)
+            klass = "pito-table-heading--added"
+            klass += " text-right" if cfg[:align] == :right
+            { "text" => heading_text(col), "class" => klass }
+          end
+        end
+
+        # Witty footer copy naming the columns that can still be added — or the
+        # "everything's shown" variant when none remain. `shown` is the canonical
+        # added columns currently in the table (id/title excluded). Recomputes on
+        # every List.call, so add/remove follow-ups update it automatically.
+        def addable_footer(shown)
+          addable = COLUMNS.keys - shown
+          if addable.any?
+            names = addable.map { |c| heading_text(c).to_s.downcase }.join(", ")
+            Pito::Copy.render("pito.copy.list.addable_columns_hint", columns: names)
+          else
+            Pito::Copy.render("pito.copy.list.all_columns_shown")
           end
         end
 
@@ -186,8 +206,14 @@ module Pito
           n.nil? ? "—" : n.to_s
         end
 
-        # Human label for a video's privacy_status (the "Visibility" column).
+        # Human label for a video's status column. A scheduled video (future
+        # publish_at) shows its go-live date as DD-MM-YYYY; otherwise the
+        # privacy_status label (Public / Unlisted / Private).
         def visibility_label(video)
+          if video.publish_at.present? && video.publish_at > Time.current
+            return video.publish_at.strftime("%d-%m-%Y")
+          end
+
           status = video.privacy_status
           return "" if status.blank?
 

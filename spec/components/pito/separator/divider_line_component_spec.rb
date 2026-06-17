@@ -71,6 +71,13 @@ RSpec.describe Pito::Separator::DividerLineComponent do
       div = node.css("div").first
       expect(div["class"]).not_to include("my-")
     end
+
+    it "uses bg-line-faded when tone: :faded (the fainter hairline)" do
+      node = render_inline(described_class.new(hairline: true, tone: :faded))
+      div = node.css("div").first
+      expect(div["class"]).to include("bg-line-faded")
+      expect(div["class"]).not_to include("bg-line-default")
+    end
   end
 
   describe "tone validation" do

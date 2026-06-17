@@ -4,18 +4,20 @@ require "stringio"
 
 class Video
   module Thumbnail
-    # Downloads a video's YouTube thumbnail from the given source URL, normalizes
-    # it to a canonical 480x270 (16:9) JPEG via Pito::Image::Normalizer, and
-    # attaches it to `video.thumbnail` (ActiveStorage). Serves OUR copy instead
-    # of hotlinking i.ytimg.com (which 429s).
+    # Downloads a video's YouTube thumbnail from the given source URL (prefer the
+    # maxresdefault master), normalizes it to a canonical 374x210 (16:9) JPEG via
+    # Pito::Image::Normalizer, and attaches it to `video.thumbnail`
+    # (ActiveStorage). 374px wide matches the game-detail cover so the two detail
+    # cards' left columns line up. Serves OUR copy instead of hotlinking
+    # i.ytimg.com (which 429s).
     #
     # Best-effort: a fetch/normalize failure is logged and swallowed so a CDN
     # hiccup never breaks a video sync/import.
     #
     # Returns the attachment proxy when attached, else nil.
     class Ingest
-      WIDTH  = 480
-      HEIGHT = 270
+      WIDTH  = 374
+      HEIGHT = 210
 
       def initialize(video:, source_url:)
         @video      = video
