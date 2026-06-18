@@ -389,7 +389,7 @@ describe("pito--command-palette controller", () => {
     expect(focused.length).toBeGreaterThan(0)
   })
 
-  it("pressing 'm' does NOT focus chatbox when unauthenticated", async () => {
+  it("pressing 'm' focuses chatbox even when unauthenticated", async () => {
     const { chatbox } = buildScaffold([])
     setAuthenticated(false)
     await waitForConnect()
@@ -399,7 +399,33 @@ describe("pito--command-palette controller", () => {
 
     plainKey("m")
 
+    expect(focused.length).toBeGreaterThan(0)
+  })
+
+  it("pressing 'm' dispatches pito:resume:dismiss when sidebar contains an <aside>", async () => {
+    const { chatbox } = buildScaffold([])
+    await waitForConnect()
+
+    // Build a sidebar that is "active" (contains an <aside>)
+    const sidebar = document.createElement("div")
+    sidebar.id = "pito-sidebar"
+    const panel = document.createElement("aside")
+    sidebar.appendChild(panel)
+    document.body.appendChild(sidebar)
+
+    const dismissEvents = []
+    window.addEventListener("pito:resume:dismiss", (e) => dismissEvents.push(e))
+
+    const focused = []
+    chatbox.addEventListener("focus", () => focused.push(true))
+
+    plainKey("m")
+
+    expect(dismissEvents.length).toBeGreaterThan(0)
     expect(focused.length).toBe(0)
+
+    sidebar.remove()
+    window.removeEventListener("pito:resume:dismiss", dismissEvents[0])
   })
 
   // ── ctrl+/ toggles notifications ─────────────────────────────────────────────

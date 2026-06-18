@@ -30,6 +30,8 @@ const HIGHLIGHT_CLASS = "pito-resume-highlight"
 const SIDEBAR_KEY = "pito:sidebar"
 
 export default class extends Controller {
+  #dismissHandler = null
+
   connect() {
     this.abort = new AbortController()
     document.addEventListener("keydown", this.#onKey.bind(this), { signal: this.abort.signal })
@@ -42,6 +44,11 @@ export default class extends Controller {
     this.element.addEventListener("click", this.#onClick.bind(this), { signal: this.abort.signal })
     this.highlightIndex = -1
     this.armedRow = null
+
+    // Allow other controllers (home-transition, command-palette) to dismiss the
+    // sidebar without holding a reference to this controller.
+    this.#dismissHandler = () => this.dismiss()
+    window.addEventListener("pito:resume:dismiss", this.#dismissHandler)
 
     // The sidebar content is injected via a Turbo Stream UPDATE (this controller
     // stays connected). Watch for it: when rows appear we (a) hide the command
@@ -59,6 +66,14 @@ export default class extends Controller {
   disconnect() {
     this.abort?.abort()
     this.observer?.disconnect()
+    window.removeEventListener("pito:resume:dismiss", this.#dismissHandler)
+  }
+
+  // Public: allows other controllers to dismiss the sidebar without a direct
+  // reference. Called by the pito:resume:dismiss window event and can also be
+  // invoked programmatically (e.g. from tests or sibling controllers).
+  dismiss() {
+    this.#clear()
   }
 
   // Re-open the panel that was open before reload. Skips if the sidebar is
