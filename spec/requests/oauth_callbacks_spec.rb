@@ -102,6 +102,46 @@ RSpec.describe "YoutubeConnections::OauthCallbacksController", type: :request do
     end
   end
 
+  # ── import_videos gating (re-auth vs. new channels) ──────────────────────
+
+  describe "GET /auth/youtube/callback — import_videos gating" do
+    before do
+      authenticate_via_totp
+      # Stash the youtube_connect intent and conversation UUID exactly as
+      # ChatController#handle_connect does it.
+      post chat_path, params: { input: "/connect", uuid: conversation.uuid }
+      OmniAuth.config.add_mock(:google_oauth2, omniauth_hash(subject_id: "sub-import-gate-#{SecureRandom.hex(4)}"))
+    end
+
+    context "when discovery returns only duplicates (re-auth, nothing new)" do
+      before do
+        allow_any_instance_of(YoutubeConnections::OauthCallbacksController)
+          .to receive(:discover_and_link_channels)
+          .and_return({ added: [], duplicates: [ "Alpha Channel" ], error: nil })
+      end
+
+      it "enqueues ChannelInfoJob with import_videos: false" do
+        expect { get "/auth/youtube/callback" }
+          .to have_enqueued_job(ChannelInfoJob)
+          .with(kind_of(Integer), kind_of(Integer), import_videos: false)
+      end
+    end
+
+    context "when discovery adds at least one new channel" do
+      before do
+        allow_any_instance_of(YoutubeConnections::OauthCallbacksController)
+          .to receive(:discover_and_link_channels)
+          .and_return({ added: [ { title: "Alpha Channel", handle: "@alpha" } ], duplicates: [], error: nil })
+      end
+
+      it "enqueues ChannelInfoJob with import_videos: true" do
+        expect { get "/auth/youtube/callback" }
+          .to have_enqueued_job(ChannelInfoJob)
+          .with(kind_of(Integer), kind_of(Integer), import_videos: true)
+      end
+    end
+  end
+
   # ── Failure action (GET /auth/failure) ────────────────────────────────────
 
   describe "GET /auth/failure" do

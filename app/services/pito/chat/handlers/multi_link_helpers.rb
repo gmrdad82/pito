@@ -7,7 +7,7 @@ module Pito
       #
       # Both handlers need to:
       #   1. Detect the context (detail — singular id in payload; list — ids array).
-      #   2. Split the rest string on a connector word (link: "to", unlink: "from").
+      #   2. Split the rest string on a connector word (link: "to"/"with", unlink: "from").
       #   3. Parse source id (list context only) and a multi-target id list.
       #   4. Resolve each target, run the link/unlink operation, and produce a
       #      single summary Result::Ok system event.
@@ -25,14 +25,14 @@ module Pito
         # @param copy_ok   [String]  i18n key for summary success (single or multi)
         # @param copy_op   [Symbol]  :link or :unlink (drives the operation)
         # @return [Pito::Chat::Result::Ok | Pito::Chat::Result::Error]
-        def follow_up_multi(connector:, source_class:, other_class:, source_nouns:, other_nouns:, copy_ok:, copy_op:)
+        def follow_up_multi(connectors:, source_class:, other_class:, source_nouns:, other_nouns:, copy_ok:, copy_op:)
           payload = follow_up.source_event.payload.with_indifferent_access
 
           detail_id_key = detail_id_key_for(source_class)
           is_detail     = payload[detail_id_key].present?
 
-          # Split on connector word (e.g. "to" / "from").
-          connector_re = /\b#{Regexp.escape(connector)}\b/i
+          # Split on any accepted connector word (link: "to"/"with", unlink: "from").
+          connector_re = /\b(?:#{connectors.map { |c| Regexp.escape(c) }.join('|')})\b/i
           parts        = follow_up.rest.to_s.strip.split(connector_re, 2)
 
           if is_detail
@@ -46,13 +46,13 @@ module Pito
             else
               # No connector typed — strip an optional leading connector word and noun
               rest_clean = follow_up.rest.to_s.strip
-              rest_clean = rest_clean.sub(/\A(?:to|from)\b\s*/i, "")
+              rest_clean = rest_clean.sub(/\A(?:#{connectors.map { |c| Regexp.escape(c) }.join('|')})\b\s*/i, "")
               rest_clean = rest_clean.sub(/\A(?:#{(source_nouns + other_nouns).join('|')})\b\s*/i, "")
               rest_clean
             end
           else
             # LIST: source id is on the LEFT of the connector; targets on the RIGHT.
-            return usage_hint if parts.size < 2
+            return follow_up_usage(is_detail: false, copy_op: copy_op) if parts.size < 2
 
             left_text = parts[0].strip
             # Strip leading noun filler from left.
@@ -72,7 +72,7 @@ module Pito
           raw_ids      = targets_text.split(/[\s,]+/).map(&:strip).select { |t| t.match?(/\A#?\d+\z/) }
           target_ids   = raw_ids.map { |t| t.delete_prefix("#") }.uniq
 
-          return usage_hint if target_ids.empty?
+          return follow_up_usage(is_detail: is_detail, copy_op: copy_op) if target_ids.empty?
 
           # Resolve each target and perform the operation.
           linked_titles   = []
@@ -124,6 +124,16 @@ module Pito
         end
 
         private
+
+        # Context-appropriate usage for a malformed follow-up link/unlink — shows
+        # the REPLY syntax, not the free-chat noun form.
+        def follow_up_usage(is_detail:, copy_op:)
+          scope = is_detail ? "detail" : "list"
+          Pito::Chat::Result::Error.new(
+            message_key:  "pito.chat.#{copy_op}.follow_up_usage.#{scope}",
+            message_args: {}
+          )
+        end
 
         # Returns the payload key for the singular detail id.
         def detail_id_key_for(klass)

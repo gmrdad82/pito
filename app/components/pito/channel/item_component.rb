@@ -75,27 +75,19 @@ module Pito
       # Rendered label for the subscriber count row, e.g. "1 sub" / "10 subs".
       # Nil stats treated as zero (matches the disconnect_confirmation.rb precedent).
       def subscribers_label
-        count = channel.subscriber_count.to_i
-        key   = count == 1 ? "pito.copy.channels.subscribers_count_singular"
-                           : "pito.copy.channels.subscribers_count_plural"
-        Pito::Copy.render(key, count:)
+        Pito::Copy.render("pito.copy.channels.subscribers_count_plural",
+                          count: Pito::Formatter::CompactCount.call(channel.subscriber_count.to_i))
       end
 
-      # Rendered label for the video-count row, e.g. "0 videos" / "1 video" / "10 videos".
-      # Counts the local Video rows for this channel (no API call).
+      # Local Video row count for this channel (no API call), compact-formatted.
       def videos_count_label
-        count = channel.videos.count
-        key   = count == 1 ? "pito.copy.channels.videos_count_singular"
-                           : "pito.copy.channels.videos_count_plural"
-        Pito::Copy.render(key, count:)
+        Pito::Copy.render("pito.copy.channels.videos_count_plural",
+                          count: Pito::Formatter::CompactCount.call(channel.videos.count))
       end
 
-      # Rendered label for the view count row, e.g. "1 view" / "10 views".
       def views_label
-        count = channel.view_count.to_i
-        key   = count == 1 ? "pito.copy.channels.views_count_singular"
-                           : "pito.copy.channels.views_count_plural"
-        Pito::Copy.render(key, count:)
+        Pito::Copy.render("pito.copy.channels.views_count_plural",
+                          count: Pito::Formatter::CompactCount.call(channel.view_count.to_i))
       end
 
       # YouTube page URL for the [view] link.

@@ -207,7 +207,7 @@ module Pito
           channel_ids     = Array(payload[:channel_ids])
           conversation_id = payload[:conversation_id].presence
           ChatImportVideosJob.perform_later(channel_ids, scope_label, conversation_id: conversation_id)
-          Pito::Copy.render("pito.copy.import_videos.done", { scope: scope_label, count: "?" })
+          Pito::Copy.render("pito.copy.import_videos.queued", { scope: scope_label })
         end
 
         def confirm_disconnect(payload)

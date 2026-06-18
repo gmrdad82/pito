@@ -24,6 +24,11 @@ en:
         descriptions:
           reindex: "Re-embed a game or video in Voyage (by id or title)"
         needs_ref: "Which game or video? Use `list games` to see ids, then `reindex game <id>` or `reindex video <id>`."
+      platform:
+        descriptions:
+          platform: "Set a game's platform from free text (e.g. ps5, switch, steam)"
+        needs_ref: "Which game? Use `list games` to see ids, then `platform <id> <name>` (e.g. `platform 12 ps5`)."
+        missing_name: "Which platform? Add a name after the game, e.g. `platform 12 ps5`, `switch`, or `steam`."
       publish:
         descriptions:
           publish: "Publish a video on YouTube (set public, clear schedule)"
@@ -46,11 +51,17 @@ en:
       link:
         descriptions:
           link: "Link a video to a game"
-        usage: "Usage: `link game <id|title> to video <id|title>` or `link video <id|title> to game <id|title>`."
+        usage: "Usage: `link game <id|title> to|with video <id|title>` or `link video <id|title> to|with game <id|title>`."
+        follow_up_usage:
+          list: "Usage: reply `link <id> to <id>[, id…]` (or `with`) — link the listed row to one or more."
+          detail: "Usage: reply `link to <id>[, id…]` (or `with`) — link this to one or more."
       unlink:
         descriptions:
           unlink: "Unlink a video from a game"
         usage: "Usage: `unlink game <id|title> from video <id|title>` or `unlink video <id|title> from game <id|title>`."
+        follow_up_usage:
+          list: "Usage: reply `unlink <id> from <id>[, id…]` — unlink the listed row from one or more."
+          detail: "Usage: reply `unlink from <id>[, id…]` — unlink this from one or more."
       help:
         descriptions:
           help: "List follow-up targets and their accepted actions"

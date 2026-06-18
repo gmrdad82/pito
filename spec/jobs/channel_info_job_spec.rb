@@ -183,6 +183,35 @@ RSpec.describe ChannelInfoJob do
     end
   end
 
+  context "with import_videos: false (re-auth — no new channels added)" do
+    it "does NOT enqueue ImportVideosJob" do
+      expect {
+        described_class.new.perform(connection.id, turn.id, import_videos: false)
+      }.not_to have_enqueued_job(ImportVideosJob)
+    end
+
+    it "completes the turn immediately instead of handing off to ImportVideosJob" do
+      described_class.new.perform(connection.id, turn.id, import_videos: false)
+
+      turn.reload
+      expect(turn.completed_at).to be_present
+    end
+
+    it "does NOT emit a thinking indicator for importing" do
+      described_class.new.perform(connection.id, turn.id, import_videos: false)
+
+      importing = conversation.events.where(kind: :thinking)
+                              .select { |e| e.payload["dictionary"] == "importing" }
+      expect(importing).to be_empty
+    end
+
+    it "still emits the enhanced stats event" do
+      expect {
+        described_class.new.perform(connection.id, turn.id, import_videos: false)
+      }.to change { conversation.events.where(kind: :enhanced).count }.by(1)
+    end
+  end
+
   context "with API errors" do
     before do
       allow_any_instance_of(Channel::Youtube::Client).to receive(:channels_list).and_raise(

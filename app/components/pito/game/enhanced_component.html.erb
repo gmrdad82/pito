@@ -56,6 +56,10 @@
             <%= render(Pito::Shell::InlineSeparatorComponent.new) %>
             <span class="pito-game-enhanced-message__similar-game-title text-fg"><%= result.game.title %></span>
           </div>
+          <%# Similarity score bar — same component as the channel cards. %>
+          <div class="pito-game-enhanced-message__similar-game-score">
+            <%= render(Pito::ScoreBarComponent.new(score: result.score, show_label: false)) %>
+          </div>
         </div>
       <% end %>
     </div>

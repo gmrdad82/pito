@@ -23,6 +23,7 @@ module Pito
         @detail      = payload[:detail].presence
         raw_creds    = payload[:credentials]
         @credentials = raw_creds.present? ? raw_creds.with_indifferent_access : nil
+        @timestamp   = event&.created_at
       end
 
       def credential_rows

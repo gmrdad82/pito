@@ -8,12 +8,12 @@
 #   2. This job fetches fresh channel stats
 #   3. Emits enhanced #1 with subscriber/view counts
 #   4. Resolves thinking #1
-#   5. Emits thinking #2
-#   6. Enqueues ImportVideosJob for stage 2
+#   5a. When import_videos: true  — emits thinking #2, enqueues ImportVideosJob
+#   5b. When import_videos: false — completes the turn (re-auth, no new channels)
 class ChannelInfoJob < ApplicationJob
   queue_as :default
 
-  def perform(connection_id, turn_id)
+  def perform(connection_id, turn_id, import_videos: true)
     connection = YoutubeConnection.find_by(id: connection_id)
     turn       = Turn.find_by(id: turn_id)
 
@@ -45,12 +45,16 @@ class ChannelInfoJob < ApplicationJob
     if stats.any? && stats.all? { |s| s[:error] }
       # All channels failed — complete the turn, no point in stage 2
       broadcaster.complete_turn(turn:)
-    else
+    elsif import_videos
       # Emit thinking #2 for video import stage
       broadcaster.emit_thinking(turn:, dictionary: :importing)
 
       # Enqueue stage 2: video import
       ImportVideosJob.perform_later(connection_id, turn_id)
+    else
+      # Re-auth path: no new channels were added, so skip the import
+      # and close the turn here instead of leaving it open.
+      broadcaster.complete_turn(turn:)
     end
   rescue StandardError => e
     handle_error(turn, e)

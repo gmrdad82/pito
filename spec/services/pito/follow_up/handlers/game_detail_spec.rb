@@ -122,8 +122,8 @@ RSpec.describe Pito::FollowUp::Handlers::GameDetail, type: :service do
 
   # ── actions list ─────────────────────────────────────────────────────────────
 
-  it "declares rm, delete, reindex, link, unlink, and footage actions" do
-    expect(described_class.actions).to eq([ "rm", "delete", "reindex", "link", "unlink", "footage" ])
+  it "declares rm, delete, reindex, link, unlink, footage, and platform actions" do
+    expect(described_class.actions).to eq([ "rm", "delete", "reindex", "link", "unlink", "footage", "platform" ])
   end
 
   # ── link to video (delegated to Chat::Handlers::Link) ───────────────────────
@@ -180,7 +180,7 @@ RSpec.describe Pito::FollowUp::Handlers::GameDetail, type: :service do
       it "returns a Result::Error (usage hint from Link handler)" do
         result = handler.call(event: source_event, rest: "link to video", conversation:)
         expect(result).to be_a(Pito::FollowUp::Result::Error)
-        expect(result.message_key).to eq("pito.chat.link.usage")
+        expect(result.message_key).to eq("pito.chat.link.follow_up_usage.detail")
       end
     end
   end

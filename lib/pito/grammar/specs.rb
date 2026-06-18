@@ -133,6 +133,15 @@ module Pito
             slots:           [ Slot.new(name: :title, kind: :enum, source: :game_titles, optional: true) ],
             description_key: "pito.grammar.chat.reindex"
           ),
+          # `platform` SETS a game's platform from free text — `platform <id>
+          # <name>`. A single free slot drives the suggestion ghost; the handler
+          # reads the leading id ref + trailing platform name from message.raw.
+          Spec.new(
+            namespace:       :chat,
+            name:            :platform,
+            slots:           [ Slot.new(name: :title, kind: :free, optional: true) ],
+            description_key: "pito.grammar.chat.platform"
+          ),
           Spec.new(
             namespace:       :chat,
             name:            :publish,

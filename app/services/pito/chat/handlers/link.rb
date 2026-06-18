@@ -1,19 +1,19 @@
 # frozen_string_literal: true
 
-# Handler for `link game <id> to video <id>` / `link video <id> to game <id>`.
+# Handler for `link game <id> to|with video <id>` / `link video <id> to|with game <id>`.
 #
-# Free-chat: split on ` to ` (case-insensitive) into a left and right half.
+# Free-chat: split on ` to ` / ` with ` (case-insensitive) into a left and right half.
 # Each half begins with a noun discriminator (`game`/`games` or `video`/`videos`)
 # followed by a numeric id (plain or with a leading `#`). Title refs are not
 # supported — only local numeric ids.
 #
 # Follow-up (detail card — singular video_id/game_id in payload):
 #   Source is implied by the card entity.  Targets are parsed from everything
-#   after the connector word `to`.  Comma or space separated, multi-target.
+#   after the connector word `to`/`with`.  Comma or space separated, multi-target.
 #   E.g. `link to 1,2,3` links this video/game to games/videos 1, 2, and 3.
 #
 # Follow-up (list card — video_ids/game_ids in payload):
-#   Source id is on the LEFT of `to`; targets are on the RIGHT.
+#   Source id is on the LEFT of `to`/`with`; targets are on the RIGHT.
 #   E.g. `link 17 to 1,2,3` links video/game 17 to games/videos 1, 2, and 3.
 #
 # Resolution: id-only — `::Game.find_by(id:)` / `::Video.find_by(id:)`.
@@ -36,7 +36,7 @@ module Pito
           return follow_up_link if follow_up?
 
           raw = message.body_tokens.map(&:value).join(" ")
-          parts = raw.split(/\bto\b/i, 2)
+          parts = raw.split(/\b(?:to|with)\b/i, 2)
 
           return usage_hint if parts.size < 2
 
@@ -59,7 +59,7 @@ module Pito
         def follow_up_link
           if video_target?(VIDEO_NOUNS)
             follow_up_multi(
-              connector:     "to",
+              connectors:    %w[to with],
               source_class:  ::Video,
               other_class:   ::Game,
               source_nouns:  VIDEO_NOUNS,
@@ -69,7 +69,7 @@ module Pito
             )
           else
             follow_up_multi(
-              connector:     "to",
+              connectors:    %w[to with],
               source_class:  ::Game,
               other_class:   ::Video,
               source_nouns:  GAME_NOUNS,

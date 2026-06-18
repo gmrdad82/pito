@@ -12,7 +12,7 @@
       </div>
     <% else %>
       <%# Plain-text: typewriter controller covers the full content region %>
-      <div data-controller="pito--typewriter">
+      <div<% unless reply_consumed %> data-controller="pito--typewriter"<% end %>>
         <% if body %>
           <%= render(Pito::Event::TimestampPrefixComponent.new(timestamp: @timestamp)) %><span class="text-fg" data-pito--typewriter-target="body"><%= body %></span>
         <% end %>
@@ -50,7 +50,7 @@
         anchor it (controller guards against empty body targets internally,
         but the spec also checks that no controller appears on nil-body renders). %>
     <% if !html && body %>
-      <div data-controller="pito--typewriter">
+      <div<% unless reply_consumed %> data-controller="pito--typewriter"<% end %>>
         <%= render(Pito::Event::BodyComponent.new(
               body:             body,
               html:             html,

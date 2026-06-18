@@ -27,6 +27,10 @@ module Pito
         self.actions "confirm", "cancel"
 
         VALID_ACTIONS = %w[confirm cancel].freeze
+        # Commands whose confirmed outcome kicks off background work and read
+        # better as a neutral system progress line than the orange
+        # confirmation-outcome card. (Cancel still renders the orange card.)
+        SYSTEM_OUTCOME_ON_CONFIRM = %w[import_videos].freeze
         # Friendly synonyms → canonical action.
         ACTION_ALIASES = {
           "yes"     => "confirm",
@@ -66,18 +70,29 @@ module Pito
             end
 
           Pito::FollowUp::Result::Append.new(
-            events: [
-              {
-                kind:    "confirmation_follow_up",
-                payload: {
-                  command:      command,
-                  outcome:      action,
-                  outcome_text: outcome_text,
-                  resolved:     true
-                }
-              }
-            ]
+            events: [ outcome_event(command, action, outcome_text) ]
           )
+        end
+
+        private
+
+        # Build the appended outcome event. Most confirmations render the orange
+        # confirmation-outcome card; a few (SYSTEM_OUTCOME_ON_CONFIRM) read better
+        # as a neutral system progress line on confirm.
+        def outcome_event(command, action, outcome_text)
+          if action == "confirm" && SYSTEM_OUTCOME_ON_CONFIRM.include?(command)
+            return { kind: "system", payload: { "text" => outcome_text } }
+          end
+
+          {
+            kind:    "confirmation_follow_up",
+            payload: {
+              command:      command,
+              outcome:      action,
+              outcome_text: outcome_text,
+              resolved:     true
+            }
+          }
         end
       end
     end

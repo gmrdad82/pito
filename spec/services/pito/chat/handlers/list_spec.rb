@@ -231,6 +231,54 @@ RSpec.describe Pito::Chat::Handlers::List do
     end
   end
 
+  # ── Channels reauth hint ──────────────────────────────────────────────────────
+
+  describe "#call `list channels` with reauth-needed connections" do
+    let!(:ok_conn)     { create(:youtube_connection) }
+    let!(:ok_ch)       { create(:channel, title: "Healthy Chan", handle: "@healthy", youtube_connection: ok_conn) }
+    let!(:reauth_conn) { create(:youtube_connection, :needs_reauth) }
+    let!(:reauth_ch)   { create(:channel, title: "Broken Chan", handle: "@broken", youtube_connection: reauth_conn) }
+
+    it "emits two events when at least one channel needs reauth" do
+      result = handler_for("list channels").call
+      expect(result.events.length).to eq(2)
+    end
+
+    it "first event is :system (normal channel list)" do
+      expect(handler_for("list channels").call.events.first[:kind]).to eq(:system)
+    end
+
+    it "second event is :enhanced" do
+      expect(handler_for("list channels").call.events.second[:kind]).to eq(:enhanced)
+    end
+
+    it "enhanced payload body names the reauth channel handle" do
+      body = handler_for("list channels").call.events.second[:payload]["body"]
+      expect(body).to include("@broken")
+    end
+
+    it "enhanced payload body does NOT name the healthy channel" do
+      body = handler_for("list channels").call.events.second[:payload]["body"]
+      expect(body).not_to include("@healthy")
+    end
+
+    it "enhanced payload is html" do
+      payload = handler_for("list channels").call.events.second[:payload]
+      expect(payload["html"]).to be(true)
+    end
+  end
+
+  describe "#call `list channels` with all connections healthy" do
+    let!(:ok_conn) { create(:youtube_connection) }
+    let!(:ok_ch)   { create(:channel, title: "Fine Chan", handle: "@fine", youtube_connection: ok_conn) }
+
+    it "emits exactly one event (no enhanced reauth message)" do
+      result = handler_for("list channels").call
+      expect(result.events.length).to eq(1)
+      expect(result.events.first[:kind]).to eq(:system)
+    end
+  end
+
   # ── `list games with channels` (column, NOT the channels noun) ──────────────
   describe "#call with `list games with channels` (regression: noun vs with-column)" do
     let(:connection) { create(:youtube_connection) }

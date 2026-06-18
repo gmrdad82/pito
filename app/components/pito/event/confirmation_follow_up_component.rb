@@ -20,6 +20,7 @@ module Pito
         @outcome_text  = payload[:outcome_text].to_s.presence
         @outcome       = payload[:outcome].to_s.presence
         @event         = event
+        @timestamp     = event&.created_at
       end
 
       def background = "var(--bg-surface)"

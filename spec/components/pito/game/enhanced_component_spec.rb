@@ -155,6 +155,19 @@ RSpec.describe Pito::Game::EnhancedComponent do
       expect(data_ids).to include(sg1.id.to_s, sg2.id.to_s)
     end
 
+    it "renders a score bar under each similar-game card" do
+      node = render_component
+      score_bars = node.css(".pito-game-enhanced-message__similar-game-score .pito-score-bar")
+      expect(score_bars.length).to eq(2)
+    end
+
+    it "passes each similar game's score to its ScoreBarComponent" do
+      node = render_component
+      scores = node.css(".pito-game-enhanced-message__similar-game-score .pito-score-bar")
+                   .map { |el| el["data-score"] }
+      expect(scores).to include("88", "74")
+    end
+
     it "puts the id and title on one line separated by ·" do
       node = render_component
       lines = node.css(".pito-game-enhanced-message__similar-game-line")

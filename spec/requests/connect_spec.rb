@@ -181,7 +181,7 @@ RSpec.describe "P27 /connect + OAuth callback", type: :request do
         expect(YoutubeConnection.where(google_subject_id: "sub-abc").count).to eq(1)
       end
 
-      it "skips duplicate channels and emits an error event" do
+      it "skips duplicate channels and emits a system already-connected message (no error event)" do
         create(:channel, youtube_channel_id: "UCaaa111")
         allow_any_instance_of(YoutubeConnections::OauthCallbacksController)
           .to receive(:discover_and_link_channels).and_return(
@@ -189,12 +189,15 @@ RSpec.describe "P27 /connect + OAuth callback", type: :request do
           )
 
         expect { get "/auth/youtube/callback" }.not_to change(Channel, :count)
-        result = conversation.events.where(kind: :error).last
+        # The all-duplicate path is informational, not an error: it emits a
+        # unified Standard (:system) message, not an :error event.
+        expect(conversation.events.where(kind: :error)).to be_empty
+        result = conversation.events.where(kind: :system).last
         expect(result).to be_present
         expect(result.payload["text"]).to include("is already connected")
       end
 
-      it "completes the turn immediately for error cases (no follow-up stats)" do
+      it "defers turn completion to ChannelInfoJob for already-connected channels" do
         create(:channel, youtube_channel_id: "UCaaa111")
         allow_any_instance_of(YoutubeConnections::OauthCallbacksController)
           .to receive(:discover_and_link_channels).and_return(
@@ -203,10 +206,12 @@ RSpec.describe "P27 /connect + OAuth callback", type: :request do
 
         get "/auth/youtube/callback"
         turn = conversation.turns.order(:position).last
-        expect(turn.completed_at).to be_present
+        # Unified flow: the turn stays OPEN here; the enqueued ChannelInfoJob
+        # (import_videos: false — asserted below) is what closes it.
+        expect(turn.completed_at).to be_nil
       end
 
-      it "does NOT enqueue ChannelInfoJob for error cases" do
+      it "enqueues ChannelInfoJob with import_videos: false for already-connected channels" do
         create(:channel, youtube_channel_id: "UCaaa111")
         allow_any_instance_of(YoutubeConnections::OauthCallbacksController)
           .to receive(:discover_and_link_channels).and_return(
@@ -215,7 +220,8 @@ RSpec.describe "P27 /connect + OAuth callback", type: :request do
 
         expect {
           get "/auth/youtube/callback"
-        }.not_to have_enqueued_job(ChannelInfoJob)
+        }.to have_enqueued_job(ChannelInfoJob)
+          .with(an_instance_of(Integer), an_instance_of(Integer), import_videos: false)
       end
     end
 

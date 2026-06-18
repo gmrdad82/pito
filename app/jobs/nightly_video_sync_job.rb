@@ -104,7 +104,8 @@ class NightlyVideoSyncJob < ApplicationJob
     content_details = item[:content_details] || {}
     related = content_details[:related_playlists] || {}
     related[:uploads]
-  rescue StandardError
+  rescue StandardError => e
+    Rails.logger.error("[NightlyVideoSyncJob] fetch_uploads_playlist_id failed: #{e.class}: #{e.message}")
     nil
   end
 
@@ -132,7 +133,8 @@ class NightlyVideoSyncJob < ApplicationJob
     end
 
     ids
-  rescue StandardError
+  rescue StandardError => e
+    Rails.logger.error("[NightlyVideoSyncJob] fetch_playlist_video_ids failed: #{e.class}: #{e.message}")
     []
   end
 
@@ -145,7 +147,8 @@ class NightlyVideoSyncJob < ApplicationJob
     )
 
     Array(response[:items]).map { |item| normalize_video(item) }
-  rescue StandardError
+  rescue StandardError => e
+    Rails.logger.error("[NightlyVideoSyncJob] fetch_video_details failed: #{e.class}: #{e.message}")
     []
   end
 

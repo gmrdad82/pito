@@ -126,6 +126,37 @@ RSpec.describe Pito::FollowUp::Handlers::Confirmation, type: :service do
     end
   end
 
+  # ── import_videos: system outcome on confirm ──────────────────────────────
+
+  describe "#call — import_videos confirm renders a system outcome" do
+    let!(:source_event) do
+      Event.create_with_position!(
+        conversation:, turn: source_turn, kind: "confirmation",
+        payload: {
+          "command"         => "import_videos",
+          "body"            => "Import new videos from @pito?",
+          "reply_handle"    => "alpha-1111",
+          "reply_target"    => "confirmation",
+          "scope_label"     => "@pito",
+          "channel_ids"     => [ channel.id ],
+          "conversation_id" => conversation.id
+        }
+      )
+    end
+
+    it "appends a :system event (not the orange confirmation_follow_up) on confirm" do
+      expect(call("confirm").events.first[:kind]).to eq("system")
+    end
+
+    it "carries the queued progress line as the system text" do
+      expect(call("confirm").events.first[:payload]["text"]).to be_present
+    end
+
+    it "still renders the orange confirmation_follow_up on cancel" do
+      expect(call("cancel").events.first[:kind]).to eq("confirmation_follow_up")
+    end
+  end
+
   # ── invalid action ────────────────────────────────────────────────────────
 
   describe "#call — invalid action" do

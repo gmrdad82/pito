@@ -153,13 +153,13 @@ RSpec.describe Pito::Chat::Handlers::Unlink do
     it "returns a usage hint when a title ref is given instead of an id" do
       result = follow_up_handler(payload: game_detail_payload, rest: "from video lies of p review").call
       expect(result).to be_a(Pito::Chat::Result::Error)
-      expect(result.message_key).to eq("pito.chat.unlink.usage")
+      expect(result.message_key).to eq("pito.chat.unlink.follow_up_usage.detail")
     end
 
     it "returns a usage hint when the ref is blank" do
       result = follow_up_handler(payload: game_detail_payload, rest: "from video").call
       expect(result).to be_a(Pito::Chat::Result::Error)
-      expect(result.message_key).to eq("pito.chat.unlink.usage")
+      expect(result.message_key).to eq("pito.chat.unlink.follow_up_usage.detail")
     end
   end
 
@@ -205,13 +205,13 @@ RSpec.describe Pito::Chat::Handlers::Unlink do
     it "returns a usage hint when a title ref is given instead of an id" do
       result = follow_up_handler(payload: video_detail_payload, rest: "from game lies of p").call
       expect(result).to be_a(Pito::Chat::Result::Error)
-      expect(result.message_key).to eq("pito.chat.unlink.usage")
+      expect(result.message_key).to eq("pito.chat.unlink.follow_up_usage.detail")
     end
 
     it "returns a usage hint when the ref is blank" do
       result = follow_up_handler(payload: video_detail_payload, rest: "from game").call
       expect(result).to be_a(Pito::Chat::Result::Error)
-      expect(result.message_key).to eq("pito.chat.unlink.usage")
+      expect(result.message_key).to eq("pito.chat.unlink.follow_up_usage.detail")
     end
 
     # Case 4 — detail source + multi-target
@@ -306,7 +306,7 @@ RSpec.describe Pito::Chat::Handlers::Unlink do
     it "returns a usage error when the 'from' connector is absent" do
       result = follow_up_handler(payload: video_list_payload, rest: video.id.to_s).call
       expect(result).to be_a(Pito::Chat::Result::Error)
-      expect(result.message_key).to eq("pito.chat.unlink.usage")
+      expect(result.message_key).to eq("pito.chat.unlink.follow_up_usage.list")
     end
   end
 end

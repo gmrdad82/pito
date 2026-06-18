@@ -91,8 +91,11 @@ class YoutubeConnections::OauthCallbacksController < ApplicationController
     # connection — the user can re-run /connect to retry discovery.
     discovery = discover_and_link_channels(connection)
     message   = compose_callback_flash(discovery)
-    kind      = Array(discovery[:duplicates]).any? && Array(discovery[:added]).empty? ? :error : :system
-    persist_connect_result(conversation, message, kind: kind, connection:)
+    # "Already connected / nothing new" is informational, not an error — emit it
+    # as a Standard (:system) message so it's the right colour AND renders its
+    # HTML (the payload carries html: true; ErrorComponent would escape it).
+    persist_connect_result(conversation, message, kind: :system, connection:,
+                           import_videos: Array(discovery[:added]).any?)
     redirect_to(conversation ? conversation_path(uuid: conversation.uuid) : root_path)
   end
 
@@ -109,7 +112,7 @@ class YoutubeConnections::OauthCallbacksController < ApplicationController
   # Persist a result Event on the conversation. For successful connects
   # (kind: :system), the turn stays open so a background job can append
   # channel stats later. Errors and partial grants complete immediately.
-  def persist_connect_result(conversation, message, kind: :system, connection: nil)
+  def persist_connect_result(conversation, message, kind: :system, connection: nil, import_videos: false)
     return unless conversation
     return if message.blank?
 
@@ -129,8 +132,10 @@ class YoutubeConnections::OauthCallbacksController < ApplicationController
     )
 
     if kind == :system && connection.present?
-      # Multi-stage flow: keep turn open, enqueue channel info job (stage 1)
-      ChannelInfoJob.perform_later(connection.id, turn.id)
+      # Multi-stage flow: keep turn open, enqueue channel info job (stage 1).
+      # import_videos: true only when new channels were actually added this callback
+      # (false for re-auths where discovery returned only duplicates).
+      ChannelInfoJob.perform_later(connection.id, turn.id, import_videos: import_videos)
     else
       # Error / partial grant: complete immediately
       turn.update_columns(completed_at: Time.current)

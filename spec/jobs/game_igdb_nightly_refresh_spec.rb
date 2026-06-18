@@ -87,8 +87,10 @@ RSpec.describe GameIgdbNightlyRefresh, type: :job do
     expect { run! }.not_to change(Notification, :count)
   end
 
-  # (d) game releasing within 30 days → notification even with 0 changed / 0 failed
-  it "(d) creates ONE Notification when a game releases within 30 days (even with 0 changed, 0 failed)" do
+  # (d) P9: the date-less "releasing within 30 days" summary was removed from
+  # this job — dated countdowns are now ReleaseCountdownJob's responsibility.
+  # A soon-releasing game with 0 changed / 0 failed is therefore a quiet run.
+  it "(d) creates NO Notification merely because a game releases within 30 days" do
     future_date = Date.current + 15.days
     create(:game,
            igdb_synced_at: 10.days.ago,
@@ -97,9 +99,7 @@ RSpec.describe GameIgdbNightlyRefresh, type: :job do
            release_day:    future_date.day)
     # Sync stub returns nil — no DB change, no failure
 
-    expect { run! }.to change(Notification, :count).by(1)
-    msg = Notification.last.message
-    expect(msg).to include("30 days")
+    expect { run! }.not_to change(Notification, :count)
   end
 
   # (e) game releasing in 60 days → NOT in releasing_30d → no notification (assuming no other activity)
@@ -139,22 +139,5 @@ RSpec.describe GameIgdbNightlyRefresh, type: :job do
     msg = Notification.last.message
     expect(msg).to include("Exploding Game")
     expect(msg).to include("boom")
-  end
-
-  # ── releasing_30d section in message ────────────────────────────────────────
-
-  it "Notification message includes title and release date of soon-releasing games" do
-    future_date = Date.current + 10.days
-    game = create(:game,
-                  title:         "Soon Game",
-                  igdb_synced_at: 10.days.ago,
-                  release_year:   future_date.year,
-                  release_month:  future_date.month,
-                  release_day:    future_date.day)
-
-    run!
-    msg = Notification.last.message
-    expect(msg).to include("Soon Game")
-    expect(msg).to include(future_date.to_s)
   end
 end

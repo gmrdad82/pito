@@ -144,24 +144,34 @@ class ChatController < ApplicationController
     viewport_width = input_kind == :chat ? params[:viewport_width].presence : nil
     # T47.3: clear any persisted draft when a real message is sent.
     conversation.update_column(:draft, nil) if conversation.draft.present?
-    enqueue_turn(input, conversation, input_kind:, authenticated:, echo_text:, channel:, period:, viewport_width:)
+    # A genuinely new (non-reply) command consumes every prior live #hashtag
+    # affordance in the conversation (P17). The `#handle` reply path
+    # (handle_hashtag / handle_follow_up) deliberately does NOT consume.
+    enqueue_turn(input, conversation, input_kind:, authenticated:, echo_text:, channel:, period:, viewport_width:, consume_live_replies: true)
   end
 
   def handle_hashtag(input, conversation)
     enqueue_turn(input, conversation, input_kind: :hashtag, authenticated: Current.session.present?, echo_text: input, channel: nil, period: nil, viewport_width: nil)
   end
 
-  def enqueue_turn(input, conversation, input_kind:, authenticated:, echo_text:, channel:, period:, viewport_width: nil)
+  def enqueue_turn(input, conversation, input_kind:, authenticated:, echo_text:, channel:, period:, viewport_width: nil, consume_live_replies: false)
     turn = conversation.turns.create!(
       position:   Turn.next_position_for(conversation),
       input_kind:,
       input_text: input
     )
 
+    broadcaster = Pito::Stream::Broadcaster.new(conversation:)
+
+    # P17: when a new non-reply command opens this turn, drop every prior live
+    # repliable affordance. Scoped to events on strictly earlier turns
+    # (turn_id < turn.id), so this command's OWN result events — streamed in
+    # later by ChatDispatchJob under this same turn — keep their handles live.
+    consume_prior_live_replies(conversation, broadcaster:, before_turn: turn) if consume_live_replies
+
     # Persist echo first, then broadcast (T23.1 + T23.2 / T24.1 + T24.2).
     # echo_text may differ from input when sensitive kwargs are masked (T27.0.d).
     # Slash / hashtag command echoes never show the channel filter in the meta line.
-    broadcaster  = Pito::Stream::Broadcaster.new(conversation:)
     echo_event   = Event.create_with_position!(
       conversation:, turn:, kind: :echo,
       payload: { text: echo_text, authenticated: input_kind == :chat ? authenticated : false }
@@ -174,6 +184,25 @@ class ChatController < ApplicationController
 
     # T23.4: enqueue job — auth gating decided here, applied in the worker.
     ChatDispatchJob.perform_later(turn.id, channel:, period:, authenticated:, viewport_width:)
+  end
+
+  # P17: consume every prior LIVE repliable event in the conversation so its
+  # `#handle` / shift+r affordance drops the moment a new non-reply command is
+  # sent. Mirrors FollowUpDispatchJob's consume mechanism: stamp
+  # `reply_consumed: true`, then broadcaster.replace_event to re-render live.
+  #
+  # `before_turn` scopes consumption to events on strictly earlier turns
+  # (turn_id < before_turn.id). The new command's own result events belong to
+  # `before_turn` and stream in later, so they are excluded and stay live.
+  def consume_prior_live_replies(conversation, broadcaster:, before_turn:)
+    conversation.events
+      .where("turn_id < ?", before_turn.id)
+      .where("payload->>'reply_handle' IS NOT NULL")
+      .where("(payload->>'reply_consumed') IS NULL OR (payload->>'reply_consumed') = 'false'")
+      .find_each do |event|
+        event.update!(payload: event.payload.merge("reply_consumed" => true))
+        broadcaster.replace_event(event)
+      end
   end
 
   # ── Conversation resolution ─────────────────────────────────────────────────
