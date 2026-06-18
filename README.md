@@ -51,7 +51,6 @@ the rebuild. To try it anyway, start with
 - [`docs/EXTRA.md`](docs/EXTRA.md) — pito-specific conventions that override the
   generic agent guidance
 - [`docs/architecture.md`](docs/architecture.md) — topology, models, namespaces
-- [`docs/design.md`](docs/design.md) — visual contract, keybindings, terminology
 - [`docs/footage_probe.md`](docs/footage_probe.md) — ffprobe integration, grading detection, rake task usage
 
 ## Sounds
