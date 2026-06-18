@@ -51,10 +51,9 @@ RSpec.describe Pito::Slash::Handlers::Help, type: :service do
       expect(event[:payload][:message_key]).to eq("pito.slash.help.unauthenticated")
     end
 
-    it "does not include sections or expand_lines" do
+    it "does not include sections" do
       event = build_handler(authenticated: false).call.events.first
       expect(event[:payload][:sections]).to be_nil
-      expect(event[:payload][:expand_lines]).to be_nil
     end
   end
 

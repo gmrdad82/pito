@@ -35,7 +35,6 @@ Rails.application.routes.draw do
   delete "/chat/:uuid", to: "conversations#destroy"
 
   # Settings toggle endpoints — require authentication (no allow_anonymous).
-  post   "/settings/expand_all", to: "settings#toggle_expand_all", as: :settings_toggle_expand_all
   patch  "/settings/theme",      to: "settings#theme",             as: :settings_theme
 
   # Dev helper: clears the session cookie so you can re-test /authenticate

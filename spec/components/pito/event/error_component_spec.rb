@@ -31,19 +31,14 @@ RSpec.describe Pito::Event::ErrorComponent do
       expect(node.css("span.text-fg").text).to include("Direct error text")
     end
 
-    it "renders detail target when detail: is present" do
+    it "renders detail always-visible when detail: is present" do
       node = render_inline(described_class.new(payload: { text: "Oops", detail: "raw error detail" }))
-      expect(node.css("[data-pito--expand-target='detail']").text).to include("raw error detail")
+      expect(node.text).to include("raw error detail")
     end
 
-    it "shows ctrl+| hint when detail is present" do
-      node = render_inline(described_class.new(payload: { text: "Oops", detail: "raw" }))
-      expect(node.css("[data-pito--expand-target='hint']")).not_to be_empty
-    end
-
-    it "omits expand UI when no detail" do
+    it "omits detail block when no detail" do
       node = render_inline(described_class.new(payload: { text: "Simple error" }))
-      expect(node.css("[data-pito--expand-target='hint']")).to be_empty
+      expect(node.css("div.border-t")).to be_empty
     end
   end
 

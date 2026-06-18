@@ -11,11 +11,7 @@ module Pito
     #   text:             [String]  — fallback plain body when `body` is absent
     #   message_key:      [String]  — I18n key; resolved with `message_args` when `body`/`text` absent
     #   message_args:     [Hash]    — interpolation args for the I18n translation
-    #   expand_lines:     [Array]   — condensed lines shown before expanding
-    #   expand_detail:    [Array]   — additional lines shown after expanding
-    #   expand_more_count:[Integer] — shown in "N more…" hint
-    #   expand_label:     [String]  — overrides default expand hint text
-    #   collapse_label:   [String]  — overrides default collapse hint text
+    #   expand_detail:    [Array]   — detail rows, rendered always-visible (as `detail`)
     #   table_rows:       [Array]   — key/value rows rendered as a definition table
     #   info_lines:       [Array]   — lines rendered with inline `code` highlighting
     #   sections:         [Array]   — titled section blocks (title + rows)
@@ -29,9 +25,7 @@ module Pito
         @event        = event
         @body         = payload[:body].presence || resolve_text(payload)
         @html         = payload[:html] == true || payload[:html] == "true"
-        @expand_lines = Array(payload[:expand_lines]).map(&:to_s)
         @expand_detail = Array(payload[:expand_detail]).map(&:to_s)
-        @expand_more_count = payload[:expand_more_count].to_i
         @table_rows   = Array(payload[:table_rows]).map { |r| r.respond_to?(:with_indifferent_access) ? r.with_indifferent_access : r }
         @table_heading    = payload[:table_heading].presence
         @fixed_leading    = payload[:fixed_leading].to_i
@@ -48,11 +42,10 @@ module Pito
         @timestamp       = event&.created_at
       end
 
-      attr_reader :body, :expand_lines, :expand_detail, :expand_more_count, :table_rows, :table_heading,
+      attr_reader :body, :expand_detail, :table_rows, :table_heading,
                   :info_lines, :handle, :channel, :sections, :html, :reply_handle, :reply_consumed,
                   :fixed_leading, :fixed_trailing, :list_footer
 
-      def expandable?    = @expand_detail.any? || @sections.any?
       def accent         = :surface
       def background     = nil
 
@@ -67,14 +60,6 @@ module Pito
       # to reply to; available actions live in /help, not in the message.
       def meta_handle
         handle.presence || (followupable? ? reply_handle : nil)
-      end
-
-      def expand_label
-        @payload[:expand_label].presence || Pito::Copy.render("pito.copy.help.more_hint")
-      end
-
-      def collapse_label
-        @payload[:collapse_label].presence || Pito::Copy.render("pito.copy.help.fewer_hint")
       end
 
       def render_info_line(line)

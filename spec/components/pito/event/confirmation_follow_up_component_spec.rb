@@ -36,9 +36,9 @@ RSpec.describe Pito::Event::ConfirmationFollowUpComponent do
     expect(node.css(".pito-echo__meta")).to be_empty
   end
 
-  it "does NOT render body or expand detail" do
+  it "does NOT render a detail block" do
     node = render_inline(described_class.new(payload: outcome_payload))
-    expect(node.css("[data-controller='pito--expand']")).to be_empty
+    expect(node.css("div.border-t")).to be_empty
   end
 
   it "renders nothing visible when outcome_text is absent" do

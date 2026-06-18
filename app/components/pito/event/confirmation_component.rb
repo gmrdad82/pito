@@ -4,7 +4,7 @@ module Pito
   module Event
     # Confirmation — destructive action awaiting #handle confirm/cancel.
     # Orange border, no background. Transitions through three states:
-    #   pending    — body + ctrl+o expand detail
+    #   pending    — body + always-visible stats detail
     #   processing — Braille spinner above body (broadcasting replace)
     #   resolved   — body only
     #

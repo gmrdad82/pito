@@ -8,14 +8,12 @@
           )) %>
     <% end %>
 
-    <%# Body + optional expand detail (pending state only) %>
-    <%= render(Pito::Event::ExpandableBodyComponent.new(
-          body:           body,
-          html:           html?,
-          expand_detail:  expandable? ? expand_detail : [],
-          expand_label:   t("pito.confirmation.expand_hint"),
-          collapse_label: t("pito.confirmation.expand_collapse_hint"),
-          timestamp:      @timestamp
+    <%# Body + stats detail (shown while pending; hidden once resolved) %>
+    <%= render(Pito::Event::BodyComponent.new(
+          body:      body,
+          html:      html?,
+          detail:    expandable? ? expand_detail : [],
+          timestamp: @timestamp
         )) %>
 
     <%# Single meta line — `timestamp · #handle` while still awaiting a reply

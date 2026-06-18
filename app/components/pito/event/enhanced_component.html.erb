@@ -1,33 +1,25 @@
 <%= render(Pito::Segment::Component.new(accent:, background:)) do %>
-  <%# Full-content typewriter: outer div owns the controller so body, expand_lines,
-      and any future kv/section leaves all type in document order.
-      Only wraps when there is a plain-text body to anchor the animation. %>
+  <%# Full-content typewriter: outer div owns the controller so the body types
+      in document order. Only wraps when there is a plain-text body to anchor
+      the animation. %>
   <% if !html && body %>
     <div data-controller="pito--typewriter">
-      <%= render(Pito::Event::ExpandableBodyComponent.new(
-            body:              body,
-            html:              html,
-            expand_lines:      expand_lines,
-            expand_detail:     expand_detail,
-            expand_more_count: expand_more_count,
-            expand_label:      Pito::Copy.render("pito.copy.help.more_hint"),
-            collapse_label:    Pito::Copy.render("pito.copy.help.fewer_hint"),
-            typewriter:        true,
-            owner_controller:  false,
-            timestamp:         @timestamp
+      <%= render(Pito::Event::BodyComponent.new(
+            body:             body,
+            html:             html,
+            detail:           expand_detail,
+            typewriter:       true,
+            owner_controller: false,
+            timestamp:        @timestamp
           )) %>
     </div>
   <% else %>
-    <%= render(Pito::Event::ExpandableBodyComponent.new(
-          body:              body,
-          html:              html,
-          expand_lines:      expand_lines,
-          expand_detail:     expand_detail,
-          expand_more_count: expand_more_count,
-          expand_label:      Pito::Copy.render("pito.copy.help.more_hint"),
-          collapse_label:    Pito::Copy.render("pito.copy.help.fewer_hint"),
-          typewriter:        false,
-          timestamp:         @timestamp
+    <%= render(Pito::Event::BodyComponent.new(
+          body:       body,
+          html:       html,
+          detail:     expand_detail,
+          typewriter: false,
+          timestamp:  @timestamp
         )) %>
   <% end %>
   <% if meta_handle || channel %>
