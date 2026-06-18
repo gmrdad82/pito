@@ -1066,7 +1066,9 @@ html {
   display: grid;
   grid-template-columns: repeat(auto-fit, 180px);
   justify-content: start;
-  gap: 0.75rem 1rem;
+  /* Wider row gap: each score bar floats its bubble above the card, so wrapped
+     rows need clearance (mirrors the channel grid). */
+  gap: 2rem 1rem;
 }
 
 /* Each card: narrow cover + title + id stacked. Cover is the 150%-scaled
@@ -1107,6 +1109,22 @@ html {
 /* Detail-card hairline spacing: a plain 10px top/bottom gap. */
 .pito-detail-hairline {
   margin: 10px 0;
+}
+
+/* Video linked-game card: a SLIM two-column card (cover left, kv-table right)
+   emitted under a video detail. Mirrors the game detail card's grid kv-table
+   (grid grid-cols-[max-content_1fr]) but with the small 180px cover and no
+   score/TTB bars. The cover column never shrinks. */
+.pito-video-linked-game-card__cover {
+  flex: 0 0 auto;
+}
+
+/* Small cover at its full 180×240 (Game::COVER_VARIANT). */
+.pito-video-linked-game-card__cover img {
+  width: 180px;
+  height: 240px;
+  object-fit: cover;
+  display: block;
 }
 
 /* Video detail: two columns. Left (thumbnail + fields + stats) is fixed to the
@@ -1343,6 +1361,8 @@ html {
   grid-template-columns: repeat(2, minmax(0, max-content));
   column-gap: 1.5rem;   /* breathing room between columns */
   row-gap: 0.25rem;
+  max-width: 100%;      /* never overflow the message segment — columns shrink and
+                           the capped text cells ellipsis-truncate instead of stacking */
 }
 .pito-data-grid[data-cols="2"] { grid-template-columns: repeat(2, minmax(0, max-content)); }
 .pito-data-grid[data-cols="3"] { grid-template-columns: repeat(3, minmax(0, max-content)); }
@@ -1350,7 +1370,11 @@ html {
 .pito-data-grid[data-cols="5"] { grid-template-columns: repeat(5, minmax(0, max-content)); }
 .pito-data-grid[data-cols="6"] { grid-template-columns: repeat(6, minmax(0, max-content)); }
 .pito-data-grid[data-cols="7"] { grid-template-columns: repeat(7, minmax(0, max-content)); }
-.pito-data-grid[data-cols="8"] { grid-template-columns: repeat(8, minmax(0, max-content)); }
+.pito-data-grid[data-cols="8"]  { grid-template-columns: repeat(8,  minmax(0, max-content)); }
+.pito-data-grid[data-cols="9"]  { grid-template-columns: repeat(9,  minmax(0, max-content)); }
+.pito-data-grid[data-cols="10"] { grid-template-columns: repeat(10, minmax(0, max-content)); }
+.pito-data-grid[data-cols="11"] { grid-template-columns: repeat(11, minmax(0, max-content)); }
+.pito-data-grid[data-cols="12"] { grid-template-columns: repeat(12, minmax(0, max-content)); }
 
 /* Text columns render on ONE line and ellipsis-truncate at their cap. The grid
    column is content-sized, so each column hugs its content up to the cap below;

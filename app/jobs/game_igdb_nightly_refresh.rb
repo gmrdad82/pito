@@ -24,28 +24,21 @@
 # not advance `updated_at`.
 #
 # Notification is created ONLY IF there is something noteworthy:
-# changed games, failures, or a game releasing within 30 days.
-# A completely quiet run (nothing changed, no failures, nothing releasing
-# soon) is silent — no Notification is created.
+# changed games or failures. A completely quiet run (nothing changed, no
+# failures) is silent — no Notification is created.
+#
+# Release-countdown reminders are NOT this job's concern — they are emitted
+# DAILY (with concrete dates) by ReleaseCountdownJob. This job's old
+# date-less "releasing within 30 days" summary was removed in favour of that.
 class GameIgdbNightlyRefresh < ApplicationJob
   queue_as :default
-
-  RELEASING_SOON_WINDOW = 30.days
 
   def perform
     checked        = 0
     changed        = []
     failures       = []
-    releasing_30d  = []
 
     upcoming_games = Game.synced.stale.upcoming
-
-    # Collect games releasing within 30 days BEFORE the sync loop so we
-    # report on the scope as it exists at run time.
-    window_end = Date.current + RELEASING_SOON_WINDOW
-    upcoming_games.where(release_date: Date.current..window_end).find_each do |game|
-      releasing_30d << { title: game.title, release_date: game.release_date }
-    end
 
     upcoming_games.find_each do |game|
       checked += 1
@@ -64,13 +57,13 @@ class GameIgdbNightlyRefresh < ApplicationJob
       end
     end
 
-    return if changed.none? && failures.none? && releasing_30d.none?
+    return if changed.none? && failures.none?
 
     Pito::Notifications::Source::NightlyGamesSync.report!(
-      checked:      checked,
-      changed:      changed,
-      failures:     failures,
-      releasing_30d: releasing_30d
+      checked:       checked,
+      changed:       changed,
+      failures:      failures,
+      releasing_30d: []
     )
   end
 end

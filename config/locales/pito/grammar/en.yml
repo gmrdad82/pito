@@ -19,6 +19,7 @@ en:
         footage: "Get the footage probe command for a game (by id or title)"
         delete: "Delete a game or video (by id or title)"
         reindex: "Re-embed a game or video in Voyage (by id or title)"
+        platform: "Set a game's platform from free text (e.g. ps5, switch, steam)"
         publish: "Publish a video on YouTube (set public, clear schedule)"
         unlist: "Unlist a video on YouTube"
         schedule: "Schedule a video for future publishing"

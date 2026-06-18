@@ -8,13 +8,17 @@
           )) %>
     <% end %>
 
-    <%# Body + stats detail (shown while pending; hidden once resolved) %>
-    <%= render(Pito::Event::BodyComponent.new(
-          body:      body,
-          html:      html?,
-          detail:    expandable? ? expand_detail : [],
-          timestamp: @timestamp
-        )) %>
+    <%# Body + stats detail (shown while pending; hidden once resolved).
+        Wrapped in a div so the timestamp + body stay inline — a bare
+        BodyComponent would let flex-col row-split its two spans. %>
+    <div>
+      <%= render(Pito::Event::BodyComponent.new(
+            body:      body,
+            html:      html?,
+            detail:    expandable? ? expand_detail : [],
+            timestamp: @timestamp
+          )) %>
+    </div>
 
     <%# Single meta line — `timestamp · #handle` while still awaiting a reply
         (#<handle> confirm / cancel). Handle drops once consumed/resolved.

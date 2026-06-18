@@ -13,7 +13,7 @@ RSpec.describe Pito::FollowUp::VerbDelegator, type: :service do
       result = described_class.call(source_event:, rest: "show #{game.id}", conversation:)
 
       expect(result).to be_a(Pito::FollowUp::Result::Append)
-      expect(result.events.map { |e| e[:kind] }).to eq([ :system, :enhanced ])
+      expect(result.events.map { |e| e[:kind] }).to eq([ :system, :enhanced, :enhanced ])
       detail = result.events.first[:payload].with_indifferent_access
       expect(detail[:game_id]).to eq(game.id)
     end

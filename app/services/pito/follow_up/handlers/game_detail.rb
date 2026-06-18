@@ -31,7 +31,7 @@ module Pito
       class GameDetail < Pito::FollowUp::Handler
         self.target "game_detail"
         self.mode   :append
-        self.actions "rm", "delete", "reindex", "link", "unlink", "footage"
+        self.actions "rm", "delete", "reindex", "link", "unlink", "footage", "platform"
 
         # @param event        [Event]        the game-detail event.
         # @param rest         [String]       text after `#<handle> `.
@@ -40,7 +40,7 @@ module Pito
         def call(event:, rest:, conversation:)
           action, args = parse_rest(rest)
 
-          if %w[rm delete reindex link unlink].include?(action)
+          if %w[rm delete reindex link unlink platform].include?(action)
             return Pito::FollowUp::VerbDelegator.call(source_event: event, rest:, conversation:)
           end
 

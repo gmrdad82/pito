@@ -3,7 +3,7 @@
       in document order. Only wraps when there is a plain-text body to anchor
       the animation. %>
   <% if !html && body %>
-    <div data-controller="pito--typewriter">
+    <div<% unless reply_consumed %> data-controller="pito--typewriter"<% end %>>
       <%= render(Pito::Event::BodyComponent.new(
             body:             body,
             html:             html,

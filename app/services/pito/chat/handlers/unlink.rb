@@ -59,7 +59,7 @@ module Pito
         def follow_up_unlink
           if video_target?(VIDEO_NOUNS)
             follow_up_multi(
-              connector:     "from",
+              connectors:    %w[from],
               source_class:  ::Video,
               other_class:   ::Game,
               source_nouns:  VIDEO_NOUNS,
@@ -69,7 +69,7 @@ module Pito
             )
           else
             follow_up_multi(
-              connector:     "from",
+              connectors:    %w[from],
               source_class:  ::Game,
               other_class:   ::Video,
               source_nouns:  GAME_NOUNS,

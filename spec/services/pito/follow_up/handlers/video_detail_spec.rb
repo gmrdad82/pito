@@ -160,7 +160,7 @@ RSpec.describe Pito::FollowUp::Handlers::VideoDetail, type: :service do
     it "returns a usage hint when the ref is blank" do
       result = handler.call(event: source_event, rest: "link to game", conversation:)
       expect(result).to be_a(Pito::FollowUp::Result::Error)
-      expect(result.message_key).to eq("pito.chat.link.usage")
+      expect(result.message_key).to eq("pito.chat.link.follow_up_usage.detail")
     end
   end
 

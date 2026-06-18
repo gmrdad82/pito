@@ -27,7 +27,7 @@ module Pito
         self.target "game_list"
         self.mode   :append
         self.action_modes add: :mutate, remove: :mutate, sort: :mutate, order: :mutate
-        self.actions "show", "delete", "rm", "add", "remove", "sort", "order", "link", "unlink"
+        self.actions "show", "delete", "rm", "add", "remove", "sort", "order", "link", "unlink", "platform"
 
         def call(event:, rest:, conversation:)
           action, args = parse_rest(rest)

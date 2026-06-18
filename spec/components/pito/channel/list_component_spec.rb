@@ -109,7 +109,7 @@ RSpec.describe Pito::Channel::ListComponent do
       allow(channel).to receive(:subscriber_count).and_return(1)
       allow(channel).to receive(:view_count).and_return(0)
       node = render_inline(described_class.new(channels: [ channel ]))
-      expect(node.at_css(".pito-channel-item__stat--subscribers").text.strip).to eq("1 sub")
+      expect(node.at_css(".pito-channel-item__stat--subscribers").text.strip).to eq("1 S")
     end
 
     it "shows correct pluralized view label" do
@@ -117,7 +117,7 @@ RSpec.describe Pito::Channel::ListComponent do
       allow(channel).to receive(:subscriber_count).and_return(0)
       allow(channel).to receive(:view_count).and_return(5)
       node = render_inline(described_class.new(channels: [ channel ]))
-      expect(node.at_css(".pito-channel-item__stat--views").text.strip).to eq("5 views")
+      expect(node.at_css(".pito-channel-item__stat--views").text.strip).to eq("5 v")
     end
   end
 end

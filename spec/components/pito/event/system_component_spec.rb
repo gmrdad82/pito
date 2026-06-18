@@ -36,6 +36,22 @@ RSpec.describe Pito::Event::SystemComponent do
     end
   end
 
+  describe "typewriter hook — consumed (reply_consumed) re-render" do
+    subject(:node) do
+      render_inline(described_class.new(payload: {
+        body: "All told, 2 videos.", reply_handle: "h", reply_target: "video_list", reply_consumed: true
+      }))
+    end
+
+    it "renders statically (no typewriter controller) so a consumed re-render does not replay" do
+      expect(node.css("[data-controller~='pito--typewriter']")).to be_empty
+    end
+
+    it "still renders the body text instantly" do
+      expect(node.text).to include("All told, 2 videos.")
+    end
+  end
+
   describe "typewriter hook — empty body" do
     subject(:node) { render_inline(described_class.new(payload: { body: nil })) }
 

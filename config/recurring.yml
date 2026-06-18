@@ -49,6 +49,18 @@ production:
     schedule: "0 9 * * 1"
     description: "Weekly drift check between production.rb trusted_proxies and Cloudflare's published lists"
 
+  # YouTube reauth check — daily at 01:00 UTC
+  youtube_reauth_check:
+    class: YoutubeReauthCheckJob
+    schedule: "0 1 * * *"
+    description: "Notify for every YoutubeConnection with needs_reauth: true"
+
+  # Release countdown — daily at 01:00 UTC
+  release_countdown:
+    class: ReleaseCountdownJob
+    schedule: "0 1 * * *"
+    description: "Notify a dated countdown for every game releasing within 30 days"
+
 development:
   # P59 — Notifications cleanup — daily at 01:00
   cleanup_notifications:
@@ -61,3 +73,15 @@ development:
     class: GameIgdbNightlyRefresh
     schedule: "0 1 * * *"
     description: "Re-sync every upcoming Game whose igdb_synced_at is older than 7 days"
+
+  # YouTube reauth check — daily at 01:00
+  youtube_reauth_check:
+    class: YoutubeReauthCheckJob
+    schedule: "0 1 * * *"
+    description: "Notify for every YoutubeConnection with needs_reauth: true"
+
+  # Release countdown — daily at 01:00
+  release_countdown:
+    class: ReleaseCountdownJob
+    schedule: "0 1 * * *"
+    description: "Notify a dated countdown for every game releasing within 30 days"

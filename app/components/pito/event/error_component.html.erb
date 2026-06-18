@@ -1,6 +1,9 @@
 <%= render(Pito::Segment::Component.new(accent: :red)) do %>
   <div>
-    <span class="text-fg"><%= @text %></span>
+    <%# Main text renders as HTML (copy-built, may carry <span>/<br>). The raw
+        machine `detail` below stays escaped. Builders must escape any
+        user-supplied interpolation in the text. %>
+    <%= render(Pito::Event::TimestampPrefixComponent.new(timestamp: @timestamp)) %><span class="text-fg"><%= raw(@text) %></span>
     <% if @credentials %>
       <%= render(Pito::Separator::DividerLineComponent.new(extra_classes: "flex flex-col gap-1 font-mono")) do %>
         <% credential_rows.each do |row| %>

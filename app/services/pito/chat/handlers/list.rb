@@ -294,8 +294,10 @@ module Pito
 
         # `list channels` → inline channel cards rendered by Pito::Channel::ListComponent.
         # Returns a :system event with an html body (intro line + wrapping card strip).
+        # If any connected channel's youtube_connection needs reauth, appends a second
+        # :enhanced event listing those channels with a reconnect hint.
         def list_channels
-          channels = ::Channel.order(:title)
+          channels = ::Channel.includes(:youtube_connection).order(:title)
           if channels.empty?
             return Pito::Chat::Result::Ok.new(events: [
               { kind: :system, payload: Pito::MessageBuilder::Text.call("pito.copy.channels.list_empty") }
@@ -303,8 +305,14 @@ module Pito
           end
 
           payload = Pito::MessageBuilder::Channel::List.call(channels, conversation:)
+          events  = [ { kind: :system, payload: } ]
 
-          Pito::Chat::Result::Ok.new(events: [ { kind: :system, payload: payload } ])
+          reauth = channels.select { |c| c.youtube_connection&.needs_reauth? }
+          if reauth.any?
+            events << { kind: :enhanced, payload: Pito::MessageBuilder::Channel::ReauthNeeded.call(reauth) }
+          end
+
+          Pito::Chat::Result::Ok.new(events:)
         end
 
         def games_list_help

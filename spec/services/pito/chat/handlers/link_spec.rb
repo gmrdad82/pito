@@ -48,6 +48,21 @@ RSpec.describe Pito::Chat::Handlers::Link do
     }.to change(VideoGameLink, :count).by(1)
   end
 
+  describe "the `with` connector (alias for `to`)" do
+    it "links in free chat: `link game <id> with video <id>`" do
+      expect {
+        handler_for("game", game.id.to_s, "with", "video", video.id.to_s).call
+      }.to change(VideoGameLink, :count).by(1)
+    end
+
+    it "links in a list reply: `#<h> link <src-id> with <tgt-id>`" do
+      payload = { "reply_target" => "video_list", "video_ids" => [ video.id ] }
+      expect {
+        follow_up_handler(payload: payload, rest: "#{video.id} with #{game.id}").call
+      }.to change(VideoGameLink, :count).by(1)
+    end
+  end
+
   it "returns Ok with a witty success message" do
     result = handler_for("game", game.id.to_s, "to", "video", video.id.to_s).call
     expect(result).to be_a(Pito::Chat::Result::Ok)
@@ -126,7 +141,7 @@ RSpec.describe Pito::Chat::Handlers::Link do
       handler = follow_up_handler(payload: game_detail_payload, rest: "to video lies of p review")
       result = handler.call
       expect(result).to be_a(Pito::Chat::Result::Error)
-      expect(result.message_key).to eq("pito.chat.link.usage")
+      expect(result.message_key).to eq("pito.chat.link.follow_up_usage.detail")
     end
 
     it "returns Ok with the linked ack" do
@@ -153,7 +168,7 @@ RSpec.describe Pito::Chat::Handlers::Link do
     it "returns a usage hint when the ref is blank" do
       result = follow_up_handler(payload: game_detail_payload, rest: "to video").call
       expect(result).to be_a(Pito::Chat::Result::Error)
-      expect(result.message_key).to eq("pito.chat.link.usage")
+      expect(result.message_key).to eq("pito.chat.link.follow_up_usage.detail")
     end
   end
 
@@ -176,7 +191,7 @@ RSpec.describe Pito::Chat::Handlers::Link do
       handler = follow_up_handler(payload: video_detail_payload, rest: "to game lies of p")
       result = handler.call
       expect(result).to be_a(Pito::Chat::Result::Error)
-      expect(result.message_key).to eq("pito.chat.link.usage")
+      expect(result.message_key).to eq("pito.chat.link.follow_up_usage.detail")
     end
 
     it "returns Ok with the linked ack" do
@@ -196,7 +211,7 @@ RSpec.describe Pito::Chat::Handlers::Link do
     it "returns a usage hint when the ref is blank" do
       result = follow_up_handler(payload: video_detail_payload, rest: "to game").call
       expect(result).to be_a(Pito::Chat::Result::Error)
-      expect(result.message_key).to eq("pito.chat.link.usage")
+      expect(result.message_key).to eq("pito.chat.link.follow_up_usage.detail")
     end
 
     # Case 4 — detail source + multi-target
@@ -290,7 +305,7 @@ RSpec.describe Pito::Chat::Handlers::Link do
     it "returns a usage error when the 'to' connector is absent" do
       result = follow_up_handler(payload: video_list_payload, rest: video.id.to_s).call
       expect(result).to be_a(Pito::Chat::Result::Error)
-      expect(result.message_key).to eq("pito.chat.link.usage")
+      expect(result.message_key).to eq("pito.chat.link.follow_up_usage.list")
     end
   end
 end

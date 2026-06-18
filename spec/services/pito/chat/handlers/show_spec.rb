@@ -55,13 +55,85 @@ RSpec.describe Pito::Chat::Handlers::Show do
     expect(payload["reply_target"]).to eq("game_detail")
   end
 
-  it "also emits the Enhanced message (kind :enhanced, not follow-up-able)" do
+  it "also emits the Stats & Analytics placeholder (kind :enhanced, not follow-up-able)" do
     events = handler_for("##{game.id}").call.events
-    enhanced = events.find { |e| e[:kind] == :enhanced }
+    stats = events.find { |e| e[:payload]["body"]&.include?("pito-game-stats-placeholder-message") }
+    expect(stats).to be_present
+    expect(stats[:kind]).to eq(:enhanced)
+    expect(stats[:payload]["html"]).to be(true)
+    expect(stats[:payload]["reply_handle"]).to be_blank
+  end
+
+  it "also emits the Enhanced recommendations message (kind :enhanced, not follow-up-able)" do
+    events = handler_for("##{game.id}").call.events
+    enhanced = events.find { |e| e[:payload]["body"]&.include?("pito-game-enhanced-message") }
     expect(enhanced).to be_present
+    expect(enhanced[:kind]).to eq(:enhanced)
     expect(enhanced[:payload]["html"]).to be(true)
     expect(enhanced[:payload]["reply_handle"]).to be_blank
-    expect(enhanced[:payload]["body"]).to include("pito-game-enhanced-message")
+  end
+
+  it "emits events in order: detail → stats&analytics → recommendations (no linked videos)" do
+    events = handler_for("##{game.id}").call.events
+    detail_idx = events.index { |e| e[:payload]["reply_target"] == "game_detail" }
+    stats_idx  = events.index { |e| e[:payload]["body"]&.include?("pito-game-stats-placeholder-message") }
+    recs_idx   = events.index { |e| e[:payload]["body"]&.include?("pito-game-enhanced-message") }
+
+    expect(detail_idx).to be < stats_idx
+    expect(stats_idx).to be < recs_idx
+  end
+
+  # ── Game branch — linked videos list ─────────────────────────────────────────
+
+  context "linked videos" do
+    def linked_videos_event(*words)
+      handler_for(*words).call.events.find { |e| e[:payload]["reply_target"] == "video_list" }
+    end
+
+    context "when the game has linked videos" do
+      let!(:channel) { create(:channel) }
+      let!(:video)   { create(:video, channel: channel, title: "Boss Fight") }
+      let!(:vgl)     { create(:video_game_link, video: video, game: game) }
+
+      it "emits an :enhanced linked-videos list message after the detail" do
+        events = handler_for("##{game.id}").call.events
+        list_index   = events.index { |e| e[:payload]["reply_target"] == "video_list" }
+        detail_index = events.index { |e| e[:payload]["reply_target"] == "game_detail" }
+        expect(list_index).to be_present
+        expect(events[list_index][:kind]).to eq(:enhanced)
+        expect(list_index).to eq(detail_index + 1)
+      end
+
+      it "emits events in order: detail → linked-videos → stats&analytics → recommendations" do
+        events = handler_for("##{game.id}").call.events
+        detail_idx  = events.index { |e| e[:payload]["reply_target"] == "game_detail" }
+        videos_idx  = events.index { |e| e[:payload]["reply_target"] == "video_list" }
+        stats_idx   = events.index { |e| e[:payload]["body"]&.include?("pito-game-stats-placeholder-message") }
+        recs_idx    = events.index { |e| e[:payload]["body"]&.include?("pito-game-enhanced-message") }
+
+        expect(detail_idx).to be < videos_idx
+        expect(videos_idx).to be < stats_idx
+        expect(stats_idx).to be < recs_idx
+      end
+
+      it "is repliable via the video_list follow-up target" do
+        payload = linked_videos_event("##{game.id}")[:payload]
+        expect(Pito::FollowUp.followupable?(payload)).to be(true)
+        expect(payload["reply_target"]).to eq("video_list")
+      end
+
+      it "lists the linked video as a table row" do
+        payload = linked_videos_event("##{game.id}")[:payload]
+        expect(payload["table_rows"].size).to eq(1)
+        expect(payload["video_ids"]).to eq([ video.id ])
+      end
+    end
+
+    context "when the game has no linked videos" do
+      it "emits no linked-videos (video_list) message" do
+        expect(linked_videos_event("##{game.id}")).to be_nil
+      end
+    end
   end
 
   # ── Game branch — title refs are REJECTED (id-only resolution) ───────────────
@@ -148,6 +220,52 @@ RSpec.describe Pito::Chat::Handlers::Show do
       events = handler_for("video", "##{video.id}").call.events
       enhanced_payload = events.last[:payload]
       expect(enhanced_payload["body"]).to include("My Gaming Highlights")
+    end
+
+    # ── Linked-game card ──────────────────────────────────────────────────────
+
+    context "linked game" do
+      def linked_game_event(*words)
+        handler_for(*words).call.events.find { |e| e[:payload]["reply_target"] == "game_detail" }
+      end
+
+      context "when the video has a linked game" do
+        let!(:game) { create(:game, title: "Lies of P") }
+        let!(:vgl)  { create(:video_game_link, video: video, game: game) }
+
+        it "emits the slim linked-game card between the detail and the enhanced placeholder" do
+          events    = handler_for("video", "##{video.id}").call.events
+          card_index   = events.index { |e| e[:payload]["reply_target"] == "game_detail" }
+          detail_index = events.index { |e| e[:payload]["reply_target"] == "video_detail" }
+          last_index   = events.size - 1
+
+          expect(card_index).to be > detail_index
+          expect(card_index).to be < last_index
+          expect(events[card_index][:kind]).to eq(:enhanced)
+        end
+
+        it "renders the linked game's title in the card" do
+          payload = linked_game_event("video", "##{video.id}")[:payload]
+          expect(payload["body"]).to include("Lies of P")
+        end
+
+        it "is repliable via the game_detail follow-up target" do
+          payload = linked_game_event("video", "##{video.id}")[:payload]
+          expect(Pito::FollowUp.followupable?(payload)).to be(true)
+          expect(payload["reply_target"]).to eq("game_detail")
+        end
+
+        it "stamps the linked game's id in the card payload" do
+          payload = linked_game_event("video", "##{video.id}")[:payload]
+          expect(payload["game_id"]).to eq(game.id)
+        end
+      end
+
+      context "when the video has no linked game" do
+        it "emits no linked-game (game_detail) card" do
+          expect(linked_game_event("video", "##{video.id}")).to be_nil
+        end
+      end
     end
 
     # ── Video title refs are REJECTED (id-only resolution) ────────────────────

@@ -39,13 +39,21 @@ module Pito
           return needs_ref if video == :needs_ref
           return video_not_found(target_ref(VIDEO_NOUN_FILLERS, id_key: :video_id)) if video.nil?
 
-          # Standard detail card (follow-up-able) + an Enhanced message. The video
+          # Standard detail card (follow-up-able), then — when the video has a
+          # linked game — the repliable slim linked-game card (game_detail
+          # follow-up target), then the Enhanced placeholder message. The video
           # Enhanced is a Pito::Copy intro placeholder for now (Analytics later).
+          # The linked-game card is omitted entirely when the video has none.
           # Identical events whether typed in free chat or via a `#<handle>` reply.
-          Pito::Chat::Result::Ok.new(events: [
-            { kind: :system,   payload: Pito::MessageBuilder::Video::Detail.call(video, conversation:) },
-            { kind: :enhanced, payload: Pito::MessageBuilder::Video::Enhanced.call(video) }
-          ])
+          events = [
+            { kind: :system, payload: Pito::MessageBuilder::Video::Detail.call(video, conversation:) }
+          ]
+          if video.linked_games.first
+            events << { kind: :enhanced, payload: Pito::MessageBuilder::Video::LinkedGame.call(video, conversation:) }
+          end
+          events << { kind: :enhanced, payload: Pito::MessageBuilder::Video::Enhanced.call(video) }
+
+          Pito::Chat::Result::Ok.new(events: events)
         end
 
         def video_not_found(ref)
@@ -61,13 +69,22 @@ module Pito
           return needs_ref if game == :needs_ref
           return game_not_found(target_ref(GAME_NOUN_FILLERS, id_key: :game_id)) if game.nil?
 
-          # Mirror an import: the Standard detail message (follow-up-able) plus the
-          # Enhanced recommendations message (pito chrome, not follow-up-able).
+          # Mirror an import: the Standard detail message (follow-up-able), then —
+          # when the game has linked videos — the repliable linked-videos list
+          # table (video_list follow-up target), then the Enhanced recommendations
+          # message (pito chrome, not follow-up-able). The linked-videos message is
+          # omitted entirely when the game has none.
           # Identical events whether typed in free chat or via a `#<handle>` reply.
-          Pito::Chat::Result::Ok.new(events: [
-            { kind: :system,   payload: Pito::MessageBuilder::Game::Detail.call(game, conversation:) },
-            { kind: :enhanced, payload: Pito::MessageBuilder::Game::Enhanced.call(game) }
-          ])
+          events = [
+            { kind: :system, payload: Pito::MessageBuilder::Game::Detail.call(game, conversation:) }
+          ]
+          if game.linked_videos.any?
+            events << { kind: :enhanced, payload: Pito::MessageBuilder::Game::LinkedVideos.call(game, conversation:) }
+          end
+          events << { kind: :enhanced, payload: Pito::MessageBuilder::Game::StatsPlaceholder.call(game) }
+          events << { kind: :enhanced, payload: Pito::MessageBuilder::Game::Enhanced.call(game) }
+
+          Pito::Chat::Result::Ok.new(events: events)
         end
 
         def game_not_found(ref)

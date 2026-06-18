@@ -25,11 +25,13 @@ RSpec.describe Pito::FollowUp::Handlers::GameList do
     result = handler.call(event:, rest: "show ##{game.id}", conversation:)
     expect(result).to be_a(Pito::FollowUp::Result::Append)
 
-    expect(result.events.map { |e| e[:kind] }).to eq([ :system, :enhanced ])
+    expect(result.events.map { |e| e[:kind] }).to eq([ :system, :enhanced, :enhanced ])
     detail = result.events.find { |e| e[:kind] == :system }[:payload]
     expect(detail["body"]).to include("Lies of P")
     expect(detail["reply_target"]).to eq("game_detail")
-    enhanced = result.events.find { |e| e[:kind] == :enhanced }[:payload]
+    # Two :enhanced events now — the Stats & Analytics placeholder followed by the
+    # recommendations card. The recommendations card carries the enhanced-message body.
+    enhanced = result.events.select { |e| e[:kind] == :enhanced }.last[:payload]
     expect(enhanced["body"]).to include("pito-game-enhanced-message")
   end
 
