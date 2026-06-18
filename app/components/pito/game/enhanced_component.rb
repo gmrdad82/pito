@@ -49,14 +49,10 @@ module Pito
         similar_game_results.any?
       end
 
-      # Returns a cover art variant URL for a similar-game result, or nil when
-      # no attachment / variant error (mirrors DetailComponent's rescue pattern).
+      # Host-less ActiveStorage proxy path for a similar-game cover variant, or
+      # nil when no attachment (the view falls back to the placeholder).
       def cover_art_url_for(game)
-        return nil unless game.cover_art.attached?
-
-        game.cover_art.variant(::Game::COVER_VARIANT)
-      rescue StandardError
-        nil
+        Pito::ImagePath.call(game.cover_art, variant: ::Game::COVER_VARIANT)
       end
     end
   end

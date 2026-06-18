@@ -20,20 +20,12 @@ module Pito
       end
 
       def cover_art_url
-        return nil unless cover_art_attached?
-
-        @game.cover_art.variant(::Game::COVER_VARIANT)
-      rescue StandardError
-        nil
+        Pito::ImagePath.call(@game.cover_art, variant: ::Game::COVER_VARIANT)
       end
 
       # Larger 480px-wide cover variant for the detail card's left column.
       def detail_cover_url
-        return nil unless cover_art_attached?
-
-        @game.cover_art.variant(::Game::DETAIL_COVER_VARIANT)
-      rescue StandardError
-        nil
+        Pito::ImagePath.call(@game.cover_art, variant: ::Game::DETAIL_COVER_VARIANT)
       end
 
       def developer_names

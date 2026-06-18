@@ -9,14 +9,11 @@ class Channel < ApplicationRecord
   # Channel::Avatar::Ingest instead of hotlinking yt3.ggpht.com (which 429s).
   has_one_attached :avatar
 
-  # Display variant URL for the avatar, or nil when none is attached (the view
-  # falls back to the placeholder). Rescues variant/processing errors.
+  # Host-less ActiveStorage proxy path for the avatar variant, or nil when none
+  # is attached (the view falls back to the placeholder). Host-less so the image
+  # loads from whatever host serves the page (localhost, tunnel, production).
   def avatar_variant_url
-    return nil unless avatar.attached?
-
-    avatar.variant(resize_to_limit: [ 240, 240 ])
-  rescue StandardError
-    nil
+    Pito::ImagePath.call(avatar, variant: { resize_to_limit: [ 240, 240 ] })
   end
 
   # Stat readers — sourced from the polymorphic `stats` table via the
