@@ -100,6 +100,11 @@ export default class extends Controller {
   }
 
   #onContentChange() {
+    // When the sidebar gains content, drop key-focus from the chatbox so its
+    // keystrokes drive the sidebar (or the sidebar's own input, e.g. IGDB search).
+    // Dismiss with `m` (→ refocuses the chatbox) or Esc (→ leaves focus alone).
+    if (this.element.querySelector("aside")) this.#blurChatbox()
+
     const rows = this.#rows()
 
     // Persist which panel is open so a reload can restore it.
@@ -136,6 +141,13 @@ export default class extends Controller {
 
   #rows() {
     return Array.from(this.element.querySelectorAll(".pito-conversation-row"))
+  }
+
+  // Drop focus from the chatbox (only if it currently holds it) so the sidebar
+  // owns the keyboard while it's open.
+  #blurChatbox() {
+    const chatbox = document.querySelector('[data-pito--chat-form-target="inputField"]')
+    if (chatbox && document.activeElement === chatbox) chatbox.blur()
   }
 
   #onEscapeCapture(e) {

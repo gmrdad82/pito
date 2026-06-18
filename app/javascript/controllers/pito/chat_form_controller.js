@@ -92,19 +92,29 @@ export default class extends Controller {
         return
       }
 
-      // Shift+R at the very start of the field → prepend the most recent
-      // hashtag handle (`#<handle> `) so you can act on the last segment
-      // without retyping it. Only fires when the caret is at position 0 so it
-      // never hijacks a literal "R" mid-line. Plain Shift+R only — never when
-      // Ctrl/Meta/Alt is held, so the browser's Ctrl+Shift+R (hard reload) and
-      // other shortcuts pass straight through.
+      // Shift+R at the very start of the field → reuse the most recent
+      // command's repliable hashtag(s) without retyping. Only fires when the
+      // caret is at position 0 so it never hijacks a literal "R" mid-line.
+      // Plain Shift+R only — never when Ctrl/Meta/Alt is held, so the browser's
+      // Ctrl+Shift+R (hard reload) and other shortcuts pass straight through.
+      //
+      //   • exactly one live handle → prepend `#<handle> ` directly (P16 behavior).
+      //   • more than one live handle → open the hashtag picker (P18): the last
+      //     command may have emitted several repliable messages, so let the user
+      //     pick which one to act on. The picker prefills without submitting.
+      //   • zero live handles → no-op (let the keystroke pass through).
       if (event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey && event.code === "KeyR") {
         const field = this.inputFieldTarget
         if (field.selectionStart === 0 && field.selectionEnd === 0) {
-          const handle = this.#lastHandle()
-          if (handle) {
+          const handles = this.#lastTurnHandles()
+          if (handles.length > 1) {
             event.preventDefault()
-            const insert = `#${handle} `
+            document.dispatchEvent(new CustomEvent("pito:hashtag-picker:open", {
+              detail: { handles }
+            }))
+          } else if (handles.length === 1) {
+            event.preventDefault()
+            const insert = `#${handles[0]} `
             field.value = insert + field.value
             field.selectionStart = field.selectionEnd = insert.length
             field.dispatchEvent(new Event("input", { bubbles: true }))
@@ -155,13 +165,36 @@ export default class extends Controller {
     }
   }
 
-  // The handle of the most recent hashtag-bearing segment in the scrollback,
-  // or null if there is none. Kept in sync with the `· shift+r` affordance the
-  // pito--lasthashtag controller paints on that same (last) segment.
-  #lastHandle() {
-    const nodes = document.querySelectorAll("[data-pito-handle]")
-    const last = nodes[nodes.length - 1]
-    return last?.dataset.pitoHandle || null
+  // The live hashtag handles emitted by the user's most recent command.
+  //
+  // A single command can broadcast several repliable messages, each rendering
+  // its own `[data-pito-handle]` token — but only while LIVE: a consumed or
+  // resolved follow-up drops the token entirely (the HandleComponent isn't
+  // rendered), so anything still in the DOM is by definition still repliable.
+  //
+  // We scope to the turn that owns the most recent live handle (the same
+  // segment the pito--lasthashtag controller paints the `shift+r` hint on) and
+  // return every live handle within it, de-duplicated, in document order.
+  // Returns `[]` when the scrollback holds no live handles.
+  #lastTurnHandles() {
+    const scrollback = document.getElementById("pito-scrollback")
+    const root = scrollback || document
+    const nodes = root.querySelectorAll("[data-pito-handle]")
+    if (nodes.length === 0) return []
+
+    const lastNode = nodes[nodes.length - 1]
+    const turn = lastNode.closest(".pito-turn") || root
+
+    const seen = new Set()
+    const handles = []
+    turn.querySelectorAll("[data-pito-handle]").forEach((node) => {
+      const handle = node.dataset.pitoHandle
+      if (handle && !seen.has(handle)) {
+        seen.add(handle)
+        handles.push(handle)
+      }
+    })
+    return handles
   }
 
   #syncHidden() {

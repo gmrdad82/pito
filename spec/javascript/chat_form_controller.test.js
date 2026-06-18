@@ -348,6 +348,112 @@ describe("pito--chat-form controller", () => {
     marker.remove()
   })
 
+  // ── Shift+R hashtag picker (P18) ──────────────────────────────────────────────
+
+  // Build a scrollback turn carrying `handles` as live `[data-pito-handle]`
+  // tokens (the only thing left in the DOM once a follow-up is consumed).
+  function buildTurnWithHandles(handles, { id = "1" } = {}) {
+    const scrollback = document.createElement("div")
+    scrollback.id = "pito-scrollback"
+    const turn = document.createElement("div")
+    turn.className = "pito-turn"
+    turn.id = `turn_${id}`
+    handles.forEach((h) => {
+      const span = document.createElement("span")
+      span.dataset.pitoHandle = h
+      turn.appendChild(span)
+    })
+    scrollback.appendChild(turn)
+    document.body.appendChild(scrollback)
+    return scrollback
+  }
+
+  it("Shift+R with one live handle prepends it directly (no picker)", async () => {
+    const { inputField } = buildScaffold()
+    await waitForConnect()
+    const scrollback = buildTurnWithHandles(["kappa-5874"])
+
+    const pickerEvents = []
+    document.addEventListener("pito:hashtag-picker:open", (e) => pickerEvents.push(e))
+
+    inputField.value = ""
+    inputField.selectionStart = inputField.selectionEnd = 0
+    keydown(inputField, "R", { shiftKey: true, code: "KeyR" })
+
+    expect(inputField.value).toBe("#kappa-5874 ")
+    expect(pickerEvents.length).toBe(0)
+    scrollback.remove()
+  })
+
+  it("Shift+R with more than one live handle opens the picker (does not prefill)", async () => {
+    const { inputField } = buildScaffold()
+    await waitForConnect()
+    const scrollback = buildTurnWithHandles(["kappa-5874", "doomguy-21", "lima-09"])
+
+    const pickerEvents = []
+    document.addEventListener("pito:hashtag-picker:open", (e) => pickerEvents.push(e))
+
+    inputField.value = ""
+    inputField.selectionStart = inputField.selectionEnd = 0
+    keydown(inputField, "R", { shiftKey: true, code: "KeyR" })
+
+    expect(pickerEvents.length).toBe(1)
+    expect(pickerEvents[0].detail.handles).toEqual(["kappa-5874", "doomguy-21", "lima-09"])
+    // The chatbox is left untouched — the user picks, then types the action.
+    expect(inputField.value).toBe("")
+    scrollback.remove()
+  })
+
+  it("Shift+R only collects handles from the LAST handle-bearing turn", async () => {
+    const { inputField } = buildScaffold()
+    await waitForConnect()
+
+    // Two turns: an older one and the most recent multi-handle command.
+    const scrollback = document.createElement("div")
+    scrollback.id = "pito-scrollback"
+    const older = document.createElement("div")
+    older.className = "pito-turn"
+    const oldSpan = document.createElement("span")
+    oldSpan.dataset.pitoHandle = "old-handle"
+    older.appendChild(oldSpan)
+    const recent = document.createElement("div")
+    recent.className = "pito-turn"
+    ;["alpha-1", "bravo-2"].forEach((h) => {
+      const s = document.createElement("span")
+      s.dataset.pitoHandle = h
+      recent.appendChild(s)
+    })
+    scrollback.appendChild(older)
+    scrollback.appendChild(recent)
+    document.body.appendChild(scrollback)
+
+    const pickerEvents = []
+    document.addEventListener("pito:hashtag-picker:open", (e) => pickerEvents.push(e))
+
+    inputField.value = ""
+    inputField.selectionStart = inputField.selectionEnd = 0
+    keydown(inputField, "R", { shiftKey: true, code: "KeyR" })
+
+    expect(pickerEvents.length).toBe(1)
+    expect(pickerEvents[0].detail.handles).toEqual(["alpha-1", "bravo-2"])
+    scrollback.remove()
+  })
+
+  it("Shift+R is a no-op when there are zero live handles", async () => {
+    const { inputField } = buildScaffold()
+    await waitForConnect()
+
+    const pickerEvents = []
+    document.addEventListener("pito:hashtag-picker:open", (e) => pickerEvents.push(e))
+
+    inputField.value = ""
+    inputField.selectionStart = inputField.selectionEnd = 0
+    keydown(inputField, "R", { shiftKey: true, code: "KeyR" })
+
+    expect(inputField.value).toBe("")
+    expect(pickerEvents.length).toBe(0)
+  })
+
   // ── Unauthenticated: handleKeydown returns early ──────────────────────────────
 
   it("returns early without cycling when unauthenticated", async () => {

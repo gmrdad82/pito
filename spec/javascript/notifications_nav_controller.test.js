@@ -19,6 +19,17 @@ import NotificationsNavController from "controllers/pito/notifications_nav_contr
 // ── stubs ─────────────────────────────────────────────────────────────────────
 Element.prototype.scrollIntoView = () => {}
 
+// Build a #pito-sidebar with an <aside> child so the guard condition
+// (document.querySelector("#pito-sidebar aside")) evaluates to truthy.
+function buildActiveSidebar() {
+  const sidebar = document.createElement("div")
+  sidebar.id = "pito-sidebar"
+  const aside = document.createElement("aside")
+  sidebar.appendChild(aside)
+  document.body.appendChild(sidebar)
+  return sidebar
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function buildList() {
@@ -246,5 +257,16 @@ describe("pito--notifications-nav controller", () => {
     dot.dispatchEvent(new MouseEvent("click", { bubbles: true }))
 
     expect(row2.classList.contains("pito-resume-highlight")).toBe(true)
+  })
+
+  it("Space still toggles the notification when focus is not in a text input", async () => {
+    // No textarea focused and no sidebar <aside> — guard does not fire
+    const list = buildList()
+    const row = addNotification(list, { id: "5", read: false })
+    await tick()
+
+    fireKey(" ")
+
+    expect(row.dataset.read).toBe("true")
   })
 })
