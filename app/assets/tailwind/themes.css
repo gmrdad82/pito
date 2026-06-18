@@ -305,6 +305,25 @@
   --brand-pito: #5170ff;
 }
 
+[data-theme="synthwave"] {
+  --bg-root: #1a0b2e;
+  --bg-surface: #241046;
+  --bg-elevated: #2d1259;
+  --border-default: #3a1d6e;
+  --border-faded: #5a2d9e;
+  --fg-default: #f5e0ff;
+  --fg-dim: #c4a7e7;
+  --fg-faded: #7a5c9e;
+  --accent-purple: #b967ff;
+  --accent-blue: #5d8bff;
+  --accent-cyan: #00f0ff;
+  --accent-green: #39ff88;
+  --accent-yellow: #ffe066;
+  --accent-orange: #ff8c42;
+  --accent-red: #ff2e63;
+  --brand-pito: #5170ff;
+}
+
 [data-theme="tokyo-night"] {
   --bg-root: #1a1b26;
   --bg-surface: #1f2335;

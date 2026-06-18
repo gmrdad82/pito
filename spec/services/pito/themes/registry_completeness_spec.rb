@@ -1,10 +1,10 @@
 require "rails_helper"
 
 # P3 completeness spec:
-#   - Registry.all has exactly 18 themes
+#   - Registry.all has exactly 19 themes
 #   - Every theme resolves a complete token set with valid hex values
 #   - brand_pito == "#5170ff" for every theme
-#   - Registry.grouped splits into 11 dark + 7 light
+#   - Registry.grouped splits into 12 dark + 7 light
 RSpec.describe "Pito::Themes::Registry completeness (P3)" do
   EXPECTED_TOKEN_KEYS = %i[
     bg_root bg_surface bg_elevated
@@ -19,8 +19,8 @@ RSpec.describe "Pito::Themes::Registry completeness (P3)" do
 
   let(:all_themes) { Pito::Themes::Registry.all }
 
-  it "has exactly 18 themes" do
-    expect(all_themes.size).to eq(18)
+  it "has exactly 19 themes" do
+    expect(all_themes.size).to eq(19)
   end
 
   it "every theme resolves all required token keys" do
@@ -49,8 +49,8 @@ RSpec.describe "Pito::Themes::Registry completeness (P3)" do
   describe "grouped dark/light split" do
     let(:grouped) { Pito::Themes::Registry.grouped }
 
-    it "has exactly 11 dark themes" do
-      expect(grouped[:dark].size).to eq(11)
+    it "has exactly 12 dark themes" do
+      expect(grouped[:dark].size).to eq(12)
     end
 
     it "has exactly 7 light themes" do
@@ -62,7 +62,8 @@ RSpec.describe "Pito::Themes::Registry completeness (P3)" do
       expect(dark_slugs).to include(
         "tokyo-night", "dracula", "one-dark", "gruvbox-dark",
         "nord", "github-dark", "catppuccin-mocha",
-        "ayu-dark", "ayu-mirage", "solarized-dark", "tomorrow-night"
+        "ayu-dark", "ayu-mirage", "solarized-dark", "tomorrow-night",
+        "synthwave"
       )
     end
 
