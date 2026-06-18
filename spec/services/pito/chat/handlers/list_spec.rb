@@ -382,7 +382,7 @@ RSpec.describe Pito::Chat::Handlers::List do
 
       it "returns a full heading row with the right-aligned Length column appended" do
         payload = handler_for("list videos with duration", channel: "@all").call.events.first[:payload]
-        expect(payload["table_heading"]).to eq([ "#", "Title", { "text" => "Length", "class" => "pito-table-heading--added text-right" } ])
+        expect(payload["table_heading"]).to eq([ { "text" => "#", "class" => "text-right" }, "Title", { "text" => "Length", "class" => "pito-table-heading--added text-right" } ])
       end
     end
 

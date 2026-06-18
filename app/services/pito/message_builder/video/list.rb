@@ -25,7 +25,7 @@ module Pito
           cols    = Array(columns).map(&:to_sym)
           payload = {
             "body"          => Pito::Copy.render("pito.copy.videos.list_intro", { count: videos.size }),
-            "table_heading" => [ "#", "Title", *ListColumns.heading_cells(cols) ],
+            "table_heading" => [ { "text" => "#", "class" => "text-right" }, "Title", *ListColumns.heading_cells(cols) ],
             "table_rows"    => videos.map { |video| row_for(video, cols) },
             # Stamped for add/remove column mutations: allows the handler to
             # reload the same videos and rebuild with an updated column set.

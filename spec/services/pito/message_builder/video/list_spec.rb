@@ -70,7 +70,7 @@ RSpec.describe Pito::MessageBuilder::Video::List do
     end
 
     it "includes table_heading with # and Title only" do
-      expect(payload["table_heading"]).to eq([ "#", "Title" ])
+      expect(payload["table_heading"]).to eq([ { "text" => "#", "class" => "text-right" }, "Title" ])
     end
 
     it "renders without raising" do
@@ -88,7 +88,7 @@ RSpec.describe Pito::MessageBuilder::Video::List do
 
     it "includes table_heading with #, Title, Channel, Visibility" do
       expect(payload["table_heading"]).to eq([
-        "#", "Title",
+        { "text" => "#", "class" => "text-right" }, "Title",
         { "text" => "Channel", "class" => "pito-table-heading--added" },
         { "text" => "Status", "class" => "pito-table-heading--added" }
       ])
@@ -157,7 +157,7 @@ RSpec.describe Pito::MessageBuilder::Video::List do
     it "includes 'Game' and a right-aligned 'Duration' in the table_heading" do
       expect(payload_with_cols["table_heading"]).to eq(
         [
-          "#", "Title",
+          { "text" => "#", "class" => "text-right" }, "Title",
           { "text" => "Game", "class" => "pito-table-heading--added" },
           { "text" => "Length", "class" => "pito-table-heading--added text-right" }
         ]
