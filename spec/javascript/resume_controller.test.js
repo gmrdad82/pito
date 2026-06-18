@@ -451,4 +451,44 @@ describe("pito--resume controller", () => {
 
     expect(fetchSpy).not.toHaveBeenCalled()
   })
+
+  // ── Blur-on-open ──────────────────────────────────────────────────────────
+
+  it("blurs the chatbox when the sidebar gains content (an <aside>)", async () => {
+    const sidebar = buildSidebar()
+    await waitForConnect()
+
+    const chatbox = document.createElement("textarea")
+    chatbox.setAttribute("data-pito--chat-form-target", "inputField")
+    document.body.appendChild(chatbox)
+    chatbox.focus()
+    expect(document.activeElement).toBe(chatbox)
+
+    const aside = document.createElement("aside")
+    sidebar.appendChild(aside)
+    await waitForMO()
+
+    expect(document.activeElement).not.toBe(chatbox)
+
+    chatbox.remove()
+  })
+
+  it("keys still navigate normally when focus is not in a text input (guard does not fire)", async () => {
+    const sidebar = buildSidebar()
+    await waitForConnect()
+    addRow(sidebar, { uuid: "u1" })
+    addRow(sidebar, { uuid: "u2" })
+    await waitForMO()
+
+    // Add <aside> — but no textarea is focused, so guard must not trigger
+    const aside = document.createElement("aside")
+    sidebar.appendChild(aside)
+    await waitForMO()
+
+    fireKey("ArrowDown")  // should move highlight from row0 to row1
+
+    const rows = sidebar.querySelectorAll(".pito-conversation-row")
+    expect(rows[1].classList.contains("pito-resume-highlight")).toBe(true)
+    expect(rows[0].classList.contains("pito-resume-highlight")).toBe(false)
+  })
 })
