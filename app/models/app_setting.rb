@@ -160,22 +160,6 @@ class AppSetting < ApplicationRecord
     set(FX_ENABLED_KEY, bool.to_s)
   end
 
-  # ── Expand-all toggle ─────────────────────────────────────────────────
-  #
-  # Stored as a plain key/value row ("expand_all").
-  # Default is false — the flag is only true when the stored value is
-  # explicitly "true".
-
-  EXPAND_ALL_KEY = "expand_all"
-
-  def self.expand_all?
-    get(EXPAND_ALL_KEY) == "true"
-  end
-
-  def self.expand_all=(bool)
-    set(EXPAND_ALL_KEY, bool.to_s)
-  end
-
   # ── Theme ─────────────────────────────────────────────────────────────────
   #
   # Stored as a plain key/value row ("theme").

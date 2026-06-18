@@ -5,9 +5,8 @@
 //
 // EXPERIMENT (full-content reveal):
 //   ALL prose targets are animated sequentially in DOM order — body first,
-//   then every `prose` target (expand_lines, kv-table key/value spans, section
-//   header divs, section row key/value spans).  expand state is ignored so the
-//   whole visible card types out regardless of whether expand_all is enabled.
+//   then every `prose` target (kv-table key/value spans, section header divs,
+//   section row key/value spans).
 //   Chrome elements (accent bar, hints, meta-line, info-lines) are not tagged
 //   as targets and always render instantly.
 //
@@ -52,9 +51,8 @@ export default class extends Controller {
 
     // Collect all items to animate in DOM order:
     //   1. the body target (summary prose)
-    //   2. every prose target — expand_lines, kv-table key/value spans, section
-    //      header divs, section row key/value spans — all in document order.
-    // Expand state is intentionally ignored: the whole visible card types out.
+    //   2. every prose target — kv-table key/value spans, section header divs,
+    //      section row key/value spans — all in document order.
     const items = [{ el: this.bodyTarget, text: bodyText }]
     if (this.hasProseTarget) {
       for (const el of this.proseTargets) {

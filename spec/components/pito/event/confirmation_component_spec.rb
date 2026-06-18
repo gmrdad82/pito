@@ -54,7 +54,7 @@ RSpec.describe Pito::Event::ConfirmationComponent do
     end
   end
 
-  describe "expand_detail (ctrl+|)" do
+  describe "expand_detail" do
     let(:payload_with_detail) do
       pending_payload.merge(expand_detail: [
         "3 videos will be deleted",
@@ -63,31 +63,20 @@ RSpec.describe Pito::Event::ConfirmationComponent do
       ])
     end
 
-    it "renders the pito--expand controller" do
+    it "renders detail lines always-visible when pending" do
       node = render_inline(described_class.new(payload: payload_with_detail))
-      expect(node.css("[data-controller='pito--expand']")).not_to be_empty
+      expect(node.text).to include("Published: 2")
     end
 
-    it "renders the detail lines in the hidden detail block" do
-      node = render_inline(described_class.new(payload: payload_with_detail))
-      detail = node.css("[data-pito--expand-target='detail']").first
-      expect(detail.text).to include("Published: 2")
-    end
-
-    it "shows the ctrl+| hint" do
-      node = render_inline(described_class.new(payload: payload_with_detail))
-      expect(node.css("[data-pito--expand-target='hint']").text).to include("ctrl+|")
-    end
-
-    it "does not render expand block when no expand_detail" do
-      node = render_inline(described_class.new(payload: pending_payload))
-      expect(node.css("[data-controller='pito--expand']")).to be_empty
-    end
-
-    it "does not render expand block when resolved" do
+    it "does not render detail when resolved" do
       payload = payload_with_detail.merge(resolved: true, outcome: "confirmed", outcome_text: "Done.")
       node = render_inline(described_class.new(payload:))
-      expect(node.css("[data-controller='pito--expand']")).to be_empty
+      expect(node.text).not_to include("Published: 2")
+    end
+
+    it "does not render detail block when expand_detail is absent" do
+      node = render_inline(described_class.new(payload: pending_payload))
+      expect(node.css("div.border-t")).to be_empty
     end
   end
 

@@ -3,9 +3,6 @@ en:
     event:
       suggestion:
         run_label: "run this"
-      expand:
-        expand_hint: "to expand"
-        collapse_hint: "to collapse"
       tool_output:
         click_to_expand: "Click to expand"
       thinking:

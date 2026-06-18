@@ -1,0 +1,31 @@
+<% if body %>
+  <% if typewriter? %>
+    <%= leading_prefix %><span class="text-fg"<% if owns_controller? %> data-controller="pito--typewriter"<% end %> data-pito--typewriter-target="body"><%= body %></span>
+  <% else %>
+    <%= leading_prefix %><span class="text-fg"><%= html? ? raw(filled_body) : body %></span>
+  <% end %>
+<% end %>
+<% if detail.any? %>
+  <div class="mt-1.5 border-t border-line-default pt-1.5">
+    <% detail.each do |line| %>
+      <% if line.is_a?(Hash) && (line[:key].present? || line["key"].present?) %>
+        <% key = line[:key] || line["key"] %>
+        <% value = line[:value] || line["value"] %>
+        <% key_class = line[:key_class] || line["key_class"] || "text-cyan" %>
+        <% value_class = line[:value_class] || line["value_class"] || "text-fg" %>
+        <div class="flex gap-4">
+          <%= render(Pito::Table::KeyValueRowComponent.new(
+                key_text:    key,
+                value_text:  value,
+                key_class:   "#{key_class} whitespace-nowrap shrink-0 w-40",
+                value_class: "#{value_class} text-right w-20"
+              )) %>
+        </div>
+      <% elsif line.present? %>
+        <div class="text-fg"><%= line %></div>
+      <% elsif line == "" %>
+        <br>
+      <% end %>
+    <% end %>
+  </div>
+<% end %>

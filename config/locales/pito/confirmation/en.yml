@@ -1,8 +1,6 @@
 en:
   pito:
     confirmation:
-      expand_hint: "for details"
-      expand_collapse_hint: "to hide"
       channel_fallback: "the channel"
       errors:
         invalid_action: "Unknown action '%{action}'. Reply with confirm or cancel."

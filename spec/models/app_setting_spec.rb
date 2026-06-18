@@ -63,36 +63,6 @@ RSpec.describe AppSetting, type: :model do
     end
   end
 
-  describe ".expand_all?" do
-    it "returns false by default (no row stored)" do
-      AppSetting.where(key: AppSetting::EXPAND_ALL_KEY).delete_all
-      expect(AppSetting.expand_all?).to be false
-    end
-
-    it "returns true when the stored value is 'true'" do
-      AppSetting.expand_all = true
-      expect(AppSetting.expand_all?).to be true
-    end
-
-    it "returns false when the stored value is 'false'" do
-      AppSetting.expand_all = true
-      AppSetting.expand_all = false
-      expect(AppSetting.expand_all?).to be false
-    end
-  end
-
-  describe ".expand_all=" do
-    it "persists the value as a string" do
-      AppSetting.expand_all = true
-      expect(AppSetting.get(AppSetting::EXPAND_ALL_KEY)).to eq("true")
-    end
-
-    it "coerces falsy to 'false'" do
-      AppSetting.expand_all = false
-      expect(AppSetting.get(AppSetting::EXPAND_ALL_KEY)).to eq("false")
-    end
-  end
-
   describe ".theme" do
     it "returns the default slug when no row is stored" do
       AppSetting.where(key: AppSetting::THEME_KEY).delete_all
