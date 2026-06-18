@@ -36,11 +36,13 @@
               style="background-image: linear-gradient(to right in oklch, <%= gradient_stops %>);"><%= fill_text %></span>
         <span class="pito-ttb__bracket">]</span>
       </span>
-      <%# Pillar ticks: a `|` mark per pillar, snapped to its cell midpoint on
-          the 0..completionist axis and absolutely positioned via left:%
-          (completionist always at 98.75%). The footage tick is drawn as the
-          ▼ bubble above, so only the three pillars render a `|` here. %>
-      <% tick_overlays.reject { |t| t[:key] == :footage }.each do |tick| %>
+      <%# Ticks: a `|` mark per tick — main / extras / completionist AND
+          footage — snapped to its cell midpoint and absolutely positioned via
+          left:%. Footage renders BOTH the ▼ value bubble above AND a `|` here,
+          mirroring the ScoreBar needle (bubble + tick at the same position) so
+          the current-footage position is marked INSIDE the bar, not just
+          labelled above. %>
+      <% tick_overlays.each do |tick| %>
         <span class="pito-ttb__tick <%= tick[:token_class] %>"
               data-accent="<%= tick[:key] %>"
               style="left: <%= tick[:position] %>%;">|</span>
