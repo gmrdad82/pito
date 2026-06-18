@@ -253,7 +253,10 @@ export default class extends Controller {
       return
     }
 
-    // "m" → focus chatbox textarea (when palette is closed and not already in an input)
+    // "m" → when palette is closed and focus is not in an input:
+    //   • If the sidebar is ACTIVE (contains an <aside>) → dismiss it.
+    //   • Otherwise → focus the chatbox (works for both authenticated and
+    //     unauthenticated visitors; auth gate removed).
     if (e.key === "m" && !modKey && this.element.classList.contains("hidden")) {
       const active = document.activeElement
       const isInput = active && (
@@ -261,12 +264,18 @@ export default class extends Controller {
         active.tagName === "TEXTAREA" ||
         active.isContentEditable
       )
-      if (!isInput && isAuthenticated()) {
-        e.preventDefault()
-        const chatbox = document.querySelector('[data-pito--chat-form-target="inputField"]')
-        if (chatbox) {
-          chatbox.focus({ preventScroll: true })
-          chatbox.selectionStart = chatbox.selectionEnd = chatbox.value.length
+      if (!isInput) {
+        const sidebarActive = !!document.querySelector("#pito-sidebar aside")
+        if (sidebarActive) {
+          e.preventDefault()
+          window.dispatchEvent(new CustomEvent("pito:resume:dismiss"))
+        } else {
+          e.preventDefault()
+          const chatbox = document.querySelector('[data-pito--chat-form-target="inputField"]')
+          if (chatbox) {
+            chatbox.focus({ preventScroll: true })
+            chatbox.selectionStart = chatbox.selectionEnd = chatbox.value.length
+          }
         }
       }
       return

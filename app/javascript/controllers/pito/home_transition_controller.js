@@ -29,6 +29,12 @@ const EXPAND_MS     = 380   // chatbox horizontal expansion (ease-in: slow → f
 export default class extends Controller {
   static targets = ["logoRow", "tip", "corners", "fade", "chatboxArea", "conversationChrome", "miniStatusSlide"]
 
+  // Dismiss any open sidebar when the start screen or 404 mounts — both render
+  // Pito::StartScreen::Component whose root carries data-controller="pito--home-transition".
+  connect() {
+    window.dispatchEvent(new CustomEvent("pito:resume:dismiss"))
+  }
+
   // ── T22.1 entry point ─────────────────────────────────────────────────────
 
   async interceptEnter(event) {
