@@ -16,13 +16,11 @@ class Video < ApplicationRecord
 
   has_neighbors :summary_embedding
 
-  # Display variant URL for the thumbnail, or nil when none is attached.
+  # Host-less ActiveStorage proxy path for the thumbnail variant, or nil when
+  # none is attached. Host-less so the image loads from whatever host serves the
+  # page (localhost, tunnel, production).
   def thumbnail_variant_url
-    return nil unless thumbnail.attached?
-
-    thumbnail.variant(resize_to_limit: [ 374, 210 ])
-  rescue StandardError
-    nil
+    Pito::ImagePath.call(thumbnail, variant: { resize_to_limit: [ 374, 210 ] })
   end
 
   # Stat readers — sourced from the polymorphic `stats` table via the
