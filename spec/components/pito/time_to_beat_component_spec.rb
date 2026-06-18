@@ -292,12 +292,14 @@ RSpec.describe Pito::TimeToBeatComponent do
       expect(html).to include("var(--accent-purple)") # insanity end (red→purple mix)
     end
 
-    it "renders three pillar | ticks plus a footage ▼ bubble (T17.4)" do
+    it "renders four | ticks (three pillars + footage) plus the footage ▼ bubble (T17.4)" do
       comp = described_class.new(game: game, footage_hours: 50)
       html = render_inline(comp).to_html
-      # Footage uses the ScoreBar-style arrow bubble, not a | tick, so only
-      # the three pillars draw a pito-ttb__tick.
-      expect(html.scan("pito-ttb__tick").size).to eq(3)
+      # Footage draws BOTH a | tick inside the bar (mirroring the ScoreBar
+      # needle) AND the arrow bubble above it, so four pito-ttb__tick marks
+      # render: the three pillars plus footage.
+      expect(html.scan("pito-ttb__tick").size).to eq(4)
+      expect(html).to include("ttb-tick--footage")
       expect(html).to include("pito-ttb__footage-bubble-arrow")
     end
 
