@@ -1,4 +1,4 @@
-# Phase 16 §2 — Notification formatter.
+# Notification formatter.
 #
 # In-app structured payload. Returns a hash the §3 ERB views render
 # against. The `body_html` slot is HTML-safe — the formatter itself
@@ -46,8 +46,7 @@ module Pito
         # `[text](url)` markdown) to HTML-safe HTML. Rails' `sanitize`
         # strips `<script>` and any tag/attribute outside the whitelist.
         #
-        # Phase 16 §2 security fix-forward (F1 — 2026-05-10 audit). URL
-        # scheme allowlist enforced BEFORE the `<a>` tag is written.
+        # Security fix-forward. URL scheme allowlist enforced BEFORE the `<a>` tag is written.
         def render_body_html(text)
           return "".html_safe if text.blank?
 

@@ -1,4 +1,4 @@
-# Phase 16 §1 — Notifications data model + delivery channels.
+# Notifications data model + delivery channels.
 #
 # Source helper for sync-job failures. Caller supplies a stable
 # `dedup_key` (e.g., `"channel-sync-#{channel.id}-#{Date.current}"`)

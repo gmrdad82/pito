@@ -2,7 +2,7 @@
 
 module Pito
   module Slash
-    # P56 — Universal --help renderer.
+    # Universal --help renderer.
     #
     # Called by the Dispatcher when the raw input contains --help or -h,
     # BEFORE the normal handler executes, so no command can produce side

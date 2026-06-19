@@ -6,7 +6,7 @@ class VideoGameLink < ApplicationRecord
 
   validates :video_id, uniqueness: { scope: :game_id }
 
-  # P4 — keep the game's materialized `views` stat (sum of linked-video
+  # Keep the game's materialized `views` stat (sum of linked-video
   # views) in sync when the link set changes.
   after_commit :enqueue_game_stats_refresh, on: %i[create destroy]
 

@@ -1,11 +1,11 @@
-# Phase 9 — Login-with-Google Drop + GoogleIdentity → YoutubeConnection
+# Login-with-Google Drop + GoogleIdentity → YoutubeConnection
 # rename (ADR 0006). Google OAuth callback handler — narrowed to the
 # YouTube-connection flow only.
 #
 # The single endpoint at `/auth/youtube/callback` (registered in the
 # Google Cloud Console) handles ONLY the YouTube-connect flow
-# (intent = "youtube_connect"; kicked off by `/connect`). The Phase 7
-# sign-in branch is permanently retired per ADR 0006: pito will never
+# (intent = "youtube_connect"; kicked off by `/connect`). The sign-in
+# branch is permanently retired per ADR 0006: pito will never
 # offer sign-in-with-Google.
 #
 # Any callback hitting `/auth/youtube/callback` without the
@@ -342,7 +342,7 @@ class YoutubeConnections::OauthCallbacksController < ApplicationController
     parts.join(" ")
   end
 
-  # Phase 9 — audit trail for callback outcomes. One structured JSON
+  # Audit trail for callback outcomes. One structured JSON
   # line per event via the AUTH_AUDIT_LOGGER, gated on the logger being
   # defined.
   def audit(event, **payload)

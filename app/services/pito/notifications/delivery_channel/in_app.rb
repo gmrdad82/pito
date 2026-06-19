@@ -1,4 +1,4 @@
-# Phase 16 §1 → Phase 26 01b refactor. In-app channel — a synchronous
+# In-app channel — a synchronous
 # no-op. The "in-app delivery" itself is the Notification row's
 # existence. Exists for symmetry so the scheduler + tests can iterate
 # channels uniformly.

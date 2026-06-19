@@ -6,7 +6,7 @@
 # title (ILIKE) lookup is intentionally disabled (id_only_resolution!).
 # Emits the appropriate detail message (follow-up-able).
 # Unknown reference → witty not-found via `Pito::Copy`. No reference → a usage
-# hint (the no-arg picker fast-path is wired in `ChatController`, T10.10).
+# hint (the no-arg picker fast-path is wired in `ChatController`).
 module Pito
   module Chat
     module Handlers

@@ -1,12 +1,12 @@
 # frozen_string_literal: true
 
-# P60 — Fetch general channel stats for one Channel via the YouTube API.
+# Fetch general channel stats for one Channel via the YouTube API.
 #
 # Uses:
 #   - YouTube Data API v3  `channels.list?part=statistics` for
 #     `subscriberCount` and `viewCount`. (Cost: 1 quota unit)
 #
-# P4 — `watched_hours` (Analytics-sourced) was dropped; it returns in a
+# `watched_hours` (Analytics-sourced) was dropped; it returns in a
 # future `Pito::Analytics`. This fetcher now returns subscribers + views
 # only.
 #

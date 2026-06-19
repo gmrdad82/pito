@@ -243,7 +243,7 @@ RSpec.describe Pito::Stream::Broadcaster do
     end
   end
 
-  # ── P54 + P55 class-level global broadcasts ─────────────────────────────────
+  # ── class-level global broadcasts ────────────────────────────────────────────
 
   describe ".broadcast_global_mini_status" do
     it "broadcasts a pito-mini-status replace to pito:global" do

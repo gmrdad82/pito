@@ -1,4 +1,4 @@
-# Phase 13.2 — Analytics sync engine. Pure-function query builder for
+# Pure-function query builder for
 # the YouTube Analytics v2 `reports.query` endpoint.
 #
 # Each public method returns a kwargs hash that
@@ -8,7 +8,7 @@
 # arrays — the API gem joins comma-separated metrics / dimensions
 # itself but we pre-join here so the audit row gets a stable shape.
 #
-# Mutual-exclusion rules (Note 3 §"Mutual-exclusion gotchas"):
+# Mutual-exclusion rules:
 #
 # 1. `liveOrOnDemand` + `averageViewPercentage` cannot coexist. C1/V1
 #    omit `liveOrOnDemand`. C2/V2 omit it.
@@ -115,7 +115,7 @@ class Channel
         playbackBasedCpm
       ].freeze
 
-      # Note 3 §C3 / §V5: the Analytics API caps `maxResults` at 200 for
+      # The Analytics API caps `maxResults` at 200 for
       # paginated reports. The default for top-videos is 50.
       TOP_VIDEOS_DEFAULT_LIMIT = 50
       TOP_VIDEOS_MAX_LIMIT = 200
@@ -332,7 +332,7 @@ class Channel
           }
         end
 
-        # Phase 26 §01g — viewer-time buckets. Day-of-week x hour-of-day
+        # Viewer-time buckets. Day-of-week x hour-of-day
         # viewer distribution for a single video. YouTube returns the
         # values in UTC bucket; the user-tz rollup happens at query
         # time in `Pito::Analytics::ViewerTimeRollup`.

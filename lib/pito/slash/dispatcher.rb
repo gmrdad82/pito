@@ -21,7 +21,7 @@ module Pito
         invocation = parse(tokens)
         return invocation if invocation.is_a?(Pito::Slash::Result::Error)
 
-        # P56: universal --help / -h flag — intercept before the handler executes.
+        # Universal --help / -h flag — intercept before the handler executes.
         # This fires for every command, including ones without a handler class
         # (login, logout, connect, new, resume), so no command can silently eat
         # the flag and produce side effects.

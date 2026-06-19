@@ -2,7 +2,7 @@
 
 require "rails_helper"
 
-# P47 — ChatController#create clears the conversation draft when a message is sent.
+# ChatController#create clears the conversation draft when a message is sent.
 
 RSpec.describe "ChatController draft clearing", type: :request do
   let!(:conversation) { create(:conversation, draft: "saved text") }

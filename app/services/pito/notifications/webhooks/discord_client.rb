@@ -1,4 +1,4 @@
-# Phase 26 — 01c. Discord webhook HTTP client.
+# Discord webhook HTTP client.
 #
 # Mirror of `Pito::Notifications::Webhooks::SlackClient` — same `Result`
 # struct, same `#ping` / `#deliver` shape, same timeout posture. Two
@@ -13,7 +13,7 @@
 #   * `#deliver(payload)` — POSTs an already-built payload (Discord
 #     embed blob from
 #     `Pito::Notifications::Formatter::Discord.payload_for(...)`).
-#     Used by the Phase 26 01e digest scheduler. Same `Result` shape.
+#     Used by the digest scheduler. Same `Result` shape.
 #
 # Network failure handling lives here (timeouts, DNS failures,
 # malformed URIs) — every failure routes through the `Result` so the
@@ -58,7 +58,7 @@ module Pito
         end
 
         # Sends an already-built payload (Discord embeds blob).
-        # Used by the digest scheduler (Phase 26 01e). Returns a `Result`.
+        # Used by the digest scheduler. Returns a `Result`.
         def deliver(payload)
           post(payload)
         end

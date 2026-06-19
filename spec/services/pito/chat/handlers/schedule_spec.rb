@@ -143,7 +143,7 @@ RSpec.describe Pito::Chat::Handlers::Schedule do
     end
   end
 
-  # ── Natural-language <when> forms (P35) ───────────────────────────────────────
+  # ── Natural-language <when> forms ────────────────────────────────────────────
   context "natural-language <when> forms" do
     around { |example| Time.use_zone("UTC") { travel_to(Time.zone.local(2026, 6, 16, 10, 0)) { example.run } } }
 

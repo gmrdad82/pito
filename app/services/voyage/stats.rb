@@ -1,4 +1,4 @@
-# Phase 34 (2026-05-18) — Voyage AI stats snapshot.
+# Voyage AI stats snapshot.
 #
 # Cheap aggregate read returning a hash describing the current state
 # of the Voyage embedding pipeline:

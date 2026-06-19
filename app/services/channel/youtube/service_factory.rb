@@ -1,4 +1,4 @@
-# Phase 15 — Security Hardening Pass. Centralizes construction of
+# Security hardening pass. Centralizes construction of
 # the Google API service objects used by the OAuth-backed YouTube
 # clients (`Channel::Youtube::Client`, `Channel::Youtube::VideosClient`,
 # `Channel::Youtube::VideosReader`). Two responsibilities:
@@ -6,7 +6,7 @@
 # 1. **HTTP timeouts.** Every service is built with bounded
 #    `open_timeout_sec` / `read_timeout_sec` / `send_timeout_sec` so a
 #    hung Google endpoint can never wedge a Sidekiq worker (or a Web
-#    Puma thread) indefinitely. Phase 12 audit finding F2.
+#    Puma thread) indefinitely.
 #
 # 2. **Authorization adapter.** Wires up an authorization object that
 #    reads the connection's current `access_token` at apply-time, so a

@@ -72,7 +72,7 @@ RSpec.describe Game::Igdb::Client, type: :service do
       expect(names).to eq([ "Elden Ring: Deluxe Edition" ])
     end
 
-    # T16.7 — version_parent = null filter in the Apicalypse query body.
+    # version_parent = null filter in the Apicalypse query body.
     it "sends version_parent = null in the query body to exclude edition variants" do
       captured_body = nil
       stub_request(:post, "https://api.igdb.com/v4/games")

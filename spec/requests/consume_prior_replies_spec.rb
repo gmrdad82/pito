@@ -2,7 +2,7 @@
 
 require "rails_helper"
 
-# P17 — sending a NEW (non-reply) command consumes every PRIOR live #hashtag
+# sending a NEW (non-reply) command consumes every PRIOR live #hashtag
 # affordance in the conversation. The new command's OWN result events (streamed
 # in later by ChatDispatchJob, under the new turn) keep their handles live.
 RSpec.describe "Consuming prior live replies on a new message", type: :request do
@@ -61,7 +61,7 @@ RSpec.describe "Consuming prior live replies on a new message", type: :request d
     new_turn = conversation.turns.order(:id).last
     ChatDispatchJob.perform_now(new_turn.id, channel: "@all")
 
-    # P17 scopes consumption to turns BEFORE the new one: the prior handle is
+    # scopes consumption to turns BEFORE the new one: the prior handle is
     # consumed, and NOTHING the new command emits on its own turn ever is —
     # regardless of how that turn's messages happen to render.
     expect(Pito::FollowUp.consumed?(prior.reload.payload)).to be(true)

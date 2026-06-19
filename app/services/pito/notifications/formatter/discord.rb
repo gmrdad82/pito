@@ -1,4 +1,4 @@
-# Phase 16 §2 — Notification formatter.
+# Notification formatter.
 #
 # Discord webhook payload builder. One `Notification` row → one
 # Discord message: `username: "pito"` + `avatar_url` (when configured)
@@ -65,8 +65,7 @@ module Pito
         # formatting, so we escape those characters but leave the link
         # syntax intact.
         #
-        # Phase 16 §2 security fix-forward (F2 — 2026-05-10 audit). URL
-        # scheme allowlist applied at the markdown boundary.
+        # Security fix-forward. URL scheme allowlist applied at the markdown boundary.
         def escape_body_preserving_links(text)
           return "" if text.nil?
 

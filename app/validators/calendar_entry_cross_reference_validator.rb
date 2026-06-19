@@ -1,4 +1,4 @@
-# Phase 15 §1 — cross-reference shape validator.
+# Cross-reference shape validator.
 #
 # Each `entry_type` declares which typed FKs are required, allowed, or
 # forbidden. The model layer rejects mismatched shapes so the database

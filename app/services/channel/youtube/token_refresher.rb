@@ -1,8 +1,7 @@
-# Phase 7 — Step B (7b-youtube-client-and-audit.md). Token refresh
-# helper extracted from `Channel::Youtube::Client` so it is easy to spec in
-# isolation.
+# Token refresh helper extracted from `Channel::Youtube::Client` so it is easy
+# to spec in isolation.
 #
-# Phase 9 — GoogleIdentity → YoutubeConnection rename (ADR 0006). The
+# GoogleIdentity → YoutubeConnection rename (ADR 0006). The
 # parameter name follows the new local model; the upstream call to
 # Google's token endpoint is unchanged.
 #

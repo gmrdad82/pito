@@ -1,4 +1,4 @@
-# Phase 26 — 01b. Slack webhook HTTP client.
+# Slack webhook HTTP client.
 #
 # Two public methods:
 #
@@ -8,7 +8,7 @@
 #   * `#deliver(payload)` — POSTs an already-built payload (block-kit
 #     blob from
 #     `Pito::Notifications::Formatter::Slack.payload_for(...)`).
-#     Used by the Phase 26 01e digest scheduler. Same `Result` shape.
+#     Used by the digest scheduler. Same `Result` shape.
 #
 # Network failure handling lives here (timeouts, DNS failures,
 # malformed URIs) — every failure routes through the `Result` so the
@@ -52,7 +52,7 @@ module Pito
         end
 
         # Sends an already-built payload (Slack block-kit blob).
-        # Used by the digest scheduler (Phase 26 01e). Returns a `Result`.
+        # Used by the digest scheduler. Returns a `Result`.
         def deliver(payload)
           post(payload)
         end

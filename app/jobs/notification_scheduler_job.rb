@@ -1,4 +1,4 @@
-# Phase 16 §1 — Notifications data model + delivery channels.
+# Notifications data model + delivery channels.
 #
 # Sidekiq cron entry: every minute. Walks the calendar for ripe
 # notification dispatch declarations, materializes Notification rows

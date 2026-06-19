@@ -1,4 +1,4 @@
-# Phase 16 §2 — Notification formatter.
+# Notification formatter.
 #
 # Translates a `Notification` row into a per-channel payload. The
 # module-level `.for(kind)` factory (via `template_for`) resolves the
@@ -186,8 +186,7 @@ module Pito
         ENV["PITO_NOTIFICATIONS_AVATAR_URL"].presence
       end
 
-      # Phase 16 §2 security fix-forward (F1 / F2 — 2026-05-10 audit). URL
-      # scheme allowlist applied at every outbound boundary that renders a
+      # Security fix-forward. URL scheme allowlist applied at every outbound boundary that renders a
       # `[text](url)` markdown link to a downstream renderer (in-app HTML,
       # Discord embed description, Slack mrkdwn section).
       #

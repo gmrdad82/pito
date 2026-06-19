@@ -2,13 +2,13 @@
 
 # Orchestrates the full 5-step IGDB import flow.
 #
-# T16.8 rework: the 5 steps run INSIDE the sidebar (not in the main chat).
+# Rework: the 5 steps run INSIDE the sidebar (not in the main chat).
 # Each step is broadcast as a Turbo Stream `replace` targeting the
 # `import-step-N` DOM elements that `pito--games-search` pre-renders when
 # the user selects a game.  The sidebar stays open with all 5 steps marked
 # done (Esc to close).
 #
-# T16.9: only TWO messages go to the main chat —
+# Only TWO messages go to the main chat —
 #   (a) the standard detail message (Pito::MessageBuilder::Game::Detail) after steps 1–3.
 #   (b) the enhanced message (Pito::MessageBuilder::Game::Enhanced) after steps 4–5.
 # Both land inside the job's Turn so they get the normal timestamp + follow-up chrome.
@@ -18,7 +18,7 @@
 #   2. Sidebar step 1 shimmers; run SyncGame (IGDB main info + genres + companies + cover art).
 #   3. Mark sidebar step 1 done; shimmer step 2; mark step 2 done (cover already fetched).
 #   4. Shimmer step 3; run ScoreCalculator; mark step 3 done.
-#   5. Stream the standard P9 detail chat message (after step 3).
+#   5. Stream the standard detail chat message (after step 3).
 #   6. Shimmer step 4; run VoyageIndexer (digest-gated); mark step 4 done.
 #   7. Shimmer step 5; call dummy Pito::Recommendations; mark step 5 done.
 #   8. Stream the enhanced chat message (after step 5).
@@ -103,7 +103,7 @@ class GameImportJob < ApplicationJob
     @game.update_column(:score, score) if score != @game.score
     broadcast_step_done(@broadcaster, step: 3)
 
-    # After Step 3 — stream the standard P9 detail message to main chat (T16.9).
+    # After Step 3 — stream the standard detail message to main chat.
     emit_detail_once(@broadcaster, turn: turn, game: @game.reload, conversation: @conversation)
 
     # Step 4 — Voyage index (digest-gated; no-op if already fresh).
@@ -112,12 +112,12 @@ class GameImportJob < ApplicationJob
     ::Game::VoyageIndexer.call(@game)
     broadcast_step_done(@broadcaster, step: 4)
 
-    # Step 5 — Recommendations (dummy placeholder; real logic in P13).
+    # Step 5 — Recommendations (dummy placeholder).
     broadcast_step_pending(@broadcaster, step: 5)
     Pito::Recommendations.call(@game)
     broadcast_step_done(@broadcaster, step: 5)
 
-    # After Step 5 — stream the enhanced chat message to main chat (T16.9).
+    # After Step 5 — stream the enhanced chat message to main chat.
     # kind: :enhanced → renders via Pito::Event::EnhancedComponent (the pito
     # brand-blue border chrome). NOT follow-up-able: only the standard detail
     # message carries a #handle. Shared builder with `show game <ref>`.

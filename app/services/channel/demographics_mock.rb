@@ -1,5 +1,4 @@
-# Phase 37 Wave A (demographics A-slice, 2026-05-19) — age × gender
-# demographics mock for `/channels`.
+# Age × gender demographics mock for `/channels`.
 #
 # Sibling module to `Channel::MockData`. Lives in its own file because
 # `mock_data.rb` is actively co-edited by parallel A-slice agents (this

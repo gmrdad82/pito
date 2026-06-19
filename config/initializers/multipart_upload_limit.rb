@@ -1,4 +1,4 @@
-# Phase 7.5 §11f — channel banner uploads.
+# Channel banner uploads.
 #
 # The banner spec allows JPEG/PNG up to 6MB. Rails/Rack 3 do not
 # impose a per-part byte cap by default — uploads are gated by:

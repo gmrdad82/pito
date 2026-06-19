@@ -254,7 +254,7 @@ RSpec.describe Pito::TimeToBeatComponent do
       # color_axis_max = 10h → 40h + 100h thresholds project past 100% and clamp
       tiny = described_class.new(hours: { main: 5, extras: 8, completionist: 10 }, footage_hours: 0)
       stops = tiny.gradient_stops
-      # The first stop (0h → green, now wrapped in the T17.1 fg-mix) sits at
+      # The first stop (0h → green, now wrapped in the fg-mix) sits at
       # 0% (any precision).
       green = "color-mix(in oklch, var(--accent-green) 70%, var(--fg-default))"
       expect(stops).to start_with("#{green} 0")
@@ -268,7 +268,7 @@ RSpec.describe Pito::TimeToBeatComponent do
         footage_hours: 0
       )
       stops = crimson.gradient_stops
-      # The 100h pink stop is the red→purple mix wrapped in the T17.1 fg-mix;
+      # The 100h pink stop is the red→purple mix wrapped in the fg-mix;
       # grab the percentage that immediately follows it (color-mix
       # expressions contain commas, so we can't naively split on ", ").
       pink = "color-mix(in oklch, var(--accent-red), var(--accent-purple))"
@@ -292,7 +292,7 @@ RSpec.describe Pito::TimeToBeatComponent do
       expect(html).to include("var(--accent-purple)") # insanity end (red→purple mix)
     end
 
-    it "renders four | ticks (three pillars + footage) plus the footage ▼ bubble (T17.4)" do
+    it "renders four | ticks (three pillars + footage) plus the footage ▼ bubble" do
       comp = described_class.new(game: game, footage_hours: 50)
       html = render_inline(comp).to_html
       # Footage draws BOTH a | tick inside the bar (mirroring the ScoreBar
@@ -312,7 +312,7 @@ RSpec.describe Pito::TimeToBeatComponent do
 
   # ── NEW PARTIAL-DATA SPECS (rules 1-5) ──────────────────────────────────
 
-  describe "all three pillars present — completionist at max (rule 1/2/5)" do
+  describe "all three pillars present — completionist at max" do
     subject(:comp) { described_class.new(hours: { main: 50, extras: 100, completionist: 200 }) }
 
     it "completionist is the axis max (tick_axis = completionist)" do
@@ -340,7 +340,7 @@ RSpec.describe Pito::TimeToBeatComponent do
     end
   end
 
-  describe "completionist missing — extras is max (rule 1/2/3/5)" do
+  describe "completionist missing — extras is max" do
     subject(:comp) { described_class.new(hours: { main: 40, extras: 80, completionist: 0 }) }
 
     it "tick_axis equals extras" do
@@ -397,7 +397,7 @@ RSpec.describe Pito::TimeToBeatComponent do
     end
   end
 
-  describe "only main present — main is max (rule 1/2/3/5)" do
+  describe "only main present — main is max" do
     subject(:comp) { described_class.new(hours: { main: 43, extras: 0, completionist: 0 }) }
 
     it "tick_axis equals main" do
@@ -438,7 +438,7 @@ RSpec.describe Pito::TimeToBeatComponent do
     end
   end
 
-  describe "all pillars missing — no pillar ticks or labels (rule 1/3)" do
+  describe "all pillars missing — no pillar ticks or labels" do
     subject(:comp) { described_class.new(hours: { main: 0, extras: 0, completionist: 0 }) }
 
     it "pillar_axis is 0" do
@@ -462,7 +462,7 @@ RSpec.describe Pito::TimeToBeatComponent do
     end
   end
 
-  describe "footage absent — mark at left with em-dash label (rule 4)" do
+  describe "footage absent — mark at left with em-dash label" do
     subject(:comp) { described_class.new(hours: { main: 50, extras: 100, completionist: 200 }, footage_hours: 0) }
 
     it "footage_label_alignment_class is at-start" do
@@ -478,7 +478,7 @@ RSpec.describe Pito::TimeToBeatComponent do
     end
   end
 
-  describe "footage > pillar max — footage becomes axis max (rule 4)" do
+  describe "footage > pillar max — footage becomes axis max" do
     # footage=300 exceeds completionist=200, so footage drives the axis
     subject(:comp) { described_class.new(hours: { main: 50, extras: 100, completionist: 200 }, footage_hours: 300) }
 

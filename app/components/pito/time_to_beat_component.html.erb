@@ -10,7 +10,7 @@
     <% if render_footage_tick? %>
       <%# Footage uses the SAME mark as the ScoreBar needle: a value bubble
           with a ▼ arrow, snapped to its cell midpoint on the 0..completionist
-          axis (T17.4). %>
+          axis. %>
       <div class="pito-ttb__footage-bubble"
            data-accent="footage"
            style="left: <%= footage_position %>%;">
@@ -25,7 +25,7 @@
       `background-image` from `gradient_stops` (HEAT_THRESHOLDS projected onto
       0..completionist) is clipped to the glyphs via `background-clip: text`,
       so the color under each cell is the heat color for that cell's absolute
-      hour count (T17.5). A short game stays green/lime; a marathon goes
+      hour count. A short game stays green/lime; a marathon goes
       pink. The bar element itself keeps a plain background so the brackets
       and ticks read cleanly on top. %>
   <div class="pito-ttb__bar-row">
@@ -63,7 +63,7 @@
 
   <%# Row 4 — legend. Each pillar legend item is only shown when IGDB
       returned data for that pillar (hours[key] > 0). Absent pillars are
-      omitted from both the ticks and the legend (rule 3). %>
+      omitted from both the ticks and the legend. %>
   <div class="pito-ttb__legend">
     <% if hours[:main].to_i.positive? %>
       <span class="pito-ttb__legend-item">

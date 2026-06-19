@@ -5,7 +5,7 @@
 # over ActionCable.
 #
 # Mixed into:
-#   - GameImportJob  (T16.9: emits both after the 5-step import flow)
+#   - GameImportJob  (emits both after the 5-step import flow)
 #   - GameIgdbSync   (BUG B: emits both after a chat-initiated resync)
 #
 # All helpers are idempotent — guarded by event-kind existence checks so a

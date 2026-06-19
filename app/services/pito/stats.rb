@@ -3,7 +3,7 @@
 module Pito
   # Stats facade — the single seam for reading and writing per-entity
   # counters (subscribers / views) stored in the polymorphic `stats`
-  # table (P4).
+  # table.
   #
   # == Contract
   #

@@ -1,7 +1,7 @@
-# Phase 16 §1 — Notifications data model + delivery channels.
+# Notifications data model + delivery channels.
 #
 # Cron-driven scheduler. Walks the calendar for ripe declarations
-# (per `Pito::Calendar::NotificationDispatchDeclaration` from Phase 15),
+# (per `Pito::Calendar::NotificationDispatchDeclaration`),
 # materializes one Notification row per declaration, then enqueues a
 # `NotificationDeliver` per enabled channel.
 #
@@ -47,7 +47,7 @@ module Pito
           end
       end
 
-      # Phase 15's OccurredFlipper flips `:scheduled` entries to `:occurred`
+      # The OccurredFlipper flips `:scheduled` entries to `:occurred`
       # once `starts_at` has passed. For `milestone_manual` and `custom`
       # entries, that flip IS the notification trigger — we materialize a
       # `calendar_entry_firing` row exactly once per entry.
@@ -127,9 +127,9 @@ module Pito
       end
 
       # Map a declaration `kind` (string) to the Notification enum symbol.
-      # Phase 15's declaration uses kinds that map 1:1 onto the Notification
-      # enum, with one exception: `video_scheduled_publishing_soon` from
-      # Phase 15 falls outside the Phase 16 enum (Phase 16 ships a
+      # The declaration uses kinds that map 1:1 onto the Notification
+      # enum, with one exception: `video_scheduled_publishing_soon`
+      # falls outside the notification enum (it ships a
       # `video_published` kind for the post-publish row only). Treat it as
       # a `calendar_entry_firing` kind so the scheduler still materializes
       # a row; the formatter (Spec 02) decides the rendering.

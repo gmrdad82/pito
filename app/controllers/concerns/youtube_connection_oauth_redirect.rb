@@ -1,4 +1,4 @@
-# Phase 9 — Login-with-Google Drop + GoogleIdentity → YoutubeConnection
+# Login-with-Google Drop + GoogleIdentity → YoutubeConnection
 # rename (ADR 0006). Return-path helper for the YouTube-connection
 # OAuth dance.
 #

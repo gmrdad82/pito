@@ -1,4 +1,4 @@
-<%# P17 — Chat shell page for a specific conversation (/chat/:uuid). %>
+<%# Chat shell page for a specific conversation (/chat/:uuid). %>
 <%# Identical layout to terminal/show; stream targets the conversation uuid. %>
 
 <%= turbo_stream_from "pito:conversation:#{@conversation.uuid}" %>

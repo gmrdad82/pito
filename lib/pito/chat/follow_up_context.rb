@@ -15,7 +15,7 @@ module Pito
     #     same as the args a free-chat message would carry after the verb.
     #
     # A handler reads `follow_up?` to know it was reached via a reply and
-    # resolves its reference from this context (T18.2) instead of `message.raw`.
+    # resolves its reference from this context instead of `message.raw`.
     FollowUpContext = Data.define(:source_event, :rest)
   end
 end

@@ -1,11 +1,11 @@
 require "rails_helper"
 
-# P3 completeness spec:
+# Registry completeness spec:
 #   - Registry.all has exactly 19 themes
 #   - Every theme resolves a complete token set with valid hex values
 #   - brand_pito == "#5170ff" for every theme
 #   - Registry.grouped splits into 12 dark + 7 light
-RSpec.describe "Pito::Themes::Registry completeness (P3)" do
+RSpec.describe "Pito::Themes::Registry completeness" do
   EXPECTED_TOKEN_KEYS = %i[
     bg_root bg_surface bg_elevated
     border_default border_faded

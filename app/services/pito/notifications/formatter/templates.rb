@@ -1,4 +1,4 @@
-# Phase 16 §2 — Notification formatter.
+# Notification formatter.
 #
 # Registry of per-event-type templates. The three channel formatters
 # (`Discord`, `Slack`, `InApp`) all dispatch through this registry,

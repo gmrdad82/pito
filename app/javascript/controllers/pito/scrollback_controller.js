@@ -7,7 +7,7 @@
 // Also binds Shift+ArrowUp / Shift+ArrowDown to page the scrollback up/down
 // (global keydown; scrolls ~85% of the viewport height per press).
 //
-// T21.2 — "Respect scrolled up": if the user has scrolled up more than
+// "Respect scrolled up": if the user has scrolled up more than
 // SCROLL_LOCK_THRESHOLD px from the bottom, auto-scroll is suppressed until
 // they scroll back down (at which point the lock is released).
 //

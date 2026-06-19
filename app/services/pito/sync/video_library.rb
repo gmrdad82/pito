@@ -127,7 +127,7 @@ module Pito
       def upsert(attrs)
         return :unchanged if attrs[:youtube_video_id].blank?
 
-        # P4 — view/like/comment counts live on the polymorphic `stats` table,
+        # View/like/comment counts live on the polymorphic `stats` table,
         # not video columns; pull them out of the AR attrs and persist via the
         # facade.
         views    = attrs.delete(:view_count)
@@ -148,7 +148,7 @@ module Pito
         ::Pito::Stats.set(video, :comments, comments)
         ::VideoThumbnailJob.perform_later(video.id, thumb_url) if thumb_url.present?
 
-        # P9.5 — (re)embed the video when it's new or an embedded field changed.
+        # (Re)embed the video when it's new or an embedded field changed.
         # `Video::VoyageIndexer` is digest-gated, and `VideoVoyageIndexJob` only
         # refreshes the channel centroid when the video actually re-embeds, so
         # an unchanged re-import enqueues nothing wasteful here.

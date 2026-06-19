@@ -1,4 +1,4 @@
-# Phase 16 §2 — Notification formatter.
+# Notification formatter.
 #
 # Per-event-type template base. Subclasses implement `#title`, `#body`,
 # and `#url`, each of which reads ONLY from `notification.event_payload`

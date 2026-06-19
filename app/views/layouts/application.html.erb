@@ -16,7 +16,7 @@
 <body class="bg-root text-fg font-mono" data-controller="pito--audio" <%= "data-audio-chat-page=\"true\"".html_safe if controller_name == "conversations" %>>
   <div id="pito-auth-gate" class="hidden" data-authenticated="<%= Current.session.present? %>"></div>
   <div id="pito-settings" class="hidden" data-sound="<%= AppSetting.sound_enabled? %>" data-fx="<%= AppSetting.fx_enabled? %>" data-theme="<%= AppSetting.theme %>"></div>
-  <%# P54 — Global Turbo Stream subscription: receives mini-status and row
+  <%# Global Turbo Stream subscription: receives mini-status and row
       replacements that must propagate to every open browser instance
       (unread-count sync after notification toggle, sidebar row sync after rename). %>
   <%= turbo_stream_from "pito:global" %>

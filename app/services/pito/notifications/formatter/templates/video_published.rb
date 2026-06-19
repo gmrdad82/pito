@@ -1,4 +1,4 @@
-# Phase 16 §2 — Notification formatter.
+# Notification formatter.
 #
 # Template for the `video_published` notification kind. Spec 02 §
 # "Per-event-type template specifications".

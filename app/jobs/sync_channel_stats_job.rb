@@ -1,10 +1,10 @@
 # frozen_string_literal: true
 
-# P60 — Daily sync of general channel stats (subscribers, views).
+# Daily sync of general channel stats (subscribers, views).
 #
 # Iterates every Channel that has a connected, non-reauth YoutubeConnection
 # and calls Channel::Youtube::StatsFetcher to pull fresh stats from the
-# YouTube Data API v3 (subscribers + views). P4 — watch hours dropped
+# YouTube Data API v3 (subscribers + views). Watch hours dropped
 # (Analytics-sourced; returns with a future Pito::Analytics).
 #
 # Error posture: errors for one channel are rescued and logged so a single

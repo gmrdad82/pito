@@ -45,12 +45,12 @@ module Pito
     # end stays distinct from destructive red — it is an "effort intensity"
     # signal, not an error. Mirrors the `.pito-ttb__fill` CSS ramp.
     #
-    # THEME-ADAPTIVE CONTRAST (T17.1): each stop is mixed toward
+    # THEME-ADAPTIVE CONTRAST: each stop is mixed toward
     # `--fg-default` so the bar reads on ALL 18 themes. The light lime/amber
     # mids carry a heavier fg-mix (≈58%); the inherently-dark pink end only
     # ≈18%. Worst-case after the fix is 2.59:1 (catppuccin-latte / "low"),
     # vs 1.83:1 before; dark themes stay 3–8:1 and keep vivid accents. Mix
-    # weights resolved with the OKLab+WCAG sweep script (Plan P17).
+    # weights resolved with the OKLab+WCAG sweep script.
     HEAT_THRESHOLDS = [
       [ 0,   "color-mix(in oklch, var(--accent-green) 70%, var(--fg-default))" ],                                                 # low        — green
       [ 10,  "color-mix(in oklch, color-mix(in oklch, var(--accent-green), var(--accent-yellow)) 58%, var(--fg-default))" ],      # some       — lime
@@ -58,7 +58,7 @@ module Pito
       [ 100, "color-mix(in oklch, var(--accent-red), var(--accent-purple))" ]                                                    # insanity   — vivid pink (NOT fg-dimmed: the red+purple mix reads as the intended bright magenta on every theme)
     ].freeze
 
-    # Terminal gradient colors for partial-data cases (rule 5). These are the
+    # Terminal gradient colors for partial-data cases. These are the
     # same theme-aware color-mix pattern as HEAT_THRESHOLDS — no literal hex.
     #   extras-max  → ramp stops at yellow (no amber/pink past it)
     #   main-max    → ramp stops at green  (short-game all-green-ish fill)
@@ -108,7 +108,7 @@ module Pito
 
     # Effective scaling axis: the largest of (present pillars, footage if
     # present). All tick positions and gradient projections share this axis so
-    # ticks, gradient, and footage bubble stay aligned (rule 4).
+    # ticks, gradient, and footage bubble stay aligned.
     def effective_axis
       candidates = [ pillar_axis ]
       candidates << footage_hours if footage_hours.positive?
@@ -121,7 +121,7 @@ module Pito
     end
 
     # Color-projection axis (0..max_x). Used by `gradient_stops` so the heat
-    # ramp reflects each game's absolute hour scale; see T17.5.
+    # ramp reflects each game's absolute hour scale.
     def position(value)
       return 0.0 if max_x.zero?
 
@@ -141,7 +141,7 @@ module Pito
     # Tick axis (0..tick_axis). 40 cells split that span into 2.5% slices; a
     # tick snaps to the MIDDLE of the cell its hour value falls in, so the
     # largest pillar lands at 98.75% — the middle of the last cell — rather than
-    # flush against the closing bracket. Mirrors the ScoreBar needle snap (T17.3).
+    # flush against the closing bracket. Mirrors the ScoreBar needle snap.
     def tick_position(value)
       axis = tick_axis
       return 0.0 if axis.zero?
@@ -318,7 +318,7 @@ module Pito
       PILLAR_KEYS.reverse.find { |k| hours[k].to_i.positive? }
     end
 
-    # Terminal color for the gradient ramp (rule 5):
+    # Terminal color for the gradient ramp:
     #   - completionist present → full ramp → pink (current behavior)
     #   - extras is max (no completionist) → yellow
     #   - main is max (no extras/completionist) → green
@@ -355,8 +355,8 @@ module Pito
     # (clipped to the `=` glyphs). Projects HEAT_THRESHOLDS hour values onto
     # `color_axis_max` so the visible color spread reflects each game's actual
     # effort scale. When partial data is present the ramp is truncated so no
-    # hotter colors appear past the highest present pillar (rule 5). Colors
-    # are the T17.1 contrast-safe accent var()/color-mix() expressions — no hex.
+    # hotter colors appear past the highest present pillar. Colors
+    # are the contrast-safe accent var()/color-mix() expressions — no hex.
     def gradient_stops
       stops = gradient_threshold_stops.map do |hours_threshold, color|
         pct = [ (hours_threshold.to_f / color_axis_max * 100).round(2), 100 ].min

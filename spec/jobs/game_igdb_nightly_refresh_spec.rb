@@ -87,7 +87,7 @@ RSpec.describe GameIgdbNightlyRefresh, type: :job do
     expect { run! }.not_to change(Notification, :count)
   end
 
-  # (d) P9: the date-less "releasing within 30 days" summary was removed from
+  # (d) the date-less "releasing within 30 days" summary was removed from
   # this job — dated countdowns are now ReleaseCountdownJob's responsibility.
   # A soon-releasing game with 0 changed / 0 failed is therefore a quiet run.
   it "(d) creates NO Notification merely because a game releases within 30 days" do

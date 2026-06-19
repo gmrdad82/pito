@@ -24,7 +24,7 @@ class Video < ApplicationRecord
   end
 
   # Stat readers — sourced from the polymorphic `stats` table via the
-  # `Pito::Stats` facade (P4). Each returns nil when no stat row exists.
+  # `Pito::Stats` facade. Each returns nil when no stat row exists.
   def view_count
     Pito::Stats.get(self, :views)
   end

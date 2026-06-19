@@ -1,4 +1,4 @@
-# Phase 26 — 01e. Per-user digest delivery.
+# Per-user digest delivery.
 #
 # Enqueued by `DailyDigestSchedulerJob` (one per ripe user per tick).
 # Resolves the user, composes the 24h digest payload, and POSTs it to
@@ -14,7 +14,7 @@
 #     They log the failure and create a `Notification` row tagged
 #     `dedup_key: "digest_delivery_failed:<channel_id>:<utc_iso8601>"`
 #     and `event_type: "digest_delivery_failed"`. The row lands in the
-#     user's in-app inbox via Phase 16's notification surface.
+#     user's in-app inbox via the notification surface.
 #
 # Slack and Discord delivery results are accumulated; the job raises a
 # `TransientFailure` at the end iff any one channel reported a

@@ -1,4 +1,4 @@
-# Phase 24A / Phase 25A — Nightly IGDB games sync summary notification.
+# Nightly IGDB games sync summary notification.
 #
 # Called by `GameIgdbNightlyRefresh#perform` after the full batch completes,
 # but ONLY when there is something noteworthy (changed games, failures, or

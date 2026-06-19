@@ -2,11 +2,11 @@
 
 module Pito
   module Chat
-    # Context-aware target resolution shared by verb handlers (Phase 18, T18.2).
+    # Context-aware target resolution shared by verb handlers.
     #
     # A verb like `show`/`delete`/`reindex` acts on one game or video. It can be
     # reached three ways; `resolve_target` returns the SAME kind of record for all
-    # three so the verb body stays identical (T18.1's unified entry):
+    # three so the verb body stays identical:
     #
     #   * free-chat (`show game 5`)        → the TYPED ref (id `#N`/`N` or title),
     #                                        parsed from `message.raw`.

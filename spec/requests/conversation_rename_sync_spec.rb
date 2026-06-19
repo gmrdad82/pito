@@ -3,7 +3,7 @@
 require "rails_helper"
 require "action_cable/test_helper"
 
-# P54 — PATCH /chat/:uuid (rename) broadcasts conversation_row to pito:global
+# PATCH /chat/:uuid (rename) broadcasts conversation_row to pito:global
 # so every open sidebar on other instances updates without a reload.
 
 RSpec.describe "PATCH /chat/:uuid — global cable sync on rename", type: :request do

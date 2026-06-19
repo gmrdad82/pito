@@ -59,7 +59,7 @@ RSpec.configure do |config|
   # pulls in ViewComponent::TestHelpers, so `render_inline(Component.new(...))`
   # is available and returns a Nokogiri fragment you can assert on with
   # `.css(...)`, `.text`, and `.to_html`. We intentionally do NOT depend
-  # on Capybara (dropped in Phase 1 — no web UI to drive), so use plain
+  # on Capybara (dropped — no web UI to drive), so use plain
   # Nokogiri assertions rather than `have_css`/`have_text` matchers.
   #
   # Convention for a component spec:

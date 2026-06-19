@@ -1,4 +1,4 @@
-# Phase 16 §1 — Notifications data model + delivery channels.
+# Notifications data model + delivery channels.
 #
 # Deliver a single Notification through a single channel.
 # Argument shape: `(notification_id, channel_kind)` where `channel_kind`

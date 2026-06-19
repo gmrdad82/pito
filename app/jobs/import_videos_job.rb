@@ -53,7 +53,7 @@ class ImportVideosJob < ApplicationJob
       channel_lines << summary_line(channel.at_handle, result)
     end
 
-    # P4 — linked videos' view counts may have changed; refresh the
+    # Linked videos' view counts may have changed; refresh the
     # materialized `views` stat on every affected game.
     enqueue_game_stats_refreshes(channels)
 

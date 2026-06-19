@@ -1,4 +1,4 @@
-# Phase 16 §1 — Notifications data model + delivery channels.
+# Notifications data model + delivery channels.
 #
 # Namespace for PORO delivery channel dispatchers. Each subclass of
 # `Pito::Notifications::DeliveryChannel::Base` handles per-provider

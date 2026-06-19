@@ -2,7 +2,7 @@
 
 require "rails_helper"
 
-# P42 — PATCH /chat/:uuid — inline conversation rename via Turbo Stream.
+# PATCH /chat/:uuid — inline conversation rename via Turbo Stream.
 
 RSpec.describe "PATCH /chat/:uuid", type: :request do
   let!(:conversation) { create(:conversation, title: "Old Title") }

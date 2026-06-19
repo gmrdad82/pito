@@ -24,7 +24,7 @@ class NotificationsController < ApplicationController
     read = ActiveModel::Type::Boolean.new.cast(params[:read])
     notification.update!(read_at: read ? Time.current : nil)
 
-    # P54 — cross-instance unread-count sync.
+    # Cross-instance unread-count sync.
     Pito::Stream::Broadcaster.broadcast_global_mini_status
 
     head :no_content

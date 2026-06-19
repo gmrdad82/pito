@@ -425,7 +425,7 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
     end
   end
 
-  # T25.3 — hashtag column ghost for game_list/video_list add/remove actions
+  # hashtag column ghost for game_list/video_list add/remove actions
   describe "hashtag follow-up: column ghost for game_list add/remove", :db do
     let(:conversation) { Conversation.create! }
     let(:turn) { conversation.turns.create!(input_kind: :slash, input_text: "/list games", position: 1) }
@@ -588,7 +588,7 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
     end
   end
 
-  # T35.3 — hashtag --help ghost: when the partial starts with "-" and prefixes
+  # hashtag --help ghost: when the partial starts with "-" and prefixes
   # "--help", the engine returns a --help ghost + menu item.
   describe "hashtag follow-up: --help ghost", :db do
     let(:conversation) { Conversation.create! }
@@ -947,7 +947,7 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
     end
   end
 
-  # ── GHOST — kv-key ghost from Engine (P57, already covered above + cursor tests) ──
+  # ── GHOST — kv-key ghost from Engine (already covered above + cursor tests) ──
 
   describe "slash mode — kv-key ghost (/config igdb client_s → ecret)" do
     it "ghost complete_current is 'ecret' for '/config igdb client_s'" do
@@ -956,9 +956,9 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
     end
   end
 
-  # ── P57 — Partial kv-key ghost completion ─────────────────────────────────────
+  # ── Partial kv-key ghost completion ──────────────────────────────────────────
 
-  describe "slash mode — P57 partial kv-key ghost completion" do
+  describe "slash mode — partial kv-key ghost completion" do
     context "unique prefix" do
       it "returns ghost 'ecret' for '/config igdb client_s'" do
         result = call(input: "/config igdb client_s", cursor: 21, authenticated: true)
@@ -1059,9 +1059,9 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
     end
   end
 
-  # ── P5.5 — Suggestions stop when all non-repeatable slots are filled ─────────
+  # ── Suggestions stop when all non-repeatable slots are filled ────────────────
 
-  describe "P5.5 — suggestions stop after single-slot commands are satisfied" do
+  describe "suggestions stop after single-slot commands are satisfied" do
     before { Pito::Grammar::Registry.reset!; Pito::Grammar::Registry.register_all! }
     after  { Pito::Grammar::Registry.reset! }
 

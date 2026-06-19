@@ -1,4 +1,4 @@
-# Phase 12 — wraps the video publish-state transition. Distinct from
+# Wraps the video publish-state transition. Distinct from
 # VideoRemoteStatusSync because it has additional invariants (the four
 # pre-publish booleans must be true) and because it stamps the
 # `pre_publish_checked_at` timestamp atomically with the
@@ -22,7 +22,7 @@ class VideoPublish < ApplicationJob
     return unless video.pre_publish_complete?
 
     if publish_at_iso8601.present?
-      # Phase 26 — 01h. The job receives an absolute ISO 8601 instant
+      # The job receives an absolute ISO 8601 instant
       # (`Time.iso8601` requires the offset suffix). Storage is always
       # UTC; the rendered user-local clock is reconstructed at render
       # time via `ScheduledPublishHelper#render_publish_at_for_user`.
@@ -47,7 +47,7 @@ class VideoPublish < ApplicationJob
 
   private
 
-  # Phase 26 — 01h. Observability — log the channel's owning user's
+  # Observability — log the channel's owning user's
   # time_zone alongside the UTC instant so post-hoc debugging can
   # confirm the user-tz the picker rendered against. The user-tz at
   # job-fire time may differ from the user-tz at schedule time (the

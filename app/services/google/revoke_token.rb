@@ -1,4 +1,4 @@
-# Phase 9 — GoogleIdentity → YoutubeConnection rename (ADR 0006). POST a
+# GoogleIdentity → YoutubeConnection rename (ADR 0006). POST a
 # token to Google's revoke endpoint and audit the call.
 #
 # The module stays under the `Google::` namespace because it describes

@@ -1,4 +1,4 @@
-# Phase 34 (2026-05-18) — Voyage embedding for a single Game.
+# Voyage embedding for a single Game.
 #
 # Call `Voyage::Client#embed` for the combined `"title — summary"`
 # string. Persist the returned 1024-dim vector into

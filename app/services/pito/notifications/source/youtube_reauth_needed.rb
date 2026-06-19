@@ -1,4 +1,4 @@
-# Phase 16 §1 — Notifications data model + delivery channels.
+# Notifications data model + delivery channels.
 #
 # Source helper for `needs_reauth = true` flips on a YoutubeConnection.
 # Idempotent on `("youtube_reauth_needed", "youtube-reauth-#{id}")` so

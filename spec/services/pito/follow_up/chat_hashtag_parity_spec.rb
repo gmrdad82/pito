@@ -2,13 +2,13 @@
 
 require "rails_helper"
 
-# Phase 18/19 contract: a verb reached via a `#<handle>` reply produces the SAME
+# Parity contract: a verb reached via a `#<handle>` reply produces the SAME
 # built+sent events as the same verb typed in free chat. The follow-up path runs
-# the identical verb handler (T18.4) and only wraps the result (T18.3), so the
+# the identical verb handler and only wraps the result, so the
 # events match modulo the per-message random reply_handle / sampled copy.
 #
 # Locks the contract for ALL migrated verbs: show, show video, delete, link, unlink.
-RSpec.describe "Chat ≡ #hashtag parity (Phase 18/19)", type: :service do
+RSpec.describe "Chat ≡ #hashtag parity", type: :service do
   let(:conversation) { Conversation.singleton }
   let!(:game)        { create(:game, title: "Dead Space") }
   let!(:channel)     { create(:channel, handle: "@par", youtube_channel_id: "UCpar1") }

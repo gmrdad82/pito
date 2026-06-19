@@ -9,9 +9,6 @@ contact_links:
     about:
       The canonical reference for the Rails layer. Check here before reporting a
       "how does X work?" issue.
-  - name: docs/design.md — visual contract + keybindings + terminology
-    url: https://github.com/gmrdad82/pito/blob/main/docs/design.md
-    about: The canonical reference for UI / UX conventions.
   - name: AGENTS.md + docs/EXTRA.md — collaboration rules
     url: https://github.com/gmrdad82/pito/blob/main/AGENTS.md
     about:

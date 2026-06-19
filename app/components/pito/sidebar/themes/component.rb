@@ -12,7 +12,7 @@ module Pito
       # ● bullet marker for quick visual identification.
       #
       # The outer list container mounts `data-controller="pito--theme-nav"` so
-      # P9 (`theme_nav_controller.js`) can attach keyboard navigation without any
+      # `theme_nav_controller.js` can attach keyboard navigation without any
       # additional markup changes.
       #
       # Constructor:

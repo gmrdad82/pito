@@ -2,7 +2,7 @@
 
 require "rails_helper"
 
-# P47 — Draft restore + scoping specs for ConversationsController#show,
+# Draft restore + scoping specs for ConversationsController#show,
 # the start screen (/), and the 404 page.
 
 RSpec.describe "Conversation show draft restore and scoping", type: :request do

@@ -1,11 +1,11 @@
-# Phase 9 — GoogleIdentity → YoutubeConnection rename (ADR 0006).
+# GoogleIdentity → YoutubeConnection rename (ADR 0006).
 # Disconnect one or more channels from their YoutubeConnection.
 #
 # Steps (atomic in a transaction):
 #   1. Snapshot affected_connection_ids = channels.map(&:youtube_connection_id).compact.uniq.
-#   2. For each Channel, set `youtube_connection_id: nil`. (Phase 7 Path A2:
-#      the legacy `connected` boolean is gone; `youtube_connection_id IS
-#      NULL` is the disconnected state.)
+#   2. For each Channel, set `youtube_connection_id: nil`. (The legacy
+#      `connected` boolean is gone; `youtube_connection_id IS NULL`
+#      is the disconnected state.)
 #   3. For each affected connection: if no remaining `Channel` row
 #      references it, revoke the Google grant via
 #      `Google::RevokeToken.call(connection)` AND destroy the

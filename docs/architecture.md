@@ -2,13 +2,27 @@
 
 ## Routes
 
-| Path                        | Controller#action                            | Description                                            |
-| --------------------------- | -------------------------------------------- | ------------------------------------------------------ |
-| `GET /`                     | `start_screens#show`                         | Start screen — centered chatbox, ASCII logo, tip line. |
-| `POST /chat`                | `chat#create`                                | Submit a message; responds `head :no_content`.         |
-| `GET /chat/:uuid`           | `conversations#show`                         | Conversation view — scrollback + chatbox.              |
-| `GET /connect`              | `youtube_connections#new`                    | YouTube OAuth entry point.                             |
-| `GET /auth/google/callback` | `youtube_connections/oauth_callbacks#create` | OAuth callback; imports channels.                      |
+| Path                          | Controller#action                            | Description                                                  |
+| ----------------------------- | -------------------------------------------- | ----------------------------------------------------------- |
+| `GET /`                       | `start_screens#show`                         | Start screen — centered chatbox, ASCII logo, tip line.      |
+| `POST /chat`                  | `chat#create`                                | Submit a message; usually `head :no_content` (async).       |
+| `GET /chat/:uuid`             | `conversations#show`                         | Conversation view — scrollback + chatbox.                   |
+| `PATCH /chat/:uuid`           | `conversations#update`                       | Conversation mutation (e.g. rename).                        |
+| `DELETE /chat/:uuid`          | `conversations#destroy`                      | Delete a conversation.                                      |
+| `GET /resume`                 | `conversations#resume`                       | Resume the latest conversation.                             |
+| `POST /suggestions`           | `suggestions#create`                         | Chatbox command/handle suggestions (JSON).                  |
+| `POST /games/search`          | `games/search#create`                        | IGDB game search for the import sidebar (JSON).             |
+| `POST /games/import`          | `games/import#create`                        | Enqueue `GameImportJob`; `204`.                            |
+| `POST /channels/visit_consume`| `channels/visits#consume`                    | Mark a channel-visit event consumed.                       |
+| `GET /notifications`          | `notifications#index`                        | Notifications list.                                        |
+| `PATCH /notifications/:id`    | `notifications#update`                        | Mark a notification read.                                  |
+| `PATCH /settings/theme`       | `settings#theme`                             | Persist the active theme.                                  |
+| `match /auth/youtube/callback`| `youtube_connections/oauth_callbacks#create` | Google OAuth callback; imports channels.                   |
+| `GET /auth/failure`           | `youtube_connections/oauth_callbacks#failure`| OAuth failure landing.                                     |
+
+Auth is TOTP-only via the chatbox (`/authenticate <code>`); there are no
+login/connect form routes — `/connect`, `/new`, `/resume`, `/themes`, etc. are
+chatbox slash commands, not HTTP routes.
 
 ## UI stack
 
@@ -29,32 +43,48 @@ Pito::Shell::ChatboxComponent     — input area (Segment + Cursor + filter line
 Pito::Shell::MiniStatusComponent  — connection/auth/audio/shortcut status bar
 
 Pito::Event::EchoComponent        — user input echo
-Pito::Event::AssistantTextComponent — assistant response
 Pito::Event::ThinkingComponent    — Braille spinner + cycling word while dispatching
+Pito::Event::SystemComponent      — standard assistant message (body/table/sections)
+Pito::Event::EnhancedComponent          < SystemComponent — Pito-accent 2nd+ segment
+Pito::Event::SystemFollowUpComponent    < EnhancedComponent — follow-up reply, system
+Pito::Event::EnhancedFollowUpComponent  < EnhancedComponent — follow-up reply, enhanced
+Pito::Event::ConfirmationComponent       — confirmation prompt (#<handle> yes/no)
+Pito::Event::ConfirmationFollowUpComponent — resolved confirmation reply
 Pito::Event::ErrorComponent       — error response
-Pito::Event::ConfirmationPromptComponent — confirmation prompt
+Pito::Event::ThemeDiffComponent   — theme preview/diff message
 
 Pito::StartScreen::Component      — full-viewport start screen
 
 Pito::Palette::CtrlK::Component        — Ctrl+K command palette
 Pito::Palette::CtrlK::SectionComponent — section inside the palette
 
-Pito::Footage::ProbeCommandComponent — copyable ffprobe rake command block
+Pito::Footage::SnippetComponent   — copyable ffprobe one-liner (footage snippet)
 ```
 
 ## Dispatch pipeline
 
 A single `POST /chat` endpoint handles all input. `ChatController#create` reads
-`params[:input]`:
+`params[:input]`. A handful of commands that must touch the HTTP response
+(`/authenticate`, `/connect`, `/new`, `/resume`, sidebar pickers) are handled
+synchronously in the controller. Everything else is dispatched async: the
+controller persists an echo event, emits a thinking indicator, enqueues
+`ChatDispatchJob`, and responds `head :no_content` (the home-transition case
+returns JSON instead — see "Conversation model").
 
-- Leading `/` → `Pito::Slash::Dispatcher` (slash commands)
-- No leading `/` → `Pito::Chat::Dispatcher` (natural language)
+Inside `ChatDispatchJob`, the input is routed by its shape:
 
-The controller always responds `head :no_content`. All output is delivered via
-Turbo Stream broadcasts over Action Cable. Dispatch is async: the controller
-persists an echo event, emits a thinking indicator, enqueues `ChatDispatchJob`,
-and returns immediately. The job runs the handler, persists the result event, and
-broadcasts it to the scrollback.
+- `turn.slash?` (leading `/`) → `Pito::Slash::Dispatcher`
+- `turn.hashtag?` (leading `#`) → `Pito::Hashtag::Dispatcher`
+- otherwise → `Pito::Chat::Dispatcher` (natural language)
+
+The job runs the handler, persists each result event, resolves the thinking
+indicator, and completes the turn. All output is delivered via Turbo Stream
+broadcasts over Action Cable.
+
+`#<handle> <verb> <rest>` replies to an addressable event are intercepted
+**before** async dispatch by `Pito::FollowUp::Router`, which re-runs the same
+chat verb handler via `Pito::FollowUp::VerbDelegator` (handlers under
+`app/services/pito/follow_up/handlers/`).
 
 ### Broadcast pipeline
 
@@ -74,9 +104,13 @@ matching ViewComponent, and broadcasts a Turbo Stream `append` to
 ### Chat system (`Pito::Chat::*`)
 
 - Infrastructure under `lib/pito/chat/`.
-- Handlers under `app/services/pito/chat/handlers/`.
-- The parser classifies input into `:new_turn`, `:refinement`, or `:unknown`.
-- Every handler returns a `Pito::Chat::Result` (`Ok` / `Error` / `Refine`).
+- Handlers under `app/services/pito/chat/handlers/` — one subclass per verb, each
+  declaring `self.verb`. Verbs: `list`, `show`, `import`, `sync`, `delete`,
+  `reindex`, `link`, `unlink`, `publish`, `unlist`, `schedule`, `footage`,
+  `platform` (plus internal `help` / `unknown`). Nouns `vids` / `subs` are
+  canonical, with `videos` / `subscribers` accepted as aliases.
+- The parser classifies input into `:new_turn` or `:unknown`.
+- Every handler returns a `Pito::Chat::Result` (`Ok` / `Error`).
 
 ### Cross-system invariants
 
@@ -88,17 +122,21 @@ matching ViewComponent, and broadcasts a Turbo Stream `append` to
 
 ### Event kinds
 
-| Kind                  | Payload keys                                            |
-| --------------------- | ------------------------------------------------------- |
-| `echo`                | `text:`                                                 |
-| `assistant_text`      | `message_key:, message_args:` or `text:`                |
-| `error`               | `message_key:, message_args:`                           |
-| `confirmation_prompt` | `prompt_key:, prompt_args:, command_text:`              |
-| `thinking`            | `dictionary:, word_index:, resolved:, elapsed_seconds:` |
-| `logout`              | _(empty)_                                               |
+| Kind                     | Payload keys                                              |
+| ------------------------ | -------------------------------------------------------- |
+| `echo`                   | `text:`                                                  |
+| `thinking`               | `dictionary:, word_index:, resolved:, elapsed_seconds:`  |
+| `system`                 | `body:` / `message_key:, message_args:` / `text:`, plus optional `html:, table_rows:, sections:, info_lines:, reply_handle:, …` |
+| `enhanced`               | same as `system` (Pito-accent 2nd+ segment)              |
+| `system_follow_up`       | same as `system` (rendered as a follow-up reply)         |
+| `enhanced_follow_up`     | same as `system` (rendered as a follow-up reply)         |
+| `confirmation`           | `body:, reply_handle:, processing:, resolved:, outcome:, outcome_text:` |
+| `confirmation_follow_up` | `outcome:, outcome_text:`                                |
+| `error`                  | `message_key:, message_args:` (or already-resolved `text:`) |
+| `theme_diff`             | `phase:, granularity:, from_text:, previewed_slug:, sections:, body:, reply_handle:` |
 
 `Pito::Stream::EventRenderer.component_for(event)` is the single source of truth
-for kind → component lookup.
+for kind → component lookup (`COMPONENT_CLASSES`).
 
 ## Conversation model
 
@@ -174,8 +212,10 @@ translate into that shape:
 
 - `Game.released_in(year)` — `where(release_year: year)`.
 - `Game.tba` — `where(release_year: nil)`.
-- `Game.upcoming` — `where("release_date IS NULL OR release_date > ?", Date.current)`.
-- `Game#released?` — `release_date.present? && release_date <= Date.current`.
-- `Game#tba?` — `release_year.nil? && igdb_synced_at.present?`.
-- `Game#release_label` — `"Oct 15, 2026"` / `"October 2026"` / `"Q3 2026"` /
-  `"2026"` / `"TBA"` / `"Dec 25"` (year-unknown), driven by component nullability.
+- `Game.upcoming` — `where("release_date > ? OR release_year IS NULL", Date.current)`.
+- `Game#released?` — true when the derived date (`release_date`, or freshly
+  derived from the components) is present and `<= Date.current`.
+- `Game#tba?` — `igdb_synced_at.present? && release_year.nil?`.
+- `Game#release_label` — delegates to `Pito::Formatter::ReleaseDate.call(self)`:
+  `"Oct 15, 2026"` / `"October 2026"` / `"Q3 2026"` / `"2026"` / `"TBA"` /
+  `"Dec 25"` (year-unknown), driven by component nullability.

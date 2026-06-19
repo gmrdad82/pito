@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# P4 — Polymorphic stat counter.
+# Polymorphic stat counter.
 #
 # Stores per-entity counts that used to live as dedicated columns on
 # Channel/Video (`subscriber_count`, `view_count`). One row per

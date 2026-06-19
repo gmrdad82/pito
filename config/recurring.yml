@@ -4,7 +4,7 @@
 # Entries migrated from config/sidekiq_cron.yml (reboot/beta).
 #
 # Dropped entries:
-#   - reindex_meilisearch         — Meilisearch removed (P6)
+#   - reindex_meilisearch         — Meilisearch removed
 #   - notification_scheduler      — Notifications deferred (post-reboot)
 #   - notification_cleanup        — Notifications deferred (post-reboot)
 #   - viewer_time_daily_refresh   — Analytics deferred (post-reboot)
@@ -28,7 +28,7 @@
 #   - VoyageReindexJob            — triggered via chat `sync` verb
 
 production:
-  # P59 — Notifications cleanup — daily at 01:00 UTC
+  # Notifications cleanup — daily at 01:00 UTC
   cleanup_notifications:
     class: CleanupNotificationsJob
     schedule: "0 1 * * *"
@@ -79,7 +79,7 @@ production:
     description: "Notify a dated countdown for every game releasing within 30 days"
 
 development:
-  # P59 — Notifications cleanup — daily at 01:00
+  # Notifications cleanup — daily at 01:00
   cleanup_notifications:
     class: CleanupNotificationsJob
     schedule: "0 1 * * *"

@@ -1,4 +1,4 @@
-# Phase 34 (2026-05-18) — Similar-games recommendations.
+# Similar-games recommendations.
 #
 # Returns the games most semantically similar to a given game, ranked
 # by cosine distance on the Voyage `summary_embedding` column. Backs

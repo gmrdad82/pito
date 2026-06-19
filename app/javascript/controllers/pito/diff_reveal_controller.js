@@ -2,11 +2,11 @@
 //
 // Animates a set of `cell` targets through a two-phase diff reveal:
 //
-//   Phase 1 (subtractions) — for every cell, reverse-delete its `removed`
-//                             middle (CHARS_TICK units per TICK_MS tick) until
-//                             the cell shows only prefix + suffix.
-//   Phase 2 (additions)    — for every cell, type its `added` middle in
-//                             forward order until the cell shows its final `to`.
+//   Subtraction pass — for every cell, reverse-delete its `removed`
+//                      middle (CHARS_TICK units per TICK_MS tick) until
+//                      the cell shows only prefix + suffix.
+//   Addition pass    — for every cell, type its `added` middle in
+//                      forward order until the cell shows its final `to`.
 //
 // This is general and theme-agnostic.  Whether "preview" animates only the
 // added marker or "apply" animates the entire list-to-quip replacement is
@@ -88,7 +88,7 @@ export default class extends Controller {
           return
         }
 
-        // ── Phase 1: reverse-delete `removed` from every cell ──────────────
+        // ── Reverse-delete `removed` from every cell ───────────────────────
         //
         // We advance CHARS_TICK units per tick across ALL cells simultaneously
         // (one shared budget per tick, wrapping across cells in order).
@@ -121,7 +121,7 @@ export default class extends Controller {
           }
 
           if (!anyLeft) {
-            // Phase 1 complete — ensure clean prefix+suffix on all cells.
+            // Subtraction complete — ensure clean prefix+suffix on all cells.
             for (const c of cells) {
               c.el.textContent = renderCell(c.prefix, "", c.suffix)
             }
@@ -131,7 +131,7 @@ export default class extends Controller {
           }
         }
 
-        // ── Phase 2: type `added` into every cell ──────────────────────────
+        // ── Type `added` into every cell ───────────────────────────────────
         //
         // Same budget model as phase 1, but growing forward.
 
@@ -171,7 +171,7 @@ export default class extends Controller {
           }
 
           if (!anyLeft) {
-            // Phase 2 complete — ensure exact final text on all cells.
+            // Addition complete — ensure exact final text on all cells.
             for (const c of cells) c.el.textContent = c.to
             this._resolve?.()
           } else {

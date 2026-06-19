@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# P5.5 — Dispatcher generic positional-arity guard.
+# Dispatcher generic positional-arity guard.
 #
 # The guard rejects invocations where invocation.args.size > positional capacity
 # derived from the command's grammar spec. kv slots are excluded from the count;
@@ -11,7 +11,7 @@
 
 require "rails_helper"
 
-RSpec.describe Pito::Slash::Dispatcher, "arity guard (P5.5)", type: :service do
+RSpec.describe Pito::Slash::Dispatcher, "arity guard", type: :service do
   let(:conversation) { Conversation.create! }
 
   before { Pito::Slash::Registry.register_all! }

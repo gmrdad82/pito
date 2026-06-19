@@ -1,4 +1,4 @@
-# Phase 14 §1 — IGDB sync orchestrator.
+# IGDB sync orchestrator.
 #
 # Single public method `call(game)`:
 #   1. Fetch the IGDB game row + time-to-beat row + external-games rows.
@@ -38,8 +38,7 @@ class Game
           game.update!(igdb_synced_at: Time.current, last_sync_error: nil)
         end
 
-        # Phase 27 follow-up (2026-05-17) — generate the normalized
-        # cover master after every IGDB sync. Idempotent — the
+        # Generate the normalized cover master after every IGDB sync. Idempotent — the
         # Normalizer short-circuits when the master file's mtime is
         # newer than `igdb_synced_at` (which we just bumped, so this
         # run always re-normalizes).
@@ -53,10 +52,9 @@ class Game
           Rails.logger.warn "[Game::Igdb::SyncGame] cover normalization failed for game id=#{game.id}: #{e.class}: #{e.message}"
         end
 
-        # Phase 34 (2026-05-18) — enqueue Voyage embedding for the
-        # freshly synced row. Async so the user-facing sync POST
-        # doesn't block on Voyage HTTP. The job is idempotent
-        # (re-embeds + re-writes) so a duplicate enqueue from any
+        # Enqueue Voyage embedding for the freshly synced row. Async so the
+        # user-facing sync POST doesn't block on Voyage HTTP. The job is
+        # idempotent (re-embeds + re-writes) so a duplicate enqueue from any
         # other path (rake backfill, manual console call) is safe.
         GameVoyageIndexJob.perform_later(game.id)
 

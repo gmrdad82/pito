@@ -1,4 +1,4 @@
-# Phase 26 — 01e. Discord embeds renderer for the daily digest.
+# Discord embeds renderer for the daily digest.
 #
 # Reads a `Digest::Composer::Result` and returns a Hash POSTable to a
 # Discord webhook as JSON. Empty sections are suppressed; "all quiet"

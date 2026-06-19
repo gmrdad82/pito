@@ -338,7 +338,7 @@ RSpec.describe Pito::Shell::ChatboxComponent do
       end
     end
 
-    # ── T47.4 — initial_value + draft_uuid ─────────────────────────────────────
+    # ── initial_value + draft_uuid ─────────────────────────────────────────────
 
     context "initial_value param" do
       it "renders the given value in the textarea" do
@@ -386,7 +386,7 @@ RSpec.describe Pito::Shell::ChatboxComponent do
       end
     end
 
-    # ── P58 — Input history (up/down) ──────────────────────────────────────────
+    # ── Input history (up/down) ────────────────────────────────────────────────
 
     context "history param" do
       it "always mounts pito--history on #pito-chatbox" do

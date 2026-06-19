@@ -6,13 +6,13 @@
 # `last_sync_error` inside `Game::Igdb::SyncGame` and the job swallows
 # the raise, not retrying.
 #
-# Phase 14 §1 polish (2026-05-10) — `games.resyncing` mutex flag.
+# Polish (2026-05-10) — `games.resyncing` mutex flag.
 # The job flips `resyncing` true at start (skips when already in
 # flight, so duplicate enqueues are no-ops) and back to false in
 # an `ensure` block so a crash inside `SyncGame` still releases
 # the lock.
 #
-# Phase 27 v2 spec 03 — two-layer lock, mirroring `ReindexAllJob`'s pattern:
+# Two-layer lock, mirroring `ReindexAllJob`'s pattern:
 #
 #   Layer 1 — DB mutex (`games.resyncing` Boolean). Set at start,
 #             cleared in `ensure`. The controller consults the same

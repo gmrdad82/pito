@@ -25,7 +25,7 @@ Rails.application.config.after_initialize do
     scope: :home
   )
 
-  # Phase 1C (2026-05-24) — section-specific `:` palette actions.
+  # 2026-05-24 — section-specific `:` palette actions.
   #
   # `sort_table` — programmatically clicks a `SortableHeaderComponent`
   # `<th>` inside a `[data-controller="sortable-table"]` block. The
@@ -47,7 +47,7 @@ Rails.application.config.after_initialize do
   #
   # `revoke_all_except_current` / `revoke_selected_sessions` — STUB
   # entries; the underlying forms still POST through the legacy bulk-
-  # revoke flow. Phase 2 lifts them into the action bus proper.
+  # revoke flow. A later iteration lifts them into the action bus proper.
   # scope: :global — these are palette-dispatch helpers used on every
   # screen. The JS dispatcher resolves them client-side (no Rails route,
   # no POST) so there is no screen-specific context requirement.

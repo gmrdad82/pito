@@ -186,7 +186,7 @@ export default class extends Controller {
       row.dataset.title  = title
 
       // Cover thumbnail — SQUARE (t_cover_small = 90×90).
-      // Build the URL from the IGDB image_id (T16.4: small square).
+      // Build the URL from the IGDB image_id (small square).
       if (imageId) {
         const img = document.createElement("img")
         img.src    = `https://images.igdb.com/igdb/image/upload/t_cover_small/${imageId}.jpg`
@@ -278,7 +278,7 @@ export default class extends Controller {
     this.#importGame(igdbId, title)
   }
 
-  // T16.8: When a game is selected, replace the results region with 5 shimmer
+  // When a game is selected, replace the results region with 5 shimmer
   // step rows and keep the sidebar open.  The job broadcasts Turbo Stream
   // `replace` actions targeting each `import-step-N` DOM id.
   async #importGame(igdbId, title) {

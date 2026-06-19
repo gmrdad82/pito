@@ -34,7 +34,7 @@ RSpec.describe Pito::FollowUp::VerbDelegator, type: :service do
       expect(result.events.first[:kind]).to eq(:system)
     end
 
-    it "rejects a verb that isn't an allowed reply action for the source message (T18.5)" do
+    it "rejects a verb that isn't an allowed reply action for the source message" do
       # game_list allows show/delete — `publish` is not in its matrix.
       result = described_class.call(source_event:, rest: "publish #{game.id}", conversation:)
 

@@ -1,7 +1,7 @@
-# Phase 7 — Step B (7b-youtube-client-and-audit.md). Shared audit-row
-# writer used by `Channel::Youtube::Client` and `Channel::Youtube::PublicClient`.
+# Shared audit-row writer used by `Channel::Youtube::Client` and
+# `Channel::Youtube::PublicClient`.
 #
-# Phase 9 — GoogleIdentity → YoutubeConnection rename (ADR 0006).
+# GoogleIdentity → YoutubeConnection rename (ADR 0006).
 # The audit-row column flipped to `youtube_connection_id`; this writer
 # accepts the new noun (`connection:`) while preserving the one-row-
 # per-logical-call discipline.

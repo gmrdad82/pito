@@ -1,4 +1,4 @@
-# Phase 14 §1 — Apicalypse query body builder.
+# Apicalypse query body builder.
 #
 # Tiny DSL that emits the IGDB v4 Apicalypse string format:
 #   `fields a, b, c; where x = 1 & y > 2; limit 10;`
@@ -38,9 +38,9 @@ class Game
         self
       end
 
-      # Phase 27 §1a — pagination for endpoints that need to walk every
-      # row (e.g. `/platforms` for `Platforms::SyncFromIgdb`). Zero is a
-      # valid offset (`offset 0;` is implicit in IGDB) so we allow it.
+      # Pagination for endpoints that need to walk every row (e.g. `/platforms`
+      # for `Platforms::SyncFromIgdb`). Zero is a valid offset (`offset 0;`
+      # is implicit in IGDB) so we allow it.
       def offset(n)
         raise ArgumentError, "offset must be a non-negative integer" unless n.is_a?(Integer) && n >= 0
         @offset = n

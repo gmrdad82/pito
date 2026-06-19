@@ -1,6 +1,6 @@
 // Pito::TerminalCaretController
 //
-// VERDICT (P19/T19.1): the ghost `Cursor::Component` is unsuitable as the chatbox
+// VERDICT: the ghost `Cursor::Component` is unsuitable as the chatbox
 // caret — it is a fixed decorative "/" glyph that never tracks input and visually
 // competes with the real (native) caret. A native caret cannot be a styled block
 // (it is always a thin I-beam), and CSS `caret-shape: block` is not Baseline

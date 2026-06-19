@@ -14,7 +14,7 @@ module Pito
     #
     #   result.legacy_candidates
     #   # => Array of { key: String, variants: Integer, placeholders: [String] }
-    #   #    One entry per array-valued leaf OUTSIDE pito.copy.* (migration targets for P3/P4).
+    #   #    One entry per array-valued leaf OUTSIDE pito.copy.*.
     #
     # == Usage
     #

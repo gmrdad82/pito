@@ -143,10 +143,10 @@ RSpec.describe Pito::ScoreBarComponent do
       end
     end
 
-    it "mixes every stop toward --fg-default for theme-adaptive contrast (T17.1)" do
+    it "mixes every stop toward --fg-default for theme-adaptive contrast" do
       # The fg-mix darkens stops on light themes and lightens them on dark
       # themes, so the worst-case stop (yellow 'fair') rises from ~1.62:1 to
-      # ~2.56:1 across all 18 themes. See Plan P17 / the OKLab+WCAG sweep.
+      # ~2.56:1 across all 18 themes. See the OKLab+WCAG sweep.
       expect(fill_rule).to include("var(--fg-default)")
     end
 

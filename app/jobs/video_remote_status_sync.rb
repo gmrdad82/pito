@@ -1,4 +1,4 @@
-# Phase 21 — focused, status-only write-back job. Pulls a Video, reads
+# Focused, status-only write-back job. Pulls a Video, reads
 # the YouTube-side state via VideosReader (1 unit), then PUTs the local
 # state via VideosClient (50 units) BUT restricted to the privacy/schedule
 # fields only — `fields: [:privacy_status, :publish_at]`. YouTube's own

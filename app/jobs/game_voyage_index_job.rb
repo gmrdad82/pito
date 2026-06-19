@@ -1,5 +1,4 @@
-# Phase 34 (2026-05-18) — Background Voyage indexer for
-# a single Game.
+# Background Voyage indexer for a single Game.
 #
 # Thin wrapper around `Game::VoyageIndexer.call` — looks the row up,
 # guards on a vanished record, hands off. Enqueued by:
