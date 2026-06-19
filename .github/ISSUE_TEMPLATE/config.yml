@@ -1,7 +1,7 @@
 blank_issues_enabled: false
 contact_links:
   - name: README — what pito is and how to start
-    url: https://github.com/gmrdad82/pito#what-it-does
+    url: https://github.com/gmrdad82/pito#why-does-this-thing-exist
     about:
       Project overview, stack, getting started. Read before opening an issue.
   - name: docs/architecture.md — system topology + models + namespaces
@@ -9,13 +9,13 @@ contact_links:
     about:
       The canonical reference for the Rails layer. Check here before reporting a
       "how does X work?" issue.
-  - name: AGENTS.md + docs/EXTRA.md — collaboration rules
-    url: https://github.com/gmrdad82/pito/blob/main/AGENTS.md
+  - name: CLAUDE.md — working agreement + conventions
+    url: https://github.com/gmrdad82/pito/blob/main/CLAUDE.md
     about:
-      How AI tools (Claude Code, OpenCode) work in this repo. Project-specific
-      overrides in docs/EXTRA.md.
+      How AI tools (Claude Code, OpenCode) work in this repo — plan discipline,
+      condensed architecture, and stack principles.
   - name: Project status (no SLA, no support guarantees)
-    url: https://github.com/gmrdad82/pito#project-status
+    url: https://github.com/gmrdad82/pito#why-does-this-thing-exist
     about:
       pito is one person's tool, open-sourced as-is. Read before opening an
       issue.

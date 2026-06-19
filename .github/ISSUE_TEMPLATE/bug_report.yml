@@ -27,7 +27,7 @@ body:
         - "Auth / OAuth / sessions"
         - "Kamal / Docker / deploy"
         - "CI (.github/workflows/)"
-        - "Docs (README, AGENTS.md, EXTRA, docs/*)"
+        - "Docs (README, CLAUDE.md, docs/*)"
         - "Other / unsure"
     validations:
       required: true

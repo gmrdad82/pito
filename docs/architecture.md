@@ -150,8 +150,7 @@ in place; `history.pushState` sets the `/chat/:uuid` URL without a page reload.
 - **`Pito::*`** — cross-cutting infrastructure and utilities.
 - **Domain layer**: `Channel::*`, `Video::*`, `Game::*`, `Footage::*`. Each owns
   its external API integration (YouTube, IGDB), indexers, and services.
-- **`Tui::*`** — legacy panel primitive components (retained from earlier TUI work).
-- `Settings::*` is gone. Don't reintroduce it.
+- **`Tui::*`** — panel primitive components.
 
 ## Game release-date representation
 

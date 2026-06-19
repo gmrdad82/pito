@@ -28,7 +28,7 @@ existence in the first place:
 ---
 
 Self-hosted YouTube tool for creators who run multiple channels — track channels,
-videos, and analytics in one place, schedule across channels without conflicts,
+videos, and games in one place, schedule across channels without conflicts,
 and get game/channel recommendations. your laptop, your data.
 
 > **one person's tool**, open-sourced as-is. no SLA, no roadmap,
@@ -47,10 +47,9 @@ the rebuild. To try it anyway, start with
 
 ## Docs
 
-- [`AGENTS.md`](AGENTS.md) — agent instructions (Claude Code / OpenCode)
-- [`docs/EXTRA.md`](docs/EXTRA.md) — pito-specific conventions that override the
-  generic agent guidance
+- [`CLAUDE.md`](CLAUDE.md) — working agreement, plan discipline, condensed architecture + stack principles (read first)
 - [`docs/architecture.md`](docs/architecture.md) — topology, models, namespaces
+- [`docs/design.md`](docs/design.md) — visual system: typography, theming, color/message palette, component rules
 - [`docs/footage.md`](docs/footage.md) — per-game manual footage total + `footage snippet` ffprobe one-liner
 
 ## Sounds
