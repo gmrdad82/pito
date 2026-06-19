@@ -11,7 +11,7 @@ module Pito
         self.verb = :publish
         self.description_key = "pito.chat.publish.descriptions.publish"
 
-        NOUN_FILLERS = %w[video videos].freeze
+        NOUN_FILLERS = %w[vid vids video videos].freeze
 
         def call
           ref = extract_ref

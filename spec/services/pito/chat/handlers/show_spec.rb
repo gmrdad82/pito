@@ -193,6 +193,16 @@ RSpec.describe Pito::Chat::Handlers::Show do
       expect(payload["body"]).to include("My Gaming Highlights")
     end
 
+    it "shows a video with the canonical short noun 'vids'" do
+      payload = handler_for("vids", video.id.to_s).call.events.first[:payload]
+      expect(payload["body"]).to include("My Gaming Highlights")
+    end
+
+    it "shows a video with the singular short noun 'vid'" do
+      payload = handler_for("vid", video.id.to_s).call.events.first[:payload]
+      expect(payload["body"]).to include("My Gaming Highlights")
+    end
+
     it "stamps the detail message follow-up-able (video_detail)" do
       payload = handler_for("video", "##{video.id}").call.events.first[:payload]
       expect(Pito::FollowUp.followupable?(payload)).to be(true)

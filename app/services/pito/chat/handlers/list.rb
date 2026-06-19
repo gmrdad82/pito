@@ -66,9 +66,10 @@ module Pito
           # the noun — otherwise `list games with channels` routes to `list channels`.
           head = noun_head(message.raw)
           return list_channels  if head.match?(/\bchannels?\b/i)
-          # Require the plural "videos" — "list video" (singular) is NOT a valid
-          # noun and falls through to the unknown-noun handler below.
-          return list_videos    if head.match?(/\bvideos\b/i)
+          # Require the plural form — `vids` (canonical) or `videos` (alias).
+          # The singular "list video" / "list vid" is NOT a valid noun and falls
+          # through to the unknown-noun handler below.
+          return list_videos    if head.match?(/\b(?:vids|videos)\b/i)
           return games_list_help if message.raw.match?(/(?:\A|\s)--help(?:\s|\z)/)
 
           # Reject an unrecognized noun (e.g. `list asd`) instead of silently

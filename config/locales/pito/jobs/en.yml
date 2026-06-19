@@ -3,16 +3,16 @@ en:
     jobs:
       import_videos:
         breakdown:
-          videos_total: "Videos total"
+          videos_total: "Vids total"
           published: "Published"
           scheduled: "Scheduled"
           unlisted: "Unlisted"
           drafts: "Drafts"
         summary:
           total_label: "All channels"
-          nothing_new: "No new videos — your library is already current."
+          nothing_new: "No new vids — your library is already current."
       channel_info:
         stats:
-          subscribers: "Subscribers:"
+          subscribers: "Subs:"
           views: "Views:"
         channel_fallback: "Channel"

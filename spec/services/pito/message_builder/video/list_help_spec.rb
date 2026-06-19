@@ -20,8 +20,8 @@ RSpec.describe Pito::MessageBuilder::Video::ListHelp do
       expect(result["body"]).to include("Usage:")
     end
 
-    it "body includes the list videos usage line" do
-      expect(result["body"]).to include("list videos")
+    it "body includes the list vids usage line" do
+      expect(result["body"]).to include("list vids")
     end
 
     it "body includes Options section" do

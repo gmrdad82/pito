@@ -31,7 +31,7 @@ en:
         descriptions:
           login: "Log in to access pito"
           channels: "List your YouTube channels"
-          videos: "List videos for a channel"
+          videos: "List vids for a channel"
           import: "Import a game from IGDB"
           export: "Export session transcript"
           help: "Show help and command reference"

@@ -73,7 +73,7 @@ RSpec.describe Pito::MessageBuilder::Game::ListHelp do
     end
 
     it "body includes channel column description" do
-      expect(result["body"]).to include("@handles of channels with linked videos")
+      expect(result["body"]).to include("@handles of channels with linked vids")
     end
   end
 end

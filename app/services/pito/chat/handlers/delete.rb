@@ -18,7 +18,7 @@ module Pito
         id_only_resolution!
 
         GAME_NOUN_FILLERS  = %w[game games].freeze
-        VIDEO_NOUN_FILLERS = %w[video videos].freeze
+        VIDEO_NOUN_FILLERS = %w[vid vids video videos].freeze
 
         def call
           if video_target?(VIDEO_NOUN_FILLERS)

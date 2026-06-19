@@ -109,8 +109,8 @@ en:
           opening: "Opening the IGDB import sidebar…"
       import:
         imported:
-          one: "Imported 1 video from %{channel}."
-          other: "Imported %{count} videos from %{channel}."
+          one: "Imported 1 vid from %{channel}."
+          other: "Imported %{count} vids from %{channel}."
       disconnect:
         descriptions:
           disconnect: "Disconnect a YouTube channel"
@@ -119,14 +119,14 @@ en:
           description: "Disconnect a YouTube channel and delete its local data."
         confirmation:
           confirmed:
-            zero: "Disconnected from %{handle}. No videos to delete."
-            one: "Disconnected from %{handle}. 1 video deleted."
-            other: "Disconnected from %{handle}. %{count} videos deleted."
+            zero: "Disconnected from %{handle}. No vids to delete."
+            one: "Disconnected from %{handle}. 1 vid deleted."
+            other: "Disconnected from %{handle}. %{count} vids deleted."
           expand:
-            total: "Videos"
+            total: "Vids"
             published: "Published"
             scheduled: "Scheduled"
             unlisted: "Unlisted"
             private: "Private"
-            subscribers: "Subscribers"
+            subscribers: "Subs"
             views: "Views"

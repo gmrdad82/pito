@@ -73,9 +73,10 @@ module Pito
 
       METRICS = Vocabulary.define(
         name:      :metrics,
-        canonical: [ "subscribers", "views", "ctr", "watch time" ],
+        canonical: [ "subs", "views", "ctr", "watch time" ],
         synonyms:  {
-          "subs"          => "subscribers",
+          "subscriber"    => "subs",
+          "subscribers"   => "subs",
           "watched hours" => "watch time",
           "hours"         => "watch time"
         },
@@ -102,10 +103,12 @@ module Pito
       # offered so the noun is recognised and the ghost is honest.)
       NOUNS = Vocabulary.define(
         name:      :nouns,
-        canonical: %w[channels videos games],
+        canonical: %w[channels vids games],
         synonyms:  {
           "channel" => "channels",
-          "video"   => "videos",
+          "video"   => "vids",
+          "videos"  => "vids",
+          "vid"     => "vids",
           "game"    => "games"
         }
       ).freeze
@@ -151,8 +154,13 @@ module Pito
       # `channels`/`videos`). Mirrors what Pito::Chat::Handlers::Sync routes on.
       SYNC_TARGETS = Vocabulary.define(
         name:      :sync_targets,
-        canonical: %w[channels videos],
-        synonyms:  { "channel" => "channels", "video" => "videos" }
+        canonical: %w[channels vids],
+        synonyms:  {
+          "channel" => "channels",
+          "video"   => "vids",
+          "videos"  => "vids",
+          "vid"     => "vids"
+        }
       ).freeze
 
       # ── Dynamic vocabulary stubs ─────────────────────────────────────────────

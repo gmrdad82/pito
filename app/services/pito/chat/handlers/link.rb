@@ -30,7 +30,7 @@ module Pito
         self.description_key = "pito.chat.link.descriptions.link"
 
         GAME_NOUNS  = %w[game games].freeze
-        VIDEO_NOUNS = %w[video videos].freeze
+        VIDEO_NOUNS = %w[vid vids video videos].freeze
 
         def call
           return follow_up_link if follow_up?

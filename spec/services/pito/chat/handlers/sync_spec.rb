@@ -77,6 +77,22 @@ RSpec.describe Pito::Chat::Handlers::Sync do
     end
   end
 
+  # ── sync vids / vid — canonical + short alias ─────────────────────────────────
+
+  describe "sync vids / vid (canonical short forms)" do
+    it "routes `sync vids` to the videos form" do
+      result = handler_for("vids", channel: "@all").call
+      event  = result.events.first
+      expect(event[:kind]).to eq(:confirmation)
+      expect(event[:payload]["command"]).to eq("sync_videos")
+    end
+
+    it "routes the singular `sync vid` to the videos form" do
+      result = handler_for("vid", channel: "@all").call
+      expect(result.events.first[:payload]["command"]).to eq("sync_videos")
+    end
+  end
+
   # ── sync videos — @handle scope ───────────────────────────────────────────────
 
   describe "sync videos — @pito scope" do
@@ -167,6 +183,11 @@ RSpec.describe Pito::Chat::Handlers::Sync do
     it "carries with_items including :videos as string" do
       payload = handler_for("channels", "with", "videos").call.events.first[:payload]
       expect(payload["with_items"]).to include("videos")
+    end
+
+    it "accepts the `with vids` short alias" do
+      payload = handler_for("channels", "with", "vids", channel: "@pito").call.events.first[:payload]
+      expect(payload["command"]).to eq("sync_channel_videos")
     end
   end
 

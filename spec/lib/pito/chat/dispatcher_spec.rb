@@ -152,7 +152,7 @@ RSpec.describe Pito::Chat::Dispatcher do
         body = result.events.first[:payload]["body"]
         expect(body).to include("Forms")
         expect(body).to include("list games")
-        expect(body).to include("list videos")
+        expect(body).to include("list vids")
         expect(body).to include("list channels")
         expect(body).to include("--help")
         # Must NOT be the Game::ListHelp noun page (which has Columns:)

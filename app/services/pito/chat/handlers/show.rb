@@ -19,8 +19,9 @@ module Pito
         # when resolving a game.
         GAME_NOUN_FILLERS  = %w[game games].freeze
 
-        # `video`/`videos` are noun fillers for the video branch.
-        VIDEO_NOUN_FILLERS = %w[video videos].freeze
+        # `vid`/`vids` (canonical) and `video`/`videos` (aliases) are noun fillers
+        # for the video branch.
+        VIDEO_NOUN_FILLERS = %w[vid vids video videos].freeze
 
         def call
           if video_target?(VIDEO_NOUN_FILLERS)

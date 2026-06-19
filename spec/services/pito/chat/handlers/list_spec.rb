@@ -320,6 +320,12 @@ RSpec.describe Pito::Chat::Handlers::List do
         expect(titles).to include("Beta Public")
       end
 
+      it "lists all videos for the canonical short noun `list vids`" do
+        result  = handler_for("list vids", channel: "@all").call
+        payload = result.events.first[:payload]
+        expect(video_titles(payload)).to include("Alpha Public", "Beta Public")
+      end
+
       it "lists all videos when channel is nil" do
         result = handler_for("list videos", channel: nil).call
         expect(result).to be_a(Pito::Chat::Result::Ok)

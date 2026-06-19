@@ -28,6 +28,8 @@ module Pito
         # Unknown tokens are silently dropped; new items can be added here
         # without touching the parser.
         WITH_ITEMS_VOCAB = {
+          "vid"       => :videos,
+          "vids"      => :videos,
           "video"     => :videos,
           "videos"    => :videos,
           "analytic"  => :analytics,
@@ -55,7 +57,7 @@ module Pito
         end
 
         def videos_form?(raw)
-          raw.match?(/(?<!-)\bvideos?\b/i)
+          raw.match?(/(?<!-)\b(?:vid|video)s?\b/i)
         end
 
         # ── sync videos [only <ids>] ─────────────────────────────────────────────

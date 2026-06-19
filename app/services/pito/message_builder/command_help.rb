@@ -43,6 +43,16 @@ module Pito
         sync:     %i[videos channels]
       }.freeze
 
+      # Canonical display token per (verb, noun). The verb-level page labels and
+      # the list index lead with the short canonical noun (`vid`/`vids`) for the
+      # verbs whose handlers accept it; the I18n copy KEYS stay `video`/`videos`.
+      # `video`/`videos` remain valid aliases at the parser.
+      NOUN_DISPLAY = {
+        show:   { video: "vid" },
+        import: { videos: "vids" },
+        sync:   { videos: "vids" }
+      }.freeze
+
       # @param verb [Symbol]
       # @param noun [Symbol, nil]
       # @return [Hash, nil]
@@ -110,7 +120,8 @@ module Pito
           usage = (data[:usage] || data["usage"]).to_s
           next if usage.blank?
 
-          [ "#{verb} #{n}", usage ]
+          display = NOUN_DISPLAY.dig(verb, n) || n
+          [ "#{verb} #{display}", usage ]
         end
 
         return nil if noun_rows.empty?
@@ -137,7 +148,7 @@ module Pito
 
         noun_rows = [
           [ "list games",    games_usage ],
-          [ "list videos",   videos_usage ],
+          [ "list vids",     videos_usage ],
           [ "list channels", "list channels" ]
         ]
 

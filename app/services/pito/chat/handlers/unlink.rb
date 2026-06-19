@@ -30,7 +30,7 @@ module Pito
         self.description_key = "pito.chat.unlink.descriptions.unlink"
 
         GAME_NOUNS  = %w[game games].freeze
-        VIDEO_NOUNS = %w[video videos].freeze
+        VIDEO_NOUNS = %w[vid vids video videos].freeze
 
         def call
           return follow_up_unlink if follow_up?

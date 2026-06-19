@@ -3,27 +3,27 @@ en:
     chat:
       list:
         descriptions:
-          list: "List games, channels, or videos"
+          list: "List games, channels, or vids"
       show:
         descriptions:
           show: "Show a game's details (by id)"
         needs_ref: "Which game? Use `list games` to see ids, then `show game <id>`."
       import:
         descriptions:
-          import: "Import a game from IGDB (`import videos` is an alias of `sync videos`)"
-        usage_hint: "To import a game from IGDB, type `import game <title>`. To sync videos, use `sync videos` (`import videos` is an alias)."
+          import: "Import a game from IGDB (`import vids` is an alias of `sync vids`)"
+        usage_hint: "To import a game from IGDB, type `import game <title>`. To sync vids, use `sync vids` (`import vids` is an alias)."
       footage:
         descriptions:
           footage: "Set a game's total footage hours (by id)"
         needs_ref: "Usage: `footage update <id> <hours>` (e.g. `footage update 12 8.5`) or `footage snippet` to tally a folder. Use `list games` to see ids."
       delete:
         descriptions:
-          delete: "Delete a game or video (by id or title)"
-        needs_ref: "Which game or video? Use `list games` to see ids, then `rm game <id>` or `rm video <id>`."
+          delete: "Delete a game or vid (by id or title)"
+        needs_ref: "Which game or vid? Use `list games` to see ids, then `rm game <id>` or `rm vid <id>`."
       reindex:
         descriptions:
-          reindex: "Re-embed a game or video in Voyage (by id or title)"
-        needs_ref: "Which game or video? Use `list games` to see ids, then `reindex game <id>` or `reindex video <id>`."
+          reindex: "Re-embed a game or vid in Voyage (by id or title)"
+        needs_ref: "Which game or vid? Use `list games` to see ids, then `reindex game <id>` or `reindex vid <id>`."
       platform:
         descriptions:
           platform: "Set a game's platform from free text (e.g. ps5, switch, steam)"
@@ -31,34 +31,34 @@ en:
         missing_name: "Which platform? Add a name after the game, e.g. `platform 12 ps5`, `switch`, or `steam`."
       publish:
         descriptions:
-          publish: "Publish a video on YouTube (set public, clear schedule)"
-        needs_ref: "Which video? Use `list videos` to see ids, then `publish video <id>`."
+          publish: "Publish a vid on YouTube (set public, clear schedule)"
+        needs_ref: "Which vid? Use `list vids` to see ids, then `publish vid <id>`."
       unlist:
         descriptions:
-          unlist: "Unlist a video on YouTube"
-        needs_ref: "Which video? Use `list videos` to see ids, then `unlist video <id>`."
+          unlist: "Unlist a vid on YouTube"
+        needs_ref: "Which vid? Use `list vids` to see ids, then `unlist vid <id>`."
       schedule:
         descriptions:
-          schedule: "Schedule a video for future publishing"
-        needs_ref: "Usage: `schedule video <id> <when>` — e.g. `in 2 hours`, `in 3 days`, `tomorrow`, `tomorrow at noon`, `at 2pm`, `at 3:10am`, `at 23`, `at 15:30`, `for DD.MM.YYYY HH:MM`, or `DD-MM-YYYY HH:MM`."
+          schedule: "Schedule a vid for future publishing"
+        needs_ref: "Usage: `schedule vid <id> <when>` — e.g. `in 2 hours`, `in 3 days`, `tomorrow`, `tomorrow at noon`, `at 2pm`, `at 3:10am`, `at 23`, `at 15:30`, `for DD.MM.YYYY HH:MM`, or `DD-MM-YYYY HH:MM`."
         bad_when: "Couldn't parse that time. Try `in 30m`, `in 2 hours`, `in 3 days`, `tomorrow`, `tomorrow at noon`, `at 2pm`, `at 3:10am`, `at 23`, `at 15:30`, `for DD.MM.YYYY HH:MM`, or `DD-MM-YYYY HH:MM` (local time)."
         too_soon: "YouTube requires a publish time at least 30 minutes in the future. Pick a later time."
       sync:
         descriptions:
-          sync: "Sync videos or channels from YouTube (scope via shift+tab channel)"
-        needs_ref: "Usage: `sync videos [only <id>,<id>,…]` or `sync channels [with videos]`."
+          sync: "Sync vids or channels from YouTube (scope via shift+tab channel)"
+        needs_ref: "Usage: `sync vids [only <id>,<id>,…]` or `sync channels [with vids]`."
         unknown_channel: "Unknown channel %{handle}. Use `list channels` to see handles."
       link:
         descriptions:
-          link: "Link a video to a game"
-        usage: "Usage: `link game <id|title> to|with video <id|title>` or `link video <id|title> to|with game <id|title>`."
+          link: "Link a vid to a game"
+        usage: "Usage: `link game <id|title> to|with vid <id|title>` or `link vid <id|title> to|with game <id|title>`."
         follow_up_usage:
           list: "Usage: reply `link <id> to <id>[, id…]` (or `with`) — link the listed row to one or more."
           detail: "Usage: reply `link to <id>[, id…]` (or `with`) — link this to one or more."
       unlink:
         descriptions:
-          unlink: "Unlink a video from a game"
-        usage: "Usage: `unlink game <id|title> from video <id|title>` or `unlink video <id|title> from game <id|title>`."
+          unlink: "Unlink a vid from a game"
+        usage: "Usage: `unlink game <id|title> from vid <id|title>` or `unlink vid <id|title> from game <id|title>`."
         follow_up_usage:
           list: "Usage: reply `unlink <id> from <id>[, id…]` — unlink the listed row from one or more."
           detail: "Usage: reply `unlink from <id>[, id…]` — unlink this from one or more."
@@ -69,7 +69,7 @@ en:
         unknown_input: "Didn't understand %{input}. Try /help for available commands."
         verb_not_implemented: "The chat verb %{verb} isn't wired yet."
         misrouted_slash: "Internal: slash command %{raw} reached the chat parser."
-        cannot_list: "Can't list %{noun} yet. Try: list games, list channels, or list videos."
+        cannot_list: "Can't list %{noun} yet. Try: list games, list channels, or list vids."
       conversations:
         errors:
           title_blank: "title cannot be blank"

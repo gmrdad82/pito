@@ -150,6 +150,32 @@ RSpec.describe Pito::Suggestions::Catalog, type: :service do
     end
   end
 
+  describe ".to_h vocabularies[:nouns]" do
+    subject(:nouns) { described_class.to_h(authenticated: true)[:vocabularies][:nouns] }
+
+    it "embeds 'vids' as the canonical video noun (not 'videos')" do
+      expect(nouns[:canonical]).to include("vids")
+      expect(nouns[:canonical]).not_to include("videos")
+    end
+
+    it "keeps 'videos'/'video'/'vid' as synonyms of 'vids' (aliases still resolve)" do
+      expect(nouns[:synonyms]).to include("videos" => "vids", "video" => "vids", "vid" => "vids")
+    end
+  end
+
+  describe ".to_h vocabularies[:metrics]" do
+    subject(:metrics) { described_class.to_h(authenticated: true)[:vocabularies][:metrics] }
+
+    it "embeds 'subs' as the canonical metric (not 'subscribers')" do
+      expect(metrics[:canonical]).to include("subs")
+      expect(metrics[:canonical]).not_to include("subscribers")
+    end
+
+    it "keeps 'subscribers'/'subscriber' as synonyms of 'subs' (aliases still resolve)" do
+      expect(metrics[:synonyms]).to include("subscribers" => "subs", "subscriber" => "subs")
+    end
+  end
+
   # ── Vocabularies — dynamic ─────────────────────────────────────────────────
 
   describe ".to_h vocabularies[:channels]" do

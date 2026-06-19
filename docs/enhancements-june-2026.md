@@ -30,6 +30,7 @@
 - P13 — Refresh docs/architecture.md + audit README for dead doc links
 - P24 — Clean up the connect message + 50-variant themed ASCII for connect/disconnect
 - P32 — `show game` linked-videos: drop "Footage", use vids/vid, include the listing
+- P45 — Global vid/vids · sub/subs terminology (short canonical; long forms still accepted)
 
 ## P10 — Strip plan/phase/task references from source comments
 
@@ -124,6 +125,32 @@
 - [ ] T32.3 Ensure the show-game linked-videos message renders the actual listing (lighter `list videos` form), not just the count — verify P6's table emits, or add a slim listing. complexity: [high]
 - [ ] T32.4 Specs + smoke. complexity: [low]
 - [ ] T32.5 Commit: `show game linked-videos: drop Footage, vids/vid, include listing`. complexity: [manual]
+
+## P45 — Global vid/vids · sub/subs terminology (short canonical; long forms accepted)
+
+> All USER-FACING "video(s)" → "vid(s)" and "subscriber(s)" → "sub(s)". Command
+> nouns canonicalize to `vids`/`subs` with `video(s)`/`subscriber(s)` STILL accepted
+> as aliases; help + autosuggest show the short form. Decision locked: commands too,
+> long forms still work.
+>
+> **GUARDRAIL — never change:** code identifiers (`Video` model, `youtube_video_id`,
+> `video_id(s)`, the `:videos`/`:subscribers` symbols + `Pito::Stats` stat keys),
+> copy KEYS (`videos_done`, `video_titles`, …), `%{interpolation}` var names, file/
+> route/table names. Only displayed TEXT, the noun vocab canonical/synonyms, and the
+> parser regexes change. Preserve every witty dictionary's variant count (1-or-50).
+> This phase lands FIRST; P10–P13 cleanup runs on top of it. Covers P32's vids/vid
+> terminology item (T32.2); P32's "drop Footage" wording (T32.1) + actual-listing
+> inclusion (T32.3) still remain.
+
+- [x] T45.1 `lib/pito/grammar/vocabularies.rb`: make `NOUNS`/`SYNC` noun canonical `vids` and `METRICS` canonical `subs`; add `video`/`videos`/`vid` → `vids` and `subscriber`/`subscribers` → `subs` synonyms (keep internal `:videos` symbol routing). complexity: [high]
+- [x] T45.2 Handlers (`list`/`sync`/`import`/`show`): parser regexes accept `vid|vids` as well as `video|videos`; noun maps include the short forms. complexity: [high]
+- [x] T45.3 Help + `--help` (`command_help.rb`, `chat_help` copy): `vids`/`subs` canonical; note `videos`/`subscribers` as accepted aliases. complexity: [high]
+- [x] T45.4 Autosuggest (`suggestions/engine.rb`, catalog) + palette (`palette/en.yml`): offer `vids`/`subs` (short) as the canonical suggestion. complexity: [low]
+- [x] T45.5 Display-copy sweep — all `config/locales/pito/**` VALUES: "video(s)" → "vid(s)", "subscriber(s)" → "sub(s)" in shown text only (keys/vars/symbols untouched; case preserved: Video→Vid, Subscribers→Subs). Done via a value-side `tmp/vid_sub_sweep.rb` (no YAML round-trip; `chat_help` subtree excluded). Also extended the remaining handlers (delete/reindex/publish/unlist/schedule/link/unlink) to accept `vid`/`vids` so help matches routing. complexity: [high]
+- [x] T45.6 Component/view labels: hardcoded "Videos"/"Subscribers" headings + stat/kv labels → "Vids"/"Subs". (No-op — labels come from i18n copy, already swept.) complexity: [low]
+- [x] T45.7 Specs: update assertions for the new displayed text + the `vids`/`subs` canonical nouns + the alias acceptance (`videos`/`subscribers` still parse). complexity: [high]
+- [x] T45.8 Run the FULL suite + `bin/rubocop` + `node --check`; confirm green. complexity: [manual]
+- [ ] T45.9 Commit: `Adopt vid/vids and sub/subs terminology (short canonical, long aliases)`. complexity: [manual]
 
 ## How to use this plan
 

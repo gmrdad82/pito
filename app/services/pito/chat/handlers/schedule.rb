@@ -28,7 +28,7 @@ module Pito
         self.verb = :schedule
         self.description_key = "pito.chat.schedule.descriptions.schedule"
 
-        NOUN_FILLERS = %w[video videos].freeze
+        NOUN_FILLERS = %w[vid vids video videos].freeze
 
         def call
           body = message.body_tokens.reject { |t| NOUN_FILLERS.include?(t.value.to_s.downcase) }
