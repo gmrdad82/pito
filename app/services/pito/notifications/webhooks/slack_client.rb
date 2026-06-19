@@ -6,9 +6,7 @@
 #     test ping during Settings-pane save. Returns a `Result` struct
 #     so the caller can branch on `result.success?` / `result.error`.
 #   * `#deliver(payload)` — POSTs an already-built payload (block-kit
-#     blob from
-#     `Pito::Notifications::Formatter::Slack.payload_for(...)`).
-#     Used by the digest scheduler. Same `Result` shape.
+#     blob). Used by `NotificationWebhookDeliverJob`. Same `Result` shape.
 #
 # Network failure handling lives here (timeouts, DNS failures,
 # malformed URIs) — every failure routes through the `Result` so the
@@ -16,9 +14,7 @@
 # live here — `#deliver` is used by the delivery job which owns the
 # Sidekiq retry policy.
 #
-# Timeouts mirror the PORO dispatcher in
-# `Pito::Notifications::DeliveryChannel::Base#configure_http`
-# (open/ssl: 5s, read/write: 10s).
+# Timeouts: open/ssl 5s, read/write 10s.
 require "net/http"
 require "uri"
 

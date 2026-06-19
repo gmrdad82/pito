@@ -35,7 +35,7 @@ class VideoRemoteStatusSync < ApplicationJob
     Rails.logger.warn("[video-remote-status-sync] quota exceeded for video #{video_id}: #{e.message}")
     raise
   rescue Channel::Youtube::AuthRevokedError => e
-    connection&.update_columns(needs_reauth: true) if connection
+    connection&.flag_needs_reauth!
     Rails.logger.warn("[video-remote-status-sync] auth revoked for video #{video_id}: #{e.message}")
   rescue Channel::Youtube::ValidationError => e
     Rails.logger.warn("[video-remote-status-sync] youtube rejected update for video #{video_id}: #{e.message}")

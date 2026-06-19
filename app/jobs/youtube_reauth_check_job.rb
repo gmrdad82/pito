@@ -11,20 +11,7 @@ class YoutubeReauthCheckJob < ApplicationJob
 
   def perform
     YoutubeConnection.where(needs_reauth: true).includes(:channels).find_each do |conn|
-      message = reauth_message(conn)
-      next if Notification.unread.where(message:).exists?
-
-      Notification.create!(message:)
+      Pito::Notifications::Source::YoutubeReauth.report!(conn)
     end
-  end
-
-  private
-
-  # Names the connection's channels (or its email when none) so the operator
-  # knows which to reconnect.
-  def reauth_message(conn)
-    names = conn.channels.filter_map { |c| c.handle.presence || c.title.presence }
-    who   = names.any? ? names.join(", ") : conn.email
-    "YouTube re-auth needed for #{who} — reconnect via /connect."
   end
 end

@@ -71,6 +71,10 @@ class SyncVideosJob < ApplicationJob
     channels        = resolve_channels(channel_ids).to_a
     reauth, healthy = channels.partition { |channel| channel.youtube_connection&.needs_reauth? }
 
+    # A manual sync of a known-revoked channel still pings the operator (deduped),
+    # so the reauth reminder isn't gated behind the nightly scan.
+    reauth.each { |channel| Pito::Notifications::Source::YoutubeReauth.report!(channel.youtube_connection) }
+
     totals        = Totals.new(imported: 0, updated: 0, deleted: 0)
     healthy_lines = healthy.filter_map do |channel|
       result = safe_sync(channel)

@@ -42,7 +42,7 @@ class Channel
           youtube_connection
         when 400
           if body["error"].to_s == "invalid_grant"
-            youtube_connection.update_columns(needs_reauth: true)
+            youtube_connection.flag_needs_reauth!
             raise Channel::Youtube::NeedsReauthError, "invalid_grant — refresh token revoked"
           end
 

@@ -3,6 +3,10 @@
 class Notification < ApplicationRecord
   validates :message, presence: true
 
+  # Fan the message out to any configured outbound webhooks (Slack, Discord)
+  # once the row is committed. Delivery is isolated per platform in the job.
+  after_create_commit { NotificationWebhookDeliverJob.perform_later(id) }
+
   scope :unread,  -> { where(read_at: nil) }
   scope :recent,  -> { order(created_at: :desc) }
 
