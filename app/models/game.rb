@@ -13,7 +13,6 @@ class Game < ApplicationRecord
   has_many :video_game_links, dependent: :destroy
   has_many :linked_videos, through: :video_game_links, source: :video
 
-  has_many :footages, dependent: :destroy
   has_many :stats, as: :entity, dependent: :destroy
 
   has_one_attached :cover_art

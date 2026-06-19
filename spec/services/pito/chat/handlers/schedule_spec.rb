@@ -177,6 +177,24 @@ RSpec.describe Pito::Chat::Handlers::Schedule do
       expect(payload["publish_at"]).to eq(Time.zone.local(2026, 6, 16, 14, 0).utc.iso8601)
     end
 
+    it "carries the local time in publish_at for `at 15:30`" do
+      result = schedule_real("schedule video #{video.id} at 15:30")
+      payload = result.events.first[:payload]
+      expect(payload["publish_at"]).to eq(Time.zone.local(2026, 6, 16, 15, 30).utc.iso8601)
+    end
+
+    it "carries the local time in publish_at for `tomorrow at 3:10am`" do
+      result = schedule_real("schedule video #{video.id} tomorrow at 3:10am")
+      payload = result.events.first[:payload]
+      expect(payload["publish_at"]).to eq(Time.zone.local(2026, 6, 17, 3, 10).utc.iso8601)
+    end
+
+    it "returns the in-past error for `at 3:10am` that already passed today" do
+      result = schedule_real("schedule video #{video.id} at 3:10am")
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(result.events.first[:payload]["text"]).to include("Episode One")
+    end
+
     it "returns too_soon for `in 10m` (under the 30-minute guard)" do
       result = schedule_real("schedule video #{video.id} in 10m")
       expect(result).to be_a(Pito::Chat::Result::Error)

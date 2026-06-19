@@ -20,7 +20,7 @@ module Pito
     #   in 3 days                                → that calendar date at 09:00
     #   tomorrow                                 → tomorrow 09:00
     #   tomorrow at noon                         → tomorrow 12:00
-    #   at 2pm | at 11pm | at 23                 → TODAY at that time
+    #   at 2pm | at 3:10am | at 23 | at 15:30     → TODAY at that time
     #   for DD.MM.YYYY HH:MM | for DD-MM-YYYY …  → absolute (accepts . and -)
     #   DD-MM-YYYY [HH:MM] | DD.MM.YYYY [HH:MM]  → absolute (date-only → 09:00)
     #
@@ -124,22 +124,31 @@ module Pito
         Time.zone.local(year, month, day, hour, minute)
       end
 
-      # "noon" | "midnight" | "2pm" | "2 pm" | "23" → [hour, minute] or nil.
+      # "noon" | "midnight" | "2pm" | "3:10am" | "23" | "15:30" → [hour, minute] or nil.
       def parse_time_of_day(str)
         case str
         when "noon"     then [ 12, 0 ]
         when "midnight" then [ 0, 0 ]
-        when /\A(\d{1,2})\s*(am|pm)\z/
-          hour = Regexp.last_match(1).to_i
-          return nil unless hour.between?(1, 12)
-
-          hour %= 12
-          hour += 12 if Regexp.last_match(2) == "pm"
-          [ hour, 0 ]
-        when /\A(\d{1,2})\z/
+        when /\A(\d{1,2}):(\d{2})\s*(am|pm)\z/ # 3:10am / 11:45pm
+          twelve_hour(Regexp.last_match(1).to_i, Regexp.last_match(2).to_i, Regexp.last_match(3))
+        when /\A(\d{1,2})\s*(am|pm)\z/         # 2pm / 11pm
+          twelve_hour(Regexp.last_match(1).to_i, 0, Regexp.last_match(2))
+        when /\A(\d{1,2}):(\d{2})\z/           # 15:30 / 23:45 (24-hour)
+          hour, minute = Regexp.last_match(1).to_i, Regexp.last_match(2).to_i
+          hour.between?(0, 23) && minute.between?(0, 59) ? [ hour, minute ] : nil
+        when /\A(\d{1,2})\z/                   # 23 / 9 (24-hour, hour only)
           hour = Regexp.last_match(1).to_i
           hour.between?(0, 23) ? [ hour, 0 ] : nil
         end
+      end
+
+      # 12-hour clock → [hour24, minute], or nil for an invalid hour/minute.
+      def twelve_hour(hour, minute, meridiem)
+        return nil unless hour.between?(1, 12) && minute.between?(0, 59)
+
+        hour %= 12
+        hour += 12 if meridiem == "pm"
+        [ hour, minute ]
       end
 
       def at_date(date, hour, minute)

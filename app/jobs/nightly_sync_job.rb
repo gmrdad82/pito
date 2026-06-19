@@ -8,12 +8,11 @@
 #      every channel with an active (non-reauth) YoutubeConnection.
 #      `ChannelSync` is already turn-less (fetches + persists, no broadcast).
 #
-#   2. Video sync — `NightlyVideoSyncJob.perform_later(channel.id)` for
-#      the same connected channels. Pulls the upload playlist, upserts
-#      videos, enqueues `VideoVoyageIndexJob` (digest-gated) per changed
-#      video, and enqueues `GameStatsRefreshJob` for linked games.
-#      This is a thin turn-less path: `ImportVideosJob` is turn-coupled and
-#      cannot be reused here without breaking the chat-driven flow.
+#   2. Video sync — `VideoSyncJob.perform_later(channel.id)` for the same
+#      connected channels: imports new/private uploads AND reconciles attribute
+#      updates + hard-deletes of removed uploads (`VideoLibrary#sync`). The job
+#      emits its own per-channel `VideoSync` Notification, so this master does
+#      NOT itself report video-sync progress.
 #
 #   3. Game IGDB refresh — `GameIgdbNightlyRefresh.perform_later` (the
 #      existing nightly job that fans out `GameIgdbSync` per stale game).
@@ -31,8 +30,8 @@ class NightlySyncJob < ApplicationJob
       # 1. Channel metadata (turn-less, no broadcast)
       ::ChannelSync.perform_later(channel.id)
 
-      # 2. Video import (turn-less path)
-      ::NightlyVideoSyncJob.perform_later(channel.id)
+      # 2. Video sync — import new/private uploads + reconcile updates/deletions
+      ::VideoSyncJob.perform_later(channel.id)
     end
 
     # 3. Game IGDB stale-refresh fan-out

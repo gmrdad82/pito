@@ -130,8 +130,12 @@ module Pito
           publish_at = Time.iso8601(payload[:publish_at].to_s)
           video.update!(privacy_status: :private, publish_at: publish_at)
           VideoRemoteStatusSync.perform_later(video.id)
+          # Render the confirmed time in the app-local zone (Time.zone), matching
+          # the DD-MM-YYYY HH:MM the schedule confirmation showed. No "UTC" label —
+          # a timezone is configured, so the time already reads local.
+          when_label = publish_at.in_time_zone(Time.zone).strftime("%d-%m-%Y %H:%M")
           Pito::Copy.render("pito.copy.videos.scheduled",
-                            { title: title, when: publish_at.strftime("%Y-%m-%d %H:%M UTC") })
+                            { title: title, when: when_label })
         end
 
         # Force a synchronous Voyage reindex for the game (digest-bypassed).
@@ -172,8 +176,9 @@ module Pito
           payload         = payload.with_indifferent_access
           scope_label     = payload[:scope_label].to_s
           channel_ids     = Array(payload[:channel_ids])
+          video_ids       = Array(payload[:video_ids])
           conversation_id = payload[:conversation_id].presence
-          SyncVideosJob.perform_later(channel_ids, scope_label, conversation_id: conversation_id)
+          SyncVideosJob.perform_later(channel_ids, scope_label, conversation_id: conversation_id, video_ids: video_ids)
           Pito::Copy.render("pito.copy.sync.videos_queued", { scope: scope_label })
         end
 
@@ -200,13 +205,17 @@ module Pito
         end
 
         # ── import_videos ──────────────────────────────────────────────────────────
-        # Enqueues ChatImportVideosJob for the resolved channel scope.
+        # `import videos` is an alias for `sync videos`: it enqueues the SAME
+        # unified SyncVideosJob (whole-channel sync). Kept for back-compat with any
+        # pending "import_videos" confirmation payloads; the live path now routes
+        # through `sync_videos` (see Pito::Chat::Handlers::Import).
         def confirm_import_videos(payload)
           payload         = payload.with_indifferent_access
           scope_label     = payload[:scope_label].to_s
           channel_ids     = Array(payload[:channel_ids])
+          video_ids       = Array(payload[:video_ids])
           conversation_id = payload[:conversation_id].presence
-          ChatImportVideosJob.perform_later(channel_ids, scope_label, conversation_id: conversation_id)
+          SyncVideosJob.perform_later(channel_ids, scope_label, conversation_id: conversation_id, video_ids: video_ids)
           Pito::Copy.render("pito.copy.import_videos.queued", { scope: scope_label })
         end
 
@@ -228,8 +237,10 @@ module Pito
 
           # Intentional i18n (not Pito::Copy): pluralization requires count:, which
           # Pito::Copy.render does not support. This is the one exception in this executor.
-          I18n.t("pito.slash.disconnect.confirmation.confirmed",
-                 handle: handle, count: video_count)
+          outcome = I18n.t("pito.slash.disconnect.confirmation.confirmed",
+                           handle: handle, count: video_count)
+          art = Pito::Copy.render("pito.copy.youtube.ascii_art")
+          [ outcome, art ].compact.join("<br>").html_safe
         end
       end
     end

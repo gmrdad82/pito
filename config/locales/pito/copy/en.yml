@@ -110,108 +110,7 @@ en:
           - "(the enhanced remaster)"
 
       footage:
-        probe_prompt:
-          - "Got hours of useless footage lying around?"
-          - "Sitting on raw recordings? Add some footage."
-          - "Add footage — point this at the folder."
-          - "Feed it your recordings: cd in, run, done."
-          - "Some useless footage to attach?"
-          - "Drowning in raw clips? Probe 'em."
-          - "That folder of recordings won't catalog itself."
-          - "Got B-roll nobody asked for? Add it here."
-          - "Attach the footage you'll never edit."
-          - "Hours of gameplay rotting on a drive? Probe it."
-          - "Point this at your clips and forget about it."
-          - "Raw footage in, counted footage out. One command."
-          - "Add the recordings. ffprobe does the rest."
-          - "Useless until proven otherwise — add your footage."
-          - "cd to the folder, paste, enjoy."
-          - "Your drive is full of this game. Log it."
-          - "Got the recordings? Let's count the hours."
-          - "Attach footage without uploading a byte."
-          - "Local clips, local probe, zero uploads."
-          - "Tag your grind: add the footage."
-          - "Footage hoarder? This is for you."
-          - "Drop the path, run the command, footage logged."
-          - "Add footage — it reads metadata where it sits."
-          - "That pile of mkv? Make it count."
-          - "Recorded too much? Same. Add it."
-          - "From raw dump to time-to-beat in one command."
-          - "Footage you swear you'll use someday? Add it."
-          - "Point, probe, done. Add your footage."
-          - "Catalog the carnage: add footage."
-          - "Your recordings deserve a row in the DB."
-          - "Add footage — the honest kind, unedited."
-          - "Stop guessing your hours. Probe the footage."
-          - "Feed me your clips."
-          - "Some footage to throw at it?"
-          - "The folder's full. The DB isn't. Fix that."
-          - "Add footage — runs locally, copies in a click."
-          - "Got raw gameplay? Make it official."
-          - "Probe the pile. Add footage."
-          - "Hours of you dying to demons? Log it."
-          - "Add footage and pretend it was productive."
-          - "cd, run, footage counted. That easy."
-          - "Bring the recordings. We'll count the rest."
-          - "Add footage — no editor required, no shame either."
-          - "Your I'll-edit-it-later folder, finally useful."
-          - "Got clips? Add 'em and move on."
-          - "Attach footage straight off the drive."
-          - "Useless footage, meet your purpose."
-          - "One command between you and logged footage."
-          - "Add the recordings — metadata only, files stay put."
-          - "Footage in the wild? Reel it in."
-        copied:
-          - "copied"
-          - "got it. Now go nuts"
-          - "Go get them Tiger"
-          - "Snatched."
-          - "In the clipboard. Go paste."
-          - "Copied. Make it count."
-          - "Yoink."
-          - "Lifted."
-          - "It's yours now."
-          - "Copied and ready to deploy."
-          - "In the buffer. Fire at will."
-          - "Grabbed. No regrets."
-          - "Command secured."
-          - "Clipboard updated. You're armed."
-          - "Copied. The terminal awaits."
-          - "Paste it like you mean it."
-          - "On the clipboard. Go wild."
-          - "Taken. Use it wisely."
-          - "Command acquired."
-          - "Copied — don't waste it."
-          - "Yours. Run it."
-          - "Clipboard loaded."
-          - "Swiped."
-          - "Got it. Go probe something."
-          - "Pinched from the screen."
-          - "Command copied. Proceed."
-          - "Pilfered successfully."
-          - "It's in there. Paste away."
-          - "Ready to paste. Ready to probe."
-          - "Clipboard: loaded. Footage: incoming."
-          - "Nicked."
-          - "Copied. Your footage won't catalog itself."
-          - "The command is yours. Use it."
-          - "Clipped."
-          - "Secured. Now go run it."
-          - "Transcript acquired."
-          - "Clipboard hot. Paste cold."
-          - "Taken without hesitation."
-          - "Done. Paste and profit."
-          - "In your hands now."
-          - "Copied. The footage awaits judgment."
-          - "Command captured."
-          - "Scooped."
-          - "You copied it. Now commit."
-          - "Lifted cleanly."
-          - "Command: copied. Footage: your problem."
-          - "Clipboard stuffed."
-          - "Got it. Go get those files."
-          - "In the clipboard. Make it official."
-          - "Copied. Now paste somewhere interesting."
+        updated: "%{game} now logs %{hours} of footage."
 
       conversations:
         current_marker:
@@ -2187,16 +2086,22 @@ en:
               Options:
                 "--help": "Print this help message"
         footage:
-          usage: "footage game <id> [--force] <path>"
-          game:
-            usage: "footage game <id> [--force] <path>"
+          usage: "footage update <id> <hours>  |  footage snippet"
+          update:
+            usage: "footage update <id> <hours>"
             sections:
               Arguments:
-                "game": "Target noun"
+                "update": "Target noun — set a game's total recorded footage"
                 "<id>": "Local numeric game id"
-                "<path>": "Local footage folder path (absolute or ~/…)"
+                "<hours>": "Total recorded hours (rounded up to the next 0.5)"
               Options:
-                "--force": "Re-probe & overwrite footage already imported (e.g. after re-encoding)"
+                "--help": "Print this help message"
+          snippet:
+            usage: "footage snippet"
+            sections:
+              Arguments:
+                "snippet": "Target noun — copy a shell one-liner that ffprobes the current folder and sums its footage hours"
+              Options:
                 "--help": "Print this help message"
         link:
           usage: "link game <id> to|with video <id>  |  link video <id> to|with game <id>"
@@ -2266,25 +2171,25 @@ en:
               Arguments:
                 "video": "Target noun"
                 "<id>": "Local numeric video id"
-                "<when>": "Publish time (local, ≥30 min out): `in 30m`, `in 2 hours`, `in 3 days`, `tomorrow`, `tomorrow at noon`, `at 2pm`, `at 23`, `for DD.MM.YYYY HH:MM`, or `DD-MM-YYYY HH:MM`"
+                "<when>": "Publish time (local, ≥30 min out): `in 30m`, `in 2 hours`, `in 3 days`, `tomorrow`, `tomorrow at noon`, `at 2pm`, `at 3:10am`, `at 23`, `at 15:30`, `for DD.MM.YYYY HH:MM`, or `DD-MM-YYYY HH:MM`"
               Options:
                 "--help": "Print this help message"
         import:
-          usage: "import videos [for @handle]  |  import game [title]"
-          videos:
-            usage: "import videos [for @handle]"
-            sections:
-              Arguments:
-                "videos": "Target noun — imports newer YouTube videos for the scoped channel(s)"
-                "[for @handle]": "Override scope: import only for the given channel handle"
-              Options:
-                "--help": "Print this help message"
+          usage: "import game [title]  |  import videos [for @handle]"
           game:
             usage: "import game [title]"
             sections:
               Arguments:
                 "game": "Target noun — opens the IGDB import sidebar"
                 "[title]": "Optional title to prefill the IGDB search"
+              Options:
+                "--help": "Print this help message"
+          videos:
+            usage: "import videos [for @handle]"
+            sections:
+              Arguments:
+                "videos": "Target noun — alias of `sync videos`: imports newer YouTube videos for the scoped channel(s)"
+                "[for @handle]": "Override scope: import only for the given channel handle"
               Options:
                 "--help": "Print this help message"
         sync:
@@ -2303,6 +2208,16 @@ en:
               Arguments:
                 "channels": "Target noun — syncs channel fields and stats for the scoped channel(s)"
                 "[with <items>]": "videos"
+              Options:
+                "--help": "Print this help message"
+        platform:
+          usage: "platform <id> <name>"
+          game:
+            usage: "platform <id> <name>"
+            sections:
+              Arguments:
+                "<id>": "Local numeric game id — the game to add a platform to (omit when replying to a game card: `#<handle> platform <name>`)"
+                "<name>": "Platform name, normalised to a logo family (e.g. ps5, switch, steam)"
               Options:
                 "--help": "Print this help message"
 
@@ -3847,6 +3762,59 @@ en:
       videos:
         columns:
           visibility: "Status"
+        stats_legend:               "v: Views, L: Likes, C: Comments"
+        sync_summary: "%{label}: %{imported} new · %{updated} updated · %{deleted} removed"
+        linked_game_intro:
+          - "The game powering this footage: %{game}."
+          - "Behind every frame here: %{game}."
+          - "This video runs on %{game}."
+          - "What you're watching is %{game} in motion."
+          - "The title under the hood: %{game}."
+          - "%{game} — the game this footage belongs to."
+          - "Footage courtesy of %{game}."
+          - "The star of this reel is %{game}."
+          - "This clip is %{game}, captured."
+          - "Rolling tape on %{game}."
+          - "The game on screen: %{game}."
+          - "Everything here traces back to %{game}."
+          - "This footage answers to %{game}."
+          - "Pixels provided by %{game}."
+          - "The source of all this: %{game}."
+          - "You're looking at %{game}."
+          - "This video's leading role: %{game}."
+          - "The game wearing this footage is %{game}."
+          - "%{game}, as seen on tape."
+          - "The title this clip serves: %{game}."
+          - "Footage powered by %{game}."
+          - "The game behind the curtain: %{game}."
+          - "This reel belongs to %{game}."
+          - "%{game} — the engine behind these frames."
+          - "What's on the screen? %{game}."
+          - "The game this footage documents: %{game}."
+          - "All of this is %{game} doing its thing."
+          - "The headliner here is %{game}."
+          - "This video covers %{game}."
+          - "Tape rolling on one game: %{game}."
+          - "The footage's home game: %{game}."
+          - "Credit where it's due: %{game}."
+          - "The game feeding this footage: %{game}."
+          - "%{game}, recorded for posterity."
+          - "This clip's protagonist: %{game}."
+          - "The title this reel was shot on: %{game}."
+          - "Behind the capture button: %{game}."
+          - "The game lighting up these frames: %{game}."
+          - "What this footage is made of: %{game}."
+          - "The one being played here: %{game}."
+          - "This video's subject of record: %{game}."
+          - "The game on the other side of the lens: %{game}."
+          - "Footage signed, sealed, and stamped %{game}."
+          - "The title this clip can't stop showing: %{game}."
+          - "Running the show here: %{game}."
+          - "The game these frames were born from: %{game}."
+          - "This reel's reason for existing: %{game}."
+          - "The footage points to one game: %{game}."
+          - "On the cartridge today: %{game}."
+          - "The game this video is built around: %{game}."
         not_found:
           - "No video matching %{ref}."
           - "Couldn't find %{ref}."
@@ -4255,6 +4223,7 @@ en:
           - "Made %{title} unlisted."
           - "%{title} is now unlisted on YouTube."
           - "Unlisted and tucked away: %{title}."
+        sync_rejected: "YouTube rejected the update for %{title} — its visibility never landed. Re-check the video and try again."
         scheduled:
           - "%{title} scheduled for %{when}."
           - "Scheduled %{title} → %{when}."
@@ -5236,108 +5205,267 @@ en:
           - "Hooked up to the firehose. Open mouth carefully."
           - "Registered. You're a real boy now, Pinocchio."
           - "Done. Go be insufferable about your subscriber count."
-        already_connected_extras:
-          - "We've met. Remember? You were there too."
-          - "This channel already moved in. It has a key."
-          - "Déjà vu? No, just you, again."
-          - "Already linked. No take-backsies, no double-ups."
-          - "We heard you the first time. The channel did too."
-          - "It's still here. It never left. Awkward."
-          - "Connecting twice would be greedy. Once is plenty."
-          - "This one's a regular. It knows the bartender."
-          - "Old news. This channel is basically furniture now."
-          - "Re-connecting? It's not going anywhere, promise."
-          - "Already on the books. Page one, actually."
-          - "We've got it. We've had it. We continue to have it."
-          - "This channel and pito are already an item."
-          - "No need to knock twice. The door was open."
-          - "Save your /connect for one that's playing hard to get."
-          - "Already paired. Like socks, but they match."
-          - "This one's been here since before it was cool."
-          - "Connection exists. Reality remains unchanged."
-          - "It's a returning champion, not a new contender."
-          - "We pinky-swore on this channel a while ago."
-          - "Still linked. Still loyal. Still here."
-          - "You can stop now. We've got this one memorised."
-          - "Already in the family photo. Front row, even."
-          - "This channel filed its paperwork ages ago."
-          - "Connected. Encore not required."
-          - "Same channel, same link, same as last time."
-          - "It's already wearing the pito badge."
-          - "We'd connect it again, but physics says no."
-          - "This one's a known associate. Watched closely."
-          - "Re-link denied: it's already a card-carrying member."
-          - "The channel waved back. You two have history."
-          - "Nothing to add. It's been here the whole time."
-          - "Already plugged in. The socket's occupied."
-          - "This channel's got tenure here."
-          - "We checked the list twice. It's there. Both times."
-          - "Loyalty noted, but it never wandered off."
-          - "Connected and accounted for. As before."
-          - "It's already on the inside looking out."
-          - "No duplicate channels. We run a tight ship."
-          - "This one's been clocked in since day one."
-          - "Same handle, same home. Welcome back to nothing new."
-          - "Already bonded. Reattaching would just be clingy."
-          - "It's here. It's linked. It's vibing."
-          - "We don't do reruns of the connect handshake."
-          - "This channel already drank our coffee."
-          - "Linked once, linked forever. That's the deal."
-          - "The system shrugged: 'already got that one.'"
-          - "Familiar face. Familiar feed. Already filed."
-          - "It's a member, not a guest. No re-entry stamp."
-          - "Already connected. Go find it some new friends."
         ascii_art:
-          - '>>>>>>>>>>>>  uplink stable  <<<<<<<<<<<'
-          - '~~~~~~~~~( now broadcasting )~~~~~~~~~~~'
-          - 'o--o--o--o- channel bridged -o--o--o--o-'
-          - '<( handshake complete, we shook on it )>'
-          - '=-=-=-=- plugged into the void -=-=-=-=-'
-          - '|=|=|=| pipeline pressurized |=|=|=|=|=|'
-          - '----->>> beamed aboard, captain <<<-----'
-          - '.--=[ signal acquired ]=--. .--=^^^=--..'
-          - '*+*+*+*+*+ tubes intertwined +*+*+*+*+*+'
-          - '~^~^~^~^~ riding the data wave ~^~^~^~^~'
-          - '[###################] now 100% you-pload'
-          - '{ }--{ }--{ }--{ } daisy chain of dreams'
-          - '((( . Y . ))) wired into the mothership.'
-          - '\//\//\ crosswired and shipped /\//\//\/'
-          - '+-+-+-+ the algorithm noticed it +-+-+-+'
-          - '._.-=*=-._.-=* link established *=-._.-='
-          - '[>] [>] [>] press play this one [>] [>]>'
-          - "//==// you're on the grid now //==//==//"
-          - '<<-->> two-way pipe is open <<-->><<-->>'
-          - '_/\_/\_/\ pinged and pong-ed /\_/\_/\_/\'
-          - '=====( channel locked and loaded )======'
-          - '++++++++ authentication: complete +++++++'
-          - ':::::::[ you are now connected ]:::::::::'
-          - '>>-->>-- data flowing both ways --<<--<<'
-          - '[ OK ] [ OK ] [ OK ] uplink confirmed  .'
-          - '-~-~-~- feed is live and kicking -~-~-~-'
-          - '########### sync successful ############'
-          - '(((((((( the tube is uncorked )))))))))) '
-          - '---[*]--- channel online ---[*]---[*]---'
-          - '>>=====>> streaming payload inbound <<==='
-          - '~-~-~-~-~ signal is loud and clear ~-~-~'
-          - ':::::::::> we have a connection <:::::::::'
-          - '|--[]--|--[]--| bridged at last |--[]--|'
-          - '((--((--  handoff received  --))--))--'
-          - '####[ live feed acquired ]####[========]'
-          - '^v^v^v^v^v uplink bouncing ^v^v^v^v^v^v'
-          - '.oOo.oOo.oOo. channel warm .oOo.oOo.oOo'
-          - '~~[  wired into the feed stream  ]~~~~~~'
-          - '*--*--*-- oauth accepted --*--*--*--*--*'
-          - '---=[ latched onto the upload pipe ]=---'
-          - '>>>===>>> credentials shook hands <<<<==='
-          - '(=)(=)(=)(=) synced up solid (=)(=)(=)(='
-          - '//--\\--//  pipeline open  \\--//--\\--/'
-          - '.~.~.~.~.~. now receiving data .~.~.~.~.'
-          - '|>|>|>|>|> streaming in progress |>|>|>|'
-          - '-^-^-^- connection ceremony complete -^-^'
-          - '[ LINK ] [ LINK ] [ LINK ] all green ===.'
-          - '+++[---]+++[---]+++ synced +++[---]+++[-]'
-          - '~ ~ ~ ~ ~  the channel is alive  ~ ~ ~ ~'
-          - '=-=-=-=-=- the bridge has been built =-=-'
+        - |-
+          <pre>  <span class="text-fg-faded">╭───────────╮</span>      <span class="text-fg-faded">╭───────────╮</span>
+            <span class="text-fg-faded">│</span> <span class="text-cyan">CLIENT</span>    <span class="text-green">●</span><span class="text-green">━━━━━━</span><span class="text-green">●</span>   <span class="text-purple">SERVER</span>  <span class="text-fg-faded">│</span>
+            <span class="text-fg-faded">╰───────────╯</span> <span class="text-fg-faded">link</span> <span class="text-fg-faded">╰───────────╯</span>
+                  <span class="text-green">▸ connected</span> · <span class="text-fg-dim">42ms · stable</span></pre>
+        - |-
+          <pre>  <span class="text-cyan">A</span> <span class="text-green">──────▶──────▶──────▶</span> <span class="text-purple">B</span>
+            <span class="text-cyan">A</span> <span class="text-yellow">◀──────◀──────◀──────</span> <span class="text-purple">B</span>
+                 <span class="text-fg-faded">SYN  ·  SYN-ACK  ·  ACK</span></pre>
+        - |-
+          <pre>   <span class="text-orange">══╗</span>     <span class="text-orange">╔══════╗</span>     <span class="text-orange">╔══</span>
+            <span class="text-fg-dim">in</span> <span class="text-orange">╚═════</span><span class="text-orange">╣ </span><span class="text-green">●●●●</span><span class="text-orange"> ╠</span><span class="text-orange">═════╝</span> <span class="text-fg-dim">out</span>
+               <span class="text-orange">╔═════</span><span class="text-orange">╣ </span><span class="text-green">flow</span><span class="text-orange"> ╠</span><span class="text-orange">═════╗</span>
+             <span class="text-orange">══╝</span>     <span class="text-orange">╚══════╝</span>     <span class="text-orange">╚══</span></pre>
+        - |-
+          <pre>  <span class="text-green">▲ UP</span>   <span class="text-green">┃┃┃┃┃┃┃┃┃┃┃┃</span>  <span class="text-green">1.4 Gb/s</span>
+                 <span class="text-fg-faded">━━━━━━━━━━━━</span>
+            <span class="text-pito">▼ DN</span>   <span class="text-pito">┃┃┃┃┃┃┃┃┃┃┃┃</span>  <span class="text-pito">2.8 Gb/s</span></pre>
+        - |-
+          <pre>  <span class="text-cyan">[●]</span> <span class="text-green">─ ─ ─ ─ ▷  ping</span>
+                            <span class="text-fg-faded">·</span>
+            <span class="text-yellow">pong  ◁ ─ ─ ─ ─</span> <span class="text-purple">[●]</span>   <span class="text-green">12ms</span></pre>
+        - |-
+          <pre>     <span class="text-green">▟█▙ ▟█▙</span>
+             <span class="text-green">▟███████████▙</span>
+             <span class="text-green">██ ▀█████▀ ██</span>
+             <span class="text-green">▜███████████▛</span>
+               <span class="text-green">▀▘     ▝▀</span>   <span class="text-fg-faded">score: 1UP</span></pre>
+        - |-
+          <pre>   <span class="text-red">▗▄▖   ▗▄▖</span>
+             <span class="text-red">█████████</span>     <span class="text-yellow">+1 LIFE</span>
+             <span class="text-red">▝███████▘</span>     <span class="text-fg-dim">♥ ♥ ♥ ♡ ♡</span>
+               <span class="text-red">▝███▘</span>
+                 <span class="text-red">▀</span></pre>
+        - |-
+          <pre>     <span class="text-red">▗▄▄▄▄▖</span>
+             <span class="text-red">▗█▘░░░▝█▖</span>
+             <span class="text-red">██░██░██</span>     <span class="text-green">▲ GROW</span>
+             <span class="text-red">▝▀▀</span><span class="text-fg">▄▄</span><span class="text-red">▀▀▘</span>
+                <span class="text-fg">██</span>        <span class="text-fg-faded">power-up</span></pre>
+        - |-
+          <pre>        <span class="text-red">●</span>
+                  <span class="text-fg-dim">┃</span>
+                  <span class="text-fg-dim">┃</span>      <span class="text-cyan">◀ ▲ ▶</span>
+             <span class="text-purple">▗▄▄▄█▄▄▄▖</span>     <span class="text-cyan">▼</span>
+             <span class="text-purple">▜██████▛</span>   <span class="text-fg-faded">FIRE ▣</span></pre>
+        - |-
+          <pre>    <span class="text-fg">▄███████▄</span>
+              <span class="text-fg">█</span> <span class="text-red">▆</span> <span class="text-fg">█</span> <span class="text-red">▆</span> <span class="text-fg">█</span>     <span class="text-red">⚠ DANGER</span>
+              <span class="text-fg">█▄▄▄▄▄▄▄█</span>
+              <span class="text-fg">█ ▌▐▌▐ █</span>     <span class="text-fg-faded">HP ▰▰▰▱▱</span>
+              <span class="text-fg">▀▀▀▀▀▀▀▀</span></pre>
+        - |-
+          <pre>  <span class="text-red">╔═╗╔═╗╔╦╗╔═╗   ╔═╗╦  ╦╔═╗╦═╗</span>
+            <span class="text-red">║ ╦╠═╣║║║║╣    ║ ║╚╗╔╝║╣ ╠╦╝</span>
+            <span class="text-red">╚═╝╩ ╩╩ ╩╚═╝   ╚═╝ ╚╝ ╚═╝╩╚═</span>
+                  <span class="text-fg-faded">press</span> <span class="text-green">START</span> <span class="text-fg-faded">to retry</span></pre>
+        - |-
+          <pre>  <span class="text-green">╦ ╦ ╔═╗ ╦ ╦   ╦ ╦ ╦ ╔╗╦</span>
+            <span class="text-green">╚╦╝ ║ ║ ║ ║   ║║║ ║ ║║║</span>
+            <span class="text-green"> ╩  ╚═╝ ╚═╝   ╚╩╝ ╩ ╩╚╝</span>
+                   <span class="text-fg-faded">+5000 pts · flawless</span></pre>
+        - |-
+          <pre>  <span class="text-cyan">╦   ╔═╗ ╦  ╦ ╔═╗ ╦     ╦ ╦ ╔═╗</span>
+            <span class="text-cyan">║   ║╣  ╚╗╔╝ ║╣  ║     ║ ║ ╠═╝</span>
+            <span class="text-cyan">╚═╝ ╚═╝  ╚╝  ╚═╝ ╚═╝   ╚═╝ ╩  </span>
+                   <span class="text-fg-faded">skill tree unlocked</span></pre>
+        - |-
+          <pre>  <span class="text-yellow">╦ ╦ ╦ ╔═╗ ╦ ╦   ╔═╗ ╔═╗ ╔═╗ ╦═╗ ╔═╗</span>
+            <span class="text-yellow">╠═╣ ║ ║ ╦ ╠═╣   ╚═╗ ║   ║ ║ ╠╦╝ ║╣ </span>
+            <span class="text-yellow">╩ ╩ ╩ ╚═╝ ╩ ╩   ╚═╝ ╚═╝ ╚═╝ ╩╚═ ╚═╝</span>
+                   <span class="text-fg-faded">★ new record ★</span></pre>
+        - |-
+          <pre>  <span class="text-purple">╦ ╔╗╦ ╔═╗ ╔═╗ ╦═╗ ╔╦╗   ╔═╗ ╔═╗ ╦ ╔╗╦</span>
+            <span class="text-purple">║ ║║║ ╚═╗ ║╣  ╠╦╝  ║    ║   ║ ║ ║ ║║║</span>
+            <span class="text-purple">╩ ╩╚╝ ╚═╝ ╚═╝ ╩╚═  ╩    ╚═╝ ╚═╝ ╩ ╩╚╝</span>
+                   <span class="text-fg-faded">credits: 00 · press start</span></pre>
+        - |-
+          <pre>  <span class="text-pito">╔═╗ ╦   ╔═╗ ╦ ╦ ╔═╗ ╦═╗   ╗</span>
+            <span class="text-pito">╠═╝ ║   ╠═╣ ╚╦╝ ║╣  ╠╦╝   ║</span>
+            <span class="text-pito">╩   ╚═╝ ╩ ╩  ╩  ╚═╝ ╩╚═   ╩</span>
+                   <span class="text-fg-faded">ready · ▶ go</span></pre>
+        - |-
+          <pre>  <span class="text-red">╦  ╦ ╦ ╔═╗ ╔╦╗ ╔═╗ ╦═╗ ╦ ╦</span>
+            <span class="text-orange">╚╗╔╝ ║ ║    ║  ║ ║ ╠╦╝ ╚╦╝</span>
+            <span class="text-yellow"> ╚╝  ╩ ╚═╝  ╩  ╚═╝ ╩╚═  ╩ </span>
+                   <span class="text-fg-faded">stage clear · rank S</span></pre>
+        - |-
+          <pre>  <span class="text-cyan">██</span>    <span class="text-yellow">██████</span>   <span class="text-purple">██</span>
+            <span class="text-cyan">██</span>      <span class="text-yellow">██</span>     <span class="text-purple">████</span>   <span class="text-fg-faded">LINES 27</span>
+            <span class="text-cyan">████</span>           <span class="text-purple">██</span>     <span class="text-green">LEVEL 4</span></pre>
+        - |-
+          <pre>      <span class="text-fg">▟▙</span>        <span class="text-yellow">☀</span>
+               <span class="text-fg">▟██▙</span>     <span class="text-fg">▟▙</span>
+             <span class="text-fg">▟██████▙</span>  <span class="text-fg">▟████▙</span>
+            <span class="text-green">▟██████████████████▙</span>
+            <span class="text-green">▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔</span></pre>
+        - |-
+          <pre>    <span class="text-yellow">\\ | /</span>     <span class="text-fg-dim">ᵛ      ᵛ</span>
+             <span class="text-yellow">─ ( ) ─</span>   <span class="text-fg-dim">ᵛ  ᵛ</span>
+              <span class="text-yellow">/ | \\</span>
+            <span class="text-orange">▁▂▃▄▅▆▇▆▅▄▃▂▁</span>  <span class="text-fg-faded">golden hour</span></pre>
+        - |-
+          <pre>  <span class="text-cyan">█▀█</span> <span class="text-purple">█</span> <span class="text-purple">▀█▀</span> <span class="text-green">█▀█</span>
+            <span class="text-cyan">█▀▀</span> <span class="text-purple">█</span>  <span class="text-purple">█</span>  <span class="text-green">█</span> <span class="text-green">█</span>
+            <span class="text-cyan">▀</span>   <span class="text-purple">▀</span>  <span class="text-purple">▀</span>  <span class="text-green">▀▀▀</span>  <span class="text-fg-faded">chat, connected.</span></pre>
+        - |-
+          <pre>  <span class="text-cyan">╔═╗</span> <span class="text-purple">╦</span> <span class="text-purple">╔╦╗</span> <span class="text-green">╔═╗</span>
+            <span class="text-cyan">╠═╝</span> <span class="text-purple">║</span> <span class="text-purple"> ║ </span> <span class="text-green">║ ║</span>
+            <span class="text-cyan">╩  </span> <span class="text-purple">╩</span> <span class="text-purple"> ╩ </span> <span class="text-green">╚═╝</span>
+            <span class="text-fg-faded">the chat, connected.</span></pre>
+        - |-
+          <pre>  <span class="text-cyan">█▀█ █ ▀█▀ █▀█</span>
+            <span class="text-pito">█▀▀ █  █  █ █</span>
+            <span class="text-purple">█   █  █  ▀▀▀</span>
+            <span class="text-purple">▀▀▀▀▀▀▀▀▀▀▀▀▀</span></pre>
+        - |-
+          <pre>  <span class="text-yellow">✦ </span><span class="text-yellow">╔═╗   ╦   ╔╦╗   ╔═╗</span><span class="text-yellow"> ✦</span>
+            <span class="text-yellow">✦ </span><span class="text-yellow">╠═╝   ║    ║    ║ ║</span><span class="text-yellow"> ✦</span>
+            <span class="text-yellow">✦ </span><span class="text-yellow">╩     ╩    ╩    ╚═╝</span><span class="text-yellow"> ✦</span></pre>
+        - |-
+          <pre>  <span class="text-cyan">█▀█</span> <span class="text-green">█</span> <span class="text-yellow">▀█▀</span> <span class="text-purple">█▀█</span>
+            <span class="text-cyan">█▀▀</span> <span class="text-green">█</span> <span class="text-yellow"> █ </span> <span class="text-purple">█ █</span>
+            <span class="text-cyan">█  </span> <span class="text-green">█</span> <span class="text-yellow"> █ </span> <span class="text-purple">▀▀▀</span>
+            <span class="text-fg-faded"> ╰ instant chat ╯</span></pre>
+        - |-
+          <pre>  <span class="text-purple">▌ </span><span class="text-cyan">╔═╗ ╦ ╔╦╗ ╔═╗</span><span class="text-purple"> ▐</span>
+            <span class="text-purple">▌ </span><span class="text-green">╠═╝ ║  ║  ║ ║</span><span class="text-purple"> ▐</span>
+            <span class="text-purple">▌ </span><span class="text-pito">╩   ╩  ╩  ╚═╝</span><span class="text-purple"> ▐</span></pre>
+        - |-
+          <pre>  <span class="text-green">&gt; </span><span class="text-green">█▀█ █ ▀█▀ █▀█</span>
+              <span class="text-green">█▀▀ █  █  █ █</span>
+              <span class="text-green">█   █  █  ▀▀▀</span><span class="text-cyan"> ▮</span></pre>
+        - |-
+          <pre>  <span class="text-cyan">██████╗ ██╗████████╗ ██████╗</span>
+            <span class="text-pito">██╔══██╗██║╚══██╔══╝██╔═══██╗</span>
+            <span class="text-purple">██████╔╝██║   ██║   ██║   ██║</span>
+            <span class="text-purple">██╔═══╝ ██║   ██║   ██║   ██║</span>
+            <span class="text-green">██║     ██║   ██║   ╚██████╔╝</span>
+            <span class="text-yellow">╚═╝     ╚═╝   ╚═╝    ╚═════╝</span></pre>
+        - |-
+          <pre>  <span class="text-cyan">╔═══════════════╗</span>
+            <span class="text-cyan">║ </span><span class="text-cyan">╔═╗ ╦ ╔╦╗ ╔═╗</span> <span class="text-cyan">║</span>
+            <span class="text-cyan">║ </span><span class="text-pito">╠═╝ ║  ║  ║ ║</span> <span class="text-cyan">║</span>
+            <span class="text-cyan">║ </span><span class="text-purple">╩   ╩  ╩  ╚═╝</span> <span class="text-cyan">║</span>
+            <span class="text-cyan">╚═══════════════╝</span></pre>
+        - |-
+          <pre>  <span class="text-purple">╭───────────────╮</span>
+            <span class="text-purple">│ </span><span class="text-purple">█▀█ █ ▀█▀ █▀█</span> <span class="text-purple">│</span>
+            <span class="text-purple">│ </span><span class="text-purple">█▀▀ █  █  █ █</span> <span class="text-purple">│</span>
+            <span class="text-purple">│ </span><span class="text-purple">█   █  █  ▀▀▀</span> <span class="text-purple">│</span>
+            <span class="text-purple">╰───────────────╯</span></pre>
+        - |-
+          <pre>  <span class="text-green">┏━━━━━━━━━━━━━━━┓</span>
+            <span class="text-green">┃ </span><span class="text-green">╔═╗ ╦ ╔╦╗ ╔═╗</span> <span class="text-green">┃</span>
+            <span class="text-green">┃ </span><span class="text-green">╠═╝ ║  ║  ║ ║</span> <span class="text-green">┃</span>
+            <span class="text-green">┃ </span><span class="text-green">╩   ╩  ╩  ╚═╝</span> <span class="text-green">┃</span>
+            <span class="text-green">┗━━━━━━━━━━━━━━━┛</span></pre>
+        - |-
+          <pre>  <span class="text-yellow">╔═══════════════════╗</span>
+            <span class="text-yellow">║ </span><span class="text-yellow">★ </span><span class="text-yellow">█▀█</span> <span class="text-yellow">█</span> <span class="text-yellow">▀█▀</span> <span class="text-yellow">█▀█</span><span class="text-yellow"> ★</span> <span class="text-yellow">║</span>
+            <span class="text-yellow">║ </span><span class="text-yellow">★ </span><span class="text-yellow">█▀▀</span> <span class="text-yellow">█</span> <span class="text-yellow"> █ </span> <span class="text-yellow">█ █</span><span class="text-yellow"> ★</span> <span class="text-yellow">║</span>
+            <span class="text-yellow">║ </span><span class="text-yellow">★ </span><span class="text-yellow">█  </span> <span class="text-yellow">█</span> <span class="text-yellow"> █ </span> <span class="text-yellow">▀▀▀</span><span class="text-yellow"> ★</span> <span class="text-yellow">║</span>
+            <span class="text-yellow">╚═══════════════════╝</span></pre>
+        - |-
+          <pre>  <span class="text-purple">◤═══════════════◥</span>
+            <span class="text-purple">║ </span><span class="text-purple">╔═╗ ╦ ╔╦╗ ╔═╗</span> <span class="text-purple">║</span>
+            <span class="text-purple">║ </span><span class="text-red">╠═╝ ║  ║  ║ ║</span> <span class="text-purple">║</span>
+            <span class="text-purple">║ </span><span class="text-orange">╩   ╩  ╩  ╚═╝</span> <span class="text-purple">║</span>
+            <span class="text-purple">◣═══════════════◢</span></pre>
+        - |-
+          <pre>  <span class="text-pito">┌┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┐</span>
+            <span class="text-pito">┊ </span><span class="text-cyan">█▀█ █ ▀█▀ █▀█</span>            <span class="text-pito">┊</span>
+            <span class="text-pito">┊ </span><span class="text-pito">█▀▀ █  █  █ █</span>            <span class="text-pito">┊</span>
+            <span class="text-pito">┊ </span><span class="text-purple">█   █  █  ▀▀▀</span>            <span class="text-pito">┊</span>
+            <span class="text-pito">┊ </span><span class="text-fg-faded">people in transit online</span> <span class="text-pito">┊</span>
+            <span class="text-pito">└┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┘</span></pre>
+        - |-
+          <pre>  <span class="text-fg-faded">┌─────────────────────────────┐</span>
+            <span class="text-fg-faded">│</span> <span class="text-green">&gt;_</span> <span class="text-cyan">hello</span><span class="text-fg-dim">,</span> <span class="text-purple">world</span><span class="text-fg-dim">.</span> <span class="text-yellow">█</span>           <span class="text-fg-faded">│</span>
+            <span class="text-fg-faded">└─────────────────────────────┘</span></pre>
+        - |-
+          <pre>  <span class="text-fg-dim">spinning up pito</span>
+            <span class="text-green">▰▰▰▰▰▰▰▰▰▰▰▰▰▰▱▱▱</span> <span class="text-yellow">82%</span>
+            <span class="text-fg-faded">⣾ compiling good vibes…</span></pre>
+        - "<pre>  <span class=\"text-cyan\">╭──────────────────────────╮</span>\n  <span class=\"text-cyan\">│</span>
+          <span class=\"text-green\">new message</span> <span class=\"text-fg-dim\">·</span>
+          <span class=\"text-yellow\">say hi \U0001F44B</span>     <span class=\"text-cyan\">│</span>\n
+          \ <span class=\"text-cyan\">╰────╮╭────────────────────╯</span>\n       <span class=\"text-cyan\">╰╯</span></pre>"
+        - |-
+          <pre>   <span class="text-purple">¯\\_(ツ)_/¯</span>
+             <span class="text-fg-faded">it works on my machine</span></pre>
+        - |-
+          <pre>  <span class="text-pito">▤▤▤</span><span class="text-fg-dim">┤</span><span class="text-yellow">▟█▙</span><span class="text-fg-dim">├</span><span class="text-pito">▤▤▤</span>      <span class="text-cyan">))) ▴</span>
+                  <span class="text-yellow">▜▛</span>        <span class="text-cyan">))</span>
+                  <span class="text-fg-dim">╿</span>         <span class="text-cyan">)</span>
+             <span class="text-fg-faded">downlink · 99% signal</span></pre>
+        - |-
+          <pre>    <span class="text-pito">▤▤▤</span><span class="text-fg-dim">╪</span><span class="text-yellow">▣</span><span class="text-fg-dim">╪</span><span class="text-pito">▤▤▤</span>   <span class="text-green">·· ·  ›</span>
+                  <span class="text-fg-dim">┃</span>        <span class="text-fg-faded">deep space</span>
+                 <span class="text-cyan">╱</span><span class="text-yellow">◉</span><span class="text-cyan">╲</span>
+                 <span class="text-cyan">▔▔▔</span>      <span class="text-fg-faded">probe · pioneer</span></pre>
+        - |-
+          <pre>          <span class="text-cyan">◯</span>     <span class="text-yellow">★</span>   <span class="text-fg-faded">·</span>
+                   <span class="text-cyan">╱ ╲</span>     <span class="text-purple">✦</span>
+               <span class="text-pito">▟███████▙</span>
+               <span class="text-purple">▜███████▛</span>
+                   <span class="text-fg-dim">┃┃┃</span>    <span class="text-fg-faded">telescope</span>
+               <span class="text-orange">▂▂▂▂▂▂▂▂▂</span></pre>
+        - |-
+          <pre>     <span class="text-pito">▤▤▤</span><span class="text-yellow">◧</span><span class="text-pito">▤▤▤</span>     <span class="text-purple">▤▤▤</span><span class="text-yellow">◧</span><span class="text-purple">▤▤▤</span>
+                      <span class="text-fg-dim">╲</span>     <span class="text-fg-dim">╱</span>
+                        <span class="text-cyan">╔═╗</span>
+               <span class="text-green">▤▤▤</span><span class="text-cyan">──────</span><span class="text-cyan">╢</span><span class="text-yellow">◉</span><span class="text-cyan">╟</span><span class="text-cyan">──────</span><span class="text-green">▤▤▤</span>  <span class="text-fg-faded">orbital lab</span>
+                        <span class="text-cyan">╚═╝</span></pre>
+        - |-
+          <pre>  <span class="text-fg-dim">╔═══════════════╗</span>
+            <span class="text-fg-dim">║</span> <span class="text-green">●</span> <span class="text-cyan">▰▰▰▰▰▰▰▰▰▰</span> <span class="text-fg-dim">║</span>
+            <span class="text-fg-dim">║</span> <span class="text-green">●</span> <span class="text-cyan">▰▰▰▰▰▰▰▰▰▰</span> <span class="text-fg-dim">║</span>
+            <span class="text-fg-dim">║</span> <span class="text-yellow">●</span> <span class="text-cyan">▰▰▰▰▰▰▰▰▰▰</span> <span class="text-fg-dim">║</span>
+            <span class="text-fg-dim">║</span> <span class="text-green">●</span> <span class="text-cyan">▰▰▰▰▰▰▰▰▰▰</span> <span class="text-fg-dim">║</span>
+            <span class="text-fg-dim">╚═══════════════╝</span> <span class="text-fg-faded">uptime 311d</span></pre>
+        - |-
+          <pre>  <span class="text-fg-dim">▙▟▙▟▙▟▙▟▙▟▙▟</span>
+            <span class="text-fg-dim">▌</span><span class="text-cyan">┌────────┐</span><span class="text-fg-dim">▐</span>
+            <span class="text-fg-dim">▌</span><span class="text-cyan">│</span> <span class="text-purple">P I T O</span> <span class="text-cyan">│</span><span class="text-fg-dim">▐</span>   <span class="text-green">8 cores</span>
+            <span class="text-fg-dim">▌</span><span class="text-cyan">│</span> <span class="text-pito">core™</span>  <span class="text-cyan">│</span><span class="text-fg-dim">▐</span>   <span class="text-fg-faded">3.6 GHz</span>
+            <span class="text-fg-dim">▌</span><span class="text-cyan">└────────┘</span><span class="text-fg-dim">▐</span>
+            <span class="text-fg-dim">▛▜▛▜▛▜▛▜▛▜▛▜</span></pre>
+        - |-
+          <pre>  <span class="text-green">[ OK ]</span> <span class="text-fg-dim">mount /core</span>
+            <span class="text-green">[ OK ]</span> <span class="text-fg-dim">start network</span>
+            <span class="text-green">[ OK ]</span> <span class="text-fg-dim">link channels</span>
+            <span class="text-yellow">[ .. ]</span> <span class="text-fg">awaiting peer</span> <span class="text-cyan">▮</span></pre>
+        - |-
+          <pre>   <span class="text-pito">╭───────────╮</span>
+             <span class="text-pito">│▰▰▰▰▰▰▰▰▰▰▰│</span>  <span class="text-green">rows: 1.2M</span>
+             <span class="text-purple">├───────────┤</span>
+             <span class="text-purple">│▰▰▰▰▰▰▰▰▰▰▰│</span>  <span class="text-cyan">idx: ok</span>
+             <span class="text-cyan">╰───────────╯</span></pre>
+        - |-
+          <pre>  <span class="text-yellow">╭─────────────────────────────────╮</span>
+            <span class="text-yellow">│ </span><span class="text-cyan">▛▀▖ ▜▛ ▜▛ ▞▀▖</span><span class="text-fg-dim">  welcome aboard</span>   <span class="text-yellow">│</span>
+            <span class="text-yellow">│ </span><span class="text-purple">your channel is </span><span class="text-green">live</span><span class="text-purple"> · </span><span class="text-green">say hi ✦</span> <span class="text-yellow">│</span>
+            <span class="text-yellow">╰─────────────────────────────────╯</span></pre>
+        - |-
+          <pre>  <span class="text-cyan">╔══════════════════════════════════╗</span>
+            <span class="text-cyan">║ </span><span class="text-yellow">✦ </span><span class="text-fg-dim">welcome to </span><span class="text-cyan">pito</span><span class="text-yellow"> ✦</span>              <span class="text-cyan">║</span>
+            <span class="text-cyan">║ </span><span class="text-fg-faded">a clean line to whoever you need</span> <span class="text-cyan">║</span>
+            <span class="text-cyan">╚══════════════════════════════════╝</span></pre>
+        - |-
+          <pre>  <span class="text-purple">╔══════════════════════════╗</span>
+            <span class="text-purple">║ </span><span class="text-cyan">≋≋ </span><span class="text-purple">W E L C O M E</span><span class="text-cyan"> ≋≋</span>      <span class="text-purple">║</span>
+            <span class="text-purple">║ </span><span class="text-fg-dim">to </span><span class="text-purple">pito</span><span class="text-fg-dim"> · the vibe is on</span> <span class="text-purple">║</span>
+            <span class="text-purple">╚══════════════════════════╝</span></pre>
+        - |-
+          <pre>  <span class="text-orange">◤══════════════════════════════◥</span>
+            <span class="text-orange">║ </span><span class="text-orange">◢ </span><span class="text-fg-dim">hey, welcome to </span><span class="text-yellow">pito</span><span class="text-orange"> ◣</span>     <span class="text-orange">║</span>
+            <span class="text-orange">║ </span><span class="text-fg-faded">grab a seat · drop a message</span> <span class="text-orange">║</span>
+            <span class="text-orange">◣══════════════════════════════◢</span></pre>
 
       sync:
         game_done: "Synced %{title} from IGDB."
@@ -5510,57 +5638,6 @@ en:
           - "Going to YouTube for fresh %{scope} data…"
           - "Snagging new videos from %{scope}…"
           - "New %{scope} upload data: fetching now…"
-        confirm:
-          - "Import new videos from %{scope}?"
-          - "Pull new YouTube videos from %{scope}?"
-          - "Run a video import for %{scope}?"
-          - "Import newer videos from %{scope}?"
-          - "Fetch new videos from %{scope}?"
-          - "Import videos from %{scope} — sure?"
-          - "Pull latest uploads from %{scope}?"
-          - "Run YouTube import for %{scope}?"
-          - "Import new uploads from %{scope}?"
-          - "Trigger video import for %{scope}?"
-          - "Import videos from %{scope} — confirm?"
-          - "Hit YouTube for new videos on %{scope}?"
-          - "Fetch new %{scope} uploads?"
-          - "Run video import on %{scope} — go?"
-          - "Pull new video data from %{scope}?"
-          - "Import %{scope} videos — confirm?"
-          - "Sync new videos from %{scope}?"
-          - "Trigger YouTube import for %{scope}?"
-          - "Import new YouTube uploads from %{scope}?"
-          - "Pull fresh uploads from %{scope} — go?"
-          - "Run import for new %{scope} videos?"
-          - "Import new videos from %{scope} now?"
-          - "Trigger a video import run for %{scope}?"
-          - "Hit the YouTube API to import new %{scope} videos?"
-          - "Pull %{scope} uploads into pito?"
-          - "Import: %{scope} → new videos. Confirm?"
-          - "Run a YouTube video import for %{scope}?"
-          - "Import %{scope} — new videos only. Confirm?"
-          - "Refresh %{scope} video library with new uploads?"
-          - "Pull new %{scope} video records from YouTube?"
-          - "Import new videos on %{scope} — go?"
-          - "Fetch and import new uploads from %{scope}?"
-          - "Run the video import on %{scope} now?"
-          - "Pull newer-only videos from %{scope}?"
-          - "Import from %{scope} — newer videos only?"
-          - "Run a YouTube newer-only import for %{scope}?"
-          - "Trigger import for new %{scope} YouTube uploads?"
-          - "Import new uploads — channel: %{scope}. Confirm?"
-          - "Pull new videos from %{scope} into pito?"
-          - "Import new %{scope} videos from YouTube now?"
-          - "Trigger a newer-only video import for %{scope}?"
-          - "Hit YouTube for new %{scope} video records?"
-          - "Run video import: new %{scope} uploads only?"
-          - "Import newer YouTube uploads for %{scope}?"
-          - "Pull %{scope} new videos — confirm?"
-          - "Trigger new video import from %{scope}?"
-          - "Fetch new %{scope} YouTube videos?"
-          - "Import new YouTube video records from %{scope}?"
-          - "Import %{scope} — newer-only. Go?"
-          - "Pull new %{scope} uploads and import them?"
         done:
           - "Imported %{count} new video(s) from %{scope}."
           - "%{count} new video(s) imported from %{scope}."
@@ -5612,7 +5689,6 @@ en:
           - "Import complete for %{scope}: %{count} new video(s)."
           - "%{count} new video(s) from %{scope} imported. Done."
           - "YouTube pull done: %{scope} — %{count} new video(s) added."
-        per_channel_done: "%{handle}: %{count} new video(s)."
         per_channel_reauth: "%{handle}: needs reauth — reconnect via /connect."
 
       notifications:

@@ -138,12 +138,13 @@ module Pito
       ).freeze
 
       # Noun for the `import` chat verb (drives ghost completion: `import ` → `game`).
-      # `videos` is also recognized so `import videos` routes to the confirmable
-      # video-import path rather than the IGDB game-import fast-path.
+      # Only `game` is suggested — `import videos` is a de-emphasized alias of
+      # `sync videos` and is NOT offered as a primary suggestion. Typed
+      # `import videos` still routes via the handler's raw-text match.
       IMPORT_NOUNS = Vocabulary.define(
         name:      :import_nouns,
-        canonical: %w[game videos],
-        synonyms:  { "games" => "game", "video" => "videos" }
+        canonical: %w[game],
+        synonyms:  { "games" => "game" }
       ).freeze
 
       # Targets for the `sync` chat verb (drives ghost completion: `sync ` →

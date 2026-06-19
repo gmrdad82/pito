@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_10_201140) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_19_071051) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -113,15 +113,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_10_201140) do
     t.index ["turn_id"], name: "index_events_on_turn_id"
   end
 
-  create_table "footages", force: :cascade do |t|
-    t.datetime "created_at", null: false
-    t.integer "duration_seconds"
-    t.string "filename", null: false
-    t.bigint "game_id", null: false
-    t.datetime "updated_at", null: false
-    t.index ["game_id", "filename"], name: "index_footages_on_game_id_and_filename", unique: true
-  end
-
   create_table "game_developers", force: :cascade do |t|
     t.bigint "company_id", null: false
     t.datetime "created_at", null: false
@@ -158,6 +149,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_10_201140) do
     t.string "cover_image_id"
     t.datetime "created_at", null: false
     t.string "embedded_digest"
+    t.decimal "footage_hours", precision: 6, scale: 1, default: "0.0", null: false
     t.bigint "igdb_id"
     t.decimal "igdb_rating", precision: 5, scale: 2
     t.integer "igdb_rating_count"
@@ -436,7 +428,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_10_201140) do
   add_foreign_key "channels", "youtube_connections", on_delete: :nullify
   add_foreign_key "events", "conversations"
   add_foreign_key "events", "turns"
-  add_foreign_key "footages", "games", on_delete: :cascade
   add_foreign_key "game_developers", "companies", on_delete: :cascade
   add_foreign_key "game_developers", "games", on_delete: :cascade
   add_foreign_key "game_genres", "games", on_delete: :cascade

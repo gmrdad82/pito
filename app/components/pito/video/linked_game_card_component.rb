@@ -8,7 +8,7 @@ module Pito
     # rows: title, genres, perspective, theme, publisher, developer, release
     # date, total footage. Unlike Pito::Game::DetailComponent it carries NO
     # time-to-beat / score bars — total footage is a plain KV value formatted
-    # via Pito::Formatter::TtbHours.
+    # via Pito::Formatter::FootageHours.
     #
     # NAMESPACE GOTCHA: inside Pito::Video::*, the bareword `Video` resolves to
     # the Pito::Video MODULE. Use the fully-qualified ::Game constant to
@@ -60,9 +60,9 @@ module Pito
         @game.release_label.presence
       end
 
-      # Total footage as a TTB-pillar value — whole hours, or "—" when none.
+      # Total footage as a decimal-hours value — "5h" / "12.5h", or "—" when none.
       def footage_label
-        Pito::Formatter::TtbHours.call(@game.footages.sum(:duration_seconds))
+        Pito::Formatter::FootageHours.call(@game.footage_hours)
       end
     end
   end

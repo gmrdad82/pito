@@ -27,7 +27,11 @@ module Pito
         width    = all_rows.map { |tok, _| tok.length }.max.to_i + GAP
 
         lines = []
-        lines << header("Usage:")
+        # Lead the first line with the inline timestamp slot so the message's
+        # "HH:MM ·" prefix lands INSIDE the help block (a white-space: pre-wrap
+        # block div) rather than orphaned on its own line above it. When the
+        # message carries no timestamp, BodyComponent removes the empty slot.
+        lines << "#{Pito::Event::BodyComponent::TS_SLOT}#{header("Usage:")}"
         lines << "  #{dim(esc(usage))}"
 
         groups.each do |title, rows|

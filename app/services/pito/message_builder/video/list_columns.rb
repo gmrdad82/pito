@@ -207,11 +207,11 @@ module Pito
         end
 
         # Human label for a video's status column. A scheduled video (future
-        # publish_at) shows its go-live date as DD-MM-YYYY; otherwise the
-        # privacy_status label (Public / Unlisted / Private).
+        # publish_at) shows "Scheduled"; otherwise the privacy_status label
+        # (Public / Unlisted / Private).
         def visibility_label(video)
           if video.publish_at.present? && video.publish_at > Time.current
-            return video.publish_at.strftime("%d-%m-%Y")
+            return I18n.t("pito.video.detail.privacy_status.scheduled", default: "Scheduled")
           end
 
           status = video.privacy_status

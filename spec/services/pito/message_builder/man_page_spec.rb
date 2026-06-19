@@ -27,6 +27,14 @@ RSpec.describe Pito::MessageBuilder::ManPage do
     expect(rendered).to end_with("</div>")
   end
 
+  it "leads the first line with the inline timestamp slot (before Usage:)" do
+    # The slot lets BodyComponent place the message's "HH:MM ·" prefix INSIDE
+    # the help block's first line rather than orphaned on a line above it.
+    expect(rendered).to include(
+      %(<div class="pito-help-block">#{Pito::Event::BodyComponent::TS_SLOT}<span class="text-yellow font-bold">Usage:</span>)
+    )
+  end
+
   it "is html_safe" do
     expect(rendered).to be_html_safe
   end

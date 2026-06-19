@@ -18,6 +18,15 @@ RSpec.describe Pito::MessageBuilder::Video::LinkedGame do
       expect(payload["html"]).to be(true)
     end
 
+    it "prepends the witty intro line (game title interpolated) before the card" do
+      intro = Pito::Copy.render("pito.copy.videos.linked_game_intro", { game: "Lies of P" })
+
+      expect(payload["body"]).to include(ERB::Util.html_escape(intro))
+      # The intro paragraph comes first, the card markup follows it.
+      expect(payload["body"].index("pito-video-linked-game-intro"))
+        .to be < payload["body"].index("pito-video-linked-game-card")
+    end
+
     it "stamps the linked game's id" do
       expect(payload["game_id"]).to eq(game.id)
     end

@@ -34,7 +34,11 @@ module Pito
 
       def privacy_label
         if @video.publish_at.present? && @video.publish_at > Time.current
-          return @video.publish_at.strftime("%d-%m-%Y")
+          return I18n.t(
+            "pito.video.detail.scheduled_for",
+            when: @video.publish_at.in_time_zone.strftime("%d-%m-%Y %H:%M"),
+            default: "Scheduled for %{when}"
+          )
         end
 
         return nil if @video.privacy_status.blank?

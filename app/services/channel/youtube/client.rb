@@ -357,6 +357,30 @@ class Channel
         end
       end
 
+      # GET /youtube/v3/search
+      #
+      # Owner-complete listing of the connected channel's own uploads
+      # (`for_mine: true`), including the private videos that the uploads
+      # playlist omits. Supports `published_after` + `order: "date"` to
+      # bound the call to the newest uploads. Costs 100 quota units.
+      #
+      # `published_after` must reach the API as an RFC3339 string; a
+      # Time / ActiveSupport::TimeWithZone is converted to UTC ISO8601
+      # here so callers can pass a Time directly.
+      def search_list(for_mine: nil, published_after: nil, order: nil, type: nil,
+                      parts: %i[id], max_results: 50, page_token: nil)
+        published_after = rfc3339(published_after)
+        perform("search.list", "GET") do
+          svc = data_service
+          response = svc.list_searches(
+            parts.map(&:to_s).join(","),
+            for_mine: for_mine, published_after: published_after, order: order,
+            type: type, max_results: max_results, page_token: page_token
+          )
+          normalize_list(response)
+        end
+      end
+
       # GET /youtubeAnalytics/v2/reports
       def analytics_query(ids:, metrics:, start_date:, end_date:,
                           dimensions: nil, filters: nil, sort: nil)
@@ -565,6 +589,17 @@ class Channel
           value = branding_channel[key]
           h[key] = value unless value.nil?
         end
+      end
+
+      # Coerce a `published_after` argument into the RFC3339 string the
+      # YouTube search.list API expects. A Time / ActiveSupport::
+      # TimeWithZone is normalized to UTC ISO8601; a String (already
+      # RFC3339) passes through; nil stays nil.
+      def rfc3339(value)
+        return nil if value.nil?
+        return value.utc.iso8601 if value.respond_to?(:utc)
+
+        value
       end
 
       def ensure_token_fresh!

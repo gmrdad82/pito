@@ -34,7 +34,7 @@ module Pito
           release_date: { key: ->(g) { g.release_date || Date.new(9999, 12, 31) },              requires_with: true },
           year:         { key: ->(g) { g.release_year || 9999 },                                requires_with: true },
           channels:     { key: ->(g) { g.linked_videos.map { |v| v.channel&.handle }.compact.uniq.sort.join(",").downcase }, requires_with: true },
-          footage:      { key: ->(g) { g.footages.sum { |f| f.duration_seconds.to_i } },        requires_with: true }
+          footage:      { key: ->(g) { g.footage_hours },                                        requires_with: true }
         }.freeze
 
         # Maps every sort token (downcased) → canonical column Symbol.
@@ -106,10 +106,7 @@ module Pito
             heading:    "Footage",
             align:      :right,
             cell_class: "text-fg-dim text-right tabular-nums pito-cell-duration",
-            value:      ->(g) {
-              total = g.footages.sum { |f| f.duration_seconds.to_i }
-              total.positive? ? Pito::Formatter::Duration.call(total) : "—"
-            }
+            value:      ->(g) { Pito::Formatter::FootageHours.call(g.footage_hours) }
           }
         }.freeze
 

@@ -171,7 +171,7 @@ RSpec.describe Pito::MessageBuilder::CommandHelp do
         end
       end
 
-      context "footage (single-noun: game)" do
+      context "footage (multi-noun: update + snippet)" do
         subject(:result) { described_class.call(:footage) }
 
         it "returns a valid html payload" do
@@ -179,13 +179,9 @@ RSpec.describe Pito::MessageBuilder::CommandHelp do
           expect(result["html"]).to be(true)
         end
 
-        it "verb-level page == noun-level page for single-entity verb" do
-          noun_result = described_class.call(:footage, noun: :game)
-          expect(result["body"]).to eq(noun_result["body"])
-        end
-
-        it "body includes the footage path argument" do
-          expect(result["body"]).to include("path")
+        it "body lists both update and snippet forms" do
+          expect(result["body"]).to include("footage update")
+          expect(result["body"]).to include("footage snippet")
         end
       end
 
@@ -203,8 +199,47 @@ RSpec.describe Pito::MessageBuilder::CommandHelp do
         end
       end
 
+      context "platform (single-noun: game)" do
+        subject(:result) { described_class.call(:platform) }
+
+        it "renders a non-empty html payload" do
+          expect(result).to be_a(Hash)
+          expect(result["html"]).to be(true)
+          expect(result["body"]).to be_present
+        end
+
+        it "verb-level page == noun-level page for single-entity verb" do
+          noun_result = described_class.call(:platform, noun: :game)
+          expect(result["body"]).to eq(noun_result["body"])
+        end
+
+        it "usage line is 'platform <id> <name>'" do
+          expect(result["body"]).to include("platform")
+          expect(result["body"]).to include("&lt;id&gt;")
+          expect(result["body"]).to include("&lt;name&gt;")
+        end
+
+        it "body lists the example platform names" do
+          expect(result["body"]).to include("ps5")
+          expect(result["body"]).to include("switch")
+          expect(result["body"]).to include("steam")
+        end
+
+        it "uses the standard single-noun layout (Usage / Arguments / Options)" do
+          expect(result["body"]).to include('<span class="text-yellow font-bold">Usage:</span>')
+          expect(result["body"]).to include('<span class="text-yellow font-bold">Arguments</span>')
+          expect(result["body"]).to include('<span class="text-yellow font-bold">Options</span>')
+        end
+
+        it "does NOT render a bespoke 'Replies' section" do
+          expect(result["body"]).not_to include("Replies")
+          expect(result["body"]).not_to include("list reply")
+          expect(result["body"]).not_to include("card reply")
+        end
+      end
+
       # Remaining verbs — smoke-test that each renders a valid page
-      %i[reindex link unlink publish unlist schedule import sync].each do |verb|
+      %i[reindex link unlink publish unlist schedule platform import sync].each do |verb|
         context "verb :#{verb}" do
           subject(:result) { described_class.call(verb) }
 
@@ -267,17 +302,30 @@ RSpec.describe Pito::MessageBuilder::CommandHelp do
         end
       end
 
-      context "footage game --help (single-entity verb)" do
-        subject(:result) { described_class.call(:footage, noun: :game) }
+      context "footage update --help (subcommand)" do
+        subject(:result) { described_class.call(:footage, noun: :update) }
 
         it "returns an html payload" do
           expect(result).to be_a(Hash)
           expect(result["html"]).to be(true)
         end
 
-        it "usage line includes footage game path shape" do
-          expect(result["body"]).to include("footage game")
-          expect(result["body"]).to include("path")
+        it "usage line includes the footage update shape" do
+          expect(result["body"]).to include("footage update")
+          expect(result["body"]).to include("hours")
+        end
+      end
+
+      context "footage snippet --help (subcommand)" do
+        subject(:result) { described_class.call(:footage, noun: :snippet) }
+
+        it "returns an html payload" do
+          expect(result).to be_a(Hash)
+          expect(result["html"]).to be(true)
+        end
+
+        it "usage line includes the footage snippet shape" do
+          expect(result["body"]).to include("footage snippet")
         end
       end
 
@@ -312,6 +360,39 @@ RSpec.describe Pito::MessageBuilder::CommandHelp do
 
         it "body lists the schedule when-forms (incl. the DD-MM-YYYY date format)" do
           expect(result["body"]).to include("DD-MM-YYYY")
+        end
+      end
+    end
+
+    # ── Cross-verb layout + first-line timestamp consistency (T37.3) ──────────
+
+    describe "consistent layout + first-line timestamp across help pages" do
+      {
+        "platform" => -> { described_class.call(:platform) },
+        "show"     => -> { described_class.call(:show) },
+        "list"     => -> { described_class.call(:list) }
+      }.each do |label, build|
+        context "#{label} --help" do
+          subject(:result) { build.call }
+
+          it "is wrapped in a single .pito-help-block div" do
+            expect(result["body"]).to include('<div class="pito-help-block">')
+            expect(result["body"]).to end_with("</div>")
+          end
+
+          it "opens with a yellow bold Usage: header" do
+            expect(result["body"]).to include('<span class="text-yellow font-bold">Usage:</span>')
+          end
+
+          it "leads the first line with the inline timestamp slot (before Usage:)" do
+            expect(result["body"]).to include(
+              %(<div class="pito-help-block">#{Pito::Event::BodyComponent::TS_SLOT}<span class="text-yellow font-bold">Usage:</span>)
+            )
+          end
+
+          it "exposes exactly one timestamp slot" do
+            expect(result["body"].scan(Pito::Event::BodyComponent::TS_SLOT).size).to eq(1)
+          end
         end
       end
     end

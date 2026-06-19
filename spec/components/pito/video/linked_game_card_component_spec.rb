@@ -62,10 +62,15 @@ RSpec.describe Pito::Video::LinkedGameCardComponent do
     expect(node.text).to include("2023")
   end
 
-  it "renders total footage as whole hours (TTB pillar value)" do
-    create(:footage, game: game, duration_seconds: 3600)
-    create(:footage, game: game, duration_seconds: 3600)
-    game.reload
+  it "renders total footage via the FootageHours formatter" do
+    game.update!(footage_hours: 12.5)
+
+    node = render_inline(described_class.new(game: game))
+    expect(node.text).to include("12.5h")
+  end
+
+  it "strips the decimal for a whole-hour total" do
+    game.update!(footage_hours: 2)
 
     node = render_inline(described_class.new(game: game))
     expect(node.text).to include("2h")

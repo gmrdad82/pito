@@ -42,6 +42,12 @@ RSpec.describe Pito::Confirmation::Executor, type: :service do
       expect(text).to include("2")
     end
 
+    it "appends a themed ascii-art <pre> block to the outcome" do
+      text = described_class.confirm("disconnect", payload)
+      expect(text).to include("<pre>")
+      expect(text).to include("</pre>")
+    end
+
     context "when the channel is already gone" do
       before { channel.destroy! }
 
@@ -363,6 +369,16 @@ RSpec.describe Pito::Confirmation::Executor, type: :service do
       expect(text).to be_present
       expect(VideoRemoteStatusSync).not_to have_received(:perform_later)
     end
+
+    it "renders the time in local DD-MM-YYYY HH:MM form without a 'UTC' label" do
+      text = described_class.confirm("video_schedule", {
+        "video_id"    => sc_video.id,
+        "video_title" => "Dungeon Clear",
+        "publish_at"  => publish_at.iso8601
+      })
+      expect(text).not_to include("UTC")
+      expect(text).to match(/\d{2}-\d{2}-\d{4} \d{2}:\d{2}/)
+    end
   end
 
   # ── confirm / disconnect — zero-video case ────────────────────────────────
@@ -401,7 +417,17 @@ RSpec.describe Pito::Confirmation::Executor, type: :service do
       described_class.confirm("sync_videos", {
         "channel_ids" => [ 1, 2 ], "scope_label" => "all channels"
       })
-      expect(SyncVideosJob).to have_received(:perform_later).with([ 1, 2 ], "all channels", conversation_id: nil)
+      expect(SyncVideosJob).to have_received(:perform_later)
+        .with([ 1, 2 ], "all channels", conversation_id: nil, video_ids: [])
+    end
+
+    it "passes through video_ids for a targeted refresh" do
+      allow(SyncVideosJob).to receive(:perform_later)
+      described_class.confirm("sync_videos", {
+        "channel_ids" => [ 1 ], "scope_label" => "@pito", "video_ids" => [ 10, 11 ]
+      })
+      expect(SyncVideosJob).to have_received(:perform_later)
+        .with([ 1 ], "@pito", conversation_id: nil, video_ids: [ 10, 11 ])
     end
 
     it "returns a present-tense queued ack (not a done/count string)" do
@@ -457,17 +483,18 @@ RSpec.describe Pito::Confirmation::Executor, type: :service do
 
   # ── confirm / import_videos ───────────────────────────────────────────────
 
-  describe ".confirm — import_videos" do
-    it "enqueues ChatImportVideosJob with channel_ids and scope_label" do
-      allow(ChatImportVideosJob).to receive(:perform_later)
+  describe ".confirm — import_videos (alias for sync_videos)" do
+    it "enqueues the unified SyncVideosJob with channel_ids and scope_label" do
+      allow(SyncVideosJob).to receive(:perform_later)
       described_class.confirm("import_videos", {
         "channel_ids" => [ 5 ], "scope_label" => "@pito"
       })
-      expect(ChatImportVideosJob).to have_received(:perform_later).with([ 5 ], "@pito", conversation_id: nil)
+      expect(SyncVideosJob).to have_received(:perform_later)
+        .with([ 5 ], "@pito", conversation_id: nil, video_ids: [])
     end
 
     it "returns non-empty outcome text" do
-      allow(ChatImportVideosJob).to receive(:perform_later)
+      allow(SyncVideosJob).to receive(:perform_later)
       text = described_class.confirm("import_videos", { "channel_ids" => [], "scope_label" => "all channels" })
       expect(text).to be_present
     end

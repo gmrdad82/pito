@@ -157,6 +157,14 @@ RSpec.describe "P27 /connect + OAuth callback", type: :request do
         expect(result_event.payload["text"]).to include("Alpha Channel")
       end
 
+      it "includes a themed ascii-art <pre> block in the success flash" do
+        get "/auth/youtube/callback"
+
+        result_event = conversation.events.where(kind: :system).last
+        expect(result_event.payload["text"]).to include("<pre>")
+        expect(result_event.payload["text"]).to include("</pre>")
+      end
+
       it "does NOT complete the turn (multi-stage flow: stats job will complete)" do
         get "/auth/youtube/callback"
 

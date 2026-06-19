@@ -15,7 +15,7 @@ RSpec.describe Pito::Chat::Handlers::Footage do
         verb: :footage,
         body_tokens: tokens(*words),
         kind: :new_turn,
-        raw: "footage #{words.join(' ')}"
+        raw: "footage #{words.join(' ')}".strip
       ),
       conversation: Conversation.singleton
     )
@@ -23,94 +23,146 @@ RSpec.describe Pito::Chat::Handlers::Footage do
 
   let!(:game) { create(:game, title: "Pragmata") }
 
-  # ── new canonical form: footage game <id> <path> ─────────────────────────────
+  # ── footage update <id> <hours> — success ────────────────────────────────────
 
-  it "resolves by id with 'game' noun filler and emits a probe-command :system event" do
-    result = handler_for("game", game.id.to_s, "/clips").call
+  it "sets the game's footage_hours and returns an Ok system confirmation" do
+    result = handler_for("update", game.id.to_s, "12.5").call
+
     expect(result).to be_a(Pito::Chat::Result::Ok)
+    expect(game.reload.footage_hours).to eq(BigDecimal("12.5"))
+
+    event = result.events.first
+    expect(event[:kind]).to eq(:system)
+    expect(event[:payload]["text"]).to include("Pragmata").and include("12.5h")
+  end
+
+  it "renders whole-hour totals without a trailing .0 in the confirmation" do
+    result = handler_for("update", game.id.to_s, "5").call
+
+    expect(game.reload.footage_hours).to eq(BigDecimal("5.0"))
+    expect(result.events.first[:payload]["text"]).to include("5h")
+  end
+
+  # ── ceil UP to the next 0.5 (BigDecimal-exact) ───────────────────────────────
+
+  it "ceils a fractional value up to the next half-hour (12.3 → 12.5)" do
+    handler_for("update", game.id.to_s, "12.3").call
+    expect(game.reload.footage_hours).to eq(BigDecimal("12.5"))
+  end
+
+  it "ceils just past a half-step up to the next whole hour (8.51 → 9.0)" do
+    handler_for("update", game.id.to_s, "8.51").call
+    expect(game.reload.footage_hours).to eq(BigDecimal("9.0"))
+  end
+
+  it "leaves an exact whole number on a clean step (5 → 5.0)" do
+    handler_for("update", game.id.to_s, "5").call
+    expect(game.reload.footage_hours).to eq(BigDecimal("5.0"))
+  end
+
+  it "leaves an exact half-step untouched (2.5 → 2.5)" do
+    handler_for("update", game.id.to_s, "2.5").call
+    expect(game.reload.footage_hours).to eq(BigDecimal("2.5"))
+  end
+
+  # ── id resolution: numeric only, with optional `#` prefix ────────────────────
+
+  it "resolves the game by bare numeric id" do
+    result = handler_for("update", game.id.to_s, "3").call
+    expect(result).to be_a(Pito::Chat::Result::Ok)
+    expect(game.reload.footage_hours).to eq(BigDecimal("3.0"))
+  end
+
+  it "resolves the game by #N id form" do
+    result = handler_for("update", "##{game.id}", "3").call
+    expect(result).to be_a(Pito::Chat::Result::Ok)
+    expect(game.reload.footage_hours).to eq(BigDecimal("3.0"))
+  end
+
+  # ── footage snippet ──────────────────────────────────────────────────────────
+
+  it "emits a system event rendering the copyable snippet command" do
+    result = handler_for("snippet").call
+
+    expect(result).to be_a(Pito::Chat::Result::Ok)
+
     event = result.events.first
     expect(event[:kind]).to eq(:system)
     expect(event[:payload]["html"]).to be(true)
-    expect(event[:payload]["body"]).to include("pito:tools:probe game=#{game.id}")
+
+    fragment = Nokogiri::HTML.fragment(event[:payload]["body"])
+    code     = fragment.css(".pito-footage-snippet__code").first
+    expect(code.text).to eq(Pito::Footage::SnippetComponent::COMMAND)
   end
 
-  it "resolves by bare numeric id (no 'game' filler) and emits the probe command" do
-    result = handler_for(game.id.to_s, "/clips").call
-    expect(result).to be_a(Pito::Chat::Result::Ok)
-    payload = result.events.first[:payload]
-    expect(payload["html"]).to be(true)
-    expect(payload["body"]).to include("pito:tools:probe")
+  it "renders the snippet message with the clipboard wiring" do
+    result = handler_for("snippet").call
+    body   = result.events.first[:payload]["body"]
+
+    expect(body).to include('data-controller="pito--clipboard"')
+    expect(body).to include("click->pito--clipboard#copy")
   end
 
-  it "resolves by #N id form" do
-    result = handler_for("##{game.id}", "/clips").call
-    expect(result).to be_a(Pito::Chat::Result::Ok)
-    payload = result.events.first[:payload]
-    expect(payload["body"]).to include("game=#{game.id}")
-  end
+  # ── unknown / non-numeric reference → witty not-found ────────────────────────
 
-  it "stamps game_id in the payload" do
-    payload = handler_for("game", game.id.to_s, "/clips").call.events.first[:payload]
-    expect(payload["game_id"]).to eq(game.id)
-  end
-
-  it "includes the path in the probe command" do
-    payload = handler_for("game", game.id.to_s, "/mnt/clips").call.events.first[:payload]
-    expect(payload["body"]).to include("path=&quot;/mnt/clips/*&quot;")
-  end
-
-  # ── --force flag ──────────────────────────────────────────────────────────────
-
-  it "includes '-- --force' in the body when --force flag precedes the path" do
-    payload = handler_for("game", game.id.to_s, "--force", "/mnt/footage").call.events.first[:payload]
-    expect(payload["body"]).to include("-- --force")
-  end
-
-  it "includes '-- --force' in the body when --force flag trails the path" do
-    payload = handler_for("game", game.id.to_s, "/mnt/footage", "--force").call.events.first[:payload]
-    expect(payload["body"]).to include("-- --force")
-  end
-
-  it "does not include '--force' in the body when no flag is given" do
-    payload = handler_for("game", game.id.to_s, "/mnt/footage").call.events.first[:payload]
-    expect(payload["body"]).not_to include("--force")
-    expect(payload["body"]).to include("game=#{game.id}")
-    expect(payload["body"]).to include("path=")
-  end
-
-  # ── title ref no longer resolves (ILIKE dropped) ─────────────────────────────
-
-  it "returns a witty not-found for a title-style reference (ILIKE dropped)" do
-    result = handler_for("Pragmata", "/clips").call
-    expect(result).to be_a(Pito::Chat::Result::Ok)
-    payload = result.events.first[:payload]
-    # not-found path emits a text payload, not a probe command
-    expect(payload["text"]).to be_present
-  end
-
-  it "returns a witty not-found for any non-numeric reference" do
-    result = handler_for("nonexistent", "/clips").call
+  it "returns a witty not-found (text payload) for an unknown numeric id" do
+    result = handler_for("update", "9999999", "5").call
     expect(result).to be_a(Pito::Chat::Result::Ok)
     expect(result.events.first[:payload]["text"]).to be_present
   end
 
-  # ── missing ref / path → usage hint ──────────────────────────────────────────
+  it "returns a witty not-found for a non-numeric (title-style) reference" do
+    result = handler_for("update", "Pragmata", "5").call
+    expect(result).to be_a(Pito::Chat::Result::Ok)
+    expect(result.events.first[:payload]["text"]).to be_present
+    expect(game.reload.footage_hours).to eq(BigDecimal(0))
+  end
 
-  it "returns an error with needs_ref key when no reference is given" do
+  # ── missing / short args → usage hint ────────────────────────────────────────
+
+  it "returns needs_ref when no args are given" do
     result = handler_for.call
     expect(result).to be_a(Pito::Chat::Result::Error)
     expect(result.message_key).to eq("pito.chat.footage.needs_ref")
   end
 
-  it "returns needs_ref when a reference is given but no path" do
+  it "returns needs_ref for an unknown subcommand" do
+    result = handler_for("tally", game.id.to_s).call
+    expect(result).to be_a(Pito::Chat::Result::Error)
+    expect(result.message_key).to eq("pito.chat.footage.needs_ref")
+  end
+
+  it "names both the update and snippet forms in the usage hint copy" do
+    hint = I18n.t("pito.chat.footage.needs_ref")
+    expect(hint).to include("footage update <id> <hours>")
+    expect(hint).to include("footage snippet")
+  end
+
+  it "returns needs_ref when the subcommand is missing (only an id)" do
     result = handler_for(game.id.to_s).call
     expect(result).to be_a(Pito::Chat::Result::Error)
     expect(result.message_key).to eq("pito.chat.footage.needs_ref")
   end
 
-  it "returns needs_ref when 'game' filler is given but no id or path" do
-    result = handler_for("game").call
+  it "returns needs_ref when the hours value is missing" do
+    result = handler_for("update", game.id.to_s).call
     expect(result).to be_a(Pito::Chat::Result::Error)
     expect(result.message_key).to eq("pito.chat.footage.needs_ref")
+  end
+
+  # ── invalid hours → usage hint ───────────────────────────────────────────────
+
+  it "returns needs_ref for non-numeric hours" do
+    result = handler_for("update", game.id.to_s, "soon").call
+    expect(result).to be_a(Pito::Chat::Result::Error)
+    expect(result.message_key).to eq("pito.chat.footage.needs_ref")
+    expect(game.reload.footage_hours).to eq(BigDecimal(0))
+  end
+
+  it "returns needs_ref for negative hours" do
+    result = handler_for("update", game.id.to_s, "-3").call
+    expect(result).to be_a(Pito::Chat::Result::Error)
+    expect(result.message_key).to eq("pito.chat.footage.needs_ref")
+    expect(game.reload.footage_hours).to eq(BigDecimal(0))
   end
 end

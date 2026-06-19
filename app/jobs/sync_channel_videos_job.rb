@@ -5,7 +5,8 @@
 # For each scoped channel:
 #   1. `ChannelSync.perform_now(channel_id)` — channel fields
 #   2. `Channel::Youtube::StatsFetcher.call(channel)` — channel stats
-#   3. `NightlyVideoSyncJob.perform_now(channel_id)` — all video fields + stats
+#   3. `Pito::Sync::VideoLibrary#sync` — imports new/private uploads + reconciles
+#      all video fields + stats + deletions
 #
 # Counts total videos after sync, then broadcasts ONE Standard summary message.
 #
@@ -21,7 +22,7 @@ class SyncChannelVideosJob < ApplicationJob
     channels.each do |channel|
       sync_channel_fields(channel)
       sync_channel_stats(channel)
-      NightlyVideoSyncJob.perform_now(channel.id)
+      ::Pito::Sync::VideoLibrary.new(channel).sync
       total_count += channel.videos.reload.count
     end
 

@@ -120,12 +120,35 @@ RSpec.describe Pito::Video::DetailComponent do
     end
   end
 
-  describe "KV table (left column)" do
-    it "renders a grid KV table without the title (title moved to the right column)" do
+  describe "KV table (right column, after the description)" do
+    it "renders the grid KV table in the right column (moved from the left)" do
       node = render_inline(described_class.new(video: video))
-      grid = node.css(".pito-video-detail__left div.grid.grid-cols-\\[max-content_1fr\\]").first
+      expect(node.css(".pito-video-detail__left div.grid.grid-cols-\\[max-content_1fr\\]")).to be_empty
+      grid = node.css(".pito-video-detail__right div.grid.grid-cols-\\[max-content_1fr\\]").first
       expect(grid).not_to be_nil
       expect(grid.text).not_to include("Title")
+    end
+
+    it "renders a hairline between the description and the KV table" do
+      node  = render_inline(described_class.new(video: video))
+      right = node.css(".pito-video-detail__right").first
+      expect(right.css("div.pito-detail-hairline").first).not_to be_nil
+    end
+  end
+
+  describe "ID and YouTube ID rows" do
+    it "renders the internal db id, #-prefixed" do
+      node = render_inline(described_class.new(video: video))
+      grid = node.css(".pito-video-detail__right div.grid.grid-cols-\\[max-content_1fr\\]").first
+      expect(grid.text).to include(I18n.t("pito.video.detail.id"))
+      expect(grid.text).to include("##{video.id}")
+    end
+
+    it "renders the YouTube id from youtube_video_id" do
+      node = render_inline(described_class.new(video: video))
+      grid = node.css(".pito-video-detail__right div.grid.grid-cols-\\[max-content_1fr\\]").first
+      expect(grid.text).to include(I18n.t("pito.video.detail.youtube_id"))
+      expect(grid.text).to include(video.youtube_video_id)
     end
   end
 
@@ -146,12 +169,23 @@ RSpec.describe Pito::Video::DetailComponent do
   end
 
   describe "stats (one row)" do
-    it "renders views/likes/comments on one line with · separators" do
+    it "renders the v/L/C abbreviated stats on one line with · separators" do
       node  = render_inline(described_class.new(video: video))
       stats = node.css(".pito-video-detail__stats").first
       expect(stats).not_to be_nil
       expect(stats.text).to include("·")
-      expect(stats.text).to include("Views")
+      expect(stats.text).to include(I18n.t("pito.video.detail.views_abbr"))
+      expect(stats.text).to include(I18n.t("pito.video.detail.likes_abbr"))
+      expect(stats.text).to include(I18n.t("pito.video.detail.comments_abbr"))
+    end
+  end
+
+  describe "stats legend" do
+    it "renders the v/L/C legend line below the stats" do
+      node   = render_inline(described_class.new(video: video))
+      legend = node.css(".pito-video-detail__legend").first
+      expect(legend).not_to be_nil
+      expect(legend.text).to eq(Pito::Copy.render("pito.copy.videos.stats_legend"))
     end
   end
 

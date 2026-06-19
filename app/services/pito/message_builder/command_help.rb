@@ -30,13 +30,16 @@ module Pito
         show:     %i[game video],
         delete:   %i[game video],
         reindex:  %i[game video],
-        footage:  %i[game],
+        footage:  %i[update snippet],
         link:     %i[game video],
         unlink:   %i[game video],
         publish:  %i[video],
         unlist:   %i[video],
         schedule: %i[video],
-        import:   %i[videos game],
+        platform: %i[game],
+        # `import` is canonically the IGDB game import; `import videos` is a
+        # de-emphasized alias of `sync videos`, listed last as an alias note.
+        import:   %i[game videos],
         sync:     %i[videos channels]
       }.freeze
 

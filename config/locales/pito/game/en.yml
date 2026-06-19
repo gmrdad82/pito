@@ -7,6 +7,7 @@ en:
         steam: "Steam"
       detail:
         title: "Title"
+        id: "ID"
         developer: "Developer"
         publisher: "Publisher"
         release: "Release"

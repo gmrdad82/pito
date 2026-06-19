@@ -78,7 +78,7 @@ module Pito
       end
 
       def footage_hours
-        @footage_hours ||= @game.footages.sum(:duration_seconds).to_i / 3600
+        @game.footage_hours
       end
 
       # The score bar and the TTB bar share one space-padded label width so their

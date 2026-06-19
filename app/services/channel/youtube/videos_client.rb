@@ -176,12 +176,21 @@ class Channel
       def build_status_object(hash)
         Google::Apis::YoutubeV3::VideoStatus.new(
           privacy_status:               hash[:privacy_status],
-          publish_at:                   hash[:publish_at],
+          publish_at:                   youtube_rfc3339(hash[:publish_at]),
           self_declared_made_for_kids:  hash[:self_declared_made_for_kids],
           embeddable:                   hash[:embeddable],
           public_stats_viewable:        hash[:public_stats_viewable],
           license:                      hash[:license]
         )
+      end
+
+      # YouTube requires publishAt as an RFC3339 timestamp. A local Time /
+      # TimeWithZone serializes via #to_s ("2026-06-19 03:10:10 +0200"), which
+      # YouTube rejects as invalidPublishAt — so coerce Times to UTC RFC3339
+      # ("2026-06-19T01:10:10Z"). Strings (already RFC3339, e.g. from a fresh API
+      # snapshot) and nil pass through unchanged.
+      def youtube_rfc3339(value)
+        value.respond_to?(:utc) ? value.utc.iso8601 : value
       end
 
       def perform(endpoint: ENDPOINT, http_method: HTTP_METHOD, label: "videos.update")
