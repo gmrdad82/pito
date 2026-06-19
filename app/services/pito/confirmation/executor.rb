@@ -50,8 +50,6 @@ module Pito
             confirm_sync_channel(payload)
           when "sync_channel_videos"
             confirm_sync_channel_videos(payload)
-          when "import_videos"
-            confirm_import_videos(payload)
           else
             Pito::Copy.render("pito.copy.confirmation.confirmed")
           end
@@ -169,54 +167,62 @@ module Pito
         end
 
         # ── sync_videos ────────────────────────────────────────────────────────────
-        # Enqueues SyncVideosJob for the resolved channel scope.
-        # Returns a present-tense queued ack; the async job emits the done summary
-        # with the real count once it finishes.
+        # Whole-channel form fans out ONE SyncVideosJob per channel (isolated; one
+        # summary each). Targeted (`video_ids`) stays a single cross-channel job.
+        # Returns a present-tense queued ack; each async job emits its own summary.
         def confirm_sync_videos(payload)
           payload         = payload.with_indifferent_access
           scope_label     = payload[:scope_label].to_s
-          channel_ids     = Array(payload[:channel_ids])
           video_ids       = Array(payload[:video_ids])
           conversation_id = payload[:conversation_id].presence
-          SyncVideosJob.perform_later(channel_ids, scope_label, conversation_id: conversation_id, video_ids: video_ids)
+
+          if video_ids.any?
+            SyncVideosJob.perform_later(Array(payload[:channel_ids]), scope_label, conversation_id: conversation_id, video_ids: video_ids)
+          else
+            fan_out_channels(payload[:channel_ids]) do |channel|
+              SyncVideosJob.perform_later([ channel.id ], channel.at_handle, conversation_id: conversation_id)
+            end
+          end
+
           Pito::Copy.render("pito.copy.sync.videos_queued", { scope: scope_label })
         end
 
         # ── sync_channel ───────────────────────────────────────────────────────────
-        # Enqueues SyncChannelJob for the resolved channel scope.
+        # Fans out one SyncChannelJob PER channel (isolated; one output each).
         def confirm_sync_channel(payload)
           payload         = payload.with_indifferent_access
           scope_label     = payload[:scope_label].to_s
-          channel_ids     = Array(payload[:channel_ids])
           conversation_id = payload[:conversation_id].presence
-          SyncChannelJob.perform_later(channel_ids, scope_label, conversation_id: conversation_id)
+          fan_out_channels(payload[:channel_ids]) do |channel|
+            SyncChannelJob.perform_later([ channel.id ], channel.at_handle, conversation_id: conversation_id)
+          end
           Pito::Copy.render("pito.copy.sync.channel_queued", { scope: scope_label })
         end
 
         # ── sync_channel_videos ────────────────────────────────────────────────────
-        # Enqueues SyncChannelVideosJob for the resolved channel scope.
+        # Fans out one SyncChannelVideosJob PER channel (isolated; one output each).
         def confirm_sync_channel_videos(payload)
           payload         = payload.with_indifferent_access
           scope_label     = payload[:scope_label].to_s
-          channel_ids     = Array(payload[:channel_ids])
           conversation_id = payload[:conversation_id].presence
-          SyncChannelVideosJob.perform_later(channel_ids, scope_label, conversation_id: conversation_id)
+          fan_out_channels(payload[:channel_ids]) do |channel|
+            SyncChannelVideosJob.perform_later([ channel.id ], channel.at_handle, conversation_id: conversation_id)
+          end
           Pito::Copy.render("pito.copy.sync.channel_videos_queued", { scope: scope_label })
         end
 
-        # ── import_videos ──────────────────────────────────────────────────────────
-        # `import videos` is an alias for `sync videos`: it enqueues the SAME
-        # unified SyncVideosJob (whole-channel sync). Kept for back-compat with any
-        # pending "import_videos" confirmation payloads; the live path now routes
-        # through `sync_videos` (see Pito::Chat::Handlers::Import).
-        def confirm_import_videos(payload)
-          payload         = payload.with_indifferent_access
-          scope_label     = payload[:scope_label].to_s
-          channel_ids     = Array(payload[:channel_ids])
-          video_ids       = Array(payload[:video_ids])
-          conversation_id = payload[:conversation_id].presence
-          SyncVideosJob.perform_later(channel_ids, scope_label, conversation_id: conversation_id, video_ids: video_ids)
-          Pito::Copy.render("pito.copy.import_videos.queued", { scope: scope_label })
+        # Resolve a sync scope (`channel_ids` empty = all connected channels) to
+        # Channel records and yield each, so callers enqueue one isolated
+        # per-channel job apiece. Mirrors the jobs' own scope resolution.
+        def fan_out_channels(channel_ids)
+          ids = Array(channel_ids).map(&:to_i).select(&:positive?)
+          scope =
+            if ids.empty?
+              ::Channel.joins(:youtube_connection).order(:title)
+            else
+              ::Channel.where(id: ids).order(:title)
+            end
+          scope.each { |channel| yield channel }
         end
 
         def confirm_disconnect(payload)
