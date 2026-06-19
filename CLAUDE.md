@@ -110,7 +110,7 @@ Cross-cutting concerns live under `Pito::*`; each domain owns its own data-sourc
 integrations. **`::Game` (top-level domain) and `Pito::Game::*` (cross-cutting
 helpers) are distinct — never collapse one into the other.** The domain layer is
 singular (`Channel::*`, `Video::*`, `Game::*`, `Footage::*`). The
-canonical-namespace split *is* the architecture, not redundancy — don't
+canonical-namespace split _is_ the architecture, not redundancy — don't
 "simplify" `Pito::Foo` into `Foo` or inline a service to "remove a layer".
 
 ---
@@ -146,7 +146,7 @@ Defaults for writing stack code — follow these. Deeper rationale lives in
 - **Security.** Auth is TOTP-only via the chatbox (`/authenticate <code>`) — no
   login forms. Timing-safe token compares, strong params, parameterized queries,
   `Open3.capture3` with array args (never `system("… #{x}")`). `bin/brakeman -q
-  -w2` and `bundle exec bundler-audit check --update` on relevant diffs; report
+-w2` and `bundle exec bundler-audit check --update` on relevant diffs; report
   new findings, don't auto-suppress.
 
 ## Design system

@@ -2,23 +2,23 @@
 
 ## Routes
 
-| Path                          | Controller#action                            | Description                                                  |
-| ----------------------------- | -------------------------------------------- | ----------------------------------------------------------- |
-| `GET /`                       | `start_screens#show`                         | Start screen — centered chatbox, ASCII logo, tip line.      |
-| `POST /chat`                  | `chat#create`                                | Submit a message; usually `head :no_content` (async).       |
-| `GET /chat/:uuid`             | `conversations#show`                         | Conversation view — scrollback + chatbox.                   |
-| `PATCH /chat/:uuid`           | `conversations#update`                       | Conversation mutation (e.g. rename).                        |
-| `DELETE /chat/:uuid`          | `conversations#destroy`                      | Delete a conversation.                                      |
-| `GET /resume`                 | `conversations#resume`                       | Resume the latest conversation.                             |
-| `POST /suggestions`           | `suggestions#create`                         | Chatbox command/handle suggestions (JSON).                  |
-| `POST /games/search`          | `games/search#create`                        | IGDB game search for the import sidebar (JSON).             |
-| `POST /games/import`          | `games/import#create`                        | Enqueue `GameImportJob`; `204`.                            |
-| `POST /channels/visit_consume`| `channels/visits#consume`                    | Mark a channel-visit event consumed.                       |
-| `GET /notifications`          | `notifications#index`                        | Notifications list.                                        |
-| `PATCH /notifications/:id`    | `notifications#update`                        | Mark a notification read.                                  |
-| `PATCH /settings/theme`       | `settings#theme`                             | Persist the active theme.                                  |
-| `match /auth/youtube/callback`| `youtube_connections/oauth_callbacks#create` | Google OAuth callback; imports channels.                   |
-| `GET /auth/failure`           | `youtube_connections/oauth_callbacks#failure`| OAuth failure landing.                                     |
+| Path                           | Controller#action                             | Description                                            |
+| ------------------------------ | --------------------------------------------- | ------------------------------------------------------ |
+| `GET /`                        | `start_screens#show`                          | Start screen — centered chatbox, ASCII logo, tip line. |
+| `POST /chat`                   | `chat#create`                                 | Submit a message; usually `head :no_content` (async).  |
+| `GET /chat/:uuid`              | `conversations#show`                          | Conversation view — scrollback + chatbox.              |
+| `PATCH /chat/:uuid`            | `conversations#update`                        | Conversation mutation (e.g. rename).                   |
+| `DELETE /chat/:uuid`           | `conversations#destroy`                       | Delete a conversation.                                 |
+| `GET /resume`                  | `conversations#resume`                        | Resume the latest conversation.                        |
+| `POST /suggestions`            | `suggestions#create`                          | Chatbox command/handle suggestions (JSON).             |
+| `POST /games/search`           | `games/search#create`                         | IGDB game search for the import sidebar (JSON).        |
+| `POST /games/import`           | `games/import#create`                         | Enqueue `GameImportJob`; `204`.                        |
+| `POST /channels/visit_consume` | `channels/visits#consume`                     | Mark a channel-visit event consumed.                   |
+| `GET /notifications`           | `notifications#index`                         | Notifications list.                                    |
+| `PATCH /notifications/:id`     | `notifications#update`                        | Mark a notification read.                              |
+| `PATCH /settings/theme`        | `settings#theme`                              | Persist the active theme.                              |
+| `match /auth/youtube/callback` | `youtube_connections/oauth_callbacks#create`  | Google OAuth callback; imports channels.               |
+| `GET /auth/failure`            | `youtube_connections/oauth_callbacks#failure` | OAuth failure landing.                                 |
 
 Auth is TOTP-only via the chatbox (`/authenticate <code>`); there are no
 login/connect form routes — `/connect`, `/new`, `/resume`, `/themes`, etc. are
@@ -122,18 +122,18 @@ matching ViewComponent, and broadcasts a Turbo Stream `append` to
 
 ### Event kinds
 
-| Kind                     | Payload keys                                              |
-| ------------------------ | -------------------------------------------------------- |
-| `echo`                   | `text:`                                                  |
-| `thinking`               | `dictionary:, word_index:, resolved:, elapsed_seconds:`  |
+| Kind                     | Payload keys                                                                                                                    |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
+| `echo`                   | `text:`                                                                                                                         |
+| `thinking`               | `dictionary:, word_index:, resolved:, elapsed_seconds:`                                                                         |
 | `system`                 | `body:` / `message_key:, message_args:` / `text:`, plus optional `html:, table_rows:, sections:, info_lines:, reply_handle:, …` |
-| `enhanced`               | same as `system` (Pito-accent 2nd+ segment)              |
-| `system_follow_up`       | same as `system` (rendered as a follow-up reply)         |
-| `enhanced_follow_up`     | same as `system` (rendered as a follow-up reply)         |
-| `confirmation`           | `body:, reply_handle:, processing:, resolved:, outcome:, outcome_text:` |
-| `confirmation_follow_up` | `outcome:, outcome_text:`                                |
-| `error`                  | `message_key:, message_args:` (or already-resolved `text:`) |
-| `theme_diff`             | `phase:, granularity:, from_text:, previewed_slug:, sections:, body:, reply_handle:` |
+| `enhanced`               | same as `system` (Pito-accent 2nd+ segment)                                                                                     |
+| `system_follow_up`       | same as `system` (rendered as a follow-up reply)                                                                                |
+| `enhanced_follow_up`     | same as `system` (rendered as a follow-up reply)                                                                                |
+| `confirmation`           | `body:, reply_handle:, processing:, resolved:, outcome:, outcome_text:`                                                         |
+| `confirmation_follow_up` | `outcome:, outcome_text:`                                                                                                       |
+| `error`                  | `message_key:, message_args:` (or already-resolved `text:`)                                                                     |
+| `theme_diff`             | `phase:, granularity:, from_text:, previewed_slug:, sections:, body:, reply_handle:`                                            |
 
 `Pito::Stream::EventRenderer.component_for(event)` is the single source of truth
 for kind → component lookup (`COMPONENT_CLASSES`).

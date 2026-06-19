@@ -11,8 +11,8 @@ own the number, and Pito just stores and displays it.
 
 Footage lives in one column on `games`:
 
-| Column          | Type                       | Meaning                                                  |
-| --------------- | -------------------------- | -------------------------------------------------------- |
+| Column          | Type                                         | Meaning                                               |
+| --------------- | -------------------------------------------- | ----------------------------------------------------- |
 | `footage_hours` | `decimal(6,1)`, default `0.0`, `null: false` | Total recorded hours for the game, in 0.5-hour steps. |
 
 That's it. No `Footage` model, no `[game_id, filename]` rows. The value is a

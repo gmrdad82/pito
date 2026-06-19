@@ -57,13 +57,13 @@ hover theatrics, color and spacing (never size) for hierarchy.
 
 Every theme defines this exact set of CSS custom properties:
 
-| Group       | Vars                                                          |
-| ----------- | ------------------------------------------------------------ |
-| Backgrounds | `--bg-root`, `--bg-surface`, `--bg-elevated`                 |
-| Borders     | `--border-default`, `--border-faded`                         |
-| Foreground  | `--fg-default`, `--fg-dim`, `--fg-faded`                     |
+| Group       | Vars                                                                                                                        |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------- |
+| Backgrounds | `--bg-root`, `--bg-surface`, `--bg-elevated`                                                                                |
+| Borders     | `--border-default`, `--border-faded`                                                                                        |
+| Foreground  | `--fg-default`, `--fg-dim`, `--fg-faded`                                                                                    |
 | Accents     | `--accent-purple`, `--accent-blue`, `--accent-cyan`, `--accent-green`, `--accent-yellow`, `--accent-orange`, `--accent-red` |
-| Brand       | `--brand-pito` — **`#5170ff` ("pito blue"), constant across all themes** |
+| Brand       | `--brand-pito` — **`#5170ff` ("pito blue"), constant across all themes**                                                    |
 
 `--brand-pito` is the one fixed color: the same `#5170ff` in every block. It
 drives the brand accent (the `.pito-shimmer` gradient sweeps
