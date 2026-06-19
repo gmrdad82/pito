@@ -93,8 +93,18 @@ module Pito
         # Sensitive keys whose values are masked (***) in the echo.
         MASKED_KEYS = %w[client_id client_secret api_key].freeze
 
+        # The timezone provider stores a single value (an IANA zone) rather than
+        # key/value credentials, so it has its own getter/setter path.
+        TIMEZONE_PROVIDER = "timezone"
+
         def call
           return show_help if help?
+
+          # Time zone takes a major-city name (resolved to an IANA zone). Forms:
+          #   /config timezone=Madrid   (kv) — single-word cities
+          #   /config timezone Madrid   (bare)
+          #   /config timezone          (getter — shows the current zone)
+          return handle_timezone if timezone_command?
 
           provider = invocation.args.first.to_s.downcase
 
@@ -242,6 +252,69 @@ module Pito
           when "on",  "true",  "enable",  "enabled"  then true
           when "off", "false", "disable", "disabled" then false
           end
+        end
+
+        # True when the invocation targets the timezone provider, in either the
+        # kv form (`timezone=Madrid`) or the bare form (`timezone [City]`).
+        def timezone_command?
+          invocation.kwargs.key?(:timezone) ||
+            invocation.args.first.to_s.downcase == TIMEZONE_PROVIDER
+        end
+
+        # Handle /config timezone[=<City>]. No city → show the current zone.
+        def handle_timezone
+          city = timezone_value
+          return show_timezone if city.blank?
+
+          iana = resolve_timezone(city)
+          if iana.nil?
+            return Pito::Slash::Result::Error.new(
+              message_key:  "pito.slash.config.errors.unknown_timezone",
+              message_args: { city: city }
+            )
+          end
+
+          AppSetting.timezone = iana
+
+          Pito::Slash::Result::Ok.new(events: [
+            {
+              kind:    "system",
+              payload: {
+                text: Pito::Copy.render(
+                  "pito.slash.config.timezone.updated",
+                  { zone: iana }
+                )
+              }
+            }
+          ])
+        end
+
+        # The city the user supplied, from whichever form was used. nil/blank
+        # for the bare getter `/config timezone`.
+        def timezone_value
+          return invocation.kwargs[:timezone].to_s.strip if invocation.kwargs.key?(:timezone)
+
+          invocation.args[1].to_s.strip
+        end
+
+        # Resolves a major-city name (or IANA identifier) to its IANA identifier,
+        # or nil when ActiveSupport::TimeZone cannot place it.
+        def resolve_timezone(city)
+          ActiveSupport::TimeZone[city.to_s.strip]&.tzinfo&.identifier
+        end
+
+        def show_timezone
+          Pito::Slash::Result::Ok.new(events: [
+            {
+              kind:    "system",
+              payload: {
+                text: Pito::Copy.render(
+                  "pito.slash.config.timezone.status",
+                  { zone: AppSetting.timezone }
+                )
+              }
+            }
+          ])
         end
 
         def show_status(provider)

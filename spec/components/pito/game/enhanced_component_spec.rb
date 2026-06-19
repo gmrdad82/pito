@@ -121,7 +121,7 @@ RSpec.describe Pito::Game::EnhancedComponent do
 
     before do
       allow(Pito::Recommendations).to receive(:channels_for).and_return([])
-      allow(Pito::Recommendations).to receive(:similar_games).with(game, limit: 5)
+      allow(Pito::Recommendations).to receive(:similar_games).with(game, limit: 6)
                                                              .and_return(similar_results)
     end
 

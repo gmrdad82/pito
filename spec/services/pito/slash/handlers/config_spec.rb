@@ -226,6 +226,50 @@ RSpec.describe Pito::Slash::Handlers::Config, type: :service do
     end
   end
 
+  # ── Time zone path ──────────────────────────────────────────────────────────
+
+  describe "#call — /config timezone=<City> (kv setter)" do
+    it "resolves a major city to its IANA zone and persists it" do
+      result = build_handler(kwargs: { timezone: "Madrid" }, raw: "/config timezone=Madrid").call
+      expect(result).to be_a(Pito::Slash::Result::Ok)
+      expect(AppSetting.timezone).to eq("Europe/Madrid")
+      expect(result.events.first[:payload][:text]).to include("Europe/Madrid")
+    end
+
+    it "returns a witty error for an unknown city and persists nothing" do
+      AppSetting.where(key: AppSetting::TIMEZONE_KEY).delete_all
+      result = build_handler(kwargs: { timezone: "Nowhereville" }, raw: "/config timezone=Nowhereville").call
+      expect(result).to be_a(Pito::Slash::Result::Error)
+      expect(result.message_key).to eq("pito.slash.config.errors.unknown_timezone")
+      expect(AppSetting.get(AppSetting::TIMEZONE_KEY)).to be_nil
+    end
+  end
+
+  describe "#call — /config timezone <City> (bare setter)" do
+    it "resolves the city from the positional argument" do
+      result = build_handler(args: [ "timezone", "Tokyo" ], raw: "/config timezone Tokyo").call
+      expect(result).to be_a(Pito::Slash::Result::Ok)
+      expect(AppSetting.timezone).to eq("Asia/Tokyo")
+    end
+  end
+
+  describe "#call — /config timezone (getter)" do
+    it "shows the currently configured zone" do
+      AppSetting.timezone = "London"
+      result = build_handler(args: [ "timezone" ], raw: "/config timezone").call
+      expect(result).to be_a(Pito::Slash::Result::Ok)
+      expect(result.events.first[:payload][:text]).to include("Europe/London")
+    end
+  end
+
+  describe "#call — /config timezone --help" do
+    it "returns a man-style usage line" do
+      result = build_handler(args: [ "timezone" ], raw: "/config timezone --help").call
+      expect(result).to be_a(Pito::Slash::Result::Ok)
+      expect(result.events.first[:payload][:text]).to include("/config timezone")
+    end
+  end
+
   describe "echo masking in ChatController" do
     it "masks client_id and client_secret but shows redirect_uri" do
       ctrl = ChatController.new

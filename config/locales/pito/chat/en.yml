@@ -40,8 +40,8 @@ en:
       schedule:
         descriptions:
           schedule: "Schedule a video for future publishing"
-        needs_ref: "Usage: `schedule video <id> DD-MM-YYYY` or `schedule video <id> DD-MM-YYYY HH:MM`."
-        bad_when: "Couldn't parse that date. Use `DD-MM-YYYY` or `DD-MM-YYYY HH:MM` (local time)."
+        needs_ref: "Usage: `schedule video <id> <when>` — e.g. `in 2 hours`, `in 3 days`, `tomorrow`, `tomorrow at noon`, `at 2pm`, `at 23`, `for DD.MM.YYYY HH:MM`, or `DD-MM-YYYY HH:MM`."
+        bad_when: "Couldn't parse that time. Try `in 30m`, `in 2 hours`, `in 3 days`, `tomorrow`, `tomorrow at noon`, `at 2pm`, `at 23`, `for DD.MM.YYYY HH:MM`, or `DD-MM-YYYY HH:MM` (local time)."
         too_soon: "YouTube requires a publish time at least 30 minutes in the future. Pick a later time."
       sync:
         descriptions:

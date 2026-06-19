@@ -7,22 +7,20 @@
 #
 # == When parsing
 #
-# The lexer splits `15-06-2026` into [:number "15"], [:unknown "-"],
-# [:number "06"], [:unknown "-"], [:number "2026"] — five raw tokens.
-# For `15-06-2026 14:30` there are eight tokens (the HH:MM part is
-# [:number "14"], [:colon ":"], [:number "30"]).
+# The video-id reference is the LEADING token(s); the `<when>` phrase is the
+# trailing one. Parsing of the `<when>` phrase is delegated to
+# `Pito::Schedule::TimeParser`, which recognises both absolute dates
+# (`DD-MM-YYYY [HH:MM]`, `.` or `-` separators, optional `for` prefix) and
+# natural-language forms (`in 30m`, `in 2 hours`, `in 3 days`, `tomorrow`,
+# `tomorrow at noon`, `at 2pm`, `at 23`).
 #
-# Supported forms (detected by tail-pattern matching on the raw body_tokens):
-#
-#   DD-MM-YYYY HH:MM  →  8 tail tokens: N - N - N N : N (where the two date
-#                         and time groups are separated by preceded_by_space)
-#   DD-MM-YYYY         →  5 tail tokens: N - N - N
-#
-# Timezone: parsed times are interpreted in the app local zone (Time.zone).
+# Timezone: parsed times are interpreted in the app local zone (Time.zone)
+# for named/absolute forms, and relative to Time.current for `in …` forms.
 # UTC conversion happens only at the YouTube API boundary.
 # Invalid calendrical values (e.g. month 99) → Result::Error.
 # Publish times in the past → witty Result::Ok error event.
-# No new gems required — uses Time.zone.local directly.
+# Times under 30 minutes away → too_soon error.
+# No new gems required.
 module Pito
   module Chat
     module Handlers
@@ -73,86 +71,17 @@ module Pito
 
         private
 
-        # Detect and extract the <when> date(time) from the TAIL of body tokens.
+        # Extract the <when> from the body tokens via Pito::Schedule::TimeParser.
         # Returns [:ok, Time, ref_tokens] or [:err, Result::Error].
         #
-        # Detection patterns (matched against tail token types, where type is :number/:unknown/:colon):
-        #   datetime (8 tail): N - N - N  N : N   (space before the HH part)
-        #   date     (5 tail): N - N - N
-        #
-        # Format: DD-MM-YYYY for the date part (day first).
+        # The ref is the LEADING token(s); the <when> is the trailing phrase.
+        # See Pito::Schedule::TimeParser for the supported <when> grammar.
         def extract_when(tokens)
-          # Try datetime pattern: tail [N,"-",N,"-",N, N,":",N]
-          # with the 6th token having preceded_by_space=true (date vs time separator)
-          # Positions: [0]=DD, [1]=-, [2]=MM, [3]=-, [4]=YYYY, [5]=HH, [6]=:, [7]=MM
-          if tokens.length >= 8
-            tail = tokens[-8..]
-            if datetime_tail?(tail)
-              dy, mo, yr, hh, mm = tail[0].value.to_i, tail[2].value.to_i,
-                                   tail[4].value.to_i, tail[5].value.to_i,
-                                   tail[7].value.to_i
-              t = safe_local(yr, mo, dy, hh, mm)
-              return [ :ok, t, tokens[0..-9] ] if t
-            end
-          end
+          result = Pito::Schedule::TimeParser.call(tokens)
+          return [ :ok, result.time, result.ref_tokens ] if result
 
-          # Try date-only pattern: tail [N,"-",N,"-",N]
-          # Positions: [0]=DD, [1]=-, [2]=MM, [3]=-, [4]=YYYY
-          if tokens.length >= 5
-            tail = tokens[-5..]
-            if date_tail?(tail)
-              dy, mo, yr = tail[0].value.to_i, tail[2].value.to_i, tail[4].value.to_i
-              t = safe_local(yr, mo, dy, 0, 0)
-              return [ :ok, t, tokens[0..-6] ] if t
-            end
-          end
-
-          # No recognisable date pattern. If we have more than one token remaining,
-          # assume the user intended a date but typed it wrong → bad_when.
-          # With just one token there's no way to know ref vs when → bad_when too
-          # (better to show the usage hint for <when> than the generic needs_ref).
+          # No recognisable <when>. Surface the usage hint for <when>.
           [ :err, Pito::Chat::Result::Error.new(message_key: "pito.chat.schedule.bad_when", message_args: {}) ]
-        end
-
-        # 8-token datetime tail: N - N - N (preceded_by_space) N : N
-        def datetime_tail?(tail)
-          number_token?(tail[0]) &&
-            dash_token?(tail[1]) &&
-            number_token?(tail[2]) &&
-            dash_token?(tail[3]) &&
-            number_token?(tail[4]) &&
-            number_token?(tail[5]) && tail[5].preceded_by_space &&
-            colon_token?(tail[6]) &&
-            number_token?(tail[7])
-        end
-
-        # 5-token date tail: N - N - N
-        def date_tail?(tail)
-          number_token?(tail[0]) &&
-            dash_token?(tail[1]) &&
-            number_token?(tail[2]) &&
-            dash_token?(tail[3]) &&
-            number_token?(tail[4])
-        end
-
-        def number_token?(t)
-          t.type == :number
-        end
-
-        def dash_token?(t)
-          t.type == :unknown && t.value == "-"
-        end
-
-        def colon_token?(t)
-          t.type == :colon
-        end
-
-        # Build a local-zone Time safely; return nil for invalid calendar values.
-        # The result is a TimeWithZone in Time.zone (app local zone).
-        def safe_local(yr, mo, dy, hh, mm)
-          Time.zone.local(yr, mo, dy, hh, mm)
-        rescue ArgumentError
-          nil
         end
 
         def resolve_video(ref)

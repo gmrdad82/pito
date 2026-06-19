@@ -93,4 +93,34 @@ RSpec.describe AppSetting, type: :model do
       expect(AppSetting.get(AppSetting::THEME_KEY)).to eq("tokyo-night")
     end
   end
+
+  describe ".timezone" do
+    it "returns UTC by default (no row stored)" do
+      AppSetting.where(key: AppSetting::TIMEZONE_KEY).delete_all
+      expect(AppSetting.timezone).to eq("UTC")
+    end
+
+    it "returns the stored IANA identifier after assignment" do
+      AppSetting.timezone = "Madrid"
+      expect(AppSetting.timezone).to eq("Europe/Madrid")
+    end
+  end
+
+  describe ".timezone=" do
+    it "normalizes a major-city name to its IANA identifier" do
+      AppSetting.timezone = "Tokyo"
+      expect(AppSetting.get(AppSetting::TIMEZONE_KEY)).to eq("Asia/Tokyo")
+    end
+
+    it "accepts a raw IANA identifier" do
+      AppSetting.timezone = "Europe/Madrid"
+      expect(AppSetting.get(AppSetting::TIMEZONE_KEY)).to eq("Europe/Madrid")
+    end
+
+    it "raises ArgumentError for an unknown zone and persists nothing" do
+      AppSetting.where(key: AppSetting::TIMEZONE_KEY).delete_all
+      expect { AppSetting.timezone = "Nowhereville" }.to raise_error(ArgumentError)
+      expect(AppSetting.get(AppSetting::TIMEZONE_KEY)).to be_nil
+    end
+  end
 end

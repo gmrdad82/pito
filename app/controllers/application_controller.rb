@@ -5,8 +5,8 @@ class ApplicationController < ActionController::Base
   include Sessions::AuthConcern
 
   # UTC-storage / user-tz-render is the app-wide contract. All requests
-  # render times in the owner's time zone (currently Etc/UTC, configurable
-  # via AppSetting in the future).
+  # render times in the owner's configured time zone (AppSetting.timezone,
+  # default UTC). ActiveRecord keeps storing UTC internally.
   before_action :set_user_time_zone
 
   rescue_from ActiveRecord::RecordNotFound, with: :render_not_found
@@ -30,6 +30,9 @@ class ApplicationController < ActionController::Base
   end
 
   def set_user_time_zone
+    Time.zone = AppSetting.timezone
+  rescue StandardError
+    # Never let a missing/unreadable setting break the request — fall back to UTC.
     Time.zone = "Etc/UTC"
   end
 
