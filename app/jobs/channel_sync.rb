@@ -1,4 +1,4 @@
-# Phase 7.5 §11a — replaces the Path A2 placeholder no-op with the real
+# Replaces the Path A2 placeholder no-op with the real
 # fetch + persist path. One call to `Channel::Youtube::Client#fetch_channel`,
 # one transaction to cache the normalized hash + stamp `last_synced_at`.
 #

@@ -2,7 +2,7 @@
 
 require "rails_helper"
 
-# P27 — /connect OAuth + multi-channel specs
+# /connect OAuth + multi-channel specs
 #
 # Covers:
 #   - /connect error when credentials not configured
@@ -12,7 +12,7 @@ require "rails_helper"
 #   - Callback handles partial grant (missing scopes)
 #   - /config google getter and setter (echo masking verified in config_spec)
 
-RSpec.describe "P27 /connect + OAuth callback", type: :request do
+RSpec.describe "/connect + OAuth callback", type: :request do
   let(:conversation) { Conversation.create! }
 
   def authenticate_via_totp
@@ -249,9 +249,9 @@ RSpec.describe "P27 /connect + OAuth callback", type: :request do
     end
   end
 
-  # ── P56 — /connect --help does NOT start OAuth ────────────────────────────
+  # ── /connect --help does NOT start OAuth ─────────────────────────────────
 
-  describe "POST /chat with /connect --help (P56)" do
+  describe "POST /chat with /connect --help" do
     before { authenticate_via_totp }
 
     it "returns 204 No Content (not a Turbo Stream navigate)" do

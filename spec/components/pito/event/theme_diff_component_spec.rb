@@ -161,7 +161,7 @@ RSpec.describe Pito::Event::ThemeDiffComponent do
     end
   end
 
-  # ── T15.3: follow-up handle in the single meta line (no usage/affordance line) ──
+  # ── follow-up handle in the single meta line (no usage/affordance line) ─────────
 
   describe "follow-up handle in the single meta line" do
     it "shows the #handle in preview phase (reply_handle present, not consumed)" do
@@ -186,7 +186,7 @@ RSpec.describe Pito::Event::ThemeDiffComponent do
     end
   end
 
-  # ── Quips via copy engine (T3.1) ─────────────────────────────────────────────
+  # ── Quips via copy engine ────────────────────────────────────────────────────
 
   describe "Pito::Themes::Quips.applied (delegates to Pito::Copy)" do
     it "returns a non-empty string containing the label" do

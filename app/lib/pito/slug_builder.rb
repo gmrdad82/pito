@@ -1,4 +1,4 @@
-# Phase 20 — friendly URLs.
+# Friendly URLs.
 #
 # Shared slug normalization used by `friendly_id` model declarations and
 # the slug-column backfill migrations. The result mirrors the gem's

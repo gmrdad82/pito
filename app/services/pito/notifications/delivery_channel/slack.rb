@@ -1,11 +1,11 @@
-# Phase 16 §1 → Phase 26 01b refactor. Slack webhook channel.
+# Slack webhook channel.
 #
 # Mirror of `Discord` — different webhook ENV var, different
 # `delivered_at_column`, different formatter target (Spec 02). Same
 # retry semantics: 2xx ok, 4xx (non-429) terminal,
 # 5xx / 429 / network transient.
 #
-# Phase 26 01b — `#webhook_url` now resolves the AR row first
+# `#webhook_url` now resolves the AR row first
 # (`NotificationDeliveryChannel.slack&.webhook_url`) and falls back to
 # `ENV["PITO_SLACK_WEBHOOK_URL"]` if no row exists yet. This lets the
 # Settings pane manage the URL without touching the environment, while
@@ -38,7 +38,7 @@ module Pito
         end
 
         def webhook_url
-          # Phase 26 01b — AR row first (operator-managed via Settings pane),
+          # AR row first (operator-managed via Settings pane),
           # ENV var as fallback (legacy installs). Either source yields a
           # plaintext URL — ARE decrypts the column on read.
           row_url = NotificationDeliveryChannel.slack&.webhook_url

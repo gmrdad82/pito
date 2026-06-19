@@ -1,4 +1,4 @@
-# Phase 16 §2 — Notification formatter.
+# Notification formatter.
 #
 # Template for the `youtube_reauth_needed` notification kind.
 #

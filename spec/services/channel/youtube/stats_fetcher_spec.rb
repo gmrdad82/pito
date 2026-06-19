@@ -40,7 +40,7 @@ RSpec.describe Channel::Youtube::StatsFetcher do
       expect(result[:view_count]).to eq(4_800_000)
     end
 
-    it "does not return watched_hours (dropped in P4)" do
+    it "does not return watched_hours (dropped)" do
       expect(result).not_to have_key(:watched_hours)
     end
 

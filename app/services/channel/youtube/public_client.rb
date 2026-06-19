@@ -1,12 +1,8 @@
-# Phase 7 — Step B (7b-youtube-client-and-audit.md). Skeleton of
-# the public-API-key client. Phase 8 finishes the method surface;
-# Phase 7 only establishes the seam so audit-table consumers
-# (Phase 11 observability) can rely on a stable schema.
+# Skeleton of the public-API-key client.
 #
-# Locked decision (7B) — public-key (unauthenticated) quota
-# tracking is deferred to Phase 8. `PublicClient` in Phase 7 has
-# no pre-call budget check; calls land in the audit table for
-# Phase 11 to consume. The budget value itself is Phase 8's call.
+# Public-key (unauthenticated) quota tracking is deferred.
+# `PublicClient` has no pre-call budget check; calls land in the
+# audit table for observability.
 require "google/apis/youtube_v3"
 require "google/apis/errors"
 
@@ -26,8 +22,7 @@ class Channel
       end
 
       # Smoke method — exercises the audit-row path without taking
-      # on the full surface of `Channel::Youtube::Client`. Phase 8 broadens
-      # this to mirror the Client API.
+      # on the full surface of `Channel::Youtube::Client`.
       def channels_list(ids:, parts: %i[snippet statistics])
         raise Channel::Youtube::NotConfiguredError, "youtube public_api_key is not set" unless configured?
 

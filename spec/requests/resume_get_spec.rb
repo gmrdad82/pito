@@ -2,7 +2,7 @@
 
 require "rails_helper"
 
-# P52 — GET /resume re-renders the conversations sidebar (used to restore the
+# GET /resume re-renders the conversations sidebar (used to restore the
 # panel after reload when localStorage says it was open).
 
 RSpec.describe "GET /resume", type: :request do

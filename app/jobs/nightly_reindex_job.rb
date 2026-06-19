@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# P14 — Stage 2 master: nightly reindex orchestrator, scheduled at 2:00 UTC.
+# Stage 2 master: nightly reindex orchestrator, scheduled at 2:00 UTC.
 #
 # Runs ≥1h after Stage 1 (`NightlySyncJob` at 1:00 UTC) so freshly synced
 # games and videos have time to land before we check/queue their embeddings.

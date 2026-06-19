@@ -91,7 +91,7 @@ RSpec.describe "POST /suggestions", type: :request do
     end
   end
 
-  describe "game-title ghost (T10.5)" do
+  describe "game-title ghost" do
     before { sign_in! }
 
     let!(:lies_of_p) { create(:game, title: "Lies of P") }

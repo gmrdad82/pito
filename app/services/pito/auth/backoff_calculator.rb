@@ -1,4 +1,4 @@
-# Phase 25 — 01g (LD-11). Exponential backoff calculator for the
+# Exponential backoff calculator for the
 # login throttle.
 #
 # Builds per-IP and per-account throttles via Rails.cache.

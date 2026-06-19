@@ -47,7 +47,7 @@ RSpec.describe GameImportJob, type: :job do
     )
 
     # Stub broadcast_import_step to capture sidebar step calls and avoid
-    # actual ActionCable broadcast (T16.8: steps go to sidebar, not chat).
+    # actual ActionCable broadcast (steps go to sidebar, not chat).
     allow_any_instance_of(Pito::Stream::Broadcaster).to receive(:broadcast_import_step) do |_broadcaster, step:, label:, done:|
       sidebar_steps << { step: step, label: label, done: done }
     end
@@ -68,7 +68,7 @@ RSpec.describe GameImportJob, type: :job do
       .not_to raise_error
   end
 
-  # ── T16.8: step broadcasts go to SIDEBAR (broadcast_import_step), NOT chat ──
+  # ── step broadcasts go to SIDEBAR (broadcast_import_step), NOT chat ──────────
 
   it "calls broadcast_import_step 9 times (pending+done for 1/3/4/5; done-only for 2)" do
     perform
@@ -95,7 +95,7 @@ RSpec.describe GameImportJob, type: :job do
     expect(step_events.count).to eq(0)
   end
 
-  # ── T16.9: exactly 2 messages go to the main chat ────────────────────────────
+  # ── exactly 2 messages go to the main chat ───────────────────────────────────
 
   it "streams a detail message event (html: true, after step 3)" do
     perform

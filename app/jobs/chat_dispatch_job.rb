@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# Async half of the chat dispatch pipeline (P23).
+# Async half of the chat dispatch pipeline.
 #
 # The controller handles the synchronous front-end of every non-auth command
 # (authenticated or not):
@@ -50,7 +50,7 @@ class ChatDispatchJob < ApplicationJob
     broadcaster.complete_turn(turn:)
   rescue StandardError => e
     # Surface the error as a visible event in the scrollback so the user isn't
-    # left staring at a spinning Braille indicator (P25).
+    # left staring at a spinning Braille indicator.
     turn = Turn.find_by(id: turn_id)
     return unless turn
 

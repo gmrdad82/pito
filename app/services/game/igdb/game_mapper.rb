@@ -1,4 +1,4 @@
-# Phase 14 §1 — IGDB JSON → local-row attribute hashes.
+# IGDB JSON → local-row attribute hashes.
 #
 # Stateless module. One method per resource type. The shape of every
 # IGDB payload follows Note 4's "Fields we pull from IGDB" table.

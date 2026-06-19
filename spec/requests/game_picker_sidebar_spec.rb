@@ -2,7 +2,7 @@
 
 require "rails_helper"
 
-# T10.10 — No-arg `show game` / `rm game` / `delete game` opens the games
+# No-arg `show game` / `rm game` / `delete game` opens the games
 # picker sidebar (Turbo Stream update to #pito-sidebar).  A command with a
 # title falls through to the async pipeline normally.
 

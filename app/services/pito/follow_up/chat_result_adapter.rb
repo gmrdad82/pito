@@ -2,8 +2,8 @@
 
 module Pito
   module FollowUp
-    # Adapts a verb handler's `Pito::Chat::Result` into a `Pito::FollowUp::Result`
-    # (Phase 18, T18.3). This is what lets ONE verb handler serve both entry
+    # Adapts a verb handler's `Pito::Chat::Result` into a `Pito::FollowUp::Result`.
+    # This is what lets ONE verb handler serve both entry
     # points: the follow-up dispatch runs the same handler and wraps its chat
     # result for the follow-up pipeline.
     #

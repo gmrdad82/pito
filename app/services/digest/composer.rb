@@ -1,4 +1,4 @@
-# Phase 26 — 01e. Daily digest composer.
+# Daily digest composer.
 #
 # Provider-agnostic aggregator for the last 24h of pito activity.
 # Returns a `Result` struct with one entry per section. Renderers
@@ -22,7 +22,7 @@
 #   - `notifications_open` — Unread Notifications older than 1 hour
 #     (excluding rows newer than 1h to avoid flapping). Capped at 10.
 #
-# Post-Phase-25 rollback. The `login_attempts` section is gone with
+# The `login_attempts` section is gone with
 # the LoginAttempt table.
 #
 # "All quiet" fallback: if every section is empty, the renderer

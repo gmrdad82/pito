@@ -10,7 +10,7 @@ module Pito
   #
   # The `.call` method is kept as a dummy for the import step-5 progress gate
   # in `GameImportJob` — it returns `true` unconditionally and must never be
-  # changed to do real work (P11 depends on it staying cheap and infallible).
+  # changed to do real work (it must stay cheap and infallible).
   #
   # ## similar_games filter layer
   #

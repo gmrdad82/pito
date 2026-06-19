@@ -1,4 +1,4 @@
-# Phase 14 §1 — IGDB API v4 HTTP client.
+# IGDB API v4 HTTP client.
 #
 # Wraps every IGDB endpoint pito uses. POST per-endpoint with an
 # Apicalypse string body. Two headers per request:
@@ -19,7 +19,7 @@ require "json"
 class Game
   module Igdb
     class Client
-      # Phase 14 §1 — error class hierarchy. Nested under `Game::Igdb::Client`
+      # Error class hierarchy. Nested under `Game::Igdb::Client`
       # so callers can `rescue Game::Igdb::Client::RateLimited`.
       class Error < StandardError; end
 
@@ -39,23 +39,21 @@ class Game
 
       BASE_URL = "https://api.igdb.com/v4".freeze
 
-      # Phase 14 audit F1 — bounded HTTP timeouts so a hung IGDB endpoint
-      # cannot wedge a Sidekiq worker indefinitely. Mirrors the pattern in
+      # Bounded HTTP timeouts so a hung IGDB endpoint cannot wedge a Sidekiq
+      # worker indefinitely. Mirrors the pattern in
       # `Channel::Youtube::ServiceFactory` (open/read/send) and
       # `NotificationDeliveryChannel#configure_http` (open/read/write/ssl).
-      # Values match the webhook-style 5s open / 10s read / 5s write tuning
-      # the audit landed elsewhere.
+      # Values match the webhook-style 5s open / 10s read / 5s write tuning.
       OPEN_TIMEOUT_SEC  = 5
       READ_TIMEOUT_SEC  = 10
       WRITE_TIMEOUT_SEC = 5
 
       # Steam = 1 per IGDB external-game enum docs
-      # (https://api-docs.igdb.com). GOG (5) and Epic (26) were dropped
-      # in the Phase 27 v2 spec 06 PC store collapse (2026-05-17) — the
-      # mapper no longer routes them onto local columns.
+      # (https://api-docs.igdb.com). GOG (5) and Epic (26) were dropped;
+      # the mapper no longer routes them onto local columns.
       EXTERNAL_GAME_CATEGORY_STEAM = 1
 
-      # Phase 14 §1 polish (2026-05-10) — IGDB `Game.category` enum.
+      # IGDB `Game.category` enum.
       # Values lifted from the IGDB v4 schema:
       #   0 main_game | 1 dlc_addon | 2 expansion | 3 bundle |
       #   4 standalone_expansion | 5 mod | 6 episode | 7 season |
@@ -156,7 +154,7 @@ class Game
           # Null-tolerant just in case IGDB ever ships a freshly
           # indexed row before `game_type` is populated.
           #
-          # 2026-06-07 — also filter `version_parent = null` (T16.7).
+          # 2026-06-07 — also filter `version_parent = null`.
           # IGDB populates `version_parent` on "edition" entries
           # (e.g. "Red Dead Redemption 2: Special Edition") pointing to
           # the parent game id. Filtering it null excludes these edition
@@ -237,7 +235,7 @@ class Game
         post("platforms", body)
       end
 
-      # Phase 27 §1a — paginate the full `/platforms` endpoint for
+      # Paginate the full `/platforms` endpoint for
       # `Platforms::SyncFromIgdb`. IGDB caps `limit` at 500 per request;
       # one full sync today is well under 250 rows so a single page is
       # the common case, but the loop is here so future expansion works.
@@ -273,7 +271,7 @@ class Game
         post("companies", body)
       end
 
-      # Phase 14 §2 / Phase 27 follow-up (2026-05-17) — the IGDB
+      # The IGDB
       # game-listing endpoints (`fetch_games_for_franchise`,
       # `fetch_games_for_collection`, `fetch_games_for_genre`) powered the
       # `Bundle#seed_from_igdb` flow. The flow + the columns it depended
@@ -356,10 +354,10 @@ class Game
           "Content-Type"  => "text/plain",
           "Accept"        => "application/json"
         }
-        # Phase 14 audit F1 — explicit `Net::HTTP.start` block so we can
-        # set bounded open / read / write timeouts. `Net::HTTP.post`
-        # defaults to 60s open + 60s read, which is long enough to wedge
-        # a Sidekiq worker on a hung IGDB endpoint.
+        # Explicit `Net::HTTP.start` block so we can set bounded open / read /
+        # write timeouts. `Net::HTTP.post` defaults to 60s open + 60s read,
+        # which is long enough to wedge a Sidekiq worker on a hung IGDB
+        # endpoint.
         Net::HTTP.start(uri.host, uri.port, use_ssl: uri.scheme == "https") do |http|
           http.open_timeout  = OPEN_TIMEOUT_SEC
           http.read_timeout  = READ_TIMEOUT_SEC

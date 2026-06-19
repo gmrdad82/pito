@@ -8,7 +8,7 @@ require "rails_helper"
 #   - Dots appear when a command is submitted (backend is evaluating it).
 #   - Echo arriving does NOT hide the dots — it just confirms receipt.
 #   - Dots disappear when the RESULT segment arrives (evaluation complete).
-#   - The Braille spinner (P25) is a SEPARATE indicator for deep processing;
+#   - The Braille spinner is a SEPARATE indicator for deep processing;
 #     it has nothing to do with the dots.
 #
 # Visibility is managed by pito--dots Stimulus controller (dots_controller.js)

@@ -2,7 +2,7 @@
 
 require "rails_helper"
 
-# P31.0.an — Dynamic 404 page.
+# Dynamic 404 page.
 #
 # The test environment sets `config.consider_all_requests_local = true` and
 # `config.action_dispatch.show_exceptions = :rescuable`, which means routing

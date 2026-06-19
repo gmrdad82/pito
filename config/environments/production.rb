@@ -25,9 +25,9 @@ Rails.application.configure do
   # Store uploaded files on the local file system (see config/storage.yml for options).
   config.active_storage.service = :local
 
-  # Phase 25 security F1 — HTTPS enforcement.
+  # HTTPS enforcement.
   #
-  # Required because Phase 25 secure-cookie auth depends on HTTPS: the session
+  # Required because secure-cookie auth depends on HTTPS: the session
   # cookie is marked `Secure`, and HSTS pins the browser to https:// for future
   # visits. Without these two flags an attacker on the network path could
   # downgrade a request to http:// and intercept the session cookie.
@@ -44,12 +44,12 @@ Rails.application.configure do
   # Skip http-to-https redirect for the default health check endpoint.
   config.ssl_options = { redirect: { exclude: ->(request) { request.path == "/up" } } }
 
-  # Phase 25 security F2 — trusted proxies for `request.remote_ip`.
+  # Trusted proxies for `request.remote_ip`.
   #
   # By default Rack walks `X-Forwarded-For` from the right and stops at the
   # first IP that is NOT in `trusted_proxies`. With an empty list any client
   # can spoof `request.remote_ip` by setting `X-Forwarded-For` themselves,
-  # which defeats the Rack::Attack login throttle (Phase 25 — 01g, LD-11)
+  # which defeats the Rack::Attack login throttle
   # and any IP-based audit logging.
   #
   # In production every external request lands on Cloudflare first, so the

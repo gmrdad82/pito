@@ -10,7 +10,7 @@
 // order (standard subsequence match, case-insensitive). Empty query → all
 // items visible.
 //
-// P18 hashtag picker: on `pito:hashtag-picker:open` (dispatched by the chatbox
+// Hashtag picker: on `pito:hashtag-picker:open` (dispatched by the chatbox
 // when shift+r sees more than one live hashtag) the palette swaps its static
 // command list for a transient list of `#<handle> ` items and opens. Committing
 // one prefills the chatbox without submitting; closing restores the commands.
@@ -34,7 +34,7 @@ export default class extends Controller {
     this.abort = new AbortController()
     document.addEventListener("keydown", this.#onGlobalKey.bind(this),
       { signal: this.abort.signal })
-    // P18: chatbox shift+r (with >1 live hashtag) asks us to present a picker.
+    // Chatbox shift+r (with >1 live hashtag) asks us to present a picker.
     document.addEventListener("pito:hashtag-picker:open", this.#onHashtagPicker.bind(this),
       { signal: this.abort.signal })
     this.selectedIndex = -1
@@ -172,7 +172,7 @@ export default class extends Controller {
     this.#restoreStaticList()
   }
 
-  // ── P18 hashtag picker ──────────────────────────────────────────────────────
+  // ── Hashtag picker ──────────────────────────────────────────────────────────
 
   // Event handler: open the palette as a picker over the live hashtags the
   // chatbox handed us. Reuses the palette's open/commit machinery — each item
@@ -255,7 +255,7 @@ export default class extends Controller {
   }
 
   // Item elements in document order. We query the DOM rather than read
-  // `this.itemTargets` so transient items injected by the hashtag picker (P18)
+  // `this.itemTargets` so transient items injected by the hashtag picker
   // are seen synchronously, without waiting for Stimulus to re-scan targets.
   #itemEls() {
     return Array.from(

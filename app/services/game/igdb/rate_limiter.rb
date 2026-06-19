@@ -1,4 +1,4 @@
-# Phase 14 §1 — IGDB rate limiter.
+# IGDB rate limiter.
 #
 # Token-bucket gate with two caps:
 #   - 4 requests per 1.0s rolling window (capacity 4, refill 4 per s).

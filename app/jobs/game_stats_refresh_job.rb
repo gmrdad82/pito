@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# P4 — Recompute a Game's materialized `views` stat (sum of its linked
+# Recompute a Game's materialized `views` stat (sum of its linked
 # videos' views) off the request path.
 #
 # Enqueue whenever the linked-video set or a linked video's view count

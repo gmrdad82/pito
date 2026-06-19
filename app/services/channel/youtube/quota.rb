@@ -1,7 +1,6 @@
-# Phase 7 — Step B (7b-youtube-client-and-audit.md). YouTube /
-# YouTube Analytics quota cost map and per-connection daily budget.
+# YouTube / YouTube Analytics quota cost map and per-connection daily budget.
 #
-# Phase 9 — GoogleIdentity → YoutubeConnection rename (ADR 0006). The
+# GoogleIdentity → YoutubeConnection rename (ADR 0006). The
 # budget is now keyed by `youtube_connection_id`; semantics survive
 # unchanged.
 #
@@ -15,20 +14,20 @@ class Channel
     module Quota
       COSTS = {
         "channels.list"      => 1,
-        "channels.update"    => 50, # Phase 7.5 §11c — channel-edit destructive PUT.
+        "channels.update"    => 50, # Channel-edit destructive PUT.
         "videos.list"        => 1,
-        "videos.update"      => 50, # Phase 12 — read-modify-write sync-back cost.
-        "videos.delete"      => 50, # Phase 21 — hard-delete from YouTube.
+        "videos.update"      => 50, # Read-modify-write sync-back cost.
+        "videos.delete"      => 50, # Hard-delete from YouTube.
         "playlists.list"     => 1,
         "playlistItems.list" => 1,
         "search.list"        => 100,
         "subscriptions.list" => 1,
         "captions.list"      => 50,
-        # Phase 7.5 §11c — watermark CRUD endpoints. Both billed at 50
+        # Watermark CRUD endpoints. Both billed at 50
         # units per YouTube's documented unit cost.
         "watermarks.set"     => 50,
         "watermarks.unset"   => 50,
-        # Phase 7.5 §11f — channel banner upload. The `#upload_banner`
+        # Channel banner upload. The `#upload_banner`
         # entrypoint fires `channelBanners.insert` (multipart byte
         # upload, returns `bannerExternalUrl`) followed by
         # `channels.update` against `brandingSettings.image.

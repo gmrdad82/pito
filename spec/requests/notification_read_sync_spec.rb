@@ -3,7 +3,7 @@
 require "rails_helper"
 require "action_cable/test_helper"
 
-# P54 — PATCH /notifications/:id broadcasts mini-status to pito:global
+# PATCH /notifications/:id broadcasts mini-status to pito:global
 # so every open browser instance sees the updated unread count.
 
 RSpec.describe "PATCH /notifications/:id — global cable sync", type: :request do

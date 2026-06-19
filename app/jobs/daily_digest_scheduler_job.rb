@@ -1,4 +1,4 @@
-# Phase 26 — 01e. Daily digest scheduler — hourly cron tick.
+# Daily digest scheduler — hourly cron tick.
 #
 # Fires every hour at minute 0.
 # `daily_digest_scheduler`). On each tick:
@@ -17,7 +17,7 @@
 #      `last_digest_run_at` on the anchor and enqueue
 #      `DailyDigestDeliverJob.perform_later(anchor.id)`.
 #
-# Install-level dispatch (P26 reviewer concern 1, locked decision):
+# Install-level dispatch (locked decision):
 # ONE digest per install per day, regardless of user count. The
 # digest composer aggregates ALL users' activity install-wide
 # (channels, videos, footage, login attempts, notifications); the
@@ -25,7 +25,7 @@
 # install, picking the anchor on the lowest-id user prevents N users
 # from N-firing into the same Slack/Discord channel.
 #
-# Cross-user race (P26 reviewer concern 3): inherently addressed by
+# Cross-user race: inherently addressed by
 # the install-level dispatch. The cooldown stamp lives on a single
 # row (the anchor); the atomic UPDATE...WHERE last_digest_run_at <
 # guard prevents double-fire even if two cron ticks land in the

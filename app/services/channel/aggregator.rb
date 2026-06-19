@@ -1,4 +1,4 @@
-# Phase 37 Wave A2 — `Channel::Aggregator`.
+# `Channel::Aggregator`.
 #
 # Pure module-function service. Sums each metric across the provided
 # list of channel hashes (shape per `Channel::MockData.channels`,

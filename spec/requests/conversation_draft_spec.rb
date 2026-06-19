@@ -2,7 +2,7 @@
 
 require "rails_helper"
 
-# P47 — PATCH /chat/:uuid with draft params.
+# PATCH /chat/:uuid with draft params.
 # Verifies the dual-behavior of ConversationsController#update:
 #   - draft save → 204, persists draft, no Turbo Stream
 #   - rename     → 200 + Turbo Stream row replace (existing behaviour intact)

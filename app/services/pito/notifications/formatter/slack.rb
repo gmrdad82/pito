@@ -1,4 +1,4 @@
-# Phase 16 §2 — Notification formatter.
+# Notification formatter.
 #
 # Slack webhook payload builder. One `Notification` row → one Slack
 # Block Kit message: header (emoji + title), section (mrkdwn body
@@ -79,8 +79,7 @@ module Pito
           end
         end
 
-        # Phase 16 §2 security fix-forward (F2 — 2026-05-10 audit). URL
-        # scheme allowlist applied at the markdown boundary.
+        # Security fix-forward. URL scheme allowlist applied at the markdown boundary.
         def rewrite_markdown_links(text)
           return "" if text.nil?
 

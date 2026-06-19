@@ -2,7 +2,7 @@
 
 require "rails_helper"
 
-# P8 — Bare /themes opens the theme picker sidebar (Turbo Stream update to #pito-sidebar).
+# Bare /themes opens the theme picker sidebar (Turbo Stream update to #pito-sidebar).
 
 RSpec.describe "POST /chat with bare /themes", type: :request do
   let!(:conversation) { Conversation.create! }

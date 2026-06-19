@@ -11,7 +11,7 @@ module Pito
     # high-weight part of the profile scores higher.
     #
     # All facet weights are normalized to sum to 1.0 so a per-facet "fit" is just
-    # the share of the channel's mass the candidate game covers (Phase 15). The
+    # the share of the channel's mass the candidate game covers. The
     # scalar centroids (score / TTB / year) and the embedding centroid are
     # video-count-weighted means over the linked games that carry the value.
     class ChannelProfile

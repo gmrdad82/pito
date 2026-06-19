@@ -1,4 +1,4 @@
-# Phase 14 §1 / Phase 25A — nightly IGDB refresh job.
+# Nightly IGDB refresh job.
 #
 # Iterates `Game.synced.stale.upcoming` and runs `GameIgdbSync.perform_now`
 # for each game SEQUENTIALLY so we have a single "done" point for a summary
@@ -10,7 +10,7 @@
 #     their only legitimate null window is between `add_from_igdb` and the
 #     immediate per-game sync, which the nightly should not race.
 #   - `stale`    — `igdb_synced_at < 7.days.ago`.
-#   - `upcoming` — release in the future / unreleased (videos plan Phase 8).
+#   - `upcoming` — release in the future / unreleased.
 #     RELEASED games' IGDB data is effectively final, so re-fetching them
 #     weekly just burns quota; only unreleased titles still shift (release
 #     date slips, platform/genre edits), so we refresh those alone.

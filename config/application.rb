@@ -39,8 +39,7 @@ module Pito
     # Don't generate system test files.
     config.generators.system_tests = nil
 
-    # ViewComponent preview paths (Plan 0 P10.4). Plan 1 doesn't use
-    # Lookbook or previews, but the path is wired now so future previews
+    # ViewComponent preview paths. The path is wired so future previews
     # under spec/components/previews/ work without further config.
     config.view_component.preview_paths = [ Rails.root.join("spec/components/previews").to_s ]
 
@@ -52,7 +51,7 @@ module Pito
     # Use SolidQueue for background jobs (runs in-process in Puma in dev)
     config.active_job.queue_adapter = :solid_queue
 
-    # Active Storage variant processor — Phase 4 §5. Use ruby-vips (libvips)
+    # Active Storage variant processor — use ruby-vips (libvips)
     # explicitly. ImageMagick v7.1.2 deprecated the `convert` alias that
     # mini_magick relies on, so mini_magick emits warnings on every variant.
     # ruby-vips is faster, lower-memory, and sidesteps the warning entirely.

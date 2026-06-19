@@ -8,7 +8,7 @@ class ChatController < ApplicationController
   def create
     input = params[:input].to_s
 
-    # T22 / Home-transition: blank input + no uuid → create conversation only.
+    # Home-transition: blank input + no uuid → create conversation only.
     # Returns {uuid, signed_stream_name} so the JS can set up the cable before
     # posting the actual message.
     if input.blank? && params[:uuid].blank?
@@ -25,7 +25,7 @@ class ChatController < ApplicationController
 
     conversation = resolve_conversation
 
-    # P56: --help / -h is a universal flag. Intercept it before any fast-path
+    # --help / -h is a universal flag. Intercept it before any fast-path
     # handler so that e.g. `/connect --help` never starts OAuth.
     unless help_flag?(input)
       if login_command?(input)
@@ -105,9 +105,9 @@ class ChatController < ApplicationController
       end
     end
 
-    # Follow-up engine (P13/P14) — handles `#<handle> <rest>` replies for any
-    # event stamped with `reply_handle` + `reply_target` (including confirmations
-    # since P14).  Only fires when a live (non-consumed) event carries the handle.
+    # Follow-up engine — handles `#<handle> <rest>` replies for any
+    # event stamped with `reply_handle` + `reply_target` (including confirmations).
+    # Only fires when a live (non-consumed) event carries the handle.
     # :not_found / :not_a_follow_up fall through to the hashtag path below.
     ff = Pito::FollowUp::Router.call(input:, conversation:)
     if ff[:status] == :ok
@@ -120,12 +120,12 @@ class ChatController < ApplicationController
       return respond_to_client(conversation)
     end
 
-    # Mask sensitive kwargs before persisting the echo (T27.0.d).
+    # Mask sensitive kwargs before persisting the echo.
     # The raw input is dispatched to the job; only the echo text is masked.
     echo_input = config_command?(input) ? mask_config_credentials(input) : input
 
     # Every other command — authenticated or not — goes through the async
-    # pipeline (T23): persist + broadcast the echo now, enqueue the job, 204.
+    # pipeline: persist + broadcast the echo now, enqueue the job, 204.
     # Auth gating is applied inside the job via the `authenticated` flag, because
     # Current.session is request-scoped and unavailable in the worker.
     handle_async(input, conversation, authenticated: Current.session.present?, echo_text: echo_input)
@@ -134,7 +134,7 @@ class ChatController < ApplicationController
 
   private
 
-  # ── Async dispatch (P23) ────────────────────────────────────────────────────
+  # ── Async dispatch ──────────────────────────────────────────────────────────
 
   def handle_async(input, conversation, authenticated:, echo_text: input)
     input_kind = input.start_with?("/") ? :slash : :chat
@@ -142,10 +142,10 @@ class ChatController < ApplicationController
     period  = input_kind == :chat ? params[:period].presence : nil
     # Scrollback width at send time, so `list` can auto-fill columns to fit.
     viewport_width = input_kind == :chat ? params[:viewport_width].presence : nil
-    # T47.3: clear any persisted draft when a real message is sent.
+    # Clear any persisted draft when a real message is sent.
     conversation.update_column(:draft, nil) if conversation.draft.present?
     # A genuinely new (non-reply) command consumes every prior live #hashtag
-    # affordance in the conversation (P17). The `#handle` reply path
+    # affordance in the conversation. The `#handle` reply path
     # (handle_hashtag / handle_follow_up) deliberately does NOT consume.
     enqueue_turn(input, conversation, input_kind:, authenticated:, echo_text:, channel:, period:, viewport_width:, consume_live_replies: true)
   end
@@ -163,14 +163,14 @@ class ChatController < ApplicationController
 
     broadcaster = Pito::Stream::Broadcaster.new(conversation:)
 
-    # P17: when a new non-reply command opens this turn, drop every prior live
+    # When a new non-reply command opens this turn, drop every prior live
     # repliable affordance. Scoped to events on strictly earlier turns
     # (turn_id < turn.id), so this command's OWN result events — streamed in
     # later by ChatDispatchJob under this same turn — keep their handles live.
     consume_prior_live_replies(conversation, broadcaster:, before_turn: turn) if consume_live_replies
 
-    # Persist echo first, then broadcast (T23.1 + T23.2 / T24.1 + T24.2).
-    # echo_text may differ from input when sensitive kwargs are masked (T27.0.d).
+    # Persist echo first, then broadcast.
+    # echo_text may differ from input when sensitive kwargs are masked.
     # Slash / hashtag command echoes never show the channel filter in the meta line.
     echo_event   = Event.create_with_position!(
       conversation:, turn:, kind: :echo,
@@ -178,15 +178,15 @@ class ChatController < ApplicationController
     )
     broadcaster.broadcast_event(echo_event)
 
-    # T25: thinking indicator — one per turn, resolved by the backend when the
+    # Thinking indicator — one per turn, resolved by the backend when the
     # job completes. The word_index is frozen at creation (survives refresh).
     broadcaster.emit_thinking(turn:, dictionary: input_kind.to_s)
 
-    # T23.4: enqueue job — auth gating decided here, applied in the worker.
+    # Enqueue job — auth gating decided here, applied in the worker.
     ChatDispatchJob.perform_later(turn.id, channel:, period:, authenticated:, viewport_width:)
   end
 
-  # P17: consume every prior LIVE repliable event in the conversation so its
+  # Consume every prior LIVE repliable event in the conversation so its
   # `#handle` / shift+r affordance drops the moment a new non-reply command is
   # sent. Mirrors FollowUpDispatchJob's consume mechanism: stamp
   # `reply_consumed: true`, then broadcaster.replace_event to re-render live.
@@ -217,7 +217,7 @@ class ChatController < ApplicationController
 
   def respond_to_client(conversation)
     if params[:uuid].present?
-      head :no_content                                           # T23.5
+      head :no_content
     elsif html_request?
       redirect_to conversation_path(uuid: conversation.uuid)
     else
@@ -564,7 +564,7 @@ class ChatController < ApplicationController
     conversation_path(new_conversation)
   end
 
-  # ── Follow-up engine dispatch (P13) ──────────────────────────────────────────
+  # ── Follow-up engine dispatch ────────────────────────────────────────────────
 
   # Dispatch a matched follow-up reply to the appropriate path by mode.
   #

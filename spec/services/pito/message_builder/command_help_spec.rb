@@ -381,7 +381,7 @@ RSpec.describe Pito::MessageBuilder::CommandHelp do
       end
     end
 
-    # ── Cross-verb layout + first-line timestamp consistency (T37.3) ──────────
+    # ── Cross-verb layout + first-line timestamp consistency ─────────────────
 
     describe "consistent layout + first-line timestamp across help pages" do
       {

@@ -55,7 +55,7 @@ leader:
 # flat-key surface).
 flat:
   items:
-    # Phase 37 (2026-05-19) — `/` flat-key is context-aware: it opens
+    # 2026-05-19 — `/` flat-key is context-aware: it opens
     # the section-specific Omnisearch modal when the current page has
     # one, and falls back to the layout-mounted everywhere modal
     # otherwise. The section→modal-id map is resolved at runtime by

@@ -1,7 +1,7 @@
 require "google/apis/youtube_v3"
 require "google/apis/errors"
 
-# Phase 12 — write-side service for the destructive
+# Write-side service for the destructive
 # `videos.update?part=snippet,status` API (50 units). Builds the full
 # `snippet` and `status` payloads from the local Video, then passes
 # through any extra fields the reader returned that pito does not
@@ -12,15 +12,14 @@ require "google/apis/errors"
 # `Channel::Youtube::Auditor`-driven 1-row-per-call discipline so the audit
 # table reflects the 50-unit cost accurately.
 #
-# Phase 15 audit fix-forward (F1): mirrors `Channel::Youtube::Client`'s
-# token-freshness contract — `ensure_token_fresh!` runs before the
-# call, and a 401 mid-call triggers exactly one
-# `Channel::Youtube::TokenRefresher` retry before raising `AuthRevokedError`.
-# An access_token that simply expired with a healthy refresh_token
-# must NOT surface as `needs_reauth: true`.
+# Mirrors `Channel::Youtube::Client`'s token-freshness contract —
+# `ensure_token_fresh!` runs before the call, and a 401 mid-call triggers
+# exactly one `Channel::Youtube::TokenRefresher` retry before raising
+# `AuthRevokedError`. An access_token that simply expired with a healthy
+# refresh_token must NOT surface as `needs_reauth: true`.
 #
-# Phase 15 audit fix-forward (F2): the underlying Google service is
-# built via `Channel::Youtube::ServiceFactory` so HTTP timeouts are bounded.
+# The underlying Google service is built via `Channel::Youtube::ServiceFactory`
+# so HTTP timeouts are bounded.
 class Channel
   module Youtube
     class VideosClient
@@ -51,7 +50,7 @@ class Channel
       # through unchanged.
       #
       # `fields:` optional kwarg restricts which Pito columns the writer
-      # overlays on the fresh snapshot. When nil (the Phase 12 default),
+      # overlays on the fresh snapshot. When nil (the default),
       # the full writable set is pushed — same behavior as before. When
       # supplied as a Symbol or Array of Symbols (e.g., `fields: [:title]`),
       # only those fields are overlaid; everything else stays as the
@@ -62,11 +61,11 @@ class Channel
         payload = build_payload(video, fresh, fields: fields)
         @last_payload = payload.merge(parts: parts)
 
-        # Phase 15 F1 — proactive refresh: if the access_token is
-        # already past (or within the 60s skew of) `expires_at`, refresh
-        # before issuing the call so we never burn quota on a guaranteed
-        # 401. A `NeedsReauthError` here surfaces as `AuthRevokedError`
-        # so the caller's existing rescue ladder still works.
+        # Proactive refresh: if the access_token is already past (or within
+        # the 60s skew of) `expires_at`, refresh before issuing the call so
+        # we never burn quota on a guaranteed 401. A `NeedsReauthError` here
+        # surfaces as `AuthRevokedError` so the caller's existing rescue
+        # ladder still works.
         begin
           ensure_token_fresh!(@connection)
         rescue Channel::Youtube::NeedsReauthError => e
@@ -151,8 +150,8 @@ class Channel
         parts.empty? ? %w[snippet status] : parts
       end
 
-      # `fields: nil` → all writable fields are overlaid (Phase 12
-      # default). Otherwise the supplied list is intersected with the
+      # `fields: nil` → all writable fields are overlaid. Otherwise the
+      # supplied list is intersected with the
       # known SNIPPET + STATUS sets; unknown / display-only field names
       # are silently ignored at this layer (the apply orchestrator has
       # already filtered to writable fields before calling).
@@ -205,10 +204,10 @@ class Channel
         begin
           result = yield
         rescue Google::Apis::AuthorizationError => e
-          # Phase 15 F1 — Mirror `Channel::Youtube::Client`: a 401 mid-call gets
-          # exactly one `TokenRefresher` retry before we declare the
-          # connection revoked. Healthy refresh_token + expired
-          # access_token must not surface as `needs_reauth: true`.
+          # Mirror `Channel::Youtube::Client`: a 401 mid-call gets exactly one
+          # `TokenRefresher` retry before we declare the connection revoked.
+          # Healthy refresh_token + expired access_token must not surface as
+          # `needs_reauth: true`.
           if !refreshed_once
             refreshed_once = true
             begin

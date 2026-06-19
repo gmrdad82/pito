@@ -1,4 +1,4 @@
-# Phase 29 (settings refactor) — install-level Pito config loader.
+# Settings-refactor install-level Pito config loader.
 #
 # Reads `config/pito.yml` (gitignored, per-install) at boot and exposes
 # the three operator-level workspace knobs on

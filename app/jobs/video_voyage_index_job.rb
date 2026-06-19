@@ -7,7 +7,7 @@
 # video (re)embed needs no downstream recompute.
 #
 # Enqueued by: `ImportVideosJob` (per created/changed video), the
-# `pito:voyage:reindex_videos` backfill, and the nightly reindex (P14).
+# `pito:voyage:reindex_videos` backfill, and the nightly reindex.
 #
 # Queue is `:search` — same lane as the other Voyage index jobs.
 class VideoVoyageIndexJob < ApplicationJob

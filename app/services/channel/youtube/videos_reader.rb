@@ -1,7 +1,7 @@
 require "google/apis/youtube_v3"
 require "google/apis/errors"
 
-# Phase 12 — read-side service that wraps `videos.list` (1 unit) for
+# Read-side service that wraps `videos.list` (1 unit) for
 # the read-modify-write sync-back path. The reader returns the parsed
 # YouTube response so the writer can copy through fields pito does NOT
 # model (defaultLanguage, defaultAudioLanguage, etc.) — preserving
@@ -13,13 +13,13 @@ require "google/apis/errors"
 # the spec calls for a single-method service surface; centralizing the
 # 1-unit cost in one place makes the audit row exact.
 #
-# Phase 15 audit fix-forward (F1): mirrors `Channel::Youtube::Client`'s
-# token-freshness contract — `ensure_token_fresh!` runs before the
-# call, and a 401 mid-call triggers exactly one
-# `Channel::Youtube::TokenRefresher` retry before raising `AuthRevokedError`.
+# Mirrors `Channel::Youtube::Client`'s token-freshness contract —
+# `ensure_token_fresh!` runs before the call, and a 401 mid-call triggers
+# exactly one `Channel::Youtube::TokenRefresher` retry before raising
+# `AuthRevokedError`.
 #
-# Phase 15 audit fix-forward (F2): the underlying Google service is
-# built via `Channel::Youtube::ServiceFactory` so HTTP timeouts are bounded.
+# The underlying Google service is built via `Channel::Youtube::ServiceFactory`
+# so HTTP timeouts are bounded.
 class Channel
   module Youtube
     class VideosReader
@@ -39,10 +39,10 @@ class Channel
       # `Channel::Youtube::AuthRevokedError` on 401, `Channel::Youtube::ServerError` on 5xx.
       # The caller (sync-back job) maps to `last_sync_error` text.
       def read_video(video)
-        # Phase 15 F1 — proactive refresh before the GET so a stale-but-
-        # refreshable access_token does not falsely surface as
-        # `needs_reauth: true`. A `NeedsReauthError` here surfaces as
-        # `AuthRevokedError` to keep the caller's rescue ladder consistent.
+        # Proactive refresh before the GET so a stale-but-refreshable
+        # access_token does not falsely surface as `needs_reauth: true`.
+        # A `NeedsReauthError` here surfaces as `AuthRevokedError` to keep
+        # the caller's rescue ladder consistent.
         begin
           ensure_token_fresh!(@connection)
         rescue Channel::Youtube::NeedsReauthError => e
@@ -80,9 +80,8 @@ class Channel
           error_message = e.message
           raised = e
         rescue Google::Apis::AuthorizationError => e
-          # Phase 15 F1 — Mirror `Channel::Youtube::Client`: a 401 mid-call gets
-          # exactly one `TokenRefresher` retry before we declare the
-          # connection revoked.
+          # Mirror `Channel::Youtube::Client`: a 401 mid-call gets exactly one
+          # `TokenRefresher` retry before we declare the connection revoked.
           if !refreshed_once
             refreshed_once = true
             begin

@@ -28,8 +28,8 @@ module Pito
     # - `conversation` (`Conversation`) — the active conversation record.
     # - `follow_up` (`Pito::Chat::FollowUpContext`, or nil) — present when this verb
     #   was reached via a `#<handle>` reply instead of free chat. Same verb logic
-    #   runs either way; only reference resolution (T18.2) and result-wrapping
-    #   (T18.3) consult it. `follow_up?` is the predicate.
+    #   runs either way; only reference resolution and result-wrapping
+    #   consult it. `follow_up?` is the predicate.
     #
     # ## `inherited` reset semantics
     #

@@ -103,7 +103,7 @@ module Pito
         # ── helpers ────────────────────────────────────────────────────────────
 
         # Resolve the game from the event payload.
-        # DetailMessage stamps `game_id` into the payload (added in P12).
+        # DetailMessage stamps `game_id` into the payload.
         def resolve_game_from_event(event)
           payload = event.payload.with_indifferent_access
           game_id = payload[:game_id]

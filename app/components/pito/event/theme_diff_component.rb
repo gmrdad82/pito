@@ -6,7 +6,7 @@ module Pito
     # transforming the most-recent theme-list message in place.
     #
     # This component renders the FINAL state (reload-correct, works without JS)
-    # and emits `pito--diff-reveal` wiring for the animation engine (P12b).
+    # and emits `pito--diff-reveal` wiring for the animation engine.
     # Until the controller is registered the wiring is inert.
     #
     # Payload contract
@@ -37,7 +37,7 @@ module Pito
     #   - Each animatable text node:
     #       <span data-pito--diff-reveal-target="cell" data-from="<old>">NEW</span>
     #     textContent = final state (correct on reload / no-JS)
-    #     data-from   = pre-transform text (for animation in P12b)
+    #     data-from   = pre-transform text (for animation)
     class ThemeDiffComponent < ViewComponent::Base
       # @param payload [Hash]
       # @param event   [Event, nil]

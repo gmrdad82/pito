@@ -9,7 +9,7 @@ module Pito
   # reports Postgres size + record counts.
   #
   #   Pito::Stack.providers  # => { voyage: {...}, youtube: {...}, igdb: {...} }
-  #   Pito::Stack.usage      # => providers + { local: {...} }   (Local added in T5.4)
+  #   Pito::Stack.usage      # => providers + { local: {...} }
   module Stack
     module_function
 

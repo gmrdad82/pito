@@ -57,11 +57,11 @@ RSpec.describe Pito::Slash::Handlers::Help, type: :service do
     end
   end
 
-  # ── P56 — /help --help (nonsense dictionary, via HelpRenderer) ──────────────
+  # ── /help --help (nonsense dictionary, via HelpRenderer) ────────────────────
   # The dispatcher intercepts --help before the handler runs; we test the
   # HelpRenderer directly here to verify the nonsense table is rendered.
 
-  describe "P56 /help --help (nonsense kv-table via HelpRenderer)" do
+  describe "/help --help (nonsense kv-table via HelpRenderer)" do
     def build_help_invocation
       Pito::Slash::Invocation.new(verb: :help, args: [], kwargs: {}, raw: "/help --help")
     end

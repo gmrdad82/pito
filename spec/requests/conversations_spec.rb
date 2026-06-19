@@ -120,7 +120,7 @@ RSpec.describe "Conversation requests", type: :request do
     end
   end
 
-  # ── P58 — Input history data attribute ─────────────────────────────────────
+  # ── Input history data attribute ───────────────────────────────────────────
   # The conversation page must embed sent input_text values (newest first) as a
   # JSON array in data-pito--history-entries-value on #pito-chatbox so the
   # history Stimulus controller can restore them with ↑/↓.

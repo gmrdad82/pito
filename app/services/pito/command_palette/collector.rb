@@ -1,6 +1,6 @@
 module Pito
   module CommandPalette
-    # Phase 1C (2026-05-24) — section-specific `:` command palette merge.
+    # Section-specific `:` command palette merge.
     #
     # Builds the per-scope command catalog the `:` palette displays when
     # the user opens it. Three scopes stack from most-specific to

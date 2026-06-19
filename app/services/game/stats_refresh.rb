@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# P4 — Materialize a Game's `views` stat as the sum of its linked
+# Materialize a Game's `views` stat as the sum of its linked
 # videos' view counts.
 #
 # Video views live on the polymorphic `stats` table (`kind: "views"`),

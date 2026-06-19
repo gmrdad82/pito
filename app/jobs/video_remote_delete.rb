@@ -1,4 +1,4 @@
-# Phase 21 — hard-delete a video on YouTube after the local Video row
+# Hard-delete a video on YouTube after the local Video row
 # has already been destroyed. Because the local row is gone by the time
 # this runs, we take the YouTube id + the YoutubeConnection id directly
 # rather than a video_id: there is nothing left to look up.

@@ -2,7 +2,7 @@
 
 require "rails_helper"
 
-# P40 — /resume slash command populates #pito-sidebar with the conversation list.
+# /resume slash command populates #pito-sidebar with the conversation list.
 
 RSpec.describe "POST /chat with /resume", type: :request do
   let!(:conversation) { Conversation.create! }

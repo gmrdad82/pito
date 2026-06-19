@@ -1,4 +1,4 @@
-# Phase 16 §1 → Phase 26 01b refactor. Discord webhook channel.
+# Discord webhook channel.
 #
 # Reads the active webhook URL from the AR row first
 # (`NotificationDeliveryChannel.discord&.webhook_url`) and falls back to
@@ -39,7 +39,7 @@ module Pito
         end
 
         def webhook_url
-          # Phase 26 01b — AR row first, ENV var as fallback.
+          # AR row first, ENV var as fallback.
           row_url = NotificationDeliveryChannel.discord&.webhook_url
           return row_url if row_url.present?
 

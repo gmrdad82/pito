@@ -1,4 +1,4 @@
-# Phase 12 — surfaced by Channel::Youtube::VideosClient / Channel::Youtube::VideosReader
+# Surfaced by Channel::Youtube::VideosClient / Channel::Youtube::VideosReader
 # on a 401 response from the API. Distinct from
 # `Channel::Youtube::NeedsReauthError` (which is the OAuth-side surface raised
 # by the token refresher) — this name keeps the sync-back job's

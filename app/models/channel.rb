@@ -17,7 +17,7 @@ class Channel < ApplicationRecord
   end
 
   # Stat readers — sourced from the polymorphic `stats` table via the
-  # `Pito::Stats` facade (P4). Return nil when no stat row exists.
+  # `Pito::Stats` facade. Return nil when no stat row exists.
   def subscriber_count
     Pito::Stats.get(self, :subscribers)
   end

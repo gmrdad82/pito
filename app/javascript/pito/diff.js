@@ -10,8 +10,8 @@
 //   • `added`   — the text that appears in `to` but not `from` (additions)
 //
 // The controller uses these parts to drive a two-phase animation:
-//   Phase 1 — reverse-delete `removed` from each cell (shrink the middle)
-//   Phase 2 — type `added` into each cell (grow the middle)
+//   Step 1 — reverse-delete `removed` from each cell (shrink the middle)
+//   Step 2 — type `added` into each cell (grow the middle)
 //
 // All functions are pure (no DOM, no side-effects) — easy to unit-test.
 //
@@ -69,8 +69,8 @@ function fromUnits(units) {
  * Returns the four string pieces the controller needs:
  *
  *   prefix  — common leading text (unchanged, always visible)
- *   removed — `from`'s differing middle (Phase 1: reverse-delete this)
- *   added   — `to`'s differing middle   (Phase 2: type this)
+ *   removed — `from`'s differing middle (reverse-delete this)
+ *   added   — `to`'s differing middle   (type this)
  *   suffix  — common trailing text (unchanged, always visible)
  *
  * Invariants:

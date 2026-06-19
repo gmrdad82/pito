@@ -2,7 +2,7 @@
 
 require "rails_helper"
 
-# P39 — /new slash command creates a fresh Conversation and navigates to it.
+# /new slash command creates a fresh Conversation and navigates to it.
 
 RSpec.describe "POST /chat with /new", type: :request do
   let!(:conversation) { Conversation.create! }

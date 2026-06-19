@@ -1,6 +1,6 @@
-# Phase 9 — Login-with-Google Drop + GoogleIdentity → YoutubeConnection
-# rename (ADR 0006). Google OAuth is now exclusively the YouTube-
-# connection dance; the sign-in-with-Google branch is retired.
+# Login-with-Google Drop + GoogleIdentity → YoutubeConnection rename (ADR 0006).
+# Google OAuth is now exclusively the YouTube-connection dance; the
+# sign-in-with-Google branch is retired.
 #
 # State parameter validation is the gem default in
 # `omniauth-google-oauth2 >= 1.0`. PKCE is requested explicitly — the
@@ -17,9 +17,9 @@
 #   * `youtube.readonly`               — channels.list, videos.list,
 #                                        playlists.list
 #   * `yt-analytics.readonly`          — youtubeAnalytics.reports.query
-#   * `youtube.force-ssl`              — videos.update sync-back (Phase
-#                                        12), channels.update / banner /
-#                                        watermark writes (Phase 11+)
+#   * `youtube.force-ssl`              — videos.update sync-back,
+#                                        channels.update / banner /
+#                                        watermark writes
 #
 # The consent screen surfaces all of them once; subsequent reconnect
 # flows use the same set so tokens minted under an earlier (narrower)

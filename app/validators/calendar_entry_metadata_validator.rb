@@ -1,4 +1,4 @@
-# Phase 15 §1 — per-type metadata schema validator.
+# Per-type metadata schema validator.
 #
 # Each `entry_type` declares the keys allowed in `metadata`. Unknown keys
 # are stripped on save. The `user_overrides` sub-key is allowed on every

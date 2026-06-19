@@ -2,7 +2,7 @@
 //
 // Drives the start-screen → conversation transition on first message submit.
 //
-// Flow (T22.1–T22.7):
+// Flow:
 //   Enter ──► preventDefault + stopImmediatePropagation
 //         ──► atomically fix all visible elements to prevent reflow snaps
 //         ──► [parallel] choreographed chrome fade-out  +  POST /chat blank (get uuid)
@@ -14,7 +14,7 @@
 //         ──► morph DOM → conversation layout
 //         ──► POST the message
 //
-// T22.7: after replaceWith() this controller disconnects; subsequent Enter presses
+// After replaceWith() this controller disconnects; subsequent Enter presses
 // only fire pito--chat-form#handleKeydown through the normal chat path.
 
 import { Controller } from "@hotwired/stimulus"
@@ -35,7 +35,7 @@ export default class extends Controller {
     window.dispatchEvent(new CustomEvent("pito:resume:dismiss"))
   }
 
-  // ── T22.1 entry point ─────────────────────────────────────────────────────
+  // ── Entry point ─────────────────────────────────────────────────────────
 
   async interceptEnter(event) {
     if (event.key !== "Enter" || event.shiftKey) return
@@ -57,7 +57,7 @@ export default class extends Controller {
     this.#postMessage(input, data.uuid)
   }
 
-  // ── T22.2 — animation ─────────────────────────────────────────────────────
+  // ── Animation ─────────────────────────────────────────────────────────────
 
   async #runAnimation() {
     const chatbox = this.chatboxAreaTarget
@@ -93,20 +93,20 @@ export default class extends Controller {
     // Single forced reflow commits every fixed position in one paint cycle.
     chatbox.getBoundingClientRect()
 
-    // Phase 1: choreographed chrome fade-out (logo first, rest staggered).
+    // Choreographed chrome fade-out (logo first, rest staggered).
     await this.#fadeOutChrome()
 
-    // Phase 2a: drop straight down (ease-in — accelerates toward the bottom).
+    // Drop straight down (ease-in — accelerates toward the bottom).
     const targetTop = window.innerHeight - chatboxRect.height - 32
     chatbox.getBoundingClientRect()
     chatbox.style.transition = `top ${SLIDE_MS}ms cubic-bezier(0.4,0,1,1)`
     chatbox.style.top = `${targetTop}px`
     await this.#wait(SLIDE_MS)
 
-    // Phase 2b: remove max-width from chatboxArea so it can expand beyond 600px.
+    // Remove max-width from chatboxArea so it can expand beyond 600px.
     chatbox.style.maxWidth = "none"
 
-    // Phase 2c: expand symmetrically ← →.
+    // Expand symmetrically ← →.
     // Re-anchor to center (no transition — was already centered) so animating
     // only `width` makes both edges move outward equally.
     // Easing: ease-in (slow start → accelerates) to match the drop feel.
@@ -124,7 +124,7 @@ export default class extends Controller {
     await this.#wait(EXPAND_MS)
   }
 
-  // ── T22.2 — chrome choreography ───────────────────────────────────────────
+  // ── Chrome choreography ───────────────────────────────────────────────────
 
   async #fadeOutChrome() {
     const animate = (targets, dy, delay) => {
@@ -167,7 +167,7 @@ export default class extends Controller {
     await this.#wait(HEAD_START_MS + CORNER_DELAY + FADE_MS)
   }
 
-  // ── T22.5 — conversation creation ─────────────────────────────────────────
+  // ── Conversation creation ─────────────────────────────────────────────────
 
   async #createConversation() {
     const token = document.querySelector('meta[name="csrf-token"]')?.content
@@ -185,7 +185,7 @@ export default class extends Controller {
     return resp.json()
   }
 
-  // ── T22.5 — turbo cable subscription ──────────────────────────────────────
+  // ── Turbo cable subscription ──────────────────────────────────────────────
 
   #injectTurboStream(signedStreamName) {
     const el = document.createElement("turbo-cable-stream-source")
@@ -194,7 +194,7 @@ export default class extends Controller {
     document.body.appendChild(el)
   }
 
-  // ── T22.3 + T22.4 — DOM morph ─────────────────────────────────────────────
+  // ── DOM morph ─────────────────────────────────────────────────────────────
 
   #morphToConversation(uuid) {
     // Extract just the form — chatboxArea (and its start-screen mini-status) is discarded.
@@ -206,7 +206,7 @@ export default class extends Controller {
       type: "hidden", name: "uuid", value: uuid,
     }))
 
-    // Build conversation layout (T22.3 scrollback, T22.4 chrome).
+    // Build conversation layout (scrollback + chrome).
     const conversationEl = document.createElement("div")
     conversationEl.className = "flex flex-col"
     conversationEl.style.cssText = "height: 100vh; overflow-x: hidden;"
@@ -226,7 +226,7 @@ export default class extends Controller {
     conversationEl.appendChild(scrollback)
     conversationEl.appendChild(bottomPanel)
 
-    // Replace the start-screen root — disconnects home-transition (T22.7).
+    // Replace the start-screen root — disconnects home-transition.
     this.element.replaceWith(conversationEl)
 
     // Signal the audio controller that ctrl+m mute is now active.
@@ -295,7 +295,7 @@ export default class extends Controller {
     }
   }
 
-  // ── T22.6 — submit the message ────────────────────────────────────────────
+  // ── Submit the message ────────────────────────────────────────────────────
 
   #postMessage(input, uuid) {
     const form        = document.querySelector("form.chatbox-form")

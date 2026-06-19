@@ -1,4 +1,4 @@
-# Phase 13.2 — Analytics sync engine. Wraps the
+# Wraps the
 # `google-apis-youtube_analytics_v2` gem so callers receive
 # pito-shape Ruby Hashes ready for `upsert_all`.
 #
@@ -188,7 +188,7 @@ class Channel
         execute_query(query_label: "V7.video_retention", params: params)
       end
 
-      # Phase 26 §01g — viewer-time buckets. Pulls the day x hour viewer
+      # Viewer-time buckets. Pulls the day x hour viewer
       # distribution for a single video over `(from..to)`. Results are
       # returned in the YouTube channel's UTC bucket; the user-tz rollup
       # happens at query time in `Pito::Analytics::ViewerTimeRollup`.
@@ -218,12 +218,12 @@ class Channel
       # Run the query against the analytics service and translate
       # Google's response / error vocabulary into pito's typed shape.
       #
-      # Phase 13 security fix-forward (F2) — a 401 mid-call triggers
-      # exactly one `Channel::Youtube::TokenRefresher.call(@connection)` and
-      # retries `query_report`. `needs_reauth: true` is only set when
-      # the refresh itself raises `Channel::Youtube::NeedsReauthError`, or when
-      # the retry attempt still surfaces a 401. The audit row reflects
-      # the post-retry outcome.
+      # A 401 mid-call triggers exactly one
+      # `Channel::Youtube::TokenRefresher.call(@connection)` and retries
+      # `query_report`. `needs_reauth: true` is only set when the refresh
+      # itself raises `Channel::Youtube::NeedsReauthError`, or when the retry
+      # attempt still surfaces a 401. The audit row reflects the post-retry
+      # outcome.
       def execute_query(query_label:, params:)
         validated = guard_mutual_exclusion(params)
         started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
@@ -305,15 +305,14 @@ class Channel
         result
       end
 
-      # Phase 13 security fix-forward (F2) — issue `query_report` against
-      # a freshly-built analytics service. On a 401 (either
-      # `Google::Apis::AuthorizationError` or `Google::Apis::ClientError`
-      # with status 401), attempt `Channel::Youtube::TokenRefresher.call(@connection)`
-      # exactly once and re-issue the call. A second 401 propagates up so
-      # `execute_query`'s outer rescue chain marks the connection
-      # `needs_reauth: true`. Refresh failures propagate as
-      # `Channel::Youtube::NeedsReauthError` / `Channel::Youtube::TransientError` which are
-      # already mapped by the caller.
+      # Issue `query_report` against a freshly-built analytics service.
+      # On a 401 (either `Google::Apis::AuthorizationError` or
+      # `Google::Apis::ClientError` with status 401), attempt
+      # `Channel::Youtube::TokenRefresher.call(@connection)` exactly once and
+      # re-issue the call. A second 401 propagates up so `execute_query`'s
+      # outer rescue chain marks the connection `needs_reauth: true`.
+      # Refresh failures propagate as `Channel::Youtube::NeedsReauthError` /
+      # `Channel::Youtube::TransientError` which are already mapped by the caller.
       def query_report_with_retry(validated)
         refreshed_once = false
         begin
@@ -341,9 +340,8 @@ class Channel
         params
       end
 
-      # Phase 13 security fix-forward (F1) — service construction
-      # (timeouts + authorization adapter) is centralized in
-      # `Channel::Youtube::ServiceFactory` so all four OAuth-backed clients (this
+      # Service construction (timeouts + authorization adapter) is centralized
+      # in `Channel::Youtube::ServiceFactory` so all four OAuth-backed clients (this
       # one, `Channel::Youtube::Client`, `Channel::Youtube::VideosClient`,
       # `Channel::Youtube::VideosReader`) share the same bounded-timeout posture.
       def analytics_service

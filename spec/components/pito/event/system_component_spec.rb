@@ -150,7 +150,7 @@ RSpec.describe Pito::Event::SystemComponent do
     end
   end
 
-  # ── T15.4: dom_id — generalized to reply_handle (follow-up engine) ──────────
+  # ── dom_id — generalized to reply_handle (follow-up engine) ─────────────────
 
   describe "dom_id — id on root Segment for follow-up-able messages" do
     let(:conversation) { Conversation.create! }
@@ -197,9 +197,9 @@ RSpec.describe Pito::Event::SystemComponent do
     end
   end
 
-  # ── T15.3: affordance rendered for follow-up-able system messages ─────────────
+  # ── affordance rendered for follow-up-able system messages ───────────────────
 
-  # ── T16.10: html:true game messages render the standard timestamp ────────────
+  # ── html:true game messages render the standard timestamp ────────────────────
 
   describe "timestamp on html:true payload (game detail / enhanced messages)" do
     let(:conversation) { Conversation.create! }
@@ -218,7 +218,7 @@ RSpec.describe Pito::Event::SystemComponent do
       expect(node.css(".pito-echo__meta")).to be_empty
     end
 
-    # ── T37.2: `--help` man-page bodies show the inline first-line timestamp ─────
+    # ── `--help` man-page bodies show the inline first-line timestamp ────────────
     it "places the timestamp prefix INSIDE the .pito-help-block (not orphaned above it)" do
       help_payload = Pito::MessageBuilder::CommandHelp.call(:platform)
       event = create(:event, conversation:, turn:, kind: "system", position: 2,
@@ -413,7 +413,7 @@ RSpec.describe Pito::Event::SystemComponent do
     end
   end
 
-  # ── T3.7: wide table — 8 columns, no vertical-stack regression ───────────────
+  # ── wide table — 8 columns, no vertical-stack regression ─────────────────────
 
   describe "table_heading with 8 columns" do
     subject(:node) do

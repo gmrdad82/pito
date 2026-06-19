@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# P14 — Stage 1 master: nightly sync orchestrator, scheduled at 1:00 UTC.
+# Stage 1 master: nightly sync orchestrator, scheduled at 1:00 UTC.
 #
 # Fans out atomic per-entity jobs in dependency order:
 #

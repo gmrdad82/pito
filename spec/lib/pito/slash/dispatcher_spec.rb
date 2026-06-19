@@ -49,9 +49,9 @@ RSpec.describe Pito::Slash::Dispatcher do
     end
   end
 
-  # ── P56 — Universal --help intercept ─────────────────────────────────────────
+  # ── Universal --help intercept ───────────────────────────────────────────────
 
-  describe ".call — --help flag interception (P56)" do
+  describe ".call — --help flag interception" do
     it "intercepts --help for registered verbs and returns Ok (not the handler's output)" do
       result = described_class.call(input: "/ping --help", conversation:)
       expect(result).to be_a(Pito::Slash::Result::Ok)

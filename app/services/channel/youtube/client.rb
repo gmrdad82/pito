@@ -1,7 +1,6 @@
-# Phase 7 — Step B (7b-youtube-client-and-audit.md). The single
-# rate-limit-aware YouTube client.
+# The single rate-limit-aware YouTube client.
 #
-# Phase 9 — GoogleIdentity → YoutubeConnection rename (ADR 0006). The
+# GoogleIdentity → YoutubeConnection rename (ADR 0006). The
 # constructor accepts a `YoutubeConnection`; internal naming follows.
 #
 # Every YouTube Data v3 / YouTube Analytics v2 call from pito flows
@@ -52,7 +51,7 @@ class Channel
         end
       end
 
-      # Phase 7.5 §11a — Channel sync foundation. Single-call channel
+      # Channel sync foundation. Single-call channel
       # fetch with the full part set the management surface needs to
       # cache (snippet + statistics + brandingSettings + contentDetails +
       # status). Returns a normalized snake_case Hash matching the spec's
@@ -82,21 +81,20 @@ class Channel
         normalize_channel_item(item)
       end
 
-      # Phase 7.5 §11c — Channel edit form. Destructive PUT against
-      # `channels.update` using the read-modify-write pattern: fetch the
-      # current `brandingSettings` first, merge the caller's dirty subset
-      # into the response body, then PUT the merged body back. Without
-      # the read, YouTube treats every absent sibling field on PUT as a
-      # blank-out request — which is how channels accidentally lose their
-      # country, default language, or keywords.
+      # Channel edit form. Destructive PUT against `channels.update` using
+      # the read-modify-write pattern: fetch the current `brandingSettings`
+      # first, merge the caller's dirty subset into the response body, then
+      # PUT the merged body back. Without the read, YouTube treats every
+      # absent sibling field on PUT as a blank-out request — which is how
+      # channels accidentally lose their country, default language, or keywords.
       #
       # `field_set` is a Pito-shape Hash with one or more of:
       #   :title, :description, :country, :default_language, :keywords
       #
       # The `:handle` field is excluded from this entrypoint — YouTube
-      # exposes a dedicated handle-management endpoint (verified by the
-      # Phase 7.5 §11c research dispatch); see `#update_handle` for that
-      # path. The controller branches between the two before dispatching.
+      # exposes a dedicated handle-management endpoint;
+      # see `#update_handle` for that path.
+      # The controller branches between the two before dispatching.
       #
       # Returns the parsed response as a snake_case Ruby Hash matching
       # the `Channel` cached-column shape (`title`, `description`,
@@ -142,7 +140,7 @@ class Channel
         end
       end
 
-      # Phase 7.5 §11i — handle push surface.
+      # Handle push surface.
       #
       # YouTube exposes a dedicated handle-management endpoint that is
       # NOT part of `channels.update#brandingSettings`. The full API
@@ -164,7 +162,7 @@ class Channel
               "Use the YouTube Studio UI to change the handle for now."
       end
 
-      # Phase 7.5 §11c — uploads a new watermark image and sets the
+      # Uploads a new watermark image and sets the
       # accompanying timing. `io` is any IO-like object the user-supplied
       # file is exposed as (e.g., `params[:channel][:watermark]`, an
       # `ActionDispatch::Http::UploadedFile`). `timing` is one of the
@@ -228,7 +226,7 @@ class Channel
         end
       end
 
-      # Phase 7.5 §11f — two-step channel banner upload.
+      # Two-step channel banner upload.
       #
       # Step 1: `channelBanners.insert` uploads the image bytes and
       #         returns a `ChannelBannerResource` whose `url` is the
@@ -548,7 +546,7 @@ class Channel
         end
       end
 
-      # Phase 7.5 §11c — extract the YouTube channel id (the `UC...`
+      # Extract the YouTube channel id (the `UC...`
       # suffix) from a `Channel`'s `channel_url`. Used by the destructive
       # write entrypoints (channels.update / watermarks.set /
       # watermarks.unset) to scope the call to the specific channel.
@@ -560,7 +558,7 @@ class Channel
         m[1]
       end
 
-      # Phase 7.5 §11c — read-modify-write phase 1. Fetches the current
+      # Read-modify-write phase 1. Fetches the current
       # `brandingSettings.channel` block via `channels.list`. Returns a
       # snake_case Hash containing only the keys YouTube actually
       # returned (nil-valued keys are dropped). This goes inside the
@@ -608,10 +606,10 @@ class Channel
         Channel::Youtube::TokenRefresher.call(@connection)
       end
 
-      # Phase 15 F2 — service construction (timeouts + authorization
-      # adapter) is centralized in `Channel::Youtube::ServiceFactory` so all three
-      # OAuth-backed clients (this one, VideosClient, VideosReader) share
-      # the same bounded-timeout posture.
+      # Service construction (timeouts + authorization adapter) is centralized
+      # in `Channel::Youtube::ServiceFactory` so all three OAuth-backed clients
+      # (this one, VideosClient, VideosReader) share the same bounded-timeout
+      # posture.
       def data_service
         Channel::Youtube::ServiceFactory.data_service(@connection)
       end
@@ -620,7 +618,7 @@ class Channel
         Channel::Youtube::ServiceFactory.analytics_service(@connection)
       end
 
-      # Phase 7.5 §11a — translate one channels.list#item into the
+      # Translate one channels.list#item into the
       # snake_case Hash shape Pito caches on `channels`. Tolerates a
       # nil item (minimal-mine response) and missing sub-keys (e.g.
       # `country` absent when the channel hasn't set one) by returning

@@ -1,8 +1,8 @@
-# Phase 16 §1 → Phase 26 01b refactor. PORO dispatcher base.
+# PORO dispatcher base.
 #
 # Originally `NotificationDeliveryChannel` was a top-level PORO whose
 # subclasses (`Slack`, `Discord`, `InApp`) handled per-provider HTTP
-# dispatch. Phase 26 introduces an Active Record model at
+# dispatch. A refactor introduced an Active Record model at
 # `app/models/notification_delivery_channel.rb` — the data layer for
 # per-provider webhook configuration (URL + routing flags +
 # `last_validated_at`). The PORO dispatcher logic lives in THIS class
@@ -75,7 +75,7 @@
 #     `retry_count`. Called before every raise or terminal return so
 #     the row always reflects the most-recent failure reason.
 #
-# Phase 26 refactor: subclasses now resolve `webhook_url` via the AR
+# Refactored: subclasses now resolve `webhook_url` via the AR
 # model first (`NotificationDeliveryChannel.send(kind)`) and fall back
 # to `ENV["PITO_<KIND>_WEBHOOK_URL"]`. This preserves backward
 # compatibility with installs that wired the URL through the

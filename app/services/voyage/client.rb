@@ -1,4 +1,4 @@
-# Phase 34 (2026-05-18) — Voyage AI embeddings client.
+# Voyage AI embeddings client.
 #
 # Single-purpose HTTP wrapper around Voyage AI's `/v1/embeddings`
 # endpoint. Extracted from the inline implementation in

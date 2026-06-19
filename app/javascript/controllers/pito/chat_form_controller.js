@@ -17,7 +17,7 @@
 //   channels — Array of channel handles (e.g. ["@all", "@gaming"])
 //   periods  — Array of period strings (default: ["7d", "28d", "1m", "3m", "1y", "lifetime"])
 //
-// Picker integration (T10.9):
+// Picker integration:
 //   Listens for `pito:picker:select` on `document`.  When fired the event's
 //   `detail.command` is written into the textarea and the form is submitted
 //   immediately, so picker selections drive a full chat submission without the
@@ -36,7 +36,7 @@ export default class extends Controller {
 
   connect() {
     this.#syncHidden()
-    // T10.9: listen for picker selections and drive form submission.
+    // Listen for picker selections and drive form submission.
     this._onPickerSelect = (e) => this.fillAndSubmit(e)
     document.addEventListener("pito:picker:select", this._onPickerSelect)
   }
@@ -45,7 +45,7 @@ export default class extends Controller {
     document.removeEventListener("pito:picker:select", this._onPickerSelect)
   }
 
-  // T10.9 — Public action for pickers (games, future IGDB picker, etc.).
+  // Public action for pickers (games, future IGDB picker, etc.).
   // Sets the textarea to `event.detail.command` and submits the form exactly
   // as if the user had typed the command and pressed Enter.
   fillAndSubmit(event) {
@@ -98,8 +98,8 @@ export default class extends Controller {
       // Plain Shift+R only — never when Ctrl/Meta/Alt is held, so the browser's
       // Ctrl+Shift+R (hard reload) and other shortcuts pass straight through.
       //
-      //   • exactly one live handle → prepend `#<handle> ` directly (P16 behavior).
-      //   • more than one live handle → open the hashtag picker (P18): the last
+      //   • exactly one live handle → prepend `#<handle> ` directly.
+      //   • more than one live handle → open the hashtag picker: the last
       //     command may have emitted several repliable messages, so let the user
       //     pick which one to act on. The picker prefills without submitting.
       //   • zero live handles → no-op (let the keystroke pass through).

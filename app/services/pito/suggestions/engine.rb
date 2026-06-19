@@ -346,7 +346,7 @@ module Pito
           end
         end
 
-        # ── KV ghost (P57) ───────────────────────────────────────────────────
+        # ── KV ghost ────────────────────────────────────────────────────────
 
         # When the active slot is a :kv slot and the user is still typing the
         # key portion (no "=" present), compute a ghost for the remaining chars

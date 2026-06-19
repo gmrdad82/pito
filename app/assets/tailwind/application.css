@@ -396,7 +396,7 @@ html {
   white-space: nowrap;
 }
 
-/* ── Thinking indicator (P25) ──────────────────────────────── */
+/* ── Thinking indicator ─────────────────────────────────────── */
 
 .pito-thinking {
   display: flex;
@@ -505,7 +505,7 @@ html {
   padding-block: 20px;
 }
 
-/* T19.5 — Caret color via token/class */
+/* Caret color via token/class */
 .terminal-caret {
   position: absolute;
   top: 0;
@@ -699,7 +699,7 @@ html {
    Solid-zone hard edges at 0–25% (very-bad), 25–50% (bad), 90–100%
    (excellent); smooth ramp through poor→meh→fair→good in between.
 
-   THEME-ADAPTIVE CONTRAST (T17.1): every stop is mixed toward
+   THEME-ADAPTIVE CONTRAST: every stop is mixed toward
    `--fg-default` (dark on light themes, light on dark themes) so the bar
    reads on ALL 18 themes. Pre-fix the yellow "fair" stop washed out to
    ~1.62:1 on `tomorrow`; the per-stop fg-mix below caps the worst case at
@@ -708,7 +708,7 @@ html {
    small). The lightest, intrinsically-low-contrast stops (yellow "fair"
    ≈42%, "good" ≈35%, green "excellent" ≈30%) carry a heavier fg-mix; the
    inherently dark red stops carry only ≈15–25%. Mix weights resolved with
-   the OKLab+WCAG sweep script (see Plan P17 / docs/games.md). */
+   the OKLab+WCAG sweep script (see docs/games.md). */
 .pito-score-bar__fill {
   flex: 1 1 auto;
   /* min-width:0 lets the flex item shrink below its (overflowing) 160-char
@@ -866,13 +866,12 @@ html {
   color: var(--fg-default);
 }
 
-/* The `=` glyphs carry the per-game ADAPTIVE heat ramp (T17.5): the
+/* The `=` glyphs carry the per-game ADAPTIVE heat ramp: the
    `background-image` linear-gradient is set INLINE on the element by
    `Pito::TimeToBeatComponent#gradient_stops` (HEAT_THRESHOLDS projected onto
    0..completionist), and clipped to the glyphs here. A short game reads
    mostly green/lime; a marathon reads mostly pink. Theme-aware + contrast-
-   safe: every stop is a fg-mixed accent color-mix (see HEAT_THRESHOLDS / the
-   T17.1 sweep) — no literal hex. */
+   safe: every stop is a fg-mixed accent color-mix (see HEAT_THRESHOLDS) — no literal hex. */
 .pito-ttb__fill {
   flex: 1 1 auto;
   /* See .pito-score-bar__fill — shrink to the visible width so the heat
@@ -999,7 +998,7 @@ html {
 
 /* Per-pillar / footage tick accent colors (data-accent attribute).
    Theme-aware, matching the contrast-safe effort-ramp stops above
-   (T17.1 fg-mix so the legend swatch ⇔ bar color identity holds on all
+   (fg-mix so the legend swatch ⇔ bar color identity holds on all
    18 themes): main = green (low), extras = lime (mix green→yellow),
    completionist = pink (mix red→purple). */
 [data-accent="main"]          { color: color-mix(in oklch, var(--accent-green) 70%, var(--fg-default)); }

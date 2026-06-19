@@ -1,4 +1,4 @@
-# Phase 37 Wave A1 — `Channel::MockData`.
+# `Channel::MockData`.
 #
 # Layout-first mock source for the `/channels` revamp. Each entry mirrors
 # the shape the real `Channel` model exposes today so the Wave B swap to
@@ -7,7 +7,7 @@
 # This is iteration-phase scaffolding only. Wave B replaces this with the
 # `Channels::Stats.*` real query layer per the handoff
 # (`docs/orchestration/handoff-2026-05-19-channels-and-live-updates.md`
-# §"Implementation plan" → Wave B step B12).
+# "Implementation plan" → Wave B step B12).
 #
 # 2026-05-19 (next A-slice) — bumped from 3 → 6 channels. Each entry now
 # carries the data needed by the new `Channel::IdCardComponent`:
@@ -519,7 +519,7 @@ class Channel
       ]
     end
 
-    # Phase 37 Top Content slice — per-channel mock top videos.
+    # Per-channel mock top videos.
     #
     # Returns a flat array of video hashes spanning all 6 channels. View
     # counts are spread across the `Pito::Formatter::CompactCount` tiers

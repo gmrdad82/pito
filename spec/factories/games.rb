@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# Minimal factory for P6 model specs. Full traits added in P11.
+# Minimal factory for model specs. Full traits added later.
 FactoryBot.define do
   factory :game do
     sequence(:title) { |n| "Game #{n}" }

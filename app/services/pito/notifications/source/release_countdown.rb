@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# Phase P9 — daily release-countdown reminder copy source.
+# Daily release-countdown reminder copy source.
 #
 # Given a game and how many days remain until its release, returns a witty
 # one-line notification MESSAGE STRING drawn from the

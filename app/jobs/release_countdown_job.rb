@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# Phase P9 — DAILY release-countdown reminder.
+# DAILY release-countdown reminder.
 #
 # Selects every game whose `release_date` is PRESENT and falls within the next
 # 30 days (today .. today + 30), computes the whole days remaining, and drops a
@@ -8,7 +8,7 @@
 # `release_date`) are skipped — the whole point of this job is replacing the old
 # date-less summary with concrete, dated countdowns.
 #
-# == Same-day-per-game dedup (T9.5)
+# == Same-day-per-game dedup
 #
 # The `Notification` schema is message-only — there is no `dedup_key` column to
 # lean on. To guarantee at most one countdown per game per day we embed an

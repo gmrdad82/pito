@@ -1,4 +1,4 @@
-# Phase 16 §2 — Notification formatter.
+# Notification formatter.
 #
 # Template for the `game_release_today` notification kind. The
 # pre-release `game_release_upcoming` track was dropped 2026-05-12;

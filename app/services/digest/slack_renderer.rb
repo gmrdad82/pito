@@ -1,4 +1,4 @@
-# Phase 26 — 01e. Slack Block Kit renderer for the daily digest.
+# Slack Block Kit renderer for the daily digest.
 #
 # Reads a `Digest::Composer::Result` and returns a Hash POSTable to a
 # Slack incoming webhook as JSON. Empty sections are suppressed

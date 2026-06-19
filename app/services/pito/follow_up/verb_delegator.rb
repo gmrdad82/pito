@@ -3,19 +3,19 @@
 module Pito
   module FollowUp
     # Delegates a `#<handle> <verb> <rest>` reply to the SAME chat verb handler
-    # that serves `<verb> <rest>` in free chat (Phase 18, T18.4).
+    # that serves `<verb> <rest>` in free chat.
     #
     # A follow-up handler (game_list, game_detail, …) becomes a thin shim: it
     # passes the live source event + the reply's `rest` here. We reconstruct the
     # chat invocation, run it through `Chat::Dispatcher` with a `FollowUpContext`
     # attached (so resolution can scope to the source list's rows or read the
-    # source card's entity — T18.2), then adapt the chat result into a follow-up
-    # result (T18.3). One code path builds + sends; no duplication.
+    # source card's entity), then adapt the chat result into a follow-up
+    # result. One code path builds + sends; no duplication.
     #
     #   VerbDelegator.call(source_event: ev, rest: "show 5", conversation: c)
     #   # → runs Chat::Handlers::Show with follow_up context → FollowUp::Result::Append
     #
-    # GATING (T18.5): the verb must be one of the source event's allowed reply
+    # GATING: the verb must be one of the source event's allowed reply
     # actions (the `reply_target`'s declared `actions`, the canonical matrix). A
     # disallowed verb is rejected with that target's `invalid_action` copy — never
     # delegated. (An empty/unknown action list means "not gated".)

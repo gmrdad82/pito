@@ -132,7 +132,7 @@ RSpec.describe Pito::Game::DetailComponent do
     end
   end
 
-  describe "KV table (T16.11 — KeyValueRowComponent grid)" do
+  describe "KV table (KeyValueRowComponent grid)" do
     it "renders developer row using KeyValueRowComponent (key + value spans)" do
       company = create(:company, name: "Grid Dev")
       create(:game_developer, game: game, company: company)
@@ -168,7 +168,7 @@ RSpec.describe Pito::Game::DetailComponent do
       game.update!(footage_hours: 2)
 
       node = render_inline(described_class.new(game: game))
-      # Footage uses the ScoreBar-style ▼ value bubble (T17.4), not a | tick.
+      # Footage uses the ScoreBar-style ▼ value bubble, not a | tick.
       bubble = node.css(".pito-ttb__footage-bubble").first
       expect(bubble).not_to be_nil
       # The bubble's value reflects the game's footage_hours via FootageHours.

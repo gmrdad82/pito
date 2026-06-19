@@ -1,4 +1,4 @@
-# Phase 16 §1 — Notifications data model + delivery channels.
+# Notifications data model + delivery channels.
 #
 # Stub. Spec 02 ships per-kind templates that turn a calendar entry /
 # event payload into a `{ title:, body:, url:, event_payload: }` hash.

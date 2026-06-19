@@ -225,7 +225,7 @@ module Pito
         event
       end
 
-      # ── Class-level global broadcasts (P54) ──────────────────────────────────
+      # ── Class-level global broadcasts ────────────────────────────────────────
 
       # Broadcast the current mini-status HTML (unread count + auth state) to
       # the "pito:global" stream so every open browser instance updates its
