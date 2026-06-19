@@ -32,7 +32,7 @@ en:
           login: "Log in to access pito"
           channels: "List your YouTube channels"
           videos: "List videos for a channel"
-          import: "Import channel or video metadata"
+          import: "Import a game from IGDB"
           export: "Export session transcript"
           help: "Show help and command reference"
           clear: "Clear the current session"

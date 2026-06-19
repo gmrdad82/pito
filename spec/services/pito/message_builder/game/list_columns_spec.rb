@@ -367,12 +367,16 @@ RSpec.describe Pito::MessageBuilder::Game::ListColumns do
     context "footage column" do
       let(:game_with_footage) { create(:game) }
 
-      it "returns formatted total duration when footages are present" do
-        create(:footage, game: game_with_footage, duration_seconds: 3600)
-        create(:footage, game: game_with_footage, duration_seconds: 3600)
-        game_with_footage.reload
+      it "returns the FootageHours total when footage_hours is set" do
+        game_with_footage.update!(footage_hours: 12.5)
         result = described_class.cells(game_with_footage, [ :footage ])
-        expect(result.first[:text]).to eq("2:00:00")
+        expect(result.first[:text]).to eq("12.5h")
+      end
+
+      it "strips the decimal for a whole-hour total" do
+        game_with_footage.update!(footage_hours: 5)
+        result = described_class.cells(game_with_footage, [ :footage ])
+        expect(result.first[:text]).to eq("5h")
       end
 
       it "returns '—' when there is no footage" do

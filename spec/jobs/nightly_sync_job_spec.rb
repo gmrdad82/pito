@@ -51,22 +51,29 @@ RSpec.describe NightlySyncJob, type: :job do
       expect(channel_sync_ids).not_to include(disconnected_channel.id)
     end
 
-    it "enqueues NightlyVideoSyncJob for each connected (non-reauth) channel" do
+    it "enqueues VideoSyncJob for each connected (non-reauth) channel" do
       expect {
         job.perform
-      }.to have_enqueued_job(NightlyVideoSyncJob).with(channel_a.id)
-         .and have_enqueued_job(NightlyVideoSyncJob).with(channel_b.id)
+      }.to have_enqueued_job(VideoSyncJob).with(channel_a.id)
+         .and have_enqueued_job(VideoSyncJob).with(channel_b.id)
     end
 
-    it "does not enqueue NightlyVideoSyncJob for reauth or disconnected channels" do
+    it "does not enqueue VideoSyncJob for reauth or disconnected channels" do
       job.perform
 
       video_sync_ids = enqueued_jobs
-        .select { |j| j["job_class"] == "NightlyVideoSyncJob" }
+        .select { |j| j["job_class"] == "VideoSyncJob" }
         .map { |j| j["arguments"]&.first }
 
       expect(video_sync_ids).not_to include(reauth_channel.id)
       expect(video_sync_ids).not_to include(disconnected_channel.id)
+    end
+
+    it "does not enqueue the retired NightlyVideoSyncJob" do
+      job.perform
+
+      job_classes = enqueued_jobs.map { |j| j["job_class"] }
+      expect(job_classes).not_to include("NightlyVideoSyncJob")
     end
 
     it "enqueues GameIgdbNightlyRefresh" do

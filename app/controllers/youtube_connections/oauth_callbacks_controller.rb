@@ -335,9 +335,8 @@ class YoutubeConnections::OauthCallbacksController < ApplicationController
       main  = t("#{ns}.already_linked.one",
                 title:  title,
                 handle: handle || "no-handle")
-      extra = Pito::Copy.render("pito.copy.youtube.already_connected_extras")
       art   = Pito::Copy.render("pito.copy.youtube.ascii_art")
-      parts << [ main, extra, art ].compact.join("<br>").html_safe
+      parts << [ main, art ].compact.join("<br>").html_safe
     end
 
     parts.join(" ")

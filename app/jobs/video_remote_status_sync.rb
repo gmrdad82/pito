@@ -39,10 +39,13 @@ class VideoRemoteStatusSync < ApplicationJob
     Rails.logger.warn("[video-remote-status-sync] auth revoked for video #{video_id}: #{e.message}")
   rescue Channel::Youtube::ValidationError => e
     Rails.logger.warn("[video-remote-status-sync] youtube rejected update for video #{video_id}: #{e.message}")
-    # Non-retriable — re-sending the same payload won't succeed.
+    # Non-retriable — re-sending the same payload won't succeed. Surface it so the
+    # confirmation's "Timer set" doesn't silently lie about a write that never landed.
+    surface_rejection(video)
   rescue Channel::Youtube::NotFoundError => e
     Rails.logger.warn("[video-remote-status-sync] video #{video_id} not found on youtube: #{e.message}")
-    # Non-retriable.
+    # Non-retriable. Surface it — the local state changed but YouTube never did.
+    surface_rejection(video)
   rescue Channel::Youtube::ServerError => e
     Rails.logger.warn("[video-remote-status-sync] server error for video #{video_id}: #{e.message}")
     raise
@@ -52,6 +55,17 @@ class VideoRemoteStatusSync < ApplicationJob
   end
 
   private
+
+  # Drop an unread Notification so the operator learns a YouTube write-through was
+  # rejected — the local privacy/schedule change stuck, but YouTube never accepted
+  # it, so any "done / Timer set" outcome would otherwise be a silent lie.
+  def surface_rejection(video)
+    return unless video
+
+    Notification.create!(
+      message: Pito::Copy.render("pito.copy.videos.sync_rejected", title: video.title)
+    )
+  end
 
   def network_error_classes
     [

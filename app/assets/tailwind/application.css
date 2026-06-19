@@ -1319,33 +1319,6 @@ html {
   text-decoration: underline;
 }
 
-/* ── Footage import probe block ────────────────────────────────
- *
- * The block hugs the command text (no trailing whitespace) but never
- * overflows the message: fit-content sizes it to the command, max-width
- * caps it at the message width — past which the inner padding div scrolls
- * horizontally. The hint below right-aligns to this (shrunk) width.
- *
- * The copy-confirmation overlay is absolutely centered over the
- * command block. The JS controller toggles `hidden` on it.
- */
-.pito-footage-import {
-  width: fit-content;
-  max-width: 100%;
-}
-
-.pito-footage-import__overlay {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: color-mix(in oklch, var(--bg-surface) 85%, transparent);
-  color: var(--accent-yellow);
-  font-weight: bold;
-  pointer-events: none;
-}
-
 /* ── Data table grid (Pito::Event::SystemComponent table_rows) ─────
    Column template is driven by the `data-cols` attribute (like data-accent) —
    static, compiled rules, so the template never builds a runtime Tailwind
@@ -1416,6 +1389,34 @@ html {
 /* Platform logos — capped at 16px tall so they never affect line-height. */
 .pito-platform-icons { display: inline-flex; align-items: center; gap: 0.35rem; vertical-align: middle; }
 .pito-platform-icon  { height: 16px; width: auto; display: inline-block; vertical-align: middle; }
+
+/* ── Footage snippet (copyable ffprobe one-liner) ──────────────
+   A dim hint line above a monospace command row. The command scrolls
+   horizontally rather than wrapping (one long shell line), with the copy
+   affordance pinned beside it. Border-radius 0, no hover. */
+.pito-footage-snippet__hint { margin-bottom: 0.35rem; }
+.pito-footage-snippet__bar {
+  display: flex;
+  align-items: flex-start;
+  gap: 1ch;
+}
+.pito-footage-snippet__code {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  overflow-x: auto;
+  white-space: pre;
+  border-radius: 0;
+}
+.pito-footage-snippet__copy {
+  flex: 0 0 auto;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+}
 
 /* ── Theme system ──────────────────────────────────────────────
  *

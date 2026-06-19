@@ -8,6 +8,9 @@ en:
           scheduled: "Scheduled"
           unlisted: "Unlisted"
           drafts: "Drafts"
+        summary:
+          total_label: "All channels"
+          nothing_new: "No new videos — your library is already current."
       channel_info:
         stats:
           subscribers: "Subscribers:"

@@ -1,11 +1,18 @@
 # Pito enhancements — June 2026 · remaining work
 
-> Completed phases have been pruned from this file. Done + committed (5 GPG-signed
-> commits on `main`): P0–P9, P16–P23, P25–P28, P31 — expandable removal, host-less
-> images, list-table polish, `show game`/`show video` enrichments, per-channel
-> imports + reauth surfacing, release-countdown notifications, consume-prior-
-> hashtags, `shift+r` picker, `platform` verb, `link to/with`, Synthwave theme,
-> `pito:tools:backup`, and the replay fix. What's LEFT is below.
+> Completed phases are pruned from this file.
+>
+> **Committed** (5 GPG-signed commits on `main`): P0–P9, P16–P23, P25–P28, P31.
+>
+> **Done but NOT yet committed** (one large uncommitted tree, awaiting your GPG):
+> P14, P15, P33, P36, P37, and **P38–P44** — the video-sync overhaul (search-based
+> `VideoLibrary#sync`, one `VideoSyncJob`, `sync`/`import` verbs unified with `sync`
+> canonical), the footage rework (`footage_hours` decimal + `footage update`/`footage
+> snippet`, probe/rake flow dropped), the schedule + `--help` bug fixes, the
+> scheduled sync cadence, and the show game/video kv-table refinements. Suite green
+> at 4930 examples.
+>
+> What's LEFT is below.
 
 ## Complexity hints
 
@@ -21,15 +28,8 @@
 - P11 — Dead-code audit (report-first)
 - P12 — Consolidate docs into one lean CLAUDE.md (delete AGENTS.md + EXTRA.md)
 - P13 — Refresh docs/architecture.md + audit README for dead doc links
-- P14 — Confirmation & sync message timestamps (remaining: error/resolved)
-- P15 — `import videos`: detect & import new videos (root-cause fix)
 - P24 — Clean up the connect message + 50-variant themed ASCII for connect/disconnect
-- P29 — `show game`: up to 6 similar games (match the channel row)
-- P30 — Halve the page left/right margins
 - P32 — `show game` linked-videos: drop "Footage", use vids/vid, include the listing
-- P33 — platform --help + show game/video detail kv-table refinements
-- P34 — User timezone: `/config timezone=City` + render timestamps in local time
-- P35 — Schedule natural-language time parser (in/tomorrow/at/for + 30-min guard)
 
 ## P10 — Strip plan/phase/task references from source comments
 
@@ -53,7 +53,7 @@
 
 ## P11 — Dead-code audit (report-first)
 
-- [ ] T11.1 Sweep the codebase (rb/js/css/erb/yml + specs) for obsolete code from prior attempts — remnants of removed surfaces (Settings::*, MCP, Redis, Sidekiq, Meilisearch, Doorkeeper, old layouts/hooks), the dead Phase-16 notification subsystem (`Pito::Notifications::Source::YoutubeReauthNeeded` + `PayloadBuilder` referencing dropped columns), unreferenced files, orphaned specs — and write a findings report to `tmp/audits/dead-code.md` (file:line, why dead, removal risk). complexity: [high]
+- [ ] T11.1 Sweep the codebase (rb/js/css/erb/yml + specs) for obsolete code from prior attempts — remnants of removed surfaces (Settings::*, MCP, Redis, Sidekiq, Meilisearch, Doorkeeper, old layouts/hooks), the dead Phase-16 notification subsystem (`Pito::Notifications::Source::YoutubeReauthNeeded` + `PayloadBuilder` referencing dropped columns), the orphaned `confirmation_resolved_component` (deferred from P14 — only its own spec references it), the now-unreachable `confirm_import_videos` executor branch + `import_videos` copy if dead, unreferenced files, orphaned specs — and write a findings report to `tmp/audits/dead-code.md` (file:line, why dead, removal risk). complexity: [high]
 - [ ] T11.2 Review the report with the user; mark each finding keep / remove. complexity: [manual]
 - [ ] T11.3 Remove the user-approved dead code (one cohesive deletion per area). complexity: [high]
 - [ ] T11.4 Run `bundle exec rspec` + `bin/rubocop` + `node --check`; confirm green after removals. complexity: [manual]
@@ -84,27 +84,6 @@
 - [ ] T13.8 Grep the repo for links to deleted MD files (`docs/design.md`, `AGENTS.md`, `EXTRA.md`) and fix dangling references. complexity: [low]
 - [ ] T13.9 Commit: `Refresh docs/architecture.md and fix README dead doc links`. complexity: [manual]
 
-## P14 — Confirmation & sync message timestamps (remaining)
-
-> Bug #1 (confirmation inline timestamp) + Bug #2 (sync/import result timestamp)
-> are DONE. Remaining: extend the inline first-line `HH:MM ·` timestamp to the
-> other standalone message components that still lack it.
-
-- [ ] T14.3 Add the inline first-line `HH:MM ·` timestamp to the remaining standalone message components that lack it — `error_component` and `confirmation_resolved_component` (sub-components spinner/meta/suggestion and the transient thinking status are excluded). complexity: [low]
-- [ ] T14.4 Smoke: a confirmation prompt, its imported result, an error, and a resolved confirmation all show an inline first-line timestamp. complexity: [manual]
-- [ ] T14.5 Commit: `Consistent first-line timestamp on confirmation, sync, and error messages`. complexity: [manual]
-
-## P15 — `import videos`: detect & import new videos (root-cause fix)
-
-> The count bug (`? new video(s)`) is fixed and per-channel fan-out (P19) shipped.
-> Remaining: the ROOT detection fix — genuinely new uploads across channels are
-> still missed by the "newer-only" sync. (Investigation done in T15.1.)
-
-- [ ] T15.2 Fix detection so genuinely new videos across all channels are imported. complexity: [high]
-- [ ] T15.4 Add/update a spec covering new-video detection + the reported count. complexity: [low]
-- [ ] T15.5 Smoke: with new uploads present, `import videos` imports them and reports the correct count. complexity: [manual]
-- [ ] T15.6 Commit: `Fix import videos new-video detection and count`. complexity: [manual]
-
 ## P24 — Clean up the connect message + 50-variant themed ASCII for connect/disconnect
 
 > The duplicate/"already connected" connect message (`compose_callback_flash`)
@@ -118,33 +97,16 @@
 > `text-blue` utility → map to existing accents). `/connect` (success) AND
 > `/disconnect` (outcome) each render a RANDOM one. 50 variants satisfies the
 > 1-or-50 copy guard.
+>
+> **BLOCKED on you:** the final 50-card ASCII pick / confirmation before T24.3.
 
-- [ ] T24.1 Remove the `already_connected_extras` render from the duplicate branch of `compose_callback_flash` (message = main line + ascii only). complexity: [low]
-- [ ] T24.2 Delete the now-unused `pito.copy.youtube.already_connected_extras` dictionary from the copy. complexity: [low]
-- [ ] T24.3 Rebuild `pito.copy.youtube.ascii_art` as a 50-variant dictionary from the 50 chosen `tmp/ascii-demo-2.html` cards — each a themed `<pre>` block, demo span classes remapped to pito `text-*` message classes (`accent-pink`/`accent-blue` → existing accents). complexity: [high]
-- [ ] T24.4 Render a random `pito.copy.youtube.ascii_art` on the `/disconnect` confirmed outcome (append after the i18n confirmed line; `/connect` success already renders it). complexity: [low]
-- [ ] T24.5 Spec: `ascii_art` has exactly 50 variants (1-or-50 guard) and both `/connect` success + `/disconnect` outcome include an ascii block. complexity: [low]
+- [x] T24.1 Remove the `already_connected_extras` render from the duplicate branch of `compose_callback_flash` (message = main line + ascii only). complexity: [low]
+- [x] T24.2 Delete the now-unused `pito.copy.youtube.already_connected_extras` dictionary from the copy. complexity: [low]
+- [x] T24.3 Rebuild `pito.copy.youtube.ascii_art` as a 50-variant dictionary from the 50 chosen `tmp/ascii-demo-2.html` cards — each a themed `<pre>` block, demo span classes remapped to pito `text-*` message classes (`accent-pink` → `text-purple`, `accent-blue` → `text-pito` (pito blue `#5170ff`)). All colors already emitted by the chat UI, so no safelist needed. complexity: [high]
+- [x] T24.4 Render a random `pito.copy.youtube.ascii_art` on the `/disconnect` confirmed outcome (append after the i18n confirmed line; `/connect` success already renders it). complexity: [low]
+- [x] T24.5 Spec: `ascii_art` has exactly 50 variants (1-or-50 guard) and both `/connect` success + `/disconnect` outcome include an ascii block. complexity: [low]
 - [ ] T24.6 Smoke: `/connect` (new + already-connected) and `/disconnect` each show a random art that re-colors on `/themes`; no filler line. complexity: [manual]
 - [ ] T24.7 Commit: `50-variant themed ascii on connect/disconnect; drop the filler line`. complexity: [manual]
-
-## P29 — `show game`: up to 6 similar games (match the channel row)
-
-> The `show game` "overlap worth exploring" similar-games strip shows 5, while
-> the "channels this game would feel at home in" row shows up to 6. Bump similar
-> games to 6 (when available) so the two rows balance.
-
-- [x] T29.1 Change the similar-games limit from 5 → 6 (grep `similar_games(.*limit: 5` — in the game-enhanced builder/component recommendation call). complexity: [low]
-- [x] T29.2 Update the game-enhanced spec if it asserts a count/limit of 5. complexity: [low]
-- [ ] T29.3 Commit: `Show up to 6 similar games (match the channel row)`. complexity: [manual]
-
-## P30 — Halve the page left/right margins
-
-> The chat page content sits inside left/right margins; cut those horizontal
-> margins to the page edges by 50% so messages use more width.
-
-- [x] T30.1 Find the chat page/content container's horizontal margin/padding (the scrollback/layout wrapper in `application.css` or the layout) and halve the left + right value (`#pito-scrollback` padding 50px → 25px). complexity: [low]
-- [ ] T30.2 Confirm the chatbox/composer still aligns with the widened content. complexity: [manual]
-- [ ] T30.3 Commit: `Halve the page left/right margins`. complexity: [manual]
 
 ## P32 — `show game` linked-videos: drop "Footage", use vids/vid, include the listing
 
@@ -153,69 +115,15 @@
 > say "vids"/"vid" not "videos"/"video"; (3) the message should include the actual
 > video LISTING (a lighter `list videos`), not just a count.
 >
-> **Open:** scope of the vids/vid terminology change — display copy only, or also
-> command keywords like `list videos`? (Proposed: display copy only; keep command
-> keywords.)
+> **BLOCKED on you:** scope of the vids/vid terminology change — display copy only,
+> or also command keywords like `list videos`? (Proposed: display copy only; keep
+> command keywords.)
 
 - [ ] T32.1 Replace "Footage" in `pito.copy.game.linked_videos_intro` (50 variants) with non-"Footage" wording. complexity: [low]
 - [ ] T32.2 Switch user-facing "videos"/"video" → "vids"/"vid" in the relevant `Pito::Copy` (audit + confirm scope; keep command keywords). complexity: [high]
 - [ ] T32.3 Ensure the show-game linked-videos message renders the actual listing (lighter `list videos` form), not just the count — verify P6's table emits, or add a slim listing. complexity: [high]
 - [ ] T32.4 Specs + smoke. complexity: [low]
 - [ ] T32.5 Commit: `show game linked-videos: drop Footage, vids/vid, include listing`. complexity: [manual]
-
-## P33 — platform --help + show game/video detail kv-table refinements
-
-> (a) `platform --help` is empty — add a man-style `Pito::Copy` help like other verbs.
-> (b) `show game` kv-table: add `ID: #<id>` (internal id) before the Platform row.
-> (c) `show video`: move the Category/Length/Status/Tags kv-table AFTER the
->     Description, with a hairline separator; keep the v/L/C stats on the left + add
->     a legend (v: Views, L: Likes, C: Comments) via `Pito::Copy`.
-> (d) `show video` kv-table: add `ID: #<id>` (internal) + `YouTube ID: <yt>` rows.
-
-- [ ] T33.1 Add `platform --help` man-style help copy (mirror other verbs' `--help`). complexity: [low]
-- [ ] T33.2 `show game` detail kv-table: add an `ID: #<id>` row before the Platform row. complexity: [low]
-- [ ] T33.3 `show video`: move the Category/Length/Status/Tags kv-table after the Description + add a hairline separator. complexity: [high]
-- [ ] T33.4 `show video`: keep the v/L/C stats on the left + add a legend (v: Views, L: Likes, C: Comments) via `Pito::Copy`. complexity: [low]
-- [ ] T33.5 `show video` kv-table: add `ID: #<id>` + `YouTube ID: <yt>` rows. complexity: [low]
-- [ ] T33.6 Specs + smoke. complexity: [low]
-- [ ] T33.7 Commit: `show game/video detail kv-table refinements + platform --help`. complexity: [manual]
-
-## P34 — User timezone: `/config timezone=City` + render timestamps in local time
-
-> The app stores UTC (application.rb + AR `default_timezone`). Add a user timezone
-> so timestamps RENDER in local time AND schedule inputs are interpreted in local
-> time (then converted to UTC at the YouTube boundary — already handled). Configure
-> via `/config timezone=Madrid` — a MAJOR CITY mapped to an IANA zone via
-> `ActiveSupport::TimeZone["Madrid"] → "Europe/Madrid"`. Default before set: UTC.
-
-- [x] T34.1 Add a `timezone` setting to `AppSetting` (key/value accessor + writer; default "UTC"). complexity: [low]
-- [x] T34.2 Add `/config timezone=<City>` to the config handler: resolve the city via `ActiveSupport::TimeZone[city]`, validate, persist; witty error on an unknown city. complexity: [high]
-- [x] T34.3 Set the request `Time.zone` from `AppSetting.timezone` (`set_user_time_zone` before_action) so rendering + schedule parsing use local time; AR keeps storing UTC. complexity: [high]
-- [x] T34.4 Timestamp surfaces render in `Time.zone` (`TimestampPrefixComponent` → `in_time_zone`; `CompactTimeAgo` is delta-math, zone-independent). complexity: [low]
-- [x] T34.5 Add a `/config timezone` help/usage entry (man-style, like other config keys). complexity: [low]
-- [x] T34.6 Specs: city→zone resolution; a timestamp renders in the configured zone; unknown city errors. complexity: [low]
-- [ ] T34.7 Commit: `User timezone via /config timezone=City; render timestamps locally`. complexity: [manual]
-
-## P35 — Schedule natural-language time parser (in/tomorrow/at/for + 30-min guard)
-
-> Extend `schedule <id> <when>` beyond `DD-MM-YYYY [HH:MM]` to natural language,
-> interpreted in the user's local zone (P34) → UTC at the YouTube boundary. EVERY
-> form validates ≥ 30 minutes from now. Forms: `in 30m` · `in 30 minutes` ·
-> `in 1h [from now]` · `in 1 hour [from now]` · `in 3 days` · `tomorrow at noon` ·
-> `tomorrow` (→ 9 AM) · `in 3 days` (→ 9 AM) · `at 2pm` / `at 23` (→ today) ·
-> `for DD.MM.YYYY HH:MM` (accept `.` and `-`).
->
-> **Decision:** a time-only form (`at 2pm` / `at 23`) is strictly the CURRENT day —
-> if it has already passed, it's rejected by the past/30-min guard (no auto-roll to
-> tomorrow).
-
-- [x] T35.1 Add a `Pito::Schedule::TimeParser` (or extend `Schedule#extract_when`) for relative durations: `in <n> <m|min|minute(s)|h|hour(s)|day(s)> [from now]`. complexity: [high]
-- [x] T35.2 Parse named day/time: `tomorrow`, `tomorrow at noon`, `at <HH>[am|pm]`, `at <HH>` — defaults (tomorrow / in-N-days → 9 AM; bare `at` → today). complexity: [high]
-- [x] T35.3 Parse absolute `for DD.MM.YYYY HH:MM` accepting `.` and `-` separators. complexity: [low]
-- [x] T35.4 Interpret every form in `Time.zone` (local) and enforce ≥ 30 min from now uniformly (reuse the past/30-min guards). complexity: [high]
-- [x] T35.5 Update the schedule help/usage copy (`Pito::Copy`) with the new forms. complexity: [low]
-- [x] T35.6 Specs: each of the 10 example forms → the correct local→UTC time; the 30-min guard on each. complexity: [low]
-- [ ] T35.7 Commit: `schedule: natural-language time parsing (local→UTC, 30-min guard)`. complexity: [manual]
 
 ## How to use this plan
 

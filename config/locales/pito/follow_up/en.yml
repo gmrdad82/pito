@@ -6,11 +6,11 @@ en:
           invalid_action: "Unknown action '%{action}'. Try: #<handle> show <id>."
       game_detail:
         errors:
-          invalid_action: "Unknown action '%{action}'. Try: rm, reindex, link to video <id|title>, unlink, or footage <path>."
+          invalid_action: "Unknown action '%{action}'. Try: rm, reindex, link to video <id|title>, unlink, or footage <hours>."
           game_not_found: "Couldn't find the game for this message."
           video_not_found: "No video matching \"%{ref}\"."
           missing_video_ref: "Specify a video. Try: link to video <id|title>."
-          missing_path: "Specify a footage folder. Try: footage <path>."
+          missing_hours: "Specify the footage hours. Try: footage <hours> (e.g. footage 12.5)."
       video_detail:
         errors:
           invalid_action: "Unknown action '%{action}'. Try: reindex."

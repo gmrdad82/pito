@@ -157,6 +157,40 @@ RSpec.describe Pito::FollowUp::Handlers::Confirmation, type: :service do
     end
   end
 
+  # ── video_schedule: enhanced outcome on confirm ───────────────────────────
+
+  describe "#call — video_schedule confirm renders an enhanced outcome" do
+    let!(:sc_video) { create(:video, channel:, title: "Dungeon Clear", privacy_status: :public, publish_at: nil) }
+    let!(:source_event) do
+      Event.create_with_position!(
+        conversation:, turn: source_turn, kind: "confirmation",
+        payload: {
+          "command"      => "video_schedule",
+          "body"         => "Schedule Dungeon Clear?",
+          "reply_handle" => "alpha-1111",
+          "reply_target" => "confirmation",
+          "video_id"     => sc_video.id,
+          "video_title"  => "Dungeon Clear",
+          "publish_at"   => 7.days.from_now.utc.iso8601
+        }
+      )
+    end
+
+    before { allow(VideoRemoteStatusSync).to receive(:perform_later) }
+
+    it "appends an :enhanced event (not the orange confirmation_follow_up) on confirm" do
+      expect(call("confirm").events.first[:kind]).to eq("enhanced")
+    end
+
+    it "carries the scheduled outcome line as the enhanced text" do
+      expect(call("confirm").events.first[:payload]["text"]).to be_present
+    end
+
+    it "still renders the orange confirmation_follow_up on cancel" do
+      expect(call("cancel").events.first[:kind]).to eq("confirmation_follow_up")
+    end
+  end
+
   # ── invalid action ────────────────────────────────────────────────────────
 
   describe "#call — invalid action" do

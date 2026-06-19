@@ -48,6 +48,13 @@
 
     <%# Details — platforms, genres, themes, perspective, developer, publisher, release %>
     <div class="grid grid-cols-[max-content_1fr] gap-x-2 gap-y-1">
+      <%= render(Pito::Table::KeyValueRowComponent.new(
+            key_text:    t("pito.game.detail.id"),
+            value_text:  "##{@game.id}",
+            key_class:   "text-fg-dim whitespace-nowrap",
+            value_class: "text-fg"
+          )) %>
+
       <% if platforms_icons.present? %>
         <%= render(Pito::Table::KeyValueRowComponent.new(
               key_text:    t("pito.game.detail.platforms"),

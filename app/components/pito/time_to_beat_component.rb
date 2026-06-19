@@ -9,7 +9,8 @@
 # kwargs:
 #   game:          (Game, optional) — source for ttb_*_seconds.
 #   hours:         (Hash, optional) — explicit {main:, extras:, completionist:} override.
-#   footage_hours: (Integer, optional) — explicit footage hour override; default 0.
+#   footage_hours: (BigDecimal/Numeric, optional) — explicit footage hours
+#                  (decimal, multiples of 0.5) override; default 0.
 module Pito
   class TimeToBeatComponent < ViewComponent::Base
     SAMPLE_HOURS = { main: 31, extras: 71, completionist: 124 }.freeze
@@ -96,7 +97,7 @@ module Pito
     end
 
     def footage_hours
-      @footage_hours.to_i
+      @footage_hours || 0
     end
 
     # The largest PRESENT (positive) pillar hour value; 0 if all absent.
@@ -175,10 +176,7 @@ module Pito
     end
 
     def footage_value_label
-      h = footage_hours
-      return I18n.t("pito.game.ttb.em_dash") unless h.positive?
-
-      I18n.t("pito.game.ttb.hours_short", n: h)
+      Pito::Formatter::FootageHours.call(footage_hours)
     end
 
     def footage_caption

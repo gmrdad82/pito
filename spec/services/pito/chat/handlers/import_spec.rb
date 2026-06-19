@@ -72,12 +72,12 @@ RSpec.describe Pito::Chat::Handlers::Import do
     let!(:connection) { create(:youtube_connection) }
     let!(:channel)    { create(:channel, handle: "@pito", youtube_connection: connection) }
 
-    it "emits a confirmation event with command import_videos for bare 'import videos'" do
+    it "emits the sync_videos confirmation for bare 'import videos' (true alias)" do
       result = handler_for("import videos").call
       expect(result).to be_a(Pito::Chat::Result::Ok)
       event = result.events.first
       expect(event[:kind]).to eq(:confirmation)
-      expect(event[:payload]["command"]).to eq("import_videos")
+      expect(event[:payload]["command"]).to eq("sync_videos")
     end
 
     it "carries an empty channel_ids array for @all scope" do

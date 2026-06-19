@@ -20,6 +20,17 @@ RSpec.describe Pito::Game::DetailComponent do
     end
   end
 
+  describe "ID row" do
+    it "renders the internal db id, #-prefixed, as the first KV row before Platform" do
+      node = render_inline(described_class.new(game: game))
+      grid = node.css("div.grid.grid-cols-\\[max-content_1fr\\]").first
+      expect(grid.text).to include(I18n.t("pito.game.detail.id"))
+      expect(grid.text).to include("##{game.id}")
+      expect(grid.text.index(I18n.t("pito.game.detail.id")))
+        .to be < grid.text.index(I18n.t("pito.game.detail.platforms"))
+    end
+  end
+
   describe "developer names" do
     it "renders developer company names" do
       company = create(:company, name: "Dev Studios")
@@ -154,12 +165,14 @@ RSpec.describe Pito::Game::DetailComponent do
 
   describe "time-to-beat component with footage tick" do
     it "embeds the TTB component including the footage mark" do
-      Footage.create!(game: game, filename: "clip.mov", duration_seconds: 7200)
-      game.reload
+      game.update!(footage_hours: 2)
 
       node = render_inline(described_class.new(game: game))
       # Footage uses the ScoreBar-style ▼ value bubble (T17.4), not a | tick.
-      expect(node.css(".pito-ttb__footage-bubble").first).not_to be_nil
+      bubble = node.css(".pito-ttb__footage-bubble").first
+      expect(bubble).not_to be_nil
+      # The bubble's value reflects the game's footage_hours via FootageHours.
+      expect(bubble.text).to include("2h")
     end
   end
 

@@ -217,6 +217,21 @@ RSpec.describe Pito::Event::SystemComponent do
       node = render_inline(described_class.new(payload: { body: "plain", html: true }, event: nil))
       expect(node.css(".pito-echo__meta")).to be_empty
     end
+
+    # ── T37.2: `--help` man-page bodies show the inline first-line timestamp ─────
+    it "places the timestamp prefix INSIDE the .pito-help-block (not orphaned above it)" do
+      help_payload = Pito::MessageBuilder::CommandHelp.call(:platform)
+      event = create(:event, conversation:, turn:, kind: "system", position: 2,
+                     payload: help_payload)
+      node = render_inline(described_class.new(payload: event.payload.with_indifferent_access, event:))
+
+      help_block = node.css(".pito-help-block").first
+      expect(help_block).to be_present
+      # The timestamp prefix is a descendant of the help block, leading its first line.
+      expect(help_block.css("span.pito-timestamp-prefix")).not_to be_empty
+      # And it is not duplicated outside the block.
+      expect(node.css("span.pito-timestamp-prefix").size).to eq(1)
+    end
   end
 
   describe "table_rows with a third column (value2)" do

@@ -1,9 +1,9 @@
 <%# Pito::Video::DetailComponent — video detail card for chat messages.
-    Two columns: LEFT = thumbnail + KV fields (no title/description) + hairline +
-    one-line stats; RIGHT = title, "Description" label, and the description text. %>
+    Two columns: LEFT = thumbnail + hairline + one-line v/L/C stats + legend;
+    RIGHT = title, "Description" label + text, hairline, then the KV table. %>
 <div class="pito-video-detail flex gap-4 items-start">
 
-  <%# ── Left column: intro (with timestamp slot), thumbnail, fields, stats ─── %>
+  <%# ── Left column: intro (with timestamp slot), thumbnail, stats, legend ──── %>
   <div class="pito-video-detail__left flex flex-col gap-3">
 
     <% if @intro.present? %>
@@ -19,8 +19,54 @@
       <% end %>
     </div>
 
-    <%# KV fields — title and description now live in the right column %>
+    <%# Hairline separating the thumbnail from the stats %>
+    <%= render(Pito::Separator::DividerLineComponent.new(hairline: true, tone: :faded)) %>
+
+    <%# Stats — one line: value + dim abbreviation (v/L/C), · separated %>
+    <div class="pito-video-detail__stats flex flex-wrap items-center">
+      <span><span class="text-fg"><%= view_count_label %></span> <span class="text-fg-dim"><%= t("pito.video.detail.views_abbr") %></span></span>
+      <%= render(Pito::Shell::InlineSeparatorComponent.new) %>
+      <span><span class="text-fg"><%= like_count_label %></span> <span class="text-fg-dim"><%= t("pito.video.detail.likes_abbr") %></span></span>
+      <%= render(Pito::Shell::InlineSeparatorComponent.new) %>
+      <span><span class="text-fg"><%= comment_count_label %></span> <span class="text-fg-dim"><%= t("pito.video.detail.comments_abbr") %></span></span>
+    </div>
+
+    <%# Legend mapping the v/L/C abbreviations (1-variant copy line) %>
+    <p class="pito-video-detail__legend text-fg-dim italic mt-2"><%= Pito::Copy.render("pito.copy.videos.stats_legend") %></p>
+  </div>
+
+  <%# ── Right column: title, "Description" label, description, hairline, KV ──
+      whitespace-pre-wrap preserves the YouTube description's line breaks. %>
+  <div class="pito-video-detail__right flex flex-col gap-1 flex-1 min-w-0">
+    <%# Title — label and value on one row %>
+    <div class="flex gap-2">
+      <span class="text-fg-dim whitespace-nowrap"><%= t("pito.video.detail.title") %></span>
+      <span class="pito-video-detail__title text-fg"><%= @video.title %></span>
+    </div>
+    <% if description.present? %>
+      <div class="text-fg-dim mt-1"><%= t("pito.video.detail.description") %></div>
+      <div class="pito-video-detail__description text-fg whitespace-pre-wrap"><%= description %></div>
+    <% end %>
+
+    <%# Hairline between the description and the KV table %>
+    <%= render(Pito::Separator::DividerLineComponent.new(hairline: true, tone: :faded, extra_classes: "pito-detail-hairline")) %>
+
+    <%# KV table — moved here (after the description), ID + YouTube ID first %>
     <div class="grid grid-cols-[max-content_1fr] gap-x-2 gap-y-1">
+      <%= render(Pito::Table::KeyValueRowComponent.new(
+            key_text:    t("pito.video.detail.id"),
+            value_text:  "##{@video.id}",
+            key_class:   "text-fg-dim whitespace-nowrap",
+            value_class: "text-fg"
+          )) %>
+
+      <%= render(Pito::Table::KeyValueRowComponent.new(
+            key_text:    t("pito.video.detail.youtube_id"),
+            value_text:  @video.youtube_video_id,
+            key_class:   "text-fg-dim whitespace-nowrap",
+            value_class: "text-fg"
+          )) %>
+
       <% if category_label.present? %>
         <%= render(Pito::Table::KeyValueRowComponent.new(
               key_text:    t("pito.video.detail.category"),
@@ -57,32 +103,6 @@
             )) %>
       <% end %>
     </div>
-
-    <%# Hairline separating the fields from the stats %>
-    <%= render(Pito::Separator::DividerLineComponent.new(hairline: true, tone: :faded)) %>
-
-    <%# Stats — one line: dim label + value, · separated %>
-    <div class="pito-video-detail__stats flex flex-wrap items-center">
-      <span><span class="text-fg-dim"><%= t("pito.video.detail.views") %></span> <span class="text-fg"><%= view_count_label %></span></span>
-      <%= render(Pito::Shell::InlineSeparatorComponent.new) %>
-      <span><span class="text-fg-dim"><%= t("pito.video.detail.likes") %></span> <span class="text-fg"><%= like_count_label %></span></span>
-      <%= render(Pito::Shell::InlineSeparatorComponent.new) %>
-      <span><span class="text-fg-dim"><%= t("pito.video.detail.comments") %></span> <span class="text-fg"><%= comment_count_label %></span></span>
-    </div>
-  </div>
-
-  <%# ── Right column: title, "Description" label, description ───────────────
-      whitespace-pre-wrap preserves the YouTube description's line breaks. %>
-  <div class="pito-video-detail__right flex flex-col gap-1 flex-1 min-w-0">
-    <%# Title — label and value on one row %>
-    <div class="flex gap-2">
-      <span class="text-fg-dim whitespace-nowrap"><%= t("pito.video.detail.title") %></span>
-      <span class="pito-video-detail__title text-fg"><%= @video.title %></span>
-    </div>
-    <% if description.present? %>
-      <div class="text-fg-dim mt-1"><%= t("pito.video.detail.description") %></div>
-      <div class="pito-video-detail__description text-fg whitespace-pre-wrap"><%= description %></div>
-    <% end %>
   </div>
 
 </div>

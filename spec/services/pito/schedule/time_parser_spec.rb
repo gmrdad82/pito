@@ -63,6 +63,18 @@ RSpec.describe Pito::Schedule::TimeParser do
       expect(parse("5 at 2pm").time).to eq(Time.zone.local(2026, 6, 16, 14, 0))
     end
 
+    it "parses `at 3:10am` as today 03:10" do
+      expect(parse("5 at 3:10am").time).to eq(Time.zone.local(2026, 6, 16, 3, 10))
+    end
+
+    it "parses `at 15:30` (24-hour) as today 15:30" do
+      expect(parse("5 at 15:30").time).to eq(Time.zone.local(2026, 6, 16, 15, 30))
+    end
+
+    it "parses `tomorrow at 3:10am` as tomorrow 03:10" do
+      expect(parse("5 tomorrow at 3:10am").time).to eq(Time.zone.local(2026, 6, 17, 3, 10))
+    end
+
     it "parses `at 11pm` as today 23:00" do
       expect(parse("5 at 11pm").time).to eq(Time.zone.local(2026, 6, 16, 23, 0))
     end

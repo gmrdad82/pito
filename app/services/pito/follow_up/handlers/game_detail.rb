@@ -20,10 +20,10 @@ module Pito
       #     → Delegated to Chat::Handlers::Link via VerbDelegator. The handler
       #       reads game_id from the source event and the video ref from rest.
       #
-      #   #<handle> footage <path>
-      #     → Append the copyable `pito:tools:probe` snippet for this game +
-      #       footage folder (shared FootageImport builder with the `footage`
-      #       chat verb). Reachable via shift+r, which seeds `#<handle> `.
+      #   #<handle> footage [update] <hours>
+      #     → Set this game's total footage hours (ceil'd UP to the next 0.5),
+      #       mirroring the `footage update <id> <hours>` chat verb (the id is
+      #       implied by the card). Reachable via shift+r, which seeds `#<handle> `.
       #
       # NAMESPACE GOTCHA: Inside Pito::FollowUp::Handlers::*, the bare constant
       # `Game` resolves to the Pito::Game MODULE (not the ActiveRecord model).
@@ -57,38 +57,47 @@ module Pito
 
         private
 
-        # ── footage <path> ────────────────────────────────────────────────────────
+        # ── footage [update] <hours> ──────────────────────────────────────────────
 
-        # `#<handle> footage <path>` — the game is already known from the segment,
-        # so the whole `args` tail is the footage folder. Emits the same copyable
-        # probe-command snippet as the `footage <ref> <path>` chat verb (shared
-        # FootageImport builder, different dispatch).
+        # `#<handle> footage [update] <hours>` — the game is known from the segment,
+        # so the tail is the new total footage in hours, ceil'd UP to the next 0.5
+        # (BigDecimal-exact). Sets `footage_hours`, same as the `footage update
+        # <id> <hours>` chat verb (id implied by the card).
         def handle_footage(event, args, conversation)
           game = resolve_game_from_event(event)
           return game_not_found_error if game.nil?
 
-          path, force = parse_footage_args(args)
-          if path.blank?
+          hours = parse_footage_hours(args)
+          if hours.nil?
             return Pito::FollowUp::Result::Error.new(
-              message_key:  "pito.follow_up.game_detail.errors.missing_path",
+              message_key:  "pito.follow_up.game_detail.errors.missing_hours",
               message_args: {}
             )
           end
 
+          game.update!(footage_hours: hours)
+
           Pito::FollowUp::Result::Append.new(
-            events: [ { kind: :system, payload: Pito::MessageBuilder::Game::FootageImport.call(game, path: path, force: force) } ]
+            events: [ { kind: :system, payload: Pito::MessageBuilder::Text.call(
+              "pito.copy.footage.updated",
+              game:  game.title,
+              hours: Pito::Formatter::FootageHours.call(game.footage_hours)
+            ) } ]
           )
         end
 
-        # Splits the `footage` args tail into [path, force]. An optional `--force`
-        # (or bare `force`) flag at the start or end re-probes + overwrites
-        # already-imported footage; the remainder is the folder path.
-        def parse_footage_args(args)
-          text  = args.to_s.strip
-          force = false
-          force = true if text.sub!(/\A(?:--)?force\b\s*/i, "")     # leading flag
-          force = true if text.sub!(/\s+(?:--)?force\b\s*\z/i, "")  # trailing flag
-          [ text.strip, force ]
+        # Parse the `footage` args tail into footage hours, ceil'd UP to the next
+        # 0.5 (1800 s = 0.5 h). Tolerates an optional leading `update` token so both
+        # `footage <hours>` and `footage update <hours>` work. Non-numeric/negative
+        # → nil (usage hint). BigDecimal keeps the 0.5 step exact.
+        def parse_footage_hours(args)
+          text  = args.to_s.strip.sub(/\Aupdate\b\s*/i, "").strip
+          value = BigDecimal(text)
+          return nil if value.negative?
+
+          (value * 2).ceil / 2r
+        rescue ArgumentError, TypeError
+          nil
         end
 
         # ── helpers ────────────────────────────────────────────────────────────

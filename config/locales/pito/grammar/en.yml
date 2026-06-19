@@ -27,7 +27,7 @@ en:
         link: "Link a video to a game"
         unlink: "Unlink a video from a game"
         sync: "Sync videos or channels from YouTube (scope via shift+tab channel)"
-        import: "Import a game from IGDB, or import new videos from a channel"
+        import: "Import a game from IGDB into your library"
         help: "List all follow-up targets and their accepted actions"
       hashtag:
         add: "Track a metric in this conversation"

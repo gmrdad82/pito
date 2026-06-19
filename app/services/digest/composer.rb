@@ -19,8 +19,6 @@
 #   - `videos_updated` — Videos whose `last_synced_at` falls inside
 #     the window AND that were created BEFORE the window (so we don't
 #     double-count brand-new imports). Capped at 10.
-#   - `footage_imported` — Footage rows created inside the window.
-#     Capped at 10.
 #   - `notifications_open` — Unread Notifications older than 1 hour
 #     (excluding rows newer than 1h to avoid flapping). Capped at 10.
 #
@@ -48,7 +46,6 @@ module Digest
       :channels_synced,
       :videos_imported,
       :videos_updated,
-      :footage_imported,
       :notifications_open,
       keyword_init: true
     ) do
@@ -57,7 +54,6 @@ module Digest
           channels_synced,
           videos_imported,
           videos_updated,
-          footage_imported,
           notifications_open
         ].compact
       end
@@ -81,7 +77,6 @@ module Digest
         channels_synced: channels_synced_section,
         videos_imported: videos_imported_section,
         videos_updated: videos_updated_section,
-        footage_imported: footage_imported_section,
         notifications_open: notifications_open_section
       )
     end
@@ -124,17 +119,6 @@ module Digest
       )
     end
 
-    def footage_imported_section
-      scope = Footage
-                .where(created_at: @window_start...@now)
-                .order(created_at: :desc)
-      Section.new(
-        label: "footage imported",
-        total: scope.count,
-        items: scope.limit(SECTION_LIMIT).map { |f| footage_label(f) }
-      )
-    end
-
     def notifications_open_section
       # Unread notifications older than 1 hour. Younger ones are still
       # "fresh" — we don't want every digest to surface a notification
@@ -156,10 +140,6 @@ module Digest
 
     def video_label(video)
       video.title.presence || video.youtube_video_id.to_s
-    end
-
-    def footage_label(footage)
-      footage.filename.to_s
     end
 
     def notification_label(notification)

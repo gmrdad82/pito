@@ -241,14 +241,9 @@ RSpec.describe Pito::MessageBuilder::Game::List do
   end
 
   describe ".call with columns: [:footage]" do
-    let!(:game) do
-      g = create(:game, title: "Footage Game")
-      create(:footage, game: g, duration_seconds: 3600)
-      create(:footage, game: g, duration_seconds: 3600)
-      g.reload
-    end
+    let!(:game) { create(:game, title: "Footage Game", footage_hours: 12.5) }
 
-    let(:games) { ::Game.includes(:footages).where(id: game.id) }
+    let(:games) { ::Game.where(id: game.id) }
 
     subject(:payload) { described_class.call(games, conversation: conversation, columns: [ :footage ]) }
 
@@ -267,9 +262,15 @@ RSpec.describe Pito::MessageBuilder::Game::List do
       expect(footage_cell[:class]).to include("pito-cell-duration")
     end
 
-    it "footage cell shows formatted total duration" do
+    it "footage cell shows the FootageHours total" do
       footage_cell = payload["table_rows"].first[:cells].last
-      expect(footage_cell[:text]).to eq("2:00:00")
+      expect(footage_cell[:text]).to eq("12.5h")
+    end
+
+    it "footage cell shows an em-dash when the game has no footage" do
+      game.update!(footage_hours: 0)
+      footage_cell = payload["table_rows"].first[:cells].last
+      expect(footage_cell[:text]).to eq("—")
     end
   end
 end

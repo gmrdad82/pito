@@ -10,12 +10,12 @@
 #                              fallback by returning the same sidebar_open event
 #                              that the slash /games import handler uses.
 #   import videos [for @handle]
-#                           — channel-scoped YouTube newer-only import. Emits a
-#                              `:confirmation` event; the executor enqueues
-#                              ChatImportVideosJob on confirm. Channel scope:
-#                              shift+tab @all/blank → all channels; @handle →
-#                              that channel. The optional `for @handle` clause in
-#                              the raw text OVERRIDES the shift+tab scope.
+#                           — ALIAS for `sync videos` (whole-channel sync). Emits
+#                              the same `:confirmation` event `sync videos` does,
+#                              so the executor enqueues SyncVideosJob on confirm.
+#                              Channel scope: shift+tab @all/blank → all channels;
+#                              @handle → that channel. The optional `for @handle`
+#                              clause in the raw text OVERRIDES the shift+tab scope.
 #
 # Bare `import` with no noun → usage hint.
 module Pito
@@ -67,11 +67,14 @@ module Pito
           raw.to_s.strip.sub(/\Aimport\s+games?\s*/i, "").strip
         end
 
+        # `import videos` is a true alias for `sync videos` (whole-channel sync):
+        # it builds the SAME confirmation `sync videos` builds, so confirming it
+        # routes through `confirm_sync_videos` in the executor.
         def handle_import_videos(raw)
           scope_label, channel_ids, error = resolve_scope(raw)
           return error if error
 
-          payload = Pito::MessageBuilder::Sync::ImportVideosConfirmation.call(
+          payload = Pito::MessageBuilder::Sync::VideosConfirmation.call(
             scope_label, channel_ids: channel_ids, conversation:
           )
           Pito::Chat::Result::Ok.new(events: [ { kind: :confirmation, payload: payload } ])

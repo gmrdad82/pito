@@ -14,12 +14,16 @@
 #   - milestone_evaluator         — Pito::Calendar::MilestoneEvaluator never built (dead job removed)
 #   - calendar_occurred_flipper   — Pito::Calendar::OccurredFlipper never built (dead job removed)
 #
-# Manual-only (chat verbs, not scheduled):
-#   - NightlySyncJob              — triggered via chat `sync` verb
+# Scheduled data sync (see the production/development blocks below):
+#   - NightlySyncJob        — daily 01:00; fans out ChannelSync + VideoSyncJob
+#                             (import new/private uploads + reconcile updates/
+#                             deletions) + GameIgdbNightlyRefresh per channel.
+#   - VideoStatsSnapshotJob — 09:00 + 17:00; Pito::Stats-only refresh (no upsert).
+#                             With the 01:00 nightly_sync this is 3 stats passes/day.
+#
+# Manual-only (chat `sync` verb, not scheduled):
 #   - SyncChannelStatsJob         — triggered via chat `sync` verb
-#   - NightlyVideoSyncJob         — triggered via chat `sync` verb
 #   - NightlyReindexJob           — triggered via chat `sync` verb
-#   - VideoStatsSnapshotJob       — triggered via chat `sync` verb
 #   - SyncStarredChannelsJob      — triggered via chat `sync` verb
 #   - VoyageReindexJob            — triggered via chat `sync` verb
 
@@ -30,13 +34,26 @@ production:
     schedule: "0 1 * * *"
     description: "Delete notifications read more than 7 days ago"
 
-  # IGDB nightly refresh — daily at 01:00 UTC
-  # Iterates Game.synced.stale.upcoming, re-fetches each from IGDB sequentially,
-  # and emits ONE summary Notification on completion.
-  game_igdb_nightly_refresh:
-    class: GameIgdbNightlyRefresh
+  # Nightly data sync — daily at 01:00 UTC. The daily new-video detection pass.
+  # Fans out per connected channel: ChannelSync + VideoSyncJob (import new/private
+  # uploads + reconcile updates/deletions, refreshing Pito::Stats on upsert), then
+  # GameIgdbNightlyRefresh (re-syncs every stale upcoming Game). Supersedes the
+  # standalone IGDB entry.
+  nightly_sync:
+    class: NightlySyncJob
     schedule: "0 1 * * *"
-    description: "Re-sync every upcoming Game whose igdb_synced_at is older than 7 days"
+    description: "Daily channel + new-video sync; fans out IGDB stale-refresh"
+
+  # Video stats snapshot — Pito::Stats only (no playlist/upsert), 09:00 + 17:00 UTC.
+  # With the 01:00 nightly_sync, this gives 3 stats refreshes per day.
+  video_stats_snapshot_morning:
+    class: VideoStatsSnapshotJob
+    schedule: "0 9 * * *"
+    description: "Intraday Pito::Stats refresh for existing videos (AM)"
+  video_stats_snapshot_afternoon:
+    class: VideoStatsSnapshotJob
+    schedule: "0 17 * * *"
+    description: "Intraday Pito::Stats refresh for existing videos (PM)"
 
   # SolidQueue housekeeping — clear finished jobs every hour
   clear_solid_queue_finished_jobs:
@@ -68,11 +85,22 @@ development:
     schedule: "0 1 * * *"
     description: "Delete notifications read more than 7 days ago"
 
-  # IGDB nightly refresh — daily at 01:00
-  game_igdb_nightly_refresh:
-    class: GameIgdbNightlyRefresh
+  # Nightly data sync — daily at 01:00. Fans out ChannelSync + VideoSyncJob
+  # (import + reconcile + Pito::Stats on upsert) + GameIgdbNightlyRefresh per channel.
+  nightly_sync:
+    class: NightlySyncJob
     schedule: "0 1 * * *"
-    description: "Re-sync every upcoming Game whose igdb_synced_at is older than 7 days"
+    description: "Daily channel + new-video sync; fans out IGDB stale-refresh"
+
+  # Video stats snapshot — Pito::Stats only, 09:00 + 17:00 (3 passes/day with 01:00).
+  video_stats_snapshot_morning:
+    class: VideoStatsSnapshotJob
+    schedule: "0 9 * * *"
+    description: "Intraday Pito::Stats refresh for existing videos (AM)"
+  video_stats_snapshot_afternoon:
+    class: VideoStatsSnapshotJob
+    schedule: "0 17 * * *"
+    description: "Intraday Pito::Stats refresh for existing videos (PM)"
 
   # YouTube reauth check — daily at 01:00
   youtube_reauth_check:

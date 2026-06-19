@@ -288,59 +288,60 @@ RSpec.describe Pito::FollowUp::Handlers::GameDetail, type: :service do
 
   # ── unknown action ───────────────────────────────────────────────────────────
 
-  describe "#call — footage <path>" do
+  describe "#call — footage [update] <hours>" do
     let(:source_event) { build_detail_event }
 
-    subject(:result) { handler.call(event: source_event, rest: "footage /mnt/clips", conversation:) }
+    subject(:result) { handler.call(event: source_event, rest: "footage 5", conversation:) }
 
     it "returns a Result::Append with a system event" do
       expect(result).to be_a(Pito::FollowUp::Result::Append)
       expect(result.events.first[:kind]).to eq(:system)
     end
 
-    it "emits the copyable probe command for the segment's game and path" do
-      body = result.events.first[:payload]["body"]
-      expect(body).to include("pito:tools:probe game=#{game.id}")
-      expect(body).to include("path=&quot;/mnt/clips/*&quot;")
+    it "sets the segment game's footage_hours from the bare `footage <hours>` form" do
+      result
+      expect(game.reload.footage_hours).to eq(BigDecimal("5.0"))
     end
 
-    it "keeps a multi-word folder path whole" do
-      result = handler.call(event: source_event, rest: "footage /mnt/Ghosts n Goblins", conversation:)
-      expect(result.events.first[:payload]["body"]).to include("path=&quot;/mnt/Ghosts n Goblins/*&quot;")
+    it "sets the segment game's footage_hours from the `footage update <hours>` form" do
+      handler.call(event: source_event, rest: "footage update 8.5", conversation:)
+      expect(game.reload.footage_hours).to eq(BigDecimal("8.5"))
     end
 
-    it "errors with missing_path when no path is given" do
+    it "ceils the hours up to the next 0.5 step" do
+      handler.call(event: source_event, rest: "footage 12.3", conversation:)
+      expect(game.reload.footage_hours).to eq(BigDecimal("12.5"))
+    end
+
+    it "emits the footage.updated confirmation with the formatted total" do
+      text = result.events.first[:payload]["text"]
+      expect(text).to include("Lies of P").and include("5h")
+    end
+
+    it "errors with missing_hours when no hours are given" do
       result = handler.call(event: source_event, rest: "footage", conversation:)
       expect(result).to be_a(Pito::FollowUp::Result::Error)
-      expect(result.message_key).to eq("pito.follow_up.game_detail.errors.missing_path")
+      expect(result.message_key).to eq("pito.follow_up.game_detail.errors.missing_hours")
+    end
+
+    it "errors with missing_hours for a non-numeric value" do
+      result = handler.call(event: source_event, rest: "footage soon", conversation:)
+      expect(result).to be_a(Pito::FollowUp::Result::Error)
+      expect(result.message_key).to eq("pito.follow_up.game_detail.errors.missing_hours")
+    end
+
+    it "errors with missing_hours for a negative value" do
+      result = handler.call(event: source_event, rest: "footage -3", conversation:)
+      expect(result).to be_a(Pito::FollowUp::Result::Error)
+      expect(result.message_key).to eq("pito.follow_up.game_detail.errors.missing_hours")
     end
 
     it "errors when the segment's game no longer exists" do
       event = build_detail_event("game_id" => game.id)
       game.destroy
-      result = handler.call(event: event, rest: "footage /mnt/clips", conversation:)
+      result = handler.call(event: event, rest: "footage 5", conversation:)
       expect(result).to be_a(Pito::FollowUp::Result::Error)
-    end
-
-    it "includes -- --force in the snippet when --force leads the args" do
-      result = handler.call(event: source_event, rest: "footage --force /mnt/footage", conversation:)
-      expect(result).to be_a(Pito::FollowUp::Result::Append)
-      body = result.events.first[:payload]["body"]
-      expect(body).to include("-- --force")
-    end
-
-    it "includes -- --force in the snippet when --force trails the args" do
-      result = handler.call(event: source_event, rest: "footage /mnt/footage --force", conversation:)
-      expect(result).to be_a(Pito::FollowUp::Result::Append)
-      body = result.events.first[:payload]["body"]
-      expect(body).to include("-- --force")
-    end
-
-    it "does not include --force in the snippet when the flag is absent" do
-      result = handler.call(event: source_event, rest: "footage /mnt/footage", conversation:)
-      expect(result).to be_a(Pito::FollowUp::Result::Append)
-      body = result.events.first[:payload]["body"]
-      expect(body).not_to include("--force")
+      expect(result.message_key).to eq("pito.follow_up.game_detail.errors.game_not_found")
     end
   end
 

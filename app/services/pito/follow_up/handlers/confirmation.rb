@@ -31,6 +31,10 @@ module Pito
         # better as a neutral system progress line than the orange
         # confirmation-outcome card. (Cancel still renders the orange card.)
         SYSTEM_OUTCOME_ON_CONFIRM = %w[import_videos].freeze
+        # Commands whose confirmed outcome is a finished, pito-voiced result that
+        # reads better as the enhanced (pito-brand bar) line than the orange
+        # confirmation-outcome card. (Cancel still renders the orange card.)
+        ENHANCED_OUTCOME_ON_CONFIRM = %w[video_schedule].freeze
         # Friendly synonyms → canonical action.
         ACTION_ALIASES = {
           "yes"     => "confirm",
@@ -82,6 +86,10 @@ module Pito
         def outcome_event(command, action, outcome_text)
           if action == "confirm" && SYSTEM_OUTCOME_ON_CONFIRM.include?(command)
             return { kind: "system", payload: { "text" => outcome_text } }
+          end
+
+          if action == "confirm" && ENHANCED_OUTCOME_ON_CONFIRM.include?(command)
+            return { kind: "enhanced", payload: { "text" => outcome_text } }
           end
 
           {
