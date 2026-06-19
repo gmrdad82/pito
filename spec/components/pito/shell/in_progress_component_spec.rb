@@ -35,7 +35,7 @@ RSpec.describe Pito::Shell::InProgressComponent do
     context "with an authenticated label key" do
       it "renders the auth indicator text" do
         node = render_inline(described_class.new(verb_key: "pito.shell.mini_status.authenticated"))
-        expect(node.to_html).to include("●")
+        expect(node.to_html).to include("■")
       end
     end
 
