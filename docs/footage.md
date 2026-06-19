@@ -75,12 +75,3 @@ component is wired to the shared `pito--clipboard` Stimulus controller: clicking
 the copy affordance writes the command to the clipboard and flips the feedback
 label to "Copied!". Its copy/aria/hint strings come from
 `config/locales/.../pito.footage.snippet.*`.
-
-## Why per-file probing is gone
-
-Earlier Pito ran an `ffprobe` rake task (`pito:tools:probe`) that upserted a
-`Footage` row per file with `resolution` / `fps` / `needs_grading` / etc. That
-whole subsystem — the `Footage` model, `Pito::Footage::Probe`, the rake task,
-and the JSON fixtures — has been removed. The replacement is deliberately
-simpler: one manual half-hour total per game, with the `snippet` one-liner as an
-optional helper for computing it.
