@@ -3,8 +3,7 @@
 # GoogleIdentity → YoutubeConnection rename (ADR 0006). The
 # constructor accepts a `YoutubeConnection`; internal naming follows.
 #
-# Every YouTube Data v3 / YouTube Analytics v2 call from pito flows
-# through this object. Callers receive pito-shape Ruby Hashes
+# Every YouTube Data v3 call from pito flows through this object. Callers receive pito-shape Ruby Hashes
 # (snake_case keys) — never `Google::Apis::YoutubeV3::Channel` structs.
 #
 # Lifecycle of a single call:
@@ -18,7 +17,6 @@
 #      the final outcome.
 #   6. Convert the response shape and return.
 require "google/apis/youtube_v3"
-require "google/apis/youtube_analytics_v2"
 require "google/apis/errors"
 
 class Channel
@@ -379,24 +377,6 @@ class Channel
         end
       end
 
-      # GET /youtubeAnalytics/v2/reports
-      def analytics_query(ids:, metrics:, start_date:, end_date:,
-                          dimensions: nil, filters: nil, sort: nil)
-        perform("reports.query", "GET") do
-          svc = analytics_service
-          response = svc.query_report(
-            ids: ids,
-            start_date: start_date,
-            end_date: end_date,
-            metrics: Array(metrics).join(","),
-            dimensions: dimensions ? Array(dimensions).join(",") : nil,
-            filters: filters,
-            sort: sort
-          )
-          normalize_analytics(response)
-        end
-      end
-
       private
 
       # Wrap an API-call yield block in: token-freshness, pre-call
@@ -479,7 +459,7 @@ class Channel
                 return [ nil, "server_error", nil, refresh_err.message, refresh_err ]
               end
             end
-            @connection.update_columns(needs_reauth: true)
+            @connection.flag_needs_reauth!
             err = Channel::Youtube::NeedsReauthError.new("401 after refresh: #{e.message}")
             return [ nil, "auth_failed", 401, e.message, err ]
           rescue Google::Apis::RateLimitError => e
@@ -514,7 +494,7 @@ class Channel
               # consent-screen scopes after this connection was minted).
               # Classify as needs-reauth so the manage page can surface
               # the [reconnect] flow instead of bubbling a hard 500.
-              @connection.update_columns(needs_reauth: true)
+              @connection.flag_needs_reauth!
               err = Channel::Youtube::NeedsReauthError.new(
                 "insufficient authentication scopes: #{e.message}"
               )
@@ -529,7 +509,7 @@ class Channel
                   return [ nil, "auth_failed", nil, refresh_err.message, refresh_err ]
                 end
               end
-              @connection.update_columns(needs_reauth: true)
+              @connection.flag_needs_reauth!
               err = Channel::Youtube::NeedsReauthError.new("401 after refresh: #{e.message}")
               return [ nil, "auth_failed", 401, e.message, err ]
             else
@@ -614,10 +594,6 @@ class Channel
         Channel::Youtube::ServiceFactory.data_service(@connection)
       end
 
-      def analytics_service
-        Channel::Youtube::ServiceFactory.analytics_service(@connection)
-      end
-
       # Translate one channels.list#item into the
       # snake_case Hash shape Pito caches on `channels`. Tolerates a
       # nil item (minimal-mine response) and missing sub-keys (e.g.
@@ -681,15 +657,6 @@ class Channel
         {
           items: items.map { |i| symbolize_struct(i) },
           next_page_token: next_token
-        }
-      end
-
-      def normalize_analytics(response)
-        column_headers = response.respond_to?(:column_headers) ? Array(response.column_headers) : []
-        rows = response.respond_to?(:rows) ? Array(response.rows) : []
-        {
-          column_headers: column_headers.map { |h| symbolize_struct(h) },
-          rows: rows
         }
       end
 

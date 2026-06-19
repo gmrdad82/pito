@@ -7,11 +7,7 @@
 # `pito.copy.notifications.release_countdown` dictionary (50 variants), with
 # `%{n}` (days remaining) and `%{title}` interpolated.
 #
-# SCHEMA NOTE: the live `Notification` model is message-only
-# (`[id, created_at, updated_at, message, read_at]`). This source therefore
-# returns a plain String and nothing else — it does NOT create the record,
-# does NOT use PayloadBuilder, and does NOT reference any dropped column
-# (`event_type`, `dedup_key`, `kind`, `severity`). The caller
+# Returns a plain String — does NOT create the record. The caller
 # (`ReleaseCountdownJob`) does `Notification.create!(message:)`.
 module Pito
   module Notifications

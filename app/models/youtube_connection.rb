@@ -37,6 +37,16 @@ class YoutubeConnection < ApplicationRecord
     Array(scopes).join(" ")
   end
 
+  # Flip the connection to needs-reauth AND surface the dedup'd reauth
+  # Notification (which pings any configured webhook). The notification is
+  # idempotent via the source's unread-dedup, so this is safe to call on every
+  # 401 storm. The single entry point for "this grant is dead" across the live
+  # sync / remote-write flows.
+  def flag_needs_reauth!
+    update_columns(needs_reauth: true)
+    Pito::Notifications::Source::YoutubeReauth.report!(self)
+  end
+
   private
 
   def default_scopes_to_empty_array

@@ -28,7 +28,7 @@ class VideoRemoteDelete < ApplicationJob
     Rails.logger.warn("[video-remote-delete] quota exceeded for youtube video #{youtube_video_id}: #{e.message}")
     raise
   rescue Channel::Youtube::AuthRevokedError => e
-    connection&.update_columns(needs_reauth: true) if connection
+    connection&.flag_needs_reauth!
     Rails.logger.warn("[video-remote-delete] auth revoked for youtube video #{youtube_video_id}: #{e.message}")
   rescue Channel::Youtube::ValidationError => e
     Rails.logger.warn("[video-remote-delete] youtube rejected delete for #{youtube_video_id}: #{e.message}")
