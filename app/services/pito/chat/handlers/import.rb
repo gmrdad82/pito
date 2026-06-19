@@ -33,7 +33,7 @@ module Pito
 
           if raw.match?(/\bgames?\b/i)
             handle_import_game(raw)
-          elsif raw.match?(/\bvideos?\b/i)
+          elsif raw.match?(/\b(?:vid|video)s?\b/i)
             handle_import_videos(raw)
           else
             Pito::Chat::Result::Error.new(

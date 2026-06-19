@@ -44,7 +44,7 @@ RSpec.describe Pito::Sidebar::SectionComponent do
     {
       "pito.sidebar.section.overview"       => "Overview",
       "pito.sidebar.section.channels"       => "Channels covering this game",
-      "pito.sidebar.section.top_videos"     => "Top videos",
+      "pito.sidebar.section.top_videos"     => "Top vids",
       "pito.sidebar.section.tags"           => "Tags",
       "pito.sidebar.section.recommendation" => "Recommendation",
       "pito.sidebar.section.quick_commands" => "Quick commands"

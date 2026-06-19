@@ -103,7 +103,7 @@ RSpec.describe Pito::Slash::Handlers::Disconnect, type: :service do
       # First items are channel stats in KV format
       subscribers_row = detail[0]
       expect(subscribers_row).to be_a(Hash)
-      expect(subscribers_row[:key]).to eq("Subscribers")
+      expect(subscribers_row[:key]).to eq("Subs")
       expect(subscribers_row[:value]).to be_present
 
       views_row = detail[1]
@@ -127,7 +127,7 @@ RSpec.describe Pito::Slash::Handlers::Disconnect, type: :service do
       video_rows = detail[(spacer_idx + 1)..]
       expect(video_rows).not_to be_empty
       expect(video_rows.first).to be_a(Hash)
-      expect(video_rows.first[:key]).to eq("Videos")
+      expect(video_rows.first[:key]).to eq("Vids")
       expect(video_rows.first[:value]).to eq("0")  # just the number, no label
     end
   end
@@ -150,7 +150,7 @@ RSpec.describe Pito::Slash::Handlers::Disconnect, type: :service do
       detail = result.events.first[:payload]["expand_detail"]
       spacer_idx = detail.index { |item| item == "" }
       video_rows = detail[(spacer_idx + 1)..]
-      total_row = video_rows.find { |r| r.is_a?(Hash) && r[:key] == "Videos" }
+      total_row = video_rows.find { |r| r.is_a?(Hash) && r[:key] == "Vids" }
       expect(total_row).to be_present
       expect(total_row[:value]).to include("3")
     end

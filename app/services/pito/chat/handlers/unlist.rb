@@ -11,7 +11,7 @@ module Pito
         self.verb = :unlist
         self.description_key = "pito.chat.unlist.descriptions.unlist"
 
-        NOUN_FILLERS = %w[video videos].freeze
+        NOUN_FILLERS = %w[vid vids video videos].freeze
 
         def call
           ref = extract_ref

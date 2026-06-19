@@ -86,6 +86,17 @@ RSpec.describe Pito::Chat::Handlers::Import do
       expect(payload["scope_label"]).to eq("all channels")
     end
 
+    it "accepts the canonical short noun 'import vids'" do
+      event = handler_for("import vids").call.events.first
+      expect(event[:kind]).to eq(:confirmation)
+      expect(event[:payload]["command"]).to eq("sync_videos")
+    end
+
+    it "accepts the singular short noun 'import vid'" do
+      event = handler_for("import vid").call.events.first
+      expect(event[:payload]["command"]).to eq("sync_videos")
+    end
+
     it "scopes to the specific shift+tab channel" do
       payload = handler_for("import videos", channel: "@pito").call.events.first[:payload]
       expect(payload["channel_ids"]).to eq([ channel.id ])

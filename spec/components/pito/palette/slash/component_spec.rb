@@ -116,7 +116,7 @@ RSpec.describe Pito::Palette::Slash::Component do
     it "renders all descriptions" do
       expect(node.text).to include("Log in to access pito")
       expect(node.text).to include("List your YouTube channels")
-      expect(node.text).to include("List videos for a channel")
+      expect(node.text).to include("List vids for a channel")
     end
   end
 

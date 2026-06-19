@@ -27,8 +27,8 @@ RSpec.describe Pito::MessageBuilder::CommandHelp do
           expect(result["body"]).to include("list games")
         end
 
-        it "body lists 'list videos'" do
-          expect(result["body"]).to include("list videos")
+        it "body lists 'list vids' (canonical noun)" do
+          expect(result["body"]).to include("list vids")
         end
 
         it "body lists 'list channels'" do
@@ -70,8 +70,8 @@ RSpec.describe Pito::MessageBuilder::CommandHelp do
           expect(result["body"]).to include("Usage:")
         end
 
-        it "body mentions 'list videos'" do
-          expect(result["body"]).to include("list videos")
+        it "body mentions 'list vids'" do
+          expect(result["body"]).to include("list vids")
         end
 
         it "body mentions the 'game' column" do
@@ -188,9 +188,9 @@ RSpec.describe Pito::MessageBuilder::CommandHelp do
       context "show (multi-noun: game + video)" do
         subject(:result) { described_class.call(:show) }
 
-        it "body lists both game and video forms" do
+        it "body lists both game and vid forms (canonical noun)" do
           expect(result["body"]).to include("game")
-          expect(result["body"]).to include("video")
+          expect(result["body"]).to include("show vid")
         end
 
         it "body uses id-only wording (no title)" do
@@ -339,6 +339,23 @@ RSpec.describe Pito::MessageBuilder::CommandHelp do
 
         it "body mentions @handle override" do
           expect(result["body"]).to include("handle")
+        end
+
+        it "leads with the canonical 'import vids' noun" do
+          expect(result["body"]).to include("import vids")
+        end
+      end
+
+      context "sync videos --help (alias key still resolves)" do
+        subject(:result) { described_class.call(:sync, noun: :videos) }
+
+        it "returns an html payload" do
+          expect(result).to be_a(Hash)
+          expect(result["html"]).to be(true)
+        end
+
+        it "leads with the canonical 'sync vids' noun" do
+          expect(result["body"]).to include("sync vids")
         end
       end
 

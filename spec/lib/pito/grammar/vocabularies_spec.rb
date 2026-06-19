@@ -184,8 +184,21 @@ RSpec.describe Pito::Grammar::Vocabularies do
       expect(metrics.dynamic?).to be false
     end
 
-    it 'resolves "subs" to "subscribers"' do
-      expect(metrics.resolve("subs")).to eq("subscribers")
+    it 'has "subs" as the canonical metric (not "subscribers")' do
+      expect(metrics.canonical).to include("subs")
+      expect(metrics.canonical).not_to include("subscribers")
+    end
+
+    it 'resolves canonical "subs" to "subs"' do
+      expect(metrics.resolve("subs")).to eq("subs")
+    end
+
+    it 'resolves alias "subscribers" to "subs"' do
+      expect(metrics.resolve("subscribers")).to eq("subs")
+    end
+
+    it 'resolves alias "subscriber" to "subs"' do
+      expect(metrics.resolve("subscriber")).to eq("subs")
     end
 
     it 'filler? is true for "count"' do
@@ -196,8 +209,64 @@ RSpec.describe Pito::Grammar::Vocabularies do
       expect(metrics.filler?("ratio")).to be true
     end
 
-    it 'filler? is false for "subscribers"' do
-      expect(metrics.filler?("subscribers")).to be false
+    it 'filler? is false for "subs"' do
+      expect(metrics.filler?("subs")).to be false
+    end
+  end
+
+  # ── Static vocab: :nouns ───────────────────────────────────────────────────
+  describe ":nouns" do
+    subject(:nouns) { vocab(:nouns) }
+
+    it 'has "vids" as the canonical video noun (not "videos")' do
+      expect(nouns.canonical).to include("vids")
+      expect(nouns.canonical).not_to include("videos")
+    end
+
+    it 'resolves canonical "vids" to "vids"' do
+      expect(nouns.resolve("vids")).to eq("vids")
+    end
+
+    it 'resolves alias "videos" to "vids"' do
+      expect(nouns.resolve("videos")).to eq("vids")
+    end
+
+    it 'resolves alias "video" to "vids"' do
+      expect(nouns.resolve("video")).to eq("vids")
+    end
+
+    it 'resolves alias "vid" to "vids"' do
+      expect(nouns.resolve("vid")).to eq("vids")
+    end
+
+    it "keeps channels and games canonical" do
+      expect(nouns.canonical).to include("channels", "games")
+    end
+  end
+
+  # ── Static vocab: :sync_targets ────────────────────────────────────────────
+  describe ":sync_targets" do
+    subject(:sync_targets) { vocab(:sync_targets) }
+
+    it 'has "vids" as the canonical video target (not "videos")' do
+      expect(sync_targets.canonical).to include("vids")
+      expect(sync_targets.canonical).not_to include("videos")
+    end
+
+    it 'resolves canonical "vids" to "vids"' do
+      expect(sync_targets.resolve("vids")).to eq("vids")
+    end
+
+    it 'resolves alias "videos" to "vids"' do
+      expect(sync_targets.resolve("videos")).to eq("vids")
+    end
+
+    it 'resolves alias "vid" to "vids"' do
+      expect(sync_targets.resolve("vid")).to eq("vids")
+    end
+
+    it "keeps channels canonical" do
+      expect(sync_targets.canonical).to include("channels")
     end
   end
 

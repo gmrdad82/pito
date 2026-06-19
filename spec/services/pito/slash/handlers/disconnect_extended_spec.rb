@@ -94,7 +94,7 @@ RSpec.describe Pito::Slash::Handlers::Disconnect, "extended coverage", type: :se
       spacer_idx = detail.index { |item| item == "" }
       video_rows = detail[(spacer_idx + 1)..]
       kv_keys = video_rows.select { |r| r.is_a?(Hash) }.map { |r| r[:key] }
-      expect(kv_keys).to include("Videos", "Published", "Scheduled", "Unlisted", "Private")
+      expect(kv_keys).to include("Vids", "Published", "Scheduled", "Unlisted", "Private")
     end
   end
 

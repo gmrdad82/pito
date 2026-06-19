@@ -244,6 +244,11 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
         expect(result[:ghost][:complete_current]).to eq("nnels")
       end
 
+      it "completes the video :noun slot to the canonical short form ('list v' → 'ids')" do
+        result = call(input: "list v", cursor: 6, authenticated: true)
+        expect(result[:ghost][:complete_current]).to eq("ids")
+      end
+
       it "returns '' when no chat spec matches the first word" do
         result = call(input: "frobnicate x", cursor: 12, authenticated: true)
         expect(result[:ghost][:complete_current]).to eq("")
@@ -315,9 +320,14 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
       expect(result[:ghost][:complete_current]).to eq("hannels")
     end
 
-    it "completes 'sync v' → 'ideos'" do
+    it "completes 'sync v' → 'ids' (canonical short noun)" do
       result = call(input: "sync v", cursor: 6, authenticated: true)
-      expect(result[:ghost][:complete_current]).to eq("ideos")
+      expect(result[:ghost][:complete_current]).to eq("ids")
+    end
+
+    it "completes 'sync vi' → 'ds' (canonical short noun)" do
+      result = call(input: "sync vi", cursor: 7, authenticated: true)
+      expect(result[:ghost][:complete_current]).to eq("ds")
     end
   end
 
