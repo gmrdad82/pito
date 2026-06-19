@@ -14,11 +14,9 @@
 #    next attempt without rebuilding the service.
 #
 # `OPEN_TIMEOUT_SEC` and `READ_TIMEOUT_SEC` are conservative defaults
-# tuned for the Data API v3 + Analytics v2 surfaces. `videos.update`
-# and the analytics `reports.query` endpoint occasionally take longer
-# than a typical GET, so the read timeout is generous.
+# tuned for the Data API v3 surface. `videos.update` occasionally takes
+# longer than a typical GET, so the read timeout is generous.
 require "google/apis/youtube_v3"
-require "google/apis/youtube_analytics_v2"
 
 class Channel
   module Youtube
@@ -38,14 +36,6 @@ class Channel
       # authorization adapter bound to `connection`.
       def data_service(connection)
         svc = Google::Apis::YoutubeV3::YouTubeService.new
-        apply_timeouts!(svc)
-        svc.authorization = build_oauth_credentials(connection)
-        svc
-      end
-
-      # Build an Analytics v2 service with the same defaults.
-      def analytics_service(connection)
-        svc = Google::Apis::YoutubeAnalyticsV2::YouTubeAnalyticsService.new
         apply_timeouts!(svc)
         svc.authorization = build_oauth_credentials(connection)
         svc
