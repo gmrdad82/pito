@@ -23,4 +23,14 @@ RSpec.describe Pito::Event::TimestampPrefixComponent do
     node = render_inline(described_class.new(timestamp: nil))
     expect(node.to_html.strip).to eq("")
   end
+
+  it "renders a UTC-stored timestamp in the configured Time.zone (local wall clock)" do
+    original = Time.zone
+    Time.zone = "Europe/Madrid" # UTC+2 in June (DST)
+    utc_noon = Time.utc(2026, 6, 16, 12, 0, 0)
+    html = render_inline(described_class.new(timestamp: utc_noon)).to_html
+    expect(html).to include("14:00")
+  ensure
+    Time.zone = original
+  end
 end

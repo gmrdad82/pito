@@ -175,4 +175,28 @@ class AppSetting < ApplicationRecord
   def self.theme=(slug)
     set(THEME_KEY, slug.to_s)
   end
+
+  # ── Time zone ──────────────────────────────────────────────────────────────
+  #
+  # Stored as a plain key/value row ("timezone") holding an IANA identifier
+  # (e.g. "Europe/Madrid"). Default is "UTC". ActiveRecord keeps storing UTC
+  # internally — this setting only governs how times are rendered and how
+  # schedule input is interpreted (see ApplicationController#set_user_time_zone).
+
+  TIMEZONE_KEY     = "timezone"
+  TIMEZONE_DEFAULT = "UTC"
+
+  def self.timezone
+    get(TIMEZONE_KEY).presence || TIMEZONE_DEFAULT
+  end
+
+  # Validates that +value+ names a real zone (friendly name or IANA identifier)
+  # before persisting, and normalizes it to its IANA identifier. Raises
+  # ArgumentError for anything ActiveSupport::TimeZone cannot resolve.
+  def self.timezone=(value)
+    zone = ActiveSupport::TimeZone[value.to_s]
+    raise ArgumentError, "invalid time zone: #{value.inspect}" unless zone
+
+    set(TIMEZONE_KEY, zone.tzinfo.identifier)
+  end
 end

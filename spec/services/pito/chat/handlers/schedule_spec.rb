@@ -142,4 +142,52 @@ RSpec.describe Pito::Chat::Handlers::Schedule do
       end
     end
   end
+
+  # ── Natural-language <when> forms (P35) ───────────────────────────────────────
+  context "natural-language <when> forms" do
+    around { |example| Time.use_zone("UTC") { travel_to(Time.zone.local(2026, 6, 16, 10, 0)) { example.run } } }
+
+    it "emits a confirmation for `in 2 hours`" do
+      result = schedule_real("schedule video #{video.id} in 2 hours")
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(result.events.first[:kind]).to eq(:confirmation)
+    end
+
+    it "emits a confirmation for `tomorrow`" do
+      result = schedule_real("schedule video #{video.id} tomorrow")
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(result.events.first[:kind]).to eq(:confirmation)
+    end
+
+    it "emits a confirmation for `tomorrow at noon`" do
+      result = schedule_real("schedule video #{video.id} tomorrow at noon")
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(result.events.first[:kind]).to eq(:confirmation)
+    end
+
+    it "emits a confirmation for `for DD.MM.YYYY HH:MM` (dot separators)" do
+      result = schedule_real("schedule video #{video.id} for 20.06.2026 14:30")
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(result.events.first[:kind]).to eq(:confirmation)
+    end
+
+    it "carries the local time in publish_at for `at 2pm`" do
+      result = schedule_real("schedule video #{video.id} at 2pm")
+      payload = result.events.first[:payload]
+      expect(payload["publish_at"]).to eq(Time.zone.local(2026, 6, 16, 14, 0).utc.iso8601)
+    end
+
+    it "returns too_soon for `in 10m` (under the 30-minute guard)" do
+      result = schedule_real("schedule video #{video.id} in 10m")
+      expect(result).to be_a(Pito::Chat::Result::Error)
+      expect(result.message_key).to eq("pito.chat.schedule.too_soon")
+    end
+
+    it "returns the in-past error for an `at <HH>` that already passed today" do
+      # now is 10:00; `at 9` resolves to today 09:00, which is in the past.
+      result = schedule_real("schedule video #{video.id} at 9")
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(result.events.first[:payload]["text"]).to include("Episode One")
+    end
+  end
 end

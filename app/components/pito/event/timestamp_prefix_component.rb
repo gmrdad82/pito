@@ -28,7 +28,10 @@ module Pito
       private
 
       def formatted_timestamp
-        @timestamp.strftime("%H:%M")
+        # Render in the request's configured zone (Time.zone) so a UTC-stored
+        # timestamp shows the user's local wall-clock time. in_time_zone is a
+        # no-op when the value is already zoned to Time.zone.
+        @timestamp.in_time_zone.strftime("%H:%M")
       end
     end
   end

@@ -38,7 +38,7 @@ module Pito
       end
 
       def similar_game_results
-        @similar_game_results ||= Pito::Recommendations.similar_games(@game, limit: 5)
+        @similar_game_results ||= Pito::Recommendations.similar_games(@game, limit: 6)
       end
 
       def channels?

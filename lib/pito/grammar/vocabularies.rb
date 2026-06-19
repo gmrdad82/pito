@@ -17,7 +17,7 @@ module Pito
 
       CONFIG_PROVIDERS = Vocabulary.define(
         name:      :config_providers,
-        canonical: %w[google voyage igdb webhook sound fx]
+        canonical: %w[google voyage igdb webhook sound fx timezone]
       ).freeze
 
       CONFIG_KEYS = Vocabulary.define(
@@ -187,8 +187,9 @@ module Pito
         "voyage"  => %w[api_key],
         "igdb"    => %w[client_id client_secret],
         "webhook" => %w[slack discord],
-        "sound"   => [],
-        "fx"      => []
+        "sound"    => [],
+        "fx"       => [],
+        "timezone" => []
       }.freeze
 
       # Returns the allowed kv keys for +provider+ (downcased string).

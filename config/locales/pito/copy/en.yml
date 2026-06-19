@@ -2259,14 +2259,14 @@ en:
               Options:
                 "--help": "Print this help message"
         schedule:
-          usage: "schedule video <id> <date>"
+          usage: "schedule video <id> <when>"
           video:
-            usage: "schedule video <id> <date>"
+            usage: "schedule video <id> <when>"
             sections:
               Arguments:
                 "video": "Target noun"
                 "<id>": "Local numeric video id"
-                "<date>": "Publish time: dd-mm-yyyy hh:mm (local time, ≥30 min from now)"
+                "<when>": "Publish time (local, ≥30 min out): `in 30m`, `in 2 hours`, `in 3 days`, `tomorrow`, `tomorrow at noon`, `at 2pm`, `at 23`, `for DD.MM.YYYY HH:MM`, or `DD-MM-YYYY HH:MM`"
               Options:
                 "--help": "Print this help message"
         import:

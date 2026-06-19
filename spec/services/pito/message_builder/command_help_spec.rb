@@ -310,8 +310,8 @@ RSpec.describe Pito::MessageBuilder::CommandHelp do
       context "schedule video --help" do
         subject(:result) { described_class.call(:schedule, noun: :video) }
 
-        it "body mentions dd-mm-yyyy date format" do
-          expect(result["body"]).to include("dd-mm-yyyy")
+        it "body lists the schedule when-forms (incl. the DD-MM-YYYY date format)" do
+          expect(result["body"]).to include("DD-MM-YYYY")
         end
       end
     end
