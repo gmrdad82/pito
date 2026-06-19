@@ -103,5 +103,52 @@ RSpec.describe SyncChannelStatsJob do
         expect(Pito::Stats.get(channel_a, :subscribers)).to be_nil  # unchanged
       end
     end
+
+    context "when the API returns nil subscriber and view counts" do
+      let(:fetched_stats_a) do
+        { subscriber_count: nil, view_count: nil, last_synced_at: Time.current }
+      end
+
+      it "stores nil, not coerced to 0" do
+        job.perform
+
+        expect(Pito::Stats.get(channel_a, :subscribers)).to be_nil
+        expect(Pito::Stats.get(channel_a, :views)).to be_nil
+      end
+    end
+
+    context "when the API returns zero counts" do
+      let(:fetched_stats_a) do
+        { subscriber_count: 0, view_count: 0, last_synced_at: Time.current }
+      end
+
+      it "stores 0, distinct from nil" do
+        job.perform
+
+        expect(Pito::Stats.get(channel_a, :subscribers)).to eq(0)
+        expect(Pito::Stats.get(channel_a, :views)).to eq(0)
+      end
+    end
+
+    context "when the job is run twice (idempotent re-run)" do
+      it "updates the Stat row to the latest value with only one row per (channel, kind)" do
+        job.perform
+
+        second_stats = { subscriber_count: 20_000, view_count: 800_000, last_synced_at: Time.current }
+        allow(Channel::Youtube::StatsFetcher).to receive(:call) do |ch|
+          case ch.youtube_channel_id
+          when "UCaaa111" then second_stats
+          when "UCbbb222" then fetched_stats_b
+          end
+        end
+
+        job.perform
+
+        expect(Pito::Stats.get(channel_a, :subscribers)).to eq(20_000)
+        expect(Pito::Stats.get(channel_a, :views)).to eq(800_000)
+        expect(channel_a.stats.where(kind: "subscribers").count).to eq(1)
+        expect(channel_a.stats.where(kind: "views").count).to eq(1)
+      end
+    end
   end
 end

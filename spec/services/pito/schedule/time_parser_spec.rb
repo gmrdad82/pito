@@ -126,6 +126,96 @@ RSpec.describe Pito::Schedule::TimeParser do
     end
   end
 
+  describe "this-calendar-week bare weekday (Monday-first, week of 2026-06-15)" do
+    it "parses `monday` as 2026-06-15 09:00 (already past — parser still returns it)" do
+      expect(parse("5 monday").time).to eq(Time.zone.local(2026, 6, 15, 9, 0))
+    end
+
+    it "parses `tuesday` as 2026-06-16 09:00" do
+      expect(parse("5 tuesday").time).to eq(Time.zone.local(2026, 6, 16, 9, 0))
+    end
+
+    it "parses `saturday at noon` as 2026-06-20 12:00" do
+      expect(parse("5 saturday at noon").time).to eq(Time.zone.local(2026, 6, 20, 12, 0))
+    end
+
+    it "parses `sunday` as 2026-06-21 09:00" do
+      expect(parse("5 sunday").time).to eq(Time.zone.local(2026, 6, 21, 9, 0))
+    end
+
+    it "parses `fri` (abbreviated) as 2026-06-19 09:00" do
+      expect(parse("5 fri").time).to eq(Time.zone.local(2026, 6, 19, 9, 0))
+    end
+
+    it "parses `saturday night` as 2026-06-20 21:00" do
+      expect(parse("5 saturday night").time).to eq(Time.zone.local(2026, 6, 20, 21, 0))
+    end
+  end
+
+  describe "next-calendar-week forms" do
+    it "parses `next week` as Monday 2026-06-22 09:00" do
+      expect(parse("5 next week").time).to eq(Time.zone.local(2026, 6, 22, 9, 0))
+    end
+
+    it "parses `next week at 10am` as 2026-06-22 10:00" do
+      expect(parse("5 next week at 10am").time).to eq(Time.zone.local(2026, 6, 22, 10, 0))
+    end
+
+    it "parses `next monday` as 2026-06-22 09:00" do
+      expect(parse("5 next monday").time).to eq(Time.zone.local(2026, 6, 22, 9, 0))
+    end
+
+    it "parses `next thursday` as 2026-06-25 09:00" do
+      expect(parse("5 next thursday").time).to eq(Time.zone.local(2026, 6, 25, 9, 0))
+    end
+
+    it "parses `next monday at 14:00` as 2026-06-22 14:00" do
+      expect(parse("5 next monday at 14:00").time).to eq(Time.zone.local(2026, 6, 22, 14, 0))
+    end
+
+    it "parses `next friday at noon` as 2026-06-26 12:00" do
+      expect(parse("5 next friday at noon").time).to eq(Time.zone.local(2026, 6, 26, 12, 0))
+    end
+  end
+
+  describe "relative `N days/weeks from now` forms (date-anchored, default 9am)" do
+    it "parses `4 days from now` as 2026-06-20 09:00" do
+      expect(parse("5 4 days from now").time).to eq(Time.zone.local(2026, 6, 20, 9, 0))
+    end
+
+    it "parses `1 week from now at 13:00` as 2026-06-23 13:00" do
+      expect(parse("5 1 week from now at 13:00").time).to eq(Time.zone.local(2026, 6, 23, 13, 0))
+    end
+
+    it "parses `2 weeks from now at noon` as 2026-06-30 12:00" do
+      expect(parse("5 2 weeks from now at noon").time).to eq(Time.zone.local(2026, 6, 30, 12, 0))
+    end
+
+    it "parses `3 weeks from now` as 2026-07-07 09:00" do
+      expect(parse("5 3 weeks from now").time).to eq(Time.zone.local(2026, 7, 7, 9, 0))
+    end
+  end
+
+  describe "next month forms (1st of next month, default 9am)" do
+    it "parses `next month` as 2026-07-01 09:00" do
+      expect(parse("5 next month").time).to eq(Time.zone.local(2026, 7, 1, 9, 0))
+    end
+
+    it "parses `next month at noon` as 2026-07-01 12:00" do
+      expect(parse("5 next month at noon").time).to eq(Time.zone.local(2026, 7, 1, 12, 0))
+    end
+
+    it "parses `next month at 6am` as 2026-07-01 06:00" do
+      expect(parse("5 next month at 6am").time).to eq(Time.zone.local(2026, 7, 1, 6, 0))
+    end
+  end
+
+  describe "tomorrow extensions" do
+    it "parses `tomorrow night` as 2026-06-17 21:00" do
+      expect(parse("5 tomorrow night").time).to eq(Time.zone.local(2026, 6, 17, 21, 0))
+    end
+  end
+
   describe "unparseable phrases" do
     it "returns nil for free text" do
       expect(parse("5 next-tuesday")).to be_nil
@@ -133,6 +223,14 @@ RSpec.describe Pito::Schedule::TimeParser do
 
     it "returns nil when there is no <when> at all" do
       expect(parse("5")).to be_nil
+    end
+
+    it "returns nil for `next blursday` (not a weekday)" do
+      expect(parse("5 next blursday")).to be_nil
+    end
+
+    it "returns nil for `saturday at 25pm` (invalid time-of-day)" do
+      expect(parse("5 saturday at 25pm")).to be_nil
     end
   end
 end

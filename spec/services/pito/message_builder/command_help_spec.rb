@@ -378,6 +378,19 @@ RSpec.describe Pito::MessageBuilder::CommandHelp do
         it "body lists the schedule when-forms (incl. the DD-MM-YYYY date format)" do
           expect(result["body"]).to include("DD-MM-YYYY")
         end
+
+        it "documents the relative + named when-forms" do
+          %w[tomorrow at\ 2pm in\ 2\ hours].each do |form|
+            expect(result["body"]).to include(form)
+          end
+        end
+
+        it "documents the natural-language calendar when-forms" do
+          [ "tomorrow night", "saturday at noon", "next friday", "next week",
+           "3 weeks from now", "next month" ].each do |form|
+            expect(result["body"]).to include(form)
+          end
+        end
       end
     end
 

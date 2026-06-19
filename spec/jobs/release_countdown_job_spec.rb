@@ -61,5 +61,20 @@ RSpec.describe ReleaseCountdownJob, type: :job do
       game_releasing_in(12, title: "Game Two")
       expect { run! }.to change(Notification, :count).by(1)
     end
+
+    it "creates a notification for a game releasing exactly 30 days from today (inclusive upper bound)" do
+      game_releasing_in(30)
+      expect { run! }.to change(Notification, :count).by(1)
+    end
+
+    it "creates a notification for a game releasing today (0 days remaining)" do
+      game_releasing_in(0)
+      expect { run! }.to change(Notification, :count).by(1)
+    end
+
+    it "creates no notification for a game releasing exactly 31 days out (just past the window)" do
+      game_releasing_in(31)
+      expect { run! }.not_to change(Notification, :count)
+    end
   end
 end

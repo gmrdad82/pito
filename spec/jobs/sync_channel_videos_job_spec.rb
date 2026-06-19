@@ -57,5 +57,32 @@ RSpec.describe SyncChannelVideosJob, type: :job do
         expect(broadcaster).to have_received(:complete_turn)
       end
     end
+
+    context "partial-failure isolation: one channel VideoLibrary sync raises" do
+      # channel (outer let!, lower PK) is returned first by Postgres natural PK
+      # order from ::Channel.where(id: …). channel_two (higher PK) is second.
+      # VideoLibrary is NOT per-channel-rescued in this job; when channel_two's
+      # sync raises the outer rescue catches it. channel was already synced.
+      let!(:channel_two) do
+        create(:channel, handle: "@beta", youtube_connection: create(:youtube_connection))
+      end
+      let(:failing_library) { instance_double(Pito::Sync::VideoLibrary) }
+
+      before do
+        allow(failing_library).to receive(:sync).and_raise(StandardError, "quota exceeded")
+        allow(::Pito::Sync::VideoLibrary).to receive(:new).with(channel_two).and_return(failing_library)
+      end
+
+      it "still processes the first channel before the second one raises" do
+        described_class.new.perform([ channel.id, channel_two.id ], "two channels")
+        expect(library).to have_received(:sync)
+      end
+
+      it "does not re-raise when a channel VideoLibrary sync raises" do
+        expect {
+          described_class.new.perform([ channel.id, channel_two.id ], "two channels")
+        }.not_to raise_error
+      end
+    end
   end
 end

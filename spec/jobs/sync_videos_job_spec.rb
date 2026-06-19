@@ -83,6 +83,32 @@ RSpec.describe SyncVideosJob, type: :job do
         expect(enhanced_body).to include(I18n.t("pito.jobs.import_videos.summary.nothing_new"))
       end
     end
+
+    context "partial-failure isolation: first channel raises, second still synced" do
+      # Title "Alpha" sorts before "Pito", so channel_two is the first channel
+      # passed to safe_sync. safe_sync rescues its StandardError and returns nil;
+      # the second channel (channel / "Pito") must still be synced.
+      let!(:channel_two) do
+        create(:channel, handle: "@alpha", title: "Alpha", youtube_connection: create(:youtube_connection))
+      end
+      let(:failing_library) { instance_double(Pito::Sync::VideoLibrary) }
+
+      before do
+        allow(Pito::Sync::VideoLibrary).to receive(:new).with(channel_two).and_return(failing_library)
+        allow(failing_library).to receive(:sync).and_raise(StandardError, "API timeout")
+      end
+
+      it "still calls #sync for the second channel when the first raises" do
+        described_class.new.perform([], "all channels", conversation_id: conversation.id)
+        expect(library).to have_received(:sync)
+      end
+
+      it "does not re-raise when one channel sync fails" do
+        expect {
+          described_class.new.perform([], "all channels", conversation_id: conversation.id)
+        }.not_to raise_error
+      end
+    end
   end
 
   describe "#perform — targeted refresh (video_ids)" do

@@ -538,5 +538,149 @@ RSpec.describe Pito::Sync::VideoLibrary, type: :service do
 
       expect { service.reconcile }.not_to change(Video, :count)
     end
+
+    it "purges the deleted video's thumbnail blob" do
+      gone.thumbnail.attach(io: StringIO.new("img-bytes"), filename: "thumb.jpg", content_type: "image/jpeg")
+      blob_id = gone.thumbnail.blob.id
+
+      perform_enqueued_jobs(only: ActiveStorage::PurgeJob) { service.reconcile }
+
+      expect(ActiveStorage::Blob.exists?(blob_id)).to be(false)
+    end
+  end
+
+  # ── Pito::Stats persistence (counts live off-row, on the polymorphic table) ──
+  describe "Pito::Stats persistence" do
+    let(:attrs) do
+      {
+        youtube_video_id: "stat1", title: "Stat Vid", description: "Body",
+        privacy_status: :public, tags: [ "t" ], category_id: "20",
+        duration_seconds: 90, view_count: 1000, like_count: 50, comment_count: 10,
+        thumbnail_url: "http://example.com/stat1.jpg"
+      }
+    end
+
+    it "writes views/likes/comments to Pito::Stats on upsert" do
+      service.upsert(attrs.dup)
+      video = Video.find_by!(youtube_video_id: "stat1")
+
+      expect(Pito::Stats.get(video, :views)).to eq(1000)
+      expect(Pito::Stats.get(video, :likes)).to eq(50)
+      expect(Pito::Stats.get(video, :comments)).to eq(10)
+    end
+
+    it "updates the stored counts on a re-sync with new numbers" do
+      service.upsert(attrs.dup)
+      service.upsert(attrs.merge(view_count: 1500, like_count: 60, comment_count: 12))
+      video = Video.find_by!(youtube_video_id: "stat1")
+
+      expect(Pito::Stats.get(video, :views)).to eq(1500)
+      expect(Pito::Stats.get(video, :likes)).to eq(60)
+      expect(Pito::Stats.get(video, :comments)).to eq(12)
+    end
+
+    it "treats a counts-only change as :unchanged on the Video row (stats are off-row)" do
+      service.upsert(attrs.dup)
+
+      expect(service.upsert(attrs.merge(view_count: 9999))).to eq(:unchanged)
+      video = Video.find_by!(youtube_video_id: "stat1")
+      expect(Pito::Stats.get(video, :views)).to eq(9999)
+    end
+  end
+
+  # ── Thumbnail + Voyage index enqueues, gated to avoid wasted work ────────────
+  describe "indexing + thumbnail jobs" do
+    let(:attrs) do
+      {
+        youtube_video_id: "job1", title: "Job Vid", description: "Body",
+        privacy_status: :public, tags: [ "t" ], category_id: "20",
+        duration_seconds: 60, view_count: 1, like_count: 0, comment_count: 0,
+        thumbnail_url: "http://example.com/job1.jpg"
+      }
+    end
+
+    it "enqueues a thumbnail fetch when a thumbnail url is present" do
+      expect { service.upsert(attrs.dup) }
+        .to have_enqueued_job(VideoThumbnailJob).with(an_instance_of(Integer), "http://example.com/job1.jpg")
+    end
+
+    it "skips the thumbnail job when no thumbnail url is present" do
+      expect { service.upsert(attrs.merge(thumbnail_url: nil)) }
+        .not_to have_enqueued_job(VideoThumbnailJob)
+    end
+
+    it "enqueues a Voyage index on a newly-created video" do
+      expect { service.upsert(attrs.dup) }.to have_enqueued_job(VideoVoyageIndexJob)
+    end
+
+    it "re-indexes when an embedded field (title) changes" do
+      service.upsert(attrs.dup)
+
+      expect { service.upsert(attrs.merge(title: "Retitled")) }
+        .to have_enqueued_job(VideoVoyageIndexJob)
+    end
+
+    it "does NOT re-index when only a non-embedded field (privacy) changes" do
+      service.upsert(attrs.dup)
+
+      expect { service.upsert(attrs.merge(privacy_status: :unlisted)) }
+        .not_to have_enqueued_job(VideoVoyageIndexJob)
+    end
+  end
+
+  # ── Auth failures (needs-reauth) must be SAFE: never delete, never crash ─────
+  # The exact error the client raises when a 401 persists past one refresh or the
+  # refresh returns invalid_grant. VideoLibrary must treat it like any API
+  # failure — skip the batch, delete NOTHING, leave a log line — never read it as
+  # "every video was deleted upstream".
+  describe "auth failures (needs-reauth) never delete and never crash" do
+    let(:reauth_error) { Channel::Youtube::NeedsReauthError.new("invalid_grant — refresh token revoked") }
+
+    let!(:local_a) { create(:video, channel: channel, youtube_video_id: "loc_a", title: "Local A") }
+    let!(:local_b) { create(:video, channel: channel, youtube_video_id: "loc_b", title: "Local B") }
+
+    it "reconcile deletes nothing and keeps every local video" do
+      allow(client).to receive(:videos_list).and_raise(reauth_error)
+
+      expect { service.reconcile }.not_to change(Video, :count)
+      expect(Video.exists?(local_a.id)).to be(true)
+      expect(Video.exists?(local_b.id)).to be(true)
+    end
+
+    it "reconcile returns a zero Result (no false deletions)" do
+      allow(client).to receive(:videos_list).and_raise(reauth_error)
+
+      result = service.reconcile
+      expect(result.deleted).to eq(0)
+      expect(result.updated).to eq(0)
+    end
+
+    it "import_new returns empty and creates nothing when discovery hits a reauth error" do
+      allow(client).to receive(:search_list).and_raise(reauth_error)
+
+      result = nil
+      expect { result = service.import_new }.not_to change(Video, :count)
+      expect(result.imported).to eq(0)
+    end
+
+    it "a full sync with a revoked token deletes nothing and reports zero" do
+      allow(client).to receive(:search_list).and_raise(reauth_error)
+      allow(client).to receive(:videos_list).and_raise(reauth_error)
+
+      result = nil
+      expect { result = service.sync }.not_to change(Video, :count)
+      expect(result.imported).to eq(0)
+      expect(result.updated).to eq(0)
+      expect(result.deleted).to eq(0)
+    end
+
+    it "logs the reauth failure rather than swallowing it silently" do
+      allow(client).to receive(:videos_list).and_raise(reauth_error)
+      allow(Rails.logger).to receive(:error)
+
+      service.reconcile
+
+      expect(Rails.logger).to have_received(:error).with(/NeedsReauthError/)
+    end
   end
 end

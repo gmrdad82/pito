@@ -73,4 +73,35 @@ RSpec.describe VideoRemoteStatusSync, type: :job do
     allow(client).to receive(:update_video).and_raise(Channel::Youtube::NotFoundError, "gone")
     expect { described_class.perform_now(video.id) }.to change(Notification, :count).by(1)
   end
+
+  it "surfaces a reauth Notification on AuthRevokedError (no longer silent)" do
+    allow(reader).to receive(:read_video).and_raise(Channel::Youtube::AuthRevokedError, "revoked")
+    expect { described_class.perform_now(video.id) }.to change(Notification, :count).by(1)
+    expect(Notification.last.message).to include("re-auth needed")
+  end
+
+  it "includes the video title in the Notification message on NotFoundError" do
+    allow(client).to receive(:update_video).and_raise(Channel::Youtube::NotFoundError, "gone")
+    described_class.perform_now(video.id)
+    expect(Notification.last.message).to include(video.title)
+  end
+
+  it "does not stamp last_synced_at on ValidationError" do
+    allow(client).to receive(:update_video).and_raise(Channel::Youtube::ValidationError, "bad")
+    expect {
+      described_class.perform_now(video.id)
+    }.not_to change { video.reload.last_synced_at }
+  end
+
+  it "does not stamp last_synced_at on AuthRevokedError" do
+    allow(reader).to receive(:read_video).and_raise(Channel::Youtube::AuthRevokedError, "revoked")
+    expect {
+      described_class.perform_now(video.id)
+    }.not_to change { video.reload.last_synced_at }
+  end
+
+  it "re-raises on ServerError" do
+    allow(client).to receive(:update_video).and_raise(Channel::Youtube::ServerError, "boom")
+    expect { described_class.perform_now(video.id) }.to raise_error(Channel::Youtube::ServerError)
+  end
 end

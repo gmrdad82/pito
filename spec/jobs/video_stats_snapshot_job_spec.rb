@@ -147,6 +147,27 @@ RSpec.describe VideoStatsSnapshotJob, type: :job do
         expect(Pito::Stats.get(video, :comments)).to eq(0)
       end
     end
+
+    context "when the :statistics key is entirely absent from the response item" do
+      before do
+        client = instance_double(Channel::Youtube::Client)
+        allow(Channel::Youtube::Client).to receive(:new).and_return(client)
+        allow(client).to receive(:videos_list).and_return(
+          { items: [ { id: "vid_stats_1" } ] }
+        )
+      end
+
+      it "does not raise" do
+        expect { job.perform }.not_to raise_error
+      end
+
+      it "writes 0 for all stat fields" do
+        job.perform
+        expect(Pito::Stats.get(video, :views)).to eq(0)
+        expect(Pito::Stats.get(video, :likes)).to eq(0)
+        expect(Pito::Stats.get(video, :comments)).to eq(0)
+      end
+    end
   end
 
   # ─── skips needs_reauth channels ─────────────────────────────────────────────
@@ -183,6 +204,21 @@ RSpec.describe VideoStatsSnapshotJob, type: :job do
     it "does not call videos_list when the channel has no videos" do
       expect_any_instance_of(Channel::Youtube::Client).not_to receive(:videos_list)
       job.perform
+    end
+  end
+
+  # ─── no connected channels ────────────────────────────────────────────────────
+
+  describe "no connected channels" do
+    before { connection.update!(needs_reauth: true) }
+
+    it "does not call videos_list" do
+      expect_any_instance_of(Channel::Youtube::Client).not_to receive(:videos_list)
+      job.perform
+    end
+
+    it "does not raise" do
+      expect { job.perform }.not_to raise_error
     end
   end
 

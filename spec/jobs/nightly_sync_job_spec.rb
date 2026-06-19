@@ -87,5 +87,27 @@ RSpec.describe NightlySyncJob, type: :job do
       count = enqueued_jobs.count { |j| j["job_class"] == "GameIgdbNightlyRefresh" }
       expect(count).to eq(1)
     end
+
+    context "when there are no connected channels" do
+      before { active_connection.update!(needs_reauth: true) }
+
+      it "still enqueues GameIgdbNightlyRefresh exactly once" do
+        job.perform
+        count = enqueued_jobs.count { |j| j["job_class"] == "GameIgdbNightlyRefresh" }
+        expect(count).to eq(1)
+      end
+
+      it "does not enqueue ChannelSync for any channel" do
+        job.perform
+        count = enqueued_jobs.count { |j| j["job_class"] == "ChannelSync" }
+        expect(count).to eq(0)
+      end
+
+      it "does not enqueue VideoSyncJob for any channel" do
+        job.perform
+        count = enqueued_jobs.count { |j| j["job_class"] == "VideoSyncJob" }
+        expect(count).to eq(0)
+      end
+    end
   end
 end

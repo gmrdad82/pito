@@ -140,4 +140,53 @@ RSpec.describe GameIgdbNightlyRefresh, type: :job do
     expect(msg).to include("Exploding Game")
     expect(msg).to include("boom")
   end
+
+  # ── edge cases ────────────────────────────────────────────────────────────────
+
+  it "lists ALL three failures in the notification when multiple games raise" do
+    game1 = create(:game, title: "Alpha Game", igdb_synced_at: 10.days.ago, release_year: nil)
+    game2 = create(:game, title: "Beta Game",  igdb_synced_at: 10.days.ago, release_year: nil)
+    game3 = create(:game, title: "Gamma Game", igdb_synced_at: 10.days.ago, release_year: nil)
+
+    allow(GameIgdbSync).to receive(:perform_now).with(game1.id).and_raise(RuntimeError, "err alpha")
+    allow(GameIgdbSync).to receive(:perform_now).with(game2.id).and_raise(RuntimeError, "err beta")
+    allow(GameIgdbSync).to receive(:perform_now).with(game3.id).and_raise(RuntimeError, "err gamma")
+
+    expect { run! }.to change(Notification, :count).by(1)
+
+    msg = Notification.last.message
+    expect(msg).to include("Alpha Game")
+    expect(msg).to include("Beta Game")
+    expect(msg).to include("Gamma Game")
+    expect(msg).to include("err alpha")
+    expect(msg).to include("err beta")
+    expect(msg).to include("err gamma")
+  end
+
+  it "visits every game, and notification reflects both changed titles and failures in a mixed run" do
+    good1 = create(:game, title: "Good One",  igdb_synced_at: 10.days.ago, release_year: nil)
+    good2 = create(:game, title: "Good Two",  igdb_synced_at: 10.days.ago, release_year: nil)
+    bad1  = create(:game, title: "Bad Game",  igdb_synced_at: 10.days.ago, release_year: nil)
+
+    allow(GameIgdbSync).to receive(:perform_now) do |id|
+      if id == bad1.id
+        raise RuntimeError, "network timeout"
+      else
+        Game.where(id: id).update_all(updated_at: Time.current + 1.second) # rubocop:disable Rails/SkipsModelValidations
+      end
+    end
+
+    expect { run! }.not_to raise_error
+
+    # All three games must be visited regardless of the failure
+    expect(GameIgdbSync).to have_received(:perform_now).exactly(3).times
+
+    msg = Notification.last.message
+    # Changed games appear in the updated-titles section
+    expect(msg).to include("Good One")
+    expect(msg).to include("Good Two")
+    # Failed game appears in the failures section
+    expect(msg).to include("Bad Game")
+    expect(msg).to include("network timeout")
+  end
 end

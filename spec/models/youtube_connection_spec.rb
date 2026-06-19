@@ -174,4 +174,20 @@ RSpec.describe YoutubeConnection, type: :model do
       expect(YoutubeConnection.find(record.id).refresh_token).to eq("refresh-me-now")
     end
   end
+
+  # ── #flag_needs_reauth! ──────────────────────────────────────────
+  describe "#flag_needs_reauth!" do
+    let(:connection) { create(:youtube_connection) }
+    let!(:channel) { create(:channel, youtube_connection: connection, handle: "alpha") }
+
+    it "flips needs_reauth to true" do
+      connection.flag_needs_reauth!
+      expect(connection.reload.needs_reauth).to be(true)
+    end
+
+    it "surfaces a reauth Notification, deduped while it stays unread" do
+      expect { connection.flag_needs_reauth! }.to change(Notification, :count).by(1)
+      expect { connection.flag_needs_reauth! }.not_to change(Notification, :count)
+    end
+  end
 end

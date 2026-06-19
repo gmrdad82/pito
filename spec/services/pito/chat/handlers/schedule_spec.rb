@@ -143,6 +143,46 @@ RSpec.describe Pito::Chat::Handlers::Schedule do
     end
   end
 
+  # ── State-guard edge cases ────────────────────────────────────────────────────
+  # The handler does not gate on video state or channel connection — both are
+  # enforced at the job level (VideoRemoteStatusSync). Any resolvable video +
+  # valid future <when> → :confirmation.
+
+  context "state-guard: handler does not gate on video state or channel connection" do
+    it "emits :confirmation for an already-private video (privacy_status: :private, publish_at: nil)" do
+      private_video = create(:video, channel: channel, title: "Private Ep",
+                              privacy_status: :private, publish_at: nil)
+      result = schedule_real("schedule video #{private_video.id} #{7.days.from_now.strftime('%d-%m-%Y')}")
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(result.events.first[:kind]).to eq(:confirmation)
+    end
+
+    it "emits :confirmation for a reschedule and payload publish_at carries the NEW time" do
+      # Video already has a publish_at; scheduling to a different absolute date
+      # must update the confirmation payload to the new time, not the old one.
+      travel_to Time.zone.local(2026, 6, 19, 10, 0) do
+        already_scheduled = create(:video, channel: channel, title: "Already Scheduled",
+                                   privacy_status: :private, publish_at: 3.days.from_now)
+        result = schedule_real("schedule video #{already_scheduled.id} 25-06-2026 14:00")
+        expect(result).to be_a(Pito::Chat::Result::Ok)
+        expect(result.events.first[:kind]).to eq(:confirmation)
+        payload = result.events.first[:payload]
+        expect(payload["publish_at"]).to eq(Time.zone.local(2026, 6, 25, 14, 0).utc.iso8601)
+      end
+    end
+
+    it "emits :confirmation when the video's channel has no youtube_connection" do
+      # :channel factory never attaches youtube_connection by default — only
+      # the :on_connection trait does. The handler must not gate on this.
+      disconnected_channel = create(:channel)
+      disconnected_video = create(:video, channel: disconnected_channel, title: "No Connection Vid",
+                                  privacy_status: :public, publish_at: nil)
+      result = schedule_real("schedule video #{disconnected_video.id} #{7.days.from_now.strftime('%d-%m-%Y')}")
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(result.events.first[:kind]).to eq(:confirmation)
+    end
+  end
+
   # ── Natural-language <when> forms ────────────────────────────────────────────
   context "natural-language <when> forms" do
     around { |example| Time.use_zone("UTC") { travel_to(Time.zone.local(2026, 6, 16, 10, 0)) { example.run } } }
@@ -204,6 +244,39 @@ RSpec.describe Pito::Chat::Handlers::Schedule do
     it "returns the in-past error for an `at <HH>` that already passed today" do
       # now is 10:00; `at 9` resolves to today 09:00, which is in the past.
       result = schedule_real("schedule video #{video.id} at 9")
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(result.events.first[:payload]["text"]).to include("Episode One")
+    end
+
+    it "emits a confirmation for `saturday at noon` (this week's Saturday 2026-06-20 is future)" do
+      result = schedule_real("schedule video #{video.id} saturday at noon")
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(result.events.first[:kind]).to eq(:confirmation)
+      payload = result.events.first[:payload]
+      expect(payload["publish_at"]).to eq(Time.zone.local(2026, 6, 20, 12, 0).utc.iso8601)
+    end
+
+    it "emits a confirmation for `next monday at 14:00`" do
+      result = schedule_real("schedule video #{video.id} next monday at 14:00")
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(result.events.first[:kind]).to eq(:confirmation)
+    end
+
+    it "emits a confirmation for `next month`" do
+      result = schedule_real("schedule video #{video.id} next month")
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(result.events.first[:kind]).to eq(:confirmation)
+    end
+
+    it "emits a confirmation for `tomorrow night`" do
+      result = schedule_real("schedule video #{video.id} tomorrow night")
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(result.events.first[:kind]).to eq(:confirmation)
+    end
+
+    it "returns the in-past error for bare `monday` (resolves to 2026-06-15, already past)" do
+      # NOW = Tue 2026-06-16 10:00; bare weekday resolves to beginning_of_week + 0 = 2026-06-15 09:00
+      result = schedule_real("schedule video #{video.id} monday")
       expect(result).to be_a(Pito::Chat::Result::Ok)
       expect(result.events.first[:payload]["text"]).to include("Episode One")
     end

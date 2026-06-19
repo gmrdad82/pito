@@ -80,6 +80,23 @@ RSpec.describe Notification, type: :model do
     end
   end
 
+  describe "webhook delivery callback" do
+    it "enqueues NotificationWebhookDeliverJob after create commit" do
+      expect {
+        create(:notification)
+      }.to have_enqueued_job(NotificationWebhookDeliverJob)
+        .with(a_kind_of(Integer))
+    end
+
+    it "passes the persisted record id to the job" do
+      notification = nil
+      expect {
+        notification = create(:notification)
+      }.to have_enqueued_job(NotificationWebhookDeliverJob)
+        .with { |id| expect(id).to eq(notification.id) }
+    end
+  end
+
   describe "#mark_unread!" do
     it "clears read_at" do
       n = create(:notification, :read)

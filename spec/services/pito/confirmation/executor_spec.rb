@@ -412,13 +412,22 @@ RSpec.describe Pito::Confirmation::Executor, type: :service do
   # ── confirm / sync_videos ─────────────────────────────────────────────────
 
   describe ".confirm — sync_videos" do
-    it "enqueues SyncVideosJob with channel_ids and scope_label" do
+    it "fans out one isolated SyncVideosJob per channel in scope" do
       allow(SyncVideosJob).to receive(:perform_later)
+      ch1 = create(:channel, handle: "alpha")
+      ch2 = create(:channel, handle: "beta")
       described_class.confirm("sync_videos", {
-        "channel_ids" => [ 1, 2 ], "scope_label" => "all channels"
+        "channel_ids" => [ ch1.id, ch2.id ], "scope_label" => "all channels"
       })
-      expect(SyncVideosJob).to have_received(:perform_later)
-        .with([ 1, 2 ], "all channels", conversation_id: nil, video_ids: [])
+      expect(SyncVideosJob).to have_received(:perform_later).with([ ch1.id ], ch1.at_handle, conversation_id: nil)
+      expect(SyncVideosJob).to have_received(:perform_later).with([ ch2.id ], ch2.at_handle, conversation_id: nil)
+    end
+
+    it "fans out to every connected channel when the scope is empty (@all)" do
+      allow(SyncVideosJob).to receive(:perform_later)
+      ch = create(:channel, :on_connection, handle: "gamma")
+      described_class.confirm("sync_videos", { "channel_ids" => [], "scope_label" => "all channels" })
+      expect(SyncVideosJob).to have_received(:perform_later).with([ ch.id ], ch.at_handle, conversation_id: nil)
     end
 
     it "passes through video_ids for a targeted refresh" do
@@ -448,12 +457,13 @@ RSpec.describe Pito::Confirmation::Executor, type: :service do
   # ── confirm / sync_channel ────────────────────────────────────────────────
 
   describe ".confirm — sync_channel" do
-    it "enqueues SyncChannelJob with channel_ids and scope_label" do
+    it "fans out one isolated SyncChannelJob per channel" do
       allow(SyncChannelJob).to receive(:perform_later)
+      ch = create(:channel, handle: "pito")
       described_class.confirm("sync_channel", {
-        "channel_ids" => [ 3 ], "scope_label" => "@pito"
+        "channel_ids" => [ ch.id ], "scope_label" => "@pito"
       })
-      expect(SyncChannelJob).to have_received(:perform_later).with([ 3 ], "@pito", conversation_id: nil)
+      expect(SyncChannelJob).to have_received(:perform_later).with([ ch.id ], ch.at_handle, conversation_id: nil)
     end
 
     it "returns non-empty outcome text" do
@@ -466,12 +476,13 @@ RSpec.describe Pito::Confirmation::Executor, type: :service do
   # ── confirm / sync_channel_videos ─────────────────────────────────────────
 
   describe ".confirm — sync_channel_videos" do
-    it "enqueues SyncChannelVideosJob with channel_ids and scope_label" do
+    it "fans out one isolated SyncChannelVideosJob per channel" do
       allow(SyncChannelVideosJob).to receive(:perform_later)
+      ch = create(:channel, handle: "aurora")
       described_class.confirm("sync_channel_videos", {
-        "channel_ids" => [ 4 ], "scope_label" => "@aurora"
+        "channel_ids" => [ ch.id ], "scope_label" => "@aurora"
       })
-      expect(SyncChannelVideosJob).to have_received(:perform_later).with([ 4 ], "@aurora", conversation_id: nil)
+      expect(SyncChannelVideosJob).to have_received(:perform_later).with([ ch.id ], ch.at_handle, conversation_id: nil)
     end
 
     it "returns non-empty outcome text" do
@@ -481,22 +492,108 @@ RSpec.describe Pito::Confirmation::Executor, type: :service do
     end
   end
 
-  # ── confirm / import_videos ───────────────────────────────────────────────
+  # ── confirm / video_publish (edge: missing video_id key in payload) ────────
 
-  describe ".confirm — import_videos (alias for sync_videos)" do
-    it "enqueues the unified SyncVideosJob with channel_ids and scope_label" do
-      allow(SyncVideosJob).to receive(:perform_later)
-      described_class.confirm("import_videos", {
-        "channel_ids" => [ 5 ], "scope_label" => "@pito"
-      })
-      expect(SyncVideosJob).to have_received(:perform_later)
-        .with([ 5 ], "@pito", conversation_id: nil, video_ids: [])
+  describe ".confirm — video_publish (edge: missing video_id in payload)" do
+    before { allow(VideoRemoteStatusSync).to receive(:perform_later) }
+
+    it "returns not_found text and does not enqueue VideoRemoteStatusSync" do
+      text = described_class.confirm("video_publish", { "video_title" => "Ghost No ID" })
+      expect(text).to be_present
+      expect(VideoRemoteStatusSync).not_to have_received(:perform_later)
+    end
+  end
+
+  # ── confirm / video_publish (edge: already-public video is idempotent) ─────
+
+  describe ".confirm — video_publish (edge: already-public video is idempotent)" do
+    let!(:idm_channel) { create(:channel) }
+    let!(:idm_video) do
+      create(:video, channel: idm_channel, title: "Already Public",
+                     privacy_status: :public, publish_at: nil)
     end
 
-    it "returns non-empty outcome text" do
-      allow(SyncVideosJob).to receive(:perform_later)
-      text = described_class.confirm("import_videos", { "channel_ids" => [], "scope_label" => "all channels" })
-      expect(text).to be_present
+    before { allow(VideoRemoteStatusSync).to receive(:perform_later) }
+
+    it "still sets privacy_status to public (no short-circuit)" do
+      described_class.confirm("video_publish", { "video_id" => idm_video.id, "video_title" => "Already Public" })
+      expect(idm_video.reload.privacy_status).to eq("public")
+    end
+
+    it "still enqueues VideoRemoteStatusSync (no short-circuit)" do
+      described_class.confirm("video_publish", { "video_id" => idm_video.id, "video_title" => "Already Public" })
+      expect(VideoRemoteStatusSync).to have_received(:perform_later).with(idm_video.id)
+    end
+  end
+
+  # ── confirm / video_schedule (edge: already-private with existing publish_at)
+
+  describe ".confirm — video_schedule (edge: already-private video with existing publish_at)" do
+    let!(:rsc_channel)   { create(:channel) }
+    let(:old_publish_at) { 3.days.from_now.utc }
+    let(:new_publish_at) { 14.days.from_now.utc }
+    let!(:rsc_video) do
+      create(:video, channel: rsc_channel, title: "Rescheduled Run",
+                     privacy_status: :private, publish_at: old_publish_at)
+    end
+
+    before { allow(VideoRemoteStatusSync).to receive(:perform_later) }
+
+    it "updates publish_at to the new value" do
+      described_class.confirm("video_schedule", {
+        "video_id"    => rsc_video.id,
+        "video_title" => "Rescheduled Run",
+        "publish_at"  => new_publish_at.iso8601
+      })
+      expect(rsc_video.reload.publish_at).to be_within(1.second).of(new_publish_at)
+    end
+
+    it "enqueues VideoRemoteStatusSync with the updated schedule" do
+      described_class.confirm("video_schedule", {
+        "video_id"    => rsc_video.id,
+        "video_title" => "Rescheduled Run",
+        "publish_at"  => new_publish_at.iso8601
+      })
+      expect(VideoRemoteStatusSync).to have_received(:perform_later).with(rsc_video.id)
+    end
+  end
+
+  # ── confirm / video_schedule (edge: nil or invalid publish_at raises) ───────
+  #
+  # Time.iso8601(nil.to_s) → Time.iso8601("") raises ArgumentError.
+  # Time.iso8601("not-a-time") also raises ArgumentError.
+  # The executor does NOT rescue (callers are responsible per class docstring),
+  # so the exception propagates raw.
+
+  describe ".confirm — video_schedule (edge: nil or invalid publish_at propagates ArgumentError)" do
+    let!(:inv_channel) { create(:channel) }
+    let!(:inv_video) do
+      create(:video, channel: inv_channel, title: "Bad Schedule",
+                     privacy_status: :public, publish_at: nil)
+    end
+
+    before { allow(VideoRemoteStatusSync).to receive(:perform_later) }
+
+    it "raises ArgumentError when publish_at is nil (executor does not rescue)" do
+      expect {
+        described_class.confirm("video_schedule", {
+          "video_id"    => inv_video.id,
+          "video_title" => "Bad Schedule",
+          "publish_at"  => nil
+        })
+      }.to raise_error(ArgumentError)
+      expect(VideoRemoteStatusSync).not_to have_received(:perform_later)
+    end
+
+    it "raises ArgumentError when publish_at is an invalid ISO8601 string (executor does not rescue)" do
+      expect {
+        described_class.confirm("video_schedule", {
+          "video_id"    => inv_video.id,
+          "video_title" => "Bad Schedule",
+          "publish_at"  => "not-a-time"
+        })
+      }.to raise_error(ArgumentError)
+      expect(VideoRemoteStatusSync).not_to have_received(:perform_later)
     end
   end
 end

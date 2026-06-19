@@ -81,6 +81,32 @@ RSpec.describe Pito::Chat::Handlers::Publish do
     expect(result.message_key).to eq("pito.chat.publish.needs_ref")
   end
 
+  context "handler does not gate on video state or connection health" do
+    it "emits :confirmation for an already-public video" do
+      public_video = create(:video, channel: channel, privacy_status: :public)
+      result = handler_for("video", public_video.id.to_s).call
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(result.events.first[:kind]).to eq(:confirmation)
+    end
+
+    it "emits :confirmation when the channel has no youtube_connection" do
+      bare_channel = create(:channel)
+      unconnected_video = create(:video, channel: bare_channel)
+      result = handler_for("video", unconnected_video.id.to_s).call
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(result.events.first[:kind]).to eq(:confirmation)
+    end
+
+    it "emits :confirmation when the channel's connection has needs_reauth: true" do
+      stale_connection = create(:youtube_connection, :needs_reauth)
+      stale_channel = create(:channel, youtube_connection: stale_connection)
+      stale_video = create(:video, channel: stale_channel)
+      result = handler_for("video", stale_video.id.to_s).call
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(result.events.first[:kind]).to eq(:confirmation)
+    end
+  end
+
   context "id-only resolution via real lexer/parser" do
     it "resolves by id and emits a confirmation" do
       result = Pito::Chat::Parser.call(
