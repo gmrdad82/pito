@@ -35,8 +35,6 @@ class Channel
         # chokepoint; the insert call carries the documented 50-unit
         # cost like the other destructive endpoints.
         "channelBanners.insert" => 50,
-        # YouTube Analytics v2:
-        "reports.query"      => 1,
         # OAuth2 revoke endpoint — billed at 0 (not part of YouTube
         # quota) but written to the audit table for completeness.
         "oauth2.revoke"      => 0

@@ -40,10 +40,7 @@ class Game
       BASE_URL = "https://api.igdb.com/v4".freeze
 
       # Bounded HTTP timeouts so a hung IGDB endpoint cannot wedge a Sidekiq
-      # worker indefinitely. Mirrors the pattern in
-      # `Channel::Youtube::ServiceFactory` (open/read/send) and
-      # `NotificationDeliveryChannel#configure_http` (open/read/write/ssl).
-      # Values match the webhook-style 5s open / 10s read / 5s write tuning.
+      # worker indefinitely. Values match the webhook-style 5s open / 10s read / 5s write tuning.
       OPEN_TIMEOUT_SEC  = 5
       READ_TIMEOUT_SEC  = 10
       WRITE_TIMEOUT_SEC = 5

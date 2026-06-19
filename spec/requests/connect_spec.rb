@@ -123,9 +123,8 @@ RSpec.describe "/connect + OAuth callback", type: :request do
     context "with a full grant" do
       before do
         OmniAuth.config.add_mock(:google_oauth2, omniauth_hash(subject_id: "sub-abc"))
-        # Channel::Youtube::Client requires google-apis-youtube_analytics_v2 which
-        # isn't installed. Stub discover_and_link_channels on the controller to
-        # bypass the gem dependency while still exercising the callback logic.
+        # Stub discover_and_link_channels on the controller to avoid live
+        # YouTube API calls while still exercising the callback logic.
         allow_any_instance_of(YoutubeConnections::OauthCallbacksController)
           .to receive(:discover_and_link_channels) do |_, connection|
           Channel.create!(
