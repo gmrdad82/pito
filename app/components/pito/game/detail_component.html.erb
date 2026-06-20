@@ -117,6 +117,15 @@
               value_class: "text-fg"
             )) %>
       <% end %>
+
+      <% if price_label.present? %>
+        <%= render(Pito::Table::KeyValueRowComponent.new(
+              key_text:    t("pito.game.detail.price"),
+              value_text:  price_label,
+              key_class:   "text-fg-dim whitespace-nowrap",
+              value_class: "text-fg tabular-nums"
+            )) %>
+      <% end %>
     </div>
   </div>
 

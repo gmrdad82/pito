@@ -169,7 +169,7 @@ RSpec.describe Pito::Video::DetailComponent do
   end
 
   describe "stats (one row)" do
-    it "renders the v/L/C abbreviated stats on one line with · separators" do
+    it "renders the V/L/C abbreviated stats on one line with · separators" do
       node  = render_inline(described_class.new(video: video))
       stats = node.css(".pito-video-detail__stats").first
       expect(stats).not_to be_nil
@@ -178,14 +178,21 @@ RSpec.describe Pito::Video::DetailComponent do
       expect(stats.text).to include(I18n.t("pito.video.detail.likes_abbr"))
       expect(stats.text).to include(I18n.t("pito.video.detail.comments_abbr"))
     end
+
+    it "uses the V views / L likes / C comments convention" do
+      expect(I18n.t("pito.video.detail.views_abbr")).to eq("V")
+      expect(I18n.t("pito.video.detail.likes_abbr")).to eq("L")
+      expect(I18n.t("pito.video.detail.comments_abbr")).to eq("C")
+    end
   end
 
   describe "stats legend" do
-    it "renders the v/L/C legend line below the stats" do
+    it "renders the V/L/C legend line below the stats" do
       node   = render_inline(described_class.new(video: video))
       legend = node.css(".pito-video-detail__legend").first
       expect(legend).not_to be_nil
       expect(legend.text).to eq(Pito::Copy.render("pito.copy.videos.stats_legend"))
+      expect(legend.text).to eq("V views, L likes, C comments")
     end
   end
 

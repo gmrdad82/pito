@@ -11,6 +11,7 @@ en:
         developer: "Developer"
         publisher: "Publisher"
         release: "Release"
+        price: "Price"
         platforms: "Platforms"
         description: "Description"
         genres: "Genres"

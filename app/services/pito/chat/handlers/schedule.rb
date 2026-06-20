@@ -30,9 +30,15 @@ module Pito
 
         NOUN_FILLERS = %w[vid vids video videos].freeze
 
+        SLATE_KEYWORD = "slate"
+
         def call
           body = message.body_tokens.reject { |t| NOUN_FILLERS.include?(t.value.to_s.downcase) }
           return needs_ref if body.empty?
+
+          # `schedule <id> slate` (or a reply `#<h> schedule slate`) → the
+          # upcoming-schedule planning view rather than the schedule-a-time flow.
+          return slate(body) if body.last&.value.to_s.downcase == SLATE_KEYWORD
 
           when_result = extract_when(body)
           # when_result is either [:ok, Time, ref_tokens] or [:err, Result::Error]
@@ -70,6 +76,29 @@ module Pito
         end
 
         private
+
+        # `schedule <id> slate` — render the upcoming-schedule planner, obeying the
+        # conversation's channel scope (shift+tab) + stats period (shift+space) and
+        # excluding the reference vid (the leading id, or the source vid on a reply).
+        def slate(body)
+          events = Pito::MessageBuilder::Video::Slate.call(
+            exclude_id:    slate_exclude_id(body[0...-1]),
+            channel_scope: channel.presence || conversation.scope_channel,
+            period:        conversation.stats_period,
+            conversation:  conversation
+          )
+          Pito::Chat::Result::Ok.new(events: events)
+        end
+
+        # The vid id to exclude from the slate: the typed leading ref, or — on a
+        # reply with no id — the source video the reply is anchored to.
+        def slate_exclude_id(ref_tokens)
+          ref = ref_tokens.map(&:value).join(" ").strip
+          return resolve_video(ref)&.id if ref.present?
+          return follow_up.source_event.payload.with_indifferent_access[:video_id] if follow_up?
+
+          nil
+        end
 
         # Extract the <when> from the body tokens via Pito::Schedule::TimeParser.
         # Returns [:ok, Time, ref_tokens] or [:err, Result::Error].

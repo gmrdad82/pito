@@ -45,4 +45,25 @@ RSpec.describe Pito::Event::EnhancedComponent do
       expect(node.css("[data-controller~='pito--typewriter']")).not_to be_empty
     end
   end
+
+  # Enhanced now shares SystemComponent's full template (the stripped enhanced
+  # template was removed), so an :enhanced payload carrying table_rows renders
+  # the table — previously it was silently dropped (e.g. show-game linked vids).
+  describe "table rendering parity with :system" do
+    subject(:node) do
+      render_inline(described_class.new(payload: {
+        body:          "Linked vids",
+        table_heading: [ "#", "Title" ],
+        table_rows:    [ { cells: [ { text: "#1" }, { text: "Boss Fight" } ] } ]
+      }))
+    end
+
+    it "renders the data-grid table" do
+      expect(node.css(".pito-data-grid")).not_to be_empty
+    end
+
+    it "renders the row cell content" do
+      expect(node.to_html).to include("Boss Fight")
+    end
+  end
 end

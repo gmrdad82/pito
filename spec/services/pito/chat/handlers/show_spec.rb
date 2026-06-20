@@ -91,7 +91,7 @@ RSpec.describe Pito::Chat::Handlers::Show do
     end
 
     context "when the game has linked videos" do
-      let!(:channel) { create(:channel) }
+      let!(:channel) { create(:channel, handle: "@bossarena") }
       let!(:video)   { create(:video, channel: channel, title: "Boss Fight") }
       let!(:vgl)     { create(:video_game_link, video: video, game: game) }
 
@@ -126,6 +126,11 @@ RSpec.describe Pito::Chat::Handlers::Show do
         payload = linked_videos_event("##{game.id}")[:payload]
         expect(payload["table_rows"].size).to eq(1)
         expect(payload["video_ids"]).to eq([ video.id ])
+      end
+
+      it "names the channel the game appears on in the intro body (witty channels line)" do
+        payload = linked_videos_event("##{game.id}")[:payload]
+        expect(payload["body"]).to include(channel.handle)
       end
     end
 

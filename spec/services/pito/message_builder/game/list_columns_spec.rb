@@ -305,62 +305,63 @@ RSpec.describe Pito::MessageBuilder::Game::ListColumns do
     context "channels column" do
       let(:channel1) { create(:channel, handle: "@manfygreats") }
       let(:channel2) { create(:channel, handle: "@awesomegamer") }
+      let(:channel3) { create(:channel, handle: "@thirdchannel") }
       let(:game_with_channels) { create(:game) }
 
-      it "returns a single @handle for a game with one linked channel" do
-        video = create(:video, channel: channel1)
+      def link(channel)
+        video = create(:video, channel: channel)
         create(:video_game_link, game: game_with_channels, video: video)
+      end
+
+      it "returns a single @handle for a game with one linked channel" do
+        link(channel1)
         game_with_channels.reload
         result = described_class.cells(game_with_channels, [ :channels ])
         expect(result.first[:text]).to eq("@manfygreats")
       end
 
-      it "returns multiple @handles separated by <br> for a game with two channels" do
-        video1 = create(:video, channel: channel1)
-        video2 = create(:video, channel: channel2)
-        create(:video_game_link, game: game_with_channels, video: video1)
-        create(:video_game_link, game: game_with_channels, video: video2)
+      it "collapses two channels onto one line as `@first +1 more`" do
+        link(channel1)
+        link(channel2)
         game_with_channels.reload
         result = described_class.cells(game_with_channels, [ :channels ])
-        expect(result.first[:text]).to include("@manfygreats")
-        expect(result.first[:text]).to include("@awesomegamer")
-        expect(result.first[:text]).to include("<br>")
+        expect(result.first[:text]).to match(/\A@\w+ \+1 more\z/)
+      end
+
+      it "shows `+2 more` for a game across three channels" do
+        link(channel1)
+        link(channel2)
+        link(channel3)
+        game_with_channels.reload
+        result = described_class.cells(game_with_channels, [ :channels ])
+        expect(result.first[:text]).to match(/\A@\w+ \+2 more\z/)
       end
 
       it "de-duplicates handles when multiple videos share the same channel" do
-        video1 = create(:video, channel: channel1)
-        video2 = create(:video, channel: channel1)
-        create(:video_game_link, game: game_with_channels, video: video1)
-        create(:video_game_link, game: game_with_channels, video: video2)
+        link(channel1)
+        link(channel1)
         game_with_channels.reload
         result = described_class.cells(game_with_channels, [ :channels ])
-        handles = result.first[:text].split("<br>")
-        expect(handles).to eq([ "@manfygreats" ])
+        expect(result.first[:text]).to eq("@manfygreats")
       end
 
-      it "returns an empty string for a game with no linked videos" do
+      it "returns an em dash for a game with no linked videos" do
         result = described_class.cells(game_with_channels, [ :channels ])
-        expect(result.first[:text]).to eq("")
+        expect(result.first[:text]).to eq("—")
       end
 
-      it "returns cell with html: true" do
+      it "is plain text (not html), so it renders on a single line" do
+        link(channel1)
+        link(channel2)
+        game_with_channels.reload
         result = described_class.cells(game_with_channels, [ :channels ])
-        expect(result.first[:html]).to be(true)
+        expect(result.first[:html]).to be(false)
+        expect(result.first[:text]).not_to include("<br>")
       end
 
       it "colors and clamps the cell (cyan + pito-cell-channel)" do
         result = described_class.cells(game_with_channels, [ :channels ])
         expect(result.first[:class]).to eq("text-cyan pito-cell-channel")
-      end
-
-      it "html-escapes handles containing special characters" do
-        channel_special = create(:channel, handle: "@foo<bar>")
-        video = create(:video, channel: channel_special)
-        create(:video_game_link, game: game_with_channels, video: video)
-        game_with_channels.reload
-        result = described_class.cells(game_with_channels, [ :channels ])
-        expect(result.first[:text]).to include("&lt;")
-        expect(result.first[:text]).not_to include("<bar>")
       end
     end
 
@@ -390,6 +391,48 @@ RSpec.describe Pito::MessageBuilder::Game::ListColumns do
         expect(result.first[:class]).to include("tabular-nums")
         expect(result.first[:class]).to include("pito-cell-duration")
       end
+    end
+
+    context "price column" do
+      let(:game_with_price) { create(:game) }
+
+      it "renders the euro price with two decimals when set" do
+        game_with_price.update!(price: BigDecimal("59.99"))
+        result = described_class.cells(game_with_price, [ :price ])
+        expect(result.first[:text]).to eq("€59.99")
+      end
+
+      it "returns '—' when the game is unpriced" do
+        result = described_class.cells(game_with_price, [ :price ])
+        expect(result.first[:text]).to eq("—")
+      end
+
+      it "is right-aligned, tabular-nums, with the pito-cell-price cap" do
+        result = described_class.cells(game_with_price, [ :price ])
+        expect(result.first[:class]).to include("text-right")
+        expect(result.first[:class]).to include("tabular-nums")
+        expect(result.first[:class]).to include("pito-cell-price")
+      end
+    end
+  end
+
+  describe ".sort_key_for — price" do
+    let(:game) { create(:game, price: BigDecimal("59.99")) }
+
+    it "returns nil for 'price' when :price not in selected_columns" do
+      expect(described_class.sort_key_for("price", selected_columns: [])).to be_nil
+    end
+
+    it "returns a proc keyed on the price when :price IS in selected_columns" do
+      key = described_class.sort_key_for("price", selected_columns: [ :price ])
+      expect(key).to be_a(Proc)
+      expect(key.call(game)).to eq(BigDecimal("59.99"))
+    end
+
+    it "sorts an unpriced game before any priced game (nil → -1)" do
+      key       = described_class.sort_key_for("price", selected_columns: [ :price ])
+      unpriced  = create(:game, price: nil)
+      expect(key.call(unpriced)).to eq(-1)
     end
   end
 

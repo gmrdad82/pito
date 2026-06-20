@@ -62,6 +62,20 @@ RSpec.describe Pito::Game::DetailComponent do
     end
   end
 
+  describe "price row" do
+    it "renders the Price row with the formatted euro value when the game is priced" do
+      priced = create(:game, price: BigDecimal("59.99"))
+      node   = render_inline(described_class.new(game: priced))
+      expect(node.text).to include("Price")
+      expect(node.text).to include("€59.99")
+    end
+
+    it "hides the Price row entirely when the game is unpriced" do
+      node = render_inline(described_class.new(game: create(:game, price: nil)))
+      expect(node.text).not_to include("€")
+    end
+  end
+
   describe "available platforms (SVG logo icons)" do
     it "renders <img> platform icons for 'PlayStation 4' and 'PC (Microsoft Windows)' (Xbox dropped)" do
       g = create(:game, platforms: [ "PlayStation 4", "PC (Microsoft Windows)", "Xbox One" ])

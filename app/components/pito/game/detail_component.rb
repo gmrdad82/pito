@@ -42,6 +42,12 @@ module Pito
         @game.release_label.presence
       end
 
+      # The formatted euro price ("€59.99"), or nil when the game is unpriced —
+      # the detail card hides the Price row entirely until a price is set.
+      def price_label
+        Pito::Formatter::Price.call(@game.price) if @game.price.present?
+      end
+
       # Returns the de-duped operator tokens (ps/switch/steam) derived from
       # the IGDB platform names in game.platforms.  Returns [] when none match.
       def platform_tokens

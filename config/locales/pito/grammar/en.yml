@@ -20,6 +20,7 @@ en:
         delete: "Delete a game or vid (by id or title)"
         reindex: "Re-embed a game or vid in Voyage (by id or title)"
         platform: "Set a game's platform from free text (e.g. ps5, switch, steam)"
+        price: "Set or clear a game's euro price (e.g. price set 12 59.99)"
         publish: "Publish a vid on YouTube (set public, clear schedule)"
         unlist: "Unlist a vid on YouTube"
         schedule: "Schedule a vid for future publishing"
