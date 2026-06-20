@@ -4,6 +4,35 @@ All notable changes to pito are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); the project aims for
 [Semantic Versioning](https://semver.org/).
 
+## [0.6.0] — unreleased
+
+In progress; entries are added here as they land on `main` (tag created at release).
+
+### Added
+
+- **Shinies** — lifetime achievements across **subs, views, watch time, likes, and
+  comms**, on a 22-step tier ladder (1 → 10M) color-coded by tier. Unlocked by a
+  standalone 3×/day refresh; each unlock fires a **🏆 notification** (Slack /
+  Discord + in-app), and the biggest shiny per metric shows on the video/game.
+- **Footage** row on the `show game` card (before Price).
+- **Stats counters under the cover** on `show game` (views / likes / comms, summed
+  from linked videos), like `show video`.
+
+### Changed
+
+- `show video` & `show game`: the key-value table moves up with **Title as its first
+  row**; the **Description** moves below it.
+- **`comments` → `comms`/`Comms`** everywhere user-facing (`comments` still accepted
+  as an alias).
+- **Mini-status bar:** "notification(s)" → **notif / notifs**; "authenticated / not
+  authenticated" → **well known / unknown**.
+- **shift+r** reply (hashtag) picker now opens **inline above the chatbox** (was a
+  centered modal).
+
+### Fixed
+
+- `list channels --help` now renders in the man-page format like the other list verbs.
+
 ## [0.5.0] — 2026-06-20
 
 The first tag. The actual headline: **it exists, and it mostly works.** One person
