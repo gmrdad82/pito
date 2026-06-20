@@ -61,9 +61,9 @@ body:
     attributes:
       label: pito version
       description:
-        From the `VERSION` file at the repo root, or `git rev-parse --short
-        HEAD`.
-      placeholder: e.g. v0.1.0 or 0534e93
+        The latest git tag (`git describe --tags`) or the top entry in
+        `CHANGELOG.md`, or `git rev-parse --short HEAD`.
+      placeholder: e.g. v0.5.0 or 0534e93
     validations:
       required: false
 
