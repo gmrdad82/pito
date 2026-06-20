@@ -46,9 +46,18 @@ module Pito
 
       # ── Helpers (private to module) ──────────────────────────────────────────
 
+      # A description may carry embedded newlines to render as a stacked list
+      # (e.g. the schedule `<when>` forms). The first segment sits on the token
+      # row; each continuation line is indented to the description column so the
+      # list aligns under the first segment instead of wrapping to the margin.
       def row(token, desc, width)
-        pad = " " * (width - token.length)
-        "  #{cyan(esc(token))}#{pad}#{dim(esc(desc))}"
+        pad           = " " * (width - token.length)
+        first, *rest  = desc.split("\n")
+        line          = "  #{cyan(esc(token))}#{pad}#{dim(esc(first))}"
+        return line if rest.empty?
+
+        indent = " " * (2 + width) # leading "  " + token column
+        ([ line ] + rest.map { |seg| "#{indent}#{dim(esc(seg))}" }).join("\n")
       end
       private_class_method :row
 

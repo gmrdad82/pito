@@ -23,6 +23,7 @@ module Pito
     #   in 1h [from now] | in 2 hours             → Time.current + N hours
     #   in 3 days                                 → that calendar date at 09:00
     #   at 2pm | at 3:10am | at 23 | at 15:30      → TODAY at that time
+    #   today [at ...] | today at 3am             → today (bare → 09:00)
     #   tomorrow [at ...] | tomorrow night        → tomorrow
     #   <weekday> [at ...]                        → that weekday THIS calendar week
     #   next <weekday> [at ...]                   → that weekday NEXT calendar week
@@ -69,6 +70,8 @@ module Pito
 
       # in <n> <unit> [from now]
       RELATIVE = /\Ain\s+(\d+)\s*(minutes?|mins?|m|hours?|hrs?|hr|h|days?|d)(?:\s+from\s+now)?\z/
+      # today [[at] <time-of-day>]    (bare → 09:00; "today at 3am", "today at 14:30")
+      TODAY = /\Atoday#{TOD}\z/
       # tomorrow [[at] <time-of-day>]  (incl. "tomorrow night")
       TOMORROW = /\Atomorrow#{TOD}\z/
       # <weekday> [[at] <tod>]        → this calendar week
@@ -126,6 +129,8 @@ module Pito
 
         if (m = RELATIVE.match(phrase))
           relative_time(m[1].to_i, m[2])
+        elsif (m = TODAY.match(phrase))
+          on_date(@now.to_date, m[1])
         elsif (m = TOMORROW.match(phrase))
           on_date(@now.to_date + 1, m[1])
         elsif (m = NEXT_WEEK.match(phrase))
