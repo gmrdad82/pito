@@ -35,14 +35,18 @@ RSpec.describe NotificationWebhookDeliverJob, type: :job do
       allow(Pito::Notifications::Webhooks::SlackClient).to receive(:new).and_return(slack_client)
     end
 
-    it "delivers a Slack-formatted text payload when configured" do
+    it "delivers a rich, colored Slack attachment (emoji + level color) when configured" do
       allow(slack_client).to receive(:deliver).and_return(slack_result(success: true))
 
       described_class.new.perform(notification.id)
 
       expect(Pito::Notifications::Webhooks::SlackClient)
         .to have_received(:new).with("https://hooks.slack.test/abc")
-      expect(slack_client).to have_received(:deliver).with({ "text" => "*Hi*" })
+      expect(slack_client).to have_received(:deliver).with({
+        "attachments" => [
+          { "color" => "#5170ff", "text" => "ℹ️ *Hi*", "mrkdwn_in" => [ "text" ] }
+        ]
+      })
     end
 
     it "does not deliver to Slack when the URL is blank" do
@@ -72,14 +76,16 @@ RSpec.describe NotificationWebhookDeliverJob, type: :job do
       allow(Pito::Notifications::Webhooks::DiscordClient).to receive(:new).and_return(discord_client)
     end
 
-    it "delivers a Discord-formatted content payload when configured" do
+    it "delivers a rich, colored Discord embed (emoji + level color) when configured" do
       allow(discord_client).to receive(:deliver).and_return(discord_result(success: true))
 
       described_class.new.perform(notification.id)
 
       expect(Pito::Notifications::Webhooks::DiscordClient)
         .to have_received(:new).with("https://discord.test/webhook")
-      expect(discord_client).to have_received(:deliver).with({ "content" => "**Hi**" })
+      expect(discord_client).to have_received(:deliver).with({
+        "embeds" => [ { "description" => "ℹ️ **Hi**", "color" => 5337343 } ]
+      })
     end
 
     it "does not deliver to Discord when the URL is blank" do
@@ -109,7 +115,9 @@ RSpec.describe NotificationWebhookDeliverJob, type: :job do
 
       described_class.new.perform(notification.id)
 
-      expect(discord_client).to have_received(:deliver).with({ "content" => "**Hi**" })
+      expect(discord_client).to have_received(:deliver).with({
+        "embeds" => [ { "description" => "ℹ️ **Hi**", "color" => 5337343 } ]
+      })
     end
   end
 end

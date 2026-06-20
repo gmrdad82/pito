@@ -25,7 +25,7 @@ module Pito
           message = message_for(connection)
           return nil if Notification.unread.where(message:).exists?
 
-          Notification.create!(message:)
+          Notification.create!(message:, level: "warning")
         end
 
         # Names the connection's channels (or its email when none) so the operator

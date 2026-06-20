@@ -79,4 +79,39 @@ RSpec.describe Pito::Notifications::WebhookFormatter do
       expect(described_class.slack(nil)).to eq("")
     end
   end
+
+  describe ".slack_payload" do
+    it "wraps the mrkdwn body in a colored attachment (text field → left border bar)" do
+      notification = build(:notification, message: "<strong>Done</strong>", level: "success")
+      payload      = described_class.slack_payload(notification)
+
+      attachment = payload["attachments"].first
+      expect(attachment["color"]).to eq("good")
+      expect(attachment["text"]).to eq("✅ *Done*")
+      expect(attachment["mrkdwn_in"]).to eq([ "text" ])
+    end
+
+    it "defaults to the info color/emoji for a plain notification" do
+      attachment = described_class.slack_payload(build(:notification, message: "Hi"))["attachments"].first
+      expect(attachment["color"]).to eq("#5170ff")
+      expect(attachment["text"]).to start_with("ℹ️")
+    end
+  end
+
+  describe ".discord_payload" do
+    it "wraps the markdown body in a colored embed with the level emoji" do
+      notification = build(:notification, message: "<strong>Oops</strong>", level: "error")
+      payload      = described_class.discord_payload(notification)
+
+      embed = payload["embeds"].first
+      expect(embed["color"]).to eq(0xe74c3c)
+      expect(embed["description"]).to eq("🛑 **Oops**")
+    end
+
+    it "defaults to the info color/emoji for a plain notification" do
+      embed = described_class.discord_payload(build(:notification, message: "Hi"))["embeds"].first
+      expect(embed["color"]).to eq(0x5170ff)
+      expect(embed["description"]).to start_with("ℹ️")
+    end
+  end
 end

@@ -15,6 +15,18 @@ RSpec.describe Notification, type: :model do
     it "is invalid with a blank message" do
       expect(build(:notification, message: "")).not_to be_valid
     end
+
+    it "defaults level to info" do
+      expect(create(:notification).level).to eq("info")
+    end
+
+    it "accepts the known levels" do
+      Notification::LEVELS.each { |lvl| expect(build(:notification, level: lvl)).to be_valid }
+    end
+
+    it "rejects an unknown level" do
+      expect(build(:notification, level: "critical")).not_to be_valid
+    end
   end
 
   describe "scopes" do
@@ -114,6 +126,16 @@ RSpec.describe Notification, type: :model do
       n = create(:notification)
       n.mark_unread!
       expect { n.mark_unread! }.not_to raise_error
+    end
+  end
+
+  describe "live mini-status broadcast on create" do
+    it "broadcasts a pito-mini-status replace to pito:global so open windows update without a refresh" do
+      expect { create(:notification) }
+        .to have_broadcasted_to("pito:global").with { |msg|
+          html = msg.is_a?(Hash) ? msg.values.join : msg.to_s
+          expect(html).to include("pito-mini-status")
+        }
     end
   end
 end

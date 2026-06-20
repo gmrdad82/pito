@@ -79,6 +79,7 @@ RSpec.describe VideoRemoteStatusSync, type: :job do
     allow(client).to receive(:update_video).and_raise(Channel::Youtube::ValidationError, "invalidPublishAt")
     expect { described_class.perform_now(video.id) }.to change(Notification, :count).by(1)
     expect(Notification.last.message).to include(video.title)
+    expect(Notification.last.level).to eq("error")
   end
 
   it "surfaces a Notification when the video is not found on YouTube (NotFoundError)" do
