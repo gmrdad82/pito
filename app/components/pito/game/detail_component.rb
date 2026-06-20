@@ -42,10 +42,10 @@ module Pito
         @game.release_label.presence
       end
 
-      # The formatted euro price ("€59.99"), or nil when the game is unpriced —
-      # the detail card hides the Price row entirely until a price is set.
+      # The formatted euro price ("€59.99"), or "—" when unpriced — the Price row
+      # always renders, mirroring the Footage row.
       def price_label
-        Pito::Formatter::Price.call(@game.price) if @game.price.present?
+        Pito::Formatter::Price.call(@game.price)
       end
 
       # Returns the de-duped operator tokens (ps/switch/steam) derived from

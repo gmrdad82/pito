@@ -70,9 +70,10 @@ RSpec.describe Pito::Game::DetailComponent do
       expect(node.text).to include("€59.99")
     end
 
-    it "hides the Price row entirely when the game is unpriced" do
+    it "always renders the Price row with an em dash when unpriced (mirrors Footage)" do
       node = render_inline(described_class.new(game: create(:game, price: nil)))
-      expect(node.text).not_to include("€")
+      expect(node.text).to include("Price")
+      expect(node.text).to include("—")
     end
   end
 

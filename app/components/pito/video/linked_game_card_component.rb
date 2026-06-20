@@ -64,6 +64,11 @@ module Pito
       def footage_label
         Pito::Formatter::FootageHours.call(@game.footage_hours)
       end
+
+      # Euro price — "€59.99", or "—" when unpriced.
+      def price_label
+        Pito::Formatter::Price.call(@game.price)
+      end
     end
   end
 end

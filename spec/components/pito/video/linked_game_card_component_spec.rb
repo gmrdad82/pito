@@ -81,6 +81,25 @@ RSpec.describe Pito::Video::LinkedGameCardComponent do
     expect(node.text).to include("—")
   end
 
+  it "labels the footage row 'Footage' (capitalised), not the lowercase TTB label" do
+    node = render_inline(described_class.new(game: game))
+    expect(node.text).to include("Footage")
+    expect(node.text).not_to match(/\bfootage\b/)
+  end
+
+  it "renders the Price row with the euro value when the game is priced" do
+    game.update!(price: BigDecimal("59.99"))
+    node = render_inline(described_class.new(game: game))
+    expect(node.text).to include("Price")
+    expect(node.text).to include("€59.99")
+  end
+
+  it "always renders the Price row with an em dash when unpriced" do
+    node = render_inline(described_class.new(game: game))
+    expect(node.text).to include("Price")
+    expect(node.text).to include("—")
+  end
+
   it "carries NO score/TTB bars (slim card)" do
     node = render_inline(described_class.new(game: game))
     expect(node.css(".pito-game-detail__score")).to be_empty

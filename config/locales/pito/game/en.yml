@@ -11,6 +11,7 @@ en:
         developer: "Developer"
         publisher: "Publisher"
         release: "Release"
+        footage: "Footage"
         price: "Price"
         platforms: "Platforms"
         description: "Description"

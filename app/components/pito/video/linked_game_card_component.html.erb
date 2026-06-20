@@ -76,10 +76,17 @@
     <% end %>
 
     <%= render(Pito::Table::KeyValueRowComponent.new(
-          key_text:    t("pito.game.ttb.footage"),
+          key_text:    t("pito.game.detail.footage"),
           value_text:  footage_label,
           key_class:   "text-fg-dim whitespace-nowrap",
           value_class: "text-fg"
+        )) %>
+
+    <%= render(Pito::Table::KeyValueRowComponent.new(
+          key_text:    t("pito.game.detail.price"),
+          value_text:  price_label,
+          key_class:   "text-fg-dim whitespace-nowrap",
+          value_class: "text-fg tabular-nums"
         )) %>
   </div>
 
