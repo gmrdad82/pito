@@ -39,6 +39,13 @@ RSpec.describe SyncVideosJob, type: :job do
       expect(body).to include("1 removed")
     end
 
+    it "embeds the timestamp slot in the first line so the HH:MM prefix renders inline" do
+      described_class.new.perform([ channel.id ], "@pito", conversation_id: conversation.id)
+      body = enhanced_body
+      # TS_SLOT must sit INSIDE the first <div>, not before it.
+      expect(body).to include(%(<div class="text-fg">#{Pito::Event::BodyComponent::TS_SLOT}))
+    end
+
     it "omits the 'All channels' total for a single channel" do
       described_class.new.perform([ channel.id ], "@pito", conversation_id: conversation.id)
       expect(enhanced_body).not_to include(I18n.t("pito.jobs.import_videos.summary.total_label"))
