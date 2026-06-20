@@ -90,8 +90,8 @@ RSpec.describe Pito::MessageBuilder::CommandHelp do
           expect(result["body"]).to include("likes")
         end
 
-        it "body mentions the 'comments' column" do
-          expect(result["body"]).to include("comments")
+        it "body mentions the 'comms' column" do
+          expect(result["body"]).to include("comms")
         end
 
         it "body is wrapped in .pito-help-block" do

@@ -179,7 +179,7 @@ RSpec.describe Pito::Video::DetailComponent do
       expect(stats.text).to include(I18n.t("pito.video.detail.comments_abbr"))
     end
 
-    it "uses the V views / L likes / C comments convention" do
+    it "uses the V views / L likes / C comms convention" do
       expect(I18n.t("pito.video.detail.views_abbr")).to eq("V")
       expect(I18n.t("pito.video.detail.likes_abbr")).to eq("L")
       expect(I18n.t("pito.video.detail.comments_abbr")).to eq("C")
@@ -192,7 +192,7 @@ RSpec.describe Pito::Video::DetailComponent do
       legend = node.css(".pito-video-detail__legend").first
       expect(legend).not_to be_nil
       expect(legend.text).to eq(Pito::Copy.render("pito.copy.videos.stats_legend"))
-      expect(legend.text).to eq("V views, L likes, C comments")
+      expect(legend.text).to eq("V views, L likes, C comms")
     end
   end
 

@@ -56,8 +56,8 @@ RSpec.describe Pito::MessageBuilder::Video::ListHelp do
       expect(result["body"]).to include("likes")
     end
 
-    it "body includes the comments column token" do
-      expect(result["body"]).to include("comments")
+    it "body includes the comms column token" do
+      expect(result["body"]).to include("comms")
     end
 
     it "body includes the with option" do

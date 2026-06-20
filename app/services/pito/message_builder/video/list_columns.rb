@@ -49,6 +49,7 @@ module Pito
           "duration" => :duration,
           "views"   => :views,
           "likes"   => :likes,
+          "comms"    => :comments,
           "comments" => :comments
         }.freeze
 
@@ -100,8 +101,8 @@ module Pito
             value:      ->(v) { count_text(v.like_count) }
           },
           comments: {
-            aliases:    %w[comments],
-            heading:    "Comments",
+            aliases:    %w[comms comments],
+            heading:    "Comms",
             align:      :right,
             cell_class: "text-fg-dim text-right tabular-nums",
             value:      ->(v) { count_text(v.comment_count) }
