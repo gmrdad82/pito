@@ -47,6 +47,18 @@ RSpec.describe VideoRemoteStatusSync, type: :job do
     expect(Channel::Youtube::VideosClient).not_to have_received(:new)
   end
 
+  it "surfaces the reauth reminder when the connection needs reauth (not silent)" do
+    connection.update!(needs_reauth: true)
+    expect { described_class.perform_now(video.id) }.to change(Notification, :count).by(1)
+    expect(Notification.last.message).to include("re-auth needed")
+  end
+
+  it "does not duplicate the reauth reminder while one is unread (dedup)" do
+    connection.update!(needs_reauth: true)
+    described_class.perform_now(video.id)
+    expect { described_class.perform_now(video.id) }.not_to change(Notification, :count)
+  end
+
   it "re-raises on quota exhaustion" do
     allow(reader).to receive(:read_video).and_raise(Channel::Youtube::QuotaExhaustedError, "quota")
     expect { described_class.perform_now(video.id) }.to raise_error(Channel::Youtube::QuotaExhaustedError)

@@ -23,7 +23,15 @@ class VideoRemoteStatusSync < ApplicationJob
 
     connection = video.channel.youtube_connection
     return if connection.nil?
-    return if connection.needs_reauth?
+
+    # A dead grant means this publish/unlist/schedule write-through can't land.
+    # Surface the (unread-dedup'd) reauth reminder instead of returning silently,
+    # so the confirmation's "done" outcome isn't a quiet lie. report! is safe to
+    # call on every queued sync — it won't duplicate an unread reminder.
+    if connection.needs_reauth?
+      Pito::Notifications::Source::YoutubeReauth.report!(connection)
+      return
+    end
 
     fresh = Channel::Youtube::VideosReader.new(connection).read_video(video)
     Channel::Youtube::VideosClient.new(connection).update_video(

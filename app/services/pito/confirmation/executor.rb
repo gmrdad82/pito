@@ -114,7 +114,12 @@ module Pito
           video   = ::Video.find_by(id: payload[:video_id])
           return Pito::Copy.render("pito.copy.videos.not_found", { ref: title }) if video.nil?
 
-          video.update!(privacy_status: :unlisted)
+          # Clear publish_at: a video carrying a scheduled publish time (a prior
+          # `schedule`) is `private` + publish_at on YouTube. Flipping only
+          # privacy_status to unlisted leaves the stale publish_at, and YouTube
+          # rejects the pair (`invalidPublishAt` — publish_at is valid only while
+          # private). Unlisting cancels any pending schedule, same as publish.
+          video.update!(privacy_status: :unlisted, publish_at: nil)
           VideoRemoteStatusSync.perform_later(video.id)
           Pito::Copy.render("pito.copy.videos.unlisted", { title: title })
         end
