@@ -12,7 +12,8 @@ module Pito
         "info"    => { emoji: "ℹ️",  slack: "#5170ff", discord: 0x5170ff },
         "success" => { emoji: "✅", slack: "good",    discord: 0x1abc9c },
         "warning" => { emoji: "⚠️", slack: "warning", discord: 0xf1c40f },
-        "error"   => { emoji: "🛑", slack: "danger",  discord: 0xe74c3c }
+        "error"   => { emoji: "🛑", slack: "danger",  discord: 0xe74c3c },
+        "shiny"   => { emoji: "🏆", slack: "#5170ff", discord: 0x5170ff }
       }.freeze
 
       DEFAULT = STYLES.fetch("info")

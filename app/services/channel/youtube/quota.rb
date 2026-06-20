@@ -37,7 +37,10 @@ class Channel
         "channelBanners.insert" => 50,
         # OAuth2 revoke endpoint — billed at 0 (not part of YouTube
         # quota) but written to the audit table for completeness.
-        "oauth2.revoke"      => 0
+        "oauth2.revoke"      => 0,
+        # YouTube Analytics API v2 — separate quota from the Data API.
+        # `reports.query` is documented at 1 unit per call.
+        "analytics.reports.query" => 1
       }.freeze
 
       DEFAULT_DAILY_BUDGET_UNITS = 10_000
@@ -71,6 +74,21 @@ class Channel
           .where(
             youtube_connection_id: youtube_connection.id,
             client_kind: "oauth"
+          )
+          .sum(:units)
+        daily_budget_units - used.to_i
+      end
+
+      # Remaining Analytics-API budget for `youtube_connection` today.
+      # Tracked separately from the Data API budget because the Analytics
+      # API has its own independent daily quota.
+      def analytics_budget_remaining(youtube_connection)
+        return daily_budget_units unless defined?(YoutubeApiCall) && YoutubeApiCall.respond_to?(:today)
+
+        used = YoutubeApiCall.today
+          .where(
+            youtube_connection_id: youtube_connection.id,
+            client_kind: "analytics"
           )
           .sum(:units)
         daily_budget_units - used.to_i

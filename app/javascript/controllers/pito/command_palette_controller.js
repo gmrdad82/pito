@@ -10,11 +10,6 @@
 // order (standard subsequence match, case-insensitive). Empty query → all
 // items visible.
 //
-// Hashtag picker: on `pito:hashtag-picker:open` (dispatched by the chatbox
-// when shift+r sees more than one live hashtag) the palette swaps its static
-// command list for a transient list of `#<handle> ` items and opens. Committing
-// one prefills the chatbox without submitting; closing restores the commands.
-//
 // Markup (in application layout, hidden by default):
 //   <div id="pito-command-palette"
 //        data-controller="pito--command-palette"
@@ -33,9 +28,6 @@ export default class extends Controller {
   connect() {
     this.abort = new AbortController()
     document.addEventListener("keydown", this.#onGlobalKey.bind(this),
-      { signal: this.abort.signal })
-    // Chatbox shift+r (with >1 live hashtag) asks us to present a picker.
-    document.addEventListener("pito:hashtag-picker:open", this.#onHashtagPicker.bind(this),
       { signal: this.abort.signal })
     this.selectedIndex = -1
   }
@@ -169,53 +161,6 @@ export default class extends Controller {
   #close() {
     this.element.classList.add("hidden")
     this.selectedIndex = -1
-    this.#restoreStaticList()
-  }
-
-  // ── Hashtag picker ──────────────────────────────────────────────────────────
-
-  // Event handler: open the palette as a picker over the live hashtags the
-  // chatbox handed us. Reuses the palette's open/commit machinery — each item
-  // carries `data-insert="#<handle> "`, so committing (Enter) prefills the
-  // chatbox WITHOUT submitting, exactly like a command-palette pick.
-  #onHashtagPicker(e) {
-    if (!isAuthenticated()) return
-    const handles = e?.detail?.handles
-    if (!Array.isArray(handles) || handles.length === 0) return
-    this.#openHashtagPicker(handles)
-  }
-
-  #openHashtagPicker(handles) {
-    if (!this.hasListTarget) return
-
-    // Stash the static command list so Ctrl+K still works after the picker closes.
-    if (this._savedListHTML == null) this._savedListHTML = this.listTarget.innerHTML
-    this._transient = true
-
-    this.listTarget.innerHTML = handles.map((h) => {
-      const handle = String(h)
-      const insert = `#${handle} `
-      return (
-        '<div data-pito--command-palette-target="item"' +
-        ` data-insert="${insert}" data-label="${handle}"` +
-        ' class="flex justify-between py-0.5 px-[7px] cursor-default">' +
-        `<span class="text-fg text-base">#${handle}</span>` +
-        `<span class="text-fg-dim text-base">${insert}</span>` +
-        "</div>"
-      )
-    }).join("")
-
-    this.#open()
-  }
-
-  // Put the static command list back after a transient (hashtag-picker) session.
-  #restoreStaticList() {
-    if (!this._transient) return
-    if (this.hasListTarget && this._savedListHTML != null) {
-      this.listTarget.innerHTML = this._savedListHTML
-    }
-    this._savedListHTML = null
-    this._transient = false
   }
 
   #commit() {
@@ -268,8 +213,6 @@ export default class extends Controller {
   }
 
   #syncSectionVisibility() {
-    // The hashtag picker injects bare items with no sections — nothing to sync.
-    if (this._transient) return
     if (!this.hasSectionTarget) return
     this.sectionTargets.forEach(section => {
       const items   = section.querySelectorAll('[data-pito--command-palette-target="item"]')

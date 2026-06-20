@@ -42,6 +42,12 @@ module Pito
         @game.release_label.presence
       end
 
+      # Formatted footage hours ("5h", "12.5h"), or "—" when nil/zero — the
+      # Footage row always renders, mirroring the Price row.
+      def footage_label
+        Pito::Formatter::FootageHours.call(@game.footage_hours)
+      end
+
       # The formatted euro price ("€59.99"), or "—" when unpriced — the Price row
       # always renders, mirroring the Footage row.
       def price_label
@@ -87,6 +93,23 @@ module Pito
         @game.footage_hours
       end
 
+      # ── Left-column stats (summed across all linked videos) ──────────────────
+
+      # Formatted total view count across all linked videos.
+      def views_label
+        Pito::Formatter::CompactCount.call(linked_video_totals[:views])
+      end
+
+      # Formatted total like count across all linked videos.
+      def likes_label
+        Pito::Formatter::CompactCount.call(linked_video_totals[:likes])
+      end
+
+      # Formatted total comment count across all linked videos.
+      def comments_label
+        Pito::Formatter::CompactCount.call(linked_video_totals[:comments])
+      end
+
       # The score bar and the TTB bar share one space-padded label width so their
       # `[` brackets line up. Both labels are generated ONCE here (Pito::Copy
       # picks a random witty variant per call) and ljust-padded to the longer of
@@ -99,6 +122,17 @@ module Pito
         bar_labels.fetch(:ttb)
       end
 
+      # Returns one Achievement per metric — the one with the highest threshold
+      # (the last unlocked in that lane) — ordered by unlocked_at descending
+      # so the most recently-advanced lane appears first.
+      def top_shinies_per_metric
+        @game.achievements
+             .group_by(&:metric)
+             .values
+             .map { |a| a.max_by(&:threshold) }
+             .sort_by { |a| -a.unlocked_at.to_i }
+      end
+
       private
 
       def bar_labels
@@ -107,6 +141,18 @@ module Pito
           ttb   = Pito::Copy.render("pito.copy.game.ttb_label").to_s
           width = [ score.length, ttb.length ].max
           { score: score.ljust(width), ttb: ttb.ljust(width) }
+        end
+      end
+
+      # Single-pass sum over linked videos (avoids iterating the association
+      # three times). Each stat reader may return nil (no row yet) → .to_i → 0.
+      def linked_video_totals
+        @linked_video_totals ||= @game.linked_videos.each_with_object(
+          { views: 0, likes: 0, comments: 0 }
+        ) do |v, totals|
+          totals[:views]    += v.view_count.to_i
+          totals[:likes]    += v.like_count.to_i
+          totals[:comments] += v.comment_count.to_i
         end
       end
     end

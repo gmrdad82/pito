@@ -92,8 +92,8 @@ RSpec.describe "Conversation requests", type: :request do
       create(:notification)
       create(:notification)
       get conversation_path(uuid: conversation.uuid)
-      # 2 unread notifications → "2 notifications" in the mini-status
-      expect(response.body).to include("2 notifications")
+      # 2 unread notifications → "2 notifs" in the mini-status
+      expect(response.body).to include("2 notifs")
     end
 
     it "does not render the notification badge when there are no unread notifications" do

@@ -4,6 +4,8 @@ class Channel < ApplicationRecord
   belongs_to :youtube_connection, optional: true, inverse_of: :channels
   has_many :videos, dependent: :destroy
   has_many :stats, as: :entity, dependent: :destroy
+  has_many :achievements, as: :achievable, dependent: :destroy
+  has_many :achievement_metrics, as: :achievable, dependent: :destroy
 
   # Locally-cached avatar (240x240 JPEG). We attach OUR copy during sync via
   # Channel::Avatar::Ingest instead of hotlinking yt3.ggpht.com (which 429s).

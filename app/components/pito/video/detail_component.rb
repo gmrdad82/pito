@@ -68,6 +68,17 @@ module Pito
         @video.description.presence
       end
 
+      # Returns one Achievement per metric — the one with the highest threshold
+      # (the last unlocked in that lane) — ordered by unlocked_at descending
+      # so the most recently-advanced lane appears first.
+      def top_shinies_per_metric
+        @video.achievements
+              .group_by(&:metric)
+              .values
+              .map { |a| a.max_by(&:threshold) }
+              .sort_by { |a| -a.unlocked_at.to_i }
+      end
+
       private
 
       def format_count(value)

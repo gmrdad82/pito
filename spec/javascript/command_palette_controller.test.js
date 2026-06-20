@@ -19,6 +19,9 @@
 //   - ctrl+` rename-current: fires pito:rename:start on .is-current row
 //     when sidebar already has conversation list; calls fetch otherwise
 //
+// NOTE: hashtag picker (shift+r with >1 handle) is now handled by
+//   pito--suggestions (inline palette above chatbox). Tests in suggestions_controller.test.js.
+//
 // SKIPPED (jsdom limitations):
 //   - scrollIntoView side effects (jsdom has no layout engine; we stub it)
 //   - Actual Turbo stream rendering after fetch (requires Turbo DOM processing)
@@ -554,110 +557,4 @@ describe("pito--command-palette controller", () => {
     history.pushState({}, "", "/")
   })
 
-  // ── P18 hashtag picker ───────────────────────────────────────────────────────
-
-  // A palette whose item list lives inside a `list` target, mirroring the real
-  // CtrlK component (the hashtag picker swaps that list's innerHTML).
-  function buildPaletteWithList(staticItems = []) {
-    const palette = document.createElement("div")
-    palette.id = "pito-command-palette"
-    palette.setAttribute("data-controller", "pito--command-palette")
-    palette.classList.add("hidden")
-
-    const search = document.createElement("input")
-    search.setAttribute("data-pito--command-palette-target", "search")
-    palette.appendChild(search)
-
-    const list = document.createElement("div")
-    list.setAttribute("data-pito--command-palette-target", "list")
-    staticItems.forEach(({ label, insert }) => {
-      const item = document.createElement("div")
-      item.setAttribute("data-pito--command-palette-target", "item")
-      item.dataset.label = label
-      item.dataset.insert = insert || label
-      item.scrollIntoView = () => {}
-      list.appendChild(item)
-    })
-    palette.appendChild(list)
-    document.body.appendChild(palette)
-
-    const chatbox = document.createElement("textarea")
-    chatbox.setAttribute("data-pito--chat-form-target", "inputField")
-    document.body.appendChild(chatbox)
-
-    return { palette, search, list, chatbox }
-  }
-
-  function openHashtagPicker(handles) {
-    document.dispatchEvent(new CustomEvent("pito:hashtag-picker:open", {
-      detail: { handles }
-    }))
-  }
-
-  it("opens the palette as a picker over the supplied hashtags", async () => {
-    const { palette, list } = buildPaletteWithList()
-    await waitForConnect()
-
-    openHashtagPicker(["kappa-5874", "doomguy-21"])
-
-    expect(palette.classList.contains("hidden")).toBe(false)
-    const items = list.querySelectorAll('[data-pito--command-palette-target="item"]')
-    expect(items.length).toBe(2)
-    expect([...items].map(i => i.dataset.insert)).toEqual(["#kappa-5874 ", "#doomguy-21 "])
-  })
-
-  it("Enter on a picked hashtag prefills the chatbox WITHOUT submitting", async () => {
-    const { chatbox } = buildPaletteWithList()
-    await waitForConnect()
-
-    openHashtagPicker(["kappa-5874", "doomguy-21"])
-    // First item is selected on open; Enter commits it.
-    plainKey("Enter")
-
-    expect(chatbox.value).toBe("#kappa-5874 ")
-  })
-
-  it("ArrowDown then Enter picks the second hashtag", async () => {
-    const { chatbox } = buildPaletteWithList()
-    await waitForConnect()
-
-    openHashtagPicker(["kappa-5874", "doomguy-21"])
-    plainKey("ArrowDown")
-    plainKey("Enter")
-
-    expect(chatbox.value).toBe("#doomguy-21 ")
-  })
-
-  it("restores the static command list after the picker closes", async () => {
-    const { list } = buildPaletteWithList([
-      { label: "config", insert: "/config " },
-      { label: "help",   insert: "/help " },
-    ])
-    await waitForConnect()
-
-    const before = list.innerHTML
-    openHashtagPicker(["kappa-5874", "doomguy-21"])
-    plainKey("Escape") // close without committing
-
-    expect(list.innerHTML).toBe(before)
-  })
-
-  it("ignores the picker event when unauthenticated", async () => {
-    const { palette } = buildPaletteWithList()
-    setAuthenticated(false)
-    await waitForConnect()
-
-    openHashtagPicker(["kappa-5874", "doomguy-21"])
-
-    expect(palette.classList.contains("hidden")).toBe(true)
-  })
-
-  it("ignores the picker event when no handles are supplied", async () => {
-    const { palette } = buildPaletteWithList()
-    await waitForConnect()
-
-    openHashtagPicker([])
-
-    expect(palette.classList.contains("hidden")).toBe(true)
-  })
 })

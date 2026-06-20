@@ -74,17 +74,17 @@ RSpec.describe Pito::StartScreen::Component do
     context "when the session is absent (anonymous)" do
       before { allow(Current).to receive(:session).and_return(nil) }
 
-      it "renders ● not authenticated (red) in the start-mode mini status" do
+      it "renders ● unknown (red) in the start-mode mini status" do
         node = render_inline(described_class.new(**defaults))
         chatbox_area = node.css("[data-pito--home-transition-target='chatboxArea']").first
-        expect(chatbox_area.to_html).to include("● not authenticated")
-        expect(chatbox_area.css("span.text-red").map(&:text).join).to include("● not authenticated")
+        expect(chatbox_area.to_html).to include("● unknown")
+        expect(chatbox_area.css("span.text-red").map(&:text).join).to include("● unknown")
       end
 
-      it "does not render ■ authenticated in the start-mode mini status" do
+      it "does not render ■ well known in the start-mode mini status" do
         node = render_inline(described_class.new(**defaults))
         chatbox_area = node.css("[data-pito--home-transition-target='chatboxArea']").first
-        expect(chatbox_area.to_html).not_to include("■ authenticated")
+        expect(chatbox_area.to_html).not_to include("■ well known")
       end
 
       it "sets data-authenticated to false on chatboxArea" do
@@ -106,10 +106,10 @@ RSpec.describe Pito::StartScreen::Component do
         expect(chatbox_area.css("span.text-green").map(&:text).join).to include("■")
       end
 
-      it "does not render ● not authenticated in the start-mode mini status" do
+      it "does not render ● unknown in the start-mode mini status" do
         node = render_inline(described_class.new(**defaults))
         chatbox_area = node.css("[data-pito--home-transition-target='chatboxArea']").first
-        expect(chatbox_area.to_html).not_to include("● not authenticated")
+        expect(chatbox_area.to_html).not_to include("● unknown")
       end
 
       it "sets data-authenticated to true on chatboxArea" do
@@ -150,7 +150,7 @@ RSpec.describe Pito::StartScreen::Component do
 
     it "mini-status is inside chatboxArea so it animates as one unit" do
       chatbox_area = node.css("[data-pito--home-transition-target='chatboxArea']").first
-      expect(chatbox_area.to_html).to include("● not authenticated")
+      expect(chatbox_area.to_html).to include("● unknown")
     end
 
     it "has a hidden conversationChrome target" do
@@ -174,7 +174,7 @@ RSpec.describe Pito::StartScreen::Component do
       # Re-render after creating 2 unread notifications so the count is real.
       chrome = render_inline(described_class.new(**defaults))
                  .css("[data-pito--home-transition-target='conversationChrome']").first
-      expect(chrome.to_html).to include("2 notifications")
+      expect(chrome.to_html).to include("2 notifs")
     end
   end
 end

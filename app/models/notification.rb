@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 class Notification < ApplicationRecord
-  LEVELS = %w[info success warning error].freeze
+  LEVELS = %w[info success warning error shiny].freeze
 
   validates :message, presence: true
   validates :level, inclusion: { in: LEVELS }

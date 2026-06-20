@@ -14,11 +14,11 @@ en:
           period_shortcut: "shift+space"
         no_channels: "none"
       mini_status:
-        authenticated: "■ authenticated"
-        anonymous: "● not authenticated"
+        authenticated: "■ well known"
+        anonymous: "● unknown"
         notifications_count:
-          one: "%{count} notification"
-          other: "%{count} notifications"
+          one: "%{count} notif"
+          other: "%{count} notifs"
         notifications_hint: "ctrl+/"
         suggestions_hint: "tab"
         suggestions_label: "suggest"

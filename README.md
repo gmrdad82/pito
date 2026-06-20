@@ -61,6 +61,9 @@ The full reference lives in [`CHANGELOG.md`](CHANGELOG.md); the short version:
 - **Notifications** — Slack + Discord integration (rich, colored, emoji'd) for
   reauth reminders, sync summaries, and upcoming-release countdowns, plus a live
   in-app unread badge.
+- **Shinies** — lifetime achievements across subs, views, watch time, likes, and
+  comms. They unlock as your channels, videos, and games grow, each arriving as a
+  🏆 notification and collected right on the video/game.
 - **The shell** — terminal-style chat UI, one font, no hover; **full keyboard
   navigation** (ditch the mouse); themes; per-conversation scope/period that
   persists; self-hosted in Docker; free.
@@ -182,6 +185,8 @@ the cover art _finally_ loaded — there's a Discord. Pop in, ask away, judgment
 kept to a minimum:
 
 👉 **[discord.gg/q947UyDTqJ](https://discord.gg/q947UyDTqJ)**
+
+Or find me on X: 👉 **[@GamerDady82](https://x.com/GamerDady82)**
 
 No SLA, no ticket queue, no "your call is important to us." Just a channel and a
 human who checks it between renders.

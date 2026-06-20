@@ -14,6 +14,8 @@ class Game < ApplicationRecord
   has_many :linked_videos, through: :video_game_links, source: :video
 
   has_many :stats, as: :entity, dependent: :destroy
+  has_many :achievements, as: :achievable, dependent: :destroy
+  has_many :achievement_metrics, as: :achievable, dependent: :destroy
 
   has_one_attached :cover_art
 

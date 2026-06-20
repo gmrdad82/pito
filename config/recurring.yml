@@ -55,6 +55,23 @@ production:
     schedule: "0 17 * * *"
     description: "Intraday Pito::Stats refresh for existing videos (PM)"
 
+  # Achievements refresh — AchievementMetric upsert + milestone unlock, 3×/day.
+  # Runs 1 hour after each stats pass (stats at 01/09/17 UTC → achievements at
+  # 02/10/18 UTC) so the latest video data is already present when milestones
+  # are evaluated.
+  achievements_refresh_early:
+    class: AchievementsRefreshJob
+    schedule: "0 2 * * *"
+    description: "Achievements upsert + milestone unlock pass (early)"
+  achievements_refresh_morning:
+    class: AchievementsRefreshJob
+    schedule: "0 10 * * *"
+    description: "Achievements upsert + milestone unlock pass (morning)"
+  achievements_refresh_afternoon:
+    class: AchievementsRefreshJob
+    schedule: "0 18 * * *"
+    description: "Achievements upsert + milestone unlock pass (afternoon)"
+
   # SolidQueue housekeeping — clear finished jobs every hour
   clear_solid_queue_finished_jobs:
     command: "SolidQueue::Job.clear_finished_in_batches(sleep_between_batches: 0.3)"
@@ -101,6 +118,20 @@ development:
     class: VideoStatsSnapshotJob
     schedule: "0 17 * * *"
     description: "Intraday Pito::Stats refresh for existing videos (PM)"
+
+  # Achievements refresh — AchievementMetric upsert + milestone unlock, 3×/day.
+  achievements_refresh_early:
+    class: AchievementsRefreshJob
+    schedule: "0 2 * * *"
+    description: "Achievements upsert + milestone unlock pass (early)"
+  achievements_refresh_morning:
+    class: AchievementsRefreshJob
+    schedule: "0 10 * * *"
+    description: "Achievements upsert + milestone unlock pass (morning)"
+  achievements_refresh_afternoon:
+    class: AchievementsRefreshJob
+    schedule: "0 18 * * *"
+    description: "Achievements upsert + milestone unlock pass (afternoon)"
 
   # YouTube reauth check — daily at 01:00
   youtube_reauth_check:
