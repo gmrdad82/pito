@@ -71,7 +71,8 @@ class VideoRemoteStatusSync < ApplicationJob
     return unless video
 
     Notification.create!(
-      message: Pito::Copy.render("pito.copy.videos.sync_rejected", title: video.title)
+      message: Pito::Copy.render("pito.copy.videos.sync_rejected", title: video.title),
+      level:   "error"
     )
   end
 

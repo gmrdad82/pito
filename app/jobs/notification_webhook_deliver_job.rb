@@ -16,18 +16,17 @@ class NotificationWebhookDeliverJob < ApplicationJob
     # Row was deleted between enqueue and run — silent no-op.
     return if notification.nil?
 
-    message = notification.message
-    deliver_slack(message)
-    deliver_discord(message)
+    deliver_slack(notification)
+    deliver_discord(notification)
   end
 
   private
 
-  def deliver_slack(message)
+  def deliver_slack(notification)
     url = AppSetting.slack_webhook_url
     return if url.blank?
 
-    payload = { "text" => Pito::Notifications::WebhookFormatter.slack(message) }
+    payload = Pito::Notifications::WebhookFormatter.slack_payload(notification)
     result  = Pito::Notifications::Webhooks::SlackClient.new(url).deliver(payload)
     return if result.success?
 
@@ -36,11 +35,11 @@ class NotificationWebhookDeliverJob < ApplicationJob
     Rails.logger.warn("[NotificationWebhookDeliverJob] Slack delivery error: #{e.class}: #{e.message}")
   end
 
-  def deliver_discord(message)
+  def deliver_discord(notification)
     url = AppSetting.discord_webhook_url
     return if url.blank?
 
-    payload = { "content" => Pito::Notifications::WebhookFormatter.discord(message) }
+    payload = Pito::Notifications::WebhookFormatter.discord_payload(notification)
     result  = Pito::Notifications::Webhooks::DiscordClient.new(url).deliver(payload)
     return if result.success?
 

@@ -24,6 +24,44 @@ module Pito
         convert(message, bold: "**", bullet: "- ")
       end
 
+      # Rich, platform-native payloads keyed off the notification's level
+      # (emoji + color). Best-effort: any failure falls back to the flat
+      # `{ "text" }` / `{ "content" }` plain-text payload so delivery still lands.
+
+      # Slack: a single colored attachment. We use the attachment's `text` field
+      # (not nested `blocks`) so Slack renders the `color` as a left border bar on
+      # every message — Slack drops that bar when blocks are nested in an attachment.
+      def slack_payload(notification)
+        style = LevelStyle.style_for(notification.level)
+        text  = "#{style[:emoji]} #{slack(notification.message)}".strip
+        {
+          "attachments" => [
+            {
+              "color"     => style[:slack],
+              "text"      => text,
+              "mrkdwn_in" => [ "text" ]
+            }
+          ]
+        }
+      rescue StandardError
+        { "text" => slack(notification.message) }
+      end
+
+      # Discord: a single colored embed with an emoji-prefixed markdown description.
+      def discord_payload(notification)
+        style = LevelStyle.style_for(notification.level)
+        {
+          "embeds" => [
+            {
+              "description" => "#{style[:emoji]} #{discord(notification.message)}".strip,
+              "color"       => style[:discord]
+            }
+          ]
+        }
+      rescue StandardError
+        { "content" => discord(notification.message) }
+      end
+
       # Block-level tags whose open OR close marks a line boundary.
       BLOCK_BOUNDARY = %r{</?\s*(?:div|p|ul|ol|h[1-6])\s*/?>}i
 

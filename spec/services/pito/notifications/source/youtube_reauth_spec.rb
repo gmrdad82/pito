@@ -11,6 +11,7 @@ RSpec.describe Pito::Notifications::Source::YoutubeReauth do
       expect { described_class.report!(connection) }.to change(Notification, :count).by(1)
       expect(Notification.last.message).to include("alpha")
       expect(Notification.last.message).to include("reconnect via /connect")
+      expect(Notification.last.level).to eq("warning")
     end
 
     it "falls back to the connection email when it has no channels" do

@@ -24,7 +24,7 @@ module Pito
         def report!(scope_label:, result:)
           return nil if (result.imported + result.updated + result.deleted).zero?
 
-          Notification.create!(message: build_message(scope_label:, result:))
+          Notification.create!(message: build_message(scope_label:, result:), level: "success")
         end
 
         # Builds the HTML message string.
