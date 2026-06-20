@@ -3,6 +3,8 @@
 require "rails_helper"
 
 RSpec.describe Pito::FollowUp::Handlers::VideoList do
+  include ActiveSupport::Testing::TimeHelpers
+
   subject(:handler) { described_class.new }
 
   let(:conversation) { Conversation.singleton }
@@ -75,6 +77,48 @@ RSpec.describe Pito::FollowUp::Handlers::VideoList do
     expect(ev[:kind].to_s).to eq("confirmation")
     expect(ev[:payload]["command"]).to eq("video_delete")
     expect(ev[:payload]["video_id"]).to eq(video.id)
+  end
+
+  # ── schedule / publish / unlist (single-vid state verbs, :append) ────────────
+
+  # `today at 14:30` must land in the future for a confirmation (else the handler
+  # emits a witty past/too-soon event) — freeze the clock to this morning.
+  context "schedule replies (clock frozen to 2026-06-20 09:00)" do
+    around { |example| travel_to(Time.zone.local(2026, 6, 20, 9, 0)) { example.run } }
+
+    it "delegates `schedule <#id> today at 14:30` to the schedule confirmation" do
+      result = handler.call(event:, rest: "schedule ##{video.id} today at 14:30", conversation:)
+      expect(result).to be_a(Pito::FollowUp::Result::Append)
+      ev = result.events.first
+      expect(ev[:kind].to_s).to eq("confirmation")
+      expect(ev[:payload]["command"]).to eq("video_schedule")
+      expect(ev[:payload]["video_id"]).to eq(video.id)
+    end
+
+    it "delegates `schedule <id> today at 14:30` with a bare (no-#) id" do
+      result = handler.call(event:, rest: "schedule #{video.id} today at 14:30", conversation:)
+      expect(result).to be_a(Pito::FollowUp::Result::Append)
+      ev = result.events.first
+      expect(ev[:kind].to_s).to eq("confirmation")
+      expect(ev[:payload]["command"]).to eq("video_schedule")
+      expect(ev[:payload]["video_id"]).to eq(video.id)
+    end
+  end
+
+  it "delegates `publish <#id>` to the publish confirmation" do
+    result = handler.call(event:, rest: "publish ##{video.id}", conversation:)
+    expect(result).to be_a(Pito::FollowUp::Result::Append)
+    ev = result.events.first
+    expect(ev[:kind].to_s).to eq("confirmation")
+    expect(ev[:payload]["command"]).to eq("video_publish")
+  end
+
+  it "delegates `unlist <id>` (bare id) to the unlist confirmation" do
+    result = handler.call(event:, rest: "unlist #{video.id}", conversation:)
+    expect(result).to be_a(Pito::FollowUp::Result::Append)
+    ev = result.events.first
+    expect(ev[:kind].to_s).to eq("confirmation")
+    expect(ev[:payload]["command"]).to eq("video_unlist")
   end
 
   # ── link / unlink (source: video, target: game) ─────────────────────────────

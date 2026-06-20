@@ -34,7 +34,7 @@ module Pito
         # Commands whose confirmed outcome is a finished, pito-voiced result that
         # reads better as the enhanced (pito-brand bar) line than the orange
         # confirmation-outcome card. (Cancel still renders the orange card.)
-        ENHANCED_OUTCOME_ON_CONFIRM = %w[video_schedule].freeze
+        ENHANCED_OUTCOME_ON_CONFIRM = %w[video_schedule video_publish video_unlist video_delete].freeze
         # Friendly synonyms → canonical action.
         ACTION_ALIASES = {
           "yes"     => "confirm",

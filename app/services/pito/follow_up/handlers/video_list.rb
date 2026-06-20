@@ -10,6 +10,8 @@ module Pito
       #
       #   #<handle> show <id|title>  → the video detail card + enhanced message
       #   #<handle> rm | delete <id> → the video delete confirmation
+      #   #<handle> schedule <id> <when> → the schedule confirmation
+      #   #<handle> publish | unlist <id> → the visibility-change confirmation
       #
       # Column mutations (no consume, :mutate mode per action):
       #   #<handle> add <columns>    → rebuild list with extra column(s)
@@ -27,7 +29,8 @@ module Pito
         self.target "video_list"
         self.mode   :append
         self.action_modes add: :mutate, remove: :mutate, sort: :mutate, order: :mutate
-        self.actions "show", "delete", "rm", "add", "remove", "sort", "order", "link", "unlink"
+        self.actions "show", "delete", "rm", "schedule", "publish", "unlist",
+                     "add", "remove", "sort", "order", "link", "unlink"
 
         def call(event:, rest:, conversation:)
           action, args = parse_rest(rest)
