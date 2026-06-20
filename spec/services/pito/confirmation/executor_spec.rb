@@ -298,6 +298,15 @@ RSpec.describe Pito::Confirmation::Executor, type: :service do
       expect(ul_video.reload.privacy_status).to eq("unlisted")
     end
 
+    it "clears a stale publish_at so YouTube won't reject the pair (invalidPublishAt)" do
+      # A previously-scheduled vid is private + publish_at; unlisting must cancel
+      # the schedule, else the write-through pushes unlisted + publish_at and
+      # YouTube rejects it.
+      ul_video.update!(privacy_status: :private, publish_at: 1.day.from_now)
+      described_class.confirm("video_unlist", { "video_id" => ul_video.id, "video_title" => "Boss Fight Compilation" })
+      expect(ul_video.reload.publish_at).to be_nil
+    end
+
     it "enqueues VideoRemoteStatusSync" do
       described_class.confirm("video_unlist", { "video_id" => ul_video.id, "video_title" => "Boss Fight Compilation" })
       expect(VideoRemoteStatusSync).to have_received(:perform_later).with(ul_video.id)

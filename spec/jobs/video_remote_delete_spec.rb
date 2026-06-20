@@ -36,6 +36,12 @@ RSpec.describe VideoRemoteDelete, type: :job do
     expect(Channel::Youtube::VideosClient).not_to have_received(:new)
   end
 
+  it "surfaces the reauth reminder when the connection needs reauth (not silent)" do
+    connection.update!(needs_reauth: true)
+    expect { described_class.perform_now(yt_id, connection.id) }.to change(Notification, :count).by(1)
+    expect(Notification.last.message).to include("re-auth needed")
+  end
+
   it "re-raises on quota exhaustion" do
     allow(client).to receive(:delete_video).and_raise(Channel::Youtube::QuotaExhaustedError, "quota")
     expect { described_class.perform_now(yt_id, connection.id) }.to raise_error(Channel::Youtube::QuotaExhaustedError)

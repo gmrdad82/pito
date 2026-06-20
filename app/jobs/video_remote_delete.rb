@@ -19,7 +19,14 @@ class VideoRemoteDelete < ApplicationJob
 
     connection = YoutubeConnection.find_by(id: connection_id)
     return if connection.nil?
-    return if connection.needs_reauth?
+
+    # A dead grant means the remote delete can't land. Surface the
+    # (unread-dedup'd) reauth reminder instead of returning silently — mirrors
+    # VideoRemoteStatusSync so the delete outcome isn't a quiet lie.
+    if connection.needs_reauth?
+      Pito::Notifications::Source::YoutubeReauth.report!(connection)
+      return
+    end
 
     Channel::Youtube::VideosClient.new(connection).delete_video(
       RemoteVideo.new(youtube_video_id)
