@@ -16,7 +16,7 @@ module Pito
       end
 
       def dispatch
-        tokens = Pito::Lex::Lexer.call(@input)
+        tokens = Pito::Lex::KeywordSanitizer.call(Pito::Lex::Lexer.call(@input))
 
         invocation = parse(tokens)
         return invocation if invocation.is_a?(Pito::Slash::Result::Error)

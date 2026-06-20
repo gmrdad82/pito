@@ -18,7 +18,7 @@ module Pito
       end
 
       def dispatch
-        tokens = Pito::Lex::Lexer.call(@input)
+        tokens = Pito::Lex::KeywordSanitizer.call(Pito::Lex::Lexer.call(@input))
         message = parse(tokens)
         return message if message.is_a?(Pito::Chat::Result::Error)
 
