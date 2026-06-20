@@ -5,31 +5,105 @@ require "rails_helper"
 RSpec.describe Pito::Game::DetailComponent do
   let(:game) { create(:game, title: "Super Test Game", summary: "A great game.", platforms: %w[PS5 Switch]) }
 
+  # ── Title (now first kv-row in the right column) ───────────────────────────
+
   describe "title" do
-    it "renders a Title label and the game title in the right column" do
-      node  = render_inline(described_class.new(game: game))
-      right = node.css(".pito-game-detail__right").first
-      expect(right).not_to be_nil
-      expect(right.text).to include("Title")
-      expect(right.text).to include("Super Test Game")
+    it "renders a Title label and the game title as the first kv-row in the right column" do
+      node = render_inline(described_class.new(game: game))
+      grid = node.css(".pito-game-detail__right div.grid.grid-cols-\\[max-content_1fr\\]").first
+      expect(grid).not_to be_nil
+      expect(grid.text).to include("Title")
+      expect(grid.text).to include("Super Test Game")
     end
 
-    it "puts no KV grid in the left column (cover only)" do
+    it "puts no KV grid in the left column (cover + stats only)" do
       node = render_inline(described_class.new(game: game))
       expect(node.css(".pito-game-detail__left div.grid")).to be_empty
     end
+
+    it "Title row appears before ID row in the kv-table" do
+      node = render_inline(described_class.new(game: game))
+      grid = node.css("div.grid.grid-cols-\\[max-content_1fr\\]").first
+      expect(grid.text.index(I18n.t("pito.game.detail.title")))
+        .to be < grid.text.index(I18n.t("pito.game.detail.id"))
+    end
   end
 
+  # ── ID row ─────────────────────────────────────────────────────────────────
+
   describe "ID row" do
-    it "renders the internal db id, #-prefixed, as the first KV row before Platform" do
+    it "renders the internal db id, #-prefixed, in the kv-table" do
       node = render_inline(described_class.new(game: game))
       grid = node.css("div.grid.grid-cols-\\[max-content_1fr\\]").first
       expect(grid.text).to include(I18n.t("pito.game.detail.id"))
       expect(grid.text).to include("##{game.id}")
+    end
+
+    it "ID row appears before the Platforms row" do
+      g    = create(:game, platforms: [ "PlayStation 5" ])
+      node = render_inline(described_class.new(game: g))
+      grid = node.css("div.grid.grid-cols-\\[max-content_1fr\\]").first
       expect(grid.text.index(I18n.t("pito.game.detail.id")))
         .to be < grid.text.index(I18n.t("pito.game.detail.platforms"))
     end
   end
+
+  # ── Right-column layout order ───────────────────────────────────────────────
+
+  describe "right column layout order" do
+    it "kv-table (including ID) appears before Score bar in source order" do
+      node  = render_inline(described_class.new(game: game))
+      html  = node.css(".pito-game-detail__right").first.inner_html
+      expect(html.index("pito-score-bar"))
+        .to be > html.index(I18n.t("pito.game.detail.id"))
+    end
+
+    it "Score bar appears before Description in source order" do
+      node = render_inline(described_class.new(game: game))
+      html = node.css(".pito-game-detail__right").first.inner_html
+      score_pos = html.index("pito-score-bar")
+      desc_pos  = html.index("pito-game-detail__description")
+      next if score_pos.nil? || desc_pos.nil?  # description absent → order moot
+
+      expect(score_pos).to be < desc_pos
+    end
+
+    it "Description appears after Price (at the bottom)" do
+      g    = create(:game, summary: "Epic tale.", price: 59.99)
+      node = render_inline(described_class.new(game: g))
+      html = node.css(".pito-game-detail__right").first.inner_html
+      expect(html.index(I18n.t("pito.game.detail.price")))
+        .to be < html.index("pito-game-detail__description")
+    end
+  end
+
+  # ── Footage row ─────────────────────────────────────────────────────────────
+
+  describe "footage row" do
+    it "renders the Footage row with the formatted hours value" do
+      g    = create(:game, footage_hours: BigDecimal("12.5"))
+      node = render_inline(described_class.new(game: g))
+      expect(node.text).to include(I18n.t("pito.game.detail.footage"))
+      expect(node.text).to include("12.5h")
+    end
+
+    it "renders the Footage row with an em dash when footage_hours is zero" do
+      g    = create(:game, footage_hours: 0)
+      node = render_inline(described_class.new(game: g))
+      expect(node.text).to include(I18n.t("pito.game.detail.footage"))
+      expect(node.text).to include("—")
+    end
+
+    it "Footage row appears before the Price row in source order" do
+      g    = create(:game, footage_hours: BigDecimal("5.0"), price: BigDecimal("59.99"))
+      node = render_inline(described_class.new(game: g))
+      grid = node.css("div.grid.grid-cols-\\[max-content_1fr\\]").first
+      expect(grid.text.index(I18n.t("pito.game.detail.footage")))
+        .to be < grid.text.index(I18n.t("pito.game.detail.price"))
+    end
+  end
+
+  # ── Developer / publisher / release / price ────────────────────────────────
 
   describe "developer names" do
     it "renders developer company names" do
@@ -77,6 +151,8 @@ RSpec.describe Pito::Game::DetailComponent do
     end
   end
 
+  # ── Platform icons ──────────────────────────────────────────────────────────
+
   describe "available platforms (SVG logo icons)" do
     it "renders <img> platform icons for 'PlayStation 4' and 'PC (Microsoft Windows)' (Xbox dropped)" do
       g = create(:game, platforms: [ "PlayStation 4", "PC (Microsoft Windows)", "Xbox One" ])
@@ -113,6 +189,8 @@ RSpec.describe Pito::Game::DetailComponent do
     end
   end
 
+  # ── Genres / themes / perspective ──────────────────────────────────────────
+
   describe "genres" do
     it "renders genre names" do
       genre = create(:genre, name: "Action RPG")
@@ -147,6 +225,8 @@ RSpec.describe Pito::Game::DetailComponent do
     end
   end
 
+  # ── KV table ───────────────────────────────────────────────────────────────
+
   describe "KV table (KeyValueRowComponent grid)" do
     it "renders developer row using KeyValueRowComponent (key + value spans)" do
       company = create(:company, name: "Grid Dev")
@@ -171,6 +251,8 @@ RSpec.describe Pito::Game::DetailComponent do
     end
   end
 
+  # ── Score + TTB bars ────────────────────────────────────────────────────────
+
   describe "score bar" do
     it "embeds the ScoreBarComponent (pito-score-bar marker class)" do
       node = render_inline(described_class.new(game: game))
@@ -190,6 +272,8 @@ RSpec.describe Pito::Game::DetailComponent do
       expect(bubble.text).to include("2h")
     end
   end
+
+  # ── Cover art ───────────────────────────────────────────────────────────────
 
   describe "cover art" do
     context "when no cover art is attached" do
@@ -213,6 +297,8 @@ RSpec.describe Pito::Game::DetailComponent do
       end
     end
   end
+
+  # ── Edge cases ──────────────────────────────────────────────────────────────
 
   describe "rendering with nil score" do
     it "does not raise when game.score is nil" do
@@ -243,6 +329,147 @@ RSpec.describe Pito::Game::DetailComponent do
     it "omits the genres row when no genres" do
       node = render_inline(described_class.new(game: game))
       expect(node.text).not_to include(I18n.t("pito.game.detail.genres"))
+    end
+  end
+
+  # ── Left column: stats counters ─────────────────────────────────────────────
+
+  describe "left column stats counters" do
+    let(:channel) { create(:channel) }
+
+    context "with linked videos that have stats" do
+      let(:vid1) { create(:video, channel: channel) }
+      let(:vid2) { create(:video, channel: channel) }
+
+      before do
+        create(:video_game_link, video: vid1, game: game)
+        create(:video_game_link, video: vid2, game: game)
+        Pito::Stats.set(vid1, :views,    1_000)
+        Pito::Stats.set(vid1, :likes,      200)
+        Pito::Stats.set(vid1, :comments,    50)
+        Pito::Stats.set(vid2, :views,      500)
+        Pito::Stats.set(vid2, :likes,      100)
+        Pito::Stats.set(vid2, :comments,    20)
+        game.reload
+      end
+
+      it "renders the stats counters div in the left column" do
+        node = render_inline(described_class.new(game: game))
+        expect(node.css(".pito-game-detail__stats")).not_to be_empty
+      end
+
+      it "shows summed view count formatted via CompactCount (1 000 + 500 = 1 500 → 1.5K)" do
+        node = render_inline(described_class.new(game: game))
+        left = node.css(".pito-game-detail__left").first
+        expect(left.text).to include("1.5K")
+      end
+
+      it "shows summed like count (200 + 100 = 300)" do
+        node = render_inline(described_class.new(game: game))
+        left = node.css(".pito-game-detail__left").first
+        expect(left.text).to include("300")
+      end
+
+      it "shows summed comment count (50 + 20 = 70)" do
+        node = render_inline(described_class.new(game: game))
+        left = node.css(".pito-game-detail__left").first
+        expect(left.text).to include("70")
+      end
+    end
+
+    context "with no linked videos" do
+      it "shows 0 for each counter" do
+        node = render_inline(described_class.new(game: game))
+        left = node.css(".pito-game-detail__left").first
+        # three zeros — views, likes, comments
+        expect(left.text.scan("0").length).to be >= 3
+      end
+    end
+
+    it "renders the V / L / C abbreviations" do
+      node = render_inline(described_class.new(game: game))
+      left = node.css(".pito-game-detail__left").first
+      expect(left.text).to include("V")
+      expect(left.text).to include("L")
+      expect(left.text).to include("C")
+    end
+
+    it "renders the stats legend" do
+      node = render_inline(described_class.new(game: game))
+      expect(node.css(".pito-game-detail__legend")).not_to be_empty
+      legend_text = node.css(".pito-game-detail__legend").first.text
+      expect(legend_text).to include("views")
+      expect(legend_text).to include("likes")
+      expect(legend_text).to include("comms")
+    end
+  end
+
+  # ── Left column: Shinies block ──────────────────────────────────────────────
+
+  describe "Shinies block" do
+    context "with achievements" do
+      # views lane: multiple thresholds — only the max (1K) should render.
+      let!(:views_small) do
+        create(:achievement, achievable: game, metric: "views", threshold: 1,
+                             unlocked_at: 4.weeks.ago)
+      end
+      let!(:views_max) do
+        create(:achievement, achievable: game, metric: "views", threshold: 1_000,
+                             unlocked_at: 2.days.ago)
+      end
+      # likes lane: single threshold (100) — the max and only badge for this metric.
+      let!(:likes_max) do
+        create(:achievement, achievable: game, metric: "likes", threshold: 100,
+                             unlocked_at: 1.day.ago)
+      end
+
+      it "renders the shinies heading in the left column" do
+        node = render_inline(described_class.new(game: game))
+        expect(node.css(".pito-game-detail__shinies-heading")).not_to be_empty
+      end
+
+      it "renders exactly one badge per metric (2 total — views and likes)" do
+        node = render_inline(described_class.new(game: game))
+        expect(node.css(".pito-achievement-badge").length).to eq(2)
+      end
+
+      it "shows the max-threshold badge for views (1K Views, not the lower threshold)" do
+        node  = render_inline(described_class.new(game: game))
+        texts = node.css(".pito-achievement-badge").map(&:text)
+        expect(texts.any? { |t| t.include?("1K") && t.include?("Views") }).to be true
+      end
+
+      it "shows the max-threshold badge for likes (100 Likes)" do
+        node  = render_inline(described_class.new(game: game))
+        texts = node.css(".pito-achievement-badge").map(&:text)
+        expect(texts.any? { |t| t.include?("100") && t.include?("Likes") }).to be true
+      end
+
+      it "renders badges ordered by recency of their lane — likes (1 day ago) before views (2 days ago)" do
+        node        = render_inline(described_class.new(game: game))
+        shinies_div = node.css(".pito-game-detail__shinies").first
+        text        = shinies_div.text
+        # likes max (1 day ago) is more recent; views max (2 days ago) is older
+        expect(text.index("Likes")).to be < text.index("Views")
+      end
+
+      it "renders the shinies block inside the left column" do
+        node = render_inline(described_class.new(game: game))
+        left = node.css(".pito-game-detail__left").first
+        expect(left.css(".pito-game-detail__shinies")).not_to be_empty
+      end
+    end
+
+    context "without achievements" do
+      it "does not render the shinies block" do
+        node = render_inline(described_class.new(game: game))
+        expect(node.css(".pito-game-detail__shinies")).to be_empty
+      end
+
+      it "does not render the shinies heading" do
+        node = render_inline(described_class.new(game: game))
+        expect(node.css(".pito-game-detail__shinies-heading")).to be_empty
+      end
     end
   end
 end

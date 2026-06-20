@@ -24,6 +24,10 @@ RSpec.describe Notification, type: :model do
       Notification::LEVELS.each { |lvl| expect(build(:notification, level: lvl)).to be_valid }
     end
 
+    it "accepts level 'shiny'" do
+      expect(build(:notification, level: "shiny")).to be_valid
+    end
+
     it "rejects an unknown level" do
       expect(build(:notification, level: "critical")).not_to be_valid
     end

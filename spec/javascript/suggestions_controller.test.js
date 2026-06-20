@@ -17,6 +17,11 @@
 //     - Enter passes through (does not accept ghost)
 //     - debounced /suggestions fetch: mock fetch → ghost set from response
 //     - stale-response guard: rapid input → only last fetch applies
+//   External hashtag picker (pito:hashtag-picker:open from shift+r):
+//     - opens inline palette with handle rows
+//     - Arrow nav + Enter accept inserts `#handle ` at position 0
+//     - Escape closes without inserting
+//     - ignores event when unauthenticated or empty handles
 //   Misc:
 //     - modeFor classification
 //     - connect / disconnect lifecycle
@@ -694,6 +699,105 @@ describe("pito--suggestions controller", () => {
       expect(result).not.toBeNull()
       expect(result.complete_current).toBe("help")
       expect(result.next_hint).toBe("")
+    })
+  })
+
+  // ── External hashtag picker (shift+r with >1 live handle) ───────────────
+  //
+  // When chat_form dispatches `pito:hashtag-picker:open` with an array of handles,
+  // suggestions_controller opens the inline suggestions palette (above the chatbox)
+  // pre-populated with those handles. Accepting inserts `#<handle> ` at position 0
+  // of the (empty) input — same UX as the slash palette.
+
+  describe("external hashtag picker via pito:hashtag-picker:open", () => {
+    let ctrl
+
+    function openHashtagPicker(handles) {
+      document.dispatchEvent(new CustomEvent("pito:hashtag-picker:open", {
+        detail: { handles }
+      }))
+    }
+
+    beforeEach(async () => {
+      await waitForConnect()
+      ctrl = app.getControllerForElementAndIdentifier(chatbox, "pito--suggestions")
+    })
+
+    it("opens the inline palette with one row per handle", async () => {
+      openHashtagPicker(["kappa-5874", "doomguy-21"])
+
+      expect(palette.classList.contains("hidden")).toBe(false)
+      const rows = palette.querySelectorAll(".pito-suggestions-row")
+      expect(rows.length).toBe(2)
+    })
+
+    it("displays handles with # trigger glyph", async () => {
+      openHashtagPicker(["kappa-5874", "doomguy-21"])
+
+      const cmds = [...palette.querySelectorAll(".pito-suggestions-cmd")].map(el => el.textContent)
+      expect(cmds).toContain("#kappa-5874")
+      expect(cmds).toContain("#doomguy-21")
+    })
+
+    it("Enter accepts first handle and inserts `#handle ` at position 0", async () => {
+      textarea.value = ""
+      textarea.selectionStart = textarea.selectionEnd = 0
+      openHashtagPicker(["kappa-5874", "doomguy-21"])
+
+      ctrl.handleKeydown(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }))
+
+      expect(textarea.value).toBe("#kappa-5874 ")
+    })
+
+    it("palette closes after accepting", async () => {
+      openHashtagPicker(["kappa-5874", "doomguy-21"])
+
+      ctrl.handleKeydown(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }))
+
+      expect(palette.classList.contains("hidden")).toBe(true)
+    })
+
+    it("ArrowDown + Enter accepts the second handle", async () => {
+      textarea.value = ""
+      textarea.selectionStart = textarea.selectionEnd = 0
+      openHashtagPicker(["kappa-5874", "doomguy-21"])
+
+      ctrl.handleKeydown(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true, cancelable: true }))
+      ctrl.handleKeydown(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }))
+
+      expect(textarea.value).toBe("#doomguy-21 ")
+    })
+
+    it("Escape closes the picker without inserting", async () => {
+      textarea.value = ""
+      openHashtagPicker(["kappa-5874", "doomguy-21"])
+
+      ctrl.handleKeydown(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }))
+
+      expect(palette.classList.contains("hidden")).toBe(true)
+      expect(textarea.value).toBe("")
+    })
+
+    it("ignores the event when unauthenticated", async () => {
+      setAuthenticated(false)
+      ctrl._authenticated = false
+
+      openHashtagPicker(["kappa-5874", "doomguy-21"])
+
+      expect(palette.classList.contains("hidden")).toBe(true)
+    })
+
+    it("ignores the event when handles array is empty", async () => {
+      openHashtagPicker([])
+
+      expect(palette.classList.contains("hidden")).toBe(true)
+    })
+
+    it("three handles produce three rows", async () => {
+      openHashtagPicker(["alpha-1", "bravo-2", "charlie-3"])
+
+      const rows = palette.querySelectorAll(".pito-suggestions-row")
+      expect(rows.length).toBe(3)
     })
   })
 

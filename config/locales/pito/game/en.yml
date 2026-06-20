@@ -19,6 +19,9 @@ en:
         themes: "Themes"
         perspective: "Perspective"
         no_cover: "No cover art"
+        views_abbr: "V"
+        likes_abbr: "L"
+        comments_abbr: "C"
       release_label:
         # User-facing presenter labels for `Game#release_label`. Branch is
         # picked by component nullability — see

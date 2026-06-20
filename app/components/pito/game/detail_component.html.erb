@@ -1,13 +1,17 @@
 <%# Pito::Game::DetailComponent — game detail card, two columns.
-    LEFT = 480px cover. RIGHT = Title, Description, hairline, Score, TTB,
-    a divider hairline, then the details block (platforms … release). %>
+    LEFT = 480px cover + hairline + V/L/C stats + legend + optional Shinies.
+    RIGHT = kv-table (Title first, then ID … Price), hairline, Score+TTB bars,
+    hairline, Description at the bottom. %>
 <div class="pito-game-detail flex gap-4 items-start">
 
-  <%# ── Left column: intro (with the timestamp slot) + cover ───────────────── %>
+  <%# ── Left column: intro (with timestamp slot), cover, stats, legend, Shinies ── %>
   <div class="pito-game-detail__left flex flex-col gap-3">
+
     <% if @intro.present? %>
       <div class="pito-game-detail__intro text-fg"><span data-pito-ts-slot></span><%= @intro %></div>
     <% end %>
+
+    <%# Cover art or placeholder %>
     <div class="pito-game-detail__cover">
       <% if cover_art_attached? && (url = detail_cover_url) %>
         <%= image_tag url, alt: @game.title, class: "block" %>
@@ -15,39 +19,47 @@
         <div class="text-fg-dim"><%=t "pito.game.detail.no_cover" %></div>
       <% end %>
     </div>
+
+    <%# Hairline separating the cover from the stats %>
+    <%= render(Pito::Separator::DividerLineComponent.new(hairline: true, tone: :faded)) %>
+
+    <%# Stats — one line: value + dim abbreviation (V/L/C), · separated %>
+    <div class="pito-game-detail__stats flex flex-wrap items-center">
+      <span><span class="text-fg"><%= views_label %></span> <span class="text-fg-dim"><%= t("pito.game.detail.views_abbr") %></span></span>
+      <%= render(Pito::Shell::InlineSeparatorComponent.new) %>
+      <span><span class="text-fg"><%= likes_label %></span> <span class="text-fg-dim"><%= t("pito.game.detail.likes_abbr") %></span></span>
+      <%= render(Pito::Shell::InlineSeparatorComponent.new) %>
+      <span><span class="text-fg"><%= comments_label %></span> <span class="text-fg-dim"><%= t("pito.game.detail.comments_abbr") %></span></span>
+    </div>
+
+    <%# Legend mapping the V/L/C abbreviations (reuses the same copy key as show video) %>
+    <p class="pito-game-detail__legend text-fg-dim italic mt-2"><%= Pito::Copy.render("pito.copy.videos.stats_legend") %></p>
+
+    <%# Shinies — only when the game has at least one achievement.
+        Badges newest→oldest inside whitespace-pre so box-drawing chars align.
+        The badge render lines are intentionally unindented to avoid stray
+        leading spaces inside the pre-formatted content. %>
+    <% if @game.achievements.any? %>
+      <%= render(Pito::Separator::DividerLineComponent.new(hairline: true, tone: :faded)) %>
+      <div class="pito-game-detail__shinies-heading text-fg-dim"><%= Pito::Copy.render("pito.copy.shinies.heading") %></div>
+      <div class="pito-game-detail__shinies whitespace-pre"><% top_shinies_per_metric.each do |a| -%>
+<%= render(Pito::Achievement::BadgeComponent.new(threshold: a.threshold, label: Pito::Achievements::Label.for(a.metric, count: a.threshold), unlocked_on: a.unlocked_at.to_date)) %>
+<% end -%></div>
+    <% end %>
   </div>
 
-  <%# ── Right column ──────────────────────────────────────────────────────── %>
+  <%# ── Right column: kv-table (Title first), hairline, Score+TTB, hairline, Description ── %>
   <div class="pito-game-detail__right flex flex-col gap-2 flex-1 min-w-0">
 
-    <%# Title — label and value on one row %>
-    <div class="flex gap-2">
-      <span class="text-fg-dim whitespace-nowrap"><%= t("pito.game.detail.title") %></span>
-      <span class="pito-game-detail__title text-fg"><%= @game.title %></span>
-    </div>
-
-    <%# Description %>
-    <% if summary.present? %>
-      <div class="text-fg-dim"><%= t("pito.game.detail.description") %></div>
-      <div class="pito-game-detail__description text-fg"><%= summary %></div>
-    <% end %>
-
-    <%# Hairline before the bars (carries its own spacing via my:) %>
-    <%= render(Pito::Separator::DividerLineComponent.new(hairline: true, tone: :faded, extra_classes: "pito-detail-hairline")) %>
-
-    <%# Score + TTB bars %>
-    <div class="pito-game-detail__score">
-      <%= render(Pito::ScoreBarComponent.new(game: @game, label: score_bar_label)) %>
-    </div>
-    <div class="pito-game-detail__ttb">
-      <%= render(Pito::TimeToBeatComponent.new(game: @game, footage_hours: footage_hours, label: ttb_bar_label)) %>
-    </div>
-
-    <%# Divider hairline between the bars and the details block %>
-    <%= render(Pito::Separator::DividerLineComponent.new(hairline: true, tone: :faded, extra_classes: "pito-detail-hairline")) %>
-
-    <%# Details — platforms, genres, themes, perspective, developer, publisher, release %>
+    <%# Details — Title is the first row, then ID, platforms … price %>
     <div class="grid grid-cols-[max-content_1fr] gap-x-2 gap-y-1">
+      <%= render(Pito::Table::KeyValueRowComponent.new(
+            key_text:    t("pito.game.detail.title"),
+            value_text:  @game.title,
+            key_class:   "text-fg-dim whitespace-nowrap",
+            value_class: "text-fg"
+          )) %>
+
       <%= render(Pito::Table::KeyValueRowComponent.new(
             key_text:    t("pito.game.detail.id"),
             value_text:  "##{@game.id}",
@@ -119,12 +131,39 @@
       <% end %>
 
       <%= render(Pito::Table::KeyValueRowComponent.new(
+            key_text:    t("pito.game.detail.footage"),
+            value_text:  footage_label,
+            key_class:   "text-fg-dim whitespace-nowrap",
+            value_class: "text-fg tabular-nums"
+          )) %>
+
+      <%= render(Pito::Table::KeyValueRowComponent.new(
             key_text:    t("pito.game.detail.price"),
             value_text:  price_label,
             key_class:   "text-fg-dim whitespace-nowrap",
             value_class: "text-fg tabular-nums"
           )) %>
     </div>
+
+    <%# Hairline before the bars (carries its own spacing via my:) %>
+    <%= render(Pito::Separator::DividerLineComponent.new(hairline: true, tone: :faded, extra_classes: "pito-detail-hairline")) %>
+
+    <%# Score + TTB bars %>
+    <div class="pito-game-detail__score">
+      <%= render(Pito::ScoreBarComponent.new(game: @game, label: score_bar_label)) %>
+    </div>
+    <div class="pito-game-detail__ttb">
+      <%= render(Pito::TimeToBeatComponent.new(game: @game, footage_hours: footage_hours, label: ttb_bar_label)) %>
+    </div>
+
+    <%# Divider hairline between the bars and the description %>
+    <%= render(Pito::Separator::DividerLineComponent.new(hairline: true, tone: :faded, extra_classes: "pito-detail-hairline")) %>
+
+    <%# Description — label on its own row, body beneath %>
+    <% if summary.present? %>
+      <div class="text-fg-dim mt-1"><%= t("pito.game.detail.description") %></div>
+      <div class="pito-game-detail__description text-fg"><%= summary %></div>
+    <% end %>
   </div>
 
 </div>

@@ -120,19 +120,50 @@ RSpec.describe Pito::Video::DetailComponent do
     end
   end
 
-  describe "KV table (right column, after the description)" do
-    it "renders the grid KV table in the right column (moved from the left)" do
+  describe "KV table (right column, before the description)" do
+    it "renders the grid KV table in the right column" do
       node = render_inline(described_class.new(video: video))
       expect(node.css(".pito-video-detail__left div.grid.grid-cols-\\[max-content_1fr\\]")).to be_empty
       grid = node.css(".pito-video-detail__right div.grid.grid-cols-\\[max-content_1fr\\]").first
       expect(grid).not_to be_nil
-      expect(grid.text).not_to include("Title")
     end
 
-    it "renders a hairline between the description and the KV table" do
+    it "renders Title as the first kv row inside the table" do
+      node = render_inline(described_class.new(video: video))
+      grid = node.css(".pito-video-detail__right div.grid.grid-cols-\\[max-content_1fr\\]").first
+      expect(grid.text).to include(I18n.t("pito.video.detail.title"))
+      expect(grid.text).to include("My Awesome Let's Play")
+    end
+
+    it "renders the Title row before the ID row in source order" do
+      node = render_inline(described_class.new(video: video))
+      grid = node.css(".pito-video-detail__right div.grid.grid-cols-\\[max-content_1fr\\]").first
+      text = grid.text
+      title_pos = text.index(I18n.t("pito.video.detail.title"))
+      id_pos    = text.index(I18n.t("pito.video.detail.id"))
+      expect(title_pos).to be < id_pos
+    end
+
+    it "renders the kv-table before the description in source order" do
+      node  = render_inline(described_class.new(video: video))
+      right = node.css(".pito-video-detail__right").first
+      html  = right.inner_html
+      grid_pos = html.index("grid-cols-[max-content_1fr]")
+      desc_pos = html.index("pito-video-detail__description")
+      expect(grid_pos).to be < desc_pos
+    end
+
+    it "renders a hairline between the KV table and the description" do
       node  = render_inline(described_class.new(video: video))
       right = node.css(".pito-video-detail__right").first
       expect(right.css("div.pito-detail-hairline").first).not_to be_nil
+    end
+
+    it "renders the Description label and body below the table" do
+      node  = render_inline(described_class.new(video: video))
+      right = node.css(".pito-video-detail__right").first
+      expect(right.text).to include(I18n.t("pito.video.detail.description"))
+      expect(right.css(".pito-video-detail__description").first).not_to be_nil
     end
   end
 
@@ -160,7 +191,7 @@ RSpec.describe Pito::Video::DetailComponent do
       expect(right.text).to include("My Awesome Let's Play")
     end
 
-    it "renders a Description label above the description" do
+    it "renders a Description label above the description body" do
       node  = render_inline(described_class.new(video: video))
       right = node.css(".pito-video-detail__right").first
       expect(right.text).to include("Description")
@@ -202,6 +233,85 @@ RSpec.describe Pito::Video::DetailComponent do
       allow(video).to receive(:like_count).and_return(nil)
       allow(video).to receive(:comment_count).and_return(nil)
       expect { render_inline(described_class.new(video: video)) }.not_to raise_error
+    end
+  end
+
+  describe "Shinies block (left column, after the legend)" do
+    context "when the video has achievements" do
+      # views lane: multiple thresholds — only the max (1K) should render.
+      let!(:views_small) do
+        create(:achievement, achievable: video, metric: "views", threshold: 1,
+                             unlocked_at: 4.weeks.ago)
+      end
+      let!(:views_max) do
+        create(:achievement, achievable: video, metric: "views", threshold: 1_000,
+                             unlocked_at: 1.week.ago)
+      end
+      # likes lane: single threshold (100) — the max and only badge for this metric.
+      let!(:likes_max) do
+        create(:achievement, achievable: video, metric: "likes", threshold: 100,
+                             unlocked_at: 1.day.ago)
+      end
+
+      it "renders the Shinies heading in the left column" do
+        node = render_inline(described_class.new(video: video))
+        left = node.css(".pito-video-detail__left").first
+        expect(left.text).to include("Shinies")
+      end
+
+      it "renders the Shinies heading element" do
+        node = render_inline(described_class.new(video: video))
+        expect(node.css(".pito-video-detail__shinies-heading").first).not_to be_nil
+      end
+
+      it "renders exactly one badge per metric (2 total — views and likes)" do
+        node   = render_inline(described_class.new(video: video))
+        badges = node.css(".pito-video-detail__left .pito-achievement-badge")
+        expect(badges.length).to eq(2)
+      end
+
+      it "shows the max-threshold badge for views (1K Views, not the lower threshold)" do
+        node  = render_inline(described_class.new(video: video))
+        texts = node.css(".pito-video-detail__left .pito-achievement-badge").map(&:text)
+        expect(texts.any? { |t| t.include?("1K") && t.include?("Views") }).to be true
+      end
+
+      it "shows the max-threshold badge for likes (100 Likes)" do
+        node  = render_inline(described_class.new(video: video))
+        texts = node.css(".pito-video-detail__left .pito-achievement-badge").map(&:text)
+        expect(texts.any? { |t| t.include?("100") && t.include?("Likes") }).to be true
+      end
+
+      it "renders badges ordered by recency of their lane — likes (1 day ago) before views (1 week ago)" do
+        node   = render_inline(described_class.new(video: video))
+        badges = node.css(".pito-video-detail__left .pito-achievement-badge")
+        texts  = badges.map(&:text)
+        likes_idx = texts.index { |t| t.include?("Likes") }
+        views_idx = texts.index { |t| t.include?("Views") }
+        expect(likes_idx).not_to be_nil
+        expect(views_idx).not_to be_nil
+        expect(likes_idx).to be < views_idx
+      end
+
+      it "renders a hairline before the Shinies heading" do
+        node = render_inline(described_class.new(video: video))
+        left = node.css(".pito-video-detail__left").first
+        # The shinies block hairline is the second h-px hairline in the left column
+        hairlines = left.css("div.h-px")
+        expect(hairlines.length).to be >= 2
+      end
+    end
+
+    context "when the video has no achievements" do
+      it "renders no Shinies heading" do
+        node = render_inline(described_class.new(video: video))
+        expect(node.css(".pito-video-detail__shinies-heading")).to be_empty
+      end
+
+      it "renders no achievement badges" do
+        node = render_inline(described_class.new(video: video))
+        expect(node.css(".pito-achievement-badge")).to be_empty
+      end
     end
   end
 end

@@ -9,6 +9,8 @@ class Video < ApplicationRecord
   has_many :video_game_links, dependent: :destroy
   has_many :linked_games, through: :video_game_links, source: :game
   has_many :stats, as: :entity, dependent: :destroy
+  has_many :achievements, as: :achievable, dependent: :destroy
+  has_many :achievement_metrics, as: :achievable, dependent: :destroy
 
   # Locally-cached thumbnail (374x210 JPEG, 16:9). Attached during sync/import
   # via Video::Thumbnail::Ingest instead of hotlinking i.ytimg.com (which 429s).

@@ -115,10 +115,16 @@ RSpec.describe Pito::MessageBuilder::CommandHelp do
           expect(result["body"]).to include("list channels")
         end
 
-        it "body includes a witty one-liner" do
-          # The channels help always appends one line from channels_help array.
-          # With the deterministic sampler (first entry) that's the first variant.
-          expect(result["body"]).to include("Nothing here")
+        it "body is wrapped in .pito-help-block" do
+          expect(result["body"]).to include('class="pito-help-block"')
+        end
+
+        it "body includes Options section" do
+          expect(result["body"]).to include("Options:")
+        end
+
+        it "body includes --help option" do
+          expect(result["body"]).to include("--help")
         end
       end
     end

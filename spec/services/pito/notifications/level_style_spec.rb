@@ -9,6 +9,7 @@ RSpec.describe Pito::Notifications::LevelStyle do
       expect(described_class.style_for("success")).to eq(emoji: "✅", slack: "good",    discord: 0x1abc9c)
       expect(described_class.style_for("warning")).to eq(emoji: "⚠️", slack: "warning", discord: 0xf1c40f)
       expect(described_class.style_for("error")).to   eq(emoji: "🛑", slack: "danger",  discord: 0xe74c3c)
+      expect(described_class.style_for("shiny")).to   eq(emoji: "🏆", slack: "#5170ff", discord: 0x5170ff)
     end
 
     it "falls back to the info style for an unknown level" do

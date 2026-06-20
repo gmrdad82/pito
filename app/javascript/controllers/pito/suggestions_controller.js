@@ -116,10 +116,16 @@ export default class extends Controller {
       }
     }
     document.addEventListener("turbo:before-stream-render", this._onTurboStream)
+
+    // Shift+R (with >1 live handle) asks us to present an inline hashtag picker
+    // above the chatbox — reusing the same suggestions palette.
+    this._onHashtagPickerOpen = (e) => this._openExternalHashtagPicker(e)
+    document.addEventListener("pito:hashtag-picker:open", this._onHashtagPickerOpen)
   }
 
   disconnect() {
     document.removeEventListener("turbo:before-stream-render", this._onTurboStream)
+    document.removeEventListener("pito:hashtag-picker:open", this._onHashtagPickerOpen)
     this.element.removeEventListener("pito:caret", this._onCaret)
     this._cancelDynamicFetch()
     this._cancelArgFetch()
@@ -290,6 +296,30 @@ export default class extends Controller {
     this._paletteTrigger = triggerChar
     this._selectedIdx    = 0
     this._renderPalette()
+  }
+
+  // Open the inline suggestions palette with an explicit set of hashtag handles.
+  // Called when `pito:hashtag-picker:open` fires (shift+r with >1 live handle).
+  // Reuses _renderPalette / _acceptPaletteSelection / _closePalette unchanged.
+  _openExternalHashtagPicker(e) {
+    if (!this._authenticated) return
+    const handles = e?.detail?.handles
+    if (!Array.isArray(handles) || handles.length === 0) return
+
+    // Clear any active ghost or pending fetches before taking over the palette.
+    this._clearGhost()
+    this._cancelDynamicFetch()
+    this._cancelArgFetch()
+
+    // Set mode to "hashtag" so _insertToken uses verb-stage logic (prepend at 0).
+    this._mode = "hashtag"
+    this._paletteRows    = handles.map(h => ({ name: String(h), insert: `#${h} ` }))
+    this._paletteTrigger = "#"
+    this._selectedIdx    = 0
+    this._renderPalette()
+
+    // Ensure the chatbox field is focused so Arrow/Enter/Esc work immediately.
+    this.fieldTarget.focus({ preventScroll: true })
   }
 
   // ── pito:suggest dispatch ──────────────────────────────────────────────────

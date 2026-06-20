@@ -17,6 +17,7 @@
 # tuned for the Data API v3 surface. `videos.update` occasionally takes
 # longer than a typical GET, so the read timeout is generous.
 require "google/apis/youtube_v3"
+require "google/apis/youtube_analytics_v2"
 
 class Channel
   module Youtube
@@ -36,6 +37,15 @@ class Channel
       # authorization adapter bound to `connection`.
       def data_service(connection)
         svc = Google::Apis::YoutubeV3::YouTubeService.new
+        apply_timeouts!(svc)
+        svc.authorization = build_oauth_credentials(connection)
+        svc
+      end
+
+      # Build a YouTube Analytics API v2 service with the same timeout
+      # bounds and OAuth authorization adapter as `data_service`.
+      def analytics_service(connection)
+        svc = Google::Apis::YoutubeAnalyticsV2::YouTubeAnalyticsService.new
         apply_timeouts!(svc)
         svc.authorization = build_oauth_credentials(connection)
         svc
