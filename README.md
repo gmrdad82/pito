@@ -35,6 +35,33 @@ and get game/channel recommendations. your laptop, your data.
 > no support obligation. issues triaged when there's time;
 > PRs welcome but not guaranteed to merge. no hosted service from this repo.
 
+## Features
+
+What pito actually does, no asterisks:
+
+- **Every channel at a glance** — basic stats per channel (subs, vids, views),
+  no logging out and back in like it's 2009.
+- **Video stats too** — views, likes, comments per vid, right there.
+- **Multiple channels at once** — the whole roster on one screen, finally.
+- **Actually change things** — publish, schedule, unlist, or delete a video
+  straight from the chatbox.
+- **`schedule <id> slate`** — see what's already booked this week (and the rest of
+  your window) so you don't drop two bangers on the same Tuesday.
+- **Upcoming-release radar** — pito nudges you when a game you care about is about
+  to launch.
+- **Game brains, courtesy of IGDB** — full game info, similar-game suggestions,
+  and channel recommendations so you know where a game belongs.
+- **Notifications that travel** — Slack and Discord integration, colored and
+  emoji'd, for reauth nags, sync summaries, and countdowns.
+- **A terminal you'll actually like** — chat-style UI, one font, one size, no
+  hover. Full keyboard navigation — throw the mouse in a drawer.
+- **Mostly read-only, on purpose** — pito reads your channels and only ever WRITES
+  four things: publish, unlist, schedule, delete. Your data stays your data.
+- **Natural language, within reason** — type like a human. Limited, but fun, cool,
+  and easy to follow.
+- **Self-hosted and free** — runs locally in Docker. No SaaS, no subscription, no
+  monthly ransom.
+
 ## Stack
 
 Rails 8 · Hotwire · Postgres · Voyage AI · IGDB · YouTube API · Tailwind CSS.
@@ -58,6 +85,17 @@ the rebuild. To try it anyway, start with
 | ------- | --------------------- | -------------- | ------------------------------------------------------------ | --------- |
 | send    | `/sounds/send.mp3`    | `vs-pop_5.mp3` | [Pop_5.mp3](https://freesound.org/s/463395/) by Vilkas_Sound | CC BY 4.0 |
 | receive | `/sounds/receive.mp3` | `pop-1.wav`    | [Pop 1](https://freesound.org/s/545201/) by theplax          | CC BY 4.0 |
+
+## Support
+
+pito is one person's tool, but if you're stuck, lost, or just want to report that
+the cover art _finally_ loaded — there's a Discord. Pop in, ask away, judgment
+kept to a minimum:
+
+👉 **[discord.gg/q947UyDTqJ](https://discord.gg/q947UyDTqJ)**
+
+No SLA, no ticket queue, no "your call is important to us." Just a channel and a
+human who checks it between renders.
 
 ## License
 
