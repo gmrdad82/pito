@@ -31,7 +31,8 @@ export default class extends Controller {
 
   static values = {
     channels: Array,
-    periods: { type: Array, default: ["7d", "28d", "1m", "3m", "1y", "lifetime"] }
+    periods: { type: Array, default: ["7d", "28d", "1m", "3m", "1y", "lifetime"] },
+    uuid: String
   }
 
   connect() {
@@ -83,12 +84,14 @@ export default class extends Controller {
       if (event.key === "Tab" && event.shiftKey) {
         event.preventDefault()
         this.#cycleNext(this.channelsValue, "channelInput", "channelDisplay")
+        this.#persistScope()
         return
       }
 
       if (event.code === "Space" && event.shiftKey) {
         event.preventDefault()
         this.#cycleNext(this.periodsValue, "periodInput", "periodDisplay")
+        this.#persistScope()
         return
       }
 
@@ -195,6 +198,30 @@ export default class extends Controller {
       }
     })
     return handles
+  }
+
+  // Persist the current channel scope (shift+tab) and stats period (shift+space)
+  // to the conversation so a reload restores them. Fire-and-forget PATCH mirroring
+  // pito--draft's autosave; a failure is non-fatal (the next cycle retries).
+  #persistScope() {
+    if (!this.uuidValue) return
+    if (!this.targets.has("channelInput") || !this.targets.has("periodInput")) return
+
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content
+    fetch(`/chat/${this.uuidValue}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        ...(csrfToken ? { "X-CSRF-Token": csrfToken } : {}),
+      },
+      body: JSON.stringify({
+        scope_channel: this.targets.find("channelInput").value,
+        stats_period: this.targets.find("periodInput").value,
+      }),
+    }).catch((err) => {
+      console.warn("[pito--chat-form] scope PATCH failed:", err)
+    })
   }
 
   #syncHidden() {
