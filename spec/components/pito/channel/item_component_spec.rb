@@ -215,43 +215,43 @@ RSpec.describe Pito::Channel::ItemComponent do
     it "shows '1 sub' (singular) when subscriber_count is 1" do
       channel = channel_with_stats(subscriber_count: 1, view_count: 0)
       node = render_inline(described_class.new(channel: channel, show_stats: true))
-      expect(node.at_css(".pito-channel-item__stat--subscribers").text.strip).to eq("1 S")
+      expect(node.at_css(".pito-channel-item__stat--subscribers").text.strip).to eq("1 s")
     end
 
     it "shows '2 subs' (plural) when subscriber_count is 2" do
       channel = channel_with_stats(subscriber_count: 2, view_count: 0)
       node = render_inline(described_class.new(channel: channel, show_stats: true))
-      expect(node.at_css(".pito-channel-item__stat--subscribers").text.strip).to eq("2 S")
+      expect(node.at_css(".pito-channel-item__stat--subscribers").text.strip).to eq("2 s")
     end
 
     it "shows '10 subs' (plural) when subscriber_count is 10" do
       channel = channel_with_stats(subscriber_count: 10, view_count: 0)
       node = render_inline(described_class.new(channel: channel, show_stats: true))
-      expect(node.at_css(".pito-channel-item__stat--subscribers").text.strip).to eq("10 S")
+      expect(node.at_css(".pito-channel-item__stat--subscribers").text.strip).to eq("10 s")
     end
 
     it "shows '1 view' (singular) when view_count is 1" do
       channel = channel_with_stats(subscriber_count: 0, view_count: 1)
       node = render_inline(described_class.new(channel: channel, show_stats: true))
-      expect(node.at_css(".pito-channel-item__stat--views").text.strip).to eq("1 v")
+      expect(node.at_css(".pito-channel-item__stat--views").text.strip).to eq("1 V")
     end
 
     it "shows 'N views' (plural) when view_count is N != 1" do
       channel = channel_with_stats(subscriber_count: 0, view_count: 42)
       node = render_inline(described_class.new(channel: channel, show_stats: true))
-      expect(node.at_css(".pito-channel-item__stat--views").text.strip).to eq("42 v")
+      expect(node.at_css(".pito-channel-item__stat--views").text.strip).to eq("42 V")
     end
 
     it "shows '0 subs' when subscriber_count is nil" do
       channel = channel_with_stats(subscriber_count: nil, view_count: 5)
       node = render_inline(described_class.new(channel: channel, show_stats: true))
-      expect(node.at_css(".pito-channel-item__stat--subscribers").text.strip).to eq("0 S")
+      expect(node.at_css(".pito-channel-item__stat--subscribers").text.strip).to eq("0 s")
     end
 
     it "shows '0 views' when view_count is nil" do
       channel = channel_with_stats(subscriber_count: 5, view_count: nil)
       node = render_inline(described_class.new(channel: channel, show_stats: true))
-      expect(node.at_css(".pito-channel-item__stat--views").text.strip).to eq("0 v")
+      expect(node.at_css(".pito-channel-item__stat--views").text.strip).to eq("0 V")
     end
   end
 
@@ -294,17 +294,17 @@ RSpec.describe Pito::Channel::ItemComponent do
 
     it "shows '1 video' (singular) when the channel has 1 video" do
       node = render_with_video_count(channel_with_videos(1))
-      expect(node.at_css(".pito-channel-item__stat--videos").text.strip).to eq("1 V")
+      expect(node.at_css(".pito-channel-item__stat--videos").text.strip).to eq("1 v")
     end
 
     it "shows '0 videos' (plural) when the channel has no videos" do
       node = render_with_video_count(channel_with_videos(0))
-      expect(node.at_css(".pito-channel-item__stat--videos").text.strip).to eq("0 V")
+      expect(node.at_css(".pito-channel-item__stat--videos").text.strip).to eq("0 v")
     end
 
     it "shows 'N videos' (plural) when the channel has N != 1 videos" do
       node = render_with_video_count(channel_with_videos(12))
-      expect(node.at_css(".pito-channel-item__stat--videos").text.strip).to eq("12 V")
+      expect(node.at_css(".pito-channel-item__stat--videos").text.strip).to eq("12 v")
     end
 
     it "orders the rows subscribers → videos → views" do

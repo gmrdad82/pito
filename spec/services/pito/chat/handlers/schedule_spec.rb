@@ -281,4 +281,28 @@ RSpec.describe Pito::Chat::Handlers::Schedule do
       expect(result.events.first[:payload]["text"]).to include("Episode One")
     end
   end
+
+  # ── slate: the upcoming-schedule planning view ────────────────────────────────
+
+  describe "schedule <id> slate" do
+    it "renders the upcoming-schedule view (a :system vid list), not a confirmation" do
+      create(:video, channel:, privacy_status: :private, publish_at: 2.days.from_now, title: "Next Up")
+      result = schedule_real("schedule #{video.id} slate")
+
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      event = result.events.first
+      expect(event[:kind]).to eq(:system)
+      expect(event[:payload]["reply_target"]).to eq("video_list")
+      expect(event[:payload]["table_rows"].size).to eq(1)
+    end
+
+    it "excludes the reference vid from its own slate" do
+      video.update!(privacy_status: :private, publish_at: 2.days.from_now)
+      result = schedule_real("schedule #{video.id} slate")
+
+      # The ref vid is the only scheduled one and is excluded → empty week copy.
+      expect(result.events.first[:payload]["text"]).to be_present
+      expect(result.events.first[:payload]["table_rows"]).to be_nil
+    end
+  end
 end

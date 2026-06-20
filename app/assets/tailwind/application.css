@@ -1366,12 +1366,14 @@ html {
 }
 
 .pito-cell-title      { max-width: 34ch; }
-.pito-cell-channel    { max-width: 15ch; }
+.pito-cell-channel    { max-width: 24ch; }
 .pito-cell-genre      { max-width: 28ch; }
 .pito-cell-developer  { max-width: 16ch; }
 .pito-cell-publisher  { max-width: 22ch; }
 .pito-cell-game       { max-width: 24ch; }
 .pito-cell-visibility { max-width: 12ch; }
+.pito-cell-price      { max-width: 13ch; }
+.pito-cell-scheduled  { max-width: 18ch; }
 
 /* Duration / footage: numeric, right-aligned, capped at the widest value
    "99:23:59:59" (11ch). Short content, so no truncation needed. */

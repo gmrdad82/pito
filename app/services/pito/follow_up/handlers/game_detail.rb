@@ -31,7 +31,7 @@ module Pito
       class GameDetail < Pito::FollowUp::Handler
         self.target "game_detail"
         self.mode   :append
-        self.actions "rm", "delete", "reindex", "link", "unlink", "footage", "platform"
+        self.actions "rm", "delete", "reindex", "link", "unlink", "footage", "platform", "price"
 
         # @param event        [Event]        the game-detail event.
         # @param rest         [String]       text after `#<handle> `.
@@ -47,6 +47,8 @@ module Pito
           case action
           when "footage"
             handle_footage(event, args, conversation)
+          when "price"
+            handle_price(event, args, conversation)
           else
             Pito::FollowUp::Result::Error.new(
               message_key:  "pito.follow_up.game_detail.errors.invalid_action",
@@ -98,6 +100,53 @@ module Pito
           (value * 2).ceil / 2r
         rescue ArgumentError, TypeError
           nil
+        end
+
+        # ── price [set] <amount> | price unset ────────────────────────────────────
+
+        # `#<handle> price set <amount>` / bare `#<handle> price <amount>` set the
+        # game's euro price (> 0); `#<handle> price unset` clears it to NULL. The
+        # game is known from the segment, mirroring the `price` chat verb.
+        def handle_price(event, args, _conversation)
+          game = resolve_game_from_event(event)
+          return game_not_found_error if game.nil?
+
+          tokens = args.to_s.strip.split(/\s+/)
+          sub    = tokens.first&.downcase
+
+          if sub == "unset"
+            game.update!(price: nil)
+            return price_append(Pito::MessageBuilder::Text.call("pito.copy.price.unset", game: game.title))
+          end
+
+          amount = parse_price_amount(sub == "set" ? tokens[1] : tokens.first)
+          if amount.nil?
+            return Pito::FollowUp::Result::Error.new(
+              message_key:  "pito.follow_up.game_detail.errors.missing_price",
+              message_args: {}
+            )
+          end
+
+          game.update!(price: amount)
+          price_append(Pito::MessageBuilder::Text.call(
+            "pito.copy.price.updated", game: game.title, price: Pito::Formatter::Price.call(game.price)
+          ))
+        end
+
+        # Parse a euro amount (BigDecimal, 2 decimals, strictly positive), or nil.
+        def parse_price_amount(raw)
+          return nil if raw.blank?
+
+          value = BigDecimal(raw.to_s).round(2)
+          return nil unless value.positive?
+
+          value
+        rescue ArgumentError, TypeError
+          nil
+        end
+
+        def price_append(payload)
+          Pito::FollowUp::Result::Append.new(events: [ { kind: :system, payload: payload } ])
         end
 
         # ── helpers ────────────────────────────────────────────────────────────

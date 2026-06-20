@@ -28,6 +28,7 @@ module Pito
           channel:    { key: ->(v) { v.channel.at_handle.to_s.downcase },               requires_with: true },
           visibility: { key: ->(v) { v.privacy_status.to_s },                           requires_with: true },
           game:     { key: ->(v) { v.linked_games.map(&:title).join(", ").downcase },   requires_with: true },
+          scheduled: { key: ->(v) { v.publish_at || Time.at(0) },                        requires_with: true },
           duration: { key: ->(v) { v.duration_seconds.to_i },                           requires_with: true },
           views:    { key: ->(v) { v.view_count.to_i },                                 requires_with: true },
           likes:    { key: ->(v) { v.like_count.to_i },                                 requires_with: true },
@@ -44,6 +45,7 @@ module Pito
           "visibility" => :visibility,
           "game"    => :game,
           "games"   => :game,
+          "scheduled" => :scheduled,
           "duration" => :duration,
           "views"   => :views,
           "likes"   => :likes,
@@ -68,6 +70,13 @@ module Pito
             heading:    "Game",
             cell_class: "text-fg-dim pito-cell-game",
             value:      ->(v) { v.linked_games.map(&:title).join(", ") }
+          },
+          scheduled: {
+            aliases:    %w[scheduled],
+            heading:    "Scheduled",
+            align:      :right,
+            cell_class: "text-fg-dim text-right tabular-nums pito-cell-scheduled",
+            value:      ->(v) { v.publish_at ? v.publish_at.in_time_zone(Time.zone).strftime("%d-%m-%Y %H:%M") : "—" }
           },
           duration: {
             aliases:    %w[length duration],

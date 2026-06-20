@@ -31,6 +31,10 @@ class Game < ApplicationRecord
 
   validates :title, presence: true
 
+  # Price is optional (nil = unset); when present it is always strictly positive
+  # — a "free" or zero price is expressed by leaving it unset.
+  validates :price, numericality: { greater_than: 0 }, allow_nil: true
+
   # ── Release-date component validations ──────────────────────────
   validate :release_date_components_are_consistent
 

@@ -34,7 +34,9 @@ module Pito
           release_date: { key: ->(g) { g.release_date || Date.new(9999, 12, 31) },              requires_with: true },
           year:         { key: ->(g) { g.release_year || 9999 },                                requires_with: true },
           channels:     { key: ->(g) { g.linked_videos.map { |v| v.channel&.handle }.compact.uniq.sort.join(",").downcase }, requires_with: true },
-          footage:      { key: ->(g) { g.footage_hours },                                        requires_with: true }
+          footage:      { key: ->(g) { g.footage_hours },                                        requires_with: true },
+          # Unpriced games sort before any priced game ascending (nil → -1).
+          price:        { key: ->(g) { g.price || -1 },                                          requires_with: true }
         }.freeze
 
         # Maps every sort token (downcased) → canonical column Symbol.
@@ -54,7 +56,8 @@ module Pito
           "year"         => :year,
           "channel"      => :channels,
           "channels"     => :channels,
-          "footage"      => :footage
+          "footage"      => :footage,
+          "price"        => :price
         }.freeze
 
         COLUMNS = {
@@ -85,9 +88,18 @@ module Pito
           channels:     {
             aliases:    %w[channel channels],
             heading:    "Channels",
-            html:       true,
             cell_class: "text-cyan pito-cell-channel",
-            value:      ->(g) { g.linked_videos.map { |v| v.channel&.handle }.compact.uniq.map { |h| ERB::Util.html_escape(h) }.join("<br>") }
+            # One line: the first distinct channel, then "+N more" for the rest
+            # (N = remaining). The cell truncates with an ellipsis if it still
+            # overflows the widened column. "—" when the game has no linked videos.
+            value:      ->(g) {
+              handles = g.linked_videos.filter_map { |v| v.channel&.handle }.uniq
+              case handles.size
+              when 0 then "—"
+              when 1 then handles.first
+              else        "#{handles.first} +#{handles.size - 1} more"
+              end
+            }
           },
           release_date: {
             aliases: [ "release", "release date" ],
@@ -107,6 +119,13 @@ module Pito
             align:      :right,
             cell_class: "text-fg-dim text-right tabular-nums pito-cell-duration",
             value:      ->(g) { Pito::Formatter::FootageHours.call(g.footage_hours) }
+          },
+          price:        {
+            aliases:    %w[price],
+            heading:    "Price",
+            align:      :right,
+            cell_class: "text-fg-dim text-right tabular-nums pito-cell-price",
+            value:      ->(g) { Pito::Formatter::Price.call(g.price) }
           }
         }.freeze
 

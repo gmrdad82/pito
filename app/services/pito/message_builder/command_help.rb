@@ -31,6 +31,7 @@ module Pito
         delete:   %i[game video],
         reindex:  %i[game video],
         footage:  %i[update snippet],
+        price:    %i[set unset],
         link:     %i[game video],
         unlink:   %i[game video],
         publish:  %i[video],

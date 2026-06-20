@@ -120,6 +120,15 @@ module Pito
             slots:           [ Slot.new(name: :title, kind: :enum, source: :game_titles, optional: true) ],
             description_key: "pito.grammar.chat.footage"
           ),
+          # `price set <id> <amount>` / `price unset <id>` — a single free slot
+          # drives the suggestion ghost; the handler reads the subcommand, id, and
+          # amount from message.raw (mirrors `platform`).
+          Spec.new(
+            namespace:       :chat,
+            name:            :price,
+            slots:           [ Slot.new(name: :title, kind: :free, optional: true) ],
+            description_key: "pito.grammar.chat.price"
+          ),
           Spec.new(
             namespace:       :chat,
             name:            :delete,

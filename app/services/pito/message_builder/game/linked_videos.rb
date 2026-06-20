@@ -32,11 +32,25 @@ module Pito
         def call(game, conversation:)
           videos  = game.linked_videos
           payload = Video::List.call(videos, conversation: conversation, columns: COLUMNS)
-          payload["body"] = Pito::Copy.render(
+          payload["body"] = intro_with_channels(game, videos)
+          payload
+        end
+
+        # The game-scoped intro line, followed by a witty sentence naming the
+        # distinct channels the game appears on (omitted when there are none).
+        def intro_with_channels(game, videos)
+          intro = Pito::Copy.render(
             "pito.copy.game.linked_videos_intro",
             count: videos.size, title: game.title
           )
-          payload
+
+          handles = videos.filter_map { |v| v.channel&.handle }.uniq
+          return intro if handles.empty?
+
+          channels = Pito::Copy.render(
+            "pito.copy.game.linked_videos_channels", channels: handles.to_sentence
+          )
+          "#{intro} #{channels}"
         end
       end
     end

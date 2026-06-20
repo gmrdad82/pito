@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_20_010008) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_20_101449) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -160,6 +160,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_20_010008) do
     t.text "last_sync_error"
     t.text "platforms", default: [], null: false, array: true
     t.text "player_perspectives", default: [], null: false, array: true
+    t.decimal "price", precision: 8, scale: 2
     t.date "release_date"
     t.integer "release_day"
     t.integer "release_month"
@@ -203,6 +204,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_20_010008) do
 
   create_table "notifications", force: :cascade do |t|
     t.datetime "created_at", null: false
+    t.string "level", default: "info", null: false
     t.text "message", null: false
     t.datetime "read_at"
     t.datetime "updated_at", null: false

@@ -122,8 +122,8 @@ RSpec.describe Pito::FollowUp::Handlers::GameDetail, type: :service do
 
   # ── actions list ─────────────────────────────────────────────────────────────
 
-  it "declares rm, delete, reindex, link, unlink, footage, and platform actions" do
-    expect(described_class.actions).to eq([ "rm", "delete", "reindex", "link", "unlink", "footage", "platform" ])
+  it "declares rm, delete, reindex, link, unlink, footage, platform, and price actions" do
+    expect(described_class.actions).to eq([ "rm", "delete", "reindex", "link", "unlink", "footage", "platform", "price" ])
   end
 
   # ── link to video (delegated to Chat::Handlers::Link) ───────────────────────
@@ -340,6 +340,55 @@ RSpec.describe Pito::FollowUp::Handlers::GameDetail, type: :service do
       event = build_detail_event("game_id" => game.id)
       game.destroy
       result = handler.call(event: event, rest: "footage 5", conversation:)
+      expect(result).to be_a(Pito::FollowUp::Result::Error)
+      expect(result.message_key).to eq("pito.follow_up.game_detail.errors.game_not_found")
+    end
+  end
+
+  describe "#call — price [set] <amount> | price unset" do
+    let(:source_event) { build_detail_event }
+
+    it "sets the segment game's price from the `price set <amount>` form" do
+      result = handler.call(event: source_event, rest: "price set 59.99", conversation:)
+      expect(result).to be_a(Pito::FollowUp::Result::Append)
+      expect(result.events.first[:kind]).to eq(:system)
+      expect(game.reload.price).to eq(BigDecimal("59.99"))
+    end
+
+    it "sets the price from the bare `price <amount>` form" do
+      handler.call(event: source_event, rest: "price 20", conversation:)
+      expect(game.reload.price).to eq(BigDecimal("20.00"))
+    end
+
+    it "clears the price on `price unset`" do
+      game.update!(price: BigDecimal("40.00"))
+      result = handler.call(event: source_event, rest: "price unset", conversation:)
+      expect(result).to be_a(Pito::FollowUp::Result::Append)
+      expect(game.reload.price).to be_nil
+    end
+
+    it "emits the price confirmation with the formatted euro amount" do
+      result = handler.call(event: source_event, rest: "price set 59.99", conversation:)
+      expect(result.events.first[:payload]["text"]).to include("Lies of P").and include("€59.99")
+    end
+
+    it "errors with missing_price for a zero amount (must be > 0)" do
+      result = handler.call(event: source_event, rest: "price set 0", conversation:)
+      expect(result).to be_a(Pito::FollowUp::Result::Error)
+      expect(result.message_key).to eq("pito.follow_up.game_detail.errors.missing_price")
+      expect(game.reload.price).to be_nil
+    end
+
+    it "errors with missing_price when no amount is given" do
+      result = handler.call(event: source_event, rest: "price set", conversation:)
+      expect(result).to be_a(Pito::FollowUp::Result::Error)
+      expect(result.message_key).to eq("pito.follow_up.game_detail.errors.missing_price")
+    end
+
+    it "errors when the segment's game no longer exists" do
+      event = build_detail_event("game_id" => game.id)
+      game.destroy
+      result = handler.call(event: event, rest: "price set 9.99", conversation:)
       expect(result).to be_a(Pito::FollowUp::Result::Error)
       expect(result.message_key).to eq("pito.follow_up.game_detail.errors.game_not_found")
     end
