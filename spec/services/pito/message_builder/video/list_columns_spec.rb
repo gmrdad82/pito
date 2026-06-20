@@ -44,6 +44,10 @@ RSpec.describe Pito::MessageBuilder::Video::ListColumns do
       expect(vocab["comments"]).to eq(:comments)
     end
 
+    it "maps 'comms' to :comments" do
+      expect(vocab["comms"]).to eq(:comments)
+    end
+
     it "does not include unknown tokens" do
       expect(vocab.key?("unknown_token")).to be(false)
     end
@@ -87,7 +91,7 @@ RSpec.describe Pito::MessageBuilder::Video::ListColumns do
     it "includes headings for the stats columns" do
       cols = %i[game duration views likes comments]
       expect(described_class.headings(cols)).to eq(
-        [ "Game", "Length", "Views", "Likes", "Comments" ]
+        [ "Game", "Length", "Views", "Likes", "Comms" ]
       )
     end
   end
@@ -121,7 +125,7 @@ RSpec.describe Pito::MessageBuilder::Video::ListColumns do
     it "names the still-addable columns when some remain" do
       footer = described_class.addable_footer([ :channel ])
       expect(footer).to include("views")
-      expect(footer).to include("comments")
+      expect(footer).to include("comms")
     end
 
     it "uses the all-shown variant (no column names) when every column is present" do

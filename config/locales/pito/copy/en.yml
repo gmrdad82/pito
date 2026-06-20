@@ -2240,7 +2240,7 @@ en:
           col_duration_desc: "Vid length (hh:mm:ss)"
           col_views_desc: "View count"
           col_likes_desc: "Like count"
-          col_comments_desc: "Comment count"
+          col_comments_desc: "Comm count"
         channels_help:
           - "Nothing here. Truly, nothing."
           - "A vast, empty horizon. You expected channels."
@@ -2729,14 +2729,14 @@ en:
               usage: "#<list-vids-hashtag> add <columns>"
               sections:
                 Arguments:
-                  "<columns>": "Comma-separated column names to add: channel, status, game, length, views, likes, comments"
+                  "<columns>": "Comma-separated column names to add: channel, status, game, length, views, likes, comms"
                 Options:
                   "--help": "Print this help message"
             remove:
               usage: "#<list-vids-hashtag> remove <columns>"
               sections:
                 Arguments:
-                  "<columns>": "Comma-separated column names to remove: channel, status, game, length, views, likes, comments"
+                  "<columns>": "Comma-separated column names to remove: channel, status, game, length, views, likes, comms"
                 Options:
                   "--help": "Print this help message"
             sort:
@@ -2751,7 +2751,7 @@ en:
                   "duration": "Vid length — requires the length column to be visible"
                   "views": "View count — requires the views column to be visible"
                   "likes": "Like count — requires the likes column to be visible"
-                  "comments": "Comment count — requires the comments column to be visible"
+                  "comms": "Comm count — requires the comms column to be visible"
                 Options:
                   "[desc]": "Reverse order (descending)"
                   "--help": "Print this help message"
@@ -4086,7 +4086,7 @@ en:
       videos:
         columns:
           visibility: "Status"
-        stats_legend:               "V views, L likes, C comments"
+        stats_legend:               "V views, L likes, C comms"
         sync_summary: "%{label}: %{imported} new · %{updated} updated · %{deleted} removed"
         linked_game_intro:
           - "The game powering this footage: %{game}."
@@ -5127,7 +5127,7 @@ en:
           - "Upload consistency beats talent. Talent didn't read this tip."
           - "The algorithm is not your friend. It is barely your acquaintance."
           - "Thumbnails sell. Your soul is optional but encouraged."
-          - "Reply to comments. Even the unhinged ones. Especially those."
+          - "Reply to comms. Even the unhinged ones. Especially those."
           - "A title is a promise. Break it and the watch time leaves."
           - "Retention is king. Your intro is the regicide."
           - "Post at the right time. There is no right time. Post anyway."
@@ -5142,13 +5142,13 @@ en:
           - "Watch your watch time, not your watch."
           - "Collabs multiply reach and divide royalties."
           - "Copyright strikes: three and you're a folk legend."
-          - "The comment section is undefeated. Wear a helmet."
+          - "The comms section is undefeated. Wear a helmet."
           - "Caption your vids. The algorithm reads text, not minds."
           - "End screens: the polite way to beg."
           - "Trends die fast. So do channels that only chase them."
           - "/help is free. Therapy is not. We do what we can."
           - "A blank start screen is a canvas. Or a void. Depends on the day."
-          - "Pin a comment. Assert dominance."
+          - "Pin a comm. Assert dominance."
           - "Your intro is too long. Yes, that one. Cut it."
           - "Consistency is a personality trait you can fake with a calendar."
           - "Every viral vid is an accident wearing a suit."
@@ -5539,7 +5539,7 @@ en:
           - "Your thumbnail game better match this energy."
           - "Trending page, here you come. Eventually."
           - "May your bitrate be high and your copyright strikes low."
-          - "The comment section now belongs to you. Good luck."
+          - "The comms section now belongs to you. Good luck."
           - "We bridged the gap between you and infinite scrolling."
           - "Your vids have a home. It's in a Google datacenter. Romantic."
           - "The upload button just got a lot more real."
