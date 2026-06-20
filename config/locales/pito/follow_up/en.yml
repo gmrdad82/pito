@@ -11,6 +11,9 @@ en:
           video_not_found: "No vid matching \"%{ref}\"."
           missing_video_ref: "Specify a vid. Try: link to vid <id|title>."
           missing_hours: "Specify the footage hours. Try: footage <hours> (e.g. footage 12.5)."
+      video_list:
+        errors:
+          invalid_action: "Unknown action '%{action}'. Try: show <id>, schedule <id> <when>, publish <id>, unlist <id>, delete <id>, link/unlink, sort by <col>, or add/remove <col>."
       video_detail:
         errors:
           invalid_action: "Unknown action '%{action}'. Try: reindex."

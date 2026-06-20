@@ -191,6 +191,85 @@ RSpec.describe Pito::FollowUp::Handlers::Confirmation, type: :service do
     end
   end
 
+  # ── video_unlist / video_publish: enhanced outcome on confirm ─────────────
+
+  describe "#call — video_unlist confirm renders an enhanced outcome" do
+    let!(:ul_video) { create(:video, channel:, title: "Boss Rush", privacy_status: :public) }
+    let!(:source_event) do
+      Event.create_with_position!(
+        conversation:, turn: source_turn, kind: "confirmation",
+        payload: {
+          "command"      => "video_unlist",
+          "body"         => "Unlist Boss Rush?",
+          "reply_handle" => "alpha-1111",
+          "reply_target" => "confirmation",
+          "video_id"     => ul_video.id,
+          "video_title"  => "Boss Rush"
+        }
+      )
+    end
+
+    before { allow(VideoRemoteStatusSync).to receive(:perform_later) }
+
+    it "appends an :enhanced event (not the orange confirmation_follow_up) on confirm" do
+      expect(call("confirm").events.first[:kind]).to eq("enhanced")
+    end
+
+    it "still renders the orange confirmation_follow_up on cancel" do
+      expect(call("cancel").events.first[:kind]).to eq("confirmation_follow_up")
+    end
+  end
+
+  describe "#call — video_publish confirm renders an enhanced outcome" do
+    let!(:pub_video) { create(:video, channel:, title: "Speed Run Gold", privacy_status: :private, publish_at: 1.day.from_now) }
+    let!(:source_event) do
+      Event.create_with_position!(
+        conversation:, turn: source_turn, kind: "confirmation",
+        payload: {
+          "command"      => "video_publish",
+          "body"         => "Publish Speed Run Gold?",
+          "reply_handle" => "alpha-1111",
+          "reply_target" => "confirmation",
+          "video_id"     => pub_video.id,
+          "video_title"  => "Speed Run Gold"
+        }
+      )
+    end
+
+    before { allow(VideoRemoteStatusSync).to receive(:perform_later) }
+
+    it "appends an :enhanced event on confirm" do
+      expect(call("confirm").events.first[:kind]).to eq("enhanced")
+    end
+  end
+
+  describe "#call — video_delete confirm renders an enhanced outcome" do
+    let!(:del_video) { create(:video, channel:, title: "Old Take", youtube_video_id: "yt-old") }
+    let!(:source_event) do
+      Event.create_with_position!(
+        conversation:, turn: source_turn, kind: "confirmation",
+        payload: {
+          "command"      => "video_delete",
+          "body"         => "Delete Old Take?",
+          "reply_handle" => "alpha-1111",
+          "reply_target" => "confirmation",
+          "video_id"     => del_video.id,
+          "video_title"  => "Old Take"
+        }
+      )
+    end
+
+    before { allow(VideoRemoteDelete).to receive(:perform_later) }
+
+    it "appends an :enhanced event on confirm" do
+      expect(call("confirm").events.first[:kind]).to eq("enhanced")
+    end
+
+    it "still renders the orange confirmation_follow_up on cancel" do
+      expect(call("cancel").events.first[:kind]).to eq("confirmation_follow_up")
+    end
+  end
+
   # ── invalid action ────────────────────────────────────────────────────────
 
   describe "#call — invalid action" do
