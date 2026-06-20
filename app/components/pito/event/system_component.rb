@@ -47,7 +47,14 @@ module Pito
                   :fixed_leading, :fixed_trailing, :list_footer
 
       def accent         = :surface
-      def background     = nil
+
+      # Transparent by default; a reply that MUTATES this segment in place
+      # (a `:mutate` follow-up — sort / add column / re-render) stamps
+      # `surface: true` on the rebuilt payload so the updated segment lifts onto
+      # the surface background as a "this was just changed by your reply" cue.
+      def background
+        "var(--bg-surface)" if @payload[:surface] == true || @payload[:surface] == "true"
+      end
 
       # True when this system message has a follow-up handle and is not yet consumed.
       def followupable?

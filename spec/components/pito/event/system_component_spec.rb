@@ -628,4 +628,24 @@ RSpec.describe Pito::Event::SystemComponent do
       expect(node.css(".pito-echo__meta").text).not_to include("beta-1234")
     end
   end
+
+  # A reply that mutates this segment in place stamps surface: true on the
+  # rebuilt payload so the updated segment lifts onto the surface background.
+  describe "mutated-segment surface background" do
+    def content_style(payload)
+      render_inline(described_class.new(payload:)).css(".pito-segment__content").first&.[]("style").to_s
+    end
+
+    it "renders the surface background when surface: true" do
+      expect(content_style(body: "Re-sorted", surface: true)).to include("var(--bg-surface)")
+    end
+
+    it "accepts the persisted string form (surface: 'true')" do
+      expect(content_style(body: "Re-sorted", surface: "true")).to include("var(--bg-surface)")
+    end
+
+    it "stays transparent on a normal (non-mutation) render" do
+      expect(content_style(body: "First render")).not_to include("background")
+    end
+  end
 end
