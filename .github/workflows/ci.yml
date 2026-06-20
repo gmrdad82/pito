@@ -151,7 +151,7 @@ jobs:
       POSTGRES_PORT: 5432
       REDIS_URL: redis://127.0.0.1:6379/0
       RUBOCOP_CACHE_ROOT: tmp/rubocop
-      PARALLEL_TEST_PROCESSORS: "4"
+      PARALLEL_TEST_PROCESSORS: "8"
 
     steps:
       - name: Checkout code
