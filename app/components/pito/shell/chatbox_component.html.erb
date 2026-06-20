@@ -1,6 +1,11 @@
 <%# Chatbox — bar+gap+content via Pito::Segment, two-line layout %>
 <%
-  input_attrs = { placeholder: placeholder, autocomplete: "off", rows: 1,
+  input_attrs = { placeholder: placeholder, autocomplete: "off",
+                  # Mobile keyboards auto-titleize the first word, which broke
+                  # case-sensitive keyword matching ("List games"); disable all
+                  # of capitalize/correct/spellcheck (the keyword sanitizer is the
+                  # server-side backstop).
+                  autocapitalize: "off", autocorrect: "off", spellcheck: "false", rows: 1,
                   class: "text-fg placeholder:text-fg-faded bg-transparent outline-none border-none w-full pito-chatbox__input",
                   data: { action: "keydown->pito--suggestions#handleKeydown keydown->pito--chat-form#handleKeydown input->pito--suggestions#onInput",
                           pito__suggestions_target: "field",
