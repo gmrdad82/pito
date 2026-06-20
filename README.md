@@ -37,40 +37,129 @@ and get game/channel recommendations. your laptop, your data.
 
 ## Features
 
-What pito actually does, no asterisks:
+Everything happens in one chatbox: type a `verb`, or reply to any message with
+`#<handle> <action>` (the message shows you its handle). `<verb> --help` prints a
+man page for any verb. Keywords are case-insensitive and a little natural-language.
+The full reference lives in [`CHANGELOG.md`](CHANGELOG.md); the short version:
 
-- **Every channel at a glance** — basic stats per channel (subs, vids, views),
-  no logging out and back in like it's 2009.
-- **Video stats too** — views, likes, comments per vid, right there.
-- **Multiple channels at once** — the whole roster on one screen, finally.
-- **Actually change things** — publish, schedule, unlist, or delete a video
-  straight from the chatbox.
-- **`schedule <id> slate`** — see what's already booked this week (and the rest of
-  your window) so you don't drop two bangers on the same Tuesday.
-- **Upcoming-release radar** — pito nudges you when a game you care about is about
-  to launch.
-- **Game brains, courtesy of IGDB** — full game info, similar-game suggestions,
-  and channel recommendations so you know where a game belongs.
-- **Notifications that travel** — Slack and Discord integration, colored and
-  emoji'd, for reauth nags, sync summaries, and countdowns.
-- **A terminal you'll actually like** — chat-style UI, one font, one size, no
-  hover. Full keyboard navigation — throw the mouse in a drawer.
-- **Mostly read-only, on purpose** — pito reads your channels and only ever WRITES
-  four things: publish, unlist, schedule, delete. Your data stays your data.
-- **Natural language, within reason** — type like a human. Limited, but fun, cool,
-  and easy to follow.
-- **Self-hosted and free** — runs locally in Docker. No SaaS, no subscription, no
-  monthly ransom.
+- **Channels** — connect via Google OAuth (`/connect`), see them all at once with
+  basic stats (subs · vids · views), `visit @handle`, or `/disconnect`. Read-only
+  except the four YouTube writes below.
+- **Videos** — `list vids` with stats columns (views, likes, comments, length,
+  status, scheduled, channel, game); `show vid <id>` for detail. The only YouTube
+  writes: `publish`, `unlist`, `schedule`, `delete` a video. `sync vids` pulls the
+  latest (private uploads included).
+- **Games** — `import game [title]` from IGDB; `show game <id>` for genres, themes,
+  developer/publisher, release, footage, and **price**. Set fields with
+  `platform`, `price set/unset`, and a manual `footage` total.
+- **Recommendations** — every game card surfaces **similar games** and the
+  **channels** it best fits, powered by Voyage embeddings.
+- **Linking** — explicit `link` / `unlink` between a video and a game, both
+  directions; **pito** never guesses from titles.
+- **Planning** — `schedule <id> slate` shows what's already on the calendar so you
+  can spread releases; per-game `price` and `footage` help you budget and plan.
+- **Notifications** — Slack + Discord integration (rich, colored, emoji'd) for
+  reauth reminders, sync summaries, and upcoming-release countdowns, plus a live
+  in-app unread badge.
+- **The shell** — terminal-style chat UI, one font, no hover; **full keyboard
+  navigation** (ditch the mouse); themes; per-conversation scope/period that
+  persists; self-hosted in Docker; free.
 
 ## Stack
 
 Rails 8 · Hotwire · Postgres · Voyage AI · IGDB · YouTube API · Tailwind CSS.
 
-## Getting started
+## Requirements
 
-Optimized for the author's own machine; setup docs are sparse on purpose during
-the rebuild. To try it anyway, start with
-[`docs/architecture.md`](docs/architecture.md).
+The easy path is **Docker + Docker Compose**. Going native instead, you'll want:
+
+- **Ruby 3.4.9** (pinned in `.ruby-version`; `mise` / `rbenv` / `asdf` will read it)
+- **PostgreSQL 17** with the **pgvector** extension (for the recommendation embeddings)
+- **ffmpeg** · **imagemagick** · **libvips** (footage probing + cover/thumbnail images)
+- A **Rails master key** (your stored API keys are encrypted at rest)
+
+No Redis — background jobs, cache, and websockets all ride on Postgres
+(Solid Queue / Cache / Cable). Heads-up: setup is hands-on. This is a one-person
+tool wearing its "as-is" sticker proudly.
+
+## Install & run
+
+```bash
+git clone https://github.com/gmrdad82/pito && cd pito
+```
+
+**One-time secrets** (the bundled `config/credentials.yml.enc` is the author's —
+you can't decrypt it, so make your own):
+
+```bash
+rm -f config/credentials.yml.enc config/master.key
+EDITOR=nano bin/rails credentials:edit        # creates a fresh config/master.key
+bin/rails db:encryption:init                  # paste the printed keys into the credentials file
+```
+
+(No local Ruby? Run those `bin/rails …` lines inside the container with
+`docker compose run --rm web bin/rails …`.)
+
+**Docker (same on Linux, macOS, and Windows via WSL2):**
+
+```bash
+RAILS_MASTER_KEY=$(cat config/master.key) bin/boot --totp   # boots Rails + Postgres, enrolls your login
+```
+
+Open **http://localhost:3028**. The `--totp` step prints an `otpauth://` URI +
+secret — scan it into any authenticator app.
+
+**Native (for hacking on it):** install the deps for your OS, then `bin/setup`
+(brings up Postgres + prepares the DB) and `bin/dev` → **http://localhost:3027**.
+Enroll your login with `bin/rails pito:tools:totp`.
+
+| OS                | System packages                                                                      |
+| ----------------- | ------------------------------------------------------------------------------------ |
+| Arch              | `sudo pacman -S postgresql ffmpeg imagemagick libvips` + `pgvector` (extra/AUR)      |
+| Ubuntu/Debian/WSL | `sudo apt install postgresql-17 postgresql-17-pgvector ffmpeg imagemagick libvips42` |
+| Fedora            | `sudo dnf install postgresql-server pgvector ffmpeg ImageMagick vips`                |
+| macOS             | `brew install postgresql@17 pgvector ffmpeg imagemagick vips`                        |
+
+(Package names drift between distro versions — adjust as needed.)
+
+## Accounts & API keys
+
+**pito** needs three sets of credentials. Grab them, then paste them into the chatbox
+with `/config` (stored encrypted). Only Google is strictly required to do anything
+useful; IGDB and Voyage unlock the game features.
+
+**1. Google / YouTube** _(required — it's the whole point)_
+
+1. [Google Cloud Console](https://console.cloud.google.com/) → create a project.
+2. **APIs & Services → Library** → enable **YouTube Data API v3**.
+3. **OAuth consent screen** → _External_ → add your own Google account as a test user.
+4. **Credentials → Create credentials → OAuth client ID → Web application**. Add the
+   authorized redirect URI **`http://localhost:3028/auth/youtube/callback`** (use your
+   real host/tunnel if not local). Copy the **Client ID** + **Client secret**.
+5. **Credentials → Create credentials → API key**. Copy it.
+6. In **pito**: `/config google client_id=… client_secret=… api_key=…`, then `/connect`
+   to authorize each channel.
+
+**2. IGDB** _(game data — runs on Twitch)_
+
+1. [Twitch Developer Console](https://dev.twitch.tv/console/apps) → **Register Your
+   Application** (any name; OAuth redirect `http://localhost` is fine).
+2. Copy the **Client ID** and generate a **Client Secret**.
+3. In **pito**: `/config igdb client_id=… client_secret=…`.
+
+**3. Voyage AI** _(embeddings — similar games + channel recommendations)_
+
+1. Sign up at [voyageai.com](https://www.voyageai.com/) → **API Keys** → create one.
+2. In **pito**: `/config voyage api_key=…`.
+
+**Optional — Slack / Discord notifications:** create an incoming webhook in each,
+then `/config webhook slack=… discord=…`.
+
+## First run
+
+1. `/login <6-digit code>` (from the authenticator you enrolled above).
+2. `/config` your keys, then `/connect` your first channel.
+3. `list channels` → `sync vids` → `list games`. You're off.
 
 ## Docs
 
@@ -88,7 +177,7 @@ the rebuild. To try it anyway, start with
 
 ## Support
 
-pito is one person's tool, but if you're stuck, lost, or just want to report that
+**pito** is one person's tool, but if you're stuck, lost, or just want to report that
 the cover art _finally_ loaded — there's a Discord. Pop in, ask away, judgment
 kept to a minimum:
 
