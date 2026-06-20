@@ -255,9 +255,14 @@ module Pito
       end
 
       # Page through `search.list?forMine=true&order=date`, collecting the
-      # owner-complete set of video ids (private uploads included). When
-      # `published_after` is present only newer uploads are returned; when nil
-      # (a channel's first run) the full owner library is discovered. One bad
+      # owner-complete set of video ids (private uploads included).
+      #
+      # YouTube REJECTS `forMine` + `publishedAfter` together (400 badRequest),
+      # so we cannot bound the call server-side — doing so 400s on every run
+      # once a channel has any local videos (non-nil cursor), which silently
+      # discovered NOTHING. Instead we scan newest-first and stop client-side
+      # the moment we cross `published_after` (the newest local upload). A nil
+      # cursor (a channel's first run) walks the full owner library. One bad
       # page is logged and treated as the end of discovery rather than aborting.
       def discover_video_ids(published_after:)
         ids = []
@@ -268,15 +273,30 @@ module Pito
             for_mine: true,
             type: "video",
             order: "date",
-            published_after: published_after,
+            parts: %i[id snippet],
             max_results: 50,
             page_token: page_token
           )
 
+          crossed = false
           Array(response[:items]).each do |item|
             video_id = item.dig(:id, :video_id)
-            ids << video_id if video_id.present?
+            next if video_id.blank?
+
+            if published_after
+              published_at = parse_time(item.dig(:snippet, :published_at))
+              # order=date is newest-first: the first upload at/older than the
+              # cursor means every later item is older too — stop discovery.
+              if published_at && published_at <= published_after
+                crossed = true
+                break
+              end
+            end
+
+            ids << video_id
           end
+
+          break if crossed
 
           page_token = response[:next_page_token]
           break if page_token.blank?

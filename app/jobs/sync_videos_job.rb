@@ -85,10 +85,10 @@ class SyncVideosJob < ApplicationJob
     end
 
     lines = healthy_lines + reauth.map { |channel| reauth_line(channel) }
-    return wrap_line(I18n.t("pito.jobs.import_videos.summary.nothing_new")) if lines.empty?
+    return render_body([ I18n.t("pito.jobs.import_videos.summary.nothing_new") ]) if lines.empty?
 
     lines << summary_line(I18n.t("pito.jobs.import_videos.summary.total_label"), totals) if healthy_lines.size > 1
-    lines.map { |line| wrap_line(line) }.join
+    render_body(lines)
   end
 
   def safe_sync(channel)
@@ -118,10 +118,10 @@ class SyncVideosJob < ApplicationJob
       summary_line(channel.at_handle, result)
     end
 
-    return wrap_line(I18n.t("pito.jobs.import_videos.summary.nothing_new")) if lines.empty?
+    return render_body([ I18n.t("pito.jobs.import_videos.summary.nothing_new") ]) if lines.empty?
 
     lines << summary_line(I18n.t("pito.jobs.import_videos.summary.total_label"), totals) if lines.size > 1
-    lines.map { |line| wrap_line(line) }.join
+    render_body(lines)
   end
 
   def safe_refresh(channel, youtube_ids)
@@ -153,6 +153,15 @@ class SyncVideosJob < ApplicationJob
 
   def wrap_line(text)
     %(<div class="text-fg">#{text}</div>)
+  end
+
+  # Join wrapped summary lines into the message body, embedding the timestamp
+  # slot in the FIRST line so the message's "HH:MM ·" prefix renders inline
+  # rather than orphaned on a line above (mirrors ManPage's TS_SLOT use).
+  def render_body(lines)
+    Array(lines).each_with_index.map { |line, i|
+      wrap_line(i.zero? ? "#{Pito::Event::BodyComponent::TS_SLOT}#{line}" : line)
+    }.join
   end
 
   def resolve_channels(channel_ids)

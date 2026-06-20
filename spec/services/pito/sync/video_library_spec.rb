@@ -142,17 +142,16 @@ RSpec.describe Pito::Sync::VideoLibrary, type: :service do
       expect(client).not_to have_received(:videos_list)
     end
 
-    it "bounds the search with the max local published_at" do
+    it "does NOT send publishedAfter to the API (forMine + publishedAfter is a 400 badRequest)" do
+      # YouTube rejects search.list?forMine combined with publishedAfter. Sending
+      # it 400'd on every run once a channel had any local video, silently
+      # discovering nothing. We bound client-side instead.
       service.import_new
 
       expect(client).to have_received(:search_list).with(
-        hash_including(
-          for_mine: true,
-          type: "video",
-          order: "date",
-          published_after: Time.utc(2024, 1, 1)
-        )
+        hash_including(for_mine: true, type: "video", order: "date", parts: %i[id snippet])
       )
+      expect(client).to have_received(:search_list).with(hash_excluding(:published_after))
     end
 
     it "paginates search results across pages" do
@@ -166,16 +165,33 @@ RSpec.describe Pito::Sync::VideoLibrary, type: :service do
       expect(client).to have_received(:search_list).twice
     end
 
-    it "discovers the full library with no lower bound on a channel's first run" do
+    it "stops discovery once it crosses the newest local upload (newest-first), skipping older pages" do
+      # order=date is newest-first. vidnew is newer than the cursor (2024-01-01);
+      # the next item sits AT the cursor, so discovery stops and the older PAGE2
+      # is never fetched.
+      allow(client).to receive(:search_list).and_return(
+        {
+          items: [
+            { id: { video_id: "vidnew" }, snippet: { published_at: "2024-06-01T00:00:00Z" } },
+            { id: { video_id: "vid1" },   snippet: { published_at: "2024-01-01T00:00:00Z" } }
+          ],
+          next_page_token: "PAGE2"
+        }
+      )
+
+      expect { service.import_new }.to change(Video, :count).by(1)
+      expect(Video.find_by(youtube_video_id: "vidnew")).to be_present
+      expect(client).to have_received(:search_list).once
+    end
+
+    it "discovers the full library with no cursor on a channel's first run" do
       existing_video.destroy!
       allow(client).to receive(:search_list).and_return(
         { items: [ { id: { video_id: "vidnew" } } ], next_page_token: nil }
       )
 
       expect { service.import_new }.to change(Video, :count).by(1)
-      expect(client).to have_received(:search_list).with(
-        hash_including(published_after: nil)
-      )
+      expect(client).to have_received(:search_list).with(hash_excluding(:published_after))
     end
 
     it "returns an empty Result when the channel has no connection" do
