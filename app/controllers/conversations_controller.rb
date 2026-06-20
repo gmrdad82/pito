@@ -46,6 +46,16 @@ class ConversationsController < ApplicationController
   def update
     @conversation = Conversation.find_by!(uuid: params[:uuid])
 
+    # Scope-save path: shift+tab (scope_channel) / shift+space (stats_period)
+    # persistence. Quiet background save — no Turbo Stream, just 204 No Content,
+    # so a reload restores the conversation's last channel/period.
+    scope_attrs = conversation_params.slice(:scope_channel, :stats_period)
+    if scope_attrs.present? && !conversation_params.key?(:title)
+      @conversation.update!(scope_attrs)
+      head :no_content
+      return
+    end
+
     # Draft-save path: params contain :draft but NOT :title.
     # Quiet background autosave — no Turbo Stream, just 204 No Content.
     if conversation_params.key?(:draft) && !conversation_params.key?(:title)
@@ -100,6 +110,7 @@ class ConversationsController < ApplicationController
     # (:uuid) and any param-wrapper duplicate (:conversation) are never seen by
     # `permit` — avoids spurious "Unpermitted parameters" log noise. The client
     # sends a top-level { draft: … } / { title: … }; both are picked up here.
-    params.slice(:title, :draft).permit(:title, :draft)
+    params.slice(:title, :draft, :scope_channel, :stats_period)
+          .permit(:title, :draft, :scope_channel, :stats_period)
   end
 end
