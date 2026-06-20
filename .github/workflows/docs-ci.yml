@@ -7,10 +7,8 @@ name: Docs CI
 # `*.md` file in the repo, enforcing the `proseWrap: always` / 80-char rules
 # declared in `.prettierrc.json`.
 #
-# Trigger model: fire on any markdown change anywhere in the repo, on edits
-# to this workflow itself, and on `VERSION` bumps. Version bumps are
-# coordinated release events that re-validate every stack (Rails, CLI,
-# website, docs) so the published bits land on a known-green baseline.
+# Trigger model: fire on any markdown change anywhere in the repo and on edits
+# to this workflow itself.
 #
 # Commit-message guard: include the literal token `[skipci]` (lowercase, no
 # space — distinct from GitHub's built-in `[skip ci]`) in the commit message
@@ -24,14 +22,12 @@ on:
       - "**/*.md"
       - ".github/workflows/docs-ci.yml"
       - ".github/actions/**"
-      - "VERSION"
   pull_request:
     paths:
       - "docs/**"
       - "**/*.md"
       - ".github/workflows/docs-ci.yml"
       - ".github/actions/**"
-      - "VERSION"
 
 permissions:
   contents: read

@@ -10,9 +10,7 @@ name: CI
 # `.github/workflows/` carry the same guard.
 #
 # Trigger model: fire ONLY when something the Rails suite can break has
-# changed, plus on every `VERSION` bump (version bumps are coordinated
-# "release events" that re-validate the stack to guarantee a green
-# baseline before publishing). Path filter is exhaustive: everything
+# changed. Path filter is exhaustive: everything
 # Rails touches at runtime, plus the build/lint/test inputs that can change
 # suite behavior. Files NOT listed (e.g. `docs/**`, `Dockerfile`,
 # `docker-compose.yml`, `mise.toml`, `HANDOFF.md`, `README.md`, `LICENSE`,
@@ -76,11 +74,6 @@ on:
       # Composite actions the workflow invokes (e.g. the Slack notifier).
       # Not under `workflows/`, so it needs its own entry or edits go quiet.
       - ".github/actions/**"
-      # --- Coordinated release event ---------------------------------------
-      # `VERSION` bumps are release events; re-validate Rails alongside them
-      # so a release lands on a known-green baseline. The cost is one extra
-      # CI run per version bump.
-      - "VERSION"
   push:
     branches: [main]
     paths:
@@ -101,7 +94,6 @@ on:
       - "config.ru"
       - ".github/workflows/ci.yml"
       - ".github/actions/**"
-      - "VERSION"
   schedule:
     # Weekly bundler-audit run. Mondays 12:00 UTC. Gated on the `audit-only`
     # job below; the full `rails` suite stays scoped to push / pull_request.
