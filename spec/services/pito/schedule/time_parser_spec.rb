@@ -216,6 +216,34 @@ RSpec.describe Pito::Schedule::TimeParser do
     end
   end
 
+  describe "today forms (today = 2026-06-16; bare → 09:00, already past — parser still returns it)" do
+    it "parses bare `today` as 2026-06-16 09:00" do
+      expect(parse("5 today").time).to eq(Time.zone.local(2026, 6, 16, 9, 0))
+    end
+
+    it "parses `today at 14:30` (24-hour) as 2026-06-16 14:30" do
+      expect(parse("5 today at 14:30").time).to eq(Time.zone.local(2026, 6, 16, 14, 30))
+    end
+
+    it "parses `today at 3am` as 2026-06-16 03:00" do
+      expect(parse("5 today at 3am").time).to eq(Time.zone.local(2026, 6, 16, 3, 0))
+    end
+
+    it "parses `today at 5pm` as 2026-06-16 17:00" do
+      expect(parse("5 today at 5pm").time).to eq(Time.zone.local(2026, 6, 16, 17, 0))
+    end
+
+    it "parses `today at noon` as 2026-06-16 12:00" do
+      expect(parse("5 today at noon").time).to eq(Time.zone.local(2026, 6, 16, 12, 0))
+    end
+
+    it "keeps a multi-token `# id` ref before `today`" do
+      result = parse("# 22 today at 14:30")
+      expect(result.ref_tokens.map(&:value).join(" ").strip).to eq("# 22")
+      expect(result.time).to eq(Time.zone.local(2026, 6, 16, 14, 30))
+    end
+  end
+
   describe "unparseable phrases" do
     it "returns nil for free text" do
       expect(parse("5 next-tuesday")).to be_nil

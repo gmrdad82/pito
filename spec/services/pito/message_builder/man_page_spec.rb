@@ -65,6 +65,43 @@ RSpec.describe Pito::MessageBuilder::ManPage do
     expect(rendered).to include("Print help")
   end
 
+  describe "multi-line descriptions (newline-separated, stacked under the column)" do
+    subject(:rendered) do
+      described_class.render(
+        usage: "schedule video <id> <when>",
+        groups: [
+          [ "Arguments:",
+            [
+              [ "<id>",   "Local numeric video id" ],
+              [ "<when>", "One of:\n`today`\n`today at 14:30`" ]
+            ]
+          ]
+        ]
+      )
+    end
+
+    it "keeps the first segment on the token row" do
+      expect(rendered).to include(%(<span class="text-cyan">&lt;when&gt;</span>))
+      expect(rendered).to include('<span class="text-fg-dim">One of:</span>')
+    end
+
+    it "indents each continuation line to the description column" do
+      # Longest token is "<when>" (6); GAP = 3 → width = 9. Continuation indent
+      # is the leading "  " (2) + width (9) = 11 spaces, with no cyan token.
+      indent = " " * (2 + 9)
+      expect(rendered).to include("\n#{indent}<span class=\"text-fg-dim\">`today`</span>")
+      expect(rendered).to include("\n#{indent}<span class=\"text-fg-dim\">`today at 14:30`</span>")
+    end
+
+    it "html-escapes each continuation segment" do
+      multiline = described_class.render(
+        usage: "u",
+        groups: [ [ "A:", [ [ "<x>", "first\n<b> & c" ] ] ] ]
+      )
+      expect(multiline).to include("&lt;b&gt; &amp; c")
+    end
+  end
+
   it "aligns tokens across all groups with consistent padding" do
     # The longest raw token is "platform, platforms" (19 chars).
     # GAP = 3 → width = 22.

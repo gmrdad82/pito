@@ -2171,7 +2171,29 @@ en:
               Arguments:
                 "video": "Target noun"
                 "<id>": "Local numeric video id"
-                "<when>": "Publish time (local, ≥30 min out): `in 30m`, `in 2 hours`, `in 3 days`, `tomorrow`, `tomorrow at noon`, `tomorrow night`, `at 2pm`, `at 3:10am`, `at 23`, `at 15:30`, `saturday at noon`, `next friday`, `next week`, `3 weeks from now`, `next month`, `for DD.MM.YYYY HH:MM`, or `DD-MM-YYYY HH:MM`"
+                "<when>": |-
+                  Publish time (local, ≥30 min out). One of:
+                  `today`
+                  `today at 14:30`
+                  `today at 3am`
+                  `today at 5pm`
+                  `in 30m`
+                  `in 2 hours`
+                  `in 3 days`
+                  `tomorrow`
+                  `tomorrow at noon`
+                  `tomorrow night`
+                  `at 2pm`
+                  `at 3:10am`
+                  `at 23`
+                  `at 15:30`
+                  `saturday at noon`
+                  `next friday`
+                  `next week`
+                  `3 weeks from now`
+                  `next month`
+                  `for DD.MM.YYYY HH:MM`
+                  `DD-MM-YYYY HH:MM`
               Options:
                 "--help": "Print this help message"
         import:
