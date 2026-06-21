@@ -871,7 +871,16 @@ html {
   min-width: 0;
   overflow: hidden;
   white-space: nowrap;
-  background-image: linear-gradient(
+  /* TWO background layers, both clipped to the `=` glyphs:
+       layer 1 (top) — the moving pito-blue highlight band (`--pito-bar-band`,
+         defined by `.pito-bar-shimmer`; a transparent no-op when the shimmer
+         class is absent or reduced-motion is on), and
+       layer 2 (bottom) — the static red→green heat ramp below.
+     The band's transparent flanks let the heat read through everywhere except
+     the swept highlight stripe; see `.pito-bar-shimmer` for the sweep. */
+  background-image:
+    var(--pito-bar-band, linear-gradient(transparent, transparent)),
+    linear-gradient(
     to right,
     color-mix(in oklch, var(--accent-red) 72%, var(--fg-faded))    0%,   /* DARKEST red — worst score (mixed toward the dim faded fg, so it's darker than the bad zone, not lighter) */
     color-mix(in oklch, var(--accent-red) 72%, var(--fg-faded))   25%,   /* solid very-bad zone (darkest) */
@@ -1160,21 +1169,21 @@ html {
 [data-accent="footage"]       { color: var(--fg-default); }
 
 /* ── Score-bar & TTB-bar shimmer (Pito::ScoreBarComponent / Pito::TimeToBeatComponent) ──
-   A pito-blue diagonal band sweeps across the `=` fill run via a ::after pseudo-element,
-   overlaid on top of the existing multi-stop gradient text.  Semi-transparent (opacity
-   0.4) so the heat / score gradient underneath remains visible through the highlight.
-   Reuses pito-kbd-shimmer-sweep keyframe + pito-shimmer-dN stagger buckets.
-   animation-delay: inherit picks up the dN delay set on the fill element itself (where
-   pito-shimmer-d* is applied), so stagger works without a custom property. */
-.pito-bar-shimmer {
-  position: relative;  /* establishes positioning context for the ::after */
-}
+   A pito-blue diagonal highlight band rides the `=` GLYPHS themselves — NOT the
+   element's background rectangle. The band is layered as the TOP `background-image`
+   on the SAME fill element that already carries the heat ramp (score: in CSS; ttb:
+   inline per-game), and BOTH layers are clipped to the text via `background-clip:
+   text` on `.pito-score-bar__fill` / `.pito-ttb__fill`. No pseudo-element, so there
+   is no glowing rectangle behind the bar.
 
-.pito-bar-shimmer::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background-image: linear-gradient(
+   `--pito-bar-band` is the moving layer; the fill rules reference it as layer 1 with
+   a transparent fallback (so a non-shimmer / muted fill paints heat only). The
+   keyframe drives ONLY the band's background-position (layer 1); the heat layer's
+   position stays pinned at `0 0`, so the heat ramp never moves — only the band sweeps.
+   Same 135° diagonal + the shared `.pito-shimmer-dN` stagger (applied to the fill
+   element) at the same 3.4s the dN delays were tuned for. */
+.pito-bar-shimmer {
+  --pito-bar-band: linear-gradient(
     135deg,
     transparent 0%,
     transparent 38%,
@@ -1182,15 +1191,24 @@ html {
     transparent 62%,
     transparent 100%
   );
-  background-size: 200% 200%;
-  opacity: 0.4;
-  animation: pito-kbd-shimmer-sweep 3.4s linear infinite;
-  animation-delay: inherit;
-  pointer-events: none;
+  /* layer 1 (band) oversized so it can sweep; layer 2 (heat) fills the box. */
+  background-size: 200% 200%, 100% 100%;
+  background-repeat: no-repeat;
+  animation: pito-bar-glyph-sweep 3.4s linear infinite;
+  /* animation-delay comes from the `.pito-shimmer-dN` class on this same element. */
+}
+
+@keyframes pito-bar-glyph-sweep {
+  from { background-position: 200% 200%, 0 0; }
+  to   { background-position: 0% 0%, 0 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .pito-bar-shimmer::after { animation: none; }
+  .pito-bar-shimmer {
+    animation: none;
+    /* Drop the band entirely → static heat ramp only. */
+    --pito-bar-band: linear-gradient(transparent, transparent);
+  }
 }
 
 /* ── Pito::Game::EnhancedComponent ─────────────────────────────
