@@ -28,13 +28,15 @@ module Pito
               "Game",
               *ListColumns.heading_cells(cols)
             ],
+            "shimmer_heading" => true,
             "fixed_leading"  => (cols & %i[platform]).size,
             "fixed_trailing" => (cols & %i[release_date year footage]).size,
             "table_rows"    => games.map { |game|
+              id_text = "##{game.id}"
               {
                 cells: [
-                  { text: "##{game.id}", class: "text-cyan tabular-nums text-right whitespace-nowrap" },
-                  { text: game.title,    class: "text-fg pito-cell-title" },
+                  { text: id_text, class: Pito::Shimmer::TokenComponent.css_class(id_text, extra: "tabular-nums text-right whitespace-nowrap") },
+                  { text: game.title, class: "text-fg pito-cell-title" },
                   *ListColumns.cells(game, cols)
                 ]
               }

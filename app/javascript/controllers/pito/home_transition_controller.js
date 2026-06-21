@@ -254,15 +254,11 @@ export default class extends Controller {
       const filterEl = document.createElement("div")
       filterEl.id        = "pito-chatbox-filter"
       filterEl.className = "flex items-center text-fg-faded pito-chatbox__filter"
-      const periodLabel  = chatboxArea.dataset.filterPeriodLabel || "period"
-      filterEl.innerHTML = `
-        <span data-pito--chat-form-target="channelDisplay"><span class="text-cyan">@all</span></span>
-        <span class="mx-2">·</span>
-        <span data-pito--chat-form-target="periodDisplay">
-          <span>${periodLabel}</span>
-          <span class="text-cyan ml-2">7d</span>
-        </span>
-      `
+      // Clone the server-rendered filter chip (real shimmer tokens + shared
+      // offset) instead of rebuilding the markup here — keeps a single source of
+      // truth and avoids the JS drifting from the component's classes.
+      const filterTemplate = document.getElementById("pito-chatbox-filter-template")
+      filterEl.innerHTML = filterTemplate ? filterTemplate.innerHTML : ""
 
       const segmentContent = chatboxWrapper.querySelector(".pito-segment__content > .flex.flex-col")
       if (segmentContent) {

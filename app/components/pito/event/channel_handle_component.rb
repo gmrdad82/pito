@@ -15,7 +15,7 @@ module Pito
       end
 
       def call
-        tag.span("@#{@handle.delete_prefix("@")}", class: "text-cyan")
+        render(Pito::Shimmer::TokenComponent.new(text: "@#{@handle.delete_prefix("@")}"))
       end
     end
   end

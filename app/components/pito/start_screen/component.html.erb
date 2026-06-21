@@ -60,6 +60,14 @@
         <% end %>
       </div>
 
+      <%# Filter-chip template cloned by pito--home-transition during the
+          start→conversation animation. Rendered server-side (real shimmer tokens
+          + shared offset) so the JS never re-implements the markup or its offset
+          classes — single source of truth. Only when a session/filter exists. %>
+      <% if filter %>
+        <template id="pito-chatbox-filter-template"><span data-pito--chat-form-target="channelDisplay"><%= render(Pito::Shimmer::TokenComponent.new(text: filter[:channel] == "none" ? "none" : "@all")) %></span><span class="mx-2">·</span><span data-pito--chat-form-target="periodDisplay"><span><%= t("pito.shell.chatbox.filter.period_label") %></span><%= render(Pito::Shimmer::TokenComponent.new(text: filter[:period], extra_class: "ml-2")) %></span></template>
+      <% end %>
+
       <%# Mini-status: glued to chatbox bottom-right, rides with the animation %>
       <div class="mt-2 px-4">
         <div class="flex justify-end">

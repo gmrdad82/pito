@@ -36,13 +36,13 @@ RSpec.describe Pito::Shell::ChatboxComponent do
         expect(html).to include("last 7d")
       end
 
-      it "renders channel and period values inside .text-cyan spans" do
+      it "renders channel and period values inside shimmer spans" do
         node = render_inline(described_class.new(
           filter: { channel: "@sports", period: "30d" }
         ))
-        cyan_texts = node.css("span.text-cyan").map(&:text)
-        expect(cyan_texts).to include("@sports")
-        expect(cyan_texts).to include("30d")
+        shimmer_texts = node.css("span.pito-token-shimmer").map(&:text)
+        expect(shimmer_texts).to include("@sports")
+        expect(shimmer_texts).to include("30d")
       end
 
       it "renders 'none' in red when no channels are connected" do
@@ -72,7 +72,7 @@ RSpec.describe Pito::Shell::ChatboxComponent do
 
       it "does NOT render the filter line when filter is nil" do
         node = render_inline(described_class.new(filter: nil))
-        expect(node.css("span.text-cyan")).to be_empty
+        expect(node.css("span.pito-token-shimmer")).to be_empty
       end
 
       it "wraps the filter line with data-pito--chat-form-target attributes" do
@@ -101,22 +101,22 @@ RSpec.describe Pito::Shell::ChatboxComponent do
         expect(yellow_texts).to include("shift+space")
       end
 
-      it "keeps .text-cyan inside channelDisplay for the cycling hook" do
+      it "keeps a shimmer span inside channelDisplay for the cycling hook" do
         node = render_inline(described_class.new(
           filter: { channel: "@all", period: "7d" }
         ))
         channel_display = node.css('[data-pito--chat-form-target="channelDisplay"]').first
         expect(channel_display).not_to be_nil
-        expect(channel_display.css("span.text-cyan").first).not_to be_nil
+        expect(channel_display.css("span.pito-token-shimmer").first).not_to be_nil
       end
 
-      it "keeps .text-cyan inside periodDisplay for the cycling hook" do
+      it "keeps a shimmer span inside periodDisplay for the cycling hook" do
         node = render_inline(described_class.new(
           filter: { channel: "@all", period: "7d" }
         ))
         period_display = node.css('[data-pito--chat-form-target="periodDisplay"]').first
         expect(period_display).not_to be_nil
-        expect(period_display.css("span.text-cyan").first).not_to be_nil
+        expect(period_display.css("span.pito-token-shimmer").first).not_to be_nil
       end
 
       it "renders the suggestHint target wrapper hidden by default" do

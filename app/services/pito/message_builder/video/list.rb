@@ -26,6 +26,7 @@ module Pito
           payload = {
             "body"          => Pito::Copy.render("pito.copy.videos.list_intro", { count: videos.size }),
             "table_heading" => [ { "text" => "#", "class" => "text-right" }, "Title", *ListColumns.heading_cells(cols) ],
+            "shimmer_heading" => true,
             "table_rows"    => videos.map { |video| row_for(video, cols) },
             # Stamped for add/remove column mutations: allows the handler to
             # reload the same videos and rebuild with an updated column set.
@@ -38,10 +39,11 @@ module Pito
         end
 
         def row_for(video, columns = [])
+          id_text = "##{video.id}"
           {
             cells: [
-              { text: "##{video.id}", class: "text-cyan tabular-nums text-right whitespace-nowrap" },
-              { text: video.title,    class: "text-fg pito-cell-title" },
+              { text: id_text, class: Pito::Shimmer::TokenComponent.css_class(id_text, extra: "tabular-nums text-right whitespace-nowrap") },
+              { text: video.title, class: "text-fg pito-cell-title" },
               *ListColumns.cells(video, columns)
             ]
           }

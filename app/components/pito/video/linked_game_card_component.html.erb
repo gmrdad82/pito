@@ -21,6 +21,12 @@
           value_class: "text-fg"
         )) %>
 
+    <%= render(Pito::Table::KeyValueRowComponent.new(
+          key_text:        t("pito.game.detail.id"),
+          key_class:       "text-fg-dim whitespace-nowrap",
+          value_component: Pito::Shimmer::TokenComponent.new(text: "##{@game.id}", extra_class: "tabular-nums")
+        )) %>
+
     <% if genres_label.present? %>
       <%= render(Pito::Table::KeyValueRowComponent.new(
             key_text:    t("pito.game.detail.genres"),

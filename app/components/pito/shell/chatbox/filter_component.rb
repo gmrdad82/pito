@@ -4,8 +4,9 @@ module Pito
   module Shell
     module Chatbox
       # Renders a filter item: a keyboard shortcut (yellow, via ShortcutComponent)
-      # followed by a value (cyan). The .text-cyan span is required by the
-      # chat-form Stimulus controller's cycling hook.
+      # followed by a value rendered as a pito-token-shimmer span via TokenComponent.
+      # The chat-form Stimulus controller finds the inner span via .pito-token-shimmer
+      # to update the displayed value when cycling channels/periods.
       class FilterComponent < ViewComponent::Base
         def initialize(shortcut:, value:)
           @shortcut = shortcut

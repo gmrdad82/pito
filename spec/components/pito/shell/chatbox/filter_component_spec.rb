@@ -17,11 +17,11 @@ RSpec.describe Pito::Shell::Chatbox::FilterComponent do
       expect(yellow.text).to eq("shift+tab")
     end
 
-    it "renders the value in a text-cyan span" do
+    it "renders the value in a shimmer span" do
       node = render_inline(described_class.new(shortcut: "shift+space", value: "7d"))
-      cyan = node.css("span.text-cyan").first
-      expect(cyan).not_to be_nil
-      expect(cyan.text).to eq("7d")
+      shimmer = node.css("span.pito-token-shimmer").first
+      expect(shimmer).not_to be_nil
+      expect(shimmer.text).to eq("7d")
     end
 
     it "renders the shortcut before the value" do
@@ -29,10 +29,10 @@ RSpec.describe Pito::Shell::Chatbox::FilterComponent do
       spans = node.css("span.inline-flex.items-center.gap-2 > span")
       expect(spans.first["class"]).to include("font-bold")
       expect(spans.first["class"]).to include("text-yellow")
-      expect(spans.last["class"]).to include("text-cyan")
+      expect(spans.last["class"]).to include("pito-token-shimmer")
     end
 
-    it "renders various shortcut + value combinations" do
+    it "renders various shortcut + value combinations with the shimmer" do
       [
         [ "shift+tab", "@gaming" ],
         [ "shift+space", "30d" ],
@@ -40,7 +40,7 @@ RSpec.describe Pito::Shell::Chatbox::FilterComponent do
       ].each do |shortcut, value|
         node = render_inline(described_class.new(shortcut: shortcut, value: value))
         expect(node.css("span.font-bold.text-yellow").text).to eq(shortcut)
-        expect(node.css("span.text-cyan").text).to eq(value)
+        expect(node.css("span.pito-token-shimmer").text).to eq(value)
       end
     end
   end

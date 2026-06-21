@@ -392,6 +392,36 @@ RSpec.describe Pito::Event::SystemComponent do
       end
     end
 
+    it "does not shimmer headings unless shimmer_heading is set" do
+      grid = node.css("div.pito-data-grid").first
+      expect(grid.css("span.pito-token-shimmer").first(3)).to be_empty
+    end
+  end
+
+  describe "table_heading with shimmer_heading (sortable/interactive headers)" do
+    subject(:node) do
+      render_inline(described_class.new(payload: {
+        body: "Results",
+        table_heading: [ "A", "B", "C" ],
+        shimmer_heading: true,
+        table_rows: [ { cells: [
+          { text: "v1", class: "text-fg" },
+          { text: "v2", class: "text-fg" },
+          { text: "v3", class: "text-fg" }
+        ] } ]
+      }))
+    end
+
+    it "shimmers every heading span with the cyan token shimmer + a shared offset" do
+      grid = node.css("div.pito-data-grid").first
+      heading_spans = grid.css("span").first(3)
+      heading_spans.each do |span|
+        expect(span["class"]).to include("pito-token-shimmer")
+        expect(span["class"]).to match(/\bpito-shimmer-d\d+\b/)
+        expect(span["class"]).to include("font-bold")
+      end
+    end
+
     it "uses a 3-track grid that accounts for the heading width" do
       grid = node.css("div.pito-data-grid").first
       expect(grid["data-cols"]).to eq("3")

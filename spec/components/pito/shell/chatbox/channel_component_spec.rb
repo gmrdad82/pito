@@ -9,18 +9,18 @@ RSpec.describe Pito::Shell::Chatbox::ChannelComponent do
     expect(faded_texts).not_to include("Channel")
   end
 
-  it "renders the channel as a cyan @handle via ChannelHandleComponent" do
+  it "renders the channel as a shimmer @handle via ChannelHandleComponent" do
     node = render_inline(described_class.new(channel: "@all"))
-    cyan = node.css("span.text-cyan").first
-    expect(cyan).not_to be_nil
-    expect(cyan.text).to eq("@all")
+    shimmer = node.css("span.pito-token-shimmer").first
+    expect(shimmer).not_to be_nil
+    expect(shimmer.text).to eq("@all")
   end
 
-  it "renders @gmrdad82 in cyan" do
+  it "renders @gmrdad82 with the token shimmer" do
     node = render_inline(described_class.new(channel: "@gmrdad82"))
-    cyan = node.css("span.text-cyan").first
-    expect(cyan).not_to be_nil
-    expect(cyan.text).to eq("@gmrdad82")
+    shimmer = node.css("span.pito-token-shimmer").first
+    expect(shimmer).not_to be_nil
+    expect(shimmer.text).to eq("@gmrdad82")
   end
 
   it "renders 'none' in red when channel is 'none' (no channels connected)" do
@@ -28,7 +28,7 @@ RSpec.describe Pito::Shell::Chatbox::ChannelComponent do
     red = node.css("span.text-red").first
     expect(red).not_to be_nil
     expect(red.text).to eq("none")
-    expect(node.css("span.text-cyan")).to be_empty
+    expect(node.css("span.pito-token-shimmer")).to be_empty
   end
 
   it "renders the shift+tab shortcut in bold yellow" do

@@ -7,26 +7,26 @@ RSpec.describe Pito::Event::MetaLineComponent do
   # this footer carries only handle/channel (see timestamp_prefix_component_spec).
 
   describe "handle" do
-    it "renders the handle in purple via HandleComponent when present" do
+    it "renders the reply handle with the blue→purple hashtag shimmer via HandleComponent when present" do
       node = render_inline(described_class.new(handle: "alpha-42"))
-      purple = node.css("span.text-purple").first
-      expect(purple).not_to be_nil
-      expect(purple.text).to eq("#alpha-42")
+      hashtag = node.css("span.pito-hashtag-shimmer").first
+      expect(hashtag).not_to be_nil
+      expect(hashtag.text).to eq("#alpha-42")
     end
 
     it "does not render anything when handle is nil and no channel" do
       node = render_inline(described_class.new(handle: nil))
-      expect(node.css("span.text-purple")).to be_empty
+      expect(node.css("span.pito-hashtag-shimmer")).to be_empty
     end
   end
 
   describe "shift+r affordance" do
-    it "renders a hidden, yellow `shift+r` hint (no leading dot) when a handle is present" do
+    it "renders a hidden `shift+r` hint (keybinding shimmer, no leading dot) when a handle is present" do
       node = render_inline(described_class.new(handle: "alpha-42"))
       hint = node.css("[data-pito-lasthashtag-hint]").first
       expect(hint).not_to be_nil
       expect(hint["class"]).to include("hidden")
-      expect(hint["class"]).to include("text-yellow")
+      expect(hint.css("span.pito-kbd-shimmer.text-yellow")).not_to be_empty
       expect(hint.text.strip).to eq("shift+r")
     end
 
@@ -55,21 +55,21 @@ RSpec.describe Pito::Event::MetaLineComponent do
   end
 
   describe "channel" do
-    it "renders @channel in cyan via ChannelHandleComponent when channel is present" do
+    it "renders @channel with the token shimmer via ChannelHandleComponent when channel is present" do
       node = render_inline(described_class.new(channel: "all"))
-      cyan = node.css("span.text-cyan").first
-      expect(cyan).not_to be_nil
-      expect(cyan.text).to eq("@all")
+      shimmer = node.css("span.pito-token-shimmer").first
+      expect(shimmer).not_to be_nil
+      expect(shimmer.text).to eq("@all")
     end
 
     it "does not render channel span when channel is nil" do
       node = render_inline(described_class.new(channel: nil))
-      expect(node.css("span.text-cyan")).to be_empty
+      expect(node.css("span.pito-token-shimmer")).to be_empty
     end
 
     it "does not render channel span when channel is omitted" do
       node = render_inline(described_class.new)
-      expect(node.css("span.text-cyan")).to be_empty
+      expect(node.css("span.pito-token-shimmer")).to be_empty
     end
   end
 
@@ -78,12 +78,12 @@ RSpec.describe Pito::Event::MetaLineComponent do
       render_inline(described_class.new(handle: "delta-9", channel: "all"))
     end
 
-    it "renders the handle in purple" do
-      expect(node.css("span.text-purple").first.text).to eq("#delta-9")
+    it "renders the reply handle with the hashtag shimmer" do
+      expect(node.css("span.pito-hashtag-shimmer").first.text).to eq("#delta-9")
     end
 
-    it "renders @all in cyan" do
-      expect(node.css("span.text-cyan").first.text).to eq("@all")
+    it "renders @all with the token shimmer" do
+      expect(node.css("span.pito-token-shimmer").first.text).to eq("@all")
     end
 
     it "includes at least one separator" do
@@ -94,8 +94,8 @@ RSpec.describe Pito::Event::MetaLineComponent do
   describe "all nil (empty)" do
     it "renders nothing — no handle or channel spans" do
       node = render_inline(described_class.new)
-      expect(node.css("span.text-purple")).to be_empty
-      expect(node.css("span.text-cyan")).to be_empty
+      expect(node.css("span.pito-hashtag-shimmer")).to be_empty
+      expect(node.css("span.pito-token-shimmer")).to be_empty
     end
   end
 end

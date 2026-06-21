@@ -57,7 +57,7 @@ module Pito
           channel:  {
             aliases:    %w[channel],
             heading:    "Channel",
-            cell_class: "text-cyan pito-cell-channel",
+            cell_class: "pito-cell-channel",
             value:      ->(v) { v.channel.at_handle }
           },
           visibility: {
@@ -190,8 +190,15 @@ module Pito
         # @return [Array<{ text: String, class: String }>]
         def cells(video, cols)
           cols.map do |col|
-            cfg = COLUMNS.fetch(col)
-            { text: cfg[:value].call(video), class: cfg[:cell_class] || "text-fg-dim" }
+            cfg  = COLUMNS.fetch(col)
+            text = cfg[:value].call(video)
+            klass = if col == :channel
+                      # Shimmer owns the colour; shared offset via Pito::Shimmer.
+                      Pito::Shimmer::TokenComponent.css_class(text, extra: "pito-cell-channel")
+            else
+                      cfg[:cell_class] || "text-fg-dim"
+            end
+            { text:, class: klass }
           end
         end
 

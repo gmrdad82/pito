@@ -19,7 +19,7 @@ RSpec.describe Pito::Keybinding::ShortcutComponent do
     it "applies the shimmer class with a stable staggered offset bucket" do
       span = render_inline(described_class.new(keys: "ctrl+k")).css("span").first
       expect(span["class"]).to include("pito-kbd-shimmer")
-      expect(span["class"]).to match(/pito-kbd-shimmer-d[0-#{described_class::OFFSETS - 1}]/)
+      expect(span["class"]).to match(/\bpito-shimmer-d\d+\b/)
       again = render_inline(described_class.new(keys: "ctrl+k")).css("span").first
       expect(again["class"]).to eq(span["class"])
     end
