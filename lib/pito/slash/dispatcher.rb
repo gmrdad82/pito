@@ -26,7 +26,7 @@ module Pito
         # (login, logout, connect, new, resume), so no command can silently eat
         # the flag and produce side effects.
         if help_requested?(invocation)
-          return Pito::Slash::HelpRenderer.call(invocation:, authenticated: @authenticated)
+          return Pito::Slash::HelpBuilder.call(invocation:)
         end
 
         handler_class = Pito::Slash::Registry.lookup(invocation.verb)

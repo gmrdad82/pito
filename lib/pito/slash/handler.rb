@@ -37,7 +37,7 @@ module Pito
     # ## `--help` / `-h` intercept path
     #
     # The dispatcher intercepts `--help` / `-h` in the raw input *before* constructing
-    # the handler and delegates to `Pito::Slash::HelpRenderer`.  Handlers that also
+    # the handler and delegates to `Pito::Slash::HelpBuilder`.  Handlers that also
     # want to respond to provider-scoped help (e.g. `/config google --help`) should
     # override `#show_help`.  The invariant: **`#call` is never invoked when the raw
     # input contains `--help` or `-h`** — no side effects occur on help requests.

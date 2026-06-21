@@ -11,6 +11,7 @@ en:
         resume: "Browse and switch to a previous conversation"
         disconnect: "Disconnect a YouTube channel"
         theme: "Switch the UI theme (apply / preview / reset)"
+        notifications: "Open the notifications panel"
         games: "Import a game from IGDB into your library"
       chat:
         list: "List games in your library"
@@ -30,6 +31,7 @@ en:
         sync: "Sync vids or channels from YouTube (scope via shift+tab channel)"
         import: "Import a game from IGDB into your library"
         help: "List all follow-up targets and their accepted actions"
+        shinies: "Show achievement tracks and obtained shinies (game, vid, or channel)"
       hashtag:
         add: "Track a metric in this conversation"
         remove: "Stop tracking a metric"

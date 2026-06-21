@@ -8,7 +8,7 @@
   <div class="pito-game-detail__left flex flex-col gap-3">
 
     <% if @intro.present? %>
-      <div class="pito-game-detail__intro text-fg"><span data-pito-ts-slot></span><%= @intro %></div>
+      <div class="pito-game-detail__intro text-fg flex flex-wrap items-baseline"><span data-pito-ts-slot></span><%= @intro %></div>
     <% end %>
 
     <%# Cover art or placeholder %>
@@ -23,28 +23,24 @@
     <%# Hairline separating the cover from the stats %>
     <%= render(Pito::Separator::DividerLineComponent.new(hairline: true, tone: :faded)) %>
 
-    <%# Stats — one line: value + dim abbreviation (V/L/C), · separated %>
-    <div class="pito-game-detail__stats flex flex-wrap items-center">
-      <span><span class="text-fg"><%= views_label %></span> <span class="text-fg-dim"><%= t("pito.game.detail.views_abbr") %></span></span>
-      <%= render(Pito::Shell::InlineSeparatorComponent.new) %>
-      <span><span class="text-fg"><%= likes_label %></span> <span class="text-fg-dim"><%= t("pito.game.detail.likes_abbr") %></span></span>
-      <%= render(Pito::Shell::InlineSeparatorComponent.new) %>
-      <span><span class="text-fg"><%= comments_label %></span> <span class="text-fg-dim"><%= t("pito.game.detail.comments_abbr") %></span></span>
+    <%# Stats — bold heading (Pito::Copy) + one-line counters (V/L/C), left. %>
+    <div class="pito-game-detail__stats flex flex-col gap-1">
+      <div class="pito-game-detail__stats-heading text-fg-dim font-bold"><%= Pito::Copy.render("pito.copy.stats.heading") %></div>
+      <%= render(Pito::Stats::CountersComponent.new(metrics: stat_counter_metrics, align: :left)) %>
     </div>
 
-    <%# Legend mapping the V/L/C abbreviations (reuses the same copy key as show video) %>
-    <p class="pito-game-detail__legend text-fg-dim italic mt-2"><%= Pito::Copy.render("pito.copy.videos.stats_legend") %></p>
-
-    <%# Shinies — only when the game has at least one achievement.
-        Badges newest→oldest inside whitespace-pre so box-drawing chars align.
-        The badge render lines are intentionally unindented to avoid stray
-        leading spaces inside the pre-formatted content. %>
+    <%# Shinies — only when the game has at least one achievement. Badges align
+        left (inner text stays centered); the legend below is left-aligned too. %>
     <% if @game.achievements.any? %>
-      <%= render(Pito::Separator::DividerLineComponent.new(hairline: true, tone: :faded)) %>
-      <div class="pito-game-detail__shinies-heading text-fg-dim"><%= Pito::Copy.render("pito.copy.shinies.heading") %></div>
-      <div class="pito-game-detail__shinies whitespace-pre"><% top_shinies_per_metric.each do |a| -%>
-<%= render(Pito::Achievement::BadgeComponent.new(threshold: a.threshold, label: Pito::Achievements::Label.for(a.metric, count: a.threshold), unlocked_on: a.unlocked_at.to_date)) %>
-<% end -%></div>
+      <div class="flex flex-col gap-1">
+        <div class="pito-game-detail__shinies-heading text-fg-dim font-bold"><%= Pito::Copy.render("pito.copy.shinies.heading") %></div>
+        <div class="pito-game-detail__shinies flex flex-wrap gap-2">
+          <% top_shinies_per_metric.each do |a| %>
+            <%= render(Pito::Achievement::BadgeComponent.new(threshold: a.threshold, metric: a.metric, unlocked_on: a.unlocked_at.to_date)) %>
+          <% end %>
+        </div>
+        <p class="pito-game-detail__shinies-legend text-fg-dim italic text-left"><%= Pito::Copy.render("pito.copy.shinies.legend") %></p>
+      </div>
     <% end %>
   </div>
 

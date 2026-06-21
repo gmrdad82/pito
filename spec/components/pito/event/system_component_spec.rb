@@ -545,12 +545,12 @@ RSpec.describe Pito::Event::SystemComponent do
       expect(grid.css("img.pito-platform-icon").first).not_to be_nil
     end
 
-    it "does NOT add a typewriter prose target to the html cell span" do
+    it "adds an htmlProse typewriter target to the html cell span (reveal gating)" do
       grid = node.css("div.pito-data-grid").first
       spans = grid.css("span")
       html_span = spans.find { |s| s.css("img").any? }
       expect(html_span).not_to be_nil
-      expect(html_span["data-pito--typewriter-target"]).to be_nil
+      expect(html_span["data-pito--typewriter-target"]).to eq("htmlProse")
     end
 
     it "still adds typewriter prose target to the plain-text cell span" do

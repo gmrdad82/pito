@@ -49,15 +49,17 @@ module Pito
         end
 
         def show_help
-          Pito::Slash::Result::Ok.new(events: [
-            {
-              kind:    "system",
-              payload: {
-                body:       I18n.t("pito.slash.games.help.usage"),
-                info_lines: [ I18n.t("pito.slash.games.help.description") ]
-              }
-            }
-          ])
+          body = Pito::MessageBuilder::ManPage.render(
+            usage:  I18n.t("pito.slash.games.help.usage"),
+            groups: [
+              [ "Subcommands:", [ [ "import", I18n.t("pito.slash.games.help.description") ] ] ],
+              [ "Options:",     [ [ "--help", "Print this help message" ] ] ]
+            ]
+          )
+          Pito::Slash::Result::Ok.new(events: [ {
+            kind:    "system",
+            payload: { "html" => true, "body" => body }
+          } ])
         end
 
         private

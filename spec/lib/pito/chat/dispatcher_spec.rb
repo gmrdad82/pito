@@ -22,7 +22,7 @@ RSpec.describe Pito::Chat::Dispatcher do
 
       def call
         Pito::Chat::Result::Ok.new(events: [
-          { kind: :system, payload: { text: "list ok" } }
+          { kind: :system, payload: { text: "list ok", period: period } }
         ])
       end
     end)
@@ -53,7 +53,18 @@ RSpec.describe Pito::Chat::Dispatcher do
     it "returns Ok for a recognised and registered verb" do
       result = described_class.call(input: "list videos", conversation:)
       expect(result).to be_a(Pito::Chat::Result::Ok)
-      expect(result.events).to eq([ { kind: :system, payload: { text: "list ok" } } ])
+      expect(result.events).to eq([ { kind: :system, payload: { text: "list ok", period: nil } } ])
+    end
+
+    it "forwards period: to the handler" do
+      result = described_class.call(input: "list videos", conversation:, period: "28d")
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(result.events.first[:payload][:period]).to eq("28d")
+    end
+
+    it "defaults period to nil when not supplied" do
+      result = described_class.call(input: "list videos", conversation:)
+      expect(result.events.first[:payload][:period]).to be_nil
     end
 
     it "returns Error(verb_not_implemented) for a recognised but unregistered verb" do
@@ -179,23 +190,23 @@ RSpec.describe Pito::Chat::Dispatcher do
         expect(result.events.first[:kind]).to eq(:system)
       end
 
-      it "'help --help' payload body contains the manual's manual signature" do
+      it "'help --help' body HTML contains the manual's manual signature" do
         result = described_class.call(input: "help --help", conversation:)
         payload = result.events.first[:payload]
-        expect(payload[:body]).to include("manual's manual")
+        expect(payload["html"]).to be true
+        expect(payload["body"]).to include("manual")
       end
 
-      it "'help --help' payload table_rows contains the touch grass entry" do
+      it "'help --help' body HTML contains the touch grass entry" do
         result = described_class.call(input: "help --help", conversation:)
         payload = result.events.first[:payload]
-        rows = payload[:table_rows]
-        expect(rows.map { |r| r[:value] }.join).to include("touch grass")
+        expect(payload["body"]).to include("touch grass")
       end
 
-      it "'help --help' payload matches Pito::Slash::HelpRenderer.nonsense_payload exactly" do
+      it "'help --help' returns a man-page system event with pito-help-block" do
         result = described_class.call(input: "help --help", conversation:)
         payload = result.events.first[:payload]
-        expect(payload).to eq(Pito::Slash::HelpRenderer.nonsense_payload)
+        expect(payload["body"]).to include("pito-help-block")
       end
 
       it "plain 'help' (no flag) still renders the verb catalogue (GAMES/VIDEOS/CHANNELS)" do

@@ -7,7 +7,7 @@
 # No allow_anonymous — unauthenticated requests are redirected to root.
 class NotificationsController < ApplicationController
   def index
-    @notifications = Notification.recent
+    @notifications = Notification.panel_ordered
 
     respond_to do |format|
       format.turbo_stream { render "notifications/index" }

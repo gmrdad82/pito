@@ -19,15 +19,17 @@ RSpec.describe Pito::Slash::Handlers::Config, type: :service do
   after  { Pito::Credentials.invalidate! }
 
   describe "#call — /config --help (general)" do
-    it "returns a structured system event with body, table rows, and info lines" do
+    it "returns a man-page system event with Usage: and all provider tokens" do
       result = build_handler(raw: "/config --help").call
       expect(result).to be_a(Pito::Slash::Result::Ok)
       expect(result.events.length).to eq(1)
       payload = result.events.first[:payload]
-      expect(payload[:body]).to include("/config <provider>")
-      rows = payload[:table_rows]
-      expect(rows.map { |r| r[:key] }).to include("google", "voyage", "igdb", "webhook")
-      expect(payload[:info_lines]).to be_present
+      expect(payload["html"]).to be true
+      body = payload["body"]
+      expect(body).to include("pito-help-block")
+      expect(body).to include("Usage:")
+      expect(body).to include("/config")
+      %w[google voyage igdb webhook].each { |p| expect(body).to include(p) }
     end
 
     it "does not treat --help as an unknown provider error" do
@@ -37,15 +39,17 @@ RSpec.describe Pito::Slash::Handlers::Config, type: :service do
   end
 
   describe "#call — /config google --help" do
-    it "returns a single structured system event with table rows and an inline suggestion" do
+    it "returns a man-page system event with all google key tokens and /connect hint" do
       result = build_handler(args: [ "google" ], raw: "/config google --help").call
       expect(result).to be_a(Pito::Slash::Result::Ok)
       expect(result.events.length).to eq(1)
-      payload = result.events.first[:payload]
-      keys = payload[:table_rows].map { |r| r[:key] }
-      expect(keys).to include("client_id=", "client_secret=", "redirect_uri=", "api_key=")
-      expect(payload.dig(:suggestion, :run_cmd)).to eq("/connect")
-      expect(payload.dig(:suggestion, :shortcut)).to eq("ctrl+/")
+      body = result.events.first[:payload]["body"]
+      expect(body).to include("pito-help-block")
+      expect(body).to include("client_id=")
+      expect(body).to include("client_secret=")
+      expect(body).to include("redirect_uri=")
+      expect(body).to include("api_key=")
+      expect(body).to include("/connect")
     end
   end
 
@@ -218,11 +222,11 @@ RSpec.describe Pito::Slash::Handlers::Config, type: :service do
   end
 
   describe "#call — general help lists sound and fx" do
-    it "includes sound and fx in the help table rows" do
+    it "includes sound and fx in the help body" do
       result = build_handler(raw: "/config --help").call
-      rows = result.events.first[:payload][:table_rows]
-      keys = rows.map { |r| r[:key] }
-      expect(keys).to include("sound", "fx")
+      body = result.events.first[:payload]["body"]
+      expect(body).to include("sound")
+      expect(body).to include("fx")
     end
   end
 
@@ -263,10 +267,90 @@ RSpec.describe Pito::Slash::Handlers::Config, type: :service do
   end
 
   describe "#call — /config timezone --help" do
-    it "returns a man-style usage line" do
+    it "returns a man-page body containing /config timezone" do
       result = build_handler(args: [ "timezone" ], raw: "/config timezone --help").call
       expect(result).to be_a(Pito::Slash::Result::Ok)
-      expect(result.events.first[:payload][:text]).to include("/config timezone")
+      body = result.events.first[:payload]["body"]
+      expect(body).to include("pito-help-block")
+      expect(body).to include("/config timezone")
+    end
+  end
+
+  # ── /config me path ─────────────────────────────────────────────────────────
+
+  describe "#call — /config me nickname=<value> (setter)" do
+    before { AppSetting.where(key: AppSetting::NICKNAME_KEY).delete_all }
+    after  { AppSetting.where(key: AppSetting::NICKNAME_KEY).delete_all }
+
+    it "persists the nickname to AppSetting" do
+      build_handler(args: [ "me" ], kwargs: { nickname: "Foo" }).call
+      expect(AppSetting.nickname).to eq("Foo")
+    end
+
+    it "broadcasts a global mini-status refresh so the auth label updates live" do
+      expect(Pito::Stream::Broadcaster).to receive(:broadcast_global_mini_status)
+      build_handler(args: [ "me" ], kwargs: { nickname: "Foo" }).call
+    end
+
+    it "does not broadcast when the nickname is blank (error path)" do
+      expect(Pito::Stream::Broadcaster).not_to receive(:broadcast_global_mini_status)
+      build_handler(args: [ "me" ], kwargs: { nickname: "   " }).call
+    end
+
+    it "returns a Result::Ok with a confirmation text" do
+      result = build_handler(args: [ "me" ], kwargs: { nickname: "Foo" }).call
+      expect(result).to be_a(Pito::Slash::Result::Ok)
+      expect(result.events.first[:payload][:text]).to include("Foo")
+    end
+
+    it "returns an error for an unknown key" do
+      result = build_handler(args: [ "me" ], kwargs: { bad_key: "val" }).call
+      expect(result).to be_a(Pito::Slash::Result::Error)
+      expect(result.message_key).to eq("pito.slash.config.errors.unknown_keys")
+    end
+
+    it "returns an error for a blank nickname value" do
+      result = build_handler(args: [ "me" ], kwargs: { nickname: "   " }).call
+      expect(result).to be_a(Pito::Slash::Result::Error)
+      expect(result.message_key).to eq("pito.slash.config.errors.blank_nickname")
+    end
+  end
+
+  describe "#call — /config me (getter, no kwargs)" do
+    before { AppSetting.where(key: AppSetting::NICKNAME_KEY).delete_all }
+    after  { AppSetting.where(key: AppSetting::NICKNAME_KEY).delete_all }
+
+    it "shows the current nickname" do
+      AppSetting.nickname = "streamer"
+      result = build_handler(args: [ "me" ]).call
+      expect(result).to be_a(Pito::Slash::Result::Ok)
+      expect(result.events.first[:payload][:text]).to include("streamer")
+    end
+
+    it "shows the default nickname when none is set" do
+      result = build_handler(args: [ "me" ]).call
+      expect(result).to be_a(Pito::Slash::Result::Ok)
+      expect(result.events.first[:payload][:text]).to include("gmrdad82")
+    end
+  end
+
+  describe "#call — /config me --help" do
+    it "returns a man-page system event with nickname= token" do
+      result = build_handler(args: [ "me" ], raw: "/config me --help").call
+      expect(result).to be_a(Pito::Slash::Result::Ok)
+      body = result.events.first[:payload]["body"]
+      expect(body).to include("pito-help-block")
+      expect(body).to include("Usage:")
+      expect(body).to include("/config me")
+      expect(body).to include("nickname=")
+    end
+  end
+
+  describe "#call — general help includes me" do
+    it "includes me in the help body" do
+      result = build_handler(raw: "/config --help").call
+      body = result.events.first[:payload]["body"]
+      expect(body).to include("me")
     end
   end
 

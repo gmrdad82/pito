@@ -178,15 +178,16 @@ RSpec.describe Pito::Stream::Broadcaster do
   end
 
   describe "#emit_thinking" do
-    it "creates a thinking event with a random word_index within the dictionary" do
+    it "creates a thinking event with a shuffled cycling order over the dictionary" do
       words = I18n.t("pito.copy.thinking.slash.doing")
       event = broadcaster.emit_thinking(turn:, dictionary: "slash")
 
       expect(event.kind).to eq("thinking")
       expect(event.payload).to include("dictionary" => "slash")
-      expect(event.payload).to have_key("word_index")
-      expect(event.payload["word_index"]).to be_a(Integer)
-      expect(event.payload["word_index"]).to be_between(0, words.length - 1)
+      expect(event.payload).to have_key("started_at")
+      # order is a permutation of every index into the doing array, so the verb
+      # can cycle through all of them without repeating mid-rotation.
+      expect(event.payload["order"]).to match_array(0...words.length)
     end
 
     it "broadcasts the thinking event into the turn container" do
@@ -219,6 +220,19 @@ RSpec.describe Pito::Stream::Broadcaster do
       thinking.reload
       expect(thinking.payload["resolved"]).to eq(true)
       expect(thinking.payload["elapsed_seconds"]).to be >= 0
+    end
+
+    it "resolves word_index to the verb cycled last (order + elapsed)" do
+      thinking = broadcaster.emit_thinking(turn:, dictionary: "slash")
+      order    = thinking.payload["order"]
+      thinking.update!(payload: thinking.payload.merge("started_at" => 12.seconds.ago.iso8601))
+
+      broadcaster.resolve_thinking(turn:)
+
+      thinking.reload
+      interval = Pito::Event::ThinkingComponent::INTERVAL_SECONDS
+      step     = thinking.payload["elapsed_seconds"] / interval
+      expect(thinking.payload["word_index"]).to eq(order[step % order.length])
     end
 
     it "is a no-op when no thinking event exists" do

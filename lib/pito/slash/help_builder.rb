@@ -1,0 +1,168 @@
+# frozen_string_literal: true
+
+module Pito
+  module Slash
+    # Universal man-page-style --help renderer for slash commands.
+    #
+    # Every /<verb> --help now produces a
+    # `.pito-help-block` HTML payload via Pito::MessageBuilder::ManPage instead
+    # of the old body:/table_rows:/info_lines: hash format.
+    #
+    # Called by the Dispatcher when the raw input contains --help or -h,
+    # BEFORE the normal handler executes, so no command can produce side
+    # effects while the user is just asking for help.
+    #
+    # Rendering rules (checked in order):
+    #   1. /help --help / /themes --help  → man-page nonsense easter egg
+    #   2. /config <provider> --help      → provider key table (man style)
+    #   3. /config --help                 → general config overview (man style)
+    #   4. Any other command              → generic usage + description (man style)
+    module HelpBuilder
+      # Ordered provider list for /config --help; mirrors the i18n copy order.
+      ALL_CONFIG_PROVIDERS = %w[google voyage igdb webhook me sound fx timezone].freeze
+
+      class << self
+        def call(invocation:)
+          verb     = invocation.verb.to_s
+          provider = extract_provider(invocation.raw, verb)
+
+          return nonsense_help if %w[help themes].include?(verb)
+
+          if verb == "config"
+            return provider_help(provider) if provider
+            return general_config_help
+          end
+
+          generic_command_help(verb)
+        end
+
+        # Returns the raw HTML for the nonsense "manual's manual" man page.
+        # Exposed publicly so the chat dispatcher can embed it without duplicating
+        # the copy logic.
+        def nonsense_body
+          title = I18n.t("pito.slash.help.nonsense_title")
+          rows  = I18n.t("pito.slash.help.nonsense").map { |k, v| [ k.to_s, v ] }
+          Pito::MessageBuilder::ManPage.render(
+            usage:  title,
+            groups: [ [ "Commands:", rows ] ]
+          )
+        end
+
+        private
+
+        def nonsense_help
+          ok(nonsense_body)
+        end
+
+        # ── /config <provider> --help ──────────────────────────────────────────
+
+        def provider_help(provider)
+          return google_provider_help if provider == "google"
+
+          keys = begin
+            Pito::Grammar::Vocabularies.provider_keys(provider)
+          rescue StandardError
+            []
+          end
+
+          # Toggle-only providers (sound, fx) have no settable keys — fall back
+          # to the generic command help so the user at least sees usage.
+          if keys.blank?
+            return generic_command_help("config")
+          end
+
+          rows = keys.map do |key|
+            desc = I18n.t("pito.slash.config.help.providers.#{provider}.keys.#{key}", default: "")
+            [ "#{key}=", desc ]
+          end
+
+          body = Pito::MessageBuilder::ManPage.render(
+            usage:  "/config #{provider} [key=value …]",
+            groups: [
+              [ "Keys:",    rows ],
+              [ "Options:", [ [ "--help", "Print this help message" ] ] ]
+            ]
+          )
+          ok(body)
+        end
+
+        def google_provider_help
+          rows = [
+            [ "client_id=",     I18n.t("pito.slash.config.help.providers.google.keys.client_id") ],
+            [ "client_secret=", I18n.t("pito.slash.config.help.providers.google.keys.client_secret") ],
+            [ "redirect_uri=",  I18n.t("pito.slash.config.help.providers.google.keys.redirect_uri") ],
+            [ "api_key=",       I18n.t("pito.slash.config.help.providers.google.keys.api_key") ]
+          ]
+          connect_post = I18n.t("pito.slash.config.help.providers.google.suggestion.post")
+
+          body = Pito::MessageBuilder::ManPage.render(
+            usage:  "/config google [key=value …]",
+            groups: [
+              [ "Keys:",    rows ],
+              [ "Options:", [
+                [ "--help",   "Print this help message" ],
+                [ "/connect", "Run /connect #{connect_post}" ]
+              ] ]
+            ]
+          )
+          ok(body)
+        end
+
+        # ── /config --help (general) ───────────────────────────────────────────
+
+        def general_config_help
+          rows      = ALL_CONFIG_PROVIDERS.map do |p|
+            [ p, I18n.t("pito.slash.config.help.general.providers.#{p}", default: "") ]
+          end
+          info_line = I18n.t("pito.slash.config.help.general.info_lines").first
+
+          body = Pito::MessageBuilder::ManPage.render(
+            usage:  I18n.t("pito.slash.config.help.general.body"),
+            groups: [
+              [ "Providers:", rows ],
+              [ "Options:",   [ [ "--help", info_line ] ] ]
+            ]
+          )
+          ok(body)
+        end
+
+        # ── Generic per-command help ───────────────────────────────────────────
+
+        def generic_command_help(verb)
+          usage = I18n.t("pito.slash.#{verb}.help.usage",       default: "/#{verb}")
+          desc  = I18n.t("pito.slash.#{verb}.help.description", default: I18n.t("pito.grammar.slash.#{verb}", default: ""))
+
+          groups = []
+          groups << [ "Description:", [ [ "/#{verb}", desc ] ] ] if desc.present?
+          groups << [ "Options:",     [ [ "--help", "Print this help message" ] ] ]
+
+          body = Pito::MessageBuilder::ManPage.render(usage:, groups:)
+          ok(body)
+        end
+
+        # ── Provider extraction ────────────────────────────────────────────────
+
+        # Parses the provider from the raw slash input, ignoring --help/-h tokens.
+        # Returns nil when the verb is not "config" or no known provider is present.
+        def extract_provider(raw, verb)
+          return nil unless verb == "config"
+
+          tokens = raw.to_s.split
+          tokens.find do |t|
+            clean = t.gsub(/--help|-h\b/, "").strip.downcase
+            ALL_CONFIG_PROVIDERS.include?(clean) && clean.present?
+          end&.gsub(/--help|-h\b/, "")&.strip&.downcase
+        end
+
+        # ── Result builder ─────────────────────────────────────────────────────
+
+        def ok(body)
+          Pito::Slash::Result::Ok.new(events: [ {
+            kind:    "system",
+            payload: { "html" => true, "body" => body }
+          } ])
+        end
+      end
+    end
+  end
+end

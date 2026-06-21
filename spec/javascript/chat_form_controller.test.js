@@ -247,7 +247,7 @@ describe("pito--chat-form controller", () => {
 
   it("Shift+Space cycles to the next period (authenticated)", async () => {
     const { inputField, periodInput, periodDisplay } = buildScaffold({
-      periods: ["7d", "28d", "1m"]
+      periods: ["7d", "28d", "3m"]
     })
     await waitForConnect()
 
@@ -255,6 +255,28 @@ describe("pito--chat-form controller", () => {
 
     expect(periodInput.value).toBe("28d")
     expect(periodDisplay.querySelector(".text-cyan").textContent).toBe("28d")
+  })
+
+  it("default periods value does not include '1m' and contains exactly 5 tokens", async () => {
+    // Mount without an explicit periods override so the Stimulus default kicks in.
+    setAuthenticated(true)
+    const form = document.createElement("form")
+    form.setAttribute("data-controller", "pito--chat-form")
+    form.addEventListener("submit", (e) => e.preventDefault())
+    const inputField = document.createElement("textarea")
+    inputField.setAttribute("data-pito--chat-form-target", "inputField")
+    form.appendChild(inputField)
+    const hiddenInput = document.createElement("input")
+    hiddenInput.type = "hidden"
+    hiddenInput.setAttribute("data-pito--chat-form-target", "hiddenInput")
+    form.appendChild(hiddenInput)
+    document.body.appendChild(form)
+    await waitForConnect()
+
+    const ctrl = app.getControllerForElementAndIdentifier(form, "pito--chat-form")
+    expect(ctrl.periodsValue).not.toContain("1m")
+    expect(ctrl.periodsValue).toHaveLength(5)
+    expect(ctrl.periodsValue).toEqual(["7d", "28d", "3m", "1y", "lifetime"])
   })
 
   it("Shift+Space does not cycle when unauthenticated", async () => {

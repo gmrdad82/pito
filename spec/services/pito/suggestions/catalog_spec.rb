@@ -212,6 +212,30 @@ RSpec.describe Pito::Suggestions::Catalog, type: :service do
     end
   end
 
+  # ── Config providers autosuggest ──────────────────────────────────────────
+
+  describe ".to_h vocabularies[:config_providers]" do
+    subject(:providers) { described_class.to_h(authenticated: true)[:vocabularies][:config_providers] }
+
+    it "includes 'me' in the canonical list" do
+      expect(providers[:canonical]).to include("me")
+    end
+  end
+
+  describe ".to_h vocabularies[:config_keys]" do
+    subject(:keys) { described_class.to_h(authenticated: true)[:vocabularies][:config_keys] }
+
+    it "includes 'nickname' in the canonical list" do
+      expect(keys[:canonical]).to include("nickname")
+    end
+  end
+
+  describe "PROVIDER_KEYS for me" do
+    it "maps 'me' provider to ['nickname']" do
+      expect(Pito::Grammar::Vocabularies::PROVIDER_KEYS["me"]).to eq(%w[nickname])
+    end
+  end
+
   # ── Top-level shape ────────────────────────────────────────────────────────
 
   describe ".to_h top-level keys" do

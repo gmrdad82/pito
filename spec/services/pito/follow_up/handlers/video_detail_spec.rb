@@ -32,8 +32,8 @@ RSpec.describe Pito::FollowUp::Handlers::VideoDetail, type: :service do
     expect(described_class.mode).to eq(:append)
   end
 
-  it "declares rm, delete, reindex, link, and unlink actions" do
-    expect(described_class.actions).to eq([ "rm", "delete", "reindex", "link", "unlink" ])
+  it "declares rm, delete, reindex, link, unlink, and shinies actions" do
+    expect(described_class.actions).to eq([ "rm", "delete", "reindex", "link", "unlink", "shinies" ])
   end
 
   # ── reindex (delegated to Chat::Handlers::Reindex) ────────────────────────────
@@ -256,6 +256,28 @@ RSpec.describe Pito::FollowUp::Handlers::VideoDetail, type: :service do
       expect {
         handler.call(event: source_event, rest: "unlink from ##{game1.id},##{game2.id}", conversation:)
       }.not_to raise_error
+    end
+  end
+
+  # ── shinies (delegated to Chat::Handlers::Shinies via VerbDelegator) ───────────
+
+  describe "#call — shinies" do
+    let(:source_event) { build_video_detail_event }
+
+    subject(:result) { handler.call(event: source_event, rest: "shinies", conversation:) }
+
+    it "returns a Result::Append" do
+      expect(result).to be_a(Pito::FollowUp::Result::Append)
+    end
+
+    it "appends the shinies message for the video" do
+      payload = result.events.first[:payload]
+      expect(payload["body"]).to include("pito-achievement-shinies")
+      expect(payload["video_id"]).to eq(video.id)
+    end
+
+    it "does NOT return an invalid_action error (shinies is now a declared action)" do
+      expect(result).not_to be_a(Pito::FollowUp::Result::Error)
     end
   end
 

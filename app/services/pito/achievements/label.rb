@@ -29,6 +29,16 @@ module Pito
         form = count == 1 ? "one" : "other"
         Pito::Copy.render("pito.copy.shinies.labels.#{key}.#{form}")
       end
+
+      # @param metric [String, Symbol]
+      # @return [String] single-letter abbreviation used on the badge face
+      # @raise [KeyError] when metric is not in the known set
+      def abbr(metric)
+        key = metric.to_s
+        raise KeyError, "unknown achievement metric: #{key.inspect}" unless METRICS.include?(key)
+
+        Pito::Copy.render("pito.copy.shinies.labels.#{key}.abbr")
+      end
     end
   end
 end

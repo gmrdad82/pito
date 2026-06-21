@@ -15,7 +15,7 @@ module Pito
       # unauthenticated users — the handler itself branches on `authenticated`.
       #
       # `/help --help` is intercepted by the dispatcher and routed to
-      # `Pito::Slash::HelpRenderer` which renders the witty nonsense dictionary.
+      # `Pito::Slash::HelpBuilder` which renders the witty nonsense man page.
       class Help < Pito::Slash::Handler
         self.verb = :help
         self.description_key = "pito.slash.help.descriptions.help"

@@ -18,8 +18,8 @@ RSpec.describe Pito::FollowUp::Handlers::ChannelList do
     expect(described_class.mode).to eq(:append)
   end
 
-  it "declares only the visit action" do
-    expect(described_class.actions).to eq([ "visit" ])
+  it "declares visit and shinies actions" do
+    expect(described_class.actions).to eq([ "visit", "shinies" ])
   end
 
   describe "visit by @handle" do
@@ -93,6 +93,27 @@ RSpec.describe Pito::FollowUp::Handlers::ChannelList do
       expect(result).to be_a(Pito::FollowUp::Result::Error)
       expect(result.message_key).to eq("pito.follow_up.channel_list.errors.not_found")
       expect(result.message_args[:ref]).to include("unknown_channel_xyz")
+    end
+  end
+
+  # ── shinies (delegated to Chat::Handlers::Shinies via VerbDelegator) ───────────
+
+  describe "#call — shinies" do
+    let(:source_event) do
+      instance_double(Event, payload: { "reply_target" => "channel_list" })
+    end
+
+    it "returns a Result::Append with the shinies message for @handle" do
+      result = handler.call(event: source_event, rest: "shinies @alpha", conversation:)
+      expect(result).to be_a(Pito::FollowUp::Result::Append)
+      payload = result.events.first[:payload]
+      expect(payload["body"]).to include("pito-achievement-shinies")
+      expect(payload["channel_id"]).to eq(channel.id)
+    end
+
+    it "does NOT return an invalid_action error (shinies is now a declared action)" do
+      result = handler.call(event: source_event, rest: "shinies @alpha", conversation:)
+      expect(result).not_to be_a(Pito::FollowUp::Result::Error)
     end
   end
 

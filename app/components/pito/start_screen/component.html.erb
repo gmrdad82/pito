@@ -42,7 +42,7 @@
         <% form_data = { controller: "pito--chat-form", turbo: true } %>
         <% if filter %>
           <% form_data[:pito__chat_form_channels_value] = filter[:channels].to_json %>
-          <% form_data[:pito__chat_form_periods_value] = '["7d","28d","1m","3m","1y","lifetime"]' %>
+          <% form_data[:pito__chat_form_periods_value] = '["7d","28d","3m","1y","lifetime"]' %>
         <% end %>
         <%= form_with url: chat_path, method: :post,
                       data: form_data,

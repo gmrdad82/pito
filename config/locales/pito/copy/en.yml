@@ -583,6 +583,69 @@ en:
           - "Everything is %{theme} now. This is not a drill."
           - "Palette of record: %{theme}."
 
+      analytics:
+        intro:
+          - "Here's how %{title} is performing."
+          - "%{title}, by the numbers."
+          - "The vitals for %{title}, fresh off the wire."
+          - "Crunching %{title} — here's the rundown."
+          - "Let's see what %{title} has been up to."
+          - "The numbers on %{title}, hot and ready."
+          - "How's %{title} doing? Let's find out."
+          - "%{title} — the stats that actually matter."
+          - "Pulling the latest on %{title}."
+          - "Here's the scoreboard for %{title}."
+          - "%{title}'s performance, decoded."
+          - "The receipts for %{title}."
+          - "A look under the hood of %{title}."
+          - "%{title}, measured and accounted for."
+          - "The cold, hard numbers for %{title}."
+          - "Tallying up %{title}."
+          - "Here's where %{title} stands."
+          - "%{title}'s report card is in."
+          - "The pulse on %{title}."
+          - "Reading the tea leaves for %{title}."
+          - "%{title} in figures."
+          - "The damage report for %{title}."
+          - "How the numbers shook out for %{title}."
+          - "%{title}'s vitals, checked."
+          - "Fresh metrics for %{title}, served."
+          - "The state of %{title}, quantified."
+          - "%{title} — let's talk numbers."
+          - "The breakdown for %{title}."
+          - "Here's the tale of the tape for %{title}."
+          - "%{title}, run through the numbers."
+          - "What the data says about %{title}."
+          - "The stat line for %{title}."
+          - "%{title}'s numbers, no spin."
+          - "Counting it all up for %{title}."
+          - "The latest read on %{title}."
+          - "%{title} on the dashboard."
+          - "Here's how %{title} is tracking."
+          - "The metrics for %{title}, laid bare."
+          - "%{title}'s scorecard."
+          - "Sizing up %{title}."
+          - "The numbers behind %{title}."
+          - "%{title}, in cold data."
+          - "Here's the rundown on %{title}."
+          - "The figures for %{title} just landed."
+          - "%{title}'s performance snapshot."
+          - "Checking the gauges on %{title}."
+          - "The data on %{title}, plain and simple."
+          - "%{title} — straight from the numbers."
+          - "Here's what %{title} pulled in."
+          - "The analytics for %{title}, at a glance."
+        unavailable: "Couldn't pull analytics for %{title} right now — a channel may need re-auth."
+        metrics:
+          views: "Views"
+          watch_hours: "Watch hours"
+          avg_view_duration: "Avg view duration"
+          avg_viewed_pct: "Avg viewed %"
+          subs_gained: "Subs gained"
+          subs_lost: "Subs lost"
+          likes: "Likes"
+          dislikes: "Dislikes"
+          comments: "Comms"
       thinking:
         slash:
           doing:
@@ -2479,6 +2542,33 @@ en:
               Arguments:
                 "<id>": "Local numeric game id — the game to add a platform to (omit when replying to a game card: `#<handle> platform <name>`)"
                 "<name>": "Platform name, normalised to a logo family (e.g. ps5, switch, steam)"
+              Options:
+                "--help": "Print this help message"
+
+        shinies:
+          usage: "shinies channel @handle  |  shinies vid <id>  |  shinies game <id>"
+          channel:
+            usage: "shinies channel @handle"
+            sections:
+              Arguments:
+                "channel": "Target noun"
+                "@handle": "Channel handle (e.g. @myChannel)"
+              Options:
+                "--help": "Print this help message"
+          video:
+            usage: "shinies vid <id>"
+            sections:
+              Arguments:
+                "vid": "Target noun (aliases: vids, video, videos)"
+                "<id>": "Local numeric video id"
+              Options:
+                "--help": "Print this help message"
+          game:
+            usage: "shinies game <id>"
+            sections:
+              Arguments:
+                "game": "Target noun (alias: games)"
+                "<id>": "Local numeric game id"
               Options:
                 "--help": "Print this help message"
 
@@ -5980,9 +6070,71 @@ en:
           - "%{n} days until %{title} unlocks. Almost go time."
           - "%{title} drops in %{n} days. Let the anticipation simmer."
 
+      stats:
+        heading: "Stats"
+        legend:
+          subs: "subs"
+          vids: "vids"
+          views: "views"
+          likes: "likes"
+          comms: "comms"
       shinies:
         heading: "Shinies"
         singular: "shiny"
+        legend: "V views, L likes, C comms, W clocks, S subs"
+        # 50-variant intro for the shinies chat verb message.
+        # Never uses "milestone" or "achievement".
+        intro:
+          - "Checking %{name}'s haul."
+          - "The collection from %{name}."
+          - "Loot pulled from %{name}."
+          - "Everything %{name} has accumulated."
+          - "%{name}'s stash."
+          - "Digging through %{name}'s vault."
+          - "The grind rewards for %{name}."
+          - "What the grind got %{name}."
+          - "%{name}'s earned drops."
+          - "The goods from %{name}."
+          - "Pulling up %{name}'s score."
+          - "Opening %{name}'s loot chest."
+          - "%{name}'s collected glitter."
+          - "The shiny record for %{name}."
+          - "All that glitters from %{name}."
+          - "%{name}'s hard-earned shinies."
+          - "What %{name} has to show for it."
+          - "The rewards shelf for %{name}."
+          - "%{name}'s collected drops."
+          - "Everything the grind delivered for %{name}."
+          - "The spoils from %{name}."
+          - "%{name}'s earned bling."
+          - "Rifling through %{name}'s collection."
+          - "The loot log for %{name}."
+          - "%{name}'s trophy case."
+          - "What dropped for %{name}."
+          - "Checking %{name}'s stash."
+          - "The drops from %{name}."
+          - "%{name}'s grind receipts."
+          - "Pulling %{name}'s rewards."
+          - "The glitter from %{name}."
+          - "What %{name} earned."
+          - "Opening the vault for %{name}."
+          - "%{name}'s collection, laid out."
+          - "The full stash for %{name}."
+          - "The rare drops for %{name}."
+          - "%{name}'s loot, catalogued."
+          - "Everything that dropped for %{name}."
+          - "The shinies earned by %{name}."
+          - "%{name}'s haul, in full."
+          - "All the loot for %{name}."
+          - "The rewards cache for %{name}."
+          - "%{name}'s earned glitter."
+          - "Pulling up %{name}'s drops."
+          - "The collection log for %{name}."
+          - "What the grind gave %{name}."
+          - "%{name}'s scorecard."
+          - "Checking what %{name} dropped."
+          - "The earned shinies for %{name}."
+          - "All of %{name}'s loot, accounted for."
         # General step names — shown on any badge regardless of metric.
         # Keys are quoted strings matching the integer threshold so that
         # Pito::Copy.render("pito.copy.shinies.steps.1000") works correctly.
@@ -6040,21 +6192,27 @@ en:
           subs:
             one: "Sub"
             other: "Subs"
+            abbr: "S"
           subs_gained:
             one: "Sub"
             other: "Subs"
+            abbr: "S"
           views:
             one: "View"
             other: "Views"
+            abbr: "V"
           watched_hours:
             one: "Clock"
             other: "Clocks"
+            abbr: "W"
           likes:
             one: "Like"
             other: "Likes"
+            abbr: "L"
           comments:
             one: "Comm"
             other: "Comms"
+            abbr: "C"
       # Short labels for a notification (singular/plural, lower + capitalized).
       # Used via Pito::Copy.render("pito.copy.notifs.one") etc. wherever a
       # concise "notif"/"notifs" label is needed outside the shell i18n namespace.

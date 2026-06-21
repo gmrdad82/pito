@@ -1,0 +1,19 @@
+<%# Sidebar panel content — the notifications list wrapped in the Sidebar shell.
+    Rendered by both notifications/index.turbo_stream.erb (HTTP path) and
+    Pito::Stream::Broadcaster#broadcast_notifications_sidebar (cable / slash path).
+    Expects local variable `notifications` (ordered relation or Array). %>
+<%= render(Pito::Sidebar::Component.new(
+      title: t("pito.sidebar.notifications.title")
+    )) do |sidebar| %>
+  <% sidebar.with_subtitle do %>
+    <%= render(Pito::Keybinding::HintComponent.new(
+          shortcut:    "space",
+          description: t("pito.sidebar.notifications.toggle_hint")
+        )) %>
+  <% end %>
+  <% sidebar.with_body do %>
+    <%= render(Pito::Sidebar::Notifications::Component.new(
+          notifications: notifications
+        )) %>
+  <% end %>
+<% end %>

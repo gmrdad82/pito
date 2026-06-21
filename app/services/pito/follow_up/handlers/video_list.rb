@@ -30,7 +30,7 @@ module Pito
         self.mode   :append
         self.action_modes add: :mutate, remove: :mutate, sort: :mutate, order: :mutate
         self.actions "show", "delete", "rm", "schedule", "publish", "unlist",
-                     "add", "remove", "sort", "order", "link", "unlink"
+                     "add", "remove", "sort", "order", "link", "unlink", "shinies"
 
         def call(event:, rest:, conversation:)
           action, args = parse_rest(rest)

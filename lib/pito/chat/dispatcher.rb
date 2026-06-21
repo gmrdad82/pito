@@ -3,16 +3,17 @@
 module Pito
   module Chat
     class Dispatcher
-      def self.call(input:, conversation:, channel: nil, follow_up: nil, viewport_width: nil)
-        new(input, conversation, channel, follow_up, viewport_width).dispatch
+      def self.call(input:, conversation:, channel: nil, period: nil, follow_up: nil, viewport_width: nil)
+        new(input, conversation, channel, period, follow_up, viewport_width).dispatch
       end
 
       private_class_method :new
 
-      def initialize(input, conversation, channel = nil, follow_up = nil, viewport_width = nil)
+      def initialize(input, conversation, channel = nil, period = nil, follow_up = nil, viewport_width = nil)
         @input = input
         @conversation = conversation
         @channel = channel
+        @period = period
         @follow_up = follow_up
         @viewport_width = viewport_width
       end
@@ -53,7 +54,8 @@ module Pito
 
         if message.raw.match?(/(?:\A|\s)--help(?:\s|\z)/)
           if message.verb == :help
-            payload = Pito::Slash::HelpRenderer.nonsense_payload
+            body    = Pito::Slash::HelpBuilder.nonsense_body
+            payload = { "html" => true, "body" => body }
             return Pito::Chat::Result::Ok.new(events: [ { kind: :system, payload: } ])
           end
 
@@ -62,7 +64,7 @@ module Pito
           return Pito::Chat::Result::Ok.new(events: [ { kind: :system, payload: } ]) if payload
         end
 
-        handler = handler_class.new(message:, conversation: @conversation, channel: @channel, follow_up: @follow_up, viewport_width: @viewport_width)
+        handler = handler_class.new(message:, conversation: @conversation, channel: @channel, period: @period, follow_up: @follow_up, viewport_width: @viewport_width)
         handler.call
       end
 
@@ -96,7 +98,7 @@ module Pito
       end
 
       def dispatch_unknown(message)
-        handler = Pito::Chat::Handlers::Unknown.new(message:, conversation: @conversation, channel: @channel, follow_up: @follow_up, viewport_width: @viewport_width)
+        handler = Pito::Chat::Handlers::Unknown.new(message:, conversation: @conversation, channel: @channel, period: @period, follow_up: @follow_up, viewport_width: @viewport_width)
         handler.call
       end
     end

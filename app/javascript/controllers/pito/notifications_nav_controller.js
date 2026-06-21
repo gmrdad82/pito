@@ -95,6 +95,13 @@ export default class extends Controller {
       msg.classList.toggle("text-fg-dim", nowRead)
     }
 
+    // Re-sort DOM rows: unread first, then read — each group newest-first.
+    // Keep this.index at the same slot so the cursor lands on whatever row
+    // is now at that position (the next item), rather than jumping to top.
+    const sorted = this.#resortRows()
+    this.index = Math.min(this.index, sorted.length - 1)
+    this.#paint(sorted)
+
     const csrf = document.querySelector('meta[name="csrf-token"]')?.content
     fetch(`/notifications/${id}`, {
       method: "PATCH",
@@ -105,5 +112,24 @@ export default class extends Controller {
       },
       body: JSON.stringify({ read: nowRead }),
     }).catch((err) => console.warn("[pito--notifications-nav] toggle failed:", err))
+  }
+
+  // Re-sort .pito-notification-row elements inside this.element by:
+  //   1. unread rows first (data-read !== "true")
+  //   2. then read rows
+  //   3. within each group: newest first (data-created-at desc, unix epoch)
+  // Returns the sorted rows array after re-appending them to the DOM.
+  #resortRows() {
+    const rows = this.#rows()
+    const sorted = [...rows].sort((a, b) => {
+      const aUnread = a.dataset.read !== "true" ? 1 : 0
+      const bUnread = b.dataset.read !== "true" ? 1 : 0
+      if (aUnread !== bUnread) return bUnread - aUnread  // unread (1) before read (0)
+      const aTs = parseInt(a.dataset.createdAt || "0", 10)
+      const bTs = parseInt(b.dataset.createdAt || "0", 10)
+      return bTs - aTs  // newest first within each group
+    })
+    sorted.forEach(row => this.element.appendChild(row))
+    return sorted
   }
 }

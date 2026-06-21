@@ -1,0 +1,107 @@
+# frozen_string_literal: true
+
+require "rails_helper"
+
+RSpec.describe Pito::MessageBuilder::Shinies do
+  let(:conversation) { Conversation.singleton }
+
+  # ── For a game ─────────────────────────────────────────────────────────────────
+
+  describe "called with a Game" do
+    let!(:game) { create(:game, title: "Lies of P") }
+
+    it "returns an html payload" do
+      payload = described_class.call(game, conversation:)
+      expect(payload["html"]).to be(true)
+      expect(payload["body"]).to be_a(String)
+    end
+
+    it "includes the intro (a variant from pito.copy.shinies.intro)" do
+      # Pin the sampler so the first variant is always selected.
+      Pito::Copy.sampler = ->(entries) { entries.first }
+      payload = described_class.call(game, conversation:)
+      expect(payload["body"]).to include("Lies of P")
+    ensure
+      Pito::Copy.reset_sampler!
+    end
+
+    it "stamps game_id in the payload" do
+      payload = described_class.call(game, conversation:)
+      expect(payload["game_id"]).to eq(game.id)
+    end
+
+    it "is followupable with target shinies_detail" do
+      payload = described_class.call(game, conversation:)
+      expect(Pito::FollowUp.followupable?(payload)).to be(true)
+      expect(payload["reply_target"]).to eq("shinies_detail")
+    end
+
+    it "renders one row per metric that has obtained shinies (hiding the rest)" do
+      Pito::Achievements::Evaluate.call(achievable: game, metric: "views", value: 100)
+      Pito::Achievements::Evaluate.call(achievable: game, metric: "likes", value: 10)
+      payload = described_class.call(game, conversation:)
+      expect(payload["body"].scan("pito-achievement-metric-row flex").size).to eq(2)
+      expect(payload["body"]).to include("pito-achievement-track")
+    end
+
+    it "hides every metric (no row, no track) when nothing has been earned" do
+      payload = described_class.call(game, conversation:)
+      expect(payload["body"]).not_to include("pito-achievement-metric-row")
+      expect(payload["body"]).not_to include("pito-achievement-track")
+    end
+
+    context "when the game has obtained achievements" do
+      before do
+        Pito::Achievements::Evaluate.call(achievable: game, metric: "views", value: 10)
+        Pito::Achievements::Evaluate.call(achievable: game, metric: "views", value: 100)
+      end
+
+      it "renders badges in timestamp order for the metric" do
+        payload = described_class.call(game, conversation:)
+        expect(payload["body"]).to include("pito-achievement-badge")
+      end
+    end
+
+    context "when no achievements are obtained" do
+      it "renders zero badge divs" do
+        payload = described_class.call(game, conversation:)
+        expect(payload["body"]).not_to include("pito-achievement-badge")
+      end
+    end
+  end
+
+  # ── For a Video ────────────────────────────────────────────────────────────────
+
+  describe "called with a Video" do
+    let!(:channel) { create(:channel, handle: "@pito", title: "Pito Channel") }
+    let!(:video)   { create(:video, channel:, title: "Boss Rush") }
+
+    it "stamps video_id in the payload" do
+      payload = described_class.call(video, conversation:)
+      expect(payload["video_id"]).to eq(video.id)
+    end
+
+    it "renders only the metrics that have obtained shinies" do
+      Pito::Achievements::Evaluate.call(achievable: video, metric: "views", value: 100)
+      payload = described_class.call(video, conversation:)
+      expect(payload["body"].scan("pito-achievement-metric-row flex").size).to eq(1)
+    end
+  end
+
+  # ── For a Channel ──────────────────────────────────────────────────────────────
+
+  describe "called with a Channel" do
+    let!(:channel) { create(:channel, handle: "@pito", title: "Pito Channel") }
+
+    it "stamps channel_id in the payload" do
+      payload = described_class.call(channel, conversation:)
+      expect(payload["channel_id"]).to eq(channel.id)
+    end
+
+    it "renders only the metrics that have obtained shinies" do
+      Pito::Achievements::Evaluate.call(achievable: channel, metric: "subs", value: 100)
+      payload = described_class.call(channel, conversation:)
+      expect(payload["body"].scan("pito-achievement-metric-row flex").size).to eq(1)
+    end
+  end
+end

@@ -1,0 +1,17 @@
+<%# Pito::Achievement::MetricRowComponent
+    TrackComponent + obtained BadgeComponents for one metric lane. %>
+<div class="pito-achievement-metric-row flex flex-col gap-2">
+  <%= render(Pito::Achievement::TrackComponent.new(label: label, current_value: current_value)) %>
+
+  <% if obtained_achievements.any? %>
+    <div class="pito-achievement-metric-row__badges flex flex-wrap justify-center gap-2">
+      <% obtained_achievements.each do |achievement| %>
+        <%= render(Pito::Achievement::BadgeComponent.new(
+              metric:      achievement.metric,
+              threshold:   achievement.threshold,
+              unlocked_on: achievement.unlocked_at.to_date
+            )) %>
+      <% end %>
+    </div>
+  <% end %>
+</div>

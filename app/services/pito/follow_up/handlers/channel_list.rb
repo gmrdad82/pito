@@ -15,7 +15,7 @@ module Pito
       class ChannelList < Pito::FollowUp::Handler
         self.target "channel_list"
         self.mode   :append
-        self.actions "visit"
+        self.actions "visit", "shinies"
 
         def call(event:, rest:, conversation:)
           action, ref = parse_rest(rest)
@@ -24,6 +24,8 @@ module Pito
           case action
           when "visit"
             handle_visit(ref, conversation)
+          when "shinies"
+            Pito::FollowUp::VerbDelegator.call(source_event: event, rest:, conversation:)
           else
             Pito::FollowUp::Result::Error.new(
               message_key:  "pito.follow_up.channel_list.errors.invalid_action",

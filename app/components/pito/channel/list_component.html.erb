@@ -10,4 +10,6 @@
     </div>
   <% end %>
 </div>
-<p class="pito-channel-list__legend text-fg-dim italic mt-2"><%= Pito::Copy.render("pito.copy.channels.stats_legend") %></p>
+<div class="pito-channel-list__legend mt-2">
+  <%= render(Pito::Stats::LegendComponent.new(metrics: [ :subs, :vids, :views ], align: :center)) %>
+</div>

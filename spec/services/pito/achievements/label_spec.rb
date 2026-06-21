@@ -103,4 +103,62 @@ RSpec.describe Pito::Achievements::Label do
       expect { described_class.for("") }.to raise_error(KeyError)
     end
   end
+
+  describe ".abbr" do
+    # ── Abbreviation map ─────────────────────────────────────────────────────
+
+    it "returns 'V' for 'views'" do
+      expect(described_class.abbr("views")).to eq("V")
+    end
+
+    it "returns 'L' for 'likes'" do
+      expect(described_class.abbr("likes")).to eq("L")
+    end
+
+    it "returns 'C' for 'comments'" do
+      expect(described_class.abbr("comments")).to eq("C")
+    end
+
+    it "returns 'W' for 'watched_hours'" do
+      expect(described_class.abbr("watched_hours")).to eq("W")
+    end
+
+    it "returns 'S' for 'subs'" do
+      expect(described_class.abbr("subs")).to eq("S")
+    end
+
+    it "returns 'S' for 'subs_gained'" do
+      expect(described_class.abbr("subs_gained")).to eq("S")
+    end
+
+    # ── Symbol arguments ──────────────────────────────────────────────────────
+
+    it "accepts symbol arguments" do
+      expect(described_class.abbr(:views)).to eq("V")
+      expect(described_class.abbr(:watched_hours)).to eq("W")
+    end
+
+    # ── All 6 metrics resolve without raising ─────────────────────────────────
+
+    it "resolves all 6 metrics via Pito::Copy without raising" do
+      %w[subs subs_gained views watched_hours likes comments].each do |metric|
+        expect { described_class.abbr(metric) }.not_to raise_error
+      end
+    end
+
+    # ── Abbreviations are single characters ───────────────────────────────────
+
+    it "returns a single-character string for every metric" do
+      %w[subs subs_gained views watched_hours likes comments].each do |metric|
+        expect(described_class.abbr(metric).length).to eq(1),
+          "Expected single char for #{metric}, got #{described_class.abbr(metric).inspect}"
+      end
+    end
+
+    # ── Error cases ───────────────────────────────────────────────────────────
+
+    it "raises KeyError for unknown metrics" do
+      expect { described_class.abbr("unknown_metric") }.to raise_error(KeyError)
+    end
+  end
 end

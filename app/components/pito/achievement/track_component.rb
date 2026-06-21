@@ -2,12 +2,18 @@
 
 module Pito
   module Achievement
-    # Renders a two-row terminal-style milestone progress track.
+    # Renders a full-width responsive milestone progress track.
     #
-    # Example (label: "Subs", current_value: 25):
+    # Layout — a label block above a flex rail that spans the full message width:
     #
-    #   Subs   ●────●────●────●────◉────○────○────○────○────○────○────○────○────○────○────○────○────○────○────○────○────○
-    #          1    2    5    10   20   50   100  200  500  1K   2K   5K   10K  20K  50K  100K 200K 500K 1M   2M   5M   10M
+    #   Subs
+    #   ●───────●───────●───────●───────◉───────○───────○  …  ○
+    #   1       2       5       10      20      50      100  …  10M
+    #
+    # The rail is a flex row of 22 cell columns (dot stacked above its value
+    # label), separated by flex-grow connector spans.  Connectors stretch to fill
+    # available width automatically — no JS.  When the sidebar opens or closes the
+    # container reflows and the connectors re-stretch; behaviour is purely CSS.
     #
     # Glyph rules per threshold t:
     #   ●  — reached (t ≤ current_value) but not the highest reached milestone.
@@ -17,15 +23,12 @@ module Pito
     # Dot colors follow the Tier token map (via data-accent on each dot span).
     # Upcoming dots use the pito-achievement-track__dot--upcoming class.
     #
-    # Each cell is 5 chars wide (1 dot + 4 connector chars ────), except the
-    # last dot which has no trailing connector.  The value row mirrors this
-    # width with ljust(5) padding so columns align perfectly in monospace.
-    #
     # kwargs:
     #   label:         (String)  — already title-case metric name (rendered as-is).
     #   current_value: (Integer ≥ 0) — lifetime value for this metric.
     class TrackComponent < ViewComponent::Base
-      CONNECTOR = "────"
+      # Long connector fill — clipped by CSS overflow:hidden to available width.
+      CONNECTOR_FILL = ("─" * 60).freeze
 
       def initialize(label:, current_value:)
         @label         = label
@@ -34,35 +37,38 @@ module Pito
 
       def call
         tag.span(class: "pito-achievement-track") do
-          safe_join([ dot_row, "\n", value_row ])
+          safe_join([ label_span, rail_span ])
         end
       end
 
       private
 
-      # Row 1: label + 3 spaces + one span per dot, connectors between dots.
-      def dot_row
-        parts = [ safe_join([ h(@label), "   " ]) ]
-        last_idx = Pito::Achievement::Tier::SERIES.length - 1
-        Pito::Achievement::Tier::SERIES.each_with_index do |threshold, i|
-          parts << dot_span(threshold)
-          parts << connector_span unless i == last_idx
-        end
-        safe_join(parts)
+      def label_span
+        tag.span(h(@label), class: "pito-achievement-track__label")
       end
 
-      # Row 2: gutter of spaces (same width as label + 3) + CompactCount labels,
-      # each left-aligned in a 5-char cell (matching dot+connector width).
-      def value_row
-        gutter = " " * (@label.length + 3)
-        parts = [ gutter ]
-        last_idx = Pito::Achievement::Tier::SERIES.length - 1
-        Pito::Achievement::Tier::SERIES.each_with_index do |threshold, i|
-          cell = Pito::Formatter::CompactCount.call(threshold)
-          cell = cell.ljust(5) unless i == last_idx
-          parts << tag.span(cell, class: "pito-achievement-track__value")
+      # Flex row: cell — connector — cell — connector — … — cell
+      def rail_span
+        tag.span(class: "pito-achievement-track__rail") do
+          parts = []
+          last_idx = Pito::Achievement::Tier::SERIES.length - 1
+          Pito::Achievement::Tier::SERIES.each_with_index do |threshold, i|
+            parts << cell_span(threshold)
+            parts << connector_span unless i == last_idx
+          end
+          safe_join(parts)
         end
-        safe_join(parts)
+      end
+
+      # One column: dot glyph above CompactCount value label.
+      def cell_span(threshold)
+        tag.span(class: "pito-achievement-track__cell") do
+          safe_join([
+            dot_span(threshold),
+            tag.span(Pito::Formatter::CompactCount.call(threshold),
+                     class: "pito-achievement-track__value")
+          ])
+        end
       end
 
       def dot_span(threshold)
@@ -77,7 +83,7 @@ module Pito
       end
 
       def connector_span
-        tag.span(CONNECTOR, class: "pito-achievement-track__connector")
+        tag.span(CONNECTOR_FILL, class: "pito-achievement-track__connector")
       end
 
       def glyph_for(threshold)

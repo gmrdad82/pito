@@ -747,6 +747,27 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
     end
   end
 
+  # shinies appears in the action palette for all five follow-up source types.
+  describe "hashtag follow-up: shinies offered for game_detail", :db do
+    let(:conversation) { Conversation.create! }
+    let(:turn)         { conversation.turns.create!(input_kind: :chat, input_text: "show game x", position: 1) }
+    let!(:game)        { create(:game, title: "Hollow Knight") }
+
+    before do
+      Pito::FollowUp::Registry.register_all!
+      Event.create_with_position!(
+        conversation:, turn:, kind: "system",
+        payload: { "reply_handle" => "gdet-8888", "reply_target" => "game_detail", "game_id" => game.id, "body" => "card" }
+      )
+    end
+
+    it "includes shinies in the action palette when replying to a game_detail event" do
+      result = call(input: "#gdet-8888 ", cursor: 11, conversation:)
+      labels = result[:menu_items].map { |i| i[:label] }
+      expect(labels).to include("shinies")
+    end
+  end
+
   # ── DYNAMIC SLOTS — :channels ─────────────────────────────────────────────────
 
   describe "dynamic slot — :channels (/disconnect)", :db do

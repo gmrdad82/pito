@@ -57,17 +57,17 @@ RSpec.describe Pito::Slash::Handlers::Help, type: :service do
     end
   end
 
-  # ── /help --help (nonsense dictionary, via HelpRenderer) ────────────────────
-  # The dispatcher intercepts --help before the handler runs; we test the
-  # HelpRenderer directly here to verify the nonsense table is rendered.
+  # ── /help --help (nonsense man-page, via HelpBuilder) ───────────────────────
+  # The dispatcher intercepts --help before the handler runs; we test
+  # HelpBuilder directly here to verify the nonsense man page is rendered.
 
-  describe "/help --help (nonsense kv-table via HelpRenderer)" do
+  describe "/help --help (nonsense man-page via HelpBuilder)" do
     def build_help_invocation
       Pito::Slash::Invocation.new(verb: :help, args: [], kwargs: {}, raw: "/help --help")
     end
 
     subject(:result) do
-      Pito::Slash::HelpRenderer.call(invocation: build_help_invocation, authenticated: true)
+      Pito::Slash::HelpBuilder.call(invocation: build_help_invocation)
     end
 
     it "returns Result::Ok" do
@@ -79,20 +79,25 @@ RSpec.describe Pito::Slash::Handlers::Help, type: :service do
       expect(result.events.first[:kind]).to eq("system")
     end
 
-    it "includes 10 nonsense table_rows" do
-      rows = result.events.first[:payload][:table_rows]
-      expect(rows.size).to eq(10)
+    it "payload has html: true and a body" do
+      payload = result.events.first[:payload]
+      expect(payload["html"]).to be true
+      expect(payload["body"]).to be_present
     end
 
-    it "table_rows include expected nonsense keys" do
-      keys = result.events.first[:payload][:table_rows].map { |r| r[:key] }
-      expect(keys).to include("/uninstall reality", "--help --help", "set brain.cells=∞")
+    it "body contains .pito-help-block" do
+      expect(result.events.first[:payload]["body"]).to include("pito-help-block")
     end
 
-    it "body is the nonsense title" do
-      body = result.events.first[:payload][:body]
-      expect(body).to be_present
-      expect(body).to include("manual")
+    it "body includes the nonsense title (manual's manual)" do
+      expect(result.events.first[:payload]["body"]).to include("manual")
+    end
+
+    it "body includes expected nonsense rows" do
+      body = result.events.first[:payload]["body"]
+      expect(body).to include("uninstall reality")
+      expect(body).to include("touch grass")
+      expect(body).to include("brain.cells")
     end
   end
 end

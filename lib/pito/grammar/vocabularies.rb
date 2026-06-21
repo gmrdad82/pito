@@ -17,12 +17,12 @@ module Pito
 
       CONFIG_PROVIDERS = Vocabulary.define(
         name:      :config_providers,
-        canonical: %w[google voyage igdb webhook sound fx timezone]
+        canonical: %w[google voyage igdb webhook me sound fx timezone]
       ).freeze
 
       CONFIG_KEYS = Vocabulary.define(
         name:      :config_keys,
-        canonical: %w[client_id client_secret redirect_uri api_key slack discord]
+        canonical: %w[client_id client_secret redirect_uri api_key slack discord nickname]
       ).freeze
 
       GENRES = Vocabulary.define(
@@ -192,10 +192,11 @@ module Pito
       # Per-provider kv key lists — single source of truth for autocomplete.
       # These mirror the keys in Pito::Slash::Handlers::Config::PROVIDER_SETTERS.
       PROVIDER_KEYS = {
-        "google"  => %w[client_id client_secret redirect_uri api_key],
-        "voyage"  => %w[api_key],
-        "igdb"    => %w[client_id client_secret],
-        "webhook" => %w[slack discord],
+        "google"   => %w[client_id client_secret redirect_uri api_key],
+        "voyage"   => %w[api_key],
+        "igdb"     => %w[client_id client_secret],
+        "webhook"  => %w[slack discord],
+        "me"       => %w[nickname],
         "sound"    => [],
         "fx"       => [],
         "timezone" => []

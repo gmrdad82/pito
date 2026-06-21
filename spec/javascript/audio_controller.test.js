@@ -128,4 +128,40 @@ describe("AudioController", () => {
 
     expect(playMock).not.toHaveBeenCalled()
   })
+
+  // ── Notify sound ─────────────────────────────────────────────────────────
+
+  it("fires the notify sound 400ms after a pito:notification-arrived", async () => {
+    document.dispatchEvent(new CustomEvent("pito:notification-arrived"))
+    expect(playMock).not.toHaveBeenCalled()
+
+    vi.advanceTimersByTime(400)
+    await Promise.resolve()
+
+    expect(playMock).toHaveBeenCalled()
+  })
+
+  it("debounces a burst of pito:notification-arrived into a single play", async () => {
+    // Fire three events immediately — each one resets the debounce timer.
+    document.dispatchEvent(new CustomEvent("pito:notification-arrived"))
+    document.dispatchEvent(new CustomEvent("pito:notification-arrived"))
+    document.dispatchEvent(new CustomEvent("pito:notification-arrived"))
+    expect(playMock).not.toHaveBeenCalled()
+
+    // Advance past the debounce window — only one timer survives, plays once.
+    vi.advanceTimersByTime(400)
+    await Promise.resolve()
+
+    expect(playMock).toHaveBeenCalledTimes(1)
+  })
+
+  it("does NOT fire notify sound when sound is disabled", async () => {
+    addSettings("false")
+
+    document.dispatchEvent(new CustomEvent("pito:notification-arrived"))
+    vi.advanceTimersByTime(400)
+    await Promise.resolve()
+
+    expect(playMock).not.toHaveBeenCalled()
+  })
 })
