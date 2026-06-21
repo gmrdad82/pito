@@ -48,12 +48,11 @@
               ?
             </div>
           <% end %>
-          <%# id and title on one line: "#12 · Elden Ring". Flex keeps the id and
-              · fixed while the title truncates; flex also suppresses the monospace
-              inter-element whitespace gap. %>
+          <%# id and title on one line: "#12 Elden Ring". Flex keeps the id
+              fixed while the title truncates; gap provides the single-space
+              separation (flex suppresses the monospace inter-element whitespace). %>
           <div class="pito-game-enhanced-message__similar-game-line">
-            <span class="pito-game-enhanced-message__similar-game-id text-fg-faded">#<%= result.game.id %></span>
-            <%= render(Pito::Shell::InlineSeparatorComponent.new) %>
+            <%= render(Pito::Shimmer::TokenComponent.new(text: "##{result.game.id}", extra_class: "pito-game-enhanced-message__similar-game-id")) %>
             <span class="pito-game-enhanced-message__similar-game-title text-fg"><%= result.game.title %></span>
           </div>
           <%# Similarity score bar — same component as the channel cards. %>

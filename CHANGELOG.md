@@ -57,15 +57,39 @@ In progress; entries are added here as they land on `main` (tag created at relea
 - **`show game` order** — the recommendations card (channel suggestions + similar games)
   now comes **before** the analytics card, so the recommendations land first while the
   slower analytics fill in.
-- **Keyboard-shortcut hints shimmer** — every yellow shortcut token now has a slow diagonal
-  (top-left → bottom-right) yellow→orange shimmer, staggered per token so they don't pulse in
-  unison.
+- **Keyboard-shortcut hints shimmer** — every yellow shortcut token has a slow diagonal
+  yellow→orange shimmer, staggered per token so they don't pulse in unison.
+- **Identifiers shimmer** — channel `@handles`, video/game `#ids`, and the `@all` /
+  period (e.g. `28d`) scope chips now carry a slow diagonal **cyan→pito-blue** shimmer
+  everywhere they appear (detail cards, list rows & sortable column headers, pickers,
+  recommendations, the chatbox filter). Reply tokens (`#chi-4450`) get a distinct
+  **blue→purple** shimmer so they read apart from `@handles`/`#ids`. All shimmer kinds
+  share 20 staggered offsets so neighbouring tokens never pulse in sync, and all respect
+  `prefers-reduced-motion`.
 - **shift+r** reply (hashtag) picker now opens **inline above the chatbox** (was a
   centered modal).
 - **Unified `--help`** — every command (`/config`, `/games`, slash + chat verbs) renders
   help in one man-page style.
 - **Notifications panel** sorts unread-first then read (each newest-first), re-sorting
   live when you mark a row read/unread (cursor preserved).
+- **Analytics now follow the shift+space interval.** The glance figures on `show video` /
+  `show game` are computed for whatever window you've selected (7d / 28d / 3m / 1y /
+  lifetime), default **7d**, persisted per conversation — change it with shift+space and it
+  sticks across reloads. The default lives on the conversation, not in the analytics layer.
+- **Analytics table reorganised** into four tidy rows — Views · Watch hours, then Avg view
+  duration · Avg viewed %, then Subs, then Likes · Dislikes · Comms — with each value
+  right-aligned in its own column so numbers can't be misread. **Subs gained/lost is now a
+  single net figure** with a sign: green `+N` for a net gain, red `-N` for a net loss, a
+  plain `—` when flat.
+- **Trend numbers** (the green/red analytics figures) now shimmer in the same diagonal
+  direction as the other shimmers, sharing the same 20 staggered offsets.
+- **Reply tokens recoloured** — the `#chi-4450` reply handle shimmer is now **purple→blue**
+  (it was blue→purple), keeping it visually distinct from the cyan `@handle` / `#id` shimmer.
+- **Shimmer phases scatter properly** — neighbouring tokens (sequential `#ids`, similar
+  `@handles`) no longer drift into near-sync; the offset is now a hashed (CRC32) bucket so
+  close values land far apart in the 20-slot cycle.
+- **Similar-games line** drops the middot — now just `#id Game Title` (shimmer id + a single
+  space + title).
 
 ### Fixed
 
@@ -89,6 +113,20 @@ In progress; entries are added here as they land on `main` (tag created at relea
   on the page (it sat on the intro). The card now updates in place the moment the data is ready.
 - Removed the extra gap between the Stats counters and their legend.
 - `list games` platform logos now reveal in step with their row (no longer pop in early).
+- **Avatars, video thumbnails and game cover art no longer vanish** — local (dev)
+  ActiveStorage moved out of `tmp/` (which gets wiped) into a gitignored `public/` folder
+  that survives, and the image-repair sweep (`rake pito:images:fix`) now also re-attaches
+  missing channel avatars (not just covers/thumbnails).
+- **Replies now behave exactly like typed commands.** Triggering `show` (or any verb) from a
+  `#handle` reply previously diverged from typing it: its analytics card stayed stuck on the
+  placeholder and never filled, errors were swallowed silently, and no "thinking…" spinner
+  showed. Replies now fill analytics, surface errors in the scrollback, and show the spinner —
+  same as chat.
+- **`show vid` linked-game card was missing its `#id` row** — added, with the shimmer id, to
+  match the full game card.
+- **Security:** list-mutation replies (`#handle add/remove/sort …`) now require an active
+  session, like every other command (they were ungated).
+- **Recommendation score bar** no longer touches the game title above it (added spacing).
 
 ## [0.5.0] — 2026-06-20
 
