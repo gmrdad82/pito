@@ -41,6 +41,24 @@ RSpec.describe "POST /suggestions", type: :request do
       expect(labels).to include("rm", "reindex")
       expect(labels).not_to include("add")
     end
+
+    # The reply-verb position must come back as a verb PALETTE (stage:"verb") with
+    # the target's FULL action set — so the client surfaces every verb, not just
+    # the first as an inline ghost.
+    it "tags the reply-verb stage stage:'verb' with the target's full action set" do
+      conversation = Conversation.create!
+      turn = conversation.turns.create!(input_kind: :slash, input_text: "list videos", position: 1)
+      Event.create_with_position!(
+        conversation:, turn:, kind: "system",
+        payload: { "reply_handle" => "vlist-3030", "reply_target" => "video_list", "body" => "videos" }
+      )
+
+      post "/suggestions", params: { input: "#vlist-3030 ", cursor: 12, uuid: conversation.uuid }
+      body   = response.parsed_body
+      labels = body["menu_items"].map { |i| i["label"] }
+      expect(body["stage"]).to eq("verb")
+      expect(labels).to include("with", "without", "schedule", "shinies", "show")
+    end
   end
 
   describe "unauthenticated user (no session)" do

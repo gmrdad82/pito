@@ -449,6 +449,84 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
     end
   end
 
+  # ── Reply-verb PALETTE stage — the full allowed-verb set per reply_target ─────
+  #
+  # Regression guard: the engine must tag the reply-verb position stage: :verb and
+  # return EVERY allowed action (not just `show`), so the client can render a
+  # palette through which with/without/shinies/schedule/etc. are selectable.
+  describe "hashtag follow-up: reply-verb palette stage", :db do
+    let(:conversation) { Conversation.create! }
+    let(:turn) { conversation.turns.create!(input_kind: :slash, input_text: "/list", position: 1) }
+
+    before { Pito::FollowUp::Registry.register_all! }
+
+    def stamp(handle, target)
+      Event.create_with_position!(
+        conversation:, turn:, kind: "system",
+        payload: { "reply_handle" => handle, "reply_target" => target, "body" => "x" }
+      )
+    end
+
+    it "tags the bare reply-verb position stage: :verb (palette, not ghost)" do
+      stamp("vl-1", "video_list")
+      result = call(input: "#vl-1 ", cursor: 6, conversation:)
+      expect(result[:stage]).to eq(:verb)
+    end
+
+    it "tags a partially-typed reply verb stage: :verb" do
+      stamp("vl-2", "video_list")
+      result = call(input: "#vl-2 sh", cursor: 8, conversation:)
+      expect(result[:stage]).to eq(:verb)
+    end
+
+    it "returns video_list's full verb set incl. schedule + with/without + shinies" do
+      stamp("vl-3", "video_list")
+      labels = call(input: "#vl-3 ", cursor: 6, conversation:)[:menu_items].map { |i| i[:label] }
+      expect(labels).to include("show", "delete", "schedule", "publish", "unlist",
+                                "with", "without", "sort", "order", "shinies")
+    end
+
+    it "returns game_list's full verb set incl. with/without + shinies" do
+      stamp("gl-3", "game_list")
+      labels = call(input: "#gl-3 ", cursor: 6, conversation:)[:menu_items].map { |i| i[:label] }
+      expect(labels).to include("show", "with", "without", "sort", "order", "shinies")
+    end
+
+    it "returns video_detail's verb set (rm/reindex/link/shinies)" do
+      stamp("vd-3", "video_detail")
+      labels = call(input: "#vd-3 ", cursor: 6, conversation:)[:menu_items].map { |i| i[:label] }
+      expect(labels).to include("rm", "delete", "reindex", "link", "unlink", "shinies")
+    end
+
+    it "returns channel_list's verb set (visit/shinies)" do
+      stamp("cl-3", "channel_list")
+      labels = call(input: "#cl-3 ", cursor: 6, conversation:)[:menu_items].map { |i| i[:label] }
+      expect(labels).to include("visit", "shinies")
+    end
+
+    it "filters the palette by the typed verb prefix and keeps stage: :verb" do
+      stamp("gl-4", "game_list")
+      result = call(input: "#gl-4 wi", cursor: 8, conversation:)
+      labels = result[:menu_items].map { |i| i[:label] }
+      expect(labels).to include("with", "without")
+      expect(labels).not_to include("show")
+      expect(result[:stage]).to eq(:verb)
+    end
+
+    it "switches to stage: :arg once the verb is finalised (a second space)" do
+      stamp("gl-5", "game_list")
+      result = call(input: "#gl-5 with ", cursor: 11, conversation:)
+      expect(result[:stage]).to eq(:arg)
+    end
+
+    it "each palette item inserts `<verb> ` (spliced over the partial verb token)" do
+      stamp("vl-6", "video_list")
+      items = call(input: "#vl-6 ", cursor: 6, conversation:)[:menu_items]
+      schedule = items.find { |i| i[:label] == "schedule" }
+      expect(schedule[:insert]).to eq("schedule ")
+    end
+  end
+
   # hashtag column ghost for game_list/video_list with/without actions
   describe "hashtag follow-up: column ghost for game_list with/without", :db do
     let(:conversation) { Conversation.create! }

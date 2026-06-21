@@ -22,7 +22,7 @@
 #   "scheduled" → Video.scheduled (future publish_at)
 #   (none)      → all videos regardless of privacy_status
 #
-# Ordering: title ASC (consistent with games + channels listing).
+# Ordering: id DESC by default (biggest/newest first); sort clauses override.
 #
 # Follow-up: video list IS stamped as `reply_target: "video_list"`, enabling
 # follow-up reply verbs (show, delete, link, unlink, with, without, sort/order).
@@ -180,7 +180,7 @@ module Pito
             includes_args << :linked_games
             includes_args << :stats
           end
-          videos = scoped.includes(*includes_args).order(:title)
+          videos = scoped.includes(*includes_args).order(id: :desc)
 
           if videos.empty?
             return videos_empty(channel)
@@ -297,7 +297,7 @@ module Pito
         # If any connected channel's youtube_connection needs reauth, appends a second
         # :enhanced event listing those channels with a reconnect hint.
         def list_channels
-          channels = ::Channel.includes(:youtube_connection).order(:title)
+          channels = ::Channel.includes(:youtube_connection).order(id: :desc)
           if channels.empty?
             return Pito::Chat::Result::Ok.new(events: [
               { kind: :system, payload: Pito::MessageBuilder::Text.call("pito.copy.channels.list_empty") }

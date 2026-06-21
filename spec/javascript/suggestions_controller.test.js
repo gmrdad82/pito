@@ -801,6 +801,154 @@ describe("pito--suggestions controller", () => {
     })
   })
 
+  // ── Hashtag reply-verb palette (stage:"verb" fetch) ──────────────────────
+  //
+  // Regression: typing `#<handle> ` for a follow-up-able message lands at the
+  // reply-VERB stage. Even though a space follows the handle (which trips the
+  // arg-stage space heuristic), the engine tags the response stage:"verb" and the
+  // controller must render the WHOLE allowed-verb list as a selectable palette —
+  // not just menu_items[0] as a single inline ghost. This is the bug fix.
+
+  describe("hashtag reply-verb palette (stage:'verb' fetch)", () => {
+    let ctrl
+
+    const VERB_RESPONSE = () => ({
+      ok: true,
+      json: async () => ({
+        mode: "hashtag",
+        stage: "verb",
+        menu_items: [
+          { label: "show",     insert: "show ",     description: "" },
+          { label: "with",     insert: "with ",     description: "" },
+          { label: "without",  insert: "without ",  description: "" },
+          { label: "shinies",  insert: "shinies ",  description: "" },
+          { label: "schedule", insert: "schedule ", description: "" },
+        ],
+        ghost: { complete_current: "show", next_hint: "" },
+      }),
+    })
+
+    beforeEach(async () => {
+      await waitForConnect()
+      ctrl = app.getControllerForElementAndIdentifier(chatbox, "pito--suggestions")
+      ctrl._mode = "hashtag"
+    })
+
+    it("renders a MULTI-item palette (not a single ghost) for `#handle `", async () => {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue(VERB_RESPONSE()))
+      await ctrl._fetchArgSuggestions("#kappa-5874 ", 12)
+
+      expect(palette.classList.contains("hidden")).toBe(false)
+      const rows = palette.querySelectorAll(".pito-suggestions-row")
+      expect(rows.length).toBe(5)
+    })
+
+    it("surfaces with/without/shinies/schedule (the verbs the old ghost hid)", async () => {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue(VERB_RESPONSE()))
+      await ctrl._fetchArgSuggestions("#kappa-5874 ", 12)
+
+      const labels = [...palette.querySelectorAll(".pito-suggestions-cmd")].map(el => el.textContent)
+      expect(labels).toEqual(expect.arrayContaining(["show", "with", "without", "shinies", "schedule"]))
+    })
+
+    it("shows verb labels verbatim — no leading '#' glyph", async () => {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue(VERB_RESPONSE()))
+      await ctrl._fetchArgSuggestions("#kappa-5874 ", 12)
+
+      const labels = [...palette.querySelectorAll(".pito-suggestions-cmd")].map(el => el.textContent)
+      expect(labels).toContain("with")
+      expect(labels).not.toContain("#with")
+    })
+
+    it("Enter accepts the highlighted verb → `#handle <verb> `", async () => {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue(VERB_RESPONSE()))
+      textarea.value = "#kappa-5874 "
+      textarea.selectionStart = textarea.selectionEnd = 12
+      await ctrl._fetchArgSuggestions("#kappa-5874 ", 12)
+
+      // First row ("show") is selected by default.
+      ctrl.handleKeydown(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }))
+      expect(textarea.value).toBe("#kappa-5874 show ")
+    })
+
+    it("ArrowDown + Enter inserts the second verb token", async () => {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue(VERB_RESPONSE()))
+      textarea.value = "#kappa-5874 "
+      textarea.selectionStart = textarea.selectionEnd = 12
+      await ctrl._fetchArgSuggestions("#kappa-5874 ", 12)
+
+      ctrl.handleKeydown(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true, cancelable: true }))
+      ctrl.handleKeydown(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }))
+      expect(textarea.value).toBe("#kappa-5874 with ")
+    })
+
+    it("replaces a partially-typed verb token (`#handle wi` → `#handle with `)", async () => {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          mode: "hashtag",
+          stage: "verb",
+          menu_items: [
+            { label: "with",    insert: "with ",    description: "" },
+            { label: "without", insert: "without ", description: "" },
+          ],
+          ghost: { complete_current: "th", next_hint: "" },
+        }),
+      }))
+      textarea.value = "#kappa-5874 wi"
+      textarea.selectionStart = textarea.selectionEnd = 14
+      await ctrl._fetchArgSuggestions("#kappa-5874 wi", 14)
+
+      ctrl.handleKeydown(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }))
+      expect(textarea.value).toBe("#kappa-5874 with ")
+    })
+
+    it("arg-stage (stage:'arg') keeps the palette CLOSED (ghost path)", async () => {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          mode: "hashtag",
+          stage: "arg",
+          menu_items: [{ label: "channel", insert: "channel ", description: "" }],
+          ghost: { complete_current: "channel", next_hint: "" },
+        }),
+      }))
+      await ctrl._fetchArgSuggestions("#kappa-5874 with ", 17)
+      expect(palette.classList.contains("hidden")).toBe(true)
+    })
+  })
+
+  // ── _isHashtagReplyVerbStage classification ──────────────────────────────
+
+  describe("_isHashtagReplyVerbStage", () => {
+    let ctrl
+
+    beforeEach(async () => {
+      await waitForConnect()
+      ctrl = app.getControllerForElementAndIdentifier(chatbox, "pito--suggestions")
+    })
+
+    it("true right after the handle space (`#h `)", () => {
+      expect(ctrl._isHashtagReplyVerbStage("#h ", 3)).toBe(true)
+    })
+
+    it("true while typing the verb (`#h sh`)", () => {
+      expect(ctrl._isHashtagReplyVerbStage("#h sh", 5)).toBe(true)
+    })
+
+    it("false once the verb is finalised by a space (`#h show `)", () => {
+      expect(ctrl._isHashtagReplyVerbStage("#h show ", 8)).toBe(false)
+    })
+
+    it("false while still typing the handle (no space yet)", () => {
+      expect(ctrl._isHashtagReplyVerbStage("#han", 4)).toBe(false)
+    })
+
+    it("false for slash input", () => {
+      expect(ctrl._isHashtagReplyVerbStage("/config ", 8)).toBe(false)
+    })
+  })
+
   // ── Lifecycle ────────────────────────────────────────────────────────────
 
   describe("lifecycle", () => {

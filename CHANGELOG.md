@@ -160,6 +160,13 @@ In progress; entries are added here as they land on `main` (tag created at relea
 - **List-column reply verbs renamed `add`/`remove` → `with`/`without`** — matching the
   `list … with <col>` chat syntax (`#<handle> with views, likes` / `#<handle> without game`).
   The old `add`/`remove` are no longer accepted.
+- **Lists default to newest-first** — `list channels`, `list videos`, and `list games` now
+  sort by **ID descending** (biggest/newest first) by default instead of alphabetically; an
+  explicit `sort by <col>` still overrides.
+- **Reply typeahead shows every available verb** — typing `#<handle> ` now opens a palette of
+  all the actions valid for that message (`with`, `without`, `shinies`, `schedule`, `show`,
+  `link`, …), navigable with arrows/Tab, instead of only ever ghosting the first one (`show`).
+  Fixes `with`/`without`/`shinies`/`schedule` being effectively invisible in replies.
 
 ## [0.5.0] — 2026-06-20
 
