@@ -14,6 +14,26 @@ RSpec.describe Pito::Video::LinkedGameCardComponent do
     )
   end
 
+  describe "root layout" do
+    it "carries flex-col (mobile-first single-column default)" do
+      node = render_inline(described_class.new(game: game))
+      root = node.css(".pito-video-linked-game-card").first
+      expect(root["class"]).to include("flex-col")
+    end
+
+    it "carries md:flex-row (desktop two-column at the md: breakpoint)" do
+      node = render_inline(described_class.new(game: game))
+      root = node.css(".pito-video-linked-game-card").first
+      expect(root["class"]).to include("md:flex-row")
+    end
+
+    it "carries md:items-start (aligns columns at the top on desktop)" do
+      node = render_inline(described_class.new(game: game))
+      root = node.css(".pito-video-linked-game-card").first
+      expect(root["class"]).to include("md:items-start")
+    end
+  end
+
   it "renders the title row" do
     node = render_inline(described_class.new(game: game))
     expect(node.text).to include("Title")

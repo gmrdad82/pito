@@ -5,6 +5,28 @@ require "rails_helper"
 RSpec.describe Pito::Game::DetailComponent do
   let(:game) { create(:game, title: "Super Test Game", summary: "A great game.", platforms: %w[PS5 Switch]) }
 
+  # ── Root layout (mobile-first responsive) ─────────────────────────────────
+
+  describe "root layout" do
+    it "carries flex-col (mobile-first single-column default)" do
+      node = render_inline(described_class.new(game: game))
+      root = node.css(".pito-game-detail").first
+      expect(root["class"]).to include("flex-col")
+    end
+
+    it "carries md:flex-row (desktop two-column at the md: breakpoint)" do
+      node = render_inline(described_class.new(game: game))
+      root = node.css(".pito-game-detail").first
+      expect(root["class"]).to include("md:flex-row")
+    end
+
+    it "carries md:items-start (aligns columns at the top on desktop)" do
+      node = render_inline(described_class.new(game: game))
+      root = node.css(".pito-game-detail").first
+      expect(root["class"]).to include("md:items-start")
+    end
+  end
+
   # ── Title (now first kv-row in the right column) ───────────────────────────
 
   describe "title" do
