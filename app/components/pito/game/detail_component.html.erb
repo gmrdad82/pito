@@ -57,10 +57,9 @@
           )) %>
 
       <%= render(Pito::Table::KeyValueRowComponent.new(
-            key_text:    t("pito.game.detail.id"),
-            value_text:  "##{@game.id}",
-            key_class:   "text-fg-dim whitespace-nowrap",
-            value_class: "text-fg"
+            key_text:        t("pito.game.detail.id"),
+            key_class:       "text-fg-dim whitespace-nowrap",
+            value_component: Pito::Shimmer::TokenComponent.new(text: "##{@game.id}", extra_class: "tabular-nums")
           )) %>
 
       <% if platforms_icons.present? %>

@@ -359,9 +359,11 @@ RSpec.describe Pito::MessageBuilder::Game::ListColumns do
         expect(result.first[:text]).not_to include("<br>")
       end
 
-      it "colors and clamps the cell (cyan + pito-cell-channel)" do
+      it "applies shimmer and clamps the :channels cell (pito-token-shimmer + pito-cell-channel)" do
         result = described_class.cells(game_with_channels, [ :channels ])
-        expect(result.first[:class]).to eq("text-cyan pito-cell-channel")
+        expect(result.first[:class]).to include("pito-token-shimmer")
+        expect(result.first[:class]).to include("pito-cell-channel")
+        expect(result.first[:class]).not_to include("text-cyan")
       end
     end
 

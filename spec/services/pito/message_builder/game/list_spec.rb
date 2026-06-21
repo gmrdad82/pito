@@ -96,9 +96,10 @@ RSpec.describe Pito::MessageBuilder::Game::List do
       expect(row[:cells].size).to eq(2)
     end
 
-    it "first cell is cyan/right aligned id" do
+    it "first cell has shimmer token and is right-aligned" do
       cell = payload["table_rows"].first[:cells][0]
-      expect(cell[:class]).to include("text-cyan")
+      expect(cell[:class]).to include("pito-token-shimmer")
+      expect(cell[:class]).to include("text-right")
     end
 
     it "second cell has text-fg class" do

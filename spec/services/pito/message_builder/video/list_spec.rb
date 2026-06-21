@@ -43,12 +43,12 @@ RSpec.describe Pito::MessageBuilder::Video::List do
     end
 
     describe "cell 1 — id" do
-      it "prefixes the video id with # and applies cyan/tabular/right classes" do
+      it "prefixes the video id with # and applies shimmer/tabular/right classes" do
         row = payload["table_rows"].first
         cell = row[:cells][0]
         video = videos.first
         expect(cell[:text]).to eq("##{video.id}")
-        expect(cell[:class]).to include("text-cyan")
+        expect(cell[:class]).to include("pito-token-shimmer")
         expect(cell[:class]).to include("tabular-nums")
         expect(cell[:class]).to include("text-right")
       end

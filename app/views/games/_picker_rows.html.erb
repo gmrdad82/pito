@@ -9,7 +9,7 @@
   <div class="pito-game-row flex gap-2 items-center py-1 px-2 rounded cursor-pointer hover:bg-bg-hover"
        data-game-id="<%= game.id %>"
        data-game-title="<%= game.title %>">
-    <span class="text-fg-faded shrink-0 tabular-nums w-12 text-right">#<%= game.id %></span>
+    <%= render(Pito::Shimmer::TokenComponent.new(text: "##{game.id}", extra_class: "shrink-0 tabular-nums w-12 text-right")) %>
     <span class="text-fg truncate flex-1"><%= game.title %></span>
     <%= Pito::Game::PlatformTokens.icons_html(game.platforms) %>
   </div>

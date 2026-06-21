@@ -39,6 +39,13 @@ RSpec.describe Pito::Game::DetailComponent do
       expect(grid.text).to include("##{game.id}")
     end
 
+    it "wraps the #id in a pito-token-shimmer span" do
+      node    = render_inline(described_class.new(game: game))
+      id_text = "##{game.id}"
+      shimmer = node.css("span.pito-token-shimmer").find { |s| s.text == id_text }
+      expect(shimmer).to be_present
+    end
+
     it "ID row appears before the Platforms row" do
       g    = create(:game, platforms: [ "PlayStation 5" ])
       node = render_inline(described_class.new(game: g))

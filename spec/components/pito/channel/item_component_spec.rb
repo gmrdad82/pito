@@ -26,6 +26,14 @@ RSpec.describe Pito::Channel::ItemComponent do
       node = render_inline(described_class.new(channel: channel))
       expect(node.at_css(".pito-channel-item__handle").text.strip).to eq("@mychannel")
     end
+
+    it "wraps the @handle in a pito-token-shimmer span (show_visit: false)" do
+      channel = build_channel(handle: "@mychannel")
+      node    = render_inline(described_class.new(channel: channel))
+      shimmer = node.css(".pito-channel-item__handle span.pito-token-shimmer").first
+      expect(shimmer).to be_present
+      expect(shimmer.text).to eq("@mychannel")
+    end
   end
 
   # ── Title ────────────────────────────────────────────────────────────────────
@@ -87,6 +95,14 @@ RSpec.describe Pito::Channel::ItemComponent do
       link = node.at_css("a.pito-channel-item__handle--link")
       expect(link).to be_present
       expect(link.text.strip).to eq(channel.at_handle)
+    end
+
+    it "wraps the linked @handle in the cyan token shimmer (handles shimmer everywhere)" do
+      channel = build_channel(handle: "@visitme")
+      node = render_inline(described_class.new(channel: channel, show_visit: true))
+      shimmer = node.css("a.pito-channel-item__handle--link span.pito-token-shimmer").first
+      expect(shimmer).to be_present
+      expect(shimmer.text).to eq("@visitme")
     end
 
     it "no longer renders a separate [view] link" do

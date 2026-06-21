@@ -14,9 +14,12 @@ module Pito
     # This component renders only the two spans.
     #
     # @param key_text    [String]  the key/label text
-    # @param value_text  [String]  the value text
+    # @param value_text  [String]  the value text (ignored when value_component: is given)
     # @param key_class   [String]  classes for the key span (default: "text-cyan whitespace-nowrap")
     # @param value_class [String]  classes for the value span (default: "text-fg-dim")
+    # @param value_component [ViewComponent::Base, nil] render this component in the value cell
+    #   instead of a plain span — the seam that lets callers drop a shimmer token
+    #   (Pito::Shimmer::TokenComponent) in without inlining its classes.
     # @param wrapper_class [String, nil] if present, wraps both spans in a div with these classes
     # @param key_data    [Hash]    extra data-* attributes for the key span (e.g. typewriter target)
     # @param value_data  [Hash]    extra data-* attributes for the value span
@@ -24,19 +27,25 @@ module Pito
       DEFAULT_KEY_CLASS   = "text-cyan whitespace-nowrap"
       DEFAULT_VALUE_CLASS = "text-fg-dim"
 
-      def initialize(key_text:, value_text:, key_class: DEFAULT_KEY_CLASS, value_class: DEFAULT_VALUE_CLASS, wrapper_class: nil, key_data: {}, value_data: {})
-        @key_text      = key_text
-        @value_text    = value_text
-        @key_class     = key_class
-        @value_class   = value_class
-        @wrapper_class = wrapper_class
-        @key_data      = key_data
-        @value_data    = value_data
+      def initialize(key_text:, value_text: nil, key_class: DEFAULT_KEY_CLASS, value_class: DEFAULT_VALUE_CLASS, value_component: nil, wrapper_class: nil, key_data: {}, value_data: {})
+        @key_text        = key_text
+        @value_text      = value_text
+        @key_class       = key_class
+        @value_class     = value_class
+        @value_component = value_component
+        @wrapper_class   = wrapper_class
+        @key_data        = key_data
+        @value_data      = value_data
       end
 
       def call
-        key_span   = tag.span(@key_text,   class: @key_class,   **span_attrs(@key_data))
-        value_span = tag.span(@value_text, class: @value_class, **span_attrs(@value_data))
+        key_span   = tag.span(@key_text, class: @key_class, **span_attrs(@key_data))
+        value_span =
+          if @value_component
+            render(@value_component)
+          else
+            tag.span(@value_text, class: @value_class, **span_attrs(@value_data))
+          end
 
         if @wrapper_class.present?
           tag.div(class: @wrapper_class) { key_span + value_span }

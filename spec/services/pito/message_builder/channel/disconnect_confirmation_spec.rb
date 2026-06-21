@@ -21,8 +21,9 @@ RSpec.describe Pito::MessageBuilder::Channel::DisconnectConfirmation do
       expect(payload["html"]).to be true
     end
 
-    it "includes the cyan-wrapped handle in body" do
-      expect(payload["body"]).to include("<span class=\"text-cyan\">@gaming</span>")
+    it "includes the shimmer-wrapped handle in body" do
+      expect(payload["body"]).to include("pito-token-shimmer")
+      expect(payload["body"]).to include("@gaming")
     end
 
     it "stamps channel_id in the payload" do

@@ -88,7 +88,7 @@ module Pito
           channels:     {
             aliases:    %w[channel channels],
             heading:    "Channels",
-            cell_class: "text-cyan pito-cell-channel",
+            cell_class: "pito-cell-channel",
             # One line: the first distinct channel, then "+N more" for the rest
             # (N = remaining). The cell truncates with an ellipsis if it still
             # overflows the widened column. "—" when the game has no linked videos.
@@ -219,12 +219,17 @@ module Pito
             cfg  = COLUMNS.fetch(col)
             text = cfg[:value].call(game)
             cell_class =
-              cfg[:cell_class] ||
-              case cfg[:align]
-              when :right
-                col == :year ? "text-fg-dim text-right tabular-nums" : "text-fg-dim text-right"
+              if col == :channels
+                # Shimmer owns the colour; shared offset via Pito::Shimmer.
+                Pito::Shimmer::TokenComponent.css_class(text, extra: "pito-cell-channel")
               else
-                "text-fg-dim"
+                cfg[:cell_class] ||
+                case cfg[:align]
+                when :right
+                  col == :year ? "text-fg-dim text-right tabular-nums" : "text-fg-dim text-right"
+                else
+                  "text-fg-dim"
+                end
               end
             { text:, class: cell_class, html: cfg[:html] == true }
           end

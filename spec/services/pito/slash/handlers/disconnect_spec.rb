@@ -87,10 +87,11 @@ RSpec.describe Pito::Slash::Handlers::Disconnect, type: :service do
       expect(target).to eq("confirmation")
     end
 
-    it "includes a body with the cyan-wrapped handle" do
+    it "includes a body with the shimmer-wrapped handle" do
       result = build_handler(raw: "/disconnect @gaming").call
       body = result.events.first[:payload]["body"]
-      expect(body).to include("<span class=\"text-cyan\">@gamingchannel</span>")
+      expect(body).to include("pito-token-shimmer")
+      expect(body).to include("@gamingchannel")
       expect(result.events.first[:payload]["html"]).to be(true)
     end
 

@@ -15,8 +15,9 @@ module Pito
         # @param conversation [Conversation] — used to mint the reply handle.
         # @return [Hash] a follow-up-able confirmation payload (target: confirmation).
         def call(channel, conversation:)
-          handle = channel.handle.presence || channel.title.to_s
-          handle_html = %(<span class="text-cyan">@#{handle.delete_prefix("@")}</span>)
+          handle      = channel.handle.presence || channel.title.to_s
+          handle_text = "@#{handle.delete_prefix("@")}"
+          handle_html = Pito::Shimmer::TokenComponent.html(handle_text)
 
           payload = {
             "command"       => "disconnect",

@@ -2,8 +2,11 @@
 
 module Pito
   module Event
-    # Renders a confirmation / segment handle as `#handle` in purple.
-    # Used inside MetaLineComponent and anywhere a handle token appears inline.
+    # Renders a confirmation / segment reply handle as `#handle` with the
+    # blue→purple hashtag shimmer (distinct from the cyan @handle / #id shimmer).
+    # Used inside MetaLineComponent and anywhere a reply handle appears inline.
+    # The class comes from Pito::Shimmer::HashtagTokenComponent.css_class so the
+    # `data-pito-handle` hook (used by the lasthashtag controller) is preserved.
     class HandleComponent < ViewComponent::Base
       def initialize(handle)
         @handle = handle.to_s.presence
@@ -14,7 +17,8 @@ module Pito
       end
 
       def call
-        tag.span("##{@handle}", class: "text-purple", data: { pito_handle: @handle })
+        token = "##{@handle}"
+        tag.span(token, class: Pito::Shimmer::HashtagTokenComponent.css_class(token), data: { pito_handle: @handle })
       end
     end
   end

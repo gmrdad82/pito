@@ -3,10 +3,12 @@
 require "rails_helper"
 
 RSpec.describe Pito::Event::HandleComponent do
-  it "renders #handle in purple" do
+  it "renders #handle with the blue→purple hashtag shimmer" do
     node = render_inline(described_class.new("alpha-1322"))
     expect(node.text).to eq("#alpha-1322")
-    expect(node.css("span.text-purple")).to be_present
+    span = node.css("span.pito-hashtag-shimmer").first
+    expect(span).to be_present
+    expect(span["class"]).to match(/\bpito-shimmer-d\d+\b/)
   end
 
   it "renders data-pito-handle attribute for client handle collection" do

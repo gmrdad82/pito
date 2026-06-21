@@ -119,4 +119,23 @@ RSpec.describe Pito::Video::LinkedGameCardComponent do
     expect(node.css(".pito-video-linked-game-card__cover img")).to be_empty
     expect(node.text).to include(I18n.t("pito.game.detail.no_cover"))
   end
+
+  it "renders the ID row as a shimmer token with the #<id> value" do
+    node = render_inline(described_class.new(game: game))
+    shimmer = node.css("span.pito-token-shimmer")
+    expect(shimmer).not_to be_empty
+    expect(shimmer.first.text).to include("##{game.id}")
+  end
+
+  it "renders the ID row immediately after the Title row" do
+    node = render_inline(described_class.new(game: game))
+    # Each KV row renders as two sibling spans in the grid (key + value).
+    # Find only the key-label spans (dim class) to check label ordering.
+    key_labels = node.css(".pito-video-linked-game-card__fields span.text-fg-dim.whitespace-nowrap").map(&:text)
+    title_idx = key_labels.index { |t| t.include?("Title") }
+    id_idx    = key_labels.index("ID")
+    expect(title_idx).not_to be_nil
+    expect(id_idx).not_to be_nil
+    expect(id_idx).to eq(title_idx + 1)
+  end
 end

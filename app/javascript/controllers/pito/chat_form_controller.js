@@ -160,7 +160,8 @@ export default class extends Controller {
     const next = list[(idx + 1) % list.length]
     input.value = next
 
-    const cyan = display.querySelector(".text-cyan")
+    // Target the shimmer token span (new) or a plain text-cyan span (legacy fallback).
+    const cyan = display.querySelector(".pito-token-shimmer, .text-cyan")
     if (cyan) {
       cyan.textContent = next
     } else {

@@ -4,7 +4,7 @@
     <%# `shift+r` affordance — the pito--lasthashtag controller unhides this on
         ONLY the most recent hashtag segment, so shift+r (caret at start) reuses
         this handle. Hidden by default; the controller hops it to the latest. %>
-    <span data-pito-lasthashtag-hint class="hidden text-yellow ml-2">shift+r</span>
+    <span data-pito-lasthashtag-hint class="hidden ml-2"><%= render(Pito::Keybinding::ShortcutComponent.new(keys: "shift+r")) %></span>
   <% end %>
   <% if @channel.present? %>
     <% if @handle %>

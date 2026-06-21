@@ -28,6 +28,7 @@ module Pito
         @expand_detail = Array(payload[:expand_detail]).map(&:to_s)
         @table_rows   = Array(payload[:table_rows]).map { |r| r.respond_to?(:with_indifferent_access) ? r.with_indifferent_access : r }
         @table_heading    = payload[:table_heading].presence
+        @shimmer_heading  = payload[:shimmer_heading] == true || payload[:shimmer_heading] == "true"
         @fixed_leading    = payload[:fixed_leading].to_i
         @fixed_trailing   = payload[:fixed_trailing].to_i
         @info_lines   = Array(payload[:info_lines]).map(&:to_s)
@@ -42,7 +43,7 @@ module Pito
         @timestamp       = event&.created_at
       end
 
-      attr_reader :body, :expand_detail, :table_rows, :table_heading,
+      attr_reader :body, :expand_detail, :table_rows, :table_heading, :shimmer_heading,
                   :info_lines, :handle, :channel, :sections, :html, :reply_handle, :reply_consumed,
                   :fixed_leading, :fixed_trailing, :list_footer
 
@@ -125,11 +126,23 @@ module Pito
             h    = entry.respond_to?(:with_indifferent_access) ? entry.with_indifferent_access : entry
             text = h["text"].to_s
             extra = h["class"].presence
-            { text:, class: extra ? "#{base} #{extra}" : base }
+            { text:, class: heading_class(base, extra, text) }
           else
-            { text: entry.to_s, class: base }
+            text = entry.to_s
+            { text:, class: heading_class(base, nil, text) }
           end
         end
+      end
+
+      # Composes a heading-cell class. When shimmer_heading is set (list
+      # videos/games — every column is sortable/interactive), the cyan
+      # identifier shimmer is appended via Pito::Shimmer::TokenComponent.css_class
+      # so the headers shimmer with the same shared staggered offset as #ids /
+      # @handles — single source of truth, no inlined offset math.
+      def heading_class(base, extra, text)
+        parts = [ base, extra ]
+        parts << Pito::Shimmer::TokenComponent.css_class(text) if shimmer_heading
+        parts.compact.join(" ")
       end
 
       private

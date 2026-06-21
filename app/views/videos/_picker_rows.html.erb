@@ -9,10 +9,10 @@
   <div class="pito-video-row flex gap-2 items-center py-1 px-2 rounded cursor-pointer hover:bg-bg-hover"
        data-video-id="<%= video.id %>"
        data-video-title="<%= video.title %>">
-    <span class="text-fg-faded shrink-0 tabular-nums w-12 text-right">#<%= video.id %></span>
+    <%= render(Pito::Shimmer::TokenComponent.new(text: "##{video.id}", extra_class: "shrink-0 tabular-nums w-12 text-right")) %>
     <span class="text-fg truncate flex-1"><%= video.title %></span>
     <% if video.channel %>
-      <span class="text-cyan shrink-0"><%= video.channel.at_handle %></span>
+      <%= render(Pito::Shimmer::TokenComponent.new(text: video.channel.at_handle, extra_class: "shrink-0")) %>
     <% end %>
   </div>
 <% end %>

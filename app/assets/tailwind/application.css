@@ -213,48 +213,42 @@ html {
    rising value shimmers green upward, a falling value shimmers red
    downward, steady / no-baseline (incl. lifetime) stays foreground.
    Gradients are theme-aware via color-mix on the active accent. */
-@keyframes pito-trend-rise {
-  0%   { background-position: 50% -100%; }
-  100% { background-position: 50% 100%; }
-}
-
-@keyframes pito-trend-fall {
-  0%   { background-position: 50% 100%; }
-  100% { background-position: 50% -100%; }
-}
-
 .pito-trend-number { color: var(--fg-default); }
 
-.pito-trend-number--up,
-.pito-trend-number--down {
-  background-size: 100% 200%;
+/* Gradient is a 50/50 diagonal sweep (same 135deg as kbd/token/hashtag shimmers):
+   main accent at the ends, a yellow contrast band at 50%. Yellow pops against
+   green and red without washing out to white the way the lighter orange does.
+   Reuses pito-kbd-shimmer-sweep + shared pito-shimmer-dN stagger offsets. */
+.pito-trend-number--up {
+  background-image: linear-gradient(
+    135deg,
+    var(--accent-green) 0%,
+    var(--accent-green) 38%,
+    var(--accent-yellow) 50%,
+    var(--accent-green) 62%,
+    var(--accent-green) 100%
+  );
+  background-size: 200% 200%;
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
-}
-
-/* Gradient is a 50/50 sweep: main accent at the ends, a contrast band peaking
-   at the centre. The contrast is the (saturated) yellow accent for both — it
-   pops against green and red without washing out to white the way the lighter
-   orange accent does. */
-.pito-trend-number--up {
-  background-image: linear-gradient(
-    0deg,
-    var(--accent-green) 0%,
-    var(--accent-yellow) 50%,
-    var(--accent-green) 100%
-  );
-  animation: pito-trend-rise 0.8s linear infinite;
+  animation: pito-kbd-shimmer-sweep 3.4s linear infinite;
 }
 
 .pito-trend-number--down {
   background-image: linear-gradient(
-    0deg,
+    135deg,
     var(--accent-red) 0%,
+    var(--accent-red) 38%,
     var(--accent-yellow) 50%,
+    var(--accent-red) 62%,
     var(--accent-red) 100%
   );
-  animation: pito-trend-fall 0.8s linear infinite;
+  background-size: 200% 200%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: pito-kbd-shimmer-sweep 3.4s linear infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -268,8 +262,8 @@ html {
    animation-delay buckets (-dN, negative so they start mid-cycle) keep tokens
    out of phase — they never all pulse together. Theme-aware accents. */
 @keyframes pito-kbd-shimmer-sweep {
-  0%   { background-position: 0% 0%; }
-  100% { background-position: 200% 200%; }
+  0%   { background-position: 200% 200%; }
+  100% { background-position: 0% 0%; }
 }
 
 .pito-kbd-shimmer {
@@ -288,15 +282,84 @@ html {
   animation: pito-kbd-shimmer-sweep 3.4s linear infinite;
 }
 
-.pito-kbd-shimmer-d0 { animation-delay: 0s; }
-.pito-kbd-shimmer-d1 { animation-delay: -0.68s; }
-.pito-kbd-shimmer-d2 { animation-delay: -1.36s; }
-.pito-kbd-shimmer-d3 { animation-delay: -2.04s; }
-.pito-kbd-shimmer-d4 { animation-delay: -2.72s; }
-
 @media (prefers-reduced-motion: reduce) {
   .pito-kbd-shimmer { animation: none; }
 }
+
+/* ── Identifier shimmer (Pito::Shimmer::TokenComponent) ──────────
+   Channel @handles, the @all / period (28d) scope chips, and video/game #ids
+   get a slow diagonal cyan→pito-blue shimmer — same (reversed) sweep as the
+   keyboard shortcuts, with staggered -dN offsets so they never pulse in sync.
+   Reuses the pito-kbd-shimmer-sweep keyframe. */
+.pito-token-shimmer {
+  background-image: linear-gradient(
+    135deg,
+    var(--accent-cyan) 0%,
+    var(--accent-cyan) 38%,
+    var(--brand-pito) 50%,
+    var(--accent-cyan) 62%,
+    var(--accent-cyan) 100%
+  );
+  background-size: 200% 200%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: pito-kbd-shimmer-sweep 3.4s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pito-token-shimmer { animation: none; }
+}
+
+/* ── Hashtag shimmer (Pito::Shimmer::HashtagTokenComponent) ──────────
+   #hashtag reply tokens (e.g. #chi-4450) get a blue→purple diagonal shimmer —
+   same (reversed) sweep + shared -dN offsets, distinct colour from the cyan
+   identifier shimmer so reply handles read differently from @handles / #ids. */
+.pito-hashtag-shimmer {
+  background-image: linear-gradient(
+    135deg,
+    var(--accent-purple) 0%,
+    var(--accent-purple) 38%,
+    var(--accent-blue) 50%,
+    var(--accent-purple) 62%,
+    var(--accent-purple) 100%
+  );
+  background-size: 200% 200%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: pito-kbd-shimmer-sweep 3.4s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pito-hashtag-shimmer { animation: none; }
+}
+
+/* ── Shared staggered animation-delay buckets (Pito::Shimmer.offset_class) ──
+   ONE set of 20 negative delays shared by every shimmer kind (kbd / token /
+   hashtag). Pito::Shimmer.offset_class hashes a token's text into a bucket so
+   adjacent tokens never pulse in sync. 20 buckets across the 3.4s sweep
+   (step 0.17s) give enough spread that neighbours rarely collide. */
+.pito-shimmer-d0  { animation-delay: 0s; }
+.pito-shimmer-d1  { animation-delay: -0.17s; }
+.pito-shimmer-d2  { animation-delay: -0.34s; }
+.pito-shimmer-d3  { animation-delay: -0.51s; }
+.pito-shimmer-d4  { animation-delay: -0.68s; }
+.pito-shimmer-d5  { animation-delay: -0.85s; }
+.pito-shimmer-d6  { animation-delay: -1.02s; }
+.pito-shimmer-d7  { animation-delay: -1.19s; }
+.pito-shimmer-d8  { animation-delay: -1.36s; }
+.pito-shimmer-d9  { animation-delay: -1.53s; }
+.pito-shimmer-d10 { animation-delay: -1.7s; }
+.pito-shimmer-d11 { animation-delay: -1.87s; }
+.pito-shimmer-d12 { animation-delay: -2.04s; }
+.pito-shimmer-d13 { animation-delay: -2.21s; }
+.pito-shimmer-d14 { animation-delay: -2.38s; }
+.pito-shimmer-d15 { animation-delay: -2.55s; }
+.pito-shimmer-d16 { animation-delay: -2.72s; }
+.pito-shimmer-d17 { animation-delay: -2.89s; }
+.pito-shimmer-d18 { animation-delay: -3.06s; }
+.pito-shimmer-d19 { animation-delay: -3.23s; }
 
 .pito-comet {
   display: flex;
@@ -1248,10 +1311,13 @@ html {
   background: var(--bg-elevated);
 }
 
-/* id + title share one line ("#12 · Elden Ring"), spanning the card width. */
+/* id + title share one line ("#12 Elden Ring"), spanning the card width. Gap
+   provides a single-character-width space between the shimmer id and the title
+   (InlineSeparatorComponent was removed; gap replaces its spacing role). */
 .pito-game-enhanced-message__similar-game-line {
   display: flex;
   align-items: baseline;
+  gap: 0.35rem;
   width: 180px;
 }
 
@@ -1267,6 +1333,13 @@ html {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Extra top margin so the ScoreBarComponent's floating bubble (which sits
+   ~1.75rem above the bar track) clears the id/title line above it. Mirrors
+   .pito-channel-item__score which uses the same 0.5rem pattern. */
+.pito-game-enhanced-message__similar-game-score {
+  margin-top: 0.5rem;
 }
 
 /* ── Channel list strip ────────────────────────────────────────
