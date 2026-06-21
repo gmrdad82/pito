@@ -3,10 +3,16 @@
 // Chatbox suggestions: stage-dependent UX for slash, hashtag, and free-form input.
 //
 // STAGE DETECTION
-//   Slash/hashtag VERB stage (no space yet after trigger):  PALETTE
+//   Slash/hashtag VERB stage (no space yet after trigger):  PALETTE (local)
+//   Hashtag REPLY-VERB stage (`#<handle> <verb>`):          PALETTE (fetched)
 //   Slash/hashtag ARG  stage (space exists after verb):     INLINE GHOST
 //   Free-form (no / or #):                                  INLINE GHOST
 //   None (empty):                                           nothing
+//
+//   The reply-verb stage sits AFTER the handle's space, so it trips the space
+//   heuristic (_isArgStage) — but the engine tags its /suggestions response
+//   stage:"verb" and the client renders the full allowed-verb list as a palette
+//   (with/without/shinies/schedule/show/…), not a single ghost.
 //
 // VERB STAGE (palette)
 //   Float-above .pito-suggestions-palette lists matching catalog entries.
@@ -243,6 +249,17 @@ export default class extends Controller {
       this._cancelDynamicFetch()
 
       if (this._isArgStage(value, cursor)) {
+        // Hashtag REPLY-VERB stage (`#<handle> <verb>`): the verb sits after the
+        // handle's space, so it trips _isArgStage — but it is a VERB choice, not
+        // an arg. Fetch the full allowed-verb list and surface it as a PALETTE
+        // (the engine tags this response stage:"verb"). Keep any open palette up
+        // (don't blink-close) while the debounced fetch refreshes its rows.
+        if (this._isHashtagReplyVerbStage(value, cursor)) {
+          this._clearGhost()
+          this._scheduleArgFetch(value, cursor)
+          return
+        }
+
         // Arg-stage: close palette, show ghost via debounced fetch
         this._closePalette()
         this._scheduleArgFetch(value, cursor)
@@ -298,6 +315,22 @@ export default class extends Controller {
     this._renderPalette()
   }
 
+  // Render server-fetched menu_items as a verb palette (hashtag reply-verb stage).
+  // Unlike _refreshVerbPalette, the rows carry an explicit `label` (the verb word
+  // shown verbatim — no leading "#"/"/" glyph) and the engine-supplied `insert`
+  // (e.g. "show ") which _insertToken splices over the partial verb token.
+  _showFetchedPalette(menuItems, triggerChar) {
+    this._paletteRows = menuItems.map((it) => ({
+      label:       it.label,
+      name:        it.label,
+      insert:      it.insert,
+      description: it.description || "",
+    }))
+    this._paletteTrigger = triggerChar || "#"
+    this._selectedIdx    = 0
+    this._renderPalette()
+  }
+
   // Open the inline suggestions palette with an explicit set of hashtag handles.
   // Called when `pito:hashtag-picker:open` fires (shift+r with >1 live handle).
   // Reuses _renderPalette / _acceptPaletteSelection / _closePalette unchanged.
@@ -343,7 +376,12 @@ export default class extends Controller {
       row.className = "pito-suggestions-row" + (idx === this._selectedIdx ? " is-selected" : "")
       const cmd = document.createElement("span")
       cmd.className   = "pito-suggestions-cmd"
-      cmd.textContent = (this._paletteTrigger || "/") + (entry.name || "")
+      // Verb palettes (hashtag reply verbs) carry an explicit label shown
+      // verbatim; trigger-prefixed palettes (slash verbs, hashtag handles) glue
+      // the "/" or "#" glyph onto the entry name.
+      cmd.textContent = entry.label != null
+        ? entry.label
+        : ((this._paletteTrigger || "/") + (entry.name || ""))
       row.appendChild(cmd)
       if (entry.description) {
         const desc = document.createElement("span")
@@ -421,6 +459,24 @@ export default class extends Controller {
     return before.length > 1 && before.slice(1).includes(" ")
   }
 
+  // Hashtag reply-verb stage: the cursor is choosing the VERB right after
+  // `#<handle> ` (e.g. `#alpha-1266 sh`), before that verb is finalised by a
+  // second space. Mirrors the engine's at_verb_stage for follow-up handles.
+  // The handle may contain hyphens, so we key off the FIRST space (which always
+  // ends the handle) and require no further space in the remainder.
+  //   "#h "        → true   (empty partial verb)
+  //   "#h sh"      → true   (typing the verb)
+  //   "#h show "   → false  (verb finalised → arg stage)
+  //   "#h with co" → false  (arg stage)
+  _isHashtagReplyVerbStage(value, cursor) {
+    if (value[0] !== "#") return false
+    const before     = value.slice(0, cursor)
+    const firstSpace = before.indexOf(" ")
+    if (firstSpace === -1) return false           // still typing the handle
+    const rest = before.slice(firstSpace + 1)     // text after "#<handle> "
+    return !rest.includes(" ")
+  }
+
   // ── ae: arg-stage ghost fetch (debounced POST /suggestions) ─────────────
 
   _scheduleArgFetch(value, cursor) {
@@ -475,6 +531,24 @@ export default class extends Controller {
       if (myRequestId !== this._argRequestId) return
 
       const menuItems = data.menu_items || []
+
+      // VERB-STAGE PALETTE: the engine tags reply-verb (and legacy hashtag-verb)
+      // responses with stage:"verb" — render the WHOLE list as a selectable
+      // palette so every allowed verb (with/without/shinies/schedule/show/…) is
+      // visible and arrow/Tab-navigable, instead of only the top one as a ghost.
+      if (data.stage === "verb") {
+        this._clearGhost()
+        if (menuItems.length === 0) {
+          this._closePalette()
+          return
+        }
+        this._showFetchedPalette(menuItems, value[0])
+        return
+      }
+
+      // ARG-STAGE GHOST (everything below): a stale verb palette must not linger.
+      this._closePalette()
+
       if (menuItems.length === 0) {
         this._clearGhost()
         return

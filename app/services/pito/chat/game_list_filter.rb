@@ -97,7 +97,7 @@ module Pito
             # unrecognised tokens are silently ignored
           end
 
-          relation = ::Game.order(:title)
+          relation = ::Game.order(id: :desc)
           relation = relation.upcoming              if upcoming
           relation = apply_genre_filter(relation, genres.uniq) if genres.any?
           relation = apply_platform_filter(relation, platforms.uniq) if platforms.any?

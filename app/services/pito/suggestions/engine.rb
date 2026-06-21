@@ -7,9 +7,14 @@ module Pito
     # call(input:, cursor:, conversation: nil, authenticated: false) →
     #   {
     #     mode:       Symbol (:slash | :hashtag | :free | :none),
+    #     stage:      Symbol (:verb | :arg | :free | :none),
     #     menu_items: [ { label:, insert:, description:, masked: } ],
     #     ghost:      { complete_current:, next_hint: }
     #   }
+    #
+    # `stage` tells the client how to surface menu_items: :verb → render the
+    # whole list as a selectable PALETTE (slash/hashtag verb choice, incl. the
+    # follow-up reply verbs); :arg → show only the top hit as an inline GHOST.
     #
     # Tasks w + x:
     #   w — slash/hashtag/free mode detection + static slot resolution
@@ -42,7 +47,10 @@ module Pito
           else           { menu_items: [], ghost: EMPTY_GHOST }
           end
 
-          { mode: mode }.merge(result)
+          # Default stage per mode; slash/hashtag completion methods override it
+          # explicitly (verb-stage → :verb palette, arg-stage → :arg ghost).
+          default_stage = mode == :free ? :free : :none
+          { mode: mode, stage: default_stage }.merge(result)
         end
 
         private
@@ -79,7 +87,7 @@ module Pito
           verb  = parts.first.to_s.downcase
 
           spec = Pito::Grammar::Registry.specs_for_alias(namespace: :slash, token: verb.to_sym)
-          return { menu_items: [], ghost: EMPTY_GHOST } unless spec
+          return { menu_items: [], ghost: EMPTY_GHOST, stage: :arg } unless spec
 
           # The partial is everything after the last space.
           # If text ends with " ", partial is "".
@@ -91,7 +99,7 @@ module Pito
 
           items = arg_stage_completions(spec, consumed_args, partial, authenticated:)
           ghost = kv_ghost_for(spec, consumed_args, partial)
-          { menu_items: items, ghost: ghost }
+          { menu_items: items, ghost: ghost, stage: :arg }
         end
 
         # Returns all args that have been fully typed (before the current partial).
@@ -121,7 +129,7 @@ module Pito
             .select { |spec| spec.name.to_s.start_with?(partial.downcase) }
             .map    { |spec| slash_verb_item(spec) }
 
-          { menu_items: items, ghost: EMPTY_GHOST }
+          { menu_items: items, ghost: EMPTY_GHOST, stage: :verb }
         end
 
         def include_slash_spec?(spec, authenticated:)
@@ -380,14 +388,14 @@ module Pito
           # hyphen (e.g. follow-up handles `alpha-1266`), which the lexer would
           # split — so extract the full `#<handle>` directly from the raw text.
           m = text.match(/\A\s*#(\S+)(.*)\z/m)
-          return { menu_items: [], ghost: EMPTY_GHOST } unless m
+          return { menu_items: [], ghost: EMPTY_GHOST, stage: :none } unless m
 
           handle = m[1]
           after  = m[2]                     # everything after the handle chars
           ends_with_space = text.end_with?(" ")
 
           # No space after the handle yet → still typing the handle.
-          return { menu_items: [], ghost: EMPTY_GHOST } unless after.match?(/\A\s/)
+          return { menu_items: [], ghost: EMPTY_GHOST, stage: :none } unless after.match?(/\A\s/)
 
           after_words = after.split(/\s+/).reject(&:empty?)
           # Verb stage: nothing typed after the handle yet, or still typing the
@@ -412,7 +420,7 @@ module Pito
                 result = Pito::Suggestions::ListClauseGhost.hashtag_list_action_completions(
                   target, args_text, ends_with_space
                 )
-                return result if result
+                return result.merge(stage: :arg) if result
               end
 
               # Arg stage: for game_list/video_list sort/order, ghost sort column tokens.
@@ -426,7 +434,7 @@ module Pito
                   args_text:,
                   ends_with_space:
                 )
-                return result if result
+                return result.merge(stage: :arg) if result
               end
 
               # Arg stage: for schedule, surface the `slate` keyword (the
@@ -434,11 +442,11 @@ module Pito
               # other static-vocab options are offered.
               if action == "schedule" && Pito::FollowUp::Registry.actions_for(target).include?("schedule")
                 result = hashtag_schedule_arg_completions(partial)
-                return result if result
+                return result.merge(stage: :arg) if result
               end
 
               # Fallback: offer --help ghost when the partial starts with "-".
-              return hashtag_arg_help_completions(partial)
+              return hashtag_arg_help_completions(partial).merge(stage: :arg)
             end
           end
 
@@ -505,20 +513,24 @@ module Pito
         def follow_up_action_completions(actions, partial)
           # --help ghost: any partial starting with "-" that prefixes "--help".
           if partial.start_with?("-") && "--help".start_with?(partial.downcase)
-            return hashtag_arg_help_completions(partial)
+            return hashtag_arg_help_completions(partial).merge(stage: :arg)
           end
 
-          menu_items = actions.map { |a| { label: a, insert: "#{a} ", description: "", masked: false } }
+          # Filter the palette by the typed verb prefix (mirrors the slash verb
+          # palette) so the menu narrows as the user types `wi` → with/without.
+          matches    = partial.empty? ? actions : actions.select { |a| a.to_s.start_with?(partial.downcase) }
+          menu_items = matches.map { |a| { label: a, insert: "#{a} ", description: "", masked: false } }
 
           ghost = if partial.empty?
                     { complete_current: actions.first.to_s, next_hint: "" }
           else
-                    matches = actions.select { |a| a.to_s.start_with?(partial.downcase) }
                     completion = matches.size == 1 ? matches.first.to_s[partial.length..] : ""
                     { complete_current: completion, next_hint: "" }
           end
 
-          { menu_items: menu_items, ghost: ghost }
+          # :verb → the client surfaces ALL menu_items as a selectable palette
+          # (with/without/shinies/schedule/show/…), not just the top ghost.
+          { menu_items: menu_items, ghost: ghost, stage: :verb }
         end
 
         # Arg-stage completions for `#<handle> schedule …`: surface the `slate`
@@ -574,7 +586,7 @@ module Pito
                 masked:      false
               }
             end
-          { menu_items: items, ghost: EMPTY_GHOST }
+          { menu_items: items, ghost: EMPTY_GHOST, stage: :verb }
         end
 
         def hashtag_metric_completions(partial)
@@ -584,7 +596,7 @@ module Pito
           items = prefix_filter(vocab.canonical, partial).map do |member|
             { label: member, insert: "#{member} ", description: "", masked: false }
           end
-          { menu_items: items, ghost: EMPTY_GHOST }
+          { menu_items: items, ghost: EMPTY_GHOST, stage: :arg }
         end
 
         # ── FREE mode (ghost text, no palette) ───────────────────────────────
