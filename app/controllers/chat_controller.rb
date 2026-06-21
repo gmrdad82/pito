@@ -187,7 +187,7 @@ class ChatController < ApplicationController
 
     # Thinking indicator — one per turn, resolved by the backend when the
     # job completes. The word_index is frozen at creation (survives refresh).
-    broadcaster.emit_thinking(turn:, dictionary: input_kind.to_s)
+    broadcaster.emit_thinking(turn:, dictionary: input_kind == :hashtag ? "chat" : input_kind.to_s)
 
     # Enqueue job — auth gating decided here, applied in the worker.
     ChatDispatchJob.perform_later(turn.id, channel:, period:, authenticated:, viewport_width:)
@@ -615,10 +615,10 @@ class ChatController < ApplicationController
 
   # Dispatch a matched follow-up reply to the appropriate path by mode.
   #
-  # :mutate — no echo, no turn.  Enqueue FollowUpDispatchJob without a turn_id.
-  # :append — echo + turn (like confirmations).  Requires an active session;
-  #           silently falls through if unauthenticated.
-  #           NOTE: no thinking indicator is emitted in the append path for now.
+  # :mutate — no echo, no turn.  Requires an active session; silently falls
+  #           through if unauthenticated.  Enqueues FollowUpDispatchJob without a turn_id.
+  # :append — echo + turn + thinking indicator (mirrors enqueue_turn).
+  #           Requires an active session; silently falls through if unauthenticated.
   def handle_follow_up(input, conversation, ff)
     event  = ff[:event]
     target = event.payload["reply_target"].to_s
@@ -650,6 +650,8 @@ class ChatController < ApplicationController
 
     case mode
     when :mutate
+      return unless Current.session.present?
+
       FollowUpDispatchJob.perform_later(event.id, rest: ff[:rest])
 
     when :append
@@ -667,8 +669,8 @@ class ChatController < ApplicationController
         payload: { text: input, authenticated: false }
       )
       broadcaster.broadcast_event(echo_event)
+      broadcaster.emit_thinking(turn:, dictionary: "chat")
 
-      # No thinking indicator for append follow-ups (to be added if needed).
       FollowUpDispatchJob.perform_later(event.id, rest: ff[:rest], turn_id: turn.id)
 
     else
