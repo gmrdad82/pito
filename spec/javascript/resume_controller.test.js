@@ -452,6 +452,22 @@ describe("pito--resume controller", () => {
     expect(fetchSpy).not.toHaveBeenCalled()
   })
 
+  it("does not restore on the start screen (home-transition present), even with localStorage set", async () => {
+    // The start screen + dynamic 404 never show a sidebar; #restore must bail
+    // so deleting the last conversation doesn't re-open it.
+    localStorage.setItem("pito:sidebar", "conversations")
+    const home = document.createElement("div")
+    home.setAttribute("data-controller", "pito--home-transition")
+    document.body.appendChild(home)
+
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({ ok: true, text: async () => "" })
+
+    buildSidebar()
+    await waitForConnect()
+
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
   // ── Blur-on-open ──────────────────────────────────────────────────────────
 
   it("blurs the chatbox when the sidebar gains content (an <aside>)", async () => {

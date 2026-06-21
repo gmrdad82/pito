@@ -5,29 +5,30 @@
 // whole wrapper, every update tears down and rebuilds the span — triggering
 // disconnect() then connect() on this controller each time.
 //
-// Module-level prevCount survives across replacements, so we can compare
-// the incoming count to the one from the previous render and dispatch
-// pito:notification-arrived when the unread count increases (new notif).
-// A decrease (mark-as-read) or no change must NOT dispatch the event.
+// Module-level prevLatestId survives across replacements, so we compare the
+// incoming MAX notification id to the previous render's and dispatch
+// pito:notification-arrived only when it RISES (a genuinely new notification).
+// A read/unread TOGGLE bumps the unread COUNT but NOT the max id, so it must
+// NOT play the chime — that was the annoying false trigger.
 
 import { Controller } from "@hotwired/stimulus"
 
 // Intentionally module-scoped: survives Turbo Stream element replacements.
-let prevCount = null
+let prevLatestId = null
 
 export default class extends Controller {
-  static values = { count: Number }
+  static values = { count: Number, latestId: Number }
 
   connect() {
-    const count = this.countValue
+    const latestId = this.latestIdValue
 
-    if (prevCount !== null && count > prevCount) {
+    if (prevLatestId !== null && latestId > prevLatestId) {
       document.dispatchEvent(new CustomEvent("pito:notification-arrived"))
     }
 
-    prevCount = count
+    prevLatestId = latestId
   }
 
-  // prevCount is intentionally NOT reset on disconnect so it persists
+  // prevLatestId is intentionally NOT reset on disconnect so it persists
   // across the Turbo Stream replacement cycle.
 }

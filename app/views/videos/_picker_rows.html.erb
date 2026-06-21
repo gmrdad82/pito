@@ -1,0 +1,18 @@
+<%# Shared row markup for the videos picker sidebar.
+    Rendered by Pito::Sidebar::Videos::Component and Videos::SearchLocalController.
+    Each row carries data-video-id so the pito--videos-nav controller can build
+    the command on Enter/click. The channel @handle appears at the right edge.
+
+    locals:
+      videos — Array/relation of Video records (respond to #id, #title, #channel) %>
+<% videos.each do |video| %>
+  <div class="pito-video-row flex gap-2 items-center py-1 px-2 rounded cursor-pointer hover:bg-bg-hover"
+       data-video-id="<%= video.id %>"
+       data-video-title="<%= video.title %>">
+    <span class="text-fg-faded shrink-0 tabular-nums w-12 text-right">#<%= video.id %></span>
+    <span class="text-fg truncate flex-1"><%= video.title %></span>
+    <% if video.channel %>
+      <span class="text-cyan shrink-0"><%= video.channel.at_handle %></span>
+    <% end %>
+  </div>
+<% end %>

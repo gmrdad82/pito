@@ -91,6 +91,13 @@ class ChatController < ApplicationController
         return handle_game_picker_sidebar(conversation, mode: picker_mode)
       end
 
+      if bare_video_picker_command?(input)
+        # `show vid` / `show video` / `show vids` / `show videos` with no title/id
+        # → open the videos picker sidebar (Turbo Stream update).
+        # Auth gating: requires an active session. No echo, no Turn, no async job.
+        return handle_video_picker_sidebar(conversation)
+      end
+
       if (import_title = games_import_command?(input))
         # `/games import [title]` — opens the IGDB import sidebar (Turbo Stream update).
         # Auth gating: requires an active session. No echo, no Turn, no async job.
@@ -414,6 +421,46 @@ class ChatController < ApplicationController
     end
   end
 
+  # Detects `show vid(s)?` / `show video(s)?` with NO trailing title or ID —
+  # i.e. the user wants the videos picker, not a lookup.
+  # Returns true when the input is bare "show + video noun(s)", nil otherwise.
+  VIDEO_NOUN_PATTERN = /\A(?:vid|vids|video|videos)\z/i.freeze
+
+  def bare_video_picker_command?(input)
+    words = input.to_s.strip.downcase.split
+    return nil if words.empty?
+
+    return nil unless words.first == "show"
+
+    rest_words = words.drop(1)
+    rest_words.present? && rest_words.all? { |w| VIDEO_NOUN_PATTERN.match?(w) }
+  end
+
+  # Renders a Turbo Stream that populates #pito-sidebar with the videos picker.
+  # Auth gating: unauthenticated → mandatory-auth error event broadcast + 204.
+  # No echo, no Turn, no async job.
+  def handle_video_picker_sidebar(conversation)
+    unless Current.session.present?
+      broadcaster = Pito::Stream::Broadcaster.new(conversation:)
+      broadcaster.emit(
+        turn:    conversation.turns.create!(
+          position:   Turn.next_position_for(conversation),
+          input_kind: :chat,
+          input_text: "show vid"
+        ),
+        kind:    "error",
+        payload: { text: Pito::Copy.render("pito.copy.auth.mandatories") }
+      )
+      return respond_to_client(conversation)
+    end
+
+    render partial: "chat/video_picker_sidebar",
+           formats: [ :turbo_stream ],
+           locals:  {
+             videos: Video.includes(:channel).order(:title).limit(50)
+           }
+  end
+
   # Detects `/games import [title]` and returns the title string (may be "").
   # Returns nil if the input doesn't match.
   # The fast-path covers all `/games import` variants (with or without a title).
@@ -537,7 +584,7 @@ class ChatController < ApplicationController
     render partial: "chat/game_picker_sidebar",
            formats: [ :turbo_stream ],
            locals:  {
-             games: Game.order(:title).all,
+             games: Game.order(:title).limit(50),
              mode:  mode
            }
   end

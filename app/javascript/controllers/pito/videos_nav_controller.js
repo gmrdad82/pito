@@ -1,28 +1,19 @@
-// pito--games-nav
+// pito--videos-nav
 //
-// Mounted on the `.flex.flex-col[data-controller="pito--games-nav"]` element
-// that the games picker sidebar injects into #pito-sidebar.
+// Mounted on the `.flex.flex-col[data-controller="pito--videos-nav"]` element
+// that the videos picker sidebar injects into #pito-sidebar.
 //
 // Keyboard (listens on document):
-//   ↑ / ↓  — move highlight through .pito-game-row elements
-//   Enter  — select: build the right command, populate the chatbox, and submit
+//   ↑ / ↓  — move highlight through .pito-video-row elements
+//   Enter  — select: fill `show vid <id>` in the chatbox and submit
 //   Escape — handled by pito--resume (clears #pito-sidebar → disconnects us)
 //
 // Mouse:
-//   click .pito-game-row — highlight that row
-//
-// Mode (from data-pito--games-nav-mode-value):
-//   "show"   → fills `show game <id>` in the chatbox + submits
-//   "delete" → fills `rm game <id>` in the chatbox + submits
+//   click .pito-video-row — highlight that row
 //
 // Search (optional — only when input/list targets are present):
-//   input target — <input> element; typing debounces a POST /games/search-local
+//   input target — <input> element; typing debounces a POST /videos/search-local
 //   list  target — container whose innerHTML is replaced with new row HTML
-//
-// Coexistence with pito--resume:
-//   resume's #onKey skips early when rows = [] (no .pito-conversation-row),
-//   so it won't fight our arrows.  resume's capture-Esc clears #pito-sidebar,
-//   which disconnects this controller — correct.
 //
 // Auto-registered via eagerLoadControllersFrom.
 
@@ -34,9 +25,6 @@ const DEBOUNCE_MS = 250
 
 export default class extends Controller {
   static targets = ["input", "list", "shimmer"]
-  static values = {
-    mode: { type: String, default: "show" },
-  }
 
   connect() {
     this.abort = new AbortController()
@@ -67,15 +55,13 @@ export default class extends Controller {
   }
 
   // ── Test shim ──────────────────────────────────────────────────────────────
-  // Exposes #select as a public method for unit tests (private class fields are
-  // not accessible via dot notation in the test harness).
   _testSelect(row) { this.#select(row) }
 
   // ── Private ────────────────────────────────────────────────────────────────
 
   #rows() {
     const container = this.hasListTarget ? this.listTarget : this.element
-    return Array.from(container.querySelectorAll(".pito-game-row"))
+    return Array.from(container.querySelectorAll(".pito-video-row"))
   }
 
   #paint(rows) {
@@ -103,7 +89,7 @@ export default class extends Controller {
   }
 
   #onClick(e) {
-    const row = e.target.closest(".pito-game-row")
+    const row = e.target.closest(".pito-video-row")
     if (!row) return
     const rows = this.#rows()
     const idx  = rows.indexOf(row)
@@ -119,7 +105,6 @@ export default class extends Controller {
       this.highlightIndex = Math.max(0, Math.min(rows.length - 1, this.highlightIndex + delta))
     }
     this.#paint(rows)
-    // scrollIntoView is not available in all test environments; guard defensively.
     const focused = rows[this.highlightIndex]
     if (focused && typeof focused.scrollIntoView === "function") {
       focused.scrollIntoView({ block: "nearest" })
@@ -127,25 +112,21 @@ export default class extends Controller {
   }
 
   #select(row) {
-    const gameId = row.dataset.gameId
-    if (!gameId) return
+    const videoId = row.dataset.videoId
+    if (!videoId) return
 
-    const verb    = this.modeValue === "delete" ? "rm" : "show"
-    const command = `${verb} game #${gameId}`
+    const command = `show vid #${videoId}`
 
-    // Dispatch a custom event that chat_form_controller listens for.
-    // The event carries the command to populate + submit.
     document.dispatchEvent(new CustomEvent("pito:picker:select", {
       bubbles: false,
       detail:  { command },
     }))
 
-    // Clear the sidebar (mirror pito--resume #clear).
     const sidebar = document.getElementById("pito-sidebar")
     if (sidebar) sidebar.innerHTML = ""
   }
 
-  // ── Search (debounced POST /games/search-local) ────────────────────────────
+  // ── Search (debounced POST /videos/search-local) ───────────────────────────
 
   #onInput() {
     this.#cancelSearch()
@@ -166,7 +147,7 @@ export default class extends Controller {
     const csrf = document.querySelector('meta[name="csrf-token"]')?.content
 
     try {
-      const resp = await fetch("/games/search-local", {
+      const resp = await fetch("/videos/search-local", {
         method:  "POST",
         signal:  abort.signal,
         headers: {
@@ -188,7 +169,6 @@ export default class extends Controller {
       const container = this.hasListTarget ? this.listTarget : this.element
       container.innerHTML = html
 
-      // Re-pin highlight to the first row of the fresh results.
       const rows = this.#rows()
       this.highlightIndex = rows.length ? 0 : -1
       this.#paint(rows)

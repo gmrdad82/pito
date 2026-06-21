@@ -99,16 +99,16 @@ RSpec.describe Pito::Chat::Handlers::Show do
         expect(list_index).to eq(detail_index + 1)
       end
 
-      it "emits events in order: detail → linked-videos → analytics → recommendations" do
+      it "emits events in order: detail → linked-videos → recommendations → analytics" do
         events = handler_for("##{game.id}").call.events
         detail_idx    = events.index { |e| e[:payload]["reply_target"] == "game_detail" }
         videos_idx    = events.index { |e| e[:payload]["reply_target"] == "video_list" }
-        analytics_idx = events.index { |e| e[:payload].dig("analytics", "status") == "pending" }
         recs_idx      = events.index { |e| e[:payload]["body"]&.include?("pito-game-enhanced-message") }
+        analytics_idx = events.index { |e| e[:payload].dig("analytics", "status") == "pending" }
 
         expect(detail_idx).to be < videos_idx
-        expect(videos_idx).to be < analytics_idx
-        expect(analytics_idx).to be < recs_idx
+        expect(videos_idx).to be < recs_idx
+        expect(recs_idx).to be < analytics_idx
       end
 
       it "emits an analytics pending event for the game (kind :enhanced, scope_type Game)" do

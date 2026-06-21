@@ -70,21 +70,21 @@ module Pito
           return needs_ref if game == :needs_ref
           return game_not_found(target_ref(GAME_NOUN_FILLERS, id_key: :game_id)) if game.nil?
 
-          # Mirror an import: the Standard detail message (follow-up-able), then —
-          # when the game has linked videos — the repliable linked-videos list
-          # table (video_list follow-up target) AND the analytics :enhanced message
-          # (pending state, filled async — aggregated across the linked videos),
-          # then the Enhanced recommendations message (pito chrome). The
-          # linked-videos + analytics messages are omitted when the game has none.
-          # Identical events whether typed in free chat or via a `#<handle>` reply.
+          # Order: the Standard detail message (follow-up-able), then — when the
+          # game has linked videos — the repliable linked-videos list table
+          # (video_list follow-up target); then the Enhanced recommendations
+          # message (channel suggestions + similar games); then LAST the analytics
+          # :enhanced message (pending state, filled async — aggregated across the
+          # linked videos). Analytics goes last because it resolves slowest (the
+          # thinking spinner stays up until the background fill job completes), so
+          # the recommendations land first. Linked-videos + analytics are omitted
+          # when the game has none. Identical whether typed or via a `#<handle>` reply.
           events = [
             { kind: :system, payload: Pito::MessageBuilder::Game::Detail.call(game, conversation:) }
           ]
-          if game.linked_videos.any?
-            events << { kind: :enhanced, payload: Pito::MessageBuilder::Game::LinkedVideos.call(game, conversation:) }
-            events << { kind: :enhanced, payload: Pito::MessageBuilder::Analytics::Enhanced.pending(game, period:) }
-          end
+          events << { kind: :enhanced, payload: Pito::MessageBuilder::Game::LinkedVideos.call(game, conversation:) } if game.linked_videos.any?
           events << { kind: :enhanced, payload: Pito::MessageBuilder::Game::Enhanced.call(game) }
+          events << { kind: :enhanced, payload: Pito::MessageBuilder::Analytics::Enhanced.pending(game, period:) } if game.linked_videos.any?
 
           Pito::Chat::Result::Ok.new(events: events)
         end

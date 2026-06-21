@@ -1,0 +1,17 @@
+<%# Turbo Stream partial — populates #pito-sidebar with the videos picker
+    wrapped in the Sidebar shell (fixed overlay panel). %>
+<%= render partial: "chat/done_signal" %>
+<%= turbo_stream.update "pito-sidebar" do %>
+  <%= render(Pito::Sidebar::Component.new(
+        title: t("pito.sidebar.videos.title")
+      )) do |sidebar| %>
+    <% sidebar.with_subtitle do %>
+      <span><%= t("pito.sidebar.videos.hint") %></span>
+    <% end %>
+    <% sidebar.with_body do %>
+      <%= render(Pito::Sidebar::Videos::Component.new(
+            videos: videos
+          )) %>
+    <% end %>
+  <% end %>
+<% end %>

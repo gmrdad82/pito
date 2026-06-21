@@ -262,6 +262,42 @@ html {
   .pito-trend-number--down { animation: none; }
 }
 
+/* ── Keyboard-shortcut shimmer (Pito::Keybinding::ShortcutComponent) ──
+   Every yellow shortcut token gets a slow diagonal (top-left → bottom-right)
+   shimmer: yellow text with an orange band sweeping through. Staggered
+   animation-delay buckets (-dN, negative so they start mid-cycle) keep tokens
+   out of phase — they never all pulse together. Theme-aware accents. */
+@keyframes pito-kbd-shimmer-sweep {
+  0%   { background-position: 0% 0%; }
+  100% { background-position: 200% 200%; }
+}
+
+.pito-kbd-shimmer {
+  background-image: linear-gradient(
+    135deg,
+    var(--accent-yellow) 0%,
+    var(--accent-yellow) 38%,
+    var(--accent-orange) 50%,
+    var(--accent-yellow) 62%,
+    var(--accent-yellow) 100%
+  );
+  background-size: 200% 200%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: pito-kbd-shimmer-sweep 3.4s linear infinite;
+}
+
+.pito-kbd-shimmer-d0 { animation-delay: 0s; }
+.pito-kbd-shimmer-d1 { animation-delay: -0.68s; }
+.pito-kbd-shimmer-d2 { animation-delay: -1.36s; }
+.pito-kbd-shimmer-d3 { animation-delay: -2.04s; }
+.pito-kbd-shimmer-d4 { animation-delay: -2.72s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .pito-kbd-shimmer { animation: none; }
+}
+
 .pito-comet {
   display: flex;
   gap: 4px;

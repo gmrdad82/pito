@@ -18,6 +18,11 @@ en:
       games:
         title: "Games"
         hint: "↑/↓ move · Enter select"
+        search_placeholder: "Filter games…"
+      videos:
+        title: "Videos"
+        hint: "↑/↓ move · Enter select"
+        search_placeholder: "Filter videos…"
       games_import:
         title: "Import from IGDB"
         hint: "Search · ↑/↓ move · Enter import"

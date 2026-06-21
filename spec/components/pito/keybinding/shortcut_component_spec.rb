@@ -16,6 +16,14 @@ RSpec.describe Pito::Keybinding::ShortcutComponent do
       expect(node.css("span").count).to eq(1)
     end
 
+    it "applies the shimmer class with a stable staggered offset bucket" do
+      span = render_inline(described_class.new(keys: "ctrl+k")).css("span").first
+      expect(span["class"]).to include("pito-kbd-shimmer")
+      expect(span["class"]).to match(/pito-kbd-shimmer-d[0-#{described_class::OFFSETS - 1}]/)
+      again = render_inline(described_class.new(keys: "ctrl+k")).css("span").first
+      expect(again["class"]).to eq(span["class"])
+    end
+
     it "applies no extra data attributes when data is omitted" do
       node = render_inline(described_class.new(keys: "tab"))
       span = node.css("span").first

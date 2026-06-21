@@ -22,6 +22,7 @@
 // Auto-registered via eagerLoadControllersFrom.
 
 import { Controller } from "@hotwired/stimulus"
+import { paletteOpen } from "pito/settings"
 import { Turbo } from "@hotwired/turbo-rails"
 
 const HIGHLIGHT_CLASS = "pito-resume-highlight"
@@ -79,6 +80,11 @@ export default class extends Controller {
   // Re-open the panel that was open before reload. Skips if the sidebar is
   // already populated (e.g. a Turbo navigation kept it).
   #restore() {
+    // The start screen + dynamic 404 NEVER show a sidebar (both render the
+    // StartScreen component, marked by pito--home-transition, which also
+    // dispatches pito:resume:dismiss on connect). Don't restore it from
+    // localStorage here — that would re-open it after a delete-last-conversation.
+    if (document.querySelector('[data-controller~="pito--home-transition"]')) return
     if (this.element.innerHTML.trim()) return
     const want = localStorage.getItem(SIDEBAR_KEY)
     if (!want) return
@@ -162,6 +168,8 @@ export default class extends Controller {
   }
 
   #onKey(e) {
+    if (paletteOpen()) return // command palette owns the keys while open
+
     const rows = this.#rows()
     if (!rows.length) return
 

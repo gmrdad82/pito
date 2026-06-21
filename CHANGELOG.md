@@ -22,7 +22,7 @@ In progress; entries are added here as they land on `main` (tag created at relea
   from linked videos), like `show video`.
 - **Notification sound** — a short chime plays when a notification arrives
   (debounced for bursts; never on read/unread toggles; respects `/config sound off`).
-- **`/notifications` command** — opens the notifications panel (same as `ctrl+/`).
+- **`/notifications` renamed to `/notifs`** — opens the notifications panel (same as `ctrl+/`).
 - **Analytics on `show video` & `show game`** — the enhanced card now shows a scalar
   table (views, watch hours, avg view duration, avg % viewed, subs gained/lost, likes,
   dislikes, comms) with **trend-coloured numbers** vs the prior period (green up / red
@@ -30,6 +30,12 @@ In progress; entries are added here as they land on `main` (tag created at relea
   videos**. The card appears instantly with a one-line intro and **fills in the
   background** — the "thinking…" spinner keeps cycling until the numbers land, so the
   page never blocks on YouTube, and a refresh mid-fetch is safe.
+- **Searchable picker sidebars** — `show game` with no id now has a **search box** and shows
+  **PS · Switch · Steam** icons beside each game; `show vid` with no id opens a matching picker
+  with a search box and the channel **@handle** beside each video (it previously errored
+  "Which game?"). Both load 50 rows and re-query the whole library as you type — with the
+  same shimmering dots indicator the game-import search shows while a query is in flight;
+  pick with ↑/↓ + Enter.
 
 ### Changed
 
@@ -48,6 +54,12 @@ In progress; entries are added here as they land on `main` (tag created at relea
   `S` subs · `D` vids · `V` views · `L` likes · `C` comms — across `list channels`
   and the `show video` / `show game` cards (which now lead with a bold **Stats**
   heading, left-align their Shinies, and drop the redundant inline legend).
+- **`show game` order** — the recommendations card (channel suggestions + similar games)
+  now comes **before** the analytics card, so the recommendations land first while the
+  slower analytics fill in.
+- **Keyboard-shortcut hints shimmer** — every yellow shortcut token now has a slow diagonal
+  (top-left → bottom-right) yellow→orange shimmer, staggered per token so they don't pulse in
+  unison.
 - **shift+r** reply (hashtag) picker now opens **inline above the chatbox** (was a
   centered modal).
 - **Unified `--help`** — every command (`/config`, `/games`, slash + chat verbs) renders
@@ -62,6 +74,19 @@ In progress; entries are added here as they land on `main` (tag created at relea
   detail and enhanced card (`show video` / `show game`, the linked-game card, analytics,
   shinies) — long copy wraps beneath it instead of the timestamp dropping to its own row.
 - `list channels` stat legend is now left-aligned.
+- With the **ctrl+k palette open over a sidebar**, arrow/Enter keys now drive only the palette
+  — the sidebar/picker keyboard nav bails while the palette is open (no more dual cursor).
+- The notification chime no longer plays when you **toggle a notification read/unread** — it
+  sounds only for a genuinely new notification (tracked by the latest notification id, not the
+  unread count, which a toggle also moves).
+- Sidebar lists (notifications, pickers, conversations) now scroll fully to the top — the
+  first row is no longer clipped by the top fade gradient at max scroll.
+- The sidebar no longer lingers on the **start screen / 404** — deleting your last
+  conversation drops you to the start screen with the sidebar dismissed (it was being
+  re-opened from `localStorage` right after the dismiss).
+- **Analytics now actually appear** on `show video` / `show game` — the filled table was
+  rendering without a replaceable DOM id, so the background job's live update never landed
+  on the page (it sat on the intro). The card now updates in place the moment the data is ready.
 - Removed the extra gap between the Stats counters and their legend.
 - `list games` platform logos now reveal in step with their row (no longer pop in early).
 
