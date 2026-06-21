@@ -90,6 +90,14 @@ In progress; entries are added here as they land on `main` (tag created at relea
   close values land far apart in the 20-slot cycle.
 - **Similar-games line** drops the middot — now just `#id Game Title` (shimmer id + a single
   space + title).
+- **Shinies badges redesigned** — every badge now uses one uniform **rounded** border (was a
+  per-metric ASCII box), with a soft highlight that **travels around the border edge**, and the
+  unlock date is muted. (This also fixes badges rendering with a misaligned right edge on mobile.)
+- **Milestone track points at your next goal** — the reached portion of a shinies progress
+  track now shimmers in the **colour of the next tier** you're climbing toward (blue heading to
+  2K, cyan heading to 500, …), so the track shows momentum, not just history.
+- **Score & time-to-beat bars shimmer** — a subtle pito-blue highlight sweeps across the
+  gradient bars on the `show game` card.
 
 ### Fixed
 
@@ -127,6 +135,8 @@ In progress; entries are added here as they land on `main` (tag created at relea
 - **Security:** list-mutation replies (`#handle add/remove/sort …`) now require an active
   session, like every other command (they were ungated).
 - **Recommendation score bar** no longer touches the game title above it (added spacing).
+- **Stats / Shinies headings are bold again** on the `show video` / `show game` cards — a
+  Tailwind v4 layering quirk had them rendering at normal weight.
 
 ## [0.5.0] — 2026-06-20
 

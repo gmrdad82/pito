@@ -237,6 +237,12 @@ RSpec.describe Pito::Video::DetailComponent do
       expect(I18n.t("pito.video.detail.likes_abbr")).to eq("L")
       expect(I18n.t("pito.video.detail.comments_abbr")).to eq("C")
     end
+
+    it "bolds the Stats heading" do
+      node    = render_inline(described_class.new(video: video))
+      heading = node.css(".pito-video-detail__stats-heading").first
+      expect(heading["class"]).to include("font-bold")
+    end
   end
 
   describe "stats legend" do

@@ -386,6 +386,12 @@ RSpec.describe Pito::Game::DetailComponent do
         expect(node.css(".pito-game-detail__stats")).not_to be_empty
       end
 
+      it "bolds the Stats heading" do
+        node    = render_inline(described_class.new(game: game))
+        heading = node.css(".pito-game-detail__stats-heading").first
+        expect(heading["class"]).to include("font-bold")
+      end
+
       it "shows summed view count formatted via CompactCount (1 000 + 500 = 1 500 → 1.5K)" do
         node = render_inline(described_class.new(game: game))
         left = node.css(".pito-game-detail__left").first
