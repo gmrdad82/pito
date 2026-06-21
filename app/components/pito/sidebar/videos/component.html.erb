@@ -1,0 +1,30 @@
+<%# Videos sidebar body — search input + flat list of videos (id + title + @handle).
+    The outer div mounts pito--videos-nav; the input target drives debounced local
+    search; the list target is swapped out by the controller when results arrive. %>
+<div class="flex flex-col gap-3"
+     data-controller="pito--videos-nav">
+  <%# Search input — filters the local video library (POST /videos/search-local). %>
+  <input type="text"
+         class="w-full bg-transparent outline-none border-b border-line-default
+                text-fg pb-1 placeholder:text-fg-faded focus:border-accent"
+         placeholder="<%= t('pito.sidebar.videos.search_placeholder') %>"
+         autocomplete="off"
+         data-pito--videos-nav-target="input">
+
+  <%# In-flight shimmer dots while a local search runs (mirrors the IGDB import
+      search). Hidden until a query is sent. Clipped to one row at any base size. %>
+  <p class="hidden overflow-hidden whitespace-nowrap"
+     data-pito--videos-nav-target="shimmer">
+    <%= render(Pito::Shell::ShimmerTextComponent.new(text: ". " * 60)) %>
+  </p>
+
+  <%# Video rows container — swapped out by the debounced local search. %>
+  <div class="flex flex-col"
+       data-pito--videos-nav-target="list">
+    <% if empty? %>
+      <p class="text-fg-dim py-2"><%= empty_state_text %></p>
+    <% else %>
+      <%= render partial: "videos/picker_rows", locals: { videos: videos } %>
+    <% end %>
+  </div>
+</div>

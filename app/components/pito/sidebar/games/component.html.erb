@@ -1,19 +1,33 @@
-<%# Games sidebar body — flat list of games (id + title), keyboard-selectable.
+<%# Games sidebar body — search input + flat list of games (id + title + platform icons).
     The outer div mounts pito--games-nav and carries the picker mode as a
-    data attribute so the controller knows which command to build on Enter. %>
-<div class="flex flex-col"
+    data attribute so the controller knows which command to build on Enter.
+    The input target drives debounced local search; the list target is swapped
+    out by the controller when results arrive. %>
+<div class="flex flex-col gap-3"
      data-controller="pito--games-nav"
      data-pito--games-nav-mode-value="<%= mode %>">
-  <% if empty? %>
-    <p class="text-fg-dim py-2"><%= empty_state_text %></p>
-  <% else %>
-    <% games.each do |game| %>
-      <div class="pito-game-row flex gap-2 items-center py-1 px-2 rounded cursor-pointer hover:bg-bg-hover"
-           data-game-id="<%= game.id %>"
-           data-game-title="<%= game.title %>">
-        <span class="text-fg-faded shrink-0 tabular-nums w-12 text-right">#<%= game.id %></span>
-        <span class="text-fg truncate"><%= game.title %></span>
-      </div>
+  <%# Search input — filters the local game library (POST /games/search-local). %>
+  <input type="text"
+         class="w-full bg-transparent outline-none border-b border-line-default
+                text-fg pb-1 placeholder:text-fg-faded focus:border-accent"
+         placeholder="<%= t('pito.sidebar.games.search_placeholder') %>"
+         autocomplete="off"
+         data-pito--games-nav-target="input">
+
+  <%# In-flight shimmer dots while a local search runs (mirrors the IGDB import
+      search). Hidden until a query is sent. Clipped to one row at any base size. %>
+  <p class="hidden overflow-hidden whitespace-nowrap"
+     data-pito--games-nav-target="shimmer">
+    <%= render(Pito::Shell::ShimmerTextComponent.new(text: ". " * 60)) %>
+  </p>
+
+  <%# Game rows container — swapped out by the debounced local search. %>
+  <div class="flex flex-col"
+       data-pito--games-nav-target="list">
+    <% if empty? %>
+      <p class="text-fg-dim py-2"><%= empty_state_text %></p>
+    <% else %>
+      <%= render partial: "games/picker_rows", locals: { games: games } %>
     <% end %>
-  <% end %>
+  </div>
 </div>

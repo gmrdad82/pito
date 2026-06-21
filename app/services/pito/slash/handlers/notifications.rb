@@ -17,7 +17,7 @@ module Pito
       # Any extra tokens after `/notifications` are ignored — the command is
       # lenient and always opens the panel.
       class Notifications < Pito::Slash::Handler
-        self.verb        = :notifications
+        self.verb        = :notifs
         self.description_key = "pito.slash.notifications.descriptions.notifications"
 
         grammar do

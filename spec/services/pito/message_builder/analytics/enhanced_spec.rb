@@ -17,6 +17,10 @@ RSpec.describe Pito::MessageBuilder::Analytics::Enhanced do
         expect(payload["html"]).to be(true)
       end
 
+      it "sets anchor: true so the segment gets a replaceable event_<id> DOM id" do
+        expect(payload["anchor"]).to be(true)
+      end
+
       it "sets analytics.status to 'pending'" do
         expect(payload.dig("analytics", "status")).to eq("pending")
       end

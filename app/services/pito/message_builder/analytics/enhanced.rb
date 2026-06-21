@@ -29,6 +29,10 @@ module Pito
           {
             "body"      => render_component(Pito::Analytics::EnhancedComponent.new(intro: intro, pending: true)),
             "html"      => true,
+            # `anchor` gives the segment a stable `event_<id>` DOM id so the fill
+            # job's replace_event can swap it in place (it isn't follow-up-able,
+            # which is the other way an event earns an id).
+            "anchor"    => true,
             "analytics" => marker("pending", scope: scope, period: period, intro: intro)
           }
         end
@@ -37,6 +41,7 @@ module Pito
           {
             "body"      => render_component(Pito::Analytics::EnhancedComponent.new(intro: intro, result: result)),
             "html"      => true,
+            "anchor"    => true,
             "analytics" => marker("ready", scope: scope, period: period, intro: intro)
           }
         end

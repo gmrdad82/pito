@@ -4,11 +4,16 @@ require "rails_helper"
 
 RSpec.describe Pito::Sidebar::Games::Component do
   # Minimal stub mimicking the Game model's public API used by the component.
-  GameStub = Struct.new(:id, :title, keyword_init: true)
+  # platforms defaults to nil (PlatformTokens.icons_html handles nil gracefully).
+  GameStub = Struct.new(:id, :title, :platforms, keyword_init: true) do
+    def initialize(id:, title:, platforms: nil)
+      super(id:, title:, platforms:)
+    end
+  end
 
-  let(:lies_of_p)      { GameStub.new(id: 1, title: "Lies of P") }
-  let(:hollow_knight)  { GameStub.new(id: 2, title: "Hollow Knight") }
-  let(:celeste)        { GameStub.new(id: 3, title: "Celeste") }
+  let(:lies_of_p)     { GameStub.new(id: 1, title: "Lies of P") }
+  let(:hollow_knight) { GameStub.new(id: 2, title: "Hollow Knight") }
+  let(:celeste)       { GameStub.new(id: 3, title: "Celeste") }
 
   describe "game rows" do
     it "renders a .pito-game-row for each game" do
@@ -40,6 +45,46 @@ RSpec.describe Pito::Sidebar::Games::Component do
       )
       id_cell = node.css("span.tabular-nums.text-right").first
       expect(id_cell.text.strip).to eq("##{lies_of_p.id}")
+    end
+
+    it "renders platform icons when the game has platforms" do
+      game = GameStub.new(id: 4, title: "Elden Ring", platforms: [ "PlayStation 5" ])
+      node = render_inline(
+        described_class.new(games: [ game ], mode: :show)
+      )
+      expect(node.to_html).to include("pito-platform-icons")
+    end
+
+    it "renders no platform icons when the game has no platforms" do
+      node = render_inline(
+        described_class.new(games: [ lies_of_p ], mode: :show)
+      )
+      expect(node.to_html).not_to include("pito-platform-icons")
+    end
+  end
+
+  describe "search input" do
+    it "renders a search input with the input target" do
+      node = render_inline(
+        described_class.new(games: [ lies_of_p ], mode: :show)
+      )
+      input = node.css("input[data-pito--games-nav-target='input']")
+      expect(input).not_to be_empty
+    end
+
+    it "renders a list container with the list target" do
+      node = render_inline(
+        described_class.new(games: [ lies_of_p ], mode: :show)
+      )
+      list = node.css("[data-pito--games-nav-target='list']")
+      expect(list).not_to be_empty
+    end
+
+    it "renders a hidden shimmer (dots) indicator with the shimmer target" do
+      node    = render_inline(described_class.new(games: [ lies_of_p ], mode: :show))
+      shimmer = node.css("[data-pito--games-nav-target='shimmer']")
+      expect(shimmer).not_to be_empty
+      expect(shimmer.first["class"]).to include("hidden")
     end
   end
 

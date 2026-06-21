@@ -72,18 +72,18 @@ RSpec.describe Pito::Slash::Handlers::Notifications, type: :service do
     before { Pito::Grammar::Registry.reset!; Pito::Grammar::Registry.register_all! }
     after  { Pito::Grammar::Registry.reset! }
 
-    it "is registered under :slash namespace" do
-      spec = Pito::Grammar::Registry.spec(namespace: :slash, name: :notifications)
+    it "is registered under :slash namespace (canonical :notifs)" do
+      spec = Pito::Grammar::Registry.spec(namespace: :slash, name: :notifs)
       expect(spec).not_to be_nil
     end
 
     it "has auth :authenticated_only" do
-      spec = Pito::Grammar::Registry.spec(namespace: :slash, name: :notifications)
+      spec = Pito::Grammar::Registry.spec(namespace: :slash, name: :notifs)
       expect(spec.auth).to eq(:authenticated_only)
     end
 
     it "has no positional slots" do
-      spec = Pito::Grammar::Registry.spec(namespace: :slash, name: :notifications)
+      spec = Pito::Grammar::Registry.spec(namespace: :slash, name: :notifs)
       positional = spec.slots.reject { |s| s.kind == :kv || s.kind == :connective }
       expect(positional).to be_empty
     end
@@ -95,9 +95,9 @@ RSpec.describe Pito::Slash::Handlers::Notifications, type: :service do
     before { Pito::Grammar::Registry.reset!; Pito::Grammar::Registry.register_all! }
     after  { Pito::Grammar::Registry.reset! }
 
-    it "appears in authenticated slash suggestions" do
+    it "appears in authenticated slash suggestions (as notifs)" do
       names = Pito::Suggestions::Catalog.to_h(authenticated: true)[:slash].map { |e| e[:name] }
-      expect(names).to include("notifications")
+      expect(names).to include("notifs")
     end
 
     it "does NOT appear in unauthenticated slash suggestions" do

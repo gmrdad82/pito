@@ -1,44 +1,39 @@
-// spec/javascript/games_nav_controller.test.js
+// spec/javascript/videos_nav_controller.test.js
 //
-// Vitest suite for pito--games-nav Stimulus controller.
+// Vitest suite for pito--videos-nav Stimulus controller.
 //
-// Strategy: mount the real controller on a jsdom document using the same
-// Stimulus-Application pattern as theme_nav_controller.test.js.
+// Mirrors games_nav_controller.test.js with video-specific row class
+// (.pito-video-row), data attribute (data-video-id), and command
+// (`show vid #<id>`).
 //
 // COVERAGE
 //   - connect() highlights first row
 //   - ↑/↓ moves the highlight
 //   - Arrow keys do not go out of bounds
 //   - Click highlights the clicked row
-//   - Enter on a row dispatches pito:picker:select with the correct command
-//   - Mode "show" → `show game #<id>`
-//   - Mode "delete" → `rm game #<id>`
+//   - Enter dispatches pito:picker:select with `show vid #<id>`
 //   - Selecting clears the sidebar
 //   - disconnect() cleans up listeners
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest"
 import { Application } from "@hotwired/stimulus"
-import GamesNavController from "controllers/pito/games_nav_controller"
+import VideosNavController from "controllers/pito/videos_nav_controller"
 
 // ── DOM scaffold ─────────────────────────────────────────────────────────────
 
-function buildScaffold({ mode = "show", games = [] } = {}) {
-  // Sidebar container
+function buildScaffold({ videos = [] } = {}) {
   const sidebar = document.createElement("div")
   sidebar.id = "pito-sidebar"
   document.body.appendChild(sidebar)
 
-  // Nav container — controller mounts here
   const nav = document.createElement("div")
-  nav.setAttribute("data-controller", "pito--games-nav")
-  nav.setAttribute("data-pito--games-nav-mode-value", mode)
+  nav.setAttribute("data-controller", "pito--videos-nav")
 
-  // Game rows
-  games.forEach(({ id, title }) => {
+  videos.forEach(({ id, title }) => {
     const row = document.createElement("div")
-    row.className = "pito-game-row"
-    row.dataset.gameId    = String(id)
-    row.dataset.gameTitle = title
+    row.className = "pito-video-row"
+    row.dataset.videoId    = String(id)
+    row.dataset.videoTitle = title
     row.textContent = `#${id} ${title}`
     nav.appendChild(row)
   })
@@ -47,19 +42,19 @@ function buildScaffold({ mode = "show", games = [] } = {}) {
   return { nav, sidebar }
 }
 
-function key(el, keyName, opts = {}) {
-  const event = new KeyboardEvent("keydown", { key: keyName, bubbles: true, cancelable: true, ...opts })
+function key(keyName) {
+  const event = new KeyboardEvent("keydown", { key: keyName, bubbles: true, cancelable: true })
   document.dispatchEvent(event)
 }
 
 // ── Test suite ────────────────────────────────────────────────────────────────
 
-describe("pito--games-nav controller", () => {
+describe("pito--videos-nav controller", () => {
   let app, nav, sidebar
 
   beforeEach(() => {
     app = Application.start()
-    app.register("pito--games-nav", GamesNavController)
+    app.register("pito--videos-nav", VideosNavController)
   })
 
   afterEach(async () => {
@@ -76,77 +71,58 @@ describe("pito--games-nav controller", () => {
 
   it("highlights the first row on connect", async () => {
     ;({ nav } = buildScaffold({
-      games: [{ id: 1, title: "Lies of P" }, { id: 2, title: "Hollow Knight" }]
+      videos: [{ id: 1, title: "Lies of P" }, { id: 2, title: "Hollow Knight" }]
     }))
     await waitForConnect()
 
-    const rows = nav.querySelectorAll(".pito-game-row")
+    const rows = nav.querySelectorAll(".pito-video-row")
     expect(rows[0].classList.contains("pito-resume-highlight")).toBe(true)
     expect(rows[1].classList.contains("pito-resume-highlight")).toBe(false)
   })
 
   it("does not crash with an empty list", async () => {
-    ;({ nav } = buildScaffold({ games: [] }))
+    ;({ nav } = buildScaffold({ videos: [] }))
     await waitForConnect()
-    expect(nav.querySelectorAll(".pito-game-row")).toHaveLength(0)
+    expect(nav.querySelectorAll(".pito-video-row")).toHaveLength(0)
   })
 
   // ── Arrow key navigation ────────────────────────────────────────────────────
 
   it("ArrowDown moves highlight to the second row", async () => {
     ;({ nav } = buildScaffold({
-      games: [{ id: 1, title: "A" }, { id: 2, title: "B" }]
+      videos: [{ id: 1, title: "A" }, { id: 2, title: "B" }]
     }))
     await waitForConnect()
 
-    key(nav, "ArrowDown")
+    key("ArrowDown")
 
-    const rows = nav.querySelectorAll(".pito-game-row")
+    const rows = nav.querySelectorAll(".pito-video-row")
     expect(rows[0].classList.contains("pito-resume-highlight")).toBe(false)
     expect(rows[1].classList.contains("pito-resume-highlight")).toBe(true)
   })
 
-  it("ignores arrow keys while the ctrl+k palette is open (no dual cursor)", async () => {
-    const palette = document.createElement("div")
-    palette.id = "pito-command-palette" // open = NOT hidden
-    document.body.appendChild(palette)
-
-    ;({ nav } = buildScaffold({
-      games: [{ id: 1, title: "A" }, { id: 2, title: "B" }]
-    }))
-    await waitForConnect()
-
-    key(nav, "ArrowDown") // should be ignored — palette owns the keys
-
-    const rows = nav.querySelectorAll(".pito-game-row")
-    expect(rows[0].classList.contains("pito-resume-highlight")).toBe(true)
-    expect(rows[1].classList.contains("pito-resume-highlight")).toBe(false)
-
-    palette.remove()
-  })
-
   it("ArrowUp does not go below index 0", async () => {
     ;({ nav } = buildScaffold({
-      games: [{ id: 1, title: "A" }, { id: 2, title: "B" }]
+      videos: [{ id: 1, title: "A" }, { id: 2, title: "B" }]
     }))
     await waitForConnect()
 
-    key(nav, "ArrowUp")
+    key("ArrowUp")
 
-    const rows = nav.querySelectorAll(".pito-game-row")
+    const rows = nav.querySelectorAll(".pito-video-row")
     expect(rows[0].classList.contains("pito-resume-highlight")).toBe(true)
   })
 
   it("ArrowDown does not go past the last row", async () => {
     ;({ nav } = buildScaffold({
-      games: [{ id: 1, title: "A" }, { id: 2, title: "B" }]
+      videos: [{ id: 1, title: "A" }, { id: 2, title: "B" }]
     }))
     await waitForConnect()
 
-    key(nav, "ArrowDown")
-    key(nav, "ArrowDown") // try to go past the end
+    key("ArrowDown")
+    key("ArrowDown")
 
-    const rows = nav.querySelectorAll(".pito-game-row")
+    const rows = nav.querySelectorAll(".pito-video-row")
     expect(rows[1].classList.contains("pito-resume-highlight")).toBe(true)
   })
 
@@ -154,11 +130,11 @@ describe("pito--games-nav controller", () => {
 
   it("clicking a row highlights it", async () => {
     ;({ nav } = buildScaffold({
-      games: [{ id: 1, title: "A" }, { id: 2, title: "B" }]
+      videos: [{ id: 1, title: "A" }, { id: 2, title: "B" }]
     }))
     await waitForConnect()
 
-    const rows = nav.querySelectorAll(".pito-game-row")
+    const rows = nav.querySelectorAll(".pito-video-row")
     rows[1].dispatchEvent(new MouseEvent("click", { bubbles: true }))
 
     expect(rows[1].classList.contains("pito-resume-highlight")).toBe(true)
@@ -166,49 +142,23 @@ describe("pito--games-nav controller", () => {
   })
 
   // ── Enter selection ─────────────────────────────────────────────────────────
-  // We call #select directly on the controller instance to avoid cross-test
-  // pollution from document-level keydown listeners that haven't been torn down
-  // yet by the async afterEach.
 
-  it("Enter (show mode): #select builds show game command", async () => {
+  it("#select builds show vid command", async () => {
     ;({ nav, sidebar } = buildScaffold({
-      mode:  "show",
-      games: [{ id: 7, title: "Hollow Knight" }]
+      videos: [{ id: 7, title: "Hollow Knight" }]
     }))
     await waitForConnect()
 
-    const ctrl = app.getControllerForElementAndIdentifier(nav, "pito--games-nav")
+    const ctrl = app.getControllerForElementAndIdentifier(nav, "pito--videos-nav")
 
     const events = []
     const handler = (e) => events.push(e.detail)
     document.addEventListener("pito:picker:select", handler)
     try {
-      const row = nav.querySelector(".pito-game-row")
-      ctrl._testSelect(row)   // call private via public test shim
-      expect(events).toHaveLength(1)
-      expect(events[0].command).toBe("show game #7")
-    } finally {
-      document.removeEventListener("pito:picker:select", handler)
-    }
-  })
-
-  it("Enter (delete mode): #select builds rm game command", async () => {
-    ;({ nav, sidebar } = buildScaffold({
-      mode:  "delete",
-      games: [{ id: 3, title: "Celeste" }]
-    }))
-    await waitForConnect()
-
-    const ctrl = app.getControllerForElementAndIdentifier(nav, "pito--games-nav")
-
-    const events = []
-    const handler = (e) => events.push(e.detail)
-    document.addEventListener("pito:picker:select", handler)
-    try {
-      const row = nav.querySelector(".pito-game-row")
+      const row = nav.querySelector(".pito-video-row")
       ctrl._testSelect(row)
       expect(events).toHaveLength(1)
-      expect(events[0].command).toBe("rm game #3")
+      expect(events[0].command).toBe("show vid #7")
     } finally {
       document.removeEventListener("pito:picker:select", handler)
     }
@@ -216,16 +166,15 @@ describe("pito--games-nav controller", () => {
 
   it("selecting a row clears the sidebar", async () => {
     ;({ nav, sidebar } = buildScaffold({
-      mode:  "show",
-      games: [{ id: 1, title: "A" }]
+      videos: [{ id: 1, title: "A" }]
     }))
     await waitForConnect()
 
-    const ctrl = app.getControllerForElementAndIdentifier(nav, "pito--games-nav")
+    const ctrl = app.getControllerForElementAndIdentifier(nav, "pito--videos-nav")
     const handler = () => {}
     document.addEventListener("pito:picker:select", handler)
     try {
-      const row = nav.querySelector(".pito-game-row")
+      const row = nav.querySelector(".pito-video-row")
       ctrl._testSelect(row)
       expect(sidebar.innerHTML).toBe("")
     } finally {
@@ -233,21 +182,21 @@ describe("pito--games-nav controller", () => {
     }
   })
 
-  it("highlightIndex is -1 for an empty list (no selection possible)", async () => {
-    ;({ nav } = buildScaffold({ games: [] }))
+  it("highlightIndex is -1 for an empty list", async () => {
+    ;({ nav } = buildScaffold({ videos: [] }))
     await waitForConnect()
 
-    const ctrl = app.getControllerForElementAndIdentifier(nav, "pito--games-nav")
+    const ctrl = app.getControllerForElementAndIdentifier(nav, "pito--videos-nav")
     expect(ctrl.highlightIndex).toBe(-1)
   })
 
   // ── Disconnect ──────────────────────────────────────────────────────────────
 
   it("disconnect does not throw", async () => {
-    ;({ nav } = buildScaffold({ games: [{ id: 1, title: "A" }] }))
+    ;({ nav } = buildScaffold({ videos: [{ id: 1, title: "A" }] }))
     await waitForConnect()
 
-    const ctrl = app.getControllerForElementAndIdentifier(nav, "pito--games-nav")
+    const ctrl = app.getControllerForElementAndIdentifier(nav, "pito--videos-nav")
     expect(() => ctrl.disconnect()).not.toThrow()
   })
 
@@ -259,21 +208,20 @@ describe("pito--games-nav controller", () => {
     document.body.appendChild(sidebar)
 
     const nav = document.createElement("div")
-    nav.setAttribute("data-controller", "pito--games-nav")
-    nav.setAttribute("data-pito--games-nav-mode-value", "show")
+    nav.setAttribute("data-controller", "pito--videos-nav")
 
     const list = document.createElement("div")
-    list.setAttribute("data-pito--games-nav-target", "list")
+    list.setAttribute("data-pito--videos-nav-target", "list")
 
     const row = document.createElement("div")
-    row.className = "pito-game-row"
-    row.dataset.gameId = "42"
+    row.className = "pito-video-row"
+    row.dataset.videoId = "42"
     list.appendChild(row)
 
     // A decoy row outside the list target — should not be picked up
     const decoy = document.createElement("div")
-    decoy.className = "pito-game-row"
-    decoy.dataset.gameId = "99"
+    decoy.className = "pito-video-row"
+    decoy.dataset.videoId = "99"
     nav.appendChild(decoy)
 
     nav.appendChild(list)
@@ -287,7 +235,7 @@ describe("pito--games-nav controller", () => {
 
   // ── Debounced search ────────────────────────────────────────────────────────
 
-  it("typing in the input triggers a debounced POST /games/search-local", async () => {
+  it("typing in the input triggers a debounced POST /videos/search-local", async () => {
     const mockFetch = vi.fn().mockResolvedValue({
       ok:   true,
       text: () => Promise.resolve(""),
@@ -299,15 +247,14 @@ describe("pito--games-nav controller", () => {
     document.body.appendChild(sidebar)
 
     const nav = document.createElement("div")
-    nav.setAttribute("data-controller", "pito--games-nav")
-    nav.setAttribute("data-pito--games-nav-mode-value", "show")
+    nav.setAttribute("data-controller", "pito--videos-nav")
 
     const input = document.createElement("input")
-    input.setAttribute("data-pito--games-nav-target", "input")
+    input.setAttribute("data-pito--videos-nav-target", "input")
     nav.appendChild(input)
 
     const list = document.createElement("div")
-    list.setAttribute("data-pito--games-nav-target", "list")
+    list.setAttribute("data-pito--videos-nav-target", "list")
     nav.appendChild(list)
 
     sidebar.appendChild(nav)
@@ -322,7 +269,7 @@ describe("pito--games-nav controller", () => {
 
     expect(mockFetch).toHaveBeenCalledOnce()
     const [url, opts] = mockFetch.mock.calls[0]
-    expect(url).toBe("/games/search-local")
+    expect(url).toBe("/videos/search-local")
     expect(opts.method).toBe("POST")
 
     global.fetch = undefined

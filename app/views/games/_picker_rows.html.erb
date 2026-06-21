@@ -1,0 +1,16 @@
+<%# Shared row markup for the games picker sidebar.
+    Rendered by Pito::Sidebar::Games::Component and Games::SearchLocalController.
+    Each row carries data-game-id so the pito--games-nav controller can build
+    the command on Enter/click. Platform icons appear at the right edge.
+
+    locals:
+      games — Array/relation of Game records (respond to #id, #title, #platforms) %>
+<% games.each do |game| %>
+  <div class="pito-game-row flex gap-2 items-center py-1 px-2 rounded cursor-pointer hover:bg-bg-hover"
+       data-game-id="<%= game.id %>"
+       data-game-title="<%= game.title %>">
+    <span class="text-fg-faded shrink-0 tabular-nums w-12 text-right">#<%= game.id %></span>
+    <span class="text-fg truncate flex-1"><%= game.title %></span>
+    <%= Pito::Game::PlatformTokens.icons_html(game.platforms) %>
+  </div>
+<% end %>

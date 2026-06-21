@@ -25,7 +25,7 @@
 // Auto-registered via eagerLoadControllersFrom.
 
 import { Controller } from "@hotwired/stimulus"
-import { currentTheme } from "pito/settings"
+import { currentTheme, paletteOpen } from "pito/settings"
 
 const HIGHLIGHT_CLASS = "pito-resume-highlight"
 
@@ -77,6 +77,8 @@ export default class extends Controller {
   }
 
   #onKey(e) {
+    if (paletteOpen()) return // command palette owns the keys while open
+
     const rows = this.#rows()
     if (!rows.length) return
 
