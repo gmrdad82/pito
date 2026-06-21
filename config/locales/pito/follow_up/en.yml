@@ -14,7 +14,7 @@ en:
           missing_price: "Specify a positive amount. Try: price set <amount> (e.g. price set 59.99) or price unset."
       video_list:
         errors:
-          invalid_action: "Unknown action '%{action}'. Try: show <id>, schedule <id> <when>, publish <id>, unlist <id>, delete <id>, link/unlink, sort by <col>, or add/remove <col>."
+          invalid_action: "Unknown action '%{action}'. Try: show <id>, schedule <id> <when>, publish <id>, unlist <id>, delete <id>, link/unlink, sort by <col>, or with/without <col>."
       video_detail:
         errors:
           invalid_action: "Unknown action '%{action}'. Try: reindex."

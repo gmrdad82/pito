@@ -115,11 +115,11 @@ module Pito
 
       HASHTAG_VERBS = Vocabulary.define(
         name:      :hashtag_verbs,
-        canonical: %w[add remove],
+        canonical: %w[with without],
         synonyms:  {
-          "drop"    => "remove",
-          "delete"  => "remove",
-          "include" => "add"
+          "drop"    => "without",
+          "delete"  => "without",
+          "include" => "with"
         }
       ).freeze
 
@@ -161,6 +161,15 @@ module Pito
           "videos"  => "vids",
           "vid"     => "vids"
         }
+      ).freeze
+
+      # Keyword option for the `<when>` slot of the `schedule` verb. `slate` is
+      # the next-open-slot alternative to an explicit date/time — surfaced so the
+      # suggestions engine can ghost it after `schedule …` (chat) and
+      # `#<handle> schedule …` (reply). Mirrors Schedule#SLATE_KEYWORD.
+      SCHEDULE_WHENS = Vocabulary.define(
+        name:      :schedule_whens,
+        canonical: %w[slate]
       ).freeze
 
       # ── Dynamic vocabulary stubs ─────────────────────────────────────────────
@@ -230,7 +239,8 @@ module Pito
           VIDEO_TITLES,
           GAMES_SUBCOMMANDS,
           IMPORT_NOUNS,
-          SYNC_TARGETS
+          SYNC_TARGETS,
+          SCHEDULE_WHENS
         ]
       end
 

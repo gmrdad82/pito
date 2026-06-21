@@ -404,9 +404,9 @@ module Pito
             if at_verb_stage
               return follow_up_action_completions(actions, partial)
             else
-              # Arg stage: for game_list/video_list add/remove, ghost column tokens.
+              # Arg stage: for game_list/video_list with/without, ghost column tokens.
               action = after_words.first&.downcase
-              if %w[add remove].include?(action) && %w[game_list video_list].include?(target)
+              if %w[with without].include?(action) && %w[game_list video_list].include?(target)
                 # args_text = everything after "#<handle> <action> " (the comma-list).
                 args_text = after.lstrip.sub(/\A\S+\s+/, "")
                 result = Pito::Suggestions::ListClauseGhost.hashtag_list_action_completions(
@@ -426,6 +426,14 @@ module Pito
                   args_text:,
                   ends_with_space:
                 )
+                return result if result
+              end
+
+              # Arg stage: for schedule, surface the `slate` keyword (the
+              # next-open-slot alternative to an explicit <when>) the same way
+              # other static-vocab options are offered.
+              if action == "schedule" && Pito::FollowUp::Registry.actions_for(target).include?("schedule")
+                result = hashtag_schedule_arg_completions(partial)
                 return result if result
               end
 
@@ -509,6 +517,34 @@ module Pito
                     completion = matches.size == 1 ? matches.first.to_s[partial.length..] : ""
                     { complete_current: completion, next_hint: "" }
           end
+
+          { menu_items: menu_items, ghost: ghost }
+        end
+
+        # Arg-stage completions for `#<handle> schedule …`: surface the `slate`
+        # keyword (the next-open-slot alternative to an explicit <when>) from the
+        # :schedule_whens vocab, mirroring hashtag_metric_completions. Returns nil
+        # when the partial prefixes no schedule keyword so the caller can fall
+        # through to the --help ghost.
+        def hashtag_schedule_arg_completions(partial)
+          vocab = Pito::Grammar::Registry.vocabulary(:schedule_whens)
+          return nil unless vocab
+
+          members = prefix_filter(vocab.canonical, partial)
+          return nil if members.empty?
+
+          menu_items = members.map do |member|
+            { label: member, insert: "#{member} ", description: "", masked: false }
+          end
+
+          ghost =
+            if partial.empty?
+              { complete_current: members.first.to_s, next_hint: "" }
+            elsif members.size == 1
+              { complete_current: members.first.to_s[partial.length..], next_hint: "" }
+            else
+              EMPTY_GHOST
+            end
 
           { menu_items: menu_items, ghost: ghost }
         end

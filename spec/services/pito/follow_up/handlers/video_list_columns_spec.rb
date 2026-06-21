@@ -2,7 +2,7 @@
 
 require "rails_helper"
 
-# Specs for the add/remove column-mutation feature on the video_list follow-up handler.
+# Specs for the with/without column-mutation feature on the video_list follow-up handler.
 RSpec.describe Pito::FollowUp::Handlers::VideoList, "column mutations" do
   subject(:handler) { described_class.new }
 
@@ -33,13 +33,19 @@ RSpec.describe Pito::FollowUp::Handlers::VideoList, "column mutations" do
     expect(described_class.mode).to eq(:append)
   end
 
-  it "declares add and remove as :mutate per-action overrides" do
-    expect(described_class.action_modes["add"]).to eq(:mutate)
-    expect(described_class.action_modes["remove"]).to eq(:mutate)
+  it "declares with and without as :mutate per-action overrides" do
+    expect(described_class.action_modes["with"]).to eq(:mutate)
+    expect(described_class.action_modes["without"]).to eq(:mutate)
   end
 
-  it "includes add and remove in declared actions" do
-    expect(described_class.actions).to include("add", "remove")
+  it "includes with and without in declared actions" do
+    expect(described_class.actions).to include("with", "without")
+  end
+
+  it "no longer declares the dropped add/remove verbs" do
+    expect(described_class.actions).not_to include("add", "remove")
+    expect(described_class.action_modes).not_to have_key("add")
+    expect(described_class.action_modes).not_to have_key("remove")
   end
 
   # ── Registry.mode_for (per-action) ──────────────────────────────────────────
@@ -47,12 +53,12 @@ RSpec.describe Pito::FollowUp::Handlers::VideoList, "column mutations" do
   describe "Pito::FollowUp::Registry.mode_for (per-action)" do
     before { Pito::FollowUp::Registry.register_all! }
 
-    it "returns :mutate for add action" do
-      expect(Pito::FollowUp::Registry.mode_for("video_list", action: "add")).to eq(:mutate)
+    it "returns :mutate for with action" do
+      expect(Pito::FollowUp::Registry.mode_for("video_list", action: "with")).to eq(:mutate)
     end
 
-    it "returns :mutate for remove action" do
-      expect(Pito::FollowUp::Registry.mode_for("video_list", action: "remove")).to eq(:mutate)
+    it "returns :mutate for without action" do
+      expect(Pito::FollowUp::Registry.mode_for("video_list", action: "without")).to eq(:mutate)
     end
 
     it "returns :append for show action" do
@@ -64,68 +70,68 @@ RSpec.describe Pito::FollowUp::Handlers::VideoList, "column mutations" do
     end
   end
 
-  # ── add <columns> ───────────────────────────────────────────────────────────
+  # ── with <columns> ──────────────────────────────────────────────────────────
 
-  describe "#call with add" do
-    it "returns a Mutation for add game" do
-      result = handler.call(event:, rest: "add game", conversation:)
+  describe "#call with `with`" do
+    it "returns a Mutation for with game" do
+      result = handler.call(event:, rest: "with game", conversation:)
       expect(result).to be_a(Pito::FollowUp::Result::Mutation)
     end
 
     it "kind is :system (mirrors the source event kind)" do
-      result = handler.call(event:, rest: "add game", conversation:)
+      result = handler.call(event:, rest: "with game", conversation:)
       expect(result.kind).to eq(:system)
     end
 
-    it "payload includes game in list_columns after add game" do
-      result = handler.call(event:, rest: "add game", conversation:)
+    it "payload includes game in list_columns after with game" do
+      result = handler.call(event:, rest: "with game", conversation:)
       expect(result.payload["list_columns"]).to include("game")
     end
 
-    it "payload table_heading gains Game column after add" do
-      result = handler.call(event:, rest: "add game", conversation:)
+    it "payload table_heading gains Game column after with" do
+      result = handler.call(event:, rest: "with game", conversation:)
       heading_texts = result.payload["table_heading"].map { |h| h.is_a?(Hash) ? h["text"] : h }
       expect(heading_texts).to include("Game")
     end
 
     it "does NOT set reply_consumed (handle is NOT consumed)" do
-      result = handler.call(event:, rest: "add game", conversation:)
+      result = handler.call(event:, rest: "with game", conversation:)
       expect(result.payload["reply_consumed"]).not_to be_truthy
     end
 
     it "preserves the original reply_handle" do
       original_handle = event_payload["reply_handle"]
-      result          = handler.call(event:, rest: "add game", conversation:)
+      result          = handler.call(event:, rest: "with game", conversation:)
       expect(result.payload["reply_handle"]).to eq(original_handle)
     end
 
     it "preserves reply_target as video_list" do
-      result = handler.call(event:, rest: "add game", conversation:)
+      result = handler.call(event:, rest: "with game", conversation:)
       expect(result.payload["reply_target"]).to eq("video_list")
     end
 
     it "stamps surface: true so the mutated segment lifts onto the surface background" do
-      result = handler.call(event:, rest: "add game", conversation:)
+      result = handler.call(event:, rest: "with game", conversation:)
       expect(result.payload["surface"]).to be(true)
     end
 
-    it "accepts comma-separated columns: add game, duration" do
-      result = handler.call(event:, rest: "add game, duration", conversation:)
+    it "accepts comma-separated columns: with game, duration" do
+      result = handler.call(event:, rest: "with game, duration", conversation:)
       expect(result.payload["list_columns"]).to include("game", "duration")
     end
 
     it "ignores unknown column tokens (no error)" do
-      result = handler.call(event:, rest: "add banana", conversation:)
+      result = handler.call(event:, rest: "with banana", conversation:)
       expect(result).to be_a(Pito::FollowUp::Result::Mutation)
       expect(result.payload["list_columns"]).to eq([])
     end
 
     it "stamps video_ids in the rebuilt payload" do
-      result = handler.call(event:, rest: "add game", conversation:)
+      result = handler.call(event:, rest: "with game", conversation:)
       expect(result.payload["video_ids"]).to eq([ video.id ])
     end
 
-    it "ignores duplicate columns (idempotent add)" do
+    it "ignores duplicate columns (idempotent with)" do
       payload_with_game = Pito::MessageBuilder::Video::List.call(
         [ video ],
         conversation: conversation,
@@ -133,14 +139,14 @@ RSpec.describe Pito::FollowUp::Handlers::VideoList, "column mutations" do
       )
       ev_with = instance_double(Event, payload: payload_with_game, kind: "system")
 
-      result = handler.call(event: ev_with, rest: "add game", conversation:)
+      result = handler.call(event: ev_with, rest: "with game", conversation:)
       expect(result.payload["list_columns"].count { |c| c == "game" }).to eq(1)
     end
   end
 
-  # ── remove <columns> ────────────────────────────────────────────────────────
+  # ── without <columns> ─────────────────────────────────────────────────────────
 
-  describe "#call with remove" do
+  describe "#call with `without`" do
     let(:event_with_duration) do
       payload = Pito::MessageBuilder::Video::List.call(
         [ video ],
@@ -150,25 +156,44 @@ RSpec.describe Pito::FollowUp::Handlers::VideoList, "column mutations" do
       instance_double(Event, payload:, kind: "system")
     end
 
-    it "returns a Mutation for remove duration" do
-      result = handler.call(event: event_with_duration, rest: "remove duration", conversation:)
+    it "returns a Mutation for without duration" do
+      result = handler.call(event: event_with_duration, rest: "without duration", conversation:)
       expect(result).to be_a(Pito::FollowUp::Result::Mutation)
     end
 
     it "duration is removed from list_columns" do
-      result = handler.call(event: event_with_duration, rest: "remove duration", conversation:)
+      result = handler.call(event: event_with_duration, rest: "without duration", conversation:)
       expect(result.payload["list_columns"]).not_to include("duration")
     end
 
-    it "ignores unknown column in remove (no error)" do
-      result = handler.call(event: event_with_duration, rest: "remove banana", conversation:)
+    it "ignores unknown column in without (no error)" do
+      result = handler.call(event: event_with_duration, rest: "without banana", conversation:)
       expect(result).to be_a(Pito::FollowUp::Result::Mutation)
       expect(result.payload["list_columns"]).to include("duration")
     end
 
     it "does NOT consume the handle" do
-      result = handler.call(event: event_with_duration, rest: "remove duration", conversation:)
+      result = handler.call(event: event_with_duration, rest: "without duration", conversation:)
       expect(result.payload["reply_consumed"]).not_to be_truthy
+    end
+  end
+
+  # ── add/remove are now INVALID (dropped entirely, not aliased) ───────────────
+
+  describe "#call with the dropped add/remove verbs" do
+    before { Pito::FollowUp::Registry.register_all! }
+
+    it "rejects `add` with the invalid_action error (no longer a column verb)" do
+      result = handler.call(event:, rest: "add game", conversation:)
+      expect(result).to be_a(Pito::FollowUp::Result::Error)
+      expect(result.message_key).to eq("pito.follow_up.video_list.errors.invalid_action")
+      expect(result.message_args).to eq({ action: "add" })
+    end
+
+    it "rejects `remove` with the invalid_action error" do
+      result = handler.call(event:, rest: "remove game", conversation:)
+      expect(result).to be_a(Pito::FollowUp::Result::Error)
+      expect(result.message_key).to eq("pito.follow_up.video_list.errors.invalid_action")
     end
   end
 

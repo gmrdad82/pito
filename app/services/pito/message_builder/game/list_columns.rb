@@ -198,7 +198,7 @@ module Pito
         # Witty footer copy naming the columns that can still be added — or the
         # "everything's shown" variant when none remain. `shown` is the canonical
         # added columns currently in the table (id/title excluded). Recomputes on
-        # every List.call, so add/remove follow-ups update it automatically.
+        # every List.call, so with/without follow-ups update it automatically.
         def addable_footer(shown)
           addable = COLUMNS.keys - shown
           if addable.any?

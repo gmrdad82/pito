@@ -28,7 +28,7 @@ module Pito
             "table_heading" => [ { "text" => "#", "class" => "text-right" }, "Title", *ListColumns.heading_cells(cols) ],
             "shimmer_heading" => true,
             "table_rows"    => videos.map { |video| row_for(video, cols) },
-            # Stamped for add/remove column mutations: allows the handler to
+            # Stamped for with/without column mutations: allows the handler to
             # reload the same videos and rebuild with an updated column set.
             "video_ids"     => videos.map(&:id),
             "list_columns"  => cols.map(&:to_s),

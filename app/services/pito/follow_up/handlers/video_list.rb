@@ -14,29 +14,29 @@ module Pito
       #   #<handle> publish | unlist <id> → the visibility-change confirmation
       #
       # Column mutations (no consume, :mutate mode per action):
-      #   #<handle> add <columns>    → rebuild list with extra column(s)
-      #   #<handle> remove <columns> → rebuild list without the named column(s)
+      #   #<handle> with <columns>    → rebuild list with extra column(s)
+      #   #<handle> without <columns> → rebuild list without the named column(s)
       #
       # Sort mutations (no consume, :mutate mode per action):
       #   #<handle> sort by <col> [desc]  → re-sort the stamped list in place
       #   #<handle> order by <col> [desc] → alias for sort
       #
-      # The action_modes DSL declares that `add`, `remove`, `sort`, and `order`
+      # The action_modes DSL declares that `with`, `without`, `sort`, and `order`
       # are :mutate (no echo, no turn, re-render the same message), while the
       # class-level mode (:append) governs show/delete/rm (consume the source,
       # echo + turn).
       class VideoList < Pito::FollowUp::Handler
         self.target "video_list"
         self.mode   :append
-        self.action_modes add: :mutate, remove: :mutate, sort: :mutate, order: :mutate
+        self.action_modes with: :mutate, without: :mutate, sort: :mutate, order: :mutate
         self.actions "show", "delete", "rm", "schedule", "publish", "unlist",
-                     "add", "remove", "sort", "order", "link", "unlink", "shinies"
+                     "with", "without", "sort", "order", "link", "unlink", "shinies"
 
         def call(event:, rest:, conversation:)
           action, args = parse_rest(rest)
 
           case action
-          when "add", "remove"
+          when "with", "without"
             mutate_columns(event:, conversation:, action:, args:)
           when "sort", "order"
             mutate_sort(event:, conversation:, args:)
@@ -102,7 +102,7 @@ module Pito
         end
 
         # Parse the comma-separated column list from args, compute the new set
-        # (add: union; remove: difference), reload the same videos, and rebuild
+        # (with: union; without: difference), reload the same videos, and rebuild
         # the list payload preserving the reply handle + target so it stays repliable.
         def mutate_columns(event:, conversation:, action:, args:)
           payload = event.payload.with_indifferent_access
@@ -117,8 +117,8 @@ module Pito
 
           new_cols =
             case action
-            when "add"    then (current_cols | delta_cols)
-            when "remove" then (current_cols - delta_cols)
+            when "with"    then (current_cols | delta_cols)
+            when "without" then (current_cols - delta_cols)
             end
 
           # Reload videos by the stamped ordered ids.

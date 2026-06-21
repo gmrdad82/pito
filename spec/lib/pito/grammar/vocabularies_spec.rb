@@ -270,6 +270,23 @@ RSpec.describe Pito::Grammar::Vocabularies do
     end
   end
 
+  # ── Static vocab: :schedule_whens ──────────────────────────────────────────
+  describe ":schedule_whens" do
+    subject(:schedule_whens) { vocab(:schedule_whens) }
+
+    it "is registered" do
+      expect(schedule_whens).not_to be_nil
+    end
+
+    it 'offers "slate" as the canonical keyword' do
+      expect(schedule_whens.canonical).to include("slate")
+    end
+
+    it 'resolves "slate" to "slate"' do
+      expect(schedule_whens.resolve("slate")).to eq("slate")
+    end
+  end
+
   # ── Static vocab: :hashtag_verbs ───────────────────────────────────────────
   describe ":hashtag_verbs" do
     subject(:hashtag_verbs) { vocab(:hashtag_verbs) }
@@ -278,16 +295,16 @@ RSpec.describe Pito::Grammar::Vocabularies do
       expect(hashtag_verbs.dynamic?).to be false
     end
 
-    it 'resolves "drop" to "remove"' do
-      expect(hashtag_verbs.resolve("drop")).to eq("remove")
+    it 'resolves "drop" to "without"' do
+      expect(hashtag_verbs.resolve("drop")).to eq("without")
     end
 
-    it 'resolves "delete" to "remove"' do
-      expect(hashtag_verbs.resolve("delete")).to eq("remove")
+    it 'resolves "delete" to "without"' do
+      expect(hashtag_verbs.resolve("delete")).to eq("without")
     end
 
-    it 'resolves "include" to "add"' do
-      expect(hashtag_verbs.resolve("include")).to eq("add")
+    it 'resolves "include" to "with"' do
+      expect(hashtag_verbs.resolve("include")).to eq("with")
     end
   end
 

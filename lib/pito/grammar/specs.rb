@@ -163,12 +163,16 @@ module Pito
             slots:           [ Slot.new(name: :title, kind: :free, optional: true) ],
             description_key: "pito.grammar.chat.unlist"
           ),
+          # `schedule <id> <when|slate>` — the leading free slot absorbs the id +
+          # explicit <when> phrase (parsed by Pito::Schedule::TimeParser at the
+          # handler); the trailing enum slot surfaces `slate` (the next-open-slot
+          # keyword) as a TAB-completable suggestion alongside an explicit date.
           Spec.new(
             namespace:       :chat,
             name:            :schedule,
             slots:           [
               Slot.new(name: :title, kind: :free, optional: true),
-              Slot.new(name: :when,  kind: :free, optional: true)
+              Slot.new(name: :slate, kind: :enum, source: :schedule_whens, optional: true)
             ],
             description_key: "pito.grammar.chat.schedule"
           ),

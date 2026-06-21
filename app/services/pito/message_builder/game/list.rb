@@ -41,7 +41,7 @@ module Pito
                 ]
               }
             },
-            # Stamped for add/remove column mutations: allows the handler to
+            # Stamped for with/without column mutations: allows the handler to
             # reload the same games and rebuild with an updated column set.
             "game_ids"      => games.map(&:id),
             "list_columns"  => cols.map(&:to_s),

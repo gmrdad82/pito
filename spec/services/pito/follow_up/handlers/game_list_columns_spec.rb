@@ -2,7 +2,7 @@
 
 require "rails_helper"
 
-# Specs for the add/remove column-mutation feature on the game_list follow-up handler.
+# Specs for the with/without column-mutation feature on the game_list follow-up handler.
 RSpec.describe Pito::FollowUp::Handlers::GameList, "column mutations" do
   subject(:handler) { described_class.new }
 
@@ -34,13 +34,19 @@ RSpec.describe Pito::FollowUp::Handlers::GameList, "column mutations" do
     expect(described_class.mode).to eq(:append)
   end
 
-  it "declares add and remove as :mutate per-action overrides" do
-    expect(described_class.action_modes["add"]).to eq(:mutate)
-    expect(described_class.action_modes["remove"]).to eq(:mutate)
+  it "declares with and without as :mutate per-action overrides" do
+    expect(described_class.action_modes["with"]).to eq(:mutate)
+    expect(described_class.action_modes["without"]).to eq(:mutate)
   end
 
-  it "includes add and remove in declared actions" do
-    expect(described_class.actions).to include("add", "remove")
+  it "includes with and without in declared actions" do
+    expect(described_class.actions).to include("with", "without")
+  end
+
+  it "no longer declares the dropped add/remove verbs" do
+    expect(described_class.actions).not_to include("add", "remove")
+    expect(described_class.action_modes).not_to have_key("add")
+    expect(described_class.action_modes).not_to have_key("remove")
   end
 
   # ── Registry.mode_for (per-action) ──────────────────────────────────────────
@@ -48,12 +54,12 @@ RSpec.describe Pito::FollowUp::Handlers::GameList, "column mutations" do
   describe "Pito::FollowUp::Registry.mode_for (per-action)" do
     before { Pito::FollowUp::Registry.register_all! }
 
-    it "returns :mutate for add action" do
-      expect(Pito::FollowUp::Registry.mode_for("game_list", action: "add")).to eq(:mutate)
+    it "returns :mutate for with action" do
+      expect(Pito::FollowUp::Registry.mode_for("game_list", action: "with")).to eq(:mutate)
     end
 
-    it "returns :mutate for remove action" do
-      expect(Pito::FollowUp::Registry.mode_for("game_list", action: "remove")).to eq(:mutate)
+    it "returns :mutate for without action" do
+      expect(Pito::FollowUp::Registry.mode_for("game_list", action: "without")).to eq(:mutate)
     end
 
     it "returns :append (default) for show action" do
@@ -69,68 +75,68 @@ RSpec.describe Pito::FollowUp::Handlers::GameList, "column mutations" do
     end
   end
 
-  # ── add <columns> ───────────────────────────────────────────────────────────
+  # ── with <columns> ──────────────────────────────────────────────────────────
 
-  describe "#call with add" do
-    it "returns a Mutation (not Append) for add platform" do
-      result = handler.call(event:, rest: "add platform", conversation:)
+  describe "#call with `with`" do
+    it "returns a Mutation (not Append) for with platform" do
+      result = handler.call(event:, rest: "with platform", conversation:)
       expect(result).to be_a(Pito::FollowUp::Result::Mutation)
     end
 
     it "kind is :system (mirrors the source event kind)" do
-      result = handler.call(event:, rest: "add platform", conversation:)
+      result = handler.call(event:, rest: "with platform", conversation:)
       expect(result.kind).to eq(:system)
     end
 
-    it "payload includes platform in list_columns after add platform" do
-      result = handler.call(event:, rest: "add platform", conversation:)
+    it "payload includes platform in list_columns after with platform" do
+      result = handler.call(event:, rest: "with platform", conversation:)
       expect(result.payload["list_columns"]).to include("platform")
     end
 
-    it "resolves the 'release' alias so `add release` adds release_date" do
-      result = handler.call(event:, rest: "add release", conversation:)
+    it "resolves the 'release' alias so `with release` adds release_date" do
+      result = handler.call(event:, rest: "with release", conversation:)
       expect(result.payload["list_columns"]).to include("release_date")
     end
 
-    it "payload table_heading gains Platform column after add" do
-      result = handler.call(event:, rest: "add platform", conversation:)
+    it "payload table_heading gains Platform column after with" do
+      result = handler.call(event:, rest: "with platform", conversation:)
       headings = result.payload["table_heading"].map { |h| h.is_a?(Hash) ? h["text"] : h }
       expect(headings).to include("Platform")
     end
 
-    it "successive add operations are independent and accumulate" do
-      # add platform
-      result1 = handler.call(event:, rest: "add platform", conversation:)
+    it "successive with operations are independent and accumulate" do
+      # with platform
+      result1 = handler.call(event:, rest: "with platform", conversation:)
       expect(result1.payload["list_columns"]).to include("platform")
 
-      # add genre on the original event (handle is not consumed)
-      result2 = handler.call(event:, rest: "add genre", conversation:)
+      # with genre on the original event (handle is not consumed)
+      result2 = handler.call(event:, rest: "with genre", conversation:)
       expect(result2.payload["list_columns"]).to include("genre")
       expect(result2.payload["list_columns"]).not_to include("platform")
     end
 
     it "does NOT set reply_consumed (handle is NOT consumed)" do
-      result = handler.call(event:, rest: "add platform", conversation:)
+      result = handler.call(event:, rest: "with platform", conversation:)
       expect(result.payload["reply_consumed"]).not_to be_truthy
     end
 
     it "preserves the original reply_handle so the same handle stays repliable" do
       original_handle = event_payload["reply_handle"]
-      result          = handler.call(event:, rest: "add platform", conversation:)
+      result          = handler.call(event:, rest: "with platform", conversation:)
       expect(result.payload["reply_handle"]).to eq(original_handle)
     end
 
     it "preserves reply_target as game_list" do
-      result = handler.call(event:, rest: "add platform", conversation:)
+      result = handler.call(event:, rest: "with platform", conversation:)
       expect(result.payload["reply_target"]).to eq("game_list")
     end
 
     it "ignores unknown column tokens" do
-      result = handler.call(event:, rest: "add banana", conversation:)
+      result = handler.call(event:, rest: "with banana", conversation:)
       expect(result.payload["list_columns"]).to eq([])
     end
 
-    it "ignores duplicate columns (idempotent add)" do
+    it "ignores duplicate columns (idempotent with)" do
       # Start with platform already in the list
       payload_with_platform = Pito::MessageBuilder::Game::List.call(
         [ game ],
@@ -139,24 +145,24 @@ RSpec.describe Pito::FollowUp::Handlers::GameList, "column mutations" do
       )
       ev_with = instance_double(Event, payload: payload_with_platform, kind: "system")
 
-      result = handler.call(event: ev_with, rest: "add platform", conversation:)
+      result = handler.call(event: ev_with, rest: "with platform", conversation:)
       expect(result.payload["list_columns"].count { |c| c == "platform" }).to eq(1)
     end
 
-    it "accepts comma-separated columns: add platform, genre" do
-      result = handler.call(event:, rest: "add platform, genre", conversation:)
+    it "accepts comma-separated columns: with platform, genre" do
+      result = handler.call(event:, rest: "with platform, genre", conversation:)
       expect(result.payload["list_columns"]).to include("platform", "genre")
     end
 
     it "stamps game_ids in the rebuilt payload" do
-      result = handler.call(event:, rest: "add platform", conversation:)
+      result = handler.call(event:, rest: "with platform", conversation:)
       expect(result.payload["game_ids"]).to eq([ game.id ])
     end
   end
 
-  # ── remove <columns> ────────────────────────────────────────────────────────
+  # ── without <columns> ─────────────────────────────────────────────────────────
 
-  describe "#call with remove" do
+  describe "#call with `without`" do
     let(:event_with_platform) do
       payload = Pito::MessageBuilder::Game::List.call(
         [ game ],
@@ -166,31 +172,50 @@ RSpec.describe Pito::FollowUp::Handlers::GameList, "column mutations" do
       instance_double(Event, payload:, kind: "system")
     end
 
-    it "returns a Mutation for remove platform" do
-      result = handler.call(event: event_with_platform, rest: "remove platform", conversation:)
+    it "returns a Mutation for without platform" do
+      result = handler.call(event: event_with_platform, rest: "without platform", conversation:)
       expect(result).to be_a(Pito::FollowUp::Result::Mutation)
     end
 
     it "platform is removed from list_columns" do
-      result = handler.call(event: event_with_platform, rest: "remove platform", conversation:)
+      result = handler.call(event: event_with_platform, rest: "without platform", conversation:)
       expect(result.payload["list_columns"]).not_to include("platform")
     end
 
-    it "ignores unknown column in remove (no error)" do
-      result = handler.call(event: event_with_platform, rest: "remove banana", conversation:)
+    it "ignores unknown column in without (no error)" do
+      result = handler.call(event: event_with_platform, rest: "without banana", conversation:)
       expect(result).to be_a(Pito::FollowUp::Result::Mutation)
       expect(result.payload["list_columns"]).to include("platform")
     end
 
     it "does NOT consume the handle" do
-      result = handler.call(event: event_with_platform, rest: "remove platform", conversation:)
+      result = handler.call(event: event_with_platform, rest: "without platform", conversation:)
       expect(result.payload["reply_consumed"]).not_to be_truthy
     end
 
     it "preserves the original reply_handle" do
       original_handle = event_with_platform.payload["reply_handle"]
-      result          = handler.call(event: event_with_platform, rest: "remove platform", conversation:)
+      result          = handler.call(event: event_with_platform, rest: "without platform", conversation:)
       expect(result.payload["reply_handle"]).to eq(original_handle)
+    end
+  end
+
+  # ── add/remove are now INVALID (dropped entirely, not aliased) ───────────────
+
+  describe "#call with the dropped add/remove verbs" do
+    before { Pito::FollowUp::Registry.register_all! }
+
+    it "rejects `add` with the invalid_action error (no longer a column verb)" do
+      result = handler.call(event:, rest: "add platform", conversation:)
+      expect(result).to be_a(Pito::FollowUp::Result::Error)
+      expect(result.message_key).to eq("pito.follow_up.game_list.errors.invalid_action")
+      expect(result.message_args).to eq({ action: "add" })
+    end
+
+    it "rejects `remove` with the invalid_action error" do
+      result = handler.call(event: event, rest: "remove platform", conversation:)
+      expect(result).to be_a(Pito::FollowUp::Result::Error)
+      expect(result.message_key).to eq("pito.follow_up.game_list.errors.invalid_action")
     end
   end
 
