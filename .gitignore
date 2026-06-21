@@ -29,6 +29,10 @@
 !/tmp/storage/
 !/tmp/storage/.keep
 
+# ActiveStorage dev blobs (avatars / thumbnails / cover art) — live under public/
+# so they survive tmp cleanups; never checked in.
+/public/pito-storage
+
 /public/assets
 
 # Ignore key files for decrypting credentials and more.

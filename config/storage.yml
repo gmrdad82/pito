@@ -4,7 +4,9 @@ test:
 
 development:
   service: Disk
-  root: <%= Rails.root.join("tmp/storage") %>
+  # Under public/ (NOT tmp/, which gets wiped and orphaned the avatar blobs).
+  # Gitignored. pito's blobs are all public media (avatars, thumbnails, covers).
+  root: <%= Rails.root.join("public/pito-storage") %>
 
 local:
   service: Disk
