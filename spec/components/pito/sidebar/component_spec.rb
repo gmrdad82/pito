@@ -41,6 +41,12 @@ RSpec.describe Pito::Sidebar::Component do
     it "renders an aside element" do
       expect(node.css("aside")).not_to be_empty
     end
+
+    it "aside carries w-full and md:w-[480px] for mobile overlay / desktop push" do
+      aside_classes = node.css("aside").first["class"].split
+      expect(aside_classes).to include("w-full")
+      expect(aside_classes).to include("md:w-[480px]")
+    end
   end
 
   describe "subtitle with interpolation" do

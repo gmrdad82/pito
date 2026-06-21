@@ -24,18 +24,20 @@ RSpec.describe Pito::Keybinding::ShortcutComponent do
       expect(again["class"]).to eq(span["class"])
     end
 
-    it "applies no extra data attributes when data is omitted" do
-      node = render_inline(described_class.new(keys: "tab"))
+    it "always wires the pito--kbd-click controller so the hint is tappable" do
+      node = render_inline(described_class.new(keys: "ctrl+k"))
       span = node.css("span").first
-      data_attrs = span.attributes.keys.select { |k| k.start_with?("data-") }
-      expect(data_attrs).to be_empty
+      expect(span["data-controller"]).to eq("pito--kbd-click")
+      expect(span["data-action"]).to eq("click->pito--kbd-click#fire")
+      expect(span["data-pito--kbd-click-key-value"]).to eq("ctrl+k")
     end
 
-    it "applies data-* attributes from the data hash" do
+    it "merges data-* attributes from the data hash, concatenating controller/action" do
       node = render_inline(described_class.new(keys: "ctrl+k", data: { "controller" => "pito--platform-key", "action" => "toggle" }))
       span = node.css("span").first
-      expect(span["data-controller"]).to eq("pito--platform-key")
-      expect(span["data-action"]).to eq("toggle")
+      expect(span["data-controller"]).to eq("pito--kbd-click pito--platform-key")
+      expect(span["data-action"]).to eq("click->pito--kbd-click#fire toggle")
+      expect(span["data-pito--kbd-click-key-value"]).to eq("ctrl+k")
     end
 
     it "renders various key strings correctly" do

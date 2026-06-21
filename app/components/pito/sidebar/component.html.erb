@@ -1,6 +1,6 @@
 <%# Sidebar — in-flow panel that fills the animated #pito-sidebar mount and sits
     side-by-side with the main content (the shell row shrinks to make room). %>
-<aside class="relative h-full w-[480px] bg-root border-l border-line-default overflow-hidden flex flex-col">
+<aside class="relative h-full w-full md:w-[480px] bg-root border-l border-line-default overflow-hidden flex flex-col">
   <%# Sticky header %>
   <div class="pt-4 px-4">
     <div class="flex justify-between items-start">
@@ -12,7 +12,7 @@
           <div class="text-fg-dim"><%= t(@subtitle_key, **@subtitle_args) %></div>
         <% end %>
       </div>
-      <span class="text-fg-dim shrink-0"><%= t("pito.sidebar.esc_hint") %></span>
+      <span class="text-fg-dim shrink-0" data-controller="pito--kbd-click" data-pito--kbd-click-key-value="Esc" data-action="click->pito--kbd-click#fire"><%= t("pito.sidebar.esc_hint") %></span>
     </div>
   </div>
 

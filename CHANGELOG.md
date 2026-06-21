@@ -98,6 +98,18 @@ In progress; entries are added here as they land on `main` (tag created at relea
   2K, cyan heading to 500, …), so the track shows momentum, not just history.
 - **Score & time-to-beat bars shimmer** — a subtle pito-blue highlight sweeps across the
   gradient bars on the `show game` card.
+- **Mobile-adaptive detail cards** — on narrow screens (< 768px) the `show video` /
+  `show game` cards (and the linked-game card) stack into a single column — cover/thumbnail
+  on top, the details table beneath — instead of being squeezed into two columns; desktop
+  keeps the two-column layout. (pito's first responsive breakpoint.)
+- **Keyboard-shortcut hints are now tappable** — every shortcut hint (`Esc`, `shift+r`,
+  `shift+tab`, `shift+space`, `ctrl+k`, `ctrl+/`, `m`, …) responds to a click/tap by firing
+  the same action as the key, so the app is usable on touch/mobile. Purely additive — no
+  visual change to the hints.
+- **Mobile sidebar overlay** — on narrow screens (< 768px) the sidebar (conversations,
+  notifications, pickers, themes) opens as a **full-width overlay on top** of the
+  conversation instead of squeezing it; desktop keeps the side-by-side panel. Still respects
+  `/config fx` (snaps instead of animating when motion is off).
 
 ### Fixed
 

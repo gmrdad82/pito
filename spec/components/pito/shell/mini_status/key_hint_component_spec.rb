@@ -16,10 +16,12 @@ RSpec.describe Pito::Shell::MiniStatus::KeyHintComponent do
       expect(hint_span["data-target"]).to eq("audio")
     end
 
-    it "renders hint span with no data attributes when hint_data is omitted" do
+    it "still wires the kbd-click attrs on the hint span (always tappable) when hint_data is omitted" do
       node = render_inline(described_class.new(hint: "tab", label: "channels"))
       hint_span = node.css("span.font-bold.text-yellow").first
-      expect(hint_span.attributes.keys).not_to include(a_string_starting_with("data-"))
+      expect(hint_span["data-controller"]).to eq("pito--kbd-click")
+      expect(hint_span["data-action"]).to eq("click->pito--kbd-click#fire")
+      expect(hint_span["data-pito--kbd-click-key-value"]).to eq("tab")
     end
   end
 
