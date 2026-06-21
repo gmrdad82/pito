@@ -100,4 +100,11 @@ class Pito::ScoreBarComponent < ViewComponent::Base
   def score_label
     @label || Pito::Copy.render("pito.copy.game.score_label")
   end
+
+  # Stagger bucket for the bar shimmer animation. Combines the label text and
+  # the score value so that bars for different scores (or score vs TTB in the
+  # same card) scatter to different delays and never pulse in sync.
+  def shimmer_offset_class
+    Pito::Shimmer.offset_class("#{score_label}#{score}")
+  end
 end
