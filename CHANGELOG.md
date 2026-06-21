@@ -104,8 +104,11 @@ In progress; entries are added here as they land on `main` (tag created at relea
   keeps the two-column layout. (pito's first responsive breakpoint.)
 - **Keyboard-shortcut hints are now tappable** — every shortcut hint (`Esc`, `shift+r`,
   `shift+tab`, `shift+space`, `ctrl+k`, `ctrl+/`, `m`, …) responds to a click/tap by firing
-  the same action as the key, so the app is usable on touch/mobile. Purely additive — no
-  visual change to the hints.
+  the same action as the key, so the app is usable on touch/mobile. They also show a pointer
+  cursor so the tap target is obvious; otherwise unchanged.
+- **`Esc` hint is now a real keybinding** — the `Esc` shown on the command palette and the
+  sidebars renders as the standard yellow shortcut (with the shimmer) and is tappable, like
+  every other keyboard hint, instead of plain dim text.
 - **Mobile sidebar overlay** — on narrow screens (< 768px) the sidebar (conversations,
   notifications, pickers, themes) opens as a **full-width overlay on top** of the
   conversation instead of squeezing it; desktop keeps the side-by-side panel. Still respects
@@ -149,6 +152,14 @@ In progress; entries are added here as they land on `main` (tag created at relea
 - **Recommendation score bar** no longer touches the game title above it (added spacing).
 - **Stats / Shinies headings are bold again** on the `show video` / `show game` cards — a
   Tailwind v4 layering quirk had them rendering at normal weight.
+- **Removed the redundant "Scheduled" column** from `list videos` — it showed `—` for nearly
+  every row. (The `list videos scheduled` filter still works.)
+- **`schedule` and `slate` now autosuggest** — the `schedule` reply verb shows in the
+  typeahead and `slate` (schedule to the next open slot) is offered for its argument, in both
+  chat (`schedule <id> slate`) and replies (`#<handle> schedule slate`).
+- **List-column reply verbs renamed `add`/`remove` → `with`/`without`** — matching the
+  `list … with <col>` chat syntax (`#<handle> with views, likes` / `#<handle> without game`).
+  The old `add`/`remove` are no longer accepted.
 
 ## [0.5.0] — 2026-06-20
 

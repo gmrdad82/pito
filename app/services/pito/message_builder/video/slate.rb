@@ -18,7 +18,7 @@ module Pito
       module Slate
         module_function
 
-        COLUMNS   = %i[channel scheduled game].freeze
+        COLUMNS   = %i[channel game].freeze
         WEEK_DAYS = 7
 
         # period token → window length in days. `lifetime` ⇒ no upper bound; an

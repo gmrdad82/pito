@@ -1,7 +1,7 @@
 <%# Title row %>
 <div class="flex justify-between items-center px-1.5">
   <span class="font-bold text-fg"><%= t("pito.palette.ctrl_k.title") %></span>
-  <span class="text-fg-dim" data-controller="pito--kbd-click" data-pito--kbd-click-key-value="Esc" data-action="click->pito--kbd-click#fire"><%= t("pito.palette.ctrl_k.esc_hint") %></span>
+  <%= render(Pito::Keybinding::ShortcutComponent.new(keys: t("pito.palette.ctrl_k.esc_hint"))) %>
 </div>
 
 <div class="h-3"></div>
