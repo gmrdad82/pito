@@ -1581,7 +1581,6 @@ html {
 .pito-cell-game       { max-width: 24ch; }
 .pito-cell-visibility { max-width: 12ch; }
 .pito-cell-price      { max-width: 13ch; }
-.pito-cell-scheduled  { max-width: 18ch; }
 
 /* Duration / footage: numeric, right-aligned, capped at the widest value
    "99:23:59:59" (11ch). Short content, so no truncation needed. */
@@ -1849,3 +1848,7 @@ html {
  * imported via themes.css above. Theme switching flips the
  * `data-theme` attribute on `<html>`. No manual edits needed here.
  */
+
+/* Clickable keyboard-shortcut hints (pito--kbd-click) get a pointer cursor so
+   the tap affordance is visible. Behaviour-only; no colour/underline change. */
+[data-controller~="pito--kbd-click"] { cursor: pointer; }

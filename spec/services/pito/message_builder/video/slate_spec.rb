@@ -90,10 +90,12 @@ RSpec.describe Pito::MessageBuilder::Video::Slate do
   end
 
   describe "rendering" do
-    it "renders the Scheduled column as dd-mm-yyyy hh:mm (local)" do
+    it "renders channel and game columns (no Scheduled column)" do
       scheduled(Time.zone.local(2026, 6, 24, 14, 30))
-      cells = call(period: "7d").first[:payload]["table_rows"].first[:cells].map { |c| c[:text] }
-      expect(cells.join(" ")).to include("24-06-2026 14:30")
+      payload = call(period: "7d").first[:payload]
+      heading_texts = payload["table_heading"].map { |h| h.is_a?(Hash) ? h["text"] : h }
+      expect(heading_texts).to include("Channel")
+      expect(heading_texts).not_to include("Scheduled")
     end
 
     it "renders a witty empty message (no table) when nothing is scheduled" do

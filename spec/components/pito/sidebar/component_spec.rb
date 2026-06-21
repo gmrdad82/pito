@@ -38,6 +38,13 @@ RSpec.describe Pito::Sidebar::Component do
       expect(node.to_html).to include("Esc")
     end
 
+    it "renders the Esc hint as a keybinding shortcut (yellow kbd shimmer + tappable)" do
+      esc = node.css("span.font-bold.text-yellow.pito-kbd-shimmer").find { |s| s.text.strip == "Esc" }
+      expect(esc).to be_present
+      expect(esc["data-controller"]).to include("pito--kbd-click")
+      expect(esc["data-pito--kbd-click-key-value"]).to eq("Esc")
+    end
+
     it "renders an aside element" do
       expect(node.css("aside")).not_to be_empty
     end

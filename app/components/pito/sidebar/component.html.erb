@@ -12,7 +12,7 @@
           <div class="text-fg-dim"><%= t(@subtitle_key, **@subtitle_args) %></div>
         <% end %>
       </div>
-      <span class="text-fg-dim shrink-0" data-controller="pito--kbd-click" data-pito--kbd-click-key-value="Esc" data-action="click->pito--kbd-click#fire"><%= t("pito.sidebar.esc_hint") %></span>
+      <span class="shrink-0"><%= render(Pito::Keybinding::ShortcutComponent.new(keys: t("pito.sidebar.esc_hint"))) %></span>
     </div>
   </div>
 
