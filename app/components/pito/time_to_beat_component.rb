@@ -183,6 +183,14 @@ module Pito
       I18n.t("pito.game.ttb.footage")
     end
 
+    # Stagger bucket for the bar shimmer. Combines the bar label and max_x so
+    # that the TTB bar and the score bar (different labels) always have different
+    # offsets, and TTB bars for different games (different max_x) scatter across
+    # the 20 stagger buckets.
+    def shimmer_offset_class
+      Pito::Shimmer.offset_class("#{bar_label}#{max_x}")
+    end
+
     def render_footage_tick?
       true
     end
