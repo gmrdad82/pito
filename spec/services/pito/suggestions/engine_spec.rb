@@ -331,6 +331,30 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
     end
   end
 
+  # `schedule <id> <when|slate>` — the trailing enum slot (:schedule_whens)
+  # surfaces `slate` as a TAB-completable ghost alongside an explicit date.
+  describe "free mode — schedule slate slot" do
+    it "ghosts 'slate' at a trailing space ('schedule ' → 'slate')" do
+      result = call(input: "schedule ", cursor: 9, authenticated: true)
+      expect(result[:ghost][:complete_current]).to eq("slate")
+    end
+
+    it "ghosts 'slate' after the id ('schedule 5 ' → 'slate')" do
+      result = call(input: "schedule 5 ", cursor: 11, authenticated: true)
+      expect(result[:ghost][:complete_current]).to eq("slate")
+    end
+
+    it "completes 'schedule 5 sl' → 'ate'" do
+      result = call(input: "schedule 5 sl", cursor: 13, authenticated: true)
+      expect(result[:ghost][:complete_current]).to eq("ate")
+    end
+
+    it "stays silent while typing an explicit <when> ('schedule 5 tomorrow')" do
+      result = call(input: "schedule 5 tomorrow", cursor: 19, authenticated: true)
+      expect(result[:ghost][:complete_current]).to eq("")
+    end
+  end
+
   # ── FREE MODE — ghost text (P31.0.al required cases) ────────────────────────
 
   describe "free-mode ghost" do
@@ -407,10 +431,10 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
       )
     end
 
-    it "suggests the target's actions (show/delete/rm/add/remove)" do
+    it "suggests the target's actions (show/delete/rm/with/without)" do
       result = call(input: "#alpha-1266 ", cursor: 12, conversation:)
       labels = result[:menu_items].map { |i| i[:label] }
-      expect(labels).to include("show", "delete", "rm", "add", "remove")
+      expect(labels).to include("show", "delete", "rm", "with", "without")
     end
 
     it "ghosts the first action so TAB completes it (no <brackets>)" do
@@ -425,8 +449,8 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
     end
   end
 
-  # hashtag column ghost for game_list/video_list add/remove actions
-  describe "hashtag follow-up: column ghost for game_list add/remove", :db do
+  # hashtag column ghost for game_list/video_list with/without actions
+  describe "hashtag follow-up: column ghost for game_list with/without", :db do
     let(:conversation) { Conversation.create! }
     let(:turn) { conversation.turns.create!(input_kind: :slash, input_text: "/list games", position: 1) }
 
@@ -438,34 +462,34 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
       )
     end
 
-    it "ghosts the first game column token when '#<handle> add ' (trailing space)" do
-      result = call(input: "#glist-4444 add ", cursor: 16, conversation:)
+    it "ghosts the first game column token when '#<handle> with ' (trailing space)" do
+      result = call(input: "#glist-4444 with ", cursor: 17, conversation:)
       expect(result[:ghost][:complete_current]).to eq("platform")
       expect(result[:ghost][:next_hint]).to eq("")
     end
 
-    it "excludes already-typed platform and ghosts the next column for '#<handle> add platform, '" do
-      result = call(input: "#glist-4444 add platform, ", cursor: 26, conversation:)
+    it "excludes already-typed platform and ghosts the next column for '#<handle> with platform, '" do
+      result = call(input: "#glist-4444 with platform, ", cursor: 27, conversation:)
       expect(result[:ghost][:complete_current]).to eq("genre")
     end
 
     it "completes a partial token: 'gen' → 're'" do
-      result = call(input: "#glist-4444 add platform, gen", cursor: 29, conversation:)
+      result = call(input: "#glist-4444 with platform, gen", cursor: 30, conversation:)
       expect(result[:ghost][:complete_current]).to eq("re")
     end
 
-    it "remove behaves the same as add (ghosts first column)" do
-      result = call(input: "#glist-4444 remove ", cursor: 19, conversation:)
+    it "without behaves the same as with (ghosts first column)" do
+      result = call(input: "#glist-4444 without ", cursor: 20, conversation:)
       expect(result[:ghost][:complete_current]).to eq("platform")
     end
 
-    it "offers a column menu palette for add/remove" do
-      result = call(input: "#glist-4444 add ", cursor: 16, conversation:)
+    it "offers a column menu palette for with/without" do
+      result = call(input: "#glist-4444 with ", cursor: 17, conversation:)
       expect(result[:menu_items].map { |i| i[:label] }).to include("platform", "genre", "release")
     end
   end
 
-  describe "hashtag follow-up: column ghost for video_list add/remove", :db do
+  describe "hashtag follow-up: column ghost for video_list with/without", :db do
     let(:conversation) { Conversation.create! }
     let(:turn) { conversation.turns.create!(input_kind: :slash, input_text: "/list videos", position: 1) }
 
@@ -477,33 +501,33 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
       )
     end
 
-    it "ghosts the first video column token when '#<handle> add ' (trailing space)" do
-      result = call(input: "#vlist-5555 add ", cursor: 16, conversation:)
+    it "ghosts the first video column token when '#<handle> with ' (trailing space)" do
+      result = call(input: "#vlist-5555 with ", cursor: 17, conversation:)
       expect(result[:ghost][:complete_current]).to eq("channel")
     end
 
-    it "excludes already-typed game and ghosts channel for '#<handle> add game, '" do
-      result = call(input: "#vlist-5555 add game, ", cursor: 22, conversation:)
+    it "excludes already-typed game and ghosts channel for '#<handle> with game, '" do
+      result = call(input: "#vlist-5555 with game, ", cursor: 23, conversation:)
       expect(result[:ghost][:complete_current]).to eq("channel")
     end
 
-    it "remove behaves the same as add (ghosts first video column)" do
-      result = call(input: "#vlist-5555 remove ", cursor: 19, conversation:)
+    it "without behaves the same as with (ghosts first video column)" do
+      result = call(input: "#vlist-5555 without ", cursor: 20, conversation:)
       expect(result[:ghost][:complete_current]).to eq("channel")
     end
 
     it "ghosts the next column (status) after channel is already typed" do
-      result = call(input: "#vlist-5555 add channel, ", cursor: 25, conversation:)
+      result = call(input: "#vlist-5555 with channel, ", cursor: 26, conversation:)
       expect(result[:ghost][:complete_current]).to eq("status")
     end
 
     it "channel is offered — partial 'ch' completes to 'annel'" do
-      result = call(input: "#vlist-5555 add ch", cursor: 18, conversation:)
+      result = call(input: "#vlist-5555 with ch", cursor: 19, conversation:)
       expect(result[:ghost][:complete_current]).to eq("annel")
     end
 
     it "status column is offered — partial 'stat' completes to 'us'" do
-      result = call(input: "#vlist-5555 add stat", cursor: 20, conversation:)
+      result = call(input: "#vlist-5555 with stat", cursor: 21, conversation:)
       expect(result[:ghost][:complete_current]).to eq("us")
     end
   end
@@ -765,6 +789,61 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
       result = call(input: "#gdet-8888 ", cursor: 11, conversation:)
       labels = result[:menu_items].map { |i| i[:label] }
       expect(labels).to include("shinies")
+    end
+  end
+
+  # `schedule` is a declared video_list reply action, so it must appear in the
+  # reply-verb palette, and `slate` must be offered for its argument slot.
+  describe "hashtag follow-up: schedule verb + slate arg for video_list", :db do
+    let(:conversation) { Conversation.create! }
+    let(:turn)         { conversation.turns.create!(input_kind: :slash, input_text: "/list videos", position: 1) }
+
+    before do
+      Pito::FollowUp::Registry.register_all!
+      Event.create_with_position!(
+        conversation:, turn:, kind: "system",
+        payload: { "reply_handle" => "vsched-7777", "reply_target" => "video_list", "body" => "videos" }
+      )
+    end
+
+    it "includes schedule in the reply-verb action palette" do
+      result = call(input: "#vsched-7777 ", cursor: 13, conversation:)
+      labels = result[:menu_items].map { |i| i[:label] }
+      expect(labels).to include("schedule")
+    end
+
+    it "offers slate for the schedule argument ('#<handle> schedule ')" do
+      result = call(input: "#vsched-7777 schedule ", cursor: 22, conversation:)
+      labels = result[:menu_items].map { |i| i[:label] }
+      expect(labels).to include("slate")
+      expect(result[:ghost][:complete_current]).to eq("slate")
+    end
+
+    it "completes 'schedule sl' → 'ate' for the schedule argument" do
+      result = call(input: "#vsched-7777 schedule sl", cursor: 24, conversation:)
+      expect(result[:ghost][:complete_current]).to eq("ate")
+    end
+  end
+
+  # schedule is NOT a declared video_detail action, so it must not surface slate
+  # there (the verb itself isn't offered for video_detail replies).
+  describe "hashtag follow-up: schedule not offered for video_detail", :db do
+    let(:conversation) { Conversation.create! }
+    let(:turn)         { conversation.turns.create!(input_kind: :chat, input_text: "show vid x", position: 1) }
+    let!(:video)       { create(:video, :public, channel: create(:channel)) }
+
+    before do
+      Pito::FollowUp::Registry.register_all!
+      Event.create_with_position!(
+        conversation:, turn:, kind: "system",
+        payload: { "reply_handle" => "vdet-6666", "reply_target" => "video_detail", "video_id" => video.id, "body" => "card" }
+      )
+    end
+
+    it "does not include schedule in the reply-verb action palette" do
+      result = call(input: "#vdet-6666 ", cursor: 11, conversation:)
+      labels = result[:menu_items].map { |i| i[:label] }
+      expect(labels).not_to include("schedule")
     end
   end
 

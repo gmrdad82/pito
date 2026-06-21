@@ -2162,38 +2162,38 @@ en:
         unknown_target: "Don't know how to list \"%{target}\". Try: channels, vids, or games (optionally upcoming, a genre, or a platform)."
         # Footer after the table rows when there are still columns to add. The
         # builder interpolates %{columns} (e.g. "views, likes, comments"). Reply
-        # `add <column>` to a list message to bring them in. Italic, witty.
+        # `with <column>` to a list message to bring them in. Italic, witty.
         addable_columns_hint:
           - "If your brain wants more, I can also show you %{columns}."
           - "There's more where that came from: %{columns}, just say the word."
           - "Want extra columns? I've got %{columns} warming up on the bench."
-          - "Holding back %{columns} — `add` any of them whenever you like."
+          - "Holding back %{columns} — `with` any of them whenever you like."
           - "Also on the menu, if the mood strikes: %{columns}."
           - "Psst — I can surface %{columns} too."
           - "Curious for more? %{columns} are one reply away."
           - "I trimmed it for sanity. Want %{columns} back?"
-          - "Columns in reserve: %{columns}. `add` them at will."
-          - "Reply `add %{columns}` — or any subset, I'm not greedy."
+          - "Columns in reserve: %{columns}. `with` them at will."
+          - "Reply `with %{columns}` — or any subset, I'm not greedy."
           - "More to see, should you wish it: %{columns}."
           - "I kept it tidy. The rest — %{columns} — are yours for the asking."
           - "Extra intel available: %{columns}."
           - "Need the full picture? I can also pull %{columns}."
           - "There's %{columns} hiding just offstage."
-          - "Say `add %{columns}` and I'll widen the table."
+          - "Say `with %{columns}` and I'll widen the table."
           - "Not shown but ready: %{columns}."
           - "I can go deeper — %{columns} on request."
           - "Want the works? %{columns} are still on the shelf."
           - "Room for more: %{columns}, if your screen can take it."
           - "Also pull-able: %{columns}. Your call."
-          - "I left %{columns} out to keep it readable. Add them anytime."
+          - "I left %{columns} out to keep it readable. Reply `with` anytime to bring them in."
           - "More columns where those came from: %{columns}."
-          - "Feeling thorough? `add %{columns}`."
+          - "Feeling thorough? `with %{columns}`."
           - "I can also lay out %{columns} for you."
           - "Bonus columns on standby: %{columns}."
           - "The director's cut adds %{columns}."
           - "Want extras? %{columns} are a word away."
           - "Still in my pocket: %{columns}."
-          - "Add %{columns} for the full story."
+          - "Reply `with %{columns}` for the full story."
           - "If you're nosy (no judgement): %{columns}."
           - "More to unpack: %{columns}."
           - "I can widen this with %{columns}."
@@ -2208,7 +2208,7 @@ en:
           - "Off-screen but available: %{columns}."
           - "For the completionists: %{columns}."
           - "I dialed it back. %{columns} are there if you want them."
-          - "Add %{columns} whenever curiosity strikes."
+          - "Reply `with %{columns}` whenever curiosity strikes."
           - "There's more under the hood: %{columns}."
           - "I can pad this out with %{columns}."
           - "Want it richer? %{columns}."
@@ -2238,7 +2238,7 @@ en:
           - "Full coverage. No columns were harmed or omitted."
           - "You've unlocked all columns. Achievement: completionist."
           - "Nothing more to pull — the well is dry, in a good way."
-          - "All of them, every one. There's no `add` from here."
+          - "All of them, every one. There's no `with` from here."
           - "Total recall: every column is on display."
           - "That's everything. Trying to add more would just be greedy."
           - "Whole enchilada served. Nothing left in the kitchen."
@@ -2257,7 +2257,7 @@ en:
           - "You've got them all. I've nothing left to upsell."
           - "Every column on deck — no reserves, no regrets."
           - "That's the complete table. Mission accomplished."
-          - "All columns visible. The `add` command is on vacation."
+          - "All columns visible. The `with` command is on vacation."
           - "Nothing more where that came from — this is the full set."
           - "You're looking at everything. No fine print, no extras."
           - "Maxed and shown. There's no deeper to go."
@@ -2299,7 +2299,6 @@ en:
           col_channel_desc: "Channel @handle"
           col_visibility_desc: "Status — public / unlisted / private"
           col_game_desc: "Linked game title(s)"
-          col_scheduled_desc: "Scheduled publish time (dd-mm-yyyy hh:mm)"
           col_duration_desc: "Vid length (hh:mm:ss)"
           col_views_desc: "View count"
           col_likes_desc: "Like count"
@@ -2651,15 +2650,15 @@ en:
                   "<id>": "Row number from the list (alias: delete)"
                 Options:
                   "--help": "Print this help message"
-            add:
-              usage: "#<list-games-hashtag> add <columns>"
+            with:
+              usage: "#<list-games-hashtag> with <columns>"
               sections:
                 Arguments:
                   "<columns>": "Comma-separated column names to add: platform, genre, developer, publisher, release date, year"
                 Options:
                   "--help": "Print this help message"
-            remove:
-              usage: "#<list-games-hashtag> remove <columns>"
+            without:
+              usage: "#<list-games-hashtag> without <columns>"
               sections:
                 Arguments:
                   "<columns>": "Comma-separated column names to remove: platform, genre, developer, publisher, release date, year"
@@ -2769,15 +2768,15 @@ en:
                   "<id>": "Row number from the list (alias: delete)"
                 Options:
                   "--help": "Print this help message"
-            add:
-              usage: "#<list-vids-hashtag> add <columns>"
+            with:
+              usage: "#<list-vids-hashtag> with <columns>"
               sections:
                 Arguments:
                   "<columns>": "Comma-separated column names to add: channel, status, game, length, views, likes, comms"
                 Options:
                   "--help": "Print this help message"
-            remove:
-              usage: "#<list-vids-hashtag> remove <columns>"
+            without:
+              usage: "#<list-vids-hashtag> without <columns>"
               sections:
                 Arguments:
                   "<columns>": "Comma-separated column names to remove: channel, status, game, length, views, likes, comms"

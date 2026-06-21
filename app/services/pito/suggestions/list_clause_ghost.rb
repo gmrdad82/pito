@@ -61,9 +61,9 @@ module Pito
         nil
       end
 
-      # ── Hashtag add/remove column ghost ────────────────────────────────────
+      # ── Hashtag with/without column ghost ──────────────────────────────────
 
-      # Computes a column-ghost for `#<handle> add <partial>` / `#<handle> remove <partial>`
+      # Computes a column-ghost for `#<handle> with <partial>` / `#<handle> without <partial>`
       # when the resolved follow-up reply_target is "game_list" or "video_list".
       #
       # @param target       [String]  "game_list" or "video_list"
@@ -97,7 +97,7 @@ module Pito
 
       # Menu palette of the column candidates that match the partial (all of them
       # when the partial is empty) — mirrors the verb-stage follow-up menu so
-      # `#<handle> add `/`remove ` surface a picker, not just an inline ghost.
+      # `#<handle> with `/`without ` surface a picker, not just an inline ghost.
       def action_menu_items(candidates, partial)
         matching = partial.empty? ? candidates : candidates.select { |c| c.to_s.start_with?(partial) }
         matching.map { |c| { label: c.to_s, insert: "#{c} ", description: "", masked: false } }

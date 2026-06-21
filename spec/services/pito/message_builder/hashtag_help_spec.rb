@@ -148,12 +148,12 @@ RSpec.describe Pito::MessageBuilder::HashtagHelp do
           expect(result["body"]).to include("rm")
         end
 
-        it "body includes the add action" do
-          expect(result["body"]).to include("add")
+        it "body includes the with action" do
+          expect(result["body"]).to include("with")
         end
 
-        it "body includes the remove action" do
-          expect(result["body"]).to include("remove")
+        it "body includes the without action" do
+          expect(result["body"]).to include("without")
         end
       end
 
@@ -183,8 +183,8 @@ RSpec.describe Pito::MessageBuilder::HashtagHelp do
         end
       end
 
-      context "action-level page (action: 'add')" do
-        subject(:result) { described_class.call(target: "game_list", action: "add") }
+      context "action-level page (action: 'with')" do
+        subject(:result) { described_class.call(target: "game_list", action: "with") }
 
         it "returns an html payload" do
           expect(result).to be_a(Hash)
@@ -204,8 +204,8 @@ RSpec.describe Pito::MessageBuilder::HashtagHelp do
         end
       end
 
-      context "action-level page (action: 'remove')" do
-        subject(:result) { described_class.call(target: "game_list", action: "remove") }
+      context "action-level page (action: 'without')" do
+        subject(:result) { described_class.call(target: "game_list", action: "without") }
 
         it "returns an html payload" do
           expect(result).to be_a(Hash)
@@ -349,17 +349,17 @@ RSpec.describe Pito::MessageBuilder::HashtagHelp do
           expect(result["body"]).to include("delete")
         end
 
-        it "body includes the add action" do
-          expect(result["body"]).to include("add")
+        it "body includes the with action" do
+          expect(result["body"]).to include("with")
         end
 
-        it "body includes the remove action" do
-          expect(result["body"]).to include("remove")
+        it "body includes the without action" do
+          expect(result["body"]).to include("without")
         end
       end
 
-      context "action-level page (action: 'add')" do
-        subject(:result) { described_class.call(target: "video_list", action: "add") }
+      context "action-level page (action: 'with')" do
+        subject(:result) { described_class.call(target: "video_list", action: "with") }
 
         it "returns an html payload" do
           expect(result).to be_a(Hash)
@@ -387,8 +387,8 @@ RSpec.describe Pito::MessageBuilder::HashtagHelp do
         end
       end
 
-      context "action-level page (action: 'remove')" do
-        subject(:result) { described_class.call(target: "video_list", action: "remove") }
+      context "action-level page (action: 'without')" do
+        subject(:result) { described_class.call(target: "video_list", action: "without") }
 
         it "returns an html payload" do
           expect(result).to be_a(Hash)
