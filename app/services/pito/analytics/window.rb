@@ -7,14 +7,14 @@ module Pito
     #
     # == Usage
     #
-    #   window = Pito::Analytics::Window.for("28d", reference_date: Date.current)
+    #   window = Pito::Analytics::Window.for("7d", reference_date: Date.current)
     #   window.start_date  # => Date
     #   window.end_date    # => Date  (inclusive)
     #   window.prev_start  # => Date | nil
     #   window.prev_end    # => Date | nil
-    #   window.label       # => "28d"
+    #   window.label       # => "7d"
     #   window.comparable? # => true
-    #   window.token       # => "28d"
+    #   window.token       # => "7d"
     #
     # == Determinism
     #
@@ -39,12 +39,14 @@ module Pito
       attr_reader :token, :start_date, :end_date, :prev_start, :prev_end, :label
 
       # Build a Window for the given token.
+      # A nil or blank token raises ArgumentError — callers must supply an explicit
+      # period; the canonical default lives at the conversation level.
       #
-      # @param token              [String]     one of CYCLE
-      # @param reference_date     [Date]       treated as "today"
-      # @param channel_created_on [Date, nil]  start date for :lifetime
+      # @param token              [String]       one of CYCLE
+      # @param reference_date     [Date]         treated as "today"
+      # @param channel_created_on [Date, nil]    start date for :lifetime
       # @return [Window]
-      # @raise [ArgumentError] for unknown tokens
+      # @raise [ArgumentError] for nil/blank tokens or unknown tokens
       def self.for(token, reference_date:, channel_created_on: nil)
         new(token, reference_date: reference_date, channel_created_on: channel_created_on)
       end

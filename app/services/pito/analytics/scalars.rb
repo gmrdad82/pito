@@ -22,9 +22,8 @@ module Pito
     # Returns :unavailable when the scope has no usable (connected, non-reauth)
     # channel, or the YouTube Analytics API errors.
     module Scalars
-      DEFAULT_PERIOD = "28d"
-      CACHE_TTL      = 1.hour
-      UNAVAILABLE    = :unavailable
+      CACHE_TTL   = 1.hour
+      UNAVAILABLE = :unavailable
 
       # Output metric keys, in kv-table render order.
       KEYS = %i[
@@ -36,8 +35,8 @@ module Pito
 
       module_function
 
-      def for(scope:, period: nil)
-        window = Pito::Analytics::Window.for(period.presence || DEFAULT_PERIOD, reference_date: Date.current)
+      def for(scope:, period:)
+        window = Pito::Analytics::Window.for(period, reference_date: Date.current)
         groups = channel_groups(scope)
         return UNAVAILABLE if groups.blank?
 

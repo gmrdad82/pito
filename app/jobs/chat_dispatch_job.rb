@@ -51,7 +51,7 @@ class ChatDispatchJob < ApplicationJob
     # defer resolving the thinking indicator + completing the turn to
     # AnalyticsFillJob — it fetches the data, fills the message, then resolves.
     # The spinner keeps cycling until the data lands. Otherwise resolve now.
-    if events.any? { |e| analytics_pending?(e) }
+    if events.any? { |e| Pito::MessageBuilder::Analytics::Enhanced.pending?(e) }
       AnalyticsFillJob.perform_later(turn.id)
     else
       broadcaster.resolve_thinking(turn:)
@@ -91,12 +91,6 @@ class ChatDispatchJob < ApplicationJob
       broadcaster.broadcast_event(event)
       event
     end
-  end
-
-  # True when a persisted event carries an analytics marker still in its pending
-  # state (its data will be filled asynchronously by AnalyticsFillJob).
-  def analytics_pending?(event)
-    event.payload.is_a?(Hash) && event.payload.dig("analytics", "status") == "pending"
   end
 
   def help_command?(input)

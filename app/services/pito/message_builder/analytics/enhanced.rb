@@ -24,6 +24,13 @@ module Pito
         extend Pito::MessageBuilder::Helpers
         module_function
 
+        # True when a persisted event carries an analytics marker still in its
+        # pending state. Single canonical predicate shared by ChatDispatchJob,
+        # AnalyticsFillJob, and FollowUpDispatchJob.
+        def pending?(event)
+          event.payload.is_a?(Hash) && event.payload.dig("analytics", "status") == "pending"
+        end
+
         def pending(scope, period: nil)
           intro = Pito::Copy.render("pito.copy.analytics.intro", { title: scope.title })
           {

@@ -78,8 +78,8 @@ module Pito
       def css_class
         base = "pito-trend-number"
         case trend
-        when :up   then "#{base} #{base}--up"
-        when :down then "#{base} #{base}--down"
+        when :up   then "#{base} #{base}--up #{Pito::Shimmer.offset_class(display_value)}"
+        when :down then "#{base} #{base}--down #{Pito::Shimmer.offset_class(display_value)}"
         else            base
         end
       end

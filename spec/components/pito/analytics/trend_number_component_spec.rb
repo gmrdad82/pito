@@ -79,19 +79,21 @@ RSpec.describe Pito::Analytics::TrendNumberComponent do
       render_inline(described_class.new(**kwargs)).css("span.pito-trend-number").first
     end
 
-    it "adds the --up modifier + data-trend for a rising value" do
+    it "adds the --up modifier + stagger offset + data-trend for a rising value" do
       span = span_for(value: 110, previous: 100)
       expect(span["class"]).to include("pito-trend-number--up")
+      expect(span["class"]).to match(/pito-shimmer-d\d+/)
       expect(span["data-trend"]).to eq("up")
     end
 
-    it "adds the --down modifier for a falling value" do
+    it "adds the --down modifier + stagger offset for a falling value" do
       span = span_for(value: 90, previous: 100)
       expect(span["class"]).to include("pito-trend-number--down")
+      expect(span["class"]).to match(/pito-shimmer-d\d+/)
       expect(span["data-trend"]).to eq("down")
     end
 
-    it "uses the bare class (no shimmer modifier) for steady" do
+    it "uses the bare class (no shimmer modifier, no offset) for steady" do
       span = span_for(value: 101, previous: 100)
       expect(span["class"]).to eq("pito-trend-number")
       expect(span["data-trend"]).to eq("steady")

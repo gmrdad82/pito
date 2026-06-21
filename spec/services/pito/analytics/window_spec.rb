@@ -17,6 +17,20 @@ RSpec.describe Pito::Analytics::Window, type: :service do
   end
 
   describe ".for" do
+    context "with nil token" do
+      it "raises ArgumentError" do
+        expect { described_class.for(nil, reference_date: ref) }
+          .to raise_error(ArgumentError, /unknown analytics token/)
+      end
+    end
+
+    context "with blank string token" do
+      it "raises ArgumentError" do
+        expect { described_class.for("", reference_date: ref) }
+          .to raise_error(ArgumentError, /unknown analytics token/)
+      end
+    end
+
     context "with unknown token" do
       it "raises ArgumentError" do
         expect { described_class.for("1m", reference_date: ref) }

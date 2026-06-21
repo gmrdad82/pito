@@ -9,6 +9,41 @@ RSpec.describe Pito::MessageBuilder::Analytics::Enhanced do
 
   # Deterministic first-variant sampler is installed globally by spec/support/copy.rb.
 
+  describe ".pending?" do
+    it "returns true when the event payload has analytics.status == 'pending'" do
+      event = instance_double("Event", payload: { "analytics" => { "status" => "pending" } })
+      expect(described_class.pending?(event)).to be(true)
+    end
+
+    it "returns false when the event payload has analytics.status == 'ready'" do
+      event = instance_double("Event", payload: { "analytics" => { "status" => "ready" } })
+      expect(described_class.pending?(event)).to be(false)
+    end
+
+    it "returns false when the payload has no analytics key" do
+      event = instance_double("Event", payload: { "text" => "hello" })
+      expect(described_class.pending?(event)).to be(false)
+    end
+
+    it "returns false when the payload is not a Hash" do
+      event = instance_double("Event", payload: nil)
+      expect(described_class.pending?(event)).to be(false)
+    end
+
+    it "returns true for a real pending payload built by .pending" do
+      payload = described_class.pending(game, period: "28d")
+      event = instance_double("Event", payload: payload)
+      expect(described_class.pending?(event)).to be(true)
+    end
+
+    it "returns false for a real ready payload built by .ready_payload" do
+      intro   = "some intro"
+      payload = described_class.ready_payload(scope: game, period: "28d", result: :unavailable, intro: intro)
+      event = instance_double("Event", payload: payload)
+      expect(described_class.pending?(event)).to be(false)
+    end
+  end
+
   describe ".pending" do
     context "with a game scope" do
       subject(:payload) { described_class.pending(game, period: "28d") }

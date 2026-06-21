@@ -335,4 +335,45 @@ RSpec.describe Pito::Chat::Handlers::Show do
       expect(payload["reply_target"]).to eq("game_detail")
     end
   end
+
+  # ── Analytics period resolution ────────────────────────────────────────────
+
+  context "analytics period resolution" do
+    let!(:channel_for_period) { create(:channel) }
+    let!(:video_for_period)   { create(:video, channel: channel_for_period, title: "Period Test") }
+
+    def handler_with(period:, conversation: Conversation.singleton)
+      msg = Pito::Chat::Message.new(
+        verb:         :show,
+        body_tokens:  tokens("video", "##{video_for_period.id}"),
+        kind:         :new_turn,
+        raw:          "show video #{video_for_period.id}"
+      )
+      described_class.new(message: msg, conversation: conversation, period: period)
+    end
+
+    def analytics_period_from(events)
+      event = events.find { |e| e[:payload].dig("analytics", "status") == "pending" }
+      event&.dig(:payload, "analytics", "period")
+    end
+
+    it "when an explicit period param is set, the analytics pending payload carries it" do
+      events = handler_with(period: "28d").call.events
+      expect(analytics_period_from(events)).to eq("28d")
+    end
+
+    it "when period param is nil, the analytics pending payload falls back to the conversation's stats_period" do
+      conv = Conversation.singleton
+      conv.update!(stats_period: "28d")
+      events = handler_with(period: nil, conversation: conv).call.events
+      expect(analytics_period_from(events)).to eq("28d")
+    end
+
+    it "reads the conversation's stats_period, not a hardcoded default (proved with a non-default value)" do
+      conv = Conversation.singleton
+      conv.update!(stats_period: "3m")
+      events = handler_with(period: nil, conversation: conv).call.events
+      expect(analytics_period_from(events)).to eq("3m")
+    end
+  end
 end

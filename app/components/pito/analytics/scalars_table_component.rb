@@ -2,34 +2,68 @@
 
 module Pito
   module Analytics
-    # Reusable kv-table of scalar analytics metrics, one row per metric: a label
-    # and a `TrendNumberComponent` value coloured by its trend vs the prior
-    # window. Scope-agnostic — it takes a `Pito::Analytics::Scalars::Result`, so
-    # the same table serves a video, a game (linked-video aggregate), or a
-    # channel.
+    # Reusable kv-table of scalar analytics metrics in a 4-row CSS grid.
+    # Scope-agnostic — it takes a `Pito::Analytics::Scalars::Result`, so the
+    # same table serves a video, a game (linked-video aggregate), or a channel.
     #
-    # Polarity: `subs_lost` and `dislikes` are more-is-worse (`higher_is_better:
-    # false`) so a rise reads red-down. All others are higher-is-better.
+    # Layout:
+    #   Row 1 (col-span-3 each): Views | Watch hours
+    #   Row 2 (col-span-3 each): Avg view duration | Avg viewed %
+    #   Row 3 (col-span-6):      Subs (net gained − lost)
+    #   Row 4 (col-span-2 each): Likes | Dislikes | Comms
+    #
+    # Polarity: `dislikes` is more-is-worse (`higher_is_better: false`).
+    # Subs net is always coloured by sign (green/red/neutral), independent of the
+    # comparable window.
     class ScalarsTableComponent < ViewComponent::Base
-      # Render order + per-metric config: copy label key, polarity, value format.
-      METRICS = [
-        { key: :views,             label: "views",             polarity: true,  format: :count },
-        { key: :watched_hours,     label: "watch_hours",       polarity: true,  format: :hours },
-        { key: :avg_view_duration, label: "avg_view_duration", polarity: true,  format: :duration },
-        { key: :avg_viewed_pct,    label: "avg_viewed_pct",    polarity: true,  format: :percent },
-        { key: :subs_gained,       label: "subs_gained",       polarity: true,  format: :count },
-        { key: :subs_lost,         label: "subs_lost",         polarity: false, format: :count },
-        { key: :likes,             label: "likes",             polarity: true,  format: :count },
-        { key: :dislikes,          label: "dislikes",          polarity: false, format: :count },
-        { key: :comments,          label: "comments",          polarity: true,  format: :count }
+      # Row 1 metric configs.
+      ROW1 = [
+        { key: :views,         label: "views",       polarity: true, format: :count },
+        { key: :watched_hours, label: "watch_hours", polarity: true, format: :hours }
+      ].freeze
+
+      # Row 2 metric configs.
+      ROW2 = [
+        { key: :avg_view_duration, label: "avg_view_duration", polarity: true, format: :duration },
+        { key: :avg_viewed_pct,    label: "avg_viewed_pct",    polarity: true, format: :percent }
+      ].freeze
+
+      # Row 4 metric configs.
+      ROW4 = [
+        { key: :likes,    label: "likes",    polarity: true,  format: :count },
+        { key: :dislikes, label: "dislikes", polarity: false, format: :count },
+        { key: :comments, label: "comments", polarity: true,  format: :count }
       ].freeze
 
       def initialize(result:)
         @result = result
       end
 
-      def rows
-        METRICS.map do |cfg|
+      def row1_cells = build_cells(ROW1)
+      def row2_cells = build_cells(ROW2)
+      def row4_cells = build_cells(ROW4)
+
+      # Returns `{ label:, trend: }` for the net-subs cell (Row 3).
+      #
+      # Net = subs_gained − subs_lost. Coloured by sign regardless of the
+      # comparable window: positive → :up (green), negative → :down (red),
+      # zero or no-data → :neutral (plain fg, shows "—").
+      def row3_subs_net
+        gained = @result.metrics[:subs_gained] || {}
+        lost   = @result.metrics[:subs_lost]   || {}
+
+        gained_current = gained[:current]
+        lost_current   = lost[:current]
+
+        label = Pito::Copy.render("pito.copy.analytics.metrics.subs_net")
+        trend = net_subs_trend_component(gained_current, lost_current)
+        { label:, trend: }
+      end
+
+      private
+
+      def build_cells(cfg_list)
+        cfg_list.map do |cfg|
           metric = @result.metrics[cfg[:key]] || {}
           {
             label: Pito::Copy.render("pito.copy.analytics.metrics.#{cfg[:label]}"),
@@ -44,7 +78,45 @@ module Pito
         end
       end
 
-      private
+      # Builds the TrendNumberComponent for the net-subs cell.
+      #
+      # Colour is determined by the sign of (gained − lost):
+      #   net > 0 → :up   (pass previous: 0 so TrendNumber sees growth-from-nothing)
+      #   net < 0 → :down (pass previous: 1 so current < previous → :down)
+      #   net = 0 or both nil → :neutral (pass value: nil)
+      def net_subs_trend_component(gained_current, lost_current)
+        both_nil = gained_current.nil? && lost_current.nil?
+
+        if both_nil
+          return Pito::Analytics::TrendNumberComponent.new(
+            value: nil, previous: 0, comparable: true,
+            higher_is_better: true, display: "—"
+          )
+        end
+
+        net = gained_current.to_i - lost_current.to_i
+
+        if net > 0
+          display  = "+#{Pito::Formatter::CompactCount.call(net)}"
+          value    = net
+          previous = 0   # growth-from-nothing path in TrendNumber → :up
+        elsif net < 0
+          display  = "-#{Pito::Formatter::CompactCount.call(net.abs)}"
+          value    = net
+          previous = 1   # current (negative) < previous (1) → Trend.for → :down
+        else
+          # Zero net — neutral, show em dash
+          return Pito::Analytics::TrendNumberComponent.new(
+            value: nil, previous: 0, comparable: true,
+            higher_is_better: true, display: "—"
+          )
+        end
+
+        Pito::Analytics::TrendNumberComponent.new(
+          value:, previous:, comparable: true,
+          higher_is_better: true, display:
+        )
+      end
 
       def format_value(format, value)
         return "—" if value.nil?

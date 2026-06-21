@@ -27,7 +27,8 @@ RSpec.describe Pito::Analytics::Scalars do
     end
   end
 
-  let(:win_28d)      { Pito::Analytics::Window.for("28d", reference_date: Date.current) }
+  let(:win_7d)       { Pito::Analytics::Window.for("7d",       reference_date: Date.current) }
+  let(:win_28d)      { Pito::Analytics::Window.for("28d",      reference_date: Date.current) }
   let(:win_lifetime) { Pito::Analytics::Window.for("lifetime", reference_date: Date.current) }
 
   describe "single video scope" do
@@ -49,13 +50,6 @@ RSpec.describe Pito::Analytics::Scalars do
       expect(result.metrics[:watched_hours][:current]).to eq(10.0)   # 600 / 60
       expect(result.metrics[:subs_lost]).to eq(current: 1, previous: 0)
       expect(result.metrics[:dislikes][:current]).to eq(2)
-    end
-
-    it "defaults to the 28d window when period is blank" do
-      stub_scalars(win_28d, channel.youtube_channel_id => { current: row(views: 7) })
-      result = described_class.for(scope: video, period: nil)
-      expect(result.label).to eq(win_28d.label)
-      expect(result.metrics[:views][:current]).to eq(7)
     end
   end
 

@@ -23,7 +23,7 @@ class AnalyticsFillJob < ApplicationJob
     broadcaster = Pito::Stream::Broadcaster.new(conversation: turn.conversation)
     begin
       turn.events.where(kind: :enhanced).find_each do |event|
-        next unless pending_analytics?(event)
+        next unless Pito::MessageBuilder::Analytics::Enhanced.pending?(event)
 
         fill(event, broadcaster)
       end
@@ -34,10 +34,6 @@ class AnalyticsFillJob < ApplicationJob
   end
 
   private
-
-  def pending_analytics?(event)
-    event.payload.is_a?(Hash) && event.payload.dig("analytics", "status") == "pending"
-  end
 
   def fill(event, broadcaster)
     marker = event.payload["analytics"]

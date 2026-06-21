@@ -52,7 +52,7 @@ module Pito
           if video.linked_games.first
             events << { kind: :enhanced, payload: Pito::MessageBuilder::Video::LinkedGame.call(video, conversation:) }
           end
-          events << { kind: :enhanced, payload: Pito::MessageBuilder::Analytics::Enhanced.pending(video, period:) }
+          events << { kind: :enhanced, payload: Pito::MessageBuilder::Analytics::Enhanced.pending(video, period: analytics_period) }
 
           Pito::Chat::Result::Ok.new(events: events)
         end
@@ -84,7 +84,7 @@ module Pito
           ]
           events << { kind: :enhanced, payload: Pito::MessageBuilder::Game::LinkedVideos.call(game, conversation:) } if game.linked_videos.any?
           events << { kind: :enhanced, payload: Pito::MessageBuilder::Game::Enhanced.call(game) }
-          events << { kind: :enhanced, payload: Pito::MessageBuilder::Analytics::Enhanced.pending(game, period:) } if game.linked_videos.any?
+          events << { kind: :enhanced, payload: Pito::MessageBuilder::Analytics::Enhanced.pending(game, period: analytics_period) } if game.linked_videos.any?
 
           Pito::Chat::Result::Ok.new(events: events)
         end
@@ -96,6 +96,10 @@ module Pito
         end
 
         # ── Shared helpers ─────────────────────────────────────────────────────
+
+        # Returns the explicit period param when present; falls back to the
+        # conversation's persisted stats_period so nil never reaches the analytics layer.
+        def analytics_period = period.presence || conversation.stats_period
 
         def needs_ref
           Pito::Chat::Result::Error.new(message_key: "pito.chat.show.needs_ref", message_args: {})
