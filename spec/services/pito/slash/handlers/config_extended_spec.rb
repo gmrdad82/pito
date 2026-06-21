@@ -31,17 +31,17 @@ RSpec.describe Pito::Slash::Handlers::Config, "extended coverage", type: :servic
       expect(result).to be_a(Pito::Slash::Result::Ok)
     end
 
-    it "includes all providers (including sound and fx) in table_rows" do
-      result = build_handler(raw: "/config").call
-      rows = result.events.first[:payload][:table_rows]
-      keys = rows.map { |r| r[:key] }
-      expect(keys).to include("google", "voyage", "igdb", "webhook", "sound", "fx")
+    it "renders a man-page listing all config providers (incl. sound and fx)" do
+      body = build_handler(raw: "/config").call.events.first[:payload]["body"]
+      expect(body).to include("pito-help-block")
+      %w[google voyage igdb webhook me sound fx].each { |p| expect(body).to include(p) }
     end
 
-    it "includes a body and info_lines" do
+    it "renders a man-page help body" do
       payload = build_handler(raw: "/config").call.events.first[:payload]
-      expect(payload[:body]).to be_present
-      expect(payload[:info_lines]).to be_present
+      expect(payload["html"]).to be true
+      expect(payload["body"]).to include("pito-help-block")
+      expect(payload["body"]).to include("Usage:")
     end
   end
 

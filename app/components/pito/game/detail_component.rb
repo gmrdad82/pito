@@ -95,19 +95,14 @@ module Pito
 
       # ── Left-column stats (summed across all linked videos) ──────────────────
 
-      # Formatted total view count across all linked videos.
-      def views_label
-        Pito::Formatter::CompactCount.call(linked_video_totals[:views])
-      end
-
-      # Formatted total like count across all linked videos.
-      def likes_label
-        Pito::Formatter::CompactCount.call(linked_video_totals[:likes])
-      end
-
-      # Formatted total comment count across all linked videos.
-      def comments_label
-        Pito::Formatter::CompactCount.call(linked_video_totals[:comments])
+      # Stat counters (views · likes · comms) for Pito::Stats::CountersComponent,
+      # summed across the game's linked videos.
+      def stat_counter_metrics
+        [
+          { key: :views, value: linked_video_totals[:views] },
+          { key: :likes, value: linked_video_totals[:likes] },
+          { key: :comms, value: linked_video_totals[:comments] }
+        ]
       end
 
       # The score bar and the TTB bar share one space-padded label width so their

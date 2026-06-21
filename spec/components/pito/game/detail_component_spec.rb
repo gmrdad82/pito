@@ -273,6 +273,29 @@ RSpec.describe Pito::Game::DetailComponent do
     end
   end
 
+  # ── Intro timestamp inline flow ─────────────────────────────────────────────
+
+  describe "intro timestamp inline flow" do
+    let(:node_with_intro) { render_inline(described_class.new(game: game, intro: "Test intro line")) }
+
+    it "intro div has flex layout so timestamp and copy share the same row" do
+      intro = node_with_intro.css(".pito-game-detail__intro").first
+      expect(intro["class"]).to include("flex")
+      expect(intro["class"]).to include("flex-wrap")
+      expect(intro["class"]).to include("items-baseline")
+    end
+
+    it "timestamp slot is a direct child of the intro flex container (no block boundary)" do
+      slot = node_with_intro.css(".pito-game-detail__intro > [data-pito-ts-slot]").first
+      expect(slot).not_to be_nil
+    end
+
+    it "intro copy text is present inside the intro flex container" do
+      intro = node_with_intro.css(".pito-game-detail__intro").first
+      expect(intro.text).to include("Test intro line")
+    end
+  end
+
   # ── Cover art ───────────────────────────────────────────────────────────────
 
   describe "cover art" do
@@ -394,13 +417,9 @@ RSpec.describe Pito::Game::DetailComponent do
       expect(left.text).to include("C")
     end
 
-    it "renders the stats legend" do
+    it "does not render a per-game stats legend line (removed in refactor)" do
       node = render_inline(described_class.new(game: game))
-      expect(node.css(".pito-game-detail__legend")).not_to be_empty
-      legend_text = node.css(".pito-game-detail__legend").first.text
-      expect(legend_text).to include("views")
-      expect(legend_text).to include("likes")
-      expect(legend_text).to include("comms")
+      expect(node.css(".pito-game-detail__legend")).to be_empty
     end
   end
 
@@ -433,16 +452,16 @@ RSpec.describe Pito::Game::DetailComponent do
         expect(node.css(".pito-achievement-badge").length).to eq(2)
       end
 
-      it "shows the max-threshold badge for views (1K Views, not the lower threshold)" do
+      it "shows the max-threshold badge for views (1K V, not the lower threshold)" do
         node  = render_inline(described_class.new(game: game))
         texts = node.css(".pito-achievement-badge").map(&:text)
-        expect(texts.any? { |t| t.include?("1K") && t.include?("Views") }).to be true
+        expect(texts.any? { |t| t.include?("1K") && t.include?("V") }).to be true
       end
 
-      it "shows the max-threshold badge for likes (100 Likes)" do
+      it "shows the max-threshold badge for likes (100 L)" do
         node  = render_inline(described_class.new(game: game))
         texts = node.css(".pito-achievement-badge").map(&:text)
-        expect(texts.any? { |t| t.include?("100") && t.include?("Likes") }).to be true
+        expect(texts.any? { |t| t.include?("100") && t.include?("L") }).to be true
       end
 
       it "renders badges ordered by recency of their lane — likes (1 day ago) before views (2 days ago)" do
@@ -450,13 +469,46 @@ RSpec.describe Pito::Game::DetailComponent do
         shinies_div = node.css(".pito-game-detail__shinies").first
         text        = shinies_div.text
         # likes max (1 day ago) is more recent; views max (2 days ago) is older
-        expect(text.index("Likes")).to be < text.index("Views")
+        # badges show abbreviations — find "L" badge before "V" badge using a metric-specific
+        # anchor like the threshold values (100 L vs 1K V)
+        expect(text.index("100")).to be < text.index("1K")
       end
 
       it "renders the shinies block inside the left column" do
         node = render_inline(described_class.new(game: game))
         left = node.css(".pito-game-detail__left").first
         expect(left.css(".pito-game-detail__shinies")).not_to be_empty
+      end
+
+      it "bolds the Shinies heading" do
+        node    = render_inline(described_class.new(game: game))
+        heading = node.css(".pito-game-detail__shinies-heading").first
+        expect(heading["class"]).to include("font-bold")
+      end
+
+      it "lays out badges in a left-aligned flex-wrap container" do
+        node    = render_inline(described_class.new(game: game))
+        shinies = node.css(".pito-game-detail__shinies").first
+        expect(shinies["class"]).to include("flex-wrap")
+        expect(shinies["class"]).not_to include("justify-center")
+      end
+
+      it "renders the Shinies legend after the badges" do
+        node   = render_inline(described_class.new(game: game))
+        legend = node.css(".pito-game-detail__shinies-legend").first
+        expect(legend).not_to be_nil
+        expect(legend.text).to eq("V views, L likes, C comms, W clocks, S subs")
+        expect(legend["class"]).to include("text-fg-dim")
+        expect(legend["class"]).to include("italic")
+      end
+
+      it "renders the Shinies legend after the badges in source order" do
+        node       = render_inline(described_class.new(game: game))
+        left       = node.css(".pito-game-detail__left").first
+        html       = left.inner_html
+        badges_pos = html.index("pito-game-detail__shinies ")
+        legend_pos = html.index("pito-game-detail__shinies-legend")
+        expect(badges_pos).to be < legend_pos
       end
     end
 
@@ -469,6 +521,11 @@ RSpec.describe Pito::Game::DetailComponent do
       it "does not render the shinies heading" do
         node = render_inline(described_class.new(game: game))
         expect(node.css(".pito-game-detail__shinies-heading")).to be_empty
+      end
+
+      it "does not render the Shinies legend" do
+        node = render_inline(described_class.new(game: game))
+        expect(node.css(".pito-game-detail__shinies-legend")).to be_empty
       end
     end
   end

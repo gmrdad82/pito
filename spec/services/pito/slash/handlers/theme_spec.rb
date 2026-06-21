@@ -46,9 +46,9 @@ RSpec.describe Pito::Slash::Handlers::Theme, type: :service do
   end
 
   # NOTE: `/themes --help` is intercepted by the universal slash --help handler
-  # (Pito::Slash::HelpRenderer) BEFORE this handler runs, so it never reaches
+  # (Pito::Slash::HelpBuilder) BEFORE this handler runs, so it never reaches
   # #call. That routing (→ the "manual's manual" easter egg) is covered in
-  # spec/lib/pito/slash/help_renderer_spec.rb.
+  # spec/lib/pito/slash/help_builder_spec.rb.
 
   # ── Grammar spec ─────────────────────────────────────────────────────────────
 

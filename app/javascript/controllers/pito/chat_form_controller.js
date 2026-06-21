@@ -15,7 +15,7 @@
 //
 // Values:
 //   channels — Array of channel handles (e.g. ["@all", "@gaming"])
-//   periods  — Array of period strings (default: ["7d", "28d", "1m", "3m", "1y", "lifetime"])
+//   periods  — Array of period strings (default: ["7d", "28d", "3m", "1y", "lifetime"])
 //
 // Picker integration:
 //   Listens for `pito:picker:select` on `document`.  When fired the event's
@@ -31,7 +31,7 @@ export default class extends Controller {
 
   static values = {
     channels: Array,
-    periods: { type: Array, default: ["7d", "28d", "1m", "3m", "1y", "lifetime"] },
+    periods: { type: Array, default: ["7d", "28d", "3m", "1y", "lifetime"] },
     uuid: String
   }
 

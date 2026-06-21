@@ -17,8 +17,10 @@ class Notification < ApplicationRecord
   # the broadcast rescues internally, so a creation never fails on a cable hiccup.
   after_create_commit { Pito::Stream::Broadcaster.broadcast_global_mini_status }
 
-  scope :unread,  -> { where(read_at: nil) }
-  scope :recent,  -> { order(created_at: :desc) }
+  scope :unread,        -> { where(read_at: nil) }
+  scope :recent,        -> { order(created_at: :desc) }
+  # Panel ordering: unread rows first, then read — each group newest-first.
+  scope :panel_ordered, -> { order(Arel.sql("(read_at IS NULL) DESC, created_at DESC")) }
 
   def read?
     read_at.present?

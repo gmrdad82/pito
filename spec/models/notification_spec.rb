@@ -54,6 +54,39 @@ RSpec.describe Notification, type: :model do
         expect(ids).to eq([ unread1.id, unread2.id, read_one.id ])
       end
     end
+
+    describe ".panel_ordered" do
+      it "returns unread notifications before read ones" do
+        ids = Notification.panel_ordered.pluck(:id)
+        read_index   = ids.index(read_one.id)
+        unread_indexes = [ ids.index(unread1.id), ids.index(unread2.id) ]
+        expect(unread_indexes).to all(be < read_index)
+      end
+
+      it "orders unread rows newest-first within the unread group" do
+        ids = Notification.panel_ordered.pluck(:id)
+        # unread1 (1 hour ago) is newer than unread2 (2 hours ago)
+        expect(ids.index(unread1.id)).to be < ids.index(unread2.id)
+      end
+
+      it "places all read rows after all unread rows even with varied timestamps" do
+        extra_read = create(:notification, :read, created_at: 30.minutes.ago)
+        ids = Notification.panel_ordered.pluck(:id)
+        unread_ids = [ unread1.id, unread2.id ]
+        read_ids   = [ read_one.id, extra_read.id ]
+
+        last_unread_pos = unread_ids.map { ids.index(_1) }.max
+        first_read_pos  = read_ids.map { ids.index(_1) }.min
+        expect(last_unread_pos).to be < first_read_pos
+      end
+
+      it "orders read rows newest-first within the read group" do
+        older_read  = create(:notification, :read, created_at: 6.hours.ago)
+        newer_read  = create(:notification, :read, created_at: 30.minutes.ago)
+        ids = Notification.panel_ordered.pluck(:id)
+        expect(ids.index(newer_read.id)).to be < ids.index(older_read.id)
+      end
+    end
   end
 
   describe "predicates" do

@@ -2,19 +2,5 @@
     wrapped in the Sidebar shell (fixed overlay panel).
     Mirrors app/views/chat/_resume_sidebar.turbo_stream.erb. %>
 <%= turbo_stream.update "pito-sidebar" do %>
-  <%= render(Pito::Sidebar::Component.new(
-        title: t("pito.sidebar.notifications.title")
-      )) do |sidebar| %>
-    <% sidebar.with_subtitle do %>
-      <%= render(Pito::Keybinding::HintComponent.new(
-            shortcut: "space",
-            description: t("pito.sidebar.notifications.toggle_hint")
-          )) %>
-    <% end %>
-    <% sidebar.with_body do %>
-      <%= render(Pito::Sidebar::Notifications::Component.new(
-            notifications: @notifications
-          )) %>
-    <% end %>
-  <% end %>
+  <%= render partial: "notifications/panel", locals: { notifications: @notifications } %>
 <% end %>

@@ -6,24 +6,24 @@ RSpec.describe Pito::Shell::MiniStatusComponent do
   describe "rendered output" do
     context "mode: :connection (default)" do
       context "when state is true (authenticated)" do
-        it "renders '■ authenticated' in green" do
+        it "renders '■ gmrdad82' in green" do
           node = render_inline(described_class.new(state: true))
           green_span = node.css("span.text-green").first
           expect(green_span).to be_present
-          expect(green_span.text.strip).to eq("■ authenticated")
+          expect(green_span.text.strip).to eq("■ gmrdad82")
         end
 
         it "does not render the anonymous label" do
           node = render_inline(described_class.new(state: true))
-          expect(node.to_html).not_to include("● not authenticated")
+          expect(node.to_html).not_to include("● tarnished")
         end
       end
 
       context "when state is false (anonymous)" do
-        it "renders the red ● not authenticated label" do
+        it "renders the red ● tarnished label" do
           node = render_inline(described_class.new(state: false))
-          expect(node.to_html).to include("● not authenticated")
-          expect(node.css("span.text-red").text).to include("● not authenticated")
+          expect(node.to_html).to include("● tarnished")
+          expect(node.css("span.text-red").text).to include("● tarnished")
         end
 
         it "does not render the authenticated label" do
@@ -36,7 +36,7 @@ RSpec.describe Pito::Shell::MiniStatusComponent do
     context "mode: :start" do
       it "renders only the auth label — no hints" do
         node = render_inline(described_class.new(mode: :start, state: false))
-        expect(node.to_html).to include("● not authenticated")
+        expect(node.to_html).to include("● tarnished")
         expect(node.to_html).not_to include("ctrl+m")
         expect(node.to_html).not_to include("mute")
         expect(node.to_html).not_to include("tab")
@@ -49,19 +49,19 @@ RSpec.describe Pito::Shell::MiniStatusComponent do
         expect(node.to_html).not_to include("chat")
       end
 
-      it "renders ● not authenticated in red when state: false" do
+      it "renders ● tarnished in red when state: false" do
         node = render_inline(described_class.new(mode: :start, state: false))
         label = node.css("span.text-red").first
         expect(label).to be_present
-        expect(label.text).to include("● not authenticated")
+        expect(label.text).to include("● tarnished")
       end
 
-      it "renders ■ authenticated in green when state: true (authenticated)" do
+      it "renders ■ gmrdad82 in green when state: true (authenticated)" do
         node = render_inline(described_class.new(mode: :start, state: true))
         label = node.css("span.text-green").first
         expect(label).to be_present
-        expect(label.text.strip).to eq("■ authenticated")
-        expect(node.to_html).to include("■ authenticated")
+        expect(label.text.strip).to eq("■ gmrdad82")
+        expect(node.to_html).to include("■ gmrdad82")
       end
 
       it "renders no separators in start mode" do
@@ -100,18 +100,18 @@ RSpec.describe Pito::Shell::MiniStatusComponent do
         yellow = node.css("span.font-bold.text-yellow")
         expect(yellow.map(&:text)).to include("ctrl+/")
         cyan_text = node.css("span.text-cyan").map(&:text).join
-        expect(cyan_text).to include("2 notifications")
+        expect(cyan_text).to include("2 notifs")
       end
 
       it "renders singular count" do
         node = render_inline(described_class.new(notifications: 1, show_notifications: true))
-        expect(node.to_html).to include("1 notification")
-        expect(node.to_html).not_to include("1 notifications")
+        expect(node.to_html).to include("1 notif")
+        expect(node.to_html).not_to include("1 notifs")
       end
 
       it "renders plural count" do
         node = render_inline(described_class.new(notifications: 3, show_notifications: true))
-        expect(node.to_html).to include("3 notifications")
+        expect(node.to_html).to include("3 notifs")
       end
 
       it "does NOT render notifications when unauthenticated (state: false)" do

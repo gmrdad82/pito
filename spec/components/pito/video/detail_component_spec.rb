@@ -85,29 +85,32 @@ RSpec.describe Pito::Video::DetailComponent do
   end
 
   describe "stat counts" do
-    it "renders — for nil view_count" do
+    it "renders '0 V' for nil view_count" do
       allow(video).to receive(:view_count).and_return(nil)
       node = render_inline(described_class.new(video: video))
-      expect(node.text).to include("—")
+      stats = node.at_css(".pito-video-detail__stats")
+      expect(stats.text).to include("0").and include("V")
     end
 
-    it "renders the count when present" do
+    it "renders the CompactCount for a present view_count" do
       allow(video).to receive(:view_count).and_return(42_000)
       node = render_inline(described_class.new(video: video))
-      expect(node.text).to include("42000")
+      stats = node.at_css(".pito-video-detail__stats")
+      expect(stats.text).to include("42K")
     end
 
-    it "renders — for nil like_count" do
+    it "renders '0 L' for nil like_count" do
       allow(video).to receive(:like_count).and_return(nil)
       node = render_inline(described_class.new(video: video))
-      # The stats row is always rendered, nil → "—"
-      expect(node.text).to include("—")
+      stats = node.at_css(".pito-video-detail__stats")
+      expect(stats.text).to include("0").and include("L")
     end
 
-    it "renders — for nil comment_count" do
+    it "renders '0 C' for nil comment_count" do
       allow(video).to receive(:comment_count).and_return(nil)
       node = render_inline(described_class.new(video: video))
-      expect(node.text).to include("—")
+      stats = node.at_css(".pito-video-detail__stats")
+      expect(stats.text).to include("0").and include("C")
     end
   end
 
@@ -117,6 +120,27 @@ RSpec.describe Pito::Video::DetailComponent do
         node = render_inline(described_class.new(video: video))
         expect(node.text).to include(I18n.t("pito.video.detail.no_thumbnail"))
       end
+    end
+  end
+
+  describe "intro timestamp inline flow" do
+    let(:node_with_intro) { render_inline(described_class.new(video: video, intro: "Test intro line")) }
+
+    it "intro div has flex layout so timestamp and copy share the same row" do
+      intro = node_with_intro.css(".pito-video-detail__intro").first
+      expect(intro["class"]).to include("flex")
+      expect(intro["class"]).to include("flex-wrap")
+      expect(intro["class"]).to include("items-baseline")
+    end
+
+    it "timestamp slot is a direct child of the intro flex container (no block boundary)" do
+      slot = node_with_intro.css(".pito-video-detail__intro > [data-pito-ts-slot]").first
+      expect(slot).not_to be_nil
+    end
+
+    it "intro copy text is present inside the intro flex container" do
+      intro = node_with_intro.css(".pito-video-detail__intro").first
+      expect(intro.text).to include("Test intro line")
     end
   end
 
@@ -218,12 +242,9 @@ RSpec.describe Pito::Video::DetailComponent do
   end
 
   describe "stats legend" do
-    it "renders the V/L/C legend line below the stats" do
-      node   = render_inline(described_class.new(video: video))
-      legend = node.css(".pito-video-detail__legend").first
-      expect(legend).not_to be_nil
-      expect(legend.text).to eq(Pito::Copy.render("pito.copy.videos.stats_legend"))
-      expect(legend.text).to eq("V views, L likes, C comms")
+    it "does not render a per-video stats legend line (removed in refactor)" do
+      node = render_inline(described_class.new(video: video))
+      expect(node.css(".pito-video-detail__legend")).to be_empty
     end
   end
 
@@ -270,35 +291,67 @@ RSpec.describe Pito::Video::DetailComponent do
         expect(badges.length).to eq(2)
       end
 
-      it "shows the max-threshold badge for views (1K Views, not the lower threshold)" do
+      it "shows the max-threshold badge for views (1K V, not the lower threshold)" do
         node  = render_inline(described_class.new(video: video))
         texts = node.css(".pito-video-detail__left .pito-achievement-badge").map(&:text)
-        expect(texts.any? { |t| t.include?("1K") && t.include?("Views") }).to be true
+        expect(texts.any? { |t| t.include?("1K") && t.include?("V") }).to be true
       end
 
-      it "shows the max-threshold badge for likes (100 Likes)" do
+      it "shows the max-threshold badge for likes (100 L)" do
         node  = render_inline(described_class.new(video: video))
         texts = node.css(".pito-video-detail__left .pito-achievement-badge").map(&:text)
-        expect(texts.any? { |t| t.include?("100") && t.include?("Likes") }).to be true
+        expect(texts.any? { |t| t.include?("100") && t.include?("L") }).to be true
       end
 
       it "renders badges ordered by recency of their lane — likes (1 day ago) before views (1 week ago)" do
         node   = render_inline(described_class.new(video: video))
         badges = node.css(".pito-video-detail__left .pito-achievement-badge")
         texts  = badges.map(&:text)
-        likes_idx = texts.index { |t| t.include?("Likes") }
-        views_idx = texts.index { |t| t.include?("Views") }
+        # badges now show abbreviations — anchor on threshold values (100 L vs 1K V)
+        likes_idx = texts.index { |t| t.include?("100") }
+        views_idx = texts.index { |t| t.include?("1K") }
         expect(likes_idx).not_to be_nil
         expect(views_idx).not_to be_nil
         expect(likes_idx).to be < views_idx
       end
 
-      it "renders a hairline before the Shinies heading" do
+      it "renders the thumbnail–stats hairline in the left column" do
         node = render_inline(described_class.new(video: video))
         left = node.css(".pito-video-detail__left").first
-        # The shinies block hairline is the second h-px hairline in the left column
+        # One hairline between the thumbnail and the stats block (shinies hairline removed)
         hairlines = left.css("div.h-px")
-        expect(hairlines.length).to be >= 2
+        expect(hairlines.length).to be >= 1
+      end
+
+      it "bolds the Shinies heading" do
+        node    = render_inline(described_class.new(video: video))
+        heading = node.css(".pito-video-detail__shinies-heading").first
+        expect(heading["class"]).to include("font-bold")
+      end
+
+      it "lays out badges in a left-aligned flex-wrap container" do
+        node    = render_inline(described_class.new(video: video))
+        shinies = node.css(".pito-video-detail__shinies").first
+        expect(shinies["class"]).to include("flex-wrap")
+        expect(shinies["class"]).not_to include("justify-center")
+      end
+
+      it "renders the Shinies legend after the badges" do
+        node   = render_inline(described_class.new(video: video))
+        legend = node.css(".pito-video-detail__shinies-legend").first
+        expect(legend).not_to be_nil
+        expect(legend.text).to eq("V views, L likes, C comms, W clocks, S subs")
+        expect(legend["class"]).to include("text-fg-dim")
+        expect(legend["class"]).to include("italic")
+      end
+
+      it "renders the Shinies legend after the badges in source order" do
+        node     = render_inline(described_class.new(video: video))
+        left     = node.css(".pito-video-detail__left").first
+        html     = left.inner_html
+        badges_pos = html.index("pito-video-detail__shinies ")
+        legend_pos = html.index("pito-video-detail__shinies-legend")
+        expect(badges_pos).to be < legend_pos
       end
     end
 
@@ -311,6 +364,11 @@ RSpec.describe Pito::Video::DetailComponent do
       it "renders no achievement badges" do
         node = render_inline(described_class.new(video: video))
         expect(node.css(".pito-achievement-badge")).to be_empty
+      end
+
+      it "renders no Shinies legend" do
+        node = render_inline(described_class.new(video: video))
+        expect(node.css(".pito-video-detail__shinies-legend")).to be_empty
       end
     end
   end

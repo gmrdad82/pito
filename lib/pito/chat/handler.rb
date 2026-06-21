@@ -39,12 +39,13 @@ module Pito
       extend Pito::Grammar::HandlerDsl
       include Pito::Chat::TargetResolution
 
-      attr_reader :message, :conversation, :channel, :follow_up, :viewport_width
+      attr_reader :message, :conversation, :channel, :period, :follow_up, :viewport_width
 
-      def initialize(message:, conversation:, channel: nil, follow_up: nil, viewport_width: nil)
+      def initialize(message:, conversation:, channel: nil, period: nil, follow_up: nil, viewport_width: nil)
         @message = message
         @conversation = conversation
         @channel = channel
+        @period = period
         @follow_up = follow_up
         @viewport_width = viewport_width
       end

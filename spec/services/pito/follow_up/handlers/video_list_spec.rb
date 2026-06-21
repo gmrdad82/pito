@@ -123,6 +123,23 @@ RSpec.describe Pito::FollowUp::Handlers::VideoList do
 
   # ── link / unlink (source: video, target: game) ─────────────────────────────
 
+  # ── shinies (delegated to Chat::Handlers::Shinies via VerbDelegator) ───────────
+
+  describe "#call — shinies" do
+    it "returns a Result::Append with the shinies message for the referenced video" do
+      result = handler.call(event:, rest: "shinies ##{video.id}", conversation:)
+      expect(result).to be_a(Pito::FollowUp::Result::Append)
+      payload = result.events.first[:payload]
+      expect(payload["body"]).to include("pito-achievement-shinies")
+      expect(payload["video_id"]).to eq(video.id)
+    end
+
+    it "does NOT return an invalid_action error (shinies is now a declared action)" do
+      result = handler.call(event:, rest: "shinies ##{video.id}", conversation:)
+      expect(result).not_to be_a(Pito::FollowUp::Result::Error)
+    end
+  end
+
   context "link and unlink verbs (source: video, target: game)" do
     let!(:game) { create(:game, title: "Lies of P") }
 

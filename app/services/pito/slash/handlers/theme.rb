@@ -8,7 +8,7 @@ module Pito
       # Sidebar (PATCH /settings/theme); there are no subcommands or arguments.
       #
       # `/themes --help` never reaches this handler: the universal slash `--help`
-      # interceptor (Pito::Slash::HelpRenderer) handles it BEFORE the handler runs
+      # interceptor (Pito::Slash::HelpBuilder) handles it BEFORE the handler runs
       # and renders the "manual's manual" easter egg (same as `/help --help`).
       #
       # Any extra tokens after `/themes` are ignored — the command is lenient and

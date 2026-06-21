@@ -30,7 +30,7 @@ en:
           description: "Initiate Google OAuth to connect a YouTube channel."
       config:
         descriptions:
-          config: "Read or write install-wide credentials, toggle sound/fx, or set the display time zone (/config google|voyage|igdb|webhook|sound|fx|timezone)"
+          config: "Read or write install-wide credentials, toggle sound/fx, set the display time zone, or configure your nickname (/config google|voyage|igdb|webhook|me|sound|fx|timezone)"
         help:
           general:
             body: "/config <provider> [on|off | key=value …]"
@@ -39,6 +39,7 @@ en:
               voyage: "Voyage AI embedding key"
               igdb: "IGDB game database client credentials"
               webhook: "Slack / Discord incoming webhook URLs"
+              me: "Set the authenticated display nickname"
               sound: "Toggle sound effects on or off"
               fx: "Toggle visual FX on or off"
               timezone: "Set the display time zone (timestamps + schedule input)"
@@ -67,11 +68,18 @@ en:
               keys:
                 slack: "Slack incoming webhook URL"
                 discord: "Discord webhook URL"
+            me:
+              keys:
+                nickname: "Display name shown in the status bar when authenticated (default: gmrdad82)"
+              omit_hint: "Omit the key to show the current nickname."
             sound:
               keys: {}
             fx:
               keys: {}
             timezone: "/config timezone <City> — set the display zone from a major city (e.g. /config timezone Madrid → Europe/Madrid). Times still store in UTC; only rendering and schedule input switch to local. `/config timezone` shows the current zone."
+        me:
+          nickname_updated: "Nickname set to %{nickname}."
+          status: "Nickname: %{nickname}."
         status:
           ok: "OK"
           missing: "MISSING"
@@ -80,6 +88,7 @@ en:
             voyage: "Voyage credentials"
             igdb: "IGDB credentials"
             webhook: "Webhook URLs"
+            me: "Display nickname"
         updated: "Updated %{provider} credentials (%{keys}). Changes take effect immediately."
         toggle:
           sound:
@@ -95,10 +104,19 @@ en:
           updated: "Time zone set to %{zone}. Timestamps now read in local time; clocks stay UTC under the hood."
           status: "Time zone: %{zone}."
         errors:
-          unknown_provider: "'%{provider}'? Never heard of it. I answer to: google, voyage, igdb, webhook, sound, fx, timezone."
+          unknown_provider: "'%{provider}'? Never heard of it. I answer to: google, voyage, igdb, webhook, me, sound, fx, timezone."
           unknown_keys: "Unknown keys for %{provider}: %{keys}"
           invalid_toggle_value: "Invalid value '%{value}'. Use on or off."
           unknown_timezone: "'%{city}'? No clock ticks there. Name a major city like Madrid, Tokyo, or London."
+          blank_nickname: "Nickname can't be blank."
+      notifications:
+        descriptions:
+          notifications: "Open the notifications panel"
+        help:
+          usage: "/notifications"
+          description: "Open the notifications sidebar panel (same as Ctrl+/)."
+        sidebar:
+          opening: "Opening the notifications panel…"
       games:
         descriptions:
           games: "Import a game from IGDB (/games import [title])"

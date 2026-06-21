@@ -52,16 +52,13 @@ module Pito
         Pito::Formatter::Duration.call(@video.duration_seconds)
       end
 
-      def view_count_label
-        format_count(@video.view_count)
-      end
-
-      def like_count_label
-        format_count(@video.like_count)
-      end
-
-      def comment_count_label
-        format_count(@video.comment_count)
+      # Stat counters (views · likes · comms) for Pito::Stats::CountersComponent.
+      def stat_counter_metrics
+        [
+          { key: :views, value: @video.view_count.to_i },
+          { key: :likes, value: @video.like_count.to_i },
+          { key: :comms, value: @video.comment_count.to_i }
+        ]
       end
 
       def description
@@ -80,12 +77,6 @@ module Pito
       end
 
       private
-
-      def format_count(value)
-        return "—" if value.nil?
-
-        value.to_s
-      end
     end
   end
 end

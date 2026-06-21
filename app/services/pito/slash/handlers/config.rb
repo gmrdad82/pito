@@ -34,13 +34,14 @@ module Pito
         grammar do
           literal :provider, source: :config_providers
           enum    :state,    source: :on_off,      optional: true,              when: { provider: %w[sound fx] }
-          kv      :settings, source: :config_keys, repeatable: true, optional: true, when: { provider: %w[google voyage igdb webhook] }
+          kv      :settings, source: :config_keys, repeatable: true, optional: true, when: { provider: %w[google voyage igdb webhook me] }
           auth :authenticated_only
           description_key "pito.grammar.slash.config"
         end
 
-        KNOWN_PROVIDERS   = %w[google voyage igdb webhook].freeze
+        KNOWN_PROVIDERS   = %w[google voyage igdb webhook me].freeze
         TOGGLE_PROVIDERS  = %w[sound fx].freeze
+        ME_PROVIDER       = "me"
 
         # Maps each provider's supported kwargs to their AppSetting writers.
         PROVIDER_SETTERS = {
@@ -119,72 +120,176 @@ module Pito
           end
 
           return handle_toggle(provider) if TOGGLE_PROVIDERS.include?(provider)
+          return handle_me(invocation.kwargs) if provider == ME_PROVIDER
 
           kwargs = invocation.kwargs
           kwargs.empty? ? show_status(provider) : set_values(provider, kwargs)
         end
 
         def show_help
-          provider = invocation.args.find { |a| known_providers.include?(a.to_s.downcase) }
+          provider = invocation.args.first.to_s.downcase
 
-          return google_help_events if provider.to_s == "google"
-
-          return general_help_events if provider.blank?
-
-          key = "pito.slash.config.help.providers.#{provider}"
-          Pito::Slash::Result::Ok.new(events: [
-            { kind: "system", payload: { text: I18n.t(key) } }
-          ])
+          case provider
+          when "google"   then google_help_man_page
+          when "me"       then me_help_man_page
+          when "timezone" then timezone_help_man_page
+          when ""         then general_help_man_page
+          else                 provider_keys_help_man_page(provider)
+          end
         end
 
+        # Called for bare `/config` (no provider, no --help flag) as well as
+        # from show_help when no provider is specified.
         def general_help_events
-          all_providers = known_providers
-          Pito::Slash::Result::Ok.new(events: [
-            {
-              kind:    "system",
-              payload: {
-                body:       I18n.t("pito.slash.config.help.general.body"),
-                table_rows: all_providers.map do |p|
-                  {
-                    key:   p,
-                    value: I18n.t("pito.slash.config.help.general.providers.#{p}")
-                  }
-                end,
-                info_lines: I18n.t("pito.slash.config.help.general.info_lines")
-              }
-            }
-          ])
-        end
-
-        def google_help_events
-          Pito::Slash::Result::Ok.new(events: [
-            {
-              kind:    "system",
-              payload: {
-                body:       "/config google [key=value …]",
-                table_rows: [
-                  { key: "client_id=",     value: I18n.t("pito.slash.config.help.providers.google.keys.client_id") },
-                  { key: "client_secret=", value: I18n.t("pito.slash.config.help.providers.google.keys.client_secret") },
-                  { key: "redirect_uri=",  value: I18n.t("pito.slash.config.help.providers.google.keys.redirect_uri") },
-                  { key: "api_key=",       value: I18n.t("pito.slash.config.help.providers.google.keys.api_key") }
-                ],
-                info_lines: [
-                  I18n.t("pito.slash.config.help.providers.google.omit_hint")
-                ],
-                suggestion: {
-                  pre:       I18n.t("pito.slash.config.help.providers.google.suggestion.pre"),
-                  code:      "/connect",
-                  post:      I18n.t("pito.slash.config.help.providers.google.suggestion.post"),
-                  shortcut:  "ctrl+/",
-                  run_label: I18n.t("pito.event.suggestion.run_label"),
-                  run_cmd:   "/connect"
-                }
-              }
-            }
-          ])
+          general_help_man_page
         end
 
         private
+
+        def general_help_man_page
+          all_providers = Pito::Slash::HelpBuilder::ALL_CONFIG_PROVIDERS
+          rows          = all_providers.map do |p|
+            [ p, I18n.t("pito.slash.config.help.general.providers.#{p}", default: "") ]
+          end
+          info_line = I18n.t("pito.slash.config.help.general.info_lines").first
+
+          body = Pito::MessageBuilder::ManPage.render(
+            usage:  I18n.t("pito.slash.config.help.general.body"),
+            groups: [
+              [ "Providers:", rows ],
+              [ "Options:",   [ [ "--help", info_line ] ] ]
+            ]
+          )
+          man_ok(body)
+        end
+
+        def me_help_man_page
+          body = Pito::MessageBuilder::ManPage.render(
+            usage:  "/config me [nickname=<value>]",
+            groups: [
+              [ "Keys:",    [ [ "nickname=", I18n.t("pito.slash.config.help.providers.me.keys.nickname") ] ] ],
+              [ "Options:", [ [ "--help",    I18n.t("pito.slash.config.help.providers.me.omit_hint") ] ] ]
+            ]
+          )
+          man_ok(body)
+        end
+
+        def google_help_man_page
+          rows = [
+            [ "client_id=",     I18n.t("pito.slash.config.help.providers.google.keys.client_id") ],
+            [ "client_secret=", I18n.t("pito.slash.config.help.providers.google.keys.client_secret") ],
+            [ "redirect_uri=",  I18n.t("pito.slash.config.help.providers.google.keys.redirect_uri") ],
+            [ "api_key=",       I18n.t("pito.slash.config.help.providers.google.keys.api_key") ]
+          ]
+          connect_post = I18n.t("pito.slash.config.help.providers.google.suggestion.post")
+
+          body = Pito::MessageBuilder::ManPage.render(
+            usage:  "/config google [key=value …]",
+            groups: [
+              [ "Keys:",    rows ],
+              [ "Options:", [
+                [ "--help",   "Print this help message" ],
+                [ "/connect", "Run /connect #{connect_post}" ]
+              ] ]
+            ]
+          )
+          man_ok(body)
+        end
+
+        def timezone_help_man_page
+          desc = I18n.t("pito.slash.config.help.providers.timezone", default: "/config timezone <City>")
+          body = Pito::MessageBuilder::ManPage.render(
+            usage:  "/config timezone [<City>]",
+            groups: [ [ "Options:", [ [ "--help", desc ] ] ] ]
+          )
+          man_ok(body)
+        end
+
+        def provider_keys_help_man_page(provider)
+          keys = begin
+            Pito::Grammar::Vocabularies.provider_keys(provider)
+          rescue StandardError
+            []
+          end
+
+          return general_help_man_page if keys.blank?
+
+          rows = keys.map do |key|
+            desc = I18n.t("pito.slash.config.help.providers.#{provider}.keys.#{key}", default: "")
+            [ "#{key}=", desc ]
+          end
+
+          body = Pito::MessageBuilder::ManPage.render(
+            usage:  "/config #{provider} [key=value …]",
+            groups: [
+              [ "Keys:",    rows ],
+              [ "Options:", [ [ "--help", "Print this help message" ] ] ]
+            ]
+          )
+          man_ok(body)
+        end
+
+        def man_ok(body)
+          Pito::Slash::Result::Ok.new(events: [ {
+            kind:    "system",
+            payload: { "html" => true, "body" => body }
+          } ])
+        end
+
+        # Handle /config me [nickname=<value>].
+        # Getter (no kwargs) → show current nickname.
+        # Setter (nickname=value) → persist and confirm.
+        def handle_me(kwargs)
+          return show_me_status if kwargs.empty?
+
+          unknown = kwargs.keys.map(&:to_sym) - %i[nickname]
+          if unknown.any?
+            return Pito::Slash::Result::Error.new(
+              message_key:  "pito.slash.config.errors.unknown_keys",
+              message_args: { keys: unknown.map(&:to_s).join(", "), provider: ME_PROVIDER }
+            )
+          end
+
+          value = kwargs[:nickname].to_s.strip
+          if value.blank?
+            return Pito::Slash::Result::Error.new(
+              message_key:  "pito.slash.config.errors.blank_nickname",
+              message_args: {}
+            )
+          end
+
+          AppSetting.nickname = value
+
+          # Live-update the authenticated mini-status label across all open tabs —
+          # re-renders the full mini-status component (which reads AppSetting.nickname).
+          Pito::Stream::Broadcaster.broadcast_global_mini_status
+
+          Pito::Slash::Result::Ok.new(events: [
+            {
+              kind:    "system",
+              payload: {
+                text: Pito::Copy.render(
+                  "pito.slash.config.me.nickname_updated",
+                  { nickname: AppSetting.nickname }
+                )
+              }
+            }
+          ])
+        end
+
+        def show_me_status
+          Pito::Slash::Result::Ok.new(events: [
+            {
+              kind:    "system",
+              payload: {
+                text: Pito::Copy.render(
+                  "pito.slash.config.me.status",
+                  { nickname: AppSetting.nickname }
+                )
+              }
+            }
+          ])
+        end
 
         # Handle /config sound [on|off] and /config fx [on|off].
         def handle_toggle(provider)

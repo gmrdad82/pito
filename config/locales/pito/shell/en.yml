@@ -14,8 +14,8 @@ en:
           period_shortcut: "shift+space"
         no_channels: "none"
       mini_status:
-        authenticated: "■ well known"
-        anonymous: "● unknown"
+        authenticated: "■ %{nickname}"
+        anonymous: "● tarnished"
         notifications_count:
           one: "%{count} notif"
           other: "%{count} notifs"

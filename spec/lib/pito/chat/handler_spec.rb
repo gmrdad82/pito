@@ -24,6 +24,24 @@ RSpec.describe Pito::Chat::Handler do
       expect(handler.follow_up).to be_nil
       expect(handler.follow_up?).to be(false)
     end
+
+    it "defaults period to nil" do
+      expect(handler.period).to be_nil
+    end
+  end
+
+  describe "period threading" do
+    it "exposes a period passed at construction" do
+      handler = handler_class.new(message:, conversation:, period: "28d")
+      expect(handler.period).to eq("28d")
+    end
+
+    it "accepts any period token from the cycle" do
+      %w[7d 28d 3m 1y lifetime].each do |token|
+        handler = handler_class.new(message:, conversation:, period: token)
+        expect(handler.period).to eq(token)
+      end
+    end
   end
 
   describe "follow-up entry (with a FollowUpContext)" do

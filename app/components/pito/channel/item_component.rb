@@ -72,22 +72,13 @@ module Pito
         @score
       end
 
-      # Rendered label for the subscriber count row, e.g. "1 sub" / "10 subs".
-      # Nil stats treated as zero (matches the disconnect_confirmation.rb precedent).
-      def subscribers_label
-        Pito::Copy.render("pito.copy.channels.subscribers_count_plural",
-                          count: Pito::Formatter::CompactCount.call(channel.subscriber_count.to_i))
-      end
-
-      # Local Video row count for this channel (no API call), compact-formatted.
-      def videos_count_label
-        Pito::Copy.render("pito.copy.channels.videos_count_plural",
-                          count: Pito::Formatter::CompactCount.call(channel.videos.count))
-      end
-
-      def views_label
-        Pito::Copy.render("pito.copy.channels.views_count_plural",
-                          count: Pito::Formatter::CompactCount.call(channel.view_count.to_i))
+      # Stat counters for the card, rendered by Pito::Stats::CountersComponent.
+      # subs · (vids) · views — nil stats treated as zero; vids only when opted in.
+      def stat_counter_metrics
+        metrics = [ { key: :subs, value: channel.subscriber_count.to_i } ]
+        metrics << { key: :vids, value: channel.videos.count } if show_video_count?
+        metrics << { key: :views, value: channel.view_count.to_i }
+        metrics
       end
 
       # YouTube page URL for the [view] link.

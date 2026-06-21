@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_20_154536) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_21_000001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -68,6 +68,18 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_20_154536) do
     t.bigint "blob_id", null: false
     t.string "variation_digest", null: false
     t.index ["blob_id", "variation_digest"], name: "index_active_storage_variant_records_uniqueness", unique: true
+  end
+
+  create_table "analytics_cache", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.text "error"
+    t.datetime "expires_at"
+    t.jsonb "payload"
+    t.string "signature", null: false
+    t.string "status", default: "pending", null: false
+    t.datetime "updated_at", null: false
+    t.index ["expires_at"], name: "index_analytics_cache_on_expires_at"
+    t.index ["signature"], name: "index_analytics_cache_on_signature", unique: true
   end
 
   create_table "api_requests", force: :cascade do |t|

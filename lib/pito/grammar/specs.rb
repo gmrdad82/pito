@@ -198,6 +198,16 @@ module Pito
             name:            :help,
             slots:           [],
             description_key: "pito.grammar.chat.help"
+          ),
+
+          # `shinies` — achievement track + obtained badges for a game, vid, or channel.
+          # A single free slot so the ghost shows up after "shinies "; the handler
+          # reads the noun (channel/video/game) + ref from message.raw directly.
+          Spec.new(
+            namespace:       :chat,
+            name:            :shinies,
+            slots:           [ Slot.new(name: :target, kind: :free, optional: true) ],
+            description_key: "pito.grammar.chat.shinies"
           )
 
         ]

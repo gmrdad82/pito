@@ -76,9 +76,12 @@ RSpec.describe Pito::Slash::Dispatcher do
       expect(result.events.first[:payload][:text]).to eq("pong")
     end
 
-    it "renders per-command body containing the verb name" do
+    it "renders a man-page help block containing the verb name" do
       result = described_class.call(input: "/ping --help", conversation:)
-      body = result.events.first[:payload][:body]
+      payload = result.events.first[:payload]
+      expect(payload["html"]).to be true
+      body = payload["body"]
+      expect(body).to include("pito-help-block")
       expect(body).to include("ping")
     end
 
@@ -88,12 +91,12 @@ RSpec.describe Pito::Slash::Dispatcher do
         Pito::Slash::Registry.register_all!
       end
 
-      it "renders igdb key table rows" do
+      it "renders igdb keys in the man-page body" do
         result = described_class.call(input: "/config igdb --help", conversation:)
         expect(result).to be_a(Pito::Slash::Result::Ok)
-        rows = result.events.first[:payload][:table_rows]
-        keys = rows.map { |r| r[:key] }
-        expect(keys).to include("client_id=", "client_secret=")
+        body = result.events.first[:payload]["body"]
+        expect(body).to include("client_id=")
+        expect(body).to include("client_secret=")
       end
     end
 

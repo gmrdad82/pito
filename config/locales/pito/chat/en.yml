@@ -69,6 +69,10 @@ en:
       help:
         descriptions:
           help: "List follow-up targets and their accepted actions"
+      shinies:
+        descriptions:
+          shinies: "Show achievement tracks and obtained shinies for a game, vid, or channel"
+        needs_ref: "Which game, vid, or channel? Try `shinies game <id>`, `shinies vid <id>`, or `shinies channel @handle`."
       errors:
         unknown_input: "Didn't understand %{input}. Try /help for available commands."
         verb_not_implemented: "The chat verb %{verb} isn't wired yet."

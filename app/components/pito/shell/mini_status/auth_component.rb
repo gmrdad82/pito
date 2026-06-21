@@ -7,7 +7,15 @@ module Pito
         def initialize(state: false)
           @state = state
         end
-        def label = @state ? t("pito.shell.mini_status.authenticated") : t("pito.shell.mini_status.anonymous")
+
+        def label
+          if @state
+            t("pito.shell.mini_status.authenticated", nickname: AppSetting.nickname)
+          else
+            t("pito.shell.mini_status.anonymous")
+          end
+        end
+
         def css_class = @state ? "text-green" : "text-red"
       end
     end

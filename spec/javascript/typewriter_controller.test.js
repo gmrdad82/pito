@@ -10,6 +10,11 @@
 // once silently disabled prose collection so only the body animated. The
 // "blanks all prose targets on connect" test fails if that collection branch
 // is skipped.
+//
+// htmlProse targets: HTML cells (e.g. platform logo spans) carry the
+// `htmlProse` target so the controller can hide them at connect and reveal
+// them in DOM order during the animation sequence — preventing logos from
+// popping in immediately while text cells are still being typed out.
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest"
 import { Application } from "@hotwired/stimulus"
@@ -35,6 +40,36 @@ function buildSegment(bodyText, proseTexts = []) {
 
   document.body.appendChild(div)
   return { div, body, proses }
+}
+
+// Build a segment with mixed prose and htmlProse targets (mirrors the platform
+// logo use-case: body + some prose text cells + one html logo cell).
+function buildSegmentWithHtmlProse(bodyText, proseTexts = [], htmlContents = []) {
+  const div = document.createElement("div")
+  div.setAttribute("data-controller", "pito--typewriter")
+
+  const body = document.createElement("span")
+  body.setAttribute("data-pito--typewriter-target", "body")
+  body.textContent = bodyText
+  div.appendChild(body)
+
+  proseTexts.forEach((t) => {
+    const p = document.createElement("span")
+    p.setAttribute("data-pito--typewriter-target", "prose")
+    p.textContent = t
+    div.appendChild(p)
+  })
+
+  const htmlEls = htmlContents.map((html) => {
+    const p = document.createElement("span")
+    p.setAttribute("data-pito--typewriter-target", "htmlProse")
+    p.innerHTML = html
+    div.appendChild(p)
+    return p
+  })
+
+  document.body.appendChild(div)
+  return { div, htmlEls }
 }
 
 describe("pito--typewriter controller", () => {
@@ -95,5 +130,41 @@ describe("pito--typewriter controller", () => {
     expect(body.textContent).toBe("")
     await new Promise((r) => setTimeout(r, 400))
     expect(body.textContent).toBe("just a body")
+  })
+
+  describe("htmlProse targets — reveal gating for HTML cells (platform logos)", () => {
+    it("hides htmlProse targets immediately on connect (before animation starts)", async () => {
+      const { htmlEls } = buildSegmentWithHtmlProse("body text", ["prose text"], ["<img src='ps.svg'>"])
+      await waitForConnect()
+
+      // Hidden synchronously in connect() before the reveal job runs.
+      expect(htmlEls[0].style.visibility).toBe("hidden")
+    })
+
+    it("reveals htmlProse targets after animation completes", async () => {
+      const { htmlEls } = buildSegmentWithHtmlProse("hi", ["ok"], ["<img src='ps.svg'>"])
+      await waitForConnect()
+      // Wait for animation to finish (TICK_MS=12, short texts done well within 400ms).
+      await new Promise((r) => setTimeout(r, 400))
+
+      expect(htmlEls[0].style.visibility).toBe("")
+    })
+
+    it("reveals htmlProse targets in instant mode (backpressure / __pitoReady false)", async () => {
+      window.__pitoReady = false
+      const { htmlEls } = buildSegmentWithHtmlProse("body", [], ["<img src='icon.svg'>"])
+      await waitForConnect()
+
+      // No controller connected (skipAnimation returned early) — element unmodified.
+      expect(htmlEls[0].style.visibility).toBe("")
+    })
+
+    it("does NOT hide htmlProse targets when animation is skipped (__pitoReady falsy)", async () => {
+      window.__pitoReady = false
+      const { htmlEls } = buildSegmentWithHtmlProse("hello", ["world"], ["<img src='x.svg'>"])
+      await waitForConnect()
+
+      expect(htmlEls[0].style.visibility).not.toBe("hidden")
+    })
   })
 })

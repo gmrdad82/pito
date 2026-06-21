@@ -124,10 +124,12 @@ RSpec.describe Pito::Slash::Handlers::Games, type: :service do
       expect(result).to be_a(Pito::Slash::Result::Ok)
     end
 
-    it "includes usage text mentioning import" do
-      event = result.events.first
-      payload = event[:payload]
-      body = payload[:body] || payload["body"] || payload[:text] || payload["text"] || ""
+    it "returns a man-page help block with Usage: and import subcommand" do
+      payload = result.events.first[:payload]
+      expect(payload["html"]).to be true
+      body = payload["body"]
+      expect(body).to include("pito-help-block")
+      expect(body).to include("Usage:")
       expect(body.downcase).to include("import")
     end
   end

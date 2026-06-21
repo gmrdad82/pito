@@ -17,7 +17,9 @@ import { soundEnabled } from "pito/settings"
 
 const SEND_SRC      = "/sounds/send.mp3"
 const RECEIVE_SRC   = "/sounds/receive.mp3"
+const NOTIFY_SRC    = "/sounds/notify.mp3"
 const RECEIVE_DEBOUNCE_MS = 400  // ms of silence before we consider the turn done
+const NOTIFY_DEBOUNCE_MS  = 400  // burst of arriving notifs collapses to one sound
 
 export default class extends Controller {
   connect() {
@@ -35,6 +37,7 @@ export default class extends Controller {
   #preload() {
     this.sendAudio    = new Audio(SEND_SRC)
     this.receiveAudio = new Audio(RECEIVE_SRC)
+    this.notifyAudio  = new Audio(NOTIFY_SRC)
   }
 
   #playSend() {
@@ -58,19 +61,30 @@ export default class extends Controller {
 
   #playNow(audio) {
     audio.currentTime = 0
-    audio.play().catch(() => {
+    audio.play()?.catch(() => {
       // Browsers block autoplay until the first user gesture.
     })
+  }
+
+  #scheduleNotify() {
+    if (!soundEnabled()) return
+    clearTimeout(this.notifyTimer)
+    this.notifyTimer = setTimeout(() => {
+      if (soundEnabled()) this.#playNow(this.notifyAudio)
+    }, NOTIFY_DEBOUNCE_MS)
   }
 
   #clearPending() {
     clearTimeout(this.receiveTimer)
     this.receiveTimer = null
+    clearTimeout(this.notifyTimer)
+    this.notifyTimer = null
   }
 
   #bindEvents() {
     this.abort = new AbortController()
-    document.addEventListener("pito:submitted",       () => this.#playSend(),        { signal: this.abort.signal })
-    document.addEventListener("pito:result-appended", () => this.#scheduleReceive(), { signal: this.abort.signal })
+    document.addEventListener("pito:submitted",             () => this.#playSend(),        { signal: this.abort.signal })
+    document.addEventListener("pito:result-appended",       () => this.#scheduleReceive(), { signal: this.abort.signal })
+    document.addEventListener("pito:notification-arrived",  () => this.#scheduleNotify(),  { signal: this.abort.signal })
   }
 }

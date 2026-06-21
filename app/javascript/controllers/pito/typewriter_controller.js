@@ -7,6 +7,10 @@
 //   ALL prose targets are animated sequentially in DOM order — body first,
 //   then every `prose` target (kv-table key/value spans, section header divs,
 //   section row key/value spans).
+//   HTML targets (e.g. platform logo cells) are interleaved with prose targets
+//   in DOM order and revealed at their position in the sequence — no character
+//   cost, so they appear in step with their neighbouring text cells rather than
+//   instantly on paint.
 //   Chrome elements (accent bar, hints, meta-line, info-lines) are not tagged
 //   as targets and always render instantly.
 //
@@ -35,7 +39,7 @@ import { fxEnabled } from "pito/settings"
 import { TICK_MS, CHARS_TICK } from "pito/typing"
 
 export default class extends Controller {
-  static targets = ["body", "prose"]
+  static targets = ["body", "prose", "htmlProse"]
 
   connect() {
     if (this.#skipAnimation()) return
@@ -52,19 +56,32 @@ export default class extends Controller {
     // Collect all items to animate in DOM order:
     //   1. the body target (summary prose)
     //   2. every prose target — kv-table key/value spans, section header divs,
-    //      section row key/value spans — all in document order.
-    const items = [{ el: this.bodyTarget, text: bodyText }]
-    if (this.hasProseTarget) {
-      for (const el of this.proseTargets) {
-        const text = el.textContent
-        if (text) items.push({ el, text })
-      }
-    }
+    //      section row key/value spans — plus every htmlProse target (HTML cells,
+    //      e.g. platform logo columns) — all merged in document order so logos
+    //      reveal in step with their neighbouring text cells, not instantly.
+    const textItems = this.hasProseTarget
+      ? this.proseTargets.filter(el => el.textContent).map(el => ({ el, text: el.textContent, html: false }))
+      : []
+    const htmlItems = this.hasHtmlProseTarget
+      ? this.htmlProseTargets.map(el => ({ el, html: true }))
+      : []
+
+    // Merge in document order (stable across V8 / SpiderMonkey).
+    const mixed = [...textItems, ...htmlItems].sort((a, b) => {
+      const rel = a.el.compareDocumentPosition(b.el)
+      return rel & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1
+    })
+
+    const items = [{ el: this.bodyTarget, text: bodyText, html: false }, ...mixed]
 
     // Capture full texts and blank all targets immediately so they appear
     // empty while the job is waiting in the queue.
+    // HTML targets are hidden with visibility so the grid layout is preserved.
     this._items = items
-    for (const item of items) item.el.textContent = ""
+    for (const item of items) {
+      if (item.html) item.el.style.visibility = "hidden"
+      else item.el.textContent = ""
+    }
 
     // Keep a stable cancelled ref for the closure.
     const cancelled = () => this._cancelled
@@ -76,7 +93,10 @@ export default class extends Controller {
         this._resolve = () => { this._resolve = null; resolve() }
 
         if (instant || cancelled()) {
-          for (const { el, text } of items) el.textContent = text
+          for (const item of items) {
+            if (item.html) item.el.style.visibility = ""
+            else item.el.textContent = item.text
+          }
           this._resolve()
           return
         }
@@ -86,15 +106,27 @@ export default class extends Controller {
 
         const tick = () => {
           if (cancelled()) {
-            for (const { el, text } of items) el.textContent = text
+            for (const item of items) {
+              if (item.html) item.el.style.visibility = ""
+              else item.el.textContent = item.text
+            }
             this._resolve?.()
             return
           }
 
           // Advance CHARS_TICK characters, crossing element boundaries as needed.
+          // HTML items (platform logos etc.) are revealed immediately at their
+          // position in the sequence — no character cost, no extra delay.
           let charsLeft = CHARS_TICK
           while (charsLeft > 0 && itemIdx < items.length) {
-            const { el, text } = items[itemIdx]
+            const item = items[itemIdx]
+            if (item.html) {
+              item.el.style.visibility = ""
+              itemIdx++
+              pos = 0
+              continue
+            }
+            const { el, text } = item
             const remaining = text.length - pos
             if (charsLeft >= remaining) {
               // Finish this element and move to the next.
@@ -129,10 +161,13 @@ export default class extends Controller {
     // (a stalled FIFO would stop every later message from typing).
     this._resolve?.()
 
-    // Restore full text so a removed/swapped element isn't left truncated.
+    // Restore full text / visibility so a removed/swapped element isn't left
+    // truncated or hidden.
     if (this._items) {
-      for (const { el, text } of this._items) {
-        if (el.isConnected) el.textContent = text
+      for (const item of this._items) {
+        if (!item.el.isConnected) continue
+        if (item.html) item.el.style.visibility = ""
+        else item.el.textContent = item.text
       }
     }
   }

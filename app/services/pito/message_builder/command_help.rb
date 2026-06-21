@@ -41,7 +41,8 @@ module Pito
         # `import` is canonically the IGDB game import; `import videos` is a
         # de-emphasized alias of `sync videos`, listed last as an alias note.
         import:   %i[game videos],
-        sync:     %i[videos channels]
+        sync:     %i[videos channels],
+        shinies:  %i[channel video game]
       }.freeze
 
       # Canonical display token per (verb, noun). The verb-level page labels and

@@ -82,4 +82,64 @@ RSpec.describe Pito::Event::ThinkingComponent do
       expect(node.css(".pito-thinking__word").text).to eq("Executing…")
     end
   end
+
+  # ── Verb cycling (order + elapsed) ──────────────────────────────────────────
+
+  describe ".word_index_at" do
+    let(:order) { [ 3, 1, 2, 0 ] }
+
+    it "returns the first index before one interval elapses" do
+      expect(described_class.word_index_at(order:, elapsed_seconds: 0)).to eq(3)
+      expect(described_class.word_index_at(order:, elapsed_seconds: described_class::INTERVAL_SECONDS - 1)).to eq(3)
+    end
+
+    it "advances one step per INTERVAL_SECONDS and wraps around" do
+      i = described_class::INTERVAL_SECONDS
+      expect(described_class.word_index_at(order:, elapsed_seconds: i)).to eq(1)
+      expect(described_class.word_index_at(order:, elapsed_seconds: 2 * i)).to eq(2)
+      expect(described_class.word_index_at(order:, elapsed_seconds: 4 * i)).to eq(3) # wrapped
+    end
+
+    it "returns 0 for a blank order" do
+      expect(described_class.word_index_at(order: [], elapsed_seconds: 99)).to eq(0)
+    end
+  end
+
+  describe "current word reflects elapsed time" do
+    it "shows the verb for the step the turn is currently on" do
+      doing   = I18n.t("pito.copy.thinking.slash.doing")
+      order   = [ 3, 1, 2, 0 ]
+      elapsed = 2 * described_class::INTERVAL_SECONDS + 1 # step 2 → order[2] = 2
+      payload = { "dictionary" => "slash", "order" => order, "started_at" => elapsed.seconds.ago.iso8601 }
+
+      node = render_inline(described_class.new(payload:, event: nil))
+      expect(node.css(".pito-thinking__word").text).to eq("#{doing[2]}…")
+    end
+  end
+
+  describe "cycling data values" do
+    let(:payload) do
+      { "dictionary" => "slash", "order" => [ 2, 0, 1 ], "started_at" => Time.current.iso8601 }
+    end
+
+    it "exposes the order as JSON" do
+      expect(JSON.parse(described_class.new(payload:, event: nil).order_json)).to eq([ 2, 0, 1 ])
+    end
+
+    it "exposes the interval in milliseconds (single source of truth)" do
+      component = described_class.new(payload:, event: nil)
+      expect(component.interval_ms).to eq(described_class::INTERVAL_SECONDS * 1000)
+    end
+
+    it "renders the cycling data attributes for the Stimulus controller" do
+      node = render_inline(described_class.new(payload:, event: nil))
+      root = node.css(".pito-thinking").first
+
+      expect(root["data-pito--thinking-interval-value"]).to eq((described_class::INTERVAL_SECONDS * 1000).to_s)
+      expect(root["data-pito--thinking-order-value"]).to eq([ 2, 0, 1 ].to_json)
+      expect(root["data-pito--thinking-words-value"]).to be_present
+      expect(root["data-pito--thinking-started-at-value"]).to be_present
+      expect(node.css(".pito-thinking__word[data-pito--thinking-target='word']")).not_to be_empty
+    end
+  end
 end

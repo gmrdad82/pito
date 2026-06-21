@@ -6,9 +6,13 @@
   <%= render(Pito::Segment::Component.new(id: dom_id)) do %>
     <span class="pito-thinking"
           data-controller="pito--thinking"
-          data-pito--thinking-frames-value="<%= braille_frames_json %>">
+          data-pito--thinking-frames-value="<%= braille_frames_json %>"
+          data-pito--thinking-words-value="<%= doing_words_json %>"
+          data-pito--thinking-order-value="<%= order_json %>"
+          data-pito--thinking-started-at-value="<%= started_at_ms %>"
+          data-pito--thinking-interval-value="<%= interval_ms %>">
       <span class="pito-thinking__braille pito-shimmer" data-pito--thinking-target="braille">⠋</span>
-      <span class="pito-thinking__word pito-shimmer"><%= current_word %>…</span>
+      <span class="pito-thinking__word pito-shimmer" data-pito--thinking-target="word"><%= current_word %>…</span>
     </span>
   <% end %>
 <% end %>

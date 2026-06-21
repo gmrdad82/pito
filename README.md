@@ -177,6 +177,7 @@ then `/config webhook slack=… discord=…`.
 | ------- | --------------------- | -------------- | ------------------------------------------------------------ | --------- |
 | send    | `/sounds/send.mp3`    | `vs-pop_5.mp3` | [Pop_5.mp3](https://freesound.org/s/463395/) by Vilkas_Sound | CC BY 4.0 |
 | receive | `/sounds/receive.mp3` | `pop-1.wav`    | [Pop 1](https://freesound.org/s/545201/) by theplax          | CC BY 4.0 |
+| notify  | `/sounds/notify.mp3`  | `mail.wav`     | [516867](https://freesound.org/s/516867/) by PokeyWokey      | CC0       |
 
 ## Support
 

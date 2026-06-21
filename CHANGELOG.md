@@ -14,9 +14,15 @@ In progress; entries are added here as they land on `main` (tag created at relea
   comms**, on a 22-step tier ladder (1 → 10M) color-coded by tier. Unlocked by a
   standalone 3×/day refresh; each unlock fires a **🏆 notification** (Slack /
   Discord + in-app), and the biggest shiny per metric shows on the video/game.
+- **`shinies` command** — `shinies channel @handle` / `shinies video <id>` /
+  `shinies game <id>` (also context-aware as a reply): a full per-metric breakdown —
+  title, a full-width progress track, and the obtained shinies in order.
 - **Footage** row on the `show game` card (before Price).
 - **Stats counters under the cover** on `show game` (views / likes / comms, summed
   from linked videos), like `show video`.
+- **Notification sound** — a short chime plays when a notification arrives
+  (debounced for bursts; never on read/unread toggles; respects `/config sound off`).
+- **`/notifications` command** — opens the notifications panel (same as `ctrl+/`).
 
 ### Changed
 
@@ -24,14 +30,30 @@ In progress; entries are added here as they land on `main` (tag created at relea
   row**; the **Description** moves below it.
 - **`comments` → `comms`/`Comms`** everywhere user-facing (`comments` still accepted
   as an alias).
-- **Mini-status bar:** "notification(s)" → **notif / notifs**; "authenticated / not
-  authenticated" → **well known / unknown**.
+- **Mini-status bar:** "notification(s)" → **notif / notifs**; the auth label is now a
+  configurable **nickname** (set with `/config me nickname=…`, default `gmrdad82`) when
+  signed in, and **tarnished** when not.
+- **Thinking indicator now cycles its verb** every 5s (`doing…` → `computing…` → …)
+  instead of showing one fixed word, and the final `…ed for Ns` uses the verb that
+  was on screen last. The 5s cadence is a single constant; the animation is
+  refresh-safe (time-derived).
+- **Stats & legends unified** into reusable components with consistent glyphs —
+  `S` subs · `D` vids · `V` views · `L` likes · `C` comms — across `list channels`
+  and the `show video` / `show game` cards (which now lead with a bold **Stats**
+  heading, left-align their Shinies, and drop the redundant inline legend).
 - **shift+r** reply (hashtag) picker now opens **inline above the chatbox** (was a
   centered modal).
+- **Unified `--help`** — every command (`/config`, `/games`, slash + chat verbs) renders
+  help in one man-page style.
+- **Notifications panel** sorts unread-first then read (each newest-first), re-sorting
+  live when you mark a row read/unread (cursor preserved).
 
 ### Fixed
 
 - `list channels --help` now renders in the man-page format like the other list verbs.
+- Detail-message timestamp no longer wraps onto its own row — it sits inline with the intro.
+- Removed the extra gap between the Stats counters and their legend.
+- `list games` platform logos now reveal in step with their row (no longer pop in early).
 
 ## [0.5.0] — 2026-06-20
 

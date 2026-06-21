@@ -193,10 +193,14 @@ module Pito
       end
 
       # Create and broadcast a thinking indicator for a turn.
-      # The word_index is chosen once and frozen in the payload.
+      # `order` is a shuffled list of indices into the dictionary's `doing` array;
+      # the client cycles through it (one verb per INTERVAL_SECONDS) and the
+      # resolve step picks the same final index from elapsed time, so the
+      # past-tense word matches the last verb shown.
       def emit_thinking(turn:, dictionary:)
-        words = I18n.t("pito.copy.thinking.#{dictionary}.doing")
-        payload = { dictionary:, word_index: rand(words.length), started_at: Time.current.iso8601 }
+        words   = I18n.t("pito.copy.thinking.#{dictionary}.doing")
+        order   = (0...Array(words).length).to_a.shuffle
+        payload = { dictionary:, order:, started_at: Time.current.iso8601 }
         emit(turn:, kind: :thinking, payload:)
       end
 
@@ -210,8 +214,11 @@ module Pito
         started = event.payload["started_at"]
         elapsed = started ? (Time.current - Time.parse(started)).round : nil
 
+        order      = event.payload["order"].presence || [ event.payload["word_index"].to_i ]
+        word_index = Pito::Event::ThinkingComponent.word_index_at(order:, elapsed_seconds: elapsed || 0)
+
         event.update!(
-          payload: event.payload.merge(resolved: true, elapsed_seconds: elapsed)
+          payload: event.payload.merge(resolved: true, elapsed_seconds: elapsed, word_index:)
         )
 
         html    = Pito::Stream::EventRenderer.render(event)
@@ -294,6 +301,29 @@ module Pito
         Turbo::StreamsChannel.broadcast_stream_to("pito:global", content:)
       rescue StandardError => e
         Rails.logger.warn("[Broadcaster] broadcast_global_theme failed: #{e.class}: #{e.message}")
+      end
+
+      # Broadcast the notifications sidebar into #pito-sidebar over the
+      # conversation's cable stream.  Called by the /notifications slash handler
+      # so the panel opens from the chat input, mirroring Ctrl+/.
+      #
+      # Renders app/views/notifications/_panel.html.erb (the same partial that
+      # NotificationsController#index uses) so no markup is ever duplicated.
+      def broadcast_notifications_sidebar
+        helper        = ApplicationController.helpers
+        notifications = Notification.panel_ordered
+
+        panel_html = ApplicationController.renderer.render(
+          partial: "notifications/panel",
+          locals:  { notifications: }
+        )
+
+        content = helper.turbo_stream.update("pito-sidebar", panel_html.html_safe)
+
+        Turbo::StreamsChannel.broadcast_stream_to(
+          "pito:conversation:#{@conversation.uuid}",
+          content:
+        )
       end
 
       # Broadcast a Turbo Stream `replace` for a single import step row inside

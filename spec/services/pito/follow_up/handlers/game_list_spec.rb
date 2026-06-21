@@ -85,6 +85,23 @@ RSpec.describe Pito::FollowUp::Handlers::GameList do
     expect(result.events.first[:payload]["game_id"]).to eq(game.id)
   end
 
+  # ── shinies (delegated to Chat::Handlers::Shinies via VerbDelegator) ───────────
+
+  describe "#call — shinies" do
+    it "returns a Result::Append with the shinies message for the referenced game" do
+      result = handler.call(event:, rest: "shinies ##{game.id}", conversation:)
+      expect(result).to be_a(Pito::FollowUp::Result::Append)
+      payload = result.events.first[:payload]
+      expect(payload["body"]).to include("pito-achievement-shinies")
+      expect(payload["game_id"]).to eq(game.id)
+    end
+
+    it "does NOT return an invalid_action error (shinies is now a declared action)" do
+      result = handler.call(event:, rest: "shinies ##{game.id}", conversation:)
+      expect(result).not_to be_a(Pito::FollowUp::Result::Error)
+    end
+  end
+
   # ── link / unlink (source: game, target: video) ─────────────────────────────
 
   context "link and unlink verbs (source: game, target: video)" do

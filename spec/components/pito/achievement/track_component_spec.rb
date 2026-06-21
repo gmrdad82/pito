@@ -13,11 +13,38 @@ RSpec.describe Pito::Achievement::TrackComponent do
     subject(:node) { render_track(label: "Subs", current_value: 25) }
 
     it "renders the label verbatim (title-case preserved)" do
-      expect(node.css(".pito-achievement-track").text).to include("Subs")
+      expect(node.css(".pito-achievement-track__label").text).to include("Subs")
     end
 
     it "does not uppercase the label" do
-      expect(node.css(".pito-achievement-track").text).not_to include("SUBS")
+      expect(node.css(".pito-achievement-track__label").text).not_to include("SUBS")
+    end
+  end
+
+  # ── Responsive flex layout ─────────────────────────────────────
+  #
+  # The track must use a full-width flex rail rather than a fixed-character
+  # white-space:pre layout, so it auto-adjusts when the sidebar opens/closes.
+
+  describe "responsive flex layout" do
+    subject(:node) { render_track(label: "Subs", current_value: 0) }
+
+    it "renders the full-width rail container" do
+      expect(node.css(".pito-achievement-track__rail")).not_to be_empty
+    end
+
+    it "renders exactly 22 cell columns inside the rail" do
+      expect(node.css(".pito-achievement-track__rail .pito-achievement-track__cell").count).to eq(22)
+    end
+
+    it "renders exactly 21 connector spans between cells" do
+      expect(node.css(".pito-achievement-track__rail .pito-achievement-track__connector").count).to eq(21)
+    end
+
+    it "nests each dot inside a cell column (not directly in the rail)" do
+      # All dot spans must be descendants of a __cell, not direct rail children.
+      orphan_dots = node.css(".pito-achievement-track__rail > .pito-achievement-track__dot")
+      expect(orphan_dots).to be_empty
     end
   end
 
@@ -90,9 +117,9 @@ RSpec.describe Pito::Achievement::TrackComponent do
     end
   end
 
-  # ── Value row ─────────────────────────────────────────────────
+  # ── Value labels ──────────────────────────────────────────────
 
-  describe "value row" do
+  describe "value labels" do
     subject(:node) { render_track(label: "Views", current_value: 0) }
 
     it "contains the CompactCount label '1K'" do
@@ -105,6 +132,11 @@ RSpec.describe Pito::Achievement::TrackComponent do
 
     it "contains the CompactCount label '10M'" do
       expect(node.text).to include("10M")
+    end
+
+    it "renders value labels inside cell columns" do
+      values_in_cells = node.css(".pito-achievement-track__cell .pito-achievement-track__value")
+      expect(values_in_cells.count).to eq(22)
     end
   end
 end

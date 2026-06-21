@@ -84,4 +84,49 @@ describe("ThinkingController", () => {
     vi.advanceTimersByTime(80)  // brailleIdx = 0 → "X"
     expect(braille.textContent).toBe("X")
   })
+
+  // ── Verb cycling ──────────────────────────────────────────────────────────
+
+  function buildWordDOM({ words, order, startedAt, interval }) {
+    document.body.innerHTML = `
+      <div
+        data-controller="pito--thinking"
+        data-pito--thinking-frames-value='${JSON.stringify(["⠋"])}'
+        data-pito--thinking-words-value='${JSON.stringify(words)}'
+        data-pito--thinking-order-value='${JSON.stringify(order)}'
+        data-pito--thinking-started-at-value="${startedAt}"
+        data-pito--thinking-interval-value="${interval}"
+      >
+        <span data-pito--thinking-target="braille">⠋</span>
+        <span data-pito--thinking-target="word"></span>
+      </div>
+    `
+    return document.querySelector("[data-pito--thinking-target='word']")
+  }
+
+  it("shows the verb for the elapsed step, advancing each interval", async () => {
+    const words = ["doing", "computing", "crunching", "finishing"]
+    const order = [3, 1, 2, 0]
+    const interval = 5000
+    // startedAt = "now" per the fake clock so elapsed begins at 0.
+    const word = buildWordDOM({ words, order, startedAt: Date.now(), interval })
+    await Promise.resolve()
+
+    expect(word.textContent).toBe("finishing…")     // step 0 → order[0] = 3
+    vi.advanceTimersByTime(interval)
+    expect(word.textContent).toBe("computing…")      // step 1 → order[1] = 1
+    vi.advanceTimersByTime(interval)
+    expect(word.textContent).toBe("crunching…")      // step 2 → order[2] = 2
+  })
+
+  it("derives the word from elapsed time (refresh-safe), not from connect", async () => {
+    const words = ["a", "b", "c"]
+    const order = [0, 1, 2]
+    const interval = 5000
+    // Connect 2 intervals in — should jump straight to step 2.
+    const word = buildWordDOM({ words, order, startedAt: Date.now() - 2 * interval, interval })
+    await Promise.resolve()
+
+    expect(word.textContent).toBe("c…")
+  })
 })

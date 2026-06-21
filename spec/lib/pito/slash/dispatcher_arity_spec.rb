@@ -78,7 +78,7 @@ RSpec.describe Pito::Slash::Dispatcher, "arity guard", type: :service do
 
     it "does NOT reject '/help --help --help' — raw match fires first" do
       # Both --help tokens appear in raw; help_requested? matches the first one
-      # and routes to HelpRenderer. The arity guard is never reached.
+      # and routes to HelpBuilder. The arity guard is never reached.
       result = dispatch("/help --help --help")
       expect(result).to be_a(Pito::Slash::Result::Ok)
     end

@@ -55,6 +55,15 @@ RSpec.describe "GET /notifications", type: :request do
       expect(response.body).to include("No notifications")
     end
 
+    it "renders unread notifications before read ones (panel_ordered)" do
+      create(:notification, message: "I am read",   read_at: 1.hour.ago,  created_at: 2.hours.ago)
+      create(:notification, message: "I am unread", read_at: nil,          created_at: 3.hours.ago)
+      get notifications_path, headers: { "Accept" => "text/vnd.turbo-stream.html" }
+      unread_pos = response.body.index("I am unread")
+      read_pos   = response.body.index("I am read")
+      expect(unread_pos).to be < read_pos
+    end
+
     it "renders the Notifications title" do
       get notifications_path,
           headers: { "Accept" => "text/vnd.turbo-stream.html" }
