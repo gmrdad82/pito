@@ -149,6 +149,12 @@ RSpec.describe Pito::Game::EnhancedComponent do
       expect(ids).to include("##{sg1.id}", "##{sg2.id}")
     end
 
+    it "wraps each similar-game #id in the cyan token shimmer" do
+      node = render_component
+      shimmer_ids = node.css(".pito-game-enhanced-message__similar-game-id.pito-token-shimmer").map(&:text).map(&:strip)
+      expect(shimmer_ids).to include("##{sg1.id}", "##{sg2.id}")
+    end
+
     it "renders a data-game-id attribute on each card" do
       node = render_component
       data_ids = node.css(".pito-game-enhanced-message__similar-game-card").map { |el| el["data-game-id"] }
@@ -168,13 +174,21 @@ RSpec.describe Pito::Game::EnhancedComponent do
       expect(scores).to include("88", "74")
     end
 
-    it "puts the id and title on one line separated by ·" do
+    it "puts the id and title on one line with no middot between them" do
       node = render_component
       lines = node.css(".pito-game-enhanced-message__similar-game-line")
       expect(lines).not_to be_empty
       lines.each do |line|
-        expect(line.text.gsub(/\s+/, " ").strip).to match(/\A#\d+ · .+/)
+        text = line.text.gsub(/\s+/, " ").strip
+        expect(text).to match(/\A#\d+ .+/)
+        expect(text).not_to include("·")
       end
+    end
+
+    it "renders the score container for each similar-game card" do
+      node = render_component
+      score_wrappers = node.css(".pito-game-enhanced-message__similar-game-score")
+      expect(score_wrappers.length).to eq(2)
     end
 
     context "when a similar game has no cover art attached" do
