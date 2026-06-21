@@ -1,7 +1,7 @@
 <%# Pito::Video::DetailComponent — video detail card for chat messages.
     Two columns: LEFT = thumbnail + hairline + one-line v/L/C stats + legend + Shinies;
     RIGHT = kv-table (Title first), hairline, then Description. %>
-<div class="pito-video-detail flex gap-4 items-start">
+<div class="pito-video-detail flex flex-col md:flex-row gap-4 md:items-start">
 
   <%# ── Left column: intro (with timestamp slot), thumbnail, stats, legend, Shinies ── %>
   <div class="pito-video-detail__left flex flex-col gap-3">

@@ -14,6 +14,26 @@ RSpec.describe Pito::Video::DetailComponent do
            privacy_status:   :public)
   end
 
+  describe "root layout" do
+    it "carries flex-col (mobile-first single-column default)" do
+      node = render_inline(described_class.new(video: video))
+      root = node.css(".pito-video-detail").first
+      expect(root["class"]).to include("flex-col")
+    end
+
+    it "carries md:flex-row (desktop two-column at the md: breakpoint)" do
+      node = render_inline(described_class.new(video: video))
+      root = node.css(".pito-video-detail").first
+      expect(root["class"]).to include("md:flex-row")
+    end
+
+    it "carries md:items-start (aligns columns at the top on desktop)" do
+      node = render_inline(described_class.new(video: video))
+      root = node.css(".pito-video-detail").first
+      expect(root["class"]).to include("md:items-start")
+    end
+  end
+
   describe "title" do
     it "renders the video title" do
       node = render_inline(described_class.new(video: video))

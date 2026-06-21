@@ -126,6 +126,30 @@ string-concat a Tailwind class from a variable.
   through `Pito::Stream::Broadcaster` on the `pito:conversation:<id>` stream
   (Turbo Frames for in-screen swaps; no polling). See `docs/architecture.md`.
 
+## Responsive
+
+The app is **mobile-first single-column under 768 px**, switching to the
+desktop two-column layout at the Tailwind `md:` breakpoint (≥ 768 px).
+
+- Default (no prefix) = mobile: `flex-col`, no `items-start`.
+- `md:` and up = desktop: `flex-row`, `items-start`.
+
+The canonical pattern for detail cards is:
+
+```
+flex flex-col md:flex-row gap-4 md:items-start
+```
+
+The CSS companion is a `@media (max-width: 767px)` block in
+`application.css` that resets fixed-width left columns
+(`.pito-game-detail__left`, `.pito-video-detail__left`,
+`.pito-video-linked-game-card__cover`) to `width: 100%` so they span the
+single mobile column. Cover/thumbnail images inside those columns keep
+their natural dimensions — only the wrapper goes full-width.
+
+This is the first (and currently only) responsive breakpoint in the app.
+No other breakpoints exist; add a note here before introducing another.
+
 ## Reference
 
 - Tokens + component classes — `app/assets/tailwind/application.css`.
