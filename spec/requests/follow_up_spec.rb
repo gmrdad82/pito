@@ -130,6 +130,47 @@ RSpec.describe "Follow-up engine — controller routing", type: :request do
         hash_including(rest: "confirm", turn_id: turn_id)
       )
     end
+
+    it "D3 — creates a thinking Event after the echo" do
+      post "/chat", params: { input: "#eta-5678 confirm", uuid: conversation.uuid }
+      thinking = Turn.last.events.find { |e| e.kind == "thinking" }
+      expect(thinking).to be_present
+    end
+  end
+
+  # ── D5 — Auth gate on mutate replies ──────────────────────────────────────
+
+  context "D5 — unauthenticated mutate reply is blocked" do
+    let(:unauth_source_turn) do
+      conversation.turns.create!(input_kind: :slash, input_text: "/list", position: 98)
+    end
+
+    before do
+      # Top-level before already logged in; log out to exercise the auth gate.
+      post "/chat", params: { input: "/logout" }
+      conversation.turns.destroy_all
+      # Create the source event after turning unauthenticated so it stays in DB.
+      unauth_source_turn
+      @unauth_source_event = Event.create_with_position!(
+        conversation:, turn: unauth_source_turn, kind: "system",
+        payload: {
+          "reply_handle" => "unauth-mutate-1",
+          "reply_target" => "ctrl_fake_mutate",
+          "text"         => "mutate me"
+        }
+      )
+    end
+
+    it "does NOT enqueue FollowUpDispatchJob" do
+      expect {
+        post "/chat", params: { input: "#unauth-mutate-1 do-it", uuid: conversation.uuid }
+      }.not_to have_enqueued_job(FollowUpDispatchJob)
+    end
+
+    it "returns 204 (graceful silent no-op)" do
+      post "/chat", params: { input: "#unauth-mutate-1 do-it", uuid: conversation.uuid }
+      expect(response).to have_http_status(:no_content)
+    end
   end
 
   # ── Re-reply to a consumed confirmation falls through gracefully ──────────
