@@ -21,17 +21,17 @@ RSpec.describe Pito::FollowUp::Handlers::GameList do
     expect(described_class.mode).to eq(:append)
   end
 
-  it "delegates `show <id>` to the verb handler: detail card + enhanced message" do
+  it "delegates `show <id>` to the verb handler: detail card + recommendations" do
     result = handler.call(event:, rest: "show ##{game.id}", conversation:)
     expect(result).to be_a(Pito::FollowUp::Result::Append)
 
-    expect(result.events.map { |e| e[:kind] }).to eq([ :system, :enhanced, :enhanced ])
+    # A game with no linked videos emits: detail (:system) + recommendations (:enhanced).
+    # Analytics is deferred only when the game has linked videos.
+    expect(result.events.map { |e| e[:kind] }).to eq([ :system, :enhanced ])
     detail = result.events.find { |e| e[:kind] == :system }[:payload]
     expect(detail["body"]).to include("Lies of P")
     expect(detail["reply_target"]).to eq("game_detail")
-    # Two :enhanced events now — the Stats & Analytics placeholder followed by the
-    # recommendations card. The recommendations card carries the enhanced-message body.
-    enhanced = result.events.select { |e| e[:kind] == :enhanced }.last[:payload]
+    enhanced = result.events.find { |e| e[:kind] == :enhanced }[:payload]
     expect(enhanced["body"]).to include("pito-game-enhanced-message")
   end
 

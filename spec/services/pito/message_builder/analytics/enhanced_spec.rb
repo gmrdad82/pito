@@ -1,0 +1,161 @@
+# frozen_string_literal: true
+
+require "rails_helper"
+
+RSpec.describe Pito::MessageBuilder::Analytics::Enhanced do
+  let(:channel) { create(:channel) }
+  let(:video)   { create(:video, channel: channel, title: "Boss Fight Highlights") }
+  let(:game)    { create(:game, title: "Lies of P") }
+
+  # Deterministic first-variant sampler is installed globally by spec/support/copy.rb.
+
+  describe ".pending" do
+    context "with a game scope" do
+      subject(:payload) { described_class.pending(game, period: "28d") }
+
+      it "sets html: true" do
+        expect(payload["html"]).to be(true)
+      end
+
+      it "sets analytics.status to 'pending'" do
+        expect(payload.dig("analytics", "status")).to eq("pending")
+      end
+
+      it "sets analytics.scope_type to the scope class name" do
+        expect(payload.dig("analytics", "scope_type")).to eq("Game")
+      end
+
+      it "sets analytics.scope_id to the scope id" do
+        expect(payload.dig("analytics", "scope_id")).to eq(game.id)
+      end
+
+      it "sets analytics.period" do
+        expect(payload.dig("analytics", "period")).to eq("28d")
+      end
+
+      it "stores a non-blank intro in the analytics marker" do
+        expect(payload.dig("analytics", "intro")).to be_a(String).and(be_present)
+      end
+
+      it "intro in the marker includes the scope title" do
+        expect(payload.dig("analytics", "intro")).to include("Lies of P")
+      end
+
+      it "body includes the intro text (HTML-encoded)" do
+        intro = payload.dig("analytics", "intro")
+        expect(payload["body"]).to include(ERB::Util.html_escape(intro))
+      end
+
+      it "body includes data-pito-ts-slot" do
+        expect(payload["body"]).to include("data-pito-ts-slot")
+      end
+
+      it "body does NOT include the scalars table marker" do
+        expect(payload["body"]).not_to include("pito-analytics-scalars")
+      end
+
+      it "body does NOT include the unavailable note marker" do
+        expect(payload["body"]).not_to include("pito-analytics-enhanced__note")
+      end
+    end
+
+    context "with a video scope" do
+      subject(:payload) { described_class.pending(video, period: "7d") }
+
+      it "sets analytics.scope_type to 'Video'" do
+        expect(payload.dig("analytics", "scope_type")).to eq("Video")
+      end
+
+      it "sets analytics.scope_id to the video id" do
+        expect(payload.dig("analytics", "scope_id")).to eq(video.id)
+      end
+
+      it "intro includes the video title" do
+        expect(payload.dig("analytics", "intro")).to include("Boss Fight Highlights")
+      end
+    end
+
+    context "with period nil" do
+      it "stores nil in the analytics marker" do
+        payload = described_class.pending(game)
+        expect(payload.dig("analytics", "period")).to be_nil
+      end
+    end
+  end
+
+  describe ".ready_payload" do
+    let(:metrics) do
+      {
+        views:             { current: 1234, previous: 1000 },
+        watched_hours:     { current: 12.5, previous: 10.0 },
+        avg_view_duration: { current: 245,  previous: 200 },
+        avg_viewed_pct:    { current: 38.2, previous: 40.0 },
+        subs_gained:       { current: 20,   previous: 10 },
+        subs_lost:         { current: 9,    previous: 4 },
+        likes:             { current: 210,  previous: 180 },
+        dislikes:          { current: 4,    previous: 2 },
+        comments:          { current: 31,   previous: 30 }
+      }
+    end
+    let(:result)  { Pito::Analytics::Scalars::Result.new(metrics: metrics, label: "28d", comparable: true) }
+    let(:intro)   { "Lies of P, by the numbers." }
+
+    subject(:payload) { described_class.ready_payload(scope: game, period: "28d", result: result, intro: intro) }
+
+    it "sets html: true" do
+      expect(payload["html"]).to be(true)
+    end
+
+    it "sets analytics.status to 'ready'" do
+      expect(payload.dig("analytics", "status")).to eq("ready")
+    end
+
+    it "sets analytics.scope_type" do
+      expect(payload.dig("analytics", "scope_type")).to eq("Game")
+    end
+
+    it "sets analytics.scope_id" do
+      expect(payload.dig("analytics", "scope_id")).to eq(game.id)
+    end
+
+    it "reuses the intro verbatim in the analytics marker" do
+      expect(payload.dig("analytics", "intro")).to eq(intro)
+    end
+
+    it "body includes the intro text" do
+      expect(payload["body"]).to include(intro)
+    end
+
+    it "body includes data-pito-ts-slot" do
+      expect(payload["body"]).to include("data-pito-ts-slot")
+    end
+
+    it "body includes the scalars table marker" do
+      expect(payload["body"]).to include("pito-analytics-scalars")
+    end
+
+    it "body does NOT include the unavailable note" do
+      expect(payload["body"]).not_to include("pito-analytics-enhanced__note")
+    end
+
+    context "when result is :unavailable" do
+      subject(:payload) { described_class.ready_payload(scope: game, period: "28d", result: :unavailable, intro: intro) }
+
+      it "sets analytics.status to 'ready'" do
+        expect(payload.dig("analytics", "status")).to eq("ready")
+      end
+
+      it "reuses the intro verbatim" do
+        expect(payload.dig("analytics", "intro")).to eq(intro)
+      end
+
+      it "body includes the unavailable note" do
+        expect(payload["body"]).to include("pito-analytics-enhanced__note")
+      end
+
+      it "body does NOT include the scalars table" do
+        expect(payload["body"]).not_to include("pito-analytics-scalars")
+      end
+    end
+  end
+end

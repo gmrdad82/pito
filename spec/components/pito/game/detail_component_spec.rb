@@ -278,11 +278,9 @@ RSpec.describe Pito::Game::DetailComponent do
   describe "intro timestamp inline flow" do
     let(:node_with_intro) { render_inline(described_class.new(game: game, intro: "Test intro line")) }
 
-    it "intro div has flex layout so timestamp and copy share the same row" do
+    it "intro div is inline-flow (not flex) so the timestamp leads the copy and long copy wraps beneath it" do
       intro = node_with_intro.css(".pito-game-detail__intro").first
-      expect(intro["class"]).to include("flex")
-      expect(intro["class"]).to include("flex-wrap")
-      expect(intro["class"]).to include("items-baseline")
+      expect(intro["class"]).not_to include("flex")
     end
 
     it "timestamp slot is a direct child of the intro flex container (no block boundary)" do

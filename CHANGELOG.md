@@ -23,6 +23,13 @@ In progress; entries are added here as they land on `main` (tag created at relea
 - **Notification sound** — a short chime plays when a notification arrives
   (debounced for bursts; never on read/unread toggles; respects `/config sound off`).
 - **`/notifications` command** — opens the notifications panel (same as `ctrl+/`).
+- **Analytics on `show video` & `show game`** — the enhanced card now shows a scalar
+  table (views, watch hours, avg view duration, avg % viewed, subs gained/lost, likes,
+  dislikes, comms) with **trend-coloured numbers** vs the prior period (green up / red
+  down, neutral otherwise). For a game the figures are **summed across its linked
+  videos**. The card appears instantly with a one-line intro and **fills in the
+  background** — the "thinking…" spinner keeps cycling until the numbers land, so the
+  page never blocks on YouTube, and a refresh mid-fetch is safe.
 
 ### Changed
 
@@ -51,7 +58,10 @@ In progress; entries are added here as they land on `main` (tag created at relea
 ### Fixed
 
 - `list channels --help` now renders in the man-page format like the other list verbs.
-- Detail-message timestamp no longer wraps onto its own row — it sits inline with the intro.
+- The intro timestamp (`HH:MM ·`) now leads the copy on a single line across every
+  detail and enhanced card (`show video` / `show game`, the linked-game card, analytics,
+  shinies) — long copy wraps beneath it instead of the timestamp dropping to its own row.
+- `list channels` stat legend is now left-aligned.
 - Removed the extra gap between the Stats counters and their legend.
 - `list games` platform logos now reveal in step with their row (no longer pop in early).
 

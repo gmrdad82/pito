@@ -55,13 +55,10 @@ RSpec.describe Pito::Chat::Handlers::Show do
     expect(payload["reply_target"]).to eq("game_detail")
   end
 
-  it "also emits the Stats & Analytics placeholder (kind :enhanced, not follow-up-able)" do
-    events = handler_for("##{game.id}").call.events
-    stats = events.find { |e| e[:payload]["body"]&.include?("pito-game-stats-placeholder-message") }
-    expect(stats).to be_present
-    expect(stats[:kind]).to eq(:enhanced)
-    expect(stats[:payload]["html"]).to be(true)
-    expect(stats[:payload]["reply_handle"]).to be_blank
+  it "does not emit an analytics message for a game with no linked videos" do
+    events    = handler_for("##{game.id}").call.events
+    analytics = events.find { |e| e[:payload].dig("analytics", "status") == "pending" }
+    expect(analytics).to be_nil
   end
 
   it "also emits the Enhanced recommendations message (kind :enhanced, not follow-up-able)" do
@@ -73,14 +70,12 @@ RSpec.describe Pito::Chat::Handlers::Show do
     expect(enhanced[:payload]["reply_handle"]).to be_blank
   end
 
-  it "emits events in order: detail → stats&analytics → recommendations (no linked videos)" do
+  it "emits events in order: detail → recommendations (no analytics when no linked videos)" do
     events = handler_for("##{game.id}").call.events
     detail_idx = events.index { |e| e[:payload]["reply_target"] == "game_detail" }
-    stats_idx  = events.index { |e| e[:payload]["body"]&.include?("pito-game-stats-placeholder-message") }
     recs_idx   = events.index { |e| e[:payload]["body"]&.include?("pito-game-enhanced-message") }
 
-    expect(detail_idx).to be < stats_idx
-    expect(stats_idx).to be < recs_idx
+    expect(detail_idx).to be < recs_idx
   end
 
   # ── Game branch — linked videos list ─────────────────────────────────────────
@@ -104,16 +99,27 @@ RSpec.describe Pito::Chat::Handlers::Show do
         expect(list_index).to eq(detail_index + 1)
       end
 
-      it "emits events in order: detail → linked-videos → stats&analytics → recommendations" do
+      it "emits events in order: detail → linked-videos → analytics → recommendations" do
         events = handler_for("##{game.id}").call.events
-        detail_idx  = events.index { |e| e[:payload]["reply_target"] == "game_detail" }
-        videos_idx  = events.index { |e| e[:payload]["reply_target"] == "video_list" }
-        stats_idx   = events.index { |e| e[:payload]["body"]&.include?("pito-game-stats-placeholder-message") }
-        recs_idx    = events.index { |e| e[:payload]["body"]&.include?("pito-game-enhanced-message") }
+        detail_idx    = events.index { |e| e[:payload]["reply_target"] == "game_detail" }
+        videos_idx    = events.index { |e| e[:payload]["reply_target"] == "video_list" }
+        analytics_idx = events.index { |e| e[:payload].dig("analytics", "status") == "pending" }
+        recs_idx      = events.index { |e| e[:payload]["body"]&.include?("pito-game-enhanced-message") }
 
         expect(detail_idx).to be < videos_idx
-        expect(videos_idx).to be < stats_idx
-        expect(stats_idx).to be < recs_idx
+        expect(videos_idx).to be < analytics_idx
+        expect(analytics_idx).to be < recs_idx
+      end
+
+      it "emits an analytics pending event for the game (kind :enhanced, scope_type Game)" do
+        events    = handler_for("##{game.id}").call.events
+        analytics = events.find { |e| e[:payload].dig("analytics", "status") == "pending" }
+
+        expect(analytics).to be_present
+        expect(analytics[:kind]).to eq(:enhanced)
+        expect(analytics[:payload]["html"]).to be(true)
+        expect(analytics[:payload].dig("analytics", "scope_type")).to eq("Game")
+        expect(analytics[:payload].dig("analytics", "scope_id")).to eq(game.id)
       end
 
       it "is repliable via the video_list follow-up target" do
@@ -235,6 +241,17 @@ RSpec.describe Pito::Chat::Handlers::Show do
       events = handler_for("video", "##{video.id}").call.events
       enhanced_payload = events.last[:payload]
       expect(enhanced_payload["body"]).to include("My Gaming Highlights")
+    end
+
+    it "emits an analytics pending event for the video (kind :enhanced, scope_type Video)" do
+      events    = handler_for("video", "##{video.id}").call.events
+      analytics = events.find { |e| e[:payload].dig("analytics", "status") == "pending" }
+
+      expect(analytics).to be_present
+      expect(analytics[:kind]).to eq(:enhanced)
+      expect(analytics[:payload]["html"]).to be(true)
+      expect(analytics[:payload].dig("analytics", "scope_type")).to eq("Video")
+      expect(analytics[:payload].dig("analytics", "scope_id")).to eq(video.id)
     end
 
     # ── Linked-game card ──────────────────────────────────────────────────────

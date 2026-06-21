@@ -45,9 +45,18 @@ class ChatDispatchJob < ApplicationJob
       Pito::Chat::Dispatcher.call(input:, conversation:, channel:, period:, viewport_width:)
     end
 
-    persist_and_broadcast(result, turn, conversation, broadcaster)
-    broadcaster.resolve_thinking(turn:)
-    broadcaster.complete_turn(turn:)
+    events = persist_and_broadcast(result, turn, conversation, broadcaster)
+
+    # If a result emitted an analytics :enhanced message in its pending state,
+    # defer resolving the thinking indicator + completing the turn to
+    # AnalyticsFillJob — it fetches the data, fills the message, then resolves.
+    # The spinner keeps cycling until the data lands. Otherwise resolve now.
+    if events.any? { |e| analytics_pending?(e) }
+      AnalyticsFillJob.perform_later(turn.id)
+    else
+      broadcaster.resolve_thinking(turn:)
+      broadcaster.complete_turn(turn:)
+    end
   rescue StandardError => e
     # Surface the error as a visible event in the scrollback so the user isn't
     # left staring at a spinning Braille indicator.
@@ -72,8 +81,7 @@ class ChatDispatchJob < ApplicationJob
   private
 
   def persist_and_broadcast(result, turn, conversation, broadcaster)
-    events_to_emit = result_events(result)
-    events_to_emit.each do |attrs|
+    result_events(result).map do |attrs|
       event = Event.create_with_position!(
         conversation:,
         turn:,
@@ -81,7 +89,14 @@ class ChatDispatchJob < ApplicationJob
         payload: attrs[:payload]
       )
       broadcaster.broadcast_event(event)
+      event
     end
+  end
+
+  # True when a persisted event carries an analytics marker still in its pending
+  # state (its data will be filled asynchronously by AnalyticsFillJob).
+  def analytics_pending?(event)
+    event.payload.is_a?(Hash) && event.payload.dig("analytics", "status") == "pending"
   end
 
   def help_command?(input)

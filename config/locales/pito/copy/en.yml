@@ -635,7 +635,7 @@ en:
           - "%{title} — straight from the numbers."
           - "Here's what %{title} pulled in."
           - "The analytics for %{title}, at a glance."
-        unavailable: "Couldn't pull analytics for %{title} right now — a channel may need re-auth."
+        unavailable: "Analytics aren't available right now — a channel may need re-auth."
         metrics:
           views: "Views"
           watch_hours: "Watch hours"

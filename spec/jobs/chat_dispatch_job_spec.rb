@@ -92,5 +92,46 @@ RSpec.describe ChatDispatchJob, type: :job do
         expect(elapsed).to be >= 0
       end
     end
+
+    # ── Analytics deferral path ───────────────────────────────────────────────
+
+    context "when the dispatcher returns a pending analytics event (chat turn)" do
+      let!(:channel) { create(:channel) }
+      let!(:video)   { create(:video, channel: channel, title: "Boss Fight") }
+      let(:turn)     { setup_turn(input_text: "show video #{video.id}", input_kind: :chat) }
+
+      before do
+        allow(Pito::Chat::Dispatcher).to receive(:call).and_return(
+          Pito::Chat::Result::Ok.new(events: [
+            {
+              kind:    :enhanced,
+              payload: Pito::MessageBuilder::Analytics::Enhanced.pending(video, period: "28d")
+            }
+          ])
+        )
+      end
+
+      it "enqueues AnalyticsFillJob with the turn id" do
+        expect {
+          described_class.perform_now(turn.id, authenticated: true)
+        }.to have_enqueued_job(AnalyticsFillJob).with(turn.id)
+      end
+
+      it "does NOT resolve the thinking event before AnalyticsFillJob runs" do
+        thinking_event = Event.create_with_position!(
+          conversation: conversation,
+          turn:         turn,
+          kind:         :thinking,
+          payload:      { "dictionary" => "chat", "order" => [ 0 ], "started_at" => 5.seconds.ago.iso8601 }
+        )
+        described_class.perform_now(turn.id, authenticated: true)
+        expect(thinking_event.reload.payload["resolved"]).to be_nil
+      end
+
+      it "does NOT stamp completed_at on the turn (deferred to AnalyticsFillJob)" do
+        described_class.perform_now(turn.id, authenticated: true)
+        expect(turn.reload.completed_at).to be_nil
+      end
+    end
   end
 end
