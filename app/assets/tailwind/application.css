@@ -1159,6 +1159,40 @@ html {
 [data-accent="completionist"] { color: color-mix(in oklch, var(--accent-red), var(--accent-purple)); }
 [data-accent="footage"]       { color: var(--fg-default); }
 
+/* ── Score-bar & TTB-bar shimmer (Pito::ScoreBarComponent / Pito::TimeToBeatComponent) ──
+   A pito-blue diagonal band sweeps across the `=` fill run via a ::after pseudo-element,
+   overlaid on top of the existing multi-stop gradient text.  Semi-transparent (opacity
+   0.4) so the heat / score gradient underneath remains visible through the highlight.
+   Reuses pito-kbd-shimmer-sweep keyframe + pito-shimmer-dN stagger buckets.
+   animation-delay: inherit picks up the dN delay set on the fill element itself (where
+   pito-shimmer-d* is applied), so stagger works without a custom property. */
+.pito-bar-shimmer {
+  position: relative;  /* establishes positioning context for the ::after */
+}
+
+.pito-bar-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(
+    135deg,
+    transparent 0%,
+    transparent 38%,
+    var(--brand-pito) 50%,
+    transparent 62%,
+    transparent 100%
+  );
+  background-size: 200% 200%;
+  opacity: 0.4;
+  animation: pito-kbd-shimmer-sweep 3.4s linear infinite;
+  animation-delay: inherit;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pito-bar-shimmer::after { animation: none; }
+}
+
 /* ── Pito::Game::EnhancedComponent ─────────────────────────────
  *
  * Rich recommendations message rendered after Voyage indexing.
@@ -1298,6 +1332,17 @@ html {
 /* Thumbnail shows at its full cached size (374×210); never shrinks. */
 .pito-video-detail__thumbnail {
   flex: 0 0 auto;
+}
+
+/* Stats + Shinies section headings — explicit 700 in unlayered CSS so the bold
+   weight beats any @layer utilities rule (the font-bold utility uses a CSS-variable
+   approach that has lower cascade priority than unlayered styles). Mirrors the
+   font-weight: 700 idiom used by .pito-score-bar__tick etc. */
+.pito-game-detail__stats-heading,
+.pito-game-detail__shinies-heading,
+.pito-video-detail__stats-heading,
+.pito-video-detail__shinies-heading {
+  font-weight: 700;
 }
 
 /* Description column — fills the rest; min-width:0 (utility) lets it wrap. */
@@ -1584,20 +1629,76 @@ html {
 
 /* ── Pito::Achievement::BadgeComponent ───────────────────────
  *
- * Fixed-width terminal box badge:
- *   ╭────────────────────────────╮
- *   │ 1K Subs (20-06-2026)       │
- *   ╰────────────────────────────╯
+ * Uniform rounded CSS-bordered badge with a highlight that travels around the
+ * border perimeter (TL→TR→BR→BL). One shape for every metric — the old
+ * per-metric box-drawing charsets are gone (they rendered at != 1ch on mobile
+ * and the right border drifted). A min-width aligns columns/rows of badges;
+ * content is centered. Content: "<value> <ABBR> · <Mon 'YY>".
  *
- * INNER_WIDTH=26 → DASH_COUNT=28 → total box width=30 chars.
- * white-space:pre preserves the box-drawing alignment exactly.
- * Tier color is set via data-accent on the root span; the
- * __date child always renders in --fg-dim regardless of tier. */
+ * Tier colour (value text + static border) is set via data-accent on the root
+ * span (color → currentColor → border-color). The __date child always renders
+ * in --fg-dim regardless of tier.
+ *
+ * Shimmer: a rotating conic-gradient ring is painted on ::before and masked to
+ * the 1px border so only the edge shows a moving fg highlight. The static tier
+ * border underneath always keeps the badge outlined. The rotation honours the
+ * shared `.pito-shimmer-dN` stagger via `animation-delay: inherit` (the -dN
+ * delays, 0…-3.23s over 20 steps, spread across one 3.4s rotation). The angle
+ * is animated through a registered custom property so it can interpolate.
+ *
+ * NOTE: this intentionally overrides the terminal `border-radius: 0` rule for
+ * shinies only. */
+
+@property --pito-badge-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@keyframes pito-badge-spin {
+  to { --pito-badge-angle: 360deg; }
+}
 
 .pito-achievement-badge {
+  position: relative;
   display: inline-block;
-  white-space: pre;
+  min-width: 11rem;
+  padding: 0.25rem 0.75rem;
+  text-align: center;
+  white-space: nowrap;
+  border: 1px solid currentColor;
+  border-radius: 0.5rem;
   font-variant-numeric: tabular-nums;
+}
+
+/* Rotating perimeter highlight, masked to the 1px border ring. */
+.pito-achievement-badge::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: conic-gradient(
+    from var(--pito-badge-angle),
+    transparent,
+    var(--fg-default),
+    transparent
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+          mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+  animation: pito-badge-spin 3.4s linear infinite;
+  animation-delay: inherit;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pito-achievement-badge::before { animation: none; }
 }
 
 .pito-achievement-badge[data-accent="muted"]  { color: var(--fg-dim); }
@@ -1670,17 +1771,51 @@ html {
   align-self: flex-start;
 }
 
-.pito-achievement-track__dot[data-accent="muted"]  { color: var(--fg-dim); }
-.pito-achievement-track__dot[data-accent="green"]  { color: var(--accent-green); }
-.pito-achievement-track__dot[data-accent="cyan"]   { color: var(--accent-cyan); }
-.pito-achievement-track__dot[data-accent="blue"]   { color: var(--accent-blue); }
-.pito-achievement-track__dot[data-accent="purple"] { color: var(--accent-purple); }
-.pito-achievement-track__dot[data-accent="orange"] { color: var(--accent-orange); }
-.pito-achievement-track__dot[data-accent="yellow"] { color: var(--accent-yellow); }
-.pito-achievement-track__dot[data-accent="pito"]   { color: var(--brand-pito); }
+/* Reached-run colour: dots AND connectors up to the standing ◉ all carry the
+   NEXT-tier token as data-accent (set in TrackComponent), so currentColor — the
+   base of the shimmer gradient below — resolves to the next tier's colour. */
+.pito-achievement-track [data-accent="muted"]  { color: var(--fg-dim); }
+.pito-achievement-track [data-accent="green"]  { color: var(--accent-green); }
+.pito-achievement-track [data-accent="cyan"]   { color: var(--accent-cyan); }
+.pito-achievement-track [data-accent="blue"]   { color: var(--accent-blue); }
+.pito-achievement-track [data-accent="purple"] { color: var(--accent-purple); }
+.pito-achievement-track [data-accent="orange"] { color: var(--accent-orange); }
+.pito-achievement-track [data-accent="yellow"] { color: var(--accent-yellow); }
+.pito-achievement-track [data-accent="pito"]   { color: var(--brand-pito); }
 
 .pito-achievement-track__dot--upcoming { color: var(--fg-faded); }
 .pito-achievement-track__value         { color: var(--fg-dim); }
+
+/* ── Reached-run progress shimmer ──────────────────────────────────
+   The whole reached run (reached dots + the connectors between them, up to and
+   including the standing ◉) sweeps a bright band through the next-tier colour.
+   Base colour is currentColor (the data-accent next-tier hue above); a
+   --fg-default contrast band sweeps diagonally via the shared
+   pito-kbd-shimmer-sweep keyframe (135°, 3.4s) so the direction/feel matches the
+   kbd / token / hashtag shimmers. Per-element pito-shimmer-dN stagger (set in
+   TrackComponent) keeps the run from pulsing as one flat block. Upcoming
+   dots/connectors carry neither class and stay dim + static. */
+.pito-achievement-track__dot--reached,
+.pito-achievement-track__connector--reached {
+  background-image: linear-gradient(
+    135deg,
+    currentColor 0%,
+    currentColor 38%,
+    var(--fg-default) 50%,
+    currentColor 62%,
+    currentColor 100%
+  );
+  background-size: 200% 200%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: pito-kbd-shimmer-sweep 3.4s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pito-achievement-track__dot--reached,
+  .pito-achievement-track__connector--reached { animation: none; }
+}
 
 /* ── Theme system ──────────────────────────────────────────────
  *

@@ -20,8 +20,15 @@ module Pito
     #   ◉  — the highest reached milestone (current standing).
     #   ○  — not yet reached (t > current_value), or all when current_value < 1.
     #
-    # Dot colors follow the Tier token map (via data-accent on each dot span).
-    # Upcoming dots use the pito-achievement-track__dot--upcoming class.
+    # Dot colors: the whole *reached run* — every reached dot plus the connectors
+    # between them, up to and including the standing ◉ — shimmers (background-clip
+    # text gradient, shared `pito-kbd-shimmer-sweep` keyframe) coloured by the
+    # NEXT unreached tier (not each dot's own tier). The next-tier token is set as
+    # `data-accent` on the reached-run elements so `currentColor` resolves to that
+    # colour; if the top tier is already reached we fall back to the highest tier.
+    # Each reached element gets a shared `Pito::Shimmer.offset_class` stagger so
+    # the run doesn't pulse as one flat block. Upcoming dots/connectors stay dim
+    # and static (pito-achievement-track__dot--upcoming).
     #
     # kwargs:
     #   label:         (String)  — already title-case metric name (rendered as-is).
@@ -54,7 +61,9 @@ module Pito
           last_idx = Pito::Achievement::Tier::SERIES.length - 1
           Pito::Achievement::Tier::SERIES.each_with_index do |threshold, i|
             parts << cell_span(threshold)
-            parts << connector_span unless i == last_idx
+            # The connector after cell i joins cell i+1; it is part of the reached
+            # run when its right endpoint is reached (reached is always a prefix).
+            parts << connector_span(Pito::Achievement::Tier::SERIES[i + 1]) unless i == last_idx
           end
           safe_join(parts)
         end
@@ -75,15 +84,27 @@ module Pito
         glyph = glyph_for(threshold)
         if reached?(threshold)
           tag.span(glyph,
-                   class: "pito-achievement-track__dot",
-                   data: { accent: Pito::Achievement::Tier.token_for(threshold) })
+                   class: [ "pito-achievement-track__dot",
+                            "pito-achievement-track__dot--reached",
+                            Pito::Shimmer.offset_class("dot-#{threshold}") ].join(" "),
+                   data: { accent: next_tier_token })
         else
           tag.span(glyph, class: "pito-achievement-track__dot pito-achievement-track__dot--upcoming")
         end
       end
 
-      def connector_span
-        tag.span(CONNECTOR_FILL, class: "pito-achievement-track__connector")
+      # +right_threshold+ is the threshold of the cell this connector joins to.
+      # nil for the trailing edge (handled by the caller, which never emits one).
+      def connector_span(right_threshold)
+        if right_threshold && reached?(right_threshold)
+          tag.span(CONNECTOR_FILL,
+                   class: [ "pito-achievement-track__connector",
+                            "pito-achievement-track__connector--reached",
+                            Pito::Shimmer.offset_class("connector-#{right_threshold}") ].join(" "),
+                   data: { accent: next_tier_token })
+        else
+          tag.span(CONNECTOR_FILL, class: "pito-achievement-track__connector")
+        end
       end
 
       def glyph_for(threshold)
@@ -101,6 +122,20 @@ module Pito
       # Memoised; only called when current_value ≥ 1.
       def highest_reached
         @highest_reached ||= Pito::Achievement::Tier::SERIES.select { |t| t <= @current_value }.last
+      end
+
+      # Tier token of the NEXT unreached milestone — the colour the whole reached
+      # run shimmers in. Falls back to the highest tier when the top is reached.
+      def next_tier_token
+        @next_tier_token ||= Pito::Achievement::Tier.token_for(next_threshold)
+      end
+
+      # First SERIES threshold strictly greater than the current value; the last
+      # (highest) threshold when every milestone is already reached.
+      def next_threshold
+        @next_threshold ||=
+          Pito::Achievement::Tier::SERIES.find { |t| t > @current_value } ||
+          Pito::Achievement::Tier::SERIES.last
       end
     end
   end
