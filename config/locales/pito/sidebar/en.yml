@@ -7,7 +7,7 @@ en:
       esc_hint: "Esc"
       notifications:
         title: "Notifications"
-        toggle_hint: "toggle read/unread"
+        toggle_hint: "↑/↓ move · click toggles read/unread"
       conversations:
         title: "Conversations"
         recent: "Recent"

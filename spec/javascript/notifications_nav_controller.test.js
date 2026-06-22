@@ -4,9 +4,11 @@
 //
 // Covers:
 //   - Arrow up/down navigation within .pito-notification-row elements
-//   - Space toggles read/unread: optimistic dot class + text class swap, plus
-//     a PATCH /notifications/:id { read: <bool> } fetch call
-//   - click selects a row (moves highlight)
+//   - Arrow movement onto an UNREAD row marks it read on arrival (once; never
+//     flips read → unread), with a PATCH /notifications/:id { read: true }
+//   - Click toggles read ↔ unread (optimistic dot/message class swap) + PATCH
+//   - SPACE no longer toggles anything
+//   - The list order does NOT change on mark (no client-side re-sort)
 //
 // jsdom limitations:
 //   - scrollIntoView is a no-op stub (no layout engine).
@@ -18,17 +20,6 @@ import NotificationsNavController from "controllers/pito/notifications_nav_contr
 
 // ── stubs ─────────────────────────────────────────────────────────────────────
 Element.prototype.scrollIntoView = () => {}
-
-// Build a #pito-sidebar with an <aside> child so the guard condition
-// (document.querySelector("#pito-sidebar aside")) evaluates to truthy.
-function buildActiveSidebar() {
-  const sidebar = document.createElement("div")
-  sidebar.id = "pito-sidebar"
-  const aside = document.createElement("aside")
-  sidebar.appendChild(aside)
-  document.body.appendChild(sidebar)
-  return sidebar
-}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -71,6 +62,12 @@ function fireKey(k) {
   )
 }
 
+function ids(list) {
+  return Array.from(list.querySelectorAll(".pito-notification-row")).map(
+    (r) => r.dataset.notificationId
+  )
+}
+
 function tick() {
   return new Promise((r) => setTimeout(r, 0))
 }
@@ -87,9 +84,16 @@ describe("pito--notifications-nav controller", () => {
   })
 
   afterEach(async () => {
-    vi.restoreAllMocks()
-    if (app) await app.stop()
+    // Remove the list while the Stimulus app is still observing so the
+    // controller's disconnect() fires (aborting its document-level keydown
+    // listener); await a tick to let the MutationObserver process the removal.
+    // Only then stop the app. Stopping first leaves the document listener
+    // attached (app.stop does not disconnect contexts here), leaking stale
+    // controllers that fire phantom PATCHes on later keydowns.
     document.body.innerHTML = ""
+    await tick()
+    if (app) await app.stop()
+    vi.restoreAllMocks()
   })
 
   // ── Arrow navigation ──────────────────────────────────────────────────────
@@ -151,53 +155,80 @@ describe("pito--notifications-nav controller", () => {
     expect(row1.classList.contains("pito-resume-highlight")).toBe(true)
   })
 
-  // ── Space toggle ──────────────────────────────────────────────────────────
+  // ── SPACE no longer toggles ─────────────────────────────────────────────────
 
-  it("Space optimistically marks an unread notification as read (dot class)", async () => {
+  it("Space does NOT toggle read state", async () => {
     const list = buildList()
     const row = addNotification(list, { id: "5", read: false })
     await tick()
 
     fireKey(" ")
+
+    expect(row.dataset.read).toBe("false")
+    const dot = row.querySelector(".pito-notification-dot")
+    expect(dot.textContent).toBe("●")
+  })
+
+  it("Space does NOT send a PATCH", async () => {
+    const list = buildList()
+    addNotification(list, { id: "5", read: false })
+    await tick()
+
+    fireKey(" ")
+
+    // Connecting on an unread first row does not auto-mark (only arrows do),
+    // so no fetch should have fired from a space press.
+    expect(globalThis.fetch).not.toHaveBeenCalled()
+  })
+
+  // ── Click toggles read ↔ unread ─────────────────────────────────────────────
+
+  it("click marks an unread notification as read (dot + message classes)", async () => {
+    const list = buildList()
+    const row = addNotification(list, { id: "5", read: false })
+    await tick()
+
+    row.dispatchEvent(new MouseEvent("click", { bubbles: true }))
 
     const dot = row.querySelector(".pito-notification-dot")
     expect(dot.classList.contains("text-fg-faded")).toBe(true)
     expect(dot.classList.contains("text-cyan")).toBe(false)
     expect(dot.textContent).toBe("○")
-  })
-
-  it("Space optimistically marks an unread notification as read (message class)", async () => {
-    const list = buildList()
-    const row = addNotification(list, { id: "5", read: false })
-    await tick()
-
-    fireKey(" ")
 
     const msg = row.querySelector(".pito-notification-message")
     expect(msg.classList.contains("text-fg-dim")).toBe(true)
     expect(msg.classList.contains("text-fg")).toBe(false)
     expect(msg.classList.contains("font-bold")).toBe(false)
+
+    expect(row.dataset.read).toBe("true")
   })
 
-  it("Space optimistically marks a read notification as unread (dot class)", async () => {
+  it("click marks a read notification as unread (dot + message classes)", async () => {
     const list = buildList()
     const row = addNotification(list, { id: "5", read: true })
     await tick()
 
-    fireKey(" ")
+    row.dispatchEvent(new MouseEvent("click", { bubbles: true }))
 
     const dot = row.querySelector(".pito-notification-dot")
     expect(dot.classList.contains("text-cyan")).toBe(true)
     expect(dot.classList.contains("text-fg-faded")).toBe(false)
     expect(dot.textContent).toBe("●")
+
+    const msg = row.querySelector(".pito-notification-message")
+    expect(msg.classList.contains("text-fg")).toBe(true)
+    expect(msg.classList.contains("font-bold")).toBe(true)
+    expect(msg.classList.contains("text-fg-dim")).toBe(false)
+
+    expect(row.dataset.read).toBe("false")
   })
 
-  it("Space sends a PATCH /notifications/:id with the new read state", async () => {
+  it("click sends a PATCH /notifications/:id with the new read state", async () => {
     const list = buildList()
-    addNotification(list, { id: "7", read: false })
+    const row = addNotification(list, { id: "7", read: false })
     await tick()
 
-    fireKey(" ")
+    row.dispatchEvent(new MouseEvent("click", { bubbles: true }))
 
     expect(globalThis.fetch).toHaveBeenCalledWith(
       "/notifications/7",
@@ -208,12 +239,12 @@ describe("pito--notifications-nav controller", () => {
     )
   })
 
-  it("Space PATCH includes Content-Type: application/json", async () => {
+  it("click PATCH includes Content-Type: application/json", async () => {
     const list = buildList()
-    addNotification(list, { id: "8", read: false })
+    const row = addNotification(list, { id: "8", read: false })
     await tick()
 
-    fireKey(" ")
+    row.dispatchEvent(new MouseEvent("click", { bubbles: true }))
 
     expect(globalThis.fetch).toHaveBeenCalledWith(
       expect.any(String),
@@ -223,17 +254,92 @@ describe("pito--notifications-nav controller", () => {
     )
   })
 
-  it("Space flips data-read attribute on the row", async () => {
+  it("click on a nested element inside a row toggles the row", async () => {
     const list = buildList()
     const row = addNotification(list, { id: "9", read: false })
     await tick()
 
-    fireKey(" ")
+    const dot = row.querySelector(".pito-notification-dot")
+    dot.dispatchEvent(new MouseEvent("click", { bubbles: true }))
 
     expect(row.dataset.read).toBe("true")
   })
 
-  // ── click selects row ──────────────────────────────────────────────────────
+  // ── Arrow-onto-unread marks read on arrival ─────────────────────────────────
+
+  it("ArrowDown onto an unread row marks it read once", async () => {
+    const list = buildList()
+    addNotification(list, { id: "1", read: true })   // first row already read
+    const row2 = addNotification(list, { id: "2", read: false })
+    await tick()
+
+    fireKey("ArrowDown")  // highlight lands on unread row2
+
+    expect(row2.dataset.read).toBe("true")
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1)
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      "/notifications/2",
+      expect.objectContaining({ body: JSON.stringify({ read: true }) })
+    )
+  })
+
+  it("ArrowDown onto an already-read row does NOT flip it to unread and sends no PATCH", async () => {
+    const list = buildList()
+    addNotification(list, { id: "1", read: true })
+    const row2 = addNotification(list, { id: "2", read: true })
+    await tick()
+
+    fireKey("ArrowDown")  // lands on already-read row2
+
+    expect(row2.dataset.read).toBe("true")
+    expect(globalThis.fetch).not.toHaveBeenCalled()
+  })
+
+  it("arrowing back onto a row already marked read does not PATCH again", async () => {
+    const list = buildList()
+    addNotification(list, { id: "1", read: true })
+    addNotification(list, { id: "2", read: false })
+    await tick()
+
+    fireKey("ArrowDown")  // marks row2 read (1 PATCH)
+    fireKey("ArrowUp")    // back to row1 (already read, no PATCH)
+    fireKey("ArrowDown")  // back to row2 (now read, no PATCH)
+
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1)
+  })
+
+  // ── No client-side re-sort on mark ──────────────────────────────────────────
+
+  it("clicking to mark read does NOT reorder the list", async () => {
+    const list = buildList()
+    addNotification(list, { id: "1", read: false, createdAt: 3000 })
+    const row2 = addNotification(list, { id: "2", read: false, createdAt: 2000 })
+    addNotification(list, { id: "3", read: false, createdAt: 1000 })
+    await tick()
+
+    // Mark the middle row read by clicking it.
+    row2.dispatchEvent(new MouseEvent("click", { bubbles: true }))
+
+    // Order is unchanged — row2 stays in the middle.
+    expect(ids(list)).toEqual(["1", "2", "3"])
+    expect(row2.dataset.read).toBe("true")
+  })
+
+  it("arrowing onto an unread row does NOT reorder the list", async () => {
+    const list = buildList()
+    addNotification(list, { id: "1", read: true, createdAt: 3000 })
+    addNotification(list, { id: "2", read: false, createdAt: 2000 })
+    addNotification(list, { id: "3", read: false, createdAt: 1000 })
+    await tick()
+
+    fireKey("ArrowDown")  // marks row id=2 read
+    fireKey("ArrowDown")  // marks row id=3 read
+
+    // Order is unchanged despite read-state changes.
+    expect(ids(list)).toEqual(["1", "2", "3"])
+  })
+
+  // ── Click highlights ────────────────────────────────────────────────────────
 
   it("click on a row highlights it", async () => {
     const list = buildList()
@@ -245,108 +351,5 @@ describe("pito--notifications-nav controller", () => {
 
     expect(row2.classList.contains("pito-resume-highlight")).toBe(true)
     expect(row1.classList.contains("pito-resume-highlight")).toBe(false)
-  })
-
-  it("click on a nested element inside a row highlights the row", async () => {
-    const list = buildList()
-    const row1 = addNotification(list, { id: "1" })
-    const row2 = addNotification(list, { id: "2" })
-    await tick()
-
-    // Click on the dot inside row2
-    const dot = row2.querySelector(".pito-notification-dot")
-    dot.dispatchEvent(new MouseEvent("click", { bubbles: true }))
-
-    expect(row2.classList.contains("pito-resume-highlight")).toBe(true)
-  })
-
-  it("Space still toggles the notification when focus is not in a text input", async () => {
-    // No textarea focused and no sidebar <aside> — guard does not fire
-    const list = buildList()
-    const row = addNotification(list, { id: "5", read: false })
-    await tick()
-
-    fireKey(" ")
-
-    expect(row.dataset.read).toBe("true")
-  })
-
-  // ── Re-sort on toggle (unread-first, then newest-first) ───────────────────
-
-  it("marking an unread row as read moves it below all unread rows", async () => {
-    const list = buildList()
-    // Two unread rows; cursor starts on first (index 0).
-    const unread1 = addNotification(list, { id: "1", read: false, createdAt: 3000 })
-    const unread2 = addNotification(list, { id: "2", read: false, createdAt: 2000 })
-    await tick()
-
-    // index 0 → unread1; toggle it read
-    fireKey(" ")
-
-    const rows = Array.from(list.querySelectorAll(".pito-notification-row"))
-    // unread2 should now be first; unread1 (now read) should be last
-    expect(rows[0]).toBe(unread2)
-    expect(rows[rows.length - 1]).toBe(unread1)
-  })
-
-  it("marking a read row as unread raises it above all read rows", async () => {
-    const list = buildList()
-    // unread_row: starts unread (ts=3000). read_row: starts read (ts=2000).
-    const unread_row = addNotification(list, { id: "1", read: false, createdAt: 3000 })
-    const read_row   = addNotification(list, { id: "2", read: true,  createdAt: 2000 })
-    await tick()
-
-    // Move cursor to read_row (index 1) then toggle it to unread
-    fireKey("ArrowDown")
-    fireKey(" ")
-
-    const rows = Array.from(list.querySelectorAll(".pito-notification-row"))
-    // Both now unread; unread_row (ts=3000) before read_row (ts=2000) — newest-first
-    expect(rows[0].dataset.notificationId).toBe("1")  // ts 3000 first
-    expect(rows[1].dataset.notificationId).toBe("2")  // ts 2000 second
-    // Both should have data-read="false" (unread)
-    expect(rows[0].dataset.read).toBe("false")  // unread_row: was unread, still unread
-    expect(rows[1].dataset.read).toBe("false")  // read_row: toggled to unread
-  })
-
-  it("cursor index is preserved (not reset to 0) after re-sort", async () => {
-    const list = buildList()
-    const unread1 = addNotification(list, { id: "1", read: false, createdAt: 3000 })
-    const unread2 = addNotification(list, { id: "2", read: false, createdAt: 2000 })
-    const readRow = addNotification(list, { id: "3", read: true,  createdAt: 1000 })
-    await tick()
-
-    // Navigate to index 1 (unread2), toggle it read → it moves to the bottom
-    fireKey("ArrowDown")
-    expect(unread2.classList.contains("pito-resume-highlight")).toBe(true)
-
-    fireKey(" ")
-
-    // After re-sort: [unread1, readRow, unread2]
-    // Cursor stays at index 1 → readRow should be highlighted, not unread1 (index 0)
-    const rows = Array.from(list.querySelectorAll(".pito-notification-row"))
-    expect(rows[1].classList.contains("pito-resume-highlight")).toBe(true)
-    expect(rows[0].classList.contains("pito-resume-highlight")).toBe(false)
-  })
-
-  it("re-sorts within unread group by timestamp (newest first)", async () => {
-    const list = buildList()
-    // Append in reverse-timestamp order to start; controller should sort on toggle
-    const older = addNotification(list, { id: "1", read: false, createdAt: 1000 })
-    const newer = addNotification(list, { id: "2", read: false, createdAt: 5000 })
-    await tick()
-
-    // Toggle a third row's read state to trigger a re-sort
-    const third = addNotification(list, { id: "3", read: true, createdAt: 500 })
-    // Move cursor to third (index 2)
-    fireKey("ArrowDown")
-    fireKey("ArrowDown")
-    fireKey(" ")  // toggle third → it stays read (read→unread)... wait, third is read, so toggle makes it unread
-
-    const rows = Array.from(list.querySelectorAll(".pito-notification-row"))
-    // All unread now: newer(5000), older(1000), third(500) by timestamp desc
-    expect(rows[0].dataset.notificationId).toBe("2")  // ts 5000
-    expect(rows[1].dataset.notificationId).toBe("1")  // ts 1000
-    expect(rows[2].dataset.notificationId).toBe("3")  // ts 500
   })
 })
