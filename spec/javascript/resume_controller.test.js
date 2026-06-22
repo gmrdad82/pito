@@ -207,6 +207,48 @@ describe("pito--resume controller", () => {
     expect(sidebar.innerHTML.trim()).toBe("")
   })
 
+  // ── Click selection (= arrow-to-it + Enter) ───────────────────────────────
+
+  it("clicking a non-current row calls Turbo.visit with /chat/<uuid>", async () => {
+    const sidebar = buildSidebar()
+    await waitForConnect()
+    addRow(sidebar, { uuid: "u1" })
+    const row2 = addRow(sidebar, { uuid: "click-99" })
+    await waitForMO()
+
+    row2.dispatchEvent(new MouseEvent("click", { bubbles: true }))
+
+    expect(Turbo.visit).toHaveBeenCalledWith("/chat/click-99")
+    expect(sidebar.innerHTML.trim()).toBe("")
+  })
+
+  it("clicking a row pins the highlight to it before selecting", async () => {
+    const sidebar = buildSidebar()
+    await waitForConnect()
+    addRow(sidebar, { uuid: "u1" })
+    const row2 = addRow(sidebar, { uuid: "u2" })
+    await waitForMO()
+
+    // Highlight starts on row 0. Clicking row 1 pins the highlight to it (paint
+    // runs before #select clears the sidebar; the detached node keeps the class).
+    row2.dispatchEvent(new MouseEvent("click", { bubbles: true }))
+
+    expect(row2.classList.contains("pito-resume-highlight")).toBe(true)
+    expect(Turbo.visit).toHaveBeenCalledWith("/chat/u2")
+  })
+
+  it("clicking an is-current row clears the sidebar instead of visiting", async () => {
+    const sidebar = buildSidebar()
+    await waitForConnect()
+    const row = addRow(sidebar, { uuid: "cur-1", current: true })
+    await waitForMO()
+
+    row.dispatchEvent(new MouseEvent("click", { bubbles: true }))
+
+    expect(Turbo.visit).not.toHaveBeenCalled()
+    expect(sidebar.innerHTML.trim()).toBe("")
+  })
+
   // ── Escape ────────────────────────────────────────────────────────────────
 
   it("Escape clears the sidebar when it has content", async () => {

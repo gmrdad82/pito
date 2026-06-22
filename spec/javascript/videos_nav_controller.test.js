@@ -141,6 +141,28 @@ describe("pito--videos-nav controller", () => {
     expect(rows[0].classList.contains("pito-resume-highlight")).toBe(false)
   })
 
+  it("clicking a row selects it (like arrow-to-it + Enter)", async () => {
+    ;({ nav, sidebar } = buildScaffold({
+      videos: [{ id: 1, title: "A" }, { id: 2, title: "B" }]
+    }))
+    await waitForConnect()
+
+    const events = []
+    const handler = (e) => events.push(e.detail)
+    document.addEventListener("pito:picker:select", handler)
+    try {
+      const rows = nav.querySelectorAll(".pito-video-row")
+      rows[1].dispatchEvent(new MouseEvent("click", { bubbles: true }))
+
+      // Same command Enter on row 1 would build, and the sidebar is cleared.
+      expect(events).toHaveLength(1)
+      expect(events[0].command).toBe("show vid #2")
+      expect(sidebar.innerHTML).toBe("")
+    } finally {
+      document.removeEventListener("pito:picker:select", handler)
+    }
+  })
+
   // ── Enter selection ─────────────────────────────────────────────────────────
 
   it("#select builds show vid command", async () => {

@@ -29,6 +29,16 @@ RSpec.describe Pito::Palette::CtrlK::CommandComponent do
       item = node.css("[data-pito--command-palette-target='item']").first
       expect(item["data-label"]).to eq(item["data-label"].downcase)
     end
+
+    it "wires a click action that selects+activates the row" do
+      item = node.css("[data-pito--command-palette-target='item']").first
+      expect(item["data-action"]).to include("click->pito--command-palette#select")
+    end
+
+    it "wires a mouseenter action so hover mirrors keyboard selection" do
+      item = node.css("[data-pito--command-palette-target='item']").first
+      expect(item["data-action"]).to include("mouseenter->pito--command-palette#hover")
+    end
   end
 
   describe "label span" do
@@ -39,11 +49,16 @@ RSpec.describe Pito::Palette::CtrlK::CommandComponent do
     end
   end
 
-  describe "insert span" do
-    it "renders a span.text-fg-dim containing the insert text" do
-      span = node.css("span.text-fg-dim").first
+  describe "command token (shimmer)" do
+    it "renders the insert text in the cyan pito-token-shimmer span" do
+      span = node.css("span.pito-token-shimmer").first
       expect(span).not_to be_nil
       expect(span.text.strip).to eq(insert)
+    end
+
+    it "does not colour the row or label (shimmer lives only on the token)" do
+      label_span = node.css("span.text-fg").first
+      expect(label_span["class"]).not_to include("pito-token-shimmer")
     end
   end
 
@@ -56,7 +71,7 @@ RSpec.describe Pito::Palette::CtrlK::CommandComponent do
     end
 
     it "renders the disconnect insert text" do
-      expect(node.css("span.text-fg-dim").first.text.strip).to eq(insert)
+      expect(node.css("span.pito-token-shimmer").first.text.strip).to eq(insert)
     end
 
     it "builds data-label from the disconnect label and insert" do

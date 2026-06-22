@@ -9,7 +9,7 @@
 //   Escape — handled by pito--resume (clears #pito-sidebar → disconnects us)
 //
 // Mouse:
-//   click .pito-game-row — highlight that row
+//   click .pito-game-row — highlight that row AND select it (= arrow-to-it + Enter)
 //
 // Mode (from data-pito--games-nav-mode-value):
 //   "show"   → fills `show game <id>` in the chatbox + submits
@@ -108,8 +108,10 @@ export default class extends Controller {
     const rows = this.#rows()
     const idx  = rows.indexOf(row)
     if (idx === -1) return
+    // Click == arrow-to-it + Enter: highlight the row, then run the same select path.
     this.highlightIndex = idx
     this.#paint(rows)
+    this.#select(row)
   }
 
   #move(rows, delta) {

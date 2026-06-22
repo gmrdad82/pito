@@ -9,7 +9,7 @@
 //   Escape — handled by pito--resume (clears #pito-sidebar → disconnects us)
 //
 // Mouse:
-//   click .pito-video-row — highlight that row
+//   click .pito-video-row — highlight that row AND select it (= arrow-to-it + Enter)
 //
 // Search (optional — only when input/list targets are present):
 //   input target — <input> element; typing debounces a POST /videos/search-local
@@ -94,8 +94,10 @@ export default class extends Controller {
     const rows = this.#rows()
     const idx  = rows.indexOf(row)
     if (idx === -1) return
+    // Click == arrow-to-it + Enter: highlight the row, then run the same select path.
     this.highlightIndex = idx
     this.#paint(rows)
+    this.#select(row)
   }
 
   #move(rows, delta) {

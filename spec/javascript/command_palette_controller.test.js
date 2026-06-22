@@ -96,6 +96,11 @@ function buildScaffold(items = []) {
 
     const item = document.createElement("div")
     item.setAttribute("data-pito--command-palette-target", "item")
+    // Mirror the real CommandComponent markup: whole row clickable + hover-syncs.
+    item.setAttribute(
+      "data-action",
+      "mouseenter->pito--command-palette#hover click->pito--command-palette#select"
+    )
     item.dataset.label = label
     item.dataset.insert = insert || label
     // Stub scrollIntoView — jsdom does not implement it
@@ -376,6 +381,66 @@ describe("pito--command-palette controller", () => {
     plainKey("Enter")
 
     expect(inputEvents.length).toBeGreaterThan(0)
+  })
+
+  // ── Mouse: click selects + activates (== arrow-to + Enter) ────────────────────
+
+  it("clicking a row pre-fills the chatbox with that row's insert (like Enter)", async () => {
+    const { palette, chatbox } = buildScaffold([
+      { section: "A", label: "first",  insert: "/first " },
+      { section: "A", label: "config", insert: "/config " },
+    ])
+    await waitForConnect()
+    ctrlKey("k") // open → item 0 selected
+
+    const items = [...palette.querySelectorAll('[data-pito--command-palette-target="item"]')]
+    items[1].dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }))
+
+    expect(chatbox.value).toBe("/config ")
+  })
+
+  it("clicking a row closes the palette (like Enter)", async () => {
+    const { palette } = buildScaffold([
+      { section: "A", label: "help", insert: "/help " },
+    ])
+    await waitForConnect()
+    ctrlKey("k")
+
+    const item = palette.querySelector('[data-pito--command-palette-target="item"]')
+    item.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }))
+
+    expect(palette.classList.contains("hidden")).toBe(true)
+  })
+
+  it("clicking a row dispatches an `input` event on the chatbox field (like Enter)", async () => {
+    const { palette, chatbox } = buildScaffold([
+      { section: "A", label: "help", insert: "/help " },
+    ])
+    await waitForConnect()
+    ctrlKey("k")
+
+    const inputEvents = []
+    chatbox.addEventListener("input", (e) => inputEvents.push(e))
+
+    const item = palette.querySelector('[data-pito--command-palette-target="item"]')
+    item.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }))
+
+    expect(inputEvents.length).toBeGreaterThan(0)
+  })
+
+  it("hovering a row selects it (mouse + keyboard selection stay in sync)", async () => {
+    const { palette } = buildScaffold([
+      { section: "A", label: "first",  insert: "/first" },
+      { section: "A", label: "second", insert: "/second" },
+    ])
+    await waitForConnect()
+    ctrlKey("k") // open → item 0 selected
+
+    const items = [...palette.querySelectorAll('[data-pito--command-palette-target="item"]')]
+    items[1].dispatchEvent(new MouseEvent("mouseenter", { bubbles: false }))
+
+    expect(items[1].classList.contains("pito-palette-selected")).toBe(true)
+    expect(items[0].classList.contains("pito-palette-selected")).toBe(false)
   })
 
   // ── `m` focuses chatbox ───────────────────────────────────────────────────────

@@ -400,6 +400,48 @@ describe("pito--games-search controller", () => {
     })
   })
 
+  // ── Click selection (= arrow-to-it + Enter) ───────────────────────────────
+
+  it("clicking a rendered result row selects+imports it (like ArrowDown+Enter)", async () => {
+    const importCalls = []
+    global.fetch = vi.fn().mockImplementation((url, opts) => {
+      if (url.includes("/games/search")) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            hits: [
+              { id: 11, name: "Alpha", cover: { image_id: "a" } },
+              { id: 22, name: "Beta",  cover: { image_id: "b" } },
+            ],
+            library_ids: [],
+          }),
+        })
+      }
+      if (url.includes("/games/import")) importCalls.push(JSON.parse(opts.body))
+      return Promise.resolve({ ok: true, json: async () => ({}) })
+    })
+
+    const { input, results } = buildScaffold()
+    await tick()
+
+    input.value = "A"
+    input.dispatchEvent(new Event("input", { bubbles: true }))
+    await tick(350)
+
+    const rows = results.querySelectorAll(".pito-igdb-row")
+    expect(rows.length).toBe(2)
+
+    // Click the SECOND row — should highlight it and run the import path.
+    rows[1].dispatchEvent(new MouseEvent("click", { bubbles: true }))
+    await tick()
+
+    expect(rows[1].classList.contains("pito-resume-highlight")).toBe(true)
+    expect(importCalls).toHaveLength(1)
+    expect(importCalls[0].igdb_id).toBe("22")
+    // Results region is replaced with the 5 shimmer step rows.
+    expect(results.querySelectorAll("[id^='import-step-']").length).toBe(5)
+  })
+
   // ── Enter with no rows is a no-op ─────────────────────────────────────────
 
   it("does NOT call /games/search when Enter is pressed (not ArrowDown+Enter)", async () => {

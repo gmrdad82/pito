@@ -218,6 +218,14 @@ export default class extends Controller {
   #onClick(e) {
     const row = e.target.closest(".pito-conversation-row")
     if (!row) return
+    // Click == arrow-to-it + Enter: pin the highlight to this row, then select it.
+    const rows = this.#rows()
+    const idx  = rows.indexOf(row)
+    if (idx !== -1) {
+      this.#disarm()
+      this.highlightIndex = idx
+      rows.forEach((r, i) => r.classList.toggle(HIGHLIGHT_CLASS, i === this.highlightIndex))
+    }
     this.#select(row)
   }
 

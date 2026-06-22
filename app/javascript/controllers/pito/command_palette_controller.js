@@ -52,6 +52,22 @@ export default class extends Controller {
     this.#setSelected(firstVisible)
   }
 
+  // Mouse hover over a row: mirror the keyboard selection onto the hovered row
+  // so mouse and keyboard selection never disagree.
+  hover(event) {
+    const index = this.#visibleItems().indexOf(event.currentTarget)
+    if (index !== -1) this.#setSelected(index)
+  }
+
+  // Mouse click on a row: select + activate it — identical to arrow-to that row
+  // then Enter (same #setSelected + #commit path).
+  select(event) {
+    const index = this.#visibleItems().indexOf(event.currentTarget)
+    if (index === -1) return
+    this.#setSelected(index)
+    this.#commit()
+  }
+
   // ── internals ──────────────────────────────────────────────────────────────
 
   // ctrl+/ toggles the notifications panel: if it's already showing, close it;

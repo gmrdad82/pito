@@ -1,7 +1,11 @@
+<%# Whole row is clickable: click == arrow-to-this-row + Enter; hover keeps the
+    mouse selection in sync with the keyboard. The command token (@insert) gets
+    the cyan identifier shimmer via TokenComponent (which owns the colour). %>
 <div data-pito--command-palette-target="item"
+     data-action="mouseenter->pito--command-palette#hover click->pito--command-palette#select"
      data-insert="<%= @insert %>"
      data-label="<%= searchable %>"
      class="flex justify-between py-0.5 px-[7px] cursor-default">
   <span class="text-fg text-base"><%= label %></span>
-  <span class="text-fg-dim text-base"><%= @insert %></span>
+  <%= render(Pito::Shimmer::TokenComponent.new(text: @insert, extra_class: "text-base")) %>
 </div>
