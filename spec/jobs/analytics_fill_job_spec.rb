@@ -16,16 +16,6 @@ RSpec.describe AnalyticsFillJob, type: :job do
     )
   end
 
-  # A thinking event simulates what ChatDispatchJob emits before enqueueing this job.
-  let!(:thinking_event) do
-    Event.create_with_position!(
-      conversation: conversation,
-      turn:         turn,
-      kind:         :thinking,
-      payload:      { "dictionary" => "chat", "order" => [ 0, 1, 2 ], "started_at" => 5.seconds.ago.iso8601 }
-    )
-  end
-
   # The analytics pending event emitted by the Show handler.
   let!(:analytics_event) do
     Event.create_with_position!(
@@ -33,6 +23,22 @@ RSpec.describe AnalyticsFillJob, type: :job do
       turn:         turn,
       kind:         :enhanced,
       payload:      Pito::MessageBuilder::Analytics::Enhanced.pending(video, period: "28d")
+    )
+  end
+
+  # The per-message thinking indicator linked to the analytics card (the
+  # Finalizer stamps for_event_id; AnalyticsFillJob resolves THIS one by id).
+  let!(:thinking_event) do
+    Event.create_with_position!(
+      conversation: conversation,
+      turn:         turn,
+      kind:         :thinking,
+      payload:      {
+        "dictionary"   => "chat",
+        "order"        => [ 0, 1, 2 ],
+        "started_at"   => 5.seconds.ago.iso8601,
+        "for_event_id" => analytics_event.id
+      }
     )
   end
 
@@ -152,6 +158,56 @@ RSpec.describe AnalyticsFillJob, type: :job do
     it "still stamps completed_at on the turn (ensure block runs)" do
       described_class.perform_now(turn.id)
       expect(turn.reload.completed_at).not_to be_nil
+    end
+  end
+
+  # ── Per-message indicator resolution + completion gate ───────────────────────
+
+  context "with a multi-message turn (plain message + pending analytics card)" do
+    before do
+      allow(Pito::Analytics::Scalars).to receive(:for).and_return(scalars_result)
+    end
+
+    # A plain :system message whose own indicator is ALREADY resolved (the
+    # Finalizer resolves ready messages before enqueueing this job).
+    let!(:plain_message) do
+      Event.create_with_position!(
+        conversation:, turn:, kind: :system, payload: { "text" => "intro" }
+      )
+    end
+    let!(:plain_indicator) do
+      Event.create_with_position!(
+        conversation:, turn:, kind: :thinking,
+        payload: { "dictionary" => "chat", "order" => [ 0 ], "started_at" => 5.seconds.ago.iso8601,
+                   "for_event_id" => plain_message.id, "resolved" => true, "elapsed_seconds" => 1 }
+      )
+    end
+
+    it "resolves the analytics card's OWN indicator (by for_event_id), leaving others intact" do
+      described_class.perform_now(turn.id)
+      expect(thinking_event.reload.payload["resolved"]).to be(true)
+    end
+
+    it "leaves the already-resolved plain indicator untouched" do
+      expect { described_class.perform_now(turn.id) }
+        .not_to change { plain_indicator.reload.payload["elapsed_seconds"] }
+    end
+
+    it "completes the turn once every indicator is resolved" do
+      described_class.perform_now(turn.id)
+      expect(turn.reload.completed_at).not_to be_nil
+    end
+
+    it "does NOT complete the turn while another indicator is still spinning" do
+      # An unrelated, still-spinning indicator (no matching analytics event) keeps
+      # the turn open even after the analytics fill resolves its own indicator.
+      Event.create_with_position!(
+        conversation:, turn:, kind: :thinking,
+        payload: { "dictionary" => "chat", "order" => [ 0 ], "started_at" => 1.second.ago.iso8601,
+                   "for_event_id" => -1 }
+      )
+      described_class.perform_now(turn.id)
+      expect(turn.reload.completed_at).to be_nil
     end
   end
 

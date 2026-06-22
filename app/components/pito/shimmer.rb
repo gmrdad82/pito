@@ -20,8 +20,14 @@ module Pito
     # Stable per-text delay-bucket class. Uses a CRC32-based hash so that
     # neighbouring / sequential inputs scatter to distant buckets rather than
     # landing in adjacent ones (bytes.sum clusters; CRC32 avalanches).
-    def offset_class(text, buckets: OFFSETS)
-      "pito-shimmer-d#{Zlib.crc32(text.to_s) % buckets}"
+    #
+    # `seed:` (optional) mixes an extra value into the hash so that two cells
+    # with the SAME text but different seeds land in different buckets — used by
+    # list-row call sites to break synchrony when the same @handle or genre
+    # repeats down every row.  The seed-less behaviour is unchanged (back-compat).
+    def offset_class(text, buckets: OFFSETS, seed: nil)
+      input = seed.nil? ? text.to_s : "#{seed}\x00#{text}"
+      "pito-shimmer-d#{Zlib.crc32(input) % buckets}"
     end
   end
 end

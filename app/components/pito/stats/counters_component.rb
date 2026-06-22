@@ -2,15 +2,16 @@
 
 module Pito
   module Stats
-    # A row of stat counters — "<value> <ABBR>" per metric, middot-separated,
-    # alignable left or center. Pure presentation: the caller supplies the
-    # metrics (key + raw value); the value is compacted and the abbreviation
-    # comes from Pito::Stats::Metrics so it stays consistent everywhere.
+    # A row of stat counters — middot-separated, alignable left or center.
+    # Pure presentation: the caller supplies the metrics (key + raw value);
+    # the value is compacted and the label/icon comes from Pito::Stats::Metrics
+    # so it stays consistent everywhere. subs / vids / views render as
+    # "<value> <Word>"; likes / comms render as "<value>👍" / "<value>💬".
     #
     #   render(Pito::Stats::CountersComponent.new(
     #     metrics: [{ key: :views, value: 454 }, { key: :likes, value: 3 }],
     #     align: :left
-    #   ))
+    #   ))  #=> "454 Views · 3👍"
     class CountersComponent < ViewComponent::Base
       ALIGN = { left: "text-left", center: "text-center" }.freeze
 
@@ -35,13 +36,25 @@ module Pito
       private
 
       def cell(metric)
+        key   = metric[:key].to_sym
+        count = tag.span(Pito::Formatter::CompactCount.call(metric[:value]), class: "text-fg")
+
+        body =
+          if Pito::Stats::Metrics.icon?(key)
+            # "<count>👍" — count then inline icon, no separating space.
+            safe_join([ count, icon_for(key) ])
+          else
+            # "<count> <Word>" — count, space, dimmed full word.
+            safe_join([ count, " ", tag.span(Pito::Stats::Metrics.label(key), class: "text-fg-dim") ])
+          end
+
+        tag.span(body, class: "pito-stats-counters__cell")
+      end
+
+      def icon_for(key)
         tag.span(
-          safe_join([
-            tag.span(Pito::Formatter::CompactCount.call(metric[:value]), class: "text-fg"),
-            " ",
-            tag.span(Pito::Stats::Metrics.abbr(metric[:key]), class: "text-fg-dim")
-          ]),
-          class: "pito-stats-counters__cell"
+          render(Pito::IconComponent.new(name: Pito::Stats::Metrics.icon(key), label: Pito::Stats::Metrics.label(key))),
+          class: "text-fg-dim"
         )
       end
 

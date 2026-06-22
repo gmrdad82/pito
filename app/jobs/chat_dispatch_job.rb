@@ -23,7 +23,7 @@ class ChatDispatchJob < ApplicationJob
     turn         = Turn.find(turn_id)
     conversation = turn.conversation
     input        = turn.input_text
-    broadcaster  = Pito::Stream::Broadcaster.new(conversation:)
+    finalizer    = Pito::Dispatch::Finalizer.new(conversation:)
 
     # Auth gating: only /login works while unauthenticated (handled
     # synchronously in the controller). Every other command from an
@@ -45,98 +45,38 @@ class ChatDispatchJob < ApplicationJob
       Pito::Chat::Dispatcher.call(input:, conversation:, channel:, period:, viewport_width:)
     end
 
-    events = persist_and_broadcast(result, turn, conversation, broadcaster)
-
-    # If a result emitted an analytics :enhanced message in its pending state,
-    # defer resolving the thinking indicator + completing the turn to
-    # AnalyticsFillJob — it fetches the data, fills the message, then resolves.
-    # The spinner keeps cycling until the data lands. Otherwise resolve now.
-    if events.any? { |e| Pito::MessageBuilder::Analytics::Enhanced.pending?(e) }
-      AnalyticsFillJob.perform_later(turn.id)
-    else
-      broadcaster.resolve_thinking(turn:)
-      broadcaster.complete_turn(turn:)
-    end
+    # The shared finalizer canonicalises kinds, persists + broadcasts each event,
+    # then runs the analytics-fill gate (defer to AnalyticsFillJob, else resolve
+    # the thinking indicator + complete the turn).
+    finalizer.append_and_complete(events: result_events(result), turn:)
   rescue StandardError => e
     # Surface the error as a visible event in the scrollback so the user isn't
     # left staring at a spinning Braille indicator.
     turn = Turn.find_by(id: turn_id)
     return unless turn
 
-    conversation = turn.conversation
-    broadcaster = Pito::Stream::Broadcaster.new(conversation:)
-    broadcaster.emit(
-      turn:,
-      kind: :error,
-      payload: {
-        text:   Pito::Copy.render("pito.copy.errors.dispatch_failed"),
-        detail: e.message
-      }
-    )
-    broadcaster.resolve_thinking(turn:)
-    broadcaster.complete_turn(turn:)
+    Pito::Dispatch::Finalizer.new(conversation: turn.conversation).surface_error(turn:, detail: e.message)
     raise # re-raise so SolidQueue marks the job failed and can retry
   end
 
   private
-
-  def persist_and_broadcast(result, turn, conversation, broadcaster)
-    result_events(result).map do |attrs|
-      event = Event.create_with_position!(
-        conversation:,
-        turn:,
-        kind:    attrs[:kind],
-        payload: attrs[:payload]
-      )
-      broadcaster.broadcast_event(event)
-      event
-    end
-  end
 
   def help_command?(input)
     input.strip.match?(%r{\A/help(\s|\z)}i)
   end
 
   # Translate a dispatcher Result into an array of { kind:, payload: } hashes.
+  # Canonical-kind assignment lives in the finalizer, not here.
   def result_events(result)
     case result
     when Pito::Slash::Result::Ok, Pito::Chat::Result::Ok, Pito::Hashtag::Result::Ok
-      assign_canonical_kinds(result.events).map { |e| { kind: e[:kind], payload: e[:payload] } }
+      result.events.map { |e| { kind: e[:kind], payload: e[:payload] } }
 
     when Pito::Slash::Result::Error, Pito::Chat::Result::Error, Pito::Hashtag::Result::Error
-      # If message_key looks like already-translated text (e.g. a sampled
-      # mandatory), pass it as text: so ErrorComponent renders it directly.
-      error_payload = if result.message_key.to_s.start_with?("pito.")
-        { message_key: result.message_key, message_args: result.message_args }
-      else
-        { text: result.message_key }
-      end
-      [ { kind: :error, payload: error_payload } ]
+      [ { kind: :error, payload: Pito::Dispatch::Finalizer.error_payload(message_key: result.message_key, message_args: result.message_args) } ]
 
     else
       []
-    end
-  end
-
-  # Assign canonical kinds to events that handlers emit as :system.
-  # First system event → :system, subsequent → :enhanced.
-  # follow_up: true flag → :system_follow_up / :enhanced_follow_up.
-  def assign_canonical_kinds(events)
-    system_indices = events.each_index.select { |i| events[i][:kind].to_s == "system" }
-
-    events.each_with_index.map do |e, idx|
-      next e unless e[:kind].to_s == "system"
-
-      follow_up = e.dig(:payload, :follow_up) == true || e.dig(:payload, "follow_up") == true
-      first     = system_indices.first == idx
-
-      new_kind = if follow_up
-        first ? :system_follow_up : :enhanced_follow_up
-      else
-        first ? :system : :enhanced
-      end
-
-      { kind: new_kind, payload: e[:payload] }
     end
   end
 end

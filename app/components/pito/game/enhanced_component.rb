@@ -5,7 +5,7 @@ module Pito
     # Renders the "enhanced" game message streamed after Voyage indexing.
     #
     # Sections (each omitted when data is absent):
-    #   1. Intro line      — Pito::Copy.render("pito.copy.games.enhanced_intro")
+    #   1. Intro line      — Pito::Copy.render_html("pito.copy.games.enhanced_intro")
     #   2. Channel matches — ALL matched channels from Pito::Recommendations.channels_for,
     #                        displayed as a CSS grid with handle / title / ScoreBar.
     #   3. Similar games   — up to 8 games from Pito::Recommendations.similar_games,
@@ -19,7 +19,10 @@ module Pito
       end
 
       def intro
-        Pito::Copy.render("pito.copy.games.enhanced_intro")
+        # enhanced_intro is a generic recommendations line with NO subject
+        # placeholder, so there is no subject to shimmer — render_html keeps it
+        # consistent (html_safe, XSS-safe) with the other intro cards.
+        Pito::Copy.render_html("pito.copy.games.enhanced_intro")
       end
 
       def channels_header

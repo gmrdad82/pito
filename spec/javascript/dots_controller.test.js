@@ -3,7 +3,8 @@
 // Tests for pito--dots, pito--done-dispatch, and pito--turn-complete
 // Stimulus controllers.
 //
-// pito--dots: shows on pito:submitted, hides on pito:done (class toggle).
+// pito--dots: shows on pito:submitted, hides on pito:echo-typed OR
+// pito:result-appended (class toggle); pito:done no longer drives it.
 // pito--done-dispatch: dispatches its configured event name on connect.
 // pito--turn-complete: dispatches "pito:turn-complete" on connect.
 //
@@ -60,24 +61,40 @@ describe("pito--dots controller", () => {
     expect(el.classList.contains("pito-dots--hidden")).toBe(false)
   })
 
-  it("hides dots (adds pito-dots--hidden) on pito:done", async () => {
+  it("hides dots (adds pito-dots--hidden) on pito:echo-typed", async () => {
     const el = buildDots()
     await tick()
 
-    // Show first, then hide.
+    // Show first, then hide when the echo finishes typing.
+    document.dispatchEvent(new CustomEvent("pito:submitted"))
+    expect(el.classList.contains("pito-dots--hidden")).toBe(false)
+
+    document.dispatchEvent(new CustomEvent("pito:echo-typed"))
+    expect(el.classList.contains("pito-dots--hidden")).toBe(true)
+  })
+
+  it("hides dots on pito:result-appended (no-echo error fast path)", async () => {
+    const el = buildDots()
+    await tick()
+
+    // Auth-gated error: no echo, no echo-typed will ever come — the result
+    // append must still clear the comet so it does not hang.
+    document.dispatchEvent(new CustomEvent("pito:submitted"))
+    expect(el.classList.contains("pito-dots--hidden")).toBe(false)
+
+    document.dispatchEvent(new CustomEvent("pito:result-appended"))
+    expect(el.classList.contains("pito-dots--hidden")).toBe(true)
+  })
+
+  it("does NOT hide dots on pito:done alone (pito:done no longer drives the comet)", async () => {
+    const el = buildDots()
+    await tick()
+
     document.dispatchEvent(new CustomEvent("pito:submitted"))
     expect(el.classList.contains("pito-dots--hidden")).toBe(false)
 
     document.dispatchEvent(new CustomEvent("pito:done"))
-    expect(el.classList.contains("pito-dots--hidden")).toBe(true)
-  })
-
-  it("hides dots immediately on pito:done without prior submit", async () => {
-    const el = buildDots()
-    await tick()
-
-    document.dispatchEvent(new CustomEvent("pito:done"))
-    expect(el.classList.contains("pito-dots--hidden")).toBe(true)
+    expect(el.classList.contains("pito-dots--hidden")).toBe(false)
   })
 
   it("show/hide cycle works multiple times", async () => {
@@ -87,7 +104,7 @@ describe("pito--dots controller", () => {
     document.dispatchEvent(new CustomEvent("pito:submitted"))
     expect(el.classList.contains("pito-dots--hidden")).toBe(false)
 
-    document.dispatchEvent(new CustomEvent("pito:done"))
+    document.dispatchEvent(new CustomEvent("pito:echo-typed"))
     expect(el.classList.contains("pito-dots--hidden")).toBe(true)
 
     document.dispatchEvent(new CustomEvent("pito:submitted"))

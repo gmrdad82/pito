@@ -18,11 +18,12 @@ module Pito
         def call(games, conversation:, columns: [])
           cols    = ListColumns.canonical_order(columns)
           payload = {
-            "body"          => Pito::Copy.render(
+            "body"          => Pito::Copy.render_html(
               "pito.copy.games.list_intro",
-              count: games.size,
-              noun:  games.size == 1 ? "game" : "games"
+              { count: games.size, noun: games.size == 1 ? "game" : "games" },
+              shimmer: [ :count, :noun ]
             ),
+            "html"          => true,
             "table_heading" => [
               { "text" => "#", "class" => "text-right" },
               "Game",

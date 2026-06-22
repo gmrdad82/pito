@@ -1,9 +1,9 @@
 <div class="pito-analytics-scalars grid grid-cols-6 gap-x-6 gap-y-1">
-  <%# Row 1: Views | Watch hours (col-span-3 each) %>
+  <%# Row 1: Views | Watched hours (col-span-3 each) %>
   <% row1_cells.each do |cell| %>
     <div class="col-span-3 flex items-baseline justify-between gap-x-3">
       <span class="text-fg-dim whitespace-nowrap"><%= cell[:label] %></span>
-      <span class="tabular-nums text-right"><%= render(cell[:trend]) %></span>
+      <span class="tabular-nums text-right"><%= cell[:value] %></span>
     </div>
   <% end %>
 
@@ -11,23 +11,21 @@
   <% row2_cells.each do |cell| %>
     <div class="col-span-3 flex items-baseline justify-between gap-x-3">
       <span class="text-fg-dim whitespace-nowrap"><%= cell[:label] %></span>
-      <span class="tabular-nums text-right"><%= render(cell[:trend]) %></span>
+      <span class="tabular-nums text-right"><%= cell[:value] %></span>
     </div>
   <% end %>
 
-  <%# Row 3: Subs net — left half only (col-span-3) so its value lines up in the
-      same column as Views above, not stretched across the full width. %>
-  <% subs = row3_subs_net %>
-  <div class="col-span-3 flex items-baseline justify-between gap-x-3">
-    <span class="text-fg-dim whitespace-nowrap"><%= subs[:label] %></span>
-    <span class="tabular-nums text-right"><%= render(subs[:trend]) %></span>
-  </div>
-
-  <%# Row 4: Likes | Dislikes | Comms (col-span-2 each) %>
-  <% row4_cells.each do |cell| %>
-    <div class="col-span-2 flex items-baseline justify-between gap-x-3">
+  <%# Row 3: Subs (under Views) | Likes (under Watched hours) — col-span-3 each %>
+  <% [ subs_cell, likes_cell ].each do |cell| %>
+    <div class="col-span-3 flex items-baseline justify-between gap-x-3">
       <span class="text-fg-dim whitespace-nowrap"><%= cell[:label] %></span>
-      <span class="tabular-nums text-right"><%= render(cell[:trend]) %></span>
+      <span class="tabular-nums text-right"><%= cell[:value] %></span>
     </div>
   <% end %>
+
+  <%# Row 4: Comms on its own row (left column, under Subs) — keeps the 2-metric-column grid %>
+  <div class="col-span-3 flex items-baseline justify-between gap-x-3">
+    <span class="text-fg-dim whitespace-nowrap"><%= comms_cell[:label] %></span>
+    <span class="tabular-nums text-right"><%= comms_cell[:value] %></span>
+  </div>
 </div>

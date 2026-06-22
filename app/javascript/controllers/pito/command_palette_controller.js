@@ -95,7 +95,7 @@ export default class extends Controller {
       .catch(err => console.warn("[pito] notifications fetch failed:", err))
   }
 
-  // Ctrl+` — open the conversations sidebar (showing the current conversation
+  // Ctrl+n — open the conversations sidebar (showing the current conversation
   // highlighted) and start an inline rename on it.
   //
   // Timing: the sidebar is rendered via a Turbo Stream fetch so the DOM isn't
@@ -271,8 +271,8 @@ export default class extends Controller {
       return
     }
 
-    // Ctrl+` (or Cmd+` on Mac) → open sidebar and start renaming current conversation
-    if (modKey && e.key === "`") {
+    // Ctrl+n (or Cmd+n on Mac) → open sidebar and start renaming current conversation
+    if (modKey && e.key === "n") {
       e.preventDefault()
       if (!isAuthenticated()) return
       this.#renameCurrentConversation()

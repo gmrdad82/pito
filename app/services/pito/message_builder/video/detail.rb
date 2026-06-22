@@ -21,7 +21,7 @@ module Pito
         # @param conversation [Conversation] used to generate the reply handle.
         # @return [Hash] system event payload with body, html: true, and follow-up fields.
         def call(video, conversation:)
-          intro = Pito::Copy.render("pito.copy.video.detail_intro", { title: video.title })
+          intro = Pito::Copy.render_html("pito.copy.video.detail_intro", { title: video.title }, shimmer: [ :title ])
 
           # The intro + timestamp live INSIDE the card's left column (above the
           # thumbnail, capped to the thumbnail width) so the right column starts

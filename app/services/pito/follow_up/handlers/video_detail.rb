@@ -32,11 +32,11 @@ module Pito
         # @param rest         [String]       text after `#<handle> `.
         # @param conversation [Conversation] the owning conversation.
         # @return [Result::Append | Result::Error]
-        def call(event:, rest:, conversation:)
+        def call(event:, rest:, conversation:, period: nil, viewport_width: nil, channel: nil)
           action, _args = parse_rest(rest)
 
           if %w[rm delete reindex link unlink shinies].include?(action)
-            return Pito::FollowUp::VerbDelegator.call(source_event: event, rest:, conversation:)
+            return Pito::FollowUp::VerbDelegator.call(source_event: event, rest:, conversation:, period:, viewport_width:, channel:)
           end
 
           Pito::FollowUp::Result::Error.new(

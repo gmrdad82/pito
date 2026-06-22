@@ -3,8 +3,9 @@
 require "rails_helper"
 
 RSpec.describe Pito::Achievement::BadgeComponent do
-  def render_badge(threshold:, metric:, unlocked_on: nil)
-    render_inline(described_class.new(threshold: threshold, metric: metric, unlocked_on: unlocked_on))
+  def render_badge(threshold:, metric:, unlocked_on: nil, form: :extended)
+    render_inline(described_class.new(threshold: threshold, metric: metric,
+                                      unlocked_on: unlocked_on, form: form))
   end
 
   # ── Single uniform bordered element (no per-metric box drawing) ──
@@ -35,28 +36,32 @@ RSpec.describe Pito::Achievement::BadgeComponent do
     end
   end
 
-  # ── Content: <value> <ABBR> · <Mon 'YY> ─────────────────────────
+  # ── Content: full-word labels (not single-letter abbreviations) ──────────
 
-  describe "content" do
-    it "renders value + single-letter abbr on the face" do
-      {
-        views:         "V",
-        likes:         "L",
-        comments:      "C",
-        watched_hours: "W",
-        subs:          "S",
-        subs_gained:   "S"
-      }.each do |metric, abbr|
+  describe "full-word labels" do
+    {
+      views:         "Views",
+      likes:         "Likes",
+      comments:      "Comms",
+      watched_hours: "Watched",
+      subs:          "Subs",
+      subs_gained:   "Subs"
+    }.each do |metric, word|
+      it "renders '#{word}' (full word) for metric :#{metric}" do
         node = render_badge(threshold: 100, metric: metric)
-        expect(node.css(".pito-achievement-badge").text).to include("100 #{abbr}")
+        expect(node.css(".pito-achievement-badge").text).to include("100 #{word}")
       end
     end
 
-    it "uses the abbreviation, not the full label word" do
-      node = render_badge(threshold: 100, metric: :views)
-      text = node.css(".pito-achievement-badge").text
-      expect(text).to include("100 V")
-      expect(text).not_to include("Views")
+    it "does not render single-letter abbreviations on the badge face" do
+      %i[views likes comments watched_hours subs].each do |metric|
+        node = render_badge(threshold: 100, metric: metric)
+        text = node.css(".pito-achievement-badge").text
+        # Single-letter abbrs (S/V/L/C/W) preceded by a space should not appear
+        %w[V L C W].each do |abbr|
+          expect(text).not_to match(/\b100 #{abbr}\b/)
+        end
+      end
     end
 
     it "formats the value via CompactCount" do
@@ -72,29 +77,76 @@ RSpec.describe Pito::Achievement::BadgeComponent do
     end
   end
 
-  # ── Date: muted sub-span, distinct from the tier-coloured value ──
+  # ── Compact form ─────────────────────────────────────────────────────────
 
-  describe "date rendering" do
+  describe "compact form (form: :compact)" do
+    subject(:node) { render_badge(threshold: 1_000, metric: :subs, unlocked_on: Date.new(2026, 8, 1), form: :compact) }
+
+    it "renders value + full word" do
+      expect(node.css(".pito-achievement-badge").text).to include("1K Subs")
+    end
+
+    it "does not render a date span" do
+      expect(node.css(".pito-achievement-badge__date")).to be_empty
+    end
+
+    it "does not include a middot-separated date" do
+      expect(node.css(".pito-achievement-badge").text).not_to match(/·\s+[A-Z][a-z]{2}\s+'/)
+    end
+
+    it "omits the date even when unlocked_on is present" do
+      node_with_date = render_badge(threshold: 100, metric: :views, unlocked_on: Date.new(2025, 1, 15), form: :compact)
+      expect(node_with_date.css(".pito-achievement-badge__date")).to be_empty
+    end
+
+    it "renders value + full word for every metric" do
+      {
+        views:         "Views",
+        likes:         "Likes",
+        comments:      "Comms",
+        watched_hours: "Watched",
+        subs:          "Subs",
+        subs_gained:   "Subs"
+      }.each do |metric, word|
+        n = render_badge(threshold: 100, metric: metric, form: :compact)
+        expect(n.css(".pito-achievement-badge").text).to include("100 #{word}")
+      end
+    end
+  end
+
+  # ── Extended form ─────────────────────────────────────────────────────────
+
+  describe "extended form (form: :extended, the default)" do
     context "with unlocked_on set" do
       subject(:node) { render_badge(threshold: 1_000, metric: :subs, unlocked_on: Date.new(2026, 8, 1)) }
 
-      it "renders · Mon 'YY inside a muted .pito-achievement-badge__date span" do
+      it "renders value + full word in the badge" do
+        text = node.css(".pito-achievement-badge").text
+        expect(text).to include("1K Subs")
+      end
+
+      it "renders the date in a muted .pito-achievement-badge__date block span" do
         span = node.css(".pito-achievement-badge__date")
         expect(span).not_to be_empty
         expect(span.text).to eq("· Aug '26")
       end
 
-      it "renders the full face as <value> <ABBR> · <Mon 'YY>" do
-        expect(node.css(".pito-achievement-badge").text).to include("1K S · Aug '26")
+      it "date span carries the block class (own line)" do
+        span = node.css(".pito-achievement-badge__date").first
+        expect(span["class"]).to include("block")
       end
 
-      it "keeps the date in its own span so CSS mutes it independently of the tier" do
-        # The value/abbr live as a direct text node on the badge (tier-coloured),
-        # while the date lives only inside the __date span (muted via --fg-dim).
+      it "keeps the date span so CSS can mute it independently of the tier" do
         face = node.css(".pito-achievement-badge").first
         expect(face.css(".pito-achievement-badge__date").length).to eq(1)
         text_without_date = face.text.sub(face.css(".pito-achievement-badge__date").text, "").strip
-        expect(text_without_date).to eq("1K S")
+        expect(text_without_date).to eq("1K Subs")
+      end
+
+      it "badge text includes both value+word and the date" do
+        text = node.css(".pito-achievement-badge").text
+        expect(text).to include("1K Subs")
+        expect(text).to include("· Aug '26")
       end
     end
 
@@ -108,6 +160,15 @@ RSpec.describe Pito::Achievement::BadgeComponent do
       it "does not include a middot-separated date in the face" do
         expect(node.css(".pito-achievement-badge").text).not_to match(/·\s+[A-Z][a-z]{2}\s+'/)
       end
+
+      it "still renders value + full word" do
+        expect(node.css(".pito-achievement-badge").text).to include("1K Subs")
+      end
+    end
+
+    it "is the default form (no form: kwarg needed)" do
+      node = render_inline(described_class.new(threshold: 1_000, metric: :subs, unlocked_on: Date.new(2026, 1, 1)))
+      expect(node.css(".pito-achievement-badge__date")).not_to be_empty
     end
   end
 
@@ -144,6 +205,43 @@ RSpec.describe Pito::Achievement::BadgeComponent do
       expected = Pito::Shimmer.offset_class("1000subs")
       node = render_badge(threshold: 1_000, metric: :subs)
       expect(node.css(".pito-achievement-badge.#{expected}")).not_to be_empty
+    end
+  end
+
+  # ── Per-tier contrast perimeter-shimmer hook (CSS contract) ─────
+  #
+  # The travelling perimeter highlight must be a per-tier CONTRASTING accent
+  # (--pito-badge-shimmer), never plain white (--fg-default), so it reads on
+  # light tiers. Asserted against the compiled stylesheet because the hook lives
+  # in CSS keyed off the badge's data-accent (no inline style by design).
+
+  describe "per-tier contrast shimmer (CSS)" do
+    css = Rails.root.join("app/assets/tailwind/application.css").read
+
+    # tier accent → expected contrasting highlight accent token.
+    {
+      "muted"  => "cyan",
+      "green"  => "yellow",
+      "cyan"   => "orange",
+      "blue"   => "orange",
+      "purple" => "yellow",
+      "orange" => "cyan",
+      "yellow" => "blue",
+      "pito"   => "orange"
+    }.each do |tier, contrast|
+      it "maps the #{tier} tier to a contrasting --pito-badge-shimmer (--accent-#{contrast})" do
+        rule = css[/\.pito-achievement-badge\[data-accent="#{tier}"\][^}]*\}/]
+        expect(rule).to be_present
+        expect(rule).to match(/--pito-badge-shimmer:\s*var\(--accent-#{contrast}\)/)
+      end
+    end
+
+    it "never uses white (--fg-default) as a tier's perimeter highlight" do
+      expect(css).not_to match(/--pito-badge-shimmer:\s*var\(--fg-default\)/)
+    end
+
+    it "drives the perimeter conic-gradient from --pito-badge-shimmer" do
+      expect(css).to match(/conic-gradient\(.*?var\(--pito-badge-shimmer/m)
     end
   end
 end

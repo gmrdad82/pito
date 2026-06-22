@@ -30,6 +30,25 @@ In progress; entries are added here as they land on `main` (tag created at relea
   videos**. The card appears instantly with a one-line intro and **fills in the
   background** — the "thinking…" spinner keeps cycling until the numbers land, so the
   page never blocks on YouTube, and a refresh mid-fetch is safe.
+- **`list gamez`** — playful synonym for `list games` (the existing `game`/`games` nouns
+  still work).
+- **Message intros shimmer their subject** — the subject of an intro (the video / game / channel
+  title, or the `count` + noun in list intros like "11 games" / "6 channels") now carries a
+  pito-blue→purple shimmer, and channel `@handle` references in intros shimmer cyan. Titles stay
+  HTML-escaped.
+- **Every message types out, each with its own thinking indicator** — response messages now
+  reveal via the typewriter (including the detail / list / analytics / shinies HTML cards, not just
+  plain text), and each message carries its **own** thinking indicator that resolves when *that*
+  message is ready; a turn finishes only when all resolve, so a still-filling analytics card keeps
+  its own spinner while the rest of the turn settles. Your typed command also **types itself back**
+  as the echo, and the working-dots clear the moment that echo lands (not when the whole turn
+  finishes). Under the hood, typed commands and `#handle` replies now run through one
+  shared dispatch finalizer, so replies get identical canonical message kinds and honor the
+  selected period / channel / viewport — exactly like typing the command.
+- **`dd` deletes a conversation** — in the conversations sidebar, pressing `d` twice (arm →
+  confirm) deletes the highlighted conversation; a `dd` hint shows beside the rename hint.
+- **Mobile swipe-to-delete** — on touch screens, swipe a conversation row left to reveal a red
+  **delete** button (tap to confirm; no accidental full-swipe). Desktop keeps `dd`.
 - **Searchable picker sidebars** — `show game` with no id now has a **search box** and shows
   **PS · Switch · Steam** icons beside each game; `show vid` with no id opens a matching picker
   with a search box and the channel **@handle** beside each video (it previously errored
@@ -50,10 +69,11 @@ In progress; entries are added here as they land on `main` (tag created at relea
   instead of showing one fixed word, and the final `…ed for Ns` uses the verb that
   was on screen last. The 5s cadence is a single constant; the animation is
   refresh-safe (time-derived).
-- **Stats & legends unified** into reusable components with consistent glyphs —
-  `S` subs · `D` vids · `V` views · `L` likes · `C` comms — across `list channels`
-  and the `show video` / `show game` cards (which now lead with a bold **Stats**
-  heading, left-align their Shinies, and drop the redundant inline legend).
+- **Stats counters reworked** into reusable components — `show video` / `show game` read
+  `42 Views · 4👍 · 0💬` (full-word labels, with thumbs-up / message-square icons for likes &
+  comments), `list channels` reads `Subs · Vids · Views`; both lead with a bold **Stats** heading
+  and left-aligned Shinies. The separate stat **legend is gone** (the labels are self-explanatory).
+  Icons are vendored **Lucide** outlines (no gem, ≤1em, theme-aware via `currentColor`).
 - **`show game` order** — the recommendations card (channel suggestions + similar games)
   now comes **before** the analytics card, so the recommendations land first while the
   slower analytics fill in.
@@ -76,11 +96,12 @@ In progress; entries are added here as they land on `main` (tag created at relea
   `show game` are computed for whatever window you've selected (7d / 28d / 3m / 1y /
   lifetime), default **7d**, persisted per conversation — change it with shift+space and it
   sticks across reloads. The default lives on the conversation, not in the analytics layer.
-- **Analytics table reorganised** into four tidy rows — Views · Watch hours, then Avg view
-  duration · Avg viewed %, then Subs, then Likes · Dislikes · Comms — with each value
-  right-aligned in its own column so numbers can't be misread. **Subs gained/lost is now a
-  single net figure** with a sign: green `+N` for a net gain, red `-N` for a net loss, a
-  plain `—` when flat.
+- **Analytics table** — a clean two-column grid, each value right-aligned: `Views | Watched
+  hours`, `Avg view duration | Avg viewed %`, `Subs | Likes`, then `Comms` on its own row.
+  **Subs shows
+  `+gained/-lost`** (green gained / red lost); **Likes is compacted to `N👍/N👎`** in a single
+  cell (thumbs-up green / thumbs-down red — the standalone Dislikes row is gone); Comms is a
+  plain count.
 - **Trend numbers** (the green/red analytics figures) now shimmer in the same diagonal
   direction as the other shimmers, sharing the same 20 staggered offsets.
 - **Reply tokens recoloured** — the `#chi-4450` reply handle shimmer is now **purple→blue**
@@ -93,11 +114,17 @@ In progress; entries are added here as they land on `main` (tag created at relea
 - **Shinies badges redesigned** — every badge now uses one uniform **rounded** border (was a
   per-metric ASCII box), with a soft highlight that **travels around the border edge**, and the
   unlock date is muted. (This also fixes badges rendering with a misaligned right edge on mobile.)
+- **Shinies badges: two forms + full-word labels** — badges render as **compact** (value + word,
+  e.g. `1K Subs`) or **extended** (value + word, with the muted unlock date on a second line),
+  and use full-word labels (Subs / Views / Likes / Comms / Watched) instead of abbreviations.
 - **Milestone track points at your next goal** — the reached portion of a shinies progress
   track now shimmers in the **colour of the next tier** you're climbing toward (blue heading to
   2K, cyan heading to 500, …), so the track shows momentum, not just history.
 - **Score & time-to-beat bars shimmer** — a subtle pito-blue highlight sweeps across the
   gradient bars on the `show game` card.
+- **`show game` cover pans** — the tall portrait cover now sits in a 16:9 box matching the video
+  thumbnail and slowly drifts top↔bottom (Ken-Burns) to reveal the whole art; static and
+  top-anchored when `/config fx` is off or reduced-motion is on.
 - **Mobile-adaptive detail cards** — on narrow screens (< 768px) the `show video` /
   `show game` cards (and the linked-game card) stack into a single column — cover/thumbnail
   on top, the details table beneath — instead of being squeezed into two columns; desktop
@@ -122,11 +149,19 @@ In progress; entries are added here as they land on `main` (tag created at relea
   re-opened, so rows don't jump). The `SPACE`-to-toggle binding is removed.
 - **Shinies progress track** — the in-progress segment (your current standing → the next tier)
   now shimmers too, in the next tier's colour.
+- **Click an `#id` or reply `#handle` to prefill the chatbox** — clicking a video/game `#id` on
+  a detail/recommendation card fills `show video #id` / `show game #id`; clicking a reply
+  `#handle` (or its `shift+r` hint) fills `#handle ` ready for a verb. Prefill only — nothing
+  sends until you press Enter.
+- **Timestamp middot dropped everywhere** — message intros now read `HH:MM intro` (a single
+  space, no `·`) across every message, not just the similar-games line.
 
 ### Fixed
 
 - `list channels --help` now renders in the man-page format like the other list verbs.
-- The intro timestamp (`HH:MM ·`) now leads the copy on a single line across every
+- Clicking the `shift+tab` / `shift+space` hints now **cycles the channel / period in place**
+  instead of yanking focus into the chatbox (the other tappable hints still focus, as before).
+- The intro timestamp (`HH:MM`) now leads the copy on a single line across every
   detail and enhanced card (`show video` / `show game`, the linked-game card, analytics,
   shinies) — long copy wraps beneath it instead of the timestamp dropping to its own row.
 - `list channels` stat legend is now left-aligned.
@@ -177,6 +212,23 @@ In progress; entries are added here as they land on `main` (tag created at relea
   all the actions valid for that message (`with`, `without`, `shinies`, `schedule`, `show`,
   `link`, …), navigable with arrows/Tab, instead of only ever ghosting the first one (`show`).
   Fixes `with`/`without`/`shinies`/`schedule` being effectively invisible in replies.
+- **Bar / track shimmers now stagger** — the score & time-to-beat bars and the shinies progress
+  track had their per-element offset reset by an `animation` shorthand (defined after the offset
+  classes), so they pulsed in unison; switched to animation longhands so the 20 staggered offsets
+  apply.
+- **Time-to-beat bar glyphs no longer vanish mid-shimmer** — the `=` fill stays painted at every
+  frame (the highlight now rides over the glyphs instead of dropping the text clip).
+- **Shinies badge ring & progress-track highlight** use a **per-tier contrasting accent** instead
+  of white (white read poorly on the lighter tiers); theme-aware across all palettes.
+- **Repeated list tokens no longer pulse in sync** — the shimmer offset is now seeded by row id,
+  so the same `@handle` repeated down every row scatters across the 20 offsets.
+- **Consumed list headers go quiet** — once a list message is consumed (historical scrollback),
+  its sortable column headers render plain muted instead of shimmering and bold; live lists still
+  shimmer.
+- **Conversation rename shortcut** moved from `` ` `` to `n` (and `ctrl+`` ` ``` → `ctrl+n`).
+- Analytics "Watch hours" label corrected to "Watched hours".
+- Mobile sidebar no longer opens scrolled below the fold — the conversations header + list are
+  anchored to the top on open (an in-place rename no longer yanks the list back to the top).
 
 ## [0.5.0] — 2026-06-20
 

@@ -22,12 +22,14 @@ module Pito
     module VerbDelegator
       module_function
 
-      # @param source_event [Event]        the live event being replied to.
-      # @param rest         [String]       text after `#<handle> ` (e.g. "show 5", "rm").
-      # @param conversation [Conversation]
-      # @param channel      [String, nil]  shift+tab channel scope, if any.
+      # @param source_event   [Event]        the live event being replied to.
+      # @param rest            [String]       text after `#<handle> ` (e.g. "show 5", "rm").
+      # @param conversation    [Conversation]
+      # @param channel         [String, nil]  shift+tab channel scope, if any.
+      # @param period          [String, nil]  analytics window (e.g. "28d"), if any.
+      # @param viewport_width  [Integer, String, nil] scrollback width for list auto-fill.
       # @return [Pito::FollowUp::Result::Append, Pito::FollowUp::Result::Error]
-      def call(source_event:, rest:, conversation:, channel: nil)
+      def call(source_event:, rest:, conversation:, channel: nil, period: nil, viewport_width: nil)
         input = rest.to_s.strip
         verb  = input[/\A\S+/].to_s.downcase
 
@@ -43,10 +45,12 @@ module Pito
         args    = input.sub(/\A\S+\s*/, "") # everything after the verb word
         context = Pito::Chat::FollowUpContext.new(source_event:, rest: args)
         result  = Pito::Chat::Dispatcher.call(
-          input:        input,
-          conversation: conversation,
-          channel:      channel,
-          follow_up:    context
+          input:          input,
+          conversation:   conversation,
+          channel:        channel,
+          period:         period,
+          viewport_width: viewport_width,
+          follow_up:      context
         )
 
         adapted = Pito::FollowUp::ChatResultAdapter.call(result)

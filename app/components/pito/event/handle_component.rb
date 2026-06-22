@@ -16,9 +16,20 @@ module Pito
         @handle.present?
       end
 
+      # Clicking the reply handle prefills the chatbox with `#<handle> ` (handle
+      # + trailing space, ready to type a verb) via pito--chat-prefill — no
+      # submit. The data-pito-handle hook is preserved for the lasthashtag
+      # controller.
       def call
         token = "##{@handle}"
-        tag.span(token, class: Pito::Shimmer::HashtagTokenComponent.css_class(token), data: { pito_handle: @handle })
+        tag.span(token,
+                 class: Pito::Shimmer::HashtagTokenComponent.css_class(token),
+                 data: {
+                   pito_handle: @handle,
+                   controller: "pito--chat-prefill",
+                   action: "click->pito--chat-prefill#fill",
+                   "pito--chat-prefill-text-value": "##{@handle} "
+                 })
       end
     end
   end

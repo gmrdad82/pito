@@ -25,6 +25,18 @@ RSpec.describe Pito::MessageBuilder::Shinies do
       Pito::Copy.reset_sampler!
     end
 
+    it "wraps the name subject in a pito-subject-shimmer span" do
+      payload = described_class.call(game, conversation:)
+      expect(payload["body"]).to match(%r{<span class="pito-subject-shimmer[^"]*">Lies of P</span>})
+    end
+
+    it "escapes HTML-special characters in the entity title (no XSS)" do
+      game.update!(title: "<b>x</b>")
+      payload = described_class.call(game, conversation:)
+      expect(payload["body"]).to include("&lt;b&gt;x&lt;/b&gt;")
+      expect(payload["body"]).not_to include("<b>x</b>")
+    end
+
     it "stamps game_id in the payload" do
       payload = described_class.call(game, conversation:)
       expect(payload["game_id"]).to eq(game.id)

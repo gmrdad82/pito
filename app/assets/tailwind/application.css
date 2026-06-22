@@ -220,6 +220,10 @@ html {
    green and red without washing out to white the way the lighter orange does.
    Reuses pito-kbd-shimmer-sweep + shared pito-shimmer-dN stagger offsets. */
 .pito-trend-number--up {
+  /* `color` sets currentColor for any inline icon child (e.g. 👍 in the likes
+     cell) so the glyph picks up the accent; the text itself is painted by the
+     clipped gradient below (transparent fill), so this colour never shows on it. */
+  color: var(--accent-green);
   background-image: linear-gradient(
     135deg,
     var(--accent-green) 0%,
@@ -232,10 +236,18 @@ html {
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
-  animation: pito-kbd-shimmer-sweep 3.4s linear infinite;
+  /* LONGHANDS, never the `animation` shorthand: the shorthand resets
+     animation-delay to 0 and would clobber the `.pito-shimmer-dN` stagger
+     applied to this same element. See the .pito-shimmer-dN block. */
+  animation-name: pito-kbd-shimmer-sweep;
+  animation-duration: 3.4s;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
 }
 
 .pito-trend-number--down {
+  /* currentColor for inline icon children (e.g. 👎); see .pito-trend-number--up. */
+  color: var(--accent-red);
   background-image: linear-gradient(
     135deg,
     var(--accent-red) 0%,
@@ -248,7 +260,11 @@ html {
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
-  animation: pito-kbd-shimmer-sweep 3.4s linear infinite;
+  /* LONGHANDS — see .pito-trend-number--up. */
+  animation-name: pito-kbd-shimmer-sweep;
+  animation-duration: 3.4s;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -333,6 +349,39 @@ html {
 
 @media (prefers-reduced-motion: reduce) {
   .pito-hashtag-shimmer { animation: none; }
+}
+
+/* ── Subject shimmer (Pito::Shimmer::SubjectComponent) ──────────
+   The SUBJECT of a message intro (the %{title} / %{game} / %{name} value) gets
+   a pito-blue→purple diagonal shimmer — the INVERSE of the hashtag shimmer
+   (which is purple→blue): pito-blue at the ends, a purple band sweeping through
+   the centre. Same (reversed) 135deg sweep + shared -dN offsets as the other
+   families, mirroring the brand `.pito-shimmer` (--brand-pito → --accent-purple).
+   Reuses the pito-kbd-shimmer-sweep keyframe. */
+.pito-subject-shimmer {
+  background-image: linear-gradient(
+    135deg,
+    var(--brand-pito) 0%,
+    var(--brand-pito) 38%,
+    var(--accent-purple) 50%,
+    var(--brand-pito) 62%,
+    var(--brand-pito) 100%
+  );
+  background-size: 200% 200%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  /* LONGHANDS, never the `animation` shorthand: the shorthand resets
+     animation-delay to 0 and would clobber the `.pito-shimmer-dN` stagger
+     applied to this same element. See the .pito-shimmer-dN block. */
+  animation-name: pito-kbd-shimmer-sweep;
+  animation-duration: 3.4s;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pito-subject-shimmer { animation: none; }
 }
 
 /* ── Shared staggered animation-delay buckets (Pito::Shimmer.offset_class) ──
@@ -1177,30 +1226,47 @@ html {
    is no glowing rectangle behind the bar.
 
    `--pito-bar-band` is the moving layer; the fill rules reference it as layer 1 with
-   a transparent fallback (so a non-shimmer / muted fill paints heat only). The
-   keyframe drives ONLY the band's background-position (layer 1); the heat layer's
-   position stays pinned at `0 0`, so the heat ramp never moves — only the band sweeps.
-   Same 135° diagonal + the shared `.pito-shimmer-dN` stagger (applied to the fill
-   element) at the same 3.4s the dN delays were tuned for. */
+   a transparent fallback (so a non-shimmer / muted fill paints heat only).
+
+   The sweep is driven by the registered `--pito-bar-sweep` percentage: the band's
+   gradient STOPS move (in place) as that property interpolates, while BOTH
+   background layers stay pinned at `background-position: 0 0`. Earlier this
+   animated `background-position` instead, which dropped the `background-clip:text`
+   glyph clip mid-sweep on the TTB bar — the `=` glyphs vanished (Z15). Holding the
+   position static and moving the stops via an @property keeps the clip stable, so
+   the glyphs stay fully visible at every frame. The band's peak is TRANSLUCENT, so
+   the heat ramp underneath always shows through — the highlight rides OVER the
+   glyphs rather than replacing them. Same 135° diagonal + the shared
+   `.pito-shimmer-dN` stagger (applied to the fill element) at 3.4s. */
+@property --pito-bar-sweep {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: -20%;
+}
+
 .pito-bar-shimmer {
   --pito-bar-band: linear-gradient(
     135deg,
-    transparent 0%,
-    transparent 38%,
-    var(--brand-pito) 50%,
-    transparent 62%,
-    transparent 100%
+    transparent calc(var(--pito-bar-sweep) - 14%),
+    color-mix(in oklch, var(--brand-pito) 72%, transparent) var(--pito-bar-sweep),
+    transparent calc(var(--pito-bar-sweep) + 14%)
   );
-  /* layer 1 (band) oversized so it can sweep; layer 2 (heat) fills the box. */
-  background-size: 200% 200%, 100% 100%;
+  /* Both layers fill the box and never move; only the band's stops sweep. */
+  background-size: 100% 100%;
   background-repeat: no-repeat;
-  animation: pito-bar-glyph-sweep 3.4s linear infinite;
-  /* animation-delay comes from the `.pito-shimmer-dN` class on this same element. */
+  background-position: 0 0;
+  /* LONGHANDS, never the `animation` shorthand: the shorthand resets
+     animation-delay to 0 and would clobber the `.pito-shimmer-dN` stagger on this
+     same element (Z32), making every bar pulse in sync. */
+  animation-name: pito-bar-glyph-sweep;
+  animation-duration: 3.4s;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
 }
 
 @keyframes pito-bar-glyph-sweep {
-  from { background-position: 200% 200%, 0 0; }
-  to   { background-position: 0% 0%, 0 0; }
+  from { --pito-bar-sweep: -20%; }
+  to   { --pito-bar-sweep: 120%; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1302,12 +1368,50 @@ html {
   width: 374px;
 }
 
-/* Detail cover at its full 480×640 (Game::DETAIL_COVER_VARIANT). */
+/* Bounded cover box: same 374×210 footprint as the show-video thumbnail (16:9
+   at 374px width). overflow:hidden clips the portrait cover to this window;
+   the image pans vertically to reveal the whole art over time. */
+.pito-game-detail__cover {
+  width: 374px;
+  height: 210px;  /* 374 × 9/16 ≈ 210px — matches .pito-video-detail__thumbnail */
+  overflow: hidden;
+}
+
+/* Cover image keeps its full portrait dimensions (374×499). The container's
+   overflow:hidden provides the visible window; translateY pans it. */
 .pito-game-detail__cover img {
   width: 374px;
   height: 499px;
   object-fit: cover;
   display: block;
+}
+
+/* Ken-Burns vertical pan: pans from top of cover to bottom and back in a
+   slow ping-pong loop, revealing the whole portrait art over time.
+   289px = 499px (cover) − 210px (bounding box). */
+@keyframes pito-cover-pan {
+  from { transform: translateY(0); }
+  to   { transform: translateY(-289px); }
+}
+
+/* Animation class applied to the cover <img> when art is attached. */
+.pito-cover-pan {
+  animation: pito-cover-pan 16s ease-in-out infinite alternate;
+}
+
+/* Static top-anchor fallback: prefers-reduced-motion matches. */
+@media (prefers-reduced-motion: reduce) {
+  .pito-cover-pan {
+    animation: none;
+    transform: translateY(0);
+  }
+}
+
+/* Static top-anchor fallback: /config fx is off (data-fx="false" on
+   #pito-settings — the same node fxEnabled() reads in JS controllers). */
+html:has(#pito-settings[data-fx="false"]) .pito-cover-pan {
+  animation: none;
+  transform: translateY(0);
 }
 
 /* Detail-card hairline spacing: a plain 10px top/bottom gap. */
@@ -1695,10 +1799,13 @@ html {
   inset: 0;
   border-radius: inherit;
   padding: 1px;
+  /* Travelling highlight is a PER-TIER contrasting accent (--pito-badge-shimmer,
+     set per data-accent below), not white — white reads poorly on light tiers.
+     Falls back to fg-default if a tier ever lacks the variable. */
   background: conic-gradient(
     from var(--pito-badge-angle),
     transparent,
-    var(--fg-default),
+    var(--pito-badge-shimmer, var(--fg-default)),
     transparent
   );
   -webkit-mask:
@@ -1718,14 +1825,19 @@ html {
   .pito-achievement-badge::before { animation: none; }
 }
 
-.pito-achievement-badge[data-accent="muted"]  { color: var(--fg-dim); }
-.pito-achievement-badge[data-accent="green"]  { color: var(--accent-green); }
-.pito-achievement-badge[data-accent="cyan"]   { color: var(--accent-cyan); }
-.pito-achievement-badge[data-accent="blue"]   { color: var(--accent-blue); }
-.pito-achievement-badge[data-accent="purple"] { color: var(--accent-purple); }
-.pito-achievement-badge[data-accent="orange"] { color: var(--accent-orange); }
-.pito-achievement-badge[data-accent="yellow"] { color: var(--accent-yellow); }
-.pito-achievement-badge[data-accent="pito"]   { color: var(--brand-pito); }
+/* Tier border/text colour + the per-tier CONTRASTING perimeter-shimmer accent
+   (--pito-badge-shimmer). The highlight is keyed to contrast the border colour so
+   the travelling ring stays legible on every tier (and every theme — all stops are
+   theme tokens): muted→cyan, green→yellow, cyan→orange, blue→orange,
+   purple→yellow, orange→cyan, yellow→blue, pito→orange. */
+.pito-achievement-badge[data-accent="muted"]  { color: var(--fg-dim);      --pito-badge-shimmer: var(--accent-cyan); }
+.pito-achievement-badge[data-accent="green"]  { color: var(--accent-green);  --pito-badge-shimmer: var(--accent-yellow); }
+.pito-achievement-badge[data-accent="cyan"]   { color: var(--accent-cyan);   --pito-badge-shimmer: var(--accent-orange); }
+.pito-achievement-badge[data-accent="blue"]   { color: var(--accent-blue);   --pito-badge-shimmer: var(--accent-orange); }
+.pito-achievement-badge[data-accent="purple"] { color: var(--accent-purple); --pito-badge-shimmer: var(--accent-yellow); }
+.pito-achievement-badge[data-accent="orange"] { color: var(--accent-orange); --pito-badge-shimmer: var(--accent-cyan); }
+.pito-achievement-badge[data-accent="yellow"] { color: var(--accent-yellow); --pito-badge-shimmer: var(--accent-blue); }
+.pito-achievement-badge[data-accent="pito"]   { color: var(--brand-pito);    --pito-badge-shimmer: var(--accent-orange); }
 
 .pito-achievement-badge__date { color: var(--fg-dim); }
 
@@ -1791,14 +1903,20 @@ html {
 /* Reached-run colour: dots AND connectors up to the standing ◉ all carry the
    NEXT-tier token as data-accent (set in TrackComponent), so currentColor — the
    base of the shimmer gradient below — resolves to the next tier's colour. */
-.pito-achievement-track [data-accent="muted"]  { color: var(--fg-dim); }
-.pito-achievement-track [data-accent="green"]  { color: var(--accent-green); }
-.pito-achievement-track [data-accent="cyan"]   { color: var(--accent-cyan); }
-.pito-achievement-track [data-accent="blue"]   { color: var(--accent-blue); }
-.pito-achievement-track [data-accent="purple"] { color: var(--accent-purple); }
-.pito-achievement-track [data-accent="orange"] { color: var(--accent-orange); }
-.pito-achievement-track [data-accent="yellow"] { color: var(--accent-yellow); }
-.pito-achievement-track [data-accent="pito"]   { color: var(--brand-pito); }
+/* Each reached element also carries the per-tier CONTRASTING shimmer accent
+   (--pito-track-shimmer) used as the travelling highlight band of the reached-run
+   sweep below — the SAME tier→contrast map as the badge (muted→cyan, green→yellow,
+   cyan→orange, blue→orange, purple→yellow, orange→cyan, yellow→blue, pito→orange)
+   so the sweep contrasts the run's own (next-tier) colour instead of washing it
+   out white. All stops are theme tokens, so it stays theme-aware. */
+.pito-achievement-track [data-accent="muted"]  { color: var(--fg-dim);      --pito-track-shimmer: var(--accent-cyan); }
+.pito-achievement-track [data-accent="green"]  { color: var(--accent-green);  --pito-track-shimmer: var(--accent-yellow); }
+.pito-achievement-track [data-accent="cyan"]   { color: var(--accent-cyan);   --pito-track-shimmer: var(--accent-orange); }
+.pito-achievement-track [data-accent="blue"]   { color: var(--accent-blue);   --pito-track-shimmer: var(--accent-orange); }
+.pito-achievement-track [data-accent="purple"] { color: var(--accent-purple); --pito-track-shimmer: var(--accent-yellow); }
+.pito-achievement-track [data-accent="orange"] { color: var(--accent-orange); --pito-track-shimmer: var(--accent-cyan); }
+.pito-achievement-track [data-accent="yellow"] { color: var(--accent-yellow); --pito-track-shimmer: var(--accent-blue); }
+.pito-achievement-track [data-accent="pito"]   { color: var(--brand-pito);    --pito-track-shimmer: var(--accent-orange); }
 
 .pito-achievement-track__dot--upcoming { color: var(--fg-faded); }
 .pito-achievement-track__value         { color: var(--fg-dim); }
@@ -1818,7 +1936,7 @@ html {
     135deg,
     currentColor 0%,
     currentColor 38%,
-    var(--fg-default) 50%,
+    var(--pito-track-shimmer, var(--fg-default)) 50%,
     currentColor 62%,
     currentColor 100%
   );
@@ -1826,12 +1944,33 @@ html {
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
-  animation: pito-kbd-shimmer-sweep 3.4s linear infinite;
+  /* LONGHANDS, never the `animation` shorthand: this rule is defined AFTER the
+     `.pito-shimmer-dN` block, so an `animation` shorthand here would reset
+     animation-delay to 0 and clobber the per-element stagger (Z35), syncing the
+     whole reached run. The dN class is applied to each reached element by
+     TrackComponent. */
+  animation-name: pito-kbd-shimmer-sweep;
+  animation-duration: 3.4s;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .pito-achievement-track__dot--reached,
   .pito-achievement-track__connector--reached { animation: none; }
+}
+
+/* ── Icons (Lucide, vendored in public/icons/) ─────────────────
+ *
+ * .pito-icon is applied by Pito::IconComponent to every inline SVG.
+ * width/height are set to 1em by the component (never larger than the
+ * 14px base font). display:inline-block + vertical-align:middle keeps
+ * the icon optically centred beside monospace text without descender gap.
+ */
+
+.pito-icon {
+  display: inline-block;
+  vertical-align: middle;
 }
 
 /* ── Responsive: mobile (< 768px) detail card layout ──────────
@@ -1860,6 +1999,82 @@ html {
   }
 }
 
+/* ── Mobile swipe-to-delete (conversation rows) ───────────────
+ *
+ * Z22: a MOBILE-ONLY gesture (desktop keeps the `dd` keyboard delete).
+ * Swipe a conversation row LEFT to slide its content layer aside and
+ * reveal a red Delete button anchored at the row's right edge; TAP the
+ * button to delete. The swipe only REVEALS — deletion always requires
+ * the explicit tap (no accidental full-swipe delete). Driven by
+ * pito--resume (touch handlers translate .__content; it toggles
+ * .pito-row-swiping during the drag and .pito-row-swipe-open on release).
+ *
+ * Guarded by `(max-width: 767px) and (pointer: coarse)` so the button and
+ * slide never appear on desktop. Reveal width is shared with the JS
+ * constant REVEAL (96px) — keep them in sync.
+ *
+ * The snap animation is tied to the sidebar's `/config fx` + reduced-motion
+ * gate: pito--sidebar-fx puts .pito-sidebar--no-anim on the #pito-sidebar
+ * mount (an ancestor), which kills the transition so the row snaps instantly.
+ */
+
+/* Desktop default: no Delete button, no slide. */
+.pito-conversation-row__delete {
+  display: none;
+}
+
+@media (max-width: 767px) and (pointer: coarse) {
+  /* Reveal width — shared by the content slide AND the button width. Declared
+     on the row so both descendants (content + button) inherit it. */
+  .pito-conversation-row {
+    --pito-swipe-reveal: 96px;
+  }
+
+  .pito-conversation-row__content {
+    position: relative;
+    z-index: 1;
+    /* Opaque so it fully hides the Delete button until swiped open. */
+    background: var(--bg-root);
+    /* Comfortable touch height for the row tap target + Delete button. */
+    min-height: 44px;
+    transform: translateX(0);
+    transition: transform 0.2s ease;
+    will-change: transform;
+  }
+
+  /* 1:1 finger tracking while dragging — no transition lag. */
+  .pito-conversation-row.pito-row-swiping .pito-conversation-row__content {
+    transition: none;
+  }
+
+  /* Snapped-open resting position (set on touchend past the threshold). */
+  .pito-conversation-row.pito-row-swipe-open .pito-conversation-row__content {
+    transform: translateX(calc(-1 * var(--pito-swipe-reveal, 96px)));
+  }
+
+  /* fx off / prefers-reduced-motion: snap instead of animate. The class
+     lives on the #pito-sidebar ancestor (pito--sidebar-fx). */
+  .pito-sidebar--no-anim .pito-conversation-row__content {
+    transition: none;
+  }
+
+  .pito-conversation-row__delete {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 0;
+    width: var(--pito-swipe-reveal, 96px);
+    padding-inline: 16px;
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+  }
+}
+
 /* ── Theme system ──────────────────────────────────────────────
  *
  * Theme tokens are generated by `rake pito:themes:export` and
@@ -1870,3 +2085,7 @@ html {
 /* Clickable keyboard-shortcut hints (pito--kbd-click) get a pointer cursor so
    the tap affordance is visible. Behaviour-only; no colour/underline change. */
 [data-controller~="pito--kbd-click"] { cursor: pointer; }
+
+/* Click-to-prefill identifier tokens (pito--chat-prefill) get a pointer cursor
+   too — clicking prefills the chatbox. Behaviour-only; no colour/underline. */
+[data-controller~="pito--chat-prefill"] { cursor: pointer; }

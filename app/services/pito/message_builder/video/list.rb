@@ -24,7 +24,12 @@ module Pito
         def call(videos, conversation:, columns: [])
           cols    = Array(columns).map(&:to_sym)
           payload = {
-            "body"          => Pito::Copy.render("pito.copy.videos.list_intro", { count: videos.size }),
+            "body"          => Pito::Copy.render_html(
+              "pito.copy.videos.list_intro",
+              { count: videos.size, noun: "vids" },
+              shimmer: [ :count, :noun ]
+            ),
+            "html"          => true,
             "table_heading" => [ { "text" => "#", "class" => "text-right" }, "Title", *ListColumns.heading_cells(cols) ],
             "shimmer_heading" => true,
             "table_rows"    => videos.map { |video| row_for(video, cols) },

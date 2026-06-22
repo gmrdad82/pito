@@ -31,6 +31,17 @@ module Pito
       end
 
       # @param metric [String, Symbol]
+      # @return [String] full title-case word displayed on the badge face
+      #   (distinct from the plural label — watched_hours uses "Watched", not "Clocks").
+      # @raise [KeyError] when metric is not in the known set
+      def badge(metric)
+        key = metric.to_s
+        raise KeyError, "unknown achievement metric: #{key.inspect}" unless METRICS.include?(key)
+
+        Pito::Copy.render("pito.copy.shinies.labels.#{key}.badge")
+      end
+
+      # @param metric [String, Symbol]
       # @return [String] single-letter abbreviation used on the badge face
       # @raise [KeyError] when metric is not in the known set
       def abbr(metric)

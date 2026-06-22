@@ -365,6 +365,30 @@ RSpec.describe Pito::MessageBuilder::Game::ListColumns do
         expect(result.first[:class]).to include("pito-cell-channel")
         expect(result.first[:class]).not_to include("text-cyan")
       end
+
+      it "seeds the shimmer offset with the game id so the same @handle in two rows is not synchronised" do
+        link(channel1)
+        game_with_channels.reload
+        game_b = create(:game)
+        link2  = create(:video, channel: channel1)
+        create(:video_game_link, game: game_b, video: link2)
+        game_b.reload
+
+        result_a = described_class.cells(game_with_channels, [ :channels ])
+        result_b = described_class.cells(game_b,             [ :channels ])
+
+        text_a = result_a.first[:text]
+        text_b = result_b.first[:text]
+
+        # Verify both rows show the same handle so the test is meaningful.
+        expect(text_a).to eq(text_b)
+
+        # The class should encode the game-id seed, not a raw text hash.
+        expected_a = Pito::Shimmer.offset_class(text_a, seed: game_with_channels.id)
+        expected_b = Pito::Shimmer.offset_class(text_b, seed: game_b.id)
+        expect(result_a.first[:class]).to include(expected_a)
+        expect(result_b.first[:class]).to include(expected_b)
+      end
     end
 
     context "footage column" do

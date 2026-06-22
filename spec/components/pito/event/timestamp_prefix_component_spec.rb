@@ -3,12 +3,13 @@
 require "rails_helper"
 
 RSpec.describe Pito::Event::TimestampPrefixComponent do
-  it "renders the time in 24-hour HH:MM (dim) followed by a · separator" do
+  it "renders the time in 24-hour HH:MM (dim) with a trailing space and NO · separator" do
     ts = Time.zone.parse("2026-06-01 19:58:00")
     node = render_inline(described_class.new(timestamp: ts))
     expect(node.css("span.pito-timestamp-prefix")).not_to be_empty
     expect(node.text).to include("19:58")
-    expect(node.to_html).to include("·")
+    expect(node.to_html).not_to include("·")
+    expect(node.css("span.pito-timestamp-prefix").text).to end_with(" ")
   end
 
   it "zero-pads single-digit hours and drops AM/PM (09:05)" do

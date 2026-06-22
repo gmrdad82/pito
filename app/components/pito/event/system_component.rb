@@ -120,7 +120,7 @@ module Pito
       def table_heading_cells
         return [] if table_heading.blank?
 
-        base = "text-fg-faded font-bold whitespace-nowrap"
+        base = "text-fg-faded whitespace-nowrap"
         Array(table_heading).map do |entry|
           if entry.is_a?(Hash)
             h    = entry.respond_to?(:with_indifferent_access) ? entry.with_indifferent_access : entry
@@ -134,14 +134,19 @@ module Pito
         end
       end
 
-      # Composes a heading-cell class. When shimmer_heading is set (list
-      # videos/games — every column is sortable/interactive), the cyan
-      # identifier shimmer is appended via Pito::Shimmer::TokenComponent.css_class
-      # so the headers shimmer with the same shared staggered offset as #ids /
-      # @handles — single source of truth, no inlined offset math.
+      # Composes a heading-cell class. When the list is live (shimmer_heading set
+      # AND the message is not yet reply_consumed), the cyan identifier shimmer is
+      # appended via Pito::Shimmer::TokenComponent.css_class together with
+      # font-bold so the headers read as interactive affordances.
+      #
+      # Once a list message is reply_consumed (historical scrollback entry), the
+      # headers revert to plain muted text — no shimmer, no bold.
       def heading_class(base, extra, text)
         parts = [ base, extra ]
-        parts << Pito::Shimmer::TokenComponent.css_class(text) if shimmer_heading
+        if shimmer_heading && !reply_consumed
+          parts << "font-bold"
+          parts << Pito::Shimmer::TokenComponent.css_class(text)
+        end
         parts.compact.join(" ")
       end
 

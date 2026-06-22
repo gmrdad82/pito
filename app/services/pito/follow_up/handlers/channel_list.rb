@@ -17,7 +17,7 @@ module Pito
         self.mode   :append
         self.actions "visit", "shinies"
 
-        def call(event:, rest:, conversation:)
+        def call(event:, rest:, conversation:, period: nil, viewport_width: nil, channel: nil)
           action, ref = parse_rest(rest)
           ref = ref.to_s.strip
 
@@ -25,7 +25,7 @@ module Pito
           when "visit"
             handle_visit(ref, conversation)
           when "shinies"
-            Pito::FollowUp::VerbDelegator.call(source_event: event, rest:, conversation:)
+            Pito::FollowUp::VerbDelegator.call(source_event: event, rest:, conversation:, period:, viewport_width:, channel:)
           else
             Pito::FollowUp::Result::Error.new(
               message_key:  "pito.follow_up.channel_list.errors.invalid_action",

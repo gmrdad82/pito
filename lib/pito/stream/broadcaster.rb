@@ -34,7 +34,12 @@ module Pito
     # broadcast_auth_update   — replace mini-status, chatbox, and auth-gate after login.
     # broadcast_settings_update — replace #pito-settings with current AppSetting flags.
     # emit_thinking       — create + broadcast a thinking indicator for a turn.
-    # resolve_thinking    — mark thinking resolved, compute elapsed time, broadcast replace.
+    # resolve_thinking    — resolve a SPECIFIC indicator (thinking_event:) or ALL
+    #                       unresolved indicators in a turn (turn:); broadcast replace(s).
+    # resolve_thinking_for — resolve the one indicator linked to a message id
+    #                       (payload["for_event_id"]); exact per-message resolve.
+    # all_thinking_resolved? — true when no unresolved indicator remains in a turn
+    #                       (the complete-turn gate for multi-indicator turns).
     # complete_turn       — mark turn complete + append done-dispatch signal.
     #
     # Class methods (global stream)
@@ -204,15 +209,62 @@ module Pito
         emit(turn:, kind: :thinking, payload:)
       end
 
-      # Resolve a thinking indicator: update its payload with the resolved state
-      # and elapsed time (computed from the thinking's own started_at), then
-      # broadcast a Turbo Stream replace.
-      def resolve_thinking(turn:)
-        event = turn.events.where(kind: :thinking).last
-        return unless event
+      # Resolve thinking indicator(s). Two modes:
+      #
+      #   resolve_thinking(thinking_event:)  — resolve ONE specific indicator
+      #     (exact, used by the per-message resolve so multiple indicators in the
+      #     same turn never resolve the wrong one).
+      #   resolve_thinking(turn:)            — resolve EVERY still-unresolved
+      #     indicator in the turn (turn-level convenience for the sync/error paths
+      #     and single-indicator async jobs).
+      #
+      # Each resolve computes elapsed time from the indicator's OWN started_at and
+      # broadcasts a Turbo Stream replace targeting that indicator's segment.
+      def resolve_thinking(turn: nil, thinking_event: nil)
+        if thinking_event
+          resolve_one(thinking_event)
+        elsif turn
+          turn.events.where(kind: :thinking).order(:position).each do |event|
+            resolve_one(event) unless thinking_resolved?(event)
+          end
+          nil
+        end
+      end
 
+      # Resolve the single indicator linked to `message_id` via its payload
+      # `for_event_id` (set by the Finalizer when it persists the message). No-op
+      # when none is found or it's already resolved. The exact per-message path.
+      def resolve_thinking_for(turn:, message_id:)
+        event = turn.events.where(kind: :thinking).find do |e|
+          e.payload["for_event_id"].to_s == message_id.to_s
+        end
+        return unless event
+        return event if thinking_resolved?(event)
+
+        resolve_one(event)
+      end
+
+      # True when no still-spinning indicator remains in the turn. The gate for
+      # completing a turn that carries multiple per-message indicators: complete
+      # only once EVERY indicator (ready + analytics-pending) is resolved.
+      def all_thinking_resolved?(turn:)
+        turn.events
+          .where(kind: :thinking)
+          .where("(payload->>'resolved') IS DISTINCT FROM 'true'")
+          .none?
+      end
+
+      private
+
+      def thinking_resolved?(event)
+        event.payload["resolved"] == true || event.payload["resolved"] == "true"
+      end
+
+      # Stamp a single thinking indicator resolved (elapsed from its OWN
+      # started_at) and broadcast a Turbo Stream replace for its segment.
+      def resolve_one(event)
         started = event.payload["started_at"]
-        elapsed = started ? (Time.current - Time.parse(started)).round : nil
+        elapsed = started ? (Time.current - Time.parse(started)) : nil
 
         order      = event.payload["order"].presence || [ event.payload["word_index"].to_i ]
         word_index = Pito::Event::ThinkingComponent.word_index_at(order:, elapsed_seconds: elapsed || 0)
@@ -231,6 +283,8 @@ module Pito
         )
         event
       end
+
+      public
 
       # ── Class-level global broadcasts ────────────────────────────────────────
 

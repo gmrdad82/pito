@@ -18,13 +18,20 @@ RSpec.describe Pito::MessageBuilder::Video::LinkedGame do
       expect(payload["html"]).to be(true)
     end
 
-    it "prepends the witty intro line (game title interpolated) before the card" do
-      intro = Pito::Copy.render("pito.copy.videos.linked_game_intro", { game: "Lies of P" })
-
-      expect(payload["body"]).to include(ERB::Util.html_escape(intro))
+    it "prepends the witty intro line (game title in the subject shimmer) before the card" do
+      # The game subject is wrapped in the pito-blue→purple subject-shimmer span.
+      expect(payload["body"]).to include(%(<span class="pito-subject-shimmer))
+      expect(payload["body"]).to match(%r{<span class="pito-subject-shimmer[^"]*">Lies of P</span>})
       # The intro paragraph comes first, the card markup follows it.
       expect(payload["body"].index("pito-video-linked-game-intro"))
         .to be < payload["body"].index("pito-video-linked-game-card")
+    end
+
+    it "escapes HTML-special characters in the game title (no XSS)" do
+      game.update!(title: "<b>x</b>")
+      # The subject value is escaped inside the shimmer span; no raw markup leaks.
+      expect(payload["body"]).to include("&lt;b&gt;x&lt;/b&gt;")
+      expect(payload["body"]).not_to include("<b>x</b>")
     end
 
     it "stamps the linked game's id" do

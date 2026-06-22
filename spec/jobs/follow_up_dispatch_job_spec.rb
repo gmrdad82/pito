@@ -7,7 +7,7 @@ class FakeMutateHandler < Pito::FollowUp::Handler
   target "fake_mutate"
   mode   :mutate
 
-  def call(event:, rest:, conversation:)
+  def call(event:, rest:, conversation:, **)
     Pito::FollowUp::Result::Mutation.new(
       kind:    :enhanced,
       payload: event.payload.merge("done" => true, "rest" => rest)
@@ -20,7 +20,7 @@ class FakeAppendHandler < Pito::FollowUp::Handler
   target "fake_append"
   mode   :append
 
-  def call(event:, rest:, conversation:)
+  def call(event:, rest:, conversation:, **)
     Pito::FollowUp::Result::Append.new(
       events: [
         { kind: :system, payload: { text: "appended by #{rest}" } }
@@ -34,7 +34,7 @@ class FakeAppendNoConsumeHandler < Pito::FollowUp::Handler
   target "fake_append_no_consume"
   mode   :append
 
-  def call(event:, rest:, conversation:)
+  def call(event:, rest:, conversation:, **)
     Pito::FollowUp::Result::Append.new(
       events:  [ { kind: :system, payload: { text: "no-consume" } } ],
       consume: false
@@ -60,7 +60,7 @@ class FakeAppendAnalyticsHandler < Pito::FollowUp::Handler
     }
   }.freeze
 
-  def call(event:, rest:, conversation:)
+  def call(event:, rest:, conversation:, **)
     Pito::FollowUp::Result::Append.new(
       events: [
         { kind: :system,   payload: { "text" => "show result" } },
@@ -75,7 +75,7 @@ class FakeErrorHandler < Pito::FollowUp::Handler
   target "fake_error"
   mode   :mutate
 
-  def call(event:, rest:, conversation:)
+  def call(event:, rest:, conversation:, **)
     Pito::FollowUp::Result::Error.new(
       message_key:  "pito.errors.something",
       message_args: {}
@@ -88,7 +88,7 @@ class FakeRaisingHandler < Pito::FollowUp::Handler
   target "fake_raising"
   mode   :mutate
 
-  def call(event:, rest:, conversation:)
+  def call(event:, rest:, conversation:, **)
     raise RuntimeError, "handler exploded"
   end
 end
@@ -97,7 +97,7 @@ class FakeRaisingAppendHandler < Pito::FollowUp::Handler
   target "fake_raising_append"
   mode   :append
 
-  def call(event:, rest:, conversation:)
+  def call(event:, rest:, conversation:, **)
     raise RuntimeError, "append handler exploded"
   end
 end
@@ -106,6 +106,16 @@ RSpec.describe FollowUpDispatchJob, type: :job do
   let(:conversation) { Conversation.create! }
   let(:source_turn) do
     conversation.turns.create!(input_kind: :slash, input_text: "/test", position: 1)
+  end
+
+  # The pre-dispatch thinking placeholder the controller emits into the echo turn
+  # before enqueueing the append job. The Finalizer REUSES it for the first
+  # result message (so no extra Event is created and the spinner is continuous).
+  def placeholder_thinking!(turn)
+    Event.create_with_position!(
+      conversation:, turn:, kind: :thinking,
+      payload: { "dictionary" => "chat", "order" => [ 0 ], "started_at" => 2.seconds.ago.iso8601 }
+    )
   end
 
   describe "Mutation result" do
@@ -157,8 +167,9 @@ RSpec.describe FollowUpDispatchJob, type: :job do
   end
 
   describe "Append result" do
-    let(:echo_turn) do
+    let!(:echo_turn) do
       conversation.turns.create!(input_kind: :hashtag, input_text: "#alpha-2222 run", position: 2)
+        .tap { |t| placeholder_thinking!(t) }
     end
     let!(:source_event) do
       Event.create_with_position!(
@@ -208,6 +219,7 @@ RSpec.describe FollowUpDispatchJob, type: :job do
         extra_turn = conversation.turns.create!(
           input_kind: :hashtag, input_text: "#alpha-3333 go", position: 3
         )
+        placeholder_thinking!(extra_turn)
         expect {
           described_class.perform_now(no_consume_event.id, rest: "go", turn_id: extra_turn.id)
         }.to change(Event, :count).by(1)
@@ -231,12 +243,12 @@ RSpec.describe FollowUpDispatchJob, type: :job do
         )
       end
 
-      let(:analytics_turn) do
+      let!(:analytics_turn) do
         conversation.turns.create!(
           input_kind: :hashtag,
           input_text: "#analytics-4444 show 21",
           position:   4
-        )
+        ).tap { |t| placeholder_thinking!(t) }
       end
 
       it "enqueues AnalyticsFillJob with the turn id" do
@@ -248,17 +260,21 @@ RSpec.describe FollowUpDispatchJob, type: :job do
       it "does NOT call complete_turn itself when enqueueing the fill job" do
         broadcaster = instance_double(
           Pito::Stream::Broadcaster,
-          replace_event: nil, broadcast_event: nil, broadcast_done: nil, resolve_thinking: nil, complete_turn: nil
+          replace_event: nil, broadcast_event: nil, broadcast_done: nil, resolve_thinking: nil,
+          resolve_thinking_for: nil, emit_thinking: nil, complete_turn: nil
         )
         allow(Pito::Stream::Broadcaster).to receive(:new).and_return(broadcaster)
         described_class.perform_now(analytics_source_event.id, rest: "show 21", turn_id: analytics_turn.id)
         expect(broadcaster).not_to have_received(:complete_turn)
       end
 
-      it "does NOT call resolve_thinking itself when enqueueing the fill job (deferred to AnalyticsFillJob)" do
+      it "does NOT bulk-resolve the turn's indicators when enqueueing the fill job (deferred to AnalyticsFillJob)" do
+        # The READY messages' indicators are resolved per-message (resolve_thinking_for);
+        # the pending analytics card's indicator is left spinning for the fill job.
         broadcaster = instance_double(
           Pito::Stream::Broadcaster,
-          replace_event: nil, broadcast_event: nil, broadcast_done: nil, resolve_thinking: nil, complete_turn: nil
+          replace_event: nil, broadcast_event: nil, broadcast_done: nil, resolve_thinking: nil,
+          resolve_thinking_for: nil, emit_thinking: nil, complete_turn: nil
         )
         allow(Pito::Stream::Broadcaster).to receive(:new).and_return(broadcaster)
         described_class.perform_now(analytics_source_event.id, rest: "show 21", turn_id: analytics_turn.id)
@@ -289,8 +305,9 @@ RSpec.describe FollowUpDispatchJob, type: :job do
   end
 
   describe "Error result" do
-    let(:echo_turn) do
+    let!(:echo_turn) do
       conversation.turns.create!(input_kind: :hashtag, input_text: "#err-5555 bad", position: 3)
+        .tap { |t| placeholder_thinking!(t) }
     end
     let!(:source_event) do
       Event.create_with_position!(
@@ -336,8 +353,9 @@ RSpec.describe FollowUpDispatchJob, type: :job do
 
   describe "D4 — rescue block surfaces error to scrollback" do
     context "append path (turn_id present) — handler raises" do
-      let(:echo_turn) do
+      let!(:echo_turn) do
         conversation.turns.create!(input_kind: :hashtag, input_text: "#raising-append-1 go", position: 5)
+          .tap { |t| placeholder_thinking!(t) }
       end
       let!(:source_event) do
         Event.create_with_position!(

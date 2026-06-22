@@ -7,12 +7,29 @@ RSpec.describe Pito::Stats::CountersComponent, type: :component do
     render_inline(described_class.new(metrics: metrics, align: align))
   end
 
-  it "renders '<compact value> <ABBR>' per metric (S/D/V)" do
+  it "renders '<compact value> <Word>' for word metrics (subs/vids/views)" do
     node = render_for([ { key: :subs, value: 2345 }, { key: :vids, value: 3 }, { key: :views, value: 454 } ])
     text = node.text.gsub(/\s+/, " ").strip
-    expect(text).to include("2.3K S")
-    expect(text).to include("3 D")
-    expect(text).to include("454 V")
+    expect(text).to include("2.3K Subs")
+    expect(text).to include("3 Vids")
+    expect(text).to include("454 Views")
+  end
+
+  it "renders '<count> + icon' for likes (thumbs-up) and comms (message-square)" do
+    node = render_for([ { key: :likes, value: 4 }, { key: :comms, value: 0 } ])
+    likes_cell = node.css(".pito-stats-counters__cell").first
+    comms_cell = node.css(".pito-stats-counters__cell").last
+
+    # Count text present, no word label for icon metrics.
+    expect(likes_cell.text).to include("4")
+    expect(likes_cell.text).not_to include("Likes")
+    expect(comms_cell.text).to include("0")
+    expect(comms_cell.text).not_to include("Comms")
+
+    # Inline icons rendered with their accessible labels.
+    expect(likes_cell.at_css("svg")).to be_present
+    expect(likes_cell.at_css("svg")["aria-label"]).to eq("Likes")
+    expect(comms_cell.at_css("svg")["aria-label"]).to eq("Comms")
   end
 
   it "separates cells with the inline middot" do

@@ -155,6 +155,17 @@ RSpec.describe Pito::Game::EnhancedComponent do
       expect(shimmer_ids).to include("##{sg1.id}", "##{sg2.id}")
     end
 
+    it "wires each similar-game #id to prefill the chatbox with `show game #id` (no submit)" do
+      node = render_component
+      spans = node.css(".pito-game-enhanced-message__similar-game-id.pito-token-shimmer")
+      expect(spans).not_to be_empty
+      spans.each do |span|
+        expect(span["data-controller"]).to eq("pito--chat-prefill")
+        expect(span["data-action"]).to eq("click->pito--chat-prefill#fill")
+        expect(span["data-pito--chat-prefill-text-value"]).to eq("show game #{span.text.strip}")
+      end
+    end
+
     it "renders a data-game-id attribute on each card" do
       node = render_component
       data_ids = node.css(".pito-game-enhanced-message__similar-game-card").map { |el| el["data-game-id"] }

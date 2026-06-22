@@ -221,55 +221,55 @@ RSpec.describe Pito::Channel::ItemComponent do
       expect(node.at_css(".pito-channel-item__stats").text).to include("·")
     end
 
-    it "renders S (subs) and V (views) counters" do
+    it "renders Subs and Views word counters" do
       channel = channel_with_stats(subscriber_count: 5, view_count: 100)
       node = render_inline(described_class.new(channel: channel, show_stats: true))
       counters = node.at_css(".pito-stats-counters")
       expect(counters).to be_present
-      expect(counters.text).to include("S")
-      expect(counters.text).to include("V")
+      expect(counters.text).to include("Subs")
+      expect(counters.text).to include("Views")
     end
 
-    it "shows '1 S' when subscriber_count is 1" do
+    it "shows '1 Subs' when subscriber_count is 1" do
       channel = channel_with_stats(subscriber_count: 1, view_count: 0)
       node = render_inline(described_class.new(channel: channel, show_stats: true))
-      expect(node.css(".pito-stats-counters__cell").first.text.strip).to include("1").and include("S")
+      expect(node.css(".pito-stats-counters__cell").first.text.strip).to include("1").and include("Subs")
     end
 
-    it "shows '2 S' when subscriber_count is 2" do
+    it "shows '2 Subs' when subscriber_count is 2" do
       channel = channel_with_stats(subscriber_count: 2, view_count: 0)
       node = render_inline(described_class.new(channel: channel, show_stats: true))
-      expect(node.css(".pito-stats-counters__cell").first.text.strip).to include("2").and include("S")
+      expect(node.css(".pito-stats-counters__cell").first.text.strip).to include("2").and include("Subs")
     end
 
-    it "shows '10 S' when subscriber_count is 10" do
+    it "shows '10 Subs' when subscriber_count is 10" do
       channel = channel_with_stats(subscriber_count: 10, view_count: 0)
       node = render_inline(described_class.new(channel: channel, show_stats: true))
-      expect(node.css(".pito-stats-counters__cell").first.text.strip).to include("10").and include("S")
+      expect(node.css(".pito-stats-counters__cell").first.text.strip).to include("10").and include("Subs")
     end
 
-    it "shows '1 V' when view_count is 1" do
+    it "shows '1 Views' when view_count is 1" do
       channel = channel_with_stats(subscriber_count: 0, view_count: 1)
       node = render_inline(described_class.new(channel: channel, show_stats: true))
-      expect(node.css(".pito-stats-counters__cell").last.text.strip).to include("1").and include("V")
+      expect(node.css(".pito-stats-counters__cell").last.text.strip).to include("1").and include("Views")
     end
 
-    it "shows 'N V' when view_count is N != 1" do
+    it "shows 'N Views' when view_count is N != 1" do
       channel = channel_with_stats(subscriber_count: 0, view_count: 42)
       node = render_inline(described_class.new(channel: channel, show_stats: true))
-      expect(node.css(".pito-stats-counters__cell").last.text.strip).to include("42").and include("V")
+      expect(node.css(".pito-stats-counters__cell").last.text.strip).to include("42").and include("Views")
     end
 
-    it "shows '0 S' when subscriber_count is nil" do
+    it "shows '0 Subs' when subscriber_count is nil" do
       channel = channel_with_stats(subscriber_count: nil, view_count: 5)
       node = render_inline(described_class.new(channel: channel, show_stats: true))
-      expect(node.css(".pito-stats-counters__cell").first.text.strip).to include("0").and include("S")
+      expect(node.css(".pito-stats-counters__cell").first.text.strip).to include("0").and include("Subs")
     end
 
-    it "shows '0 V' when view_count is nil" do
+    it "shows '0 Views' when view_count is nil" do
       channel = channel_with_stats(subscriber_count: 5, view_count: nil)
       node = render_inline(described_class.new(channel: channel, show_stats: true))
-      expect(node.css(".pito-stats-counters__cell").last.text.strip).to include("0").and include("V")
+      expect(node.css(".pito-stats-counters__cell").last.text.strip).to include("0").and include("Views")
     end
   end
 
@@ -305,39 +305,39 @@ RSpec.describe Pito::Channel::ItemComponent do
       render_inline(described_class.new(channel: channel, show_stats: true, show_video_count: true))
     end
 
-    it "renders a vids (D) counter cell" do
+    it "renders a Vids counter cell" do
       node = render_with_video_count(channel_with_videos(3))
       cells = node.css(".pito-stats-counters__cell")
-      expect(cells.any? { |c| c.text.include?("D") }).to be true
+      expect(cells.any? { |c| c.text.include?("Vids") }).to be true
     end
 
-    it "shows '1 D' when the channel has 1 video" do
+    it "shows '1 Vids' when the channel has 1 video" do
       node = render_with_video_count(channel_with_videos(1))
       cells = node.css(".pito-stats-counters__cell")
-      vids_cell = cells.find { |c| c.text.include?("D") }
-      expect(vids_cell.text.strip).to include("1").and include("D")
+      vids_cell = cells.find { |c| c.text.include?("Vids") }
+      expect(vids_cell.text.strip).to include("1").and include("Vids")
     end
 
-    it "shows '0 D' when the channel has no videos" do
+    it "shows '0 Vids' when the channel has no videos" do
       node = render_with_video_count(channel_with_videos(0))
       cells = node.css(".pito-stats-counters__cell")
-      vids_cell = cells.find { |c| c.text.include?("D") }
-      expect(vids_cell.text.strip).to include("0").and include("D")
+      vids_cell = cells.find { |c| c.text.include?("Vids") }
+      expect(vids_cell.text.strip).to include("0").and include("Vids")
     end
 
-    it "shows 'N D' when the channel has N != 1 videos" do
+    it "shows 'N Vids' when the channel has N != 1 videos" do
       node = render_with_video_count(channel_with_videos(12))
       cells = node.css(".pito-stats-counters__cell")
-      vids_cell = cells.find { |c| c.text.include?("D") }
-      expect(vids_cell.text.strip).to include("12").and include("D")
+      vids_cell = cells.find { |c| c.text.include?("Vids") }
+      expect(vids_cell.text.strip).to include("12").and include("Vids")
     end
 
     it "orders the counters subscribers → videos → views" do
       node = render_with_video_count(channel_with_videos(3))
       texts = node.css(".pito-stats-counters__cell").map(&:text)
-      subs_idx  = texts.index { |t| t.include?("S") }
-      vids_idx  = texts.index { |t| t.include?("D") }
-      views_idx = texts.index { |t| t.include?("V") }
+      subs_idx  = texts.index { |t| t.include?("Subs") }
+      vids_idx  = texts.index { |t| t.include?("Vids") }
+      views_idx = texts.index { |t| t.include?("Views") }
       expect(subs_idx).to be < vids_idx
       expect(vids_idx).to be < views_idx
     end
@@ -346,13 +346,13 @@ RSpec.describe Pito::Channel::ItemComponent do
   # ── show_video_count: false (default) ────────────────────────────────────────
 
   describe "show_video_count: false (default)" do
-    it "does not render a vids (D) counter cell even when show_stats: true" do
+    it "does not render a Vids counter cell even when show_stats: true" do
       channel = build_channel
       allow(channel).to receive(:subscriber_count).and_return(5)
       allow(channel).to receive(:view_count).and_return(100)
       node = render_inline(described_class.new(channel: channel, show_stats: true))
       cells = node.css(".pito-stats-counters__cell")
-      expect(cells.none? { |c| c.text.include?("D") }).to be true
+      expect(cells.none? { |c| c.text.include?("Vids") }).to be true
       expect(cells.size).to eq(2)
     end
   end

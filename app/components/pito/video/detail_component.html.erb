@@ -1,13 +1,13 @@
 <%# Pito::Video::DetailComponent — video detail card for chat messages.
-    Two columns: LEFT = thumbnail + hairline + one-line v/L/C stats + legend + Shinies;
+    Two columns: LEFT = thumbnail + hairline + one-line stats counters + Shinies;
     RIGHT = kv-table (Title first), hairline, then Description. %>
 <div class="pito-video-detail flex flex-col md:flex-row gap-4 md:items-start">
 
-  <%# ── Left column: intro (with timestamp slot), thumbnail, stats, legend, Shinies ── %>
+  <%# ── Left column: intro (with timestamp slot), thumbnail, stats, Shinies ── %>
   <div class="pito-video-detail__left flex flex-col gap-3">
 
     <% if @intro.present? %>
-      <div class="pito-video-detail__intro text-fg"><span data-pito-ts-slot></span><%= @intro %></div>
+      <div class="pito-video-detail__intro text-fg"><span data-pito-ts-slot></span><%= raw(@intro) %></div>
     <% end %>
 
     <%# Thumbnail or placeholder %>
@@ -22,14 +22,14 @@
     <%# Hairline separating the thumbnail from the stats %>
     <%= render(Pito::Separator::DividerLineComponent.new(hairline: true, tone: :faded)) %>
 
-    <%# Stats — bold heading (Pito::Copy) + one-line counters (V/L/C), left. %>
+    <%# Stats — bold heading (Pito::Copy) + one-line word/icon counters, left. %>
     <div class="pito-video-detail__stats flex flex-col gap-1">
       <div class="pito-video-detail__stats-heading text-fg-dim font-bold"><%= Pito::Copy.render("pito.copy.stats.heading") %></div>
       <%= render(Pito::Stats::CountersComponent.new(metrics: stat_counter_metrics, align: :left)) %>
     </div>
 
     <%# Shinies — only when the video has at least one achievement. Badges align
-        left (inner text stays centered); the legend below is left-aligned too. %>
+        left (inner text stays centered). %>
     <% if @video.achievements.any? %>
       <div class="flex flex-col gap-1">
         <div class="pito-video-detail__shinies-heading text-fg-dim font-bold"><%= Pito::Copy.render("pito.copy.shinies.heading") %></div>
@@ -38,7 +38,6 @@
             <%= render(Pito::Achievement::BadgeComponent.new(threshold: a.threshold, metric: a.metric, unlocked_on: a.unlocked_at.to_date)) %>
           <% end %>
         </div>
-        <p class="pito-video-detail__shinies-legend text-fg-dim italic text-left"><%= Pito::Copy.render("pito.copy.shinies.legend") %></p>
       </div>
     <% end %>
   </div>
@@ -59,7 +58,7 @@
       <%= render(Pito::Table::KeyValueRowComponent.new(
             key_text:        t("pito.video.detail.id"),
             key_class:       "text-fg-dim whitespace-nowrap",
-            value_component: Pito::Shimmer::TokenComponent.new(text: "##{@video.id}", extra_class: "tabular-nums")
+            value_component: Pito::Shimmer::TokenComponent.new(text: "##{@video.id}", extra_class: "tabular-nums", prefill: "show video ##{@video.id}")
           )) %>
 
       <%= render(Pito::Table::KeyValueRowComponent.new(

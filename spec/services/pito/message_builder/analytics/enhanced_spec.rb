@@ -85,6 +85,18 @@ RSpec.describe Pito::MessageBuilder::Analytics::Enhanced do
         expect(payload["body"]).to include(ERB::Util.html_escape(intro))
       end
 
+      it "wraps the title subject in a pito-subject-shimmer span" do
+        expect(payload["body"]).to match(%r{<span class="pito-subject-shimmer[^"]*">Lies of P</span>})
+        # The stored marker intro is itself the html_safe shimmer string.
+        expect(payload.dig("analytics", "intro")).to include("pito-subject-shimmer")
+      end
+
+      it "escapes HTML-special characters in the scope title (no XSS)" do
+        game.update!(title: "<b>x</b>")
+        expect(payload["body"]).to include("&lt;b&gt;x&lt;/b&gt;")
+        expect(payload["body"]).not_to include("<b>x</b>")
+      end
+
       it "body includes data-pito-ts-slot" do
         expect(payload["body"]).to include("data-pito-ts-slot")
       end

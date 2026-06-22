@@ -184,8 +184,9 @@ module Pito
             cfg  = COLUMNS.fetch(col)
             text = cfg[:value].call(video)
             klass = if col == :channel
-                      # Shimmer owns the colour; shared offset via Pito::Shimmer.
-                      Pito::Shimmer::TokenComponent.css_class(text, extra: "pito-cell-channel")
+                      # Shimmer owns the colour; seed with video.id so repeated
+                      # @handles down the list land in different offset buckets.
+                      Pito::Shimmer::TokenComponent.css_class(text, extra: "pito-cell-channel", seed: video.id)
             else
                       cfg[:cell_class] || "text-fg-dim"
             end

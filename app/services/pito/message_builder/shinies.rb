@@ -18,7 +18,7 @@ module Pito
       module_function
 
       def call(entity, conversation:)
-        intro = Pito::Copy.render("pito.copy.shinies.intro", { name: entity.title })
+        intro = Pito::Copy.render_html("pito.copy.shinies.intro", { name: entity.title }, shimmer: [ :name ])
         body  = render_component(
           Pito::Achievement::ShiniesComponent.new(entity:, intro:)
         )

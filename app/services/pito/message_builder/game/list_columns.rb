@@ -220,8 +220,9 @@ module Pito
             text = cfg[:value].call(game)
             cell_class =
               if col == :channels
-                # Shimmer owns the colour; shared offset via Pito::Shimmer.
-                Pito::Shimmer::TokenComponent.css_class(text, extra: "pito-cell-channel")
+                # Shimmer owns the colour; seed with game.id so repeated
+                # @handles down the list land in different offset buckets.
+                Pito::Shimmer::TokenComponent.css_class(text, extra: "pito-cell-channel", seed: game.id)
               else
                 cfg[:cell_class] ||
                 case cfg[:align]

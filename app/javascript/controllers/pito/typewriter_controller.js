@@ -18,7 +18,7 @@
 //   • prefers-reduced-motion media query matches.
 //   • window.__pitoReady is falsy (initial server-rendered page load — the
 //     controller connects before turbo:load fires, so segments are not live).
-//   • The body target has no text content.
+//   • There is nothing to reveal (no body text and no prose/htmlProse targets).
 //   • opts.instant from the reveal queue (overflow / backpressure).
 //
 // Scroll-follow:
@@ -32,6 +32,15 @@
 //   All reveal jobs are serialised through reveal_queue.js (FIFO, backpressure
 //   at CAP=3 → instant mode).  Only one segment types at a time, in arrival
 //   order.
+//
+// Completion signal (doneEvent value):
+//   When a `doneEvent` value is set, the controller dispatches that document
+//   event ONCE when its reveal settles — whether it animated to completion, was
+//   instant-mode/backpressured, was cancelled, OR was skipped entirely by a skip
+//   guard (reduced-motion / !__pitoReady / fx off / nothing to reveal). The echo
+//   segment sets this to `pito:echo-typed` so the comet (pito--dots) can clear
+//   the instant the user's echoed input lands — including on the instant path,
+//   where no animation runs but the event must still fire.
 
 import { Controller } from "@hotwired/stimulus"
 import { enqueue } from "pito/reveal_queue"
@@ -40,25 +49,21 @@ import { TICK_MS, CHARS_TICK } from "pito/typing"
 
 export default class extends Controller {
   static targets = ["body", "prose", "htmlProse"]
+  static values  = { doneEvent: String }
 
   connect() {
-    if (this.#skipAnimation()) return
-    if (!this.hasBodyTarget) return
-
-    const bodyText = this.bodyTarget.textContent
-    if (!bodyText) return
-
-    // Guard double-run (e.g. Turbo re-connects same element).
-    if (this._connected) return
-    this._connected = true
-    this._cancelled = false
+    if (this.#skipAnimation()) { this.#signalDone(); return }
 
     // Collect all items to animate in DOM order:
-    //   1. the body target (summary prose)
+    //   1. the body target (summary prose) — OPTIONAL: html-only cards (game /
+    //      video detail, analytics, recommendations, shinies) carry no plain-text
+    //      body target, only an htmlProse wrapper revealed via visibility.
     //   2. every prose target — kv-table key/value spans, section header divs,
-    //      section row key/value spans — plus every htmlProse target (HTML cells,
-    //      e.g. platform logo columns) — all merged in document order so logos
-    //      reveal in step with their neighbouring text cells, not instantly.
+    //      section row key/value spans — plus every htmlProse target (HTML cells
+    //      / whole html cards) — all merged in document order so logos reveal in
+    //      step with their neighbouring text cells, not instantly.
+    const bodyText = this.hasBodyTarget ? this.bodyTarget.textContent : ""
+
     const textItems = this.hasProseTarget
       ? this.proseTargets.filter(el => el.textContent).map(el => ({ el, text: el.textContent, html: false }))
       : []
@@ -66,13 +71,24 @@ export default class extends Controller {
       ? this.htmlProseTargets.map(el => ({ el, html: true }))
       : []
 
+    // Nothing to reveal — no body text and no prose/html targets. Still settle
+    // the completion signal so a waiting comet does not hang on an empty echo.
+    if (!bodyText && textItems.length === 0 && htmlItems.length === 0) { this.#signalDone(); return }
+
+    // Guard double-run (e.g. Turbo re-connects same element).
+    if (this._connected) return
+    this._connected = true
+    this._cancelled = false
+
     // Merge in document order (stable across V8 / SpiderMonkey).
     const mixed = [...textItems, ...htmlItems].sort((a, b) => {
       const rel = a.el.compareDocumentPosition(b.el)
       return rel & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1
     })
 
-    const items = [{ el: this.bodyTarget, text: bodyText, html: false }, ...mixed]
+    const items = bodyText
+      ? [{ el: this.bodyTarget, text: bodyText, html: false }, ...mixed]
+      : mixed
 
     // Capture full texts and blank all targets immediately so they appear
     // empty while the job is waiting in the queue.
@@ -90,7 +106,7 @@ export default class extends Controller {
       return new Promise(resolve => {
         // Store the resolver so disconnect() can settle a mid-reveal job and
         // unblock the FIFO (otherwise a removed segment hangs the whole queue).
-        this._resolve = () => { this._resolve = null; resolve() }
+        this._resolve = () => { this._resolve = null; this.#signalDone(); resolve() }
 
         if (instant || cancelled()) {
           for (const item of items) {
@@ -173,6 +189,18 @@ export default class extends Controller {
   }
 
   // ── private ────────────────────────────────────────────────────────────────
+
+  // Dispatch the configured completion event exactly once, when this segment's
+  // reveal settles. Fires on EVERY settle path — animated completion, instant /
+  // backpressure mode, cancellation, and the skip-guard early returns — so a
+  // listener (the comet) never hangs waiting on an animation that did not run.
+  // No-op when no doneEvent value was set (every non-echo typewriter mount).
+  #signalDone() {
+    if (this._doneSignalled) return
+    this._doneSignalled = true
+    if (!this.doneEventValue) return
+    document.dispatchEvent(new CustomEvent(this.doneEventValue, { bubbles: true }))
+  }
 
   #skipAnimation() {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return true

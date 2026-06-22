@@ -2,20 +2,27 @@
 
 module Pito
   module Analytics
-    # Reusable kv-table of scalar analytics metrics in a 4-row CSS grid.
+    # Reusable kv-table of scalar analytics metrics in a CSS grid.
     # Scope-agnostic — it takes a `Pito::Analytics::Scalars::Result`, so the
     # same table serves a video, a game (linked-video aggregate), or a channel.
     #
-    # Layout:
-    #   Row 1 (col-span-3 each): Views | Watch hours
+    # Layout (grid-cols-6):
+    #   Row 1 (col-span-3 each): Views | Watched hours
     #   Row 2 (col-span-3 each): Avg view duration | Avg viewed %
-    #   Row 3 (col-span-6):      Subs (net gained − lost)
-    #   Row 4 (col-span-2 each): Likes | Dislikes | Comms
+    #   Row 3 (col-span-2 each): Subs | Likes | Comms
     #
-    # Polarity: `dislikes` is more-is-worse (`higher_is_better: false`).
-    # Subs net is always coloured by sign (green/red/neutral), independent of the
-    # comparable window.
+    # Special cells:
+    #   - Subs:  "+gained/-lost" — the +gained half green (:up shimmer), the
+    #            -lost half red (:down shimmer); coloured by part, not net sign.
+    #   - Likes: "<likes>👍/<dislikes>👎" — likes + thumbs-up green (:up), dislikes
+    #            + thumbs-down red (:down). Replaces the standalone Dislikes cell.
+    #   - Comms: word label + a plain trend-coloured count.
+    #
+    # The green/red shimmer reuses the TrendNumberComponent `.pito-trend-number`
+    # classes so the numbers shimmer and the icons pick up the accent colour.
     class ScalarsTableComponent < ViewComponent::Base
+      EM_DASH = "—"
+
       # Row 1 metric configs.
       ROW1 = [
         { key: :views,         label: "views",       polarity: true, format: :count },
@@ -28,36 +35,59 @@ module Pito
         { key: :avg_viewed_pct,    label: "avg_viewed_pct",    polarity: true, format: :percent }
       ].freeze
 
-      # Row 4 metric configs.
-      ROW4 = [
-        { key: :likes,    label: "likes",    polarity: true,  format: :count },
-        { key: :dislikes, label: "dislikes", polarity: false, format: :count },
-        { key: :comments, label: "comments", polarity: true,  format: :count }
-      ].freeze
-
       def initialize(result:)
         @result = result
       end
 
       def row1_cells = build_cells(ROW1)
       def row2_cells = build_cells(ROW2)
-      def row4_cells = build_cells(ROW4)
 
-      # Returns `{ label:, trend: }` for the net-subs cell (Row 3).
-      #
-      # Net = subs_gained − subs_lost. Coloured by sign regardless of the
-      # comparable window: positive → :up (green), negative → :down (red),
-      # zero or no-data → :neutral (plain fg, shows "—").
-      def row3_subs_net
-        gained = @result.metrics[:subs_gained] || {}
-        lost   = @result.metrics[:subs_lost]   || {}
+      # ── Row 3 cells (each `{ label:, value: }` with a pre-rendered value) ──
 
-        gained_current = gained[:current]
-        lost_current   = lost[:current]
+      # Subs: "+gained/-lost" — green +gained, red -lost (em dash when no data).
+      def subs_cell
+        gained = @result.metrics.dig(:subs_gained, :current)
+        lost   = @result.metrics.dig(:subs_lost,   :current)
+        value  =
+          if gained.nil? && lost.nil?
+            em_dash
+          else
+            split_value(
+              up:   "+#{Pito::Formatter::CompactCount.call(gained.to_i)}",
+              down: "-#{Pito::Formatter::CompactCount.call(lost.to_i)}"
+            )
+          end
+        { label: metric_label("subs_net"), value: }
+      end
 
-        label = Pito::Copy.render("pito.copy.analytics.metrics.subs_net")
-        trend = net_subs_trend_component(gained_current, lost_current)
-        { label:, trend: }
+      # Likes: "<likes>👍/<dislikes>👎" — green likes, red dislikes (em dash when
+      # neither side has data).
+      def likes_cell
+        likes    = @result.metrics.dig(:likes,    :current)
+        dislikes = @result.metrics.dig(:dislikes, :current)
+        value    =
+          if likes.nil? && dislikes.nil?
+            em_dash
+          else
+            split_value(
+              up:   icon_count(likes,    "thumbs-up",   metric_label("likes")),
+              down: icon_count(dislikes, "thumbs-down", metric_label("dislikes"))
+            )
+          end
+        { label: metric_label("likes"), value: }
+      end
+
+      # Comms: word label + a plain trend-coloured count.
+      def comms_cell
+        metric = @result.metrics[:comments] || {}
+        trend  = Pito::Analytics::TrendNumberComponent.new(
+          value:            metric[:current],
+          previous:         metric[:previous],
+          comparable:       @result.comparable,
+          higher_is_better: true,
+          display:          format_value(:count, metric[:current])
+        )
+        { label: metric_label("comments"), value: render(trend) }
       end
 
       private
@@ -66,60 +96,51 @@ module Pito
         cfg_list.map do |cfg|
           metric = @result.metrics[cfg[:key]] || {}
           {
-            label: Pito::Copy.render("pito.copy.analytics.metrics.#{cfg[:label]}"),
-            trend: Pito::Analytics::TrendNumberComponent.new(
+            label: metric_label(cfg[:label]),
+            value: render(Pito::Analytics::TrendNumberComponent.new(
               value:            metric[:current],
               previous:         metric[:previous],
               comparable:       @result.comparable,
               higher_is_better: cfg[:polarity],
               display:          format_value(cfg[:format], metric[:current])
-            )
+            ))
           }
         end
       end
 
-      # Builds the TrendNumberComponent for the net-subs cell.
-      #
-      # Colour is determined by the sign of (gained − lost):
-      #   net > 0 → :up   (pass previous: 0 so TrendNumber sees growth-from-nothing)
-      #   net < 0 → :down (pass previous: 1 so current < previous → :down)
-      #   net = 0 or both nil → :neutral (pass value: nil)
-      def net_subs_trend_component(gained_current, lost_current)
-        both_nil = gained_current.nil? && lost_current.nil?
+      def metric_label(key)
+        Pito::Copy.render("pito.copy.analytics.metrics.#{key}")
+      end
 
-        if both_nil
-          return Pito::Analytics::TrendNumberComponent.new(
-            value: nil, previous: 0, comparable: true,
-            higher_is_better: true, display: "—"
-          )
-        end
+      def em_dash = tag.span(EM_DASH)
 
-        net = gained_current.to_i - lost_current.to_i
+      # "<up>/<down>" with the up half green-shimmered, the down half red.
+      def split_value(up:, down:)
+        safe_join([
+          shimmer_span(up,   :up),
+          tag.span("/", class: "text-fg-dim"),
+          shimmer_span(down, :down)
+        ])
+      end
 
-        if net > 0
-          display  = "+#{Pito::Formatter::CompactCount.call(net)}"
-          value    = net
-          previous = 0   # growth-from-nothing path in TrendNumber → :up
-        elsif net < 0
-          display  = "-#{Pito::Formatter::CompactCount.call(net.abs)}"
-          value    = net
-          previous = 1   # current (negative) < previous (1) → Trend.for → :down
-        else
-          # Zero net — neutral, show em dash
-          return Pito::Analytics::TrendNumberComponent.new(
-            value: nil, previous: 0, comparable: true,
-            higher_is_better: true, display: "—"
-          )
-        end
+      # A count + inline icon (e.g. "210👍"). The icon inherits the accent colour
+      # from the surrounding .pito-trend-number--up/--down span via currentColor.
+      def icon_count(value, icon, label)
+        safe_join([
+          Pito::Formatter::CompactCount.call(value.to_i),
+          render(Pito::IconComponent.new(name: icon, label: label))
+        ])
+      end
 
-        Pito::Analytics::TrendNumberComponent.new(
-          value:, previous:, comparable: true,
-          higher_is_better: true, display:
-        )
+      # Reuses the TrendNumberComponent green/red shimmer classes so the number
+      # shimmers and any child icon picks up the green/red accent colour.
+      def shimmer_span(content, direction)
+        css = "pito-trend-number pito-trend-number--#{direction} #{Pito::Shimmer.offset_class(content.to_s)}"
+        tag.span(content, class: css, data: { trend: direction })
       end
 
       def format_value(format, value)
-        return "—" if value.nil?
+        return EM_DASH if value.nil?
 
         case format
         when :count    then Pito::Formatter::CompactCount.call(value)

@@ -20,7 +20,11 @@ module Pito
         # @param conversation [Conversation] used to generate the reply handle.
         # @return [Hash] string-keyed payload with body, html: true, and follow-up fields.
         def call(channels, conversation:)
-          intro = Pito::Copy.render("pito.copy.channels.list_intro", { count: channels.size })
+          intro = Pito::Copy.render_html(
+            "pito.copy.channels.list_intro",
+            { count: channels.size, noun: "channels" },
+            shimmer: [ :count, :noun ]
+          )
           strip_html = render_component(Pito::Channel::ListComponent.new(channels:))
 
           payload = html_payload(body: "#{intro}\n#{strip_html}")

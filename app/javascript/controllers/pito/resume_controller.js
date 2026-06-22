@@ -8,12 +8,20 @@
 //   ↑ / ↓   — move highlight through rows
 //   Enter   — select highlighted row
 //   Escape  — clear (empty) the sidebar
-//   d       — arm the highlighted row for deletion (shows confirm prompt)
-//             a second d while armed deletes the conversation via DELETE /chat/<uuid>
-//             moving the highlight or pressing Escape disarms
+//   dd      — vim-style delete: press d to arm the highlighted row (shows confirm
+//             prompt), then press d again within ~500ms to delete via DELETE /chat/<uuid>.
+//             The armed state auto-disarms after 500ms if no second d arrives.
+//             Moving the highlight or pressing Escape also disarms.
+//             Ignored while an input/rename field has focus.
 //
 // Mouse:
 //   click .pito-conversation-row — select that row
+//
+// Touch (mobile only, <768px + pointer:coarse — Z22):
+//   swipe a row LEFT past the threshold → it snaps open, revealing a red Delete
+//   button at the right edge; TAP that button to delete (reuses #deleteConversation).
+//   The swipe only REVEALS — deletion always needs the explicit tap. Only one
+//   row open at a time; a mostly-vertical drag is ignored so the list scrolls.
 //
 // Selecting a row:
 //   - If the row has class "is-current" (already the active conversation) → just clear.
@@ -30,12 +38,38 @@ const HIGHLIGHT_CLASS = "pito-resume-highlight"
 // restores it. Ephemeral view state → localStorage, not the server.
 const SIDEBAR_KEY = "pito:sidebar"
 
+// ── Mobile swipe-to-delete (Z22) ──────────────────────────────────────────────
+// Reveal distance the row slides left to expose the Delete button — MUST match
+// `--pito-swipe-reveal` in application.css.
+const SWIPE_REVEAL = 96
+// Past this leftward drag the row snaps open on release; below it snaps closed.
+const SWIPE_THRESHOLD = SWIPE_REVEAL / 2
+// Minimum movement before we lock the gesture axis / count it as a real drag.
+const SWIPE_AXIS_LOCK = 8
+
 export default class extends Controller {
   #dismissHandler = null
+  #armTimer = null
+  // Swipe state
+  #swipeRow = null      // row under an active touch gesture
+  #openRow = null       // row currently snapped open (only one at a time)
+  #swipeStartX = 0
+  #swipeStartY = 0
+  #swipeDx = 0
+  #swipeAxis = null     // null | "h" | "v"
+  #suppressClick = false
+  #wasOpen = false      // whether the sidebar panel (an <aside>) was present
 
   connect() {
     this.abort = new AbortController()
     document.addEventListener("keydown", this.#onKey.bind(this), { signal: this.abort.signal })
+    // Mobile swipe-to-delete: delegated touch handlers survive row replacement.
+    // touchmove is passive:false so a horizontal drag can preventDefault the
+    // list scroll once the gesture is locked to the horizontal axis.
+    this.element.addEventListener("touchstart", this.#onTouchStart.bind(this), { signal: this.abort.signal })
+    this.element.addEventListener("touchmove", this.#onTouchMove.bind(this), { passive: false, signal: this.abort.signal })
+    this.element.addEventListener("touchend", this.#onTouchEnd.bind(this), { signal: this.abort.signal })
+    this.element.addEventListener("touchcancel", this.#onTouchEnd.bind(this), { signal: this.abort.signal })
     // Sequential Esc: capture-phase so it runs BEFORE the chatbox's suggestions
     // Esc. When the sidebar is open it closes the sidebar and swallows the event
     // (so a /command palette underneath survives); the next Esc reaches the
@@ -109,7 +143,18 @@ export default class extends Controller {
     // When the sidebar gains content, drop key-focus from the chatbox so its
     // keystrokes drive the sidebar (or the sidebar's own input, e.g. IGDB search).
     // Dismiss with `m` (→ refocuses the chatbox) or Esc (→ leaves focus alone).
-    if (this.element.querySelector("aside")) this.#blurChatbox()
+    const open = !!this.element.querySelector("aside")
+    if (open) this.#blurChatbox()
+
+    // Z24: on mobile the panel is a fixed full-width overlay; anchor its scroll
+    // body at the top so the header + first rows are visible on open instead of
+    // landing below the fold. Reset only on the open transition (not on every
+    // row replace, e.g. a rename) so an in-place edit doesn't jump to the top.
+    if (open && !this.#wasOpen) {
+      const scroller = this.element.querySelector(".pito-scroll-fade-slim")
+      if (scroller) scroller.scrollTop = 0
+    }
+    this.#wasOpen = open
 
     const rows = this.#rows()
 
@@ -193,18 +238,20 @@ export default class extends Controller {
         this.#clear()
       }
     } else if (e.key === "d") {
+      // Ignore while an input or rename field has focus (e.g. inline rename is open).
+      if (document.activeElement?.matches("input, textarea, [contenteditable]")) return
       const highlighted = rows[this.highlightIndex]
       if (!highlighted) return
       e.preventDefault()
       if (this.armedRow === highlighted) {
-        // Second d — confirm delete
+        // Second d within the 500ms window — confirm delete
         this.#deleteConversation(highlighted)
       } else {
-        // First d — arm the row
+        // First d — arm the row; auto-disarm after 500ms if no second d arrives
         this.#disarm()
         this.#arm(highlighted)
       }
-    } else if (e.key === "`") {
+    } else if (e.key === "n") {
       // Inline-rename the highlighted conversation. The pito--rename controller
       // on that row listens for this event and swaps the name for an <input>.
       const highlighted = rows[this.highlightIndex]
@@ -216,6 +263,30 @@ export default class extends Controller {
   }
 
   #onClick(e) {
+    // Tap on the revealed (swiped-open) Delete button → delete this row. Reuses
+    // the same DELETE path as the desktop `dd` flow.
+    const deleteBtn = e.target.closest("[data-conversation-delete]")
+    if (deleteBtn) {
+      e.preventDefault()
+      e.stopPropagation()
+      const target = deleteBtn.closest(".pito-conversation-row")
+      if (target) this.#deleteConversation(target)
+      return
+    }
+
+    // Swallow the click that fires right after a real horizontal swipe so the
+    // gesture never doubles as a navigation tap.
+    if (this.#suppressClick) {
+      this.#suppressClick = false
+      return
+    }
+
+    // While a row is swiped open, any tap just closes it (no navigation).
+    if (this.#openRow) {
+      this.#closeSwipe(this.#openRow)
+      if (e.target.closest(".pito-conversation-row")) return
+    }
+
     const row = e.target.closest(".pito-conversation-row")
     if (!row) return
     // Click == arrow-to-it + Enter: pin the highlight to this row, then select it.
@@ -258,12 +329,106 @@ export default class extends Controller {
     this.#disarm()
     this.element.innerHTML = ""
     this.highlightIndex = -1
+    this.#openRow = null
+    this.#swipeRow = null
+    this.#wasOpen = false
     // Forget the persisted panel so a reload doesn't re-open a dismissed sidebar.
     localStorage.removeItem(SIDEBAR_KEY)
   }
 
+  // ── Mobile swipe-to-delete (Z22) ─────────────────────────────────────────────
+  // Touch a row, drag left past SWIPE_THRESHOLD, release → the row snaps open
+  // revealing the Delete button (tap it via #onClick to delete). Below the
+  // threshold (or a mostly-vertical drag) it snaps closed and list scrolling is
+  // left untouched. Only one row open at a time.
+
+  // True only on a touch + narrow viewport (matches the CSS gesture guard). On a
+  // desktop pointer the gesture is inert and `dd` remains the delete path.
+  #swipeEnabled() {
+    return window.matchMedia?.("(max-width: 767px) and (pointer: coarse)").matches ?? false
+  }
+
+  #content(row) {
+    return row?.querySelector(".pito-conversation-row__content")
+  }
+
+  #onTouchStart(e) {
+    if (!this.#swipeEnabled()) return
+    const row = e.target.closest(".pito-conversation-row")
+    // Tapping outside the open row (or on a different row) closes it.
+    if (this.#openRow && this.#openRow !== row) this.#closeSwipe(this.#openRow)
+    if (!row) return
+    // Touches that start on the Delete button are taps → handled by #onClick.
+    if (e.target.closest("[data-conversation-delete]")) return
+
+    const t = e.touches[0]
+    this.#swipeRow = row
+    this.#swipeStartX = t.clientX
+    this.#swipeStartY = t.clientY
+    this.#swipeDx = 0
+    this.#swipeAxis = null
+  }
+
+  #onTouchMove(e) {
+    if (!this.#swipeRow) return
+    const t = e.touches[0]
+    const dx = t.clientX - this.#swipeStartX
+    const dy = t.clientY - this.#swipeStartY
+
+    // Lock the axis once movement is meaningful. A mostly-vertical drag releases
+    // the row so the list scrolls normally; horizontal begins the swipe.
+    if (this.#swipeAxis === null) {
+      if (Math.abs(dx) < SWIPE_AXIS_LOCK && Math.abs(dy) < SWIPE_AXIS_LOCK) return
+      this.#swipeAxis = Math.abs(dx) > Math.abs(dy) ? "h" : "v"
+      if (this.#swipeAxis === "v") { this.#swipeRow = null; return }
+      this.#swipeRow.classList.add("pito-row-swiping")
+    }
+    if (this.#swipeAxis !== "h") return
+
+    e.preventDefault() // own the horizontal axis; block list scroll mid-drag
+    const base = this.#openRow === this.#swipeRow ? -SWIPE_REVEAL : 0
+    const x = Math.max(-SWIPE_REVEAL, Math.min(0, base + dx))
+    this.#swipeDx = x
+    const content = this.#content(this.#swipeRow)
+    if (content) content.style.transform = `translateX(${x}px)`
+  }
+
+  #onTouchEnd() {
+    const row = this.#swipeRow
+    this.#swipeRow = null
+    if (!row || this.#swipeAxis !== "h") return
+
+    row.classList.remove("pito-row-swiping")
+    const content = this.#content(row)
+    if (content) content.style.transform = "" // hand the resting position to CSS
+
+    if (this.#swipeDx <= -SWIPE_THRESHOLD) {
+      this.#openSwipe(row)
+    } else {
+      this.#closeSwipe(row)
+    }
+    // A real horizontal drag happened — swallow the click it would synthesize.
+    this.#suppressClick = Math.abs(this.#swipeDx) >= SWIPE_AXIS_LOCK
+  }
+
+  #openSwipe(row) {
+    if (this.#openRow && this.#openRow !== row) this.#closeSwipe(this.#openRow)
+    row.classList.add("pito-row-swipe-open")
+    this.#openRow = row
+  }
+
+  #closeSwipe(row) {
+    if (!row) return
+    row.classList.remove("pito-row-swipe-open")
+    const content = this.#content(row)
+    if (content) content.style.transform = ""
+    if (this.#openRow === row) this.#openRow = null
+  }
+
   // Arms a row for deletion: saves its original inner HTML and replaces the
-  // visible content with a confirm prompt. Only one row is armed at a time.
+  // visible content with a confirm prompt. Starts a 500ms auto-disarm timer so
+  // a lone `d` that isn't followed by a second `d` in time cleans itself up.
+  // Only one row is armed at a time.
   #arm(row) {
     this.armedRow = row
     row._resumeSavedHtml = row.innerHTML
@@ -272,10 +437,15 @@ export default class extends Controller {
     const prompt = this.element.querySelector("[data-delete-prompt]")?.dataset.deletePrompt
                    || "press d again to delete"
     row.innerHTML = `<span class="text-orange italic px-1">${prompt}</span>`
+    clearTimeout(this.#armTimer)
+    this.#armTimer = setTimeout(() => this.#disarm(), 500)
   }
 
-  // Disarms any currently armed row, restoring its original HTML.
+  // Disarms any currently armed row, restoring its original HTML, and cancels
+  // the auto-disarm timer.
   #disarm() {
+    clearTimeout(this.#armTimer)
+    this.#armTimer = null
     if (!this.armedRow) return
     if (this.armedRow._resumeSavedHtml !== undefined) {
       this.armedRow.innerHTML = this.armedRow._resumeSavedHtml
@@ -308,7 +478,9 @@ export default class extends Controller {
       })
       .catch(() => {})
 
-    // Clear armed state immediately (row will be removed or page will navigate).
+    // Clear armed state and timer immediately (row will be removed or page will navigate).
+    clearTimeout(this.#armTimer)
+    this.#armTimer = null
     this.armedRow = null
   }
 }

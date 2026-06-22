@@ -210,4 +210,49 @@ RSpec.describe Pito::Achievement::TrackComponent do
       expect(values_in_cells.count).to eq(22)
     end
   end
+
+  # ── Per-tier contrast reached-run shimmer (CSS contract) ──────
+  #
+  # The reached-run sweep highlight must be a per-tier CONTRASTING accent
+  # (--pito-track-shimmer), never plain white (--fg-default), so it contrasts the
+  # run's own next-tier colour. The reached-run animation must use LONGHANDS (not
+  # the `animation` shorthand) so the per-element .pito-shimmer-dN stagger — which
+  # this rule is defined AFTER — survives the cascade instead of being clobbered.
+
+  describe "per-tier contrast shimmer + stagger (CSS)" do
+    css = Rails.root.join("app/assets/tailwind/application.css").read
+
+    {
+      "muted"  => "cyan",
+      "green"  => "yellow",
+      "cyan"   => "orange",
+      "blue"   => "orange",
+      "purple" => "yellow",
+      "orange" => "cyan",
+      "yellow" => "blue",
+      "pito"   => "orange"
+    }.each do |tier, contrast|
+      it "maps the #{tier} run colour to a contrasting --pito-track-shimmer (--accent-#{contrast})" do
+        rule = css[/\.pito-achievement-track \[data-accent="#{tier}"\][^}]*\}/]
+        expect(rule).to be_present
+        expect(rule).to match(/--pito-track-shimmer:\s*var\(--accent-#{contrast}\)/)
+      end
+    end
+
+    it "never uses white (--fg-default) as a run's reached-shimmer highlight" do
+      expect(css).not_to match(/--pito-track-shimmer:\s*var\(--fg-default\)/)
+    end
+
+    it "drives the reached-run highlight band from --pito-track-shimmer" do
+      rule = css[/\.pito-achievement-track__dot--reached,\s*\.pito-achievement-track__connector--reached\s*\{[^}]*\}/m]
+      expect(rule).to be_present
+      expect(rule).to match(/var\(--pito-track-shimmer/)
+    end
+
+    it "uses animation longhands (no shorthand) so the dN stagger survives" do
+      rule = css[/\.pito-achievement-track__dot--reached,\s*\.pito-achievement-track__connector--reached\s*\{[^}]*\}/m]
+      expect(rule).to match(/animation-name:\s*pito-kbd-shimmer-sweep/)
+      expect(rule).not_to match(/^\s*animation:\s/)
+    end
+  end
 end

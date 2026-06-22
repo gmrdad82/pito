@@ -21,8 +21,12 @@ RSpec.describe Pito::MessageBuilder::Video::List do
       expect(payload).to be_a(Hash)
     end
 
-    it "has a body with the intro count" do
-      expect(payload["body"]).to include("2")
+    it "wraps the intro count in a subject-shimmer span" do
+      expect(payload["body"]).to match(%r{<span class="pito-subject-shimmer[^"]*">2</span>})
+    end
+
+    it "wraps the vids noun in a subject-shimmer span" do
+      expect(payload["body"]).to match(%r{<span class="pito-subject-shimmer[^"]*">vids</span>})
     end
 
     it "has table_rows with one entry per video" do
@@ -30,9 +34,8 @@ RSpec.describe Pito::MessageBuilder::Video::List do
       expect(payload["table_rows"].size).to eq(2)
     end
 
-    it "does not have an html key" do
-      expect(payload).not_to have_key("html")
-      expect(payload).not_to have_key(:html)
+    it "sets html true so the shimmer intro reveals via the htmlProse path" do
+      expect(payload["html"]).to be true
     end
 
     it "each row uses the cells format with 2 cells" do

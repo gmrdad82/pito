@@ -2,7 +2,7 @@
     Intro line (with timestamp slot) + one MetricRowComponent per metric. %>
 <div class="pito-achievement-shinies flex flex-col gap-4">
   <% if @intro.present? %>
-    <div class="pito-achievement-shinies__intro text-fg"><span data-pito-ts-slot></span><%= @intro %></div>
+    <div class="pito-achievement-shinies__intro text-fg"><span data-pito-ts-slot></span><%= raw(@intro) %></div>
   <% end %>
 
   <% metrics.each do |metric| %>

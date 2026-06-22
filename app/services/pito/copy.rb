@@ -98,30 +98,68 @@ module Pito
       #    `render(key, { a: 1 })` are equivalent (no explicit-braces footgun).
       vars = vars.merge(extra) unless extra.empty?
 
-      # 1. Resolve — do NOT pass vars to I18n; we interpolate ourselves so that
-      #    array entries work (I18n only interpolates string leaves).
+      # 1-4. Resolve the key + pick the variant (sampler or forced index).
+      chosen = resolve(key, variant)
+
+      # 5. Interpolate %{name} tokens.
+      interpolate(key, chosen, vars)
+    end
+
+    # HTML-aware sibling of +render+ for the scrollback: same key resolution and
+    # 1-or-50 variant sampling, but it produces an +html_safe+ String in which
+    # the SUBJECT placeholder(s) named in +shimmer:+ are wrapped in a
+    # +Pito::Shimmer::SubjectComponent+ span (the pito-blue→purple intro shimmer).
+    #
+    # == XSS contract (titles are user / import-derived → untrusted)
+    #
+    # Everything is escaped before it reaches the output:
+    #   * the template literal text is +html_escape+-d first, so any markup that
+    #     ever lands in a copy string is inert;
+    #   * each interpolated value is escaped too — shimmer values via the span's
+    #     own content-escaping (+tag.span+), plain values via +html_escape+.
+    # Only this method's own <span> wrappers are trusted markup; the final
+    # +html_safe+ string therefore contains no un-escaped caller data.
+    #
+    #   Pito::Copy.render_html("pito.copy.video.renamed", { title: t }, shimmer: [ :title ])
+    #
+    # @param key     [Symbol, String]   I18n key (resolved exactly like +render+)
+    # @param vars    [Hash]             placeholder values (symbol keys)
+    # @param shimmer [Array<Symbol>]    placeholder names to wrap in a subject span
+    # @param variant [Integer, nil]     forced variant index; nil = sampler
+    # @param extra   [Hash]             placeholder values given as keyword args
+    # @return        [ActiveSupport::SafeBuffer]
+    def render_html(key, vars = {}, shimmer: [], variant: nil, **extra)
+      vars = vars.merge(extra) unless extra.empty?
+      shimmer_names = Array(shimmer).map(&:to_sym)
+
+      chosen = resolve(key, variant)
+      interpolate_html(key, chosen, vars, shimmer_names)
+    end
+
+    # Resolves +key+ to one chosen entry (String) applying the same namespace
+    # guard + 1-or-50 sampler/forced-index logic as the public renderers.
+    def resolve(key, variant)
+      # Resolve — do NOT pass vars to I18n; we interpolate ourselves so that
+      # array entries work (I18n only interpolates string leaves).
       raw = I18n.t(key, raise: true)
 
-      # 2. Reject namespace keys (Hash means the key points to a subtree).
+      # Reject namespace keys (Hash means the key points to a subtree).
       if raw.is_a?(Hash)
         raise ArgumentError,
               "copy key `#{key}` points to a namespace, not a line/list"
       end
 
-      # 3. Normalise to Array (a String becomes a 1-element array).
+      # Normalise to Array (a String becomes a 1-element array), then pick.
       entries = Array(raw)
-
-      # 4. Pick the entry.
       chosen =
         if variant.nil?
           sampler.call(entries)
         else
           entries.fetch(variant) # raises IndexError if out of range
         end
-
-      # 5. Interpolate %{name} tokens.
-      interpolate(key, chosen.to_s, vars)
+      chosen.to_s
     end
+    private_class_method :resolve
 
     # Performs %{name} placeholder substitution.
     # Private — exposed only for testability; callers must use +render+.
@@ -134,5 +172,25 @@ module Pito
       end
     end
     private_class_method :interpolate
+
+    # HTML-safe %{name} substitution. The literal template text is escaped up
+    # front; each placeholder is then replaced with either a subject-shimmer
+    # span (names in +shimmer_names+) or an html-escaped plain value. Operates on
+    # a plain String (escaped template), html_safe only at the very end, so the
+    # span markup is never re-escaped and the values are never double-escaped.
+    def interpolate_html(key, string, vars, shimmer_names)
+      template = ERB::Util.html_escape(string).to_str
+      template.gsub(/%\{([a-zA-Z_]\w*)\}/) do
+        name  = ::Regexp.last_match(1).to_sym
+        value = vars.fetch(name) { raise MissingPlaceholder.new(key, name) }
+        if shimmer_names.include?(name)
+          # tag.span (inside SubjectComponent.html) escapes the content itself.
+          Pito::Shimmer::SubjectComponent.html(value.to_s).to_str
+        else
+          ERB::Util.html_escape(value.to_s).to_str
+        end
+      end.html_safe
+    end
+    private_class_method :interpolate_html
   end
 end

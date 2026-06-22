@@ -231,7 +231,7 @@ RSpec.describe Pito::Stream::Broadcaster do
 
       thinking.reload
       interval = Pito::Event::ThinkingComponent::INTERVAL_SECONDS
-      step     = thinking.payload["elapsed_seconds"] / interval
+      step     = thinking.payload["elapsed_seconds"].to_i / interval
       expect(thinking.payload["word_index"]).to eq(order[step % order.length])
     end
 
@@ -239,6 +239,73 @@ RSpec.describe Pito::Stream::Broadcaster do
       expect {
         broadcaster.resolve_thinking(turn:)
       }.not_to have_broadcasted_to("pito:conversation:#{conversation.uuid}")
+    end
+
+    it "resolves ALL unresolved indicators in the turn (turn: mode)" do
+      first  = broadcaster.emit_thinking(turn:, dictionary: "slash")
+      second = broadcaster.emit_thinking(turn:, dictionary: "chat")
+
+      broadcaster.resolve_thinking(turn:)
+
+      expect(first.reload.payload["resolved"]).to be(true)
+      expect(second.reload.payload["resolved"]).to be(true)
+    end
+  end
+
+  describe "#resolve_thinking(thinking_event:) — exact single resolve" do
+    it "resolves ONLY the given indicator, leaving siblings spinning" do
+      target = broadcaster.emit_thinking(turn:, dictionary: "slash")
+      other  = broadcaster.emit_thinking(turn:, dictionary: "chat")
+
+      expect { broadcaster.resolve_thinking(thinking_event: target) }
+        .to have_broadcasted_to("pito:conversation:#{conversation.uuid}").with { |msg|
+          expect(broadcast_html(msg)).to include(%(target="event_#{target.id}"))
+        }
+
+      expect(target.reload.payload["resolved"]).to be(true)
+      expect(other.reload.payload["resolved"]).to be_nil
+    end
+  end
+
+  describe "#resolve_thinking_for(turn:, message_id:)" do
+    it "resolves the indicator linked to the message via for_event_id" do
+      message   = broadcaster.emit(turn:, kind: :system, payload: { text: "hi" })
+      indicator = broadcaster.emit_thinking(turn:, dictionary: "chat")
+      indicator.update!(payload: indicator.payload.merge("for_event_id" => message.id))
+
+      broadcaster.resolve_thinking_for(turn:, message_id: message.id)
+
+      expect(indicator.reload.payload["resolved"]).to be(true)
+    end
+
+    it "is a no-op when no indicator is linked to the message id" do
+      broadcaster.emit_thinking(turn:, dictionary: "chat") # unlinked
+
+      expect {
+        broadcaster.resolve_thinking_for(turn:, message_id: 999_999)
+      }.not_to have_broadcasted_to("pito:conversation:#{conversation.uuid}")
+    end
+  end
+
+  describe "#all_thinking_resolved?" do
+    it "is true when the turn has no indicators" do
+      expect(broadcaster.all_thinking_resolved?(turn:)).to be(true)
+    end
+
+    it "is false while any indicator is unresolved" do
+      a = broadcaster.emit_thinking(turn:, dictionary: "slash")
+      broadcaster.emit_thinking(turn:, dictionary: "chat")
+      broadcaster.resolve_thinking(thinking_event: a)
+
+      expect(broadcaster.all_thinking_resolved?(turn:)).to be(false)
+    end
+
+    it "is true once every indicator is resolved" do
+      broadcaster.emit_thinking(turn:, dictionary: "slash")
+      broadcaster.emit_thinking(turn:, dictionary: "chat")
+      broadcaster.resolve_thinking(turn:)
+
+      expect(broadcaster.all_thinking_resolved?(turn:)).to be(true)
     end
   end
 

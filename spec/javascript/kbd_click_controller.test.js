@@ -65,7 +65,7 @@ describe("KbdClickController", () => {
     expect(handler.mock.calls[0][0].key).toBe("Escape")
   })
 
-  it("shift+tab dispatches a Shift+Tab keydown on the chatbox textarea and focuses it", async () => {
+  it("shift+tab dispatches a Shift+Tab keydown on the chatbox textarea WITHOUT focusing it", async () => {
     const hint = buildHint("shift+tab")
     await Promise.resolve()
 
@@ -84,6 +84,65 @@ describe("KbdClickController", () => {
     expect(e.target).toBe(field)
     // bubbles to document too
     expect(onDoc).toHaveBeenCalledTimes(1)
+    // focus must NOT have moved into the chatbox
+    expect(document.activeElement).not.toBe(field)
+  })
+
+  it("shift+space dispatches a Shift+Space keydown on the chatbox textarea WITHOUT focusing it", async () => {
+    const hint = buildHint("shift+space")
+    await Promise.resolve()
+
+    const field = document.querySelector('[data-pito--chat-form-target="inputField"]')
+    const onField = vi.fn()
+    const onDoc = vi.fn()
+    field.addEventListener("keydown", onField)
+    document.addEventListener("keydown", onDoc)
+
+    hint.click()
+
+    expect(onField).toHaveBeenCalledTimes(1)
+    const e = onField.mock.calls[0][0]
+    expect(e.key).toBe(" ")
+    expect(e.code).toBe("Space")
+    expect(e.shiftKey).toBe(true)
+    expect(e.target).toBe(field)
+    // bubbles to document too
+    expect(onDoc).toHaveBeenCalledTimes(1)
+    // focus must NOT have moved into the chatbox
+    expect(document.activeElement).not.toBe(field)
+  })
+
+  it("shift+r dispatches a Shift+R keydown on the chatbox textarea AND focuses it", async () => {
+    const hint = buildHint("shift+r")
+    await Promise.resolve()
+
+    const field = document.querySelector('[data-pito--chat-form-target="inputField"]')
+    const onField = vi.fn()
+    field.addEventListener("keydown", onField)
+
+    hint.click()
+
+    expect(onField).toHaveBeenCalledTimes(1)
+    const e = onField.mock.calls[0][0]
+    expect(e.key).toBe("R")
+    expect(e.shiftKey).toBe(true)
+    expect(document.activeElement).toBe(field)
+  })
+
+  it("tab dispatches a Tab keydown on the chatbox textarea AND focuses it", async () => {
+    const hint = buildHint("tab")
+    await Promise.resolve()
+
+    const field = document.querySelector('[data-pito--chat-form-target="inputField"]')
+    const onField = vi.fn()
+    field.addEventListener("keydown", onField)
+
+    hint.click()
+
+    expect(onField).toHaveBeenCalledTimes(1)
+    const e = onField.mock.calls[0][0]
+    expect(e.key).toBe("Tab")
+    expect(e.shiftKey).toBeFalsy()
     expect(document.activeElement).toBe(field)
   })
 

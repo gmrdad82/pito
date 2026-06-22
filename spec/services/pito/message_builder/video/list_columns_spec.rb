@@ -250,6 +250,24 @@ RSpec.describe Pito::MessageBuilder::Video::ListColumns do
       expect(result.first[:class]).not_to include("text-cyan")
     end
 
+    it "seeds the shimmer offset with video.id so repeated @handles across rows are not synchronised" do
+      video2  = create(:video, :public, channel: channel, title: "Another Video on Same Channel")
+      result1 = described_class.cells(video,  [ :channel ])
+      result2 = described_class.cells(video2, [ :channel ])
+
+      text1 = result1.first[:text]
+      text2 = result2.first[:text]
+
+      # Both videos share the same channel, so the handle text is identical.
+      expect(text1).to eq(text2)
+
+      # The class must encode each video's own id as the seed.
+      expected1 = Pito::Shimmer.offset_class(text1, seed: video.id)
+      expected2 = Pito::Shimmer.offset_class(text2, seed: video2.id)
+      expect(result1.first[:class]).to include(expected1)
+      expect(result2.first[:class]).to include(expected2)
+    end
+
     it "returns the visibility label for :visibility" do
       result = described_class.cells(video, [ :visibility ])
       expect(result.first[:text]).to eq("Public")
