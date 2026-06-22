@@ -52,7 +52,7 @@ module Pito
         # @param rest         [String]       the text after `#<handle> ` — e.g. "confirm".
         # @param conversation [Conversation] the owning conversation (unused here but part of contract).
         # @return [Pito::FollowUp::Result::Append | Result::Error]
-        def call(event:, rest:, conversation:)
+        def call(event:, rest:, conversation:, period: nil, viewport_width: nil, channel: nil) # rubocop:disable Lint/UnusedMethodArgument
           action, _args = parse_rest(rest)
           action = ACTION_ALIASES.fetch(action, action)   # yes→confirm, no→cancel
 

@@ -40,6 +40,16 @@ RSpec.describe Pito::MessageBuilder::Game::Detail do
       expect(payload["body"]).to include("data-pito-ts-slot")
     end
 
+    it "wraps the title subject in a pito-subject-shimmer span" do
+      expect(payload["body"]).to match(%r{<span class="pito-subject-shimmer[^"]*">Portal 2</span>})
+    end
+
+    it "escapes HTML-special characters in the game title (no XSS)" do
+      game.update!(title: "<b>x</b>")
+      expect(payload["body"]).to include("&lt;b&gt;x&lt;/b&gt;")
+      expect(payload["body"]).not_to include("<b>x</b>")
+    end
+
     it "has a reply_handle in the payload" do
       expect(payload["reply_handle"]).to be_present
     end

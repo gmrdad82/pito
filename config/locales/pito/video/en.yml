@@ -10,9 +10,6 @@ en:
         privacy: "Status"
         tags: "Tags"
         description: "Description"
-        views_abbr: "V"
-        likes_abbr: "L"
-        comments_abbr: "C"
         no_thumbnail: "No thumbnail"
         privacy_status:
           private: "Private"

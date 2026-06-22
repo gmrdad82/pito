@@ -50,6 +50,20 @@ RSpec.describe Pito::Analytics::EnhancedComponent do
     it "has the outer pito-analytics-enhanced class" do
       expect(node.css(".pito-analytics-enhanced")).not_to be_empty
     end
+
+    it "renders an html_safe intro (subject-shimmer span) raw, not escaped" do
+      html = Pito::Copy.render_html("pito.copy.analytics.intro", { title: "Lies of P" }, shimmer: [ :title ])
+      node = render_inline(described_class.new(intro: html, pending: true))
+      span = node.css(".pito-analytics-enhanced__intro span.pito-subject-shimmer").first
+      expect(span).to be_present
+      expect(span.text).to eq("Lies of P")
+    end
+
+    it "renders a plain (jsonb round-tripped) intro string raw so a stored shimmer span survives" do
+      stored = Pito::Copy.render_html("pito.copy.analytics.intro", { title: "Lies of P" }, shimmer: [ :title ]).to_str
+      node   = render_inline(described_class.new(intro: stored, pending: true))
+      expect(node.css(".pito-analytics-enhanced__intro span.pito-subject-shimmer")).not_to be_empty
+    end
   end
 
   # ── Ready state: Result present ──────────────────────────────────────────────

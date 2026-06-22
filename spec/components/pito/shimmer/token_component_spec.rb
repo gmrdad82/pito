@@ -69,5 +69,54 @@ RSpec.describe Pito::Shimmer::TokenComponent, type: :component do
       expect(is_consecutive_run).to be(false),
         "buckets #{buckets.inspect} for #{sequential_ids.inspect} are still a consecutive run"
     end
+
+    describe "seed: kwarg" do
+      let(:text) { "@samehandle" }
+
+      it "nil seed produces the same result as the seed-less call (back-compat)" do
+        expect(Pito::Shimmer.offset_class(text, seed: nil)).to eq(Pito::Shimmer.offset_class(text))
+      end
+
+      it "same text + same seed is stable (deterministic)" do
+        a = Pito::Shimmer.offset_class(text, seed: 99)
+        b = Pito::Shimmer.offset_class(text, seed: 99)
+        expect(a).to eq(b)
+      end
+
+      it "same text + different seeds generally land in different buckets" do
+        # Scan seeds 1..50 — expect more than one distinct bucket so that
+        # repeated @handles in a list are not all synchronised.
+        classes = (1..50).map { |i| Pito::Shimmer.offset_class(text, seed: i) }.uniq
+        expect(classes.size).to be > 1,
+          "expected seeds 1..50 to scatter '#{text}' into more than one bucket"
+      end
+
+      it "seeded buckets are still bounded by OFFSETS" do
+        (1..50).each do |i|
+          bucket = Pito::Shimmer.offset_class(text, seed: i)[/\d+/].to_i
+          expect(bucket).to be < Pito::Shimmer::OFFSETS
+        end
+      end
+    end
+  end
+
+  describe ".css_class with seed:" do
+    it "passes seed through to offset_class" do
+      cls_seeded = described_class.css_class("@handle", seed: 7)
+      cls_no_seed = described_class.css_class("@handle")
+      # Both include the shimmer class...
+      expect(cls_seeded).to include("pito-token-shimmer")
+      expect(cls_no_seed).to include("pito-token-shimmer")
+      # ... but the offset bucket will generally differ.
+      offset_seeded   = cls_seeded[/pito-shimmer-d\d+/]
+      offset_no_seed  = cls_no_seed[/pito-shimmer-d\d+/]
+      expected_with_seed = Pito::Shimmer.offset_class("@handle", seed: 7)
+      expect(offset_seeded).to eq(expected_with_seed)
+      expect(offset_no_seed).to eq(Pito::Shimmer.offset_class("@handle"))
+    end
+
+    it "nil seed leaves the class identical to the seed-less call" do
+      expect(described_class.css_class("@handle", seed: nil)).to eq(described_class.css_class("@handle"))
+    end
   end
 end

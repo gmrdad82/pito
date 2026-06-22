@@ -14,6 +14,12 @@ module Pito
     #
     # Rendered inside a `Pito::Segment` with a purple accent bar and an
     # elevated background.  The meta line shows the formatted timestamp.
+    #
+    # The echoed text types in character-by-character via the `pito--typewriter`
+    # controller (body target), honouring all of the typewriter's skip guards
+    # (initial server render, prefers-reduced-motion, `/config fx` off → instant).
+    # The mount sets `doneEvent: "pito:echo-typed"` so the comet (pito--dots)
+    # clears the moment the echo lands — including on the instant/skip path.
     class EchoComponent < ViewComponent::Base
       # @param payload [Hash] event payload with `{ text: }`.
       # @param event [Event, nil] the persisted event — used for timestamp.

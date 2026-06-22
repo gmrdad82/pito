@@ -16,7 +16,7 @@
 //   - Esc closes palette
 //   - `m` focuses chatbox field when palette is closed (and authenticated)
 //   - ctrl+/ toggles notifications (mocked fetch + sidebar DOM check)
-//   - ctrl+` rename-current: fires pito:rename:start on .is-current row
+//   - ctrl+n rename-current: fires pito:rename:start on .is-current row
 //     when sidebar already has conversation list; calls fetch otherwise
 //
 // NOTE: hashtag picker (shift+r with >1 handle) is now handled by
@@ -550,9 +550,9 @@ describe("pito--command-palette controller", () => {
     sidebar.remove()
   })
 
-  // ── ctrl+` rename-current ──────────────────────────────────────────────────────
+  // ── ctrl+n rename-current ──────────────────────────────────────────────────────
 
-  it("ctrl+` dispatches pito:rename:start on .is-current row when sidebar already has list", async () => {
+  it("ctrl+n dispatches pito:rename:start on .is-current row when sidebar already has list", async () => {
     // Use history.pushState to set pathname without breaking jsdom
     history.pushState({}, "", "/chat/abc-123")
 
@@ -570,7 +570,7 @@ describe("pito--command-palette controller", () => {
     const events = []
     row.addEventListener("pito:rename:start", () => events.push(true))
 
-    ctrlKey("`")
+    ctrlKey("n")
 
     // Due to residual document listeners from prior test instances,
     // the event may fire more than once. Assert at-least-1 (the current test's
@@ -581,7 +581,7 @@ describe("pito--command-palette controller", () => {
     history.pushState({}, "", "/")
   })
 
-  it("ctrl+` calls fetch for /resume when sidebar has no conversation list", async () => {
+  it("ctrl+n calls fetch for /resume when sidebar has no conversation list", async () => {
     history.pushState({}, "", "/chat/def-456")
 
     buildScaffold([])
@@ -594,7 +594,7 @@ describe("pito--command-palette controller", () => {
     })
     vi.stubGlobal("fetch", fetchMock)
 
-    ctrlKey("`")
+    ctrlKey("n")
 
     expect(fetchMock).toHaveBeenCalledWith(
       expect.stringContaining("/resume"),
@@ -606,7 +606,7 @@ describe("pito--command-palette controller", () => {
     history.pushState({}, "", "/")
   })
 
-  it("ctrl+` is a no-op when not on a conversation page", async () => {
+  it("ctrl+n is a no-op when not on a conversation page", async () => {
     history.pushState({}, "", "/")
 
     buildScaffold([])
@@ -615,7 +615,7 @@ describe("pito--command-palette controller", () => {
     const fetchMock = vi.fn()
     vi.stubGlobal("fetch", fetchMock)
 
-    ctrlKey("`")
+    ctrlKey("n")
 
     expect(fetchMock).not.toHaveBeenCalled()
 

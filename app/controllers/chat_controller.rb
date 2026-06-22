@@ -648,11 +648,20 @@ class ChatController < ApplicationController
     action = ff[:rest].to_s.split(/\s+/).first&.downcase
     mode = Pito::FollowUp::Registry.mode_for(target, action:)
 
+    # Thread the same dispatch context the typed pipeline carries (mirrors
+    # handle_async): channel scope, analytics period, and scrollback width — so
+    # the delegated chat verb runs identically to the same verb typed in chat.
+    # Missing any one of these silently drops it, so they travel in lockstep
+    # across every hop down to Chat::Dispatcher.
+    channel        = params[:channel].presence || "@all"
+    period         = params[:period].presence
+    viewport_width = params[:viewport_width].presence
+
     case mode
     when :mutate
       return unless Current.session.present?
 
-      FollowUpDispatchJob.perform_later(event.id, rest: ff[:rest])
+      FollowUpDispatchJob.perform_later(event.id, rest: ff[:rest], period:, viewport_width:, channel:)
 
     when :append
       return unless Current.session.present?
@@ -671,7 +680,7 @@ class ChatController < ApplicationController
       broadcaster.broadcast_event(echo_event)
       broadcaster.emit_thinking(turn:, dictionary: "chat")
 
-      FollowUpDispatchJob.perform_later(event.id, rest: ff[:rest], turn_id: turn.id)
+      FollowUpDispatchJob.perform_later(event.id, rest: ff[:rest], turn_id: turn.id, period:, viewport_width:, channel:)
 
     else
       # Unknown mode (handler not registered, or handler has no mode).

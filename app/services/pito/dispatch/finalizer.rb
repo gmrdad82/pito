@@ -1,0 +1,174 @@
+# frozen_string_literal: true
+
+module Pito
+  module Dispatch
+    # Shared post-dispatch lifecycle for BOTH the typed (ChatDispatchJob) and the
+    # reply (FollowUpDispatchJob) pipelines. Unifying it here is what guarantees a
+    # verb reached via a `#<handle>` reply persists + completes IDENTICALLY to the
+    # same verb typed in free chat.
+    #
+    # Given a list of `{ kind:, payload: }` event attrs and a turn, it:
+    #   1. canonicalises handler-emitted `:system` kinds (first → :system, the
+    #      rest → :enhanced; `follow_up: true` payloads → the *_follow_up
+    #      variants) — see #canonical_kinds,
+    #   2. persists each as an Event (`create_with_position!`) + broadcasts it,
+    #      giving EACH message its OWN thinking indicator positioned immediately
+    #      before it: the first message REUSES the pre-dispatch placeholder the
+    #      controller emitted (so there's no no-spinner gap during dispatch),
+    #      messages 2..N each get a fresh indicator emitted just before them. Each
+    #      indicator is linked to its message via payload `for_event_id` so it can
+    #      be resolved EXACTLY when that message is ready — see #persist,
+    #   3. runs the analytics-fill gate (#complete) — resolves the indicator of
+    #      every READY message now; if any persisted event is a pending analytics
+    #      marker, enqueue AnalyticsFillJob (deferring that message's indicator
+    #      resolve + turn completion to it so its spinner keeps cycling until the
+    #      data lands); otherwise resolve all remaining indicators and complete
+    #      the turn now. The turn completes only once ALL indicators are resolved.
+    #
+    # The error path (#surface_error) emits a visible :error event so the user is
+    # never left watching a spinning indicator, then resolves + completes. Callers
+    # re-raise after it so SolidQueue marks the job failed and can retry.
+    #
+    # NOT owned here (pipeline-specific, deliberately left in the jobs):
+    #   - the turn-less :mutate reply path (replace_event + broadcast_done),
+    #   - consuming the source event on a reply append,
+    #   - auth gating (chat worker-side; reply controller-side).
+    class Finalizer
+      def initialize(conversation:, broadcaster: nil)
+        @conversation = conversation
+        @broadcaster  = broadcaster || Pito::Stream::Broadcaster.new(conversation:)
+      end
+
+      # Persist + broadcast `events` under `turn`, then run the completion gate.
+      # The one-shot path for the typed pipeline and reply errors.
+      # @return [Array<Event>] the persisted rows.
+      def append_and_complete(events:, turn:)
+        persisted = persist(events:, turn:)
+        complete(turn:, events: persisted)
+        persisted
+      end
+
+      # Canonicalise + persist + broadcast each `{ kind:, payload: }`, WITHOUT
+      # completing the turn. Lets callers interleave their own steps (the reply
+      # pipeline consumes the source event here) between persist and #complete.
+      #
+      # Each message gets its OWN thinking indicator positioned immediately
+      # before it: the first message reuses the pre-dispatch placeholder (the
+      # controller already emitted + broadcast it, so the spinner is continuous
+      # through dispatch latency); messages 2..N each get a fresh indicator
+      # emitted just before them. Every indicator is linked to its message via
+      # payload `for_event_id` so #complete / AnalyticsFillJob can resolve the
+      # exact one when THAT message is ready.
+      # @return [Array<Event>] the persisted rows.
+      def persist(events:, turn:)
+        placeholder = unresolved_unlinked_indicator(turn)
+        dictionary  = placeholder&.payload&.[]("dictionary").presence || "chat"
+
+        canonical_kinds(events).map do |attrs|
+          indicator   = placeholder || @broadcaster.emit_thinking(turn:, dictionary:)
+          placeholder = nil # only the first message reuses the pre-dispatch placeholder
+
+          event = ::Event.create_with_position!(
+            conversation: @conversation, turn:, kind: attrs[:kind], payload: attrs[:payload]
+          )
+          @broadcaster.broadcast_event(event)
+
+          link_indicator(indicator, to: event)
+          event
+        end
+      end
+
+      # Completion gate. Resolves the indicator of every READY message now. When
+      # any persisted event is still a pending analytics marker, defers to
+      # AnalyticsFillJob (it fills the data, resolves THAT message's indicator,
+      # then completes the turn). Otherwise resolves every remaining indicator and
+      # completes the turn — the turn completes only once ALL indicators resolve.
+      def complete(turn:, events:)
+        pending = events.select { |e| Pito::MessageBuilder::Analytics::Enhanced.pending?(e) }
+
+        if pending.any?
+          # Resolve the ready messages' indicators now; leave the pending ones
+          # spinning for AnalyticsFillJob to resolve + complete.
+          (events - pending).each { |e| @broadcaster.resolve_thinking_for(turn:, message_id: e.id) }
+          AnalyticsFillJob.perform_later(turn.id)
+        else
+          # Resolve every indicator (per-message + any orphan placeholder on a
+          # zero-result turn), then complete.
+          @broadcaster.resolve_thinking(turn:)
+          @broadcaster.complete_turn(turn:)
+        end
+      end
+
+      # Error path: surface a visible :error event in the scrollback, then resolve
+      # the spinner + complete the turn. The caller re-raises so the job is marked
+      # failed. Uses create_with_position! + broadcast_event (not emit) so the
+      # error always lands even on a turn with no thinking indicator.
+      def surface_error(turn:, detail: nil)
+        event = ::Event.create_with_position!(
+          conversation: @conversation, turn:, kind: :error,
+          payload: { text: Pito::Copy.render("pito.copy.errors.dispatch_failed"), detail: }
+        )
+        @broadcaster.broadcast_event(event)
+        @broadcaster.resolve_thinking(turn:)
+        @broadcaster.complete_turn(turn:)
+        event
+      end
+
+      # Translate a handler/dispatcher error message into an :error event payload.
+      # A `pito.`-prefixed key is passed as message_key/message_args (resolved at
+      # render time); anything else is already-resolved text passed as text:.
+      def self.error_payload(message_key:, message_args:)
+        if message_key.to_s.start_with?("pito.")
+          { message_key:, message_args: }
+        else
+          { text: message_key }
+        end
+      end
+
+      private
+
+      # The pre-dispatch placeholder indicator the controller emitted: the
+      # lowest-position thinking event that is neither resolved nor already linked
+      # to a message. nil on echo-less async turns / specs that don't pre-emit
+      # one (persist then emits a fresh indicator for the first message too).
+      def unresolved_unlinked_indicator(turn)
+        turn.events.where(kind: :thinking).order(:position).find do |e|
+          resolved = e.payload["resolved"] == true || e.payload["resolved"] == "true"
+          !resolved && e.payload["for_event_id"].blank?
+        end
+      end
+
+      # Link an indicator to the message it covers so resolution can target it
+      # exactly. No-op when the indicator is nil (no placeholder + emit returned
+      # nothing) so a message never blocks completion on a missing indicator.
+      def link_indicator(indicator, to:)
+        return if indicator.nil?
+
+        indicator.update!(payload: indicator.payload.merge("for_event_id" => to.id))
+      end
+
+      # Assign canonical kinds to events handlers emit as :system.
+      # First system event → :system, subsequent → :enhanced.
+      # follow_up: true flag → :system_follow_up / :enhanced_follow_up.
+      # Non-:system kinds (error, confirmation, enhanced, …) pass through.
+      def canonical_kinds(events)
+        system_indices = events.each_index.select { |i| events[i][:kind].to_s == "system" }
+
+        events.each_with_index.map do |e, idx|
+          next e unless e[:kind].to_s == "system"
+
+          follow_up = e.dig(:payload, :follow_up) == true || e.dig(:payload, "follow_up") == true
+          first     = system_indices.first == idx
+
+          new_kind = if follow_up
+            first ? :system_follow_up : :enhanced_follow_up
+          else
+            first ? :system : :enhanced
+          end
+
+          { kind: new_kind, payload: e[:payload] }
+        end
+      end
+    end
+  end
+end

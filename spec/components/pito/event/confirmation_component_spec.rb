@@ -114,10 +114,25 @@ RSpec.describe Pito::Event::ConfirmationComponent do
     end
   end
 
-  describe "typewriter — never on confirmation" do
-    it "does NOT add the typewriter controller to the body span" do
+  describe "typewriter — initial (pending) reveal only" do
+    it "mounts the typewriter controller + body target in the pending state" do
       node = render_inline(described_class.new(payload: pending_payload))
+      expect(node.css("[data-controller~='pito--typewriter']")).not_to be_empty
+      expect(node.css("[data-pito--typewriter-target='body']")).not_to be_empty
+    end
+
+    it "does NOT mount the typewriter in the processing state (no re-type on transition)" do
+      payload = pending_payload.merge(processing: true, processing_word_index: 0)
+      node = render_inline(described_class.new(payload:))
       expect(node.css("[data-controller~='pito--typewriter']")).to be_empty
+      expect(node.css("[data-pito--typewriter-target='body']")).to be_empty
+    end
+
+    it "does NOT mount the typewriter in the resolved state (no re-type on transition)" do
+      payload = pending_payload.merge(resolved: true, outcome: "confirmed", outcome_text: "Done.")
+      node = render_inline(described_class.new(payload:))
+      expect(node.css("[data-controller~='pito--typewriter']")).to be_empty
+      expect(node.css("[data-pito--typewriter-target='body']")).to be_empty
     end
   end
 

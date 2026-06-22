@@ -26,10 +26,40 @@ RSpec.describe Pito::Event::ThinkingComponent do
     node = render_inline(described_class.new(payload: event.payload, event:))
 
     done_word = I18n.t("pito.copy.thinking.slash.done")[2]
+    # elapsed 3.0 → formatted "3" (trailing decimal zeros stripped)
     expect(node.css(".pito-thinking__message").text).to eq(
-      I18n.t("pito.event.thinking.resolved", word: done_word, elapsed: 3.0)
+      I18n.t("pito.event.thinking.resolved", word: done_word, elapsed: "3")
     )
     expect(node.css(".pito-thinking__braille")).to be_empty
+  end
+
+  describe "elapsed formatting in resolved label" do
+    def resolved_text(elapsed_seconds)
+      event.update!(payload: event.payload.merge("resolved" => true, "elapsed_seconds" => elapsed_seconds, "word_index" => 2))
+      node = render_inline(described_class.new(payload: event.payload, event:))
+      node.css(".pito-thinking__message").text
+    end
+
+    it "shows sub-second elapsed to 2 decimal places (0.224 → '0.22s')" do
+      expect(resolved_text(0.224)).to include("0.22s")
+    end
+
+    it "trims trailing zero from sub-second elapsed (0.5 → '0.5s')" do
+      expect(resolved_text(0.5)).to include("0.5s")
+    end
+
+    it "shows whole-second elapsed without decimals (1.0 → '1s')" do
+      expect(resolved_text(1.0)).to include("1s")
+      expect(resolved_text(1.0)).not_to include("1.0s")
+    end
+
+    it "shows two decimal places when both are significant (2.47 → '2.47s')" do
+      expect(resolved_text(2.47)).to include("2.47s")
+    end
+
+    it "trims one trailing zero from one-decimal elapsed (12.3 → '12.3s')" do
+      expect(resolved_text(12.3)).to include("12.3s")
+    end
   end
 
   it "picks the chat dictionary" do
@@ -72,6 +102,37 @@ RSpec.describe Pito::Event::ThinkingComponent do
     words = JSON.parse(component.done_words_json)
     expect(words).to include("Executed")
     expect(words).to include("Frobnicated")
+  end
+
+  # ── Per-message indicators (H5.4) ───────────────────────────────────────────
+
+  describe "per-message indicator" do
+    it "derives its own elapsed/verb from its own started_at, ignoring for_event_id" do
+      doing   = I18n.t("pito.copy.thinking.slash.doing")
+      order   = [ 1, 2, 0 ]
+      elapsed = described_class::INTERVAL_SECONDS + 1 # step 1 → order[1] = 2
+      payload = {
+        "dictionary" => "slash", "order" => order,
+        "started_at" => elapsed.seconds.ago.iso8601, "for_event_id" => 12_345
+      }
+
+      node = render_inline(described_class.new(payload:, event: nil))
+      expect(node.css(".pito-thinking__word").text).to eq("#{doing[2]}…")
+    end
+
+    it "re-renders a resolved per-message indicator as the past-tense form on refresh" do
+      payload = {
+        "dictionary" => "slash", "order" => [ 2, 0, 1 ], "resolved" => true,
+        "elapsed_seconds" => 4.0, "word_index" => 2, "for_event_id" => 678
+      }
+      node = render_inline(described_class.new(payload:, event: nil))
+
+      done_word = I18n.t("pito.copy.thinking.slash.done")[2]
+      # elapsed 4.0 → formatted "4" (trailing decimal zeros stripped)
+      expect(node.css(".pito-thinking__message").text).to eq(
+        I18n.t("pito.event.thinking.resolved", word: done_word, elapsed: "4")
+      )
+    end
   end
 
   describe "fallbacks" do

@@ -2,7 +2,7 @@
 <%# Intro leads inline (outside the flex wrapper) so the event timestamp
     ("HH:MM ·", rendered before the body) sits on the SAME row as it; the rest of
     the enhanced message follows as a block below. %>
-<span class="pito-game-enhanced-message__intro text-fg"><%= intro %></span>
+<span class="pito-game-enhanced-message__intro text-fg"><%= raw(intro) %></span>
 <div class="pito-game-enhanced-message">
 
   <% if channels? %>
@@ -52,7 +52,7 @@
               fixed while the title truncates; gap provides the single-space
               separation (flex suppresses the monospace inter-element whitespace). %>
           <div class="pito-game-enhanced-message__similar-game-line">
-            <%= render(Pito::Shimmer::TokenComponent.new(text: "##{result.game.id}", extra_class: "pito-game-enhanced-message__similar-game-id")) %>
+            <%= render(Pito::Shimmer::TokenComponent.new(text: "##{result.game.id}", extra_class: "pito-game-enhanced-message__similar-game-id", prefill: "show game ##{result.game.id}")) %>
             <span class="pito-game-enhanced-message__similar-game-title text-fg"><%= result.game.title %></span>
           </div>
           <%# Similarity score bar — same component as the channel cards. %>

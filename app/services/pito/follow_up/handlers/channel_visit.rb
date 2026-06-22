@@ -25,7 +25,7 @@ module Pito
         self.actions  "consume"
         self.internal true
 
-        def call(event:, rest:, conversation:) # rubocop:disable Lint/UnusedMethodArgument
+        def call(event:, rest:, conversation:, period: nil, viewport_width: nil, channel: nil) # rubocop:disable Lint/UnusedMethodArgument
           action, _args = parse_rest(rest)
 
           unless action == "consume"

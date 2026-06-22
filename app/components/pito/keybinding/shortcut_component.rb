@@ -7,9 +7,15 @@ module Pito
     # The diagonal yellow→orange shimmer's staggered offset comes from the shared
     # Pito::Shimmer.offset_class so it never re-derives the bucket math by hand.
     class ShortcutComponent < ViewComponent::Base
-      def initialize(keys:, data: {})
-        @keys = keys
-        @data = data
+      # `kbd_click:` (default true) wires the pito--kbd-click controller so a tap
+      # synthesizes the keystroke. Pass `kbd_click: false` to skip that wiring and
+      # use only the caller-supplied `data:` (e.g. the meta-line shift+r hint,
+      # which prefills the reply handle via pito--chat-prefill instead of
+      # synthesizing a keydown). Styling is identical either way.
+      def initialize(keys:, data: {}, kbd_click: true)
+        @keys      = keys
+        @data      = data
+        @kbd_click = kbd_click
       end
 
       def call
@@ -24,6 +30,8 @@ module Pito
       # `action` are concatenated (Stimulus allows multiple) so a hint can carry
       # both pito--kbd-click and, say, pito--platform-key at once.
       def data_attrs
+        return @data.transform_keys { |k| :"data-#{k}" } unless @kbd_click
+
         base = {
           "controller" => "pito--kbd-click",
           "action" => "click->pito--kbd-click#fire",

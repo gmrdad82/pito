@@ -32,7 +32,7 @@ module Pito
         end
 
         def pending(scope, period: nil)
-          intro = Pito::Copy.render("pito.copy.analytics.intro", { title: scope.title })
+          intro = Pito::Copy.render_html("pito.copy.analytics.intro", { title: scope.title }, shimmer: [ :title ])
           {
             "body"      => render_component(Pito::Analytics::EnhancedComponent.new(intro: intro, pending: true)),
             "html"      => true,

@@ -1,5 +1,5 @@
 <div class="pito-analytics-enhanced flex flex-col gap-3">
-  <div class="pito-analytics-enhanced__intro text-fg"><span data-pito-ts-slot></span><%= @intro %></div>
+  <div class="pito-analytics-enhanced__intro text-fg"><span data-pito-ts-slot></span><%= raw(@intro) %></div>
   <% unless pending? %>
     <% if unavailable? %>
       <div class="pito-analytics-enhanced__note text-fg-dim italic"><%= Pito::Copy.render("pito.copy.analytics.unavailable") %></div>

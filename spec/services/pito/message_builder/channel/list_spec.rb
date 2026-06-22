@@ -30,8 +30,12 @@ RSpec.describe Pito::MessageBuilder::Channel::List do
       expect(payload["body"]).to include("@beta")
     end
 
-    it "includes the intro with count" do
-      expect(payload["body"]).to include("2")
+    it "wraps the intro count in a subject-shimmer span" do
+      expect(payload["body"]).to match(%r{<span class="pito-subject-shimmer[^"]*">2</span>})
+    end
+
+    it "wraps the channels noun in a subject-shimmer span" do
+      expect(payload["body"]).to match(%r{<span class="pito-subject-shimmer[^"]*">channels</span>})
     end
 
     it "is follow-up-able with target channel_list" do

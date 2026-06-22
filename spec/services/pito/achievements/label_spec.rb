@@ -104,6 +104,55 @@ RSpec.describe Pito::Achievements::Label do
     end
   end
 
+  describe ".badge" do
+    # ── Badge word map (full title-case word displayed on the badge face) ─────
+
+    it "returns 'Subs' for 'subs'" do
+      expect(described_class.badge("subs")).to eq("Subs")
+    end
+
+    it "returns 'Subs' for 'subs_gained'" do
+      expect(described_class.badge("subs_gained")).to eq("Subs")
+    end
+
+    it "returns 'Views' for 'views'" do
+      expect(described_class.badge("views")).to eq("Views")
+    end
+
+    it "returns 'Watched' for 'watched_hours' (distinct from the plural label 'Clocks')" do
+      expect(described_class.badge("watched_hours")).to eq("Watched")
+    end
+
+    it "returns 'Likes' for 'likes'" do
+      expect(described_class.badge("likes")).to eq("Likes")
+    end
+
+    it "returns 'Comms' for 'comments'" do
+      expect(described_class.badge("comments")).to eq("Comms")
+    end
+
+    # ── Symbol arguments ──────────────────────────────────────────────────────
+
+    it "accepts symbol arguments" do
+      expect(described_class.badge(:views)).to eq("Views")
+      expect(described_class.badge(:watched_hours)).to eq("Watched")
+    end
+
+    # ── All 6 metrics resolve without raising ─────────────────────────────────
+
+    it "resolves all 6 metrics via Pito::Copy without raising" do
+      %w[subs subs_gained views watched_hours likes comments].each do |metric|
+        expect { described_class.badge(metric) }.not_to raise_error
+      end
+    end
+
+    # ── Error cases ───────────────────────────────────────────────────────────
+
+    it "raises KeyError for unknown metrics" do
+      expect { described_class.badge("unknown_metric") }.to raise_error(KeyError)
+    end
+  end
+
   describe ".abbr" do
     # ── Abbreviation map ─────────────────────────────────────────────────────
 

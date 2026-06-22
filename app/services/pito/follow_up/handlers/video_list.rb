@@ -32,7 +32,7 @@ module Pito
         self.actions "show", "delete", "rm", "schedule", "publish", "unlist",
                      "with", "without", "sort", "order", "link", "unlink", "shinies"
 
-        def call(event:, rest:, conversation:)
+        def call(event:, rest:, conversation:, period: nil, viewport_width: nil, channel: nil)
           action, args = parse_rest(rest)
 
           case action
@@ -41,7 +41,7 @@ module Pito
           when "sort", "order"
             mutate_sort(event:, conversation:, args:)
           else
-            Pito::FollowUp::VerbDelegator.call(source_event: event, rest:, conversation:)
+            Pito::FollowUp::VerbDelegator.call(source_event: event, rest:, conversation:, period:, viewport_width:, channel:)
           end
         end
 

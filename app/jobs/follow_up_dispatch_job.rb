@@ -31,10 +31,11 @@
 class FollowUpDispatchJob < ApplicationJob
   queue_as :default
 
-  def perform(event_id, rest:, turn_id: nil)
+  def perform(event_id, rest:, turn_id: nil, period: nil, viewport_width: nil, channel: nil)
     event        = Event.find(event_id)
     conversation = event.conversation
     broadcaster  = Pito::Stream::Broadcaster.new(conversation:)
+    finalizer    = Pito::Dispatch::Finalizer.new(conversation:, broadcaster:)
 
     target       = event.payload["reply_target"].to_s
     handler_class = Pito::FollowUp::Registry.for(target)
@@ -44,7 +45,10 @@ class FollowUpDispatchJob < ApplicationJob
       return
     end
 
-    result = handler_class.new.call(event:, rest:, conversation:)
+    # period / viewport_width / channel are threaded through to the delegated
+    # chat verb (analytics window / list column auto-fill / scope) so a reply
+    # dispatches identically to the same verb typed in free chat.
+    result = handler_class.new.call(event:, rest:, conversation:, period:, viewport_width:, channel:)
 
     case result
     when Pito::FollowUp::Result::Mutation
@@ -56,16 +60,9 @@ class FollowUpDispatchJob < ApplicationJob
 
     when Pito::FollowUp::Result::Append
       turn = Turn.find(turn_id)
-      new_events = result.events.map do |e|
-        new_event = Event.create_with_position!(
-          conversation:,
-          turn:,
-          kind:    e[:kind],
-          payload: e[:payload]
-        )
-        broadcaster.broadcast_event(new_event)
-        new_event
-      end
+      # Persist + broadcast (with canonical kinds — the D1 fix: reply-appended
+      # events now get the same :system/:enhanced canonicalisation as chat).
+      persisted = finalizer.persist(events: result.events, turn:)
       # Consume the source (hide its affordance + reserve the handle) only when
       # the result opts in (consume: true, which is the default).  Repeatable
       # verbs such as link/unlink set consume: false so the card stays reusable.
@@ -73,43 +70,26 @@ class FollowUpDispatchJob < ApplicationJob
         event.update!(payload: event.payload.merge("reply_consumed" => true))
         broadcaster.replace_event(event)
       end
-      # If any appended event carries a pending analytics marker, defer
-      # resolve_thinking + complete_turn to AnalyticsFillJob — it fills the
-      # data then resolves, mirroring the typed (ChatDispatchJob) path.
-      if new_events.any? { |e| Pito::MessageBuilder::Analytics::Enhanced.pending?(e) }
-        AnalyticsFillJob.perform_later(turn.id)
-      else
-        broadcaster.resolve_thinking(turn:)
-        broadcaster.complete_turn(turn:)
-      end
+      # Analytics-fill gate (shared with the typed path): defer to
+      # AnalyticsFillJob when an appended event is a pending analytics marker,
+      # else resolve the thinking indicator + complete the turn.
+      finalizer.complete(turn:, events: persisted)
 
     when Pito::FollowUp::Result::Error
-      error_payload = if result.message_key.to_s.start_with?("pito.")
-        { message_key: result.message_key, message_args: result.message_args }
-      else
-        { text: result.message_key }
-      end
-
-      if turn_id
-        turn = Turn.find(turn_id)
-        err_event = Event.create_with_position!(
-          conversation:, turn:, kind: :error, payload: error_payload
-        )
-        broadcaster.broadcast_event(err_event)
+      error_payload = Pito::Dispatch::Finalizer.error_payload(
+        message_key: result.message_key, message_args: result.message_args
+      )
+      turn = if turn_id
+        Turn.find(turn_id)
       else
         # mutate-mode error with no turn: create a minimal turn to hold the error.
-        turn = conversation.turns.create!(
+        conversation.turns.create!(
           position:   Turn.next_position_for(conversation),
           input_kind: :hashtag,
           input_text: "##{event.payload["reply_handle"]} #{rest}"
         )
-        err_event = Event.create_with_position!(
-          conversation:, turn:, kind: :error, payload: error_payload
-        )
-        broadcaster.broadcast_event(err_event)
       end
-      broadcaster.resolve_thinking(turn:)
-      broadcaster.complete_turn(turn:)
+      finalizer.append_and_complete(events: [ { kind: :error, payload: error_payload } ], turn:)
     end
   rescue StandardError => e
     Rails.logger.error("[FollowUpDispatchJob] Error processing event #{event_id}: #{e.class}: #{e.message}")
@@ -119,9 +99,7 @@ class FollowUpDispatchJob < ApplicationJob
     ev = Event.find_by(id: event_id)
     raise unless ev
 
-    conv       = ev.conversation
-    bcaster    = Pito::Stream::Broadcaster.new(conversation: conv)
-    error_text = Pito::Copy.render("pito.copy.errors.dispatch_failed")
+    conv = ev.conversation
 
     err_turn = if turn_id
       Turn.find_by(id: turn_id)
@@ -135,15 +113,9 @@ class FollowUpDispatchJob < ApplicationJob
       )
     end
 
-    if err_turn
-      err_event = Event.create_with_position!(
-        conversation: conv, turn: err_turn, kind: :error,
-        payload: { text: error_text, detail: e.message }
-      )
-      bcaster.broadcast_event(err_event)
-      bcaster.resolve_thinking(turn: err_turn)
-      bcaster.complete_turn(turn: err_turn)
-    end
+    # Shared error path: emit a visible :error event, resolve the spinner, then
+    # complete the turn (mirrors the typed pipeline's rescue).
+    Pito::Dispatch::Finalizer.new(conversation: conv).surface_error(turn: err_turn, detail: e.message) if err_turn
 
     raise
   end

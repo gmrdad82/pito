@@ -26,13 +26,36 @@ RSpec.describe Pito::Event::SystemComponent do
   describe "typewriter hook — html body (html: true)" do
     subject(:node) { render_inline(described_class.new(payload: { body: "<b>bold</b>", html: true })) }
 
-    it "does NOT add the typewriter controller when body is html" do
-      expect(node.css("[data-controller~='pito--typewriter']")).to be_empty
+    it "mounts the typewriter controller so the html card reveals (visibility toggle)" do
+      expect(node.css("div[data-controller~='pito--typewriter']").first).not_to be_nil
+    end
+
+    it "tags the html card content as an htmlProse target inside the controller wrapper" do
+      wrapper = node.css("div[data-controller~='pito--typewriter']").first
+      expect(wrapper).not_to be_nil
+      expect(wrapper.css("[data-pito--typewriter-target='htmlProse']").first).not_to be_nil
     end
 
     it "renders the raw html in a plain text-fg span" do
       span = node.css("span.text-fg").first
       expect(span).not_to be_nil
+    end
+  end
+
+  describe "typewriter hook — html body, CONSUMED (no re-reveal on refresh/replace)" do
+    subject(:node) do
+      render_inline(described_class.new(payload: {
+        body: "<b>card</b>", html: true,
+        reply_handle: "h", reply_target: "game_detail", reply_consumed: true
+      }))
+    end
+
+    it "does NOT mount the typewriter controller once consumed" do
+      expect(node.css("[data-controller~='pito--typewriter']")).to be_empty
+    end
+
+    it "still renders the html card content instantly" do
+      expect(node.css("span.text-fg").first).not_to be_nil
     end
   end
 
@@ -138,7 +161,27 @@ RSpec.describe Pito::Event::SystemComponent do
       }))
     end
 
-    it "does NOT add typewriter controller in sections mode when html" do
+    it "mounts the typewriter controller in sections mode when html (card reveals)" do
+      expect(node.css("div[data-controller~='pito--typewriter']").first).not_to be_nil
+    end
+
+    it "tags the html sections card as an htmlProse target" do
+      wrapper = node.css("div[data-controller~='pito--typewriter']").first
+      expect(wrapper.css("[data-pito--typewriter-target='htmlProse']").first).not_to be_nil
+    end
+  end
+
+  describe "sections mode — html body, CONSUMED" do
+    subject(:node) do
+      render_inline(described_class.new(payload: {
+        body: "<em>rich</em>",
+        html: true,
+        reply_handle: "h", reply_target: "game_detail", reply_consumed: true,
+        sections: [ { title: "Section 1", rows: [] } ]
+      }))
+    end
+
+    it "does NOT mount the typewriter controller once consumed" do
       expect(node.css("[data-controller~='pito--typewriter']")).to be_empty
     end
   end
@@ -294,6 +337,37 @@ RSpec.describe Pito::Event::SystemComponent do
     end
   end
 
+  describe "list intro (html: true subject-shimmer body) + table_rows" do
+    # Mirrors what the video/game/channel list builders now emit: an html intro
+    # whose count + noun are wrapped in subject-shimmer spans, followed by the
+    # table grid. Proves the html-flip reveals the shimmer AND keeps the table.
+    subject(:node) do
+      render_inline(described_class.new(payload: {
+        "body" => Pito::Copy.render_html(
+          "pito.copy.videos.list_intro",
+          { count: 2, noun: "vids" },
+          shimmer: [ :count, :noun ]
+        ),
+        "html" => true,
+        "table_rows" => [
+          { cells: [ { text: "#1", class: "text-fg" }, { text: "Alpha Video", class: "text-fg pito-cell-title" } ] },
+          { cells: [ { text: "#2", class: "text-fg" }, { text: "Beta Video",  class: "text-fg pito-cell-title" } ] }
+        ]
+      }))
+    end
+
+    it "wraps the count and noun in subject-shimmer spans in the intro" do
+      shimmered = node.css("span.pito-subject-shimmer").map(&:text)
+      expect(shimmered).to include("2", "vids")
+    end
+
+    it "still renders the table grid with every row below the intro" do
+      grid = node.css("div.pito-data-grid").first
+      expect(grid).to be_present
+      expect(grid.css("span").map(&:text)).to include("#1", "Alpha Video", "#2", "Beta Video")
+    end
+  end
+
   describe "table_rows legacy {key, value, value2} — 3-column back-compat" do
     subject(:node) do
       render_inline(described_class.new(payload: {
@@ -365,13 +439,13 @@ RSpec.describe Pito::Event::SystemComponent do
       }))
     end
 
-    it "renders 3 heading spans with text-fg-faded and font-bold" do
+    it "renders 3 heading spans with text-fg-faded (not bold — bold is live-shimmer only)" do
       grid = node.css("div.pito-data-grid").first
       heading_spans = grid.css("span").first(3)
       expect(heading_spans.map(&:text)).to eq(%w[A B C])
       heading_spans.each do |span|
         expect(span["class"]).to include("text-fg-faded")
-        expect(span["class"]).to include("font-bold")
+        expect(span["class"]).not_to include("font-bold")
       end
     end
 
@@ -425,6 +499,49 @@ RSpec.describe Pito::Event::SystemComponent do
     it "uses a 3-track grid that accounts for the heading width" do
       grid = node.css("div.pito-data-grid").first
       expect(grid["data-cols"]).to eq("3")
+    end
+  end
+
+  describe "table_heading with shimmer_heading on a CONSUMED list (reply_consumed: true)" do
+    subject(:node) do
+      render_inline(described_class.new(payload: {
+        body: "Results",
+        table_heading: [ "A", "B", "C" ],
+        shimmer_heading: true,
+        reply_handle: "beta-1234",
+        reply_target: "game_list",
+        reply_consumed: true,
+        table_rows: [ { cells: [
+          { text: "v1", class: "text-fg" },
+          { text: "v2", class: "text-fg" },
+          { text: "v3", class: "text-fg" }
+        ] } ]
+      }))
+    end
+
+    it "heading spans have NO shimmer class when consumed" do
+      grid = node.css("div.pito-data-grid").first
+      heading_spans = grid.css("span").first(3)
+      heading_spans.each do |span|
+        expect(span["class"]).not_to include("pito-token-shimmer")
+        expect(span["class"]).not_to match(/\bpito-shimmer-d\d+\b/)
+      end
+    end
+
+    it "heading spans are NOT bold when consumed" do
+      grid = node.css("div.pito-data-grid").first
+      heading_spans = grid.css("span").first(3)
+      heading_spans.each do |span|
+        expect(span["class"]).not_to include("font-bold")
+      end
+    end
+
+    it "heading spans have text-fg-faded (muted) when consumed" do
+      grid = node.css("div.pito-data-grid").first
+      heading_spans = grid.css("span").first(3)
+      heading_spans.each do |span|
+        expect(span["class"]).to include("text-fg-faded")
+      end
     end
   end
 
@@ -510,13 +627,13 @@ RSpec.describe Pito::Event::SystemComponent do
       cells = component.table_heading_cells
       expect(cells.first[:class]).to include("text-right")
       expect(cells.first[:class]).to include("text-fg-faded")
-      expect(cells.first[:class]).to include("font-bold")
+      expect(cells.first[:class]).not_to include("font-bold")
       expect(cells.first[:text]).to eq("#")
     end
 
-    it "keeps the base class only for a String entry" do
+    it "keeps the base class only for a String entry (muted, not bold)" do
       cells = component.table_heading_cells
-      expect(cells[1][:class]).to eq("text-fg-faded font-bold whitespace-nowrap")
+      expect(cells[1][:class]).to eq("text-fg-faded whitespace-nowrap")
       expect(cells[1][:text]).to eq("Game")
     end
   end

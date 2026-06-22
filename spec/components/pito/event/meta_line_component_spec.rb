@@ -18,6 +18,14 @@ RSpec.describe Pito::Event::MetaLineComponent do
       node = render_inline(described_class.new(handle: nil))
       expect(node.css("span.pito-hashtag-shimmer")).to be_empty
     end
+
+    it "wires the #hashtag token to prefill the chatbox with `#<handle> ` (no submit)" do
+      node = render_inline(described_class.new(handle: "alpha-42"))
+      hashtag = node.css("span.pito-hashtag-shimmer").first
+      expect(hashtag["data-controller"]).to eq("pito--chat-prefill")
+      expect(hashtag["data-action"]).to eq("click->pito--chat-prefill#fill")
+      expect(hashtag["data-pito--chat-prefill-text-value"]).to eq("#alpha-42 ")
+    end
   end
 
   describe "shift+r affordance" do
@@ -28,6 +36,17 @@ RSpec.describe Pito::Event::MetaLineComponent do
       expect(hint["class"]).to include("hidden")
       expect(hint.css("span.pito-kbd-shimmer.text-yellow")).not_to be_empty
       expect(hint.text.strip).to eq("shift+r")
+    end
+
+    it "wires the shift+r hint to prefill `#<handle> ` instead of synthesizing a keydown" do
+      node = render_inline(described_class.new(handle: "alpha-42"))
+      kbd = node.css("[data-pito-lasthashtag-hint] span.pito-kbd-shimmer").first
+      expect(kbd["data-controller"]).to eq("pito--chat-prefill")
+      expect(kbd["data-action"]).to eq("click->pito--chat-prefill#fill")
+      expect(kbd["data-pito--chat-prefill-text-value"]).to eq("#alpha-42 ")
+      # keeps the yellow kbd styling, drops the kbd-click wiring
+      expect(kbd["class"]).to include("text-yellow")
+      expect(kbd["data-controller"]).not_to include("pito--kbd-click")
     end
 
     it "does not render the hint when there is no handle" do

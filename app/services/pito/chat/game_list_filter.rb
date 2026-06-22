@@ -75,7 +75,7 @@ module Pito
       }.freeze
 
       UPCOMING_TOKEN = "upcoming"
-      NOISE_WORDS    = %w[list ls games game the a an please by ordered sorted show me].freeze
+      NOISE_WORDS    = %w[list ls games game gamez the a an please by ordered sorted show me].freeze
 
       class << self
         # Parses the raw body string and returns a filtered ActiveRecord relation.

@@ -2,16 +2,32 @@
     Locals:
       conversation — responds to #uuid, #display_name
       current      — boolean, true when this is the active conversation
-      timestamp    — pre-formatted timestamp string (may be nil for Turbo replace path) %>
+      timestamp    — pre-formatted timestamp string (may be nil for Turbo replace path)
+
+    Structure: a positioning shell (.pito-conversation-row) holds a sliding
+    content layer (.pito-conversation-row__content) over a red Delete button
+    revealed by the MOBILE swipe-left gesture (pito--resume). The button is
+    display:none on desktop (gesture is mobile-only; see application.css). The
+    content layer keeps the .pito--rename-display span and all attributes the
+    pito--rename / pito--resume controllers depend on. %>
 <div id="conversation_row_<%= conversation.uuid %>"
-     class="pito-conversation-row flex justify-between items-baseline py-1 px-2 rounded cursor-pointer hover:bg-bg-hover <%= "is-current" if current %>"
+     class="pito-conversation-row relative overflow-hidden rounded cursor-pointer <%= "is-current" if current %>"
      data-conversation-uuid="<%= conversation.uuid %>"
      data-controller="pito--rename"
      data-pito--rename-url-value="/chat/<%= conversation.uuid %>">
-  <span class="text-fg truncate mr-2 pito--rename-display"><%= conversation.display_name %></span>
-  <% if current %>
-    <span class="text-cyan shrink-0"><%= Pito::Copy.render("pito.copy.conversations.current_marker") %></span>
-  <% else %>
-    <span class="text-fg-dim shrink-0"><%= timestamp %></span>
-  <% end %>
+  <%# Revealed beneath the content layer; only visible once swiped open (mobile). %>
+  <button type="button"
+          class="pito-conversation-row__delete text-red"
+          data-conversation-delete>
+    <%= Pito::Copy.render("pito.copy.conversations.delete_button") %>
+  </button>
+  <%# Sliding content layer — opaque (bg-root on mobile) so it hides the button. %>
+  <div class="pito-conversation-row__content flex justify-between items-baseline py-1 px-2 hover:bg-bg-hover">
+    <span class="text-fg truncate mr-2 pito--rename-display"><%= conversation.display_name %></span>
+    <% if current %>
+      <span class="text-cyan shrink-0"><%= Pito::Copy.render("pito.copy.conversations.current_marker") %></span>
+    <% else %>
+      <span class="text-fg-dim shrink-0"><%= timestamp %></span>
+    <% end %>
+  </div>
 </div>

@@ -70,4 +70,17 @@ RSpec.describe Pito::Event::ErrorComponent do
       expect(node.css("span.text-fg").size).to eq(1)
     end
   end
+
+  describe "typewriter reveal" do
+    subject(:node) { render_inline(described_class.new(payload: { text: "Boom" })) }
+
+    it "mounts the typewriter controller so the error reveals in sequence" do
+      expect(node.css("div[data-controller~='pito--typewriter']").first).not_to be_nil
+    end
+
+    it "tags the error content as an htmlProse target (visibility-toggle reveal)" do
+      wrapper = node.css("div[data-controller~='pito--typewriter']").first
+      expect(wrapper.css("[data-pito--typewriter-target='htmlProse']").first).not_to be_nil
+    end
+  end
 end

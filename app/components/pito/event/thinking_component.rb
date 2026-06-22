@@ -46,7 +46,7 @@ module Pito
         return nil unless resolved?
 
         word    = done_word
-        elapsed = @elapsed_seconds
+        elapsed = format_elapsed(@elapsed_seconds)
         I18n.t("pito.event.thinking.resolved", word:, elapsed:)
       end
 
@@ -100,6 +100,17 @@ module Pito
         [ (Time.current - Time.parse(@started_at.to_s)).to_i, 0 ].max
       rescue ArgumentError
         0
+      end
+
+      # Format an elapsed-seconds value for display: at most 2 decimal places
+      # with trailing fractional zeros stripped.
+      #   0.224 → "0.22",  0.5 → "0.5",  1.0 → "1",  2.47 → "2.47"
+      # The persisted payload stores the full-precision float; this only
+      # affects what is shown in the resolved label.
+      def format_elapsed(seconds)
+        return "0" if seconds.nil?
+
+        ("%.2f" % seconds.to_f.round(2)).sub(/\.?0+\z/, "")
       end
 
       def doing_words

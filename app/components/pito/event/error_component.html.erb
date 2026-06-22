@@ -1,5 +1,10 @@
 <%= render(Pito::Segment::Component.new(accent: :red)) do %>
-  <div>
+  <%# The whole error card reveals at once via the typewriter's visibility-toggle
+      (htmlProse) so it types out in sequence with the rest of the turn. Errors
+      are terminal (never replaced/consumed), so the skip guards (initial render /
+      reduced-motion / fx-off) are the only escape hatches — no consumed guard. %>
+  <div data-controller="pito--typewriter">
+    <div data-pito--typewriter-target="htmlProse">
     <%# Main text renders as HTML (copy-built, may carry <span>/<br>). The raw
         machine `detail` below stays escaped. Builders must escape any
         user-supplied interpolation in the text. %>
@@ -19,5 +24,6 @@
     <% elsif @detail %>
       <div class="mt-1.5 text-fg-dim font-mono border-t border-line-default pt-1.5 break-all"><%= @detail %></div>
     <% end %>
+    </div>
   </div>
 <% end %>

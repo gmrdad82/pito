@@ -27,8 +27,16 @@ RSpec.describe Pito::MessageBuilder::Game::List do
       expect(rows.map { |r| r[:cells][1][:text] }).to include("Lies of P", "Tears of the Kingdom")
     end
 
-    it "includes the intro body with count" do
-      expect(payload["body"]).to include("2")
+    it "wraps the intro count in a subject-shimmer span" do
+      expect(payload["body"]).to match(%r{<span class="pito-subject-shimmer[^"]*">2</span>})
+    end
+
+    it "wraps the noun in a subject-shimmer span" do
+      expect(payload["body"]).to match(%r{<span class="pito-subject-shimmer[^"]*">games</span>})
+    end
+
+    it "sets html true so the shimmer intro reveals via the htmlProse path" do
+      expect(payload["html"]).to be true
     end
 
     it "is follow-up-able with target game_list" do
@@ -123,9 +131,9 @@ RSpec.describe Pito::MessageBuilder::Game::List do
 
       subject(:payload) { described_class.call(games, conversation: conversation) }
 
-      it "uses singular 'game' in the intro" do
-        expect(payload["body"]).to include("1 game")
-        expect(payload["body"]).not_to match(/1 games/)
+      it "uses singular 'game' in the intro noun span" do
+        expect(payload["body"]).to match(%r{<span class="pito-subject-shimmer[^"]*">game</span>})
+        expect(payload["body"]).not_to match(/>games</)
       end
     end
 
@@ -134,8 +142,8 @@ RSpec.describe Pito::MessageBuilder::Game::List do
 
       subject(:payload) { described_class.call(games, conversation: conversation) }
 
-      it "uses plural 'games' in the intro" do
-        expect(payload["body"]).to include("2 games")
+      it "uses plural 'games' in the intro noun span" do
+        expect(payload["body"]).to match(%r{<span class="pito-subject-shimmer[^"]*">games</span>})
       end
     end
   end

@@ -30,6 +30,12 @@ module Pito
 
       def processing? = @processing && !@resolved
       def resolved?   = @resolved
+
+      # Pending is the FIRST state — the confirm prompt has appeared but the user
+      # has not yet replied. ONLY this state mounts the typewriter (initial
+      # reveal); the processing / resolved replace_event swaps render instantly so
+      # the prompt never re-types as it transitions state.
+      def pending? = !processing? && !resolved?
       def confirmed?  = @outcome == "confirmed"
       def expandable? = @expand_detail.any? && !@resolved
       def background  = nil

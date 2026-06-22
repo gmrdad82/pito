@@ -18,6 +18,14 @@ RSpec.describe Pito::Event::HandleComponent do
     expect(span["data-pito-handle"]).to eq("alpha-1322")
   end
 
+  it "wires the reply handle to prefill the chatbox with `#<handle> ` (no submit)" do
+    node = render_inline(described_class.new("alpha-1322"))
+    span = node.css("span[data-pito-handle]").first
+    expect(span["data-controller"]).to eq("pito--chat-prefill")
+    expect(span["data-action"]).to eq("click->pito--chat-prefill#fill")
+    expect(span["data-pito--chat-prefill-text-value"]).to eq("#alpha-1322 ")
+  end
+
   it "renders nothing when handle is blank" do
     node = render_inline(described_class.new(""))
     expect(node.text).to be_blank

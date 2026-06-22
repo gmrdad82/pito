@@ -166,11 +166,14 @@ module Pito
       # Instance interface ──────────────────────────────────────────────────────
 
       # Subclasses override this method.
-      # @param event        [Event]        the source follow-up-able event.
-      # @param rest         [String]       everything after `#<handle> `.
-      # @param conversation [Conversation] the owning conversation.
+      # @param event          [Event]        the source follow-up-able event.
+      # @param rest           [String]       everything after `#<handle> `.
+      # @param conversation   [Conversation] the owning conversation.
+      # @param period         [String, nil]  analytics window threaded from the reply.
+      # @param viewport_width [Integer, String, nil] scrollback width for list auto-fill.
+      # @param channel        [String, nil]  channel scope threaded from the reply.
       # @return [Pito::FollowUp::Result::Mutation | Append | Error]
-      def call(event:, rest:, conversation:)
+      def call(event:, rest:, conversation:, period: nil, viewport_width: nil, channel: nil)
         raise NotImplementedError, "#{self.class}#call is not implemented"
       end
 

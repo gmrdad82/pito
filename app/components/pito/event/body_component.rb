@@ -2,7 +2,7 @@
 
 module Pito
   module Event
-    # Renders a message body: an inline "HH:MM ·" timestamp prefix (or a filled
+    # Renders a message body: an inline "HH:MM " timestamp prefix (or a filled
     # `data-pito-ts-slot` placeholder inside the body), the body span (optionally
     # revealed via the typewriter controller), and an always-visible `detail`
     # block. There is no collapse/expand — messages render in full.
@@ -16,7 +16,7 @@ module Pito
     #   owner_controller — when false and typewriter is true, emit the body target
     #                      attribute but NOT the data-controller; the caller's outer
     #                      div owns the typewriter controller.
-    #   timestamp        — event timestamp for the inline "HH:MM ·" prefix
+    #   timestamp        — event timestamp for the inline "HH:MM " prefix
     class BodyComponent < ViewComponent::Base
       def initialize(body: nil, detail: [], html: false, typewriter: false,
                      owner_controller: true, timestamp: nil)
@@ -30,7 +30,7 @@ module Pito
 
       attr_reader :body, :detail
 
-      # Inline "HH:MM ·" prefix rendered before the body's first line. Renders
+      # Inline "HH:MM " prefix rendered before the body's first line. Renders
       # nothing when no timestamp was supplied.
       def timestamp_prefix
         @timestamp_prefix ||= render(Pito::Event::TimestampPrefixComponent.new(timestamp: @timestamp))

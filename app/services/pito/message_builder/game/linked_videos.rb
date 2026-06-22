@@ -33,24 +33,39 @@ module Pito
           videos  = game.linked_videos
           payload = Video::List.call(videos, conversation: conversation, columns: COLUMNS)
           payload["body"] = intro_with_channels(game, videos)
+          # The intro now carries a subject-shimmer span (title) and cyan handle
+          # tokens, so the body is HTML — flag it so SystemComponent renders it
+          # raw (the table rows below stay escaped, driven by their own cells).
+          payload["html"] = true
           payload
         end
 
-        # The game-scoped intro line, followed by a witty sentence naming the
-        # distinct channels the game appears on (omitted when there are none).
+        # The game-scoped intro line (game title in the pito-blue→purple subject
+        # shimmer), followed by a witty sentence naming the distinct channels the
+        # game appears on as cyan @handle tokens (omitted when there are none).
+        # Returns an html_safe String.
         def intro_with_channels(game, videos)
-          intro = Pito::Copy.render(
+          intro = Pito::Copy.render_html(
             "pito.copy.game.linked_videos_intro",
-            count: videos.size, title: game.title
+            { count: videos.size, title: game.title },
+            shimmer: [ :title ]
           )
 
-          handles = videos.filter_map { |v| v.channel&.handle }.uniq
+          handles = videos.filter_map { |v| v.channel&.at_handle }.uniq
           return intro if handles.empty?
 
-          channels = Pito::Copy.render(
-            "pito.copy.game.linked_videos_channels", channels: handles.to_sentence
+          channels = Pito::Copy.render_html(
+            "pito.copy.game.linked_videos_channels",
+            { channels: channel_tokens(handles) }
           )
-          "#{intro} #{channels}"
+          ActionController::Base.helpers.safe_join([ intro, channels ], " ")
+        end
+
+        # Joins the distinct @handles into a sentence of cyan TokenComponent
+        # spans. Each handle's text is escaped inside the span; the connectors are
+        # trusted literals, so the result is XSS-safe html.
+        def channel_tokens(handles)
+          handles.map { |h| Pito::Shimmer::TokenComponent.html(h) }.to_sentence.html_safe
         end
       end
     end

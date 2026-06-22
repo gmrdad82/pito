@@ -3,12 +3,19 @@
     <%# Sections mode: body + all section detail rendered always-visible.
         Plain-text bodies type in order via the typewriter controller. %>
     <% if html %>
-      <%# html: true — no typewriter, render everything instantly %>
-      <% if body %>
-        <%= render(Pito::Event::TimestampPrefixComponent.new(timestamp: @timestamp)) %><span class="text-fg"><%= raw(body) %></span>
-      <% end %>
-      <div class="mt-1.5 border-t border-line-default pt-1.5">
-        <%= render(Pito::Keybinding::TableComponent.new(sections: sections)) %>
+      <%# html: true — the whole card reveals at once via the typewriter's
+          visibility-toggle (htmlProse) mechanism, sequenced through the shared
+          reveal queue. Controller suppressed once reply_consumed so a refresh /
+          replace_event re-render does not re-reveal a historical card. %>
+      <div<% unless reply_consumed %> data-controller="pito--typewriter"<% end %>>
+        <div data-pito--typewriter-target="htmlProse">
+          <% if body %>
+            <%= render(Pito::Event::TimestampPrefixComponent.new(timestamp: @timestamp)) %><span class="text-fg"><%= raw(body) %></span>
+          <% end %>
+          <div class="mt-1.5 border-t border-line-default pt-1.5">
+            <%= render(Pito::Keybinding::TableComponent.new(sections: sections)) %>
+          </div>
+        </div>
       </div>
     <% else %>
       <%# Plain-text: typewriter controller covers the full content region %>
@@ -86,8 +93,53 @@
           <% end %>
         <% end %>
       </div>
+    <% elsif html %>
+      <%# html: true — the whole card (body + any grid + info-lines) reveals at
+          once via the typewriter's visibility-toggle (htmlProse) mechanism,
+          sequenced through the shared reveal queue. Controller suppressed once
+          reply_consumed so a refresh / replace_event re-render does not re-reveal
+          a historical card. The analytics-fill replace_event swaps in the filled
+          card, whose fresh controller reveals it cleanly. %>
+      <div<% unless reply_consumed %> data-controller="pito--typewriter"<% end %>>
+        <div data-pito--typewriter-target="htmlProse">
+          <%= render(Pito::Event::BodyComponent.new(
+                body:         body,
+                html:         html,
+                detail:       expand_detail,
+                typewriter:   false,
+                timestamp:    @timestamp
+              )) %>
+          <% if table_rows.any? %>
+            <% norm_rows = normalized_table_rows %>
+            <% heading_cells = table_heading_cells %>
+            <% n_cols = [ heading_cells.size, norm_rows.map(&:size).max.to_i, 2 ].max %>
+            <div class="pito-data-grid<%= body ? ' mt-2 border-t border-line-default pt-2' : '' %>" data-cols="<%= table_col_count(n_cols) %>" data-fixed-leading="<%= fixed_leading %>" data-fixed-trailing="<%= fixed_trailing %>">
+              <% heading_cells.each do |cell| %>
+                <span class="<%= cell[:class] %>"><%= cell[:text] %></span>
+              <% end %>
+              <% norm_rows.each do |cells| %>
+                <% cells.each do |cell| %>
+                  <% if cell[:html] %>
+                    <span class="<%= cell[:class] %>"><%= raw cell[:text] %></span>
+                  <% else %>
+                    <span class="<%= cell[:class] %>"><%= cell[:text] %></span>
+                  <% end %>
+                <% end %>
+              <% end %>
+            </div>
+          <% end %>
+          <% if info_lines.any? %>
+            <%= render(Pito::Separator::DividerLineComponent.new(spacing: "2")) do %>
+              <% info_lines.each do |line| %>
+                <div><%= render_info_line(line) %></div>
+              <% end %>
+            <% end %>
+          <% end %>
+        </div>
+      </div>
     <% else %>
-      <%# html: true — render everything instantly, no typewriter %>
+      <%# Neither html nor a plain-text body (rare: a bare table). Render instantly
+          — there is no body to anchor a per-character reveal. %>
       <%= render(Pito::Event::BodyComponent.new(
             body:         body,
             html:         html,

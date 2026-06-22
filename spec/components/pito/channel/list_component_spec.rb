@@ -95,45 +95,42 @@ RSpec.describe Pito::Channel::ListComponent do
   end
 
   describe "stat counters" do
-    it "renders S (subs) and V (views) counters for each channel" do
+    it "renders Subs and Views word counters for each channel" do
       channel = build_channel
       allow(channel).to receive(:subscriber_count).and_return(3)
       allow(channel).to receive(:view_count).and_return(7)
       node = render_inline(described_class.new(channels: [ channel ]))
       counters = node.at_css(".pito-stats-counters")
       expect(counters).to be_present
-      expect(counters.text).to include("S")
-      expect(counters.text).to include("V")
+      expect(counters.text).to include("Subs")
+      expect(counters.text).to include("Views")
     end
 
-    it "shows '1 S' for subscriber_count of 1" do
+    it "shows '1 Subs' for subscriber_count of 1" do
       channel = build_channel
       allow(channel).to receive(:subscriber_count).and_return(1)
       allow(channel).to receive(:view_count).and_return(0)
       node = render_inline(described_class.new(channels: [ channel ]))
-      expect(node.css(".pito-stats-counters__cell").first.text.strip).to include("1").and include("S")
+      expect(node.css(".pito-stats-counters__cell").first.text.strip).to include("1").and include("Subs")
     end
 
-    it "shows '5 V' for view_count of 5" do
+    it "shows '5 Views' for view_count of 5" do
       channel = build_channel
       allow(channel).to receive(:subscriber_count).and_return(0)
       allow(channel).to receive(:view_count).and_return(5)
       node = render_inline(described_class.new(channels: [ channel ]))
-      expect(node.css(".pito-stats-counters__cell").last.text.strip).to include("5").and include("V")
+      expect(node.css(".pito-stats-counters__cell").last.text.strip).to include("5").and include("Views")
     end
   end
 
   describe "footer legend" do
-    it "renders 'S subs, D vids, V views' via .pito-stats-legend" do
+    it "no longer renders a stats legend (removed in the metric-display overhaul)" do
       channel = build_channel
       allow(channel).to receive(:subscriber_count).and_return(0)
       allow(channel).to receive(:view_count).and_return(0)
       node = render_inline(described_class.new(channels: [ channel ]))
-      legend = node.at_css(".pito-stats-legend")
-      expect(legend).to be_present
-      expect(legend.text).to include("S").and include("subs")
-      expect(legend.text).to include("D").and include("vids")
-      expect(legend.text).to include("V").and include("views")
+      expect(node.css(".pito-stats-legend")).to be_empty
+      expect(node.css(".pito-channel-list__legend")).to be_empty
     end
   end
 end

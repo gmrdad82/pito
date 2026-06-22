@@ -35,6 +35,17 @@ RSpec.describe Pito::FollowUp::VerbDelegator, type: :service do
       expect(result.events.first[:kind]).to eq(:system)
     end
 
+    it "forwards channel / period / viewport_width into Chat::Dispatcher (D6/D7/D8)" do
+      expect(Pito::Chat::Dispatcher).to receive(:call).with(
+        hash_including(channel: "@xyz", period: "28d", viewport_width: "1024")
+      ).and_return(Pito::Chat::Result::Ok.new(events: [ { kind: :system, payload: {} } ]))
+
+      described_class.call(
+        source_event:, rest: "show #{game.id}", conversation:,
+        channel: "@xyz", period: "28d", viewport_width: "1024"
+      )
+    end
+
     it "rejects a verb that isn't an allowed reply action for the source message" do
       # game_list allows show/delete — `publish` is not in its matrix.
       result = described_class.call(source_event:, rest: "publish #{game.id}", conversation:)

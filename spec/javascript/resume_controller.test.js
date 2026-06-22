@@ -63,6 +63,48 @@ function fireKey(k, opts = {}) {
   )
 }
 
+// ── Touch helpers (Z22 swipe-to-delete) ───────────────────────────────────────
+// jsdom has no TouchEvent constructor; synthesize a bubbling, cancelable Event
+// and attach touches/changedTouches with the client coords the controller reads.
+function fireTouch(el, type, x, y) {
+  const ev = new Event(type, { bubbles: true, cancelable: true })
+  const points = [ { clientX: x, clientY: y } ]
+  ev.touches = points
+  ev.changedTouches = points
+  el.dispatchEvent(ev)
+  return ev
+}
+
+// Make the swipe gesture think we're on a narrow touch viewport.
+function enableSwipe() {
+  window.matchMedia = (q) => ({
+    matches: /max-width: 767px/.test(q) && /pointer: coarse/.test(q),
+    media: q, addEventListener() {}, removeEventListener() {},
+    addListener() {}, removeListener() {},
+  })
+}
+
+// A conversation row matching conversations/_row.html.erb structure: a row shell
+// with a sliding .pito-conversation-row__content and a [data-conversation-delete]
+// button revealed by the swipe.
+function addSwipeRow(sidebar, { uuid = "abc-123" } = {}) {
+  const row = document.createElement("div")
+  row.className = "pito-conversation-row"
+  row.dataset.conversationUuid = uuid
+
+  const del = document.createElement("button")
+  del.setAttribute("data-conversation-delete", "")
+  del.textContent = "delete"
+  row.appendChild(del)
+
+  const content = document.createElement("div")
+  content.className = "pito-conversation-row__content"
+  row.appendChild(content)
+
+  sidebar.appendChild(row)
+  return row
+}
+
 // Wait one tick — enough for Stimulus to connect the controller.
 function waitForConnect() {
   return new Promise((r) => setTimeout(r, 10))
@@ -91,6 +133,8 @@ describe("pito--resume controller", () => {
     if (app) await app.stop()
     document.body.innerHTML = ""
     localStorage.clear()
+    // Reset the swipe gesture media-query stub between tests.
+    window.matchMedia = undefined
   })
 
   // ── MutationObserver auto-highlight ───────────────────────────────────────
@@ -292,9 +336,23 @@ describe("pito--resume controller", () => {
     expect(propagated).toBe(true)
   })
 
-  // ── Backtick dispatches pito:rename:start ─────────────────────────────────
+  // ── n dispatches pito:rename:start ───────────────────────────────────────
 
-  it("Backtick on the highlighted row dispatches pito:rename:start on that row", async () => {
+  it("n on the highlighted row dispatches pito:rename:start on that row", async () => {
+    const sidebar = buildSidebar()
+    await waitForConnect()
+    const row = addRow(sidebar, { uuid: "u1" })
+    await waitForMO()
+
+    let renameEvent = null
+    row.addEventListener("pito:rename:start", (e) => { renameEvent = e })
+
+    fireKey("n")
+
+    expect(renameEvent).not.toBeNull()
+  })
+
+  it("backtick no longer dispatches pito:rename:start on the highlighted row", async () => {
     const sidebar = buildSidebar()
     await waitForConnect()
     const row = addRow(sidebar, { uuid: "u1" })
@@ -305,7 +363,7 @@ describe("pito--resume controller", () => {
 
     fireKey("`")
 
-    expect(renameEvent).not.toBeNull()
+    expect(renameEvent).toBeNull()
   })
 
   // ── MutationObserver re-pin ───────────────────────────────────────────────
@@ -410,6 +468,82 @@ describe("pito--resume controller", () => {
     expect(row.innerHTML).not.toContain("press d again to delete")
     // Sidebar should still have the row (not cleared).
     expect(sidebar.contains(row)).toBe(true)
+  })
+
+  it("armed state auto-disarms after 500ms without a second d", async () => {
+    const sidebar = buildSidebar()
+    await waitForConnect()
+    const row = addRow(sidebar, { uuid: "u1" })
+    await waitForMO()
+
+    // Switch to fake timers AFTER async setup so waitForConnect/waitForMO run normally.
+    vi.useFakeTimers()
+    try {
+      fireKey("d")
+      expect(row.innerHTML).toContain("press d again to delete")
+
+      vi.advanceTimersByTime(600)
+      // Timer expired — row should be disarmed and original HTML restored.
+      expect(row.innerHTML).not.toContain("press d again to delete")
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it("dd within 500ms deletes (second d before timeout fires)", async () => {
+    const sidebar = buildSidebar()
+    await waitForConnect()
+    addRow(sidebar, { uuid: "fast-dd" })
+    await waitForMO()
+
+    vi.useFakeTimers()
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({ ok: true })
+    try {
+      fireKey("d")   // arm
+      vi.advanceTimersByTime(200)  // well within the 500ms window
+      fireKey("d")   // second d — triggers delete
+
+      expect(fetchSpy).toHaveBeenCalledWith(
+        "/chat/fast-dd",
+        expect.objectContaining({ method: "DELETE" })
+      )
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it("single d followed by timeout does NOT delete", async () => {
+    const sidebar = buildSidebar()
+    await waitForConnect()
+    addRow(sidebar, { uuid: "lone-d" })
+    await waitForMO()
+
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({ ok: true })
+    vi.useFakeTimers()
+    try {
+      fireKey("d")                    // arm
+      vi.advanceTimersByTime(600)     // past the 500ms window — auto-disarm fires
+      // No second d — fetch should not have been called
+      expect(fetchSpy).not.toHaveBeenCalled()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it("d while an input has focus does not arm the row", async () => {
+    const sidebar = buildSidebar()
+    await waitForConnect()
+    const row = addRow(sidebar, { uuid: "u1" })
+    await waitForMO()
+
+    const input = document.createElement("input")
+    document.body.appendChild(input)
+    input.focus()
+
+    fireKey("d")
+
+    expect(row.innerHTML).not.toContain("press d again to delete")
+    input.remove()
   })
 
   // ── localStorage persist on content-change ────────────────────────────────
@@ -548,5 +682,160 @@ describe("pito--resume controller", () => {
     const rows = sidebar.querySelectorAll(".pito-conversation-row")
     expect(rows[1].classList.contains("pito-resume-highlight")).toBe(true)
     expect(rows[0].classList.contains("pito-resume-highlight")).toBe(false)
+  })
+
+  // ── Z24: overlay resets scroll to top on open ─────────────────────────────
+
+  it("resets the scroll body to the top when the panel opens", async () => {
+    const sidebar = buildSidebar()
+    await waitForConnect()
+
+    const aside = document.createElement("aside")
+    const scroller = document.createElement("div")
+    scroller.className = "pito-scroll-fade-slim"
+    // Back scrollTop with a real property (jsdom has no layout engine).
+    let st = 0
+    Object.defineProperty(scroller, "scrollTop", {
+      configurable: true, get: () => st, set: (v) => { st = v },
+    })
+    scroller.scrollTop = 240          // pretend it opened scrolled down
+    aside.appendChild(scroller)
+    sidebar.appendChild(aside)
+    await waitForMO()
+
+    expect(scroller.scrollTop).toBe(0)
+  })
+
+  it("does not reset scroll on a later in-place mutation (e.g. rename)", async () => {
+    const sidebar = buildSidebar()
+    await waitForConnect()
+
+    const aside = document.createElement("aside")
+    const scroller = document.createElement("div")
+    scroller.className = "pito-scroll-fade-slim"
+    let st = 0
+    Object.defineProperty(scroller, "scrollTop", {
+      configurable: true, get: () => st, set: (v) => { st = v },
+    })
+    aside.appendChild(scroller)
+    sidebar.appendChild(aside)
+    await waitForMO()  // open transition — reset fires (st already 0)
+
+    // User scrolls down, then an in-place row mutation occurs (panel stays open).
+    scroller.scrollTop = 180
+    scroller.appendChild(document.createElement("div"))
+    await waitForMO()
+
+    expect(scroller.scrollTop).toBe(180)  // preserved — not yanked to top
+  })
+
+  // ── Z22: mobile swipe-to-delete ───────────────────────────────────────────
+
+  it("a left swipe past the threshold snaps the row open (reveals Delete)", async () => {
+    enableSwipe()
+    const sidebar = buildSidebar()
+    await waitForConnect()
+    const row = addSwipeRow(sidebar, { uuid: "sw-1" })
+    await waitForMO()
+
+    fireTouch(row, "touchstart", 200, 50)
+    fireTouch(row, "touchmove", 130, 52)  // dx = -70 (past 48 threshold)
+    fireTouch(row, "touchend", 130, 52)
+
+    expect(row.classList.contains("pito-row-swipe-open")).toBe(true)
+  })
+
+  it("tapping the revealed Delete button deletes via fetch DELETE", async () => {
+    enableSwipe()
+    const sidebar = buildSidebar()
+    await waitForConnect()
+    const row = addSwipeRow(sidebar, { uuid: "sw-del" })
+    await waitForMO()
+
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({ ok: true })
+
+    fireTouch(row, "touchstart", 200, 50)
+    fireTouch(row, "touchmove", 120, 50)
+    fireTouch(row, "touchend", 120, 50)
+
+    row.querySelector("[data-conversation-delete]")
+      .dispatchEvent(new MouseEvent("click", { bubbles: true }))
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      "/chat/sw-del",
+      expect.objectContaining({ method: "DELETE" })
+    )
+    // The swipe must NOT have navigated.
+    expect(Turbo.visit).not.toHaveBeenCalled()
+  })
+
+  it("a short swipe does NOT open the row or delete", async () => {
+    enableSwipe()
+    const sidebar = buildSidebar()
+    await waitForConnect()
+    const row = addSwipeRow(sidebar, { uuid: "sw-short" })
+    await waitForMO()
+
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({ ok: true })
+
+    fireTouch(row, "touchstart", 200, 50)
+    fireTouch(row, "touchmove", 185, 50)  // dx = -15 (below 48 threshold)
+    fireTouch(row, "touchend", 185, 50)
+
+    expect(row.classList.contains("pito-row-swipe-open")).toBe(false)
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
+  it("a mostly-vertical drag does NOT open the row (list scroll preserved)", async () => {
+    enableSwipe()
+    const sidebar = buildSidebar()
+    await waitForConnect()
+    const row = addSwipeRow(sidebar, { uuid: "sw-vert" })
+    await waitForMO()
+
+    fireTouch(row, "touchstart", 200, 50)
+    const move = fireTouch(row, "touchmove", 196, 130)  // dy=80 ≫ dx=-4 → vertical
+    fireTouch(row, "touchend", 196, 130)
+
+    expect(row.classList.contains("pito-row-swipe-open")).toBe(false)
+    // Vertical drags must not be hijacked — the controller leaves scroll alone.
+    expect(move.defaultPrevented).toBe(false)
+  })
+
+  it("opening one row closes a previously open row", async () => {
+    enableSwipe()
+    const sidebar = buildSidebar()
+    await waitForConnect()
+    const row1 = addSwipeRow(sidebar, { uuid: "sw-a" })
+    const row2 = addSwipeRow(sidebar, { uuid: "sw-b" })
+    await waitForMO()
+
+    // Open row1.
+    fireTouch(row1, "touchstart", 200, 40)
+    fireTouch(row1, "touchmove", 120, 40)
+    fireTouch(row1, "touchend", 120, 40)
+    expect(row1.classList.contains("pito-row-swipe-open")).toBe(true)
+
+    // Open row2 — row1 must close.
+    fireTouch(row2, "touchstart", 200, 80)
+    fireTouch(row2, "touchmove", 120, 80)
+    fireTouch(row2, "touchend", 120, 80)
+
+    expect(row2.classList.contains("pito-row-swipe-open")).toBe(true)
+    expect(row1.classList.contains("pito-row-swipe-open")).toBe(false)
+  })
+
+  it("swipe gesture is inert on desktop (no matchMedia coarse match)", async () => {
+    // Do NOT enableSwipe() — #swipeEnabled() returns false.
+    const sidebar = buildSidebar()
+    await waitForConnect()
+    const row = addSwipeRow(sidebar, { uuid: "sw-desktop" })
+    await waitForMO()
+
+    fireTouch(row, "touchstart", 200, 50)
+    fireTouch(row, "touchmove", 110, 50)
+    fireTouch(row, "touchend", 110, 50)
+
+    expect(row.classList.contains("pito-row-swipe-open")).toBe(false)
   })
 })

@@ -35,18 +35,18 @@ function key(target, init) {
 // the component just stamps the raw shortcut text and we resolve it here.
 const HANDLERS = {
   // chat_form_controller: Shift+Tab cycles channel scope (textarea-bound).
+  // Dispatch WITHOUT focusing — cycling happens in place, focus stays put.
   "shift+tab": () => {
     const field = chatbox()
     if (!field) return
-    field.focus()
     key(field, { key: "Tab", shiftKey: true })
   },
 
   // chat_form_controller: Shift+Space cycles stats period (textarea-bound).
+  // Dispatch WITHOUT focusing — cycling happens in place, focus stays put.
   "shift+space": () => {
     const field = chatbox()
     if (!field) return
-    field.focus()
     key(field, { key: " ", code: "Space", shiftKey: true })
   },
 
@@ -89,8 +89,8 @@ const HANDLERS = {
   // Esc closes palettes / sidebars (handled on document by several controllers).
   "esc": () => key(document, { key: "Escape" }),
 
-  // command_palette_controller: Ctrl+` opens sidebar + renames current conv.
-  "`": () => key(document, { key: "`", ctrlKey: true }),
+  // command_palette_controller: Ctrl+n opens sidebar + renames current conv.
+  "n": () => key(document, { key: "n", ctrlKey: true }),
 
   // notifications "space" toggle hint (document-bound).
   "space": () => key(document, { key: " " }),

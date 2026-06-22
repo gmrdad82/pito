@@ -27,8 +27,8 @@ module Pito
           game = video.linked_games.first
           return nil if game.nil?
 
-          intro_text = Pito::Copy.render("pito.copy.videos.linked_game_intro", { game: game.title })
-          intro_html = %(<p class="pito-video-linked-game-intro text-fg-dim mb-2"><span data-pito-ts-slot></span>#{ERB::Util.html_escape(intro_text)}</p>)
+          intro_text = Pito::Copy.render_html("pito.copy.videos.linked_game_intro", { game: game.title }, shimmer: [ :game ])
+          intro_html = %(<p class="pito-video-linked-game-intro text-fg-dim mb-2"><span data-pito-ts-slot></span>#{intro_text}</p>)
           card       = render_component(Pito::Video::LinkedGameCardComponent.new(game: game))
           body       = "#{intro_html}#{card}"
 

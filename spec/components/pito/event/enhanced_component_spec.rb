@@ -26,7 +26,25 @@ RSpec.describe Pito::Event::EnhancedComponent do
   describe "typewriter hook — html body (html: true)" do
     subject(:node) { render_inline(described_class.new(payload: { body: "<em>italic</em>", html: true })) }
 
-    it "does NOT add the typewriter controller when body is html" do
+    it "mounts the typewriter controller so the html card reveals (visibility toggle)" do
+      expect(node.css("div[data-controller~='pito--typewriter']").first).not_to be_nil
+    end
+
+    it "tags the html card content as an htmlProse target" do
+      wrapper = node.css("div[data-controller~='pito--typewriter']").first
+      expect(wrapper.css("[data-pito--typewriter-target='htmlProse']").first).not_to be_nil
+    end
+  end
+
+  describe "typewriter hook — html body, CONSUMED (no re-reveal on replace_event)" do
+    subject(:node) do
+      render_inline(described_class.new(payload: {
+        body: "<em>italic</em>", html: true,
+        reply_handle: "h", reply_target: "game_detail", reply_consumed: true
+      }))
+    end
+
+    it "does NOT mount the typewriter controller once consumed" do
       expect(node.css("[data-controller~='pito--typewriter']")).to be_empty
     end
   end

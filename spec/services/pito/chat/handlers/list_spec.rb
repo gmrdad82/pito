@@ -117,6 +117,10 @@ RSpec.describe Pito::Chat::Handlers::List do
       expect(handler_for("list games").call.events.first[:payload]["table_rows"]).to be_present
     end
 
+    it "accepts `gamez` as a synonym for `games` and lists games" do
+      expect(handler_for("list gamez").call.events.first[:payload]["table_rows"]).to be_present
+    end
+
     it "does not reject a valid filter token like `upcoming`" do
       payload  = handler_for("list upcoming").call.events.first[:payload]
       combined = "#{payload['text']}#{payload['body']}"
@@ -336,10 +340,10 @@ RSpec.describe Pito::Chat::Handlers::List do
         expect(titles).to include("Beta Public")
       end
 
-      it "renders as a table_rows kv-table (not html)" do
+      it "renders as a table_rows kv-table with an html shimmer intro" do
         payload = handler_for("list videos", channel: "@all").call.events.first[:payload]
         expect(payload["table_rows"]).to be_present
-        expect(payload["html"]).to be_falsey
+        expect(payload["html"]).to be true
       end
 
       it "is follow-up-able for the video_list target" do

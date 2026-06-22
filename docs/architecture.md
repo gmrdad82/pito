@@ -77,9 +77,15 @@ Inside `ChatDispatchJob`, the input is routed by its shape:
 - `turn.hashtag?` (leading `#`) → `Pito::Hashtag::Dispatcher`
 - otherwise → `Pito::Chat::Dispatcher` (natural language)
 
-The job runs the handler, persists each result event, resolves the thinking
-indicator, and completes the turn. All output is delivered via Turbo Stream
-broadcasts over Action Cable.
+The job runs the handler, then hands the result events to
+`Pito::Dispatch::Finalizer`, which persists each one, gives EACH message its own
+thinking indicator (the first reuses the controller's pre-dispatch placeholder;
+the rest are emitted just before their message and linked to it via payload
+`for_event_id`), resolves each indicator when THAT message is ready, and
+completes the turn only once ALL indicators are resolved. A pending-analytics
+card keeps its own indicator spinning until `AnalyticsFillJob` fills it and
+resolves just that one. All output is delivered via Turbo Stream broadcasts over
+Action Cable.
 
 `#<handle> <verb> <rest>` replies to an addressable event are intercepted
 **before** async dispatch by `Pito::FollowUp::Router`, which re-runs the same
