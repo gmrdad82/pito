@@ -127,6 +127,18 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
       result = call(input: "/config ", cursor: 8, authenticated: true)
       expect(result[:mode]).to eq(:slash)
     end
+
+    # The provider list is browsable: tagged stage: :verb so the client renders
+    # the whole set as a selectable palette (not just the top hit as a ghost).
+    it "tags the provider slot stage: :verb (palette, not arg ghost)" do
+      result = call(input: "/config ", cursor: 8, authenticated: true)
+      expect(result[:stage]).to eq(:verb)
+    end
+
+    it "keeps stage: :verb while filtering providers by prefix ('/config g')" do
+      result = call(input: "/config g", cursor: 9, authenticated: true)
+      expect(result[:stage]).to eq(:verb)
+    end
   end
 
   describe "slash mode — arg stage (/config kv slot)" do
@@ -160,17 +172,24 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
       labels = result[:menu_items].map { |i| i[:label] }
       expect(labels).not_to include("on", "off")
     end
+
+    # The per-provider key list is browsable: tagged stage: :verb so the client
+    # renders it as a selectable palette (masked secrets stay masked).
+    it "tags the kv key slot stage: :verb (palette, not arg ghost)" do
+      result = call(input: "/config google ", cursor: 15, authenticated: true)
+      expect(result[:stage]).to eq(:verb)
+    end
   end
 
-  describe "slash mode — arg stage (/config sound|fx on/off slot)" do
+  describe "slash mode — arg stage (/config sound|motion on/off slot)" do
     it "suggests on and off after '/config sound '" do
       result = call(input: "/config sound ", cursor: 14, authenticated: true)
       labels = result[:menu_items].map { |i| i[:label] }
       expect(labels).to include("on", "off")
     end
 
-    it "suggests on and off after '/config fx '" do
-      result = call(input: "/config fx ", cursor: 11, authenticated: true)
+    it "suggests on and off after '/config motion '" do
+      result = call(input: "/config motion ", cursor: 15, authenticated: true)
       labels = result[:menu_items].map { |i| i[:label] }
       expect(labels).to include("on", "off")
     end
@@ -195,11 +214,25 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
     end
   end
 
+  describe "slash mode — arg stage (/config fx <effect> slot)" do
+    it "suggests the reveal effects after '/config fx '" do
+      result = call(input: "/config fx ", cursor: 11, authenticated: true)
+      labels = result[:menu_items].map { |i| i[:label] }
+      expect(labels).to include("typewriter", "scramble", "comet")
+    end
+
+    it "does NOT suggest on/off after '/config fx '" do
+      result = call(input: "/config fx ", cursor: 11, authenticated: true)
+      labels = result[:menu_items].map { |i| i[:label] }
+      expect(labels).not_to include("on", "off")
+    end
+  end
+
   describe "slash mode — arg stage (/config provider slot)" do
-    it "suggests providers including sound and fx after '/config '" do
+    it "suggests providers including sound, motion, and fx after '/config '" do
       result = call(input: "/config ", cursor: 8, authenticated: true)
       labels = result[:menu_items].map { |i| i[:label] }
-      expect(labels).to include("sound", "fx")
+      expect(labels).to include("sound", "motion", "fx")
     end
   end
 
@@ -946,6 +979,13 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
       result[:menu_items].each do |item|
         expect(item[:insert]).to end_with(" ")
       end
+    end
+
+    # Scoping guard: only `/config` args become a palette. Other slash args (here
+    # the dynamic :channels slot) keep the inline-ghost arg treatment.
+    it "keeps stage: :arg for non-config slash args (/disconnect)" do
+      result = call(input: "/disconnect @al", cursor: 15, authenticated: true)
+      expect(result[:stage]).to eq(:arg)
     end
   end
 

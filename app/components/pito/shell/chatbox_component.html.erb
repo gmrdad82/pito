@@ -35,7 +35,7 @@
     <% end %>
 
     <%# Line 1: text input + terminal block caret overlay %>
-    <div class="pito-chatbox__field-wrap" data-controller="pito--terminal-caret pito--type-fx"
+    <div class="pito-chatbox__field-wrap" data-controller="pito--terminal-caret pito--cursor-trail pito--type-fx"
          data-pito--terminal-caret-autofocus-value="true">
       <%= text_area_tag :input_field, @initial_value, **input_attrs %>
       <span class="terminal-caret" data-pito--terminal-caret-target="block" aria-hidden="true"></span>

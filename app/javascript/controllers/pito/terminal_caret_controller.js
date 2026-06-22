@@ -8,32 +8,28 @@
 // Resolution: this controller draws a terminal-style BLOCK caret as an overlay.
 //
 // It hides the native caret and positions a blinking block over the glyph at the
-// caret, inverting that glyph (bg-root on fg-default). When the field is empty the
-// block sits over the first character of the placeholder hint (the rest of the hint
-// shows faded behind it). The caret pixel position is computed with a hidden mirror
-// element that replicates the field's font / width / wrapping, so the block lands on
-// the correct soft-wrapped visual row and the field auto-grows in height.
+// caret, inverting that glyph (bg-root on fg-default). The caret pixel math, the
+// hidden mirror, the inverted-block render and the bubbling `pito:caret` emit all
+// live in the shared TerminalCaretCore — this controller only binds DOM events,
+// handles autofocus, and gates the blink on motion/reduced-motion.
 //
-// Reusable on any monospace <textarea> or <input> — the chatbox now, the Ctrl+K
-// command palette later. Modern browsers only; no fallbacks (single-user app).
+// Works on the multi-line chatbox <textarea> (mode "textarea") AND the single-line
+// sidebar / palette / rename <input>s (mode "input", auto-detected). In input mode
+// the block is shown ONLY while that input is focused, so the five sidebar/palette
+// inputs never paint five carets at once.
 //
-// Markup:
+// Markup (textarea):
 //   <div class="pito-chatbox__field-wrap" data-controller="pito--terminal-caret">
 //     <textarea data-pito--terminal-caret-target="field" ...></textarea>
 //     <span class="terminal-caret" data-pito--terminal-caret-target="block" aria-hidden="true"></span>
 //   </div>
+//
+// Markup (input): same shape, the field is an <input>, wrap is `relative`, and the
+// input carries `.pito-caret-input` (caret-color:transparent + monospace).
 
 import { Controller } from "@hotwired/stimulus"
-
-// Computed styles copied onto the mirror so its line-breaking matches the field.
-const MIRRORED_STYLES = [
-  "boxSizing", "width",
-  "paddingTop", "paddingRight", "paddingBottom", "paddingLeft",
-  "borderTopWidth", "borderRightWidth", "borderBottomWidth", "borderLeftWidth",
-  "fontFamily", "fontSize", "fontWeight", "fontStyle", "fontVariant",
-  "letterSpacing", "wordSpacing", "lineHeight", "textTransform", "textIndent",
-  "tabSize",
-]
+import TerminalCaretCore from "pito/terminal_caret_core"
+import { motionDisabled } from "pito/settings"
 
 export default class extends Controller {
   static targets = ["field", "block"]
@@ -41,10 +37,15 @@ export default class extends Controller {
 
   connect() {
     this.field = this.hasFieldTarget ? this.fieldTarget : this.element
-    this.#buildMirror()
-    this.#syncBlockMetrics()
+    this.core = new TerminalCaretCore({
+      field: this.field,
+      block: this.blockTarget,
+      host: this.element,
+    })
+    this.singleLine = this.core.singleLine
+    this.core.mount()
     this.#bind()
-    this.autosize()
+    this.core.autosize()
     if (this.autofocusValue) {
       this.field.focus({ preventScroll: true })
       // Restored drafts (and conversation switches) re-render the field with its
@@ -53,67 +54,71 @@ export default class extends Controller {
       const end = this.field.value.length
       this.field.selectionStart = this.field.selectionEnd = end
     }
-    this.#setActive(document.activeElement === this.field)
-    this.render()
+    const focused = document.activeElement === this.field
+    this.#setFocusState(focused)
+    this.core.render()
     // Emit initial focus state so a late-connecting chatbox-hints controller
-    // gets the correct value even if it missed the autofocus event.
-    this.#emitFocus(document.activeElement === this.field)
+    // gets the correct value even if it missed the autofocus event. (chatbox only)
+    if (!this.singleLine) this.#emitFocus(focused)
+
+    // Robust to focus timing (input mode only). The five single-line inputs are
+    // focused by their OWN sibling controllers — games-search (rAF), games-nav /
+    // videos-nav (rAF), command-palette (#open), rename (programmatic) — whose
+    // focus() can land around our connect, beating both the one-time activeElement
+    // check above (which only catches focus that ALREADY happened) and, in some
+    // orderings, our focus listener. So re-assert visibility from the LIVE
+    // activeElement on the next microtask AND animation frame: whenever the field
+    // is (or has become) the active element by then, the block is shown — we never
+    // depend on having observed the focus transition. Idempotent and blur-safe (a
+    // resync while blurred keeps it hidden, preserving "only the focused input shows
+    // a block"). The textarea/chatbox path is always-visible and not scheduled.
+    if (this.singleLine) {
+      queueMicrotask(() => this.#resyncVisibility())
+      requestAnimationFrame(() => this.#resyncVisibility())
+    }
+
+    // Gate the blink on motion/reduced-motion, live — `/config fx off` replaces
+    // #pito-settings' data-fx, so the block flips to a solid (no-blink) cursor
+    // without a reload. Mirrors the pito--sidebar-fx pattern.
+    this.#applyMotion()
+    const settings = document.getElementById("pito-settings")
+    if (settings) {
+      this.motionObserver = new MutationObserver(() => this.#applyMotion())
+      this.motionObserver.observe(settings, { attributes: true, attributeFilter: ["data-fx"] })
+    }
   }
 
   disconnect() {
     this.abort?.abort()
     this.resizeObserver?.disconnect()
-    this.mirror?.remove()
+    this.motionObserver?.disconnect()
+    this.core?.teardown()
   }
 
-  // Grow the field's height to fit its (soft-wrapped) content, so wrapping makes the
-  // chatbox taller instead of scrolling. Reset to "auto" first to allow shrinking.
-  autosize() {
-    this.field.style.height = "auto"
-    this.field.style.height = `${this.field.scrollHeight}px`
-  }
-
-  // Position the block over the glyph at the caret and invert that glyph.
-  render() {
-    const value = this.field.value
-    const empty = value.length === 0
-    const index = empty ? 0 : (this.field.selectionStart ?? value.length)
-
-    // The block covers the glyph to the RIGHT of the caret (terminal style).
-    // Empty field -> first char of the hint. End of text -> nothing (plain block).
-    let glyph
-    if (empty) {
-      glyph = (this.field.placeholder || "").charAt(0)
-    } else {
-      glyph = value.charAt(index)
-    }
-
-    const { left, top } = this.#caretCoords(index)
-    this.blockTarget.style.transform = `translate(${left}px, ${top}px)`
-    this.blockTarget.textContent = glyph && glyph !== "\n" ? glyph : " "
-  }
-
-  // Returns the current caret pixel position { left, top } relative to the
-  // field's border box. Public so sibling controllers (e.g. pito--suggestions)
-  // can read it on demand.
-  caretCoords() {
-    const value = this.field.value
-    const empty = value.length === 0
-    const index = empty ? 0 : (this.field.selectionStart ?? value.length)
-    return this.#caretCoords(index)
-  }
+  // Public passthroughs (kept for sibling controllers / back-compat).
+  autosize() { this.core.autosize() }
+  render() { this.core.render() }
+  caretCoords() { return this.core.caretCoords() }
 
   // ── internals ──────────────────────────────────────────────────────────────
 
-  #emitCaret() {
-    const { left, top } = this.caretCoords()
-    this.element.dispatchEvent(
-      new CustomEvent("pito:caret", { bubbles: true, detail: { left, top } })
-    )
+  // Solid block + no blink when motion is off (consistent with the trail being
+  // disabled). data-no-blink kills the @keyframes animation in CSS.
+  #applyMotion() {
+    this.blockTarget.toggleAttribute("data-no-blink", motionDisabled())
   }
 
-  // Dispatch a bubbling pito:focus event so chatbox-hints (and any other listener)
-  // knows the current focus state of the chatbox field.
+  // Re-assert focus-driven visibility from the live activeElement (input mode).
+  // Whenever the field is the active element the block MUST be visible — this does
+  // not rely on having observed the focus event, so a sibling controller's focus()
+  // that landed around connect is honoured. Bails after disconnect.
+  #resyncVisibility() {
+    if (this.abort?.signal.aborted) return
+    const focused = document.activeElement === this.field
+    this.#setFocusState(focused)
+    if (focused) this.core.render()
+  }
+
   #emitFocus(focused) {
     document.dispatchEvent(new CustomEvent("pito:focus", {
       bubbles: false,
@@ -121,13 +126,28 @@ export default class extends Controller {
     }))
   }
 
+  // textarea: block always present, blinks when blurred.
+  // input:    block shown only while focused (never five carets at once).
+  #setFocusState(focused) {
+    this.core.setActive(focused)
+    if (this.singleLine) this.core.setVisible(focused)
+  }
+
   #bind() {
     this.abort = new AbortController()
     const { signal } = this.abort
-    const onCaretMove = () => { this.render(); this.#emitCaret() }
-    const onInput = () => { this.autosize(); this.render(); this.#emitCaret() }
-    const onFocus = () => { this.#setActive(true); this.#emitFocus(true); this.render(); this.#emitCaret() }
-    const onBlur = () => { this.#setActive(false); this.#emitFocus(false); this.render() }
+    const onCaretMove = () => { this.core.render(); this.core.emitCaret() }
+    const onInput = () => { this.core.autosize(); this.core.render(); this.core.emitCaret() }
+    const onFocus = () => {
+      this.#setFocusState(true)
+      if (!this.singleLine) this.#emitFocus(true)
+      this.core.render(); this.core.emitCaret()
+    }
+    const onBlur = () => {
+      this.#setFocusState(false)
+      if (!this.singleLine) this.#emitFocus(false)
+      this.core.render()
+    }
 
     this.field.addEventListener("input", onInput, { signal })
     this.field.addEventListener("keyup", onCaretMove, { signal })
@@ -138,63 +158,17 @@ export default class extends Controller {
     // `input` does not fire when the field is cleared programmatically (e.g. the
     // chat form on submit) — that path dispatches its own "input" event.
     document.addEventListener("selectionchange", () => {
-      if (document.activeElement === this.field) { this.render(); this.#emitCaret() }
+      if (document.activeElement === this.field) { this.core.render(); this.core.emitCaret() }
     }, { signal })
 
     // Re-sync mirror width + re-grow when the field is resized by layout.
-    this.resizeObserver = new ResizeObserver(() => {
-      this.mirror.style.width = getComputedStyle(this.field).width
-      this.autosize()
-      this.render()
-    })
-    this.resizeObserver.observe(this.field)
-  }
-
-  // Solid while the field is focused; blink only when it is not focused.
-  #setActive(active) {
-    this.blockTarget.toggleAttribute("data-focused", active)
-  }
-
-  // Returns the caret's pixel position relative to the field's border box,
-  // adjusted for the field's own scroll offset.
-  #caretCoords(index) {
-    const value = this.field.value
-    this.mirror.textContent = value.slice(0, index)
-    const marker = document.createElement("span")
-    // Non-empty content so the marker has a box even at end-of-line.
-    marker.textContent = value.charAt(index) || "."
-    this.mirror.appendChild(marker)
-    const left = marker.offsetLeft - this.field.scrollLeft
-    const top = marker.offsetTop - this.field.scrollTop
-    this.mirror.removeChild(marker)
-    return { left, top }
-  }
-
-  #buildMirror() {
-    const mirror = document.createElement("div")
-    const cs = getComputedStyle(this.field)
-    for (const prop of MIRRORED_STYLES) mirror.style[prop] = cs[prop]
-    Object.assign(mirror.style, {
-      position: "absolute",
-      top: "0",
-      left: "0",
-      visibility: "hidden",
-      whiteSpace: "pre-wrap",
-      overflowWrap: "break-word",
-      overflow: "hidden",
-      pointerEvents: "none",
-    })
-    mirror.setAttribute("aria-hidden", "true")
-    this.element.appendChild(mirror)
-    this.mirror = mirror
-  }
-
-  // Match the block's line box to the field so the inverted glyph aligns.
-  #syncBlockMetrics() {
-    const cs = getComputedStyle(this.field)
-    Object.assign(this.blockTarget.style, {
-      height: cs.lineHeight,
-      lineHeight: cs.lineHeight,
-    })
+    if (typeof ResizeObserver !== "undefined") {
+      this.resizeObserver = new ResizeObserver(() => {
+        this.core.syncMirrorWidth()
+        this.core.autosize()
+        this.core.render()
+      })
+      this.resizeObserver.observe(this.field)
+    }
   }
 }

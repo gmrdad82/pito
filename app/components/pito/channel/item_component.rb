@@ -72,13 +72,17 @@ module Pito
         @score
       end
 
-      # Stat counters for the card, rendered by Pito::Stats::CountersComponent.
-      # subs · (vids) · views — nil stats treated as zero; vids only when opted in.
-      def stat_counter_metrics
-        metrics = [ { key: :subs, value: channel.subscriber_count.to_i } ]
-        metrics << { key: :vids, value: channel.videos.count } if show_video_count?
-        metrics << { key: :views, value: channel.view_count.to_i }
-        metrics
+      # Row-1 counters: "N Subs · M Views" (always shown when show_stats: true).
+      def stat_row1_metrics
+        [
+          { key: :subs,  value: channel.subscriber_count.to_i },
+          { key: :views, value: channel.view_count.to_i }
+        ]
+      end
+
+      # Row-2 counters: "P Vids" (second line, only when show_video_count: true).
+      def stat_row2_metrics
+        [ { key: :vids, value: channel.videos.count } ]
       end
 
       # YouTube page URL for the [view] link.

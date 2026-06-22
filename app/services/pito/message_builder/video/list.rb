@@ -26,7 +26,7 @@ module Pito
           payload = {
             "body"          => Pito::Copy.render_html(
               "pito.copy.videos.list_intro",
-              { count: videos.size, noun: "vids" },
+              { count: videos.size, noun: videos.size == 1 ? "vid" : "vids" },
               shimmer: [ :count, :noun ]
             ),
             "html"          => true,
@@ -47,7 +47,14 @@ module Pito
           id_text = "##{video.id}"
           {
             cells: [
-              { text: id_text, class: Pito::Shimmer::TokenComponent.css_class(id_text, extra: "tabular-nums text-right whitespace-nowrap") },
+              {
+                text:  id_text,
+                class: Pito::Shimmer::TokenComponent.css_class(id_text, extra: "tabular-nums text-right whitespace-nowrap"),
+                # Click-to-open: same chat-prefill seam as the detail card #id —
+                # clicking the cell auto-submits `show vid #<id>` (J5, and J12
+                # when this list is the enhanced linked-videos table).
+                data:  Pito::Shimmer::TokenComponent.prefill_data("show vid #{id_text}", submit: true)
+              },
               { text: video.title, class: "text-fg pito-cell-title" },
               *ListColumns.cells(video, columns)
             ]

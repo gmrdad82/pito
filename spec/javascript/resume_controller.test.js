@@ -530,20 +530,68 @@ describe("pito--resume controller", () => {
     }
   })
 
-  it("d while an input has focus does not arm the row", async () => {
+  it("d while a SIDEBAR input (inline rename) has focus does not arm the row", async () => {
     const sidebar = buildSidebar()
     await waitForConnect()
     const row = addRow(sidebar, { uuid: "u1" })
     await waitForMO()
 
+    // The inline rename field lives INSIDE the sidebar — d must type into it,
+    // not arm the row.
     const input = document.createElement("input")
-    document.body.appendChild(input)
+    row.appendChild(input)
     input.focus()
 
     fireKey("d")
 
+    expect(row.innerHTML).toContain("<input")
     expect(row.innerHTML).not.toContain("press d again to delete")
-    input.remove()
+  })
+
+  it("d still arms the row when the chatbox (outside the sidebar) has focus, and blurs it", async () => {
+    // J22: a focused chatbox must NOT swallow delete. d should blur the chatbox
+    // and arm the highlighted row so it never gets typed into the chatbox.
+    const sidebar = buildSidebar()
+    await waitForConnect()
+    const row = addRow(sidebar, { uuid: "u1" })
+    await waitForMO()
+
+    const chatbox = document.createElement("textarea")
+    chatbox.setAttribute("data-pito--chat-form-target", "inputField")
+    document.body.appendChild(chatbox)
+    chatbox.focus()
+    expect(document.activeElement).toBe(chatbox)
+
+    fireKey("d")
+
+    expect(row.innerHTML).toContain("press d again to delete")
+    expect(document.activeElement).not.toBe(chatbox)
+
+    chatbox.remove()
+  })
+
+  it("dd deletes even with the chatbox focused (delete is never swallowed)", async () => {
+    const sidebar = buildSidebar()
+    await waitForConnect()
+    addRow(sidebar, { uuid: "del-focus" })
+    await waitForMO()
+
+    const chatbox = document.createElement("textarea")
+    chatbox.setAttribute("data-pito--chat-form-target", "inputField")
+    document.body.appendChild(chatbox)
+    chatbox.focus()
+
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({ ok: true })
+
+    fireKey("d")  // arm (blurs chatbox)
+    fireKey("d")  // confirm delete
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      "/chat/del-focus",
+      expect.objectContaining({ method: "DELETE" })
+    )
+
+    chatbox.remove()
   })
 
   // ── localStorage persist on content-change ────────────────────────────────
@@ -663,6 +711,38 @@ describe("pito--resume controller", () => {
     expect(document.activeElement).not.toBe(chatbox)
 
     chatbox.remove()
+  })
+
+  it("dispatches pito:comet-clear when the sidebar opens (J23 — comet must not hang)", async () => {
+    const sidebar = buildSidebar()
+    await waitForConnect()
+
+    let cometCleared = false
+    document.addEventListener("pito:comet-clear", () => { cometCleared = true }, { once: true })
+
+    const aside = document.createElement("aside")
+    sidebar.appendChild(aside)
+    await waitForMO()
+
+    expect(cometCleared).toBe(true)
+  })
+
+  it("does not re-dispatch pito:comet-clear on a later in-place mutation (only on open)", async () => {
+    const sidebar = buildSidebar()
+    await waitForConnect()
+
+    const aside = document.createElement("aside")
+    sidebar.appendChild(aside)
+    await waitForMO()  // open transition — comet-clear fires here
+
+    let count = 0
+    document.addEventListener("pito:comet-clear", () => { count++ })
+
+    // An in-place mutation while the panel stays open (e.g. a rename row replace).
+    aside.appendChild(document.createElement("div"))
+    await waitForMO()
+
+    expect(count).toBe(0)
   })
 
   it("keys still navigate normally when focus is not in a text input (guard does not fire)", async () => {

@@ -128,7 +128,12 @@ RSpec.describe Pito::Achievement::BadgeComponent do
       it "renders the date in a muted .pito-achievement-badge__date block span" do
         span = node.css(".pito-achievement-badge__date")
         expect(span).not_to be_empty
-        expect(span.text).to eq("· Aug '26")
+        expect(span.text).to eq("Aug '26")
+      end
+
+      it "date span contains no middot separator (block layout provides separation)" do
+        span = node.css(".pito-achievement-badge__date")
+        expect(span.text).not_to include("·")
       end
 
       it "date span carries the block class (own line)" do
@@ -146,7 +151,8 @@ RSpec.describe Pito::Achievement::BadgeComponent do
       it "badge text includes both value+word and the date" do
         text = node.css(".pito-achievement-badge").text
         expect(text).to include("1K Subs")
-        expect(text).to include("· Aug '26")
+        expect(text).to include("Aug '26")
+        expect(text).not_to include("· Aug")
       end
     end
 

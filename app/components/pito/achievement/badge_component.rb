@@ -15,8 +15,9 @@ module Pito
     #
     #   :compact  — one line: "<value> <Word>" (e.g. "1K Subs"). No date.
     #   :extended — two lines: row 1 "<value> <Word>", row 2 the unlock date in
-    #               a muted block span (.pito-achievement-badge__date). Omits
-    #               the date row entirely when unlocked_on is nil.
+    #               a muted block span (.pito-achievement-badge__date). No middot
+    #               separator — the block layout provides the visual separation.
+    #               Omits the date row entirely when unlocked_on is nil.
     #
     # The word is the full title-case badge label from Pito::Achievements::Label.badge
     # (e.g. Subs, Views, Likes, Comms, Watched — not single-letter abbreviations).
@@ -30,7 +31,7 @@ module Pito
     #   threshold:   (Integer) — one of the 22 milestone steps.
     #   metric:      (String, Symbol) — achievement metric key.
     #   unlocked_on: (Date, nil) — when present and form is :extended, appends
-    #                "· Mon 'YY" in a muted block span; nil or compact omits it.
+    #                "Mon 'YY" in a muted block span; nil or compact omits it.
     #   form:        (:compact | :extended) — display form; default :extended.
     class BadgeComponent < ViewComponent::Base
       FORMS = %i[compact extended].freeze
@@ -72,7 +73,7 @@ module Pito
         parts = [ "#{value} #{word}" ]
 
         if @form == :extended && @unlocked_on
-          parts << tag.span(@unlocked_on.strftime("· %b '%y"),
+          parts << tag.span(@unlocked_on.strftime("%b '%y"),
                             class: "pito-achievement-badge__date block")
         end
 

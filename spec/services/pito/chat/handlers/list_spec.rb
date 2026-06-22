@@ -92,25 +92,23 @@ RSpec.describe Pito::Chat::Handlers::List do
 
   # ── Unknown list target ─────────────────────────────────────────────────────
 
-  describe "#call with an unrecognized noun" do
+  describe "#call with arbitrary filler / unrecognized tokens (allowlist)" do
     let!(:game) { create(:game, title: "Tears of the Kingdom") }
 
-    it "rejects `list asd` with an unknown-target message instead of listing games" do
+    it "drops a truly-unknown short token (`list asd`) and lists all games" do
       result  = handler_for("list asd").call
       payload = result.events.first[:payload]
       expect(result).to be_a(Pito::Chat::Result::Ok)
-      expect(payload["text"]).to include("asd")
-      expect(payload["table_rows"]).to be_blank
+      expect(payload["table_rows"]).to be_present
+    end
+
+    it "drops conversational filler (`list games please yo`) and lists all games" do
+      payload = handler_for("list games please yo").call.events.first[:payload]
+      expect(payload["table_rows"]).to be_present
     end
 
     it "still lists games for a bare `list`" do
       expect(handler_for("list").call.events.first[:payload]["table_rows"]).to be_present
-    end
-
-    it "rejects the singular `list video` (only the plural `list videos` is a noun)" do
-      payload = handler_for("list video").call.events.first[:payload]
-      expect(payload["text"]).to include("video")
-      expect(payload["table_rows"]).to be_blank
     end
 
     it "still lists games for `list games`" do
@@ -121,10 +119,82 @@ RSpec.describe Pito::Chat::Handlers::List do
       expect(handler_for("list gamez").call.events.first[:payload]["table_rows"]).to be_present
     end
 
-    it "does not reject a valid filter token like `upcoming`" do
+    it "does not correct a valid filter token like `upcoming`" do
       payload  = handler_for("list upcoming").call.events.first[:payload]
       combined = "#{payload['text']}#{payload['body']}"
-      expect(combined).not_to include("Don't know how to list")
+      expect(combined).not_to include("Did you mean")
+    end
+  end
+
+  # ── Did-you-mean (fuzzy correction of near-miss vocabulary) ──────────────────
+
+  describe "#call with a near-miss token (did-you-mean)" do
+    let!(:game) { create(:game, title: "Tears of the Kingdom") }
+
+    it "offers `rpg` for the genre typo `list rpgg` instead of listing" do
+      payload = handler_for("list rpgg").call.events.first[:payload]
+      expect(payload["text"]).to include("Did you mean")
+      expect(payload["text"]).to include("rpg")
+      expect(payload["table_rows"]).to be_blank
+    end
+
+    it "offers `playstation` for the platform typo `list playstaton`" do
+      payload = handler_for("list playstaton").call.events.first[:payload]
+      expect(payload["text"]).to include("playstation")
+      expect(payload["table_rows"]).to be_blank
+    end
+
+    it "offers `switch` for the platform typo `list swith`" do
+      payload = handler_for("list swith").call.events.first[:payload]
+      expect(payload["text"]).to include("switch")
+      expect(payload["table_rows"]).to be_blank
+    end
+
+    it "offers a noun correction for the noun typo `list vidoes`" do
+      payload = handler_for("list vidoes").call.events.first[:payload]
+      expect(payload["text"]).to include("Did you mean")
+      expect(payload["text"]).to match(/vids|videos/)
+      expect(payload["table_rows"]).to be_blank
+    end
+  end
+
+  # ── Singular noun aliases route via the shared registry ─────────────────────
+
+  describe "#call with singular noun aliases" do
+    let!(:chan)  { create(:channel, title: "Solo Chan", handle: "@solo", youtube_channel_id: "UCsolo") }
+    let!(:video) { create(:video, :public, title: "Solo Video", channel: chan) }
+
+    it "routes `list video` to the video list (not a games table)" do
+      payload = handler_for("list video", channel: "@all").call.events.first[:payload]
+      expect(payload["reply_target"]).to eq("video_list")
+      expect(video_titles(payload)).to include("Solo Video")
+    end
+
+    it "routes `list vid` to the video list" do
+      payload = handler_for("list vid", channel: "@all").call.events.first[:payload]
+      expect(payload["reply_target"]).to eq("video_list")
+    end
+
+    it "routes `list channel` to the channel list" do
+      payload = handler_for("list channel").call.events.first[:payload]
+      expect(payload["reply_target"]).to eq("channel_list")
+    end
+  end
+
+  # ── Filler tolerance across nouns (e) ───────────────────────────────────────
+
+  describe "#call tolerates filler on every noun" do
+    let!(:chan)  { create(:channel, title: "Filler Chan", handle: "@filler", youtube_channel_id: "UCfiller") }
+    let!(:video) { create(:video, :public, title: "Filler Video", channel: chan) }
+
+    it "ignores filler on `list videos please` and still lists videos" do
+      payload = handler_for("list videos please", channel: "@all").call.events.first[:payload]
+      expect(video_titles(payload)).to include("Filler Video")
+    end
+
+    it "ignores filler on `list channels please` and still lists channels" do
+      body = handler_for("list channels please").call.events.first[:payload]["body"]
+      expect(body).to include("Filler Chan")
     end
   end
 

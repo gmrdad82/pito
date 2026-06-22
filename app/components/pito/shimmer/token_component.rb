@@ -33,14 +33,33 @@ module Pito
         ActionController::Base.helpers.tag.span(text, class: css_class(text, extra: extra, seed: seed))
       end
 
+      # The pito--chat-prefill data hash for a click-to-type token. STRING call
+      # sites (list-cell `#id`s built via css_class) merge this into the cell's
+      # `data:` so SystemComponent renders the same controller/action/value
+      # attributes the component would. `submit: true` adds the submit-value so
+      # the click auto-submits (an `#id` that OPENS the entity); the reply
+      # #hashtag prefill omits it (prefill-only).
+      def self.prefill_data(text, submit: false)
+        data = {
+          controller: "pito--chat-prefill",
+          action: "click->pito--chat-prefill#fill",
+          "pito--chat-prefill-text-value": text
+        }
+        data[:"pito--chat-prefill-submit-value"] = "true" if submit
+        data
+      end
+
       # `prefill:` (optional) turns the token into a click-to-type affordance:
-      # clicking it prefills the chatbox with that string (no submit) via the
-      # pito--chat-prefill controller. The shimmer styling is untouched.
+      # clicking it prefills the chatbox with that string via the
+      # pito--chat-prefill controller. `submit:` (optional) makes the click
+      # auto-submit the command (Enter) instead of only prefilling. The shimmer
+      # styling is untouched.
       # `seed:` (optional) — forwarded to offset_class for list-row staggering.
-      def initialize(text:, extra_class: nil, prefill: nil, seed: nil)
+      def initialize(text:, extra_class: nil, prefill: nil, submit: false, seed: nil)
         @text        = text.to_s
         @extra_class = extra_class
         @prefill     = prefill.presence
+        @submit      = submit
         @seed        = seed
       end
 
@@ -53,13 +72,7 @@ module Pito
       def prefill_attrs
         return {} unless @prefill
 
-        {
-          data: {
-            controller: "pito--chat-prefill",
-            action: "click->pito--chat-prefill#fill",
-            "pito--chat-prefill-text-value": @prefill
-          }
-        }
+        { data: self.class.prefill_data(@prefill, submit: @submit) }
       end
     end
   end

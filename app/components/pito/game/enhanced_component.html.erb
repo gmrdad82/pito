@@ -52,7 +52,7 @@
               fixed while the title truncates; gap provides the single-space
               separation (flex suppresses the monospace inter-element whitespace). %>
           <div class="pito-game-enhanced-message__similar-game-line">
-            <%= render(Pito::Shimmer::TokenComponent.new(text: "##{result.game.id}", extra_class: "pito-game-enhanced-message__similar-game-id", prefill: "show game ##{result.game.id}")) %>
+            <%= render(Pito::Shimmer::TokenComponent.new(text: "##{result.game.id}", extra_class: "pito-game-enhanced-message__similar-game-id", prefill: "show game ##{result.game.id}", submit: true)) %>
             <span class="pito-game-enhanced-message__similar-game-title text-fg"><%= result.game.title %></span>
           </div>
           <%# Similarity score bar — same component as the channel cards. %>

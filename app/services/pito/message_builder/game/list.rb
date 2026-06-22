@@ -36,7 +36,13 @@ module Pito
               id_text = "##{game.id}"
               {
                 cells: [
-                  { text: id_text, class: Pito::Shimmer::TokenComponent.css_class(id_text, extra: "tabular-nums text-right whitespace-nowrap") },
+                  {
+                    text:  id_text,
+                    class: Pito::Shimmer::TokenComponent.css_class(id_text, extra: "tabular-nums text-right whitespace-nowrap"),
+                    # Click-to-open: clicking the cell auto-submits `show game
+                    # #<id>` via the chat-prefill seam (J6).
+                    data:  Pito::Shimmer::TokenComponent.prefill_data("show game #{id_text}", submit: true)
+                  },
                   { text: game.title, class: "text-fg pito-cell-title" },
                   *ListColumns.cells(game, cols)
                 ]

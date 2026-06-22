@@ -32,6 +32,14 @@ RSpec.describe Pito::Analytics::ScalarsTableComponent, type: :component do
       expect(node.css("div.pito-analytics-scalars.grid-cols-6")).not_to be_empty
     end
 
+    it "spaces rows comfortably with gap-y-2 (not the cramped gap-y-1)" do
+      node = render_for(result)
+      grid = node.at_css("div.pito-analytics-scalars")
+      classes = grid["class"].to_s.split
+      expect(classes).to include("gap-y-2")
+      expect(classes).not_to include("gap-y-1")
+    end
+
     it "renders row 1 cells (views, watched hours) with col-span-3" do
       node = render_for(result)
       texts = node.css("div.col-span-3").map(&:text)
@@ -107,6 +115,26 @@ RSpec.describe Pito::Analytics::ScalarsTableComponent, type: :component do
       expect(subs.css("span.pito-trend-number--up")).not_to be_empty
       expect(subs.css("span.pito-trend-number--down")).not_to be_empty
     end
+
+    it "synchronises both halves to ONE shimmer offset (pulse together, not adrift)" do
+      node = render_for(result)
+      subs = cell_containing(node, "Subs")
+      up   = subs.at_css("span.pito-trend-number--up")
+      down = subs.at_css("span.pito-trend-number--down")
+      up_offset   = up["class"].split.grep(/\Apito-shimmer-d\d+\z/)
+      down_offset = down["class"].split.grep(/\Apito-shimmer-d\d+\z/)
+      expect(up_offset).not_to be_empty
+      # Same single dN class on both halves → same animation-delay → in phase.
+      expect(up_offset).to eq(down_offset)
+    end
+
+    it "separates the split with a spaced '/' so the values breathe" do
+      node = render_for(result)
+      subs = cell_containing(node, "Subs")
+      sep  = subs.css("span.text-fg-dim").find { |s| s.text.include?("/") }
+      expect(sep).to be_present
+      expect(sep.text).to eq(" / ")
+    end
   end
 
   describe "likes cell (<likes>👍/<dislikes>👎)" do
@@ -123,11 +151,60 @@ RSpec.describe Pito::Analytics::ScalarsTableComponent, type: :component do
       expect(down.at_css("svg")["aria-label"]).to eq("Dislikes")
     end
 
+    it "nests each icon INSIDE its trend-shimmer span so the icon shares the number's shimmer" do
+      node = render_for(result)
+      likes = cell_containing(node, "Likes")
+
+      # The 👍 must be a descendant of the .pito-trend-number--up span (and 👎 of
+      # --down): the CSS rule `.pito-trend-number--up .pito-icon` animates the
+      # icon's colour on the same cadence, so number + icon shimmer as one unit.
+      up_icon   = likes.at_css("span.pito-trend-number--up svg.pito-icon")
+      down_icon = likes.at_css("span.pito-trend-number--down svg.pito-icon")
+      expect(up_icon).to be_present
+      expect(down_icon).to be_present
+      expect(up_icon["aria-label"]).to eq("Likes")
+      expect(down_icon["aria-label"]).to eq("Dislikes")
+    end
+
+    it "frame-locks each icon to its number by sharing the span's pito-shimmer-dN offset" do
+      node  = render_for(result)
+      likes = cell_containing(node, "Likes")
+      up    = likes.at_css("span.pito-trend-number--up")
+      down  = likes.at_css("span.pito-trend-number--down")
+
+      # The shimmer offset (animation-delay stagger) lives on the trend-number
+      # span; the icon is nested INSIDE it and inherits that delay via CSS
+      # (`.pito-icon { animation-delay: inherit }`), so the icon never carries
+      # its own offset class — it shares the number's exact phase.
+      up_offset   = up["class"].split.grep(/\Apito-shimmer-d\d+\z/)
+      down_offset = down["class"].split.grep(/\Apito-shimmer-d\d+\z/)
+      expect(up_offset).not_to be_empty
+      expect(down_offset).not_to be_empty
+
+      up_icon   = up.at_css("svg.pito-icon")
+      down_icon = down.at_css("svg.pito-icon")
+      expect(up_icon["class"].to_s.split.grep(/\Apito-shimmer-d\d+\z/)).to be_empty
+      expect(down_icon["class"].to_s.split.grep(/\Apito-shimmer-d\d+\z/)).to be_empty
+    end
+
     it "does not render a separate Dislikes value cell" do
       node = render_for(result)
       # Only one metric cell carries thumbs icons (the merged likes cell).
       icon_cells = node.css("div.col-span-3").select { |d| d.at_css("svg") }
       expect(icon_cells.size).to eq(1)
+    end
+
+    it "synchronises the 👍 / 👎 halves to one shimmer offset and spaces the '/'" do
+      node  = render_for(result)
+      likes = cell_containing(node, "Likes")
+      up    = likes.at_css("span.pito-trend-number--up")
+      down  = likes.at_css("span.pito-trend-number--down")
+      up_offset   = up["class"].split.grep(/\Apito-shimmer-d\d+\z/)
+      down_offset = down["class"].split.grep(/\Apito-shimmer-d\d+\z/)
+      expect(up_offset).not_to be_empty
+      expect(up_offset).to eq(down_offset)
+      sep = likes.css("span.text-fg-dim").find { |s| s.text.include?("/") }
+      expect(sep.text).to eq(" / ")
     end
 
     it "shows an em dash when both likes and dislikes are nil" do

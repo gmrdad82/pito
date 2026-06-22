@@ -92,7 +92,7 @@ module Pito
       def normalized_table_rows
         @normalized_table_rows ||= table_rows.map do |row|
           if row[:cells].present?
-            row[:cells].map { |c| { text: c[:text].to_s, class: c[:class].presence || "text-fg-dim", html: c[:html] == true } }
+            row[:cells].map { |c| { text: c[:text].to_s, class: c[:class].presence || "text-fg-dim", html: c[:html] == true, data: c[:data].presence } }
           else
             cells = [
               { text: row[:key].to_s,   class: "#{row.fetch(:key_class, 'text-cyan')} whitespace-nowrap" },
@@ -109,6 +109,18 @@ module Pito
       # in `.pito-data-grid[data-cols="N"]`. No inline style.
       def table_col_count(n)
         [ n, 2 ].max
+      end
+
+      # Renders one data-grid cell <span>. Carries any per-cell `data:` (the
+      # chat-prefill seam for clickable `#id` cells) plus, when +typewriter+ is
+      # set, the typewriter reveal target (htmlProse for html cells, prose
+      # otherwise — matching the non-html body path). HTML cells render their
+      # text raw; plain cells are escaped.
+      def render_cell_span(cell, typewriter: false)
+        data = cell[:data].present? ? cell[:data].to_h.dup : {}
+        data["pito--typewriter-target"] = cell[:html] ? "htmlProse" : "prose" if typewriter
+        content = cell[:html] ? raw(cell[:text].to_s) : cell[:text].to_s
+        tag.span(content, class: cell[:class], data: data.presence)
       end
 
       # Returns heading cell hashes (one per label) when table_heading is present,
@@ -134,15 +146,29 @@ module Pito
         end
       end
 
-      # Composes a heading-cell class. When the list is live (shimmer_heading set
-      # AND the message is not yet reply_consumed), the cyan identifier shimmer is
-      # appended via Pito::Shimmer::TokenComponent.css_class together with
-      # font-bold so the headers read as interactive affordances.
+      # The legacy "added column" affordance class (cyan, !important). It used to
+      # tint the dynamic `with`-columns so they read as distinct from the fixed
+      # #/Title columns — predating the shimmer-heading feature. It is stripped
+      # here so EVERY sortable heading (fixed AND added) shares ONE appearance:
+      # the cyan shimmer is the sole live affordance, and a consumed list drops
+      # cleanly to plain muted (no leftover cyan). See J7/J8/J15.
+      HEADING_AFFORDANCE_CLASS = "pito-table-heading--added"
+
+      # Composes a heading-cell class through the SINGLE sortable-shimmer-or-muted
+      # path used by every heading column. When the list is live (shimmer_heading
+      # set AND not yet reply_consumed) the cyan identifier shimmer + font-bold is
+      # appended via Pito::Shimmer::TokenComponent.css_class so the headers read as
+      # interactive affordances — uniformly for the hardcoded #/Title/Game cells
+      # and the dynamic `with`-columns alike.
       #
-      # Once a list message is reply_consumed (historical scrollback entry), the
-      # headers revert to plain muted text — no shimmer, no bold.
+      # Once a list message is reply_consumed (historical scrollback entry) ALL
+      # headings revert to plain muted text — no shimmer, no bold, no cyan. Only
+      # layout-affecting extras (e.g. `text-right`) survive into either state; the
+      # legacy `pito-table-heading--added` colour class is dropped so added columns
+      # never linger cyan after consume.
       def heading_class(base, extra, text)
-        parts = [ base, extra ]
+        layout = Array(extra&.split).reject { |c| c == HEADING_AFFORDANCE_CLASS }
+        parts  = [ base, *layout ]
         if shimmer_heading && !reply_consumed
           parts << "font-bold"
           parts << Pito::Shimmer::TokenComponent.css_class(text)

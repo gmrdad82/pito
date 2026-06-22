@@ -918,6 +918,103 @@ describe("pito--suggestions controller", () => {
     })
   })
 
+  // ── Slash /config arg-stage palette (stage:"verb" fetch) ─────────────────
+  //
+  // Restoration: typing `/config ` (and `/config <provider> `) lands at the slash
+  // ARG stage (a space follows the verb, tripping _isArgStage) — but the engine
+  // tags the response stage:"verb" so the client must render the provider/key
+  // list as a browsable PALETTE, not just the top hit as a single inline ghost.
+
+  describe("slash /config arg-stage palette (stage:'verb' fetch)", () => {
+    let ctrl
+
+    const CONFIG_PROVIDERS = () => ({
+      ok: true,
+      json: async () => ({
+        mode: "slash",
+        stage: "verb",
+        menu_items: [
+          { label: "google",  insert: "google ",  description: "" },
+          { label: "voyage",  insert: "voyage ",  description: "" },
+          { label: "igdb",    insert: "igdb ",    description: "" },
+          { label: "webhook", insert: "webhook ", description: "" },
+        ],
+        ghost: { complete_current: "", next_hint: "" },
+      }),
+    })
+
+    beforeEach(async () => {
+      await waitForConnect()
+      ctrl = app.getControllerForElementAndIdentifier(chatbox, "pito--suggestions")
+      ctrl._mode = "slash"
+    })
+
+    it("classifies '/config ' as a slash-config arg stage", () => {
+      expect(ctrl._isSlashConfigArgStage("/config ", 8)).toBe(true)
+      expect(ctrl._isSlashConfigArgStage("/config google ", 15)).toBe(true)
+    })
+
+    it("does NOT classify other slash args as config arg stage", () => {
+      expect(ctrl._isSlashConfigArgStage("/games import x", 14)).toBe(false)
+      expect(ctrl._isSlashConfigArgStage("/disconnect @al", 15)).toBe(false)
+      expect(ctrl._isSlashConfigArgStage("/config", 7)).toBe(false) // still typing verb
+    })
+
+    it("renders a MULTI-item palette (not a single ghost) for '/config '", async () => {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue(CONFIG_PROVIDERS()))
+      await ctrl._fetchArgSuggestions("/config ", 8)
+
+      expect(palette.classList.contains("hidden")).toBe(false)
+      const rows = palette.querySelectorAll(".pito-suggestions-row")
+      expect(rows.length).toBe(4)
+    })
+
+    it("surfaces the provider names in the palette", async () => {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue(CONFIG_PROVIDERS()))
+      await ctrl._fetchArgSuggestions("/config ", 8)
+
+      const labels = [...palette.querySelectorAll(".pito-suggestions-cmd")].map(el => el.textContent)
+      expect(labels).toEqual(expect.arrayContaining(["google", "voyage", "igdb", "webhook"]))
+    })
+
+    it("Enter accepts the highlighted provider → '/config google '", async () => {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue(CONFIG_PROVIDERS()))
+      textarea.value = "/config "
+      textarea.selectionStart = textarea.selectionEnd = 8
+      await ctrl._fetchArgSuggestions("/config ", 8)
+
+      // First row ("google") is selected by default.
+      ctrl.handleKeydown(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }))
+      expect(textarea.value).toBe("/config google ")
+    })
+  })
+
+  // ── Ghost layers within the caret overlay stack (z-index) ────────────────
+  //
+  // Deliberate field-wrap stack (bottom → top):
+  //   type-fx layer (1)  <  trail ghosts (1)  <  suggestion ghost (2)  <  block (3)
+  // The suggestion ghost reads ABOVE the decoration layers (type-fx + trail) but
+  // BELOW the live block caret (.terminal-caret z-index:3) — so the block is
+  // never occluded at the caret cell. Regression: the ghost was z-index:3, ABOVE
+  // the block, which hid the block whenever a completion was showing.
+
+  describe("ghost layering within the caret stack", () => {
+    let ctrl
+
+    beforeEach(async () => {
+      await waitForConnect()
+      ctrl = app.getControllerForElementAndIdentifier(chatbox, "pito--suggestions")
+    })
+
+    it("the ghost span sits above the decoration layers but below the block caret", () => {
+      ctrl._setGhost("oming", "")
+      expect(ctrl._ghostSpan).toBeTruthy()
+      const z = Number(ctrl._ghostSpan.style.zIndex)
+      expect(z).toBeGreaterThan(1) // above type-fx layer + trail ghosts (z-index 1)
+      expect(z).toBeLessThan(3)    // below the live block caret (.terminal-caret z-index 3)
+    })
+  })
+
   // ── _isHashtagReplyVerbStage classification ──────────────────────────────
 
   describe("_isHashtagReplyVerbStage", () => {

@@ -27,8 +27,10 @@
 # Follow-up: video list IS stamped as `reply_target: "video_list"`, enabling
 # follow-up reply verbs (show, delete, link, unlink, with, without, sort/order).
 #
-# NOTE: `game`/`games` are FILLER words in the grammar, so `list` and
-# `list games` parse identically — both land here.
+# NOTE: `game`/`games`/`gamez` all resolve to the games noun, so `list` and
+# `list games` parse identically — both land here. Noun routing (channels / vids
+# / games) is driven by the shared Grammar::Vocabularies::NOUNS registry, so the
+# singular aliases (`channel`, `video`, `vid`) route just like their plurals.
 #
 # Filtering syntax for games: `list games [upcoming] [<genres>…] [<platforms>…]`
 # All parts optional, order-independent. See Pito::Chat::GameListFilter.
@@ -65,18 +67,22 @@ module Pito
           # (the games Channels column) or "video", which must NOT be mistaken for
           # the noun — otherwise `list games with channels` routes to `list channels`.
           head = noun_head(message.raw)
-          return list_channels  if head.match?(/\bchannels?\b/i)
-          # Require the plural form — `vids` (canonical) or `videos` (alias).
-          # The singular "list video" / "list vid" is NOT a valid noun and falls
-          # through to the unknown-noun handler below.
-          return list_videos    if head.match?(/\b(?:vids|videos)\b/i)
+          # Noun routing is driven by the centralized :nouns registry (shared with
+          # the typeahead), so `channels`/`vids`/`games` and every alias —
+          # `channel`, `video(s)`, `vid`, `game`, `gamez` — resolve in one place.
+          case detected_noun(head)
+          when "channels" then return list_channels
+          when "vids"     then return list_videos
+          end
           return games_list_help if message.raw.match?(/(?:\A|\s)--help(?:\s|\z)/)
 
-          # Reject an unrecognized noun (e.g. `list asd`) instead of silently
-          # listing all games. Checked against the head only, so `with <columns>`
-          # / `sorted by` clauses never trip it.
-          unknown = Pito::Chat::GameListFilter.unrecognized_tokens(head)
-          return unknown_list_target(unknown) if unknown.any?
+          # Allowlist over denylist: arbitrary filler is dropped silently. The
+          # only non-list path is a typo that is fuzzy-close to a real
+          # genre/platform/noun term → offer a "did you mean" correction instead
+          # of listing. Checked against the head only, so `with <columns>` /
+          # `sorted by` clauses never trip it.
+          corrections = Pito::Chat::GameListFilter.suggestions(head)
+          return did_you_mean(corrections) if corrections.any?
 
           filtered = Pito::Chat::GameListFilter.filtered?(message.raw)
           columns  = Pito::Chat::WithColumns.parse(
@@ -130,6 +136,20 @@ module Pito
         # never get read as the `list channels` / `list videos` noun.
         def noun_head(raw)
           raw.to_s.split(/\b(?:with|sorted\s+by|ordered\s+by)\b/i, 2).first.to_s
+        end
+
+        # Resolves the listable noun from the head by walking its tokens through
+        # the shared :nouns vocabulary and returning the first canonical hit
+        # (`channels` / `vids` / `games`), or nil when no token is a noun (e.g.
+        # `list rpg ps5` → nil → the games path). The verb token itself never
+        # resolves, so it is skipped naturally.
+        def detected_noun(head)
+          vocab = Pito::Grammar::Registry.vocabulary(:nouns)
+          head.to_s.downcase.split(/\s+/).each do |token|
+            canonical = vocab.resolve(token)
+            return canonical if canonical
+          end
+          nil
         end
 
         # With no `with` clause, auto-fill the first N canonical columns, where N
@@ -332,12 +352,13 @@ module Pito
           ])
         end
 
-        # `list <unknown>` — the noun is neither channels/videos/games nor a
-        # recognized games filter term. Surface an error instead of all games.
-        def unknown_list_target(tokens)
+        # `list <typo>` — a token was fuzzy-close to a real genre/platform/noun
+        # term. Offer the correction(s) instead of listing, surfacing them as a
+        # single :system event so the owner can re-type the fixed command.
+        def did_you_mean(suggestions)
           payload = Pito::MessageBuilder::Text.call(
-            "pito.copy.list.unknown_target",
-            target: tokens.join(" ")
+            "pito.copy.list.did_you_mean",
+            suggestions: suggestions.map { |s| "`#{s}`" }.join(", ")
           )
           Pito::Chat::Result::Ok.new(events: [ { kind: :system, payload: } ])
         end

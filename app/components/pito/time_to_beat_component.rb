@@ -238,16 +238,14 @@ module Pito
       end
     end
 
+    # Edge-clamp class for the footage ▼ bubble so it never pokes past the bar at
+    # the extremes (footage 0 → left edge, footage as the axis-max → right edge).
+    # Mirrors the pillar value-label clamp. Footage 0 pins to the start; otherwise
+    # it clamps by its snapped position.
     def footage_label_alignment_class
-      if footage_hours.zero?
-        "ttb-label--at-start"
-      else
-        "ttb-label--centered"
-      end
-    end
+      return "ttb-label--at-start" if footage_hours.zero?
 
-    def pillar_bottom_label_alignment_class
-      "ttb-label--centered"
+      label_alignment_class(footage_position)
     end
 
     def pillar_label_data

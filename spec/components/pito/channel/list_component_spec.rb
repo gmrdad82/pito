@@ -118,8 +118,13 @@ RSpec.describe Pito::Channel::ListComponent do
       channel = build_channel
       allow(channel).to receive(:subscriber_count).and_return(0)
       allow(channel).to receive(:view_count).and_return(5)
+      allow(channel).to receive(:videos).and_return(
+        double("channel_videos", count: 0)
+      )
       node = render_inline(described_class.new(channels: [ channel ]))
-      expect(node.css(".pito-stats-counters__cell").last.text.strip).to include("5").and include("Views")
+      # Views is the last cell on row 1 (subs · views); row 2 has Vids.
+      row1_cells = node.css(".pito-stats-counters")[0].css(".pito-stats-counters__cell")
+      expect(row1_cells.last.text.strip).to include("5").and include("Views")
     end
   end
 

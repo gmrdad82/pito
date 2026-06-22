@@ -29,6 +29,18 @@ RSpec.describe Pito::MessageBuilder::Video::List do
       expect(payload["body"]).to match(%r{<span class="pito-subject-shimmer[^"]*">vids</span>})
     end
 
+    context "when there is exactly 1 video" do
+      let(:videos) { ::Video.where(id: video1.id) }
+
+      it "uses the singular noun 'vid'" do
+        expect(payload["body"]).to match(%r{<span class="pito-subject-shimmer[^"]*">vid</span>})
+      end
+
+      it "does not use the plural noun 'vids'" do
+        expect(payload["body"]).not_to match(%r{<span class="pito-subject-shimmer[^"]*">vids</span>})
+      end
+    end
+
     it "has table_rows with one entry per video" do
       expect(payload["table_rows"]).to be_present
       expect(payload["table_rows"].size).to eq(2)
@@ -54,6 +66,15 @@ RSpec.describe Pito::MessageBuilder::Video::List do
         expect(cell[:class]).to include("pito-token-shimmer")
         expect(cell[:class]).to include("tabular-nums")
         expect(cell[:class]).to include("text-right")
+      end
+
+      it "carries chat-prefill data so a click auto-submits `show vid #id` (J5)" do
+        cell = payload["table_rows"].first[:cells][0]
+        data = cell[:data]
+        expect(data[:controller]).to eq("pito--chat-prefill")
+        expect(data[:action]).to eq("click->pito--chat-prefill#fill")
+        expect(data[:"pito--chat-prefill-text-value"]).to eq("show vid #{cell[:text]}")
+        expect(data[:"pito--chat-prefill-submit-value"]).to eq("true")
       end
     end
 

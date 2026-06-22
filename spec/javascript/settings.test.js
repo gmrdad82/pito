@@ -5,7 +5,7 @@
 // soundEnabled() and fxEnabled() fail-open: missing element or attribute → true.
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest"
-import { soundEnabled, fxEnabled } from "pito/settings"
+import { soundEnabled, fxEnabled, fxEffect } from "pito/settings"
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -82,6 +82,29 @@ describe("pito/settings", () => {
     it("returns true for any value that is not exactly 'false'", () => {
       addSettings({ fx: "0" })
       expect(fxEnabled()).toBe(true)
+    })
+  })
+
+  // ── fxEffect() ──────────────────────────────────────────────────────────
+
+  describe("fxEffect()", () => {
+    it("returns 'typewriter' when element is absent (fail-safe default)", () => {
+      expect(fxEffect()).toBe("typewriter")
+    })
+
+    it("returns 'typewriter' when data-fx-effect attribute is absent", () => {
+      addSettings({})
+      expect(fxEffect()).toBe("typewriter")
+    })
+
+    it("returns the stored effect (data-fx-effect maps to dataset.fxEffect)", () => {
+      addSettings({ fxEffect: "scramble" })
+      expect(fxEffect()).toBe("scramble")
+    })
+
+    it("returns 'comet' when data-fx-effect is 'comet'", () => {
+      addSettings({ fxEffect: "comet" })
+      expect(fxEffect()).toBe("comet")
     })
   })
 })

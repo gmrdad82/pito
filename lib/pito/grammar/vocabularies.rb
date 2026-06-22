@@ -17,7 +17,7 @@ module Pito
 
       CONFIG_PROVIDERS = Vocabulary.define(
         name:      :config_providers,
-        canonical: %w[google voyage igdb webhook me sound fx timezone]
+        canonical: %w[google voyage igdb webhook me sound motion fx timezone]
       ).freeze
 
       CONFIG_KEYS = Vocabulary.define(
@@ -83,6 +83,14 @@ module Pito
         fillers:   %w[count ratio]
       ).freeze
 
+      # Reveal effects for the `/config fx <effect>` enum provider. Canonical
+      # values mirror AppSetting::FX_EFFECTS — the suggestions engine ghosts these
+      # after `/config fx `.
+      FX_EFFECTS = Vocabulary.define(
+        name:      :fx_effects,
+        canonical: %w[typewriter scramble comet]
+      ).freeze
+
       ON_OFF = Vocabulary.define(
         name:      :on_off,
         canonical: %w[on off],
@@ -109,7 +117,8 @@ module Pito
           "video"   => "vids",
           "videos"  => "vids",
           "vid"     => "vids",
-          "game"    => "games"
+          "game"    => "games",
+          "gamez"   => "games"
         }
       ).freeze
 
@@ -207,6 +216,7 @@ module Pito
         "webhook"  => %w[slack discord],
         "me"       => %w[nickname],
         "sound"    => [],
+        "motion"   => [],
         "fx"       => [],
         "timezone" => []
       }.freeze
@@ -224,6 +234,7 @@ module Pito
           SLASH_VERBS,
           CONFIG_PROVIDERS,
           CONFIG_KEYS,
+          FX_EFFECTS,
           ON_OFF,
           GENRES,
           PLATFORMS,

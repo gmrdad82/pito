@@ -140,11 +140,74 @@ RSpec.describe Pito::Video::LinkedGameCardComponent do
     expect(node.text).to include(I18n.t("pito.game.detail.no_cover"))
   end
 
+  # ── Big cover Ken-Burns pan (L5) ────────────────────────────────────────────
+  # The linked-game card mirrors show-game's detail cover: the <img> lives inside
+  # the bounded .pito-video-linked-game-card__cover box (374×210, shared CSS) and
+  # carries the Ken-Burns pan hook (.pito-cover-pan, the same Z29 mechanism).
+  describe "big cover Ken-Burns pan" do
+    context "when cover art is attached" do
+      before do
+        allow_any_instance_of(described_class).to receive(:cover_attached?).and_return(true)
+        allow_any_instance_of(described_class).to receive(:cover_url).and_return("/covers/test.jpg")
+      end
+
+      it "renders the cover inside the .pito-video-linked-game-card__cover box" do
+        node  = render_inline(described_class.new(game: game))
+        cover = node.css(".pito-video-linked-game-card__cover").first
+        expect(cover).not_to be_nil
+        expect(cover.css("img").first).not_to be_nil
+      end
+
+      it "the cover <img> carries the pito-cover-pan animation hook" do
+        node = render_inline(described_class.new(game: game))
+        img  = node.css(".pito-video-linked-game-card__cover img").first
+        expect(img).not_to be_nil
+        expect(img["class"]).to include("pito-cover-pan")
+      end
+    end
+
+    context "when no cover art is attached (placeholder)" do
+      it "renders no pito-cover-pan element" do
+        node = render_inline(described_class.new(game: game))
+        expect(node.css(".pito-cover-pan")).to be_empty
+      end
+    end
+  end
+
+  # ── Mobile-only column divider (L6) ─────────────────────────────────────────
+  # When the layout stacks on mobile (<768px) a hairline sits between the cover
+  # and the kv-table; it is hidden at md: and up (the two-column desktop layout
+  # needs no divider).
+  describe "mobile-only column divider" do
+    it "renders a hairline divider between the columns" do
+      node    = render_inline(described_class.new(game: game))
+      divider = node.css(".pito-detail-col-divider").first
+      expect(divider).not_to be_nil
+      expect(divider["class"]).to include("h-px")
+    end
+
+    it "is hidden on desktop (carries md:hidden)" do
+      node    = render_inline(described_class.new(game: game))
+      divider = node.css(".pito-detail-col-divider").first
+      expect(divider["class"]).to include("md:hidden")
+    end
+  end
+
   it "renders the ID row as a shimmer token with the #<id> value" do
     node = render_inline(described_class.new(game: game))
     shimmer = node.css("span.pito-token-shimmer")
     expect(shimmer).not_to be_empty
     expect(shimmer.first.text).to include("##{game.id}")
+  end
+
+  it "wires the #id token to prefill + auto-submit `show game #id` (J20)" do
+    node = render_inline(described_class.new(game: game))
+    span = node.css("span.pito-token-shimmer").find { |s| s.text == "##{game.id}" }
+    expect(span).to be_present
+    expect(span["data-controller"]).to eq("pito--chat-prefill")
+    expect(span["data-action"]).to eq("click->pito--chat-prefill#fill")
+    expect(span["data-pito--chat-prefill-text-value"]).to eq("show game ##{game.id}")
+    expect(span["data-pito--chat-prefill-submit-value"]).to eq("true")
   end
 
   it "renders the ID row immediately after the Title row" do

@@ -129,6 +129,40 @@ describe("pito--rename controller", () => {
     expect(inputs.length).toBe(1)
   })
 
+  // ── Terminal block caret attach / teardown ─────────────────────────────────────
+
+  it("wraps the rename input so the caret + trail controllers attach", async () => {
+    const { row } = buildScaffold()
+    await waitForConnect()
+
+    dblclick(row)
+
+    const wrap = row.querySelector(".pito--rename-caret-wrap")
+    expect(wrap).not.toBeNull()
+    const controllers = wrap.getAttribute("data-controller")
+    expect(controllers).toContain("pito--terminal-caret")
+    expect(controllers).toContain("pito--cursor-trail")
+
+    const input = wrap.querySelector("input.pito--rename-input")
+    expect(input.getAttribute("data-pito--terminal-caret-target")).toBe("field")
+    expect(input.className).toContain("pito-caret-input")
+    expect(wrap.querySelector("span.terminal-caret[data-pito--terminal-caret-target='block']")).not.toBeNull()
+  })
+
+  it("tears down the caret wrap on Esc cancel (no leaked DOM)", async () => {
+    const { row, span } = buildScaffold()
+    await waitForConnect()
+
+    dblclick(row)
+    expect(row.querySelector(".pito--rename-caret-wrap")).not.toBeNull()
+
+    keydown(row.querySelector("input.pito--rename-input"), "Escape")
+
+    expect(row.querySelector(".pito--rename-caret-wrap")).toBeNull()
+    expect(row.querySelector("span.terminal-caret")).toBeNull()
+    expect(span.textContent).toBe("My Conversation")
+  })
+
   // ── Enter commits rename ──────────────────────────────────────────────────────
 
   it("Enter commits: calls PATCH to the url value", async () => {

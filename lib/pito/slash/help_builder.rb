@@ -14,12 +14,13 @@ module Pito
     #
     # Rendering rules (checked in order):
     #   1. /help --help / /themes --help  → man-page nonsense easter egg
-    #   2. /config <provider> --help      → provider key table (man style)
-    #   3. /config --help                 → general config overview (man style)
-    #   4. Any other command              → generic usage + description (man style)
+    #   2. /config … --help               → delegated to Config#show_help (the
+    #      canonical per-provider renderer: key tables, google /connect hint,
+    #      fx live-showcase rows, motion on/off, timezone, general overview)
+    #   3. Any other command              → generic usage + description (man style)
     module HelpBuilder
       # Ordered provider list for /config --help; mirrors the i18n copy order.
-      ALL_CONFIG_PROVIDERS = %w[google voyage igdb webhook me sound fx timezone].freeze
+      ALL_CONFIG_PROVIDERS = %w[google voyage igdb webhook me sound motion fx timezone].freeze
 
       class << self
         def call(invocation:)
@@ -28,10 +29,14 @@ module Pito
 
           return nonsense_help if %w[help themes].include?(verb)
 
-          if verb == "config"
-            return provider_help(provider) if provider
-            return general_config_help
-          end
+          # /config <provider> --help and /config --help both delegate to the
+          # Config handler's #show_help — the single source of truth for every
+          # provider man page (google's /connect hint, the fx live showcase rows,
+          # the motion on/off page, the timezone page, and the generic key tables).
+          # The interceptor fires BEFORE the handler runs, so without this
+          # delegation the rich provider pages (fx/motion especially) were never
+          # reached and every toggle/enum provider fell back to generic help.
+          return config_help(invocation, provider) if verb == "config"
 
           generic_command_help(verb)
         end
@@ -54,76 +59,27 @@ module Pito
           ok(nonsense_body)
         end
 
-        # ── /config <provider> --help ──────────────────────────────────────────
+        # ── /config <provider> --help and /config --help ───────────────────────
 
-        def provider_help(provider)
-          return google_provider_help if provider == "google"
-
-          keys = begin
-            Pito::Grammar::Vocabularies.provider_keys(provider)
-          rescue StandardError
-            []
-          end
-
-          # Toggle-only providers (sound, fx) have no settable keys — fall back
-          # to the generic command help so the user at least sees usage.
-          if keys.blank?
-            return generic_command_help("config")
-          end
-
-          rows = keys.map do |key|
-            desc = I18n.t("pito.slash.config.help.providers.#{provider}.keys.#{key}", default: "")
-            [ "#{key}=", desc ]
-          end
-
-          body = Pito::MessageBuilder::ManPage.render(
-            usage:  "/config #{provider} [key=value …]",
-            groups: [
-              [ "Keys:",    rows ],
-              [ "Options:", [ [ "--help", "Print this help message" ] ] ]
-            ]
+        # Delegate to the Config handler's #show_help, the canonical renderer for
+        # every provider man page. We build a synthetic invocation whose first
+        # positional arg is the cleaned provider (or none, for general help), so
+        # show_help's `case provider` lands on the right page regardless of how
+        # --help/-h tokenised into the raw input. No conversation is needed — the
+        # man-page renderers read only i18n copy and AppSetting constants.
+        def config_help(invocation, provider)
+          synthetic = Pito::Slash::Invocation.new(
+            verb:   :config,
+            args:   provider ? [ provider ] : [],
+            kwargs: {},
+            raw:    invocation.raw
           )
-          ok(body)
-        end
 
-        def google_provider_help
-          rows = [
-            [ "client_id=",     I18n.t("pito.slash.config.help.providers.google.keys.client_id") ],
-            [ "client_secret=", I18n.t("pito.slash.config.help.providers.google.keys.client_secret") ],
-            [ "redirect_uri=",  I18n.t("pito.slash.config.help.providers.google.keys.redirect_uri") ],
-            [ "api_key=",       I18n.t("pito.slash.config.help.providers.google.keys.api_key") ]
-          ]
-          connect_post = I18n.t("pito.slash.config.help.providers.google.suggestion.post")
-
-          body = Pito::MessageBuilder::ManPage.render(
-            usage:  "/config google [key=value …]",
-            groups: [
-              [ "Keys:",    rows ],
-              [ "Options:", [
-                [ "--help",   "Print this help message" ],
-                [ "/connect", "Run /connect #{connect_post}" ]
-              ] ]
-            ]
-          )
-          ok(body)
-        end
-
-        # ── /config --help (general) ───────────────────────────────────────────
-
-        def general_config_help
-          rows      = ALL_CONFIG_PROVIDERS.map do |p|
-            [ p, I18n.t("pito.slash.config.help.general.providers.#{p}", default: "") ]
-          end
-          info_line = I18n.t("pito.slash.config.help.general.info_lines").first
-
-          body = Pito::MessageBuilder::ManPage.render(
-            usage:  I18n.t("pito.slash.config.help.general.body"),
-            groups: [
-              [ "Providers:", rows ],
-              [ "Options:",   [ [ "--help", info_line ] ] ]
-            ]
-          )
-          ok(body)
+          Pito::Slash::Handlers::Config.new(
+            invocation:    synthetic,
+            conversation:  nil,
+            authenticated: true
+          ).show_help
         end
 
         # ── Generic per-command help ───────────────────────────────────────────

@@ -4,7 +4,8 @@
 // Stimulus controllers.
 //
 // pito--dots: shows on pito:submitted, hides on pito:echo-typed OR
-// pito:result-appended (class toggle); pito:done no longer drives it.
+// pito:result-appended OR pito:comet-clear (class toggle); pito:done no longer
+// drives it.
 // pito--done-dispatch: dispatches its configured event name on connect.
 // pito--turn-complete: dispatches "pito:turn-complete" on connect.
 //
@@ -83,6 +84,32 @@ describe("pito--dots controller", () => {
     expect(el.classList.contains("pito-dots--hidden")).toBe(false)
 
     document.dispatchEvent(new CustomEvent("pito:result-appended"))
+    expect(el.classList.contains("pito-dots--hidden")).toBe(true)
+  })
+
+  it("hides dots on pito:comet-clear (sidebar/client-only command — J23)", async () => {
+    const el = buildDots()
+    await tick()
+
+    // A /slash sidebar command (e.g. /resume) shows the comet on submit but
+    // produces no echo and no scrollback result — comet-clear must hide it so it
+    // does not hang.
+    document.dispatchEvent(new CustomEvent("pito:submitted"))
+    expect(el.classList.contains("pito-dots--hidden")).toBe(false)
+
+    document.dispatchEvent(new CustomEvent("pito:comet-clear"))
+    expect(el.classList.contains("pito-dots--hidden")).toBe(true)
+  })
+
+  it("normal command still shows then clears on echo-typed (comet-clear listener does not regress H5.11)", async () => {
+    const el = buildDots()
+    await tick()
+
+    document.dispatchEvent(new CustomEvent("pito:submitted"))
+    expect(el.classList.contains("pito-dots--hidden")).toBe(false)
+
+    // No comet-clear for a real chat command — the echo typing clears it.
+    document.dispatchEvent(new CustomEvent("pito:echo-typed"))
     expect(el.classList.contains("pito-dots--hidden")).toBe(true)
   })
 

@@ -100,9 +100,8 @@ string-concat a Tailwind class from a variable.
 
 - **Border-radius 0.** Square corners everywhere (scrollbar thumb, palettes,
   cards, snippets). No rounded UI.
-- **No hover styling** for state/affordance. The one sanctioned hover is the
-  `@handle` YouTube link underline (`.pito-channel-item__handle--link:hover`);
-  do not add hover backgrounds, scales, or shadows elsewhere.
+- **No hover styling** for state/affordance. No hover backgrounds, underlines,
+  scales, or shadows anywhere.
 - **No inline `style=`.** Color and layout come from tokens, `data-accent` /
   `data-cols` attributes, and Tailwind utilities. The only inline `style` allowed
   is a genuinely per-record computed gradient (e.g. `TimeToBeat`'s per-game heat

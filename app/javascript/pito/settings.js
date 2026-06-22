@@ -10,6 +10,22 @@ export function fxEnabled() {
   return document.getElementById("pito-settings")?.dataset.fx !== "false"
 }
 
+// True when decorative motion should be suppressed: either the user set
+// `prefers-reduced-motion: reduce`, or fx is turned off via `/config fx off`.
+// The canonical gate for blink/trail/animation theatrics. matchMedia is guarded
+// for jsdom (some test envs leave it undefined).
+export function motionDisabled() {
+  const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+  return !!reduce || !fxEnabled()
+}
+
+// The chosen reveal effect (typewriter | scramble | comet), read from
+// data-fx-effect. Fail-safe: defaults to "typewriter" when the element or
+// attribute is absent.
+export function fxEffect() {
+  return document.getElementById("pito-settings")?.dataset.fxEffect || "typewriter"
+}
+
 export function currentTheme() {
   return document.getElementById("pito-settings")?.dataset.theme ||
     document.documentElement.dataset.theme

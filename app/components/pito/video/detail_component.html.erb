@@ -24,7 +24,7 @@
 
     <%# Stats — bold heading (Pito::Copy) + one-line word/icon counters, left. %>
     <div class="pito-video-detail__stats flex flex-col gap-1">
-      <div class="pito-video-detail__stats-heading text-fg-dim font-bold"><%= Pito::Copy.render("pito.copy.stats.heading") %></div>
+      <div class="pito-video-detail__stats-heading text-fg-dim"><%= Pito::Copy.render("pito.copy.stats.heading") %></div>
       <%= render(Pito::Stats::CountersComponent.new(metrics: stat_counter_metrics, align: :left)) %>
     </div>
 
@@ -32,15 +32,19 @@
         left (inner text stays centered). %>
     <% if @video.achievements.any? %>
       <div class="flex flex-col gap-1">
-        <div class="pito-video-detail__shinies-heading text-fg-dim font-bold"><%= Pito::Copy.render("pito.copy.shinies.heading") %></div>
+        <div class="pito-video-detail__shinies-heading text-fg-dim"><%= Pito::Copy.render("pito.copy.shinies.heading") %></div>
         <div class="pito-video-detail__shinies flex flex-wrap gap-2">
           <% top_shinies_per_metric.each do |a| %>
-            <%= render(Pito::Achievement::BadgeComponent.new(threshold: a.threshold, metric: a.metric, unlocked_on: a.unlocked_at.to_date)) %>
+            <%= render(Pito::Achievement::BadgeComponent.new(threshold: a.threshold, metric: a.metric, unlocked_on: a.unlocked_at.to_date, form: :compact)) %>
           <% end %>
         </div>
       </div>
     <% end %>
   </div>
+
+  <%# Mobile-only hairline between the stacked columns (hidden at md: and up,
+      where the two-column layout needs no divider). %>
+  <%= render(Pito::Separator::DividerLineComponent.new(hairline: true, tone: :faded, extra_classes: "pito-detail-col-divider md:hidden")) %>
 
   <%# ── Right column: kv-table (Title first), hairline, then Description ──
       Title is the first kv row so it lives in the same grid as the metadata.
@@ -58,7 +62,7 @@
       <%= render(Pito::Table::KeyValueRowComponent.new(
             key_text:        t("pito.video.detail.id"),
             key_class:       "text-fg-dim whitespace-nowrap",
-            value_component: Pito::Shimmer::TokenComponent.new(text: "##{@video.id}", extra_class: "tabular-nums", prefill: "show video ##{@video.id}")
+            value_component: Pito::Shimmer::TokenComponent.new(text: "##{@video.id}", extra_class: "tabular-nums", prefill: "show video ##{@video.id}", submit: true)
           )) %>
 
       <%= render(Pito::Table::KeyValueRowComponent.new(

@@ -102,6 +102,41 @@ RSpec.describe Pito::MessageBuilder::ManPage do
     end
   end
 
+  describe "raw rows (pre-built html_safe markup injected verbatim)" do
+    subject(:rendered) do
+      described_class.render(
+        usage: "config fx <effect>",
+        groups: [
+          [ "Effects:",
+            [
+              [ "typewriter", "Types in char by char" ],
+              described_class.raw(%(<div data-controller="demo">live & <b>bold</b></div>).html_safe)
+            ]
+          ]
+        ]
+      )
+    end
+
+    it "emits the raw markup verbatim, without escaping it" do
+      expect(rendered).to include(%(<div data-controller="demo">live & <b>bold</b></div>))
+    end
+
+    it "still renders the adjacent escaping [token, desc] row normally" do
+      expect(rendered).to include(%(<span class="text-cyan">typewriter</span>))
+      expect(rendered).to include("Types in char by char")
+    end
+
+    it "keeps the whole result html_safe" do
+      expect(rendered).to be_html_safe
+    end
+
+    it "excludes raw rows from the token-column width calculation" do
+      # Only "typewriter" (10) counts toward width; GAP=3 → width 13.
+      pad = " " * (13 - "typewriter".length)
+      expect(rendered).to include(%(<span class="text-cyan">typewriter</span>#{pad}))
+    end
+  end
+
   it "aligns tokens across all groups with consistent padding" do
     # The longest raw token is "platform, platforms" (19 chars).
     # GAP = 3 → width = 22.

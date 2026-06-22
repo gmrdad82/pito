@@ -34,10 +34,13 @@
     </div>
   <% end %>
 
-  <%# Stats — one centered line "subs · vids · views" (list channels only). %>
+  <%# Stats — two rows: row 1 "N Subs · M Views", row 2 "P Vids" (list channels only). %>
   <% if show_stats? %>
     <div class="pito-channel-item__stats">
-      <%= render(Pito::Stats::CountersComponent.new(metrics: stat_counter_metrics, align: :center)) %>
+      <%= render(Pito::Stats::CountersComponent.new(metrics: stat_row1_metrics, align: :center)) %>
+      <% if show_video_count? %>
+        <%= render(Pito::Stats::CountersComponent.new(metrics: stat_row2_metrics, align: :center)) %>
+      <% end %>
     </div>
   <% end %>
 </div>

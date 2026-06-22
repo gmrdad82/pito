@@ -59,6 +59,28 @@ RSpec.describe "POST /suggestions", type: :request do
       expect(body["stage"]).to eq("verb")
       expect(labels).to include("with", "without", "schedule", "shinies", "show")
     end
+
+    # `/config ` arg stage returns the provider list as a browsable palette
+    # (stage:"verb"), not a single inline ghost.
+    it "returns the config provider list as a palette for '/config '" do
+      post "/suggestions", params: { input: "/config ", cursor: 8 }
+      body   = response.parsed_body
+      labels = body["menu_items"].map { |i| i["label"] }
+      expect(body["stage"]).to eq("verb")
+      expect(labels).to include("google", "voyage", "igdb", "webhook")
+    end
+
+    # `/config google ` arg stage returns the per-provider credential keys as a
+    # palette (masked secrets stay masked).
+    it "returns the per-provider key names as a palette for '/config google '" do
+      post "/suggestions", params: { input: "/config google ", cursor: 15 }
+      body   = response.parsed_body
+      labels = body["menu_items"].map { |i| i["label"] }
+      masked = body["menu_items"].select { |i| i["masked"] }.map { |i| i["label"] }
+      expect(body["stage"]).to eq("verb")
+      expect(labels).to include("client_id", "client_secret", "api_key")
+      expect(masked).to include("client_id", "client_secret", "api_key")
+    end
   end
 
   describe "unauthenticated user (no session)" do

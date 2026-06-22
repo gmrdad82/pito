@@ -128,6 +128,14 @@ RSpec.describe Pito::Channel::ItemComponent do
       link = node.at_css("a.pito-channel-item__handle--link")
       expect(link["href"]).to eq("https://www.youtube.com/channel/UCabc123")
     end
+
+    it "handle link has no hover:underline Tailwind class (design: no hover)" do
+      channel = build_channel(handle: "@visitme")
+      node = render_inline(described_class.new(channel: channel, show_visit: true))
+      link = node.at_css("a.pito-channel-item__handle--link")
+      expect(link["class"]).not_to include("hover:underline")
+      expect(link["class"]).not_to include("hover:")
+    end
   end
 
   # ── show_visit: false (default) ──────────────────────────────────────────────
@@ -209,16 +217,36 @@ RSpec.describe Pito::Channel::ItemComponent do
       expect(node.at_css(".pito-channel-item__stats")).to be_present
     end
 
-    it "renders two counter cells" do
+    it "renders two counter cells (subs + views) on row 1" do
       channel = channel_with_stats(subscriber_count: 5, view_count: 100)
       node = render_inline(described_class.new(channel: channel, show_stats: true))
       expect(node.css(".pito-stats-counters__cell").size).to eq(2)
     end
 
-    it "joins the stats inline with · separators" do
+    it "renders two .pito-stats-counters rows when show_video_count: true" do
       channel = channel_with_stats(subscriber_count: 5, view_count: 100)
+      allow(channel).to receive(:videos).and_return(
+        double("channel_videos", count: 3)
+      )
       node = render_inline(described_class.new(channel: channel, show_stats: true, show_video_count: true))
-      expect(node.at_css(".pito-channel-item__stats").text).to include("·")
+      expect(node.css(".pito-stats-counters").size).to eq(2)
+    end
+
+    it "row 1 contains Subs · Views, row 2 contains Vids when show_video_count: true" do
+      channel = channel_with_stats(subscriber_count: 5, view_count: 100)
+      allow(channel).to receive(:videos).and_return(
+        double("channel_videos", count: 7)
+      )
+      node = render_inline(described_class.new(channel: channel, show_stats: true, show_video_count: true))
+      rows = node.css(".pito-stats-counters")
+      expect(rows[0].text).to include("Subs").and include("Views")
+      expect(rows[1].text).to include("Vids")
+    end
+
+    it "row 1 has a · separator between Subs and Views" do
+      channel = channel_with_stats(subscriber_count: 5, view_count: 100)
+      node = render_inline(described_class.new(channel: channel, show_stats: true))
+      expect(node.at_css(".pito-stats-counters").text).to include("·")
     end
 
     it "renders Subs and Views word counters" do
@@ -269,7 +297,9 @@ RSpec.describe Pito::Channel::ItemComponent do
     it "shows '0 Views' when view_count is nil" do
       channel = channel_with_stats(subscriber_count: 5, view_count: nil)
       node = render_inline(described_class.new(channel: channel, show_stats: true))
-      expect(node.css(".pito-stats-counters__cell").last.text.strip).to include("0").and include("Views")
+      # last cell of row 1 is Views
+      row1_cells = node.css(".pito-stats-counters")[0].css(".pito-stats-counters__cell")
+      expect(row1_cells.last.text.strip).to include("0").and include("Views")
     end
   end
 
@@ -297,7 +327,7 @@ RSpec.describe Pito::Channel::ItemComponent do
       ch = build_channel
       allow(ch).to receive(:subscriber_count).and_return(0)
       allow(ch).to receive(:view_count).and_return(0)
-      allow(ch).to receive(:videos).and_return(instance_double(ActiveRecord::Associations::CollectionProxy, count: count))
+      allow(ch).to receive(:videos).and_return(double("channel_videos", count: count))
       ch
     end
 
@@ -332,14 +362,13 @@ RSpec.describe Pito::Channel::ItemComponent do
       expect(vids_cell.text.strip).to include("12").and include("Vids")
     end
 
-    it "orders the counters subscribers → videos → views" do
+    it "places Subs and Views on row 1, Vids on row 2" do
       node = render_with_video_count(channel_with_videos(3))
-      texts = node.css(".pito-stats-counters__cell").map(&:text)
-      subs_idx  = texts.index { |t| t.include?("Subs") }
-      vids_idx  = texts.index { |t| t.include?("Vids") }
-      views_idx = texts.index { |t| t.include?("Views") }
-      expect(subs_idx).to be < vids_idx
-      expect(vids_idx).to be < views_idx
+      rows = node.css(".pito-stats-counters")
+      expect(rows[0].text).to include("Subs").and include("Views")
+      expect(rows[1].text).to include("Vids")
+      expect(rows[1].text).not_to include("Subs")
+      expect(rows[1].text).not_to include("Views")
     end
   end
 

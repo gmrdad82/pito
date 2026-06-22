@@ -26,16 +26,21 @@ RSpec.describe Pito::Slash::Dispatcher, "arity guard", type: :service do
       result.message_key == "pito.slash.errors.too_many_args"
   end
 
-  # ── /config — capacity 2 (provider + optional state) ────────────────────────
+  # ── /config — capacity 3 (provider + optional state + optional effect) ───────
 
   describe "/config" do
-    it "accepts '/config google' (1 arg, capacity 2)" do
+    it "accepts '/config google' (1 arg, capacity 3)" do
       result = dispatch("/config google")
       expect(too_many_args_error?(result)).to be(false)
     end
 
-    it "accepts '/config sound on' (2 args, capacity 2)" do
+    it "accepts '/config sound on' (2 args, capacity 3)" do
       result = dispatch("/config sound on")
+      expect(too_many_args_error?(result)).to be(false)
+    end
+
+    it "accepts '/config fx scramble' (2 args, capacity 3)" do
+      result = dispatch("/config fx scramble")
       expect(too_many_args_error?(result)).to be(false)
     end
 
@@ -44,14 +49,14 @@ RSpec.describe Pito::Slash::Dispatcher, "arity guard", type: :service do
       expect(too_many_args_error?(result)).to be(false)
     end
 
-    it "rejects '/config google a b' (3 positional args > capacity 2)" do
-      result = dispatch("/config google a b")
+    it "rejects '/config google a b c' (4 positional args > capacity 3)" do
+      result = dispatch("/config google a b c")
       expect(result).to be_a(Pito::Slash::Result::Error)
       expect(result.message_key).to eq("pito.slash.errors.too_many_args")
     end
 
     it "too_many_args error interpolates the verb" do
-      result = dispatch("/config google a b")
+      result = dispatch("/config google a b c")
       expect(result.message_args[:verb]).to eq(:config)
     end
   end

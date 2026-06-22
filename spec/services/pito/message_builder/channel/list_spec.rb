@@ -38,6 +38,18 @@ RSpec.describe Pito::MessageBuilder::Channel::List do
       expect(payload["body"]).to match(%r{<span class="pito-subject-shimmer[^"]*">channels</span>})
     end
 
+    context "when there is exactly 1 channel" do
+      let(:channels) { ::Channel.where(id: alpha.id) }
+
+      it "uses the singular noun 'channel'" do
+        expect(payload["body"]).to match(%r{<span class="pito-subject-shimmer[^"]*">channel</span>})
+      end
+
+      it "does not use the plural noun 'channels'" do
+        expect(payload["body"]).not_to match(%r{<span class="pito-subject-shimmer[^"]*">channels</span>})
+      end
+    end
+
     it "is follow-up-able with target channel_list" do
       expect(Pito::FollowUp.followupable?(payload)).to be true
       expect(payload["reply_target"]).to eq("channel_list")

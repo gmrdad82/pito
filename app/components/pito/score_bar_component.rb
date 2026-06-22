@@ -94,6 +94,26 @@ class Pito::ScoreBarComponent < ViewComponent::Base
     "=" * FILL_CELLS
   end
 
+  # Edge-clamp class for the floating bubble + tick so neither overflows the
+  # track (and the page) at the extremes — a score of 100 centred on the right
+  # edge would otherwise poke its bubble ~12px past the container, and a 0 poke
+  # left. Mirrors the TTB value-label clamp (ttb-label--at-start/at-end):
+  # near the left edge the overlay left-aligns, near the right it right-aligns,
+  # everywhere in between it stays centred on its exact position. Both the bubble
+  # and the tick take the SAME class so they shift together.
+  def overlay_alignment_class
+    pct = overlay_left_percent
+    return "pito-score-bar__overlay--centered" if pct.nil?
+
+    if pct < 10
+      "pito-score-bar__overlay--at-start"
+    elsif pct > 90
+      "pito-score-bar__overlay--at-end"
+    else
+      "pito-score-bar__overlay--centered"
+    end
+  end
+
   # Witty label rendered before the bar (e.g. "People Score"), via Pito::Copy.
   # The caller may pass an explicit `label:` (already space-padded) so the score
   # bar and the TTB bar in the same message align their brackets.

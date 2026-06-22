@@ -260,6 +260,16 @@ export default class extends Controller {
           return
         }
 
+        // Slash `/config <arg>` arg stage: the engine returns these completions
+        // as a browsable PALETTE (stage:"verb"), so keep any open palette up while
+        // the debounced fetch refreshes its rows — same no-blink treatment as the
+        // hashtag reply-verb stage. (Other slash args stay inline-ghost.)
+        if (this._isSlashConfigArgStage(value, cursor)) {
+          this._clearGhost()
+          this._scheduleArgFetch(value, cursor)
+          return
+        }
+
         // Arg-stage: close palette, show ghost via debounced fetch
         this._closePalette()
         this._scheduleArgFetch(value, cursor)
@@ -475,6 +485,24 @@ export default class extends Controller {
     if (firstSpace === -1) return false           // still typing the handle
     const rest = before.slice(firstSpace + 1)     // text after "#<handle> "
     return !rest.includes(" ")
+  }
+
+  // Slash `/config <arg>` arg stage: the verb is `config` and the cursor is past
+  // the first space (so it trips _isArgStage). The engine surfaces these
+  // completions (provider list, per-provider keys) as a browsable palette
+  // (stage:"verb"), so we keep the palette open instead of closing it on each
+  // keystroke. Scoped to `config` so other slash args keep the inline ghost.
+  //   "/config "          → true
+  //   "/config goo"       → true
+  //   "/config google "   → true
+  //   "/games import x"   → false  (not config)
+  _isSlashConfigArgStage(value, cursor) {
+    if (value[0] !== "/") return false
+    const before     = value.slice(0, cursor)
+    const firstSpace = before.indexOf(" ")
+    if (firstSpace === -1) return false           // still typing the verb
+    const verb = before.slice(1, firstSpace).toLowerCase()
+    return verb === "config"
   }
 
   // ── ae: arg-stage ghost fetch (debounced POST /suggestions) ─────────────
@@ -927,6 +955,13 @@ export default class extends Controller {
       span.style.whiteSpace    = "pre"
       span.style.pointerEvents = "none"
       span.style.userSelect    = "none"
+      // Deliberate field-wrap stack (bottom → top):
+      //   type-fx layer (1)  <  trail ghosts (1)  <  THIS ghost (2)  <  block (3)
+      // The completion sits ABOVE the decoration layers (type-fx + trail) so it
+      // reads clearly, but BELOW the live block caret (.terminal-caret z-index:3)
+      // so the block is never occluded at the caret cell. (Before: this was z:3,
+      // above the block — which hid the block whenever a suggestion was showing.)
+      span.style.zIndex        = "2"
       wrap.appendChild(span)
       this._ghostSpan = span
     }

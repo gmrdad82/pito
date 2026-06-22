@@ -19,12 +19,21 @@
 //   pito:done still fires elsewhere (completed_at / resume) but no longer drives
 //   the comet.
 //
+// Client-only / sidebar fast paths:
+//   A /slash command that only opens a sidebar (/resume, /themes, the game /
+//   video pickers, IGDB import) sends nothing meaningful to the backend — it
+//   produces NO echo and NO scrollback result, so neither pito:echo-typed nor
+//   pito:result-appended ever arrives. The sidebar dispatches "pito:comet-clear"
+//   on open (resume_controller) so the comet doesn't hang. The comet is a
+//   real-backend-round-trip indicator — this keeps it that way.
+//
 // 1:4 ratio (150ms fade-in, 600ms fade-out) — see CSS.
 //
 // Listens to document events dispatched by:
 //   chat-form   → "pito:submitted"       (command sent — show dots)
 //   typewriter  → "pito:echo-typed"      (echo finished typing — hide dots)
 //   scrollback  → "pito:result-appended" (a result landed — hide dots)
+//   resume      → "pito:comet-clear"     (sidebar/client-only command — hide dots)
 //
 // Usage:
 //   <div data-controller="pito--dots">
@@ -44,6 +53,7 @@ export default class extends Controller {
     document.addEventListener("pito:submitted",       () => this.#show(), { signal })
     document.addEventListener("pito:echo-typed",      () => this.#hide(), { signal })
     document.addEventListener("pito:result-appended", () => this.#hide(), { signal })
+    document.addEventListener("pito:comet-clear",     () => this.#hide(), { signal })
   }
 
   disconnect() {

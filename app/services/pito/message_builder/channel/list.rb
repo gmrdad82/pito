@@ -22,7 +22,7 @@ module Pito
         def call(channels, conversation:)
           intro = Pito::Copy.render_html(
             "pito.copy.channels.list_intro",
-            { count: channels.size, noun: "channels" },
+            { count: channels.size, noun: channels.size == 1 ? "channel" : "channels" },
             shimmer: [ :count, :noun ]
           )
           strip_html = render_component(Pito::Channel::ListComponent.new(channels:))

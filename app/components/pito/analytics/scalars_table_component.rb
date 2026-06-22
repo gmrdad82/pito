@@ -114,17 +114,25 @@ module Pito
 
       def em_dash = tag.span(EM_DASH)
 
-      # "<up>/<down>" with the up half green-shimmered, the down half red.
+      # "<up> / <down>" with the up half green-shimmered, the down half red.
+      #
+      # Both halves share ONE shimmer offset so they pulse together (same
+      # animation-delay) instead of drifting out of phase — the split reads as a
+      # single shimmer unit. The "/" carries a space on each side so the values
+      # breathe (e.g. "0👍 / 0👎", "+0 / -0") rather than touching the separator.
       def split_value(up:, down:)
+        offset = Pito::Shimmer.offset_class("#{up}#{down}")
         safe_join([
-          shimmer_span(up,   :up),
-          tag.span("/", class: "text-fg-dim"),
-          shimmer_span(down, :down)
+          shimmer_span(up,   :up,   offset),
+          tag.span(" / ", class: "text-fg-dim"),
+          shimmer_span(down, :down, offset)
         ])
       end
 
-      # A count + inline icon (e.g. "210👍"). The icon inherits the accent colour
-      # from the surrounding .pito-trend-number--up/--down span via currentColor.
+      # A count + inline icon (e.g. "210👍"). The icon lives INSIDE the
+      # .pito-trend-number--up/--down shimmer span, so it rides the same green/red
+      # shimmer as its number (animated currentColor; see .pito-trend-number--up
+      # .pito-icon in application.css) — number and icon shimmer as one unit.
       def icon_count(value, icon, label)
         safe_join([
           Pito::Formatter::CompactCount.call(value.to_i),
@@ -133,9 +141,12 @@ module Pito
       end
 
       # Reuses the TrendNumberComponent green/red shimmer classes so the number
-      # shimmers and any child icon picks up the green/red accent colour.
-      def shimmer_span(content, direction)
-        css = "pito-trend-number pito-trend-number--#{direction} #{Pito::Shimmer.offset_class(content.to_s)}"
+      # shimmers and any child icon picks up the green/red accent colour. An
+      # explicit `offset` lets a split value share ONE stagger across both halves
+      # so they pulse in phase; falls back to a per-content offset otherwise.
+      def shimmer_span(content, direction, offset = nil)
+        offset ||= Pito::Shimmer.offset_class(content.to_s)
+        css = "pito-trend-number pito-trend-number--#{direction} #{offset}"
         tag.span(content, class: css, data: { trend: direction })
       end
 

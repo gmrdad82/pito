@@ -99,7 +99,21 @@ module Pito
 
           items = arg_stage_completions(spec, consumed_args, partial, authenticated:)
           ghost = kv_ghost_for(spec, consumed_args, partial)
-          { menu_items: items, ghost: ghost, stage: :arg }
+
+          # `/config` arg slots (the provider vocab and per-provider kv keys) are a
+          # small, browsable set — surface them as a selectable PALETTE (stage:
+          # :verb) so the client renders the whole list, not just the top hit as an
+          # inline ghost. Scoped to :config so other slash args (e.g. `/games
+          # import`) keep the inline-ghost arg treatment.
+          stage = config_arg_palette?(spec, items) ? :verb : :arg
+          { menu_items: items, ghost: ghost, stage: stage }
+        end
+
+        # True when the active completion belongs to a `/config` argument slot
+        # (provider vocab or per-provider kv keys) and there is at least one item
+        # to show — the signal that the client should render a browsable palette.
+        def config_arg_palette?(spec, items)
+          spec.name == :config && items.any?
         end
 
         # Returns all args that have been fully typed (before the current partial).

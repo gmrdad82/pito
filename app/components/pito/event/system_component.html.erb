@@ -76,11 +76,7 @@
             <% end %>
             <% norm_rows.each do |cells| %>
               <% cells.each do |cell| %>
-                <% if cell[:html] %>
-                  <span class="<%= cell[:class] %>" data-pito--typewriter-target="htmlProse"><%= raw cell[:text] %></span>
-                <% else %>
-                  <span class="<%= cell[:class] %>" data-pito--typewriter-target="prose"><%= cell[:text] %></span>
-                <% end %>
+                <%= render_cell_span(cell, typewriter: true) %>
               <% end %>
             <% end %>
           </div>
@@ -119,11 +115,7 @@
               <% end %>
               <% norm_rows.each do |cells| %>
                 <% cells.each do |cell| %>
-                  <% if cell[:html] %>
-                    <span class="<%= cell[:class] %>"><%= raw cell[:text] %></span>
-                  <% else %>
-                    <span class="<%= cell[:class] %>"><%= cell[:text] %></span>
-                  <% end %>
+                  <%= render_cell_span(cell) %>
                 <% end %>
               <% end %>
             </div>
@@ -157,11 +149,7 @@
           <% end %>
           <% norm_rows.each do |cells| %>
             <% cells.each do |cell| %>
-              <% if cell[:html] %>
-                <span class="<%= cell[:class] %>"><%= raw cell[:text] %></span>
-              <% else %>
-                <span class="<%= cell[:class] %>"><%= cell[:text] %></span>
-              <% end %>
+              <%= render_cell_span(cell) %>
             <% end %>
           <% end %>
         </div>

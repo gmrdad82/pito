@@ -95,4 +95,28 @@ RSpec.describe Pito::Sidebar::Videos::Component do
       expect(node.css("p").text).not_to be_empty
     end
   end
+
+  describe "terminal block caret" do
+    subject(:node) { render_inline(described_class.new(videos: [])) }
+
+    it "wraps the search input in a caret + trail controller host" do
+      wrap = node.css("[data-controller~='pito--terminal-caret'][data-controller~='pito--cursor-trail']").first
+      expect(wrap).to be_present
+    end
+
+    it "marks the search input as the caret field target" do
+      input = node.css("input[data-pito--terminal-caret-target='field']").first
+      expect(input).to be_present
+      expect(input["data-pito--videos-nav-target"]).to eq("input")
+    end
+
+    it "renders the .terminal-caret block target" do
+      expect(node.css("span.terminal-caret[data-pito--terminal-caret-target='block']")).not_to be_empty
+    end
+
+    it "makes the input monospace + native-caret-hidden via .pito-caret-input" do
+      input = node.css("input[data-pito--terminal-caret-target='field']").first
+      expect(input["class"]).to include("pito-caret-input")
+    end
+  end
 end

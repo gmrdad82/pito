@@ -494,6 +494,10 @@ RSpec.describe Pito::TimeToBeatComponent do
       expect(comp.footage_position).to eq(98.75)
     end
 
+    it "footage bubble clamps to at-end so it never pokes past the right edge" do
+      expect(comp.footage_label_alignment_class).to eq("ttb-label--at-end")
+    end
+
     it "completionist rescales to its proportional position on the footage axis" do
       # comp=200, axis=300 → 66.66% → cell 26 → 66.25%
       expect(comp.tick_position(200)).to eq(66.25)
@@ -510,6 +514,33 @@ RSpec.describe Pito::TimeToBeatComponent do
 
     it "gradient terminal is still completionist-driven (completionist present)" do
       expect(comp.gradient_terminal_pillar).to eq(:completionist)
+    end
+  end
+
+  describe "pillar bottom labels — edge clamp (no overflow)" do
+    subject(:comp) { described_class.new(hours: { main: 31, extras: 71, completionist: 124 }, footage_hours: 10) }
+
+    it "right-aligns the rightmost (completionist) value label so it stays inside" do
+      html = render_inline(comp).to_html
+      node = Nokogiri::HTML.fragment(html)
+      comp_label = node.css('span.pito-ttb__value[data-pillar="completionist"]').first
+      expect(comp_label["class"]).to include("ttb-label--at-end")
+    end
+
+    it "keeps interior pillar labels centred" do
+      html = render_inline(comp).to_html
+      node = Nokogiri::HTML.fragment(html)
+      main_label = node.css('span.pito-ttb__value[data-pillar="main"]').first
+      expect(main_label["class"]).to include("ttb-label--centered")
+    end
+  end
+
+  describe "width containment (application.css)" do
+    let(:css) { Rails.root.join("app/assets/tailwind/application.css").read }
+
+    it "caps the component box at its container (max-width:100%)" do
+      rule = css[/\.pito-ttb\s*\{.*?\}/m]
+      expect(rule).to include("max-width: 100%")
     end
   end
 end

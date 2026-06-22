@@ -24,11 +24,11 @@
       <span class="pito-score-bar__bracket">]</span>
       <% if overlay? %>
         <% pct = overlay_left_percent %>
-        <span class="pito-score-bar__bubble" data-accent="score" style="left: <%= pct %>%;">
+        <span class="pito-score-bar__bubble <%= overlay_alignment_class %>" data-accent="score" style="left: <%= pct %>%;">
           <span class="pito-score-bar__bubble-num"><%= s %></span>
           <span class="pito-score-bar__bubble-arrow">&#9660;</span>
         </span>
-        <span class="pito-score-bar__tick" data-accent="score" style="left: <%= pct %>%;">|</span>
+        <span class="pito-score-bar__tick <%= overlay_alignment_class %>" data-accent="score" style="left: <%= pct %>%;">|</span>
       <% end %>
     </span>
   </span>

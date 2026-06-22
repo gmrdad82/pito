@@ -11,7 +11,7 @@
       <%# Footage uses the SAME mark as the ScoreBar needle: a value bubble
           with a ▼ arrow, snapped to its cell midpoint on the 0..completionist
           axis. %>
-      <div class="pito-ttb__footage-bubble"
+      <div class="pito-ttb__footage-bubble <%= footage_label_alignment_class %>"
            data-accent="footage"
            style="left: <%= footage_position %>%;">
         <span class="pito-ttb__footage-bubble-num"><%= footage_value_label %></span>
@@ -58,7 +58,7 @@
   <%# Row 3 — pillar hour values below the bar. %>
   <div class="pito-ttb__values pito-ttb__values--bottom">
     <% pillar_label_data.each do |label_data| %>
-      <span class="pito-ttb__value pito-ttb__value--pillar <%= pillar_bottom_label_alignment_class %>"
+      <span class="pito-ttb__value pito-ttb__value--pillar <%= label_alignment_class(label_data[:effective_position]) %>"
             data-pillar="<%= label_data[:key] %>"
             style="left: <%= label_data[:effective_position] %>%;">
         <%= label_data[:label] %>

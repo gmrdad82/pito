@@ -25,6 +25,15 @@ RSpec.describe Pito::MessageBuilder::Game::LinkedVideos do
     expect(payload["video_ids"]).to eq([ video.id ])
   end
 
+  it "carries chat-prefill data on the #id cell so a click auto-submits `show vid #id` (J12)" do
+    cell = payload["table_rows"].first[:cells][0]
+    data = cell[:data]
+    expect(cell[:text]).to eq("##{video.id}")
+    expect(data[:controller]).to eq("pito--chat-prefill")
+    expect(data[:"pito--chat-prefill-text-value"]).to eq("show vid ##{video.id}")
+    expect(data[:"pito--chat-prefill-submit-value"]).to eq("true")
+  end
+
   it "wraps the game title subject in a pito-subject-shimmer span" do
     expect(payload["body"]).to match(%r{<span class="pito-subject-shimmer[^"]*">Lies of P</span>})
   end

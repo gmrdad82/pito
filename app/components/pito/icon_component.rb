@@ -12,9 +12,13 @@ module Pito
   #   Pito::IconComponent.new(name: "thumbs-up")                  # decorative
   #
   # Icons are vendored as Lucide outline SVGs in public/icons/<name>.svg
-  # (viewBox 0 0 24 24, fill none, stroke currentColor, stroke-width 1.5).
+  # (viewBox 0 0 24 24, fill none, stroke currentColor, stroke-width 2).
   # The component inlines the SVG markup so `currentColor` resolves to
   # the surrounding text colour in every theme.
+  #
+  # Alignment, the gap before the icon, and the stroke weight are NOT set here —
+  # they live once in the `.pito-icon` CSS rule (application.css), the single
+  # source of truth shared by the stats counters and the analytics kv-table.
   #
   # Raises ArgumentError when the named icon file does not exist.
   class IconComponent < ViewComponent::Base

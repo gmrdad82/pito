@@ -368,6 +368,38 @@ RSpec.describe Pito::Event::SystemComponent do
     end
   end
 
+  describe "table cell data: — chat-prefill attributes render on the cell span" do
+    subject(:node) do
+      render_inline(described_class.new(payload: {
+        "html" => true,
+        "table_rows" => [
+          { cells: [
+            {
+              text: "#7",
+              class: "pito-token-shimmer",
+              data: Pito::Shimmer::TokenComponent.prefill_data("show vid #7", submit: true)
+            },
+            { text: "Alpha Video", class: "text-fg pito-cell-title" }
+          ] }
+        ]
+      }))
+    end
+
+    it "wires the #id cell span as a click-to-submit chat-prefill token" do
+      span = node.css("div.pito-data-grid span").find { |s| s.text == "#7" }
+      expect(span).to be_present
+      expect(span["data-controller"]).to eq("pito--chat-prefill")
+      expect(span["data-action"]).to eq("click->pito--chat-prefill#fill")
+      expect(span["data-pito--chat-prefill-text-value"]).to eq("show vid #7")
+      expect(span["data-pito--chat-prefill-submit-value"]).to eq("true")
+    end
+
+    it "leaves cells without data: as plain spans (no controller)" do
+      span = node.css("div.pito-data-grid span").find { |s| s.text == "Alpha Video" }
+      expect(span["data-controller"]).to be_nil
+    end
+  end
+
   describe "table_rows legacy {key, value, value2} — 3-column back-compat" do
     subject(:node) do
       render_inline(described_class.new(payload: {
@@ -542,6 +574,91 @@ RSpec.describe Pito::Event::SystemComponent do
       heading_spans.each do |span|
         expect(span["class"]).to include("text-fg-faded")
       end
+    end
+  end
+
+  # ── Uniform sortable-heading shimmer: fixed (#/Title/Game) AND added columns ──
+  # Mirrors the real list/enhanced heading shape the builders emit:
+  #   [ {text:"#",class:"text-right"}, "Title"/"Game", *heading_cells(cols) ]
+  # where the added `with`-columns carry `pito-table-heading--added` (and an
+  # optional `text-right`). J7: every sortable heading must shimmer alike when
+  # live. J8/J15: every heading must drop to plain muted when consumed — the
+  # added columns must NOT linger cyan via pito-table-heading--added.
+  describe "sortable headings — uniform shimmer across fixed + added (LIVE)" do
+    subject(:node) do
+      render_inline(described_class.new(payload: {
+        body: "Results", html: true, shimmer_heading: true,
+        table_heading: [
+          { "text" => "#", "class" => "text-right" },
+          "Game",
+          { "text" => "Genre", "class" => "pito-table-heading--added" },
+          { "text" => "Year",  "class" => "pito-table-heading--added text-right" }
+        ],
+        table_rows: [ { cells: [
+          { text: "#1", class: "text-fg" }, { text: "Hades", class: "text-fg" },
+          { text: "Roguelike", class: "text-fg-dim" }, { text: "2020", class: "text-fg-dim" }
+        ] } ]
+      }))
+    end
+
+    it "shimmers EVERY heading (fixed #/Game AND added Genre/Year) with token shimmer + bold" do
+      grid = node.css("div.pito-data-grid").first
+      grid.css("span").first(4).each do |span|
+        expect(span["class"]).to include("pito-token-shimmer")
+        expect(span["class"]).to match(/\bpito-shimmer-d\d+\b/)
+        expect(span["class"]).to include("font-bold")
+      end
+    end
+
+    it "drops the legacy cyan pito-table-heading--added class (shimmer is the sole live affordance)" do
+      grid = node.css("div.pito-data-grid").first
+      grid.css("span").first(4).each do |span|
+        expect(span["class"]).not_to include("pito-table-heading--added")
+      end
+    end
+
+    it "preserves layout extras (text-right) on the # and Year headings" do
+      grid = node.css("div.pito-data-grid").first
+      spans = grid.css("span").first(4)
+      expect(spans[0]["class"]).to include("text-right") # #
+      expect(spans[3]["class"]).to include("text-right") # Year
+    end
+  end
+
+  describe "sortable headings — ALL drop to plain muted when CONSUMED (J8/J15)" do
+    subject(:node) do
+      render_inline(described_class.new(payload: {
+        body: "Results", html: true, shimmer_heading: true,
+        reply_handle: "beta-1234", reply_target: "game_list", reply_consumed: true,
+        table_heading: [
+          { "text" => "#", "class" => "text-right" },
+          "Game",
+          { "text" => "Genre", "class" => "pito-table-heading--added" },
+          { "text" => "Year",  "class" => "pito-table-heading--added text-right" }
+        ],
+        table_rows: [ { cells: [
+          { text: "#1", class: "text-fg" }, { text: "Hades", class: "text-fg" },
+          { text: "Roguelike", class: "text-fg-dim" }, { text: "2020", class: "text-fg-dim" }
+        ] } ]
+      }))
+    end
+
+    it "removes shimmer, bold, AND the cyan pito-table-heading--added from EVERY heading" do
+      grid = node.css("div.pito-data-grid").first
+      grid.css("span").first(4).each do |span|
+        expect(span["class"]).not_to include("pito-token-shimmer")
+        expect(span["class"]).not_to match(/\bpito-shimmer-d\d+\b/)
+        expect(span["class"]).not_to include("font-bold")
+        expect(span["class"]).not_to include("pito-table-heading--added")
+      end
+    end
+
+    it "leaves every heading plain muted (text-fg-faded), layout extras intact" do
+      grid = node.css("div.pito-data-grid").first
+      spans = grid.css("span").first(4)
+      spans.each { |span| expect(span["class"]).to include("text-fg-faded") }
+      expect(spans[0]["class"]).to include("text-right") # #
+      expect(spans[3]["class"]).to include("text-right") # Year
     end
   end
 

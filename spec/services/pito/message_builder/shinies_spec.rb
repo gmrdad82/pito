@@ -72,6 +72,12 @@ RSpec.describe Pito::MessageBuilder::Shinies do
         payload = described_class.call(game, conversation:)
         expect(payload["body"]).to include("pito-achievement-badge")
       end
+
+      it "badge unlock date has no middot separator (block row needs no separator)" do
+        payload = described_class.call(game, conversation:)
+        # The .pito-achievement-badge__date span must not start with ·
+        expect(payload["body"]).not_to match(%r{class="pito-achievement-badge__date[^"]*">\s*·})
+      end
     end
 
     context "when no achievements are obtained" do

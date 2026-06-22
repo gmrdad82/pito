@@ -30,7 +30,10 @@ In progress; entries are added here as they land on `main` (tag created at relea
   videos**. The card appears instantly with a one-line intro and **fills in the
   background** — the "thinking…" spinner keeps cycling until the numbers land, so the
   page never blocks on YouTube, and a refresh mid-fetch is safe.
-- **`list gamez`** — playful synonym for `list games` (the existing `game`/`games` nouns
+- **Smarter `list` parsing** — `list …` now ignores conversational filler (`list rpg ps5 please`
+  just works, never a "didn't understand" error), and for a near-miss genre/platform/noun typo it
+  suggests a correction (`list rpgg` → *"Did you mean `rpg`?"*) instead of failing. Noun aliases —
+  `gamez`, and singular `video`/`channel`/`game` — route consistently (the `game`/`games` nouns
   still work).
 - **Message intros shimmer their subject** — the subject of an intro (the video / game / channel
   title, or the `count` + noun in list intros like "11 games" / "6 channels") now carries a
@@ -45,6 +48,21 @@ In progress; entries are added here as they land on `main` (tag created at relea
   finishes). Under the hood, typed commands and `#handle` replies now run through one
   shared dispatch finalizer, so replies get identical canonical message kinds and honor the
   selected period / channel / viewport — exactly like typing the command.
+- **Custom block cursor with a kitty-style trail** — the chatbox's block cursor now leaves a
+  short, fast-fading trail as it moves (matching kitty's `cursor_trail`), and the same custom
+  block cursor now appears on the single-line inputs too — game/video pickers, IGDB search,
+  conversation rename, and the `ctrl+k` palette (made monospace to match). Respects `/config
+  motion` + reduced-motion (solid block, no trail/blink when off).
+- **`/config` autosuggest** — typing `/config ` shows a **browsable list** of providers, and
+  `/config <provider> ` lists that provider's setting/credential key names (secrets masked) —
+  navigate with ↑/↓ + Enter (the suggestion also now layers above the cursor, fixing a case where
+  it was hidden).
+- **Reveal effects** — pick how messages reveal with **`/config fx <typewriter|scramble|comet>`**
+  (default typewriter): **typewriter** (now log-scaled, so long messages don't drag — a fast floor,
+  capped ceiling), **scramble** (the whole line sits as random-glyph noise and decrypts left→right
+  to the real text), or **comet** (a blurred light-sweep wipes across the line, revealing the text
+  behind it as it passes). `/config fx --help` shows each one live, looping. Bars, avatars, covers,
+  and thumbnails always pop in whole; respects `/config motion` + reduced-motion.
 - **`dd` deletes a conversation** — in the conversations sidebar, pressing `d` twice (arm →
   confirm) deletes the highlighted conversation; a `dd` hint shows beside the rename hint.
 - **Mobile swipe-to-delete** — on touch screens, swipe a conversation row left to reveal a red
@@ -71,8 +89,8 @@ In progress; entries are added here as they land on `main` (tag created at relea
   refresh-safe (time-derived).
 - **Stats counters reworked** into reusable components — `show video` / `show game` read
   `42 Views · 4👍 · 0💬` (full-word labels, with thumbs-up / message-square icons for likes &
-  comments), `list channels` reads `Subs · Vids · Views`; both lead with a bold **Stats** heading
-  and left-aligned Shinies. The separate stat **legend is gone** (the labels are self-explanatory).
+  comments), `list channels` reads `Subs · Views` with `Vids` on its own row; both lead with a
+  **Stats** heading and left-aligned Shinies. The separate stat **legend is gone** (self-explanatory).
   Icons are vendored **Lucide** outlines (no gem, ≤1em, theme-aware via `currentColor`).
 - **`show game` order** — the recommendations card (channel suggestions + similar games)
   now comes **before** the analytics card, so the recommendations land first while the
@@ -129,6 +147,12 @@ In progress; entries are added here as they land on `main` (tag created at relea
   `show game` cards (and the linked-game card) stack into a single column — cover/thumbnail
   on top, the details table beneath — instead of being squeezed into two columns; desktop
   keeps the two-column layout. (pito's first responsive breakpoint.)
+- **Linked-game card upgraded** — when a video links a game, `show video`'s linked-game card now
+  uses the same big Ken-Burns cover + two-column layout as `show game` (was a small static cover),
+  stacking on mobile.
+- **Mobile hairline divider** — on narrow screens (< 768px), a faded hairline now separates the
+  cover/thumbnail column from the details table on the `show video` / `show game` / linked-game
+  cards (hidden on desktop, where the two-column layout needs no divider).
 - **Keyboard-shortcut hints are now tappable** — every shortcut hint (`Esc`, `shift+r`,
   `shift+tab`, `shift+space`, `ctrl+k`, `ctrl+/`, `m`, …) responds to a click/tap by firing
   the same action as the key, so the app is usable on touch/mobile. They also show a pointer
@@ -148,11 +172,13 @@ In progress; entries are added here as they land on `main` (tag created at relea
   toggles read/unread; the list no longer re-sorts live (it re-sorts only when the panel is
   re-opened, so rows don't jump). The `SPACE`-to-toggle binding is removed.
 - **Shinies progress track** — the in-progress segment (your current standing → the next tier)
-  now shimmers too, in the next tier's colour.
-- **Click an `#id` or reply `#handle` to prefill the chatbox** — clicking a video/game `#id` on
-  a detail/recommendation card fills `show video #id` / `show game #id`; clicking a reply
-  `#handle` (or its `shift+r` hint) fills `#handle ` ready for a verb. Prefill only — nothing
-  sends until you press Enter.
+  now shimmers too, in the next tier's colour. The track also **collapses** to a compact
+  windowed view — `1 … prev current next … 10M` — with a shimmering `─···─` ellipsis bridging
+  the skipped tiers, so it reads cleanly (especially on mobile).
+- **Click an `#id` to open it** — clicking a video/game `#id` anywhere in the scrollback
+  (detail/recommendation cards, list rows, the linked-videos/linked-game cards) fills
+  `show video #id` / `show game #id` and **runs it** (auto-submit). Clicking a reply `#handle`
+  (or its `shift+r` hint) fills `#handle ` ready for a verb — prefill only, no submit.
 - **Timestamp middot dropped everywhere** — message intros now read `HH:MM intro` (a single
   space, no `·`) across every message, not just the similar-games line.
 
@@ -194,8 +220,8 @@ In progress; entries are added here as they land on `main` (tag created at relea
 - **Security:** list-mutation replies (`#handle add/remove/sort …`) now require an active
   session, like every other command (they were ungated).
 - **Recommendation score bar** no longer touches the game title above it (added spacing).
-- **Stats / Shinies headings are bold again** on the `show video` / `show game` cards — a
-  Tailwind v4 layering quirk had them rendering at normal weight.
+- **Stats / Shinies headings** on the `show video` / `show game` cards render at normal weight
+  (not bold), and their badges use the compact dateless form.
 - **Removed the redundant "Scheduled" column** from `list videos` — it showed `—` for nearly
   every row. (The `list videos scheduled` filter still works.)
 - **Removed the underline** on the `list channels` `@handle` link (it kept the cyan shimmer).
@@ -226,6 +252,8 @@ In progress; entries are added here as they land on `main` (tag created at relea
   its sortable column headers render plain muted instead of shimmering and bold; live lists still
   shimmer.
 - **Conversation rename shortcut** moved from `` ` `` to `n` (and `ctrl+`` ` ``` → `ctrl+n`).
+- **`/config fx` is now `/config motion`** for the on/off animation toggle — `/config fx` was
+  repurposed to select the reveal effect (above).
 - Analytics "Watch hours" label corrected to "Watched hours".
 - Mobile sidebar no longer opens scrolled below the fold — the conversations header + list are
   anchored to the top on open (an in-place rename no longer yanks the list back to the top).

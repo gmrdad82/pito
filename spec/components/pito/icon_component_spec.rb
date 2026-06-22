@@ -27,6 +27,12 @@ RSpec.describe Pito::IconComponent do
       html = render_inline(comp).to_html
       expect(html).to include('fill="none"')
     end
+
+    it "strokes at width 2 (crisper than Lucide's faded 1.5 default)" do
+      html = render_inline(comp).to_html
+      expect(html).to include('stroke-width="2"')
+      expect(html).not_to include('stroke-width="1.5"')
+    end
   end
 
   # ── Sizing — must stay ≤ 1em (14px base) ─────────────────────
@@ -44,7 +50,10 @@ RSpec.describe Pito::IconComponent do
       expect(html).to include('height="1em"')
     end
 
-    it "adds the pito-icon CSS class (controls display + vertical-align)" do
+    it "adds the pito-icon CSS class — the single source of truth for align/gap/stroke" do
+      # Alignment, the left gap, and the stroke weight all live once in the
+      # `.pito-icon` rule; the component just hangs this hook on every icon so
+      # the stats counters and the analytics kv-table render identically.
       html = render_inline(comp).to_html
       expect(html).to include('class="pito-icon"')
     end

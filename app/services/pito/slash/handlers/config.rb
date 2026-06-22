@@ -13,11 +13,19 @@ module Pito
       #   and invalidates the `Pito::Credentials` cache.
       # - Unknown kwargs return `Result::Error` with key `pito.slash.config.errors.unknown_keys`.
       #
-      # **Toggle providers** (`sound`, `fx`):
+      # **Toggle providers** (`sound`, `motion`):
       # - **Getter** (no arg): `/config sound` → current on/off state.
       # - **Setter**: `/config sound on|off` (synonyms: true/false/enable/disable/enabled/disabled)
       #   → writes via `AppSetting` and broadcasts a settings-update cable event.
+      #   `motion` toggles `AppSetting.fx_enabled` (storage key + client `data-fx`
+      #   attribute are unchanged — only the user-facing verb word is `motion`).
       # - Invalid toggle value → `Result::Error` with key `pito.slash.config.errors.invalid_toggle_value`.
+      #
+      # **Enum provider** (`fx`):
+      # - **Getter** (no arg): `/config fx` → current reveal effect.
+      # - **Setter**: `/config fx typewriter|scramble|comet` → writes via
+      #   `AppSetting.fx_effect=` and broadcasts a settings-update cable event.
+      # - Invalid effect → `Result::Error` with key `pito.slash.config.errors.invalid_fx_effect`.
       #
       # Bare `/config` (no provider) → general overview table of all providers.
       # Unknown provider → `Result::Error` with key `pito.slash.config.errors.unknown_provider`.
@@ -33,15 +41,17 @@ module Pito
 
         grammar do
           literal :provider, source: :config_providers
-          enum    :state,    source: :on_off,      optional: true,              when: { provider: %w[sound fx] }
+          enum    :state,    source: :on_off,      optional: true,              when: { provider: %w[sound motion] }
+          enum    :effect,   source: :fx_effects,  optional: true,              when: { provider: %w[fx] }
           kv      :settings, source: :config_keys, repeatable: true, optional: true, when: { provider: %w[google voyage igdb webhook me] }
           auth :authenticated_only
           description_key "pito.grammar.slash.config"
         end
 
         KNOWN_PROVIDERS   = %w[google voyage igdb webhook me].freeze
-        TOGGLE_PROVIDERS  = %w[sound fx].freeze
+        TOGGLE_PROVIDERS  = %w[sound motion].freeze
         ME_PROVIDER       = "me"
+        FX_PROVIDER       = "fx"
 
         # Maps each provider's supported kwargs to their AppSetting writers.
         PROVIDER_SETTERS = {
@@ -120,6 +130,7 @@ module Pito
           end
 
           return handle_toggle(provider) if TOGGLE_PROVIDERS.include?(provider)
+          return handle_fx_effect if provider == FX_PROVIDER
           return handle_me(invocation.kwargs) if provider == ME_PROVIDER
 
           kwargs = invocation.kwargs
@@ -132,6 +143,8 @@ module Pito
           case provider
           when "google"   then google_help_man_page
           when "me"       then me_help_man_page
+          when "fx"       then fx_help_man_page
+          when "motion"   then motion_help_man_page
           when "timezone" then timezone_help_man_page
           when ""         then general_help_man_page
           else                 provider_keys_help_man_page(provider)
@@ -191,6 +204,60 @@ module Pito
                 [ "--help",   "Print this help message" ],
                 [ "/connect", "Run /connect #{connect_post}" ]
               ] ]
+            ]
+          )
+          man_ok(body)
+        end
+
+        # `/config fx --help` — a man page listing the reveal effects, each
+        # followed by a LOOPING showcase row that re-animates a witty one-liner
+        # using that very effect every couple of seconds. Each showcase carries
+        # the `pito--fx-demo` controller plus the per-element effect value, so
+        # every row demonstrates (and keeps demonstrating) its own effect
+        # regardless of the global setting. The help arrives as a live `system`
+        # event over the cable.
+        def fx_help_man_page
+          rows = AppSetting::FX_EFFECTS.flat_map do |effect|
+            [
+              [ effect, I18n.t("pito.slash.config.help.providers.fx.effects.#{effect}") ],
+              fx_showcase_row(effect)
+            ]
+          end
+
+          body = Pito::MessageBuilder::ManPage.render(
+            usage:  "/config fx <#{AppSetting::FX_EFFECTS.join('|')}>",
+            groups: [
+              [ "Effects:", rows ],
+              [ "Options:", [ [ "--help", "Print this help message" ] ] ]
+            ]
+          )
+          man_ok(body)
+        end
+
+        # Build one looping showcase row for an fx effect: an fx-demo-controlled
+        # element carrying the per-element effect value and a freshly-sampled witty
+        # line from `pito.copy.fx.<effect>`. The `pito--fx-demo` controller re-runs
+        # that effect on the row every couple of seconds (reusing the shared reveal
+        # engine), so the row keeps demonstrating its own effect.
+        def fx_showcase_row(effect)
+          line = Pito::Copy.render("pito.copy.fx.#{effect}")
+          html = %(<div data-controller="pito--fx-demo" ) +
+                 %(data-pito--fx-demo-effect-value="#{effect}">) +
+                 %(  <span class="text-fg-dim">) +
+                 %(#{ERB::Util.html_escape(line)}</span></div>)
+          Pito::MessageBuilder::ManPage.raw(html.html_safe)
+        end
+
+        # `/config motion --help` — a tiny on/off man page for the motion toggle.
+        def motion_help_man_page
+          body = Pito::MessageBuilder::ManPage.render(
+            usage:  "/config motion [on|off]",
+            groups: [
+              [ "States:",  [
+                [ "on",  I18n.t("pito.slash.config.help.providers.motion.states.on") ],
+                [ "off", I18n.t("pito.slash.config.help.providers.motion.states.off") ]
+              ] ],
+              [ "Options:", [ [ "--help", "Print this help message" ] ] ]
             ]
           )
           man_ok(body)
@@ -291,7 +358,7 @@ module Pito
           ])
         end
 
-        # Handle /config sound [on|off] and /config fx [on|off].
+        # Handle /config sound [on|off] and /config motion [on|off].
         def handle_toggle(provider)
           raw_state = invocation.args[1].to_s.strip.downcase
 
@@ -345,6 +412,54 @@ module Pito
                 text: Pito::Copy.render(
                   "pito.slash.config.toggle.status",
                   { label: label, state: state }
+                )
+              }
+            }
+          ])
+        end
+
+        # Handle /config fx [typewriter|scramble|comet].
+        # Getter (no arg) → show the current reveal effect.
+        # Setter → validate against AppSetting::FX_EFFECTS, persist, broadcast.
+        def handle_fx_effect
+          raw_effect = invocation.args[1].to_s.strip.downcase
+
+          # Getter — no effect supplied.
+          return show_fx_effect if raw_effect.empty?
+
+          unless AppSetting::FX_EFFECTS.include?(raw_effect)
+            return Pito::Slash::Result::Error.new(
+              message_key:  "pito.slash.config.errors.invalid_fx_effect",
+              message_args: { value: raw_effect }
+            )
+          end
+
+          AppSetting.fx_effect = raw_effect
+
+          broadcaster = Pito::Stream::Broadcaster.new(conversation:)
+          broadcaster.broadcast_settings_update
+
+          Pito::Slash::Result::Ok.new(events: [
+            {
+              kind:    "system",
+              payload: {
+                text: Pito::Copy.render(
+                  "pito.slash.config.fx.updated",
+                  { effect: raw_effect }
+                )
+              }
+            }
+          ])
+        end
+
+        def show_fx_effect
+          Pito::Slash::Result::Ok.new(events: [
+            {
+              kind:    "system",
+              payload: {
+                text: Pito::Copy.render(
+                  "pito.slash.config.fx.status",
+                  { effect: AppSetting.fx_effect }
                 )
               }
             }

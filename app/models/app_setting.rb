@@ -160,6 +160,31 @@ class AppSetting < ApplicationRecord
     set(FX_ENABLED_KEY, bool.to_s)
   end
 
+  # ── Reveal effect ──────────────────────────────────────────────────────────
+  #
+  # Stored as a plain key/value row ("fx_effect"). Names the reveal animation the
+  # client engine plays for scrollback/typewriter output. Default is
+  # "typewriter"; the writer validates against FX_EFFECTS and raises for anything
+  # else (mirrors timezone=). Independent of fx_enabled? — that flag still gates
+  # whether ANY motion plays at all.
+
+  FX_EFFECT_KEY     = "fx_effect"
+  FX_EFFECT_DEFAULT = "typewriter"
+  FX_EFFECTS        = %w[typewriter scramble comet].freeze
+
+  def self.fx_effect
+    get(FX_EFFECT_KEY).presence || FX_EFFECT_DEFAULT
+  end
+
+  # Validates +value+ against FX_EFFECTS before persisting. Raises ArgumentError
+  # for an unknown effect (no row is written).
+  def self.fx_effect=(value)
+    effect = value.to_s
+    raise ArgumentError, "invalid fx effect: #{value.inspect}" unless FX_EFFECTS.include?(effect)
+
+    set(FX_EFFECT_KEY, effect)
+  end
+
   # ── Theme ─────────────────────────────────────────────────────────────────
   #
   # Stored as a plain key/value row ("theme").

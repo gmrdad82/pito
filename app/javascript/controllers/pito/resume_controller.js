@@ -86,9 +86,10 @@ export default class extends Controller {
     window.addEventListener("pito:resume:dismiss", this.#dismissHandler)
 
     // The sidebar content is injected via a Turbo Stream UPDATE (this controller
-    // stays connected). Watch for it: when rows appear we (a) hide the command
-    // dots — /resume is a sync command and never fires pito:done otherwise — and
-    // (b) highlight the first row so arrow-nav is immediately visible.
+    // stays connected). Watch for it: on the open transition we (a) blur the
+    // chatbox and clear the command comet (pito:comet-clear — a sidebar command
+    // produces no backend message) and (b) highlight the first row so arrow-nav
+    // is immediately visible.
     // subtree:true so a row REPLACE (e.g. after rename) re-pins the highlight to
     // the same position instead of losing it.
     this.observer = new MutationObserver(() => this.#onContentChange())
@@ -153,6 +154,14 @@ export default class extends Controller {
     if (open && !this.#wasOpen) {
       const scroller = this.element.querySelector(".pito-scroll-fade-slim")
       if (scroller) scroller.scrollTop = 0
+
+      // J23: a sidebar/client-only command (/resume, /themes, the pickers, IGDB
+      // import) opens this panel but produces NO echo and NO scrollback result,
+      // so the comet (pito--dots) — shown on every pito:submitted — would hang.
+      // Clear it the moment the panel opens. This is the reliable hide path:
+      // every sidebar partial injects an <aside> here, and the MutationObserver
+      // fires after it lands (unlike the racy _done_signal append).
+      document.dispatchEvent(new CustomEvent("pito:comet-clear", { bubbles: true }))
     }
     this.#wasOpen = open
 
@@ -171,8 +180,8 @@ export default class extends Controller {
     }
 
     if (this.highlightIndex === -1) {
-      // Sidebar just opened — stop the command dots and highlight the first row.
-      document.dispatchEvent(new CustomEvent("pito:done", { bubbles: true }))
+      // Sidebar just opened — highlight the first row. (The comet is cleared on
+      // the open transition above via pito:comet-clear.)
       this.highlightIndex = 0
     } else {
       // Content changed (e.g. a row was renamed → Turbo-replaced) — keep the
@@ -238,8 +247,14 @@ export default class extends Controller {
         this.#clear()
       }
     } else if (e.key === "d") {
-      // Ignore while an input or rename field has focus (e.g. inline rename is open).
-      if (document.activeElement?.matches("input, textarea, [contenteditable]")) return
+      // J22: ignore `d` only while a SIDEBAR-owned input has focus (the inline
+      // rename field) so it types normally there. A focused chatbox must NOT
+      // swallow the delete — drop its focus (no-op when it isn't focused) and
+      // proceed; the preventDefault below stops `d` from being typed there, so
+      // `d`/`dd` always drive the sidebar instead of the chatbox.
+      const active = document.activeElement
+      if (active?.matches("input, textarea, [contenteditable]") && this.element.contains(active)) return
+      this.#blurChatbox()
       const highlighted = rows[this.highlightIndex]
       if (!highlighted) return
       e.preventDefault()

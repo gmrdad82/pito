@@ -101,6 +101,49 @@ RSpec.describe Pito::ScoreBarComponent do
     end
   end
 
+  describe "#overlay_alignment_class — edge clamp (no overflow at the extremes)" do
+    it "centres the bubble/tick away from the edges" do
+      expect(described_class.new(score: 50).overlay_alignment_class).to eq("pito-score-bar__overlay--centered")
+      expect(described_class.new(score: 87).overlay_alignment_class).to eq("pito-score-bar__overlay--centered")
+    end
+
+    it "left-aligns near the start so a 0 never pokes past the left edge" do
+      expect(described_class.new(score: 0).overlay_alignment_class).to eq("pito-score-bar__overlay--at-start")
+      expect(described_class.new(score: 9).overlay_alignment_class).to eq("pito-score-bar__overlay--at-start")
+    end
+
+    it "right-aligns near the end so a 100 never pokes past the right edge" do
+      expect(described_class.new(score: 100).overlay_alignment_class).to eq("pito-score-bar__overlay--at-end")
+      expect(described_class.new(score: 95).overlay_alignment_class).to eq("pito-score-bar__overlay--at-end")
+    end
+
+    it "falls back to centred when there is no score" do
+      expect(described_class.new.overlay_alignment_class).to eq("pito-score-bar__overlay--centered")
+    end
+
+    it "stamps the clamp class on BOTH the bubble and the tick" do
+      html = render_inline(described_class.new(score: 100)).to_html
+      expect(html).to include("pito-score-bar__bubble pito-score-bar__overlay--at-end")
+      expect(html).to include("pito-score-bar__tick pito-score-bar__overlay--at-end")
+    end
+  end
+
+  describe "width containment (application.css)" do
+    let(:css) { Rails.root.join("app/assets/tailwind/application.css").read }
+
+    it "caps the component box at its container (max-width:100%)" do
+      rule = css[/\.pito-score-bar\s*\{.*?\}/m]
+      expect(rule).to include("max-width: 100%")
+    end
+
+    it "defines the three edge-clamp transform modifiers" do
+      expect(css).to include(".pito-score-bar__overlay--at-start")
+      expect(css).to include(".pito-score-bar__overlay--centered")
+      expect(css).to include(".pito-score-bar__overlay--at-end")
+      expect(css[/\.pito-score-bar__overlay--at-end\s*\{[^}]*\}/]).to include("translateX(-100%)")
+    end
+  end
+
   describe "#fill_text" do
     it "returns FILL_CELLS = characters (overflow, CSS-clipped to full width)" do
       comp = described_class.new

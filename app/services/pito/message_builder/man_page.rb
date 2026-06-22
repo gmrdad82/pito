@@ -18,13 +18,27 @@ module Pito
 
       GAP = 3 # spaces between token column and description column
 
+      # A pre-built, html_safe markup row injected verbatim into the rendered
+      # block — the escape hatch for content that must carry live markup (e.g. a
+      # Stimulus showcase element) which the escaping `[token, desc]` row path
+      # cannot smuggle through. Wrap markup with `ManPage.raw(html)` and drop the
+      # result into a group's rows list wherever the raw line should appear.
+      Raw = Data.define(:html)
+
+      # @param html [String] html_safe markup emitted verbatim as one block line.
+      # @return [Raw]
+      def raw(html) = Raw.new(html: html)
+
       # @param usage  [String]           the usage line (shown indented under "Usage:")
       # @param groups [Array<[String, Array<[String, String]>]>]
       #                                  ordered pairs of [title, [[token, desc], …]]
       # @return [String] html_safe
       def render(usage:, groups:)
         all_rows = groups.flat_map { |_, rows| rows }
-        width    = all_rows.map { |tok, _| tok.length }.max.to_i + GAP
+        # Raw rows carry pre-built markup, not a [token, desc] pair, so they sit
+        # outside the token column and never influence its padding width.
+        width    = all_rows.reject { |r| r.is_a?(Raw) }
+                           .map { |tok, _| tok.length }.max.to_i + GAP
 
         lines = []
         # Lead the first line with the inline timestamp slot so the message's
@@ -37,7 +51,9 @@ module Pito
         groups.each do |title, rows|
           lines << ""
           lines << header(title)
-          rows.each { |tok, desc| lines << row(tok, desc, width) }
+          rows.each do |entry|
+            lines << (entry.is_a?(Raw) ? entry.html : row(entry[0], entry[1], width))
+          end
         end
 
         result = %(<div class="pito-help-block">#{lines.join("\n")}</div>)

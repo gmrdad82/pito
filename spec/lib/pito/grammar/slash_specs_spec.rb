@@ -32,6 +32,14 @@ RSpec.describe "Pito::Grammar slash specs" do
       expect(slot.optional?).to be(true)
     end
 
+    it "has an :effect enum slot sourced from :fx_effects (gated on the fx provider)" do
+      slot = spec.slot(:effect)
+      expect(slot).not_to be_nil
+      expect(slot.kind).to eq(:enum)
+      expect(slot.source).to eq(:fx_effects)
+      expect(slot.optional?).to be(true)
+    end
+
     it "has auth :authenticated_only" do
       expect(spec.auth).to eq(:authenticated_only)
     end

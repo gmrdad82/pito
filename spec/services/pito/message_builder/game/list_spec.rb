@@ -27,6 +27,15 @@ RSpec.describe Pito::MessageBuilder::Game::List do
       expect(rows.map { |r| r[:cells][1][:text] }).to include("Lies of P", "Tears of the Kingdom")
     end
 
+    it "carries chat-prefill data on the #id cell so a click auto-submits `show game #id` (J6)" do
+      row  = payload["table_rows"].find { |r| r[:cells][0][:text] == "##{lies.id}" }
+      data = row[:cells][0][:data]
+      expect(data[:controller]).to eq("pito--chat-prefill")
+      expect(data[:action]).to eq("click->pito--chat-prefill#fill")
+      expect(data[:"pito--chat-prefill-text-value"]).to eq("show game ##{lies.id}")
+      expect(data[:"pito--chat-prefill-submit-value"]).to eq("true")
+    end
+
     it "wraps the intro count in a subject-shimmer span" do
       expect(payload["body"]).to match(%r{<span class="pito-subject-shimmer[^"]*">2</span>})
     end

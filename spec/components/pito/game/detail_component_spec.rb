@@ -27,6 +27,24 @@ RSpec.describe Pito::Game::DetailComponent do
     end
   end
 
+  # ── Mobile-only column divider (L6) ─────────────────────────────────────────
+  # A hairline between the stacked cover and kv-table columns on mobile (<768px),
+  # hidden at md: and up where the two-column layout needs no divider.
+  describe "mobile-only column divider" do
+    it "renders a hairline divider between the columns" do
+      node    = render_inline(described_class.new(game: game))
+      divider = node.css(".pito-detail-col-divider").first
+      expect(divider).not_to be_nil
+      expect(divider["class"]).to include("h-px")
+    end
+
+    it "is hidden on desktop (carries md:hidden)" do
+      node    = render_inline(described_class.new(game: game))
+      divider = node.css(".pito-detail-col-divider").first
+      expect(divider["class"]).to include("md:hidden")
+    end
+  end
+
   # ── Title (now first kv-row in the right column) ───────────────────────────
 
   describe "title" do
@@ -68,13 +86,14 @@ RSpec.describe Pito::Game::DetailComponent do
       expect(shimmer).to be_present
     end
 
-    it "wires the #id token to prefill the chatbox with `show game #id` (no submit)" do
+    it "wires the #id token to prefill + auto-submit `show game #id`" do
       node    = render_inline(described_class.new(game: game))
       id_text = "##{game.id}"
       span    = node.css("span.pito-token-shimmer").find { |s| s.text == id_text }
       expect(span["data-controller"]).to eq("pito--chat-prefill")
       expect(span["data-action"]).to eq("click->pito--chat-prefill#fill")
       expect(span["data-pito--chat-prefill-text-value"]).to eq("show game ##{game.id}")
+      expect(span["data-pito--chat-prefill-submit-value"]).to eq("true")
     end
 
     it "ID row appears before the Platforms row" do
@@ -482,10 +501,10 @@ RSpec.describe Pito::Game::DetailComponent do
         expect(node.css(".pito-game-detail__stats")).not_to be_empty
       end
 
-      it "bolds the Stats heading" do
+      it "does not bold the Stats heading (J19 — normal weight)" do
         node    = render_inline(described_class.new(game: game))
         heading = node.css(".pito-game-detail__stats-heading").first
-        expect(heading["class"]).to include("font-bold")
+        expect(heading["class"]).not_to include("font-bold")
       end
 
       it "shows summed view count formatted via CompactCount (1 000 + 500 = 1 500 → 1.5K)" do
@@ -586,10 +605,18 @@ RSpec.describe Pito::Game::DetailComponent do
         expect(left.css(".pito-game-detail__shinies")).not_to be_empty
       end
 
-      it "bolds the Shinies heading" do
+      it "does not bold the Shinies heading (J19 — normal weight)" do
         node    = render_inline(described_class.new(game: game))
         heading = node.css(".pito-game-detail__shinies-heading").first
-        expect(heading["class"]).to include("font-bold")
+        expect(heading["class"]).not_to include("font-bold")
+      end
+
+      it "renders detail-card badges in compact form — no unlock date span (J11/J18)" do
+        node   = render_inline(described_class.new(game: game))
+        badges = node.css(".pito-game-detail__shinies .pito-achievement-badge")
+        badges.each do |badge|
+          expect(badge.css(".pito-achievement-badge__date")).to be_empty
+        end
       end
 
       it "lays out badges in a left-aligned flex-wrap container" do

@@ -267,9 +267,51 @@ html {
   animation-iteration-count: infinite;
 }
 
+/* The metric icon inside a trend number rides the SAME green/red shimmer as
+   its number. The number sweeps via background-clip:text; an SVG stroke can't
+   be gradient-clipped, so the icon instead animates its currentColor on the
+   same 3.4s cadence — green↔yellow (up) / red↔yellow (down), matching the
+   sweep's yellow contrast band — so the number and its 👍/👎 shimmer as one
+   unit and share the accent. Alignment/stroke still come from `.pito-icon`.
+
+   LONGHANDS + `animation-delay: inherit`, never the `animation` shorthand: the
+   parent .pito-trend-number--up/--down span carries the per-element
+   `.pito-shimmer-dN` stagger via animation-delay. The shorthand resets
+   animation-delay to 0, which clobbered that stagger and drifted the icon out
+   of phase with its number. Inheriting the parent's delay frame-locks the icon
+   pulse to the number's gradient sweep (same duration + same delay = in phase).
+   See the .pito-shimmer-dN block. */
+.pito-trend-number--up .pito-icon {
+  animation-name: pito-trend-icon-up;
+  animation-duration: 3.4s;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  animation-delay: inherit;
+}
+
+.pito-trend-number--down .pito-icon {
+  animation-name: pito-trend-icon-down;
+  animation-duration: 3.4s;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  animation-delay: inherit;
+}
+
+@keyframes pito-trend-icon-up {
+  0%, 100% { color: var(--accent-green); }
+  50%      { color: var(--accent-yellow); }
+}
+
+@keyframes pito-trend-icon-down {
+  0%, 100% { color: var(--accent-red); }
+  50%      { color: var(--accent-yellow); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .pito-trend-number--up,
-  .pito-trend-number--down { animation: none; }
+  .pito-trend-number--down,
+  .pito-trend-number--up .pito-icon,
+  .pito-trend-number--down .pito-icon { animation: none; }
 }
 
 /* ── Keyboard-shortcut shimmer (Pito::Keybinding::ShortcutComponent) ──
@@ -591,10 +633,8 @@ html {
   margin-top: 6px;
 }
 
-/* "HH:MM ·" timestamp leading a message's first line. Keep the clock intact. */
+/* "HH:MM " timestamp leading a message's first line. No middot separator. */
 .pito-timestamp-prefix {
-  /* The middot + its symmetric spacing come from InlineSeparatorComponent
-     (matching the meta footer); nothing extra needed here. */
   white-space: nowrap;
 }
 
@@ -719,12 +759,62 @@ html {
   user-select: none;
   background: var(--fg-default);
   color: var(--bg-root);
+  /* Top of the field-wrap stack — the live block is ALWAYS visible:
+     type-fx layer (1) < trail ghosts (1) < suggestion ghost (2) < block (3).
+     (The suggestion ghost is the completion text to the RIGHT of the caret; it
+     must not occlude the block at the caret cell, so the block outranks it.) */
+  z-index: 3;
   animation: terminal-caret-pulse 1.4s ease-in-out infinite;
 }
 
 /* Solid (no blink) while the field is focused; blinks only when unfocused. */
 .terminal-caret[data-focused] {
   animation: none;
+}
+
+/* Motion off (/config fx off): solid block, no blink — set by the controller so
+   it tracks the live data-fx toggle (the media query below covers reduced-motion). */
+.terminal-caret[data-no-blink] {
+  animation: none;
+}
+
+/* Single-line sidebar / palette / rename inputs adopt the block caret: hide the
+   native I-beam and force monospace so the 1ch block has a real glyph advance. */
+.pito-caret-input {
+  caret-color: transparent;
+  font-family: var(--font-mono);
+}
+
+/* ── Cursor trail (Pito::CursorTrailController) ──────────────── */
+/* kitty cursor_trail: faded ghost blocks left behind a moving caret, decaying
+   fast so the block appears to catch up. The controller POOLS a fixed ring of
+   reused nodes (no per-keystroke alloc) and drives the decay via a single rAF
+   loop touching only `opacity` + `transform` (compositor-friendly) — so this
+   class carries no CSS @keyframes; it starts hidden (opacity:0) and `will-change`
+   primes the GPU layer. */
+.pito-cursor-ghost {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1ch;
+  height: 1.4em; /* fallback; JS copies the caret block's exact height */
+  pointer-events: none;
+  user-select: none;
+  background: var(--fg-default);
+  opacity: 0;    /* pooled + idle by default; the rAF loop fades it 0.6 → 0 */
+  z-index: 1;    /* below the live .terminal-caret block (3) + suggestion ghost (2) */
+  will-change: transform, opacity;
+}
+
+/* Reduced motion: no blink, no trail. (fx-off is handled live via data-no-blink
+   on the block and the controller gate on the trail.) */
+@media (prefers-reduced-motion: reduce) {
+  .terminal-caret {
+    animation: none;
+  }
+  .pito-cursor-ghost {
+    display: none;
+  }
 }
 
 .pito-chatbox__filter {
@@ -869,6 +959,9 @@ html {
   align-items: baseline;
   gap: 0.5rem;
   width: 100%;
+  /* Never let the component's own box exceed its container (the `=` fill already
+     clips via min-width:0 + overflow:hidden; this caps the flex box too). */
+  max-width: 100%;
   /* Extra breathing room above so the floating score bubble (sits a line above
      the bar) never touches the component above it (the TTB legend). */
   margin-top: 1.75rem;
@@ -986,6 +1079,16 @@ html {
   line-height: 1;
 }
 
+/* Edge-clamp modifiers for the floating bubble + tick (set by
+   ScoreBarComponent#overlay_alignment_class). At the extremes the overlay shifts
+   so it stays fully inside the track instead of poking past the right/left edge
+   (and the page). Mirrors the TTB value-label clamp (.ttb-label--at-*). Defined
+   AFTER the base .pito-score-bar__tick / __bubble transform rules so they win
+   on the cascade (same specificity → source order decides). */
+.pito-score-bar__overlay--at-start  { transform: translateX(0); }
+.pito-score-bar__overlay--centered  { transform: translateX(-50%); }
+.pito-score-bar__overlay--at-end    { transform: translateX(-100%); }
+
 /* ── Pito::TimeToBeatComponent ──────────────────────────────────
  *
  * Fuel-gauge bar: brackets [ ] + a continuous `=` run + four absolute
@@ -1027,6 +1130,9 @@ html {
   display: flex;
   align-items: flex-start;
   gap: 0.5rem;
+  /* Cap the component box to its container; the `=` fill clips via min-width:0 +
+     overflow:hidden and the edge pillar labels clamp via .ttb-label--at-end. */
+  max-width: 100%;
 }
 
 /* Witty label left of the bar. margin-top pushes it down past row 1 (the
@@ -1371,15 +1477,18 @@ html {
 /* Bounded cover box: same 374×210 footprint as the show-video thumbnail (16:9
    at 374px width). overflow:hidden clips the portrait cover to this window;
    the image pans vertically to reveal the whole art over time. */
-.pito-game-detail__cover {
+.pito-game-detail__cover,
+.pito-video-linked-game-card__cover {
   width: 374px;
   height: 210px;  /* 374 × 9/16 ≈ 210px — matches .pito-video-detail__thumbnail */
   overflow: hidden;
 }
 
 /* Cover image keeps its full portrait dimensions (374×499). The container's
-   overflow:hidden provides the visible window; translateY pans it. */
-.pito-game-detail__cover img {
+   overflow:hidden provides the visible window; translateY pans it. Shared by
+   the show-game detail cover and the show-video linked-game card cover. */
+.pito-game-detail__cover img,
+.pito-video-linked-game-card__cover img {
   width: 374px;
   height: 499px;
   object-fit: cover;
@@ -1414,25 +1523,109 @@ html:has(#pito-settings[data-fx="false"]) .pito-cover-pan {
   transform: translateY(0);
 }
 
+/* ── Comet reveal (L3 reveal effect) ───────────────────────────────────────
+ *
+ * pito--typewriter applies .pito-comet-reveal to each text/atomic host when the
+ * resolved effect is "comet". The host starts HIDDEN (JS dims it to ~0.01); the
+ * instant this class lands JS lifts the dim and a CSS MASK reveals the text
+ * left→right — text BEHIND the sweep is shown, text AHEAD is masked out, so each
+ * glyph appears only as/after the comet passes over it. A bright blurred "comet"
+ * (the ::after) rides in lock-step at the leading edge (same geometry + timing as
+ * the mask), with its trail flowing back over the freshly revealed text. JS sets
+ * the per-host --pito-comet-ms (so the sweep matches the JS settle timing) and
+ * removes the class when that duration elapses, leaving the host at full opacity
+ * with its correct content. Tokens only (brand pito blue + accent cyan) so the
+ * highlight survives the Tailwind purge.
+ *
+ * Always-pop elements (bars / covers / thumbnails / avatars) are NEVER given
+ * this class — the JS excludes them from the reveal entirely. */
+.pito-comet-reveal {
+  position: relative;
+  /* Reveal WIPE (not a band): one opaque→transparent EDGE. The opaque (#000,
+     visible) half trails the comet all the way back to the row START; only the
+     region AHEAD of the comet's leading edge is transparent (hidden). The
+     300% image is wide enough that it always fully covers the host, so the
+     opaque region only GROWS as the edge sweeps left→right — text the comet has
+     passed STAYS revealed, never re-masked — and the final frame leaves the
+     whole host opaque (fully revealed), so the JS `mask:none` clear at settle
+     has nothing left to pop in (no end flash). Rides in lock-step with the
+     ::after comet below (matching size/timing) so the bright head sits at the
+     opaque→transparent frontier. */
+  -webkit-mask-image: linear-gradient(100deg, #000 0%, #000 50%, transparent 64%, transparent 100%);
+          mask-image: linear-gradient(100deg, #000 0%, #000 50%, transparent 64%, transparent 100%);
+  -webkit-mask-size: 300% 100%;
+          mask-size: 300% 100%;
+  -webkit-mask-repeat: no-repeat;
+          mask-repeat: no-repeat;
+  animation-name: pito-comet-mask;
+  animation-duration: var(--pito-comet-ms, 900ms);
+  animation-timing-function: ease-in-out;
+  animation-fill-mode: both;
+}
+
+/* The comet itself: a blurred bright point + trail swept across the host via a
+   gradient. A pseudo-element keeps it non-interactive and clipped to the host. */
+.pito-comet-reveal::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    100deg,
+    transparent 46%,
+    color-mix(in oklch, var(--brand-pito) 85%, transparent) 56%,
+    color-mix(in oklch, var(--accent-cyan) 80%, transparent) 60%,
+    transparent 70%
+  );
+  background-size: 300% 100%;
+  background-repeat: no-repeat;
+  filter: blur(6px);
+  mix-blend-mode: screen;
+  animation-name: pito-comet-sweep;
+  animation-duration: var(--pito-comet-ms, 900ms);
+  animation-timing-function: ease-in-out;
+  animation-fill-mode: both;
+}
+
+/* The opaque (revealed) half sweeps across the host: at 100% the host shows only
+   the transparent LEAD (fully hidden); at 0% only the opaque BACK (FULLY
+   revealed). Because the 300% image always covers the host, the opaque region
+   only grows — revealed text is never re-hidden — and the held end frame (0%,
+   fill-mode both) leaves the whole host visible, so there is no end flash. */
+@keyframes pito-comet-mask {
+  from { -webkit-mask-position: 100% 0; mask-position: 100% 0; }
+  to   { -webkit-mask-position: 0% 0;   mask-position: 0% 0;   }
+}
+
+@keyframes pito-comet-sweep {
+  from { background-position: 100% 0; }
+  to   { background-position: 0% 0; }
+}
+
+/* Reduced-motion: no sweep. JS skips the comet entirely under reduced-motion,
+   but if the class ever lingers a frame the host must be fully visible AND
+   unmasked (a stuck mask would hide part of the host). */
+@media (prefers-reduced-motion: reduce) {
+  .pito-comet-reveal        { animation: none; opacity: 1; -webkit-mask: none; mask: none; }
+  .pito-comet-reveal::after  { display: none; }
+}
+
+/* Motion off in /config (data-fx="false" on #pito-settings): same static safety. */
+html:has(#pito-settings[data-fx="false"]) .pito-comet-reveal       { animation: none; opacity: 1; -webkit-mask: none; mask: none; }
+html:has(#pito-settings[data-fx="false"]) .pito-comet-reveal::after { display: none; }
+
 /* Detail-card hairline spacing: a plain 10px top/bottom gap. */
 .pito-detail-hairline {
   margin: 10px 0;
 }
 
-/* Video linked-game card: a SLIM two-column card (cover left, kv-table right)
-   emitted under a video detail. Mirrors the game detail card's grid kv-table
-   (grid grid-cols-[max-content_1fr]) but with the small 180px cover and no
-   score/TTB bars. The cover column never shrinks. */
+/* Video linked-game card: a two-column card (big cover left, kv-table right)
+   emitted under a video detail. Mirrors the game detail card — same 374×210
+   Ken-Burns cover box (dims/img shared with .pito-game-detail__cover above) and
+   grid kv-table (grid grid-cols-[max-content_1fr]) — but with no score/TTB bars.
+   The cover column never shrinks. */
 .pito-video-linked-game-card__cover {
   flex: 0 0 auto;
-}
-
-/* Small cover at its full 180×240 (Game::COVER_VARIANT). */
-.pito-video-linked-game-card__cover img {
-  width: 180px;
-  height: 240px;
-  object-fit: cover;
-  display: block;
 }
 
 /* Video detail: two columns. Left (thumbnail + fields + stats) is fixed to the
@@ -1454,17 +1647,6 @@ html:has(#pito-settings[data-fx="false"]) .pito-cover-pan {
 /* Thumbnail shows at its full cached size (374×210); never shrinks. */
 .pito-video-detail__thumbnail {
   flex: 0 0 auto;
-}
-
-/* Stats + Shinies section headings — explicit 700 in unlayered CSS so the bold
-   weight beats any @layer utilities rule (the font-bold utility uses a CSS-variable
-   approach that has lower cascade priority than unlayered styles). Mirrors the
-   font-weight: 700 idiom used by .pito-score-bar__tick etc. */
-.pito-game-detail__stats-heading,
-.pito-game-detail__shinies-heading,
-.pito-video-detail__stats-heading,
-.pito-video-detail__shinies-heading {
-  font-weight: 700;
 }
 
 /* Description column — fills the rest; min-width:0 (utility) lets it wrap. */
@@ -1622,30 +1804,24 @@ html:has(#pito-settings[data-fx="false"]) .pito-cover-pan {
   width: 100%;
 }
 
-/* Stats — one line "subs · videos · views" (list channels only). Flex row so
-   the monospace inter-element whitespace doesn't add stray gaps; the `·`
-   separators (InlineSeparatorComponent) carry their own horizontal margins. */
+/* Stats — two rows: row 1 "N Subs · M Views", row 2 "P Vids" (list channels
+   only). Column layout stacks the two CountersComponent rows; each counter row
+   is already centered by align: :center. */
 .pito-channel-item__stats {
   margin-top: 0.25rem;
   display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
 }
 
 .pito-channel-item__stat {
   text-align: center;
 }
 
-/* @handle rendered as a YouTube link (list channels) — keep the utility text
-   color; signal interactivity on hover only. */
+/* @handle rendered as a YouTube link (list channels) — suppress the browser
+   default underline; no hover effect (design: no hover). */
 .pito-channel-item__handle--link {
   text-decoration: none;
-}
-
-.pito-channel-item__handle--link:hover {
-  text-decoration: underline;
 }
 
 /* ── Data table grid (Pito::Event::SystemComponent table_rows) ─────
@@ -1900,6 +2076,18 @@ html:has(#pito-settings[data-fx="false"]) .pito-cover-pan {
   align-self: flex-start;
 }
 
+/* Elided-gap joiner: the collapsed track replaces a run of skipped thresholds
+   with a centred `─···─`. Shares the connector's flex-grow slot so it stretches
+   across the gap and the dots on each side still read as a continuous rail. */
+.pito-achievement-track__ellipsis {
+  flex: 1 1 auto;
+  overflow: hidden;
+  white-space: nowrap;
+  text-align: center;
+  color: var(--fg-faded);
+  align-self: flex-start;
+}
+
 /* Reached-run colour: dots AND connectors up to the standing ◉ all carry the
    NEXT-tier token as data-accent (set in TrackComponent), so currentColor — the
    base of the shimmer gradient below — resolves to the next tier's colour. */
@@ -1929,9 +2117,12 @@ html:has(#pito-settings[data-fx="false"]) .pito-cover-pan {
    pito-kbd-shimmer-sweep keyframe (135°, 3.4s) so the direction/feel matches the
    kbd / token / hashtag shimmers. Per-element pito-shimmer-dN stagger (set in
    TrackComponent) keeps the run from pulsing as one flat block. Upcoming
-   dots/connectors carry neither class and stay dim + static. */
+   dots/connectors/ellipses carry neither class and stay dim + static. The
+   collapsed-track ellipsis joiner shares this sweep when it falls inside the
+   reached run (its right endpoint is reached or is the in-progress `next`). */
 .pito-achievement-track__dot--reached,
-.pito-achievement-track__connector--reached {
+.pito-achievement-track__connector--reached,
+.pito-achievement-track__ellipsis--reached {
   background-image: linear-gradient(
     135deg,
     currentColor 0%,
@@ -1957,20 +2148,33 @@ html:has(#pito-settings[data-fx="false"]) .pito-cover-pan {
 
 @media (prefers-reduced-motion: reduce) {
   .pito-achievement-track__dot--reached,
-  .pito-achievement-track__connector--reached { animation: none; }
+  .pito-achievement-track__connector--reached,
+  .pito-achievement-track__ellipsis--reached { animation: none; }
 }
 
 /* ── Icons (Lucide, vendored in public/icons/) ─────────────────
  *
- * .pito-icon is applied by Pito::IconComponent to every inline SVG.
- * width/height are set to 1em by the component (never larger than the
- * 14px base font). display:inline-block + vertical-align:middle keeps
- * the icon optically centred beside monospace text without descender gap.
+ * .pito-icon is applied by Pito::IconComponent to every inline SVG and is the
+ * SINGLE SOURCE OF TRUTH for how every metric icon aligns, spaces, and strokes.
+ * Both the stats counters (45 Views · 4👍) and the analytics kv-table
+ * (Likes 2👍/0👎) render through this one class — never per-call-site margins
+ * or positions. width/height are set to 1em by the component (never larger
+ * than the 14px base font). Touch alignment / gap / weight HERE, nowhere else.
+ *
+ *   vertical-align + top  — optically centre the 1em glyph on the adjacent
+ *                           digits and lift it ~1px so the pair read as a unit.
+ *   margin-left           — the consistent gap so an icon never touches its number.
+ *   stroke-width          — crisper than the vendored 1.5 default; this CSS value
+ *                           is authoritative (the SVG files carry the same 2).
  */
 
 .pito-icon {
   display: inline-block;
   vertical-align: middle;
+  position: relative;
+  top: -0.075em;
+  margin-left: 0.2em;
+  stroke-width: 2;
 }
 
 /* ── Responsive: mobile (< 768px) detail card layout ──────────

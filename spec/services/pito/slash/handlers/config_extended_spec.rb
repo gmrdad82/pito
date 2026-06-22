@@ -133,16 +133,16 @@ RSpec.describe Pito::Slash::Handlers::Config, "extended coverage", type: :servic
     end
   end
 
-  # ── FX toggle getter ──────────────────────────────────────────────────────────
+  # ── FX reveal-effect getter ────────────────────────────────────────────────────
 
-  describe "#call — /config fx (getter, no arg)" do
-    it "returns a system event showing fx state" do
-      AppSetting.fx_enabled = true
+  describe "#call — /config fx (enum getter, no arg)" do
+    it "returns a system event showing the current reveal effect" do
+      AppSetting.fx_effect = "typewriter"
       result = build_handler(args: [ "fx" ]).call
       expect(result).to be_a(Pito::Slash::Result::Ok)
       text = result.events.first[:payload][:text]
       expect(text).to be_present
-      AppSetting.fx_enabled = true # restore
+      AppSetting.fx_effect = "typewriter" # restore
     end
   end
 

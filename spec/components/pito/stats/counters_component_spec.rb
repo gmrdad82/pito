@@ -32,6 +32,18 @@ RSpec.describe Pito::Stats::CountersComponent, type: :component do
     expect(comms_cell.at_css("svg")["aria-label"]).to eq("Comms")
   end
 
+  it "renders icons through the canonical .pito-icon hook (align/gap/stroke live there, not per call-site)" do
+    node = render_for([ { key: :likes, value: 4 }, { key: :comms, value: 0 } ])
+    icons = node.css("svg")
+    expect(icons).not_to be_empty
+    # Every icon carries the single-source class and none sets an ad-hoc inline
+    # style or margin — the gap before the number comes from `.pito-icon` alone.
+    icons.each do |svg|
+      expect(svg["class"].to_s.split).to include("pito-icon")
+      expect(svg["style"]).to be_nil
+    end
+  end
+
   it "separates cells with the inline middot" do
     expect(render_for([ { key: :views, value: 1 }, { key: :likes, value: 2 } ]).text).to include("·")
   end

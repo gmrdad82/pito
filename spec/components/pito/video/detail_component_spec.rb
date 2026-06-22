@@ -34,6 +34,24 @@ RSpec.describe Pito::Video::DetailComponent do
     end
   end
 
+  # ── Mobile-only column divider (L6) ─────────────────────────────────────────
+  # A hairline between the stacked thumbnail and kv-table columns on mobile
+  # (<768px), hidden at md: and up where the two-column layout needs no divider.
+  describe "mobile-only column divider" do
+    it "renders a hairline divider between the columns" do
+      node    = render_inline(described_class.new(video: video))
+      divider = node.css(".pito-detail-col-divider").first
+      expect(divider).not_to be_nil
+      expect(divider["class"]).to include("h-px")
+    end
+
+    it "is hidden on desktop (carries md:hidden)" do
+      node    = render_inline(described_class.new(video: video))
+      divider = node.css(".pito-detail-col-divider").first
+      expect(divider["class"]).to include("md:hidden")
+    end
+  end
+
   describe "title" do
     it "renders the video title" do
       node = render_inline(described_class.new(video: video))
@@ -233,7 +251,7 @@ RSpec.describe Pito::Video::DetailComponent do
       expect(grid.text).to include(video.youtube_video_id)
     end
 
-    it "wires the #id token to prefill the chatbox with `show video #id` (no submit)" do
+    it "wires the #id token to prefill + auto-submit `show video #id`" do
       node    = render_inline(described_class.new(video: video))
       id_text = "##{video.id}"
       span    = node.css("span.pito-token-shimmer").find { |s| s.text == id_text }
@@ -241,6 +259,7 @@ RSpec.describe Pito::Video::DetailComponent do
       expect(span["data-controller"]).to eq("pito--chat-prefill")
       expect(span["data-action"]).to eq("click->pito--chat-prefill#fill")
       expect(span["data-pito--chat-prefill-text-value"]).to eq("show video ##{video.id}")
+      expect(span["data-pito--chat-prefill-submit-value"]).to eq("true")
     end
   end
 
@@ -280,10 +299,10 @@ RSpec.describe Pito::Video::DetailComponent do
       expect(counters_text).not_to include("Comms")
     end
 
-    it "bolds the Stats heading" do
+    it "does not bold the Stats heading (J19 — normal weight)" do
       node    = render_inline(described_class.new(video: video))
       heading = node.css(".pito-video-detail__stats-heading").first
-      expect(heading["class"]).to include("font-bold")
+      expect(heading["class"]).not_to include("font-bold")
     end
   end
 
@@ -369,10 +388,18 @@ RSpec.describe Pito::Video::DetailComponent do
         expect(hairlines.length).to be >= 1
       end
 
-      it "bolds the Shinies heading" do
+      it "does not bold the Shinies heading (J19 — normal weight)" do
         node    = render_inline(described_class.new(video: video))
         heading = node.css(".pito-video-detail__shinies-heading").first
-        expect(heading["class"]).to include("font-bold")
+        expect(heading["class"]).not_to include("font-bold")
+      end
+
+      it "renders detail-card badges in compact form — no unlock date span (J11/J18)" do
+        node   = render_inline(described_class.new(video: video))
+        badges = node.css(".pito-video-detail__shinies .pito-achievement-badge")
+        badges.each do |badge|
+          expect(badge.css(".pito-achievement-badge__date")).to be_empty
+        end
       end
 
       it "lays out badges in a left-aligned flex-wrap container" do

@@ -269,15 +269,56 @@ RSpec.describe Pito::Chat::GameListFilter do
     end
   end
 
-  # ── Unrecognised tokens are ignored ──────────────────────────────────────
+  # ── Allowlist: arbitrary filler is dropped, recognized tokens kept ─────────
 
-  describe "unrecognised tokens" do
-    it "are rejected by the list handler (unknown target), not silently ignored" do
-      # 'garbled' matches neither a genre nor a platform → the handler now errors
-      # instead of falling back to the full game list. (GameListFilter.call still
-      # ignores them for direct callers; the rejection lives in the handler.)
-      expect(result_titles("list games ps garbled")).to be_empty
-      expect(result_titles("list games ps")).not_to be_empty
+  describe "allowlist tokenisation" do
+    it "drops conversational filler and still applies the recognized filter" do
+      # 'thanks'/'please'/'yo' are not vocabulary → dropped; 'ps' still filters.
+      titles = result_titles("list games ps please thanks yo")
+      expect(titles).to include(ps5_game.title, ps4_game.title)
+      expect(titles).not_to include(pc_game.title)
+    end
+
+    it "drops a truly-unknown token (close to nothing) and lists the full set" do
+      # 'garbled' is not fuzzy-close to any term → pure filler, not a rejection.
+      expect(result_titles("list games garbled")).to include(ps5_game.title, pc_game.title)
+    end
+  end
+
+  # ── Did-you-mean: near-miss tokens surface a correction ────────────────────
+
+  describe ".suggestions" do
+    it "suggests the genre alias for a close typo (`rpgg` → `rpg`)" do
+      expect(described_class.suggestions("list rpgg")).to eq([ "rpg" ])
+    end
+
+    it "suggests the platform synonym for a close typo (`playstaton` → `playstation`)" do
+      expect(described_class.suggestions("list playstaton")).to include("playstation")
+    end
+
+    it "suggests `switch` for `swith`" do
+      expect(described_class.suggestions("list swith")).to eq([ "switch" ])
+    end
+
+    it "returns nothing for recognized tokens" do
+      expect(described_class.suggestions("list games upcoming rpg ps5")).to be_empty
+    end
+
+    it "returns nothing for short tokens (avoids false positives like `me`/`yo`)" do
+      expect(described_class.suggestions("list games me yo please")).to be_empty
+    end
+
+    it "returns nothing for a token that is close to nothing" do
+      expect(described_class.suggestions("list garbled")).to be_empty
+    end
+
+    it "de-duplicates and preserves order across multiple near-misses" do
+      expect(described_class.suggestions("list rpgg rpgg")).to eq([ "rpg" ])
+    end
+
+    it "corrects multiple DISTINCT near-misses in one command" do
+      # 'rpgg'→'rpg' (genre, d=1) and 'shooterr'→'shooter' (genre, d=1).
+      expect(described_class.suggestions("list rpgg shooterr")).to include("rpg", "shooter")
     end
   end
 end
