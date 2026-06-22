@@ -6,10 +6,7 @@
       title: t("pito.sidebar.notifications.title")
     )) do |sidebar| %>
   <% sidebar.with_subtitle do %>
-    <%= render(Pito::Keybinding::HintComponent.new(
-          shortcut:    "space",
-          description: t("pito.sidebar.notifications.toggle_hint")
-        )) %>
+    <span class="text-fg-dim"><%= t("pito.sidebar.notifications.toggle_hint") %></span>
   <% end %>
   <% sidebar.with_body do %>
     <%= render(Pito::Sidebar::Notifications::Component.new(

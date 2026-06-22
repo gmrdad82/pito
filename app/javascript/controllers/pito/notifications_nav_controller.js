@@ -2,12 +2,19 @@
 //
 // Mounted on the notifications list injected into #pito-sidebar by ctrl+/.
 // Keyboard:
-//   ↑ / ↓   — move the highlight through notification rows
-//   Space   — toggle read/unread on the highlighted row (optimistic DOM update
-//             + PATCH /notifications/:id { read: <bool> })
+//   ↑ / ↓   — move the highlight through notification rows. Landing on an
+//             UNREAD row marks it READ on arrival (optimistic DOM update +
+//             PATCH /notifications/:id { read: true }). Already-read rows are
+//             left untouched — arrow movement never flips read → unread.
 //   Escape  — handled by pito--resume (clears the sidebar)
 // Mouse:
-//   click a row — highlight it
+//   click a row — toggle its read/unread state (optimistic DOM update + PATCH).
+//                 Clicking is the only way to flip a row back to unread.
+//
+// The list order is NEVER re-sorted client-side: read/unread state changes
+// update IN PLACE so rows never jump under the cursor. The unread-first order
+// is applied server-side (Notification.panel_ordered) when a fresh sidebar is
+// rendered on open/broadcast.
 //
 // Auto-registered via eagerLoadControllersFrom.
 
@@ -51,17 +58,16 @@ export default class extends Controller {
     } else if (e.key === "ArrowUp") {
       e.preventDefault()
       this.#move(rows, -1)
-    } else if (e.key === " " || e.key === "Spacebar") {
-      e.preventDefault()
-      this.#toggle(rows[this.index])
     }
   }
 
   #onClick(e) {
     const row = e.target.closest(".pito-notification-row")
     if (!row) return
-    this.index = this.#rows().indexOf(row)
-    this.#paint(this.#rows())
+    const rows = this.#rows()
+    this.index = rows.indexOf(row)
+    this.#paint(rows)
+    this.#toggle(row)
   }
 
   #move(rows, delta) {
@@ -72,39 +78,52 @@ export default class extends Controller {
     }
     this.#paint(rows)
     rows[this.index]?.scrollIntoView({ block: "nearest" })
+    this.#markReadOnArrival(rows[this.index])
   }
 
   #paint(rows) {
     rows.forEach((r, i) => r.classList.toggle(HIGHLIGHT, i === this.index))
   }
 
+  // Arrow-onto-unread: mark READ on arrival (once). Never flips read → unread —
+  // already-read rows are left untouched.
+  #markReadOnArrival(row) {
+    if (!row) return
+    if (row.dataset.read === "true") return
+    this.#applyReadState(row, true)
+    this.#persist(row.dataset.notificationId, true)
+  }
+
+  // Click: toggle read ↔ unread. Updates the row IN PLACE (no re-sort) so the
+  // list keeps its current order and rows never jump under the cursor.
   #toggle(row) {
     if (!row) return
-    const id = row.dataset.notificationId
     const nowRead = row.dataset.read !== "true" // flip current state
-    row.dataset.read = String(nowRead)
+    this.#applyReadState(row, nowRead)
+    this.#persist(row.dataset.notificationId, nowRead)
+  }
+
+  // Update a row's read/unread VISUAL indicator in place: data-read attribute,
+  // dot glyph + colour, and the message emphasis.
+  #applyReadState(row, read) {
+    row.dataset.read = String(read)
 
     const dot = row.querySelector(".pito-notification-dot")
     if (dot) {
-      dot.textContent = nowRead ? "○" : "●"
-      dot.classList.toggle("text-cyan", !nowRead)
-      dot.classList.toggle("text-fg-faded", nowRead)
+      dot.textContent = read ? "○" : "●"
+      dot.classList.toggle("text-cyan", !read)
+      dot.classList.toggle("text-fg-faded", read)
     }
 
     const msg = row.querySelector(".pito-notification-message")
     if (msg) {
-      msg.classList.toggle("text-fg", !nowRead)
-      msg.classList.toggle("font-bold", !nowRead)
-      msg.classList.toggle("text-fg-dim", nowRead)
+      msg.classList.toggle("text-fg", !read)
+      msg.classList.toggle("font-bold", !read)
+      msg.classList.toggle("text-fg-dim", read)
     }
+  }
 
-    // Re-sort DOM rows: unread first, then read — each group newest-first.
-    // Keep this.index at the same slot so the cursor lands on whatever row
-    // is now at that position (the next item), rather than jumping to top.
-    const sorted = this.#resortRows()
-    this.index = Math.min(this.index, sorted.length - 1)
-    this.#paint(sorted)
-
+  #persist(id, read) {
     const csrf = document.querySelector('meta[name="csrf-token"]')?.content
     fetch(`/notifications/${id}`, {
       method: "PATCH",
@@ -113,26 +132,7 @@ export default class extends Controller {
         "Accept": "application/json",
         ...(csrf ? { "X-CSRF-Token": csrf } : {}),
       },
-      body: JSON.stringify({ read: nowRead }),
-    }).catch((err) => console.warn("[pito--notifications-nav] toggle failed:", err))
-  }
-
-  // Re-sort .pito-notification-row elements inside this.element by:
-  //   1. unread rows first (data-read !== "true")
-  //   2. then read rows
-  //   3. within each group: newest first (data-created-at desc, unix epoch)
-  // Returns the sorted rows array after re-appending them to the DOM.
-  #resortRows() {
-    const rows = this.#rows()
-    const sorted = [...rows].sort((a, b) => {
-      const aUnread = a.dataset.read !== "true" ? 1 : 0
-      const bUnread = b.dataset.read !== "true" ? 1 : 0
-      if (aUnread !== bUnread) return bUnread - aUnread  // unread (1) before read (0)
-      const aTs = parseInt(a.dataset.createdAt || "0", 10)
-      const bTs = parseInt(b.dataset.createdAt || "0", 10)
-      return bTs - aTs  // newest first within each group
-    })
-    sorted.forEach(row => this.element.appendChild(row))
-    return sorted
+      body: JSON.stringify({ read }),
+    }).catch((err) => console.warn("[pito--notifications-nav] persist failed:", err))
   }
 }

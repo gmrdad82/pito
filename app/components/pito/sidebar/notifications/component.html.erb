@@ -1,6 +1,7 @@
 <%# Sidebar notifications list — stacked rows: relative time, then the full
-    (word-wrapped) message. Arrow up/down move the highlight; Space toggles
-    read/unread (pito--notifications-nav). %>
+    (word-wrapped) message. Arrow up/down move the highlight (landing on an
+    unread row marks it read); clicking a row toggles read/unread
+    (pito--notifications-nav). %>
 <div class="flex flex-col gap-2" data-controller="pito--notifications-nav">
   <% if notifications.empty? %>
     <div class="text-fg-dim py-2">No notifications</div>
