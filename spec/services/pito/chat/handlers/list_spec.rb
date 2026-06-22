@@ -717,6 +717,79 @@ RSpec.describe Pito::Chat::Handlers::List do
     end
   end
 
+  # ── Default id-DESC sort order ────────────────────────────────────────────
+  #
+  # The default sort for all three list nouns is id DESC (biggest/newest first).
+  # Tests below verify this by creating records where title-ASC would produce the
+  # opposite order — proving id-DESC (not title-ASC) is the active default.
+  # A second group asserts that an explicit `sorted by` clause overrides it.
+
+  describe "default id-DESC sort order — games" do
+    # alpha_game is created first (lower id); zebra_game second (higher id).
+    # id-DESC puts zebra_game first; title-ASC would put alpha_game first.
+    let!(:alpha_game) { create(:game, title: "Alpha Default Game") }
+    let!(:zebra_game) { create(:game, title: "Zebra Default Game") }
+
+    it "returns games in id-DESC order (highest id first) by default" do
+      rows   = handler_for("list games").call.events.first[:payload]["table_rows"]
+      titles = rows.map { |r| r[:cells][1][:text] }
+      expect(titles).to eq([ "Zebra Default Game", "Alpha Default Game" ])
+    end
+  end
+
+  describe "default id-DESC sort order — videos" do
+    let!(:sort_chan) { create(:channel, title: "Sort Default Chan", handle: "@sort_default", youtube_channel_id: "UCsortdef1") }
+    # alpha_vid is created first (lower id); zebra_vid second (higher id).
+    # id-DESC puts zebra_vid first; title-ASC would put alpha_vid first.
+    let!(:alpha_vid) { create(:video, :public, title: "Alpha Default Video", channel: sort_chan) }
+    let!(:zebra_vid) { create(:video, :public, title: "Zebra Default Video", channel: sort_chan) }
+
+    it "returns videos in id-DESC order (highest id first) by default" do
+      payload = handler_for("list videos", channel: "@all").call.events.first[:payload]
+      titles  = video_titles(payload)
+      expect(titles).to eq([ "Zebra Default Video", "Alpha Default Video" ])
+    end
+  end
+
+  describe "default id-DESC sort order — channels" do
+    # alpha_ch is created first (lower id); zebra_ch second (higher id).
+    # id-DESC must render @zebra_def before @alpha_def in the HTML body.
+    let!(:alpha_ch) { create(:channel, title: "Alpha Default Chan", handle: "@alpha_def", youtube_channel_id: "UCadef1") }
+    let!(:zebra_ch) { create(:channel, title: "Zebra Default Chan", handle: "@zebra_def", youtube_channel_id: "UCzdef1") }
+
+    it "returns channels in id-DESC order (highest id first) by default" do
+      body = handler_for("list channels").call.events.first[:payload]["body"]
+      expect(body.index("@zebra_def")).to be < body.index("@alpha_def")
+    end
+  end
+
+  describe "`list games sorted by title` overrides id-DESC default" do
+    # alpha_game has lower id; zebra_game has higher id.
+    # id-DESC default: Zebra first. sorted by title ASC: Alpha first.
+    let!(:alpha_game) { create(:game, title: "Alpha Sort Override Game") }
+    let!(:zebra_game) { create(:game, title: "Zebra Sort Override Game") }
+
+    it "returns games in title-ASC order, not id-DESC" do
+      rows   = handler_for("list games sorted by title").call.events.first[:payload]["table_rows"]
+      titles = rows.map { |r| r[:cells][1][:text] }
+      expect(titles).to eq([ "Alpha Sort Override Game", "Zebra Sort Override Game" ])
+    end
+  end
+
+  describe "`list videos sorted by title` overrides id-DESC default" do
+    let!(:sort_chan) { create(:channel, title: "Sort Override Chan", handle: "@sort_override", youtube_channel_id: "UCsortov1") }
+    # alpha_vid has lower id; zebra_vid has higher id.
+    # id-DESC default: Zebra first. sorted by title ASC: Alpha first.
+    let!(:alpha_vid) { create(:video, :public, title: "Alpha Sort Override Video", channel: sort_chan) }
+    let!(:zebra_vid) { create(:video, :public, title: "Zebra Sort Override Video", channel: sort_chan) }
+
+    it "returns videos in title-ASC order, not id-DESC" do
+      payload = handler_for("list videos sorted by title", channel: "@all").call.events.first[:payload]
+      titles  = video_titles(payload)
+      expect(titles).to eq([ "Alpha Sort Override Video", "Zebra Sort Override Video" ])
+    end
+  end
+
   # ── Channel threading ──────────────────────────────────────────────────────
 
   describe "channel: threading — backward compatibility" do

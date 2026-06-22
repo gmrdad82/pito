@@ -96,7 +96,7 @@ module Pito
       # +right_threshold+ is the threshold of the cell this connector joins to.
       # nil for the trailing edge (handled by the caller, which never emits one).
       def connector_span(right_threshold)
-        if right_threshold && reached?(right_threshold)
+        if right_threshold && (reached?(right_threshold) || right_threshold == next_threshold)
           tag.span(CONNECTOR_FILL,
                    class: [ "pito-achievement-track__connector",
                             "pito-achievement-track__connector--reached",
