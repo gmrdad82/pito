@@ -17,7 +17,7 @@
     <a href="<%= youtube_url %>"
        target="_blank"
        rel="noopener"
-       class="pito-channel-item__handle pito-channel-item__handle--link"><%= render(Pito::Shimmer::TokenComponent.new(text: channel.at_handle)) %></a>
+       class="pito-channel-item__handle pito-channel-item__handle--link no-underline"><%= render(Pito::Shimmer::TokenComponent.new(text: channel.at_handle)) %></a>
   <% else %>
     <div class="pito-channel-item__handle"><%= render(Pito::Shimmer::TokenComponent.new(text: channel.at_handle)) %></div>
   <% end %>

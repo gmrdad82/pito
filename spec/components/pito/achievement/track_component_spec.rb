@@ -123,8 +123,9 @@ RSpec.describe Pito::Achievement::TrackComponent do
     end
 
     it "marks the connectors inside the reached run with the --reached shimmer class" do
-      # 4 reached dots → 3 connectors strictly between them carry the run colour.
-      expect(node.css(".pito-achievement-track__connector--reached").count).to eq(3)
+      # 4 reached dots → 3 connectors strictly between them + the in-progress connector
+      # (standing ◉ 10 → next tier 20) = 4 carry the run colour.
+      expect(node.css(".pito-achievement-track__connector--reached").count).to eq(4)
     end
 
     it "colours the reached connectors with the NEXT tier's data-accent" do
@@ -158,7 +159,7 @@ RSpec.describe Pito::Achievement::TrackComponent do
       expect(upcoming.map { |el| el["class"] }).to all(satisfy { |c| !c.include?("--reached") })
     end
 
-    it "the connector after the standing dot is static (no --reached, no accent)" do
+    it "connectors beyond the in-progress one stay static (no --reached, no accent)" do
       static_connectors = node.css(".pito-achievement-track__connector").reject do |el|
         el["class"].include?("pito-achievement-track__connector--reached")
       end

@@ -250,6 +250,25 @@ RSpec.describe Pito::Chat::GameListFilter do
     end
   end
 
+  # ── Default id-DESC ordering ──────────────────────────────────────────────
+  #
+  # GameListFilter.call always bases its relation on ::Game.order(id: :desc).
+  # Verify this by creating two games where title-ASC would give the reverse
+  # order — the higher-id game must appear first in the result regardless of
+  # where its title falls alphabetically.
+
+  describe "default id-DESC ordering" do
+    # first_game is created before second_game → it has the lower database id.
+    # Title-ASC would put "AAA" first; id-DESC must put "ZZZ" first instead.
+    let!(:first_game)  { create(:game, title: "AAA First Created") }
+    let!(:second_game) { create(:game, title: "ZZZ Second Created") }
+
+    it "lists games with the highest id first (id DESC) by default" do
+      titles = result_titles("list games")
+      expect(titles.index("ZZZ Second Created")).to be < titles.index("AAA First Created")
+    end
+  end
+
   # ── Unrecognised tokens are ignored ──────────────────────────────────────
 
   describe "unrecognised tokens" do

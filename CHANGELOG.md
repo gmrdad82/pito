@@ -113,6 +113,15 @@ In progress; entries are added here as they land on `main` (tag created at relea
   notifications, pickers, themes) opens as a **full-width overlay on top** of the
   conversation instead of squeezing it; desktop keeps the side-by-side panel. Still respects
   `/config fx` (snaps instead of animating when motion is off).
+- **Command-palette commands are clickable** — clicking a `ctrl+k` palette row selects + runs
+  it (same as arrow-to-it + Enter), and the command token (e.g. `/connect`) shimmers cyan.
+- **Sidebar rows are clickable** — game/video pickers, `/resume` conversations, and IGDB
+  import results activate on click, identical to highlighting + Enter.
+- **Notifications read-state** — moving the cursor onto a notification marks it read; clicking
+  toggles read/unread; the list no longer re-sorts live (it re-sorts only when the panel is
+  re-opened, so rows don't jump). The `SPACE`-to-toggle binding is removed.
+- **Shinies progress track** — the in-progress segment (your current standing → the next tier)
+  now shimmers too, in the next tier's colour.
 
 ### Fixed
 
@@ -154,6 +163,7 @@ In progress; entries are added here as they land on `main` (tag created at relea
   Tailwind v4 layering quirk had them rendering at normal weight.
 - **Removed the redundant "Scheduled" column** from `list videos` — it showed `—` for nearly
   every row. (The `list videos scheduled` filter still works.)
+- **Removed the underline** on the `list channels` `@handle` link (it kept the cyan shimmer).
 - **`schedule` and `slate` now autosuggest** — the `schedule` reply verb shows in the
   typeahead and `slate` (schedule to the next open slot) is offered for its argument, in both
   chat (`schedule <id> slate`) and replies (`#<handle> schedule slate`).
