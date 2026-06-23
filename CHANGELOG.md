@@ -37,7 +37,7 @@ All notable changes to pito are documented here. The format follows
   and **silently dropped** instead of rejected. So `list rpg ps5 please` lists games filtered to the
   **Role-playing** genre on **PlayStation 5**, ignoring `please` — no "didn't understand" error.
   When an unrecognized token (≥4 chars) is within two edits of a real genre/platform/`upcoming`/noun
-  term, `list` offers that correction (`list rpgg` → *"Did you mean `rpg`?"*) instead of listing.
+  term, `list` offers that correction (`list rpgg` → _"Did you mean `rpg`?"_) instead of listing.
   Noun routing runs through one shared vocabulary: `games`/`game`/`gamez` → games,
   `channels`/`channel` → channels, `videos`/`video`/`vids`/`vid` → videos.
 - **Message intros shimmer their subject** — the subject of an intro (the video / game title, or
@@ -45,7 +45,7 @@ All notable changes to pito are documented here. The format follows
   shimmer, and channel `@handle` references in intros shimmer cyan. Titles stay HTML-escaped.
 - **Every message types out, each with its own thinking indicator** — response messages now
   reveal via the typewriter (including the detail / list / analytics / shinies HTML cards, not just
-  plain text), and each message carries its **own** thinking indicator that resolves when *that*
+  plain text), and each message carries its **own** thinking indicator that resolves when _that_
   message is ready; a turn finishes only when all resolve, so a still-filling analytics card keeps
   its own spinner while the rest of the turn settles. Your typed command also **types itself back**
   as the echo, and the working-dots clear the moment that echo lands (not when the whole turn
@@ -63,7 +63,7 @@ All notable changes to pito are documented here. The format follows
   `/config motion` + reduced-motion (solid block, no trail/blink when off).
 - **`/config` autosuggest** — typing `/config ` shows a **browsable list** of providers, and
   `/config <provider> ` lists that provider's setting/credential key names (secrets masked) —
-  navigate with ↑/↓ + Enter (the suggestion now layers *below* the block cursor — above the
+  navigate with ↑/↓ + Enter (the suggestion now layers _below_ the block cursor — above the
   type-fx and trail layers — fixing a case where the cursor was hidden while a suggestion showed).
 - **Reveal effects** — pick how messages reveal with **`/config fx <typewriter|scramble|comet>`**
   (default typewriter): **typewriter** (now log-scaled, so long messages don't drag — a fast floor,
@@ -118,7 +118,7 @@ All notable changes to pito are documented here. The format follows
   help in one man-page style.
 - **Notifications panel** sorts unread-first then read (each newest-first), applied server-side
   when the panel opens (marking a row read/unread updates it in place without re-sorting — see
-  *Notifications read-state* below).
+  _Notifications read-state_ below).
 - **Analytics now follow the shift+space interval.** The glance figures on `show video` /
   `show game` are computed for whatever window you've selected (7d / 28d / 3m / 1y /
   lifetime), default **7d**, persisted per conversation — change it with shift+space and it
@@ -260,7 +260,7 @@ All notable changes to pito are documented here. The format follows
 - **Consumed list headers go quiet** — once a list message is consumed (historical scrollback),
   its sortable column headers render plain muted instead of shimmering and bold; live lists still
   shimmer.
-- **Conversation rename shortcut** moved from `` ` `` to `n` (and `ctrl+`` ` ``` → `ctrl+n`).
+- **Conversation rename shortcut** moved from `` ` `` to `n` (and `ctrl+`` ` ```→`ctrl+n`).
 - **`/config fx` is now `/config motion`** for the on/off animation toggle — `/config fx` was
   repurposed to select the reveal effect (above).
 - Analytics "Watch hours" label corrected to "Watched hours".
