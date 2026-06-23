@@ -1,0 +1,11 @@
+{
+  "$schema": "https://charm.land/crush.json",
+  "lsp": {
+    "ruby": {
+      "command": "bundle",
+      "args": ["exec", "ruby-lsp"],
+      "filetypes": ["rb", "rake", "ruby", "gemfile", "rbi"],
+      "root_markers": ["Gemfile", ".ruby-version"]
+    }
+  }
+}
