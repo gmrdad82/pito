@@ -273,6 +273,27 @@ describe("pito--games-search controller", () => {
     expect(row1.classList.contains("pito-resume-highlight")).toBe(true)
   })
 
+  it("ignores arrow keys while the ctrl+k palette is open (no dual cursor)", async () => {
+    const { results } = buildScaffold()
+    await tick()
+
+    // Command palette open over the sidebar: present + not `.hidden` → paletteOpen() true.
+    const palette = document.createElement("div")
+    palette.id = "pito-command-palette"
+    document.body.appendChild(palette)
+
+    const row0 = addRow(results, { igdbId: 1, title: "Alpha" })
+    addRow(results, { igdbId: 2, title: "Beta" })
+
+    document.dispatchEvent(new KeyboardEvent("keydown", {
+      key: "ArrowDown", bubbles: true, cancelable: true
+    }))
+    await tick()
+
+    // The palette owns the keys — the import picker bails, so NO row is highlighted.
+    expect(row0.classList.contains("pito-resume-highlight")).toBe(false)
+  })
+
   // ── T16.8: step rows rendered on import (sidebar stays open) ─────────────
 
   // Helper: trigger a search that returns one hit, then use ArrowDown+Enter to select it.

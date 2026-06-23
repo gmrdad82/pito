@@ -24,15 +24,16 @@
 //   A word-jump moves the caret the entire distance in a single `pito:caret` event,
 //   so a single-ghost spawn would look like an abrupt pop. When the move distance
 //   exceeds TRAIL_INTERPOLATE_THRESHOLD_PX (kept low, ~2 glyphs, so even a short
-//   3-letter word-jump shows a streak), #onCaret lays a few ghost positions bridging
-//   prev → next and stores them in pending.ghosts; #frame activates them in that one
-//   frame (big jumps are rare). Two things make it read as a comet rather than a row
-//   of identical blocks:
-//     • MORPH — each ghost's height follows a pinch profile along the travel: full
-//       height at the two ends, narrowing to TRAIL_PINCH_MIN_RATIO (~30%) in the
-//       middle (kept vertically centred on the caret band). The streak swells at the
-//       start, pinches mid-flight, and swells back at the caret — kitty's stretch.
-//     • STAGGER — tail→head decay: the ghost nearest the START fades fastest, the
+//   3-letter word-jump shows a streak), #onCaret splits prev → next into 3–5 SEGMENTS
+//   (count scales with length) and stores them in pending.ghosts; #frame activates them
+//   in that one frame (big jumps are rare). Three things make it a continuous comet:
+//     • NO GAPS — each segment ghost is STRETCHED to fill its slice of the jump
+//       (width = the segment span), so adjacent segments tile edge-to-edge instead of
+//       leaving the dotted "block · gap · block" of fixed 1ch points.
+//     • MORPH — each segment's height follows a pinch profile by its start fraction:
+//       full height at the start, narrowing to TRAIL_PINCH_MIN_RATIO (~30%) mid-flight,
+//       swelling back toward the caret (kept vertically centred) — kitty's stretch.
+//     • STAGGER — tail→head decay: the segment nearest the START fades fastest, the
 //       one nearest the END (the caret) lingers longest (brightest near the cursor).
 //   The small-move path (normal typing) is untouched — one coalesced full-height
 //   ghost per frame.
@@ -53,7 +54,7 @@ const TRAIL_MAX_GHOSTS = 10       // pooled ring size (kitty cursor_trail 10)
 const TRAIL_THRESHOLD_PX = 0      // min move distance to spawn (0 = any move)
 const TRAIL_DECAY_FAST_MS = 10    // fast fade for big jumps (decay 0.01s)
 const TRAIL_DECAY_SLOW_MS = 50    // slow fade for small moves (decay 0.05s)
-const TRAIL_START_OPACITY = 0.6   // opacity a freshly-spawned ghost fades down from
+const TRAIL_START_OPACITY = 1     // solid pito-blue at spawn; the rAF loop fades it to 0
 // Distance (px) at/above which a move uses the FAST decay; below it interpolates
 // toward SLOW. Roughly one glyph advance feels "slow", a line jump "fast".
 const TRAIL_FAST_DISTANCE_PX = 40
@@ -64,16 +65,17 @@ const TRAIL_FAST_DISTANCE_PX = 40
 // even a short 3-letter ctrl+arrow word-jump shows a streak — still above a normal
 // one-char arrow/typing move (~8 px), which stays on the single-ghost hot path.
 const TRAIL_INTERPOLATE_THRESHOLD_PX = 18
-// Target spacing between adjacent ghost positions along the streak segment.
-// ~16 px ≈ 2 glyphs — paired with the morph below, a handful of points reads as a
-// tapered comet rather than a row of separate blocks.
-const TRAIL_INTERPOLATE_STEP_PX = 16
-// Hard cap on ghosts a single jump uses — a comet is a few points, not a fence of
-// identical blocks. Keeps most of the ring free for decay overlap.
-const TRAIL_INTERPOLATE_MAX = 4
-// Pinch profile: a ghost's height = full × (this .. 1) along the travel — full at
-// the two ends, narrowing to this ratio in the MIDDLE (kitty's stretch). ~0.3 = the
-// streak squeezes to ~30% height mid-flight and swells back at the caret.
+// The comet is 3–5 segments depending on jump length: count = clamp(round(dist /
+// TRAIL_COMET_SEG_PX), MIN, MAX). Each segment is STRETCHED to fill its slice of the
+// jump so adjacent segments tile edge-to-edge (NO gaps) — a continuous streak, not a
+// row of separate blocks. SEG_PX ≈ one segment per ~50 px of travel (short word-jump →
+// 3, a long line jump → 5).
+const TRAIL_COMET_SEG_PX = 50
+const TRAIL_COMET_MIN    = 3
+const TRAIL_COMET_MAX    = 5
+// Pinch profile: a segment's height = full × (this .. 1) by its start fraction of the
+// travel — full at the start, narrowing to this ratio at the MIDDLE, swelling back
+// toward the caret (kitty's stretch). ~0.3 = the streak squeezes to ~30% height mid-flight.
 const TRAIL_PINCH_MIN_RATIO = 0.3
 // Big-jump fade window (ms). The single-glyph decay above (10–50 ms) is 1–3 frames —
 // fine for typing but invisible for a word-jump comet. A jump's streak fades over a
@@ -150,35 +152,42 @@ export default class extends Controller {
     if (dist <= TRAIL_THRESHOLD_PX) return // no movement → no ghost
 
     if (dist >= TRAIL_INTERPOLATE_THRESHOLD_PX) {
-      // BIG JUMP (ctrl+arrow / Home / End / far click): lay a few ghost positions
-      // bridging prev → next so the gap reads as a comet. count is proportional to
-      // distance but capped — a comet is a handful of points, not a fence of blocks.
+      // BIG JUMP (ctrl+arrow / Home / End / far click): split prev → next into 3–5
+      // SEGMENTS (count scales with length), each stretched to fill its slice so they
+      // tile edge-to-edge with NO gaps — a continuous comet, not a dotted line.
       const count = Math.min(
-        Math.max(Math.round(dist / TRAIL_INTERPOLATE_STEP_PX), 2),
-        TRAIL_INTERPOLATE_MAX
+        Math.max(Math.round(dist / TRAIL_COMET_SEG_PX), TRAIL_COMET_MIN),
+        TRAIL_COMET_MAX
       )
-      const fullH = this.#caretHeightPx()
+      const fullH  = this.#caretHeightPx()
+      const glyphW = this.#caretWidthPx()
+      const dx = next.left - prev.left
+      const dy = next.top  - prev.top
+      const segW = Math.abs(dx) / count          // horizontal span of one segment
       const ghosts = []
       for (let i = 0; i < count; i++) {
-        // frac ∈ [0, (count-1)/count]: spans from prev to just before next; the
-        // caret itself occupies next (full height), so we don't ghost over it.
-        const frac = i / count
-        const left = prev.left + frac * (next.left - prev.left)
-        const top  = prev.top  + frac * (next.top  - prev.top)
-        // MORPH: pinch height toward the middle of the travel, full at the ends —
-        // |2·frac − 1| is 1 at frac 0, 0 at frac 0.5. The shorter ghost is kept
-        // vertically centred on the caret band so the pinch reads as a centred
-        // narrowing, not a top-anchored stub. (Falls back to full height if the
-        // caret height is unknown.)
-        const ratio = TRAIL_PINCH_MIN_RATIO + (1 - TRAIL_PINCH_MIN_RATIO) * Math.abs(2 * frac - 1)
+        // Segment i spans fraction [i/count, (i+1)/count] of the jump. Place the ghost
+        // at the segment's left edge and stretch its width across the segment (+ one
+        // glyph) so segment i and i+1 overlap slightly — never a gap between them.
+        const fracA = i / count
+        const xA = prev.left + fracA * dx
+        const xB = prev.left + ((i + 1) / count) * dx
+        const left = Math.min(xA, xB)
+        const top  = prev.top + fracA * dy        // horizontal jump → dy 0
+        const w    = segW + glyphW
+        // MORPH: pinch height by the segment's START fraction — full at the start,
+        // narrowing to TRAIL_PINCH_MIN_RATIO at mid-travel (|2·frac − 1| is 1 at 0,
+        // 0 at 0.5), swelling back toward the caret. Kept vertically centred on the
+        // caret band. (Falls back to full height if the caret height is unknown.)
+        const ratio = TRAIL_PINCH_MIN_RATIO + (1 - TRAIL_PINCH_MIN_RATIO) * Math.abs(2 * fracA - 1)
         const h  = fullH ? fullH * ratio : null
         const cy = fullH ? top + (fullH - h) / 2 : top
-        // Stagger tail→head over the PERCEPTIBLE comet window: ghost 0 (nearest prev
-        // / tail) fades fastest; the ghost nearest next (head, by the caret) lingers
+        // Stagger tail→head over the PERCEPTIBLE comet window: segment 0 (nearest prev
+        // / tail) fades fastest; the segment nearest next (head, by the caret) lingers
         // longest — so the streak visibly retracts toward the cursor (kitty).
         const headness = (count === 1) ? 1 : (i / (count - 1))
         const dur = TRAIL_COMET_TAIL_MS + headness * (TRAIL_COMET_HEAD_MS - TRAIL_COMET_TAIL_MS)
-        ghosts.push({ at: { left, top: cy }, dur, h })
+        ghosts.push({ at: { left, top: cy }, dur, h, w })
       }
       // Replace any coalesced pending — a new jump supersedes an in-flight one.
       this.pending = { ghosts }
@@ -205,10 +214,10 @@ export default class extends Controller {
 
     if (this.pending) {
       if (this.pending.ghosts) {
-        // Big jump: activate all interpolated ghost positions in this frame.
+        // Big jump: activate all comet segments in this frame.
         // Big jumps are rare — paying for several pool activations once is fine.
-        for (const { at, dur, h } of this.pending.ghosts) {
-          this.#activateAt(at, dur, t, h)
+        for (const { at, dur, h, w } of this.pending.ghosts) {
+          this.#activateAt(at, dur, t, h, w)
         }
       } else {
         // Small move: activate the single coalesced ghost (existing hot path).
@@ -245,11 +254,12 @@ export default class extends Controller {
     this.#activateAt(at, dur, t)
   }
 
-  // Low-level ghost activation with an explicit duration (ms). Called by both
-  // the single-ghost path (#activate, heightPx omitted → full caret height) and the
-  // big-jump comet path (heightPx = the morphed pinch height in px).
-  // Advances this.head by 1 per call — mind the ring when activating several at once.
-  #activateAt(at, dur, t, heightPx = null) {
+  // Low-level ghost activation with an explicit duration (ms). Called by both the
+  // single-ghost path (#activate — heightPx/widthPx omitted → full caret-height, 1ch-wide
+  // block) and the big-jump comet path (heightPx = pinch height, widthPx = stretched
+  // segment width). Advances this.head by 1 per call — mind the ring when activating
+  // several at once.
+  #activateAt(at, dur, t, heightPx = null, widthPx = null) {
     const ghost = this.pool[this.head]
     this.head = (this.head + 1) % this.pool.length
 
@@ -259,6 +269,9 @@ export default class extends Controller {
       const h = this.#ghostHeight()
       if (h) ghost.style.height = h                  // full caret height (typing path)
     }
+    // Stretched segment width for the comet; reset to "" (→ CSS 1ch) for a small move so
+    // a pooled ghost reused after a jump doesn't keep its stretched width.
+    ghost.style.width = widthPx != null ? `${widthPx}px` : ""
     ghost.style.transform = `translate(${at.left}px, ${at.top}px)`
     ghost.style.opacity = String(TRAIL_START_OPACITY)
     ghost.classList.add("pito-cursor-ghost--on")
@@ -280,6 +293,15 @@ export default class extends Controller {
     const h = parseFloat(caret.style.height)
     if (!Number.isNaN(h)) return h
     return caret.getBoundingClientRect?.().height || 0
+  }
+
+  // Numeric caret width (px ≈ 1 glyph) — used to overlap adjacent comet segments by a
+  // glyph so there is never a seam. Measured (the width is CSS `1ch`, not inline); 0 in
+  // headless/test layout, where the segment widths already tile exactly.
+  #caretWidthPx() {
+    const caret = this.element.querySelector(".terminal-caret")
+    if (!caret) return 0
+    return caret.getBoundingClientRect?.().width || caret.offsetWidth || 0
   }
 
   // Snap every pooled ghost back to idle (no removal — the ring is reused).

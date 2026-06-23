@@ -370,9 +370,10 @@ html {
 }
 
 /* ── Hashtag shimmer (Pito::Shimmer::HashtagTokenComponent) ──────────
-   #hashtag reply tokens (e.g. #chi-4450) get a blue→purple diagonal shimmer —
-   same (reversed) sweep + shared -dN offsets, distinct colour from the cyan
-   identifier shimmer so reply handles read differently from @handles / #ids. */
+   #hashtag reply tokens (e.g. #chi-4450) get a purple→blue diagonal shimmer
+   (purple base with a blue band) — same (reversed) sweep + shared -dN offsets,
+   distinct colour from the cyan identifier shimmer so reply handles read
+   differently from @handles / #ids. */
 .pito-hashtag-shimmer {
   background-image: linear-gradient(
     135deg,
@@ -801,7 +802,7 @@ html {
   pointer-events: none;
   user-select: none;
   background: var(--brand-pito);   /* pito-blue trail, matching the caret block */
-  opacity: 0;    /* pooled + idle by default; the rAF loop fades it 0.6 → 0 */
+  opacity: 0;    /* pooled + idle by default; the rAF loop fades it 1 → 0 (solid trail) */
   /* ABOVE the typed-text layer (1) so the trail streaks OVER the characters it
      passes (kitty-style), but below the live block caret (3) so the block at the
      caret cell is never occluded. */
