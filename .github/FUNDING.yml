@@ -1,0 +1,9 @@
+# Renders the "Sponsor" button on the pito repo. Each key is a funding
+# platform; values are account names (or URLs for `custom`). Leave a key out
+# rather than blank. The `github:` button only appears once your GitHub
+# Sponsors profile is approved and public (https://github.com/sponsors/gmrdad82).
+github: gmrdad82
+# Add external platforms if/when you set them up, e.g.:
+# ko_fi: your_kofi_name
+# buy_me_a_coffee: your_bmac_name
+# custom: ["https://pitomd.com/sponsor"]
