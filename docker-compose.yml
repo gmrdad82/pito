@@ -56,7 +56,11 @@ services:
       - ./config/credentials.yml.enc:/rails/config/credentials.yml.enc:ro
     environment:
       RAILS_ENV: production
-      RAILS_MASTER_KEY: ${RAILS_MASTER_KEY}
+      # The master key comes from the mounted config/master.key (see volumes
+      # above) — NOT an env var. A `RAILS_MASTER_KEY: ${RAILS_MASTER_KEY}` here
+      # injected a BLANK string whenever the var was unset, which overrides the
+      # mounted file and breaks credential decryption at boot (and warned on
+      # every compose command). The mounted file is the single source of truth.
       # Run the SolidQueue supervisor (dispatcher + worker + recurring scheduler)
       # inside Puma — single-server self-host has no separate jobs process, so
       # without this, background + recurring jobs would never run (see puma.rb).
