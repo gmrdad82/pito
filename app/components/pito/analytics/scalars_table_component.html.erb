@@ -1,31 +1,8 @@
-<div class="pito-analytics-scalars grid grid-cols-6 gap-x-6 gap-y-2">
-  <%# Row 1: Views | Watched hours (col-span-3 each) %>
-  <% row1_cells.each do |cell| %>
-    <div class="col-span-3 flex items-baseline justify-between gap-x-3">
-      <span class="text-fg-dim whitespace-nowrap"><%= cell[:label] %></span>
-      <span class="tabular-nums text-right"><%= cell[:value] %></span>
+<div class="pito-analytics-scalars">
+  <% cells.each do |cell| %>
+    <div class="pito-analytics-scalars__pair">
+      <span class="pito-analytics-scalars__label text-fg-dim whitespace-nowrap"><%= cell[:label] %></span>
+      <span class="pito-analytics-scalars__value tabular-nums"><%= cell[:value] %></span>
     </div>
   <% end %>
-
-  <%# Row 2: Avg view duration | Avg viewed % (col-span-3 each) %>
-  <% row2_cells.each do |cell| %>
-    <div class="col-span-3 flex items-baseline justify-between gap-x-3">
-      <span class="text-fg-dim whitespace-nowrap"><%= cell[:label] %></span>
-      <span class="tabular-nums text-right"><%= cell[:value] %></span>
-    </div>
-  <% end %>
-
-  <%# Row 3: Subs (under Views) | Likes (under Watched hours) — col-span-3 each %>
-  <% [ subs_cell, likes_cell ].each do |cell| %>
-    <div class="col-span-3 flex items-baseline justify-between gap-x-3">
-      <span class="text-fg-dim whitespace-nowrap"><%= cell[:label] %></span>
-      <span class="tabular-nums text-right"><%= cell[:value] %></span>
-    </div>
-  <% end %>
-
-  <%# Row 4: Comms on its own row (left column, under Subs) — keeps the 2-metric-column grid %>
-  <div class="col-span-3 flex items-baseline justify-between gap-x-3">
-    <span class="text-fg-dim whitespace-nowrap"><%= comms_cell[:label] %></span>
-    <span class="tabular-nums text-right"><%= comms_cell[:value] %></span>
-  </div>
 </div>
