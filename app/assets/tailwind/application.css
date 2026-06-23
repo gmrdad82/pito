@@ -757,12 +757,12 @@ html {
   white-space: pre;
   pointer-events: none;
   user-select: none;
-  background: var(--fg-default);
+  background: var(--brand-pito);   /* pito-blue caret block (all instances) */
   color: var(--bg-root);
   /* Top of the field-wrap stack — the live block is ALWAYS visible:
-     type-fx layer (1) < trail ghosts (1) < suggestion ghost (2) < block (3).
-     (The suggestion ghost is the completion text to the RIGHT of the caret; it
-     must not occlude the block at the caret cell, so the block outranks it.) */
+     type-fx layer (1) < trail ghosts (2) = suggestion ghost (2) < block (3).
+     Trail ghosts sit above the typed text so the comet streaks over the glyphs;
+     the block still outranks everything so the caret cell is never occluded. */
   z-index: 3;
   animation: terminal-caret-pulse 1.4s ease-in-out infinite;
 }
@@ -800,9 +800,12 @@ html {
   height: 1.4em; /* fallback; JS copies the caret block's exact height */
   pointer-events: none;
   user-select: none;
-  background: var(--fg-default);
+  background: var(--brand-pito);   /* pito-blue trail, matching the caret block */
   opacity: 0;    /* pooled + idle by default; the rAF loop fades it 0.6 → 0 */
-  z-index: 1;    /* below the live .terminal-caret block (3) + suggestion ghost (2) */
+  /* ABOVE the typed-text layer (1) so the trail streaks OVER the characters it
+     passes (kitty-style), but below the live block caret (3) so the block at the
+     caret cell is never occluded. */
+  z-index: 2;
   will-change: transform, opacity;
 }
 
@@ -1883,6 +1886,47 @@ html:has(#pito-settings[data-fx="false"]) .pito-comet-reveal::after { display: n
 /* Duration / footage: numeric, right-aligned, capped at the widest value
    "99:23:59:59" (11ch). Short content, so no truncation needed. */
 .pito-cell-duration { max-width: 11ch; }
+
+/* ── Pito::Analytics::ScalarsTableComponent ─────────────────────
+ *
+ * Flex-wrap KV grid. All label cells share one fixed width and all value
+ * cells share one fixed width, so any pair that wraps to the next row aligns
+ * under the pair above it. Pairs flow left-to-right and wrap naturally,
+ * filling the card width (typically 2 pairs / row at analytics card width).
+ *
+ * TUNABLE width knobs — adjust these two values to dial in the layout:
+ *   --scalars-label-w   widest label is "Avg view duration" (17 chars)
+ *   --scalars-value-w   fits icon-split values like "1.2K👍 / 44👎" and
+ *                       "+1.2K / -500" (SVG icons ≈ 1em × 1.2em at 14px base)
+ */
+.pito-analytics-scalars {
+  --scalars-label-w: 17ch;   /* TUNE: fits the longest label "Avg view duration" (17ch) */
+  --scalars-value-w: 10ch;   /* TUNE: fits the longest value, the likes/dislikes icon split */
+
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 3ch;    /* gap between adjacent pairs (≈ old gap-x-6 = 1.5rem) */
+  row-gap: 0.5rem;    /* gap between wrapped rows   (≈ old gap-y-2 = 0.5rem) */
+}
+
+.pito-analytics-scalars__pair {
+  display: flex;
+  align-items: baseline;
+  column-gap: 1ch;    /* breathing room between the label and the value */
+}
+
+.pito-analytics-scalars__label {
+  width: var(--scalars-label-w);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.pito-analytics-scalars__value {
+  width: var(--scalars-value-w);
+  flex-shrink: 0;
+  text-align: right;
+  white-space: nowrap;
+}
 
 /* ── Help block (nvim --help style man page) ───────────────────
    Preformatted monospace block for `list games --help`: preserves the

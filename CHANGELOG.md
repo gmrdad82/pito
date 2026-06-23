@@ -4,9 +4,7 @@ All notable changes to pito are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); the project aims for
 [Semantic Versioning](https://semver.org/).
 
-## [0.6.0] — unreleased
-
-In progress; entries are added here as they land on `main` (tag created at release).
+## [0.6.0] — 2026-06-23
 
 ### Added
 
@@ -29,7 +27,9 @@ In progress; entries are added here as they land on `main` (tag created at relea
   down, neutral otherwise). For a game the figures are **summed across its linked
   videos**. The card appears instantly with a one-line intro and **fills in the
   background** — the "thinking…" spinner keeps cycling until the numbers land, so the
-  page never blocks on YouTube, and a refresh mid-fetch is safe.
+  page never blocks on YouTube, and a refresh mid-fetch is safe. The metrics lay out in
+  uniform key/value columns that fill the card width and wrap aligned (every key shares one
+  width, every value another, so a metric landing on the next row lines up with the row above).
 - **Smarter `list` parsing** — `list …` now ignores conversational filler (`list rpg ps5 please`
   just works, never a "didn't understand" error), and for a near-miss genre/platform/noun typo it
   suggests a correction (`list rpgg` → *"Did you mean `rpg`?"*) instead of failing. Noun aliases —
@@ -51,8 +51,11 @@ In progress; entries are added here as they land on `main` (tag created at relea
 - **Custom block cursor with a kitty-style trail** — the chatbox's block cursor now leaves a
   short, fast-fading trail as it moves (matching kitty's `cursor_trail`), and the same custom
   block cursor now appears on the single-line inputs too — game/video pickers, IGDB search,
-  conversation rename, and the `ctrl+k` palette (made monospace to match). Respects `/config
-  motion` + reduced-motion (solid block, no trail/blink when off).
+  conversation rename, and the `ctrl+k` palette (made monospace to match). On a word-jump
+  (`ctrl+arrow`, `Home`/`End`, or a far click) the trail draws a **morphing comet** — full height
+  at both ends, pinching thin through the middle — that streaks from the old caret position to the
+  new one and retracts toward the cursor. The caret and its trail are **pito-blue**. Respects
+  `/config motion` + reduced-motion (solid block, no trail/blink when off).
 - **`/config` autosuggest** — typing `/config ` shows a **browsable list** of providers, and
   `/config <provider> ` lists that provider's setting/credential key names (secrets masked) —
   navigate with ↑/↓ + Enter (the suggestion also now layers above the cursor, fixing a case where

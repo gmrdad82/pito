@@ -18,6 +18,11 @@
 //   - live-disable: flipping data-fx → "false" snaps active ghosts back to idle
 //   - ghosts are pointer-events:none decoration (class + aria-hidden)
 //   - disconnect removes the whole pool
+//   BIG-JUMP INTERPOLATION (ctrl+arrow / Home / End / far click):
+//   - large-distance jump activates MULTIPLE ghosts with positions between prev and next
+//   - the head ghost (nearest caret) has a longer decay than the tail ghost
+//   - small one-glyph move still activates exactly ONE ghost (hot path unchanged)
+//   - motion gate suppresses large-distance jumps as well as small moves
 //
 // Stimulus connect is async (MutationObserver); we await a macrotask after DOM
 // changes. Spawning is rAF-throttled, so we await one animation frame before
@@ -89,7 +94,7 @@ describe("pito--cursor-trail controller", () => {
     await nextFrame()
     expect(active(wrap).length).toBe(0)
 
-    caret(wrap, 30, 0)  // a real move → one ghost (re)activated next frame
+    caret(wrap, 14, 0)  // a small one-glyph move → one ghost (re)activated next frame
     await nextFrame()
     const on = active(wrap)
     expect(on.length).toBe(1)
@@ -140,12 +145,12 @@ describe("pito--cursor-trail controller", () => {
     expect(active(wrap).length).toBe(0)
   })
 
-  it("copies the caret block height onto an activated ghost", async () => {
+  it("copies the caret block height onto an activated ghost (small move = full height)", async () => {
     const wrap = mountWrap()
     await tick()
 
     caret(wrap, 0, 0)
-    caret(wrap, 30, 0)
+    caret(wrap, 14, 0)  // small move → single full-height ghost (no morph)
     await nextFrame()
     const ghost = active(wrap)[0]
     expect(ghost.style.height).toBe("20px")
@@ -179,7 +184,7 @@ describe("pito--cursor-trail controller", () => {
     await tick()
 
     caret(wrap, 0, 0)
-    caret(wrap, 30, 0)
+    caret(wrap, 14, 0)    // small move → one ghost
     await nextFrame()
     expect(active(wrap).length).toBe(1)
 
@@ -197,5 +202,112 @@ describe("pito--cursor-trail controller", () => {
     wrap.removeAttribute("data-controller")
     await tick() // Stimulus disconnect
     expect(pool(wrap).length).toBe(0)
+  })
+
+  // ── Big-jump comet (ctrl+arrow / Home / End / far click) ───────────────────
+  //
+  // TRAIL_INTERPOLATE_THRESHOLD_PX = 18 px (≈2 monospace glyphs) so even a short
+  // word-jump streaks; a 14px one-glyph move stays on the single-ghost hot path.
+  // Caret height is 20px (mountWrap), so morphed ghosts pinch to ~30% (6px) mid-travel.
+
+  it("(a) activates MULTIPLE ghosts for a large-distance jump, positions between prev and next", async () => {
+    const wrap = mountWrap()
+    await tick()
+
+    caret(wrap, 0, 0)     // establish prev position
+    caret(wrap, 200, 0)   // 200 px — far above TRAIL_INTERPOLATE_THRESHOLD_PX (18)
+    await nextFrame()
+
+    const on = active(wrap)
+    // The big-jump path must spawn at least 2 ghosts (minimum count).
+    expect(on.length).toBeGreaterThanOrEqual(2)
+    // Pool must never grow — all ghosts come from the existing ring.
+    expect(pool(wrap).length).toBe(POOL_SIZE)
+
+    // Every activated ghost lies between prev (x=0) and next (x=200) — the caret
+    // itself is at 200, so no ghost is placed there — and stays vertically within
+    // the caret band [0, 20] (the morph centres the pinched height on the band).
+    for (const ghost of on) {
+      const match = ghost.style.transform.match(/translate\(([^,]+)px,\s*([^)]+)px\)/)
+      const x = parseFloat(match[1])
+      const y = parseFloat(match[2])
+      const h = parseFloat(ghost.style.height)
+      expect(x).toBeGreaterThanOrEqual(0)   // at or past prev
+      expect(x).toBeLessThan(200)           // strictly before next (caret is there)
+      expect(y).toBeGreaterThanOrEqual(0)           // within the caret band, centred
+      expect(y + h).toBeLessThanOrEqual(20 + 0.001) // pinched height fits the band
+    }
+  })
+
+  it("morphs the streak: a mid-travel ghost is shorter than an end ghost (kitty pinch)", async () => {
+    const wrap = mountWrap()
+    await tick()
+
+    caret(wrap, 0, 0)
+    caret(wrap, 200, 0)   // big jump → several morphed ghosts
+    await nextFrame()
+
+    // Sort active ghosts by x (tail→head along the travel).
+    const ghosts = [...active(wrap)].sort((a, b) =>
+      parseFloat(a.style.transform.match(/translate\(([^,]+)px/)[1]) -
+      parseFloat(b.style.transform.match(/translate\(([^,]+)px/)[1])
+    )
+    const heightOf = (g) => parseFloat(g.style.height)
+
+    // The start ghost (frac 0) is full height; a ghost nearer the middle of the
+    // travel is pinched shorter — that taper is what reads as a comet.
+    const startH = heightOf(ghosts[0])
+    const midH   = heightOf(ghosts[Math.floor(ghosts.length / 2)])
+    expect(startH).toBe(20)            // end of travel = full caret height
+    expect(midH).toBeLessThan(startH)  // mid-travel = pinched
+  })
+
+  it("head ghost (nearest caret) has longer decay duration than tail ghost", async () => {
+    const wrap = mountWrap()
+    await tick()
+
+    caret(wrap, 0, 0)
+    caret(wrap, 200, 0)   // large jump → multiple staggered ghosts
+    await nextFrame()
+
+    const ghostNodes = [...wrap.querySelectorAll(".pito-cursor-ghost--on")]
+    expect(ghostNodes.length).toBeGreaterThanOrEqual(2)
+
+    // Sort by x position: smallest x = tail (nearest prev), largest x = head (nearest caret).
+    ghostNodes.sort((a, b) => {
+      const ax = parseFloat(a.style.transform.match(/translate\(([^,]+)px/)[1])
+      const bx = parseFloat(b.style.transform.match(/translate\(([^,]+)px/)[1])
+      return ax - bx
+    })
+    const tail = ghostNodes[0]
+    const head = ghostNodes[ghostNodes.length - 1]
+    // Head lives longer (brighter near caret); tail fades first.
+    expect(head._dur).toBeGreaterThan(tail._dur)
+  })
+
+  it("(b) small one-glyph move still activates exactly ONE ghost (hot path unchanged)", async () => {
+    const wrap = mountWrap()
+    await tick()
+
+    caret(wrap, 0, 0)
+    caret(wrap, 14, 0)    // ~14 px ≈ one monospace glyph — below threshold (18)
+    await nextFrame()
+
+    expect(active(wrap).length).toBe(1)
+    // Ghost is placed at the position the caret left (prev = 0,0).
+    expect(active(wrap)[0].style.transform).toBe("translate(0px, 0px)")
+  })
+
+  it("(c) motion gate suppresses ALL ghosts on a large-distance jump", async () => {
+    settings("false")
+    const wrap = mountWrap()
+    await tick()
+
+    caret(wrap, 0, 0)
+    caret(wrap, 200, 0)   // large jump — would produce multiple ghosts if motion were on
+    await nextFrame()
+
+    expect(active(wrap).length).toBe(0)
+    expect(pool(wrap).length).toBe(POOL_SIZE) // pool itself is untouched
   })
 })

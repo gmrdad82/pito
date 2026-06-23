@@ -22,47 +22,42 @@ RSpec.describe Pito::Analytics::ScalarsTableComponent, type: :component do
     render_inline(described_class.new(result: res))
   end
 
+  # Find the pair div that contains the given text (label or value).
   def cell_containing(node, text)
-    node.css("div.col-span-2, div.col-span-3").find { |d| d.text.include?(text) }
+    node.css("div.pito-analytics-scalars__pair").find { |d| d.text.include?(text) }
   end
 
-  describe "grid layout" do
-    it "renders the outer grid with grid-cols-6" do
+  describe "flex-wrap layout" do
+    it "renders the outer container with the pito-analytics-scalars class" do
       node = render_for(result)
-      expect(node.css("div.pito-analytics-scalars.grid-cols-6")).not_to be_empty
+      expect(node.css("div.pito-analytics-scalars")).not_to be_empty
     end
 
-    it "spaces rows comfortably with gap-y-2 (not the cramped gap-y-1)" do
+    it "does not use the old grid-cols-6 / col-span-3 scheme" do
       node = render_for(result)
-      grid = node.at_css("div.pito-analytics-scalars")
-      classes = grid["class"].to_s.split
-      expect(classes).to include("gap-y-2")
-      expect(classes).not_to include("gap-y-1")
-    end
-
-    it "renders row 1 cells (views, watched hours) with col-span-3" do
-      node = render_for(result)
-      texts = node.css("div.col-span-3").map(&:text)
-      expect(texts.any? { |t| t.include?("Views") }).to be true
-      expect(texts.any? { |t| t.include?("Watched hours") }).to be true
-    end
-
-    it "renders row 2 cells (avg view duration, avg viewed %) with col-span-3" do
-      node = render_for(result)
-      texts = node.css("div.col-span-3").map(&:text)
-      expect(texts.any? { |t| t.include?("Avg view duration") }).to be true
-      expect(texts.any? { |t| t.include?("Avg viewed %") }).to be true
-    end
-
-    it "renders subs & likes on row 3 and comms on its own row 4 (all col-span-3, no col-span-2/6)" do
-      node = render_for(result)
-      texts = node.css("div.col-span-3").map(&:text)
-      expect(texts.any? { |t| t.include?("Subs") }).to be true
-      expect(texts.any? { |t| t.include?("Likes") }).to be true
-      expect(texts.any? { |t| t.include?("Comms") }).to be true
-      # Comms keeps the 2-metric-column grid by sitting alone on its own row (no 3-across).
+      expect(node.css("div.grid-cols-6")).to be_empty
+      expect(node.css("div.col-span-3")).to be_empty
       expect(node.css("div.col-span-2")).to be_empty
-      expect(node.css("div.col-span-6")).to be_empty
+    end
+
+    it "renders exactly 7 __pair elements (one per metric)" do
+      node = render_for(result)
+      expect(node.css("div.pito-analytics-scalars__pair").size).to eq(7)
+    end
+
+    it "gives every __pair a __label and a __value span so widths are uniform" do
+      node = render_for(result)
+      node.css("div.pito-analytics-scalars__pair").each do |pair|
+        expect(pair.at_css("span.pito-analytics-scalars__label")).to be_present
+        expect(pair.at_css("span.pito-analytics-scalars__value")).to be_present
+      end
+    end
+
+    it "renders the labels for all 7 metrics" do
+      node = render_for(result)
+      labels = node.css("span.pito-analytics-scalars__label").map(&:text)
+      expect(labels).to include("Views", "Watched hours", "Avg view duration",
+                                "Avg viewed %", "Subs", "Likes", "Comms")
     end
 
     it "renders rows in the correct order: views, avg, subs, likes, comms" do
@@ -74,16 +69,16 @@ RSpec.describe Pito::Analytics::ScalarsTableComponent, type: :component do
       expect(text.index("Likes")).to be < text.index("Comms")
     end
 
-    it "does not render a standalone Dislikes label row" do
+    it "does not render a standalone Dislikes label" do
       node = render_for(result)
-      labels = node.css("span.text-fg-dim").map(&:text)
+      labels = node.css("span.pito-analytics-scalars__label").map(&:text)
       expect(labels).not_to include("Dislikes")
     end
 
-    it "wraps every metric value in a tabular-nums span" do
+    it "wraps every metric value in a tabular-nums __value span (7 total)" do
       node = render_for(result)
-      # 2 (row1) + 2 (row2) + 3 (row3: subs, likes, comms) = 7 value wrappers
-      expect(node.css("span.tabular-nums").size).to eq(7)
+      # All 7 value spans carry tabular-nums via the __value span class in the template.
+      expect(node.css("span.pito-analytics-scalars__value.tabular-nums").size).to eq(7)
     end
   end
 
@@ -189,9 +184,9 @@ RSpec.describe Pito::Analytics::ScalarsTableComponent, type: :component do
 
     it "does not render a separate Dislikes value cell" do
       node = render_for(result)
-      # Only one metric cell carries thumbs icons (the merged likes cell).
-      icon_cells = node.css("div.col-span-3").select { |d| d.at_css("svg") }
-      expect(icon_cells.size).to eq(1)
+      # Only one metric pair carries thumbs icons (the merged likes cell).
+      icon_pairs = node.css("div.pito-analytics-scalars__pair").select { |d| d.at_css("svg") }
+      expect(icon_pairs.size).to eq(1)
     end
 
     it "synchronises the 👍 / 👎 halves to one shimmer offset and spaces the '/'" do

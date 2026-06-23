@@ -42,6 +42,13 @@ module Pito
       def row1_cells = build_cells(ROW1)
       def row2_cells = build_cells(ROW2)
 
+      # Ordered flat array of all metric cells for the flex-wrap layout.
+      # Canonical order: views → watched_hours → avg_view_duration →
+      # avg_viewed_pct → subs → likes → comms.
+      def cells
+        build_cells(ROW1) + build_cells(ROW2) + [ subs_cell, likes_cell, comms_cell ]
+      end
+
       # ── Row 3 cells (each `{ label:, value: }` with a pre-rendered value) ──
 
       # Subs: "+gained/-lost" — green +gained, red -lost (em dash when no data).
