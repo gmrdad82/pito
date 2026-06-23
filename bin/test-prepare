@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# bin/test-prepare
+#
+# Prepares the parallel test databases (`pito_test`, `pito_test2`, … — one per
+# CPU, capped by PARALLEL_TEST_PROCESSORS) and then SKIPS the work on subsequent
+# runs while `db/schema.rb` is unchanged. Called by `bin/test` (the fast default
+# and `bin/test all`) so a normal test run doesn't pay `db:test:prepare` every time.
+#
+# The skip is keyed on a digest of `db/schema.rb` stored in `tmp/test_schema_digest`
+# (gitignored, per-machine). Change the schema → next run re-loads every test DB.
+# A fresh checkout has no marker, so the first run always prepares.
+
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+SCHEMA="db/schema.rb"
+MARKER="tmp/test_schema_digest"
+
+# Portable SHA-1 of the schema (empty string if no hasher is available, which
+# disables the skip-gate and forces a prepare — the safe direction).
+current_digest() {
+  if command -v shasum >/dev/null 2>&1; then
+    shasum "$SCHEMA" 2>/dev/null | awk '{print $1}'
+  elif command -v sha1sum >/dev/null 2>&1; then
+    sha1sum "$SCHEMA" 2>/dev/null | awk '{print $1}'
+  else
+    echo ""
+  fi
+}
+
+current="$(current_digest)"
+
+if [ -n "$current" ] && [ -f "$MARKER" ] && [ "$(cat "$MARKER")" = "$current" ]; then
+  # Schema unchanged since the last prepare — test DBs are already loaded.
+  exit 0
+fi
+
+echo "== Preparing parallel test databases (schema changed or first run) =="
+# `parallel:create` is a no-op for DBs that already exist; `parallel:load_schema`
+# (re)loads db/schema.rb into each. Mirrors what CI runs.
+bundle exec rake parallel:create >/dev/null 2>&1 || true
+bundle exec rake parallel:load_schema
+
+mkdir -p tmp
+printf '%s' "$current" > "$MARKER"

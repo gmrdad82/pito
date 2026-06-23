@@ -149,6 +149,13 @@ module Pito
         canonical: %w[import]
       ).freeze
 
+      # Subcommand keywords for `/jobs` (drives palette / ghost suggestions:
+      # `/jobs ` offers these, like `/config fx` offers the effects).
+      JOBS_SUBCOMMANDS = Vocabulary.define(
+        name:      :jobs_subcommands,
+        canonical: %w[status requeue run pause resume]
+      ).freeze
+
       # Noun for the `import` chat verb (drives ghost completion: `import ` → `game`).
       # Only `game` is suggested — `import videos` is a de-emphasized alias of
       # `sync videos` and is NOT offered as a primary suggestion. Typed
@@ -249,6 +256,7 @@ module Pito
           GAME_TITLES,
           VIDEO_TITLES,
           GAMES_SUBCOMMANDS,
+          JOBS_SUBCOMMANDS,
           IMPORT_NOUNS,
           SYNC_TARGETS,
           SCHEDULE_WHENS

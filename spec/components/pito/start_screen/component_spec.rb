@@ -177,4 +177,22 @@ RSpec.describe Pito::StartScreen::Component do
       expect(chrome.to_html).to include("2 notifs")
     end
   end
+
+  describe "channels nil-safety (authenticated not-found path)" do
+    # render_not_found renders this component with `channels: @channels`, which
+    # is nil when before_actions (set_channels) didn't run — e.g. via
+    # exceptions_app. Authenticated, the template builds a filter from
+    # `@channels.any?`, which must not blow up (regression: 500 NoMethodError).
+    before { allow(Current).to receive(:session).and_return(double("Session")) }
+
+    it "renders without raising when channels is explicitly nil" do
+      expect { render_inline(described_class.new(**defaults, channels: nil)) }
+        .not_to raise_error
+    end
+
+    it "still renders the chatbox area" do
+      node = render_inline(described_class.new(**defaults, channels: nil))
+      expect(node.css("[data-pito--home-transition-target='chatboxArea']")).not_to be_empty
+    end
+  end
 end

@@ -12,6 +12,8 @@
 # Override knob: `ENV["PITO_APP_BASE_URL"]` lets deployments, request
 # specs, and CI environments replace the base without touching the
 # constant.
+require "uri"
+
 module Pito
   module PublicHosts
     DEFAULT_APP_BASE = "http://localhost:3027"
@@ -20,6 +22,27 @@ module Pito
 
     def app_base
       ENV.fetch("PITO_APP_BASE_URL", DEFAULT_APP_BASE).chomp("/")
+    end
+
+    # True when the operator explicitly set a public base URL (vs the dev
+    # default). Production host/asset wiring only engages when this is true.
+    def configured?
+      ENV["PITO_APP_BASE_URL"].present?
+    end
+
+    def app_uri
+      URI.parse(app_base)
+    end
+
+    # Host component of the base URL (e.g. "app.pitomd.com"), or nil if the
+    # base URL is unparseable / hostless.
+    def host
+      app_uri.host
+    end
+
+    # Scheme component ("http" / "https").
+    def scheme
+      app_uri.scheme
     end
   end
 end

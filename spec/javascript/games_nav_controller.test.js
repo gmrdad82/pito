@@ -188,6 +188,34 @@ describe("pito--games-nav controller", () => {
     }
   })
 
+  // ── Focus guard ───────────────────────────────────────────────────────────
+  // Regression: while a picker is open, Enter-to-send in the chatbox was hijacked
+  // and the highlighted game got injected as `show/rm game #id`. The guard skips
+  // keys when focus is in a text field OUTSIDE the picker.
+  it("does not hijack Enter while focus is in a field outside the picker (chatbox)", async () => {
+    ;({ nav, sidebar } = buildScaffold({
+      mode:  "show",
+      games: [{ id: 1, title: "A" }, { id: 2, title: "B" }]
+    }))
+    await waitForConnect()
+
+    const chatbox = document.createElement("textarea") // stands in for the chatbox
+    document.body.appendChild(chatbox)
+    chatbox.focus()
+
+    const events = []
+    const handler = (e) => events.push(e.detail)
+    document.addEventListener("pito:picker:select", handler)
+    try {
+      key(document, "Enter")
+      expect(events).toHaveLength(0)         // not hijacked
+      expect(sidebar.innerHTML).not.toBe("") // picker stays open
+    } finally {
+      document.removeEventListener("pito:picker:select", handler)
+      chatbox.remove()
+    }
+  })
+
   // ── Enter selection ─────────────────────────────────────────────────────────
   // We call #select directly on the controller instance to avoid cross-test
   // pollution from document-level keydown listeners that haven't been torn down

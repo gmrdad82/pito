@@ -106,6 +106,10 @@ matching ViewComponent, and broadcasts a Turbo Stream `append` to
 - Every handler inherits `Pito::Slash::Handler`, declares `self.verb`, and
   returns a `Result` (`Ok` / `Error` / `NeedsConfirmation`).
 - `Pito::Slash::Registry` auto-discovers and registers handlers at boot.
+- Verbs: `config`, `themes`, `games`, `disconnect`, `notifs`, `help`, and
+  **`jobs`** — the operator's window into SolidQueue (`status` / `requeue` /
+  `run` / `pause` / `resume`), delegating to `Pito::Jobs::{Status,RequeueFailed,
+RunRecurring,PauseResume}` and reading the `SolidQueue::*` models directly.
 
 ### Chat system (`Pito::Chat::*`)
 
@@ -224,3 +228,29 @@ translate into that shape:
 - `Game#release_label` — delegates to `Pito::Formatter::ReleaseDate.call(self)`:
   `"Oct 15, 2026"` / `"October 2026"` / `"Q3 2026"` / `"2026"` / `"TBA"` /
   `"Dec 25"` (year-unknown), driven by component nullability.
+
+## Self-host & operator tooling (0.7.0)
+
+pito is **local-first**: it runs on your own machine, two ways. Native development
+uses `bin/dev` (Rails on the host, **development** env, recurring jobs off — see the
+`PITO_DEV_JOBS` toggle). Self-host uses Docker (**production** env) with a prebuilt
+multi-arch image.
+
+- **Image** — `.github/workflows/release.yml` builds `ghcr.io/gmrdad82/pito` and
+  pushes it on a version-tag push only (never per-commit). `docker-compose.yml`
+  references that image (with `build: .` as a fallback) and mounts the owner's
+  `config/master.key` + `credentials.yml.enc` over the baked-in copies.
+- **`bin/pito`** — the self-contained operator CLI (no repo / no host Ruby): drives
+  `docker compose` against the compose file beside it (an install dir) or one level
+  up (this repo). Subcommands: `up`/`down`, `totp`, `console`, `logs`, `rake`,
+  `clean`, `install`, `update`, `service`, `cloudflared`. `bin/boot` is a thin
+  compatibility shim forwarding to it.
+- **`script/install.sh` / `update.sh`** — `curl | sh` install/update: fetch the
+  compose file + CLI, generate secrets non-interactively, pull the image, enroll
+  TOTP, and optionally configure a Cloudflare tunnel + systemd unit. No git clone.
+- **Host** — `PITO_APP_BASE_URL` (read in `production.rb`, mirrored by
+  `Pito::PublicHosts`) drives Host Authorization, URL helpers, and `asset_host`. SSL
+  is always forced, so a non-localhost host sits behind a TLS proxy (e.g. cloudflared).
+- **Hygiene** — `pito:tools:clean` (`Pito::Tools::Clean`) clears the `tmp/` scratch
+  (keeping `tmp/storage`, `tmp/pids`, `.keep`) + truncates dev `log/*.log`; dev blobs
+  live in `public/pito-storage`, not tmp/. In Docker, logs are STDOUT (json-file rotation).

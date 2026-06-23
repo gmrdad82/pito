@@ -13,6 +13,7 @@ en:
         theme: "Switch the UI theme (apply / preview / reset)"
         notifications: "Open the notifications panel"
         games: "Import a game from IGDB into your library"
+        jobs: "Inspect and control the background job queue (SolidQueue)"
       chat:
         list: "List games in your library"
         show: "Show a game or vid's details (by id)"

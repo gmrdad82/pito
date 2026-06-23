@@ -85,6 +85,16 @@ export default class extends Controller {
   #onKey(e) {
     if (paletteOpen()) return // command palette owns the keys while open
 
+    // Don't hijack keys while focus is in a text field OUTSIDE the picker (the
+    // chatbox). Otherwise Enter-to-send gets stolen and the highlighted game is
+    // injected as `show/rm game #id`, clobbering whatever you were typing. The
+    // picker's own search input lives inside this.element, so it's unaffected.
+    const active = document.activeElement
+    if (active && !this.element.contains(active) &&
+        (active.tagName === "TEXTAREA" || active.tagName === "INPUT")) {
+      return
+    }
+
     const rows = this.#rows()
     if (!rows.length) return
 

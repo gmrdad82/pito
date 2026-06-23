@@ -1,9 +1,9 @@
 <div class="pito-echo__meta">
   <% if @handle %>
     <%= render(Pito::Event::HandleComponent.new(@handle)) %>
-    <%# `shift+r` affordance — the pito--lasthashtag controller unhides this on
-        ONLY the most recent hashtag segment, so shift+r (caret at start) reuses
-        this handle. Hidden by default; the controller hops it to the latest. %>
+    <%# `shift+r` affordance — hidden by default; the pito--lasthashtag controller
+        unhides it on EVERY hashtag segment (each is click-to-reply, prefilling its
+        own #handle). Keyboard shift+r (caret at start) reuses the most recent. %>
     <span data-pito-lasthashtag-hint class="hidden ml-2"><%= render(Pito::Keybinding::ShortcutComponent.new(keys: "shift+r", kbd_click: false, data: { controller: "pito--chat-prefill", action: "click->pito--chat-prefill#fill", "pito--chat-prefill-text-value": "##{@handle} " })) %></span>
   <% end %>
   <% if @channel.present? %>
