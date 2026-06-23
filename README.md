@@ -73,10 +73,8 @@ The full reference lives in [`CHANGELOG.md`](CHANGELOG.md); the short version:
 pito ships **19 built-in themes** — familiar editor palettes — switched live with
 `/themes` (opens a picker; your choice persists):
 
-`ayu-dark` · `ayu-light` · `ayu-mirage` · `catppuccin-latte` · `catppuccin-mocha` ·
-`dracula` · `github-dark` · `github-light` · `gruvbox-dark` · `gruvbox-light` ·
-`nord` · `one-dark` · `one-light` · `solarized-dark` · `solarized-light` ·
-`synthwave` · `tokyo-night` · `tomorrow` · `tomorrow-night`.
+- **Dark** — `ayu-dark` · `ayu-mirage` · `catppuccin-mocha` · `dracula` · `github-dark` · `gruvbox-dark` · `nord` · `one-dark` · `solarized-dark` · `synthwave` · `tokyo-night` · `tomorrow-night`
+- **Light** — `ayu-light` · `catppuccin-latte` · `github-light` · `gruvbox-light` · `one-light` · `solarized-light` · `tomorrow`
 
 Every theme is a set of CSS custom properties in
 [`app/assets/tailwind/themes.css`](app/assets/tailwind/themes.css), so all 19 are

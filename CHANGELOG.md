@@ -4,6 +4,47 @@ All notable changes to pito are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); the project aims for
 [Semantic Versioning](https://semver.org/).
 
+## [0.7.1] — 2026-06-23
+
+The **polish** release on top of 0.7.0: pito now keeps your pictures, talks back
+when you say hello, ships its arm64 image without the emulation tax, and stops
+pinging Slack five times for one green push.
+
+### Fixed
+
+- **Active Storage blobs now persist.** The production image runs as a non-root
+  user, but the Active Storage `:local` root (`/var/lib/pito-assets`, backed by
+  the persistent `rails_storage` volume) was never created in the image — so a
+  freshly-attached Docker volume came up root-owned and the first avatar / cover
+  art / video thumbnail upload (and its vips variants) failed with `EACCES`. The
+  `Dockerfile` now creates that directory owned by the runtime user **before**
+  dropping privileges, so the volume is seeded writable and your media survives
+  container recreate, rebuild, and `docker compose pull`. (Postgres data already
+  persisted via its own volume.)
+
+### Added
+
+- **Greetings & farewells.** `hi` / `hello` / `hola` / `hey` / `yo` / `good
+morning` … and `bye` / `goodbye` / `hasta luego` / `ciao` / `later` … now get a
+  witty reply (one of 50 variants each) instead of an error — matched as
+  whole-input phrases in the chat parser, isolated from the verb grammar.
+- **Witty fallback for nonsense.** Input pito genuinely can't parse ("boo!", "I'm
+  hungry") no longer errors; it returns a `:system` reply from 50 variants, always
+  nudging toward `help`. Errors are now reserved for _recognised_ verbs with bad
+  arguments.
+
+### Changed
+
+- **Release builds arm64 on a native runner.** Multi-arch publishing moved off
+  QEMU emulation onto native per-arch runners (`ubuntu-24.04` for amd64,
+  `ubuntu-24.04-arm` for arm64) with a digest-merge step — far faster, same
+  `linux/amd64 + linux/arm64` result, so Apple Silicon / Raspberry Pi self-hosters
+  keep a native image.
+- **Slack CI notifications de-spammed + randomized.** One push used to fire ~5
+  green pings (CI ×2 + JS + Docs + Release). Now exactly one green "heartbeat"
+  (the CI `rails` job); every other workflow notifies only on failure. The
+  Deadpan Butler also picks from a pool of lines so it stops repeating itself.
+
 ## [0.7.0] — 2026-06-23
 
 The **local-first self-host** release. pito stops being "clone the repo and pray"
@@ -75,6 +116,11 @@ anything — your laptop, your data, still.
 - The **`jbuilder`** and **`bcrypt`** gems — neither was used.
 
 ## [0.6.0] — 2026-06-23
+
+The **it-has-to-look-good** release. pito grows a trophy cabinet (shinies),
+learns to shimmer, trails a comet behind your cursor, and surfaces analytics at a
+glance — because if you're going to stare at your numbers all day, they ought to
+look good doing it.
 
 ### Added
 

@@ -4,6 +4,12 @@ en:
       list:
         descriptions:
           list: "List games, channels, or vids"
+      greet:
+        descriptions:
+          greet: "Say hi (hi / hello / hola, any case) — pito greets you with what it can do"
+      farewell:
+        descriptions:
+          farewell: "Say bye (bye / goodbye / hasta luego) — pito waves you off"
       show:
         descriptions:
           show: "Show a game's details (by id)"

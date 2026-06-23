@@ -7,6 +7,25 @@ module Pito
       # Slash commands are routed upstream before reaching this parser.
       NotAChatMessage = Class.new(StandardError)
 
+      # Conversational hellos/goodbyes, matched against the WHOLE normalized input
+      # (see #normalized_phrase) — case-insensitive, punctuation-tolerant, single
+      # or multi-word. They short-circuit to the :greet / :farewell verbs before
+      # command parsing.
+      GREETINGS = Set.new([
+        "hi", "hii", "hiya", "hey", "heya", "hello", "helloo", "hello there",
+        "hey there", "hi there", "hola", "yo", "sup", "howdy", "greetings",
+        "good morning", "good afternoon", "good evening", "morning", "evening",
+        "whats up", "what's up", "wassup"
+      ]).freeze
+
+      FAREWELLS = Set.new([
+        "bye", "byebye", "bye bye", "goodbye", "good bye", "cya", "see ya",
+        "see you", "see'ya", "seeya", "see you later", "see ya later", "later",
+        "laters", "ttyl", "talk later", "ciao", "adios", "adiós", "hasta luego",
+        "hasta la vista", "peace", "peace out", "farewell", "good night",
+        "goodnight", "gn", "take care", "toodles"
+      ]).freeze
+
       # Parse a sequence of tokens into a Message.
       #
       # tokens       — Array of Pito::Lex::Token from the lexer.
@@ -34,6 +53,13 @@ module Pito
         # Guard: slash messages must never reach the Chat parser.
         raise NotAChatMessage, "input must not start with /" if first&.type == :slash
 
+        # Conversational greetings / farewells: match the WHOLE input as a phrase
+        # (single OR multi-word) before command parsing, so "Hi", "good bye", and
+        # "hasta luego!" all route to a friendly reply.
+        phrase = normalized_phrase
+        return Message.new(verb: :greet,    body_tokens: [], kind: :new_turn, raw: @raw) if GREETINGS.include?(phrase)
+        return Message.new(verb: :farewell, body_tokens: [], kind: :new_turn, raw: @raw) if FAREWELLS.include?(phrase)
+
         # Read the first word token as the candidate verb.
         candidate_verb = first&.type == :word ? first.value.to_sym : nil
         advance if candidate_verb
@@ -52,6 +78,12 @@ module Pito
       end
 
       private
+
+      # The whole input, normalized for phrase matching: downcased, trailing
+      # punctuation stripped ("Hi!" → "hi"), inner whitespace collapsed.
+      def normalized_phrase
+        @raw.to_s.strip.downcase.gsub(/[[:punct:]]+\z/, "").strip.gsub(/\s+/, " ")
+      end
 
       def current_token
         @tokens[@pos]

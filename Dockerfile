@@ -68,6 +68,16 @@ FROM base
 # Run and own only the runtime files as a non-root user for security
 RUN groupadd --system --gid 1000 rails && \
     useradd rails --uid 1000 --gid 1000 --create-home --shell /bin/bash
+
+# Active Storage's :local service writes blobs to /var/lib/pito-assets (see
+# config/storage.yml), which docker-compose.yml backs with the persistent
+# `rails_storage` named volume. Create it owned by the non-root runtime user
+# BEFORE switching to that user: when Docker first attaches a fresh named
+# volume it seeds the volume with this directory's ownership, so uploads can
+# write. Without this the volume would be created root-owned and the first
+# avatar/thumbnail/cover upload would fail with EACCES.
+RUN mkdir -p /var/lib/pito-assets && chown 1000:1000 /var/lib/pito-assets
+
 USER 1000:1000
 
 # Copy built artifacts: gems, application

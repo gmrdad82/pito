@@ -19,16 +19,16 @@ RSpec.describe Pito::Chat::Dispatcher, "edge cases" do
       expect { described_class.call(input: "", conversation:) }.not_to raise_error
     end
 
-    it "returns an error result" do
+    it "returns a witty :system reply (not an error)" do
       result = described_class.call(input: "", conversation:)
-      expect(result).to be_a(Pito::Chat::Result::Error)
+      expect(result).to be_a(Pito::Chat::Result::Ok)
     end
   end
 
   describe ".call — whitespace-only input" do
-    it "returns an error result" do
+    it "returns a witty :system reply (not an error)" do
       result = described_class.call(input: "   ", conversation:)
-      expect(result).to be_a(Pito::Chat::Result::Error)
+      expect(result).to be_a(Pito::Chat::Result::Ok)
     end
   end
 
@@ -61,11 +61,11 @@ RSpec.describe Pito::Chat::Dispatcher, "edge cases" do
   # ── Truly unknown input (no matching verb) ────────────────────────────────────
 
   describe ".call — completely unknown input" do
-    it "returns unknown_input error" do
+    it "returns a witty :system reply (not an error)" do
       result = described_class.call(input: "xyzzy frobble", conversation:)
-      expect(result).to be_a(Pito::Chat::Result::Error)
-      expect(result.message_key).to eq("pito.chat.errors.unknown_input")
-      expect(result.message_args[:input]).to eq("xyzzy frobble")
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(result.events.first[:kind]).to eq(:system)
+      expect(result.events.first[:payload][:text]).to be_present
     end
   end
 
@@ -73,15 +73,15 @@ RSpec.describe Pito::Chat::Dispatcher, "edge cases" do
 
   describe ".call — no-verb input always classifies as :unknown" do
     context "when no turn exists" do
-      it "returns unknown_input" do
+      it "returns a witty :system reply" do
         result = described_class.call(input: "more details", conversation:)
-        expect(result).to be_a(Pito::Chat::Result::Error)
-        expect(result.message_key).to eq("pito.chat.errors.unknown_input")
+        expect(result).to be_a(Pito::Chat::Result::Ok)
+        expect(result.events.first[:kind]).to eq(:system)
       end
     end
 
     context "when a recent turn with system result events exists" do
-      it "still returns unknown_input (refinement machinery removed)" do
+      it "still returns a witty :system reply (refinement machinery removed)" do
         turn = conversation.turns.create!(
           input_text: "list videos",
           input_kind: :chat,
@@ -95,8 +95,8 @@ RSpec.describe Pito::Chat::Dispatcher, "edge cases" do
         )
 
         result = described_class.call(input: "more details", conversation:)
-        expect(result).to be_a(Pito::Chat::Result::Error)
-        expect(result.message_key).to eq("pito.chat.errors.unknown_input")
+        expect(result).to be_a(Pito::Chat::Result::Ok)
+        expect(result.events.first[:kind]).to eq(:system)
       end
     end
   end

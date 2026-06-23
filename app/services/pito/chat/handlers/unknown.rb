@@ -1,9 +1,13 @@
 # frozen_string_literal: true
 
-# Fallback handler for unrecognised chat input.
+# Fallback handler for chat input pito can't parse at all (no recognised verb,
+# not a greeting/farewell) — e.g. "boo!", "I'm hungry".
 #
-# Produces a `Result::Error` with key `pito.chat.errors.unknown_input` so
-# the scrollback shows a "didn't understand" inline error.
+# This is NOT an error: a from-the-start-unintelligible message gets a witty,
+# slightly ironic `:system` reply from the `pito.copy.huh` dictionary, always
+# nudging toward `help`. Errors are reserved for input pito DID understand but
+# couldn't act on (a known verb with broken args/kwargs) — those come from the
+# verb handlers themselves.
 #
 # Does NOT register a verb — invoked directly by the dispatcher's `:unknown`
 # branch after all other dispatch paths are exhausted.
@@ -15,10 +19,9 @@ module Pito
         # Invoked directly by the dispatcher's :unknown branch.
 
         def call
-          Pito::Chat::Result::Error.new(
-            message_key: "pito.chat.errors.unknown_input",
-            message_args: { input: message.raw }
-          )
+          Pito::Chat::Result::Ok.new(events: [
+            { kind: :system, payload: { text: Pito::Copy.render("pito.copy.huh") } }
+          ])
         end
       end
     end

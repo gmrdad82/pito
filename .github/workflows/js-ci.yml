@@ -65,7 +65,7 @@ jobs:
         run: npm test
 
       - name: Notify Slack
-        if: always()
+        if: failure()
         continue-on-error: true
         uses: ./.github/actions/slack-notify
         with:

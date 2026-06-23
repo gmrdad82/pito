@@ -96,8 +96,8 @@ RSpec.describe "Chat requests", type: :request do
       end
     end
 
-    context "with a non-slash input (unknown word)" do
-      let(:params) { { input: "hello", uuid: conversation.uuid } }
+    context "with a non-slash input pito can't parse (witty reply)" do
+      let(:params) { { input: "boo!", uuid: conversation.uuid } }
 
       it "returns 204 No Content" do
         post "/chat", params: params
@@ -108,12 +108,11 @@ RSpec.describe "Chat requests", type: :request do
         expect { post "/chat", params: params }.to change(Turn, :count).by(1)
       end
 
-      it "creates echo + thinking + error Events after the job runs" do
+      it "creates echo + thinking + a witty system Event (not an error) after the job runs" do
         perform_enqueued_jobs { post "/chat", params: params }
         turn = Turn.last
-        expect(turn.events.map(&:kind)).to include("echo", "thinking", "error")
-        error_event = turn.events.find { |e| e.kind == "error" }
-        expect(error_event.payload["message_key"]).to eq("pito.chat.errors.unknown_input")
+        expect(turn.events.map(&:kind)).to include("echo", "thinking", "system")
+        expect(turn.events.map(&:kind)).not_to include("error")
       end
 
       it "broadcasts echo to the conversation stream immediately" do
