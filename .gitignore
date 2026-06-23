@@ -44,6 +44,9 @@
 
 .claude/
 
+# Local-only agent/working docs (plans, briefs, the 0.7.0 checklist) — never checked in.
+/docs/claude/
+
 /app/assets/builds/*
 !/app/assets/builds/.keep
 
@@ -51,3 +54,6 @@ node_modules/
 
 # Local backups produced by `pito:tools:backup` (db dump + assets).
 /backup/
+
+# crush (Charm) local state/cache — the config (crush.json) is tracked.
+/.crush/

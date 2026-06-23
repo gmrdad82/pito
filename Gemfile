@@ -10,7 +10,6 @@ gem "view_component", "~> 4.12"
 gem "pg", "~> 1.5"
 gem "puma", ">= 5.0"
 gem "thruster", "~> 0.1", require: false
-gem "jbuilder", "~> 2.14"
 gem "tzinfo-data", platforms: %i[ windows jruby ]
 gem "bootsnap", "~> 1.24", require: false
 
@@ -35,9 +34,6 @@ gem "multi_json", "~> 1.15"
 # OmniAuth 2.x to keep request-phase routes POST-only (CVE-2015-9284).
 gem "omniauth-google-oauth2", "~> 1.2"
 gem "omniauth-rails_csrf_protection", "~> 2.0"
-
-# Use Active Model has_secure_password
-gem "bcrypt", "~> 3.1.7"
 
 # Phase 4 — Project Workspace
 # image_processing: Active Storage variant pipeline (Game cover art).

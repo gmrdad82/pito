@@ -91,56 +91,92 @@ Rails 8 · Hotwire · Postgres · Voyage AI · IGDB · YouTube API · Tailwind C
 
 ## Requirements
 
-The easy path is **Docker + Docker Compose**. Going native instead, you'll want:
+The easy path needs **only Docker** (+ Docker Compose). The image is prebuilt and
+pulled from GitHub's registry, so there's nothing to compile and no Ruby to install.
+
+Hacking on it natively instead? You'll want:
 
 - **Ruby 3.4.9** (pinned in `.ruby-version`; `mise` / `rbenv` / `asdf` will read it)
 - **PostgreSQL 17** with the **pgvector** extension (for the recommendation embeddings)
-- **ffmpeg** · **imagemagick** · **libvips** (footage probing + cover/thumbnail images)
-- A **Rails master key** (your stored API keys are encrypted at rest)
+- **imagemagick** · **libvips** (game cover / thumbnail image processing)
 
 No Redis — background jobs, cache, and websockets all ride on Postgres
-(Solid Queue / Cache / Cable). Heads-up: setup is hands-on. This is a one-person
-tool wearing its "as-is" sticker proudly.
+(Solid Queue / Cache / Cable). And **no ffmpeg**: pito itself never shells out to it.
+The only place it comes up is the optional `footage snippet` helper — a copyable
+one-liner _you_ run in your own video folder (it uses `ffprobe`) to total your raw
+hours. Install ffmpeg only if you want that convenience, wherever your footage lives.
+Heads-up: setup is hands-on. This is a one-person tool wearing its "as-is" sticker
+proudly.
 
 ## Install & run
+
+Two ways in. **Docker runs production mode; native runs development mode.**
+
+### Docker — the easy path (only Docker needed)
+
+No clone, no Ruby. One command fetches a small `./pito` install (a compose file + the
+`pito` CLI), generates your _own_ secrets, pulls the prebuilt image, and walks you
+through enrolling a login:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/gmrdad82/pito/main/script/install.sh | sh
+```
+
+It asks for the public URL (default **http://localhost:3028**), mints a fresh master
+key + credentials (no editor required), enrolls TOTP (scan the printed `otpauth://`
+into any authenticator), and offers a Cloudflare tunnel + a systemd unit for
+reboot-persistence. When it finishes, open the URL and `/login`.
+
+Everything after that runs from the `./pito` dir:
+
+```bash
+./pito logs -f     # tail the app
+./pito console     # a Rails console in the container
+./pito update      # pull the latest image + restart
+./pito --help      # the rest
+```
+
+Same on Linux, macOS, and Windows (WSL2) — and on both amd64 and arm64 (the image
+is multi-arch, so a Raspberry Pi 5 or Apple Silicon box is fine too).
+
+### Native — for hacking on it (development mode)
 
 ```bash
 git clone https://github.com/gmrdad82/pito && cd pito
 ```
 
-**One-time secrets** (the bundled `config/credentials.yml.enc` is the author's —
-you can't decrypt it, so make your own):
+Make your own secrets (the bundled `config/credentials.yml.enc` is the author's —
+you can't decrypt it):
 
 ```bash
 rm -f config/credentials.yml.enc config/master.key
-EDITOR=nano bin/rails credentials:edit        # creates a fresh config/master.key
-bin/rails db:encryption:init                  # paste the printed keys into the credentials file
+EDITOR=nano bin/rails credentials:edit   # creates a fresh config/master.key
+bin/rails db:encryption:init             # paste the printed keys into the credentials file
 ```
 
-(No local Ruby? Run those `bin/rails …` lines inside the container with
-`docker compose run --rm web bin/rails …`.)
+Then install your OS deps (below), run `bin/setup` (brings up Postgres + prepares the
+DB) and `bin/dev` → **http://localhost:3027**. Enroll your login with
+`bin/rails pito:tools:totp` — or, in development, just type `/login 123456` (a
+dev-only dummy code; see [Operating pito](#operating-pito)).
 
-**Docker (same on Linux, macOS, and Windows via WSL2):**
+| OS                | System packages                                                               |
+| ----------------- | ----------------------------------------------------------------------------- |
+| Arch              | `sudo pacman -S postgresql imagemagick libvips` + `pgvector` (extra/AUR)      |
+| Ubuntu/Debian/WSL | `sudo apt install postgresql-17 postgresql-17-pgvector imagemagick libvips42` |
+| Fedora            | `sudo dnf install postgresql-server pgvector ImageMagick vips`                |
+| macOS             | `brew install postgresql@17 pgvector imagemagick vips`                        |
 
-```bash
-RAILS_MASTER_KEY=$(cat config/master.key) bin/boot --totp   # boots Rails + Postgres, enrolls your login
-```
+(Package names drift between distro versions — adjust as needed. Add `ffmpeg` only if
+you want the optional `footage snippet` helper.)
 
-Open **http://localhost:3028**. The `--totp` step prints an `otpauth://` URI +
-secret — scan it into any authenticator app.
+### Not a cloud thing
 
-**Native (for hacking on it):** install the deps for your OS, then `bin/setup`
-(brings up Postgres + prepares the DB) and `bin/dev` → **http://localhost:3027**.
-Enroll your login with `bin/rails pito:tools:totp`.
-
-| OS                | System packages                                                                      |
-| ----------------- | ------------------------------------------------------------------------------------ |
-| Arch              | `sudo pacman -S postgresql ffmpeg imagemagick libvips` + `pgvector` (extra/AUR)      |
-| Ubuntu/Debian/WSL | `sudo apt install postgresql-17 postgresql-17-pgvector ffmpeg imagemagick libvips42` |
-| Fedora            | `sudo dnf install postgresql-server pgvector ffmpeg ImageMagick vips`                |
-| macOS             | `brew install postgresql@17 pgvector ffmpeg imagemagick vips`                        |
-
-(Package names drift between distro versions — adjust as needed.)
+pito is built to run **on your own machine** — your laptop, a home server, a NUC under
+the TV. There's no hosted service from this repo and no cloud-deploy story baked in
+(no Kamal, no Helm, no "click to deploy"). You're welcome to put it behind a domain
+with a Cloudflare tunnel (see [Exposing pito](#exposing-pito-cloudflare-tunnel)) or
+deploy it however you please — it's AGPL, go wild — but the supported, tested path is
+local self-host.
 
 ## Accounts & API keys
 
@@ -180,6 +216,53 @@ then `/config webhook slack=… discord=…`.
 1. `/login <6-digit code>` (from the authenticator you enrolled above).
 2. `/config` your keys, then `/connect` your first channel.
 3. `list channels` → `sync vids` → `list games`. You're off.
+
+## Operating pito
+
+The Docker stack is driven by the **`pito`** CLI (run from your install dir):
+
+| Command            | What it does                                          |
+| ------------------ | ----------------------------------------------------- |
+| `pito up` / `down` | start / stop the stack                                |
+| `pito logs [-f]`   | tail container logs (Docker's own — capped + rotated) |
+| `pito console`     | a Rails console inside the running container          |
+| `pito rake [task]` | list `pito:*` tasks, or run one in the container      |
+| `pito clean`       | clear `tmp/` scratch (keeps storage/pids) + dev logs  |
+| `pito totp`        | (re)enroll your login                                 |
+| `pito update`      | pull the latest image + restart                       |
+
+In-app, **`/jobs`** is your window into the background queue: `/jobs status`
+(workers, state counts, recent failures), `/jobs requeue <id|all>`, `/jobs run <key>`
+(run a recurring task now), and `/jobs pause` / `/jobs resume`.
+
+**Dev conveniences** (development only — inert in production):
+
+- Recurring jobs are **off** under `bin/dev`, so nothing hits YouTube/Discord while
+  you hack. Want the scheduler running? `PITO_DEV_JOBS=1 bin/dev`.
+- `/login 123456` just works — no authenticator needed. Change the code with
+  `PITO_DEV_TOTP_CODE=…`, or disable it (`PITO_DEV_TOTP_CODE=off`) to exercise the
+  real TOTP flow. The dummy code is **impossible** outside development.
+
+## Exposing pito (Cloudflare Tunnel)
+
+pito forces HTTPS in production, so anything past `localhost` needs TLS in front. The
+tidiest option is a **Cloudflare Tunnel** — no open ports, no certs to babysit. Set
+your public URL at install time (or in `.env` as `PITO_APP_BASE_URL`, e.g.
+`https://app.example.com`); that single value wires Host Authorization, link
+generation, and asset delivery.
+
+Install `cloudflared` (`pacman -S cloudflared`, `brew install cloudflared`, or
+Cloudflare's apt repo), then the installer — or `./pito cloudflared` — drops a starter
+`config.yml` and prints the steps:
+
+```bash
+cloudflared tunnel login
+cloudflared tunnel create pito
+cloudflared tunnel route dns pito app.example.com
+cloudflared tunnel --config ./cloudflared-config.yml run pito
+```
+
+Point the tunnel at `127.0.0.1:3028` and set Cloudflare's SSL/TLS mode to **Full**.
 
 ## Docs
 

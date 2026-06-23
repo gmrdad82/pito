@@ -1,0 +1,7 @@
+# Opt-in dev Procfile WITH the SolidQueue supervisor (recurring scheduler + worker).
+# Used by `PITO_DEV_JOBS=1 bin/dev`. The default Procfile.dev omits `jobs` so the
+# recurring schedule (config/recurring.yml development block) does NOT fire on a
+# dev box — chat-triggered jobs still run via the :async adapter (config/environments/development.rb).
+web: bin/rails server -p ${PORT:-3027}
+css: bin/rails tailwindcss:watch
+jobs: bin/jobs

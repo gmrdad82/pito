@@ -100,5 +100,73 @@ RSpec.describe Pito::Auth::TotpVerifier do
         expect(described_class.call(code: "123456")).to eq(:invalid)
       end
     end
+
+    # Development-only convenience: a fixed dummy code (default "123456",
+    # overridable via PITO_DEV_TOTP_CODE) logs in without an authenticator.
+    # MUST be impossible outside development.
+    context "development dummy code (PITO_DEV_TOTP_CODE)" do
+      def pretend_env(name)
+        allow(Rails).to receive(:env).and_return(ActiveSupport::StringInquirer.new(name))
+      end
+
+      def stub_dev_code(value)
+        allow(ENV).to receive(:fetch).and_call_original
+        allow(ENV).to receive(:fetch).with("PITO_DEV_TOTP_CODE", "123456").and_return(value)
+      end
+
+      it "accepts the default 123456 in development" do
+        pretend_env("development")
+        expect(described_class.call(code: "123456")).to eq(:ok)
+      end
+
+      it "accepts 123456 even with no seed enrolled (no authenticator needed)" do
+        pretend_env("development")
+        AppSetting.singleton_row.update_columns(totp_seed_encrypted: nil, totp_last_used_step: nil)
+        expect(described_class.call(code: "123456")).to eq(:ok)
+      end
+
+      it "can be reused — no replay lock on the dummy" do
+        pretend_env("development")
+        expect(described_class.call(code: "123456")).to eq(:ok)
+        expect(described_class.call(code: "123456")).to eq(:ok)
+      end
+
+      it "rejects a non-dummy, non-valid code in development" do
+        pretend_env("development")
+        expect(described_class.call(code: "999999")).to eq(:invalid)
+      end
+
+      it "honors a PITO_DEV_TOTP_CODE override (and the default stops working)" do
+        pretend_env("development")
+        stub_dev_code("314159")
+        expect(described_class.call(code: "314159")).to eq(:ok)
+        expect(described_class.call(code: "123456")).to eq(:invalid)
+      end
+
+      it "is disabled when PITO_DEV_TOTP_CODE is 'off' — real TOTP only" do
+        pretend_env("development")
+        stub_dev_code("off")
+        expect(described_class.call(code: "123456")).to eq(:invalid)
+        expect(described_class.call(code: totp.now)).to eq(:ok)
+      end
+
+      it "is disabled when PITO_DEV_TOTP_CODE is blank" do
+        pretend_env("development")
+        stub_dev_code("")
+        expect(described_class.call(code: "123456")).to eq(:invalid)
+      end
+
+      it "NEVER accepts the dummy in production, even with the env var set" do
+        pretend_env("production")
+        stub_dev_code("123456")
+        expect(described_class.call(code: "123456")).to eq(:invalid)
+      end
+
+      it "NEVER accepts the dummy in test, even with the env var set" do
+        pretend_env("test")
+        stub_dev_code("123456")
+        expect(described_class.call(code: "123456")).to eq(:invalid)
+      end
+    end
   end
 end

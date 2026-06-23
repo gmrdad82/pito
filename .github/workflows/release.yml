@@ -1,0 +1,81 @@
+name: Release (GHCR image)
+
+# Builds the production pito image and pushes it multi-arch (linux/amd64 +
+# linux/arm64) to the GitHub Container Registry.
+#
+# Trigger model: TAG-ONLY. This fires exclusively on a version-tag push
+# (`v0.7.0`, `v1.2.3`, …) plus a manual `workflow_dispatch` escape hatch — never
+# on branch pushes or ordinary commits. Day-to-day commits run `ci.yml`; an
+# image is built and published only when you cut a release tag. So: finish work
+# → `git tag v0.7.0 && git push origin v0.7.0` → this workflow ships the image.
+#
+# One-time setup: after the first successful run, set the package
+# `ghcr.io/gmrdad82/pito` to PUBLIC in GitHub → Packages → Package settings, so
+# self-hosters can `docker compose pull` without authenticating.
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+  # Lets the Slack notifier query this run's job/step conclusions.
+  actions: read
+
+env:
+  IMAGE: ghcr.io/${{ github.repository }} # → ghcr.io/gmrdad82/pito
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up QEMU (arm64 emulation)
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Derive image tags + labels
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            # 0.7.0 from a v0.7.0 tag push
+            type=semver,pattern={{version}}
+            # always publish :latest (release tag or manual dispatch)
+            type=raw,value=latest
+
+      - name: Build and push (amd64 + arm64)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Notify Slack
+        if: always()
+        continue-on-error: true
+        uses: ./.github/actions/slack-notify
+        with:
+          status: ${{ job.status }}
+          webhook: ${{ secrets.SLACK_WEBHOOK }}
+          github-token: ${{ github.token }}

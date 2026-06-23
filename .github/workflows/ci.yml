@@ -31,6 +31,8 @@ on:
       # `bin/brakeman`, `bin/bundler-audit`, `bin/importmap`, `bin/rails`).
       # A change to any wrapper can break the workflow.
       - "bin/**"
+      # `script/**` — install/update shell scripts; shellchecked by the `scripts` job.
+      - "script/**"
       # `config/**` — Rails initializers, routes, environments, locales,
       # `database.yml`, `application.rb`, credentials wiring. Touches every
       # boot path.
@@ -79,6 +81,7 @@ on:
     paths:
       - "app/**"
       - "bin/**"
+      - "script/**"
       - "config/**"
       - "db/**"
       - "lib/**"
@@ -238,6 +241,36 @@ jobs:
 
       - name: Scan for known security vulnerabilities in gems used
         run: bin/bundler-audit
+
+      - name: Notify Slack
+        if: always()
+        continue-on-error: true
+        uses: ./.github/actions/slack-notify
+        with:
+          status: ${{ job.status }}
+          webhook: ${{ secrets.SLACK_WEBHOOK }}
+          github-token: ${{ github.token }}
+
+  scripts:
+    # Lint the project's shell scripts (the pito operator CLI, dev/test
+    # wrappers, and the install/update scripts). shellcheck is preinstalled on
+    # ubuntu-latest. Runs on pull_request/push, not the weekly schedule.
+    if: |
+      github.event_name != 'schedule' &&
+      !contains(github.event.head_commit.message, '[skipci]') &&
+      !contains(github.event.pull_request.title, '[skipci]')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: shellcheck + sh -n
+        run: |
+          for f in bin/pito bin/boot bin/dev bin/test bin/test-prepare script/install.sh script/update.sh; do
+            echo "== $f =="
+            sh -n "$f" || bash -n "$f"
+            shellcheck -S warning "$f"
+          done
 
       - name: Notify Slack
         if: always()

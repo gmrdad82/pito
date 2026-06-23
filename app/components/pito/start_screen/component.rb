@@ -18,7 +18,11 @@ module Pito
         @badge_class       = badge_class
         @exclamation_class = exclamation_class
         @tip               = Pito::Copy.render(tips_key)
-        @channels          = channels
+        # Coerce nil → [] (the keyword default only applies when the arg is
+        # omitted, not when a caller passes an explicit nil — e.g. the not_found
+        # path renders with `channels: @channels` before any before_action has
+        # loaded `@channels`). Guards `@channels.any?` in the template.
+        @channels          = channels || []
       end
     end
   end

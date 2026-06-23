@@ -26,11 +26,12 @@
 
 ## Plan discipline (lean)
 
-A **plan is an atomic-task `.md` file** committed with the work it describes —
-not freeform prose, not the throwaway plan-mode scratch buffer. Plans now live
-**gitignored in `tmp/docs/`** (throwaway); `docs/` holds only permanent
-references (`architecture.md`, `design.md`, `footage.md`). Write nothing — no
-edits, commits, or sub-agents — until the user approves the plan.
+A **plan is an atomic-task `.md` file** that tracks the work it describes —
+not freeform prose, not the throwaway plan-mode scratch buffer. Plans and other
+agent/working docs (briefs, checklists) now live **gitignored in `docs/claude/`**
+(local-only, never checked in); `docs/` itself holds only permanent references
+(`architecture.md`, `design.md`, `footage.md`). Write nothing — no edits, commits,
+or sub-agents — until the user approves the plan.
 
 **Shape.** `# Title`, a `> Status:` line, a one-paragraph north star, optional
 **Locked decisions** table, a phase index, then phases of one-verb tasks:
@@ -54,8 +55,8 @@ as its highest-numbered ID.
 **Execution.** Checkboxes are the live record: `[ ]` → `[-]` before starting a
 task, `[-]` → `[x]` immediately after its verification passes — one edit per
 transition, never batched. Announce each task's complexity tier and let the user
-pick the model before starting. Stage the plan file in the same commit as the
-work it describes.
+pick the model before starting. The plan file lives gitignored in `docs/claude/`
+(local-only), so it is **not** staged or committed — only the work it describes is.
 
 **Commit hygiene.** Plain imperative messages — **no `[skipci]`, no co-author /
 "Generated with" trailer**. Current branch, no tags.

@@ -16,4 +16,15 @@ export PORT="${PORT:-3027}"
 export RUBY_DEBUG_OPEN="true"
 export RUBY_DEBUG_LAZY="true"
 
-exec foreman start -f Procfile.dev "$@"
+# Recurring/background jobs are OFF in dev by default: the default Procfile.dev
+# omits the SolidQueue supervisor, so config/recurring.yml's development schedule
+# (nightly_sync → YouTube, release_countdown → Discord, …) never fires locally.
+# Chat-triggered jobs still run in-process via the :async adapter.
+# Opt back in (e.g. to test the scheduler) with PITO_DEV_JOBS=1.
+PROCFILE="Procfile.dev"
+if [ "${PITO_DEV_JOBS:-}" = "1" ]; then
+  PROCFILE="Procfile.dev.jobs"
+  echo "→ PITO_DEV_JOBS=1: starting with the SolidQueue supervisor (recurring jobs ON)."
+fi
+
+exec foreman start -f "$PROCFILE" "$@"

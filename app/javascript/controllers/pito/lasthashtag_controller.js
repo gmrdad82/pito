@@ -1,11 +1,13 @@
 // Pito::LasthashtagController
 //
-// Paints the `· shift+r` affordance on ONLY the most recent hashtag-bearing
-// segment in the scrollback. As new hashtag messages stream in (cable appends),
-// the hint hops to the latest segment and is removed from the previous one.
+// Reveals the `shift+r` affordance on EVERY hashtag-bearing segment in the
+// scrollback (each hint is wired to prefill its OWN `#<handle> ` on click, so
+// any shown message is click-to-reply). The hint is hidden by default in the
+// component (progressive enhancement); this controller unhides it, including on
+// live cable appends.
 //
-// shift+r itself is handled by pito--chat-form: when the caret sits at the
-// start of the chatbox it prepends `#<handle> ` using the same last handle.
+// Keyboard shift+r is still handled by pito--chat-form: with the caret at the
+// start of the chatbox it prepends `#<handle> ` using the most recent handle.
 //
 // Mounted on the scrollback container so its MutationObserver sees live appends.
 
@@ -29,12 +31,12 @@ export default class extends Controller {
     this._raf = requestAnimationFrame(this._refresh)
   }
 
-  // Show the hint on the last segment that has one, hide it everywhere else.
-  // Toggling a class fires only `attributes` mutations, which the observer
-  // ignores (childList only), so there is no feedback loop.
+  // Reveal the hint on EVERY hashtag-bearing segment. Removing a class fires
+  // only `attributes` mutations, which the observer ignores (childList only),
+  // so there is no feedback loop.
   #refresh() {
-    const hints = this.element.querySelectorAll("[data-pito-lasthashtag-hint]")
-    const last = hints.length - 1
-    hints.forEach((hint, i) => hint.classList.toggle("hidden", i !== last))
+    this.element
+      .querySelectorAll("[data-pito-lasthashtag-hint]")
+      .forEach((hint) => hint.classList.remove("hidden"))
   }
 }

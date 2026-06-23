@@ -25,7 +25,7 @@ body:
         - "ActionCable / status-bar broadcasts"
         - "Voyage embeddings / recommendation"
         - "Auth / OAuth / sessions"
-        - "Kamal / Docker / deploy"
+        - "Docker / deploy / self-host"
         - "CI (.github/workflows/)"
         - "Docs (README, CLAUDE.md, docs/*)"
         - "Other / unsure"

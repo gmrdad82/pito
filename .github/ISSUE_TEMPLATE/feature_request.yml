@@ -25,7 +25,7 @@ body:
         - "Recommendation system (channel ↔ game ↔ bundle)"
         - "Scheduling / publish workflow"
         - "Analytics / metrics"
-        - "Self-hosting / deploy / Kamal"
+        - "Self-hosting / Docker / deploy"
         - "Docs / docs structure"
         - "Other"
     validations:

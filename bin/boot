@@ -1,52 +1,15 @@
-#!/usr/bin/env bash
-# bin/boot — Start the pito production stack in Docker.
-#
-# Usage:
-#   RAILS_MASTER_KEY=$(cat config/master.key) bin/boot
-#   RAILS_MASTER_KEY=$(cat config/master.key) bin/boot --totp
-#   RAILS_MASTER_KEY=$(cat config/master.key) bin/boot -d
-#   bin/boot --help
-
-set -euo pipefail
-
-require_master_key() {
-  if [ -z "${RAILS_MASTER_KEY:-}" ]; then
-    echo "ERROR: RAILS_MASTER_KEY is not set."
-    echo ""
-    echo "  RAILS_MASTER_KEY=\$(cat config/master.key) bin/boot $*"
-    exit 1
-  fi
-}
-
-boot_postgres_if_needed() {
-  if docker ps --filter "name=pito-boot-postgres-1" --filter "status=running" --quiet | grep -q .; then
-    echo "→ Production Postgres already running."
-  else
-    echo "→ Starting production Postgres…"
-    docker compose up -d --wait postgres
-  fi
-}
-
+#!/usr/bin/env sh
+# bin/boot — compatibility shim. Superseded by bin/pito (the operator CLI).
+# Forwards the old flags to the equivalent `pito` subcommand so existing muscle
+# memory (and any docs that still say `bin/boot`) keeps working:
+#   bin/boot            → pito up
+#   bin/boot --totp     → pito totp
+#   bin/boot -d         → pito up -d
+set -eu
+CDPATH=''  # neutralize CDPATH so `cd` never prints or jumps unexpectedly
+dir=$(cd -- "$(dirname -- "$0")" && pwd)
 case "${1:-}" in
-  --help|-h)
-    echo "Usage: RAILS_MASTER_KEY=\$(cat config/master.key) bin/boot [flags]"
-    echo ""
-    echo "  (no flags)   Start the full production stack (Postgres + Rails)."
-    echo "  --totp       Enroll TOTP; starts Postgres if not already running."
-    echo "  -d           Detached mode (passed through to docker compose up)."
-    exit 0
-    ;;
-
-  --totp)
-    require_master_key "--totp"
-    boot_postgres_if_needed
-    echo ""
-    RAILS_ENV=production POSTGRES_HOST=127.0.0.1 POSTGRES_PORT=54328 \
-      bin/rails pito:tools:totp
-    exit 0
-    ;;
+  --totp)     shift; exec "$dir/pito" totp "$@" ;;
+  --help|-h)  exec "$dir/pito" --help ;;
+  *)          exec "$dir/pito" up "$@" ;;
 esac
-
-require_master_key "$@"
-echo "→ Starting pito in production mode…"
-exec docker compose up --build "$@"

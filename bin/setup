@@ -11,28 +11,12 @@ FileUtils.chdir APP_ROOT do
   puts "== Installing dependencies =="
   system("bundle check") || system!("bundle install")
 
-  puts "\n== Starting Docker services =="
-  system! "docker compose up -d"
-
-  puts "\n== Waiting for services to be healthy =="
-  timeout = 60
-  elapsed = 0
-  loop do
-    postgres_healthy = `docker compose ps --format json postgres 2>/dev/null`.include?('"healthy"')
-    redis_healthy = `docker compose ps --format json redis 2>/dev/null`.include?('"healthy"')
-
-    if postgres_healthy && redis_healthy
-      puts "All services healthy."
-      break
-    end
-
-    if elapsed >= timeout
-      abort "ERROR: Services did not become healthy within #{timeout}s. Run: docker compose ps"
-    end
-
-    sleep 2
-    elapsed += 2
-  end
+  puts "\n== Starting dev Postgres (docker-compose.dev.yml) =="
+  # Native dev runs Rails on the host; only Postgres lives in Docker. `--wait`
+  # blocks until the postgres healthcheck passes, so no manual poll loop is needed.
+  # (Was: `docker compose up -d` — the *production* pito-boot stack — plus a wait
+  # on a non-existent `redis` service that hung for 60s then aborted.)
+  system! "docker compose -f docker-compose.dev.yml up -d --wait postgres"
 
   # Check if credentials have Postgres config
   begin

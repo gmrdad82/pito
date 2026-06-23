@@ -4,6 +4,76 @@ All notable changes to pito are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); the project aims for
 [Semantic Versioning](https://semver.org/).
 
+## [0.7.0] — 2026-06-23
+
+The **local-first self-host** release. pito stops being "clone the repo and pray"
+and becomes "one command, on your own machine." No cloud, no Kamal, no monthly
+anything — your laptop, your data, still.
+
+### Added
+
+- **Docker self-host in one command.** `curl … script/install.sh | sh` lands a tiny
+  `./pito` install (compose file + CLI), generates your _own_ secrets
+  non-interactively (no editor, no host Ruby), pulls a **prebuilt multi-arch image**
+  from `ghcr.io/gmrdad82/pito`, enrolls your TOTP login, and offers a Cloudflare
+  tunnel + a systemd unit for reboot-persistence. No git clone.
+- **`pito` operator CLI** — one self-contained script (no repo, no Ruby) for the
+  Docker stack: `up`/`down`, `totp`, `console`, `logs`, `rake`, `clean`, `install`,
+  `update`, `service`, `cloudflared`.
+- **`/jobs` slash command** — your window into SolidQueue: `status` (workers, state
+  counts, recent failures), `requeue <id|all>`, `run <key>` (run a recurring task
+  now), `pause` / `resume`. Its subcommands autocomplete in the command palette.
+- **Background jobs actually run in production** — the Docker stack runs the
+  SolidQueue supervisor inside Puma (`SOLID_QUEUE_IN_PUMA`), so chat-triggered jobs
+  and the recurring schedule (nightly sync, achievements, release countdowns) fire on
+  a single self-host box without a separate worker process.
+- **`pito:tools:clean`** — clears the `tmp/` scratch (keeping `tmp/storage`, `tmp/pids`,
+  and `.keep`) and truncates dev `log/*.log`. Safe for blobs: dev Active Storage lives
+  under `public/pito-storage`, not `tmp/`.
+- **`PITO_APP_BASE_URL`** — set your public host once; it wires Host Authorization,
+  URL helpers, and asset delivery. Pairs with a Cloudflare Tunnel for remote access.
+- **Dev conveniences** — `PITO_DEV_JOBS=1 bin/dev` to run the recurring scheduler
+  locally, and a development-only `/login 123456` dummy code (override with
+  `PITO_DEV_TOTP_CODE`, disable with `…=off`) so you can sign in without an
+  authenticator. Both are impossible outside development.
+- **Release pipeline** — `.github/workflows/release.yml` builds + pushes the
+  multi-arch image to GHCR on a **version-tag push only** (never per-commit); a new
+  CI `scripts` job shellchecks every shell script.
+
+### Changed
+
+- **Explicit environments**: Docker runs **production**, native `bin/dev` runs
+  **development** — documented end to end.
+- **Recurring jobs are off under `bin/dev`** by default, so a dev box never quietly
+  hits YouTube/Discord on a cron.
+- **Leaner, tidier container**: production image drops test-group gems
+  (`BUNDLE_WITHOUT="development test"`); compose caps container log growth via the
+  json-file driver and mounts each owner's own secrets over the baked-in copies.
+- **Fixed the stock `bin/` scripts**: `bin/setup` no longer waits on a phantom
+  `redis` (and uses the right compose stack); `bin/test` works again (added the
+  missing `bin/test-prepare`). `bin/boot` is now a thin shim forwarding to `pito`.
+- **The `shift+r` reply hint now shows on every addressable message** (not just the
+  most recent), so any message with a `#handle` is one click from a reply.
+- Agent/working docs moved from `tmp/docs` to a gitignored `docs/claude/`.
+
+### Fixed
+
+- **Authenticated 404s no longer 500.** The not-found page rendered the start screen
+  with `channels: nil`, blowing up `@channels.any?`; channels now coerce to `[]`.
+  (Also explains the occasional dropped chat turn — a request that 500s never finishes.)
+- **The game picker no longer hijacks the chatbox.** With a picker sidebar open, its
+  keyboard nav stole Enter — injecting `show`/`rm game #id` over whatever you were
+  typing. It now ignores keys while focus is in a field outside the picker.
+
+### Removed
+
+- **Kamal** (`config/deploy.yml`, `.kamal/`, `bin/kamal`) — pito is local-only; there
+  was never a cloud-deploy story to maintain.
+- The stock **`/up` health route** — single-owner tool, not a load balancer.
+- **Action Mailer, Action Mailbox, and Action Text** — all unused (notifications ride
+  Slack/Discord webhooks).
+- The **`jbuilder`** and **`bcrypt`** gems — neither was used.
+
 ## [0.6.0] — 2026-06-23
 
 ### Added

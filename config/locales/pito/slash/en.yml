@@ -143,6 +143,35 @@ en:
         imported:
           one: "Imported 1 vid from %{channel}."
           other: "Imported %{count} vids from %{channel}."
+      jobs:
+        descriptions:
+          jobs: "Inspect and control the background job queue"
+        help:
+          usage: "/jobs <status|requeue|run|pause|resume> [arg]"
+          subcommands:
+            status: "Queue snapshot: workers, state counts, recent failures"
+            requeue: "Re-run a failed job by id (or 'all')"
+            run: "Run a recurring task now by its key"
+            pause: "Pause processing on all queues"
+            resume: "Clear all queue pauses"
+        status:
+          section: "Queue status"
+          none: "none"
+          labels:
+            processes: "Workers"
+            ready: "Ready"
+            scheduled: "Scheduled"
+            claimed: "Running"
+            failed: "Failed"
+            paused: "Paused"
+            recurring: "Recurring"
+        errors:
+          requeue_missing_id: "Which job? Try /jobs requeue <id> (or 'all') — ids are in /jobs status."
+          requeue_not_found: "No failed job with id %{id}. It may have already been retried or cleared."
+          run_missing_key: "Which task? Try /jobs run <key> — keys are in /jobs status."
+          run_unknown: "No recurring task named '%{key}'. Check /jobs status for the roster."
+          run_command_unsupported: "'%{key}' is a raw command task, not a job class — can't run that one on demand."
+          unknown_subcommand: "Unknown /jobs subcommand '%{sub}'. Try status, requeue, run, pause, or resume."
       disconnect:
         descriptions:
           disconnect: "Disconnect a YouTube channel"

@@ -1,11 +1,16 @@
 # syntax=docker/dockerfile:1
 # check=error=true
 
-# This Dockerfile is designed for production, not development. Use with Kamal or build'n'run by hand:
-# docker build -t pito .
-# docker run -d -p 80:80 -e RAILS_MASTER_KEY=<value from config/master.key> --name pito pito
-
-# For a containerized dev environment, see Dev Containers: https://guides.rubyonrails.org/getting_started_with_devcontainer.html
+# Production image for pito (local-first self-host). It is published multi-arch
+# (amd64 + arm64) to ghcr.io/gmrdad82/pito by .github/workflows/release.yml on
+# each version tag; self-hosters pull it via docker compose — they never build
+# from source (see docker-compose.yml and script/install.sh).
+#
+# To build it locally instead:
+#   docker build -t pito .
+#   docker run -d -p 80:80 -e RAILS_MASTER_KEY=<value from config/master.key> --name pito pito
+#
+# Native development does NOT use this image — run bin/dev on the host (see README).
 
 # Make sure RUBY_VERSION matches the Ruby version in .ruby-version
 ARG RUBY_VERSION=3.4.9
@@ -24,7 +29,7 @@ RUN apt-get update -qq && \
 ENV RAILS_ENV="production" \
     BUNDLE_DEPLOYMENT="1" \
     BUNDLE_PATH="/usr/local/bundle" \
-    BUNDLE_WITHOUT="development" \
+    BUNDLE_WITHOUT="development test" \
     LD_PRELOAD="/usr/local/lib/libjemalloc.so"
 
 # Throw-away build stage to reduce size of final image

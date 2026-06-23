@@ -1,0 +1,71 @@
+#!/usr/bin/env sh
+# bin/pito — the pito operator CLI for the Docker stack.
+#
+# Self-contained: needs only Docker (+ Compose) and a docker-compose.yml — no
+# repo checkout and no host Ruby. It drives `docker compose` against the compose
+# file next to it (an install dir) or one level up (this repo's bin/pito), so the
+# same script works whether it was cloned or fetched by script/install.sh.
+#
+# Native development is unaffected — keep using bin/dev / bin/rails / bin/setup.
+#
+# Usage: pito <command> [args]
+#   up [args]         Start the stack (docker compose up). `-d` to detach.
+#   down [args]       Stop the stack (docker compose down).
+#   boot [args]       Alias for `up`.
+#   totp              Enroll / re-enroll the owner's TOTP (prints the otpauth URI).
+#   console           Open a Rails console in the running web container.
+#   logs [args]       Tail container logs (default: follow web). e.g. pito logs --tail 50
+#   rake [task ...]   No task → list pito:* tasks; with a task → run it in-container.
+#   clean             Clear regenerable tmp + dev logs (pito:tools:clean).
+#   install [args]    Fetch + first-boot a fresh install (script/install.sh).
+#   update [args]     Pull the latest image + restart (script/update.sh).
+#   service [args]    Install/uninstall a systemd unit (reboot-persistence).
+#   cloudflared       Print Cloudflare Tunnel setup guidance for your host.
+#   --help            This help.
+
+set -eu
+
+# ── Locate the compose project dir ──────────────────────────────────────────
+CDPATH=''  # neutralize CDPATH so `cd` never prints or jumps unexpectedly
+SCRIPT_DIR=$(cd -- "$(dirname -- "$0")" && pwd)
+if [ -f "$SCRIPT_DIR/docker-compose.yml" ]; then
+  PROJECT_DIR="$SCRIPT_DIR"                       # install dir: pito next to compose
+elif [ -f "$SCRIPT_DIR/../docker-compose.yml" ]; then
+  PROJECT_DIR=$(cd -- "$SCRIPT_DIR/.." && pwd)    # repo: bin/pito → repo root
+else
+  echo "pito: docker-compose.yml not found near $SCRIPT_DIR" >&2
+  exit 1
+fi
+cd "$PROJECT_DIR"
+
+dc() { docker compose "$@"; }
+
+usage() {
+  sed -n '3,33p' "$0" | sed 's/^# \{0,1\}//; s/^#$//'
+}
+
+cmd="${1:-}"
+[ $# -gt 0 ] && shift || true
+
+case "$cmd" in
+  up|boot)   dc up "$@" ;;
+  down)      dc down "$@" ;;
+  totp)      dc run --rm web bin/rails pito:tools:totp ;;
+  console)   dc exec web bin/rails console ;;
+  logs)
+    if [ $# -eq 0 ]; then dc logs -f --tail=200 web; else dc logs "$@"; fi
+    ;;
+  rake)
+    if [ $# -eq 0 ]; then dc exec web bin/rails -T pito; else dc exec web bin/rails "$@"; fi
+    ;;
+  clean)     dc exec web bin/rails pito:tools:clean ;;
+  install)   exec "$PROJECT_DIR/script/install.sh" "$@" ;;
+  update)    exec "$PROJECT_DIR/script/update.sh" "$@" ;;
+  service)   exec "$PROJECT_DIR/script/install.sh" --service-only "$@" ;;
+  cloudflared) exec "$PROJECT_DIR/script/install.sh" --cloudflared-only "$@" ;;
+  ""|-h|--help|help) usage ;;
+  *)
+    echo "pito: unknown command '$cmd'. Run 'pito --help'." >&2
+    exit 1
+    ;;
+esac
