@@ -75,7 +75,7 @@ module Pito
 
         def shinies_event(entity)
           Pito::Chat::Result::Ok.new(events: [
-            { kind: :system, payload: Pito::MessageBuilder::Shinies.call(entity, conversation:) }
+            { kind: :system, payload: Pito::MessageBuilder::Shinies.call(entity) }
           ])
         end
 

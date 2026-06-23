@@ -60,10 +60,11 @@ RSpec.describe Pito::Chat::Handlers::Shinies do
       expect(result).to be_a(Pito::Chat::Result::Error)
     end
 
-    it "stamps the message followupable (shinies_detail)" do
+    it "does NOT stamp a follow-up handle (shinies messages are not repliable)" do
       payload = handler_for("channel", "@pito").call.events.first[:payload]
-      expect(Pito::FollowUp.followupable?(payload)).to be(true)
-      expect(payload["reply_target"]).to eq("shinies_detail")
+      expect(Pito::FollowUp.followupable?(payload)).to be(false)
+      expect(payload["reply_handle"]).to be_nil
+      expect(payload["reply_target"]).to be_nil
     end
 
     it "emits a single :system event" do
@@ -109,10 +110,11 @@ RSpec.describe Pito::Chat::Handlers::Shinies do
       expect(result.events.first[:payload]["text"]).to be_present
     end
 
-    it "stamps the message followupable (shinies_detail) for video" do
+    it "does NOT stamp a follow-up handle for video (shinies messages are not repliable)" do
       payload = handler_for("vid", video.id.to_s).call.events.first[:payload]
-      expect(Pito::FollowUp.followupable?(payload)).to be(true)
-      expect(payload["reply_target"]).to eq("shinies_detail")
+      expect(Pito::FollowUp.followupable?(payload)).to be(false)
+      expect(payload["reply_handle"]).to be_nil
+      expect(payload["reply_target"]).to be_nil
     end
   end
 
@@ -145,10 +147,11 @@ RSpec.describe Pito::Chat::Handlers::Shinies do
       expect(result).to be_a(Pito::Chat::Result::Error)
     end
 
-    it "stamps the message followupable (shinies_detail) for game" do
+    it "does NOT stamp a follow-up handle for game (shinies messages are not repliable)" do
       payload = handler_for("##{game.id}").call.events.first[:payload]
-      expect(Pito::FollowUp.followupable?(payload)).to be(true)
-      expect(payload["reply_target"]).to eq("shinies_detail")
+      expect(Pito::FollowUp.followupable?(payload)).to be(false)
+      expect(payload["reply_handle"]).to be_nil
+      expect(payload["reply_target"]).to be_nil
     end
   end
 
