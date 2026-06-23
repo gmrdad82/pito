@@ -213,6 +213,9 @@ jobs:
         # `File.stat("--options")` as if it were a spec path.
         run: bundle exec parallel_rspec spec/ --test-options "--options /dev/null --require spec_helper"
 
+      # The `rails` job is the single green "heartbeat": it pings on success too
+      # (one all-clear per push). Every OTHER notify across the workflows is
+      # failure-only, so green pushes produce exactly ONE Slack message.
       - name: Notify Slack
         if: always()
         continue-on-error: true
@@ -243,7 +246,7 @@ jobs:
         run: bin/bundler-audit
 
       - name: Notify Slack
-        if: always()
+        if: failure()
         continue-on-error: true
         uses: ./.github/actions/slack-notify
         with:
@@ -273,7 +276,7 @@ jobs:
           done
 
       - name: Notify Slack
-        if: always()
+        if: failure()
         continue-on-error: true
         uses: ./.github/actions/slack-notify
         with:

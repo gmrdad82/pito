@@ -58,7 +58,8 @@ RSpec.describe Pito::Chat::Parser do
     end
 
     it "classifies unrecognised input as :unknown when no recent turn exists" do
-      result = described_class.call(lex("hello"), raw: "hello", conversation:)
+      # NB: not a greeting/farewell — those phrase-match to :greet / :farewell.
+      result = described_class.call(lex("xyzzy frobble"), raw: "xyzzy frobble", conversation:)
       expect(result.verb).to be_nil
       expect(result.kind).to eq(:unknown)
       expect(result.body_tokens).to eq([])

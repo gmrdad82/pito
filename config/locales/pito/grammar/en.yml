@@ -33,6 +33,8 @@ en:
         import: "Import a game from IGDB into your library"
         help: "List all follow-up targets and their accepted actions"
         shinies: "Show achievement tracks and obtained shinies (game, vid, or channel)"
+        greet: "Say hi — pito greets you with what it can do"
+        farewell: "Say bye — pito waves you off"
       hashtag:
         add: "Track a metric in this conversation"
         remove: "Stop tracking a metric"

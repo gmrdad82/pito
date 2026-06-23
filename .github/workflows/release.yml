@@ -3,15 +3,22 @@ name: Release (GHCR image)
 # Builds the production pito image and pushes it multi-arch (linux/amd64 +
 # linux/arm64) to the GitHub Container Registry.
 #
-# Trigger model: TAG-ONLY. This fires exclusively on a version-tag push
-# (`v0.7.0`, `v1.2.3`, …) plus a manual `workflow_dispatch` escape hatch — never
-# on branch pushes or ordinary commits. Day-to-day commits run `ci.yml`; an
-# image is built and published only when you cut a release tag. So: finish work
-# → `git tag v0.7.0 && git push origin v0.7.0` → this workflow ships the image.
+# Build model: NATIVE per-arch runners, not QEMU. amd64 builds on
+# `ubuntu-24.04`, arm64 builds on `ubuntu-24.04-arm` (free hosted arm64 runners
+# for public repos) — each pushes a by-digest image, then a `merge` job stitches
+# the two digests into one multi-arch manifest tagged `:<version>` + `:latest`.
+# This replaces the old single-runner QEMU emulation (~20-40 min on the arm leg)
+# with two native builds running in parallel.
 #
-# One-time setup: after the first successful run, set the package
-# `ghcr.io/gmrdad82/pito` to PUBLIC in GitHub → Packages → Package settings, so
-# self-hosters can `docker compose pull` without authenticating.
+# Trigger model: TAG-ONLY. Fires exclusively on a version-tag push (`v0.7.1`,
+# `v1.2.3`, …) plus a manual `workflow_dispatch` escape hatch — never on branch
+# pushes or ordinary commits. Day-to-day commits run `ci.yml`; an image is built
+# and published only when you cut a release tag. So: finish work →
+# `git tag v0.7.1 && git push origin v0.7.1` → this workflow ships the image.
+#
+# One-time setup (already done for ghcr.io/gmrdad82/pito): set the package to
+# PUBLIC in GitHub → Packages → Package settings, so self-hosters can
+# `docker compose pull` without authenticating.
 
 on:
   push:
@@ -29,14 +36,26 @@ env:
   IMAGE: ghcr.io/${{ github.repository }} # → ghcr.io/gmrdad82/pito
 
 jobs:
-  build-and-push:
-    runs-on: ubuntu-latest
+  build:
+    # One job per architecture, each on a NATIVE runner (no emulation).
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-24.04
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
     steps:
+      - name: Prepare platform pair
+        # "linux/amd64" → "linux-amd64", used to namespace caches + artifacts.
+        run: |
+          platform="${{ matrix.platform }}"
+          echo "PLATFORM_PAIR=${platform//\//-}" >> "$GITHUB_ENV"
+
       - name: Checkout code
         uses: actions/checkout@v6
-
-      - name: Set up QEMU (arm64 emulation)
-        uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -48,28 +67,90 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Derive image tags + labels
+      - name: Derive image labels
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE }}
+
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: ${{ matrix.platform }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # Push a tagless, by-digest image per arch; the merge job tags them.
+          outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=${{ env.PLATFORM_PAIR }}
+          cache-to: type=gha,mode=max,scope=${{ env.PLATFORM_PAIR }}
+
+      - name: Export digest
+        run: |
+          mkdir -p "${{ runner.temp }}/digests"
+          digest="${{ steps.build.outputs.digest }}"
+          touch "${{ runner.temp }}/digests/${digest#sha256:}"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-${{ env.PLATFORM_PAIR }}
+          path: ${{ runner.temp }}/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Notify Slack (build failure)
+        if: failure()
+        continue-on-error: true
+        uses: ./.github/actions/slack-notify
+        with:
+          status: ${{ job.status }}
+          webhook: ${{ secrets.SLACK_WEBHOOK }}
+          github-token: ${{ github.token }}
+
+  merge:
+    # Stitch the per-arch digests into one multi-arch manifest and tag it.
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          path: ${{ runner.temp }}/digests
+          pattern: digests-*
+          merge-multiple: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Derive image tags
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.IMAGE }}
           tags: |
-            # 0.7.0 from a v0.7.0 tag push
+            # 0.7.1 from a v0.7.1 tag push
             type=semver,pattern={{version}}
             # always publish :latest (release tag or manual dispatch)
             type=raw,value=latest
 
-      - name: Build and push (amd64 + arm64)
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ./Dockerfile
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+      - name: Create + push multi-arch manifest
+        working-directory: ${{ runner.temp }}/digests
+        run: |
+          docker buildx imagetools create \
+            $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            $(printf '${{ env.IMAGE }}@sha256:%s ' *)
+
+      - name: Inspect published manifest
+        run: docker buildx imagetools inspect "${{ env.IMAGE }}:${{ steps.meta.outputs.version }}"
 
       - name: Notify Slack
         if: always()

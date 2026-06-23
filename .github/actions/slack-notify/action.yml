@@ -57,18 +57,39 @@ runs:
         repo_name="${REPO##*/}"
         short_sha="${SHA:0:7}"
 
+        # Pick a random element from the args — keeps the Butler from saying the
+        # exact same thing on every run.
+        pick() { local arr=("$@"); printf '%s' "${arr[RANDOM % ${#arr[@]}]}"; }
+
         case "$STATUS" in
           success)
+            line="$(pick \
+              "Everything behaved itself. Nothing to see here, as it should be." \
+              "Green across the board. I shall permit myself a small nod." \
+              "All checks passed — suspiciously smooth, but I won't jinx it." \
+              "Spotless. You may frame this one." \
+              "No notes. The pipeline is, dare I say, content." \
+              "Clean run. I've seen worse — much worse." \
+              "Everything's green. Do try to act surprised." \
+              "Flawless. Don't let it go to your head." \
+              "All systems nominal. The Butler approves." \
+              "Passed without complaint. A rare and beautiful thing.")"
             text="$(printf '%s\n%s\n%s' \
               ":white_check_mark: *${WORKFLOW} is green on \`${BRANCH}\`* :four_leaf_clover:" \
-              "Everything behaved itself. Nothing to see here, as it should be." \
+              "${line}" \
               "_${repo_name} · <${RUN_URL}|run> · \`${short_sha}\`_")"
             ;;
 
           cancelled)
+            line="$(pick \
+              "Someone pulled the plug mid-run. I shan't ask why." \
+              "Called off before the finish. Cold feet, perhaps." \
+              "Aborted. We'll pretend that didn't happen." \
+              "Stopped mid-stride. Most undignified." \
+              "Cancelled. The Butler retires to his quarters.")"
             text="$(printf '%s\n%s\n%s' \
               ":no_entry: *${WORKFLOW} was called off on \`${BRANCH}\`*" \
-              "Someone pulled the plug mid-run. I shan't ask why." \
+              "${line}" \
               "_${repo_name} · <${RUN_URL}|run> · \`${short_sha}\`_")"
             ;;
 
@@ -102,8 +123,9 @@ runs:
             esac
             shopt -u nocasematch
 
+            verb="$(pick "fell over" "face-planted" "threw a tantrum" "came apart at the seams" "had a moment" "lost its composure")"
             text="$(printf '%s\n%s\n%s\n%s' \
-              ":rotating_light: *${WORKFLOW} fell over on \`${BRANCH}\`*" \
+              ":rotating_light: *${WORKFLOW} ${verb} on \`${BRANCH}\`*" \
               "Tripped at: *${failed_step}*" \
               "${quip}" \
               "_${repo_name} · \`${short_sha}\` · <${RUN_URL}|View the carnage>_")"

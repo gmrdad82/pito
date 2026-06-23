@@ -6,15 +6,15 @@ RSpec.describe Pito::Copy::Audit, type: :service do
   # We store fixture translations directly into the I18n backend so the specs
   # are fully isolated from the real locale files.
   #
-  # - greeting  (1 variant)   → single, below_standard
-  # - farewell  (2 variants)  → multi,  below_standard
+  # - audit_single  (1 variant)   → single, below_standard
+  # - audit_pair  (2 variants)  → multi,  below_standard
   # - full_pool (50 variants) → multi,  NOT below_standard
   around do |example|
     I18n.backend.store_translations(:en,
       pito: {
         copy: {
-          greeting:  "Hello!",
-          farewell:  [ "See you.", "Later." ],
+          audit_single:  "Hello!",
+          audit_pair:  [ "See you.", "Later." ],
           tagged:    [ "Hey %{name}!", "Hi there, %{name}." ],
           dual_var:  [ "From %{sender} to %{receiver}." ],
           full_pool: Array.new(50) { |i| "Variant #{i}" }
@@ -30,7 +30,7 @@ RSpec.describe Pito::Copy::Audit, type: :service do
   ensure
     # Fixtures are merged into the shared I18n backend; reload so they don't
     # leak real-file pollution into specs that run after this one (e.g. the
-    # 1-or-50 dictionary guard, which would see farewell/tagged as offenders).
+    # 1-or-50 dictionary guard, which would see audit_pair/tagged as offenders).
     I18n.reload!
   end
 
@@ -51,8 +51,8 @@ RSpec.describe Pito::Copy::Audit, type: :service do
       it "includes every leaf under pito.copy.*" do
         keys = registered.map { |r| r[:key] }
         expect(keys).to include(
-          "pito.copy.greeting",
-          "pito.copy.farewell",
+          "pito.copy.audit_single",
+          "pito.copy.audit_pair",
           "pito.copy.tagged",
           "pito.copy.dual_var"
         )
@@ -63,8 +63,8 @@ RSpec.describe Pito::Copy::Audit, type: :service do
         expect(keys).not_to include("pito.copy")
       end
 
-      context "with a single-string entry (greeting)" do
-        subject(:entry) { registered.find { |r| r[:key] == "pito.copy.greeting" } }
+      context "with a single-string entry (audit_single)" do
+        subject(:entry) { registered.find { |r| r[:key] == "pito.copy.audit_single" } }
 
         it "reports variants: 1" do
           expect(entry[:variants]).to eq(1)
@@ -79,8 +79,8 @@ RSpec.describe Pito::Copy::Audit, type: :service do
         end
       end
 
-      context "with a multi-variant entry (farewell)" do
-        subject(:entry) { registered.find { |r| r[:key] == "pito.copy.farewell" } }
+      context "with a multi-variant entry (audit_pair)" do
+        subject(:entry) { registered.find { |r| r[:key] == "pito.copy.audit_pair" } }
 
         it "reports the correct variant count" do
           expect(entry[:variants]).to eq(2)
@@ -117,16 +117,16 @@ RSpec.describe Pito::Copy::Audit, type: :service do
     describe "below_standard flag" do
       subject(:registered) { described_class.call.registered }
 
-      context "with a pool below 50 variants (farewell: 2)" do
-        subject(:entry) { registered.find { |r| r[:key] == "pito.copy.farewell" } }
+      context "with a pool below 50 variants (audit_pair: 2)" do
+        subject(:entry) { registered.find { |r| r[:key] == "pito.copy.audit_pair" } }
 
         it "flags it as below_standard: true" do
           expect(entry[:below_standard]).to be(true)
         end
       end
 
-      context "with a single-string entry (greeting: 1)" do
-        subject(:entry) { registered.find { |r| r[:key] == "pito.copy.greeting" } }
+      context "with a single-string entry (audit_single: 1)" do
+        subject(:entry) { registered.find { |r| r[:key] == "pito.copy.audit_single" } }
 
         it "flags it as below_standard: true" do
           expect(entry[:below_standard]).to be(true)
@@ -158,8 +158,8 @@ RSpec.describe Pito::Copy::Audit, type: :service do
       it "does NOT include pito.copy.* entries" do
         keys = candidates.map { |c| c[:key] }
         expect(keys).not_to include(
-          "pito.copy.greeting",
-          "pito.copy.farewell",
+          "pito.copy.audit_single",
+          "pito.copy.audit_pair",
           "pito.copy.tagged"
         )
       end

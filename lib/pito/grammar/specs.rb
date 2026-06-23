@@ -212,6 +212,24 @@ module Pito
             name:            :shinies,
             slots:           [ Slot.new(name: :target, kind: :free, optional: true) ],
             description_key: "pito.grammar.chat.shinies"
+          ),
+
+          # `greet` / `farewell` — conversational hellos and goodbyes. Recognised
+          # by a whole-input phrase match in Pito::Chat::Parser (single OR multi-word,
+          # case-insensitive, punctuation-tolerant — "Hi", "good bye", "hasta luego"),
+          # not by a first-word verb alias. These specs exist for handler↔spec parity
+          # + help text; they take no args.
+          Spec.new(
+            namespace:       :chat,
+            name:            :greet,
+            slots:           [],
+            description_key: "pito.grammar.chat.greet"
+          ),
+          Spec.new(
+            namespace:       :chat,
+            name:            :farewell,
+            slots:           [],
+            description_key: "pito.grammar.chat.farewell"
           )
 
         ]

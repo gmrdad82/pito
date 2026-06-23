@@ -75,14 +75,14 @@ RSpec.describe Pito::Chat::Dispatcher do
       expect(result.message_args).to eq({ verb: :find })
     end
 
-    it "returns Error(unknown_input) for unrecognised input with no open turn" do
-      result = described_class.call(input: "hello", conversation:)
-      expect(result).to be_a(Pito::Chat::Result::Error)
-      expect(result.message_key).to eq("pito.chat.errors.unknown_input")
-      expect(result.message_args).to eq({ input: "hello" })
+    it "returns a witty :system reply (not an error) for unrecognised input" do
+      result = described_class.call(input: "boo!", conversation:)
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(result.events.first[:kind]).to eq(:system)
+      expect(result.events.first[:payload][:text]).to be_present
     end
 
-    it "returns Error(unknown_input) for no-verb input even when an open turn exists" do
+    it "returns a witty :system reply for no-verb input even when an open turn exists" do
       # Refinement machinery has been removed — no-verb messages always fall through to :unknown.
       turn = conversation.turns.create!(
         input_text: "list videos",
@@ -97,8 +97,8 @@ RSpec.describe Pito::Chat::Dispatcher do
       )
 
       result = described_class.call(input: "more stuff", conversation:)
-      expect(result).to be_a(Pito::Chat::Result::Error)
-      expect(result.message_key).to eq("pito.chat.errors.unknown_input")
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(result.events.first[:kind]).to eq(:system)
     end
 
     it "returns Error(misrouted_slash) for slash-prefixed input" do
