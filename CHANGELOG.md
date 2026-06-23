@@ -8,8 +8,9 @@ All notable changes to pito are documented here. The format follows
 
 ### Added
 
-- **Shinies** — lifetime achievements across **subs, views, watch time, likes, and
-  comms**, on a 22-step tier ladder (1 → 10M) color-coded by tier. Unlocked by a
+- **Shinies** — lifetime achievements across **subs, subs gained, views, watch time, likes,
+  and comms** (subs is channel-only; subs gained is per video/game), on a 22-step tier ladder
+  (1 → 10M) color-coded by tier. Unlocked by a
   standalone 3×/day refresh; each unlock fires a **🏆 notification** (Slack /
   Discord + in-app), and the biggest shiny per metric shows on the video/game.
 - **`shinies` command** — `shinies channel @handle` / `shinies video <id>` /
@@ -30,15 +31,18 @@ All notable changes to pito are documented here. The format follows
   page never blocks on YouTube, and a refresh mid-fetch is safe. The metrics lay out in
   uniform key/value columns that fill the card width and wrap aligned (every key shares one
   width, every value another, so a metric landing on the next row lines up with the row above).
-- **Smarter `list` parsing** — `list …` now ignores conversational filler (`list rpg ps5 please`
-  just works, never a "didn't understand" error), and for a near-miss genre/platform/noun typo it
-  suggests a correction (`list rpgg` → *"Did you mean `rpg`?"*) instead of failing. Noun aliases —
-  `gamez`, and singular `video`/`channel`/`game` — route consistently (the `game`/`games` nouns
-  still work).
-- **Message intros shimmer their subject** — the subject of an intro (the video / game / channel
-  title, or the `count` + noun in list intros like "11 games" / "6 channels") now carries a
-  pito-blue→purple shimmer, and channel `@handle` references in intros shimmer cyan. Titles stay
-  HTML-escaped.
+- **Smarter `list` parsing** — `list` with no noun lists the **games** library, and filter terms
+  are matched against a known vocabulary (genre aliases like `rpg`/`fps`, platform synonyms like
+  `ps5`/`switch`, and `upcoming`); any token that isn't recognized vocabulary is treated as filler
+  and **silently dropped** instead of rejected. So `list rpg ps5 please` lists games filtered to the
+  **Role-playing** genre on **PlayStation 5**, ignoring `please` — no "didn't understand" error.
+  When an unrecognized token (≥4 chars) is within two edits of a real genre/platform/`upcoming`/noun
+  term, `list` offers that correction (`list rpgg` → *"Did you mean `rpg`?"*) instead of listing.
+  Noun routing runs through one shared vocabulary: `games`/`game`/`gamez` → games,
+  `channels`/`channel` → channels, `videos`/`video`/`vids`/`vid` → videos.
+- **Message intros shimmer their subject** — the subject of an intro (the video / game title, or
+  the `count` + noun in list intros like "11 games" / "6 channels") now carries a pito-blue→purple
+  shimmer, and channel `@handle` references in intros shimmer cyan. Titles stay HTML-escaped.
 - **Every message types out, each with its own thinking indicator** — response messages now
   reveal via the typewriter (including the detail / list / analytics / shinies HTML cards, not just
   plain text), and each message carries its **own** thinking indicator that resolves when *that*
@@ -52,14 +56,15 @@ All notable changes to pito are documented here. The format follows
   short, fast-fading trail as it moves (matching kitty's `cursor_trail`), and the same custom
   block cursor now appears on the single-line inputs too — game/video pickers, IGDB search,
   conversation rename, and the `ctrl+k` palette (made monospace to match). On a word-jump
-  (`ctrl+arrow`, `Home`/`End`, or a far click) the trail draws a **morphing comet** — full height
-  at both ends, pinching thin through the middle — that streaks from the old caret position to the
-  new one and retracts toward the cursor. The caret and its trail are **pito-blue**. Respects
+  (`ctrl+arrow`, `Home`/`End`, or a far click) the trail draws a **continuous morphing comet** (3–5
+  stretched segments that tile edge-to-edge, no gaps) — full height at both ends, pinching thin
+  through the middle — that streaks from the old caret position to the new one and retracts toward
+  the cursor. The caret and its trail are **pito-blue**. Respects
   `/config motion` + reduced-motion (solid block, no trail/blink when off).
 - **`/config` autosuggest** — typing `/config ` shows a **browsable list** of providers, and
   `/config <provider> ` lists that provider's setting/credential key names (secrets masked) —
-  navigate with ↑/↓ + Enter (the suggestion also now layers above the cursor, fixing a case where
-  it was hidden).
+  navigate with ↑/↓ + Enter (the suggestion now layers *below* the block cursor — above the
+  type-fx and trail layers — fixing a case where the cursor was hidden while a suggestion showed).
 - **Reveal effects** — pick how messages reveal with **`/config fx <typewriter|scramble|comet>`**
   (default typewriter): **typewriter** (now log-scaled, so long messages don't drag — a fast floor,
   capped ceiling), **scramble** (the whole line sits as random-glyph noise and decrypts left→right
@@ -86,7 +91,7 @@ All notable changes to pito are documented here. The format follows
 - **Mini-status bar:** "notification(s)" → **notif / notifs**; the auth label is now a
   configurable **nickname** (set with `/config me nickname=…`, default `gmrdad82`) when
   signed in, and **tarnished** when not.
-- **Thinking indicator now cycles its verb** every 5s (`doing…` → `computing…` → …)
+- **Thinking indicator now cycles its verb** every 5s (`Executing…` → `Computing…` → …)
   instead of showing one fixed word, and the final `…ed for Ns` uses the verb that
   was on screen last. The 5s cadence is a single constant; the animation is
   refresh-safe (time-derived).
@@ -111,15 +116,16 @@ All notable changes to pito are documented here. The format follows
   centered modal).
 - **Unified `--help`** — every command (`/config`, `/games`, slash + chat verbs) renders
   help in one man-page style.
-- **Notifications panel** sorts unread-first then read (each newest-first), re-sorting
-  live when you mark a row read/unread (cursor preserved).
+- **Notifications panel** sorts unread-first then read (each newest-first), applied server-side
+  when the panel opens (marking a row read/unread updates it in place without re-sorting — see
+  *Notifications read-state* below).
 - **Analytics now follow the shift+space interval.** The glance figures on `show video` /
   `show game` are computed for whatever window you've selected (7d / 28d / 3m / 1y /
   lifetime), default **7d**, persisted per conversation — change it with shift+space and it
   sticks across reloads. The default lives on the conversation, not in the analytics layer.
-- **Analytics table** — a clean two-column grid, each value right-aligned: `Views | Watched
-  hours`, `Avg view duration | Avg viewed %`, `Subs | Likes`, then `Comms` on its own row.
-  **Subs shows
+- **Analytics table** — each metric is a label/value pair (label left, value right-aligned) that
+  flows in a flex-wrap row, auto-filling as many columns as the width allows, in canonical order
+  Views, Watched hours, Avg view duration, Avg viewed %, Subs, Likes, Comms. **Subs shows
   `+gained/-lost`** (green gained / red lost); **Likes is compacted to `N👍/N👎`** in a single
   cell (thumbs-up green / thumbs-down red — the standalone Dislikes row is gone); Comms is a
   plain count.
@@ -130,8 +136,8 @@ All notable changes to pito are documented here. The format follows
 - **Shimmer phases scatter properly** — neighbouring tokens (sequential `#ids`, similar
   `@handles`) no longer drift into near-sync; the offset is now a hashed (CRC32) bucket so
   close values land far apart in the 20-slot cycle.
-- **Similar-games line** drops the middot — now just `#id Game Title` (shimmer id + a single
-  space + title).
+- **Similar-games line** drops the middot — now just `#id Game Title` (shimmer id + a thin flex
+  gap + title).
 - **Shinies badges redesigned** — every badge now uses one uniform **rounded** border (was a
   per-metric ASCII box), with a soft highlight that **travels around the border edge**, and the
   unlock date is muted. (This also fixes badges rendering with a misaligned right edge on mobile.)
@@ -167,8 +173,9 @@ All notable changes to pito are documented here. The format follows
   notifications, pickers, themes) opens as a **full-width overlay on top** of the
   conversation instead of squeezing it; desktop keeps the side-by-side panel. Still respects
   `/config fx` (snaps instead of animating when motion is off).
-- **Command-palette commands are clickable** — clicking a `ctrl+k` palette row selects + runs
-  it (same as arrow-to-it + Enter), and the command token (e.g. `/connect`) shimmers cyan.
+- **Command-palette commands are clickable** — clicking a `ctrl+k` palette row selects it and
+  prefills the command into the chatbox (same as arrow-to-it + Enter — press Enter to run), and the
+  command token (e.g. `/connect`) shimmers cyan.
 - **Sidebar rows are clickable** — game/video pickers, `/resume` conversations, and IGDB
   import results activate on click, identical to highlighting + Enter.
 - **Notifications read-state** — moving the cursor onto a notification marks it read; clicking
@@ -193,9 +200,9 @@ All notable changes to pito are documented here. The format follows
 - The intro timestamp (`HH:MM`) now leads the copy on a single line across every
   detail and enhanced card (`show video` / `show game`, the linked-game card, analytics,
   shinies) — long copy wraps beneath it instead of the timestamp dropping to its own row.
-- `list channels` stat legend is now left-aligned.
 - With the **ctrl+k palette open over a sidebar**, arrow/Enter keys now drive only the palette
-  — the sidebar/picker keyboard nav bails while the palette is open (no more dual cursor).
+  — the conversation list, notifications, the game/video pickers, and the IGDB import-results picker
+  all bail while the palette is open (no more dual cursor).
 - The notification chime no longer plays when you **toggle a notification read/unread** — it
   sounds only for a genuinely new notification (tracked by the latest notification id, not the
   unread count, which a toggle also moves).
@@ -207,7 +214,6 @@ All notable changes to pito are documented here. The format follows
 - **Analytics now actually appear** on `show video` / `show game` — the filled table was
   rendering without a replaceable DOM id, so the background job's live update never landed
   on the page (it sat on the intro). The card now updates in place the moment the data is ready.
-- Removed the extra gap between the Stats counters and their legend.
 - `list games` platform logos now reveal in step with their row (no longer pop in early).
 - **Avatars, video thumbnails and game cover art no longer vanish** — local (dev)
   ActiveStorage moved out of `tmp/` (which gets wiped) into a gitignored `public/` folder

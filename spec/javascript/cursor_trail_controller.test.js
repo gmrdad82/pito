@@ -208,9 +208,11 @@ describe("pito--cursor-trail controller", () => {
   //
   // TRAIL_INTERPOLATE_THRESHOLD_PX = 18 px (≈2 monospace glyphs) so even a short
   // word-jump streaks; a 14px one-glyph move stays on the single-ghost hot path.
-  // Caret height is 20px (mountWrap), so morphed ghosts pinch to ~30% (6px) mid-travel.
+  // The comet is 3–5 stretched SEGMENTS (count scales with length) that tile
+  // edge-to-edge — no gaps. Caret height is 20px (mountWrap), so morphed segments
+  // pinch to ~30% (6px) mid-travel; segment widths tile exactly in headless layout.
 
-  it("(a) activates MULTIPLE ghosts for a large-distance jump, positions between prev and next", async () => {
+  it("(a) activates 3–5 segment ghosts for a large-distance jump, positions between prev and next", async () => {
     const wrap = mountWrap()
     await tick()
 
@@ -219,8 +221,9 @@ describe("pito--cursor-trail controller", () => {
     await nextFrame()
 
     const on = active(wrap)
-    // The big-jump path must spawn at least 2 ghosts (minimum count).
-    expect(on.length).toBeGreaterThanOrEqual(2)
+    // The comet is 3–5 segments (count scales with jump length).
+    expect(on.length).toBeGreaterThanOrEqual(3)
+    expect(on.length).toBeLessThanOrEqual(5)
     // Pool must never grow — all ghosts come from the existing ring.
     expect(pool(wrap).length).toBe(POOL_SIZE)
 
@@ -237,6 +240,32 @@ describe("pito--cursor-trail controller", () => {
       expect(y).toBeGreaterThanOrEqual(0)           // within the caret band, centred
       expect(y + h).toBeLessThanOrEqual(20 + 0.001) // pinched height fits the band
     }
+  })
+
+  it("tiles its segments edge-to-edge — no gaps (continuous comet)", async () => {
+    const wrap = mountWrap()
+    await tick()
+
+    caret(wrap, 0, 0)
+    caret(wrap, 200, 0)   // big jump → 3–5 stretched segments
+    await nextFrame()
+
+    // Each segment is a stretched block (explicit px width). Sorted by x, every
+    // segment's right edge must reach the next segment's left edge — contiguous, never
+    // a gap (this is the regression guard against the old dotted "block · gap · block").
+    const segs = [ ...active(wrap) ].map((g) => ({
+      left:  parseFloat(g.style.transform.match(/translate\(([^,]+)px/)[1]),
+      width: parseFloat(g.style.width)
+    })).sort((a, b) => a.left - b.left)
+
+    expect(segs.length).toBeGreaterThanOrEqual(3)
+    for (let i = 0; i < segs.length - 1; i++) {
+      expect(segs[i].left + segs[i].width).toBeGreaterThanOrEqual(segs[i + 1].left - 0.001)
+    }
+    // The comet spans the whole jump: first segment starts at ~prev, last reaches ~next.
+    expect(segs[0].left).toBeLessThanOrEqual(0.001)
+    const last = segs[segs.length - 1]
+    expect(last.left + last.width).toBeGreaterThanOrEqual(200 - 0.001)
   })
 
   it("morphs the streak: a mid-travel ghost is shorter than an end ghost (kitty pinch)", async () => {

@@ -61,12 +61,29 @@ The full reference lives in [`CHANGELOG.md`](CHANGELOG.md); the short version:
 - **Notifications** — Slack + Discord integration (rich, colored, emoji'd) for
   reauth reminders, sync summaries, and upcoming-release countdowns, plus a live
   in-app unread badge.
-- **Shinies** — lifetime achievements across subs, views, watch time, likes, and
-  comms. They unlock as your channels, videos, and games grow, each arriving as a
-  🏆 notification and collected right on the video/game.
+- **Shinies** — lifetime achievements across subs, subs gained, views, watch time,
+  likes, and comms. They unlock as your channels, videos, and games grow, each
+  arriving as a 🏆 notification and collected right on the video/game.
 - **The shell** — terminal-style chat UI, one font, no hover; **full keyboard
   navigation** (ditch the mouse); themes; per-conversation scope/period that
   persists; self-hosted in Docker; free.
+
+## Themes
+
+pito ships **19 built-in themes** — familiar editor palettes — switched live with
+`/themes` (opens a picker; your choice persists):
+
+`ayu-dark` · `ayu-light` · `ayu-mirage` · `catppuccin-latte` · `catppuccin-mocha` ·
+`dracula` · `github-dark` · `github-light` · `gruvbox-dark` · `gruvbox-light` ·
+`nord` · `one-dark` · `one-light` · `solarized-dark` · `solarized-light` ·
+`synthwave` · `tokyo-night` · `tomorrow` · `tomorrow-night`.
+
+Every theme is a set of CSS custom properties in
+[`app/assets/tailwind/themes.css`](app/assets/tailwind/themes.css), so all 19 are
+fully supported. That said — I personally run **synthwave**, so most of the visual
+tuning (shimmer colors, the `#5170ff` pito-blue accent, contrast choices) is dialed
+in around that theme. Everything still works on the others, but if a palette doesn't
+feel quite right to you, the tokens are right there: tune them to your preference.
 
 ## Stack
 
