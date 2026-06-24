@@ -13,13 +13,11 @@ module Pito
     BANNER_KEY = "pito.copy.development.banner"
 
     def call
-      # `w-screen` (not right-0): html reserves a stable 6px scrollbar gutter, so
-      # right-0 would stop short of the true window edge. The window never scrolls
-      # (the scrollback scrolls in an inner container), so 100vw reaches the edge
-      # with no horizontal overflow.
+      # Full-bleed bottom bar. right-0 reaches the true edge now that html no
+      # longer reserves a dead scrollbar gutter (see application.css).
       tag.div(
         Pito::Copy.render(BANNER_KEY),
-        class: "fixed bottom-0 left-0 w-screen z-40 bg-red text-fg text-center " \
+        class: "fixed bottom-0 left-0 right-0 z-40 bg-red text-fg text-center " \
                "font-bold py-0.5 pointer-events-none select-none"
       )
     end

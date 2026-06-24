@@ -75,7 +75,10 @@ html {
   font-size: var(--text-base);
   scrollbar-width: thin;
   scrollbar-color: var(--border-default) var(--bg-root);
-  scrollbar-gutter: stable;
+  /* No scrollbar-gutter: the app shell is `h-screen overflow-hidden` so the
+     window never scrolls — reserving a gutter just left a permanent ~6px dead
+     strip down the right edge (most visible on full-bleed elements like the
+     dev banner). Inner scroll lives in #pito-scrollback, which hides its bar. */
 }
 
 /* ── Cursor component ───────────────────────────────────────── */

@@ -13,11 +13,10 @@ RSpec.describe Pito::DevelopmentBannerComponent do
     expect(node.text).to include("DEVELOPMENT")
   end
 
-  it "is a fixed, full-viewport-width red banner pinned to the bottom" do
-    # w-screen (not right-0) so it spans past html's stable scrollbar gutter to the edge.
+  it "is a fixed, full-width red banner pinned to the bottom" do
     div = node.css("div").first
     classes = div["class"]
-    expect(classes).to include("fixed", "bottom-0", "left-0", "w-screen", "bg-red")
+    expect(classes).to include("fixed", "bottom-0", "left-0", "right-0", "bg-red")
   end
 
   it "uses the default foreground for readable contrast on red" do
