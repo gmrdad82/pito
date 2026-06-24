@@ -50,7 +50,7 @@ you" is a click on one of the channels that dragged this tool into existence in 
 first place:
 
 <!-- prettier-ignore -->
-<p align="center"><a href="https://www.youtube.com/@gmrdad82"><img src="docs/avatars/@gmrdad82.png" width="80" alt="@gmrdad82"></a> <a href="https://www.youtube.com/@manfyfighting"><img src="docs/avatars/@manfyfighting.png" width="80" alt="@manfyfighting"></a> <a href="https://www.youtube.com/@manfygreats"><img src="docs/avatars/@manfygreats.png" width="80" alt="@manfygreats"></a> <a href="https://www.youtube.com/@manfyhard"><img src="docs/avatars/@manfyhard.png" width="80" alt="@manfyhard"></a> <a href="https://www.youtube.com/@manfystrategy"><img src="docs/avatars/@manfystrategy.png" width="80" alt="@manfystrategy"></a> <a href="https://www.youtube.com/@manfysurvival"><img src="docs/avatars/@manfysurvival.png" width="80" alt="@manfysurvival"></a></p>
+<p align="center"><a href="https://www.youtube.com/@gmrdad82"><img src="docs/avatars/@gmrdad82.png" width="80" alt="@gmrdad82"></a> <a href="https://www.youtube.com/@gmrdad82fighter"><img src="docs/avatars/@gmrdad82fighter.png" width="80" alt="@gmrdad82fighter"></a> <a href="https://www.youtube.com/@gmrdad82good"><img src="docs/avatars/@gmrdad82good.png" width="80" alt="@gmrdad82good"></a> <a href="https://www.youtube.com/@gmrdad82hard"><img src="docs/avatars/@gmrdad82hard.png" width="80" alt="@gmrdad82hard"></a> <a href="https://www.youtube.com/@gmrdad82strategist"><img src="docs/avatars/@gmrdad82strategist.png" width="80" alt="@gmrdad82strategist"></a> <a href="https://www.youtube.com/@gmrdad82survivor"><img src="docs/avatars/@gmrdad82survivor.png" width="80" alt="@gmrdad82survivor"></a></p>
 
 ---
 
