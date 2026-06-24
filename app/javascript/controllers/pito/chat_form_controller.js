@@ -129,13 +129,10 @@ export default class extends Controller {
 
     if (event.key !== "Enter" || event.shiftKey) return
 
-    // Cable dead after inactivity — reload to re-establish the WebSocket
-    if (document.body.dataset.pitoCableOffline === "true") {
-      event.preventDefault()
-      window.location.reload()
-      return
-    }
-
+    // Submit ALWAYS — the message POSTs over HTTP, independent of the WebSocket.
+    // (We used to reload here when the cable was flagged offline, which silently
+    // discarded what the user typed; the cable reconnects on its own / on the
+    // tab-visibility recovery in pito--cable-health.)
     const hasInput = this.inputFieldTarget.value.trim().length > 0
     event.preventDefault()
     this.#syncHidden()
