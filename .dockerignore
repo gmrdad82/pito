@@ -30,8 +30,23 @@
 /tmp/storage/*
 !/tmp/storage/.keep
 
-# Ignore assets.
+# Ignore assets + dev Active Storage blobs (avatars/thumbnails/covers live under
+# public/pito-storage in development — must never be baked into a local build).
 /public/assets
+/public/pito-storage
+
+# Ignore JS deps — PITO runs on importmap (no node build at runtime); node_modules
+# is dev-only (vitest). ~41 MB never belongs in the image.
+/node_modules
+
+# Ignore tests + coverage. The image ships BUNDLE_WITHOUT="development test", so the
+# test gems aren't installed and specs can't run in it anyway.
+/spec
+/coverage
+
+# Ignore docs + media (guides + the ~14 MB theme gallery / feature GIFs). None of it
+# is read at runtime — keep it out of the published image too.
+/docs
 
 # Ignore CI service files.
 /.github

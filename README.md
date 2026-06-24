@@ -215,9 +215,7 @@ right to you, the tokens are right there: tune them to your preference.
 | :-----------------------------------------------------: | :-----------------------------------------------------------: |
 | <img src="docs/media/themes/one-light.png" width="400"> | <img src="docs/media/themes/solarized-light.png" width="400"> |
 
-|                      **tomorrow**                      |     |
-| :----------------------------------------------------: | :-: |
-| <img src="docs/media/themes/tomorrow.png" width="400"> |     |
+<p align="center"><b>tomorrow</b><br><img src="docs/media/themes/tomorrow.png" width="400"></p>
 
 </details>
 
@@ -447,12 +445,13 @@ can convey.
 ## Support
 
 **PITO** is one person's tool, but if you're stuck, lost, or just want to report that
-the cover art _finally_ loaded — there's a Discord. Pop in, ask away, judgment kept to
-a minimum:
+the cover art _finally_ loaded, there's a Discord — pop in, ask away, judgment kept to
+a minimum 👉 **[discord.gg/q947UyDTqJ](https://discord.gg/q947UyDTqJ)**
 
-👉 **[discord.gg/q947UyDTqJ](https://discord.gg/q947UyDTqJ)**
-
-Or find me on X: 👉 **[@GamerDady82](https://x.com/GamerDady82)**
+Prefer elsewhere? Find me on X 👉 **[@GamerDady82](https://x.com/GamerDady82)**, or on
+YouTube at **[@gmrdad82](https://www.youtube.com/@gmrdad82)** — my engineering/personal
+channel, where PITO gets its tour. (The gaming side is the **Manfy** network linked up
+top.)
 
 No SLA, no ticket queue, no "your call is important to us." Just a channel and a human
 who checks it between renders.
