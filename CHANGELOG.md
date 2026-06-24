@@ -25,6 +25,8 @@ finally finishes the job (services enabled, tunnel running) on its own.
   an existing tunnel is reused, and the tunnel comes up on boot with no manual
   `cloudflared tunnel run`. Re-running the installer is idempotent: it keeps your
   master key, Postgres volume (channels/videos/games/`/config` keys), and TOTP.
+  `pito update` is systemd-aware too — it pulls, restarts via the service (`sudo
+systemctl restart pito`) so the unit stays the owner, and prunes the old image.
 - **Dev tabs are unmistakable.** In development the favicon turns **red** and a
   full-width **DEVELOPMENT** banner pins to the bottom (label from `Pito::Copy`), so
   a dev tab is never confused for production.
