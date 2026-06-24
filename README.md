@@ -233,6 +233,8 @@ through enrolling a login:
 curl -fsSL https://raw.githubusercontent.com/gmrdad82/pito/main/script/install.sh | sh
 ```
 
+<p align="center"><img src="docs/media/pito-install-cast.gif" width="820" alt="curl | sh installing PITO — version picker, then it fetches + sets up"></p>
+
 It first asks **which version** to install — pick a **stable** release (the newest
 is the default + recommended) or **edge** (latest image + bleeding-edge CLI from
 `main`). Then it asks for the public URL (default **http://localhost:3028**), mints a
@@ -365,6 +367,8 @@ useful; IGDB and Voyage unlock the game features.
 The Docker stack is driven by the **`pito`** CLI (on your `PATH` after install —
 or `./pito` from the install dir):
 
+<p align="center"><img src="docs/media/pito-cli-cast.gif" width="820" alt="the pito CLI in action — help, version, logs, rake, backup"></p>
+
 | Command            | What it does                                           |
 | ------------------ | ------------------------------------------------------ |
 | `pito up` / `down` | start / stop the stack                                 |
@@ -376,6 +380,12 @@ or `./pito` from the install dir):
 | `pito version`     | show the running version + channel (stable/edge)       |
 | `pito update`      | update — pick a release (stable) or edge, then restart |
 | `pito backup`      | dump DB + Active Storage to `./backups/<ts>/` (host)   |
+
+**`pito update`** is the one you'll reach for most — it's interactive: it lists the
+available releases (or **edge**) and switches the whole stack (image **and** CLI) to
+your pick in one step:
+
+<p align="center"><img src="docs/media/pito-update-cast.gif" width="820" alt="pito update — pick a stable release, the whole stack switches"></p>
 
 In-app, **`/jobs`** is your window into the background queue: `/jobs status` (workers,
 state counts, recent failures), `/jobs requeue <id|all>`, `/jobs run <key>` (run a

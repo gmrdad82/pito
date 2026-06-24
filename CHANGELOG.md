@@ -4,6 +4,18 @@ All notable changes to PITO are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); the project aims for
 [Semantic Versioning](https://semver.org/).
 
+## [0.7.6] — unreleased
+
+The **golden tape** release — the README now _moves_.
+
+### Added
+
+- **CLI casts in the README** (recorded with [VHS](https://github.com/charmbracelet/vhs),
+  themed in PITO's own synthwave palette):
+  - **Operating PITO** — `pito --help` → `version` → `logs` → `rake` → `backup`, live.
+  - **Install** — `curl | sh` showing the version picker → fetch (the "one line" proof).
+  - **`pito update`** — the interactive stable/edge version picker switching the stack.
+
 ## [0.7.5] — 2026-06-24
 
 The **papercuts** release — chat/slash autosuggest + reply-shortcut fixes.
