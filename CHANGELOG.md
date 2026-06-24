@@ -6,10 +6,18 @@ All notable changes to PITO are documented here. The format follows
 
 ## [0.7.4] — unreleased
 
-The **safety-net** release: hands-off, restorable backups for the self-host.
+The **safety-net & self-service** release: hands-off restorable backups, version
+channels you pick at install/update time, and `pito` as a real PATH command.
 
 ### Added
 
+- **Version channels (stable / edge).** Install and `pito update` are now
+  interactive — pick a **stable** release (image tag _and_ CLI/scripts pinned to the
+  same `vX.Y.Z` git tag, fully reproducible) or **edge** (`:latest` image + CLI from
+  `main`). Available releases are listed live from the GitHub API. Non-interactive
+  flags: `--version vX.Y.Z` / `--edge`. `.env` records `PITO_TAG` + `PITO_REF`.
+- **`pito --version`** — shows the running version + channel (e.g.
+  `pito 0.7.3 (stable)`), read from the image's OCI labels + `.env`.
 - **Scheduled backups.** `pito backup-schedule` installs a daily systemd timer
   (`pito-backup.timer`, 03:00) that runs `pito backup` and self-prunes to the
   newest **7** — rolling, hands-off backups on the host. Also offered during

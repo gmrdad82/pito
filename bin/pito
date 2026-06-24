@@ -25,6 +25,7 @@
 #   service [args]    Install/uninstall a systemd unit (reboot-persistence).
 #   cloudflared       Print Cloudflare Tunnel setup guidance for your host.
 #   link              Symlink pito onto your PATH so it runs as a bare `pito`.
+#   version           Show the running stack version + channel (stable/edge).
 #   --help            This help.
 
 set -eu
@@ -57,6 +58,7 @@ dc() { docker compose "$@"; }
 
 # Run a helper script (install.sh / update.sh). In a repo checkout it lives under
 # script/; in a fetched install dir it doesn't, so pull it from the repo first.
+# shellcheck disable=SC2034  # kept for reference; fetch now uses $ref from .env
 REPO_RAW="https://raw.githubusercontent.com/gmrdad82/pito/main"
 run_script() {
   name="$1"; shift
@@ -64,13 +66,14 @@ run_script() {
     exec sh "$PROJECT_DIR/script/$name" "$@"
   fi
   command -v curl >/dev/null 2>&1 || { echo "pito: curl is required to fetch script/$name" >&2; exit 1; }
+  ref=$(sed -n 's/^PITO_REF=//p' .env 2>/dev/null | head -1); ref="${ref:-main}"
   tmp=$(mktemp)
-  curl -fsSL "$REPO_RAW/script/$name" -o "$tmp" || { echo "pito: failed to fetch script/$name" >&2; exit 1; }
+  curl -fsSL "https://raw.githubusercontent.com/gmrdad82/pito/$ref/script/$name" -o "$tmp" || { echo "pito: failed to fetch script/$name" >&2; exit 1; }
   exec sh "$tmp" "$@"
 }
 
 usage() {
-  sed -n '3,29p' "$0" | sed 's/^# \{0,1\}//; s/^#$//'
+  sed -n '3,30p' "$0" | sed 's/^# \{0,1\}//; s/^#$//'
 }
 
 cmd="${1:-}"
@@ -166,6 +169,24 @@ case "$cmd" in
   service)   run_script install.sh --service-only "$@" ;;
   cloudflared) run_script install.sh --cloudflared-only "$@" ;;
   link)      run_script install.sh --link-only "$@" ;;
+  version|--version|-v)
+    tag=$(sed -n 's/^PITO_TAG=//p' .env 2>/dev/null | head -1); tag="${tag:-latest}"
+    ref=$(sed -n 's/^PITO_REF=//p' .env 2>/dev/null | head -1); ref="${ref:-main}"
+    case "$ref" in main|"") channel="edge" ;; *) channel="stable" ;; esac
+    # Prefer the actual image the stack uses; fall back to the ghcr ref.
+    img=$(dc images -q web 2>/dev/null | head -1)
+    [ -z "$img" ] && img="ghcr.io/gmrdad82/pito:$tag"
+    ver=$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.version" }}' "$img" 2>/dev/null)
+    rev=$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$img" 2>/dev/null)
+    [ -z "$ver" ] && ver="$tag"
+    printf 'pito %s (%s)\n' "$ver" "$channel"
+    if [ -n "$rev" ]; then
+      printf '  image: ghcr.io/gmrdad82/pito:%s  (rev %s)\n' "$tag" "$(printf '%s' "$rev" | cut -c1-8)"
+    else
+      printf '  image: ghcr.io/gmrdad82/pito:%s\n' "$tag"
+    fi
+    case "$channel" in stable) printf '  cli:   %s\n' "$ref" ;; *) printf '  cli:   main (rolling)\n' ;; esac
+    ;;
   ""|-h|--help|help) usage ;;
   *)
     echo "pito: unknown command '$cmd'. Run 'pito --help'." >&2

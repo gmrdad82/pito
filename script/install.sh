@@ -16,6 +16,8 @@
 #   --backup-timer-only  skip install; only (re)configure the daily backup timer
 #   --link-only          skip install; only symlink pito onto your PATH
 #   --skip-pull          use the locally-present image (for testing a local build)
+#   --edge               use the edge channel (image: latest, CLI from main)
+#   --version VER        pin a specific release (e.g. v0.7.3)
 #
 # Re-running is safe and non-destructive: existing master.key / credentials are
 # kept, the Postgres volume (channels, videos, games, /config API keys + webhooks)
@@ -30,6 +32,9 @@ REPO_RAW="https://raw.githubusercontent.com/gmrdad82/pito/main"
 DIR="./pito"
 HOST=""
 TAG="latest"
+REF=""
+CHANNEL=""
+REQ_VERSION=""
 MODE="install"
 SKIP_PULL=""
 CREDS_FRESH=0   # set to 1 by bootstrap_credentials only when it mints NEW secrets
@@ -43,8 +48,10 @@ while [ $# -gt 0 ]; do
     --cloudflared-only)  MODE="cloudflared"; shift ;;
     --backup-timer-only) MODE="backup-timer"; shift ;;
     --link-only)         MODE="link"; shift ;;
+    --edge)              CHANNEL="edge"; shift ;;
+    --version)           REQ_VERSION="$2"; shift 2 ;;
     --skip-pull)         SKIP_PULL=1; shift ;;
-    -h|--help)          sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help)          sed -n '2,22p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "install: unknown flag '$1'" >&2; exit 1 ;;
   esac
 done
@@ -283,9 +290,51 @@ link_cli() {
   fi
 }
 
+# ── version / channel resolution ─────────────────────────────────────────────
+list_tags() {
+  curl -fsSL "https://api.github.com/repos/gmrdad82/pito/tags?per_page=30" 2>/dev/null \
+    | grep -oE '"name": *"v[0-9][^"]*"' \
+    | sed -E 's/.*"(v[0-9][^"]*)".*/\1/' \
+    | sort -Vr
+}
+
+resolve_version() {
+  # Explicit version pin wins — use it as both the git ref and image tag.
+  if [ -n "${REQ_VERSION:-}" ]; then
+    REF="$REQ_VERSION"; TAG="${REQ_VERSION#v}"; return 0
+  fi
+  if [ "$CHANNEL" = "edge" ]; then REF="main"; TAG="latest"; return 0; fi
+  # Interactive pick: show the 5 newest releases + edge option.
+  tags=$(list_tags)
+  newest=$(printf '%s\n' "$tags" | head -1)
+  if [ -z "$tags" ]; then
+    warn "Couldn't list releases (offline / API limit) — defaulting to edge (latest + main)."
+    REF="main"; TAG="latest"; return 0
+  fi
+  echo "Available PITO versions:" >&2
+  i=1; printf '%s\n' "$tags" | head -5 | while IFS= read -r t; do
+    if [ "$t" = "$newest" ]; then printf '  %d) %s   stable (recommended)\n' "$i" "$t" >&2; else printf '  %d) %s   stable\n' "$i" "$t" >&2; fi
+    i=$((i+1))
+  done
+  printf '  e) edge   (latest image + bleeding-edge CLI from main)\n' >&2
+  printf 'Pick [1]: ' >&2
+  read -r pick </dev/tty || pick=""
+  case "$pick" in
+    e|E) REF="main"; TAG="latest" ;;
+    "")  REF="$newest"; TAG="${newest#v}" ;;
+    *)   chosen=$(printf '%s\n' "$tags" | head -5 | sed -n "${pick}p")
+         [ -z "$chosen" ] && chosen="$newest"
+         REF="$chosen"; TAG="${chosen#v}" ;;
+  esac
+}
+
 # ── full install ─────────────────────────────────────────────────────────────
 do_install() {
   require_docker
+
+  resolve_version
+  REPO_RAW="https://raw.githubusercontent.com/gmrdad82/pito/$REF"
+  say "Channel: $(if [ "$REF" = "main" ]; then echo "edge"; else echo "stable ($REF)"; fi) — image tag $TAG"
 
   say "Installing pito into $DIR"
   mkdir -p "$DIR/config"
@@ -303,6 +352,7 @@ do_install() {
   fi
   env_set PITO_APP_BASE_URL "$HOST"
   env_set PITO_TAG "$TAG"
+  env_set PITO_REF "$REF"
 
   if [ -n "$SKIP_PULL" ]; then
     warn "Skipping image pull (--skip-pull) — using the locally-present image."
