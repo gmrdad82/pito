@@ -4,6 +4,26 @@ All notable changes to PITO are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); the project aims for
 [Semantic Versioning](https://semver.org/).
 
+## [0.7.4] — unreleased
+
+The **safety-net** release: hands-off, restorable backups for the self-host.
+
+### Added
+
+- **Scheduled backups.** `pito backup-schedule` installs a daily systemd timer
+  (`pito-backup.timer`, 03:00) that runs `pito backup` and self-prunes to the
+  newest **7** — rolling, hands-off backups on the host. Also offered during
+  install. Retention + location tune via `PITO_BACKUP_KEEP` / `PITO_BACKUP_DIR`.
+- **`pito restore <dir>`** — restore a backup over the live stack (DB + assets),
+  with a confirmation prompt (it's destructive) and a service restart after.
+- **`pito backup --list`** — list existing backups with their artifact sizes.
+
+### Changed
+
+- **`pito backup` now prunes** to the newest `PITO_BACKUP_KEEP` (default 7) after
+  each run, and honors `PITO_BACKUP_DIR`. The asset archive already captured
+  rendered variants (same disk root); that's now documented.
+
 ## [0.7.3] — 2026-06-24
 
 The **less-is-more** release. The published image goes on a serious diet —

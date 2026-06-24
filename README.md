@@ -386,16 +386,27 @@ git-ignored) with two artifacts:
 
 - `database.sql.gz` — `pg_dump` run inside the Postgres container (version-matched,
   includes the pgvector embeddings).
-- `active_storage.tar.gz` — your avatars/thumbnails/covers from the assets volume.
+- `active_storage.tar.gz` — your avatars/thumbnails/covers **and their variants**
+  from the assets volume.
 
-It runs against the live stack, so bring it up first (`pito up -d`). Restore is
-manual and deliberate:
+It runs against the live stack, so bring it up first (`pito up -d`). The full surface:
+
+| Command                | What it does                                                      |
+| ---------------------- | ----------------------------------------------------------------- |
+| `pito backup`          | back up DB + assets; **prunes to the newest 7** afterward         |
+| `pito backup --list`   | list existing backups with their sizes                            |
+| `pito restore <dir>`   | restore a backup over the live stack (prompts — it's destructive) |
+| `pito backup-schedule` | install a **daily** systemd timer that runs `pito backup`         |
+
+Tune retention + location with `PITO_BACKUP_KEEP` (default `7`) and `PITO_BACKUP_DIR`
+(default `./backups`). `pito backup-schedule` is also offered during install; once set,
+backups run daily at 03:00 and self-prune — hands-off rolling backups on the host.
+
+Restore is deliberate (`pito restore` confirms first, then reloads the DB + assets and
+restarts the service). The equivalent manual one-liners, if you prefer:
 
 ```bash
-# Database (DESTRUCTIVE — restores into the running DB):
 gunzip -c backups/<ts>/database.sql.gz | docker compose exec -T postgres psql -U pito -d pito_production
-
-# Active Storage assets (into the running web container):
 gunzip -c backups/<ts>/active_storage.tar.gz | docker compose exec -T web tar xf - -C /var/lib/pito-assets
 ```
 
