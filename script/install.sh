@@ -12,8 +12,9 @@
 #   --host URL         public base URL (default: prompt; e.g. https://app.pitomd.com)
 #   --tag TAG          image tag to run (default: latest)
 #   --service-only     skip install; only (re)configure the systemd unit
-#   --cloudflared-only skip install; only print Cloudflare Tunnel guidance
-#   --skip-pull        use the locally-present image (for testing a local build)
+#   --cloudflared-only   skip install; only print Cloudflare Tunnel guidance
+#   --backup-timer-only  skip install; only (re)configure the daily backup timer
+#   --skip-pull          use the locally-present image (for testing a local build)
 #
 # Re-running is safe and non-destructive: existing master.key / credentials are
 # kept, the Postgres volume (channels, videos, games, /config API keys + webhooks)
@@ -37,8 +38,9 @@ while [ $# -gt 0 ]; do
     --host)             HOST="$2"; shift 2 ;;
     --tag)              TAG="$2"; shift 2 ;;
     --service-only)     MODE="service"; shift ;;
-    --cloudflared-only) MODE="cloudflared"; shift ;;
-    --skip-pull)        SKIP_PULL=1; shift ;;
+    --cloudflared-only)  MODE="cloudflared"; shift ;;
+    --backup-timer-only) MODE="backup-timer"; shift ;;
+    --skip-pull)         SKIP_PULL=1; shift ;;
     -h|--help)          sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "install: unknown flag '$1'" >&2; exit 1 ;;
   esac
@@ -224,6 +226,43 @@ EOF
   esac
 }
 
+# ── daily backup timer (system systemd timer) ────────────────────────────────
+setup_backup_timer() {
+  if ! have systemctl; then
+    warn "systemd is required for the backup timer — skipping."
+    return 0
+  fi
+  workdir="$PWD"
+  user="$(id -un)"
+  say "Daily backup timer (systemd)"
+  sudo tee /etc/systemd/system/pito-backup.service >/dev/null <<EOF
+[Unit]
+Description=pito backup (database + assets)
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=$user
+WorkingDirectory=$workdir
+ExecStart=$workdir/pito backup
+EOF
+  sudo tee /etc/systemd/system/pito-backup.timer >/dev/null <<EOF
+[Unit]
+Description=Daily pito backup
+
+[Timer]
+OnCalendar=*-*-* 03:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+EOF
+  sudo systemctl daemon-reload
+  sudo systemctl enable --now pito-backup.timer
+  say "pito-backup.timer enabled — daily at 03:00, keeping the newest 7 backups in ./backups (override with PITO_BACKUP_KEEP)."
+}
+
 # ── full install ─────────────────────────────────────────────────────────────
 do_install() {
   require_docker
@@ -267,6 +306,10 @@ do_install() {
 
   setup_cloudflared "$HOST"
   setup_systemd
+
+  printf 'Install a daily backup timer (DB + assets → ./backups, keep 7)? [y/N]: '
+  read -r choice </dev/tty || choice="n"
+  case "$choice" in y|Y) setup_backup_timer ;; *) warn "Skipped backup timer (add later: ./pito backup-schedule)." ;; esac
 
   say "Done. pito is at $HOST"
   echo "Manage it from $DIR:  ./pito logs -f   ./pito console   ./pito update"
@@ -332,7 +375,8 @@ bootstrap_credentials() {
 }
 
 case "$MODE" in
-  install)     do_install ;;
-  service)     setup_systemd ;;
-  cloudflared) setup_cloudflared ;;
+  install)      do_install ;;
+  service)      setup_systemd ;;
+  cloudflared)  setup_cloudflared ;;
+  backup-timer) setup_backup_timer ;;
 esac
