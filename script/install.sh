@@ -222,6 +222,11 @@ bootstrap_credentials() {
     warn "Existing credentials kept (config/credentials.yml.enc)."
     return 0
   fi
+  # A botched earlier run (or a compose :ro mount applied before the file existed)
+  # can leave config/credentials.yml.enc as a DIRECTORY. Clear anything that isn't
+  # a regular file so generation can write it cleanly.
+  [ -e config/credentials.yml.enc ] && [ ! -f config/credentials.yml.enc ] && rm -rf config/credentials.yml.enc
+
   have openssl || die "openssl is required to generate secrets."
 
   say "Generating your secrets (master key + encrypted credentials)"
@@ -232,12 +237,15 @@ bootstrap_credentials() {
   ARP=$(openssl rand -hex 32); ARD=$(openssl rand -hex 32); ARS=$(openssl rand -hex 32)
   PEPPER=$(openssl rand -hex 32)
 
-  # Encrypt without booting Rails (just ActiveSupport), writing through the
-  # temporary RW config mount. The web image carries the bundle.
-  PITO_TAG="$TAG" docker compose run --rm \
+  # Encrypt without booting Rails (just ActiveSupport). Use a plain `docker run`
+  # (NOT `docker compose run`) so the compose service's read-only `:ro` mounts for
+  # master.key / credentials.yml.enc are NOT applied — on a fresh install those make
+  # Docker auto-create credentials.yml.enc as a read-only DIRECTORY before it exists,
+  # which crashes the write (Errno::EROFS). Only the RW ./config mount is needed (no DB).
+  docker run --rm \
     -v "$PWD/config:/rails/config" \
     -e SKB="$SKB" -e ARP="$ARP" -e ARD="$ARD" -e ARS="$ARS" -e PEPPER="$PEPPER" \
-    web bundle exec ruby -e '
+    "ghcr.io/gmrdad82/pito:$TAG" bundle exec ruby -e '
       require "active_support"
       require "active_support/encrypted_configuration"
       yaml = <<~YAML

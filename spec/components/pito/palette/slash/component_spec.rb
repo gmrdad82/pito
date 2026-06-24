@@ -90,12 +90,12 @@ RSpec.describe Pito::Palette::Slash::Component do
     end
 
     it "renders the translated description" do
-      expect(node.text).to include("Log in to access pito")
+      expect(node.text).to include("Log in to access PITO")
     end
 
     it "renders the description in a text-fg-dim span" do
       descriptions = node.css("span.text-fg-dim").map(&:text)
-      expect(descriptions).to include("Log in to access pito")
+      expect(descriptions).to include("Log in to access PITO")
     end
   end
 
@@ -114,7 +114,7 @@ RSpec.describe Pito::Palette::Slash::Component do
     end
 
     it "renders all descriptions" do
-      expect(node.text).to include("Log in to access pito")
+      expect(node.text).to include("Log in to access PITO")
       expect(node.text).to include("List your YouTube channels")
       expect(node.text).to include("List vids for a channel")
     end
