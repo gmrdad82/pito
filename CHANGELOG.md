@@ -4,7 +4,7 @@ All notable changes to PITO are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); the project aims for
 [Semantic Versioning](https://semver.org/).
 
-## [0.7.3] — unreleased
+## [0.7.3] — 2026-06-24
 
 The **less-is-more** release. The published image goes on a serious diet —
 **870 MB → 365 MB (−58 %)** — without giving up a single feature, backups move out
