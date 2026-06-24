@@ -40,10 +40,15 @@ export default class extends Controller {
     // Listen for picker selections and drive form submission.
     this._onPickerSelect = (e) => this.fillAndSubmit(e)
     document.addEventListener("pito:picker:select", this._onPickerSelect)
+    // Global shift+r listener: fires the reply shortcut even when the chatbox
+    // is not focused (e.g. user is reading the scrollback).
+    this._onGlobalReply = (e) => this.#handleGlobalReply(e)
+    document.addEventListener("keydown", this._onGlobalReply)
   }
 
   disconnect() {
     document.removeEventListener("pito:picker:select", this._onPickerSelect)
+    document.removeEventListener("keydown", this._onGlobalReply)
   }
 
   // Public action for pickers (games, future IGDB picker, etc.).
@@ -109,19 +114,7 @@ export default class extends Controller {
       if (event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey && event.code === "KeyR") {
         const field = this.inputFieldTarget
         if (field.selectionStart === 0 && field.selectionEnd === 0) {
-          const handles = this.#lastTurnHandles()
-          if (handles.length > 1) {
-            event.preventDefault()
-            document.dispatchEvent(new CustomEvent("pito:hashtag-picker:open", {
-              detail: { handles }
-            }))
-          } else if (handles.length === 1) {
-            event.preventDefault()
-            const insert = `#${handles[0]} `
-            field.value = insert + field.value
-            field.selectionStart = field.selectionEnd = insert.length
-            field.dispatchEvent(new Event("input", { bubbles: true }))
-          }
+          if (this.#startReply()) event.preventDefault()
         }
         return
       }
@@ -164,6 +157,41 @@ export default class extends Controller {
     } else {
       display.textContent = next
     }
+  }
+
+  // Reuse the most recent command's repliable hashtag(s).
+  // Returns true when it acted (handles present), false when it was a no-op.
+  #startReply() {
+    const handles = this.#lastTurnHandles()
+    if (handles.length > 1) {
+      document.dispatchEvent(new CustomEvent("pito:hashtag-picker:open", { detail: { handles } }))
+      return true
+    } else if (handles.length === 1) {
+      const field = this.inputFieldTarget
+      const insert = `#${handles[0]} `
+      field.value = insert + field.value
+      field.selectionStart = field.selectionEnd = insert.length
+      field.dispatchEvent(new Event("input", { bubbles: true }))
+      return true
+    }
+    return false
+  }
+
+  // Global keydown listener: fires shift+r reply even when the chatbox textarea
+  // is not focused (user reading scrollback). Skips when focus is in any other
+  // editable element so it never hijacks typing elsewhere.
+  #handleGlobalReply(event) {
+    if (!isAuthenticated()) return
+    if (!(event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey && event.code === "KeyR")) return
+
+    const ae = document.activeElement
+    if (ae === this.inputFieldTarget) return // handled by textarea's own keydown
+    const editable = ae && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA" || ae.isContentEditable)
+    if (editable) return // don't hijack typing in another field
+
+    event.preventDefault()
+    this.inputFieldTarget.focus({ preventScroll: true })
+    this.#startReply()
   }
 
   // The live hashtag handles emitted by the user's most recent command.

@@ -383,6 +383,28 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
     end
   end
 
+  describe "free mode — sync clause ghost (SyncClauseGhost integration)" do
+    it "ghosts 'with' after 'sync channels '" do
+      result = call(input: "sync channels ", cursor: 14, authenticated: true)
+      expect(result[:ghost][:complete_current]).to eq("with")
+    end
+
+    it "completes 'sync channels w' → 'ith'" do
+      result = call(input: "sync channels w", cursor: 15, authenticated: true)
+      expect(result[:ghost][:complete_current]).to eq("ith")
+    end
+
+    it "ghosts 'vids' after 'sync channels with '" do
+      result = call(input: "sync channels with ", cursor: 19, authenticated: true)
+      expect(result[:ghost][:complete_current]).to eq("vids")
+    end
+
+    it "completes 'sync channels with v' → 'ids'" do
+      result = call(input: "sync channels with v", cursor: 20, authenticated: true)
+      expect(result[:ghost][:complete_current]).to eq("ids")
+    end
+  end
+
   # `schedule <id> <when|slate>` — the trailing enum slot (:schedule_whens)
   # surfaces `slate` as a TAB-completable ghost alongside an explicit date.
   describe "free mode — schedule slate slot" do

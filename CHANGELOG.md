@@ -4,7 +4,9 @@ All notable changes to PITO are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); the project aims for
 [Semantic Versioning](https://semver.org/).
 
-## [0.7.5] — unreleased
+## [0.7.5] — 2026-06-24
+
+The **papercuts** release — chat/slash autosuggest + reply-shortcut fixes.
 
 ### Fixed
 
@@ -13,6 +15,11 @@ All notable changes to PITO are documented here. The format follows
   re-selected a key instead of sending. It now suggests nothing while you type a
   value and excludes keys already set — once they're all in, the palette closes and
   Enter submits. (No more dummy token to dismiss it.)
+- **`sync` autosuggest.** Typing `sync channels ` now ghost-suggests `with`, then
+  `with ` suggests `vids` — matching how `list … with` already completes.
+- **`shift+r` (reply) works without focusing the chatbox first.** It's a global
+  shortcut again: when the box isn't focused (and you're not typing in another
+  field), `shift+r` focuses it and starts the reply.
 - **`import` help is no longer truncated.** The hint read `import game <title>`, and
   `<title>` was parsed as an HTML tag — eating the rest of the line. Now `[title]`.
 
