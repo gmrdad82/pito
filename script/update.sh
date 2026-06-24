@@ -40,7 +40,21 @@ curl -fsSL "$REPO_RAW/bin/pito" -o pito && chmod +x pito
 echo "→ Pulling the latest image"
 docker compose pull
 
+# Restart through whoever owns the stack. If a pito systemd unit exists, let it
+# recreate the containers (so systemd stays the owner) instead of a bare `up -d`
+# that would race the unit's `docker compose up`. The sudo prompt is expected.
 echo "→ Restarting (entrypoint runs db:prepare for any new migrations)"
-docker compose up -d
+if command -v systemctl >/dev/null 2>&1 && systemctl cat pito.service >/dev/null 2>&1; then
+  echo "  systemd service detected — restarting via 'sudo systemctl restart pito'."
+  sudo systemctl restart pito
+elif command -v systemctl >/dev/null 2>&1 && systemctl --user cat pito.service >/dev/null 2>&1; then
+  echo "  user systemd service detected — restarting via 'systemctl --user restart pito'."
+  systemctl --user restart pito
+else
+  docker compose up -d
+fi
+
+echo "→ Reclaiming disk (old image layers)"
+docker image prune -f >/dev/null 2>&1 || true
 
 echo "→ Updated."
