@@ -4,6 +4,48 @@ All notable changes to PITO are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); the project aims for
 [Semantic Versioning](https://semver.org/).
 
+## [0.7.2] — 2026-06-24
+
+The **polish, prose & paper-cuts** release. PITO gets its proper name (uppercase,
+at last), a README that actually moves, a guide for extending it — and a fistful of
+fixes for the ways it used to quietly eat your message or refuse to install.
+
+### Added
+
+- **`docs/extending.md`** — concrete, code-grounded guides for the four common
+  extensions: a new **theme**, a new **language**, a new **message-content type**,
+  and a new reveal **fx**. Dual-audience (human contributors and AI agents alike).
+- **README revamp** — the origin story (the name is a Spanish nursery rhyme), the
+  "why it exists" pitch, **animated GIFs** of the chat / linkage / scheduling /
+  themes, a **collapsible 19-theme gallery**, and a Sponsor section. Install docs gain
+  the `--host` / `--dir .` flags for a non-interactive, in-place install.
+
+### Changed
+
+- **pito → PITO.** The product name is now written PITO in all prose and user-facing
+  copy. Code identifiers stay lowercase — the `Pito::` namespace, the `pito` CLI,
+  `bin/pito`, `pito.copy.*` i18n keys, URLs, and paths are unchanged.
+- **Leaner image.** `.dockerignore` now excludes `node_modules`, `docs/` (incl. the
+  ~14 MB media gallery), `spec/`, and the dev `public/pito-storage` blobs — roughly
+  60 MB off a local build, ~17 MB off the published image.
+
+### Fixed
+
+- **The chatbox no longer eats your message.** Removing the `/up` route in 0.7.0 left
+  the cable-health monitor pinging a now-404 endpoint, so ~60 s into every session it
+  falsely flagged the WebSocket "offline" — after which hitting Enter reloaded the
+  page (restoring a previous view) instead of sending. The brittle HTTP poll is gone;
+  submission always POSTs over HTTP regardless of cable state.
+- **The Docker install actually installs.** Two fresh-install crashes fixed: an unset
+  `RAILS_MASTER_KEY` was injected as a blank string and corrupted credential
+  generation (dropped from compose — the mounted master key is the source of truth);
+  and the compose `:ro` mount auto-created `config/credentials.yml.enc` as a
+  read-only **directory** before it existed, crashing the generator (bootstrap now
+  uses a plain `docker run`).
+- **Shinies messages are no longer falsely repliable** — they carried a `#handle`
+  reply target nothing consumed; the dead handle (and its `shift+r` affordance) is
+  gone.
+
 ## [0.7.1] — 2026-06-23
 
 The **polish** release on top of 0.7.0: PITO now keeps your pictures, talks back
