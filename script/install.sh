@@ -14,13 +14,15 @@
 #   --service-only     skip install; only (re)configure the systemd unit
 #   --cloudflared-only   skip install; only print Cloudflare Tunnel guidance
 #   --backup-timer-only  skip install; only (re)configure the daily backup timer
+#   --link-only          skip install; only symlink pito onto your PATH
 #   --skip-pull          use the locally-present image (for testing a local build)
 #
 # Re-running is safe and non-destructive: existing master.key / credentials are
 # kept, the Postgres volume (channels, videos, games, /config API keys + webhooks)
 # is never touched, and TOTP is NOT re-enrolled — your authenticator keeps working.
-# To just update the image use `./pito update`; to (re)configure the service or
-# tunnel use `./pito service` / `./pito cloudflared`.
+# To just update the image use `pito update`; to (re)configure the service or
+# tunnel use `pito service` / `pito cloudflared` (the installer symlinks `pito`
+# onto your PATH; otherwise run it as ./pito from the install dir).
 
 set -eu
 
@@ -40,6 +42,7 @@ while [ $# -gt 0 ]; do
     --service-only)     MODE="service"; shift ;;
     --cloudflared-only)  MODE="cloudflared"; shift ;;
     --backup-timer-only) MODE="backup-timer"; shift ;;
+    --link-only)         MODE="link"; shift ;;
     --skip-pull)         SKIP_PULL=1; shift ;;
     -h|--help)          sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "install: unknown flag '$1'" >&2; exit 1 ;;
@@ -263,6 +266,23 @@ EOF
   say "pito-backup.timer enabled — daily at 03:00, keeping the newest 7 backups in ./backups (override with PITO_BACKUP_KEEP)."
 }
 
+# ── put `pito` on PATH ───────────────────────────────────────────────────────
+# Symlink the install-dir CLI to /usr/local/bin/pito so it runs as a bare `pito`
+# from anywhere (bin/pito resolves the symlink back to its install dir). Best
+# effort: if sudo/PATH isn't available, fall back to ./pito.
+LINKED=0
+link_cli() {
+  src="$PWD/pito"
+  [ -f "$src" ] || { warn "pito CLI not found in $PWD — skipping PATH link."; return 0; }
+  say "Linking pito onto your PATH (/usr/local/bin/pito)"
+  if sudo ln -sf "$src" /usr/local/bin/pito 2>/dev/null; then
+    LINKED=1
+    say "Linked — you can now run 'pito' from anywhere."
+  else
+    warn "Couldn't link to /usr/local/bin (no sudo / not writable). Run it as ./pito from $PWD."
+  fi
+}
+
 # ── full install ─────────────────────────────────────────────────────────────
 do_install() {
   require_docker
@@ -306,13 +326,18 @@ do_install() {
 
   setup_cloudflared "$HOST"
   setup_systemd
+  link_cli
 
   printf 'Install a daily backup timer (DB + assets → ./backups, keep 7)? [y/N]: '
   read -r choice </dev/tty || choice="n"
-  case "$choice" in y|Y) setup_backup_timer ;; *) warn "Skipped backup timer (add later: ./pito backup-schedule)." ;; esac
+  case "$choice" in y|Y) setup_backup_timer ;; *) warn "Skipped backup timer (add later: pito backup-schedule)." ;; esac
 
   say "Done. pito is at $HOST"
-  echo "Manage it from $DIR:  ./pito logs -f   ./pito console   ./pito update"
+  if [ "$LINKED" = "1" ]; then
+    echo "Manage it from anywhere:  pito logs -f   pito console   pito update"
+  else
+    echo "Manage it from $DIR:  ./pito logs -f   ./pito console   ./pito update"
+  fi
 }
 
 # Generate master.key + credentials.yml.enc with the owner's own secrets.
@@ -379,4 +404,5 @@ case "$MODE" in
   service)      setup_systemd ;;
   cloudflared)  setup_cloudflared ;;
   backup-timer) setup_backup_timer ;;
+  link)         link_cli ;;
 esac

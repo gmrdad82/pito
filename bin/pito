@@ -24,13 +24,25 @@
 #   update [args]     Pull the latest image + restart (script/update.sh).
 #   service [args]    Install/uninstall a systemd unit (reboot-persistence).
 #   cloudflared       Print Cloudflare Tunnel setup guidance for your host.
+#   link              Symlink pito onto your PATH so it runs as a bare `pito`.
 #   --help            This help.
 
 set -eu
 
 # ── Locate the compose project dir ──────────────────────────────────────────
 CDPATH=''  # neutralize CDPATH so `cd` never prints or jumps unexpectedly
-SCRIPT_DIR=$(cd -- "$(dirname -- "$0")" && pwd)
+# Resolve symlinks so an on-PATH symlink (e.g. /usr/local/bin/pito → install dir)
+# still finds the real install dir where docker-compose.yml lives. POSIX (no
+# `readlink -f`, which BSD/macOS lacks): follow the chain by hand.
+self="$0"
+while [ -L "$self" ]; do
+  target=$(readlink "$self")
+  case "$target" in
+    /*) self="$target" ;;
+    *)  self="$(dirname -- "$self")/$target" ;;
+  esac
+done
+SCRIPT_DIR=$(cd -- "$(dirname -- "$self")" && pwd)
 if [ -f "$SCRIPT_DIR/docker-compose.yml" ]; then
   PROJECT_DIR="$SCRIPT_DIR"                       # install dir: pito next to compose
 elif [ -f "$SCRIPT_DIR/../docker-compose.yml" ]; then
@@ -58,7 +70,7 @@ run_script() {
 }
 
 usage() {
-  sed -n '3,28p' "$0" | sed 's/^# \{0,1\}//; s/^#$//'
+  sed -n '3,29p' "$0" | sed 's/^# \{0,1\}//; s/^#$//'
 }
 
 cmd="${1:-}"
@@ -153,6 +165,7 @@ case "$cmd" in
   update)    run_script update.sh "$@" ;;
   service)   run_script install.sh --service-only "$@" ;;
   cloudflared) run_script install.sh --cloudflared-only "$@" ;;
+  link)      run_script install.sh --link-only "$@" ;;
   ""|-h|--help|help) usage ;;
   *)
     echo "pito: unknown command '$cmd'. Run 'pito --help'." >&2

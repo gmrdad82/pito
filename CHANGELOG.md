@@ -17,12 +17,19 @@ The **safety-net** release: hands-off, restorable backups for the self-host.
 - **`pito restore <dir>`** — restore a backup over the live stack (DB + assets),
   with a confirmation prompt (it's destructive) and a service restart after.
 - **`pito backup --list`** — list existing backups with their artifact sizes.
+- **`pito` on your `PATH`.** The installer now symlinks the CLI to
+  `/usr/local/bin/pito`, so it runs as a bare `pito` from anywhere (the CLI
+  resolves the symlink back to its install dir). `pito link` / `--link-only`
+  (re)adds it, `pito update` keeps it current; `./pito` from the install dir
+  still works if the symlink step is skipped.
 
 ### Changed
 
 - **`pito backup` now prunes** to the newest `PITO_BACKUP_KEEP` (default 7) after
   each run, and honors `PITO_BACKUP_DIR`. The asset archive already captured
   rendered variants (same disk root); that's now documented.
+- **README tour thumbnail** — the hero now uses the real "Inception Wednesday"
+  tour-video thumbnail, pre-sized to its display width (no browser downscaling).
 
 ## [0.7.3] — 2026-06-24
 

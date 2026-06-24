@@ -34,6 +34,13 @@ echo "→ Refreshing docker-compose.yml + pito CLI"
 curl -fsSL "$REPO_RAW/docker-compose.yml" -o docker-compose.yml
 curl -fsSL "$REPO_RAW/bin/pito" -o pito && chmod +x pito
 
+# Ensure `pito` is on PATH (best-effort) so it runs bare from anywhere. Skip the
+# sudo prompt when it's already linked here.
+if [ "$(readlink /usr/local/bin/pito 2>/dev/null)" != "$PWD/pito" ]; then
+  sudo ln -sf "$PWD/pito" /usr/local/bin/pito 2>/dev/null \
+    && echo "→ Linked /usr/local/bin/pito → $PWD/pito (run 'pito' from anywhere)" || true
+fi
+
 [ -n "$HOST" ] && env_set PITO_APP_BASE_URL "$HOST"
 [ -n "$TAG" ]  && env_set PITO_TAG "$TAG"
 

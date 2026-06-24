@@ -4,10 +4,9 @@
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-ff69b4?logo=githubsponsors)](https://github.com/sponsors/gmrdad82)
 
-<!-- TODO(0.7.2): swap for the real tour-video thumbnail once recorded on @gmrdad82. -->
 <!-- prettier-ignore -->
-<p align="center"><a href="https://www.youtube.com/@gmrdad82"><img src="docs/media/pito-tour-thumb.png" width="640" alt="▶ pito — a guided tour (video coming soon)"></a></p>
-<p align="center"><em>▶ A guided tour of PITO — coming soon on <a href="https://www.youtube.com/@gmrdad82">@gmrdad82</a>.</em></p>
+<p align="center"><a href="https://www.youtube.com/@gmrdad82"><img src="docs/media/pito-tour-thumb.png" width="760" alt="▶ PITO — Inception Wednesday: a guided tour"></a></p>
+<p align="center"><em>▶ A guided tour of PITO — on <a href="https://www.youtube.com/@gmrdad82">@gmrdad82</a>.</em></p>
 
 ## Why does this thing exist?
 
@@ -259,16 +258,17 @@ credentials are generated for you; API keys go in later via `/config`.
 **Re-running is safe.** Running the installer again keeps your existing master key +
 credentials, never touches the Postgres volume (channels, videos, games, `/config`
 keys + webhooks), and does **not** re-enroll TOTP — your authenticator keeps working.
-To just pull a newer image, use `./pito update` (image swap + restart only, nothing
+To just pull a newer image, use `pito update` (image swap + restart only, nothing
 else touched).
 
-Everything after that runs from the install dir (`./pito` by default):
+The installer symlinks the CLI onto your `PATH`, so **`pito` runs from anywhere**
+(if that step is skipped — no sudo — use `./pito` from the install dir instead):
 
 ```bash
-./pito logs -f     # tail the app
-./pito console     # a Rails console in the container
-./pito update      # pull the latest image + restart
-./pito --help      # the rest
+pito logs -f     # tail the app
+pito console     # a Rails console in the container
+pito update      # pull the latest image + restart
+pito --help      # the rest
 ```
 
 Same on Linux, macOS, and Windows (WSL2) — and on both amd64 and arm64 (the image is
@@ -354,18 +354,19 @@ useful; IGDB and Voyage unlock the game features.
 
 ## Operating PITO
 
-The Docker stack is driven by the **`pito`** CLI (run from your install dir):
+The Docker stack is driven by the **`pito`** CLI (on your `PATH` after install —
+or `./pito` from the install dir):
 
-| Command              | What it does                                          |
-| -------------------- | ----------------------------------------------------- |
-| `./pito up` / `down` | start / stop the stack                                |
-| `./pito logs [-f]`   | tail container logs (Docker's own — capped + rotated) |
-| `./pito console`     | a Rails console inside the running container          |
-| `./pito rake [task]` | list `pito:*` tasks, or run one in the container      |
-| `./pito clean`       | clear `tmp/` scratch (keeps storage/pids) + dev logs  |
-| `./pito totp`        | (re)enroll your login                                 |
-| `./pito update`      | pull the latest image + restart                       |
-| `./pito backup`      | dump DB + Active Storage to `./backups/<ts>/` (host)  |
+| Command            | What it does                                          |
+| ------------------ | ----------------------------------------------------- |
+| `pito up` / `down` | start / stop the stack                                |
+| `pito logs [-f]`   | tail container logs (Docker's own — capped + rotated) |
+| `pito console`     | a Rails console inside the running container          |
+| `pito rake [task]` | list `pito:*` tasks, or run one in the container      |
+| `pito clean`       | clear `tmp/` scratch (keeps storage/pids) + dev logs  |
+| `pito totp`        | (re)enroll your login                                 |
+| `pito update`      | pull the latest image + restart                       |
+| `pito backup`      | dump DB + Active Storage to `./backups/<ts>/` (host)  |
 
 In-app, **`/jobs`** is your window into the background queue: `/jobs status` (workers,
 state counts, recent failures), `/jobs requeue <id|all>`, `/jobs run <key>` (run a
@@ -381,7 +382,7 @@ recurring task now), and `/jobs pause` / `/jobs resume`.
 
 ### Backups
 
-`./pito backup` writes a timestamped folder on the **host** (`./backups/<ts>/`,
+`pito backup` writes a timestamped folder on the **host** (`./backups/<ts>/`,
 git-ignored) with two artifacts:
 
 - `database.sql.gz` — `pg_dump` run inside the Postgres container (version-matched,
@@ -389,20 +390,20 @@ git-ignored) with two artifacts:
 - `active_storage.tar.gz` — your avatars/thumbnails/covers **and their variants**
   from the assets volume.
 
-It runs against the live stack, so bring it up first (`./pito up -d`). The full surface:
+It runs against the live stack, so bring it up first (`pito up -d`). The full surface:
 
-| Command                  | What it does                                                      |
-| ------------------------ | ----------------------------------------------------------------- |
-| `./pito backup`          | back up DB + assets; **prunes to the newest 7** afterward         |
-| `./pito backup --list`   | list existing backups with their sizes                            |
-| `./pito restore <dir>`   | restore a backup over the live stack (prompts — it's destructive) |
-| `./pito backup-schedule` | install a **daily** systemd timer that runs `./pito backup`       |
+| Command                | What it does                                                      |
+| ---------------------- | ----------------------------------------------------------------- |
+| `pito backup`          | back up DB + assets; **prunes to the newest 7** afterward         |
+| `pito backup --list`   | list existing backups with their sizes                            |
+| `pito restore <dir>`   | restore a backup over the live stack (prompts — it's destructive) |
+| `pito backup-schedule` | install a **daily** systemd timer that runs `pito backup`         |
 
 Tune retention + location with `PITO_BACKUP_KEEP` (default `7`) and `PITO_BACKUP_DIR`
-(default `./backups`). `./pito backup-schedule` is also offered during install; once set,
+(default `./backups`). `pito backup-schedule` is also offered during install; once set,
 backups run daily at 03:00 and self-prune — hands-off rolling backups on the host.
 
-Restore is deliberate (`./pito restore` confirms first, then reloads the DB + assets and
+Restore is deliberate (`pito restore` confirms first, then reloads the DB + assets and
 restarts the service). The equivalent manual one-liners, if you prefer:
 
 ```bash
@@ -419,7 +420,7 @@ your public URL at install time (or in `.env` as `PITO_APP_BASE_URL`, e.g.
 generation, and asset delivery.
 
 Install `cloudflared` (`pacman -S cloudflared`, `brew install cloudflared`, or
-Cloudflare's apt repo), then the installer — or `./pito cloudflared` — drops a starter
+Cloudflare's apt repo), then the installer — or `pito cloudflared` — drops a starter
 `config.yml` and prints the steps:
 
 ```bash
