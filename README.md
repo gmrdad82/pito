@@ -177,45 +177,23 @@ right to you, the tokens are right there: tune them to your preference.
 
 **Dark**
 
-|                      **ayu-dark**                      |                      **ayu-mirage**                      |
-| :----------------------------------------------------: | :------------------------------------------------------: |
-| <img src="docs/media/themes/ayu-dark.png" width="400"> | <img src="docs/media/themes/ayu-mirage.png" width="400"> |
-
-|                      **catppuccin-mocha**                      |                      **dracula**                      |
-| :------------------------------------------------------------: | :---------------------------------------------------: |
-| <img src="docs/media/themes/catppuccin-mocha.png" width="400"> | <img src="docs/media/themes/dracula.png" width="400"> |
-
-|                      **github-dark**                      |                      **gruvbox-dark**                      |
-| :-------------------------------------------------------: | :--------------------------------------------------------: |
-| <img src="docs/media/themes/github-dark.png" width="400"> | <img src="docs/media/themes/gruvbox-dark.png" width="400"> |
-
-|                      **nord**                      |                      **one-dark**                      |
-| :------------------------------------------------: | :----------------------------------------------------: |
-| <img src="docs/media/themes/nord.png" width="400"> | <img src="docs/media/themes/one-dark.png" width="400"> |
-
-|                      **solarized-dark**                      |                      **synthwave**                      |
-| :----------------------------------------------------------: | :-----------------------------------------------------: |
-| <img src="docs/media/themes/solarized-dark.png" width="400"> | <img src="docs/media/themes/synthwave.png" width="400"> |
-
-|                      **tokyo-night**                      |                      **tomorrow-night**                      |
-| :-------------------------------------------------------: | :----------------------------------------------------------: |
-| <img src="docs/media/themes/tokyo-night.png" width="400"> | <img src="docs/media/themes/tomorrow-night.png" width="400"> |
+|                                                                                        |                                                                                    |
+| :------------------------------------------------------------------------------------: | :--------------------------------------------------------------------------------: |
+|         **ayu-dark**<br><img src="docs/media/themes/ayu-dark.png" width="380">         |     **ayu-mirage**<br><img src="docs/media/themes/ayu-mirage.png" width="380">     |
+| **catppuccin-mocha**<br><img src="docs/media/themes/catppuccin-mocha.png" width="380"> |        **dracula**<br><img src="docs/media/themes/dracula.png" width="380">        |
+|      **github-dark**<br><img src="docs/media/themes/github-dark.png" width="380">      |   **gruvbox-dark**<br><img src="docs/media/themes/gruvbox-dark.png" width="380">   |
+|             **nord**<br><img src="docs/media/themes/nord.png" width="380">             |       **one-dark**<br><img src="docs/media/themes/one-dark.png" width="380">       |
+|   **solarized-dark**<br><img src="docs/media/themes/solarized-dark.png" width="380">   |      **synthwave**<br><img src="docs/media/themes/synthwave.png" width="380">      |
+|      **tokyo-night**<br><img src="docs/media/themes/tokyo-night.png" width="380">      | **tomorrow-night**<br><img src="docs/media/themes/tomorrow-night.png" width="380"> |
 
 **Light**
 
-|                      **ayu-light**                      |                      **catppuccin-latte**                      |
-| :-----------------------------------------------------: | :------------------------------------------------------------: |
-| <img src="docs/media/themes/ayu-light.png" width="400"> | <img src="docs/media/themes/catppuccin-latte.png" width="400"> |
-
-|                      **github-light**                      |                      **gruvbox-light**                      |
-| :--------------------------------------------------------: | :---------------------------------------------------------: |
-| <img src="docs/media/themes/github-light.png" width="400"> | <img src="docs/media/themes/gruvbox-light.png" width="400"> |
-
-|                      **one-light**                      |                      **solarized-light**                      |
-| :-----------------------------------------------------: | :-----------------------------------------------------------: |
-| <img src="docs/media/themes/one-light.png" width="400"> | <img src="docs/media/themes/solarized-light.png" width="400"> |
-
-<p align="center"><b>tomorrow</b><br><img src="docs/media/themes/tomorrow.png" width="400"></p>
+|                                                                                |                                                                                        |
+| :----------------------------------------------------------------------------: | :------------------------------------------------------------------------------------: |
+|    **ayu-light**<br><img src="docs/media/themes/ayu-light.png" width="380">    | **catppuccin-latte**<br><img src="docs/media/themes/catppuccin-latte.png" width="380"> |
+| **github-light**<br><img src="docs/media/themes/github-light.png" width="380"> |    **gruvbox-light**<br><img src="docs/media/themes/gruvbox-light.png" width="380">    |
+|    **one-light**<br><img src="docs/media/themes/one-light.png" width="380">    |  **solarized-light**<br><img src="docs/media/themes/solarized-light.png" width="380">  |
+|     **tomorrow**<br><img src="docs/media/themes/tomorrow.png" width="380">     |                                                                                        |
 
 </details>
 
