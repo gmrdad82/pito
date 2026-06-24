@@ -54,6 +54,8 @@ node_modules/
 
 # Local backups produced by `pito:tools:backup` (db dump + assets).
 /backup/
+# Host backups produced by `pito backup` (db dump + active storage).
+/backups/
 
 # crush (Charm) local state/cache — the config (crush.json) is tracked.
 /.crush/

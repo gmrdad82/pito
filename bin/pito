@@ -17,6 +17,7 @@
 #   logs [args]       Tail container logs (default: follow web). e.g. pito logs --tail 50
 #   rake [task ...]   No task → list pito:* tasks; with a task → run it in-container.
 #   clean             Clear regenerable tmp + dev logs (pito:tools:clean).
+#   backup            Dump DB + Active Storage assets to ./backups/<timestamp>/ on the host.
 #   install [args]    Fetch + first-boot a fresh install (script/install.sh).
 #   update [args]     Pull the latest image + restart (script/update.sh).
 #   service [args]    Install/uninstall a systemd unit (reboot-persistence).
@@ -55,7 +56,7 @@ run_script() {
 }
 
 usage() {
-  sed -n '3,33p' "$0" | sed 's/^# \{0,1\}//; s/^#$//'
+  sed -n '3,26p' "$0" | sed 's/^# \{0,1\}//; s/^#$//'
 }
 
 cmd="${1:-}"
@@ -73,6 +74,15 @@ case "$cmd" in
     if [ $# -eq 0 ]; then dc exec web bin/rails -T pito; else dc exec web bin/rails "$@"; fi
     ;;
   clean)     dc exec web bin/rails pito:tools:clean ;;
+  backup)
+    dest="backups/$(date +%Y-%m-%d_%H-%M-%S)"
+    mkdir -p "$dest"
+    echo "Backing up to $dest"
+    dc exec -T postgres pg_dump -U pito --no-owner --no-privileges pito_production | gzip > "$dest/database.sql.gz"
+    dc exec -T web tar cf - -C /var/lib/pito-assets . | gzip > "$dest/active_storage.tar.gz"
+    echo "Done. Backup at $dest"
+    ls -lh "$dest"
+    ;;
   install)   run_script install.sh "$@" ;;
   update)    run_script update.sh "$@" ;;
   service)   run_script install.sh --service-only "$@" ;;

@@ -365,6 +365,7 @@ The Docker stack is driven by the **`pito`** CLI (run from your install dir):
 | `pito clean`       | clear `tmp/` scratch (keeps storage/pids) + dev logs  |
 | `pito totp`        | (re)enroll your login                                 |
 | `pito update`      | pull the latest image + restart                       |
+| `pito backup`      | dump DB + Active Storage to `./backups/<ts>/` (host)  |
 
 In-app, **`/jobs`** is your window into the background queue: `/jobs status` (workers,
 state counts, recent failures), `/jobs requeue <id|all>`, `/jobs run <key>` (run a
@@ -377,6 +378,26 @@ recurring task now), and `/jobs pause` / `/jobs resume`.
 - `/login 123456` just works — no authenticator needed. Change the code with
   `PITO_DEV_TOTP_CODE=…`, or disable it (`PITO_DEV_TOTP_CODE=off`) to exercise the real
   TOTP flow. The dummy code is **impossible** outside development.
+
+### Backups
+
+`pito backup` writes a timestamped folder on the **host** (`./backups/<ts>/`,
+git-ignored) with two artifacts:
+
+- `database.sql.gz` — `pg_dump` run inside the Postgres container (version-matched,
+  includes the pgvector embeddings).
+- `active_storage.tar.gz` — your avatars/thumbnails/covers from the assets volume.
+
+It runs against the live stack, so bring it up first (`pito up -d`). Restore is
+manual and deliberate:
+
+```bash
+# Database (DESTRUCTIVE — restores into the running DB):
+gunzip -c backups/<ts>/database.sql.gz | docker compose exec -T postgres psql -U pito -d pito_production
+
+# Active Storage assets (into the running web container):
+gunzip -c backups/<ts>/active_storage.tar.gz | docker compose exec -T web tar xf - -C /var/lib/pito-assets
+```
 
 ## Exposing PITO (Cloudflare Tunnel)
 
