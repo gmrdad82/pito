@@ -1,12 +1,12 @@
 # Changelog
 
-All notable changes to pito are documented here. The format follows
+All notable changes to PITO are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); the project aims for
 [Semantic Versioning](https://semver.org/).
 
 ## [0.7.1] — 2026-06-23
 
-The **polish** release on top of 0.7.0: pito now keeps your pictures, talks back
+The **polish** release on top of 0.7.0: PITO now keeps your pictures, talks back
 when you say hello, ships its arm64 image without the emulation tax, and stops
 pinging Slack five times for one green push.
 
@@ -28,7 +28,7 @@ pinging Slack five times for one green push.
 morning` … and `bye` / `goodbye` / `hasta luego` / `ciao` / `later` … now get a
   witty reply (one of 50 variants each) instead of an error — matched as
   whole-input phrases in the chat parser, isolated from the verb grammar.
-- **Witty fallback for nonsense.** Input pito genuinely can't parse ("boo!", "I'm
+- **Witty fallback for nonsense.** Input PITO genuinely can't parse ("boo!", "I'm
   hungry") no longer errors; it returns a `:system` reply from 50 variants, always
   nudging toward `help`. Errors are now reserved for _recognised_ verbs with bad
   arguments.
@@ -47,7 +47,7 @@ morning` … and `bye` / `goodbye` / `hasta luego` / `ciao` / `later` … now ge
 
 ## [0.7.0] — 2026-06-23
 
-The **local-first self-host** release. pito stops being "clone the repo and pray"
+The **local-first self-host** release. PITO stops being "clone the repo and pray"
 and becomes "one command, on your own machine." No cloud, no Kamal, no monthly
 anything — your laptop, your data, still.
 
@@ -108,7 +108,7 @@ anything — your laptop, your data, still.
 
 ### Removed
 
-- **Kamal** (`config/deploy.yml`, `.kamal/`, `bin/kamal`) — pito is local-only; there
+- **Kamal** (`config/deploy.yml`, `.kamal/`, `bin/kamal`) — PITO is local-only; there
   was never a cloud-deploy story to maintain.
 - The stock **`/up` health route** — single-owner tool, not a load balancer.
 - **Action Mailer, Action Mailbox, and Action Text** — all unused (notifications ride
@@ -117,7 +117,7 @@ anything — your laptop, your data, still.
 
 ## [0.6.0] — 2026-06-23
 
-The **it-has-to-look-good** release. pito grows a trophy cabinet (shinies),
+The **it-has-to-look-good** release. PITO grows a trophy cabinet (shinies),
 learns to shimmer, trails a comet behind your cursor, and surfaces analytics at a
 glance — because if you're going to stare at your numbers all day, they ought to
 look good doing it.
@@ -271,7 +271,7 @@ look good doing it.
 - **Mobile-adaptive detail cards** — on narrow screens (< 768px) the `show video` /
   `show game` cards (and the linked-game card) stack into a single column — cover/thumbnail
   on top, the details table beneath — instead of being squeezed into two columns; desktop
-  keeps the two-column layout. (pito's first responsive breakpoint.)
+  keeps the two-column layout. (PITO's first responsive breakpoint.)
 - **Linked-game card upgraded** — when a video links a game, `show video`'s linked-game card now
   uses the same big Ken-Burns cover + two-column layout as `show game` (was a small static cover),
   stacking on mobile.

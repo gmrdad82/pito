@@ -1,11 +1,11 @@
 # Footage
 
-> How Pito tracks recorded-but-unpublished footage per game.
+> How PITO tracks recorded-but-unpublished footage per game.
 
-Footage in Pito is a single **manual total per game**: how many hours of raw
+Footage in PITO is a single **manual total per game**: how many hours of raw
 recordings you have for that game, in whole and half hours. There is no per-file
 model, no automatic ingest, and no `ffprobe` integration baked into Rails — you
-own the number, and Pito just stores and displays it.
+own the number, and PITO just stores and displays it.
 
 ## Data model
 
@@ -27,7 +27,7 @@ Two surfaces write `footage_hours`:
   not-found. `<hours>` is parsed with `BigDecimal` (exact, never `Float`) and
   **rounded up to the next 0.5**, so any positive value lands on a clean
   half-hour step. The success event confirms the new total (e.g. `12.5h`).
-- **`#<handle> footage <hours>`** — the follow-up form. After Pito shows you a
+- **`#<handle> footage <hours>`** — the follow-up form. After PITO shows you a
   game (so the reply handle is live), reply with `footage <hours>` and the
   follow-up engine delegates to the same `footage` verb handler scoped to that
   game.

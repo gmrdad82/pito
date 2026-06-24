@@ -11,6 +11,6 @@ en:
 
           Or enter the secret manually: %{seed}
 
-          Then open pito in your browser and type:
+          Then open PITO in your browser and type:
 
             /login <6-digit code from your app>

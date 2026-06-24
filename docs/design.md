@@ -1,12 +1,12 @@
-# pito — design system
+# PITO — design system
 
-The visual contract for pito's terminal aesthetic. Source of truth is the CSS:
+The visual contract for PITO's terminal aesthetic. Source of truth is the CSS:
 `app/assets/tailwind/application.css` (tokens, component classes) and
 `app/assets/tailwind/themes.css` (per-theme palettes, generated). This document
 explains the rules those files encode — read it before any visual / component
 work, and never paraphrase it into commit messages.
 
-pito looks like a terminal: one monospace font, one size, square corners, no
+PITO looks like a terminal: one monospace font, one size, square corners, no
 hover theatrics, color and spacing (never size) for hierarchy.
 
 ## Typography
@@ -116,8 +116,8 @@ string-concat a Tailwind class from a variable.
   them.
 - **Logo font-size exception** — only `.pito-start-screen__logo` (18px) may set a
   font-size (see Typography).
-- **Brand caps** — "pito" is lowercase in prose; "PITO" only appears in the logo
-  art.
+- **Brand caps** — "PITO" is the brand name in prose; "pito" appears only in CLI
+  commands, code identifiers, paths, and URLs.
 - **Interactivity is Stimulus** — controllers under
   `app/javascript/controllers/pito/`, one per file, loaded via importmap. No
   other JS framework, no inline `on*` handlers.
