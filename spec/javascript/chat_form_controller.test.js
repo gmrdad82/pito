@@ -13,7 +13,7 @@
 //   - Shift+Enter: no-op (does not submit)
 //   - Shift+Tab cycles channels (updates hidden input + display)
 //   - Shift+Space cycles periods (authenticated only)
-//   - cable-offline (body[data-pito-cable-offline="true"]) → reloads instead of submitting
+//   - a stale body[data-pito-cable-offline] flag does NOT block submit (no reload, no lost message)
 //   - handleKeydown returns early (no cycle) when unauthenticated
 //
 // SKIPPED (jsdom limitations):
@@ -293,10 +293,12 @@ describe("pito--chat-form controller", () => {
 
   // ── Cable-offline path ────────────────────────────────────────────────────────
 
-  it("Enter reloads the page when cable is offline instead of submitting", async () => {
+  it("Enter submits and never reloads even with a stale cable-offline flag — message is not lost", async () => {
     const { form, inputField } = buildScaffold()
     await waitForConnect()
 
+    // A leftover flag must NOT block submission: the message POSTs over HTTP,
+    // independent of the WebSocket. (The old reload-here path silently ate it.)
     document.body.dataset.pitoCableOffline = "true"
 
     const reloadMock = vi.fn()
@@ -313,8 +315,9 @@ describe("pito--chat-form controller", () => {
 
     keydown(inputField, "Enter")
 
-    expect(reloadMock).toHaveBeenCalledOnce()
-    expect(submitted).toBe(0)
+    expect(reloadMock).not.toHaveBeenCalled()
+    expect(submitted).toBeGreaterThan(0)
+    expect(inputField.value).toBe("")
 
     delete document.body.dataset.pitoCableOffline
   })
