@@ -4,6 +4,54 @@ All notable changes to PITO are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); the project aims for
 [Semantic Versioning](https://semver.org/).
 
+## [0.7.3] — unreleased
+
+The **less-is-more** release. The published image goes on a serious diet —
+**870 MB → 365 MB (−58 %)** — without giving up a single feature, backups move out
+of the container onto the host where they actually survive, and the installer
+finally finishes the job (services enabled, tunnel running) on its own.
+
+### Added
+
+- **`pito backup`** — a host-side, durable backup. Writes `./backups/<timestamp>/`
+  on the host: `database.sql.gz` (via `pg_dump` run inside the Postgres container —
+  version-matched, pgvector embeddings included) and `active_storage.tar.gz` (your
+  avatars/thumbnails/covers). Restore is a documented one-liner. Replaces the old
+  in-container task, which quietly wrote backups _inside_ the ephemeral web
+  container — i.e. straight into the void on the next recreate.
+- **Hands-off self-host.** The installer now **enables + starts** the `pito` systemd
+  service itself (no more "here's the command to run"), and **configures + runs
+  cloudflared as a service** — tunnel config lands in `~/.cloudflared/config.yml`,
+  an existing tunnel is reused, and the tunnel comes up on boot with no manual
+  `cloudflared tunnel run`. Re-running the installer is idempotent: it keeps your
+  master key, Postgres volume (channels/videos/games/`/config` keys), and TOTP.
+- **Dev tabs are unmistakable.** In development the favicon turns **red** and a
+  full-width **DEVELOPMENT** banner pins to the bottom (label from `Pito::Copy`), so
+  a dev tab is never confused for production.
+
+### Changed
+
+- **Image rebuilt on Alpine/musl: 870 MB → 365 MB.** `ruby:3.4-alpine`; the runtime
+  stage carries only shared libraries (`vips`, `libpq`); the build toolchain and
+  `-dev` headers live in the discarded build stage. Native gems (nokogiri, pg, ffi,
+  ruby-vips) and Thruster run on musl; the POSIX-sh entrypoint replaces the bash one.
+
+### Removed
+
+- **From the runtime image:** the build-only **Tailwind CLI** (~114 MB; CSS is
+  precompiled at build time), the shipped **bootsnap cache** (rebuilt lazily — first
+  boot is a touch slower, the only tradeoff), gem documentation, **`postgresql-client`**
+  (backup is host-side now), **`curl`**, the C toolchain, and **bash/zsh** (busybox
+  `sh` is the shell).
+- **In-container backup** — `Pito::Tools::Backup` + the `pito:tools:backup` rake task,
+  superseded by `pito backup`.
+
+### Fixed
+
+- **The DEVELOPMENT banner reaches both edges** — dropped a dead `scrollbar-gutter:
+stable` that reserved a permanent ~6 px strip down the right of every page (the
+  window never scrolls; only the inner scrollback does).
+
 ## [0.7.2] — 2026-06-24
 
 The **polish, prose & paper-cuts** release. PITO gets its proper name (uppercase,
