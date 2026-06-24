@@ -17,7 +17,9 @@
 #   logs [args]       Tail container logs (default: follow web). e.g. pito logs --tail 50
 #   rake [task ...]   No task → list pito:* tasks; with a task → run it in-container.
 #   clean             Clear regenerable tmp + dev logs (pito:tools:clean).
-#   backup            Dump DB + Active Storage assets to ./backups/<timestamp>/ on the host.
+#   backup [--list]   Back up DB + assets to ./backups/<ts>/ (keeps newest PITO_BACKUP_KEEP, default 7); --list shows existing.
+#   restore <dir>     Restore a backup dir (DB + assets) over the live stack (destructive, prompts).
+#   backup-schedule   Install a daily systemd timer that runs `pito backup`.
 #   install [args]    Fetch + first-boot a fresh install (script/install.sh).
 #   update [args]     Pull the latest image + restart (script/update.sh).
 #   service [args]    Install/uninstall a systemd unit (reboot-persistence).
@@ -56,7 +58,7 @@ run_script() {
 }
 
 usage() {
-  sed -n '3,26p' "$0" | sed 's/^# \{0,1\}//; s/^#$//'
+  sed -n '3,28p' "$0" | sed 's/^# \{0,1\}//; s/^#$//'
 }
 
 cmd="${1:-}"
@@ -75,13 +77,77 @@ case "$cmd" in
     ;;
   clean)     dc exec web bin/rails pito:tools:clean ;;
   backup)
-    dest="backups/$(date +%Y-%m-%d_%H-%M-%S)"
+    BACKUP_DIR="${PITO_BACKUP_DIR:-backups}"
+    if [ "${1:-}" = "--list" ]; then
+      if ! ls -d "$BACKUP_DIR"/*/ >/dev/null 2>&1; then
+        echo "No backups yet in $BACKUP_DIR. Run 'pito backup' to create one."
+        exit 0
+      fi
+      printf '%-28s  %12s  %12s\n' "TIMESTAMP" "DATABASE" "ASSETS"
+      # shellcheck disable=SC2012
+      ls -1dt "$BACKUP_DIR"/*/ | while IFS= read -r d; do
+        ts=$(basename "$d")
+        db=$(du -h "$d/database.sql.gz" 2>/dev/null | cut -f1)
+        db="${db:--}"
+        assets_sz=$(du -h "$d/active_storage.tar.gz" 2>/dev/null | cut -f1)
+        assets_sz="${assets_sz:--}"
+        printf '%-28s  %12s  %12s\n' "$ts" "$db" "$assets_sz"
+      done
+      exit 0
+    fi
+    dest="$BACKUP_DIR/$(date +%Y-%m-%d_%H-%M-%S)"
     mkdir -p "$dest"
     echo "Backing up to $dest"
     dc exec -T postgres pg_dump -U pito --no-owner --no-privileges pito_production | gzip > "$dest/database.sql.gz"
     dc exec -T web tar cf - -C /var/lib/pito-assets . | gzip > "$dest/active_storage.tar.gz"
     echo "Done. Backup at $dest"
     ls -lh "$dest"
+    N="${PITO_BACKUP_KEEP:-7}"
+    # shellcheck disable=SC2012
+    ls -1dt "$BACKUP_DIR"/*/ 2>/dev/null | tail -n +$((N+1)) | xargs -r rm -rf
+    echo "Pruned old backups; keeping newest $N."
+    ;;
+  restore)
+    dir="${1:-}"
+    if [ -z "$dir" ]; then
+      echo "Usage: pito restore <backup-dir>   (see 'pito backup --list')" >&2
+      exit 1
+    fi
+    if [ ! -d "$dir" ]; then
+      echo "pito restore: '$dir' is not a directory." >&2
+      exit 1
+    fi
+    missing=""
+    [ -f "$dir/database.sql.gz" ]        || missing="$missing database.sql.gz"
+    [ -f "$dir/active_storage.tar.gz" ]  || missing="$missing active_storage.tar.gz"
+    if [ -n "$missing" ]; then
+      echo "pito restore: missing from $dir:$missing" >&2
+      exit 1
+    fi
+    echo "WARNING: this will overwrite the current database and assets with the backup at $dir."
+    printf 'Restore %s over the live stack? This OVERWRITES current data. [y/N]: ' "$dir"
+    read -r ans </dev/tty || ans=n
+    case "$ans" in
+      y|Y) ;;
+      *) echo "Aborted."; exit 0 ;;
+    esac
+    echo "Restoring database…"
+    gunzip -c "$dir/database.sql.gz" | dc exec -T postgres psql -U pito -d pito_production
+    echo "Restoring assets…"
+    gunzip -c "$dir/active_storage.tar.gz" | dc exec -T web tar xf - -C /var/lib/pito-assets
+    if command -v systemctl >/dev/null 2>&1 && systemctl cat pito.service >/dev/null 2>&1; then
+      echo "Restarting pito service…"
+      sudo systemctl restart pito
+    else
+      echo "Restored. Restart the stack: docker compose up -d (or your service)."
+    fi
+    ;;
+  backup-schedule)
+    if ! command -v systemctl >/dev/null 2>&1; then
+      echo "backup-schedule needs systemd (systemctl not found). On non-systemd hosts, run 'pito backup' from cron instead." >&2
+      exit 1
+    fi
+    run_script install.sh --backup-timer-only "$@"
     ;;
   install)   run_script install.sh "$@" ;;
   update)    run_script update.sh "$@" ;;
