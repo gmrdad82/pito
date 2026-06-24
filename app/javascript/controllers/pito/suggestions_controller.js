@@ -728,7 +728,7 @@ export default class extends Controller {
     // The `list` verb's ghosts (noun completion, the `with` connector, and
     // with/sorted-by field tokens) are all computed server-side by
     // ListClauseGhost — defer the whole verb to POST /suggestions.
-    if (chatSpec.name === "list") return null
+    if (chatSpec.name === "list" || chatSpec.name === "sync") return null
 
     const endsWithSpace = before.endsWith(" ")
     const typedSlotWords = endsWithSpace ? words.slice(1) : words.slice(1, -1)

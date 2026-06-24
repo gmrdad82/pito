@@ -630,6 +630,10 @@ module Pito
             return { menu_items: [], ghost: g }
           end
 
+          if spec.name == :sync && (g = Pito::Suggestions::SyncClauseGhost.ghost(text))
+            return { menu_items: [], ghost: g }
+          end
+
           ghost = compute_ghost(text, spec, tokens, authenticated:)
           { menu_items: [], ghost: ghost }
         end
