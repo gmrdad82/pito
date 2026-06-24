@@ -191,17 +191,20 @@ RSpec.describe Pito::Chat::Handlers::Sync do
     end
   end
 
-  # ── sync channels with videos,analytics (future extension) ────────────────────
+  # ── sync channels with videos,<unknown> — unknown tokens dropped ──────────────
+  # `analytics` was removed from WITH_ITEMS_VOCAB in 0.7.5 (revisited in 0.8.0);
+  # it's now just an unknown token, silently dropped like any other.
 
-  describe "sync channels with videos,analytics" do
-    it "parses both items without error" do
+  describe "sync channels with videos,analytics (analytics now unknown)" do
+    it "parses without error" do
       result = handler_for("channels", "with", "videos,analytics").call
       expect(result).to be_a(Pito::Chat::Result::Ok)
     end
 
-    it "carries both items in with_items" do
+    it "keeps only the known item (videos); drops analytics" do
       payload = handler_for("channels", "with", "videos,analytics").call.events.first[:payload]
-      expect(payload["with_items"]).to include("videos", "analytics")
+      expect(payload["with_items"]).to include("videos")
+      expect(payload["with_items"]).not_to include("analytics")
     end
 
     it "still emits sync_channel_videos (videos is present)" do

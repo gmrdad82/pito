@@ -12,8 +12,8 @@
 #     Sync channel fields + stats scoped by the shift+tab channel:
 #       @all → all channels; @handle → one channel.
 #     The optional `with <items>` clause is a generic comma-list of sync
-#     targets — today only `videos` is acted upon, but `analytics` and
-#     others parse without error (built to extend).
+#     targets — today just `videos` (sync the channel's uploads). Built to
+#     extend (analytics lands in 0.8.0).
 #
 # Channel scope is read from `self.channel` (@all/blank = all channels,
 # @handle = one channel; unknown handle = error message).
@@ -28,12 +28,10 @@ module Pito
         # Unknown tokens are silently dropped; new items can be added here
         # without touching the parser.
         WITH_ITEMS_VOCAB = {
-          "vid"       => :videos,
-          "vids"      => :videos,
-          "video"     => :videos,
-          "videos"    => :videos,
-          "analytic"  => :analytics,
-          "analytics" => :analytics
+          "vid"    => :videos,
+          "vids"   => :videos,
+          "video"  => :videos,
+          "videos" => :videos
         }.freeze
 
         def call
