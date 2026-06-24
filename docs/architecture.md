@@ -1,4 +1,4 @@
-# pito — architecture
+# PITO — architecture
 
 ## Routes
 
@@ -164,7 +164,7 @@ in place; `history.pushState` sets the `/chat/:uuid` URL without a page reload.
 
 ## Game release-date representation
 
-Pito stores a game's release date as independent precision components, not as a
+PITO stores a game's release date as independent precision components, not as a
 single date plus an enum. Nullability of each component encodes how much we know.
 
 ### Columns on `games`
@@ -209,7 +209,7 @@ translate into that shape:
 
 - **IGDB** (`Game::Igdb::GameMapper`): maps `category` enum (0..7) → components.
 
-  | IGDB `category` | Pito components            |
+  | IGDB `category` | PITO components            |
   | --------------- | -------------------------- |
   | 0 (day)         | `{year:y, month:m, day:d}` |
   | 1 (month)       | `{year:y, month:m}`        |
@@ -231,7 +231,7 @@ translate into that shape:
 
 ## Self-host & operator tooling (0.7.0)
 
-pito is **local-first**: it runs on your own machine, two ways. Native development
+PITO is **local-first**: it runs on your own machine, two ways. Native development
 uses `bin/dev` (Rails on the host, **development** env, recurring jobs off — see the
 `PITO_DEV_JOBS` toggle). Self-host uses Docker (**production** env) with a prebuilt
 multi-arch image.

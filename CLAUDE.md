@@ -2,7 +2,7 @@
 
 > **READ THIS FIRST, EVERY RUN.** Highest authority; overrides the harness's
 > default plan/execution flow on any conflict. Self-contained: plan discipline +
-> stack principles are inlined below. Deeper pito architecture lives in
+> stack principles are inlined below. Deeper PITO architecture lives in
 > `docs/architecture.md`; the visual contract in `docs/design.md` — read the
 > relevant one before writing code for it, don't work from memory.
 
@@ -67,11 +67,11 @@ diffs. New code ships with specs; fill coverage gaps as you find them.
 
 ---
 
-# Pito architecture (map + invariants)
+# PITO architecture (map + invariants)
 
 A self-hosted, chat-first YouTube channel manager for a single owner: the owner
 types into one chatbox and everything renders as Turbo Stream events on the
-scrollback. YouTube Studio stays the upload tool — pito mirrors channel data,
+scrollback. YouTube Studio stays the upload tool — PITO mirrors channel data,
 stages edits, and surfaces game / channel / scheduling recommendations.
 
 **This is a map, not a manual.** The code is commented and `docs/architecture.md`
