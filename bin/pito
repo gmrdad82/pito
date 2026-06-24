@@ -40,6 +40,20 @@ cd "$PROJECT_DIR"
 
 dc() { docker compose "$@"; }
 
+# Run a helper script (install.sh / update.sh). In a repo checkout it lives under
+# script/; in a fetched install dir it doesn't, so pull it from the repo first.
+REPO_RAW="https://raw.githubusercontent.com/gmrdad82/pito/main"
+run_script() {
+  name="$1"; shift
+  if [ -f "$PROJECT_DIR/script/$name" ]; then
+    exec sh "$PROJECT_DIR/script/$name" "$@"
+  fi
+  command -v curl >/dev/null 2>&1 || { echo "pito: curl is required to fetch script/$name" >&2; exit 1; }
+  tmp=$(mktemp)
+  curl -fsSL "$REPO_RAW/script/$name" -o "$tmp" || { echo "pito: failed to fetch script/$name" >&2; exit 1; }
+  exec sh "$tmp" "$@"
+}
+
 usage() {
   sed -n '3,33p' "$0" | sed 's/^# \{0,1\}//; s/^#$//'
 }
@@ -59,10 +73,10 @@ case "$cmd" in
     if [ $# -eq 0 ]; then dc exec web bin/rails -T pito; else dc exec web bin/rails "$@"; fi
     ;;
   clean)     dc exec web bin/rails pito:tools:clean ;;
-  install)   exec "$PROJECT_DIR/script/install.sh" "$@" ;;
-  update)    exec "$PROJECT_DIR/script/update.sh" "$@" ;;
-  service)   exec "$PROJECT_DIR/script/install.sh" --service-only "$@" ;;
-  cloudflared) exec "$PROJECT_DIR/script/install.sh" --cloudflared-only "$@" ;;
+  install)   run_script install.sh "$@" ;;
+  update)    run_script update.sh "$@" ;;
+  service)   run_script install.sh --service-only "$@" ;;
+  cloudflared) run_script install.sh --cloudflared-only "$@" ;;
   ""|-h|--help|help) usage ;;
   *)
     echo "pito: unknown command '$cmd'. Run 'pito --help'." >&2

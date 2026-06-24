@@ -236,8 +236,12 @@ curl -fsSL https://raw.githubusercontent.com/gmrdad82/pito/main/script/install.s
 
 It asks for the public URL (default **http://localhost:3028**), mints a fresh master
 key + credentials (no editor required), enrolls TOTP (scan the printed `otpauth://`
-into any authenticator), and offers a Cloudflare tunnel + a systemd unit for
-reboot-persistence. When it finishes, open the URL and `/login`.
+into any authenticator), and — for a non-localhost host — **configures a Cloudflare
+tunnel and brings up both the tunnel and pito as systemd services**, so everything
+survives a reboot with no manual `cloudflared tunnel run`. When it finishes, open the
+URL and `/login`. (The only thing a public host needs that can't be scripted is the
+one-time `cloudflared tunnel login` browser approval, which the installer launches for
+you. If you already have a tunnel, it's reused untouched.)
 
 **Custom host or in-place install.** Flags pass through with `sh -s --`:
 
@@ -248,8 +252,15 @@ curl -fsSL https://raw.githubusercontent.com/gmrdad82/pito/main/script/install.s
 ```
 
 The script's `--help` lists them all: `--host URL`, `--dir DIR` (default `./pito`),
-`--tag TAG`, `--skip-pull`. You provide nothing else — the master key + credentials
-are generated for you; API keys go in later via `/config`.
+`--tag TAG`, `--skip-pull`, plus `--service-only` / `--cloudflared-only` to (re)run
+just the systemd or tunnel step. You provide nothing else — the master key +
+credentials are generated for you; API keys go in later via `/config`.
+
+**Re-running is safe.** Running the installer again keeps your existing master key +
+credentials, never touches the Postgres volume (channels, videos, games, `/config`
+keys + webhooks), and does **not** re-enroll TOTP — your authenticator keeps working.
+To just pull a newer image, use `./pito update` (image swap + restart only, nothing
+else touched).
 
 Everything after that runs from the install dir (`./pito` by default):
 
