@@ -218,8 +218,11 @@ module Pito
                 end
               end
             when :kv
-              # KV args look like "key=value" or "key:value" — consume while present.
+              # KV args look like "key=value" or "key:value" — consume while present,
+              # recording each supplied key so suggestions can exclude already-set ones.
               while remaining_args.any? && kv_arg?(remaining_args.first)
+                key = remaining_args.first.to_s.split(/[=:]/, 2).first.to_s.downcase
+                (resolved_values[slot.name] ||= []) << key
                 remaining_args.shift
                 filled_slots << slot
               end
@@ -300,35 +303,29 @@ module Pito
           vocab = Pito::Grammar::Registry.vocabulary(vocab_name)
           return [] unless vocab
 
+          # Typing a VALUE ("key=…") — the value is freeform, so there's nothing
+          # to suggest. Returning [] empties the palette so Enter SUBMITS the
+          # message instead of re-selecting the key being filled in.
+          return [] if partial.present? && partial.include?("=")
+
           masked_keys = Pito::Grammar::Vocabularies::MASKED_CONFIG_KEYS
+          already_set = Array(resolved_values[slot.name]).map { |k| k.to_s.downcase }
 
-          # When the user is still typing the key (no "=" in the partial yet),
-          # filter the candidate keys by the per-provider allowed set so the
-          # menu and ghost text are scoped to the active provider.
-          if partial.present? && !partial.include?("=")
-            provider = resolved_values[:provider].to_s.downcase
-            candidate_keys = Pito::Grammar::Vocabularies.provider_keys(provider)
-            # Fall back to the full vocab if the provider has no specific mapping.
-            candidate_keys = vocab.canonical if candidate_keys.empty?
+          provider = resolved_values[:provider].to_s.downcase
+          candidate_keys = Pito::Grammar::Vocabularies.provider_keys(provider)
+          # Fall back to the full vocab if the provider has no specific mapping.
+          candidate_keys = vocab.canonical if candidate_keys.empty?
 
-            matches = candidate_keys.select { |k| k.to_s.downcase.start_with?(partial.downcase) }
-            return matches.map do |key|
-              {
-                label:       key,
-                insert:      "#{key}=",
-                description: "",
-                masked:      masked_keys.include?(key)
-              }
-            end
+          # Drop keys already supplied, so a set option is never re-suggested and
+          # the menu empties out once every option is provided (→ Enter submits).
+          candidate_keys = candidate_keys.reject { |k| already_set.include?(k.to_s.downcase) }
+
+          # Mid-typing a key → scope to the prefix.
+          if partial.present?
+            candidate_keys = candidate_keys.select { |k| k.to_s.downcase.start_with?(partial.downcase) }
           end
 
-          # No partial key typed yet (or partial already has "=") — show all
-          # keys for this provider, or the full vocab when no provider known.
-          provider = resolved_values[:provider].to_s.downcase
-          scoped_keys = Pito::Grammar::Vocabularies.provider_keys(provider)
-          keys = scoped_keys.empty? ? vocab.canonical : scoped_keys
-
-          keys.map do |key|
+          candidate_keys.map do |key|
             {
               label:       key,
               insert:      "#{key}=",
