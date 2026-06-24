@@ -15,7 +15,11 @@
 #   --cloudflared-only skip install; only print Cloudflare Tunnel guidance
 #   --skip-pull        use the locally-present image (for testing a local build)
 #
-# Re-running is safe: existing master.key / credentials are kept.
+# Re-running is safe and non-destructive: existing master.key / credentials are
+# kept, the Postgres volume (channels, videos, games, /config API keys + webhooks)
+# is never touched, and TOTP is NOT re-enrolled — your authenticator keeps working.
+# To just update the image use `./pito update`; to (re)configure the service or
+# tunnel use `./pito service` / `./pito cloudflared`.
 
 set -eu
 
@@ -25,6 +29,7 @@ HOST=""
 TAG="latest"
 MODE="install"
 SKIP_PULL=""
+CREDS_FRESH=0   # set to 1 by bootstrap_credentials only when it mints NEW secrets
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -61,7 +66,11 @@ env_set() {
   printf '%s=%s\n' "$1" "$2" >> .env
 }
 
-# ── cloudflared guidance ─────────────────────────────────────────────────────
+# ── cloudflared tunnel (auto-configured + run as a service) ───────────────────
+# Writes the ingress config to cloudflared's OWN dir (~/.cloudflared/config.yml),
+# reuses an existing tunnel when one is configured (running a tunnel needs only its
+# creds JSON, never a fresh account login), otherwise creates one, and installs a
+# systemd service so the tunnel comes up on boot — no manual `cloudflared tunnel run`.
 setup_cloudflared() {
   base="${1:-$(env_get PITO_APP_BASE_URL)}"
   host=$(printf '%s' "$base" | sed -E 's#^https?://##; s#/.*$##')
@@ -73,53 +82,101 @@ setup_cloudflared() {
 
   if ! have cloudflared; then
     cat <<EOF
-cloudflared is not installed. Install it first:
+cloudflared is not installed — install it, then re-run  ./pito cloudflared :
   Arch:          sudo pacman -S cloudflared
-  Debian/Ubuntu: see https://pkg.cloudflare.com/  (cloudflared package)
+  Debian/Ubuntu: https://pkg.cloudflare.com/  (cloudflared package)
   macOS:         brew install cloudflared
   Other:         https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/
-
-Then re-run:  ./pito cloudflared
 EOF
     return 0
   fi
 
-  # Don't assume a fresh tunnel — show what already exists so you REUSE it
-  # rather than create a duplicate (a common foot-gun if you already tunnel
-  # this host to bin/dev on :3027).
-  echo "Existing Cloudflare tunnels (reuse one — don't duplicate):"
-  cloudflared tunnel list 2>/dev/null | sed 's/^/  /' || echo "  (none, or run 'cloudflared tunnel login' first)"
+  cfdir="$HOME/.cloudflared"
+  cfg="$cfdir/config.yml"
+  mkdir -p "$cfdir"
 
-  cfg="$PWD/cloudflared-config.yml"
-  if [ -e "$cfg" ]; then
-    warn "$cfg exists — writing $cfg.new instead (review + merge, don't clobber)."
-    cfg="$cfg.new"
+  if [ -f "$cfg" ] && grep -q '^tunnel:' "$cfg" && grep -q 3028 "$cfg"; then
+    # A working tunnel→:3028 config already exists — REUSE it untouched. This is
+    # also the path when the account cert has expired: running needs only the
+    # creds JSON, so we never call account-level ops (list/create/route) here.
+    say "Reusing existing tunnel config ($cfg)"
+  elif [ -f "$cfg" ] && grep -q '^tunnel:' "$cfg"; then
+    # Tunnel exists but its ingress doesn't point at the prod port — fix in place.
+    say "Repointing existing tunnel ingress → http://127.0.0.1:3028"
+    tunnel_id=$(sed -n 's/^tunnel:[[:space:]]*//p' "$cfg" | head -1)
+    creds=$(sed -n 's/^credentials-file:[[:space:]]*//p' "$cfg" | head -1)
+    [ -z "$creds" ] && creds="$cfdir/$tunnel_id.json"
+    cp "$cfg" "$cfg.bak.$$" && warn "Backed up $cfg → $cfg.bak.$$"
+    write_cf_config "$cfg" "$tunnel_id" "$creds" "$host"
+  else
+    # No tunnel yet — create one. Account login is a one-time browser step.
+    if [ ! -f "$cfdir/cert.pem" ]; then
+      say "Logging in to Cloudflare (opens a browser — pick the zone for $host)"
+      cloudflared tunnel login </dev/tty || { warn "cloudflared login failed — re-run ./pito cloudflared"; return 0; }
+    fi
+    tunnel_name="${PITO_TUNNEL:-pito}"
+    say "Creating tunnel '$tunnel_name'"
+    create_out=$(cloudflared tunnel create "$tunnel_name" 2>&1) || {
+      printf '%s\n' "$create_out" >&2
+      warn "tunnel create failed — re-run ./pito cloudflared after 'cloudflared tunnel login'."
+      return 0
+    }
+    printf '%s\n' "$create_out"
+    tunnel_id=$(printf '%s' "$create_out" | grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' | head -1)
+    [ -z "$tunnel_id" ] && tunnel_id="$tunnel_name"
+    write_cf_config "$cfg" "$tunnel_id" "$cfdir/$tunnel_id.json" "$host"
+    say "Routing DNS: $host → tunnel"
+    cloudflared tunnel route dns "$tunnel_name" "$host" 2>&1 | sed 's/^/  /' || \
+      warn "route dns failed (may already exist) — otherwise add a CNAME for $host in Cloudflare."
   fi
-  cat > "$cfg" <<EOF
-# pito tunnel config — points $host at the Docker stack on 127.0.0.1:3028.
-# NOTE: that's the PRODUCTION port. A dev tunnel (bin/dev) uses :3027 — keep
-# them separate, or just re-point your existing tunnel's ingress to :3028.
-# If you already have a tunnel, set tunnel:/credentials-file: to ITS values.
-tunnel: <your-tunnel-name-or-uuid>
-credentials-file: $HOME/.cloudflared/<your-tunnel-uuid>.json
+
+  install_cloudflared_service "$cfg"
+
+  cat <<EOF
+
+Tunnel for $host is configured and runs on boot (systemd unit: cloudflared).
+In Cloudflare's SSL/TLS settings use mode "Full" (pito forces SSL).
+EOF
+}
+
+# Write a cloudflared ingress config:  write_cf_config PATH TUNNEL_ID CREDS_FILE HOST
+write_cf_config() {
+  cat > "$1" <<EOF
+# pito tunnel — routes $4 to the Docker stack on 127.0.0.1:3028 (the PRODUCTION
+# port; a dev tunnel for bin/dev would use :3027). Managed by pito's installer.
+tunnel: $2
+credentials-file: $3
 ingress:
-  - hostname: $host
+  - hostname: $4
     service: http://127.0.0.1:3028
   - service: http_status:404
 EOF
-  cat <<EOF
-Wrote a starter config to: $cfg
+}
 
-• Already have a tunnel for $host? Just re-point its ingress to
-  http://127.0.0.1:3028 and restart it — no new tunnel or DNS route needed.
-• No tunnel yet? One time:
-    cloudflared tunnel login
-    cloudflared tunnel create pito        # put its name/uuid in the config above
-    cloudflared tunnel route dns pito $host
-    cloudflared tunnel --config "$cfg" run pito
+# Run cloudflared as a reboot-persistent systemd service:  install_cloudflared_service CONFIG
+install_cloudflared_service() {
+  cfg="$1"
+  bin=$(command -v cloudflared)
+  say "Installing cloudflared as a systemd service (tunnel runs on boot — no manual run)"
+  sudo tee /etc/systemd/system/cloudflared.service >/dev/null <<EOF
+[Unit]
+Description=cloudflared tunnel (pito)
+After=network-online.target
+Wants=network-online.target
 
-In Cloudflare's SSL/TLS settings use mode "Full" (pito forces SSL).
+[Service]
+Type=simple
+ExecStart=$bin tunnel --no-autoupdate --config $cfg run
+Restart=always
+RestartSec=5
+User=$(id -un)
+
+[Install]
+WantedBy=multi-user.target
 EOF
+  sudo systemctl daemon-reload
+  sudo systemctl enable --now cloudflared
+  say "cloudflared.service enabled + started."
 }
 
 # ── systemd unit (reboot persistence) ────────────────────────────────────────
@@ -151,20 +208,17 @@ EOF
     u|U)
       mkdir -p "$HOME/.config/systemd/user"
       unit_body "default.target" > "$HOME/.config/systemd/user/pito.service"
-      cat <<EOF
-Wrote ~/.config/systemd/user/pito.service. Enable it:
-  systemctl --user daemon-reload
-  systemctl --user enable --now pito
-  loginctl enable-linger "$USER"   # start before you log in (survives reboot)
-EOF
+      systemctl --user daemon-reload
+      systemctl --user enable --now pito
+      loginctl enable-linger "$(id -un)" 2>/dev/null || \
+        warn "Could not enable linger — run: loginctl enable-linger $(id -un)  (so it starts before login)"
+      say "pito.service (user) enabled + started."
       ;;
     s|S)
       unit_body "multi-user.target" | sudo tee /etc/systemd/system/pito.service >/dev/null
-      cat <<EOF
-Wrote /etc/systemd/system/pito.service. Enable it:
-  sudo systemctl daemon-reload
-  sudo systemctl enable --now pito
-EOF
+      sudo systemctl daemon-reload
+      sudo systemctl enable --now pito
+      say "pito.service (system) enabled + started."
       ;;
     *) warn "Skipped systemd setup." ;;
   esac
@@ -203,9 +257,13 @@ do_install() {
   say "Starting the stack"
   PITO_TAG="$TAG" docker compose up -d
 
-  say "Enrolling your login (TOTP) — scan the QR/secret below into an authenticator"
-  PITO_TAG="$TAG" docker compose run --rm web bin/rails pito:tools:totp || \
-    warn "TOTP enrollment failed — run './pito totp' once the stack is healthy."
+  if [ "$CREDS_FRESH" = "1" ]; then
+    say "Enrolling your login (TOTP) — scan the QR/secret below into an authenticator"
+    PITO_TAG="$TAG" docker compose run --rm web bin/rails pito:tools:totp || \
+      warn "TOTP enrollment failed — run './pito totp' once the stack is healthy."
+  else
+    warn "Existing install — keeping your data + TOTP enrollment (use './pito totp' to re-enroll)."
+  fi
 
   setup_cloudflared "$HOST"
   setup_systemd
@@ -270,6 +328,7 @@ bootstrap_credentials() {
       ).write(yaml)
       puts "credentials written"
     '
+  CREDS_FRESH=1   # new secrets minted → fresh DB → enroll TOTP downstream
 }
 
 case "$MODE" in
