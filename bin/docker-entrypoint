@@ -1,15 +1,20 @@
-#!/bin/bash -e
+#!/bin/sh -e
 
 # Prepare the database when booting the Rails server.
 # db:prepare is smart: loads schema on a blank DB, runs pending migrations on existing ones.
 # In development we also seed if the DB was just created (best-effort, non-fatal).
-if [ "${@: -2:1}" == "./bin/rails" ] && [ "${@: -1:1}" == "server" ] || \
-   [ "$1" == "./bin/dev" ]; then
+#
+# POSIX sh (busybox on Alpine — no bash): capture the last two positional params
+# with a loop instead of bash's ${@: -2:1} / ${@: -1:1} array slicing.
+_last=""; _prev=""
+for _a in "$@"; do _prev="$_last"; _last="$_a"; done
+
+if { [ "$_prev" = "./bin/rails" ] && [ "$_last" = "server" ]; } || [ "${1:-}" = "./bin/dev" ]; then
   ./bin/rails db:prepare
 
-  if [ "${RAILS_ENV:-}" == "development" ]; then
+  if [ "${RAILS_ENV:-}" = "development" ]; then
     ./bin/rails db:seed 2>/dev/null || true
   fi
 fi
 
-exec "${@}"
+exec "$@"
