@@ -4,7 +4,7 @@ All notable changes to PITO are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); the project aims for
 [Semantic Versioning](https://semver.org/).
 
-## [0.7.4] — unreleased
+## [0.7.4] — 2026-06-24
 
 The **safety-net & self-service** release: hands-off restorable backups, version
 channels you pick at install/update time, and `pito` as a real PATH command.
