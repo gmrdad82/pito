@@ -179,6 +179,25 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
       result = call(input: "/config google ", cursor: 15, authenticated: true)
       expect(result[:stage]).to eq(:verb)
     end
+
+    # Bug B — the palette must empty out so Enter SUBMITS instead of re-selecting
+    # a key the user already supplied / is currently filling in.
+    it "suggests nothing while typing a value (key=…)" do
+      input = "/config voyage api_key=pa-secret"
+      expect(call(input:, cursor: input.length, authenticated: true)[:menu_items]).to be_empty
+    end
+
+    it "excludes keys already supplied earlier in the line" do
+      input  = "/config google client_id=x "
+      labels = call(input:, cursor: input.length, authenticated: true)[:menu_items].map { |i| i[:label] }
+      expect(labels).not_to include("client_id")
+      expect(labels).to include("client_secret", "redirect_uri", "api_key")
+    end
+
+    it "offers nothing once every provider key is supplied" do
+      input = "/config google client_id=a client_secret=b redirect_uri=c api_key=d "
+      expect(call(input:, cursor: input.length, authenticated: true)[:menu_items]).to be_empty
+    end
   end
 
   describe "slash mode — arg stage (/config sound|motion on/off slot)" do

@@ -4,6 +4,18 @@ All notable changes to PITO are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); the project aims for
 [Semantic Versioning](https://semver.org/).
 
+## [0.7.5] — unreleased
+
+### Fixed
+
+- **`/config` now submits cleanly.** The slash palette kept offering credential
+  keys even while you typed a value or after you'd supplied them all, so Enter
+  re-selected a key instead of sending. It now suggests nothing while you type a
+  value and excludes keys already set — once they're all in, the palette closes and
+  Enter submits. (No more dummy token to dismiss it.)
+- **`import` help is no longer truncated.** The hint read `import game <title>`, and
+  `<title>` was parsed as an HTML tag — eating the rest of the line. Now `[title]`.
+
 ## [0.7.4] — 2026-06-24
 
 The **safety-net & self-service** release: hands-off restorable backups, version

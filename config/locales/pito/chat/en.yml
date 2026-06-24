@@ -17,7 +17,7 @@ en:
       import:
         descriptions:
           import: "Import a game from IGDB (`import vids` is an alias of `sync vids`)"
-        usage_hint: "To import a game from IGDB, type `import game <title>`. To sync vids, use `sync vids` (`import vids` is an alias)."
+        usage_hint: "To import a game from IGDB, type `import game [title]`. To sync vids, use `sync vids` (`import vids` is an alias)."
       footage:
         descriptions:
           footage: "Set a game's total footage hours (by id)"
