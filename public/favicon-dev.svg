@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Development-only favicon: the pito "P" recoloured RED (vs pito-blue #5170ff)
+     so a dev tab is never mistaken for production. Linked from the layout head
+     only when Rails.env.development?. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <g font-family="'JetBrainsMono Nerd Font Mono','JetBrains Mono',monospace" font-size="160" xml:space="preserve" font-weight="400">
+    <text x="200" y="210"><tspan fill="#ff3b3b">██████</tspan><tspan fill="#99303a">╗ </tspan></text>
+    <text x="200" y="360"><tspan fill="#ff3b3b">██</tspan><tspan fill="#99303a">╔══</tspan><tspan fill="#ff3b3b">██</tspan><tspan fill="#99303a">╗</tspan></text>
+    <text x="200" y="510"><tspan fill="#ff3b3b">██████</tspan><tspan fill="#99303a">╔╝</tspan></text>
+    <text x="200" y="660"><tspan fill="#ff3b3b">██</tspan><tspan fill="#99303a">╔═══╝</tspan></text>
+    <text x="200" y="810"><tspan fill="#ff3b3b">██</tspan><tspan fill="#99303a">║</tspan></text>
+    <text x="200" y="960"><tspan fill="#99303a">╚═╝</tspan></text>
+  </g>
+</svg>

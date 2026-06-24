@@ -4,6 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>PITO</title>
+  <%# Dev-only: swap in a RED favicon (vs the pito-blue production icon) so a
+      development tab is never mistaken for the real thing. SVG favicons take
+      precedence over /favicon.ico in modern browsers; production links nothing. %>
+  <% if Rails.env.development? %>
+    <link rel="icon" type="image/svg+xml" href="/favicon-dev.svg">
+  <% end %>
   <%= csrf_meta_tags %>
   <%= csp_meta_tag %>
   <%# Prevent Turbo from showing a stale cached snapshot (no-preview) while the
@@ -38,5 +44,10 @@
           sections: Pito::Palette::CommandCatalog.sections
         )) %>
   </div>
+
+  <%# Dev-only red "DEVELOPMENT" banner pinned to the bottom (see favicon above). %>
+  <% if Rails.env.development? %>
+    <%= render(Pito::DevelopmentBannerComponent.new) %>
+  <% end %>
 </body>
 </html>
