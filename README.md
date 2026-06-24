@@ -233,9 +233,11 @@ through enrolling a login:
 curl -fsSL https://raw.githubusercontent.com/gmrdad82/pito/main/script/install.sh | sh
 ```
 
-It asks for the public URL (default **http://localhost:3028**), mints a fresh master
-key + credentials (no editor required), enrolls TOTP (scan the printed `otpauth://`
-into any authenticator), and — for a non-localhost host — **configures a Cloudflare
+It first asks **which version** to install — pick a **stable** release (the newest
+is the default + recommended) or **edge** (latest image + bleeding-edge CLI from
+`main`). Then it asks for the public URL (default **http://localhost:3028**), mints a
+fresh master key + credentials (no editor required), enrolls TOTP (scan the printed
+`otpauth://` into any authenticator), and — for a non-localhost host — **configures a Cloudflare
 tunnel and brings up both the tunnel and pito as systemd services**, so everything
 survives a reboot with no manual `cloudflared tunnel run`. When it finishes, open the
 URL and `/login`. (The only thing a public host needs that can't be scripted is the
@@ -251,9 +253,15 @@ curl -fsSL https://raw.githubusercontent.com/gmrdad82/pito/main/script/install.s
 ```
 
 The script's `--help` lists them all: `--host URL`, `--dir DIR` (default `./pito`),
-`--tag TAG`, `--skip-pull`, plus `--service-only` / `--cloudflared-only` to (re)run
-just the systemd or tunnel step. You provide nothing else — the master key +
-credentials are generated for you; API keys go in later via `/config`.
+`--version vX.Y.Z` (pin a release) / `--edge` (skip the version prompt),
+`--skip-pull`, plus `--service-only` / `--cloudflared-only` to (re)run just the
+systemd or tunnel step. You provide nothing else — the master key + credentials are
+generated for you; API keys go in later via `/config`.
+
+**Versions: stable vs edge.** `stable` pins a release — image tag _and_ CLI/scripts
+come from the same `vX.Y.Z` git tag, so the whole install is reproducible. `edge`
+runs the `:latest` image with the CLI tracking `main`. `pito --version` shows which
+you're on (`pito 0.7.3 (stable)`); `pito update` lets you move between them.
 
 **Re-running is safe.** Running the installer again keeps your existing master key +
 credentials, never touches the Postgres volume (channels, videos, games, `/config`
@@ -357,16 +365,17 @@ useful; IGDB and Voyage unlock the game features.
 The Docker stack is driven by the **`pito`** CLI (on your `PATH` after install —
 or `./pito` from the install dir):
 
-| Command            | What it does                                          |
-| ------------------ | ----------------------------------------------------- |
-| `pito up` / `down` | start / stop the stack                                |
-| `pito logs [-f]`   | tail container logs (Docker's own — capped + rotated) |
-| `pito console`     | a Rails console inside the running container          |
-| `pito rake [task]` | list `pito:*` tasks, or run one in the container      |
-| `pito clean`       | clear `tmp/` scratch (keeps storage/pids) + dev logs  |
-| `pito totp`        | (re)enroll your login                                 |
-| `pito update`      | pull the latest image + restart                       |
-| `pito backup`      | dump DB + Active Storage to `./backups/<ts>/` (host)  |
+| Command            | What it does                                           |
+| ------------------ | ------------------------------------------------------ |
+| `pito up` / `down` | start / stop the stack                                 |
+| `pito logs [-f]`   | tail container logs (Docker's own — capped + rotated)  |
+| `pito console`     | a Rails console inside the running container           |
+| `pito rake [task]` | list `pito:*` tasks, or run one in the container       |
+| `pito clean`       | clear `tmp/` scratch (keeps storage/pids) + dev logs   |
+| `pito totp`        | (re)enroll your login                                  |
+| `pito version`     | show the running version + channel (stable/edge)       |
+| `pito update`      | update — pick a release (stable) or edge, then restart |
+| `pito backup`      | dump DB + Active Storage to `./backups/<ts>/` (host)   |
 
 In-app, **`/jobs`** is your window into the background queue: `/jobs status` (workers,
 state counts, recent failures), `/jobs requeue <id|all>`, `/jobs run <key>` (run a
