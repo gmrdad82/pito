@@ -105,8 +105,9 @@ module Pito
         # ── price [set] <amount> | price unset ────────────────────────────────────
 
         # `#<handle> price set <amount>` / bare `#<handle> price <amount>` set the
-        # game's euro price (> 0); `#<handle> price unset` clears it to NULL. The
-        # game is known from the segment, mirroring the `price` chat verb.
+        # game's euro price (>= 0; an explicit 0 = free, the star); `#<handle> price
+        # unset` clears it to NULL. The game is known from the segment, mirroring
+        # the `price` chat verb.
         def handle_price(event, args, _conversation)
           game = resolve_game_from_event(event)
           return game_not_found_error if game.nil?
@@ -133,12 +134,12 @@ module Pito
           ))
         end
 
-        # Parse a euro amount (BigDecimal, 2 decimals, strictly positive), or nil.
+        # Parse a euro amount (BigDecimal, 2 decimals, non-negative — 0 = free), or nil.
         def parse_price_amount(raw)
           return nil if raw.blank?
 
           value = BigDecimal(raw.to_s).round(2)
-          return nil unless value.positive?
+          return nil if value.negative?
 
           value
         rescue ArgumentError, TypeError

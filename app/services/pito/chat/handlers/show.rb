@@ -57,8 +57,10 @@ module Pito
           Pito::Chat::Result::Ok.new(events: events)
         end
 
+        # consume: false — on a `#<handle>` reply a not-found must NOT consume the
+        # source list, so the owner can retry the reply without repeating it.
         def video_not_found(ref)
-          Pito::Chat::Result::Ok.new(events: [
+          Pito::Chat::Result::Ok.new(consume: false, events: [
             { kind: :system, payload: Pito::MessageBuilder::Text.call("pito.copy.videos.not_found", ref: ref) }
           ])
         end
@@ -89,8 +91,9 @@ module Pito
           Pito::Chat::Result::Ok.new(events: events)
         end
 
+        # consume: false — see video_not_found: a not-found reply stays repliable.
         def game_not_found(ref)
-          Pito::Chat::Result::Ok.new(events: [
+          Pito::Chat::Result::Ok.new(consume: false, events: [
             { kind: :system, payload: Pito::MessageBuilder::Text.call("pito.copy.games.not_found", ref: ref) }
           ])
         end

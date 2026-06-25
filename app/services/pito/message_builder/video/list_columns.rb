@@ -67,8 +67,9 @@ module Pito
           game:     {
             aliases:    %w[game games],
             heading:    "Game",
+            html:       true,
             cell_class: "text-fg-dim pito-cell-game",
-            value:      ->(v) { v.linked_games.map(&:title).join(", ") }
+            value:      ->(v) { linked_games_html(v) }
           },
           duration: {
             aliases:    %w[length duration],
@@ -190,7 +191,7 @@ module Pito
             else
                       cfg[:cell_class] || "text-fg-dim"
             end
-            { text:, class: klass }
+            { text:, class: klass, html: cfg[:html] == true }
           end
         end
 
@@ -213,6 +214,29 @@ module Pito
         # Returns "—" for a nil count, or the stringified integer.
         def count_text(n)
           n.nil? ? "—" : n.to_s
+        end
+
+        # html_safe "#<id> <title>" per linked game, comma-joined. Each `#<id>` is
+        # a cyan shimmer token (same component as the vid `#` id column) that, when
+        # clicked, auto-submits `show game #<id>` — a show affordance, NOT a reply
+        # (the :system list keeps its own video_list repliability). "—" when none.
+        def linked_games_html(video)
+          games = video.linked_games
+          return "—" if games.empty?
+
+          helpers = ActionController::Base.helpers
+          helpers.safe_join(
+            games.map do |game|
+              id_text = "##{game.id}"
+              token = helpers.tag.span(
+                id_text,
+                class: Pito::Shimmer::TokenComponent.css_class(id_text, extra: "tabular-nums whitespace-nowrap", seed: video.id),
+                data:  Pito::Shimmer::TokenComponent.prefill_data("show game #{id_text}", submit: true)
+              )
+              helpers.safe_join([ token, " ", game.title ])
+            end,
+            ", "
+          )
         end
 
         # Human label for a video's status column. A scheduled video (future

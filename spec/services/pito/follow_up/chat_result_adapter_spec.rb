@@ -15,6 +15,18 @@ RSpec.describe Pito::FollowUp::ChatResultAdapter, type: :service do
       expect(result.events).to eq(events)
     end
 
+    it "defaults the Append to consuming the source (Ok consume: true)" do
+      result = described_class.call(Pito::Chat::Result::Ok.new(events: []))
+      expect(result.consume).to be(true)
+    end
+
+    it "forwards consume: false from a soft Ok (e.g. not-found) so the source stays repliable" do
+      ok     = Pito::Chat::Result::Ok.new(consume: false, events: [ { kind: :system, payload: {} } ])
+      result = described_class.call(ok)
+      expect(result).to be_a(Pito::FollowUp::Result::Append)
+      expect(result.consume).to be(false)
+    end
+
     it "passes a confirmation event straight through (Confirmable verbs)" do
       ok = Pito::Chat::Result::Ok.new(events: [
         { kind: :confirmation, payload: { "command" => "game_delete" } }

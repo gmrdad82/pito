@@ -422,13 +422,23 @@ RSpec.describe Pito::MessageBuilder::Game::ListColumns do
     context "price column" do
       let(:game_with_price) { create(:game) }
 
-      it "renders the euro price with two decimals when set" do
+      it "renders coin glyphs + the number (html cell) when priced" do
         game_with_price.update!(price: BigDecimal("59.99"))
         result = described_class.cells(game_with_price, [ :price ])
-        expect(result.first[:text]).to eq("€59.99")
+        expect(result.first[:html]).to be(true)
+        expect(result.first[:text]).to include("/coin/coin.gif")
+        expect(result.first[:text]).to include("59.99")
+        expect(result.first[:text].scan("pito-coin\"").size).to eq(3)
       end
 
-      it "returns '—' when the game is unpriced" do
+      it "renders the FREE star for an explicit 0 price" do
+        game_with_price.update!(price: 0)
+        result = described_class.cells(game_with_price, [ :price ])
+        expect(result.first[:text]).to include("/coin/star.gif")
+        expect(result.first[:text]).not_to include("/coin/coin.gif")
+      end
+
+      it "renders an em-dash when the game is unpriced (nil)" do
         result = described_class.cells(game_with_price, [ :price ])
         expect(result.first[:text]).to eq("—")
       end

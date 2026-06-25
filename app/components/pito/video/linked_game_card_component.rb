@@ -70,9 +70,10 @@ module Pito
         Pito::Formatter::FootageHours.call(@game.footage_hours)
       end
 
-      # Euro price — "€59.99", or "—" when unpriced.
+      # Price as coin glyphs + number ("🪙🪙🪙 59.99"), or the FREE star when
+      # unpriced — html_safe. Surfaces in `show vid <id>` as an :enhanced message.
       def price_label
-        Pito::Formatter::Price.call(@game.price)
+        Pito::Game::PriceGlyphs.html(@game.price)
       end
     end
   end

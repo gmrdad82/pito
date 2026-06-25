@@ -28,11 +28,12 @@ RSpec.describe Pito::FollowUp::VerbDelegator, type: :service do
         .to eq(free.events.first[:payload].with_indifferent_access[:game_id])
     end
 
-    it "adapts a not-found verb outcome (still an Append with the system message)" do
+    it "adapts a not-found verb outcome to a NON-consuming Append (source stays repliable for a retry)" do
       result = described_class.call(source_event:, rest: "show 999999", conversation:)
 
       expect(result).to be_a(Pito::FollowUp::Result::Append)
       expect(result.events.first[:kind]).to eq(:system)
+      expect(result.consume).to be(false)
     end
 
     it "forwards channel / period / viewport_width into Chat::Dispatcher (D6/D7/D8)" do

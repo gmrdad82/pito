@@ -57,12 +57,13 @@ RSpec.describe Pito::Chat::Handlers::Price do
     expect(result.events.first[:payload]["text"]).to include("Pragmata")
   end
 
-  # ── price > 0 guard ──────────────────────────────────────────────────────────
+  # ── price >= 0 (0 = free) ─────────────────────────────────────────────────────
 
-  it "rejects a zero amount with a usage hint (price must be > 0)" do
+  it "sets an explicit 0 (free) and confirms it as €0.00" do
     result = handler_for("set", game.id.to_s, "0").call
-    expect(result).to be_a(Pito::Chat::Result::Error)
-    expect(game.reload.price).to be_nil
+    expect(result).to be_a(Pito::Chat::Result::Ok)
+    expect(game.reload.price).to eq(0)
+    expect(result.events.first[:payload]["text"]).to include("Pragmata").and include("€0.00")
   end
 
   it "rejects a negative amount" do

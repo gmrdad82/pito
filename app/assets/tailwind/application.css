@@ -1885,7 +1885,10 @@ html:has(#pito-settings[data-fx="false"]) .pito-comet-reveal::after { display: n
 .pito-cell-publisher  { max-width: 22ch; }
 .pito-cell-game       { max-width: 24ch; }
 .pito-cell-visibility { max-width: 12ch; }
-.pito-cell-price      { max-width: 13ch; }
+/* Price carries up to 5 prefixed coin glyphs + the number ("🪙🪙🪙🪙🪙 99.99").
+   The coins are tight (~17px each at 1.3em), so 16ch fits the worst case without
+   the slack the first pass (18ch) left. */
+.pito-cell-price      { max-width: 16ch; }
 
 /* Duration / footage: numeric, right-aligned, capped at the widest value
    "99:23:59:59" (11ch). Short content, so no truncation needed. */
@@ -1943,6 +1946,15 @@ html:has(#pito-settings[data-fx="false"]) .pito-comet-reveal::after { display: n
 /* Platform logos — capped at 16px tall so they never affect line-height. */
 .pito-platform-icons { display: inline-flex; align-items: center; gap: 0.35rem; vertical-align: middle; }
 .pito-platform-icon  { height: 16px; width: auto; display: inline-block; vertical-align: middle; }
+
+/* Pito::Coin — price-as-coin-tiers (Pito::Game::PriceGlyphs). The coins prefix the
+   number; the FREE star is its own, slightly larger glyph. The gifs are tight
+   (coin ~91% of its canvas), so the run reads ~1–2px between coins at gap 0.
+   `bottom: 2px` lifts the run off the digit baseline (it otherwise sits ~2px low);
+   `margin-inline-end` is the small, tunable coins↔number gap. */
+.pito-coins      { display: inline-flex; align-items: center; vertical-align: middle; position: relative; bottom: 2px; margin-inline-end: 0.15em; }
+.pito-coin       { height: 1.3em; width: auto; display: inline-block; vertical-align: middle; }
+.pito-coin--free { height: 1.45em; }
 
 /* ── Footage snippet (copyable ffprobe one-liner) ──────────────
    A dim hint line above a monospace command row. The command scrolls

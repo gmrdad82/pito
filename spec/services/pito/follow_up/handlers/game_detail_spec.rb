@@ -372,11 +372,11 @@ RSpec.describe Pito::FollowUp::Handlers::GameDetail, type: :service do
       expect(result.events.first[:payload]["text"]).to include("Lies of P").and include("€59.99")
     end
 
-    it "errors with missing_price for a zero amount (must be > 0)" do
+    it "sets an explicit 0 as free and confirms it as €0.00" do
       result = handler.call(event: source_event, rest: "price set 0", conversation:)
-      expect(result).to be_a(Pito::FollowUp::Result::Error)
-      expect(result.message_key).to eq("pito.follow_up.game_detail.errors.missing_price")
-      expect(game.reload.price).to be_nil
+      expect(result).to be_a(Pito::FollowUp::Result::Append)
+      expect(game.reload.price).to eq(0)
+      expect(result.events.first[:payload]["text"]).to include("Lies of P").and include("€0.00")
     end
 
     it "errors with missing_price when no amount is given" do

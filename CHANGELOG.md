@@ -15,6 +15,31 @@ The **golden tape** release — the README now _moves_.
   - **Operating PITO** — `pito --help` → `version` → `logs` → `rake` → `backup`, live.
   - **Install** — `curl | sh` showing the version picker → fetch (the "one line" proof).
   - **`pito update`** — the interactive stable/edge version picker switching the stack.
+- **`Pito::Coin` — price as coin tiers.** Game prices now read at a glance as
+  spinning gold coins instead of a bare `€`: 1 coin (≤ €9.99, budget) up to 5
+  (> €79.99, premium/collector), thresholds at `9.99 / 29.99 / 59.99 / 79.99`.
+  Price has three meanings: **unset** (`nil`) renders `—`, an **explicit 0** renders
+  a Mario-style **star** + `0.00` (deliberately free — "genuine value", its own state,
+  settable via `price set <id> 0`), and **> 0** renders the coins + the number
+  (`🪙🪙🪙 59.99`). `Pito::Coin` owns the tier; `Pito::Formatter::Price` owns the number
+  and the nil-vs-0 distinction (`unpriced?` / `free?`); `Pito::Game::PriceGlyphs`
+  renders. Shows in the game list Price column, the game detail card (`:system`), and
+  the linked-game card (`show vid` `:enhanced`).
+- **`price` verb in `shift+r` replies.** Reply to a `list games` message with
+  `#<handle> price set <id> <amount>` (or `price set <id> 0` for free) — previously
+  only `show game` replies could set price.
+- **Linked games in `list vids with games`.** The Game column now shows
+  `#<id> <title>`, with `#<id>` a clickable cyan shimmer token (like the vid `#` id)
+  that opens `show game #<id>`.
+
+### Fixed
+
+- **A not-found reply no longer consumes the `#<handle>`.** Replying to a
+  `list games` / `list vids` / a `show game` linked-vids `:enhanced` list with a bad
+  id (`#<handle> show 999`) returned the friendly "Don't have 999." but silently
+  consumed the source's reply handle, so you couldn't retry without repeating the
+  whole command. The not-found now keeps the list repliable (`Chat::Result::Ok` gained
+  a `consume:` flag, set `false` for not-founds and forwarded by `ChatResultAdapter`).
 
 ## [0.7.5] — 2026-06-24
 
