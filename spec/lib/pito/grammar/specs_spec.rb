@@ -17,6 +17,15 @@ RSpec.describe Pito::Grammar::Specs do
       expect(all_specs.map(&:name)).to include(:show)
     end
 
+    it "includes the :analyze chat spec" do
+      expect(all_specs.map(&:name)).to include(:analyze)
+    end
+
+    it ":analyze spec has :analytics and :stats as aliases" do
+      analyze_spec = all_specs.find { |s| s.name == :analyze && s.namespace == :chat }
+      expect(analyze_spec.aliases).to match_array([ :analytics, :stats ])
+    end
+
     it "includes the :import chat spec" do
       expect(all_specs.map(&:name)).to include(:import)
     end
@@ -70,6 +79,32 @@ RSpec.describe Pito::Grammar::Specs do
       it "registers :show, :import, :footage and :find specs" do
         names = Pito::Grammar::Registry.specs(namespace: :chat).map(&:name)
         expect(names).to include(:list, :show, :import, :footage, :find)
+      end
+
+      it "registers :analyze with a single :noun enum slot sourced from nouns" do
+        spec = Pito::Grammar::Registry.spec(namespace: :chat, name: :analyze)
+        expect(spec).not_to be_nil
+        expect(spec.slots.length).to eq(1)
+        expect(spec.slot(:noun).source).to eq(:nouns)
+        expect(spec.slot(:noun).optional?).to be(true)
+      end
+
+      it "canonicalizes the :analyze token to the :analyze spec via specs_for_alias" do
+        result = Pito::Grammar::Registry.specs_for_alias(namespace: :chat, token: :analyze)
+        expect(result).not_to be_nil
+        expect(result.name).to eq(:analyze)
+      end
+
+      it "canonicalizes the :analytics alias to the :analyze spec via specs_for_alias" do
+        result = Pito::Grammar::Registry.specs_for_alias(namespace: :chat, token: :analytics)
+        expect(result).not_to be_nil
+        expect(result.name).to eq(:analyze)
+      end
+
+      it "canonicalizes the :stats alias to the :analyze spec via specs_for_alias" do
+        result = Pito::Grammar::Registry.specs_for_alias(namespace: :chat, token: :stats)
+        expect(result).not_to be_nil
+        expect(result.name).to eq(:analyze)
       end
 
       it "registers :import with a :noun slot (import_nouns) and an optional :title free slot" do

@@ -93,6 +93,19 @@ module Pito
             slots:           [ Slot.new(name: :id, kind: :free, optional: true) ],
             description_key: "pito.grammar.chat.show"
           ),
+          # `analyze` (aliases `analytics`/`stats`) — interval-aware YouTube
+          # analytics for a channel/vid/game scope. Mirrors `list`: the enum slot
+          # drives the suggestion ghost (`analyze ` → channels) and recognises the
+          # noun; the handler reads message.raw to route the entity + ids/handles,
+          # the shift+tab channel scope, and the shift+space period. `stats` is a
+          # friendlier alias and is NOT the internal `Pito::Stats` layer.
+          Spec.new(
+            namespace:       :chat,
+            name:            :analyze,
+            aliases:         [ :analytics, :stats ],
+            slots:           [ Slot.new(name: :noun, kind: :enum, source: :nouns, optional: true) ],
+            description_key: "pito.grammar.chat.analyze"
+          ),
           Spec.new(
             namespace:       :chat,
             name:            :import,

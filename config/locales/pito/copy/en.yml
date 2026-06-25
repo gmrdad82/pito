@@ -2742,6 +2742,33 @@ en:
               Options:
                 "--help": "Print this help message"
 
+        analyze:
+          usage: "analyze channel [@handle[, @h2…]]  |  analyze vid [#id[, #id…]]  |  analyze game [#id[, #id…]]"
+          channel:
+            usage: "analyze channel [@handle[, @h2…]]"
+            sections:
+              Arguments:
+                "channel": "Target noun (aliases: channels) — analytics for the shift+space period; `stats` and `analytics` are verb aliases"
+                "[@handle]": "One or more channel handles; omit to use the shift+tab scope (@all = every channel, else the selected one)"
+              Options:
+                "--help": "Print this help message"
+          vid:
+            usage: "analyze vid [#id[, #id…]]"
+            sections:
+              Arguments:
+                "vid": "Target noun (aliases: vids, video, videos) — bare form uses the shift+tab channel scope (same as `analyze channel`)"
+                "[#id]": "One or more local numeric video ids"
+              Options:
+                "--help": "Print this help message"
+          game:
+            usage: "analyze game [#id[, #id…]]"
+            sections:
+              Arguments:
+                "game": "Target noun (aliases: games, gamez) — bare form resolves shift+tab → linked videos → games, presented at game level"
+                "[#id]": "One or more local numeric game ids; resolves linked videos and presents results at game level"
+              Options:
+                "--help": "Print this help message"
+
       hashtag_help:
         show-game:
           target_usage: "#<show-game-hashtag> <action>"
@@ -6555,3 +6582,5 @@ en:
         other: "notifs"
         one_cap: "Notif"
         other_cap: "Notifs"
+      analyze:
+        stub: "I'll have those numbers for you in a moment."

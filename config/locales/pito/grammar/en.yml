@@ -33,6 +33,7 @@ en:
         import: "Import a game from IGDB into your library"
         help: "List all follow-up targets and their accepted actions"
         shinies: "Show achievement tracks and obtained shinies (game, vid, or channel)"
+        analyze: "Analyze YouTube metrics for a channel, vid, or game (over the shift+space period)"
         greet: "Say hi — PITO greets you with what it can do"
         farewell: "Say bye — PITO waves you off"
       hashtag:

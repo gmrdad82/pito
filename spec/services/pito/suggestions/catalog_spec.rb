@@ -78,6 +78,21 @@ RSpec.describe Pito::Suggestions::Catalog, type: :service do
       expect(names).to include("list", "show", "find")
     end
 
+    it "includes the analyze verb" do
+      names = chat.map { |e| e[:name] }
+      expect(names).to include("analyze")
+    end
+
+    it "insert for analyze is 'analyze '" do
+      analyze_entry = chat.find { |e| e[:name] == "analyze" }
+      expect(analyze_entry[:insert]).to eq("analyze ")
+    end
+
+    it "description for analyze resolves via I18n to the pito.grammar.chat.analyze key" do
+      analyze_entry = chat.find { |e| e[:name] == "analyze" }
+      expect(analyze_entry[:description]).to eq(I18n.t("pito.grammar.chat.analyze"))
+    end
+
     it "every entry has name, insert, description keys" do
       chat.each do |entry|
         expect(entry.keys).to include(:name, :insert, :description)

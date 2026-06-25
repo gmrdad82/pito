@@ -47,4 +47,12 @@ RSpec.describe Pito::Chat::Registry do
       expect { described_class.register(ChatRegistryTestHandler) }.to change(described_class, :size).by(1)
     end
   end
+
+  describe "production handler wiring" do
+    before { described_class.register_all! }
+
+    it "resolves :analyze to Pito::Chat::Handlers::Analyze" do
+      expect(described_class.lookup(:analyze)).to eq(Pito::Chat::Handlers::Analyze)
+    end
+  end
 end

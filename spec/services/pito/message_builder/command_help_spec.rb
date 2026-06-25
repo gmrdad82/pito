@@ -244,8 +244,45 @@ RSpec.describe Pito::MessageBuilder::CommandHelp do
         end
       end
 
+      context "analyze (multi-noun: channel + vid + game)" do
+        subject(:result) { described_class.call(:analyze) }
+
+        it "returns an html payload" do
+          expect(result).to be_a(Hash)
+          expect(result["html"]).to be(true)
+        end
+
+        it "body includes 'Usage:'" do
+          expect(result["body"]).to include("Usage:")
+        end
+
+        it "body includes the analyze verb" do
+          expect(result["body"]).to include("analyze")
+        end
+
+        it "body lists the channel form" do
+          expect(result["body"]).to include("channel")
+        end
+
+        it "body lists the vid form" do
+          expect(result["body"]).to include("vid")
+        end
+
+        it "body lists the game form" do
+          expect(result["body"]).to include("game")
+        end
+
+        it "body includes --help option" do
+          expect(result["body"]).to include("--help")
+        end
+
+        it "body is wrapped in .pito-help-block" do
+          expect(result["body"]).to include('class="pito-help-block"')
+        end
+      end
+
       # Remaining verbs — smoke-test that each renders a valid page
-      %i[reindex link unlink publish unlist schedule platform import sync].each do |verb|
+      %i[reindex link unlink publish unlist schedule platform import sync analyze].each do |verb|
         context "verb :#{verb}" do
           subject(:result) { described_class.call(verb) }
 
@@ -375,6 +412,82 @@ RSpec.describe Pito::MessageBuilder::CommandHelp do
 
         it "body mentions 'with' option" do
           expect(result["body"]).to include("with")
+        end
+      end
+
+      context "analyze channel --help" do
+        subject(:result) { described_class.call(:analyze, noun: :channel) }
+
+        it "returns an html payload" do
+          expect(result).to be_a(Hash)
+          expect(result["html"]).to be(true)
+        end
+
+        it "usage line includes 'analyze channel'" do
+          expect(result["body"]).to include("analyze channel")
+        end
+
+        it "body mentions shift+tab scope" do
+          expect(result["body"]).to include("shift+tab")
+        end
+
+        it "body mentions stats/analytics as verb aliases" do
+          expect(result["body"]).to include("analytics")
+          expect(result["body"]).to include("stats")
+        end
+
+        it "body includes --help option" do
+          expect(result["body"]).to include("--help")
+        end
+      end
+
+      context "analyze vid --help" do
+        subject(:result) { described_class.call(:analyze, noun: :vid) }
+
+        it "returns an html payload" do
+          expect(result).to be_a(Hash)
+          expect(result["html"]).to be(true)
+        end
+
+        it "usage line includes 'analyze vid'" do
+          expect(result["body"]).to include("analyze vid")
+        end
+
+        it "body mentions bare form reduces to analyze channel" do
+          expect(result["body"]).to include("analyze channel")
+        end
+
+        it "body mentions numeric video id" do
+          expect(result["body"]).to include("#id")
+        end
+
+        it "body includes --help option" do
+          expect(result["body"]).to include("--help")
+        end
+      end
+
+      context "analyze game --help" do
+        subject(:result) { described_class.call(:analyze, noun: :game) }
+
+        it "returns an html payload" do
+          expect(result).to be_a(Hash)
+          expect(result["html"]).to be(true)
+        end
+
+        it "usage line includes 'analyze game'" do
+          expect(result["body"]).to include("analyze game")
+        end
+
+        it "body mentions the link graph resolution" do
+          expect(result["body"]).to include("linked videos")
+        end
+
+        it "body mentions game level presentation" do
+          expect(result["body"]).to include("game level")
+        end
+
+        it "body includes --help option" do
+          expect(result["body"]).to include("--help")
         end
       end
 

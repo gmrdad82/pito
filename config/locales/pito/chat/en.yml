@@ -75,6 +75,9 @@ en:
       help:
         descriptions:
           help: "List follow-up targets and their accepted actions"
+      analyze:
+        descriptions:
+          analyze: "Analyze YouTube metrics for a channel, vid, or game (over the shift+space period)"
       shinies:
         descriptions:
           shinies: "Show achievement tracks and obtained shinies for a game, vid, or channel"

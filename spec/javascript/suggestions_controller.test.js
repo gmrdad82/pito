@@ -60,10 +60,11 @@ const CATALOG_JSON = JSON.stringify({
   ],
   hashtag: [],
   chat: [
-    { name: "list",   insert: "list ",   description: "List games",    slots: [] },
-    { name: "show",   insert: "show ",   description: "Show a game",   slots: [{ name: "title", source: "game_titles" }] },
-    { name: "delete", insert: "delete ", description: "Delete a game", slots: [{ name: "title", source: "game_titles" }] },
-    { name: "sync",   insert: "sync ",   description: "Sync data",     slots: [{ name: "target", source: "sync_targets" }] },
+    { name: "list",    insert: "list ",    description: "List games",                    slots: [] },
+    { name: "show",    insert: "show ",    description: "Show a game",                   slots: [{ name: "title", source: "game_titles" }] },
+    { name: "delete",  insert: "delete ",  description: "Delete a game",                 slots: [{ name: "title", source: "game_titles" }] },
+    { name: "sync",    insert: "sync ",    description: "Sync data",                     slots: [{ name: "target", source: "sync_targets" }] },
+    { name: "analyze", insert: "analyze ", description: "Analyze YouTube metrics",       slots: [{ name: "noun", source: "nouns" }] },
   ],
   vocabularies: {
     release_status: { canonical: ["released", "upcoming", "tba"], synonyms: {}, fillers: [], dynamic: false },
@@ -552,6 +553,14 @@ describe("pito--suggestions controller", () => {
 
     it("does not verb-complete once a trailing space follows the partial", () => {
       expect(ctrl._computeLocalGhost("sy ", 3).complete_current).toBe("")
+    })
+
+    it("completes 'an' → 'alyze' for 'analyze' (unique prefix)", () => {
+      expect(ctrl._computeLocalGhost("an", 2).complete_current).toBe("alyze")
+    })
+
+    it("completes 'anal' → 'yze' for 'analyze'", () => {
+      expect(ctrl._computeLocalGhost("anal", 4).complete_current).toBe("yze")
     })
 
     it("ghosts the first sync target after 'sync ' ('channels')", () => {
