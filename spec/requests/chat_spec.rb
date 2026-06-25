@@ -341,6 +341,75 @@ RSpec.describe "Chat requests", type: :request do
       end
     end
 
+    context "with an analyze command (channel scope, fan-out)" do
+      # Minimal raw metrics from the stubbed AnalyticsClient (symbol keys; the
+      # real API returns them; Primitives normalises to string keys in storage).
+      let(:raw_metrics) do
+        {
+          views:                     500,
+          estimated_minutes_watched: 300,
+          average_view_duration:     120,
+          average_view_percentage:   40.0,
+          subscribers_gained:        10,
+          subscribers_lost:          2,
+          likes:                     50,
+          dislikes:                  1,
+          comments:                  5
+        }
+      end
+
+      # A usable channel (youtube_connection with needs_reauth: false) so
+      # AnalyzePrepareJob can reach the client.
+      let!(:test_channel) { create(:channel, :on_connection, handle: "gmrdad82") }
+
+      before do
+        allow_any_instance_of(::Channel::Youtube::AnalyticsClient)
+          .to receive(:scalars)
+          .and_return(raw_metrics)
+      end
+
+      it "returns 204 No Content" do
+        post "/chat", params: { input: "analyze channel @gmrdad82", uuid: conversation.uuid }
+        expect(response).to have_http_status(:no_content)
+      end
+
+      context "after draining all enqueued jobs" do
+        before do
+          perform_enqueued_jobs do
+            post "/chat", params: { input: "analyze channel @gmrdad82", uuid: conversation.uuid }
+          end
+        end
+
+        let(:the_turn)        { Turn.last }
+        let(:analyze_events)  { the_turn.events.to_a.select { |e| e.payload.is_a?(Hash) && e.payload.key?("analyze") } }
+        let(:thinking_events) { the_turn.events.where(kind: :thinking).to_a }
+
+        it "persists exactly two analyze events" do
+          expect(analyze_events.count).to eq(2)
+        end
+
+        it "both analyze events are ready" do
+          expect(analyze_events).to all(satisfy { |e| e.payload.dig("analyze", "status") == "ready" })
+        end
+
+        it "both ready bodies include the scalars table" do
+          expect(analyze_events).to all(satisfy { |e| e.payload["body"].include?("pito-analytics-scalars") })
+        end
+
+        it "all thinking indicators are resolved" do
+          expect(thinking_events).to all(satisfy { |t| t.payload["resolved"] == true })
+        end
+
+        it "all thinking indicators have elapsed_seconds stamped (fan-out timing proof)" do
+          expect(thinking_events).to all(satisfy { |t| t.payload["elapsed_seconds"].is_a?(Numeric) })
+        end
+
+        it "turn is completed" do
+          expect(the_turn.reload.completed_at).not_to be_nil
+        end
+      end
+    end
+
     context "without a uuid (first message from start screen via HTML)" do
       let(:params) { { input: "/help" } }
 

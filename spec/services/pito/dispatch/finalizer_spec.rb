@@ -138,6 +138,66 @@ RSpec.describe Pito::Dispatch::Finalizer do
     end
   end
 
+  describe "#complete — multi-message turn with a pending-analyze card" do
+    def pending_analyze_payload(role: "system")
+      {
+        "html"    => true,
+        "anchor"  => true,
+        "analyze" => {
+          "status"     => "pending",
+          "role"       => role,
+          "title"      => "My Channel",
+          "level"      => "channel",
+          "entity_ids" => [ 1 ],
+          "period"     => "7d",
+          "intro"      => "some intro"
+        }
+      }
+    end
+
+    let(:events) do
+      finalizer.persist(
+        events: [
+          { kind: :system,   payload: { "text" => "intro" } },           # ready
+          { kind: :enhanced, payload: pending_analyze_payload(role: "system") },   # pending analyze
+          { kind: :enhanced, payload: pending_analyze_payload(role: "enhanced") }  # pending analyze
+        ],
+        turn:
+      )
+    end
+
+    it "resolves the ready message's indicator immediately" do
+      finalizer.complete(turn:, events:)
+      ready_message = events.first
+      indicator = thinking_events.find { |t| t.payload["for_event_id"] == ready_message.id }
+      expect(indicator.reload.payload["resolved"]).to be(true)
+    end
+
+    it "leaves the pending-analyze cards' indicators spinning" do
+      finalizer.complete(turn:, events:)
+      pending_messages = events.last(2)
+      pending_messages.each do |message|
+        indicator = thinking_events.find { |t| t.payload["for_event_id"] == message.id }
+        expect(indicator.reload.payload["resolved"]).to be_nil
+      end
+    end
+
+    it "does NOT complete the turn (deferred to AnalyzePrepareJob)" do
+      finalizer.complete(turn:, events:)
+      expect(turn.reload.completed_at).to be_nil
+    end
+
+    it "enqueues AnalyzePrepareJob for the turn" do
+      expect { finalizer.complete(turn:, events:) }
+        .to have_enqueued_job(AnalyzePrepareJob).with(turn.id)
+    end
+
+    it "does NOT enqueue AnalyticsFillJob (isolated stacks)" do
+      expect { finalizer.complete(turn:, events:) }
+        .not_to have_enqueued_job(AnalyticsFillJob)
+    end
+  end
+
   describe "refresh safety" do
     it "re-renders a resolved indicator (past-tense) and a pending one (spinner) from persisted payload" do
       events = finalizer.persist(
