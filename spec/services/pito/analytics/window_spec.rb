@@ -262,4 +262,92 @@ RSpec.describe Pito::Analytics::Window, type: :service do
       expect(cycle.first.keys).to contain_exactly(:token, :label)
     end
   end
+
+  # ── #finalized? ──────────────────────────────────────────────────────────────
+  #
+  # Uses a fixed reference_date so assertions are deterministic regardless of
+  # when the spec runs.
+  #
+  #   finalized_ref = 2026-01-15
+  #   FINALIZED_AFTER = 7
+  #   boundary = finalized_ref - 7 = 2026-01-08
+  #
+  #   m1 window  → end_date = 2025-12-31  → 2025-12-31 <= 2026-01-08 → true
+  #   7d window  → end_date = 2026-01-15  → 2026-01-15 <= 2026-01-08 → false
+  #   boundary   → end_date = 2026-01-08  → 2026-01-08 <= 2026-01-08 → true  (inclusive)
+  #   one inside → end_date = 2026-01-09  → 2026-01-09 <= 2026-01-08 → false
+
+  describe "#finalized?" do
+    let(:finalized_ref) { Date.new(2026, 1, 15) }
+
+    context "full-month window (m1) ending more than 7 days ago" do
+      subject(:window) { described_class.for("m1", reference_date: finalized_ref) }
+
+      # end_date = 2025-12-31; as_of = 2026-01-15 → finalized
+      it "returns true" do
+        expect(window.finalized?(as_of: finalized_ref)).to be(true)
+      end
+    end
+
+    context "rolling 7d window ending on as_of (today)" do
+      subject(:window) { described_class.for("7d", reference_date: finalized_ref) }
+
+      # end_date = 2026-01-15; as_of = 2026-01-15 → not finalized
+      it "returns false" do
+        expect(window.finalized?(as_of: finalized_ref)).to be(false)
+      end
+    end
+
+    context "boundary: end_date == as_of - FINALIZED_AFTER (inclusive)" do
+      # Build a 7d window where end_date = finalized_ref - FINALIZED_AFTER = 2026-01-08.
+      subject(:window) do
+        boundary_ref = finalized_ref - described_class::FINALIZED_AFTER
+        described_class.for("7d", reference_date: boundary_ref)
+      end
+
+      it "returns true (boundary is inclusive)" do
+        expect(window.finalized?(as_of: finalized_ref)).to be(true)
+      end
+    end
+
+    context "one day inside the finalization window (end_date = as_of - 6)" do
+      # Build a 7d window where end_date = finalized_ref - 6 = 2026-01-09.
+      subject(:window) do
+        described_class.for("7d", reference_date: finalized_ref - (described_class::FINALIZED_AFTER - 1))
+      end
+
+      it "returns false" do
+        expect(window.finalized?(as_of: finalized_ref)).to be(false)
+      end
+    end
+  end
+
+  # ── #expires_at_for ──────────────────────────────────────────────────────────
+
+  describe "#expires_at_for" do
+    # Fixed instants so TTL arithmetic is exact.
+    let(:finalized_ref) { Date.new(2026, 1, 15) }
+    let(:fixed_now)     { Time.utc(2026, 1, 15, 12, 0, 0) }
+
+    context "finalized window (m1 ending 2025-12-31)" do
+      subject(:window) { described_class.for("m1", reference_date: finalized_ref) }
+
+      it "returns nil (the period is frozen — cached forever)" do
+        expect(window.expires_at_for(now: fixed_now)).to be_nil
+      end
+    end
+
+    context "live window (7d ending on as_of)" do
+      subject(:window) { described_class.for("7d", reference_date: finalized_ref) }
+
+      it "returns now + 1 hour with the default live_ttl" do
+        expect(window.expires_at_for(now: fixed_now)).to eq(fixed_now + 1.hour)
+      end
+
+      it "respects a custom live_ttl" do
+        expect(window.expires_at_for(now: fixed_now, live_ttl: 30.minutes))
+          .to eq(fixed_now + 30.minutes)
+      end
+    end
+  end
 end
