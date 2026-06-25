@@ -67,6 +67,55 @@ module Pito
         @comparable
       end
 
+      # Days a window's end_date must be in the past before its data is treated as
+      # finalized. YouTube finalizes estimated metrics in ~2–3 days; the 7-day
+      # buffer absorbs late revisions / timezone edges (docs/claude/0.8.0.md).
+      FINALIZED_AFTER = 7
+
+      # Freeze math as class methods so both a Window and its PreviousRange share it.
+      def self.finalized?(end_date:, as_of:)
+        end_date <= as_of - FINALIZED_AFTER
+      end
+
+      def self.expires_at_for(end_date:, now:, live_ttl: 1.hour)
+        finalized?(end_date:, as_of: now.to_date) ? nil : now + live_ttl
+      end
+
+      # A duck-typed window covering the prior comparable range — same interface
+      # Primitives.fetch needs (start_date / end_date / token / expires_at_for).
+      PreviousRange = Data.define(:start_date, :end_date, :token) do
+        def expires_at_for(now:, live_ttl: 1.hour)
+          Pito::Analytics::Window.expires_at_for(end_date:, now:, live_ttl:)
+        end
+      end
+
+      # True once this window's end_date is far enough in the past that YouTube
+      # data can no longer change — so its primitives/results can be cached forever.
+      #
+      # @param as_of [Date] treated as "today" (pass Date.current at the call site)
+      def finalized?(as_of:)
+        self.class.finalized?(end_date:, as_of:)
+      end
+
+      # Cache expiry for this window's primitives / accumulated results:
+      #   finalized → nil   (never expires; the period is frozen)
+      #   live      → now + live_ttl  (recent days still move)
+      #
+      # @param now      [Time] treated as "now" (pass Time.current at the call site)
+      # @param live_ttl [ActiveSupport::Duration] TTL for non-finalized windows
+      def expires_at_for(now:, live_ttl: 1.hour)
+        self.class.expires_at_for(end_date:, now:, live_ttl:)
+      end
+
+      # The prior comparable window (for trend baselines), or nil when this window
+      # isn't comparable (e.g. lifetime). Its token is suffixed `-prev` so its
+      # primitive rows never collide with the current window's.
+      def previous
+        return nil unless comparable?
+
+        PreviousRange.new(start_date: prev_start, end_date: prev_end, token: "#{token}-prev")
+      end
+
       private
 
       def initialize(token, reference_date:, channel_created_on: nil)

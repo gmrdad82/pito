@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_21_000001) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_25_000001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -80,6 +80,21 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_21_000001) do
     t.datetime "updated_at", null: false
     t.index ["expires_at"], name: "index_analytics_cache_on_expires_at"
     t.index ["signature"], name: "index_analytics_cache_on_signature", unique: true
+  end
+
+  create_table "analytics_primitives", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.date "end_date", null: false
+    t.datetime "expires_at"
+    t.datetime "fetched_at", null: false
+    t.jsonb "metrics", default: {}, null: false
+    t.string "period_token", null: false
+    t.string "report", null: false
+    t.date "start_date", null: false
+    t.datetime "updated_at", null: false
+    t.string "video_youtube_id", null: false
+    t.index ["expires_at"], name: "index_analytics_primitives_on_expires_at"
+    t.index ["video_youtube_id", "report", "start_date", "end_date"], name: "index_analytics_primitives_on_video_report_range", unique: true
   end
 
   create_table "api_requests", force: :cascade do |t|
