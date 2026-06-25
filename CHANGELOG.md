@@ -4,9 +4,9 @@ All notable changes to PITO are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); the project aims for
 [Semantic Versioning](https://semver.org/).
 
-## [0.7.6] — unreleased
+## [0.7.6] — 2026-06-25
 
-The **golden tape** release — the README now _moves_.
+The **golden tape** release — the README now _moves_, and game prices read as coins.
 
 ### Added
 
