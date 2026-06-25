@@ -342,30 +342,17 @@ RSpec.describe "Chat requests", type: :request do
     end
 
     context "with an analyze command (channel scope, fan-out)" do
-      # Minimal raw metrics from the stubbed AnalyticsClient (symbol keys; the
-      # real API returns them; Primitives normalises to string keys in storage).
-      let(:raw_metrics) do
-        {
-          views:                     500,
-          estimated_minutes_watched: 300,
-          average_view_duration:     120,
-          average_view_percentage:   40.0,
-          subscribers_gained:        10,
-          subscribers_lost:          2,
-          likes:                     50,
-          dislikes:                  1,
-          comments:                  5
-        }
-      end
-
-      # A usable channel (youtube_connection with needs_reauth: false) so
-      # AnalyzePrepareJob can reach the client.
+      # A usable channel (youtube_connection, needs_reauth: false) so
+      # AnalyzePrepareJob can reach the fan-out.
       let!(:test_channel) { create(:channel, :on_connection, handle: "gmrdad82") }
 
+      # Stub the analytics fan-out → per metric, pulled (true → "1") or not
+      # (false → "0"). Isolates the request flow from the YouTube report calls.
       before do
-        allow_any_instance_of(::Channel::Youtube::AnalyticsClient)
-          .to receive(:scalars)
-          .and_return(raw_metrics)
+        allow(Pito::Analytics::Scaffold).to receive(:for).and_return(
+          { views: true, subs: true, likes: false, watched_hours: true,
+            avg_view_duration: false, avg_viewed_pct: true, comments: true, subscribed_status: false }
+        )
       end
 
       it "returns 204 No Content" do
@@ -392,8 +379,10 @@ RSpec.describe "Chat requests", type: :request do
           expect(analyze_events).to all(satisfy { |e| e.payload.dig("analyze", "status") == "ready" })
         end
 
-        it "both ready bodies include the scalars table" do
+        it "both ready bodies render the 0/1 scaffold cells" do
           expect(analyze_events).to all(satisfy { |e| e.payload["body"].include?("pito-analytics-scalars") })
+          joined = analyze_events.map { |e| e.payload["body"] }.join
+          expect(joined).to include(">1<").and(include(">0<"))
         end
 
         it "all thinking indicators are resolved" do
@@ -406,6 +395,164 @@ RSpec.describe "Chat requests", type: :request do
 
         it "turn is completed" do
           expect(the_turn.reload.completed_at).not_to be_nil
+        end
+      end
+    end
+
+    # ── follow-up: glance → analyze pair (append) ─────────────────────────────
+
+    context "with a glance reply (#<handle> with views) — glance → analyze pair" do
+      let!(:channel) { create(:channel, :on_connection) }
+      let!(:video)   { create(:video, channel:) }
+
+      # The "show vid" turn that holds the analytics glance event.
+      let!(:show_turn) do
+        conversation.turns.create!(
+          input_kind: :chat, input_text: "show vid ##{video.id}", position: 1
+        )
+      end
+
+      # A ready glance event with a known handle.
+      let!(:glance_event) do
+        payload = {
+          "body"      => "<div>glance</div>",
+          "html"      => true,
+          "anchor"    => true,
+          "analytics" => {
+            "status"     => "ready",
+            "scope_type" => "Video",
+            "scope_id"   => video.id,
+            "period"     => "7d",
+            "intro"      => "<span>intro</span>"
+          },
+          "reply_handle" => "alpha-1234",
+          "reply_target" => "analytics_glance"
+        }
+        Event.create_with_position!(
+          conversation:, turn: show_turn, kind: :enhanced, payload:
+        )
+      end
+
+      before do
+        # Ensure handlers are loaded + registered for this test.
+        Pito::FollowUp::Handlers::AnalyticsGlance
+        Pito::FollowUp::Registry.register(Pito::FollowUp::Handlers::AnalyticsGlance)
+        Pito::FollowUp::Handlers::AnalyzeMessage
+        Pito::FollowUp::Registry.register(Pito::FollowUp::Handlers::AnalyzeMessage)
+
+        # Stub Scaffold.for so AnalyzePrepareJob never hits YouTube.
+        allow(Pito::Analytics::Scaffold).to receive(:for) do |role:, level:, **|
+          Pito::Analytics::MetricOrder.for(role:, level:).index_with { true }
+        end
+      end
+
+      it "returns 204 No Content" do
+        post "/chat", params: { input: "#glance-req-test with views", uuid: conversation.uuid }
+        expect(response).to have_http_status(:no_content)
+      end
+
+      context "after draining all enqueued jobs" do
+        before do
+          perform_enqueued_jobs do
+            post "/chat", params: { input: "#alpha-1234 with views", uuid: conversation.uuid }
+          end
+        end
+
+        # The FollowUpDispatchJob creates events in the new echo turn; AnalyzePrepareJob fills them.
+        let(:analyze_events) do
+          Event.joins(:turn)
+            .where(turns: { conversation_id: conversation.id })
+            .select { |e| e.payload.is_a?(Hash) && e.payload.key?("analyze") }
+        end
+
+        it "persists exactly two analyze events (system + enhanced pair)" do
+          expect(analyze_events.count).to eq(2)
+        end
+
+        it "both analyze events are ready (AnalyzePrepareJob ran)" do
+          expect(analyze_events).to all(satisfy { |e| e.payload.dig("analyze", "status") == "ready" })
+        end
+
+        it "both analyze events are followupable with reply_target: 'analyze_message'" do
+          expect(analyze_events).to all(satisfy { |e| e.payload["reply_target"] == "analyze_message" })
+        end
+
+        it "the glance event is consumed (reply_consumed: true)" do
+          expect(glance_event.reload.payload["reply_consumed"]).to be true
+        end
+      end
+    end
+
+    # ── follow-up: analyze mutate (without <metric>) ──────────────────────────
+
+    context "with an analyze reply (#<handle> without comms) — mutate in place" do
+      # Build a ready analyze payload directly (no DB round-trip needed).
+      let(:scaffold) do
+        Pito::Analytics::MetricOrder.for(role: :system, level: :channel).index_with { true }
+      end
+
+      let!(:analyze_turn) do
+        conversation.turns.create!(
+          input_kind: :chat, input_text: "analyze channel", position: 1
+        )
+      end
+
+      let!(:analyze_event) do
+        # Build the ready payload directly.  The body is a placeholder — the
+        # test only checks the marker, not the rendered HTML.
+        ready_p = {
+          "body"    => "<div>analyze body</div>",
+          "html"    => true,
+          "anchor"  => true,
+          "analyze" => {
+            "status"     => "ready",
+            "role"       => "system",
+            "title"      => "My Channel",
+            "level"      => "channel",
+            "entity_ids" => [ 1 ],
+            "period"     => "7d",
+            "intro"      => "<span>intro</span>",
+            "scaffold"   => scaffold.transform_keys(&:to_s),
+            "with"       => [],
+            "without"    => []
+          },
+          "reply_handle" => "beta-5678",
+          "reply_target" => "analyze_message"
+        }
+        Event.create_with_position!(
+          conversation:, turn: analyze_turn, kind: :system, payload: ready_p
+        )
+      end
+
+      before do
+        Pito::FollowUp::Handlers::AnalyzeMessage
+        Pito::FollowUp::Registry.register(Pito::FollowUp::Handlers::AnalyzeMessage)
+      end
+
+      it "returns 204 No Content" do
+        post "/chat", params: { input: "#beta-5678 without comms", uuid: conversation.uuid }
+        expect(response).to have_http_status(:no_content)
+      end
+
+      context "after draining the enqueued job" do
+        before do
+          perform_enqueued_jobs do
+            post "/chat", params: { input: "#beta-5678 without comms", uuid: conversation.uuid }
+          end
+        end
+
+        it "mutates the analyze event in place (comms alias → canonical comments in without)" do
+          expect(analyze_event.reload.payload.dig("analyze", "without")).to include("comments")
+        end
+
+        it "does NOT consume the handle (reply_consumed is absent/false)" do
+          consumed = analyze_event.reload.payload["reply_consumed"]
+          expect(consumed).to be_falsey
+        end
+
+        it "does NOT create a new turn for the mutate path" do
+          # Only the analyze_turn from setup exists; mutate creates no echo turn.
+          expect(Turn.where(conversation:).count).to eq(1)
         end
       end
     end

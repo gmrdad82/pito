@@ -52,12 +52,12 @@ module Pito
         Pito::Formatter::Duration.call(@video.duration_seconds)
       end
 
-      # Stat counters (views · likes · comms) for Pito::Stats::CountersComponent.
+      # Stat counters (views · likes · comments) for Pito::Stats::CountersComponent.
       def stat_counter_metrics
         [
-          { key: :views, value: @video.view_count.to_i },
-          { key: :likes, value: @video.like_count.to_i },
-          { key: :comms, value: @video.comment_count.to_i }
+          { key: :views,    value: @video.view_count.to_i },
+          { key: :likes,    value: @video.like_count.to_i },
+          { key: :comments, value: @video.comment_count.to_i }
         ]
       end
 

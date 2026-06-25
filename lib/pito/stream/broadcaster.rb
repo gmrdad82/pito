@@ -132,6 +132,23 @@ module Pito
         event
       end
 
+      # Consume every prior LIVE repliable event in the conversation (turns strictly
+      # earlier than `before_turn`) so old `#handle` affordances retire the moment a
+      # new message renders — only the newest turn's handles stay live. Stamps
+      # `reply_consumed: true` + replace_event to re-render. Shared by the Finalizer
+      # (any new :system/:confirmation turn) so new chat verbs AND replies-that-append
+      # both retire prior hashtags uniformly.
+      def consume_prior_live_replies(before_turn:)
+        @conversation.events
+          .where("turn_id < ?", before_turn.id)
+          .where("payload->>'reply_handle' IS NOT NULL")
+          .where("(payload->>'reply_consumed') IS NULL OR (payload->>'reply_consumed') = 'false'")
+          .find_each do |event|
+            event.update!(payload: event.payload.merge("reply_consumed" => true))
+            replace_event(event)
+          end
+      end
+
       # Broadcast Turbo Stream replacements for the mini status bar and chatbox
       # after an auth state change (/login success). Both elements carry stable
       # DOM ids so the replace lands on the right targets.

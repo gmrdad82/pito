@@ -42,7 +42,7 @@ RSpec.describe Pito::Achievement::BadgeComponent do
     {
       views:         "Views",
       likes:         "Likes",
-      comments:      "Comms",
+      comments:      "Comments",
       watched_hours: "Watched",
       subs:          "Subs",
       subs_gained:   "Subs"
@@ -77,6 +77,37 @@ RSpec.describe Pito::Achievement::BadgeComponent do
     end
   end
 
+  # ── Pluralisation by threshold (SB11 — the "1 Likes" bug) ──────────────────
+
+  describe "singular badge face at threshold 1" do
+    {
+      subs:        "1 Sub",
+      subs_gained: "1 Sub",
+      views:       "1 View",
+      likes:       "1 Like",
+      comments:    "1 Comment"
+    }.each do |metric, singular|
+      it "renders '#{singular}' (singular) for :#{metric} at threshold 1" do
+        text = render_badge(threshold: 1, metric: metric).css(".pito-achievement-badge").text
+        expect(text).to include(singular)
+        expect(text).not_to include("#{singular}s") # no "1 Likes"
+      end
+    end
+
+    it "keeps 'Watched' invariant for watched_hours at threshold 1" do
+      text = render_badge(threshold: 1, metric: :watched_hours).css(".pito-achievement-badge").text
+      expect(text).to include("1 Watched")
+    end
+
+    it "uses the PLURAL face for thresholds above 1" do
+      { 2 => "2 Likes", 100 => "100 Likes", 1_000 => "1K Subs" }.each do |threshold, expected|
+        metric = expected.include?("Sub") ? :subs : :likes
+        text   = render_badge(threshold: threshold, metric: metric).css(".pito-achievement-badge").text
+        expect(text).to include(expected)
+      end
+    end
+  end
+
   # ── Compact form ─────────────────────────────────────────────────────────
 
   describe "compact form (form: :compact)" do
@@ -103,7 +134,7 @@ RSpec.describe Pito::Achievement::BadgeComponent do
       {
         views:         "Views",
         likes:         "Likes",
-        comments:      "Comms",
+        comments:      "Comments",
         watched_hours: "Watched",
         subs:          "Subs",
         subs_gained:   "Subs"

@@ -355,6 +355,44 @@ describe("pito--games-search controller", () => {
     ])
   })
 
+  it("renders search rows AND step rows at the base font size (no text-size utilities)", async () => {
+    global.fetch = vi.fn().mockImplementation((url) => {
+      if (url.includes("/games/search")) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            hits: [ { id: 42, name: "Elden Ring", type_note: "(remake)", cover: { image_id: "abc123" } } ],
+            library_ids: [ 42 ], // also renders the in-library badge
+          }),
+        })
+      }
+      return Promise.resolve({ ok: true, json: async () => ({}) })
+    })
+
+    const { input, results } = buildScaffold()
+    await tick()
+
+    input.value = "Elden Ring"
+    input.dispatchEvent(new Event("input", { bubbles: true }))
+    await tick(350)
+
+    // Design rule: one 14px base size, NO text-size utilities (text-xs/sm/base/lg/xl).
+    const SIZE_RE = /\btext-(xs|sm|base|lg|xl|2xl|3xl)\b/
+    const anySized = (root) =>
+      Array.from(root.querySelectorAll("*")).some((el) => SIZE_RE.test(el.className || ""))
+
+    expect(anySized(results), "search rows must use the base size").toBe(false)
+
+    // Import → step rows must also be base size.
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true, cancelable: true }))
+    await tick()
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }))
+    await tick()
+
+    expect(results.querySelectorAll("[id^='import-step-']").length).toBe(5)
+    expect(anySized(results), "step rows must use the base size").toBe(false)
+  })
+
   it("does NOT clear the sidebar element on import (keeps sidebar open)", async () => {
     global.fetch = vi.fn().mockImplementation((url) => {
       if (url.includes("/games/search")) {

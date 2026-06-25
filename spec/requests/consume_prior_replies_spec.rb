@@ -2,9 +2,11 @@
 
 require "rails_helper"
 
-# sending a NEW (non-reply) command consumes every PRIOR live #hashtag
-# affordance in the conversation. The new command's OWN result events (streamed
-# in later by ChatDispatchJob, under the new turn) keep their handles live.
+# A NEW :system / :confirmation message consumes every PRIOR live #hashtag
+# affordance in the conversation. This now fires in the shared Finalizer when the
+# result message RENDERS (not at controller send-time), so it covers typed verbs
+# AND replies-that-append uniformly. The new command's OWN result events (under
+# the new turn) always keep their handles live.
 RSpec.describe "Consuming prior live replies on a new message", type: :request do
   let(:conversation) { Conversation.singleton }
 
@@ -33,19 +35,24 @@ RSpec.describe "Consuming prior live replies on a new message", type: :request d
     )
   end
 
-  it "marks a prior live repliable event consumed" do
+  it "marks a prior live repliable event consumed once the result renders" do
+    create(:game)
     event = live_repliable_event(handle: "alpha-1111")
 
     post "/chat", params: { input: "list games", uuid: conversation.uuid }
-
     expect(response).to have_http_status(:no_content)
+
+    ChatDispatchJob.perform_now(conversation.turns.order(:id).last.id, channel: "@all")
+
     expect(Pito::FollowUp.consumed?(event.reload.payload)).to be(true)
   end
 
   it "makes a later reply to the old handle route to :not_found" do
+    create(:game)
     live_repliable_event(handle: "alpha-1111")
 
     post "/chat", params: { input: "list games", uuid: conversation.uuid }
+    ChatDispatchJob.perform_now(conversation.turns.order(:id).last.id, channel: "@all")
 
     result = Pito::FollowUp::Router.call(input: "#alpha-1111 show 1", conversation:)
     expect(result[:status]).to eq(:not_found)

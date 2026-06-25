@@ -19,7 +19,6 @@ module Pito
         self.description_key = "pito.chat.analyze.descriptions.analyze"
 
         PLURALS = { "channel" => "channels", "vid" => "vids", "game" => "games" }.freeze
-        ROLE_KINDS = { "system" => :system, "enhanced" => :enhanced }.freeze
 
         def call
           result = Pito::Analytics::ScopeResolver.call(
@@ -38,18 +37,14 @@ module Pito
         # Two pending cards (system + enhanced); AnalyzePrepareJob (enqueued by the
         # Finalizer's analyze-pending gate) fills + resolves them.
         def ok_events(result)
-          title      = scope_title(result)
-          level      = result.level
-          entity_ids = result.scopes.map(&:id)
-
-          events = Pito::MessageBuilder::Analyze::Message::ROLES.map do |role|
-            {
-              kind:    ROLE_KINDS.fetch(role),
-              payload: Pito::MessageBuilder::Analyze::Message.pending(
-                role:, title:, level:, entity_ids:, period: analytics_period
-              )
-            }
-          end
+          events = Pito::MessageBuilder::Analyze::Message.pair(
+            level:        result.level,
+            entity_ids:   result.scopes.map(&:id),
+            title:        scope_title(result),
+            period:       analytics_period,
+            conversation:,
+            selection:    Pito::Analytics::MetricSelection.parse(message.raw)
+          )
           Pito::Chat::Result::Ok.new(events:)
         end
 

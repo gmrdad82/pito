@@ -3,25 +3,6 @@
 require "rails_helper"
 
 RSpec.describe Pito::MessageBuilder::Analyze::Message do
-  # Canonical full-metrics Result for ready-payload tests.
-  let(:scalars_result) do
-    Pito::Analytics::Scalars::Result.new(
-      metrics: {
-        views:             { current: 1234, previous: 1000 },
-        watched_hours:     { current: 12.5, previous: 10.0 },
-        avg_view_duration: { current: 245,  previous: 200  },
-        avg_viewed_pct:    { current: 38.2, previous: 40.0 },
-        subs_gained:       { current: 20,   previous: 10   },
-        subs_lost:         { current: 9,    previous: 4    },
-        likes:             { current: 210,  previous: 180  },
-        dislikes:          { current: 4,    previous: 2    },
-        comments:          { current: 31,   previous: 30   }
-      },
-      label:      "7d",
-      comparable: true
-    )
-  end
-
   # ── ROLES constant ──────────────────────────────────────────────────────────
 
   describe "ROLES" do
@@ -55,7 +36,8 @@ RSpec.describe Pito::MessageBuilder::Analyze::Message do
 
     it "returns true for a real pending payload built by .pending" do
       payload = described_class.pending(
-        role: "system", title: "My Channel", level: :channel, entity_ids: [ 1 ], period: "7d"
+        role: "system", title: "My Channel", level: :channel, entity_ids: [ 1 ], period: "7d",
+        conversation: Conversation.singleton
       )
       event = instance_double("Event", payload: payload)
       expect(described_class.pending?(event)).to be(true)
@@ -81,11 +63,12 @@ RSpec.describe Pito::MessageBuilder::Analyze::Message do
   describe ".pending" do
     subject(:payload) do
       described_class.pending(
-        role:       "system",
-        title:      "My Channel",
-        level:      :channel,
-        entity_ids: [ 42 ],
-        period:     "7d"
+        role:         "system",
+        title:        "My Channel",
+        level:        :channel,
+        entity_ids:   [ 42 ],
+        period:       "7d",
+        conversation: Conversation.singleton
       )
     end
 
@@ -129,18 +112,27 @@ RSpec.describe Pito::MessageBuilder::Analyze::Message do
       expect(payload["body"]).to be_a(String).and(be_present)
     end
 
-    it "body does NOT include the scalars table (still pending)" do
+    it "body does NOT include the scalars grid (still pending)" do
       expect(payload["body"]).not_to include("pito-analytics-scalars")
     end
 
-    it "body does NOT include the unavailable note (still pending)" do
-      expect(payload["body"]).not_to include("pito-analytics-enhanced__note")
+    it "body includes the intro wrapper (pending ScaffoldComponent)" do
+      expect(payload["body"]).to include("pito-analytics-enhanced__intro")
+    end
+
+    it "stamps reply_target: 'analyze_message' (followupable)" do
+      expect(payload["reply_target"]).to eq("analyze_message")
+    end
+
+    it "stamps a non-blank reply_handle (followupable)" do
+      expect(payload["reply_handle"]).to be_a(String).and(be_present)
     end
 
     context "with the enhanced role" do
       subject(:payload) do
         described_class.pending(
-          role: "enhanced", title: "My Channel", level: :channel, entity_ids: [ 42 ], period: "7d"
+          role: "enhanced", title: "My Channel", level: :channel, entity_ids: [ 42 ], period: "7d",
+          conversation: Conversation.singleton
         )
       end
 
@@ -153,29 +145,42 @@ RSpec.describe Pito::MessageBuilder::Analyze::Message do
   # ── .ready_payload ──────────────────────────────────────────────────────────
 
   describe ".ready_payload" do
-    # Use a real persisted-style event: the payload is the output of .pending so
-    # ready_payload can read the stored analyze marker (intro, etc.).
+    # Build a pending event via the real .pending call so the stored analyze
+    # marker (intro, role, level, etc.) is available for ready_payload to read.
     let(:pending_payload) do
       described_class.pending(
-        role:       "enhanced",
-        title:      "My Channel",
-        level:      :channel,
-        entity_ids: [ 42 ],
-        period:     "7d"
+        role:         "system",
+        title:        "My Channel",
+        level:        :channel,
+        entity_ids:   [ 42 ],
+        period:       "7d",
+        conversation: Conversation.singleton
       )
     end
     let(:pending_event) { instance_double("Event", payload: pending_payload) }
     let(:stored_intro)  { pending_payload.dig("analyze", "intro") }
 
-    context "with a Scalars::Result" do
-      subject(:ready) { described_class.ready_payload(pending_event, result: scalars_result) }
+    # All system metrics are "pulled" (true). channel level excludes retention.
+    let(:full_scaffold) do
+      Pito::Analytics::MetricOrder.for(role: :system, level: :channel).index_with { true }
+    end
+
+    # Scaffold with subscribed_status explicitly false; views true.
+    let(:partial_scaffold) do
+      Pito::Analytics::MetricOrder.for(role: :system, level: :channel)
+        .index_with { true }
+        .merge(subscribed_status: false)
+    end
+
+    context "with a full scaffold (all metrics pulled)" do
+      subject(:ready) { described_class.ready_payload(pending_event, scaffold: full_scaffold) }
 
       it "sets analyze.status to 'ready'" do
         expect(ready.dig("analyze", "status")).to eq("ready")
       end
 
       it "preserves the role in the marker" do
-        expect(ready.dig("analyze", "role")).to eq("enhanced")
+        expect(ready.dig("analyze", "role")).to eq("system")
       end
 
       it "reuses the stored intro verbatim" do
@@ -190,34 +195,220 @@ RSpec.describe Pito::MessageBuilder::Analyze::Message do
         expect(ready["anchor"]).to be(true)
       end
 
-      it "body includes the scalars table" do
+      it "body includes the scalars grid" do
         expect(ready["body"]).to include("pito-analytics-scalars")
       end
 
-      it "body does NOT include the unavailable note" do
-        expect(ready["body"]).not_to include("pito-analytics-enhanced__note")
+      it "renders a '1' cell for each pulled metric" do
+        doc    = Nokogiri::HTML.fragment(ready["body"])
+        values = doc.css(".pito-analytics-scalars__value").map(&:text)
+        expect(values).to all(eq("1"))
+      end
+
+      it "persists scaffold in marker['scaffold'] with string keys" do
+        scaffold_in_marker = ready.dig("analyze", "scaffold")
+        expect(scaffold_in_marker).to be_a(Hash)
+        expect(scaffold_in_marker.keys).to all(be_a(String))
+      end
+
+      it "preserves the reply_handle from the source event" do
+        original_handle = pending_payload["reply_handle"]
+        expect(ready["reply_handle"]).to eq(original_handle)
+      end
+
+      it "preserves reply_target: 'analyze_message'" do
+        expect(ready["reply_target"]).to eq("analyze_message")
       end
     end
 
-    context "with Scalars::UNAVAILABLE" do
-      subject(:ready) do
-        described_class.ready_payload(pending_event, result: Pito::Analytics::Scalars::UNAVAILABLE)
+    context "with subscribed_status false in the scaffold" do
+      subject(:ready) { described_class.ready_payload(pending_event, scaffold: partial_scaffold) }
+
+      it "renders subscribed_status cell with value '0'" do
+        doc    = Nokogiri::HTML.fragment(ready["body"])
+        values = doc.css(".pito-analytics-scalars__value").map(&:text)
+        # subscribed_status is the last metric in SYSTEM order for channel level
+        expect(values.last).to eq("0")
       end
+
+      it "renders cells with '1' for the other metrics (views, etc.)" do
+        doc    = Nokogiri::HTML.fragment(ready["body"])
+        values = doc.css(".pito-analytics-scalars__value").map(&:text)
+        # all except the last (subscribed_status) should be "1"
+        expect(values[0..-2]).to all(eq("1"))
+      end
+    end
+
+    context "with an empty scaffold (no data pulled)" do
+      subject(:ready) { described_class.ready_payload(pending_event, scaffold: {}) }
 
       it "sets analyze.status to 'ready'" do
         expect(ready.dig("analyze", "status")).to eq("ready")
       end
 
-      it "reuses the stored intro verbatim" do
-        expect(ready.dig("analyze", "intro")).to eq(stored_intro)
+      it "body still includes the scalars grid" do
+        expect(ready["body"]).to include("pito-analytics-scalars")
       end
 
-      it "body includes the unavailable note" do
-        expect(ready["body"]).to include("pito-analytics-enhanced__note")
+      it "every cell value is '0'" do
+        doc    = Nokogiri::HTML.fragment(ready["body"])
+        values = doc.css(".pito-analytics-scalars__value").map(&:text)
+        expect(values).not_to be_empty
+        expect(values).to all(eq("0"))
+      end
+    end
+
+    context "with enhanced role for channel level (retention excluded)" do
+      let(:enhanced_pending) do
+        described_class.pending(
+          role: "enhanced", title: "My Channel", level: :channel, entity_ids: [ 42 ], period: "7d",
+          conversation: Conversation.singleton
+        )
+      end
+      let(:enhanced_event) { instance_double("Event", payload: enhanced_pending) }
+      let(:enhanced_scaffold) do
+        Pito::Analytics::MetricOrder.for(role: :enhanced, level: :channel).index_with { |m| m == :devices }
       end
 
-      it "body does NOT include the scalars table" do
-        expect(ready["body"]).not_to include("pito-analytics-scalars")
+      subject(:ready) { described_class.ready_payload(enhanced_event, scaffold: enhanced_scaffold) }
+
+      it "sets analyze.status to 'ready'" do
+        expect(ready.dig("analyze", "status")).to eq("ready")
+      end
+
+      it "retention is absent (vid_only metric skipped for channel)" do
+        expect(ready["body"]).not_to include("retention")
+      end
+
+      it "renders '1' for devices and '0' for the rest" do
+        doc    = Nokogiri::HTML.fragment(ready["body"])
+        pairs  = doc.css(".pito-analytics-scalars__pair")
+        # At least one cell present
+        expect(pairs).not_to be_empty
+        values = pairs.map { |p| p.at_css(".pito-analytics-scalars__value")&.text }
+        expect(values).to include("1")
+      end
+    end
+  end
+
+  # ── .pair ──────────────────────────────────────────────────────────────────
+
+  describe ".pair" do
+    let(:conversation) { Conversation.singleton }
+
+    subject(:pair) do
+      described_class.pair(
+        level:        :channel,
+        entity_ids:   [ 42 ],
+        title:        "My Channel",
+        period:       "7d",
+        conversation:
+      )
+    end
+
+    it "returns exactly two elements" do
+      expect(pair.length).to eq(2)
+    end
+
+    it "first element has kind :system" do
+      expect(pair.first[:kind]).to eq(:system)
+    end
+
+    it "second element has kind :enhanced" do
+      expect(pair.second[:kind]).to eq(:enhanced)
+    end
+
+    it "both payloads have analyze.status 'pending'" do
+      pair.each do |item|
+        expect(item[:payload].dig("analyze", "status")).to eq("pending")
+      end
+    end
+
+    it "both payloads are followupable (reply_target: 'analyze_message')" do
+      pair.each do |item|
+        expect(item[:payload]["reply_target"]).to eq("analyze_message")
+        expect(item[:payload]["reply_handle"]).to be_present
+      end
+    end
+
+    it "each event gets a distinct reply_handle" do
+      handles = pair.map { |item| item[:payload]["reply_handle"] }
+      expect(handles.uniq.length).to eq(2)
+    end
+  end
+
+  # ── .rerender ──────────────────────────────────────────────────────────────
+
+  describe ".rerender" do
+    let(:conversation) { Conversation.singleton }
+
+    let(:pending_payload) do
+      described_class.pending(
+        role:         "system",
+        title:        "My Channel",
+        level:        :channel,
+        entity_ids:   [ 42 ],
+        period:       "7d",
+        conversation:
+      )
+    end
+
+    let(:full_scaffold) do
+      Pito::Analytics::MetricOrder.for(role: :system, level: :channel).index_with { true }
+    end
+
+    let(:ready_payload) do
+      described_class.ready_payload(
+        instance_double("Event", payload: pending_payload),
+        scaffold: full_scaffold
+      )
+    end
+
+    let(:ready_event) { instance_double("Event", payload: ready_payload) }
+
+    context "with without: [:comments]" do
+      subject(:rerendered) { described_class.rerender(ready_event, with: [], without: [ :comments ]) }
+
+      it "excludes the comments cell from the rendered body" do
+        expect(rerendered["body"]).not_to include("Comments")
+      end
+
+      it "still renders other metric cells (e.g. Views)" do
+        expect(rerendered["body"]).to include("Views")
+      end
+
+      it "updates analyze.without to include 'comments' (string)" do
+        expect(rerendered.dig("analyze", "without")).to eq([ "comments" ])
+      end
+
+      it "preserves the reply_handle from the source event" do
+        expect(rerendered["reply_handle"]).to eq(ready_payload["reply_handle"])
+      end
+
+      it "preserves reply_target: 'analyze_message'" do
+        expect(rerendered["reply_target"]).to eq("analyze_message")
+      end
+
+      it "body still includes the scalars grid wrapper" do
+        expect(rerendered["body"]).to include("pito-analytics-scalars")
+      end
+    end
+
+    context "with with: [:views], without: []" do
+      subject(:rerendered) { described_class.rerender(ready_event, with: [ :views ], without: []) }
+
+      it "only renders the views cell (active whitelist)" do
+        doc    = Nokogiri::HTML.fragment(rerendered["body"])
+        labels = doc.css(".pito-analytics-scalars__label").map(&:text)
+        expect(labels).to eq([ "Views" ])
+      end
+
+      it "updates analyze.with to include 'views'" do
+        expect(rerendered.dig("analyze", "with")).to eq([ "views" ])
+      end
+
+      it "sets analyze.without to []" do
+        expect(rerendered.dig("analyze", "without")).to eq([])
       end
     end
   end

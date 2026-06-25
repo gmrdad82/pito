@@ -629,6 +629,23 @@ html {
   font-family: ui-monospace, monospace;
 }
 
+/* ── ASCII fit-to-width (pito--ascii-fit) ─────────────────────────
+   A fixed-width `white-space: pre` ASCII block has an intrinsic pixel width that
+   can't reflow, so on a narrow (mobile) viewport it overflows. The controller
+   applies a uniform `transform: scale()` to shrink it just enough to fit —
+   alignment preserved, text still live/themed (no raster/SVG), desktop untouched
+   (scale 1). See SB10. The `--center` variant keeps a centered block (the logo)
+   centered as it shrinks; left-aligned in-message art needs no extra CSS (the
+   block <pre> already fills its column, scaled from the left). */
+.pito-ascii-fit--center {
+  text-align: center;
+  overflow: hidden; /* clip the un-scaled overflow before/while JS fits it */
+}
+
+.pito-ascii-fit--center > pre {
+  display: inline-block; /* center as a unit + expose the art's natural width */
+}
+
 /* ── Echo event component ───────────────────────────────────── */
 
 .pito-echo__meta {

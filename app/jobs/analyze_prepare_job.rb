@@ -26,9 +26,9 @@ class AnalyzePrepareJob < ApplicationJob
     cache = {}
     begin
       pending_events(turn).each do |event|
-        marker = event.payload["analyze"]
-        result = (cache[signature(marker)] ||= compute(marker))
-        write_ready(event, broadcaster, result:)
+        marker   = event.payload["analyze"]
+        scaffold = (cache[signature(marker)] ||= compute(marker))
+        write_ready(event, broadcaster, scaffold:)
         broadcaster.resolve_thinking_for(turn:, message_id: event.id)
       end
     ensure
@@ -42,27 +42,24 @@ class AnalyzePrepareJob < ApplicationJob
     turn.events.select { |e| Pito::MessageBuilder::Analyze::Message.pending?(e) }
   end
 
-  # Scope signature so the two messages (same level/ids/period) share one fan-out.
+  # Signature per (level, ids, period, ROLE) — roles need different report sets, so
+  # each role computes its own scaffold (memoised so a re-run of the same is free).
   def signature(marker)
-    [ marker["level"], Array(marker["entity_ids"]).sort, marker["period"] ].join(":")
+    [ marker["level"], Array(marker["entity_ids"]).sort, marker["period"], marker["role"] ].join(":")
   end
 
+  # Returns the 0/1 scaffold map { metric => data-pulled? } for the marker's role.
   def compute(marker)
     window = Pito::Analytics::Window.for(marker["period"], reference_date: Date.current)
     groups = groups_for(marker["level"], Array(marker["entity_ids"]))
-    return Pito::Analytics::Scalars::UNAVAILABLE if groups.empty?
-
-    current  = Pito::Analytics::Primitives.fetch(groups:, window:)
-    previous = window.previous && Pito::Analytics::Primitives.fetch(groups:, window: window.previous)
-    metrics  = Pito::Analytics::Aggregate.scalars(current:, previous:)
-    Pito::Analytics::Scalars::Result.new(metrics:, label: window.label, comparable: window.comparable?)
+    Pito::Analytics::Scaffold.for(groups:, window:, role: marker["role"].to_sym, level: marker["level"].to_sym)
   rescue StandardError => e
     Rails.logger.warn("[AnalyzePrepareJob] #{marker['level']} #{marker['entity_ids'].inspect}: #{e.class}: #{e.message}")
-    Pito::Analytics::Scalars::UNAVAILABLE
+    {} # empty map → every cell renders "0"
   end
 
-  def write_ready(event, broadcaster, result:)
-    event.update!(payload: Pito::MessageBuilder::Analyze::Message.ready_payload(event, result:))
+  def write_ready(event, broadcaster, scaffold:)
+    event.update!(payload: Pito::MessageBuilder::Analyze::Message.ready_payload(event, scaffold:))
     broadcaster.replace_event(event)
   end
 

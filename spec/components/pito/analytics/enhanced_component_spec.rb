@@ -88,6 +88,27 @@ RSpec.describe Pito::Analytics::EnhancedComponent do
     end
   end
 
+  # ── Nudge (the "use analyze" line appended after the metrics) ─────────────────
+
+  describe "nudge" do
+    it "renders the nudge line after the panel when given" do
+      node = render_inline(described_class.new(intro:, result:, nudge: "Want more? `analyze` it."))
+      nudge = node.css(".pito-analytics-enhanced__nudge")
+      expect(nudge).not_to be_empty
+      expect(nudge.text).to include("analyze")
+    end
+
+    it "omits the nudge when none is given" do
+      node = render_inline(described_class.new(intro:, result:))
+      expect(node.css(".pito-analytics-enhanced__nudge")).to be_empty
+    end
+
+    it "does not render the nudge while pending" do
+      node = render_inline(described_class.new(intro:, pending: true, nudge: "x"))
+      expect(node.css(".pito-analytics-enhanced__nudge")).to be_empty
+    end
+  end
+
   # ── Unavailable state: result nil ────────────────────────────────────────────
 
   describe "unavailable mode (result: nil)" do

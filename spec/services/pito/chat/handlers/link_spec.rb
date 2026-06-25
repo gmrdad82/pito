@@ -48,6 +48,38 @@ RSpec.describe Pito::Chat::Handlers::Link do
     }.to change(VideoGameLink, :count).by(1)
   end
 
+  describe "multi-id free chat (comma/space-separated id list per side)" do
+    let!(:video2) { create(:video, title: "Lies of P Boss Guide") }
+
+    it "links one game to multiple vids: `link game <id> with vid a,b`" do
+      expect {
+        handler_for("game", game.id.to_s, "with", "vid", "#{video.id},#{video2.id}").call
+      }.to change(VideoGameLink, :count).by(2)
+      expect(game.reload.linked_videos).to include(video, video2)
+    end
+
+    it "links one vid to multiple games: `link vid <id> with game a,b`" do
+      game2 = create(:game, title: "Bloodborne")
+      expect {
+        handler_for("vid", video.id.to_s, "with", "game", "#{game.id},#{game2.id}").call
+      }.to change(VideoGameLink, :count).by(2)
+    end
+
+    it "summarises a multi-link listing each target title" do
+      payload = handler_for("game", game.id.to_s, "with", "vid", "#{video.id},#{video2.id}").call.events.first[:payload]
+      text = payload[:text] || payload["text"]
+      expect(text).to include(video.title).and(include(video2.title))
+    end
+
+    it "reports a not-found id and links nothing" do
+      payload = nil
+      expect {
+        payload = handler_for("game", game.id.to_s, "with", "vid", "#{video.id},999999").call.events.first[:payload]
+      }.not_to change(VideoGameLink, :count)
+      expect(payload[:text] || payload["text"]).to include("999999")
+    end
+  end
+
   describe "the `with` connector (alias for `to`)" do
     it "links in free chat: `link game <id> with video <id>`" do
       expect {

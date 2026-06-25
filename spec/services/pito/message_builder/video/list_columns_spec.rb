@@ -91,7 +91,7 @@ RSpec.describe Pito::MessageBuilder::Video::ListColumns do
     it "includes headings for the stats columns" do
       cols = %i[game duration views likes comments]
       expect(described_class.headings(cols)).to eq(
-        [ "Game", "Length", "Views", "Likes", "Comms" ]
+        [ "Game", "Length", "Views", "Likes", "Comments" ]
       )
     end
   end
@@ -125,7 +125,7 @@ RSpec.describe Pito::MessageBuilder::Video::ListColumns do
     it "names the still-addable columns when some remain" do
       footer = described_class.addable_footer([ :channel ])
       expect(footer).to include("views")
-      expect(footer).to include("comms")
+      expect(footer).to include("comments")
     end
 
     it "uses the all-shown variant (no column names) when every column is present" do

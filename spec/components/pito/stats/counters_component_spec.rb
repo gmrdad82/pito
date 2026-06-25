@@ -15,25 +15,25 @@ RSpec.describe Pito::Stats::CountersComponent, type: :component do
     expect(text).to include("454 Views")
   end
 
-  it "renders '<count> + icon' for likes (thumbs-up) and comms (message-square)" do
-    node = render_for([ { key: :likes, value: 4 }, { key: :comms, value: 0 } ])
-    likes_cell = node.css(".pito-stats-counters__cell").first
-    comms_cell = node.css(".pito-stats-counters__cell").last
+  it "renders '<count> + icon' for likes (thumbs-up) and comments (message-square)" do
+    node = render_for([ { key: :likes, value: 4 }, { key: :comments, value: 0 } ])
+    likes_cell    = node.css(".pito-stats-counters__cell").first
+    comments_cell = node.css(".pito-stats-counters__cell").last
 
     # Count text present, no word label for icon metrics.
     expect(likes_cell.text).to include("4")
     expect(likes_cell.text).not_to include("Likes")
-    expect(comms_cell.text).to include("0")
-    expect(comms_cell.text).not_to include("Comms")
+    expect(comments_cell.text).to include("0")
+    expect(comments_cell.text).not_to include("Comments")
 
     # Inline icons rendered with their accessible labels.
     expect(likes_cell.at_css("svg")).to be_present
     expect(likes_cell.at_css("svg")["aria-label"]).to eq("Likes")
-    expect(comms_cell.at_css("svg")["aria-label"]).to eq("Comms")
+    expect(comments_cell.at_css("svg")["aria-label"]).to eq("Comments")
   end
 
   it "renders icons through the canonical .pito-icon hook (align/gap/stroke live there, not per call-site)" do
-    node = render_for([ { key: :likes, value: 4 }, { key: :comms, value: 0 } ])
+    node = render_for([ { key: :likes, value: 4 }, { key: :comments, value: 0 } ])
     icons = node.css("svg")
     expect(icons).not_to be_empty
     # Every icon carries the single-source class and none sets an ad-hoc inline

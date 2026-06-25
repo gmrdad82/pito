@@ -18,16 +18,16 @@ RSpec.describe Pito::Achievements::Label do
       expect(described_class.for("views")).to eq("Views")
     end
 
-    it "returns 'Clocks' for 'watched_hours' (plural default)" do
-      expect(described_class.for("watched_hours")).to eq("Clocks")
+    it "returns 'Watched hours' for 'watched_hours' (plural default)" do
+      expect(described_class.for("watched_hours")).to eq("Watched hours")
     end
 
     it "returns 'Likes' for 'likes' (plural default)" do
       expect(described_class.for("likes")).to eq("Likes")
     end
 
-    it "returns 'Comms' for 'comments' (plural default)" do
-      expect(described_class.for("comments")).to eq("Comms")
+    it "returns 'Comments' for 'comments' (plural default)" do
+      expect(described_class.for("comments")).to eq("Comments")
     end
 
     # ── Singular (count: 1) ───────────────────────────────────────────────────
@@ -44,16 +44,16 @@ RSpec.describe Pito::Achievements::Label do
       expect(described_class.for("views", count: 1)).to eq("View")
     end
 
-    it "returns 'Clock' for 'watched_hours' when count is 1" do
-      expect(described_class.for("watched_hours", count: 1)).to eq("Clock")
+    it "returns 'Watched hour' for 'watched_hours' when count is 1" do
+      expect(described_class.for("watched_hours", count: 1)).to eq("Watched hour")
     end
 
     it "returns 'Like' for 'likes' when count is 1" do
       expect(described_class.for("likes", count: 1)).to eq("Like")
     end
 
-    it "returns 'Comm' for 'comments' when count is 1" do
-      expect(described_class.for("comments", count: 1)).to eq("Comm")
+    it "returns 'Comment' for 'comments' when count is 1" do
+      expect(described_class.for("comments", count: 1)).to eq("Comment")
     end
 
     # ── Plural with explicit count > 1 ───────────────────────────────────────
@@ -76,12 +76,12 @@ RSpec.describe Pito::Achievements::Label do
 
     it "accepts symbol arguments (plural)" do
       expect(described_class.for(:views)).to eq("Views")
-      expect(described_class.for(:watched_hours)).to eq("Clocks")
+      expect(described_class.for(:watched_hours)).to eq("Watched hours")
     end
 
     it "accepts symbol arguments (singular)" do
       expect(described_class.for(:views, count: 1)).to eq("View")
-      expect(described_class.for(:watched_hours, count: 1)).to eq("Clock")
+      expect(described_class.for(:watched_hours, count: 1)).to eq("Watched hour")
     end
 
     # ── Resolves via Pito::Copy ───────────────────────────────────────────────
@@ -119,7 +119,7 @@ RSpec.describe Pito::Achievements::Label do
       expect(described_class.badge("views")).to eq("Views")
     end
 
-    it "returns 'Watched' for 'watched_hours' (distinct from the plural label 'Clocks')" do
+    it "returns 'Watched' for 'watched_hours' (distinct from the plural label 'Watched hours')" do
       expect(described_class.badge("watched_hours")).to eq("Watched")
     end
 
@@ -127,8 +127,32 @@ RSpec.describe Pito::Achievements::Label do
       expect(described_class.badge("likes")).to eq("Likes")
     end
 
-    it "returns 'Comms' for 'comments'" do
-      expect(described_class.badge("comments")).to eq("Comms")
+    it "returns 'Comments' for 'comments'" do
+      expect(described_class.badge("comments")).to eq("Comments")
+    end
+
+    # ── Singular badge face (count: 1) — fixes the "1 Likes" bug ───────────────
+
+    it "returns the SINGULAR face for every noun metric when count is 1" do
+      {
+        "subs"        => "Sub",
+        "subs_gained" => "Sub",
+        "views"       => "View",
+        "likes"       => "Like",
+        "comments"    => "Comment"
+      }.each do |metric, singular|
+        expect(described_class.badge(metric, count: 1)).to eq(singular)
+      end
+    end
+
+    it "keeps 'Watched' for watched_hours at count 1 (invariant face)" do
+      expect(described_class.badge("watched_hours", count: 1)).to eq("Watched")
+    end
+
+    it "returns the PLURAL face for count != 1 (e.g. 100) and for the default (nil)" do
+      expect(described_class.badge("likes", count: 100)).to eq("Likes")
+      expect(described_class.badge("likes", count: 0)).to eq("Likes")
+      expect(described_class.badge("likes")).to eq("Likes")
     end
 
     # ── Symbol arguments ──────────────────────────────────────────────────────

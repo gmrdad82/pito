@@ -150,7 +150,7 @@ RSpec.describe Pito::Video::DetailComponent do
       node = render_inline(described_class.new(video: video))
       stats = node.at_css(".pito-video-detail__stats")
       expect(stats.text).to include("0")
-      expect(stats.css("svg").map { |s| s["aria-label"] }).to include("Comms")
+      expect(stats.css("svg").map { |s| s["aria-label"] }).to include("Comments")
     end
   end
 
@@ -280,7 +280,7 @@ RSpec.describe Pito::Video::DetailComponent do
   end
 
   describe "stats (one row)" do
-    it "renders the Views word + likes/comms icons on one line with · separators" do
+    it "renders the Views word + likes/comments icons on one line with · separators" do
       node  = render_inline(described_class.new(video: video))
       stats = node.css(".pito-video-detail__stats").first
       expect(stats).not_to be_nil
@@ -288,15 +288,15 @@ RSpec.describe Pito::Video::DetailComponent do
       expect(stats.text).to include("Views")
     end
 
-    it "renders likes as thumbs-up and comms as message-square icons (no word labels)" do
+    it "renders likes as thumbs-up and comments as message-square icons (no word labels)" do
       node  = render_inline(described_class.new(video: video))
       stats = node.css(".pito-video-detail__stats").first
       labels = stats.css("svg").map { |s| s["aria-label"] }
-      expect(labels).to include("Likes").and include("Comms")
+      expect(labels).to include("Likes").and include("Comments")
       # Icon metrics show no visible word label.
       counters_text = stats.css(".pito-stats-counters").text
       expect(counters_text).not_to include("Likes")
-      expect(counters_text).not_to include("Comms")
+      expect(counters_text).not_to include("Comments")
     end
 
     it "does not bold the Stats heading (J19 — normal weight)" do

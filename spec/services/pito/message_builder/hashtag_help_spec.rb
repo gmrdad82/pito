@@ -407,8 +407,8 @@ RSpec.describe Pito::MessageBuilder::HashtagHelp do
           expect(result["body"]).to include("status")
         end
 
-        it "body mentions video column vocab (comms)" do
-          expect(result["body"]).to include("comms")
+        it "body mentions video column vocab (comments)" do
+          expect(result["body"]).to include("comments")
         end
       end
 

@@ -8,5 +8,8 @@
         <%= render(Pito::Analytics::ScalarsTableComponent.new(result: @result)) %>
       </div>
     <% end %>
+    <% if @nudge.present? %>
+      <div class="pito-analytics-enhanced__nudge text-fg-dim italic"><%= @nudge %></div>
+    <% end %>
   <% end %>
 </div>

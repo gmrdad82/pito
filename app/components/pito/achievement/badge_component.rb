@@ -20,7 +20,7 @@ module Pito
     #               Omits the date row entirely when unlocked_on is nil.
     #
     # The word is the full title-case badge label from Pito::Achievements::Label.badge
-    # (e.g. Subs, Views, Likes, Comms, Watched — not single-letter abbreviations).
+    # (e.g. Subs, Views, Likes, Comments, Watched — not single-letter abbreviations).
     #
     # The tier colour (value text + border) is set via data-accent =
     # Pito::Achievement::Tier.token_for(threshold). The perimeter shimmer is
@@ -69,7 +69,9 @@ module Pito
       end
 
       def content_parts
-        word  = Pito::Achievements::Label.badge(@metric)
+        # Pluralise the face word by the threshold: "1 Like" (singular) vs
+        # "100 Likes" / "1K Subs" (plural). watched_hours' face is invariant.
+        word  = Pito::Achievements::Label.badge(@metric, count: @threshold)
         parts = [ "#{value} #{word}" ]
 
         if @form == :extended && @unlocked_on

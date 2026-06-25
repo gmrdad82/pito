@@ -5,16 +5,20 @@ module Pito
     # Pure function. Renders an integer count as a short human-readable
     # string with K / M / B suffixes.
     #
-    # Rules:
+    # ROUNDS DOWN (floor / truncate), never up — the displayed compact value must
+    # never OVERSTATE the real number, so the true count is always ≥ what's shown
+    # (a pleasant surprise: `2,259` reads as `2.2K`, not `2.3K`). Owner rule.
+    #
+    # Rules (all truncated toward zero):
     #   nil                            → "—"
     #   0                              → "0"
     #   1..999                         → "<n>"
-    #   1_000..9_999                   → 1-decimal K, drop trailing ".0"
-    #   10_000..999_999                → integer K
-    #   1_000_000..9_999_999           → 1-decimal M, drop trailing ".0"
-    #   10_000_000..999_999_999        → integer M
-    #   1_000_000_000..9_999_999_999   → 1-decimal B, drop trailing ".0"
-    #   10_000_000_000+                → integer B
+    #   1_000..9_999                   → 1-decimal K floored, drop trailing ".0"
+    #   10_000..999_999                → integer K floored
+    #   1_000_000..9_999_999           → 1-decimal M floored, drop trailing ".0"
+    #   10_000_000..999_999_999        → integer M floored
+    #   1_000_000_000..9_999_999_999   → 1-decimal B floored, drop trailing ".0"
+    #   10_000_000_000+                → integer B floored
     module CompactCount
       EM_DASH = "—"
 
@@ -37,26 +41,17 @@ module Pito
         end
       end
 
+      # Always floored so the display never overstates the real count.
       def format_tier(n, unit, suffix)
         scaled = n.to_f / unit
 
         if scaled < 10
-          rounded = (scaled * 10).round / 10.0
-          if rounded >= 10
-            return "10#{suffix}"
-          end
-          if (rounded * 10).round % 10 == 0
-            "#{rounded.to_i}#{suffix}"
-          else
-            "#{rounded}#{suffix}"
-          end
+          tenths = (scaled * 10).floor # 0..99 (one decimal, floored)
+          whole  = tenths / 10
+          frac   = tenths % 10
+          frac.zero? ? "#{whole}#{suffix}" : "#{whole}.#{frac}#{suffix}"
         else
-          rounded = scaled.round
-          if rounded >= 1_000 && suffix != "B"
-            call(rounded * unit)
-          else
-            "#{rounded}#{suffix}"
-          end
+          "#{scaled.floor}#{suffix}" # integer, floored
         end
       end
     end
