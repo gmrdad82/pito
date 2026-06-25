@@ -33,9 +33,10 @@ class Game < ApplicationRecord
 
   validates :title, presence: true
 
-  # Price is optional (nil = unset); when present it is always strictly positive
-  # — a "free" or zero price is expressed by leaving it unset.
-  validates :price, numericality: { greater_than: 0 }, allow_nil: true
+  # Price (EUR) has three meanings: nil = unset/unknown (renders "—"), an explicit
+  # 0 = deliberately free (renders the star — genuine value), and > 0 = priced
+  # (renders coin tiers; see Pito::Coin). So 0 is allowed and distinct from nil.
+  validates :price, numericality: { greater_than_or_equal_to: 0 }, allow_nil: true
 
   # ── Release-date component validations ──────────────────────────
   validate :release_date_components_are_consistent

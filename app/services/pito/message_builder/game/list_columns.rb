@@ -124,8 +124,9 @@ module Pito
             aliases:    %w[price],
             heading:    "Price",
             align:      :right,
+            html:       true,
             cell_class: "text-fg-dim text-right tabular-nums pito-cell-price",
-            value:      ->(g) { Pito::Formatter::Price.call(g.price) }
+            value:      ->(g) { Pito::Game::PriceGlyphs.html(g.price) }
           }
         }.freeze
 

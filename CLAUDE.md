@@ -23,6 +23,15 @@
 - **Follow the Stack principles + architecture below before writing stack code**
   (Rails, RSpec, Postgres, Tailwind, Turbo, ActionCable, Voyage, security);
   for visual / component work read `docs/design.md`. Don't work from memory.
+- **No VHS / terminal casts / throwaway Docker stacks without explicit owner
+  OK.** VHS runs a *real* terminal against *real* commands; a 0.7.6 cast teardown
+  wiped the owner's **production** `pito-boot` volumes (the `pito update` cast had
+  re-fetched the prod `docker-compose.yml` over the throwaway one, so
+  `docker compose down -v` hit prod). The committed casts (`docs/media/pito-*-cast.gif`)
+  + the README **Install** / **Operating PITO** / **`pito update`** sections + `bin/pito`
+  document the full setup — reference those. If a cast is ever re-authorized, tear
+  down ONLY by explicit project name (`docker compose -p <name> down -v`), never via a
+  compose file a command may have rewritten.
 
 ## Plan discipline (lean)
 

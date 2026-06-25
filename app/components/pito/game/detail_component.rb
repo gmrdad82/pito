@@ -48,10 +48,10 @@ module Pito
         Pito::Formatter::FootageHours.call(@game.footage_hours)
       end
 
-      # The formatted euro price ("€59.99"), or "—" when unpriced — the Price row
-      # always renders, mirroring the Footage row.
+      # The price as coin glyphs + number ("🪙🪙🪙 59.99"), or the FREE star when
+      # unpriced — html_safe. The Price row always renders, mirroring Footage.
       def price_label
-        Pito::Formatter::Price.call(@game.price)
+        Pito::Game::PriceGlyphs.html(@game.price)
       end
 
       # Returns the de-duped operator tokens (ps/switch/steam) derived from

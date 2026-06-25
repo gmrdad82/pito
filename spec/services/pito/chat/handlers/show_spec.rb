@@ -177,6 +177,25 @@ RSpec.describe Pito::Chat::Handlers::Show do
     expect(result.message_key).to eq("pito.chat.show.needs_ref")
   end
 
+  # ── not-found is a soft Ok: consume: false so a `#<handle>` reply can retry ──────
+  it "returns a not-found game with consume: false (reply source stays repliable)" do
+    result = show_real("show game #{game.id + 999}")
+    expect(result).to be_a(Pito::Chat::Result::Ok)
+    expect(result.consume).to be(false)
+  end
+
+  it "returns a not-found vid with consume: false (reply source stays repliable)" do
+    result = show_real("show vid 999999")
+    expect(result).to be_a(Pito::Chat::Result::Ok)
+    expect(result.consume).to be(false)
+  end
+
+  it "a successful show consumes by default (consume: true)" do
+    result = show_real("show game #{game.id}")
+    expect(result).to be_a(Pito::Chat::Result::Ok)
+    expect(result.consume).to be(true)
+  end
+
   it "resolves by numeric id through the real lexer/parser" do
     result = show_real("show game #{game.id}")
     expect(result).to be_a(Pito::Chat::Result::Ok)

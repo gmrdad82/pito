@@ -67,10 +67,11 @@ module Pito
         end
 
         # Parse the euro amount with BigDecimal (exact, not Float), rounded to 2
-        # decimals. Returns a positive BigDecimal, or nil for non-numeric / ≤ 0.
+        # decimals. Returns a non-negative BigDecimal (0 = free), or nil for
+        # non-numeric / negative input.
         def parse_amount(raw)
           value = BigDecimal(raw.to_s).round(2)
-          return nil unless value.positive?
+          return nil if value.negative?
 
           value
         rescue ArgumentError, TypeError
@@ -86,6 +87,8 @@ module Pito
         end
 
         def updated(game)
+          # Formatter renders an explicit 0 as "€0.00", so a free game confirms
+          # as "… is now €0.00" — the 0.00 is mentioned, no special copy needed.
           Pito::Chat::Result::Ok.new(events: [
             { kind: :system, payload: Pito::MessageBuilder::Text.call(
               "pito.copy.price.updated", game: game.title, price: Pito::Formatter::Price.call(game.price)

@@ -278,9 +278,25 @@ RSpec.describe Pito::MessageBuilder::Video::ListColumns do
       expect(result.map { |c| c[:text] }).to eq([ "@mychannel", "Public" ])
     end
 
-    it "returns the linked game title for :game" do
+    it "renders the linked game as '#id title' (html cell) for :game" do
       result = described_class.cells(video, [ :game ])
-      expect(result.first[:text]).to include("Elden Ring")
+      cell   = result.first
+      expect(cell[:html]).to be(true)
+      expect(cell[:text]).to include("##{game.id}")
+      expect(cell[:text]).to include("Elden Ring")
+    end
+
+    it "makes the game #id a cyan shimmer token that opens 'show game #id'" do
+      cell = described_class.cells(video, [ :game ]).first
+      expect(cell[:text]).to include("pito-token-shimmer")
+      expect(cell[:text]).to include("show game ##{game.id}")
+      expect(cell[:text]).to include("pito--chat-prefill")
+    end
+
+    it "renders '—' for :game when the video has no linked games" do
+      bare = create(:video, :public, channel: channel, title: "No Game")
+      cell = described_class.cells(bare, [ :game ]).first
+      expect(cell[:text]).to eq("—")
     end
 
     it "returns the formatted duration for :duration" do

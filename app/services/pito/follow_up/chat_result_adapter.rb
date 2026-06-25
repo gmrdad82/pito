@@ -23,7 +23,9 @@ module Pito
       def call(result)
         case result
         when Pito::Chat::Result::Ok
-          Pito::FollowUp::Result::Append.new(events: result.events)
+          # Forward consume: a "soft" Ok (e.g. a not-found) carries consume: false
+          # so the replied-to source list stays repliable for a retry.
+          Pito::FollowUp::Result::Append.new(events: result.events, consume: result.consume)
         when Pito::Chat::Result::Error
           Pito::FollowUp::Result::Error.new(
             message_key:  result.message_key,

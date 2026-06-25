@@ -107,14 +107,23 @@ RSpec.describe Pito::Video::LinkedGameCardComponent do
     expect(node.text).not_to match(/\bfootage\b/)
   end
 
-  it "renders the Price row with the euro value when the game is priced" do
+  it "renders the Price row with coin glyphs + the number when priced" do
     game.update!(price: BigDecimal("59.99"))
     node = render_inline(described_class.new(game: game))
     expect(node.text).to include("Price")
-    expect(node.text).to include("€59.99")
+    expect(node.text).to include("59.99")
+    expect(node.css("img.pito-coin").size).to eq(3)
+    expect(node.to_html).to include("/coin/coin.gif")
   end
 
-  it "always renders the Price row with an em dash when unpriced" do
+  it "renders the FREE star for an explicit 0 price" do
+    game.update!(price: 0)
+    node = render_inline(described_class.new(game: game))
+    expect(node.text).to include("Price")
+    expect(node.to_html).to include("/coin/star.gif")
+  end
+
+  it "always renders the Price row with an em-dash when unpriced (nil)" do
     node = render_inline(described_class.new(game: game))
     expect(node.text).to include("Price")
     expect(node.text).to include("—")

@@ -194,17 +194,26 @@ RSpec.describe Pito::Game::DetailComponent do
   end
 
   describe "price row" do
-    it "renders the Price row with the formatted euro value when the game is priced" do
+    it "renders the Price row with coin glyphs + the number when priced" do
       priced = create(:game, price: BigDecimal("59.99"))
       node   = render_inline(described_class.new(game: priced))
       expect(node.text).to include("Price")
-      expect(node.text).to include("€59.99")
+      expect(node.text).to include("59.99")
+      expect(node.css("img.pito-coin").size).to eq(3)
+      expect(node.to_html).to include("/coin/coin.gif")
     end
 
-    it "always renders the Price row with an em dash when unpriced (mirrors Footage)" do
+    it "renders the FREE star for an explicit 0 price" do
+      node = render_inline(described_class.new(game: create(:game, price: 0)))
+      expect(node.text).to include("Price")
+      expect(node.to_html).to include("/coin/star.gif")
+    end
+
+    it "always renders the Price row with an em-dash when unpriced (mirrors Footage)" do
       node = render_inline(described_class.new(game: create(:game, price: nil)))
       expect(node.text).to include("Price")
       expect(node.text).to include("—")
+      expect(node.to_html).not_to include("/coin/star.gif")
     end
   end
 
