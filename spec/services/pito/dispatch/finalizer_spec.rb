@@ -80,6 +80,47 @@ RSpec.describe Pito::Dispatch::Finalizer do
     end
   end
 
+  # Any new :system / :confirmation message retires every PRIOR live #hashtag —
+  # the unified mechanism that covers typed chat verbs AND replies-that-append
+  # (both pipelines route through #persist). :mutate replies don't persist, so
+  # they correctly leave handles live.
+  describe "#persist — retiring prior live hashtags" do
+    # A live handle on a strictly-earlier turn than `later_turn`.
+    let!(:prior) do
+      Event.create_with_position!(
+        conversation:, turn:, kind: :system,
+        payload: { "reply_handle" => "alpha-1111", "reply_target" => "game_list", "html" => true }
+      )
+    end
+    # The turn the new message lands on — created AFTER `prior`, so prior.turn_id < later_turn.id.
+    let(:later_turn) do
+      conversation.turns.create!(position: Turn.next_position_for(conversation), input_kind: :chat, input_text: "go again")
+    end
+
+    it "consumes a prior live handle when a :system message lands" do
+      finalizer.persist(events: [ { kind: :system, payload: { "text" => "one" } } ], turn: later_turn)
+      expect(Pito::FollowUp.consumed?(prior.reload.payload)).to be(true)
+    end
+
+    it "consumes a prior live handle when a :confirmation message lands" do
+      finalizer.persist(events: [ { kind: :confirmation, payload: { "text" => "sure?" } } ], turn: later_turn)
+      expect(Pito::FollowUp.consumed?(prior.reload.payload)).to be(true)
+    end
+
+    it "does NOT consume when only non-trigger kinds land (e.g. a lone :enhanced)" do
+      finalizer.persist(events: [ { kind: :enhanced, payload: { "text" => "card" } } ], turn: later_turn)
+      expect(Pito::FollowUp.consumed?(prior.reload.payload)).to be(false)
+    end
+
+    it "never consumes the current turn's OWN handles (only strictly-earlier turns)" do
+      own = finalizer.persist(
+        events: [ { kind: :system, payload: { "reply_handle" => "beta-2222", "reply_target" => "analyze_message" } } ],
+        turn: later_turn
+      ).first
+      expect(Pito::FollowUp.consumed?(own.reload.payload)).to be(false)
+    end
+  end
+
   describe "#complete — ready (non-analytics) turn" do
     it "resolves every indicator and completes the turn" do
       msgs = finalizer.persist(

@@ -27,3 +27,11 @@ en:
         errors:
           invalid_action: "Unknown action %{action}."
           channel_not_found: "Could not find the channel for this visit."
+      analyze_message:
+        errors:
+          invalid_action: "Unknown action '%{action}'. Try: with <metrics> or without <metrics>."
+          no_metrics: "Name at least one metric. Try: with views,subs or without comments."
+      analytics_glance:
+        errors:
+          invalid_action: "Unknown action '%{action}'. Try: with <metrics> or without <metrics>."
+          scope_not_found: "Couldn't find the vid/game for this glance."

@@ -4,6 +4,59 @@ All notable changes to PITO are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); the project aims for
 [Semantic Versioning](https://semver.org/).
 
+## [0.8.0] — 2026-06-26
+
+The **analtics** release — a chat-first `analyze` verb over the YouTube Analytics
+API: per-video primitives cached (completed periods frozen forever), aggregated
+across any scope, and rendered as metrics you refine with `with` / `without`.
+
+### Added
+
+- **`analyze` verb** (synonyms `analytics`, `stats`) — both as a chat verb
+  (man-style `--help` + autosuggest) and via a `#<handle>` reply. Targets
+  channels, vids, or games (id lists + synonyms accepted); scope resolves from the
+  shift+tab channel filter and runs over the shift+space period. Each run fans out
+  into atomic per-video / per-channel requests.
+- **Analytics primitives store + completed-period freeze.** Per-video raw reports
+  are cached in Postgres keyed by `(subject, report, date-range)` —
+  entity-agnostic, so a video fetched for one scope warms every later scope that
+  shares it (a channel analysis warms a later game analysis, no extra YouTube
+  calls). A period whose end-date is ≥ 7 days past is **frozen permanently**
+  (YouTube finalizes metrics in ~2–3 days); live periods carry a 1h TTL.
+- **Two messages per analyze — `:system` + `:enhanced`** — each its own 50-variant
+  copy dictionary. Every ordered metric renders as a "data-pulled" scaffold cell
+  through one generic component (bespoke per-metric components come in a later
+  pass). The per-message thinking indicator spans the message's full fan-out.
+- **Refine with `with` / `without`.** Chat `analyze … with X,Y` / `without X,Y`
+  whitelists or excludes metrics; replying `with` / `without` to an analyze message
+  **mutates it in place** (re-rendered from the persisted scaffold, no re-fetch),
+  while replying to a `show vid` / `show game` analytics glance emits a fresh
+  analyze pair.
+- **`show vid` / `show game` analytics glance is repliable** and now renders
+  through the shared analytics component, with a witty nudge toward `analyze`.
+- **ASCII art fits narrow screens.** A scale-to-fit controller uniformly shrinks
+  the start-screen logo and in-message art (e.g. `/connect`) to fit mobile widths
+  — alignment preserved, still live themed text — with desktop untouched.
+- **`link` accepts multiple vids in one chat command** (`link game 1 with vid
+  15,14`), matching the reply path.
+
+### Changed
+
+- **"Comms" → "Comments" everywhere user-facing**, pluralized (1 comment / N
+  comments). `comms` is still accepted as an input alias (with/without + columns).
+- **IGDB import sidebar** renders at the single 14px base size (no font-size drift).
+
+### Fixed
+
+- **Shinies pluralize at a count of 1** — "1 Like" / "1 Sub" / "1 View" /
+  "1 Comment", not "1 Likes" — across every metric.
+- **Compact counts round down, never up** (`2,259` → `2.2K`), so a displayed count
+  never overstates the real number.
+- **A new `:system` / `:confirmation` message retires all prior live `#<handle>`
+  replies** uniformly — typed verbs and replies-that-append alike — so stale reply
+  affordances don't linger. Repeatable verbs (link/unlink) and in-place mutations
+  are exempt.
+
 ## [0.7.6] — 2026-06-25
 
 The **golden tape** release — the README now _moves_, and game prices read as coins.

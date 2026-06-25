@@ -56,9 +56,14 @@ class AnalyticsFillJob < ApplicationJob
   end
 
   def write_ready(event, broadcaster, scope:, period:, result:, intro:)
-    event.update!(
-      payload: Pito::MessageBuilder::Analytics::Enhanced.ready_payload(scope:, period:, result:, intro:)
-    )
+    payload = Pito::MessageBuilder::Analytics::Enhanced.ready_payload(scope:, period:, result:, intro:)
+    # Preserve the glance's reply handle across the pending→ready rewrite so it
+    # stays repliable (→ FollowUp::Handlers::AnalyticsGlance).
+    if event.payload["reply_handle"].present?
+      payload["reply_handle"] = event.payload["reply_handle"]
+      payload["reply_target"] = event.payload["reply_target"]
+    end
+    event.update!(payload:)
     broadcaster.replace_event(event)
   end
 

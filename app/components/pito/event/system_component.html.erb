@@ -8,7 +8,7 @@
           reveal queue. Controller suppressed once reply_consumed so a refresh /
           replace_event re-render does not re-reveal a historical card. %>
       <div<% unless reply_consumed %> data-controller="pito--typewriter"<% end %>>
-        <div data-pito--typewriter-target="htmlProse">
+        <div data-pito--typewriter-target="htmlProse" data-controller="pito--ascii-fit">
           <% if body %>
             <%= render(Pito::Event::TimestampPrefixComponent.new(timestamp: @timestamp)) %><span class="text-fg"><%= raw(body) %></span>
           <% end %>
@@ -97,7 +97,7 @@
           a historical card. The analytics-fill replace_event swaps in the filled
           card, whose fresh controller reveals it cleanly. %>
       <div<% unless reply_consumed %> data-controller="pito--typewriter"<% end %>>
-        <div data-pito--typewriter-target="htmlProse">
+        <div data-pito--typewriter-target="htmlProse" data-controller="pito--ascii-fit">
           <%= render(Pito::Event::BodyComponent.new(
                 body:         body,
                 html:         html,

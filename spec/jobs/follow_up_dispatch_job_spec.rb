@@ -132,7 +132,7 @@ RSpec.describe FollowUpDispatchJob, type: :job do
 
     before do
       allow(Pito::Stream::Broadcaster).to receive(:new).and_return(
-        instance_double(Pito::Stream::Broadcaster, replace_event: nil, broadcast_event: nil, broadcast_done: nil, resolve_thinking: nil, complete_turn: nil)
+        instance_double(Pito::Stream::Broadcaster, replace_event: nil, broadcast_event: nil, broadcast_done: nil, resolve_thinking: nil, complete_turn: nil, consume_prior_live_replies: nil)
       )
     end
 
@@ -152,17 +152,28 @@ RSpec.describe FollowUpDispatchJob, type: :job do
     end
 
     it "calls broadcaster.replace_event" do
-      broadcaster = instance_double(Pito::Stream::Broadcaster, replace_event: nil, broadcast_event: nil, broadcast_done: nil, resolve_thinking: nil, complete_turn: nil)
+      broadcaster = instance_double(Pito::Stream::Broadcaster, replace_event: nil, broadcast_event: nil, broadcast_done: nil, resolve_thinking: nil, complete_turn: nil, consume_prior_live_replies: nil)
       allow(Pito::Stream::Broadcaster).to receive(:new).and_return(broadcaster)
       described_class.perform_now(source_event.id, rest: "do-it")
       expect(broadcaster).to have_received(:replace_event).with(source_event)
     end
 
     it "emits pito:done so the dots fade out (turn-less mutate)" do
-      broadcaster = instance_double(Pito::Stream::Broadcaster, replace_event: nil, broadcast_event: nil, broadcast_done: nil, resolve_thinking: nil, complete_turn: nil)
+      broadcaster = instance_double(Pito::Stream::Broadcaster, replace_event: nil, broadcast_event: nil, broadcast_done: nil, resolve_thinking: nil, complete_turn: nil, consume_prior_live_replies: nil)
       allow(Pito::Stream::Broadcaster).to receive(:new).and_return(broadcaster)
       described_class.perform_now(source_event.id, rest: "do-it")
       expect(broadcaster).to have_received(:broadcast_done).with(dom_id: "event_#{source_event.id}")
+    end
+
+    # A :mutate reply (e.g. a video_list / analyze_message `with`/`without`) refines a
+    # message IN PLACE — it is NOT a progression, so it must NEVER retire other live
+    # #hashtags. The exemption is structural: mutate skips #persist entirely (where the
+    # sweep lives), regardless of the mutated event's kind (:system, :enhanced, …).
+    it "NEVER retires prior live hashtags (mutate bypasses the consume sweep)" do
+      broadcaster = instance_double(Pito::Stream::Broadcaster, replace_event: nil, broadcast_event: nil, broadcast_done: nil, resolve_thinking: nil, complete_turn: nil, consume_prior_live_replies: nil)
+      allow(Pito::Stream::Broadcaster).to receive(:new).and_return(broadcaster)
+      described_class.perform_now(source_event.id, rest: "do-it")
+      expect(broadcaster).not_to have_received(:consume_prior_live_replies)
     end
   end
 
@@ -201,7 +212,7 @@ RSpec.describe FollowUpDispatchJob, type: :job do
     end
 
     it "broadcasts replace_event on the (now-consumed) source" do
-      broadcaster = instance_double(Pito::Stream::Broadcaster, replace_event: nil, broadcast_event: nil, broadcast_done: nil, resolve_thinking: nil, complete_turn: nil)
+      broadcaster = instance_double(Pito::Stream::Broadcaster, replace_event: nil, broadcast_event: nil, broadcast_done: nil, resolve_thinking: nil, complete_turn: nil, consume_prior_live_replies: nil)
       allow(Pito::Stream::Broadcaster).to receive(:new).and_return(broadcaster)
       described_class.perform_now(source_event.id, rest: "hello", turn_id: echo_turn.id)
       expect(broadcaster).to have_received(:replace_event).with(source_event)
@@ -261,7 +272,7 @@ RSpec.describe FollowUpDispatchJob, type: :job do
         broadcaster = instance_double(
           Pito::Stream::Broadcaster,
           replace_event: nil, broadcast_event: nil, broadcast_done: nil, resolve_thinking: nil,
-          resolve_thinking_for: nil, emit_thinking: nil, complete_turn: nil
+          resolve_thinking_for: nil, emit_thinking: nil, complete_turn: nil, consume_prior_live_replies: nil
         )
         allow(Pito::Stream::Broadcaster).to receive(:new).and_return(broadcaster)
         described_class.perform_now(analytics_source_event.id, rest: "show 21", turn_id: analytics_turn.id)
@@ -274,7 +285,7 @@ RSpec.describe FollowUpDispatchJob, type: :job do
         broadcaster = instance_double(
           Pito::Stream::Broadcaster,
           replace_event: nil, broadcast_event: nil, broadcast_done: nil, resolve_thinking: nil,
-          resolve_thinking_for: nil, emit_thinking: nil, complete_turn: nil
+          resolve_thinking_for: nil, emit_thinking: nil, complete_turn: nil, consume_prior_live_replies: nil
         )
         allow(Pito::Stream::Broadcaster).to receive(:new).and_return(broadcaster)
         described_class.perform_now(analytics_source_event.id, rest: "show 21", turn_id: analytics_turn.id)
@@ -286,7 +297,7 @@ RSpec.describe FollowUpDispatchJob, type: :job do
       it "calls resolve_thinking then complete_turn immediately" do
         call_order = []
         broadcaster = instance_double(Pito::Stream::Broadcaster,
-          replace_event: nil, broadcast_event: nil, broadcast_done: nil)
+          replace_event: nil, broadcast_event: nil, broadcast_done: nil, consume_prior_live_replies: nil)
         allow(broadcaster).to receive(:resolve_thinking) { call_order << :resolve_thinking }
         allow(broadcaster).to receive(:complete_turn)    { call_order << :complete_turn }
         allow(Pito::Stream::Broadcaster).to receive(:new).and_return(broadcaster)

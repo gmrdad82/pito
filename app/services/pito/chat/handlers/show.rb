@@ -52,7 +52,7 @@ module Pito
           if video.linked_games.first
             events << { kind: :enhanced, payload: Pito::MessageBuilder::Video::LinkedGame.call(video, conversation:) }
           end
-          events << { kind: :enhanced, payload: Pito::MessageBuilder::Analytics::Enhanced.pending(video, period: analytics_period) }
+          events << { kind: :enhanced, payload: Pito::MessageBuilder::Analytics::Enhanced.pending(video, period: analytics_period, conversation:) }
 
           Pito::Chat::Result::Ok.new(events: events)
         end
@@ -86,7 +86,7 @@ module Pito
           ]
           events << { kind: :enhanced, payload: Pito::MessageBuilder::Game::LinkedVideos.call(game, conversation:) } if game.linked_videos.any?
           events << { kind: :enhanced, payload: Pito::MessageBuilder::Game::Enhanced.call(game) }
-          events << { kind: :enhanced, payload: Pito::MessageBuilder::Analytics::Enhanced.pending(game, period: analytics_period) } if game.linked_videos.any?
+          events << { kind: :enhanced, payload: Pito::MessageBuilder::Analytics::Enhanced.pending(game, period: analytics_period, conversation:) } if game.linked_videos.any?
 
           Pito::Chat::Result::Ok.new(events: events)
         end

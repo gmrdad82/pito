@@ -31,26 +31,37 @@ module Pito
           event.payload.is_a?(Hash) && event.payload.dig("analytics", "status") == "pending"
         end
 
-        def pending(scope, period: nil)
+        def pending(scope, period: nil, conversation: nil)
           intro = Pito::Copy.render_html("pito.copy.analytics.intro", { title: scope.title }, shimmer: [ :title ])
-          {
+          payload = {
             "body"      => render_component(Pito::Analytics::EnhancedComponent.new(intro: intro, pending: true)),
             "html"      => true,
-            # `anchor` gives the segment a stable `event_<id>` DOM id so the fill
-            # job's replace_event can swap it in place (it isn't follow-up-able,
-            # which is the other way an event earns an id).
-            "anchor"    => true,
+            "anchor"    => true, # stable event_<id> DOM id for replace_event + the handle
             "analytics" => marker("pending", scope: scope, period: period, intro: intro)
           }
+          # Followupable: replying `with`/`without` to the glance spawns a NEW analyze
+          # pair on this entity (handled by FollowUp::Handlers::AnalyticsGlance).
+          return payload if conversation.nil?
+
+          Pito::FollowUp.make_followupable!(payload, target: "analytics_glance", conversation:)
         end
 
         def ready_payload(scope:, period:, result:, intro:)
           {
-            "body"      => render_component(Pito::Analytics::EnhancedComponent.new(intro: intro, result: result)),
+            "body"      => render_component(Pito::Analytics::EnhancedComponent.new(intro: intro, result: result, nudge: nudge_for(scope))),
             "html"      => true,
             "anchor"    => true,
             "analytics" => marker("ready", scope: scope, period: period, intro: intro)
           }
+        end
+
+        # The witty "use `analyze` for more" nudge, vid/game-specific. nil for any
+        # other scope (only show vid/game reach this builder).
+        def nudge_for(scope)
+          case scope
+          when ::Game  then Pito::Copy.render("pito.copy.analytics.suggest.game")
+          when ::Video then Pito::Copy.render("pito.copy.analytics.suggest.video")
+          end
         end
 
         def marker(status, scope:, period:, intro:)

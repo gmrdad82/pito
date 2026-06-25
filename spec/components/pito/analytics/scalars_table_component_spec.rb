@@ -57,16 +57,16 @@ RSpec.describe Pito::Analytics::ScalarsTableComponent, type: :component do
       node = render_for(result)
       labels = node.css("span.pito-analytics-scalars__label").map(&:text)
       expect(labels).to include("Views", "Watched hours", "Avg view duration",
-                                "Avg viewed %", "Subs", "Likes", "Comms")
+                                "Avg viewed %", "Subs", "Likes", "Comments")
     end
 
-    it "renders rows in the correct order: views, avg, subs, likes, comms" do
+    it "renders rows in the correct order: views, avg, subs, likes, comments" do
       node = render_for(result)
       text = node.text
       expect(text.index("Views")).to be < text.index("Avg view duration")
       expect(text.index("Avg view duration")).to be < text.index("Subs")
       expect(text.index("Subs")).to be < text.index("Likes")
-      expect(text.index("Likes")).to be < text.index("Comms")
+      expect(text.index("Likes")).to be < text.index("Comments")
     end
 
     it "does not render a standalone Dislikes label" do
@@ -211,12 +211,12 @@ RSpec.describe Pito::Analytics::ScalarsTableComponent, type: :component do
     end
   end
 
-  describe "comms cell" do
+  describe "comments cell" do
     it "renders the word label and a plain trend-coloured count" do
       node = render_for(result)
-      comms = cell_containing(node, "Comms")
-      expect(comms.text).to include("31")
-      expect(comms.at_css("span.pito-trend-number")).to be_present
+      comments = cell_containing(node, "Comments")
+      expect(comments.text).to include("31")
+      expect(comments.at_css("span.pito-trend-number")).to be_present
     end
   end
 

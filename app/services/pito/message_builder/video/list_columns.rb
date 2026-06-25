@@ -94,7 +94,7 @@ module Pito
           },
           comments: {
             aliases:    %w[comms comments],
-            heading:    "Comms",
+            heading:    "Comments",
             align:      :right,
             cell_class: "text-fg-dim text-right tabular-nums",
             value:      ->(v) { count_text(v.comment_count) }

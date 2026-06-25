@@ -6,12 +6,13 @@ module Pito
       # Builds the two `analyze` messages (roles "system" + "enhanced") in pending
       # and ready states.
       #
-      # INTERIM (FORK-A, owner-resolved): both roles render the SAME scalar kv-table
-      # via Pito::Analytics::EnhancedComponent, differing only by their Pito::Copy
-      # intro (`pito.copy.analyze.{system,enhanced}.intro`, 50 variants each). A
-      # later ViewComponent session adds the per-role extra scalars
-      # (system: devices/subscribed/geography; enhanced: heatmap/retention/
-      # demographics) and extracts each kv cell into its own component.
+      # SCAFFOLD (owner-resolved): each role renders ITS ordered metrics
+      # (Pito::Analytics::MetricOrder) as generic Metric::CompactComponent cells via
+      # Pito::Analytics::ScaffoldComponent, every cell a `0`/`1` data-pulled flag —
+      # proving the fan-out + verb + with/without work end-to-end. Roles differ by
+      # their metric set + their Pito::Copy intro
+      # (`pito.copy.analyze.{system,enhanced}.intro`, 50 variants each). Real
+      # per-metric components come on the owner's "revisit".
       #
       # Uses a dedicated `"analyze"` marker (NOT the show-vid/game `"analytics"`
       # marker) so the two stacks stay isolated; AnalyzePrepareJob reads it to
@@ -27,6 +28,7 @@ module Pito
         }.freeze
 
         ROLES = INTRO_KEYS.keys.freeze
+        ROLE_KINDS = { "system" => :system, "enhanced" => :enhanced }.freeze
 
         # Canonical predicate: a persisted event carrying an analyze marker still
         # in its pending state. Shared by the Finalizer + AnalyzePrepareJob.
@@ -46,37 +48,102 @@ module Pito
         # @param level      [Symbol/String] :channel | :vid | :game
         # @param entity_ids [Array<Integer>] resolved entity ids at that level
         # @param period     [String] the shift+space window token
-        def pending(role:, title:, level:, entity_ids:, period:)
-          intro = intro_for(role, title)
-          {
-            "body"    => render_component(Pito::Analytics::EnhancedComponent.new(intro:, pending: true)),
+        def pending(role:, title:, level:, entity_ids:, period:, conversation:, selection: nil)
+          intro   = intro_for(role, title)
+          payload = {
+            "body"    => render_component(Pito::Analytics::ScaffoldComponent.new(intro:, pending: true)),
             "html"    => true,
             "anchor"  => true,
-            "analyze" => marker("pending", role:, title:, level:, entity_ids:, period:, intro:)
+            "analyze" => marker("pending", role:, title:, level:, entity_ids:, period:, intro:, selection:)
           }
+          # Followupable so the owner can reply `with`/`without` to mutate it in place.
+          Pito::FollowUp.make_followupable!(payload, target: "analyze_message", conversation:)
         end
 
-        # Ready state, written by AnalyzePrepareJob. Reuses the STORED intro so it
-        # never changes under the user.
+        # The two pending analyze events ({kind:, payload:}) — a `:system` + an
+        # `:enhanced` — for one scope. Used by the chat handler AND the
+        # glance→new-pair follow-up handler so both build identical messages.
+        def pair(level:, entity_ids:, title:, period:, conversation:, selection: nil)
+          ROLES.map do |role|
+            {
+              kind:    ROLE_KINDS.fetch(role),
+              payload: pending(role:, title:, level:, entity_ids:, period:, conversation:, selection:)
+            }
+          end
+        end
+
+        # Ready state, written by AnalyzePrepareJob. Reuses the STORED intro, renders
+        # the role's metrics as `0`/`1` cells, PERSISTS the scaffold map (so a mutate
+        # reply re-renders without re-fetch), and PRESERVES the reply handle so the
+        # message stays repliable across the pending→ready rewrite.
         #
-        # @param event  [Event] the pending event being filled
-        # @param result [Pito::Analytics::Scalars::Result, Symbol] the aggregated
-        #   result, or Pito::Analytics::Scalars::UNAVAILABLE
-        def ready_payload(event, result:)
-          marker = event.payload.fetch("analyze")
-          {
-            "body"    => render_component(Pito::Analytics::EnhancedComponent.new(intro: marker["intro"], result:)),
+        # @param event    [Event] the pending event being filled
+        # @param scaffold [Hash{Symbol=>Boolean}] metric => data-pulled?
+        def ready_payload(event, scaffold:)
+          marker    = event.payload.fetch("analyze")
+          selection = Pito::Analytics::MetricSelection.from_lists(marker["with"], marker["without"])
+          cells     = cells_for(role: marker["role"], level: marker["level"], scaffold:, selection:)
+          payload   = {
+            "body"    => render_component(Pito::Analytics::ScaffoldComponent.new(intro: marker["intro"], cells:)),
             "html"    => true,
             "anchor"  => true,
-            "analyze" => marker.merge("status" => "ready")
+            "analyze" => marker.merge("status" => "ready", "scaffold" => stringify_scaffold(scaffold))
           }
+          preserve_followup(payload, event.payload)
+        end
+
+        # Re-render an already-ready analyze message in place (mutate reply) with the
+        # accumulated with/without — from the PERSISTED scaffold, no re-fetch.
+        # @param with/without [Array<Symbol>] the accumulated selection
+        def rerender(event, with:, without:)
+          marker    = event.payload.fetch("analyze")
+          scaffold  = symbolize_scaffold(marker["scaffold"])
+          selection = Pito::Analytics::MetricSelection.from_lists(with, without)
+          cells     = cells_for(role: marker["role"], level: marker["level"], scaffold:, selection:)
+          payload   = {
+            "body"    => render_component(Pito::Analytics::ScaffoldComponent.new(intro: marker["intro"], cells:)),
+            "html"    => true,
+            "anchor"  => true,
+            "analyze" => marker.merge("with" => with.map(&:to_s), "without" => without.map(&:to_s))
+          }
+          preserve_followup(payload, event.payload)
+        end
+
+        # Ordered { label:, value: } cells for a role+level, after applying the
+        # with/without selection (with = whitelist, without = exclude).
+        def cells_for(role:, level:, scaffold:, selection:)
+          metrics = Pito::Analytics::MetricOrder.for(role: role.to_sym, level: level.to_sym)
+          metrics = Pito::Analytics::MetricSelection.apply(metrics, selection)
+          metrics.map do |metric|
+            {
+              label: Pito::Copy.render(Pito::Analytics::MetricOrder.label_key(metric)),
+              value: scaffold_pulled?(scaffold, metric) ? "1" : "0"
+            }
+          end
+        end
+
+        # scaffold may arrive symbol-keyed (job) or string-keyed (persisted marker).
+        def scaffold_pulled?(scaffold, metric)
+          scaffold[metric] || scaffold[metric.to_s]
+        end
+
+        def stringify_scaffold(scaffold) = scaffold.transform_keys(&:to_s)
+        def symbolize_scaffold(scaffold) = (scaffold || {}).transform_keys(&:to_sym)
+
+        # Carry reply_handle/target forward so a rewritten payload stays repliable.
+        def preserve_followup(payload, source_payload)
+          return payload if source_payload["reply_handle"].blank?
+
+          payload["reply_handle"] = source_payload["reply_handle"]
+          payload["reply_target"] = source_payload["reply_target"]
+          payload
         end
 
         def intro_for(role, title)
           Pito::Copy.render_html(INTRO_KEYS.fetch(role.to_s), { title: title }, shimmer: [ :title ])
         end
 
-        def marker(status, role:, title:, level:, entity_ids:, period:, intro:)
+        def marker(status, role:, title:, level:, entity_ids:, period:, intro:, selection: nil)
           {
             "status"     => status,
             "role"       => role.to_s,
@@ -84,7 +151,9 @@ module Pito
             "level"      => level.to_s,
             "entity_ids" => Array(entity_ids),
             "period"     => period,
-            "intro"      => intro
+            "intro"      => intro,
+            "with"       => Array(selection&.with).map(&:to_s),
+            "without"    => Array(selection&.without).map(&:to_s)
           }
         end
       end

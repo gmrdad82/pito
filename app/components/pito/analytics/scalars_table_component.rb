@@ -9,14 +9,14 @@ module Pito
     # Layout (grid-cols-6):
     #   Row 1 (col-span-3 each): Views | Watched hours
     #   Row 2 (col-span-3 each): Avg view duration | Avg viewed %
-    #   Row 3 (col-span-2 each): Subs | Likes | Comms
+    #   Row 3 (col-span-2 each): Subs | Likes | Comments
     #
     # Special cells:
     #   - Subs:  "+gained/-lost" — the +gained half green (:up shimmer), the
     #            -lost half red (:down shimmer); coloured by part, not net sign.
     #   - Likes: "<likes>👍/<dislikes>👎" — likes + thumbs-up green (:up), dislikes
     #            + thumbs-down red (:down). Replaces the standalone Dislikes cell.
-    #   - Comms: word label + a plain trend-coloured count.
+    #   - Comments: word label + a plain trend-coloured count.
     #
     # The green/red shimmer reuses the TrendNumberComponent `.pito-trend-number`
     # classes so the numbers shimmer and the icons pick up the accent colour.
@@ -44,9 +44,9 @@ module Pito
 
       # Ordered flat array of all metric cells for the flex-wrap layout.
       # Canonical order: views → watched_hours → avg_view_duration →
-      # avg_viewed_pct → subs → likes → comms.
+      # avg_viewed_pct → subs → likes → comments.
       def cells
-        build_cells(ROW1) + build_cells(ROW2) + [ subs_cell, likes_cell, comms_cell ]
+        build_cells(ROW1) + build_cells(ROW2) + [ subs_cell, likes_cell, comments_cell ]
       end
 
       # ── Row 3 cells (each `{ label:, value: }` with a pre-rendered value) ──
@@ -84,8 +84,8 @@ module Pito
         { label: metric_label("likes"), value: }
       end
 
-      # Comms: word label + a plain trend-coloured count.
-      def comms_cell
+      # Comments: word label + a plain trend-coloured count.
+      def comments_cell
         metric = @result.metrics[:comments] || {}
         trend  = Pito::Analytics::TrendNumberComponent.new(
           value:            metric[:current],

@@ -6,7 +6,7 @@ module Pito
     # Pure presentation: the caller supplies the metrics (key + raw value);
     # the value is compacted and the label/icon comes from Pito::Stats::Metrics
     # so it stays consistent everywhere. subs / vids / views render as
-    # "<value> <Word>"; likes / comms render as "<value>👍" / "<value>💬".
+    # "<value> <Word>"; likes / comments render as "<value>👍" / "<value>💬".
     #
     #   render(Pito::Stats::CountersComponent.new(
     #     metrics: [{ key: :views, value: 454 }, { key: :likes, value: 3 }],

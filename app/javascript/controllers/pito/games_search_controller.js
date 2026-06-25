@@ -207,7 +207,7 @@ export default class extends Controller {
       info.className = "flex flex-col min-w-0"
 
       const titleEl = document.createElement("span")
-      titleEl.className   = "text-fg truncate text-sm"
+      titleEl.className   = "text-fg truncate"
       titleEl.textContent = title
       info.appendChild(titleEl)
 
@@ -216,14 +216,14 @@ export default class extends Controller {
       const typeNote = hit.type_note ?? hit["type_note"]
       if (typeNote) {
         const note = document.createElement("span")
-        note.className   = "text-xs text-cyan"
+        note.className   = "text-cyan"
         note.textContent = typeNote
         info.appendChild(note)
       }
 
       if (inLib) {
         const badge = document.createElement("span")
-        badge.className   = "text-xs text-accent"
+        badge.className   = "text-accent"
         badge.textContent = (this.i18nInLibraryValue || "In Library") + " " + (this.i18nInLibraryHintValue || "(will resync)")
         info.appendChild(badge)
       }
@@ -324,7 +324,7 @@ export default class extends Controller {
 
       const row = document.createElement("div")
       row.id        = `import-step-${step}`
-      row.className = "flex items-center gap-2 py-1 px-2 text-sm"
+      row.className = "flex items-center gap-2 py-1 px-2"
 
       // Shimmer dot — reuses .pito-shimmer; stagger via inline animation-delay.
       const dot = document.createElement("span")

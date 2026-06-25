@@ -79,5 +79,22 @@ RSpec.describe Pito::Chat::Handlers::Analyze do
         expect(event[:payload].dig("analyze", "level")).to eq("channel")
       end
     end
+
+    it "both events are followupable (reply_target: 'analyze_message')" do
+      result.events.each do |event|
+        expect(event[:payload]["reply_target"]).to eq("analyze_message")
+      end
+    end
+
+    it "both events carry a non-blank reply_handle" do
+      result.events.each do |event|
+        expect(event[:payload]["reply_handle"]).to be_a(String).and(be_present)
+      end
+    end
+
+    it "the two events have distinct reply_handles" do
+      handles = result.events.map { |e| e[:payload]["reply_handle"] }
+      expect(handles.uniq.length).to eq(2)
+    end
   end
 end

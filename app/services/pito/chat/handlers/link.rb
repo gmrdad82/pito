@@ -45,11 +45,11 @@ module Pito
 
           return usage_hint if left_words.empty? || right_words.empty?
 
-          game, video = resolve_sides(left_words, right_words)
-          return game  if result?(game)
-          return video if result?(video)
+          games, videos = resolve_sides(left_words, right_words)
+          return games  if result?(games)
+          return videos if result?(videos)
 
-          create_link(game, video)
+          create_links(games, videos)
         end
 
         private
@@ -82,53 +82,79 @@ module Pito
 
         # ── Free-chat helpers ──────────────────────────────────────────────────
 
-        # Returns [game_record, video_record] or one of the two is a Result::Ok
-        # (not-found) / Result::Error (usage hint).
+        # Returns [games, videos] (each an Array of records) — or one slot is a
+        # Result::Ok (not-found) / Result::Error (usage hint) to short-circuit.
+        # Each side accepts a comma/space-separated id LIST, so
+        # `link game 1 with vid 15,14` links game 1 to both vids (cross-product).
         def resolve_sides(left_words, right_words)
           left_noun  = left_words.first.downcase
           right_noun = right_words.first.downcase
 
           if GAME_NOUNS.include?(left_noun) && VIDEO_NOUNS.include?(right_noun)
-            game  = resolve_game(left_words.drop(1))
-            video = resolve_video(right_words.drop(1))
+            games  = resolve_records(::Game,  left_words.drop(1))
+            videos = resolve_records(::Video, right_words.drop(1))
           elsif VIDEO_NOUNS.include?(left_noun) && GAME_NOUNS.include?(right_noun)
-            video = resolve_video(left_words.drop(1))
-            game  = resolve_game(right_words.drop(1))
+            videos = resolve_records(::Video, left_words.drop(1))
+            games  = resolve_records(::Game,  right_words.drop(1))
           else
             return [ usage_hint, nil ]
           end
 
-          [ game, video ]
+          [ games, videos ]
         end
 
-        def resolve_game(ref_words)
-          ref = ref_words.join(" ").strip
-          return usage_hint if ref.blank?
+        # Parses a comma/space-separated numeric id list (each plain or `#`-prefixed)
+        # into records. Returns a not-found Result on the first missing id, or the
+        # usage hint when no valid id is present.
+        def resolve_records(klass, ref_words)
+          ids = ref_words.join(" ")
+                         .split(/[\s,]+/).map(&:strip)
+                         .select { |t| t.match?(/\A#?\d+\z/) }
+                         .map { |t| t.delete_prefix("#") }.uniq
+          return usage_hint if ids.empty?
 
-          id = ref.delete_prefix("#")
-          return usage_hint unless id.match?(/\A\d+\z/)
+          records = []
+          ids.each do |id|
+            record = klass.find_by(id: id)
+            return not_found_for(klass, id) if record.nil?
 
-          ::Game.find_by(id: id) || not_found_game(ref)
-        end
-
-        def resolve_video(ref_words)
-          ref = ref_words.join(" ").strip
-          return usage_hint if ref.blank?
-
-          id = ref.delete_prefix("#")
-          return usage_hint unless id.match?(/\A\d+\z/)
-
-          ::Video.find_by(id: id) || not_found_video(ref)
+            records << record
+          end
+          records
         end
 
         # ── Shared helpers ─────────────────────────────────────────────────────
 
-        def create_link(game, video)
-          VideoGameLink.find_or_create_by!(video: video, game: game)
+        # Links every (game, video) pair (cross-product) idempotently, then a single
+        # summary message — the one-pair copy for 1×1, else the multi copy.
+        def create_links(games, videos)
+          games  = Array(games)
+          videos = Array(videos)
+          games.product(videos).each { |game, video| VideoGameLink.find_or_create_by!(video:, game:) }
 
-          Pito::Chat::Result::Ok.new(events: [
-            { kind: :system, payload: Pito::MessageBuilder::Text.call("pito.copy.games.linked", game: game.title, video: video.title) }
-          ])
+          Pito::Chat::Result::Ok.new(events: [ { kind: :system, payload: link_summary(games, videos) } ])
+        end
+
+        def link_summary(games, videos)
+          if games.one? && videos.one?
+            Pito::MessageBuilder::Text.call("pito.copy.games.linked", game: games.first.title, video: videos.first.title)
+          elsif games.one?
+            linked_multi(games.first.title, videos.map(&:title))
+          elsif videos.one?
+            linked_multi(videos.first.title, games.map(&:title))
+          else
+            linked_multi("#{games.size} games", videos.map(&:title))
+          end
+        end
+
+        def linked_multi(source, target_titles)
+          Pito::MessageBuilder::Text.call(
+            "pito.copy.games.linked_multi", source:, targets: target_titles.join(", ")
+          )
+        end
+
+        def not_found_for(klass, ref)
+          klass == ::Game ? not_found_game(ref) : not_found_video(ref)
         end
 
         def not_found_game(ref)

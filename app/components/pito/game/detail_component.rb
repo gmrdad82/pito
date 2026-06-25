@@ -95,13 +95,13 @@ module Pito
 
       # ── Left-column stats (summed across all linked videos) ──────────────────
 
-      # Stat counters (views · likes · comms) for Pito::Stats::CountersComponent,
+      # Stat counters (views · likes · comments) for Pito::Stats::CountersComponent,
       # summed across the game's linked videos.
       def stat_counter_metrics
         [
-          { key: :views, value: linked_video_totals[:views] },
-          { key: :likes, value: linked_video_totals[:likes] },
-          { key: :comms, value: linked_video_totals[:comments] }
+          { key: :views,    value: linked_video_totals[:views] },
+          { key: :likes,    value: linked_video_totals[:likes] },
+          { key: :comments, value: linked_video_totals[:comments] }
         ]
       end
 

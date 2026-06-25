@@ -60,11 +60,21 @@ module Pito
       # payload `for_event_id` so #complete / AnalyticsFillJob can resolve the
       # exact one when THAT message is ready.
       # @return [Array<Event>] the persisted rows.
-      def persist(events:, turn:)
+      # Kinds whose arrival retires all prior live #hashtags (a new "leading"
+      # message — a chat verb or a reply-that-appends — supersedes old affordances,
+      # so only the newest turn stays repliable).
+      CONSUME_TRIGGER_KINDS = %w[system system_follow_up confirmation confirmation_follow_up].freeze
+
+      # @param retire_prior_hashtags [Boolean] when true (the default — every typed
+      #   chat verb, and any reply that consumes its source), a new
+      #   :system/:confirmation message sweeps all PRIOR live #hashtags. Repeatable
+      #   replies (link/unlink — `Append consume: false`, the source card stays live)
+      #   pass false so the sweep is suppressed and nothing is disturbed.
+      def persist(events:, turn:, retire_prior_hashtags: true)
         placeholder = unresolved_unlinked_indicator(turn)
         dictionary  = placeholder&.payload&.[]("dictionary").presence || "chat"
 
-        canonical_kinds(events).map do |attrs|
+        persisted = canonical_kinds(events).map do |attrs|
           indicator   = placeholder || @broadcaster.emit_thinking(turn:, dictionary:)
           placeholder = nil # only the first message reuses the pre-dispatch placeholder
 
@@ -76,6 +86,16 @@ module Pito
           link_indicator(indicator, to: event)
           event
         end
+
+        # A new :system / :confirmation turn retires all PRIOR live hashtags — applies
+        # uniformly to typed chat verbs AND replies-that-append (a progression). Mutate
+        # replies emit no new event here, and repeatable replies opt out via
+        # retire_prior_hashtags:false, so both correctly leave handles live.
+        if retire_prior_hashtags && persisted.any? { |e| CONSUME_TRIGGER_KINDS.include?(e.kind) }
+          @broadcaster.consume_prior_live_replies(before_turn: turn)
+        end
+
+        persisted
       end
 
       # Completion gate. Resolves the indicator of every READY message now. When

@@ -62,10 +62,11 @@ class FollowUpDispatchJob < ApplicationJob
       turn = Turn.find(turn_id)
       # Persist + broadcast (with canonical kinds — the D1 fix: reply-appended
       # events now get the same :system/:enhanced canonicalisation as chat).
-      persisted = finalizer.persist(events: result.events, turn:)
-      # Consume the source (hide its affordance + reserve the handle) only when
-      # the result opts in (consume: true, which is the default).  Repeatable
-      # verbs such as link/unlink set consume: false so the card stays reusable.
+      # consume:false (repeatable verbs like link/unlink) keeps the source card
+      # live AND suppresses the prior-hashtag sweep — a repeatable reply is not a
+      # progression, so it disturbs nothing. consume:true (default) is a
+      # progression: it consumes the source AND retires every prior live handle.
+      persisted = finalizer.persist(events: result.events, turn:, retire_prior_hashtags: result.consume)
       if result.consume
         event.update!(payload: event.payload.merge("reply_consumed" => true))
         broadcaster.replace_event(event)

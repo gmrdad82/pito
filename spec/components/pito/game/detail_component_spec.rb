@@ -544,12 +544,12 @@ RSpec.describe Pito::Game::DetailComponent do
       end
     end
 
-    it "renders the Views word and likes/comms icons" do
+    it "renders the Views word and likes/comments icons" do
       node  = render_inline(described_class.new(game: game))
       stats = node.css(".pito-game-detail__stats").first
       expect(stats.text).to include("Views")
       labels = stats.css("svg").map { |s| s["aria-label"] }
-      expect(labels).to include("Likes").and include("Comms")
+      expect(labels).to include("Likes").and include("Comments")
     end
 
     it "does not render a per-game stats legend line (removed in refactor)" do
