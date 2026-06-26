@@ -164,6 +164,14 @@ export default class extends Controller {
         return
       }
       if (event.key === "Enter" && !event.shiftKey) {
+        // Exact complete slash command typed (no trailing space) → let Enter
+        // SUBMIT the read/default version instead of accepting a palette row. The
+        // palette is for discovery while typing a PARTIAL verb; once the verb is
+        // complete, Enter sends. (Applies to every slash command.) [owner I3]
+        if (this._isExactCompleteSlashVerb()) {
+          this._closePalette()
+          return   // no preventDefault → chat-form#handleKeydown submits the form
+        }
         event.preventDefault()
         event.stopImmediatePropagation()
         this._acceptPaletteSelection()
@@ -487,14 +495,19 @@ export default class extends Controller {
     return !rest.includes(" ")
   }
 
-  // Slash `/config <arg>` arg stage: the verb is `config` and the cursor is past
-  // the first space (so it trips _isArgStage). The engine surfaces these
-  // completions (provider list, per-provider keys) as a browsable palette
-  // (stage:"verb"), so we keep the palette open instead of closing it on each
-  // keystroke. Scoped to `config` so other slash args keep the inline ghost.
-  //   "/config "          → true
-  //   "/config goo"       → true
-  //   "/config google "   → true
+  // Slash `/config <arg>` arg stage: the verb is `config` and the cursor sits at
+  // the START of a fresh arg token — i.e. right after a TRAILING space. The engine
+  // surfaces these completions (provider list, per-provider keys) as a browsable
+  // palette (stage:"verb"); we keep that palette open ONLY when a trailing space
+  // signals "I'm starting the next token". A COMPLETE token with no trailing space
+  // (e.g. "/config google") must NOT pop the palette, so Enter can SEND the
+  // read/default version of the command. Typing within a token (no trailing space)
+  // falls through to an inline ghost instead. Scoped to `config` (the only slash
+  // verb with a server arg palette). [owner I3, 2026-06-26]
+  //   "/config "          → true   (starting the provider token)
+  //   "/config goo"       → false  (typing a partial token → ghost; Enter sends)
+  //   "/config google"    → false  (complete token, no trailing space → Enter sends)
+  //   "/config google "   → true   (starting the key token)
   //   "/games import x"   → false  (not config)
   _isSlashConfigArgStage(value, cursor) {
     if (value[0] !== "/") return false
@@ -502,7 +515,28 @@ export default class extends Controller {
     const firstSpace = before.indexOf(" ")
     if (firstSpace === -1) return false           // still typing the verb
     const verb = before.slice(1, firstSpace).toLowerCase()
-    return verb === "config"
+    if (verb !== "config") return false
+    return before.endsWith(" ")                   // only at the start of a fresh token
+  }
+
+  // Verb-stage: true when the field holds an EXACT, complete slash command verb
+  // with no trailing space (e.g. "/connect", "/config") — the text after "/"
+  // equals a known catalog command name. Used so Enter SUBMITS the complete
+  // command (its read/default version) instead of the open palette accepting a
+  // row. A PARTIAL verb ("/conn") returns false → the palette still accepts on
+  // Enter, preserving command discovery. Applies to every slash command.
+  // [owner I3, 2026-06-26]
+  _isExactCompleteSlashVerb() {
+    if (!this.hasFieldTarget) return false
+    const field  = this.fieldTarget
+    const value  = field.value
+    if (value[0] !== "/") return false
+    const cursor = field.selectionStart ?? value.length
+    const before = value.slice(0, cursor)
+    if (before.indexOf(" ") !== -1) return false  // past the verb → not bare verb stage
+    const verb = before.slice(1).toLowerCase()    // text after "/"
+    if (verb.length === 0) return false
+    return (this._catalog?.slash || []).some(e => e.name.toLowerCase() === verb)
   }
 
   // ── ae: arg-stage ghost fetch (debounced POST /suggestions) ─────────────
@@ -570,8 +604,20 @@ export default class extends Controller {
           this._closePalette()
           return
         }
-        this._showFetchedPalette(menuItems, value[0])
-        return
+        // Render as a browsable palette ONLY when the cursor is at a fresh token:
+        // a hashtag reply-verb (`#h sh`), or a slash `/config` arg right after a
+        // trailing space (`/config google `). When typing WITHIN a slash token
+        // (no trailing space, e.g. `/config google`) the server still tags the
+        // response stage:"verb" — but we must NOT re-open the palette there, or it
+        // would intercept Enter on a complete command. Fall through to ghost
+        // completion instead so the token stays Enter-sendable. Slash-only rule;
+        // hashtag reply verbs are unchanged. [owner I3, 2026-06-26]
+        if (this._isHashtagReplyVerbStage(value, cursor) ||
+            this._isSlashConfigArgStage(value, cursor)) {
+          this._showFetchedPalette(menuItems, value[0])
+          return
+        }
+        // else: fall through to ghost rendering below (palette stays closed)
       }
 
       // ARG-STAGE GHOST (everything below): a stale verb palette must not linger.
