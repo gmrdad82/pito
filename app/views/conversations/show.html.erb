@@ -48,7 +48,7 @@
                          .where(input_kind: [ :slash, :chat, :hashtag ])
                          .reorder(position: :desc)
                          .limit(50)
-                         .pluck(:input_text) : []
+                         .map(&:display_text) : []
       %>
       <%= render(Pito::Shell::ChatboxComponent.new(
             state: :default,

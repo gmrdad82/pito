@@ -93,6 +93,19 @@ RSpec.describe Pito::Slash::Handlers::Config, type: :service do
       expect(values).to all(eq(I18n.t("pito.slash.config.status.ok")).or(eq(I18n.t("pito.slash.config.status.missing"))))
     end
 
+    it "shows OK (a masked flag, NOT the raw URL) for a SET redirect_uri" do
+      AppSetting.google_oauth_redirect_uri = "http://localhost/cb"
+      Pito::Credentials.invalidate!
+
+      result = build_handler(args: [ "google" ]).call
+      row = result.events.first[:payload][:table_rows].find { |r| r[:key] == "Redirect URI:" }
+      expect(row[:value]).to eq(I18n.t("pito.slash.config.status.ok"))
+      expect(row[:value]).not_to include("localhost")
+    ensure
+      AppSetting.google_oauth_redirect_uri = nil
+      Pito::Credentials.invalidate!
+    end
+
     it "returns table_rows with red MISSING for absent credentials" do
       AppSetting.singleton_row.update!(
         google_oauth_client_id:     nil,
@@ -502,18 +515,16 @@ RSpec.describe Pito::Slash::Handlers::Config, type: :service do
     end
   end
 
-  describe "echo masking in ChatController" do
-    it "masks client_id and client_secret but shows redirect_uri" do
-      ctrl = ChatController.new
+  describe "echo masking (Pito::InputMasking)" do
+    it "masks ALL credential kwarg values (incl redirect_uri)" do
       input = "/config google client_id=myid client_secret=myscret redirect_uri=http://localhost/cb"
-      masked = ctrl.send(:mask_config_credentials, input)
-      expect(masked).to eq("/config google client_id=*** client_secret=*** redirect_uri=http://localhost/cb")
+      masked = Pito::InputMasking.mask_config_credentials(input)
+      expect(masked).to eq("/config google client_id=*** client_secret=*** redirect_uri=***")
     end
 
-    it "is a no-op when no sensitive keys are present" do
-      ctrl = ChatController.new
-      input = "/config google redirect_uri=http://localhost/cb"
-      expect(ctrl.send(:mask_config_credentials, input)).to eq(input)
+    it "is a no-op for a non-credential /config (values shown in the clear)" do
+      input = "/config me nickname=Catalin"
+      expect(Pito::InputMasking.mask_config_credentials(input)).to eq(input)
     end
   end
 end

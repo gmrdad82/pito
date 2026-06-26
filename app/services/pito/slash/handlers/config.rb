@@ -31,7 +31,7 @@ module Pito
       # Unknown provider → `Result::Error` with key `pito.slash.config.errors.unknown_provider`.
       #
       # Sensitive keys (`client_id`, `client_secret`, `api_key`) are masked to `***`
-      # in the echo by `ChatController#mask_config_credentials` *before* this handler runs.
+      # in the echo by `Pito::InputMasking.mask_config_credentials` *before* this handler runs.
       #
       # `show_help` is overridden: `/config --help` renders the general provider table;
       # `/config google --help` renders Google-specific key table with `/connect` suggestion.
@@ -80,7 +80,7 @@ module Pito
             {
               "Client ID"     => status_flag(Pito::Credentials.google_oauth_client_id),
               "Client Secret" => status_flag(Pito::Credentials.google_oauth_client_secret),
-              "Redirect URI"  => Pito::Credentials.google_oauth_redirect_uri.presence || ok_missing(:missing),
+              "Redirect URI"  => status_flag(Pito::Credentials.google_oauth_redirect_uri),
               "API Key"       => status_flag(Pito::Credentials.google_api_key)
             }
           },
@@ -95,14 +95,11 @@ module Pito
           },
           "webhook" => -> {
             {
-              "Slack"   => Pito::Credentials.slack_webhook_url.presence || ok_missing(:missing),
-              "Discord" => Pito::Credentials.discord_webhook_url.presence || ok_missing(:missing)
+              "Slack"   => status_flag(Pito::Credentials.slack_webhook_url),
+              "Discord" => status_flag(Pito::Credentials.discord_webhook_url)
             }
           }
         }.freeze
-
-        # Sensitive keys whose values are masked (***) in the echo.
-        MASKED_KEYS = %w[client_id client_secret api_key].freeze
 
         # The timezone provider stores a single value (an IANA zone) rather than
         # key/value credentials, so it has its own getter/setter path.

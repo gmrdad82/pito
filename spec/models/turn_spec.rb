@@ -69,4 +69,21 @@ RSpec.describe Turn, type: :model do
       expect(described_class.next_position_for(conversation)).to eq(3)
     end
   end
+
+  describe "#display_text (recall-history masking)" do
+    it "masks /config credentials" do
+      turn = build(:turn, input_kind: :slash, input_text: "/config google client_secret=xyz")
+      expect(turn.display_text).to eq("/config google client_secret=***")
+    end
+
+    it "masks /login payloads" do
+      turn = build(:turn, input_kind: :slash, input_text: "/login 123456")
+      expect(turn.display_text).to eq("/login ******")
+    end
+
+    it "returns non-secret input verbatim" do
+      turn = build(:turn, input_kind: :chat, input_text: "list games")
+      expect(turn.display_text).to eq("list games")
+    end
+  end
 end
