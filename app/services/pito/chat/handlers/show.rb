@@ -53,12 +53,14 @@ module Pito
           return channel_not_found(channel_ref) if channel.nil?
 
           # :system detail card, then — when the channel has videos — the repliable
-          # :enhanced vids list (video_list follow-up target). The channel analytics
-          # glance is added in the next phase.
+          # :enhanced vids list (video_list follow-up target), then LAST the channel
+          # analytics glance (pending state, filled async by AnalyticsFillJob over
+          # the shift+space period; channel-level metrics need no linked videos).
           events = [
             { kind: :system, payload: Pito::MessageBuilder::Channel::Detail.call(channel, conversation:) }
           ]
           events << { kind: :enhanced, payload: Pito::MessageBuilder::Channel::Videos.call(channel, conversation:) } if channel.videos.any?
+          events << { kind: :enhanced, payload: Pito::MessageBuilder::Analytics::Enhanced.pending(channel, period: analytics_period, conversation:) }
 
           Pito::Chat::Result::Ok.new(events: events)
         end

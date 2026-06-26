@@ -426,21 +426,29 @@ RSpec.describe Pito::Chat::Handlers::Show do
       expect(result.events.first[:payload].to_s).to include("nope")
     end
 
-    it "emits only the :system card when the channel has no videos" do
-      kinds = show_real("show channel @gmrdad82").events.map { |e| e[:kind] }
-      expect(kinds).to eq([ :system ])
+    it "emits :system detail + the :enhanced channel analytics glance when the channel has no videos" do
+      events = show_real("show channel @gmrdad82").events
+      expect(events.map { |e| e[:kind] }).to eq([ :system, :enhanced ])
+      glance = events.last[:payload]
+      expect(glance.dig("analytics", "status")).to eq("pending")
+      expect(glance.dig("analytics", "scope_type")).to eq("Channel")
+      expect(glance.dig("analytics", "scope_id")).to eq(show_channel.id)
     end
 
     context "with videos" do
       let!(:vids) { create_list(:video, 2, channel: show_channel) }
 
-      it "emits :system detail then a repliable :enhanced vids list (video_list target)" do
+      it "emits :system detail, a repliable :enhanced vids list, then the :enhanced analytics glance" do
         events = show_real("show channel @gmrdad82").events
-        expect(events.map { |e| e[:kind] }).to eq([ :system, :enhanced ])
-        list = events.last[:payload]
+        expect(events.map { |e| e[:kind] }).to eq([ :system, :enhanced, :enhanced ])
+
+        list = events[1][:payload]
         expect(list["reply_target"]).to eq("video_list")
         expect(Pito::FollowUp.followupable?(list)).to be(true)
         expect(list["video_ids"]).to match_array(vids.map(&:id))
+
+        glance = events.last[:payload]
+        expect(glance.dig("analytics", "scope_type")).to eq("Channel")
       end
     end
   end
