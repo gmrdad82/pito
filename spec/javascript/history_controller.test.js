@@ -79,18 +79,18 @@ describe("pito--history controller", () => {
     expect(textarea.value).toBe("first")
   })
 
-  it("ArrowDown after ArrowUp returns to the draft", async () => {
+  it("ArrowDown after ArrowUp returns to the (prefix) draft", async () => {
     const { chatbox, textarea } = buildScaffold(JSON.stringify(["cmd1"]))
     await waitForConnect()
 
-    textarea.value = "my draft"
+    textarea.value = "cm"   // a prefix of "cmd1"
     arrowUp(chatbox)
 
     expect(textarea.value).toBe("cmd1")
 
     arrowDown(chatbox)
 
-    expect(textarea.value).toBe("my draft")
+    expect(textarea.value).toBe("cm")
   })
 
   it("ArrowDown at the current draft is a no-op", async () => {
@@ -176,5 +176,70 @@ describe("pito--history controller", () => {
     expect(textarea.value).toBe("cmd")
 
     sidebar.remove()
+  })
+
+  // ── Prefix matching (oh-my-zsh) ─────────────────────────────────────────────
+
+  describe("prefix-matched recall", () => {
+    // newest-first; "/connect" does NOT start with "/conf" (4th char n≠f).
+    const ENTRIES = JSON.stringify(["/config google", "/connect", "/config fx"])
+
+    it("ArrowUp recalls only entries starting with the typed prefix", async () => {
+      const { chatbox, textarea } = buildScaffold(ENTRIES)
+      await waitForConnect()
+
+      textarea.value = "/conf"
+      arrowUp(chatbox)
+      expect(textarea.value).toBe("/config google")   // newest match
+      arrowUp(chatbox)
+      expect(textarea.value).toBe("/config fx")        // older match (skips /connect)
+    })
+
+    it("does not wrap past the oldest match", async () => {
+      const { chatbox, textarea } = buildScaffold(ENTRIES)
+      await waitForConnect()
+
+      textarea.value = "/conf"
+      arrowUp(chatbox)  // /config google
+      arrowUp(chatbox)  // /config fx
+      arrowUp(chatbox)  // stays at oldest match
+      expect(textarea.value).toBe("/config fx")
+    })
+
+    it("ArrowDown returns to the typed prefix", async () => {
+      const { chatbox, textarea } = buildScaffold(ENTRIES)
+      await waitForConnect()
+
+      textarea.value = "/conf"
+      arrowUp(chatbox)
+      expect(textarea.value).toBe("/config google")
+      arrowDown(chatbox)
+      expect(textarea.value).toBe("/conf")
+    })
+
+    it("ArrowUp does nothing when no entry matches the prefix", async () => {
+      const { chatbox, textarea } = buildScaffold(ENTRIES)
+      await waitForConnect()
+
+      textarea.value = "/zzz"
+      arrowUp(chatbox)
+      expect(textarea.value).toBe("/zzz")
+    })
+
+    it("typing a character ends recall and re-snapshots the new prefix", async () => {
+      const { chatbox, textarea } = buildScaffold(ENTRIES)
+      await waitForConnect()
+
+      textarea.value = "/conf"
+      arrowUp(chatbox)
+      expect(textarea.value).toBe("/config google")
+
+      // A real user edit (input event) ends the session; next ↑ re-snapshots.
+      textarea.value = "/conn"
+      textarea.dispatchEvent(new Event("input", { bubbles: true }))
+
+      arrowUp(chatbox)
+      expect(textarea.value).toBe("/connect")
+    })
   })
 })
