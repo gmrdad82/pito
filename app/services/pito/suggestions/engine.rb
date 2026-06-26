@@ -468,6 +468,17 @@ module Pito
                 end
               end
 
+              # Arg stage: for platform, surface the `set`/`unset` subcommand — same
+              # subcommand-position rule as price (the id + name that follow are free).
+              if action == "platform" && Pito::FollowUp::Registry.actions_for(target).include?("platform")
+                at_subcommand = (after_words.length == 1 && ends_with_space) ||
+                                (after_words.length == 2 && !ends_with_space)
+                if at_subcommand
+                  result = hashtag_platform_arg_completions(partial)
+                  return result.merge(stage: :arg) if result
+                end
+              end
+
               # Fallback: offer --help ghost when the partial starts with "-".
               return hashtag_arg_help_completions(partial).merge(stage: :arg)
             end
@@ -588,6 +599,31 @@ module Pito
         # hashtag_schedule_arg_completions but over the price_subcommands vocab.
         def hashtag_price_arg_completions(partial)
           vocab = Pito::Grammar::Registry.vocabulary(:price_subcommands)
+          return nil unless vocab
+
+          members = prefix_filter(vocab.canonical, partial)
+          return nil if members.empty?
+
+          menu_items = members.map do |member|
+            { label: member, insert: "#{member} ", description: "", masked: false }
+          end
+
+          ghost =
+            if partial.empty?
+              { complete_current: members.first.to_s, next_hint: "" }
+            elsif members.size == 1
+              { complete_current: members.first.to_s[partial.length..], next_hint: "" }
+            else
+              EMPTY_GHOST
+            end
+
+          { menu_items: menu_items, ghost: ghost }
+        end
+
+        # `set`/`unset` subcommand completions for `#<handle> platform …` — mirrors
+        # hashtag_price_arg_completions over the platform_subcommands vocab.
+        def hashtag_platform_arg_completions(partial)
+          vocab = Pito::Grammar::Registry.vocabulary(:platform_subcommands)
           return nil unless vocab
 
           members = prefix_filter(vocab.canonical, partial)

@@ -197,6 +197,14 @@ module Pito
         canonical: %w[set unset]
       ).freeze
 
+      # Subcommands of the `platform` verb (`platform set <id> <name>` /
+      # `platform unset <id> <name>`) — surfaced so the suggestions engine ghosts
+      # `set`/`unset` after `platform ` (chat) and `#<handle> platform ` (reply).
+      PLATFORM_SUBCOMMANDS = Vocabulary.define(
+        name:      :platform_subcommands,
+        canonical: %w[set unset]
+      ).freeze
+
       # ── Dynamic vocabulary stubs ─────────────────────────────────────────────
 
       CHANNELS = Vocabulary.define(
@@ -269,7 +277,8 @@ module Pito
           IMPORT_NOUNS,
           SYNC_TARGETS,
           SCHEDULE_WHENS,
-          PRICE_SUBCOMMANDS
+          PRICE_SUBCOMMANDS,
+          PLATFORM_SUBCOMMANDS
         ]
       end
 

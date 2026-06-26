@@ -36,9 +36,9 @@ en:
         needs_ref: "Which game or vid? Use `list games` to see ids, then `reindex game <id>` or `reindex vid <id>`."
       platform:
         descriptions:
-          platform: "Set a game's platform from free text (e.g. ps5, switch, steam)"
-        needs_ref: "Which game? Use `list games` to see ids, then `platform <id> <name>` (e.g. `platform 12 ps5`)."
-        missing_name: "Which platform? Add a name after the game, e.g. `platform 12 ps5`, `switch`, or `steam`."
+          platform: "Add or remove a game's platform from free text (e.g. platform set 12 ps5, platform unset 12 ps5)"
+        needs_ref: "Which game? Use `list games` to see ids, then `platform set <id> <name>` to add (e.g. `platform set 12 ps5`) or `platform unset <id> <name>` to remove."
+        missing_name: "Which platform? Add a name, e.g. `platform set 12 ps5` to add or `platform unset 12 ps5` to remove."
       publish:
         descriptions:
           publish: "Publish a vid on YouTube (set public, clear schedule)"

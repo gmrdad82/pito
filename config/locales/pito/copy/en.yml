@@ -4291,6 +4291,7 @@ en:
         unlinked_multi: "Unlinked %{source} from %{targets}."
         platform_set: "Set %{platform} as a platform for %{title}."
         platform_unknown: "Noted %{platform} for %{title} — no logo for that one yet, but it's stored."
+        platform_unset: "Removed %{platform} from %{title}."
         picker_empty:
           - "No games in the library yet. Import one to begin."
           - "Nothing to pick from. /games import to add a game."
