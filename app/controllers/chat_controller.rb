@@ -28,7 +28,7 @@ class ChatController < ApplicationController
     # --help / -h is a universal flag. Intercept it before any fast-path
     # handler so that e.g. `/connect --help` never starts OAuth.
     unless help_flag?(input)
-      if login_command?(input)
+      if Pito::InputMasking.login_command?(input)
         # Auth stays synchronous — it mints the session cookie, which can only be
         # set on the HTTP response (a background job can't set cookies).
         was_authenticated = Current.session.present?
@@ -49,6 +49,17 @@ class ChatController < ApplicationController
         # Logout stays synchronous — it clears the session cookie, which can only
         # be done on the HTTP response.
         handle_logout(input, conversation)
+        return respond_to_client(conversation)
+      end
+
+      if Pito::InputMasking.config_credential_command?(input)
+        # /config google|voyage|igdb|webhook carries secrets → handle
+        # SYNCHRONOUSLY so the raw value is applied in-request and NEVER persisted:
+        # the turn stores the masked form while the dispatcher receives the raw
+        # input from memory. EVERY OTHER /config form (fx, motion, me, sound,
+        # timezone, bare, --help) stays on the async pipeline below, exactly as
+        # today. (--help is excluded by the help_flag? guard above regardless.)
+        handle_config(input, conversation, authenticated: Current.session.present?)
         return respond_to_client(conversation)
       end
 
@@ -127,13 +138,15 @@ class ChatController < ApplicationController
       return respond_to_client(conversation)
     end
 
-    # Mask sensitive kwargs before persisting the echo.
-    # The raw input is dispatched to the job; only the echo text is masked.
-    echo_input = config_command?(input) ? mask_config_credentials(input) : input
+    # Non-credential /config (fx, motion, me, sound, timezone, bare, --help) still
+    # flows async — mask any credential kwargs in the echo just as before (covers
+    # the odd `/config google client_id=… --help` form that the help guard sends
+    # here). Credential /config is handled synchronously above.
+    echo_input = Pito::InputMasking.config_command?(input) ? Pito::InputMasking.mask_config_credentials(input) : input
 
     # Every other command — authenticated or not — goes through the async
-    # pipeline: persist + broadcast the echo now, enqueue the job, 204.
-    # Auth gating is applied inside the job via the `authenticated` flag, because
+    # pipeline: persist + broadcast the echo now, enqueue the job, 204. Auth
+    # gating is applied inside the job via the `authenticated` flag, because
     # Current.session is request-scoped and unavailable in the worker.
     handle_async(input, conversation, authenticated: Current.session.present?, echo_text: echo_input)
     respond_to_client(conversation)
@@ -187,6 +200,44 @@ class ChatController < ApplicationController
     ChatDispatchJob.perform_later(turn.id, channel:, period:, authenticated:, viewport_width:)
   end
 
+  # /config is the only credential-bearing command, so it runs SYNCHRONOUSLY: the
+  # turn stores the MASKED form (raw credentials never persist in the conversation),
+  # while the dispatcher receives the RAW input from memory to apply the real
+  # values. UX is identical to the async path — echo → thinking → result via the
+  # broadcaster — and the dispatch runs inline (no ChatDispatchJob, no retry).
+  def handle_config(input, conversation, authenticated:)
+    masked = Pito::InputMasking.mask_config_credentials(input)
+
+    turn = conversation.turns.create!(
+      position:   Turn.next_position_for(conversation),
+      input_kind: :slash,
+      input_text: masked
+    )
+
+    broadcaster = Pito::Stream::Broadcaster.new(conversation:)
+    echo_event  = Event.create_with_position!(
+      conversation:, turn:, kind: :echo, payload: { text: masked, authenticated: false }
+    )
+    broadcaster.broadcast_event(echo_event)
+    broadcaster.emit_thinking(turn:, dictionary: "slash")
+
+    # Auth gating mirrors ChatDispatchJob: an unauthenticated session may only
+    # /login — /config requires a session.
+    result = if authenticated
+      Pito::Slash::Dispatcher.call(input:, conversation:, authenticated:)
+    else
+      Pito::Chat::Result::Error.new(
+        message_key: Pito::Copy.render("pito.copy.auth.mandatories"), message_args: {}
+      )
+    end
+
+    Pito::Dispatch::Finalizer.new(conversation:).append_and_complete(
+      events: Pito::Dispatch::Finalizer.result_events(result), turn:
+    )
+  rescue StandardError => e
+    Pito::Dispatch::Finalizer.new(conversation:).surface_error(turn:, detail: e.message) if turn
+  end
+
   # ── Conversation resolution ─────────────────────────────────────────────────
 
   def resolve_conversation
@@ -229,12 +280,8 @@ class ChatController < ApplicationController
     input.match?(/\s--help\b|\s-h\b/)
   end
 
-  def login_command?(input)
-    input.strip.match?(%r{\A/login(\s|\z)}i)
-  end
-
   def handle_login(input, conversation)
-    masked = mask_secret(input)
+    masked = Pito::InputMasking.mask_secret(input)
 
     turn = conversation.turns.create!(
       position:   Turn.next_position_for(conversation),
@@ -681,28 +728,6 @@ class ChatController < ApplicationController
 
   def hashtag_message?(input)
     input.start_with?("#")
-  end
-
-  def config_command?(input)
-    input.strip.match?(%r{\A/config(\s|\z)}i)
-  end
-
-  # Mask client_id and client_secret kwarg values; redirect_uri is shown as-is.
-  # Example: /config google client_id=abc client_secret=xyz redirect_uri=http://...
-  #       →  /config google client_id=*** client_secret=*** redirect_uri=http://...
-  MASKED_CONFIG_KEYS = %w[client_id client_secret api_key].freeze
-
-  def mask_config_credentials(input)
-    MASKED_CONFIG_KEYS.reduce(input) do |text, key|
-      text.gsub(/(?<=\b#{key}=)\S+/, "***")
-    end
-  end
-
-  def mask_secret(input)
-    verb, rest = input.strip.split(/\s+/, 2)
-    return input if rest.blank?
-
-    "#{verb} #{'*' * rest.length}"
   end
 
   # Returns the already-resolved error text (not an i18n key).

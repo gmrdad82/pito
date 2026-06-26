@@ -150,6 +150,21 @@ module Pito
         end
       end
 
+      # Translate a dispatcher Result into an array of { kind:, payload: } event
+      # attrs. Shared by ChatDispatchJob (async path) and
+      # ChatController#handle_config (the synchronous /config path). Canonical-kind
+      # assignment happens later, in #persist.
+      def self.result_events(result)
+        case result
+        when Pito::Slash::Result::Ok, Pito::Chat::Result::Ok, Pito::Hashtag::Result::Ok
+          result.events.map { |e| { kind: e[:kind], payload: e[:payload] } }
+        when Pito::Slash::Result::Error, Pito::Chat::Result::Error, Pito::Hashtag::Result::Error
+          [ { kind: :error, payload: error_payload(message_key: result.message_key, message_args: result.message_args) } ]
+        else
+          []
+        end
+      end
+
       private
 
       # The pre-dispatch placeholder indicator the controller emitted: the

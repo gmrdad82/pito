@@ -48,7 +48,7 @@ class ChatDispatchJob < ApplicationJob
     # The shared finalizer canonicalises kinds, persists + broadcasts each event,
     # then runs the analytics-fill gate (defer to AnalyticsFillJob, else resolve
     # the thinking indicator + complete the turn).
-    finalizer.append_and_complete(events: result_events(result), turn:)
+    finalizer.append_and_complete(events: Pito::Dispatch::Finalizer.result_events(result), turn:)
   rescue StandardError => e
     # Surface the error as a visible event in the scrollback so the user isn't
     # left staring at a spinning Braille indicator.
@@ -63,20 +63,5 @@ class ChatDispatchJob < ApplicationJob
 
   def help_command?(input)
     input.strip.match?(%r{\A/help(\s|\z)}i)
-  end
-
-  # Translate a dispatcher Result into an array of { kind:, payload: } hashes.
-  # Canonical-kind assignment lives in the finalizer, not here.
-  def result_events(result)
-    case result
-    when Pito::Slash::Result::Ok, Pito::Chat::Result::Ok, Pito::Hashtag::Result::Ok
-      result.events.map { |e| { kind: e[:kind], payload: e[:payload] } }
-
-    when Pito::Slash::Result::Error, Pito::Chat::Result::Error, Pito::Hashtag::Result::Error
-      [ { kind: :error, payload: Pito::Dispatch::Finalizer.error_payload(message_key: result.message_key, message_args: result.message_args) } ]
-
-    else
-      []
-    end
   end
 end

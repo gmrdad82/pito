@@ -117,6 +117,30 @@ RSpec.describe Pito::Slash::Handlers::Config, "extended coverage", type: :servic
     end
   end
 
+  # ── Webhook getter (status table) — URLs masked behind the OK flag ─────────────
+
+  describe "#call — /config webhook (getter)" do
+    it "shows OK (a masked flag, NOT the raw URLs) when slack/discord are set" do
+      AppSetting.slack_webhook_url   = "https://hooks.slack.com/x"
+      AppSetting.discord_webhook_url = "https://discord.com/api/x"
+      Pito::Credentials.invalidate!
+
+      values = build_handler(args: [ "webhook" ]).call.events.first[:payload][:table_rows].map { |r| r[:value] }
+      expect(values).to all(eq(I18n.t("pito.slash.config.status.ok")))
+      expect(values.join).not_to include("hooks.slack.com")
+      expect(values.join).not_to include("discord.com")
+    end
+
+    it "shows MISSING when unset" do
+      AppSetting.slack_webhook_url   = nil
+      AppSetting.discord_webhook_url = nil
+      Pito::Credentials.invalidate!
+
+      values = build_handler(args: [ "webhook" ]).call.events.first[:payload][:table_rows].map { |r| r[:value] }
+      expect(values).to all(eq(I18n.t("pito.slash.config.status.missing")))
+    end
+  end
+
   # ── Voyage getter (status table) ──────────────────────────────────────────────
 
   describe "#call — /config voyage (getter, no kwargs)" do

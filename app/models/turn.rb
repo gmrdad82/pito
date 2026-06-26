@@ -30,6 +30,12 @@ class Turn < ApplicationRecord
     where(conversation_id: conversation.id).order(:position).last
   end
 
+  # The raw input as safe to surface in the up/down recall history — `/config`
+  # credentials and `/login` codes masked (see Pito::InputMasking).
+  def display_text
+    Pito::InputMasking.for_history(input_text)
+  end
+
   private
 
   def stamp_started_at

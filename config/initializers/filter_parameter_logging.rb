@@ -16,11 +16,12 @@ Rails.application.config.filter_parameters += [
     if value.strip.match?(%r{\A/login(\s|\z)}i)
       verb, rest = value.strip.split(/\s+/, 2)
       value.replace("#{verb} #{'*' * rest.to_s.length}") if rest.present?
-    # /config — mask sensitive kwargs
-    elsif value.strip.match?(%r{\A/config(\s|\z)}i)
-      %w[client_id client_secret api_key].each do |sensitive_key|
-        value.gsub!(/(?<=\b#{sensitive_key}=)\S+/, "***")
-      end
+    # /config google|voyage|igdb|webhook — mask ALL credential kwarg values
+    # (client_id/secret/api_key, google redirect_uri, webhook slack/discord URLs).
+    # Mirrors Pito::InputMasking.mask_config_credentials, kept inline so this
+    # initializer carries no app-code (autoload) dependency.
+    elsif value.strip.match?(%r{\A/config\s+(?:google|voyage|igdb|webhook)(?:\s|\z)}i)
+      value.gsub!(/(?<==)\S+/, "***")
     end
   end
 ]
