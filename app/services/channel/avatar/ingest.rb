@@ -27,7 +27,13 @@ class Channel
         bytes = Pito::Image::Normalizer.new(url: @source_url, width: SIZE, height: SIZE).call
         @channel.avatar.attach(
           io:           StringIO.new(bytes),
-          filename:     "avatar.jpg",
+          # Channel-unique filename (NOT a shared "avatar.jpg"): the ActiveStorage
+          # representation-proxy URL ends in the blob filename, and every avatar
+          # otherwise shares the identical variation segment + "avatar.jpg" tail — so
+          # a CDN cache key that collapses on that tail could serve one channel's
+          # avatar for another (the wrong-avatar bug seen on Cloudflare). A per-channel
+          # filename makes the URL tail distinct too, hardening against that.
+          filename:     "avatar-#{@channel.id}.jpg",
           content_type: "image/jpeg"
         )
         @channel.avatar

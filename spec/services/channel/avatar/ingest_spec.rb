@@ -15,6 +15,12 @@ RSpec.describe Channel::Avatar::Ingest do
     expect(channel.avatar.blob.content_type).to eq("image/jpeg")
   end
 
+  it "uses a channel-unique filename (not a shared 'avatar.jpg') to harden the proxy URL tail against CDN cache collisions" do
+    allow_any_instance_of(Pito::Image::Normalizer).to receive(:call).and_return(jpeg_bytes)
+    described_class.new(channel:, source_url: "https://yt3.ggpht.com/x=s800").call
+    expect(channel.avatar.blob.filename.to_s).to eq("avatar-#{channel.id}.jpg")
+  end
+
   it "no-ops on a blank source URL" do
     described_class.new(channel:, source_url: nil).call
     expect(channel.avatar).not_to be_attached
