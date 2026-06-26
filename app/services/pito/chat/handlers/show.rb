@@ -23,8 +23,14 @@ module Pito
         # for the video branch.
         VIDEO_NOUN_FILLERS = %w[vid vids video videos].freeze
 
+        # `channel`/`channels` route to the channel branch — resolved by @handle
+        # (NOT a numeric id), mirroring `shinies channel @handle`.
+        CHANNEL_NOUN_FILLERS = %w[channel channels].freeze
+
         def call
-          if video_target?(VIDEO_NOUN_FILLERS)
+          if channel_noun?
+            handle_channel
+          elsif video_target?(VIDEO_NOUN_FILLERS)
             handle_video
           else
             handle_game
@@ -32,6 +38,46 @@ module Pito
         end
 
         private
+
+        # ── Channel branch (`show channel @handle`) ──────────────────────────────
+
+        # Free-chat: a channel noun token present in the body? (show channel is a
+        # chat verb; the channel @handle is resolved separately, not by id.)
+        def channel_noun?
+          message.body_tokens.any? { |t| CHANNEL_NOUN_FILLERS.include?(t.value.to_s.downcase) }
+        end
+
+        def handle_channel
+          channel = resolve_channel
+          return needs_ref if channel == :needs_ref
+          return channel_not_found(channel_ref) if channel.nil?
+
+          # Phase 2: the :system detail card only. The :enhanced linked-videos list
+          # and the channel analytics glance are added in later phases.
+          Pito::Chat::Result::Ok.new(events: [
+            { kind: :system, payload: Pito::MessageBuilder::Channel::Detail.call(channel, conversation:) }
+          ])
+        end
+
+        # Resolve the channel by @handle (case-insensitive, @-agnostic).
+        def resolve_channel
+          handle = channel_ref
+          return :needs_ref if handle.blank?
+
+          norm = handle.to_s.sub(/\A@+/, "").downcase
+          ::Channel.find_by("LOWER(REPLACE(handle, '@', '')) = LOWER(?)", norm)
+        end
+
+        # The @handle token after stripping the verb + channel noun.
+        def channel_ref
+          extract_ref_from(message.raw, CHANNEL_NOUN_FILLERS)
+        end
+
+        def channel_not_found(ref)
+          Pito::Chat::Result::Ok.new(consume: false, events: [
+            { kind: :system, payload: Pito::MessageBuilder::Text.call("pito.copy.channels.not_found", handle: ref) }
+          ])
+        end
 
         # ── Video branch ───────────────────────────────────────────────────────
 

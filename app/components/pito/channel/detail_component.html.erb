@@ -1,0 +1,85 @@
+<%# Pito::Channel::DetailComponent — channel detail card for chat messages.
+    Two columns: LEFT = avatar + hairline + one-line stats counters + Shinies;
+    RIGHT = kv-table (Handle, Title, Description, Last sync at). Mirrors the
+    video/game detail cards. %>
+<div class="pito-channel-detail flex flex-col md:flex-row gap-4 md:items-start">
+
+  <%# ── Left column: intro (with timestamp slot), avatar, stats, Shinies ── %>
+  <div class="pito-channel-detail__left flex flex-col gap-3">
+
+    <% if @intro.present? %>
+      <div class="pito-channel-detail__intro text-fg"><span data-pito-ts-slot></span><%= raw(@intro) %></div>
+    <% end %>
+
+    <%# Avatar or placeholder %>
+    <div class="pito-channel-detail__avatar">
+      <% if avatar_attached? && (url = avatar_url) %>
+        <%= image_tag url, alt: @channel.title, class: "block" %>
+      <% else %>
+        <div class="text-fg-dim"><%= t("pito.channel.detail.no_avatar") %></div>
+      <% end %>
+    </div>
+
+    <%# Hairline separating the avatar from the stats %>
+    <%= render(Pito::Separator::DividerLineComponent.new(hairline: true, tone: :faded)) %>
+
+    <%# Stats — bold heading (Pito::Copy) + one-line word counters, left. %>
+    <div class="pito-channel-detail__stats flex flex-col gap-1">
+      <div class="pito-channel-detail__stats-heading text-fg-dim"><%= Pito::Copy.render("pito.copy.stats.heading") %></div>
+      <%= render(Pito::Stats::CountersComponent.new(metrics: stat_counter_metrics, align: :left)) %>
+    </div>
+
+    <%# Shinies — only when the channel has at least one achievement. %>
+    <% if @channel.achievements.any? %>
+      <div class="flex flex-col gap-1">
+        <div class="pito-channel-detail__shinies-heading text-fg-dim"><%= Pito::Copy.render("pito.copy.shinies.heading") %></div>
+        <div class="pito-channel-detail__shinies flex flex-wrap gap-2">
+          <% top_shinies_per_metric.each do |a| %>
+            <%= render(Pito::Achievement::BadgeComponent.new(threshold: a.threshold, metric: a.metric, unlocked_on: a.unlocked_at.to_date, form: :compact)) %>
+          <% end %>
+        </div>
+      </div>
+    <% end %>
+  </div>
+
+  <%# Mobile-only hairline between the stacked columns (hidden at md: and up). %>
+  <%= render(Pito::Separator::DividerLineComponent.new(hairline: true, tone: :faded, extra_classes: "pito-detail-col-divider md:hidden")) %>
+
+  <%# ── Right column: kv-table (Handle, Title, Description, Last sync at) ──
+      Description renders full + wrapped (whitespace-pre-wrap preserves the
+      YouTube line breaks) right inside its value cell. %>
+  <div class="pito-channel-detail__right flex flex-col gap-1 flex-1 min-w-0">
+    <div class="grid grid-cols-[max-content_1fr] gap-x-2 gap-y-1">
+      <%= render(Pito::Table::KeyValueRowComponent.new(
+            key_text:    t("pito.channel.detail.handle"),
+            value_text:  @channel.at_handle,
+            key_class:   "text-fg-dim whitespace-nowrap",
+            value_class: "text-cyan"
+          )) %>
+
+      <%= render(Pito::Table::KeyValueRowComponent.new(
+            key_text:    t("pito.channel.detail.title"),
+            value_text:  @channel.title,
+            key_class:   "text-fg-dim whitespace-nowrap",
+            value_class: "text-fg"
+          )) %>
+
+      <% if description.present? %>
+        <%= render(Pito::Table::KeyValueRowComponent.new(
+              key_text:    t("pito.channel.detail.description"),
+              value_text:  description,
+              key_class:   "text-fg-dim whitespace-nowrap",
+              value_class: "text-fg whitespace-pre-wrap"
+            )) %>
+      <% end %>
+
+      <%= render(Pito::Table::KeyValueRowComponent.new(
+            key_text:    t("pito.channel.detail.last_sync_at"),
+            value_text:  last_sync_label,
+            key_class:   "text-fg-dim whitespace-nowrap",
+            value_class: "text-fg"
+          )) %>
+    </div>
+  </div>
+
+</div>

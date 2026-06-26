@@ -395,4 +395,35 @@ RSpec.describe Pito::Chat::Handlers::Show do
       expect(analytics_period_from(events)).to eq("3m")
     end
   end
+
+  # ── Channel branch — @handle resolution ───────────────────────────────────────
+
+  describe "show channel @handle" do
+    let!(:show_channel) { create(:channel, handle: "gmrdad82", title: "GMR Dad", description: "Stories.") }
+
+    it "resolves a channel by @handle and emits a :system detail card" do
+      result = show_real("show channel @gmrdad82")
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      event = result.events.first
+      expect(event[:kind]).to eq(:system)
+      expect(event[:payload]["html"]).to be(true)
+      expect(event[:payload]["body"]).to include("GMR Dad").and include("@gmrdad82")
+    end
+
+    it "resolves @-agnostic + case-insensitively (show channel GMRDAD82)" do
+      event = show_real("show channel GMRDAD82").events.first
+      expect(event[:payload]["body"]).to include("GMR Dad")
+    end
+
+    it "renders the description in the card" do
+      event = show_real("show channel @gmrdad82").events.first
+      expect(event[:payload]["body"]).to include("Stories.")
+    end
+
+    it "returns a witty not-found for an unknown handle (does NOT consume)" do
+      result = show_real("show channel @nope")
+      expect(result.consume).to be(false)
+      expect(result.events.first[:payload].to_s).to include("nope")
+    end
+  end
 end
