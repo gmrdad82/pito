@@ -425,5 +425,23 @@ RSpec.describe Pito::Chat::Handlers::Show do
       expect(result.consume).to be(false)
       expect(result.events.first[:payload].to_s).to include("nope")
     end
+
+    it "emits only the :system card when the channel has no videos" do
+      kinds = show_real("show channel @gmrdad82").events.map { |e| e[:kind] }
+      expect(kinds).to eq([ :system ])
+    end
+
+    context "with videos" do
+      let!(:vids) { create_list(:video, 2, channel: show_channel) }
+
+      it "emits :system detail then a repliable :enhanced vids list (video_list target)" do
+        events = show_real("show channel @gmrdad82").events
+        expect(events.map { |e| e[:kind] }).to eq([ :system, :enhanced ])
+        list = events.last[:payload]
+        expect(list["reply_target"]).to eq("video_list")
+        expect(Pito::FollowUp.followupable?(list)).to be(true)
+        expect(list["video_ids"]).to match_array(vids.map(&:id))
+      end
+    end
   end
 end

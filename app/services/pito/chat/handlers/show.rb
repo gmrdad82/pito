@@ -52,11 +52,15 @@ module Pito
           return needs_ref if channel == :needs_ref
           return channel_not_found(channel_ref) if channel.nil?
 
-          # Phase 2: the :system detail card only. The :enhanced linked-videos list
-          # and the channel analytics glance are added in later phases.
-          Pito::Chat::Result::Ok.new(events: [
+          # :system detail card, then — when the channel has videos — the repliable
+          # :enhanced vids list (video_list follow-up target). The channel analytics
+          # glance is added in the next phase.
+          events = [
             { kind: :system, payload: Pito::MessageBuilder::Channel::Detail.call(channel, conversation:) }
-          ])
+          ]
+          events << { kind: :enhanced, payload: Pito::MessageBuilder::Channel::Videos.call(channel, conversation:) } if channel.videos.any?
+
+          Pito::Chat::Result::Ok.new(events: events)
         end
 
         # Resolve the channel by @handle (case-insensitive, @-agnostic).
