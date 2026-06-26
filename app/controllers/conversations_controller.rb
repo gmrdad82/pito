@@ -72,18 +72,9 @@ class ConversationsController < ApplicationController
       return
     end
 
-    @conversation.update!(title: new_title)
-
-    # Update the chatbox conversation-name slot live on the conversation's own
-    # stream (Unnamed→named makes the purple name appear; a rename updates it).
-    Pito::Stream::Broadcaster.new(conversation: @conversation).broadcast_conversation_name(
-      title: (@conversation.named? ? @conversation.display_name : nil)
-    )
-
-    # Broadcast renamed row to pito:global so other instances' sidebars
-    # update without a page reload. Turbo replace is a no-op on clients where
-    # that row is absent (e.g. the conversations list is not open).
-    Pito::Stream::Broadcaster.broadcast_global_conversation_row(conversation: @conversation)
+    # Shared rename path (update + chatbox-name + global-sidebar-row broadcasts) —
+    # the same service the `/rename` slash command uses, so they never drift.
+    Conversation::Rename.call(conversation: @conversation, title: new_title)
 
     respond_to do |format|
       format.turbo_stream do
