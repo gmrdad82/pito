@@ -69,7 +69,7 @@ const CATALOG_JSON = JSON.stringify({
     { name: "price",    insert: "price ",    description: "Set/unset a price",    slots: [{ name: "subcommand", source: "price_subcommands" }] },
     { name: "delete",   insert: "delete ",   description: "Delete a game",        slots: [{ name: "title",      source: "game_titles"       }] },
     { name: "reindex",  insert: "reindex ",  description: "Reindex a game",       slots: [{ name: "title",      source: "game_titles"       }] },
-    { name: "platform", insert: "platform ", description: "Set platform",         slots: []                                                     },
+    { name: "platform", insert: "platform ", description: "Set platform",         slots: [{ name: "subcommand", source: "platform_subcommands" }] },
     { name: "publish",  insert: "publish ",  description: "Publish a video",      slots: []                                                     },
     { name: "unlist",   insert: "unlist ",   description: "Unlist a video",       slots: []                                                     },
     { name: "schedule", insert: "schedule ", description: "Schedule a video",     slots: [{ name: "slate",      source: "schedule_whens"   }] },
@@ -92,6 +92,7 @@ const CATALOG_JSON = JSON.stringify({
     import_nouns:      { canonical: ["game"],                               synonyms: { games: "game" },                                                     fillers: [], dynamic: false },
     schedule_whens:    { canonical: ["slate"],                              synonyms: {},                                                                     fillers: [], dynamic: false },
     price_subcommands: { canonical: ["set", "unset"],                       synonyms: {},                                                                     fillers: [], dynamic: false },
+    platform_subcommands: { canonical: ["set", "unset"],                    synonyms: {},                                                                     fillers: [], dynamic: false },
   },
 })
 
@@ -594,6 +595,15 @@ describe("pito--suggestions controller", () => {
 
     it("completes 'anal' → 'yze' for 'analyze'", () => {
       expect(ctrl._computeLocalGhost("anal", 4).complete_current).toBe("yze")
+    })
+
+    // platform set/unset subcommand slot (mirrors price)
+    it("ghosts the first subcommand for 'platform ' → 'set'", () => {
+      expect(ctrl._computeLocalGhost("platform ", 9).complete_current).toBe("set")
+    })
+
+    it("completes 'platform u' → 'nset' (unique prefix)", () => {
+      expect(ctrl._computeLocalGhost("platform u", 10).complete_current).toBe("nset")
     })
 
     // `sync` (like `list`) now defers its whole ghost to the server-side
@@ -1113,6 +1123,76 @@ describe("pito--suggestions controller", () => {
       // First row ("google") is selected by default.
       ctrl.handleKeydown(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }))
       expect(textarea.value).toBe("/config google ")
+    })
+
+    // ── I3: trailing-space gate — a complete token with NO trailing space must
+    // NOT pop the palette, so Enter can SEND the read/default version. ──────────
+    it("does NOT classify a complete token with no trailing space as arg-stage", () => {
+      expect(ctrl._isSlashConfigArgStage("/config google", 14)).toBe(false)
+      expect(ctrl._isSlashConfigArgStage("/config goo", 11)).toBe(false)
+      expect(ctrl._isSlashConfigArgStage("/config", 7)).toBe(false)
+    })
+
+    it("keeps the palette CLOSED for a complete token with no trailing space", async () => {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue(CONFIG_PROVIDERS()))
+      textarea.value = "/config google"
+      textarea.selectionStart = textarea.selectionEnd = 14
+      await ctrl._fetchArgSuggestions("/config google", 14)
+      // stage:"verb" came back, but no trailing space → palette must stay hidden
+      // (ghost path) so Enter submits the bare command.
+      expect(palette.classList.contains("hidden")).toBe(true)
+    })
+  })
+
+  // ── I3: verb-stage Enter sends a complete slash command ───────────────────
+  // A complete command with no trailing space ("/connect", "/config") is
+  // Enter-sendable; a partial verb ("/conn") still accepts the palette row.
+  describe("verb-stage Enter sends complete slash commands (I3)", () => {
+    let ctrl
+
+    beforeEach(async () => {
+      await waitForConnect()
+      ctrl = app.getControllerForElementAndIdentifier(chatbox, "pito--suggestions")
+      ctrl._mode = "slash"
+    })
+
+    it("_isExactCompleteSlashVerb: true for an exact command, false for a partial", () => {
+      textarea.value = "/connect"; textarea.selectionStart = textarea.selectionEnd = 8
+      expect(ctrl._isExactCompleteSlashVerb()).toBe(true)
+      textarea.value = "/config"; textarea.selectionStart = textarea.selectionEnd = 7
+      expect(ctrl._isExactCompleteSlashVerb()).toBe(true)
+      textarea.value = "/conn"; textarea.selectionStart = textarea.selectionEnd = 5
+      expect(ctrl._isExactCompleteSlashVerb()).toBe(false)
+    })
+
+    it("_isExactCompleteSlashVerb: false once a space follows the verb", () => {
+      textarea.value = "/config "; textarea.selectionStart = textarea.selectionEnd = 8
+      expect(ctrl._isExactCompleteSlashVerb()).toBe(false)
+    })
+
+    it("Enter on an exact command closes the palette and falls through to submit", () => {
+      textarea.value = "/connect"; textarea.selectionStart = textarea.selectionEnd = 8
+      ctrl._refreshVerbPalette("/connect", 8)
+      expect(ctrl._paletteOpen).toBe(true)
+
+      const ev = new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true })
+      ctrl.handleKeydown(ev)
+
+      expect(ctrl._paletteOpen).toBe(false)     // palette closed
+      expect(ev.defaultPrevented).toBe(false)   // Enter not swallowed → form submits
+      expect(textarea.value).toBe("/connect")   // command NOT mutated by a palette accept
+    })
+
+    it("Enter on a partial verb still accepts the palette selection", () => {
+      textarea.value = "/conn"; textarea.selectionStart = textarea.selectionEnd = 5
+      ctrl._refreshVerbPalette("/conn", 5)
+      expect(ctrl._paletteOpen).toBe(true)
+
+      const ev = new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true })
+      ctrl.handleKeydown(ev)
+
+      expect(ev.defaultPrevented).toBe(true)    // palette intercepted Enter
+      expect(textarea.value).toBe("/connect ")  // completed to the full command
     })
   })
 
