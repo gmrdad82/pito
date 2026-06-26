@@ -208,5 +208,20 @@ RSpec.describe Pito::MessageBuilder::Analytics::Enhanced do
         expect(payload["body"]).not_to include("pito-analytics-scalars")
       end
     end
+
+    context "channel scope (Phase 4)" do
+      subject(:payload) { described_class.ready_payload(scope: channel, period: "28d", result: result, intro: intro) }
+
+      it "sets analytics.scope_type to 'Channel'" do
+        expect(payload.dig("analytics", "scope_type")).to eq("Channel")
+      end
+
+      it "renders the channel-specific 'use analyze' nudge after the panel" do
+        node  = Nokogiri::HTML.fragment(payload["body"])
+        nudge = node.css(".pito-analytics-enhanced__nudge")
+        expect(nudge).not_to be_empty
+        expect(nudge.text).to include("analyze channel")
+      end
+    end
   end
 end

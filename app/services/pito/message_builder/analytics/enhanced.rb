@@ -55,12 +55,13 @@ module Pito
           }
         end
 
-        # The witty "use `analyze` for more" nudge, vid/game-specific. nil for any
-        # other scope (only show vid/game reach this builder).
+        # The witty "use `analyze` for more" nudge — vid / game / channel-specific.
+        # nil for any other scope.
         def nudge_for(scope)
           case scope
-          when ::Game  then Pito::Copy.render("pito.copy.analytics.suggest.game")
-          when ::Video then Pito::Copy.render("pito.copy.analytics.suggest.video")
+          when ::Game    then Pito::Copy.render("pito.copy.analytics.suggest.game")
+          when ::Video   then Pito::Copy.render("pito.copy.analytics.suggest.video")
+          when ::Channel then Pito::Copy.render("pito.copy.analytics.suggest.channel")
           end
         end
 
