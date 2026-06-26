@@ -9,6 +9,7 @@ en:
         connect: "Connect a YouTube channel via Google OAuth"
         new: "Start fresh — opens a brand-new conversation"
         resume: "Browse and switch to a previous conversation"
+        rename: "Rename the current conversation"
         disconnect: "Disconnect a YouTube channel"
         theme: "Switch the UI theme (apply / preview / reset)"
         notifications: "Open the notifications panel"

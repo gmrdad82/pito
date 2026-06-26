@@ -139,6 +139,13 @@ en:
           description: "Search IGDB for a game and import it into your library. Optionally prefill the search box with a title."
         import:
           opening: "Opening the IGDB import sidebar…"
+      rename:
+        descriptions:
+          rename: "Rename the current conversation (/rename <new title>)"
+        help:
+          usage: "/rename <new title>"
+          title_desc: "The new name for the current conversation (spaces allowed)"
+        needs_title: "Give the conversation a name. Try: /rename My Strategy Channel."
       import:
         imported:
           one: "Imported 1 vid from %{channel}."
