@@ -60,7 +60,7 @@ the FollowUp action set is settled.
 - **SB4 / SB5 — recommendation sorting.** `similar_games` + `channels_for` already
   return "ranked best-first" by their recommendation/fit score and the enhanced
   builder renders in that order. Confirm whether a real ordering bug was seen, or
-  whether the owner wants a *different* score (the game's review `score` vs the
+  whether the owner wants a _different_ score (the game's review `score` vs the
   similarity/fit blend).
 
 ## Done in the overnight run (accumulated, await GPG PIN)
