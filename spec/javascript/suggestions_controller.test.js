@@ -60,19 +60,38 @@ const CATALOG_JSON = JSON.stringify({
   ],
   hashtag: [],
   chat: [
-    { name: "list",    insert: "list ",    description: "List games",                    slots: [] },
-    { name: "show",    insert: "show ",    description: "Show a game",                   slots: [{ name: "title", source: "game_titles" }] },
-    { name: "delete",  insert: "delete ",  description: "Delete a game",                 slots: [{ name: "title", source: "game_titles" }] },
-    { name: "sync",    insert: "sync ",    description: "Sync data",                     slots: [{ name: "target", source: "sync_targets" }] },
-    { name: "analyze", insert: "analyze ", description: "Analyze YouTube metrics",       slots: [{ name: "noun", source: "nouns" }] },
+    { name: "list",     insert: "list ",     description: "List resources",       slots: [{ name: "noun",       source: "nouns"             }] },
+    { name: "show",     insert: "show ",     description: "Show a resource",      slots: []                                                     },
+    { name: "analyze",  insert: "analyze ",  description: "Analyze metrics",      slots: [{ name: "noun",       source: "nouns"             }] },
+    { name: "import",   insert: "import ",   description: "Import a game",        slots: [{ name: "noun",       source: "import_nouns"      }] },
+    { name: "sync",     insert: "sync ",     description: "Sync data",            slots: [{ name: "target",     source: "sync_targets"      }] },
+    { name: "footage",  insert: "footage ",  description: "Set footage hours",    slots: [{ name: "title",      source: "game_titles"       }] },
+    { name: "price",    insert: "price ",    description: "Set/unset a price",    slots: [{ name: "subcommand", source: "price_subcommands" }] },
+    { name: "delete",   insert: "delete ",   description: "Delete a game",        slots: [{ name: "title",      source: "game_titles"       }] },
+    { name: "reindex",  insert: "reindex ",  description: "Reindex a game",       slots: [{ name: "title",      source: "game_titles"       }] },
+    { name: "platform", insert: "platform ", description: "Set platform",         slots: []                                                     },
+    { name: "publish",  insert: "publish ",  description: "Publish a video",      slots: []                                                     },
+    { name: "unlist",   insert: "unlist ",   description: "Unlist a video",       slots: []                                                     },
+    { name: "schedule", insert: "schedule ", description: "Schedule a video",     slots: [{ name: "slate",      source: "schedule_whens"   }] },
+    { name: "find",     insert: "find ",     description: "Find games",           slots: [{ name: "status", source: "release_status" }, { name: "genre", source: "genres" }, { name: "platform", source: "platforms" }] },
+    { name: "link",     insert: "link ",     description: "Link game to video",   slots: []                                                     },
+    { name: "unlink",   insert: "unlink ",   description: "Unlink a game",        slots: []                                                     },
+    { name: "shinies",  insert: "shinies ",  description: "Show achievements",    slots: []                                                     },
+    { name: "help",     insert: "help ",     description: "Show help",            slots: []                                                     },
+    { name: "greet",    insert: "greet ",    description: "Greet",                slots: []                                                     },
+    { name: "farewell", insert: "farewell ", description: "Farewell",             slots: []                                                     },
   ],
   vocabularies: {
-    release_status: { canonical: ["released", "upcoming", "tba"], synonyms: {}, fillers: [], dynamic: false },
-    genres:         { canonical: ["RPG", "Racing", "Shooter"],     synonyms: {}, fillers: [], dynamic: false },
-    platforms:      { canonical: ["PlayStation 5", "PC", "Xbox"],  synonyms: {}, fillers: [], dynamic: false },
-    game_titles:    { dynamic: true, endpoint: "/suggestions" },
-    sync_targets:   { canonical: ["channels", "videos"], synonyms: { channel: "channels", video: "videos" }, fillers: [], dynamic: false },
-    fillers:        { canonical: [], fillers: ["the", "a", "an", "game", "games"], synonyms: {}, dynamic: false },
+    release_status:    { canonical: ["released", "upcoming", "tba"],        synonyms: {},                                                                     fillers: [], dynamic: false },
+    genres:            { canonical: ["RPG", "Racing", "Shooter"],           synonyms: {},                                                                     fillers: [], dynamic: false },
+    platforms:         { canonical: ["PlayStation 5", "PC", "Xbox"],        synonyms: {},                                                                     fillers: [], dynamic: false },
+    game_titles:       { dynamic: true, endpoint: "/suggestions" },
+    sync_targets:      { canonical: ["channels", "videos"],                 synonyms: { channel: "channels", video: "videos" },                              fillers: [], dynamic: false },
+    fillers:           { canonical: [], fillers: ["the", "a", "an", "game", "games"], synonyms: {},                                                         dynamic: false },
+    nouns:             { canonical: ["channels", "vids", "games"],          synonyms: { channel: "channels", video: "vids", videos: "vids", vid: "vids" },  fillers: [], dynamic: false },
+    import_nouns:      { canonical: ["game"],                               synonyms: { games: "game" },                                                     fillers: [], dynamic: false },
+    schedule_whens:    { canonical: ["slate"],                              synonyms: {},                                                                     fillers: [], dynamic: false },
+    price_subcommands: { canonical: ["set", "unset"],                       synonyms: {},                                                                     fillers: [], dynamic: false },
   },
 })
 
@@ -487,13 +506,11 @@ describe("pito--suggestions controller", () => {
       ctrl = app.getControllerForElementAndIdentifier(chatbox, "pito--suggestions")
     })
 
-    it("returns game_titles slot for the 'show' spec (from catalog.slots)", () => {
+    it("returns empty slots for the 'show' spec (no enum slots — catalog slots: [])", () => {
       const showSpec = ctrl._findChatSpec("show")
       expect(showSpec).toBeTruthy()
       const slots = ctrl._chatEnumSlots(showSpec)
-      expect(slots).toHaveLength(1)
-      expect(slots[0].name).toBe("title")
-      expect(slots[0].source).toBe("game_titles")
+      expect(slots).toHaveLength(0)
     })
 
     it("returns game_titles slot for the 'delete' spec", () => {
@@ -504,11 +521,13 @@ describe("pito--suggestions controller", () => {
       expect(slots[0].source).toBe("game_titles")
     })
 
-    it("returns empty array for 'list' spec (no enum slots)", () => {
+    it("returns nouns slot for 'list' spec (static enum slot from catalog)", () => {
       const listSpec = ctrl._findChatSpec("list")
       expect(listSpec).toBeTruthy()
       const slots = ctrl._chatEnumSlots(listSpec)
-      expect(slots).toHaveLength(0)
+      expect(slots).toHaveLength(1)
+      expect(slots[0].name).toBe("noun")
+      expect(slots[0].source).toBe("nouns")
     })
 
     it("returns legacy fallback slots when chatSpec is null", () => {
@@ -516,10 +535,16 @@ describe("pito--suggestions controller", () => {
       expect(slots.map(s => s.name)).toEqual(["status", "genre", "platform"])
     })
 
+    it("'show ' at trailing space produces no enum ghost (show has no enum slots)", () => {
+      const result = ctrl._computeLocalGhost("show ", 5)
+      expect(result).not.toBeNull()
+      expect(result.complete_current).toBe("")
+    })
+
     it("dynamic game_titles slot causes _computeLocalGhost to return null (→ dynamic fetch)", () => {
-      // 'show game li' — 'game' is a filler, 'li' is the partial for game_titles (dynamic)
+      // 'delete game li' — 'game' is a filler, 'li' is the partial for game_titles (dynamic)
       // _computeLocalGhost should return null to trigger the dynamic fetch path
-      const result = ctrl._computeLocalGhost("show game li", 12)
+      const result = ctrl._computeLocalGhost("delete game li", 14)
       // null means "defer to dynamic fetch"
       expect(result).toBeNull()
     })
@@ -543,11 +568,19 @@ describe("pito--suggestions controller", () => {
       expect(ctrl._computeLocalGhost("sy", 2).complete_current).toBe("nc")
     })
 
-    it("completes 'sh' → 'ow' for 'show'", () => {
-      expect(ctrl._computeLocalGhost("sh", 2).complete_current).toBe("ow")
+    it("stays silent for ambiguous prefix 'sh' (show + shinies)", () => {
+      expect(ctrl._computeLocalGhost("sh", 2).complete_current).toBe("")
     })
 
-    it("stays silent for an ambiguous prefix ('s' matches show and sync)", () => {
+    it("completes 'sho' → 'w' for 'show' (unique once past 'sh')", () => {
+      expect(ctrl._computeLocalGhost("sho", 3).complete_current).toBe("w")
+    })
+
+    it("completes 'shi' → 'nies' for 'shinies' (unique once past 'sh')", () => {
+      expect(ctrl._computeLocalGhost("shi", 3).complete_current).toBe("nies")
+    })
+
+    it("stays silent for an ambiguous prefix ('s' matches show, sync, shinies, schedule)", () => {
       expect(ctrl._computeLocalGhost("s", 1).complete_current).toBe("")
     })
 
@@ -563,12 +596,15 @@ describe("pito--suggestions controller", () => {
       expect(ctrl._computeLocalGhost("anal", 4).complete_current).toBe("yze")
     })
 
-    it("ghosts the first sync target after 'sync ' ('channels')", () => {
-      expect(ctrl._computeLocalGhost("sync ", 5).complete_current).toBe("channels")
+    // `sync` (like `list`) now defers its whole ghost to the server-side
+    // ListClauseGhost — _computeLocalGhost returns null so the caller fetches
+    // POST /suggestions instead of guessing locally.
+    it("defers 'sync ' to the server (returns null, no local ghost)", () => {
+      expect(ctrl._computeLocalGhost("sync ", 5)).toBeNull()
     })
 
-    it("completes 'sync c' → 'hannels'", () => {
-      expect(ctrl._computeLocalGhost("sync c", 6).complete_current).toBe("hannels")
+    it("defers 'sync c' to the server (returns null)", () => {
+      expect(ctrl._computeLocalGhost("sync c", 6)).toBeNull()
     })
   })
 
@@ -708,6 +744,88 @@ describe("pito--suggestions controller", () => {
       expect(result).not.toBeNull()
       expect(result.complete_current).toBe("help")
       expect(result.next_hint).toBe("")
+    })
+  })
+
+  // ── Per-verb local ghost completions ─────────────────────────────────────
+  //
+  // These exercise _computeLocalGhost against the faithful mock catalog,
+  // covering every verb that carries a static enum slot plus the dynamic
+  // game_titles deferral and verb-ambiguity cases.
+
+  describe("per-verb local ghost completions", () => {
+    let ctrl
+
+    beforeEach(async () => {
+      await waitForConnect()
+      ctrl = app.getControllerForElementAndIdentifier(chatbox, "pito--suggestions")
+    })
+
+    // find — release_status slot (first canonical: "released")
+    it("'find ' → 'released' (first release_status canonical)", () => {
+      expect(ctrl._computeLocalGhost("find ", 5).complete_current).toBe("released")
+    })
+
+    it("'find upc' → 'oming' (release_status prefix match)", () => {
+      expect(ctrl._computeLocalGhost("find upc", 8).complete_current).toBe("oming")
+    })
+
+    // analyze — nouns slot (first canonical: "channels")
+    it("'analyze ' → 'channels' (first noun canonical)", () => {
+      expect(ctrl._computeLocalGhost("analyze ", 8).complete_current).toBe("channels")
+    })
+
+    it("'analyze v' → 'ids' (nouns prefix match → vids)", () => {
+      expect(ctrl._computeLocalGhost("analyze v", 9).complete_current).toBe("ids")
+    })
+
+    // import — import_nouns slot (first canonical: "game")
+    it("'import ' → 'game' (first import_nouns canonical)", () => {
+      expect(ctrl._computeLocalGhost("import ", 7).complete_current).toBe("game")
+    })
+
+    // schedule — schedule_whens slot (first canonical: "slate")
+    it("'schedule ' → 'slate' (first schedule_whens canonical)", () => {
+      expect(ctrl._computeLocalGhost("schedule ", 9).complete_current).toBe("slate")
+    })
+
+    // price — price_subcommands slot (first canonical: "set")
+    it("'price ' → 'set' (first price_subcommands canonical)", () => {
+      expect(ctrl._computeLocalGhost("price ", 6).complete_current).toBe("set")
+    })
+
+    it("'price u' → 'nset' (price_subcommands prefix match)", () => {
+      expect(ctrl._computeLocalGhost("price u", 7).complete_current).toBe("nset")
+    })
+
+    // footage — game_titles slot is dynamic → null (defers to server)
+    it("'footage zel' → null (dynamic game_titles slot defers to server)", () => {
+      expect(ctrl._computeLocalGhost("footage zel", 11)).toBeNull()
+    })
+
+    // verb-ambiguity: 'p' matches platform, publish, price → silent
+    it("'p' is silent (ambiguous: platform, publish, price)", () => {
+      expect(ctrl._computeLocalGhost("p", 1).complete_current).toBe("")
+    })
+
+    // 'pr' → price (unique)
+    it("'pr' → 'ice' (unique: price)", () => {
+      expect(ctrl._computeLocalGhost("pr", 2).complete_current).toBe("ice")
+    })
+
+    // 'f' matches find, footage, farewell → silent
+    it("'f' is silent (ambiguous: find, footage, farewell)", () => {
+      expect(ctrl._computeLocalGhost("f", 1).complete_current).toBe("")
+    })
+
+    // 'fo' → footage (unique: find=fi, farewell=fa)
+    it("'fo' → 'otage' (unique: footage)", () => {
+      expect(ctrl._computeLocalGhost("fo", 2).complete_current).toBe("otage")
+    })
+
+    // 'sc' → schedule (unique: sync=sy, show/shinies=sh)
+    it("'sc' → 'hedule' (unique: schedule)", () => {
+      expect(ctrl._computeLocalGhost("sc", 2).complete_current).toBe("hedule")
     })
   })
 

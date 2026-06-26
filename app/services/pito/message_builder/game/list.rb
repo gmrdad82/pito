@@ -17,6 +17,9 @@ module Pito
         # @return [Hash] string-keyed payload with body, table_rows, and follow-up fields.
         def call(games, conversation:, columns: [])
           cols    = ListColumns.canonical_order(columns)
+          # When the price column is shown, align its numbers on the decimal by
+          # padding each integer part to the table-max width (figure-spaces).
+          price_pad = cols.include?(:price) ? ListColumns.price_pad_int(games) : nil
           payload = {
             "body"          => Pito::Copy.render_html(
               "pito.copy.games.list_intro",
@@ -44,7 +47,7 @@ module Pito
                     data:  Pito::Shimmer::TokenComponent.prefill_data("show game #{id_text}", submit: true)
                   },
                   { text: game.title, class: "text-fg pito-cell-title" },
-                  *ListColumns.cells(game, cols)
+                  *ListColumns.cells(game, cols, price_pad_int: price_pad)
                 ]
               }
             },

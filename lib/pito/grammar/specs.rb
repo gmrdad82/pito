@@ -133,13 +133,17 @@ module Pito
             slots:           [ Slot.new(name: :title, kind: :enum, source: :game_titles, optional: true) ],
             description_key: "pito.grammar.chat.footage"
           ),
-          # `price set <id> <amount>` / `price unset <id>` — a single free slot
-          # drives the suggestion ghost; the handler reads the subcommand, id, and
-          # amount from message.raw (mirrors `platform`).
+          # `price set <id> <amount>` / `price unset <id>` — a leading enum slot
+          # surfaces the `set`/`unset` subcommand as a TAB-completable ghost (`price `
+          # → "set"); the trailing free slot absorbs the id + amount. Suggestions-only:
+          # the handler reads the subcommand, id, and amount from message.raw.
           Spec.new(
             namespace:       :chat,
             name:            :price,
-            slots:           [ Slot.new(name: :title, kind: :free, optional: true) ],
+            slots:           [
+              Slot.new(name: :subcommand, kind: :enum, source: :price_subcommands, optional: true),
+              Slot.new(name: :title,      kind: :free, optional: true)
+            ],
             description_key: "pito.grammar.chat.price"
           ),
           Spec.new(

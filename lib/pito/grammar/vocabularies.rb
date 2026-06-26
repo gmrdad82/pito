@@ -188,6 +188,15 @@ module Pito
         canonical: %w[slate]
       ).freeze
 
+      # Subcommands of the `price` verb (`price set <id> <amount>` /
+      # `price unset <id>`) — surfaced so the suggestions engine ghosts `set`/`unset`
+      # after `price ` (chat) and `#<handle> price ` (reply). Mirrors
+      # Pito::MessageBuilder::CommandHelp::VERB_NOUNS[:price].
+      PRICE_SUBCOMMANDS = Vocabulary.define(
+        name:      :price_subcommands,
+        canonical: %w[set unset]
+      ).freeze
+
       # ── Dynamic vocabulary stubs ─────────────────────────────────────────────
 
       CHANNELS = Vocabulary.define(
@@ -259,7 +268,8 @@ module Pito
           JOBS_SUBCOMMANDS,
           IMPORT_NOUNS,
           SYNC_TARGETS,
-          SCHEDULE_WHENS
+          SCHEDULE_WHENS,
+          PRICE_SUBCOMMANDS
         ]
       end
 

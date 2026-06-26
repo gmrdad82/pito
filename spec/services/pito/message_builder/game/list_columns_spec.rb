@@ -20,6 +20,11 @@ RSpec.describe Pito::MessageBuilder::Game::ListColumns do
       expect(vocab["platforms"]).to eq(:platform)
     end
 
+    it "maps 'price' AND 'prices' to :price (D2 — plural synonym)" do
+      expect(vocab["price"]).to eq(:price)
+      expect(vocab["prices"]).to eq(:price)
+    end
+
     it "maps 'genre' to :genre" do
       expect(vocab["genre"]).to eq(:genre)
     end
@@ -448,6 +453,38 @@ RSpec.describe Pito::MessageBuilder::Game::ListColumns do
         expect(result.first[:class]).to include("text-right")
         expect(result.first[:class]).to include("tabular-nums")
         expect(result.first[:class]).to include("pito-cell-price")
+      end
+
+      # ── D1: decimal-aligned numbers via integer-part padding ──────────────
+      it "left-pads the integer part with figure-space when price_pad_int is set" do
+        game_with_price.update!(price: BigDecimal("9.89"))
+        result = described_class.cells(game_with_price, [ :price ], price_pad_int: 2)
+        # 1-digit "9" padded to 2 → one U+2007 before the number.
+        expect(result.first[:text]).to include("\u{2007}9.89")
+      end
+
+      it "does NOT pad a number already at the max width" do
+        game_with_price.update!(price: BigDecimal("99.98"))
+        result = described_class.cells(game_with_price, [ :price ], price_pad_int: 2)
+        expect(result.first[:text]).not_to include(" ")
+        expect(result.first[:text]).to include("99.98")
+      end
+    end
+
+    describe ".price_pad_int" do
+      it "returns the max integer-part width across priced games (skips unpriced)" do
+        games = [
+          create(:game, price: BigDecimal("9.89")),    # 1
+          create(:game, price: BigDecimal("129.99")),  # 3
+          create(:game, price: nil),                    # skipped
+          create(:game, price: BigDecimal("59.99"))     # 2
+        ]
+        expect(described_class.price_pad_int(games)).to eq(3)
+      end
+
+      it "counts an explicit 0 (free) as one digit and returns 0 when none priced" do
+        expect(described_class.price_pad_int([ create(:game, price: 0) ])).to eq(1)
+        expect(described_class.price_pad_int([ create(:game, price: nil) ])).to eq(0)
       end
     end
   end

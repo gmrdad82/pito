@@ -19,7 +19,7 @@
 // SKIPPED (jsdom limitations):
 //   - requestSubmit form submission actually sending a request (no network in jsdom)
 
-import { describe, it, expect, beforeEach, afterEach, vi } from "vitest"
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from "vitest"
 import { Application } from "@hotwired/stimulus"
 import ChatFormController from "controllers/pito/chat_form_controller"
 
@@ -108,19 +108,32 @@ function keydown(el, key, opts = {}) {
 // ── Suite ─────────────────────────────────────────────────────────────────────
 
 describe("pito--chat-form controller", () => {
+  // ONE long-lived Stimulus application for the whole file. Re-calling
+  // Application.start() per test and stopping it did NOT reliably disconnect the
+  // controllers, so their global document `keydown`/picker listeners accumulated
+  // across tests (one Shift+R then fired ~18 leaked controllers → "expected 18 to
+  // be 1"). With a single persistent app, clearing the DOM in afterEach lets the
+  // live observer fire disconnect() on the removed controller, removing its
+  // listeners — exactly one controller is ever connected at a time.
   let app
 
-  beforeEach(() => {
+  beforeAll(() => {
     app = Application.start()
     app.register("pito--chat-form", ChatFormController)
+  })
+
+  afterAll(async () => {
+    await app.stop()
   })
 
   afterEach(async () => {
     vi.restoreAllMocks()
     vi.unstubAllGlobals()
-    await app.stop()
-    await new Promise((r) => setTimeout(r, 0))
+    // Clear the DOM so the live app disconnects the removed controller (firing
+    // removeEventListener on its global keydown/picker listeners) before the next
+    // test connects a fresh one.
     document.body.innerHTML = ""
+    await new Promise((r) => setTimeout(r, 0))
   })
 
   function waitForConnect() {
@@ -350,6 +363,7 @@ describe("pito--chat-form controller", () => {
     document.body.appendChild(marker)
 
     inputField.value = ""
+    inputField.focus() // box focused → the global shift+r listener defers to the textarea action (no double-fire)
     inputField.selectionStart = inputField.selectionEnd = 0
     keydown(inputField, "R", { shiftKey: true, code: "KeyR" })
 
@@ -402,6 +416,7 @@ describe("pito--chat-form controller", () => {
     document.addEventListener("pito:hashtag-picker:open", (e) => pickerEvents.push(e))
 
     inputField.value = ""
+    inputField.focus() // box focused → global shift+r listener defers to the textarea action
     inputField.selectionStart = inputField.selectionEnd = 0
     keydown(inputField, "R", { shiftKey: true, code: "KeyR" })
 
@@ -419,6 +434,7 @@ describe("pito--chat-form controller", () => {
     document.addEventListener("pito:hashtag-picker:open", (e) => pickerEvents.push(e))
 
     inputField.value = ""
+    inputField.focus() // box focused → global shift+r listener defers to the textarea action
     inputField.selectionStart = inputField.selectionEnd = 0
     keydown(inputField, "R", { shiftKey: true, code: "KeyR" })
 
@@ -456,6 +472,7 @@ describe("pito--chat-form controller", () => {
     document.addEventListener("pito:hashtag-picker:open", (e) => pickerEvents.push(e))
 
     inputField.value = ""
+    inputField.focus() // box focused → global shift+r listener defers to the textarea action
     inputField.selectionStart = inputField.selectionEnd = 0
     keydown(inputField, "R", { shiftKey: true, code: "KeyR" })
 

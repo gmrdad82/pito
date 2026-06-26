@@ -110,6 +110,53 @@ RSpec.describe Pito::Suggestions::Catalog, type: :service do
     end
   end
 
+  # ── Chat slot emission ─────────────────────────────────────────────────────
+  #
+  # Catalog#slots_for emits only :enum slots with a Symbol source.
+  # Free slots and the leading free slot in schedule/price are NOT emitted.
+
+  describe ".to_h chat slot emission" do
+    def chat_entry(name)
+      described_class.to_h(authenticated: true)[:chat].find { |e| e[:name] == name.to_s }
+    end
+
+    it "show emits no slots (free :id slot is not emitted)" do
+      expect(chat_entry("show")[:slots]).to eq([])
+    end
+
+    it "list emits one slot: noun/nouns" do
+      expect(chat_entry("list")[:slots]).to eq([ { name: "noun", source: "nouns" } ])
+    end
+
+    it "sync emits one slot: target/sync_targets" do
+      expect(chat_entry("sync")[:slots]).to eq([ { name: "target", source: "sync_targets" } ])
+    end
+
+    it "import emits one slot: noun/import_nouns (free :title slot is not emitted)" do
+      expect(chat_entry("import")[:slots]).to eq([ { name: "noun", source: "import_nouns" } ])
+    end
+
+    it "footage emits one slot: title/game_titles" do
+      expect(chat_entry("footage")[:slots]).to eq([ { name: "title", source: "game_titles" } ])
+    end
+
+    it "price emits one slot: subcommand/price_subcommands (free trailing slot is not emitted)" do
+      expect(chat_entry("price")[:slots]).to eq([ { name: "subcommand", source: "price_subcommands" } ])
+    end
+
+    it "delete emits one slot: title/game_titles" do
+      expect(chat_entry("delete")[:slots]).to eq([ { name: "title", source: "game_titles" } ])
+    end
+
+    it "reindex emits one slot: title/game_titles" do
+      expect(chat_entry("reindex")[:slots]).to eq([ { name: "title", source: "game_titles" } ])
+    end
+
+    it "schedule emits one slot: slate/schedule_whens (free leading :title slot is not emitted)" do
+      expect(chat_entry("schedule")[:slots]).to eq([ { name: "slate", source: "schedule_whens" } ])
+    end
+  end
+
   # ── Hashtag ────────────────────────────────────────────────────────────────
 
   describe ".to_h hashtag" do

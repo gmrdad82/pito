@@ -25,7 +25,7 @@ RSpec.describe Pito::Chat::Handlers::Price do
 
   # ── price set <id> <amount> — success ────────────────────────────────────────
 
-  it "sets the game's price and returns an Ok system confirmation showing €amount" do
+  it "sets the game's price and returns an Ok HTML confirmation showing the coin glyphs + number" do
     result = handler_for("set", game.id.to_s, "59.99").call
 
     expect(result).to be_a(Pito::Chat::Result::Ok)
@@ -33,7 +33,11 @@ RSpec.describe Pito::Chat::Handlers::Price do
 
     event = result.events.first
     expect(event[:kind]).to eq(:system)
-    expect(event[:payload]["text"]).to include("Pragmata").and include("€59.99")
+    expect(event[:payload]["html"]).to be(true)
+    body = event[:payload]["body"]
+    # Coin glyphs (Pito::Coin) + the number, NOT a bare "€59.99".
+    expect(body).to include("Pragmata").and include("59.99").and include("pito-coin")
+    expect(body).not_to include("€")
   end
 
   it "rounds the amount to two decimals" do
@@ -59,11 +63,12 @@ RSpec.describe Pito::Chat::Handlers::Price do
 
   # ── price >= 0 (0 = free) ─────────────────────────────────────────────────────
 
-  it "sets an explicit 0 (free) and confirms it as €0.00" do
+  it "sets an explicit 0 (free) and confirms it with the free star + 0.00" do
     result = handler_for("set", game.id.to_s, "0").call
     expect(result).to be_a(Pito::Chat::Result::Ok)
     expect(game.reload.price).to eq(0)
-    expect(result.events.first[:payload]["text"]).to include("Pragmata").and include("€0.00")
+    body = result.events.first[:payload]["body"]
+    expect(body).to include("Pragmata").and include("0.00").and include("pito-coin--free")
   end
 
   it "rejects a negative amount" do

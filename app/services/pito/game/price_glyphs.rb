@@ -21,14 +21,30 @@ module Pito
       # html_safe String. nil → "—"; else a glyph run + the number: the FREE star +
       # "0.00" for an explicit 0, or N coins + "59.99" for a real price. Free reads
       # like the coins do (glyph + number) so the 0.00 is always shown.
-      def html(price)
+      #
+      # @param pad_int [Integer, nil] when set, left-pad the integer part of the
+      #   number to this many digits with FIGURE SPACE (U+2007, digit-width, not
+      #   collapsed in HTML) so a COLUMN of prices aligns on the decimal point
+      #   regardless of 1/2/3-digit integers (caller passes the table-max integer
+      #   width). The coins stay glued to the left of the padded number.
+      def html(price, pad_int: nil)
         return em_dash if Pito::Coin.unpriced?(price)
 
-        number = ERB::Util.html_escape(Pito::Formatter::Price.call(price, symbol: false))
+        number = Pito::Formatter::Price.call(price, symbol: false)
+        number = pad_integer(number, pad_int) if pad_int
+        number = ERB::Util.html_escape(number)
         glyphs = Pito::Coin.free?(price) ? star_img : coin_imgs(Pito::Coin.coin_count(price))
         # No &nbsp; — the small coins↔number gap is CSS (.pito-coins margin) so it
         # stays tight; the glyph run is raised onto the digit baseline there too.
         %(<span class="pito-coins">#{glyphs}</span>#{number}).html_safe
+      end
+
+      # Left-pad the integer part of "INT.dd" to `width` digits with FIGURE SPACE
+      # (U+2007), so a column of prices lines up on the decimal point.
+      def pad_integer(number, width)
+        int_part = number.split(".", 2).first
+        deficit  = width - int_part.length
+        deficit.positive? ? (" " * deficit) + number : number
       end
 
       # The unpriced em-dash (matches Formatter::Price's nil rendering).

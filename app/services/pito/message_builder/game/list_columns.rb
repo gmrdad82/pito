@@ -57,7 +57,8 @@ module Pito
           "channel"      => :channels,
           "channels"     => :channels,
           "footage"      => :footage,
-          "price"        => :price
+          "price"        => :price,
+          "prices"       => :price
         }.freeze
 
         COLUMNS = {
@@ -121,7 +122,7 @@ module Pito
             value:      ->(g) { Pito::Formatter::FootageHours.call(g.footage_hours) }
           },
           price:        {
-            aliases:    %w[price],
+            aliases:    %w[price prices],
             heading:    "Price",
             align:      :right,
             html:       true,
@@ -215,10 +216,29 @@ module Pito
         # @param game [::Game]
         # @param cols [Array<Symbol>] ordered canonical column keys
         # @return [Array<{ text: String, class: String, html: Boolean }>]
-        def cells(game, cols)
+        # The table-max integer-part width across the priced games, so the price
+        # column can pad shorter numbers and align on the decimal point. nil/unpriced
+        # games are skipped; 0 (free) counts as one digit ("0.00"). Returns 0 when no
+        # game is priced.
+        def price_pad_int(games)
+          games.filter_map { |g|
+            next if Pito::Coin.unpriced?(g.price)
+
+            Pito::Formatter::Price.call(g.price, symbol: false).split(".", 2).first.length
+          }.max || 0
+        end
+
+        # @param price_pad_int [Integer, nil] table-max integer width for the price
+        #   column (see .price_pad_int); aligns the price numbers when present.
+        def cells(game, cols, price_pad_int: nil)
           cols.map do |col|
             cfg  = COLUMNS.fetch(col)
-            text = cfg[:value].call(game)
+            text =
+              if col == :price && price_pad_int
+                Pito::Game::PriceGlyphs.html(game.price, pad_int: price_pad_int)
+              else
+                cfg[:value].call(game)
+              end
             cell_class =
               if col == :channels
                 # Shimmer owns the colour; seed with game.id so repeated

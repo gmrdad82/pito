@@ -45,5 +45,21 @@ RSpec.describe Pito::Game::PriceGlyphs do
       expect(described_class.html(BigDecimal("29.99"))).to be_html_safe
       expect(described_class.html(nil)).to be_html_safe
     end
+
+    # ── pad_int: figure-space integer padding (D1 — decimal alignment) ────────
+    it "left-pads the integer part to pad_int with FIGURE SPACE (U+2007)" do
+      html = described_class.html(BigDecimal("9.89"), pad_int: 3)
+      expect(html).to include("\u{2007}\u{2007}9.89") # "9" → 3 digits → two figure spaces
+    end
+
+    it "does not pad when the integer already meets pad_int" do
+      html = described_class.html(BigDecimal("99.98"), pad_int: 2)
+      expect(html).not_to include("\u{2007}")
+      expect(html).to include("99.98")
+    end
+
+    it "ignores pad_int for the unpriced em-dash" do
+      expect(described_class.html(nil, pad_int: 3)).to eq("—")
+    end
   end
 end

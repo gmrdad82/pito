@@ -429,6 +429,79 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
     end
   end
 
+  # `price set <id> <amount>` / `price unset <id>` — the leading enum slot
+  # (:price_subcommands) surfaces `set`/`unset` as a TAB-completable ghost.
+  describe "free mode — price subcommand slot" do
+    it "ghosts 'set' at a trailing space ('price ' → 'set')" do
+      result = call(input: "price ", cursor: 6, authenticated: true)
+      expect(result[:ghost][:complete_current]).to eq("set")
+    end
+
+    it "completes 'price u' → 'nset'" do
+      result = call(input: "price u", cursor: 7, authenticated: true)
+      expect(result[:ghost][:complete_current]).to eq("nset")
+    end
+
+    it "stays silent past the subcommand ('price set 5 ' — id/amount are free)" do
+      result = call(input: "price set 5 ", cursor: 12, authenticated: true)
+      expect(result[:ghost][:complete_current]).to eq("")
+    end
+  end
+
+  describe "free mode — import noun slot" do
+    it "ghosts 'game' at a trailing space ('import ' → 'game')" do
+      result = call(input: "import ", cursor: 7, authenticated: true)
+      expect(result[:ghost][:complete_current]).to eq("game")
+    end
+
+    it "completes 'import g' → 'ame'" do
+      result = call(input: "import g", cursor: 8, authenticated: true)
+      expect(result[:ghost][:complete_current]).to eq("ame")
+    end
+  end
+
+  describe "free mode — analyze noun slot" do
+    it "ghosts 'channels' at a trailing space ('analyze ' → 'channels')" do
+      result = call(input: "analyze ", cursor: 8, authenticated: true)
+      expect(result[:ghost][:complete_current]).to eq("channels")
+    end
+
+    it "completes 'analyze v' → 'ids'" do
+      result = call(input: "analyze v", cursor: 9, authenticated: true)
+      expect(result[:ghost][:complete_current]).to eq("ids")
+    end
+  end
+
+  describe "free mode — footage dynamic game_titles slot", :db do
+    let!(:game) { create(:game, title: "Zelda") }
+
+    it "ghost-completes toward a matching game title for 'footage zel'" do
+      result = call(input: "footage zel", cursor: 11, authenticated: true)
+      # dynamic slot: resolver finds "Zelda", partial "zel" (length 3) →
+      # remaining = "Zelda"[3..] = "da"
+      expect(result[:ghost][:complete_current]).to eq("da")
+    end
+
+    it "returns empty menu_items (free mode uses ghost path, not palette)" do
+      result = call(input: "footage zel", cursor: 11, authenticated: true)
+      expect(result[:menu_items]).to eq([])
+    end
+  end
+
+  describe "free mode — reindex dynamic game_titles slot", :db do
+    let!(:game) { create(:game, title: "Zelda") }
+
+    it "ghost-completes toward a matching game title for 'reindex zel'" do
+      result = call(input: "reindex zel", cursor: 11, authenticated: true)
+      expect(result[:ghost][:complete_current]).to eq("da")
+    end
+
+    it "returns empty menu_items (free mode uses ghost path, not palette)" do
+      result = call(input: "reindex zel", cursor: 11, authenticated: true)
+      expect(result[:menu_items]).to eq([])
+    end
+  end
+
   # ── FREE MODE — ghost text (P31.0.al required cases) ────────────────────────
 
   describe "free-mode ghost" do
@@ -598,6 +671,27 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
       items = call(input: "#vl-6 ", cursor: 6, conversation:)[:menu_items]
       schedule = items.find { |i| i[:label] == "schedule" }
       expect(schedule[:insert]).to eq("schedule ")
+    end
+
+    # `#<handle> price …` (game_list / game_detail) ghosts set/unset at the
+    # subcommand position, then stays silent over the free id/amount.
+    it "ghosts 'set' after '#<handle> price ' (game_list reply)" do
+      stamp("gl-7", "game_list")
+      result = call(input: "#gl-7 price ", cursor: 12, conversation:)
+      expect(result[:ghost][:complete_current]).to eq("set")
+      expect(result[:stage]).to eq(:arg)
+    end
+
+    it "completes '#<handle> price u' → 'nset'" do
+      stamp("gl-8", "game_list")
+      result = call(input: "#gl-8 price u", cursor: 13, conversation:)
+      expect(result[:ghost][:complete_current]).to eq("nset")
+    end
+
+    it "stays silent past the subcommand ('#<handle> price set 5 ')" do
+      stamp("gl-9", "game_list")
+      result = call(input: "#gl-9 price set 5 ", cursor: 18, conversation:)
+      expect(result[:ghost][:complete_current]).to eq("")
     end
   end
 

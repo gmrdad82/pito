@@ -87,12 +87,17 @@ module Pito
         end
 
         def updated(game)
-          # Formatter renders an explicit 0 as "€0.00", so a free game confirms
-          # as "… is now €0.00" — the 0.00 is mentioned, no special copy needed.
+          # Render the price as the Pito::Coin glyph run (coins / free-star + the
+          # number) — the same at-a-glance currency the game card + list use — not a
+          # bare "€59.99". PriceGlyphs.html is html_safe, so it survives render_html's
+          # escaping (img tags intact); the game title gets the subject shimmer.
+          body = Pito::Copy.render_html(
+            "pito.copy.price.updated",
+            { game: game.title, price: Pito::Game::PriceGlyphs.html(game.price) },
+            shimmer: [ :game ]
+          )
           Pito::Chat::Result::Ok.new(events: [
-            { kind: :system, payload: Pito::MessageBuilder::Text.call(
-              "pito.copy.price.updated", game: game.title, price: Pito::Formatter::Price.call(game.price)
-            ) }
+            { kind: :system, payload: { "body" => body.to_s, "html" => true } }
           ])
         end
 
