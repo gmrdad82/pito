@@ -65,6 +65,13 @@ module Pito
         @video.description.presence
       end
 
+      # Absolute "DD-MM-YYYY HH:MM" last-sync stamp; "—" when never synced.
+      def last_sync_label
+        return "—" if @video.last_synced_at.blank?
+
+        @video.last_synced_at.in_time_zone.strftime("%d-%m-%Y %H:%M")
+      end
+
       # Returns one Achievement per metric — the one with the highest threshold
       # (the last unlocked in that lane) — ordered by unlocked_at descending
       # so the most recently-advanced lane appears first.

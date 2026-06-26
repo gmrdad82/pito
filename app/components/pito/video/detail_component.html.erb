@@ -107,6 +107,13 @@
               value_class: "text-fg"
             )) %>
       <% end %>
+
+      <%= render(Pito::Table::KeyValueRowComponent.new(
+            key_text:    t("pito.video.detail.last_sync_at"),
+            value_text:  last_sync_label,
+            key_class:   "text-fg-dim whitespace-nowrap",
+            value_class: "text-fg"
+          )) %>
     </div>
 
     <%# Hairline between the KV table and the description %>

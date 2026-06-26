@@ -54,6 +54,14 @@ module Pito
         Pito::Game::PriceGlyphs.html(@game.price)
       end
 
+      # Absolute "DD-MM-YYYY HH:MM" IGDB last-sync stamp (a game's data syncs from
+      # IGDB, so igdb_synced_at IS its "last sync"); "—" when never synced.
+      def last_sync_label
+        return "—" if @game.igdb_synced_at.blank?
+
+        @game.igdb_synced_at.in_time_zone.strftime("%d-%m-%Y %H:%M")
+      end
+
       # Returns the de-duped operator tokens (ps/switch/steam) derived from
       # the IGDB platform names in game.platforms.  Returns [] when none match.
       def platform_tokens

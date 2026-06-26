@@ -10,6 +10,7 @@ en:
         privacy: "Status"
         tags: "Tags"
         description: "Description"
+        last_sync_at: "Last sync at"
         no_thumbnail: "No thumbnail"
         privacy_status:
           private: "Private"

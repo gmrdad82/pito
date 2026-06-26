@@ -88,6 +88,19 @@ RSpec.describe Pito::Video::DetailComponent do
     end
   end
 
+  describe "last sync at row (C1)" do
+    it "renders the last-sync stamp" do
+      video.update!(last_synced_at: Time.zone.local(2026, 6, 26, 14, 30))
+      text = render_inline(described_class.new(video: video)).text
+      expect(text).to include("Last sync at").and include("26-06-2026 14:30")
+    end
+
+    it "renders an em-dash when never synced" do
+      video.update!(last_synced_at: nil)
+      expect(render_inline(described_class.new(video: video)).text).to include("Last sync at")
+    end
+  end
+
   describe "tags" do
     it "renders tags joined by comma" do
       node = render_inline(described_class.new(video: video))

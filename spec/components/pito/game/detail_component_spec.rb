@@ -193,6 +193,19 @@ RSpec.describe Pito::Game::DetailComponent do
     end
   end
 
+  describe "last sync at row (C1)" do
+    it "renders the IGDB last-sync stamp after Price" do
+      g    = create(:game, price: BigDecimal("59.99"), igdb_synced_at: Time.zone.local(2026, 6, 26, 14, 30))
+      text = render_inline(described_class.new(game: g)).css(".pito-game-detail__right, .grid").text
+      expect(text).to include("Last sync at").and include("26-06-2026 14:30")
+    end
+
+    it "renders an em-dash when never IGDB-synced" do
+      g = create(:game, igdb_synced_at: nil)
+      expect(render_inline(described_class.new(game: g)).text).to include("Last sync at")
+    end
+  end
+
   describe "price row" do
     it "renders the Price row with coin glyphs + the number when priced" do
       priced = create(:game, price: BigDecimal("59.99"))
