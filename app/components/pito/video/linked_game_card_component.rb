@@ -7,8 +7,8 @@ module Pito
     # Mirrors Pito::Game::DetailComponent's detail layout: a BIG game cover on
     # the LEFT — bounded to the 374×210 16:9 box with the slow Ken-Burns vertical
     # pan (shared Z29 CSS) — and a key/value table on the RIGHT with rows: title,
-    # id, genres, perspective, theme, publisher, developer, release date, total
-    # footage, price. Two columns on desktop (md:flex-row, 374px left), stacking
+    # id, genres, perspective, theme, release date, total footage, price, last
+    # sync at. Two columns on desktop (md:flex-row, 374px left), stacking
     # to single-column on mobile (<768px). Unlike Pito::Game::DetailComponent it
     # carries NO time-to-beat / score bars — total footage is a plain KV value
     # formatted via Pito::Formatter::FootageHours.
@@ -51,16 +51,6 @@ module Pito
         Array(@game.themes).reject(&:blank?).join(", ").presence
       end
 
-      def publisher_names
-        names = Array(@game.publisher_companies.map(&:name)).reject(&:blank?)
-        names.join(", ").presence
-      end
-
-      def developer_names
-        names = Array(@game.developer_companies.map(&:name)).reject(&:blank?)
-        names.join(", ").presence
-      end
-
       def release_label
         @game.release_label.presence
       end
@@ -74,6 +64,13 @@ module Pito
       # unpriced — html_safe. Surfaces in `show vid <id>` as an :enhanced message.
       def price_label
         Pito::Game::PriceGlyphs.html(@game.price)
+      end
+
+      # Absolute "DD-MM-YYYY HH:MM" IGDB last-sync stamp; "—" when never synced.
+      def last_sync_label
+        return "—" if @game.igdb_synced_at.blank?
+
+        @game.igdb_synced_at.in_time_zone.strftime("%d-%m-%Y %H:%M")
       end
     end
   end

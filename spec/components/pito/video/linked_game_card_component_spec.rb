@@ -59,22 +59,32 @@ RSpec.describe Pito::Video::LinkedGameCardComponent do
     expect(node.text).to include("Horror")
   end
 
-  it "renders publisher company names" do
+  # C2 (0.8.1): the linked-game card drops Publisher + Developer — noise on a vid's
+  # slim game card. (They still render on the full `show game` card.)
+  it "does NOT render publisher company names" do
     company = create(:company, name: "Neowiz")
     create(:game_publisher, game: game, company: company)
     game.reload
 
     node = render_inline(described_class.new(game: game))
-    expect(node.text).to include("Neowiz")
+    expect(node.text).not_to include("Neowiz")
+    expect(node.text).not_to include("Publisher")
   end
 
-  it "renders developer company names" do
+  it "does NOT render developer company names" do
     company = create(:company, name: "Round8 Studio")
     create(:game_developer, game: game, company: company)
     game.reload
 
     node = render_inline(described_class.new(game: game))
-    expect(node.text).to include("Round8 Studio")
+    expect(node.text).not_to include("Round8 Studio")
+    expect(node.text).not_to include("Developer")
+  end
+
+  it "renders the Last sync at row (igdb_synced_at)" do
+    game.update!(igdb_synced_at: Time.zone.local(2026, 6, 26, 14, 30))
+    node = render_inline(described_class.new(game: game))
+    expect(node.text).to include("Last sync at").and include("26-06-2026 14:30")
   end
 
   it "renders the release label" do

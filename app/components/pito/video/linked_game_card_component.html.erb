@@ -62,24 +62,6 @@
           )) %>
     <% end %>
 
-    <% if publisher_names.present? %>
-      <%= render(Pito::Table::KeyValueRowComponent.new(
-            key_text:    t("pito.game.detail.publisher"),
-            value_text:  publisher_names,
-            key_class:   "text-fg-dim whitespace-nowrap",
-            value_class: "text-fg"
-          )) %>
-    <% end %>
-
-    <% if developer_names.present? %>
-      <%= render(Pito::Table::KeyValueRowComponent.new(
-            key_text:    t("pito.game.detail.developer"),
-            value_text:  developer_names,
-            key_class:   "text-fg-dim whitespace-nowrap",
-            value_class: "text-fg"
-          )) %>
-    <% end %>
-
     <% if release_label.present? %>
       <%= render(Pito::Table::KeyValueRowComponent.new(
             key_text:    t("pito.game.detail.release"),
@@ -101,6 +83,13 @@
           value_text:  price_label,
           key_class:   "text-fg-dim whitespace-nowrap",
           value_class: "text-fg tabular-nums"
+        )) %>
+
+    <%= render(Pito::Table::KeyValueRowComponent.new(
+          key_text:    t("pito.game.detail.last_sync_at"),
+          value_text:  last_sync_label,
+          key_class:   "text-fg-dim whitespace-nowrap",
+          value_class: "text-fg"
         )) %>
   </div>
 

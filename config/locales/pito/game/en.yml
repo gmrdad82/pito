@@ -13,6 +13,7 @@ en:
         release: "Release"
         footage: "Footage"
         price: "Price"
+        last_sync_at: "Last sync at"
         platforms: "Platforms"
         description: "Description"
         genres: "Genres"
