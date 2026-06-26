@@ -5,8 +5,8 @@
 [![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-ff69b4?logo=githubsponsors)](https://github.com/sponsors/gmrdad82)
 
 <!-- prettier-ignore -->
-<p align="center"><a href="https://www.youtube.com/@gmrdad82"><img src="docs/media/pito-tour-thumb.png" width="760" alt="▶ PITO — Inception Wednesday: a guided tour"></a></p>
-<p align="center"><em>▶ A guided tour of PITO — on <a href="https://www.youtube.com/@gmrdad82">@gmrdad82</a>.</em></p>
+<p align="center"><a href="https://youtu.be/7y3R403XtDE"><img src="docs/media/pito-tour-thumb.png" width="760" alt="▶ PITO — Inception Wednesday: a guided tour"></a></p>
+<p align="center"><em>▶ A guided tour of PITO — <a href="https://youtu.be/7y3R403XtDE">watch the tour</a>, on <a href="https://www.youtube.com/@gmrdad82">@gmrdad82</a>.</em></p>
 
 ## Why does this thing exist?
 
@@ -50,7 +50,7 @@ you" is a click on one of the channels that dragged this tool into existence in 
 first place:
 
 <!-- prettier-ignore -->
-<p align="center"><a href="https://www.youtube.com/@gmrdad82"><img src="docs/avatars/@gmrdad82.png" width="80" alt="@gmrdad82"></a> <a href="https://www.youtube.com/@gmrdad82fighter"><img src="docs/avatars/@gmrdad82fighter.png" width="80" alt="@gmrdad82fighter"></a> <a href="https://www.youtube.com/@gmrdad82good"><img src="docs/avatars/@gmrdad82good.png" width="80" alt="@gmrdad82good"></a> <a href="https://www.youtube.com/@gmrdad82hard"><img src="docs/avatars/@gmrdad82hard.png" width="80" alt="@gmrdad82hard"></a> <a href="https://www.youtube.com/@gmrdad82strategist"><img src="docs/avatars/@gmrdad82strategist.png" width="80" alt="@gmrdad82strategist"></a> <a href="https://www.youtube.com/@gmrdad82survivor"><img src="docs/avatars/@gmrdad82survivor.png" width="80" alt="@gmrdad82survivor"></a></p>
+<p align="center"><a href="https://www.youtube.com/@gmrdad82"><img src="docs/avatars/@gmrdad82.png" width="80" alt="@gmrdad82"></a> <a href="https://www.youtube.com/@gmrdad82good"><img src="docs/avatars/@gmrdad82good.png" width="80" alt="@gmrdad82good"></a> <a href="https://www.youtube.com/@gmrdad82hard"><img src="docs/avatars/@gmrdad82hard.png" width="80" alt="@gmrdad82hard"></a> <a href="https://www.youtube.com/@gmrdad82fighter"><img src="docs/avatars/@gmrdad82fighter.png" width="80" alt="@gmrdad82fighter"></a> <a href="https://www.youtube.com/@gmrdad82survivor"><img src="docs/avatars/@gmrdad82survivor.png" width="80" alt="@gmrdad82survivor"></a> <a href="https://www.youtube.com/@gmrdad82strategist"><img src="docs/avatars/@gmrdad82strategist.png" width="80" alt="@gmrdad82strategist"></a></p>
 
 ---
 
