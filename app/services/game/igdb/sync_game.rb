@@ -67,6 +67,13 @@ class Game
       private
 
       def assign_with_slug_collision_guard(game, attrs)
+        # Platforms are OWNER-editable — the `platform` command appends to / overrides
+        # them. Once a game has any platforms, an IGDB re-sync must NOT clobber the
+        # owner's list (that would silently drop manual additions/overrides — owner
+        # data loss). IGDB still SEEDS platforms on the INITIAL import, when the game
+        # has none yet.
+        attrs = attrs.except(:platforms) if game.platforms.present?
+
         game.assign_attributes(attrs)
         game.save!
       rescue ActiveRecord::RecordNotUnique => e
