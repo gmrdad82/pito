@@ -317,7 +317,10 @@ module Pito
         # If any connected channel's youtube_connection needs reauth, appends a second
         # :enhanced event listing those channels with a reconnect hint.
         def list_channels
-          channels = ::Channel.includes(:youtube_connection).order(id: :desc)
+          # Guard: only connected channels (a youtube_connection). A connection-less
+          # orphan row (stray/test data) is never a real channel — never list it.
+          channels = ::Channel.where.not(youtube_connection_id: nil)
+                              .includes(:youtube_connection).order(id: :desc)
           if channels.empty?
             return Pito::Chat::Result::Ok.new(events: [
               { kind: :system, payload: Pito::MessageBuilder::Text.call("pito.copy.channels.list_empty") }

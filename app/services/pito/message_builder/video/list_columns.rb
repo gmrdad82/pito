@@ -98,6 +98,15 @@ module Pito
             align:      :right,
             cell_class: "text-fg-dim text-right tabular-nums",
             value:      ->(v) { count_text(v.comment_count) }
+          },
+          # YouTube category (Gaming, People & Blogs, …). Last in canonical order, so
+          # the viewport auto-fill only surfaces it on the widest viewports; also
+          # addable/removable via `with category` / `without category`.
+          category: {
+            aliases:    %w[category categories],
+            heading:    "Category",
+            cell_class: "text-fg-dim pito-cell-category",
+            value:      ->(v) { v.category_name.presence || "—" }
           }
         }.freeze
 
