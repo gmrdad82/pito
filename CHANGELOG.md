@@ -38,7 +38,7 @@ across any scope, and rendered as metrics you refine with `with` / `without`.
   the start-screen logo and in-message art (e.g. `/connect`) to fit mobile widths
   — alignment preserved, still live themed text — with desktop untouched.
 - **`link` accepts multiple vids in one chat command** (`link game 1 with vid
-  15,14`), matching the reply path.
+15,14`), matching the reply path.
 
 ### Changed
 
