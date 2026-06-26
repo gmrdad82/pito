@@ -5,7 +5,7 @@ require "rails_helper"
 RSpec.describe SyncChannelStatsJob do
   let!(:active_connection)   { create(:youtube_connection) }
   let!(:reauth_connection)   { create(:youtube_connection, :needs_reauth) }
-  let!(:unconnected_channel) { create(:channel) }
+  let!(:unconnected_channel) { create(:channel, :orphan) }
 
   let!(:channel_a) do
     create(:channel,

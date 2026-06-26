@@ -36,7 +36,7 @@ RSpec.describe VideoRemoteStatusSync, type: :job do
   end
 
   it "is a no-op when the connection is missing" do
-    connless = create(:video, channel: create(:channel))
+    connless = create(:video, channel: create(:channel, :orphan))
     described_class.perform_now(connless.id)
     expect(Channel::Youtube::VideosClient).not_to have_received(:new)
   end

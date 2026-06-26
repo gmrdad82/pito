@@ -139,7 +139,7 @@ RSpec.describe Pito::Confirmation::Executor, type: :service do
     end
 
     it "does NOT enqueue VideoRemoteDelete when the channel has no connection" do
-      no_conn_video = create(:video, channel: create(:channel), title: "Orphan Clip")
+      no_conn_video = create(:video, channel: create(:channel, :orphan), title: "Orphan Clip")
       described_class.confirm("video_delete", { "video_id" => no_conn_video.id, "video_title" => "Orphan Clip" })
       expect(VideoRemoteDelete).not_to have_received(:perform_later)
     end

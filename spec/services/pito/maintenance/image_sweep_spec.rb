@@ -80,7 +80,7 @@ RSpec.describe Pito::Maintenance::ImageSweep do
 
   describe ".repair_channel" do
     it "skips a channel with no youtube_connection" do
-      channel = create(:channel)  # no connection
+      channel = create(:channel, :orphan)  # no connection
       expect(described_class.repair_channel(channel)).to be(false)
     end
 

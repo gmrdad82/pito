@@ -48,7 +48,7 @@ RSpec.describe VideoSyncJob, type: :job do
     end
 
     it "returns early when the channel has no connection" do
-      orphan = create(:channel, youtube_channel_id: "UCorphan")
+      orphan = create(:channel, :orphan, youtube_channel_id: "UCorphan")
 
       described_class.new.perform(orphan.id)
 

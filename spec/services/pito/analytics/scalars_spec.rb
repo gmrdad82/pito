@@ -102,7 +102,7 @@ RSpec.describe Pito::Analytics::Scalars do
 
   describe ":unavailable cases" do
     it "is :unavailable when the video's channel has no connection" do
-      video = create(:video, channel: create(:channel))
+      video = create(:video, channel: create(:channel, :orphan))
       expect(described_class.for(scope: video, period: "28d")).to eq(:unavailable)
     end
 
