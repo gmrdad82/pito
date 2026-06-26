@@ -159,13 +159,18 @@ module Pito
             slots:           [ Slot.new(name: :title, kind: :enum, source: :game_titles, optional: true) ],
             description_key: "pito.grammar.chat.reindex"
           ),
-          # `platform` SETS a game's platform from free text — `platform <id>
-          # <name>`. A single free slot drives the suggestion ghost; the handler
-          # reads the leading id ref + trailing platform name from message.raw.
+          # `platform` ADDS or REMOVES a game's platform — `platform set <id>
+          # <name>` / `platform unset <id> <name>` (bare `platform <id> <name>`
+          # still adds). The enum subcommand slot ghosts set/unset (like price); the
+          # trailing free slot absorbs the id + name. Suggestions-only: the handler
+          # reads the subcommand, id, and name from message.raw.
           Spec.new(
             namespace:       :chat,
             name:            :platform,
-            slots:           [ Slot.new(name: :title, kind: :free, optional: true) ],
+            slots:           [
+              Slot.new(name: :subcommand, kind: :enum, source: :platform_subcommands, optional: true),
+              Slot.new(name: :title,      kind: :free, optional: true)
+            ],
             description_key: "pito.grammar.chat.platform"
           ),
           Spec.new(

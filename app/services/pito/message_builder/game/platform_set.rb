@@ -16,14 +16,22 @@ module Pito
         module_function
 
         # @param game     [::Game]  the game whose platforms were updated.
-        # @param platform [String]  the normalized platform string that was set.
+        # @param platform [String]  the normalized platform string that was set/removed.
+        # @param removed  [Boolean] true when the platform was REMOVED (unset).
         # @return [Hash] system event payload (body html + html: true + game_id).
-        def call(game, platform:)
+        def call(game, platform:, removed: false)
           title = ERB::Util.html_escape(game.title)
           plat  = ERB::Util.html_escape(platform)
           known = Pito::Game::PlatformTokens.tokens([ platform ]).any?
 
-          key   = known ? "pito.copy.games.platform_set" : "pito.copy.games.platform_unknown"
+          key =
+            if removed
+              "pito.copy.games.platform_unset"
+            elsif known
+              "pito.copy.games.platform_set"
+            else
+              "pito.copy.games.platform_unknown"
+            end
           text  = Pito::Copy.render(key, { title: title, platform: plat })
           icons = Pito::Game::PlatformTokens.icons_html(game.platforms)
 

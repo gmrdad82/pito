@@ -74,6 +74,41 @@ RSpec.describe Pito::Chat::Handlers::Platform do
     expect(game.reload.platforms).to contain_exactly("Nintendo Switch", "PlayStation 5")
   end
 
+  # ── set / unset subcommands (add / remove) ──────────────────────────────────────
+
+  it "adds via an explicit `set` subcommand" do
+    free_call("set #{game.id} ps5")
+    expect(game.reload.platforms).to eq([ "PlayStation 5" ])
+  end
+
+  it "removes a specific platform via `unset`, preserving the others" do
+    game.update!(platforms: [ "PlayStation 5", "Nintendo Switch" ])
+    result = free_call("unset #{game.id} ps5")
+
+    expect(game.reload.platforms).to eq([ "Nintendo Switch" ])
+    expect(result.events.first[:payload]["body"]).to include("Removed")
+  end
+
+  it "unset is a no-op (still Ok) when the platform is not present" do
+    game.update!(platforms: [ "Nintendo Switch" ])
+    result = free_call("unset #{game.id} ps5")
+
+    expect(result).to be_a(Pito::Chat::Result::Ok)
+    expect(game.reload.platforms).to eq([ "Nintendo Switch" ])
+  end
+
+  it "removes via a game_detail reply (`#<handle> platform unset ps5`)" do
+    game.update!(platforms: [ "PlayStation 5", "Nintendo Switch" ])
+    reply_call("game_detail", "platform unset ps5", game_id: game.id)
+    expect(game.reload.platforms).to eq([ "Nintendo Switch" ])
+  end
+
+  it "removes via a game_list reply (leading id)" do
+    game.update!(platforms: [ "PlayStation 5", "Nintendo Switch" ])
+    reply_call("game_list", "platform unset #{game.id} ps5")
+    expect(game.reload.platforms).to eq([ "Nintendo Switch" ])
+  end
+
   # ── Unknown platform: stored as text, no logo ───────────────────────────────────
 
   it "stores an unknown platform as text with no logo" do
