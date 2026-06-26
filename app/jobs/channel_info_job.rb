@@ -99,6 +99,7 @@ class ChannelInfoJob < ApplicationJob
         channel.update_columns(
           title:            normalized[:title],
           handle:           normalized[:handle],
+          description:      normalized[:description],
           video_count:      normalized[:video_count],
           last_synced_at:   Time.current
         )
@@ -145,6 +146,7 @@ class ChannelInfoJob < ApplicationJob
     {
       title: snippet[:title],
       handle: snippet[:custom_url],
+      description: snippet[:description],
       avatar_url: avatar_thumb[:url],
       subscriber_count: stats[:subscriber_count]&.to_i,
       view_count: stats[:view_count]&.to_i,

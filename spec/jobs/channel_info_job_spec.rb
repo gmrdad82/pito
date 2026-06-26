@@ -57,6 +57,7 @@ RSpec.describe ChannelInfoJob do
     expect(Pito::Stats.get(channel, :subscribers)).to eq(1500)
     expect(Pito::Stats.get(channel, :views)).to eq(2_300_000)
     expect(channel.video_count).to eq(42)
+    expect(channel.description).to eq("A test channel")
     expect(channel.last_synced_at).to be_within(5.seconds).of(Time.current)
   end
 
