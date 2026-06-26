@@ -232,6 +232,35 @@ RSpec.describe "/connect + OAuth callback", type: :request do
       end
     end
 
+    # Exercises the real discover_and_link_channels code (not stubbed) by
+    # stubbing Channel::Youtube::Client instead, so the handle stored in the
+    # duplicates array is the one fetched from the API item — proving the fix
+    # for the "no-handle" regression (duplicates were pushed as plain strings).
+    context "when the channel is already linked (duplicate via live discovery items)" do
+      before do
+        OmniAuth.config.add_mock(:google_oauth2, omniauth_hash(subject_id: "sub-dup-handle"))
+        create(:channel, youtube_channel_id: "UCdup111")
+        allow_any_instance_of(Channel::Youtube::Client).to receive(:channels_list).and_return(
+          {
+            items: [
+              {
+                id: "UCdup111",
+                snippet: { title: "Alpha Channel", custom_url: "@gmrdad82" }
+              }
+            ]
+          }
+        )
+      end
+
+      it "includes the channel @handle in the already-connected message and never 'no-handle'" do
+        get "/auth/youtube/callback"
+        result = conversation.events.where(kind: :system).last
+        expect(result).to be_present
+        expect(result.payload["text"]).to include("@gmrdad82")
+        expect(result.payload["text"]).not_to include("no-handle")
+      end
+    end
+
     context "with partial grant (missing required scopes)" do
       before do
         OmniAuth.config.add_mock(

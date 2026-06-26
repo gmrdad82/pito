@@ -274,7 +274,7 @@ class YoutubeConnections::OauthCallbacksController < ApplicationController
       handle = item.dig(:snippet, :custom_url).to_s.presence
 
       if Channel.exists?(youtube_channel_id: uc_id)
-        duplicates << title || uc_id
+        duplicates << { title: title || uc_id, handle: handle }
         next
       end
 
