@@ -195,7 +195,7 @@ RSpec.describe Pito::Sync::VideoLibrary, type: :service do
     end
 
     it "returns an empty Result when the channel has no connection" do
-      orphan = create(:channel)
+      orphan = create(:channel, :orphan)
       result = described_class.new(orphan).import_new
 
       expect(result.imported).to eq(0)

@@ -28,7 +28,7 @@ RSpec.describe NightlySyncJob, type: :job do
            youtube_channel_id: "UCreauth")
   end
 
-  let!(:disconnected_channel) { create(:channel) }
+  let!(:disconnected_channel) { create(:channel, :orphan) }
 
   describe "#perform" do
     subject(:job) { described_class.new }

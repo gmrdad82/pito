@@ -29,7 +29,7 @@ RSpec.describe ChannelSync, type: :job do
   end
 
   it "is a no-op when the channel has no youtube_connection" do
-    connless = create(:channel)
+    connless = create(:channel, :orphan)
     described_class.perform_now(connless.id)
     expect(Channel::Youtube::Client).not_to have_received(:new)
   end
