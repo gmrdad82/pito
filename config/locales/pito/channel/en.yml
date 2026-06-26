@@ -1,0 +1,10 @@
+en:
+  pito:
+    channel:
+      detail:
+        handle: "Handle"
+        title: "Title"
+        description: "Description"
+        last_sync_at: "Last sync at"
+        never_synced: "—"
+        no_avatar: "No avatar"
