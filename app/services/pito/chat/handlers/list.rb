@@ -320,7 +320,12 @@ module Pito
           # Guard: only connected channels (a youtube_connection). A connection-less
           # orphan row (stray/test data) is never a real channel — never list it.
           channels = ::Channel.where.not(youtube_connection_id: nil)
-                              .includes(:youtube_connection).order(id: :desc)
+                              .includes(:youtube_connection)
+                              .order(
+                                Arel.sql(
+                                  "(SELECT MAX(videos.published_at) FROM videos WHERE videos.channel_id = channels.id) DESC NULLS LAST, channels.id DESC"
+                                )
+                              )
           if channels.empty?
             return Pito::Chat::Result::Ok.new(events: [
               { kind: :system, payload: Pito::MessageBuilder::Text.call("pito.copy.channels.list_empty") }

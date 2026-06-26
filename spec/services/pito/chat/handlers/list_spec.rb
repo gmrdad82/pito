@@ -305,6 +305,30 @@ RSpec.describe Pito::Chat::Handlers::List do
     end
   end
 
+  # ── Channels ordering by latest video published_at ───────────────────────────
+
+  describe "#call `list channels` ordering by latest video published_at" do
+    let!(:ch_newest) { create(:channel, title: "Newest Vid Chan", handle: "@newest") }
+    let!(:ch_older)  { create(:channel, title: "Older Vid Chan",  handle: "@older") }
+    let!(:ch_novid)  { create(:channel, title: "No Vid Chan",     handle: "@novid") }
+
+    before do
+      create(:video, channel: ch_newest, published_at: 3.days.ago)
+      create(:video, channel: ch_older,  published_at: 10.days.ago)
+      # ch_novid intentionally has no videos
+    end
+
+    it "orders channels newest-latest-vid first, no-vid channel last" do
+      body = handler_for("list channels").call.events.first[:payload]["body"]
+      newest_pos = body.index("@newest")
+      older_pos  = body.index("@older")
+      novid_pos  = body.index("@novid")
+
+      expect(newest_pos).to be < older_pos
+      expect(older_pos).to  be < novid_pos
+    end
+  end
+
   # ── Channels reauth hint ──────────────────────────────────────────────────────
 
   describe "#call `list channels` with reauth-needed connections" do
