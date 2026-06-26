@@ -49,6 +49,26 @@ RSpec.describe Game::Igdb::SyncGame, type: :service do
     expect(game.reload.genres.count).to eq(2)
   end
 
+  # Platforms are owner-editable; an IGDB re-sync must not clobber them.
+  it "preserves owner-set platforms on re-sync (does NOT overwrite with IGDB's list)" do
+    game.update!(platforms: [ "PlayStation 5", "Steam Deck" ])
+    described_class.new(client: client).call(game)
+    expect(game.reload.platforms).to eq([ "PlayStation 5", "Steam Deck" ])
+  end
+
+  it "seeds platforms from IGDB when the game has none yet (initial import)" do
+    game.update!(platforms: [])
+    described_class.new(client: client).call(game)
+    expect(game.reload.platforms).to eq([ "PC (Microsoft Windows)", "Nintendo Switch" ])
+  end
+
+  it "preserves owner-set price and footage_hours on re-sync" do
+    game.update!(price: 49.99, footage_hours: 12.5)
+    described_class.new(client: client).call(game)
+    expect(game.reload.price.to_f).to eq(49.99)
+    expect(game.footage_hours.to_f).to eq(12.5)
+  end
+
   it "enqueues the Voyage index after sync" do
     described_class.new(client: client).call(game)
     expect(GameVoyageIndexJob).to have_received(:perform_later).with(game.id)
