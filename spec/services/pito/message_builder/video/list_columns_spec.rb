@@ -24,6 +24,11 @@ RSpec.describe Pito::MessageBuilder::Video::ListColumns do
       expect(vocab["game"]).to eq(:game)
     end
 
+    it "maps 'category' AND 'categories' to :category (E1 — vid category column)" do
+      expect(vocab["category"]).to eq(:category)
+      expect(vocab["categories"]).to eq(:category)
+    end
+
     it "maps 'games' to :game" do
       expect(vocab["games"]).to eq(:game)
     end
@@ -236,6 +241,16 @@ RSpec.describe Pito::MessageBuilder::Video::ListColumns do
     it "right-aligns and clamps the :duration cell (tabular + pito-cell-duration)" do
       result = described_class.cells(video, [ :duration ])
       expect(result.first[:class]).to eq("text-fg-dim text-right tabular-nums pito-cell-duration")
+    end
+
+    it "renders the human category name for :category (E1)" do
+      video.update!(category_id: "20") # → Gaming
+      expect(described_class.cells(video, [ :category ]).first[:text]).to eq("Gaming")
+    end
+
+    it "renders an em-dash for :category when the video has no category" do
+      video.update!(category_id: nil)
+      expect(described_class.cells(video, [ :category ]).first[:text]).to eq("—")
     end
 
     it "returns the channel at-handle for :channel" do

@@ -2739,6 +2739,7 @@ en:
           col_views_desc: "View count"
           col_likes_desc: "Like count"
           col_comments_desc: "Comment count"
+          col_category_desc: "YouTube category (Gaming, People & Blogs, …)"
         channels_help:
           usage: "list channels"
           options_title: "Options:"
@@ -3235,14 +3236,14 @@ en:
               usage: "#<list-vids-hashtag> with <columns>"
               sections:
                 Arguments:
-                  "<columns>": "Comma-separated column names to add: channel, status, game, length, views, likes, comments"
+                  "<columns>": "Comma-separated column names to add: channel, status, game, length, views, likes, comments, category"
                 Options:
                   "--help": "Print this help message"
             without:
               usage: "#<list-vids-hashtag> without <columns>"
               sections:
                 Arguments:
-                  "<columns>": "Comma-separated column names to remove: channel, status, game, length, views, likes, comments"
+                  "<columns>": "Comma-separated column names to remove: channel, status, game, length, views, likes, comments, category"
                 Options:
                   "--help": "Print this help message"
             sort:
