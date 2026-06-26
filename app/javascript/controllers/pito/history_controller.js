@@ -1,29 +1,34 @@
 // pito--history
 //
-// Shell-style input history for the chatbox textarea (↑ = older, ↓ = newer).
+// Shell-style (oh-my-zsh) PREFIX-matched input history for the chatbox textarea
+// (↑ = older, ↓ = newer), with in-place replacement — NOT a palette / autosuggest.
 //
 // Mounted on #pito-chatbox alongside pito--suggestions and pito--draft.
 // On the start screen the history value will be an empty array, making the
 // controller effectively inert.
 //
 // Values:
-//   entries — JSON array of previously-sent input_text strings, newest first.
+//   entries — JSON array of previously-sent input strings, newest first.
 //
-// Behaviour:
-//   - Maintains an index (-1 = current draft).
-//   - ArrowUp: step toward older entries (higher index).
-//   - ArrowDown: step toward newer entries (lower index), restoring the
-//     preserved draft when the index returns to -1.
-//   - Guards (let event pass without consuming it):
+// Behaviour (oh-my-zsh prefix search):
+//   - The FIRST ↑ snapshots the current buffer as the search PREFIX and filters
+//     history to the entries that startsWith(prefix). Typing "/conf" then ↑ walks
+//     only "/config…" entries; an empty buffer matches everything.
+//   - ↑ steps toward older matches, ↓ toward newer, restoring the snapshot draft
+//     when the index returns to -1. NO WRAP at either end (stops at the oldest
+//     match / the draft).
+//   - Typing any character ENDS the recall session (a real `input` event clears
+//     the snapshot); the next ↑ re-snapshots from the now-current buffer.
+//   - No timer / no pending-commit state: the shown value is always the live value.
+//   - Guards (let the event pass without consuming it):
 //       • The suggestions palette is open (.pito-suggestions-palette:not(.hidden)).
 //       • The sidebar is open (#pito-sidebar has child elements).
-//       • For ArrowUp: caret is NOT on the first visual line (i.e. textarea
-//         contains a newline AND caret position > 0).
-//       • For ArrowDown: caret is NOT on the last visual line (i.e. textarea
-//         contains a newline AND caret position < value length).
+//       • For ↑: caret is NOT on the first visual line (textarea has a newline AND
+//         caret > 0). For ↓: caret is NOT on the last visual line.
 //   - On applying an entry: sets textarea.value, moves caret to end, and
 //     dispatches a synthetic `input` event so other controllers (type-fx,
-//     terminal-caret, draft) re-render.
+//     terminal-caret, draft) re-render. That synthetic event is flagged so it does
+//     NOT count as a user edit (which would end the recall session).
 //
 // Auto-registered via eagerLoadControllersFrom.
 
@@ -33,11 +38,20 @@ export default class extends Controller {
   static values = { entries: Array }
 
   connect() {
-    this._index = -1       // -1 = "at current draft"
-    this._draft = ""       // preserved draft text
+    this._index    = -1      // -1 = "at the snapshot draft"
+    this._draft    = ""      // preserved buffer text when recall began
+    this._prefix   = null    // null = no active recall session
+    this._matches  = null    // entries.startsWith(prefix), newest-first
+    this._applying = false   // true while we dispatch our own synthetic input
 
     this._onKeydown = this.#onKeydown.bind(this)
     this.element.addEventListener("keydown", this._onKeydown)
+
+    // A real user edit ends the recall session. We listen for `input` on the
+    // chatbox; our own synthetic input (from #applyEntry) is ignored via the
+    // _applying flag.
+    this._onInput = this.#onInput.bind(this)
+    this.element.addEventListener("input", this._onInput)
 
     // Capture the submitted value before the chat-form clears the textarea.
     // We listen on the nearest ancestor <form> in capture phase so we run
@@ -51,6 +65,7 @@ export default class extends Controller {
 
   disconnect() {
     this.element.removeEventListener("keydown", this._onKeydown)
+    this.element.removeEventListener("input", this._onInput)
     if (this._form && this._onSubmit) {
       this._form.removeEventListener("submit", this._onSubmit, { capture: true })
     }
@@ -69,6 +84,20 @@ export default class extends Controller {
     return this._entries
   }
 
+  // End any active recall session so the next ↑ re-snapshots the current buffer.
+  #resetRecall() {
+    this._index   = -1
+    this._prefix  = null
+    this._matches = null
+  }
+
+  #onInput() {
+    // Ignore the synthetic input we dispatch while applying a recalled entry.
+    if (this._applying) return
+    // A real user edit ends the recall session.
+    this.#resetRecall()
+  }
+
   #onSubmit() {
     const field = this.element.querySelector("textarea")
     if (!field) return
@@ -79,14 +108,14 @@ export default class extends Controller {
     const entries = this.#entries
 
     // Dedupe consecutive duplicates (don't add if identical to the current newest).
-    if (entries.length > 0 && entries[0] === text) return
+    if (entries.length === 0 || entries[0] !== text) {
+      // Prepend newest-first; cap at 50.
+      this._entries = [text, ...entries].slice(0, 50)
+    }
 
-    // Prepend newest-first; cap at 50.
-    this._entries = [text, ...entries].slice(0, 50)
-
-    // Reset cursor so the next ↑ starts from this freshly-sent command.
-    this._index = -1
+    // Reset so the next ↑ starts a fresh search from the (cleared) buffer.
     this._draft = ""
+    this.#resetRecall()
   }
 
   #onKeydown(event) {
@@ -117,16 +146,19 @@ export default class extends Controller {
       // (i.e. on the first visual line).
       if (hasNewline && caret > 0) return
 
-      const nextIndex = this._index + 1
-      if (nextIndex >= entries.length) return   // already at oldest
-
-      if (this._index === -1) {
-        // Preserve the current draft before stepping into history.
-        this._draft = value
+      // Start a recall session on the first ↑: snapshot the buffer as the prefix
+      // and filter history to the matching entries (empty prefix → all entries).
+      if (this._prefix === null) {
+        this._prefix  = value
+        this._draft   = value
+        this._matches = entries.filter((e) => e.startsWith(this._prefix))
       }
 
+      const nextIndex = this._index + 1
+      if (nextIndex >= this._matches.length) return   // no match / at oldest (no wrap)
+
       this._index = nextIndex
-      this.#applyEntry(field, entries[this._index])
+      this.#applyEntry(field, this._matches[this._index])
       event.preventDefault()
 
     } else {
@@ -134,27 +166,31 @@ export default class extends Controller {
       // Guard: for multi-line content, only consume if caret is at the end.
       if (hasNewline && caret < value.length) return
 
-      if (this._index === -1) return   // already at current draft
+      if (this._index === -1) return   // already at the snapshot draft
 
       const nextIndex = this._index - 1
 
       if (nextIndex < 0) {
-        // Return to preserved draft.
+        // Return to the snapshot draft (keep the prefix so a further ↑ continues).
         this._index = -1
         this.#applyEntry(field, this._draft)
       } else {
         this._index = nextIndex
-        this.#applyEntry(field, entries[this._index])
+        this.#applyEntry(field, this._matches[this._index])
       }
       event.preventDefault()
     }
   }
 
   #applyEntry(field, text) {
+    // Flag so the resulting `input` event is not treated as a user edit (which
+    // would end the recall session via #onInput).
+    this._applying = true
     field.value = text
     // Move caret to end.
     field.selectionStart = field.selectionEnd = text.length
     // Notify other controllers (type-fx overlay, terminal-caret, draft autosave).
     field.dispatchEvent(new Event("input", { bubbles: true }))
+    this._applying = false
   }
 }
