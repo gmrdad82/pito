@@ -1,0 +1,15 @@
+<% if end? %>
+  <div id="<%= SENTINEL_ID %>" data-pito--list-pager-target="sentinel">
+    <p class="text-fg-dim py-2"><%= end_copy %></p>
+  </div>
+<% else %>
+  <div id="<%= SENTINEL_ID %>"
+       data-pito--list-pager-target="sentinel"
+       data-pager-next-url="<%= next_url %>">
+    <%# Shimmer loader — hidden until a fetch is in flight (pager toggles it).
+        Same dotted shimmer used by games-import + async conversation delete. %>
+    <p class="hidden overflow-hidden whitespace-nowrap" data-pito--list-pager-target="loader">
+      <%= render(Pito::Shell::ShimmerTextComponent.new(text: ". " * 60)) %>
+    </p>
+  </div>
+<% end %>

@@ -71,6 +71,53 @@ RSpec.describe "GET /notifications", type: :request do
     end
   end
 
+  # ── Pagination (keyset / infinite scroll) ────────────────────────────────────
+
+  describe "pagination" do
+    before { authenticate_via_totp }
+    let(:ts) { { "Accept" => "text/vnd.turbo-stream.html" } }
+
+    it "caps the first page at PAGE_SIZE rows" do
+      create_list(:notification, Notification::PAGE_SIZE + 5)
+      get notifications_path, headers: ts
+      expect(response.body.scan('class="pito-notification-row').size).to eq(Notification::PAGE_SIZE)
+    end
+
+    it "renders a sentinel carrying the next-page URL when more rows exist" do
+      create_list(:notification, Notification::PAGE_SIZE + 5)
+      get notifications_path, headers: ts
+      expect(response.body).to include('id="pito-list-pager-sentinel"')
+      expect(response.body).to match(/data-pager-next-url="[^"]*\/notifications\?after=/)
+    end
+
+    it "shows the end-of-list sentinel (no next URL) when everything fits one page" do
+      create_list(:notification, 3)
+      get notifications_path, headers: ts
+      expect(response.body).to include('id="pito-list-pager-sentinel"')
+      expect(response.body).not_to include("data-pager-next-url")
+    end
+
+    it "APPENDS the next page and REPLACES the sentinel for a cursor request" do
+      create_list(:notification, Notification::PAGE_SIZE + 3)
+      _first, cursor = Notification.panel_page
+      get notifications_path(after: cursor), headers: ts
+      expect(response.body).to include('action="append"')
+      expect(response.body).to include('target="pito-notifications-list"')
+      expect(response.body).to include('action="replace"')
+      expect(response.body).to include('target="pito-list-pager-sentinel"')
+      # the tail page (3 rows) exhausts the list → sentinel has no next URL
+      expect(response.body.scan('class="pito-notification-row').size).to eq(3)
+      expect(response.body).not_to include("data-pager-next-url")
+    end
+
+    it "treats a garbage cursor as the first page (no crash)" do
+      create_list(:notification, 2)
+      get notifications_path(after: "@@@not-a-cursor@@@"), headers: ts
+      expect(response).to have_http_status(:ok)
+      expect(response.body.scan('class="pito-notification-row').size).to eq(2)
+    end
+  end
+
   # ── Unauthenticated path ────────────────────────────────────────────────────
 
   describe "when unauthenticated" do

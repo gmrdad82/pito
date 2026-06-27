@@ -1,7 +1,8 @@
 <%# Sidebar panel content — the notifications list wrapped in the Sidebar shell.
     Rendered by both notifications/index.turbo_stream.erb (HTTP path) and
     Pito::Stream::Broadcaster#broadcast_notifications_sidebar (cable / slash path).
-    Expects local variable `notifications` (ordered relation or Array). %>
+    Expects `notifications` (first page) and `next_cursor` (opaque token for the
+    next page, or nil on the last page). %>
 <%= render(Pito::Sidebar::Component.new(
       title: t("pito.sidebar.notifications.title")
     )) do |sidebar| %>
@@ -10,7 +11,8 @@
   <% end %>
   <% sidebar.with_body do %>
     <%= render(Pito::Sidebar::Notifications::Component.new(
-          notifications: notifications
+          notifications: notifications,
+          next_cursor:   next_cursor
         )) %>
   <% end %>
 <% end %>

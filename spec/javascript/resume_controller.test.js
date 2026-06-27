@@ -421,13 +421,13 @@ describe("pito--resume controller", () => {
     )
   })
 
-  it("pressing d a second time removes the row on success", async () => {
+  it("pressing d a second time fires the async DELETE and leaves the row for the server to remove", async () => {
     const sidebar = buildSidebar()
     await waitForConnect()
     const row = addRow(sidebar, { uuid: "del-3" })
     await waitForMO()
 
-    vi.spyOn(globalThis, "fetch").mockResolvedValue({ ok: true })
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue({ ok: true })
 
     fireKey("d")
     fireKey("d")
@@ -435,7 +435,14 @@ describe("pito--resume controller", () => {
     // Give the async fetch promise a tick to resolve.
     await new Promise((r) => setTimeout(r, 20))
 
-    expect(sidebar.contains(row)).toBe(false)
+    // Async delete (Phase J): the client sends DELETE /chat/<uuid> and does NOT
+    // remove the row itself — the server marks it deleting and broadcasts
+    // row → shimmering-dots → removal over pito:global. So the row stays put here.
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/chat/del-3",
+      expect.objectContaining({ method: "DELETE" })
+    )
+    expect(sidebar.contains(row)).toBe(true)
   })
 
   it("pressing ArrowDown disarms the armed row", async () => {

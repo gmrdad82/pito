@@ -120,6 +120,22 @@ describe("pito--notifications-nav controller", () => {
     expect(row1.classList.contains("pito-resume-highlight")).toBe(false)
   })
 
+  it("ArrowDown at the last row dispatches pito:list-pager:more (asks the pager for more)", async () => {
+    const list = buildList()
+    addNotification(list, { id: "1" })
+    const last = addNotification(list, { id: "2" })
+    await tick()
+
+    const events = []
+    list.addEventListener("pito:list-pager:more", () => events.push(1))
+
+    fireKey("ArrowDown") // 0 → 1 (last); not yet at the bottom on entry → no event
+    fireKey("ArrowDown") // already at last → dispatch "more"
+
+    expect(last.classList.contains("pito-resume-highlight")).toBe(true)
+    expect(events.length).toBe(1)
+  })
+
   it("ArrowUp moves highlight back to first row", async () => {
     const list = buildList()
     const row1 = addNotification(list, { id: "1" })

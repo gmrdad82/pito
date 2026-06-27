@@ -4,6 +4,79 @@ All notable changes to PITO are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); the project aims for
 [Semantic Versioning](https://semver.org/).
 
+## [0.8.5] — Unreleased
+
+A broad follow-up to **analtics**: a full `show channel` surface, sharper `sync`
+and `analyze` reply flows, named conversations, a faster/cleaner notifications
+panel, a self-hosted typeface, and an exhaustive dispatcher-recognition spec net
+that hardens every verb/keyword combination across the slash, hashtag, and chat
+stacks. (Bespoke analytics view components close out the tag.)
+
+### Added
+
+- **`show channel`** — a full channel surface: a `:system` detail card (with
+  last-sync time and a trimmed linked-game card), an `:enhanced` repliable vids
+  list, and an `:enhanced` channel analytics glance. Channels now carry a
+  `description` synced from the YouTube snippet.
+- **Named conversations** — `/new <name>` opens a titled conversation and
+  `/resume <name>` jumps straight to it. A miss offers a clicky "create it"
+  affordance plus up to five fuzzy-matched suggestions to resume instead.
+- **`/rename`** — rename the current conversation from the chatbox.
+- **`sync` targets specific vids** — `sync vid|vids|video|videos #id[,#id…]`
+  syncs exactly those videos (ids win); bare `sync vids` obeys the shift+tab
+  channel scope (mirroring `analyze`).
+- **`show` replies route by card** — replying to a `:system` card runs `sync`
+  for that entity; replying to an `:enhanced` glance runs `analyze` — for vids,
+  games, and channels alike.
+- **`/authenticate`** is now an alias for `/login`; while logged out, the slash
+  suggestions surface only `/login`, and the other verbs explain that login is
+  required.
+- **`list … with <cols> sort by <col>`** combine cleanly, with `sort` / `sorted`
+  / `order` / `ordered` (and an optional `by`) all accepted.
+- **Game platforms** — `platform set` / `platform unset` add and remove a game's
+  platforms.
+- **Paginated notifications panel** — loads 50 at a time and fetches more as you
+  scroll (or press ↓ at the bottom), with a shimmering-dot loader and a playful
+  "end of the list" marker (a new reusable copy dictionary). Replaces the old
+  load-everything panel.
+- **Async conversation deletion** — `dd` in the /resume sidebar hands the
+  (potentially slow) cascade to a background job while the row shows a
+  shimmering-dots placeholder; the state is persisted, so reopening the sidebar
+  mid-delete still shows the dots.
+- **Chatbox history recall** — oh-my-zsh-style prefix recall: type a prefix and
+  walk previous matching commands.
+- **Self-hosted DejaVu Sans Mono** — the terminal typeface (plus a braille face)
+  is now bundled and subset, replacing Iosevka; source-misaligned ASCII art fixed.
+- **`vid` category column** in `list vids`.
+
+### Changed
+
+- **Notification badge** in the mini-status is a compact cyan-shimmer **`N*`**
+  (was `N notifs`) and is **clickable** — click it (or `ctrl+/`) to toggle the
+  notifications sidebar. The /resume sidebar shortcut labels are trimmed to
+  `n rename` / `dd delete`.
+- **`/config` credentials** dual-route to the right provider and mask secrets at
+  the source.
+- **Slash palette** triggers argument completion on a trailing space and sends on
+  Enter at the verb stage.
+- **`list channels`** is ordered by most-recently-published vid.
+
+### Fixed
+
+- **Owner-set game platforms survive an IGDB re-sync** (no longer overwritten).
+- **`/connect`** no longer shows a no-handle confirmation when already connected.
+- **Channel avatar filenames are channel-unique** so the CDN can't serve a stale
+  cached image across channels.
+- **Follow-up parity** — delete/publish aliases, implicit `price <id> <amount>`,
+  footage reply parity, and repliable publish/unlist/schedule on a video card,
+  with the schedule id-less reply bug fixed.
+
+### Reliability
+
+- **Exhaustive dispatcher-recognition specs** — a fast, DB-free spec net asserts
+  the system's understanding of every verb × every keyword combination (with and
+  without args, plus unknown inputs) across the slash, hashtag, and chat stacks.
+
 ## [0.8.0] — 2026-06-26
 
 The **analtics** release — a chat-first `analyze` verb over the YouTube Analytics
