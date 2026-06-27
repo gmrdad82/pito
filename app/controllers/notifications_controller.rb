@@ -6,8 +6,13 @@
 # Auth gating: inherits Sessions::AuthConcern from ApplicationController.
 # No allow_anonymous — unauthenticated requests are redirected to root.
 class NotificationsController < ApplicationController
+  # Bare (`?after` absent) → full panel into #pito-sidebar (first PAGE_SIZE rows
+  # + a pager sentinel). Paginated (`?after=<opaque cursor>`) → a Turbo Stream
+  # that APPENDS the next page's rows and REPLACES the sentinel. Keyset/cursor
+  # paging lives in Notification.panel_page; the cursor token is opaque.
   def index
-    @notifications = Notification.panel_ordered
+    @notifications, @next_cursor = Notification.panel_page(after: params[:after])
+    @append = params[:after].present?
 
     respond_to do |format|
       format.turbo_stream { render "notifications/index" }

@@ -1,24 +1,17 @@
 <%# Sidebar notifications list — stacked rows: relative time, then the full
     (word-wrapped) message. Arrow up/down move the highlight (landing on an
     unread row marks it read); clicking a row toggles read/unread
-    (pito--notifications-nav). %>
-<div class="flex flex-col gap-2" data-controller="pito--notifications-nav">
+    (pito--notifications-nav). The list is keyset-paginated: scrolling to the
+    bottom (or ↓ at the last row) loads the next page (pito--list-pager). %>
+<div class="flex flex-col gap-2" data-controller="pito--notifications-nav pito--list-pager">
   <% if notifications.empty? %>
     <div class="text-fg-dim py-2">No notifications</div>
   <% else %>
-    <% notifications.each do |notification| %>
-      <div class="pito-notification-row py-1 px-2 rounded cursor-pointer"
-           data-notification-id="<%= notification.id %>"
-           data-read="<%= notification.read? %>"
-           data-created-at="<%= notification.created_at.to_i %>">
-        <div class="text-fg-dim"><%= formatted_timestamp(notification) %></div>
-        <div class="flex items-baseline gap-2">
-          <span class="pito-notification-dot shrink-0 <%= notification.unread? ? "text-cyan" : "text-fg-faded" %>"><%= notification.unread? ? "●" : "○" %></span>
-          <%# Notifications render HTML — sanitized so only safe tags survive (the
-              message is built with escaped dynamic parts at the source). %>
-          <div class="pito-notification-message <%= notification.unread? ? "text-fg font-bold" : "text-fg-dim" %>"><%= sanitize(notification.message) %></div>
-        </div>
-      </div>
-    <% end %>
+    <div id="pito-notifications-list" class="flex flex-col gap-2" data-pito--list-pager-target="list">
+      <% notifications.each do |notification| %>
+        <%= render "notifications/row", notification: notification %>
+      <% end %>
+    </div>
+    <%= render(Pito::ListPager::SentinelComponent.new(next_url: next_url)) %>
   <% end %>
 </div>

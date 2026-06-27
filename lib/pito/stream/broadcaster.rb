@@ -391,12 +391,12 @@ module Pito
       # Renders app/views/notifications/_panel.html.erb (the same partial that
       # NotificationsController#index uses) so no markup is ever duplicated.
       def broadcast_notifications_sidebar
-        helper        = ApplicationController.helpers
-        notifications = Notification.panel_ordered
+        helper                     = ApplicationController.helpers
+        notifications, next_cursor = Notification.panel_page
 
         panel_html = ApplicationController.renderer.render(
           partial: "notifications/panel",
-          locals:  { notifications: }
+          locals:  { notifications:, next_cursor: }
         )
 
         content = helper.turbo_stream.update("pito-sidebar", panel_html.html_safe)

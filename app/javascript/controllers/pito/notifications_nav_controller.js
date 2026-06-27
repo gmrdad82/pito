@@ -71,6 +71,13 @@ export default class extends Controller {
   }
 
   #move(rows, delta) {
+    // ↓ while already on the last row → ask the generic pager to load more
+    // (it no-ops if there is no next page). The appended rows join #rows() on
+    // the next keypress, so the highlight can keep descending into them.
+    if (delta > 0 && this.index === rows.length - 1) {
+      this.element.dispatchEvent(new CustomEvent("pito:list-pager:more"))
+    }
+
     if (this.index === -1) {
       this.index = delta > 0 ? 0 : rows.length - 1
     } else {

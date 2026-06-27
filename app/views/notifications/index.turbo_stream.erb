@@ -1,6 +1,23 @@
-<%# Turbo Stream — populates #pito-sidebar with the notifications list
-    wrapped in the Sidebar shell (fixed overlay panel).
-    Mirrors app/views/chat/_resume_sidebar.turbo_stream.erb. %>
-<%= turbo_stream.update "pito-sidebar" do %>
-  <%= render partial: "notifications/panel", locals: { notifications: @notifications } %>
+<%# Two shapes:
+    - first load (no ?after) → replace #pito-sidebar with the full panel
+      (first page of rows + the pager sentinel), wrapped in the Sidebar shell.
+    - paginated (?after=<opaque cursor>) → APPEND the next page's rows into the
+      list container and REPLACE the sentinel with a fresh one (new cursor, or
+      the end-of-list state). Mirrors app/views/chat/_resume_sidebar. %>
+<% if @append %>
+  <%= turbo_stream.append "pito-notifications-list" do %>
+    <% @notifications.each do |notification| %>
+      <%= render "notifications/row", notification: notification %>
+    <% end %>
+  <% end %>
+  <%= turbo_stream.replace Pito::ListPager::SentinelComponent::SENTINEL_ID do %>
+    <%= render(Pito::ListPager::SentinelComponent.new(
+          next_url: @next_cursor.present? ? notifications_path(after: @next_cursor) : nil
+        )) %>
+  <% end %>
+<% else %>
+  <%= turbo_stream.update "pito-sidebar" do %>
+    <%= render partial: "notifications/panel",
+               locals:  { notifications: @notifications, next_cursor: @next_cursor } %>
+  <% end %>
 <% end %>

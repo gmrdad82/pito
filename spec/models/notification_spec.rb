@@ -89,6 +89,71 @@ RSpec.describe Notification, type: :model do
     end
   end
 
+  describe "keyset pagination (.panel_after / .panel_page / .cursor_for)" do
+    it "PAGE_SIZE is 50" do
+      expect(Notification::PAGE_SIZE).to eq(50)
+    end
+
+    it "panel_ordered carries an id tiebreak so same-created_at rows are stable" do
+      t = 2.hours.ago
+      a = create(:notification, created_at: t)
+      b = create(:notification, created_at: t)
+      c = create(:notification, created_at: t)
+      # same timestamp → ordered by id DESC (newest id first)
+      ids = Notification.panel_ordered.where(created_at: t).pluck(:id)
+      expect(ids).to eq([ c.id, b.id, a.id ])
+    end
+
+    describe ".panel_page" do
+      it "returns at most PAGE_SIZE rows and a next cursor when more exist" do
+        create_list(:notification, Notification::PAGE_SIZE + 3)
+        rows, cursor = Notification.panel_page
+        expect(rows.size).to eq(Notification::PAGE_SIZE)
+        expect(cursor).to be_present
+      end
+
+      it "returns a nil cursor on the last page" do
+        create_list(:notification, 3)
+        rows, cursor = Notification.panel_page
+        expect(rows.size).to eq(3)
+        expect(cursor).to be_nil
+      end
+
+      it "walks every row exactly once, in panel_ordered order, via the cursor" do
+        # mix unread + read so the walk crosses the read-bucket boundary
+        create_list(:notification, Notification::PAGE_SIZE + 2)
+        create_list(:notification, 4, :read)
+
+        walked = []
+        cursor = nil
+        loop do
+          rows, cursor = Notification.panel_page(after: cursor)
+          walked.concat(rows.map(&:id))
+          break if cursor.nil?
+        end
+
+        expect(walked).to eq(Notification.panel_ordered.pluck(:id))
+        expect(walked.tally.select { |_, n| n > 1 }).to be_empty
+      end
+
+      it "falls back to the first page for a malformed cursor" do
+        create_list(:notification, 2)
+        rows, = Notification.panel_page(after: "@@@garbage@@@")
+        expect(rows.map(&:id)).to eq(Notification.panel_ordered.first(2).map(&:id))
+      end
+    end
+
+    describe ".cursor_for" do
+      it "encodes a row into a token that panel_page can resume from" do
+        create_list(:notification, 5)
+        first_three = Notification.panel_ordered.limit(3).to_a
+        cursor = Notification.cursor_for(first_three.last)
+        rows, = Notification.panel_page(after: cursor)
+        expect(rows.map(&:id) & first_three.map(&:id)).to be_empty
+      end
+    end
+  end
+
   describe "predicates" do
     it "#read? returns false when read_at is nil" do
       n = build(:notification)

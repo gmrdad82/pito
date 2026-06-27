@@ -75,7 +75,14 @@ RSpec.describe Pito::Sidebar::Notifications::Component do
   describe "keyboard-nav wiring + full message" do
     it "mounts the pito--notifications-nav controller on the list" do
       node = render_inline(described_class.new(notifications: [ unread_notification ]))
-      expect(node.css("[data-controller='pito--notifications-nav']")).not_to be_empty
+      # The wrapper now carries two controllers (nav + the generic list-pager),
+      # so match the controller as a word within the attribute, not exactly.
+      expect(node.css("[data-controller~='pito--notifications-nav']")).not_to be_empty
+    end
+
+    it "also mounts the generic pito--list-pager controller on the same wrapper" do
+      node = render_inline(described_class.new(notifications: [ unread_notification ]))
+      expect(node.css("[data-controller~='pito--list-pager']")).not_to be_empty
     end
 
     it "carries data-notification-id and data-read on each row" do
