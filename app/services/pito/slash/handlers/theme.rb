@@ -11,8 +11,10 @@ module Pito
       # interceptor (Pito::Slash::HelpBuilder) handles it BEFORE the handler runs
       # and renders the "manual's manual" easter egg (same as `/help --help`).
       #
-      # Any extra tokens after `/themes` are ignored — the command is lenient and
-      # always opens the sidebar.
+      # `/themes` takes NO arguments — theme selection happens in the sidebar UI,
+      # not via a slash arg. The grammar spec declares zero slots, so the
+      # dispatcher's arity guard REJECTS any extra token (`too_many_args`); only a
+      # bare `/themes` reaches this handler and opens the sidebar.
       class Theme < Pito::Slash::Handler
         self.verb        = :themes
         self.description_key = "pito.slash.theme.descriptions.theme"

@@ -34,6 +34,10 @@ module Pito
 
         def call
           body = message.body_tokens.reject { |t| NOUN_FILLERS.include?(t.value.to_s.downcase) }
+          # On a video-card reply (`#<handle> schedule <when>`) the source video IS
+          # the target, so no id is typed. Prepend the card's id so the rest of the
+          # body parses as the <when> through the normal ref-leading flow.
+          body = prepend_follow_up_ref(body)
           return needs_ref if body.empty?
 
           # `schedule <id> slate` (or a reply `#<h> schedule slate`) → the
@@ -76,6 +80,24 @@ module Pito
         end
 
         private
+
+        # On a follow-up reply with no typed numeric id, prepend the source card's
+        # `video_id` as a synthetic leading token so the existing ref-leading parse
+        # targets that video. A typed id, or a list reply with no single
+        # `video_id`, is left untouched.
+        def prepend_follow_up_ref(body)
+          return body unless follow_up?
+          return body if body.empty?
+
+          first = body.first.value.to_s.sub(/\A#\s*/, "")
+          return body if first.match?(/\A\d+\z/)
+
+          id = follow_up.source_event.payload.with_indifferent_access[:video_id]
+          return body if id.blank?
+
+          synthetic = Pito::Lex::Token.new(type: :word, value: id.to_s, position: -1, preceded_by_space: false)
+          [ synthetic ] + body
+        end
 
         # `schedule <id> slate` — render the upcoming-schedule planner, obeying the
         # conversation's channel scope (shift+tab) + stats period (shift+space) and

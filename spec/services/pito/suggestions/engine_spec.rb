@@ -1078,9 +1078,9 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
     end
   end
 
-  # schedule is NOT a declared video_detail action, so it must not surface slate
-  # there (the verb itself isn't offered for video_detail replies).
-  describe "hashtag follow-up: schedule not offered for video_detail", :db do
+  # schedule IS a declared video_detail action (0.8.5 video-card ops), so it is
+  # offered in the reply-verb palette for a video_detail reply.
+  describe "hashtag follow-up: schedule offered for video_detail", :db do
     let(:conversation) { Conversation.create! }
     let(:turn)         { conversation.turns.create!(input_kind: :chat, input_text: "show vid x", position: 1) }
     let!(:video)       { create(:video, :public, channel: create(:channel)) }
@@ -1093,10 +1093,11 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
       )
     end
 
-    it "does not include schedule in the reply-verb action palette" do
+    it "includes schedule (and the other video-card ops) in the reply-verb action palette" do
       result = call(input: "#vdet-6666 ", cursor: 11, conversation:)
       labels = result[:menu_items].map { |i| i[:label] }
-      expect(labels).not_to include("schedule")
+      expect(labels).to include("schedule")
+      expect(labels).to include("publish", "unlist", "sync")
     end
   end
 

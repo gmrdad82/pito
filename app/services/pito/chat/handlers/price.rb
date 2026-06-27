@@ -9,8 +9,11 @@
 #
 # `price unset <id>` — clears the price back to NULL ("unpriced").
 #
-# Bare `price` / an unknown subcommand / missing args → a usage hint naming both
-# forms. The success event is a Standard `:system` message (witty confirmation).
+# `price <id> <amount>` — implicit set (no subcommand word), at parity with the
+# game-card reply `#<handle> price <amount>`. `set` stays accepted + explicit.
+#
+# Bare `price` / missing args → a usage hint naming the forms. The success event
+# is a Standard `:system` message (witty confirmation).
 module Pito
   module Chat
     module Handlers
@@ -27,7 +30,10 @@ module Pito
           case sub
           when SET_SUBCOMMAND   then set(ref, raw_amount)
           when UNSET_SUBCOMMAND then unset(ref)
-          else needs_ref
+          else
+            # Implicit set: `price <id> <amount>` (no subcommand) — `sub` holds the
+            # id, `ref` the amount. Parity with the `#<handle> price <amount>` reply.
+            set(sub, ref)
           end
         end
 

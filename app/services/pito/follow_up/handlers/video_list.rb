@@ -29,7 +29,7 @@ module Pito
         self.target "video_list"
         self.mode   :append
         self.action_modes with: :mutate, without: :mutate, sort: :mutate, order: :mutate
-        self.actions "show", "delete", "rm", "schedule", "publish", "unlist",
+        self.actions "show", "delete", "del", "rm", "schedule", "publish", "pub", "unlist",
                      "with", "without", "sort", "order", "link", "unlink", "shinies"
 
         def call(event:, rest:, conversation:, period: nil, viewport_width: nil, channel: nil)

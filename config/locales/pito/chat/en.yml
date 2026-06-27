@@ -25,7 +25,7 @@ en:
       price:
         descriptions:
           price: "Set or clear a game's euro price (by id)"
-        needs_ref: "Usage: `price set <id> <amount>` (e.g. `price set 12 59.99`) or `price unset <id>` to clear it. Use `list games` to see ids."
+        needs_ref: "Usage: `price <id> <amount>` (or `price set <id> <amount>`, e.g. `price 12 59.99`) or `price unset <id>` to clear it. Use `list games` to see ids."
       delete:
         descriptions:
           delete: "Delete a game or vid (by id or title)"

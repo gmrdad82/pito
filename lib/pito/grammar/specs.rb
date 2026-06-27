@@ -60,14 +60,14 @@ module Pito
           Spec.new(
             namespace:       :slash,
             name:            :new,
-            slots:           [],
+            slots:           [ Slot.new(name: :name, kind: :free, optional: true) ],
             auth:            :authenticated_only,
             description_key: "pito.grammar.slash.new"
           ),
           Spec.new(
             namespace:       :slash,
             name:            :resume,
-            slots:           [],
+            slots:           [ Slot.new(name: :name, kind: :free, optional: true) ],
             auth:            :authenticated_only,
             description_key: "pito.grammar.slash.resume"
           ),
@@ -150,7 +150,7 @@ module Pito
           Spec.new(
             namespace:       :chat,
             name:            :delete,
-            aliases:         [ :rm ],
+            aliases:         [ :rm, :del ],
             slots:           [ Slot.new(name: :title, kind: :enum, source: :game_titles, optional: true) ],
             description_key: "pito.grammar.chat.delete"
           ),
@@ -177,6 +177,7 @@ module Pito
           Spec.new(
             namespace:       :chat,
             name:            :publish,
+            aliases:         [ :pub ],
             slots:           [ Slot.new(name: :title, kind: :free, optional: true) ],
             description_key: "pito.grammar.chat.publish"
           ),
