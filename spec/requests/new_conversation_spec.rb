@@ -50,6 +50,54 @@ RSpec.describe "POST /chat with /new", type: :request do
         post chat_path, params: { input: "/new", uuid: conversation.uuid }
       }.not_to have_enqueued_job(ChatDispatchJob)
     end
+
+    # ── /new <name>: named conversation ─────────────────────────────────────
+
+    context "with a name argument (/new <name>)" do
+      it "creates a new Conversation" do
+        expect {
+          post chat_path, params: { input: "/new awesome", uuid: conversation.uuid }
+        }.to change(Conversation, :count).by(1)
+      end
+
+      it "titles the new conversation with the given name" do
+        post chat_path, params: { input: "/new awesome", uuid: conversation.uuid }
+        new_conversation = Conversation.order(:id).last
+        expect(new_conversation.title).to eq("awesome")
+      end
+
+      it "returns a Turbo Stream navigate to the named conversation" do
+        post chat_path, params: { input: "/new awesome", uuid: conversation.uuid }
+        new_conversation = Conversation.order(:id).last
+        expect(response).to have_http_status(:ok)
+        expect(response.content_type).to include("text/vnd.turbo-stream.html")
+        expect(response.body).to include('action="navigate"')
+        expect(response.body).to include(new_conversation.uuid)
+      end
+
+      it "does NOT give the new conversation an Unnamed title" do
+        post chat_path, params: { input: "/new awesome", uuid: conversation.uuid }
+        new_conversation = Conversation.order(:id).last
+        expect(new_conversation.title).not_to match(/\AUnnamed\b/)
+      end
+
+      it "does NOT echo /new <name> into the origin conversation" do
+        post chat_path, params: { input: "/new awesome", uuid: conversation.uuid }
+        expect(conversation.events.reload.where(kind: :echo).count).to eq(0)
+      end
+
+      it "does NOT enqueue a ChatDispatchJob" do
+        expect {
+          post chat_path, params: { input: "/new awesome", uuid: conversation.uuid }
+        }.not_to have_enqueued_job(ChatDispatchJob)
+      end
+
+      it "preserves multi-word names (e.g. /new my game channel)" do
+        post chat_path, params: { input: "/new my game channel", uuid: conversation.uuid }
+        new_conversation = Conversation.order(:id).last
+        expect(new_conversation.title).to eq("my game channel")
+      end
+    end
   end
 
   # ── Unauthenticated path ───────────────────────────────────────────────────

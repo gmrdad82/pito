@@ -217,4 +217,108 @@ RSpec.describe Conversation, type: :model do
       expect(ids.index(conv_b.id)).to be < ids.index(conv_a.id)
     end
   end
+
+  describe ".find_by_title_ci" do
+    it "returns nil when given nil" do
+      expect(described_class.find_by_title_ci(nil)).to be_nil
+    end
+
+    it "returns nil when given a blank string" do
+      expect(described_class.find_by_title_ci("")).to be_nil
+    end
+
+    it "returns nil when given a whitespace-only string" do
+      expect(described_class.find_by_title_ci("   ")).to be_nil
+    end
+
+    it "returns nil when no conversation title matches" do
+      create(:conversation, title: "Elden Ring")
+      expect(described_class.find_by_title_ci("Dark Souls")).to be_nil
+    end
+
+    it "returns the conversation on an exact same-case match" do
+      conv = create(:conversation, title: "My Chat")
+      expect(described_class.find_by_title_ci("My Chat")).to eq(conv)
+    end
+
+    it "matches regardless of case" do
+      conv = create(:conversation, title: "My Chat")
+      expect(described_class.find_by_title_ci("my chat")).to eq(conv)
+      expect(described_class.find_by_title_ci("MY CHAT")).to eq(conv)
+      expect(described_class.find_by_title_ci("mY cHaT")).to eq(conv)
+    end
+
+    it "strips leading/trailing whitespace from the query before matching" do
+      conv = create(:conversation, title: "Hollow Knight")
+      expect(described_class.find_by_title_ci("  Hollow Knight  ")).to eq(conv)
+    end
+  end
+
+  describe ".similar_titles" do
+    it "returns [] when given nil" do
+      expect(described_class.similar_titles(nil)).to eq([])
+    end
+
+    it "returns [] when given a blank string" do
+      expect(described_class.similar_titles("")).to eq([])
+      expect(described_class.similar_titles("  ")).to eq([])
+    end
+
+    it "returns [] when nothing is within the edit-distance threshold" do
+      create(:conversation, title: "Alpha")
+      # "omega" vs "alpha": distance 4, threshold max(5/3=1, 2) = 2 → excluded
+      expect(described_class.similar_titles("omega")).to eq([])
+    end
+
+    it "excludes an exact case-insensitive match" do
+      create(:conversation, title: "Elden Ring")
+      expect(described_class.similar_titles("Elden Ring")).to eq([])
+      expect(described_class.similar_titles("elden ring")).to eq([])
+    end
+
+    it "includes a title within the threshold (single-char typo)" do
+      conv = create(:conversation, title: "Elden Ring")
+      # "elden rink" vs "elden ring": distance 1 (g→k)
+      # threshold = max(max(10,10)/3=3, 2) = 3; 1 ≤ 3 → included
+      result = described_class.similar_titles("elden rink")
+      expect(result).to include(conv)
+    end
+
+    it "excludes a title that is too far away" do
+      create(:conversation, title: "hello")
+      # "world" vs "hello": distance 4, threshold max(5/3=1, 2) = 2 → excluded
+      expect(described_class.similar_titles("world")).to be_empty
+    end
+
+    it "respects the default limit of 5" do
+      # Six titles each 1 edit from "hello" (single substitution)
+      %w[aello hbllo heclo heldo hellx zello].each { |t| create(:conversation, title: t) }
+      result = described_class.similar_titles("hello")
+      expect(result.size).to eq(5)
+    end
+
+    it "respects a custom limit" do
+      %w[aello hbllo heclo].each { |t| create(:conversation, title: t) }
+      result = described_class.similar_titles("hello", limit: 2)
+      expect(result.size).to eq(2)
+    end
+
+    it "orders by edit distance — closer match comes first" do
+      # "helxo" vs "hello": differ at pos 4 (x≠l) → distance 1
+      # "helox" vs "hello": two-position shift (l,o → o,x) → distance 2
+      closer  = create(:conversation, title: "helxo")
+      farther = create(:conversation, title: "helox")
+      result  = described_class.similar_titles("hello")
+      expect(result).to eq([ closer, farther ])
+    end
+
+    it "breaks distance ties by recency — most-recently-active first" do
+      # Both titles are 1 edit from "hello" (h→a and h→z respectively)
+      older  = create(:conversation, title: "aello", created_at: 5.hours.ago)
+      recent = create(:conversation, title: "zello", created_at: 1.hour.ago)
+      result = described_class.similar_titles("hello")
+      expect(result.first).to eq(recent)
+      expect(result.last).to  eq(older)
+    end
+  end
 end

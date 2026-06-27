@@ -84,9 +84,10 @@ class ChatController < ApplicationController
       end
 
       if resume_command?(input)
-        # /resume populates the #pito-sidebar with a conversation list (Turbo Stream
-        # update). Auth gating: requires an active session. No echo, no job dispatch.
-        return handle_resume(conversation)
+        # Bare /resume populates the #pito-sidebar with a conversation list; a
+        # `/resume <name>` opens that conversation, or — if none — broadcasts a
+        # repliable "create it?" message with similar-name suggestions.
+        return handle_resume(input, conversation)
       end
 
       if bare_themes_command?(input)
@@ -534,14 +535,14 @@ class ChatController < ApplicationController
   # Renders a Turbo Stream that populates #pito-sidebar with the conversation list.
   # Auth gating: unauthenticated → mandatory-auth error event broadcast + 204.
   # No echo, no Turn, no async job.
-  def handle_resume(conversation)
+  def handle_resume(input, conversation)
     unless Current.session.present?
       broadcaster = Pito::Stream::Broadcaster.new(conversation:)
       broadcaster.emit(
         turn:    conversation.turns.create!(
           position:   Turn.next_position_for(conversation),
           input_kind: :slash,
-          input_text: "/resume"
+          input_text: input
         ),
         kind:    "error",
         payload: { text: Pito::Copy.render("pito.copy.auth.mandatories") }
@@ -549,6 +550,31 @@ class ChatController < ApplicationController
       return respond_to_client(conversation)
     end
 
+    # `/resume <name>`: exact (case-insensitive) title match → open it; no match →
+    # broadcast a repliable "create it?" message + up to-5 similarly-named convos.
+    name = slash_arg(input, "resume")
+    if name.present?
+      target = ::Conversation.find_by_title_ci(name)
+      return render_turbo_navigate(conversation_path(target)) if target
+
+      broadcaster = Pito::Stream::Broadcaster.new(conversation:)
+      broadcaster.emit(
+        turn:    conversation.turns.create!(
+          position:   Turn.next_position_for(conversation),
+          input_kind: :slash,
+          input_text: input
+        ),
+        kind:    :system,
+        payload: Pito::MessageBuilder::Conversation::ResumeMissing.call(
+          name:         name,
+          similar:      ::Conversation.similar_titles(name),
+          conversation: conversation
+        )
+      )
+      return respond_to_client(conversation)
+    end
+
+    # Bare `/resume` → the resume sidebar (unchanged).
     current_uuid = params[:uuid].presence
     render partial: "chat/resume_sidebar",
            formats: [ :turbo_stream ],
@@ -630,7 +656,17 @@ class ChatController < ApplicationController
     end
 
     new_conversation = Conversation.create!
+    # `/new <name>` → title the fresh conversation (broadcasts the name + global
+    # sidebar row via Conversation::Rename). Bare `/new` keeps the default title.
+    name = slash_arg(input, "new")
+    Conversation::Rename.call(conversation: new_conversation, title: name) if name.present?
     conversation_path(new_conversation)
+  end
+
+  # The free-text argument after a `/<verb>` slash command (e.g. the name for
+  # `/new <name>` / `/resume <name>`), or "" when bare.
+  def slash_arg(input, verb)
+    input.to_s.strip.sub(%r{\A/#{verb}\b\s*}i, "").strip
   end
 
   # ── Follow-up engine dispatch ────────────────────────────────────────────────

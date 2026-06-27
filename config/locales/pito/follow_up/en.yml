@@ -1,6 +1,9 @@
 en:
   pito:
     follow_up:
+      resume_missing:
+        errors:
+          invalid_action: "Unknown action '%{action}'. Reply `new` to create it, or click a suggestion."
       game_list:
         errors:
           invalid_action: "Unknown action '%{action}'. Try: #<handle> show <id>."

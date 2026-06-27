@@ -201,22 +201,10 @@ module Pito
           best_distance <= FUZZY_MAX_DISTANCE ? best : nil
         end
 
-        # Iterative Levenshtein edit distance (single-row DP). Kept local so the
-        # did-you-mean threshold is fully under our control and unit-testable.
+        # Edit distance via the shared Pito::Fuzzy.levenshtein — single source of
+        # truth, also used by Conversation#similar_titles (`/resume` typo recovery).
         def levenshtein(str_a, str_b)
-          return str_b.length if str_a.empty?
-          return str_a.length if str_b.empty?
-
-          previous = (0..str_b.length).to_a
-          str_a.each_char.with_index do |char_a, i|
-            current = [ i + 1 ]
-            str_b.each_char.with_index do |char_b, j|
-              cost = char_a == char_b ? 0 : 1
-              current << [ current[j] + 1, previous[j + 1] + 1, previous[j] + cost ].min
-            end
-            previous = current
-          end
-          previous.last
+          Pito::Fuzzy.levenshtein(str_a, str_b)
         end
 
         def apply_genre_filter(relation, genre_substrings)

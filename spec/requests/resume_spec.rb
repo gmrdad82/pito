@@ -71,6 +71,87 @@ RSpec.describe "POST /chat with /resume", type: :request do
       # list is shown as a side panel, not a full-width block.
       expect(response.body).to include("<aside")
     end
+
+    # ── /resume <name>: exact title match → navigate ──────────────────────
+
+    context "with a name argument (/resume <name>) when the conversation exists" do
+      let!(:target_conv) { Conversation.create!(title: "awesome") }
+
+      it "returns a Turbo Stream navigate action targeting the matched conversation" do
+        post chat_path, params: { input: "/resume awesome", uuid: conversation.uuid }
+        expect(response).to have_http_status(:ok)
+        expect(response.content_type).to include("text/vnd.turbo-stream.html")
+        expect(response.body).to include('action="navigate"')
+        expect(response.body).to include(target_conv.uuid)
+      end
+
+      it "does NOT create a new Conversation" do
+        expect {
+          post chat_path, params: { input: "/resume awesome", uuid: conversation.uuid }
+        }.not_to change(Conversation, :count)
+      end
+
+      it "does NOT create a Turn on the current conversation" do
+        expect {
+          post chat_path, params: { input: "/resume awesome", uuid: conversation.uuid }
+        }.not_to change(Turn, :count)
+      end
+
+      it "is case-insensitive (AWESOME matches awesome)" do
+        post chat_path, params: { input: "/resume AWESOME", uuid: conversation.uuid }
+        expect(response).to have_http_status(:ok)
+        expect(response.body).to include('action="navigate"')
+        expect(response.body).to include(target_conv.uuid)
+      end
+    end
+
+    # ── /resume <name>: no match → resume_missing broadcast ──────────────
+
+    context "with a name argument (/resume <name>) when no conversation matches" do
+      it "returns 204 No Content (no navigate)" do
+        post chat_path, params: { input: "/resume missing_convo", uuid: conversation.uuid }
+        expect(response).to have_http_status(:no_content)
+      end
+
+      it "does NOT create a new Conversation" do
+        expect {
+          post chat_path, params: { input: "/resume missing_convo", uuid: conversation.uuid }
+        }.not_to change(Conversation, :count)
+      end
+
+      it "broadcasts a :system event with reply_target 'resume_missing'" do
+        post chat_path, params: { input: "/resume missing_convo", uuid: conversation.uuid }
+        event = conversation.events.where(kind: :system).last
+        expect(event).to be_present
+        expect(event.payload["reply_target"]).to eq("resume_missing")
+      end
+
+      it "creates exactly one Turn for the miss message" do
+        expect {
+          post chat_path, params: { input: "/resume missing_convo", uuid: conversation.uuid }
+        }.to change(Turn, :count).by(1)
+      end
+
+      context "when a similarly-named conversation exists" do
+        # levenshtein("missing_convo", "missin_convo") == 1 — well within threshold.
+        let!(:similar_conv) { Conversation.create!(title: "missin_convo") }
+
+        it "includes a /resume suggestion for the similar conversation in the broadcast body" do
+          post chat_path, params: { input: "/resume missing_convo", uuid: conversation.uuid }
+          event = conversation.events.where(kind: :system).last
+          expect(event.payload["body"]).to include("/resume missin_convo")
+        end
+      end
+
+      context "when no similarly-named conversation exists" do
+        it "still broadcasts the resume_missing event (no suggestion block)" do
+          post chat_path, params: { input: "/resume zzzznoconvo_xyz", uuid: conversation.uuid }
+          event = conversation.events.where(kind: :system).last
+          expect(event).to be_present
+          expect(event.payload["reply_target"]).to eq("resume_missing")
+        end
+      end
+    end
   end
 
   # ── Unauthenticated path ───────────────────────────────────────────────────

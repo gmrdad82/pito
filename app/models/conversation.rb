@@ -67,6 +67,33 @@ class Conversation < ApplicationRecord
     { recent: recent, older: older }
   end
 
+  # Exact title match, case-insensitive — for `/resume <name>`. nil when blank/none.
+  def self.find_by_title_ci(name)
+    norm = name.to_s.strip
+    return nil if norm.blank?
+
+    where("LOWER(title) = LOWER(?)", norm).first
+  end
+
+  # Up to `limit` conversations whose title is fuzzy-close to `name` (typo
+  # recovery for `/resume`), excluding an exact match, ordered by edit distance
+  # then recency. Empty when nothing is close enough (→ omit the suggestions block).
+  def self.similar_titles(name, limit: 5)
+    query = name.to_s.strip.downcase
+    return [] if query.blank?
+
+    by_recent_activity.to_a.filter_map { |c|
+      title = c.title.to_s.strip
+      next if title.blank? || title.downcase == query
+
+      distance  = Pito::Fuzzy.levenshtein(query, title.downcase)
+      threshold = [ [ query.length, title.length ].max / 3, 2 ].max
+      [ c, distance ] if distance <= threshold
+    }.sort_by { |(c, distance)| [ distance, -c.last_activity_at.to_i ] }
+      .first(limit)
+      .map(&:first)
+  end
+
   private
 
   def set_uuid
