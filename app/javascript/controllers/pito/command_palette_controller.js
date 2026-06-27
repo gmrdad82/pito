@@ -29,6 +29,11 @@ export default class extends Controller {
     this.abort = new AbortController()
     document.addEventListener("keydown", this.#onGlobalKey.bind(this),
       { signal: this.abort.signal })
+    // Clicking the cyan-shimmer count in the mini-status dispatches this; route
+    // it to the SAME toggle ctrl+/ uses so pointer + keybinding never diverge.
+    document.addEventListener("pito:notifications:toggle",
+      () => { if (isAuthenticated()) this.#toggleNotifications() },
+      { signal: this.abort.signal })
     this.selectedIndex = -1
   }
 

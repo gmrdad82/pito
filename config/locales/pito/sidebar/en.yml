@@ -12,8 +12,8 @@ en:
         title: "Conversations"
         recent: "Recent"
         older: "Older"
-        rename_hint: "rename a conversation"
-        delete_hint: "delete a conversation"
+        rename_hint: "rename"
+        delete_hint: "delete"
       game:
         subtitle: "Game · imported %{date}"
       games:

@@ -174,7 +174,7 @@ RSpec.describe Pito::StartScreen::Component do
       # Re-render after creating 2 unread notifications so the count is real.
       chrome = render_inline(described_class.new(**defaults))
                  .css("[data-pito--home-transition-target='conversationChrome']").first
-      expect(chrome.to_html).to include("2 notifs")
+      expect(chrome.to_html).to include("2*")
     end
   end
 

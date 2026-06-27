@@ -95,23 +95,22 @@ RSpec.describe Pito::Shell::MiniStatusComponent do
         expect(node.to_html).not_to include("notification")
       end
 
-      it "renders notifications as ctrl+/ (yellow) + count (cyan)" do
+      it "renders notifications as ctrl+/ (yellow) + count (cyan shimmer)" do
         node = render_inline(described_class.new(notifications: 2, show_notifications: true))
         yellow = node.css("span.font-bold.text-yellow")
         expect(yellow.map(&:text)).to include("ctrl+/")
-        cyan_text = node.css("span.text-cyan").map(&:text).join
-        expect(cyan_text).to include("2 notifs")
+        cyan_text = node.css("span.pito-token-shimmer").map(&:text).join
+        expect(cyan_text).to include("2*")
       end
 
-      it "renders singular count" do
+      it "renders the count with the '*' glyph (singular)" do
         node = render_inline(described_class.new(notifications: 1, show_notifications: true))
-        expect(node.to_html).to include("1 notif")
-        expect(node.to_html).not_to include("1 notifs")
+        expect(node.to_html).to include("1*")
       end
 
-      it "renders plural count" do
+      it "renders the count with the '*' glyph (plural)" do
         node = render_inline(described_class.new(notifications: 3, show_notifications: true))
-        expect(node.to_html).to include("3 notifs")
+        expect(node.to_html).to include("3*")
       end
 
       it "does NOT render notifications when unauthenticated (state: false)" do
