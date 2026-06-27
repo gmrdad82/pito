@@ -27,10 +27,16 @@ module Pito
         # @param channel      [::Channel]
         # @param conversation [Conversation, nil] unused; kept for call-site compat.
         # @param state        [Symbol] :visiting (default) or :visited.
+        # @param destination  [Symbol] :channel (default) or :studio.
         # @return [Hash] string-keyed HTML payload.
-        def call(channel, conversation: nil, state: :visiting)
-          html    = render_component(Pito::Channel::VisitComponent.new(channel:, state:))
-          payload = html_payload(body: html, channel_id: channel.id, visit_state: state.to_s)
+        def call(channel, conversation: nil, state: :visiting, destination: :channel)
+          html    = render_component(Pito::Channel::VisitComponent.new(channel:, state:, destination:))
+          payload = html_payload(
+            body:             html,
+            channel_id:       channel.id,
+            visit_state:      state.to_s,
+            visit_destination: destination.to_s
+          )
 
           if state == :visiting
             payload["reply_target"] = "channel_visit"

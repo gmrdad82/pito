@@ -2,38 +2,43 @@
 
 module Pito
   module Chat
-    # Parses the `sorted by` / `ordered by` clause shared by `list games` /
-    # `list videos`.
+    # Parses the `sort`/`order` clause shared by `list games` / `list videos`.
+    # The verb may be `sort`, `sorted`, `order`, or `ordered`, and the `by`
+    # particle is optional — so all of these are equivalent:
+    #   `sort by views` · `sorted by views` · `sort views` · `order by views`
     #
     #   SortClause.parse("list games sorted by year desc")
     #   # => { token: "year", direction: :desc }
     #
-    #   SortClause.parse("list games with platform ordered by release date")
+    #   SortClause.parse("list games with platform order by release date")
     #   # => { token: "release date", direction: :asc }
     #
-    #   SortClause.parse("list games")
-    #   # => nil
+    #   SortClause.parse("list games")          # => nil  (no sort verb)
+    #   SortClause.parse("list games sort")     # => nil  (no column)
     #
     # Rules:
-    #   * Matches `sorted by` or `ordered by` (case-insensitive).
+    #   * Matches sort/sorted/order/ordered (case-insensitive), `\b`-bounded so it
+    #     never trips on "resort"/"disorder"/"developer"/"sports".
+    #   * The `by` particle is optional.
     #   * Captures the column token (may be multi-word, e.g. "release date").
-    #   * An optional trailing `asc` or `desc` sets the direction; default is :asc.
-    #   * Token is stripped and downcased.
+    #   * Optional trailing asc/ascending/desc/descending; default is :asc.
+    #   * Token is stripped and downcased; a blank token (bare `sort`) → nil.
     module SortClause
       module_function
 
-      # Captures: [1] column token, [2] optional asc/desc.
-      SORT_RE = /(?:sorted|ordered)\s+by\s+(.+?)(?:\s+(asc|desc))?\s*\z/i
+      # Captures: [1] column token, [2] optional direction word.
+      SORT_RE = /\b(?:sort(?:ed)?|order(?:ed)?)\s+(?:by\s+)?(.+?)(?:\s+(asc|ascending|desc|descending))?\s*\z/i
 
       # @param raw [String] the raw command text.
       # @return [Hash{ token: String, direction: Symbol }] or nil when no sort clause.
       def parse(raw)
         match = SORT_RE.match(raw.to_s)
         return nil unless match
+        return nil if match[1].strip.empty?
 
         {
           token:     match[1].strip.downcase,
-          direction: match[2]&.downcase == "desc" ? :desc : :asc
+          direction: %w[desc descending].include?(match[2]&.downcase) ? :desc : :asc
         }
       end
     end

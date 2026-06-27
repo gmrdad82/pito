@@ -123,4 +123,40 @@ RSpec.describe Pito::Channel::VisitComponent do
       expect(link["class"]).not_to include("hidden")
     end
   end
+
+  describe "destination: :channel (default)" do
+    it "uses the channel's YouTube page URL (www.youtube.com/@handle)" do
+      channel = build_channel(handle: "@testhandle")
+      html = render_inline(described_class.new(channel:)).to_html
+      expect(html).to include("https://www.youtube.com/@testhandle")
+      expect(html).not_to include("studio.youtube.com")
+    end
+
+    it "also uses the channel URL in the :visited [view] link" do
+      channel = build_channel(handle: "@testhandle")
+      html = render_inline(described_class.new(channel:, state: :visited)).to_html
+      expect(html).to include("https://www.youtube.com/@testhandle")
+    end
+  end
+
+  describe "destination: :studio" do
+    it "uses the Studio URL (studio.youtube.com) in the :visiting anchor" do
+      channel = build_channel(handle: "@testhandle", youtube_channel_id: "UCtest123")
+      html = render_inline(described_class.new(channel:, destination: :studio)).to_html
+      expect(html).to include("https://studio.youtube.com/channel/UCtest123")
+      expect(html).not_to include("www.youtube.com/@testhandle")
+    end
+
+    it "uses the Studio URL in the :visited [view] link" do
+      channel = build_channel(handle: "@testhandle", youtube_channel_id: "UCtest123")
+      html = render_inline(described_class.new(channel:, state: :visited, destination: :studio)).to_html
+      expect(html).to include("https://studio.youtube.com/channel/UCtest123")
+    end
+
+    it "does NOT mount the auto-visit controller in the visited state" do
+      channel = build_channel
+      node = render_inline(described_class.new(channel:, state: :visited, destination: :studio))
+      expect(node.css("[data-controller='pito--auto-visit']")).to be_empty
+    end
+  end
 end

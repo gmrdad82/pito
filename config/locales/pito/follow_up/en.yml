@@ -19,9 +19,14 @@ en:
         errors:
           invalid_action: "Unknown action '%{action}'. Try: reindex."
           video_not_found: "Couldn't find the vid for this message."
+      channel_detail:
+        errors:
+          invalid_action: "Unknown action '%{action}'. Try: #<handle> visit channel or #<handle> visit studio."
+          needs_destination: "Visit what? Try: #<handle> visit channel (or youtube / yt) or #<handle> visit studio."
+          channel_not_found: "Couldn't find the channel for this message."
       channel_list:
         errors:
-          invalid_action: "Unknown action '%{action}'. Try: #<handle> visit @<handle> or reindex @<handle>."
+          invalid_action: "Unknown action '%{action}'. Try: #<handle> shinies @<handle>."
           not_found: "No channel found matching %{ref}."
       channel_visit:
         errors:

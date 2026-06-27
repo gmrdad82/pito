@@ -50,6 +50,8 @@ module Pito
             confirm_sync_channel(payload)
           when "sync_channel_videos"
             confirm_sync_channel_videos(payload)
+          when "sync_game"
+            confirm_sync_game(payload)
           else
             Pito::Copy.render("pito.copy.confirmation.confirmed")
           end
@@ -214,6 +216,19 @@ module Pito
             SyncChannelVideosJob.perform_later([ channel.id ], channel.at_handle, conversation_id: conversation_id)
           end
           Pito::Copy.render("pito.copy.sync.channel_videos_queued", { scope: scope_label })
+        end
+
+        # ── sync_game ────────────────────────────────────────────────────────────
+        # Enqueue the chat-initiated IGDB sync for one game. SyncGameJob runs the
+        # IGDB sync then broadcasts its own summary turn.
+        def confirm_sync_game(payload)
+          payload = payload.with_indifferent_access
+          title   = payload[:game_title].to_s
+          game    = ::Game.find_by(id: payload[:game_id])
+          return Pito::Copy.render("pito.copy.games.not_found", { ref: title }) if game.nil?
+
+          SyncGameJob.perform_later(game.id, conversation_id: payload[:conversation_id].presence)
+          Pito::Copy.render("pito.copy.sync.game_queued", { title: title })
         end
 
         # Resolve a sync scope (`channel_ids` empty = all connected channels) to

@@ -32,8 +32,8 @@ RSpec.describe Pito::FollowUp::Handlers::VideoDetail, type: :service do
     expect(described_class.mode).to eq(:append)
   end
 
-  it "declares rm, delete, reindex, link, unlink, and shinies actions" do
-    expect(described_class.actions).to eq([ "rm", "delete", "reindex", "link", "unlink", "shinies" ])
+  it "declares rm, delete, reindex, link, unlink, shinies, and sync actions" do
+    expect(described_class.actions).to eq([ "rm", "delete", "reindex", "link", "unlink", "shinies", "sync" ])
   end
 
   # ── reindex (delegated to Chat::Handlers::Reindex) ────────────────────────────

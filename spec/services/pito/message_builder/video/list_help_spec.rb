@@ -64,8 +64,8 @@ RSpec.describe Pito::MessageBuilder::Video::ListHelp do
       expect(result["body"]).to include("with &lt;columns&gt;")
     end
 
-    it "body includes the sorted by option" do
-      expect(result["body"]).to include("sorted by &lt;column&gt;")
+    it "body includes the sort by option" do
+      expect(result["body"]).to include("sort by &lt;column&gt;")
     end
 
     it "body includes --help option" do

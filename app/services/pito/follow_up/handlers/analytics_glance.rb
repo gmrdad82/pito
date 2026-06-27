@@ -19,14 +19,18 @@ module Pito
       class AnalyticsGlance < Pito::FollowUp::Handler
         self.target "analytics_glance"
         self.mode   :append
-        self.actions "with", "without"
+        self.actions "with", "without", "analyze"
 
         def call(event:, rest:, conversation:, period: nil, **)
           action, args = parse_rest(rest)
-          return invalid_action(action) unless %w[with without].include?(action)
+          return invalid_action(action) unless %w[with without analyze].include?(action)
 
           scope = resolve_scope(event)
           return scope_not_found if scope.nil?
+
+          # Bare `analyze` re-runs the full analysis (no metric filtering); with /
+          # without carry a metric selection.
+          selection = action == "analyze" ? nil : build_selection(action, args)
 
           pair = Pito::MessageBuilder::Analyze::Message.pair(
             level:        scope[:level],
@@ -34,7 +38,7 @@ module Pito
             title:        scope[:title],
             period:       period.presence || conversation.stats_period,
             conversation:,
-            selection:    build_selection(action, args)
+            selection:    selection
           )
 
           Pito::FollowUp::Result::Append.new(events: pair)
@@ -47,13 +51,21 @@ module Pito
           marker = event.payload["analytics"] || {}
           record =
             case marker["scope_type"]
-            when "Video" then ::Video.find_by(id: marker["scope_id"])
-            when "Game"  then ::Game.find_by(id: marker["scope_id"])
+            when "Video"   then ::Video.find_by(id: marker["scope_id"])
+            when "Game"    then ::Game.find_by(id: marker["scope_id"])
+            when "Channel" then ::Channel.find_by(id: marker["scope_id"])
             end
           return nil unless record
 
+          level =
+            case marker["scope_type"]
+            when "Game"    then :game
+            when "Channel" then :channel
+            else                :vid
+            end
+
           {
-            level: marker["scope_type"] == "Game" ? :game : :vid,
+            level: level,
             id:    record.id,
             title: record.respond_to?(:at_handle) ? record.at_handle : record.title
           }

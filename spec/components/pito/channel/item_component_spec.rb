@@ -27,12 +27,40 @@ RSpec.describe Pito::Channel::ItemComponent do
       expect(node.at_css(".pito-channel-item__handle").text.strip).to eq("@mychannel")
     end
 
-    it "wraps the @handle in a pito-token-shimmer span (show_visit: false)" do
+    it "wraps the @handle in a pito-token-shimmer span" do
       channel = build_channel(handle: "@mychannel")
       node    = render_inline(described_class.new(channel: channel))
       shimmer = node.css(".pito-channel-item__handle span.pito-token-shimmer").first
       expect(shimmer).to be_present
       expect(shimmer.text).to eq("@mychannel")
+    end
+
+    it "wires the prefill controller to auto-run `show channel @handle`" do
+      channel = build_channel(handle: "@mychannel")
+      node    = render_inline(described_class.new(channel: channel))
+      token   = node.at_css(".pito-channel-item__handle span[data-controller='pito--chat-prefill']")
+      expect(token).to be_present
+      expect(token["data-pito--chat-prefill-text-value"]).to eq("show channel @mychannel")
+    end
+
+    it "sets the submit data attribute so the click auto-submits" do
+      channel = build_channel(handle: "@mychannel")
+      node    = render_inline(described_class.new(channel: channel))
+      token   = node.at_css(".pito-channel-item__handle span[data-controller='pito--chat-prefill']")
+      expect(token["data-pito--chat-prefill-submit-value"]).to eq("true")
+    end
+
+    it "does not render any YouTube anchor link on the handle" do
+      channel = build_channel(handle: "@mychannel")
+      node    = render_inline(described_class.new(channel: channel))
+      expect(node.css("a[href*='youtube.com']")).to be_empty
+    end
+
+    it "does not render a VisitComponent" do
+      channel = build_channel
+      node = render_inline(described_class.new(channel: channel))
+      expect(node.css("[data-controller='pito--auto-visit']")).to be_empty
+      expect(node.css(".pito-channel-visit")).to be_empty
     end
   end
 
@@ -84,77 +112,6 @@ RSpec.describe Pito::Channel::ItemComponent do
     end
   end
 
-  # ── show_visit: true ─────────────────────────────────────────────────────────
-
-  describe "show_visit: true" do
-    it "renders the @handle as a YouTube link (NOT the auto-navigating VisitComponent)" do
-      channel = build_channel(handle: "@visitme")
-      node = render_inline(described_class.new(channel: channel, show_visit: true))
-      # Must be a plain manual anchor — VisitComponent auto-clicks/navigates on render.
-      expect(node.css("[data-controller='pito--auto-visit']")).to be_empty
-      link = node.at_css("a.pito-channel-item__handle--link")
-      expect(link).to be_present
-      expect(link.text.strip).to eq(channel.at_handle)
-    end
-
-    it "wraps the linked @handle in the cyan token shimmer (handles shimmer everywhere)" do
-      channel = build_channel(handle: "@visitme")
-      node = render_inline(described_class.new(channel: channel, show_visit: true))
-      shimmer = node.css("a.pito-channel-item__handle--link span.pito-token-shimmer").first
-      expect(shimmer).to be_present
-      expect(shimmer.text).to eq("@visitme")
-    end
-
-    it "no longer renders a separate [view] link" do
-      channel = build_channel
-      node = render_inline(described_class.new(channel: channel, show_visit: true))
-      expect(node.css(".pito-channel-item__visit-link")).to be_empty
-      expect(node.text).not_to include("[view]")
-    end
-
-    it "opens the linked handle in a new tab with the YouTube URL" do
-      channel = build_channel(handle: "@visitme")
-      node = render_inline(described_class.new(channel: channel, show_visit: true))
-      link = node.at_css("a.pito-channel-item__handle--link")
-      expect(link).to be_present
-      expect(link["href"]).to include("https://www.youtube.com/@visitme")
-      expect(link["target"]).to eq("_blank")
-      expect(link["rel"]).to include("noopener")
-    end
-
-    it "uses the channel_id URL when the handle is blank" do
-      channel = build_channel(handle: nil, youtube_channel_id: "UCabc123")
-      node = render_inline(described_class.new(channel: channel, show_visit: true))
-      link = node.at_css("a.pito-channel-item__handle--link")
-      expect(link["href"]).to eq("https://www.youtube.com/channel/UCabc123")
-    end
-
-    it "handle link has no hover:underline Tailwind class (design: no hover)" do
-      channel = build_channel(handle: "@visitme")
-      node = render_inline(described_class.new(channel: channel, show_visit: true))
-      link = node.at_css("a.pito-channel-item__handle--link")
-      expect(link["class"]).not_to include("hover:underline")
-      expect(link["class"]).not_to include("hover:")
-    end
-  end
-
-  # ── show_visit: false (default) ──────────────────────────────────────────────
-
-  describe "show_visit: false (default)" do
-    it "does not render a VisitComponent" do
-      channel = build_channel
-      node = render_inline(described_class.new(channel: channel))
-      expect(node.css("[data-controller='pito--auto-visit']")).to be_empty
-      expect(node.css(".pito-channel-visit")).to be_empty
-    end
-
-    it "does not render any YouTube link" do
-      channel = build_channel(handle: "@nope")
-      node = render_inline(described_class.new(channel: channel))
-      expect(node.css("a[href*='youtube.com']")).to be_empty
-    end
-  end
-
   # ── score: Integer ───────────────────────────────────────────────────────────
 
   describe "score: Integer" do
@@ -190,14 +147,14 @@ RSpec.describe Pito::Channel::ItemComponent do
     end
   end
 
-  # ── Combined: show_visit: true + score present ───────────────────────────────
+  # ── Combined: score present ───────────────────────────────────────────────────
 
-  describe "show_visit: true AND score present" do
-    it "renders both the linked @handle and the ScoreBarComponent" do
+  describe "score present" do
+    it "renders both the prefill @handle token and the ScoreBarComponent" do
       channel = build_channel
-      node = render_inline(described_class.new(channel: channel, show_visit: true, score: 70))
+      node = render_inline(described_class.new(channel: channel, score: 70))
       expect(node.css(".pito-channel-item__score .pito-score-bar")).not_to be_empty
-      expect(node.at_css("a.pito-channel-item__handle--link")).to be_present
+      expect(node.at_css(".pito-channel-item__handle span[data-controller='pito--chat-prefill']")).to be_present
     end
   end
 

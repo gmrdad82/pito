@@ -43,9 +43,14 @@ module Pito
             )
           end
 
+          # Preserve the destination that was stamped when the :visiting payload
+          # was built so the :visited [view] link points to the same URL.
+          dest_str    = event.payload["visit_destination"].to_s
+          destination = %w[studio channel].include?(dest_str) ? dest_str.to_sym : :channel
+
           Pito::FollowUp::Result::Mutation.new(
             kind:    "system_follow_up",
-            payload: Pito::MessageBuilder::Channel::Visit.call(channel, state: :visited)
+            payload: Pito::MessageBuilder::Channel::Visit.call(channel, state: :visited, destination:)
           )
         end
       end

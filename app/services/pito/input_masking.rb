@@ -32,9 +32,10 @@ module Pito
       CREDENTIAL_PROVIDERS.include?(provider)
     end
 
-    # `/login …` (verb-bounded, any case).
+    # `/login …` or its `/authenticate` alias (verb-bounded, any case). Both route
+    # to the synchronous login handler and both have their code masked in history.
     def login_command?(input)
-      input.to_s.strip.match?(%r{\A/login(\s|\z)}i)
+      input.to_s.strip.match?(%r{\A/(?:login|authenticate)(\s|\z)}i)
     end
 
     # Mask EVERY kwarg value of a credential /config command to "***" (the whole

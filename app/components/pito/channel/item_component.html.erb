@@ -1,5 +1,6 @@
 <%# Pito::Channel::ItemComponent — shared channel item: handle / title,
-    with optional [view] link (show_visit: true) and/or ScoreBarComponent (score: N). %>
+    with optional ScoreBarComponent (score: N). The @handle always runs
+    `show channel @handle` via the pito--chat-prefill controller. %>
 <div class="pito-channel-item">
   <%# Avatar (our cached variant) — only when show_avatar: true %>
   <% if show_avatar? %>
@@ -10,17 +11,8 @@
     <% end %>
   <% end %>
 
-  <%# Handle — a yellow YouTube link on `list channels` (show_visit: true; opens
-      the channel in a new tab), plain cyan text on the Game Enhanced surface. The
-      link replaces the old separate [view] action. NOT VisitComponent (no auto-nav). %>
-  <% if show_visit? %>
-    <a href="<%= youtube_url %>"
-       target="_blank"
-       rel="noopener"
-       class="pito-channel-item__handle pito-channel-item__handle--link no-underline"><%= render(Pito::Shimmer::TokenComponent.new(text: channel.at_handle)) %></a>
-  <% else %>
-    <div class="pito-channel-item__handle"><%= render(Pito::Shimmer::TokenComponent.new(text: channel.at_handle)) %></div>
-  <% end %>
+  <%# Handle — clickable prefill token that auto-runs `show channel @handle`. %>
+  <div class="pito-channel-item__handle"><%= render(Pito::Shimmer::TokenComponent.new(text: channel.at_handle, prefill: "show channel #{channel.at_handle}", submit: true)) %></div>
 
   <%# Title %>
   <div class="pito-channel-item__title text-fg">

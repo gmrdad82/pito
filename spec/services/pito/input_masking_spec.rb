@@ -45,8 +45,18 @@ RSpec.describe Pito::InputMasking do
       expect(described_class.login_command?("/login")).to be(true)
     end
 
+    it "matches the /authenticate alias (any case)" do
+      expect(described_class.login_command?("/authenticate 123456")).to be(true)
+      expect(described_class.login_command?("/AUTHENTICATE")).to be(true)
+    end
+
     it "does not match other commands" do
       expect(described_class.login_command?("/logout")).to be(false)
+      expect(described_class.login_command?("/authenticated")).to be(false)
+    end
+
+    it "masks the /authenticate code in history (security)" do
+      expect(described_class.for_history("/authenticate 123456")).to eq("/authenticate ******")
     end
   end
 

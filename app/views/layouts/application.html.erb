@@ -41,7 +41,7 @@
        data-controller="pito--command-palette"
        class="pito-modal-overlay hidden fixed inset-0 z-50 flex items-center justify-center">
     <%= render(Pito::Palette::CtrlK::Component.new(
-          sections: Pito::Palette::CommandCatalog.sections
+          sections: Pito::Palette::CommandCatalog.sections(authenticated: Current.session.present?)
         )) %>
   </div>
 

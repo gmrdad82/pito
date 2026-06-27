@@ -79,6 +79,18 @@
             key_class:   "text-fg-dim whitespace-nowrap",
             value_class: "text-fg"
           )) %>
+
+      <%= render(Pito::Table::KeyValueRowComponent.new(
+            key_text:        t("pito.channel.detail.youtube_channel"),
+            key_class:       "text-fg-dim whitespace-nowrap",
+            value_component: Pito::Table::LinkValueComponent.new(url: @channel.youtube_channel_url)
+          )) %>
+
+      <%= render(Pito::Table::KeyValueRowComponent.new(
+            key_text:        t("pito.channel.detail.youtube_studio"),
+            key_class:       "text-fg-dim whitespace-nowrap",
+            value_component: Pito::Table::LinkValueComponent.new(url: @channel.youtube_studio_url)
+          )) %>
     </div>
   </div>
 

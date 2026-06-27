@@ -416,7 +416,7 @@ module Pito
           end
 
         row_html = <<~HTML.html_safe
-          <div id="import-step-#{step}" class="flex items-center gap-2 py-1 px-2 text-sm">
+          <div id="import-step-#{step}" class="flex items-center gap-2 py-1 px-2">
             #{dot_html}
             <span class="#{done ? "text-fg" : "text-fg-dim"}">#{ERB::Util.html_escape(label)}</span>
           </div>

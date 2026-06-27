@@ -2591,6 +2591,8 @@ en:
           - "Dispatched you to %{handle}."
           - "Showed you %{handle}."
           - "Brought you to %{handle}."
+        visiting_studio: "Opening %{handle}'s Studio…"
+        visited_studio:  "Opened %{handle}'s Studio."
         not_found:
           - "No channel matching %{handle}."
           - "Couldn't find channel %{handle}."
@@ -2756,13 +2758,13 @@ en:
           - "Everything's on the table — literally. Nothing to add."
         games_help:
           usage_title: "Usage:"
-          usage: "list games [with <columns>] [sorted by <column>]"
+          usage: "list games [with <columns>] [sort by <column> [asc|desc]]"
           options_title: "Options:"
           columns_title: "Columns:"
           opt_with: "with <columns>"
           opt_with_desc: "Append columns to the table (comma-separated)"
-          opt_sorted: "sorted by <column>"
-          opt_sorted_desc: "Sort by a visible column (append desc to reverse)"
+          opt_sorted: "sort by <column> [asc|desc]"
+          opt_sorted_desc: "Sort by a visible column — asc by default, desc to reverse (sorted by / order by also work)"
           opt_help: "--help"
           opt_help_desc: "Print this help message"
           col_platform_desc: "PlayStation / Switch / Steam"
@@ -2775,13 +2777,13 @@ en:
           col_footage_desc: "Total footage duration (d:hh:mm:ss)"
           col_price_desc: "Euro price, e.g. €59.99 (— when unpriced)"
         videos_help:
-          usage: "list vids [with <columns>] [sorted by <column>]"
+          usage: "list vids [with <columns>] [sort by <column> [asc|desc]]"
           options_title: "Options:"
           columns_title: "Columns:"
           opt_with: "with <columns>"
           opt_with_desc: "Append columns to the table (comma-separated)"
-          opt_sorted: "sorted by <column>"
-          opt_sorted_desc: "Sort by a visible column (append desc to reverse)"
+          opt_sorted: "sort by <column> [asc|desc]"
+          opt_sorted_desc: "Sort by a visible column — asc by default, desc to reverse (sorted by / order by also work)"
           opt_help: "--help"
           opt_help_desc: "Print this help message"
           col_channel_desc: "Channel @handle"
@@ -3334,11 +3336,22 @@ en:
         list-channels:
           target_usage: "#<list-channels-hashtag> <action>"
           actions:
-            visit:
-              usage: "#<list-channels-hashtag> visit @handle"
+            shinies:
+              usage: "#<list-channels-hashtag> shinies @handle"
               sections:
                 Arguments:
-                  "@handle": "Channel @handle — opens the YouTube page"
+                  "@handle": "Channel @handle — show its shinies"
+                Options:
+                  "--help": "Print this help message"
+        show-channel:
+          target_usage: "#<show-channel-hashtag> <action>"
+          actions:
+            visit:
+              usage: "#<show-channel-hashtag> visit channel|studio"
+              sections:
+                Arguments:
+                  "channel": "Open the channel's YouTube page (aliases: youtube, yt)"
+                  "studio": "Open the channel's YouTube Studio"
                 Options:
                   "--help": "Print this help message"
 
@@ -6316,14 +6329,14 @@ en:
              <span class="text-orange">══╝</span>     <span class="text-orange">╚══════╝</span>     <span class="text-orange">╚══</span></pre>
         - |-
           <pre>  <span class="text-green">▲ UP</span>   <span class="text-green">┃┃┃┃┃┃┃┃┃┃┃┃</span>  <span class="text-green">1.4 Gb/s</span>
-                 <span class="text-fg-faded">━━━━━━━━━━━━</span>
+                   <span class="text-fg-faded">━━━━━━━━━━━━</span>
             <span class="text-pito">▼ DN</span>   <span class="text-pito">┃┃┃┃┃┃┃┃┃┃┃┃</span>  <span class="text-pito">2.8 Gb/s</span></pre>
         - |-
           <pre>  <span class="text-cyan">[●]</span> <span class="text-green">─ ─ ─ ─ ▷  ping</span>
                             <span class="text-fg-faded">·</span>
             <span class="text-yellow">pong  ◁ ─ ─ ─ ─</span> <span class="text-purple">[●]</span>   <span class="text-green">12ms</span></pre>
         - |-
-          <pre>     <span class="text-green">▟█▙ ▟█▙</span>
+          <pre>      <span class="text-green">▟█▙ ▟█▙</span>
              <span class="text-green">▟███████████▙</span>
              <span class="text-green">██ ▀█████▀ ██</span>
              <span class="text-green">▜███████████▛</span>
@@ -6341,9 +6354,9 @@ en:
              <span class="text-red">▝▀▀</span><span class="text-fg">▄▄</span><span class="text-red">▀▀▘</span>
                 <span class="text-fg">██</span>        <span class="text-fg-faded">power-up</span></pre>
         - |-
-          <pre>        <span class="text-red">●</span>
-                  <span class="text-fg-dim">┃</span>
-                  <span class="text-fg-dim">┃</span>      <span class="text-cyan">◀ ▲ ▶</span>
+          <pre>       <span class="text-red">●</span>
+                 <span class="text-fg-dim">┃</span>
+                 <span class="text-fg-dim">┃</span>      <span class="text-cyan">◀ ▲ ▶</span>
              <span class="text-purple">▗▄▄▄█▄▄▄▖</span>     <span class="text-cyan">▼</span>
              <span class="text-purple">▜██████▛</span>   <span class="text-fg-faded">FIRE ▣</span></pre>
         - |-
@@ -6479,7 +6492,7 @@ en:
             <span class="text-pito">└┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┘</span></pre>
         - |-
           <pre>  <span class="text-fg-faded">┌─────────────────────────────┐</span>
-            <span class="text-fg-faded">│</span> <span class="text-green">&gt;_</span> <span class="text-cyan">hello</span><span class="text-fg-dim">,</span> <span class="text-purple">world</span><span class="text-fg-dim">.</span> <span class="text-yellow">█</span>           <span class="text-fg-faded">│</span>
+            <span class="text-fg-faded">│</span> <span class="text-green">&gt;_</span> <span class="text-cyan">hello</span><span class="text-fg-dim">,</span> <span class="text-purple">world</span><span class="text-fg-dim">.</span> <span class="text-yellow">█</span>          <span class="text-fg-faded">│</span>
             <span class="text-fg-faded">└─────────────────────────────┘</span></pre>
         - |-
           <pre>  <span class="text-fg-dim">spinning up PITO</span>
@@ -6487,7 +6500,7 @@ en:
             <span class="text-fg-faded">⣾ compiling good vibes…</span></pre>
         - "<pre>  <span class=\"text-cyan\">╭──────────────────────────╮</span>\n  <span class=\"text-cyan\">│</span>
           <span class=\"text-green\">new message</span> <span class=\"text-fg-dim\">·</span>
-          <span class=\"text-yellow\">say hi \U0001F44B</span>     <span class=\"text-cyan\">│</span>\n
+          <span class=\"text-yellow\">say hi \U0001F44B</span>  <span class=\"text-cyan\">│</span>\n
           \ <span class=\"text-cyan\">╰────╮╭────────────────────╯</span>\n       <span class=\"text-cyan\">╰╯</span></pre>"
         - |-
           <pre>   <span class="text-purple">¯\\_(ツ)_/¯</span>
@@ -6517,15 +6530,15 @@ en:
                         <span class="text-cyan">╚═╝</span></pre>
         - |-
           <pre>  <span class="text-fg-dim">╔═══════════════╗</span>
-            <span class="text-fg-dim">║</span> <span class="text-green">●</span> <span class="text-cyan">▰▰▰▰▰▰▰▰▰▰</span> <span class="text-fg-dim">║</span>
-            <span class="text-fg-dim">║</span> <span class="text-green">●</span> <span class="text-cyan">▰▰▰▰▰▰▰▰▰▰</span> <span class="text-fg-dim">║</span>
-            <span class="text-fg-dim">║</span> <span class="text-yellow">●</span> <span class="text-cyan">▰▰▰▰▰▰▰▰▰▰</span> <span class="text-fg-dim">║</span>
-            <span class="text-fg-dim">║</span> <span class="text-green">●</span> <span class="text-cyan">▰▰▰▰▰▰▰▰▰▰</span> <span class="text-fg-dim">║</span>
+            <span class="text-fg-dim">║</span> <span class="text-green">●</span> <span class="text-cyan">▰▰▰▰▰▰▰▰▰▰</span>  <span class="text-fg-dim">║</span>
+            <span class="text-fg-dim">║</span> <span class="text-green">●</span> <span class="text-cyan">▰▰▰▰▰▰▰▰▰▰</span>  <span class="text-fg-dim">║</span>
+            <span class="text-fg-dim">║</span> <span class="text-yellow">●</span> <span class="text-cyan">▰▰▰▰▰▰▰▰▰▰</span>  <span class="text-fg-dim">║</span>
+            <span class="text-fg-dim">║</span> <span class="text-green">●</span> <span class="text-cyan">▰▰▰▰▰▰▰▰▰▰</span>  <span class="text-fg-dim">║</span>
             <span class="text-fg-dim">╚═══════════════╝</span> <span class="text-fg-faded">uptime 311d</span></pre>
         - |-
           <pre>  <span class="text-fg-dim">▙▟▙▟▙▟▙▟▙▟▙▟</span>
             <span class="text-fg-dim">▌</span><span class="text-cyan">┌────────┐</span><span class="text-fg-dim">▐</span>
-            <span class="text-fg-dim">▌</span><span class="text-cyan">│</span> <span class="text-purple">P I T O</span> <span class="text-cyan">│</span><span class="text-fg-dim">▐</span>   <span class="text-green">8 cores</span>
+            <span class="text-fg-dim">▌</span><span class="text-cyan">│</span> <span class="text-purple">P I T O</span><span class="text-cyan">│</span><span class="text-fg-dim">▐</span>   <span class="text-green">8 cores</span>
             <span class="text-fg-dim">▌</span><span class="text-cyan">│</span> <span class="text-pito">core™</span>  <span class="text-cyan">│</span><span class="text-fg-dim">▐</span>   <span class="text-fg-faded">3.6 GHz</span>
             <span class="text-fg-dim">▌</span><span class="text-cyan">└────────┘</span><span class="text-fg-dim">▐</span>
             <span class="text-fg-dim">▛▜▛▜▛▜▛▜▛▜▛▜</span></pre>
@@ -6564,6 +6577,8 @@ en:
       sync:
         game_done: "Synced %{title} from IGDB."
         video_done: "Synced %{title} from YouTube."
+        game_confirm: "Re-sync %{title} from IGDB?"
+        game_queued: "Syncing %{title} from IGDB…"
         videos_confirm:
           - "Sync all vids on %{scope}?"
           - "Pull YouTube data for all vids on %{scope}?"
@@ -6615,6 +6630,7 @@ en:
           - "Trigger full YouTube vid sync for %{scope}?"
           - "Sync all YouTube vid fields for %{scope}?"
           - "Pull YouTube data across all vids on %{scope}?"
+        videos_confirm_targeted: "Sync %{vids}?"
         videos_done:
           - "Synced %{count} vid(s) on %{scope}."
           - "%{count} vid(s) synced on %{scope}."

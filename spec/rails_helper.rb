@@ -22,6 +22,7 @@ require 'webmock/rspec'
 # which otherwise leaves copy rendering random in processes that don't load
 # copy_spec.rb.
 require_relative 'support/copy'
+require_relative 'support/dispatch_intent'
 
 # Allow localhost connections (Rack::Test, ActionCable) but block all external HTTP.
 WebMock.disable_net_connect!(allow_localhost: true)

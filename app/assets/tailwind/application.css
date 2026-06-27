@@ -11,8 +11,39 @@
  * dropping another block with the same var names.
  */
 
+/* DejaVu Sans Mono — self-hosted (public/fonts), subset to Latin + all
+   box/block/geometric-shape/star/arrow coverage so the ASCII art renders in the
+   browser on the same monospace grid as the terminal. */
+@font-face {
+  font-family: "DejaVu Sans Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/dejavu-400.woff2") format("woff2");
+}
+@font-face {
+  font-family: "DejaVu Sans Mono";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/dejavu-700.woff2") format("woff2");
+}
+/* Braille block (U+2800–28FF) — DejaVu Sans Mono has no braille glyphs, so this
+   scoped face supplies them from DejaVu Sans (proportional sibling) under the
+   SAME family name. The browser composes by unicode-range: braille codepoints
+   (the `⠋⠙…` loading spinner + the `⣾` card) use this file, everything else uses
+   the mono faces above. Used for isolated single glyphs, so width is a non-issue. */
+@font-face {
+  font-family: "DejaVu Sans Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/dejavu-braille.woff2") format("woff2");
+  unicode-range: U+2800-28FF;
+}
+
 @theme {
-  --font-mono:        "ui-monospace", monospace;
+  --font-mono:        "DejaVu Sans Mono", "ui-monospace", monospace;
   --text-base:        14px;
   --text-base--line-height: 1.4;
   --color-root:        var(--bg-root);
@@ -626,7 +657,7 @@ html {
   line-height: 1;
   margin: 0;
   white-space: pre;
-  font-family: ui-monospace, monospace;
+  font-family: var(--font-mono);
 }
 
 /* ── ASCII fit-to-width (pito--ascii-fit) ─────────────────────────
@@ -674,7 +705,7 @@ html {
   width: 2ch;
   flex-shrink: 0;
   text-align: center;
-  font-family: ui-monospace, monospace;
+  font-family: var(--font-mono);
 }
 
 .pito-thinking__word {
@@ -1749,6 +1780,9 @@ html:has(#pito-settings[data-fx="false"]) .pito-comet-reveal::after { display: n
   height: 120px;
   object-fit: cover;
   border-radius: 50%;
+  /* Theme-contrast ring so the round avatar reads against the page bg.
+     --fg-default is the per-theme high-contrast color (opposite of --bg-root). */
+  border: 1px solid var(--fg-default);
 }
 
 /* Placeholder when no avatar is set. */
@@ -1804,6 +1838,8 @@ html:has(#pito-settings[data-fx="false"]) .pito-comet-reveal::after { display: n
   height: 120px;
   object-fit: cover;
   border-radius: 50%;
+  /* Theme-contrast ring (see .pito-channel-list__avatar). */
+  border: 1px solid var(--fg-default);
 }
 
 .pito-channel-item__avatar--placeholder {
