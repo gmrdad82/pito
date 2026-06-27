@@ -29,6 +29,15 @@ export default class extends Controller {
     prevLatestId = latestId
   }
 
+  // Click / Enter / Space on the cyan-shimmer count → identical to pressing
+  // ctrl+/. We dispatch a document-level event that command_palette listens for
+  // and routes to its single #toggleNotifications() implementation, so the
+  // pointer affordance and the keybinding never drift.
+  toggle(e) {
+    e.preventDefault()
+    document.dispatchEvent(new CustomEvent("pito:notifications:toggle"))
+  }
+
   // prevLatestId is intentionally NOT reset on disconnect so it persists
   // across the Turbo Stream replacement cycle.
 }

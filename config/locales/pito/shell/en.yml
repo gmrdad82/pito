@@ -17,9 +17,10 @@ en:
         authenticated: "■ %{nickname}"
         anonymous: "● tarnished"
         notifications_count:
-          one: "%{count} notif"
-          other: "%{count} notifs"
+          one: "%{count}*"
+          other: "%{count}*"
         notifications_hint: "ctrl+/"
+        notifications_open: "Open notifications"
         suggestions_hint: "tab"
         suggestions_label: "suggest"
         chat_hint: "m"

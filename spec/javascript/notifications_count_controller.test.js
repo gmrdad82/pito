@@ -107,4 +107,19 @@ describe("NotificationsCountController", () => {
     await connectWith(7, 9)         // toggle bumps count, id steady → no dispatch
     expect(arrivedEvents).toHaveLength(0)
   })
+
+  it("clicking the count control dispatches pito:notifications:toggle (= ctrl+/)", async () => {
+    const span = buildDOM(3, 3)
+    const control = document.createElement("span")
+    control.setAttribute("data-action", "click->pito--notifications-count#toggle")
+    span.appendChild(control)
+    await waitForConnect()
+
+    const toggles = []
+    document.addEventListener("pito:notifications:toggle", () => toggles.push(1))
+
+    control.dispatchEvent(new MouseEvent("click", { bubbles: true }))
+
+    expect(toggles).toHaveLength(1)
+  })
 })

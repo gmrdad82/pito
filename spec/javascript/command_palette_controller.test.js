@@ -520,6 +520,27 @@ describe("pito--command-palette controller", () => {
     )
   })
 
+  it("pito:notifications:toggle (mini-status click) opens notifications, same as ctrl+/", async () => {
+    buildScaffold([])
+    await waitForConnect()
+
+    window.Turbo = { renderStreamMessage: vi.fn() }
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      text: () => Promise.resolve("<turbo-stream></turbo-stream>"),
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    document.dispatchEvent(new CustomEvent("pito:notifications:toggle"))
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/notifications",
+      expect.objectContaining({
+        headers: expect.objectContaining({ Accept: expect.stringContaining("turbo-stream") })
+      })
+    )
+  })
+
   it("ctrl+/ clears sidebar HTML when notifications already showing", async () => {
     // This test focuses on the DOM side-effect: sidebar is cleared when
     // notifications are already visible. We verify sidebar.innerHTML becomes ""
