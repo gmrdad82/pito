@@ -25,29 +25,17 @@ RSpec.describe "DELETE /chat/:uuid", type: :request do
       expect(response).to have_http_status(:no_content)
     end
 
-    it "destroys the conversation record" do
+    it "marks the conversation deleting WITHOUT destroying it synchronously (async)" do
       expect {
         delete conversation_path(uuid: conversation.uuid)
-      }.to change(Conversation, :count).by(-1)
+      }.not_to change(Conversation, :count)
+      expect(conversation.reload).to be_deleting
     end
 
-    it "also destroys dependent turns" do
-      # Use a fresh conversation so position sequences don't collide with
-      # the turns created during TOTP auth.
-      other = create(:conversation, :named)
-      create(:turn, conversation: other, position: 1)
-      expect {
-        delete conversation_path(uuid: other.uuid)
-      }.to change(Turn, :count).by(-1)
-    end
-
-    it "also destroys dependent events" do
-      other = create(:conversation, :named)
-      turn = create(:turn, conversation: other, position: 1)
-      create(:event, conversation: other, turn: turn)
-      expect {
-        delete conversation_path(uuid: other.uuid)
-      }.to change(Event, :count).by(-1)
+    it "enqueues DeleteConversationJob for the conversation (the slow cascade runs off-request)" do
+      allow(DeleteConversationJob).to receive(:perform_later)
+      delete conversation_path(uuid: conversation.uuid)
+      expect(DeleteConversationJob).to have_received(:perform_later).with(conversation.id)
     end
 
     it "returns 404 for an unknown uuid" do
@@ -72,10 +60,11 @@ RSpec.describe "DELETE /chat/:uuid", type: :request do
       expect(response).to redirect_to(root_path)
     end
 
-    it "does not destroy the conversation" do
+    it "does not mark the conversation deleting" do
       expect {
         delete conversation_path(uuid: conversation.uuid)
       }.not_to change(Conversation, :count)
+      expect(conversation.reload.deleting_at).to be_nil
     end
   end
 end

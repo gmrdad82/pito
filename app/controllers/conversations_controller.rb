@@ -3,11 +3,15 @@ class ConversationsController < ApplicationController
   allow_anonymous :show
 
   # DELETE /chat/:uuid
-  # Destroys the conversation and all dependent turns/events. Requires
-  # authentication (no allow_anonymous). Responds 204 No Content on success.
+  # ASYNC delete: marks the conversation in-flight (deleting_at), swaps its sidebar
+  # row to the shimmering-dots placeholder everywhere (pito:global), and hands the
+  # potentially-slow turns/events cascade to DeleteConversationJob. Requires
+  # authentication (no allow_anonymous). Responds 204 No Content.
   def destroy
     conversation = Conversation.find_by!(uuid: params[:uuid])
-    conversation.destroy!
+    conversation.update!(deleting_at: Time.current)
+    Pito::Stream::Broadcaster.broadcast_global_conversation_row(conversation:)
+    DeleteConversationJob.perform_later(conversation.id)
     head :no_content
   end
 

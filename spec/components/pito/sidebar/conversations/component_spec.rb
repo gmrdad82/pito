@@ -4,7 +4,9 @@ require "rails_helper"
 
 RSpec.describe Pito::Sidebar::Conversations::Component do
   # A simple struct that mimics what Conversation.by_recent_activity returns.
-  ConvStub = Struct.new(:display_name, :uuid, :last_activity_at, keyword_init: true)
+  ConvStub = Struct.new(:display_name, :uuid, :last_activity_at, keyword_init: true) do
+    def deleting? = false
+  end
 
   let(:recent_conv) do
     ConvStub.new(

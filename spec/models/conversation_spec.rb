@@ -321,4 +321,17 @@ RSpec.describe Conversation, type: :model do
       expect(result.last).to  eq(older)
     end
   end
+
+  describe "#deleting? + .deleting (async-delete in-flight state)" do
+    it "deleting? is true when deleting_at is set, false otherwise" do
+      expect(create(:conversation, deleting_at: Time.current)).to be_deleting
+      expect(create(:conversation)).not_to be_deleting
+    end
+
+    it ".deleting returns only conversations with an in-flight delete" do
+      d = create(:conversation, deleting_at: Time.current)
+      create(:conversation)
+      expect(described_class.deleting).to contain_exactly(d)
+    end
+  end
 end
