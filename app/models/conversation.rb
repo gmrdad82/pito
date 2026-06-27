@@ -29,6 +29,15 @@ class Conversation < ApplicationRecord
     title.present? && !title.match?(/\AUnnamed\b/)
   end
 
+  # True while an async delete is in flight — the sidebar renders this row as the
+  # shimmering-dots placeholder instead of the title/timestamp (DeleteConversationJob
+  # clears it by destroying the record). Persisted, so a mid-delete sidebar reopen
+  # still shows the dots.
+  def deleting? = deleting_at.present?
+
+  # Conversations with an in-flight async delete.
+  def self.deleting = where.not(deleting_at: nil)
+
   # ── Query helpers ────────────────────────────────────────────
   def self.singleton
     first_or_create!

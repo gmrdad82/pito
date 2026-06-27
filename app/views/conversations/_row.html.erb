@@ -10,6 +10,18 @@
     display:none on desktop (gesture is mobile-only; see application.css). The
     content layer keeps the .pito--rename-display span and all attributes the
     pito--rename / pito--resume controllers depend on. %>
+<% if conversation.deleting? %>
+  <%# Async delete in flight — same row id (so the cable broadcast targets/removes
+      it) but a non-interactive shimmering-dots placeholder (reused ShimmerText).
+      The dot run is longer than the row and clipped, filling the width. %>
+  <div id="conversation_row_<%= conversation.uuid %>"
+       class="pito-conversation-row relative overflow-hidden rounded"
+       data-conversation-uuid="<%= conversation.uuid %>">
+    <div class="pito-conversation-row__content py-1 px-2 overflow-hidden whitespace-nowrap">
+      <%= render(Pito::Shell::ShimmerTextComponent.new(text: ". " * 60)) %>
+    </div>
+  </div>
+<% else %>
 <div id="conversation_row_<%= conversation.uuid %>"
      class="pito-conversation-row relative overflow-hidden rounded cursor-pointer <%= "is-current" if current %>"
      data-conversation-uuid="<%= conversation.uuid %>"
@@ -31,3 +43,4 @@
     <% end %>
   </div>
 </div>
+<% end %>

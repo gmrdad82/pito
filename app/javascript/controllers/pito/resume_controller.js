@@ -469,8 +469,10 @@ export default class extends Controller {
     this.armedRow = null
   }
 
-  // Sends DELETE /chat/<uuid>, then removes the row from the list or redirects
-  // to "/" if the deleted conversation is the currently-open one.
+  // Sends DELETE /chat/<uuid> (async delete). The server marks the conversation
+  // deleting and broadcasts the row → shimmering-dots over pito:global, then
+  // removes it when DeleteConversationJob finishes — so we don't touch the row
+  // here, except to leave it if it's the currently-open conversation.
   #deleteConversation(row) {
     const uuid = row.dataset.conversationUuid
     if (!uuid) return
@@ -485,11 +487,9 @@ export default class extends Controller {
     fetch(`/chat/${uuid}`, { method: "DELETE", headers })
       .then((r) => {
         if (!r.ok) return
-        if (currentUuid && uuid === currentUuid) {
-          window.location.href = "/"
-        } else {
-          row.remove()
-        }
+        // Leave the conversation if it's the one open; otherwise the pito:global
+        // broadcast turns the row into shimmering dots and later removes it.
+        if (currentUuid && uuid === currentUuid) window.location.href = "/"
       })
       .catch(() => {})
 

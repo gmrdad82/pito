@@ -347,6 +347,16 @@ module Pito
         Rails.logger.warn("[Broadcaster] broadcast_global_conversation_row failed: #{e.class}: #{e.message}")
       end
 
+      # Remove a conversation's sidebar row everywhere (pito:global) — used when an
+      # async DeleteConversationJob finishes destroying the record. Takes the uuid
+      # because the record is already gone by then.
+      def self.broadcast_global_conversation_row_removed(uuid:)
+        content = ApplicationController.helpers.turbo_stream.remove("conversation_row_#{uuid}")
+        Turbo::StreamsChannel.broadcast_stream_to("pito:global", content:)
+      rescue StandardError => e
+        Rails.logger.warn("[Broadcaster] broadcast_global_conversation_row_removed failed: #{e.class}: #{e.message}")
+      end
+
       # Broadcast updated #pito-settings to "pito:global" so every open tab
       # reflects the new sound/fx value immediately — no reload.
       def self.broadcast_global_settings_update
