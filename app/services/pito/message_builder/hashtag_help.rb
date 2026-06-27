@@ -29,6 +29,7 @@ module Pito
         "video_detail"  => "show-video",
         "video_list"    => "list-videos",
         "channel_list"  => "list-channels",
+        "channel_detail" => "show-channel",
         "confirmation"  => "confirm"
       }.freeze
 

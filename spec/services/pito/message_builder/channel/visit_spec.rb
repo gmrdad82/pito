@@ -75,4 +75,32 @@ RSpec.describe Pito::MessageBuilder::Channel::Visit do
       expect(payload["body"]).to include("youtube.com")
     end
   end
+
+  describe ".call with destination: :channel (default)" do
+    subject(:payload) { described_class.call(channel) }
+
+    it "stamps visit_destination as 'channel'" do
+      expect(payload["visit_destination"]).to eq("channel")
+    end
+
+    it "renders the YouTube channel URL in the body" do
+      expect(payload["body"]).to include("www.youtube.com/@gaming")
+    end
+  end
+
+  describe ".call with destination: :studio" do
+    subject(:payload) { described_class.call(channel, destination: :studio) }
+
+    it "stamps visit_destination as 'studio'" do
+      expect(payload["visit_destination"]).to eq("studio")
+    end
+
+    it "renders the Studio URL in the body" do
+      expect(payload["body"]).to include("studio.youtube.com/channel/UCtest")
+    end
+
+    it "does NOT render the regular YouTube channel URL" do
+      expect(payload["body"]).not_to include("www.youtube.com/@gaming")
+    end
+  end
 end

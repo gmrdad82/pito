@@ -4,7 +4,7 @@
       no shimmer, no auto-click — safe to re-render on every page refresh. %>
   <div class="pito-channel-visit pito-channel-visit--visited">
     <span class="text-fg-dim"><%= copy_text %></span>
-    <a href="<%= youtube_url %>"
+    <a href="<%= target_url %>"
        target="_blank"
        rel="noopener"
        class="pito-channel-visit__view-link text-yellow">[view]</a>
@@ -20,7 +20,7 @@
     <span class="pito-shimmer"
           data-pito--auto-visit-target="copy"><%= copy_text %></span>
     <a id="<%= unique_id %>"
-       href="<%= youtube_url %>"
+       href="<%= target_url %>"
        target="_blank"
        rel="noopener"
        class="hidden"

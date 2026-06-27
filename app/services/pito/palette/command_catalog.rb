@@ -9,11 +9,21 @@ module Pito
     #   insert     — text pre-filled into the chatbox on Enter (may include <placeholders>)
     #   shortcut   — optional keyboard hint shown on the right (String or nil)
     class CommandCatalog
-      def self.sections
-        new.sections
+      def self.sections(authenticated: true)
+        new.sections(authenticated:)
       end
 
-      def sections
+      # Auth-gated, mirroring the slash typeahead: an unauthenticated visitor can
+      # only `/login`, so the palette shows that single command — nothing else is
+      # actionable until they authenticate.
+      def sections(authenticated: true)
+        unless authenticated
+          return [ {
+            title_key: "pito.palette.ctrl_k.sections.general",
+            items:     [ login_item ]
+          } ]
+        end
+
         [
           {
             title_key: "pito.palette.ctrl_k.sections.youtube",
@@ -35,6 +45,10 @@ module Pito
       end
 
       private
+
+      def login_item
+        { label_key: "pito.palette.ctrl_k.commands.login", insert: "/login <code>" }
+      end
 
       def youtube_items
         [
@@ -65,11 +79,11 @@ module Pito
         ]
       end
 
+      # Authenticated general commands — no `/login` here (already signed in).
       def general_items
         [
-          { label_key: "pito.palette.ctrl_k.commands.help",         insert: "/help" },
-          { label_key: "pito.palette.ctrl_k.commands.login",  insert: "/login <code>" },
-          { label_key: "pito.palette.ctrl_k.commands.logout",        insert: "/logout" }
+          { label_key: "pito.palette.ctrl_k.commands.help",   insert: "/help" },
+          { label_key: "pito.palette.ctrl_k.commands.logout", insert: "/logout" }
         ]
       end
     end

@@ -57,6 +57,20 @@ RSpec.describe Pito::Chat::WithColumns, type: :service do
     expect(parse("list games with platform ordered by year desc")).to eq([ :platform ])
   end
 
+  it "stops at bare sort/order verbs without `by`" do
+    expect(parse("list games with platform sort by year")).to eq([ :platform ])
+    expect(parse("list games with platform order by year")).to eq([ :platform ])
+    expect(parse("list games with platform sort year")).to eq([ :platform ])
+    expect(parse("list games with platform, genre sort by year desc")).to eq([ :platform, :genre ])
+  end
+
+  it "bare sort verbs and inflected `sorted by` / `ordered by` yield the same result" do
+    expect(parse("list games with platform sort by year")).to \
+      eq(parse("list games with platform sorted by year"))
+    expect(parse("list games with platform, genre sort by year desc")).to \
+      eq(parse("list games with platform, genre sorted by year desc"))
+  end
+
   it "returns [] when `with` is present but names no known column" do
     expect(parse("list games with bogus")).to eq([])
   end

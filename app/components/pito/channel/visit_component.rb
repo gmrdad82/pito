@@ -19,34 +19,39 @@ module Pito
     #   render(Pito::Channel::VisitComponent.new(channel: channel))
     #   render(Pito::Channel::VisitComponent.new(channel: channel, state: :visited))
     class VisitComponent < ViewComponent::Base
-      STATES = %i[visiting visited].freeze
+      STATES       = %i[visiting visited].freeze
+      DESTINATIONS = %i[channel studio].freeze
 
-      def initialize(channel:, state: :visiting)
-        @channel   = channel
-        @state     = STATES.include?(state.to_sym) ? state.to_sym : :visiting
-        @unique_id = "channel-visit-#{channel.id}-#{SecureRandom.hex(4)}"
+      def initialize(channel:, state: :visiting, destination: :channel)
+        @channel     = channel
+        @state       = STATES.include?(state.to_sym) ? state.to_sym : :visiting
+        @destination = DESTINATIONS.include?(destination.to_sym) ? destination.to_sym : :channel
+        @unique_id   = "channel-visit-#{channel.id}-#{SecureRandom.hex(4)}"
       end
 
-      attr_reader :channel, :state, :unique_id
+      attr_reader :channel, :state, :destination, :unique_id
 
       def visited?
         state == :visited
       end
 
-      # Returns the YouTube page URL for the channel.
-      # If handle is present: https://www.youtube.com/@<handle without leading @>
-      # Otherwise: https://www.youtube.com/channel/<youtube_channel_id>
-      def youtube_url
-        if channel.handle.present?
-          handle = channel.handle.to_s.sub(/\A@+/, "")
-          "https://www.youtube.com/@#{handle}"
-        else
-          "https://www.youtube.com/channel/#{channel.youtube_channel_id}"
-        end
+      def studio?
+        destination == :studio
+      end
+
+      # Returns the URL to open based on the destination:
+      #   :channel → channel's YouTube page (handle-based or /channel/<id>)
+      #   :studio  → YouTube Studio for the channel
+      def target_url
+        studio? ? channel.youtube_studio_url : channel.youtube_channel_url
       end
 
       def copy_text
-        key = visited? ? "pito.copy.channels.visited" : "pito.copy.channels.visiting"
+        if studio?
+          key = visited? ? "pito.copy.channels.visited_studio" : "pito.copy.channels.visiting_studio"
+        else
+          key = visited? ? "pito.copy.channels.visited" : "pito.copy.channels.visiting"
+        end
         Pito::Copy.render(key, handle: channel.at_handle)
       end
     end

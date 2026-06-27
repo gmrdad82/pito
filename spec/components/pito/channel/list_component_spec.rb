@@ -37,32 +37,25 @@ RSpec.describe Pito::Channel::ListComponent do
     end
   end
 
-  describe "@handle and [visit] link (via ItemComponent)" do
+  describe "@handle prefill token (via ItemComponent)" do
     it "renders the @handle" do
       channel = build_channel(handle: "@mychannel")
       html = render_inline(described_class.new(channels: [ channel ])).to_html
       expect(html).to include("@mychannel")
     end
 
-    it "renders the [view] link to the youtube.com/@handle URL when handle is present" do
-      channel = build_channel(handle: "@mychannel")
-      html = render_inline(described_class.new(channels: [ channel ])).to_html
-      # ItemComponent renders a plain manual [view] anchor with the YouTube URL.
-      expect(html).to include("https://www.youtube.com/@mychannel")
-    end
-
-    it "opens the visit link in a new tab (target=_blank)" do
+    it "wires the prefill controller to auto-run `show channel @handle`" do
       channel = build_channel(handle: "@mychannel")
       node = render_inline(described_class.new(channels: [ channel ]))
-      link = node.css("a[href*='youtube.com']").first
-      expect(link["target"]).to eq("_blank")
-      expect(link["rel"]).to include("noopener")
+      token = node.at_css(".pito-channel-item__handle span[data-controller='pito--chat-prefill']")
+      expect(token).to be_present
+      expect(token["data-pito--chat-prefill-text-value"]).to eq("show channel @mychannel")
     end
 
-    it "uses the channel_id URL when handle is blank" do
-      channel = build_channel(handle: nil, youtube_channel_id: "UCabc123")
-      html = render_inline(described_class.new(channels: [ channel ])).to_html
-      expect(html).to include("https://www.youtube.com/channel/UCabc123")
+    it "does not render a direct YouTube anchor on the @handle" do
+      channel = build_channel(handle: "@mychannel")
+      node = render_inline(described_class.new(channels: [ channel ]))
+      expect(node.css(".pito-channel-item__handle a[href*='youtube.com']")).to be_empty
     end
   end
 
@@ -76,7 +69,7 @@ RSpec.describe Pito::Channel::ListComponent do
   end
 
   describe "no score bar" do
-    it "does not render a ScoreBarComponent (show_visit: true, score: nil)" do
+    it "does not render a ScoreBarComponent (score: nil)" do
       channel = build_channel
       node = render_inline(described_class.new(channels: [ channel ]))
       expect(node.css(".pito-score-bar")).to be_empty

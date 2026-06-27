@@ -645,10 +645,17 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
       expect(labels).to include("rm", "delete", "reindex", "link", "unlink", "shinies")
     end
 
-    it "returns channel_list's verb set (visit/shinies)" do
+    it "returns channel_list's verb set (shinies; visit moved to channel_detail)" do
       stamp("cl-3", "channel_list")
       labels = call(input: "#cl-3 ", cursor: 6, conversation:)[:menu_items].map { |i| i[:label] }
-      expect(labels).to include("visit", "shinies")
+      expect(labels).to include("shinies")
+      expect(labels).not_to include("visit")
+    end
+
+    it "returns channel_detail's verb set (visit)" do
+      stamp("cd-3", "channel_detail")
+      labels = call(input: "#cd-3 ", cursor: 6, conversation:)[:menu_items].map { |i| i[:label] }
+      expect(labels).to include("visit")
     end
 
     it "filters the palette by the typed verb prefix and keeps stage: :verb" do

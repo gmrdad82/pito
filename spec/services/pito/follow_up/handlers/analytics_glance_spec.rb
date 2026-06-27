@@ -72,6 +72,10 @@ RSpec.describe Pito::FollowUp::Handlers::AnalyticsGlance, type: :service do
     expect(described_class.actions).to include("with", "without")
   end
 
+  it "declares 'analyze' as an action" do
+    expect(described_class.actions).to include("analyze")
+  end
+
   # ── with <metric> → new analyze pair ────────────────────────────────────────
 
   describe "#call — with <metric>" do
@@ -201,6 +205,83 @@ RSpec.describe Pito::FollowUp::Handlers::AnalyticsGlance, type: :service do
 
     it "returns a Result::Error for an unrecognised action" do
       result = handler.call(event: source_event, rest: "show views", conversation:)
+      expect(result).to be_a(Pito::FollowUp::Result::Error)
+      expect(result.message_key).to eq("pito.follow_up.analytics_glance.errors.invalid_action")
+    end
+  end
+
+  # ── analyze (no filter) on video scope ─────────────────────────────────────
+
+  describe "#call — analyze on video scope" do
+    let(:source_event) { build_glance_event }
+
+    subject(:result) { handler.call(event: source_event, rest: "analyze", conversation:) }
+
+    it "returns a Result::Append (not invalid_action)" do
+      expect(result).to be_a(Pito::FollowUp::Result::Append)
+    end
+
+    it "appends a non-empty events list" do
+      expect(result.events).not_to be_empty
+    end
+
+    it "passes selection: nil so no metric filtering is applied" do
+      result.events.each do |ev|
+        expect(ev[:payload].dig("analyze", "with")).to be_blank
+        expect(ev[:payload].dig("analyze", "without")).to be_blank
+      end
+    end
+  end
+
+  # ── analyze on game scope ───────────────────────────────────────────────────
+
+  describe "#call — analyze on game scope" do
+    let!(:game)        { create(:game, title: "Lies of P") }
+    let(:source_event) { build_glance_event(scope: game) }
+
+    subject(:result) { handler.call(event: source_event, rest: "analyze", conversation:) }
+
+    it "returns a Result::Append (works for game level too)" do
+      expect(result).to be_a(Pito::FollowUp::Result::Append)
+      expect(result.events).not_to be_empty
+    end
+  end
+
+  # ── channel scope ───────────────────────────────────────────────────────────
+
+  describe "#call — channel scope" do
+    let!(:glance_channel) { create(:channel, handle: "testchan") }
+    let(:source_event)    { build_glance_event(scope: glance_channel) }
+
+    subject(:result) { handler.call(event: source_event, rest: "analyze", conversation:) }
+
+    it "returns a Result::Append (not scope_not_found)" do
+      expect(result).to be_a(Pito::FollowUp::Result::Append)
+    end
+
+    it "appends a non-empty events list" do
+      expect(result.events).not_to be_empty
+    end
+
+    it "resolves the channel-level scope (analyze level: 'channel')" do
+      result.events.each do |ev|
+        expect(ev[:payload].dig("analyze", "level")).to eq("channel")
+      end
+    end
+  end
+
+  # ── regression: existing actions still work, unknown action still errors ────
+
+  describe "#call — regression guards" do
+    let(:source_event) { build_glance_event }
+
+    it "'with <metric>' still returns a Result::Append" do
+      result = handler.call(event: source_event, rest: "with views", conversation:)
+      expect(result).to be_a(Pito::FollowUp::Result::Append)
+    end
+
+    it "an unknown action (e.g. 'bogus') still returns invalid_action Error" do
+      result = handler.call(event: source_event, rest: "bogus views", conversation:)
       expect(result).to be_a(Pito::FollowUp::Result::Error)
       expect(result.message_key).to eq("pito.follow_up.analytics_glance.errors.invalid_action")
     end

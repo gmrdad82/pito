@@ -479,6 +479,17 @@ module Pito
                 end
               end
 
+              # Arg stage: for visit (channel_detail), surface `channel`/`studio`
+              # destination — same subcommand-position rule as price/platform.
+              if action == "visit" && Pito::FollowUp::Registry.actions_for(target).include?("visit")
+                at_subcommand = (after_words.length == 1 && ends_with_space) ||
+                                (after_words.length == 2 && !ends_with_space)
+                if at_subcommand
+                  result = hashtag_visit_arg_completions(partial)
+                  return result.merge(stage: :arg) if result
+                end
+              end
+
               # Fallback: offer --help ghost when the partial starts with "-".
               return hashtag_arg_help_completions(partial).merge(stage: :arg)
             end
@@ -599,6 +610,31 @@ module Pito
         # hashtag_schedule_arg_completions but over the price_subcommands vocab.
         def hashtag_price_arg_completions(partial)
           vocab = Pito::Grammar::Registry.vocabulary(:price_subcommands)
+          return nil unless vocab
+
+          members = prefix_filter(vocab.canonical, partial)
+          return nil if members.empty?
+
+          menu_items = members.map do |member|
+            { label: member, insert: "#{member} ", description: "", masked: false }
+          end
+
+          ghost =
+            if partial.empty?
+              { complete_current: members.first.to_s, next_hint: "" }
+            elsif members.size == 1
+              { complete_current: members.first.to_s[partial.length..], next_hint: "" }
+            else
+              EMPTY_GHOST
+            end
+
+          { menu_items: menu_items, ghost: ghost }
+        end
+
+        # `channel`/`studio` destination completions for `#<handle> visit …` (channel_detail
+        # cards) — mirrors hashtag_price_arg_completions over the visit_destinations vocab.
+        def hashtag_visit_arg_completions(partial)
+          vocab = Pito::Grammar::Registry.vocabulary(:visit_destinations)
           return nil unless vocab
 
           members = prefix_filter(vocab.canonical, partial)

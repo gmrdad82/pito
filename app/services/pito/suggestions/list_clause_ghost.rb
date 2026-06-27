@@ -19,8 +19,9 @@ module Pito
         registry = registry_for(text)
         return nil if registry.nil?
 
-        # SORT context — check before WITH so "with platform sorted by ti" works.
-        if (m = text.match(/(?:sorted|ordered)\s+by\s+([^,]*)\z/i))
+        # SORT context — check before WITH so "with platform sort by ti" works.
+        # Verb may be sort/sorted/order/ordered with an optional `by` particle.
+        if (m = text.match(/\b(?:sort(?:ed)?|order(?:ed)?)\s+(?:by\s+)?([^,]*)\z/i))
           partial    = m[1].lstrip.downcase
           candidates = registry.base_sort_tokens + present_with_tokens(text, registry)
           return build_ghost(candidates, partial)
@@ -47,15 +48,16 @@ module Pito
         # partial is the last whitespace-delimited token in that tail (or ""
         # when the tail is empty / ends with whitespace).
         #
-        # The `with` and `sorted by` branches above take priority because they
+        # The `with` and sort branches above take priority because they
         # are checked first — typing "list games with " still ghosts "platform".
         # Candidates: the `with` connector (primary, shown for an empty partial),
-        # `sorted by` (so "list games so" → "rted by"), and `--help`
-        # (so "list games --h" → "elp").
-        if (m = text.match(/\b(?:games?|videos?)\b\s+(.*)\z/i))
+        # `sort by` (so "list games so" → "rt by"), and `--help`
+        # (so "list games --h" → "elp"). The noun alternation mirrors the listable
+        # nouns (games/gamez, videos/vids) — channels are excluded (no with/sort).
+        if (m = text.match(/\b(?:games?|gamez|videos?|vids?)\b\s+(.*)\z/i))
           tail    = m[1]
           partial = tail.end_with?(" ") || tail.empty? ? "" : tail.split(/\s+/).last.to_s.downcase
-          return build_ghost([ "with", "sorted by", "--help" ], partial)
+          return build_ghost([ "with", "sort by", "--help" ], partial)
         end
 
         nil
@@ -174,14 +176,14 @@ module Pito
       # ── Private helpers ────────────────────────────────────────────────────
 
       # Returns the registry module for the noun in text, or nil for channels.
-      # The noun is read from the head (before any `with` / `sorted by` clause) so a
+      # The noun is read from the head (before any `with` / sort clause) so a
       # column name inside the clause — e.g. the games `channels` column — is not
       # mistaken for the `list channels` noun (which would disable the ghost).
       def registry_for(text)
-        head = text.split(/\b(?:with|sorted\s+by|ordered\s+by)\b/i, 2).first.to_s
+        head = text.split(/\b(?:with|sort(?:ed)?|order(?:ed)?)\b/i, 2).first.to_s
         return nil if head.match?(/\bchannels?\b/i)
 
-        if head.match?(/\bvideos?\b/i)
+        if head.match?(/\b(?:videos?|vids?)\b/i)
           Pito::MessageBuilder::Video::ListColumns
         else
           Pito::MessageBuilder::Game::ListColumns

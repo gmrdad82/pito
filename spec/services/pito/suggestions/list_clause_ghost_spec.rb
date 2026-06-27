@@ -91,6 +91,48 @@ RSpec.describe Pito::Suggestions::ListClauseGhost do
       result = ghost("list games with platform sorted by ")
       expect(result[:complete_current]).to eq("id")
     end
+
+    # ── broadened verb: sort / order / ordered, optional `by` ────────────────
+
+    it "returns 'tle' for 'list games order by ti' (order instead of sorted)" do
+      result = ghost("list games order by ti")
+      expect(result[:complete_current]).to eq("tle")
+      expect(result[:next_hint]).to eq("")
+    end
+
+    it "returns 're' for 'list games with genre order by gen' (genre now visible via WITH)" do
+      result = ghost("list games with genre order by gen")
+      expect(result[:complete_current]).to eq("re")
+      expect(result[:next_hint]).to eq("")
+    end
+
+    it "returns 'tle' for 'list games order ti' (no 'by' particle)" do
+      result = ghost("list games order ti")
+      expect(result[:complete_current]).to eq("tle")
+      expect(result[:next_hint]).to eq("")
+    end
+  end
+
+  # ── SORT clause — videos ──────────────────────────────────────────────────────
+
+  describe "SORT clause — videos" do
+    it "returns 'tle' for 'list videos sort by ti' (sort instead of sorted)" do
+      result = ghost("list videos sort by ti")
+      expect(result[:complete_current]).to eq("tle")
+      expect(result[:next_hint]).to eq("")
+    end
+
+    it "returns 'ws' for 'list videos with views sort by vie' (views now visible via WITH)" do
+      result = ghost("list videos with views sort by vie")
+      expect(result[:complete_current]).to eq("ws")
+      expect(result[:next_hint]).to eq("")
+    end
+
+    it "returns 'tle' for 'list videos sort ti' (no 'by' particle)" do
+      result = ghost("list videos sort ti")
+      expect(result[:complete_current]).to eq("tle")
+      expect(result[:next_hint]).to eq("")
+    end
   end
 
   # ── hashtag_list_sort_completions ────────────────────────────────────────────
@@ -234,14 +276,41 @@ RSpec.describe Pito::Suggestions::ListClauseGhost do
       expect(result[:complete_current]).to eq("elp")
     end
 
-    it "ghosts 'rted by' for 'list games so' (sorted by is a connector candidate)" do
+    it "ghosts 'rt by' for 'list games so' (sort by is a connector candidate)" do
       result = ghost("list games so")
-      expect(result[:complete_current]).to eq("rted by")
+      expect(result[:complete_current]).to eq("rt by")
     end
 
     it "ghosts '-help' for 'list games -' (completes toward --help)" do
       result = ghost("list games -")
       expect(result[:complete_current]).to eq("-help")
+    end
+
+    it "ghosts 'with' for 'list vids ' — vids noun fires the connector branch" do
+      result = ghost("list vids ")
+      expect(result).not_to be_nil
+      expect(result[:complete_current]).to eq("with")
+    end
+  end
+
+  # ── vids/vid noun — resolves to VIDEO columns ────────────────────────────────
+
+  describe "vids/vid noun resolves to Video::ListColumns" do
+    it "ghosts 'ws' for 'list vids with vie' — completes the 'views' video column" do
+      result = ghost("list vids with vie")
+      expect(result).not_to be_nil
+      expect(result[:complete_current]).to eq("ws")
+      expect(result[:next_hint]).to eq("")
+    end
+
+    it "ghosts 'channel' (first video column) for 'list vids with '" do
+      result = ghost("list vids with ")
+      expect(result[:complete_current]).to eq("channel")
+    end
+
+    it "ghosts 'gth' for 'list vid with len' — singular 'vid' also resolves to video columns" do
+      result = ghost("list vid with len")
+      expect(result[:complete_current]).to eq("gth")
     end
   end
 end

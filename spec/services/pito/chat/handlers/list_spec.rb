@@ -257,11 +257,11 @@ RSpec.describe Pito::Chat::Handlers::List do
       expect(body).to include("@beta")
     end
 
-    it "includes a youtube.com link with target=_blank for each channel" do
+    it "makes each channel @handle run `show channel @handle` (prefill, not a YouTube link)" do
       body = handler_for("list channels").call.events.first[:payload]["body"]
-      expect(body).to include("https://www.youtube.com/@alpha")
-      expect(body).to include("https://www.youtube.com/@beta")
-      expect(body).to include('target="_blank"')
+      expect(body).to include("show channel @alpha")
+      expect(body).to include("show channel @beta")
+      expect(body).not_to include("https://www.youtube.com")
     end
 
     it "sets html: true on the payload" do
@@ -639,6 +639,64 @@ RSpec.describe Pito::Chat::Handlers::List do
                            .events.first[:payload]["table_rows"]
       titles = rows.map { |r| r[:cells][1][:text] }
       expect(titles).to eq([ "Beta Video", "Gamma Video", "Alpha Video" ])
+    end
+  end
+
+  # ── `sort by` alias + `game` column regression ───────────────────────────
+  #
+  # Proves that `sort by` (uninflected) parses identically to `sorted by`,
+  # and that the `game` column is NOT silently dropped from list_columns when
+  # it appears alongside a sort clause.  The video_ids assertion enforces the
+  # actual sort order so neither form can "pass" by returning an unsorted list.
+
+  describe "#call `ls vids with views,comments,game sort by views desc` (sort-alias + game-column regression)" do
+    let!(:chan)    { create(:channel, title: "Sort Alias Chan", handle: "@sortalias", youtube_channel_id: "UCsortalias") }
+    let!(:low_vid) { create(:video, :public, title: "Low Views Vid",  channel: chan) }
+    let!(:mid_vid) { create(:video, :public, title: "Mid Views Vid",  channel: chan) }
+    let!(:hi_vid)  { create(:video, :public, title: "High Views Vid", channel: chan) }
+
+    before do
+      create(:stat, entity: low_vid, kind: "views", value:    500)
+      create(:stat, entity: mid_vid, kind: "views", value:  3_000)
+      create(:stat, entity: hi_vid,  kind: "views", value:  8_000)
+    end
+
+    context "with `sort by` (uninflected)" do
+      subject(:payload) do
+        handler_for("ls vids with views,comments,game sort by views desc", channel: "@all")
+          .call.events.first[:payload]
+      end
+
+      it "includes views, comments, and game in list_columns (game not dropped)" do
+        expect(payload["list_columns"]).to include("views", "comments", "game")
+      end
+
+      it "orders video_ids by view_count descending" do
+        expect(payload["video_ids"]).to eq([ hi_vid.id, mid_vid.id, low_vid.id ])
+      end
+    end
+
+    context "with `sorted by` (inflected — parity)" do
+      subject(:payload) do
+        handler_for("ls vids with views,comments,game sorted by views desc", channel: "@all")
+          .call.events.first[:payload]
+      end
+
+      it "includes views, comments, and game in list_columns (parity with sort by)" do
+        expect(payload["list_columns"]).to include("views", "comments", "game")
+      end
+
+      it "orders video_ids by view_count descending (parity with sort by)" do
+        expect(payload["video_ids"]).to eq([ hi_vid.id, mid_vid.id, low_vid.id ])
+      end
+    end
+
+    context "with `sort by views` (no direction — ascending)" do
+      it "orders video_ids by view_count ascending" do
+        payload = handler_for("ls vids with views,comments,game sort by views", channel: "@all")
+                    .call.events.first[:payload]
+        expect(payload["video_ids"]).to eq([ low_vid.id, mid_vid.id, hi_vid.id ])
+      end
     end
   end
 

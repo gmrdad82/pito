@@ -131,11 +131,12 @@ module Pito
         private
 
         # Returns the part of the raw input that precedes the first clause keyword
-        # (`with` / `sorted by` / `ordered by`). The noun is detected from this head
-        # so that column names inside a clause (e.g. the games `channels` column)
-        # never get read as the `list channels` / `list videos` noun.
+        # (`with`, or a sort verb: sort/sorted/order/ordered). The noun is detected
+        # from this head so that column names inside a clause (e.g. the games
+        # `channels` column) never get read as the `list channels` / `list videos`
+        # noun.
         def noun_head(raw)
-          raw.to_s.split(/\b(?:with|sorted\s+by|ordered\s+by)\b/i, 2).first.to_s
+          raw.to_s.split(/\b(?:with|sort(?:ed)?|order(?:ed)?)\b/i, 2).first.to_s
         end
 
         # Resolves the listable noun from the head by walking its tokens through

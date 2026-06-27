@@ -38,6 +38,7 @@ module Pito
           Spec.new(
             namespace:       :slash,
             name:            :login,
+            aliases:         [ :authenticate ],
             slots:           [ Slot.new(name: :code, kind: :free) ],
             auth:            :unauthenticated_only,
             description_key: "pito.grammar.slash.login"

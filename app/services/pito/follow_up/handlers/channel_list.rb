@@ -7,23 +7,22 @@ module Pito
       #
       # The list stamps each channel card with its @handle, so the user can reply:
       #
-      #   #<handle> visit @<channel_handle> — open the channel's YouTube page
-      #                                       via a delayed auto-click.
+      #   #<handle> shinies @<channel_handle> — show achievements for the channel.
+      #
+      # To visit a channel's YouTube page or Studio, first `show channel @<handle>`
+      # then reply `#<card_handle> visit channel` or `#<card_handle> visit studio`.
       #
       # Mode :append — adds a new message below; the list stays follow-up-able so
-      # the user can visit several channels in turn.
+      # the user can query several channels in turn.
       class ChannelList < Pito::FollowUp::Handler
         self.target "channel_list"
         self.mode   :append
-        self.actions "visit", "shinies"
+        self.actions "shinies"
 
         def call(event:, rest:, conversation:, period: nil, viewport_width: nil, channel: nil)
-          action, ref = parse_rest(rest)
-          ref = ref.to_s.strip
+          action, _ref = parse_rest(rest)
 
           case action
-          when "visit"
-            handle_visit(ref, conversation)
           when "shinies"
             Pito::FollowUp::VerbDelegator.call(source_event: event, rest:, conversation:, period:, viewport_width:, channel:)
           else
@@ -32,38 +31,6 @@ module Pito
               message_args: { action: action }
             )
           end
-        end
-
-        private
-
-        # ── visit ──────────────────────────────────────────────────────────────
-
-        def handle_visit(ref, conversation)
-          channel = resolve_channel(ref)
-
-          unless channel
-            return Pito::FollowUp::Result::Error.new(
-              message_key:  "pito.follow_up.channel_list.errors.not_found",
-              message_args: { ref: ref }
-            )
-          end
-
-          Pito::FollowUp::Result::Append.new(events: [
-            { kind: "system", payload: Pito::MessageBuilder::Channel::Visit.call(channel, conversation: conversation) }
-          ])
-        end
-
-        # ── helpers ────────────────────────────────────────────────────────────
-
-        # Resolve a channel from a ref string by its @handle.
-        #   @handle or handle (with/without leading @) → find by handle (case-insensitive)
-        def resolve_channel(ref)
-          # Strip leading # and whitespace (lexer may split "#9" → "# 9")
-          clean = ref.sub(/\A#\s*/, "").strip
-          handle_bare = clean.sub(/\A@+/, "")
-
-          ::Channel.find_by(handle: "@#{handle_bare}") ||
-            ::Channel.find_by(handle: handle_bare)
         end
       end
     end

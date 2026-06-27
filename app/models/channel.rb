@@ -38,4 +38,20 @@ class Channel < ApplicationRecord
   def at_handle
     "@#{handle.to_s.sub(/\A@+/, '')}"
   end
+
+  # YouTube channel page URL.
+  # Handle present: https://www.youtube.com/@<handle without leading @>
+  # Otherwise:      https://www.youtube.com/channel/<youtube_channel_id>
+  def youtube_channel_url
+    if handle.present?
+      "https://www.youtube.com/@#{handle.to_s.sub(/\A@+/, '')}"
+    else
+      "https://www.youtube.com/channel/#{youtube_channel_id}"
+    end
+  end
+
+  # YouTube Studio management URL for this channel.
+  def youtube_studio_url
+    "https://studio.youtube.com/channel/#{youtube_channel_id}"
+  end
 end

@@ -123,6 +123,41 @@ RSpec.describe Pito::Chat::Handlers::Sync do
     end
   end
 
+  # ── sync vids #id (targeted — ids win over shift+tab scope) ───────────────────
+
+  describe "sync vids #id (targeted)" do
+    let!(:video2) { create(:video, channel: channel, title: "Boss Fight") }
+
+    it "targets the single #id video" do
+      payload = handler_for("vids", "##{video.id}", channel: "@all").call.events.first[:payload]
+      expect(payload["command"]).to eq("sync_videos")
+      expect(payload["video_ids"]).to eq([ video.id ])
+    end
+
+    it "parses a comma-separated #id list" do
+      payload = handler_for("vids", "##{video.id},##{video2.id}", channel: "@all").call.events.first[:payload]
+      expect(payload["video_ids"]).to eq([ video.id, video2.id ])
+    end
+
+    it "ids win — ignores the shift+tab channel scope (channel_ids empty)" do
+      payload = handler_for("vids", "##{video.id}", channel: "@pito").call.events.first[:payload]
+      expect(payload["video_ids"]).to eq([ video.id ])
+      expect(payload["channel_ids"]).to eq([])
+    end
+
+    it "names the targeted vids in the confirmation body (not 'all vids')" do
+      body = handler_for("vids", "##{video.id}", channel: "@all").call.events.first[:payload]["body"]
+      expect(body).to include("##{video.id}")
+    end
+
+    %w[vid video videos].each do |noun|
+      it "recognizes the `#{noun}` alias with #id" do
+        payload = handler_for(noun, "##{video.id}", channel: "@all").call.events.first[:payload]
+        expect(payload["video_ids"]).to eq([ video.id ])
+      end
+    end
+  end
+
   # ── sync videos — unknown handle ──────────────────────────────────────────────
 
   describe "sync videos — unknown handle" do
@@ -247,6 +282,52 @@ RSpec.describe Pito::Chat::Handlers::Sync do
       allow(SyncChannelJob).to receive(:perform_later)
       handler_for("--channels").call
       expect(SyncChannelJob).not_to have_received(:perform_later)
+    end
+  end
+
+  # ── Follow-up: `#<handle> sync` on a detail card → sync that entity ────────────
+
+  describe "sync — follow-up reply on a detail card" do
+    let!(:game) { create(:game, title: "Hollow Knight") }
+
+    def follow_up_handler(source_payload, rest: "")
+      source_event = instance_double(Event, payload: source_payload)
+      ctx = Pito::Chat::FollowUpContext.new(source_event:, rest:)
+      described_class.new(
+        message:      instance_double(Pito::Chat::Message),
+        conversation: Conversation.singleton,
+        follow_up:    ctx
+      )
+    end
+
+    it "syncs the source video on a video_detail reply" do
+      payload = follow_up_handler({ "video_id" => video.id, "reply_target" => "video_detail" }).call.events.first[:payload]
+      expect(payload["command"]).to eq("sync_videos")
+      expect(payload["video_ids"]).to eq([ video.id ])
+      expect(payload["channel_ids"]).to eq([])
+    end
+
+    it "syncs the source channel on a channel_detail reply" do
+      payload = follow_up_handler({ "channel_id" => channel.id, "reply_target" => "channel_detail" }).call.events.first[:payload]
+      expect(payload["command"]).to eq("sync_channel")
+      expect(payload["channel_ids"]).to eq([ channel.id ])
+    end
+
+    it "syncs the source game on a game_detail reply" do
+      payload = follow_up_handler({ "game_id" => game.id, "reply_target" => "game_detail" }).call.events.first[:payload]
+      expect(payload["command"]).to eq("sync_game")
+      expect(payload["game_id"]).to eq(game.id)
+    end
+
+    it "ignores trailing args — still targets the source video" do
+      payload = follow_up_handler({ "video_id" => video.id, "reply_target" => "video_detail" }, rest: "whatever").call.events.first[:payload]
+      expect(payload["command"]).to eq("sync_videos")
+      expect(payload["video_ids"]).to eq([ video.id ])
+    end
+
+    it "returns a needs_ref error for an unknown reply_target" do
+      result = follow_up_handler({ "reply_target" => "something_else" }).call
+      expect(result).to be_a(Pito::Chat::Result::Error)
     end
   end
 end

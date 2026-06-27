@@ -94,7 +94,7 @@ RSpec.describe Pito::Game::EnhancedComponent do
       expect(scores).to include("78", "65")
     end
 
-    it "does not render a [visit] link in the channel grid (show_visit: false)" do
+    it "does not render a VisitComponent in the channel grid" do
       node = render_component
       expect(node.css(".pito-game-enhanced-message__channel-grid .pito-channel-visit")).to be_empty
     end

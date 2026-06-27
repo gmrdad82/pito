@@ -1,12 +1,12 @@
 <%# Pito::Channel::ListComponent — wrapping strip of channel cards.
-    Each card is the shared Pito::Channel::ItemComponent: avatar + linked
-    @handle (show_visit: true) + title + one-line stats, no score bar. The
-    recommended-channels grid renders the SAME component (show_visit: false +
-    a ScoreBarComponent, plain handle) — they only differ by those kwargs. %>
+    Each card is the shared Pito::Channel::ItemComponent: avatar + prefill
+    @handle + title + one-line stats, no score bar. The recommended-channels
+    grid renders the SAME component (score: result.score, plain stats) — they
+    differ only by those kwargs. %>
 <div class="pito-channel-list">
   <% channels.each do |channel| %>
     <div class="pito-channel-list__card">
-      <%= render(Pito::Channel::ItemComponent.new(channel: channel, show_visit: true, show_avatar: true, show_stats: true, show_video_count: true)) %>
+      <%= render(Pito::Channel::ItemComponent.new(channel: channel, show_avatar: true, show_stats: true, show_video_count: true)) %>
     </div>
   <% end %>
 </div>

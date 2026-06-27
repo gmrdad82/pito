@@ -2,11 +2,11 @@
 
 # Handler for the `sync` chat verb — exactly two target forms.
 #
-#   sync videos [only <id>,<id>,…]
-#     Sync YouTube data for videos scoped by the shift+tab channel:
-#       @all / blank → all channels; @handle → that channel.
-#     The optional `only <ids>` clause restricts the sync to the given local
-#     video ids (comma-separated plain integers).
+#   sync vid|vids|video|videos [#id[,#id…]]
+#     Sync YouTube data for videos. With `#id`(s) → sync exactly those videos
+#     (ids win; shift+tab scope is ignored). Without ids → sync videos scoped by
+#     the shift+tab channel: @all / blank → all channels; @handle → that channel.
+#     (`only <ids>` is still accepted as a legacy id form.)
 #
 #   sync channels [with <item>[,<item>…]]
 #     Sync channel fields + stats scoped by the shift+tab channel:
@@ -34,7 +34,13 @@ module Pito
           "videos" => :videos
         }.freeze
 
+        VIDEO_NOUN_FILLERS   = %w[vid vids video videos].freeze
+        GAME_NOUN_FILLERS    = %w[game games gamez].freeze
+        CHANNEL_NOUN_FILLERS = %w[channel channels].freeze
+
         def call
+          return handle_follow_up if follow_up?
+
           raw = message.raw.to_s
 
           if channels_form?(raw)
@@ -47,6 +53,41 @@ module Pito
         end
 
         private
+
+        # ── Reply: `#<handle> sync` on a detail card ─────────────────────────────
+        #
+        # A bare `sync` reply syncs THAT card's entity — the source event's
+        # reply_target fixes which (vid / channel / game). Any trailing args are
+        # ignored: the context is unambiguous.
+        def handle_follow_up
+          case reply_target
+          when "video_detail"
+            video = resolve_target(::Video, id_key: :video_id, noun_fillers: VIDEO_NOUN_FILLERS)
+            return needs_ref unless video.is_a?(::Video)
+
+            confirmation(Pito::MessageBuilder::Sync::VideosConfirmation.call(
+              nil, channel_ids: [], video_ids: [ video.id ], conversation:
+            ))
+          when "channel_detail"
+            ch = resolve_target(::Channel, id_key: :channel_id, noun_fillers: CHANNEL_NOUN_FILLERS)
+            return needs_ref unless ch.is_a?(::Channel)
+
+            confirmation(Pito::MessageBuilder::Sync::ChannelConfirmation.call(
+              ch.handle.presence || ch.title.to_s, channel_ids: [ ch.id ], with_items: [], conversation:
+            ))
+          when "game_detail"
+            game = resolve_target(::Game, id_key: :game_id, noun_fillers: GAME_NOUN_FILLERS)
+            return needs_ref unless game.is_a?(::Game)
+
+            confirmation(Pito::MessageBuilder::Sync::GameConfirmation.call(game, conversation:))
+          else
+            needs_ref
+          end
+        end
+
+        def confirmation(payload)
+          Pito::Chat::Result::Ok.new(events: [ { kind: :confirmation, payload: payload } ])
+        end
 
         # ── Noun-form predicates ─────────────────────────────────────────────────
 
@@ -61,14 +102,22 @@ module Pito
         # ── sync videos [only <ids>] ─────────────────────────────────────────────
 
         def handle_videos(raw)
-          scope_label, channel_ids, error = resolve_scope
-          return error if error
+          video_ids = parse_video_ids(raw)
 
-          video_ids = parse_only_ids(raw)
+          if video_ids.any?
+            # Ids win — sync exactly these videos, ignoring the shift+tab scope.
+            payload = Pito::MessageBuilder::Sync::VideosConfirmation.call(
+              nil, channel_ids: [], video_ids: video_ids, conversation:
+            )
+          else
+            # No ids — obey the shift+tab channel scope.
+            scope_label, channel_ids, error = resolve_scope
+            return error if error
 
-          payload = Pito::MessageBuilder::Sync::VideosConfirmation.call(
-            scope_label, channel_ids: channel_ids, video_ids: video_ids, conversation:
-          )
+            payload = Pito::MessageBuilder::Sync::VideosConfirmation.call(
+              scope_label, channel_ids: channel_ids, video_ids: [], conversation:
+            )
+          end
           Pito::Chat::Result::Ok.new(events: [ { kind: :confirmation, payload: payload } ])
         end
 
@@ -93,6 +142,18 @@ module Pito
         end
 
         # ── Clause parsers ───────────────────────────────────────────────────────
+
+        # Parses video ids from the raw input. Prefers `#id[,#id…]` (the canonical
+        # ref form used across pito — `show vid #23`, `link #1 #2`); falls back to
+        # the legacy `only <ids>` clause. Returns [] when neither is present.
+        HASH_ID_RE = /#(\d+)/
+
+        def parse_video_ids(raw)
+          hashed = raw.to_s.scan(HASH_ID_RE).flatten.map(&:to_i).select(&:positive?).uniq
+          return hashed if hashed.any?
+
+          parse_only_ids(raw)
+        end
 
         # Parses `only <id>[,<id>…]` → Array<Integer> of local video ids.
         # Returns [] when the clause is absent.

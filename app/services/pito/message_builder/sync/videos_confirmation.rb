@@ -19,13 +19,26 @@ module Pito
         # @param conversation [Conversation]
         # @return [Hash] a follow-up-able confirmation payload (target: confirmation).
         def call(scope_label, channel_ids:, conversation:, video_ids: [])
+          vids = Array(video_ids)
+
+          if vids.any?
+            # Targeted sync — name the videos, not the channel scope. The label
+            # also flows to the post-sync done message, so it reads sensibly.
+            scope_label = vids.map { |id| "##{id}" }.join(", ")
+            body = Pito::Copy.render(
+              "pito.copy.sync.videos_confirm_targeted", { vids: scope_label, count: vids.size }
+            )
+          else
+            body = Pito::Copy.render("pito.copy.sync.videos_confirm", { scope: scope_label })
+          end
+
           payload = {
             "command"         => "sync_videos",
-            "body"            => Pito::Copy.render("pito.copy.sync.videos_confirm", { scope: scope_label }),
+            "body"            => body,
             "html"            => false,
             "scope_label"     => scope_label,
             "channel_ids"     => channel_ids,
-            "video_ids"       => Array(video_ids),
+            "video_ids"       => vids,
             "conversation_id" => conversation.id
           }
           Pito::FollowUp.make_followupable!(payload, target: "confirmation", conversation:)

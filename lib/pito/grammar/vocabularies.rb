@@ -205,6 +205,18 @@ module Pito
         canonical: %w[set unset]
       ).freeze
 
+      # Destination keywords for the `visit` follow-up action on a channel-detail
+      # card — surfaced so the suggestions engine ghosts `channel`/`studio` after
+      # `#<handle> visit `. `youtube` and `yt` are accepted synonyms for `channel`.
+      VISIT_DESTINATIONS = Vocabulary.define(
+        name:      :visit_destinations,
+        canonical: %w[channel studio],
+        synonyms:  {
+          "youtube" => "channel",
+          "yt"      => "channel"
+        }
+      ).freeze
+
       # ── Dynamic vocabulary stubs ─────────────────────────────────────────────
 
       CHANNELS = Vocabulary.define(
@@ -278,7 +290,8 @@ module Pito
           SYNC_TARGETS,
           SCHEDULE_WHENS,
           PRICE_SUBCOMMANDS,
-          PLATFORM_SUBCOMMANDS
+          PLATFORM_SUBCOMMANDS,
+          VISIT_DESTINATIONS
         ]
       end
 

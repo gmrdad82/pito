@@ -55,5 +55,67 @@ RSpec.describe Pito::Chat::SortClause do
       result = described_class.parse("list games sorted by Release Date")
       expect(result).to eq({ token: "release date", direction: :asc })
     end
+
+    # Verb aliases — bare sort/order with and without 'by'
+
+    it "parses 'sort by year desc' (bare sort + by)" do
+      result = described_class.parse("list games sort by year desc")
+      expect(result).to eq({ token: "year", direction: :desc })
+    end
+
+    it "parses 'order by year' with implicit asc direction" do
+      result = described_class.parse("list games order by year")
+      expect(result).to eq({ token: "year", direction: :asc })
+    end
+
+    it "parses 'ordered by year asc' with explicit asc direction" do
+      result = described_class.parse("list games ordered by year asc")
+      expect(result).to eq({ token: "year", direction: :asc })
+    end
+
+    it "parses 'sort year' (no 'by') with implicit asc direction" do
+      result = described_class.parse("list games sort year")
+      expect(result).to eq({ token: "year", direction: :asc })
+    end
+
+    it "parses 'order year desc' (no 'by')" do
+      result = described_class.parse("list games order year desc")
+      expect(result).to eq({ token: "year", direction: :desc })
+    end
+
+    # Direction word aliases
+
+    it "treats trailing 'ascending' as :asc" do
+      result = described_class.parse("list games sorted by year ascending")
+      expect(result).to eq({ token: "year", direction: :asc })
+    end
+
+    it "treats trailing 'descending' as :desc" do
+      result = described_class.parse("list games sorted by year descending")
+      expect(result).to eq({ token: "year", direction: :desc })
+    end
+
+    # Multi-word column without 'by'
+
+    it "parses a multi-word column without 'by': 'sort release date desc'" do
+      result = described_class.parse("list games sort release date desc")
+      expect(result).to eq({ token: "release date", direction: :desc })
+    end
+
+    # Bare verb with no column
+
+    it "returns nil for bare 'sort' with no column" do
+      expect(described_class.parse("list games sort")).to be_nil
+    end
+
+    it "returns nil for bare 'order' with no column" do
+      expect(described_class.parse("list games order")).to be_nil
+    end
+
+    # No sort verb at all
+
+    it "returns nil for 'list vids with views' (no sort verb)" do
+      expect(described_class.parse("list vids with views")).to be_nil
+    end
   end
 end

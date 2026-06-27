@@ -11,8 +11,8 @@ RSpec.describe Pito::FollowUp::Handlers::ChannelVisit do
   end
 
   # Minimal stand-in for the source event — the handler only reads payload.
-  def event_for(channel_id)
-    Struct.new(:payload).new({ "channel_id" => channel_id })
+  def event_for(channel_id, extra = {})
+    Struct.new(:payload).new({ "channel_id" => channel_id }.merge(extra))
   end
 
   it "registers for the channel_visit target in :mutate mode" do
@@ -45,6 +45,32 @@ RSpec.describe Pito::FollowUp::Handlers::ChannelVisit do
 
     it "is not follow-up-able once consumed (graceful repeat no-op)" do
       expect(Pito::FollowUp.followupable?(result.payload)).to be false
+    end
+
+    it "defaults to the :channel destination when visit_destination is absent" do
+      expect(result.payload["body"]).to include("www.youtube.com/@alpha")
+      expect(result.payload["body"]).not_to include("studio.youtube.com")
+    end
+  end
+
+  describe "consume preserves the visit_destination from the source event" do
+    it "rebuilds the :visited URL as studio when the source was stamped studio" do
+      result = handler.call(
+        event:        event_for(channel.id, "visit_destination" => "studio"),
+        rest:         "consume",
+        conversation:
+      )
+      expect(result.payload["body"]).to include("studio.youtube.com/channel/UCabc")
+      expect(result.payload["body"]).not_to include("www.youtube.com/@alpha")
+    end
+
+    it "rebuilds the :visited URL as channel when the source was stamped channel" do
+      result = handler.call(
+        event:        event_for(channel.id, "visit_destination" => "channel"),
+        rest:         "consume",
+        conversation:
+      )
+      expect(result.payload["body"]).to include("www.youtube.com/@alpha")
     end
   end
 

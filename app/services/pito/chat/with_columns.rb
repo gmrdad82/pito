@@ -12,8 +12,9 @@ module Pito
     #   * `with` is a magic word (case-insensitive, on a word boundary).
     #   * Columns are comma-separated — split on /\s*,\s*/ so both `,` and `, `
     #     work and multi-word columns like "release date" stay intact.
-    #   * The clause ends at the sort clause (`sorted by` / `ordered by`) or at
-    #     end-of-input, so `with platform sorted by year` yields just [:platform].
+    #   * The clause ends at the sort clause (sort/sorted/order/ordered, with an
+    #     optional `by`) or at end-of-input, so both `with platform sorted by year`
+    #     and `with platform sort by year` yield just [:platform].
     #   * Each token is stripped + downcased, mapped through +vocabulary+
     #     (alias → canonical Symbol); unknown tokens are dropped; canonical
     #     values are de-duplicated preserving first-seen order.
@@ -21,7 +22,7 @@ module Pito
       module_function
 
       # Captures the column list after `with`, up to the sort clause or EOL.
-      WITH_RE = /\bwith\b\s+(.+?)(?=\s+(?:sorted|ordered)\s+by\b|\z)/i
+      WITH_RE = /\bwith\b\s+(.+?)(?=\s+(?:sort(?:ed)?|order(?:ed)?)(?:\s+by)?\b|\z)/i
 
       # @param raw        [String] the raw command text.
       # @param vocabulary [Hash{String=>Object}] token (alias) → canonical value.

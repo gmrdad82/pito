@@ -26,7 +26,7 @@ module Pito
       class VideoDetail < Pito::FollowUp::Handler
         self.target "video_detail"
         self.mode   :append
-        self.actions "rm", "delete", "reindex", "link", "unlink", "shinies"
+        self.actions "rm", "delete", "reindex", "link", "unlink", "shinies", "sync"
 
         # @param event        [Event]        the video-detail event.
         # @param rest         [String]       text after `#<handle> `.
@@ -35,7 +35,7 @@ module Pito
         def call(event:, rest:, conversation:, period: nil, viewport_width: nil, channel: nil)
           action, _args = parse_rest(rest)
 
-          if %w[rm delete reindex link unlink shinies].include?(action)
+          if %w[rm delete reindex link unlink shinies sync].include?(action)
             return Pito::FollowUp::VerbDelegator.call(source_event: event, rest:, conversation:, period:, viewport_width:, channel:)
           end
 

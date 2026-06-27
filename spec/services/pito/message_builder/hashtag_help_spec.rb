@@ -466,25 +466,42 @@ RSpec.describe Pito::MessageBuilder::HashtagHelp do
           expect(result["html"]).to be(true)
         end
 
-        it "body includes the visit action" do
-          expect(result["body"]).to include("visit")
+        it "body includes the shinies action (visit moved to show channel)" do
+          expect(result["body"]).to include("shinies")
+          expect(result["body"]).not_to include("visit")
         end
 
         it "body does NOT include the reindex action" do
           expect(result["body"]).not_to include("reindex")
         end
       end
+    end
 
-      context "action-level page (action: 'visit')" do
-        subject(:result) { described_class.call(target: "channel_list", action: "visit") }
+    describe "channel_detail target (show-channel indicator)" do
+      context "target-level page (action: nil)" do
+        subject(:result) { described_class.call(target: "channel_detail") }
 
         it "returns an html payload" do
           expect(result).to be_a(Hash)
           expect(result["html"]).to be(true)
         end
 
-        it "body mentions @handle" do
-          expect(result["body"]).to include("handle")
+        it "body includes the visit action" do
+          expect(result["body"]).to include("visit")
+        end
+      end
+
+      context "action-level page (action: 'visit')" do
+        subject(:result) { described_class.call(target: "channel_detail", action: "visit") }
+
+        it "returns an html payload" do
+          expect(result).to be_a(Hash)
+          expect(result["html"]).to be(true)
+        end
+
+        it "body mentions channel and studio destinations" do
+          expect(result["body"]).to include("channel")
+          expect(result["body"]).to include("studio")
         end
       end
     end

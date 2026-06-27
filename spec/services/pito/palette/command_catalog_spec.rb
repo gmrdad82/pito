@@ -53,12 +53,28 @@ RSpec.describe Pito::Palette::CommandCatalog, type: :service do
     expect(inserts).to all(start_with("/config"))
   end
 
-  it "includes a General section with /help and /login" do
+  it "includes a General section with /help and /logout (authenticated, no /login)" do
     gen = sections.find { |s| s[:title_key].include?("general") }
     expect(gen).to be_present
     inserts = gen[:items].map { |i| i[:insert] }
     expect(inserts).to include("/help")
-    expect(inserts).to include(a_string_starting_with("/login"))
+    expect(inserts).to include("/logout")
+    expect(inserts).not_to include(a_string_starting_with("/login"))
+  end
+
+  describe "auth gating" do
+    it "shows ONLY /login when unauthenticated" do
+      inserts = described_class.sections(authenticated: false)
+                              .flat_map { |s| s[:items].map { |i| i[:insert] } }
+      expect(inserts.size).to eq(1)
+      expect(inserts.first).to start_with("/login")
+    end
+
+    it "excludes /login from the authenticated palette" do
+      inserts = described_class.sections(authenticated: true)
+                              .flat_map { |s| s[:items].map { |i| i[:insert] } }
+      expect(inserts).not_to include(a_string_starting_with("/login"))
+    end
   end
 
   it "includes a Conversations section with /new and /resume" do
