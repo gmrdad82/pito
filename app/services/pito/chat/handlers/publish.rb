@@ -15,10 +15,20 @@ module Pito
 
         def call
           ref = extract_ref
-          return needs_ref if ref.blank?
 
-          video = resolve_video(ref)
-          return not_found(ref) unless video
+          if ref.present?
+            video = resolve_video(ref)
+            return not_found(ref) unless video
+          elsif follow_up?
+            # `#<handle> publish` on a video card → publish that card's video.
+            id = follow_up.source_event.payload.with_indifferent_access[:video_id]
+            return needs_ref if id.blank?
+
+            video = ::Video.find_by(id: id)
+            return not_found("##{id}") unless video
+          else
+            return needs_ref
+          end
 
           Pito::Chat::Result::Ok.new(events: [
             { kind: :confirmation,

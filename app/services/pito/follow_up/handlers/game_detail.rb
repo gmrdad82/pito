@@ -31,7 +31,7 @@ module Pito
       class GameDetail < Pito::FollowUp::Handler
         self.target "game_detail"
         self.mode   :append
-        self.actions "rm", "delete", "reindex", "link", "unlink", "footage", "platform", "price", "shinies", "sync"
+        self.actions "rm", "del", "delete", "reindex", "link", "unlink", "footage", "platform", "price", "shinies", "sync"
 
         # @param event        [Event]        the game-detail event.
         # @param rest         [String]       text after `#<handle> `.
@@ -40,7 +40,7 @@ module Pito
         def call(event:, rest:, conversation:, period: nil, viewport_width: nil, channel: nil)
           action, args = parse_rest(rest)
 
-          if %w[rm delete reindex link unlink platform shinies sync].include?(action)
+          if %w[rm del delete reindex link unlink platform shinies sync].include?(action)
             return Pito::FollowUp::VerbDelegator.call(source_event: event, rest:, conversation:, period:, viewport_width:, channel:)
           end
 
@@ -59,13 +59,19 @@ module Pito
 
         private
 
-        # ── footage [update] <hours> ──────────────────────────────────────────────
+        # ── footage [update] <hours> | footage snippet ───────────────────────────
 
-        # `#<handle> footage [update] <hours>` — the game is known from the segment,
-        # so the tail is the new total footage in hours, ceil'd UP to the next 0.5
-        # (BigDecimal-exact). Sets `footage_hours`, same as the `footage update
-        # <id> <hours>` chat verb (id implied by the card).
+        # `#<handle> footage [update] <hours>` sets the game's footage total (id
+        # implied by the card); `#<handle> footage snippet` renders the copyable
+        # ffprobe one-liner — parity with the `footage` chat verb's two forms.
         def handle_footage(event, args, conversation)
+          # snippet is game-agnostic (mirrors the chat `footage snippet` form).
+          if args.to_s.strip.downcase.start_with?("snippet")
+            return Pito::FollowUp::Result::Append.new(
+              events: [ { kind: :system, payload: Pito::MessageBuilder::Footage::Snippet.call } ]
+            )
+          end
+
           game = resolve_game_from_event(event)
           return game_not_found_error if game.nil?
 

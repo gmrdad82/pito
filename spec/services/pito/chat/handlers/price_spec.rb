@@ -88,8 +88,15 @@ RSpec.describe Pito::Chat::Handlers::Price do
     expect(handler_for.call).to be_a(Pito::Chat::Result::Error)
   end
 
-  it "returns a usage hint for an unknown subcommand" do
-    expect(handler_for("bump", game.id.to_s, "9.99").call).to be_a(Pito::Chat::Result::Error)
+  it "sets the price via the implicit form `price <id> <amount>` (no subcommand)" do
+    result = handler_for(game.id.to_s, "59.99").call
+    expect(result).to be_a(Pito::Chat::Result::Ok)
+    expect(game.reload.price).to eq(BigDecimal("59.99"))
+  end
+
+  it "treats a non-numeric implicit ref as a witty not-found (no subcommand)" do
+    # `price bump 9.99` → no set/unset → implicit set on game "bump" → not found.
+    expect(handler_for("bump", "9.99").call).to be_a(Pito::Chat::Result::Ok)
   end
 
   it "returns a witty not-found for an unknown game id on set" do
