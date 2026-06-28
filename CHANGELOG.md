@@ -18,10 +18,12 @@ stacks. (Bespoke analytics view components close out the tag.)
   Studio-style **braille area chart** of the daily-views evolution over the
   selected period (a ~thumbnail-wide 16:9 widget) at **channel / video / game**
   level, with a **subscriber-aware red→green health gradient** (theme-token
-  colours; "full green" ≈ your subscriber count in views per week), a reveal
-  animation (axes draw from the origin, then the braille fills bottom-up — fx-
-  tied), and a witty caption. Replaces the placeholder scaffold cell; the period
-  is the message reference and the entity the subject.
+  colours; "full green" ≈ your subscriber count in views per week), discrete tick
+  VALUES (no axis lines), a pito-blue shimmer, its **own** bottom-up reveal
+  animation (independent of the `/config` fx effect), and a witty caption carrying
+  the total with a filled **trend triangle** (▲/▼/–) vs the prior window. Replaces
+  the placeholder scaffold cell; the period is the reference, the entity the
+  subject.
 - **`show channel`** — a full channel surface: a `:system` detail card (with
   last-sync time and a trimmed linked-game card), an `:enhanced` repliable vids
   list, and an `:enhanced` channel analytics glance. Channels now carry a
@@ -36,6 +38,17 @@ stacks. (Bespoke analytics view components close out the tag.)
 - **`show` replies route by card** — replying to a `:system` card runs `sync`
   for that entity; replying to an `:enhanced` glance runs `analyze` — for vids,
   games, and channels alike.
+- **`analyze` as a reply everywhere** — reply `analyze` to a `list vids` /
+  `list games` / `list channels` to analyze that whole listed scope, or to a
+  `show vid` / `show game` / `show channel` card to analyze that single entity
+  (with `--help` + autosuggest coverage).
+- **`list games upcoming` splits in two** — a `:system` card of games releasing
+  within 30 days and an `:enhanced` card of the later/TBA ones; always both, each
+  with its own subject-token intro (and an ironic empty-state line when a bucket
+  is empty).
+- **Mobile-tappable chatbox hints** — `shift+tab` / `shift+space` / `m` are
+  clickable on touch (simulate the keypress) instead of being swallowed by the
+  chatbox.
 - **`/authenticate`** is now an alias for `/login`; while logged out, the slash
   suggestions surface only `/login`, and the other verbs explain that login is
   required.
@@ -68,6 +81,16 @@ stacks. (Bespoke analytics view components close out the tag.)
 - **Slash palette** triggers argument completion on a trailing space and sends on
   Enter at the verb stage.
 - **`list channels`** is ordered by most-recently-published vid.
+- **Mini-status shows the build** — the nickname now carries a muted suffix:
+  `gmrdad82@<tag>` on a Docker production image, `gmrdad82@localhost` (or your
+  configured host) in development.
+- **Analytics widgets own their reveal** — charts/bars animate with their own
+  choreography (the Views bottom-up wipe, the score/TTB `=` left→right comet
+  wipe) regardless of the `/config` fx effect; the message prose still obeys it.
+- **Mobile chatbox meta line reflows** to a second row (with an ellipsised
+  conversation name) instead of overflowing on narrow screens.
+- **Typewriter reveal** no longer pops its first glyph — it's primed
+  near-invisible (layout reserved) and snaps in as the reveal begins.
 
 ### Fixed
 
@@ -78,6 +101,11 @@ stacks. (Bespoke analytics view components close out the tag.)
 - **Follow-up parity** — delete/publish aliases, implicit `price <id> <amount>`,
   footage reply parity, and repliable publish/unlist/schedule on a video card,
   with the schedule id-less reply bug fixed.
+- **Chat-verb suggestions no longer crash** on a bare complete verb — typing
+  `list` / `ls` (or any verb) used to raise "negative array size" and drop the
+  suggestion; fixed.
+- **Targeted sync copy** — syncing a specific vid now reads `Sync #25?` /
+  `Syncing #25 from YouTube…` instead of the misleading `#25 vids`.
 
 ### Reliability
 
