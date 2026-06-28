@@ -45,6 +45,10 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      # Mirror the version into the local `--build` image too (a build arg never
+      # blanks runtime env). Empty for a bare local build.
+      args:
+        PITO_VERSION: ${PITO_VERSION:-}
     ports:
       - "127.0.0.1:3028:80"
     volumes:
@@ -69,6 +73,10 @@ services:
       # Defaults to the local Docker port; the install/update scripts set this
       # in .env (e.g. https://app.pitomd.com for a cloudflared tunnel).
       PITO_APP_BASE_URL: ${PITO_APP_BASE_URL:-http://localhost:3028}
+      # Forwarded so the app can report its tag in the mini-status when the
+      # CI-baked PITO_VERSION is absent (local builds). A SEPARATE var from
+      # PITO_VERSION: an empty value here can never blank the baked one.
+      PITO_TAG: ${PITO_TAG:-}
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
     depends_on:

@@ -17,6 +17,10 @@ module Pito
         end
 
         def css_class = @state ? "text-green" : "text-red"
+
+        # The muted `@suffix` after the nickname (image tag in prod, host in dev) —
+        # only when authenticated. nil → no suffix rendered.
+        def version_suffix = @state ? Pito::Version.suffix : nil
       end
     end
   end

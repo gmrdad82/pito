@@ -81,6 +81,11 @@ jobs:
           file: ./Dockerfile
           platforms: ${{ matrix.platform }}
           labels: ${{ steps.meta.outputs.labels }}
+          # Bake the bare semver into the image so it self-reports its tag in the
+          # mini-status (read at runtime via ENV PITO_VERSION). Both arches bake
+          # the same tag.
+          build-args: |
+            PITO_VERSION=${{ steps.meta.outputs.version }}
           # Push a tagless, by-digest image per arch; the merge job tags them.
           outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
           cache-from: type=gha,scope=${{ env.PLATFORM_PAIR }}

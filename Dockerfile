@@ -37,10 +37,15 @@ WORKDIR /rails
 RUN apk add --no-cache vips libpq tzdata ca-certificates
 
 # Production environment.
+# Baked by CI (release.yml build-args) so the running image self-reports its tag
+# in the mini-status. Empty for local builds → the compose PITO_TAG passthrough is
+# the fallback. Inherited by the final `FROM base` stage via ENV.
+ARG PITO_VERSION=""
 ENV RAILS_ENV="production" \
     BUNDLE_DEPLOYMENT="1" \
     BUNDLE_PATH="/usr/local/bundle" \
-    BUNDLE_WITHOUT="development test"
+    BUNDLE_WITHOUT="development test" \
+    PITO_VERSION="$PITO_VERSION"
 
 # Throw-away build stage to reduce size of the final image.
 FROM base AS build

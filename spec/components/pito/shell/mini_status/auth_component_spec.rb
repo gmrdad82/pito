@@ -56,4 +56,28 @@ RSpec.describe Pito::Shell::MiniStatus::AuthComponent do
       expect(node.to_html).not_to include("● tarnished")
     end
   end
+
+  describe "version suffix (@tag in prod / @host in dev)" do
+    it "appends a muted @suffix after the nickname when authenticated" do
+      allow(Pito::Version).to receive(:suffix).and_return("0.8.5")
+      node   = render_inline(described_class.new(state: true))
+      suffix = node.css("span.text-fg-dim").first
+      expect(suffix).to be_present
+      expect(suffix.text).to eq("@0.8.5")
+      # green nickname span stays clean (suffix is its own muted span)
+      expect(node.css("span.text-green").first.text.strip).to eq("■ gmrdad82")
+    end
+
+    it "renders no suffix when Version.suffix is nil" do
+      allow(Pito::Version).to receive(:suffix).and_return(nil)
+      node = render_inline(described_class.new(state: true))
+      expect(node.css("span.text-fg-dim")).to be_empty
+    end
+
+    it "renders no suffix when unauthenticated (even if a version is present)" do
+      allow(Pito::Version).to receive(:suffix).and_return("0.8.5")
+      node = render_inline(described_class.new(state: false))
+      expect(node.css("span.text-fg-dim")).to be_empty
+    end
+  end
 end
