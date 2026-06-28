@@ -592,7 +592,7 @@ RSpec.describe "Dispatch matrix — schedule (recognition, DB mocked)", type: :d
     it "video_detail actions are exactly the current declared verb set (incl. schedule)" do
       expect(Pito::FollowUp::Registry.actions_for("video_detail"))
         .to contain_exactly("rm", "del", "delete", "reindex", "link", "unlink",
-                            "shinies", "sync", "publish", "pub", "unlist", "schedule")
+                            "shinies", "sync", "publish", "pub", "unlist", "schedule", "analyze")
     end
   end
 

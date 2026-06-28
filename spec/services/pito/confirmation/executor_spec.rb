@@ -461,6 +461,16 @@ RSpec.describe Pito::Confirmation::Executor, type: :service do
       text = described_class.confirm("sync_videos", { "channel_ids" => [], "scope_label" => "all channels" })
       expect(text).to include("all channels")
     end
+
+    it "phrases a TARGETED (#id) queued ack as the ids, not '<ids> vids'" do
+      allow(SyncVideosJob).to receive(:perform_later)
+      text = described_class.confirm("sync_videos", {
+        "channel_ids" => [], "scope_label" => "#25", "video_ids" => [ 25 ]
+      })
+      # Reads "Syncing #25 from YouTube…" — NOT the misleading "#25 vids".
+      expect(text).to include("#25")
+      expect(text).not_to include("#25 vids")
+    end
   end
 
   # ── confirm / sync_channel ────────────────────────────────────────────────

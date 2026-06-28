@@ -133,6 +133,13 @@ module Pito
           tokens.any? { |t| GENRE_ALIASES.key?(t) || PLATFORM_SYNONYMS.key?(t) }
         end
 
+        # True when the body requests upcoming games. The handler skips the
+        # channel scope for these — upcoming games are unreleased, so they have no
+        # game↔vid links and a channel scope would always exclude them.
+        def upcoming?(raw)
+          tokenize(raw).include?(UPCOMING_TOKEN)
+        end
+
         # Did-you-mean candidates for `raw`. Each unrecognized token (not a known
         # genre/platform/`upcoming`/noun/verb) that is FUZZY-CLOSE to a real
         # vocabulary term yields that term as a suggestion; tokens that are close

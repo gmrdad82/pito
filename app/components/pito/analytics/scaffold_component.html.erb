@@ -4,7 +4,11 @@
     <div class="pito-analytics-enhanced__panel flex gap-6">
       <div class="pito-analytics-scalars">
         <% @cells.each do |cell| %>
-          <%= render(Pito::Analytics::Metric::CompactComponent.new(label: cell[:label], value: cell[:value])) %>
+          <% if cell[:chart] == :views %>
+            <%= render(Pito::Analytics::Metric::ViewsComponent.new(series: cell[:series], target_daily: cell[:target_daily], caption: cell[:caption])) %>
+          <% else %>
+            <%= render(Pito::Analytics::Metric::CompactComponent.new(label: cell[:label], value: cell[:value])) %>
+          <% end %>
         <% end %>
       </div>
     </div>

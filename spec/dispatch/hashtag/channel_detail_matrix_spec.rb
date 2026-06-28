@@ -88,11 +88,11 @@ RSpec.describe "Dispatch matrix — #channel_detail follow-up (recognition, DB m
     end
 
     it "declares 'visit' and 'sync' actions" do
-      expect(Pito::FollowUp::Handlers::ChannelDetail.actions).to eq([ "visit", "sync" ])
+      expect(Pito::FollowUp::Handlers::ChannelDetail.actions).to eq([ "visit", "sync", "analyze" ])
     end
 
-    it "actions_for('channel_detail') contains 'visit' and 'sync'" do
-      expect(Pito::FollowUp::Registry.actions_for("channel_detail")).to match_array(%w[visit sync])
+    it "actions_for('channel_detail') contains 'visit', 'sync' and 'analyze'" do
+      expect(Pito::FollowUp::Registry.actions_for("channel_detail")).to match_array(%w[visit sync analyze])
     end
 
     it "is not internal (appears in help and suggestions)" do

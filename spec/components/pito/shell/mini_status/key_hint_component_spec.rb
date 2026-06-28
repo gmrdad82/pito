@@ -20,7 +20,7 @@ RSpec.describe Pito::Shell::MiniStatus::KeyHintComponent do
       node = render_inline(described_class.new(hint: "tab", label: "channels"))
       hint_span = node.css("span.font-bold.text-yellow").first
       expect(hint_span["data-controller"]).to eq("pito--kbd-click")
-      expect(hint_span["data-action"]).to eq("click->pito--kbd-click#fire")
+      expect(hint_span["data-action"]).to eq("mousedown->pito--kbd-click#hold click->pito--kbd-click#fire")
       expect(hint_span["data-pito--kbd-click-key-value"]).to eq("tab")
     end
   end

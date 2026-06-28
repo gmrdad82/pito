@@ -58,9 +58,9 @@ RSpec.describe "Dispatch matrix — #video_detail follow-up (recognition, DB moc
       expect(Pito::FollowUp::Registry.mode_for("video_detail")).to eq(:append)
     end
 
-    it "actions_for('video_detail') contains the full declared set (all 12)" do
+    it "actions_for('video_detail') contains the full declared set (all 13)" do
       expect(Pito::FollowUp::Registry.actions_for("video_detail")).to match_array(
-        %w[rm del delete reindex link unlink shinies sync publish pub unlist schedule]
+        %w[rm del delete reindex link unlink shinies sync publish pub unlist schedule analyze]
       )
     end
 

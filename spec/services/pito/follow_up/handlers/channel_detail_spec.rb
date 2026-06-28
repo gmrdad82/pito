@@ -36,8 +36,8 @@ RSpec.describe Pito::FollowUp::Handlers::ChannelDetail, type: :service do
     expect(described_class.mode).to eq(:append)
   end
 
-  it "declares visit and sync actions" do
-    expect(described_class.actions).to eq([ "visit", "sync" ])
+  it "declares visit, sync and analyze actions" do
+    expect(described_class.actions).to eq([ "visit", "sync", "analyze" ])
   end
 
   it "is NOT internal (appears in help and suggestions)" do

@@ -16,6 +16,12 @@ RSpec.describe Pito::Shell::ChatboxComponent do
         expect(textarea).not_to be_empty
         expect(textarea.first["placeholder"]).to include("/login")
       end
+
+      it "wires the suggestions controller actions on the input by default" do
+        action = render_inline(described_class.new).css("textarea").first["data-action"]
+        expect(action).to include("input->pito--suggestions#onInput")
+        expect(action).to include("keydown->pito--suggestions#handleKeydown")
+      end
     end
 
     context "with a placeholder_key" do

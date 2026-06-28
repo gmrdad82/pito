@@ -49,7 +49,7 @@ module Pito
         # @param entity_ids [Array<Integer>] resolved entity ids at that level
         # @param period     [String] the shift+space window token
         def pending(role:, title:, level:, entity_ids:, period:, conversation:, selection: nil)
-          intro   = intro_for(role, title)
+          intro   = intro_for(role, title, period)
           payload = {
             "body"    => render_component(Pito::Analytics::ScaffoldComponent.new(intro:, pending: true)),
             "html"    => true,
@@ -77,17 +77,25 @@ module Pito
         # reply re-renders without re-fetch), and PRESERVES the reply handle so the
         # message stays repliable across the pending→ready rewrite.
         #
-        # @param event    [Event] the pending event being filled
-        # @param scaffold [Hash{Symbol=>Boolean}] metric => data-pulled?
-        def ready_payload(event, scaffold:)
-          marker    = event.payload.fetch("analyze")
-          selection = Pito::Analytics::MetricSelection.from_lists(marker["with"], marker["without"])
-          cells     = cells_for(role: marker["role"], level: marker["level"], scaffold:, selection:)
-          payload   = {
+        # @param event [Event] the pending event being filled
+        # @param data  [Hash] { scaffold: {metric=>bool}, views: chart-data | nil }
+        #   `views` (string-keyed: "series"/"total"/"target_daily") is the Views
+        #   chart's data; persisted (with its sampled caption) so a mutate reply
+        #   re-renders the chart without re-fetching.
+        def ready_payload(event, data:)
+          marker        = event.payload.fetch("analyze")
+          scaffold      = data[:scaffold] || {}
+          views         = data[:views]
+          selection     = Pito::Analytics::MetricSelection.from_lists(marker["with"], marker["without"])
+          views_caption = views && render_views_caption(views)
+          cells         = cells_for(role: marker["role"], level: marker["level"], scaffold:, selection:, views:, views_caption:)
+          analyze       = marker.merge("status" => "ready", "scaffold" => stringify_scaffold(scaffold))
+          analyze["views"] = views.merge("caption" => views_caption) if views
+          payload = {
             "body"    => render_component(Pito::Analytics::ScaffoldComponent.new(intro: marker["intro"], cells:)),
             "html"    => true,
             "anchor"  => true,
-            "analyze" => marker.merge("status" => "ready", "scaffold" => stringify_scaffold(scaffold))
+            "analyze" => analyze
           }
           preserve_followup(payload, event.payload)
         end
@@ -98,8 +106,10 @@ module Pito
         def rerender(event, with:, without:)
           marker    = event.payload.fetch("analyze")
           scaffold  = symbolize_scaffold(marker["scaffold"])
+          views     = marker["views"]
           selection = Pito::Analytics::MetricSelection.from_lists(with, without)
-          cells     = cells_for(role: marker["role"], level: marker["level"], scaffold:, selection:)
+          cells     = cells_for(role: marker["role"], level: marker["level"], scaffold:, selection:,
+                                views:, views_caption: views && views["caption"])
           payload   = {
             "body"    => render_component(Pito::Analytics::ScaffoldComponent.new(intro: marker["intro"], cells:)),
             "html"    => true,
@@ -109,17 +119,57 @@ module Pito
           preserve_followup(payload, event.payload)
         end
 
-        # Ordered { label:, value: } cells for a role+level, after applying the
-        # with/without selection (with = whitelist, without = exclude).
-        def cells_for(role:, level:, scaffold:, selection:)
+        # Ordered cells for a role+level, after the with/without selection. The
+        # Views metric (when its chart data is present) renders as the bespoke
+        # ViewsComponent; every other metric stays a `0`/`1` scaffold cell.
+        def cells_for(role:, level:, scaffold:, selection:, views: nil, views_caption: nil)
           metrics = Pito::Analytics::MetricOrder.for(role: role.to_sym, level: level.to_sym)
           metrics = Pito::Analytics::MetricSelection.apply(metrics, selection)
           metrics.map do |metric|
-            {
-              label: Pito::Copy.render(Pito::Analytics::MetricOrder.label_key(metric)),
-              value: scaffold_pulled?(scaffold, metric) ? "1" : "0"
-            }
+            if metric == :views && views.present?
+              {
+                chart:        :views,
+                series:       Array(views["series"]),
+                target_daily: views["target_daily"].to_f,
+                caption:      views_caption
+              }
+            else
+              {
+                label: Pito::Copy.render(Pito::Analytics::MetricOrder.label_key(metric)),
+                value: scaffold_pulled?(scaffold, metric) ? "1" : "0"
+              }
+            end
           end
+        end
+
+        # The witty caption under the Views chart — metric label + compact total,
+        # from the shared 50-variant dictionary (pito.copy.analyze.metric_caption).
+        # Rendered like an intro: the metric name is the SUBJECT (blue→purple
+        # shimmer) and the value is a cyan REFERENCE token. html-safe; persisted
+        # in the marker and re-rendered raw (see ViewsComponent).
+        def render_views_caption(views)
+          Pito::Copy.render_html(
+            "pito.copy.analyze.metric_caption",
+            {
+              metric: Pito::Copy.render(Pito::Analytics::MetricOrder.label_key(:views)),
+              value:  views_value_html(views)
+            },
+            shimmer: [ :metric ]
+          )
+        end
+
+        # The caption VALUE: the cyan reference token (compact total) with the
+        # trend FILLED TRIANGLE spliced directly onto it (e.g. `841K▲`). Pre-built
+        # html_safe so render_html inserts it raw (no double-tokenising), which is
+        # why `:value` is NOT in the `reference:` list above.
+        def views_value_html(views)
+          token = Pito::Shimmer::TokenComponent.html(
+            Pito::Formatter::CompactCount.call(views["total"].to_i)
+          )
+          triangle = Pito::Analytics::Metric::TrendTriangleComponent.html(
+            value: views["total"].to_i, previous: views["previous"]
+          )
+          token + triangle
         end
 
         # scaffold may arrive symbol-keyed (job) or string-keyed (persisted marker).
@@ -139,8 +189,14 @@ module Pito
           payload
         end
 
-        def intro_for(role, title)
-          Pito::Copy.render_html(INTRO_KEYS.fetch(role.to_s), { title: title }, shimmer: [ :title ])
+        # Entity title = subject (purple→blue); period = reference (cyan token).
+        def intro_for(role, title, period)
+          Pito::Copy.render_html(
+            INTRO_KEYS.fetch(role.to_s),
+            { title:, period: },
+            shimmer:   [ :title ],
+            reference: [ :period ]
+          )
         end
 
         def marker(status, role:, title:, level:, entity_ids:, period:, intro:, selection: nil)

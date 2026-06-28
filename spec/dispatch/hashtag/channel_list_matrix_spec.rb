@@ -58,11 +58,11 @@ RSpec.describe "Dispatch matrix — #channel_list follow-up (recognition, DB moc
     end
 
     it "declares only 'shinies' as an action" do
-      expect(Pito::FollowUp::Handlers::ChannelList.actions).to eq([ "shinies" ])
+      expect(Pito::FollowUp::Handlers::ChannelList.actions).to eq([ "shinies", "analyze" ])
     end
 
-    it "actions_for('channel_list') contains only 'shinies'" do
-      expect(Pito::FollowUp::Registry.actions_for("channel_list")).to eq([ "shinies" ])
+    it "actions_for('channel_list') contains 'shinies' and 'analyze'" do
+      expect(Pito::FollowUp::Registry.actions_for("channel_list")).to match_array(%w[shinies analyze])
     end
 
     it "does NOT include 'visit' (visit moved to channel_detail)" do

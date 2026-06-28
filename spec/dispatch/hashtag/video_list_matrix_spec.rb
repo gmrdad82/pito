@@ -98,9 +98,9 @@ RSpec.describe "Dispatch matrix — #video_list follow-up (recognition, DB mocke
       expect(Pito::FollowUp::Registry.mode_for("video_list", action: "order")).to eq(:mutate)
     end
 
-    it "actions_for('video_list') lists all 15 declared actions" do
+    it "actions_for('video_list') lists all 16 declared actions" do
       expect(Pito::FollowUp::Registry.actions_for("video_list")).to match_array(
-        %w[show delete del rm schedule publish pub unlist with without sort order link unlink shinies]
+        %w[show delete del rm schedule publish pub unlist with without sort order link unlink shinies analyze]
       )
     end
 
@@ -381,7 +381,7 @@ RSpec.describe "Dispatch matrix — #video_list follow-up (recognition, DB mocke
       allow(Pito::FollowUp::VerbDelegator).to receive(:call).and_call_original
     end
 
-    %w[channel analyze sync visit studio foo bar baz].each do |action|
+    %w[channel sync visit studio foo bar baz].each do |action|
       context "#{action.inspect}" do
         subject(:result) { call("#{action} whatever") }
 

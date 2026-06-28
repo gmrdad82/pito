@@ -35,7 +35,7 @@ RSpec.describe Pito::FollowUp::Handlers::AnalyzeMessage, type: :service do
     )
     pending_event_stub = instance_double("Event", payload: pending_p)
     ready_p = Pito::MessageBuilder::Analyze::Message.ready_payload(
-      pending_event_stub, scaffold: full_scaffold
+      pending_event_stub, data: { scaffold: full_scaffold, views: nil }
     )
     Event.create_with_position!(
       conversation:, turn:, kind: :system, payload: ready_p.merge(payload_overrides)

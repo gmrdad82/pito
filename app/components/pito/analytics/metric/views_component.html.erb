@@ -1,0 +1,26 @@
+<%# Views metric widget — braille area chart in a ~16:9 box with a health
+    gradient + pito-blue shimmer + discrete tick VALUES (no axis lines/names) +
+    caption. Theme-dependent: the gradient uses --color-* tokens and the
+    ticks/caption use text-fg-dim, so the chart re-palettes with data-theme.
+    --pito-green-anchor is the data-driven gradient stop (inline-CSS-var escape
+    hatch); --pito-rows feeds the per-row gradient-continuity maths. The
+    pito--views-reveal controller (extends the base reveal engine) wipes the rows
+    in bottom→up on connect (variant "D"). Rows are emitted with NO inter-span
+    whitespace (each is display:block; stray whitespace would show as a gap). %>
+<div class="pito-metric pito-metric--views" data-controller="<%= reveal_controller %>">
+  <div class="pito-metric__chart">
+    <div class="pito-metric__plot" data-pito--views-reveal-target="plot"
+         style="--pito-rows: <%= rows %>; --pito-green-anchor: <%= green_anchor_pct %>%"><%
+      rows_braille.each_with_index do |line, i| %><span class="pito-metric__row <%= shimmer_offset_class %>" style="--i: <%= i %>" data-pito--views-reveal-target="row"><%= line %></span><% end %>
+      <div class="pito-metric__yticks text-fg-dim" aria-hidden="true"><%
+        y_ticks.each do |t| %><span class="pito-metric__ytick" style="top: <%= t[:top] %>%"><%= t[:label] %></span><% end %>
+      </div>
+    </div>
+    <div class="pito-metric__xticks text-fg-dim" aria-hidden="true"><%
+      x_ticks.each do |t| %><span><%= t %></span><% end %>
+    </div>
+  </div>
+  <%# caption is pre-rendered html (metric=subject shimmer, value=cyan reference +
+      trend triangle); persisted in the marker → re-rendered raw, like the intro. %>
+  <p class="pito-metric__caption text-fg-dim"><%= raw(caption.to_s) %></p>
+</div>

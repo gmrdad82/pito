@@ -128,12 +128,13 @@ module Pito
     # @param variant [Integer, nil]     forced variant index; nil = sampler
     # @param extra   [Hash]             placeholder values given as keyword args
     # @return        [ActiveSupport::SafeBuffer]
-    def render_html(key, vars = {}, shimmer: [], variant: nil, **extra)
+    def render_html(key, vars = {}, shimmer: [], reference: [], variant: nil, **extra)
       vars = vars.merge(extra) unless extra.empty?
-      shimmer_names = Array(shimmer).map(&:to_sym)
+      shimmer_names   = Array(shimmer).map(&:to_sym)
+      reference_names = Array(reference).map(&:to_sym)
 
       chosen = resolve(key, variant)
-      interpolate_html(key, chosen, vars, shimmer_names)
+      interpolate_html(key, chosen, vars, shimmer_names, reference_names)
     end
 
     # Resolves +key+ to one chosen entry (String) applying the same namespace
@@ -178,7 +179,7 @@ module Pito
     # span (names in +shimmer_names+) or an html-escaped plain value. Operates on
     # a plain String (escaped template), html_safe only at the very end, so the
     # span markup is never re-escaped and the values are never double-escaped.
-    def interpolate_html(key, string, vars, shimmer_names)
+    def interpolate_html(key, string, vars, shimmer_names, reference_names = [])
       template = ERB::Util.html_escape(string).to_str
       template.gsub(/%\{([a-zA-Z_]\w*)\}/) do
         name  = ::Regexp.last_match(1).to_sym
@@ -186,6 +187,10 @@ module Pito
         if shimmer_names.include?(name)
           # tag.span (inside SubjectComponent.html) escapes the content itself.
           Pito::Shimmer::SubjectComponent.html(value.to_s).to_str
+        elsif reference_names.include?(name)
+          # The cyan→pito-blue identifier token — a secondary "reference" to the
+          # purple→blue subject (e.g. the period alongside the entity subject).
+          Pito::Shimmer::TokenComponent.html(value.to_s).to_str
         else
           ERB::Util.html_escape(value.to_s).to_str
         end

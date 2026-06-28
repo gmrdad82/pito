@@ -31,13 +31,13 @@ RSpec.describe Pito::Analytics::ScaffoldComponent, type: :component do
     end
 
     it "renders an html_safe intro raw (subject-shimmer span survives)" do
-      html  = Pito::Copy.render_html("pito.copy.analyze.system.intro", { title: "My Channel" }, shimmer: [ :title ])
+      html  = Pito::Copy.render_html("pito.copy.analyze.system.intro", { title: "My Channel", period: "7d" }, shimmer: [ :title ], reference: [ :period ])
       node2 = render_inline(described_class.new(intro: html, pending: true))
       expect(node2.css(".pito-analytics-enhanced__intro span.pito-subject-shimmer")).not_to be_empty
     end
 
     it "renders a plain (jsonb round-tripped) intro string so a stored shimmer span survives" do
-      stored = Pito::Copy.render_html("pito.copy.analyze.system.intro", { title: "My Channel" }, shimmer: [ :title ]).to_str
+      stored = Pito::Copy.render_html("pito.copy.analyze.system.intro", { title: "My Channel", period: "7d" }, shimmer: [ :title ], reference: [ :period ]).to_str
       node2  = render_inline(described_class.new(intro: stored, pending: true))
       expect(node2.css(".pito-analytics-enhanced__intro span.pito-subject-shimmer")).not_to be_empty
     end

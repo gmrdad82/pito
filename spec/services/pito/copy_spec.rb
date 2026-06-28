@@ -194,6 +194,28 @@ RSpec.describe Pito::Copy, type: :service do
       expect(html).to include("Renamed Hades.")
     end
 
+    it "wraps a reference: placeholder in a cyan pito-token-shimmer span (distinct from the subject)" do
+      html = described_class.render_html(
+        "copy_spec.subject_two", { title: "Hades", game: "28d" },
+        shimmer: [ :title ], reference: [ :game ]
+      )
+      doc = Nokogiri::HTML.fragment(html)
+      subject   = doc.css("span.pito-subject-shimmer").first
+      reference = doc.css("span.pito-token-shimmer").first
+      expect(subject.text).to eq("Hades")
+      expect(reference).not_to be_nil
+      expect(reference.text).to eq("28d")
+    end
+
+    it "escapes a malicious reference: value inside the token span (no raw markup)" do
+      html = described_class.render_html(
+        "copy_spec.subject_two", { title: "ok", game: "<script>alert(1)</script>" },
+        shimmer: [ :title ], reference: [ :game ]
+      )
+      expect(html).to include("&lt;script&gt;")
+      expect(html).not_to include("<script>")
+    end
+
     it "raises MissingPlaceholder when a %{token} has no matching key (like render)" do
       expect { described_class.render_html("copy_spec.subject_line", {}, shimmer: [ :title ]) }
         .to raise_error(Pito::Copy::MissingPlaceholder, /title/)

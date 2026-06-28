@@ -14,6 +14,14 @@ stacks. (Bespoke analytics view components close out the tag.)
 
 ### Added
 
+- **Analytics Views chart** — the `analyze` `:system` Views metric is now a
+  Studio-style **braille area chart** of the daily-views evolution over the
+  selected period (a ~thumbnail-wide 16:9 widget) at **channel / video / game**
+  level, with a **subscriber-aware red→green health gradient** (theme-token
+  colours; "full green" ≈ your subscriber count in views per week), a reveal
+  animation (axes draw from the origin, then the braille fills bottom-up — fx-
+  tied), and a witty caption. Replaces the placeholder scaffold cell; the period
+  is the message reference and the entity the subject.
 - **`show channel`** — a full channel surface: a `:system` detail card (with
   last-sync time and a trimmed linked-game card), an `:enhanced` repliable vids
   list, and an `:enhanced` channel analytics glance. Channels now carry a

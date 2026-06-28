@@ -108,6 +108,16 @@ RSpec.describe Pito::MessageBuilder::Analyze::Message do
       expect(payload.dig("analyze", "intro")).to be_a(String).and(be_present)
     end
 
+    it "renders the entity title as the subject (purple→blue shimmer)" do
+      doc = Nokogiri::HTML.fragment(payload.dig("analyze", "intro"))
+      expect(doc.css("span.pito-subject-shimmer").map(&:text)).to include("My Channel")
+    end
+
+    it "renders the period as a cyan reference token (distinct from the subject)" do
+      doc = Nokogiri::HTML.fragment(payload.dig("analyze", "intro"))
+      expect(doc.css("span.pito-token-shimmer").map(&:text)).to include("7d")
+    end
+
     it "body is a non-blank HTML string" do
       expect(payload["body"]).to be_a(String).and(be_present)
     end
@@ -173,7 +183,7 @@ RSpec.describe Pito::MessageBuilder::Analyze::Message do
     end
 
     context "with a full scaffold (all metrics pulled)" do
-      subject(:ready) { described_class.ready_payload(pending_event, scaffold: full_scaffold) }
+      subject(:ready) { described_class.ready_payload(pending_event, data: { scaffold: full_scaffold, views: nil }) }
 
       it "sets analyze.status to 'ready'" do
         expect(ready.dig("analyze", "status")).to eq("ready")
@@ -222,7 +232,7 @@ RSpec.describe Pito::MessageBuilder::Analyze::Message do
     end
 
     context "with subscribed_status false in the scaffold" do
-      subject(:ready) { described_class.ready_payload(pending_event, scaffold: partial_scaffold) }
+      subject(:ready) { described_class.ready_payload(pending_event, data: { scaffold: partial_scaffold, views: nil }) }
 
       it "renders subscribed_status cell with value '0'" do
         doc    = Nokogiri::HTML.fragment(ready["body"])
@@ -240,7 +250,7 @@ RSpec.describe Pito::MessageBuilder::Analyze::Message do
     end
 
     context "with an empty scaffold (no data pulled)" do
-      subject(:ready) { described_class.ready_payload(pending_event, scaffold: {}) }
+      subject(:ready) { described_class.ready_payload(pending_event, data: { scaffold: {}, views: nil }) }
 
       it "sets analyze.status to 'ready'" do
         expect(ready.dig("analyze", "status")).to eq("ready")
@@ -270,7 +280,7 @@ RSpec.describe Pito::MessageBuilder::Analyze::Message do
         Pito::Analytics::MetricOrder.for(role: :enhanced, level: :channel).index_with { |m| m == :devices }
       end
 
-      subject(:ready) { described_class.ready_payload(enhanced_event, scaffold: enhanced_scaffold) }
+      subject(:ready) { described_class.ready_payload(enhanced_event, data: { scaffold: enhanced_scaffold, views: nil }) }
 
       it "sets analyze.status to 'ready'" do
         expect(ready.dig("analyze", "status")).to eq("ready")
@@ -360,7 +370,7 @@ RSpec.describe Pito::MessageBuilder::Analyze::Message do
     let(:ready_payload) do
       described_class.ready_payload(
         instance_double("Event", payload: pending_payload),
-        scaffold: full_scaffold
+        data: { scaffold: full_scaffold, views: nil }
       )
     end
 

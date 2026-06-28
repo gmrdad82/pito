@@ -27,7 +27,7 @@ module Pito
         self.target "video_detail"
         self.mode   :append
         self.actions "rm", "del", "delete", "reindex", "link", "unlink", "shinies", "sync",
-                     "publish", "pub", "unlist", "schedule"
+                     "publish", "pub", "unlist", "schedule", "analyze"
 
         # @param event        [Event]        the video-detail event.
         # @param rest         [String]       text after `#<handle> `.
@@ -35,6 +35,13 @@ module Pito
         # @return [Result::Append | Result::Error]
         def call(event:, rest:, conversation:, period: nil, viewport_width: nil, channel: nil)
           action, _args = parse_rest(rest)
+
+          if action == "analyze"
+            # Analyze THIS video (the detail card's single entity).
+            return Pito::FollowUp::AnalyzeReply.append(
+              level: :vid, ids: [ event.payload["video_id"] ].compact, conversation:, period:
+            )
+          end
 
           if %w[rm del delete reindex link unlink shinies sync publish pub unlist schedule].include?(action)
             return Pito::FollowUp::VerbDelegator.call(source_event: event, rest:, conversation:, period:, viewport_width:, channel:)

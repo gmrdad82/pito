@@ -16,7 +16,7 @@ function buildHint(keyValue) {
     <span
       data-controller="pito--kbd-click"
       data-pito--kbd-click-key-value="${keyValue}"
-      data-action="click->pito--kbd-click#fire"
+      data-action="mousedown->pito--kbd-click#hold click->pito--kbd-click#fire"
     >${keyValue}</span>
   `
   return document.querySelector("span[data-controller='pito--kbd-click']")
@@ -171,5 +171,33 @@ describe("KbdClickController", () => {
     hint.click()
 
     expect(handler).not.toHaveBeenCalled()
+  })
+
+  it("mousedown#hold preventDefaults so the tap does not blur/steal focus from the chatbox", async () => {
+    const hint = buildHint("shift+tab")
+    await Promise.resolve()
+
+    const ev = new MouseEvent("mousedown", { bubbles: true, cancelable: true })
+    hint.dispatchEvent(ev)
+
+    expect(ev.defaultPrevented).toBe(true)
+  })
+
+  it("click#fire stops propagation so an ancestor handler (chatbox focusField) never runs", async () => {
+    document.body.innerHTML = `
+      <div id="wrap">
+        <textarea data-pito--chat-form-target="inputField"></textarea>
+        <span data-controller="pito--kbd-click" data-pito--kbd-click-key-value="m"
+              data-action="mousedown->pito--kbd-click#hold click->pito--kbd-click#fire">m</span>
+      </div>
+    `
+    await Promise.resolve()
+
+    const ancestor = vi.fn()
+    document.getElementById("wrap").addEventListener("click", ancestor)
+
+    document.querySelector("span[data-controller='pito--kbd-click']").click()
+
+    expect(ancestor).not.toHaveBeenCalled()
   })
 })

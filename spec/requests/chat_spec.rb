@@ -353,6 +353,11 @@ RSpec.describe "Chat requests", type: :request do
           { views: true, subs: true, likes: false, watched_hours: true,
             avg_view_duration: false, avg_viewed_pct: true, comments: true, subscribed_status: false }
         )
+        # :system Views is now a chart → stub its daily-series fetch too.
+        allow(Pito::Analytics::DailySeries).to receive(:for).and_return(
+          Pito::Analytics::DailySeries::Result.new(dates: [], series: [ 1, 2, 3 ], total: 6)
+        )
+        allow(Pito::Analytics::Thresholds).to receive(:subs_for).and_return(70)
       end
 
       it "returns 204 No Content" do
@@ -444,6 +449,11 @@ RSpec.describe "Chat requests", type: :request do
         allow(Pito::Analytics::Scaffold).to receive(:for) do |role:, level:, **|
           Pito::Analytics::MetricOrder.for(role:, level:).index_with { true }
         end
+        # :system Views is now a chart → stub its daily-series fetch too.
+        allow(Pito::Analytics::DailySeries).to receive(:for).and_return(
+          Pito::Analytics::DailySeries::Result.new(dates: [], series: [ 1, 2, 3 ], total: 6)
+        )
+        allow(Pito::Analytics::Thresholds).to receive(:subs_for).and_return(70)
       end
 
       it "returns 204 No Content" do
