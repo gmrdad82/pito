@@ -17,13 +17,14 @@ module Pito
       # Takes NO arguments — it only opens the sidebar panel (no backend dispatch).
       # The grammar spec declares zero slots, so the dispatcher's arity guard
       # REJECTS any extra token (`too_many_args`); only the bare command opens the
-      # panel. NOTE: the registered verb is `:notifs` (see H.notifications-name re:
-      # whether the full `/notifications` name should also be accepted).
+      # panel. The canonical verb is `:notifications` (shown/autosuggested in the
+      # palette + catalog); `:notifs` is kept as an alias (owner-decided).
       class Notifications < Pito::Slash::Handler
-        self.verb        = :notifs
+        self.verb        = :notifications
         self.description_key = "pito.slash.notifications.descriptions.notifications"
 
         grammar do
+          aliases :notifs
           auth :authenticated_only
           description_key "pito.grammar.slash.notifications"
         end

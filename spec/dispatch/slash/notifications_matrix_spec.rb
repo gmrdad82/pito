@@ -88,24 +88,23 @@ RSpec.describe "Dispatch matrix — /notifs (recognition, broadcaster mocked)", 
   # ── 0. Grammar / auth-tier recognition ────────────────────────────────────────
 
   describe "grammar recognition" do
-    it "/notifs (canonical) → known: true on :slash stack" do
-      intent = parsed_intent("/notifs")
-      expect(intent).to include(stack: :slash, verb: :notifs, known: true)
+    it "/notifications (canonical) → known: true on :slash stack" do
+      intent = parsed_intent("/notifications")
+      expect(intent).to include(stack: :slash, verb: :notifications, known: true)
     end
 
-    it "/notifs is gated as :authenticated_only in the grammar spec" do
-      expect(parsed_intent("/notifs")[:auth]).to eq(:authenticated_only)
+    it "/notifs (alias) → canonicalises to :notifications, known: true" do
+      expect(parsed_intent("/notifs")).to include(stack: :slash, verb: :notifications, known: true)
     end
 
-    it "/notifications (user-facing form) → known: false — no spec registered under that name" do
-      # The grammar spec is registered under :notifs, not :notifications.
-      # parsed_intent downcases the token, so /notifications → :notifications → no hit.
-      expect(parsed_intent("/notifications")[:known]).to be(false)
+    it "is gated as :authenticated_only in the grammar spec" do
+      expect(parsed_intent("/notifications")[:auth]).to eq(:authenticated_only)
     end
 
-    it "/notifs grammar spec has zero positional slots" do
-      spec = Pito::Grammar::Registry.spec(namespace: :slash, name: :notifs)
+    it "the canonical grammar spec is registered under :notifications with the :notifs alias" do
+      spec = Pito::Grammar::Registry.spec(namespace: :slash, name: :notifications)
       expect(spec).not_to be_nil
+      expect(spec.aliases).to include(:notifs)
       positional = spec.slots.reject { |s| s.kind == :kv || s.kind == :connective }
       expect(positional).to be_empty
     end
@@ -264,55 +263,29 @@ RSpec.describe "Dispatch matrix — /notifs (recognition, broadcaster mocked)", 
   # Slash::Registry — it's a recognition bug: the command is documented as
   # `/notifications` but the registered verb is `:notifs`.
 
-  describe "case normalization — notifs not in KEYWORDS, all variants fail" do
-    {
-      "/NOTIFS"         => :NOTIFS,
-      "/Notifs"         => :Notifs,
-      "/nOtIfS"         => :nOtIfS
-    }.each do |input, expected_verb|
-      it "#{input.inspect} → unknown_verb (verb #{expected_verb.inspect}, not normalised)" do
-        result = dispatch(input)
-        expect_unknown_verb(result, verb: expected_verb)
+  describe "case normalization — notifs/notifications ARE in KEYWORDS, variants normalise → Ok" do
+    [ "/NOTIFS", "/Notifs", "/nOtIfS", "/NOTIFICATIONS", "/Notifications" ].each do |input|
+      it "#{input.inspect} → Ok (sanitizer downcases the keyword → opens sidebar)" do
+        expect_sidebar_ok(dispatch(input))
       end
     end
   end
 
-  # ── 6. `/notifications` and other non-canonical forms — RECOGNITION BUGS ───────
+  # ── 6. `/notifications` (canonical form) — dispatches like /notifs ─────────────
   #
-  # The user-facing command is documented as `/notifications` (handler comment,
-  # description_key, grammar description_key all reference "notifications"). Yet the
-  # registered verb is :notifs. Any form of `/notifications` returns unknown_verb.
-  #
-  # These are RECOGNITION BUGS: inputs a reasonable user would attempt that fail.
-  # They are reported here verbatim; not fixed.
+  # `notifications` is the canonical verb (owner-decided: shown/autosuggested in
+  # the palette). It opens the sidebar exactly like the `/notifs` alias.
 
-  describe "RECOGNITION BUGS — /notifications (user-facing form) not dispatched" do
-    it "/notifications → Error: unknown_verb [BUG: user-facing name ≠ registered verb :notifs]" do
-      result = dispatch("/notifications")
-      expect_unknown_verb(result, verb: :notifications)
+  describe "/notifications (canonical form) dispatches" do
+    it "/notifications → Ok (sidebar opens)" do
+      expect_sidebar_ok(dispatch("/notifications"))
     end
 
-    it "/NOTIFICATIONS → Error: unknown_verb [BUG: uppercase + unregistered name]" do
-      result = dispatch("/NOTIFICATIONS")
-      expect_unknown_verb(result, verb: :NOTIFICATIONS)
+    it "/notifications on → Error: too_many_args (zero-slot arity guard)" do
+      expect_too_many_args(dispatch("/notifications on"))
     end
 
-    it "/Notifications → Error: unknown_verb [BUG]" do
-      result = dispatch("/Notifications")
-      expect_unknown_verb(result, verb: :Notifications)
-    end
-
-    it "/notifications on → Error: unknown_verb [BUG: subcommand irrelevant — verb fails first]" do
-      result = dispatch("/notifications on")
-      expect_unknown_verb(result, verb: :notifications)
-    end
-
-    it "/notifications --help → Ok [EDGE: --help fires before registry lookup]" do
-      # The dispatcher intercepts --help BEFORE the registry lookup:
-      #   1. parse → invocation (verb: :notifications)
-      #   2. help_requested? → TRUE (raw has ' --help') → HelpBuilder called
-      #   3. Registry.lookup(:notifications) is NEVER reached
-      # Result: man-page help, even though :notifications is unregistered.
+    it "/notifications --help → Ok (generic man-page help)" do
       expect_generic_help(dispatch("/notifications --help"))
     end
   end
@@ -333,26 +306,26 @@ RSpec.describe "Dispatch matrix — /notifs (recognition, broadcaster mocked)", 
       expect_generic_help(dispatch("/notifs --help", authenticated: false))
     end
 
-    it "/notifications with authenticated: false → still unknown_verb (auth irrelevant to bug)" do
-      result = dispatch("/notifications", authenticated: false)
-      expect_unknown_verb(result, verb: :notifications)
+    it "/notifications (canonical) with authenticated: false → Ok (handler opens regardless)" do
+      expect_sidebar_ok(dispatch("/notifications", authenticated: false))
     end
   end
 
   # ── 8. Slash::Registry lookup — the resolver layer ───────────────────────────
 
   describe "Slash::Registry lookup" do
-    it "Registry.lookup(:notifs) returns Notifications handler" do
+    it "Registry.lookup(:notifications) returns the Notifications handler (canonical)" do
+      expect(Pito::Slash::Registry.lookup(:notifications))
+        .to eq(Pito::Slash::Handlers::Notifications)
+    end
+
+    it "Registry.lookup(:notifs) returns the Notifications handler (alias)" do
       expect(Pito::Slash::Registry.lookup(:notifs))
         .to eq(Pito::Slash::Handlers::Notifications)
     end
 
-    it "Registry.lookup(:notifications) returns nil (unregistered)" do
-      expect(Pito::Slash::Registry.lookup(:notifications)).to be_nil
-    end
-
-    it "handler verb is :notifs" do
-      expect(Pito::Slash::Handlers::Notifications.verb).to eq(:notifs)
+    it "handler verb is :notifications" do
+      expect(Pito::Slash::Handlers::Notifications.verb).to eq(:notifications)
     end
   end
 end

@@ -39,6 +39,15 @@ RSpec.describe "Logout via /logout", type: :request do
       expect(echo.payload["triggers_logout"]).to be(true)
     end
 
+    %w[/exit /quit].each do |cmd|
+      it "the #{cmd} alias also clears the session synchronously" do
+        login!
+        expect(cookies[Pito::Auth::SessionCookie::COOKIE_NAME]).to be_present
+        post "/chat", params: { input: cmd, uuid: conversation.uuid }
+        expect(cookies[Pito::Auth::SessionCookie::COOKIE_NAME]).to be_blank
+      end
+    end
+
     it "system event payload carries a logout text from the dictionary" do
       login!
       post "/chat", params: { input: "/logout", uuid: conversation.uuid }

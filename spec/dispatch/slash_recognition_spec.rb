@@ -36,14 +36,20 @@ RSpec.describe "Dispatch — slash verb recognition", type: :dispatch do
       end
     end
 
-    # /theme (handler verb :themes) and /notifications (:notifs) are mostly
-    # CLIENT-SIDE — they open the sidebar for further actions — so by design they
-    # live in the slash handler registry, not the grammar recognition/suggestion
-    # layer. Documented so the distinction is intentional + visible.
-    it "/theme and /notifications route via the handler registry (client-side sidebar)" do
+    # /theme (handler verb :themes) is mostly CLIENT-SIDE — it opens the sidebar
+    # for further actions — so by design it lives in the slash handler registry,
+    # not the grammar recognition/suggestion layer.
+    it "/theme routes via the handler registry (client-side sidebar), not grammar recognition" do
       expect(parsed_intent("/theme")[:known]).to be(false)
-      expect(parsed_intent("/notifications")[:known]).to be(false)
       expect(Pito::Slash::Registry.lookup(:themes)).to eq(Pito::Slash::Handlers::Theme)
+    end
+
+    # /notifications is the CANONICAL recognized verb (owner-decided: shown in the
+    # palette); /notifs is its alias. Both dispatch via the handler registry.
+    it "/notifications is grammar-recognized (canonical) with /notifs as an alias" do
+      expect(parsed_intent("/notifications")[:known]).to be(true)
+      expect(parsed_intent("/notifs")[:verb]).to eq(:notifications)
+      expect(Pito::Slash::Registry.lookup(:notifications)).to eq(Pito::Slash::Handlers::Notifications)
       expect(Pito::Slash::Registry.lookup(:notifs)).to eq(Pito::Slash::Handlers::Notifications)
     end
   end
