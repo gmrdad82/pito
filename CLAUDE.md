@@ -6,6 +6,32 @@
 > `docs/architecture.md`; the visual contract in `docs/design.md` — read the
 > relevant one before writing code for it, don't work from memory.
 
+## The log law (non-negotiable; mechanically enforced)
+
+The active working plan in `docs/claude/plan-*.md` is the **single source of
+truth** — what's done, what's next, every bug/feedback/decision/discussion item
+the owner raised, per tag/purpose. NEVER hold work in your own memory, a scratch
+plan-mode buffer, or the harness todo list. If it isn't in the working md, it
+does not exist.
+
+A `UserPromptSubmit` hook appends every owner message verbatim to
+`docs/claude/INBOX.md` as a `## ⛔ UNPROCESSED` block. **Every turn, before
+anything else:**
+
+1. Read `docs/claude/INBOX.md`.
+2. **Drain** each `⛔ UNPROCESSED` block into the active plan — turn EVERY item
+   (todo, bug, feedback, question, decision) into an explicit task/line in the
+   right section; split compound messages; lose nothing.
+3. Rewrite the block heading in place to
+   `## ✅ processed — <ts> -> <plan refs>` (the task IDs it became, or
+   `no-op (<why>)`). Never delete it — the back-reference makes capture auditable.
+4. Keep checkboxes in sync the instant a task changes state
+   (`[ ]`→`[-]`→`[x]`), one edit per transition — it's what the owner watches.
+
+The `Stop` hook refuses to end a turn while any `⛔ UNPROCESSED` block remains.
+Report status ONLY from the md + verified code/git — never from memory. (Hooks
+live in `.claude/hooks/`, wired in `.claude/settings.local.json`.)
+
 ## How we work
 
 - **Opus plans, Sonnet implements.** Architecture, task breakdowns, and ambiguous
