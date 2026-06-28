@@ -82,12 +82,16 @@ class Game
       GAME_TYPE_EXPANDED_GAME  = 10
       GAME_TYPE_PORT           = 11
       GAME_TYPE_PACK           = 13
-      # Main games PLUS remakes/remasters — a remake (e.g. Demon's Souls 2020)
-      # is a distinct, importable title the user may legitimately want instead
-      # of (or alongside) the original, so it must NOT be filtered out. Bundles,
-      # DLC, packs, ports, expansions etc. still drop at the API layer.
+      # Main games, remakes/remasters, AND expanded games — a remake (e.g.
+      # Demon's Souls 2020) is a distinct, importable title the user may
+      # legitimately want instead of (or alongside) the original. An expanded
+      # game (e.g. "Granblue Fantasy: Relink - Endless Ragnarok", game_type 10)
+      # is a standalone title that extends the base game and is equally
+      # importable — the owner explicitly imports these as separate games.
+      # Bundles (3), DLC (1), packs (13), ports (11), and editions still
+      # drop at the API layer.
       DEFAULT_SEARCH_GAME_TYPES = [
-        GAME_TYPE_MAIN_GAME, GAME_TYPE_REMAKE, GAME_TYPE_REMASTER
+        GAME_TYPE_MAIN_GAME, GAME_TYPE_REMAKE, GAME_TYPE_REMASTER, GAME_TYPE_EXPANDED_GAME
       ].freeze
 
       # Back-compat aliases for any callers / specs referencing the
@@ -142,11 +146,16 @@ class Game
           # 2026-05-18 — single-pass `game_type` filter. IGDB's search
           # endpoint hydrates `game_type` reliably for every row
           # (unlike `category`, which is null for almost every search
-          # hit). `game_type = (0,8,9)` keeps main games + remakes +
-          # remasters (distinct importable titles the user may want);
-          # bundles (3), DLC (1), packs (13), costumes / pack subtypes,
-          # ports (11), expanded-game variants (10), etc. drop out at
-          # the API layer. No second pass needed.
+          # hit). `game_type = (0,8,9,10)` keeps main games + remakes +
+          # remasters + expanded games (all distinct importable titles
+          # the user may want); bundles (3), DLC (1), packs (13),
+          # costumes / pack subtypes, ports (11), etc. drop out at the
+          # API layer. No second pass needed.
+          #
+          # 2026-06-28 — added expanded_game (10): standalone titles
+          # such as "Granblue Fantasy: Relink - Endless Ragnarok" carry
+          # game_type 10 and are legitimate import targets. Packs (13)
+          # and bundles (3) are explicitly NOT added.
           #
           # Null-tolerant just in case IGDB ever ships a freshly
           # indexed row before `game_type` is populated.
