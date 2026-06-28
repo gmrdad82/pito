@@ -185,13 +185,15 @@ module Pito
 
           if video_ids.any?
             SyncVideosJob.perform_later(Array(payload[:channel_ids]), scope_label, conversation_id: conversation_id, video_ids: video_ids)
+            # Targeted: scope_label is the id list (e.g. "#25") — phrase it as the
+            # ids, not "%{scope} vids" (which read as "#25 vids").
+            Pito::Copy.render("pito.copy.sync.videos_queued_targeted", { vids: scope_label })
           else
             fan_out_channels(payload[:channel_ids]) do |channel|
               SyncVideosJob.perform_later([ channel.id ], channel.at_handle, conversation_id: conversation_id)
             end
+            Pito::Copy.render("pito.copy.sync.videos_queued", { scope: scope_label })
           end
-
-          Pito::Copy.render("pito.copy.sync.videos_queued", { scope: scope_label })
         end
 
         # ── sync_channel ───────────────────────────────────────────────────────────

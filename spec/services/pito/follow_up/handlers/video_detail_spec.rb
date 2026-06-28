@@ -32,10 +32,10 @@ RSpec.describe Pito::FollowUp::Handlers::VideoDetail, type: :service do
     expect(described_class.mode).to eq(:append)
   end
 
-  it "declares rm/del/delete, reindex, link, unlink, shinies, sync + the video-card ops (publish/pub/unlist/schedule)" do
+  it "declares rm/del/delete, reindex, link, unlink, shinies, sync + the video-card ops (publish/pub/unlist/schedule) + analyze" do
     expect(described_class.actions).to eq([
       "rm", "del", "delete", "reindex", "link", "unlink", "shinies", "sync",
-      "publish", "pub", "unlist", "schedule"
+      "publish", "pub", "unlist", "schedule", "analyze"
     ])
   end
 

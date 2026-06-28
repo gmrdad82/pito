@@ -108,10 +108,22 @@ function normalize(value) {
 export default class extends Controller {
   static values = { key: String }
 
+  // mousedown fires before the tap moves focus. Preventing its default keeps the
+  // chatbox from blurring when a hint chip is tapped — otherwise the focusout
+  // swaps the focused-state hints (shift+tab / shift+space) away mid-tap and the
+  // mobile keyboard dismisses. Handlers that DO want focus (m / tab) set it
+  // themselves. The classic "toolbar button that doesn't steal focus" pattern.
+  hold(event) {
+    event.preventDefault()
+  }
+
   fire(event) {
     const handler = HANDLERS[normalize(this.keyValue)]
     if (!handler) return
     event.preventDefault()
+    // Don't also bubble to the chatbox wrapper's click->chat-form#focusField:
+    // each handler manages focus itself (cyclers stay in place; m/tab focus).
+    event.stopPropagation()
     handler()
   }
 }

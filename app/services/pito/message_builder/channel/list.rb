@@ -28,6 +28,8 @@ module Pito
           strip_html = render_component(Pito::Channel::ListComponent.new(channels:))
 
           payload = html_payload(body: "#{intro}\n#{strip_html}")
+          # Stamped so an `analyze` reply can scope the analysis to these channels.
+          payload["channel_ids"] = channels.map(&:id)
           Pito::FollowUp.make_followupable!(payload, target: "channel_list", conversation: conversation)
           payload
         end

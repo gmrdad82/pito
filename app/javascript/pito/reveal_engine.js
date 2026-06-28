@@ -66,6 +66,13 @@ const COMET_STAGGER_SPAN = 0.6   // fraction of the budget over which host start
 //   typewriter cadence; raise toward 1.0 to slow back down, lower for snappier.
 export const SCRAMBLE_SPEED_FACTOR  = 0.5   // fraction of engine log-scale budget; < 1 = faster
 
+// Typewriter first-glyph priming opacity. The typewriter prime prefills the first
+// glyph so the box reserves layout instead of collapsing while it waits for its
+// reveal slot — but a fully-opaque prefill "pops" visibly before the reveal even
+// starts. Dimming it to ~invisible keeps the reserved space without the pop; the
+// run snaps it back to full as the reveal begins. (~0.05 = effectively invisible.)
+export const PRIME_OPACITY = 0.05
+
 // Scramble glyph pool: the "wrong" characters shown before a position settles.
 const SCRAMBLE_GLYPHS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!<>-_\\/[]{}=+*#%&@"
 
@@ -77,7 +84,12 @@ const ALWAYS_POP_PATTERNS = [
   /^pito-ttb/,
   /^pito-.*cover/,
   /^pito-.*thumbnail/,
-  /^pito-.*avatar/
+  /^pito-.*avatar/,
+  // Analytics metric widgets own THEIR reveal (e.g. the Views chart's "D"
+  // bottom-up wipe via pito--views-reveal). The message reveal engine must NOT
+  // typewrite/scramble the braille glyphs — skip the whole component so its own
+  // controller drives the animation.
+  /^pito-metric/
 ]
 
 // Log-scaled reveal duration for `totalChars`, clamped to [REVEAL_MIN_MS,
@@ -152,6 +164,29 @@ export class RevealEngine {
       if (u.kind === "text") u.node.nodeValue = u.full.slice(0, 1)
       else u.el.style.visibility = "hidden"
     }
+    // FX: dim that prefilled first glyph to ~invisible so it reserves layout
+    // WITHOUT a visible pop before the reveal runs; #runTypewriter snaps it back.
+    this.#primeFirstGlyph()
+  }
+
+  // Dim the first text unit's host (only the prefilled first glyph is rendered
+  // there at prime) so the reserved layout shows no visible glyph until the
+  // reveal starts. Remembered so the run / instant / cancel paths can restore it.
+  #primeFirstGlyph() {
+    const first = this.units.find(u => u.kind === "text")
+    const host  = first?.node.parentElement
+    if (!host) return
+    host.style.opacity = String(PRIME_OPACITY)
+    this._primedGlyphHost = host
+  }
+
+  // Restore the primed first glyph to full opacity — a hard snap (no fade) as the
+  // reveal begins. Idempotent; safe to call on every settle path.
+  #clearPrimedGlyph() {
+    const host = this._primedGlyphHost
+    if (!host) return
+    this._primedGlyphHost = null
+    if (host.isConnected) host.style.opacity = ""
   }
 
   // Run the chosen effect to completion. Resolves ONCE when the reveal settles —
@@ -171,6 +206,7 @@ export class RevealEngine {
   // backpressure, or cancellation) — covers all effects.
   finishInstant() {
     this.#clearTimers()
+    this.#clearPrimedGlyph()
     for (const u of this.units) this.#restoreUnit(u)
     this.#clearComet()
     this.#settle()
@@ -181,6 +217,7 @@ export class RevealEngine {
   cancel() {
     this.cancelled = true
     this.#clearTimers()
+    this.#clearPrimedGlyph()
     for (const u of this.units) {
       const ref = u.kind === "text" ? u.node : u.el
       if (ref.isConnected) this.#restoreUnit(u)
@@ -205,6 +242,7 @@ export class RevealEngine {
   // typewriter: advance charsPerTick chars per tick across unit boundaries;
   // atomic units un-hide (zero character cost) at their position.
   #runTypewriter() {
+    this.#clearPrimedGlyph()   // FX: snap the first glyph to full as the reveal begins
     const { charsPerTick, tickMs } = this.#tickPlan()
     const units = this.units
     let idx = 0

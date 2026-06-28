@@ -24,7 +24,7 @@ module Pito
       class ChannelDetail < Pito::FollowUp::Handler
         self.target "channel_detail"
         self.mode   :append
-        self.actions "visit", "sync"
+        self.actions "visit", "sync", "analyze"
 
         DESTINATION_MAP = {
           "channel" => :channel,
@@ -44,6 +44,16 @@ module Pito
           # card's channel_id from the follow-up context).
           if action == "sync"
             return Pito::FollowUp::VerbDelegator.call(source_event: event, rest:, conversation:, period:, viewport_width:, channel:)
+          end
+
+          # `#<handle> analyze` → analyze THIS channel (the detail card's entity).
+          if action == "analyze"
+            ch = resolve_channel_from_event(event)
+            return channel_not_found_error if ch.nil?
+
+            return Pito::FollowUp::AnalyzeReply.append(
+              level: :channel, ids: [ ch.id ], conversation:, period:
+            )
           end
 
           unless action == "visit"

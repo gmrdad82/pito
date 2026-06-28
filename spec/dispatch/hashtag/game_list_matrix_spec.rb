@@ -85,9 +85,9 @@ RSpec.describe "Dispatch matrix — game_list hashtag follow-up (recognition, DB
       expect(modes["order"]).to  eq(:mutate)
     end
 
-    it "declares all 13 actions" do
+    it "declares all 14 actions" do
       expect(Pito::FollowUp::Handlers::GameList.actions).to match_array(
-        %w[show delete del rm with without sort order link unlink platform price shinies]
+        %w[show delete del rm with without sort order link unlink platform price shinies analyze]
       )
     end
   end
@@ -417,7 +417,7 @@ RSpec.describe "Dispatch matrix — game_list hashtag follow-up (recognition, DB
 
   describe "unknown action → invalid_action Error (via VerbDelegator gate)" do
     # These verbs exist elsewhere in the system but are not in game_list's matrix.
-    %w[destroy publish reindex sync analyze visit import schedule rename].each do |bad_action|
+    %w[destroy publish reindex sync visit import schedule rename].each do |bad_action|
       it "#{bad_action.inspect} → Result::Error" do
         result = handler.call(event:, rest: "#{bad_action} 10", conversation:)
         expect(result).to be_a(Pito::FollowUp::Result::Error)
@@ -475,10 +475,10 @@ RSpec.describe "Dispatch matrix — game_list hashtag follow-up (recognition, DB
       end
     end
 
-    it "actions_for returns all 13 declared actions" do
+    it "actions_for returns all 14 declared actions" do
       actions = Pito::FollowUp::Registry.actions_for("game_list").map(&:to_s)
       expect(actions).to match_array(
-        %w[show delete del rm with without sort order link unlink platform price shinies]
+        %w[show delete del rm with without sort order link unlink platform price shinies analyze]
       )
     end
   end

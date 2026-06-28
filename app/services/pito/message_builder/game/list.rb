@@ -14,14 +14,16 @@ module Pito
         # @param games        [ActiveRecord::Relation | Array<::Game>] pre-fetched, sorted games.
         # @param conversation [Conversation] used to generate the reply handle.
         # @param columns      [Array<Symbol>] extra canonical column keys (from ListColumns).
+        # @param intro        [String, nil] pre-rendered html_safe body overriding the
+        #   default count intro (e.g. the upcoming soon/later horizon intros).
         # @return [Hash] string-keyed payload with body, table_rows, and follow-up fields.
-        def call(games, conversation:, columns: [])
+        def call(games, conversation:, columns: [], intro: nil)
           cols    = ListColumns.canonical_order(columns)
           # When the price column is shown, align its numbers on the decimal by
           # padding each integer part to the table-max width (figure-spaces).
           price_pad = cols.include?(:price) ? ListColumns.price_pad_int(games) : nil
           payload = {
-            "body"          => Pito::Copy.render_html(
+            "body"          => intro || Pito::Copy.render_html(
               "pito.copy.games.list_intro",
               { count: games.size, noun: games.size == 1 ? "game" : "games" },
               shimmer: [ :count, :noun ]

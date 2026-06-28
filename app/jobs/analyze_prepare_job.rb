@@ -26,9 +26,9 @@ class AnalyzePrepareJob < ApplicationJob
     cache = {}
     begin
       pending_events(turn).each do |event|
-        marker   = event.payload["analyze"]
-        scaffold = (cache[signature(marker)] ||= compute(marker))
-        write_ready(event, broadcaster, scaffold:)
+        marker = event.payload["analyze"]
+        data   = (cache[signature(marker)] ||= compute(marker))
+        write_ready(event, broadcaster, data:)
         broadcaster.resolve_thinking_for(turn:, message_id: event.id)
       end
     ensure
@@ -48,18 +48,47 @@ class AnalyzePrepareJob < ApplicationJob
     [ marker["level"], Array(marker["entity_ids"]).sort, marker["period"], marker["role"] ].join(":")
   end
 
-  # Returns the 0/1 scaffold map { metric => data-pulled? } for the marker's role.
+  # Returns { scaffold: {metric=>bool}, views: chart-data | nil } for the marker's
+  # role. `scaffold` is the 0/1 map every metric still uses; `views` is the daily
+  # Views chart data (system role only) the bespoke ViewsComponent renders.
   def compute(marker)
     window = Pito::Analytics::Window.for(marker["period"], reference_date: Date.current)
-    groups = groups_for(marker["level"], Array(marker["entity_ids"]))
-    Pito::Analytics::Scaffold.for(groups:, window:, role: marker["role"].to_sym, level: marker["level"].to_sym)
+    level  = marker["level"]
+    ids    = Array(marker["entity_ids"])
+    groups = groups_for(level, ids)
+    scaffold = Pito::Analytics::Scaffold.for(groups:, window:, role: marker["role"].to_sym, level: level.to_sym)
+    views    = (marker["role"] == "system" ? compute_views(groups:, window:, level:, entity_ids: ids) : nil)
+    { scaffold:, views: }
   rescue StandardError => e
     Rails.logger.warn("[AnalyzePrepareJob] #{marker['level']} #{marker['entity_ids'].inspect}: #{e.class}: #{e.message}")
-    {} # empty map → every cell renders "0"
+    { scaffold: {}, views: nil } # empty → every cell renders "0", no chart
   end
 
-  def write_ready(event, broadcaster, scaffold:)
-    event.update!(payload: Pito::MessageBuilder::Analyze::Message.ready_payload(event, scaffold:))
+  # The daily Views series + total + green target for the scope (string-keyed so
+  # it round-trips through the jsonb payload). nil when the scope is empty/errors.
+  def compute_views(groups:, window:, level:, entity_ids:)
+    return nil if groups.empty?
+
+    daily = Pito::Analytics::DailySeries.for(groups:, window:)
+    subs  = Pito::Analytics::Thresholds.subs_for(level:, entity_ids:)
+    # Prior comparable window total → drives the caption trend triangle. nil for
+    # non-comparable windows (e.g. lifetime) → no triangle. Window#previous is the
+    # designed trend baseline; its primitives cache under a distinct `-prev` key.
+    prev_window = window.previous
+    previous    = prev_window && Pito::Analytics::DailySeries.for(groups:, window: prev_window).total
+    {
+      "series"       => daily.series,
+      "total"        => daily.total,
+      "previous"     => previous,
+      "target_daily" => Pito::Analytics::Thresholds.views_target_daily(subs:)
+    }
+  rescue StandardError => e
+    Rails.logger.warn("[AnalyzePrepareJob#compute_views] #{e.class}: #{e.message}")
+    nil
+  end
+
+  def write_ready(event, broadcaster, data:)
+    event.update!(payload: Pito::MessageBuilder::Analyze::Message.ready_payload(event, data:))
     broadcaster.replace_event(event)
   end
 

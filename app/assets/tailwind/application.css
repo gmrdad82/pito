@@ -341,9 +341,37 @@ html {
   50%      { color: var(--accent-yellow); }
 }
 
+/* Steady / neutral-with-baseline trend (e.g. the `–` triangle on a flat Views
+   total): the SAME 135° diagonal sweep as up/down, but in fg-default tones (a
+   fg-dim contrast band) so it shimmers without reading as good/bad. */
+.pito-trend-number--steady {
+  color: var(--fg-default);
+  background-image: linear-gradient(
+    135deg,
+    var(--fg-default) 0%,
+    var(--fg-default) 38%,
+    var(--fg-dim) 50%,
+    var(--fg-default) 62%,
+    var(--fg-default) 100%
+  );
+  background-size: 200% 200%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  /* LONGHANDS — see .pito-trend-number--up. */
+  animation-name: pito-kbd-shimmer-sweep;
+  animation-duration: 3.4s;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+/* The trend triangle rides snug after its value token (e.g. `841K▲`). */
+.pito-metric__trend { margin-left: 0.15ch; }
+
 @media (prefers-reduced-motion: reduce) {
   .pito-trend-number--up,
   .pito-trend-number--down,
+  .pito-trend-number--steady,
   .pito-trend-number--up .pito-icon,
   .pito-trend-number--down .pito-icon { animation: none; }
 }
@@ -874,6 +902,34 @@ html {
 
 .pito-chatbox__filter {
   margin-top: 10px;
+}
+
+/* Conversation name (the purple title before the filter hints) — capped so a long
+   title can't blow out the meta line; truncates with an ellipsis. ~18 chars in
+   the monospace face. */
+.pito-chatbox__name {
+  display: inline-block;
+  max-width: 18ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+
+/* Mobile: the meta line (name · shift+tab · shift+space · tab) overflows a narrow
+   viewport. Let it reflow onto a second row — wrap, drop the middot separators
+   (the row/column gaps replace them), and promote the shift+tab / shift+space
+   cyclers to independent flex items so each can fall to its own row. */
+@media (max-width: 540px) {
+  .pito-chatbox__filter {
+    flex-wrap: wrap;
+    row-gap: 2px;
+    column-gap: 6px;
+  }
+  .pito-chatbox__filter .mx-2 { display: none; }
+  .pito-chatbox__filter [data-pito--chatbox-hints-target="filterHints"]:not(.hidden) {
+    display: contents;
+  }
 }
 
 /* ── Autocomplete palette — floats above the chatbox ────────── */
@@ -2406,3 +2462,121 @@ html:has(#pito-settings[data-fx="false"]) .pito-comet-reveal::after { display: n
 /* Click-to-prefill identifier tokens (pito--chat-prefill) get a pointer cursor
    too — clicking prefills the chatbox. Behaviour-only; no colour/underline. */
 [data-controller~="pito--chat-prefill"] { cursor: pointer; }
+
+/* ── Analytics metric chart (Pito::Analytics::Metric::*) ───────────────────────
+   A bespoke metric widget: a braille area chart in a ~thumbnail-wide box near
+   16:9 at the 14px base (45 cols ≈ thumbnail wide; 11 rows ≈ 16:9 tall).
+
+   NO axis lines/names (locked): the braille baseline dot-floor IS the x baseline;
+   the scale is discrete tick VALUES — y overlaid inside-left at their data
+   height, x spread below. Theme-dependent: the fill wears a vertical
+   red→amber→yellow→green health gradient (--color-* tokens, re-palettes per
+   data-theme) clipped to the braille glyphs, with the shared pito-blue bar
+   shimmer (.pito-bar-shimmer recipe) swept OVER it. The green anchor is
+   data-driven via the inline --pito-green-anchor escape-hatch var. Ticks +
+   caption ride text-fg-dim. */
+.pito-metric { display: flex; flex-direction: column; gap: 0.4rem; }
+
+/* width:max-content hugs the braille so the x-ticks span exactly the plot. */
+.pito-metric__chart {
+  position: relative;
+  display: inline-block;
+  width: max-content;
+  max-width: 100%;
+}
+
+.pito-metric__plot {
+  position: relative;
+  --pito-rh: 1.25em;                                  /* per-row height */
+  --pito-plot-h: calc(var(--pito-rh) * var(--pito-rows, 11));
+  --pito-green-anchor: 100%;                          /* fallback; component overrides inline */
+  /* health ramp: red→amber→yellow→green up the y-range, anchored at target. */
+  --pito-health: linear-gradient(
+    to top,
+    var(--color-red) 0%,
+    var(--color-orange) calc(var(--pito-green-anchor) * 0.45),
+    var(--color-yellow) calc(var(--pito-green-anchor) * 0.75),
+    var(--color-green) var(--pito-green-anchor),
+    var(--color-green) 100%
+  );
+}
+
+/* Each braille row: the pito-blue shimmer band (swept @property stops, the SAME
+   .pito-bar-shimmer recipe as score/ttb) layered OVER the health ramp, both
+   clipped to the glyph ink. The health layer is the FULL plot height shifted
+   per-row by --i so the gradient stays continuous across the stacked rows; the
+   band fills the row. 5.5s sweep (slower than the 3.4s bar, per owner),
+   staggered per-chart via the shared .pito-shimmer-dN delay so adjacent charts
+   never sync. LONGHAND animation props only — the `animation` shorthand would
+   reset that delay (Z32). */
+.pito-metric__row {
+  display: block;
+  height: var(--pito-rh);
+  line-height: var(--pito-rh);
+  white-space: pre;
+  background-image:
+    linear-gradient(135deg,
+      transparent calc(var(--pito-bar-sweep) - 14%),
+      color-mix(in oklch, var(--brand-pito) 72%, transparent) var(--pito-bar-sweep),
+      transparent calc(var(--pito-bar-sweep) + 14%)),
+    var(--pito-health);
+  background-repeat: no-repeat;
+  background-size: 100% 100%, 100% var(--pito-plot-h);
+  background-position: 0 0, 0 calc(-1 * var(--pito-rh) * var(--i));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation-name: pito-bar-glyph-sweep;
+  animation-duration: 5.5s;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+/* Discrete tick VALUES (no rotation). y: overlaid inside-left at the data
+   height, faint chip for legibility over the braille. x: spread below. */
+.pito-metric__yticks {
+  position: absolute;
+  inset: 0 auto 0 0;
+  height: var(--pito-plot-h);
+  z-index: 2;
+  pointer-events: none;
+}
+.pito-metric__ytick {
+  position: absolute;
+  left: 0.2ch;
+  transform: translateY(-50%);
+  font-size: 0.8em;
+  line-height: 1;
+  background: color-mix(in srgb, var(--bg-elevated) 78%, transparent);
+  padding: 0 0.25ch;
+}
+.pito-metric__xticks {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8em;
+  margin-top: 0.15em;
+}
+
+/* ── Reveal (variant "D"): rows wipe in bottom→up, each a left→right clip wipe
+   with a STRONG trailing cyan glow that fades as it sweeps. Fail-open: applies
+   ONLY under `.is-revealing` (added by the controller when motion is enabled), so
+   with no JS / fx-off / reduced-motion the chart renders whole. The wipe + glow
+   ride on `transition` (NOT animation) so they never clobber the row's shimmer
+   animation-delay stagger. JS adds `.on` per row bottom→up. text-shadow (not
+   drop-shadow — invisible on background-clip:text glyphs). */
+.pito-metric.is-revealing .pito-metric__row {
+  clip-path: inset(0 100% 0 0);
+  text-shadow:
+    12px 0 14px var(--color-cyan),
+    6px 0 8px var(--color-cyan),
+    0 0 5px var(--fg-default);
+  transition: clip-path 0.5s ease-out, text-shadow 0.5s ease-out;
+}
+.pito-metric.is-revealing .pito-metric__row.on {
+  clip-path: inset(0 0 0 0);
+  text-shadow: 0 0 0 transparent, 0 0 0 transparent, 0 0 0 transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pito-metric__row { animation: none; }
+}

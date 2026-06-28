@@ -31,7 +31,7 @@ module Pito
       class GameDetail < Pito::FollowUp::Handler
         self.target "game_detail"
         self.mode   :append
-        self.actions "rm", "del", "delete", "reindex", "link", "unlink", "footage", "platform", "price", "shinies", "sync"
+        self.actions "rm", "del", "delete", "reindex", "link", "unlink", "footage", "platform", "price", "shinies", "sync", "analyze"
 
         # @param event        [Event]        the game-detail event.
         # @param rest         [String]       text after `#<handle> `.
@@ -45,6 +45,11 @@ module Pito
           end
 
           case action
+          when "analyze"
+            # Analyze THIS game (the detail card's single entity).
+            Pito::FollowUp::AnalyzeReply.append(
+              level: :game, ids: [ event.payload["game_id"] ].compact, conversation:, period:
+            )
           when "footage"
             handle_footage(event, args, conversation)
           when "price"

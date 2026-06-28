@@ -28,7 +28,7 @@ RSpec.describe Pito::Keybinding::ShortcutComponent do
       node = render_inline(described_class.new(keys: "ctrl+k"))
       span = node.css("span").first
       expect(span["data-controller"]).to eq("pito--kbd-click")
-      expect(span["data-action"]).to eq("click->pito--kbd-click#fire")
+      expect(span["data-action"]).to eq("mousedown->pito--kbd-click#hold click->pito--kbd-click#fire")
       expect(span["data-pito--kbd-click-key-value"]).to eq("ctrl+k")
     end
 
@@ -36,7 +36,7 @@ RSpec.describe Pito::Keybinding::ShortcutComponent do
       node = render_inline(described_class.new(keys: "ctrl+k", data: { "controller" => "pito--platform-key", "action" => "toggle" }))
       span = node.css("span").first
       expect(span["data-controller"]).to eq("pito--kbd-click pito--platform-key")
-      expect(span["data-action"]).to eq("click->pito--kbd-click#fire toggle")
+      expect(span["data-action"]).to eq("mousedown->pito--kbd-click#hold click->pito--kbd-click#fire toggle")
       expect(span["data-pito--kbd-click-key-value"]).to eq("ctrl+k")
     end
 

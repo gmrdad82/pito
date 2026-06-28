@@ -18,6 +18,18 @@ require "rails_helper"
 RSpec.describe AnalyzePrepareJob, type: :job do
   let(:conversation) { Conversation.singleton }
 
+  # Stub the Views chart data path (DailySeries → the `daily` report) so the
+  # :system Views component renders without hitting YouTube. Views is now a
+  # bespoke chart (ViewsComponent), NOT a 0/1 scalar cell — it carries no
+  # .pito-analytics-scalars__value, so the "all cells 0/1" assertions count only
+  # the remaining scalar metrics.
+  before do
+    allow(Pito::Analytics::DailySeries).to receive(:for).and_return(
+      Pito::Analytics::DailySeries::Result.new(dates: [], series: [ 1, 2, 3 ], total: 6)
+    )
+    allow(Pito::Analytics::Thresholds).to receive(:subs_for).and_return(70)
+  end
+
   # Stub Scaffold.for to return a per-role map of metric => data-pulled?.
   # Default: all metrics "true" (every cell renders "1").
   def stub_scaffold(map = nil)

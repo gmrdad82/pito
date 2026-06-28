@@ -92,10 +92,18 @@ module Pito
           columns  = auto_filled_columns(Pito::MessageBuilder::Game::ListColumns) if columns.empty?
           games    = Pito::Chat::GameListFilter.call(message.raw)
 
-          games, error = scope_games_to_channel(games)
-          return error if error
+          # Upcoming games are unreleased → no game↔vid links, so the channel
+          # scope (which requires a link) would always exclude them. Show all
+          # upcoming regardless of the shift+tab channel.
+          upcoming = Pito::Chat::GameListFilter.upcoming?(message.raw)
+          if upcoming
+            channel_scoped = false
+          else
+            games, error = scope_games_to_channel(games)
+            return error if error
 
-          channel_scoped = resolved_channel_handle.present?
+            channel_scoped = resolved_channel_handle.present?
+          end
 
           if columns.any?
             includes_args = [ :genres, :developer_companies, :publisher_companies ]
@@ -106,6 +114,11 @@ module Pito
           if games.empty?
             return (filtered || channel_scoped) ? games_filter_empty : games_empty
           end
+
+          # `list games upcoming` renders as a horizon-split PAIR (like analyze):
+          # a :system card of games releasing within 30 days, and an :enhanced card
+          # of the later/TBA ones (ironic — they may never actually release).
+          return list_games_upcoming(games, columns:) if upcoming
 
           sort = Pito::Chat::SortClause.parse(message.raw)
           if sort
@@ -347,6 +360,51 @@ module Pito
         def games_list_help
           payload = Pito::MessageBuilder::Game::ListHelp.call
           Pito::Chat::Result::Ok.new(events: [ { kind: :system, payload: } ])
+        end
+
+        # Number of days that splits "soon" (imminent) from "later" (distant/TBA).
+        UPCOMING_SOON_DAYS = 30
+
+        # `list games upcoming` → a horizon-split PAIR, ALWAYS both messages.
+        # Games with a release_date within the next 30 days form the :system "soon"
+        # card; everything else — later-dated OR undated/TBA — forms the :enhanced
+        # "later" card. An EMPTY bucket still emits its message, with an ironic
+        # empty-state intro (distinct per bucket). Each carries the horizon as a
+        # subject-token.
+        def list_games_upcoming(games, columns:)
+          boundary = Date.current + UPCOMING_SOON_DAYS
+          soon, later = games.to_a.partition { |g| g.release_date.present? && g.release_date <= boundary }
+          soon  = soon.sort_by  { |g| [ g.release_date, g.title.to_s ] }
+          later = later.sort_by { |g| [ g.release_date ? 0 : 1, g.release_date || Date.new(9999), g.title.to_s ] }
+
+          Pito::Chat::Result::Ok.new(events: [
+            upcoming_event(kind: :system, games: soon, columns:, horizon: "the next 30 days",
+                           intro_key: "pito.copy.games.upcoming.soon.intro",
+                           empty_key: "pito.copy.games.upcoming.soon.empty"),
+            upcoming_event(kind: :enhanced, games: later, columns:, horizon: "someday",
+                           intro_key: "pito.copy.games.upcoming.later.intro",
+                           empty_key: "pito.copy.games.upcoming.later.empty")
+          ])
+        end
+
+        # One upcoming card: the game list with its horizon intro when the bucket
+        # has games; otherwise an html message carrying only the ironic empty-state
+        # copy (no table).
+        def upcoming_event(kind:, games:, columns:, horizon:, intro_key:, empty_key:)
+          payload =
+            if games.any?
+              Pito::MessageBuilder::Game::List.call(
+                games, conversation:, columns:, intro: upcoming_intro(intro_key, horizon)
+              )
+            else
+              { "html" => true, "body" => upcoming_intro(empty_key, horizon) }
+            end
+          { kind:, payload: }
+        end
+
+        # The intro/empty copy: horizon as a purple→blue SUBJECT shimmer token.
+        def upcoming_intro(key, horizon)
+          Pito::Copy.render_html(key, { horizon: }, shimmer: [ :horizon ])
         end
 
         def games_empty

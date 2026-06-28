@@ -15,11 +15,12 @@ RSpec.describe Pito::Chat::GameListFilter do
     result = handler_for(raw).call
     return [] unless result.is_a?(Pito::Chat::Result::Ok)
 
-    payload = result.events.first[:payload]
-    return [] unless payload["table_rows"]
-
-    # Game-list rows use the kv-table :cells form — title is the 2nd cell.
-    payload["table_rows"].map { |r| r[:cells][1][:text] }
+    # `list games upcoming` emits a PAIR (:system soon + :enhanced later), so
+    # aggregate table rows across every event. Game-list rows use the kv-table
+    # :cells form — title is the 2nd cell.
+    result.events
+      .flat_map { |e| Array(e[:payload]["table_rows"]) }
+      .map { |r| r[:cells][1][:text] }
   end
 
   # ── Fixtures ──────────────────────────────────────────────────────────────

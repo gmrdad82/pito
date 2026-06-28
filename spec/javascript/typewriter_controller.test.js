@@ -882,7 +882,8 @@ describe("pito--typewriter controller", () => {
       "pito-cover-pan",                                // the Ken-Burns <img>
       "pito-video-detail__thumbnail",                  // video thumbnail
       "pito-channel-item__avatar",                     // avatar (item)
-      "pito-channel-list__avatar"                      // avatar (list)
+      "pito-channel-list__avatar",                     // avatar (list)
+      "pito-metric"                                    // analytics widget (owns its own reveal)
     ]
     const EFFECTS = ["typewriter", "scramble", "comet"]
 

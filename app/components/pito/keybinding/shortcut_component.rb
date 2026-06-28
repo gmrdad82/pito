@@ -34,7 +34,9 @@ module Pito
 
         base = {
           "controller" => "pito--kbd-click",
-          "action" => "click->pito--kbd-click#fire",
+          # mousedown#hold keeps the chatbox focused (no blur / mobile-keyboard
+          # dismiss when a hint is tapped); click#fire synthesizes the keystroke.
+          "action" => "mousedown->pito--kbd-click#hold click->pito--kbd-click#fire",
           "pito--kbd-click-key-value" => @keys
         }
 

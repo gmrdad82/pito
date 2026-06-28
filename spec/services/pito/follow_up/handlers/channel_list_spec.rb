@@ -18,8 +18,8 @@ RSpec.describe Pito::FollowUp::Handlers::ChannelList do
     expect(described_class.mode).to eq(:append)
   end
 
-  it "declares only shinies as an action (visit was removed)" do
-    expect(described_class.actions).to eq([ "shinies" ])
+  it "declares shinies and analyze actions (visit was removed)" do
+    expect(described_class.actions).to eq([ "shinies", "analyze" ])
     expect(described_class.actions).not_to include("visit")
   end
 

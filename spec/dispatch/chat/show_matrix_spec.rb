@@ -499,8 +499,8 @@ RSpec.describe "Dispatch matrix — show (recognition, DB mocked)", type: :dispa
       expect(Pito::FollowUp::Registry.actions_for("channel_list")).not_to include("show")
     end
 
-    it "channel_list declares exactly ['shinies']" do
-      expect(Pito::FollowUp::Registry.actions_for("channel_list")).to eq([ "shinies" ])
+    it "channel_list declares exactly ['shinies', 'analyze']" do
+      expect(Pito::FollowUp::Registry.actions_for("channel_list")).to eq([ "shinies", "analyze" ])
     end
   end
 end

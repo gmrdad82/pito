@@ -18,6 +18,19 @@ RSpec.describe Pito::StartScreen::Component do
       expect(node.css("pre.pito-start-screen__logo")).not_to be_empty
     end
 
+    # Regression: the start-screen chatbox must SHOW the suggestions palette (so
+    # the unauthenticated /login hint appears) WITHOUT wiring a suggestions
+    # keydown handler — keeping Enter (home-transition → chat-form) safe for
+    # login submission. A past change appended the suggestions keydown and
+    # duplicated chat-form, breaking /login on the start screen.
+    it "wires suggestions#onInput on the chatbox but leaves the Enter flow intact" do
+      action = node.css("textarea").first["data-action"].to_s
+      expect(action).to include("input->pito--suggestions#onInput")          # palette shows
+      expect(action).to include("keydown->pito--home-transition#interceptEnter")
+      expect(action).not_to include("keydown->pito--suggestions")            # Enter stays safe
+      expect(action.scan("chat-form#handleKeydown").size).to eq(1)           # not duplicated
+    end
+
     it "renders the tip prefix translation" do
       expect(node.to_html).to include("Tip")
     end

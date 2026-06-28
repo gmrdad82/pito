@@ -17,7 +17,7 @@ module Pito
       class ChannelList < Pito::FollowUp::Handler
         self.target "channel_list"
         self.mode   :append
-        self.actions "shinies"
+        self.actions "shinies", "analyze"
 
         def call(event:, rest:, conversation:, period: nil, viewport_width: nil, channel: nil)
           action, _ref = parse_rest(rest)
@@ -25,6 +25,12 @@ module Pito
           case action
           when "shinies"
             Pito::FollowUp::VerbDelegator.call(source_event: event, rest:, conversation:, period:, viewport_width:, channel:)
+          when "analyze"
+            # Analyze the listed channels as a scope (mirrors `analyze channels @…`).
+            Pito::FollowUp::AnalyzeReply.append(
+              level: :channel, ids: Array(event.payload["channel_ids"]).map(&:to_i),
+              conversation:, period:
+            )
           else
             Pito::FollowUp::Result::Error.new(
               message_key:  "pito.follow_up.channel_list.errors.invalid_action",

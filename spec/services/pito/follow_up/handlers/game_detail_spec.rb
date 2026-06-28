@@ -122,8 +122,8 @@ RSpec.describe Pito::FollowUp::Handlers::GameDetail, type: :service do
 
   # ── actions list ─────────────────────────────────────────────────────────────
 
-  it "declares rm, del, delete, reindex, link, unlink, footage, platform, price, shinies, and sync actions" do
-    expect(described_class.actions).to eq([ "rm", "del", "delete", "reindex", "link", "unlink", "footage", "platform", "price", "shinies", "sync" ])
+  it "declares rm, del, delete, reindex, link, unlink, footage, platform, price, shinies, sync, and analyze actions" do
+    expect(described_class.actions).to eq([ "rm", "del", "delete", "reindex", "link", "unlink", "footage", "platform", "price", "shinies", "sync", "analyze" ])
   end
 
   # ── link to video (delegated to Chat::Handlers::Link) ───────────────────────

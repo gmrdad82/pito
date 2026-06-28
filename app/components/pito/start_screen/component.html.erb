@@ -60,7 +60,14 @@
                 filter: filter,
                 input_data: {
                   pito__chat_form_target: "inputField",
-                  action: "keydown->pito--home-transition#interceptEnter keydown->pito--chat-form#handleKeydown"
+                  # `input->…#onInput` shows the suggestions palette as you type
+                  # (so the unauthenticated /login hint appears on /l). It is a
+                  # SEPARATE event from keydown — the Enter flow below
+                  # (home-transition → chat-form) is untouched, so login submit
+                  # is unaffected. Keyboard-accept of the palette is intentionally
+                  # NOT wired here (no suggestions#handleKeydown) to keep Enter
+                  # safe on the start screen; tap a row or type it out.
+                  action: "keydown->pito--home-transition#interceptEnter keydown->pito--chat-form#handleKeydown input->pito--suggestions#onInput"
                 }
               )) %>
         <% end %>

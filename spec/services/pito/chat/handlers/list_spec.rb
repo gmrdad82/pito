@@ -90,6 +90,109 @@ RSpec.describe Pito::Chat::Handlers::List do
     end
   end
 
+  # ── Upcoming bypasses the channel scope ─────────────────────────────────────
+
+  describe "#call list games upcoming bypasses the channel scope" do
+    let!(:solo)          { create(:channel, handle: "@solo", youtube_channel_id: "UCsolo") }
+    let!(:solo_vid)      { create(:video, :public, channel: solo) }
+    let!(:linked_game)   { create(:game, title: "Linked Released", release_year: 2020) }
+    # An upcoming (TBA) game with NO game↔vid links — a channel scope would
+    # exclude it because it can't be linked to any video.
+    let!(:upcoming_game) { create(:game, title: "Upcoming Quest", release_year: nil, release_date: nil) }
+
+    before { VideoGameLink.create!(video: solo_vid, game: linked_game) }
+
+    def titles(raw, channel:)
+      handler_for(raw, channel: channel).call.events
+        .flat_map { |e| Array(e[:payload]["table_rows"]) }
+        .map { |r| r[:cells][1][:text] }
+    end
+
+    it "shows upcoming games under a specific shift+tab channel (no link required)" do
+      expect(titles("list games upcoming", channel: "@solo")).to include("Upcoming Quest")
+    end
+
+    it "still channel-scopes a NON-upcoming list (only games linked to that channel's vids)" do
+      result = titles("list games", channel: "@solo")
+      expect(result).to include("Linked Released")
+      expect(result).not_to include("Upcoming Quest")
+    end
+  end
+
+  describe "#call list games upcoming → horizon-split PAIR (:system soon / :enhanced later)" do
+    def dated_game(title, on)
+      create(:game, title:, release_year: on.year, release_month: on.month, release_day: on.day)
+    end
+
+    def row_titles(payload)
+      payload["table_rows"].to_a.map { |r| r[:cells][1][:text] }
+    end
+
+    let!(:soon)  { dated_game("Soon Quest",  Date.current + 10) }   # within 30d
+    let!(:later) { dated_game("Later Saga",  Date.current + 200) }  # beyond 30d
+    let!(:tba)   { create(:game, :tba, title: "Maybe Never") }      # undated → later
+
+    let(:events) { handler_for("list games upcoming").call.events }
+
+    it "emits TWO messages: a :system soon card and an :enhanced later card" do
+      expect(events.map { |e| e[:kind] }).to eq([ :system, :enhanced ])
+    end
+
+    it "puts only games releasing within 30 days in the :system card" do
+      expect(row_titles(events[0][:payload])).to eq([ "Soon Quest" ])
+    end
+
+    it "puts later-dated AND undated/TBA games in the :enhanced card" do
+      expect(row_titles(events[1][:payload])).to contain_exactly("Later Saga", "Maybe Never")
+    end
+
+    it "places a game on the 30-day boundary in soon, the day after in later" do
+      on_boundary = dated_game("Edge In",  Date.current + 30)
+      day_after   = dated_game("Edge Out", Date.current + 31)
+      ev = handler_for("list games upcoming").call.events
+      expect(row_titles(ev[0][:payload])).to include("Edge In").and(include("Soon Quest"))
+      expect(row_titles(ev[0][:payload])).not_to include("Edge Out")
+      expect(row_titles(ev[1][:payload])).to include("Edge Out")
+    end
+
+    it "renders each intro with the horizon as a subject-shimmer token" do
+      expect(events[0][:payload]["body"]).to include("pito-subject-shimmer")
+      expect(events[1][:payload]["body"]).to include("pito-subject-shimmer")
+    end
+
+    it "ALWAYS emits the pair: empty :system gets an ironic empty-state message (no table)" do
+      soon.destroy
+      ev = handler_for("list games upcoming").call.events
+      expect(ev.map { |e| e[:kind] }).to eq([ :system, :enhanced ])    # still the pair
+      expect(ev[0][:payload]["table_rows"]).to be_nil                  # empty soon → no table
+      expect(ev[0][:payload]["body"]).to include("pito-subject-shimmer")
+      expect(row_titles(ev[1][:payload])).to contain_exactly("Later Saga", "Maybe Never")
+    end
+
+    it "ALWAYS emits the pair: empty :enhanced gets an ironic empty-state message (no table)" do
+      later.destroy
+      tba.destroy
+      ev = handler_for("list games upcoming").call.events
+      expect(ev.map { |e| e[:kind] }).to eq([ :system, :enhanced ])    # still the pair
+      expect(row_titles(ev[0][:payload])).to eq([ "Soon Quest" ])
+      expect(ev[1][:payload]["table_rows"]).to be_nil                  # empty later → no table
+      expect(ev[1][:payload]["body"]).to include("pito-subject-shimmer")
+    end
+  end
+
+  describe "upcoming copy dictionaries" do
+    it "expose 50 variants each (intro + empty, soon + later), all carrying %{horizon}" do
+      %w[
+        pito.copy.games.upcoming.soon.intro pito.copy.games.upcoming.soon.empty
+        pito.copy.games.upcoming.later.intro pito.copy.games.upcoming.later.empty
+      ].each do |key|
+        variants = I18n.t(key)
+        expect(variants.size).to eq(50)
+        expect(variants).to all(include("%{horizon}"))
+      end
+    end
+  end
+
   # ── Unknown list target ─────────────────────────────────────────────────────
 
   describe "#call with arbitrary filler / unrecognized tokens (allowlist)" do

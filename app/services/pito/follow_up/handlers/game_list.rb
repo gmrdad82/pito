@@ -27,7 +27,7 @@ module Pito
         self.target "game_list"
         self.mode   :append
         self.action_modes with: :mutate, without: :mutate, sort: :mutate, order: :mutate
-        self.actions "show", "delete", "del", "rm", "with", "without", "sort", "order", "link", "unlink", "platform", "price", "shinies"
+        self.actions "show", "delete", "del", "rm", "with", "without", "sort", "order", "link", "unlink", "platform", "price", "shinies", "analyze"
 
         def call(event:, rest:, conversation:, period: nil, viewport_width: nil, channel: nil)
           action, args = parse_rest(rest)
@@ -37,6 +37,12 @@ module Pito
             mutate_columns(event:, conversation:, action:, args:)
           when "sort", "order"
             mutate_sort(event:, conversation:, args:)
+          when "analyze"
+            # Analyze the listed games as a scope (mirrors `analyze games #…`).
+            Pito::FollowUp::AnalyzeReply.append(
+              level: :game, ids: Array(event.payload["game_ids"]).map(&:to_i),
+              conversation:, period:
+            )
           else
             Pito::FollowUp::VerbDelegator.call(source_event: event, rest:, conversation:, period:, viewport_width:, channel:)
           end
