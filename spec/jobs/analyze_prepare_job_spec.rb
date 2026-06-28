@@ -18,14 +18,20 @@ require "rails_helper"
 RSpec.describe AnalyzePrepareJob, type: :job do
   let(:conversation) { Conversation.singleton }
 
-  # Stub the Views chart data path (DailySeries → the `daily` report) so the
-  # :system Views component renders without hitting YouTube. Views is now a
-  # bespoke chart (ViewsComponent), NOT a 0/1 scalar cell — it carries no
-  # .pito-analytics-scalars__value, so the "all cells 0/1" assertions count only
-  # the remaining scalar metrics.
+  # Stub all chart-data paths so the :system AreaChart cells render without
+  # hitting YouTube. The five chart metrics (views/watched_hours/subs/
+  # avg_view_duration/avg_viewed_pct) are bespoke AreaChart cells, NOT 0/1
+  # scalar cells — so the "all cells 0/1" assertions count only the remaining
+  # scalar metrics (likes/comments/subscribed_status = 3 cells).
   before do
     allow(Pito::Analytics::DailySeries).to receive(:for).and_return(
       Pito::Analytics::DailySeries::Result.new(dates: [], series: [ 1, 2, 3 ], total: 6)
+    )
+    allow(Pito::Analytics::AdaptiveSeries).to receive(:for).and_return(
+      Pito::Analytics::AdaptiveSeries::Result.new(series: [ 90.0, 120.0, 110.0 ], total: 108.0, dates: [])
+    )
+    allow(Pito::Analytics::RetentionSeries).to receive(:for).and_return(
+      Pito::Analytics::RetentionSeries::Result.new(series: [ 95.0, 80.0, 65.0, 50.0 ], total_pct: 72.5, rel_performance: 0.52)
     )
     allow(Pito::Analytics::Thresholds).to receive(:subs_for).and_return(70)
   end
@@ -166,6 +172,50 @@ RSpec.describe AnalyzePrepareJob, type: :job do
       expect(captured_subjects).not_to be_empty
       expect(captured_subjects).to all(eq(:channel))
     end
+
+    it "persists chart data for views, watched_hours, and subs in the :system marker" do
+      described_class.perform_now(turn.id)
+      marker = @system_event.reload.payload["analyze"]
+      expect(marker["views"]).to be_a(Hash)
+      expect(marker["watched_hours"]).to be_a(Hash)
+      expect(marker["subs"]).to be_a(Hash)
+      # each chart hash carries the expected keys
+      %w[views watched_hours subs].each do |key|
+        expect(marker[key]).to include("series", "total", "target_daily")
+      end
+    end
+
+    it "does NOT persist chart data in the :enhanced marker" do
+      described_class.perform_now(turn.id)
+      marker = @enhanced_event.reload.payload["analyze"]
+      expect(marker["views"]).to be_nil
+      expect(marker["watched_hours"]).to be_nil
+      expect(marker["subs"]).to be_nil
+    end
+
+    context "avg_viewed_pct chart — insight fields" do
+      before { stub_scaffold }
+
+      it "includes at_mark_pct in the avg_viewed_pct chart" do
+        # series: [95, 80, 65, 50], total_pct: 72.5
+        # ratio = 72.5/100 = 0.725 → at index 0.725×3 = 2.175 → lo=2, hi=3, frac=0.175
+        # 65×0.825 + 50×0.175 = 53.625 + 8.75 = 62.375 → round = 62
+        event, = build_pending_events(turn, level: "channel", entity_ids: [ channel.id ])
+        described_class.perform_now(turn.id)
+        event.reload
+        chart = event.payload.dig("analyze", "avg_viewed_pct")
+        expect(chart["at_mark_pct"]).to eq(62)
+      end
+
+      it "includes benchmark_word in the avg_viewed_pct chart" do
+        # rel_performance: 0.52 → "typical"
+        event, = build_pending_events(turn, level: "channel", entity_ids: [ channel.id ])
+        described_class.perform_now(turn.id)
+        event.reload
+        chart = event.payload.dig("analyze", "avg_viewed_pct")
+        expect(chart["benchmark_word"]).to eq("typical")
+      end
+    end
   end
 
   # ── Vid level ─────────────────────────────────────────────────────────────
@@ -283,6 +333,50 @@ RSpec.describe AnalyzePrepareJob, type: :job do
       described_class.perform_now(turn.id)
       video_ids = captured_subjects.select { |s| s.is_a?(Array) }.flatten
       expect(video_ids).to include(video.youtube_video_id)
+    end
+  end
+
+  # ── Per-metric data folding (watched_hours ÷60, subs net=gained-lost) ─────
+
+  context "per-metric chart data folding (channel level, system role)" do
+    let!(:channel) { create(:channel, :on_connection) }
+
+    let!(:turn) do
+      conversation.turns.create!(
+        position:   Turn.next_position_for(conversation),
+        input_kind: :chat,
+        input_text: "analyze channel"
+      )
+    end
+
+    before do
+      @system_event, @enhanced_event, @system_indicator, @enhanced_indicator =
+        build_pending_events(turn, level: "channel", entity_ids: [ channel.id ])
+      stub_scaffold
+    end
+
+    it "watched_hours total is minutes/60 (raw total 6 min → 0.1 h)" do
+      described_class.perform_now(turn.id)
+      wh = @system_event.reload.payload.dig("analyze", "watched_hours")
+      expect(wh).not_to be_nil
+      # DailySeries stub returns total:6 for all calls; estimated_minutes_watched
+      # total = 6 min → 6/60.0 = 0.1 hours
+      expect(wh["total"]).to be_within(0.01).of(0.1)
+    end
+
+    it "subs total is net (gained minus lost; stub returns identical series so net=0)" do
+      described_class.perform_now(turn.id)
+      subs = @system_event.reload.payload.dig("analyze", "subs")
+      expect(subs).not_to be_nil
+      # Both gained and lost fold return total:6, so net per day = 0, total = 0
+      expect(subs["total"]).to eq(0)
+    end
+
+    it "views total is raw (stub returns total:6 → 6)" do
+      described_class.perform_now(turn.id)
+      views = @system_event.reload.payload.dig("analyze", "views")
+      expect(views).not_to be_nil
+      expect(views["total"]).to eq(6)
     end
   end
 

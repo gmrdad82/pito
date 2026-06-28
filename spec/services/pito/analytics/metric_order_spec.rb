@@ -4,9 +4,9 @@ require "rails_helper"
 
 RSpec.describe Pito::Analytics::MetricOrder do
   describe ".for" do
-    it "returns the :system order for a vid (all available)" do
+    it "returns the :system order for a vid (all available); area-chart metrics grouped first" do
       expect(described_class.for(role: :system, level: :vid)).to eq(
-        %i[views subs likes watched_hours avg_view_duration avg_viewed_pct comments subscribed_status]
+        %i[views watched_hours subs avg_view_duration avg_viewed_pct likes comments subscribed_status]
       )
     end
 

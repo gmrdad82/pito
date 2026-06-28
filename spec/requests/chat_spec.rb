@@ -357,6 +357,15 @@ RSpec.describe "Chat requests", type: :request do
         allow(Pito::Analytics::DailySeries).to receive(:for).and_return(
           Pito::Analytics::DailySeries::Result.new(dates: [], series: [ 1, 2, 3 ], total: 6)
         )
+        # avg_view_duration / avg_viewed_pct go through AdaptiveSeries /
+        # RetentionSeries (which call primitives_daily + retention directly, NOT
+        # DailySeries.for) — stub them too so the request flow never hits YouTube.
+        allow(Pito::Analytics::AdaptiveSeries).to receive(:for).and_return(
+          Pito::Analytics::AdaptiveSeries::Result.new(series: [ 120.0, 95.0 ], total: 108.3, dates: [])
+        )
+        allow(Pito::Analytics::RetentionSeries).to receive(:for).and_return(
+          Pito::Analytics::RetentionSeries::Result.new(series: [ 90.0, 70.0, 45.0 ], total_pct: 45.2, rel_performance: nil)
+        )
         allow(Pito::Analytics::Thresholds).to receive(:subs_for).and_return(70)
       end
 
@@ -452,6 +461,15 @@ RSpec.describe "Chat requests", type: :request do
         # :system Views is now a chart → stub its daily-series fetch too.
         allow(Pito::Analytics::DailySeries).to receive(:for).and_return(
           Pito::Analytics::DailySeries::Result.new(dates: [], series: [ 1, 2, 3 ], total: 6)
+        )
+        # avg_view_duration / avg_viewed_pct go through AdaptiveSeries /
+        # RetentionSeries (which call primitives_daily + retention directly, NOT
+        # DailySeries.for) — stub them too so the request flow never hits YouTube.
+        allow(Pito::Analytics::AdaptiveSeries).to receive(:for).and_return(
+          Pito::Analytics::AdaptiveSeries::Result.new(series: [ 120.0, 95.0 ], total: 108.3, dates: [])
+        )
+        allow(Pito::Analytics::RetentionSeries).to receive(:for).and_return(
+          Pito::Analytics::RetentionSeries::Result.new(series: [ 90.0, 70.0, 45.0 ], total_pct: 45.2, rel_performance: nil)
         )
         allow(Pito::Analytics::Thresholds).to receive(:subs_for).and_return(70)
       end

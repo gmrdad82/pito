@@ -56,15 +56,15 @@ RSpec.describe Pito::Analytics::ScalarsTableComponent, type: :component do
     it "renders the labels for all 7 metrics" do
       node = render_for(result)
       labels = node.css("span.pito-analytics-scalars__label").map(&:text)
-      expect(labels).to include("Views", "Watched hours", "Avg view duration",
-                                "Avg viewed %", "Subs", "Likes", "Comments")
+      expect(labels).to include("Views", "Watched hours", "Average view duration",
+                                "Average viewed %", "Subs", "Likes", "Comments")
     end
 
     it "renders rows in the correct order: views, avg, subs, likes, comments" do
       node = render_for(result)
       text = node.text
-      expect(text.index("Views")).to be < text.index("Avg view duration")
-      expect(text.index("Avg view duration")).to be < text.index("Subs")
+      expect(text.index("Views")).to be < text.index("Average view duration")
+      expect(text.index("Average view duration")).to be < text.index("Subs")
       expect(text.index("Subs")).to be < text.index("Likes")
       expect(text.index("Likes")).to be < text.index("Comments")
     end

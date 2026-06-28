@@ -183,7 +183,7 @@ RSpec.describe Pito::MessageBuilder::Analyze::Message do
     end
 
     context "with a full scaffold (all metrics pulled)" do
-      subject(:ready) { described_class.ready_payload(pending_event, data: { scaffold: full_scaffold, views: nil }) }
+      subject(:ready) { described_class.ready_payload(pending_event, data: { scaffold: full_scaffold, charts: {} }) }
 
       it "sets analyze.status to 'ready'" do
         expect(ready.dig("analyze", "status")).to eq("ready")
@@ -232,7 +232,7 @@ RSpec.describe Pito::MessageBuilder::Analyze::Message do
     end
 
     context "with subscribed_status false in the scaffold" do
-      subject(:ready) { described_class.ready_payload(pending_event, data: { scaffold: partial_scaffold, views: nil }) }
+      subject(:ready) { described_class.ready_payload(pending_event, data: { scaffold: partial_scaffold, charts: {} }) }
 
       it "renders subscribed_status cell with value '0'" do
         doc    = Nokogiri::HTML.fragment(ready["body"])
@@ -250,7 +250,7 @@ RSpec.describe Pito::MessageBuilder::Analyze::Message do
     end
 
     context "with an empty scaffold (no data pulled)" do
-      subject(:ready) { described_class.ready_payload(pending_event, data: { scaffold: {}, views: nil }) }
+      subject(:ready) { described_class.ready_payload(pending_event, data: { scaffold: {}, charts: {} }) }
 
       it "sets analyze.status to 'ready'" do
         expect(ready.dig("analyze", "status")).to eq("ready")
@@ -280,7 +280,7 @@ RSpec.describe Pito::MessageBuilder::Analyze::Message do
         Pito::Analytics::MetricOrder.for(role: :enhanced, level: :channel).index_with { |m| m == :devices }
       end
 
-      subject(:ready) { described_class.ready_payload(enhanced_event, data: { scaffold: enhanced_scaffold, views: nil }) }
+      subject(:ready) { described_class.ready_payload(enhanced_event, data: { scaffold: enhanced_scaffold, charts: {} }) }
 
       it "sets analyze.status to 'ready'" do
         expect(ready.dig("analyze", "status")).to eq("ready")
@@ -297,6 +297,132 @@ RSpec.describe Pito::MessageBuilder::Analyze::Message do
         expect(pairs).not_to be_empty
         values = pairs.map { |p| p.at_css(".pito-analytics-scalars__value")&.text }
         expect(values).to include("1")
+      end
+    end
+
+    context "with chart data for views/watched_hours/subs (AreaChart cells)" do
+      let(:views_chart)        { { "series" => [ 1, 2, 3 ], "total" => 6, "previous" => 4, "target_daily" => 1.0 } }
+      let(:watched_hours_chart) { { "series" => [ 0.1, 0.2 ], "total" => 0.3, "previous" => nil, "target_daily" => 0.05 } }
+      let(:subs_chart)         { { "series" => [ 2, -1, 3 ], "total" => 4, "previous" => 2, "target_daily" => 0.14 } }
+
+      subject(:ready) do
+        described_class.ready_payload(
+          pending_event,
+          data: {
+            scaffold: full_scaffold,
+            charts: {
+              views:         views_chart,
+              watched_hours: watched_hours_chart,
+              subs:          subs_chart
+            }
+          }
+        )
+      end
+
+      it "persists all three charts in the marker with captions" do
+        %w[views watched_hours subs].each do |key|
+          expect(ready.dig("analyze", key)).to be_a(Hash)
+          expect(ready.dig("analyze", key, "caption")).to be_a(String).and(be_present)
+        end
+      end
+
+      it "body renders AreaChart components (no scalar value cells for chart metrics)" do
+        doc    = Nokogiri::HTML.fragment(ready["body"])
+        charts = doc.css(".pito-metric--area-chart")
+        expect(charts.size).to eq(3)
+      end
+
+      it "body renders scalar cells only for non-chart metrics" do
+        doc    = Nokogiri::HTML.fragment(ready["body"])
+        values = doc.css(".pito-analytics-scalars__value").map(&:text)
+        # chart metrics (views/watched_hours/subs) replaced by AreaChart; remaining
+        # system metrics for channel level: likes/avg_view_duration/avg_viewed_pct/
+        # comments/subscribed_status = 5 scalar cells, all "1" (full_scaffold).
+        expect(values).not_to be_empty
+        expect(values).to all(eq("1"))
+      end
+
+      it "cells_for produces chart cells for chart metrics and scaffold cells for others" do
+        metrics = Pito::Analytics::MetricOrder.for(role: :system, level: :channel)
+        chart_metrics = %i[views watched_hours subs] & metrics
+        selection = Pito::Analytics::MetricSelection.from_lists([], [])
+        cells = described_class.cells_for(
+          role: "system", level: "channel",
+          scaffold: full_scaffold, selection:,
+          charts: { views: views_chart, watched_hours: watched_hours_chart, subs: subs_chart },
+          chart_captions: {}
+        )
+        chart_cells  = cells.select { |c| c[:chart].present? }
+        scalar_cells = cells.reject { |c| c[:chart].present? }
+        expect(chart_cells.map { |c| c[:chart] }).to match_array(chart_metrics)
+        expect(scalar_cells.size).to eq(metrics.size - chart_metrics.size)
+        # Distinct metric symbols in each chart cell
+        expect(chart_cells.map { |c| c[:chart] }.uniq.size).to eq(chart_cells.size)
+      end
+    end
+  end
+
+  # ── .render_chart_caption ──────────────────────────────────────────────────
+
+  describe ".render_chart_caption" do
+    context "for avg_viewed_pct with insight data" do
+      let(:chart) do
+        {
+          "series"               => [ 95.0, 80.0, 65.0, 50.0 ],
+          "total_pct"            => 72.5,
+          "avg_duration_seconds" => 22.0,
+          "previous"             => nil,
+          "trend"                => false,
+          "reference_token"      => "lifetime",
+          "at_mark_pct"          => 62,
+          "benchmark_word"       => "typical"
+        }
+      end
+
+      it "renders a second caption row with the insight sentence" do
+        html = described_class.render_chart_caption(metric: :avg_viewed_pct, chart:)
+        expect(html).to include("<br>")
+        expect(html).to include("62%")
+        expect(html).to include("0:22")
+        expect(html).to include("typical")
+      end
+
+      it "renders the X% as a subject-shimmer token (ACL5c)" do
+        html = described_class.render_chart_caption(metric: :avg_viewed_pct, chart:)
+        doc  = Nokogiri::HTML.fragment(html)
+        expect(doc.css("span.pito-subject-shimmer").map(&:text)).to include("62%")
+      end
+
+      it "renders the benchmark word in a pito-trend-number span (neutral for typical)" do
+        html = described_class.render_chart_caption(metric: :avg_viewed_pct, chart:)
+        expect(html).to include('class="pito-trend-number"')
+      end
+
+      it "renders above average with the green trend class" do
+        above_chart = chart.merge("benchmark_word" => "above average")
+        html = described_class.render_chart_caption(metric: :avg_viewed_pct, chart: above_chart)
+        expect(html).to include("pito-trend-number--up")
+      end
+
+      it "renders below average with the red trend class" do
+        below_chart = chart.merge("benchmark_word" => "below average")
+        html = described_class.render_chart_caption(metric: :avg_viewed_pct, chart: below_chart)
+        expect(html).to include("pito-trend-number--down")
+      end
+
+      it "does NOT render the insight row when at_mark_pct is missing" do
+        no_insight = chart.except("at_mark_pct")
+        html = described_class.render_chart_caption(metric: :avg_viewed_pct, chart: no_insight)
+        expect(html).not_to include("<br>")
+      end
+    end
+
+    context "for views (NOT avg_viewed_pct)" do
+      let(:chart) { { "series" => [ 100, 200 ], "total" => 300, "previous" => 200, "target_daily" => 50.0 } }
+
+      it "does NOT render the insight row" do
+        html = described_class.render_chart_caption(metric: :views, chart:)
+        expect(html).not_to include("<br>")
       end
     end
   end
@@ -370,7 +496,7 @@ RSpec.describe Pito::MessageBuilder::Analyze::Message do
     let(:ready_payload) do
       described_class.ready_payload(
         instance_double("Event", payload: pending_payload),
-        data: { scaffold: full_scaffold, views: nil }
+        data: { scaffold: full_scaffold, charts: {} }
       )
     end
 

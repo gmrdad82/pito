@@ -19,6 +19,85 @@ RSpec.describe Pito::Analytics::Thresholds do
     end
   end
 
+  describe ".subs_target_daily (1%/week net-growth pace)" do
+    it "is subs × SUBS_WEEKLY_GROWTH / 7" do
+      expect(described_class.subs_target_daily(subs: 700)).to be_within(0.001).of(700 * 0.01 / 7.0)
+    end
+
+    it "is zero for zero/negative subscribers" do
+      expect(described_class.subs_target_daily(subs: 0)).to eq(0.0)
+      expect(described_class.subs_target_daily(subs: -10)).to eq(0.0)
+    end
+
+    it "uses the SUBS_WEEKLY_GROWTH constant" do
+      expect(described_class::SUBS_WEEKLY_GROWTH).to eq(0.01)
+    end
+  end
+
+  describe ".watched_hours_target_daily (views_target × avg view duration)" do
+    it "is views_target_daily × DEFAULT_AVG_VIEW_HOURS" do
+      vt = described_class.views_target_daily(subs: 700)
+      expect(described_class.watched_hours_target_daily(views_target_daily: vt))
+        .to be_within(0.001).of(vt * described_class::DEFAULT_AVG_VIEW_HOURS)
+    end
+
+    it "is zero when views_target_daily is zero" do
+      expect(described_class.watched_hours_target_daily(views_target_daily: 0.0)).to eq(0.0)
+    end
+
+    it "uses the DEFAULT_AVG_VIEW_HOURS constant" do
+      expect(described_class::DEFAULT_AVG_VIEW_HOURS).to eq(0.05)
+    end
+  end
+
+  describe ".target_daily (per-metric dispatcher)" do
+    it "dispatches :views to views_target_daily" do
+      expect(described_class.target_daily(metric: :views, subs: 700))
+        .to eq(described_class.views_target_daily(subs: 700))
+    end
+
+    it "dispatches :subs to subs_target_daily" do
+      expect(described_class.target_daily(metric: :subs, subs: 700))
+        .to eq(described_class.subs_target_daily(subs: 700))
+    end
+
+    it "dispatches :watched_hours to watched_hours_target_daily using views_target" do
+      vt = described_class.views_target_daily(subs: 700)
+      expect(described_class.target_daily(metric: :watched_hours, subs: 700, views_target_daily: vt))
+        .to eq(described_class.watched_hours_target_daily(views_target_daily: vt))
+    end
+
+    it "computes views_target internally when views_target_daily: is not supplied for :watched_hours" do
+      result = described_class.target_daily(metric: :watched_hours, subs: 700)
+      expected = described_class.watched_hours_target_daily(
+        views_target_daily: described_class.views_target_daily(subs: 700)
+      )
+      expect(result).to be_within(0.001).of(expected)
+    end
+
+    it "returns 0.0 for an unknown metric" do
+      expect(described_class.target_daily(metric: :unknown, subs: 100)).to eq(0.0)
+    end
+
+    it "dispatches :avg_view_duration to the constant AVG_VIEW_DURATION_TARGET_SECONDS" do
+      expect(described_class.target_daily(metric: :avg_view_duration, subs: 100))
+        .to eq(described_class::AVG_VIEW_DURATION_TARGET_SECONDS.to_f)
+    end
+
+    it "dispatches :avg_viewed_pct to the constant RETENTION_TARGET_PCT" do
+      expect(described_class.target_daily(metric: :avg_viewed_pct, subs: 100))
+        .to eq(described_class::RETENTION_TARGET_PCT.to_f)
+    end
+
+    it "AVG_VIEW_DURATION_TARGET_SECONDS is 120 (2-minute goal)" do
+      expect(described_class::AVG_VIEW_DURATION_TARGET_SECONDS).to eq(120)
+    end
+
+    it "RETENTION_TARGET_PCT is 50 (50% retention goal)" do
+      expect(described_class::RETENTION_TARGET_PCT).to eq(50)
+    end
+  end
+
   describe ".green_anchor_fraction" do
     it "is target/ceiling within 0..1" do
       expect(described_class.green_anchor_fraction(target: 2, ceiling: 10)).to eq(0.2)

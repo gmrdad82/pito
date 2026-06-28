@@ -85,8 +85,8 @@ const ALWAYS_POP_PATTERNS = [
   /^pito-.*cover/,
   /^pito-.*thumbnail/,
   /^pito-.*avatar/,
-  // Analytics metric widgets own THEIR reveal (e.g. the Views chart's "D"
-  // bottom-up wipe via pito--views-reveal). The message reveal engine must NOT
+  // Analytics metric widgets own THEIR reveal (the "D" bottom-up wipe via
+  // pito--area-chart-reveal). The message reveal engine must NOT
   // typewrite/scramble the braille glyphs — skip the whole component so its own
   // controller drives the animation.
   /^pito-metric/
