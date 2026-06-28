@@ -380,12 +380,34 @@ or `./pito` from the install dir):
 | `pito version`     | show the running version + channel (stable/edge)       |
 | `pito update`      | update — pick a release (stable) or edge, then restart |
 | `pito backup`      | dump DB + Active Storage to `./backups/<ts>/` (host)   |
+| `pito build`       | build the image **locally** from a source checkout     |
+| `pito self-update` | refresh just the CLI (no image pull / restart)         |
 
 **`pito update`** is the one you'll reach for most — it's interactive: it lists the
 available releases (or **edge**) and switches the whole stack (image **and** CLI) to
 your pick in one step:
 
 <p align="center"><img src="docs/media/pito-update-cast.gif" width="820" alt="pito update — pick a stable release, the whole stack switches"></p>
+
+### Running a locally-built image
+
+To run your own build instead of a published release — on the **same Docker host**:
+
+```sh
+# 1) in a source checkout — build + tag it locally (default tag: `local`)
+PITO_TAG=local pito build
+
+# 2) in your install dir — point the stack at that tag and (re)start
+echo 'PITO_TAG=local' >> .env      # or edit the existing PITO_TAG line
+pito up -d                         # runs the local image; no pull
+```
+
+`pito build` tags the image `ghcr.io/gmrdad82/pito:local`; because the install-dir
+compose resolves `image: ghcr.io/gmrdad82/pito:${PITO_TAG}`, setting `PITO_TAG=local`
+makes `pito up` run your build (Compose uses a present image and never pulls). The
+`local` tag keeps it from colliding with a real release. Use **`pito up`**, not
+**`pito update`** — `update` pulls from GHCR and would replace the local image. To
+return to a release, set `PITO_TAG` back (e.g. `0.8.5`) and run `pito update`.
 
 In-app, **`/jobs`** is your window into the background queue: `/jobs status` (workers,
 state counts, recent failures), `/jobs requeue <id|all>`, `/jobs run <key>` (run a

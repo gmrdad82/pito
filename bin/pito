@@ -22,6 +22,12 @@
 #   backup-schedule   Install a daily systemd timer that runs `pito backup`.
 #   install [args]    Fetch + first-boot a fresh install (script/install.sh).
 #   update [args]     Pull the latest image + restart (script/update.sh).
+#   build [args]      Build the image LOCALLY from a source checkout, tagged
+#                     ghcr.io/gmrdad82/pito:${PITO_TAG:-local}. Deploy it from an
+#                     install dir by setting PITO_TAG to that tag + `pito up`
+#                     (NOT `pito update`, which pulls from GHCR). Same Docker host.
+#   self-update       Refresh just the pito CLI from the repo (no image pull, no
+#                     restart — your running stack/data is untouched). (alias: cli-update)
 #   service [args]    Install/uninstall a systemd unit (reboot-persistence).
 #   cloudflared       Print Cloudflare Tunnel setup guidance for your host.
 #   link              Symlink pito onto your PATH so it runs as a bare `pito`.
@@ -166,6 +172,45 @@ case "$cmd" in
     ;;
   install)   run_script install.sh "$@" ;;
   update)    run_script update.sh "$@" ;;
+  build)
+    # Build the production image LOCALLY from a source checkout (needs the
+    # Dockerfile + repo context). Tags it ghcr.io/gmrdad82/pito:${PITO_TAG:-local}
+    # — the install-dir compose runs that tag without pulling. Default tag `local`
+    # so a hand-built image never collides with a published release tag.
+    if [ ! -f "$PROJECT_DIR/Dockerfile" ]; then
+      echo "pito build: no Dockerfile in $PROJECT_DIR — run this from a pito source checkout." >&2
+      echo "  git clone https://github.com/gmrdad82/pito && cd pito && PITO_TAG=local pito build" >&2
+      exit 1
+    fi
+    PITO_TAG="${PITO_TAG:-local}"
+    export PITO_TAG
+    echo "Building ghcr.io/gmrdad82/pito:$PITO_TAG locally…"
+    dc build "$@" web
+    echo
+    echo "Built ghcr.io/gmrdad82/pito:$PITO_TAG"
+    echo "Deploy it from your install dir (SAME Docker host):"
+    echo "  1) set  PITO_TAG=$PITO_TAG  in <install-dir>/.env"
+    echo "  2) cd <install-dir> && pito up -d        # runs the local image, no pull"
+    echo "Note: use 'pito up' (NOT 'pito update' — update pulls from GHCR and replaces it)."
+    ;;
+  self-update|cli-update)
+    # Refresh ONLY the pito CLI from the repo — no image pull, no restart, stack
+    # and data untouched. (`pito update` also does this, but pulls + restarts.)
+    if [ -d "$PROJECT_DIR/.git" ]; then
+      echo "pito $cmd: this is a source checkout — update the CLI with git, not a fetch." >&2
+      exit 1
+    fi
+    command -v curl >/dev/null 2>&1 || { echo "pito: curl is required" >&2; exit 1; }
+    ref=$(sed -n 's/^PITO_REF=//p' .env 2>/dev/null | head -1); ref="${ref:-main}"
+    echo "Updating the pito CLI from $ref (no image pull)…"
+    tmp=$(mktemp)
+    if curl -fsSL "https://raw.githubusercontent.com/gmrdad82/pito/$ref/bin/pito" -o "$tmp"; then
+      chmod +x "$tmp" && mv "$tmp" "$self"
+      echo "pito CLI updated. Stack untouched."
+    else
+      rm -f "$tmp"; echo "pito: CLI update failed" >&2; exit 1
+    fi
+    ;;
   service)   run_script install.sh --service-only "$@" ;;
   cloudflared) run_script install.sh --cloudflared-only "$@" ;;
   link)      run_script install.sh --link-only "$@" ;;
