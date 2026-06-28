@@ -650,6 +650,19 @@ html {
   margin-bottom: 16px;
 }
 
+/* PERF: long scrollbacks repaint/animate every message each frame (the shimmer
+ * sweeps animate background/mask position, which is NOT GPU-composited), the main
+ * driver of lag as a conversation grows. content-visibility:auto lets the browser
+ * SKIP layout+paint (and the shimmer animation work) for OFF-SCREEN scrollback
+ * messages; contain-intrinsic-size:auto reserves each message's remembered height
+ * so scroll position / scrollbar math stay stable (no jump on scroll). Scoped to
+ * #pito-scrollback so the always-visible chatbox segment + palette segments are
+ * untouched. The newest (visible) message still renders + animates normally. */
+#pito-scrollback .pito-segment {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 120px;
+}
+
 .pito-segment__bar {
   width: 4px;
   flex-shrink: 0;
@@ -947,18 +960,32 @@ html {
 }
 
 /* Mobile: the meta line (name · shift+tab · shift+space · tab) overflows a narrow
-   viewport. Let it reflow onto a second row — wrap, drop the middot separators
-   (the row/column gaps replace them), and promote the shift+tab / shift+space
-   cyclers to independent flex items so each can fall to its own row. */
+   viewport. Reflow it: drop the middot separators (gaps replace them), promote the
+   shift+tab / shift+space cyclers to independent flex items, and STACK each chip's
+   shortcut key OVER its caption (2 rows per pair) so the whole bar reads as compact
+   key/value columns instead of one overflowing line. */
 @media (max-width: 540px) {
   .pito-chatbox__filter {
     flex-wrap: wrap;
-    row-gap: 2px;
-    column-gap: 6px;
+    align-items: flex-start;
+    row-gap: 6px;
+    column-gap: 12px;
   }
   .pito-chatbox__filter .mx-2 { display: none; }
   .pito-chatbox__filter [data-pito--chatbox-hints-target="filterHints"]:not(.hidden) {
     display: contents;
+  }
+  /* Each shortcut chip: key on top, caption underneath (split on 2 rows). */
+  .pito-chatbox__filter .pito-hint-pair {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0;
+  }
+  /* MB2: the conversation name is single-row; center it vertically so it aligns
+     with the 2-row stacked shift+tab @handle chip in the same flex row. */
+  .pito-chatbox__filter .pito-chatbox__name {
+    align-self: center;
   }
 }
 
@@ -1050,6 +1077,42 @@ html {
 .pito-ghost {
   color: var(--fg-faded);
   pointer-events: none;
+}
+
+/* ── Chatbox showcase ghost (pito--chat-showcase) ───────────── */
+
+/* Cycling command ghost shown in the EMPTY + idle chatbox.
+ * Absolutely positioned inside .pito-chatbox__field-wrap (position:relative),
+ * same font/line-height metrics as the textarea so it sits on the same baseline.
+ * Hidden by default; the controller shows/hides via the .is-visible modifier.
+ * Sits at z-index 2 (above type-fx layer, below terminal caret) — matching the
+ * existing .pito-ghost layer for visual consistency.
+ * Not interactive: pointer-events:none lets clicks fall through to the textarea. */
+.pito-showcase-ghost {
+  position: absolute;
+  top: 0;
+  left: 0;
+  white-space: pre;
+  pointer-events: none;
+  user-select: none;
+  color: var(--fg-faded);
+  z-index: 2;
+  opacity: 0;
+  transition: opacity 80ms ease-out;
+}
+
+.pito-showcase-ghost.is-visible {
+  opacity: 1;
+}
+
+/* The comet reveal (.pito-comet-reveal) sets `position: relative` so its ::after
+ * comet anchors to the host — but that rule is defined LATER in this file, so on
+ * the cycling ghost it OVERRODE our `position: absolute`, dropping the ghost into
+ * normal flow: it rendered a row BELOW the caret and pushed the chatbox up while
+ * the sweep ran. Pin it absolute during the comet; an absolute box is still a
+ * containing block for the ::after, so the reveal animation is unaffected. */
+.pito-showcase-ghost.pito-comet-reveal {
+  position: absolute;
 }
 
 /* ── Modal overlay backdrop ─────────────────────────────────── */
@@ -2070,13 +2133,13 @@ html:has(#pito-settings[data-fx="false"]) .pito-comet-reveal::after { display: n
  *                       "+1.2K / -500" (SVG icons ≈ 1em × 1.2em at 14px base)
  */
 .pito-analytics-scalars {
-  --scalars-label-w: 17ch;   /* TUNE: fits the longest label "Avg view duration" (17ch) */
+  --scalars-label-w: 21ch;   /* TUNE: fits the longest label "Average view duration" (21ch) */
   --scalars-value-w: 10ch;   /* TUNE: fits the longest value, the likes/dislikes icon split */
 
   display: flex;
   flex-wrap: wrap;
   column-gap: 3ch;    /* gap between adjacent pairs (≈ old gap-x-6 = 1.5rem) */
-  row-gap: 0.5rem;    /* gap between wrapped rows   (≈ old gap-y-2 = 0.5rem) */
+  row-gap: 0.85rem;   /* ACL2: ~12px gap between wrapped rows for chart cells */
 }
 
 .pito-analytics-scalars__pair {
@@ -2529,7 +2592,11 @@ html:has(#pito-settings[data-fx="false"]) .pito-comet-reveal::after { display: n
    shimmer (.pito-bar-shimmer recipe) swept OVER it. The green anchor is
    data-driven via the inline --pito-green-anchor escape-hatch var. Ticks +
    caption ride text-fg-dim. */
-.pito-metric { display: flex; flex-direction: column; gap: 0.4rem; }
+/* ACL1: width:max-content makes the column flex hug the braille chart; the
+   caption then fills that width (min-width:100%; width:0 avoids expanding the
+   container) and wraps normally within the chart area. */
+.pito-metric { display: flex; flex-direction: column; gap: 0.4rem; width: max-content; }
+.pito-metric__caption { width: 0; min-width: 100%; white-space: normal; overflow-wrap: break-word; }
 
 /* width:max-content hugs the braille so the x-ticks span exactly the plot. */
 .pito-metric__chart {

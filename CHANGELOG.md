@@ -14,16 +14,26 @@ stacks. (Bespoke analytics view components close out the tag.)
 
 ### Added
 
-- **Analytics Views chart** — the `analyze` `:system` Views metric is now a
-  Studio-style **braille area chart** of the daily-views evolution over the
-  selected period (a ~thumbnail-wide 16:9 widget) at **channel / video / game**
-  level, with a **subscriber-aware red→green health gradient** (theme-token
-  colours; "full green" ≈ your subscriber count in views per week), discrete tick
-  VALUES (no axis lines), a pito-blue shimmer, its **own** bottom-up reveal
-  animation (independent of the `/config` fx effect), and a witty caption carrying
-  the total with a filled **trend triangle** (▲/▼/–) vs the prior window. Replaces
-  the placeholder scaffold cell; the period is the reference, the entity the
-  subject.
+- **Analytics area charts — Views, Watched Hours, Subs, Avg View Duration, and Avg Retention** — the `analyze`
+  `:system` grid now shows **five** Studio-style **braille area charts** side-by-side at **channel / video / game**
+  level, each a ~thumbnail-wide 16:9 widget with a **subscriber-aware red→green
+  health gradient**, discrete tick values, a pito-blue shimmer with a distinct
+  per-metric phase offset so the five never pulse in sync, its **own** bottom-up
+  reveal animation (independent of the `/config` fx effect), and a witty caption.
+  Views / Watched Hours / Subs captions carry a filled **trend triangle** (▲/▼/–)
+  vs the prior window.
+  **Avg View Duration** uses adaptive bucketing (daily ≤30 days, weekly 31–90, monthly
+  >90) with per-bucket Σ(estimated_minutes_watched×60)/Σ(views); ticks and caption
+  values show **M:SS**; health target is 2:00 (120 s). No trend triangle.
+  **Avg Retention** is always **lifetime** (the shift+space period window is
+  ignored); the x-axis shows video-position percentages (0%→100%) rather than day
+  indices; vid level = the video's own audience-retention curve; game/channel =
+  **views-weighted average** across linked/all videos fetched and cached per-video
+  in `AnalyticsPrimitive` (report: "retention"); caption shows **M:SS (XX.X%)**
+  plus a cyan "lifetime" reference token; health target is 50%. No trend triangle.
+  The five chart metrics are ordered first in the `:system` grid
+  (`views, watched_hours, subs, avg_view_duration, avg_viewed_pct`); remaining
+  scalars keep the `0`/`1` scaffold display until each is built.
 - **`show channel`** — a full channel surface: a `:system` detail card (with
   last-sync time and a trimmed linked-game card), an `:enhanced` repliable vids
   list, and an `:enhanced` channel analytics glance. Channels now carry a
@@ -49,9 +59,20 @@ stacks. (Bespoke analytics view components close out the tag.)
 - **Mobile-tappable chatbox hints** — `shift+tab` / `shift+space` / `m` are
   clickable on touch (simulate the keypress) instead of being swallowed by the
   chatbox.
+- **`show first|last`** selectors — `show last game`, `show first rpg game`,
+  `show last published vid`, `show last vid` (= last published), etc. resolve to
+  the earliest/latest entity (games by release date, vids by publish date) within
+  the shift+tab channel scope.
+- **Contextual command showcase** — when the chatbox is empty and idle, it cycles
+  conversation-aware command suggestions (comet-revealed), regenerated after every
+  turn from that turn's real entities (real `#ids`, always-valid forms). Rule-based,
+  no Voyage; pauses on focus/typing, clears on input.
 - **`/authenticate`** is now an alias for `/login`; while logged out, the slash
   suggestions surface only `/login`, and the other verbs explain that login is
   required.
+- **`/notifications`** is now the canonical notifications command (the one shown
+  in the slash palette); **`/notifs`** remains as an alias.
+- **`/logout`** gains **`/exit`** and **`/quit`** aliases.
 - **`list … with <cols> sort by <col>`** combine cleanly, with `sort` / `sorted`
   / `order` / `ordered` (and an optional `by`) all accepted.
 - **Game platforms** — `platform set` / `platform unset` add and remove a game's
@@ -87,8 +108,8 @@ stacks. (Bespoke analytics view components close out the tag.)
 - **Analytics widgets own their reveal** — charts/bars animate with their own
   choreography (the Views bottom-up wipe, the score/TTB `=` left→right comet
   wipe) regardless of the `/config` fx effect; the message prose still obeys it.
-- **Mobile chatbox meta line reflows** to a second row (with an ellipsised
-  conversation name) instead of overflowing on narrow screens.
+- **Mobile chatbox meta line** stacks each shortcut chip key-over-caption (2 rows
+  per pair) with an ellipsised conversation name, instead of overflowing.
 - **Typewriter reveal** no longer pops its first glyph — it's primed
   near-invisible (layout reserved) and snaps in as the reveal begins.
 - **PITO logo broken-neon reveal** — on the start screen and the 404 page the
@@ -110,6 +131,9 @@ stacks. (Bespoke analytics view components close out the tag.)
   suggestion; fixed.
 - **Targeted sync copy** — syncing a specific vid now reads `Sync #25?` /
   `Syncing #25 from YouTube…` instead of the misleading `#25 vids`.
+- **Clearing the chatbox now persists** — emptying a saved draft (backspace to
+  blank) is saved to the conversation, so a cleared chatbox no longer reappears
+  with stale text after a refresh.
 
 ### Reliability
 
