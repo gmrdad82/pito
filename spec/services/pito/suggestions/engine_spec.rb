@@ -306,6 +306,21 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
         expect(result[:ghost][:complete_current]).to eq("")
       end
 
+      # Regression (VB2): a bare COMPLETE chat verb with no trailing space (zero
+      # typed arg words) used to crash compute_ghost via `[].first(-1)` →
+      # "negative array size", so `list`/`ls` (and every verb) failed to suggest.
+      it "does not crash on a bare complete chat verb (list / ls / show / sync)" do
+        %w[list ls show sync delete].each do |verb|
+          expect { call(input: verb, cursor: verb.length, authenticated: true) }
+            .not_to raise_error
+        end
+      end
+
+      it "still ghosts the canonical verb from an unambiguous prefix ('lis' → 't')" do
+        result = call(input: "lis", cursor: 3, authenticated: true)
+        expect(result[:ghost][:complete_current]).to eq("t")
+      end
+
       it "returns '' when no vocab member matches the partial" do
         result = call(input: "list zzz", cursor: 8, authenticated: true)
         expect(result[:ghost][:complete_current]).to eq("")
