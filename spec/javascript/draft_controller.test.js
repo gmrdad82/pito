@@ -215,6 +215,35 @@ describe("pito--draft controller", () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
+  // ── CB1: clearing a SERVER-LOADED draft to empty IS persisted ─────────────────
+
+  it("persists clearing a pre-loaded (server) draft to empty (CB1)", async () => {
+    // Chatbox loads WITH an existing draft: the textarea has a value before connect.
+    const chatbox = document.createElement("div")
+    chatbox.id = "pito-chatbox"
+    chatbox.setAttribute("data-controller", "pito--draft")
+    chatbox.setAttribute("data-pito--draft-uuid-value", "uuid-cb1")
+    const form = document.createElement("form")
+    form.className = "chatbox-form"
+    chatbox.appendChild(form)
+    const textarea = document.createElement("textarea")
+    textarea.value = "hello" // server-loaded draft, present BEFORE connect
+    form.appendChild(textarea)
+
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 204 })
+    vi.stubGlobal("fetch", fetchMock)
+
+    document.body.appendChild(chatbox) // connect → _lastSaved seeds to "hello"
+    await waitForConnect()
+
+    inputEvent(textarea, "") // clear to empty
+    vi.advanceTimersByTime(DEBOUNCE_MS)
+    await Promise.resolve()
+
+    expect(fetchMock).toHaveBeenCalledOnce()
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ draft: "" })
+  })
+
   // ── Skip bare trigger chars ───────────────────────────────────────────────────
 
   it("skips PATCH for bare '/' input", async () => {

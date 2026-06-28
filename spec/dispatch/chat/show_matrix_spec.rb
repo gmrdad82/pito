@@ -503,4 +503,193 @@ RSpec.describe "Dispatch matrix — show (recognition, DB mocked)", type: :dispa
       expect(Pito::FollowUp::Registry.actions_for("channel_list")).to eq([ "shinies", "analyze" ])
     end
   end
+
+  # ── Ordinal selectors: show first|last game (Phase FL) ───────────────────────
+  #
+  # `show {first|last} [<genre>] game` — resolved via OrdinalResolver (stubbed).
+  # The handler routes ordinal forms BEFORE id resolution; no numeric ref is parsed.
+  # Channel scope is passed via the handler's `channel` param (shift+tab).
+
+  describe "ordinal game forms — recognition and routing" do
+    before do
+      allow(Pito::Chat::OrdinalResolver).to receive(:call)
+        .with(hash_including(entity: :game))
+        .and_return(game_double)
+    end
+
+    {
+      "show first game"        => :first,
+      "show last game"         => :last,
+      "show first games"       => :first,
+      "show last games"        => :last,
+      "show first rpg game"    => :first,
+      "show last rpg game"     => :last,
+      "show last shooter game" => :last,
+      "show first"             => :first,   # no noun → game branch default
+      "show last"              => :last
+    }.each do |raw, expected_ordinal|
+      it "#{raw.inspect} → OrdinalResolver called with ordinal: #{expected_ordinal}, emits :system game_detail" do
+        expect(Pito::Chat::OrdinalResolver).to receive(:call)
+          .with(hash_including(entity: :game, ordinal: expected_ordinal))
+          .and_return(game_double)
+        result = call(raw)
+        expect(result).to be_a(Pito::Chat::Result::Ok)
+        event = result.events.first
+        expect(event[:kind]).to eq(:system)
+        expect(event[:payload]["reply_target"]).to eq("game_detail")
+      end
+    end
+
+    it "show first rpg game → OrdinalResolver receives Role-playing genre filter" do
+      expect(Pito::Chat::OrdinalResolver).to receive(:call)
+        .with(hash_including(entity: :game, filters: hash_including(genre: "Role-playing")))
+        .and_return(game_double)
+      call("show first rpg game")
+    end
+
+    it "show last shooter game → OrdinalResolver receives Shooter genre filter" do
+      expect(Pito::Chat::OrdinalResolver).to receive(:call)
+        .with(hash_including(entity: :game, filters: hash_including(genre: "Shooter")))
+        .and_return(game_double)
+      call("show last shooter game")
+    end
+
+    describe "channel scope forwarded from handler channel attr (shift+tab)" do
+      def call_with_channel(raw, channel_val)
+        parts       = raw.strip.split(/\s+/)
+        body_words  = parts[1..]
+        body_tokens = body_words.each_with_index.map do |w, i|
+          Pito::Lex::Token.new(type: :word, value: w, position: i, preceded_by_space: true)
+        end
+        msg = Pito::Chat::Message.new(verb: :show, body_tokens: body_tokens, kind: :new_turn, raw: raw)
+        Pito::Chat::Handlers::Show.new(message: msg, conversation: conversation,
+                                        follow_up: nil, channel: channel_val).call
+      end
+
+      it "passes channel_scope to OrdinalResolver from the handler channel attr" do
+        expect(Pito::Chat::OrdinalResolver).to receive(:call)
+          .with(hash_including(entity: :game, channel_scope: "@testchan"))
+          .and_return(game_double)
+        call_with_channel("show last game", "@testchan")
+      end
+
+      it "@all channel_scope is forwarded as-is" do
+        expect(Pito::Chat::OrdinalResolver).to receive(:call)
+          .with(hash_including(entity: :game, channel_scope: "@all"))
+          .and_return(game_double)
+        call_with_channel("show last game", "@all")
+      end
+    end
+
+    describe "OrdinalResolver returns nil → not-found (consume: false)" do
+      before do
+        allow(Pito::Chat::OrdinalResolver).to receive(:call)
+          .with(hash_including(entity: :game))
+          .and_return(nil)
+      end
+
+      [
+        "show first game",
+        "show last game",
+        "show last rpg game"
+      ].each do |raw|
+        it "#{raw.inspect} → consume: false, :system not-found event, no game_id" do
+          result = call(raw)
+          expect(result).to be_a(Pito::Chat::Result::Ok)
+          expect(result.consume).to be(false)
+          expect(result.events.first[:kind]).to eq(:system)
+          expect(result.events.first[:payload]["game_id"]).to be_nil
+        end
+      end
+    end
+  end
+
+  # ── Ordinal selectors: show first|last vid (Phase FL) ────────────────────────
+  #
+  # `show {first|last} [<privacy>] vid` — resolved via OrdinalResolver (stubbed).
+  # Default privacy: :published when no privacy word present (alias rule).
+
+  describe "ordinal video forms — recognition and routing" do
+    before do
+      allow(Pito::Chat::OrdinalResolver).to receive(:call)
+        .with(hash_including(entity: :video))
+        .and_return(video_double)
+    end
+
+    {
+      "show first vid"           => :first,
+      "show last vid"            => :last,
+      "show first video"         => :first,
+      "show last video"          => :last,
+      "show first vids"          => :first,
+      "show last vids"           => :last,
+      "show last published vid"  => :last,
+      "show first published vid" => :first,
+      "show last unlisted vid"   => :last,
+      "show first unlisted vid"  => :first,
+      "show last private vid"    => :last
+    }.each do |raw, expected_ordinal|
+      it "#{raw.inspect} → OrdinalResolver called with ordinal: #{expected_ordinal}, emits :system video_detail" do
+        expect(Pito::Chat::OrdinalResolver).to receive(:call)
+          .with(hash_including(entity: :video, ordinal: expected_ordinal))
+          .and_return(video_double)
+        result = call(raw)
+        expect(result).to be_a(Pito::Chat::Result::Ok)
+        event = result.events.first
+        expect(event[:kind]).to eq(:system)
+        expect(event[:payload]["reply_target"]).to eq("video_detail")
+      end
+    end
+
+    it "show last vid → OrdinalResolver receives default :published privacy (alias rule)" do
+      expect(Pito::Chat::OrdinalResolver).to receive(:call)
+        .with(hash_including(entity: :video, filters: hash_including(privacy: :published)))
+        .and_return(video_double)
+      call("show last vid")
+    end
+
+    it "show last published vid → OrdinalResolver receives :published privacy" do
+      expect(Pito::Chat::OrdinalResolver).to receive(:call)
+        .with(hash_including(entity: :video, filters: hash_including(privacy: :published)))
+        .and_return(video_double)
+      call("show last published vid")
+    end
+
+    it "show last unlisted vid → OrdinalResolver receives :unlisted privacy" do
+      expect(Pito::Chat::OrdinalResolver).to receive(:call)
+        .with(hash_including(entity: :video, filters: hash_including(privacy: :unlisted)))
+        .and_return(video_double)
+      call("show last unlisted vid")
+    end
+
+    it "show last private vid → OrdinalResolver receives :privacy_status_private" do
+      expect(Pito::Chat::OrdinalResolver).to receive(:call)
+        .with(hash_including(entity: :video, filters: hash_including(privacy: :privacy_status_private)))
+        .and_return(video_double)
+      call("show last private vid")
+    end
+
+    describe "OrdinalResolver returns nil → not-found (consume: false)" do
+      before do
+        allow(Pito::Chat::OrdinalResolver).to receive(:call)
+          .with(hash_including(entity: :video))
+          .and_return(nil)
+      end
+
+      [
+        "show last vid",
+        "show first vid",
+        "show last unlisted vid",
+        "show last published vid"
+      ].each do |raw|
+        it "#{raw.inspect} → consume: false, :system not-found event, no video_id" do
+          result = call(raw)
+          expect(result).to be_a(Pito::Chat::Result::Ok)
+          expect(result.consume).to be(false)
+          expect(result.events.first[:kind]).to eq(:system)
+          expect(result.events.first[:payload]["video_id"]).to be_nil
+        end
+      end
+    end
+  end
 end

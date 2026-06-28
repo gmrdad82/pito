@@ -452,4 +452,209 @@ RSpec.describe Pito::Chat::Handlers::Show do
       end
     end
   end
+
+  # ── Ordinal selectors: show first|last game (Phase FL) ────────────────────────
+
+  describe "show first|last game — ordinal resolution" do
+    # Helper: creates a game with a fully specified release_date (derived from
+    # year/month/day by the before_save callback).
+    def game_with_date(year, month, day, **attrs)
+      create(:game, release_year: year, release_month: month, release_day: day, **attrs)
+    end
+
+    # Convenience: invoke the real lexer + parser + handler with an optional
+    # channel param (mirrors the shift+tab channel scope).
+    def show_real_channel(input, channel: nil)
+      msg = Pito::Chat::Parser.call(
+        Pito::Lex::Lexer.call(input), raw: input, conversation: Conversation.singleton
+      )
+      described_class.new(message: msg, conversation: Conversation.singleton, channel: channel).call
+    end
+
+    let!(:old_game) { game_with_date(2018, 1, 1,  title: "Old Game") }
+    let!(:new_game) { game_with_date(2023, 12, 25, title: "New Game") }
+
+    it "show first game → game_detail for the earliest-released game" do
+      result = show_real("show first game")
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(result.events.first[:payload]["body"]).to include("Old Game")
+    end
+
+    it "show last game → game_detail for the latest-released game" do
+      result = show_real("show last game")
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(result.events.first[:payload]["body"]).to include("New Game")
+    end
+
+    it "show first game emits :system detail as the first event (kind :system)" do
+      result = show_real("show first game")
+      expect(result.events.first[:kind]).to eq(:system)
+      expect(result.events.first[:payload]["reply_target"]).to eq("game_detail")
+    end
+
+    it "show last game is follow-up-able (reply_target: game_detail)" do
+      result = show_real("show last game")
+      payload = result.events.first[:payload]
+      expect(Pito::FollowUp.followupable?(payload)).to be(true)
+      expect(payload["reply_target"]).to eq("game_detail")
+    end
+
+    it "show last game → not-found (consume: false) when no game matches the genre filter" do
+      # old_game and new_game have no genres — RPG filter returns nothing
+      result = show_real("show last rpg game")
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(result.consume).to be(false)
+    end
+
+    context "with genre filter" do
+      let!(:rpg_genre) { create(:genre, name: "Role-playing") }
+      let!(:rpg_game)  { game_with_date(2021, 6, 1, title: "RPG Game") }
+
+      before { create(:game_genre, game: rpg_game, genre: rpg_genre, position: 1) }
+
+      it "show last rpg game → game_detail for the latest RPG (genre alias resolved)" do
+        result = show_real("show last rpg game")
+        expect(result).to be_a(Pito::Chat::Result::Ok)
+        expect(result.events.first[:payload]["body"]).to include("RPG Game")
+      end
+
+      it "show first rpg game → game_detail for the earliest RPG" do
+        result = show_real("show first rpg game")
+        expect(result).to be_a(Pito::Chat::Result::Ok)
+        expect(result.events.first[:payload]["body"]).to include("RPG Game")
+      end
+    end
+
+    context "with channel scope (shift+tab @handle)" do
+      let!(:ch)          { create(:channel, handle: "@ordinalchan") }
+      let!(:ch_vid)      { create(:video, channel: ch) }
+      let!(:linked_game) { game_with_date(2022, 4, 20, title: "Linked To Chan") }
+
+      before { create(:video_game_link, video: ch_vid, game: linked_game) }
+
+      it "show last game scoped to @ordinalchan returns only the channel's game" do
+        # old_game and new_game have no channel links; linked_game does
+        result = show_real_channel("show last game", channel: "@ordinalchan")
+        expect(result).to be_a(Pito::Chat::Result::Ok)
+        expect(result.events.first[:payload]["body"]).to include("Linked To Chan")
+      end
+
+      it "show last game with @all channel scope returns the global latest game" do
+        result = show_real_channel("show last game", channel: "@all")
+        expect(result).to be_a(Pito::Chat::Result::Ok)
+        expect(result.events.first[:payload]["body"]).to include("New Game")
+      end
+
+      it "show last game with unknown channel → not-found (consume: false)" do
+        result = show_real_channel("show last game", channel: "@nope")
+        expect(result).to be_a(Pito::Chat::Result::Ok)
+        expect(result.consume).to be(false)
+      end
+    end
+
+    # Regression: ID-based resolution still works after the ordinal branch was added.
+    it "show game <id> still resolves by id (ordinal branch does not fire for numeric refs)" do
+      result = show_real("show game #{new_game.id}")
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(result.events.first[:payload]["game_id"]).to eq(new_game.id)
+    end
+  end
+
+  # ── Ordinal selectors: show first|last vid (Phase FL) ─────────────────────────
+
+  describe "show first|last vid — ordinal resolution" do
+    def show_real_channel(input, channel: nil)
+      msg = Pito::Chat::Parser.call(
+        Pito::Lex::Lexer.call(input), raw: input, conversation: Conversation.singleton
+      )
+      described_class.new(message: msg, conversation: Conversation.singleton, channel: channel).call
+    end
+
+    let!(:vid_channel)  { create(:channel, handle: "@vidchan") }
+    let!(:vid_old)      { create(:video, :public, channel: vid_channel, title: "Old Vid", published_at: 2.years.ago) }
+    let!(:vid_new)      { create(:video, :public, channel: vid_channel, title: "New Vid", published_at: 1.day.ago) }
+    let!(:vid_unlisted) { create(:video, :unlisted, channel: vid_channel, title: "Unlisted Vid") }
+
+    it "show last vid → video_detail for the latest published video (alias: last published vid)" do
+      result = show_real("show last vid")
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(result.events.first[:payload]["body"]).to include("New Vid")
+    end
+
+    it "show first vid → video_detail for the earliest published video" do
+      result = show_real("show first vid")
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(result.events.first[:payload]["body"]).to include("Old Vid")
+    end
+
+    it "show last published vid → same result as show last vid (alias confirmed)" do
+      result_alias  = show_real("show last vid")
+      result_explicit = show_real("show last published vid")
+      # Both should resolve to the same video (vid_new — the latest public vid)
+      expect(result_alias.events.first[:payload]["video_id"]).to(
+        eq(result_explicit.events.first[:payload]["video_id"])
+      )
+    end
+
+    it "show last unlisted vid → video_detail for the latest unlisted video" do
+      result = show_real("show last unlisted vid")
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(result.events.first[:payload]["body"]).to include("Unlisted Vid")
+    end
+
+    it "show last vid emits :system detail as the first event" do
+      result = show_real("show last vid")
+      expect(result.events.first[:kind]).to eq(:system)
+      expect(result.events.first[:payload]["reply_target"]).to eq("video_detail")
+    end
+
+    it "show last vid is follow-up-able (reply_target: video_detail)" do
+      payload = show_real("show last vid").events.first[:payload]
+      expect(Pito::FollowUp.followupable?(payload)).to be(true)
+    end
+
+    it "show last private vid → not-found (consume: false) when no private video exists" do
+      result = show_real("show last private vid")
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(result.consume).to be(false)
+    end
+
+    context "with channel scope (shift+tab @handle)" do
+      let!(:other_chan)    { create(:channel, handle: "@othervid") }
+      let!(:other_vid_pub) { create(:video, :public, channel: other_chan, title: "Other Chan Vid", published_at: 3.days.ago) }
+
+      it "show last vid scoped to @vidchan returns that channel's latest published video" do
+        result = show_real_channel("show last vid", channel: "@vidchan")
+        expect(result).to be_a(Pito::Chat::Result::Ok)
+        expect(result.events.first[:payload]["body"]).to include("New Vid")
+      end
+
+      it "show last vid with @all channel scope returns the global latest published video" do
+        result = show_real_channel("show last vid", channel: "@all")
+        expect(result).to be_a(Pito::Chat::Result::Ok)
+        # vid_new (1.day.ago) is more recent than other_vid_pub (3.days.ago)
+        expect(result.events.first[:payload]["body"]).to include("New Vid")
+      end
+
+      it "show last vid with unknown channel → not-found (consume: false)" do
+        result = show_real_channel("show last vid", channel: "@nope")
+        expect(result).to be_a(Pito::Chat::Result::Ok)
+        expect(result.consume).to be(false)
+      end
+    end
+
+    # Regression: ID-based resolution still works after the ordinal branch was added.
+    it "show vid <id> still resolves by id (ordinal branch does not fire for numeric refs)" do
+      result = show_real("show vid #{vid_new.id}")
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(result.events.first[:payload]["video_id"]).to eq(vid_new.id)
+    end
+
+    # Regression: video not-found path unchanged.
+    it "show vid 999999 still returns not-found (consume: false)" do
+      result = show_real("show vid 999999")
+      expect(result).to be_a(Pito::Chat::Result::Ok)
+      expect(result.consume).to be(false)
+    end
+  end
 end

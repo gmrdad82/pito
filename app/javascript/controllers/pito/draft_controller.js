@@ -30,7 +30,13 @@ export default class extends Controller {
     // Guard: no-op if uuid is somehow blank (shouldn't happen on conversation page).
     if (!this.uuidValue) return
 
-    this._lastSaved = null   // null = "we haven't saved anything yet"
+    // Seed lastSaved from the SERVER-LOADED draft (the textarea's initial value),
+    // not null. Otherwise clearing a pre-existing draft to empty was skipped by
+    // the "empty→empty on first save" guard (lastSaved null + value "") and a
+    // refresh restored the stale text (CB1). With the real loaded value seeded,
+    // "hello" → "" is a genuine change and gets persisted (→ nil server-side).
+    const field    = this.element.querySelector("textarea")
+    this._lastSaved = field ? field.value : null
     this._timer     = null
 
     this._onInput  = this.#onInput.bind(this)

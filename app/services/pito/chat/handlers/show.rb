@@ -7,6 +7,20 @@
 # Emits the appropriate detail message (follow-up-able).
 # Unknown reference → witty not-found via `Pito::Copy`. No reference → a usage
 # hint (the no-arg picker fast-path is wired in `ChatController`).
+#
+# == Ordinal selectors (Phase FL)
+#
+# In addition to ID resolution, the handler recognises ordinal forms:
+#
+#   show {first|last} [<genre>] game        — all-time first/last game by release_date
+#   show {first|last} [<privacy>] vid       — all-time first/last vid by published_at
+#
+# Ordinal is the first word after the verb. Channel scope comes from the
+# shift+tab channel param (same as `list`). Genre/privacy filters are optional.
+# `show last vid` is an alias for `show last published vid` (default privacy).
+#
+# Resolution is delegated to Pito::Chat::OrdinalResolver. Not-found (no entity
+# matches the ordinal + filters + channel scope) → existing show not-found path.
 module Pito
   module Chat
     module Handlers
@@ -26,6 +40,9 @@ module Pito
         # `channel`/`channels` route to the channel branch — resolved by @handle
         # (NOT a numeric id), mirroring `shinies channel @handle`.
         CHANNEL_NOUN_FILLERS = %w[channel channels].freeze
+
+        # Ordinal keywords that trigger first/last resolution instead of ID lookup.
+        ORDINAL_WORDS = %w[first last].freeze
 
         def call
           if channel_noun?
@@ -88,9 +105,21 @@ module Pito
         # ── Video branch ───────────────────────────────────────────────────────
 
         def handle_video
-          video = resolve_target(::Video, id_key: :video_id, noun_fillers: VIDEO_NOUN_FILLERS)
-          return needs_ref if video == :needs_ref
-          return video_not_found(target_ref(VIDEO_NOUN_FILLERS, id_key: :video_id)) if video.nil?
+          if (ordinal = extract_ordinal)
+            # Ordinal form: `show first|last [<privacy>] vid`.
+            # Delegate to OrdinalResolver; not-found → existing video_not_found path.
+            video = Pito::Chat::OrdinalResolver.call(
+              entity:        :video,
+              ordinal:       ordinal,
+              filters:       { privacy: extract_video_privacy_filter },
+              channel_scope: channel
+            )
+            return video_not_found(ordinal_ref) if video.nil?
+          else
+            video = resolve_target(::Video, id_key: :video_id, noun_fillers: VIDEO_NOUN_FILLERS)
+            return needs_ref if video == :needs_ref
+            return video_not_found(target_ref(VIDEO_NOUN_FILLERS, id_key: :video_id)) if video.nil?
+          end
 
           # Standard detail card (follow-up-able), then — when the video has a
           # linked game — the repliable slim linked-game card (game_detail
@@ -120,9 +149,21 @@ module Pito
         # ── Game branch ────────────────────────────────────────────────────────
 
         def handle_game
-          game = resolve_target(::Game, id_key: :game_id, noun_fillers: GAME_NOUN_FILLERS)
-          return needs_ref if game == :needs_ref
-          return game_not_found(target_ref(GAME_NOUN_FILLERS, id_key: :game_id)) if game.nil?
+          if (ordinal = extract_ordinal)
+            # Ordinal form: `show first|last [<genre>] game`.
+            # Delegate to OrdinalResolver; not-found → existing game_not_found path.
+            game = Pito::Chat::OrdinalResolver.call(
+              entity:        :game,
+              ordinal:       ordinal,
+              filters:       { genre: extract_game_genre_filter },
+              channel_scope: channel
+            )
+            return game_not_found(ordinal_ref) if game.nil?
+          else
+            game = resolve_target(::Game, id_key: :game_id, noun_fillers: GAME_NOUN_FILLERS)
+            return needs_ref if game == :needs_ref
+            return game_not_found(target_ref(GAME_NOUN_FILLERS, id_key: :game_id)) if game.nil?
+          end
 
           # Order: the Standard detail message (follow-up-able), then — when the
           # game has linked videos — the repliable linked-videos list table
@@ -158,6 +199,49 @@ module Pito
 
         def needs_ref
           Pito::Chat::Result::Error.new(message_key: "pito.chat.show.needs_ref", message_args: {})
+        end
+
+        # ── Ordinal helpers ────────────────────────────────────────────────────
+
+        # Returns :first or :last when the first body word after the verb is an
+        # ordinal keyword, nil otherwise. Only applies to free-chat; follow-up
+        # replies always use ID or list-row resolution, never ordinal selectors.
+        def extract_ordinal
+          return nil if follow_up?
+
+          # Drop the verb word, inspect the first remaining token.
+          rest       = message.raw.to_s.strip.sub(/\A\S+\s*/, "")
+          first_word = rest.split(/\s+/).first&.downcase
+          ORDINAL_WORDS.include?(first_word) ? first_word.to_sym : nil
+        end
+
+        # Extracts the genre filter for `show first|last [<genre>] game` forms.
+        # Looks for a GameListFilter genre alias token in the words between the
+        # ordinal and the noun filler. Returns the genre substring or nil.
+        def extract_game_genre_filter
+          # Drop verb + ordinal words; remove any trailing noun filler tokens.
+          words = message.raw.to_s.downcase.split(/\s+/).drop(2)
+          words.reject! { |w| GAME_NOUN_FILLERS.include?(w) }
+          genre_token = words.find { |w| Pito::Chat::GameListFilter::GENRE_ALIASES.key?(w) }
+          genre_token ? Pito::Chat::GameListFilter::GENRE_ALIASES[genre_token] : nil
+        end
+
+        # Extracts the privacy filter for `show first|last [<privacy>] vid` forms.
+        # Returns the scope Symbol for OrdinalResolver, or :published when no
+        # privacy word is present — fulfilling the alias rule
+        # `show last vid` = `show last published vid`.
+        def extract_video_privacy_filter
+          # Drop verb + ordinal words; remove any trailing noun filler tokens.
+          words = message.raw.to_s.downcase.split(/\s+/).drop(2)
+          words.reject! { |w| VIDEO_NOUN_FILLERS.include?(w) }
+          privacy_token = words.find { |w| Pito::Chat::OrdinalResolver::VIDEO_PRIVACY_FILTERS.key?(w) }
+          privacy_token ? Pito::Chat::OrdinalResolver::VIDEO_PRIVACY_FILTERS[privacy_token] : :published
+        end
+
+        # Display ref used in not-found messages for ordinal forms — the raw
+        # input with the verb stripped (e.g. "last rpg game" or "first vid").
+        def ordinal_ref
+          message.raw.to_s.strip.sub(/\A\S+\s*/, "").strip
         end
       end
     end
