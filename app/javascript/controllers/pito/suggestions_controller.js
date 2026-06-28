@@ -783,28 +783,50 @@ export default class extends Controller {
     // Get enum slots from the matched chat spec (server-provided via catalog).
     const enumSlots = this._chatEnumSlots(chatSpec)
 
-    // Walk already-typed words to track which slots are consumed
+    // Walk already-typed words to track which slots are consumed.
+    //
+    // Order matters: try STATIC slot matching FIRST, then the filler check,
+    // then dynamic slots. This ensures that a word which is simultaneously
+    // a canonical slot value AND listed in the fillers vocabulary is correctly
+    // treated as filling the slot rather than being silently skipped.
+    //
+    // Example: "game" is the canonical value of the import_nouns slot AND
+    // appears in the global fillers list (["the","a","an","game","games"]).
+    // For `import game <Title>`, "game" must fill the noun slot so the ghost
+    // clears once the noun is typed. For `delete game <Title>` the title slot
+    // is dynamic, so "game" is correctly kept as a filler (no static match
+    // exists) and the dynamic slot remains open for the title words.
     const alreadyFilled = {}
     const fillerWords = this._fillerSet()
 
     for (const word of typedSlotWords) {
       const wl = word.toLowerCase()
-      if (fillerWords.has(wl)) continue
 
+      // 1. Try static (non-dynamic) slot matching first.
+      let filledByStaticSlot = false
       for (const slot of enumSlots) {
         if (alreadyFilled[slot.name] && !slot.repeatable) continue
         const vocab = this._getVocab(slot.source)
-        if (!vocab) continue
-        if (vocab.dynamic) {
-          // Dynamic: treat any word as consuming this slot (mirror server logic)
-          alreadyFilled[slot.name] = true
-          break
-        }
+        if (!vocab || vocab.dynamic) continue  // dynamic slots handled in step 3
         const resolved = this._resolveVocab(vocab, wl)
         if (resolved !== null) {
           alreadyFilled[slot.name] = true
+          filledByStaticSlot = true
           break
         }
+      }
+      if (filledByStaticSlot) continue
+
+      // 2. Skip filler words (only after confirming they don't fill a static slot).
+      if (fillerWords.has(wl)) continue
+
+      // 3. Non-filler word: consume the first available dynamic slot.
+      for (const slot of enumSlots) {
+        if (alreadyFilled[slot.name] && !slot.repeatable) continue
+        const vocab = this._getVocab(slot.source)
+        if (!vocab || !vocab.dynamic) continue
+        alreadyFilled[slot.name] = true
+        break
       }
     }
 

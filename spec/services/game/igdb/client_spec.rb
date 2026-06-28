@@ -115,14 +115,58 @@ RSpec.describe Game::Igdb::Client, type: :service do
       expect(captured_body).not_to include("version_parent = null")
     end
 
-    it "keeps main games + remakes + remasters in the game_type filter (remakes not filtered out)" do
+    it "keeps main games + remakes + remasters + expanded games in the game_type filter" do
       captured_body = nil
       stub_request(:post, "https://api.igdb.com/v4/games")
         .with { |req| captured_body = req.body; true }
         .to_return(status: 200, body: [].to_json, headers: { "Content-Type" => "application/json" })
 
       described_class.new.search_games("demon souls")
-      expect(captured_body).to include("game_type = (0,8,9)")
+      expect(captured_body).to include("game_type = (0,8,9,10)")
+    end
+
+    it "includes expanded_game (game_type 10) in the game_type filter" do
+      captured_body = nil
+      stub_request(:post, "https://api.igdb.com/v4/games")
+        .with { |req| captured_body = req.body; true }
+        .to_return(status: 200, body: [].to_json, headers: { "Content-Type" => "application/json" })
+
+      described_class.new.search_games("granblue fantasy relink endless ragnarok")
+      expect(captured_body).to include("10")
+    end
+
+    it "does NOT include packs (game_type 13) in the game_type filter" do
+      captured_body = nil
+      stub_request(:post, "https://api.igdb.com/v4/games")
+        .with { |req| captured_body = req.body; true }
+        .to_return(status: 200, body: [].to_json, headers: { "Content-Type" => "application/json" })
+
+      described_class.new.search_games("some game")
+      expect(captured_body).not_to match(/game_type = \([^)]*13/)
+    end
+
+    it "does NOT include bundles (game_type 3) in the game_type filter" do
+      captured_body = nil
+      stub_request(:post, "https://api.igdb.com/v4/games")
+        .with { |req| captured_body = req.body; true }
+        .to_return(status: 200, body: [].to_json, headers: { "Content-Type" => "application/json" })
+
+      described_class.new.search_games("some game")
+      # game_type 3 (bundle) must not appear — the filter only has 0,8,9,10
+      expect(captured_body).to include("game_type = (0,8,9,10)")
+      expect(captured_body).not_to match(/game_type = \([^)]*\b3\b/)
+    end
+
+    it "keeps an expanded game (game_type 10) in the search results" do
+      cover = { "image_id" => "img" }
+      body = [
+        { "id" => 9999, "name" => "Granblue Fantasy: Relink - Endless Ragnarok", "game_type" => 10, "cover" => cover }
+      ]
+      stub_request(:post, "https://api.igdb.com/v4/games")
+        .to_return(status: 200, body: body.to_json, headers: { "Content-Type" => "application/json" })
+
+      hits = described_class.new.search_games("Granblue Fantasy Relink Endless Ragnarok")
+      expect(hits.map { |h| h["id"] }).to include(9999)
     end
 
     it "returns BOTH the original (main) and the remake for a same-named game" do

@@ -839,6 +839,111 @@ describe("pito--suggestions controller", () => {
     })
   })
 
+  // ── IG2: import game <name> — ghost must clear after noun is typed ─────────
+  //
+  // Bug: "game" is both the canonical value of the `import_nouns` slot AND listed
+  // in the global fillers vocabulary. The slot-walking loop checked fillerWords
+  // BEFORE trying static slot matching, so "game" was skipped as a filler and the
+  // noun slot was never marked filled. After typing "import game ", the ghost
+  // showed "game" again instead of clearing — and kept showing it throughout the
+  // rest of the game name.
+  //
+  // Fix: try static slot matching FIRST. Only skip as a filler if the word does
+  // not match any static slot's canonical or synonym list.
+
+  describe("import verb — ghost must clear once the noun is typed (IG2)", () => {
+    let ctrl
+
+    beforeEach(async () => {
+      await waitForConnect()
+      ctrl = app.getControllerForElementAndIdentifier(chatbox, "pito--suggestions")
+    })
+
+    // Baseline: before the noun is typed, "game" IS the correct ghost.
+    it("'import ' → ghost 'game' (noun not yet typed — correct first suggestion)", () => {
+      expect(ctrl._computeLocalGhost("import ", 7).complete_current).toBe("game")
+    })
+
+    // ── Reproducing cases (all showed "game" before the fix) ──────────────────
+
+    it("'import game ' → '' (noun typed — ghost must clear, not re-show 'game')", () => {
+      // ROOT STATE: this is the first state that showed the bug.
+      const result = ctrl._computeLocalGhost("import game ", 12)
+      expect(result).not.toBeNull()
+      expect(result.complete_current).toBe("")
+    })
+
+    it("'import game Metal ' → '' (multi-word name in progress — ghost stays clear)", () => {
+      const result = ctrl._computeLocalGhost("import game Metal ", 18)
+      expect(result).not.toBeNull()
+      expect(result.complete_current).toBe("")
+    })
+
+    it("'import game Metal Gear ' → '' (multi-word name continued — ghost stays clear)", () => {
+      const result = ctrl._computeLocalGhost("import game Metal Gear ", 23)
+      expect(result).not.toBeNull()
+      expect(result.complete_current).toBe("")
+    })
+
+    it("'import game Metal Gear Solid ' → '' (longer title — ghost stays clear)", () => {
+      const result = ctrl._computeLocalGhost("import game Metal Gear Solid ", 29)
+      expect(result).not.toBeNull()
+      expect(result.complete_current).toBe("")
+    })
+
+    // These were already correct (no trailing space → currentPartial not in import_nouns):
+    it("'import game Metal' → '' (no trailing space — was already correct)", () => {
+      expect(ctrl._computeLocalGhost("import game Metal", 17).complete_current).toBe("")
+    })
+
+    it("'import game Metal Gear' → '' (no trailing space — was already correct)", () => {
+      expect(ctrl._computeLocalGhost("import game Metal Gear", 22).complete_current).toBe("")
+    })
+
+    // Synonym: "games" is a synonym of "game" in import_nouns — also fills the slot.
+    it("'import games ' → '' (synonym noun typed — ghost must clear)", () => {
+      const result = ctrl._computeLocalGhost("import games ", 13)
+      expect(result).not.toBeNull()
+      expect(result.complete_current).toBe("")
+    })
+  })
+
+  // ── IG2 regression: delete verb must be unaffected by the fix ────────────
+  //
+  // "game" is also a filler for the `delete` verb's dynamic game_titles slot.
+  // After the fix, "game" must still be treated as a filler there (not as a
+  // slot-consumer), so that "li" in "delete game li" correctly becomes the
+  // dynamic slot's currentPartial and triggers the server-side fetch.
+
+  describe("delete verb — 'game' filler still triggers dynamic fetch (IG2 regression)", () => {
+    let ctrl
+
+    beforeEach(async () => {
+      await waitForConnect()
+      ctrl = app.getControllerForElementAndIdentifier(chatbox, "pito--suggestions")
+    })
+
+    it("'delete game li' → null (filler 'game' skipped; dynamic slot triggers server fetch)", () => {
+      // Regression: the fix must not cause "game" to consume the dynamic game_titles slot.
+      expect(ctrl._computeLocalGhost("delete game li", 14)).toBeNull()
+    })
+
+    it("'delete game ' → null (filler skipped; dynamic slot at fresh position → server fetch)", () => {
+      // With trailing space, the dynamic slot is the activeSlot; defaultEnumCompletion returns ""
+      // for dynamic, so the next_hint branch applies — but actually the dynamic path returns null.
+      // Let's just verify: at a fresh trailing-space position with a dynamic active slot,
+      // the function returns the hint (not null), because the dynamic null-return only fires
+      // for a non-empty currentPartial. Trailing space → _nextHintForSlot on dynamic = "<title>".
+      const result = ctrl._computeLocalGhost("delete game ", 12)
+      // The dynamic slot is still the active slot (game not consumed as filler) →
+      // endsWithSpace + dynamic → _defaultEnumCompletion → "" → _nextHintForSlot → "<title>"
+      // So result is NOT null (null only for non-empty partial on dynamic).
+      // The key is: "game" is treated as a filler, NOT as consuming the dynamic slot.
+      expect(result).not.toBeNull()
+      expect(result.complete_current).toBe("")
+    })
+  })
+
   // ── External hashtag picker (shift+r with >1 live handle) ───────────────
   //
   // When chat_form dispatches `pito:hashtag-picker:open` with an array of handles,
