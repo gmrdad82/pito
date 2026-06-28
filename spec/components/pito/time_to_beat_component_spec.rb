@@ -284,6 +284,14 @@ RSpec.describe Pito::TimeToBeatComponent do
       expect(html).to include("pito-ttb__fill")
     end
 
+    it "wires the fill for its own reveal (pito-bar-reveal + pito--bar-reveal controller)" do
+      node = render_inline(described_class.new(game: game))
+      fill = node.css(".pito-ttb__fill").first
+      expect(fill["class"]).to include("pito-bar-reveal")
+      expect(fill["class"]).to include("pito-bar-shimmer")           # continuous shimmer kept
+      expect(fill["data-controller"]).to eq("pito--bar-reveal")
+    end
+
     it "renders the bar with an inline adaptive gradient sourced from theme accents" do
       comp = described_class.new(game: game)
       html = render_inline(comp).to_html

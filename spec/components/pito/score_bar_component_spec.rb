@@ -218,6 +218,13 @@ RSpec.describe Pito::ScoreBarComponent do
       expect(html).to include("pito-score-bar__bubble")
     end
 
+    it "wires the fill for its own reveal (pito-bar-reveal + pito--bar-reveal controller)" do
+      fill = render_inline(described_class.new(score: 75)).css(".pito-score-bar__fill").first
+      expect(fill["class"]).to include("pito-bar-reveal")
+      expect(fill["class"]).to include("pito-bar-shimmer")           # continuous shimmer kept
+      expect(fill["data-controller"]).to eq("pito--bar-reveal")
+    end
+
     it "renders the muted variant when score is nil and not resyncing" do
       comp = described_class.new
       html = render_inline(comp).to_html

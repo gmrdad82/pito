@@ -20,7 +20,7 @@
         full-width bar (not the label). %>
     <span class="pito-score-bar__track">
       <span class="pito-score-bar__bracket">[</span>
-      <span class="pito-score-bar__fill pito-bar-shimmer <%= shimmer_offset_class %>"><%= fill_text %></span>
+      <span class="pito-score-bar__fill pito-bar-shimmer pito-bar-reveal <%= shimmer_offset_class %>" data-controller="pito--bar-reveal"><%= fill_text %></span>
       <span class="pito-score-bar__bracket">]</span>
       <% if overlay? %>
         <% pct = overlay_left_percent %>
