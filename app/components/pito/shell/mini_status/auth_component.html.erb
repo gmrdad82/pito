@@ -1,1 +1,4 @@
-<span class="<%= css_class %>"><%= label %></span>
+<%# Nickname (green) + a muted @suffix (image tag in prod, host in dev). The two
+    spans are concatenated with NO inter-element whitespace — the monospace body
+    renders stray whitespace as a visible gap. %>
+<span class="<%= css_class %>"><%= label %></span><% if version_suffix.present? %><span class="text-fg-dim">@<%= version_suffix %></span><% end %>
