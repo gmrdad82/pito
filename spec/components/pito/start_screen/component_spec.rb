@@ -18,6 +18,28 @@ RSpec.describe Pito::StartScreen::Component do
       expect(node.css("pre.pito-start-screen__logo")).not_to be_empty
     end
 
+    describe "logo broken-neon reveal (Q4)" do
+      it "mounts the pito--logo-reveal controller on the logo <pre>" do
+        pre = node.css("pre.pito-logo").first
+        expect(pre).to be_present
+        expect(pre["data-controller"]).to eq("pito--logo-reveal")
+      end
+
+      it "renders each glyph as its own .pito-logo__cell (blocks pito, connectors muted)" do
+        cells = node.css(".pito-logo__cell")
+        expect(cells.length).to be > 50 # ~120 non-space glyphs
+        expect(cells.all? { |c| c.text.length == 1 && c.text != " " }).to be(true)
+        blocks     = cells.select { |c| c.text == "█" }
+        connectors = cells.reject { |c| c.text == "█" }
+        expect(blocks).to all(satisfy { |c| c["class"].include?("text-pito") })
+        expect(connectors).to all(satisfy { |c| c["class"].include?("text-fg-dim") })
+      end
+
+      it "preserves the exact art (per-glyph split did not corrupt alignment)" do
+        expect(node.css("pre.pito-logo").first.text).to eq(described_class::LOGO_LINES.join("\n"))
+      end
+    end
+
     # Regression: the start-screen chatbox must SHOW the suggestions palette (so
     # the unauthenticated /login hint appears) WITHOUT wiring a suggestions
     # keydown handler — keeping Enter (home-transition → chat-form) safe for

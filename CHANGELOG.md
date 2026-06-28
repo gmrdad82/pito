@@ -91,6 +91,10 @@ stacks. (Bespoke analytics view components close out the tag.)
   conversation name) instead of overflowing on narrow screens.
 - **Typewriter reveal** no longer pops its first glyph — it's primed
   near-invisible (layout reserved) and snaps in as the reveal begins.
+- **PITO logo broken-neon reveal** — on the start screen and the 404 page the
+  block-logo flickers in glyph-by-glyph at random, like a faulty neon sign warming
+  up, then settles (with the odd rare flicker). Its own animation, independent of
+  the `/config` fx effect.
 
 ### Fixed
 

@@ -688,6 +688,36 @@ html {
   font-family: var(--font-mono);
 }
 
+/* ── PITO logo broken-neon reveal (pito--logo-reveal) ──────────────────────────
+   Each glyph cell flickers in at a random time (set by the controller adding
+   `.lit`), like a faulty neon sign warming up, then settles; random cells get an
+   occasional rare `.flicker`. Fail-open: applies ONLY under `.is-revealing`
+   (added by the controller when motion is enabled), so with no JS / fx-off /
+   reduced-motion the logo renders solid. fx-independent (own animation). The
+   cells stay inline (default) so the monospace <pre> alignment is untouched —
+   opacity animates fine on inline elements. */
+.pito-logo.is-revealing .pito-logo__cell { opacity: 0; }
+.pito-logo.is-revealing .pito-logo__cell.lit {
+  animation: pito-logo-flicker-in 0.55s steps(1, end) forwards;
+}
+@keyframes pito-logo-flicker-in {
+  0%   { opacity: 0; }
+  20%  { opacity: 0.85; }
+  32%  { opacity: 0.1; }
+  50%  { opacity: 1; }
+  62%  { opacity: 0.35; }
+  100% { opacity: 1; }
+}
+.pito-logo__cell.flicker { animation: pito-logo-flicker 0.28s steps(1, end); }
+@keyframes pito-logo-flicker {
+  0%, 100% { opacity: 1; }
+  35%      { opacity: 0.2; }
+  65%      { opacity: 0.85; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pito-logo.is-revealing .pito-logo__cell { opacity: 1; animation: none; }
+}
+
 /* ── ASCII fit-to-width (pito--ascii-fit) ─────────────────────────
    A fixed-width `white-space: pre` ASCII block has an intrinsic pixel width that
    can't reflow, so on a narrow (mobile) viewport it overflows. The controller

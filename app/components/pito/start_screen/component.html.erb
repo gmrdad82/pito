@@ -17,14 +17,10 @@
     <div class="pito-ascii-fit pito-ascii-fit--center w-full"
          data-controller="pito--ascii-fit"
          data-pito--ascii-fit-origin-value="center">
-    <pre class="pito-start-screen__logo">
-<span data-pito--home-transition-target="logoRow"><span class="text-pito">██████</span><span class="text-fg-dim">╗ </span><span class="text-pito">██</span><span class="text-fg-dim">╗</span><span class="text-pito">████████</span><span class="text-fg-dim">╗ </span><span class="text-pito">██████</span><span class="text-fg-dim">╗ </span></span>
-<span data-pito--home-transition-target="logoRow"><span class="text-pito">██</span><span class="text-fg-dim">╔══</span><span class="text-pito">██</span><span class="text-fg-dim">╗</span><span class="text-pito">██</span><span class="text-fg-dim">║╚══</span><span class="text-pito">██</span><span class="text-fg-dim">╔══╝</span><span class="text-pito">██</span><span class="text-fg-dim">╔═══</span><span class="text-pito">██</span><span class="text-fg-dim">╗</span></span>
-<span data-pito--home-transition-target="logoRow"><span class="text-pito">██████</span><span class="text-fg-dim">╔╝</span><span class="text-pito">██</span><span class="text-fg-dim">║   </span><span class="text-pito">██</span><span class="text-fg-dim">║   </span><span class="text-pito">██</span><span class="text-fg-dim">║   </span><span class="text-pito">██</span><span class="text-fg-dim">║</span></span>
-<span data-pito--home-transition-target="logoRow"><span class="text-pito">██</span><span class="text-fg-dim">╔═══╝ </span><span class="text-pito">██</span><span class="text-fg-dim">║   </span><span class="text-pito">██</span><span class="text-fg-dim">║   </span><span class="text-pito">██</span><span class="text-fg-dim">║   </span><span class="text-pito">██</span><span class="text-fg-dim">║</span></span>
-<span data-pito--home-transition-target="logoRow"><span class="text-pito">██</span><span class="text-fg-dim">║     </span><span class="text-pito">██</span><span class="text-fg-dim">║   </span><span class="text-pito">██</span><span class="text-fg-dim">║   ╚</span><span class="text-pito">██████</span><span class="text-fg-dim">╔╝</span></span>
-<span data-pito--home-transition-target="logoRow"><span class="text-fg-dim">╚═╝     ╚═╝   ╚═╝    ╚═════╝ </span></span>
-</pre>
+    <%# Per-glyph cells (built in the component) so pito--logo-reveal can flicker
+        them in randomly. Each row stays a logoRow target for the home-transition
+        fade. %>
+    <pre class="pito-start-screen__logo pito-logo" data-controller="pito--logo-reveal"><%= logo_html %></pre>
     </div>
 
     <%# 32px gap %>
