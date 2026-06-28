@@ -1494,6 +1494,30 @@ html {
   }
 }
 
+/* ── Bar fill reveal (Pito::BarRevealController) ───────────────────────────────
+   The score-bar / TTB `=` fill's OWN one-shot reveal (the rest of the component
+   pops at once). Independent of the message fx EFFECT; driven by the
+   pito--bar-reveal controller, which adds `.is-revealing` then `.on`. A left→right
+   clip wipe with a comet head + trailing glow that fades as it sweeps — ride on
+   `transition` (NOT animation) so they never clobber the fill's continuous
+   `.pito-bar-shimmer` sweep or its `.pito-shimmer-dN` stagger. text-shadow (not
+   drop-shadow — invisible on background-clip:text glyphs). 20-step start stagger
+   is applied by the controller via the fill's shimmer bucket. Fail-open: applies
+   ONLY under `.is-revealing`, so with no JS / fx-off / reduced-motion the fill is
+   whole. */
+.pito-bar-reveal.is-revealing {
+  clip-path: inset(0 100% 0 0);
+  text-shadow:
+    11px 0 13px var(--brand-pito),
+    5px 0 7px var(--brand-pito),
+    0 0 4px var(--fg-default);
+  transition: clip-path 0.6s ease-out, text-shadow 0.6s ease-out;
+}
+.pito-bar-reveal.is-revealing.on {
+  clip-path: inset(0 0 0 0);
+  text-shadow: 0 0 0 transparent, 0 0 0 transparent, 0 0 0 transparent;
+}
+
 /* ── Pito::Game::EnhancedComponent ─────────────────────────────
  *
  * Rich recommendations message rendered after Voyage indexing.

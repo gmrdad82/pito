@@ -37,7 +37,8 @@
             highlight band (--pito-bar-band from .pito-bar-shimmer); layer 2 is the
             per-game heat ramp. Keeping the band first/topmost lets the heat read
             through its transparent flanks while only the band sweeps. %>
-        <span class="pito-ttb__fill pito-bar-shimmer <%= shimmer_offset_class %>"
+        <span class="pito-ttb__fill pito-bar-shimmer pito-bar-reveal <%= shimmer_offset_class %>"
+              data-controller="pito--bar-reveal"
               style="background-image: var(--pito-bar-band, linear-gradient(transparent, transparent)), linear-gradient(to right in oklch, <%= gradient_stops %>);"><%= fill_text %></span>
         <span class="pito-ttb__bracket">]</span>
       </span>
