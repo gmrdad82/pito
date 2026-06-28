@@ -52,6 +52,21 @@ RSpec.describe "Dispatch matrix — logout (recognition, DB mocked)", type: :dis
       end
     end
 
+    # `exit` + `quit` are aliases of /logout (owner-added) — canonicalise to :logout.
+    [ "/exit", "/quit", "/EXIT", "/Quit" ].each do |input|
+      it "#{input.inspect} (alias) → verb :logout, known: true" do
+        intent = parsed_intent(input)
+        expect(intent[:stack]).to eq(:slash)
+        expect(intent[:verb]).to eq(:logout)
+        expect(intent[:known]).to be(true)
+      end
+    end
+
+    it "the logout grammar spec declares the exit + quit aliases" do
+      spec = Pito::Grammar::Registry.spec(namespace: :slash, name: :logout)
+      expect(spec.aliases).to include(:exit, :quit)
+    end
+
     it "auth tier is :authenticated_only (bare verb)" do
       expect(parsed_intent("/logout")[:auth]).to eq(:authenticated_only)
     end

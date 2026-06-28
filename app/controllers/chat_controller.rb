@@ -327,7 +327,7 @@ class ChatController < ApplicationController
   # Stays synchronous — must clear the session cookie on the HTTP response.
 
   def logout_command?(input)
-    input.strip.match?(%r{\A/logout(\s|\z)}i)
+    input.strip.match?(%r{\A/(?:logout|exit|quit)(\s|\z)}i)
   end
 
   def handle_logout(input, conversation)

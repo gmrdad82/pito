@@ -46,6 +46,7 @@ module Pito
           Spec.new(
             namespace:       :slash,
             name:            :logout,
+            aliases:         [ :exit, :quit ],
             slots:           [],
             auth:            :authenticated_only,
             description_key: "pito.grammar.slash.logout"
