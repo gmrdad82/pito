@@ -18,6 +18,12 @@
 class AnalyzePrepareJob < ApplicationJob
   queue_as :default
 
+  # Metrics that render as AreaChart cells in the :system role.
+  # Computed in this order; each gets its own chart hash in the marker.
+  # avg_viewed_pct reads avg_view_duration's result (for the M:SS caption),
+  # so avg_view_duration MUST come first.
+  CHART_METRICS = %i[views watched_hours subs avg_view_duration avg_viewed_pct].freeze
+
   def perform(turn_id)
     turn = Turn.find_by(id: turn_id)
     return unless turn
@@ -48,43 +54,138 @@ class AnalyzePrepareJob < ApplicationJob
     [ marker["level"], Array(marker["entity_ids"]).sort, marker["period"], marker["role"] ].join(":")
   end
 
-  # Returns { scaffold: {metric=>bool}, views: chart-data | nil } for the marker's
-  # role. `scaffold` is the 0/1 map every metric still uses; `views` is the daily
-  # Views chart data (system role only) the bespoke ViewsComponent renders.
+  # Returns { scaffold: {metric=>bool}, charts: {metric=>chart_hash}|nil } for the
+  # marker's role. `scaffold` is the 0/1 map every metric still uses; `charts` is
+  # only populated for the :system role and contains AreaChart data for views,
+  # watched_hours, and subs. A nil chart entry means the fetch errored — cells fall
+  # back to the scaffold "0" display.
   def compute(marker)
-    window = Pito::Analytics::Window.for(marker["period"], reference_date: Date.current)
-    level  = marker["level"]
-    ids    = Array(marker["entity_ids"])
-    groups = groups_for(level, ids)
+    window   = Pito::Analytics::Window.for(marker["period"], reference_date: Date.current)
+    level    = marker["level"]
+    ids      = Array(marker["entity_ids"])
+    groups   = groups_for(level, ids)
     scaffold = Pito::Analytics::Scaffold.for(groups:, window:, role: marker["role"].to_sym, level: level.to_sym)
-    views    = (marker["role"] == "system" ? compute_views(groups:, window:, level:, entity_ids: ids) : nil)
-    { scaffold:, views: }
+
+    charts = if marker["role"] == "system"
+      subs = Pito::Analytics::Thresholds.subs_for(level:, entity_ids: ids)
+      # Accumulate results so later metrics can reference earlier ones.
+      # avg_viewed_pct reads avg_view_duration's total for the M:SS caption.
+      computed = {}
+      CHART_METRICS.each do |metric|
+        computed[metric] = compute_chart(metric:, groups:, window:, subs:, computed_charts: computed)
+      end
+      computed
+    end
+
+    { scaffold:, charts: }
   rescue StandardError => e
     Rails.logger.warn("[AnalyzePrepareJob] #{marker['level']} #{marker['entity_ids'].inspect}: #{e.class}: #{e.message}")
-    { scaffold: {}, views: nil } # empty → every cell renders "0", no chart
+    { scaffold: {}, charts: nil } # empty → every cell renders "0", no chart
   end
 
-  # The daily Views series + total + green target for the scope (string-keyed so
-  # it round-trips through the jsonb payload). nil when the scope is empty/errors.
-  def compute_views(groups:, window:, level:, entity_ids:)
+  # Returns chart data hash (string-keyed, for jsonb round-trip) for one metric
+  # in the scope. Returns nil when groups is empty or a fetch error occurs.
+  # `subs` is the subscriber count for the scope.
+  # `computed_charts` carries the results of previously computed metrics so
+  # later metrics (e.g. avg_viewed_pct) can reference them (e.g. for M:SS).
+  def compute_chart(metric:, groups:, window:, subs:, computed_charts: {})
     return nil if groups.empty?
 
-    daily = Pito::Analytics::DailySeries.for(groups:, window:)
-    subs  = Pito::Analytics::Thresholds.subs_for(level:, entity_ids:)
-    # Prior comparable window total → drives the caption trend triangle. nil for
-    # non-comparable windows (e.g. lifetime) → no triangle. Window#previous is the
-    # designed trend baseline; its primitives cache under a distinct `-prev` key.
+    views_td = Pito::Analytics::Thresholds.views_target_daily(subs:)
+    target   = Pito::Analytics::Thresholds.target_daily(metric:, subs:, views_target_daily: views_td)
+
+    case metric
+    when :avg_view_duration
+      compute_avg_view_duration(groups:, window:, target:)
+    when :avg_viewed_pct
+      compute_avg_viewed_pct(groups:, window:, target:, computed_charts:)
+    else
+      compute_daily_chart(metric:, groups:, window:, target:)
+    end
+  rescue StandardError => e
+    Rails.logger.warn("[AnalyzePrepareJob#compute_chart:#{metric}] #{e.class}: #{e.message}")
+    nil
+  end
+
+  # Adaptive-bucketed avg view duration chart (no trend — always nil previous).
+  # `dates` carries the first date of each adaptive bucket (daily/weekly/monthly)
+  # so the x-ticks show real dates rather than bucket indices.
+  def compute_avg_view_duration(groups:, window:, target:)
+    result = Pito::Analytics::AdaptiveSeries.for(groups:, window:)
+    {
+      "series"       => result.series,
+      "total"        => result.total,
+      "previous"     => nil,
+      "target_daily" => target,
+      "trend"        => false,
+      "dates"        => result.dates.map(&:iso8601)
+    }
+  end
+
+  # Lifetime retention chart (always lifetime window, views-weighted, no trend).
+  # avg_duration_seconds is taken from the already-computed avg_view_duration
+  # chart (period total) for the "M:SS (XX.X%)" caption.
+  def compute_avg_viewed_pct(groups:, window:, target:, computed_charts:)
+    result          = Pito::Analytics::RetentionSeries.for(groups:, window:)
+    avg_dur_seconds = computed_charts.dig(:avg_view_duration, "total")
+
+    at_mark   = Pito::Analytics::RetentionSeries.at_mark_pct(result.series, result.total_pct)
+    benchmark = Pito::Analytics::RetentionSeries.benchmark_word(result.rel_performance)
+
+    {
+      "series"               => result.series,
+      "total_pct"            => result.total_pct,
+      "avg_duration_seconds" => avg_dur_seconds,
+      "previous"             => nil,
+      "target_daily"         => target,
+      "trend"                => false,
+      "reference_token"      => "lifetime",
+      "at_mark_pct"          => at_mark,
+      "benchmark_word"       => benchmark
+    }
+  end
+
+  # Standard daily-series chart (views / watched_hours / subs) with trend.
+  # `dates` carries each day's ISO-8601 date so the component can label x-ticks
+  # with real dates instead of day indices.
+  def compute_daily_chart(metric:, groups:, window:, target:)
+    daily       = fetch_daily_for_metric(metric, groups, window)
     prev_window = window.previous
-    previous    = prev_window && Pito::Analytics::DailySeries.for(groups:, window: prev_window).total
+    previous    = prev_window && fetch_daily_for_metric(metric, groups, prev_window).total
     {
       "series"       => daily.series,
       "total"        => daily.total,
       "previous"     => previous,
-      "target_daily" => Pito::Analytics::Thresholds.views_target_daily(subs:)
+      "target_daily" => target,
+      "dates"        => daily.dates.map(&:iso8601)
+      # "trend" key absent → cells_for defaults to true (backward compat)
     }
-  rescue StandardError => e
-    Rails.logger.warn("[AnalyzePrepareJob#compute_views] #{e.class}: #{e.message}")
-    nil
+  end
+
+  # Folds the daily primitives for a scope into a per-day series for `metric`.
+  # Handles metric-specific transformations:
+  #   :views         → "views" daily sum (integers)
+  #   :watched_hours → "estimated_minutes_watched" daily sum, divided by 60 (hours)
+  #   :subs          → net subscribers per day: subscribers_gained − subscribers_lost
+  def fetch_daily_for_metric(metric, groups, window)
+    case metric
+    when :views
+      Pito::Analytics::DailySeries.for(groups:, window:)
+    when :watched_hours
+      raw    = Pito::Analytics::DailySeries.for(groups:, window:, metric: "estimated_minutes_watched")
+      series = raw.series.map { |m| (m / 60.0).round(2) }
+      total  = (raw.total / 60.0).round(2)
+      Pito::Analytics::DailySeries::Result.new(dates: raw.dates, series:, total:)
+    when :subs
+      # Net subs per day: gained − lost. Two folds over the same primitives cache
+      # (Primitives.fetch memoises by report+groups+window so no double HTTP call).
+      gained = Pito::Analytics::DailySeries.for(groups:, window:, metric: "subscribers_gained")
+      lost   = Pito::Analytics::DailySeries.for(groups:, window:, metric: "subscribers_lost")
+      series = gained.series.zip(lost.series).map { |g, l| g - l }
+      Pito::Analytics::DailySeries::Result.new(dates: gained.dates, series:, total: series.sum)
+    else
+      Pito::Analytics::DailySeries.for(groups:, window:)
+    end
   end
 
   def write_ready(event, broadcaster, data:)

@@ -1,10 +1,12 @@
-// spec/javascript/views_reveal_controller.test.js
+// spec/javascript/area_chart_reveal_controller.test.js
 //
-// The Views metric reveal (variant "D", extends the base metric-reveal engine).
-// Fail-open: when motion is disabled (fx off / reduced-motion) it leaves the
-// chart whole; otherwise it arms `.is-revealing` and, after a lead-in, wipes the
-// braille rows in BOTTOM→UP by adding `.on` to each row span in turn (the wipe +
-// trailing glow ride CSS transitions on `.on`).
+// The area-chart metric reveal (variant "D", extends the base metric-reveal
+// engine). Fail-open: when motion is disabled (fx off / reduced-motion) it
+// leaves the chart whole; otherwise it arms `.is-revealing` and, after a lead-in,
+// wipes the braille rows in BOTTOM→UP by adding `.on` to each row span in turn
+// (the wipe + trailing glow ride CSS transitions on `.on`).
+//
+// Shared by Views, Watched Hours, and Subs charts — all use pito--area-chart-reveal.
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest"
 import { Application } from "@hotwired/stimulus"
@@ -12,22 +14,22 @@ import { Application } from "@hotwired/stimulus"
 const mockState = { motion: false }
 vi.mock("pito/settings", () => ({ motionDisabled: () => mockState.motion }))
 
-import ViewsRevealController from "controllers/pito/views_reveal_controller"
+import AreaChartRevealController from "controllers/pito/area_chart_reveal_controller"
 
 const tick = (ms = 0) => new Promise((r) => setTimeout(r, ms))
 const ROWS = 11
 
 function buildDOM() {
   const el = document.createElement("div")
-  el.className = "pito-metric pito-metric--views"
-  el.setAttribute("data-controller", "pito--views-reveal")
+  el.className = "pito-metric pito-metric--area-chart"
+  el.setAttribute("data-controller", "pito--area-chart-reveal")
   const plot = document.createElement("div")
-  plot.setAttribute("data-pito--views-reveal-target", "plot")
+  plot.setAttribute("data-pito--area-chart-reveal-target", "plot")
   el.appendChild(plot)
   for (let i = 0; i < ROWS; i++) {
     const row = document.createElement("span")
     row.className = "pito-metric__row"
-    row.setAttribute("data-pito--views-reveal-target", "row")
+    row.setAttribute("data-pito--area-chart-reveal-target", "row")
     plot.appendChild(row)
   }
   document.body.appendChild(el)
@@ -36,14 +38,14 @@ function buildDOM() {
 
 const onRows = (el) => [...el.querySelectorAll(".pito-metric__row")].filter((r) => r.classList.contains("on"))
 
-describe("ViewsRevealController", () => {
+describe("AreaChartRevealController", () => {
   let app
 
   beforeEach(() => {
     mockState.motion = false
     vi.stubGlobal("requestAnimationFrame", (cb) => { cb(); return 1 })
     app = Application.start()
-    app.register("pito--views-reveal", ViewsRevealController)
+    app.register("pito--area-chart-reveal", AreaChartRevealController)
   })
 
   afterEach(async () => {

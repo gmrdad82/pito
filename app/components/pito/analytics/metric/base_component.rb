@@ -13,12 +13,12 @@ module Pito
       # IS the x baseline, and discrete tick VALUES (y inside-left, x below) carry
       # the scale — those live on the concrete component (it owns the data).
       #
-      # Abstract: not rendered directly — subclass it (e.g. ViewsComponent) with a
+      # Abstract: not rendered directly — subclass it (e.g. AreaChart) with a
       # template that draws the plot inside this chrome.
       class BaseComponent < ViewComponent::Base
         # Braille CELL grid: COLS ≈ a vid thumbnail width (+2ch); ROWS ≈ a 16:9 box
         # at the 14px base line-height.
-        COLS = 45
+        COLS = 47
         ROWS = 11
 
         # @param caption [String] pre-rendered, html-safe caption (the builder

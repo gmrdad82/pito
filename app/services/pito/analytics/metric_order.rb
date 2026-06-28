@@ -30,8 +30,9 @@ module Pito
         demographics_age:    { label: "demographics_age",     report: "demographics" }
       }.freeze
 
-      # Owner-defined order (docs/claude/0.8.0.md). subs/likes are combined metrics.
-      SYSTEM   = %i[views subs likes watched_hours avg_view_duration avg_viewed_pct comments subscribed_status].freeze
+      # Owner-defined order. The three area-chart metrics (views/watched_hours/subs)
+      # are grouped first so the visual charts appear together at the top of the grid.
+      SYSTEM   = %i[views watched_hours subs avg_view_duration avg_viewed_pct likes comments subscribed_status].freeze
       ENHANCED = %i[retention devices geography day_of_week_heatmap demographics_gender demographics_age].freeze
       ROLE_METRICS = { system: SYSTEM, enhanced: ENHANCED }.freeze
 

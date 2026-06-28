@@ -1,6 +1,6 @@
-// pito--views-reveal
+// pito--area-chart-reveal
 //
-// The VIEWS metric's reveal animation — variant "D". EXTENDS the base
+// The area-chart metric's reveal animation — variant "D". EXTENDS the base
 // metric-reveal engine with its own choreography: after a short lead-in, the
 // braille rows wipe in BOTTOM→UP, one at a time. Each row's reveal is a
 // left→right clip wipe with a STRONG trailing cyan glow that fades as it sweeps
@@ -9,6 +9,8 @@
 // timer primitives from MetricRevealController; only `animate()` differs.
 //
 // There are NO axes (locked spec) — the reveal goes straight to the braille.
+// Used by Views, Watched Hours, and Subs area charts (all three share the same
+// "D" reveal choreography via this single controller).
 //
 // Auto-registered via eagerLoadControllersFrom.
 
