@@ -86,6 +86,22 @@ export default class extends Controller {
       this.motionObserver = new MutationObserver(() => this.#applyMotion())
       this.motionObserver.observe(settings, { attributes: true, attributeFilter: ["data-fx"] })
     }
+
+    // The self-hosted monospace webfont can finish loading AFTER this connect's
+    // first render — leaving the block caret 1–2px below the text line until the
+    // next reflow (previously fixed only incidentally when the showcase ghost's
+    // first reveal read offsetTop). Re-render on the next frame AND once fonts are
+    // ready so the caret sits on the line from the start. Idempotent; guarded for
+    // jsdom (no requestAnimationFrame/document.fonts) and aborted after disconnect.
+    const resync = () => {
+      if (this.abort?.signal.aborted) return
+      this.core.autosize()
+      this.core.render()
+    }
+    if (typeof requestAnimationFrame === "function") requestAnimationFrame(resync)
+    if (typeof document !== "undefined" && document.fonts?.ready) {
+      document.fonts.ready.then(resync)
+    }
   }
 
   disconnect() {

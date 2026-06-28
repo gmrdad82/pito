@@ -49,6 +49,12 @@ class ChatDispatchJob < ApplicationJob
     # then runs the analytics-fill gate (defer to AnalyticsFillJob, else resolve
     # the thinking indicator + complete the turn).
     finalizer.append_and_complete(events: Pito::Dispatch::Finalizer.result_events(result), turn:)
+
+    # Compute + persist + broadcast the new showcase set (rule-based; no Voyage).
+    # Runs after the turn is fully settled so the builder sees its completed events.
+    suggestions = Pito::Showcase::Builder.call(conversation:)
+    turn.update!(suggestions:)
+    Pito::Stream::Broadcaster.new(conversation:).broadcast_showcase(suggestions:)
   rescue StandardError => e
     # Surface the error as a visible event in the scrollback so the user isn't
     # left staring at a spinning Braille indicator.

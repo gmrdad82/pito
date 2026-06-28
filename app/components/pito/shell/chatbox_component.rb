@@ -19,7 +19,11 @@ module Pito
       # @param history [Array<String>] previously-sent input_text values (newest
       #   first, capped to ~50) exposed to the history Stimulus controller.
       #   Empty on the start screen / 404; populated on the conversation page.
-      def initialize(state: :default, placeholder_key: nil, filter: nil, input_data: nil, authenticated: nil, initial_value: "", draft_uuid: nil, conversation_title: nil, history: [])
+      # @param suggestions [Array<String>] initial showcase suggestions to cycle
+      #   in the empty + idle chatbox (pito--chat-showcase controller). The
+      #   server broadcasts replacements after each turn via Broadcaster
+      #   #broadcast_showcase; this param seeds the first render.
+      def initialize(state: :default, placeholder_key: nil, filter: nil, input_data: nil, authenticated: nil, initial_value: "", draft_uuid: nil, conversation_title: nil, history: [], suggestions: [])
         @state = state
         @placeholder_key = placeholder_key
         @filter = filter
@@ -29,6 +33,7 @@ module Pito
         @draft_uuid = draft_uuid
         @conversation_title = conversation_title.presence
         @history = Array(history)
+        @suggestions = Array(suggestions)
       end
 
       # The placeholder hint. An explicit `placeholder_key` wins (static override);
@@ -47,6 +52,12 @@ module Pito
       def catalog_json
         auth = @authenticated.nil? ? Current.session.present? : @authenticated
         Pito::Suggestions::Catalog.to_json(authenticated: auth)
+      end
+
+      # JSON-encoded showcase suggestions for embedding in the data script element.
+      # Escapes </script> sequences so no suggestion string can break the tag.
+      def showcase_json
+        Pito::Showcase::SafeJson.encode(@suggestions)
       end
     end
   end
