@@ -441,6 +441,23 @@ module Pito
         )
       end
 
+      # Broadcast a new showcase set (10–15 command strings) to the chatbox so
+      # the pito--chat-showcase Stimulus controller can start cycling them.
+      # Targets the stable `#pito-showcase-data` element embedded in the chatbox;
+      # the replace swaps out its JSON content so the controller sees the update
+      # via a MutationObserver (no full chatbox re-render needed).
+      def broadcast_showcase(suggestions:)
+        json = Pito::Showcase::SafeJson.encode(Array(suggestions))
+        html = %(<script type="application/json" id="pito-showcase-data">#{json}</script>).html_safe
+        content = ApplicationController.helpers.turbo_stream.replace("pito-showcase-data", html)
+        Turbo::StreamsChannel.broadcast_stream_to(
+          "pito:conversation:#{@conversation.uuid}",
+          content:
+        )
+      rescue StandardError => e
+        Rails.logger.warn("[Broadcaster] broadcast_showcase failed: #{e.class}: #{e.message}")
+      end
+
       # Mark a turn complete and broadcast the done signal that hides dots.
       def complete_turn(turn:)
         turn.update!(completed_at: Time.current)

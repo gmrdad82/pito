@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_27_133713) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_28_000001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -424,6 +424,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_27_133713) do
     t.string "input_text", null: false
     t.integer "position", null: false
     t.datetime "started_at"
+    t.jsonb "suggestions", default: [], null: false
     t.datetime "updated_at", null: false
     t.index ["conversation_id", "position"], name: "index_turns_on_conversation_id_and_position", unique: true
     t.index ["conversation_id"], name: "index_turns_on_conversation_id"

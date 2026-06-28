@@ -49,6 +49,23 @@
                          .reorder(position: :desc)
                          .limit(50)
                          .map(&:display_text) : []
+
+        # Seed the showcase with the last turn's suggestions (or compute the seed
+        # set when there are no completed turns yet). Auth-gated: unauthenticated
+        # visitors see a blank chatbox and must /login — don't leak entity IDs.
+        initial_showcase = if @authenticated
+          last_turn_with_suggestions = @conversation.turns
+            .where.not(completed_at: nil)
+            .order(:position)
+            .last
+          if last_turn_with_suggestions&.suggestions.present?
+            last_turn_with_suggestions.suggestions
+          else
+            Pito::Showcase::Builder.call(conversation: @conversation)
+          end
+        else
+          []
+        end
       %>
       <%= render(Pito::Shell::ChatboxComponent.new(
             state: :default,
@@ -57,7 +74,8 @@
             initial_value: @authenticated ? @conversation.draft.to_s : "",
             draft_uuid: @conversation.uuid,
             conversation_title: @authenticated ? (@conversation.named? ? @conversation.display_name : nil) : nil,
-            history: sent_history
+            history: sent_history,
+            suggestions: initial_showcase
           )) %>
     <% end %>
 
