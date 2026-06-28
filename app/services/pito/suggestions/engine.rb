@@ -788,7 +788,10 @@ module Pito
 
           # Track which slots have been consumed by the typed words.
           already_filled = {}
-          words_to_consume = ends_with_space ? typed_words : typed_words.first(typed_words.size - 1)
+          # `[0...-1]` (drop the current partial word) is safe when empty — a bare
+          # complete verb like "list"/"ls" has zero typed_words, and `.first(-1)`
+          # would raise "negative array size" (crashed the chat-verb suggestion).
+          words_to_consume = ends_with_space ? typed_words : typed_words[0...-1]
           words_to_consume.each do |word|
             enum_slots.each do |slot|
               next if already_filled[slot.name] && !slot.repeatable?
