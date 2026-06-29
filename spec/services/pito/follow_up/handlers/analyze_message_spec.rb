@@ -80,9 +80,9 @@ RSpec.describe Pito::FollowUp::Handlers::AnalyzeMessage, type: :service do
     end
 
     it "still renders other metric cells (e.g. Views)" do
-      doc    = Nokogiri::HTML.fragment(result.payload["body"])
-      labels = doc.css(".pito-analytics-scalars__label").map(&:text)
-      expect(labels).to include("Views")
+      # Views is an Area metric; with no chart data it renders the NoData placeholder,
+      # whose caption carries the "Views" label — so the cell is still present.
+      expect(result.payload["body"]).to include("Views")
     end
 
     it "preserves the reply_handle from the source event" do

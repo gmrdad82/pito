@@ -145,7 +145,7 @@ RSpec.describe "Follow-up --help intercept", type: :request do
 
     before do
       # Stub HashtagHelp to return nil to simulate missing copy
-      allow(Pito::MessageBuilder::HashtagHelp).to receive(:call).with(target: "game_list").and_return(nil)
+      allow(Pito::MessageBuilder::HashtagHelp).to receive(:call).with(target: "game_list", event: anything).and_return(nil)
     end
 
     it "falls through to normal dispatch when HashtagHelp returns nil" do

@@ -38,11 +38,12 @@ module Pito
           when "sort", "order"
             mutate_sort(event:, conversation:, args:)
           when "analyze"
-            # Analyze the listed games as a scope (mirrors `analyze games #…`).
-            Pito::FollowUp::AnalyzeReply.append(
-              level: :game, ids: Array(event.payload["game_ids"]).map(&:to_i),
-              conversation:, period:
-            )
+            # `analyze #3` → analyze JUST game #3 (subject = that game's title); bare
+            # `analyze` → the whole listed scope. (Bug: previously always analyzed
+            # ALL listed games, so the subject read "N games".)
+            refs = args.to_s.scan(/#?(\d+)/).flatten.map(&:to_i)
+            ids  = refs.presence || Array(event.payload["game_ids"]).map(&:to_i)
+            Pito::FollowUp::AnalyzeReply.append(level: :game, ids:, conversation:, period:)
           else
             Pito::FollowUp::VerbDelegator.call(source_event: event, rest:, conversation:, period:, viewport_width:, channel:)
           end

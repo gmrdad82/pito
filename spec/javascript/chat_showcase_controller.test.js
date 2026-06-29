@@ -236,7 +236,7 @@ describe("pito--chat-showcase controller", () => {
     expect(SUGGESTIONS).toContain(item.textContent)
   })
 
-  // ── Empty suggestions ────────────────────────────────────────────────────────
+  // ── Empty suggestions (unauthenticated path) ─────────────────────────────────
 
   it("shows nothing when suggestions array is empty", async () => {
     const { item } = buildChatbox([])
@@ -244,6 +244,39 @@ describe("pito--chat-showcase controller", () => {
 
     expect(item.textContent).toBe("")
     expect(item.classList.contains("is-visible")).toBe(false)
+  })
+
+  it("does NOT clear the native placeholder when suggestions are empty (unauthenticated path)", async () => {
+    // When there are no suggestions the showcase is inactive and the native
+    // placeholder (login hint) must stay visible — the user needs it to know
+    // how to authenticate.  The server renders placeholder="" for authenticated
+    // users (showcase active), but the JS must not wipe a real placeholder when
+    // the controller finds an empty suggestion set.
+    const { field } = buildChatbox([])
+    await waitForConnect()
+
+    // _maybeStart() returns early → _clearPlaceholder() is never called.
+    // The original PLACEHOLDER survives untouched.
+    expect(field.getAttribute("placeholder")).toBe(PLACEHOLDER)
+  })
+
+  // ── No-default-placeholder: server pre-clears for authenticated users ─────────
+  // When the server renders placeholder="" (because suggestions are present),
+  // the controller stores _placeholder="" and restoring it after typing is a
+  // no-op — correct for authenticated users who have the comet as the hint.
+
+  it("stores empty string as the original placeholder when the field starts with placeholder empty", async () => {
+    // Simulate the authenticated server-render: placeholder="" in the DOM.
+    const { field } = buildChatbox()
+    field.setAttribute("placeholder", "")         // mimic server-side suppression
+    await waitForConnect()                         // controller reads "" from DOM
+
+    // Type something → stop cycling → _restorePlaceholder() → sets "" (no-op).
+    field.value = "list games"
+    field.dispatchEvent(new Event("input", { bubbles: true }))
+
+    // The native placeholder remains empty (authenticated users have the comet).
+    expect(field.getAttribute("placeholder")).toBe("")
   })
 
   // ── MutationObserver picks up new JSON ───────────────────────────────────────

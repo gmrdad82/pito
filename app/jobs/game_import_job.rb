@@ -166,6 +166,9 @@ class GameImportJob < ApplicationJob
       }
     )
     broadcaster.broadcast_event(event)
+    # Resolve any still-spinning thinking indicator so the error lands with
+    # its thinking block resolved (no hung spinner).
+    broadcaster.resolve_thinking(turn:)
     broadcaster.complete_turn(turn:)
   end
 

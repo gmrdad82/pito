@@ -36,8 +36,11 @@ module Pito
         # Heart canvas (CELLS) — the fatness knob. Slim by default; total width
         # 2·COLS + GAP = 37 ≤ the area chart's width, so it fits portrait.
         HEART_COLS = 17
-        HEART_ROWS = 12 # canvas 2 rows taller; the heart is inset (down 1 row) by BrailleHeart
+        HEART_ROWS = 13 # canvas; heart stays 10 rows, inset by the margins below (empty bg dots around it)
         GAP_CELLS  = 3
+        # Heart inset within the canvas: 2 empty rows above, 1 below (heart = 10 rows).
+        HEART_TOP_MARGIN    = 2
+        HEART_BOTTOM_MARGIN = 1
 
         BLANK = [ 0x2800 ].pack("U")
 
@@ -59,6 +62,13 @@ module Pito
         end
 
         def reveal_controller = REVEAL_CONTROLLER
+
+        # Shared staggered shimmer-delay bucket (the same .pito-shimmer-dN, 20-step
+        # stagger every other shimmer uses) so the heart never pulses in sync with
+        # an adjacent chart. Seeded per heart-set so it's stable but distinct.
+        def shimmer_offset_class
+          Pito::Shimmer.offset_class(@hearts.map { |h| "#{h[:color]}#{h[:score]}" }.join(","))
+        end
 
         # Total widget width in CELLS = the AREA CHART width (BaseComponent::COLS),
         # so the heart caption spreads in exactly the same space as a chart caption
@@ -115,7 +125,10 @@ module Pito
         # pct_label:, rows: [{ fill:, glyphs: }] }.
         def hearts_data
           @hearts_data ||= @hearts.map do |h|
-            grid = Pito::Analytics::BrailleHeart.call(score: h[:score], cols: @hcols, rows: @hrows)
+            grid = Pito::Analytics::BrailleHeart.call(
+              score: h[:score], cols: @hcols, rows: @hrows,
+              top_margin_rows: HEART_TOP_MARGIN, bottom_margin_rows: HEART_BOTTOM_MARGIN
+            )
             {
               color:     color_token(h[:color]),
               likes:     h[:likes].to_i,
@@ -144,7 +157,7 @@ module Pito
         end
 
         def pct_label(score)
-          format("%.1f%%", score.to_f.clamp(0.0, 100.0))
+          format("%.2f%%", score.to_f.clamp(0.0, 100.0))
         end
       end
     end

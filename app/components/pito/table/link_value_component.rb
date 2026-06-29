@@ -12,7 +12,10 @@ module Pito
     #     value_component: Pito::Table::LinkValueComponent.new(url: channel.youtube_channel_url)
     #   ))
     class LinkValueComponent < ViewComponent::Base
-      DEFAULT_CLASS = "text-yellow"
+      # Yellow text with the diagonal yellow→orange shimmer sweep (same as the
+      # keyboard-shortcut tokens). A per-url stagger offset keeps the two channel
+      # links out of phase.
+      DEFAULT_CLASS = "text-yellow pito-kbd-shimmer"
 
       def initialize(url:, css_class: DEFAULT_CLASS)
         @url       = url
@@ -20,7 +23,8 @@ module Pito
       end
 
       def call
-        tag.a(display_text, href: @url, target: "_blank", rel: "noopener", class: @css_class)
+        tag.a(display_text, href: @url, target: "_blank", rel: "noopener",
+              class: "#{@css_class} #{Pito::Shimmer.offset_class(@url.to_s)}".strip)
       end
 
       private

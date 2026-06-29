@@ -104,6 +104,7 @@ en:
           - "the share link is expiring shortly."
           - "deleted from the share table — link deactivating."
           - "link revoked. it'll stop working soon."
+        not_shared: "nothing to revoke — this message has not been shared yet. use `share` first."
         gone:
           title: "this share was revoked or never existed."
           body: "the link you followed no longer points to anything."

@@ -1,5 +1,5 @@
 <div class="pito-analytics-scalars">
   <% cells.each do |cell| %>
-    <%= render(Pito::Analytics::Metric::CompactComponent.new(label: cell[:label], value: cell[:value])) %>
+    <%= render(Pito::Analytics::Metric::CompactComponent.new(label: cell[:label], value: cell[:value], series: cell[:series])) %>
   <% end %>
 </div>

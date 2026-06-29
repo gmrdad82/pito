@@ -48,15 +48,17 @@ class AnalyticsFillJob < ApplicationJob
     marker = event.payload["analytics"]
     scope  = resolve_scope(marker["scope_type"], marker["scope_id"])
     result = scope ? Pito::Analytics::Scalars.for(scope: scope, period: marker["period"]) : Pito::Analytics::Scalars::UNAVAILABLE
+    # Additive day-series for the 4 charted glance metrics (scalars stay separate).
+    series = scope ? Pito::Analytics::GlanceSeries.for(scope: scope, period: marker["period"]) : {}
 
-    write_ready(event, broadcaster, scope:, period: marker["period"], result:, intro: marker["intro"])
+    write_ready(event, broadcaster, scope:, period: marker["period"], result:, intro: marker["intro"], series:)
   rescue StandardError => e
     Rails.logger.warn("[AnalyticsFillJob] event ##{event.id}: #{e.class}: #{e.message}")
     write_ready(event, broadcaster, scope: nil, period: marker&.dig("period"), result: Pito::Analytics::Scalars::UNAVAILABLE, intro: marker&.dig("intro"))
   end
 
-  def write_ready(event, broadcaster, scope:, period:, result:, intro:)
-    payload = Pito::MessageBuilder::Analytics::Enhanced.ready_payload(scope:, period:, result:, intro:)
+  def write_ready(event, broadcaster, scope:, period:, result:, intro:, series: {})
+    payload = Pito::MessageBuilder::Analytics::Enhanced.ready_payload(scope:, period:, result:, intro:, series:)
     # Preserve the glance's reply handle across the pending→ready rewrite so it
     # stays repliable (→ FollowUp::Handlers::AnalyticsGlance).
     if event.payload["reply_handle"].present?

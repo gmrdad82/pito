@@ -231,21 +231,20 @@ RSpec.describe Pito::MessageBuilder::Analyze::Message do
       end
     end
 
-    context "with subscribed_status false in the scaffold" do
+    context "with no chart/heart data (system role)" do
       subject(:ready) { described_class.ready_payload(pending_event, data: { scaffold: partial_scaffold, charts: {} }) }
 
-      it "renders subscribed_status cell with value '0'" do
-        doc    = Nokogiri::HTML.fragment(ready["body"])
-        values = doc.css(".pito-analytics-scalars__value").map(&:text)
-        # subscribed_status is the last metric in SYSTEM order for channel level
-        expect(values.last).to eq("0")
+      it "renders NoData for the chart-type metrics (views/…/likes) that have no data" do
+        # views/watched_hours/subs/avg_view_duration/avg_viewed_pct/likes are Area/Heart
+        # metrics → with no data they become the NoData placeholder, not a 0/1 cell.
+        expect(ready["body"]).to include("pito-metric--nodata")
       end
 
-      it "renders cells with '1' for the other metrics (views, etc.)" do
+      it "still renders the pure-scalar metric (comments) as a 0/1 cell" do
         doc    = Nokogiri::HTML.fragment(ready["body"])
         values = doc.css(".pito-analytics-scalars__value").map(&:text)
-        # all except the last (subscribed_status) should be "1"
-        expect(values[0..-2]).to all(eq("1"))
+        expect(values).not_to be_empty
+        expect(values).to all(match(/\A[01]\z/))
       end
     end
 
@@ -290,13 +289,16 @@ RSpec.describe Pito::MessageBuilder::Analyze::Message do
         expect(ready["body"]).not_to include("retention")
       end
 
-      it "renders '1' for devices and '0' for the rest" do
+      it "renders the bar metrics (devices/geography/…) as NoData when no bar data is supplied" do
+        # devices/geography/demographics_* are Bar metrics → with no Breakdown data
+        # they become the NoData placeholder, not a 0/1 scaffold cell.
+        expect(ready["body"]).to include("pito-metric--nodata")
+      end
+
+      it "renders the pure-scalar metric (day_of_week_heatmap) as a 0/1 cell" do
         doc    = Nokogiri::HTML.fragment(ready["body"])
-        pairs  = doc.css(".pito-analytics-scalars__pair")
-        # At least one cell present
-        expect(pairs).not_to be_empty
-        values = pairs.map { |p| p.at_css(".pito-analytics-scalars__value")&.text }
-        expect(values).to include("1")
+        values = doc.css(".pito-analytics-scalars__value").map(&:text)
+        expect(values).to all(match(/\A[01]\z/))
       end
     end
 
@@ -533,10 +535,11 @@ RSpec.describe Pito::MessageBuilder::Analyze::Message do
     context "with with: [:views], without: []" do
       subject(:rerendered) { described_class.rerender(ready_event, with: [ :views ], without: []) }
 
-      it "only renders the views cell (active whitelist)" do
-        doc    = Nokogiri::HTML.fragment(rerendered["body"])
-        labels = doc.css(".pito-analytics-scalars__label").map(&:text)
-        expect(labels).to eq([ "Views" ])
+      it "renders only the views metric — as NoData, since no chart data was supplied" do
+        # whitelist = views only; views is an Area metric with no data here → NoData
+        # placeholder (its label rides along as the caption). No other metric cells.
+        expect(rerendered["body"].scan("pito-metric--nodata").size).to eq(1)
+        expect(rerendered["body"]).to include("Views")
       end
 
       it "updates analyze.with to include 'views'" do
@@ -546,6 +549,38 @@ RSpec.describe Pito::MessageBuilder::Analyze::Message do
       it "sets analyze.without to []" do
         expect(rerendered.dig("analyze", "without")).to eq([])
       end
+    end
+  end
+
+  describe ".bar_cell / .bar_presentation" do
+    def bars_for(metric, rows) = described_class.bar_cell(metric, rows, "cap")[:bars]
+
+    it "subscribed_status: Not subscribed (red) then Subscribed (green), with pct value labels" do
+      bars = bars_for(:subscribed_status, [ { key: "UNSUBSCRIBED", pct: 93.2 }, { key: "SUBSCRIBED", pct: 6.8 } ])
+      expect(bars).to eq([
+        { label: "Not subscribed", color: :red,   pct: 93.2, value_label: "93.2%" },
+        { label: "Subscribed",     color: :green, pct: 6.8,  value_label: "6.8%" }
+      ])
+    end
+
+    it "devices: Mobile/Computer/TV mapped to blue/purple/cyan" do
+      bars = bars_for(:devices, [ { "key" => "MOBILE", "pct" => 70.0 }, { "key" => "DESKTOP", "pct" => 25.0 }, { "key" => "TV", "pct" => 5.0 } ])
+      expect(bars.map { |b| [ b[:label], b[:color] ] }).to eq([ [ "Mobile", :blue ], [ "Computer", :purple ], [ "TV", :cyan ] ])
+    end
+
+    it "gender: maps known keys + falls back unknown gender → Other/purple" do
+      bars = bars_for(:demographics_gender, [ { key: "female", pct: 60.0 }, { key: "weird", pct: 40.0 } ])
+      expect(bars.map { |b| [ b[:label], b[:color] ] }).to eq([ [ "Female", :pink ], [ "Other", :purple ] ])
+    end
+
+    it "age: strips the age prefix, en-dashes ranges, and renders 65- as 65+ with a colour ramp" do
+      bars = bars_for(:demographics_age, [ { key: "age25-34", pct: 45.0 }, { key: "age65-", pct: 5.0 } ])
+      expect(bars.map { |b| [ b[:label], b[:color] ] }).to eq([ [ "25–34", :cyan ], [ "65+", :blue ] ])
+    end
+
+    it "geography: resolves the country code to a name and colours by order from the ramp" do
+      bars = bars_for(:geography, [ { key: "us", pct: 60.0 }, { key: "gb", pct: 15.0 } ])
+      expect(bars.map { |b| [ b[:label], b[:color] ] }).to eq([ [ "United States", :green ], [ "United Kingdom", :cyan ] ])
     end
   end
 end

@@ -4,22 +4,22 @@ require "rails_helper"
 
 RSpec.describe Pito::Analytics::MetricOrder do
   describe ".for" do
-    it "returns the :system order for a vid (all available); area-chart metrics grouped first" do
+    it "returns the :system order for a vid (area charts first, then heart + scalars; NO subscribed_status)" do
       expect(described_class.for(role: :system, level: :vid)).to eq(
-        %i[views watched_hours subs avg_view_duration avg_viewed_pct likes comments subscribed_status]
+        %i[views watched_hours subs avg_view_duration avg_viewed_pct likes comments]
       )
     end
 
-    it "returns the :enhanced order for a vid (retention available)" do
+    it "returns the :enhanced order for a vid (bars first in owner order, retention available)" do
       expect(described_class.for(role: :enhanced, level: :vid)).to eq(
-        %i[retention devices geography day_of_week_heatmap demographics_gender demographics_age]
+        %i[subscribed_status devices geography demographics_age demographics_gender retention day_of_week_heatmap]
       )
     end
 
     it "skips retention (vid-only) for a game" do
       expect(described_class.for(role: :enhanced, level: :game)).not_to include(:retention)
       expect(described_class.for(role: :enhanced, level: :game)).to eq(
-        %i[devices geography day_of_week_heatmap demographics_gender demographics_age]
+        %i[subscribed_status devices geography demographics_age demographics_gender day_of_week_heatmap]
       )
     end
 
@@ -27,10 +27,12 @@ RSpec.describe Pito::Analytics::MetricOrder do
       expect(described_class.for(role: :enhanced, level: :channel)).not_to include(:retention)
     end
 
-    it "keeps :system identical across levels (no vid-only metrics in it)" do
+    it "keeps :system identical across levels, with subscribed_status moved to :enhanced" do
       %i[vid game channel].each do |level|
-        expect(described_class.for(role: :system, level:)).to include(:subscribed_status)
+        expect(described_class.for(role: :system, level:)).not_to include(:subscribed_status)
+        expect(described_class.for(role: :enhanced, level:)).to include(:subscribed_status)
       end
+      expect(described_class.for(role: :system, level: :game)).to eq(described_class.for(role: :system, level: :channel))
     end
   end
 
@@ -67,11 +69,11 @@ RSpec.describe Pito::Analytics::MetricOrder do
     end
 
     it "returns the distinct report groups for a role+level" do
-      # :system is all scalars + subscribed_status → two report groups
-      expect(described_class.reports(role: :system, level: :vid)).to match_array(%w[scalars subscribed_status])
-      # :enhanced vid → retention + device + country + daily + demographics
+      # :system is now all scalars (subscribed_status moved to :enhanced)
+      expect(described_class.reports(role: :system, level: :vid)).to match_array(%w[scalars])
+      # :enhanced vid → subscribed_status + device + country + demographics + retention + daily
       expect(described_class.reports(role: :enhanced, level: :vid)).to match_array(
-        %w[retention device country daily demographics]
+        %w[subscribed_status device country demographics retention daily]
       )
       # :enhanced game → no retention
       expect(described_class.reports(role: :enhanced, level: :game)).not_to include("retention")

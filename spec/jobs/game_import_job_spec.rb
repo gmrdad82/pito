@@ -218,6 +218,14 @@ RSpec.describe GameImportJob, type: :job do
       turn = conversation.turns.last
       expect(turn.completed_at).to be_present
     end
+
+    it "resolves the thinking indicator even on error (no hung spinner)" do
+      perform
+      thinking_events = conversation.events.where(kind: "thinking").to_a
+      expect(thinking_events).not_to be_empty
+      all_resolved = thinking_events.all? { |e| e.payload["resolved"] == true }
+      expect(all_resolved).to be(true)
+    end
   end
 
   # ── Resync path (already-in-library) ─────────────────────────────────────────

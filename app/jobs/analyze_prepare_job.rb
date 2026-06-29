@@ -24,6 +24,18 @@ class AnalyzePrepareJob < ApplicationJob
   # so avg_view_duration MUST come first.
   CHART_METRICS = %i[views watched_hours subs avg_view_duration avg_viewed_pct].freeze
 
+  # Metrics that render as bespoke BarChart cells (share breakdowns) → the
+  # `Pito::Analytics::Breakdown` metric they map to. subscribed_status sits in the
+  # :system role; the rest in :enhanced (per MetricOrder). Computed for whatever
+  # bar-metrics the message's role+level actually lists.
+  BAR_METRICS = {
+    subscribed_status:   :subscribed_status,
+    devices:             :devices,
+    geography:           :geography,
+    demographics_gender: :gender,
+    demographics_age:    :age
+  }.freeze
+
   def perform(turn_id)
     turn = Turn.find_by(id: turn_id)
     return unless turn
@@ -81,10 +93,35 @@ class AnalyzePrepareJob < ApplicationJob
       likes = Pito::Analytics::LikesHearts.for(groups:, level:)
     end
 
-    { scaffold:, charts:, likes: }
+    # Bar breakdowns (all LIFETIME) for whatever bar-metrics this role+level lists.
+    bars = compute_bars(groups:, role: marker["role"], level:)
+
+    { scaffold:, charts:, likes:, bars: }
   rescue StandardError => e
     Rails.logger.warn("[AnalyzePrepareJob] #{marker['level']} #{marker['entity_ids'].inspect}: #{e.class}: #{e.message}")
-    { scaffold: {}, charts: nil, likes: nil } # empty → every cell renders "0", no chart
+    { scaffold: {}, charts: nil, likes: nil, bars: {} } # empty → every cell renders "0", no chart
+  end
+
+  # metric (MetricOrder symbol) → ordered [{key:, pct:}] share rows, for each
+  # bar-metric in the role+level. ALL audience-composition bars (subscribers /
+  # device / geography / gender / age) are LIFETIME — not the message's shift+space
+  # period — mirroring the likes heart + retention (YouTube Studio shows these as
+  # "Since published", and the recent window is usually empty for them). Each
+  # Breakdown.for already rescues to [] on error, so one cold/erroring metric never
+  # sinks the others; metrics with no data are omitted (their cells fall back to the
+  # NoData component).
+  def compute_bars(groups:, role:, level:)
+    return {} if groups.empty?
+
+    lifetime = Pito::Analytics::Window.for("lifetime", reference_date: Date.current)
+    metrics  = Pito::Analytics::MetricOrder.for(role: role.to_sym, level: level.to_sym)
+    metrics.each_with_object({}) do |metric, h|
+      breakdown_metric = BAR_METRICS[metric]
+      next unless breakdown_metric
+
+      rows = Pito::Analytics::Breakdown.for(metric: breakdown_metric, groups:, window: lifetime)
+      h[metric] = rows if rows.present?
+    end
   end
 
   # Returns chart data hash (string-keyed, for jsonb round-trip) for one metric

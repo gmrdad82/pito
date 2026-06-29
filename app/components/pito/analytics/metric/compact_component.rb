@@ -3,20 +3,31 @@
 module Pito
   module Analytics
     module Metric
-      # One analytics metric rendered as a single key/value pair in the shared
-      # kv-table style (label + value). The GENERIC "compact" cell reused for EVERY
-      # analytics metric for now — the show vid/game `:enhanced` glance (real values)
-      # AND the `analyze` `:system`/`:enhanced` messages (the `0`/`1` data-pulled
-      # scaffold) render through it, until each metric earns its own bespoke
-      # component (the "revisit": `Metric::ViewComponent`, `Metric::WatchedHoursComponent`, …).
+      # One analytics metric as a label + value pair (the kv cell) — used by the
+      # show vid/game `:enhanced` glance AND the `analyze` `0`/`1` scaffold.
       #
-      # `value` is pre-rendered, html-safe content: a `TrendNumberComponent` render, a
-      # split "+gained/-lost" / "👍/👎" value, or a plain "1"/"0" (1 = data pulled).
+      # `value` is pre-rendered, html-safe content (a TrendNumberComponent render, a
+      # split "+gained/-lost" / "👍/👎" value, or a plain "1"/"0").
+      #
+      # When a `series:` is supplied (glance day-series), a dedicated
+      # Metric::SparklineComponent renders ABOVE the pair — the sparkline is its OWN
+      # component, NOT inline chart code here. No series → just the label/value pair.
       class CompactComponent < ViewComponent::Base
-        def initialize(label:, value:)
-          @label = label
-          @value = value
+        # @param label      [String] metric label
+        # @param value      [String] pre-rendered html-safe value
+        # @param series     [Array<Numeric>] optional day-series → renders a sparkline
+        # @param series_max [Numeric] optional sparkline y-axis ceiling
+        def initialize(label:, value:, series: nil, series_max: nil)
+          @label      = label
+          @value      = value
+          @series     = Array(series).map(&:to_f).presence
+          @series_max = series_max
         end
+
+        attr_reader :label, :value, :series, :series_max
+
+        # True when a numeric series was supplied; gates the sparkline.
+        def series? = @series.present?
       end
     end
   end

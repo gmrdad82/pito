@@ -29,24 +29,29 @@ module Pito
         { key: :watched_hours, label: "watch_hours", polarity: true, format: :hours }
       ].freeze
 
-      # Row 2 metric configs.
+      # Row 2 metric configs. (avg_viewed_pct removed from the glance — owner 2026-06-29.)
       ROW2 = [
-        { key: :avg_view_duration, label: "avg_view_duration", polarity: true, format: :duration },
-        { key: :avg_viewed_pct,    label: "avg_viewed_pct",    polarity: true, format: :percent }
+        { key: :avg_view_duration, label: "avg_view_duration", polarity: true, format: :duration }
       ].freeze
 
-      def initialize(result:)
+      # @param series [Hash{Symbol=>Array}] optional day-series per metric
+      #   (views/watched_hours/avg_view_duration/subs/likes) from
+      #   Pito::Analytics::GlanceSeries — each renders a 2-row braille sparkline
+      #   (Metric::SparklineComponent) above its scalar.
+      def initialize(result:, series: {})
         @result = result
+        @series = series || {}
       end
 
       def row1_cells = build_cells(ROW1)
       def row2_cells = build_cells(ROW2)
 
       # Ordered flat array of all metric cells for the flex-wrap layout.
-      # Canonical order: views → watched_hours → avg_view_duration →
-      # avg_viewed_pct → subs → likes → comments.
+      # Canonical order: views → watched_hours → avg_view_duration → subs → likes.
+      # (avg_viewed_pct + comments removed from the glance — owner 2026-06-29; the
+      # five remaining metrics all carry a GlanceSeries sparkline.)
       def cells
-        build_cells(ROW1) + build_cells(ROW2) + [ subs_cell, likes_cell, comments_cell ]
+        build_cells(ROW1) + build_cells(ROW2) + [ subs_cell, likes_cell ]
       end
 
       # ── Row 3 cells (each `{ label:, value: }` with a pre-rendered value) ──
@@ -64,7 +69,7 @@ module Pito
               down: "-#{Pito::Formatter::CompactCount.call(lost.to_i)}"
             )
           end
-        { label: metric_label("subs_net"), value: }
+        { label: metric_label("subs_net"), series: @series[:subs], value: }
       end
 
       # Likes: "<likes>👍/<dislikes>👎" — green likes, red dislikes (em dash when
@@ -81,20 +86,7 @@ module Pito
               down: icon_count(dislikes, "thumbs-down", metric_label("dislikes"))
             )
           end
-        { label: metric_label("likes"), value: }
-      end
-
-      # Comments: word label + a plain trend-coloured count.
-      def comments_cell
-        metric = @result.metrics[:comments] || {}
-        trend  = Pito::Analytics::TrendNumberComponent.new(
-          value:            metric[:current],
-          previous:         metric[:previous],
-          comparable:       @result.comparable,
-          higher_is_better: true,
-          display:          format_value(:count, metric[:current])
-        )
-        { label: metric_label("comments"), value: render(trend) }
+        { label: metric_label("likes"), series: @series[:likes], value: }
       end
 
       private
@@ -103,8 +95,9 @@ module Pito
         cfg_list.map do |cfg|
           metric = @result.metrics[cfg[:key]] || {}
           {
-            label: metric_label(cfg[:label]),
-            value: render(Pito::Analytics::TrendNumberComponent.new(
+            label:  metric_label(cfg[:label]),
+            series: @series[cfg[:key]],
+            value:  render(Pito::Analytics::TrendNumberComponent.new(
               value:            metric[:current],
               previous:         metric[:previous],
               comparable:       @result.comparable,

@@ -45,8 +45,13 @@ module Pito
       # otherwise it is sampled per auth state (see Pito::Shell::ChatboxHint).
       # `authenticated:` can be passed explicitly for out-of-request rendering
       # (e.g. Turbo Stream broadcasts); falls back to Current.session when nil.
+      #
+      # When suggestions are present the showcase comet IS the hint — suppress the
+      # native placeholder entirely so the block caret at position 0 never sits on
+      # top of placeholder text before the first comet pass (SHOWCASE-NODEFAULT).
       def placeholder
         return t(@placeholder_key) if @placeholder_key
+        return "" if @suggestions.any?
 
         auth = @authenticated.nil? ? Current.session.present? : @authenticated
         Pito::Shell::ChatboxHint.sample(authenticated: auth)

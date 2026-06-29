@@ -17,6 +17,30 @@ RSpec.describe Pito::Shell::ChatboxComponent do
         expect(textarea.first["placeholder"]).to include("/login")
       end
 
+      # SHOWCASE-NODEFAULT: when suggestions are present the showcase comet IS
+      # the hint — suppress the native placeholder so the block caret at position
+      # 0 never sits on top of placeholder text before the first comet pass.
+      context "suggestions present (authenticated showcase active)" do
+        let(:suggestions) { %w[list\ games show\ last\ vid list\ vids] }
+
+        it "renders an empty placeholder when suggestions are non-empty" do
+          node = render_inline(described_class.new(suggestions: suggestions))
+          expect(node.css("textarea").first["placeholder"]).to eq("")
+        end
+
+        it "still renders empty placeholder even with an explicit authenticated: true" do
+          node = render_inline(described_class.new(authenticated: true, suggestions: suggestions))
+          expect(node.css("textarea").first["placeholder"]).to eq("")
+        end
+      end
+
+      context "suggestions absent (unauthenticated path)" do
+        it "renders the login hint placeholder when suggestions are empty" do
+          node = render_inline(described_class.new(suggestions: []))
+          expect(node.css("textarea").first["placeholder"]).to include("/login")
+        end
+      end
+
       it "wires the suggestions controller actions on the input by default" do
         action = render_inline(described_class.new).css("textarea").first["data-action"]
         expect(action).to include("input->pito--suggestions#onInput")

@@ -1,4 +1,19 @@
-<div class="pito-analytics-scalars__pair">
-  <span class="pito-analytics-scalars__label text-fg-dim whitespace-nowrap"><%= @label %></span>
-  <span class="pito-analytics-scalars__value tabular-nums"><%= @value %></span>
-</div>
+<%# Compact metric cell: a label/value pair. When a day-series is supplied, a
+    dedicated Metric::SparklineComponent renders ABOVE the pair (no inline chart
+    code here). The charted cell is chart-width (matches the analyze chart
+    wrappers); the pair spans that width (label left, value right). No series → just
+    the pair, at its natural width. %>
+<% if series? %>
+  <div class="pito-analytics-scalars__charted">
+    <%= render(Pito::Analytics::Metric::SparklineComponent.new(series: series, series_max: series_max)) %>
+    <div class="pito-analytics-scalars__pair pito-analytics-scalars__pair--charted">
+      <span class="pito-analytics-scalars__label text-fg-dim whitespace-nowrap"><%= label %></span>
+      <span class="pito-analytics-scalars__value tabular-nums"><%= value %></span>
+    </div>
+  </div>
+<% else %>
+  <div class="pito-analytics-scalars__pair">
+    <span class="pito-analytics-scalars__label text-fg-dim whitespace-nowrap"><%= label %></span>
+    <span class="pito-analytics-scalars__value tabular-nums"><%= value %></span>
+  </div>
+<% end %>

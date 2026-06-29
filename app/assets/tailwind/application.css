@@ -46,6 +46,9 @@
   --font-mono:        "DejaVu Sans Mono", "ui-monospace", monospace;
   --text-base:        14px;
   --text-base--line-height: 1.4;
+  /* Single source of truth for the diagonal SHIMMER angle (score/ttb/tokens/
+     subject/hashtag/achievements + the chart-viz). Change here to retune all. */
+  --pito-shimmer-angle: 135deg;
   --color-root:        var(--bg-root);
   --color-surface:     var(--bg-surface);
   --color-elevated:    var(--bg-elevated);
@@ -289,7 +292,7 @@ html {
      clipped gradient below (transparent fill), so this colour never shows on it. */
   color: var(--accent-green);
   background-image: linear-gradient(
-    135deg,
+    var(--pito-shimmer-angle),
     var(--accent-green) 0%,
     var(--accent-green) 38%,
     var(--accent-yellow) 50%,
@@ -313,7 +316,7 @@ html {
   /* currentColor for inline icon children (e.g. 👎); see .pito-trend-number--up. */
   color: var(--accent-red);
   background-image: linear-gradient(
-    135deg,
+    var(--pito-shimmer-angle),
     var(--accent-red) 0%,
     var(--accent-red) 38%,
     var(--accent-yellow) 50%,
@@ -377,7 +380,7 @@ html {
 .pito-trend-number--steady {
   color: var(--fg-default);
   background-image: linear-gradient(
-    135deg,
+    var(--pito-shimmer-angle),
     var(--fg-default) 0%,
     var(--fg-default) 38%,
     var(--fg-dim) 50%,
@@ -418,7 +421,7 @@ html {
 
 .pito-kbd-shimmer {
   background-image: linear-gradient(
-    135deg,
+    var(--pito-shimmer-angle),
     var(--accent-yellow) 0%,
     var(--accent-yellow) 38%,
     var(--accent-orange) 50%,
@@ -443,7 +446,7 @@ html {
    Reuses the pito-kbd-shimmer-sweep keyframe. */
 .pito-token-shimmer {
   background-image: linear-gradient(
-    135deg,
+    var(--pito-shimmer-angle),
     var(--accent-cyan) 0%,
     var(--accent-cyan) 38%,
     var(--brand-pito) 50%,
@@ -468,7 +471,7 @@ html {
    differently from @handles / #ids. */
 .pito-hashtag-shimmer {
   background-image: linear-gradient(
-    135deg,
+    var(--pito-shimmer-angle),
     var(--accent-purple) 0%,
     var(--accent-purple) 38%,
     var(--accent-blue) 50%,
@@ -495,7 +498,7 @@ html {
    Reuses the pito-kbd-shimmer-sweep keyframe. */
 .pito-subject-shimmer {
   background-image: linear-gradient(
-    135deg,
+    var(--pito-shimmer-angle),
     var(--brand-pito) 0%,
     var(--brand-pito) 38%,
     var(--accent-purple) 50%,
@@ -1586,7 +1589,7 @@ html {
 
 .pito-bar-shimmer {
   --pito-bar-band: linear-gradient(
-    135deg,
+    var(--pito-shimmer-angle),
     transparent calc(var(--pito-bar-sweep) - 14%),
     color-mix(in oklch, var(--brand-pito) 72%, transparent) var(--pito-bar-sweep),
     transparent calc(var(--pito-bar-sweep) + 14%)
@@ -1732,7 +1735,7 @@ html {
   /* Shimmer band — inlined (not .pito-bar-shimmer) so we can use 4.4s duration
      (between score/ttb 3.4s and analytics 5.5s) without clobbering other classes. */
   --pito-bar-band: linear-gradient(
-    135deg,
+    var(--pito-shimmer-angle),
     transparent calc(var(--pito-bar-sweep) - 14%),
     color-mix(in oklch, var(--brand-pito) 72%, transparent) var(--pito-bar-sweep),
     transparent calc(var(--pito-bar-sweep) + 14%)
@@ -2164,6 +2167,15 @@ html:has(#pito-settings[data-fx="false"]) .pito-comet-reveal::after { display: n
   background: var(--bg-elevated);
 }
 
+/* show-channel detail avatar: circular + theme-contrast ring, matching the list. */
+.pito-channel-detail__avatar img {
+  width: 120px;
+  height: 120px;
+  object-fit: cover;
+  border-radius: 50%;
+  border: 1px solid var(--fg-default);
+}
+
 /* Title: trimmed to a single row (…) so it never wraps. */
 .pito-channel-item__title {
   max-width: 100%;
@@ -2280,7 +2292,7 @@ html:has(#pito-settings[data-fx="false"]) .pito-comet-reveal::after { display: n
   display: flex;
   flex-wrap: wrap;
   column-gap: 3ch;    /* gap between adjacent pairs (≈ old gap-x-6 = 1.5rem) */
-  row-gap: 0.85rem;   /* ACL2: ~12px gap between wrapped rows for chart cells */
+  row-gap: 1.6rem;    /* ANALYTICS-GAP: more breathing room between rows (no hairline — too busy with the dot grids); rem = mobile-safe */
 }
 
 .pito-analytics-scalars__pair {
@@ -2288,6 +2300,15 @@ html:has(#pito-settings[data-fx="false"]) .pito-comet-reveal::after { display: n
   align-items: baseline;
   column-gap: 1ch;    /* breathing room between the label and the value */
 }
+
+/* A charted glance cell = a SparklineComponent (chart-width, ~COLS=45ch) stacked
+   over its label/value pair. The cell takes the sparkline's width so it matches
+   the analyze chart wrappers; the pair spans that full width (label left, value
+   right) instead of the fixed label/value columns a bare pair uses. */
+.pito-analytics-scalars__charted { display: flex; flex-direction: column; width: max-content; }
+.pito-analytics-scalars__pair--charted { width: 100%; justify-content: space-between; }
+.pito-analytics-scalars__pair--charted .pito-analytics-scalars__label,
+.pito-analytics-scalars__pair--charted .pito-analytics-scalars__value { width: auto; }
 
 .pito-analytics-scalars__label {
   width: var(--scalars-label-w);
@@ -2551,7 +2572,7 @@ html:has(#pito-settings[data-fx="false"]) .pito-comet-reveal::after { display: n
 .pito-achievement-track__connector--reached,
 .pito-achievement-track__ellipsis--reached {
   background-image: linear-gradient(
-    135deg,
+    var(--pito-shimmer-angle),
     currentColor 0%,
     currentColor 38%,
     var(--pito-track-shimmer, var(--fg-default)) 50%,
@@ -2773,6 +2794,14 @@ html:has(#pito-settings[data-fx="false"]) .pito-comet-reveal::after { display: n
   );
 }
 
+/* Glance sparkline (Metric::SparklineComponent): NO health gradient — a FLAT
+   fg-default base under the shared pito-blue chart-viz shimmer. Override the
+   --pito-health var the row layers over, so the band stays and the base is one
+   calm colour (owner: "color = fg-default, no gradient on this for now"). */
+.pito-metric--sparkline .pito-metric__plot {
+  --pito-health: linear-gradient(var(--fg-default), var(--fg-default));
+}
+
 /* Each braille row: the pito-blue shimmer band (swept @property stops, the SAME
    .pito-bar-shimmer recipe as score/ttb) layered OVER the health ramp, both
    clipped to the glyph ink. The health layer is the FULL plot height shifted
@@ -2786,17 +2815,20 @@ html:has(#pito-settings[data-fx="false"]) .pito-comet-reveal::after { display: n
   height: var(--pito-rh);
   line-height: var(--pito-rh);
   white-space: pre;
-  /* Chart-viz shimmer: pito-blue band at 120° (chart components only — distinct
-     from the app-wide 135° kbd/token/score shimmers). */
+  /* Chart-viz shimmer: a pito-blue band at 135°. CRITICAL: the band layer spans
+     the FULL plot (100% var(--pito-plot-h)) and is offset per row by --i — same
+     as the health layer — so the 135° is computed over the whole plot box and
+     reads as a true diagonal. (Painting it per-row at 100% 100% flattened it to
+     a near-vertical sweep regardless of the angle.) */
   background-image:
-    linear-gradient(120deg,
+    linear-gradient(var(--pito-shimmer-angle),
       transparent calc(var(--pito-bar-sweep) - 14%),
       color-mix(in oklch, var(--brand-pito) 72%, transparent) var(--pito-bar-sweep),
       transparent calc(var(--pito-bar-sweep) + 14%)),
     var(--pito-health);
   background-repeat: no-repeat;
-  background-size: 100% 100%, 100% var(--pito-plot-h);
-  background-position: 0 0, 0 calc(-1 * var(--pito-rh) * var(--i));
+  background-size: 100% var(--pito-plot-h), 100% var(--pito-plot-h);
+  background-position: 0 calc(-1 * var(--pito-rh) * var(--i)), 0 calc(-1 * var(--pito-rh) * var(--i));
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -2851,7 +2883,8 @@ html:has(#pito-settings[data-fx="false"]) .pito-comet-reveal::after { display: n
 
 @media (prefers-reduced-motion: reduce) {
   .pito-metric__row,
-  .pito-metric__hrow .pito-hfill { animation: none; }
+  .pito-metric__hrow .pito-hfill,
+  .pito-metric__brow .pito-bar-fill { animation: none; }
 }
 
 /* ── Likes hearts (HeartChartComponent) — the heart analogue of the area chart.
@@ -2861,19 +2894,22 @@ html:has(#pito-settings[data-fx="false"]) .pito-comet-reveal::after { display: n
    (--heart-color: red subject / purple channel) instead of the health gradient,
    dimmed above the fill (.is-outline) for the hollow "outline-empty" look, and a
    two-up legend. Both hearts sit in ONE white-space:pre row block. */
-.pito-metric__plot--heart { line-height: 1.05; }
+.pito-metric__plot--heart { line-height: 1.05; --pito-rh: 1.05em; } /* match heart row height so the shimmer plot-span is correct */
 .pito-metric__hrow { display: block; line-height: 1.05; white-space: pre; }
 /* Heart glyphs wear the SAME 120° pito-blue chart-viz shimmer as the area chart:
    a sweeping brand-pito band clipped over the flat heart colour (red/purple). */
 .pito-metric__hrow .pito-hfill {
   background-image:
-    linear-gradient(120deg,
+    linear-gradient(var(--pito-shimmer-angle),
       transparent calc(var(--pito-bar-sweep) - 14%),
       color-mix(in oklch, var(--brand-pito) 72%, transparent) var(--pito-bar-sweep),
       transparent calc(var(--pito-bar-sweep) + 14%)),
     linear-gradient(var(--heart-color), var(--heart-color));
   background-repeat: no-repeat;
-  background-size: 100% 100%;
+  /* Band spans the FULL heart plot + offset per row (--i) so the 135° reads as a
+     true diagonal across the whole heart — same fix as the area chart. */
+  background-size: 100% var(--pito-plot-h), 100% var(--pito-plot-h);
+  background-position: 0 calc(-1 * var(--pito-rh) * var(--i)), 0 calc(-1 * var(--pito-rh) * var(--i));
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -2911,7 +2947,8 @@ html:has(#pito-settings[data-fx="false"]) .pito-comet-reveal::after { display: n
 .pito-metric--heart .pito-metric__bg-row { line-height: 1.05; } /* match the heart rows */
 /* Data rows paint ABOVE the bg grid. */
 .pito-metric__row,
-.pito-metric__hrow { position: relative; z-index: 1; }
+.pito-metric__hrow,
+.pito-metric__brow { position: relative; z-index: 1; }
 
 /* Heart rows wipe bottom→up on reveal, sharing the area chart's "D" choreography
    (the pito--area-chart-reveal controller adds .is-revealing + .on). */
@@ -2924,6 +2961,68 @@ html:has(#pito-settings[data-fx="false"]) .pito-comet-reveal::after { display: n
   transition: clip-path 0.5s ease-out, text-shadow 0.5s ease-out;
 }
 .pito-metric.is-revealing .pito-metric__hrow.on {
+  clip-path: inset(0 0 0 0);
+  text-shadow: 0 0 0 transparent, 0 0 0 transparent, 0 0 0 transparent;
+}
+
+/* ── Horizontal bar group (BarChartComponent) — 1–5 braille ⣿ bars centred
+   vertically on the full area-chart canvas (COLS=45, ROWS=11). Each bar is
+   2 identical glyph rows; 1-row gaps for n≤4. Reuses .pito-metric chrome +
+   pito--area-chart-reveal controller verbatim. */
+
+/* Each plot row: display:block + white-space:pre so the two fill spans are
+   adjacently placed with no inter-glyph whitespace. position + z-index are
+   shared via the .pito-metric__brow selector added to the group rule above. */
+.pito-metric__brow { display: block; line-height: var(--pito-rh); white-space: pre; }
+
+/* Bar glyphs wear the SAME 135° pito-blue chart-viz shimmer as the area chart:
+   a sweeping brand-pito band clipped over the flat bar colour (--bar-color).
+   The band spans the FULL 11-row plot and is offset per-row via --i (inherited
+   from the parent .pito-metric__brow) so the diagonal reads true across the
+   whole canvas — identical fix to the area chart and heart. */
+.pito-metric__brow .pito-bar-fill {
+  background-image:
+    linear-gradient(var(--pito-shimmer-angle),
+      transparent calc(var(--pito-bar-sweep) - 14%),
+      color-mix(in oklch, var(--brand-pito) 72%, transparent) var(--pito-bar-sweep),
+      transparent calc(var(--pito-bar-sweep) + 14%)),
+    linear-gradient(var(--bar-color), var(--bar-color));
+  background-repeat: no-repeat;
+  background-size: 100% var(--pito-plot-h), 100% var(--pito-plot-h);
+  background-position: 0 calc(-1 * var(--pito-rh) * var(--i)), 0 calc(-1 * var(--pito-rh) * var(--i));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation-name: pito-bar-glyph-sweep;
+  animation-duration: 5.5s;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+/* The dim remainder (above or beyond the bar fill) — same hollow treatment
+   as the heart's is-outline. */
+.pito-metric__brow .pito-bar-fill.is-outline { opacity: 0.45; }
+
+/* Constrain the bar chart to the plot's intrinsic width (the `white-space: pre`
+   braille rows = COLS chars). Without this the `.pito-metric` (width: max-content)
+   grows to the legend's single-line width, so the wrap below never triggers and a
+   5-country / 5-age legend blows out the column. min-content pins the chart to the
+   plot width; the legend then wraps within it. */
+.pito-metric--bar .pito-metric__chart { width: min-content; }
+/* Legend: wrapping flex row of colour-swatch + label + value_label per bar. */
+.pito-metric__blegend { display: flex; flex-wrap: wrap; gap: 0.35em 1.5ch; margin-top: 0.35em; }
+.pito-metric__blegend-item { display: flex; align-items: center; gap: 0.5ch; white-space: nowrap; }
+
+/* Bar rows wipe bottom→up on reveal, sharing the area chart's "D"
+   choreography (pito--area-chart-reveal adds .is-revealing + .on per row). */
+.pito-metric.is-revealing .pito-metric__brow {
+  clip-path: inset(0 100% 0 0);
+  text-shadow:
+    12px 0 14px var(--color-cyan),
+    6px 0 8px var(--color-cyan),
+    0 0 5px var(--fg-default);
+  transition: clip-path 0.5s ease-out, text-shadow 0.5s ease-out;
+}
+.pito-metric.is-revealing .pito-metric__brow.on {
   clip-path: inset(0 0 0 0);
   text-shadow: 0 0 0 transparent, 0 0 0 transparent, 0 0 0 transparent;
 }

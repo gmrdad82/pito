@@ -24,6 +24,23 @@ RSpec.describe Pito::FollowUp::Handlers::VideoList do
     expect(described_class.mode).to eq(:append)
   end
 
+  describe "analyze" do
+    let(:other) { create(:video, :public, title: "Second", channel:) }
+    let(:list_event) do
+      instance_double(Event, payload: { "reply_target" => "video_list", "video_ids" => [ video.id, other.id ] })
+    end
+
+    it "`analyze #<id>` analyzes ONLY that vid (subject = its title, not 'N vids')" do
+      expect(Pito::FollowUp::AnalyzeReply).to receive(:append).with(level: :vid, ids: [ video.id ], conversation:, period: nil)
+      handler.call(event: list_event, rest: "analyze ##{video.id}", conversation:)
+    end
+
+    it "bare `analyze` analyzes the whole listed scope" do
+      expect(Pito::FollowUp::AnalyzeReply).to receive(:append).with(level: :vid, ids: [ video.id, other.id ], conversation:, period: nil)
+      handler.call(event: list_event, rest: "analyze", conversation:)
+    end
+  end
+
   it "delegates `show <id>` to the video verb handler: detail card + enhanced message" do
     result = handler.call(event:, rest: "show ##{video.id}", conversation:)
     expect(result).to be_a(Pito::FollowUp::Result::Append)

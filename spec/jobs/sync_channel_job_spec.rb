@@ -102,6 +102,48 @@ RSpec.describe SyncChannelJob, type: :job do
 
         expect(broadcaster).to have_received(:complete_turn)
       end
+
+      context "when the job raises an unexpected error mid-flight" do
+        # Trigger the outer rescue by having the success-path :system emit raise.
+        # The :error emit in the rescue block must still succeed.
+        let(:broadcaster) do
+          instance_double(
+            Pito::Stream::Broadcaster,
+            emit_thinking: nil, resolve_thinking: nil, complete_turn: nil
+          )
+        end
+
+        before do
+          allow(Pito::Stream::Broadcaster).to receive(:new).and_return(broadcaster)
+          allow(broadcaster).to receive(:emit)
+            .with(hash_including(kind: :system)).and_raise(StandardError, "cable failure")
+          allow(broadcaster).to receive(:emit)
+            .with(hash_including(kind: :error)).and_return(nil)
+        end
+
+        it "emits an :error event into the conversation" do
+          described_class.new.perform([ channel.id ], "@pito", conversation_id: conversation.id)
+          expect(broadcaster).to have_received(:emit).with(
+            hash_including(kind: :error, payload: hash_including(text: anything))
+          )
+        end
+
+        it "resolves the thinking indicator on error (no hung spinner)" do
+          described_class.new.perform([ channel.id ], "@pito", conversation_id: conversation.id)
+          expect(broadcaster).to have_received(:resolve_thinking)
+        end
+
+        it "completes the turn on error" do
+          described_class.new.perform([ channel.id ], "@pito", conversation_id: conversation.id)
+          expect(broadcaster).to have_received(:complete_turn)
+        end
+
+        it "does not re-raise (job handles the error gracefully)" do
+          expect {
+            described_class.new.perform([ channel.id ], "@pito", conversation_id: conversation.id)
+          }.not_to raise_error
+        end
+      end
     end
   end
 end

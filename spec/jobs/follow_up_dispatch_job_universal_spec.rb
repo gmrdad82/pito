@@ -77,15 +77,38 @@ RSpec.describe FollowUpDispatchJob, "universal verb routing" do
   end
 
   describe "universal verb short-circuit (revoke)" do
-    it "enqueues RevokeShareJob" do
-      expect {
+    context "when a Share exists for the source event" do
+      before { Share.create!(event: source_event, conversation:) }
+
+      it "enqueues RevokeShareJob" do
+        expect {
+          described_class.new.perform(source_event.id, rest: "revoke", turn_id: reply_turn.id)
+        }.to have_enqueued_job(RevokeShareJob).with(source_event.id)
+      end
+
+      it "consumes the source event (consume: true for revoke)" do
         described_class.new.perform(source_event.id, rest: "revoke", turn_id: reply_turn.id)
-      }.to have_enqueued_job(RevokeShareJob).with(source_event.id)
+        expect(source_event.reload.payload["reply_consumed"]).to eq(true)
+      end
     end
 
-    it "consumes the source event (consume: true for revoke)" do
-      described_class.new.perform(source_event.id, rest: "revoke", turn_id: reply_turn.id)
-      expect(source_event.reload.payload["reply_consumed"]).to eq(true)
+    context "when NO Share exists for the source event" do
+      it "does NOT enqueue RevokeShareJob" do
+        expect {
+          described_class.new.perform(source_event.id, rest: "revoke", turn_id: reply_turn.id)
+        }.not_to have_enqueued_job(RevokeShareJob)
+      end
+
+      it "appends an error event to the reply turn" do
+        described_class.new.perform(source_event.id, rest: "revoke", turn_id: reply_turn.id)
+        error_event = reply_turn.events.where(kind: "error").first
+        expect(error_event).to be_present
+      end
+
+      it "does NOT consume the source event" do
+        described_class.new.perform(source_event.id, rest: "revoke", turn_id: reply_turn.id)
+        expect(source_event.reload.payload["reply_consumed"]).not_to eq(true)
+      end
     end
   end
 

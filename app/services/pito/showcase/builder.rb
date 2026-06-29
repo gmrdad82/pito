@@ -37,6 +37,10 @@ module Pito
 
       # @return [Array<String>] ordered 10–15 matrix-valid command strings.
       def call
+        # Nil conversation (start_screen / not_found seed) → return the seed set
+        # immediately without hitting the DB on an AR proxy that doesn't exist.
+        return seed_set if @conversation.nil?
+
         last_turn = @conversation.turns
           .where.not(completed_at: nil)
           .order(:position)

@@ -3,6 +3,10 @@
 require "rails_helper"
 
 RSpec.describe AnalyticsFillJob, type: :job do
+  # The glance now also fetches day-series for its 4 charted metrics; stub it so
+  # the request flow never hits YouTube (covered on its own in glance_series_spec).
+  before { allow(Pito::Analytics::GlanceSeries).to receive(:for).and_return({}) }
+
   let(:conversation) { Conversation.singleton }
 
   let!(:channel) { create(:channel, :on_connection) }

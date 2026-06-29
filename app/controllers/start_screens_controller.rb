@@ -3,10 +3,15 @@ class StartScreensController < ApplicationController
   allow_anonymous :show, :not_found
 
   def show
+    # SHOWCASE-START-NOTFOUND: seed suggestions for authenticated users only.
+    # Unauthenticated visitors get [] so no comet cycles and the login-hint
+    # native placeholder remains visible.
+    initial_showcase = Current.session.present? ? Pito::Showcase::Builder.call(conversation: nil) : []
     render(Pito::StartScreen::Component.new(
       repo_url: ENV.fetch("PITO_REPO_URL", "https://github.com/gmrdad82/pito"),
       license_url: ENV.fetch("PITO_LICENSE_URL", "https://www.gnu.org/licenses/agpl-3.0.html"),
-      channels: @channels
+      channels: @channels,
+      suggestions: initial_showcase
     ))
   end
 

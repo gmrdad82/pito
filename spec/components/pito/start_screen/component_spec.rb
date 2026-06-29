@@ -213,6 +213,47 @@ RSpec.describe Pito::StartScreen::Component do
     end
   end
 
+  # ── SHOWCASE-START-NOTFOUND: auth-gated comet ────────────────────────────────
+  # When suggestions are passed (authenticated path), the showcase data script
+  # tag carries the suggestions JSON and the native textarea placeholder is
+  # empty.  When suggestions is [] (unauthenticated path), the script tag is
+  # empty and the native login hint shows.
+
+  describe "showcase suggestions (SHOWCASE-START-NOTFOUND)" do
+    let(:suggestions) { %w[list\ games show\ last\ vid list\ vids] }
+
+    context "with suggestions (authenticated path)" do
+      subject(:node) { render_inline(described_class.new(**defaults, suggestions: suggestions)) }
+
+      it "embeds the suggestions in the #pito-showcase-data script tag" do
+        script = node.css("script#pito-showcase-data").first
+        expect(script).not_to be_nil
+        parsed = JSON.parse(script.text)
+        expect(parsed).to eq(suggestions)
+      end
+
+      it "renders the textarea with an empty native placeholder" do
+        # The showcase comet IS the hint — no static placeholder behind the caret.
+        expect(node.css("textarea").first["placeholder"]).to eq("")
+      end
+    end
+
+    context "without suggestions (unauthenticated path, [])" do
+      subject(:node) { render_inline(described_class.new(**defaults, suggestions: [])) }
+
+      it "embeds an empty array in the #pito-showcase-data script tag" do
+        script = node.css("script#pito-showcase-data").first
+        expect(script).not_to be_nil
+        parsed = JSON.parse(script.text)
+        expect(parsed).to eq([])
+      end
+
+      it "renders the textarea with the login hint placeholder" do
+        expect(node.css("textarea").first["placeholder"]).to include("/login")
+      end
+    end
+  end
+
   describe "channels nil-safety (authenticated not-found path)" do
     # render_not_found renders this component with `channels: @channels`, which
     # is nil when before_actions (set_channels) didn't run — e.g. via

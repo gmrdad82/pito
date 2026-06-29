@@ -54,6 +54,10 @@
           <%= render(Pito::Shell::ChatboxComponent.new(
                 state: :start,
                 filter: filter,
+                # SHOWCASE-START-NOTFOUND: pass seed suggestions so the comet
+                # cycles on authenticated visits (non-empty) and the native
+                # placeholder shows on unauthenticated visits (empty []).
+                suggestions: suggestions,
                 input_data: {
                   pito__chat_form_target: "inputField",
                   # `input->…#onInput` shows the suggestions palette as you type

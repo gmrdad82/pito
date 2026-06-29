@@ -195,13 +195,13 @@ RSpec.describe Pito::Analytics::Metric::AreaChartComponent do
 
   # ── avg_viewed_pct formatting ─────────────────────────────────────────────────
 
-  it "renders XX.X% y-ticks for avg_viewed_pct" do
+  it "renders XX.XX% y-ticks for avg_viewed_pct" do
     node   = render_chart(metric: :avg_viewed_pct, series: [ 90.0, 80.0, 50.0 ],
                           target_daily: 50.0, caption: "Avg retention: 60.0%.")
     ticks  = node.css(".pito-metric__ytick")
     labels = ticks.map(&:text)
-    expect(labels).to all(match(/\A\d+\.\d%\z/))
-    expect(labels.first).to eq("90.0%")
+    expect(labels).to all(match(/\A\d+\.\d\d%\z/))
+    expect(labels.first).to eq("90.00%")
   end
 
   it "renders percentage x-ticks (0%→100%) for avg_viewed_pct" do

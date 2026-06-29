@@ -5,7 +5,7 @@
       <div class="pito-analytics-enhanced__note text-fg-dim italic"><%= Pito::Copy.render("pito.copy.analytics.unavailable") %></div>
     <% else %>
       <div class="pito-analytics-enhanced__panel flex gap-6">
-        <%= render(Pito::Analytics::ScalarsTableComponent.new(result: @result)) %>
+        <%= render(Pito::Analytics::ScalarsTableComponent.new(result: @result, series: @series)) %>
       </div>
     <% end %>
     <% if @nudge.present? %>

@@ -30,10 +30,13 @@ module Pito
         demographics_age:    { label: "demographics_age",     report: "demographics" }
       }.freeze
 
-      # Owner-defined order. The three area-chart metrics (views/watched_hours/subs)
-      # are grouped first so the visual charts appear together at the top of the grid.
-      SYSTEM   = %i[views watched_hours subs avg_view_duration avg_viewed_pct likes comments subscribed_status].freeze
-      ENHANCED = %i[retention devices geography day_of_week_heatmap demographics_gender demographics_age].freeze
+      # Owner-defined order. :system groups the area-chart metrics first (the visual
+      # charts together at the top), then the likes heart + remaining scalars.
+      # :enhanced leads with the lifetime audience-composition BARS in the owner's
+      # order — subscribers, device, country(geography), age, gender — then the rest
+      # (retention, weekday heatmap). (subscribers moved :system → :enhanced 2026-06-29.)
+      SYSTEM   = %i[views watched_hours subs avg_view_duration avg_viewed_pct likes comments].freeze
+      ENHANCED = %i[subscribed_status devices geography demographics_age demographics_gender retention day_of_week_heatmap].freeze
       ROLE_METRICS = { system: SYSTEM, enhanced: ENHANCED }.freeze
 
       module_function
