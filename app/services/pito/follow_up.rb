@@ -59,5 +59,26 @@ module Pito
       v = payload["reply_consumed"] || payload[:reply_consumed]
       v == true || v == "true"
     end
+
+    # Stamp only a reply_handle (no reply_target) on the payload.
+    # Used by the Broadcaster + Finalizer to make every :system/:enhanced/:confirmation
+    # event addressable for the universal share/revoke/unshare verbs — without
+    # assigning it to a specific follow-up handler.
+    # Idempotent: a payload that already carries reply_handle is returned unchanged.
+    #
+    # @param payload       [Hash]   mutable payload hash (string or symbol keys).
+    # @param conversation: [Conversation] used by HandleGenerator for uniqueness.
+    # @return              [Hash]   the same hash, with reply_handle injected (if absent).
+    def ensure_handle!(payload, conversation:)
+      return payload if payload["reply_handle"].present? || payload[:reply_handle].present?
+      # Frozen payloads (e.g. test constants) cannot be mutated — skip gracefully.
+      # In production all handler payloads are mutable Hashes; this guard is a
+      # test-only safety net.
+      return payload if payload.frozen?
+
+      handle = Pito::HandleGenerator.call(conversation)
+      payload["reply_handle"] = handle
+      payload
+    end
   end
 end

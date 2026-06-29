@@ -124,6 +124,24 @@ RSpec.describe "Conversation requests", type: :request do
       expect(response.body).to include('data-controller="pito--dots"')
       expect(response.body).to include('class="pito-comet"')
     end
+
+    # ── CTXF5: context meter auth gate ─────────────────────────────────────────
+    # The meter renders ONLY inside an authenticated conversation view.
+    # Unauthenticated visitors must NOT see it (not even at 0%).
+
+    it "does not render the context meter when unauthenticated (CTXF5)" do
+      get conversation_path(uuid: conversation.uuid)
+      expect(response.body).not_to include("pito-context-meter")
+    end
+
+    it "renders the context meter when authenticated (CTXF5)" do
+      seed = ROTP::Base32.random_base32
+      AppSetting.enroll_totp!(seed: seed)
+      post "/chat", params: { input: "/login #{ROTP::TOTP.new(seed).now}" }
+
+      get conversation_path(uuid: conversation.uuid)
+      expect(response.body).to include("pito-context-meter")
+    end
   end
 
   # ── Input history data attribute ───────────────────────────────────────────

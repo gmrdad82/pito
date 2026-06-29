@@ -510,6 +510,11 @@ module Pito
         end
 
         # Returns [actions, reply_target] for a live follow-up event, or [nil, nil].
+        #
+        # Universal actions (share/revoke/unshare) are ALWAYS appended when a live
+        # follow-up event is found, even when the reply_target has no registered
+        # handler or no specific actions. This surfaces share affordances on every
+        # repliable message without requiring each handler to declare them.
         def follow_up_actions_with_target(handle, conversation)
           return [ nil, nil ] if handle.blank? || conversation.nil?
 
@@ -519,11 +524,17 @@ module Pito
             .last
           return [ nil, nil ] unless event
 
-          target  = event.payload["reply_target"].to_s
-          actions = Pito::FollowUp::Registry.actions_for(target).presence
-          return [ nil, nil ] unless actions
+          target           = event.payload["reply_target"].to_s
+          specific_actions = Pito::FollowUp::Registry.actions_for(target)
 
-          [ filter_link_unlink(actions, event), target ]
+          # Universal actions (share/revoke/unshare) work on ANY reply_handle event.
+          # Always append them so the autosuggest surfaces them for every shareable message.
+          all_actions = (specific_actions + Pito::Share::UniversalActions::VERBS).uniq
+
+          return [ nil, nil ] if all_actions.empty?
+
+          filtered = specific_actions.present? ? filter_link_unlink(all_actions, event) : all_actions
+          [ filtered, target ]
         end
 
         # Returns the list_columns array from the live follow-up event payload for

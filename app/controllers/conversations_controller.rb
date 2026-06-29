@@ -27,7 +27,8 @@ class ConversationsController < ApplicationController
     # SECURITY: unauthenticated visitors may load this page only to /login — they
     # must NOT see the conversation's contents. Withhold the scrollback here; the
     # view likewise withholds the typed-command history, draft, and title.
-    @events = @authenticated ? @conversation.events.includes(:turn).order(:position) : Event.none
+    @events      = @authenticated ? @conversation.events.includes(:turn).order(:position) : Event.none
+    @event_count = @authenticated ? @conversation.events.where.not(kind: :thinking).count : 0
   end
 
   # GET /resume — re-render the conversations sidebar (same Turbo Stream as the

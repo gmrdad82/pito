@@ -367,6 +367,12 @@ RSpec.describe "Chat requests", type: :request do
           Pito::Analytics::RetentionSeries::Result.new(series: [ 90.0, 70.0, 45.0 ], total_pct: 45.2, rel_performance: nil)
         )
         allow(Pito::Analytics::Thresholds).to receive(:subs_for).and_return(70)
+        # :system Likes is a HEART → stub the lifetime likes/dislikes fetch so the
+        # request flow never hits YouTube (LikesHearts.for calls AnalyticsClient.scalars).
+        allow(Pito::Analytics::LikesHearts).to receive(:for).and_return(
+          [ { score: 92.2, color: :red, likes: 922, dislikes: 78 },
+            { score: 88.0, color: :purple, likes: 5400, dislikes: 600 } ]
+        )
       end
 
       it "returns 204 No Content" do
@@ -472,6 +478,12 @@ RSpec.describe "Chat requests", type: :request do
           Pito::Analytics::RetentionSeries::Result.new(series: [ 90.0, 70.0, 45.0 ], total_pct: 45.2, rel_performance: nil)
         )
         allow(Pito::Analytics::Thresholds).to receive(:subs_for).and_return(70)
+        # :system Likes is a HEART → stub the lifetime likes/dislikes fetch so the
+        # request flow never hits YouTube (LikesHearts.for calls AnalyticsClient.scalars).
+        allow(Pito::Analytics::LikesHearts).to receive(:for).and_return(
+          [ { score: 92.2, color: :red, likes: 922, dislikes: 78 },
+            { score: 88.0, color: :purple, likes: 5400, dislikes: 600 } ]
+        )
       end
 
       it "returns 204 No Content" do

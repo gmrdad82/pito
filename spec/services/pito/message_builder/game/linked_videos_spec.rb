@@ -15,9 +15,11 @@ RSpec.describe Pito::MessageBuilder::Game::LinkedVideos do
     expect(payload["html"]).to be(true)
   end
 
-  it "keeps the video_list follow-up target (inherited from Video::List)" do
+  it "uses the game_linked_videos follow-up target (game-context: show vid / unlink)" do
     expect(Pito::FollowUp.followupable?(payload)).to be(true)
-    expect(payload["reply_target"]).to eq("video_list")
+    expect(payload["reply_target"]).to eq("game_linked_videos")
+    # game_id is carried so an `unlink #<vid>` reply unlinks from THIS game.
+    expect(payload["game_id"]).to eq(game.id)
   end
 
   it "still carries the table rows for the linked videos" do

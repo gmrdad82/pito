@@ -129,6 +129,7 @@ module Pito
         kwargs             = {}
         leftovers          = []
         unknowns           = []
+        corrections        = {}   # raw_token => canonical for fuzzy-resolved slots
         free_parts         = []   # ordered unconsumed tokens for :free slot
         pending_introducer = nil
 
@@ -212,6 +213,20 @@ module Pito
               next
             end
 
+            # Fuzzy fallback — attempt approximate enum slot match
+            fuzzy_slot, fuzzy_canonical = resolve_enum_fuzzy(raw_val, enum_slots, values, pending_introducer)
+            if fuzzy_slot
+              corrections[raw_val] = fuzzy_canonical
+              pending_introducer = nil if fuzzy_slot.introducer
+              if fuzzy_slot.repeatable?
+                values[fuzzy_slot.name] ||= []
+                values[fuzzy_slot.name] << fuzzy_canonical
+              else
+                values[fuzzy_slot.name] = fuzzy_canonical
+              end
+              next
+            end
+
             # Could not resolve to any enum slot
             if free_slot
               free_parts << raw_val
@@ -245,6 +260,7 @@ module Pito
           kwargs:,
           leftovers:,
           unknowns:,
+          corrections:,
           confidence:,
           matched:    true
         )
@@ -277,6 +293,34 @@ module Pito
           next if slot_filled_non_repeatable?(sl, values)
           next unless sl.source.is_a?(Symbol)
           canon = Registry.vocabulary(sl.source)&.resolve(downcased)
+          return [ sl, canon ] if canon
+        end
+
+        [ nil, nil ]
+      end
+
+      # Mirrors resolve_enum but calls vocab.resolve_fuzzy instead of vocab.resolve.
+      # Returns [slot, canonical_value] or [nil, nil].
+      def resolve_enum_fuzzy(raw_val, enum_slots, values, pending_introducer)
+        downcased = raw_val.to_s.downcase
+
+        if pending_introducer
+          gated_slots = enum_slots.select { |s| s.introducer == pending_introducer }
+          gated_slots.each do |sl|
+            next unless sl.eligible?(values)
+            next if slot_filled_non_repeatable?(sl, values)
+            next unless sl.source.is_a?(Symbol)
+            canon = Registry.vocabulary(sl.source)&.resolve_fuzzy(downcased)
+            return [ sl, canon ] if canon
+          end
+        end
+
+        enum_slots.each do |sl|
+          next if sl.introducer && sl.introducer != pending_introducer
+          next unless sl.eligible?(values)
+          next if slot_filled_non_repeatable?(sl, values)
+          next unless sl.source.is_a?(Symbol)
+          canon = Registry.vocabulary(sl.source)&.resolve_fuzzy(downcased)
           return [ sl, canon ] if canon
         end
 

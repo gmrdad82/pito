@@ -1,0 +1,49 @@
+<%# Public share page — reduced view for a single shared event.
+    Privacy: the parent conversation title is NOT shown anywhere. %>
+<%
+  before_count = Event.where(conversation: @conversation)
+                      .where.not(kind: "thinking")
+                      .where("position < ?", @event.position)
+                      .count
+  after_count  = Event.where(conversation: @conversation)
+                      .where.not(kind: "thinking")
+                      .where("position > ?", @event.position)
+                      .count
+%>
+<div id="pito-share" class="flex flex-col" style="height: 100vh;">
+  <div id="pito-scrollback" class="pito-hide-scrollbar pito-scroll-fade" style="flex: 1; overflow-y: auto; padding: 32px 25px 20px;">
+    <%# Intro summary — how many non-thinking messages came before this one. %>
+    <% if before_count > 0 %>
+      <%= render(Pito::Event::SystemComponent.new(
+            payload: { body: Pito::Copy.render("pito.copy.share.intro", count: before_count) }
+          )) %>
+    <% end %>
+
+    <%# The shared event itself. %>
+    <%= render(Pito::Stream::EventRenderer.component_for(@event)) %>
+
+    <%# Outro summary — how many non-thinking messages came after this one. %>
+    <% if after_count > 0 %>
+      <%= render(Pito::Event::SystemComponent.new(
+            payload: { body: Pito::Copy.render("pito.copy.share.outro", count: after_count) }
+          )) %>
+    <% end %>
+  </div>
+
+  <div style="padding: 0 25px 32px;">
+    <%# Reduced chatbox — unfolds to the full conversation when submitted. %>
+    <%= form_with url: unfold_share_path(uuid: @share.uuid), method: :post, class: "chatbox-form" do |form| %>
+      <%= form.hidden_field :uuid, value: @share.uuid %>
+      <%= render(Pito::Shell::ChatboxComponent.new(
+            state: :default,
+            reduced: true,
+            placeholder_key: "pito.copy.share.unfold_hint"
+          )) %>
+    <% end %>
+
+    <%# Auth status only — no connection status, no notification count. %>
+    <div style="margin-left: auto; margin-top: 8px;">
+      <%= render(Pito::Shell::MiniStatus::AuthComponent.new(state: Current.session.present?)) %>
+    </div>
+  </div>
+</div>

@@ -48,7 +48,15 @@ module Pito
           elsif videos_form?(raw)
             handle_videos(raw)
           else
-            needs_ref
+            # Fuzzy fallback: try near-miss match against SYNC_TARGETS vocab.
+            noun, correction = detect_sync_noun_fuzzy(raw)
+            if noun == "channels"
+              prepend_typo_note(handle_channels(raw), correction)
+            elsif noun == "vids"
+              prepend_typo_note(handle_videos(raw), correction)
+            else
+              needs_ref
+            end
           end
         end
 
@@ -223,6 +231,36 @@ module Pito
 
         def normalized_handle(handle)
           handle.to_s.sub(/\A@+/, "")
+        end
+
+        # ── Fuzzy noun detection ──────────────────────────────────────────────────
+
+        # Returns [canonical, correction_or_nil] using the :sync_targets vocab.
+        # Only called when the exact regex forms (channels_form? / videos_form?)
+        # both miss. Drops the verb token ("sync") before scanning.
+        def detect_sync_noun_fuzzy(raw)
+          vocab  = Pito::Grammar::Registry.vocabulary(:sync_targets)
+          tokens = raw.to_s.downcase.split(/\s+/).drop(1)  # drop "sync"
+          tokens.each do |token|
+            next if token.start_with?("#", "@", "-")  # skip refs, handles, flags
+            fuzzy = vocab.resolve_fuzzy(token)
+            return [ fuzzy, { original: token, canonical: fuzzy } ] if fuzzy
+          end
+          [ nil, nil ]
+        end
+
+        # Prepends a short note event when a fuzzy correction fired.
+        # No-op when correction is nil, result is not Ok, or events are empty.
+        def prepend_typo_note(result, correction)
+          return result unless correction && result.is_a?(Pito::Chat::Result::Ok) && result.events.any?
+
+          note_text  = Pito::Copy.render(
+            "pito.copy.grammar.typo_correction",
+            original: correction[:original], canonical: correction[:canonical]
+          )
+          Pito::Chat::Result::Ok.new(
+            events: [ { kind: :system, payload: { "text" => note_text } } ] + result.events
+          )
         end
 
         # ── Error helpers ─────────────────────────────────────────────────────────

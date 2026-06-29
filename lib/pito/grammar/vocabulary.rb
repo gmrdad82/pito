@@ -79,6 +79,36 @@ module Pito
         nil
       end
 
+      # Fuzzy fallback: resolves a raw token to its canonical form using
+      # Levenshtein distance when exact + synonym resolution misses.
+      # Returns nil for dynamic vocabs, ambiguous matches (0 or ≥2 canonicals
+      # within threshold), and tokens that are an exact match (those are handled
+      # by #resolve).
+      #
+      # Distance threshold: token.length <= 4 → 1, else → 2.
+      # Checks canonical forms + synonym keys (case-insensitive), dist > 0 only
+      # (exact matches belong to #resolve).
+      def resolve_fuzzy(token)
+        return nil if token.nil? || token.to_s.strip.empty?
+        return nil if dynamic?  # handles/titles — never fuzzy
+
+        downcased = token.to_s.downcase
+        threshold = downcased.length <= 4 ? 1 : 2
+        hits      = Set.new
+
+        canonical.each do |c|
+          dist = Pito::Fuzzy.levenshtein(downcased, c.downcase)
+          hits.add(c) if dist > 0 && dist <= threshold
+        end
+
+        synonyms.each do |syn_key, canon|
+          dist = Pito::Fuzzy.levenshtein(downcased, syn_key)
+          hits.add(canon) if dist > 0 && dist <= threshold
+        end
+
+        hits.size == 1 ? hits.first : nil
+      end
+
       # Returns true when raw (downcased) is a filler word.
       def filler?(raw)
         fillers.include?(raw.to_s.downcase)

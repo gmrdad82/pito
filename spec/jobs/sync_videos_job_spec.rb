@@ -30,6 +30,40 @@ RSpec.describe SyncVideosJob, type: :job do
       expect(library).to have_received(:sync)
     end
 
+    it "emits a thinking indicator before the sync work" do
+      broadcaster = instance_double(
+        Pito::Stream::Broadcaster,
+        emit: nil, emit_thinking: nil, resolve_thinking: nil, complete_turn: nil
+      )
+      allow(Pito::Stream::Broadcaster).to receive(:new).and_return(broadcaster)
+
+      described_class.new.perform([ channel.id ], "@pito", conversation_id: conversation.id)
+
+      expect(broadcaster).to have_received(:emit_thinking).with(
+        hash_including(dictionary: :syncing)
+      )
+    end
+
+    it "resolves the thinking indicator after the sync" do
+      broadcaster = instance_double(
+        Pito::Stream::Broadcaster,
+        emit: nil, emit_thinking: nil, resolve_thinking: nil, complete_turn: nil
+      )
+      allow(Pito::Stream::Broadcaster).to receive(:new).and_return(broadcaster)
+
+      described_class.new.perform([ channel.id ], "@pito", conversation_id: conversation.id)
+
+      expect(broadcaster).to have_received(:resolve_thinking)
+    end
+
+    it "prepends the shimmered intro to the enhanced body" do
+      described_class.new.perform([ channel.id ], "@pito", conversation_id: conversation.id)
+
+      body = enhanced_body
+      # The intro div with scope label comes first, before the per-channel sync lines.
+      expect(body).to include("@pito")
+    end
+
     it "emits an enhanced per-channel summary reflecting the Result counts" do
       described_class.new.perform([ channel.id ], "@pito", conversation_id: conversation.id)
 
@@ -39,7 +73,7 @@ RSpec.describe SyncVideosJob, type: :job do
       expect(body).to include("1 removed")
     end
 
-    it "embeds the timestamp slot in the first line so the HH:MM prefix renders inline" do
+    it "embeds the timestamp slot in the first line (intro div) so HH:MM renders inline" do
       described_class.new.perform([ channel.id ], "@pito", conversation_id: conversation.id)
       body = enhanced_body
       # TS_SLOT must sit INSIDE the first <div>, not before it.

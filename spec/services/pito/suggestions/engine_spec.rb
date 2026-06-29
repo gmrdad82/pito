@@ -784,9 +784,9 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
       expect(result[:ghost][:complete_current]).to eq("channel")
     end
 
-    it "ghosts the next column (status) after channel is already typed" do
+    it "ghosts the next column (visibility) after channel is already typed" do
       result = call(input: "#vlist-5555 with channel, ", cursor: 26, conversation:)
-      expect(result[:ghost][:complete_current]).to eq("status")
+      expect(result[:ghost][:complete_current]).to eq("visibility")
     end
 
     it "channel is offered — partial 'ch' completes to 'annel'" do
@@ -794,9 +794,9 @@ RSpec.describe Pito::Suggestions::Engine, type: :service do
       expect(result[:ghost][:complete_current]).to eq("annel")
     end
 
-    it "status column is offered — partial 'stat' completes to 'us'" do
-      result = call(input: "#vlist-5555 with stat", cursor: 21, conversation:)
-      expect(result[:ghost][:complete_current]).to eq("us")
+    it "visibility column is offered — partial 'vis' completes to 'ibility'" do
+      result = call(input: "#vlist-5555 with vis", cursor: 20, conversation:)
+      expect(result[:ghost][:complete_current]).to eq("ibility")
     end
   end
 

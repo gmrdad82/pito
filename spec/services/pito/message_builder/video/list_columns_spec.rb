@@ -20,6 +20,10 @@ RSpec.describe Pito::MessageBuilder::Video::ListColumns do
       expect(vocab["visibility"]).to eq(:visibility)
     end
 
+    it "maps 'status' to :visibility (status is a functional alias)" do
+      expect(vocab["status"]).to eq(:visibility)
+    end
+
     it "maps 'game' to :game" do
       expect(vocab["game"]).to eq(:game)
     end
@@ -77,12 +81,12 @@ RSpec.describe Pito::MessageBuilder::Video::ListColumns do
       expect(described_class.headings([ :channel ])).to eq([ "Channel" ])
     end
 
-    it "returns the heading for :visibility (from copy, now 'Status')" do
-      expect(described_class.headings([ :visibility ])).to eq([ "Status" ])
+    it "returns the heading for :visibility (from copy, 'Visibility')" do
+      expect(described_class.headings([ :visibility ])).to eq([ "Visibility" ])
     end
 
-    it "returns Channel and Status in order" do
-      expect(described_class.headings([ :channel, :visibility ])).to eq([ "Channel", "Status" ])
+    it "returns Channel and Visibility in order" do
+      expect(described_class.headings([ :channel, :visibility ])).to eq([ "Channel", "Visibility" ])
     end
 
     it "returns the heading for a single column" do

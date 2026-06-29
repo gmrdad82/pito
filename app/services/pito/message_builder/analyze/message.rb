@@ -103,7 +103,8 @@ module Pito
             h[metric.to_sym] = chart && render_chart_caption(metric:, chart:)
           end
 
-          cells   = cells_for(role: marker["role"], level: marker["level"], scaffold:, selection:, charts:, chart_captions:)
+          likes   = likes_marker(data[:likes])
+          cells   = cells_for(role: marker["role"], level: marker["level"], scaffold:, selection:, charts:, chart_captions:, likes:)
           analyze = marker.merge("status" => "ready", "scaffold" => stringify_scaffold(scaffold))
 
           # Persist each chart (with its sampled caption) so a mutate reply
@@ -111,6 +112,8 @@ module Pito
           charts.each do |metric, chart|
             analyze[metric.to_s] = chart.merge("caption" => chart_captions[metric.to_sym]) if chart
           end
+          # Persist the likes hearts (+ caption) so a mutate reply re-renders without refetch.
+          analyze["likes"] = likes if likes
 
           payload = {
             "body"    => render_component(Pito::Analytics::ScaffoldComponent.new(intro: marker["intro"], cells:)),
@@ -135,7 +138,7 @@ module Pito
           end
           chart_captions = charts.transform_values { |chart| chart&.fetch("caption", nil) }
 
-          cells   = cells_for(role: marker["role"], level: marker["level"], scaffold:, selection:, charts:, chart_captions:)
+          cells   = cells_for(role: marker["role"], level: marker["level"], scaffold:, selection:, charts:, chart_captions:, likes: marker["likes"])
           payload = {
             "body"    => render_component(Pito::Analytics::ScaffoldComponent.new(intro: marker["intro"], cells:)),
             "html"    => true,
@@ -151,12 +154,14 @@ module Pito
         #
         # @param charts         [Hash{Symbol=>Hash}] metric → chart data (string-keyed)
         # @param chart_captions [Hash{Symbol=>String}] metric → pre-rendered caption html
-        def cells_for(role:, level:, scaffold:, selection:, charts: {}, chart_captions: {})
+        def cells_for(role:, level:, scaffold:, selection:, charts: {}, chart_captions: {}, likes: nil)
           metrics = Pito::Analytics::MetricOrder.for(role: role.to_sym, level: level.to_sym)
           metrics = Pito::Analytics::MetricSelection.apply(metrics, selection)
           metrics.map do |metric|
             chart = charts[metric]
-            if chart.present?
+            if metric == :likes && likes_hearts?(likes)
+              heart_cell(likes)
+            elsif chart.present?
               {
                 chart:           metric,
                 series:          Array(chart["series"]),
@@ -173,6 +178,40 @@ module Pito
               }
             end
           end
+        end
+
+        # The persisted likes marker carries hearts? `likes` is the string-keyed
+        # `{ "hearts" => [...], "caption" => html }` hash (or nil).
+        def likes_hearts?(likes)
+          likes.is_a?(Hash) && Array(likes["hearts"]).any?
+        end
+
+        # Build the HEART grid cell from the persisted likes marker — symbolises the
+        # stored colour + keys for HeartChartComponent.
+        def heart_cell(likes)
+          hearts = Array(likes["hearts"]).map do |h|
+            {
+              score:    h["score"],
+              color:    h["color"].to_s.to_sym,
+              likes:    h["likes"],
+              dislikes: h["dislikes"]
+            }
+          end
+          { heart: hearts, caption: likes["caption"] }
+        end
+
+        # Build the persisted likes marker (string-keyed, jsonb-safe) from the job's
+        # likes data — an Array of { score:, color:, likes:, dislikes: } or nil.
+        # The caption is sampled once here (from the SUBJECT heart's score).
+        def likes_marker(likes_data)
+          return nil if likes_data.blank?
+
+          {
+            "hearts"  => likes_data.map do |h|
+              { "score" => h[:score], "color" => h[:color].to_s, "likes" => h[:likes], "dislikes" => h[:dislikes] }
+            end,
+            "caption" => render_likes_caption(score: likes_data.first[:score]).to_s
+          }
         end
 
         # The witty caption under an AreaChart — metric label + compact value (with
@@ -204,6 +243,27 @@ module Pito
           end
 
           caption
+        end
+
+        # The witty caption under the likes-hearts (HeartChartComponent) — the
+        # SUBJECT ("Likes vs Dislikes", blue→purple shimmer) + the score% as a cyan
+        # token followed by the cyan "lifetime" reference. Mirrors
+        # render_chart_caption's render_html/shimmer path; html-safe; persisted in
+        # the marker and re-rendered raw. Shared by the analyze grid (LIKES3), the
+        # demo, and the isolation preview so the caption is never hand-tuned.
+        #
+        # @param score [Numeric] 0..100 likes-vs-dislikes %
+        # @param label [String]  the subject label (default "Likes vs Dislikes")
+        def render_likes_caption(score:, label: "Likes vs Dislikes")
+          pct   = format("%.1f%%", score.to_f.clamp(0.0, 100.0))
+          value = Pito::Shimmer::TokenComponent.html(pct) +
+                  " ".html_safe + Pito::Shimmer::TokenComponent.html("lifetime")
+
+          Pito::Copy.render_html(
+            "pito.copy.analyze.likes_caption",
+            { metric: label, value: value },
+            shimmer: [ :metric ]
+          )
         end
 
         # The caption VALUE: the cyan reference token (compact total) with an

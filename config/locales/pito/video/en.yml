@@ -7,7 +7,7 @@ en:
         youtube_id: "YouTube ID"
         category: "Category"
         duration: "Length"
-        privacy: "Status"
+        privacy: "Visibility"
         tags: "Tags"
         description: "Description"
         last_sync_at: "Last sync at"

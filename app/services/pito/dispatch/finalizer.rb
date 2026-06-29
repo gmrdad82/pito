@@ -65,6 +65,10 @@ module Pito
       # so only the newest turn stays repliable).
       CONSUME_TRIGGER_KINDS = %w[system system_follow_up confirmation confirmation_follow_up].freeze
 
+      # Kinds whose persisted events receive an auto-stamped reply_handle so that
+      # universal share/revoke/unshare verbs work on any addressed message.
+      HANDLE_STAMP_KINDS = %w[system enhanced confirmation].freeze
+
       # @param retire_prior_hashtags [Boolean] when true (the default — every typed
       #   chat verb, and any reply that consumes its source), a new
       #   :system/:confirmation message sweeps all PRIOR live #hashtags. Repeatable
@@ -78,6 +82,7 @@ module Pito
           indicator   = placeholder || @broadcaster.emit_thinking(turn:, dictionary:)
           placeholder = nil # only the first message reuses the pre-dispatch placeholder
 
+          Pito::FollowUp.ensure_handle!(attrs[:payload], conversation: @conversation) if HANDLE_STAMP_KINDS.include?(attrs[:kind].to_s)
           event = ::Event.create_with_position!(
             conversation: @conversation, turn:, kind: attrs[:kind], payload: attrs[:payload]
           )

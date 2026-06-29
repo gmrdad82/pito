@@ -1,0 +1,35 @@
+<%# Pito::Game::SimilarGamesComponent — similar games strip %>
+<%# Intro leads inline so the event timestamp sits on the same row. %>
+<span class="pito-game-enhanced-message__intro text-fg"><%= raw(intro) %></span>
+<% if similar_games? %>
+  <div class="pito-game-enhanced-message">
+    <div class="pito-game-enhanced-message__similar-games-strip">
+      <% similar_game_results.each do |result| %>
+        <div class="pito-game-enhanced-message__similar-game-card"
+             data-game-id="<%= result.game.id %>">
+          <% url = cover_art_url_for(result.game) %>
+          <% if url %>
+            <%= image_tag url,
+                          alt: result.game.title,
+                          class: "pito-game-enhanced-message__similar-game-cover block" %>
+          <% else %>
+            <div class="pito-game-enhanced-message__similar-game-cover pito-game-enhanced-message__similar-game-cover--placeholder text-fg-faded">
+              ?
+            </div>
+          <% end %>
+          <%# id and title on one line: "#12 Elden Ring". Flex keeps the id
+              fixed while the title truncates; gap provides the single-space
+              separation (flex suppresses the monospace inter-element whitespace). %>
+          <div class="pito-game-enhanced-message__similar-game-line">
+            <%= render(Pito::Shimmer::TokenComponent.new(text: "##{result.game.id}", extra_class: "pito-game-enhanced-message__similar-game-id", prefill: "show game ##{result.game.id}", submit: true)) %>
+            <span class="pito-game-enhanced-message__similar-game-title text-fg"><%= result.game.title %></span>
+          </div>
+          <%# Similarity score bar %>
+          <div class="pito-game-enhanced-message__similar-game-score">
+            <%= render(Pito::ScoreBarComponent.new(score: result.score, show_label: false)) %>
+          </div>
+        </div>
+      <% end %>
+    </div>
+  </div>
+<% end %>

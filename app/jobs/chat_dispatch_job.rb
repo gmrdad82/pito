@@ -55,6 +55,7 @@ class ChatDispatchJob < ApplicationJob
     suggestions = Pito::Showcase::Builder.call(conversation:)
     turn.update!(suggestions:)
     Pito::Stream::Broadcaster.new(conversation:).broadcast_showcase(suggestions:)
+    Pito::Stream::Broadcaster.new(conversation:).broadcast_context_meter
   rescue StandardError => e
     # Surface the error as a visible event in the scrollback so the user isn't
     # left staring at a spinning Braille indicator.

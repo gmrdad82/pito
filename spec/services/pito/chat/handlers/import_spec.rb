@@ -140,4 +140,58 @@ RSpec.describe Pito::Chat::Handlers::Import do
       end
     end
   end
+
+  # ── Fuzzy noun correction ─────────────────────────────────────────────────────
+
+  describe "fuzzy import noun detection" do
+    context "'import gamr' — fuzzy match to 'game' (dist 1, len 4)" do
+      # "gamr" (4 chars, threshold 1): dist("gamr","game") = 1 (r→e)
+      it "returns Result::Ok" do
+        result = handler_for("import gamr").call
+        expect(result).to be_a(Pito::Chat::Result::Ok)
+      end
+
+      it "prepends a correction note as the first event" do
+        result = handler_for("import gamr").call
+        note = result.events.first
+        expect(note[:kind]).to eq(:system)
+        text = note[:payload]["text"].to_s
+        expect(text).to include("gamr")
+        expect(text).to include("game")
+      end
+
+      it "emits the sidebar_open event as the second event" do
+        result = handler_for("import gamr").call
+        sidebar_event = result.events[1]
+        payload = sidebar_event[:payload]
+        expect(payload[:sidebar_open] || payload["sidebar_open"]).to eq("games_import")
+      end
+    end
+
+    context "'import gamr kirby' — fuzzy noun, free-text title untouched" do
+      # The typo noun 'gamr' is stripped; 'kirby' is left as the title.
+      it "prefills the sidebar with 'kirby'" do
+        result = handler_for("import gamr kirby").call
+        sidebar_event = result.events[1]
+        payload = sidebar_event[:payload]
+        prefill = payload[:prefill] || payload["prefill"]
+        expect(prefill).to eq("kirby")
+      end
+
+      it "prepends a correction note" do
+        result = handler_for("import gamr kirby").call
+        note = result.events.first
+        text = note[:payload]["text"].to_s
+        expect(text).to include("gamr")
+      end
+    end
+
+    context "'import something totally random' — no fuzzy match → error" do
+      it "returns Result::Error with usage_hint" do
+        result = handler_for("import something totally random").call
+        expect(result).to be_a(Pito::Chat::Result::Error)
+        expect(result.message_key).to eq("pito.chat.import.usage_hint")
+      end
+    end
+  end
 end

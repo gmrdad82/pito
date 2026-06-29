@@ -82,16 +82,18 @@ class Game
       GAME_TYPE_EXPANDED_GAME  = 10
       GAME_TYPE_PORT           = 11
       GAME_TYPE_PACK           = 13
-      # Main games, remakes/remasters, AND expanded games — a remake (e.g.
-      # Demon's Souls 2020) is a distinct, importable title the user may
-      # legitimately want instead of (or alongside) the original. An expanded
-      # game (e.g. "Granblue Fantasy: Relink - Endless Ragnarok", game_type 10)
-      # is a standalone title that extends the base game and is equally
-      # importable — the owner explicitly imports these as separate games.
-      # Bundles (3), DLC (1), packs (13), ports (11), and editions still
-      # drop at the API layer.
+      # Main games, remakes/remasters, expanded games, AND combo bundles.
+      # A remake (e.g. Demon's Souls 2020) is a distinct, importable title.
+      # An expanded game (e.g. "Granblue Fantasy: Relink - Endless Ragnarok",
+      # game_type 10) is a standalone title — the owner imports these separately.
+      # Bundles (3) are admitted at the API layer so combo bundles survive
+      # ("Super Mario 3D World + Bowser's Fury"); non-combo gt3 rows are
+      # filtered in the post-step (see filter_search_hits).
+      # DLC (1), packs (13), and ports (11) still drop at the API layer.
+      #
+      # IGB1 (2026-06-28): added GAME_TYPE_BUNDLE (3).
       DEFAULT_SEARCH_GAME_TYPES = [
-        GAME_TYPE_MAIN_GAME, GAME_TYPE_REMAKE, GAME_TYPE_REMASTER, GAME_TYPE_EXPANDED_GAME
+        GAME_TYPE_MAIN_GAME, GAME_TYPE_BUNDLE, GAME_TYPE_REMAKE, GAME_TYPE_REMASTER, GAME_TYPE_EXPANDED_GAME
       ].freeze
 
       # Back-compat aliases for any callers / specs referencing the
@@ -155,7 +157,8 @@ class Game
           # 2026-06-28 — added expanded_game (10): standalone titles
           # such as "Granblue Fantasy: Relink - Endless Ragnarok" carry
           # game_type 10 and are legitimate import targets. Packs (13)
-          # and bundles (3) are explicitly NOT added.
+          # are excluded. Bundles (3) pass the API filter so combo bundles
+          # ("X + Y") survive; non-combo gt3 rows drop in filter_search_hits.
           #
           # Null-tolerant just in case IGDB ever ships a freshly
           # indexed row before `game_type` is populated.
@@ -181,7 +184,7 @@ class Game
         # Game::SearchService, Search::Everywhere) gets the same clean
         # payload. `include_editions: true` callers bypass this — same
         # discipline as `denoise_by_name`.
-        reject_editions(denoise_by_name(reject_coverless(hits)), query)
+        filter_search_hits(hits, query)
       end
 
       def fetch_game(igdb_id)
@@ -327,12 +330,58 @@ class Game
       # titles ("Elden Ring", "Elden Ring Nightreign", "Elden Ring GB").
       EDITION_NOISE = /\b(edition|deluxe|premium|collector'?s|complete|definitive|goty|game of the year|season pass|bundle|pack|anniversary|upgrade)\b/i
 
+      # IGB1 (2026-06-28): A "combo" bundle joins two distinct titles with a
+      # space-plus-space separator, e.g. "Super Mario 3D World + Bowser's Fury"
+      # or "Super Mario Galaxy + Super Mario Galaxy 2". Non-combo gt3 rows
+      # (Deluxe/Collector editions mis-tagged as bundles, season passes, packs)
+      # do not carry this pattern and are dropped by filter_search_hits.
+      COMBO_NAME = / \+ /
+
       # Drop edition/DLC/bundle rows by name. Skipped when the user's query
       # itself names an edition term (an explicit edition search should return
-      # the editions).
+      # the editions). Called only for gt0/8/9/null rows by filter_search_hits.
       def reject_editions(rows, query)
         return rows if query.to_s.match?(EDITION_NOISE)
         rows.reject { |row| row["name"].to_s.match?(EDITION_NOISE) }
+      end
+
+      # IGB1 (2026-06-28) — unified per-row post-fetch filter.
+      #
+      # Rule 1: Drop cover-less rows for every game type.
+      # Rule 2: game_type 10 (expanded_game) — always keep. These are
+      #   standalone titles even when the name contains "Edition" or a colon
+      #   prefix (e.g. "Kirby and the Forgotten Land: Nintendo Switch 2
+      #   Edition + Star-Crossed World"). Name filters must not touch them.
+      # Rule 3: game_type 3 (bundle) — keep only combo bundles whose name
+      #   contains " + " (e.g. "Super Mario 3D World + Bowser's Fury").
+      #   Non-combo gt3 rows (Deluxe/Collector editions, packs, season passes)
+      #   are dropped here regardless of EDITION_NOISE.
+      # Rule 4: all other types (gt0/8/9/null) — apply the existing colon-
+      #   prefix denoise + EDITION_NOISE name safety net (query bypass intact).
+      #
+      # Limit note: default limit is 10. Combo bundles from IGDB are typically
+      # ranked high enough by relevance that they land within 10 results when
+      # searched directly. Callers can raise the limit if needed.
+      def filter_search_hits(hits, query)
+        hits = reject_coverless(hits)
+        return hits if hits.empty?
+
+        top      = hits.first
+        top_name = top["name"].to_s
+        query_is_edition = query.to_s.match?(EDITION_NOISE)
+
+        hits.select do |row|
+          case row["game_type"]
+          when GAME_TYPE_EXPANDED_GAME
+            true
+          when GAME_TYPE_BUNDLE
+            row["name"].to_s.match?(COMBO_NAME)
+          else
+            colon_noise   = !row.equal?(top) && !top_name.empty? && row["name"].to_s.start_with?("#{top_name}:")
+            edition_noise = !query_is_edition && row["name"].to_s.match?(EDITION_NOISE)
+            !colon_noise && !edition_noise
+          end
+        end
       end
 
       def valid_igdb_id?(value)

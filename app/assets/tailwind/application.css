@@ -127,6 +127,36 @@ html {
   transition: none !important;
 }
 
+/* ── Desktop sidebar overlay backdrop ───────────────────────
+ *
+ * On desktop (md:, ≥ 768px) the sidebar is a FIXED OVERLAY — it never
+ * reserves width in the flex row so the conversation never shifts on
+ * toggle. This backdrop dims the conversation while the sidebar is open.
+ *
+ * Hidden by default; CSS :has() shows it on desktop when #pito-sidebar
+ * contains an <aside> (the sidebar's open state). On mobile the sidebar
+ * is full-width (no backdrop needed there).
+ *
+ * Clicking the backdrop dismisses the sidebar via the pito--resume
+ * controller's backdrop click listener (wired on connect()).
+ *
+ * z-index 39 — one below #pito-sidebar's z-40 so it covers the
+ * conversation but sits behind the sidebar panel. */
+.pito-sidebar-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 39;
+  background: color-mix(in oklch, var(--bg-root) 80%, transparent);
+  cursor: default;
+}
+
+@media (min-width: 768px) {
+  body:has(#pito-sidebar aside) .pito-sidebar-backdrop {
+    display: block;
+  }
+}
+
 /* `list videos/games` ADDED column headings — cyan, to distinguish them from the
    two faded fixed columns (id/title). !important overrides the faded heading
    base applied in system_component#table_heading_cells. */
@@ -1611,6 +1641,117 @@ html {
   text-shadow: 0 0 0 transparent, 0 0 0 transparent, 0 0 0 transparent;
 }
 
+/* ── Pito::Shell::ContextMeterComponent ─────────────────────────────────
+ *
+ * A thin gradient bar sitting on the TOP edge of the chatbox, OUTSIDE it.
+ * Fills left→right from 0% to 100% as the conversation's event count grows
+ * toward the THRESHOLD (100). Pegs at 100%/red when full.
+ *
+ * Layout (CTXF1 + CTXF2):
+ *   flex-column — % counter sits ABOVE the track (never overlapping it);
+ *   track is width:100% so it spans EXACTLY the chatbox width (both live in
+ *   the same padding container; the track's left edge touches the chatbox's
+ *   left purple accent border with 0px gap).
+ *
+ * Gradient (CTXF3 — full-track-width reveal):
+ *   The 5-stop green→red gradient always spans the FULL track width; the fill
+ *   div acts as a width:N% overflow:hidden clip window over an inner
+ *   .pito-context-meter__gradient-bar element. The gradient-bar's width is
+ *   computed via calc(100% * 100 / var(--ctx-pct)) — which evaluates to the
+ *   track width from inside the N%-wide fill container — so at 3% only green
+ *   is visible; red appears only as fill approaches 100%.
+ *   --ctx-pct is a bare-number CSS custom property set on the fill via
+ *   inline style= (the documented dynamic-value escape hatch).
+ *
+ * Shimmer: the @property --pito-bar-sweep technique (same as ScoreBar /
+ * TimeToBeat) inlined on the gradient-bar at 4.4s — between score/ttb 3.4s
+ * and the analytics chart 5.5s.
+ */
+.pito-context-meter {
+  display: flex;
+  flex-direction: column;    /* CTXF2: counter stacks ABOVE the track */
+  align-items: flex-end;     /* counter right-aligned above the track */
+  margin-bottom: 4px;        /* small gap before the chatbox */
+  /* CTXBAR1: align the track to the REAL chatbox box (the elevated rectangle),
+     not its left chroma — the chatbox segment insets its content by the accent
+     bar (4px) + gap (6px), so inset the meter by the same 10px. */
+  padding-left: 10px;
+}
+
+.pito-context-meter__counter {
+  line-height: 1;
+  margin-bottom: 2px;        /* compact gap between counter and track */
+}
+
+.pito-context-meter__track {
+  width: 100%;               /* CTXF1: full container width = exact chatbox width */
+  height: 3px;               /* same visual weight as the chatbox left purple accent */
+  background: var(--border-faded);
+  position: relative;
+  overflow: hidden;          /* safety clip; fill's own overflow:hidden does the real work */
+}
+
+/* CTXF3: The fill is a width:N% overflow:hidden CLIP WINDOW — not the gradient
+   carrier. The gradient lives on the inner .pito-context-meter__gradient-bar
+   element which spans the full track width via CSS calc. Only rendered when
+   fill_pct > 0 (guarded in ERB; avoids division-by-zero in the calc). */
+.pito-context-meter__fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  overflow: hidden;          /* clips the inner gradient-bar to N% of track */
+  /* width: N% set via inline style= (--ctx-pct: N also set there) */
+}
+
+/* Inner gradient bar: always spans the full track width, visible only through
+   the N%-wide fill clip window. Two-layer background:
+     layer 1 — pito-blue shimmer band (sweeping via --pito-bar-band)
+     layer 2 — static 5-stop green→red gradient
+   width = calc(100% * 100 / var(--ctx-pct)) resolves to track_width because
+   100% here is the fill width (N% of track), so (N% of track) * (100/N) = track. */
+.pito-context-meter__gradient-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: calc(100% * 100 / var(--ctx-pct, 100));
+  background-image:
+    var(--pito-bar-band, linear-gradient(transparent, transparent)),
+    linear-gradient(
+      to right,
+      var(--accent-green)                                               0%,
+      color-mix(in oklch, var(--accent-green) 50%, var(--accent-yellow)) 40%,
+      var(--accent-yellow)                                              60%,
+      var(--accent-orange)                                              80%,
+      var(--accent-red)                                                100%
+    );
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  background-position: 0 0;
+  /* Shimmer band — inlined (not .pito-bar-shimmer) so we can use 4.4s duration
+     (between score/ttb 3.4s and analytics 5.5s) without clobbering other classes. */
+  --pito-bar-band: linear-gradient(
+    135deg,
+    transparent calc(var(--pito-bar-sweep) - 14%),
+    color-mix(in oklch, var(--brand-pito) 72%, transparent) var(--pito-bar-sweep),
+    transparent calc(var(--pito-bar-sweep) + 14%)
+  );
+  /* LONGHANDS: avoid the `animation` shorthand so a .pito-shimmer-dN stagger
+     on an ancestor never gets clobbered. */
+  animation-name: pito-bar-glyph-sweep;
+  animation-duration: 4.4s;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pito-context-meter__gradient-bar {
+    animation: none;
+    --pito-bar-band: linear-gradient(transparent, transparent);
+  }
+}
+
 /* ── Pito::Game::EnhancedComponent ─────────────────────────────
  *
  * Rich recommendations message rendered after Voyage indexing.
@@ -2548,6 +2689,16 @@ html:has(#pito-settings[data-fx="false"]) .pito-comet-reveal::after { display: n
     transition: none;
   }
 
+  /* CDEL1: delete button height + alignment fix (mobile only).
+     background: var(--bg-root) bounds the button's visual area to the
+     row's height (overflow:hidden on .pito-conversation-row clips it to
+     the row's border-box, matching the content's min-height: 44px).
+     align-items: center on the content override Tailwind's items-baseline
+     so the title text and delete label share the same vertical midpoint. */
+  .pito-conversation-row__content {
+    align-items: center;     /* override items-baseline: aligns title with delete label */
+  }
+
   .pito-conversation-row__delete {
     display: flex;
     align-items: center;
@@ -2559,7 +2710,7 @@ html:has(#pito-settings[data-fx="false"]) .pito-comet-reveal::after { display: n
     z-index: 0;
     width: var(--pito-swipe-reveal, 96px);
     padding-inline: 16px;
-    background: transparent;
+    background: var(--bg-root);  /* CDEL1: opaque bg bounded to row height via overflow:hidden */
     border: 0;
     border-radius: 0;
   }
@@ -2666,7 +2817,6 @@ html:has(#pito-settings[data-fx="false"]) .pito-comet-reveal::after { display: n
   position: absolute;
   left: 0.2ch;
   transform: translateY(-50%);
-  font-size: 0.8em;
   line-height: 1;
   background: color-mix(in srgb, var(--bg-elevated) 78%, transparent);
   padding: 0 0.25ch;
@@ -2674,7 +2824,6 @@ html:has(#pito-settings[data-fx="false"]) .pito-comet-reveal::after { display: n
 .pito-metric__xticks {
   display: flex;
   justify-content: space-between;
-  font-size: 0.8em;
   margin-top: 0.15em;
 }
 
@@ -2700,4 +2849,60 @@ html:has(#pito-settings[data-fx="false"]) .pito-comet-reveal::after { display: n
 
 @media (prefers-reduced-motion: reduce) {
   .pito-metric__row { animation: none; }
+}
+
+/* ── Likes hearts (HeartChartComponent) — the heart analogue of the area chart.
+   The widget reuses .pito-metric / .pito-metric__chart / .pito-metric__plot
+   verbatim (so it flows portrait/landscape exactly like a chart); only these
+   heart-specific bits differ from a chart's rows: a flat FILL colour
+   (--heart-color: red subject / purple channel) instead of the health gradient,
+   dimmed above the fill (.is-outline) for the hollow "outline-empty" look, and a
+   two-up legend. Both hearts sit in ONE white-space:pre row block. */
+.pito-metric__plot--heart { line-height: 1.05; }
+.pito-metric__hrow { display: block; line-height: 1.05; white-space: pre; }
+.pito-metric__hrow .pito-hfill { color: var(--heart-color); }
+.pito-metric__hrow .pito-hfill.is-outline { opacity: 0.45; }
+.pito-metric__hlegend { display: flex; margin-top: 0.35em; }
+.pito-metric__hlegend-item {
+  flex: 1 1 0;
+  display: flex;
+  justify-content: center;
+  gap: 0.7ch;
+  white-space: nowrap;
+}
+
+/* ── Chart background grid (graph-paper) — a faint dotted braille layer BEHIND
+   every chart's data rows. The data rows sit above (z-index) and their blank
+   cells let the grid show through: an area chart's empty area above the fill, and
+   a heart's hollow interior + centred surround. Shared by area chart + heart. */
+.pito-metric__bg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 0;
+  /* Dotted-paper grid: a TRANSLUCENT foreground tint (not a fixed bg-token mix),
+     so it lifts WHATEVER background is behind it — the page (--bg-root) or a
+     surfaced message (--bg-surface) — and re-palettes per theme automatically. */
+  color: color-mix(in srgb, var(--fg-default) 15%, transparent);
+  pointer-events: none;
+}
+.pito-metric__bg-row { display: block; line-height: var(--pito-rh, 1.25em); white-space: pre; }
+.pito-metric--heart .pito-metric__bg-row { line-height: 1.05; } /* match the heart rows */
+/* Data rows paint ABOVE the bg grid. */
+.pito-metric__row,
+.pito-metric__hrow { position: relative; z-index: 1; }
+
+/* Heart rows wipe bottom→up on reveal, sharing the area chart's "D" choreography
+   (the pito--area-chart-reveal controller adds .is-revealing + .on). */
+.pito-metric.is-revealing .pito-metric__hrow {
+  clip-path: inset(0 100% 0 0);
+  text-shadow:
+    12px 0 14px var(--color-cyan),
+    6px 0 8px var(--color-cyan),
+    0 0 5px var(--fg-default);
+  transition: clip-path 0.5s ease-out, text-shadow 0.5s ease-out;
+}
+.pito-metric.is-revealing .pito-metric__hrow.on {
+  clip-path: inset(0 0 0 0);
+  text-shadow: 0 0 0 transparent, 0 0 0 transparent, 0 0 0 transparent;
 }

@@ -26,15 +26,20 @@
       replacements that must propagate to every open browser instance
       (unread-count sync after notification toggle, sidebar row sync after rename). %>
   <%= turbo_stream_from "pito:global" %>
-  <%# Shell row — main content and the side-by-side sidebar sit in a flex row.
-      The sidebar mount animates its width open/closed (0 → 480px keyed on the
-      injected <aside>), so the main column shrinks to make room rather than
-      being overlaid. %>
+  <%# Shell row — main content fills the full width; the sidebar is ALWAYS a
+      fixed overlay (never in-flow). On mobile it slides in full-width; on
+      desktop it slides in at 480px — both sit ON TOP of the conversation so
+      the layout never shifts when toggling. The backdrop dims the content on
+      desktop (managed by pito--resume). %>
   <div class="flex h-screen overflow-hidden">
     <main class="flex-1 min-w-0"><%= yield %></main>
     <div id="pito-sidebar" data-controller="pito--resume pito--sidebar-fx"
-         class="shrink-0 overflow-hidden transition-[width] duration-200 fixed inset-y-0 right-0 z-40 w-0 has-[aside]:w-full md:relative md:z-auto md:w-0 md:has-[aside]:w-[480px]"></div>
+         class="shrink-0 overflow-hidden transition-[width] duration-200 fixed inset-y-0 right-0 z-40 w-0 has-[aside]:w-full md:w-0 md:has-[aside]:w-[480px]"></div>
   </div>
+  <%# Desktop sidebar overlay backdrop — semi-transparent scrim behind the
+      sidebar on desktop. Shown via CSS :has() when the sidebar is open.
+      Clicking it dismisses the sidebar (pito--resume backdrop listener). %>
+  <div id="pito-sidebar-backdrop" class="pito-sidebar-backdrop"></div>
 
   <%# Global Ctrl+K command palette — always in DOM, toggled by pito--command-palette controller %>
   <div id="pito-command-palette"

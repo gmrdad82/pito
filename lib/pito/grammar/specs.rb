@@ -18,6 +18,14 @@ module Pito
 
       def self.all
         [
+          Spec.new(
+            namespace:       :slash,
+            name:            :compact,
+            slots:           [],
+            auth:            :authenticated_only,
+            description_key: "pito.grammar.slash.compact"
+          ),
+
           # Handler-less slash command specs (login/logout/connect have no handler class)
           # `/games import [title]` — slash spec for the IGDB import sidebar.
           # The `:games_subcommands` vocab has a single canonical entry "import"

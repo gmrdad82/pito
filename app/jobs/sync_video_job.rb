@@ -24,39 +24,46 @@ class SyncVideoJob < ApplicationJob
     return unless connection
     return if connection.needs_reauth?
 
-    client = ::Channel::Youtube::Client.new(connection)
+    broadcaster = nil
+    turn        = nil
 
-    items = fetch_video_details(client, [ video.youtube_video_id ])
+    if conversation_id.present?
+      conversation = ::Conversation.find_by(id: conversation_id)
+      if conversation
+        broadcaster = Pito::Stream::Broadcaster.new(conversation:)
+        turn = conversation.turns.create!(
+          position:   Turn.next_position_for(conversation),
+          input_kind: :slash,
+          input_text: "/sync video #{video.title}".strip
+        )
+        broadcaster.emit_thinking(turn:, dictionary: :syncing)
+      end
+    end
+
+    client = ::Channel::Youtube::Client.new(connection)
+    items  = fetch_video_details(client, [ video.youtube_video_id ])
     if items.any?
       attrs = items.first
       upsert_video(attrs, video)
     end
 
-    return unless conversation_id.present?
-
-    conversation = ::Conversation.find_by(id: conversation_id)
-    return unless conversation
+    return unless turn
 
     video.reload
-    broadcaster = Pito::Stream::Broadcaster.new(conversation:)
-
-    turn = conversation.turns.create!(
-      position:   Turn.next_position_for(conversation),
-      input_kind: :slash,
-      input_text: "/sync video #{video.title}".strip
+    intro = Pito::Copy.render_html(
+      "pito.copy.sync.intro",
+      { subject: video.title },
+      shimmer: [ :subject ]
     )
-
-    summary_text = Pito::Copy.render("pito.copy.sync.video_done", { title: video.title })
-
-    broadcaster.emit(
-      turn:,
-      kind:    :system,
-      payload: { "text" => summary_text }
-    )
-
+    broadcaster.emit(turn:, kind: :system, payload: { "body" => intro, "html" => true })
+    broadcaster.resolve_thinking(turn:)
     broadcaster.complete_turn(turn:)
   rescue StandardError => e
     Rails.logger.error("[SyncVideoJob] failed for video=#{video_id}: #{e.class}: #{e.message}")
+    if turn && broadcaster
+      broadcaster.resolve_thinking(turn:)
+      broadcaster.complete_turn(turn:)
+    end
   end
 
   private

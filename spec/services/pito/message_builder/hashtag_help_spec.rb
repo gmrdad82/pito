@@ -375,8 +375,8 @@ RSpec.describe Pito::MessageBuilder::HashtagHelp do
           expect(result["body"]).to include("channel")
         end
 
-        it "body mentions video column vocab (status)" do
-          expect(result["body"]).to include("status")
+        it "body mentions video column vocab (visibility)" do
+          expect(result["body"]).to include("visibility")
         end
 
         it "body mentions video column vocab (length)" do
@@ -404,8 +404,8 @@ RSpec.describe Pito::MessageBuilder::HashtagHelp do
           expect(result["body"]).to include("channel")
         end
 
-        it "body mentions video column vocab (status)" do
-          expect(result["body"]).to include("status")
+        it "body mentions video column vocab (visibility)" do
+          expect(result["body"]).to include("visibility")
         end
 
         it "body mentions video column vocab (comments)" do

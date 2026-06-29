@@ -20,34 +20,42 @@ class SyncGameJob < ApplicationJob
     game = ::Game.find_by(id: game_id)
     return unless game
 
+    broadcaster = nil
+    turn        = nil
+
+    if conversation_id.present?
+      conversation = ::Conversation.find_by(id: conversation_id)
+      if conversation
+        broadcaster = Pito::Stream::Broadcaster.new(conversation:)
+        turn = conversation.turns.create!(
+          position:   Turn.next_position_for(conversation),
+          input_kind: :slash,
+          input_text: "/sync game #{game.title}".strip
+        )
+        broadcaster.emit_thinking(turn:, dictionary: :syncing)
+      end
+    end
+
     # Run IGDB sync without the chat broadcast (conversation_id: nil).
     # GameIgdbSync handles the resyncing mutex + error posture.
     GameIgdbSync.perform_now(game_id)
 
-    return unless conversation_id.present?
-
-    conversation = ::Conversation.find_by(id: conversation_id)
-    return unless conversation
+    return unless turn
 
     game.reload
-    broadcaster = Pito::Stream::Broadcaster.new(conversation:)
-
-    turn = conversation.turns.create!(
-      position:   Turn.next_position_for(conversation),
-      input_kind: :slash,
-      input_text: "/sync game #{game.title}".strip
+    intro = Pito::Copy.render_html(
+      "pito.copy.sync.intro",
+      { subject: game.title },
+      shimmer: [ :subject ]
     )
-
-    summary_text = Pito::Copy.render("pito.copy.sync.game_done", { title: game.title })
-
-    broadcaster.emit(
-      turn:,
-      kind:    :system,
-      payload: { "text" => summary_text }
-    )
-
+    broadcaster.emit(turn:, kind: :system, payload: { "body" => intro, "html" => true })
+    broadcaster.resolve_thinking(turn:)
     broadcaster.complete_turn(turn:)
   rescue StandardError => e
     Rails.logger.error("[SyncGameJob] failed for game=#{game_id}: #{e.class}: #{e.message}")
+    if turn && broadcaster
+      broadcaster.resolve_thinking(turn:)
+      broadcaster.complete_turn(turn:)
+    end
   end
 end

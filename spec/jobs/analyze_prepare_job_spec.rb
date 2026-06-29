@@ -34,6 +34,17 @@ RSpec.describe AnalyzePrepareJob, type: :job do
       Pito::Analytics::RetentionSeries::Result.new(series: [ 95.0, 80.0, 65.0, 50.0 ], total_pct: 72.5, rel_performance: 0.52)
     )
     allow(Pito::Analytics::Thresholds).to receive(:subs_for).and_return(70)
+    # Likes hearts render as a HEART cell (not a 0/1 scalar) in the system role —
+    # stubbed like the other analytics services. Returns nil for an empty scope
+    # (unavailable channel) so its likes cell falls back to the scaffold "0".
+    allow(Pito::Analytics::LikesHearts).to receive(:for) do |groups:, level:|
+      if groups.blank?
+        nil
+      else
+        [ { score: 92.2, color: :red, likes: 922, dislikes: 78 },
+          { score: 88.0, color: :purple, likes: 5400, dislikes: 600 } ]
+      end
+    end
   end
 
   # Stub Scaffold.for to return a per-role map of metric => data-pulled?.

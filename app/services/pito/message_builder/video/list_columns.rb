@@ -59,7 +59,7 @@ module Pito
             value:      ->(v) { v.channel.at_handle }
           },
           visibility: {
-            aliases:     %w[status visibility],
+            aliases:     %w[visibility status],
             heading_key: "pito.copy.videos.columns.visibility",
             cell_class:  "text-fg-dim pito-cell-visibility",
             value:       ->(v) { visibility_label(v) }
@@ -248,7 +248,7 @@ module Pito
           )
         end
 
-        # Human label for a video's status column. A scheduled video (future
+        # Human label for a video's visibility column. A scheduled video (future
         # publish_at) shows "Scheduled"; otherwise the privacy_status label
         # (Public / Unlisted / Private).
         def visibility_label(video)

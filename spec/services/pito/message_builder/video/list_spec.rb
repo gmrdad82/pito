@@ -114,7 +114,7 @@ RSpec.describe Pito::MessageBuilder::Video::List do
       expect(payload["table_heading"]).to eq([
         { "text" => "#", "class" => "text-right" }, "Title",
         { "text" => "Channel", "class" => "pito-table-heading--added" },
-        { "text" => "Status", "class" => "pito-table-heading--added" }
+        { "text" => "Visibility", "class" => "pito-table-heading--added" }
       ])
     end
 

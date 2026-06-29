@@ -30,6 +30,10 @@ RSpec.describe Pito::Grammar::Match do
       expect(match.unknowns).to eq([])
     end
 
+    it "defaults corrections to {}" do
+      expect(match.corrections).to eq({})
+    end
+
     it "defaults confidence to 0.0" do
       expect(match.confidence).to eq(0.0)
     end

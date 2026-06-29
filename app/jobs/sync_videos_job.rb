@@ -13,8 +13,9 @@
 #     `Pito::Sync::VideoLibrary#refresh` (videos.list + upsert, no discovery, no
 #     deletion), grouped by channel.
 #
-# Broadcasts ONE enhanced summary: per-channel `pito.copy.videos.sync_summary`
-# lines plus an "All channels" total when more than one channel was synced.
+# Broadcasts ONE enhanced summary: a shimmered intro (pito.copy.sync.intro), then
+# per-channel `pito.copy.videos.sync_summary` lines plus an "All channels" total
+# when more than one channel was synced.
 #
 # `channel_ids` empty = all channels with a youtube_connection (reauth ones
 # included, so they surface a reauth line). `scope_label` is the human-readable
@@ -47,17 +48,30 @@ class SyncVideosJob < ApplicationJob
       input_text: "/sync videos #{scope_label}".strip
     )
 
+    broadcaster.emit_thinking(turn:, dictionary: :syncing)
+
+    intro = Pito::Copy.render_html(
+      "pito.copy.sync.intro",
+      { subject: scope_label },
+      shimmer: [ :subject ]
+    )
+
     body =
       if Array(video_ids).any?
-        targeted_body(video_ids)
+        targeted_body(video_ids, intro:)
       else
-        whole_channel_body(channel_ids)
+        whole_channel_body(channel_ids, intro:)
       end
 
     broadcaster.emit(turn:, kind: :enhanced, payload: { body:, html: true })
+    broadcaster.resolve_thinking(turn:)
     broadcaster.complete_turn(turn:)
   rescue StandardError => e
     Rails.logger.error("[SyncVideosJob] failed for scope=#{scope_label}: #{e.class}: #{e.message}")
+    if turn && broadcaster
+      broadcaster.resolve_thinking(turn:)
+      broadcaster.complete_turn(turn:)
+    end
   end
 
   private
@@ -67,7 +81,7 @@ class SyncVideosJob < ApplicationJob
   # Full sync of every scoped channel: a `sync_summary` line per healthy channel
   # plus a reauth line for each channel that needs reconnection, then an "All
   # channels" total when more than one channel was actually synced.
-  def whole_channel_body(channel_ids)
+  def whole_channel_body(channel_ids, intro: nil)
     channels        = resolve_channels(channel_ids).to_a
     reauth, healthy = channels.partition { |channel| channel.youtube_connection&.needs_reauth? }
 
@@ -85,10 +99,10 @@ class SyncVideosJob < ApplicationJob
     end
 
     lines = healthy_lines + reauth.map { |channel| reauth_line(channel) }
-    return render_body([ I18n.t("pito.jobs.import_videos.summary.nothing_new") ]) if lines.empty?
+    return render_body([ I18n.t("pito.jobs.import_videos.summary.nothing_new") ], intro:) if lines.empty?
 
     lines << summary_line(I18n.t("pito.jobs.import_videos.summary.total_label"), totals) if healthy_lines.size > 1
-    render_body(lines)
+    render_body(lines, intro:)
   end
 
   def safe_sync(channel)
@@ -103,7 +117,7 @@ class SyncVideosJob < ApplicationJob
   # Refresh only the named local videos, grouped by their channel. One
   # `sync_summary` line per channel, plus an "All channels" total when more than
   # one channel is touched.
-  def targeted_body(video_ids)
+  def targeted_body(video_ids, intro: nil)
     videos = ::Video.where(id: video_ids).includes(:channel)
 
     totals = Totals.new(imported: 0, updated: 0, deleted: 0)
@@ -118,10 +132,10 @@ class SyncVideosJob < ApplicationJob
       summary_line(channel.at_handle, result)
     end
 
-    return render_body([ I18n.t("pito.jobs.import_videos.summary.nothing_new") ]) if lines.empty?
+    return render_body([ I18n.t("pito.jobs.import_videos.summary.nothing_new") ], intro:) if lines.empty?
 
     lines << summary_line(I18n.t("pito.jobs.import_videos.summary.total_label"), totals) if lines.size > 1
-    render_body(lines)
+    render_body(lines, intro:)
   end
 
   def safe_refresh(channel, youtube_ids)
@@ -155,11 +169,12 @@ class SyncVideosJob < ApplicationJob
     %(<div class="text-fg">#{text}</div>)
   end
 
-  # Join wrapped summary lines into the message body, embedding the timestamp
-  # slot in the FIRST line so the message's "HH:MM ·" prefix renders inline
-  # rather than orphaned on a line above (mirrors ManPage's TS_SLOT use).
-  def render_body(lines)
-    Array(lines).each_with_index.map { |line, i|
+  # Join wrapped summary lines into the message body. When an `intro:` is
+  # supplied it becomes the first line and carries the TS_SLOT timestamp prefix;
+  # otherwise the first content line carries it (legacy behaviour preserved).
+  def render_body(lines, intro: nil)
+    all_lines = intro ? [ intro, *Array(lines) ] : Array(lines)
+    all_lines.each_with_index.map { |line, i|
       wrap_line(i.zero? ? "#{Pito::Event::BodyComponent::TS_SLOT}#{line}" : line)
     }.join
   end

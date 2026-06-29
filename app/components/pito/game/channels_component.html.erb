@@ -1,0 +1,18 @@
+<%# Pito::Game::ChannelsComponent — channel matches grid %>
+<%# Intro leads inline so the event timestamp sits on the same row. %>
+<span class="pito-game-enhanced-message__intro text-fg"><%= raw(intro) %></span>
+<% if channels? %>
+  <div class="pito-game-enhanced-message">
+    <div class="pito-game-enhanced-message__channel-grid">
+      <% channel_results.each do |result| %>
+        <div class="pito-game-enhanced-message__channel-col">
+          <%= render(Pito::Channel::ItemComponent.new(
+                channel:     result.channel,
+                show_avatar: true,
+                score:       result.score
+              )) %>
+        </div>
+      <% end %>
+    </div>
+  </div>
+<% end %>

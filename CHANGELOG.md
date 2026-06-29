@@ -14,6 +14,25 @@ stacks. (Bespoke analytics view components close out the tag.)
 
 ### Added
 
+- **`show game` split into three reply-able cards** — the recommendations now
+  arrive as separate `:enhanced` messages — **similar games**, **linked videos**
+  (when any), and **channel matches** — in that order under the detail card, each
+  with its own thinking block. Each is context-repliable: reply `show #<id>` on
+  similar games → `show game`, on linked videos → `show vid` (plus `unlink #<id>`
+  to unlink that video from the game), and `show @<handle>` on channels →
+  `show channel`.
+- **Thinking blocks on `sync` results** — every `sync` outcome (`sync channel`,
+  `sync channel videos`, `sync vid`, `sync videos`, `sync game`) now shows a
+  **thinking indicator** while it runs and resolves into a witty, shimmered intro
+  line (50-variant `sync.intro` copy + a new `syncing` thinking dictionary) — so
+  async results no longer pop in unannounced.
+- **Analytics likes HEARTS** — the `analyze` `:system` grid renders the **Likes vs
+  Dislikes** metric as braille **hearts** filled bottom→top to the lifetime
+  approval score (likes/(likes+dislikes)%): vid/game shows a **subject heart**
+  (red) beside the **channel-average heart** (purple); channel shows one. The
+  hollow rim above the fill reads as the remaining dislikes. The hearts reuse the
+  exact area-chart container chrome (so they flow identically in portrait and
+  landscape), carry a thumbs-up/down legend, and a witty 50-variant caption.
 - **Analytics area charts — Views, Watched Hours, Subs, Avg View Duration, and Avg Retention** — the `analyze`
   `:system` grid now shows **five** Studio-style **braille area charts** side-by-side at **channel / video / game**
   level, each a ~thumbnail-wide 16:9 widget with a **subscriber-aware red→green
