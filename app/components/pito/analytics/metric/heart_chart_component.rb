@@ -36,7 +36,7 @@ module Pito
         # Heart canvas (CELLS) — the fatness knob. Slim by default; total width
         # 2·COLS + GAP = 37 ≤ the area chart's width, so it fits portrait.
         HEART_COLS = 17
-        HEART_ROWS = 10
+        HEART_ROWS = 12 # canvas 2 rows taller; the heart is inset (down 1 row) by BrailleHeart
         GAP_CELLS  = 3
 
         BLANK = [ 0x2800 ].pack("U")
@@ -129,8 +129,12 @@ module Pito
         # A row → { fill: (any solid cell?), glyphs: (rim+fill glyphs, blanks for
         # hollow interior/outside) }. The braille blank keeps every column's width.
         def render_row(row)
+          has_filled  = row.any? { |c| c[:state] == :filled }
+          has_outline = row.any? { |c| c[:state] == :outline }
           {
-            fill:   row.any? { |c| c[:state] == :filled },
+            # Dim (is-outline) ONLY a pure-RIM row (outline glyphs, no fill); never
+            # a blank margin/interior row — so a 100% heart stays fully solid.
+            fill:   has_filled || !has_outline,
             glyphs: row.map { |c| %i[filled outline].include?(c[:state]) ? c[:char] : BLANK }.join
           }
         end

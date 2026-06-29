@@ -2786,8 +2786,10 @@ html:has(#pito-settings[data-fx="false"]) .pito-comet-reveal::after { display: n
   height: var(--pito-rh);
   line-height: var(--pito-rh);
   white-space: pre;
+  /* Chart-viz shimmer: pito-blue band at 120° (chart components only — distinct
+     from the app-wide 135° kbd/token/score shimmers). */
   background-image:
-    linear-gradient(135deg,
+    linear-gradient(120deg,
       transparent calc(var(--pito-bar-sweep) - 14%),
       color-mix(in oklch, var(--brand-pito) 72%, transparent) var(--pito-bar-sweep),
       transparent calc(var(--pito-bar-sweep) + 14%)),
@@ -2848,7 +2850,8 @@ html:has(#pito-settings[data-fx="false"]) .pito-comet-reveal::after { display: n
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .pito-metric__row { animation: none; }
+  .pito-metric__row,
+  .pito-metric__hrow .pito-hfill { animation: none; }
 }
 
 /* ── Likes hearts (HeartChartComponent) — the heart analogue of the area chart.
@@ -2860,7 +2863,25 @@ html:has(#pito-settings[data-fx="false"]) .pito-comet-reveal::after { display: n
    two-up legend. Both hearts sit in ONE white-space:pre row block. */
 .pito-metric__plot--heart { line-height: 1.05; }
 .pito-metric__hrow { display: block; line-height: 1.05; white-space: pre; }
-.pito-metric__hrow .pito-hfill { color: var(--heart-color); }
+/* Heart glyphs wear the SAME 120° pito-blue chart-viz shimmer as the area chart:
+   a sweeping brand-pito band clipped over the flat heart colour (red/purple). */
+.pito-metric__hrow .pito-hfill {
+  background-image:
+    linear-gradient(120deg,
+      transparent calc(var(--pito-bar-sweep) - 14%),
+      color-mix(in oklch, var(--brand-pito) 72%, transparent) var(--pito-bar-sweep),
+      transparent calc(var(--pito-bar-sweep) + 14%)),
+    linear-gradient(var(--heart-color), var(--heart-color));
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation-name: pito-bar-glyph-sweep;
+  animation-duration: 5.5s;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
 .pito-metric__hrow .pito-hfill.is-outline { opacity: 0.45; }
 .pito-metric__hlegend { display: flex; margin-top: 0.35em; }
 .pito-metric__hlegend-item {
