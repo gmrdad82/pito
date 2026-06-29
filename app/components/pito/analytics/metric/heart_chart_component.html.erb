@@ -8,10 +8,10 @@
     fill (.is-outline). No inter-tag whitespace in the row block. %>
 <div class="pito-metric pito-metric--heart" data-controller="<%= reveal_controller %>">
   <div class="pito-metric__chart">
-    <%= background_layer %>
-    <div class="pito-metric__plot pito-metric__plot--heart" data-pito--area-chart-reveal-target="plot"><%
+    <%= background_layer(baseline: true) %>
+    <div class="pito-metric__plot pito-metric__plot--heart" style="--pito-rows: <%= bg_rows_count %>" data-pito--area-chart-reveal-target="plot"><%
       combined_rows.each_with_index do |hearts, i| %><span class="pito-metric__hrow" style="--i: <%= i %>" data-pito--area-chart-reveal-target="row"><%= pad_left %><%
-        hearts.each_with_index do |h, j| %><%= gap if j.positive? %><span class="pito-hfill<%= h[:fill] ? '' : ' is-outline' %>" style="--heart-color: <%= h[:color] %>"><%= h[:glyphs] %></span><%
+        hearts.each_with_index do |h, j| %><%= gap if j.positive? %><span class="pito-hfill <%= shimmer_offset_class %><%= h[:fill] ? '' : ' is-outline' %>" style="--heart-color: <%= h[:color] %>"><%= h[:glyphs] %></span><%
         end %><%= pad_right %></span><%
       end %>
     </div>
@@ -19,8 +19,9 @@
       <% legends.each do |lg| %>
         <span class="pito-metric__hlegend-item">
           <span class="text-green"><%= render(Pito::IconComponent.new(name: "thumbs-up", label: "likes")) %> <%= lg[:likes] %></span>
-          <span class="text-red"><%= render(Pito::IconComponent.new(name: "thumbs-down", label: "dislikes")) %> <%= lg[:dislikes] %></span>
-          <span class="text-fg-dim"><%= lg[:pct_label] %></span>
+          <span class="text-fg-dim">vs</span>
+          <span class="text-red"><%= lg[:dislikes] %> <%= render(Pito::IconComponent.new(name: "thumbs-down", label: "dislikes")) %></span>
+          <span class="text-fg-dim">(<%= lg[:pct_label] %>)</span>
         </span>
       <% end %>
     </div>

@@ -684,7 +684,7 @@ class ChatController < ApplicationController
     # --help intercept: `#<handle> --help` → target page;
     # `#<handle> <action> --help` → action page.
     # Renders synchronously (like login/logout) and returns early.
-    help_payload = follow_up_help_payload(target, ff[:rest])
+    help_payload = follow_up_help_payload(target, ff[:rest], event:)
     if help_payload
       return unless Current.session.present?
 
@@ -758,15 +758,15 @@ class ChatController < ApplicationController
 
   # Returns a HashtagHelp payload Hash (or nil) for the --help flag in a follow-up rest string.
   # `rest` is everything after `#<handle> `.
-  #   "--help"              → target-level page
+  #   "--help"              → target-level page (universal share rows gated by event's Share)
   #   "<action> --help"     → action-level page
   #   anything else         → nil (fall through to normal dispatch)
-  def follow_up_help_payload(target, rest)
+  def follow_up_help_payload(target, rest, event: nil)
     stripped = rest.to_s.strip
     if stripped == "--help"
-      Pito::MessageBuilder::HashtagHelp.call(target:)
+      Pito::MessageBuilder::HashtagHelp.call(target:, event:)
     elsif (m = stripped.match(/\A(\S+)(?:\s+by)?\s+--help\z/i))
-      Pito::MessageBuilder::HashtagHelp.call(target:, action: m[1])
+      Pito::MessageBuilder::HashtagHelp.call(target:, action: m[1], event:)
     end
   end
 

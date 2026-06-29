@@ -38,13 +38,14 @@ class Channel
       MAX_5XX_ATTEMPTS = 3
       RATE_LIMITED_DEFAULT_RETRY_AFTER = 5
 
-      METRIC_NAMES = %w[views estimatedMinutesWatched subscribersGained subscribersLost].freeze
+      METRIC_NAMES = %w[views estimatedMinutesWatched subscribersGained subscribersLost likes].freeze
       METRIC_KEYS  = {
         "video"                    => :video_id,
         "views"                    => :views,
         "estimatedMinutesWatched"  => :estimated_minutes_watched,
         "subscribersGained"        => :subscribers_gained,
-        "subscribersLost"          => :subscribers_lost
+        "subscribersLost"          => :subscribers_lost,
+        "likes"                    => :likes
       }.freeze
 
       def initialize(youtube_connection)

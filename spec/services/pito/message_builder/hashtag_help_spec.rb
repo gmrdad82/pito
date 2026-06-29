@@ -562,5 +562,86 @@ RSpec.describe Pito::MessageBuilder::HashtagHelp do
         end
       end
     end
+
+    # ── Universal share verb rows ──────────────────────────────────────────────
+    #
+    # The target-level help page always includes a `share` row (from
+    # pito.copy.share.verb_help.share); `revoke` and `unshare` rows are appended
+    # only when a Share record exists for the supplied event.
+
+    describe "universal share verb rows on the target-level page" do
+      let(:conversation) { Conversation.create! }
+      let(:turn) do
+        conversation.turns.create!(
+          position: Turn.next_position_for(conversation),
+          input_kind: :chat, input_text: "hi"
+        )
+      end
+      let(:event) do
+        Event.create_with_position!(
+          conversation:, turn:, kind: :system,
+          payload: { "text" => "hello", "reply_handle" => "help-test" }
+        )
+      end
+
+      context "with event: nil (no event context)" do
+        subject(:result) { described_class.call(target: "game_detail", event: nil) }
+
+        it "includes 'share' in the help body" do
+          expect(result["body"]).to include("share")
+        end
+
+        it "does NOT include 'revoke' (no event to check Share against)" do
+          expect(result["body"]).not_to include("revoke")
+        end
+
+        it "does NOT include 'unshare'" do
+          expect(result["body"]).not_to include("unshare")
+        end
+      end
+
+      context "with event but no Share record (un-shared)" do
+        subject(:result) { described_class.call(target: "game_detail", event:) }
+
+        it "includes 'share' in the help body" do
+          expect(result["body"]).to include("share")
+        end
+
+        it "does NOT include 'revoke' when the event has no Share" do
+          expect(result["body"]).not_to include("revoke")
+        end
+
+        it "does NOT include 'unshare' when the event has no Share" do
+          expect(result["body"]).not_to include("unshare")
+        end
+      end
+
+      context "with event AND a Share record (shared)" do
+        before { Share.create!(event:, conversation:) }
+
+        subject(:result) { described_class.call(target: "game_detail", event:) }
+
+        it "includes 'share' in the help body" do
+          expect(result["body"]).to include("share")
+        end
+
+        it "includes 'revoke' when the event has a Share" do
+          expect(result["body"]).to include("revoke")
+        end
+
+        it "includes 'unshare' when the event has a Share" do
+          expect(result["body"]).to include("unshare")
+        end
+      end
+
+      context "action-level page — universal rows are not added to action pages" do
+        subject(:result) { described_class.call(target: "game_detail", action: "footage", event:) }
+
+        it "returns an html payload (action page unaffected)" do
+          expect(result).to be_a(Hash)
+          expect(result["html"]).to be(true)
+        end
+      end
+    end
   end
 end

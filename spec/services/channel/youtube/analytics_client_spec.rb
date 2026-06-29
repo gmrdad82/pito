@@ -86,7 +86,7 @@ RSpec.describe Channel::Youtube::AnalyticsClient, type: :service do
         start_date:  "2000-01-01",
         end_date:    "2026-06-20",
         dimensions:  "video",
-        metrics:     "views,estimatedMinutesWatched,subscribersGained,subscribersLost",
+        metrics:     "views,estimatedMinutesWatched,subscribersGained,subscribersLost,likes",
         sort:        "-views",
         max_results: 200
       ).and_return(analytics_response)

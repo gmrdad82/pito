@@ -41,11 +41,12 @@ module Pito
           when "sort", "order"
             mutate_sort(event:, conversation:, args:)
           when "analyze"
-            # Analyze the listed videos as a scope (mirrors `analyze vids #…`).
-            Pito::FollowUp::AnalyzeReply.append(
-              level: :vid, ids: Array(event.payload["video_ids"]).map(&:to_i),
-              conversation:, period:
-            )
+            # `analyze #3` → analyze JUST vid #3 (subject = that vid's title); bare
+            # `analyze` → the whole listed scope. (Bug: previously always analyzed
+            # ALL listed vids, so the subject read "N vids".)
+            refs = args.to_s.scan(/#?(\d+)/).flatten.map(&:to_i)
+            ids  = refs.presence || Array(event.payload["video_ids"]).map(&:to_i)
+            Pito::FollowUp::AnalyzeReply.append(level: :vid, ids:, conversation:, period:)
           else
             Pito::FollowUp::VerbDelegator.call(source_event: event, rest:, conversation:, period:, viewport_width:, channel:)
           end

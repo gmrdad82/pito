@@ -69,6 +69,16 @@ class SyncVideosJob < ApplicationJob
   rescue StandardError => e
     Rails.logger.error("[SyncVideosJob] failed for scope=#{scope_label}: #{e.class}: #{e.message}")
     if turn && broadcaster
+      # Emit the :error event so the chat turn shows what went wrong, then
+      # resolve any open thinking indicator and close the turn cleanly.
+      broadcaster.emit(
+        turn:,
+        kind:    :error,
+        payload: {
+          text:   Pito::Copy.render("pito.copy.errors.dispatch_failed"),
+          detail: e.message
+        }
+      )
       broadcaster.resolve_thinking(turn:)
       broadcaster.complete_turn(turn:)
     end

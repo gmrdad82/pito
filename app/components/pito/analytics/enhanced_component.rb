@@ -8,11 +8,12 @@ module Pito
     # brief note instead of the table. Rendered by Pito::MessageBuilder::Analytics
     # once AnalyticsFillJob has the data.
     class EnhancedComponent < ViewComponent::Base
-      def initialize(intro:, result: nil, pending: false, nudge: nil)
+      def initialize(intro:, result: nil, pending: false, nudge: nil, series: {})
         @intro   = intro
         @result  = result
         @pending = pending
         @nudge   = nudge
+        @series  = series || {}
       end
 
       def pending?

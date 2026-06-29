@@ -9,14 +9,15 @@ RSpec.describe Pito::Analytics::Scaffold do
 
   describe ".for" do
     it "is true for metrics whose report returned data, false otherwise" do
+      # subscribed_status moved to :enhanced; check its own (empty) report there
+      # alongside devices (own report, has data). :channel avoids the retention path.
       allow(Pito::Analytics::Primitives).to receive(:fetch) do |report:, **|
-        report == "scalars" ? { "v1" => { "views" => 10 } } : {}
+        report == "device" ? { "v1" => [ { "device_type" => "MOBILE", "views" => 10 } ] } : {}
       end
 
-      result = described_class.for(groups:, window:, role: :system, level: :vid)
+      result = described_class.for(groups:, window:, role: :enhanced, level: :channel)
 
-      expect(result[:views]).to be(true)            # scalars → data
-      expect(result[:subs]).to be(true)             # shares the scalars report
+      expect(result[:devices]).to be(true)            # device report → data
       expect(result[:subscribed_status]).to be(false) # own report, empty
     end
 
@@ -36,8 +37,8 @@ RSpec.describe Pito::Analytics::Scaffold do
     it "fetches one report per group even when many metrics share it (memoised)" do
       allow(Pito::Analytics::Primitives).to receive(:fetch).and_return({ "v1" => { "views" => 1 } })
       described_class.for(groups:, window:, role: :system, level: :vid)
-      # :system needs only scalars + subscribed_status → 2 distinct fetches
-      expect(Pito::Analytics::Primitives).to have_received(:fetch).twice
+      # :system now needs only the scalars report (subscribed_status moved to :enhanced)
+      expect(Pito::Analytics::Primitives).to have_received(:fetch).once
     end
   end
 

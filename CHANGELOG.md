@@ -53,6 +53,28 @@ stacks. (Bespoke analytics view components close out the tag.)
   The five chart metrics are ordered first in the `:system` grid
   (`views, watched_hours, subs, avg_view_duration, avg_viewed_pct`); remaining
   scalars keep the `0`/`1` scaffold display until each is built.
+- **Glance sparklines** — the `show vid` / `show game` / `show channel`
+  `:enhanced` glance now renders a **2-row braille mini-series above the scalar**
+  for its four time-series metrics (**views, watched hours, net subs, likes**),
+  fetched as day-series alongside the period totals (new
+  `Pito::Analytics::GlanceSeries`; `likes` added to the daily report). The scalars
+  are unchanged; metrics with no series stay scalar-only. The sparkline is a flat
+  **fg-default** line (no health gradient) under the shared pito-blue chart-viz
+  shimmer, chart-width, with no ticks/legend/caption/axis — and an empty or
+  all-zero series still floors a minimal baseline row so the cell always shows a
+  line.
+- **Analytics bar breakdowns** — the `analyze` grid renders share-of-audience
+  metrics as braille **horizontal bar groups** (new
+  `Pito::Analytics::Metric::BarChartComponent` + `Pito::Analytics::Breakdown`):
+  **Subscribed** (subscribed vs not — `:system`) and **Devices**, **Geography**
+  (top 5 countries), **Gender**, and **Age** (top 5 buckets) in `:enhanced`. Each
+  is 1–5 group-centered bars (full braille fill in the bar's colour + the heart's
+  dim "missing" remainder, a minimum sliver so tiny shares still show), on the
+  same canvas/dotted-paper/reveal/pito-blue-shimmer as the area chart, with a
+  legend (label + %) below. Shares aggregate from per-video dimension primitives
+  (views-summed for subscribed/devices/geography; `viewerPercentage`-renormalised
+  for gender/age) and are persisted so a `with`/`without` reply re-renders without
+  re-fetching.
 - **`show channel`** — a full channel surface: a `:system` detail card (with
   last-sync time and a trimmed linked-game card), an `:enhanced` repliable vids
   list, and an `:enhanced` channel analytics glance. Channels now carry a

@@ -39,6 +39,26 @@ module Pito
         # Metrics that render as bespoke AreaChart cells in the :system role.
         CHART_METRIC_KEYS = %w[views watched_hours subs avg_view_duration avg_viewed_pct].freeze
 
+        # Metrics that render as bespoke BarChart cells (share breakdowns).
+        BAR_METRIC_KEYS = %w[subscribed_status devices geography demographics_gender demographics_age].freeze
+
+        # Metrics that render as a bespoke chart (Area / Heart / Bar). When such a
+        # metric has NO data, its cell becomes the NoData placeholder instead of the
+        # "0"/compact scalar (owner: NoData covers every empty Area/Heart/Bar). Pure
+        # scalar metrics (comments, day_of_week_heatmap, retention) stay 0/1.
+        NO_DATA_METRICS = (CHART_METRIC_KEYS.map(&:to_sym) + %i[likes] + BAR_METRIC_KEYS.map(&:to_sym)).freeze
+
+        # Fixed key→colour token maps for the categorical bar metrics (the
+        # BarChartComponent COLOR_TOKENS palette). geography + age have dynamic keys
+        # → coloured by ORDER from a ramp instead (GEO_RAMP / AGE_RAMP).
+        BAR_COLORS = {
+          subscribed_status:   { "SUBSCRIBED" => :green, "UNSUBSCRIBED" => :red },
+          devices:             { "MOBILE" => :blue, "DESKTOP" => :purple, "TV" => :cyan },
+          demographics_gender: { "male" => :blue, "female" => :pink, "gender_other" => :purple }
+        }.freeze
+        GEO_RAMP = %i[green cyan blue purple orange].freeze
+        AGE_RAMP = %i[cyan blue purple pink yellow].freeze
+
         # Canonical predicate: a persisted event carrying an analyze marker still
         # in its pending state. Shared by the Finalizer + AnalyzePrepareJob.
         def pending?(event)
@@ -97,14 +117,16 @@ module Pito
           marker   = event.payload.fetch("analyze")
           scaffold = data[:scaffold] || {}
           charts   = data[:charts] || {}
+          bars     = (data[:bars] || {}).transform_keys(&:to_sym)
           selection = Pito::Analytics::MetricSelection.from_lists(marker["with"], marker["without"])
 
           chart_captions = charts.each_with_object({}) do |(metric, chart), h|
             h[metric.to_sym] = chart && render_chart_caption(metric:, chart:)
           end
+          bar_captions = bars.each_with_object({}) { |(metric, _rows), h| h[metric] = render_bar_caption(metric) }
 
           likes   = likes_marker(data[:likes])
-          cells   = cells_for(role: marker["role"], level: marker["level"], scaffold:, selection:, charts:, chart_captions:, likes:)
+          cells   = cells_for(role: marker["role"], level: marker["level"], scaffold:, selection:, charts:, chart_captions:, bars:, bar_captions:, likes:)
           analyze = marker.merge("status" => "ready", "scaffold" => stringify_scaffold(scaffold))
 
           # Persist each chart (with its sampled caption) so a mutate reply
@@ -112,6 +134,10 @@ module Pito
           charts.each do |metric, chart|
             analyze[metric.to_s] = chart.merge("caption" => chart_captions[metric.to_sym]) if chart
           end
+          # Persist the bar breakdowns (+ captions) so a mutate reply re-renders
+          # without refetch (string-keyed rows for jsonb).
+          analyze["bars"]         = stringify_bars(bars) if bars.present?
+          analyze["bar_captions"] = bar_captions.transform_keys(&:to_s).transform_values(&:to_s) if bar_captions.present?
           # Persist the likes hearts (+ caption) so a mutate reply re-renders without refetch.
           analyze["likes"] = likes if likes
 
@@ -138,7 +164,11 @@ module Pito
           end
           chart_captions = charts.transform_values { |chart| chart&.fetch("caption", nil) }
 
-          cells   = cells_for(role: marker["role"], level: marker["level"], scaffold:, selection:, charts:, chart_captions:, likes: marker["likes"])
+          # Read bar breakdowns + captions from the persisted marker (string-keyed).
+          bars         = (marker["bars"] || {}).transform_keys(&:to_sym)
+          bar_captions = (marker["bar_captions"] || {}).transform_keys(&:to_sym)
+
+          cells   = cells_for(role: marker["role"], level: marker["level"], scaffold:, selection:, charts:, chart_captions:, bars:, bar_captions:, likes: marker["likes"])
           payload = {
             "body"    => render_component(Pito::Analytics::ScaffoldComponent.new(intro: marker["intro"], cells:)),
             "html"    => true,
@@ -154,7 +184,7 @@ module Pito
         #
         # @param charts         [Hash{Symbol=>Hash}] metric → chart data (string-keyed)
         # @param chart_captions [Hash{Symbol=>String}] metric → pre-rendered caption html
-        def cells_for(role:, level:, scaffold:, selection:, charts: {}, chart_captions: {}, likes: nil)
+        def cells_for(role:, level:, scaffold:, selection:, charts: {}, chart_captions: {}, bars: {}, bar_captions: {}, likes: nil)
           metrics = Pito::Analytics::MetricOrder.for(role: role.to_sym, level: level.to_sym)
           metrics = Pito::Analytics::MetricSelection.apply(metrics, selection)
           metrics.map do |metric|
@@ -171,12 +201,101 @@ module Pito
                 reference_token: chart["reference_token"],
                 dates:           chart["dates"]
               }
+            elsif bars[metric].present?
+              bar_cell(metric, bars[metric], bar_captions[metric])
+            elsif NO_DATA_METRICS.include?(metric)
+              no_data_cell(metric)
             else
               {
                 label: Pito::Copy.render(Pito::Analytics::MetricOrder.label_key(metric)),
                 value: scaffold_pulled?(scaffold, metric) ? "1" : "0"
               }
             end
+          end
+        end
+
+        # A would-be Area/Heart/Bar metric with no data → the NoData placeholder
+        # cell. The metric label rides along as the (identifying) caption; the
+        # canvas itself is blank for now (content TBD by owner).
+        def no_data_cell(metric)
+          { no_data: true, caption: Pito::Copy.render(Pito::Analytics::MetricOrder.label_key(metric)) }
+        end
+
+        # Build a BarChart cell from a metric's Breakdown rows ([{key,pct}], string-
+        # or symbol-keyed). Maps each share to the component's {label, color, pct,
+        # value_label} via the per-metric presentation config; presentation runs at
+        # render time so a re-render picks up current copy/translations.
+        def bar_cell(metric, rows, caption)
+          metric = metric.to_sym
+          built  = Array(rows).each_with_index.map do |row, i|
+            key = (row[:key] || row["key"]).to_s
+            pct = (row[:pct] || row["pct"]).to_f
+            pres = bar_presentation(metric, key, i)
+            { label: pres[:label], color: pres[:color], pct:, value_label: format("%.1f%%", pct) }
+          end
+          { bars: built, caption: }
+        end
+
+        # Per-metric presentation for one breakdown share → { label:, color: }.
+        # Categorical metrics map by KEY (BAR_COLORS); geography/age colour by ORDER
+        # from a ramp and derive labels (country code as-is / "age25-34" → "25–34").
+        def bar_presentation(metric, key, index)
+          case metric
+          when :subscribed_status
+            sub = key == "SUBSCRIBED"
+            { label: Pito::Copy.render("pito.copy.analytics.bars.subscribed_status.#{sub ? 'subscribed' : 'unsubscribed'}"),
+              color: BAR_COLORS[:subscribed_status].fetch(key, :red) }
+          when :devices
+            slug = { "MOBILE" => "mobile", "DESKTOP" => "computer", "TV" => "tv" }.fetch(key, "mobile")
+            { label: Pito::Copy.render("pito.copy.analytics.bars.devices.#{slug}"),
+              color: BAR_COLORS[:devices].fetch(key, :blue) }
+          when :demographics_gender
+            g    = %w[male female gender_other].include?(key) ? key : "gender_other"
+            slug = { "male" => "male", "female" => "female", "gender_other" => "other" }.fetch(g)
+            { label: Pito::Copy.render("pito.copy.analytics.bars.gender.#{slug}"),
+              color: BAR_COLORS[:demographics_gender].fetch(g, :purple) }
+          when :geography
+            { label: Pito::Geo.country_name(key), color: GEO_RAMP[index % GEO_RAMP.size] }
+          when :demographics_age
+            { label: format_age(key), color: AGE_RAMP[index % AGE_RAMP.size] }
+          else
+            { label: key, color: :blue }
+          end
+        end
+
+        # "age25-34" → "25–34"; "age65-" → "65+"; strips the "age" prefix.
+        def format_age(key)
+          s = key.to_s.sub(/\Aage/, "")
+          s.end_with?("-") ? "#{s.chomp('-')}+" : s.tr("-", "–")
+        end
+
+        # Subject noun (shimmered blue→purple) for each bar metric's caption.
+        BAR_CAPTION_SUBJECT = {
+          subscribed_status:   "Subscribers",
+          devices:             "Devices",
+          geography:           "Geography",
+          demographics_gender: "Gender",
+          demographics_age:    "Age"
+        }.freeze
+
+        # Per-metric bar caption — a 50-variant witty line in the house voice, with
+        # the metric noun as the shimmered SUBJECT and a cyan "lifetime" REFERENCE
+        # token (these bars are lifetime). Mirrors render_chart_caption /
+        # render_likes_caption: html-safe, persisted in the marker, re-rendered raw.
+        def render_bar_caption(metric)
+          metric = metric.to_sym
+          Pito::Copy.render_html(
+            "pito.copy.analytics.bars.caption.#{metric}",
+            { subject:   BAR_CAPTION_SUBJECT.fetch(metric, metric.to_s),
+              reference: Pito::Shimmer::TokenComponent.html("lifetime") },
+            shimmer: [ :subject ]
+          )
+        end
+
+        # Stringify Breakdown rows for jsonb persistence: { metric => [{ "key","pct" }] }.
+        def stringify_bars(bars)
+          bars.each_with_object({}) do |(metric, rows), h|
+            h[metric.to_s] = Array(rows).map { |r| { "key" => (r[:key] || r["key"]).to_s, "pct" => (r[:pct] || r["pct"]).to_f } }
           end
         end
 
@@ -255,7 +374,7 @@ module Pito
         # @param score [Numeric] 0..100 likes-vs-dislikes %
         # @param label [String]  the subject label (default "Likes vs Dislikes")
         def render_likes_caption(score:, label: "Likes vs Dislikes")
-          pct   = format("%.1f%%", score.to_f.clamp(0.0, 100.0))
+          pct   = format("%.2f%%", score.to_f.clamp(0.0, 100.0))
           value = Pito::Shimmer::TokenComponent.html(pct) +
                   " ".html_safe + Pito::Shimmer::TokenComponent.html("lifetime")
 
@@ -383,7 +502,7 @@ module Pito
             Pito::Formatter::Duration.call(chart["total"].to_f) || "0:00"
           when :avg_viewed_pct
             dur_s = Pito::Formatter::Duration.call(chart["avg_duration_seconds"].to_f) || "0:00"
-            pct   = format("%.1f%%", chart["total_pct"].to_f)
+            pct   = format("%.2f%%", chart["total_pct"].to_f)
             "#{dur_s} (#{pct})"
           else
             Pito::Formatter::CompactCount.call(chart["total"].to_i)

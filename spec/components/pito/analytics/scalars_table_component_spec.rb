@@ -40,9 +40,9 @@ RSpec.describe Pito::Analytics::ScalarsTableComponent, type: :component do
       expect(node.css("div.col-span-2")).to be_empty
     end
 
-    it "renders exactly 7 __pair elements (one per metric)" do
+    it "renders exactly 5 __pair elements (one per metric: views/watched/avg_dur/subs/likes)" do
       node = render_for(result)
-      expect(node.css("div.pito-analytics-scalars__pair").size).to eq(7)
+      expect(node.css("div.pito-analytics-scalars__pair").size).to eq(5)
     end
 
     it "gives every __pair a __label and a __value span so widths are uniform" do
@@ -53,20 +53,19 @@ RSpec.describe Pito::Analytics::ScalarsTableComponent, type: :component do
       end
     end
 
-    it "renders the labels for all 7 metrics" do
+    it "renders the labels for the 5 metrics (comments + avg viewed % removed)" do
       node = render_for(result)
       labels = node.css("span.pito-analytics-scalars__label").map(&:text)
-      expect(labels).to include("Views", "Watched hours", "Average view duration",
-                                "Average viewed %", "Subs", "Likes", "Comments")
+      expect(labels).to include("Views", "Watched hours", "Average view duration", "Subs", "Likes")
+      expect(labels).not_to include("Average percentage viewed", "Comments")
     end
 
-    it "renders rows in the correct order: views, avg, subs, likes, comments" do
+    it "renders rows in the correct order: views, avg view duration, subs, likes" do
       node = render_for(result)
       text = node.text
       expect(text.index("Views")).to be < text.index("Average view duration")
       expect(text.index("Average view duration")).to be < text.index("Subs")
       expect(text.index("Subs")).to be < text.index("Likes")
-      expect(text.index("Likes")).to be < text.index("Comments")
     end
 
     it "does not render a standalone Dislikes label" do
@@ -75,10 +74,9 @@ RSpec.describe Pito::Analytics::ScalarsTableComponent, type: :component do
       expect(labels).not_to include("Dislikes")
     end
 
-    it "wraps every metric value in a tabular-nums __value span (7 total)" do
+    it "wraps every metric value in a tabular-nums __value span (5 total)" do
       node = render_for(result)
-      # All 7 value spans carry tabular-nums via the __value span class in the template.
-      expect(node.css("span.pito-analytics-scalars__value.tabular-nums").size).to eq(7)
+      expect(node.css("span.pito-analytics-scalars__value.tabular-nums").size).to eq(5)
     end
   end
 
@@ -211,15 +209,6 @@ RSpec.describe Pito::Analytics::ScalarsTableComponent, type: :component do
     end
   end
 
-  describe "comments cell" do
-    it "renders the word label and a plain trend-coloured count" do
-      node = render_for(result)
-      comments = cell_containing(node, "Comments")
-      expect(comments.text).to include("31")
-      expect(comments.at_css("span.pito-trend-number")).to be_present
-    end
-  end
-
   describe "formatting" do
     it "formats counts compactly" do
       expect(render_for(result).text).to include("1.2K") # views
@@ -227,10 +216,6 @@ RSpec.describe Pito::Analytics::ScalarsTableComponent, type: :component do
 
     it "formats avg view duration as m:ss" do
       expect(render_for(result).text).to include("4:05") # 245s
-    end
-
-    it "formats avg viewed % as a rounded percentage" do
-      expect(render_for(result).text).to include("38%")
     end
 
     it "formats watched hours under 10 with a decimal + h suffix" do
@@ -250,10 +235,10 @@ RSpec.describe Pito::Analytics::ScalarsTableComponent, type: :component do
   describe "lifetime (no baseline)" do
     it "renders the comparable-gated metrics as neutral when not comparable" do
       node = render_for(result(comparable: false))
-      # Comparable-gated TrendNumberComponents: views, watched_hours,
-      # avg_view_duration, avg_viewed_pct, comments = 5. The subs and likes cells
-      # are always sign/side-coloured (custom shimmer spans), never neutral.
-      expect(node.css("span.pito-trend-number[data-trend='neutral']").size).to eq(5)
+      # Comparable-gated TrendNumberComponents now: views, watched_hours,
+      # avg_view_duration = 3 (avg_viewed_pct + comments removed from the glance).
+      # The subs and likes cells are always sign/side-coloured, never neutral.
+      expect(node.css("span.pito-trend-number[data-trend='neutral']").size).to eq(3)
     end
 
     it "still colours the subs and likes split cells when not comparable" do

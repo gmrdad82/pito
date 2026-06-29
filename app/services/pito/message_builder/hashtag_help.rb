@@ -35,6 +35,8 @@ module Pito
 
       # @param target [String]       the reply_target string (e.g. "game_detail")
       # @param action [String, nil]  an action word (e.g. "footage") or nil for target page
+      # @param event  [Event, nil]   the source event; when supplied the universal share
+      #                              verb rows are gated on Share existence for that event.
       # @return [Hash, nil]          { "html" => true, "body" => "..." } or nil
       # Action aliases that share copy with another action.
       # "order" has no own copy block; it renders the "sort" page instead.
@@ -42,7 +44,7 @@ module Pito
         "order" => "sort"
       }.freeze
 
-      def call(target:, action: nil)
+      def call(target:, action: nil, event: nil)
         handler = Pito::FollowUp::Registry.for(target.to_s)
         return nil unless handler
         return nil if handler.internal?
@@ -54,14 +56,15 @@ module Pito
           normalized = ACTION_ALIASES.fetch(action.to_s, action.to_s)
           render_action_page(indicator, normalized)
         else
-          render_target_page(indicator, handler)
+          render_target_page(indicator, handler, event:)
         end
       end
 
       # ── Private ──────────────────────────────────────────────────────────────
 
-      # Render the target-level page: usage + list of actions with their usage lines.
-      def render_target_page(indicator, handler)
+      # Render the target-level page: usage + list of handler actions + universal
+      # share verb rows (share always; revoke/unshare only when the event is shared).
+      def render_target_page(indicator, handler, event: nil)
         target_usage = I18n.t("pito.copy.hashtag_help.#{indicator}.target_usage", default: nil)
         return nil unless target_usage.is_a?(String) && target_usage.present?
 
@@ -76,10 +79,14 @@ module Pito
           [ act, usage ]
         end
 
-        return nil if action_rows.empty?
+        # Universal share verb rows: share always, revoke/unshare when shared.
+        share_rows = universal_share_verb_rows(event:)
+
+        all_rows = action_rows + share_rows
+        return nil if all_rows.empty?
 
         groups = [
-          [ "Actions", action_rows ],
+          [ "Actions", all_rows ],
           [ "Options", [ [ "--help", "Print this help message" ] ] ]
         ]
 
@@ -87,6 +94,20 @@ module Pito
         { "html" => true, "body" => body }
       end
       private_class_method :render_target_page
+
+      # Build the universal share verb rows for the help page.
+      # share is always included; revoke/unshare only when the event has a Share.
+      def universal_share_verb_rows(event:)
+        verbs = Pito::Share::UniversalActions::ALWAYS_AVAILABLE +
+          (event && ::Share.exists?(event_id: event.id) ? Pito::Share::UniversalActions::SHARE_REQUIRED : [])
+        verbs.filter_map do |verb|
+          desc = I18n.t("pito.copy.share.verb_help.#{verb}", default: nil)
+          next unless desc.is_a?(String) && desc.present?
+
+          [ verb, desc ]
+        end
+      end
+      private_class_method :universal_share_verb_rows
 
       # Render an action-level page for a single action.
       def render_action_page(indicator, action)

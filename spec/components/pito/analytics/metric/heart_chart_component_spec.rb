@@ -55,7 +55,7 @@ RSpec.describe Pito::Analytics::Metric::HeartChartComponent do
     legends = node.css(".pito-metric__hlegend-item")
     expect(legends.size).to eq(2)
     expect(node.css(".pito-metric__hlegend svg").size).to eq(4) # thumbs up + down × 2
-    expect(legends.first.text).to include("7").and include("0").and include("100.0%")
+    expect(legends.first.text).to include("7").and include("0").and include("100.00%")
   end
 
   it "renders the caption in the shared .pito-metric__caption" do

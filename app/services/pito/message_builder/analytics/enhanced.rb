@@ -46,9 +46,9 @@ module Pito
           Pito::FollowUp.make_followupable!(payload, target: "analytics_glance", conversation:)
         end
 
-        def ready_payload(scope:, period:, result:, intro:)
+        def ready_payload(scope:, period:, result:, intro:, series: {})
           {
-            "body"      => render_component(Pito::Analytics::EnhancedComponent.new(intro: intro, result: result, nudge: nudge_for(scope))),
+            "body"      => render_component(Pito::Analytics::EnhancedComponent.new(intro: intro, result: result, nudge: nudge_for(scope), series: series)),
             "html"      => true,
             "anchor"    => true,
             "analytics" => marker("ready", scope: scope, period: period, intro: intro)

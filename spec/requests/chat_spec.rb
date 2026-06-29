@@ -373,6 +373,11 @@ RSpec.describe "Chat requests", type: :request do
           [ { score: 92.2, color: :red, likes: 922, dislikes: 78 },
             { score: 88.0, color: :purple, likes: 5400, dislikes: 600 } ]
         )
+        # Bar breakdowns (subscribed_status/devices/geography/gender/age) hit new
+        # dimension endpoints — stub empty so the request flow never hits YouTube
+        # (WebMock's NetConnect error subclasses Exception, bypassing Breakdown's
+        # StandardError rescue).
+        allow(Pito::Analytics::Breakdown).to receive(:for).and_return([])
       end
 
       it "returns 204 No Content" do
@@ -484,6 +489,11 @@ RSpec.describe "Chat requests", type: :request do
           [ { score: 92.2, color: :red, likes: 922, dislikes: 78 },
             { score: 88.0, color: :purple, likes: 5400, dislikes: 600 } ]
         )
+        # Bar breakdowns (subscribed_status/devices/geography/gender/age) hit new
+        # dimension endpoints — stub empty so the request flow never hits YouTube
+        # (WebMock's NetConnect error subclasses Exception, bypassing Breakdown's
+        # StandardError rescue).
+        allow(Pito::Analytics::Breakdown).to receive(:for).and_return([])
       end
 
       it "returns 204 No Content" do

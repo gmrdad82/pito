@@ -3,7 +3,7 @@
 module Pito
   module StartScreen
     class Component < ViewComponent::Base
-      attr_reader :repo_url, :license_url, :tip, :badge_class, :badge_text, :exclamation_class, :channels
+      attr_reader :repo_url, :license_url, :tip, :badge_class, :badge_text, :exclamation_class, :channels, :suggestions
 
       # The PITO block-art, one string per row. Rendered as per-GLYPH cells (each
       # non-space char its own span) so pito--logo-reveal can flicker them in
@@ -42,7 +42,8 @@ module Pito
                      badge_text_key: "pito.start_screen.tip_prefix",
                      badge_class: "font-bold text-yellow",
                      exclamation_class: "text-orange",
-                     channels: [])
+                     channels: [],
+                     suggestions: [])
         @repo_url          = repo_url
         @license_url       = license_url
         @badge_text        = badge_text || I18n.t(badge_text_key)
@@ -54,6 +55,10 @@ module Pito
         # path renders with `channels: @channels` before any before_action has
         # loaded `@channels`). Guards `@channels.any?` in the template.
         @channels          = channels || []
+        # Showcase suggestions (SHOWCASE-START-NOTFOUND): non-empty only for
+        # authenticated users — unauthenticated callers pass [] so no comet
+        # cycles and the login-hint placeholder shows instead.
+        @suggestions       = Array(suggestions)
       end
     end
   end

@@ -1,0 +1,26 @@
+<%# Horizontal bar-group metric widget — 1–5 braille bars (⣿ glyph rows)
+    vertically centred on the full area-chart canvas (COLS=45, ROWS=11).
+    Each bar is 2 identical glyph rows; 1-row gaps between bars for n≤4.
+    Wears the same .pito-metric chrome, bg grid, pito-blue shimmer, and
+    bottom→up reveal as the area chart and heart. No inter-span whitespace
+    inside .pito-metric__brow (white-space: pre). %>
+<div class="pito-metric pito-metric--bar" data-controller="<%= reveal_controller %>">
+  <div class="pito-metric__chart">
+    <%= background_layer(baseline: true) %>
+    <div class="pito-metric__plot" style="--pito-rows: <%= ROWS %>" data-pito--area-chart-reveal-target="plot"><%
+      plot_rows.each_with_index do |row, i|
+        if row == :blank %><span class="pito-metric__brow" style="--i: <%= i %>" data-pito--area-chart-reveal-target="row"><%= BLANK * COLS %></span><%
+        else %><span class="pito-metric__brow" style="--i: <%= i %>" data-pito--area-chart-reveal-target="row"><span class="pito-bar-fill is-outline <%= shimmer_offset_class %>" style="--bar-color: <%= row[:token] %>"><%= BAR_FILL * row[:offset] %></span><span class="pito-bar-fill <%= shimmer_offset_class %>" style="--bar-color: <%= row[:token] %>"><%= BAR_FILL * row[:filled] %></span><span class="pito-bar-fill is-outline <%= shimmer_offset_class %>" style="--bar-color: <%= row[:token] %>"><%= BAR_FILL * row[:remainder] %></span></span><%
+        end
+      end %>
+    </div>
+    <div class="pito-metric__blegend text-fg-dim">
+      <% legend_bars.each do |bar| %>
+        <span class="pito-metric__blegend-item" style="--bar-color: <%= bar[:token] %>"><span style="color: var(--bar-color)">●</span> <%= bar[:label] %> <%= bar[:value_label] %></span>
+      <% end %>
+    </div>
+  </div>
+  <%# caption is pre-rendered html (subject shimmer + reference), persisted in
+      the marker → re-rendered raw, exactly like the area chart / heart. %>
+  <p class="pito-metric__caption text-fg-dim"><%= raw(caption.to_s) %></p>
+</div>

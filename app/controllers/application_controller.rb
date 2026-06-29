@@ -45,6 +45,9 @@ class ApplicationController < ActionController::Base
       Current.session = data if data
     end
 
+    # SHOWCASE-START-NOTFOUND: seed suggestions for authenticated users only.
+    initial_showcase = Current.session.present? ? Pito::Showcase::Builder.call(conversation: nil) : []
+
     respond_to do |format|
       format.html do
         render(
@@ -55,7 +58,8 @@ class ApplicationController < ActionController::Base
             badge_text:        "404",
             badge_class:       "font-bold text-red",
             exclamation_class: "text-red",
-            channels:          @channels
+            channels:          @channels,
+            suggestions:       initial_showcase
           ),
           status: :not_found
         )

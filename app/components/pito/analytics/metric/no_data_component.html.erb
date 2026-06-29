@@ -1,0 +1,14 @@
+<%# Universal no-data placeholder — shown whenever a metric (area / heart / bar)
+    has no data to plot. For now a BLANK canvas: the shared .pito-metric chrome +
+    dotted-paper background grid, filled with blank braille rows so the canvas
+    keeps its dimensions and the graph-paper shows through. The caption (the metric
+    name, for identification) sits below. Content TBD by the owner. %>
+<div class="pito-metric pito-metric--nodata">
+  <div class="pito-metric__chart">
+    <%= background_layer(baseline: true) %>
+    <div class="pito-metric__plot" style="--pito-rows: <%= rows %>"><%
+      rows.times do |i| %><span class="pito-metric__brow" style="--i: <%= i %>"><%= blank_row %></span><% end %>
+    </div>
+  </div>
+  <% if caption.present? %><p class="pito-metric__caption text-fg-dim"><%= raw(caption.to_s) %></p><% end %>
+</div>

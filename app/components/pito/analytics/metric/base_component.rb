@@ -41,6 +41,9 @@ module Pito
         # it — the page (--bg-root) or a surfaced message (--bg-surface) — and a
         # chart's empty cells show it instead of blank.
         BG_DOT = [ 0x2802 ].pack("U") # ⠂ — one dot
+        # Bottom-row floor dot (dots 7,8) — matches the area chart's baseline so a
+        # renderer with no data floor (the heart) can sit on the same baseline.
+        BASELINE_DOT = [ 0x28C0 ].pack("U") # ⣀
 
         # Background-grid CELL dims. Default to the chart box; a renderer whose
         # canvas differs OVERRIDES these (e.g. the heart uses fewer rows).
@@ -51,10 +54,12 @@ module Pito
         # renderer wears — a dim braille dot per cell, behind the data rows (whose
         # blank cells let it show through). CENTRALISED here so EVERY current and
         # future chart/renderer gets it just by calling `<%= background_layer %>`
-        # in its template. html_safe.
-        def background_layer
+        # in its template. html_safe. `baseline: true` makes the LAST row a floor
+        # line (⣀) so a floorless renderer (the heart) aligns to the area chart.
+        def background_layer(baseline: false)
+          n = bg_rows_count
           rows_html = safe_join(
-            Array.new(bg_rows_count) { tag.span(BG_DOT * bg_cols, class: "pito-metric__bg-row") }
+            Array.new(n) { |i| tag.span(((baseline && i == n - 1) ? BASELINE_DOT : BG_DOT) * bg_cols, class: "pito-metric__bg-row") }
           )
           tag.div(rows_html, class: "pito-metric__bg", "aria-hidden": "true")
         end

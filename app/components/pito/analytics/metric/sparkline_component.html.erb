@@ -1,0 +1,12 @@
+<%# Dedicated 2-row braille sparkline (see SparklineComponent). Flat fg-default
+    base + pito-blue chart-viz shimmer + bottom→up reveal, on the dotted-paper grid
+    (baseline floored). No ticks/legend/caption/axis. No inter-span whitespace
+    inside .pito-metric__plot (white-space: pre). %>
+<div class="pito-metric pito-metric--sparkline" data-controller="<%= reveal_controller %>">
+  <div class="pito-metric__chart">
+    <%= background_layer(baseline: true) %>
+    <div class="pito-metric__plot" style="--pito-rows: <%= rows %>" data-pito--area-chart-reveal-target="plot"><%
+      rows_braille.each_with_index do |line, i| %><span class="pito-metric__row <%= shimmer_offset_class %>" style="--i: <%= i %>" data-pito--area-chart-reveal-target="row"><%= line %></span><% end %>
+    </div>
+  </div>
+</div>

@@ -19,8 +19,16 @@ RSpec.describe Pito::Share::UniversalActions do
   end
   let(:handler) { described_class.new }
 
-  describe "VERBS" do
-    it "includes share, revoke, and unshare" do
+  describe "VERBS constants" do
+    it "ALWAYS_AVAILABLE contains only share" do
+      expect(described_class::ALWAYS_AVAILABLE).to eq(%w[share])
+    end
+
+    it "SHARE_REQUIRED contains revoke and unshare" do
+      expect(described_class::SHARE_REQUIRED).to match_array(%w[revoke unshare])
+    end
+
+    it "VERBS is the union of ALWAYS_AVAILABLE and SHARE_REQUIRED" do
       expect(described_class::VERBS).to match_array(%w[share revoke unshare])
     end
   end
@@ -64,36 +72,80 @@ RSpec.describe Pito::Share::UniversalActions do
   end
 
   describe "#call — revoke verb" do
-    it "enqueues RevokeShareJob" do
-      expect {
-        handler.call(source_event: event, rest: "revoke", conversation:)
-      }.to have_enqueued_job(RevokeShareJob).with(event.id)
+    context "when a Share exists for the event" do
+      before { Share.create!(event:, conversation:) }
+
+      it "enqueues RevokeShareJob" do
+        expect {
+          handler.call(source_event: event, rest: "revoke", conversation:)
+        }.to have_enqueued_job(RevokeShareJob).with(event.id)
+      end
+
+      it "returns a Result::Append with consume: true" do
+        result = handler.call(source_event: event, rest: "revoke", conversation:)
+        expect(result).to be_a(Pito::FollowUp::Result::Append)
+        expect(result.consume).to eq(true)
+      end
+
+      it "returns a :system event with a revoke_ack message" do
+        result = handler.call(source_event: event, rest: "revoke", conversation:)
+        expect(result.events.first[:kind]).to eq(:system)
+        expect(result.events.first[:payload]["text"]).to be_present
+      end
     end
 
-    it "returns a Result::Append with consume: true" do
-      result = handler.call(source_event: event, rest: "revoke", conversation:)
-      expect(result).to be_a(Pito::FollowUp::Result::Append)
-      expect(result.consume).to eq(true)
-    end
+    context "when NO Share exists for the event" do
+      it "returns a Result::Error" do
+        result = handler.call(source_event: event, rest: "revoke", conversation:)
+        expect(result).to be_a(Pito::FollowUp::Result::Error)
+      end
 
-    it "returns a :system event with a revoke_ack message" do
-      result = handler.call(source_event: event, rest: "revoke", conversation:)
-      expect(result.events.first[:kind]).to eq(:system)
-      expect(result.events.first[:payload]["text"]).to be_present
+      it "references the not_shared copy key" do
+        result = handler.call(source_event: event, rest: "revoke", conversation:)
+        expect(result.message_key).to eq("pito.copy.share.not_shared")
+      end
+
+      it "does NOT enqueue RevokeShareJob" do
+        expect {
+          handler.call(source_event: event, rest: "revoke", conversation:)
+        }.not_to have_enqueued_job(RevokeShareJob)
+      end
     end
   end
 
   describe "#call — unshare verb (alias for revoke)" do
-    it "enqueues RevokeShareJob" do
-      expect {
-        handler.call(source_event: event, rest: "unshare", conversation:)
-      }.to have_enqueued_job(RevokeShareJob).with(event.id)
+    context "when a Share exists for the event" do
+      before { Share.create!(event:, conversation:) }
+
+      it "enqueues RevokeShareJob" do
+        expect {
+          handler.call(source_event: event, rest: "unshare", conversation:)
+        }.to have_enqueued_job(RevokeShareJob).with(event.id)
+      end
+
+      it "returns a Result::Append with consume: true" do
+        result = handler.call(source_event: event, rest: "unshare", conversation:)
+        expect(result).to be_a(Pito::FollowUp::Result::Append)
+        expect(result.consume).to eq(true)
+      end
     end
 
-    it "returns a Result::Append with consume: true" do
-      result = handler.call(source_event: event, rest: "unshare", conversation:)
-      expect(result).to be_a(Pito::FollowUp::Result::Append)
-      expect(result.consume).to eq(true)
+    context "when NO Share exists for the event" do
+      it "returns a Result::Error" do
+        result = handler.call(source_event: event, rest: "unshare", conversation:)
+        expect(result).to be_a(Pito::FollowUp::Result::Error)
+      end
+
+      it "references the not_shared copy key" do
+        result = handler.call(source_event: event, rest: "unshare", conversation:)
+        expect(result.message_key).to eq("pito.copy.share.not_shared")
+      end
+
+      it "does NOT enqueue RevokeShareJob" do
+        expect {
+          handler.call(source_event: event, rest: "unshare", conversation:)
+        }.not_to have_enqueued_job(RevokeShareJob)
+      end
     end
   end
 

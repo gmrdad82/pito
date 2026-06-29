@@ -20,16 +20,17 @@ module Pito
         self.actions "shinies", "analyze"
 
         def call(event:, rest:, conversation:, period: nil, viewport_width: nil, channel: nil)
-          action, _ref = parse_rest(rest)
+          action, ref = parse_rest(rest)
 
           case action
           when "shinies"
             Pito::FollowUp::VerbDelegator.call(source_event: event, rest:, conversation:, period:, viewport_width:, channel:)
           when "analyze"
-            # Analyze the listed channels as a scope (mirrors `analyze channels @…`).
+            # `analyze @handle` → analyze JUST that channel (subject = its handle);
+            # bare `analyze` → the whole listed scope. Same single-subject fix as
+            # the vid/game lists.
             Pito::FollowUp::AnalyzeReply.append(
-              level: :channel, ids: Array(event.payload["channel_ids"]).map(&:to_i),
-              conversation:, period:
+              level: :channel, ids: analyze_channel_ids(event, ref), conversation:, period:
             )
           else
             Pito::FollowUp::Result::Error.new(
@@ -37,6 +38,19 @@ module Pito
               message_args: { action: action }
             )
           end
+        end
+
+        private
+
+        # `@handle` ref → that channel's id (if it's in the list); blank ref → all
+        # listed channel ids.
+        def analyze_channel_ids(event, ref)
+          all = Array(event.payload["channel_ids"]).map(&:to_i)
+          return all if ref.to_s.strip.blank?
+
+          norm  = ref.to_s.sub(/\A@+/, "").downcase
+          match = ::Channel.where(id: all).find { |c| c.handle.to_s.sub(/\A@+/, "").downcase == norm }
+          match ? [ match.id ] : all
         end
       end
     end

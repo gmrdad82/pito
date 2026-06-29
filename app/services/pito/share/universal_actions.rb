@@ -15,8 +15,17 @@ module Pito
     #           Source event stays live (consume: false) so the owner can revoke later.
     # revoke / unshare — enqueue RevokeShareJob (async delete by event_id) →
     #           return a :system ack. Source event consumed (consume: true).
+    #           GATED: only available when a Share record exists for the event.
+    #           Replying revoke/unshare on an unshared message returns a clear error.
     class UniversalActions
-      VERBS = %w[share revoke unshare].freeze
+      # share is always available on every reply_handle event.
+      ALWAYS_AVAILABLE = %w[share].freeze
+
+      # revoke/unshare are only available when a Share row exists for the event.
+      SHARE_REQUIRED = %w[revoke unshare].freeze
+
+      # Full set — the union used for short-circuit detection in the dispatch job.
+      VERBS = (ALWAYS_AVAILABLE + SHARE_REQUIRED).freeze
 
       def call(source_event:, rest:, conversation:)
         verb = rest.to_s.strip.split(/\s+/).first.to_s.downcase
@@ -25,6 +34,12 @@ module Pito
         when "share"
           handle_share(source_event, conversation)
         when "revoke", "unshare"
+          unless ::Share.exists?(event_id: source_event.id)
+            return Pito::FollowUp::Result::Error.new(
+              message_key:  "pito.copy.share.not_shared",
+              message_args: {}
+            )
+          end
           handle_revoke(source_event)
         else
           Pito::FollowUp::Result::Error.new(

@@ -86,3 +86,5 @@ end
 # image service. Both gems are pure Ruby — no native extensions.
 gem "rotp", "~> 6.3"
 gem "rqrcode", "~> 3.2"
+
+gem "countries", "~> 8.1"

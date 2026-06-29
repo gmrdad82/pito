@@ -45,6 +45,11 @@ RSpec.describe AnalyzePrepareJob, type: :job do
           { score: 88.0, color: :purple, likes: 5400, dislikes: 600 } ]
       end
     end
+    # Bar breakdowns (subscribed_status/devices/geography/gender/age) — stub empty
+    # by default so existing cells fall back to the 0/1 scaffold; the bar-specific
+    # examples stub canned rows. (Breakdown.for rescues StandardError in prod;
+    # WebMock's NetConnect error subclasses Exception, so it must be stubbed here.)
+    allow(Pito::Analytics::Breakdown).to receive(:for).and_return([])
   end
 
   # Stub Scaffold.for to return a per-role map of metric => data-pulled?.
@@ -291,6 +296,47 @@ RSpec.describe AnalyzePrepareJob, type: :job do
       described_class.perform_now(turn.id)
       video_ids = captured_subjects.select { |s| s.is_a?(Array) }.flatten
       expect(video_ids).to include(video.youtube_video_id)
+    end
+
+    # ── Bar breakdowns (subscribed_status → :system; devices/geography/gender/age → :enhanced) ──
+    context "with bar breakdown data" do
+      before do
+        allow(Pito::Analytics::Breakdown).to receive(:for) do |metric:, **|
+          case metric
+          when :subscribed_status then [ { key: "UNSUBSCRIBED", pct: 93.0 }, { key: "SUBSCRIBED", pct: 7.0 } ]
+          when :devices           then [ { key: "MOBILE", pct: 70.0 }, { key: "DESKTOP", pct: 25.0 }, { key: "TV", pct: 5.0 } ]
+          when :geography         then [ { key: "us", pct: 60.0 }, { key: "gb", pct: 15.0 } ]
+          when :gender            then [ { key: "male", pct: 80.0 }, { key: "female", pct: 20.0 } ]
+          when :age               then [ { key: "age25-34", pct: 45.0 }, { key: "age18-24", pct: 30.0 } ]
+          else []
+          end
+        end
+      end
+
+      it "renders NO BarChart in the :system body (subscribed_status moved to :enhanced)" do
+        described_class.perform_now(turn.id)
+        expect(@system_event.reload.payload["body"]).not_to include("pito-metric--bar")
+      end
+
+      it "renders BarCharts in the :enhanced body (subscribed/devices/geography/demographics)" do
+        described_class.perform_now(turn.id)
+        expect(@enhanced_event.reload.payload["body"]).to include("pito-metric--bar")
+      end
+
+      it "persists the bar rows (string-keyed) in the :enhanced marker for re-render" do
+        described_class.perform_now(turn.id)
+        bars = @enhanced_event.reload.payload.dig("analyze", "bars")
+        expect(bars["devices"]).to eq([ { "key" => "MOBILE", "pct" => 70.0 },
+                                        { "key" => "DESKTOP", "pct" => 25.0 },
+                                        { "key" => "TV", "pct" => 5.0 } ])
+      end
+
+      it "re-renders bars from the persisted marker without re-fetching (mutate reply)" do
+        described_class.perform_now(turn.id)
+        allow(Pito::Analytics::Breakdown).to receive(:for).and_raise("must not refetch on rerender")
+        payload = Pito::MessageBuilder::Analyze::Message.rerender(@enhanced_event.reload, with: [], without: [])
+        expect(payload["body"]).to include("pito-metric--bar")
+      end
     end
   end
 

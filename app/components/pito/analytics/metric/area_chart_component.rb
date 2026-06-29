@@ -145,7 +145,7 @@ module Pito
           when :avg_view_duration
             Pito::Formatter::Duration.call(value.to_f) || "0:00"
           when :avg_viewed_pct
-            format("%.1f%%", value.to_f)
+            format("%.2f%%", value.to_f)
           else
             compact_count(value)
           end
