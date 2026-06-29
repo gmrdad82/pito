@@ -49,7 +49,7 @@ module Pito
             cells: [
               {
                 text:  id_text,
-                class: Pito::Shimmer::TokenComponent.css_class(id_text, extra: "tabular-nums text-right whitespace-nowrap"),
+                class: Pito::Shimmer::TokenComponent.css_class(id_text, extra: "tabular-nums text-right whitespace-nowrap", clickable: true),
                 # Click-to-open: same chat-prefill seam as the detail card #id —
                 # clicking the cell auto-submits `show vid #<id>` (J5, and J12
                 # when this list is the enhanced linked-videos table).

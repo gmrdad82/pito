@@ -18,12 +18,14 @@ RSpec.describe Pito::Event::HandleComponent do
     expect(span["data-pito-handle"]).to eq("alpha-1322")
   end
 
-  it "wires the reply handle to prefill the chatbox with `#<handle> ` (no submit)" do
+  it "is DECORATIVE — the purple reply handle is NOT clickable (no prefill click)" do
+    # owner 2026-06-29: only the yellow shimmer is clickable; the purple reply
+    # handle no longer prefills on click (shift+r is the keybinding to reply).
     node = render_inline(described_class.new("alpha-1322"))
     span = node.css("span[data-pito-handle]").first
-    expect(span["data-controller"]).to eq("pito--chat-prefill")
-    expect(span["data-action"]).to eq("click->pito--chat-prefill#fill")
-    expect(span["data-pito--chat-prefill-text-value"]).to eq("#alpha-1322 ")
+    expect(span["data-controller"]).to be_nil
+    expect(span["data-action"]).to be_nil
+    expect(span["data-pito--chat-prefill-text-value"]).to be_nil
   end
 
   it "renders nothing when handle is blank" do

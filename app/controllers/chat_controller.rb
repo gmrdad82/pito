@@ -722,12 +722,16 @@ class ChatController < ApplicationController
     channel        = params[:channel].presence || "@all"
     period         = params[:period].presence
     viewport_width = params[:viewport_width].presence
+    # Request origin (scheme + host + port, e.g. "https://dev.pitomd.com") so the
+    # async `share` verb mints a /share URL on the host the owner is actually using
+    # — NOT the static PublicHosts.app_base (localhost in a tunnelled dev setup).
+    origin         = request.base_url
 
     case mode
     when :mutate
       return unless Current.session.present?
 
-      FollowUpDispatchJob.perform_later(event.id, rest: ff[:rest], period:, viewport_width:, channel:)
+      FollowUpDispatchJob.perform_later(event.id, rest: ff[:rest], period:, viewport_width:, channel:, origin:)
 
     when :append
       return unless Current.session.present?
@@ -746,7 +750,7 @@ class ChatController < ApplicationController
       broadcaster.broadcast_event(echo_event)
       broadcaster.emit_thinking(turn:, dictionary: "chat")
 
-      FollowUpDispatchJob.perform_later(event.id, rest: ff[:rest], turn_id: turn.id, period:, viewport_width:, channel:)
+      FollowUpDispatchJob.perform_later(event.id, rest: ff[:rest], turn_id: turn.id, period:, viewport_width:, channel:, origin:)
 
     else
       # Unknown mode (handler not registered, or handler has no mode).

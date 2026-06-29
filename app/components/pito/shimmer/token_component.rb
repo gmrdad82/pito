@@ -19,18 +19,26 @@ module Pito
     #   Pito::Shimmer::TokenComponent.css_class("##{id}", extra: "tabular-nums")
     #   Pito::Shimmer::TokenComponent.html(channel.at_handle)
     class TokenComponent < ViewComponent::Base
-      SHIMMER_CLASS = "pito-token-shimmer"
+      # Convention (owner 2026-06-29): YELLOW shimmer = clickable; everything else is
+      # decorative. A token that prefills/submits on click renders yellow
+      # (pito-kbd-shimmer, the shared clickable-shimmer); a purely-identifying token
+      # stays the cyan decorative shimmer. Raw-markup callers that merge
+      # `prefill_data` themselves must pass `clickable: true` so the colour matches.
+      SHIMMER_CLASS   = "pito-token-shimmer" # cyan — DECORATIVE (not clickable)
+      CLICKABLE_CLASS = "pito-kbd-shimmer"   # yellow — CLICKABLE (the only clickable shimmer)
 
       # Full class string for a shimmer span (colour + shared offset + extra).
       # `seed:` is forwarded to Pito::Shimmer.offset_class so that list-row
       # call sites can break synchrony when the same text repeats across rows.
-      def self.css_class(text, extra: nil, seed: nil)
-        [ SHIMMER_CLASS, Pito::Shimmer.offset_class(text, seed: seed), extra ].compact.join(" ")
+      # `clickable:` picks the yellow clickable shimmer over the cyan decorative one.
+      def self.css_class(text, extra: nil, seed: nil, clickable: false)
+        base = clickable ? CLICKABLE_CLASS : SHIMMER_CLASS
+        [ base, Pito::Shimmer.offset_class(text, seed: seed), extra ].compact.join(" ")
       end
 
       # html-safe <span> for builders / cells that compose raw markup.
-      def self.html(text, extra: nil, seed: nil)
-        ActionController::Base.helpers.tag.span(text, class: css_class(text, extra: extra, seed: seed))
+      def self.html(text, extra: nil, seed: nil, clickable: false)
+        ActionController::Base.helpers.tag.span(text, class: css_class(text, extra: extra, seed: seed, clickable: clickable))
       end
 
       # The pito--chat-prefill data hash for a click-to-type token. STRING call
@@ -64,7 +72,8 @@ module Pito
       end
 
       def call
-        tag.span(@text, class: self.class.css_class(@text, extra: @extra_class, seed: @seed), **prefill_attrs)
+        # Clickable (prefill present) ⇒ yellow shimmer; decorative ⇒ cyan.
+        tag.span(@text, class: self.class.css_class(@text, extra: @extra_class, seed: @seed, clickable: @prefill.present?), **prefill_attrs)
       end
 
       private

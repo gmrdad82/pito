@@ -19,12 +19,12 @@ RSpec.describe Pito::Event::MetaLineComponent do
       expect(node.css("span.pito-hashtag-shimmer")).to be_empty
     end
 
-    it "wires the #hashtag token to prefill the chatbox with `#<handle> ` (no submit)" do
+    it "is decorative — #hashtag carries no chat-prefill controller or action" do
       node = render_inline(described_class.new(handle: "alpha-42"))
       hashtag = node.css("span.pito-hashtag-shimmer").first
-      expect(hashtag["data-controller"]).to eq("pito--chat-prefill")
-      expect(hashtag["data-action"]).to eq("click->pito--chat-prefill#fill")
-      expect(hashtag["data-pito--chat-prefill-text-value"]).to eq("#alpha-42 ")
+      expect(hashtag["data-controller"]).to be_nil
+      expect(hashtag["data-action"]).to be_nil
+      expect(hashtag["data-pito--chat-prefill-text-value"]).to be_nil
     end
   end
 

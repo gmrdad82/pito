@@ -63,7 +63,7 @@ RSpec.describe Pito::MessageBuilder::Video::List do
         cell = row[:cells][0]
         video = videos.first
         expect(cell[:text]).to eq("##{video.id}")
-        expect(cell[:class]).to include("pito-token-shimmer")
+        expect(cell[:class]).to include("pito-kbd-shimmer")
         expect(cell[:class]).to include("tabular-nums")
         expect(cell[:class]).to include("text-right")
       end

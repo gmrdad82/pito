@@ -119,4 +119,26 @@ RSpec.describe Pito::Shimmer::TokenComponent, type: :component do
       expect(described_class.css_class("@handle", seed: nil)).to eq(described_class.css_class("@handle"))
     end
   end
+
+  # Convention (owner 2026-06-29): YELLOW shimmer = clickable; cyan = decorative.
+  describe "clickable ⇒ yellow shimmer" do
+    it "a prefill (clickable) token renders the yellow clickable shimmer, not cyan" do
+      span = render_inline(described_class.new(text: "#42", prefill: "show game #42", submit: true)).css("span").first
+      expect(span["class"]).to include("pito-kbd-shimmer")
+      expect(span["class"]).not_to include("pito-token-shimmer")
+      expect(span["data-controller"]).to eq("pito--chat-prefill")
+    end
+
+    it "a decorative (no prefill) token stays cyan and is not clickable" do
+      span = render_inline(described_class.new(text: "#42")).css("span").first
+      expect(span["class"]).to include("pito-token-shimmer")
+      expect(span["class"]).not_to include("pito-kbd-shimmer")
+      expect(span["data-controller"]).to be_nil
+    end
+
+    it "css_class(clickable: true) picks the yellow shimmer for raw-markup call sites" do
+      expect(described_class.css_class("#42", clickable: true)).to include("pito-kbd-shimmer")
+      expect(described_class.css_class("#42")).to include("pito-token-shimmer")
+    end
+  end
 end

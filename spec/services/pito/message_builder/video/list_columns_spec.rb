@@ -305,9 +305,9 @@ RSpec.describe Pito::MessageBuilder::Video::ListColumns do
       expect(cell[:text]).to include("Elden Ring")
     end
 
-    it "makes the game #id a cyan shimmer token that opens 'show game #id'" do
+    it "makes the game #id a yellow kbd shimmer token that opens 'show game #id' (clickable)" do
       cell = described_class.cells(video, [ :game ]).first
-      expect(cell[:text]).to include("pito-token-shimmer")
+      expect(cell[:text]).to include("pito-kbd-shimmer")
       expect(cell[:text]).to include("show game ##{game.id}")
       expect(cell[:text]).to include("pito--chat-prefill")
     end
