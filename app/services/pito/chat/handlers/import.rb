@@ -30,10 +30,12 @@ module Pito
 
         def call
           raw = message.raw.to_s
+          noun, correction = detect_import_noun(raw)
 
-          if raw.match?(/\bgames?\b/i)
-            handle_import_game(raw)
-          elsif raw.match?(/\b(?:vid|video)s?\b/i)
+          result = case noun
+          when "game"
+            handle_import_game(raw, noun_token: correction&.dig(:original))
+          when "videos"
             handle_import_videos(raw)
           else
             Pito::Chat::Result::Error.new(
@@ -41,14 +43,47 @@ module Pito
               message_args: {}
             )
           end
+
+          prepend_typo_note(result, correction)
         end
 
         private
 
+        # Detects the import noun ("game" / "videos") from the raw input.
+        # Returns [canonical_noun, correction_or_nil].
+        # correction is { original:, canonical: } when a fuzzy match was used.
+        def detect_import_noun(raw)
+          tokens = raw.to_s.downcase.split(/\s+/).drop(1)  # drop the verb "import"
+
+          # Exact "game"/"games" wins FIRST — game branch fires even when a video
+          # noun is also present ("import game videos" → game branch, prefill
+          # "videos"). (Checking the video regex first wrongly stole that case.)
+          vocab = Pito::Grammar::Registry.vocabulary(:import_nouns)
+          tokens.each do |token|
+            next if token.start_with?("#", "@", "-")  # skip refs, handles, flags
+            canon = vocab.resolve(token)
+            return [ canon, nil ] if canon
+          end
+
+          # Videos form (raw regex; not in IMPORT_NOUNS) — only when no exact game.
+          return [ "videos", nil ] if raw.match?(/\b(?:vid|video)s?\b/i)
+
+          # Fuzzy fallback on IMPORT_NOUNS only (after exact game + video miss).
+          tokens.each do |token|
+            next if token.start_with?("#", "@", "-")  # skip refs, handles, flags
+            fuzzy = vocab.resolve_fuzzy(token)
+            return [ fuzzy, { original: token, canonical: fuzzy } ] if fuzzy
+          end
+
+          [ nil, nil ]
+        end
+
         # Open the IGDB import sidebar, with an optional prefill title.
         # Mirrors Pito::Slash::Handlers::Games#open_import_sidebar.
-        def handle_import_game(raw)
-          title = parse_import_game_title(raw)
+        # noun_token is the raw word that was fuzzy-resolved to "game" — it is
+        # stripped from the title so the prefill contains only the game name.
+        def handle_import_game(raw, noun_token: nil)
+          title = parse_import_game_title(raw, noun_token:)
           Pito::Chat::Result::Ok.new(events: [
             {
               kind:    :system,
@@ -62,9 +97,28 @@ module Pito
         end
 
         # Extract the title from `import game[s] [title]`.
-        # Strips leading `import` + optional `game`/`games` to get the rest.
-        def parse_import_game_title(raw)
-          raw.to_s.strip.sub(/\Aimport\s+games?\s*/i, "").strip
+        # Strips leading `import` + the noun token (exact "game/games" or the
+        # fuzzy-matched token) to get the rest.
+        def parse_import_game_title(raw, noun_token: nil)
+          if noun_token
+            raw.to_s.strip.sub(/\Aimport\s+#{Regexp.escape(noun_token)}\s*/i, "").strip
+          else
+            raw.to_s.strip.sub(/\Aimport\s+games?\s*/i, "").strip
+          end
+        end
+
+        # Prepends a short note event when a fuzzy correction fired.
+        # No-op when correction is nil, result is not Ok, or events are empty.
+        def prepend_typo_note(result, correction)
+          return result unless correction && result.is_a?(Pito::Chat::Result::Ok) && result.events.any?
+
+          note_text  = Pito::Copy.render(
+            "pito.copy.grammar.typo_correction",
+            original: correction[:original], canonical: correction[:canonical]
+          )
+          Pito::Chat::Result::Ok.new(
+            events: [ { kind: :system, payload: { "text" => note_text } } ] + result.events
+          )
         end
 
         # `import videos` is a true alias for `sync videos` (whole-channel sync):

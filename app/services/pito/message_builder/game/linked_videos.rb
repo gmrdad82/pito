@@ -8,15 +8,23 @@ module Pito
       # Streamed right after the game detail on `show game <ref>`. Wraps
       # Video::List so the table is identical to the standalone video library
       # list — id + title plus channel / duration / views / comments / likes
-      # columns — and inherits its `video_list` follow-up target, so the user can
-      # reply `#<handle> show <id>`, sort, add columns, etc.
+      # columns — then upgrades the follow-up target from "video_list" to
+      # "game_linked_videos" and injects `game_id`, enabling two additional
+      # context-aware verbs:
+      #
+      #   #<handle> show <id>      → show vid (free-chat dispatch, no follow_up scope)
+      #   #<handle> unlink <id>    → unlink this vid from the implied game
+      #
+      # The game_id stored in the payload is the "detail context" key that
+      # Unlink::follow_up_multi reads to know which game the vid should be
+      # unlinked from — no need to specify the game explicitly in the reply.
       #
       # The generic videos list_intro is replaced with a game-scoped dim intro
       # line (pito.copy.game.linked_videos_intro).
       #
       # Rendered as `kind: :enhanced` (the pito chrome). Repliable via the
-      # make_followupable! stamp that Video::List already applies (target:
-      # "video_list").
+      # make_followupable! stamp that Video::List applies, overridden to target
+      # "game_linked_videos".
       #
       # NOTE: The caller is responsible for checking game.linked_videos.empty?
       # and skipping this builder for a game with no linked videos.
@@ -28,7 +36,7 @@ module Pito
 
         # @param game         [::Game]       the game whose linked videos to list.
         # @param conversation [Conversation] used to generate the reply handle.
-        # @return [Hash] string-keyed table_rows payload, follow-up stamped (video_list).
+        # @return [Hash] string-keyed table_rows payload, follow-up stamped (game_linked_videos).
         def call(game, conversation:)
           videos  = game.linked_videos
           payload = Video::List.call(videos, conversation: conversation, columns: COLUMNS)
@@ -36,7 +44,11 @@ module Pito
           # The intro now carries a subject-shimmer span (title) and cyan handle
           # tokens, so the body is HTML — flag it so SystemComponent renders it
           # raw (the table rows below stay escaped, driven by their own cells).
-          payload["html"] = true
+          payload["html"]         = true
+          # Override the generic video_list target: game_linked_videos adds game
+          # context (game_id) for the unlink verb and a show→show vid translation.
+          payload["reply_target"] = "game_linked_videos"
+          payload["game_id"]      = game.id
           payload
         end
 

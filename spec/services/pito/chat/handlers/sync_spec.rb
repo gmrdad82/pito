@@ -330,4 +330,50 @@ RSpec.describe Pito::Chat::Handlers::Sync do
       expect(result).to be_a(Pito::Chat::Result::Error)
     end
   end
+
+  # ── Fuzzy noun correction ─────────────────────────────────────────────────────
+
+  describe "fuzzy sync noun detection" do
+    context "'sync chanells' — fuzzy match to 'channels' (dist 2, len 8, threshold 2)" do
+      # "chanells" (8 chars, threshold 2): dist("chanells","channels") = 2 → match
+      it "routes to the channels path and returns a confirmation event" do
+        result = handler_for("chanells").call
+        expect(result).to be_a(Pito::Chat::Result::Ok)
+        expect(result.events.last[:kind]).to eq(:confirmation)
+      end
+
+      it "prepends a correction note as the first event" do
+        result = handler_for("chanells").call
+        note = result.events.first
+        expect(note[:kind]).to eq(:system)
+        text = note[:payload]["text"].to_s
+        expect(text).to include("chanells")
+        expect(text).to include("channels")
+      end
+    end
+
+    context "'sync vds' — fuzzy match to 'vids' (dist 1, len 3)" do
+      # "vds" (3 chars, threshold 1): dist("vds","vids") = 1 (missing 'i')
+      it "routes to the videos path and returns a confirmation event" do
+        result = handler_for("vds").call
+        expect(result).to be_a(Pito::Chat::Result::Ok)
+        expect(result.events.last[:kind]).to eq(:confirmation)
+      end
+
+      it "prepends a correction note" do
+        result = handler_for("vds").call
+        note = result.events.first
+        text = note[:payload]["text"].to_s
+        expect(text).to include("vds")
+        expect(text).to include("vids")
+      end
+    end
+
+    context "'sync totallyunknown' — no fuzzy match → error" do
+      it "returns a needs_ref error" do
+        result = handler_for("totallyunknown").call
+        expect(result).to be_a(Pito::Chat::Result::Error)
+      end
+    end
+  end
 end

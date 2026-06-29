@@ -226,6 +226,18 @@ export default class extends Controller {
 
   // ad: recompute mode and refresh ghost/palette on every input event
   onInput(event) {
+    // History cycling dispatches a synthetic input (detail.historyRecall=true) so
+    // other controllers (draft, caret, type-fx) rerender — skip opening palette or
+    // ghost here so a recalled slash entry ("/games") doesn't open the verb palette
+    // and intercept the next ↑/↓ that the user intends for history navigation.
+    if (event.detail?.historyRecall) {
+      this._closePalette()
+      this._clearGhost()
+      this._cancelDynamicFetch()
+      this._cancelArgFetch()
+      return
+    }
+
     const field  = this.fieldTarget
     const value  = field.value
     const cursor = field.selectionStart ?? value.length

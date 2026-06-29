@@ -70,19 +70,42 @@ module Pito
           # Noun routing is driven by the centralized :nouns registry (shared with
           # the typeahead), so `channels`/`vids`/`games` and every alias —
           # `channel`, `video(s)`, `vid`, `game`, `gamez` — resolve in one place.
-          case detected_noun(head)
-          when "channels" then return list_channels
-          when "vids"     then return list_videos
+          # resolve_fuzzy adds typo-tolerance: near-misses within edit-distance
+          # threshold are corrected and a brief note event is prepended.
+          noun, noun_correction = detected_noun(head)
+          result = case noun
+          when "channels" then list_channels
+          when "vids"     then list_videos
+          else                 list_games(head)
           end
+          prepend_typo_note(result, noun_correction)
+        end
+
+        private
+
+        # Returns the part of the raw input that precedes the first clause keyword
+        # (`with`, or a sort verb: sort/sorted/order/ordered). The noun is detected
+        # from this head so that column names inside a clause (e.g. the games
+        # `channels` column) never get read as the `list channels` / `list videos`
+        # noun.
+        def noun_head(raw)
+          raw.to_s.split(/\b(?:with|sort(?:ed)?|order(?:ed)?)\b/i, 2).first.to_s
+        end
+
+        # Games path: handles `list [games] [filters…]`.
+        # Extracted from `call` so that the typo-correction note can be prepended
+        # uniformly across all noun branches (channels / vids / games).
+        #
+        # Allowlist over denylist: arbitrary filler is dropped silently. The
+        # only non-list path is a typo that is fuzzy-close to a real
+        # genre/platform/noun term → offer a "did you mean" correction instead
+        # of listing. Checked against the head only, so `with <columns>` /
+        # `sorted by` clauses never trip it.
+        def list_games(head)
           return games_list_help if message.raw.match?(/(?:\A|\s)--help(?:\s|\z)/)
 
-          # Allowlist over denylist: arbitrary filler is dropped silently. The
-          # only non-list path is a typo that is fuzzy-close to a real
-          # genre/platform/noun term → offer a "did you mean" correction instead
-          # of listing. Checked against the head only, so `with <columns>` /
-          # `sorted by` clauses never trip it.
-          corrections = Pito::Chat::GameListFilter.suggestions(head)
-          return did_you_mean(corrections) if corrections.any?
+          game_suggestions = Pito::Chat::GameListFilter.suggestions(head)
+          return did_you_mean(game_suggestions) if game_suggestions.any?
 
           filtered = Pito::Chat::GameListFilter.filtered?(message.raw)
           columns  = Pito::Chat::WithColumns.parse(
@@ -137,33 +160,45 @@ module Pito
           end
 
           payload = Pito::MessageBuilder::Game::List.call(games, conversation:, columns:)
-
           Pito::Chat::Result::Ok.new(events: [ { kind: :system, payload: payload } ])
         end
 
-        private
-
-        # Returns the part of the raw input that precedes the first clause keyword
-        # (`with`, or a sort verb: sort/sorted/order/ordered). The noun is detected
-        # from this head so that column names inside a clause (e.g. the games
-        # `channels` column) never get read as the `list channels` / `list videos`
-        # noun.
-        def noun_head(raw)
-          raw.to_s.split(/\b(?:with|sort(?:ed)?|order(?:ed)?)\b/i, 2).first.to_s
-        end
-
         # Resolves the listable noun from the head by walking its tokens through
-        # the shared :nouns vocabulary and returning the first canonical hit
-        # (`channels` / `vids` / `games`), or nil when no token is a noun (e.g.
-        # `list rpg ps5` → nil → the games path). The verb token itself never
-        # resolves, so it is skipped naturally.
+        # the shared :nouns vocabulary.
+        #
+        # Returns [canonical, correction_or_nil] where:
+        #   - canonical  — one of "channels" / "vids" / "games", or nil (games path)
+        #   - correction — { original:, canonical: } when fuzzy resolution fired, else nil
+        #
+        # Exact + synonym matches return nil correction (no note needed).
+        # resolve_fuzzy is tried once the first fuzzy hit is found — only the
+        # first near-miss per head is reported.
+        # The verb token itself never resolves, so it is skipped naturally.
         def detected_noun(head)
-          vocab = Pito::Grammar::Registry.vocabulary(:nouns)
+          vocab             = Pito::Grammar::Registry.vocabulary(:nouns)
+          fuzzy_correction  = nil
           head.to_s.downcase.split(/\s+/).each do |token|
             canonical = vocab.resolve(token)
-            return canonical if canonical
+            return [ canonical, nil ] if canonical
+            if fuzzy_correction.nil?
+              fuzzy = vocab.resolve_fuzzy(token)
+              fuzzy_correction = { original: token, canonical: fuzzy } if fuzzy
+            end
           end
-          nil
+          fuzzy_correction ? [ fuzzy_correction[:canonical], fuzzy_correction ] : [ nil, nil ]
+        end
+
+        # Prepends a short note event when a fuzzy correction fired.
+        # No-op when correction is nil, result is not Ok, or events are empty.
+        def prepend_typo_note(result, correction)
+          return result unless correction && result.is_a?(Pito::Chat::Result::Ok) && result.events.any?
+
+          note_text  = Pito::Copy.render(
+            "pito.copy.grammar.typo_correction",
+            original: correction[:original], canonical: correction[:canonical]
+          )
+          note_event = { kind: :system, payload: { "text" => note_text } }
+          Pito::Chat::Result::Ok.new(events: [ note_event ] + result.events)
         end
 
         # With no `with` clause, auto-fill the first N canonical columns, where N

@@ -18,6 +18,11 @@
   </div>
 
   <div style="padding: 0 25px 32px;">
+    <%# CTXF5: meter only inside an authenticated conversation — never for
+        unauthenticated visitors, start_screen, or not_found. %>
+    <% if @authenticated %>
+      <%= render Pito::Shell::ContextMeterComponent.new(event_count: @event_count) %>
+    <% end %>
     <%# Restore the conversation's last channel scope (shift+tab) and stats period
         (shift+space) so a reload keeps them; the chat-form controller persists
         each change back via PATCH /chat/:uuid. %>

@@ -27,9 +27,9 @@ RSpec.describe "Chat ≡ #hashtag parity", type: :service do
     free  = free_events("show #{game.id}")
     reply = reply_events("game_list", "show #{game.id}")
 
-    # Game with no linked videos: detail (:system) + recommendations (:enhanced).
+    # Game with no linked videos: detail (:system) + SimilarGames (:enhanced) + Channels (:enhanced).
     # Analytics is only deferred when the game has linked videos.
-    expect(reply.map { |e| e[:kind] }).to eq(free.map { |e| e[:kind] }).and eq([ :system, :enhanced ])
+    expect(reply.map { |e| e[:kind] }).to eq(free.map { |e| e[:kind] }).and eq([ :system, :enhanced, :enhanced ])
     expect(reply.first[:payload].with_indifferent_access[:game_id])
       .to eq(free.first[:payload].with_indifferent_access[:game_id]).and eq(game.id)
   end

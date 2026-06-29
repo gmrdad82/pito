@@ -43,3 +43,16 @@ en:
         errors:
           invalid_action: "Unknown action '%{action}'. Try: with <metrics> or without <metrics>."
           scope_not_found: "Couldn't find the vid/game for this glance."
+      game_similar:
+        errors:
+          invalid_action: "Unknown action '%{action}'. Try: #<handle> show <id>."
+      game_channels:
+        errors:
+          invalid_action: "Unknown action '%{action}'. Try: #<handle> show @<handle>."
+      game_linked_videos:
+        errors:
+          invalid_action: "Unknown action '%{action}'. Try: show <id>, unlink <id>, sort by <col>, or with/without <col>."
+          game_not_found: "Couldn't find the game for this linked-videos list."
+      game_imported:
+        errors:
+          invalid_action: "Unknown action '%{action}'. Reply `show` to see this game."

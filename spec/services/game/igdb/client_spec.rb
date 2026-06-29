@@ -115,14 +115,14 @@ RSpec.describe Game::Igdb::Client, type: :service do
       expect(captured_body).not_to include("version_parent = null")
     end
 
-    it "keeps main games + remakes + remasters + expanded games in the game_type filter" do
+    it "keeps main games + bundles + remakes + remasters + expanded games in the game_type filter" do
       captured_body = nil
       stub_request(:post, "https://api.igdb.com/v4/games")
         .with { |req| captured_body = req.body; true }
         .to_return(status: 200, body: [].to_json, headers: { "Content-Type" => "application/json" })
 
       described_class.new.search_games("demon souls")
-      expect(captured_body).to include("game_type = (0,8,9,10)")
+      expect(captured_body).to include("game_type = (0,3,8,9,10)")
     end
 
     it "includes expanded_game (game_type 10) in the game_type filter" do
@@ -145,16 +145,16 @@ RSpec.describe Game::Igdb::Client, type: :service do
       expect(captured_body).not_to match(/game_type = \([^)]*13/)
     end
 
-    it "does NOT include bundles (game_type 3) in the game_type filter" do
+    # IGB1 (2026-06-28): bundles (game_type 3) now pass the API filter so combo
+    # bundles are returned; non-combo gt3 rows are dropped post-fetch.
+    it "includes bundles (game_type 3) in the game_type filter (IGB1)" do
       captured_body = nil
       stub_request(:post, "https://api.igdb.com/v4/games")
         .with { |req| captured_body = req.body; true }
         .to_return(status: 200, body: [].to_json, headers: { "Content-Type" => "application/json" })
 
       described_class.new.search_games("some game")
-      # game_type 3 (bundle) must not appear — the filter only has 0,8,9,10
-      expect(captured_body).to include("game_type = (0,8,9,10)")
-      expect(captured_body).not_to match(/game_type = \([^)]*\b3\b/)
+      expect(captured_body).to include("game_type = (0,3,8,9,10)")
     end
 
     it "keeps an expanded game (game_type 10) in the search results" do
@@ -167,6 +167,79 @@ RSpec.describe Game::Igdb::Client, type: :service do
 
       hits = described_class.new.search_games("Granblue Fantasy Relink Endless Ragnarok")
       expect(hits.map { |h| h["id"] }).to include(9999)
+    end
+
+    # IGB1 — expanded game (game_type 10) is always kept, even when the name
+    # contains "Edition" and a colon prefix that would normally drop it.
+    it "keeps a gt10 expanded game despite 'Edition' in name and colon prefix (IGB1 Kirby case)" do
+      cover = { "image_id" => "img" }
+      body = [
+        { "id" => 1001, "name" => "Kirby and the Forgotten Land: Nintendo Switch 2 Edition + Star-Crossed World",
+          "game_type" => 10, "cover" => cover }
+      ]
+      stub_request(:post, "https://api.igdb.com/v4/games")
+        .to_return(status: 200, body: body.to_json, headers: { "Content-Type" => "application/json" })
+
+      hits = described_class.new.search_games("Kirby Forgotten Land")
+      expect(hits.map { |h| h["id"] }).to include(1001)
+    end
+
+    # IGB1 — combo bundles (game_type 3, name contains " + ") are kept.
+    it "keeps gt3 combo bundles whose name contains ' + ' (IGB1 Mario cases)" do
+      cover = { "image_id" => "img" }
+      body = [
+        { "id" => 2001, "name" => "Super Mario 3D World + Bowser's Fury",           "game_type" => 3, "cover" => cover },
+        { "id" => 2002, "name" => "Super Mario Galaxy + Super Mario Galaxy 2",        "game_type" => 3, "cover" => cover }
+      ]
+      stub_request(:post, "https://api.igdb.com/v4/games")
+        .to_return(status: 200, body: body.to_json, headers: { "Content-Type" => "application/json" })
+
+      hits = described_class.new.search_games("Super Mario")
+      expect(hits.map { |h| h["id"] }).to contain_exactly(2001, 2002)
+    end
+
+    # IGB1 — non-combo gt3 bundles (no " + " in name) are dropped.
+    it "drops gt3 non-combo bundles (no ' + ' in name) (IGB1)" do
+      cover = { "image_id" => "img" }
+      body = [
+        { "id" => 3001, "name" => "Some Game: Deluxe Edition",   "game_type" => 3, "cover" => cover },
+        { "id" => 3002, "name" => "Another Pack",                 "game_type" => 3, "cover" => cover },
+        { "id" => 3003, "name" => "Real Game",                    "game_type" => 0, "cover" => cover }
+      ]
+      stub_request(:post, "https://api.igdb.com/v4/games")
+        .to_return(status: 200, body: body.to_json, headers: { "Content-Type" => "application/json" })
+
+      hits = described_class.new.search_games("some game")
+      expect(hits.map { |h| h["id"] }).to eq([ 3003 ])
+    end
+
+    # IGB1 — existing gt0 name-filter behaviour is unchanged.
+    it "keeps gt0 base game but still drops gt0 edition-noise and colon-prefix denoise rows (IGB1 backward compat)" do
+      cover = { "image_id" => "img" }
+      body = [
+        { "id" => 4001, "name" => "Street Fighter 6",                      "game_type" => 0, "cover" => cover },
+        { "id" => 4002, "name" => "Street Fighter 6: Mad Gear Box",         "game_type" => 0, "cover" => cover },
+        { "id" => 4003, "name" => "Street Fighter 6: Deluxe Edition",       "game_type" => 0, "cover" => cover },
+        { "id" => 4004, "name" => "Street Fighter VI 12 Peoples",           "game_type" => 0, "cover" => cover }
+      ]
+      stub_request(:post, "https://api.igdb.com/v4/games")
+        .to_return(status: 200, body: body.to_json, headers: { "Content-Type" => "application/json" })
+
+      hits = described_class.new.search_games("Street Fighter 6")
+      expect(hits.map { |h| h["id"] }).to contain_exactly(4001, 4004)
+    end
+
+    # IGB1 — cover-less rows drop for every game_type.
+    it "drops cover-less rows regardless of game_type (IGB1)" do
+      body = [
+        { "id" => 5001, "name" => "GT10 No Cover",                 "game_type" => 10 },
+        { "id" => 5002, "name" => "GT3 Combo No Cover A + B",      "game_type" => 3  },
+        { "id" => 5003, "name" => "GT0 No Cover",                  "game_type" => 0  }
+      ]
+      stub_request(:post, "https://api.igdb.com/v4/games")
+        .to_return(status: 200, body: body.to_json, headers: { "Content-Type" => "application/json" })
+
+      expect(described_class.new.search_games("no cover")).to eq([])
     end
 
     it "returns BOTH the original (main) and the remake for a same-named game" do

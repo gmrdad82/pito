@@ -456,4 +456,79 @@ RSpec.describe Pito::Grammar::Normalizer do
       end
     end
   end
+
+  describe "fuzzy enum correction" do
+    # Uses the :list fixture spec (release_status: released/upcoming/tba)
+
+    context "1-off typo on a release-status value ('upcomin' → 'upcoming')" do
+      subject(:match) { described_class.call(lex("list upcomin"), namespace: :chat) }
+
+      # "upcomin" (7 chars, threshold 2); dist("upcomin","upcoming") = 1 → match
+      it "resolves :status to 'upcoming' via fuzzy fallback" do
+        expect(match.values[:status]).to eq("upcoming")
+      end
+
+      it "records the correction in match.corrections" do
+        expect(match.corrections).to eq({ "upcomin" => "upcoming" })
+      end
+
+      it "does not add 'upcomin' to unknowns" do
+        expect(match.unknowns).not_to include("upcomin")
+      end
+
+      it "is still matched" do
+        expect(match.matched?).to be(true)
+      end
+    end
+
+    context "1-off typo on a release-status value ('releazed' → 'released')" do
+      subject(:match) { described_class.call(lex("list releazed"), namespace: :chat) }
+
+      # "releazed" (8 chars, threshold 2); dist("releazed","released") = 1
+      it "resolves :status to 'released'" do
+        expect(match.values[:status]).to eq("released")
+      end
+
+      it "records the correction" do
+        expect(match.corrections["releazed"]).to eq("released")
+      end
+    end
+
+    context "unresolvable word — no fuzzy match either" do
+      subject(:match) { described_class.call(lex("list xyz"), namespace: :chat) }
+
+      it "adds 'xyz' to unknowns (no correction fires)" do
+        expect(match.unknowns).to include("xyz")
+      end
+
+      it "corrections is empty" do
+        expect(match.corrections).to be_empty
+      end
+    end
+
+    context "free slot is NOT affected by fuzzy resolution" do
+      # :search spec has a :free slot — tokens go there unmodified.
+      subject(:match) { described_class.call(lex("search gamr"), namespace: :chat) }
+
+      it "preserves the query verbatim" do
+        expect(match.values[:query]).to eq("gamr")
+      end
+
+      it "has no corrections" do
+        expect(match.corrections).to be_empty
+      end
+    end
+
+    context "match has no fuzzy correction when exact match is found" do
+      subject(:match) { described_class.call(lex("list upcoming"), namespace: :chat) }
+
+      it "resolves status via exact match" do
+        expect(match.values[:status]).to eq("upcoming")
+      end
+
+      it "corrections is empty (exact match does not count as a correction)" do
+        expect(match.corrections).to be_empty
+      end
+    end
+  end
 end

@@ -85,6 +85,13 @@ export default class extends Controller {
     this.#dismissHandler = () => this.dismiss()
     window.addEventListener("pito:resume:dismiss", this.#dismissHandler)
 
+    // Desktop overlay backdrop: clicking the scrim dismisses the sidebar. The
+    // AbortController signal cleans up the listener automatically on disconnect.
+    const backdrop = document.getElementById("pito-sidebar-backdrop")
+    if (backdrop) {
+      backdrop.addEventListener("click", () => this.dismiss(), { signal: this.abort.signal })
+    }
+
     // The sidebar content is injected via a Turbo Stream UPDATE (this controller
     // stays connected). Watch for it: on the open transition we (a) blur the
     // chatbox and clear the command comet (pito:comet-clear — a sidebar command

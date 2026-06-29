@@ -16,8 +16,23 @@ class SyncChannelVideosJob < ApplicationJob
   queue_as :default
 
   def perform(channel_ids, scope_label, conversation_id: nil)
-    channels    = resolve_channels(channel_ids)
-    total_count = 0
+    channels     = resolve_channels(channel_ids)
+    total_count  = 0
+    broadcaster  = nil
+    turn         = nil
+
+    if conversation_id.present?
+      conversation = ::Conversation.find_by(id: conversation_id)
+      if conversation
+        broadcaster = Pito::Stream::Broadcaster.new(conversation:)
+        turn = conversation.turns.create!(
+          position:   Turn.next_position_for(conversation),
+          input_kind: :slash,
+          input_text: "/sync channel with videos #{scope_label}".strip
+        )
+        broadcaster.emit_thinking(turn:, dictionary: :syncing)
+      end
+    end
 
     channels.each do |channel|
       sync_channel_fields(channel)
@@ -26,33 +41,22 @@ class SyncChannelVideosJob < ApplicationJob
       total_count += channel.videos.reload.count
     end
 
-    return unless conversation_id.present?
+    return unless turn
 
-    conversation = ::Conversation.find_by(id: conversation_id)
-    return unless conversation
-
-    broadcaster = Pito::Stream::Broadcaster.new(conversation:)
-
-    turn = conversation.turns.create!(
-      position:   Turn.next_position_for(conversation),
-      input_kind: :slash,
-      input_text: "/sync channel with videos #{scope_label}".strip
+    intro = Pito::Copy.render_html(
+      "pito.copy.sync.intro",
+      { subject: scope_label },
+      shimmer: [ :subject ]
     )
-
-    summary_text = Pito::Copy.render(
-      "pito.copy.sync.channel_videos_done",
-      { scope: scope_label, count: total_count }
-    )
-
-    broadcaster.emit(
-      turn:,
-      kind:    :system,
-      payload: { "text" => summary_text }
-    )
-
+    broadcaster.emit(turn:, kind: :system, payload: { "body" => intro, "html" => true })
+    broadcaster.resolve_thinking(turn:)
     broadcaster.complete_turn(turn:)
   rescue StandardError => e
     Rails.logger.error("[SyncChannelVideosJob] failed for scope=#{scope_label}: #{e.class}: #{e.message}")
+    if turn && broadcaster
+      broadcaster.resolve_thinking(turn:)
+      broadcaster.complete_turn(turn:)
+    end
   end
 
   private

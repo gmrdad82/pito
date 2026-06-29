@@ -4,7 +4,9 @@
     <div class="pito-analytics-enhanced__panel flex gap-6">
       <div class="pito-analytics-scalars">
         <% @cells.each do |cell| %>
-          <% if cell[:chart].present? %>
+          <% if cell[:heart].present? %>
+            <%= render(Pito::Analytics::Metric::HeartChartComponent.new(hearts: cell[:heart], caption: cell[:caption])) %>
+          <% elsif cell[:chart].present? %>
             <%= render(Pito::Analytics::Metric::AreaChartComponent.new(metric: cell[:chart], series: cell[:series], target_daily: cell[:target_daily], caption: cell[:caption], trend: cell.fetch(:trend, true), reference_token: cell[:reference_token], dates: cell[:dates])) %>
           <% else %>
             <%= render(Pito::Analytics::Metric::CompactComponent.new(label: cell[:label], value: cell[:value])) %>

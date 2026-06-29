@@ -37,18 +37,24 @@ class FollowUpDispatchJob < ApplicationJob
     broadcaster  = Pito::Stream::Broadcaster.new(conversation:)
     finalizer    = Pito::Dispatch::Finalizer.new(conversation:, broadcaster:)
 
-    target       = event.payload["reply_target"].to_s
-    handler_class = Pito::FollowUp::Registry.for(target)
+    # Universal verbs (share/revoke/unshare) work on ANY event that carries a
+    # reply_handle — short-circuit before the per-target handler dispatch so they
+    # are never blocked by the target's actions_for gate.
+    action = rest.to_s.split(/\s+/).first&.downcase
+    result =
+      if Pito::Share::UniversalActions::VERBS.include?(action)
+        Pito::Share::UniversalActions.new.call(source_event: event, rest:, conversation:)
+      else
+        target        = event.payload["reply_target"].to_s
+        handler_class = Pito::FollowUp::Registry.for(target)
 
-    if handler_class.nil?
-      Rails.logger.warn("[FollowUpDispatchJob] No handler registered for target #{target.inspect} (event #{event_id})")
-      return
-    end
+        if handler_class.nil?
+          Rails.logger.warn("[FollowUpDispatchJob] No handler registered for target #{target.inspect} (event #{event_id})")
+          return
+        end
 
-    # period / viewport_width / channel are threaded through to the delegated
-    # chat verb (analytics window / list column auto-fill / scope) so a reply
-    # dispatches identically to the same verb typed in free chat.
-    result = handler_class.new.call(event:, rest:, conversation:, period:, viewport_width:, channel:)
+        handler_class.new.call(event:, rest:, conversation:, period:, viewport_width:, channel:)
+      end
 
     case result
     when Pito::FollowUp::Result::Mutation

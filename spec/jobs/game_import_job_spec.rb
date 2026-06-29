@@ -34,10 +34,6 @@ RSpec.describe GameImportJob, type: :job do
     # Stub ScoreCalculator
     allow(Pito::Game::ScoreCalculator).to receive(:call).and_return(80.0)
 
-    # Stub DetailMessage
-    allow(Pito::MessageBuilder::Game::Detail).to receive(:call)
-      .and_return({ "body" => "<div>detail</div>", "html" => true })
-
     # Stub update_column for all column names (resyncing, score, igdb_synced_at, etc.)
     allow(game).to receive(:update_column).with(anything, anything)
     allow(game).to receive(:reload).and_return(game)
@@ -68,6 +64,23 @@ RSpec.describe GameImportJob, type: :job do
       .not_to raise_error
   end
 
+  # ── No echo event in the new flow ────────────────────────────────────────────
+
+  it "does NOT emit an echo event (echo removed from import flow)" do
+    perform
+    expect(conversation.events.where(kind: "echo").count).to eq(0)
+  end
+
+  # ── No old enhanced card ─────────────────────────────────────────────────────
+
+  it "does NOT stream the old pito-game-enhanced-message card" do
+    perform
+    old_card = conversation.events.find { |e|
+      e.payload["body"].to_s.include?("pito-game-enhanced-message")
+    }
+    expect(old_card).to be_nil
+  end
+
   # ── step broadcasts go to SIDEBAR (broadcast_import_step), NOT chat ──────────
 
   it "calls broadcast_import_step 9 times (pending+done for 1/3/4/5; done-only for 2)" do
@@ -95,32 +108,67 @@ RSpec.describe GameImportJob, type: :job do
     expect(step_events.count).to eq(0)
   end
 
-  # ── exactly 2 messages go to the main chat ───────────────────────────────────
+  # ── :system announce — new flow ──────────────────────────────────────────────
 
-  it "streams a detail message event (html: true, after step 3)" do
+  it "emits a :system announce event (kind: system)" do
     perform
-    detail = conversation.events.find { |e| e.payload["html"] == true && e.payload["body"]&.include?("detail") }
-    expect(detail).to be_present
+    announce = conversation.events.find { |e| e.kind == "system" }
+    expect(announce).to be_present
   end
 
-  it "streams an enhanced message event (kind: enhanced) that is NOT follow-up-able" do
+  it "stamps game_id in the :system announce payload" do
     perform
-    enhanced = conversation.events.find { |e|
-      e.payload["body"].to_s.include?("pito-game-enhanced-message")
-    }
-    expect(enhanced).to be_present
-    # Renders via the Enhanced chrome (pito-blue border), not a System message.
-    expect(enhanced.kind).to eq("enhanced")
-    # The enhanced message carries no #handle — only the standard detail does.
-    expect(enhanced.payload["reply_handle"]).to be_blank
-    expect(enhanced.payload["reply_target"]).to be_blank
+    announce = conversation.events.find { |e| e.kind == "system" }
+    expect(announce.payload["game_id"]).to eq(game.id)
   end
 
-  it "stamps game_id in the enhanced message payload" do
+  it "uses the verb 'imported' in the announce body for a new import" do
     perform
-    enhanced = conversation.events.find { |e| e.payload["body"].to_s.include?("pito-game-enhanced-message") }
-    expect(enhanced.payload["game_id"]).to be_present
+    announce = conversation.events.find { |e| e.kind == "system" }
+    expect(announce.payload["body"]).to include("imported")
   end
+
+  # ── :enhanced done — new flow ────────────────────────────────────────────────
+
+  it "emits an :enhanced done event after steps 3–5" do
+    perform
+    done_event = conversation.events.find { |e| e.kind == "enhanced" }
+    expect(done_event).to be_present
+  end
+
+  it "stamps game_id in the :enhanced done payload" do
+    perform
+    done_event = conversation.events.find { |e| e.kind == "enhanced" }
+    expect(done_event.payload["game_id"]).to eq(game.id)
+  end
+
+  it "stamps reply_target: 'game_imported' on the :enhanced done event" do
+    perform
+    done_event = conversation.events.find { |e| e.kind == "enhanced" }
+    expect(done_event.payload["reply_target"]).to eq("game_imported")
+  end
+
+  it "stamps reply_handle on the :enhanced done event (followupable)" do
+    perform
+    done_event = conversation.events.find { |e| e.kind == "enhanced" }
+    expect(done_event.payload["reply_handle"]).to be_present
+  end
+
+  # ── Two thinking events emitted and resolved ──────────────────────────────────
+
+  it "emits exactly two thinking events (one per phase)" do
+    perform
+    expect(conversation.events.where(kind: "thinking").count).to eq(2)
+  end
+
+  it "resolves all thinking events by the end of the job" do
+    perform
+    thinking_events = conversation.events.where(kind: "thinking").to_a
+    all_resolved = thinking_events.all? { |e| e.payload["resolved"] == true }
+    expect(all_resolved).to be(true)
+  end
+
+  # ── IGDB / sync calls ─────────────────────────────────────────────────────────
 
   it "calls Game::Igdb::Importer with the correct igdb_id and title" do
     expect(Game::Igdb::Importer).to receive(:call).with(igdb_id: igdb_id, title: title)
@@ -157,12 +205,12 @@ RSpec.describe GameImportJob, type: :job do
       expect(error_events).not_to be_empty
     end
 
-    it "does NOT stream the detail or enhanced messages" do
+    it "does NOT stream the announce or done messages" do
       perform
-      detail   = conversation.events.find { |e| e.payload["reply_target"] == "game_detail" }
-      enhanced = conversation.events.find { |e| e.payload["body"].to_s.include?("pito-game-enhanced-message") }
-      expect(detail).to be_nil
-      expect(enhanced).to be_nil
+      announce   = conversation.events.find { |e| e.kind == "system" }
+      done_event = conversation.events.find { |e| e.kind == "enhanced" }
+      expect(announce).to be_nil
+      expect(done_event).to be_nil
     end
 
     it "completes the turn even on error" do
@@ -185,12 +233,18 @@ RSpec.describe GameImportJob, type: :job do
       expect(sidebar_steps.map { |s| s[:step] }.uniq.sort).to eq([ 1, 2, 3, 4, 5 ])
     end
 
-    it "still streams both chat messages" do
+    it "still streams both announce and done messages" do
       perform
-      detail   = conversation.events.find { |e| e.payload["html"] == true && e.payload["body"]&.include?("detail") }
-      enhanced = conversation.events.find { |e| e.payload["body"].to_s.include?("pito-game-enhanced-message") }
-      expect(detail).to be_present
-      expect(enhanced).to be_present
+      announce   = conversation.events.find { |e| e.kind == "system" }
+      done_event = conversation.events.find { |e| e.kind == "enhanced" }
+      expect(announce).to be_present
+      expect(done_event).to be_present
+    end
+
+    it "uses the verb 're-synced' in the announce body" do
+      perform
+      announce = conversation.events.find { |e| e.kind == "system" }
+      expect(announce.payload["body"]).to include("re-synced")
     end
   end
 
@@ -234,17 +288,7 @@ RSpec.describe GameImportJob, type: :job do
       expect(conversation.turns.where(input_text: "/games import #{title}").count).to eq(1)
     end
 
-    it "does not duplicate echo events on retry" do
-      perform
-      turn = conversation.turns.last
-      turn.update_column(:completed_at, nil)
-
-      perform
-
-      expect(conversation.events.where(kind: "echo").count).to eq(1)
-    end
-
-    it "does not duplicate detail (system) events on retry" do
+    it "does not duplicate system (announce) events on retry" do
       perform
       turn = conversation.turns.last
       turn.update_column(:completed_at, nil)
@@ -254,7 +298,7 @@ RSpec.describe GameImportJob, type: :job do
       expect(conversation.events.where(kind: "system").count).to eq(1)
     end
 
-    it "does not duplicate enhanced events on retry" do
+    it "does not duplicate enhanced (done) events on retry" do
       perform
       turn = conversation.turns.last
       turn.update_column(:completed_at, nil)

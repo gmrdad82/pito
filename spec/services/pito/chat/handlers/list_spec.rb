@@ -253,11 +253,14 @@ RSpec.describe Pito::Chat::Handlers::List do
       expect(payload["table_rows"]).to be_blank
     end
 
-    it "offers a noun correction for the noun typo `list vidoes`" do
-      payload = handler_for("list vidoes").call.events.first[:payload]
-      expect(payload["text"]).to include("Did you mean")
-      expect(payload["text"]).to match(/vids|videos/)
-      expect(payload["table_rows"]).to be_blank
+    it "fuzzy-corrects the noun typo `list vidoes` and routes to the vids path" do
+      # "vidoes" (6 chars, threshold 2) is dist-2 from "vids" — fuzzy correction
+      # routes directly to list_videos with a correction note rather than
+      # offering a GameListFilter "did you mean" suggestion.
+      result = handler_for("list vidoes").call
+      note = result.events.first
+      expect(note[:kind]).to eq(:system)
+      expect(note[:payload]["text"].to_s).to include("vidoes")
     end
   end
 
@@ -620,7 +623,15 @@ RSpec.describe Pito::Chat::Handlers::List do
         expect(titles).to include("Scheduled Future")
         heading_texts = payload["table_heading"].map { |h| h.is_a?(Hash) ? h["text"] : h }
         expect(heading_texts).to include("Channel")
-        expect(heading_texts).to include("Status")
+        expect(heading_texts).to include("Visibility")
+      end
+
+      it "composes with `with channel, status` — status alias still resolves to visibility heading" do
+        result  = handler_for("list videos scheduled with channel, status", channel: "@all").call
+        payload = result.events.first[:payload]
+        heading_texts = payload["table_heading"].map { |h| h.is_a?(Hash) ? h["text"] : h }
+        expect(heading_texts).to include("Channel")
+        expect(heading_texts).to include("Visibility")
       end
     end
 
@@ -1067,6 +1078,79 @@ RSpec.describe Pito::Chat::Handlers::List do
         channel:      "@beta"
       )
       expect(h.channel).to eq("@beta")
+    end
+  end
+
+  # ── Fuzzy noun correction ─────────────────────────────────────────────────────
+
+  describe "fuzzy noun detection and correction notes" do
+    let!(:game) { create(:game, title: "Hollow Knight") }
+    let!(:connection) { create(:youtube_connection) }
+    let!(:vid_channel) { create(:channel, handle: "@pito", youtube_connection: connection) }
+
+    context "'list gamez' — exact synonym, no correction note" do
+      # "gamez" is a synonym of "games" in NOUNS vocab → resolved by #resolve,
+      # not fuzzy → no correction note.
+      it "routes to the games path without a correction note" do
+        result = handler_for("list gamez").call
+        expect(result).to be_a(Pito::Chat::Result::Ok)
+        first_event = result.events.first
+        text = first_event[:payload]["text"].to_s
+        expect(text).not_to match(/gamez/i)
+      end
+    end
+
+    context "'list gams' — fuzzy match to 'games' (dist 1 via synonym key 'game')" do
+      # "gams" (4 chars, threshold 1): dist("gams","game") = 1 (synonym key) → "games"
+      it "routes to the games path" do
+        result = handler_for("list gams").call
+        expect(result).to be_a(Pito::Chat::Result::Ok)
+      end
+
+      it "prepends a correction note event" do
+        result = handler_for("list gams").call
+        note = result.events.first
+        expect(note[:kind]).to eq(:system)
+        text = note[:payload]["text"].to_s
+        expect(text).to include("gams")
+        expect(text).to include("games")
+      end
+    end
+
+    context "'list chanels' — fuzzy match to 'channels' (dist 1, len 7)" do
+      # "chanels" (7 chars, threshold 2): dist("chanels","channels") = 1
+      it "routes to the channels path" do
+        result = handler_for("list chanels").call
+        expect(result).to be_a(Pito::Chat::Result::Ok)
+      end
+
+      it "prepends a correction note event" do
+        result = handler_for("list chanels").call
+        note = result.events.first
+        expect(note[:kind]).to eq(:system)
+        text = note[:payload]["text"].to_s
+        expect(text).to include("chanels")
+        expect(text).to include("channels")
+      end
+    end
+
+    context "'list vds' — fuzzy match to 'vids' (dist 1, len 3)" do
+      # "vds" (3 chars, threshold 1): dist("vds","vids") = 1 (missing 'i')
+      it "routes to the vids path" do
+        create(:video, channel: vid_channel, title: "A Game")
+        result = handler_for("list vds").call
+        expect(result).to be_a(Pito::Chat::Result::Ok)
+      end
+
+      it "prepends a correction note event" do
+        create(:video, channel: vid_channel, title: "A Game")
+        result = handler_for("list vds").call
+        note = result.events.first
+        expect(note[:kind]).to eq(:system)
+        text = note[:payload]["text"].to_s
+        expect(text).to include("vds")
+        expect(text).to include("vids")
+      end
     end
   end
 end

@@ -925,4 +925,45 @@ describe("pito--resume controller", () => {
 
     expect(row.classList.contains("pito-row-swipe-open")).toBe(false)
   })
+
+  // ── Desktop overlay backdrop (SB) ─────────────────────────────────────────
+
+  it("clicking #pito-sidebar-backdrop dismisses the sidebar", async () => {
+    const sidebar = buildSidebar()
+    const backdrop = document.createElement("div")
+    backdrop.id = "pito-sidebar-backdrop"
+    document.body.appendChild(backdrop)
+    await waitForConnect()
+
+    // Open the sidebar by injecting an <aside>.
+    const aside = document.createElement("aside")
+    sidebar.appendChild(aside)
+    await waitForMO()
+
+    // Sidebar has content before the click.
+    expect(sidebar.innerHTML.trim()).not.toBe("")
+
+    backdrop.dispatchEvent(new MouseEvent("click", { bubbles: true }))
+
+    // Sidebar should now be cleared (dismissed).
+    expect(sidebar.innerHTML.trim()).toBe("")
+  })
+
+  it("connects gracefully when #pito-sidebar-backdrop is absent from the DOM", async () => {
+    // No backdrop element in DOM — controller must not throw, and other
+    // dismiss paths (pito:resume:dismiss) must still work.
+    const sidebar = buildSidebar()
+    await waitForConnect()
+
+    const aside = document.createElement("aside")
+    sidebar.appendChild(aside)
+    await waitForMO()
+
+    expect(sidebar.innerHTML.trim()).not.toBe("")
+
+    // Dismiss via the window event (the backdrop-absent path).
+    window.dispatchEvent(new CustomEvent("pito:resume:dismiss"))
+
+    expect(sidebar.innerHTML.trim()).toBe("")
+  })
 })

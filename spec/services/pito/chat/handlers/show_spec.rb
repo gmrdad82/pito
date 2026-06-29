@@ -61,28 +61,35 @@ RSpec.describe Pito::Chat::Handlers::Show do
     expect(analytics).to be_nil
   end
 
-  it "also emits the Enhanced recommendations message (kind :enhanced, not follow-up-able)" do
+  it "emits two enhanced recommendations messages (SimilarGames + Channels, kind :enhanced, each follow-up-able)" do
     events = handler_for("##{game.id}").call.events
-    enhanced = events.find { |e| e[:payload]["body"]&.include?("pito-game-enhanced-message") }
-    expect(enhanced).to be_present
-    expect(enhanced[:kind]).to eq(:enhanced)
-    expect(enhanced[:payload]["html"]).to be(true)
-    expect(enhanced[:payload]["reply_handle"]).to be_blank
+    recs = events.select { |e| e[:payload]["body"]&.include?("pito-game-enhanced-message") }
+    expect(recs.length).to eq(2)
+    recs.each do |r|
+      expect(r[:kind]).to eq(:enhanced)
+      expect(r[:payload]["html"]).to be(true)
+      expect(r[:payload]["reply_handle"]).to be_present
+    end
+    expect(recs.first[:payload]["reply_target"]).to eq("game_similar")
+    expect(recs.last[:payload]["reply_target"]).to eq("game_channels")
   end
 
-  it "emits events in order: detail → recommendations (no analytics when no linked videos)" do
+  it "emits events in order: detail → SimilarGames → Channels (no analytics when no linked videos)" do
     events = handler_for("##{game.id}").call.events
-    detail_idx = events.index { |e| e[:payload]["reply_target"] == "game_detail" }
-    recs_idx   = events.index { |e| e[:payload]["body"]&.include?("pito-game-enhanced-message") }
+    detail_idx  = events.index { |e| e[:payload]["reply_target"] == "game_detail" }
+    recs        = events.each_with_index.select { |e, _| e[:payload]["body"]&.include?("pito-game-enhanced-message") }
+    similar_idx = recs.first&.last
+    chans_idx   = recs.last&.last
 
-    expect(detail_idx).to be < recs_idx
+    expect(detail_idx).to be < similar_idx
+    expect(similar_idx).to be < chans_idx
   end
 
   # ── Game branch — linked videos list ─────────────────────────────────────────
 
   context "linked videos" do
     def linked_videos_event(*words)
-      handler_for(*words).call.events.find { |e| e[:payload]["reply_target"] == "video_list" }
+      handler_for(*words).call.events.find { |e| e[:payload]["reply_target"] == "game_linked_videos" }
     end
 
     context "when the game has linked videos" do
@@ -90,25 +97,29 @@ RSpec.describe Pito::Chat::Handlers::Show do
       let!(:video)   { create(:video, channel: channel, title: "Boss Fight") }
       let!(:vgl)     { create(:video_game_link, video: video, game: game) }
 
-      it "emits an :enhanced linked-videos list message after the detail" do
+      it "emits an :enhanced linked-videos list message after detail and SimilarGames" do
         events = handler_for("##{game.id}").call.events
-        list_index   = events.index { |e| e[:payload]["reply_target"] == "video_list" }
+        list_index   = events.index { |e| e[:payload]["reply_target"] == "game_linked_videos" }
         detail_index = events.index { |e| e[:payload]["reply_target"] == "game_detail" }
         expect(list_index).to be_present
         expect(events[list_index][:kind]).to eq(:enhanced)
-        expect(list_index).to eq(detail_index + 1)
+        # detail → SimilarGames → LinkedVideos, so linked videos are at detail_index + 2
+        expect(list_index).to eq(detail_index + 2)
       end
 
-      it "emits events in order: detail → linked-videos → recommendations → analytics" do
+      it "emits events in order: detail → SimilarGames → linked-videos → Channels → analytics" do
         events = handler_for("##{game.id}").call.events
         detail_idx    = events.index { |e| e[:payload]["reply_target"] == "game_detail" }
-        videos_idx    = events.index { |e| e[:payload]["reply_target"] == "video_list" }
-        recs_idx      = events.index { |e| e[:payload]["body"]&.include?("pito-game-enhanced-message") }
+        videos_idx    = events.index { |e| e[:payload]["reply_target"] == "game_linked_videos" }
+        recs          = events.each_with_index.select { |e, _| e[:payload]["body"]&.include?("pito-game-enhanced-message") }
+        similar_idx   = recs.first&.last
+        chans_idx     = recs.last&.last
         analytics_idx = events.index { |e| e[:payload].dig("analytics", "status") == "pending" }
 
-        expect(detail_idx).to be < videos_idx
-        expect(videos_idx).to be < recs_idx
-        expect(recs_idx).to be < analytics_idx
+        expect(detail_idx).to be < similar_idx
+        expect(similar_idx).to be < videos_idx
+        expect(videos_idx).to be < chans_idx
+        expect(chans_idx).to be < analytics_idx
       end
 
       it "emits an analytics pending event for the game (kind :enhanced, scope_type Game)" do
@@ -122,10 +133,11 @@ RSpec.describe Pito::Chat::Handlers::Show do
         expect(analytics[:payload].dig("analytics", "scope_id")).to eq(game.id)
       end
 
-      it "is repliable via the video_list follow-up target" do
+      it "is repliable via the game_linked_videos follow-up target (game context for unlink)" do
         payload = linked_videos_event("##{game.id}")[:payload]
         expect(Pito::FollowUp.followupable?(payload)).to be(true)
-        expect(payload["reply_target"]).to eq("video_list")
+        expect(payload["reply_target"]).to eq("game_linked_videos")
+        expect(payload["game_id"]).to eq(game.id)
       end
 
       it "lists the linked video as a table row" do

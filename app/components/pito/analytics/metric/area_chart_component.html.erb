@@ -10,6 +10,7 @@
     a gap). %>
 <div class="pito-metric pito-metric--area-chart" data-controller="<%= reveal_controller %>">
   <div class="pito-metric__chart">
+    <%= background_layer %>
     <div class="pito-metric__plot" data-pito--area-chart-reveal-target="plot"
          style="--pito-rows: <%= rows %>; --pito-green-anchor: <%= green_anchor_pct %>%"><%
       rows_braille.each_with_index do |line, i| %><span class="pito-metric__row <%= shimmer_offset_class %>" style="--i: <%= i %>" data-pito--area-chart-reveal-target="row"><%= line %></span><% end %>

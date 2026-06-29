@@ -66,7 +66,9 @@ class AnalyzePrepareJob < ApplicationJob
     groups   = groups_for(level, ids)
     scaffold = Pito::Analytics::Scaffold.for(groups:, window:, role: marker["role"].to_sym, level: level.to_sym)
 
-    charts = if marker["role"] == "system"
+    charts = nil
+    likes  = nil
+    if marker["role"] == "system"
       subs = Pito::Analytics::Thresholds.subs_for(level:, entity_ids: ids)
       # Accumulate results so later metrics can reference earlier ones.
       # avg_viewed_pct reads avg_view_duration's total for the M:SS caption.
@@ -74,13 +76,15 @@ class AnalyzePrepareJob < ApplicationJob
       CHART_METRICS.each do |metric|
         computed[metric] = compute_chart(metric:, groups:, window:, subs:, computed_charts: computed)
       end
-      computed
+      charts = computed
+      # Likes HEARTS — ALWAYS lifetime (independent of the message's period).
+      likes = Pito::Analytics::LikesHearts.for(groups:, level:)
     end
 
-    { scaffold:, charts: }
+    { scaffold:, charts:, likes: }
   rescue StandardError => e
     Rails.logger.warn("[AnalyzePrepareJob] #{marker['level']} #{marker['entity_ids'].inspect}: #{e.class}: #{e.message}")
-    { scaffold: {}, charts: nil } # empty → every cell renders "0", no chart
+    { scaffold: {}, charts: nil, likes: nil } # empty → every cell renders "0", no chart
   end
 
   # Returns chart data hash (string-keyed, for jsonb round-trip) for one metric

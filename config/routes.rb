@@ -44,6 +44,9 @@ Rails.application.routes.draw do
   # Dev helper: clears the session cookie so you can re-test /authenticate
   delete "/logout", to: "sessions#destroy", as: :logout
 
+  post "/share/:uuid/unfold", to: "shares#unfold", as: :unfold_share
+  get "/share/:uuid", to: "shares#show", as: :share
+
   # Dynamic error pages — rendered by exceptions_app = routes so the 404
   # page shows the full start screen with the suggestions-enabled chatbox.
   # /404 is the primary path Rails internally redirects to on a routing error.

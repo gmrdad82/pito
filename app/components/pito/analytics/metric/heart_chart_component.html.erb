@@ -1,0 +1,31 @@
+<%# Likes-heart metric widget — 1–2 braille hearts filled bottom→top to a likes
+    score, a likes/dislikes legend under each, and a caption. REUSES the area
+    chart's .pito-metric chrome (BaseComponent) and is sized to the SAME width
+    (canvas_cols = chart COLS) so its caption spreads identically whether 1 or 2
+    hearts. The hearts are centred (pad_left/pad_right blanks); a faint dotted bg
+    grid sits behind, showing through every blank cell (hollow heart + graph-paper
+    surround). Heart cells are flat-coloured via --heart-color, dimmed above the
+    fill (.is-outline). No inter-tag whitespace in the row block. %>
+<div class="pito-metric pito-metric--heart" data-controller="<%= reveal_controller %>">
+  <div class="pito-metric__chart">
+    <%= background_layer %>
+    <div class="pito-metric__plot pito-metric__plot--heart" data-pito--area-chart-reveal-target="plot"><%
+      combined_rows.each_with_index do |hearts, i| %><span class="pito-metric__hrow" style="--i: <%= i %>" data-pito--area-chart-reveal-target="row"><%= pad_left %><%
+        hearts.each_with_index do |h, j| %><%= gap if j.positive? %><span class="pito-hfill<%= h[:fill] ? '' : ' is-outline' %>" style="--heart-color: <%= h[:color] %>"><%= h[:glyphs] %></span><%
+        end %><%= pad_right %></span><%
+      end %>
+    </div>
+    <div class="pito-metric__hlegend text-fg-dim">
+      <% legends.each do |lg| %>
+        <span class="pito-metric__hlegend-item">
+          <span class="text-green"><%= render(Pito::IconComponent.new(name: "thumbs-up", label: "likes")) %> <%= lg[:likes] %></span>
+          <span class="text-red"><%= render(Pito::IconComponent.new(name: "thumbs-down", label: "dislikes")) %> <%= lg[:dislikes] %></span>
+          <span class="text-fg-dim"><%= lg[:pct_label] %></span>
+        </span>
+      <% end %>
+    </div>
+  </div>
+  <%# caption is pre-rendered html (subject shimmer + cyan "lifetime" reference),
+      persisted in the marker → re-rendered raw, exactly like the area chart. %>
+  <p class="pito-metric__caption text-fg-dim"><%= raw(caption.to_s) %></p>
+</div>

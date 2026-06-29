@@ -181,4 +181,78 @@ RSpec.describe Pito::Grammar::Vocabulary do
       end
     end
   end
+
+  describe "#resolve_fuzzy" do
+    # static_vocab: canonical ["Shooter","Simulation","RPG"],
+    #               synonyms  {"fps"=>"Shooter","sim"=>"Simulation"}
+
+    it "returns nil for an exact canonical match (handled by #resolve)" do
+      expect(static_vocab.resolve_fuzzy("RPG")).to be_nil
+    end
+
+    it "returns nil for an exact synonym key match (handled by #resolve)" do
+      expect(static_vocab.resolve_fuzzy("fps")).to be_nil
+    end
+
+    it "returns the canonical when the token is 1-off a canonical (within threshold for len > 4)" do
+      # "Shoooter" is 7 chars, threshold 2; dist("shoooter","shooter") = 1
+      expect(static_vocab.resolve_fuzzy("Shoooter")).to eq("Shooter")
+    end
+
+    it "case-insensitively matches canonical" do
+      # "SHOTER" (6 chars, threshold 2) vs "shooter" (7): dist = 1 (missing 'o')
+      expect(static_vocab.resolve_fuzzy("SHOTER")).to eq("Shooter")
+    end
+
+    it "returns nil for a 2-off canonical when token length <= 4 (over threshold)" do
+      # "RPX" (3 chars, threshold 1), dist("rpx","rpg") = 1 → MATCH
+      # Use a 3-char token that is 2 off to verify threshold 1 rejects it:
+      # "RP" (2 chars, threshold 1), dist("rp","rpg") = 1 → would match,
+      # so use a token truly 2 off a 3-char canonical: "RPG" is 3 chars.
+      # Use vocab with a 4-char canonical:
+      vocab4 = described_class.define(
+        name: :short_test,
+        canonical: [ "abcd" ],
+        synonyms: {}
+      )
+      # "abxz" (4 chars, threshold 1) vs "abcd" → dist 2 → nil
+      expect(vocab4.resolve_fuzzy("abxz")).to be_nil
+    end
+
+    it "returns the canonical for a 2-off canonical when len > 4" do
+      # "Simulation" (10 chars, threshold 2); "Simulatoin" → dist 2 (transposition)
+      # Actually use a clean 1-off: "Simulaton" (9 chars) → dist 1 from "Simulation"
+      expect(static_vocab.resolve_fuzzy("Simulaton")).to eq("Simulation")
+    end
+
+    it "returns nil for ambiguous matches (two candidates within threshold)" do
+      # Two very close canonicals; a token equidistant to both → nil
+      ambiguous_vocab = described_class.define(
+        name: :amb_test,
+        canonical: [ "abc", "abd" ],
+        synonyms: {}
+      )
+      # "abe" (3 chars, threshold 1): dist 1 to "abc" AND dist 1 to "abd" → ambiguous
+      expect(ambiguous_vocab.resolve_fuzzy("abe")).to be_nil
+    end
+
+    it "returns nil for a token with zero matches" do
+      expect(static_vocab.resolve_fuzzy("zzzzzzz")).to be_nil
+    end
+
+    it "returns nil for a dynamic vocab (never fuzzy)" do
+      expect(dynamic_vocab.resolve_fuzzy("channel_x")).to be_nil
+    end
+
+    it "returns nil for a blank token" do
+      expect(static_vocab.resolve_fuzzy("")).to be_nil
+      expect(static_vocab.resolve_fuzzy(nil)).to be_nil
+      expect(static_vocab.resolve_fuzzy("  ")).to be_nil
+    end
+
+    it "resolves via a synonym key near-miss and returns that synonym's canonical" do
+      # synonym "fps" → "Shooter"; "fbs" (3 chars, threshold 1) → dist 1 from "fps"
+      expect(static_vocab.resolve_fuzzy("fbs")).to eq("Shooter")
+    end
+  end
 end

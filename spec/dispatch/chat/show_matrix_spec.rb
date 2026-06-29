@@ -26,8 +26,9 @@ require "rails_helper"
 # Events on success (first event always :system detail):
 #   video:   [:system video_detail, :enhanced analytics pending]
 #            (+ :enhanced LinkedGame between them when a linked game is present)
-#   game:    [:system game_detail, :enhanced Game::Enhanced]
-#            (+ :enhanced LinkedVideos + :enhanced analytics when linked videos exist)
+#   game:    [:system game_detail, :enhanced SimilarGames, :enhanced Channels]
+#            (+ :enhanced LinkedVideos between SimilarGames/Channels when linked videos exist,
+#             + :enhanced analytics after Channels when linked videos exist)
 #   channel: [:system channel_detail, :enhanced analytics pending]
 #            (+ :enhanced Channel::Videos between them when the channel has videos)
 #
@@ -121,8 +122,17 @@ RSpec.describe "Dispatch matrix — show (recognition, DB mocked)", type: :dispa
     allow(Pito::MessageBuilder::Game::Enhanced).to receive(:call).and_return(
       "body" => "<game-enhanced/>"
     )
+    allow(Pito::MessageBuilder::Game::SimilarGames).to receive(:call).and_return(
+      "body" => "<game-similar-games/>", "reply_target" => "game_similar",
+      "reply_handle" => "mock-show-sim1"
+    )
+    allow(Pito::MessageBuilder::Game::Channels).to receive(:call).and_return(
+      "body" => "<game-channels/>", "reply_target" => "game_channels",
+      "reply_handle" => "mock-show-chan1"
+    )
     allow(Pito::MessageBuilder::Game::LinkedVideos).to receive(:call).and_return(
-      "reply_target" => "video_list", "reply_handle" => "mock-show-5678"
+      "reply_target" => "game_linked_videos", "reply_handle" => "mock-show-5678",
+      "game_id" => SHOW_GAME_ID
     )
     allow(Pito::MessageBuilder::Video::LinkedGame).to receive(:call).and_return(
       "reply_target" => "game_detail", "reply_handle" => "mock-show-5678"
@@ -690,6 +700,65 @@ RSpec.describe "Dispatch matrix — show (recognition, DB mocked)", type: :dispa
           expect(result.events.first[:payload]["video_id"]).to be_nil
         end
       end
+    end
+  end
+
+  # ── Follow-up: game_similar source + show <id> ────────────────────────────────
+  #
+  # game_similar declares "show" in its actions (verified via Registry).
+  # When the GameSimilar handler calls this, it dispatches free-chat
+  # "show game #<id>" — no follow_up context — so Show takes the game branch
+  # by body_tokens (game noun present), not by reply_target.
+
+  describe "follow-up: game_similar — registry and action declaration" do
+    before { Pito::FollowUp::Registry.register_all! }
+
+    it "game_similar declares 'show' as an action" do
+      expect(Pito::FollowUp::Registry.actions_for("game_similar")).to include("show")
+    end
+
+    it "game_similar is registered in the Registry" do
+      expect(Pito::FollowUp::Registry.for("game_similar")).to eq(Pito::FollowUp::Handlers::GameSimilar)
+    end
+  end
+
+  # ── Follow-up: game_channels source + show @handle ────────────────────────────
+  #
+  # game_channels declares "show" in its actions. When the GameChannels handler
+  # calls this, it dispatches free-chat "show channel @handle" — no follow_up
+  # context — so Show takes the channel branch by body_tokens ("channel" present).
+
+  describe "follow-up: game_channels — registry and action declaration" do
+    before { Pito::FollowUp::Registry.register_all! }
+
+    it "game_channels declares 'show' as an action" do
+      expect(Pito::FollowUp::Registry.actions_for("game_channels")).to include("show")
+    end
+
+    it "game_channels is registered in the Registry" do
+      expect(Pito::FollowUp::Registry.for("game_channels")).to eq(Pito::FollowUp::Handlers::GameChannels)
+    end
+  end
+
+  # ── Follow-up: game_linked_videos source + show <id> ─────────────────────────
+  #
+  # game_linked_videos declares "show" and "unlink" in its actions.
+  # The GameLinkedVideos handler dispatches "show vid #<id>" as free-chat
+  # (no follow_up context) so Show takes the VIDEO branch by body_tokens.
+
+  describe "follow-up: game_linked_videos — registry and action declaration" do
+    before { Pito::FollowUp::Registry.register_all! }
+
+    it "game_linked_videos declares 'show' as an action" do
+      expect(Pito::FollowUp::Registry.actions_for("game_linked_videos")).to include("show")
+    end
+
+    it "game_linked_videos declares 'unlink' as an action" do
+      expect(Pito::FollowUp::Registry.actions_for("game_linked_videos")).to include("unlink")
+    end
+
+    it "game_linked_videos is registered in the Registry" do
+      expect(Pito::FollowUp::Registry.for("game_linked_videos")).to eq(Pito::FollowUp::Handlers::GameLinkedVideos)
     end
   end
 end

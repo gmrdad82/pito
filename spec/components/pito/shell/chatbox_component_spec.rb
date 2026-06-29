@@ -392,6 +392,117 @@ RSpec.describe Pito::Shell::ChatboxComponent do
       end
     end
 
+    # ── Reduced mode (share pages) ────────────────────────────────────────────
+
+    context "reduced: true (share page affordance)" do
+      subject(:node) { render_inline(described_class.new(reduced: true)) }
+
+      it "does NOT render the suggestions catalog script tag" do
+        scripts = node.css("script[data-pito--suggestions-target='catalog']")
+        expect(scripts).to be_empty
+      end
+
+      it "does NOT render the showcase data script tag" do
+        scripts = node.css("script#pito-showcase-data")
+        expect(scripts).to be_empty
+      end
+
+      it "does NOT render the suggestions palette div" do
+        expect(node.css("div.pito-suggestions-palette")).to be_empty
+      end
+
+      it "does NOT include pito--suggestions in the chatbox controller list" do
+        wrapper = node.css("div#pito-chatbox").first
+        expect(wrapper["data-controller"]).not_to include("pito--suggestions")
+      end
+
+      it "does NOT include pito--chatbox-hints in the chatbox controller list" do
+        wrapper = node.css("div#pito-chatbox").first
+        expect(wrapper["data-controller"]).not_to include("pito--chatbox-hints")
+      end
+
+      it "does NOT include pito--history in the chatbox controller list" do
+        wrapper = node.css("div#pito-chatbox").first
+        expect(wrapper["data-controller"]).not_to include("pito--history")
+      end
+
+      it "does NOT include pito--chat-showcase in the chatbox controller list" do
+        wrapper = node.css("div#pito-chatbox").first
+        expect(wrapper["data-controller"]).not_to include("pito--chat-showcase")
+      end
+
+      it "does NOT include pito--draft in the chatbox controller list (even if draft_uuid were passed)" do
+        node2 = render_inline(described_class.new(reduced: true, draft_uuid: "some-uuid"))
+        wrapper = node2.css("div#pito-chatbox").first
+        expect(wrapper["data-controller"]).not_to include("pito--draft")
+      end
+
+      it "includes pito--terminal-caret in the chatbox field-wrap controller list" do
+        field_wrap = node.css("div.pito-chatbox__field-wrap").first
+        expect(field_wrap["data-controller"]).to include("pito--terminal-caret")
+      end
+
+      it "includes pito--type-fx in the chatbox field-wrap controller list" do
+        field_wrap = node.css("div.pito-chatbox__field-wrap").first
+        expect(field_wrap["data-controller"]).to include("pito--type-fx")
+      end
+
+      it "includes pito--cursor-trail in the chatbox field-wrap controller list" do
+        field_wrap = node.css("div.pito-chatbox__field-wrap").first
+        expect(field_wrap["data-controller"]).to include("pito--cursor-trail")
+      end
+
+      it "does NOT render the showcase ghost div" do
+        expect(node.css("div.pito-showcase-ghost")).to be_empty
+      end
+
+      it "does NOT render the filter row even when filter is passed" do
+        node2 = render_inline(described_class.new(reduced: true, filter: { channel: "@all", period: "7d" }))
+        expect(node2.css(".pito-chatbox__filter")).to be_empty
+      end
+
+      it "does NOT carry suggestions-related data actions on the textarea" do
+        textarea = node.css("textarea").first
+        action = textarea["data-action"]
+        expect(action.to_s).not_to include("pito--suggestions")
+      end
+
+      it "still renders the terminal-caret target on the textarea" do
+        textarea = node.css("textarea[data-pito--terminal-caret-target='field']").first
+        expect(textarea).not_to be_nil
+      end
+
+      it "still renders the type-fx target on the textarea" do
+        textarea = node.css("textarea[data-pito--type-fx-target='field']").first
+        expect(textarea).not_to be_nil
+      end
+
+      it "still renders the chatbox-wrapper div" do
+        expect(node.css("div.chatbox-wrapper")).not_to be_empty
+      end
+    end
+
+    context "reduced: false (default, full-featured mode)" do
+      subject(:node) { render_inline(described_class.new(reduced: false)) }
+
+      it "renders the catalog script tag" do
+        expect(node.css("script[data-pito--suggestions-target='catalog']")).not_to be_empty
+      end
+
+      it "renders the suggestions palette" do
+        expect(node.css("div.pito-suggestions-palette")).not_to be_empty
+      end
+
+      it "includes pito--suggestions in the chatbox controller list" do
+        wrapper = node.css("div#pito-chatbox").first
+        expect(wrapper["data-controller"]).to include("pito--suggestions")
+      end
+
+      it "renders the showcase ghost div" do
+        expect(node.css("div.pito-showcase-ghost")).not_to be_empty
+      end
+    end
+
     # ── Input history (up/down) ────────────────────────────────────────────────
 
     context "history param" do

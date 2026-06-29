@@ -28,20 +28,73 @@ RSpec.describe SyncGameJob, type: :job do
         allow(game).to receive(:reload).and_return(game)
       end
 
-      it "broadcasts a summary system event to the conversation" do
-        broadcaster = instance_double(Pito::Stream::Broadcaster, emit: nil, complete_turn: nil)
+      it "emits a thinking indicator before calling GameIgdbSync" do
+        broadcaster = instance_double(
+          Pito::Stream::Broadcaster,
+          emit: nil, emit_thinking: nil, resolve_thinking: nil, complete_turn: nil
+        )
+        allow(Pito::Stream::Broadcaster).to receive(:new).and_return(broadcaster)
+
+        described_class.new.perform(game.id, conversation_id: conversation.id)
+
+        expect(broadcaster).to have_received(:emit_thinking).with(
+          hash_including(dictionary: :syncing)
+        )
+      end
+
+      it "resolves the thinking indicator after the sync" do
+        broadcaster = instance_double(
+          Pito::Stream::Broadcaster,
+          emit: nil, emit_thinking: nil, resolve_thinking: nil, complete_turn: nil
+        )
+        allow(Pito::Stream::Broadcaster).to receive(:new).and_return(broadcaster)
+
+        described_class.new.perform(game.id, conversation_id: conversation.id)
+
+        expect(broadcaster).to have_received(:resolve_thinking)
+      end
+
+      it "broadcasts a system event with an HTML intro body" do
+        broadcaster = instance_double(
+          Pito::Stream::Broadcaster,
+          emit: nil, emit_thinking: nil, resolve_thinking: nil, complete_turn: nil
+        )
         allow(Pito::Stream::Broadcaster).to receive(:new).and_return(broadcaster)
 
         described_class.new.perform(game.id, conversation_id: conversation.id)
 
         expect(broadcaster).to have_received(:emit).with(
-          hash_including(kind: :system, payload: hash_including("text"))
+          hash_including(
+            kind:    :system,
+            payload: hash_including("body", "html" => true)
+          )
         )
+      end
+
+      it "renders the game title as the shimmered subject in the intro" do
+        described_class.new.perform(game.id, conversation_id: conversation.id)
+
+        event = conversation.events.where(kind: :system).last
+        expect(event.payload["body"]).to include("Ico")
+      end
+
+      it "completes the turn" do
+        broadcaster = instance_double(
+          Pito::Stream::Broadcaster,
+          emit: nil, emit_thinking: nil, resolve_thinking: nil, complete_turn: nil
+        )
+        allow(Pito::Stream::Broadcaster).to receive(:new).and_return(broadcaster)
+
+        described_class.new.perform(game.id, conversation_id: conversation.id)
+
         expect(broadcaster).to have_received(:complete_turn)
       end
 
       it "creates a turn for the sync" do
-        broadcaster = instance_double(Pito::Stream::Broadcaster, emit: nil, complete_turn: nil)
+        broadcaster = instance_double(
+          Pito::Stream::Broadcaster,
+          emit: nil, emit_thinking: nil, resolve_thinking: nil, complete_turn: nil
+        )
         allow(Pito::Stream::Broadcaster).to receive(:new).and_return(broadcaster)
 
         expect {

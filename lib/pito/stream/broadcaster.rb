@@ -55,11 +55,17 @@ module Pito
         @conversation = conversation
       end
 
+      # Kinds whose events are stamped with a reply_handle (if absent) so that
+      # the universal share/revoke/unshare verbs work on any :system/:enhanced/:confirmation
+      # message regardless of its reply_target.
+      HANDLE_STAMPING_KINDS = %w[system enhanced confirmation].freeze
+
       # Create an event, persist it, then immediately broadcast it.
       # Used by sync paths (auth, unauthenticated error) where persist + broadcast
       # happen together in the same controller action.
       def emit(turn:, kind:, payload:)
         Pito::Stream::EventPayload.validate!(kind:, payload:)
+        Pito::FollowUp.ensure_handle!(payload, conversation: @conversation) if HANDLE_STAMPING_KINDS.include?(kind.to_s)
         event = ::Event.create_with_position!(conversation: @conversation, turn:, kind:, payload:)
         broadcast_event(event)
         event
@@ -439,6 +445,24 @@ module Pito
           "pito:conversation:#{@conversation.uuid}",
           content:
         )
+      end
+
+      # Broadcast a Turbo Stream replace for the context meter (#pito-context-meter)
+      # after each turn, so the fill % updates as messages accumulate.
+      # Called from ChatDispatchJob after broadcast_showcase.
+      def broadcast_context_meter
+        event_count = @conversation.events.where.not(kind: :thinking).count
+        html = ApplicationController.renderer.render(
+          Pito::Shell::ContextMeterComponent.new(event_count:),
+          layout: false
+        ).html_safe
+        content = ApplicationController.helpers.turbo_stream.replace("pito-context-meter", html)
+        Turbo::StreamsChannel.broadcast_stream_to(
+          "pito:conversation:#{@conversation.uuid}",
+          content:
+        )
+      rescue StandardError => e
+        Rails.logger.warn("[Broadcaster] broadcast_context_meter failed: #{e.class}: #{e.message}")
       end
 
       # Broadcast a new showcase set (10–15 command strings) to the chatbox so

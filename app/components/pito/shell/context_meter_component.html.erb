@@ -1,0 +1,11 @@
+<div id="pito-context-meter" class="pito-context-meter" aria-label="Conversation context: <%= counter_text %>">
+  <span class="pito-context-meter__counter text-fg-dim"><%= counter_text %></span>
+  <div class="pito-context-meter__track">
+    <% if fill_pct > 0 %>
+      <div class="pito-context-meter__fill"
+           style="width: <%= fill_pct %>%; --ctx-pct: <%= fill_pct %>;">
+        <div class="pito-context-meter__gradient-bar"></div>
+      </div>
+    <% end %>
+  </div>
+</div>

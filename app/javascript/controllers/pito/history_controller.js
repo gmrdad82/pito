@@ -190,7 +190,11 @@ export default class extends Controller {
     // Move caret to end.
     field.selectionStart = field.selectionEnd = text.length
     // Notify other controllers (type-fx overlay, terminal-caret, draft autosave).
-    field.dispatchEvent(new Event("input", { bubbles: true }))
+    // detail.historyRecall=true lets the suggestions controller skip reopening the
+    // palette — a recalled slash entry ("/games") is in verb-stage and would
+    // otherwise cause the palette to open, blocking the next ↑/↓ from reaching
+    // this controller (stopImmediatePropagation in suggestions#handleKeydown).
+    field.dispatchEvent(new CustomEvent("input", { bubbles: true, detail: { historyRecall: true } }))
     this._applying = false
   }
 }

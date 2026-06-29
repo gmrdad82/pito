@@ -2,8 +2,8 @@
 
 module Pito
   module Grammar
-    Match = Data.define(:namespace, :name, :values, :kwargs, :leftovers, :unknowns, :confidence, :matched) do
-      def initialize(namespace:, name: nil, values: {}, kwargs: {}, leftovers: [], unknowns: [], confidence: 0.0, matched: false)
+    Match = Data.define(:namespace, :name, :values, :kwargs, :leftovers, :unknowns, :corrections, :confidence, :matched) do
+      def initialize(namespace:, name: nil, values: {}, kwargs: {}, leftovers: [], unknowns: [], corrections: {}, confidence: 0.0, matched: false)
         super
       end
 
@@ -14,6 +14,7 @@ module Pito
       # kwargs      — Hash slot_name(Symbol) => value, for :kv slots
       # leftovers   — Array<String> raw words not consumed by any slot
       # unknowns    — Array<String> words that targeted an enum slot but failed to resolve
+      # corrections — Hash raw_token(String) => canonical(String) for fuzzy-resolved tokens
       # matched     — Boolean, whether a spec matched at all
       # confidence  — Float 0.0..1.0
 

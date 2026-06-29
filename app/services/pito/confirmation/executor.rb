@@ -52,6 +52,8 @@ module Pito
             confirm_sync_channel_videos(payload)
           when "sync_game"
             confirm_sync_game(payload)
+          when "compact"
+            confirm_compact(payload)
           else
             Pito::Copy.render("pito.copy.confirmation.confirmed")
           end
@@ -231,6 +233,15 @@ module Pito
 
           SyncGameJob.perform_later(game.id, conversation_id: payload[:conversation_id].presence)
           Pito::Copy.render("pito.copy.sync.game_queued", { title: title })
+        end
+
+        # ── compact ─────────────────────────────────────────────────────────────
+        # Enqueues CompactJob (a no-op placeholder; real compaction comes later).
+        def confirm_compact(payload)
+          payload         = payload.with_indifferent_access
+          conversation_id = payload[:conversation_id]
+          CompactJob.perform_later(conversation_id)
+          Pito::Copy.render("pito.copy.compact.queued")
         end
 
         # Resolve a sync scope (`channel_ids` empty = all connected channels) to
