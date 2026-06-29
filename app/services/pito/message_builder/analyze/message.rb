@@ -92,11 +92,18 @@ module Pito
         # The two pending analyze events ({kind:, payload:}) — a `:system` + an
         # `:enhanced` — for one scope. Used by the chat handler AND the
         # glance→new-pair follow-up handler so both build identical messages.
+        # The :enhanced message is ALWAYS lifetime (owner 2026-06-29) — its
+        # audience-composition bars + retention are lifetime, so the whole card
+        # ignores shift+space. This also makes it cacheable with a 1-day TTL (0.9.0).
+        # The :system card keeps the shift+space period.
+        ENHANCED_PERIOD = "lifetime"
+
         def pair(level:, entity_ids:, title:, period:, conversation:, selection: nil)
           ROLES.map do |role|
+            role_period = role == "enhanced" ? ENHANCED_PERIOD : period
             {
               kind:    ROLE_KINDS.fetch(role),
-              payload: pending(role:, title:, level:, entity_ids:, period:, conversation:, selection:)
+              payload: pending(role:, title:, level:, entity_ids:, period: role_period, conversation:, selection:)
             }
           end
         end

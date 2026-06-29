@@ -239,7 +239,7 @@ module Pito
               id_text = "##{game.id}"
               token = helpers.tag.span(
                 id_text,
-                class: Pito::Shimmer::TokenComponent.css_class(id_text, extra: "tabular-nums whitespace-nowrap", seed: video.id),
+                class: Pito::Shimmer::TokenComponent.css_class(id_text, extra: "tabular-nums whitespace-nowrap", seed: video.id, clickable: true),
                 data:  Pito::Shimmer::TokenComponent.prefill_data("show game #{id_text}", submit: true)
               )
               helpers.safe_join([ token, " ", game.title ])

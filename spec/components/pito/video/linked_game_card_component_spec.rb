@@ -212,16 +212,16 @@ RSpec.describe Pito::Video::LinkedGameCardComponent do
     end
   end
 
-  it "renders the ID row as a shimmer token with the #<id> value" do
+  it "renders the ID row as a yellow kbd shimmer token with the #<id> value (clickable)" do
     node = render_inline(described_class.new(game: game))
-    shimmer = node.css("span.pito-token-shimmer")
+    shimmer = node.css("span.pito-kbd-shimmer")
     expect(shimmer).not_to be_empty
     expect(shimmer.first.text).to include("##{game.id}")
   end
 
   it "wires the #id token to prefill + auto-submit `show game #id` (J20)" do
     node = render_inline(described_class.new(game: game))
-    span = node.css("span.pito-token-shimmer").find { |s| s.text == "##{game.id}" }
+    span = node.css("span.pito-kbd-shimmer").find { |s| s.text == "##{game.id}" }
     expect(span).to be_present
     expect(span["data-controller"]).to eq("pito--chat-prefill")
     expect(span["data-action"]).to eq("click->pito--chat-prefill#fill")

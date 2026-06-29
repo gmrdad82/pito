@@ -473,6 +473,19 @@ RSpec.describe Pito::MessageBuilder::Analyze::Message do
       handles = pair.map { |item| item[:payload]["reply_handle"] }
       expect(handles.uniq.length).to eq(2)
     end
+
+    it "the :system card keeps the shift+space period; the :enhanced card is always lifetime" do
+      system_marker   = pair.first[:payload]["analyze"]
+      enhanced_marker = pair.second[:payload]["analyze"]
+      expect(system_marker["period"]).to eq("7d")
+      expect(enhanced_marker["period"]).to eq("lifetime")
+    end
+
+    it "the :enhanced intro references lifetime (not the shift+space period)" do
+      intro = pair.second[:payload]["analyze"]["intro"]
+      expect(intro).to include("lifetime")
+      expect(intro).not_to include("7d")
+    end
   end
 
   # ── .rerender ──────────────────────────────────────────────────────────────

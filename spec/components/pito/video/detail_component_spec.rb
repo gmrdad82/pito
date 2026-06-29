@@ -267,7 +267,7 @@ RSpec.describe Pito::Video::DetailComponent do
     it "wires the #id token to prefill + auto-submit `show video #id`" do
       node    = render_inline(described_class.new(video: video))
       id_text = "##{video.id}"
-      span    = node.css("span.pito-token-shimmer").find { |s| s.text == id_text }
+      span    = node.css("span.pito-kbd-shimmer").find { |s| s.text == id_text }
       expect(span).to be_present
       expect(span["data-controller"]).to eq("pito--chat-prefill")
       expect(span["data-action"]).to eq("click->pito--chat-prefill#fill")

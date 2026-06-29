@@ -54,6 +54,17 @@ RSpec.describe Pito::Share::UniversalActions do
       expect(payload["text"]).to include("/share/")
     end
 
+    it "mints the URL on the request origin when one is threaded through" do
+      result = handler.call(source_event: event, rest: "share", conversation:, origin: "https://dev.pitomd.com")
+      expect(result.events.first[:payload]["text"]).to include("https://dev.pitomd.com/share/")
+    end
+
+    it "falls back to PublicHosts.app_base when no origin is given" do
+      allow(Pito::PublicHosts).to receive(:app_base).and_return("http://localhost:3027")
+      result = handler.call(source_event: event, rest: "share", conversation:)
+      expect(result.events.first[:payload]["text"]).to include("http://localhost:3027/share/")
+    end
+
     it "is idempotent — calling share twice returns the same Share" do
       result1 = handler.call(source_event: event, rest: "share", conversation:)
       result2 = handler.call(source_event: event, rest: "share", conversation:)

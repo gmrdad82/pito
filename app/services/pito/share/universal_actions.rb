@@ -27,12 +27,17 @@ module Pito
       # Full set — the union used for short-circuit detection in the dispatch job.
       VERBS = (ALWAYS_AVAILABLE + SHARE_REQUIRED).freeze
 
-      def call(source_event:, rest:, conversation:)
+      # `origin` is the request origin (scheme + host + port, e.g.
+      # "https://dev.pitomd.com") captured in the controller and threaded through
+      # FollowUpDispatchJob — so the minted /share URL points at the host the owner
+      # is actually using (NOT the static PublicHosts.app_base, which is localhost in
+      # a tunnelled dev setup). Falls back to PublicHosts.app_base when absent.
+      def call(source_event:, rest:, conversation:, origin: nil)
         verb = rest.to_s.strip.split(/\s+/).first.to_s.downcase
 
         case verb
         when "share"
-          handle_share(source_event, conversation)
+          handle_share(source_event, conversation, origin)
         when "revoke", "unshare"
           unless ::Share.exists?(event_id: source_event.id)
             return Pito::FollowUp::Result::Error.new(
@@ -51,12 +56,13 @@ module Pito
 
       private
 
-      def handle_share(event, conversation)
+      def handle_share(event, conversation, origin = nil)
         share = ::Share.find_or_create_by!(event: event) do |s|
           s.conversation = conversation
         end
 
-        url = "#{Pito::PublicHosts.app_base}/share/#{share.uuid}"
+        base = origin.presence || Pito::PublicHosts.app_base
+        url  = "#{base.chomp('/')}/share/#{share.uuid}"
 
         Pito::FollowUp::Result::Append.new(
           events:  [ { kind: :system, payload: Pito::MessageBuilder::Text.call("pito.copy.share.shared_url", url:) } ],

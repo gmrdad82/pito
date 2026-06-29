@@ -134,6 +134,11 @@ stacks. (Bespoke analytics view components close out the tag.)
 
 ### Changed
 
+- **Analyze `:enhanced` is always lifetime** — the enhanced analyze card no longer
+  follows the shift+space period (its audience-composition bars + retention are
+  all lifetime anyway), so it shows the all-time picture and its intro copy says so
+  (a dedicated 50-variant lifetime dictionary). The `:system` card keeps the
+  shift+space period. (Sets up a 1-day-TTL cache for the enhanced card in 0.9.0.)
 - **Notification badge** in the mini-status is a compact cyan-shimmer **`N*`**
   (was `N notifs`) and is **clickable** — click it (or `ctrl+/`) to toggle the
   notifications sidebar. The /resume sidebar shortcut labels are trimmed to
@@ -160,6 +165,11 @@ stacks. (Bespoke analytics view components close out the tag.)
 
 ### Fixed
 
+- **`share` links use the host you're actually on** — the minted `/share/:uuid`
+  URL now uses the request origin (scheme + host + port, e.g.
+  `https://dev.pitomd.com`) instead of the static configured host (which read as
+  `http://localhost:3027` behind a tunnel). Threaded from the request through the
+  async dispatch job.
 - **Owner-set game platforms survive an IGDB re-sync** (no longer overwritten).
 - **`/connect`** no longer shows a no-handle confirmation when already connected.
 - **Channel avatar filenames are channel-unique** so the CDN can't serve a stale

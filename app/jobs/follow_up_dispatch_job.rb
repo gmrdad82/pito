@@ -31,7 +31,7 @@
 class FollowUpDispatchJob < ApplicationJob
   queue_as :default
 
-  def perform(event_id, rest:, turn_id: nil, period: nil, viewport_width: nil, channel: nil)
+  def perform(event_id, rest:, turn_id: nil, period: nil, viewport_width: nil, channel: nil, origin: nil)
     event        = Event.find(event_id)
     conversation = event.conversation
     broadcaster  = Pito::Stream::Broadcaster.new(conversation:)
@@ -39,11 +39,13 @@ class FollowUpDispatchJob < ApplicationJob
 
     # Universal verbs (share/revoke/unshare) work on ANY event that carries a
     # reply_handle — short-circuit before the per-target handler dispatch so they
-    # are never blocked by the target's actions_for gate.
+    # are never blocked by the target's actions_for gate. `origin` (request
+    # scheme+host+port) is threaded so `share` mints a URL on the host the owner
+    # is actually using.
     action = rest.to_s.split(/\s+/).first&.downcase
     result =
       if Pito::Share::UniversalActions::VERBS.include?(action)
-        Pito::Share::UniversalActions.new.call(source_event: event, rest:, conversation:)
+        Pito::Share::UniversalActions.new.call(source_event: event, rest:, conversation:, origin:)
       else
         target        = event.payload["reply_target"].to_s
         handler_class = Pito::FollowUp::Registry.for(target)

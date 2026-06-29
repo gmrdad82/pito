@@ -17,6 +17,11 @@ module Pito
       # links out of phase.
       DEFAULT_CLASS = "text-yellow pito-kbd-shimmer"
 
+      # Max displayed length before the (scheme-stripped) URL is ellipsised. The
+      # full URL always rides the href; only the visible text shortens, so a long
+      # YouTube Studio URL can't blow out the row (owner 2026-06-29).
+      MAX_DISPLAY_LEN = 38
+
       def initialize(url:, css_class: DEFAULT_CLASS)
         @url       = url
         @css_class = css_class
@@ -30,7 +35,8 @@ module Pito
       private
 
       def display_text
-        @url.sub(%r{\Ahttps?://(?:www\.)?}, "")
+        text = @url.to_s.sub(%r{\Ahttps?://(?:www\.)?}, "")
+        text.length > MAX_DISPLAY_LEN ? "#{text[0, MAX_DISPLAY_LEN - 1]}…" : text
       end
     end
   end

@@ -79,17 +79,17 @@ RSpec.describe Pito::Game::DetailComponent do
       expect(grid.text).to include("##{game.id}")
     end
 
-    it "wraps the #id in a pito-token-shimmer span" do
+    it "wraps the #id in a pito-kbd-shimmer span (yellow — clickable)" do
       node    = render_inline(described_class.new(game: game))
       id_text = "##{game.id}"
-      shimmer = node.css("span.pito-token-shimmer").find { |s| s.text == id_text }
+      shimmer = node.css("span.pito-kbd-shimmer").find { |s| s.text == id_text }
       expect(shimmer).to be_present
     end
 
     it "wires the #id token to prefill + auto-submit `show game #id`" do
       node    = render_inline(described_class.new(game: game))
       id_text = "##{game.id}"
-      span    = node.css("span.pito-token-shimmer").find { |s| s.text == id_text }
+      span    = node.css("span.pito-kbd-shimmer").find { |s| s.text == id_text }
       expect(span["data-controller"]).to eq("pito--chat-prefill")
       expect(span["data-action"]).to eq("click->pito--chat-prefill#fill")
       expect(span["data-pito--chat-prefill-text-value"]).to eq("show game ##{game.id}")
