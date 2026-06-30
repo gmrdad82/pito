@@ -46,9 +46,24 @@
   --font-mono:        "DejaVu Sans Mono", "ui-monospace", monospace;
   --text-base:        14px;
   --text-base--line-height: 1.4;
-  /* Single source of truth for the diagonal SHIMMER angle (score/ttb/tokens/
-     subject/hashtag/achievements + the chart-viz). Change here to retune all. */
-  --pito-shimmer-angle: 135deg;
+  /* ── Shimmer tokens (item 7) — single source of truth for ALL shimmers. ──
+     Angle + speed are GLOBAL (every shimmer uses them). Each shimmer family has
+     its own base/band colour tokens so they retune with one edit. */
+  --pito-shimmer-angle: 135deg;   /* diagonal sweep angle, everywhere */
+  --pito-shimmer-speed: 5s;       /* sweep duration, everywhere (incl. charts/badges) */
+  /* action — CLICKABLE elements (keys, links, clickable tokens): pito-blue + purple. */
+  --shimmer-action-base: var(--brand-pito);
+  --shimmer-action-band: var(--accent-purple);
+  /* network — ALL network activity (thinking, IGDB search/import, notif load-more):
+     the INVERSE of action (purple base + pito-blue band). */
+  --shimmer-network-base: var(--accent-purple);
+  --shimmer-network-band: var(--brand-pito);
+  /* subject + reference — fg-coloured text with an orange→yellow band. */
+  --shimmer-fg-base:   var(--fg-default);
+  --shimmer-fg-band-a: var(--accent-orange);
+  --shimmer-fg-band-b: var(--accent-yellow);
+  /* charts (Analytics visualizers) + score-bar + ttb: ONE shared band = pito-blue. */
+  --chart-shimmer: var(--brand-pito);
   --color-root:        var(--bg-root);
   --color-surface:     var(--bg-surface);
   --color-elevated:    var(--bg-elevated);
@@ -198,21 +213,24 @@ html {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 4px 12px;
   background: var(--bg-root);
   color: var(--fg-dim);
   border: 1px solid var(--border-faded);
-  max-width: min(1208px, calc(100vw - 20px));
+  /* Minimal chrome (13.36b/13.37b): 1px top/bottom, 2px left/right padding. */
+  padding: 1px 2px;
+  max-width: min(964px, calc(100vw - 20px));
   white-space: nowrap;
 }
 
-/* TOP pill: just inside the top of the scrollback area. */
+/* TOP pill: flush against the very top edge of the page, no top border (13.36b). */
 .pito-scroll-nav__pill--top {
-  top: 8px;
+  top: 0;
+  border-top: none;
 }
 
-/* BOTTOM pill: above the chatbox / context bar (chatbox ≈ 150px; 200px
-   gives comfortable clearance from both the context meter and the form). */
+/* BOTTOM pill: the controller sets `bottom` dynamically each update to the
+   scrollback's bottom edge so it "literally touches" the context bar regardless
+   of the chatbox height (13.37b). This 200px is only a pre-JS fallback. */
 .pito-scroll-nav__pill--bottom {
   bottom: 200px;
 }
@@ -244,15 +262,32 @@ html {
 
 /* ── Conversation column width (centered on desktop) ─────────── */
 /* The scrollback turns + the bottom controls/chatbox center at a fixed width on
-   desktop (md+) so a 6-cover message row (6*180 + 5*16 = 1160px) fits inside the
-   barred-segment frame; mobile stays full-width (owner 13.3). 1208 = 1160 + the
-   barred frame (4 bar + 6 gap + 22 left pad + 16 right pad). .pito-turn is styled
-   directly so cable-appended turns center too. */
+   desktop (md+) sized to the show-detail TWO-COLUMN layout: 450 + 450 columns +
+   the gap-4 (16px) between them = 916px content, which fits inside the barred-segment
+   frame; mobile stays full-width (owner 13.3 / 13.34 / 13.38). 964 = 916 + the
+   barred frame (4 bar + 6 gap + 22 left pad + 16 right pad = 48). Both detail
+   columns land at exactly 450px. .pito-turn is styled directly so cable-appended
+   turns center too. (List cover rows shrink their gap to fit 5 covers — 13.40.) */
+/* Mobile: the chatbox column carries the SAME 5px horizontal inset as the
+   scrollback (#pito-scrollback padding) so the chatbox left border lines up with
+   the messages. On desktop this is removed (the centered 964 box matches the
+   padding-less .pito-turn) — see the media query below (17.11). */
+.pito-conversation-col {
+  padding-inline: 5px;
+}
+
 @media (min-width: 768px) {
   .pito-turn,
   .pito-conversation-col {
-    max-width: 1208px;
+    max-width: 964px;
     margin-inline: auto;
+  }
+  /* The scrollback has a (now-visible, 13.13) scrollbar; the chatbox column does
+     not. A right-only scrollbar would shift the scrollback's centered content
+     left of the chatbox. Reserving a SYMMETRIC gutter keeps the scrollback's
+     centered .pito-turn aligned to the chatbox's left edge (13.33/13.38). */
+  #pito-scrollback {
+    scrollbar-gutter: stable both-edges;
   }
   /* .pito-conversation-col is a FLEX ITEM (child of the h-screen `flex flex-col`).
      On a flex item, cross-axis `margin-inline: auto` cancels the default stretch
@@ -261,6 +296,10 @@ html {
      line with the messages (.pito-turn). (13.20) */
   .pito-conversation-col {
     width: 100%;
+    /* Desktop: drop the mobile 5px — the centered 964 box already aligns with
+       the padding-less .pito-turn; the 5px would push the chatbox 5px right of
+       the messages' left border (17.11). */
+    padding-inline: 0;
   }
 }
 
@@ -329,30 +368,29 @@ html {
   100% { content: "⠋"; }
 }
 
-/* Ping-pong sweep: left→right over the first 75% of the cycle, then
-   right→left over the last 25% — same distance in a third of the time, so the
-   return leg is 3× faster. `linear` timing (set on .pito-shimmer) keeps each
-   leg's speed constant so the 3:1 ratio is exact. */
-@keyframes pito-shimmer-sweep {
-  0%   { background-position: -100% 0; }
-  75%  { background-position: 100% 0; }
-  100% { background-position: -100% 0; }
-}
-
 /* ── Shared component classes (moved from inline <style>) ───── */
 
-.pito-shimmer {
-  background: linear-gradient(
-    90deg,
-    var(--brand-pito) 0%,
-    var(--accent-purple) 50%,
-    var(--brand-pito) 100%
+/* network shimmer — ALL network activity (thinking block, IGDB search/import,
+   notification load-more). The INVERSE of the action shimmer (purple base +
+   pito-blue band), on the shared diagonal sweep + global angle/speed tokens. */
+.pito-network-shimmer {
+  background-image: linear-gradient(
+    var(--pito-shimmer-angle),
+    var(--shimmer-network-base) 0%,
+    var(--shimmer-network-base) 38%,
+    var(--shimmer-network-band) 50%,
+    var(--shimmer-network-base) 62%,
+    var(--shimmer-network-base) 100%
   );
-  background-size: 200% 100%;
+  background-size: 200% 200%;
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
-  animation: pito-shimmer-sweep 1.4s linear infinite;
+  animation: pito-action-shimmer-sweep var(--pito-shimmer-speed) linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pito-network-shimmer { animation: none; }
 }
 
 /* ── Analytics trend number (Pito::Analytics::Support::TrendNumber) ──
@@ -365,7 +403,7 @@ html {
 /* Gradient is a 50/50 diagonal sweep (same 135deg as kbd/token/hashtag shimmers):
    main accent at the ends, a yellow contrast band at 50%. Yellow pops against
    green and red without washing out to white the way the lighter orange does.
-   Reuses pito-kbd-shimmer-sweep + shared pito-shimmer-dN stagger offsets. */
+   Reuses pito-action-shimmer-sweep + shared pito-shimmer-dN stagger offsets. */
 .pito-trend-number--up {
   /* `color` sets currentColor for any inline icon child (e.g. 👍 in the likes
      cell) so the glyph picks up the accent; the text itself is painted by the
@@ -386,8 +424,8 @@ html {
   /* LONGHANDS, never the `animation` shorthand: the shorthand resets
      animation-delay to 0 and would clobber the `.pito-shimmer-dN` stagger
      applied to this same element. See the .pito-shimmer-dN block. */
-  animation-name: pito-kbd-shimmer-sweep;
-  animation-duration: 3.4s;
+  animation-name: pito-action-shimmer-sweep;
+  animation-duration: var(--pito-shimmer-speed);
   animation-timing-function: linear;
   animation-iteration-count: infinite;
 }
@@ -408,8 +446,8 @@ html {
   background-clip: text;
   -webkit-text-fill-color: transparent;
   /* LONGHANDS — see .pito-trend-number--up. */
-  animation-name: pito-kbd-shimmer-sweep;
-  animation-duration: 3.4s;
+  animation-name: pito-action-shimmer-sweep;
+  animation-duration: var(--pito-shimmer-speed);
   animation-timing-function: linear;
   animation-iteration-count: infinite;
 }
@@ -430,7 +468,7 @@ html {
    See the .pito-shimmer-dN block. */
 .pito-trend-number--up .pito-icon {
   animation-name: pito-trend-icon-up;
-  animation-duration: 3.4s;
+  animation-duration: var(--pito-shimmer-speed);
   animation-timing-function: linear;
   animation-iteration-count: infinite;
   animation-delay: inherit;
@@ -438,7 +476,7 @@ html {
 
 .pito-trend-number--down .pito-icon {
   animation-name: pito-trend-icon-down;
-  animation-duration: 3.4s;
+  animation-duration: var(--pito-shimmer-speed);
   animation-timing-function: linear;
   animation-iteration-count: infinite;
   animation-delay: inherit;
@@ -472,8 +510,8 @@ html {
   background-clip: text;
   -webkit-text-fill-color: transparent;
   /* LONGHANDS — see .pito-trend-number--up. */
-  animation-name: pito-kbd-shimmer-sweep;
-  animation-duration: 3.4s;
+  animation-name: pito-action-shimmer-sweep;
+  animation-duration: var(--pito-shimmer-speed);
   animation-timing-function: linear;
   animation-iteration-count: infinite;
 }
@@ -494,96 +532,91 @@ html {
    shimmer: yellow text with an orange band sweeping through. Staggered
    animation-delay buckets (-dN, negative so they start mid-cycle) keep tokens
    out of phase — they never all pulse together. Theme-aware accents. */
-@keyframes pito-kbd-shimmer-sweep {
+@keyframes pito-action-shimmer-sweep {
   0%   { background-position: 200% 200%; }
   100% { background-position: 0% 0%; }
 }
 
-.pito-kbd-shimmer {
+.pito-action-shimmer {
   background-image: linear-gradient(
     var(--pito-shimmer-angle),
-    var(--accent-yellow) 0%,
-    var(--accent-yellow) 38%,
-    var(--accent-orange) 50%,
-    var(--accent-yellow) 62%,
-    var(--accent-yellow) 100%
+    var(--shimmer-action-base) 0%,
+    var(--shimmer-action-base) 38%,
+    var(--shimmer-action-band) 50%,
+    var(--shimmer-action-base) 62%,
+    var(--shimmer-action-base) 100%
   );
   background-size: 200% 200%;
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
-  animation: pito-kbd-shimmer-sweep 3.4s linear infinite;
+  /* LONGHAND so the per-token .pito-shimmer-dN stagger (animation-delay) survives. */
+  animation-name: pito-action-shimmer-sweep;
+  animation-duration: var(--pito-shimmer-speed);
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .pito-kbd-shimmer { animation: none; }
+  .pito-action-shimmer { animation: none; }
 }
 
-/* ── Identifier shimmer (Pito::Shimmer::TokenComponent) ──────────
-   Channel @handles, the @all / period (28d) scope chips, and video/game #ids
-   get a slow diagonal cyan→pito-blue shimmer — same (reversed) sweep as the
-   keyboard shortcuts, with staggered -dN offsets so they never pulse in sync.
-   Reuses the pito-kbd-shimmer-sweep keyframe. */
-.pito-token-shimmer {
+/* Decorative identifier tokens — channel @handles, @all / period scope chips,
+   video/game #ids (Pito::Shimmer::TokenComponent decorative path). PLAIN text
+   (owner 17.4 — no shimmer); the class is the stable hook the chat-form
+   controller targets to update a cycled scope value. Colour inherits the
+   surrounding context (meta line dim, list cell default) — no override. */
+.pito-token { /* hook only — plain, inherits colour */ }
+
+/* ── Identifier shimmer (Pito::Shimmer::TokenComponent) ── RESERVED, UNUSED ──
+   Defined but no longer applied (owner 17.4): the reference band stays in the
+   stylesheet for future reuse. Slow diagonal fg→YELLOW shimmer (17.5).
+   Reuses the pito-action-shimmer-sweep keyframe. */
+.pito-reference-shimmer {
+  /* reference band = YELLOW only (owner 17.5) — both stops use band-b. */
   background-image: linear-gradient(
     var(--pito-shimmer-angle),
-    var(--accent-cyan) 0%,
-    var(--accent-cyan) 38%,
-    var(--brand-pito) 50%,
-    var(--accent-cyan) 62%,
-    var(--accent-cyan) 100%
+    var(--shimmer-fg-base) 0%,
+    var(--shimmer-fg-base) 38%,
+    var(--shimmer-fg-band-b) 47%,
+    var(--shimmer-fg-band-b) 53%,
+    var(--shimmer-fg-base) 62%,
+    var(--shimmer-fg-base) 100%
   );
   background-size: 200% 200%;
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
-  animation: pito-kbd-shimmer-sweep 3.4s linear infinite;
+  /* LONGHAND so the per-token .pito-shimmer-dN stagger (animation-delay) survives. */
+  animation-name: pito-action-shimmer-sweep;
+  animation-duration: var(--pito-shimmer-speed);
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .pito-token-shimmer { animation: none; }
+  .pito-reference-shimmer { animation: none; }
 }
 
-/* ── Hashtag shimmer (Pito::Shimmer::HashtagTokenComponent) ──────────
-   #hashtag reply tokens (e.g. #chi-4450) get a purple→blue diagonal shimmer
-   (purple base with a blue band) — same (reversed) sweep + shared -dN offsets,
-   distinct colour from the cyan identifier shimmer so reply handles read
-   differently from @handles / #ids. */
-.pito-hashtag-shimmer {
-  background-image: linear-gradient(
-    var(--pito-shimmer-angle),
-    var(--accent-purple) 0%,
-    var(--accent-purple) 38%,
-    var(--accent-blue) 50%,
-    var(--accent-purple) 62%,
-    var(--accent-purple) 100%
-  );
-  background-size: 200% 200%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  animation: pito-kbd-shimmer-sweep 3.4s linear infinite;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .pito-hashtag-shimmer { animation: none; }
-}
+/* (Hashtag reply tokens are now MUTED text — see Pito::Shimmer::HashtagTokenComponent;
+   the old .pito-hashtag-shimmer was removed in the item-7 shimmer revisit.) */
 
 /* ── Subject shimmer (Pito::Shimmer::SubjectComponent) ──────────
    The SUBJECT of a message intro (the %{title} / %{game} / %{name} value) gets
-   a pito-blue→purple diagonal shimmer — the INVERSE of the hashtag shimmer
-   (which is purple→blue): pito-blue at the ends, a purple band sweeping through
-   the centre. Same (reversed) 135deg sweep + shared -dN offsets as the other
-   families, mirroring the brand `.pito-shimmer` (--brand-pito → --accent-purple).
-   Reuses the pito-kbd-shimmer-sweep keyframe. */
+   a fg→ORANGE diagonal shimmer (owner 17.5): default fg at the ends, an orange
+   band sweeping through the centre. Same shared angle / speed / -dN offsets as
+   the other fg-band families (reference = the YELLOW counterpart).
+   Reuses the pito-action-shimmer-sweep keyframe. */
 .pito-subject-shimmer {
+  /* subject band = ORANGE only (owner 17.5) — both stops use band-a. */
   background-image: linear-gradient(
     var(--pito-shimmer-angle),
-    var(--brand-pito) 0%,
-    var(--brand-pito) 38%,
-    var(--accent-purple) 50%,
-    var(--brand-pito) 62%,
-    var(--brand-pito) 100%
+    var(--shimmer-fg-base) 0%,
+    var(--shimmer-fg-base) 38%,
+    var(--shimmer-fg-band-a) 47%,
+    var(--shimmer-fg-band-a) 53%,
+    var(--shimmer-fg-base) 62%,
+    var(--shimmer-fg-base) 100%
   );
   background-size: 200% 200%;
   -webkit-background-clip: text;
@@ -592,8 +625,8 @@ html {
   /* LONGHANDS, never the `animation` shorthand: the shorthand resets
      animation-delay to 0 and would clobber the `.pito-shimmer-dN` stagger
      applied to this same element. See the .pito-shimmer-dN block. */
-  animation-name: pito-kbd-shimmer-sweep;
-  animation-duration: 3.4s;
+  animation-name: pito-action-shimmer-sweep;
+  animation-duration: var(--pito-shimmer-speed);
   animation-timing-function: linear;
   animation-iteration-count: infinite;
 }
@@ -1004,12 +1037,25 @@ html {
   position: relative;
 }
 
-/* Taller chatbox: grow ONLY the vertical padding. Horizontal is left at the
-   segment default so the 22px text invariant holds — keeping the input aligned
-   with the scrollback segments and the Channel line. Padding is on the segment
-   content (the visible box), not the field-wrap, so the ghost geometry stays put. */
+/* Shorter chatbox (13.39): modest, symmetric vertical padding so the single-line
+   textarea sits vertically CENTERED in the purple zone. Horizontal padding is made
+   SYMMETRIC (22px both sides, was 16 right / 22 left) so the right-aligned hint slot
+   (right:0 of the field-wrap) is the SAME inset from the purple edge as the text
+   (left:0) is on the left. The 22px left keeps the text invariant with the
+   scrollback segments. */
 .chatbox-wrapper .pito-segment__content {
-  padding-block: 20px;
+  padding: 12px 22px;
+}
+
+/* Absolute-right hint slot on the textarea's line (13.39): vertically centered;
+   right:0 = the field-wrap's right edge = the symmetric 22px purple inset. Only one
+   child (c-to-chat / shift+tab / shift+space) is visible at a time. */
+.pito-chatbox__hint-slot {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  white-space: nowrap;
 }
 
 .pito-chatbox__filter {
@@ -1178,9 +1224,10 @@ html {
   /* Never let the component's own box exceed its container (the `=` fill already
      clips via min-width:0 + overflow:hidden; this caps the flex box too). */
   max-width: 100%;
-  /* Extra breathing room above so the floating score bubble (sits a line above
-     the bar) never touches the component above it (the TTB legend). */
-  margin-top: 1.75rem;
+  /* The score value is now INLINE on the bar line (no floating bubble above), so
+     the old 1.75rem top breathing room is gone — it was the visible gap above the
+     score in show game + similar games (13.29/13.30). */
+  margin-top: 0;
 }
 
 /* Witty label before the bar (e.g. "People Score"), on the same line. The
@@ -1305,6 +1352,10 @@ html {
   flex-direction: row-reverse;
   transform: translate(-100%, -50%);
 }
+
+/* Pull the value chip 2px CLOSER to the pillar/tick — toward it on each side (13.32a). */
+.pito-score-bar__marker--value-right .pito-score-bar__value { margin-left: -2px; }
+.pito-score-bar__marker--value-left  .pito-score-bar__value { margin-right: -2px; }
 
 /* ── Pito::TimeToBeatComponent ──────────────────────────────────
  *
@@ -1475,15 +1526,18 @@ html {
   pointer-events: none;
 }
 
-/* Value RIGHT of the tick: left:% is the tick centre; shift right by 1px gap. */
+/* Value RIGHT of the tick (footage in the LEFT half): offset the chip past the
+   tick by ~1ch (the tick glyph's width, less a 2px hug) so it mirrors the score
+   bar's tick+value spacing AND clears the opening "[" bracket even when footage
+   is 0 and the tick sits at the far-left cell (17.8 — value never overlaps "["). */
 .pito-ttb__footage-marker--value-right {
-  transform: translate(1px, -50%);
+  transform: translate(calc(1ch - 2px), -50%);
 }
 
-/* Value LEFT of the tick: shift left by (own width + 1px gap) so the value's
-   right edge lands exactly 1px before the tick. */
+/* Value LEFT of the tick (footage in the RIGHT half): the chip's right edge sits
+   ~1ch left of the tick, clearing the closing "]" bracket. */
 .pito-ttb__footage-marker--value-left {
-  transform: translate(calc(-100% - 1px), -50%);
+  transform: translate(calc(-100% - 1ch + 2px), -50%);
 }
 
 /* Edge-label clamping modifiers. */
@@ -1531,6 +1585,12 @@ html {
 [data-accent="completionist"] { color: color-mix(in oklch, var(--accent-red), var(--accent-purple)); }
 [data-accent="footage"]       { color: var(--fg-default); }
 
+/* The footage MARKER is an INVERT chip (page-bg text on a fg block), so the
+   generic [data-accent="footage"] tick color above must NOT bleed onto it —
+   that made the chip --fg-default text on a --fg-default bg = invisible (13.31).
+   Higher specificity restores the chip's readable inverted text. */
+.pito-ttb__footage-marker[data-accent="footage"] { color: var(--bg-root); }
+
 /* ── Score-bar & TTB-bar shimmer (Pito::ScoreBarComponent / Pito::TimeToBeatComponent) ──
    A pito-blue diagonal highlight band rides the `=` GLYPHS themselves — NOT the
    element's background rectangle. The band is layered as the TOP `background-image`
@@ -1562,7 +1622,7 @@ html {
   --pito-bar-band: linear-gradient(
     var(--pito-shimmer-angle),
     transparent calc(var(--pito-bar-sweep) - 14%),
-    color-mix(in oklch, var(--brand-pito) 72%, transparent) var(--pito-bar-sweep),
+    color-mix(in oklch, var(--chart-shimmer) 72%, transparent) var(--pito-bar-sweep),
     transparent calc(var(--pito-bar-sweep) + 14%)
   );
   /* Both layers fill the box and never move; only the band's stops sweep. */
@@ -1573,7 +1633,7 @@ html {
      animation-delay to 0 and would clobber the `.pito-shimmer-dN` stagger on this
      same element (Z32), making every bar pulse in sync. */
   animation-name: pito-bar-glyph-sweep;
-  animation-duration: 3.4s;
+  animation-duration: var(--pito-shimmer-speed);
   animation-timing-function: linear;
   animation-iteration-count: infinite;
 }
@@ -1645,16 +1705,34 @@ html {
   display: flex;
   flex-direction: column;    /* CTXF2: counter stacks ABOVE the track */
   align-items: flex-end;     /* counter right-aligned above the track */
-  margin-bottom: 4px;        /* small gap before the chatbox */
+  margin-bottom: 0;          /* 17.1: the meter TOUCHES the chatbox (no gap) */
   /* CTXBAR1: align the track to the REAL chatbox box (the elevated rectangle),
      not its left chroma — the chatbox segment insets its content by the accent
      bar (4px) + gap (6px), so inset the meter by the same 10px. */
   padding-left: 10px;
 }
 
+/* Header row above the track: conversation name (left) ⇔ counter (right). (13.39) */
+.pito-context-meter__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  width: 100%;
+  margin-bottom: 2px;        /* compact gap between header and track */
+}
+
+/* Conversation name at the left of the header — truncates so a long name never
+   pushes the counter off the row. ~24ch in the monospace face. */
+.pito-context-meter__name {
+  min-width: 0;
+  max-width: 24ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .pito-context-meter__counter {
   line-height: 1;
-  margin-bottom: 2px;        /* compact gap between counter and track */
 }
 
 .pito-context-meter__track {
@@ -1703,27 +1781,40 @@ html {
   background-size: 100% 100%;
   background-repeat: no-repeat;
   background-position: 0 0;
-  /* Shimmer band — inlined (not .pito-bar-shimmer) so we can use 4.4s duration
-     (between score/ttb 3.4s and analytics 5.5s) without clobbering other classes. */
-  --pito-bar-band: linear-gradient(
-    var(--pito-shimmer-angle),
-    transparent calc(var(--pito-bar-sweep) - 14%),
-    color-mix(in oklch, var(--brand-pito) 72%, transparent) var(--pito-bar-sweep),
-    transparent calc(var(--pito-bar-sweep) + 14%)
-  );
-  /* LONGHANDS: avoid the `animation` shorthand so a .pito-shimmer-dN stagger
-     on an ancestor never gets clobbered. */
-  animation-name: pito-bar-glyph-sweep;
-  animation-duration: 4.4s;
-  animation-timing-function: linear;
-  animation-iteration-count: infinite;
+  /* Item 7: the context bar no longer shimmers — the green→red gradient above is
+     all there is. New growth is shown by the lit-fuse comet (below) instead. */
+}
+
+/* ── Context-meter lit-fuse comet (item 7) ──────────────────────────
+   On each new distinct message the fill GROWS from the old % to the new %; the
+   controller (pito--context-comet) transitions the fill width and rides an
+   ORANGE glowing head at the leading edge — like a lit dynamite fuse — then it
+   fades (no trail, settles flat). */
+.pito-context-meter__fill {
+  transition: width 0.6s ease-out;
+}
+
+.pito-context-meter__comet {
+  position: absolute;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-orange);
+  box-shadow: 0 0 6px 2px var(--accent-orange), 0 0 12px 4px var(--accent-orange);
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.pito-context-meter__comet.is-lit {
+  opacity: 1;
+  transition: left 0.6s ease-out;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .pito-context-meter__gradient-bar {
-    animation: none;
-    --pito-bar-band: linear-gradient(transparent, transparent);
-  }
+  .pito-context-meter__fill { transition: none; }
+  .pito-context-meter__comet { display: none; }
 }
 
 /* ── Pito::Game::EnhancedComponent ─────────────────────────────
@@ -1761,20 +1852,79 @@ html {
 /* Channel grid: fixed 180px columns (NOT 1fr-stretched) so each channel card
    is exactly the same width as a similar-game cover (180px) — the two enhanced
    rows line up. auto-fit packs as many 180px cards per row as fit. */
-.pito-game-enhanced-message__channel-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, 180px);
-  justify-content: start;
-  /* Generous row gap: each score bar floats its bubble above itself, so wrapped
-     rows need clearance or the next row's handle crowds the bubble. */
-  gap: 2rem 1rem;
-  align-items: start;
-}
-
-.pito-game-enhanced-message__channel-col {
+/* show-game channel-matches: TWO columns — distribution (col 1) + recommendation
+   (col 2). On desktop they sit side by side, each ~450px, top-aligned so the two
+   read as one row of the same 5 channels (item 16); on mobile they stack. */
+.pito-game-channels {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 12px;
+}
+
+@media (min-width: 768px) {
+  .pito-game-channels {
+    flex-direction: row;
+    gap: 16px;
+    align-items: flex-start;
+  }
+  /* 450 + 450 + 16 gap = 916 = the 964px column's content width. */
+  .pito-game-channels__col {
+    flex: 1 1 0;
+    min-width: 0;
+    max-width: 450px;
+  }
+}
+
+/* Col 2 — recommendation kv-table: avatar (key) + score bar (value), one row each.
+   17.9: ROW-FOR-ROW alignment with col 1's braille bars. When 5 channels render,
+   the Bar visualizer packs 5 contiguous bars (gap 0, top_pad 0), each 2 braille
+   rows tall = 2.5em. So the reco rows are 2.5em tall with NO inter-row gap, and
+   the table starts at the column top — each avatar row lines up with its bar. */
+.pito-game-channels__reco-table {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.pito-game-channels__reco-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 2.5em;   /* = one braille bar (2 rows × --pito-rh 1.25em) */
+}
+
+/* Tiny avatar = the height of ONE braille bar (2.5em) — a CIRCLE with a 1px ring
+   (17.9; 2px read too thick). A fixed-size wrapper + overflow:hidden keeps it
+   square against the score row + Tailwind preflight `img{height:auto}`. The :xs
+   variant is regenerated at this size (channel.rb) so there is no browser
+   downscale. */
+.pito-game-channels__reco-avatar {
+  flex: 0 0 2.5em;
+  width: 2.5em;
+  height: 2.5em;
+  overflow: hidden;
+  border-radius: 50%;
+  border: 1px solid var(--border-faded);
+}
+
+.pito-game-channels__reco-avatar-img,
+.pito-game-channels__reco-avatar--placeholder {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  border-radius: 50%;
+}
+
+.pito-game-channels__reco-avatar--placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* The score bar fills the rest of the row. */
+.pito-game-channels__reco-score {
+  flex: 1 1 auto;
   min-width: 0;
 }
 
@@ -1785,9 +1935,10 @@ html {
   display: grid;
   grid-template-columns: repeat(auto-fit, 180px);
   justify-content: start;
-  /* Wider row gap: each score bar floats its bubble above the card, so wrapped
-     rows need clearance (mirrors the channel grid). */
-  gap: 2rem 1rem;
+  /* Column gap shrunk to 4px so the TOP 5 covers (180px each) fit one row in the
+     964px conversation column: 5×180 + 4×4 = 916 (13.40). Row gap stays generous
+     in case a narrow viewport wraps. */
+  gap: 2rem 4px;
 }
 
 /* Each card: narrow cover + title + id stacked. Cover is the 150%-scaled
@@ -1810,40 +1961,41 @@ html {
   display: block;
 }
 
-/* Game detail: two columns. Left (480px cover + fields) is fixed to the cover
-   width; right (description + bars) takes the rest. */
+/* Game detail: two columns. Left (450px cover + fields) is fixed to the cover
+   width; right (description + bars) takes the rest (= 450px in the 964px col). */
 .pito-game-detail__left {
   flex: 0 0 auto;
-  width: 374px;
+  width: 450px;
 }
 
-/* Bounded cover box: same 374×210 footprint as the show-video thumbnail (16:9
-   at 374px width). overflow:hidden clips the portrait cover to this window;
-   the image pans vertically to reveal the whole art over time. */
+/* Bounded cover box: same 450×253 footprint as the show-video thumbnail (16:9
+   at 450px width — matches the :display/:detail 450px variants, no CSS downscale).
+   overflow:hidden clips the portrait cover to this window; the image pans
+   vertically to reveal the whole art over time. (13.34) */
 .pito-game-detail__cover,
 .pito-video-linked-game-card__cover {
-  width: 374px;
-  height: 210px;  /* 374 × 9/16 ≈ 210px — matches .pito-video-detail__thumbnail */
+  width: 450px;
+  height: 253px;  /* 450 × 9/16 ≈ 253px — matches .pito-video-detail__thumbnail */
   overflow: hidden;
 }
 
-/* Cover image keeps its full portrait dimensions (374×499). The container's
-   overflow:hidden provides the visible window; translateY pans it. Shared by
-   the show-game detail cover and the show-video linked-game card cover. */
+/* Cover image keeps its full portrait dimensions (450×600 — the :detail variant).
+   The container's overflow:hidden provides the visible window; translateY pans it.
+   Shared by the show-game detail cover and the show-video linked-game card cover. */
 .pito-game-detail__cover img,
 .pito-video-linked-game-card__cover img {
-  width: 374px;
-  height: 499px;
+  width: 450px;
+  height: 600px;
   object-fit: cover;
   display: block;
 }
 
 /* Ken-Burns vertical pan: pans from top of cover to bottom and back in a
    slow ping-pong loop, revealing the whole portrait art over time.
-   289px = 499px (cover) − 210px (bounding box). */
+   347px = 600px (cover) − 253px (bounding box). */
 @keyframes pito-cover-pan {
   from { transform: translateY(0); }
-  to   { transform: translateY(-289px); }
+  to   { transform: translateY(-347px); }
 }
 
 /* Animation class applied to the cover <img> when art is attached. */
@@ -1975,19 +2127,19 @@ html:has(#pito-settings[data-fx="false"]) .pito-comet-reveal::after { display: n
    thumbnail's full width; right (description) takes the remaining space. */
 .pito-video-detail__left {
   flex: 0 0 auto;
-  width: 374px;
+  width: 450px;
 }
 
 /* Detail-message intro: lives at the top of the card's left column (above the
    cover/thumbnail), holding the timestamp + the witty intro line. It is a block
-   inside the 374px left column, so it wraps within that width and the right
+   inside the 450px left column, so it wraps within that width and the right
    column starts at the top beside it. Shared by the video and game detail. */
 .pito-game-detail__intro,
 .pito-video-detail__intro {
-  max-width: 374px;
+  max-width: 450px;
 }
 
-/* Thumbnail shows at its full cached size (374×210); never shrinks. */
+/* Thumbnail shows at its full cached size (450×253 — the :display variant); never shrinks. */
 .pito-video-detail__thumbnail {
   flex: 0 0 auto;
 }
@@ -2150,20 +2302,20 @@ html:has(#pito-settings[data-fx="false"]) .pito-comet-reveal::after { display: n
   border: 1px solid var(--fg-default);
 }
 
-/* Left column is fixed to the banner = vid-thumbnail width (374px, our backend
+/* Left column is fixed to the banner = vid-thumbnail width (450px, our backend
    resize) — it must NOT flex wider to fit the Shinies/stats (owner 2026-06-30).
    The right kv-table (flex-1) takes the rest; on a narrow viewport max-width caps it. */
 .pito-channel-detail__left {
   flex: 0 0 auto;
-  width: 374px;
+  width: 450px;
   max-width: 100%;
 }
 
-/* show-channel BANNER (our cached 374x210 16:9 copy) — the same box as a video
-   thumbnail; square corners (terminal aesthetic), scales down on a narrow column. */
+/* show-channel BANNER (our cached 450×253 16:9 :display variant) — the same box as
+   a video thumbnail; square corners (terminal aesthetic), scales down on a narrow column. */
 .pito-channel-detail__banner img {
   display: block;
-  width: 374px;
+  width: 450px;
   max-width: 100%;
   height: auto;
   object-fit: cover;
@@ -2293,10 +2445,18 @@ html:has(#pito-settings[data-fx="false"]) .pito-comet-reveal::after { display: n
   --scalars-label-w: 21ch;   /* TUNE: fits the longest label "Average view duration" (21ch) */
   --scalars-value-w: 10ch;   /* TUNE: fits the longest value, the likes/dislikes icon split */
 
-  display: flex;
-  flex-wrap: wrap;
-  column-gap: 3ch;    /* gap between adjacent pairs (≈ old gap-x-6 = 1.5rem) */
-  row-gap: 1.6rem;    /* ANALYTICS-GAP: more breathing room between rows (no hairline — too busy with the dot grids); rem = mobile-safe */
+  /* LOCKED 2-up layout invariant (same as .pito-game-channels): desktop = two
+     450px columns (450 + 450 + 16 gap = 916 = the 964px column content width);
+     mobile stacks to one column. Charts are COLS=45 (~378px) so they fit a 450px
+     column without clipping. Each cell contributes exactly ONE grid item — the
+     cell wrapper is display:contents, so its single child becomes the grid item. */
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);   /* mobile: one column, stacked */
+  gap: 1.6rem 16px;    /* row-gap = breathing room; column-gap = the locked 16px */
+}
+
+@media (min-width: 768px) {
+  .pito-analytics-scalars { grid-template-columns: repeat(2, minmax(0, 450px)); }
 }
 
 /* Each metric cell wrapper — carries the stable per-message dom-id
@@ -2462,7 +2622,7 @@ html:has(#pito-settings[data-fx="false"]) .pito-comet-reveal::after { display: n
     linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
           mask-composite: exclude;
-  animation: pito-badge-spin 3.4s linear infinite;
+  animation: pito-badge-spin var(--pito-shimmer-speed) linear infinite;
   animation-delay: inherit;
   pointer-events: none;
 }
@@ -2584,7 +2744,7 @@ html:has(#pito-settings[data-fx="false"]) .pito-comet-reveal::after { display: n
    including the standing ◉) sweeps a bright band through the next-tier colour.
    Base colour is currentColor (the data-accent next-tier hue above); a
    --fg-default contrast band sweeps diagonally via the shared
-   pito-kbd-shimmer-sweep keyframe (135°, 3.4s) so the direction/feel matches the
+   pito-action-shimmer-sweep keyframe (135°, 3.4s) so the direction/feel matches the
    kbd / token / hashtag shimmers. Per-element pito-shimmer-dN stagger (set in
    TrackComponent) keeps the run from pulsing as one flat block. Upcoming
    dots/connectors/ellipses carry neither class and stay dim + static. The
@@ -2610,8 +2770,8 @@ html:has(#pito-settings[data-fx="false"]) .pito-comet-reveal::after { display: n
      animation-delay to 0 and clobber the per-element stagger (Z35), syncing the
      whole reached run. The dN class is applied to each reached element by
      TrackComponent. */
-  animation-name: pito-kbd-shimmer-sweep;
-  animation-duration: 3.4s;
+  animation-name: pito-action-shimmer-sweep;
+  animation-duration: var(--pito-shimmer-speed);
   animation-timing-function: linear;
   animation-iteration-count: infinite;
 }
@@ -2855,7 +3015,7 @@ html:has(#pito-settings[data-fx="false"]) .pito-comet-reveal::after { display: n
   background-clip: text;
   color: transparent;
   animation-name: pito-bar-glyph-sweep;
-  animation-duration: 5.5s;
+  animation-duration: var(--pito-shimmer-speed);
   animation-timing-function: linear;
   animation-iteration-count: infinite;
 }
@@ -2954,7 +3114,7 @@ html:has(#pito-settings[data-fx="false"]) .pito-comet-reveal::after { display: n
   background-clip: text;
   color: transparent;
   animation-name: pito-bar-glyph-sweep;
-  animation-duration: 5.5s;
+  animation-duration: var(--pito-shimmer-speed);
   animation-timing-function: linear;
   animation-iteration-count: infinite;
 }
@@ -3040,7 +3200,7 @@ html:has(#pito-settings[data-fx="false"]) .pito-comet-reveal::after { display: n
   background-clip: text;
   color: transparent;
   animation-name: pito-bar-glyph-sweep;
-  animation-duration: 5.5s;
+  animation-duration: var(--pito-shimmer-speed);
   animation-timing-function: linear;
   animation-iteration-count: infinite;
 }

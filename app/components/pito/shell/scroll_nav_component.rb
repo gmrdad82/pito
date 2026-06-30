@@ -36,7 +36,7 @@ module Pito
       end
 
       # Yellow (clickable) shimmer CSS class for the jump token span.
-      # `clickable: true` selects the YELLOW pito-kbd-shimmer (not cyan).
+      # `clickable: true` selects the YELLOW pito-action-shimmer (not cyan).
       def token_class(text)
         Pito::Shimmer::TokenComponent.css_class(text, clickable: true)
       end

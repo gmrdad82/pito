@@ -9,8 +9,8 @@ module Pito
   # shimmer call site derives its `.pito-shimmer-dN` class from `offset_class`
   # so adjacent tokens never pulse in sync, and changing the bucket count is a
   # one-line edit here (mirrored by the `.pito-shimmer-d0..dN-1` classes in
-  # application.css). The colour classes (`.pito-token-shimmer`,
-  # `.pito-kbd-shimmer`, `.pito-hashtag-shimmer`) live in application.css.
+  # application.css). The colour classes (`.pito-reference-shimmer`,
+  # `.pito-action-shimmer`, `.pito-hashtag-shimmer`) live in application.css.
   module Shimmer
     # Number of shared staggered delay buckets (.pito-shimmer-d0..d{OFFSETS-1}).
     OFFSETS = 20

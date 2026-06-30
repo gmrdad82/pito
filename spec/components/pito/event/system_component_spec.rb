@@ -376,7 +376,7 @@ RSpec.describe Pito::Event::SystemComponent do
           { cells: [
             {
               text: "#7",
-              class: "pito-token-shimmer",
+              class: "pito-reference-shimmer",
               data: Pito::Shimmer::TokenComponent.prefill_data("show vid #7", submit: true)
             },
             { text: "Alpha Video", class: "text-fg pito-cell-title" }
@@ -500,11 +500,11 @@ RSpec.describe Pito::Event::SystemComponent do
 
     it "does not shimmer headings unless shimmer_heading is set" do
       grid = node.css("div.pito-data-grid").first
-      expect(grid.css("span.pito-token-shimmer").first(3)).to be_empty
+      expect(grid.css("span.pito-reference-shimmer").first(3)).to be_empty
     end
   end
 
-  describe "table_heading with shimmer_heading (sortable/interactive headers)" do
+  describe "table_heading with shimmer_heading (headings stay PLAIN — owner 17.4)" do
     subject(:node) do
       render_inline(described_class.new(payload: {
         body: "Results",
@@ -518,13 +518,14 @@ RSpec.describe Pito::Event::SystemComponent do
       }))
     end
 
-    it "shimmers every heading span with the cyan token shimmer + a shared offset" do
+    it "keeps every heading PLAIN muted text even when shimmer_heading is set" do
       grid = node.css("div.pito-data-grid").first
       heading_spans = grid.css("span").first(3)
       heading_spans.each do |span|
-        expect(span["class"]).to include("pito-token-shimmer")
-        expect(span["class"]).to match(/\bpito-shimmer-d\d+\b/)
-        expect(span["class"]).to include("font-bold")
+        expect(span["class"]).to include("text-fg-faded")
+        expect(span["class"]).not_to include("pito-reference-shimmer")
+        expect(span["class"]).not_to match(/\bpito-shimmer-d\d+\b/)
+        expect(span["class"]).not_to include("font-bold")
       end
     end
 
@@ -555,7 +556,7 @@ RSpec.describe Pito::Event::SystemComponent do
       grid = node.css("div.pito-data-grid").first
       heading_spans = grid.css("span").first(3)
       heading_spans.each do |span|
-        expect(span["class"]).not_to include("pito-token-shimmer")
+        expect(span["class"]).not_to include("pito-reference-shimmer")
         expect(span["class"]).not_to match(/\bpito-shimmer-d\d+\b/)
       end
     end
@@ -601,12 +602,13 @@ RSpec.describe Pito::Event::SystemComponent do
       }))
     end
 
-    it "shimmers EVERY heading (fixed #/Game AND added Genre/Year) with token shimmer + bold" do
+    it "keeps EVERY heading (fixed #/Game AND added Genre/Year) PLAIN — no shimmer/bold (owner 17.4)" do
       grid = node.css("div.pito-data-grid").first
       grid.css("span").first(4).each do |span|
-        expect(span["class"]).to include("pito-token-shimmer")
-        expect(span["class"]).to match(/\bpito-shimmer-d\d+\b/)
-        expect(span["class"]).to include("font-bold")
+        expect(span["class"]).to include("text-fg-faded")
+        expect(span["class"]).not_to include("pito-reference-shimmer")
+        expect(span["class"]).not_to match(/\bpito-shimmer-d\d+\b/)
+        expect(span["class"]).not_to include("font-bold")
       end
     end
 
@@ -646,7 +648,7 @@ RSpec.describe Pito::Event::SystemComponent do
     it "removes shimmer, bold, AND the cyan pito-table-heading--added from EVERY heading" do
       grid = node.css("div.pito-data-grid").first
       grid.css("span").first(4).each do |span|
-        expect(span["class"]).not_to include("pito-token-shimmer")
+        expect(span["class"]).not_to include("pito-reference-shimmer")
         expect(span["class"]).not_to match(/\bpito-shimmer-d\d+\b/)
         expect(span["class"]).not_to include("font-bold")
         expect(span["class"]).not_to include("pito-table-heading--added")

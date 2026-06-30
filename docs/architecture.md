@@ -251,6 +251,6 @@ multi-arch image.
 - **Host** — `PITO_APP_BASE_URL` (read in `production.rb`, mirrored by
   `Pito::PublicHosts`) drives Host Authorization, URL helpers, and `asset_host`. SSL
   is always forced, so a non-localhost host sits behind a TLS proxy (e.g. cloudflared).
-- **Hygiene** — `pito:tools:clean` (`Pito::Tools::Clean`) clears the `tmp/` scratch
+- **Hygiene** — `pito:clean` (`Pito::Tools::Clean`) clears the `tmp/` scratch
   (keeping `tmp/storage`, `tmp/pids`, `.keep`) + truncates dev `log/*.log`; dev blobs
   live in `public/pito-storage`, not tmp/. In Docker, logs are STDOUT (json-file rotation).

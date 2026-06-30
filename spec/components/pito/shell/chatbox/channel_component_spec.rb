@@ -11,14 +11,14 @@ RSpec.describe Pito::Shell::Chatbox::ChannelComponent do
 
   it "renders the channel as a shimmer @handle via ChannelHandleComponent" do
     node = render_inline(described_class.new(channel: "@all"))
-    shimmer = node.css("span.pito-token-shimmer").first
+    shimmer = node.css("span.pito-token").first
     expect(shimmer).not_to be_nil
     expect(shimmer.text).to eq("@all")
   end
 
   it "renders @gmrdad82 with the token shimmer" do
     node = render_inline(described_class.new(channel: "@gmrdad82"))
-    shimmer = node.css("span.pito-token-shimmer").first
+    shimmer = node.css("span.pito-token").first
     expect(shimmer).not_to be_nil
     expect(shimmer.text).to eq("@gmrdad82")
   end
@@ -28,7 +28,7 @@ RSpec.describe Pito::Shell::Chatbox::ChannelComponent do
     red = node.css("span.text-red").first
     expect(red).not_to be_nil
     expect(red.text).to eq("none")
-    expect(node.css("span.pito-token-shimmer")).to be_empty
+    expect(node.css("span.pito-token")).to be_empty
   end
 
   it "renders the shift+tab shortcut in bold yellow" do

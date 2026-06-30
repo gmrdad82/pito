@@ -53,8 +53,8 @@ RSpec.describe Pito::Event::ConfirmationSpinnerComponent do
       expect(node.text).to include("#{word}…")
     end
 
-    it "has pito-shimmer class on the word span" do
-      shimmer = node.css(".pito-thinking__word.pito-shimmer").first
+    it "has pito-network-shimmer class on the word span" do
+      shimmer = node.css(".pito-thinking__word.pito-network-shimmer").first
       expect(shimmer).not_to be_nil
       expect(shimmer.text).to include(word)
     end

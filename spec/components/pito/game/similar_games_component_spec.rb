@@ -47,7 +47,7 @@ RSpec.describe Pito::Game::SimilarGamesComponent do
 
     before do
       allow(Pito::Recommendations).to receive(:similar_games)
-        .with(game, limit: 6)
+        .with(game, limit: 5)
         .and_return(similar_results)
     end
 

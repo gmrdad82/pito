@@ -24,7 +24,7 @@ RSpec.describe Pito::ListPager::SentinelComponent do
       loader = node.css('[data-pito--list-pager-target="loader"]').first
       expect(loader).to be_present
       expect(loader["class"]).to include("hidden")
-      expect(loader.css("span.pito-shimmer")).not_to be_empty
+      expect(loader.css("span.pito-network-shimmer")).not_to be_empty
     end
 
     it "does NOT render the end-of-list copy" do

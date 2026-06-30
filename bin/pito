@@ -16,7 +16,7 @@
 #   console           Open a Rails console in the running web container.
 #   logs [args]       Tail container logs (default: follow web). e.g. pito logs --tail 50
 #   rake [task ...]   No task → list pito:* tasks; with a task → run it in-container.
-#   clean             Clear regenerable tmp + dev logs (pito:tools:clean).
+#   clean             Clear regenerable tmp + dev logs (pito:clean).
 #   backup [--list]   Back up DB + assets to ./backups/<ts>/ (keeps newest PITO_BACKUP_KEEP, default 7); --list shows existing.
 #   restore <dir>     Restore a backup dir (DB + assets) over the live stack (destructive, prompts).
 #   backup-schedule   Install a daily systemd timer that runs `pito backup`.
@@ -88,7 +88,7 @@ cmd="${1:-}"
 case "$cmd" in
   up|boot)   dc up "$@" ;;
   down)      dc down "$@" ;;
-  totp)      dc run --rm web bin/rails pito:tools:totp ;;
+  totp)      dc run --rm web bin/rails pito:totp ;;
   console)   dc exec web bin/rails console ;;
   logs)
     if [ $# -eq 0 ]; then dc logs -f --tail=200 web; else dc logs "$@"; fi
@@ -96,7 +96,7 @@ case "$cmd" in
   rake)
     if [ $# -eq 0 ]; then dc exec web bin/rails -T pito; else dc exec web bin/rails "$@"; fi
     ;;
-  clean)     dc exec web bin/rails pito:tools:clean ;;
+  clean)     dc exec web bin/rails pito:clean ;;
   backup)
     BACKUP_DIR="${PITO_BACKUP_DIR:-backups}"
     if [ "${1:-}" = "--list" ]; then

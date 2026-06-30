@@ -20,11 +20,17 @@
   <%# Scroll-nav pills — fixed-positioned, no effect on flex layout. %>
   <%= render Pito::Shell::ScrollNavComponent.new %>
 
-  <div class="pito-conversation-col" style="padding: 0 5px 32px;">
+  <%# Horizontal padding lives in CSS (17.11): 5px on mobile to match the
+      scrollback's 5px, 0 on desktop to match the centered .pito-turn (which has
+      none) so the chatbox left border lines up with the messages. %>
+  <div class="pito-conversation-col" style="padding-bottom: 32px;">
     <%# CTXF5: meter only inside an authenticated conversation — never for
         unauthenticated visitors, start_screen, or not_found. %>
     <% if @authenticated %>
-      <%= render Pito::Shell::ContextMeterComponent.new(event_count: @event_count) %>
+      <%= render Pito::Shell::ContextMeterComponent.new(
+            event_count: @event_count,
+            conversation_name: (@conversation.named? ? @conversation.display_name : nil)
+          ) %>
     <% end %>
     <%# Restore the conversation's last channel scope (shift+tab) and stats period
         (shift+space) so a reload keeps them; the chat-form controller persists

@@ -127,10 +127,10 @@ RSpec.describe Pito::Analytics::Visualizers::Area do
 
   it "renders a pre-rendered html caption RAW (subject + reference tokens survive)" do
     caption = %(<span class="pito-subject-shimmer">Views</span>: ) +
-              %(<span class="pito-token-shimmer">842K</span>.)
+              %(<span class="pito-reference-shimmer">842K</span>.)
     cap = render_chart(series: [ 5 ], caption:).css(".pito-metric__caption").first
     expect(cap.css("span.pito-subject-shimmer").text).to eq("Views")
-    expect(cap.css("span.pito-token-shimmer").text).to eq("842K")
+    expect(cap.css("span.pito-reference-shimmer").text).to eq("842K")
   end
 
   it "ticks ride the theme dim token (theme-dependent)" do

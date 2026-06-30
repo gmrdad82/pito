@@ -390,7 +390,7 @@ RSpec.describe Pito::Achievement::TrackComponent do
     end
 
     it "uses animation longhands (no shorthand) so the dN stagger survives" do
-      expect(reached_rule).to match(/animation-name:\s*pito-kbd-shimmer-sweep/)
+      expect(reached_rule).to match(/animation-name:\s*pito-action-shimmer-sweep/)
       expect(reached_rule).not_to match(/^\s*animation:\s/)
     end
 

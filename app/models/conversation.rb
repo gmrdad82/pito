@@ -29,6 +29,15 @@ class Conversation < ApplicationRecord
     title.present? && !title.match?(/\AUnnamed\b/)
   end
 
+  # True when the conversation still carries its AUTO-GENERATED default title
+  # ("Unnamed <N>") or no title at all — i.e. the user never named it. STRICTER
+  # than `!named?`: a user-chosen title that merely starts with "Unnamed" (e.g.
+  # "Unnamed thoughts") is NOT the default and returns false, so it is protected.
+  # Drives the nightly auto-purge (item 15): only the literal default is purgeable.
+  def default_title?
+    title.blank? || title.match?(/\AUnnamed \d+\z/)
+  end
+
   # True while an async delete is in flight — the sidebar renders this row as the
   # shimmering-dots placeholder instead of the title/timestamp (DeleteConversationJob
   # clears it by destroying the record). Persisted, so a mid-delete sidebar reopen
@@ -37,6 +46,16 @@ class Conversation < ApplicationRecord
 
   # Conversations with an in-flight async delete.
   def self.deleting = where.not(deleting_at: nil)
+
+  # Event kinds that count toward the CONTEXT meter (item 7): only distinct
+  # backend MESSAGES — :system, :enhanced, :confirmation. Excludes thinking/echo/
+  # error, AND the *_follow_up / mutate re-renders ("appends don't count").
+  CONTEXT_KINDS = %w[system enhanced confirmation].freeze
+
+  # Count of distinct messages filling the context meter.
+  def context_event_count
+    events.where(kind: CONTEXT_KINDS).count
+  end
 
   # ── Query helpers ────────────────────────────────────────────
   def self.singleton
@@ -74,6 +93,21 @@ class Conversation < ApplicationRecord
     cutoff = all_ordered.first.last_activity_at - 24.hours
     recent, older = all_ordered.partition { |c| c.last_activity_at > cutoff }
     { recent: recent, older: older }
+  end
+
+  # Conversations eligible for the nightly auto-purge (item 15): still carrying
+  # the AUTO-DEFAULT title ("Unnamed <N>"/blank) AND no activity in `older_than`
+  # (default 30 days). "Activity" = last_activity_at (COALESCE(MAX(events.created_at),
+  # created_at)), the same recency the sidebar shows. SQL filters the date via
+  # HAVING; the default-title test is applied in Ruby via `default_title?` — only
+  # the literal default is matched, so ANYTHING the user typed (even a title that
+  # starts with "Unnamed") is protected and can NEVER be selected for deletion.
+  # Returns an Array of ::Conversation.
+  def self.purgeable(older_than: 30.days.ago)
+    by_recent_activity
+      .having("COALESCE(MAX(events.created_at), conversations.created_at) < ?", older_than)
+      .to_a
+      .select(&:default_title?)
   end
 
   # Exact title match, case-insensitive — for `/resume <name>`. nil when blank/none.

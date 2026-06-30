@@ -22,7 +22,7 @@ RSpec.describe Pito::MessageBuilder::Channel::DisconnectConfirmation do
     end
 
     it "includes the shimmer-wrapped handle in body" do
-      expect(payload["body"]).to include("pito-token-shimmer")
+      expect(payload["body"]).to include("pito-token")
       expect(payload["body"]).to include("@gaming")
     end
 

@@ -19,7 +19,7 @@ RSpec.describe Pito::Table::LinkValueComponent do
   it "wears the yellow shimmer + a per-url stagger offset by default" do
     node = render_link(url: "https://youtube.com/@a")
     klass = node.css("a").first["class"]
-    expect(klass).to include("text-yellow").and include("pito-kbd-shimmer")
+    expect(klass).to include("text-yellow").and include("pito-action-shimmer")
     expect(klass).to match(/pito-shimmer-d\d+/)
   end
 

@@ -19,7 +19,7 @@ RSpec.describe Pito::Shell::Chatbox::FilterComponent do
 
     it "renders the value in a shimmer span" do
       node = render_inline(described_class.new(shortcut: "shift+space", value: "7d"))
-      shimmer = node.css("span.pito-token-shimmer").first
+      shimmer = node.css("span.pito-token").first
       expect(shimmer).not_to be_nil
       expect(shimmer.text).to eq("7d")
     end
@@ -29,7 +29,7 @@ RSpec.describe Pito::Shell::Chatbox::FilterComponent do
       spans = node.css("span.inline-flex.items-center.gap-2 > span")
       expect(spans.first["class"]).to include("font-bold")
       expect(spans.first["class"]).to include("text-yellow")
-      expect(spans.last["class"]).to include("pito-token-shimmer")
+      expect(spans.last["class"]).to include("pito-token")
     end
 
     it "renders various shortcut + value combinations with the shimmer" do
@@ -40,7 +40,7 @@ RSpec.describe Pito::Shell::Chatbox::FilterComponent do
       ].each do |shortcut, value|
         node = render_inline(described_class.new(shortcut: shortcut, value: value))
         expect(node.css("span.font-bold.text-yellow").text).to eq(shortcut)
-        expect(node.css("span.pito-token-shimmer").text).to eq(value)
+        expect(node.css("span.pito-token").text).to eq(value)
       end
     end
   end

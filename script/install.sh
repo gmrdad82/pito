@@ -368,7 +368,7 @@ do_install() {
 
   if [ "$CREDS_FRESH" = "1" ]; then
     say "Enrolling your login (TOTP) — scan the QR/secret below into an authenticator"
-    PITO_TAG="$TAG" docker compose run --rm web bin/rails pito:tools:totp || \
+    PITO_TAG="$TAG" docker compose run --rm web bin/rails pito:totp || \
       warn "TOTP enrollment failed — run './pito totp' once the stack is healthy."
   else
     warn "Existing install — keeping your data + TOTP enrollment (use './pito totp' to re-enroll)."

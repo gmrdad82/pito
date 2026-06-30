@@ -71,7 +71,7 @@ RSpec.describe Pito::MessageBuilder::Channel::Visit do
     end
 
     it "renders the consumed copy with no shimmer but a manual link" do
-      expect(payload["body"]).not_to include("pito-shimmer")
+      expect(payload["body"]).not_to include("pito-network-shimmer")
       expect(payload["body"]).to include("youtube.com")
     end
   end

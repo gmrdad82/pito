@@ -45,13 +45,25 @@ RSpec.describe Pito::Shell::ContextMeterComponent, type: :component do
       expect(node.text).to include("0%")
     end
 
-    # CTXF2: counter sits ABOVE the track (first child of the meter wrapper)
-    it "renders the counter before the track in DOM order (above in flex-column layout)" do
+    # CTXF2 / 13.39: the header (holding the counter) sits ABOVE the track.
+    it "renders the header (with counter) before the track in DOM order" do
       meter = node.css("#pito-context-meter").first
-      children = meter.children.select { |c| c.element? }
-      counter = children.find { |c| c["class"]&.include?("pito-context-meter__counter") }
-      track   = children.find { |c| c["class"]&.include?("pito-context-meter__track") }
-      expect(meter.children.to_a.index(counter)).to be < meter.children.to_a.index(track)
+      children = meter.children.select(&:element?)
+      header = children.find { |c| c["class"]&.include?("pito-context-meter__header") }
+      track  = children.find { |c| c["class"]&.include?("pito-context-meter__track") }
+      expect(children.index(header)).to be < children.index(track)
+      expect(header.css(".pito-context-meter__counter")).not_to be_empty
+    end
+
+    # 13.39 / Q3: conversation name at the LEFT of the header, only when named.
+    it "renders the conversation name on the left when present" do
+      named = render_inline(described_class.new(event_count: 5, conversation_name: "My Chat"))
+      expect(named.css(".pito-context-meter__name").text).to eq("My Chat")
+    end
+
+    it "renders no name span when the conversation is unnamed (nil/blank)" do
+      expect(render_inline(described_class.new(event_count: 5)).css(".pito-context-meter__name")).to be_empty
+      expect(render_inline(described_class.new(event_count: 5, conversation_name: "  ")).css(".pito-context-meter__name")).to be_empty
     end
 
     context "when at 50 events" do

@@ -6,13 +6,13 @@ RSpec.describe Pito::Event::ChannelHandleComponent do
   it "renders @handle with the token shimmer" do
     node = render_inline(described_class.new("all"))
     expect(node.text).to eq("@all")
-    expect(node.css("span.pito-token-shimmer")).to be_present
+    expect(node.css("span.pito-token")).to be_present
   end
 
   it "renders @manfyhard with the token shimmer" do
     node = render_inline(described_class.new("manfyhard"))
     expect(node.text).to eq("@manfyhard")
-    expect(node.css("span.pito-token-shimmer")).to be_present
+    expect(node.css("span.pito-token")).to be_present
   end
 
   it "renders nothing when handle is blank" do

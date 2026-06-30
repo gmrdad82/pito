@@ -15,7 +15,7 @@ module Pito
       # Yellow text with the diagonal yellow→orange shimmer sweep (same as the
       # keyboard-shortcut tokens). A per-url stagger offset keeps the two channel
       # links out of phase.
-      DEFAULT_CLASS = "text-yellow pito-kbd-shimmer"
+      DEFAULT_CLASS = "text-yellow pito-action-shimmer"
 
       # Max displayed length before the (scheme-stripped) URL is ellipsised. The
       # full URL always rides the href; only the visible text shortens, so a long

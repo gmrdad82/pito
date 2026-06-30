@@ -94,7 +94,7 @@ module Pito
               down: "-#{Pito::Formatter::CompactCount.call(lost.to_i)}"
             )
           end
-        { key: :subs_net, label: metric_label("subs_net"), series: @series[:subs], no_data: gained.nil? && lost.nil?, value: }
+        { key: :subs_net, label: metric_label("subs_net"), series: series_for(:subs), no_data: gained.nil? && lost.nil?, value: }
       end
 
       # Likes: "<likes>👍/<dislikes>👎" — green likes, red dislikes (em dash when
@@ -111,10 +111,24 @@ module Pito
               down: icon_count(dislikes, "thumbs-down", metric_label("dislikes"))
             )
           end
-        { key: :likes, label: metric_label("likes"), series: @series[:likes], no_data: likes.nil? && dislikes.nil?, value: }
+        { key: :likes, label: metric_label("likes"), series: series_for(:likes), no_data: likes.nil? && dislikes.nil?, value: }
       end
 
       private
+
+      # Series for a glance cell, with a min-1 floor so EVERY cell charts uniformly
+      # (17.7b). When a metric's own series is empty/nil but a sibling metric has
+      # data, fall back to a zero-filled series of that same length — the sparkline's
+      # BASELINE_DOTS floor then draws a truthful flat baseline (e.g. net subs +0/-0)
+      # instead of collapsing to a bare pair with no canvas. Returns nil only when
+      # NO metric has any series (the whole glance is series-less).
+      def series_for(key)
+        own = @series[key]
+        return own if own.present?
+
+        len = @series.values.map { |v| Array(v).length }.max.to_i
+        len.positive? ? Array.new(len, 0) : nil
+      end
 
       def build_cells(cfg_list)
         cfg_list.map do |cfg|
@@ -122,7 +136,7 @@ module Pito
           {
             key:     cfg[:key],
             label:   metric_label(cfg[:label]),
-            series:  @series[cfg[:key]],
+            series:  series_for(cfg[:key]),
             no_data: metric[:current].nil?,
             value:  render(Pito::Analytics::Support::TrendNumber.new(
               value:            metric[:current],

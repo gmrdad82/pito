@@ -61,7 +61,7 @@ RSpec.describe Pito::FollowUp::Handlers::ChannelDetail, type: :service do
     end
 
     it "renders the visiting shimmer" do
-      expect(result.events.first[:payload]["body"]).to include("pito-shimmer")
+      expect(result.events.first[:payload]["body"]).to include("pito-network-shimmer")
     end
 
     it "includes the channel's YouTube URL (not Studio)" do

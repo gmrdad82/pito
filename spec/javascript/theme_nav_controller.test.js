@@ -219,10 +219,10 @@ describe("pito--theme-nav controller", () => {
     expect(document.documentElement.dataset.theme).toBe("tokyo-night")
   })
 
-  // ── Click — highlight + preview ───────────────────────────────────────────
+  // ── Click / tap — applies directly (simulates Enter; no preview) ───────────
 
-  it("click on a row highlights it and previews its theme", async () => {
-    const { rows } = buildScaffold({
+  it("click on a row applies its theme (PATCH) and clears the sidebar", async () => {
+    const { rows, sidebar } = buildScaffold({
       themes: [
         { slug: "tokyo-night", current: true },
         { slug: "dracula", current: false },
@@ -234,12 +234,17 @@ describe("pito--theme-nav controller", () => {
 
     rows[2].dispatchEvent(new MouseEvent("click", { bubbles: true }))
 
-    expect(rows[2].classList.contains("pito-resume-highlight")).toBe(true)
-    expect(rows[0].classList.contains("pito-resume-highlight")).toBe(false)
-    expect(document.documentElement.dataset.theme).toBe("nord")
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      "/settings/theme",
+      expect.objectContaining({
+        method: "PATCH",
+        body: JSON.stringify({ theme: "nord" }),
+      })
+    )
+    expect(sidebar.innerHTML).toBe("")
   })
 
-  it("click on a child element inside a row highlights the row", async () => {
+  it("click on a child element inside a row applies that row's theme", async () => {
     const { rows } = buildScaffold({
       themes: [
         { slug: "tokyo-night", current: true },
@@ -254,8 +259,13 @@ describe("pito--theme-nav controller", () => {
     rows[1].appendChild(child)
     child.dispatchEvent(new MouseEvent("click", { bubbles: true }))
 
-    expect(rows[1].classList.contains("pito-resume-highlight")).toBe(true)
-    expect(document.documentElement.dataset.theme).toBe("dracula")
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      "/settings/theme",
+      expect.objectContaining({
+        method: "PATCH",
+        body: JSON.stringify({ theme: "dracula" }),
+      })
+    )
   })
 
   // ── Enter — apply (PATCH) ─────────────────────────────────────────────────

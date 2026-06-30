@@ -95,6 +95,14 @@ production:
     schedule: "0 1 * * *"
     description: "Notify a dated countdown for every game releasing within 30 days"
 
+  # Auto-purge unnamed conversations — daily at 03:00 UTC (after the 01:00/02:00
+  # nightly roster). Deletes UNNAMED conversations idle >30 days, one per-id job
+  # each (never named ones). See PurgeUnnamedConversationsJob.
+  purge_unnamed_conversations:
+    class: PurgeUnnamedConversationsJob
+    schedule: "0 3 * * *"
+    description: "Delete unnamed conversations with no activity in 30 days"
+
 development:
   # Notifications cleanup — daily at 01:00
   cleanup_notifications:
@@ -144,3 +152,9 @@ development:
     class: ReleaseCountdownJob
     schedule: "0 1 * * *"
     description: "Notify a dated countdown for every game releasing within 30 days"
+
+  # Auto-purge unnamed conversations — daily at 03:00 (dev parity).
+  purge_unnamed_conversations:
+    class: PurgeUnnamedConversationsJob
+    schedule: "0 3 * * *"
+    description: "Delete unnamed conversations with no activity in 30 days"

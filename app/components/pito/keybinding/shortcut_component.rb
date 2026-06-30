@@ -19,7 +19,7 @@ module Pito
       end
 
       def call
-        tag.span(@keys, class: "font-bold text-yellow pito-kbd-shimmer #{Pito::Shimmer.offset_class(@keys)}", **data_attrs)
+        tag.span(@keys, class: "font-bold text-yellow pito-action-shimmer #{Pito::Shimmer.offset_class(@keys)}", **data_attrs)
       end
 
       private

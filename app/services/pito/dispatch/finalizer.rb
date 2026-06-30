@@ -109,9 +109,10 @@ module Pito
       # then completes the turn). Otherwise resolves every remaining indicator and
       # completes the turn — the turn completes only once ALL indicators resolve.
       def complete(turn:, events:)
-        analytics = events.select { |e| Pito::MessageBuilder::Analytics::Enhanced.pending?(e) }
-        analyze   = events.select { |e| Pito::MessageBuilder::Analyze::Message.pending?(e) }
-        deferred  = analytics + analyze
+        analytics    = events.select { |e| Pito::MessageBuilder::Analytics::Enhanced.pending?(e) }
+        analyze      = events.select { |e| Pito::MessageBuilder::Analyze::Message.pending?(e) }
+        distribution = events.select { |e| Pito::MessageBuilder::Game::Channels.pending?(e) }
+        deferred     = analytics + analyze + distribution
 
         if deferred.any?
           # Resolve the ready messages' indicators now; leave the pending ones
@@ -119,8 +120,9 @@ module Pito
           # KIND has its own job (isolated stacks); whichever finishes last
           # completes the turn (via all_thinking_resolved?).
           (events - deferred).each { |e| @broadcaster.resolve_thinking_for(turn:, message_id: e.id) }
-          AnalyticsFillJob.perform_later(turn.id)   if analytics.any?
-          AnalyzePrepareJob.perform_later(turn.id) if analyze.any?
+          AnalyticsFillJob.perform_later(turn.id)           if analytics.any?
+          AnalyzePrepareJob.perform_later(turn.id)          if analyze.any?
+          ChannelDistributionFillJob.perform_later(turn.id) if distribution.any?
         else
           # Resolve every indicator (per-message + any orphan placeholder on a
           # zero-result turn), then complete.

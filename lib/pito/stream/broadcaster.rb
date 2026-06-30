@@ -466,7 +466,7 @@ module Pito
       # after each turn, so the fill % updates as messages accumulate.
       # Called from ChatDispatchJob after broadcast_showcase.
       def broadcast_context_meter
-        event_count = @conversation.events.where.not(kind: :thinking).count
+        event_count = @conversation.context_event_count
         html = ApplicationController.renderer.render(
           Pito::Shell::ContextMeterComponent.new(event_count:),
           layout: false

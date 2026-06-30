@@ -4,7 +4,7 @@ require "fileutils"
 
 module Pito
   module Tools
-    # Clears the scratch in `tmp/`. Backs `pito:tools:clean` / `pito clean`.
+    # Clears the scratch in `tmp/`. Backs `pito:clean` / `pito clean`.
     #
     # Policy (owner decision, 0.7.0): tmp/ is disposable EXCEPT a small protected
     # set — everything else under tmp/ is removed. Safe because dev Active Storage

@@ -128,6 +128,20 @@ export default class extends Controller {
     }
 
     const containerRect = this.scrollback.getBoundingClientRect()
+    const { scrollTop, clientHeight, scrollHeight } = this.scrollback
+
+    // EPS absorbs fractional-pixel rounding (devicePixelRatio) and trailing
+    // scroll padding so an edge can never leave a stale "1 above/below" pill.
+    const EPS = 4
+
+    // Not scrollable — every message fits in the viewport → nothing is above or
+    // below; hide BOTH pills (17.2: a short 4-message convo must show neither).
+    if (scrollHeight <= clientHeight + EPS) {
+      this.#hidePill("top")
+      this.#hidePill("bottom")
+      return
+    }
+
     const messages = Array.from(
       this.scrollback.querySelectorAll("[data-scrollback-message]")
     )
@@ -136,9 +150,19 @@ export default class extends Controller {
     let below = 0
     for (const el of messages) {
       const r = el.getBoundingClientRect()
-      if (r.bottom <= containerRect.top) above++
-      else if (r.top >= containerRect.bottom) below++
+      // Tolerance: a message straddling an edge by a sub-pixel is NOT fully out.
+      if (r.bottom <= containerRect.top + EPS) above++
+      else if (r.top >= containerRect.bottom - EPS) below++
     }
+
+    // Authoritative extremes (17.3/17.6): at the very top nothing is above; at
+    // the very bottom nothing is below. FORCE the count to 0 there so a sub-pixel
+    // straddle or the scrollback's trailing padding spacer can never keep a pill
+    // lit at the edge — the count, not just the show-condition, drops to 0.
+    const atTop    = scrollTop <= EPS
+    const atBottom = scrollTop + clientHeight >= scrollHeight - EPS
+    if (atTop) above = 0
+    if (atBottom) below = 0
 
     if (above > 0) {
       this.#showPill("top", above)
@@ -147,6 +171,12 @@ export default class extends Controller {
     }
 
     if (below > 0) {
+      // 17.2c: anchor the bottom pill flush to the BOTTOM of the scrollback —
+      // which is the TOP of the context bar directly beneath it — so it touches
+      // the context bar with no gap. documentElement.clientHeight is the stable
+      // layout viewport (unaffected by mobile browser chrome).
+      const viewportH = document.documentElement.clientHeight
+      this.bottomPillTarget.style.bottom = `${Math.max(0, viewportH - containerRect.bottom)}px`
       this.#showPill("bottom", below)
     } else {
       this.#hidePill("bottom")
@@ -182,12 +212,19 @@ export default class extends Controller {
     else this._bottomIdx = -1
   }
 
-  // Interpolate %{count} and %{direction} into the chosen variant template.
+  // Interpolate %{count} / %{direction} and resolve {singular|plural} nouns into
+  // the chosen variant template. A {a|b} token renders `a` when count is exactly
+  // 1, else `b` — so "1 more message above" / "3 more messages above" (17.3/17.6).
   #format(idx, count, direction) {
     const variants = this.variantsValue
     if (!variants.length) return String(count)
     const tmpl = variants[idx] || variants[0]
-    return tmpl.replace(/%\{count\}/g, count).replace(/%\{direction\}/g, direction)
+    return tmpl
+      .replace(/%\{count\}/g, count)
+      .replace(/%\{direction\}/g, direction)
+      .replace(/\{([^|{}]*)\|([^{}]*)\}/g, (_m, singular, plural) =>
+        count === 1 ? singular : plural
+      )
   }
 
   // Pick a random variant index, avoiding `exclude` (the opposite pill's index).

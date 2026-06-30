@@ -49,7 +49,8 @@ namespace :pito do
         if c.avatar.attached?
           c.avatar.variant(:lg).processed
           c.avatar.variant(:sm).processed
-          count += 2
+          c.avatar.variant(:xs).processed
+          count += 3
         end
       end
 

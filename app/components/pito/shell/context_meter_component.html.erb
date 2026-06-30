@@ -1,11 +1,23 @@
-<div id="pito-context-meter" class="pito-context-meter" aria-label="Conversation context: <%= counter_text %>">
-  <span class="pito-context-meter__counter text-fg-dim"><%= counter_text %></span>
+<div id="pito-context-meter" class="pito-context-meter" aria-label="Conversation context: <%= counter_text %>"
+     data-controller="pito--context-comet" data-pito--context-comet-pct-value="<%= fill_pct %>">
+  <%# Header row above the track: conversation NAME on the left (only when named),
+      the "xx%" counter on the right (13.39 / Q3). %>
+  <div class="pito-context-meter__header">
+    <% if conversation_name %>
+      <span class="pito-context-meter__name text-fg-dim"><%= conversation_name %></span>
+    <% else %>
+      <span></span>
+    <% end %>
+    <span class="pito-context-meter__counter text-fg-dim"><%= counter_text %></span>
+  </div>
   <div class="pito-context-meter__track">
     <% if fill_pct > 0 %>
-      <div class="pito-context-meter__fill"
+      <div class="pito-context-meter__fill" data-pito--context-comet-target="fill"
            style="width: <%= fill_pct %>%; --ctx-pct: <%= fill_pct %>;">
         <div class="pito-context-meter__gradient-bar"></div>
       </div>
+      <%# Lit-fuse comet head — parked off-screen until the controller animates a grow. %>
+      <div class="pito-context-meter__comet" data-pito--context-comet-target="comet"></div>
     <% end %>
   </div>
 </div>

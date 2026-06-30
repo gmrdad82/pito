@@ -301,7 +301,7 @@ bin/rails db:encryption:init             # paste the printed keys into the crede
 
 Then install your OS deps (below), run `bin/setup` (brings up Postgres + prepares the
 DB) and `bin/dev` → **http://localhost:3027**. Enroll your login with
-`bin/rails pito:tools:totp` — or, in development, just type `/login 123456` (a dev-only
+`bin/rails pito:totp` — or, in development, just type `/login 123456` (a dev-only
 dummy code; see [Operating PITO](#operating-pito)).
 
 | OS                | System packages                                                               |

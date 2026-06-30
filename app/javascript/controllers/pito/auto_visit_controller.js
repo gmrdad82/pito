@@ -1,6 +1,6 @@
 // Pito::AutoVisitController
 //
-// After a short delay, removes the pito-shimmer class from the copy target,
+// After a short delay, removes the pito-network-shimmer class from the copy target,
 // auto-clicks the link ONCE (opening the channel's YouTube page in a new tab),
 // then POSTs to the consume endpoint so the source event is persisted in its
 // :visited state. Because the persisted :visited body no longer mounts this
@@ -13,7 +13,7 @@
 //   consumeUrl  (String) — endpoint to POST { event_id } to after the click.
 //
 // Targets:
-//   copy   — the shimmer span; pito-shimmer is removed after the delay.
+//   copy   — the shimmer span; pito-network-shimmer is removed after the delay.
 //   link   — the hidden anchor to click.
 
 import { Controller } from "@hotwired/stimulus"
@@ -26,7 +26,7 @@ export default class extends Controller {
     const ms = this.delayValue || 1000
     this._timer = setTimeout(() => {
       if (this.hasCopyTarget) {
-        this.copyTarget.classList.remove("pito-shimmer")
+        this.copyTarget.classList.remove("pito-network-shimmer")
       }
       const anchor = this.hasLinkTarget
         ? this.linkTarget

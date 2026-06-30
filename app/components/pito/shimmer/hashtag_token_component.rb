@@ -2,17 +2,16 @@
 
 module Pito
   module Shimmer
-    # Renders a #hashtag reply token (e.g. #chi-4450) with the blue→purple
-    # shimmer (.pito-hashtag-shimmer) and a shared staggered offset
-    # (Pito::Shimmer.offset_class). Distinct colour from the cyan identifier
-    # shimmer so reply handles read differently from @handles / #ids.
+    # Renders a #hashtag reply token (e.g. #chi-4450) as MUTED text (item 7): the
+    # handle is a decorative label, not an action — the clickable reply affordance
+    # lives on shift+r. No shimmer (same muted treatment as the notification count).
     #
     #   render(Pito::Shimmer::HashtagTokenComponent.new(text: "#chi-4450"))
     class HashtagTokenComponent < ViewComponent::Base
-      SHIMMER_CLASS = "pito-hashtag-shimmer"
+      MUTED_CLASS = "text-fg-faded"
 
-      def self.css_class(text, extra: nil)
-        [ SHIMMER_CLASS, Pito::Shimmer.offset_class(text), extra ].compact.join(" ")
+      def self.css_class(_text, extra: nil)
+        [ MUTED_CLASS, extra ].compact.join(" ")
       end
 
       def self.html(text, extra: nil)

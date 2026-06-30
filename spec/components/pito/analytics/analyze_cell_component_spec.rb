@@ -27,8 +27,10 @@ RSpec.describe Pito::Analytics::AnalyzeCellComponent, type: :component do
       expect(node.at_css(".pito-loading-dots")).to be_present
     end
 
-    it "does NOT render a caption element" do
-      expect(node.at_css(".pito-metric__caption")).to be_nil
+    it "renders the comet INSIDE the caption slot (not floating over the canvas)" do
+      caption = node.at_css(".pito-metric__caption")
+      expect(caption).to be_present
+      expect(caption.at_css(".pito-loading-dots")).to be_present
     end
 
     it "sets the swap-target dom-id on the cell wrapper" do
