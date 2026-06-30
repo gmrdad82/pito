@@ -36,34 +36,43 @@ class AnalyzePrepareJob < ApplicationJob
     demographics_age:    :age
   }.freeze
 
+  # Pure FAN-OUT: per pending analyze event, enqueue one AnalyzeMetricJob per metric
+  # (each makes its own dedicated request + swaps its own cell). The message owns the
+  # fan + the barrier; the last metric to land per event rebuilds the ready state,
+  # resolves that message's indicator, and completes the turn. A pending event with
+  # no metric_keys resolves immediately so the turn never hangs.
   def perform(turn_id)
     turn = Turn.find_by(id: turn_id)
     return unless turn
 
     broadcaster = Pito::Stream::Broadcaster.new(conversation: turn.conversation)
-    cache = {}
-    begin
-      pending_events(turn).each do |event|
-        marker = event.payload["analyze"]
-        data   = (cache[signature(marker)] ||= compute(marker))
-        write_ready(event, broadcaster, data:)
+    fanned      = 0
+
+    pending_events(turn).each do |event|
+      keys = event.payload.dig("analyze", "metric_keys")
+      if keys.blank?
         broadcaster.resolve_thinking_for(turn:, message_id: event.id)
+        next
       end
-    ensure
-      broadcaster.complete_turn(turn:) if broadcaster.all_thinking_resolved?(turn:)
+
+      keys.each { |key| AnalyzeMetricJob.perform_later(event.id, key) }
+      fanned += keys.size
     end
+
+    broadcaster.complete_turn(turn:) if fanned.zero? && broadcaster.all_thinking_resolved?(turn:)
+  end
+
+  # Aggregate { scaffold:, charts:, likes:, bars: } for a marker — re-used by the
+  # last AnalyzeMetricJob to build the final persisted ready state via
+  # Message#ready_payload (the proven aggregate path; quota is not a concern).
+  def self.aggregate(marker)
+    new.send(:compute, marker)
   end
 
   private
 
   def pending_events(turn)
     turn.events.select { |e| Pito::MessageBuilder::Analyze::Message.pending?(e) }
-  end
-
-  # Signature per (level, ids, period, ROLE) — roles need different report sets, so
-  # each role computes its own scaffold (memoised so a re-run of the same is free).
-  def signature(marker)
-    [ marker["level"], Array(marker["entity_ids"]).sort, marker["period"], marker["role"] ].join(":")
   end
 
   # Returns { scaffold: {metric=>bool}, charts: {metric=>chart_hash}|nil } for the
@@ -227,11 +236,6 @@ class AnalyzePrepareJob < ApplicationJob
     else
       Pito::Analytics::DailySeries.for(groups:, window:)
     end
-  end
-
-  def write_ready(event, broadcaster, data:)
-    event.update!(payload: Pito::MessageBuilder::Analyze::Message.ready_payload(event, data:))
-    broadcaster.replace_event(event)
   end
 
   # level + entity_ids → [[channel, subjects], …] for Primitives.fetch:

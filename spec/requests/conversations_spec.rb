@@ -71,7 +71,7 @@ RSpec.describe "Conversation requests", type: :request do
 
     it "scrollback padding-bottom provides gap instead of the border-top hack" do
       get conversation_path(uuid: conversation.uuid)
-      expect(response.body).to include("padding: 32px 25px 20px")
+      expect(response.body).to include("padding: 32px 5px 20px")
     end
 
     it "does not use the invisible border-top colour hack" do

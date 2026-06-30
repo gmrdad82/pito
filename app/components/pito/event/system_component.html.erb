@@ -1,4 +1,4 @@
-<%= render(Pito::Segment::Component.new(accent:, background:, id: dom_id)) do %>
+<%= render(Pito::Segment::Component.new(accent:, background:, id: dom_id, scrollback_message: true)) do %>
   <% if sections.any? %>
     <%# Sections mode: body + all section detail rendered always-visible.
         Plain-text bodies type in order via the typewriter controller. %>

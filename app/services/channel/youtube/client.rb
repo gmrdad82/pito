@@ -620,6 +620,7 @@ class Channel
           default_language: snippet[:default_language],
           keywords: branding_channel[:keywords],
           avatar_url: default_thumb[:url],
+          banner_url: branding_image[:banner_external_url],
           # `watermarks.set` is a separate Data API call; the
           # `channels.list#brandingSettings` payload does NOT carry
           # watermark metadata back. Surface as nil so the caller keeps
@@ -644,7 +645,7 @@ class Channel
         {
           title: nil, handle: nil, description: nil, country: nil,
           default_language: nil, keywords: nil,
-          avatar_url: nil, watermark_url: nil, watermark_timing: nil,
+          avatar_url: nil, banner_url: nil, watermark_url: nil, watermark_timing: nil,
           watermark_offset_ms: nil, links: [], subscriber_count: nil,
           view_count: nil, video_count: nil, hidden_subscriber_count: false,
           published_at: nil

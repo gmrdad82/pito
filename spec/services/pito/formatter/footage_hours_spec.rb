@@ -4,18 +4,18 @@ require "rails_helper"
 
 RSpec.describe Pito::Formatter::FootageHours do
   describe ".call" do
-    # ── nil / zero / negative → em-dash ─────────────────────────────────────
-    it "returns em-dash for nil" do
-      expect(described_class.call(nil)).to eq("—")
+    # ── nil / zero / negative → "0h" (footage always has 0 as its fallback) ──
+    it "returns 0h for nil" do
+      expect(described_class.call(nil)).to eq("0h")
     end
 
-    it "returns em-dash for 0" do
-      expect(described_class.call(BigDecimal("0.0"))).to eq("—")
-      expect(described_class.call(0)).to eq("—")
+    it "returns 0h for 0" do
+      expect(described_class.call(BigDecimal("0.0"))).to eq("0h")
+      expect(described_class.call(0)).to eq("0h")
     end
 
-    it "returns em-dash for negative values" do
-      expect(described_class.call(BigDecimal("-2.5"))).to eq("—")
+    it "returns 0h for negative values" do
+      expect(described_class.call(BigDecimal("-2.5"))).to eq("0h")
     end
 
     # ── Whole numbers drop the decimal ──────────────────────────────────────
@@ -30,11 +30,6 @@ RSpec.describe Pito::Formatter::FootageHours do
 
     it "renders 2.5 hours as '2.5h'" do
       expect(described_class.call(BigDecimal("2.5"))).to eq("2.5h")
-    end
-
-    # ── Format shape ─────────────────────────────────────────────────────────
-    it "uses EM_DASH constant (not a plain hyphen)" do
-      expect(described_class::EM_DASH).to eq("—")
     end
   end
 end

@@ -34,6 +34,17 @@ RSpec.describe Pito::Achievement::BadgeComponent do
       end
       expect(faces.uniq).to eq([ "span" ])
     end
+
+    it "tags ONLY the compact form with the slim modifier (show channel/vid/game)" do
+      node = render_badge(threshold: 100, metric: :views, form: :compact)
+      expect(node.css(".pito-achievement-badge--compact").length).to eq(1)
+    end
+
+    it "leaves the extended form on the base class, untouched (no modifier)" do
+      node = render_badge(threshold: 100, metric: :views, form: :extended)
+      expect(node.css(".pito-achievement-badge--compact")).to be_empty
+      expect(node.css(".pito-achievement-badge").length).to eq(1)
+    end
   end
 
   # ── Content: full-word labels (not single-letter abbreviations) ──────────

@@ -22,9 +22,9 @@ module Pito
         nil
       end
 
-      # Small (50%, 120×120) avatar variant for the kv-table row.
+      # Small (60×60) avatar variant (:sm) for the kv-table row.
       def avatar_inline_url
-        @channel.avatar_inline_variant_url
+        @channel.avatar_inline_url
       rescue StandardError
         nil
       end
@@ -34,7 +34,7 @@ module Pito
       end
 
       def banner_url
-        @channel.banner_variant_url
+        @channel.banner_url
       rescue StandardError
         nil
       end

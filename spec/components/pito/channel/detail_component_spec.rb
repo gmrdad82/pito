@@ -14,9 +14,13 @@ RSpec.describe Pito::Channel::DetailComponent, type: :component do
     render_inline(described_class.new(channel: ch))
   end
 
-  it "renders the handle (cyan) and title in the kv-table" do
+  it "renders the handle as a clickable prefill token + the title in the kv-table" do
     node = render_card
     expect(node.text).to include("@gmrdad82").and include("GMR Dad")
+    # 13.12: the @handle is a clickable token that prefills + submits `show channel @handle`
+    handle = node.css("[data-pito--chat-prefill-text-value='show channel @gmrdad82']").first
+    expect(handle).to be_present
+    expect(handle["data-pito--chat-prefill-submit-value"]).to eq("true")
   end
 
   it "renders the Subs / Views / Vids word counters" do
@@ -81,6 +85,13 @@ RSpec.describe Pito::Channel::DetailComponent, type: :component do
       expect(node.at_css(".pito-channel-detail__avatar img")).to be_nil
       # …it lives in the kv-table (always present when an avatar is attached).
       expect(node.at_css("img.pito-channel-detail__avatar-inline")).to be_present
+    end
+
+    it "vertically centers the 'Avatar' kv-label to the avatar image (13.11)" do
+      attach_avatar
+      node = render_card
+      label = node.css("span.self-center").find { |s| s.text.include?(I18n.t("pito.channel.detail.avatar")) }
+      expect(label).to be_present
     end
   end
 

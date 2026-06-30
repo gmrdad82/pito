@@ -48,6 +48,22 @@ RSpec.describe Pito::Analytics::BrailleAreaChart do
     end
   end
 
+  describe "non-zero minimum bump" do
+    it "renders at least one dot above the baseline for a tiny positive value" do
+      # 1 against max 1000 → scaled = 0 without the min-bump fix; must show a bump.
+      out = described_class.call(series: [ 1, 1 ], cols: 4, rows: 2, max: 1000)
+      # Every column must be above the pure baseline char (⣀ = U+28C0)
+      baseline = "⣀"
+      expect(out.last.chars).to all(satisfy { |c| c != baseline })
+    end
+
+    it "leaves a genuine zero at the baseline (no false bump for 0)" do
+      out = described_class.call(series: [ 0, 0 ], cols: 4, rows: 2, max: 1000)
+      baseline = "⣀"
+      expect(out.last.chars).to all(eq(baseline))
+    end
+  end
+
   describe "fill is bottom-anchored (area chart)" do
     it "fills the FULL height for a flat non-zero series" do
       out = described_class.call(series: [ 5, 5, 5, 5 ], cols: 4, rows: 3)

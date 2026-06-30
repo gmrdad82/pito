@@ -344,11 +344,11 @@ RSpec.describe Pito::Game::DetailComponent do
       game.update!(footage_hours: 2)
 
       node = render_inline(described_class.new(game: game))
-      # Footage uses the ScoreBar-style ▼ value bubble, not a | tick.
-      bubble = node.css(".pito-ttb__footage-bubble").first
-      expect(bubble).not_to be_nil
-      # The bubble's value reflects the game's footage_hours via FootageHours.
-      expect(bubble.text).to include("2h")
+      # Footage renders as the inline marker beside the pillar (no bubble).
+      marker = node.css('.pito-ttb__footage-marker[data-accent="footage"]').first
+      expect(marker).not_to be_nil
+      # The marker's value reflects the game's footage_hours via FootageHours.
+      expect(marker.text).to include("2h")
     end
   end
 

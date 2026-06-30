@@ -23,12 +23,13 @@
       <span class="pito-score-bar__fill pito-bar-shimmer pito-bar-reveal <%= shimmer_offset_class %>" data-controller="pito--bar-reveal"><%= fill_text %></span>
       <span class="pito-score-bar__bracket">]</span>
       <% if overlay? %>
-        <% pct = overlay_left_percent %>
-        <span class="pito-score-bar__bubble <%= overlay_alignment_class %>" data-accent="score" style="left: <%= pct %>%;">
-          <span class="pito-score-bar__bubble-num"><%= s %></span>
-          <span class="pito-score-bar__bubble-arrow">&#9660;</span>
+        <%# Marker on the bar line: the tick at the (1–99 clamped) score position,
+            with the score value inline beside it — left of the tick when score<50,
+            right when >=50 (13.4). %>
+        <span class="pito-score-bar__marker <%= value_side_class %>" data-accent="score" style="left: <%= overlay_position_percent %>%;">
+          <span class="pito-score-bar__tick">|</span>
+          <span class="pito-score-bar__value"><%= s %></span>
         </span>
-        <span class="pito-score-bar__tick <%= overlay_alignment_class %>" data-accent="score" style="left: <%= pct %>%;">|</span>
       <% end %>
     </span>
   </span>

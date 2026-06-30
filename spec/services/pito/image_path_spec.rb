@@ -22,8 +22,8 @@ RSpec.describe Pito::ImagePath do
         expect(path).not_to include("http")
       end
 
-      it "returns a relative, host-less proxy path for a variant" do
-        path = described_class.call(game.cover_art, variant: ::Game::COVER_VARIANT)
+      it "returns a relative, host-less proxy path for a named variant" do
+        path = described_class.call(game.cover_art, variant: :strip)
 
         expect(path).to start_with("/rails/active_storage/")
         expect(path).not_to include("http")

@@ -1,4 +1,4 @@
-<%= render(Pito::Segment::Component.new(accent: :red)) do %>
+<%= render(Pito::Segment::Component.new(accent: :red, scrollback_message: true)) do %>
   <%# The whole error card reveals at once via the typewriter's visibility-toggle
       (htmlProse) so it types out in sequence with the rest of the turn. Errors
       are terminal (never replaced/consumed), so the skip guards (initial render /

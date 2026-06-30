@@ -41,6 +41,15 @@ live in `.claude/hooks/`, wired in `.claude/settings.local.json`.)
 - **One atomic task per sub-agent.** Never pack multi-step work into a single
   dispatch — that is the failure that wastes hours. Orchestrate task-by-task;
   verify each is green before starting the next.
+  - **A task is ONE deliverable, not a "feature".** A ViewComponent, its Stimulus
+    controller, and its specs are THREE tasks → three dispatches (or done inline).
+    A service and its wiring are two. There is **NO "it's cohesive / it's one
+    feature" exception** — that rationalization is exactly what this rule forbids.
+  - **Pre-dispatch check, EVERY Agent/Workflow call, no exception:** read the prompt
+    back. If it names more than one deliverable (a component AND a controller, code
+    AND specs, a service AND its callers), it is a violation — SPLIT it, or do it
+    inline yourself. Small/atomic work: do it inline, don't spawn an agent.
+  - When reviewing an agent's result, read the **changed files**, not its summary.
 - **Keep a visible TodoWrite list** mirroring the plan's tasks, flipped per
   transition (one `in_progress` at a time).
 - **One branch, commit per phase, push incrementally**, and verify CI is green

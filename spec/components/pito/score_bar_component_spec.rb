@@ -83,48 +83,40 @@ RSpec.describe Pito::ScoreBarComponent do
     end
   end
 
-  describe "#overlay_left_percent" do
+  describe "#overlay_position_percent" do
     it "returns nil when score is nil" do
-      comp = described_class.new
-      expect(comp.overlay_left_percent).to be_nil
+      expect(described_class.new.overlay_position_percent).to be_nil
     end
 
-    it "is the precise score percent (no cell snapping)" do
-      expect(described_class.new(score: 50).overlay_left_percent).to eq(50.0)
-      expect(described_class.new(score: 81).overlay_left_percent).to eq(81.0)
-      expect(described_class.new(score: 92).overlay_left_percent).to eq(92.0)
+    it "is the precise score percent within the track" do
+      expect(described_class.new(score: 50).overlay_position_percent).to eq(50.0)
+      expect(described_class.new(score: 81).overlay_position_percent).to eq(81.0)
     end
 
-    it "clamps to 0..100" do
-      expect(described_class.new(score: 100).overlay_left_percent).to eq(100.0)
-      expect(described_class.new(score: 0).overlay_left_percent).to eq(0.0)
+    it "clamps the POSITION to 1..99 so a 0/100 marker is never clipped" do
+      expect(described_class.new(score: 100).overlay_position_percent).to eq(99.0)
+      expect(described_class.new(score: 0).overlay_position_percent).to eq(1.0)
     end
   end
 
-  describe "#overlay_alignment_class — edge clamp (no overflow at the extremes)" do
-    it "centres the bubble/tick away from the edges" do
-      expect(described_class.new(score: 50).overlay_alignment_class).to eq("pito-score-bar__overlay--centered")
-      expect(described_class.new(score: 87).overlay_alignment_class).to eq("pito-score-bar__overlay--centered")
+  describe "#value_side_class — which side the inline value sits on" do
+    it "puts the value LEFT of the pillar for high scores (>= 50, pillar near the right)" do
+      expect(described_class.new(score: 50).value_side_class).to eq("pito-score-bar__marker--value-left")
+      expect(described_class.new(score: 87).value_side_class).to eq("pito-score-bar__marker--value-left")
     end
 
-    it "left-aligns near the start so a 0 never pokes past the left edge" do
-      expect(described_class.new(score: 0).overlay_alignment_class).to eq("pito-score-bar__overlay--at-start")
-      expect(described_class.new(score: 9).overlay_alignment_class).to eq("pito-score-bar__overlay--at-start")
+    it "puts the value RIGHT of the pillar for low scores (< 50, pillar near the left)" do
+      expect(described_class.new(score: 0).value_side_class).to eq("pito-score-bar__marker--value-right")
+      expect(described_class.new(score: 49).value_side_class).to eq("pito-score-bar__marker--value-right")
     end
 
-    it "right-aligns near the end so a 100 never pokes past the right edge" do
-      expect(described_class.new(score: 100).overlay_alignment_class).to eq("pito-score-bar__overlay--at-end")
-      expect(described_class.new(score: 95).overlay_alignment_class).to eq("pito-score-bar__overlay--at-end")
+    it "is blank when there is no score" do
+      expect(described_class.new.value_side_class).to eq("")
     end
 
-    it "falls back to centred when there is no score" do
-      expect(described_class.new.overlay_alignment_class).to eq("pito-score-bar__overlay--centered")
-    end
-
-    it "stamps the clamp class on BOTH the bubble and the tick" do
+    it "stamps the value-side class on the marker" do
       html = render_inline(described_class.new(score: 100)).to_html
-      expect(html).to include("pito-score-bar__bubble pito-score-bar__overlay--at-end")
-      expect(html).to include("pito-score-bar__tick pito-score-bar__overlay--at-end")
+      expect(html).to include("pito-score-bar__marker pito-score-bar__marker--value-left")
     end
   end
 
@@ -136,11 +128,10 @@ RSpec.describe Pito::ScoreBarComponent do
       expect(rule).to include("max-width: 100%")
     end
 
-    it "defines the three edge-clamp transform modifiers" do
-      expect(css).to include(".pito-score-bar__overlay--at-start")
-      expect(css).to include(".pito-score-bar__overlay--centered")
-      expect(css).to include(".pito-score-bar__overlay--at-end")
-      expect(css[/\.pito-score-bar__overlay--at-end\s*\{[^}]*\}/]).to include("translateX(-100%)")
+    it "defines the inline-value marker side modifiers" do
+      expect(css).to include(".pito-score-bar__marker--value-right")
+      expect(css).to include(".pito-score-bar__marker--value-left")
+      expect(css[/\.pito-score-bar__marker--value-left\s*\{[^}]*\}/]).to include("translate(-100%")
     end
   end
 
@@ -211,11 +202,12 @@ RSpec.describe Pito::ScoreBarComponent do
       expect(fill_rule).not_to match(/#[0-9a-fA-F]{3,8}\b/)
     end
 
-    it "renders the tick and bubble when score is present" do
+    it "renders the tick and inline value when score is present (no floating bubble)" do
       comp = described_class.new(score: 75)
       html = render_inline(comp).to_html
       expect(html).to include("pito-score-bar__tick")
-      expect(html).to include("pito-score-bar__bubble")
+      expect(html).to include("pito-score-bar__value")
+      expect(html).not_to include("pito-score-bar__bubble")
     end
 
     it "wires the fill for its own reveal (pito-bar-reveal + pito--bar-reveal controller)" do
@@ -232,10 +224,9 @@ RSpec.describe Pito::ScoreBarComponent do
       expect(html).not_to include("pito-score-bar__tick")
     end
 
-    it "includes the score value in the bubble" do
-      comp = described_class.new(score: 87)
-      html = render_inline(comp).to_html
-      expect(html).to include("87")
+    it "includes the score value in the marker" do
+      node = render_inline(described_class.new(score: 87))
+      expect(node.css(".pito-score-bar__marker .pito-score-bar__value").text).to include("87")
     end
 
     it "sets data-tier=missing on the muted bar when score is nil" do
@@ -266,10 +257,14 @@ RSpec.describe Pito::ScoreBarComponent do
       expect(bar).not_to be_empty
     end
 
-    it "positions the bubble + needle at the precise score percent (left: N%)" do
+    it "positions the marker at the precise score percent (left: N%)" do
       node = render_inline(described_class.new(score: 81))
-      html = node.to_html
-      expect(html).to include("left: 81.0%")
+      expect(node.to_html).to include("left: 81.0%")
+    end
+
+    it "clamps the marker position to 1..99 at the extremes" do
+      expect(render_inline(described_class.new(score: 100)).to_html).to include("left: 99.0%")
+      expect(render_inline(described_class.new(score: 0)).to_html).to include("left: 1.0%")
     end
   end
 

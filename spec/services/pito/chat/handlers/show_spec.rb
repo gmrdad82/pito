@@ -66,10 +66,10 @@ RSpec.describe Pito::Chat::Handlers::Show do
     expect(payload["reply_target"]).to eq("game_detail")
   end
 
-  it "does not emit an analytics message for a game with no linked videos" do
+  it "emits the at-a-glance even for a game with no linked videos (item 5: always present)" do
     events    = handler_for("game", "##{game.id}").call.events
     analytics = events.find { |e| e[:payload].dig("analytics", "status") == "pending" }
-    expect(analytics).to be_nil
+    expect(analytics).not_to be_nil
   end
 
   it "emits two enhanced recommendations messages (SimilarGames + Channels, kind :enhanced, each follow-up-able)" do
@@ -401,23 +401,20 @@ RSpec.describe Pito::Chat::Handlers::Show do
       event&.dig(:payload, "analytics", "period")
     end
 
-    it "when an explicit period param is set, the analytics pending payload carries it" do
+    # The at-a-glance is LOCKED to lifetime (item 5) — every metric is an all-time
+    # total — so the glance pending payload ALWAYS carries "lifetime", ignoring both
+    # an explicit period param and the conversation's stats_period (those still drive
+    # the `analyze` verb, not the glance).
+    it "forces the glance pending payload to lifetime, ignoring an explicit period param" do
       events = handler_with(period: "28d").call.events
-      expect(analytics_period_from(events)).to eq("28d")
+      expect(analytics_period_from(events)).to eq("lifetime")
     end
 
-    it "when period param is nil, the analytics pending payload falls back to the conversation's stats_period" do
-      conv = Conversation.singleton
-      conv.update!(stats_period: "28d")
-      events = handler_with(period: nil, conversation: conv).call.events
-      expect(analytics_period_from(events)).to eq("28d")
-    end
-
-    it "reads the conversation's stats_period, not a hardcoded default (proved with a non-default value)" do
+    it "forces lifetime even when the conversation has a non-default stats_period" do
       conv = Conversation.singleton
       conv.update!(stats_period: "3m")
       events = handler_with(period: nil, conversation: conv).call.events
-      expect(analytics_period_from(events)).to eq("3m")
+      expect(analytics_period_from(events)).to eq("lifetime")
     end
   end
 

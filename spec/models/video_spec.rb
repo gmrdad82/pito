@@ -101,6 +101,26 @@ RSpec.describe Video, type: :model do
     end
   end
 
+  # ── #thumbnail_variant_url ───────────────────────────────────────
+  describe "#thumbnail_variant_url" do
+    let(:saved) { create(:video) }
+
+    it "returns nil when no thumbnail is attached" do
+      expect(saved.thumbnail_variant_url).to be_nil
+    end
+
+    it "returns a host-less ActiveStorage proxy path when a thumbnail is attached" do
+      saved.thumbnail.attach(
+        io:           StringIO.new("fake-bytes"),
+        filename:     "thumbnail-#{saved.id}.jpg",
+        content_type: "image/jpeg"
+      )
+      url = saved.thumbnail_variant_url
+      expect(url).to be_a(String)
+      expect(url).to start_with("/rails/active_storage")
+    end
+  end
+
   # ── #category_name ───────────────────────────────────────────────
   describe "#category_name" do
     it "maps a known YouTube category id to its name" do

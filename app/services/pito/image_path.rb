@@ -9,7 +9,7 @@ module Pito
   # Returns nil when nothing is attached (or the variant can't be built) so
   # callers fall back to their placeholder.
   #
-  #   Pito::ImagePath.call(game.cover_art, variant: ::Game::COVER_VARIANT)
+  #   Pito::ImagePath.call(game.cover_art, variant: :strip)     # named variant (symbol)
   #   Pito::ImagePath.call(channel.avatar, variant: { resize_to_limit: [240, 240] })
   #   Pito::ImagePath.call(video.thumbnail)            # plain attachment, no variant
   class ImagePath

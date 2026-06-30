@@ -228,7 +228,7 @@ module Pito
       CONVERSATIONS = Vocabulary.define(
         name:     :conversations,
         dynamic:  true,
-        resolver: ->(context) { Conversation.order(updated_at: :desc).limit(50).pluck(:uuid) }
+        resolver: ->(context) { ::Conversation.order(updated_at: :desc).limit(50).pluck(:uuid) }
       ).freeze
 
       GAME_TITLES = Vocabulary.define(

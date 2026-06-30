@@ -12,17 +12,19 @@ class Video < ApplicationRecord
   has_many :achievements, as: :achievable, dependent: :destroy
   has_many :achievement_metrics, as: :achievable, dependent: :destroy
 
-  # Locally-cached thumbnail (374x210 JPEG, 16:9). Attached during sync/import
-  # via Video::Thumbnail::Ingest instead of hotlinking i.ytimg.com (which 429s).
-  has_one_attached :thumbnail
+  # Locally-cached thumbnail master (raw bytes from YouTube CDN). Attached
+  # during sync/import via Video::Thumbnail::Ingest instead of hotlinking
+  # i.ytimg.com (which 429s). Display resizing is handled by the named variant.
+  has_one_attached :thumbnail do |attachable|
+    attachable.variant :display, resize_to_fill: [ 450, 253 ]
+  end
 
   has_neighbors :summary_embedding
 
-  # Host-less ActiveStorage proxy path for the thumbnail variant, or nil when
-  # none is attached. Host-less so the image loads from whatever host serves the
-  # page (localhost, tunnel, production).
+  # Host-less ActiveStorage proxy path for the :display thumbnail variant
+  # (450×253, 16:9), or nil when none is attached.
   def thumbnail_variant_url
-    Pito::ImagePath.call(thumbnail, variant: { resize_to_limit: [ 374, 210 ] })
+    Pito::ImagePath.call(thumbnail, variant: :display)
   end
 
   # Stat readers — sourced from the polymorphic `stats` table via the

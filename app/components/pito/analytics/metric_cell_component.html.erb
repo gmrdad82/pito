@@ -1,0 +1,11 @@
+<%# One metric cell + its stable swap-target id. Loading → LoadingDots skeleton;
+    filled → Slots::Compact with the metric's series sparkline + scalar value. %>
+<div class="pito-analytics-scalars__cell"<% if dom_id %> id="<%= dom_id %>"<% end %>>
+  <% if loading? %>
+    <%= render(Pito::Analytics::Slots::Compact.new(name: label, loading: true)) %>
+  <% elsif no_data? %>
+    <%= render(Pito::Analytics::Slots::Compact.new(name: label, no_data: true)) { |c| c.with_scalar { na } } %>
+  <% else %>
+    <%= render(Pito::Analytics::Slots::Compact.new(name: label, series: series)) { |c| c.with_scalar { raw(value.to_s) } } %>
+  <% end %>
+</div>

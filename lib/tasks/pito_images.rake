@@ -31,5 +31,44 @@ namespace :pito do
       puts "Videos skipped (no/reauth connection):   #{result[:videos_skipped]}"   if result[:videos_skipped].positive?
       puts "Channels skipped (no/reauth connection): #{result[:channels_skipped]}" if result[:channels_skipped].positive?
     end
+
+    # Re-derive every DISPLAY VARIANT from the stored MASTER blob. Run this after
+    # re-syncing channels / videos / games (which fetch + attach the raw masters),
+    # or any time the variant dimensions change. Idempotent + safe to re-run; runs
+    # in the pito Docker CLI / production. (13.26)
+    #   rake pito:images:regenerate
+    desc "Regenerate all display variants (banner/avatar/thumbnail/cover) from their master blobs"
+    task regenerate: :environment do
+      count = 0
+
+      Channel.find_each do |c|
+        if c.banner.attached?
+          c.banner.variant(:display).processed
+          count += 1
+        end
+        if c.avatar.attached?
+          c.avatar.variant(:lg).processed
+          c.avatar.variant(:sm).processed
+          count += 2
+        end
+      end
+
+      Video.find_each do |v|
+        next unless v.thumbnail.attached?
+
+        v.thumbnail.variant(:display).processed
+        count += 1
+      end
+
+      Game.find_each do |g|
+        next unless g.cover_art.attached?
+
+        g.cover_art.variant(:detail).processed
+        g.cover_art.variant(:strip).processed
+        count += 2
+      end
+
+      puts "Regenerated #{count} image variants from masters."
+    end
   end
 end

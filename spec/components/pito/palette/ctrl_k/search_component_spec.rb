@@ -37,12 +37,12 @@ RSpec.describe Pito::Palette::CtrlK::SearchComponent do
     end
   end
 
-  describe "native block caret" do
-    it "styles the search input with the native block caret (.pito-block-caret + .font-mono)" do
+  describe "caret" do
+    it "uses the normal native caret (no block-caret) on the search input" do
       input = node.css("input[data-pito--command-palette-target='search']").first
       expect(input).to be_present
       expect(input["class"]).to include("font-mono")
-      expect(input["class"]).to include("pito-block-caret")
+      expect(input["class"]).not_to include("pito-block-caret")
     end
 
     it "renders no bespoke caret/trail machinery" do

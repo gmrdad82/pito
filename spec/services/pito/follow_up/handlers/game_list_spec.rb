@@ -25,9 +25,9 @@ RSpec.describe Pito::FollowUp::Handlers::GameList do
     result = handler.call(event:, rest: "show ##{game.id}", conversation:)
     expect(result).to be_a(Pito::FollowUp::Result::Append)
 
-    # A game with no linked videos emits: detail (:system) + SimilarGames (:enhanced) + Channels (:enhanced).
-    # Analytics is deferred only when the game has linked videos.
-    expect(result.events.map { |e| e[:kind] }).to eq([ :system, :enhanced, :enhanced ])
+    # A game emits: detail (:system) + SimilarGames (:enhanced) + Channels (:enhanced)
+    # + the at-a-glance (:enhanced, ALWAYS present — item 5).
+    expect(result.events.map { |e| e[:kind] }).to eq([ :system, :enhanced, :enhanced, :enhanced ])
     detail = result.events.find { |e| e[:kind] == :system }[:payload]
     expect(detail["body"]).to include("Lies of P")
     expect(detail["reply_target"]).to eq("game_detail")

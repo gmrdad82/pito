@@ -411,9 +411,10 @@ RSpec.describe Pito::MessageBuilder::Game::ListColumns do
         expect(result.first[:text]).to eq("5h")
       end
 
-      it "returns '—' when there is no footage" do
+      it "returns '0h' when there is no footage (always 0 fallback, never a dash)" do
+        game_with_footage.update!(footage_hours: 0)
         result = described_class.cells(game_with_footage, [ :footage ])
-        expect(result.first[:text]).to eq("—")
+        expect(result.first[:text]).to eq("0h")
       end
 
       it "has text-right, tabular-nums, and pito-cell-duration in cell class" do

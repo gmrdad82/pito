@@ -56,10 +56,10 @@ RSpec.describe "Dispatch pipeline parity (Finalizer)", type: :job do
       chat  = chat_result_events
       reply = reply_result_events
 
-      # Game with no linked videos: detail (:system) + similar-games (:enhanced) +
-      # channels (:enhanced). Linked-vids + analytics :enhanced are guarded out when
-      # the game has no linked videos.
-      expect(chat.map(&:kind)).to eq(%w[system enhanced enhanced])
+      # detail (:system) + similar-games (:enhanced) + channels (:enhanced) + the
+      # at-a-glance (:enhanced, ALWAYS present — item 5). Linked-vids is guarded out
+      # when the game has no linked videos; the glance is not.
+      expect(chat.map(&:kind)).to eq(%w[system enhanced enhanced enhanced])
       expect(reply.map(&:kind)).to eq(chat.map(&:kind))
     end
 

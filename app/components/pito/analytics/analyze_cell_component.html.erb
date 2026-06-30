@@ -1,0 +1,26 @@
+<%# One analyze metric cell → Slots::Regular (the <token>__metric_<key> swap target).
+    loading → skeleton; no_data → NoData + caption; filled → the metric's visualizer
+    (heart / area / bar) or a plain scalar, with the caption beneath. %>
+<% if loading? %>
+  <%= render(Pito::Analytics::Slots::Regular.new(key: key, token: token, loading: true)) %>
+<% elsif no_data? %>
+  <%= render(Pito::Analytics::Slots::Regular.new(key: key, token: token, no_data: true)) do |s| %>
+    <% s.with_caption { caption_p(caption) } %>
+  <% end %>
+<% else %>
+  <%= render(Pito::Analytics::Slots::Regular.new(key: key, token: token)) do |s| %>
+    <% if heart? %>
+      <% s.with_visualizer { render(Pito::Analytics::Visualizers::Heart.new(hearts: cell[:heart], caption: nil)) } %>
+      <% s.with_caption { caption_p(caption) } %>
+    <% elsif chart? %>
+      <% s.with_visualizer { render(Pito::Analytics::Visualizers::Area.new(metric: cell[:chart], series: cell[:series], target_daily: cell[:target_daily], caption: nil, trend: cell.fetch(:trend, true), reference_token: cell[:reference_token], dates: cell[:dates])) } %>
+      <% s.with_caption { caption_p(caption) } %>
+    <% elsif bars? %>
+      <% s.with_visualizer { render(Pito::Analytics::Visualizers::Bar.new(bars: cell[:bars], caption: nil)) } %>
+      <% s.with_caption { caption_p(caption) } %>
+    <% else %>
+      <%# scalar (comments): no chart — value + label as the caption line. %>
+      <% s.with_caption { caption_p("#{cell[:value]} #{cell[:label]}") } %>
+    <% end %>
+  <% end %>
+<% end %>

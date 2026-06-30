@@ -1,19 +1,17 @@
 # frozen_string_literal: true
 
-# Fills the analytics :enhanced message(s) for a turn, then resolves the turn.
+# Fans out a glance turn's analytics work. `show video` / `show game` / `show
+# channel` emit an :enhanced glance INSTANTLY with a pending marker (intro + a
+# loading skeleton of all metric cells); the Finalizer enqueues this job and defers
+# resolving those messages' indicators + completing the turn.
 #
-# `show video` / `show game` emit an analytics :enhanced event INSTANTLY with a
-# pending marker (intro only); the Finalizer enqueues this job and defers
-# resolving THAT message's per-message thinking indicator + completing the turn
-# to here. So the analytics card's own spinner stays up until the data lands,
-# while any plain messages in the same turn already resolved their indicators.
-#
-# For each analytics event: fetch the scalars for its scope+period, rewrite the
-# payload to the ready (intro + kv-table) state — PERSISTED so a mid-job refresh
-# still shows spinner+intro and a post-job refresh shows the data — broadcast a
-# replace so an open page updates live, then resolve THAT message's own indicator
-# (by `for_event_id`, never `.last`). The turn completes in an `ensure`, but only
-# once every indicator is resolved, so the dots never hide while one still spins.
+# This job does NO fetching. Its sole job is the fan-out: for each pending glance
+# event it enqueues ONE AnalyticsMetricJob per metric. Each metric then makes its
+# OWN dedicated YouTube request and swaps its OWN cell, fault-isolated — so one
+# metric failing never sinks the rest. The message owns fan + aggregate (the
+# barrier): the last metric to land per event resolves that message's indicator
+# and, when every indicator in the turn is resolved, completes the turn
+# (AnalyticsMetricJob#finalize).
 class AnalyticsFillJob < ApplicationJob
   queue_as :default
 
@@ -22,64 +20,25 @@ class AnalyticsFillJob < ApplicationJob
     return unless turn
 
     broadcaster = Pito::Stream::Broadcaster.new(conversation: turn.conversation)
-    begin
-      turn.events.where(kind: :enhanced).find_each do |event|
-        next unless analytics_event?(event)
+    fanned      = 0
 
-        # Fill the pending data (idempotent on retry — already-ready events skip
-        # the fetch but still get their indicator resolved below).
-        fill(event, broadcaster) if Pito::MessageBuilder::Analytics::Enhanced.pending?(event)
+    turn.events.where(kind: :enhanced).find_each do |event|
+      next unless Pito::MessageBuilder::Analytics::Enhanced.pending?(event)
 
-        # Resolve THIS message's own indicator (not `.last`) so a turn mixing a
-        # pending-analytics card with plain messages resolves each independently.
+      keys = event.payload.dig("analytics", "metric_keys")
+      if keys.blank?
+        # No metrics to fan — resolve this message's indicator now so the turn can
+        # still complete (no metric job will do it for this event).
         broadcaster.resolve_thinking_for(turn:, message_id: event.id)
+        next
       end
-    ensure
-      # Complete only once EVERY indicator in the turn is resolved — the ready
-      # messages were resolved by the Finalizer, the analytics ones just above —
-      # so the dots never vanish while another indicator is still spinning.
-      broadcaster.complete_turn(turn:) if broadcaster.all_thinking_resolved?(turn:)
+
+      keys.each { |key| AnalyticsMetricJob.perform_later(event.id, key) }
+      fanned += keys.size
     end
-  end
 
-  private
-
-  def fill(event, broadcaster)
-    marker = event.payload["analytics"]
-    scope  = resolve_scope(marker["scope_type"], marker["scope_id"])
-    result = scope ? Pito::Analytics::Scalars.for(scope: scope, period: marker["period"]) : Pito::Analytics::Scalars::UNAVAILABLE
-    # Additive day-series for the 4 charted glance metrics (scalars stay separate).
-    series = scope ? Pito::Analytics::GlanceSeries.for(scope: scope, period: marker["period"]) : {}
-    token  = marker["token"]
-
-    write_ready(event, broadcaster, scope:, period: marker["period"], result:, intro: marker["intro"], series:, token:)
-  rescue StandardError => e
-    Rails.logger.warn("[AnalyticsFillJob] event ##{event.id}: #{e.class}: #{e.message}")
-    write_ready(event, broadcaster, scope: nil, period: marker&.dig("period"), result: Pito::Analytics::Scalars::UNAVAILABLE, intro: marker&.dig("intro"), token: marker&.dig("token"))
-  end
-
-  def write_ready(event, broadcaster, scope:, period:, result:, intro:, series: {}, token: nil)
-    payload = Pito::MessageBuilder::Analytics::Enhanced.ready_payload(scope:, period:, result:, intro:, series:, token:)
-    # Preserve the glance's reply handle across the pending→ready rewrite so it
-    # stays repliable (→ FollowUp::Handlers::AnalyticsGlance).
-    if event.payload["reply_handle"].present?
-      payload["reply_handle"] = event.payload["reply_handle"]
-      payload["reply_target"] = event.payload["reply_target"]
-    end
-    event.update!(payload:)
-    broadcaster.replace_event(event)
-  end
-
-  def resolve_scope(type, id)
-    return nil unless %w[Video Game Channel].include?(type.to_s)
-
-    type.constantize.find_by(id: id)
-  end
-
-  # True for any enhanced event carrying an analytics marker (pending OR already
-  # filled). Used so a retry still resolves an indicator whose event was filled
-  # but whose resolve didn't land on the previous attempt.
-  def analytics_event?(event)
-    event.payload.is_a?(Hash) && event.payload["analytics"].present?
+    # If nothing was fanned anywhere, complete here so the turn never hangs; with
+    # metrics fanned, the last AnalyticsMetricJob completes the turn instead.
+    broadcaster.complete_turn(turn:) if fanned.zero? && broadcaster.all_thinking_resolved?(turn:)
   end
 end

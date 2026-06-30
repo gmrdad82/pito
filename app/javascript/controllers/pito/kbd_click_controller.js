@@ -68,10 +68,10 @@ const HANDLERS = {
     key(field, { key: "Tab" })
   },
 
-  // command_palette_controller's "m": dismiss any open sidebar + focus chatbox.
+  // command_palette_controller's "c": dismiss any open sidebar + focus chatbox.
   // We reproduce that handler's effect directly (it gates on activeElement, so
   // a synthetic document keydown would be unreliable right after a tap).
-  "m": () => {
+  "c": () => {
     if (document.querySelector("#pito-sidebar aside")) {
       window.dispatchEvent(new CustomEvent("pito:resume:dismiss"))
     }
@@ -111,7 +111,7 @@ export default class extends Controller {
   // mousedown fires before the tap moves focus. Preventing its default keeps the
   // chatbox from blurring when a hint chip is tapped — otherwise the focusout
   // swaps the focused-state hints (shift+tab / shift+space) away mid-tap and the
-  // mobile keyboard dismisses. Handlers that DO want focus (m / tab) set it
+  // mobile keyboard dismisses. Handlers that DO want focus (c / tab) set it
   // themselves. The classic "toolbar button that doesn't steal focus" pattern.
   hold(event) {
     event.preventDefault()
@@ -122,7 +122,7 @@ export default class extends Controller {
     if (!handler) return
     event.preventDefault()
     // Don't also bubble to the chatbox wrapper's click->chat-form#focusField:
-    // each handler manages focus itself (cyclers stay in place; m/tab focus).
+    // each handler manages focus itself (cyclers stay in place; c/tab focus).
     event.stopPropagation()
     handler()
   }

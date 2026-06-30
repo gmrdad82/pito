@@ -7,35 +7,44 @@ class Channel < ApplicationRecord
   has_many :achievements, as: :achievable, dependent: :destroy
   has_many :achievement_metrics, as: :achievable, dependent: :destroy
 
-  # Locally-cached avatar (240x240 JPEG). We attach OUR copy during sync via
-  # Channel::Avatar::Ingest instead of hotlinking yt3.ggpht.com (which 429s).
-  has_one_attached :avatar
+  # Locally-cached avatar (RAW master blob). We attach the unprocessed source
+  # bytes during sync via Channel::Avatar::Ingest instead of hotlinking
+  # yt3.ggpht.com (which 429s). Display resizing is handled by named variants:
+  #   :lg — 120×120 fill (item lists, recommended channels)
+  #   :sm —  60×60  fill (kv-table inline row in the show-channel detail card)
+  has_one_attached :avatar do |attachable|
+    attachable.variant :lg, resize_to_fill: [ 120, 120 ]
+    attachable.variant :sm, resize_to_fill: [ 60, 60 ]
+  end
 
-  # Host-less ActiveStorage proxy path for the avatar variant, or nil when none
-  # is attached (the view falls back to the placeholder). Host-less so the image
-  # loads from whatever host serves the page (localhost, tunnel, production).
+  # Host-less ActiveStorage proxy path for the :lg avatar variant (120×120),
+  # or nil when none is attached (the view falls back to the placeholder).
   def avatar_variant_url
-    Pito::ImagePath.call(avatar, variant: { resize_to_limit: [ 240, 240 ] })
+    Pito::ImagePath.call(avatar, variant: :lg)
   end
 
-  # Host-less proxy path for the SMALL (50%) avatar variant — a real 120×120
-  # ActiveStorage variant (displayed at 60px) used in the show-channel kv-table,
-  # NOT a CSS-scaled full image. Derived from the attached avatar, so it is
-  # available for any channel with an avatar (no sync needed) and auto-recomputes
-  # when the avatar blob changes on a later sync.
-  def avatar_inline_variant_url
-    Pito::ImagePath.call(avatar, variant: { resize_to_limit: [ 120, 120 ] })
+  # Host-less proxy path for the :sm avatar variant (60×60) — used in the
+  # show-channel kv-table. Derived from the master blob; auto-recomputes when
+  # the avatar blob changes on a later sync.
+  def avatar_inline_url
+    Pito::ImagePath.call(avatar, variant: :sm)
   end
 
-  # Locally-cached channel BANNER (374x210 JPEG, 16:9 — the same box as a video
-  # thumbnail). We attach OUR copy during sync via Channel::Banner::Ingest from
+  # Locally-cached channel BANNER (RAW master blob, sourced from the
+  # 2560×1440 YouTube CDN original). We attach the unprocessed bytes during
+  # sync via Channel::Banner::Ingest from
   # brandingSettings.image.banner_external_url, instead of hotlinking YouTube.
-  has_one_attached :banner
+  # Display resizing is handled by the named variant:
+  #   :display — 450×253 fill (16:9, detail card banner spot)
+  has_one_attached :banner do |attachable|
+    attachable.variant :display, resize_to_fill: [ 450, 253 ]
+  end
 
-  # Host-less ActiveStorage proxy path for the banner variant, or nil when none
-  # is attached (the detail card falls back to the avatar in the banner spot).
-  def banner_variant_url
-    Pito::ImagePath.call(banner, variant: { resize_to_limit: [ 374, 210 ] })
+  # Host-less ActiveStorage proxy path for the :display banner variant
+  # (450×253), or nil when none is attached (the detail card falls back
+  # gracefully).
+  def banner_url
+    Pito::ImagePath.call(banner, variant: :display)
   end
 
   # Stat readers — sourced from the polymorphic `stats` table via the

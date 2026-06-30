@@ -1,27 +1,34 @@
 # frozen_string_literal: true
 
-# Fetches the largest IGDB cover variant for a Game, normalizes it to a
-# canonical 374×499 (3:4) JPEG via libvips, and attaches it to
-# `game.cover_art` via ActiveStorage. 374px = two 180px similar-game covers
-# plus their 1rem (14px) gap, so the detail cover lines up with two of them.
+# Fetches the largest IGDB cover image for a Game and attaches the RAW bytes
+# UNCHANGED as `game.cover_art` (the master blob). Display resizing is handled
+# by ActiveStorage named variants at render time (:detail / :strip).
 #
-# Idempotency: skips re-fetch when the attachment already exists and was
-# created after `game.igdb_synced_at` (re-sync bumps that timestamp, forcing
-# a re-normalize on the next call).
+# Source: t_1080p — the largest IGDB CDN size, serving portrait game covers at
+# up to ~810×1080px. The raw bytes are attached as-is: no libvips processing,
+# no colour-space coercion, no JPEG re-encode.
+#
+# Idempotency (two gates):
+#   1. mtime gate — if the attachment was created AFTER `game.igdb_synced_at`
+#      the cover is considered fresh and the CDN is not queried at all (short-
+#      circuits the whole call). Re-syncing via Game::Igdb::SyncGame bumps
+#      `igdb_synced_at` first, so this gate is transparent to the sync path.
+#   2. digest gate — after fetching, if the raw bytes' MD5 matches the stored
+#      blob checksum the attachment is left untouched (no new blob created).
+#      This means re-syncs that see the same cover on the CDN are a storage
+#      no-op while still paying one CDN round-trip.
 #
 # Returns the ActiveStorage::Attached::One proxy when attached (or already
 # fresh). Returns nil when the Game has no `cover_image_id`.
 require "net/http"
 require "uri"
-require "tempfile"
+require "stringio"
+require "digest"
 
 class Game
   module CoverArt
     class Normalizer
-      MASTER_W       = 374
-      MASTER_H       = 499
-      JPEG_QUALITY   = 95
-      SOURCE_SIZE    = "t_cover_big_2x"
+      SOURCE_SIZE = "t_1080p"
 
       OPEN_TIMEOUT_SEC  = 5
       READ_TIMEOUT_SEC  = 10
@@ -34,26 +41,31 @@ class Game
 
       def call
         return nil if @game.cover_image_id.blank?
-        # force: re-fetch + re-attach even when the current attachment is fresh
-        # (used by the cover_art:regenerate task after a size change). The new
-        # blob replaces the old; a fetch failure raises before attaching, so the
-        # existing cover is never lost.
         return @game.cover_art if !@force && fresh?
 
-        buffer = fetch_source_bytes
-        img    = normalize(buffer)
-        attach_to_game(img)
+        raw_bytes, content_type = fetch_source_bytes
+        return @game.cover_art if !@force && attached_matches?(raw_bytes)
 
+        attach_master(raw_bytes, content_type)
         @game.cover_art
       end
 
       private
 
+      # True when an attachment already exists and was created AFTER the last
+      # IGDB sync (meaning this normalizer already ran for the current sync).
       def fresh?
         return false unless @game.cover_art.attached?
         return false if @game.igdb_synced_at.blank?
 
         @game.cover_art.attachment.created_at >= @game.igdb_synced_at
+      end
+
+      # True when the current blob's MD5 checksum matches the supplied raw bytes.
+      # ActiveStorage stores the base64-encoded MD5 digest per blob.
+      def attached_matches?(bytes)
+        @game.cover_art.attached? &&
+          @game.cover_art.blob.checksum == Digest::MD5.base64digest(bytes)
       end
 
       def fetch_source_bytes
@@ -72,42 +84,16 @@ class Game
             detail:    "#{@game.cover_image_id} (#{SOURCE_SIZE})"
           )
         end
-        response.body
+        content_type = response["content-type"]&.split(";")&.first&.strip || "image/jpeg"
+        [ response.body, content_type ]
       end
 
-      def attach_to_game(img)
-        Tempfile.create([ "cover_art_#{@game.id}", ".jpg" ]) do |tmp|
-          tmp.binmode
-          img.jpegsave(tmp.path, Q: JPEG_QUALITY, strip: true, optimize_coding: true)
-          tmp.rewind
-          @game.cover_art.attach(
-            io:           tmp,
-            filename:     "cover.jpg",
-            content_type: "image/jpeg"
-          )
-        end
-      end
-
-      def normalize(buffer)
-        require "vips"
-        img = Vips::Image.new_from_buffer(buffer, "")
-
-        target_aspect = MASTER_W.to_f / MASTER_H
-        source_aspect = img.width.to_f / img.height
-
-        if (source_aspect - target_aspect).abs > 0.001
-          if source_aspect > target_aspect
-            new_w    = (img.height * target_aspect).round
-            x_offset = ((img.width - new_w) / 2).round
-            img      = img.crop(x_offset, 0, new_w, img.height)
-          else
-            new_h    = (img.width / target_aspect).round
-            y_offset = ((img.height - new_h) / 2).round
-            img      = img.crop(0, y_offset, img.width, new_h)
-          end
-        end
-
-        img.resize(MASTER_W.to_f / img.width)
+      def attach_master(raw_bytes, content_type)
+        @game.cover_art.attach(
+          io:           StringIO.new(raw_bytes),
+          filename:     "cover-#{@game.id}.jpg",
+          content_type: content_type
+        )
       end
     end
   end

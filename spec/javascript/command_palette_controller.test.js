@@ -14,7 +14,7 @@
 //   - Arrow up/down navigation within visible items
 //   - Enter pre-fills chatbox field + dispatches `input` event (no submit)
 //   - Esc closes palette
-//   - `m` focuses chatbox field when palette is closed (and authenticated)
+//   - `c` focuses chatbox field when palette is closed (and authenticated)
 //   - ctrl+/ toggles notifications (mocked fetch + sidebar DOM check)
 //   - ctrl+n rename-current: fires pito:rename:start on .is-current row
 //     when sidebar already has conversation list; calls fetch otherwise
@@ -443,21 +443,21 @@ describe("pito--command-palette controller", () => {
     expect(items[0].classList.contains("pito-palette-selected")).toBe(false)
   })
 
-  // ── `m` focuses chatbox ───────────────────────────────────────────────────────
+  // ── `c` focuses chatbox ───────────────────────────────────────────────────────
 
-  it("pressing 'm' focuses the chatbox when palette is closed and authenticated", async () => {
+  it("pressing 'c' focuses the chatbox when palette is closed and authenticated", async () => {
     const { palette, chatbox } = buildScaffold([])
     await waitForConnect()
 
     const focused = []
     chatbox.addEventListener("focus", () => focused.push(true))
 
-    plainKey("m")
+    plainKey("c")
 
     expect(focused.length).toBeGreaterThan(0)
   })
 
-  it("pressing 'm' focuses chatbox even when unauthenticated", async () => {
+  it("pressing 'c' focuses chatbox even when unauthenticated", async () => {
     const { chatbox } = buildScaffold([])
     setAuthenticated(false)
     await waitForConnect()
@@ -465,12 +465,12 @@ describe("pito--command-palette controller", () => {
     const focused = []
     chatbox.addEventListener("focus", () => focused.push(true))
 
-    plainKey("m")
+    plainKey("c")
 
     expect(focused.length).toBeGreaterThan(0)
   })
 
-  it("pressing 'm' dispatches pito:resume:dismiss AND focuses the chatbox when sidebar has an <aside>", async () => {
+  it("pressing 'c' dispatches pito:resume:dismiss AND focuses the chatbox when sidebar has an <aside>", async () => {
     const { chatbox } = buildScaffold([])
     await waitForConnect()
 
@@ -487,7 +487,7 @@ describe("pito--command-palette controller", () => {
     const focused = []
     chatbox.addEventListener("focus", () => focused.push(true))
 
-    plainKey("m")
+    plainKey("c")
 
     expect(dismissEvents.length).toBeGreaterThan(0)
     expect(focused.length).toBeGreaterThan(0)

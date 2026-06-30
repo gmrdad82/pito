@@ -18,13 +18,12 @@
      data-pito--games-search-i18n-in-library-hint-value="<%= t('pito.sidebar.games_import.in_library_hint') %>"
      data-pito--games-search-i18n-step-labels-value="<%= [Pito::Copy.render('pito.copy.games.import.step1'), Pito::Copy.render('pito.copy.games.import.step2'), Pito::Copy.render('pito.copy.games.import.step3'), Pito::Copy.render('pito.copy.games.import.step4'), Pito::Copy.render('pito.copy.games.import.step5')].to_json %>">
 
-  <%# Search input — styled like the conversation-rename input.
-      Native caret styled as a block via .pito-block-caret (caret-shape: block). %>
+  <%# Search input — styled like the conversation-rename input. %>
   <div class="relative">
     <input type="text"
            class="w-full bg-transparent outline-none border-b border-line-default
                   text-fg pb-1 placeholder:text-fg-faded
-                  focus:border-accent pito-block-caret"
+                  focus:border-accent"
            placeholder="<%= t('pito.sidebar.games_import.search_placeholder') %>"
            autocomplete="off"
            data-pito--games-search-target="input"

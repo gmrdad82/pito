@@ -175,6 +175,54 @@ html {
   scroll-padding-bottom: 20px;
 }
 
+/* ── Scroll-nav pills (pito--scroll-nav controller) ──────────────
+ *
+ * Two fixed pills that float over the conversation column showing
+ * how many messages are above / below the current scroll position.
+ * Hidden by default (Tailwind's `hidden` class; the controller
+ * removes it to reveal).  Border-radius 0 (terminal aesthetic).
+ *
+ * z-index 30 — sits above normal content but below the sidebar
+ * backdrop (z-39), sidebar panel (z-40), and Ctrl+K palette (z-50).
+ *
+ * Centered to the viewport with left:50% + translateX(-50%).  On
+ * desktop the conversation column is itself centered at 50% of the
+ * viewport (max-width 1208px, margin-inline auto) so the pills land
+ * in the correct horizontal region on all screen widths.
+ */
+.pito-scroll-nav__pill {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
+  background: var(--bg-root);
+  color: var(--fg-dim);
+  border: 1px solid var(--border-faded);
+  max-width: min(1208px, calc(100vw - 20px));
+  white-space: nowrap;
+}
+
+/* TOP pill: just inside the top of the scrollback area. */
+.pito-scroll-nav__pill--top {
+  top: 8px;
+}
+
+/* BOTTOM pill: above the chatbox / context bar (chatbox ≈ 150px; 200px
+   gives comfortable clearance from both the context meter and the form). */
+.pito-scroll-nav__pill--bottom {
+  bottom: 200px;
+}
+
+@media (max-width: 767px) {
+  .pito-scroll-nav__pill {
+    max-width: calc(100vw - 20px);
+  }
+}
+
 /* ── Hide scrollbar, keep scrolling ──────────────────────────── */
 
 .pito-hide-scrollbar {
@@ -182,6 +230,38 @@ html {
 }
 .pito-hide-scrollbar::-webkit-scrollbar {
   display: none;
+}
+
+/* ── Thin themed scrollbar (visible) ─────────────────────────── */
+/* Used by the conversation scrollback (#pito-scrollback) so its scrollbar is
+   VISIBLE but slim + theme-coloured (owner 13.13). The webkit thumb/track inherit
+   the global ::-webkit-scrollbar styling; this sets the Firefox thin width +
+   colours on the scrolling element itself (scrollbar-width does not inherit). */
+.pito-thin-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-default) transparent;
+}
+
+/* ── Conversation column width (centered on desktop) ─────────── */
+/* The scrollback turns + the bottom controls/chatbox center at a fixed width on
+   desktop (md+) so a 6-cover message row (6*180 + 5*16 = 1160px) fits inside the
+   barred-segment frame; mobile stays full-width (owner 13.3). 1208 = 1160 + the
+   barred frame (4 bar + 6 gap + 22 left pad + 16 right pad). .pito-turn is styled
+   directly so cable-appended turns center too. */
+@media (min-width: 768px) {
+  .pito-turn,
+  .pito-conversation-col {
+    max-width: 1208px;
+    margin-inline: auto;
+  }
+  /* .pito-conversation-col is a FLEX ITEM (child of the h-screen `flex flex-col`).
+     On a flex item, cross-axis `margin-inline: auto` cancels the default stretch
+     and shrinks it to its content — collapsing the chatbox to a narrow centered
+     box. width:100% restores full width so it caps at max-width and centers in
+     line with the messages (.pito-turn). (13.20) */
+  .pito-conversation-col {
+    width: 100%;
+  }
 }
 
 /* ── Scroll fade hint (top/bottom gradient mask) ────────────── */
@@ -852,15 +932,10 @@ html {
   overflow: hidden;
   display: block; /* avoid inline-block baseline gap (text drifts up) */
   line-height: 20px;
-}
-
-/* Native block caret — replaces the bespoke JS caret overlay everywhere
-   (chatbox textarea + every search/rename input). `caret-shape: block` turns the
-   browser's own caret into a solid block, and the native blink IS the "phasing"
-   the owner asked for. Graceful fallback: browsers without `caret-shape` support
-   simply render a native line caret in `caret-color`, which is acceptable. */
-.pito-block-caret {
-  caret-shape: block;
+  /* The type-fx overlay sets the textarea text to `color: transparent` (.is-fx),
+     which would make the NATIVE caret transparent too. Pin an explicit caret-color
+     so the normal caret stays visible while the per-char overlay shows the text.
+     (Search boxes need no override — their text isn't transparent.) (13.15 fix) */
   caret-color: var(--fg-default);
 }
 
@@ -1188,47 +1263,48 @@ html {
 }
 
 /* Absolute `|` tick overlaid at the score position. */
-.pito-score-bar__tick {
+/* Marker on the bar line: the tick `|` at the score position (left:% clamped to
+   1–99 so it never clips at the edges) with the score value inline beside it.
+   The value sits to the RIGHT of the tick for high scores (>=50) and to the LEFT
+   for low scores (<50) — set by ScoreBarComponent#value_side_class. The translate
+   anchors the TICK at the position regardless of which side the value is on. */
+.pito-score-bar__marker {
   position: absolute;
-  top: 0;
-  transform: translateX(-50%);
-  color: var(--fg-default);
-  font-weight: 700;
-  pointer-events: none;
-}
-
-/* Score bubble floating above the tick (▼ arrow glyph connects the two). */
-.pito-score-bar__bubble {
-  position: absolute;
-  bottom: calc(100% + 2px);
-  transform: translateX(-50%);
+  top: 50%;                 /* vertically centred on the '=' line (no pillar offset) */
   display: inline-flex;
-  flex-direction: column;
   align-items: center;
+  gap: 0;                   /* the chip's own 1px padding is the separation */
   line-height: 1;
+  white-space: nowrap;
   color: var(--fg-default);
   font-variant-numeric: tabular-nums;
   pointer-events: none;
-  white-space: nowrap;
 }
 
-.pito-score-bar__bubble-num {
+.pito-score-bar__tick {
   font-weight: 700;
 }
 
-.pito-score-bar__bubble-arrow {
+/* The score value reads over the '=' line as an INVERT chip: page-bg text on a
+   foreground-coloured block, EXACTLY 1px padding all round (line-height:1 +
+   inline-block so the chip hugs the digits — no line-box inflation). (13.21) */
+.pito-score-bar__value {
+  display: inline-block;
   line-height: 1;
+  padding: 1px;
+  background: var(--fg-default);
+  color: var(--bg-root);
 }
 
-/* Edge-clamp modifiers for the floating bubble + tick (set by
-   ScoreBarComponent#overlay_alignment_class). At the extremes the overlay shifts
-   so it stays fully inside the track instead of poking past the right/left edge
-   (and the page). Mirrors the TTB value-label clamp (.ttb-label--at-*). Defined
-   AFTER the base .pito-score-bar__tick / __bubble transform rules so they win
-   on the cascade (same specificity → source order decides). */
-.pito-score-bar__overlay--at-start  { transform: translateX(0); }
-.pito-score-bar__overlay--centered  { transform: translateX(-50%); }
-.pito-score-bar__overlay--at-end    { transform: translateX(-100%); }
+/* value RIGHT of the tick: tick's left edge sits at left:% (centred vertically). */
+.pito-score-bar__marker--value-right { transform: translate(0, -50%); }
+
+/* value LEFT of the tick: reverse the flow (value, then tick) and shift the whole
+   marker left by its own width so the tick's right edge lands at left:%. */
+.pito-score-bar__marker--value-left {
+  flex-direction: row-reverse;
+  transform: translate(-100%, -50%);
+}
 
 /* ── Pito::TimeToBeatComponent ──────────────────────────────────
  *
@@ -1283,7 +1359,7 @@ html {
   flex: 0 0 auto;
   color: var(--fg-dim);
   white-space: pre;
-  margin-top: 2.4em;
+  margin-top: 0;
 }
 
 /* The rows column (footage / bar / values / legend). flex:1 + min-width:0 so
@@ -1353,59 +1429,20 @@ html {
   z-index: 2;
 }
 
-/* Top / bottom value rows.
+/* Bottom value row — holds the three pillar hour labels (one line each).
  *
- * Each row is a POSITIONED STRIP, not a flex container: every child
- * (the footage bubble, the pillar hour labels) is `position: absolute`
- * with an inline `left: N%`, so the row must (a) be the positioning
- * context (`position: relative`) and (b) RESERVE its own height — an
- * absolutely-positioned child contributes nothing to layout, so a
- * zero-height row would let the labels collapse onto the bar / legend.
- * That collapse was the original jumble; the explicit row height
- * (recovered from the pre-reboot fuel-gauge CSS, commit 991f86fb) is
- * what keeps the bubble above the bar and the hour labels on their own
- * line below it. */
+ * A POSITIONED STRIP: each label is `position: absolute` with an inline
+ * `left: N%`, so the row must be the positioning context (`position: relative`)
+ * and RESERVE its own height (an absolutely-positioned child contributes nothing
+ * to layout). The explicit height keeps the labels cleanly below the bar and
+ * off the legend. */
 .pito-ttb__values {
   position: relative;
 }
 
-/* Top row holds the footage ▼ bubble, which stacks a number ABOVE an
-   arrow (two lines). Reserve enough height for both so the bubble sits
-   fully above the bar instead of overlapping it; the bubble is pinned
-   to this row's bottom edge (`bottom: 0`) so its arrow kisses the bar. */
-.pito-ttb__values--top {
-  height: 2.4em;
-}
-
-/* Bottom row holds the three pillar hour labels (one line each).
-   Reserve a single line's height so they render cleanly below the bar
-   and never ride up onto it or down onto the legend. */
 .pito-ttb__values--bottom {
   height: 1.4em;
   margin-top: 2px;
-}
-
-/* Footage bubble above the bar. */
-.pito-ttb__footage-bubble {
-  position: absolute;
-  bottom: 0;
-  transform: translateX(-50%);
-  display: inline-flex;
-  flex-direction: column;
-  align-items: center;
-  line-height: 1;
-  color: var(--fg-default);
-  font-variant-numeric: tabular-nums;
-  pointer-events: none;
-  white-space: nowrap;
-}
-
-.pito-ttb__footage-bubble-num {
-  font-weight: 700;
-}
-
-.pito-ttb__footage-bubble-arrow {
-  line-height: 1;
 }
 
 /* Pillar value labels below the bar. */
@@ -1417,6 +1454,36 @@ html {
 
 .pito-ttb__value--pillar {
   top: 0;
+}
+
+/* Footage inline value — vertically centred on the '=' bar line, placed adjacent
+   to the | tick with a gap so they never touch. The text-shadow halo lets it read
+   over the bar glyphs without a background rectangle. Mirrors .pito-score-bar__marker. */
+.pito-ttb__footage-marker {
+  position: absolute;
+  top: 50%;
+  /* INVERT chip (same as the score value, 13.21/13.22): page-bg text on a
+     foreground block, EXACTLY 1px padding all round (line-height:1 so the chip
+     hugs the digits), reads over the '=' line. */
+  display: inline-block;
+  line-height: 1;
+  background: var(--fg-default);
+  color: var(--bg-root);
+  padding: 1px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* Value RIGHT of the tick: left:% is the tick centre; shift right by 1px gap. */
+.pito-ttb__footage-marker--value-right {
+  transform: translate(1px, -50%);
+}
+
+/* Value LEFT of the tick: shift left by (own width + 1px gap) so the value's
+   right edge lands exactly 1px before the tick. */
+.pito-ttb__footage-marker--value-left {
+  transform: translate(calc(-100% - 1px), -50%);
 }
 
 /* Edge-label clamping modifiers. */
@@ -1735,7 +1802,7 @@ html {
 }
 
 /* Enhanced similar-game cover (180×240) — the small strip cards. Matches
-   Game::COVER_VARIANT so the variant is the display size (no CSS downscaling). */
+   the :strip named variant (resize_to_fill 180×240) so no CSS downscale occurs. */
 .pito-game-enhanced-message__similar-game-cover {
   width: 180px;
   height: 240px;
@@ -1964,7 +2031,10 @@ html:has(#pito-settings[data-fx="false"]) .pito-comet-reveal::after { display: n
    ~1.75rem above the bar track) clears the id/title line above it. Mirrors
    .pito-channel-item__score which uses the same 0.5rem pattern. */
 .pito-game-enhanced-message__similar-game-score {
-  margin-top: 0.5rem;
+  /* No extra top gap — the card's own 0.2rem row gap is the spacing toward the
+     cover/title (13.23a). The score bar fills the 180px card width so the [ ]
+     edges line up with the cover's left/right edges (13.23c). */
+  margin-top: 0;
 }
 
 /* ── Channel list strip ────────────────────────────────────────
@@ -2354,6 +2424,18 @@ html:has(#pito-settings[data-fx="false"]) .pito-comet-reveal::after { display: n
   border: 1px solid currentColor;
   border-radius: 0.5rem;
   font-variant-numeric: tabular-nums;
+}
+
+/* Compact form ONLY (show channel/vid/game detail cards): a FIXED slim width so
+   three fit per row on mobile. It does NOT grow to fit content — when the face is
+   too wide it TRUNCATES with an ellipsis. The extended form (shinies-verb message)
+   is untouched: it keeps the base 11rem. min-width reset so the fixed width wins. */
+.pito-achievement-badge--compact {
+  min-width: 0;
+  width: 6.5rem;
+  padding: 0.25rem 0.5rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Rotating perimeter highlight, masked to the 1px border ring. */
@@ -2807,8 +2889,11 @@ html:has(#pito-settings[data-fx="false"]) .pito-comet-reveal::after { display: n
   left: 0.2ch;
   transform: translateY(-50%);
   line-height: 1;
-  background: color-mix(in srgb, var(--bg-elevated) 78%, transparent);
-  padding: 0 0.25ch;
+  /* Opaque chip in the MESSAGE background so the tick value reads cleanly over the
+     braille (owner 13.9): --pito-msg-bg is the surface bg on :enhanced (set by the
+     Segment) and falls back to the page --bg-root on :system. 1px padding TRBL. */
+  background: var(--pito-msg-bg, var(--bg-root));
+  padding: 1px;
 }
 .pito-metric__xticks {
   display: flex;
@@ -2897,6 +2982,12 @@ html:has(#pito-settings[data-fx="false"]) .pito-comet-reveal::after { display: n
      surfaced message (--bg-surface) — and re-palettes per theme automatically. */
   color: color-mix(in srgb, var(--fg-default) 15%, transparent);
   pointer-events: none;
+}
+/* Heart + Bar canvases use an EVEN FAINTER grid than the area chart (owner 13.7)
+   — ~half the tint, so the hearts / bars dominate over the dotted paper. */
+.pito-metric--heart .pito-metric__bg,
+.pito-metric--bar .pito-metric__bg {
+  color: color-mix(in srgb, var(--fg-default) 7%, transparent);
 }
 .pito-metric__bg-row { display: block; line-height: var(--pito-rh, 1.25em); white-space: pre; }
 .pito-metric--heart .pito-metric__bg-row { line-height: 1.05; } /* match the heart rows */

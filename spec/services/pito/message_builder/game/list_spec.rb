@@ -285,10 +285,10 @@ RSpec.describe Pito::MessageBuilder::Game::List do
       expect(footage_cell[:text]).to eq("12.5h")
     end
 
-    it "footage cell shows an em-dash when the game has no footage" do
+    it "footage cell shows 0h when the game has no footage (always 0 fallback)" do
       game.update!(footage_hours: 0)
       footage_cell = payload["table_rows"].first[:cells].last
-      expect(footage_cell[:text]).to eq("—")
+      expect(footage_cell[:text]).to eq("0h")
     end
   end
 end

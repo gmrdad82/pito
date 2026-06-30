@@ -72,6 +72,13 @@ RSpec.describe Pito::Game::ChannelsComponent do
       expect(score_bars.length).to eq(2)
     end
 
+    it "does NOT render the channel name/title (just the @handle)" do
+      node = render_component
+      expect(node.css(".pito-channel-item__title")).to be_empty
+      expect(node.text).not_to include("Game Grumps")
+      expect(node.text).not_to include("Markiplier")
+    end
+
     it "does NOT render a similar-games strip" do
       node = render_component
       expect(node.css(".pito-game-enhanced-message__similar-games-strip")).to be_empty

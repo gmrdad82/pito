@@ -75,10 +75,12 @@ module Pito
         private
 
         # How many filled cells for a given percentage.
-        # Tiny positive pct shows ≥1 cell; 0% shows nothing.
+        # Tiny positive pct shows ≥1 cell (min-1 floor); 0% shows nothing.
+        # A full/100% bar is capped at COLS-1 so the rightmost cell always
+        # shows a dim-outline remainder and the bar never overflows the canvas.
         def filled_cells(pct)
           return 0 unless pct.positive?
-          [ (pct / 100.0 * COLS).round, 1 ].max.clamp(0, COLS)
+          [ (pct / 100.0 * COLS).round, 1 ].max.clamp(0, COLS - 1)
         end
 
         # Offset (in cells) for a cumulative percentage — where a bar's coloured

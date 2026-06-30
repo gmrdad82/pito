@@ -179,8 +179,20 @@ module Pito
       Pito::Formatter::FootageHours.call(footage_hours)
     end
 
-    def footage_caption
-      I18n.t("pito.game.ttb.footage")
+    # Compact label rendered INLINE on the `=` bar line, adjacent to the footage
+    # `|` tick. ALWAYS the formatted hours — footage_hours defaults to 0 (DB:
+    # default 0.0, NOT NULL), so a no-footage game shows "0" (e.g. "0h"), never a
+    # dash (owner 2026-06-30).
+    def footage_inline_label
+      footage_value_label
+    end
+
+    # CSS modifier that places the inline footage value to the LEFT of the footage
+    # tick (value-left) when the tick sits in the right half of the bar (≥ 50%),
+    # and to the RIGHT (value-right) when in the left half. Mirrors the score-bar
+    # marker convention so the value never touches the pillar or overflows the bar.
+    def footage_inline_side_class
+      footage_position >= 50.0 ? "pito-ttb__footage-marker--value-left" : "pito-ttb__footage-marker--value-right"
     end
 
     # Stagger bucket for the bar shimmer. Combines the bar label and max_x so
@@ -236,16 +248,6 @@ module Pito
       else
         "ttb-label--centered"
       end
-    end
-
-    # Edge-clamp class for the footage ▼ bubble so it never pokes past the bar at
-    # the extremes (footage 0 → left edge, footage as the axis-max → right edge).
-    # Mirrors the pillar value-label clamp. Footage 0 pins to the start; otherwise
-    # it clamps by its snapped position.
-    def footage_label_alignment_class
-      return "ttb-label--at-start" if footage_hours.zero?
-
-      label_alignment_class(footage_position)
     end
 
     def pillar_label_data

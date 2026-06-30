@@ -1,6 +1,18 @@
 <div class="pito-analytics-enhanced flex flex-col gap-3">
   <div class="pito-analytics-enhanced__intro text-fg"><span data-pito-ts-slot></span><%= raw(@intro) %></div>
-  <% unless pending? %>
+  <% if pending? %>
+    <%# Progressive: one LOADING cell per metric, each a <token>__metric_<key> swap
+        target the per-metric AnalyzeMetricJob fills in independently. %>
+    <% if metric_keys.any? %>
+      <div class="pito-analytics-enhanced__panel flex gap-6">
+        <div class="pito-analytics-scalars">
+          <% metric_keys.each do |key| %>
+            <%= render(Pito::Analytics::AnalyzeCellComponent.new(key: key, token: token, loading: true)) %>
+          <% end %>
+        </div>
+      </div>
+    <% end %>
+  <% else %>
     <div class="pito-analytics-enhanced__panel flex gap-6">
       <div class="pito-analytics-scalars">
         <% @cells.each do |cell| %>

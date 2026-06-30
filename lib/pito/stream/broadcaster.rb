@@ -138,18 +138,19 @@ module Pito
         event
       end
 
-      # Replace a SINGLE metric's slot inside a live glance message — targets
-      # `event_<id>__metric_<key>` so each metric swaps in independently as its
-      # per-metric job lands (item 5 progressive at-a-glance), without re-rendering
-      # the whole message. `html` is the rendered filled Slots::Compact for that key.
-      def replace_metric_fragment(event:, key:, html:)
+      # Replace a SINGLE metric's cell inside a live glance message — targets the
+      # message's `<token>__metric_<key>` dom-id (set by MetricCellComponent) so each
+      # metric swaps in independently as its dedicated per-metric job lands (item 5
+      # progressive at-a-glance), without re-rendering the whole message. `html` is
+      # the rendered MetricCellComponent for that key (same id, so the swap lands).
+      def replace_metric_fragment(token:, key:, html:)
         helper  = ApplicationController.helpers
-        content = helper.turbo_stream.replace("event_#{event.id}__metric_#{key}", html)
+        content = helper.turbo_stream.replace("#{token}__metric_#{key}", html)
         Turbo::StreamsChannel.broadcast_stream_to(
           "pito:conversation:#{@conversation.uuid}",
           content:
         )
-        event
+        nil
       end
 
       # Consume every prior LIVE repliable event in the conversation (turns strictly

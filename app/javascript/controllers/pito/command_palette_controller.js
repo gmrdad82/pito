@@ -284,10 +284,10 @@ export default class extends Controller {
       return
     }
 
-    // "m" → when palette is closed and focus is not in an input: dismiss any open
+    // "c" → when palette is closed and focus is not in an input: dismiss any open
     //   sidebar AND focus the chatbox (works for authenticated + unauthenticated;
     //   auth gate removed). Esc dismisses without focusing (resume_controller).
-    if (e.key === "m" && !modKey && this.element.classList.contains("hidden")) {
+    if (e.key === "c" && !modKey && this.element.classList.contains("hidden")) {
       const active = document.activeElement
       const isInput = active && (
         active.tagName === "INPUT" ||

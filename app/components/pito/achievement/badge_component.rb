@@ -57,7 +57,12 @@ module Pito
       end
 
       def css_classes
-        "pito-achievement-badge #{offset_class}"
+        # Only the compact form (show channel/vid/game detail cards) gets a modifier
+        # — a fixed slim width that truncates when the face overflows, so 3 fit per
+        # row on mobile. The extended form (shinies-verb message) is left on the base
+        # class, untouched. See .pito-achievement-badge--compact in application.css.
+        base = "pito-achievement-badge #{offset_class}"
+        @form == :compact ? "#{base} pito-achievement-badge--compact" : base
       end
 
       def accent

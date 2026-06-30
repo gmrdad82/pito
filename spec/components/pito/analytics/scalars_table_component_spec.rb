@@ -93,13 +93,16 @@ RSpec.describe Pito::Analytics::ScalarsTableComponent, type: :component do
       expect(down.text).to include("-9")
     end
 
-    it "shows an em dash when both subs_gained and subs_lost are nil" do
+    it "renders the NoData canvas + n/a when both subs_gained and subs_lost are nil" do
       node = render_for(result(subs_gained: { current: nil, previous: nil },
                                subs_lost:   { current: nil, previous: nil }))
       subs = cell_containing(node, "Subs")
-      expect(subs.text).to include("—")
+      expect(subs.text).to include("n/a")
       expect(subs.css("span.pito-trend-number--up")).to be_empty
       expect(subs.css("span.pito-trend-number--down")).to be_empty
+      # the cell keeps the compact dotted-paper canvas (no-data placeholder)
+      cell = node.css("div.pito-analytics-scalars__cell").find { |d| d.text.include?("Subs") }
+      expect(cell.at_css(".pito-metric--nodata")).to be_present
     end
 
     it "colours the split regardless of the comparable window" do
@@ -200,12 +203,14 @@ RSpec.describe Pito::Analytics::ScalarsTableComponent, type: :component do
       expect(sep.text).to eq(" / ")
     end
 
-    it "shows an em dash when both likes and dislikes are nil" do
+    it "renders the NoData canvas + n/a when both likes and dislikes are nil" do
       node = render_for(result(likes:    { current: nil, previous: nil },
                                dislikes: { current: nil, previous: nil }))
       likes = cell_containing(node, "Likes")
-      expect(likes.text).to include("—")
+      expect(likes.text).to include("n/a")
       expect(likes.at_css("svg")).to be_nil
+      cell = node.css("div.pito-analytics-scalars__cell").find { |d| d.text.include?("Likes") }
+      expect(cell.at_css(".pito-metric--nodata")).to be_present
     end
   end
 
@@ -226,9 +231,11 @@ RSpec.describe Pito::Analytics::ScalarsTableComponent, type: :component do
       expect(render_for(result(watched_hours: { current: 12.5, previous: 10.0 })).text).to include("13h")
     end
 
-    it "shows an em dash for a nil value" do
+    it "renders the NoData canvas + n/a for a nil value" do
       node = render_for(result(views: { current: nil, previous: nil }))
-      expect(node.text).to include("—")
+      cell = node.css("div.pito-analytics-scalars__cell").find { |d| d.text.include?("Views") }
+      expect(cell.text).to include("n/a")
+      expect(cell.at_css(".pito-metric--nodata")).to be_present
     end
   end
 

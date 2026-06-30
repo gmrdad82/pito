@@ -29,7 +29,7 @@ module Pito
       # Host-less ActiveStorage proxy path for a similar-game cover variant, or
       # nil when no attachment (the view falls back to the placeholder).
       def cover_art_url_for(game)
-        Pito::ImagePath.call(game.cover_art, variant: ::Game::COVER_VARIANT)
+        Pito::ImagePath.call(game.cover_art, variant: :strip)
       end
     end
   end

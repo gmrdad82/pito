@@ -120,6 +120,11 @@ RSpec.describe Pito::Analytics::Visualizers::Area do
     expect(cap["class"]).to include("text-fg-dim")
   end
 
+  it "does NOT render an empty .pito-metric__caption <p> when caption is blank" do
+    node = render_chart(series: [ 3 ], caption: "")
+    expect(node.at_css(".pito-metric__caption")).to be_nil
+  end
+
   it "renders a pre-rendered html caption RAW (subject + reference tokens survive)" do
     caption = %(<span class="pito-subject-shimmer">Views</span>: ) +
               %(<span class="pito-token-shimmer">842K</span>.)

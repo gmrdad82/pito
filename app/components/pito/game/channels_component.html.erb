@@ -9,6 +9,7 @@
           <%= render(Pito::Channel::ItemComponent.new(
                 channel:     result.channel,
                 show_avatar: true,
+                show_title:  false,
                 score:       result.score
               )) %>
         </div>

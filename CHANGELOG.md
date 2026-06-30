@@ -14,6 +14,36 @@ stacks. (Bespoke analytics view components close out the tag.)
 
 ### Added
 
+- **Image masters + on-demand variants** — the channel banner & avatar, video
+  thumbnail, and game cover art now store the **original, unprocessed** source image
+  as the master, with the display sizes derived as named ActiveStorage variants
+  (banner 450×253 · avatar 120/60 · thumbnail 450×253 · cover 450w detail + 180×240
+  strip — the strip is now 1:1 with its display, no browser downscale). Re-syncing a
+  channel / vid / game fetches a fresh master; **`rake pito:images:regenerate`**
+  re-derives every variant from the masters (run after a re-sync, or when sizes
+  change — safe in the Docker CLI / production).
+
+- **`analyze` fills metric-by-metric** — the `analyze` `:system` and `:enhanced`
+  cards now render every metric cell up front in a loading state, then **fan out one
+  dedicated background request per metric** (each its own YouTube call), swapping each
+  chart / heart / bar / scalar in **independently** as it lands. A failing or
+  empty metric shows its no-data placeholder without blocking the rest; the card's
+  thinking block holds until **every** metric is in. (`:system` uses your shift+space
+  period; `:enhanced` is lifetime.)
+
+- **Progressive at-a-glance analytics** — the `show vid` / `show game` /
+  `show channel` glance now renders **all metric cells up front in a loading
+  state** (dotted-paper canvas + metric name + a small dots-loader), then **fans
+  out one dedicated background job per metric**. Each metric makes its **own
+  YouTube request** for just that metric (scalar + day-series) and **swaps its own
+  cell in independently** the moment it lands — so a slow or failing metric never
+  blocks the rest (a failed one shows a dash, the others still fill). The card's
+  thinking block stays up until **every** metric has landed, then the whole message
+  persists in its filled state. All glance metrics are **lifetime/all-time** (the
+  intro copy now says so). A metric whose request **fails, is quota-limited, or
+  comes back with no data** keeps its dotted-paper no-data canvas and shows **n/a**
+  in place of a value — the others still fill, and that state persists on refresh.
+
 - **Channel banner on `show channel`** — PITO now caches its own copy of the
   YouTube channel banner during sync: it fetches the **original 2560×1440** banner
   (the raw URL serves only a 512×288 default) and downscales it to 374×210 — the
@@ -143,8 +173,27 @@ stacks. (Bespoke analytics view components close out the tag.)
 - **Self-hosted DejaVu Sans Mono** — the terminal typeface (plus a braille face)
   is now bundled and subset, replacing Iosevka; source-misaligned ASCII art fixed.
 - **`vid` category column** in `list vids`.
+- **Scrollback jump pills** — a long conversation now shows small, centered
+  navigation pills above and below the scrollback telling you how many messages
+  are off-screen (`N messages above` / `below`, from a 50-variant copy
+  dictionary), each with a clickable yellow **`ctrl+home`** / **`ctrl+end`** token
+  that jumps to the start / end. The pills appear only when there's something to
+  scroll to, hide while the sidebar or command palette is open, and reuse the
+  exact off-screen-counting the `/share` page already used (extracted into a
+  reusable, specced `Pito::Conversation::ScrollbackCount` service).
 
 ### Changed
+
+- **Normal text cursor in every input** — the chatbox, the ctrl+k command-palette
+  search, the sidebar search boxes, and the conversation-rename field now use the
+  browser's normal native caret. The bespoke JS caret/cursor machinery was already
+  retired; the interim CSS block caret (`caret-shape: block`) is now removed too —
+  one ordinary blinking caret everywhere.
+
+- **`show game` channel matches show just the @handle** — each matched channel now
+  shows its avatar, clickable **@handle**, and score bar, without the channel
+  name/title line (the @handle identifies it). The `list channels` view still shows
+  the title.
 
 - **Inline chat suggestions removed; palettes stay** — the inline free-chat
   typeahead "ghost" (and the `tab` completion shortcut + its chatbox hint) is gone.
@@ -155,15 +204,15 @@ stacks. (Bespoke analytics view components close out the tag.)
   rather than moving focus).
 - **shift+tab / shift+space are contextual now** — the channel cycler (shift+tab)
   shows only while you're typing `list vids`/`list games`, and the period cycler
-  (shift+space) only while typing `analyze`; otherwise the row shows `m to start
-  chatting` (when unfocused) or nothing. The keystrokes are live only when their
+  (shift+space) only while typing `analyze`; otherwise the row shows `c to chat`
+  (when unfocused) or nothing. The keystrokes are live only when their
   hint is showing, and the channel/period are **sent only when their cycler is
   visible** — so no other verb picks up a stale channel or period (`list games`
   with `@all` = all games; with `@handle` = games having a vid on that channel;
   `list vids @handle` = that channel's vids). The meta row is a single row on
   desktop and mobile with the middot separators removed.
-- **`m to start chatting` hint** — the chatbox `m` shortcut (yellow, clickable)
-  now reads **`m to start chatting`** (new `Pito::Copy` caption, replacing the old
+- **`c to chat` hint** — the chatbox focus shortcut is **`c`** (yellow, clickable)
+  and the caption reads **`c to chat`** (new `Pito::Copy` caption, replacing the old
   `chat` label) and shows on the **start screen, 404, `/chat`, and `/share`**. The
   meta line is a **single row on desktop and mobile** again (no more stacking). On
   `/chat` it still swaps with the shift+tab/shift+space cyclers by focus; the other
@@ -215,6 +264,43 @@ stacks. (Bespoke analytics view components close out the tag.)
 
 ### Fixed
 
+- **Conversation autocomplete** — the `:conversations` slot (used by reply/resume
+  completion) resolves again; a new `Pito::Conversation` namespace had shadowed the
+  top-level `::Conversation` model in the grammar resolver.
+- **Channel banner refreshes on `sync channels`** — the banner (and avatar) were
+  only fetched on OAuth connect, so a synced-but-not-reconnected channel never got
+  one. Sync now refreshes both, digest-gated (no work when the image is unchanged).
+- **Conversation column is centered on desktop** — the scrollback + chatbox now sit
+  in a fixed-width, centered column (sized to fit a 6-cover message row) on wider
+  screens; mobile stays full-width.
+- **Score bar reads at the extremes** — the marker no longer clips off the track at
+  0 or 100 (its position is clamped to 1–99 while the shown number stays the real
+  score), and the score value now sits inline on the bar beside the marker (left for
+  low scores, right for high) instead of floating above with a ▼.
+- **Footage shows on the time-to-beat bar** — the footage value renders inline on
+  the bar (**`0h`** when there's none — footage is never shown as a dash).
+- **Resolved thinking blocks get a glyph** — a small random ASCII flourish marks a
+  finished "thought for …" where the spinner was.
+- **Fainter chart paper for hearts & bars** — the dotted background grid behind the
+  heart and bar charts is lighter so the data stands out.
+- **Full bars no longer overflow** — a 100% horizontal bar leaves a cell of
+  headroom instead of spilling past the chart edge.
+- **Readable chart axis labels** — Y-tick value chips paint over the braille in the
+  message's own background colour with a hair of padding.
+- **Tiny values still show on sparklines** — any non-zero point now renders at least
+  the smallest braille bump instead of reading as a flat line.
+- **Channel card polish** — the 'Avatar' label is vertically centered to the avatar,
+  and the @handle is a clickable token that runs `show channel @handle` on click
+  (same affordance as the #id tokens in show vid/game).
+- **Visible conversation scrollbar** — the scrollback shows a thin, theme-colored
+  scrollbar instead of hiding it.
+
+- **Shiny badges fit three-up on mobile** — the compact achievement badges on the
+  `show channel` / `show vid` / `show game` cards were locked to an 11rem min-width
+  (only two fit per row). The compact form now has a **fixed slim width** and
+  **truncates** (ellipsis) when a face is too long, so **three fit per row on
+  mobile**. The shinies-command badges (the extended form, with dates) are
+  unchanged.
 - **`share` links use the host you're actually on** — the minted `/share/:uuid`
   URL now uses the request origin (scheme + host + port, e.g.
   `https://dev.pitomd.com`) instead of the static configured host (which read as
